@@ -1,6 +1,8 @@
 import { AlertTriangle, Check, LoaderCircle, Minus, Play } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { formatPriceCompact, leafCategory } from "../format";
+import { productImageMap } from "../media";
 import { CodeBlock } from "./CodeBlock";
 import {
   PlaygroundDisclosure,
@@ -238,6 +240,7 @@ interface ReasonStageProps {
 }
 
 export function ReasonStage({ question, filters }: ReasonStageProps) {
+  const [draft, setDraft] = useState(question);
   const [response, setResponse] = useState<AgentResponse | null>(null);
   const [partial, setPartial] = useState<AgentPartial | null>(null);
   const [error, setError] = useState("");
@@ -252,10 +255,18 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
   const recordsRequestVersion = useRef(0);
   const contractsRequestVersion = useRef(0);
 
+  useEffect(() => {
+    setDraft(question);
+  }, [question]);
+
   const trace: ToolTraceStep[] = response?.trace ?? partial?.trace ?? [];
   const citations: AgentCitation[] = response?.citations ?? [];
   const products: ProductSummary[] =
     response?.recommendations ?? partial?.candidates ?? [];
+  const productImages = productImageMap(products);
+  const productById = new Map(
+    products.map((product) => [product.product_id, product]),
+  );
   const resolved = records
     ? records.filter((record) => record.evidence_id > 0).length
     : null;
@@ -267,53 +278,24 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
     loading,
   );
 
-  async function run() {
-    const request = ++runVersion.current;
-    recordsRequestVersion.current += 1;
-    setLoading(true);
-    setError("");
-    setResponse(null);
-    setPartial(null);
-    setRecords(null);
-    setRecordsError("");
-    setRecordsPending(false);
-    try {
-      // The streaming path, so the tool receipts arrive even when the run fails
-      // closed: a blocked synthesis is the Lab 3 broken state, and its trace is
-      // the evidence that the tool succeeded while the application did not
-      // register what it returned.
-      await api.agentStream(question, filters, (event) => {
-        if (request !== runVersion.current) return;
-        if (event.type === "partial") setPartial(event.partial);
-        else if (event.type === "answer_start" || event.type === "complete") {
-          setResponse(event.response);
-        }
-      });
-    } catch (cause) {
-      if (request === runVersion.current) {
-        setError(cause instanceof Error ? cause.message : "The agent run failed");
-      }
-    } finally {
-      if (request === runVersion.current) setLoading(false);
-    }
-  }
-
-  function loadEvidenceRecords() {
-    if (recordsPending || (records !== null && !recordsError)) return;
+  function resolveEvidenceRecords(
+    nextCitations: AgentCitation[],
+    requestRun: number,
+  ) {
     const ids = Array.from(
-      new Set(citations.map((citation) => citation.evidence_id)),
+      new Set(nextCitations.map((citation) => citation.evidence_id)),
     );
     const request = ++recordsRequestVersion.current;
-    const requestRun = runVersion.current;
     setRecords(null);
     setRecordsError("");
     if (!ids.length) {
       setRecords([]);
+      setRecordsPending(false);
       return;
     }
     setRecordsPending(true);
     Promise.all(
-      ids.map((id) => api.evidence(id).catch(() => null)),
+      ids.map((id) => Promise.resolve(api.evidence(id)).catch(() => null)),
     ).then((results) => {
       if (
         request !== recordsRequestVersion.current
@@ -336,6 +318,46 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
         setRecordsPending(false);
       }
     });
+  }
+
+  async function run(requestedQuestion = draft.trim()) {
+    if (requestedQuestion.length < 2) return;
+    const request = ++runVersion.current;
+    recordsRequestVersion.current += 1;
+    setLoading(true);
+    setError("");
+    setResponse(null);
+    setPartial(null);
+    setRecords(null);
+    setRecordsError("");
+    setRecordsPending(false);
+    try {
+      // The streaming path, so the tool receipts arrive even when the run fails
+      // closed: a blocked synthesis is the Lab 3 broken state, and its trace is
+      // the evidence that the tool succeeded while the application did not
+      // register what it returned.
+      await api.agentStream(requestedQuestion, filters, (event) => {
+        if (request !== runVersion.current) return;
+        if (event.type === "partial") setPartial(event.partial);
+        else if (event.type === "answer_start" || event.type === "complete") {
+          setResponse(event.response);
+          if (event.type === "complete") {
+            resolveEvidenceRecords(event.response.citations, request);
+          }
+        }
+      });
+    } catch (cause) {
+      if (request === runVersion.current) {
+        setError(cause instanceof Error ? cause.message : "The agent run failed");
+      }
+    } finally {
+      if (request === runVersion.current) setLoading(false);
+    }
+  }
+
+  function loadEvidenceRecords() {
+    if (recordsPending || (records !== null && !recordsError)) return;
+    resolveEvidenceRecords(citations, runVersion.current);
   }
 
   function loadContracts() {
@@ -362,25 +384,59 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
       });
   }
 
+  const runLabel = loading
+    ? "Running agent"
+    : response || error
+      ? "Run agent again"
+      : "Run the agent";
+
   return (
     <div className="labs-reason">
-      <div className="labs-reason-run">
-        <p className="labs-reason-question">{question}</p>
-        <button
-          className="primary-button"
-          type="button"
-          aria-busy={loading}
-          disabled={loading}
-          onClick={() => void run()}
-        >
-          {loading ? (
-            <LoaderCircle aria-hidden="true" className="spin" size={17} />
-          ) : (
-            <Play aria-hidden="true" size={17} fill="currentColor" />
-          )}
-          {loading ? "Running agent" : response || error ? "Run agent again" : "Run the agent"}
-        </button>
-      </div>
+      <form
+        className="labs-reason-composer"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void run();
+        }}
+      >
+        <label className="sr-only" htmlFor="labs-reason-question">
+          Question for Mosaic
+        </label>
+        <textarea
+          aria-label="Question for Mosaic"
+          autoComplete="off"
+          id="labs-reason-question"
+          onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
+            }
+          }}
+          placeholder="Ask Mosaic to compare products and cite the evidence"
+          rows={4}
+          value={draft}
+        />
+        {/* A labelled button, the same shape as Run pipeline in the masthead:
+            the two things this page can run look like the same kind of control,
+            and the control names its action. */}
+        <div className="labs-reason-composer-actions">
+          <small>Enter to run. Shift+Enter for a new line.</small>
+          <button
+            aria-busy={loading}
+            className="labs-reason-submit"
+            disabled={loading || draft.trim().length < 2}
+            type="submit"
+          >
+            {loading ? (
+              <LoaderCircle aria-hidden="true" className="spin" size={17} />
+            ) : (
+              <Play aria-hidden="true" size={17} fill="currentColor" />
+            )}
+            {runLabel}
+          </button>
+        </div>
+      </form>
 
       {error ? (
         <p className="labs-reason-error" role="alert">
@@ -421,20 +477,47 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
             />
           </PlaygroundFigures>
 
-          {/* "Authorization" reads as login, RBAC, or row-level security to most
-              participants, and this lab is none of those. It is citation scope: a
-              retrieval-correctness invariant over which evidence records may
-              support this answer. The disclaimer is deliberately adjacent to the
-              teaching line rather than buried in a disclosure, because the
-              misreading happens on first glance. */}
-          <p className="labs-teaching-line">
-            The model requests. The application decides which evidence may be cited.
-          </p>
-          <p className="labs-teaching-aside">
-            This is not user authentication or RBAC. The application controls which
-            retrieved evidence may support this answer, and synthesis fails closed
-            when a citation falls outside that set.
-          </p>
+          {products.length ? (
+            <section
+              className="labs-reason-products"
+              aria-labelledby="reason-products-title"
+            >
+              <header>
+                <h3 id="reason-products-title">Products carried into reasoning</h3>
+                <small>{products.length} from this agent run</small>
+              </header>
+              <ul>
+                {products.map((product) => (
+                  <li key={product.product_id}>
+                    <img
+                      alt={product.title}
+                      src={productImages.get(product.product_id)}
+                    />
+                    <div>
+                      <strong>{product.title}</strong>
+                      <span>
+                        {leafCategory(product.category_path)} ·{" "}
+                        {formatPriceCompact(product.price_cents, product.currency)}
+                      </span>
+                      <small>product {product.product_id}</small>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          <div className="labs-citation-boundary">
+            <span>Answer evidence boundary</span>
+            <strong>
+              Retrieval makes evidence visible. Registration makes it citable.
+            </strong>
+            <p>
+              Only records registered for this run may support the answer. Synthesis
+              rejects a citation outside that set, even when the model has seen the
+              record.
+            </p>
+          </div>
 
           <ol className="labs-chain" aria-label="Evidence state chain">
             {chain.map((step) => (
@@ -504,20 +587,36 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
                 </p>
               ) : records.length ? (
                 <ol className="labs-evidence-records">
-                  {records.map((record) => (
-                    <li key={record.evidence_id}>
-                      <span>#{record.evidence_id}</span>
-                      <div>
-                        <strong>{record.title}</strong>
-                        <p>{record.text}</p>
-                        <small>
-                          {record.evidence_type} · {record.source_name} ·{" "}
-                          {record.revision} · product {record.product_id}
-                        </small>
-                        <code>{record.source_uri}</code>
-                      </div>
-                    </li>
-                  ))}
+                  {records.map((record) => {
+                    const product = productById.get(record.product_id);
+                    const image = product
+                      ? productImages.get(product.product_id)
+                      : null;
+                    return (
+                      <li
+                        className={image ? "has-product-image" : undefined}
+                        key={record.evidence_id}
+                      >
+                        <span>#{record.evidence_id}</span>
+                        {image && product ? (
+                          <img
+                            alt=""
+                            aria-hidden="true"
+                            src={image}
+                          />
+                        ) : null}
+                        <div>
+                          <strong>{record.title}</strong>
+                          <small>
+                            {record.evidence_type} · {record.source_name} ·{" "}
+                            {record.revision} · product {record.product_id}
+                          </small>
+                          <p>{record.text}</p>
+                          <code>{record.source_uri}</code>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ol>
               ) : citations.length ? (
                 <p>No cited evidence records resolved.</p>
@@ -592,13 +691,28 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
             "Product retrieved",
             "Returned to the model",
             "Registered",
-            "Authorized",
+            "Authorized for synthesis",
             "Citations resolved",
             "Grounded answer",
           ]}
           hint="Run the agent to trace one question from retrieval to a grounded answer. These six are different things, and the Lab 3 repair is the difference between evidence returned to the model and evidence registered into application state."
         />
       )}
+
+      {/* A footnote, not a feature. Every claim here is a table this page already
+          reads back, and it says plainly what Mosaic does not remember, so the
+          question every agent session gets asked is answered on screen without
+          a memory store that would hide exactly what Lab 3 makes visible. */}
+      <p className="labs-memory-note">
+        <strong>Where memory lives.</strong> Every run on this page is written to
+        Aurora before it is shown: the search and its candidates, the agent run,
+        the evidence records it cited, and the citations it was allowed to use. A
+        follow-up in Ask Mosaic reuses the shortlist from the run before it, and
+        the server, not the model, decides what that shortlist holds. Nothing here
+        remembers a shopper between visits. Adding that would be one more
+        retrieval over these same tables, with the same filters and the same
+        evidence rules, rather than a separate memory store.
+      </p>
     </div>
   );
 }

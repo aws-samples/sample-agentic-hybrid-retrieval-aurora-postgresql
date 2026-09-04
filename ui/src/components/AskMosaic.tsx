@@ -1,5 +1,6 @@
 import {
   ArrowUpRight,
+  Check,
   ChevronDown,
   ChevronRight,
   CircleCheck,
@@ -113,7 +114,7 @@ const fullRetrievalStages: Array<{
     id: "understand",
     label: "Understanding",
     title: "What I understood",
-    description: "Turning your request into real catalog constraints.",
+    description: "Turning your request into catalog filters.",
   },
   {
     id: "retrieve",
@@ -142,7 +143,7 @@ const focusedFollowUpStages: typeof fullRetrievalStages = [
     id: "understand",
     label: "Understanding",
     title: "What you're asking about",
-    description: "Resolving your follow-up against the products I just found.",
+    description: "Reading your follow-up against the products I just found.",
   },
   {
     id: "rank",
@@ -195,13 +196,13 @@ const toolLabels = new Map(agentTools.map((tool) => [tool.fn, tool.label]));
  * "Meaning match" for the same three arms.
  */
 export function retrievalChips(signals: ResultSignals | null | undefined): string[] {
-  if (!signals) return ["In the retrieved shortlist"];
+  if (!signals) return ["In the shortlist"];
   const matched = armLanguage
     .filter((arm) => signals[arm.key].rank != null)
     .map((arm) => arm.label);
   const chips = matched.length ? matched : ["Carried in by combined ranking"];
   if (signals.rerank_score != null) {
-    chips.push(`Reranked ${signals.rerank_score.toFixed(2)}`);
+    chips.push(`Rerank score ${signals.rerank_score.toFixed(2)}`);
   }
   return chips;
 }
@@ -333,10 +334,10 @@ function StageRail({
     stages.findIndex((item) => item.id === presentedStage),
   );
   return (
-    <section className="ask-mosaic-timeline" aria-label="Evidence timeline">
+    <section className="ask-mosaic-timeline" aria-label="Steps I took">
       <p className="ask-mosaic-timeline-heading">
         <GitCompareArrows size={14} aria-hidden="true" />
-        Evidence timeline
+        Steps I took
       </p>
       <ol className="ask-mosaic-progress" aria-label="Ask Mosaic activity">
         {stages.map((stage, index) => {
@@ -373,7 +374,7 @@ function StageRail({
               <span className="ask-mosaic-stage-rail">
                 <span className="ask-mosaic-stage-node" aria-hidden="true">
                   {state === "complete"
-                    ? <CircleCheck size={16} />
+                    ? <Check size={16} strokeWidth={2.25} />
                     : state === "active"
                       ? <LoaderCircle className="spin" size={16} />
                       : state === "failed"
@@ -572,8 +573,8 @@ function Criteria({ plan }: { plan: AgentPlanStep[] }) {
   if (!chips.length) return null;
   return (
     <section className="ask-mosaic-criteria">
-      <h3>Constraints I searched with</h3>
-      <ul aria-label="Constraints Mosaic searched with">
+      <h3>Filters I searched with</h3>
+      <ul aria-label="Filters Mosaic searched with">
         {chips.map((chip) => (
           <li key={chip}>{chip}</li>
         ))}
@@ -705,7 +706,7 @@ function Shortlist({
         <GitCompareArrows size={18} />
         <div>
           <h3>The shortlist</h3>
-          <p>Real catalog products, in the order retrieval put them in.</p>
+          <p>Real catalog products, in the order search ranked them.</p>
         </div>
       </header>
       <ol className="ask-mosaic-shortlist">
@@ -786,7 +787,7 @@ function Searches({ plan }: { plan: AgentPlanStep[] }) {
             <span>{String(index + 1).padStart(2, "0")}</span>
             <div>
               <strong>{step.query}</strong>
-              <small>{step.purpose || "No constraints beyond the query"}</small>
+              <small>{step.purpose || "No filters beyond your words"}</small>
             </div>
           </li>
         ))}
@@ -834,8 +835,8 @@ function Ranking({ candidates }: { candidates: ProductSummary[] }) {
         </div>
         {signals.exact_sku_match ? (
           <div>
-            <dt>Catalog identity</dt>
-            <dd>Exact SKU</dd>
+            <dt>Exact model match</dt>
+            <dd>Yes</dd>
           </div>
         ) : null}
         <div>
@@ -852,7 +853,7 @@ function Evidence({ citations }: { citations: AgentCitation[] }) {
     <details className="ask-mosaic-receipt">
       <summary>
         <FileText size={17} />
-        Evidence
+        Evidence it cited
         <span>{citations.length}</span>
       </summary>
       <ol className="ask-mosaic-evidence">
@@ -863,7 +864,8 @@ function Evidence({ citations }: { citations: AgentCitation[] }) {
               <strong>{citation.title}</strong>
               <p>{citation.quote}</p>
               <small>
-                Evidence #{citation.evidence_id} · {citation.evidence_type} · {citation.revision}
+                Record #{citation.evidence_id} · {citation.evidence_type.replace(/_/g, " ")} ·{" "}
+                {citation.revision}
               </small>
             </div>
           </li>
@@ -884,7 +886,7 @@ function Activity({ trace }: { trace: ToolTraceStep[] }) {
     <details className="ask-mosaic-receipt">
       <summary>
         <CircleCheck size={17} />
-        Activity receipts
+        What the agent did
         <span>{trace.length}</span>
       </summary>
       <ol className="ask-mosaic-activity">
@@ -895,7 +897,7 @@ function Activity({ trace }: { trace: ToolTraceStep[] }) {
               <strong>{toolLabels.get(step.tool) ?? step.tool}</strong>
               <code className="ask-mosaic-tool-fn">{step.tool}</code>
               {step.origin === "controller_fallback" ? (
-                <small>Completed by the application controller</small>
+                <small>Completed by the app, not the model</small>
               ) : null}
               <small>{step.detail}</small>
               {Object.keys(step.arguments).length ? (
@@ -1018,7 +1020,7 @@ function FollowUps({
       <button
         type="button"
         onClick={() => onRun(
-          `Explain why ${first.model} ranked first using retrieval and evidence signals.`,
+          `Explain why ${first.model} ranked first, using what the search and the evidence show.`,
         )}
       >
         Why this one?
@@ -1272,7 +1274,13 @@ function Turn({
         />
       ) : null}
 
-      {turn.error ? <p className="ask-mosaic-error" role="alert">{turn.error}</p> : null}
+      {turn.error ? (
+        <div className="ask-mosaic-error" role="alert">
+          <strong>Mosaic could not finish this request.</strong>
+          <span>{turn.error}</span>
+          <small>Press Ask again to retry. If it keeps failing, the API session may need refreshing.</small>
+        </div>
+      ) : null}
 
       <AnimatePresence initial={false}>
         {response && answerVisible && !turn.error ? (
@@ -1294,11 +1302,15 @@ function Turn({
           >
             <p>
               <Sparkles size={14} />
-              {answerSettled ? "Final recommendation" : "Answer draft (in progress)"}
+              {answerSettled ? "Final recommendation" : "Writing the answer"}
               {response.citations.length ? (
                 <span className="ask-mosaic-cited-support">
                   <CircleCheck size={12} aria-hidden="true" />
-                  Cited support
+                  Backed by evidence
+                </span>
+              ) : answerSettled ? (
+                <span className="ask-mosaic-cited-support is-missing">
+                  No evidence cited
                 </span>
               ) : null}
             </p>
@@ -1310,6 +1322,15 @@ function Turn({
                 {boldRecommendationNames(reveal.text, response.recommendations)}
               </Markdown>
             </div>
+            {/* A fail-closed run is a fact about this answer, and an absent badge
+                does not state it. */}
+            {answerSettled && !response.citations.length ? (
+              <p className="ask-mosaic-uncited-note">
+                No product record backs this answer, so read it as a suggestion
+                rather than a checked recommendation. Ask again, or add a detail
+                such as a budget or a category.
+              </p>
+            ) : null}
             {/* The prose named these products. Here they are, priced and
                 buyable, so the recommendation ends in the store rather than in
                 a paragraph. */}

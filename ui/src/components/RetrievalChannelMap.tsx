@@ -186,7 +186,9 @@ export function RetrievalChannelMap({
   const broken = readings.filter((reading) => reading.state === "disconnected");
   return (
     <section className="labs-channels" aria-labelledby="labs-channels-title">
-      <h3 id="labs-channels-title">Three ways of finding one product</h3>
+      <h3 id="labs-channels-title">
+        Three ways Aurora looked for the same product
+      </h3>
       <ul className="labs-channel-list">
         {readings.map((reading) => (
           <li className={`is-${reading.state}`} key={reading.arm}>
@@ -196,8 +198,14 @@ export function RetrievalChannelMap({
               <code>{reading.mechanism}</code>
               <small>{reading.indexName}</small>
             </div>
-            <span>{stateWord(reading)}</span>
-            <p className="labs-channel-purpose">{reading.purpose}</p>
+            <div className="labs-channel-result">
+              <small>What happened</small>
+              <span>{stateWord(reading)}</span>
+            </div>
+            <p className="labs-channel-purpose">
+              <strong>When this helps</strong>
+              <span>{reading.purpose}</span>
+            </p>
           </li>
         ))}
       </ul>

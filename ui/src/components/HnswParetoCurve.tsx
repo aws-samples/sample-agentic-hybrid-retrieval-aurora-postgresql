@@ -77,8 +77,8 @@ export function HnswParetoCurve({
         <div>
           <h2 id="hnsw-pareto-title">Recall you can buy, and where buying stops.</h2>
           <p>
-            Every point below was measured on {measured.provenance.queries ?? 0} retrieval
-            anchors against exact ground truth. Dragging the control moves along those
+            Every point below was measured on {measured.provenance.queries ?? 0} test
+            searches against the exact answers. Dragging the control moves along those
             measurements. It does not recompute them.
           </p>
         </div>
@@ -92,7 +92,7 @@ export function HnswParetoCurve({
               saturation === null
                 ? "Recall against server time, no measurements available"
                 : `Recall against server time across ${sweep.length} measured ef_search values. ` +
-                  `Recall saturates at ef_search ${saturation}.`
+                  `Recall stops improving at ef_search ${saturation}.`
             }
             role="group"
             viewBox={`0 0 ${BOX.width + PADDING.left + PADDING.right} ${
@@ -273,7 +273,7 @@ export function HnswParetoCurve({
           {saturation !== null ? (
             <p className="hnsw-pareto-saturation">
               <span>
-              Recall saturates at <strong>ef_search {saturation}</strong>. Past it,
+              Recall stops improving at <strong>ef_search {saturation}</strong>. Past it,
               ef_search {sweep.at(-1)?.ef_search} spends{" "}
               {(
                 (sweep.at(-1)!.shared_hit_blocks /

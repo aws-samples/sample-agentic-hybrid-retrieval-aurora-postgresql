@@ -29,17 +29,17 @@ describe("RetrievalReceipt", () => {
     // same number.
     expect(
       within(receipt).getByText(
-        "Eligibility → candidates → combined order → final order → evidence → time",
+        "Filters → candidates → combined order → final order → evidence → time",
       ),
     ).toBeTruthy();
     expect(
       within(receipt).getAllByRole("term").map((term) => term.textContent),
     ).toEqual([
-      "Eligibility",
+      "Filters",
       "Candidates found",
       "Before reranking",
       "Final position",
-      "Evidence IDs",
+      "Evidence records",
       "Time",
     ]);
     expect(within(receipt).getByText("Not requested")).toBeTruthy();
@@ -108,9 +108,9 @@ describe("RetrievalReceipt", () => {
       name: "End-to-end retrieval receipt",
     });
     expect(within(receipt).getByText("Inherited")).toBeTruthy();
-    expect(within(receipt).getByText("authorized prior shortlist")).toBeTruthy();
-    expect(within(receipt).getByText("replayed prior receipt")).toBeTruthy();
+    expect(within(receipt).getByText("reused the earlier shortlist")).toBeTruthy();
+    expect(within(receipt).getByText("reused the earlier search")).toBeTruthy();
     expect(within(receipt).getByText("#401")).toBeTruthy();
-    expect(within(receipt).getByText("2 tool receipts")).toBeTruthy();
+    expect(within(receipt).getByText("2 steps")).toBeTruthy();
   });
 });

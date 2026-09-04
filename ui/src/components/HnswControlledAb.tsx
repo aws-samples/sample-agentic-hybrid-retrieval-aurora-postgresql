@@ -29,7 +29,7 @@ export function HnswControlledAb({ nvme }: HnswControlledAbProps) {
     <section className="hnsw-ab" aria-labelledby="hnsw-ab-title">
       <header>
         <div>
-          <h2 id="hnsw-ab-title">Controlled scale A/B</h2>
+          <h2 id="hnsw-ab-title">Side-by-side test at scale</h2>
           <p>{nvme.claim_class}.</p>
         </div>
         <span className="hnsw-evidence-badge measured ab">
@@ -53,7 +53,7 @@ export function HnswControlledAb({ nvme }: HnswControlledAbProps) {
           <table className="hnsw-ab-table">
             <thead>
               <tr>
-                <th scope="col">Steady-state cold p50</th>
+                <th scope="col">Typical cold-cache time (p50)</th>
                 <th scope="col">{nvme.control_cluster.split(" / ")[1]}</th>
                 <th scope="col">{nvme.test_cluster.split(" / ")[1]}</th>
               </tr>

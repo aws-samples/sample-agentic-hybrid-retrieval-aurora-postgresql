@@ -31,6 +31,10 @@ import type {
 
 const hnswIndexName = "product_document_embedding_hnsw_cosine_idx";
 const SERVED_EF_SEARCH = 100;
+const compactCount = new Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
 
 /**
  * What the measurements changed about how to operate the index.
@@ -64,7 +68,7 @@ function productionLessons(measured: HnswMeasured, saturationEfSearch: number | 
             `${slowest.ef_search} spends ` +
             `${(slowest.shared_hit_blocks / saturated.shared_hit_blocks).toFixed(1)}x the ` +
             `buffers to reach the same number.`
-          : "Sweep it against exact ground truth rather than assuming higher is better.",
+          : "Sweep it against the exact answers rather than assuming higher is better.",
     },
     {
       title: "Raise the memory budget, not the tuple cap",
@@ -339,8 +343,11 @@ export function PerformancePage() {
 
           <div className="hnsw-live-facts">
             <div>
-              <strong className="hnsw-live-value hnsw-live-value--metric">
-                {substrate.corpus.vector_count.toLocaleString()}
+              <strong
+                aria-label={substrate.corpus.vector_count.toLocaleString()}
+                className="hnsw-live-value hnsw-live-value--metric"
+              >
+                {compactCount.format(substrate.corpus.vector_count)}
               </strong>
               <span>vectors indexed</span>
             </div>
@@ -521,7 +528,7 @@ export function PerformancePage() {
               <thead>
                 <tr>
                   <th scope="col">Catalog</th>
-                  <th scope="col">Projected p95</th>
+                  <th scope="col">Projected latency (p95)</th>
                   <th scope="col">Projected Recall@10</th>
                   <th scope="col">Projected index</th>
                 </tr>
@@ -606,9 +613,9 @@ export function PerformancePage() {
     <div className="page mosaic-labs-page labs-premium hnsw-page">
       <MosaicLabsTabs active="hnsw" />
       <MosaicLabsMasthead
-        deck="Measure the index against exact ground truth, watch recall stop improving, and find the filter that returns nothing while ten matches exist."
+        deck="Measure the index against the exact answers, watch recall stop improving, and find the filter that returns nothing while ten matches exist."
         supportingText="Measured on the live 500K corpus. Projections are labelled."
-        title="Tune HNSW against ground truth."
+        title="Tune HNSW against the exact answers."
       />
       {content}
     </div>

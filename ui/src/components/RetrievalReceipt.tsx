@@ -100,13 +100,13 @@ export function SearchRetrievalReceipt({
 
   return (
     <ReceiptBand
-      path="Eligibility → candidates → combined order → final order → evidence → time"
+      path="Filters → candidates → combined order → final order → evidence → time"
       items={[
         {
-          label: "Eligibility",
+          label: "Filters",
           // "0" reads as a measurement that failed. It is an absence.
           value: filters ? String(filters) : "None",
-          detail: filters ? "gates applied to every arm" : "no catalog gates",
+          detail: filters ? "applied to every search method" : "no filters applied",
         },
         {
           // A count of the pool, so it is stated as a share of the pool.
@@ -129,7 +129,7 @@ export function SearchRetrievalReceipt({
             : diagnostics.rerank_status,
         },
         {
-          label: "Evidence IDs",
+          label: "Evidence records",
           value: "Not requested",
           detail: "search receipt only",
         },
@@ -181,26 +181,26 @@ export function AgentRetrievalReceipt({
 
   return (
     <ReceiptBand
-      path="Eligibility → candidates → combined order → final order → evidence → time"
+      path="Filters → candidates → combined order → final order → evidence → time"
       items={[
         {
-          label: "Eligibility",
+          label: "Filters",
           value: plan.length ? String(filterCount) : "Inherited",
           detail: plan.length
             ? `${plan.length} focused search${plan.length === 1 ? "" : "es"}`
-            : "authorized prior shortlist",
+            : "reused the earlier shortlist",
         },
         {
           label: "Found this shortlist",
           value: armCountItems(armMembership, products.length),
-          detail: `${products.length} authorized product${products.length === 1 ? "" : "s"}`,
+          detail: `${products.length} product${products.length === 1 ? "" : "s"} with evidence`,
         },
         {
           label: FUSED_LABEL,
           value: signals ? `#${signals.pre_rerank_rank}` : "-",
           detail: executionPath === "focused_follow_up"
-            ? "replayed prior receipt"
-            : "current retrieval",
+            ? "reused the earlier search"
+            : "this search",
         },
         {
           label: FINAL_LABEL,
@@ -208,16 +208,16 @@ export function AgentRetrievalReceipt({
           detail: signals?.rerank_rank ? `rerank put it #${signals.rerank_rank}` : "not repeated",
         },
         {
-          label: "Evidence IDs",
+          label: "Evidence records",
           value: String(evidenceIds.length),
           detail: evidenceIds.length
             ? evidenceIds.slice(0, 3).map((id) => `#${id}`).join(", ")
-            : "none authorized",
+            : "none cited",
         },
         {
           label: "Time",
           value: `${Math.round(latency)} ms`,
-          detail: `${trace.length} tool receipt${trace.length === 1 ? "" : "s"}`,
+          detail: `${trace.length} step${trace.length === 1 ? "" : "s"}`,
         },
       ]}
     />

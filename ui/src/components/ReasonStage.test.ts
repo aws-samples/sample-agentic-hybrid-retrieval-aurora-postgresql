@@ -17,6 +17,7 @@ import type {
   AgentCitation,
   AgentResponse,
   EvidenceRecord,
+  ProductSummary,
   ToolContract,
   ToolTraceStep,
 } from "../types";
@@ -279,9 +280,41 @@ function agentResponse(
     question: "Which product is grounded?",
     answer: `Answer from ${agentRunId}`,
     plan: [],
-    recommendations: [],
+    recommendations: [productSummary(2, "Mosaic QuietType K8")],
     citations: [{ ...citation, evidence_id: evidenceId }],
     trace: REPAIRED_TRACE,
+  };
+}
+
+function productSummary(productId: number, title: string): ProductSummary {
+  return {
+    product_id: productId,
+    sku: `SKU-${productId}`,
+    title,
+    short_description: "Quiet mechanical keyboard for focused work.",
+    domain: "home_office",
+    category_key: "quiet-keyboards",
+    category_path: "Home office > Quiet keyboards",
+    brand: "Mosaic",
+    model: "K8",
+    price_cents: 17900,
+    list_price_cents: 19900,
+    currency: "USD",
+    rating: 4.8,
+    review_count: 82,
+    availability: "in_stock",
+    inventory_count: 16,
+    attributes: {},
+    tags: [],
+    catalog_asset_key: null,
+    canonical_group_id: null,
+    media_tier: "catalog",
+    is_flagship: false,
+    is_retrieval_anchor: true,
+    image_url: "/assets/images/mosaic/ho-quiet-keyboards-01-catalog-3x2.webp",
+    image_source: "mosaic",
+    signals: null,
+    sources: [],
   };
 }
 
@@ -324,7 +357,65 @@ async function runAgent() {
   await screen.findByRole("button", { name: "Run agent again" });
 }
 
-describe("ReasonStage lazy evidence", () => {
+describe("ReasonStage composer", () => {
+  it("renders the canonical question as an editable multiline prompt", () => {
+    render(createElement(ReasonStage, {
+      question: "Which product is grounded?",
+      filters: {},
+    }));
+
+    const prompt = screen.getByRole("textbox", { name: "Question for Mosaic" });
+    expect(prompt.tagName).toBe("TEXTAREA");
+    expect((prompt as HTMLTextAreaElement).value).toBe("Which product is grounded?");
+    expect(screen.getByText("Enter to run. Shift+Enter for a new line.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Run the agent" })).toBeTruthy();
+  });
+
+  it("submits an edited question with Enter and keeps Shift+Enter for a newline", async () => {
+    vi.mocked(api.agentStream).mockResolvedValue(undefined);
+    render(createElement(ReasonStage, {
+      question: "Which product is grounded?",
+      filters: { in_stock_only: true },
+    }));
+
+    const prompt = screen.getByRole("textbox", { name: "Question for Mosaic" });
+    fireEvent.change(prompt, {
+      target: { value: "Compare the quietest keyboard and chair." },
+    });
+    fireEvent.keyDown(prompt, { key: "Enter", code: "Enter", shiftKey: true });
+    expect(api.agentStream).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(prompt, { key: "Enter", code: "Enter" });
+    await waitFor(() => {
+      expect(api.agentStream).toHaveBeenCalledWith(
+        "Compare the quietest keyboard and chair.",
+        { in_stock_only: true },
+        expect.any(Function),
+      );
+    });
+  });
+});
+
+describe("ReasonStage evidence resolution", () => {
+  it("shows the retrieved product and frames synthesis as citation eligibility", async () => {
+    const response = agentResponse("run-visual", 4021);
+    vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
+      onEvent({ type: "complete", response });
+    });
+
+    render(createElement(ReasonStage, {
+      question: "Which product is grounded?",
+      filters: {},
+    }));
+    await runAgent();
+
+    const image = screen.getByRole("img", { name: "Mosaic QuietType K8" });
+    expect(image.getAttribute("src")).toContain("/assets/images/mosaic/");
+    expect(screen.getByText("Answer evidence boundary")).toBeTruthy();
+    expect(screen.getByText("Evidence authorized for synthesis")).toBeTruthy();
+    expect(screen.queryByText(/authentication or RBAC/i)).toBeNull();
+  });
+
   it("ignores evidence from an older run when requests resolve in reverse order", async () => {
     const oldEvidence = deferred<EvidenceRecord>();
     const currentEvidence = deferred<EvidenceRecord>();
@@ -347,13 +438,11 @@ describe("ReasonStage lazy evidence", () => {
     }));
 
     await runAgent();
-    openDisclosure("View evidence records");
     await waitFor(() => {
       expect(vi.mocked(api.evidence)).toHaveBeenCalledWith(4021);
     });
 
     await runAgent();
-    openDisclosure("View evidence records");
     await waitFor(() => {
       expect(vi.mocked(api.evidence)).toHaveBeenCalledWith(9002);
     });
@@ -386,9 +475,10 @@ describe("ReasonStage lazy evidence", () => {
       filters: {},
     }));
     await runAgent();
+    await screen.findByRole("alert");
     openDisclosure("View evidence records");
 
-    expect((await screen.findByRole("alert")).textContent).toContain(
+    expect(screen.getByRole("alert").textContent).toContain(
       "1 of 1 cited evidence ids did not resolve",
     );
     fireEvent.click(screen.getByRole("button", { name: "Retry evidence records" }));
@@ -403,6 +493,9 @@ describe("ReasonStage lazy evidence", () => {
     vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
       onEvent({ type: "complete", response });
     });
+    vi.mocked(api.evidence).mockResolvedValue(
+      evidenceRecord(4021, "Contract test evidence"),
+    );
     vi.mocked(api.toolContracts)
       .mockRejectedValueOnce(new Error("temporary contract failure"))
       .mockResolvedValueOnce([toolContract("search_products")]);

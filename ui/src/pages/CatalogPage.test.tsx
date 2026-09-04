@@ -399,7 +399,7 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
-    const timeline = within(dialog).getByLabelText("Evidence timeline");
+    const timeline = within(dialog).getByLabelText("Steps I took");
     await waitFor(() =>
       expect(within(dialog).queryByText("The shortlist")).not.toBeNull());
 
@@ -424,9 +424,9 @@ describe("CatalogPage", () => {
     expect(running[0].getAttribute("aria-expanded")).toBe("false");
     // The outgoing content remains mounted for its 240ms exit. Keying the whole
     // disclosure by state used to destroy it immediately, bypassing that exit.
-    expect(within(dialog).getByText("Constraints I searched with")).toBeTruthy();
+    expect(within(dialog).getByText("Filters I searched with")).toBeTruthy();
     await waitFor(() =>
-      expect(within(dialog).queryByText("Constraints I searched with")).toBeNull());
+      expect(within(dialog).queryByText("Filters I searched with")).toBeNull());
     // Compare and Cite have not run. Candidate rows exist, so their panels
     // could be built - a pending stage must still disclose nothing.
     expect(running[2].hasAttribute("aria-expanded")).toBe(false);
@@ -485,7 +485,7 @@ describe("CatalogPage", () => {
       );
       fireEvent.click(screen.getByRole("button", { name: "Send request" }));
       const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
-      const timeline = within(dialog).getByLabelText("Evidence timeline");
+      const timeline = within(dialog).getByLabelText("Steps I took");
       const seconds = () => [
         ...timeline.querySelectorAll(".ask-mosaic-stage-elapsed"),
       ].map((reading) => Number.parseInt(reading.textContent ?? "", 10));
@@ -1103,7 +1103,7 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
-    const timeline = within(dialog).getByLabelText("Evidence timeline");
+    const timeline = within(dialog).getByLabelText("Steps I took");
     expect(
       [...timeline.querySelectorAll(".ask-mosaic-stage-label")]
         .map((stage) => stage.textContent),
@@ -1133,13 +1133,13 @@ describe("CatalogPage", () => {
       ).toBeNull();
     });
 
-    const evidence = await within(dialog).findByText("Evidence");
+    const evidence = await within(dialog).findByText("Evidence it cited");
     expect(evidence.closest("details")?.open).toBe(false);
     expect(within(dialog).getByText("Final recommendation")).toBeTruthy();
     fireEvent.click(evidence);
     expect(within(dialog).getByText("Acoustic switch specification")).toBeTruthy();
 
-    const activity = within(dialog).getByText("Activity receipts");
+    const activity = within(dialog).getByText("What the agent did");
     expect(activity.closest("details")?.open).toBe(false);
     fireEvent.click(activity);
     expect(within(dialog).getByText("search_products")).toBeTruthy();
@@ -1159,7 +1159,7 @@ describe("CatalogPage", () => {
     );
     expect([...signals[0].querySelectorAll("span")].map((chip) => chip.textContent))
       // The same three words the product card and the Playground use.
-      .toEqual(["Exact terms", "Meaning match", "Reranked 0.80"]);
+      .toEqual(["Exact terms", "Meaning match", "Rerank score 0.80"]);
 
     fireEvent.click(stageButtons[0]);
     expect(stageButtons[0].getAttribute("aria-expanded")).toBe("true");
@@ -1285,7 +1285,7 @@ describe("CatalogPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Compare top two" }));
     await waitFor(() => expect(api.agentStream).toHaveBeenCalledTimes(2));
 
-    const timelines = within(dialog).getAllByLabelText("Evidence timeline");
+    const timelines = within(dialog).getAllByLabelText("Steps I took");
     const followupCards = timelines[1].querySelectorAll(".ask-mosaic-stage-summary");
     expect(followupCards).toHaveLength(3);
     expect(
@@ -1330,7 +1330,7 @@ describe("CatalogPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Send request" }));
     await waitFor(() => expect(api.agentStream).toHaveBeenCalledTimes(2));
 
-    const timelines = within(dialog).getAllByLabelText("Evidence timeline");
+    const timelines = within(dialog).getAllByLabelText("Steps I took");
     const followupCards = timelines[1].querySelectorAll(".ask-mosaic-stage-summary");
     expect(followupCards).toHaveLength(4);
     expect(within(timelines[1]).getByText("Recommendations")).toBeTruthy();
@@ -1675,7 +1675,7 @@ describe("CatalogPage", () => {
     const reopened = screen.getByRole("complementary", { name: "Ask Mosaic" });
     expect(within(reopened).getByText("Final recommendation")).toBeTruthy();
     expect(
-      [...within(reopened).getByLabelText("Evidence timeline")
+      [...within(reopened).getByLabelText("Steps I took")
         .querySelectorAll(".ask-mosaic-stage-summary")]
       .map((card) => card.getAttribute("aria-expanded")),
     ).toEqual(["false", "false", "false", "true"]);

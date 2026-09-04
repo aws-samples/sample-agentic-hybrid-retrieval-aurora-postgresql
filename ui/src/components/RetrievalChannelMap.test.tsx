@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { readChannels } from "./RetrievalChannelMap";
+// @vitest-environment jsdom
+
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+import { readChannels, RetrievalChannelMap } from "./RetrievalChannelMap";
 import type {
   ReadinessResponse,
   RetrievalDiagnostics,
@@ -82,6 +85,35 @@ function readiness(missingIndexes: string[] | null): ReadinessResponse {
 const REQUIRES_TRIGRAM = ["pg_trgm", "vector", "filters", "rrf"];
 
 describe("readChannels", () => {
+  afterEach(cleanup);
+
+  it("explains what happened and when each retrieval method helps", () => {
+    const readings = readChannels(
+      response({
+        fused_pool: 12,
+        fts_in_pool: 5,
+        trigram_in_pool: 4,
+        semantic_in_pool: 10,
+      }),
+      REQUIRES_TRIGRAM,
+      readiness([]),
+    );
+
+render(<RetrievalChannelMap readings={readings} />);
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Three ways Aurora looked for the same product",
+      }),
+    ).toBeTruthy();
+    expect(screen.getAllByText("What happened")).toHaveLength(3);
+    expect(screen.getAllByText("When this helps")).toHaveLength(3);
+    expect(screen.getByText("5 of 12 candidates")).toBeTruthy();
+    expect(
+      screen.getByText(/words a shopper typed already appear in the catalog/i),
+    ).toBeTruthy();
+  });
+
   it("reports every arm as contributing with its share of the pool", () => {
     const readings = readChannels(
       response({

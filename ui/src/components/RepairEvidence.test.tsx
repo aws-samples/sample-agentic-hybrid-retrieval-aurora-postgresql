@@ -140,6 +140,20 @@ async function pressCompare() {
 }
 
 describe("RepairEvidence — measured Lab 1 pair", () => {
+  it("keeps the inputs, action, and helper on one centered content measure", () => {
+    const { container } = render(<RepairEvidence latestSearchEventId={AFTER_ID} />);
+    const content = container.querySelector(".labs-repair-content");
+    const form = content?.querySelector(".labs-repair-form");
+    const helper = content?.querySelector(".labs-repair-hint");
+
+    expect(content).toBeTruthy();
+    expect(form?.children).toHaveLength(3);
+    expect(form?.children[0].textContent).toContain("Before");
+    expect(form?.children[1].textContent).toContain("After");
+    expect(form?.children[2].textContent).toContain("Compare");
+    expect(helper).toBeTruthy();
+  });
+
   it("shows the trigram participation delta and frames the unchanged rank as confirmation", async () => {
     mockEventsByid({ [BEFORE_ID]: LAB1_BEFORE, [AFTER_ID]: LAB1_AFTER });
     render(<RepairEvidence latestSearchEventId={null} />);

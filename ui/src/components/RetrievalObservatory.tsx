@@ -1,7 +1,6 @@
-import { ArrowDown, ArrowUp, Minus } from "lucide-react";
+import { ArrowDown, ArrowUp, CircleDashed, Minus } from "lucide-react";
 import { useMemo, useState } from "react";
 import { CodeBlock } from "../components/CodeBlock";
-import { PlaygroundDormant } from "./PlaygroundStage";
 import type { MosaicLabMission } from "../labMissions";
 import { productImageMap } from "../media";
 import {
@@ -33,6 +32,27 @@ interface RetrievalObservatoryProps {
   response: SearchResponse | null;
   loading: boolean;
 }
+
+const RANKING_GUIDE = [
+  {
+    number: "01",
+    title: "Find",
+    description: "Each retrieval method makes its own candidate list.",
+    fields: ["Rank in each arm"],
+  },
+  {
+    number: "02",
+    title: "Combine",
+    description: "RRF combines positions without comparing unlike raw scores.",
+    fields: ["RRF contribution", FUSED_LABEL],
+  },
+  {
+    number: "03",
+    title: "Reorder",
+    description: "Reranking can only reorder products already in the fused pool.",
+    fields: ["Rerank score", FINAL_LABEL],
+  },
+] as const;
 
 function MovementBadge({ movement }: { movement: number }) {
   if (movement === 0) {
@@ -147,7 +167,9 @@ export function RetrievalObservatory({
           a heading saying the same thing in different words. */}
       <header className="labs-matrix-heading">
         <div>
-          <h3 id="labs-matrix-title">Every stage, on the same result set</h3>
+          <h3 id="labs-matrix-title">
+            How each product reached its final position
+          </h3>
           {/* No pre-run summary. The dormant block below already names the five
               columns and says what fills them; two sentences asking for the same
               click read as a stalled panel. */}
@@ -173,6 +195,26 @@ export function RetrievalObservatory({
           ) : null}
         </div>
       </header>
+
+      <ol
+        aria-label="How to read the ranking table"
+        className="labs-ranking-guide"
+      >
+        {RANKING_GUIDE.map((step) => (
+          <li key={step.title}>
+            <span aria-hidden="true" className="labs-ranking-guide-number">
+              {step.number}
+            </span>
+            <div>
+              <strong>{step.title}</strong>
+              <span>{step.description}</span>
+              <ul aria-label={`${step.title} table columns`}>
+                {step.fields.map((field) => <li key={field}>{field}</li>)}
+              </ul>
+            </div>
+          </li>
+        ))}
+      </ol>
 
       {response ? (
         <div className="labs-matrix-controls">
@@ -265,19 +307,17 @@ export function RetrievalObservatory({
           Embedding the query, running all three arms, fusing, and reranking.
         </p>
       ) : (
-        /* The five columns this table is about to have, in order, with no numbers
-           in them. It used to be one grey sentence in an otherwise empty panel,
-           which reads as broken rather than as dormant. */
-        <PlaygroundDormant
-          steps={[
-            "Rank in each arm",
-            "RRF contribution",
-            FUSED_LABEL,
-            "Rerank score",
-            FINAL_LABEL,
-          ]}
-          hint={`No run for ${example?.discover_label ?? "this scenario"} yet. Run the pipeline to fill all five columns on one result set.`}
-        />
+        <div className="labs-ranking-empty" role="status">
+          <CircleDashed aria-hidden="true" size={18} />
+          <div>
+            <strong>
+              No run for {example?.discover_label ?? "this scenario"} yet.
+            </strong>
+            <span>
+              Run the pipeline to fill the mapped columns above on one result set.
+            </span>
+          </div>
+        </div>
       )}
     </section>
   );

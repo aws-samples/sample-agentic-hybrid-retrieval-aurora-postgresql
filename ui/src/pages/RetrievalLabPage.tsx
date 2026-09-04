@@ -377,8 +377,9 @@ export function RetrievalLabPage() {
           ))}
         </dl>
         <p>
-          One query, three candidate sets, fused into one order and then reranked.
-          Every number on this page is a value the run reported.
+          One query, three product lists. Aurora combines their positions, then
+          reranks the shared pool. Every number on this page is a value the run
+          reported.
         </p>
       </section>
 
@@ -411,7 +412,7 @@ export function RetrievalLabPage() {
       <PlaygroundStage
         number="01"
         title="Retrieve"
-        summary="What was asked, what was eligible, and which of the three arms found anything."
+        summary="What the shopper asked, which products were allowed, and what each search method found."
         stale={loading && Boolean(response)}
       >
         {response && counts && profile ? (
@@ -456,8 +457,8 @@ export function RetrievalLabPage() {
                 <CandidateRows products={response.results} />
               </PlaygroundDisclosure>
               <PlaygroundDisclosure
-                label="View retrieval profile"
-                hint="the bounds this run was given"
+                label="View run limits"
+                hint="the retrieval profile used for this request"
               >
                 <dl className="labs-profile">
                   {Object.entries(profile).map(([name, value]) => (
@@ -489,7 +490,7 @@ export function RetrievalLabPage() {
       <PlaygroundStage
         number="02"
         title="Rank"
-        summary="Each arm's own rank, what it contributed to the combined score, and what reranking then changed."
+        summary="Where each product appeared in each candidate list, how those lists were combined, and what reranking moved."
         stale={loading && Boolean(response)}
       >
         <RetrievalObservatory
@@ -503,14 +504,14 @@ export function RetrievalLabPage() {
             <SearchRetrievalReceipt response={response} />
             <PlaygroundDisclosureShelf>
               <PlaygroundDisclosure
-                label="View RRF math"
-                hint="1 / (k + rank), per arm, summed"
+                label="View how the three rankings combine"
+                hint="RRF formula: 1 / (k + rank), summed per method"
               >
                 <RrfMath response={response} />
               </PlaygroundDisclosure>
               <PlaygroundDisclosure
-                label="View fusion defect"
-                hint="Lab 2: expected vs. broken contribution, per arm"
+                label="View the Lab 2 fusion defect"
+                hint="the expected and broken contribution from each method"
               >
                 <FusionDefectLens response={response} />
               </PlaygroundDisclosure>
@@ -557,7 +558,7 @@ export function RetrievalLabPage() {
       <PlaygroundStage
         number="03"
         title="Reason"
-        summary="What the agent retrieved, what the application registered and authorized, and which citations resolve."
+        summary="Which products and evidence the agent received, what the application allowed into the answer, and whether every citation resolves."
       >
         {reasonScenario ? (
           <ReasonStage
@@ -570,7 +571,7 @@ export function RetrievalLabPage() {
       <PlaygroundStage
         number="04"
         title="Prove"
-        summary="Did we fix the scenarios without weakening the system? The Retrieval Scorecard, from the canonical evaluation artifact."
+        summary="Did the fixes improve the scenarios they target without breaking anything that already worked? Measured from the saved evaluation results."
       >
         <RetrievalScorecard />
         <PackageFinale />

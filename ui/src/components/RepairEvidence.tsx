@@ -126,54 +126,55 @@ export function RepairEvidence({
 
   return (
     <section className="labs-repair" aria-labelledby="labs-repair-title">
-      <h3 id="labs-repair-title">Repair evidence</h3>
-      <p className="labs-repair-intro">
-        Paste two persisted <code>search_event_id</code>s to see what a fix actually
-        changed: which arms contributed to the served pool, and where the target
-        result sat before and after reranking. Rank alone can look unchanged even
-        when the repair worked.
-      </p>
-      <form
-        className="labs-repair-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void compare();
-        }}
-      >
-        <label>
-          <span>Before (optional)</span>
-          <input
-            aria-label="Before search_event_id"
-            autoComplete="off"
-            onChange={(event) => {
-              invalidateComparison();
-              setBeforeInput(event.target.value);
-            }}
-            placeholder="from /tmp/typo-recovery.json"
-            spellCheck={false}
-            type="text"
-            value={beforeInput}
-          />
-        </label>
-        <label>
-          <span>After</span>
-          <input
-            aria-label="After search_event_id"
-            autoComplete="off"
-            onChange={(event) => {
-              invalidateComparison();
-              setAfterInput(event.target.value);
-            }}
-            placeholder="most recent run, or paste one"
-            spellCheck={false}
-            type="text"
-            value={afterInput}
-          />
-        </label>
-        <button className="secondary-button" disabled={pending} type="submit">
-          {pending ? "Comparing" : "Compare"}
-        </button>
-      </form>
+      <div className="labs-repair-content">
+        <h3 id="labs-repair-title">Repair evidence</h3>
+        <p className="labs-repair-intro">
+          Paste two persisted <code>search_event_id</code>s to see what a fix actually
+          changed: which arms contributed to the served pool, and where the target
+          result sat before and after reranking. Rank alone can look unchanged even
+          when the repair worked.
+        </p>
+        <form
+          className="labs-repair-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void compare();
+          }}
+        >
+          <label>
+            <span>Before (optional)</span>
+            <input
+              aria-label="Before search_event_id"
+              autoComplete="off"
+              onChange={(event) => {
+                invalidateComparison();
+                setBeforeInput(event.target.value);
+              }}
+              placeholder="from /tmp/typo-recovery.json"
+              spellCheck={false}
+              type="text"
+              value={beforeInput}
+            />
+          </label>
+          <label>
+            <span>After</span>
+            <input
+              aria-label="After search_event_id"
+              autoComplete="off"
+              onChange={(event) => {
+                invalidateComparison();
+                setAfterInput(event.target.value);
+              }}
+              placeholder="most recent run, or paste one"
+              spellCheck={false}
+              type="text"
+              value={afterInput}
+            />
+          </label>
+          <button className="secondary-button" disabled={pending} type="submit">
+            {pending ? "Comparing" : "Compare"}
+          </button>
+        </form>
 
       {afterError ? (
         <p className="labs-disclosure-error" role="alert">
@@ -190,8 +191,8 @@ export function RepairEvidence({
 
       {!attempted ? (
         <p className="labs-repair-hint" role="status">
-          Paste the before id you saved while the lab was still broken -- the after
-          field already holds your most recent run -- then press Compare.
+          Paste the before id you saved while the lab was still broken. The after
+          field already holds your most recent run. Then select Compare.
         </p>
       ) : null}
 
@@ -268,6 +269,7 @@ export function RepairEvidence({
           </>
         )
       ) : null}
+      </div>
     </section>
   );
 }

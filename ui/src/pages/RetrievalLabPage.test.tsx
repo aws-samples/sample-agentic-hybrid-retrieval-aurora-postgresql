@@ -713,6 +713,23 @@ describe("RetrievalLabPage", () => {
     expect(within(latestRun).getByText("4")).toBeTruthy();
   });
 
+  it("promotes Package as the conclusion to the four numbered stages", async () => {
+    mockPackageRegistry();
+    const { container } = render(<RetrievalLabPage />);
+
+    await awaitPackageFinale();
+    const finale = container.querySelector(".labs-package-finale");
+    const heading = screen.getByRole("heading", { name: "Package what you built" });
+    const header = heading.closest(".labs-package-heading");
+
+    expect(finale).toBeTruthy();
+    expect(header).toBeTruthy();
+    expect(header?.firstElementChild).toBe(heading);
+    expect(heading.nextElementSibling?.textContent).toBe(
+      "The three labs become one portable retrieval capability with Aurora as its evidence authority.",
+    );
+  });
+
   it("names every skill capability the registry declares", async () => {
     mockPackageRegistry();
     render(<RetrievalLabPage />);

@@ -59,14 +59,49 @@ describe("RetrievalObservatory", () => {
     const { container } = renderObservatory();
 
     expect(container.querySelector(".labs-matrix-table")).toBeNull();
+    expect(container.querySelector(".labs-dormant")).toBeNull();
     expect(screen.queryByText("Live run")).toBeNull();
-    expect(screen.getByRole("status").textContent).toContain(
+    const empty = screen.getByRole("status");
+    expect(empty.classList.contains("labs-ranking-empty")).toBe(true);
+    expect(empty.querySelector("svg")).toBeTruthy();
+    expect(empty.textContent).toContain(
       `No run for ${seedExample.discover_label} yet`,
     );
   });
 
   it("compares all five stages side by side, with the count each found", () => {
     renderObservatory({ response: seedRun });
+
+    expect(
+      screen.getByRole("heading", {
+        name: "How each product reached its final position",
+      }),
+    ).toBeTruthy();
+    const guide = screen.getByRole("list", {
+      name: "How to read the ranking table",
+    });
+    expect(guide.textContent).toContain("Find");
+    expect(guide.textContent).toContain(
+      "Each retrieval method makes its own candidate list",
+    );
+    expect(guide.textContent).toContain("Combine");
+    expect(guide.textContent).toContain(
+      "RRF combines positions without comparing unlike raw scores",
+    );
+    expect(guide.textContent).toContain("Reorder");
+    expect(guide.textContent).toContain(
+      "Reranking can only reorder products already in the fused pool",
+    );
+    const steps = [...guide.children];
+    expect(steps).toHaveLength(3);
+    expect(steps[0].textContent).toContain("01");
+    expect(steps[0].textContent).toContain("Rank in each arm");
+    expect(steps[1].textContent).toContain("02");
+    expect(steps[1].textContent).toContain("RRF contribution");
+    expect(steps[1].textContent).toContain("Before reranking");
+    expect(steps[2].textContent).toContain("03");
+    expect(steps[2].textContent).toContain("Rerank score");
+    expect(steps[2].textContent).toContain("Final position");
 
     const headings = screen.getAllByRole("columnheader").map((cell) => cell.textContent);
     expect(headings[0]).toBe("Result");

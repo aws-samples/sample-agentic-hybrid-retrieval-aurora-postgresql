@@ -270,9 +270,11 @@ describe("PerformancePage", () => {
   it("uses compact data roles for live substrate metadata", async () => {
     render(<PerformancePage />);
 
-    expect((await screen.findByText("500,000")).classList).toContain(
+    const vectorCount = await screen.findByLabelText("500,000");
+    expect(vectorCount.classList).toContain(
       "hnsw-live-value--metric",
     );
+    expect(vectorCount.getAttribute("aria-label")).toBe("500,000");
     expect(screen.getByText("PostgreSQL 18.3").classList).toContain(
       "hnsw-live-value--metadata",
     );
@@ -293,7 +295,7 @@ describe("PerformancePage", () => {
     expect(
       screen.getAllByText(new RegExp(`ef_search ${saturation.ef_search}`)).length,
     ).toBeGreaterThan(0);
-    expect(screen.getByLabelText(/Recall saturates at ef_search/)).toBeTruthy();
+    expect(screen.getByLabelText(/Recall stops improving at ef_search/)).toBeTruthy();
   });
 
   it("shows the measured values when an ef_search point is inspected", async () => {
@@ -512,7 +514,7 @@ describe("PerformancePage", () => {
 
   it("labels the controlled A/B with every condition of the result", async () => {
     render(<PerformancePage />);
-    await screen.findByRole("heading", { name: "Controlled scale A/B" });
+    await screen.findByRole("heading", { name: "Side-by-side test at scale" });
 
     // AWS documents I/O-Optimized as required for the tiered-cache behaviour, so it
     // belongs in the badge rather than a footnote. Same for the pinned shared_buffers.
@@ -524,7 +526,7 @@ describe("PerformancePage", () => {
 
   it("states the A/B headline and every control beside it", async () => {
     render(<PerformancePage />);
-    await screen.findByRole("heading", { name: "Controlled scale A/B" });
+    await screen.findByRole("heading", { name: "Side-by-side test at scale" });
 
     expect(screen.getByText(/8.1x speedup with 87.2% less I\/O wait/)).toBeTruthy();
     expect(screen.getByText(/both instance classes were approximately 1.6 ms/)).toBeTruthy();
@@ -537,7 +539,7 @@ describe("PerformancePage", () => {
 
   it("keeps the A/B boundary statement with the result, not below the fold", async () => {
     render(<PerformancePage />);
-    await screen.findByRole("heading", { name: "Controlled scale A/B" });
+    await screen.findByRole("heading", { name: "Side-by-side test at scale" });
 
     expect(
       screen.getByText(/not the workshop's default configuration or a general r8gd guarantee/),
@@ -592,7 +594,7 @@ describe("PerformancePage", () => {
 
   it("keeps the A/B table intervals identical to the headline", async () => {
     render(<PerformancePage />);
-    await screen.findByRole("heading", { name: "Controlled scale A/B" });
+    await screen.findByRole("heading", { name: "Side-by-side test at scale" });
 
     // The headline states 893-995 ms and 106-126 ms. A table that rounded differently
     // would put two versions of the same measurement on one screen.
@@ -605,7 +607,7 @@ describe("PerformancePage", () => {
 
   it("keeps both wide benchmark tables reachable on narrow screens", async () => {
     render(<PerformancePage />);
-    await screen.findByRole("heading", { name: "Controlled scale A/B" });
+    await screen.findByRole("heading", { name: "Side-by-side test at scale" });
 
     const representations = screen.getByRole("region", {
       name: "Vector representation benchmark",

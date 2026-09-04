@@ -10,8 +10,8 @@ import type { ToolContract } from "../types";
  * (`docs/superpowers/specs/2026-08-27-prove-and-package-architecture.md`, R5).
  * A fifth numbered stage would read as a fourth curriculum item, which the
  * owner ruled out, so this renders as a sibling of the scorecard within stage
- * 04 -- set apart by its own rule, never boxed like the scorecard's own A-D
- * sections, so it never reads as a fifth one of those either.
+ * 04. Its larger heading and accent edge mark it as the conclusion, while the
+ * missing stage number keeps it outside the numbered curriculum.
  *
  * This used to be a `PlaygroundDisclosure` inside stage 03 Reason, opened on
  * click. Packaging is not part of agent reasoning, and the owner's mockup
@@ -52,8 +52,13 @@ export function PackageFinale() {
 
   return (
     <section className="labs-package-finale" aria-labelledby="labs-package-title">
-      <hr className="labs-package-rule" aria-hidden="true" />
-      <h3 id="labs-package-title">Package what you built</h3>
+      <header className="labs-package-heading">
+        <h3 id="labs-package-title">Package what you built</h3>
+        <p>
+          The three labs become one portable retrieval capability with Aurora as
+          its evidence authority.
+        </p>
+      </header>
       <p className="labs-package-name">Mosaic Hybrid Retrieval Skill</p>
 
       {skillError ? (
@@ -66,9 +71,8 @@ export function PackageFinale() {
       ) : (
         <>
           <p className="labs-contract-note">
-            The three labs built one bounded retrieval capability. Its package
-            carries the callable contract, checked HTTP mapping, composition
-            profile, and adaptation guide.
+            Its package carries the callable contract, checked HTTP mapping,
+            composition profile, and adaptation guide.
           </p>
           <p className="labs-skill-takeaway">
             <span>Participant takeaway</span>
