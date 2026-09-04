@@ -323,3 +323,323 @@ def test_the_measured_artifact_separates_its_claim_classes():
     assert nvme["instrumentation_limit"]
     assert nvme["index_build"]["verdict"] == "no measurable difference"
     assert len(nvme["cold_runs"]) >= 2, "one cold run is not a measurement"
+
+
+# --- Attribution: whose corpus and whose worktree these numbers describe -------
+
+
+class _FakeSettings:
+    """The three identity fields `measured()` compares against the artifact."""
+
+    def __init__(
+        self,
+        *,
+        manifest: str,
+        revision: str = "b" * 40,
+        dirty: bool = False,
+        database_url: str | None = None,
+    ) -> None:
+        self.dataset_manifest_sha256 = manifest
+        self.source_revision = revision
+        self.source_worktree_dirty = dirty
+        self.database_url = database_url
+
+
+RUNTIME_MANIFEST = "d5abc2c047f73726926260bb6a5364b50295acc4c6b2a3e9e35d47e93eb5c464"
+HALFVEC_INDEX = "product_document_embedding_hnsw_halfvec_idx"
+BINARY_INDEX = "product_document_embedding_hnsw_binary_idx"
+
+
+def _stub_settings(monkeypatch, settings) -> None:
+    monkeypatch.setattr("service.hnsw.get_settings", lambda: settings)
+
+
+def _stub_index_states(monkeypatch, states: dict[str, str]) -> None:
+    monkeypatch.setattr("service.hnsw.index_states", lambda names: dict(states))
+
+
+def test_measured_refuses_to_claim_an_artifact_measured_on_another_corpus(monkeypatch):
+    """The committed artifact was measured elsewhere, and must say so.
+
+    Its provenance records manifest 7cd7a5ae and `source_worktree_dirty: true`,
+    while the connected corpus reports d5abc2c0. Serving that under an
+    unqualified MEASURED badge is the exact failure the badge exists to prevent.
+    """
+    _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
+    _stub_index_states(monkeypatch, {HALFVEC_INDEX: "valid", BINARY_INDEX: "valid"})
+
+    attribution = measured()["attribution"]
+
+    assert attribution["attributed"] is False
+    assert "different dataset manifest" in attribution["attribution_note"]
+    assert "dirty worktree" in attribution["attribution_note"]
+    assert "fix:" in attribution["attribution_note"]
+    assert attribution["measured_source_revision"].startswith("e5b10ef")
+    assert attribution["measured_source_worktree_dirty"] is True
+    assert attribution["measured_dataset_manifest_sha256"].startswith("7cd7a5ae")
+    assert attribution["current_dataset_manifest_sha256"] == RUNTIME_MANIFEST
+    assert attribution["current_source_revision"] == "b" * 40
+    assert attribution["current_source_worktree_dirty"] is False
+
+
+def _clean_artifact(tmp_path, manifest: str):
+    payload = json.loads(MEASURED_ARTIFACT.read_text(encoding="utf-8"))
+    payload["provenance"] = payload["provenance"] | {
+        "dataset_manifest_sha256": manifest,
+        "source_worktree_dirty": False,
+    }
+    fixture = tmp_path / "hnsw_measured.json"
+    fixture.write_text(json.dumps(payload), encoding="utf-8")
+    return fixture
+
+
+def test_measured_is_attributed_when_the_corpus_matches_and_the_tree_was_clean(
+    tmp_path, monkeypatch
+):
+    """The positive control for the gate above, byte-identical but for provenance."""
+    monkeypatch.setattr(
+        "service.hnsw.MEASURED_ARTIFACT", _clean_artifact(tmp_path, RUNTIME_MANIFEST)
+    )
+    _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
+    _stub_index_states(monkeypatch, {HALFVEC_INDEX: "valid", BINARY_INDEX: "valid"})
+
+    attribution = measured()["attribution"]
+
+    assert attribution["attributed"] is True
+    assert "different dataset manifest" not in attribution["attribution_note"]
+    assert "dirty worktree" not in attribution["attribution_note"]
+
+
+def test_measured_is_not_attributed_when_the_connected_manifest_is_unresolved(
+    tmp_path, monkeypatch
+):
+    """`unknown` matches nothing. Treating it as a match would attribute anything."""
+    monkeypatch.setattr(
+        "service.hnsw.MEASURED_ARTIFACT", _clean_artifact(tmp_path, "unknown")
+    )
+    _stub_settings(monkeypatch, _FakeSettings(manifest="unknown"))
+    _stub_index_states(monkeypatch, {HALFVEC_INDEX: "valid", BINARY_INDEX: "valid"})
+
+    attribution = measured()["attribution"]
+
+    assert attribution["attributed"] is False
+    assert "unresolved dataset manifest" in attribution["attribution_note"]
+
+
+# --- Representations: advertised only while the indexes behind them exist -----
+
+
+def test_measured_withholds_representations_when_a_quantized_index_is_missing(
+    monkeypatch,
+):
+    """Nothing in the bootstrap builds these two indexes.
+
+    `db/sql/19_indexes_quantized.sql` is the only file that creates them and no
+    phase runs it, so on a freshly bootstrapped cluster the halfvec and binary
+    rows describe indexes the reader cannot inspect, EXPLAIN, or reproduce.
+    """
+    _stub_index_states(monkeypatch, {HALFVEC_INDEX: "missing", BINARY_INDEX: "valid"})
+    _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
+
+    payload = measured()
+
+    assert "representations" not in payload
+    reason = payload["representations_unavailable_reason"]
+    assert HALFVEC_INDEX in reason
+    assert "missing" in reason
+    assert "make db-index-quantized" in reason
+    assert "fix:" in reason
+
+
+def test_measured_withholds_representations_when_a_quantized_index_is_invalid(
+    monkeypatch,
+):
+    """An interrupted CREATE INDEX CONCURRENTLY leaves a relation that is not usable."""
+    _stub_index_states(monkeypatch, {HALFVEC_INDEX: "valid", BINARY_INDEX: "invalid"})
+    _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
+
+    reason = measured()["representations_unavailable_reason"]
+
+    assert BINARY_INDEX in reason
+    assert "invalid" in reason
+
+
+def test_measured_keeps_representations_when_both_quantized_indexes_are_valid(
+    monkeypatch,
+):
+    _stub_index_states(monkeypatch, {HALFVEC_INDEX: "valid", BINARY_INDEX: "valid"})
+    _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
+
+    payload = measured()
+
+    assert payload["representations"]["rows"]
+    assert "representations_unavailable_reason" not in payload
+
+
+def test_measured_names_the_cluster_error_when_index_state_cannot_be_read(monkeypatch):
+    """No cluster is not the same claim as no index, so the reason says which."""
+
+    def unreachable(names):
+        raise RuntimeError("DATABASE_URL is not configured")
+
+    monkeypatch.setattr("service.hnsw.index_states", unreachable)
+    _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
+
+    payload = measured()
+
+    assert "representations" not in payload
+    assert "RuntimeError" in payload["representations_unavailable_reason"]
+
+
+def test_index_states_asks_the_catalog_for_validity_and_readiness():
+    """`indisvalid` alone is not enough; a not-ready index cannot serve a scan."""
+    from service.hnsw import INDEX_STATE_SQL
+
+    assert "indisvalid" in INDEX_STATE_SQL
+    assert "indisready" in INDEX_STATE_SQL
+    assert "mosaic_search" in INDEX_STATE_SQL
+
+
+# --- Probe: refuse a representation whose index is not there ------------------
+
+
+class _FakeConnection:
+    """Answers the index-state query with canned catalog rows, nothing else."""
+
+    def __init__(self, states: dict[str, str]) -> None:
+        self.states = states
+
+    def execute(self, sql, parameters=None):
+        names = list(parameters[0]) if parameters else []
+        rows = [
+            {"name": name, "state": self.states.get(name, "missing")} for name in names
+        ]
+        return _FakeCursor(rows)
+
+
+class _FakeCursor:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def fetchall(self):
+        return self.rows
+
+
+def test_probe_refuses_a_representation_whose_index_was_never_built():
+    from service.hnsw import RepresentationUnavailable, require_representation_index
+
+    connection = _FakeConnection({})
+
+    with pytest.raises(RepresentationUnavailable) as raised:
+        require_representation_index(connection, "halfvec")
+
+    message = str(raised.value)
+    assert HALFVEC_INDEX in message
+    assert "make db-index-quantized" in message
+    assert "fix:" in message
+
+
+def test_probe_runs_when_the_representation_index_is_valid():
+    from service.hnsw import require_representation_index
+
+    require_representation_index(_FakeConnection({HALFVEC_INDEX: "valid"}), "halfvec")
+
+
+def test_probe_points_fp32_at_its_own_recovery_target():
+    """The cosine index is bootstrap's, so its fix is not the quantized target."""
+    from service.hnsw import RepresentationUnavailable, require_representation_index
+
+    with pytest.raises(RepresentationUnavailable) as raised:
+        require_representation_index(_FakeConnection({}), "fp32")
+
+    assert "make db-drop-invalid-indexes" in str(raised.value)
+    assert "make db-index-quantized" not in str(raised.value)
+
+
+# --- The probe runs the statement twice, and now says so ----------------------
+
+
+class _FakePlanConnection:
+    def __init__(self):
+        self.statements: list[str] = []
+
+    def execute(self, sql, parameters=None):
+        self.statements.append(sql)
+        return _FakePlanCursor()
+
+
+class _FakePlanCursor:
+    def fetchone(self):
+        return {
+            "QUERY PLAN": [
+                {
+                    "Execution Time": 2.5,
+                    "Plan": {
+                        "Node Type": "Index Scan",
+                        "Index Name": "product_document_embedding_hnsw_cosine_idx",
+                        "Shared Hit Blocks": 514,
+                        "Shared Read Blocks": 0,
+                        "Total Cost": 1317.49,
+                        "Plan Rows": 10,
+                    },
+                }
+            ]
+        }
+
+
+def test_explain_labels_itself_as_the_second_execution_of_the_statement():
+    """The response mixes two runs: rows from the first, timing from the second.
+
+    `probe()` executes the ANN statement for its rows and then runs it again
+    under EXPLAIN (ANALYZE). The second run finds the buffers already warm, so
+    `server_ms` and the buffer counts are not the cost of a cold first query.
+    """
+    from service.hnsw import _explain_probe
+
+    plan = _explain_probe(_FakePlanConnection(), "SELECT 1", [])
+
+    assert "second execution" in plan["execution"]
+    assert "first" in plan["execution"]
+
+
+def test_no_docstring_claims_the_probe_runs_a_single_query():
+    """Two docstrings said `one real ANN query` while the code ran two."""
+    from service import main
+    from service.hnsw import probe
+
+    assert "one real ANN query" not in (probe.__doc__ or "")
+    assert "one real ANN query" not in (main.hnsw_probe_route.__doc__ or "")
+
+
+# --- The manifest guard is the ground-truth join, not a self-comparison -------
+
+
+def test_manifest_refuses_an_unresolved_value(monkeypatch):
+    from scripts.seed_exact_neighbors import StaleGroundTruth
+    from service.hnsw import _manifest
+
+    _stub_settings(monkeypatch, _FakeSettings(manifest="unknown"))
+
+    with pytest.raises(StaleGroundTruth) as raised:
+        _manifest()
+
+    assert "fix:" in str(raised.value)
+
+
+def test_manifest_returns_a_resolved_value(monkeypatch):
+    from service.hnsw import _manifest
+
+    _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
+
+    assert _manifest() == RUNTIME_MANIFEST
+
+
+def test_manifest_does_not_compare_a_value_against_itself():
+    """`assert_manifest_matches(stored=m, connected=m)` can only ever be equal.
+
+    It read as a corpus check and was not one. The real check is the
+    `dataset_manifest_sha256 = %s` predicate on the ground-truth join.
+    """
+    source = (ROOT / "service" / "hnsw.py").read_text(encoding="utf-8")
+
+    assert "stored=manifest, connected=manifest" not in source

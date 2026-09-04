@@ -35,6 +35,7 @@ from service.catalog import (
 from service.config import get_settings
 from service.db import close_pool, connect, get_pool, readiness
 from service.fusion_comparison import SubstrateError, get_fusion_comparison_service
+from service.hnsw import RepresentationUnavailable
 from service.model_runtime import (
     bedrock_credentials_status,
     safe_model_runtime_message,
@@ -788,7 +789,12 @@ def hnsw_substrate_route() -> dict[str, Any]:
 
 @app.get("/api/hnsw/measured")
 def hnsw_measured_route() -> dict[str, Any]:
-    """The committed measured benchmark artifact, with its provenance."""
+    """The committed measured benchmark artifact, with its provenance.
+
+    `attribution` says whether the artifact describes the connected cluster, and
+    the representation comparison is withheld when the quantized indexes it
+    compares do not exist here.
+    """
     try:
         return hnsw.measured()
     except RuntimeError as error:
@@ -823,14 +829,20 @@ def hnsw_neighborhood_route(
 
 @app.post("/api/hnsw/probe")
 def hnsw_probe_route(request: HnswProbeRequest) -> dict[str, Any]:
-    """Run one real ANN query and report what the server actually did.
+    """Run the same ANN query twice and report what the server actually did.
+
+    The first execution returns the rows recall is computed from; the second runs
+    under EXPLAIN (ANALYZE, BUFFERS) and supplies the plan, timing, and buffer
+    counts. `plan.execution` carries which is which onto every response.
 
     Recall is computed against precomputed ground truth, never by re-running the
-    exact scan, so this endpoint's cost ceiling is a filtered HNSW scan rather than
-    a sequential scan over 3,870 MB of TOASTed vectors.
+    exact scan, so this endpoint's cost ceiling is two filtered HNSW scans rather
+    than a sequential scan over 3,870 MB of TOASTed vectors.
     """
     try:
         return hnsw.probe(request)
+    except RepresentationUnavailable as error:
+        raise HTTPException(404, str(error)) from error
     except KeyError as error:
         raise HTTPException(404, str(error.args[0])) from error
     except StaleGroundTruth as error:

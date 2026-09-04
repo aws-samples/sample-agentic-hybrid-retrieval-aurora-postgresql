@@ -77,6 +77,42 @@ def connect() -> Iterator[psycopg.Connection]:
         yield connection
 
 
+def exact_neighbor_ground_truth(connection: psycopg.Connection, manifest: str) -> str:
+    """Whether HNSW ground truth exists for the corpus this service is connected to.
+
+    Seeding is deliberately outside the bootstrap: `make db-seed-exact-neighbors`
+    runs 30 anchors across 6 presets as exact sequential scans, roughly 7 minutes,
+    for one optional Labs surface. That decision stands, and this reports the
+    resulting gap instead of leaving a fresh account to discover it as a 503 from
+    the neighbourhood and probe endpoints.
+
+    It never gates `database_ready`, for the same reason: nothing required by the
+    three labs depends on it.
+
+    Args:
+        connection: An open connection to the workshop cluster.
+        manifest: The dataset manifest the running service reports.
+
+    Returns:
+        `"seeded"` when at least one neighbour row is stored for `manifest`,
+        otherwise `"missing"` -- including when the table itself is absent.
+    """
+    present = connection.execute(
+        "SELECT to_regclass('mosaic_bench.exact_neighbor') IS NOT NULL AS present"
+    ).fetchone()["present"]
+    if not present:
+        return "missing"
+    stored = connection.execute(
+        """
+        SELECT count(*) AS neighbor_rows
+        FROM mosaic_bench.exact_neighbor
+        WHERE dataset_manifest_sha256 = %s
+        """,
+        (manifest,),
+    ).fetchone()["neighbor_rows"]
+    return "seeded" if stored else "missing"
+
+
 def readiness() -> dict[str, object]:
     with connect() as connection:
         row = connection.execute(
@@ -157,4 +193,8 @@ def readiness() -> dict[str, object]:
                 ) AS missing_retrieval_functions
             """
         ).fetchone()
-        return dict(row)
+        return dict(row) | {
+            "exact_neighbor_ground_truth": exact_neighbor_ground_truth(
+                connection, get_settings().dataset_manifest_sha256 or ""
+            )
+        }

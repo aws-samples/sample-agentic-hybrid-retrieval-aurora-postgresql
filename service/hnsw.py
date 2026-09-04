@@ -15,13 +15,16 @@ measuring a path the request path never takes.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+import psycopg
+
 from scripts.retrieval_profile import explain
 from scripts.seed_exact_neighbors import (
+    UNRESOLVED_MANIFEST,
     StaleGroundTruth,
-    assert_manifest_matches,
     load_ground_truth,
 )
 from service.config import get_settings
@@ -107,9 +110,208 @@ _PRODUCT_COLUMNS = """
     catalog_asset_key, media_tier::text AS media_tier
 """
 
+# The two indexes only `db/sql/19_indexes_quantized.sql` creates. No bootstrap phase
+# runs that file, so on a freshly bootstrapped cluster neither exists.
+QUANTIZED_REPRESENTATION_INDEXES = (
+    REPRESENTATION_INDEX["halfvec"],
+    REPRESENTATION_INDEX["binary"],
+)
+
+# The Makefile target that builds each representation's index, quoted into the
+# refusal so a reader is told the one command that resolves it.
+REPRESENTATION_RECOVERY: dict[str, str] = {
+    "fp32": "run `make db-drop-invalid-indexes` then `make db-index-concurrent`",
+    "halfvec": "run `make db-index-quantized` (roughly 9 minutes for both indexes)",
+    "binary": "run `make db-index-quantized` (roughly 9 minutes for both indexes)",
+}
+
+# `indisvalid` alone is not enough. An interrupted CREATE INDEX CONCURRENTLY leaves a
+# relation that exists, is skipped by IF NOT EXISTS, and cannot serve a scan; the
+# planner ignores it while `to_regclass` still finds it. Same shape as
+# `service.db.readiness()`, which gates the three required retrieval indexes.
+INDEX_STATE_SQL = """
+SELECT required.name AS name,
+       CASE
+           WHEN index_state.indexrelid IS NULL THEN 'missing'
+           WHEN index_state.indisvalid AND index_state.indisready THEN 'valid'
+           ELSE 'invalid'
+       END AS state
+FROM unnest(%s::text[]) AS required(name)
+LEFT JOIN pg_index AS index_state
+  ON index_state.indexrelid = (
+      SELECT index_relation.oid
+      FROM pg_class AS index_relation
+      JOIN pg_namespace AS index_schema
+        ON index_schema.oid = index_relation.relnamespace
+      WHERE index_schema.nspname = 'mosaic_search'
+        AND index_relation.relname = required.name
+        AND index_relation.relkind = 'i'
+  )
+"""
+
+
+class RepresentationUnavailable(RuntimeError):
+    """A representation was requested whose index is missing or not usable."""
+
+
+def _index_states(connection: Any, names: Sequence[str]) -> dict[str, str]:
+    """Catalog state of each named index on an already-open connection."""
+    rows = connection.execute(INDEX_STATE_SQL, ([str(name) for name in names],))
+    return {row["name"]: row["state"] for row in rows.fetchall()}
+
+
+def index_states(names: Sequence[str]) -> dict[str, str]:
+    """Report each named `mosaic_search` index as `valid`, `invalid`, or `missing`.
+
+    Args:
+        names: Bare index relation names, without the schema qualifier.
+
+    Returns:
+        One entry per requested name. A name the catalog does not know is
+        `missing`; one that exists but is not both valid and ready is `invalid`.
+    """
+    with connect() as connection:
+        return _index_states(connection, names)
+
+
+def require_representation_index(connection: Any, representation: str) -> None:
+    """Refuse to probe a representation whose index cannot serve the query.
+
+    Without this the query still runs: it falls back to a sequential scan over
+    3,870 MB of TOASTed vectors, hits the 5s statement timeout, and reports the
+    failure as a timeout rather than as the missing index it is.
+
+    Raises:
+        RepresentationUnavailable: The index is missing or not valid and ready.
+    """
+    index_name = REPRESENTATION_INDEX[representation]
+    state = _index_states(connection, [index_name]).get(index_name, "missing")
+    if state == "valid":
+        return
+    raise RepresentationUnavailable(
+        explain(
+            f"index {index_name} for representation {representation!r} is {state}",
+            REPRESENTATION_RECOVERY[representation],
+        )
+    )
+
+
+def _measured_attribution(provenance: dict[str, Any]) -> dict[str, Any]:
+    """Decide whether the committed artifact describes the running system.
+
+    Binding conjunction over exactly two facts, mirroring
+    `service.scorecard._attribution`:
+
+        artifact.provenance.source_worktree_dirty == False
+        AND artifact.provenance.dataset_manifest_sha256 == the connected corpus,
+            with that manifest resolved
+
+    Revision equality is deliberately not in the conjunction, and for the same
+    reason it is absent from the scorecard: `scripts/benchmark_hnsw.py` records
+    the revision *before* the artifact it writes is committed, so a strict
+    equality would read "measured elsewhere" forever. The revision is carried on
+    both sides as display and audit evidence.
+    """
+    settings = get_settings()
+    measured_manifest = provenance.get("dataset_manifest_sha256") or ""
+    current_manifest = settings.dataset_manifest_sha256 or ""
+    measured_dirty = provenance.get("source_worktree_dirty")
+
+    reasons: list[str] = []
+    if current_manifest in ("", UNRESOLVED_MANIFEST):
+        reasons.append(
+            f"the connected corpus reports an unresolved dataset manifest "
+            f"{current_manifest!r}"
+        )
+    elif measured_manifest != current_manifest:
+        reasons.append(
+            f"a different dataset manifest (measured {measured_manifest[:12]}, "
+            f"connected {current_manifest[:12]})"
+        )
+    if measured_dirty is not False:
+        reasons.append(
+            f"a dirty worktree at measurement time "
+            f"(source_worktree_dirty is {measured_dirty!r})"
+        )
+
+    if reasons:
+        note = explain(
+            "these numbers were measured elsewhere: " + "; ".join(reasons),
+            "re-run `make benchmark-hnsw` against the connected corpus from a "
+            "clean worktree, or read the panel as a record of another cluster",
+        )
+    else:
+        note = (
+            f"Measured on the connected corpus "
+            f"({current_manifest[:12]}) from a clean worktree at revision "
+            f"{str(provenance.get('source_revision') or '')[:12]}."
+        )
+    return {
+        "measured_source_revision": provenance.get("source_revision"),
+        "measured_source_worktree_dirty": measured_dirty,
+        "measured_dataset_manifest_sha256": provenance.get("dataset_manifest_sha256"),
+        "current_source_revision": settings.source_revision,
+        "current_source_worktree_dirty": settings.source_worktree_dirty,
+        "current_dataset_manifest_sha256": settings.dataset_manifest_sha256,
+        "attributed": not reasons,
+        "attribution_note": note,
+    }
+
+
+def _gate_representations(payload: dict[str, Any]) -> dict[str, Any]:
+    """Withhold the representation comparison unless both indexes are usable.
+
+    The artifact advertises `..._halfvec_idx` and `..._binary_idx`. Only
+    `db/sql/19_indexes_quantized.sql` creates them and no bootstrap phase runs
+    it, so on a freshly bootstrapped cluster those rows describe indexes the
+    reader cannot EXPLAIN, inspect, or reproduce.
+    """
+    if "representations" not in payload:
+        return payload
+    try:
+        states = index_states(QUANTIZED_REPRESENTATION_INDEXES)
+    except (RuntimeError, psycopg.Error) as error:
+        # The two ways this read fails: no DSN configured (`RuntimeError` from
+        # `get_pool`), or the cluster refusing the connection or the query.
+        # Neither is swallowed -- an unreachable cluster is a different claim
+        # from a missing index, and the reason names which one happened.
+        return _withhold_representations(
+            payload,
+            explain(
+                f"index state could not be read from the cluster "
+                f"({type(error).__name__}: {error})",
+                "point DATABASE_URL at the workshop cluster and reload",
+            ),
+        )
+    unusable = {name: state for name, state in states.items() if state != "valid"}
+    if not unusable:
+        return payload
+    listed = ", ".join(f"{name} is {state}" for name, state in sorted(unusable.items()))
+    return _withhold_representations(
+        payload,
+        explain(
+            f"the connected cluster has no usable quantized index: {listed}",
+            "run `make db-index-quantized` (roughly 9 minutes for both indexes), "
+            "or read the halfvec and binary rows as a record of another cluster",
+        ),
+    )
+
+
+def _withhold_representations(payload: dict[str, Any], reason: str) -> dict[str, Any]:
+    """Drop the representation rows, leaving the reason in their place."""
+    gated = {key: value for key, value in payload.items() if key != "representations"}
+    gated["representations_unavailable_reason"] = reason
+    return gated
+
 
 def measured() -> dict[str, Any]:
-    """Serve the committed measured artifact, refusing anything not measured."""
+    """Serve the committed measured artifact, refusing anything not measured.
+
+    Two things are added to the file on the way out, both about whether its
+    numbers describe the cluster the reader is connected to: `attribution`, and
+    the gate that withholds `representations` when the indexes they compare do
+    not exist here.
+    """
     if not MEASURED_ARTIFACT.exists():
         raise RuntimeError(
             explain(
@@ -126,7 +328,8 @@ def measured() -> dict[str, Any]:
                 "MEASURED badge and must not carry projected values",
             )
         )
-    return payload
+    payload["attribution"] = _measured_attribution(payload.get("provenance") or {})
+    return _gate_representations(payload)
 
 
 def substrate() -> dict[str, Any]:
@@ -302,8 +505,32 @@ def resolve_preset(key: str) -> FilterPreset:
 
 
 def _manifest() -> str:
+    """The connected corpus's dataset manifest, refused unless it is resolved.
+
+    This checks one thing and no longer pretends to check two. It previously
+    called `assert_manifest_matches` passing this same manifest as both the
+    stored and the connected side, which can only ever be equal: it read as a
+    corpus check and was not one.
+
+    The corpus check that does exist is the `dataset_manifest_sha256 = %s`
+    predicate on every `mosaic_bench.exact_neighbor` join below. Ground truth
+    computed against another corpus simply does not match, and the caller raises
+    `StaleGroundTruth` rather than reporting recall against the wrong answers.
+    An unresolved manifest would defeat that predicate by pinning every corpus to
+    the same sentinel, which is what this function refuses.
+
+    Raises:
+        StaleGroundTruth: The manifest is empty or the unresolved sentinel.
+    """
     manifest = get_settings().dataset_manifest_sha256 or ""
-    assert_manifest_matches(stored=manifest, connected=manifest)
+    if not manifest or manifest == UNRESOLVED_MANIFEST:
+        raise StaleGroundTruth(
+            explain(
+                f"the connected corpus reports dataset manifest {manifest!r}",
+                "set DATASET_MANIFEST_SHA256, or restore data/full/manifest.json — "
+                "ground truth pinned to an unresolved manifest matches any corpus",
+            )
+        )
     return manifest
 
 
@@ -389,14 +616,30 @@ def _plan_scan_node(entry: dict[str, Any]) -> str:
     return node_type if "Scan" in node_type else ""
 
 
+#: Which of the probe's two executions these numbers came from. `probe()` runs the
+#: ANN statement once for its rows and a second time under EXPLAIN (ANALYZE), so the
+#: rows and recall come from run one while every timing and buffer count here comes
+#: from run two, against a cache the first run already warmed.
+EXPLAIN_EXECUTION_NOTE = (
+    "second execution of the same statement on this connection; the first "
+    "returned the rows, so buffers were already warm"
+)
+
+
 def _explain_probe(connection: Any, sql: str, parameters: list[Any]) -> dict[str, Any]:
-    """The server's own view of the probe execution: time, buffers, plan shape."""
+    """The server's own view of a *second* execution: time, buffers, plan shape.
+
+    EXPLAIN (ANALYZE) runs the statement again. It is not an annotation of the
+    run that produced the returned rows, and `execution` says so on every
+    response rather than leaving the reader to assume one query was measured.
+    """
     plan = connection.execute(
         f"EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) {sql}", parameters
     ).fetchone()["QUERY PLAN"][0]
     node = plan["Plan"]
     indexes = _plan_index_names(node)
     return {
+        "execution": EXPLAIN_EXECUTION_NOTE,
         "node": _plan_scan_node(node) or node["Node Type"],
         "index_name": indexes[0] if indexes else None,
         "indexes_used": indexes,
@@ -430,10 +673,18 @@ def require_probe_ground_truth(
 
 
 def probe(request: Any) -> dict[str, Any]:
-    """Run one real ANN query and report what the server actually did.
+    """Run the same ANN query twice and report what the server actually did.
+
+    Two executions of one statement, deliberately, and the response says which
+    numbers came from which. The first returns the rows, which is what recall and
+    the returned products are computed from. The second runs under
+    EXPLAIN (ANALYZE, BUFFERS), which is where `plan.server_ms` and the buffer
+    counts come from — against a cache the first execution already warmed, so
+    they are not the cost of a cold query. `plan.execution` carries that
+    sentence onto every response.
 
     Recall is computed against `mosaic_bench.exact_neighbor`, never by re-running the
-    exact scan, so the cost ceiling of this endpoint is a filtered HNSW scan.
+    exact scan, so the cost ceiling of this endpoint is two filtered HNSW scans.
     """
     preset = resolve_preset(request.filter_preset)
     manifest = _manifest()
@@ -455,6 +706,7 @@ def probe(request: Any) -> dict[str, Any]:
                     "choose an anchor from GET /api/hnsw/anchors",
                 )
             )
+        require_representation_index(connection, request.representation)
         truth = require_probe_ground_truth(
             load_ground_truth(connection, manifest_sha256=manifest, k=request.k),
             anchor_product_id=request.anchor_product_id,
