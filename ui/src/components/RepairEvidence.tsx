@@ -57,14 +57,21 @@ async function loadEvent(rawId: string): Promise<EventFieldState> {
 }
 
 export function RepairEvidence({
+  baselineSearchEventId,
   latestSearchEventId,
 }: {
+  /** The run the Playground has pinned as this mission's starting point: the
+   * carried-over Shop run, the first run of a scenario, or whatever the
+   * participant re-pinned. Compared against the latest run automatically, which
+   * is what removes the two-UUIDs-from-a-saved-file step this panel used to
+   * require. */
+  baselineSearchEventId: string | null;
   /** The most recent run's own id, from whichever numbered stage produced it.
    * Prefills the "after" field so a participant who already has a broken-state
    * "before" saved only has to paste one id. */
   latestSearchEventId: string | null;
 }) {
-  const [beforeInput, setBeforeInput] = useState("");
+  const [beforeInput, setBeforeInput] = useState(baselineSearchEventId ?? "");
   const [afterInput, setAfterInput] = useState(latestSearchEventId ?? "");
   const [beforeRun, setBeforeRun] = useState<RetrievalRunResponse | null>(null);
   const [afterRun, setAfterRun] = useState<RetrievalRunResponse | null>(null);
@@ -72,6 +79,7 @@ export function RepairEvidence({
   const [afterError, setAfterError] = useState("");
   const [pending, setPending] = useState(false);
   const [attempted, setAttempted] = useState(false);
+  const [compared, setCompared] = useState<{ before: string; after: string } | null>(null);
   const compareVersion = useRef(0);
 
   function invalidateComparison() {
@@ -82,21 +90,41 @@ export function RepairEvidence({
     setAfterError("");
     setPending(false);
     setAttempted(false);
+    setCompared(null);
   }
 
   // A fresh run landing on the numbered stages above becomes the new "after" by
-  // default. This only fires when that id actually changes, so editing the field
-  // by hand between runs is never clobbered mid-session.
+  // default, and the pinned baseline becomes the new "before". This only fires
+  // when one of those ids actually changes, so editing a field by hand between
+  // runs is never clobbered mid-session.
+  //
+  // Two known ids are compared without being asked. The participant already
+  // decided what to compare when they pinned the baseline and ran the pipeline
+  // again; making them re-state it by pasting both ids back in was the step that
+  // sent this panel's own instructions to a file on disk. Ids that are not
+  // shaped like event ids are left alone: an automatic comparison must not raise
+  // a paste error for something nobody pasted.
   useEffect(() => {
     invalidateComparison();
     if (latestSearchEventId) setAfterInput(latestSearchEventId);
-  }, [latestSearchEventId]);
+    if (baselineSearchEventId) setBeforeInput(baselineSearchEventId);
+    if (
+      baselineSearchEventId
+      && latestSearchEventId
+      && baselineSearchEventId !== latestSearchEventId
+      && isPlausibleSearchEventId(baselineSearchEventId)
+      && isPlausibleSearchEventId(latestSearchEventId)
+    ) {
+      void compareIds(baselineSearchEventId, latestSearchEventId);
+    }
+  }, [baselineSearchEventId, latestSearchEventId]);
 
-  async function compare() {
+  async function compareIds(before: string, after: string) {
     const request = ++compareVersion.current;
-    const beforeValue = beforeInput.trim();
-    const afterValue = afterInput.trim();
+    const beforeValue = before.trim();
+    const afterValue = after.trim();
     setAttempted(true);
+    setCompared(beforeValue && afterValue ? { before: beforeValue, after: afterValue } : null);
     setPending(true);
     setBeforeRun(null);
     setAfterRun(null);
@@ -119,6 +147,8 @@ export function RepairEvidence({
     setPending(false);
   }
 
+  const compare = () => compareIds(beforeInput, afterInput);
+
   const evidence = useMemo(
     () => (afterRun ? buildRepairEvidence(beforeRun, afterRun) : null),
     [beforeRun, afterRun],
@@ -129,52 +159,60 @@ export function RepairEvidence({
       <div className="labs-repair-content">
         <h3 id="labs-repair-title">Repair evidence</h3>
         <p className="labs-repair-intro">
-          Paste two persisted <code>search_event_id</code>s to see what a fix actually
-          changed: which arms contributed to the served pool, and where the target
-          result sat before and after reranking. Rank alone can look unchanged even
-          when the repair worked.
+          What a fix actually changed, read back from two persisted runs: which arms
+          contributed to the served pool, and where the target result sat before and
+          after reranking. Rank alone can look unchanged even when the repair worked.
         </p>
-        <form
-          className="labs-repair-form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void compare();
-          }}
-        >
-          <label>
-            <span>Before (optional)</span>
-            <input
-              aria-label="Before search_event_id"
-              autoComplete="off"
-              onChange={(event) => {
-                invalidateComparison();
-                setBeforeInput(event.target.value);
-              }}
-              placeholder="from /tmp/typo-recovery.json"
-              spellCheck={false}
-              type="text"
-              value={beforeInput}
-            />
-          </label>
-          <label>
-            <span>After</span>
-            <input
-              aria-label="After search_event_id"
-              autoComplete="off"
-              onChange={(event) => {
-                invalidateComparison();
-                setAfterInput(event.target.value);
-              }}
-              placeholder="most recent run, or paste one"
-              spellCheck={false}
-              type="text"
-              value={afterInput}
-            />
-          </label>
-          <button className="secondary-button" disabled={pending} type="submit">
-            {pending ? "Comparing" : "Compare"}
-          </button>
-        </form>
+        {compared ? (
+          <p className="labs-repair-pair">
+            Comparing baseline <code>{compared.before}</code> against{" "}
+            <code>{compared.after}</code>.
+          </p>
+        ) : null}
+        <details className="labs-repair-other">
+          <summary>Compare other runs</summary>
+          <form
+            className="labs-repair-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void compare();
+            }}
+          >
+            <label>
+              <span>Before (optional)</span>
+              <input
+                aria-label="Before search_event_id"
+                autoComplete="off"
+                onChange={(event) => {
+                  invalidateComparison();
+                  setBeforeInput(event.target.value);
+                }}
+                placeholder="paste a search_event_id"
+                spellCheck={false}
+                type="text"
+                value={beforeInput}
+              />
+            </label>
+            <label>
+              <span>After</span>
+              <input
+                aria-label="After search_event_id"
+                autoComplete="off"
+                onChange={(event) => {
+                  invalidateComparison();
+                  setAfterInput(event.target.value);
+                }}
+                placeholder="most recent run, or paste one"
+                spellCheck={false}
+                type="text"
+                value={afterInput}
+              />
+            </label>
+            <button className="secondary-button" disabled={pending} type="submit">
+              {pending ? "Comparing" : "Compare"}
+            </button>
+          </form>
+        </details>
 
       {afterError ? (
         <p className="labs-disclosure-error" role="alert">
@@ -191,8 +229,9 @@ export function RepairEvidence({
 
       {!attempted ? (
         <p className="labs-repair-hint" role="status">
-          Paste the before id you saved while the lab was still broken. The after
-          field already holds your most recent run. Then select Compare.
+          Pin a baseline run above, then run the pipeline again: this panel compares
+          the two on its own. To diff runs it does not already hold, open Compare
+          other runs and paste both ids.
         </p>
       ) : null}
 

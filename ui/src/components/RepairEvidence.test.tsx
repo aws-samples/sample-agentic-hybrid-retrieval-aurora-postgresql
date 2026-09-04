@@ -141,7 +141,9 @@ async function pressCompare() {
 
 describe("RepairEvidence — measured Lab 1 pair", () => {
   it("keeps the inputs, action, and helper on one centered content measure", () => {
-    const { container } = render(<RepairEvidence latestSearchEventId={AFTER_ID} />);
+    const { container } = render(
+      <RepairEvidence baselineSearchEventId={null} latestSearchEventId={AFTER_ID} />,
+    );
     const content = container.querySelector(".labs-repair-content");
     const form = content?.querySelector(".labs-repair-form");
     const helper = content?.querySelector(".labs-repair-hint");
@@ -156,7 +158,7 @@ describe("RepairEvidence — measured Lab 1 pair", () => {
 
   it("shows the trigram participation delta and frames the unchanged rank as confirmation", async () => {
     mockEventsByid({ [BEFORE_ID]: LAB1_BEFORE, [AFTER_ID]: LAB1_AFTER });
-    render(<RepairEvidence latestSearchEventId={null} />);
+    render(<RepairEvidence baselineSearchEventId={null} latestSearchEventId={null} />);
 
     fireEvent.change(screen.getByLabelText("Before search_event_id"), {
       target: { value: BEFORE_ID },
@@ -201,7 +203,7 @@ describe("RepairEvidence — measured Lab 1 pair", () => {
       LAB1_AFTER.candidates,
     );
     mockEventsByid({ [BEFORE_ID]: before, [AFTER_ID]: after });
-    render(<RepairEvidence latestSearchEventId={null} />);
+    render(<RepairEvidence baselineSearchEventId={null} latestSearchEventId={null} />);
 
     fireEvent.change(screen.getByLabelText("Before search_event_id"), {
       target: { value: BEFORE_ID },
@@ -213,6 +215,91 @@ describe("RepairEvidence — measured Lab 1 pair", () => {
 
     expect(cellsInRowFor("Close spelling")).toEqual(["0", "1", "not in pool", "#1"]);
     expect(await screen.findByText(RANK_UNCHANGED_REASSURANCE)).toBeTruthy();
+  });
+});
+
+describe("RepairEvidence — pinned baseline", () => {
+  it("compares the pinned baseline against the latest run without being asked", async () => {
+    // The panel used to require two UUIDs pasted by hand, from a file the
+    // participant had to remember to save. The Playground now knows both ids, so
+    // the comparison that is the whole point of the panel runs on its own.
+    mockEventsByid({ [BEFORE_ID]: LAB1_BEFORE, [AFTER_ID]: LAB1_AFTER });
+    render(
+      <RepairEvidence baselineSearchEventId={BEFORE_ID} latestSearchEventId={AFTER_ID} />,
+    );
+
+    expect(await screen.findByText(RANK_UNCHANGED_REASSURANCE)).toBeTruthy();
+    expect(cellsInRowFor("Close spelling")).toEqual(["0", "1", "not in pool", "#1"]);
+    expect(vi.mocked(api.retrievalEvent).mock.calls.map(([id]) => id).sort())
+      .toEqual([BEFORE_ID, AFTER_ID].sort());
+  });
+
+  it("keeps the pasted ids for other runs behind a closed disclosure", () => {
+    render(
+      <RepairEvidence baselineSearchEventId={BEFORE_ID} latestSearchEventId={AFTER_ID} />,
+    );
+
+    const disclosure = screen.getByText("Compare other runs").closest("details");
+    expect(disclosure).toBeTruthy();
+    expect((disclosure as HTMLDetailsElement).open).toBe(false);
+    expect(disclosure!.contains(screen.getByLabelText("Before search_event_id"))).toBe(true);
+    expect(disclosure!.contains(screen.getByLabelText("After search_event_id"))).toBe(true);
+    // The old placeholder named a file path the workshop no longer writes.
+    expect(screen.getByLabelText("Before search_event_id").getAttribute("placeholder"))
+      .toBe("paste a search_event_id");
+  });
+
+  it("does not compare a baseline against itself", async () => {
+    // On arrival from Shop the pinned run and the latest run are the same event.
+    // Diffing it against itself would report a repair where nothing has happened.
+    mockEventsByid({ [AFTER_ID]: LAB1_AFTER });
+    render(
+      <RepairEvidence baselineSearchEventId={AFTER_ID} latestSearchEventId={AFTER_ID} />,
+    );
+
+    await waitFor(() => expect(screen.getByText("Repair evidence")).toBeTruthy());
+    expect(vi.mocked(api.retrievalEvent)).not.toHaveBeenCalled();
+    expect(screen.queryByText("Close spelling")).toBeNull();
+  });
+
+  it("re-compares when the Playground re-pins the baseline", async () => {
+    const other = run(
+      {
+        search_event_id: "3f0a9d1c-6b2e-4c7a-8d51-2e9f4a6b7c80",
+        candidate_counts: LAB1_AFTER.run.candidate_counts,
+      },
+      [candidate({ product_id: 404, trigram_rank: 1 })],
+    );
+    mockEventsByid({
+      [BEFORE_ID]: LAB1_BEFORE,
+      [AFTER_ID]: LAB1_AFTER,
+      "3f0a9d1c-6b2e-4c7a-8d51-2e9f4a6b7c80": other,
+    });
+    const { rerender } = render(
+      <RepairEvidence baselineSearchEventId={BEFORE_ID} latestSearchEventId={AFTER_ID} />,
+    );
+    expect(await screen.findByText(/product #2\b/)).toBeTruthy();
+
+    rerender(
+      <RepairEvidence
+        baselineSearchEventId={AFTER_ID}
+        latestSearchEventId="3f0a9d1c-6b2e-4c7a-8d51-2e9f4a6b7c80"
+      />,
+    );
+
+    expect(await screen.findByText(/product #404/)).toBeTruthy();
+  });
+
+  it("never spends a request on an id that is not shaped like one", async () => {
+    // The Playground's run ids are real event ids, but an automatic comparison
+    // must not raise a paste error for something the participant never pasted.
+    render(
+      <RepairEvidence baselineSearchEventId="first-run" latestSearchEventId="latest-run" />,
+    );
+
+    await waitFor(() => expect(screen.getByText("Repair evidence")).toBeTruthy());
+    expect(vi.mocked(api.retrievalEvent)).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });
 
@@ -230,7 +317,7 @@ describe("RepairEvidence — fused-to-final gap", () => {
       })],
     );
     mockEventsByid({ [AFTER_ID]: after });
-    render(<RepairEvidence latestSearchEventId={AFTER_ID} />);
+    render(<RepairEvidence baselineSearchEventId={null} latestSearchEventId={AFTER_ID} />);
 
     await pressCompare();
 
@@ -243,7 +330,7 @@ describe("RepairEvidence — fused-to-final gap", () => {
 
   it("does not render the caution for a small fused-to-final move", async () => {
     mockEventsByid({ [AFTER_ID]: LAB1_AFTER });
-    render(<RepairEvidence latestSearchEventId={AFTER_ID} />);
+    render(<RepairEvidence baselineSearchEventId={null} latestSearchEventId={AFTER_ID} />);
 
     await pressCompare();
 
@@ -255,7 +342,7 @@ describe("RepairEvidence — fused-to-final gap", () => {
 describe("RepairEvidence — missing before and bad ids", () => {
   it("renders the honest missing-before state without blocking the after-only evidence", async () => {
     mockEventsByid({ [AFTER_ID]: LAB1_AFTER });
-    render(<RepairEvidence latestSearchEventId={AFTER_ID} />);
+    render(<RepairEvidence baselineSearchEventId={null} latestSearchEventId={AFTER_ID} />);
 
     await pressCompare();
 
@@ -268,7 +355,7 @@ describe("RepairEvidence — missing before and bad ids", () => {
 
   it("rejects a malformed before id without ever calling the API for it", async () => {
     mockEventsByid({ [AFTER_ID]: LAB1_AFTER });
-    render(<RepairEvidence latestSearchEventId={AFTER_ID} />);
+    render(<RepairEvidence baselineSearchEventId={null} latestSearchEventId={AFTER_ID} />);
 
     fireEvent.change(screen.getByLabelText("Before search_event_id"), {
       target: { value: "not-a-uuid" },
@@ -285,7 +372,7 @@ describe("RepairEvidence — missing before and bad ids", () => {
 
   it("renders a clear error for a well-formed but unknown after id, not an empty frame", async () => {
     mockEventsByid({});
-    render(<RepairEvidence latestSearchEventId={AFTER_ID} />);
+    render(<RepairEvidence baselineSearchEventId={null} latestSearchEventId={AFTER_ID} />);
 
     await pressCompare();
 
@@ -313,7 +400,7 @@ describe("RepairEvidence — request attribution", () => {
       { search_event_id: AFTER_ID },
       [candidate({ product_id: 202 })],
     );
-    render(<RepairEvidence latestSearchEventId={null} />);
+    render(<RepairEvidence baselineSearchEventId={null} latestSearchEventId={null} />);
 
     fireEvent.change(screen.getByLabelText("After search_event_id"), {
       target: { value: firstId },
@@ -339,7 +426,7 @@ describe("RepairEvidence — request attribution", () => {
     vi.mocked(api.retrievalEvent)
       .mockRejectedValueOnce(new Error("temporary comparison failure"))
       .mockResolvedValueOnce(LAB1_AFTER);
-    render(<RepairEvidence latestSearchEventId={AFTER_ID} />);
+    render(<RepairEvidence baselineSearchEventId={null} latestSearchEventId={AFTER_ID} />);
 
     await pressCompare();
     expect((await screen.findByRole("alert")).textContent).toContain(

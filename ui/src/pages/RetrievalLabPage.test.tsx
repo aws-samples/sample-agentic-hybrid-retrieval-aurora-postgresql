@@ -9,13 +9,14 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "../api";
+import { ApiError, api } from "../api";
 import { mosaicRetrievalExamples, retrievalExamplesByStage } from "../labMissions";
 import { showcaseCatalogPage } from "../showcase";
 import type {
   ProductSummary,
   ReadinessResponse,
   RetrievalDiagnostics,
+  RetrievalRunResponse,
   RetrievalScorecardResponse,
   SearchResponse,
   ToolContract,
@@ -132,6 +133,25 @@ vi.mock("../components/RetrievalObservatory", () => ({
       <p>observatory scenario: {example?.id}</p>
       <p>observatory run: {response ? response.search_event_id : "none"}</p>
       <p>observatory loading: {String(loading)}</p>
+    </section>
+  ),
+}));
+
+/**
+ * The repair panel has its own file. What this page owes it is two ids, so the
+ * mock reports the two it was handed and nothing else.
+ */
+vi.mock("../components/RepairEvidence", () => ({
+  RepairEvidence: ({
+    baselineSearchEventId,
+    latestSearchEventId,
+  }: {
+    baselineSearchEventId: string | null;
+    latestSearchEventId: string | null;
+  }) => (
+    <section aria-label="Repair evidence">
+      <p>repair baseline: {baselineSearchEventId ?? "none"}</p>
+      <p>repair latest: {latestSearchEventId ?? "none"}</p>
     </section>
   ),
 }));
@@ -394,6 +414,46 @@ const allArmsHealthyResponse: SearchResponse = {
   diagnostics: allArmsHealthyDiagnostics,
 };
 
+/** The event id Shop persisted for the run a participant is looking at. */
+const SHOP_EVENT_ID = "9614ed9b-4ceb-4aad-9276-4e69af2231b9";
+
+/** What `GET /api/retrieval/events/{id}` replays for that run. */
+const shopEvent: RetrievalRunResponse = {
+  run: {
+    search_event_id: SHOP_EVENT_ID,
+    occurred_at: "2026-08-23T21:09:45.604925Z",
+    session_id: null,
+    query_text: "noice cancelng hedfones",
+    normalized_query: "noice cancelng hedfones",
+    filters: {},
+    retrieval_profile: {},
+    source_revision: null,
+    embedding_model_id: "us.cohere.embed-v4:0",
+    rerank_model_id: "cohere.rerank-v3-5:0",
+    retrieval_strategy: "rrf_fusion+rerank+exact_sku_preservation",
+    database_version: "18.3",
+    vector_extension_version: "0.8.1",
+    aurora_instance_class: null,
+    hnsw_settings: {},
+    candidate_counts: { fused_pool: 50, fts_in_pool: 1, trigram_in_pool: 0, semantic_in_pool: 49 },
+    total_latency_ms: 785,
+    diagnostics: {},
+  },
+  candidates: [
+    {
+      product_id: 2,
+      result_rank: 1,
+      fts_rank: 1,
+      trigram_rank: null,
+      semantic_rank: null,
+      fused_rank: 1,
+      rerank_rank: 1,
+      scores: {},
+      provenance: {},
+    },
+  ],
+};
+
 describe("RetrievalLabPage", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/labs/retrieval");
@@ -401,6 +461,7 @@ describe("RetrievalLabPage", () => {
     vi.mocked(api.search).mockResolvedValue(primaryResponse);
     vi.mocked(api.readiness).mockReset();
     vi.mocked(api.readiness).mockRejectedValue(new Error("readiness unavailable"));
+    vi.mocked(api.retrievalEvent).mockReset();
     vi.mocked(api.scorecard).mockReset();
     vi.mocked(api.scorecard).mockResolvedValue(minimalScorecard);
     // Stage 04's Package finale loads on mount too, same as the scorecard.
@@ -868,5 +929,122 @@ describe("RetrievalLabPage", () => {
     // Removed from stage 03 completely, not merely hidden there.
     expect(reasonStage.querySelector(".labs-package-finale")).toBeNull();
     expect(within(reasonStage as HTMLElement).queryByText("Package what you built")).toBeNull();
+  });
+
+  it("reads the run Shop served rather than running the query again", async () => {
+    // Re-running the query minted a second event, so the run behind the results
+    // the shopper was looking at became unreachable the moment they followed the
+    // link. Nothing downstream could then compare against what Shop served.
+    vi.mocked(api.retrievalEvent).mockResolvedValue(shopEvent);
+    window.history.replaceState(
+      {},
+      "",
+      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+    );
+    render(<RetrievalLabPage />);
+
+    await waitFor(() => {
+      expect(api.retrievalEvent).toHaveBeenCalledWith(SHOP_EVENT_ID);
+    });
+    expect(api.search).not.toHaveBeenCalled();
+    expect(screen.getByText("This is the exact run from Shop")).toBeTruthy();
+    // The banner names the run it read, so the claim is checkable rather than
+    // decorative.
+    expect(document.querySelector(".labs-carried-over")?.textContent)
+      .toContain(SHOP_EVENT_ID.slice(0, 8));
+  });
+
+  it("pins the carried-over run as the baseline the repair panel compares from", async () => {
+    vi.mocked(api.retrievalEvent).mockResolvedValue(shopEvent);
+    window.history.replaceState(
+      {},
+      "",
+      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+    );
+    render(<RetrievalLabPage />);
+
+    expect(await screen.findByText(`repair baseline: ${SHOP_EVENT_ID}`)).toBeTruthy();
+    expect(screen.getByText(`repair latest: ${SHOP_EVENT_ID}`)).toBeTruthy();
+  });
+
+  it("runs the query again, and says so, when the Shop run cannot be read back", async () => {
+    vi.mocked(api.retrievalEvent).mockRejectedValue(
+      new ApiError(404, "Search event not found"),
+    );
+    window.history.replaceState(
+      {},
+      "",
+      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+    );
+    render(<RetrievalLabPage />);
+
+    await waitFor(() => {
+      expect(api.search).toHaveBeenCalledWith(
+        "noice cancelng hedfones",
+        {},
+        { limit: 12, rerank: true },
+      );
+    });
+    expect(
+      await screen.findByText(/The Shop run could not be found, so the query was run again/),
+    ).toBeTruthy();
+  });
+
+  it("still replays a hand-off that carries no event", async () => {
+    window.history.replaceState({}, "", "/labs/retrieval?q=noice+cancelng+hedfones");
+    render(<RetrievalLabPage />);
+
+    await waitFor(() => {
+      expect(api.search).toHaveBeenCalledWith(
+        "noice cancelng hedfones",
+        {},
+        { limit: 12, rerank: true },
+      );
+    });
+    expect(api.retrievalEvent).not.toHaveBeenCalled();
+    expect(screen.getByText("Carried over from Shop")).toBeTruthy();
+  });
+
+  it("pins the first run as the baseline and keeps it while later runs land", async () => {
+    vi.mocked(api.search)
+      .mockResolvedValueOnce(firstComparisonResponse)
+      .mockResolvedValueOnce(latestComparisonResponse);
+    render(<RetrievalLabPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+    expect(await screen.findByText("repair baseline: first-retrieval-run")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+
+    expect(await screen.findByText("repair latest: latest-retrieval-run")).toBeTruthy();
+    expect(screen.getByText("repair baseline: first-retrieval-run")).toBeTruthy();
+  });
+
+  it("re-pins the baseline to the run on screen when asked", async () => {
+    vi.mocked(api.search)
+      .mockResolvedValueOnce(firstComparisonResponse)
+      .mockResolvedValueOnce(latestComparisonResponse);
+    render(<RetrievalLabPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+    await screen.findByText("repair baseline: first-retrieval-run");
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+    await screen.findByText("repair latest: latest-retrieval-run");
+
+    fireEvent.click(screen.getByRole("button", { name: "Pin as baseline" }));
+
+    expect(await screen.findByText("repair baseline: latest-retrieval-run")).toBeTruthy();
+  });
+
+  it("drops the pinned baseline when another scenario is selected", async () => {
+    render(<RetrievalLabPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+    await screen.findByText("repair baseline: retrieval-primary");
+
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "exact-identity" } });
+
+    expect(await screen.findByText("repair baseline: none")).toBeTruthy();
+    expect(screen.getByText("repair latest: none")).toBeTruthy();
   });
 });

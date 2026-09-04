@@ -33,6 +33,7 @@ import { mosaicRetrievalExamples, retrievalExamplesByStage } from "../labMission
 import { liveRetrievalOutcome, retrievalLabOutcome } from "../labOutcome";
 import {
   RETRIEVAL_SURFACE,
+  forwardedSearchEvent,
   forwardedSearchFilters,
   useSearchParams,
 } from "../navigation";
@@ -92,6 +93,11 @@ function runMeasurements(
   ];
 }
 
+/** Enough of a `search_event_id` to recognise on screen, without printing 36 characters. */
+function shortEventId(searchEventId: string): string {
+  return searchEventId.slice(0, 8);
+}
+
 /** Eligibility gates the run actually applied, named rather than counted. */
 function appliedGates(response: SearchResponse): string[] {
   return Object.entries(response.applied_filters)
@@ -121,6 +127,16 @@ export function RetrievalLabPage() {
     () => forwardedSearchFilters(params),
     [params],
   );
+  /**
+   * The run Shop actually served, when the link carried it.
+   *
+   * Re-running the query answered a question nobody asked: the participant
+   * followed a link from a result set they were already looking at, and the
+   * replay minted a second `mosaic.search_event` whose pool could differ. The
+   * run behind those results was then unreachable, so no later comparison could
+   * anchor on it.
+   */
+  const forwardedEvent = useMemo(() => forwardedSearchEvent(params), [params]);
   const requestedIndex = mosaicRetrievalExamples.findIndex(
     (example) => example.id === requestedExample,
   );
@@ -136,6 +152,21 @@ export function RetrievalLabPage() {
    * run belongs to the scenario again and uses its gates.
    */
   const [carriedOver, setCarriedOver] = useState(Boolean(forwardedQuery));
+  /** The Shop run this surface read back, once it has. Null until then, and null
+   * for a hand-off that carried only a query. */
+  const [carriedRunId, setCarriedRunId] = useState<string | null>(null);
+  /** True once a carried event failed to read back and the query was replayed
+   * instead, which the banner has to say rather than quietly re-running. */
+  const [carriedRunMissing, setCarriedRunMissing] = useState(false);
+  /**
+   * The run this mission measures its repairs against.
+   *
+   * Pinned to the first run after a mission is selected, including a run carried
+   * over from Shop, because that is the state the participant is about to change.
+   * Re-pinnable, and dropped whenever the mission itself changes: a baseline from
+   * one scenario's query says nothing about another's.
+   */
+  const [baselineSearchEventId, setBaselineSearchEventId] = useState<string | null>(null);
   const [response, setResponse] = useState<SearchResponse | null>(null);
   const [firstResponse, setFirstResponse] = useState<SearchResponse | null>(null);
   const [executedQuery, setExecutedQuery] = useState("");
@@ -211,13 +242,15 @@ export function RetrievalLabPage() {
     [],
   );
 
-  const selectExample = (id: string) => {
-    const index = mosaicRetrievalExamples.findIndex((candidate) => candidate.id === id);
-    if (index < 0) return;
+  /** Everything a run left behind, cleared together. The pinned baseline belongs
+   * to the request that produced it, so a new mission or a new query drops it
+   * rather than carrying a comparison across two unrelated queries. */
+  const resetRunState = () => {
     requestVersion.current += 1;
-    setSelected(index);
-    setQuery(mosaicRetrievalExamples[index].query);
     setCarriedOver(false);
+    setCarriedRunId(null);
+    setCarriedRunMissing(false);
+    setBaselineSearchEventId(null);
     setResponse(null);
     setFirstResponse(null);
     setExecutedQuery("");
@@ -226,16 +259,17 @@ export function RetrievalLabPage() {
     setLoading(false);
   };
 
+  const selectExample = (id: string) => {
+    const index = mosaicRetrievalExamples.findIndex((candidate) => candidate.id === id);
+    if (index < 0) return;
+    resetRunState();
+    setSelected(index);
+    setQuery(mosaicRetrievalExamples[index].query);
+  };
+
   const editQuery = (value: string) => {
-    requestVersion.current += 1;
+    resetRunState();
     setQuery(value);
-    setCarriedOver(false);
-    setResponse(null);
-    setFirstResponse(null);
-    setExecutedQuery("");
-    setRunCount(0);
-    setError("");
-    setLoading(false);
   };
 
   const run = useCallback(async function run() {
@@ -259,6 +293,11 @@ export function RetrievalLabPage() {
         setResponse(nextResponse);
         setExecutedQuery(requestedQuery);
         setRunCount((count) => count + 1);
+        // The first run of a mission is the state the participant is about to
+        // change, so it becomes the baseline without being asked for. Later runs
+        // leave it alone: a baseline that moved every run could never show a
+        // repair.
+        setBaselineSearchEventId((pinned) => pinned ?? nextResponse.search_event_id);
       }
     } catch (cause) {
       if (version === requestVersion.current) {
@@ -270,22 +309,50 @@ export function RetrievalLabPage() {
   }, [carriedOver, example, forwardedFilters, query]);
 
   /**
-   * Run the forwarded query on arrival, once.
+   * Take delivery of the forwarded request on arrival, once.
    *
-   * Landing on an empty Retrieve stage after following "See how this was retrieved"
-   * makes the hand-off read as three separate demonstrations rather than one request
-   * travelling through the product. `ranForwarded` gates it so editing the query and
-   * re-rendering does not re-fire it.
+   * A link that carried the run's own id is read back from
+   * `mosaic.search_event` and pinned; nothing is re-run, because re-running is
+   * what loses the run. A link that carried only the query is replayed, which is
+   * all it can support: landing on an empty Retrieve stage would make the
+   * hand-off read as three separate demonstrations rather than one request
+   * travelling through the product. `ranForwarded` gates both so editing the
+   * query and re-rendering does not re-fire them.
    */
   useEffect(() => {
     if (!forwardedQuery || ranForwarded.current || !example) return;
     ranForwarded.current = true;
-    void run();
-  }, [example, forwardedQuery, run]);
+    if (!forwardedEvent) {
+      void run();
+      return;
+    }
+    let active = true;
+    void api
+      .retrievalEvent(forwardedEvent)
+      .then((event) => {
+        if (!active) return;
+        setCarriedRunId(event.run.search_event_id);
+        setBaselineSearchEventId(event.run.search_event_id);
+      })
+      .catch(() => {
+        if (!active) return;
+        setCarriedRunMissing(true);
+        void run();
+      });
+    return () => {
+      active = false;
+    };
+  }, [example, forwardedEvent, forwardedQuery, run]);
 
   const counts = response?.diagnostics?.candidate_counts;
   const profile = response?.diagnostics?.retrieval_profile;
   const gates = response ? appliedGates(response) : [];
+  /**
+   * The run this surface currently holds evidence for: a pipeline run once there
+   * has been one, otherwise the run carried over from Shop. Both are real
+   * persisted events, which is why one field can name either.
+   */
+  const latestSearchEventId = response?.search_event_id ?? carriedRunId;
 
   // The same wrapper and masthead the other two Playground lenses use.
   return (
@@ -390,16 +457,57 @@ export function RetrievalLabPage() {
         <p className="labs-carried-over">
           <ArrowRightLeft aria-hidden="true" size={15} />
           <span>
-            Carried over from Shop:{" "}
+            <strong>
+              {carriedRunId ? "This is the exact run from Shop" : "Carried over from Shop"}
+            </strong>{" "}
             <code>{forwardedQuery}</code>
           </span>
-          <small>
-            {Object.keys(forwardedFilters).length
-              ? `Same query, same ${Object.keys(forwardedFilters).length} eligibility gate${
-                Object.keys(forwardedFilters).length === 1 ? "" : "s"
-              }.`
-              : "Same query, no eligibility gates, as on Shop."}
-          </small>
+          {carriedRunId ? (
+            <small>
+              Run {shortEventId(carriedRunId)}, read back from Postgres. Nothing was
+              re-run, so this is the pool Shop served.
+            </small>
+          ) : carriedRunMissing ? (
+            <small>
+              The Shop run could not be found, so the query was run again. This is a
+              new run, not the one behind those results.
+            </small>
+          ) : (
+            <small>
+              {Object.keys(forwardedFilters).length
+                ? `Same query, same ${Object.keys(forwardedFilters).length} eligibility gate${
+                  Object.keys(forwardedFilters).length === 1 ? "" : "s"
+                }.`
+                : "Same query, no eligibility gates, as on Shop."}
+            </small>
+          )}
+        </p>
+      ) : null}
+
+      {/* One line of run bookkeeping: which run is on screen, which one this
+          mission measures against, and the way to move the second one. */}
+      {latestSearchEventId ? (
+        <p className="labs-run-summary">
+          <span>
+            Run on screen <code>{shortEventId(latestSearchEventId)}</code>
+          </span>
+          <span>
+            {baselineSearchEventId
+              ? (
+                <>
+                  Baseline <code>{shortEventId(baselineSearchEventId)}</code>
+                </>
+              )
+              : "No baseline pinned"}
+          </span>
+          <button
+            className="secondary-button"
+            disabled={baselineSearchEventId === latestSearchEventId}
+            onClick={() => setBaselineSearchEventId(latestSearchEventId)}
+            type="button"
+          >
+            Pin as baseline
+          </button>
         </p>
       ) : null}
 
@@ -553,7 +661,10 @@ export function RetrievalLabPage() {
       {/* Not a numbered stage: this reads two persisted events Stage 01/02 already
           produced rather than running its own retrieval, so it sits between them
           and Reason as a lens over that evidence, not a fourth pipeline step. */}
-      <RepairEvidence latestSearchEventId={response?.search_event_id ?? null} />
+      <RepairEvidence
+        baselineSearchEventId={baselineSearchEventId}
+        latestSearchEventId={latestSearchEventId}
+      />
 
       <PlaygroundStage
         number="03"

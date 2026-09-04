@@ -12663,3 +12663,60 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Playground handoff and baseline */
+.labs-run-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0 0 0 var(--labs-gutter);
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+}
+
+.labs-run-summary code {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-run-summary > button {
+  margin-left: auto;
+}
+
+.labs-repair-other {
+  max-width: var(--labs-form-measure);
+}
+
+.labs-repair-other > summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+}
+
+.labs-repair-other[open] > summary {
+  margin-bottom: 14px;
+}
+
+.labs-repair-pair {
+  max-width: var(--labs-form-measure);
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+  line-height: 1.6;
+}
+
+.labs-repair-pair code {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+  overflow-wrap: anywhere;
+}
