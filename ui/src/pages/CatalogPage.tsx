@@ -126,6 +126,23 @@ function resultsViewKey(search: string): string {
 }
 
 /**
+ * Which retrieval request a response is an answer to.
+ *
+ * The served run is recorded on Shop's own URL, so it has to be retired the
+ * moment the request changes rather than when the next response lands. In
+ * between, the URL said `?q=B&event=<the run that answered A>`, and the
+ * Playground took delivery of that link and asserted "This is the exact run
+ * from Shop" over a query that run never saw.
+ *
+ * Both sides of the comparison are render-time values, which is the point: an
+ * effect testing `retrievalLoading` reads the value from the render before the
+ * one that changed the request, so it records the stale run anyway.
+ */
+function retrievalRequestKey(query: string, filters: SearchFilters): string {
+  return JSON.stringify([query, filters]);
+}
+
+/**
  * What a Shop search is doing while it runs, in the storefront's own words.
  *
  * This list read "Cohere Embed v4 / FTS / pg_trgm / HNSW / SQL eligibility / RRF
@@ -195,6 +212,9 @@ export function CatalogPage() {
   const [retrievalLoading, setRetrievalLoading] = useState(false);
   const [retrievalError, setRetrievalError] = useState("");
   const [retrievalQuery, setRetrievalQuery] = useState(searchParams.get("q") ?? "");
+  /** The request `retrieval` answered, so a response held over from an earlier
+   * one is never mistaken for the run this URL is asking for. */
+  const [servedRequest, setServedRequest] = useState("");
   const [agentOpen, setAgentOpen] = useState(false);
   const [highlightedProductId, setHighlightedProductId] = useState<number | null>(null);
   const [drawerProductId, setDrawerProductId] = useState<number | null>(null);
@@ -236,6 +256,7 @@ export function CatalogPage() {
     min_price_cents: minPriceCents ? Number(minPriceCents) : undefined,
     max_price_cents: maxPriceCents ? Number(maxPriceCents) : undefined,
   };
+  const retrievalRequest = retrievalRequestKey(activeQuery, filters);
   const {
     answeredTurn,
     clear: clearAgentThread,
@@ -324,10 +345,13 @@ export function CatalogPage() {
     }
 
     setRetrievalLoading(true);
+    const request = retrievalRequest;
     api
       .search(activeQuery, filters, { limit: pageSize, rerank: true })
       .then((response) => {
-        if (version === retrievalRequestVersion.current) setRetrieval(response);
+        if (version !== retrievalRequestVersion.current) return;
+        setRetrieval(response);
+        setServedRequest(request);
       })
       .catch((cause) => {
         if (version !== retrievalRequestVersion.current) return;
@@ -358,16 +382,24 @@ export function CatalogPage() {
    * run held only in component state would reach the in-page hand-off and not
    * the header one. Replaced rather than pushed: this records the request
    * already on screen, it is not somewhere a shopper navigated to.
+   *
+   * Only the run that answers the request the URL is currently making. A
+   * response outlives its own request -- the grid keeps showing it while the
+   * next search runs -- and recording it against the new query would hand the
+   * Playground a run from a question nobody asked.
    */
+  const servedSearchEventId = retrieval && servedRequest === retrievalRequest
+    ? retrieval.search_event_id
+    : "";
+
   useEffect(() => {
     const recorded = searchParams.get("event") ?? "";
-    const served = retrieval?.search_event_id ?? "";
-    if (recorded === served) return;
+    if (recorded === servedSearchEventId) return;
     const next = new URLSearchParams(searchParams);
-    if (served) next.set("event", served);
+    if (servedSearchEventId) next.set("event", servedSearchEventId);
     else next.delete("event");
     setSearchParams(next, { replace: true });
-  }, [retrieval, searchParams, setSearchParams]);
+  }, [servedSearchEventId, searchParams, setSearchParams]);
 
   // Keyed on the view a hand-off asked for rather than on the whole query
   // string: any other parameter changing while the scroll is still queued would
@@ -551,6 +583,10 @@ export function CatalogPage() {
     next.delete("offset");
     next.delete("ask");
     next.delete("mode");
+    // The run recorded here answered the previous query. Dropping it with the
+    // query it belongs to leaves no render in which the hand-off links carry a
+    // run from one search and the words of another.
+    next.delete("event");
     next.set("view", "results");
     setSearchParams(next);
   }
@@ -561,12 +597,16 @@ export function CatalogPage() {
     next.delete("ask");
     next.delete("mode");
     next.delete("view");
+    next.delete("event");
     setRetrieval(null);
     setRetrievalError("");
     setRetrievalQuery("");
     setSearchParams(next);
   }
 
+  /** Built from nothing rather than filtered down, so `event` goes with the
+   * gates: the run on screen was retrieved under them, and it is not the run
+   * this URL will be asking for once they are gone. */
   function clearFilters() {
     const next = new URLSearchParams();
     if (sort !== "featured") next.set("sort", sort);

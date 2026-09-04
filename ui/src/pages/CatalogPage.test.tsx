@@ -217,6 +217,19 @@ const recommendations = catalog.products
  * placeholder here would prove the wrong thing.
  */
 const SEARCH_EVENT_ID = "9614ed9b-4ceb-4aad-9276-4e69af2231b9";
+/** The run a second search serves, so "the run on the URL changed" is checkable
+ * rather than inferred from the absence of the first one. */
+const SECOND_EVENT_ID = "3f0a9d1c-6b2e-4c7a-8d51-2e9f4a6b7c80";
+
+/** A search that has been made and has not answered yet: the window in which the
+ * URL used to carry the previous run. */
+function deferredSearch<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((next) => {
+    resolve = next;
+  });
+  return { promise, resolve };
+}
 
 const searchResponse: SearchResponse = {
   search_event_id: SEARCH_EVENT_ID,
@@ -778,6 +791,72 @@ describe("CatalogPage", () => {
         .toBe(SEARCH_EVENT_ID);
     });
     expect(new URLSearchParams(window.location.search).get("q")).toBe("quiet keyboard");
+  });
+
+  it("retires the recorded run the moment a second search replaces it", async () => {
+    // The URL said `?q=<new query>&event=<run that answered the old one>` for as
+    // long as the second search was in flight, and the Playground took delivery
+    // of that link: it read the old run back and announced it as the exact run
+    // behind results the shopper had never seen.
+    window.history.replaceState({}, "", "/catalog?q=quiet%20keyboard");
+    renderPage();
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get("event"))
+        .toBe(SEARCH_EVENT_ID);
+    });
+
+    const secondRun = { ...searchResponse, search_event_id: SECOND_EVENT_ID };
+    const inFlight = deferredSearch<SearchResponse>();
+    vi.mocked(api.search).mockReturnValueOnce(inFlight.promise);
+    const input = screen.getByRole("combobox", { name: "Product search" });
+    fireEvent.change(input, { target: { value: "silent switches" } });
+    fireEvent.submit(input.closest("form")!);
+
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get("q"))
+        .toBe("silent switches");
+    });
+    expect(new URLSearchParams(window.location.search).get("event")).toBeNull();
+
+    await act(async () => {
+      inFlight.resolve(secondRun);
+    });
+
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get("event"))
+        .toBe(SECOND_EVENT_ID);
+    });
+  });
+
+  it("does not re-stamp the pre-filter run onto the URL when filters are cleared", async () => {
+    // Clearing the gates builds a fresh URL without the run on it, and the
+    // recording effect used to put it straight back: same query, a pool that no
+    // longer exists.
+    window.history.replaceState({}, "", "/catalog?q=quiet%20keyboard&brand=Sonorra");
+    renderPage();
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get("event"))
+        .toBe(SEARCH_EVENT_ID);
+    });
+
+    const inFlight = deferredSearch<SearchResponse>();
+    vi.mocked(api.search).mockReturnValueOnce(inFlight.promise);
+    fireEvent.click(screen.getAllByRole("button", { name: "Clear all" })[0]);
+
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get("brand")).toBeNull();
+    });
+    expect(new URLSearchParams(window.location.search).get("q")).toBe("quiet keyboard");
+    expect(new URLSearchParams(window.location.search).get("event")).toBeNull();
+
+    await act(async () => {
+      inFlight.resolve({ ...searchResponse, search_event_id: SECOND_EVENT_ID });
+    });
+
+    await waitFor(() => {
+      expect(new URLSearchParams(window.location.search).get("event"))
+        .toBe(SECOND_EVENT_ID);
+    });
   });
 
   it("scrolls a Discover handoff to results and offers Ask Mosaic beside them", async () => {
