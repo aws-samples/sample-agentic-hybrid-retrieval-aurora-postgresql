@@ -494,8 +494,16 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
               the filters retrieval enforced, then the searches it issued. Both
               are the same components Shop prints, over the same `plan`, so the
               two surfaces cannot drift into two accounts of one run. */}
-          {plan.length ? <Criteria plan={plan} /> : null}
-          {plan.length ? <Searches plan={plan} /> : null}
+          {plan.length ? (
+            <Criteria
+              headingId="reason-criteria-title"
+              plan={plan}
+              title="Filters the agent searched with"
+            />
+          ) : null}
+          {plan.length ? (
+            <Searches open plan={plan} title="Searches the agent issued" />
+          ) : null}
 
           {products.length ? (
             <section
@@ -560,6 +568,10 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
               aria-labelledby="reason-citations-title"
             >
               <h3 id="reason-citations-title">What each claim cites</h3>
+              <small>
+                Cited by the answer. The records the application authorized are listed
+                under the evidence chain below.
+              </small>
               <ol>
                 {citations.map((citation) => (
                   <li key={`${citation.number}-${citation.evidence_id}`}>

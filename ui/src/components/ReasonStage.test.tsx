@@ -584,6 +584,7 @@ describe("ReasonStage grounded answer", () => {
     expect(answer.textContent).toContain("Pick the Sonora chair");
     expect(within(answer).getByText("Sonora").tagName).toBe("STRONG");
 
+    const chain = screen.getByRole("list", { name: "Evidence state chain" });
     const ordered = [
       // The filters retrieval actually enforced, unioned across the plan.
       screen.getByText("4.5+ stars"),
@@ -597,12 +598,13 @@ describe("ReasonStage grounded answer", () => {
       answer,
       // The quote the single citation rests on.
       screen.getByText("Up to 60 hours of listening."),
+      chain,
     ];
 
-    const chain = screen.getByRole("list", { name: "Evidence state chain" });
-    for (const node of ordered) {
+    for (let i = 1; i < ordered.length; i += 1) {
       expect(
-        chain.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_PRECEDING,
+        ordered[i - 1].compareDocumentPosition(ordered[i])
+          & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
     }
 
@@ -619,6 +621,32 @@ describe("ReasonStage grounded answer", () => {
     expect(citations.textContent).toContain("product 2");
     expect(citations.textContent).toContain("mosaic://catalog/2/spec");
     expect(citations.textContent).toContain("r3");
+  });
+
+  /**
+   * On this stage the searches are the payoff, not a receipt tucked behind a
+   * click: the finding this closes is that `Searches` rendered `<details>`
+   * with no `open`, so a participant had to click to see what the agent
+   * searched for. Ask Mosaic's own call site keeps the collapsed default (see
+   * `AskMosaic.test.ts`); only the Reason stage opts into `open`.
+   */
+  it("keeps the searches receipt open without a click", async () => {
+    const response = payoffResponse();
+    vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
+      onEvent({ type: "complete", response });
+    });
+    vi.mocked(api.evidence).mockResolvedValue(
+      evidenceRecord(4021, "Resolved battery record"),
+    );
+
+    render(createElement(ReasonStage, {
+      question: "Which product is grounded?",
+      filters: {},
+    }));
+    await runAgent();
+
+    const details = screen.getByText("Searches the agent issued").closest("details");
+    expect(details?.hasAttribute("open")).toBe(true);
   });
 
   it("prints nothing about the answer, the plan or the citations before a run", () => {

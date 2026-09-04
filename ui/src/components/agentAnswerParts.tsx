@@ -54,14 +54,22 @@ function describeFilters(filters: SearchFilters): string[] {
  * across steps. The reference design labeled invented chips "extracted";
  * these are the extracted ones, read back from the executed plan.
  */
-export function Criteria({ plan }: { plan: AgentPlanStep[] }) {
+export function Criteria({
+  plan,
+  title = "Filters I searched with",
+  headingId = "ask-criteria-title",
+}: {
+  plan: AgentPlanStep[];
+  title?: string;
+  headingId?: string;
+}) {
   const chips = Array.from(
     new Set(plan.flatMap((step) => describeFilters(step.filters))),
   );
   if (!chips.length) return null;
   return (
-    <section className="ask-mosaic-criteria">
-      <h3>Filters I searched with</h3>
+    <section aria-labelledby={headingId} className="ask-mosaic-criteria">
+      <h3 id={headingId}>{title}</h3>
       <ul aria-label="Filters Mosaic searched with">
         {chips.map((chip) => (
           <li key={chip}>{chip}</li>
@@ -79,12 +87,20 @@ export function Criteria({ plan }: { plan: AgentPlanStep[] }) {
  * workspace and past views", which describes personalisation this system does
  * not do.
  */
-export function Searches({ plan }: { plan: AgentPlanStep[] }) {
+export function Searches({
+  plan,
+  open = false,
+  title = "How I searched",
+}: {
+  plan: AgentPlanStep[];
+  open?: boolean;
+  title?: string;
+}) {
   return (
-    <details className="ask-mosaic-receipt ask-mosaic-search-receipt">
+    <details className="ask-mosaic-receipt ask-mosaic-search-receipt" open={open}>
       <summary>
         <Search size={18} />
-        How I searched
+        {title}
         <span>{plan.length}</span>
       </summary>
       <ol className="ask-mosaic-searches">
