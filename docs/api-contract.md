@@ -188,7 +188,7 @@ Ask Mosaic continue to retrieve across all 500,000 products.
 - `GET /api/health` reports the configured service and model IDs.
 - `GET /api/readiness` verifies the product/vector counts, premium cohort,
   specification-evidence coverage, required retrieval indexes/functions,
-  model-space compatibility, and the current process's AWS credential validity.
+  model-space compatibility, and the current process's AWS credential validity. It also returns a `source` block with the running `revision`, whether the worktree was dirty, and the `dataset_manifest_sha256`, so the Playground's readiness strip can show which build and corpus answered.
 
 ## HNSW instrument
 

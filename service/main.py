@@ -247,6 +247,11 @@ def get_readiness() -> dict[str, Any]:
         "database_ready": database_ready,
         "model_space_ready": model_space_ready,
         "bedrock_credentials": bedrock_credentials,
+        "source": {
+            "revision": settings.source_revision,
+            "worktree_dirty": settings.source_worktree_dirty,
+            "dataset_manifest_sha256": settings.dataset_manifest_sha256,
+        },
     }
 
 
