@@ -121,9 +121,11 @@ recorded so nobody reclassifies a fixed bug as an exercise.
 | `sql/05_typo_tolerance_lab.sql` targeting `catalog.*` | taught against a schema the API does not read | ported to `db/sql/lab_01_typo_tolerance.sql` against `mosaic_search` |
 
 All four were measured on the live 500,000-product Aurora cluster before and
-after the fix. The shipped `search_fts` left four of the six missions with an
-empty lexical arm; the fix runs the strict `websearch_to_tsquery` match first,
-and only when that returns zero rows backs off to a conjunctive query over at
-most four corpus-present salient terms, so every mission's lexical arm gets a
-pool instead of an empty result. `catalog.*` does not exist on that cluster,
+after the fix. The shipped `search_fts` left the missions that then declared
+`fts` with an empty lexical arm; the fix runs the strict `websearch_to_tsquery`
+match first, and only when that returns zero rows backs off to a conjunctive
+query over at most four corpus-present salient terms. A query whose terms exist
+in the corpus now gets a lexical pool; an all-misspelled query such as the Lab 1
+anchor still returns nothing from this arm, and `tests/test_sql_integration.py`
+pins that. `catalog.*` does not exist on that cluster,
 which is why a lab targeting it could never teach anything.
