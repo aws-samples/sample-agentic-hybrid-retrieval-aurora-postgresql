@@ -12443,3 +12443,115 @@
     width: 100%;
   }
 }
+
+/* Reason stage answer */
+
+/* Shop's plan components carry their own top margin; the stage is a grid with
+   its own gap, so the two would compound. */
+.labs-reason > .ask-mosaic-criteria,
+.labs-reason > .ask-mosaic-receipt {
+  margin-top: 0;
+}
+
+.labs-reason-products li strong a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.labs-reason-products li strong a:hover,
+.labs-reason-products li strong a:focus-visible {
+  text-decoration: underline;
+}
+
+.labs-reason-answer,
+.labs-reason-citations {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.labs-reason-answer > h3,
+.labs-reason-citations > h3 {
+  margin: 0;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--sans);
+  font-size: var(--labs-h3);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.labs-reason-prose {
+  padding: 16px 18px;
+  color: var(--ink);
+  font-size: var(--labs-body);
+  line-height: 1.65;
+}
+
+.labs-reason-prose > :first-child {
+  margin-top: 0;
+}
+
+.labs-reason-prose > :last-child {
+  margin-bottom: 0;
+}
+
+.labs-reason-prose p {
+  max-width: 78ch;
+}
+
+.labs-reason-citations ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labs-reason-citations li {
+  display: grid;
+  gap: 4px 14px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.labs-reason-citations li:last-child {
+  border-bottom: 0;
+}
+
+.labs-reason-citations li > span {
+  color: var(--maroon-800);
+  font-family: var(--mono);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+}
+
+.labs-reason-citations li > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.labs-reason-citations li strong {
+  color: var(--ink);
+  font-size: var(--labs-body);
+  font-weight: 600;
+}
+
+.labs-reason-citations blockquote {
+  max-width: 78ch;
+  margin: 0;
+  padding-left: 11px;
+  border-left: 2px solid var(--maroon-800);
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  line-height: 1.55;
+}
+
+.labs-reason-citations li small,
+.labs-reason-citations li code {
+  overflow-wrap: anywhere;
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: var(--labs-micro);
+}

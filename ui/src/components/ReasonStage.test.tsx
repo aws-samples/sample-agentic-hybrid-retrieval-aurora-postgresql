@@ -8,6 +8,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
@@ -15,6 +16,7 @@ import { evidenceChain } from "./ReasonStage";
 import { ReasonStage } from "./ReasonStage";
 import type {
   AgentCitation,
+  AgentPlanStep,
   AgentResponse,
   EvidenceRecord,
   ProductSummary,
@@ -515,5 +517,120 @@ describe("ReasonStage evidence resolution", () => {
     expect(await screen.findByText("search_products")).toBeTruthy();
     expect(screen.queryByText("temporary contract failure")).toBeNull();
     expect(vi.mocked(api.toolContracts)).toHaveBeenCalledTimes(2);
+  });
+});
+
+/**
+ * Lab 3's payoff is the answer itself, and until this stage printed it the whole
+ * repair was legible only as six green rows. A participant who fixed
+ * `get_product_evidence` saw the chain flip and never read the sentence the
+ * repair bought them, nor the searches that fed it, nor the quote each claim
+ * rests on.
+ *
+ * The order is the argument: the plan that ran, the products it returned, the
+ * grounded answer, and the quotes behind it all come *before* the chain that
+ * audits them. The chain explains an answer the reader has already seen.
+ */
+describe("ReasonStage grounded answer", () => {
+  const PLAN: AgentPlanStep[] = [
+    {
+      query: "quiet mechanical keyboard",
+      filters: { min_rating: 4.5 },
+      purpose: "Find the quietest keyboards",
+    },
+    {
+      query: "lumbar support office chair",
+      filters: { in_stock_only: true },
+      purpose: "Find chairs that ship now",
+    },
+  ];
+
+  function payoffResponse(): AgentResponse {
+    return {
+      agent_run_id: "run-payoff",
+      question: "Which product is grounded?",
+      answer: "Pick the **Sonora** chair",
+      plan: PLAN,
+      recommendations: [
+        productSummary(2, "Mosaic QuietType K8"),
+        {
+          ...productSummary(370002, "Aeronex Lumbar Chair"),
+          brand: "Aeronex",
+          model: "L9",
+        },
+      ],
+      citations: [citation],
+      trace: REPAIRED_TRACE,
+    };
+  }
+
+  it("renders the plan, the recommendations, the answer and the citations above the evidence chain", async () => {
+    const response = payoffResponse();
+    vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
+      onEvent({ type: "complete", response });
+    });
+    vi.mocked(api.evidence).mockResolvedValue(
+      evidenceRecord(4021, "Resolved battery record"),
+    );
+
+    render(createElement(ReasonStage, {
+      question: "Which product is grounded?",
+      filters: {},
+    }));
+    await runAgent();
+
+    // The answer of record, rendered as Markdown rather than printed raw.
+    const answer = screen.getByRole("region", { name: "The grounded answer" });
+    expect(answer.textContent).toContain("Pick the Sonora chair");
+    expect(within(answer).getByText("Sonora").tagName).toBe("STRONG");
+
+    const ordered = [
+      // The filters retrieval actually enforced, unioned across the plan.
+      screen.getByText("4.5+ stars"),
+      screen.getByText("In stock only"),
+      // Both searches the agent issued.
+      screen.getByText("quiet mechanical keyboard"),
+      screen.getByText("lumbar support office chair"),
+      // Both recommendations, each linked to its product page.
+      screen.getByText("Mosaic QuietType K8"),
+      screen.getByText("Aeronex Lumbar Chair"),
+      answer,
+      // The quote the single citation rests on.
+      screen.getByText("Up to 60 hours of listening."),
+    ];
+
+    const chain = screen.getByRole("list", { name: "Evidence state chain" });
+    for (const node of ordered) {
+      expect(
+        chain.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_PRECEDING,
+      ).toBeTruthy();
+    }
+
+    // A recommendation the reader can open, and the brand beside its price.
+    expect(
+      screen.getByRole("link", { name: "Aeronex Lumbar Chair" }).getAttribute("href"),
+    ).toBe("/products/370002");
+    expect(screen.getByText(/Aeronex ·/)).toBeTruthy();
+
+    // The citation prints what makes it checkable, not just its number.
+    const citations = screen.getByRole("region", { name: "What each claim cites" });
+    expect(citations.textContent).toContain("[1]");
+    expect(citations.textContent).toContain("Battery life");
+    expect(citations.textContent).toContain("product 2");
+    expect(citations.textContent).toContain("mosaic://catalog/2/spec");
+    expect(citations.textContent).toContain("r3");
+  });
+
+  it("prints nothing about the answer, the plan or the citations before a run", () => {
+    render(createElement(ReasonStage, {
+      question: "Which product is grounded?",
+      filters: {},
+    }));
+
+    expect(screen.queryByRole("region", { name: "The grounded answer" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "What each claim cites" })).toBeNull();
+    expect(screen.queryByText("Filters I searched with")).toBeNull();
+    // The dormant shape is still the six states, drawn empty.
+    expect(screen.getByText("Citations resolved")).toBeTruthy();
   });
 });

@@ -1,8 +1,11 @@
 import { AlertTriangle, Check, LoaderCircle, Minus, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import Markdown from "react-markdown";
+import { Link } from "wouter";
 import { api } from "../api";
 import { formatPriceCompact, leafCategory } from "../format";
 import { productImageMap } from "../media";
+import { Criteria, Searches } from "./agentAnswerParts";
 import { CodeBlock } from "./CodeBlock";
 import {
   PlaygroundDisclosure,
@@ -14,6 +17,7 @@ import {
 import type {
   AgentCitation,
   AgentPartial,
+  AgentPlanStep,
   AgentResponse,
   EvidenceRecord,
   ProductSummary,
@@ -57,6 +61,14 @@ import type {
  *
  *   product retrieved      ->  successful search_products steps, result_count
  *   grounded answer         ->  whether this run produced the answer of record
+ *
+ * The chain audits an answer, so the answer comes first. Above it, in the order
+ * the run produced them: the filters retrieval enforced and the searches issued
+ * (`response.plan`), the products those searches returned
+ * (`response.recommendations`), the answer of record itself (`response.answer`),
+ * and the quote, product, source URI and revision behind every claim
+ * (`response.citations`). Without them a participant who repaired Lab 3 watched
+ * six rows turn green and never read the sentence the repair bought.
  */
 
 type ChainState = "pass" | "blocked" | "pending";
@@ -260,6 +272,7 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
   }, [question]);
 
   const trace: ToolTraceStep[] = response?.trace ?? partial?.trace ?? [];
+  const plan: AgentPlanStep[] = response?.plan ?? partial?.plan ?? [];
   const citations: AgentCitation[] = response?.citations ?? [];
   const products: ProductSummary[] =
     response?.recommendations ?? partial?.candidates ?? [];
@@ -477,6 +490,13 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
             />
           </PlaygroundFigures>
 
+          {/* The plan the agent executed, before anything it concluded from it:
+              the filters retrieval enforced, then the searches it issued. Both
+              are the same components Shop prints, over the same `plan`, so the
+              two surfaces cannot drift into two accounts of one run. */}
+          {plan.length ? <Criteria plan={plan} /> : null}
+          {plan.length ? <Searches plan={plan} /> : null}
+
           {products.length ? (
             <section
               className="labs-reason-products"
@@ -494,9 +514,16 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
                       src={productImages.get(product.product_id)}
                     />
                     <div>
-                      <strong>{product.title}</strong>
+                      {/* The recommendation is a row a reader can open. The
+                          product page holds the record the evidence was drawn
+                          from, and it was one page away with no way to get there. */}
+                      <strong>
+                        <Link href={`/products/${product.product_id}`}>
+                          {product.title}
+                        </Link>
+                      </strong>
                       <span>
-                        {leafCategory(product.category_path)} ·{" "}
+                        {product.brand} · {leafCategory(product.category_path)} ·{" "}
                         {formatPriceCompact(product.price_cents, product.currency)}
                       </span>
                       <small>product {product.product_id}</small>
@@ -504,6 +531,51 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
                   </li>
                 ))}
               </ul>
+            </section>
+          ) : null}
+
+          {/* Lab 3's payoff, and until now the one thing this stage never showed.
+              Six green rows say the repair worked; they do not say what it bought.
+              Markdown because that is what synthesis writes, and the answer is
+              printed as authored -- no emphasis added here, because on this stage
+              the text is the artifact under inspection. */}
+          {response?.answer ? (
+            <section
+              className="labs-reason-answer"
+              aria-labelledby="reason-answer-title"
+            >
+              <h3 id="reason-answer-title">The grounded answer</h3>
+              <div className="labs-reason-prose">
+                <Markdown>{response.answer}</Markdown>
+              </div>
+            </section>
+          ) : null}
+
+          {/* Every field that makes a citation checkable rather than asserted:
+              the quote the claim rests on, the product it is about, and the
+              source URI and revision of the record it came from. */}
+          {citations.length ? (
+            <section
+              className="labs-reason-citations"
+              aria-labelledby="reason-citations-title"
+            >
+              <h3 id="reason-citations-title">What each claim cites</h3>
+              <ol>
+                {citations.map((citation) => (
+                  <li key={`${citation.number}-${citation.evidence_id}`}>
+                    <span>[{citation.number}]</span>
+                    <div>
+                      <strong>{citation.title}</strong>
+                      <blockquote>{citation.quote}</blockquote>
+                      <small>
+                        product {citation.product_id} · evidence{" "}
+                        {citation.evidence_id} · {citation.revision}
+                      </small>
+                      <code>{citation.source_uri}</code>
+                    </div>
+                  </li>
+                ))}
+              </ol>
             </section>
           ) : null}
 
