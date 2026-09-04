@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import type { RetrievalScorecardResponse } from "../types";
@@ -19,6 +19,13 @@ import { RetrievalScorecard, SCORECARD_PENDING_HEADLINE } from "./RetrievalScore
 vi.mock("../api", () => ({
   api: { scorecard: vi.fn() },
 }));
+
+/**
+ * The fingerprint the fixture artifact records for itself. Distinctive on
+ * purpose: its first twelve characters are what the release-baseline lead has
+ * to print, so a component that printed some other hash cannot pass.
+ */
+const FIXTURE_FINGERPRINT = `f1e2d3c4b5a6${"0".repeat(52)}`;
 
 const DISTINCTIVE_RECALL = "0.7654";
 const DISTINCTIVE_MRR = "0.6543";
@@ -116,7 +123,12 @@ function scorecardFixture(
 ): RetrievalScorecardResponse {
   return {
     provenance: {
+      artifact_kind: "release_baseline",
+      served_at: "2026-09-04T09:15:00Z",
       measured_at: "2026-08-23T21:53:32.664198Z",
+      retrieval_fingerprint: FIXTURE_FINGERPRINT,
+      retrieval_settings_sha256: "e".repeat(64),
+      current_retrieval_settings_sha256: "e".repeat(64),
       query_set: "data/evals/canonical_queries.jsonl",
       query_set_sha256: "a".repeat(64),
       scored_query_set_sha256: "b".repeat(64),
@@ -677,5 +689,73 @@ describe("RetrievalScorecard stage ablation", () => {
     expect(
       screen.getByText(/cannot separate small differences between arms/i),
     ).toBeTruthy();
+  });
+
+  it("names section A a release baseline measured by the maintainers", async () => {
+    // The framing defect this closes: section A read as a verdict on the
+    // participant's own repairs, because nothing next to it said whose
+    // measurement it was. It is the maintainers' committed artifact, and it
+    // names the fingerprint it was measured at so a reader can tell which one.
+    vi.mocked(api.scorecard).mockResolvedValue(scorecardFixture());
+    render(<RetrievalScorecard />);
+
+    const lead = await screen.findByTestId("scorecard-release-baseline-lead");
+    expect(lead.textContent).toBe(
+      "Measured by the maintainers at fingerprint f1e2d3c4b5a6, not a record of your repairs.",
+    );
+    // Negative half: the label that used to sit here claimed the section was
+    // about search quality now, which is the reading being replaced.
+    expect(screen.getByText("Release baseline")).toBeTruthy();
+    expect(screen.queryByText("Search quality")).toBeNull();
+
+    // Two facts a baseline has to separate: when it was measured, and when
+    // this page read it.
+    const disclosure = (
+      await screen.findByText("Where these numbers come from")
+    ).closest("details") as HTMLElement;
+    expect(within(disclosure).getByText("served at")).toBeTruthy();
+    expect(within(disclosure).getByText("2026-09-04T09:15:00Z")).toBeTruthy();
+    expect(within(disclosure).getByText("artifact kind")).toBeTruthy();
+    expect(within(disclosure).getByText("release_baseline")).toBeTruthy();
+  });
+
+  it("says so plainly when the artifact recorded no fingerprint of its own", async () => {
+    // Paired with the test above so the lead cannot pass by always printing a
+    // hash: an artifact written before fingerprints existed has none, and the
+    // running process's own must never be substituted for it.
+    vi.mocked(api.scorecard).mockResolvedValue(
+      scorecardFixture({ retrieval_fingerprint: null }),
+    );
+    render(<RetrievalScorecard />);
+
+    const lead = await screen.findByTestId("scorecard-release-baseline-lead");
+    expect(lead.textContent).toBe(
+      "Measured by the maintainers at fingerprint none recorded, not a record of your repairs.",
+    );
+    expect(lead.textContent).not.toContain("f1e2d3c4b5a6");
+  });
+
+  it("re-reads the release baseline when the refresh key changes", async () => {
+    // A completion proof runs the mission through the served path and can
+    // change what the baseline is attributed against, so the block above it
+    // bumps this key when a proof finishes. Without the key in the effect's
+    // dependencies the scorecard kept showing the read it made on mount.
+    vi.mocked(api.scorecard).mockResolvedValue(scorecardFixture());
+    // This file's `afterEach` only unmounts; the call log is shared, so the
+    // counts below have to start from this test's own first render.
+    vi.mocked(api.scorecard).mockClear();
+    const { rerender } = render(<RetrievalScorecard refreshKey={0} />);
+
+    await screen.findByTestId("scorecard-release-baseline-lead");
+    expect(api.scorecard).toHaveBeenCalledTimes(1);
+
+    rerender(<RetrievalScorecard refreshKey={1} />);
+    await waitFor(() => expect(api.scorecard).toHaveBeenCalledTimes(2));
+
+    // Falsifier pairing: a rerender that does not move the key must not
+    // re-read, or every unrelated parent render would cost a request.
+    rerender(<RetrievalScorecard refreshKey={1} />);
+    await screen.findByTestId("scorecard-release-baseline-lead");
+    expect(api.scorecard).toHaveBeenCalledTimes(2);
   });
 });

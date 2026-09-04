@@ -34,7 +34,12 @@ import { RetrievalLabPage } from "./RetrievalLabPage";
  */
 const minimalScorecard: RetrievalScorecardResponse = {
   provenance: {
+    artifact_kind: "release_baseline",
+    served_at: "2026-09-04T09:15:00Z",
     measured_at: "2026-08-23T21:53:32.664198Z",
+    retrieval_fingerprint: "f".repeat(64),
+    retrieval_settings_sha256: "e".repeat(64),
+    current_retrieval_settings_sha256: "e".repeat(64),
     query_set: "data/evals/canonical_queries.jsonl",
     query_set_sha256: "a".repeat(64),
     scored_query_set_sha256: "b".repeat(64),
@@ -110,6 +115,9 @@ vi.mock("../api", () => ({
     // The lab rail reads where each lab stands, in both places a lab can be
     // broken. Its own coverage is in LabRail.test.tsx.
     labsState: vi.fn(),
+    // Stage 04's completion proof posts one lab at a time, and only when the
+    // participant presses it. Its own coverage is in CompletionProof.test.tsx.
+    labProof: vi.fn(),
     // Stage 03 runs the agent, but only when the participant presses its button.
     agentStream: vi.fn(),
     evidence: vi.fn(),
@@ -401,6 +409,61 @@ function mockPackageRegistry() {
 }
 
 /**
+ * A completed agent run, reduced to the one field stage 04 needs from it.
+ *
+ * Stage 03's own coverage lives in `ReasonStage.test.tsx`; what matters here is
+ * that the run id reaches the completion proof.
+ */
+const pageAgentResponse = {
+  agent_run_id: "page-agent-run",
+  question: "Which product is grounded?",
+  answer: "A grounded answer.",
+  plan: [],
+  recommendations: [],
+  citations: [],
+  trace: [],
+};
+
+/** A passing proof for whichever lab was posted. */
+function labProofFor(labId: number) {
+  return {
+    lab_id: labId,
+    status: "pass" as const,
+    started_at: "2026-09-04T09:00:00Z",
+    finished_at: "2026-09-04T09:00:02Z",
+    duration_ms: 1200,
+    source_state: "solved" as const,
+    database_state: "applied" as const,
+    checks: [
+      {
+        name: "fixture check",
+        passed: true,
+        falsifier: "the fixture check reported false",
+        detail: "fixture detail",
+      },
+    ],
+    evidence: {
+      search_event_ids: [],
+      agent_run_id: labId === 3 ? "page-agent-run" : null,
+      evidence_ids: [],
+    },
+    identity: {
+      source_revision: "9".repeat(40),
+      retrieval_fingerprint: "a".repeat(64),
+      retrieval_settings_sha256: "b".repeat(64),
+      embedding_model_id: "us.cohere.embed-v4:0",
+      rerank_model_id: "cohere.rerank-v3-5:0",
+      dataset_manifest_sha256: "c".repeat(64),
+    },
+    release_baseline: {
+      measured_at: "2026-08-23T21:53:32.664198Z",
+      retrieval_fingerprint: "d".repeat(64),
+      attributed: false,
+    },
+  };
+}
+
+/**
  * The Package finale (stage 04, after the scorecard) loads on mount, the
  * same lifecycle the scorecard's own fetch already uses -- there is no
  * disclosure left to open now that packaging is not a click behind stage 03.
@@ -540,6 +603,8 @@ describe("RetrievalLabPage", () => {
     });
     vi.mocked(api.retrievalEvent).mockReset();
     vi.mocked(api.retrievalEventResponse).mockReset();
+    vi.mocked(api.agentStream).mockReset();
+    vi.mocked(api.labProof).mockReset();
     vi.mocked(api.scorecard).mockReset();
     vi.mocked(api.scorecard).mockResolvedValue(minimalScorecard);
     // Stage 04's Package finale loads on mount too, same as the scorecard.
@@ -619,11 +684,13 @@ describe("RetrievalLabPage", () => {
     ]);
   });
 
-  it("carries one way to start each of the two things it can run", () => {
+  it("carries one way to start each of the three things it can run", () => {
     // Two run controls with different verbs, one live and one replaying a fixture,
     // is how this page ended up teaching that the numbers were not measured. There
-    // is no fixture replay now: the retrieval pipeline and the agent are two real
-    // requests, so they get one button each and the verbs name which is which.
+    // is no fixture replay now: the retrieval pipeline, the agent, and the
+    // completion proof are three real requests, so they get one button each, the
+    // verbs name which is which, and they appear in the order the session runs
+    // them.
     render(<RetrievalLabPage />);
     const actions = screen
       .getAllByRole("button")
@@ -631,6 +698,7 @@ describe("RetrievalLabPage", () => {
     expect(actions.filter((label) => /^Run|^Replay/.test(label ?? ""))).toEqual([
       "Run pipeline",
       "Run the agent",
+      "Run completion proof",
     ]);
   });
 
@@ -1004,7 +1072,7 @@ describe("RetrievalLabPage", () => {
     expect(mcp.textContent).toMatch(/3 operations/i);
   });
 
-  it("packages after Prove: Package follows the scorecard inside stage 04, not stage 03", async () => {
+  it("proves, then baselines, then packages, in that order inside stage 04", async () => {
     // The bug this guards against is a layout regression, not a missing
     // feature: rendering the finale back inside Reason, or above the
     // scorecard inside Prove, would still leave every "is it present"
@@ -1033,9 +1101,15 @@ describe("RetrievalLabPage", () => {
     }
 
     const proveContent = [
-      ...proveStage.querySelectorAll(".labs-scorecard, .labs-package-finale"),
+      ...proveStage.querySelectorAll(
+        ".labs-completion-proof, .labs-scorecard, .labs-package-finale",
+      ),
     ];
+    // The participant's own verdict first, the maintainers' release baseline
+    // second, the hand-off last. Putting the baseline first is what made three
+    // release metrics read as a grade on the repair just made.
     expect(proveContent.map((node) => node.className)).toEqual([
+      "labs-completion-proof",
       "labs-scorecard",
       "labs-package-finale",
     ]);
@@ -1043,6 +1117,42 @@ describe("RetrievalLabPage", () => {
     // Removed from stage 03 completely, not merely hidden there.
     expect(reasonStage.querySelector(".labs-package-finale")).toBeNull();
     expect(within(reasonStage as HTMLElement).queryByText("Package what you built")).toBeNull();
+  });
+
+  it("grades Lab 3 on the run stage 03 produced, and re-reads the baseline after", async () => {
+    // The seam this covers is the one no component test can: the agent run id
+    // exists only inside stage 03, and the proof block that needs it lives in
+    // stage 04. Before the two were wired, pressing the proof either refused
+    // Lab 3 forever or would have had to spend a second agent turn.
+    vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
+      onEvent({ type: "complete", response: pageAgentResponse });
+    });
+    vi.mocked(api.labProof).mockImplementation(async (labId) => labProofFor(labId));
+    render(<RetrievalLabPage />);
+
+    expect(screen.getByTestId("completion-proof-lab-3").textContent).toContain(
+      "Run the agent in 03 first",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Run the agent" }));
+    await screen.findByRole("button", { name: "Run agent again" });
+
+    const baselineReadsBefore = vi.mocked(api.scorecard).mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof" }));
+
+    await waitFor(() => {
+      expect(api.labProof).toHaveBeenCalledWith(1, { agent_run_id: null });
+      expect(api.labProof).toHaveBeenCalledWith(2, { agent_run_id: null });
+      expect(api.labProof).toHaveBeenCalledWith(3, {
+        agent_run_id: "page-agent-run",
+      });
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("completion-proof-lab-3").textContent).toContain("PASS"));
+    // The release baseline underneath is read again once the proof settles, so
+    // a page left open across a repair stops showing the read it made on mount.
+    await waitFor(() =>
+      expect(vi.mocked(api.scorecard).mock.calls.length).toBe(baselineReadsBefore + 1));
   });
 
   it("reads the run Shop served rather than running the query again", async () => {

@@ -150,8 +150,23 @@ function RetrievalQualitySection({
         id="scorecard-quality-title"
         index="A"
         question="Can search find the right products?"
-        technicalName="Search quality"
+        technicalName="Release baseline"
       />
+      {/* Whose measurement this is, before any number from it. The section used
+          to open on the sample description alone, which let a participant read
+          three release metrics as a verdict on the repair they had just made. */}
+      <p
+        className="labs-scorecard-sample"
+        data-testid="scorecard-release-baseline-lead"
+      >
+        Measured by the maintainers at fingerprint{" "}
+        <code>
+          {provenance.retrieval_fingerprint
+            ? provenance.retrieval_fingerprint.slice(0, 12)
+            : "none recorded"}
+        </code>
+        , not a record of your repairs.
+      </p>
       <p className="labs-scorecard-sample">{quality.sample_description}</p>
 
       {provenance.attributed ? (
@@ -234,6 +249,17 @@ function RetrievalQualitySection({
           <div>
             <dt>measured at</dt>
             <dd className="mono">{provenance.measured_at}</dd>
+          </div>
+          {/* Two facts a baseline has to keep apart: when it was measured, and
+              when this page read it. A baseline rendered months later must not
+              read as a measurement taken now. */}
+          <div>
+            <dt>served at</dt>
+            <dd className="mono">{provenance.served_at}</dd>
+          </div>
+          <div>
+            <dt>artifact kind</dt>
+            <dd className="mono">{provenance.artifact_kind}</dd>
           </div>
         </dl>
       </PlaygroundDisclosure>
@@ -642,7 +668,17 @@ function StageAblationSection({ ablation }: { ablation: ScorecardStageAblation }
   );
 }
 
-export function RetrievalScorecard() {
+interface RetrievalScorecardProps {
+  /**
+   * Bumped by the caller when something upstream may have changed what this
+   * baseline is being read against -- a completion proof finishing, which runs
+   * the mission through the served path. Every other parent render leaves it
+   * alone, so an unrelated re-render costs no request.
+   */
+  refreshKey?: number;
+}
+
+export function RetrievalScorecard({ refreshKey = 0 }: RetrievalScorecardProps) {
   const [data, setData] = useState<RetrievalScorecardResponse | null>(null);
   const [error, setError] = useState("");
 
@@ -663,7 +699,7 @@ export function RetrievalScorecard() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [refreshKey]);
 
   if (error) {
     return (

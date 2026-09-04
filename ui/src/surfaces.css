@@ -12016,6 +12016,180 @@
   line-height: 1.55;
 }
 
+/* Completion proof */
+
+/* The participant's own verdict, above the maintainers' baseline and set apart
+   from it: a panel with its own action, not another scorecard section. The two
+   answer different questions and must never look like one block. */
+.labs-completion-proof {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 20px;
+  padding: 17px 20px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--maroon-800);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.labs-proof-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+}
+
+.labs-proof-header > h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-h3);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.labs-proof-intro {
+  max-width: 78ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.labs-proof-labs {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The lab in front carries a heavier left rule rather than a fill: three rows
+   of tinted panel would read as three verdicts before any of them is run. */
+.labs-proof-lab {
+  display: grid;
+  gap: 7px;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper-warm);
+}
+
+.labs-proof-lab[data-active="true"] {
+  border-left-color: var(--maroon-800);
+}
+
+.labs-proof-lab > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.labs-proof-lab > header > b {
+  flex: 1 1 24ch;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+  font-weight: 700;
+}
+
+.labs-proof-status {
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.labs-proof-status.is-pass {
+  color: var(--green);
+}
+
+.labs-proof-status.is-fail,
+.labs-proof-status.is-blocked {
+  color: var(--danger);
+}
+
+/* Source, database, checks, duration: four facts on one line, because the
+   verdict above is the conjunction of them and reading them apart is what
+   makes a repaired file in front of a stale cluster legible. */
+.labs-proof-states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 16px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-proof-checks,
+.labs-proof-evidence {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labs-proof-checks > li {
+  display: grid;
+  gap: 2px;
+  padding-left: 10px;
+  border-left: 2px solid var(--danger);
+}
+
+.labs-proof-checks code {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-proof-checks b {
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  font-weight: 600;
+}
+
+.labs-proof-checks small {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.45;
+}
+
+.labs-proof-evidence > li {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+}
+
+.labs-proof-note {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.45;
+}
+
+.labs-proof-evidence code {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-proof-blocked {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--labs-detail);
+  line-height: 1.45;
+}
+
 /* The Prove step's four sections. Each is its own bordered block so "never
    conflated" reads visually, not just in the copy: A's metrics, B's PASS/
    total, C's fixture count, and D's guarantee list never share a border. */

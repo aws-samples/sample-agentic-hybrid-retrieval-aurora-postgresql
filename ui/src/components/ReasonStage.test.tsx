@@ -661,4 +661,30 @@ describe("ReasonStage grounded answer", () => {
     // The dormant shape is still the six states, drawn empty.
     expect(screen.getByText("Citations resolved")).toBeTruthy();
   });
+
+  it("hands the completed run's id up, so Lab 3 can be graded on it", async () => {
+    // Lab 3's completion proof grades a persisted turn rather than spending a
+    // new one, so it has to be told which turn. This stage is the only place
+    // that id exists, and holding it here privately is what forced the proof
+    // block to either re-run the agent or refuse.
+    const onAgentRun = vi.fn();
+    const response = agentResponse("run-handed-up", 4021);
+    vi.mocked(api.agentStream).mockImplementation(async (_q, _f, onEvent) => {
+      onEvent({ type: "complete", response });
+    });
+
+    render(createElement(ReasonStage, {
+      question: "Which product is grounded?",
+      filters: {},
+      onAgentRun,
+    }));
+
+    // Falsifier half: nothing is handed up before a run completes, or the
+    // proof block would grade a turn that does not exist.
+    expect(onAgentRun).not.toHaveBeenCalled();
+
+    await runAgent();
+
+    await waitFor(() => expect(onAgentRun).toHaveBeenCalledWith("run-handed-up"));
+  });
 });

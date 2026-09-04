@@ -524,6 +524,82 @@ export interface LabStateResponse {
 }
 
 /**
+ * One acceptance condition, its verdict, and what would falsify it.
+ *
+ * `falsifier` travels next to `passed` deliberately. A green check is not
+ * evidence on its own; a reader has to be able to see what would have made it
+ * fail before treating it as one.
+ */
+export interface LabCheckResult {
+  name: string;
+  passed: boolean;
+  falsifier: string;
+  detail: string;
+}
+
+/** The receipts one proof produced or read, addressable afterwards. */
+export interface CompletionProofEvidence {
+  search_event_ids: string[];
+  agent_run_id: string | null;
+  evidence_ids: number[];
+}
+
+/**
+ * What produced this verdict, resolved from the running service.
+ *
+ * Kept apart from `ReleaseBaselineReference` on purpose: this is the
+ * attendee's own retrieval identity, and that is the maintainers' measured
+ * artifact.
+ */
+export interface CompletionProofIdentity {
+  source_revision: string | null;
+  retrieval_fingerprint: string;
+  retrieval_settings_sha256: string;
+  embedding_model_id: string;
+  rerank_model_id: string;
+  dataset_manifest_sha256: string;
+}
+
+/**
+ * The release baseline a proof sits next to, never the proof itself.
+ *
+ * `attributed` is false whenever the running tree differs from the measured
+ * one, which is the normal state mid-lab because the participant edits a
+ * fingerprinted SQL file.
+ */
+export interface ReleaseBaselineReference {
+  measured_at: string;
+  retrieval_fingerprint: string | null;
+  attributed: boolean;
+}
+
+/**
+ * One lab's completion verdict, with the evidence behind it.
+ *
+ * `status` is the conjunction of three separate facts, and all three are
+ * served: every check passed, the source seam is repaired, and Aurora holds
+ * that repair. Mirrors `service.models.CompletionProofResponse`.
+ */
+export interface CompletionProofResponse {
+  lab_id: number;
+  status: "pass" | "fail";
+  started_at: string;
+  finished_at: string;
+  duration_ms: number;
+  source_state: LabSourceState;
+  database_state: LabDatabaseState;
+  checks: LabCheckResult[];
+  evidence: CompletionProofEvidence;
+  identity: CompletionProofIdentity;
+  release_baseline: ReleaseBaselineReference;
+}
+
+/** What a proof needs from the caller, which for labs 1 and 2 is nothing. */
+export interface CompletionProofRequest {
+  agent_run_id: string | null;
+}
+
+/**
  * Live HNSW index anatomy, read from the cluster on request.
  *
  * `overhead_factor` is the measured index cost against the raw fp32 payload: 8,189
@@ -873,7 +949,21 @@ export interface HnswProbe {
  * "Metrics pending evaluation for this retrieval revision".
  */
 export interface ScorecardProvenance {
+  /** Always `release_baseline`: a maintainers' artifact, not a live proof. */
+  artifact_kind: "release_baseline";
+  /** When this response was assembled, always distinct from `measured_at`. */
+  served_at: string;
   measured_at: string;
+  /**
+   * The fingerprint the artifact recorded for itself, which is this baseline's
+   * identity. `null` on an artifact that recorded none, and never filled in
+   * from the running process.
+   */
+  retrieval_fingerprint: string | null;
+  /** The resolved retrieval settings hash the artifact was measured with. */
+  retrieval_settings_sha256: string | null;
+  /** The same hash resolved by the running service, so both sides are visible. */
+  current_retrieval_settings_sha256: string;
   query_set: string;
   query_set_sha256: string;
   scored_query_set_sha256: string;

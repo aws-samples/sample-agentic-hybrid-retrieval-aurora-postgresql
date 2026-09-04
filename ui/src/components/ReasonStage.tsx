@@ -249,9 +249,17 @@ function ChainMark({ state }: { state: ChainState }) {
 interface ReasonStageProps {
   question: string;
   filters: SearchFilters;
+  /**
+   * The run this stage just persisted, handed up as soon as it completes.
+   *
+   * Lab 3's completion proof grades a persisted turn rather than spending a new
+   * one, so it has to be told which turn to read, and this is the only place
+   * that id exists.
+   */
+  onAgentRun?: (agentRunId: string) => void;
 }
 
-export function ReasonStage({ question, filters }: ReasonStageProps) {
+export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps) {
   const [draft, setDraft] = useState(question);
   const [response, setResponse] = useState<AgentResponse | null>(null);
   const [partial, setPartial] = useState<AgentPartial | null>(null);
@@ -356,6 +364,10 @@ export function ReasonStage({ question, filters }: ReasonStageProps) {
           setResponse(event.response);
           if (event.type === "complete") {
             resolveEvidenceRecords(event.response.citations, request);
+            // Only on completion: an `answer_start` id names a turn whose
+            // receipts are still being written, and grading that is how a
+            // proof would read a half-persisted run.
+            onAgentRun?.(event.response.agent_run_id);
           }
         }
       });

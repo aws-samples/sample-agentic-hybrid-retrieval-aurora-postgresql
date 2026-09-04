@@ -1,8 +1,9 @@
 import { AlertTriangle, ArrowRightLeft, LoaderCircle, Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, api } from "../api";
+import { CompletionProof } from "../components/CompletionProof";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
-import { LabRail } from "../components/LabRail";
+import { LabRail, activeCoreLab } from "../components/LabRail";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { FusionDefectLens } from "../components/FusionDefectLens";
@@ -32,7 +33,11 @@ import {
 } from "../components/RetrievalProvenance";
 import { SearchRetrievalReceipt } from "../components/RetrievalReceipt";
 import { RunSummary, shortEventId } from "../components/RunSummary";
-import { mosaicRetrievalExamples, retrievalExamplesByStage } from "../labMissions";
+import {
+  coreMosaicLabs,
+  mosaicRetrievalExamples,
+  retrievalExamplesByStage,
+} from "../labMissions";
 import {
   liveRetrievalOutcome,
   retrievalLabOutcome,
@@ -239,6 +244,16 @@ export function RetrievalLabPage() {
   const [error, setError] = useState("");
   const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
   const [projector, setProjector] = useState(readProjectorPreference);
+  /**
+   * The last agent run stage 03 persisted, held here because the only thing
+   * that can grade Lab 3 lives in stage 04. Nothing else on the page reads it.
+   */
+  const [agentRunId, setAgentRunId] = useState<string | null>(null);
+  /**
+   * Bumped when a completion proof settles, which is the one event that can
+   * change what the release baseline below is being read against.
+   */
+  const [baselineReads, setBaselineReads] = useState(0);
   const requestVersion = useRef(0);
   const ranForwarded = useRef(false);
   const pageRef = useRef<HTMLDivElement>(null);
@@ -387,6 +402,16 @@ export function RetrievalLabPage() {
     () => mosaicRetrievalExamples.find((candidate) => candidate.stage === "reason"),
     [],
   );
+  /**
+   * Which of the three labs the participant is in, resolved the same way the
+   * rail resolves it: a supporting check is placed under its parent lab rather
+   * than reading as having left it.
+   */
+  const activeLabNumber = useMemo(() => {
+    const lab = activeCoreLab(example?.id ?? null);
+    const index = coreMosaicLabs.indexOf(lab);
+    return (index < 0 ? 1 : index + 1) as 1 | 2 | 3;
+  }, [example]);
 
   /** Everything a run left behind, cleared together. The pinned baseline belongs
    * to the request that produced it, so a new mission or a new query drops it
@@ -886,6 +911,7 @@ export function RetrievalLabPage() {
           <ReasonStage
             question={reasonScenario.query}
             filters={reasonScenario.filters as SearchFilters}
+            onAgentRun={setAgentRunId}
           />
         ) : null}
       </PlaygroundStage>
@@ -893,9 +919,17 @@ export function RetrievalLabPage() {
       <PlaygroundStage
         number="04"
         title="Prove"
-        summary="Did the fixes improve the scenarios they target without breaking anything that already worked? Measured from the saved evaluation results."
+        summary="Did the fixes improve the scenarios they target without breaking anything that already worked? Your own labs are proved against Aurora here; the release baseline under them was measured by the maintainers."
       >
-        <RetrievalScorecard />
+        {/* The participant's own verdict first. The baseline below it is the
+            maintainers' measurement, and reading it first is what made three
+            release metrics look like a grade on the repair just made. */}
+        <CompletionProof
+          activeLab={activeLabNumber}
+          agentRunId={agentRunId}
+          onFinished={() => setBaselineReads((reads) => reads + 1)}
+        />
+        <RetrievalScorecard refreshKey={baselineReads} />
         <PackageFinale />
       </PlaygroundStage>
     </div>
