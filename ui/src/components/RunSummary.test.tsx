@@ -22,7 +22,7 @@ describe("RunSummary", () => {
     const summary = document.querySelector(".labs-run-summary");
     expect(summary?.textContent).toContain(`Run on screen ${shortEventId(LATEST_ID)}`);
     expect(summary?.textContent).toContain(`Baseline ${shortEventId(BASELINE_ID)}`);
-    // Recognisable, not 36 characters of UUID on a projector.
+    // Recognisable, not 36 characters of UUID in a run summary line.
     expect(summary?.textContent).not.toContain(LATEST_ID);
   });
 

@@ -31,15 +31,6 @@ interface RetrievalObservatoryProps {
   /** The most recent live response, or null before the participant has run one. */
   response: SearchResponse | null;
   loading: boolean;
-  /**
-   * Draw for a room rather than for a laptop.
-   *
-   * Twelve rows, each two table rows deep, do not survive projection: the last
-   * of them lands below the fold on every projector this session has been run
-   * on. Cutting to the first four alone would routinely hide the row the
-   * scenario is about, so the scenario's targets travel with them.
-   */
-  projector?: boolean;
 }
 
 const RANKING_GUIDE = [
@@ -152,7 +143,6 @@ export function RetrievalObservatory({
   example,
   response,
   loading,
-  projector = false,
 }: RetrievalObservatoryProps) {
   const [focused, setFocused] = useState<ColumnKey | null>(null);
 
@@ -165,9 +155,6 @@ export function RetrievalObservatory({
     [matrix],
   );
   const focusedColumn = matrix?.columns.find((column) => column.key === focused) ?? null;
-  const visibleRows = matrix
-    ? matrix.rows.filter((row, index) => !projector || index < 4 || row.isTarget)
-    : [];
 
   return (
     <section
@@ -279,7 +266,7 @@ export function RetrievalObservatory({
                   </th>
                 </tr>
               </thead>
-              {visibleRows.map((row) => (
+              {matrix.rows.map((row) => (
                 <MatrixRowGroup
                   focused={focused}
                   image={images.get(row.product.product_id)}
@@ -289,17 +276,6 @@ export function RetrievalObservatory({
               ))}
             </table>
           </div>
-
-          {projector ? (
-            // A caption on the table it describes, not an announcement: it says
-            // the same thing for as long as projector mode is on, and a live
-            // region would have a screen reader read it out on every unrelated
-            // update to this table.
-            <p className="labs-matrix-projector">
-              Projector mode is showing {visibleRows.length} of the{" "}
-              {matrix.rows.length} returned rows.
-            </p>
-          ) : null}
 
           <footer className="labs-matrix-footer">
             {focusedColumn ? (

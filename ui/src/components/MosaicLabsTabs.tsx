@@ -1,4 +1,3 @@
-import { Projector } from "lucide-react";
 import { Link } from "wouter";
 import { RETRIEVAL_SURFACE } from "../navigation";
 
@@ -23,8 +22,6 @@ const sourceRepositoryUrl =
  */
 export function MosaicLabsTabs({
   active,
-  projector,
-  onToggleProjector,
 }: {
   /**
    * Which entry is current, omitted by a surface that is not one of them.
@@ -32,13 +29,6 @@ export function MosaicLabsTabs({
    * nothing: it is no longer a Playground lens.
    */
   active?: MosaicLabsTab;
-  /** Whether projector mode is on. Only meaningful with a toggle handler. */
-  projector?: boolean;
-  /**
-   * Turns projector mode on and off. Omitted by surfaces that do not offer it,
-   * which is what keeps the control off the two lenses that cannot honour it.
-   */
-  onToggleProjector?: () => void;
 }) {
   return (
     <nav className="mosaic-labs-tabs" aria-label="Playground lenses">
@@ -58,19 +48,6 @@ export function MosaicLabsTabs({
           Advanced: Vector index at scale
         </Link>
       </div>
-      {onToggleProjector ? (
-        <button
-          aria-pressed={projector ?? false}
-          className={
-            projector ? "mosaic-labs-projector is-on" : "mosaic-labs-projector"
-          }
-          onClick={onToggleProjector}
-          type="button"
-        >
-          <Projector aria-hidden="true" size={15} />
-          Projector mode
-        </button>
-      ) : null}
       <small>
         <strong>Read-only.</strong> Build in Code Editor, then prove it here.
       </small>

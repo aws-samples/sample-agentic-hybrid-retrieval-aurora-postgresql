@@ -142,33 +142,6 @@ interface PinnedBaseline {
   response: SearchResponse | null;
 }
 
-/**
- * The room's own display preference, kept where the room can keep it.
- *
- * A facilitator sets this once and then reloads through a 60-minute session, so
- * it has to outlive a navigation. Every access is guarded: Safari in private
- * browsing throws on both read and write, and a preference about font size is
- * not worth a blank Playground.
- */
-const PROJECTOR_KEY = "mosaic.projector";
-
-function readProjectorPreference(): boolean {
-  try {
-    return window.localStorage.getItem(PROJECTOR_KEY) === "true";
-  } catch {
-    // Storage denied. The default is the honest answer, not an error.
-    return false;
-  }
-}
-
-function writeProjectorPreference(on: boolean): void {
-  try {
-    window.localStorage.setItem(PROJECTOR_KEY, String(on));
-  } catch {
-    // Storage denied. The toggle still works for this page view.
-  }
-}
-
 /** Eligibility gates the run actually applied, named rather than counted. */
 function appliedGates(response: SearchResponse): string[] {
   return Object.entries(response.applied_filters)
@@ -243,7 +216,6 @@ export function RetrievalLabPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
-  const [projector, setProjector] = useState(readProjectorPreference);
   /**
    * The last agent run stage 03 persisted, held here because the only thing
    * that can grade Lab 3 lives in stage 04. Nothing else on the page reads it.
@@ -350,10 +322,9 @@ export function RetrievalLabPage() {
    * site header, so a browser that scrolls the heading to the viewport top puts
    * it *under* both. `scroll-margin-top` on the headings fixes that, but only if
    * it knows how tall the rail is, and the rail is not one height: it wraps at
-   * narrow widths and every line of it grows by 1.35x in projector mode. A fixed
-   * value would either overshoot in the ordinary case or leave the heading
-   * covered in the projected one, so this measures the element itself and
-   * publishes it as `--labs-rail-height` for the CSS to add.
+   * narrow widths. A fixed value would either overshoot in the ordinary case or
+   * leave the heading covered in the wrapped one, so this measures the element
+   * itself and publishes it as `--labs-rail-height` for the CSS to add.
    */
   useEffect(() => {
     const page = pageRef.current;
@@ -369,12 +340,11 @@ export function RetrievalLabPage() {
       return () => observer.disconnect();
     } catch {
       // No ResizeObserver (jsdom, and browsers older than this workshop
-      // supports). The measurement above still ran, and this effect re-runs
-      // when projector mode changes the scale, which is the only change to the
-      // rail's height a participant makes on purpose.
+      // supports). The measurement above still ran, which is the height the
+      // page loaded at.
       return;
     }
-  }, [projector]);
+  }, []);
 
   /**
    * Which arms this run was required to produce.
@@ -569,20 +539,8 @@ export function RetrievalLabPage() {
 
   // The same wrapper and masthead the other two Playground lenses use.
   return (
-    <div
-      className="page mosaic-labs-page labs-premium lab-page"
-      data-projector={projector ? "true" : undefined}
-      ref={pageRef}
-    >
-      <MosaicLabsTabs
-        active="retrieval"
-        onToggleProjector={() => {
-          const next = !projector;
-          setProjector(next);
-          writeProjectorPreference(next);
-        }}
-        projector={projector}
-      />
+    <div className="page mosaic-labs-page labs-premium lab-page" ref={pageRef}>
+      <MosaicLabsTabs active="retrieval" />
 
       {/* Where the participant is and what the room currently holds, in that
           order, above everything a run produces. Both are about the session
@@ -836,7 +794,6 @@ export function RetrievalLabPage() {
         <RetrievalObservatory
           example={example}
           loading={loading}
-          projector={projector}
           response={response}
         />
 

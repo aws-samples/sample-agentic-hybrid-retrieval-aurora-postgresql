@@ -140,16 +140,13 @@ vi.mock("../components/RetrievalObservatory", () => ({
   RetrievalObservatory: ({
     example,
     loading,
-    projector,
     response,
   }: {
     example?: { id: string };
     loading: boolean;
-    projector?: boolean;
     response: SearchResponse | null;
   }) => (
     <section aria-label="Retrieval Observatory">
-      <p>observatory projector: {String(Boolean(projector))}</p>
       <p>observatory scenario: {example?.id}</p>
       <p>observatory run: {response ? response.search_event_id : "none"}</p>
       <p>
@@ -1646,62 +1643,5 @@ describe("RetrievalLabPage", () => {
     )!;
     expect(within(rail).getByText(lab.title)).toBeTruthy();
     expect(within(rail).getByText(lab.participant_edit!.file)).toBeTruthy();
-  });
-
-  it("switches the surface to projector mode and remembers the choice", () => {
-    const { container } = render(<RetrievalLabPage />);
-    const page = container.querySelector(".lab-page")!;
-    const toggle = screen.getByRole("button", { name: "Projector mode" });
-
-    expect(toggle.getAttribute("aria-pressed")).toBe("false");
-    expect(page.getAttribute("data-projector")).toBeNull();
-    expect(screen.getByText("observatory projector: false")).toBeTruthy();
-
-    fireEvent.click(toggle);
-
-    expect(toggle.getAttribute("aria-pressed")).toBe("true");
-    expect(page.getAttribute("data-projector")).toBe("true");
-    expect(screen.getByText("observatory projector: true")).toBeTruthy();
-    expect(window.localStorage.getItem("mosaic.projector")).toBe("true");
-
-    fireEvent.click(toggle);
-
-    expect(toggle.getAttribute("aria-pressed")).toBe("false");
-    expect(page.getAttribute("data-projector")).toBeNull();
-    expect(window.localStorage.getItem("mosaic.projector")).toBe("false");
-  });
-
-  it("opens in projector mode when the room already chose it", () => {
-    // A facilitator sets this once and reloads through the session. Losing it on
-    // every navigation is what made it useless the first time it was tried.
-    window.localStorage.setItem("mosaic.projector", "true");
-    const { container } = render(<RetrievalLabPage />);
-
-    expect(container.querySelector(".lab-page")?.getAttribute("data-projector"))
-      .toBe("true");
-    expect(
-      screen.getByRole("button", { name: "Projector mode" }).getAttribute("aria-pressed"),
-    ).toBe("true");
-  });
-
-  it("still renders when storage refuses to answer", () => {
-    // Safari in private browsing throws on both read and write. A preference is
-    // not worth a blank Playground.
-    const denied = () => {
-      throw new Error("storage denied");
-    };
-    vi.spyOn(window.localStorage.__proto__, "getItem").mockImplementation(denied);
-    vi.spyOn(window.localStorage.__proto__, "setItem").mockImplementation(denied);
-    const { container } = render(<RetrievalLabPage />);
-
-    const toggle = screen.getByRole("button", { name: "Projector mode" });
-    expect(toggle.getAttribute("aria-pressed")).toBe("false");
-
-    fireEvent.click(toggle);
-
-    expect(toggle.getAttribute("aria-pressed")).toBe("true");
-    expect(container.querySelector(".lab-page")?.getAttribute("data-projector"))
-      .toBe("true");
-    vi.restoreAllMocks();
   });
 });

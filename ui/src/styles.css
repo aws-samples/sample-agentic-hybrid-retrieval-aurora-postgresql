@@ -68,7 +68,7 @@
   --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   /* Mosaic Labs type scale. One scale for Explore, HNSW at scale and Studio.
      Before this the three views carried 161 font-size declarations across 38
-     distinct values, 78 of them 11px or smaller — below a usable projector floor,
+     distinct values, 78 of them 11px or smaller — below a usable legibility floor,
      and inconsistent between views for the same class of label, so .hnsw-* read
      smaller than .labs-*. Eight steps rather than six: collapsing 16-17px deck
      copy into 15px body, or 18-20px panel headings into one step, flattens
