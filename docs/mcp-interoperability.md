@@ -108,3 +108,37 @@ can host custom agent code, and
 can expose APIs, Lambda functions, or MCP servers as tools. Authentication,
 tenant scope, managed hosting, and production authorization policy remain
 take-home extensions.
+
+## The gate is not the guard
+
+Optional, and outside the session path. Nothing here is deployed by the
+workshop and there are no setup steps to run at a table. It exists because the
+question always comes: could a managed gateway handle authorization for us.
+
+Amazon Bedrock AgentCore Gateway can sit in front of the three tools above and
+take the concerns this adapter deliberately does not hold:
+
+- **Authentication at the edge.** Callers present IAM or OAuth credentials to
+  the Gateway. The workshop's local endpoint has no caller identity at all; it
+  assumes one attendee on a disposable instance, which is why
+  `inspect_retrieval_run` is documented above as unscoped.
+- **Discovery.** A host that has never seen Mosaic can list the tools and their
+  typed schemas from one managed endpoint.
+- **Transport and hosting.** The connection terminates at the Gateway, so the
+  adapter keeps its single job of forwarding typed calls to the API.
+
+What a Gateway does not do is authorize evidence. Put one in front of
+`search_products` and the tool still returns product IDs, exactly as it does
+now, and the application still decides which of them a later call may act on.
+`get_product_evidence` still requires the `retrieval_scope_id` that search
+returned, and `service/retrieval_scope.py` still decides whether the requested
+product sat inside the authorized window; a product from the fused pool that
+the search did not return still fails with HTTP 404. Lab 3's evidence
+registration still decides, separately and per turn, what synthesis may cite.
+
+Keep the two questions in different places, because they are different
+questions. Authentication answers who is calling. The guard answers what an
+answer is allowed to stand on, and that answer lives in application state
+backed by Aurora, not in an edge policy. A Gateway that has authenticated a
+caller has authorized nothing about evidence, and a workshop that let the two
+collapse would be teaching the wrong lesson.

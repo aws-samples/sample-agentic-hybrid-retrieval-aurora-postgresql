@@ -85,6 +85,34 @@ seeded. An interrupted concurrent index build is recovered by
 `make db-drop-invalid-indexes`, which the `index_creation` bootstrap phase now
 runs first.
 
+## Optional flex-time beats
+
+None of these sits on the required path, none is proved by the gates above, and
+none deploys an AgentCore resource. Removing any of them leaves the three
+labs, the completion gate, and the scorecard untouched.
+
+- **The Gateway appendix** in `docs/mcp-interoperability.md` ("The gate is not
+  the guard") is documentation. `scripts/tool_contracts.py --check` proves the
+  portable boundary that exists locally; no gate here proves a deployed
+  Amazon Bedrock AgentCore Gateway, and none claims one.
+- **AgentCore Observability** (`service/telemetry.py`,
+  `service/telemetry_contract.py`, `docs/telemetry-contract.md`) is off unless
+  an operator installs the optional `agentcore-observability` extra and sets
+  `MOSAIC_AGENTCORE_OBSERVABILITY=true`. `tests/test_telemetry_contract.py`
+  covers the projection's shape, its default-off behavior, and its content
+  exclusions offline. Whether spans arrive in an operator's own collector or in
+  CloudWatch is **PENDING RUNTIME VERIFICATION**.
+- **AgentCore Runtime** (`deploy/agentcore/`, `docs/agentcore-runtime.md`)
+  ships a container and configuration as source. A pre-provisioned endpoint in
+  an event account is a facilitator call-out, not a participant step, and no
+  lab depends on it. Any claim that the same process serves correctly on
+  Runtime is **PENDING RUNTIME VERIFICATION** until one is deployed and
+  rehearsed.
+- **Postgres 18 facts** (`docs/postgres-18.md`) records the engine and
+  extension versions the connected cluster reports and what this pipeline uses.
+  It makes no version-to-version performance claim, and none may be added until
+  one is measured on this corpus.
+
 ## Release measurements still owed
 
 - Re-run `make score-evals` with `--write-baseline` and the stage ablation

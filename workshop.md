@@ -117,6 +117,26 @@ Models pinned for the event: Cohere Embed v4 for embeddings, Cohere Rerank 3.5 f
 
 The hands-on path must reach its last proof at minute 45. The two-minute recovery buffer is part of the 60, not spare lab time. If a table is behind, point them at the lab's Fast track immediately rather than at the end.
 
+## Flex time
+
+The last ten minutes are unstructured. Vector index at scale, the scorecard, catch-up and questions come first. The beats below are what to reach for after those, or when a table finished early. Nothing here is required, nothing here is a fourth lab, and no AgentCore resource is deployed by this workshop. Treat each one as something to say and show from your own screen.
+
+### Observability without moving the ledger
+
+Aurora is the ledger. Every run, candidate, evidence record and citation is persisted there with an id, and every Playground panel reads those rows back. Amazon Bedrock AgentCore Observability is an aggregate projection of the same run: stage timings, candidate counts, rerank and completion status, model and token metadata, and correlation ids. It carries no product ids, no evidence text, and by default no prompt or answer content, so it holds strictly less than Aurora does and cannot become a second source of truth. It is off by default. A facilitator who wants to show it installs the optional exporter with `uv sync --extra agentcore-observability` and sets `MOSAIC_AGENTCORE_OBSERVABILITY=true`. Mosaic configures no exporter in application code, so which OpenTelemetry distribution to run under, and where it sends spans, is an operator choice. With the flag off, or with no recording provider installed, the adapter does nothing and Aurora telemetry is unchanged. The contract is `docs/telemetry-contract.md`, the code is `service/telemetry.py` and `service/telemetry_contract.py`.
+
+### The same process on AgentCore Runtime
+
+The same FastAPI and Strands process participants are running can run on Amazon Bedrock AgentCore Runtime unchanged, because the evidence authority is Aurora and not the harness. Moving where the agent loop executes does not move the ledger, the retrieval scope, or the rule about what may be cited; the same run ids come back out of the same database. If the event account has a pre-provisioned endpoint, that is a facilitator call-out, not a participant step, and no lab depends on it. The container and configuration are in `deploy/agentcore/`, described in `docs/agentcore-runtime.md`.
+
+### What this runs on
+
+`docs/postgres-18.md` collects the version facts for the cluster behind the session: Aurora PostgreSQL 18.3, pgvector 0.8.1, the three retrieval arms and their indexes, iterative index scans on the vector arm, and how a plan receipt is captured for one persisted run. It makes no claim that one PostgreSQL version is faster than another, because nobody has measured that on this corpus. Neither should you at the table.
+
+### The gate is not the guard
+
+For "could a managed gateway do the authorization for us", the appendix at the end of `docs/mcp-interoperability.md` is the answer to read out. An AgentCore Gateway would authenticate callers and publish the three MCP tools, and it would still not decide which evidence an answer may cite. That decision is the one participants just built in Lab 3.
+
 ## Speaker roles
 
 ### Lead presenter
@@ -153,6 +173,7 @@ Own the tabs, the Code Editor terminal, syntax recovery and the validators. Help
 - "The Mosaic API AWS session has expired" on the Playground means the credentials on the box lapsed. Refresh them and restart the API. Do not swap models or broaden IAM at the table.
 - A Playground run that says "not in this pool" beside a healthy index is the Lab 1 lesson, not a bug.
 - An Ask Mosaic answer marked "No evidence cited", or an HTTP 503 in Lab 3, is the fail-closed state working. It becomes a cited answer after the repair.
+- A question naming something the catalog does not carry is the other case, and it is not a failure. The agent answers with HTTP 200 and an answer of record that declines, naming the terms nothing in the catalog matched. Keep the two apart at the table: a 503 means the pipeline is broken, a decline means the catalog does not hold what was asked for. Nothing needs repairing in the second case.
 - If a validator fails after an edit, look only at the marked seam in the one named file. Help with syntax, then ask the participant to explain the rule they restored.
 - A lab reset restores the other two repairs on purpose, so only the selected fault is in play. Nothing a facilitator shows counts as a participant pass.
 - Never create a local database, switch to fixtures, rebuild an index, or edit retrieval configuration to get past a problem.

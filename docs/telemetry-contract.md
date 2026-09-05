@@ -97,9 +97,13 @@ Aurora telemetry continues unchanged.
    Recall/MRR/nDCG, citation, and authorization assertions deterministic and
    Aurora-owned.
 3. **Gateway:** optional projection of existing OpenAPI/MCP tools. It does not
-   own retrieval logic or authorization.
+   own retrieval logic or authorization. The boundary is written out in
+   [`mcp-interoperability.md`](mcp-interoperability.md) under "The gate is not
+   the guard".
 4. **Runtime:** optional later. Moving the agent loop does not move the evidence
-   ledger or change the telemetry contract.
+   ledger or change the telemetry contract. The container and configuration are
+   in `deploy/agentcore/`, described in
+   [`agentcore-runtime.md`](agentcore-runtime.md).
 
 No AgentCore resource is required or deployed by the workshop. Treat this as
 an “observe anywhere” epilogue, not a fourth lab.

@@ -40,6 +40,10 @@ Aurora PostgreSQL holds:
 
 The design intentionally demonstrates that relational filters and vector retrieval can participate in one transactionally consistent data plane.
 
+Engine and extension version facts for the cluster this runs on, and the
+version claims it declines to make, are in
+[`postgres-18.md`](postgres-18.md).
+
 ## Agent and interoperability plane
 
 Strands Agents calls the read-only product tools in-process. The MCP
@@ -77,8 +81,12 @@ flowchart LR
 | performance truth | measured harness and preserved run metadata |
 
 AgentCore can change where the Strands loop runs or how a host reaches tools. It
-does not become the retrieval authority. No AgentCore resource is required or
-deployed by the workshop. The optional observability adapter exports an
-aggregate projection while Aurora retains the complete replayable
+does not become the retrieval authority. A Gateway in front of the MCP tools
+authenticates callers and publishes typed schemas; it does not authorize
+evidence, which stays with `service/retrieval_scope.py` and the application's
+per-turn citation state. See
+[`mcp-interoperability.md`](mcp-interoperability.md). No AgentCore resource is
+required or deployed by the workshop. The optional observability adapter
+exports an aggregate projection while Aurora retains the complete replayable
 Retrieve → Rank → Reason contract; see
 [`telemetry-contract.md`](telemetry-contract.md).
