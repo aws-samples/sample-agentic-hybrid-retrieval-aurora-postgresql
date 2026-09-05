@@ -101,8 +101,8 @@ Aurora telemetry continues unchanged.
    [`mcp-interoperability.md`](mcp-interoperability.md) under "The gate is not
    the guard".
 4. **Runtime:** optional later. Moving the agent loop does not move the evidence
-   ledger or change the telemetry contract. The container and configuration are
-   in `deploy/agentcore/`, described in
+   ledger or change the telemetry contract. The container and the contract
+   adapter are in `deploy/agentcore/`; the configuration is documented in
    [`agentcore-runtime.md`](agentcore-runtime.md).
 
 No AgentCore resource is required or deployed by the workshop. Treat this as

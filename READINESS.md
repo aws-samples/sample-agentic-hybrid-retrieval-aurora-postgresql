@@ -103,11 +103,13 @@ labs, the completion gate, and the scorecard untouched.
   exclusions offline. Whether spans arrive in an operator's own collector or in
   CloudWatch is **PENDING RUNTIME VERIFICATION**.
 - **AgentCore Runtime** (`deploy/agentcore/`, `docs/agentcore-runtime.md`)
-  ships a container and configuration as source. A pre-provisioned endpoint in
-  an event account is a facilitator call-out, not a participant step, and no
-  lab depends on it. Any claim that the same process serves correctly on
-  Runtime is **PENDING RUNTIME VERIFICATION** until one is deployed and
-  rehearsed.
+  ships a container and a two-route adapter (`GET /ping`, `POST /invocations`)
+  that mounts the service whole; the adapter is unit-tested against a fake
+  agent. No image has been built or deployed from this repository. A
+  pre-provisioned endpoint in an event account is a facilitator call-out, not a
+  participant step, and no lab depends on it. Whether the image passes
+  Runtime's health check and serves a grounded answer is **PENDING RUNTIME
+  VERIFICATION** until one is deployed and rehearsed.
 - **Postgres 18 facts** (`docs/postgres-18.md`) records the engine and
   extension versions the connected cluster reports and what this pipeline uses.
   It makes no version-to-version performance claim, and none may be added until

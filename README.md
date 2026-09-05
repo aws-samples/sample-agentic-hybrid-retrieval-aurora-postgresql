@@ -364,9 +364,9 @@ candidate counts, rerank and completion status, model and token metadata, and
 correlation identifiers, with no product identity or evidence text.
 `service/telemetry.py` and `service/telemetry_contract.py` emit nothing until an
 operator installs the exporter with `uv sync --extra agentcore-observability` and
-sets `MOSAIC_AGENTCORE_OBSERVABILITY=true`. The application configures no
-exporter of its own, so which OpenTelemetry distribution runs and where it sends
-spans are operator choices. No AgentCore resource sits in the required workshop
+sets `MOSAIC_AGENTCORE_OBSERVABILITY=true`. The repository ships the AWS Distro
+for OpenTelemetry path; the application configures no exporter of its own, so
+where spans go is an operator choice. No AgentCore resource sits in the required workshop
 path, and no lab reads a span.
 
 See [the portable telemetry contract](docs/telemetry-contract.md).
