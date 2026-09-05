@@ -707,7 +707,9 @@ class ToolTraceStep(BaseModel):
     retrieval_run_id: UUID | None = None
     result_count: int | None = None
     arguments: dict[str, Any] = Field(default_factory=dict)
-    outcome: Literal["success", "error"] = "success"
+    # Mirrors the mosaic.tool_outcome enum in db/sql/01_schemas_and_types.sql;
+    # a value the database accepts must survive the API response too.
+    outcome: Literal["success", "denied", "error", "timeout"] = "success"
     origin: Literal["model", "controller_fallback"] = "model"
     latency_ms: float | None = Field(default=None, ge=0)
 
