@@ -1,4 +1,5 @@
 import missionManifest from "../../data/evals/mosaic_labs_missions.json";
+import { playgroundQueryHref } from "./navigation";
 import type { SearchFilters } from "./types";
 
 export type MosaicLabStage = "retrieve" | "rank" | "reason" | "optimize";
@@ -122,27 +123,49 @@ export function retrievalExamplesByStage(): Array<{
   })).filter((group) => group.examples.length > 0);
 }
 
+/**
+ * A lab's own request, addressed to Shop rather than to the Playground.
+ *
+ * The gates are encoded by `playgroundQueryHref` and the result is only
+ * re-pointed at `/catalog`, so exactly one place in the UI decides which filters
+ * may travel on a URL and how they are spelled. A second encoder would drift
+ * from `forwardedSearchFilters`, and Shop would then retrieve a wider pool than
+ * the lab asked for while still reporting the lab's own gates.
+ *
+ * `mission` is what makes the arrival a lab rather than a search: Shop reads it
+ * to decide whether the Lab 1 callout applies, and to grade a reasoning lab's
+ * answer against its own checkpoint.
+ *
+ * The reasoning lab also carries `ask=1`, because its request is a question for
+ * the agent rather than a query for the product grid. Shop opens Ask Mosaic on
+ * `ask` and `mode` only, so without it that lab would land on a page of ranked
+ * products with the lab it names nowhere on screen.
+ *
+ * `view` is the only thing a caller may add. Discover's hero chips set it,
+ * because a hand-off from a landing page has to arrive at the results it asked
+ * for rather than at the top of the storefront; the labs band, which is already
+ * a list of labs, does not. Two builders for one address is how the chip and the
+ * card came to spell the same lab differently.
+ */
+export function shopMissionHref(
+  mission: MosaicLabMission,
+  options: { view?: "results" } = {},
+): string {
+  const encoded = playgroundQueryHref(
+    mission.query,
+    mission.filters as Record<string, unknown>,
+  );
+  const params = new URLSearchParams(encoded.slice(encoded.indexOf("?") + 1));
+  if (options.view) params.set("view", options.view);
+  params.set("mission", mission.id);
+  if (mission.stage === "reason") params.set("ask", "1");
+  return `/catalog?${params}`;
+}
+
 export function retrievalExampleHref(example: MosaicLabMission) {
-  if (example.stage === "reason") {
-    const params = new URLSearchParams({
-      ask: "1",
-      mission: example.id,
-      q: example.query,
-    });
-    Object.entries(example.filters).forEach(([key, value]) => {
-      if (
-        value !== undefined
-        && value !== null
-        && (
-          typeof value === "string"
-          || typeof value === "number"
-          || typeof value === "boolean"
-        )
-      ) {
-        params.set(key, String(value));
-      }
-    });
-    return `/catalog?${params.toString()}`;
-  }
+  // A reasoning lab's request is a question for the agent, and the agent lives
+  // in Shop. Built by `shopMissionHref` rather than beside it, so this card and
+  // Discover's hero chip cannot encode one lab two ways.
+  if (example.stage === "reason") return shopMissionHref(example);
   return `/labs/retrieval?example=${encodeURIComponent(example.id)}`;
 }

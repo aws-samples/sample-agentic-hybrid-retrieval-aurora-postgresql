@@ -10,14 +10,10 @@ import { formatPrice } from "../format";
 import {
   coreMosaicLabs,
   retrievalExampleHref,
-  type MosaicLabMission,
+  shopMissionHref,
 } from "../labMissions";
 import { productImageMap } from "../media";
-import {
-  RETRIEVAL_SURFACE,
-  playgroundQueryHref,
-  useNavigate,
-} from "../navigation";
+import { RETRIEVAL_SURFACE, useNavigate } from "../navigation";
 import { armLanguage } from "../retrievalLanguage";
 import { showcaseCatalogPage } from "../showcase";
 import type {
@@ -90,36 +86,6 @@ export const editorialStories: EditorialStory[] = [
 ];
 
 /**
- * A lab's own request, addressed to Shop rather than to the Playground.
- *
- * The gates are encoded by `playgroundQueryHref` and the result is only
- * re-pointed at `/catalog`, so exactly one place in the UI decides which filters
- * may travel on a URL and how they are spelled. A second encoder written here
- * would drift from `forwardedSearchFilters`, and Shop would then retrieve a
- * wider pool than the lab asked for while still reporting the lab's own gates.
- *
- * `mission` is what makes the arrival a lab rather than a search: Shop reads it
- * to decide whether the Lab 1 callout applies, and to grade a reasoning lab's
- * answer against its own checkpoint.
- *
- * The reasoning lab also carries `ask=1`, because its request is a question for
- * the agent rather than a query for the product grid. Shop opens Ask Mosaic on
- * `ask` and `mode` only, so without it the chip would land Lab 3 on a page of
- * ranked products and the lab it names would be nowhere on screen.
- */
-function shopMissionHref(mission: MosaicLabMission): string {
-  const encoded = playgroundQueryHref(
-    mission.query,
-    mission.filters as Record<string, unknown>,
-  );
-  const params = new URLSearchParams(encoded.slice(encoded.indexOf("?") + 1));
-  params.set("view", "results");
-  params.set("mission", mission.id);
-  if (mission.stage === "reason") params.set("ask", "1");
-  return `/catalog?${params}`;
-}
-
-/**
  * The hero's three chips are the three labs' own queries, in lab order.
  *
  * They used to be five curated phrases, each constrained to a photogenic
@@ -137,10 +103,10 @@ function shopMissionHref(mission: MosaicLabMission): string {
  * Links rather than buttons. These are addresses a participant can copy, reopen,
  * and compare, which a click handler is not.
  */
-export const heroPrompts: Array<{ label: string; href: string }> =
+const heroPrompts: Array<{ label: string; href: string }> =
   coreMosaicLabs.map((mission) => ({
     label: mission.query,
-    href: shopMissionHref(mission),
+    href: shopMissionHref(mission, { view: "results" }),
   }));
 
 /**

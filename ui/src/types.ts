@@ -352,7 +352,16 @@ export interface ToolTraceStep {
   retrieval_run_id: string | null;
   result_count: number | null;
   arguments: Record<string, unknown>;
-  outcome: "success" | "error";
+  /**
+   * `denied` is a third outcome, not a spelling of `error`.
+   *
+   * `synthesize_cited_answer` records it when every search the turn issued came
+   * back unanchored: the tool ran, returned an answer of record stating the
+   * absence, and cited nothing. Reading that as an error would report a broken
+   * run over the top of the one behaviour Lab 3 exists to teach, and a mirror
+   * that omits the value entirely makes the step unrepresentable in this UI.
+   */
+  outcome: "success" | "error" | "denied";
   origin?: "model" | "controller_fallback";
   latency_ms: number | null;
 }
