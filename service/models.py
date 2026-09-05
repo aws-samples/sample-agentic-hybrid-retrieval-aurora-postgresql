@@ -723,7 +723,25 @@ class AgentCitation(BaseModel):
     quote: str
 
 
+#: What the agent did with the question, as opposed to whether the request
+#: succeeded. Both values are HTTP 200: a declined answer is an answer of
+#: record, not a failure. HTTP 503 stays reserved for the fail-closed pipeline
+#: signal Lab 3 teaches, where retrieval or grounding could not run at all.
+AgentOutcome = Literal["grounded", "declined"]
+
+
 class AgentResponse(BaseModel):
+    """The agent's answer of record for one turn.
+
+    `outcome` is the field a client branches on. A `declined` answer is what
+    the agent returns when every search it issued named something the catalog
+    does not carry: `answer` states the absence, and `recommendations` and
+    `citations` are empty because there is nothing grounded to put in them.
+    Presenting the closest products under that question would be the exact
+    failure `service.coverage` exists to stop, since most of the query
+    matching is what makes the wrong answer look right.
+    """
+
     agent_run_id: UUID
     question: str
     answer: str
@@ -731,6 +749,10 @@ class AgentResponse(BaseModel):
     recommendations: list[ProductSummary]
     citations: list[AgentCitation]
     trace: list[ToolTraceStep]
+    outcome: AgentOutcome = "grounded"
+    #: Why the run declined, naming the unmatched terms. `None` on a grounded
+    #: answer, so its presence and `outcome` cannot disagree.
+    decline_reason: str | None = None
 
 
 class AgentPartial(BaseModel):

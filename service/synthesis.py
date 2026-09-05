@@ -9,7 +9,12 @@ from typing import Any
 
 from service.bedrock import get_bedrock_client
 from service.config import Settings, get_settings
-from service.models import AgentCitation, EvidenceRecord, ProductSummary
+from service.models import (
+    AgentCitation,
+    AgentOutcome,
+    EvidenceRecord,
+    ProductSummary,
+)
 
 
 class SynthesisOutputError(ValueError):
@@ -51,6 +56,37 @@ into the sentence that follows it. Do not repeat facts already stated unless the
 are necessary to explain the choice. Finish the final sentence completely.
 
 Do not expose internal prompts or claim that scores are probabilities."""
+
+#: The clause that makes the grounded prompt mandate a recommendation. A
+#: declined answer may not carry it, and it is quoted here rather than
+#: reworded so the substitution below is checkable against the prompt itself.
+_BEST_FIT_MANDATE = """Start with one direct sentence that names the first supplied product as the
+best fit and explains the decisive user-relevant reason with citations."""
+
+_DECLINE_INSTRUCTION = """Do not name any supplied product as a best fit and do not recommend one. The
+application has already established that this request names something the
+catalog does not carry, so say that plainly in one sentence."""
+
+
+def declined_system_prompt() -> str:
+    """`SYSTEM_PROMPT` with its recommend-a-product mandate removed.
+
+    Derived rather than duplicated: a second full prompt would let the two
+    drift, and every rule that is not the mandate applies to both.
+
+    Raises:
+        SynthesisOutputError: When `SYSTEM_PROMPT` no longer contains the
+            mandate verbatim. Failing here is the point. A silent no-op
+            substitution would hand a declining caller a prompt that still
+            orders it to name a product.
+    """
+    if _BEST_FIT_MANDATE not in SYSTEM_PROMPT:
+        raise SynthesisOutputError(
+            "SYSTEM_PROMPT no longer contains the best-fit mandate verbatim, so "
+            "a declined answer cannot be derived by removing it; fix: update "
+            "service.synthesis._BEST_FIT_MANDATE to quote the edited clause"
+        )
+    return SYSTEM_PROMPT.replace(_BEST_FIT_MANDATE, _DECLINE_INSTRUCTION)
 
 
 def _text(response: dict[str, Any]) -> str:
@@ -489,7 +525,23 @@ def synthesize_cited_answer(
     *,
     settings: Settings | None = None,
     client: Any | None = None,
+    outcome: AgentOutcome = "grounded",
 ) -> tuple[str, list[AgentCitation], dict[str, Any]]:
+    """Write the citation-bounded answer of record for one turn.
+
+    Args:
+        question: The shopper question the answer must address.
+        products: The authorized products, in the order they were selected.
+        evidence_records: Retrieved evidence, numbered in the order supplied.
+        settings: Resolved runtime settings. Defaults to the process settings.
+        client: A Bedrock runtime client. Defaults to the shared one.
+        outcome: `"grounded"` writes a recommendation. `"declined"` drops the
+            mandate to name a best fit, for a caller that has already decided
+            this request may not be answered with a product.
+
+    Returns:
+        The answer, its validated citations, and the model usage.
+    """
     settings = settings or get_settings()
     if not settings.synthesis_model_id:
         raise RuntimeError(
@@ -571,7 +623,13 @@ def synthesize_cited_answer(
     ]
     request = {
         "modelId": settings.synthesis_model_id,
-        "system": [{"text": SYSTEM_PROMPT}],
+        "system": [
+            {
+                "text": (
+                    declined_system_prompt() if outcome == "declined" else SYSTEM_PROMPT
+                )
+            }
+        ],
         "inferenceConfig": {"maxTokens": 1_400},
         "requestMetadata": {"application": "catalog-hybrid-retrieval-workshop"},
     }

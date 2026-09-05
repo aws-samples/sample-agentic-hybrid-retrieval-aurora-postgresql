@@ -108,6 +108,27 @@ the later resets.
    broken body in `scripts/lab_state.py` first. The sibling only narrates and
    triggers gaps; it never defines one.
 
+## Not a gap: the declined agent answer
+
+`POST /api/agent/answer` returns `outcome: "declined"` with an empty
+`recommendations` list when every search a turn issued reported
+`coverage.confidence` of `unanchored`. That is shipped, working behavior, not
+a planted defect and not a `REPAIR PENDING` state.
+
+It is listed here because it can be mistaken for one. A Lab 3 run that produces
+no product looks like GAP-3, whose whole symptom is an ungrounded answer. The
+two are told apart by the response, not by the board:
+
+| Symptom | What it is | Where to look |
+|---|---|---|
+| HTTP 200, `outcome: "declined"`, no recommendation | the coverage refusal, working | the answer names the unmatched terms |
+| HTTP 200, `outcome: "grounded"`, recommendation with no resolvable citation | GAP-3, unrepaired | `service/agent_tools.get_product_evidence` evidence state |
+| HTTP 503 | the fail-closed pipeline signal Lab 3 teaches | retrieval or grounded synthesis never produced an answer of record |
+
+The Lab 3 mission question is anchored: every term it uses exists in the
+catalog, so a decline on Stage 03 is a real failure and the completion proof
+must grade it as one.
+
 ## Non-gaps
 
 Defects found and fixed in the Phase 1 pass. None was ever intentional; they are

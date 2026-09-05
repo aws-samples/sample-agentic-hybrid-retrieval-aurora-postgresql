@@ -41,18 +41,58 @@ MATCHED = "matched"
 IGNORED = "ignored"
 
 
+def _quoted(unmatched_terms: Sequence[str]) -> str:
+    return ", ".join(f"'{term}'" for term in unmatched_terms)
+
+
+def _absence_sentence(unmatched_terms: Sequence[str]) -> str:
+    """The one fact every surface states, worded once rather than copied.
+
+    Shop and the agent disagree about what follows this sentence, never about
+    the sentence itself. Two copies of it would let them drift into naming the
+    same absence two ways.
+    """
+    subject = "term" if len(unmatched_terms) == 1 else "terms"
+    return f"Nothing in the catalog matches the {subject} {_quoted(unmatched_terms)}."
+
+
 #: Shown to a shopper above results. Names the terms rather than the mechanism,
 #: matching how the Playground reports every other retrieval fact.
 def unanchored_note(unmatched_terms: Sequence[str]) -> str:
     """Plain-language statement of what the catalog did not match."""
     if not unmatched_terms:
         return ""
-    quoted = ", ".join(f"'{term}'" for term in unmatched_terms)
-    subject = "term" if len(unmatched_terms) == 1 else "terms"
     return (
-        f"Nothing in the catalog matches the {subject} {quoted}. "
+        f"{_absence_sentence(unmatched_terms)} "
         "The results below answer the rest of the request."
     )
+
+
+def decline_note(unmatched_terms: Sequence[str]) -> str:
+    """The agent's answer of record when it may not recommend.
+
+    Shop labels an unanchored result set and still shows it, because a shopper
+    reading a caveat above real products is better served than one reading an
+    empty page. The agent has no equivalent: its output is a single answer of
+    record, so the absence Shop annotates is here a refusal to recommend.
+    """
+    if not unmatched_terms:
+        return ""
+    return (
+        f"{_absence_sentence(unmatched_terms)} "
+        "No product is recommended for this request."
+    )
+
+
+def decline_reason(unmatched_terms: Sequence[str]) -> str:
+    """Why a run declined, in a form a client can branch on without prose.
+
+    The prefix is stable and the terms follow it, so a caller can test for the
+    verdict and still read the offending values.
+    """
+    if not unmatched_terms:
+        return ""
+    return f"unanchored_query_terms: {_quoted(unmatched_terms)}"
 
 
 def summarize(terms: Sequence[TermCoverage]) -> QueryCoverage:

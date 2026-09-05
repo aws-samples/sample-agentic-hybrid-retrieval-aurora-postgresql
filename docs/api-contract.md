@@ -65,7 +65,30 @@ The Strands response contains:
   availability, and mission-claim checks;
 - source-backed product recommendations;
 - numbered citations;
-- bounded tool trace with retrieval run IDs.
+- bounded tool trace with retrieval run IDs;
+- `outcome`, either `grounded` or `declined`;
+- `decline_reason`, naming the unmatched query terms on a declined answer and
+  `null` on a grounded one.
+
+### Declined answers
+
+A run declines when it issued at least one search and every one of them came
+back with `coverage.confidence` of `unanchored`, meaning every search named
+something the catalog does not carry. The answer of record then states the
+absence and names the terms, `recommendations` and `citations` are empty, and
+`outcome` is `declined`.
+
+**A declined answer is HTTP 200.** It is an answer, not a failure: the pipeline
+ran, retrieval returned its closest candidates, and the application decided
+those candidates may not be presented as the answer. HTTP 503 remains the
+fail-closed pipeline signal Lab 3 teaches, raised when retrieval or grounded
+synthesis could not produce an answer of record at all. Reading a decline as a
+503, or a 503 as a decline, inverts both diagnoses.
+
+Coverage of `unavailable`, or no `coverage` at all, never declines. An unseeded
+corpus vocabulary makes every term look absent, so refusing on it would turn one
+skipped seed step into a total outage that presents as a working guardrail. That
+fail-safe is deliberate and is exercised by `tests/test_agent_coverage_decline.py`.
 
 The streaming route emits server-sent application stages and then the same
 citation-bounded answer contract. It does not expose model reasoning or claim

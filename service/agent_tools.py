@@ -13,11 +13,13 @@ from strands import tool
 
 from service.catalog import get_product_evidence_records, get_product_summaries
 from service.config import get_settings
+from service.coverage import decline_note, decline_reason
 from service.db import connect
 from service.model_runtime import model_runtime_error
 from service.models import (
     AgentConversationContext,
     ProductSummary,
+    QueryCoverage,
     SearchFilters,
     SearchRequest,
 )
@@ -285,6 +287,10 @@ def start_run(
         "evidence": {},
         "evidence_by_product": {},
         "searches": [],
+        # One coverage verdict per issued search, in issue order. The run-level
+        # refusal is a property of the whole turn, not of any single search, so
+        # the verdicts are kept rather than reduced as they arrive.
+        "search_coverage": [],
         "answer_of_record": None,
     }
     with connect() as connection:
@@ -633,6 +639,7 @@ def search_products(
         )
 
     state["search_event_ids"].append(response.search_event_id)
+    state.setdefault("search_coverage", []).append(response.coverage)
     if not state["searches"] and state.get("context_product_ids"):
         # A request for alternatives or changed constraints starts a new
         # candidate pool. The prior answer remains conversational context, but
@@ -676,6 +683,18 @@ def search_products(
                 "warnings": response.diagnostics.warnings,
             }
             if response.diagnostics
+            else None
+        ),
+        # Declared on this tool's payload_schema, so the model reads the same
+        # verdict the audit record claims the tool returns. The per-term rows
+        # stay out: the model needs the decision, not the vocabulary probe.
+        "coverage": (
+            {
+                "confidence": response.coverage.confidence,
+                "unmatched_terms": response.coverage.unmatched_terms,
+                "note": response.coverage.note,
+            }
+            if response.coverage
             else None
         ),
     }
@@ -890,6 +909,71 @@ def explain_retrieval(search_event_id: str) -> dict[str, Any]:
     }
 
 
+def coverage_refusal(state: dict[str, Any]) -> tuple[str, str] | None:
+    """The answer and reason a run owes when it may not recommend.
+
+    A turn declines only when it issued at least one search and every one of
+    them came back `unanchored`. Three cases deliberately stay on the grounded
+    path:
+
+    - no search at all, which is a closed-world follow-up over an already
+      authorized shortlist and has no coverage verdict of its own;
+    - any search that came back `grounded`, because one anchored search is a
+      product the catalog does carry;
+    - `unavailable`, or no verdict at all, which is the documented fail-safe.
+      An unseeded vocabulary makes every term look absent, and refusing on it
+      would turn one skipped seed step into a total outage that presents as a
+      working guardrail.
+
+    Args:
+        state: The active run state.
+
+    Returns:
+        The declining answer of record and the reason behind it, or `None` when
+        the run may recommend.
+    """
+    verdicts: list[QueryCoverage | None] = state.get("search_coverage") or []
+    if not verdicts:
+        return None
+    if any(item is None or item.confidence != "unanchored" for item in verdicts):
+        return None
+    unmatched = list(
+        dict.fromkeys(term for item in verdicts for term in item.unmatched_terms)
+    )
+    if not unmatched:
+        return None
+    return decline_note(unmatched), decline_reason(unmatched)
+
+
+def record_declined_answer(state: dict[str, Any]) -> bool:
+    """Write the declining answer of record, if this run declines.
+
+    The answer of record still exists; it just recommends nothing. Leaving it
+    unset would raise out of `ProductDiscoveryAgent._response` as a 503, which
+    is the fail-closed pipeline signal Lab 3 teaches and a different fact from
+    a request the catalog cannot anchor.
+
+    Args:
+        state: The active run state.
+
+    Returns:
+        Whether the declining answer was written.
+    """
+    refusal = coverage_refusal(state)
+    if refusal is None:
+        return False
+    answer, reason = refusal
+    state["answer_of_record"] = {
+        "answer": answer,
+        "citations": [],
+        "recommendations": [],
+        "usage": {},
+        "outcome": "declined",
+        "decline_reason": reason,
+    }
+    return True
+
+
 @tool
 def synthesize_cited_answer(
     question: str,
@@ -912,6 +996,23 @@ def synthesize_cited_answer(
     started = perf_counter()
     state = _state()
     unique_ids = list(dict.fromkeys(product_ids))
+    if record_declined_answer(state):
+        # Checked before the product bounds, because which products the model
+        # chose cannot matter: every search this turn named something the
+        # catalog does not carry, so no selection of them is grounded.
+        record = state["answer_of_record"]
+        _record(
+            "synthesize_cited_answer",
+            {"question": question, "product_ids": unique_ids},
+            started,
+            result_count=0,
+            detail=(
+                "Recommendation refused; every search this turn came back "
+                f"unanchored ({record['decline_reason']})."
+            ),
+            outcome="denied",
+        )
+        return {"ok": True, "answer": record["answer"], "citations": []}
     if not SYNTHESIS_PRODUCT_COUNT[0] <= len(unique_ids) <= SYNTHESIS_PRODUCT_COUNT[1]:
         return _failure(
             "synthesis requires one to six distinct products",
@@ -1197,6 +1298,11 @@ def _persisted_intent(
         ],
         "context_product_ids": state.get("context_product_ids", []),
         "execution_path": state.get("execution_path", "full_retrieval"),
+        # Read by the Lab 3 completion proof and the telemetry contract. A run
+        # with no answer of record has no outcome to report, which is a third
+        # state and not a quiet "grounded".
+        "outcome": record.get("outcome", "grounded") if record else None,
+        "decline_reason": record.get("decline_reason") if record else None,
         "selected_products": (
             [
                 {

@@ -128,6 +128,11 @@ Prior answer prose is never evidence. Every answer still requires fresh evidence
 and deterministic citation validation. Never use an inherited product after
 search_products starts a new candidate pool.
 
+When every search_products result reports coverage.confidence "unanchored", the
+request named something the catalog does not carry. Do not broaden the query and
+do not offer a near match instead. Call synthesize_cited_answer once with the
+products you retrieved; the application returns the declining answer of record.
+
 synthesize_cited_answer creates the citation-bounded answer of record and applies
 deterministic product, numeric, availability, and mission-claim checks. Do not
 rewrite it after the tool succeeds. Close with one short sentence saying the
@@ -247,7 +252,15 @@ class ProductDiscoveryAgent:
         request: AgentRequest,
         state: dict[str, Any],
     ) -> Exception | None:
-        if state["answer_of_record"] is not None or not state["products"]:
+        if state["answer_of_record"] is not None:
+            return None
+        # Before the product check, not after it. An unanchored search still
+        # returns its closest products, so `state["products"]` is populated and
+        # the fallback would otherwise select from it on rank alone and present
+        # the result as the answer of record.
+        if agent_tools.record_declined_answer(state):
+            return None
+        if not state["products"]:
             return None
         try:
             agent_tools.complete_grounded_answer(request.question)
@@ -293,6 +306,8 @@ class ProductDiscoveryAgent:
             recommendations=record["recommendations"],
             citations=record["citations"],
             trace=_trace_steps(state),
+            outcome=record.get("outcome", "grounded"),
+            decline_reason=record.get("decline_reason"),
         )
 
     def _persist(
