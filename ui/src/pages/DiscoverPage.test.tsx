@@ -575,40 +575,13 @@ describe("DiscoverPage", () => {
     expect(rows[0].textContent).toContain("$249.00");
   });
 
-  it("opens the Playground from a compact band directly under the hero", () => {
-    // The workshop used to have no mention above the fold: the first hint was
-    // the labs band at the bottom of the page. This band sits between the hero
-    // and the merchandising section, one sentence and one link.
-    const { container } = renderPage();
-
-    const band = container.querySelector('[aria-label="Workshop entry"]');
-    expect(band).toBeTruthy();
-    expect(band!.textContent).toContain(
-      "A search can return a plausible top result while the system behind it"
-        + " is wrong.",
-    );
-    const link = band!.querySelector<HTMLAnchorElement>(".discover-cta")!;
-    expect(link.getAttribute("href")).toBe(RETRIEVAL_SURFACE.path);
-    expect(link.textContent).toBe(`Open the ${RETRIEVAL_SURFACE.label}`);
-
-    // Document order: the band's link precedes discover-body, which wraps the
-    // merch section (the merch section itself only renders once its live
-    // reads resolve, so discover-body is the stable anchor here).
-    const body = container.querySelector(".discover-body");
-    expect(body).toBeTruthy();
-    expect(
-      link.compareDocumentPosition(body!) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
-
   it("shops every storefront errand through one arrowless maroon button", () => {
     const { container } = renderPage();
 
-    // Three story buttons, "Shop all", the running & fitness plate link, the
-    // labs band's inverted pill, and the workshop entry band's link — one
-    // shared treatment, no trailing arrows.
+    // Three story buttons, "Shop all", the running & fitness plate link, and
+    // the labs band's inverted pill — one shared treatment, no trailing arrows.
     const ctas = Array.from(container.querySelectorAll(".discover-cta"));
-    expect(ctas).toHaveLength(editorialStories.length + 4);
+    expect(ctas).toHaveLength(editorialStories.length + 3);
     for (const cta of ctas) {
       expect(cta.querySelector("svg")).toBeNull();
     }
