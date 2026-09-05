@@ -16,6 +16,7 @@ def test_cached_bootstrap_times_every_existing_phase() -> None:
         ("index_creation", "db-index-recover-and-create"),
         ("premium_cohort_load", "db-load-cohort"),
         ("evidence_load", "db-load-evidence"),
+        ("corpus_lexeme_seed", "db-seed-corpus-lexeme"),
         ("smoke_test", "db-smoke"),
         ("bootstrap_acceptance", "db-verify-bootstrap"),
     ]

@@ -66,7 +66,7 @@ DSN_TARGETS := test test-aurora-contracts test-aurora-invariants db-install db-i
 	validate-missions validate-evals score-evals ablation-evals validate-functions \
 	lab-01 db-load-mosaic db-index-concurrent db-drop-invalid-indexes db-index-quantized \
 	db-index-recover-and-create db-load-cohort db-load-evidence db-smoke \
-	db-bootstrap-cached db-verify-bootstrap db-embed db-export-embeddings db-import-embeddings \
+	db-seed-corpus-lexeme db-bootstrap-cached db-verify-bootstrap db-embed db-export-embeddings db-import-embeddings \
 	db-configure-retrieval db-apply-search-functions reset-lab-1 validate-lab-1 solution-lab-1 \
 	reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 api-serve
 
@@ -356,6 +356,7 @@ db-bootstrap-cached:
 	$(call bootstrap-phase,index_creation,db-index-recover-and-create)
 	$(call bootstrap-phase,premium_cohort_load,db-load-cohort)
 	$(call bootstrap-phase,evidence_load,db-load-evidence)
+	$(call bootstrap-phase,corpus_lexeme_seed,db-seed-corpus-lexeme)
 	$(call bootstrap-phase,smoke_test,db-smoke)
 	$(call bootstrap-phase,bootstrap_acceptance,db-verify-bootstrap)
 	@awk -F '\t' \
@@ -498,9 +499,9 @@ db-seed-exact-neighbors:
 
 # Builds mosaic_search.corpus_lexeme, the vocabulary query coverage reads to tell
 # a misspelling ("hedfones", close to a real term) from an absence ("A2342",
-# close to nothing). ts_stat scans every product document, so this is a seed step
-# rather than bootstrap work; its cost on the 500,000-product corpus is NOT yet
-# measured, which is why it is not wired into db-load-mosaic.
+# close to nothing). ts_stat scans every product document. Measured on the
+# 500,000-product corpus on 2026-09-04: 22 seconds, so it runs as the
+# corpus_lexeme_seed phase of db-bootstrap-cached, after the evidence load.
 #
 # Skipping it is safe: service.coverage reports `unavailable` against an empty
 # vocabulary and every surface behaves exactly as it did before coverage existed.
