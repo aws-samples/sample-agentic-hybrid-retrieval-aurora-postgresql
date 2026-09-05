@@ -726,6 +726,50 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
     -f db/sql/99_smoke_test.sql
 "
 
+# The storefront offers a link back to Code Editor, which needs the editor's
+# CloudFront domain. The template cannot pass it in: both distributions have this
+# instance as their origin, so neither domain exists when this user data renders.
+# Discover it here instead, before /etc/mosaic-api.env is written from $REPO/.env
+# below, which is the file the API unit actually loads.
+#
+# The URL written is deliberately tokenless. The tkn= token in the CodeEditorURL
+# stack output is a credential for the participant's editor, and anything Mosaic
+# renders reaches every browser that loads the storefront. The editor session
+# cookie, set when the participant first opens it from the Event Dashboard,
+# authenticates them without it, and service/config.py refuses to start on a
+# value carrying tkn= so this cannot regress unnoticed.
+#
+# Non-fatal by construction. A distribution still deploying, a missing
+# cloudfront:ListDistributions permission, or a workshop deployed under another
+# name all leave the variable unset, and the storefront then hides the link. The
+# lookup runs as an `if` condition so a failed call cannot reach the ERR trap and
+# roll back an otherwise working stack over a convenience link.
+CODE_EDITOR_DOMAIN=''
+if [[ -n "${WORKSHOP_NAME:-}" ]]; then
+  for domain_attempt in 1 2 3 4 5; do
+    if CODE_EDITOR_DOMAIN=$(aws cloudfront list-distributions \
+        --query "DistributionList.Items[?Comment=='${WORKSHOP_NAME} Code Editor'].DomainName | [0]" \
+        --output text) &&
+      [[ -n "$CODE_EDITOR_DOMAIN" && "$CODE_EDITOR_DOMAIN" != 'None' ]]; then
+      break
+    fi
+    CODE_EDITOR_DOMAIN=''
+    echo "Code Editor distribution lookup $domain_attempt found nothing; retrying in 20s"
+    sleep 20
+  done
+else
+  echo "WORKSHOP_NAME is unset; skipping Code Editor URL discovery"
+fi
+if [[ -n "$CODE_EDITOR_DOMAIN" ]]; then
+  printf "MOSAIC_CODE_EDITOR_URL='https://%s/?folder=%s/%s'\n" \
+    "$CODE_EDITOR_DOMAIN" "$HOME_FOLDER" \
+    'sample-agentic-hybrid-retrieval-aurora-postgresql' \
+    >>"$REPO/.env"
+  echo "Code Editor URL discovered at https://$CODE_EDITOR_DOMAIN/"
+else
+  echo "No Code Editor CloudFront domain found; the storefront hides its editor link"
+fi
+
 APP_DB_USER='mosaic_runtime'
 APP_DB_PASSWORD=$(python3.13 -c \
   'import secrets; print(secrets.token_urlsafe(32))')
