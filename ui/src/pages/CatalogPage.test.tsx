@@ -52,6 +52,7 @@ import type {
   HealthResponse,
   ProductDetail,
   ProductSummary,
+  ReadinessResponse,
   RetrievalDiagnostics,
   RetrievalExample,
   SearchResponse,
@@ -66,6 +67,7 @@ vi.mock("../api", () => ({
     agentStream: vi.fn(),
     examples: vi.fn(),
     health: vi.fn(),
+    readiness: vi.fn(),
     product: vi.fn(),
   },
 }));
@@ -343,6 +345,37 @@ const healthFixture: HealthResponse = {
   code_editor_url: "https://code.mosaic-workshop.example",
 };
 
+/**
+ * Every retrieval index present and the corpus seeded: nothing about the
+ * environment stands between the participant and Lab 1's own defect.
+ */
+const healthyReadiness: ReadinessResponse = {
+  status: "ready",
+  database_ready: true,
+  model_space_ready: true,
+  database: {
+    database_name: "mosaic",
+    server_version: "16.4",
+    schema_ready: true,
+    vector_version: "0.8.0",
+    product_count: 500_000,
+    embedded_product_count: 500_000,
+    embedding_dimensions: 1024,
+    embedding_model_ids: ["us.cohere.embed-v4:0"],
+    premium_product_count: 120,
+    evidence_product_count: 120,
+    missing_retrieval_indexes: [],
+    missing_retrieval_functions: [],
+  },
+  configured_models: {
+    embedding: "us.cohere.embed-v4:0",
+    rerank: "cohere.rerank-v3-5:0",
+    agent: "anthropic.claude-sonnet-4-6",
+    synthesis: "anthropic.claude-sonnet-4-6",
+  },
+  bedrock_credentials: { ready: true },
+};
+
 /** Lab 1's own mission, read from the manifest rather than restated here. */
 const lab1 = coreMosaicLabs[0];
 
@@ -440,8 +473,10 @@ describe("CatalogPage", () => {
     vi.mocked(api.agentStream).mockReset();
     vi.mocked(api.examples).mockReset();
     vi.mocked(api.health).mockReset();
+    vi.mocked(api.readiness).mockReset();
     vi.mocked(api.product).mockReset();
     vi.mocked(api.health).mockResolvedValue(healthFixture);
+    vi.mocked(api.readiness).mockResolvedValue(healthyReadiness);
     vi.mocked(api.product).mockResolvedValue(productDetail);
     vi.mocked(api.catalog).mockResolvedValue(catalog);
     vi.mocked(api.suggestions).mockResolvedValue({
@@ -1998,6 +2033,67 @@ describe("CatalogPage", () => {
     expect(callout.compareDocumentPosition(
       document.querySelector(".shop-products")!,
     ) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("blames the environment, not the participant, when the trigram index is gone", async () => {
+    // A missing pg_trgm index and an unrepaired CTE produce the same evidence:
+    // the target is absent and no candidate carries a trigram rank. Shop used to
+    // grade without reading readiness at all, so it told a participant whose
+    // cluster was missing the index that they were looking at Lab 1's own fault
+    // and pointed them at the file. That is a lost lab, not a hint.
+    vi.mocked(api.readiness).mockResolvedValue({
+      ...healthyReadiness,
+      status: "blocked",
+      database: {
+        ...healthyReadiness.database,
+        missing_retrieval_indexes: ["product_document_trigram_gin_idx"],
+      },
+    });
+    vi.mocked(api.search).mockResolvedValue(lab1Search(false));
+    window.history.replaceState(
+      {},
+      "",
+      `/catalog?q=${encodeURIComponent(lab1.query)}`
+        + "&domain=consumer_electronics&max_price_cents=20000&in_stock_only=true"
+        + "&view=results&mission=typo-recovery",
+    );
+    renderPage();
+
+    const callout = await screen.findByRole("region", { name: "Lab 1 outcome" });
+    await waitFor(() =>
+      expect(
+        within(callout).getByRole("heading", {
+          name: "This is an environment problem, not the lab's fault",
+        }),
+      ).toBeTruthy()
+    );
+    expect(callout.textContent).toContain("product_document_trigram_gin_idx");
+    // Not the lab's fault, and not the lab's file either.
+    expect(callout.textContent).not.toContain("deliberate");
+    expect(callout.textContent).not.toContain(lab1.participant_edit!.file);
+    expect(callout.textContent).not.toContain(lab1.participant_edit!.task);
+    expect(callout.className).toContain("unhealthy");
+    // Re-applying the schema happens in another window, exactly as a repair
+    // does, so the way back to a live answer stays on the callout.
+    expect(within(callout).getByRole("button", { name: "Search again" })).toBeTruthy();
+  });
+
+  it("keeps naming the lab's own fault when readiness reports a healthy cluster", async () => {
+    // The falsifier for the test above: with every index present, the same
+    // response is the defect the participant was sent to find.
+    vi.mocked(api.search).mockResolvedValue(lab1Search(false));
+    window.history.replaceState(
+      {},
+      "",
+      `/catalog?q=${encodeURIComponent(lab1.query)}`
+        + "&domain=consumer_electronics&max_price_cents=20000&in_stock_only=true",
+    );
+    renderPage();
+
+    const callout = await screen.findByRole("region", { name: "Lab 1 outcome" });
+    await waitFor(() => expect(vi.mocked(api.readiness)).toHaveBeenCalled());
+    expect(callout.textContent).toContain("deliberate");
+    expect(callout.textContent).not.toContain("environment problem");
   });
 
   it("lands a lab arrival on the callout, not one line under it", async () => {

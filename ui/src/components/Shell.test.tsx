@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -301,7 +302,7 @@ describe("Shell navigation", () => {
       </CommerceProvider>,
     );
 
-    const state = await screen.findByRole("status", { name: "Lab 1 state" });
+    const state = await screen.findByRole("group", { name: "Lab 1 state" });
     // Two chips, not one verdict. An edited file in front of an unapplied
     // cluster is the most common way a repair looks finished and is not, and
     // collapsing the two states would hide exactly that.
@@ -321,7 +322,7 @@ describe("Shell navigation", () => {
     );
 
     expect(
-      (await screen.findByRole("status", { name: "Lab 2 state" })).textContent,
+      (await screen.findByRole("group", { name: "Lab 2 state" })).textContent,
     ).toBe("source: solveddatabase: applied");
     unmount();
 
@@ -337,8 +338,78 @@ describe("Shell navigation", () => {
     // Lab 3's seam lives in the API process, so there is no schema to re-apply
     // and the chip says so rather than printing a stale-looking verdict.
     expect(
-      (await screen.findByRole("status", { name: "Lab 3 state" })).textContent,
+      (await screen.findByRole("group", { name: "Lab 3 state" })).textContent,
     ).toBe("source: solveddatabase: not applicable");
+  });
+
+  it("re-reads the lab state when Shop records a new run", async () => {
+    // Shop's callout flips to `Repair verified` the moment a re-run comes back
+    // repaired. The header used to keep printing `source: broken` beside it
+    // until the page was reloaded, which is the workshop contradicting itself
+    // on one screen. The run Shop records on its own URL is the signal.
+    vi.mocked(api.health).mockResolvedValue(healthFixture(null));
+    vi.mocked(api.labsState).mockResolvedValue(labsFixture);
+    window.history.replaceState(
+      {},
+      "",
+      "/catalog?q=noice+cancelng+hedfones&event=9614ed9b-4ceb-4aad-9276-4e69af2231b9",
+    );
+    render(
+      <CommerceProvider>
+        <Shell>
+          <div>Shop content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+
+    expect(
+      (await screen.findByRole("group", { name: "Lab 1 state" })).textContent,
+    ).toBe("source: brokendatabase: stale");
+    expect(vi.mocked(api.labsState)).toHaveBeenCalledTimes(1);
+
+    vi.mocked(api.labsState).mockResolvedValue({
+      labs: [
+        { ...labsFixture.labs[0], source_state: "solved", database_state: "applied" },
+        ...labsFixture.labs.slice(1),
+      ],
+    });
+    act(() => {
+      window.history.replaceState(
+        {},
+        "",
+        "/catalog?q=noice+cancelng+hedfones&event=2c58f0a1-7d3e-4a90-8b21-6f0d5c9e4471",
+      );
+    });
+
+    await waitFor(() =>
+      expect(screen.getByRole("group", { name: "Lab 1 state" }).textContent).toBe(
+        "source: solveddatabase: applied",
+      )
+    );
+    expect(vi.mocked(api.labsState)).toHaveBeenCalledTimes(2);
+  });
+
+  it("holds the chips' space open before the first read lands", async () => {
+    // Otherwise two chips appear beside the bag a round trip after first paint
+    // and shove the header's actions sideways under the participant's cursor.
+    vi.mocked(api.health).mockResolvedValue(healthFixture(null));
+    vi.mocked(api.labsState).mockResolvedValue(labsFixture);
+    render(
+      <CommerceProvider>
+        <Shell>
+          <div>Shop content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+
+    const state = screen.getByRole("group", { name: "Lab 1 state" });
+    expect(state.textContent).toBe("");
+    expect(state.querySelector(".site-lab-state-pending")).toBeTruthy();
+
+    await waitFor(() =>
+      expect(state.textContent).toBe("source: brokendatabase: stale")
+    );
+    expect(state.querySelector(".site-lab-state-pending")).toBeNull();
   });
 
   it("says the lab state was not checked when the read fails", async () => {
@@ -354,7 +425,7 @@ describe("Shell navigation", () => {
       </CommerceProvider>,
     );
 
-    const state = await screen.findByRole("status", { name: "Lab 1 state" });
+    const state = await screen.findByRole("group", { name: "Lab 1 state" });
     expect(state.textContent).toBe("source: not checkeddatabase: not checked");
   });
 

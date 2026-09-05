@@ -150,7 +150,7 @@
   margin-top: 30px;
 }
 
-/* Five curated prompts, so they wrap as units instead of dividing a fixed
+/* Three lab queries, wrapping as units instead of dividing a fixed
    three-column track. The label sits on its own line above them. */
 .discover-hero-prompts {
   display: flex;
@@ -169,26 +169,6 @@
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-}
-
-.discover-hero-prompts > button {
-  min-height: 34px;
-  padding: 0 14px;
-  border: 1px solid rgb(92 75 62 / 18%);
-  border-radius: 999px;
-  background: rgb(255 253 248 / 82%);
-  color: var(--ink);
-  font-size: 12.5px;
-  font-weight: 500;
-  white-space: nowrap;
-  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
-}
-
-.discover-hero-prompts > button:hover,
-.discover-hero-prompts > button:focus-visible {
-  border-color: var(--maroon-800);
-  background: var(--paper);
-  color: var(--maroon-900);
 }
 
 /* Scrolling body */
@@ -5970,7 +5950,7 @@
     margin-top: 20px;
   }
 
-  /* Five chips in a column would push the field off a phone screen; the row
+  /* Chips stacked in a column would push the field off a phone screen; the row
      scrolls sideways instead. */
   .discover-hero-prompts {
     width: 100%;
@@ -5980,10 +5960,6 @@
   }
 
   .discover-hero-prompts > span {
-    flex: 0 0 auto;
-  }
-
-  .discover-hero-prompts > button {
     flex: 0 0 auto;
   }
 
@@ -13081,10 +13057,9 @@
 
 /* Break-first callout and header */
 
-/* The hero chips are links now, not buttons: they are the three labs' own
-   requests, and a participant has to be able to copy one, reopen it, and compare
-   two runs. The `> button` rules above are the previous curated-phrase chips and
-   no longer match anything in this container. */
+/* The hero chips are links, not buttons: they are the three labs' own requests,
+   and a participant has to be able to copy one, reopen it, and compare two
+   runs. */
 .discover-hero-prompts > a {
   /* inline-block, not inline-flex: `text-overflow` has nothing to act on inside
      a flex container, so the flex version clipped the reasoning lab's query
@@ -13159,6 +13134,9 @@
 .site-lab-chip {
   display: inline-flex;
   align-items: center;
+  /* Pinned rather than left to the font's line box, because the placeholder
+     below has to reserve exactly this height before the first read lands. */
+  min-height: 22px;
   padding: 3px 9px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -13168,6 +13146,18 @@
   font-size: 11px;
   letter-spacing: 0.02em;
   white-space: nowrap;
+}
+
+/* Reserved space, drawn as nothing.
+
+   `/api/labs/state` is a round trip, and until it lands there are no chips.
+   Rendering the container empty let the header settle at one height and then
+   grow, shoving the bag sideways after the fetch. Zero width so nothing is
+   implied about the verdict, one chip's height so the row never changes. */
+.site-lab-state-pending {
+  display: inline-block;
+  width: 0;
+  height: 22px;
 }
 
 /* Green for done, red for the seam the participant is here to close, amber for
@@ -13250,6 +13240,15 @@
   border-color: #bad5c7;
   border-left-color: var(--green);
   background: var(--green-soft);
+}
+
+/* An environment fault, drawn apart from the seam on purpose and in the same
+   amber `.lab-outcome.unhealthy` uses: red is the code the participant was sent
+   here to fix, amber is the room being wrong. */
+.shop-lab-callout.unhealthy {
+  border-color: #ddc79a;
+  border-left-color: var(--gold);
+  background: #fdf7ea;
 }
 
 .shop-lab-callout-edit code {

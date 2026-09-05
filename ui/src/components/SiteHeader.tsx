@@ -160,13 +160,24 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
   }, []);
 
   /**
-   * Re-read when the participant moves between labs.
+   * Re-read when the participant moves between labs, and when Shop serves a new
+   * run.
    *
    * `/api/labs/state` runs no retrieval: it reads the marker blocks in the file
    * the participant edits and asks Aurora what two functions currently contain.
-   * Navigating to another lab is also the moment a repair made in between
-   * becomes worth re-reporting, so that navigation is the refresh.
+   * Navigating to another lab is one moment a repair made in between becomes
+   * worth re-reporting. Re-running the same request is the other, and it was the
+   * one the header missed: Shop's callout flipped to `Repair verified` while
+   * these chips still read `source: broken` until the page was reloaded, which
+   * is the workshop contradicting itself on one screen.
+   *
+   * Keyed on the run Shop records on its own URL rather than on a counter lifted
+   * out of the page. `event` is already the header's channel from Shop -- the
+   * Playground entry above is built from it -- so a re-run refreshes these chips
+   * through the mechanism that exists rather than through a second one.
    */
+  const servedRunId = searchParams.get("event") ?? "";
+
   useEffect(() => {
     let active = true;
     api.labsState().then(
@@ -180,7 +191,7 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
     return () => {
       active = false;
     };
-  }, [labNumber]);
+  }, [labNumber, servedRunId]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -231,23 +242,36 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
       </nav>
 
       <div className="site-actions">
-        {labs ? (
-          <div
-            className="site-lab-state"
-            role="status"
-            aria-label={`Lab ${labNumber} state`}
-          >
-            <span className="site-lab-chip" data-state={activeLab?.source_state ?? "unchecked"}>
-              source: {activeLab ? activeLab.source_state : NOT_CHECKED}
-            </span>
-            <span
-              className="site-lab-chip"
-              data-state={activeLab?.database_state ?? "unchecked"}
-            >
-              database: {activeLab ? databaseLabels[activeLab.database_state] : NOT_CHECKED}
-            </span>
-          </div>
-        ) : null}
+        {/* `group`, not `status`. A live region announces itself the moment it
+            gains content, so the first read landing turned every page load into
+            "source: broken, database: stale" read aloud over whatever the
+            participant was doing. The chips are a readout to consult, not an
+            alert; the label keeps them findable and named. */}
+        <div
+          className="site-lab-state"
+          role="group"
+          aria-label={`Lab ${labNumber} state`}
+        >
+          {labs ? (
+            <>
+              <span className="site-lab-chip" data-state={activeLab?.source_state ?? "unchecked"}>
+                source: {activeLab ? activeLab.source_state : NOT_CHECKED}
+              </span>
+              <span
+                className="site-lab-chip"
+                data-state={activeLab?.database_state ?? "unchecked"}
+              >
+                database: {activeLab ? databaseLabels[activeLab.database_state] : NOT_CHECKED}
+              </span>
+            </>
+          ) : (
+            /* The chips are the tallest thing in this row, so the row was one
+               height before the first read settled and another after it, and
+               the bag beside them jumped. Zero width, one chip's height: the
+               header is drawn at its final size from the first frame. */
+            <span className="site-lab-state-pending" aria-hidden="true" />
+          )}
+        </div>
         <CodeEditorLink href={codeEditorUrl} className="site-code-editor" />
         <button
           className="site-icon site-bag"

@@ -57,4 +57,52 @@ describe("CodeEditorLink", () => {
     expect(warn).toHaveBeenCalledTimes(1);
     warn.mockRestore();
   });
+
+  it("refuses a token carried in the fragment", () => {
+    // A fragment leaks a credential exactly as far as a query does: it is
+    // pasted, screenshotted and shared with the rest of the address. A rule
+    // that read only the query string refused one spelling and rendered the
+    // other.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { container } = render(
+      <CodeEditorLink href="https://code.example.aws/#tkn=8f2c1d" />,
+    );
+
+    expect(container.innerHTML).toBe("");
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("tkn=");
+    warn.mockRestore();
+  });
+
+  it("refuses a javascript: URL rather than putting it in an href", () => {
+    // `href` is one of the places a `javascript:` URL executes, and this one
+    // arrives from a hand-edited environment variable on a workshop machine.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { container } = render(
+      <CodeEditorLink href="javascript:alert(document.cookie)" />,
+    );
+
+    expect(container.innerHTML).toBe("");
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain("https:");
+    warn.mockRestore();
+  });
+
+  it("refuses every scheme that is not https, including a bare path", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    for (const href of [
+      "http://code.example.aws/",
+      "data:text/html,<h1>hi</h1>",
+      "file:///home/ec2-user",
+      "/code-editor",
+      "code.example.aws",
+    ]) {
+      const { container, unmount } = render(<CodeEditorLink href={href} />);
+      expect(container.innerHTML).toBe("");
+      unmount();
+    }
+
+    expect(warn).toHaveBeenCalledTimes(5);
+    warn.mockRestore();
+  });
 });

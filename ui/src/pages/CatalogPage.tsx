@@ -69,6 +69,7 @@ import type {
   CatalogPage,
   Domain,
   ProductSummary,
+  ReadinessResponse,
   SearchFilters,
   SearchResponse,
 } from "../types";
@@ -170,8 +171,12 @@ const retrievalLab = coreMosaicLabs.find(
  *
  * A product that never came back carries no title, so the absent case has no
  * response field to read it from. `mosaic_labs_missions.json` pins the mission
- * to `target_product_ids: [2]`, and this is that product; the assertion below
- * fails loudly if the mission is ever re-pointed at a different one.
+ * to `target_product_ids: [2]`, and this is that product.
+ *
+ * Re-point the mission and `namesTheTarget` below stops matching, so the heading
+ * falls back to the outcome's own title rather than naming a product the run was
+ * never about. The name is printed only while the manifest still agrees with it;
+ * it is never printed wrongly.
  */
 const RETRIEVAL_LAB_TARGET = { product_id: 2, name: "Sonora WH-C720" } as const;
 
@@ -185,6 +190,14 @@ interface RetrievalLabCallout {
   outcome: LabOutcome;
   targetPresent: boolean;
   repaired: boolean;
+  /**
+   * Whether readiness says the environment, not the lab, is what is wrong.
+   *
+   * A missing trigram index and an unrepaired CTE produce the same evidence: no
+   * candidate carries a trigram rank and the target is gone. Sending a
+   * participant to edit SQL that was never the problem costs them the lab.
+   */
+  blocked: boolean;
   /** The heading for the absent case, which names a product the response cannot. */
   missingHeading: string;
 }
@@ -203,14 +216,22 @@ interface RetrievalLabCallout {
  * that came back without a trigram rank is a repair that has not landed yet, and
  * calling that "verified" over the top of it would be the workshop lying about
  * its own checkpoint.
+ *
+ * `readiness` is what separates the third case from the first two. Without it
+ * `retrievalLabOutcome` can only report `broken`, and this callout then told a
+ * participant whose trigram index is missing, or whose corpus never seeded, that
+ * they were looking at Lab 1's deliberate fault and should go and edit the SQL.
+ * The Playground has read readiness before grading since it was built; Shop is
+ * the surface a participant meets first and it was grading without it.
  */
 function retrievalLabCallout(
   response: SearchResponse | null,
+  readiness: ReadinessResponse | null,
 ): RetrievalLabCallout | null {
   if (!retrievalLab || !response) return null;
   if (response.query !== retrievalLab.query) return null;
   if (!runMatchesMissionGates(retrievalLab, response)) return null;
-  const outcome = retrievalLabOutcome(retrievalLab, response);
+  const outcome = retrievalLabOutcome(retrievalLab, response, readiness);
   const targetPresent = retrievalLab.target_product_ids.every((productId) =>
     response.results.some((product) => product.product_id === productId));
   // Re-point the mission at another product and the name stops being printed
@@ -223,10 +244,23 @@ function retrievalLabCallout(
     outcome,
     targetPresent,
     repaired: targetPresent && outcome.tone === "fixed",
+    blocked: outcome.tone === "unhealthy",
     missingHeading: namesTheTarget
       ? `Issue reproduced: the ${RETRIEVAL_LAB_TARGET.name} is missing`
       : outcome.title,
   };
+}
+
+/**
+ * Which of the three callouts is on screen, as a class.
+ *
+ * Amber for an environment fault and red for the seam, drawn apart on purpose
+ * and the same way `.lab-outcome` draws them: "the room is wrong" and "the code
+ * you were sent here to fix is wrong" ask for different work.
+ */
+function calloutTone(callout: RetrievalLabCallout): string {
+  if (callout.blocked) return "unhealthy";
+  return callout.repaired ? "fixed" : "broken";
 }
 
 /**
@@ -310,6 +344,13 @@ export function CatalogPage() {
   const [retrievalNonce, setRetrievalNonce] = useState(0);
   /** The workshop Code Editor's origin, or null where the deployment has none. */
   const [codeEditorUrl, setCodeEditorUrl] = useState<string | null>(null);
+  /**
+   * What Aurora reports about itself, read once, so the Lab 1 callout can tell a
+   * missing index from an unrepaired one. Null until it lands and after a failed
+   * read, which `retrievalLabOutcome` treats as "nothing known" rather than as a
+   * fault.
+   */
+  const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
   /** The request `retrieval` answered, so a response held over from an earlier
    * one is never mistaken for the run this URL is asking for. */
   const [servedRequest, setServedRequest] = useState("");
@@ -394,7 +435,7 @@ export function CatalogPage() {
   const labOutcome = labMission && (agent || answeredTurn?.error)
     ? agentLabOutcome(labMission, agent, answeredTurn?.error ?? "")
     : null;
-  const labCallout = retrievalLabCallout(retrieval);
+  const labCallout = retrievalLabCallout(retrieval, readiness);
 
   const load = useCallback(() => {
     const version = catalogRequestVersion.current + 1;
@@ -500,6 +541,31 @@ export function CatalogPage() {
       },
       () => {
         if (active) setCodeEditorUrl(null);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  /**
+   * Index and corpus health, read once beside it.
+   *
+   * Once, not per search: readiness answers about the cluster rather than about
+   * a request, and re-asking on every keystroke would put a schema inspection
+   * behind Shop's search box. A failed read leaves it null, which is the honest
+   * "not checked" -- announcing an environment fault on the strength of a failed
+   * status call is the same error as blaming the participant for a missing
+   * index.
+   */
+  useEffect(() => {
+    let active = true;
+    api.readiness().then(
+      (state) => {
+        if (active) setReadiness(state);
+      },
+      () => {
+        if (active) setReadiness(null);
       },
     );
     return () => {
@@ -1157,14 +1223,30 @@ export function CatalogPage() {
           {labCallout ? (
             <section
               ref={labCalloutRef}
-              className={
-                labCallout.repaired
-                  ? "shop-lab-callout fixed"
-                  : "shop-lab-callout broken"
-              }
+              className={`shop-lab-callout ${calloutTone(labCallout)}`}
               aria-label={`Lab ${retrievalLabNumber} outcome`}
             >
-              {labCallout.repaired ? (
+              {labCallout.blocked ? (
+                <>
+                  {/* No file, no task, and no claim about the participant's
+                      work. Readiness says an index this scenario needs is not
+                      there, and the same empty trigram channel that an
+                      unrepaired CTE produces is what they would be sent to fix.
+                      "Search again" stays: re-applying the schema happens in
+                      another window, exactly as a repair does. */}
+                  <h2>{labCallout.outcome.title}</h2>
+                  <p>{labCallout.outcome.detail}</p>
+                  <div className="shop-lab-callout-actions">
+                    <CodeEditorLink href={codeEditorUrl} />
+                    <button
+                      type="button"
+                      onClick={() => setRetrievalNonce((run) => run + 1)}
+                    >
+                      Search again
+                    </button>
+                  </div>
+                </>
+              ) : labCallout.repaired ? (
                 <>
                   <h2>Repair verified</h2>
                   <p>{labCallout.outcome.detail}</p>
