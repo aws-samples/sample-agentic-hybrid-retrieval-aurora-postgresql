@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { coreMosaicLabs } from "../labMissions";
@@ -185,5 +185,48 @@ describe("LabRail", () => {
     expect(screen.getByText("database: not checked")).toBeTruthy();
     // And never a guess: a failed read must not print a verdict of its own.
     expect(screen.queryByText(/source: (solved|broken)/)).toBeNull();
+  });
+
+  it("condenses while stuck under the site header and expands when it scrolls free", async () => {
+    // Sticky under the header, the full rail cost a quarter of a 768px viewport
+    // for the rest of the page. It is observed against a root shrunk by the
+    // header's height, so it is fully visible until the header clips its top
+    // edge; a long rail clipped at the bottom of a short screen is not stuck.
+    let callback: IntersectionObserverCallback | null = null;
+    class StubIntersectionObserver {
+      constructor(observe: IntersectionObserverCallback) {
+        callback = observe;
+      }
+      observe() {}
+      disconnect() {}
+    }
+    vi.stubGlobal("IntersectionObserver", StubIntersectionObserver);
+    const entry = (intersectionRatio: number, top: number) =>
+      [
+        { intersectionRatio, boundingClientRect: { top }, rootBounds: { top: 71 } },
+      ] as unknown as IntersectionObserverEntry[];
+    const observer = {} as IntersectionObserver;
+    try {
+      render(<LabRail missionId={labOne.id} />);
+      await screen.findByText("source: broken");
+      const rail = screen.getByRole("navigation", { name: "Lab rail" });
+      expect(rail.className).toBe("labs-rail");
+      expect(callback).not.toBeNull();
+
+      act(() => callback!(entry(0.96, 70), observer));
+      expect(rail.className).toBe("labs-rail is-stuck");
+      // A condensed rail reports a new ratio; it is still stuck.
+      act(() => callback!(entry(0.9, 70), observer));
+      expect(rail.className).toBe("labs-rail is-stuck");
+
+      act(() => callback!(entry(1, 140), observer));
+      expect(rail.className).toBe("labs-rail");
+
+      // Clipped at the bottom, not the top: not stuck.
+      act(() => callback!(entry(0.5, 640), observer));
+      expect(rail.className).toBe("labs-rail");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

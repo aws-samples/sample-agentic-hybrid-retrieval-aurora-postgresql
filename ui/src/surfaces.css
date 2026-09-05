@@ -5176,6 +5176,40 @@
   backdrop-filter: blur(12px);
 }
 
+/* Condensed once it sticks. The edit line and the next-lab link fold away, the
+   lab name and the stage links share one row, and the state chips keep their
+   place: a participant deep in Stage 03 still reads which lab this is and where
+   it stands, in a strip a third the height. LabRail toggles the class from an
+   IntersectionObserver and holds the flow footprint steady with a negative
+   bottom margin, so nothing under the rail moves when it changes shape. */
+.labs-rail.is-stuck {
+  gap: 6px 18px;
+  padding: 7px 16px;
+}
+
+.labs-rail.is-stuck .labs-rail-lab {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.labs-rail.is-stuck .labs-rail-lab strong {
+  overflow: hidden;
+  font-size: var(--labs-detail);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.labs-rail.is-stuck .labs-rail-edit,
+.labs-rail.is-stuck .labs-rail-next {
+  display: none;
+}
+
+.labs-rail.is-stuck .labs-rail-state li {
+  padding: 2px 9px;
+}
+
 /* Every target the rail's beats link to, held clear of the chrome above it.
    Both the site header and the rail itself are sticky, so a browser that scrolls
    an anchor to the top of the viewport parks it underneath them and the click
@@ -6789,10 +6823,19 @@
   font-family: var(--mono);
 }
 
+/* The rows scroll under a sticky header, but the box must never trap the
+   wheel. `overscroll-behavior: contain` on the vertical axis meant a trackpad
+   that reached the last row stopped dead instead of carrying on down the page,
+   and a 62vh box under the sticky chrome left little else on screen to catch.
+   Vertical scrolling chains to the page, and the cap is the viewport below the
+   chrome rather than a fraction of the whole screen. */
 .labs-matrix-scroll {
-  max-height: clamp(420px, 62vh, 720px);
+  max-height: max(
+    420px,
+    calc(100vh - var(--topbar-height) - var(--labs-rail-height, 0px) - 64px)
+  );
   overflow: auto;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain;
   scrollbar-gutter: stable;
   scrollbar-color: #c5b7a5 transparent;
   scrollbar-width: thin;

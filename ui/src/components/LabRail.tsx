@@ -1,5 +1,5 @@
 import { ArrowRight, FileCode2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { api } from "../api";
 import {
@@ -100,8 +100,77 @@ export function LabRail({ missionId }: { missionId: string | null }) {
   const state = labStates?.find((record) => record.lab_id === labNumber) ?? null;
   const edit = lab.participant_edit;
 
+  /**
+   * Condensed while stuck. Sticky under the site header, the full rail costs
+   * every later screen its whole height, and on a 768px laptop the two together
+   * took a quarter of the viewport. Once it sticks, the edit line and the
+   * next-lab link fold away and the rest shares one row; both come back the
+   * moment it scrolls free.
+   *
+   * Stuck is read from the rail itself. Observed against a root shrunk by the
+   * header's height, it stays fully visible until the header clips its top
+   * edge. A long rail clipped at the bottom of a short screen is not stuck,
+   * and the root-bounds check is what tells the two apart.
+   */
+  const railRef = useRef<HTMLElement>(null);
+  const [stuck, setStuck] = useState(false);
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail || typeof IntersectionObserver === "undefined") return;
+    const topbar = Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--topbar-height"),
+    );
+    const headerClip = Math.ceil(Number.isFinite(topbar) ? topbar : 0) + 1;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries.at(-1);
+        if (!entry) return;
+        const clippedAtTop =
+          !entry.rootBounds ||
+          entry.boundingClientRect.top <= entry.rootBounds.top + 1;
+        setStuck(entry.intersectionRatio < 1 && clippedAtTop);
+      },
+      { rootMargin: `-${headerClip}px 0px 0px 0px`, threshold: 1 },
+    );
+    observer.observe(rail);
+    return () => observer.disconnect();
+  }, []);
+
+  /**
+   * A condensed rail is shorter, and a shorter box in the flow would move
+   * everything under it up by the difference at the exact moment the reader
+   * scrolls past. A matching negative bottom margin keeps the footprint the
+   * size it had while expanded, so condensing changes nothing but the rail.
+   */
+  const expandedHeight = useRef(0);
+  const [footprintFix, setFootprintFix] = useState(0);
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail || stuck || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      expandedHeight.current = rail.offsetHeight;
+    });
+    observer.observe(rail);
+    return () => observer.disconnect();
+  }, [stuck]);
+  useLayoutEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+    if (!stuck) {
+      expandedHeight.current = rail.offsetHeight;
+      setFootprintFix(0);
+      return;
+    }
+    setFootprintFix(Math.max(0, expandedHeight.current - rail.offsetHeight));
+  }, [stuck]);
+
   return (
-    <nav aria-label="Lab rail" className="labs-rail">
+    <nav
+      aria-label="Lab rail"
+      className={stuck ? "labs-rail is-stuck" : "labs-rail"}
+      ref={railRef}
+      style={footprintFix ? { marginBottom: -footprintFix } : undefined}
+    >
       <div className="labs-rail-lab">
         <span className="labs-rail-kicker">
           Lab {labNumber} of {coreMosaicLabs.length}
