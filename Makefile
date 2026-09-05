@@ -499,9 +499,10 @@ db-seed-exact-neighbors:
 
 # Builds mosaic_search.corpus_lexeme, the vocabulary query coverage reads to tell
 # a misspelling ("hedfones", close to a real term) from an absence ("A2342",
-# close to nothing). ts_stat scans every product document. Measured on the
-# 500,000-product corpus on 2026-09-04: 22 seconds, so it runs as the
-# corpus_lexeme_seed phase of db-bootstrap-cached, after the evidence load.
+# close to nothing). ts_stat scans every product document twice, once stemmed
+# for exact matches and once unstemmed for the misspelling rescue. Measured on
+# the 500,000-product corpus on 2026-09-04: 75 seconds (22 stemmed, 53
+# surface), so it runs as the corpus_lexeme_seed phase of db-bootstrap-cached.
 #
 # Skipping it is safe: service.coverage reports `unavailable` against an empty
 # vocabulary and every surface behaves exactly as it did before coverage existed.

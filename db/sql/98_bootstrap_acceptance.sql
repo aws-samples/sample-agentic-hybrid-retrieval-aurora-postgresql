@@ -83,6 +83,11 @@ BEGIN
             'DAT410 bootstrap has missing or invalid retrieval indexes: %. Run make db-drop-invalid-indexes then make db-index-concurrent.',
             missing_indexes;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM mosaic_search.corpus_lexeme)
+       OR NOT EXISTS (SELECT 1 FROM mosaic_search.corpus_surface_lexeme) THEN
+        RAISE EXCEPTION
+            'DAT410 bootstrap has an empty query-coverage vocabulary, so every request would read unavailable. Run make db-seed-corpus-lexeme.';
+    END IF;
     IF premium_count <> 120 THEN
         RAISE EXCEPTION
             'DAT410 bootstrap requires 120 premium products; found %. Re-run make db-load-cohort.',
