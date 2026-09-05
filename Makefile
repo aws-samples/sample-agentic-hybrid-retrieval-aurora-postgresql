@@ -567,3 +567,111 @@ mcp-wheel-smoke:
 
 mcp-serve: check-mcp-python
 	"$(MCP_VENV)/bin/mosaic-retrieval-mcp"
+
+# ---------------------------------------------------------------------------
+# AgentCore Runtime (optional, facilitator-provisioned)
+#
+# None of this is on the required lab path and none of it deploys by itself.
+# `agentcore-deploy` prints the documented command sequence and stops there
+# unless AGENTCORE_CONFIRM=1 is set explicitly. Every target is safe under
+# `make -n`, and no recipe interpolates $(DATABASE_URL) into a printed command:
+# the smoke run forwards the variable by name so the DSN password never reaches
+# a terminal or a CI log. See docs/agentcore-runtime.md.
+# ---------------------------------------------------------------------------
+DOCKER ?= docker
+AGENTCORE_DOCKERFILE ?= deploy/agentcore/Dockerfile
+AGENTCORE_IMAGE_TAG ?= mosaic-retrieval-agent:local
+AGENTCORE_REGION ?= $(or $(BEDROCK_REGION),us-east-1)
+AGENTCORE_ECR_REPO ?=
+AGENTCORE_RUNTIME_NAME ?= mosaic_retrieval_agent
+AGENTCORE_ENDPOINT_NAME ?= default
+AGENTCORE_ROLE_ARN ?=
+# Aurora sits in a VPC, so the runtime needs VPC network mode. The subnet and
+# security-group fields are not fixed by this repository: take their exact shape
+# from the current AgentCore control-plane API reference and override this.
+AGENTCORE_NETWORK_CONFIG ?= {"networkMode":"VPC"}
+AGENTCORE_AUTHORIZER_CONFIG ?=
+AGENTCORE_SMOKE_CONTAINER ?= mosaic-agentcore-smoke
+AGENTCORE_SMOKE_PORT ?= 8080
+
+.PHONY: agentcore-image agentcore-image-smoke agentcore-deploy
+
+agentcore-image:
+	$(DOCKER) buildx build --platform linux/arm64 --load \
+		-f $(AGENTCORE_DOCKERFILE) -t $(AGENTCORE_IMAGE_TAG) .
+
+# Proves the packaged process starts and answers before anything is pushed. The
+# skill's rule applies: a health check that fails locally fails on AgentCore.
+agentcore-image-smoke:
+	@set -euo pipefail; \
+	if [ -z "$${DATABASE_URL:-}" ]; then \
+		echo "DATABASE_URL is not set. There is no local database; point it at"; \
+		echo "the Aurora cluster before smoking the image."; \
+		exit 2; \
+	fi; \
+	$(DOCKER) rm -f $(AGENTCORE_SMOKE_CONTAINER) >/dev/null 2>&1 || true; \
+	trap '$(DOCKER) rm -f $(AGENTCORE_SMOKE_CONTAINER) >/dev/null 2>&1 || true' EXIT; \
+	$(DOCKER) run --detach --name $(AGENTCORE_SMOKE_CONTAINER) \
+		--env DATABASE_URL --env BEDROCK_REGION --env AWS_REGION \
+		--env AWS_ACCESS_KEY_ID --env AWS_SECRET_ACCESS_KEY --env AWS_SESSION_TOKEN \
+		--publish 127.0.0.1:$(AGENTCORE_SMOKE_PORT):8080 \
+		$(AGENTCORE_IMAGE_TAG) >/dev/null; \
+	for attempt in $$(seq 1 30); do \
+		if curl -fsS "http://127.0.0.1:$(AGENTCORE_SMOKE_PORT)/api/health" >/dev/null 2>&1; then \
+			break; \
+		fi; \
+		sleep 1; \
+	done; \
+	curl -fsS "http://127.0.0.1:$(AGENTCORE_SMOKE_PORT)/api/health"; \
+	echo; \
+	echo "Container $(AGENTCORE_SMOKE_CONTAINER) stopped."
+
+agentcore-deploy:
+	@set -euo pipefail; \
+	repo="$${AGENTCORE_ECR_REPO:-<account>.dkr.ecr.$(AGENTCORE_REGION).amazonaws.com/mosaic-retrieval-agent}"; \
+	role="$${AGENTCORE_ROLE_ARN:-<runtime-execution-role-arn>}"; \
+	network='$(AGENTCORE_NETWORK_CONFIG)'; \
+	echo "AgentCore Runtime deploy, HTTP protocol, region $(AGENTCORE_REGION):"; \
+	echo; \
+	echo "  make agentcore-image AGENTCORE_IMAGE_TAG=$$repo:latest"; \
+	echo "  aws ecr get-login-password --region $(AGENTCORE_REGION) \\"; \
+	echo "    | docker login --username AWS --password-stdin $${repo%%/*}"; \
+	echo "  docker push $$repo:latest"; \
+	echo "  aws bedrock-agentcore-control create-agent-runtime \\"; \
+	echo "    --agent-runtime-name $(AGENTCORE_RUNTIME_NAME) \\"; \
+	echo "    --agent-runtime-artifact '{\"containerConfiguration\":{\"containerUri\":\"$$repo:latest\"}}' \\"; \
+	echo "    --role-arn $$role \\"; \
+	echo "    --network-configuration '$$network' \\"; \
+	echo "    --authorizer-configuration '$${AGENTCORE_AUTHORIZER_CONFIG:-<authorizer-configuration>}' \\"; \
+	echo "    --protocol-configuration '{\"serverProtocol\":\"HTTP\"}' \\"; \
+	echo "    --region $(AGENTCORE_REGION)"; \
+	echo "  aws bedrock-agentcore-control create-agent-runtime-endpoint \\"; \
+	echo "    --agent-runtime-id <id-from-the-previous-call> \\"; \
+	echo "    --name $(AGENTCORE_ENDPOINT_NAME) --region $(AGENTCORE_REGION)"; \
+	echo; \
+	if [ "$${AGENTCORE_CONFIRM:-0}" != "1" ]; then \
+		echo "Dry run. This target ran no network call."; \
+		echo "Set AGENTCORE_CONFIRM=1, AGENTCORE_ECR_REPO and AGENTCORE_ROLE_ARN to execute it."; \
+		exit 0; \
+	fi; \
+	if [ -z "$${AGENTCORE_ECR_REPO:-}" ] || [ -z "$${AGENTCORE_ROLE_ARN:-}" ]; then \
+		echo "AGENTCORE_CONFIRM=1 needs AGENTCORE_ECR_REPO and AGENTCORE_ROLE_ARN."; \
+		exit 2; \
+	fi; \
+	if [ -z "$${AGENTCORE_AUTHORIZER_CONFIG:-}" ]; then \
+		echo "AGENTCORE_AUTHORIZER_CONFIG is empty. An unauthenticated runtime"; \
+		echo "endpoint is not acceptable outside an isolated development account."; \
+		exit 2; \
+	fi; \
+	aws ecr get-login-password --region $(AGENTCORE_REGION) \
+		| $(DOCKER) login --username AWS --password-stdin "$${AGENTCORE_ECR_REPO%%/*}"; \
+	$(DOCKER) tag $(AGENTCORE_IMAGE_TAG) "$$AGENTCORE_ECR_REPO:latest"; \
+	$(DOCKER) push "$$AGENTCORE_ECR_REPO:latest"; \
+	aws bedrock-agentcore-control create-agent-runtime \
+		--agent-runtime-name $(AGENTCORE_RUNTIME_NAME) \
+		--agent-runtime-artifact "{\"containerConfiguration\":{\"containerUri\":\"$$AGENTCORE_ECR_REPO:latest\"}}" \
+		--role-arn "$$AGENTCORE_ROLE_ARN" \
+		--network-configuration '$(AGENTCORE_NETWORK_CONFIG)' \
+		--authorizer-configuration "$$AGENTCORE_AUTHORIZER_CONFIG" \
+		--protocol-configuration '{"serverProtocol":"HTTP"}' \
+		--region $(AGENTCORE_REGION)
