@@ -90,6 +90,15 @@ corpus vocabulary makes every term look absent, so refusing on it would turn one
 skipped seed step into a total outage that presents as a working guardrail. That
 fail-safe is deliberate and is exercised by `tests/test_agent_coverage_decline.py`.
 
+Every search the run issued carries a verdict, including one whose ranked window
+came back empty. That search still ran and still reported coverage, so a
+grounded search cannot be lost by returning no eligible product.
+
+The verdict is decided once. Once the declining answer of record is written, a
+later grounded search in the same turn does not revoke it, because the answer of
+record is written once per turn and the agent is instructed to call
+`synthesize_cited_answer` exactly once.
+
 The streaming route emits server-sent application stages and then the same
 citation-bounded answer contract. It does not expose model reasoning or claim
 general semantic entailment.

@@ -24,6 +24,7 @@ from service.models import (
     SearchRequest,
 )
 from service.retrieval import get_retrieval_service, signals_from_receipt
+from service.retrieval_fingerprint import explain
 from service.synthesis import synthesize_cited_answer as synthesize_answer
 from service.telemetry import search_with_telemetry
 
@@ -67,6 +68,15 @@ _TRACE_ORIGIN: ContextVar[Literal["model", "controller_fallback"]] = ContextVar(
 
 class ConversationContextError(RuntimeError):
     """A follow-up failed server-side prior-answer authorization."""
+
+
+class CoverageContractError(RuntimeError):
+    """A coverage verdict reached the decline gate in a shape it cannot decide.
+
+    Raised rather than absorbed. Every shape `service.coverage.summarize`
+    produces has a documented verdict here, so an undecidable one means the
+    reduction changed and the gate is now guessing.
+    """
 
 
 def _uuid_list(values: Any, field: str) -> list[UUID]:
@@ -623,6 +633,11 @@ def search_products(
         )
 
     ranked_results = response.results[:requested_limit]
+    # Recorded before the empty-window guard, because the search did run and did
+    # produce a verdict. `coverage_refusal` declines only when *every* search
+    # came back unanchored, so a grounded search dropped here would be invisible
+    # to it and a later unanchored search would decline the whole run.
+    state.setdefault("search_coverage", []).append(response.coverage)
     if not ranked_results:
         _record(
             "search_products",
@@ -639,7 +654,6 @@ def search_products(
         )
 
     state["search_event_ids"].append(response.search_event_id)
-    state.setdefault("search_coverage", []).append(response.coverage)
     if not state["searches"] and state.get("context_product_ids"):
         # A request for alternatives or changed constraints starts a new
         # candidate pool. The prior answer remains conversational context, but
@@ -688,11 +702,14 @@ def search_products(
         # Declared on this tool's payload_schema, so the model reads the same
         # verdict the audit record claims the tool returns. The per-term rows
         # stay out: the model needs the decision, not the vocabulary probe.
+        # `note` stays out too. It is Shop's wording, and it ends "The results
+        # below answer the rest of the request." -- a promise the agent cannot
+        # keep, since an unanchored turn returns no results at all.
+        # `confidence` and `unmatched_terms` carry the whole decision.
         "coverage": (
             {
                 "confidence": response.coverage.confidence,
                 "unmatched_terms": response.coverage.unmatched_terms,
-                "note": response.coverage.note,
             }
             if response.coverage
             else None
@@ -925,12 +942,28 @@ def coverage_refusal(state: dict[str, Any]) -> tuple[str, str] | None:
       would turn one skipped seed step into a total outage that presents as a
       working guardrail.
 
+    This reads the verdicts recorded so far, so it is a snapshot rather than a
+    final judgement. The chosen consequence: once `record_declined_answer` has
+    written the declining answer of record, a later grounded search does not
+    revoke it. The answer of record is written once per turn, the prompt bounds
+    `synthesize_cited_answer` to one call, and a turn that synthesized and then
+    kept searching has already produced its answer. Reopening the verdict would
+    mean the answer a caller received could stop being the answer of record,
+    which is a worse contract than a stale decline.
+
     Args:
         state: The active run state.
 
     Returns:
         The declining answer of record and the reason behind it, or `None` when
         the run may recommend.
+
+    Raises:
+        CoverageContractError: When a verdict claims `unanchored` but names no
+            unmatched term. `coverage.summarize` cannot produce that pair, so it
+            means the reduction changed underneath this gate. Returning `None`
+            instead would let an unanchored run recommend, and declining would
+            write an answer of record that names no term.
     """
     verdicts: list[QueryCoverage | None] = state.get("search_coverage") or []
     if not verdicts:
@@ -941,7 +974,14 @@ def coverage_refusal(state: dict[str, Any]) -> tuple[str, str] | None:
         dict.fromkeys(term for item in verdicts for term in item.unmatched_terms)
     )
     if not unmatched:
-        return None
+        raise CoverageContractError(
+            explain(
+                "an 'unanchored' coverage verdict with no unmatched_terms",
+                "service.coverage.summarize returns 'unanchored' only with a "
+                "non-empty unmatched list; restore that invariant or teach "
+                "coverage_refusal what the new pair means",
+            )
+        )
     return decline_note(unmatched), decline_reason(unmatched)
 
 

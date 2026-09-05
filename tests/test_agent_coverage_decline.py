@@ -25,6 +25,7 @@ firing in any of them means the gate is wrong, not the run.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from contextlib import contextmanager
 from typing import Any
@@ -33,7 +34,7 @@ from uuid import UUID, uuid4
 import pytest
 
 from service import agent_tools
-from service.agent import ProductDiscoveryAgent
+from service.agent import SYSTEM_PROMPT, ProductDiscoveryAgent
 from service.coverage import summarize
 from service.lab_checks import load_mission
 from service.models import (
@@ -229,7 +230,7 @@ def test_a_run_whose_every_search_is_unanchored_declines(monkeypatch, no_synthes
     assert no_synthesis.calls == 0
 
 
-def test_the_declining_answer_never_says_the_results_are_below(monkeypatch):
+def test_the_declining_answer_never_says_the_results_are_below():
     """Shop's wording promises products under the caveat. The agent has none."""
     state = run_state(coverage=[unanchored("A2342")])
     assert agent_tools.record_declined_answer(state) is True
@@ -278,7 +279,7 @@ def test_one_grounded_search_keeps_the_run_grounded(monkeypatch, no_synthesis):
         ([unavailable()], "unseeded-vocabulary"),
         ([None], "coverage-not-installed"),
         ([], "closed-world-follow-up"),
-        ([unavailable(), unanchored("A2342")], "one-verdict-missing"),
+        ([unavailable(), unanchored("A2342")], "mixed-verdicts"),
     ],
 )
 def test_a_run_without_a_full_unanchored_verdict_never_declines(verdicts, case):
@@ -354,12 +355,19 @@ def test_finalize_still_completes_a_grounded_run(monkeypatch):
     assert completions == [QUESTION]
 
 
-def test_the_lab_3_mission_question_still_produces_a_recommendation(monkeypatch):
-    """No regression on the question Lab 3 is graded against.
+def test_a_grounded_mission_question_reaches_the_controller_unrefused(monkeypatch):
+    """The controller path for Lab 3's question, with its verdict assumed.
 
-    Its terms are all in the catalog, so its coverage is `grounded` and the
-    decline must be invisible to it. A refusal here would fail Stage 03 for
-    every participant.
+    The verdict is a fixture, not a measurement. `coverage=[grounded()]` is
+    asserted here rather than derived, so this cannot detect an unanchored term
+    creeping into the mission question; it proves only that the decline gate
+    stays out of the way of a grounded run carrying that exact question text.
+
+    Whether the mission's terms are actually in the catalog is decided by
+    `mosaic_search.query_term_coverage` against a seeded database, so it is
+    owned by the live probes: `make validate-missions` with a DSN, and
+    `make validate-lab-3`. No offline vocabulary check is invented here, because
+    a check built from the same question it judges could not fail.
     """
     mission = load_mission("reason")
     state = run_state(coverage=[grounded()], question=mission["query"])
@@ -387,6 +395,56 @@ def test_the_lab_3_mission_question_still_produces_a_recommendation(monkeypatch)
     assert response.recommendations, "Lab 3's mission lost its recommendation"
 
 
+def search_response(
+    query: str,
+    *,
+    coverage: QueryCoverage,
+    results: list[ProductSummary],
+) -> SearchResponse:
+    """One `RetrievalService.search` return value, in its production shape."""
+    return SearchResponse(
+        search_event_id=uuid4(),
+        query=query,
+        normalized_query=query,
+        applied_filters={},
+        results=results,
+        diagnostics=RetrievalDiagnostics(
+            strategy="rrf_fusion+rerank",
+            embedding_model_id="fake",
+            embedding_dimensions=1024,
+            rerank_model_id="fake",
+            rerank_status="applied",
+            ranking_policy=["RRF candidate fusion"],
+            retrieval_profile=RetrievalProfile(),
+            candidate_counts={"fused_pool": len(results)},
+            stage_timings_ms={},
+            total_latency_ms=1,
+            warnings=[],
+        ),
+        coverage=coverage,
+    )
+
+
+def _install_retrieval(monkeypatch, responses: list[SearchResponse]) -> None:
+    """Serve one prepared response per `search_products` call, in order."""
+    remaining = list(responses)
+
+    def search(request):
+        assert remaining, "search_products was called more times than planned"
+        return remaining.pop(0)
+
+    monkeypatch.setattr(agent_tools, "_search_with_telemetry", search)
+
+
+def _empty_run_state() -> dict[str, Any]:
+    """A run that has not searched yet, for driving `search_products` directly."""
+    state = run_state(coverage=[])
+    state["searches"] = []
+    state["search_event_ids"] = []
+    state["products"] = {}
+    return state
+
+
 def test_search_products_records_the_coverage_of_every_search(monkeypatch):
     """The production tool, not a hand-filled state key.
 
@@ -394,42 +452,11 @@ def test_search_products_records_the_coverage_of_every_search(monkeypatch):
     `search_products` stopped recording it, and the whole decision reads that
     list.
     """
-    event_id = uuid4()
-    verdict = unanchored("A2342")
-
-    class FakeRetrieval:
-        def search(self, request):
-            return SearchResponse(
-                search_event_id=event_id,
-                query=request.query,
-                normalized_query=request.query,
-                applied_filters={},
-                results=[product()],
-                diagnostics=RetrievalDiagnostics(
-                    strategy="rrf_fusion+rerank",
-                    embedding_model_id="fake",
-                    embedding_dimensions=1024,
-                    rerank_model_id="fake",
-                    rerank_status="applied",
-                    ranking_policy=["RRF candidate fusion"],
-                    retrieval_profile=RetrievalProfile(),
-                    candidate_counts={"fused_pool": 1},
-                    stage_timings_ms={},
-                    total_latency_ms=1,
-                    warnings=[],
-                ),
-                coverage=verdict,
-            )
-
-    monkeypatch.setattr(agent_tools, "get_retrieval_service", lambda: FakeRetrieval())
-    monkeypatch.setattr(
-        agent_tools,
-        "_search_with_telemetry",
-        lambda request: FakeRetrieval().search(request),
+    _install_retrieval(
+        monkeypatch,
+        [search_response(QUESTION, coverage=unanchored("A2342"), results=[product()])],
     )
-    state = run_state(coverage=[])
-    state["searches"] = []
-    state["search_event_ids"] = []
+    state = _empty_run_state()
     token = agent_tools._RUN.set(state)
     try:
         result = agent_tools.search_products(QUESTION, limit=1)
@@ -441,6 +468,83 @@ def test_search_products_records_the_coverage_of_every_search(monkeypatch):
     assert result["coverage"]["unmatched_terms"] == ["A2342"]
     assert [item.confidence for item in state["search_coverage"]] == ["unanchored"]
     assert agent_tools.coverage_refusal(state) is not None
+
+
+def test_the_tool_payload_never_hands_the_model_shops_wording(monkeypatch):
+    """`coverage.note` promises results the agent has none of.
+
+    Shop's note ends "The results below answer the rest of the request." A
+    declined turn returns nothing below, so putting that sentence in the tool
+    payload would be a false statement the model can quote verbatim.
+    """
+    verdict = unanchored("A2342")
+    assert "results below" in verdict.note, (
+        "the note stopped carrying Shop's wording, so this test no longer "
+        "guards anything; re-derive it from service.coverage.unanchored_note"
+    )
+    _install_retrieval(
+        monkeypatch,
+        [search_response(QUESTION, coverage=verdict, results=[product()])],
+    )
+    state = _empty_run_state()
+    token = agent_tools._RUN.set(state)
+    try:
+        result = agent_tools.search_products(QUESTION, limit=1)
+    finally:
+        agent_tools._RUN.reset(token)
+
+    assert "note" not in result["coverage"]
+    assert "results below" not in json.dumps(result, default=str)
+
+
+def test_a_grounded_search_with_an_empty_window_still_counts(monkeypatch):
+    """The grounded verdict survives a search that returned no eligible product.
+
+    `search_products` fails an empty ranked window, and that failure used to
+    return before the coverage verdict was recorded. The verdict was still real:
+    the search ran, and the catalog did carry its terms. Losing it let the next
+    unanchored search decline the whole run on a single verdict, which is not
+    what `coverage_refusal` promises or what `docs/api-contract.md` states.
+    """
+    _install_retrieval(
+        monkeypatch,
+        [
+            search_response(QUESTION, coverage=grounded(), results=[]),
+            search_response(
+                QUESTION, coverage=unanchored("A2342"), results=[product()]
+            ),
+        ],
+    )
+    state = _empty_run_state()
+    token = agent_tools._RUN.set(state)
+    try:
+        empty = agent_tools.search_products("quiet mechanical keyboard", limit=1)
+        second = agent_tools.search_products(QUESTION, limit=1)
+    finally:
+        agent_tools._RUN.reset(token)
+
+    assert empty["ok"] is False, "the empty-window guard stopped firing"
+    assert second["ok"] is True
+    assert [item.confidence for item in state["search_coverage"]] == [
+        "grounded",
+        "unanchored",
+    ]
+    assert agent_tools.coverage_refusal(state) is None
+    assert agent_tools.record_declined_answer(state) is False
+    assert state["answer_of_record"] is None
+
+
+def test_an_unanchored_verdict_naming_no_term_refuses_to_decide():
+    """A shape `service.coverage.summarize` cannot produce, so it must not pass.
+
+    Hand-built, because that is the only way to reach it. Returning `None` here
+    would let an unanchored run recommend, and declining would write an answer
+    of record that names no term at all.
+    """
+    state = run_state(coverage=[QueryCoverage(confidence="unanchored")])
+
+    with pytest.raises(agent_tools.CoverageContractError, match="unmatched_terms"):
+        agent_tools.coverage_refusal(state)
 
 
 def test_the_synthesis_tool_refuses_to_recommend_on_a_declined_run(
@@ -577,3 +681,143 @@ def test_the_search_event_ids_are_uuids_the_state_holds():
     """Guards the fixture itself, which several assertions above depend on."""
     state = run_state(coverage=[unanchored("A2342")])
     assert all(isinstance(value, UUID) for value in state["search_event_ids"])
+
+
+def test_a_grounded_run_with_no_products_still_fails_closed(monkeypatch):
+    """The decline's sibling, which it must not have converted into a 200.
+
+    A grounded run that retrieved nothing has no answer of record and no way to
+    make one. That is the 503 Lab 3 teaches. The decline shares the same seam,
+    so a guard written one branch too high would swallow this case and return an
+    empty 200 instead of the fail-closed signal.
+    """
+    request = AgentRequest(question=QUESTION, result_limit=2)
+    state = run_state(coverage=[grounded()], products={})
+
+    def refuse(_question: str) -> None:
+        raise AssertionError(
+            "the controller fallback ran with no retrieved product at all"
+        )
+
+    monkeypatch.setattr(agent_tools, "complete_grounded_answer", refuse)
+
+    assert ProductDiscoveryAgent._finalize_if_needed(request, state) is None
+    assert state["answer_of_record"] is None
+
+    with pytest.raises(RuntimeError, match="citation-bounded answer"):
+        ProductDiscoveryAgent()._response(request, state, None, None)
+
+
+def _stream_events(agent: ProductDiscoveryAgent, request: AgentRequest) -> list[Any]:
+    async def collect() -> list[Any]:
+        return [event async for event in agent.stream(request)]
+
+    return asyncio.run(collect())
+
+
+class _SilentStreamingAgent:
+    """A streamed model turn that ends without calling its final tool."""
+
+    def __init__(self) -> None:
+        self.prompts: list[str] = []
+
+    async def stream_async(self, prompt: str):
+        self.prompts.append(prompt)
+        yield {"result": type("Result", (), {"metrics": {}})()}
+
+
+def test_the_streaming_route_declines_the_same_way(monkeypatch, no_synthesis):
+    """The SSE route is a second entry point, not a view of the first.
+
+    `answer` and `stream` each assemble their own response, so a decline proven
+    on one says nothing about the other. A declined stream must still terminate
+    with an `agent_response`, not with the raised error a failed run yields.
+    """
+    state = run_state(coverage=[unanchored("A2342")])
+    model = _SilentStreamingAgent()
+    _install_run(monkeypatch, state)
+    monkeypatch.setattr("service.agent.build_agent", lambda: model)
+
+    events = _stream_events(
+        ProductDiscoveryAgent(), AgentRequest(question=QUESTION, result_limit=2)
+    )
+
+    assert model.prompts, "the streamed model turn never ran"
+    responses = [
+        event["agent_response"] for event in events if "agent_response" in event
+    ]
+    assert len(responses) == 1
+    assert responses[0].outcome == "declined"
+    assert responses[0].recommendations == []
+    assert responses[0].decline_reason == "unanchored_query_terms: 'A2342'"
+    assert no_synthesis.calls == 0
+
+
+def test_a_grounded_search_after_the_decline_does_not_reopen_it(monkeypatch):
+    """The chosen behaviour, pinned so a later reading cannot call it a bug.
+
+    The model is instructed to call `synthesize_cited_answer` exactly once, so a
+    turn that synthesized and then searched again has already produced its
+    answer of record. That answer stands. Letting a later search revoke it would
+    mean the answer a caller received could stop being the answer of record,
+    which is a worse contract than a stale decline.
+    """
+    state = run_state(coverage=[unanchored("A2342")])
+    token = agent_tools._RUN.set(state)
+    try:
+        agent_tools.synthesize_cited_answer(QUESTION, [101])
+    finally:
+        agent_tools._RUN.reset(token)
+    assert state["answer_of_record"]["outcome"] == "declined"
+
+    state["search_coverage"].append(grounded())
+
+    def refuse(_question: str) -> None:
+        raise AssertionError(
+            "the controller re-synthesized over an existing answer of record"
+        )
+
+    monkeypatch.setattr(agent_tools, "complete_grounded_answer", refuse)
+    error = ProductDiscoveryAgent._finalize_if_needed(
+        AgentRequest(question=QUESTION, result_limit=2),
+        state,
+    )
+
+    assert error is None
+    assert agent_tools.coverage_refusal(state) is None, (
+        "the snapshot now reads grounded, which is exactly why the answer of "
+        "record must not be recomputed from it"
+    )
+    assert state["answer_of_record"]["outcome"] == "declined"
+
+
+def test_the_prompt_tells_the_model_what_an_unanchored_verdict_outranks():
+    """Three instructions the deterministic guard cannot supply.
+
+    The guard decides the outcome either way, so these lines only govern how
+    much budget the model burns and what it says last. They are pinned because
+    a paraphrase that drops the precedence rule sends the model back into the
+    retry loop each failing tool suggests.
+    """
+    prompt = " ".join(SYSTEM_PROMPT.split())
+
+    assert (
+        "When a search comes back unanchored, that verdict outranks any tool's "
+        "retry instruction." in prompt
+    )
+    assert (
+        "Skip the shortlist, comparison, and evidence steps and call "
+        "synthesize_cited_answer once" in prompt
+    )
+    assert (
+        "Close a declined run with one short sentence saying the catalog does "
+        "not carry the term the request named." in prompt
+    )
+    assert (
+        "Close a grounded run with one short sentence saying the cited answer "
+        "is ready." in prompt
+    ), "the grounded closing instruction was lost while adding the declined one"
+    assert (
+        "call synthesize_cited_answer once with the products you retrieved"
+        not in prompt
+    ), "the superseded instruction to synthesize over retrieved products is back"

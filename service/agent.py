@@ -130,14 +130,17 @@ search_products starts a new candidate pool.
 
 When every search_products result reports coverage.confidence "unanchored", the
 request named something the catalog does not carry. Do not broaden the query and
-do not offer a near match instead. Call synthesize_cited_answer once with the
-products you retrieved; the application returns the declining answer of record.
+do not offer a near match instead. When a search comes back unanchored, that
+verdict outranks any tool's retry instruction. Skip the shortlist, comparison,
+and evidence steps and call synthesize_cited_answer once; the application returns
+the declining answer of record.
 
 synthesize_cited_answer creates the citation-bounded answer of record and applies
 deterministic product, numeric, availability, and mission-claim checks. Do not
-rewrite it after the tool succeeds. Close with one short sentence saying the
-cited answer is ready. If a tool returns ok=false, follow its recovery instruction
-or state the evidence gap."""
+rewrite it after the tool succeeds. Close a grounded run with one short sentence
+saying the cited answer is ready. Close a declined run with one short sentence
+saying the catalog does not carry the term the request named. If a tool returns
+ok=false, follow its recovery instruction or state the evidence gap."""
 
 
 class ToolCallBudgetExceeded(RuntimeError):
