@@ -18,12 +18,14 @@ import sys
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.retrieval_profile import (
     ProfileError,
     RetrievalProfileConfig,
+    explain,
     load_profile,
 )
 
@@ -139,6 +141,47 @@ def _source_identity() -> tuple[str, bool]:
     return revision or "unknown", dirty
 
 
+def _code_editor_url() -> str | None:
+    """Return the tokenless Code Editor URL, refusing one that carries a token.
+
+    The stack output a participant is handed is
+    `https://<editor-domain>/?folder=<home>/...&tkn=<token>`, and that token is a
+    credential for their editor. Mosaic renders this value into a page anyone
+    with the storefront URL can load, so a token pasted here would be served to
+    every browser that opens it. The editor sets its own session cookie the first
+    time the participant opens it from the Event Dashboard, which is what
+    actually authenticates them, so the `?folder=` form is all the link needs.
+
+    Refusing at startup rather than stripping the token keeps the two forms
+    distinguishable: a silent strip would let a deployment believe it is passing
+    a token that Mosaic quietly discarded.
+
+    Returns:
+        The configured URL, or None when the variable is unset or empty. None is
+        the Workshop-Studio-less case, and the storefront hides the link.
+
+    Raises:
+        ConfigurationError: The value carries a `tkn=` connection token.
+    """
+    value = os.getenv("MOSAIC_CODE_EDITOR_URL", "").strip()
+    if not value:
+        return None
+    if "tkn=" in value.lower():
+        parts = urlsplit(value)
+        raise ConfigurationError(
+            "MOSAIC_CODE_EDITOR_URL "
+            + explain(
+                "a tkn= connection token in the query string of "
+                f"{parts.scheme}://{parts.netloc}{parts.path}",
+                "Mosaic never carries the Code Editor token. Set the tokenless "
+                "form instead: https://<editor-domain>/?folder=<home>/"
+                "sample-agentic-hybrid-retrieval-aurora-postgresql. The editor "
+                "session cookie authenticates the participant.",
+            )
+        )
+    return value
+
+
 def _dataset_manifest_sha256() -> str:
     """Identify the checked-in dataset manifest used by this service."""
     override = os.getenv("MOSAIC_DATASET_MANIFEST_SHA256", "").strip()
@@ -176,6 +219,7 @@ class Settings:
     source_worktree_dirty: bool = True
     dataset_manifest_sha256: str = "unknown"
     aurora_instance_class: str | None = None
+    code_editor_url: str | None = None
     agentcore_observability_enabled: bool = False
     agentcore_capture_content: bool = False
 
@@ -256,6 +300,7 @@ def get_settings() -> Settings:
         source_worktree_dirty=source_worktree_dirty,
         dataset_manifest_sha256=_dataset_manifest_sha256(),
         aurora_instance_class=os.getenv("AURORA_INSTANCE_CLASS") or None,
+        code_editor_url=_code_editor_url(),
         agentcore_observability_enabled=_boolean(
             "MOSAIC_AGENTCORE_OBSERVABILITY",
             False,

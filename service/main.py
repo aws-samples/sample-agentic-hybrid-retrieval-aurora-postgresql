@@ -197,14 +197,23 @@ def _answer_chunks(answer: str) -> list[str]:
 
 @app.get("/api/health")
 def health() -> dict[str, Any]:
+    """Report the service identity, its model IDs, and the Code Editor link.
+
+    `code_editor_url` is null wherever no editor was provisioned, which is every
+    environment outside Workshop Studio, and the storefront hides its link rather
+    than offering one that cannot resolve. It never carries the editor token;
+    `service.config` refuses to start on a value that does.
+    """
+    current = get_settings()
     return {
         "status": "ok",
         "service": "catalog-hybrid-retrieval",
+        "code_editor_url": current.code_editor_url,
         "models": {
-            "embedding": settings.embedding_model_id,
-            "rerank": settings.rerank_model_id,
-            "agent": settings.agent_model_id,
-            "synthesis": settings.synthesis_model_id,
+            "embedding": current.embedding_model_id,
+            "rerank": current.rerank_model_id,
+            "agent": current.agent_model_id,
+            "synthesis": current.synthesis_model_id,
         },
     }
 
