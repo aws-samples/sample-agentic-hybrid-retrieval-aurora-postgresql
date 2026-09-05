@@ -8,15 +8,26 @@ cannot tell those apart destroys the workshop.
 
 So the falsifier is permanent and it is first: an all-misspelled request must
 stay `grounded`.
+
+Everything above `test_the_yaml_floor_equals_the_sql_default` runs without a
+database. The `aurora`-marked tests below it run every case in
+`data/evals/coverage_queries.jsonl` against the live cluster, which is the only
+place the floor can actually be falsified: the pure functions here classify
+verdicts they are handed, and the verdict is what the SQL decides.
 """
 
 from __future__ import annotations
 
+import json
+import re
 from contextlib import contextmanager
+from pathlib import Path
 
 import psycopg
 import pytest
 
+from scripts.config_tripwire import SQL_DEFAULTS, _sql_default
+from scripts.retrieval_profile import load_profile
 from service import coverage
 from service.coverage import (
     QueryCoverage,
@@ -24,6 +35,35 @@ from service.coverage import (
     summarize,
     unanchored_note,
 )
+
+ROOT = Path(__file__).resolve().parents[1]
+COVERAGE_SQL = ROOT / "db" / "sql" / "20_query_coverage.sql"
+COVERAGE_QUERIES = ROOT / "data" / "evals" / "coverage_queries.jsonl"
+
+#: Token kinds `mosaic_search.is_identifier_token` refuses to rescue. Written
+#: out rather than read from the SQL, so a branch deleted there fails here.
+IDENTIFIER_KINDS = (
+    "numword",
+    "numhword",
+    "uint",
+    "int",
+    "float",
+    "sfloat",
+    "version",
+    "file",
+    "url",
+    "url_path",
+    "host",
+    "email",
+)
+
+
+def _cases() -> list[dict]:
+    return [
+        json.loads(line)
+        for line in COVERAGE_QUERIES.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
 
 
 def _term(
@@ -175,9 +215,11 @@ class _FakeConnection:
         self._ready = ready
         self._rows = rows or []
         self.executed: list[str] = []
+        self.parameters: list[tuple | None] = []
 
     def execute(self, sql, params=None):
         self.executed.append(sql)
+        self.parameters.append(params)
         if "corpus_lexeme" in sql and "EXISTS" in sql:
             return _FakeCursor([{"ready": self._ready}])
         return _FakeCursor(self._rows)
@@ -251,19 +293,97 @@ def test_assess_maps_sql_rows_to_verdicts(fake_connect):
     assert result.unmatched_terms == ["A2342"]
 
 
-def test_explicit_floor_is_passed_through(fake_connect):
+def test_an_explicit_floor_wins_over_the_yaml(fake_connect):
     connection = fake_connect(_FakeConnection(ready=True, rows=[]))
-    coverage.assess("anything", word_similarity_floor=0.6)
-    assert any("%s, %s" in sql for sql in connection.executed)
+    coverage.assess("anything", similarity_floor=0.6)
+    assert connection.parameters[-1][1] == 0.6
 
 
-def test_default_floor_omits_the_argument(fake_connect):
-    """The SQL default is the single declaration of an unmeasured number.
-    Passing a Python-side copy would create a second one."""
+def test_the_default_floor_is_the_yaml_value_and_is_always_sent(fake_connect):
+    """The floor reaches the database on every call, never by omission.
+
+    Leaving it out would hand the verdict to whatever default the cluster
+    happens to hold. They agree today and `scripts/config_tripwire.py` keeps
+    them agreeing, but "the number the yaml declares" and "the number this
+    cluster was last installed with" are different claims, and only one of them
+    is checkable from here.
+    """
     connection = fake_connect(_FakeConnection(ready=True, rows=[]))
     coverage.assess("anything")
     coverage_sql = [s for s in connection.executed if "query_term_coverage" in s]
-    assert coverage_sql and all("%s, %s" not in sql for sql in coverage_sql)
+    assert coverage_sql and all("%s, %s::real" in sql for sql in coverage_sql)
+    assert connection.parameters[-1][1] == load_profile().coverage_similarity_floor
+
+
+def test_the_yaml_floor_equals_the_sql_default():
+    """Rule 5: exempt from declaring, never from agreeing.
+
+    Read through `scripts.config_tripwire._sql_default`, the parser the gate
+    itself uses, rather than a second regex written here -- a test that
+    re-derives production logic stops discriminating the moment production
+    changes shape.
+    """
+    entry = next(
+        d
+        for d in SQL_DEFAULTS
+        if d.file == "20_query_coverage.sql" and d.parameter == "similarity_floor"
+    )
+    assert entry.profile_field == "coverage_similarity_floor"
+    declared = _sql_default(COVERAGE_SQL.read_text(encoding="utf-8"), entry)
+    assert declared is not None, "query_term_coverage lost its similarity_floor default"
+    assert float(declared) == load_profile().coverage_similarity_floor
+
+
+@pytest.mark.parametrize("kind", IDENTIFIER_KINDS)
+def test_an_identifier_token_is_refused_however_close_its_neighbour(kind):
+    """A model number near another model number is a different product.
+
+    Hand-built verdicts, so this holds at every floor: the rows carry a
+    neighbour at similarity 0.99, far above any floor the yaml could declare,
+    and the summary must still refuse. It fails the moment anything in the
+    Python layer starts re-deriving recoverability from `closest_similarity`
+    instead of reading the verdict the SQL reached.
+    """
+    result = summarize(
+        [
+            _term("charger", "matched", ordinal=1, ndoc=9120),
+            _term(
+                "A2343",
+                "unmatched_anchor",
+                ordinal=2,
+                token_kind=kind,
+                closest_lexeme="a2342",
+                closest_similarity=0.99,
+            ),
+        ]
+    )
+    assert result.confidence == "unanchored"
+    assert result.unmatched_terms == ["A2343"]
+
+
+def test_the_sql_refuses_identifiers_before_it_consults_the_floor():
+    """The branch order is the rule; a floor comparison reached first would
+    rescue a model number by proximity to a different one."""
+    body = COVERAGE_SQL.read_text(encoding="utf-8")
+    case = body.split("CASE", 1)[1].split("END AS verdict", 1)[0]
+    identifier = case.index("is_identifier_token")
+    floor = case.index("similarity_floor")
+    assert identifier < floor, (
+        "found the similarity_floor branch ahead of the identifier branch in "
+        "query_term_coverage; fix: keep is_identifier_token first, or an "
+        "absent model number becomes recoverable"
+    )
+
+
+def test_the_neighbour_lookup_reads_the_surface_vocabulary():
+    """Measured 2026-09-04: against the stemmed vocabulary the Lab 1 anchor's
+    'hedfones' and the out-of-domain 'quarterly' both score 0.231, so no floor
+    separates C-101 from C-006. Reverting the lookup to corpus_lexeme reverts
+    that, silently, with every offline test still green."""
+    body = COVERAGE_SQL.read_text(encoding="utf-8")
+    lookup = body.split("LEFT JOIN LATERAL (", 1)[1].split(") AS near", 1)[0]
+    assert "mosaic_search.corpus_surface_lexeme" in lookup
+    assert re.search(r"mosaic_search\.corpus_lexeme\b", lookup) is None
 
 
 def test_coverage_model_rejects_an_unknown_verdict():
@@ -332,3 +452,102 @@ def test_assess_uses_an_injected_connection_factory():
 
     coverage.assess("anything", connection_factory=factory)
     assert any("query_term_coverage" in sql for sql in connection.executed)
+
+
+# --- Live calibration ---------------------------------------------------
+#
+# The floor is a number about a corpus. Nothing offline can falsify it: every
+# test above is handed verdicts, and the verdict is what the floor decides. So
+# the calibration is asserted where it was measured, against the 500,000-product
+# cluster, and the recorded `measured` block in the eval file is asserted term by
+# term rather than only in summary -- a case whose confidence is right for the
+# wrong reason is the failure this set exists to catch.
+
+VERIFIED_CASES = [case for case in _cases() if case["verified_against_catalog"]]
+
+
+def test_the_live_calibration_has_cases_to_assert():
+    """Witness. A parametrize over an empty list passes while proving nothing,
+    which is exactly how eight gates in this repository were green on broken."""
+    assert VERIFIED_CASES, (
+        "no case claims live verification; the aurora tests are inert"
+    )
+    assert len(VERIFIED_CASES) == len(_cases())
+
+
+@pytest.mark.aurora
+@pytest.mark.parametrize("case", VERIFIED_CASES, ids=lambda c: c["query_id"])
+def test_every_verified_case_classifies_as_recorded(case):
+    """Both halves: the expectation the set declares, and the run that verified it."""
+    measured = case["measured"]
+    assert measured["similarity_floor"] == load_profile().coverage_similarity_floor, (
+        f"{case['query_id']} was measured at {measured['similarity_floor']} but the "
+        f"yaml now declares {load_profile().coverage_similarity_floor}; fix: re-measure "
+        f"the set against the live cluster before changing the floor"
+    )
+    result = coverage.assess(case["query"])
+    assert result.confidence == case["expected_confidence"]
+    assert result.confidence == measured["confidence"]
+    assert result.unmatched_terms == measured["unmatched_terms"]
+    if case["expected_unmatched_terms"]:
+        assert result.unmatched_terms == case["expected_unmatched_terms"]
+    if case["expected_confidence"] == "grounded":
+        assert result.unmatched_terms == []
+
+    assert result.terms, f"{case['query_id']} produced no terms to inspect"
+    assert len(result.terms) == len(measured["terms"])
+    for term, recorded in zip(result.terms, measured["terms"], strict=True):
+        assert term.token == recorded["token"]
+        assert term.token_kind == recorded["kind"]
+        assert term.verdict == recorded["verdict"], (
+            f"{case['query_id']} token {term.token!r} is now {term.verdict!r}, "
+            f"recorded as {recorded['verdict']!r} on {measured['measured_on']}"
+        )
+        assert term.ndoc == recorded["ndoc"]
+        if "closest" in recorded:
+            assert term.closest_lexeme == recorded["closest"]
+            assert round(float(term.closest_similarity), 3) == recorded["similarity"]
+
+
+@pytest.mark.aurora
+def test_the_floor_is_what_decides_the_lab_1_anchor():
+    """Red-at-birth, kept permanent. The anchor is grounded at the shipped floor
+    and refused above its narrowest token, so a green result here is evidence
+    that the floor is load-bearing rather than that nothing was tested.
+
+    Measured 2026-09-04: 'hedfones' reaches 'hedphones' at 0.462.
+    """
+    anchor = "noice cancelng hedfones"
+    assert coverage.assess(anchor).confidence == "grounded"
+    refused = coverage.assess(anchor, similarity_floor=0.5)
+    assert refused.confidence == "unanchored"
+    assert refused.unmatched_terms == ["hedfones"]
+
+
+@pytest.mark.aurora
+def test_the_floor_is_what_decides_the_invented_brand():
+    """The other end of the calibration. 'Zylthorne' clears 0.231 and nothing
+    more, so a floor at 0.2 admits it and the guardrail stops guarding."""
+    query = "Zylthorne over-ear headphones"
+    assert coverage.assess(query).unmatched_terms == ["Zylthorne"]
+    assert coverage.assess(query, similarity_floor=0.2).confidence == "grounded"
+
+
+@pytest.mark.aurora
+@pytest.mark.parametrize("floor", [0.01, 0.24, 0.99])
+def test_an_absent_model_number_is_refused_at_every_floor(floor):
+    """The half of this gate that does not rest on a 0.019 margin. `a2342` is a
+    numword, so the neighbour lookup never runs for it."""
+    result = coverage.assess(
+        "I need a replacement charging brick for model A2342", similarity_floor=floor
+    )
+    assert result.confidence == "unanchored"
+    assert "A2342" in result.unmatched_terms
+
+
+@pytest.mark.aurora
+def test_both_vocabularies_are_seeded_on_this_cluster():
+    """`assess` reports `unavailable` when either table is empty, which would make
+    every assertion above vacuously pass on a half-seeded database."""
+    result = coverage.assess("wireless headphones")
+    assert result.confidence != "unavailable", result.note

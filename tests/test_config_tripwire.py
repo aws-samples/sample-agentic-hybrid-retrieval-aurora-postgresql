@@ -45,6 +45,20 @@ LANGUAGE sql
 AS $$ SELECT 1 $$;
 """
 
+# The coverage floor's signature, in the shape rule 1 structurally cannot see:
+# `name type DEFAULT value` carries no `=` and no `:`. Its value is written out
+# rather than read from the profile, for the same reason MODEL below is.
+COVERAGE_SIGNATURE = """\\set ON_ERROR_STOP on
+
+CREATE OR REPLACE FUNCTION mosaic_search.query_term_coverage(
+    q text,
+    similarity_floor real DEFAULT {similarity_floor}
+)
+RETURNS TABLE (token text)
+LANGUAGE sql
+AS $$ SELECT 'x'::text $$;
+"""
+
 INDEX_DDL = """\\set ON_ERROR_STOP on
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS product_document_embedding_hnsw_cosine_idx
@@ -74,6 +88,9 @@ def fake_repo(tmp_path: Path) -> Path:
     )
     (tmp_path / "db" / "sql" / "08_indexes_concurrent.sql").write_text(
         INDEX_DDL.format(ef_construction=200), encoding="utf-8"
+    )
+    (tmp_path / "db" / "sql" / "20_query_coverage.sql").write_text(
+        COVERAGE_SIGNATURE.format(similarity_floor=0.24), encoding="utf-8"
     )
     return tmp_path
 
@@ -197,6 +214,39 @@ def test_a_drifted_index_parameter_is_caught(fake_repo):
     report = Report()
     check_index_agreement(report, repo=fake_repo)
     assert "C1b" in rules(report)
+
+
+@pytest.mark.parametrize("drifted", [0.25, 0.4, 0.18])
+def test_a_drifted_coverage_floor_is_caught(fake_repo, drifted):
+    """The floor is the one number two callers can disagree about silently.
+
+    `service.coverage` sends `coverage.similarity_floor` from the yaml; anyone
+    calling `mosaic_search.query_term_coverage(q)` in psql gets the SQL default.
+    A disagreement would classify the Lab 1 anchor one way through the API and
+    another way in the query a participant runs to inspect it. 0.25 is in the
+    parametrize list on purpose: it is only 0.01 away and still wrong.
+    """
+    (fake_repo / "db" / "sql" / "20_query_coverage.sql").write_text(
+        COVERAGE_SIGNATURE.format(similarity_floor=drifted), encoding="utf-8"
+    )
+    report = Report()
+    check_sql_agreement(report, repo=fake_repo)
+    assert any("query_term_coverage.similarity_floor" in f for f in report.failures), (
+        f"coverage floor {drifted} did not fail agreement: {report.failures}"
+    )
+
+
+def test_an_unpinned_coverage_floor_is_caught(fake_repo):
+    """Exhaustiveness, rule C1c, for the name this change added to NUMBER_NAMES."""
+    (fake_repo / "db" / "sql" / "20_query_coverage.sql").write_text(
+        COVERAGE_SIGNATURE.replace("query_term_coverage", "invented_coverage").format(
+            similarity_floor=0.24
+        ),
+        encoding="utf-8",
+    )
+    report = Report()
+    check_exemptions_complete(report, repo=fake_repo)
+    assert "C1c" in rules(report), report.failures
 
 
 def test_a_stale_exemption_entry_is_caught(fake_repo):

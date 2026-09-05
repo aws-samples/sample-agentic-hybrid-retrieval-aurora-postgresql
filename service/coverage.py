@@ -16,7 +16,8 @@ unanchored request may not produce a cited answer of record.
 
 The verdicts come from `mosaic_search.query_term_coverage`; see
 `db/sql/20_query_coverage.sql` for how a misspelling is separated from an
-absence.
+absence, and `coverage.similarity_floor` in `db/config/retrieval.yaml` for the
+measured number that separates them.
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ from contextlib import AbstractContextManager
 
 import psycopg
 
+from scripts.retrieval_profile import load_profile
 from service.db import connect
 from service.models import QueryCoverage, TermCoverage
 
@@ -114,9 +116,21 @@ def summarize(terms: Sequence[TermCoverage]) -> QueryCoverage:
 
 
 def _vocabulary_ready(connection) -> bool:
-    """Whether `refresh_corpus_lexeme()` has run against this database."""
+    """Whether `refresh_corpus_lexeme()` has run against this database.
+
+    Both tables, not one. They answer different halves of the verdict --
+    `corpus_lexeme` decides `matched`, `corpus_surface_lexeme` decides whether a
+    term that matched nothing is recoverable -- so a database holding only the
+    first would call every misspelling an absence and refuse the Lab 1 anchor.
+    A half-seeded vocabulary is not a working guardrail; it is the outage the
+    `unavailable` verdict exists to prevent.
+    """
     row = connection.execute(
-        "SELECT EXISTS (SELECT 1 FROM mosaic_search.corpus_lexeme) AS ready"
+        """
+        SELECT EXISTS (SELECT 1 FROM mosaic_search.corpus_lexeme)
+           AND EXISTS (SELECT 1 FROM mosaic_search.corpus_surface_lexeme)
+               AS ready
+        """
     ).fetchone()
     return bool(row and row["ready"])
 
@@ -129,7 +143,7 @@ def assess(
     query: str,
     *,
     connection_factory: Callable[[], AbstractContextManager] | None = None,
-    word_similarity_floor: float | None = None,
+    similarity_floor: float | None = None,
 ) -> QueryCoverage:
     """Classify one request against the catalog vocabulary.
 
@@ -141,10 +155,14 @@ def assess(
             substitutes a connection does not fall through to the real pool.
             The caller must not already hold a checkout from the same pool;
             `service.db.connect` documents why nesting is unsafe.
-        word_similarity_floor: Override the trigram floor separating a
-            misspelling from an absence for word-shaped tokens. Defaults to the
-            SQL function's own default, which is unmeasured and documented as
-            such in `db/sql/20_query_coverage.sql`.
+        similarity_floor: Override the trigram floor separating a misspelling
+            from an absence for word-shaped tokens. Defaults to
+            `coverage.similarity_floor` in `db/config/retrieval.yaml`, which is
+            always passed explicitly rather than left to the SQL default: the
+            two agree today, and `scripts/config_tripwire.py` keeps them
+            agreeing, but a request that reads the number the yaml declares
+            cannot be told apart from one that reads a stale copy on the
+            cluster unless it sends the value.
 
     Returns:
         A `QueryCoverage`. Never raises for an unseeded vocabulary, an
@@ -161,16 +179,15 @@ def assess(
                     "Corpus vocabulary is empty; run "
                     "CALL mosaic_search.refresh_corpus_lexeme() to enable coverage."
                 )
-            if word_similarity_floor is None:
-                rows = connection.execute(
-                    "SELECT * FROM mosaic_search.query_term_coverage(%s)",
-                    (query,),
-                ).fetchall()
-            else:
-                rows = connection.execute(
-                    "SELECT * FROM mosaic_search.query_term_coverage(%s, %s)",
-                    (query, word_similarity_floor),
-                ).fetchall()
+            floor = (
+                load_profile().coverage_similarity_floor
+                if similarity_floor is None
+                else similarity_floor
+            )
+            rows = connection.execute(
+                "SELECT * FROM mosaic_search.query_term_coverage(%s, %s::real)",
+                (query, floor),
+            ).fetchall()
     except (psycopg.errors.UndefinedTable, psycopg.errors.UndefinedFunction):
         # A cluster provisioned before db/sql/20_query_coverage.sql existed has
         # neither the vocabulary table nor the function. Coverage is an

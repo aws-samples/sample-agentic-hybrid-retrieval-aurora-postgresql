@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+from scripts.retrieval_profile import load_profile
+
 ROOT = Path(__file__).resolve().parents[1]
 COVERAGE_QUERIES = ROOT / "data" / "evals" / "coverage_queries.jsonl"
 CANONICAL_QUERIES = ROOT / "data" / "evals" / "canonical_queries.jsonl"
@@ -26,6 +28,7 @@ REQUIRED_FIELDS = {
     "expected_unmatched_terms",
     "floor_dependent",
     "verified_against_catalog",
+    "measured",
     "rationale",
 }
 
@@ -106,10 +109,12 @@ def test_unanchored_terms_appear_in_their_query():
             )
 
 
-def test_identifier_cases_are_decidable_without_the_unmeasured_floor():
-    """Identifier-shaped tokens take no trigram rescue, so their verdict does
-    not depend on `word_similarity_floor`. At least one such case must exist,
-    or nothing in the set can be validated before the floor is measured."""
+def test_identifier_cases_are_decidable_without_the_floor():
+    """Identifier-shaped tokens take no trigram rescue, so their confidence does
+    not depend on `coverage.similarity_floor`. At least one such case must
+    exist: the word-shaped half of the calibration is separated by 0.019 of
+    trigram similarity on this corpus, and a set with no floor-free negative
+    would have nothing left if that margin ever closed."""
     floor_free = [c for c in _cases() if not c["floor_dependent"]]
     assert floor_free
     unanchored_floor_free = [
@@ -122,15 +127,78 @@ def test_identifier_cases_are_decidable_without_the_unmeasured_floor():
 
 
 @pytest.mark.parametrize("case", _cases(), ids=lambda c: c["query_id"])
-def test_no_case_claims_live_verification_it_has_not_had(case):
+def test_a_case_claiming_verification_carries_the_run_that_verified_it(case):
     """Guards the house rule against inventing measured data.
 
-    Every case ships `verified_against_catalog: false` because the Aurora
-    security group has had no inbound rules since 2026-08-28 and none of these
-    expectations has been run against the 500,000-product corpus. Flipping a
-    case to true is a claim that it was; make that claim only from a real run.
+    `verified_against_catalog: true` is a claim that this query was classified
+    by the live cluster. The claim is only checkable if the run is recorded, so
+    a case making it must ship a `measured` block naming the day, the floor, and
+    a verdict per token -- and that block must agree with what the case expects,
+    or the set is asserting two different things at once.
+
+    The whole set was measured on 2026-09-04 against the 500,000-product Aurora
+    corpus. `tests/test_coverage.py` replays every one of them.
     """
-    assert case["verified_against_catalog"] is False, (
-        f"{case['query_id']} claims live verification. If that is real, record "
-        "the run; if it is aspirational, set it back to false."
+    measured = case["measured"]
+    assert case["verified_against_catalog"] is True, (
+        f"{case['query_id']} is unverified. Run it against the cluster and "
+        "record the result, or delete it from the set."
     )
+    assert measured["measured_on"], f"{case['query_id']} records no measurement date"
+    assert measured["confidence"] == case["expected_confidence"], (
+        f"{case['query_id']} expects {case['expected_confidence']} but the "
+        f"recorded run produced {measured['confidence']}"
+    )
+    assert measured["terms"], f"{case['query_id']} records no per-token verdicts"
+    for term in measured["terms"]:
+        assert term["token"] in case["query"], (
+            f"{case['query_id']} records a verdict for {term['token']!r}, which "
+            "is not in its query"
+        )
+        assert term["verdict"] in {
+            "matched",
+            "recoverable",
+            "unmatched_anchor",
+            "ignored",
+        }
+    refused = [
+        t["token"] for t in measured["terms"] if t["verdict"] == "unmatched_anchor"
+    ]
+    assert refused == measured["unmatched_terms"]
+    if case["expected_unmatched_terms"]:
+        assert measured["unmatched_terms"] == case["expected_unmatched_terms"]
+
+
+def test_every_case_was_measured_at_the_floor_the_yaml_declares():
+    """A recorded run at a floor the profile no longer serves is not evidence
+    about the shipped system. Editing `coverage.similarity_floor` without
+    re-measuring the set turns this red, which is the point."""
+    floor = load_profile().coverage_similarity_floor
+    for case in _cases():
+        assert case["measured"]["similarity_floor"] == floor, (
+            f"{case['query_id']} was measured at "
+            f"{case['measured']['similarity_floor']} but db/config/retrieval.yaml "
+            f"declares {floor}; fix: re-run the set against the live cluster and "
+            "record the new verdicts, or restore the floor"
+        )
+
+
+def test_the_calibration_cases_still_bracket_the_floor():
+    """The two tokens the floor sits between, asserted as data rather than prose.
+
+    Measured 2026-09-04: 'enough' (C-105, must be rescued) reaches 0.250 and
+    'Zylthorne' (C-005, must be refused) reaches 0.231. Any floor outside that
+    interval reds one of them. This test states the interval so that a future
+    edit to either case cannot quietly remove the evidence the floor rests on.
+    """
+    by_id = {case["query_id"]: case for case in _cases()}
+    rescued = next(
+        t for t in by_id["C-105"]["measured"]["terms"] if t["token"] == "enough"
+    )
+    refused = next(
+        t for t in by_id["C-005"]["measured"]["terms"] if t["token"] == "Zylthorne"
+    )
+    assert rescued["verdict"] == "recoverable"
+    assert refused["verdict"] == "unmatched_anchor"
+    floor = load_profile().coverage_similarity_floor
+    assert refused["similarity"] < floor <= rescued["similarity"]

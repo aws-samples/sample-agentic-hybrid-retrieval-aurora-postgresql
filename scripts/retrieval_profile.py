@@ -104,6 +104,11 @@ BOUNDS: tuple[Bound, ...] = (
         1.0,
         float,
     ),
+    # Coverage's trigram rescue floor. No env override: it is calibrated against
+    # a specific corpus (db/sql/20_query_coverage.sql records the measurement),
+    # and a per-deployment override would let a room silently run an
+    # uncalibrated guardrail on the workshop's headline query.
+    Bound("coverage.similarity_floor", None, 0.01, 1.0, float),
     Bound("fusion.rrf_k", "RRF_K", 1, 10_000, int),
     Bound("fusion.fused_limit", "RERANK_CANDIDATE_LIMIT", 1, 250, int),
     Bound("fusion.weights.lexical", None, 0, 1, float),
@@ -129,6 +134,7 @@ class RetrievalProfileConfig:
     trigram_threshold: float
     trigram_similarity_gate: float
     trigram_word_similarity_gate: float
+    coverage_similarity_floor: float
     rrf_k: int
     fused_limit: int
     weight_lexical: float
@@ -158,6 +164,7 @@ _FIELD_FOR_PATH: dict[str, str] = {
     "candidate_generation.trigram_index_gate.word_similarity_threshold": (
         "trigram_word_similarity_gate"
     ),
+    "coverage.similarity_floor": "coverage_similarity_floor",
     "fusion.rrf_k": "rrf_k",
     "fusion.fused_limit": "fused_limit",
     "fusion.weights.lexical": "weight_lexical",

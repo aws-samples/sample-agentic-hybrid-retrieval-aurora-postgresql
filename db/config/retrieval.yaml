@@ -32,6 +32,28 @@ candidate_generation:
   trigram_index_gate:
     similarity_threshold: 0.18
     word_similarity_threshold: 0.5
+coverage:
+  # Trigram floor separating a misspelling from an absence, for word-shaped
+  # tokens only. mosaic_search.query_term_coverage compares the token as
+  # written against mosaic_search.corpus_surface_lexeme; a token at or above
+  # this floor is `recoverable`, below it `unmatched_anchor`. Identifier-shaped
+  # tokens (a model number, a SKU) are never rescued and never consult it.
+  #
+  # MEASURED on the live 500,000-product cluster on 2026-09-04 against the 12
+  # cases in data/evals/coverage_queries.jsonl. Every floor in (0.231, 0.250]
+  # classifies all 12 as expected; 0.24 is the value that maximises the smaller
+  # margin. Binding on both sides by one token: 'enough' -> 'through' at 0.250
+  # must stay rescued, 'zylthorne' -> 'corne' at 0.231 must stay refused.
+  #
+  # Must stay at or above candidate_generation.trigram_index_gate.
+  # similarity_threshold above: the neighbour lookup is gated by the `%`
+  # operator, so a floor below that gate would let the index prune candidates
+  # the floor would have accepted.
+  #
+  # Asserted equal to the SQL default in
+  # db/sql/20_query_coverage.sql:query_term_coverage by
+  # scripts/config_tripwire.py.
+  similarity_floor: 0.24
 fusion:
   method: reciprocal_rank_fusion
   rrf_k: 60

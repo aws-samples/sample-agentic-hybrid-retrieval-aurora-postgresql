@@ -84,6 +84,7 @@ NUMBER_NAMES = (
     r"weight_(?:lexical|semantic|trigram)",
     r"trigram_(?:similarity_)?threshold",
     r"minimum_similarity",
+    r"similarity_floor",
     r"ef_search",
     r"ef_construction",
     r"max_scan_tuples",
@@ -285,6 +286,17 @@ SQL_DEFAULTS: tuple[SqlDefault, ...] = (
         "configure_hnsw",
         "p_scan_mem_multiplier",
         "hnsw_scan_mem_multiplier",
+    ),
+    # Query coverage's trigram rescue floor. Pinned for the same reason as every
+    # other entry here, and with a sharper consequence: a caller that omits the
+    # argument gets the SQL default, and `service.coverage` passes the yaml
+    # value, so a disagreement would mean the Lab 1 anchor is classified by one
+    # number in psql and another through the API.
+    SqlDefault(
+        "20_query_coverage.sql",
+        "query_term_coverage",
+        "similarity_floor",
+        "coverage_similarity_floor",
     ),
 )
 

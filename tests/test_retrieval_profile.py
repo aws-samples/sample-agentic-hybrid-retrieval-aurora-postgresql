@@ -38,6 +38,25 @@ def test_the_shipped_yaml_loads_and_validates():
     assert profile.trigram_threshold == 0.20
     assert profile.trigram_similarity_gate == 0.18
     assert profile.trigram_word_similarity_gate == 0.5
+    assert profile.coverage_similarity_floor == 0.24
+
+
+def test_the_coverage_floor_stays_at_or_above_the_index_gate():
+    """Below the `%` gate the floor stops being the thing that decides.
+
+    `mosaic_search.query_term_coverage` finds a neighbour with `lexeme % token`,
+    which pg_trgm prunes at `similarity_threshold`. A floor below that gate would
+    reject nothing the index had not already discarded, so lowering it would look
+    like a loosened guardrail and change no verdict at all. The relation is
+    asserted rather than the literals, so moving either number keeps the test
+    meaningful.
+    """
+    profile = load_profile()
+    assert profile.coverage_similarity_floor >= profile.trigram_similarity_gate, (
+        f"coverage floor {profile.coverage_similarity_floor} is below the "
+        f"pg_trgm index gate {profile.trigram_similarity_gate}; raise the floor "
+        f"or lower candidate_generation.trigram_index_gate.similarity_threshold"
+    )
 
 
 def test_the_ported_weights_round_trip_by_key_name():
