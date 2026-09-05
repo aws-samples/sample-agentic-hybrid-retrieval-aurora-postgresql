@@ -239,6 +239,28 @@ describe("PerformancePage", () => {
 
   afterEach(cleanup);
 
+  /**
+   * Wait until the probe button will actually issue a query.
+   *
+   * `runProbe` returns early while `anchorId` is null, and the anchors arrive on
+   * their own request (`api.hnswAnchors`), separate from the core data that gates
+   * the "Recall you can buy" heading. So awaiting that heading proves `efSearch`
+   * is set and proves nothing about the anchor. A click inside that window sets
+   * the "Load a probe anchor" message instead of calling `api.hnswProbe`, and the
+   * effect keyed on `anchorId` then clears that message the moment the anchors
+   * land -- so an assertion on the alert sees no alert at all rather than a wrong
+   * one, and a `mockRejectedValueOnce` is left unconsumed.
+   *
+   * The window is invisible on a fast machine and real on a loaded runner: CI run
+   * 33978031173 failed here with `Unable to find role="alert"` after 1208 ms
+   * against the 1000 ms default, while the same test passed locally every time.
+   *
+   * `api.hnswNeighborhood` is called only from the effect that returns early on a
+   * null anchor, so one call to it is proof the anchor is loaded.
+   */
+  const waitForProbeAnchor = () =>
+    waitFor(() => expect(api.hnswNeighborhood).toHaveBeenCalled());
+
   it("keeps the instrument when only exact ground truth is missing", async () => {
     // The neighbourhood endpoint answers 503 when mosaic_bench.exact_neighbor has
     // no rows for the connected dataset manifest. That used to write the
@@ -371,6 +393,7 @@ describe("PerformancePage", () => {
   it("labels a live probe result distinctly from the measured curve", async () => {
     render(<PerformancePage />);
     await screen.findByRole("heading", { name: /Recall you can buy/ });
+    await waitForProbeAnchor();
 
     fireEvent.click(screen.getByRole("button", { name: /Run on Aurora now/ }));
 
@@ -467,6 +490,7 @@ describe("PerformancePage", () => {
 
     render(<PerformancePage />);
     await screen.findByRole("heading", { name: /Recall you can buy/ });
+    await waitForProbeAnchor();
 
     fireEvent.click(screen.getByRole("button", { name: /Run on Aurora now/ }));
 
@@ -533,6 +557,7 @@ describe("PerformancePage", () => {
 
     render(<PerformancePage />);
     await screen.findByRole("heading", { name: /Recall you can buy/ });
+    await waitForProbeAnchor();
     fireEvent.click(screen.getByRole("button", { name: /Run on Aurora now/ }));
     await waitFor(() => expect(api.hnswProbe).toHaveBeenCalledTimes(1));
 
@@ -700,6 +725,7 @@ describe("PerformancePage", () => {
     // reader comparing 0.624 ms against the cold measured sweep needs to know.
     render(<PerformancePage />);
     await screen.findByRole("heading", { name: /Recall you can buy/ });
+    await waitForProbeAnchor();
 
     fireEvent.click(screen.getByRole("button", { name: /Run on Aurora now/ }));
 
