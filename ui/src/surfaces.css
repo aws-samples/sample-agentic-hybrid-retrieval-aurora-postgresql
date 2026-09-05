@@ -7925,12 +7925,15 @@
   border-right: 0;
 }
 
+/* Five segments, five palette roles, each read apart from its neighbours:
+   the index itself in maroon, the two heap stores in the gold pair, and the
+   two kinds of overhead in the two line weights. */
 .segment-heap {
-  --segment: #d9c7a8;
+  --segment: var(--gold-line);
 }
 
 .segment-toast {
-  --segment: #b58a5c;
+  --segment: var(--gold-bright);
 }
 
 .segment-hnsw {
@@ -7938,11 +7941,11 @@
 }
 
 .segment-other_indexes {
-  --segment: #cbbfae;
+  --segment: var(--line-strong);
 }
 
 .segment-relation_overhead {
-  --segment: #e6ddd2;
+  --segment: var(--line);
 }
 
 .hnsw-storage-bar > i {
