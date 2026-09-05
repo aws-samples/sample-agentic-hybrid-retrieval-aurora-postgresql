@@ -13,8 +13,10 @@
 #   - ARM64 (Graviton). An x86 image will not start.
 #   - Port 8080, bound to 0.0.0.0 so AgentCore can route to the container.
 #   - Non-root process, no secrets in any layer.
-# The endpoint names AgentCore checks are not the ones this app serves. See
-# docs/agentcore-runtime.md, "Where the contract does not line up yet".
+#   - GET /ping and POST /invocations, served by deploy/agentcore/app.py. That
+#     module mounts service.main:app whole and adds those two routes around it,
+#     so the workshop application keeps its own surface unchanged. See
+#     docs/agentcore-runtime.md, "How the contract routes are served".
 
 FROM --platform=linux/arm64 python:3.13.14-slim AS builder
 
@@ -59,6 +61,11 @@ COPY data/evals/ ./data/evals/
 COPY data/media/asset_labels_200.json ./data/media/asset_labels_200.json
 COPY data/full/manifest.json ./data/full/manifest.json
 
+# The container entry point, and the only file from deploy/ that belongs in the
+# image. It is the module named in CMD below, so the image would start into an
+# ImportError without it.
+COPY deploy/agentcore/app.py ./deploy/agentcore/app.py
+
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
@@ -72,4 +79,4 @@ EXPOSE 8080
 # 0.0.0.0 because AgentCore routes to the container over its internal network.
 # Do not publish this port to the internet. Run it locally with
 # `-p 127.0.0.1:8080:8080`, which is what `make agentcore-image-smoke` does.
-CMD ["uvicorn", "service.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["uvicorn", "deploy.agentcore.app:app", "--host", "0.0.0.0", "--port", "8080"]

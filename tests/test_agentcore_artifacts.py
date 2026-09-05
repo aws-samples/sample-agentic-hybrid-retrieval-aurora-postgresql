@@ -1,10 +1,11 @@
 """Keep the optional AgentCore Runtime artifacts honest.
 
 Nothing under `deploy/agentcore/` is on the required lab path and nothing here
-deploys anything. These checks guard the three claims those artifacts make:
-the image resolves from the committed lock, it never carries a credential file
-and never runs as root, and `docs/agentcore-runtime.md` names every deployment
-environment variable the service actually reads. The variable list is derived
+deploys anything. These checks guard the claims those artifacts make: the image
+resolves from the committed lock, it never carries a credential file and never
+runs as root, it ships the module its command runs, and
+`docs/agentcore-runtime.md` names every deployment environment variable the
+service actually reads. The variable list is derived
 from `config/.env.example` rather than restated here, so adding a setting to
 the example file reds this gate until the runtime document explains it.
 """
@@ -21,11 +22,17 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCKERFILE = ROOT / "deploy" / "agentcore" / "Dockerfile"
+ADAPTER = ROOT / "deploy" / "agentcore" / "app.py"
 RUNTIME_DOC = ROOT / "docs" / "agentcore-runtime.md"
 ENV_EXAMPLE = ROOT / "config" / ".env.example"
 MAKEFILE = ROOT / "Makefile"
 
 AGENTCORE_TARGETS = ("agentcore-image", "agentcore-image-smoke", "agentcore-deploy")
+
+#: The container entry point. It is the adapter rather than `service.main:app`
+#: because the two contract routes live there; behavior of the adapter itself is
+#: `tests/test_agentcore_adapter.py`.
+ADAPTER_MODULE = "deploy.agentcore.app:app"
 
 #: A floor, not the expected count. `config/.env.example` carried fifteen
 #: uncommented assignments when this gate was written. The floor exists so a
@@ -128,9 +135,25 @@ def test_dockerfile_binds_the_agentcore_http_contract():
         "an x86 image will not start"
     )
     command = next(line for line in instructions if line.upper().startswith("CMD "))
-    assert "service.main:app" in command
+    assert ADAPTER_MODULE in command, (
+        f"found a CMD that does not run {ADAPTER_MODULE}; fix: the adapter is "
+        "what serves GET /ping and POST /invocations, and running the workshop "
+        "application directly fails the AgentCore health check"
+    )
     assert "0.0.0.0" in command
     assert "8080" in command
+
+
+def test_dockerfile_ships_the_module_its_command_runs():
+    """A CMD naming a file no COPY carries starts into an ImportError."""
+    dockerfile = DOCKERFILE.read_text(encoding="utf-8")
+    entry_point = ADAPTER_MODULE.split(":")[0].replace(".", "/") + ".py"
+
+    assert ADAPTER.is_file(), f"missing {ADAPTER.relative_to(ROOT)}"
+    assert entry_point in _copy_sources(dockerfile), (
+        f"found no COPY of {entry_point}; fix: copy the entry point, because "
+        "the image otherwise has no module for its CMD to import"
+    )
 
 
 def test_makefile_declares_the_agentcore_targets():

@@ -17,7 +17,10 @@ holds no stack, no role, and no endpoint for it.
 
 The claim it supports is narrow and worth stating exactly: the process ships to
 AgentCore Runtime unchanged because Aurora is the evidence authority, not the
-harness. The agent's tools read Aurora. Which rows an answer may cite is decided
+harness. What the platform requires is two HTTP routes, and those are added
+around the application by an adapter rather than inside it, so no lab code, no
+tool, and no SQL differs between the two deployments. The agent's tools read
+Aurora. Which rows an answer may cite is decided
 in `service/retrieval_scope.py` and `service/agent_tools.py` against what Aurora
 returns. Moving the process from a uvicorn on an EC2 host into a managed runtime
 changes who starts the process and who routes traffic to it. It changes nothing
@@ -35,6 +38,8 @@ build context. It contains:
   `uv sync --frozen --no-dev`, so the image installs exactly what the repository
   pins and leaves `pytest` and `ruff` out.
 - `service/`, the FastAPI application and the Strands agent it hosts.
+- `deploy/agentcore/app.py`, the container's entry point and the only file from
+  `deploy/` in the image. It is the adapter described below.
 - `db/` and three named files under `scripts/`, because the retrieval
   fingerprint in `service/retrieval_fingerprint.py` hashes them and refuses to
   produce a fingerprint over a category that lost its files.
@@ -64,24 +69,57 @@ it:
 | Shutdown | handle SIGTERM |
 
 The Dockerfile satisfies architecture, port, host binding, logging, and the
-non-root requirement. Do not publish port 8080 to the internet. AgentCore
+non-root requirement. `deploy/agentcore/app.py` satisfies the health check and
+the invocation route. Do not publish port 8080 to the internet. AgentCore
 terminates TLS at its load balancer and hands the container plaintext HTTP over
 an internal network, so a directly exposed container is an unauthenticated
 endpoint.
 
-## Where the contract does not line up yet
+## How the contract routes are served
 
-The service exposes `GET /api/health` and `POST /api/agent/answer`. AgentCore
-checks `GET /ping` and routes to `POST /invocations`. Those routes do not exist
-in `service/main.py` today, and this image adds nothing to the application, so a
-runtime created from it will fail its health check.
+The service exposes `GET /api/health` and `POST /api/agent/answer`, and it goes
+on exposing exactly those. AgentCore checks `GET /ping` and routes to
+`POST /invocations`. `deploy/agentcore/app.py` is the adapter between the two,
+and it is the module the image's `CMD` runs.
 
-Closing that gap is two routes: a `/ping` that returns the health status
-document, and an `/invocations` that accepts the `AgentRequest` body and returns
-what `/api/agent/answer` returns. That is application code and it is not part of
-these artifacts. State the gap when demonstrating this beat rather than implying
-a working endpoint. The image, the build, and the local smoke run are real and
-verifiable now; a live AgentCore endpoint is not, until those two routes exist.
+It adds two routes and nothing else:
+
+| Route | What it does |
+|---|---|
+| `GET /ping` | Returns `{"status":"Healthy"}` once settings load. It reaches neither Aurora nor Bedrock: a health check that failed on a dependency would have AgentCore recycle a working container over an outage that replacing it cannot fix. `GET /api/readiness` is where the database and model answer lives, and it is still reachable. |
+| `POST /invocations` | Takes the `AgentRequest` body, calls `service.main.agent_answer`, and returns the `AgentResponse`. |
+
+Everything else is `service.main.app`, mounted whole at the root. The mount
+carries the application's middleware, its exception handlers, and its
+connection-pool lifespan, which the adapter delegates to explicitly because a
+Starlette mount does not forward lifespan events on its own. uvicorn turns
+SIGTERM into that context's shutdown, which is how the container closes the pool
+rather than leaving Aurora sessions to time out.
+
+`/invocations` calls the application route function rather than reimplementing
+it, so the two cannot drift: a Bedrock `ClientError` or `BotoCoreError` becomes
+the same redacted 503 on both, a `RuntimeError` from the fail-closed pipeline
+becomes the same 503, and a body with an unknown field is refused with the same
+422 by the same model.
+
+The HTTP protocol passes the request body through unchanged, so there is no
+envelope to unpack and none was invented. The payload is the `AgentRequest` the
+service already takes and the response is the `AgentResponse` it already
+returns, which is what keeps a runtime turn and a local turn comparable receipt
+for receipt.
+
+`tests/test_agentcore_adapter.py` holds this from both sides: `/ping` answers
+the documented shape, `/invocations` returns the answer for a fake agent and
+422s a malformed payload, every route the service serves is still served through
+the adapter, and the adapter's own route count is exactly two. It also asserts
+that importing the adapter leaves no platform route on the workshop
+application, because the labs run that application directly and it should not
+grow a `/ping`.
+
+What remains unverified is the image itself: it has never been built, so the
+build, the local smoke run, and any live endpoint are still claims about a
+Dockerfile rather than about a container that ran. Say that when demonstrating
+this beat.
 
 ## Environment the runtime needs
 
@@ -166,6 +204,15 @@ polls `GET /api/health` until it answers, prints the response, and removes the
 container. A health check that fails here fails on AgentCore too, so this is the
 cheapest place to find a packaging mistake.
 
+`/api/health` answering proves the mount is live, since that route is the
+workshop application's and it is only reachable through the adapter. The route
+AgentCore itself checks is `/ping`, so curl it against a running container as
+well:
+
+```sh
+curl -fsS http://127.0.0.1:8080/ping
+```
+
 ## Deploy
 
 ```sh
@@ -204,12 +251,13 @@ alongside `latest` in any real account.
 
 ## Invoke it once
 
-The application endpoint is `POST /api/agent/answer`, taking an `AgentRequest`
-and returning an `AgentResponse` (`service/models.py`). Against a local
-container:
+The contract endpoint is `POST /invocations`, taking an `AgentRequest` and
+returning an `AgentResponse` (`service/models.py`). The application's own
+`POST /api/agent/answer` takes and returns the same two objects and runs the
+same code, so either one works against a local container:
 
 ```sh
-curl -fsS http://127.0.0.1:8080/api/agent/answer \
+curl -fsS http://127.0.0.1:8080/invocations \
   -H 'content-type: application/json' \
   -d '{
         "question": "quiet keyboard for an open-plan office under $150",
@@ -225,9 +273,12 @@ carries `previous_agent_run_id` and the prior recommendations for a follow-up
 turn. The body rejects unknown fields, so a typo fails with a 422 rather than
 being silently ignored.
 
-Once the two contract routes exist, the same body goes to `POST /invocations`,
-and through AgentCore it goes to `bedrock-agentcore invoke-agent-runtime` with a
-`runtimeSessionId`. The request shape does not change.
+Through AgentCore the same body goes to `bedrock-agentcore
+invoke-agent-runtime` with a `runtimeSessionId`, which arrives at the container
+as the `X-Amzn-Bedrock-AgentCore-Runtime-Session-Id` header. The adapter neither
+requires nor reads it: a turn's identity is the `agent_run_id` Aurora issues,
+and a follow-up is carried by the request's own `context` object. The request
+shape does not change.
 
 ## What the receipts prove
 
