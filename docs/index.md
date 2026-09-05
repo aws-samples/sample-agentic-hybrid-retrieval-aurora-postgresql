@@ -13,6 +13,7 @@ honest.
 | `workshop.md` (repo root) | Co-presenter brief: story, three-lab journey, how to read a run |
 | `architecture.md` | Runtime and offline architecture |
 | `postgres-18.md` | Engine and pgvector version facts, what the pipeline uses, and what is not claimed |
+| `agentcore-runtime.md` | Optional: shipping the FastAPI and Strands process to Amazon Bedrock AgentCore Runtime unchanged, with Aurora as the evidence authority |
 | `catalog-spec.md` | Dataset taxonomy, schema, attributes, and challenge cohorts |
 | `category-plate-prompts.md` | Prompt set for category-plate imagery |
 | `data-generation.md` | Regeneration, reviews, embeddings, and scale extension |
