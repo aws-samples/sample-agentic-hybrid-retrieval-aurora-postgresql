@@ -99,6 +99,10 @@ later grounded search in the same turn does not revoke it, because the answer of
 record is written once per turn and the agent is instructed to call
 `synthesize_cited_answer` exactly once.
 
+In the telemetry timeline a declined run reports a `citation_validation` status
+of `declined`, distinct from `failed`, and it is not counted as an authorization
+denial.
+
 The streaming route emits server-sent application stages and then the same
 citation-bounded answer contract. It does not expose model reasoning or claim
 general semantic entailment.

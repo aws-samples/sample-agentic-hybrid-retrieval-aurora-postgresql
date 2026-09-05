@@ -205,8 +205,14 @@ def build_agent_telemetry_contract(
     synthesis_output = _as_dict(synthesis.get("output_payload")) if synthesis else {}
     citations = synthesis_output.get("citations")
     citation_count = len(citations) if isinstance(citations, list) else 0
+    # A declined run has its own status. Its `synthesize_cited_answer` receipt
+    # is recorded as `denied` with zero citations, which is exactly the shape of
+    # a failed synthesis, so without this branch the timeline reports a citation
+    # failure for a run that produced the answer it was supposed to produce.
     citation_status = (
-        "passed"
+        "declined"
+        if intent.get("outcome") == "declined"
+        else "passed"
         if synthesis and synthesis.get("outcome") == "success" and citation_count > 0
         else "failed"
         if synthesis

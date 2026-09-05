@@ -458,3 +458,123 @@ def test_synthesis_usage_preserves_bedrock_latency():
 
     assert usage["latencyMs"] == 400
     assert usage["stopReason"] == "end_turn"
+
+
+def _declined_turn(outcome: str | None) -> dict[str, object]:
+    """A persisted turn whose synthesis receipt is a refusal, not a failure."""
+    return {
+        "agent_turn_id": uuid4(),
+        "agent_session_id": uuid4(),
+        "user_message": "replacement charging brick for model A2342",
+        "assistant_message": "Nothing in the catalog matches the term 'A2342'.",
+        "extracted_intent": {
+            "telemetry": {"status": "completed"},
+            "selected_products": [],
+            "outcome": outcome,
+            "decline_reason": "unanchored_query_terms: 'A2342'",
+        },
+        "created_at": datetime(2026, 9, 4, 9, 0, tzinfo=UTC),
+    }
+
+
+_DECLINED_SYNTHESIS_TOOLS = [
+    {
+        "tool_name": "synthesize_cited_answer",
+        "outcome": "denied",
+        "duration_ms": 3,
+        "input_payload": {"product_ids": [101]},
+        "output_payload": {"citations": []},
+    }
+]
+
+
+@pytest.mark.parametrize(
+    ("outcome", "expected"),
+    [("declined", "declined"), (None, "failed")],
+    ids=["declined", "no-outcome"],
+)
+def test_a_declined_turn_reports_its_own_citation_status(outcome, expected):
+    """A refusal is not a citation failure, and the timeline must separate them.
+
+    Both parameters send the identical `denied` synthesis receipt with zero
+    citations. Only the persisted outcome differs, so the assertion cannot pass
+    by reading the tool row, which is what produced the wrong `failed` before.
+    """
+    contract = build_agent_telemetry_contract(
+        turn=_declined_turn(outcome),
+        session={"metadata": {}},
+        searches=[],
+        candidates=[],
+        tools=_DECLINED_SYNTHESIS_TOOLS,
+    )
+
+    assert contract.stages[2].details["citation_validation"] == {
+        "status": expected,
+        "citation_count": 0,
+    }
+
+
+def test_a_declined_run_is_not_counted_as_an_authorization_denial():
+    """`denied` is the right tool outcome and the wrong denial-metric input.
+
+    Nothing was withheld from the model on a decline; the catalog does not carry
+    what the request named. Counting it would make the denial rate track absent
+    search terms instead of scope violations.
+    """
+    trace = [
+        {"tool": "search_products", "outcome": "success"},
+        {"tool": "synthesize_cited_answer", "outcome": "denied"},
+    ]
+
+    declined = agent_outcome_attributes(
+        {
+            "trace": trace,
+            "evidence_by_product": {},
+            "answer_of_record": {
+                "recommendations": [],
+                "citations": [],
+                "outcome": "declined",
+            },
+        }
+    )
+    grounded = agent_outcome_attributes(
+        {
+            "trace": trace,
+            "evidence_by_product": {},
+            "answer_of_record": {
+                "recommendations": [{"product_id": 101}],
+                "citations": [{"product_id": 101}],
+                "outcome": "grounded",
+            },
+        }
+    )
+
+    assert declined["mosaic.authorization.denied_count"] == 0
+    assert grounded["mosaic.authorization.denied_count"] == 1, (
+        "the same denied step stopped counting on a grounded run, so the "
+        "exemption is no longer scoped to a decline"
+    )
+    assert declined["mosaic.tools.count"] == 2
+
+
+def test_a_declined_run_still_counts_a_real_authorization_denial():
+    """The exemption covers the decline's own receipt, not every denial.
+
+    A scope violation on another tool is a genuine denial and must survive.
+    """
+    attributes = agent_outcome_attributes(
+        {
+            "trace": [
+                {"tool": "get_product_evidence", "outcome": "denied"},
+                {"tool": "synthesize_cited_answer", "outcome": "denied"},
+            ],
+            "evidence_by_product": {},
+            "answer_of_record": {
+                "recommendations": [],
+                "citations": [],
+                "outcome": "declined",
+            },
+        }
+    )
+
+    assert attributes["mosaic.authorization.denied_count"] == 1

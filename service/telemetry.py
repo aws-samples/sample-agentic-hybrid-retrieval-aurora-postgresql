@@ -120,11 +120,26 @@ def retrieval_span_attributes(
 
 
 def agent_outcome_attributes(state: dict[str, Any]) -> dict[str, Any]:
-    """Return grounding and authorization aggregates without their identities."""
+    """Return grounding and authorization aggregates without their identities.
+
+    A declined run is not a denial. The decline records its own
+    `synthesize_cited_answer` step as `denied`, which is the right
+    `mosaic.tool_outcome` for a refused call and the wrong input to an
+    authorization metric: nothing was withheld from the model, the catalog
+    simply does not carry what the request named. Counting it would make the
+    denial rate track absent search terms rather than scope violations.
+    """
     record = state.get("answer_of_record") or {}
     citations = record.get("citations") or []
     selected = record.get("recommendations") or []
     trace_steps = state.get("trace") or []
+    denied_steps = [step for step in trace_steps if step.get("outcome") == "denied"]
+    if record.get("outcome") == "declined":
+        denied_steps = [
+            step
+            for step in denied_steps
+            if step.get("tool") != "synthesize_cited_answer"
+        ]
     return {
         "mosaic.tools.count": len(trace_steps),
         "mosaic.grounding.selected_products": len(selected),
@@ -135,9 +150,7 @@ def agent_outcome_attributes(state: dict[str, Any]) -> dict[str, Any]:
         "mosaic.grounding.citation_validation": (
             "passed" if record and citations else "not_completed"
         ),
-        "mosaic.authorization.denied_count": sum(
-            step.get("outcome") == "denied" for step in trace_steps
-        ),
+        "mosaic.authorization.denied_count": len(denied_steps),
     }
 
 
