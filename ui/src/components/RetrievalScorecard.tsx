@@ -725,7 +725,7 @@ export function RetrievalScorecard({ refreshKey = 0 }: RetrievalScorecardProps) 
     return note ?? <p role="status">Loading the saved evaluation results.</p>;
   }
 
-  return (
+  const scorecard = (
     <div className="labs-scorecard">
       {note}
       <RetrievalQualitySection
@@ -738,4 +738,20 @@ export function RetrievalScorecard({ refreshKey = 0 }: RetrievalScorecardProps) 
       <StageAblationSection ablation={data.stage_ablation} />
     </div>
   );
+
+  // Held back, the baseline is one line the reader can open, not five sections
+  // of pending notices standing between the verdict above and the hand-off
+  // below. It keeps its place in the order: the verdict is still read first,
+  // and the whole record is still here for anyone who wants the provenance.
+  if (!data.provenance.attributed) {
+    return (
+      <PlaygroundDisclosure
+        label="Maintainers' release baseline"
+        hint="held until this revision is measured"
+      >
+        {scorecard}
+      </PlaygroundDisclosure>
+    );
+  }
+  return scorecard;
 }

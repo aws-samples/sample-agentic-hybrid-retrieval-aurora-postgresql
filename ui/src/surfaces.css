@@ -879,11 +879,6 @@
   inset: 24px;
   border: 1px solid rgb(255 250 242 / 11%);
   border-radius: 8px;
-  background:
-    linear-gradient(90deg, rgb(255 250 242 / 6%) 1px, transparent 1px),
-    linear-gradient(rgb(255 250 242 / 6%) 1px, transparent 1px);
-  background-size: 28px 28px;
-  opacity: 0.9;
 }
 
 .discover-studio-orbit,
@@ -11578,7 +11573,8 @@
   display: grid;
   gap: 5px;
   padding: 15px 18px;
-  border-left: 3px solid var(--maroon-800);
+  border: 1px solid var(--maroon-800);
+  border-radius: 6px;
   background: #f7f1e8;
 }
 
@@ -12017,7 +12013,6 @@
   margin: 0 0 20px;
   padding: 17px 20px;
   border: 1px solid var(--line);
-  border-top: 3px solid var(--maroon-800);
   border-radius: 8px;
   background: var(--paper);
 }
@@ -12069,13 +12064,12 @@
   gap: 7px;
   padding: 11px 14px;
   border: 1px solid var(--line);
-  border-left: 3px solid var(--line);
   border-radius: 6px;
   background: var(--paper-warm);
 }
 
 .labs-proof-lab[data-active="true"] {
-  border-left-color: var(--maroon-800);
+  border-color: var(--maroon-800);
 }
 
 .labs-proof-lab > header {
@@ -12527,9 +12521,8 @@
   gap: 14px;
   padding: clamp(22px, 2.8vw, 30px) var(--labs-panel-padding);
   border: 1px solid var(--line);
-  border-top: 3px solid var(--maroon-800);
   border-radius: 8px;
-  background: var(--paper-warm);
+  background: #fdf4f1;
 }
 
 .labs-package-heading {
@@ -13274,8 +13267,7 @@
   gap: 8px;
   margin: 0 0 18px;
   padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-left-width: 3px;
+  border: 1px solid var(--maroon-800);
   border-radius: 10px;
   background: var(--paper);
 }
