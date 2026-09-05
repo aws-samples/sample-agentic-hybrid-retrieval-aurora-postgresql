@@ -357,6 +357,17 @@ export interface ToolTraceStep {
   latency_ms: number | null;
 }
 
+/**
+ * Mirrors `service.models.AgentOutcome`.
+ *
+ * `declined` is what the agent returns when every search it issued named
+ * something the catalog does not carry: `answer` states the absence,
+ * `recommendations` and `citations` are empty, and this is HTTP 200, not the
+ * fail-closed 503 Lab 3 teaches. See `docs/api-contract.md`'s "Declined
+ * answers" section.
+ */
+export type AgentOutcome = "grounded" | "declined";
+
 export interface AgentResponse {
   agent_run_id: string;
   question: string;
@@ -365,6 +376,14 @@ export interface AgentResponse {
   recommendations: ProductSummary[];
   citations: AgentCitation[];
   trace: ToolTraceStep[];
+  /**
+   * Optional so a fixture or an older build that predates this field still
+   * parses; an absent value reads the same as the server's own `"grounded"`
+   * default.
+   */
+  outcome?: AgentOutcome;
+  /** Why the run declined, naming the unmatched terms. `null` on a grounded answer. */
+  decline_reason?: string | null;
 }
 
 /**

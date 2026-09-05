@@ -688,3 +688,113 @@ describe("ReasonStage grounded answer", () => {
     await waitFor(() => expect(onAgentRun).toHaveBeenCalledWith("run-handed-up"));
   });
 });
+
+/**
+ * A declined answer is a different fact from Lab 3's fail-closed 503: the
+ * pipeline ran, at least one search came back unanchored, and the
+ * application chose not to recommend. The evidence chain audits a *grounded*
+ * answer, so a decline never reaches registration, authorization, or
+ * citation resolution -- those rows have to read as "not reached" rather
+ * than as the mechanism Lab 3 teaches having failed.
+ */
+describe("ReasonStage declined outcome", () => {
+  function declinedResponse(): AgentResponse {
+    return {
+      agent_run_id: "run-declined",
+      question: "Do you sell jetpacks?",
+      answer:
+        "The catalog does not carry jetpacks, so there is nothing to recommend for that term.",
+      plan: [
+        {
+          query: "jetpack propulsion pack",
+          filters: {},
+          purpose: "Search for jetpack propulsion pack",
+        },
+      ],
+      recommendations: [],
+      citations: [],
+      trace: [step(1, "search_products", { result_count: 3 })],
+      outcome: "declined",
+      decline_reason: "jetpacks",
+    };
+  }
+
+  it("renders the declined block above the chain and marks unreached rows as not reached", async () => {
+    const response = declinedResponse();
+    vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
+      onEvent({ type: "complete", response });
+    });
+
+    render(createElement(ReasonStage, {
+      question: "Do you sell jetpacks?",
+      filters: {},
+    }));
+    await runAgent();
+
+    const declinedBlock = screen.getByText(
+      "Nothing in the catalog matches part of this request",
+    );
+    expect(screen.getByText(response.answer)).toBeTruthy();
+    expect(screen.queryByText("The grounded answer")).toBeNull();
+
+    const chain = screen.getByRole("list", { name: "Evidence state chain" });
+    // The declined block sits above the chain it explains.
+    expect(
+      declinedBlock.compareDocumentPosition(chain) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    const rows = within(chain).getAllByRole("listitem");
+    // The one row a decline still has a real answer for: the search that
+    // named an absent term still ran.
+    expect(rows[0].className).toContain("is-pass");
+    expect(rows[0].textContent).toContain("Product retrieved");
+
+    for (const row of rows.slice(1, -1)) {
+      expect(row.className).toBe("is-pending");
+      expect(row.textContent).toContain("not reached");
+    }
+
+    const answerRow = rows[rows.length - 1];
+    expect(answerRow.className).toBe("is-pending");
+    expect(answerRow.textContent).toContain("Lab 3's fail-closed 503");
+  });
+
+  it("does not disturb a grounded run's chain or answer heading", async () => {
+    const response = agentResponse("run-grounded-unchanged", 4021);
+    vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
+      onEvent({ type: "complete", response });
+    });
+    vi.mocked(api.evidence).mockResolvedValue(
+      evidenceRecord(4021, "Unchanged evidence"),
+    );
+
+    render(createElement(ReasonStage, {
+      question: "Which product is grounded?",
+      filters: {},
+    }));
+    await runAgent();
+
+    expect(
+      screen.queryByText("Nothing in the catalog matches part of this request"),
+    ).toBeNull();
+    expect(screen.getByText("The grounded answer")).toBeTruthy();
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("list", { name: "Evidence state chain" }).textContent,
+      ).toContain("1 of 1 resolved");
+    });
+
+    const rows = within(
+      screen.getByRole("list", { name: "Evidence state chain" }),
+    ).getAllByRole("listitem");
+    expect(rows.map((row) => row.className)).toEqual([
+      "is-pass",
+      "is-pass",
+      "is-pass",
+      "is-pass",
+      "is-pass",
+      "is-pass",
+    ]);
+  });
+});

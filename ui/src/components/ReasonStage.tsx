@@ -234,6 +234,59 @@ export function evidenceChain(
   ];
 }
 
+/**
+ * Overrides every row but the first for a declined run.
+ *
+ * `record_declined_answer` writes the answer of record before evidence is
+ * returned, registered, or authorized and before any citation is issued, so
+ * none of those steps ran -- they were never reached, not refused. Only
+ * `retrieved` is left as `evidenceChain` computed it: the searches the agent
+ * issued are the one part of this chain a decline still has a real answer
+ * for, including when they came back empty.
+ */
+function declinedEvidenceChain(chain: EvidenceStep[]): EvidenceStep[] {
+  return chain.map((step) => {
+    if (step.key === "retrieved") return step;
+    if (step.key === "answer") {
+      return {
+        ...step,
+        value: "declined, not grounded",
+        source: "A declined answer is not Lab 3's fail-closed 503: retrieval "
+          + "and the pipeline finished, and the application chose not to "
+          + "recommend for this request.",
+        state: "pending",
+      };
+    }
+    return {
+      ...step,
+      value: "not reached",
+      source: "This run declined before reaching this step, which is a "
+        + "catalog-coverage decision, not a failure.",
+      state: "pending",
+    };
+  });
+}
+
+/**
+ * The catalog-gap notice a declined answer renders above the evidence chain.
+ *
+ * See `DeclinedNotice` in `AskMosaic.tsx` for the same fact stated in Shop's
+ * vocabulary; this is the Playground's version, printed above the chain that
+ * would otherwise misreport an unreached step as a failure.
+ */
+function DeclinedNotice({ answer }: { answer: string }) {
+  return (
+    <section className="labs-declined" aria-label="Declined answer">
+      <h3>Nothing in the catalog matches part of this request</h3>
+      <p>{answer}</p>
+      <small>
+        This is a catalog gap, not a retrieval fault. Try different words or
+        drop the term named above.
+      </small>
+    </section>
+  );
+}
+
 function ChainMark({ state }: { state: ChainState }) {
   if (state === "pass") {
     return <Check aria-hidden="true" className="labs-chain-mark is-good" size={15} />;
@@ -291,13 +344,23 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
   const resolved = records
     ? records.filter((record) => record.evidence_id > 0).length
     : null;
-  const chain = evidenceChain(
+  /**
+   * A declined answer is settled and real, but it is not this chain's claim.
+   * The chain audits whether a *grounded* answer is backed by registered,
+   * authorized evidence; a decline never reaches registration or synthesis
+   * because `record_declined_answer` writes the answer of record before
+   * either runs, so those rows read as "not reached" here rather than as a
+   * failure of the mechanism Lab 3 teaches.
+   */
+  const declined = Boolean(response) && !loading && response?.outcome === "declined";
+  const baseChain = evidenceChain(
     trace,
     citations,
     Boolean(response) && !loading,
     resolved,
     loading,
   );
+  const chain = declined ? declinedEvidenceChain(baseChain) : baseChain;
 
   function resolveEvidenceRecords(
     nextCitations: AgentCitation[],
@@ -558,17 +621,23 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
               Six green rows say the repair worked; they do not say what it bought.
               Markdown because that is what synthesis writes, and the answer is
               printed as authored -- no emphasis added here, because on this stage
-              the text is the artifact under inspection. */}
+              the text is the artifact under inspection. A declined answer is a
+              different fact than a grounded one, so it gets its own block
+              instead of a heading that claims a recommendation was made. */}
           {response?.answer ? (
-            <section
-              className="labs-reason-answer"
-              aria-labelledby="reason-answer-title"
-            >
-              <h3 id="reason-answer-title">The grounded answer</h3>
-              <div className="labs-reason-prose">
-                <Markdown>{response.answer}</Markdown>
-              </div>
-            </section>
+            declined ? (
+              <DeclinedNotice answer={response.answer} />
+            ) : (
+              <section
+                className="labs-reason-answer"
+                aria-labelledby="reason-answer-title"
+              >
+                <h3 id="reason-answer-title">The grounded answer</h3>
+                <div className="labs-reason-prose">
+                  <Markdown>{response.answer}</Markdown>
+                </div>
+              </section>
+            )
           ) : null}
 
           {/* Every field that makes a citation checkable rather than asserted:

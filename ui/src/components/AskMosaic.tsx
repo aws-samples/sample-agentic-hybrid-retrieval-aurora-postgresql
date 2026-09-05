@@ -833,6 +833,29 @@ function Activity({ trace }: { trace: ToolTraceStep[] }) {
 }
 
 /**
+ * The catalog-gap notice a declined answer renders instead of a shortlist.
+ *
+ * A declined `AgentResponse` carries an empty `recommendations` and
+ * `citations` on purpose: the agent issued at least one search and every one
+ * of them named something the catalog does not carry, so there is nothing
+ * grounded to present. This reads as its own outcome rather than as an
+ * ordinary answer over an empty shortlist, which is what shipped before this
+ * block existed.
+ */
+function DeclinedNotice({ answer }: { answer: string }) {
+  return (
+    <section className="ask-mosaic-declined" aria-label="Declined answer">
+      <h3>Nothing in the catalog matches part of this request</h3>
+      <p>{answer}</p>
+      <small>
+        This is a catalog gap, not a retrieval fault. Try different words or
+        drop the term named above.
+      </small>
+    </section>
+  );
+}
+
+/**
  * The recommended products, buyable.
  *
  * `recommendations` is the cited set the answer of record was written from, so
@@ -1100,7 +1123,13 @@ function Turn({
     response?.recommendations ?? turn.partial?.candidates ?? [];
   const trace: ToolTraceStep[] = response?.trace ?? turn.partial?.trace ?? [];
   const citations: AgentCitation[] = response?.citations ?? [];
-  const comparison = candidates.length > 1
+  // A declined answer names an absence rather than a recommendation:
+  // `recommendations` and `citations` are empty by contract, so the shortlist
+  // and the compare/cite panels below have nothing real to show. The steps
+  // timeline and the searches list stay, because they are what was actually
+  // tried, and that is what a shopper reading a decline needs to see.
+  const declined = response?.outcome === "declined";
+  const comparison = !declined && candidates.length > 1
     ? (
       <>
         <CompareMatrix candidates={candidates} />
@@ -1110,25 +1139,27 @@ function Turn({
     : null;
   const stagePanels: Partial<Record<AssistStage, ReactNode>> = {
     understand: plan.length ? <Criteria plan={plan} /> : null,
-    retrieve: candidates.length
+    retrieve: (!declined && candidates.length) || plan.length
       ? (
         <>
-          <Shortlist
-            candidates={candidates}
-            imageByProductId={imageByProductId}
-            highlightedProductId={highlightedProductId}
-            onHighlight={onHighlight}
-            onSelectProduct={onSelectProduct}
-          />
+          {!declined && candidates.length ? (
+            <Shortlist
+              candidates={candidates}
+              imageByProductId={imageByProductId}
+              highlightedProductId={highlightedProductId}
+              onHighlight={onHighlight}
+              onSelectProduct={onSelectProduct}
+            />
+          ) : null}
           {plan.length ? <Searches plan={plan} /> : null}
         </>
       )
       : null,
     rank: comparison,
-    answer: citations.length || trace.length
+    answer: (!declined && citations.length) || trace.length
       ? (
         <>
-          {citations.length ? <Evidence citations={citations} /> : null}
+          {!declined && citations.length ? <Evidence citations={citations} /> : null}
           {trace.length ? <Activity trace={trace} /> : null}
         </>
       )
@@ -1213,40 +1244,48 @@ function Turn({
           <section
             className={answerSettled ? "ask-mosaic-answer" : "ask-mosaic-answer streaming"}
           >
-            <p>
-              <Sparkles size={14} />
-              {answerSettled ? "Final recommendation" : "Writing the answer"}
-              {response.citations.length ? (
-                <span className="ask-mosaic-cited-support">
-                  <CircleCheck size={12} aria-hidden="true" />
-                  Backed by evidence
-                </span>
-              ) : answerSettled ? (
-                <span className="ask-mosaic-cited-support is-missing">
-                  No evidence cited
-                </span>
-              ) : null}
-            </p>
-            {/* The wrapper bounds the caret: the shortlist below is part of the
-                same section, and a section-level `:last-child` put the caret
-                after the product cards instead of the prose being written. */}
-            <div className="ask-mosaic-prose">
-              <Markdown>
-                {boldRecommendationNames(reveal.text, response.recommendations)}
-              </Markdown>
-            </div>
-            {/* A fail-closed run is a fact about this answer, and an absent badge
-                does not state it. */}
-            {answerSettled && !response.citations.length ? (
-              <p className="ask-mosaic-uncited-note">
-                No product record backs this answer, so read it as a suggestion
-                rather than a checked recommendation. Ask again, or add a detail
-                such as a budget or a category.
-              </p>
-            ) : null}
+            {declined ? (
+              <DeclinedNotice answer={reveal.text} />
+            ) : (
+              <>
+                <p>
+                  <Sparkles size={14} />
+                  {answerSettled ? "Final recommendation" : "Writing the answer"}
+                  {response.citations.length ? (
+                    <span className="ask-mosaic-cited-support">
+                      <CircleCheck size={12} aria-hidden="true" />
+                      Backed by evidence
+                    </span>
+                  ) : answerSettled ? (
+                    <span className="ask-mosaic-cited-support is-missing">
+                      No evidence cited
+                    </span>
+                  ) : null}
+                </p>
+                {/* The wrapper bounds the caret: the shortlist below is part of
+                    the same section, and a section-level `:last-child` put the
+                    caret after the product cards instead of the prose being
+                    written. */}
+                <div className="ask-mosaic-prose">
+                  <Markdown>
+                    {boldRecommendationNames(reveal.text, response.recommendations)}
+                  </Markdown>
+                </div>
+                {/* A fail-closed run is a fact about this answer, and an absent
+                    badge does not state it. */}
+                {answerSettled && !response.citations.length ? (
+                  <p className="ask-mosaic-uncited-note">
+                    No product record backs this answer, so read it as a
+                    suggestion rather than a checked recommendation. Ask again,
+                    or add a detail such as a budget or a category.
+                  </p>
+                ) : null}
+              </>
+            )}
             {/* The prose named these products. Here they are, priced and
                 buyable, so the recommendation ends in the store rather than in
-                a paragraph. */}
+                a paragraph. Empty by contract on a declined answer, so this
+                renders nothing there. */}
             <AnimatePresence initial={false}>
               {answerSettled ? (
                 <motion.div
@@ -1268,7 +1307,7 @@ function Turn({
             </AnimatePresence>
           </section>
 
-          {answerSettled ? (
+          {answerSettled && !declined ? (
             <motion.div
               className="ask-mosaic-answer-aftermath"
               initial={{ opacity: 0, transform: "translateY(6px)" }}
