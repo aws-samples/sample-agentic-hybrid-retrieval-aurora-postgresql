@@ -985,17 +985,23 @@ export function CatalogPage() {
     <div className={agentOpen ? "page mosaic-catalog-page assist-open" : "page mosaic-catalog-page"}>
       <div className={agentOpen ? "shop-canvas assist-open" : "shop-canvas"}>
         <section className="shop-main">
-          <div className="shop-hero">
-            <div className="shop-hero-photo">
-              <img
-                src="/assets/images/mosaic/hero-editorial-still.webp"
-                alt=""
-                width={1672}
-                height={941}
-                fetchPriority="high"
-                decoding="async"
-              />
-            </div>
+          <div className={activeQuery ? "shop-hero is-searching" : "shop-hero"}>
+            {/* With a query on the URL the page's job is the result list, so
+                the still steps aside. Not rendered rather than hidden: a hidden
+                <img> still downloads, and this page arrives from Discover
+                already searching. */}
+            {activeQuery ? null : (
+              <div className="shop-hero-photo">
+                <img
+                  src="/assets/images/mosaic/hero-editorial-still.webp"
+                  alt=""
+                  width={1672}
+                  height={941}
+                  fetchPriority="high"
+                  decoding="async"
+                />
+              </div>
+            )}
 
             {/* No "SHOP" label above the headline: the header's active nav entry
                 already says where the participant is. */}

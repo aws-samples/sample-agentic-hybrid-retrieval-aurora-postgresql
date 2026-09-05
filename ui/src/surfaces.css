@@ -1876,6 +1876,31 @@
   max-width: 46ch;
 }
 
+/* Searching. With a query on the URL the page's job is the result list, so the
+   headline drops to one line and the console meets it. On a 1366x768 laptop
+   the first result began below the fold, and on the surface whose whole point
+   is watching a query break that put the break out of sight. Search and
+   results share the first viewport instead. */
+.shop-hero.is-searching .shop-heading {
+  max-width: none;
+}
+
+.shop-hero.is-searching .shop-heading h1 {
+  font-size: clamp(28px, 2.6vw, 36px);
+}
+
+.shop-hero.is-searching .shop-heading h1 em {
+  display: inline;
+}
+
+.shop-hero.is-searching .shop-lede {
+  display: none;
+}
+
+.shop-hero.is-searching .shop-console {
+  margin-top: 18px;
+}
+
 /* Search shells share their field treatment. Ask Mosaic is a separate action
    in Shop, so the catalog field remains unambiguously search-only. */
 

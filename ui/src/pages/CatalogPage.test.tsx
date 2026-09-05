@@ -852,6 +852,33 @@ describe("CatalogPage", () => {
     ).toBe(true);
   });
 
+  it("steps the editorial still aside while a query is on the URL", async () => {
+    // With a query, the page's job is the result list. On a 1366x768 laptop the
+    // still plus the full-height headline pushed the first result below the
+    // fold, and on the surface whose whole point is watching a query break,
+    // that put the break out of sight. The still is not rendered at all: a
+    // hidden <img> still downloads.
+    window.history.replaceState({}, "", "/catalog?q=quiet%20keyboard");
+    const { container, unmount } = renderPage();
+    await waitFor(() => expect(api.search).toHaveBeenCalled());
+
+    expect(container.querySelector(".shop-hero")?.className).toBe("shop-hero is-searching");
+    expect(container.querySelector(".shop-hero-photo")).toBeNull();
+    // The headline stays: it is the page's one h1, only smaller in CSS.
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Find what fits your world.",
+    );
+    unmount();
+
+    window.history.replaceState({}, "", "/catalog");
+    const opened = renderPage();
+    await screen.findByText(
+      "Search in your own words, browse with intention, or ask Mosaic for help deciding.",
+    );
+    expect(opened.container.querySelector(".shop-hero")?.className).toBe("shop-hero");
+    expect(opened.container.querySelector(".shop-hero-photo img")).not.toBeNull();
+  });
+
   it("runs hybrid retrieval from the Shop query and renders real rank signals", async () => {
     window.history.replaceState({}, "", "/catalog?q=quiet%20keyboard");
     renderPage();
