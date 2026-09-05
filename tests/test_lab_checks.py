@@ -261,10 +261,10 @@ def test_lab_2_fails_when_reranking_never_ran():
     assert not _by_name(checks, "reranking bounded and applied").passed
 
 
-def test_lab_3_proof_reports_exactly_five_checks():
+def test_lab_3_proof_reports_exactly_six_checks():
     checks = lab_checks.lab_3_proof_checks(LAB_3_MISSION, _persisted_run())
 
-    assert len(checks) == 5, (
+    assert len(checks) == 6, (
         f"expected exactly 5 Lab 3 proof checks, found {len(checks)}: {_names(checks)}"
     )
     assert all(check.passed for check in checks), _names(
@@ -276,7 +276,7 @@ def test_lab_3_proof_reports_exactly_five_checks():
 def test_lab_3_proof_without_a_persisted_run_names_stage_03():
     checks = lab_checks.lab_3_proof_checks(LAB_3_MISSION, None)
 
-    assert len(checks) == 5
+    assert len(checks) == 6
     assert not any(check.passed for check in checks)
     assert all("Stage 03" in check.detail for check in checks), [
         check.detail for check in checks if "Stage 03" not in check.detail
@@ -350,6 +350,25 @@ def test_lab_3_proof_fails_a_citation_whose_quote_the_evidence_row_lacks():
     failed = _by_name(checks, "citation evidence resolves")
     assert not failed.passed, failed.detail
     assert "9001" in failed.detail
+
+
+def test_lab_3_proof_fails_a_declined_answer_of_record():
+    """The Lab 3 question is anchored, so a persisted decline is a failed run.
+
+    Falsifier: grade a run whose extracted_intent.outcome is "declined" and
+    the outcome check passes as if synthesis had been attempted.
+    """
+    declined = lab_checks.lab_3_proof_checks(
+        LAB_3_MISSION, _persisted_run(outcome="declined")
+    )
+    grounded = lab_checks.lab_3_proof_checks(
+        LAB_3_MISSION, _persisted_run(outcome="grounded")
+    )
+
+    failed = _by_name(declined, "answer of record is grounded, not declined")
+    assert not failed.passed, failed.detail
+    assert "declined" in failed.detail
+    assert _by_name(grounded, "answer of record is grounded, not declined").passed
 
 
 def test_lab_3_proof_reports_a_citation_without_an_evidence_id_as_unresolved():

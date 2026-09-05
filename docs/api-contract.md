@@ -208,7 +208,7 @@ Ask Mosaic continue to retrieve across all 500,000 products.
 
 ## Runtime status
 
-- `GET /api/health` reports the configured service and model IDs.
+- `GET /api/health` reports the configured service and model IDs, plus `code_editor_url`: the tokenless Code Editor link the bootstrap discovered, or `null`. A configured value carrying an editor token is refused at startup, so Mosaic never serves one.
 - `GET /api/readiness` verifies the product/vector counts, premium cohort,
   specification-evidence coverage, required retrieval indexes/functions,
   model-space compatibility, and the current process's AWS credential validity. It also returns a `source` block with the running `revision`, whether the worktree was dirty, and the `dataset_manifest_sha256`, so the Playground's readiness strip can show which build and corpus answered.

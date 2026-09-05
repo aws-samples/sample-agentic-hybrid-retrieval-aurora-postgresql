@@ -108,6 +108,7 @@ class PersistedAgentRun:
     resolved_evidence: Mapping[int, Mapping[str, Any]]
     evidence_events: tuple[Mapping[str, Any], ...]
     search_filters: tuple[Mapping[str, Any], ...]
+    outcome: str | None = None
 
 
 def load_mission(stage: str) -> dict[str, Any]:
@@ -1201,6 +1202,37 @@ def _proof_answer(run: PersistedAgentRun | None, missing_detail: str) -> LabChec
     )
 
 
+def _proof_outcome(run: PersistedAgentRun | None, missing_detail: str) -> LabCheck:
+    """The Lab 3 question is anchored, so a declined answer of record is wrong.
+
+    `service.agent` declines a run only when every search it issued came back
+    `unanchored`: the catalog does not carry a term the question named. The
+    Lab 3 mission asks for products the catalog holds, so a decline there
+    means the run never reached grounded synthesis.
+    """
+    outcome = run.outcome if run else None
+    declined = outcome == "declined"
+    return _proof_check(
+        "answer of record is grounded, not declined",
+        passed=not declined,
+        falsifier=(
+            "mosaic.agent_turn.extracted_intent.outcome is 'declined' for the "
+            "Lab 3 mission, whose terms the catalog carries: the run answered "
+            "the out-of-catalog refusal instead of a grounded recommendation."
+        ),
+        detail=(
+            explain(
+                "the persisted answer of record declined the Lab 3 question",
+                STAGE_03_FIX,
+            )
+            if declined
+            else f"outcome {outcome or 'grounded'}: synthesis was attempted"
+        ),
+        run=run,
+        missing_detail=missing_detail,
+    )
+
+
 def _proof_synthesis(run: PersistedAgentRun | None, missing_detail: str) -> LabCheck:
     outcome = run.synthesis_outcome if run else None
     scope = run.selected_products if run else ()
@@ -1379,4 +1411,5 @@ def lab_3_proof_checks(
         _proof_citations(run, missing),
         _proof_evidence(run, missing),
         _proof_envelope(mission, run, missing),
+        _proof_outcome(run, missing),
     ]

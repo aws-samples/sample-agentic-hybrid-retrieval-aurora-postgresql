@@ -489,13 +489,13 @@ def test_lab_2_proof_runs_five_checks_over_two_searches(monkeypatch) -> None:
     )
 
 
-def test_lab_3_proof_runs_five_checks_over_persisted_rows(monkeypatch) -> None:
+def test_lab_3_proof_runs_six_checks_over_persisted_rows(monkeypatch) -> None:
     _use(monkeypatch, _grounded_connection())
     _resolve_evidence(monkeypatch)
 
     proof = lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID)
 
-    assert len(proof.checks) == 5, [check.name for check in proof.checks]
+    assert len(proof.checks) == 6, [check.name for check in proof.checks]
     assert proof.status == "pass"
     assert proof.database_state == "not_applicable"
     assert proof.evidence.agent_run_id == AGENT_RUN_ID
@@ -513,7 +513,7 @@ def test_lab_3_without_a_run_id_fails_naming_stage_03(monkeypatch) -> None:
     proof = lab_proof.completion_proof(3)
 
     assert proof.status == "fail"
-    assert len(proof.checks) == 5
+    assert len(proof.checks) == 6
     assert all("Stage 03" in check.detail for check in proof.checks)
     # Lab 3's runtime is the uvicorn process, which imports service/agent_tools.py
     # once at startup. A participant who edited the file and re-ran Stage 03

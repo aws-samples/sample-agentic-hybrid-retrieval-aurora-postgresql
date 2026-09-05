@@ -279,6 +279,7 @@ def _persisted_run(rows: AgentTurnRows) -> PersistedAgentRun:
         search_filters=tuple(
             _as_dict(search.get("filters")) for search in rows.searches
         ),
+        outcome=_as_dict(rows.turn.get("extracted_intent")).get("outcome"),
     )
 
 
