@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { CommerceProvider } from "../commerce";
 import { coreMosaicLabs, retrievalExampleHref } from "../labMissions";
-import { RETRIEVAL_SURFACE } from "../navigation";
+import { RETRIEVAL_SURFACE, forwardedSearchFilters } from "../navigation";
 import type {
   CatalogPage,
   CatalogSummary,
@@ -199,48 +199,96 @@ describe("DiscoverPage", () => {
     expect(screen.queryByText("Explore collections")).toBeNull();
   });
 
-  it("keeps five curated hero prompts and searches exactly the printed words", () => {
+  it("offers the three labs' own queries as the hero chips, in lab order", () => {
     const { container } = renderPage();
 
     const chips = Array.from(
-      container.querySelectorAll<HTMLButtonElement>(".discover-hero-prompts > button"),
+      container.querySelectorAll<HTMLAnchorElement>(".discover-hero-prompts > a"),
     );
     expect(container.querySelector(".discover-hero-prompts > span")?.textContent).toBe(
       "Try a search",
     );
-    expect(chips.map((chip) => chip.textContent)).toEqual([
-      "Focus headphones",
-      "A chair for long workdays",
-      "Travel-ready audio",
-      "Quiet home office",
-      "Recovery essentials",
-    ]);
-
-    fireEvent.click(chips[0]);
-
-    // The label is the query, verbatim, and the category it browses travels with
-    // it. Unconstrained, "Focus headphones" retrieved twelve products from
-    // `acoustic-headphones` — three synthetic brands are named FocusErgonomics,
-    // FocusOffice and FocusSystems — and that category owns no photography, so
-    // Shop drew the same domain-neutral plate twelve times.
-    expect(window.location.pathname).toBe("/catalog");
-    const params = new URLSearchParams(window.location.search);
-    expect(params.get("q")).toBe("Focus headphones");
-    expect(params.get("view")).toBe("results");
-    expect(params.get("category_key")).toBe("over-ear-headphones");
-    expect(params.get("domain")).toBe("consumer_electronics");
+    // Three, not five, and each one is a lab's own query rather than a curated
+    // phrase. The first is misspelled on purpose: Lab 1's whole subject is a
+    // request a shopper really types, and the participant has to be able to
+    // reproduce the failure before being asked to diagnose it.
+    expect(chips.map((chip) => chip.textContent)).toEqual(
+      coreMosaicLabs.map((mission) => mission.query),
+    );
+    expect(chips[0].textContent).toBe("noice cancelng hedfones");
+    // The reasoning lab's query is a paragraph, so the chip truncates it. The
+    // full text stays in the DOM and on the element's own tooltip: what is
+    // shortened is the drawing, never the request.
+    expect(chips[2].getAttribute("title")).toBe(coreMosaicLabs[2].query);
   });
 
-  it("never prints a misspelled query in Mosaic's own voice", () => {
-    // The Lab 1 canonical query is deliberately misspelled and it is the
-    // shopper's to type. Discover used to print it verbatim on a scenario card,
-    // so the storefront shipped "wirless" and "hedphones" as its own copy.
+  it("carries each lab's own gates and mission id into Shop", () => {
+    const { container } = renderPage();
+
+    const chips = Array.from(
+      container.querySelectorAll<HTMLAnchorElement>(".discover-hero-prompts > a"),
+    );
+
+    // A chip that ran the lab's words under wider gates would retrieve a
+    // different pool, and Shop's Lab 1 callout keys on the gates as well as the
+    // words: it would then decline to fire on the arrival the hero produced.
+    const lab1 = new URL(chips[0].getAttribute("href")!, "http://localhost");
+    expect(lab1.pathname).toBe("/catalog");
+    expect(lab1.searchParams.get("q")).toBe("noice cancelng hedfones");
+    expect(lab1.searchParams.get("mission")).toBe("typo-recovery");
+    expect(lab1.searchParams.get("view")).toBe("results");
+    expect(lab1.searchParams.get("domain")).toBe("consumer_electronics");
+    expect(lab1.searchParams.get("max_price_cents")).toBe("20000");
+    expect(lab1.searchParams.get("in_stock_only")).toBe("true");
+
+    const lab3 = new URL(chips[2].getAttribute("href")!, "http://localhost");
+    expect(lab3.searchParams.get("mission")).toBe("agentic-research");
+    expect(lab3.searchParams.get("domain")).toBe("home_office");
+    expect(lab3.searchParams.get("max_price_cents")).toBe("80000");
+    // The reasoning lab's request is a question for the agent. Shop opens Ask
+    // Mosaic on `ask` and `mode` only, so without this the chip would land Lab 3
+    // on a product grid with the lab it names nowhere on screen.
+    expect(lab3.searchParams.get("ask")).toBe("1");
+    expect(lab1.searchParams.get("ask")).toBeNull();
+  });
+
+  it("reproduces the lab's gates exactly as Shop reads them back", () => {
+    // The encoder and the decoder are one pair. Rebuilding the gates through
+    // `forwardedSearchFilters` proves the chip wrote names Shop's own URL
+    // reader recognises, rather than a second spelling that would be dropped
+    // silently and widen the pool.
+    const { container } = renderPage();
+    const href = container
+      .querySelector<HTMLAnchorElement>(".discover-hero-prompts > a")!
+      .getAttribute("href")!;
+
+    expect(
+      forwardedSearchFilters(new URL(href, "http://localhost").searchParams),
+    ).toEqual({
+      domain: "consumer_electronics",
+      max_price_cents: 20000,
+      in_stock_only: true,
+    });
+  });
+
+  it("keeps misspellings to the lab query the shopper is meant to type", () => {
+    // Lab 1's query is deliberately misspelled and Discover now offers it, so
+    // the old blanket ban is gone. What must not come back is a misspelling in
+    // Mosaic's own prose: the storefront once shipped "wirless" and "hedphones"
+    // as its own editorial copy.
     const { container } = renderPage();
     const text = container.textContent ?? "";
 
-    for (const word of ["wirless", "noice", "hedphones", "batery", "fligts"]) {
+    for (const word of ["wirless", "hedphones", "batery", "fligts"]) {
       expect(text).not.toContain(word);
     }
+    // The one misspelling on the page is the chip, and it is the lab's query
+    // character for character.
+    expect(text).toContain("noice cancelng hedfones");
+    const hero = container.querySelector(".discover-hero-content")!;
+    expect(
+      hero.querySelector(".discover-hero-sub")?.textContent,
+    ).not.toContain("noice");
   });
 
   it("links every category tile to a real filtered catalog route", () => {

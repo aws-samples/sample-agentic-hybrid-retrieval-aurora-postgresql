@@ -8,13 +8,65 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "../api";
 import { CommerceProvider } from "../commerce";
+import type { HealthResponse, LabStateResponse } from "../types";
 import { Shell } from "./Shell";
+
+vi.mock("../api", () => ({
+  api: {
+    health: vi.fn(),
+    labsState: vi.fn(),
+  },
+}));
+
+function healthFixture(codeEditorUrl: string | null): HealthResponse {
+  return {
+    status: "ok",
+    service: "catalog-hybrid-retrieval",
+    models: {
+      embedding: "cohere.embed-v4:0",
+      rerank: "cohere.rerank-v3-5:0",
+      agent: "anthropic.claude-sonnet-4-6",
+      synthesis: "anthropic.claude-sonnet-4-6",
+    },
+    code_editor_url: codeEditorUrl,
+  };
+}
+
+const labsFixture: LabStateResponse = {
+  labs: [
+    {
+      lab_id: 1,
+      source_state: "broken",
+      database_state: "stale",
+      detail: "The trigram CTE is still commented out.",
+    },
+    {
+      lab_id: 2,
+      source_state: "solved",
+      database_state: "applied",
+      detail: "The reciprocal-rank formula is restored and applied.",
+    },
+    {
+      lab_id: 3,
+      source_state: "solved",
+      database_state: "not_applicable",
+      detail: "Lab 3's seam lives in the API process.",
+    },
+  ],
+};
 
 describe("Shell navigation", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/catalog");
+    vi.mocked(api.health).mockReset();
+    vi.mocked(api.labsState).mockReset();
+    // Left pending by default, which keeps the synchronous tests act()-clean.
+    // The tests that assert on the header's lab state resolve them themselves.
+    vi.mocked(api.health).mockReturnValue(new Promise(() => {}));
+    vi.mocked(api.labsState).mockReturnValue(new Promise(() => {}));
   });
 
   afterEach(cleanup);
@@ -193,6 +245,117 @@ describe("Shell navigation", () => {
         .getByRole("link", { name: "Playground" })
         .getAttribute("href"),
     ).toBe("/labs/retrieval");
+  });
+
+  it("hides the Code Editor button when the service reports no Code Editor", async () => {
+    // A workshop image without a Code Editor is a real deployment, not a fault.
+    // A dead button pointing nowhere would be the fault.
+    vi.mocked(api.health).mockResolvedValue(healthFixture(null));
+    vi.mocked(api.labsState).mockResolvedValue(labsFixture);
+    render(
+      <CommerceProvider>
+        <Shell>
+          <div>Shop content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+
+    await waitFor(() => expect(screen.getByText("source: broken")).toBeTruthy());
+    expect(screen.queryByRole("link", { name: "Code Editor" })).toBeNull();
+  });
+
+  it("opens the Code Editor in a new tab when the service publishes one", async () => {
+    vi.mocked(api.health).mockResolvedValue(
+      healthFixture("https://code.mosaic-workshop.example"),
+    );
+    vi.mocked(api.labsState).mockResolvedValue(labsFixture);
+    render(
+      <CommerceProvider>
+        <Shell>
+          <div>Shop content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+
+    const link = await screen.findByRole("link", { name: "Code Editor" });
+    expect(link.getAttribute("href")).toBe("https://code.mosaic-workshop.example");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener");
+    // The header's three destinations are unchanged: the Code Editor is an
+    // action beside the bag, not a fourth place to be.
+    expect(
+      within(screen.getByRole("navigation", { name: "Storefront" }))
+        .getAllByRole("link")
+        .map((entry) => entry.textContent),
+    ).toEqual(["Discover", "Shop", "Playground"]);
+  });
+
+  it("reports Lab 1 by default, in both the places a lab can be broken", async () => {
+    vi.mocked(api.health).mockResolvedValue(healthFixture(null));
+    vi.mocked(api.labsState).mockResolvedValue(labsFixture);
+    render(
+      <CommerceProvider>
+        <Shell>
+          <div>Shop content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+
+    const state = await screen.findByRole("status", { name: "Lab 1 state" });
+    // Two chips, not one verdict. An edited file in front of an unapplied
+    // cluster is the most common way a repair looks finished and is not, and
+    // collapsing the two states would hide exactly that.
+    expect(state.textContent).toBe("source: brokendatabase: stale");
+  });
+
+  it("follows the lab named on the URL, by mission and by example", async () => {
+    vi.mocked(api.health).mockResolvedValue(healthFixture(null));
+    vi.mocked(api.labsState).mockResolvedValue(labsFixture);
+    window.history.replaceState({}, "", "/catalog?mission=rank-with-evidence");
+    const { unmount } = render(
+      <CommerceProvider>
+        <Shell>
+          <div>Shop content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+
+    expect(
+      (await screen.findByRole("status", { name: "Lab 2 state" })).textContent,
+    ).toBe("source: solveddatabase: applied");
+    unmount();
+
+    window.history.replaceState({}, "", "/labs/retrieval?example=agentic-research");
+    render(
+      <CommerceProvider>
+        <Shell>
+          <div>Playground content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+
+    // Lab 3's seam lives in the API process, so there is no schema to re-apply
+    // and the chip says so rather than printing a stale-looking verdict.
+    expect(
+      (await screen.findByRole("status", { name: "Lab 3 state" })).textContent,
+    ).toBe("source: solveddatabase: not applicable");
+  });
+
+  it("says the lab state was not checked when the read fails", async () => {
+    // A failed status call is not a verdict on the participant's repair. Showing
+    // `broken` here would send someone to edit SQL that was never the problem.
+    vi.mocked(api.health).mockResolvedValue(healthFixture(null));
+    vi.mocked(api.labsState).mockRejectedValue(new Error("connection refused"));
+    render(
+      <CommerceProvider>
+        <Shell>
+          <div>Shop content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+
+    const state = await screen.findByRole("status", { name: "Lab 1 state" });
+    expect(state.textContent).toBe("source: not checkeddatabase: not checked");
   });
 
   it("closes the storefront with official marks inside the demo contract", () => {

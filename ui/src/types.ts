@@ -445,6 +445,30 @@ export interface BenchmarkProjection {
   }>;
 }
 
+/**
+ * `GET /api/health`, which answers without touching Aurora.
+ *
+ * `code_editor_url` is the origin of the workshop's Code Editor, or null when
+ * the service is not running inside a deployment that has one. It is optional in
+ * this mirror rather than required, because a UI served in front of an older
+ * service receives a payload without the key, and "the field is absent" has to
+ * read as "no Code Editor to offer" rather than as a type error.
+ *
+ * The service publishes an origin and never a signed URL: a `tkn=` parameter on
+ * this value is a session token, and `CodeEditorLink` refuses to render one.
+ */
+export interface HealthResponse {
+  status: string;
+  service: string;
+  models: {
+    embedding: string;
+    rerank: string;
+    agent: string;
+    synthesis: string;
+  };
+  code_editor_url?: string | null;
+}
+
 export interface ReadinessResponse {
   status: "ready" | "blocked";
   database_ready: boolean;

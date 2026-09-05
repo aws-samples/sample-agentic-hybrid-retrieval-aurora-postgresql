@@ -34,6 +34,7 @@ import {
   CatalogSearchComposer,
   catalogGhostQueries,
 } from "../components/CatalogSearchComposer";
+import { CodeEditorLink } from "../components/CodeEditorLink";
 import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { ProductCard } from "../components/ProductCard";
@@ -46,8 +47,17 @@ import {
   formatAvailability,
   formatCategoryKey,
 } from "../format";
-import { agentLabOutcome } from "../labOutcome";
-import { mosaicRetrievalExamples } from "../labMissions";
+import {
+  agentLabOutcome,
+  retrievalLabOutcome,
+  runMatchesMissionGates,
+  type LabOutcome,
+} from "../labOutcome";
+import {
+  coreMosaicLabs,
+  mosaicRetrievalExamples,
+  type MosaicLabMission,
+} from "../labMissions";
 import {
   RETRIEVAL_SURFACE,
   playgroundQueryHref,
@@ -143,6 +153,83 @@ function retrievalRequestKey(query: string, filters: SearchFilters): string {
 }
 
 /**
+ * The lab whose defect a shopper can walk into without being told.
+ *
+ * Lab 1's fault has no other symptom. The trigram channel is disconnected, so a
+ * misspelled query returns a page of plausible headphones with the one product
+ * it is about missing from it, and nothing on the page says so. Every other
+ * surface in the workshop teaches this by asking the participant to go and look;
+ * Shop has to say it where the failure happens.
+ */
+const retrievalLab = coreMosaicLabs.find(
+  (mission) => mission.stage === "retrieve" && mission.participant_edit,
+);
+
+/**
+ * The one product Lab 1 is about, named rather than looked up.
+ *
+ * A product that never came back carries no title, so the absent case has no
+ * response field to read it from. `mosaic_labs_missions.json` pins the mission
+ * to `target_product_ids: [2]`, and this is that product; the assertion below
+ * fails loudly if the mission is ever re-pointed at a different one.
+ */
+const RETRIEVAL_LAB_TARGET = { product_id: 2, name: "Sonora WH-C720" } as const;
+
+/** Lab 1, by position in the manifest rather than by a number written twice. */
+const retrievalLabNumber = coreMosaicLabs.findIndex(
+  (mission) => mission === retrievalLab,
+) + 1;
+
+interface RetrievalLabCallout {
+  mission: MosaicLabMission;
+  outcome: LabOutcome;
+  targetPresent: boolean;
+  repaired: boolean;
+  /** The heading for the absent case, which names a product the response cannot. */
+  missingHeading: string;
+}
+
+/**
+ * Whether this run is Lab 1's own request, and what it says about the repair.
+ *
+ * Keyed on the run rather than on `?mission=`, so a participant who typed the
+ * misspelled query themselves meets the same callout as one who arrived from the
+ * hero chip. Both the words and the gates have to match: the same words under
+ * wider gates retrieved a different pool, and grading that would report a defect
+ * the run never exercised.
+ *
+ * `targetPresent` and the outcome answer different questions and both are
+ * needed. A target that is absent is the fault a participant can see. A target
+ * that came back without a trigram rank is a repair that has not landed yet, and
+ * calling that "verified" over the top of it would be the workshop lying about
+ * its own checkpoint.
+ */
+function retrievalLabCallout(
+  response: SearchResponse | null,
+): RetrievalLabCallout | null {
+  if (!retrievalLab || !response) return null;
+  if (response.query !== retrievalLab.query) return null;
+  if (!runMatchesMissionGates(retrievalLab, response)) return null;
+  const outcome = retrievalLabOutcome(retrievalLab, response);
+  const targetPresent = retrievalLab.target_product_ids.every((productId) =>
+    response.results.some((product) => product.product_id === productId));
+  // Re-point the mission at another product and the name stops being printed
+  // rather than being printed wrongly.
+  const namesTheTarget =
+    retrievalLab.target_product_ids.length === 1
+    && retrievalLab.target_product_ids[0] === RETRIEVAL_LAB_TARGET.product_id;
+  return {
+    mission: retrievalLab,
+    outcome,
+    targetPresent,
+    repaired: targetPresent && outcome.tone === "fixed",
+    missingHeading: namesTheTarget
+      ? `Issue reproduced: the ${RETRIEVAL_LAB_TARGET.name} is missing`
+      : outcome.title,
+  };
+}
+
+/**
  * What a Shop search is doing while it runs, in the storefront's own words.
  *
  * This list read "Cohere Embed v4 / FTS / pg_trgm / HNSW / SQL eligibility / RRF
@@ -212,6 +299,17 @@ export function CatalogPage() {
   const [retrievalLoading, setRetrievalLoading] = useState(false);
   const [retrievalError, setRetrievalError] = useState("");
   const [retrievalQuery, setRetrievalQuery] = useState(searchParams.get("q") ?? "");
+  /**
+   * Bumped by the Lab 1 callout's "Search again".
+   *
+   * The repair happens in another window, so re-running has to re-ask Aurora for
+   * the same request rather than re-render the response the browser is already
+   * holding. Nothing else about the request changes, which is why a counter is
+   * the whole mechanism.
+   */
+  const [retrievalNonce, setRetrievalNonce] = useState(0);
+  /** The workshop Code Editor's origin, or null where the deployment has none. */
+  const [codeEditorUrl, setCodeEditorUrl] = useState<string | null>(null);
   /** The request `retrieval` answered, so a response held over from an earlier
    * one is never mistaken for the run this URL is asking for. */
   const [servedRequest, setServedRequest] = useState("");
@@ -223,6 +321,16 @@ export function CatalogPage() {
   const filterSheetRef = useRef<HTMLElement>(null);
   const filterPreviouslyFocused = useRef<HTMLElement | null>(null);
   const resultsAnchorRef = useRef<HTMLDivElement>(null);
+  /**
+   * Where a lab arrival scrolls to, when there is a lab verdict to read.
+   *
+   * `?view=results` scrolls the results header to the top of the window, which
+   * put the Lab 1 callout one line above the fold: a participant arriving from
+   * the hero chip landed on a page of plausible headphones with the sentence
+   * explaining them just off screen. The callout is the reason for the arrival,
+   * so it is the anchor whenever it is on the page.
+   */
+  const labCalloutRef = useRef<HTMLElement>(null);
   const catalogRequestVersion = useRef(0);
   const retrievalRequestVersion = useRef(0);
   const handledAskDeepLink = useRef(false);
@@ -286,6 +394,7 @@ export function CatalogPage() {
   const labOutcome = labMission && (agent || answeredTurn?.error)
     ? agentLabOutcome(labMission, agent, answeredTurn?.error ?? "")
     : null;
+  const labCallout = retrievalLabCallout(retrieval);
 
   const load = useCallback(() => {
     const version = catalogRequestVersion.current + 1;
@@ -373,7 +482,30 @@ export function CatalogPage() {
     minRating,
     minPriceCents,
     maxPriceCents,
+    retrievalNonce,
   ]);
+
+  /**
+   * The Code Editor origin, read once from `/api/health`.
+   *
+   * Health answers from process configuration and never touches Aurora, so the
+   * Lab 1 callout can offer a way into the file even while the cluster is the
+   * thing that is wrong.
+   */
+  useEffect(() => {
+    let active = true;
+    api.health().then(
+      (health) => {
+        if (active) setCodeEditorUrl(health.code_editor_url ?? null);
+      },
+      () => {
+        if (active) setCodeEditorUrl(null);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
 
   /**
    * The served run's own id, recorded on Shop's own URL.
@@ -418,7 +550,7 @@ export function CatalogPage() {
     if (handledResultsView.current === requestKey) return;
     handledResultsView.current = requestKey;
     const frame = window.requestAnimationFrame(() => {
-      resultsAnchorRef.current?.scrollIntoView?.({
+      (labCalloutRef.current ?? resultsAnchorRef.current)?.scrollIntoView?.({
         behavior: reduceMotion ? "auto" : "smooth",
         block: "start",
       });
@@ -1019,6 +1151,68 @@ export function CatalogPage() {
 
           {labOutcome ? <LabOutcomeBanner outcome={labOutcome} /> : null}
 
+          {/* A callout, not a modal. The results it is about stay on screen
+              underneath it: the point is that a page of plausible headphones and
+              a missing product are the same screen. */}
+          {labCallout ? (
+            <section
+              ref={labCalloutRef}
+              className={
+                labCallout.repaired
+                  ? "shop-lab-callout fixed"
+                  : "shop-lab-callout broken"
+              }
+              aria-label={`Lab ${retrievalLabNumber} outcome`}
+            >
+              {labCallout.repaired ? (
+                <>
+                  <h2>Repair verified</h2>
+                  <p>{labCallout.outcome.detail}</p>
+                  {/* Promoted out of the collapsed disclosure below, and rendered
+                      only here, so the participant is offered one way through to
+                      the evidence rather than the same link twice. */}
+                  <Link
+                    className="shop-lab-callout-playground"
+                    href={playgroundQueryHref(
+                      retrieval!.query,
+                      retrieval!.applied_filters,
+                      retrieval!.search_event_id,
+                    )}
+                  >
+                    See how this was retrieved in the {RETRIEVAL_SURFACE.label}
+                    <ArrowUpRight size={14} aria-hidden="true" />
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <h2>
+                    {labCallout.targetPresent
+                      ? labCallout.outcome.title
+                      : labCallout.missingHeading}
+                  </h2>
+                  <p>
+                    This is Lab {retrievalLabNumber}'s deliberate fault, not a gap
+                    in the catalog. {labCallout.outcome.detail}
+                  </p>
+                  <p className="shop-lab-callout-edit">
+                    Edit <code>{labCallout.mission.participant_edit!.file}</code>:
+                    {" "}
+                    {labCallout.mission.participant_edit!.task}
+                  </p>
+                  <div className="shop-lab-callout-actions">
+                    <CodeEditorLink href={codeEditorUrl} />
+                    <button
+                      type="button"
+                      onClick={() => setRetrievalNonce((run) => run + 1)}
+                    >
+                      Search again
+                    </button>
+                  </div>
+                </>
+              )}
+            </section>
+          ) : null}
+
           {agentProducts || activeQuery || retrievalError ? (
             <div
               ref={resultsAnchorRef}
@@ -1087,17 +1281,22 @@ export function CatalogPage() {
                 <small>Where each match came from, and what reranking changed</small>
               </summary>
               <SearchRetrievalReceipt response={retrieval} />
-              <Link
-                className="shop-ranking-playground"
-                href={playgroundQueryHref(
-                  retrieval.query,
-                  retrieval.applied_filters,
-                  retrieval.search_event_id,
-                )}
-              >
-                See how this was retrieved in the {RETRIEVAL_SURFACE.label}
-                <ArrowUpRight size={14} aria-hidden="true" />
-              </Link>
+              {/* Suppressed while the Lab 1 callout carries the same link above,
+                  which is where a participant who has just repaired the arm is
+                  looking. */}
+              {labCallout?.repaired ? null : (
+                <Link
+                  className="shop-ranking-playground"
+                  href={playgroundQueryHref(
+                    retrieval.query,
+                    retrieval.applied_filters,
+                    retrieval.search_event_id,
+                  )}
+                >
+                  See how this was retrieved in the {RETRIEVAL_SURFACE.label}
+                  <ArrowUpRight size={14} aria-hidden="true" />
+                </Link>
+              )}
             </details>
           ) : null}
 

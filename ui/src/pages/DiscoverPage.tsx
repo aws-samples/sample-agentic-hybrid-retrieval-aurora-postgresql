@@ -7,9 +7,17 @@ import { CatalogSearchComposer } from "../components/CatalogSearchComposer";
 import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { ProductCard } from "../components/ProductCard";
 import { formatPrice } from "../format";
-import { coreMosaicLabs, retrievalExampleHref } from "../labMissions";
+import {
+  coreMosaicLabs,
+  retrievalExampleHref,
+  type MosaicLabMission,
+} from "../labMissions";
 import { productImageMap } from "../media";
-import { RETRIEVAL_SURFACE, useNavigate } from "../navigation";
+import {
+  RETRIEVAL_SURFACE,
+  playgroundQueryHref,
+  useNavigate,
+} from "../navigation";
 import { armLanguage } from "../retrievalLanguage";
 import { showcaseCatalogPage } from "../showcase";
 import type {
@@ -82,63 +90,58 @@ export const editorialStories: EditorialStory[] = [
 ];
 
 /**
- * The five curated hero prompts, each with the category it browses.
+ * A lab's own request, addressed to Shop rather than to the Playground.
  *
- * Each chip searches for exactly the words printed on it. The constraint beside
- * those words is what puts a premium, photographed cohort behind them, and Shop
- * renders it as a removable filter chip, so nothing is hidden.
+ * The gates are encoded by `playgroundQueryHref` and the result is only
+ * re-pointed at `/catalog`, so exactly one place in the UI decides which filters
+ * may travel on a URL and how they are spelled. A second encoder written here
+ * would drift from `forwardedSearchFilters`, and Shop would then retrieve a
+ * wider pool than the lab asked for while still reporting the lab's own gates.
  *
- * These shipped unconstrained for one revision, on the argument that plain language
- * ought to be enough. Measured against the live 500,000-row catalog, that argument
- * produced this:
+ * `mission` is what makes the arrival a lab rather than a search: Shop reads it
+ * to decide whether the Lab 1 callout applies, and to grade a reasoning lab's
+ * answer against its own checkpoint.
  *
- *   "Focus headphones"           1 of 12 distinct photographs
- *   "Quiet home office"          1 of 12
- *   "Travel-ready audio"         2 of 12
- *   "Recovery essentials"        2 of 12
- *   "A chair for long workdays"  8 of 12
- *
- * The corpus is why. "Focus headphones" collides with three synthetic brands named
- * FocusErgonomics, FocusOffice and FocusSystems, so the lexical arm answers with
- * `acoustic-headphones` — a subcategory that has no commissioned photography at all,
- * which sends all twelve rows to one domain-neutral plate. "Quiet home office" lands
- * in `mesh-office-chairs` the same way. Constrained to a category that owns a deep
- * pool, the same five labels measure 12, 12, 11, 12 and 12 of 12.
- *
- * Nothing here is misspelled — the imperfect query the workshop needs is one a
- * shopper types into this field themselves.
+ * The reasoning lab also carries `ask=1`, because its request is a question for
+ * the agent rather than a query for the product grid. Shop opens Ask Mosaic on
+ * `ask` and `mode` only, so without it the chip would land Lab 3 on a page of
+ * ranked products and the lab it names would be nowhere on screen.
  */
-export const heroPrompts: Array<{
-  label: string;
-  filters: Required<Pick<SearchFilters, "domain" | "category_key">>;
-}> = [
-  {
-    label: "Focus headphones",
-    filters: {
-      domain: "consumer_electronics",
-      category_key: "over-ear-headphones",
-    },
-  },
-  {
-    label: "A chair for long workdays",
-    filters: { domain: "home_office", category_key: "ergonomic-office-chairs" },
-  },
-  {
-    label: "Travel-ready audio",
-    filters: {
-      domain: "consumer_electronics",
-      category_key: "true-wireless-earbuds",
-    },
-  },
-  {
-    label: "Quiet home office",
-    filters: { domain: "home_office", category_key: "quiet-keyboards" },
-  },
-  {
-    label: "Recovery essentials",
-    filters: { domain: "running_fitness", category_key: "mobility-tools" },
-  },
-];
+function shopMissionHref(mission: MosaicLabMission): string {
+  const encoded = playgroundQueryHref(
+    mission.query,
+    mission.filters as Record<string, unknown>,
+  );
+  const params = new URLSearchParams(encoded.slice(encoded.indexOf("?") + 1));
+  params.set("view", "results");
+  params.set("mission", mission.id);
+  if (mission.stage === "reason") params.set("ask", "1");
+  return `/catalog?${params}`;
+}
+
+/**
+ * The hero's three chips are the three labs' own queries, in lab order.
+ *
+ * They used to be five curated phrases, each constrained to a photogenic
+ * category. That made a handsome landing and it hid the workshop: a participant
+ * arrived, searched something that worked, and never met the broken system they
+ * were there to repair. The session is Broken -> Diagnose -> Fix -> Prove, and
+ * the break has to be reachable from the first screen.
+ *
+ * So the first chip prints `noice cancelng hedfones`, misspelled, because that
+ * is Lab 1's canonical query and running it is how a participant reproduces the
+ * fault. The label is the query, verbatim, exactly as before: a chip that ran
+ * something other than its own words would make Shop's retrieval receipt a
+ * receipt for a request nobody made.
+ *
+ * Links rather than buttons. These are addresses a participant can copy, reopen,
+ * and compare, which a click handler is not.
+ */
+export const heroPrompts: Array<{ label: string; href: string }> =
+  coreMosaicLabs.map((mission) => ({
+    label: mission.query,
+    href: shopMissionHref(mission),
+  }));
 
 /**
  * Merchandising doors under the hero, each a plain link into Shop with its
@@ -610,18 +613,15 @@ export function DiscoverPage() {
               submitIconOnly
             />
           </div>
-          {/* Each chip searches for exactly the words on it, inside the category
-              it names. */}
+          {/* Each chip searches for exactly the words on it, under the gates its
+              lab runs. `title` carries the full text for the reasoning lab's long
+              question, which the chip truncates rather than wraps. */}
           <div className="discover-hero-prompts">
             <span>Try a search</span>
             {heroPrompts.map((prompt) => (
-              <button
-                key={prompt.label}
-                type="button"
-                onClick={() => search(prompt.label, prompt.filters)}
-              >
+              <Link key={prompt.href} href={prompt.href} title={prompt.label}>
                 {prompt.label}
-              </button>
+              </Link>
             ))}
           </div>
         </div>

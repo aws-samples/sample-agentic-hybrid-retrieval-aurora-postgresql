@@ -1,7 +1,9 @@
 import { Menu, ShoppingBag, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
+import { api } from "../api";
 import { useCommerce } from "../commerce";
+import { coreMosaicLabs } from "../labMissions";
 import {
   RETRIEVAL_SURFACE,
   forwardedSearchEvent,
@@ -9,7 +11,46 @@ import {
   playgroundQueryHref,
   useSearchParams,
 } from "../navigation";
+import type { LabDatabaseState, LabStateRecord } from "../types";
+import { CodeEditorLink } from "./CodeEditorLink";
 import { MosaicMark } from "./MosaicMark";
+
+/**
+ * `not_applicable` is a sentence, not an enum member, once it reaches a chip.
+ *
+ * Lab 3's seam lives in the API process, so there is no schema to re-apply and
+ * no stale cluster to warn about. Printing the wire value would read as a fourth
+ * verdict on the repair.
+ */
+const databaseLabels: Record<LabDatabaseState, string> = {
+  applied: "applied",
+  stale: "stale",
+  not_applicable: "not applicable",
+};
+
+/**
+ * What the header says when it does not know.
+ *
+ * A failed `/api/labs/state` read says nothing about the participant's work, and
+ * printing `broken` on the strength of one would send someone to edit SQL that
+ * was never the problem.
+ */
+const NOT_CHECKED = "not checked";
+
+/**
+ * Which lab the header is reporting on.
+ *
+ * `mission` is what Shop and Ask Mosaic carry; `example` is what the Playground
+ * carries. Both name a scenario id, and only the three core labs have a lab
+ * number, so a supporting check or an unknown id falls back to Lab 1 rather than
+ * blanking the readout. Lab 1 is also the honest cold-start default: it is where
+ * the session begins.
+ */
+function activeLabNumber(params: URLSearchParams): number {
+  const named = params.get("mission") ?? params.get("example") ?? "";
+  const index = coreMosaicLabs.findIndex((mission) => mission.id === named);
+  return index >= 0 ? index + 1 : 1;
+}
 
 /**
  * The one storefront header.
@@ -57,7 +98,17 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
   const { itemCount, openCart } = useCommerce();
   const [location] = useLocation();
   const [searchParams] = useSearchParams();
+  const [codeEditorUrl, setCodeEditorUrl] = useState<string | null>(null);
+  /** `null` until the first read settles, so the header never flashes a verdict
+   * it has not read. */
+  const [labs, setLabs] = useState<LabStateRecord[] | null>(null);
   const pathname = location.split("?")[0];
+  const labNumber = activeLabNumber(searchParams);
+  /**
+   * Null covers both "the read failed" and "the service does not know this lab".
+   * Both mean the header has not read a verdict, and both print `not checked`.
+   */
+  const activeLab = labs?.find((lab) => lab.lab_id === labNumber) ?? null;
   const close = () => setOpen(false);
   /**
    * The Playground entry carries the shopper's current Shop request with it.
@@ -85,6 +136,51 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
       forwardedSearchEvent(searchParams),
     );
   }, [pathname, searchParams]);
+
+  /**
+   * The Code Editor origin, read from `/api/health` rather than from readiness.
+   *
+   * Health answers from process configuration and never touches Aurora, so the
+   * button is there on a workshop machine whose database is still seeding, which
+   * is exactly when a participant needs to open a file.
+   */
+  useEffect(() => {
+    let active = true;
+    api.health().then(
+      (health) => {
+        if (active) setCodeEditorUrl(health.code_editor_url ?? null);
+      },
+      () => {
+        if (active) setCodeEditorUrl(null);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  /**
+   * Re-read when the participant moves between labs.
+   *
+   * `/api/labs/state` runs no retrieval: it reads the marker blocks in the file
+   * the participant edits and asks Aurora what two functions currently contain.
+   * Navigating to another lab is also the moment a repair made in between
+   * becomes worth re-reporting, so that navigation is the refresh.
+   */
+  useEffect(() => {
+    let active = true;
+    api.labsState().then(
+      (state) => {
+        if (active) setLabs(state.labs);
+      },
+      () => {
+        if (active) setLabs([]);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [labNumber]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -135,6 +231,24 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
       </nav>
 
       <div className="site-actions">
+        {labs ? (
+          <div
+            className="site-lab-state"
+            role="status"
+            aria-label={`Lab ${labNumber} state`}
+          >
+            <span className="site-lab-chip" data-state={activeLab?.source_state ?? "unchecked"}>
+              source: {activeLab ? activeLab.source_state : NOT_CHECKED}
+            </span>
+            <span
+              className="site-lab-chip"
+              data-state={activeLab?.database_state ?? "unchecked"}
+            >
+              database: {activeLab ? databaseLabels[activeLab.database_state] : NOT_CHECKED}
+            </span>
+          </div>
+        ) : null}
+        <CodeEditorLink href={codeEditorUrl} className="site-code-editor" />
         <button
           className="site-icon site-bag"
           type="button"

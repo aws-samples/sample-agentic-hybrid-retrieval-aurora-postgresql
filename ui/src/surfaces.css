@@ -13078,3 +13078,226 @@
   font-size: var(--labs-mono);
   overflow-wrap: anywhere;
 }
+
+/* Break-first callout and header */
+
+/* The hero chips are links now, not buttons: they are the three labs' own
+   requests, and a participant has to be able to copy one, reopen it, and compare
+   two runs. The `> button` rules above are the previous curated-phrase chips and
+   no longer match anything in this container. */
+.discover-hero-prompts > a {
+  /* inline-block, not inline-flex: `text-overflow` has nothing to act on inside
+     a flex container, so the flex version clipped the reasoning lab's query
+     mid-word with no ellipsis. `line-height` supplies the 34px height that
+     `align-items` used to. */
+  display: inline-block;
+  max-width: min(38ch, 100%);
+  padding: 0 14px;
+  line-height: 32px;
+  border: 1px solid rgb(92 75 62 / 18%);
+  border-radius: 999px;
+  background: rgb(255 253 248 / 82%);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 500;
+  /* The reasoning lab's query is a paragraph. It truncates rather than wrapping
+     the hero out of shape; `title` on the element carries the whole thing, and
+     the full text stays in the DOM. */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.discover-hero-prompts > a:hover,
+.discover-hero-prompts > a:focus-visible {
+  border-color: var(--maroon-800);
+  background: var(--paper);
+  color: var(--maroon-900);
+}
+
+@media (max-width: 720px) {
+  .discover-hero-prompts > a {
+    max-width: 26ch;
+    flex: 0 0 auto;
+  }
+}
+
+/* One way into the Code Editor, drawn the same in the header and in the Shop
+   callout so a participant recognises it the second time. */
+.code-editor-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line-dark);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.code-editor-link:hover,
+.code-editor-link:focus-visible {
+  border-color: var(--maroon-800);
+  background: var(--maroon-100);
+  color: var(--maroon-900);
+}
+
+/* Header: where each lab stands, in the two places a lab can be broken. */
+.site-lab-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.site-lab-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-warm);
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Green for done, red for the seam the participant is here to close, amber for
+   an edited file in front of an unapplied cluster. `not applicable` and
+   `not checked` stay neutral: neither is a verdict on the repair. */
+.site-lab-chip[data-state="solved"],
+.site-lab-chip[data-state="applied"] {
+  border-color: #bad5c7;
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.site-lab-chip[data-state="broken"] {
+  border-color: #e5bdb7;
+  background: #fff8f6;
+  color: #8a2e24;
+}
+
+.site-lab-chip[data-state="stale"] {
+  border-color: #ddc79a;
+  background: #fdf7ea;
+  color: var(--gold);
+}
+
+/* Two chips and a button do not fit beside the bag on a phone, and the lab
+   readout is the half a participant can get back by opening the Playground. */
+@media (max-width: 900px) {
+  .site-lab-state {
+    display: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .site-code-editor {
+    display: none;
+  }
+}
+
+/* Shop: the Lab 1 fault, named where it happens.
+
+   A callout rather than a dialog. The results it is about have to stay visible
+   underneath it, because the lesson is that a page of plausible headphones and a
+   missing product are the same screen. */
+.shop-lab-callout {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.shop-lab-callout > h2 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.shop-lab-callout > p {
+  max-width: 68ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.shop-lab-callout.broken {
+  border-color: #e5bdb7;
+  border-left-color: var(--danger);
+  background: #fff8f6;
+}
+
+.shop-lab-callout.fixed {
+  border-color: #bad5c7;
+  border-left-color: var(--green);
+  background: var(--green-soft);
+}
+
+.shop-lab-callout-edit code {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.shop-lab-callout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.shop-lab-callout-actions > button {
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--line-dark);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.shop-lab-callout-actions > button:hover,
+.shop-lab-callout-actions > button:focus-visible {
+  border-color: var(--maroon-800);
+  background: var(--paper);
+}
+
+.shop-lab-callout-playground {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: var(--green);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.shop-lab-callout-playground:hover,
+.shop-lab-callout-playground:focus-visible {
+  text-decoration: underline;
+}

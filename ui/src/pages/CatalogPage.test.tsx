@@ -42,12 +42,14 @@ import { CommerceDrawer } from "../components/CommerceDrawer";
 // `test` block in vite.config.ts -- so this stays scoped to this file.
 configure({ asyncUtilTimeout: 5000 });
 import { stageDwellMs } from "../components/AskMosaic";
+import { coreMosaicLabs } from "../labMissions";
 import { showcaseCatalogPage } from "../showcase";
 import { starterPath } from "../starters";
 import type {
   AgentResponse,
   CatalogPage as CatalogPageResponse,
   CatalogSuggestion,
+  HealthResponse,
   ProductDetail,
   ProductSummary,
   RetrievalDiagnostics,
@@ -63,6 +65,7 @@ vi.mock("../api", () => ({
     search: vi.fn(),
     agentStream: vi.fn(),
     examples: vi.fn(),
+    health: vi.fn(),
     product: vi.fn(),
   },
 }));
@@ -328,6 +331,90 @@ const agentResponse: AgentResponse = {
   ],
 };
 
+const healthFixture: HealthResponse = {
+  status: "ok",
+  service: "catalog-hybrid-retrieval",
+  models: {
+    embedding: "cohere.embed-v4",
+    rerank: "cohere.rerank-v3-5",
+    agent: "anthropic.claude-sonnet-4-6",
+    synthesis: "anthropic.claude-sonnet-4-6",
+  },
+  code_editor_url: "https://code.mosaic-workshop.example",
+};
+
+/** Lab 1's own mission, read from the manifest rather than restated here. */
+const lab1 = coreMosaicLabs[0];
+
+/**
+ * One eligible result for Lab 1's request.
+ *
+ * Every field the outcome reads is set deliberately: the domain, the price under
+ * the $200 ceiling and the in-stock availability are what `retrievalLabOutcome`
+ * checks for eligibility, and the trigram signals are what separate "the target
+ * came back" from "the target came back through the repaired arm".
+ */
+function lab1Result(
+  productId: number,
+  finalRank: number,
+  fromTrigram: boolean,
+): ProductSummary {
+  return {
+    ...rankedProduct(catalog.products[0], finalRank),
+    product_id: productId,
+    title: productId === 2
+      ? "Sonora WH-C720 Wireless Noise-Cancelling Headphones"
+      : `Alternative headphones ${productId}`,
+    domain: "consumer_electronics",
+    price_cents: 18900,
+    availability: "in_stock",
+    signals: {
+      fts: { rank: null, raw_score: null, rrf_contribution: null },
+      trigram: fromTrigram
+        ? { rank: 1, raw_score: 0.42, rrf_contribution: 0.016 }
+        : { rank: null, raw_score: null, rrf_contribution: null },
+      semantic: { rank: finalRank, raw_score: 0.2, rrf_contribution: 0.016 },
+      rrf_score: fromTrigram ? 0.032 : 0.016,
+      pre_rerank_rank: finalRank,
+      pre_rerank_score: 0.032,
+      rerank_score: 0.9 - finalRank / 10,
+      final_rank: finalRank,
+      score_semantics: "rank_fusion_then_bounded_rerank",
+    },
+  };
+}
+
+/**
+ * The run Lab 1's own chip produces: its query, under its own gates.
+ *
+ * `applied_filters` has to echo the mission's gates exactly, because the callout
+ * refuses to grade a run that asked a different question. `trigram_in_pool` is
+ * the diagnostic that distinguishes a disconnected arm from an arm that ran and
+ * found nothing.
+ */
+function lab1Search(targetPresent: boolean): SearchResponse {
+  return {
+    search_event_id: SEARCH_EVENT_ID,
+    query: lab1.query,
+    normalized_query: lab1.query,
+    applied_filters: {
+      domain: "consumer_electronics",
+      max_price_cents: 20000,
+      in_stock_only: true,
+    },
+    results: targetPresent
+      ? [lab1Result(2, 1, true), lab1Result(3, 2, false)]
+      : [lab1Result(3, 1, false), lab1Result(5, 2, false)],
+    diagnostics: {
+      ...searchResponse.diagnostics!,
+      candidate_counts: {
+        fused_pool: 18,
+        trigram_in_pool: targetPresent ? 4 : 0,
+      },
+    },
+  };
+}
+
 const productDetail: ProductDetail = {
   ...recommendations[0],
   long_description: "A hushed board measured for shared desks.",
@@ -352,7 +439,9 @@ describe("CatalogPage", () => {
     vi.mocked(api.search).mockReset();
     vi.mocked(api.agentStream).mockReset();
     vi.mocked(api.examples).mockReset();
+    vi.mocked(api.health).mockReset();
     vi.mocked(api.product).mockReset();
+    vi.mocked(api.health).mockResolvedValue(healthFixture);
     vi.mocked(api.product).mockResolvedValue(productDetail);
     vi.mocked(api.catalog).mockResolvedValue(catalog);
     vi.mocked(api.suggestions).mockResolvedValue({
@@ -1868,5 +1957,166 @@ describe("CatalogPage", () => {
     expect(document.activeElement).toBe(
       screen.getByRole("button", { name: "Ask Mosaic" }),
     );
+  });
+
+  it("names the reproduced Lab 1 fault when the target never comes back", async () => {
+    // The break-first journey turns on this moment. A participant arrives from
+    // the hero chip, sees a page of plausible headphones, and has no way to know
+    // the one product the query is about is absent. The callout is what makes
+    // the fault legible before the diagnosis is asked for.
+    vi.mocked(api.search).mockResolvedValue(lab1Search(false));
+    window.history.replaceState(
+      {},
+      "",
+      `/catalog?q=${encodeURIComponent(lab1.query)}`
+        + "&domain=consumer_electronics&max_price_cents=20000&in_stock_only=true"
+        + "&view=results&mission=typo-recovery",
+    );
+    renderPage();
+
+    const callout = await screen.findByRole("region", { name: "Lab 1 outcome" });
+    expect(
+      within(callout).getByRole("heading", {
+        name: "Issue reproduced: the Sonora WH-C720 is missing",
+      }),
+    ).toBeTruthy();
+    expect(callout.textContent).toContain("deliberate");
+    // The file and the task come from the mission manifest, so the callout and
+    // the lab guide cannot drift apart.
+    expect(callout.textContent).toContain(lab1.participant_edit!.file);
+    expect(callout.textContent).toContain(lab1.participant_edit!.task);
+
+    const codeEditor = within(callout).getByRole("link", { name: "Code Editor" });
+    expect(codeEditor.getAttribute("href")).toBe(
+      "https://code.mosaic-workshop.example",
+    );
+    expect(codeEditor.getAttribute("target")).toBe("_blank");
+    expect(within(callout).getByRole("button", { name: "Search again" })).toBeTruthy();
+
+    // A callout, not a modal: the results are still on the page behind it.
+    expect(screen.queryByRole("dialog", { name: /Lab 1/ })).toBeNull();
+    expect(callout.compareDocumentPosition(
+      document.querySelector(".shop-products")!,
+    ) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("lands a lab arrival on the callout, not one line under it", async () => {
+    // `?view=results` scrolls the results header to the top of the window, which
+    // put the callout just above the fold: the participant arrived at a page of
+    // plausible headphones with the sentence explaining them off screen.
+    const scrolled: Element[] = [];
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: function scrollIntoView(this: Element) {
+        scrolled.push(this);
+      },
+    });
+    vi.mocked(api.search).mockResolvedValue(lab1Search(false));
+    window.history.replaceState(
+      {},
+      "",
+      `/catalog?q=${encodeURIComponent(lab1.query)}`
+        + "&domain=consumer_electronics&max_price_cents=20000&in_stock_only=true"
+        + "&view=results&mission=typo-recovery",
+    );
+    renderPage();
+
+    const callout = await screen.findByRole("region", { name: "Lab 1 outcome" });
+    await waitFor(() => expect(scrolled).toContain(callout));
+  });
+
+  it("re-runs the same request when the participant searches again", async () => {
+    vi.mocked(api.search).mockResolvedValue(lab1Search(false));
+    window.history.replaceState(
+      {},
+      "",
+      `/catalog?q=${encodeURIComponent(lab1.query)}`
+        + "&domain=consumer_electronics&max_price_cents=20000&in_stock_only=true",
+    );
+    renderPage();
+
+    const callout = await screen.findByRole("region", { name: "Lab 1 outcome" });
+    expect(vi.mocked(api.search)).toHaveBeenCalledTimes(1);
+
+    // The repair happens in another window, so the button has to re-ask Aurora
+    // rather than re-render what the browser is already holding.
+    vi.mocked(api.search).mockResolvedValue(lab1Search(true));
+    fireEvent.click(within(callout).getByRole("button", { name: "Search again" }));
+
+    await waitFor(() => expect(vi.mocked(api.search)).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.search).mock.calls[1][0]).toBe(lab1.query);
+    expect(vi.mocked(api.search).mock.calls[1][1]).toMatchObject({
+      domain: "consumer_electronics",
+      max_price_cents: 20000,
+      in_stock_only: true,
+    });
+    await screen.findByRole("heading", { name: "Repair verified" });
+  });
+
+  it("promotes the Playground link out of the disclosure once the repair holds", async () => {
+    vi.mocked(api.search).mockResolvedValue(lab1Search(true));
+    window.history.replaceState(
+      {},
+      "",
+      `/catalog?q=${encodeURIComponent(lab1.query)}`
+        + "&domain=consumer_electronics&max_price_cents=20000&in_stock_only=true",
+    );
+    renderPage();
+
+    const callout = await screen.findByRole("region", { name: "Lab 1 outcome" });
+    expect(
+      within(callout).getByRole("heading", { name: "Repair verified" }),
+    ).toBeTruthy();
+    expect(within(callout).queryByRole("button", { name: "Search again" })).toBeNull();
+
+    // Exactly one link, not one in the callout and a second still buried in the
+    // collapsed disclosure.
+    const playground = screen.getAllByRole("link", {
+      name: /See how this was retrieved in the Playground/,
+    });
+    expect(playground).toHaveLength(1);
+    expect(callout.contains(playground[0])).toBe(true);
+    expect(playground[0].getAttribute("href")).toContain("/labs/retrieval?");
+  });
+
+  it("stays silent for a run the lab does not describe", async () => {
+    // Same words, wider gates: a different pool, and a verdict about Lab 1 would
+    // be a verdict on a request Lab 1 never made.
+    vi.mocked(api.search).mockResolvedValue({
+      ...lab1Search(false),
+      applied_filters: { domain: "consumer_electronics" },
+    });
+    window.history.replaceState(
+      {},
+      "",
+      `/catalog?q=${encodeURIComponent(lab1.query)}&domain=consumer_electronics`,
+    );
+    renderPage();
+
+    // The run landed: the receipt disclosure only renders once a response is
+    // held. What is absent is any verdict about Lab 1 over the top of it.
+    await screen.findByText("Why these results, in this order");
+    expect(screen.queryByRole("region", { name: "Lab 1 outcome" })).toBeNull();
+  });
+
+  it("offers no Code Editor button when the service publishes no URL", async () => {
+    vi.mocked(api.health).mockResolvedValue({
+      ...healthFixture,
+      code_editor_url: null,
+    });
+    vi.mocked(api.search).mockResolvedValue(lab1Search(false));
+    window.history.replaceState(
+      {},
+      "",
+      `/catalog?q=${encodeURIComponent(lab1.query)}`
+        + "&domain=consumer_electronics&max_price_cents=20000&in_stock_only=true",
+    );
+    renderPage();
+
+    const callout = await screen.findByRole("region", { name: "Lab 1 outcome" });
+    expect(within(callout).queryByRole("link", { name: "Code Editor" })).toBeNull();
+    // The rest of the callout still stands: the fault and the file to edit are
+    // what the participant needs, and the Code Editor is one way to reach it.
+    expect(callout.textContent).toContain(lab1.participant_edit!.file);
   });
 });

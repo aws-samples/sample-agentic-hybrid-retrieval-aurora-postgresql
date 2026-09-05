@@ -9,6 +9,7 @@ import type {
   CompletionProofRequest,
   CompletionProofResponse,
   EvidenceRecord,
+  HealthResponse,
   HnswMeasured,
   HnswNeighborhood,
   HnswProbe,
@@ -293,6 +294,16 @@ export const api = {
 
   readiness: () =>
     request<ReadinessResponse>("/api/readiness"),
+
+  /**
+   * The service's own liveness answer, and the only place the Code Editor URL
+   * is published.
+   *
+   * Deliberately not `readiness()`: that call queries Aurora, and the header
+   * needs a Code Editor button on a workshop machine whose database is still
+   * seeding. Health answers from process configuration alone.
+   */
+  health: () => request<HealthResponse>("/api/health"),
 
   /**
    * Where each lab stands, in the two places a lab can be broken.

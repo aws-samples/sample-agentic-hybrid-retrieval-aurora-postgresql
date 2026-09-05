@@ -1,21 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { productImageMap } from "../media";
-import {
-  editorialStories,
-  heroPrompts,
-  intentionCategories,
-} from "./DiscoverPage";
+import { editorialStories, intentionCategories } from "./DiscoverPage";
 import type { Domain, ProductSummary } from "../types";
 
 /**
  * Every Discover entry point has to land somewhere with enough photography to fill
  * a page of results.
  *
- * The regression this exists to stop: the five hero chips shipped unconstrained, so
+ * The regression this exists to stop: an entry point shipped unconstrained, so
  * "Focus headphones" retrieved twelve products from `acoustic-headphones` — a
  * subcategory with no commissioned photography — and Shop drew the same
  * domain-neutral plate twelve times. "Quiet home office" did the same through
  * `mesh-office-chairs`.
+ *
+ * The hero chips are no longer covered here. They are the three labs' own
+ * queries now, gated by each lab's own filters, and a lab's gates are fixed by
+ * `data/evals/mosaic_labs_missions.json` rather than chosen for photography. A
+ * category-depth rule over them would be a rule this file cannot enforce: the
+ * only remedy would be to change a lab's request.
  *
  * A live query is the only way to know which subcategory a phrase actually
  * retrieves, and these tests have no database. What they hold is the half that is
@@ -98,29 +100,6 @@ function tooShallow(
 }
 
 describe("Discover entry points", () => {
-  it("constrains every hero chip to a category that can fill a page", () => {
-    expect(heroPrompts).toHaveLength(5);
-    expect(
-      tooShallow(
-        heroPrompts.map((prompt) => ({
-          label: prompt.label,
-          category: prompt.filters.category_key,
-          domain: prompt.filters.domain,
-        })),
-      ),
-    ).toEqual([]);
-  });
-
-  it("searches exactly the words printed on each chip", () => {
-    // The label is the query. A chip that quietly ran something other than its own
-    // words would make the retrieval receipt on the next screen a receipt for a
-    // request the shopper never made.
-    for (const prompt of heroPrompts) {
-      expect(prompt.label.trim()).toBe(prompt.label);
-      expect(prompt.label.length).toBeGreaterThan(2);
-    }
-  });
-
   it("constrains every editorial entry to a category that can fill a page", () => {
     expect(
       tooShallow(
