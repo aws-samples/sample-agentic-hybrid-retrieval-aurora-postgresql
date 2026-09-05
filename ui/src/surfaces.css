@@ -5203,7 +5203,7 @@
   font-weight: 600;
 }
 
-.labs-rail-beats {
+.labs-rail-stages {
   display: inline-flex;
   gap: 16px;
   margin: 0;
@@ -5211,22 +5211,27 @@
   list-style: none;
 }
 
-.labs-rail-beats li {
-  display: grid;
-  gap: 1px;
-}
-
-.labs-rail-beats a {
-  color: #5e1d2c;
+.labs-rail-stages a {
+  color: var(--ink-soft);
   font-size: var(--labs-detail);
-  font-weight: 700;
+  font-weight: 600;
 }
 
-.labs-rail-beats a:hover {
+.labs-rail-stages a:hover {
   text-decoration: underline;
 }
 
-.labs-rail-beats small,
+/* The stage the active lab is about. All four links are live from every lab, so
+   without this the rail offers four equal destinations and says nothing about
+   which one the participant is here to change. */
+.labs-rail-stages a[aria-current="step"] {
+  color: #5e1d2c;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
 .labs-rail-edit small {
   color: var(--ink-faint);
   font-size: var(--labs-micro);

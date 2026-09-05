@@ -406,6 +406,33 @@ export function RetrievalLabPage() {
     setQuery(mosaicRetrievalExamples[index].query);
   };
 
+  /**
+   * Follow the scenario the URL names, after the page is already mounted.
+   *
+   * `Next lab` points at this same route with a different `example`, so wouter
+   * swaps the query string and remounts nothing. The selection was seeded from
+   * the URL once, at mount, and never read it again: pressing `Next lab: Lab 2`
+   * moved the address bar and left the scenario, the query and the pinned
+   * baseline on Lab 1, which is the one link in the rail a participant is meant
+   * to follow.
+   *
+   * Keyed on a change in what the URL asks for rather than on disagreement with
+   * the current selection. Picking another scenario from the dropdown must not
+   * be dragged back to whatever deep link the participant arrived on, and the
+   * effect has to be a no-op on both of StrictMode's setups.
+   */
+  const followedExample = useRef(requestedExample);
+  useEffect(() => {
+    if (followedExample.current === requestedExample) return;
+    followedExample.current = requestedExample;
+    if (!requestedExample) return;
+    const index = mosaicRetrievalExamples.findIndex(
+      (candidate) => candidate.id === requestedExample,
+    );
+    if (index < 0 || index === selected) return;
+    selectExample(requestedExample);
+  }, [requestedExample, selected]);
+
   const editQuery = (value: string) => {
     resetRunState();
     setQuery(value);

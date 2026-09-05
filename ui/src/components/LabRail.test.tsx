@@ -46,7 +46,15 @@ describe("LabRail", () => {
 
   afterEach(cleanup);
 
-  it("names the active lab, its three beats, and where the edit is made", async () => {
+  const STAGE_LABELS = ["Retrieve", "Rank", "Reason", "Prove"];
+  const STAGE_HREFS = [
+    "#labs-stage-retrieve",
+    "#labs-stage-rank",
+    "#labs-stage-reason",
+    "#labs-stage-prove",
+  ];
+
+  it("names the active lab, the four stages, and where the edit is made", async () => {
     render(<LabRail missionId={labOne.id} />);
 
     const rail = screen.getByRole("navigation", { name: "Lab rail" });
@@ -55,24 +63,29 @@ describe("LabRail", () => {
       within(rail)
         .getAllByRole("link")
         .map((link) => link.getAttribute("href"))
-        .slice(0, 3),
-    ).toEqual(["#labs-stage-retrieve", "#labs-repair-title", "#labs-stage-prove"]);
+        .slice(0, 4),
+    ).toEqual(STAGE_HREFS);
+    // Four links in the list, not four among more: the rail used to carry a
+    // three-beat vocabulary of its own for the same sections the page already
+    // draws under the workshop's own words, and nothing of it may survive.
     expect(
-      within(rail).getAllByRole("link").slice(0, 3).map((link) => link.textContent),
-    ).toEqual(["Observe", "Repair", "Prove"]);
+      [...rail.querySelectorAll(".labs-rail-stages a")].map((link) => link.textContent),
+    ).toEqual(STAGE_LABELS);
+    // No hint lines under them either: the stage name is the description.
+    expect(rail.querySelector(".labs-rail-stages small")).toBeNull();
     expect(within(rail).getByText(labOne.participant_edit!.file)).toBeTruthy();
     expect(within(rail).getByText(labOne.participant_edit!.task)).toBeTruthy();
   });
 
-  it("points each beat at the stage the active lab is about", () => {
-    // The beats used to be a module constant, so Observe landed on Stage 01 in
-    // all three labs and Repair landed on the repair panel in all three. Lab 2's
-    // Observe therefore opened retrieval rather than ranking, and Lab 3's Repair
-    // opened a panel that holds no agent evidence at all.
-    const expected: Array<[string, string[]]> = [
-      [labOne.id, ["#labs-stage-retrieve", "#labs-repair-title", "#labs-stage-prove"]],
-      [labTwo.id, ["#labs-stage-rank", "#labs-repair-title", "#labs-stage-prove"]],
-      [labThree.id, ["#labs-stage-reason", "#labs-stage-reason", "#labs-stage-prove"]],
+  it("marks the stage the active lab is about, and only that one", () => {
+    // Every lab offers all four links, so the only thing distinguishing Lab 2's
+    // rail from Lab 1's is which of them is marked current. Getting that from a
+    // module constant rather than from the mission would put Lab 2's participant
+    // on the retrieval stage.
+    const expected: Array<[string, string]> = [
+      [labOne.id, "Retrieve"],
+      [labTwo.id, "Rank"],
+      [labThree.id, "Reason"],
     ];
 
     // Witness, independent of the loop: three cases, one per required lab, and
@@ -85,16 +98,22 @@ describe("LabRail", () => {
       "reason",
     ]);
 
-    for (const [missionId, hrefs] of expected) {
+    for (const [missionId, current] of expected) {
       const { unmount } = render(<LabRail missionId={missionId} />);
       const rail = screen.getByRole("navigation", { name: "Lab rail" });
 
+      // The same four destinations in every lab, in pipeline order.
       expect(
         within(rail)
           .getAllByRole("link")
-          .slice(0, 3)
+          .slice(0, 4)
           .map((link) => link.getAttribute("href")),
-      ).toEqual(hrefs);
+      ).toEqual(STAGE_HREFS);
+      expect(
+        [...rail.querySelectorAll('[aria-current="step"]')].map(
+          (link) => link.textContent,
+        ),
+      ).toEqual([current]);
 
       unmount();
     }
@@ -108,6 +127,19 @@ describe("LabRail", () => {
     ).toBe(`/labs/retrieval?example=${encodeURIComponent(labTwo.id)}`);
 
     unmount();
+    const second = render(<LabRail missionId={labTwo.id} />);
+
+    // Lab 3 is asked on Shop rather than here, so its link leaves this route.
+    const toLabThree = screen
+      .getByRole("link", { name: `Next lab: ${labThree.title}` })
+      .getAttribute("href")!;
+    expect(toLabThree.startsWith("/catalog?")).toBe(true);
+    const carried = new URLSearchParams(toLabThree.slice("/catalog?".length));
+    expect(carried.get("ask")).toBe("1");
+    expect(carried.get("mission")).toBe(labThree.id);
+    expect(carried.get("q")).toBe(labThree.query);
+
+    second.unmount();
     render(<LabRail missionId={labThree.id} />);
 
     expect(screen.queryByText(/^Next lab:/)).toBeNull();

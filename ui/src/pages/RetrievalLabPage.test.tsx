@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -177,8 +178,11 @@ vi.mock("../components/RepairEvidence", () => ({
   ),
 }));
 
-/** The two elements the lab rail's beats scroll to. */
+/** The headings held clear of the sticky chrome, the rail's links among them. */
 const SCROLL_MARGIN_SELECTORS = [".labs-stage-copy h2", ".labs-repair h3"];
+
+/** Every stage link the rail carries, in the order it carries them. */
+const RAIL_STAGES = ["Retrieve", "Rank", "Reason", "Prove"];
 
 // Resolved off this file rather than off the working directory, and not with
 // `new URL(..., import.meta.url)`: Vite rewrites that exact pattern into an
@@ -1553,33 +1557,28 @@ describe("RetrievalLabPage", () => {
     expect(strip.compareDocumentPosition(firstStage))
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(within(rail).getByText(mosaicRetrievalExamples[0].title)).toBeTruthy();
-    // The beats are in-page anchors, so each one has to land somewhere. Two of
-    // the three targets are this page's own stage headings; the third belongs to
-    // RepairEvidence, whose own suite pins it.
-    for (const beat of ["Observe", "Prove"]) {
-      const href = within(rail).getByRole("link", { name: beat }).getAttribute("href")!;
-      expect(container.querySelector(href)).toBeTruthy();
+    // The stage links are in-page anchors, so each one has to land on a heading
+    // this page actually renders.
+    for (const stage of RAIL_STAGES) {
+      const href = within(rail).getByRole("link", { name: stage }).getAttribute("href")!;
+      expect(container.querySelector(href)?.textContent).toBe(stage);
     }
-    expect(within(rail).getByRole("link", { name: "Observe" }).getAttribute("href"))
-      .toBe("#labs-stage-retrieve");
     expect(await within(rail).findByText("source: broken")).toBeTruthy();
     // The readiness read is rejected in this suite, so no row may claim a value.
     expect(within(strip).getAllByText("not checked").length).toBe(9);
   });
 
-  it("holds every beat's target clear of the sticky chrome above it", () => {
+  it("holds every stage link's target clear of the sticky chrome above it", () => {
     // The rail is sticky under a sticky site header, so a browser that scrolls
-    // a beat's target to the top of the viewport parks it underneath both and
+    // a link's target to the top of the viewport parks it underneath both and
     // the click reads as having gone nowhere. jsdom does no layout and computes
     // no cascade, so what can be checked here is that the rule exists and that
-    // the elements the beats actually land on are the ones it selects.
+    // the elements the links actually land on are the ones it selects.
     const { container } = render(<RetrievalLabPage />);
     const rail = screen.getByRole("navigation", { name: "Lab rail" });
 
-    for (const beat of ["Observe", "Prove"]) {
-      const href = within(rail).getByRole("link", { name: beat }).getAttribute("href")!;
-      // RepairEvidence is mocked in this file, so its heading is not here to
-      // check; `RepairEvidence.test.tsx` pins the id it carries.
+    for (const stage of RAIL_STAGES) {
+      const href = within(rail).getByRole("link", { name: stage }).getAttribute("href")!;
       expect(container.querySelector(href)!.matches(SCROLL_MARGIN_SELECTORS.join(","))).toBe(true);
     }
 
@@ -1595,42 +1594,38 @@ describe("RetrievalLabPage", () => {
     expect(surfacesDeclarationsFor(".labs-rail-lab")).toContain("display: grid;");
   });
 
-  it("sends each lab's beats to targets this page actually carries", () => {
-    // The beats were a module constant, so Lab 2's Observe pointed at the
-    // retrieval stage and Lab 3's Repair pointed at the repair panel. Both are
-    // in-page anchors, so a wrong one is silent: the click simply lands
-    // somewhere else and the participant reads the wrong stage.
-    const expected: Array<[string, string, string]> = [
-      ["typo-recovery", "#labs-stage-retrieve", "#labs-repair-title"],
-      ["rank-with-evidence", "#labs-stage-rank", "#labs-repair-title"],
-      ["agentic-research", "#labs-stage-reason", "#labs-stage-reason"],
+  it("marks the stage each lab is about, on a target this page carries", () => {
+    // Every lab offers the same four links; what changes is which one is marked
+    // current. A rail that read the stage from a module constant rather than
+    // from the mission put Lab 2's participant on the retrieval stage.
+    const expected: Array<[string, string]> = [
+      ["typo-recovery", "Retrieve"],
+      ["rank-with-evidence", "Rank"],
+      ["agentic-research", "Reason"],
     ];
 
     let landed = 0;
-    for (const [exampleId, observe, repair] of expected) {
+    for (const [exampleId, current] of expected) {
       window.history.replaceState({}, "", `/labs/retrieval?example=${exampleId}`);
       const { container, unmount } = render(<RetrievalLabPage />);
       const rail = screen.getByRole("navigation", { name: "Lab rail" });
-      const hrefs = ["Observe", "Repair", "Prove"].map(
-        (beat) => within(rail).getByRole("link", { name: beat }).getAttribute("href")!,
-      );
 
-      expect(hrefs).toEqual([observe, repair, "#labs-stage-prove"]);
-      // RepairEvidence is mocked in this suite, so `#labs-repair-title` is not
-      // in this tree; `RepairEvidence.test.tsx` pins that id. Every other target
-      // is one of this page's own headings and has to resolve here.
-      for (const href of hrefs.filter((value) => value !== "#labs-repair-title")) {
-        expect(container.querySelector(href)).toBeTruthy();
-        landed += 1;
-      }
+      const marked = [...rail.querySelectorAll('[aria-current="step"]')];
+      expect(marked.map((link) => link.textContent)).toEqual([current]);
+      // The marked link's target is one of this page's own stage headings, so a
+      // rail that marked the right word and pointed it somewhere else is red.
+      expect(
+        container.querySelector(marked[0].getAttribute("href")!)?.textContent,
+      ).toBe(current);
+      landed += 1;
 
       unmount();
     }
 
-    // Witness, independent of the rail: seven of the nine beats land on this
-    // page's own headings. A rail that emitted `#labs-repair-title` for every
-    // beat would skip the querySelector entirely and still report green.
-    expect(landed).toBe(7);
+    // Witness, independent of the rail: three labs, three different marked
+    // stages, all three resolved against this page's own headings.
+    expect(landed).toBe(3);
+    expect(new Set(expected.map(([, current]) => current)).size).toBe(3);
   });
 
   it("moves the rail to the lab the deep link selected", () => {
@@ -1643,5 +1638,59 @@ describe("RetrievalLabPage", () => {
     )!;
     expect(within(rail).getByText(lab.title)).toBeTruthy();
     expect(within(rail).getByText(lab.participant_edit!.file)).toBeTruthy();
+  });
+
+  it("follows the URL when Next lab changes the scenario on this route", async () => {
+    // `Next lab` links to the route it is already on, so wouter swaps the query
+    // string and remounts nothing. The scenario was read from the URL once, at
+    // mount: pressing it moved the address bar and left the rail, the picker,
+    // the query and the run on screen on Lab 1, which made the one link the rail
+    // asks a participant to follow do nothing at all.
+    const labTwo = mosaicRetrievalExamples.find(
+      (example) => example.id === "rank-with-evidence",
+    )!;
+    window.history.replaceState({}, "", "/labs/retrieval?example=typo-recovery");
+    render(<RetrievalLabPage />);
+
+    const rail = screen.getByRole("navigation", { name: "Lab rail" });
+    const picker = screen.getByLabelText("Scenario") as HTMLSelectElement;
+    expect(within(rail).getByText("Lab 1 of 3")).toBeTruthy();
+    expect(picker.value).toBe("typo-recovery");
+
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+    expect(
+      await screen.findByText(`observatory run: ${primaryResponse.search_event_id}`),
+    ).toBeTruthy();
+
+    // Exactly what the rail's own `Next lab` href does to the address bar.
+    act(() => {
+      window.history.pushState({}, "", "/labs/retrieval?example=rank-with-evidence");
+    });
+
+    expect(within(rail).getByText("Lab 2 of 3")).toBeTruthy();
+    expect(within(rail).getByText(labTwo.title)).toBeTruthy();
+    expect(picker.value).toBe("rank-with-evidence");
+    expect(
+      (screen.getByLabelText("Retrieval query") as HTMLInputElement).value,
+    ).toBe(labTwo.query);
+    // Lab 1's run answered Lab 1's question, so it does not travel with them.
+    expect(screen.getByText("observatory run: none")).toBeTruthy();
+  });
+
+  it("leaves a scenario picked by hand alone while the URL stays put", () => {
+    // The follow is keyed on a change in what the URL asks for, not on
+    // disagreement with the current selection. Keyed on the latter, every
+    // dropdown pick would be dragged straight back to the arrival link.
+    window.history.replaceState({}, "", "/labs/retrieval?example=typo-recovery");
+    render(<RetrievalLabPage />);
+
+    const picker = screen.getByLabelText("Scenario") as HTMLSelectElement;
+    fireEvent.change(picker, { target: { value: "rank-with-evidence" } });
+
+    expect(picker.value).toBe("rank-with-evidence");
+    expect(
+      within(screen.getByRole("navigation", { name: "Lab rail" }))
+        .getByText("Lab 2 of 3"),
+    ).toBeTruthy();
   });
 });

@@ -6,7 +6,9 @@ import {
   coreMosaicLabs,
   mosaicRetrievalExamples,
   retrievalExampleHref,
+  stageLabels,
   type MosaicLabMission,
+  type MosaicLabStage,
 } from "../labMissions";
 import type { LabStateRecord } from "../types";
 
@@ -21,49 +23,26 @@ import type { LabStateRecord } from "../types";
  * screen naming the file they were supposed to be editing.
  *
  * So one rail, above the stages and sticky, carrying the four facts a lab needs
- * and nothing else: which lab, the three beats it runs in, the one bounded edit,
- * and where that edit currently stands in both places it can stand.
+ * and nothing else: which lab, the stages it moves through, the one bounded
+ * edit, and where that edit currently stands in both places it can stand.
  */
 
 /**
- * What a lab is worth reporting on, in the order the session runs them.
+ * The stages this page renders, in the order it renders them.
  *
- * The three beats are the same three in every lab, but two of them land on
- * different elements depending on which stage the lab is about. A module
- * constant sent Observe to Stage 01 and Repair to the repair panel for all
- * three labs, so a participant in Lab 2 pressed Observe and arrived at the
- * retrieval stage rather than the ranking one, and a participant in Lab 3
- * pressed Repair and arrived at a panel that holds no agent evidence. The
- * mission's own `stage` decides both, so the rail cannot drift from the lab.
+ * The rail used to name its links after a three-beat sequence of its own, which
+ * is a fourth vocabulary: the workshop teaches Retrieve -> Rank -> Reason, the
+ * page draws four numbered stages under exactly those names, and the scenario
+ * picker groups by them. Naming each link after the stage it scrolls to means a
+ * participant reads one set of words everywhere and every link says where it
+ * lands. The ids are the ones `PlaygroundStage` derives from those same titles.
  */
-function beatsForLab(lab: MosaicLabMission) {
-  const observeHref =
-    lab.stage === "rank"
-      ? "#labs-stage-rank"
-      : lab.stage === "reason"
-        ? "#labs-stage-reason"
-        : "#labs-stage-retrieve";
-  return [
-    {
-      label: "Observe",
-      href: observeHref,
-      hint: "what the run actually did",
-    },
-    {
-      // Lab 3's repair is not a SQL body, so there is no before-and-after pair
-      // in the repair panel to send it to. Its edit is proved by re-running the
-      // Reason stage, which is where its beat lands.
-      label: "Repair",
-      href: lab.stage === "reason" ? "#labs-stage-reason" : "#labs-repair-title",
-      hint: "the two runs, side by side",
-    },
-    {
-      label: "Prove",
-      href: "#labs-stage-prove",
-      hint: "your own proof, then the release baseline",
-    },
-  ] as const;
-}
+const RAIL_STAGES: Array<{ stage: MosaicLabStage | "prove"; label: string }> = [
+  { stage: "retrieve", label: stageLabels.retrieve },
+  { stage: "rank", label: stageLabels.rank },
+  { stage: "reason", label: stageLabels.reason },
+  { stage: "prove", label: "Prove" },
+];
 
 /**
  * The required lab a scenario belongs to.
@@ -130,11 +109,19 @@ export function LabRail({ missionId }: { missionId: string | null }) {
         <strong>{lab.title}</strong>
       </div>
 
-      <ol aria-label="Lab beats" className="labs-rail-beats">
-        {beatsForLab(lab).map((beat) => (
-          <li key={beat.label}>
-            <a href={beat.href}>{beat.label}</a>
-            <small>{beat.hint}</small>
+      {/* The lab's own stage is marked rather than merely listed. All four are
+          reachable from every lab -- a participant in Lab 2 still reads the
+          Retrieve stage above their work -- but only one of them is the stage
+          this lab changes, and nothing else on the rail says which. */}
+      <ol aria-label="Lab stages" className="labs-rail-stages">
+        {RAIL_STAGES.map((entry) => (
+          <li key={entry.stage}>
+            <a
+              aria-current={entry.stage === lab.stage ? "step" : undefined}
+              href={`#labs-stage-${entry.stage}`}
+            >
+              {entry.label}
+            </a>
           </li>
         ))}
       </ol>
