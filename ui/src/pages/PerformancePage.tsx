@@ -8,6 +8,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { api } from "../api";
+import { HnswAct, HnswActRail } from "../components/HnswActRail";
 import { HnswControlledAb } from "../components/HnswControlledAb";
 import { HnswFilterMatrix } from "../components/HnswFilterMatrix";
 import { HnswNeighborhoodRing } from "../components/HnswNeighborhoodRing";
@@ -328,6 +329,9 @@ export function PerformancePage() {
 
     return (
       <>
+        <HnswActRail />
+
+        <HnswAct slug="cost">
         <section className="hnsw-live" aria-labelledby="hnsw-live-title">
           <header>
             <div>
@@ -455,6 +459,9 @@ export function PerformancePage() {
           </section>
         ) : null}
 
+        </HnswAct>
+
+        <HnswAct slug="tuning">
         <HnswParetoCurve
           efSearch={efSearch}
           measured={measured}
@@ -506,6 +513,9 @@ export function PerformancePage() {
           />
         ) : null}
 
+        </HnswAct>
+
+        <HnswAct slug="scale">
         {projection ? (
           <section className="hnsw-envelope" aria-labelledby="hnsw-envelope-title">
           <header>
@@ -607,6 +617,8 @@ export function PerformancePage() {
             ))}
           </div>
         </section>
+
+        </HnswAct>
 
         {/* One way back, to the surface the three required labs run on. Catalog
             studio used to sit here as an onward step, which read as a fourth
