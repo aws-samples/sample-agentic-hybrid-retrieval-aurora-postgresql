@@ -534,6 +534,35 @@
   padding-top: 8px;
 }
 
+/* The two cards in this row hold different amounts of copy, and the running
+   story holds the least: `mobility-tools` has one product in the 200-product
+   photographed edit against fourteen for headphones, so its picks list is one
+   row where its neighbour's is three. With both columns hugging their content
+   the two CTAs landed 48px apart and the short card read as one that had failed
+   to finish loading. Stretching the body and floating the button to its bottom
+   puts the pair on a common baseline; the extra space becomes margin above the
+   button rather than a hole in the middle of the band. */
+.discover-editorial-card:not(.is-featured) {
+  align-items: stretch;
+}
+
+.discover-editorial-card:not(.is-featured) .discover-editorial-media {
+  align-self: start;
+}
+
+.discover-editorial-card:not(.is-featured) .discover-editorial-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.discover-editorial-card:not(.is-featured) .discover-cta {
+  /* `justify-self: start` on the base rule is what keeps this a pill rather than
+     a full-width bar, and flex ignores it: the cross axis of a column is
+     horizontal, so `align-self` is the property that carries here. */
+  align-self: flex-start;
+  margin-top: auto;
+}
+
 /* A button now, not a span: the photograph is the part of the card that still
    runs the story's query, since the copy column carries links of its own. */
 .discover-editorial-media {
