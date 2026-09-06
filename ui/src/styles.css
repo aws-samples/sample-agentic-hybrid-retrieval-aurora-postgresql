@@ -3986,10 +3986,14 @@ button:disabled {
 }
 
 /* Measured band for the current run. Rendered only after a query returns, so
-   there is no zeroed placeholder state a presenter could read as a result. */
+   there is no zeroed placeholder state a presenter could read as a result.
+
+   One column. The right-hand track held the per-arm candidate bars, which said
+   what the channel map four rows above already says; with them gone a
+   two-column track left the figures at 58% width beside an empty cell. */
 .lab-diagnostics {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.42fr);
+  grid-template-columns: minmax(0, 1fr);
   margin-bottom: 24px;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -4084,75 +4088,7 @@ button:disabled {
   color: #8a5a1f;
 }
 
-.lab-diagnostics-arms {
-  display: grid;
-  align-content: start;
-  gap: 8px;
-  padding: 17px 20px;
-  background: var(--paper-warm);
-}
-
-.lab-diagnostics-arms > p {
-  margin: 0 0 3px;
-  color: var(--ink-soft);
-  font-size: var(--labs-micro);
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.lab-diagnostics-arms > p small {
-  display: block;
-  margin-top: 4px;
-  color: var(--ink-soft);
-  font-size: var(--labs-micro);
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-/* The label and the count size to their content. On fixed 62px and 30px tracks
-   "Meaning match" broke in two and "49 of 50" broke in three. */
-.lab-diagnostics-arms > div {
-  display: grid;
-  grid-template-columns: minmax(6.5rem, max-content) minmax(0, 1fr) max-content;
-  gap: 10px;
-  align-items: center;
-}
-
-.lab-diagnostics-arms span {
-  color: var(--ink);
-  font-size: var(--labs-micro);
-  font-weight: 600;
-}
-
-.lab-diagnostics-arms i {
-  height: 6px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgb(92 75 62 / 12%);
-}
-
-.lab-diagnostics-arms b {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--maroon-700);
-}
-
-.lab-diagnostics-arms strong {
-  color: var(--ink);
-  font-family: var(--mono);
-  font-size: var(--labs-micro);
-  text-align: right;
-  white-space: nowrap;
-}
-
 @media (max-width: 1180px) {
-  .lab-diagnostics {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .lab-diagnostics-figures {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -4163,10 +4099,6 @@ button:disabled {
 
   .lab-diagnostics-figures > div:nth-child(-n + 3) {
     border-bottom: 1px solid var(--line);
-  }
-
-  .lab-diagnostics-arms {
-    border-top: 1px solid var(--line);
   }
 }
 
