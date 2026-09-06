@@ -187,6 +187,52 @@ describe("LabRail", () => {
     expect(screen.queryByText(/source: (solved|broken)/)).toBeNull();
   });
 
+  it("marks the stage a participant jumped to without moving the lab's own mark", async () => {
+    // The four links scroll like tabs, so clicking one and seeing nothing change
+    // reads as a dead control. But the mark they already carry means "the stage
+    // this lab changes", and it is the only thing on the rail that says so. Both
+    // facts are true at once, so they get separate marks.
+    window.history.replaceState({}, "", "/labs/retrieval");
+    render(<LabRail missionId={labOne.id} />);
+    await screen.findByText("source: broken");
+    const rail = screen.getByRole("navigation", { name: "Lab rail" });
+    const link = (name: string) => within(rail).getByRole("link", { name });
+
+    // Lab 1 is a Retrieve lab, so that mark is there before any jump, and no
+    // stage is marked as the one being read.
+    expect(link("Retrieve").getAttribute("aria-current")).toBe("step");
+    expect(link("Retrieve").getAttribute("data-viewing")).toBeNull();
+    expect(link("Rank").getAttribute("data-viewing")).toBeNull();
+
+    act(() => {
+      window.location.hash = "#labs-stage-rank";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+
+    expect(link("Rank").getAttribute("data-viewing")).toBe("true");
+    // The lab's own stage did not move, because jumping did not change it.
+    expect(link("Retrieve").getAttribute("aria-current")).toBe("step");
+    expect(link("Retrieve").getAttribute("data-viewing")).toBeNull();
+    expect(link("Rank").getAttribute("aria-current")).toBeNull();
+
+    act(() => {
+      window.location.hash = "#labs-stage-reason";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(link("Reason").getAttribute("data-viewing")).toBe("true");
+    expect(link("Rank").getAttribute("data-viewing")).toBeNull();
+
+    // A hash that belongs to something else on the page marks no stage at all.
+    act(() => {
+      window.location.hash = "#some-other-anchor";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    for (const name of ["Retrieve", "Rank", "Reason", "Prove"]) {
+      expect(link(name).getAttribute("data-viewing")).toBeNull();
+    }
+    window.history.replaceState({}, "", "/labs/retrieval");
+  });
+
   it("condenses while stuck under the site header and expands when it scrolls free", async () => {
     // Sticky under the header, the full rail cost a quarter of a 768px viewport
     // for the rest of the page. It is observed against a root shrunk by the

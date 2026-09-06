@@ -37,6 +37,17 @@ import type { LabStateRecord } from "../types";
  * participant reads one set of words everywhere and every link says where it
  * lands. The ids are the ones `PlaygroundStage` derives from those same titles.
  */
+/**
+ * The stage a `#labs-stage-<slug>` hash names, or null for any other hash.
+ *
+ * Exported so the rule is testable on its own: the rail must not mark a stage
+ * for a hash that belongs to something else on the page.
+ */
+export function stageFromHash(hash: string): string | null {
+  const match = /^#labs-stage-([a-z]+)$/.exec(hash);
+  return match ? match[1] : null;
+}
+
 const RAIL_STAGES: Array<{ stage: MosaicLabStage | "prove"; label: string }> = [
   { stage: "retrieve", label: stageLabels.retrieve },
   { stage: "rank", label: stageLabels.rank },
@@ -74,6 +85,38 @@ export function LabRail({ missionId }: { missionId: string | null }) {
   const labNumber = coreMosaicLabs.indexOf(lab) + 1;
   const nextLab = coreMosaicLabs[labNumber];
   const [labStates, setLabStates] = useState<LabStateRecord[] | null>(null);
+  /**
+   * The stage section currently under the reader, which is not the same claim as
+   * `aria-current="step"` below.
+   *
+   * These four links look like tabs and scroll like tabs, so clicking one and
+   * watching nothing change reads as a broken control. But the mark they carry
+   * already means something else -- the stage *this lab* changes -- and it is
+   * the only thing on the rail that says so. Rather than overload one indicator
+   * with two facts, "where you are" gets its own quieter treatment and the
+   * lab's own stage keeps the loud one.
+   */
+  const [viewingStage, setViewingStage] = useState<string | null>(
+    () => stageFromHash(typeof window === "undefined" ? "" : window.location.hash),
+  );
+
+  /**
+   * The mark follows the hash, which is what these links actually set.
+   *
+   * A scroll-spy was the other candidate and is not worth its cost here: it
+   * answers a question nobody asked (the report was about clicking), it needs an
+   * IntersectionObserver whose behaviour could not be verified in this
+   * environment, and the hash is already the exact record of the jump the
+   * participant just made. `hashchange` covers repeat clicks, because clicking
+   * the same link twice does not re-render on its own.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const sync = () => setViewingStage(stageFromHash(window.location.hash));
+    sync();
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
 
   /**
    * Read once per mount rather than polled. The route is side-effect free and
@@ -187,6 +230,7 @@ export function LabRail({ missionId }: { missionId: string | null }) {
           <li key={entry.stage}>
             <a
               aria-current={entry.stage === lab.stage ? "step" : undefined}
+              data-viewing={entry.stage === viewingStage ? "true" : undefined}
               href={`#labs-stage-${entry.stage}`}
             >
               {entry.label}

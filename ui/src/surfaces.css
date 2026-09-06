@@ -5255,9 +5255,19 @@
   text-decoration: underline;
 }
 
+/* Where the reader currently is. Quieter than the lab's own stage below, and a
+   separate fact: clicking a stage jumps to it, and the rail has to acknowledge
+   the jump or the links read as dead controls. */
+.labs-rail-stages a[data-viewing="true"] {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
 /* The stage the active lab is about. All four links are live from every lab, so
    without this the rail offers four equal destinations and says nothing about
-   which one the participant is here to change. */
+   which one the participant is here to change. It outranks the viewing mark on
+   colour, so a participant reading their own stage sees one emphasis, not two. */
 .labs-rail-stages a[aria-current="step"] {
   color: var(--maroon-800);
   font-weight: 700;
