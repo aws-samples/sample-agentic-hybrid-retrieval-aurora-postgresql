@@ -412,9 +412,34 @@ class RetrievalService:
                     row["semantic_rank"] is not None for row in candidates
                 ),
             }
-            total_latency_ms = round((time.perf_counter() - started) * 1000)
             selected = candidates[: request.limit]
 
+            # Coverage and the receipt write are inside the measured window,
+            # because the caller waits for both.
+            #
+            # `total_latency_ms` used to stop the clock here, above this line,
+            # and the response then assessed coverage and persisted the result
+            # rows afterwards. Both were unmeasured and unbounded: an injected
+            # five-second delay inside `assess_coverage` moved the reported
+            # total by nothing at all. Diagnostics are what this workshop asks
+            # participants to trust, so the number has to name what they waited
+            # for.
+            #
+            # Coverage takes its own sequential checkout, never a nested one:
+            # `service.db.connect` documents that no caller nests one checkout
+            # inside another, and that is what keeps a bounded pool safe under a
+            # room of participants. It needs no retrieval result -- it compares
+            # the request against the corpus vocabulary -- so it runs here,
+            # before the write, rather than after the response is assembled.
+            coverage_started = time.perf_counter()
+            coverage = assess_coverage(
+                request.query, connection_factory=self.connection_factory
+            )
+            stage_timings["coverage"] = round(
+                (time.perf_counter() - coverage_started) * 1000, 3
+            )
+
+            persistence_started = time.perf_counter()
             with self.connection_factory() as connection:
                 with connection.cursor() as cursor:
                     cursor.executemany(
@@ -460,6 +485,10 @@ class RetrievalService:
                             for row in candidates
                         ],
                     )
+                stage_timings["result_persistence"] = round(
+                    (time.perf_counter() - persistence_started) * 1000, 3
+                )
+                total_latency_ms = round((time.perf_counter() - started) * 1000)
                 connection.execute(
                     """
                     UPDATE mosaic.search_event
@@ -529,12 +558,6 @@ class RetrievalService:
                 total_latency_ms=total_latency_ms,
                 warnings=warnings,
             )
-        # Deliberately outside the connection block above. `service.db.connect`
-        # documents that no caller nests one checkout inside another, which is
-        # what keeps a bounded pool safe under a room of participants. Coverage
-        # needs no retrieval result -- it compares the request against the
-        # corpus vocabulary -- so a sequential second checkout is the cheap,
-        # safe placement.
         return SearchResponse(
             search_event_id=search_event_id,
             query=request.query,
@@ -542,9 +565,7 @@ class RetrievalService:
             applied_filters=filters,
             results=[self._result(row) for row in selected],
             diagnostics=diagnostics,
-            coverage=assess_coverage(
-                request.query, connection_factory=self.connection_factory
-            ),
+            coverage=coverage,
         )
 
     def capture_plan(self, search_event_id: UUID) -> RetrievalPlanResponse:
