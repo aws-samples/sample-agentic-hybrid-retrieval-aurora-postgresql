@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from service.bedrock import get_bedrock_client
@@ -209,6 +209,41 @@ def _price_settled_claims(
     return settled
 
 
+#: The availability phrases an answer can assert, and the catalog states each
+#: claim is true of. Decided against `ProductSummary.availability` rather than
+#: against prose: "in stock" is a substring of "not in stock", so a text match
+#: read a refutation as a confirmation, and no amount of negation-spotting in
+#: English is as reliable as the field the catalog already stores.
+_AVAILABILITY_CLAIMS = {
+    "in stock": {"in_stock"},
+    "low stock": {"low_stock"},
+    "out of stock": {"out_of_stock", "discontinued"},
+    "preorder": {"preorder"},
+}
+
+
+def _availability_failures(
+    claims: Iterable[str],
+    products: Sequence[ProductSummary],
+) -> tuple[set[str], set[str]]:
+    """Availability claims the catalog settles, split into agreed and refuted.
+
+    With no product in hand nothing is decidable, and both sets are empty: the
+    claim falls through to the prose check exactly as before.
+    """
+    if not products:
+        return set(), set()
+    states = {product.availability for product in products}
+    agreed: set[str] = set()
+    refuted: set[str] = set()
+    for claim in claims:
+        allowed = _AVAILABILITY_CLAIMS.get(claim)
+        if allowed is None:
+            continue
+        (agreed if states & allowed else refuted).add(claim)
+    return agreed, refuted
+
+
 def _measurable_claims(
     sentence: str,
     *,
@@ -288,21 +323,152 @@ def _named_product_mentions(
     return sorted(mentions)
 
 
+#: Unit spellings that mean the same measurement, mapped to one family name.
+#: A figure is only supported by evidence that states it in the *same* family:
+#: "48-year warranty" is not supported by "48 hours of playback", which is the
+#: whole point -- both carry the figure 48 and only the unit tells them apart.
+_UNIT_ALIASES = {
+    "h": "hour",
+    "hr": "hour",
+    "hrs": "hour",
+    "hour": "hour",
+    "hours": "hour",
+    "min": "minute",
+    "mins": "minute",
+    "minute": "minute",
+    "minutes": "minute",
+    "day": "day",
+    "days": "day",
+    "week": "week",
+    "weeks": "week",
+    "mo": "month",
+    "month": "month",
+    "months": "month",
+    "yr": "year",
+    "yrs": "year",
+    "year": "year",
+    "years": "year",
+    "g": "gram",
+    "gram": "gram",
+    "grams": "gram",
+    "kg": "kilogram",
+    "kilogram": "kilogram",
+    "kilograms": "kilograms",
+    "lb": "pound",
+    "lbs": "pound",
+    "pound": "pound",
+    "pounds": "pound",
+    "mm": "millimetre",
+    "cm": "centimetre",
+    "in": "inch",
+    "inch": "inch",
+    "inches": "inch",
+    "w": "watt",
+    "watt": "watt",
+    "watts": "watt",
+    "wh": "watt hour",
+    "db": "decibel",
+    "decibel": "decibel",
+    "decibels": "decibel",
+    "hz": "hertz",
+    "khz": "kilohertz",
+    "mah": "milliamp hour",
+    "gb": "gigabyte",
+    "tb": "terabyte",
+}
+
+#: A figure whose letters come *before* its digits is an identifier, not a
+#: measurement: `IP68`, `WH-C720`, `A2342`. It is supported only by itself.
+_IDENTIFIER_SHAPE = re.compile(r"^[A-Za-z]+\d")
+
+
+def _unit_family(word: str) -> str | None:
+    return _UNIT_ALIASES.get(word.casefold())
+
+
+def _figure_units(sentence: str) -> dict[str, str]:
+    """The unit each figure in a sentence is stated in, where it states one.
+
+    Read from the sentence rather than from the claim token, because the unit
+    is usually the next word: "999-hour battery life" yields the claim `999`
+    and leaves `hour` behind, and without it the figure matched any 999 in the
+    evidence whatever it measured.
+    """
+    units: dict[str, str] = {}
+    for match in re.finditer(
+        r"(?<![A-Za-z0-9])(\d[\d,]*(?:\.\d+)?)([A-Za-z]+)?(?:[\s-]+([A-Za-z]+))?",
+        sentence,
+    ):
+        figure = match.group(1).replace(",", "")
+        attached, following = match.group(2), match.group(3)
+        family = _unit_family(attached) if attached else None
+        if family is None and not attached and following:
+            family = _unit_family(following)
+        if family:
+            units.setdefault(figure, family)
+            if attached:
+                units.setdefault(f"{figure}{attached}", family)
+    return units
+
+
+def _states_figure_in_unit(support: str, figure: str, family: str) -> bool:
+    """Whether the evidence states this figure in this unit family.
+
+    The claim is reduced to its digits first, because the unit is already known
+    and may be spelled either way round: the answer's "48h" and the record's
+    "48 hours" are the same measurement, and matching the claim token whole
+    would have looked for the literal "48h" in prose that never writes it.
+    """
+    numeric = re.search(r"\d[\d,]*(?:\.\d+)?", figure)
+    if numeric is None:
+        return False
+    figure = numeric.group().replace(",", "")
+    aliases = sorted(
+        (alias for alias, value in _UNIT_ALIASES.items() if value == family),
+        key=len,
+        reverse=True,
+    )
+    pattern = (
+        rf"(?<![A-Za-z0-9]){re.escape(figure)}\s*(?:{'|'.join(aliases)})"
+        r"(?![A-Za-z0-9])"
+    )
+    return re.search(pattern, support) is not None
+
+
 def _unsupported_claims(
     claims: set[str],
     evidence_records: Sequence[EvidenceRecord],
+    *,
+    units: Mapping[str, str] | None = None,
 ) -> list[str]:
     support = _normalized_support_text(
         " ".join(f"{record.title} {record.text}" for record in evidence_records)
     )
+    units = units or {}
     unsupported: list[str] = []
     for claim in claims:
-        # A figure carrying letters is supported by either form: the record may
-        # write "4D" where the answer does, or "48-hour" where the answer wrote
-        # "48h". Both readings have to miss before the claim is unsupported.
+        family = units.get(claim)
+        if family:
+            # The figure was stated in a unit, so the evidence has to state it
+            # in the same one. Matching the bare digits accepted a "48-year
+            # warranty" on the strength of "48 hours of playback": same figure,
+            # different measurement, and the answer was wrong by a factor of
+            # about nine thousand.
+            if not _states_figure_in_unit(support, claim, family):
+                unsupported.append(claim)
+            continue
         readings = {claim}
         numeric_core = re.search(r"\d[\d,]*(?:\.\d+)?", claim)
-        if numeric_core and numeric_core.group() != claim:
+        # A measurement's own abbreviation is the same claim written shorter --
+        # "48h" against a record's "48-hour" -- so its digits are an acceptable
+        # second reading. An *identifier* is not: reducing "IP68" to "68" let an
+        # invented water rating ride on a weight of 68 grams, so it is supported
+        # only by itself.
+        if (
+            numeric_core
+            and numeric_core.group() != claim
+            and not _IDENTIFIER_SHAPE.match(claim)
+        ):
             readings.add(numeric_core.group())
         if not any(
             re.search(
@@ -368,10 +534,31 @@ def _validate_measurable_claim_support(
         claims = _measurable_claims(sentence, ignored_phrases=ignored_names)
         if not claims:
             continue
+        units = _figure_units(sentence)
         cited = {int(value) for value in re.findall(r"\[(\d+)\]", sentence)}
-        if not cited:
-            continue
-        cited_records = [evidence_records[number - 1] for number in cited]
+        if cited:
+            cited_records = [evidence_records[number - 1] for number in cited]
+        else:
+            # An uncited sentence used to be skipped whole, so a citation on one
+            # sentence authorized a fabricated figure in the next: "...is a good
+            # fit [1]. It has 999-hour battery life." passed.
+            #
+            # Only claims shaped like a product fact are checked here -- a figure
+            # stated in a unit, an identifier, an availability phrase. A bare
+            # count carries no unit and no attribute ("here are 3 options"), and
+            # demanding evidence for it is how this validator has produced false
+            # rejections before. Anything checkable is checked against the whole
+            # supplied evidence set, because the sentence named no subset.
+            claims = {
+                claim
+                for claim in claims
+                if claim in units
+                or _IDENTIFIER_SHAPE.match(claim)
+                or claim in _AVAILABILITY_CLAIMS
+            }
+            if not claims:
+                continue
+            cited_records = list(evidence_records)
         mentions = _named_product_mentions(sentence, products)
         if not mentions:
             cited_products = [
@@ -379,16 +566,16 @@ def _validate_measurable_claim_support(
                 for record in cited_records
                 if record.product_id in by_product_id
             ]
-            unsupported = [
-                claim
-                for claim in _unsupported_claims(claims, cited_records)
-                if claim
-                not in _price_settled_claims(
-                    sentence,
-                    claims,
-                    cited_products,
-                )
-            ]
+            settled, refuted = _availability_failures(claims, cited_products)
+            settled |= _price_settled_claims(sentence, claims, cited_products)
+            unsupported = sorted(
+                refuted
+                | {
+                    claim
+                    for claim in _unsupported_claims(claims, cited_records, units=units)
+                    if claim not in settled and claim not in refuted
+                }
+            )
             if unsupported:
                 raise SynthesisOutputError(
                     "Synthesized sentence contains unsupported numeric claim or "
@@ -401,16 +588,19 @@ def _validate_measurable_claim_support(
                 record for record in cited_records if record.product_id == product_id
             ]
             named_product = by_product_id.get(product_id)
-            settled = _price_settled_claims(
-                sentence,
-                named_claims,
-                [named_product] if named_product else [],
+            named_products = [named_product] if named_product else []
+            settled, refuted = _availability_failures(named_claims, named_products)
+            settled |= _price_settled_claims(sentence, named_claims, named_products)
+            unsupported = sorted(
+                refuted
+                | {
+                    claim
+                    for claim in _unsupported_claims(
+                        named_claims, product_records, units=units
+                    )
+                    if claim not in settled and claim not in refuted
+                }
             )
-            unsupported = [
-                claim
-                for claim in _unsupported_claims(named_claims, product_records)
-                if claim not in settled
-            ]
             if unsupported:
                 raise SynthesisOutputError(
                     "Synthesized sentence contains unsupported numeric claim or "
