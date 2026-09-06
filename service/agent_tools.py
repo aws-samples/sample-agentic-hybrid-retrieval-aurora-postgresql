@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Mapping
 from contextvars import ContextVar
 from time import perf_counter
 from typing import Any, Literal
@@ -367,6 +368,31 @@ def _state() -> dict[str, Any]:
     return state
 
 
+def _retrieval_attempted(state: Mapping[str, Any]) -> bool:
+    """Whether this turn issued a retrieval, whatever came back.
+
+    Read from the trace rather than from a flag, because every path through
+    `search_products` that reaches Aurora records a step -- the ranked result,
+    the empty window, and the raised error alike -- while a flag would have to
+    be set correctly at each of them and a hand-built run state could omit it.
+    """
+    return any(step["tool"] == "search_products" for step in state["trace"])
+
+
+def _retrieved_product_ids(state: Mapping[str, Any]) -> set[int]:
+    """Every product a *successful* search returned this turn.
+
+    `state["searches"]` gains an entry only on the success path, so this is
+    exactly the set the database returned under this turn's filters. Anything
+    outside it in `state["products"]` was inherited from an earlier turn.
+    """
+    return {
+        product_id
+        for search in state["searches"]
+        for product_id in search.get("product_ids", [])
+    }
+
+
 def _record(
     name: str,
     arguments: dict[str, Any],
@@ -600,6 +626,19 @@ def search_products(
             1,
             min(int(limit), state["result_limit"], len(SEARCH_SLOTS)),
         )
+        # A new retrieval path starts here, and inherited eligibility ends here
+        # with it -- before the call, not after a successful one.
+        #
+        # This block used to sit below the empty-window guard, so a follow-up
+        # that tightened the budget and returned nothing eligible kept the prior
+        # answer's products in `state["products"]`. `_fallback_product_ids` then
+        # selected one and the finalizer recommended it, at the price the
+        # participant had just ruled out. The prior answer stays conversational
+        # context either way; only its claim on eligibility ends.
+        if not state["searches"] and state.get("context_product_ids"):
+            state["products"].clear()
+            state["evidence"].clear()
+            state["evidence_by_product"].clear()
         response = _search_with_telemetry(
             SearchRequest(
                 query=query,
@@ -654,13 +693,6 @@ def search_products(
         )
 
     state["search_event_ids"].append(response.search_event_id)
-    if not state["searches"] and state.get("context_product_ids"):
-        # A request for alternatives or changed constraints starts a new
-        # candidate pool. The prior answer remains conversational context, but
-        # its products do not inherit eligibility into this retrieval.
-        state["products"].clear()
-        state["evidence"].clear()
-        state["evidence_by_product"].clear()
     state["searches"].append(
         {
             "query": query,
@@ -1177,7 +1209,16 @@ def _fallback_product_ids(state: dict[str, Any]) -> list[int]:
             if product_id not in selected:
                 selected.append(product_id)
     if not selected:
-        selected.extend(state["products"])
+        # Only products no *successful* search produced remain here: on a
+        # follow-up whose every search failed, these are the previous turn's.
+        # Recommending one is how an out-of-budget product survived a tightened
+        # request, so the recovery path declines to reach for them and the
+        # finalizer below fails closed instead.
+        selected.extend(
+            product_id
+            for product_id in state["products"]
+            if not _retrieval_attempted(state)
+        )
     limit = max(1, min(state["result_limit"], 4))
     return selected[:limit]
 
@@ -1248,6 +1289,21 @@ def finalize_retrieved_answer(
             if product_id in state["products"]
         ][: min(state["result_limit"], 4)]
     )
+    # Every path into synthesis passes through here -- the model's own
+    # `synthesize_cited_answer` and the controller's recovery alike -- so the
+    # rule is asserted once, at the boundary, rather than at each caller.
+    #
+    # The rule: once this turn has attempted a retrieval, only what a successful
+    # search returned may be recommended. A turn that never searched is a
+    # genuine follow-up about the products already in hand, and those stay
+    # citable; a turn that searched and came back empty has no eligible product,
+    # which is an answer the participant can act on rather than a stale one
+    # dressed as fresh.
+    if _retrieval_attempted(state):
+        retrieved = _retrieved_product_ids(state)
+        selected_ids = [
+            product_id for product_id in selected_ids if product_id in retrieved
+        ]
     products = [state["products"][product_id] for product_id in selected_ids]
     if not products:
         raise RuntimeError("No retrieved products are available for synthesis")
