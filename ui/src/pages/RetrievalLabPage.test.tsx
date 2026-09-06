@@ -587,6 +587,9 @@ describe("RetrievalLabPage", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/labs/retrieval");
     window.localStorage.clear();
+    // The pinned baseline now outlives a mount on purpose, so it has to be
+    // cleared between tests or one test's "before" becomes the next one's.
+    window.sessionStorage.clear();
     vi.mocked(api.search).mockReset();
     vi.mocked(api.search).mockResolvedValue(primaryResponse);
     vi.mocked(api.readiness).mockReset();
@@ -985,6 +988,86 @@ describe("RetrievalLabPage", () => {
     expect(within(baselineRun).getAllByText("#1")).toHaveLength(2);
     expect(within(baselineRun).getByText("4")).toBeTruthy();
   });
+
+  it("keeps the pinned baseline across the reload the labs ask for", async () => {
+    // `LabRail` tells the participant that "reloading the page is the honest
+    // refresh, and it is the one they already make after applying SQL". The pin
+    // lived in component state only, so that reload dropped it and the first
+    // repaired run became the new baseline -- the repair measured against
+    // itself, with nothing on screen saying so.
+    vi.mocked(api.search)
+      .mockResolvedValueOnce(firstComparisonResponse)
+      .mockResolvedValueOnce(latestComparisonResponse);
+    vi.mocked(api.retrievalEventResponse).mockResolvedValue(firstComparisonResponse);
+
+    render(<RetrievalLabPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+    await screen.findByText("observatory run: first-retrieval-run");
+    expect(screen.getByText("repair baseline: first-retrieval-run")).toBeTruthy();
+
+    // The reload, and then the repaired run.
+    cleanup();
+    render(<RetrievalLabPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+    await screen.findByText("observatory run: latest-retrieval-run");
+
+    expect(await screen.findByText("repair baseline: first-retrieval-run"))
+      .toBeTruthy();
+    expect(api.retrievalEventResponse).toHaveBeenCalledWith("first-retrieval-run");
+  });
+
+  it("drops the stored baseline once the query stops describing it", async () => {
+    // The pin belongs to one request. Editing the words ends that request, so a
+    // later reload must not re-attach the old "before" to a query that never
+    // produced it.
+    vi.mocked(api.search).mockResolvedValueOnce(firstComparisonResponse);
+    vi.mocked(api.retrievalEventResponse).mockResolvedValue(firstComparisonResponse);
+
+    render(<RetrievalLabPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+    await screen.findByText("repair baseline: first-retrieval-run");
+
+    fireEvent.change(screen.getByLabelText("Retrieval query"), {
+      target: { value: "a different request entirely" },
+    });
+
+    cleanup();
+    render(<RetrievalLabPage />);
+    await screen.findByText("repair baseline: none");
+    expect(api.retrievalEventResponse).not.toHaveBeenCalled();
+  });
+
+  it("grades the agent run Shop carried back, without spending another turn", async () => {
+    // Lab 3's own card routes to Shop, because the agent lives there. Nothing
+    // carried the finished run back, so Prove could only read a run its own
+    // Reason stage had filled and the participant had to invoke the agent a
+    // second time to be graded on work already done.
+    const carried = "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f607";
+    const lab3 = mosaicRetrievalExamples.find(
+      (mission) => mission.stage === "reason",
+    )!;
+    window.history.replaceState(
+      {},
+      "",
+      `/labs/retrieval?example=${lab3.id}&run=${carried}`,
+    );
+    vi.mocked(api.labProof).mockRejectedValue(new ApiError(503, "not graded here"));
+
+    render(<RetrievalLabPage />);
+    // Stage 04 reveals on its own dwell, so the button is awaited rather than
+    // read on the first frame.
+    const prove = await screen.findByRole(
+      "button",
+      { name: "Run completion proof for Lab 3" },
+      { timeout: 15_000 },
+    );
+    fireEvent.click(prove);
+
+    await waitFor(() =>
+      expect(api.labProof).toHaveBeenCalledWith(3, { agent_run_id: carried }),
+    );
+    expect(api.agentStream).not.toHaveBeenCalled();
+  }, 30_000);
 
   it("promotes Package as the conclusion to the four numbered stages", async () => {
     mockPackageRegistry();

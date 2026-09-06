@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   RETRIEVAL_SURFACE,
+  forwardedAgentRun,
   forwardedSearchEvent,
   forwardedSearchFilters,
+  playgroundProofHref,
   playgroundQueryHref,
 } from "./navigation";
 
@@ -144,5 +146,22 @@ describe("Shop to Playground event hand-off", () => {
       .toBeNull();
     expect(forwardedSearchEvent(new URLSearchParams("event="))).toBeNull();
     expect(forwardedSearchEvent(new URLSearchParams(""))).toBeNull();
+  });
+
+  it("carries a finished agent run to the surface that grades it", () => {
+    const runId = "3f2a1b4c-5d6e-4f70-8a91-b2c3d4e5f607";
+    const href = playgroundProofHref("agentic-research", runId);
+
+    expect(href).toBe(`/labs/retrieval?example=agentic-research&run=${runId}`);
+    expect(forwardedAgentRun(new URLSearchParams(href.split("?")[1]))).toBe(runId);
+  });
+
+  it("refuses a carried agent run that is not shaped like a run id", () => {
+    // Shape-checked before the proof request for the same reason a carried
+    // search event is: a hand-edited link must fall back to "no run carried"
+    // rather than reporting a verdict on a run nothing persisted.
+    expect(forwardedAgentRun(new URLSearchParams("run=not-a-run"))).toBeNull();
+    expect(forwardedAgentRun(new URLSearchParams("run="))).toBeNull();
+    expect(forwardedAgentRun(new URLSearchParams(""))).toBeNull();
   });
 });

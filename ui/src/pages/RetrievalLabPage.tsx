@@ -1,6 +1,11 @@
 import { AlertTriangle, ArrowRightLeft, LoaderCircle, Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, api } from "../api";
+import {
+  clearPinnedBaseline,
+  readPinnedBaseline,
+  writePinnedBaseline,
+} from "../baselineStore";
 import { CompletionProof } from "../components/CompletionProof";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { LabRail, activeCoreLab } from "../components/LabRail";
@@ -45,6 +50,7 @@ import {
 } from "../labOutcome";
 import {
   RETRIEVAL_SURFACE,
+  forwardedAgentRun,
   forwardedSearchEvent,
   forwardedSearchFilters,
   useSearchParams,
@@ -211,6 +217,17 @@ export function RetrievalLabPage() {
    * one scenario's query says nothing about another's.
    */
   const [baseline, setBaseline] = useState<PinnedBaseline | null>(null);
+  /**
+   * The run a `run()` pinned on its own, when one did.
+   *
+   * A stored baseline is read back from the service, and a run can finish while
+   * that read is outstanding. Blocking the auto-pin for the duration would lose
+   * the pin outright whenever the read then failed, so the run pins
+   * provisionally and only a *successful* restore supersedes it -- and only
+   * while the pin is still the one this ref names. An explicit re-pin clears it,
+   * because a run the participant chose outranks one they never saw chosen.
+   */
+  const autoPinnedEventId = useRef<string | null>(null);
   const [response, setResponse] = useState<SearchResponse | null>(null);
   const [executedQuery, setExecutedQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -220,13 +237,26 @@ export function RetrievalLabPage() {
    * The last agent run stage 03 persisted, held here because the only thing
    * that can grade Lab 3 lives in stage 04. Nothing else on the page reads it.
    */
-  const [agentRunId, setAgentRunId] = useState<string | null>(null);
+  const [agentRunId, setAgentRunId] = useState<string | null>(
+    () => forwardedAgentRun(params),
+  );
   /**
    * Bumped when a completion proof settles, which is the one event that can
    * change what the release baseline below is being read against.
    */
   const [baselineReads, setBaselineReads] = useState(0);
   const requestVersion = useRef(0);
+  /**
+   * Bumped only when the pinned baseline stops describing anything on screen:
+   * a new mission, or an edited query.
+   *
+   * Deliberately not `requestVersion`, which every `run()` bumps. A run is what
+   * the restored baseline exists to be compared *against*, so cancelling the
+   * read because the participant pressed Run would discard the pin exactly when
+   * it is about to be needed -- which is the reload case this whole path
+   * serves.
+   */
+  const baselineEpoch = useRef(0);
   const ranForwarded = useRef(false);
   const pageRef = useRef<HTMLDivElement>(null);
   const example = mosaicRetrievalExamples[selected];
@@ -388,6 +418,7 @@ export function RetrievalLabPage() {
    * rather than carrying a comparison across two unrelated queries. */
   const resetRunState = () => {
     requestVersion.current += 1;
+    baselineEpoch.current += 1;
     setCarriedOver(false);
     setCarriedRunId(null);
     setCarriedRunFallback("");
@@ -434,6 +465,13 @@ export function RetrievalLabPage() {
   }, [requestedExample, selected]);
 
   const editQuery = (value: string) => {
+    // Dropped from the store as well as from state. The pin describes one
+    // request; once the words change it no longer describes the one on screen,
+    // and a reload that restored it would attach a stale "before" to a query
+    // that never produced it. Switching missions deliberately does *not* clear:
+    // that pin still describes its own mission, which is why the store is keyed
+    // per mission.
+    if (example) clearPinnedBaseline(example.id);
     resetRunState();
     setQuery(value);
   };
@@ -463,9 +501,13 @@ export function RetrievalLabPage() {
         // repair. A run arriving after a carried arrival leaves the Shop run
         // pinned, response and all, so the id and the measurements never name
         // two different events.
-        setBaseline((pinned) => pinned ?? {
-          searchEventId: nextResponse.search_event_id,
-          response: nextResponse,
+        setBaseline((pinned) => {
+          if (pinned) return pinned;
+          autoPinnedEventId.current = nextResponse.search_event_id;
+          return {
+            searchEventId: nextResponse.search_event_id,
+            response: nextResponse,
+          };
         });
       }
     } catch (cause) {
@@ -540,6 +582,63 @@ export function RetrievalLabPage() {
         void run();
       });
   }, [example, forwardedEvent, forwardedQuery, run]);
+
+  /**
+   * Keep the pin readable after the reload the labs themselves ask for.
+   *
+   * One write point rather than one beside each `setBaseline`: the pin is set
+   * from four places -- the first run of a mission, a carried Shop run, an
+   * explicit re-pin, and the restore below -- and a store updated at each of
+   * them would eventually miss one and lose the baseline for that path only.
+   */
+  useEffect(() => {
+    if (!example || !baseline) return;
+    writePinnedBaseline(example.id, baseline.searchEventId);
+  }, [example, baseline]);
+
+  /**
+   * Read the mission's stored pin back after a reload.
+   *
+   * Skipped for a hand-off carrying a query: an arrival from Shop pins the run
+   * Shop served, which is a deliberate "before" the participant just chose, and
+   * it must not be displaced by whatever this mission pinned earlier.
+   *
+   * Guarded per mission id rather than by a cleanup flag. StrictMode mounts the
+   * effect twice, and a flag flipped by the first cleanup would discard the only
+   * read there is -- the same reason `ranForwarded` above is shaped this way.
+   */
+  const restoredMission = useRef<string | null>(null);
+  useEffect(() => {
+    if (!example || forwardedQuery) return;
+    if (restoredMission.current === example.id) return;
+    restoredMission.current = example.id;
+    const storedEventId = readPinnedBaseline(example.id);
+    if (!storedEventId) return;
+    const missionId = example.id;
+    const epoch = baselineEpoch.current;
+    void api
+      .retrievalEventResponse(storedEventId)
+      .then((served) => {
+        // A new mission or an edited query has moved the epoch, and the pin
+        // this read was restoring no longer describes anything on screen.
+        if (epoch !== baselineEpoch.current) return;
+        setBaseline((pinned) => {
+          // Supersedes only the pin a run made on its own. A pin the
+          // participant chose, or a carried Shop run, stays.
+          if (pinned && pinned.searchEventId !== autoPinnedEventId.current) {
+            return pinned;
+          }
+          autoPinnedEventId.current = null;
+          return { searchEventId: served.search_event_id, response: served };
+        });
+      })
+      .catch(() => {
+        // The event cannot be read back -- a reset cluster is the ordinary
+        // reason. Drop the pin rather than retry it on every mission change,
+        // and leave whatever the current run pinned standing.
+        clearPinnedBaseline(missionId);
+      });
+  }, [example, forwardedQuery]);
 
   const counts = response?.diagnostics?.candidate_counts;
   const profile = response?.diagnostics?.retrieval_profile;
@@ -724,6 +823,9 @@ export function RetrievalLabPage() {
         latestSearchEventId={latestSearchEventId}
         onPinBaseline={() => {
           if (!latestSearchEventId) return;
+          // No longer a pin nobody chose, so a stored baseline arriving late
+          // must not replace it.
+          autoPinnedEventId.current = null;
           setBaseline({ searchEventId: latestSearchEventId, response });
         }}
       />

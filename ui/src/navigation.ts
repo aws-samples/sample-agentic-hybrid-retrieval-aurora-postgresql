@@ -133,6 +133,38 @@ export function forwardedSearchEvent(params: URLSearchParams): string | null {
 }
 
 /**
+ * The agent run a Lab 3 hand-off carries back from Shop.
+ *
+ * Lab 3's own link sends the participant to Shop -- `retrievalExampleHref`
+ * routes a `reason` mission to `shopMissionHref` -- because the agent lives
+ * there. Nothing carried the answer back, so the Playground's Prove stage,
+ * which is the only thing that can grade Lab 3, held an `agentRunId` that only
+ * its own Reason stage could fill. A participant who did the exercise where the
+ * product told them to had to run the agent a second time to be graded on it,
+ * paying for another model invocation to prove work already finished.
+ *
+ * Shape-checked here, exactly as a carried search event is, so a hand-edited
+ * link falls back to "no run carried" rather than spending a proof request. The
+ * id is not trusted beyond its shape: `POST /api/labs/3/proof` reads the
+ * persisted run and remains the authority on whether it proves anything.
+ */
+export function forwardedAgentRun(params: URLSearchParams): string | null {
+  const value = params.get("run")?.trim() ?? "";
+  return isPlausibleSearchEventId(value) ? value : null;
+}
+
+/**
+ * The Playground link that grades one finished agent run.
+ *
+ * Built here beside the hand-off it mirrors, so Shop cannot encode the return
+ * trip one way while the Playground reads it another.
+ */
+export function playgroundProofHref(missionId: string, agentRunId: string): string {
+  const params = new URLSearchParams({ example: missionId, run: agentRunId });
+  return `${RETRIEVAL_SURFACE.path}?${params}`;
+}
+
+/**
  * Rebuild the forwarded gates, so the Playground runs the request Shop ran.
  *
  * Returns an empty object when nothing was forwarded, which is what makes an

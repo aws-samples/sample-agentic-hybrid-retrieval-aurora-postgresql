@@ -60,6 +60,7 @@ import {
 } from "../labMissions";
 import {
   RETRIEVAL_SURFACE,
+  playgroundProofHref,
   playgroundQueryHref,
   useSearchParams,
 } from "../navigation";
@@ -1222,6 +1223,26 @@ export function CatalogPage() {
           </AnimatePresence>
 
           {labOutcome ? <LabOutcomeBanner outcome={labOutcome} /> : null}
+
+          {/* The way back to the only surface that can grade this.
+              Lab 3's card sends the participant here because the agent lives in
+              Shop, and until this link existed nothing carried the finished run
+              back: Prove could only read an `agentRunId` its own Reason stage
+              had filled, so an exercise completed here had to be run a second
+              time, and paid for a second time, to be graded.
+              Offered whenever a run exists, including a declined one. Whether
+              the run proves the lab is `POST /api/labs/3/proof`'s judgement,
+              and deciding it here would be a second authority that could
+              disagree with the first. */}
+          {labMission && agent?.agent_run_id ? (
+            <Link
+              className="shop-lab-callout-playground"
+              href={playgroundProofHref(labMission.id, agent.agent_run_id)}
+            >
+              Prove this run in the {RETRIEVAL_SURFACE.label}
+              <ArrowUpRight size={14} aria-hidden="true" />
+            </Link>
+          ) : null}
 
           {/* A callout, not a modal. The results it is about stay on screen
               underneath it: the point is that a page of plausible headphones and

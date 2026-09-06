@@ -1283,6 +1283,31 @@ describe("CatalogPage", () => {
     ).toBeTruthy();
   });
 
+  it("offers the finished Lab 3 run a way back to the surface that grades it", async () => {
+    // Lab 3's card sends the participant here, because the agent lives in Shop.
+    // Nothing carried the finished run back, so the Playground's Prove stage
+    // could only grade a run its own Reason stage had filled: an exercise
+    // completed here had to be run, and paid for, a second time.
+    window.history.replaceState(
+      {},
+      "",
+      "/catalog?ask=1&mission=agentic-research&q=Compare%20quiet%20keyboards",
+    );
+    renderPage();
+
+    await screen.findByRole("complementary", { name: "Ask Mosaic" });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: agentResponse.question } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+
+    const back = await screen.findByRole("link", { name: /Prove this run/ });
+    expect(back.getAttribute("href")).toBe(
+      `/labs/retrieval?example=agentic-research&run=${agentResponse.agent_run_id}`,
+    );
+  });
+
   it("opens Ask Mosaic, renders grounded receipts, and cross-highlights products", async () => {
     renderPage();
     await screen.findByText(catalog.products[0].model);
