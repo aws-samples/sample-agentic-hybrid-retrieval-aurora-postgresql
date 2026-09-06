@@ -77,6 +77,11 @@ Read a Playground run in this order, top to bottom:
 1. The channel list in Retrieve: which arms contributed, and which index served each one.
 2. The figures row: candidate pool size, rows returned, and the filters applied.
 3. The Rank table: before-reranking position against final position, per row.
+   Beside it, the query-time tile names every stage the service instrumented -
+   embed, Postgres, rerank, coverage, persist - in milliseconds. Those stages sit
+   inside the total rather than adding up to it: the total is the wall clock the
+   caller waited on. An embed reading `<1` is a cache hit, not a free model call;
+   the service reuses a query's first vector so repeated runs stay comparable.
 4. The Reason chain: six rows, each naming the field it was read from.
 5. The receipt band at the bottom of Rank or of an Ask Mosaic answer: filters, candidates found, before reranking, final position, evidence records, time.
 

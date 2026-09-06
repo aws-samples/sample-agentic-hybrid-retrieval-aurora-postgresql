@@ -4063,6 +4063,15 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+/* The stage list and its caveat share one <small>, so the caveat is a second
+   line inside it rather than a second element: the figure tile keeps its
+   three-row rhythm and the note inherits the tile's own muted colour and size
+   instead of introducing a fainter one that would sit below the contrast floor. */
+.lab-diagnostics-timing-note {
+  display: block;
+  margin-top: 4px;
+}
+
 /* The status word is the value, so it carries the weight of a figure rather
    than the look of a badge sitting next to one. */
 .lab-diagnostics-status {

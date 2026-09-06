@@ -20,16 +20,64 @@ const armLabels = armLanguage.map((arm) => ({
   label: arm.label,
 }));
 
-const timingLabels: Array<{ key: string; label: string }> = [
-  { key: "embedding", label: "Embed" },
-  { key: "postgresql_retrieval", label: "Postgres" },
-  { key: "rerank", label: "Rerank" },
-];
+/**
+ * Display names for the stages the service is known to time, in reading order.
+ *
+ * This is a naming table, not a filter. The previous version listed three keys
+ * and rendered only those, so `coverage` and `result_persistence` -- both
+ * measured, both in the response -- were dropped on the floor: a fifth of the
+ * run's instrumented time was missing from a strip whose own contract is that
+ * every figure is read off the response. A stage the service adds tomorrow
+ * would have vanished the same silent way, which is the part that made it a
+ * defect rather than an omission.
+ */
+const timingLabels: Record<string, string> = {
+  embedding: "Embed",
+  postgresql_retrieval: "Postgres",
+  rerank: "Rerank",
+  coverage: "Coverage",
+  result_persistence: "Persist",
+};
+
+const timingOrder = Object.keys(timingLabels);
+
+/** `postgresql_retrieval` -> `Postgresql retrieval`, for a stage added later. */
+function timingLabel(key: string): string {
+  const known = timingLabels[key];
+  if (known) return known;
+  const words = key.replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
+ * A measured stage never reads as zero.
+ *
+ * `_embed_query` in service/retrieval.py keeps a 256-entry LRU so a repeated
+ * query re-uses its first vector, and the timer wraps the lookup rather than
+ * the model call. A cache hit measures ~0.005 ms, and rounding printed that as
+ * `Embed 0` -- on the Lab 1 anchor query, which a participant has usually
+ * already run in Shop, so the embedding step advertised itself as free on the
+ * one surface that exists to show what retrieval costs. `<1` is what was
+ * actually measured and claims nothing the run did not report.
+ */
+function timingValue(milliseconds: number): string {
+  const rounded = Math.round(milliseconds);
+  return rounded === 0 && milliseconds > 0 ? "<1" : String(rounded);
+}
 
 function timingBreakdown(timings: Record<string, number>) {
-  return timingLabels
-    .filter((timing) => timings[timing.key] != null)
-    .map((timing) => `${timing.label} ${Math.round(timings[timing.key])}`)
+  const keys = Object.keys(timings).sort((left, right) => {
+    const leftIndex = timingOrder.indexOf(left);
+    const rightIndex = timingOrder.indexOf(right);
+    // An unknown stage sorts after every known one rather than to the front.
+    return (
+      (leftIndex === -1 ? timingOrder.length : leftIndex) -
+      (rightIndex === -1 ? timingOrder.length : rightIndex)
+    );
+  });
+  return keys
+    .filter((key) => timings[key] != null)
+    .map((key) => `${timingLabel(key)} ${timingValue(timings[key])}`)
     .join(" · ");
 }
 
@@ -80,7 +128,20 @@ export function RetrievalDiagnosticsStrip({ response }: { response: SearchRespon
         <div>
           <dt>Query time</dt>
           <dd>{diagnostics.total_latency_ms}<em>ms</em></dd>
-          <small>{breakdown || "No stage timings reported"}</small>
+          {/* Said once, for the same reason the arm bars say "these do not sum to
+              the pool": the figure above is the wall clock the caller waited on,
+              and the stages below are the spans the service instrumented inside
+              it. They are close but never equal, and a participant who adds them
+              up should find that out here rather than conclude a number lied. */}
+          <small>
+            {breakdown || "No stage timings reported"}
+            {breakdown ? (
+              <span className="lab-diagnostics-timing-note">
+                Instrumented stages, in milliseconds. They sit inside the total
+                and do not sum to it.
+              </span>
+            ) : null}
+          </small>
         </div>
         <div>
           <dt>Rank 1 fused score</dt>
