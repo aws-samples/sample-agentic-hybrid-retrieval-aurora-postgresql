@@ -103,7 +103,10 @@ Corporate-network TLS and security-group diagnostics are documented in
 | Grounded recommendations | Strands tools over product and evidence records | Tool trace, retrieval IDs, evidence IDs, and numbered citations |
 | Production diagnosis | Persisted events and on-demand `EXPLAIN (ANALYZE, BUFFERS, SETTINGS)` | Query plan, indexes, runtime settings, and Aurora identity |
 
-The visible application surfaces are:
+The visible application surfaces are three, and each is reachable at the name
+the navigation prints for it (`/discover`, `/shop`, `/playground`) as well as at
+its canonical path (`/`, `/catalog`, `/labs/retrieval`), which is what workshop
+instructions deep-link to:
 
 - **Discover** - editorial product discovery and direct search;
 - **Shop** - hybrid search, filters, sorting, product detail, and Ask Mosaic.

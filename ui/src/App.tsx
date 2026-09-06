@@ -55,6 +55,15 @@ function RoutedSurface() {
           <Route path="/" component={DiscoverPage} />
           <Route path="/discover" component={DiscoverPage} />
           <Route path="/catalog" component={CatalogPage} />
+          {/* Same reason as /playground below: the name in the navigation has to
+              be typeable. Two of the three nav labels already were -- /discover
+              resolves and /playground redirects -- while /shop fell through to
+              the catch-all and dropped the participant on Discover with nothing
+              said. The canonical path stays /catalog, which is what the workshop
+              instructions deep-link to. */}
+          <Route path="/shop">
+            <Redirect to="/catalog" replace />
+          </Route>
           <Route path="/mosaic-labs/hnsw" component={PerformancePage} />
           <Route path="/mosaic-labs/studio" component={MosaicStudioPage} />
           <Route path="/mosaic-labs">

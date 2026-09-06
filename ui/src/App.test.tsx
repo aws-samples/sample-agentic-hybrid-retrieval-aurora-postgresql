@@ -49,11 +49,33 @@ describe("App Labs routes", () => {
     });
   });
 
-  it("redirects the retired Explore route to Retrieval Observatory", async () => {
+  it("redirects the retired Explore route to the Playground", async () => {
     window.history.replaceState({}, "", "/mosaic-labs");
     render(<App />);
 
     await waitFor(() => expect(window.location.pathname).toBe("/labs/retrieval"));
     expect(await screen.findByText("Retrieval route")).toBeTruthy();
+  });
+
+  // Every name the navigation prints has to be typeable, or the catch-all sends
+  // a participant to Discover with no explanation. /shop used to do exactly that
+  // while /discover resolved and /playground redirected.
+  it.each([
+    ["/shop", "/catalog", "Catalog route"],
+    ["/playground", "/labs/retrieval", "Retrieval route"],
+  ])("resolves the navigation name %s to %s", async (typed, canonical, marker) => {
+    window.history.replaceState({}, "", typed);
+    render(<App />);
+
+    await waitFor(() => expect(window.location.pathname).toBe(canonical));
+    expect(await screen.findByText(marker)).toBeTruthy();
+  });
+
+  it("sends an unroutable path to Discover", async () => {
+    window.history.replaceState({}, "", "/not-a-surface");
+    render(<App />);
+
+    await waitFor(() => expect(window.location.pathname).toBe("/"));
+    expect(await screen.findByText("Discover route")).toBeTruthy();
   });
 });
