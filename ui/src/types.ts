@@ -230,6 +230,20 @@ export interface QueryCoverage {
   note: string;
 }
 
+/**
+ * `POST /api/retrieval/events/{id}/compare`, mirroring
+ * `service.models.ProductComparisonResponse`.
+ *
+ * The products come back carrying the `signals` read from that retrieval's
+ * persisted receipt, so a comparison shows where each row was found and how it
+ * ranked -- not just its price. The endpoint retrieves nothing: it can only
+ * project the products the scope already granted.
+ */
+export interface ProductComparisonResponse {
+  retrieval_scope_id: string;
+  products: ProductSummary[];
+}
+
 export interface SearchResponse {
   search_event_id: string;
   query: string;

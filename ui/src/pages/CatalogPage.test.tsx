@@ -69,6 +69,7 @@ vi.mock("../api", () => ({
     health: vi.fn(),
     readiness: vi.fn(),
     product: vi.fn(),
+    compareScopedProducts: vi.fn(),
   },
 }));
 
@@ -475,6 +476,7 @@ describe("CatalogPage", () => {
     vi.mocked(api.health).mockReset();
     vi.mocked(api.readiness).mockReset();
     vi.mocked(api.product).mockReset();
+    vi.mocked(api.compareScopedProducts).mockReset();
     vi.mocked(api.health).mockResolvedValue(healthFixture);
     vi.mocked(api.readiness).mockResolvedValue(healthyReadiness);
     vi.mocked(api.product).mockResolvedValue(productDetail);
@@ -826,6 +828,73 @@ describe("CatalogPage", () => {
       </CommerceProvider>,
     );
   }
+
+  it("offers no comparison while browsing, because nothing has granted anything", async () => {
+    // The affordance and the authority arrive together. Browsing the catalog
+    // issues no retrieval, so there is no search event, no grant, and nothing a
+    // comparison could be authorised against.
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+
+    expect(screen.queryByLabelText(/^Compare /)).toBeNull();
+    expect(api.compareScopedProducts).not.toHaveBeenCalled();
+  });
+
+  it("compares ticked results through the retrieval that granted them", async () => {
+    window.history.replaceState({}, "", "/catalog?q=quiet+keyboard");
+    vi.mocked(api.search).mockResolvedValue(searchResponse);
+    vi.mocked(api.compareScopedProducts).mockResolvedValue({
+      retrieval_scope_id: SEARCH_EVENT_ID,
+      products: recommendations,
+    });
+    renderPage();
+    await waitFor(() => expect(api.search).toHaveBeenCalled());
+
+    const boxes = await screen.findAllByLabelText(/^Compare /);
+    fireEvent.click(boxes[0]);
+    // One tick is a selection, not a comparison. The server takes two.
+    expect(api.compareScopedProducts).not.toHaveBeenCalled();
+    fireEvent.click(boxes[1]);
+
+    await waitFor(() =>
+      expect(api.compareScopedProducts).toHaveBeenCalledWith(SEARCH_EVENT_ID, [
+        recommendations[0].product_id,
+        recommendations[1].product_id,
+      ]),
+    );
+
+    // The rows that justify asking the server at all: a client filtering its own
+    // result array could print the price, and could not print any of these.
+    const panel = await screen.findByRole("region", {
+      name: "Comparing selected products",
+    });
+    expect(within(panel).getByText("Found by")).toBeTruthy();
+    expect(within(panel).getByText("Rank before reranking")).toBeTruthy();
+    expect(within(panel).getByText("Rank shown to you")).toBeTruthy();
+    // recommendations[0] carries fts rank 1 and semantic rank 2, no trigram.
+    expect(within(panel).getAllByText("full text, semantic").length).toBeGreaterThan(0);
+  });
+
+  it("reports a refused comparison instead of showing an empty table", async () => {
+    // The scope refusal names no product, so it cannot be used to probe the
+    // catalog. Swallowing it would leave the participant staring at a panel that
+    // never fills in.
+    window.history.replaceState({}, "", "/catalog?q=quiet+keyboard");
+    vi.mocked(api.search).mockResolvedValue(searchResponse);
+    vi.mocked(api.compareScopedProducts).mockRejectedValue(
+      new Error("That product is not granted by the supplied retrieval scope."),
+    );
+    renderPage();
+    await waitFor(() => expect(api.search).toHaveBeenCalled());
+
+    const boxes = await screen.findAllByLabelText(/^Compare /);
+    fireEvent.click(boxes[0]);
+    fireEvent.click(boxes[1]);
+
+    expect(
+      await screen.findByText(/not granted by the supplied retrieval scope/),
+    ).toBeTruthy();
+  });
 
   it("distinguishes curated browsing from full-catalog retrieval", async () => {
     renderPage();

@@ -15,6 +15,7 @@ import type {
   HnswProbe,
   HnswProbeInput,
   HnswSubstrate,
+  ProductComparisonResponse,
   ProductDetail,
   LabStateResponse,
   ReadinessResponse,
@@ -270,6 +271,21 @@ export const api = {
   retrievalEventResponse: (searchEventId: string) =>
     request<SearchResponse>(
       `/api/retrieval/events/${encodeURIComponent(searchEventId)}/response`,
+    ),
+
+  /**
+   * Compare two to five products one retrieval already granted.
+   *
+   * Deterministic and unbilled: the service reads the persisted receipt and
+   * hydrates catalog rows, issuing no fusion, no rerank and no candidate
+   * generation, so it cannot widen the set it was handed. A product outside the
+   * scope's granted window comes back 404 with a detail that names no product,
+   * which is what stops the endpoint being used to probe the catalog.
+   */
+  compareScopedProducts: (searchEventId: string, productIds: number[]) =>
+    request<ProductComparisonResponse>(
+      `/api/retrieval/events/${encodeURIComponent(searchEventId)}/compare`,
+      { method: "POST", body: JSON.stringify({ product_ids: productIds }) },
     ),
 
   /** EXPLAIN ANALYZE over the run's own SQL path. A write: it persists the plan. */

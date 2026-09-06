@@ -13506,3 +13506,95 @@
   font-size: var(--labs-detail);
   line-height: 1.5;
 }
+
+/* The scoped comparison, beneath the results rather than over them. Everything
+   below the rule row is read back from the retrieval receipt, so the table is
+   allowed to scroll sideways on a narrow laptop; the page never does. */
+.shop-comparison {
+  display: grid;
+  gap: 14px;
+  margin-top: 28px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+}
+
+.shop-comparison-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.shop-comparison-heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 20px;
+}
+
+.shop-comparison-heading button {
+  border: 0;
+  background: none;
+  color: var(--maroon-800);
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+  font-weight: 600;
+}
+
+.shop-comparison-heading button:hover {
+  text-decoration: underline;
+}
+
+.shop-comparison-pending,
+.shop-comparison-error {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+}
+
+.shop-comparison-error {
+  color: var(--maroon-800);
+}
+
+.shop-comparison-scroll {
+  overflow-x: auto;
+}
+
+.shop-comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+  text-align: left;
+}
+
+.shop-comparison-table th,
+.shop-comparison-table td {
+  padding: 9px 12px 9px 0;
+  vertical-align: top;
+}
+
+.shop-comparison-table thead th {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.shop-comparison-table tbody th {
+  color: var(--ink-soft);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.shop-comparison-table tbody td {
+  color: var(--ink);
+}
+
+/* Where the commerce fields end and the retrieval receipt begins. */
+.shop-comparison-table tr.shop-comparison-rule th,
+.shop-comparison-table tr.shop-comparison-rule td {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}

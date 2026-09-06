@@ -167,6 +167,24 @@ export function ProductCard({
                 </span>
               )}
             </span>
+            {/* Same control and same class as the default variant below, so the
+                two surfaces cannot drift into two compare affordances. It is
+                rendered only where a retrieval has granted a scope to compare
+                within, which is why the caller decides rather than the card. */}
+            {showCompare ? (
+              <label className="compare-control">
+                <input
+                  type="checkbox"
+                  aria-label={`Compare ${product.title}`}
+                  checked={compareChecked}
+                  disabled={compareDisabled || !onCompareChange}
+                  onChange={(event) => {
+                    onCompareChange?.(product.product_id, event.currentTarget.checked);
+                  }}
+                />
+                Compare
+              </label>
+            ) : null}
             <button
               className={quantity ? "shop-quick-add added" : "shop-quick-add"}
               type="button"

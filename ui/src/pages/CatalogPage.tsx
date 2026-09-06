@@ -30,6 +30,7 @@ import { flushSync } from "react-dom";
 import { Link } from "wouter";
 import { api } from "../api";
 import { AskMosaic } from "../components/AskMosaic";
+import { ScopedComparison } from "../components/ScopedComparison";
 import {
   CatalogSearchComposer,
   catalogGhostQueries,
@@ -331,6 +332,16 @@ export function CatalogPage() {
     rating: false,
   });
   const [retrieval, setRetrieval] = useState<SearchResponse | null>(null);
+  /**
+   * Products the participant ticked to compare, in the order they ticked them.
+   *
+   * Keyed to nothing but this page: a comparison is authorised by one
+   * retrieval's grant, so the selection is dropped whenever the served run
+   * changes below. Carrying it across runs would let a tick made under one
+   * search be sent against another search's scope, which the server would
+   * refuse -- correctly, and confusingly.
+   */
+  const [comparisonIds, setComparisonIds] = useState<number[]>([]);
   const [retrievalLoading, setRetrievalLoading] = useState(false);
   const [retrievalError, setRetrievalError] = useState("");
   const [retrievalQuery, setRetrievalQuery] = useState(searchParams.get("q") ?? "");
@@ -899,6 +910,49 @@ export function CatalogPage() {
     (agentProducts ?? []).map((product, index) => [product.product_id, index + 1]),
   );
 
+  /**
+   * The retrieval whose grant a comparison would be sent against, or null.
+   *
+   * Browsing the catalog is not a retrieval: there is no search event, so
+   * nothing has granted anything, and there is no scope to authorise a
+   * comparison. That is why the tick boxes appear with a served run and not
+   * before it -- the affordance and the authority arrive together.
+   */
+  const comparisonScopeId = retrieval?.search_event_id ?? null;
+
+  /**
+   * Drop the selection when the served run changes.
+   *
+   * A tick is a claim about one retrieval's results. Carried into the next run
+   * it would be sent against a scope that never granted that product, and the
+   * server would refuse it -- correctly, but the participant would read the
+   * refusal as the comparison being broken rather than as their selection being
+   * stale.
+   */
+  useEffect(() => {
+    setComparisonIds([]);
+  }, [comparisonScopeId]);
+
+  function updateComparison(productId: number, checked: boolean) {
+    setComparisonIds((current) => {
+      if (!checked) return current.filter((id) => id !== productId);
+      // The server takes two to five; offering a sixth tick that can only be
+      // refused is worse than not offering it.
+      if (current.includes(productId) || current.length >= 5) return current;
+      return [...current, productId];
+    });
+  }
+
+  function comparisonProps(productId: number) {
+    if (!comparisonScopeId) return {};
+    return {
+      showCompare: true,
+      compareChecked: comparisonIds.includes(productId),
+      compareDisabled: comparisonIds.length >= 5 && !comparisonIds.includes(productId),
+      onCompareChange: updateComparison,
+    };
+  }
+
   const revealMoreDomains = () => {
     const tabs = domainTabsRef.current;
     if (!tabs) return;
@@ -1441,6 +1495,7 @@ export function CatalogPage() {
                       imageSrc={gridImages.get(product.product_id)}
                       variant="catalog"
                       showSignals={Boolean(retrieval || agentProducts)}
+                      {...comparisonProps(product.product_id)}
                       assistRank={assistRanks.get(product.product_id)}
                       highlighted={highlightedProductId === product.product_id}
                       onAssistFocus={setHighlightedProductId}
@@ -1454,6 +1509,16 @@ export function CatalogPage() {
                   <p>Remove a filter or clear the search to see more products.</p>
                 </section>
               )}
+              {/* Below the results rather than over them: the list stays where
+                  the participant left it, which is what keeps the first result
+                  in the first viewport on a 1366x768 laptop. */}
+              {comparisonScopeId && comparisonIds.length > 1 ? (
+                <ScopedComparison
+                  searchEventId={comparisonScopeId}
+                  productIds={comparisonIds}
+                  onClear={() => setComparisonIds([])}
+                />
+              ) : null}
               {!retrieval && !agentProducts && page ? (
                 <div className="shop-pagination">
                   <button
