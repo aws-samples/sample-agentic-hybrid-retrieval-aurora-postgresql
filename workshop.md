@@ -46,7 +46,7 @@ A browser VS Code with a terminal already connected to the participant's own Aur
 
 The customer-facing store, with three surfaces:
 
-- **Shop.** Keyword and filter search over the catalog. Every result card can open "See how this was retrieved", which lands on the Playground with the same query and the same filters.
+- **Shop.** Keyword and filter search over the catalog. Every result card can open "See how this was retrieved", which lands on the Playground with the same query and the same filters. Ticking two or more results compares them side by side, and the comparison is worth showing: under the price and the rating it prints which search methods found each product, its rank before reranking, and the rank the shopper was shown. Those three rows come from the run's saved receipt, not from the list on screen, which is why a comparison is only offered once a search has run. If the catalog carries none of a request's words, Shop says which ones above the results rather than returning a confident page of near misses.
 - **Ask Mosaic.** The agent, in a side panel on Shop. It shows its work: the steps it took, the filters it searched with, the shortlist, the evidence it cited, and what the agent did, tool by tool. Its receipt reads the same way as the Playground's.
 - **Playground.** The proof surface, in four numbered stages. This is where the repairs become visible, and where most of the teaching happens.
 

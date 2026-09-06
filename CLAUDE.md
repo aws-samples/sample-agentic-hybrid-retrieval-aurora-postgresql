@@ -25,6 +25,22 @@ Required labs:
   part of the 60-minute session, not hidden lab time.
 - Treat measured behavior as authoritative. Never invent benchmark or eval data.
 
+## Keep the front doors current
+
+`README.md` and `workshop.md` are the two files a reader meets first, and they
+are the two that rot silently. **Any session that makes a significant change
+must update both before it ends** — a new participant-facing affordance, a
+removed surface or route, a changed lab flow, a new required step, a renamed
+concept. Not a changelog: edit the prose so it describes what ships now.
+
+A change is significant if a participant or a facilitator would do something
+different because of it. Bug fixes with no visible behaviour change are not.
+
+When a surface is deleted, grep `docs/` for it in the same session. `docs/` is
+where a removed route survives longest, and a spec describing a page that no
+longer exists is worse than no spec. Historical records (`rewrite-losses.md`
+and similar) keep their past-tense references — they document what happened.
+
 ## Review behavior
 - Prefer evidence from actual source files over assumptions.
 - Cite file paths and line ranges in technical review findings.

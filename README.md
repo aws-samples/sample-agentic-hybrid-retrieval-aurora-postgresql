@@ -106,7 +106,14 @@ Corporate-network TLS and security-group diagnostics are documented in
 The visible application surfaces are:
 
 - **Discover** - editorial product discovery and direct search;
-- **Shop** - hybrid search, filters, sorting, product detail, and Ask Mosaic;
+- **Shop** - hybrid search, filters, sorting, product detail, and Ask Mosaic.
+  Results can be ticked two at a time and compared side by side; the
+  comparison is served by `POST /api/retrieval/events/{id}/compare`, which
+  retrieves nothing and reads that run's persisted receipt, so it shows which
+  arms found each product and how reranking moved it. The tick boxes appear
+  only once a search has run, because a retrieval's grant is what authorises
+  a comparison. A search whose words the catalog does not carry says so above
+  the results;
 - **Playground** - read-only inspection of retrieval, ranking, and evidence,
   with Vector index at scale and Catalog studio alongside it.
 

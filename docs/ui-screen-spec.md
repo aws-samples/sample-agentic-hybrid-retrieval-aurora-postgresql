@@ -39,26 +39,20 @@ Components:
   and tool receipts;
 - one compact receipt vocabulary across search and agent turns: filters,
   candidates by arm, fused rank, rerank, evidence IDs, and latency;
+- a side-by-side comparison of two to five ticked results, served by the
+  scoped compare route rather than filtered from the rendered list, so it can
+  print the arms that found each product, its rank before reranking, and the
+  rank shown. Offered only once a search has run, because the retrieval's
+  grant is what authorises it; a product outside that grant is refused with a
+  detail that names no product;
+- a coverage notice above the results naming the request words the catalog
+  does not carry;
 - pagination;
 - compact mobile filter disclosure.
 
 API: `GET /api/catalog/products`, `GET /api/retrieval/examples`, `POST
-/api/search`, and `POST /api/agent/answer/stream`.
-
-## `/search` - Lab 3 deep route
-
-Purpose: preserve existing Lab 3 and bookmarked agent-inspection links. This
-route is not present in participant-facing navigation; the primary shopper
-experience is Ask Mosaic inside Shop.
-
-Retrieval view:
-
-- applied query and hard filters;
-- ranked product cards;
-- FTS, trigram, vector, and rerank signals;
-- candidate-pool counts, RRF configuration, and request latency.
-
-API: `POST /api/search` and `POST /api/agent/answer/stream`.
+/api/search`, `POST /api/retrieval/events/{search_event_id}/compare`, and
+`POST /api/agent/answer/stream`.
 
 ## `/mosaic-labs` - Playground
 

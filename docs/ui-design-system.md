@@ -125,7 +125,6 @@ micro size with 0.05em tracking.
 |---|---|
 | `/`, `/discover` | Discover: the three lab queries as hero prompts, each carried into Shop |
 | `/catalog` | Shop: faceted browsing, hybrid search, product cards, Ask Mosaic as a sidecar |
-| `/search` | Search: a product need or an agent-assembled collection |
 | `/products/:productId` | Product detail: media, catalog copy, price and availability, attributes, evidence excerpts |
 | `/labs/retrieval` | Playground: stages 01 Retrieve, 02 Rank, 03 Reason, 04 Prove, with the labs rail and readiness strip above them |
 | `/mosaic-labs/hnsw` | Vector index at scale: `ef_search`, filter selectivity, iterative scan, storage, measured against Aurora |
