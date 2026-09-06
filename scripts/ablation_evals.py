@@ -421,6 +421,77 @@ def assert_reproduces_committed_metrics(
         )
 
 
+def assert_served_arm_shares_current_identity(
+    committed_scorecard: dict[str, Any],
+    *,
+    settings: Any,
+    scorecard_path: Path = CANONICAL_SCORECARD_PATH,
+) -> None:
+    """Refuse to publish three arms that were not measured as one comparison.
+
+    Arms 1 and 2 are queried live, against the retrieval code running now.
+    Arm 3 is not measured here at all: `load_served_arm` replays the ranking
+    `scripts/score_evals.py` already paid for, and
+    `assert_reproduces_committed_metrics` proves that CSV still describes the
+    committed scorecard. That proves the CSV and the scorecard agree with
+    *each other*; it says nothing about whether either agrees with the code
+    the other two arms just ran through.
+
+    The artifact then stamps one `retrieval_fingerprint` and one `models`
+    block over all three arms. Whenever retrieval changed after the scorecard
+    was measured, that stamp is a claim arm 3 did not earn -- and it is the
+    claim `service.scorecard._attribution` reads, so the stale arm arrives
+    labelled "Measured on the retrieval code running now".
+
+    Replaying arm 3 rather than paying for its rerank again is a deliberate
+    relaxation, which makes this `docs/house-standards.md` rule 5: the exempted
+    thing is pinned to the value it must agree with, and the agreement is
+    checked. Arm 3 is exempt from being *measured* here, never from *agreeing*
+    with what the artifact says about it.
+
+    Both dimensions are satisfiable by construction, unlike the revision
+    equality `service.retrieval_fingerprint` exists to replace: the fingerprint
+    manifest deliberately excludes `data/evals/canonical_scorecard.json` and
+    `scripts/score_evals.py`, so measuring the scorecard and committing it does
+    not move the fingerprint the ablation then compares against. Measure the
+    scorecard and the ablation from the same tree and this passes.
+
+    `source.revision` is deliberately *not* compared. It always differs by at
+    least the commit that adds the scorecard, which is the exact off-by-one
+    that made the old revision gate unsatisfiable.
+    """
+    current_fingerprint = compute_retrieval_fingerprint()
+    committed_fingerprint = committed_scorecard.get("retrieval_fingerprint") or None
+    if committed_fingerprint != current_fingerprint:
+        raise AblationMeasurementError(
+            explain(
+                f"the served arm replayed from {scorecard_path} was measured "
+                f"on retrieval fingerprint {committed_fingerprint}, but arms 1 "
+                f"and 2 would be measured on {current_fingerprint}",
+                "re-run scripts/score_evals.py --write-baseline and commit the "
+                "scorecard and ranked results before measuring the ablation, "
+                "so all three arms describe one retrieval path",
+            )
+        )
+
+    committed_models = committed_scorecard.get("models") or {}
+    current_models = {
+        "embedding": settings.embedding_model_id,
+        "rerank": settings.rerank_model_id,
+    }
+    if committed_models != current_models:
+        raise AblationMeasurementError(
+            explain(
+                f"the served arm replayed from {scorecard_path} was measured "
+                f"with models {committed_models or None}, but this run would "
+                f"stamp the artifact with {current_models}",
+                "re-measure the scorecard with the models configured now, or "
+                "restore the models the committed scorecard was measured with, "
+                "before measuring the ablation",
+            )
+        )
+
+
 #: Arms whose top-K is drawn from the fused pool the ceiling is computed over.
 #: `semantic_only` is deliberately absent -- see below.
 CEILING_BOUNDED_ARMS = (ARM_RRF_FUSED, ARM_RRF_RERANKED)
@@ -515,6 +586,16 @@ def measured_ablation() -> dict[str, Any]:
 
     committed_scorecard = json.loads(
         CANONICAL_SCORECARD_PATH.read_text(encoding="utf-8")
+    )
+    # Before any Aurora or Bedrock work: the replayed arm has to describe the
+    # same retrieval path the two live arms are about to be measured on, or
+    # the single fingerprint this artifact stamps is a claim one arm did not
+    # earn. `served_scorecard_reference` below records where that arm came
+    # from; this is what makes that record load-bearing rather than decorative.
+    assert_served_arm_shares_current_identity(
+        committed_scorecard,
+        settings=settings,
+        scorecard_path=CANONICAL_SCORECARD_PATH,
     )
     served_ranked = load_served_arm(SERVED_RESULTS_PATH, query_ids)
     served_result = _arm_metrics(served_ranked, truth)

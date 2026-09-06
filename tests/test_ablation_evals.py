@@ -456,7 +456,12 @@ def ablation_environment(tmp_path, monkeypatch):
             {
                 "measured_at": "2026-01-01T00:00:00+00:00",
                 "source": {"revision": "a" * 40, "worktree_dirty": False},
+                # Matched to the fingerprint and models the fixture makes
+                # current below. The served arm is a replay, so the ablation
+                # refuses to publish it beside two live arms unless it names
+                # the same retrieval path and the same models.
                 "retrieval_fingerprint": "b" * 64,
+                "models": {"embedding": "test-embed", "rerank": "test-rerank"},
                 "metrics": {
                     "recall@10": committed_metrics["recall@10"],
                     "mrr": committed_metrics["mrr"],
@@ -515,7 +520,10 @@ def ablation_environment(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "scripts.ablation_evals.get_retrieval_service", lambda: retrieval
     )
-    return {"truth": truth}
+    monkeypatch.setattr(
+        "scripts.ablation_evals.compute_retrieval_fingerprint", lambda: "b" * 64
+    )
+    return {"truth": truth, "scorecard_path": scorecard_path}
 
 
 def test_measured_ablation_assembles_all_three_arms_and_the_ceiling(
@@ -569,6 +577,51 @@ def test_measured_ablation_refuses_a_dirty_worktree(ablation_environment, monkey
     )
 
     with pytest.raises(AblationMeasurementError, match="worktree is dirty"):
+        measured_ablation()
+
+
+def test_measured_ablation_refuses_a_served_arm_from_different_retrieval_code(
+    ablation_environment, monkeypatch
+):
+    """The served arm is replayed, not measured, so nothing in the reproduction
+    guard notices when retrieval changed after the scorecard was paid for.
+
+    Only the running fingerprint moves here: the CSV still reproduces the
+    committed scorecard exactly, and every other dimension is untouched. Before
+    this guard the artifact published anyway, stamped with the *current*
+    fingerprint, which is the one `service.scorecard._attribution` reads -- so a
+    historical reranked arm arrived labelled as measured on the code running
+    now.
+    """
+    monkeypatch.setattr(
+        "scripts.ablation_evals.compute_retrieval_fingerprint", lambda: "e" * 64
+    )
+
+    with pytest.raises(AblationMeasurementError, match="was measured on retrieval"):
+        measured_ablation()
+
+
+def test_measured_ablation_refuses_a_served_arm_from_a_different_reranker(
+    ablation_environment, monkeypatch
+):
+    """The same borrowed-provenance hole, one dimension over: the artifact
+    stamps one `models` block over all three arms, so a served arm ranked by a
+    previous reranker must not be published beside two arms measured now."""
+    monkeypatch.setattr(
+        "scripts.ablation_evals.get_settings",
+        lambda: type(
+            "FakeSettings",
+            (),
+            {
+                "source_worktree_dirty": False,
+                "source_revision": "c" * 40,
+                "embedding_model_id": "test-embed",
+                "rerank_model_id": "a-newer-reranker",
+            },
+        )(),
+    )
+
+    with pytest.raises(AblationMeasurementError, match="was measured with models"):
         measured_ablation()
 
 
