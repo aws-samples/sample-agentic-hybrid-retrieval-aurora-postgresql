@@ -81,6 +81,7 @@ function stageAblationFixture(
         ndcg_at_10_query_wins: 2,
       },
     ],
+    paired_comparisons: [],
     candidate_recall_ceiling: {
       pool_recall_ceiling: 0.95,
       judged_relevant_never_fetched: 1,

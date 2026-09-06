@@ -36,6 +36,8 @@ from the running code, not from the artifact.
 from __future__ import annotations
 
 import json
+import statistics
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -64,6 +66,7 @@ from service.models import (
     ScorecardStageAblation,
     ScorecardStageAblationQuery,
     ScorecardStageArm,
+    ScorecardStagePairedComparison,
 )
 from service.retrieval_fingerprint import (
     compute_ablation_methodology_sha256,
@@ -528,6 +531,72 @@ def _agent_contracts() -> ScorecardAgentContracts:
     return ScorecardAgentContracts(guarantees=guarantees)
 
 
+#: The order the arms build on one another: each is compared with the one
+#: before it, because that difference is the thing the step actually added.
+_ABLATION_STEPS = (
+    ("semantic_only", "rrf_fused_no_rerank", "Combining all three search methods"),
+    ("rrf_fused_no_rerank", "rrf_fused_reranked", "Reranking the combined list"),
+)
+
+
+def _paired_comparisons(
+    per_query: Sequence[Mapping[str, Any]],
+) -> list[ScorecardStagePairedComparison]:
+    """Compare each step with the one before it, search by search.
+
+    Computed here rather than read from the artifact so it cannot disagree with
+    the per-query numbers it is derived from, and so an artifact measured before
+    this existed is still served with the right comparison.
+    """
+    comparisons: list[ScorecardStagePairedComparison] = []
+    for from_key, to_key, label in _ABLATION_STEPS:
+        differences = [
+            row["ndcg@10"][to_key] - row["ndcg@10"][from_key]
+            for row in per_query
+            if from_key in row["ndcg@10"] and to_key in row["ndcg@10"]
+        ]
+        if len(differences) < 2:
+            continue
+        mean = statistics.fmean(differences)
+        spread = statistics.stdev(differences)
+        wins = sum(1 for value in differences if value > 1e-9)
+        losses = sum(1 for value in differences if value < -1e-9)
+        ties = len(differences) - wins - losses
+        # The honest bar for this many searches: the step is separable only when
+        # the average difference is larger than the spread of the differences it
+        # is averaging. Reported as a plain verdict rather than a test statistic,
+        # because the reader is a participant deciding whether to believe a
+        # number, not a reviewer checking an assumption.
+        separable = abs(mean) > spread if spread else abs(mean) > 0
+        if separable:
+            verdict = (
+                f"{label} moved the score by {mean:+.4f} on average, more than "
+                f"the {spread:.4f} spread of the per-search differences."
+            )
+        else:
+            verdict = (
+                f"{label} moved the score by {mean:+.4f} on average, inside the "
+                f"{spread:.4f} spread of the per-search differences: these "
+                f"{len(differences)} searches cannot tell it apart from no "
+                f"change. It won {wins} and lost {losses}."
+            )
+        comparisons.append(
+            ScorecardStagePairedComparison(
+                from_key=from_key,
+                to_key=to_key,
+                label=label,
+                mean_difference=mean,
+                difference_stdev=spread,
+                wins=wins,
+                losses=losses,
+                ties=ties,
+                separable=separable,
+                verdict=verdict,
+            )
+        )
+    return comparisons
+
+
 def _stage_ablation(
     artifact: dict[str, Any],
     current: _CurrentRetrievalIdentity,
@@ -580,6 +649,7 @@ def _stage_ablation(
         spread_note=artifact["spread_note"],
         scored_query_count=artifact["scored_query_count"],
         arms=arms,
+        paired_comparisons=_paired_comparisons(artifact["per_query"]),
         candidate_recall_ceiling=ScorecardCandidateRecallCeiling.model_validate(
             artifact["candidate_recall_ceiling"]
         ),

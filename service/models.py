@@ -1011,6 +1011,29 @@ class ScorecardStageAblationQuery(BaseModel):
     missed_product_ids: list[int]
 
 
+class ScorecardStagePairedComparison(BaseModel):
+    """One arm measured against the arm before it, on the same searches.
+
+    The arms are not independent samples: every arm answers the same scored
+    queries, so the only spread that can say whether a difference is real is
+    the spread of the per-query *differences*. Comparing a mean difference
+    against each arm's own per-query standard deviation -- which is dominated
+    by how much query difficulty varies, and has nothing to do with which arm
+    won -- is not that test.
+    """
+
+    from_key: str
+    to_key: str
+    label: str
+    mean_difference: float
+    difference_stdev: float
+    wins: int
+    losses: int
+    ties: int
+    separable: bool
+    verdict: str
+
+
 class ScorecardStageAblation(BaseModel):
     """Section E: what each retrieval stage contributes, measured rather than
     asserted -- semantic-only vs the served fusion function with reranking
@@ -1027,6 +1050,8 @@ class ScorecardStageAblation(BaseModel):
     spread_note: str
     scored_query_count: int
     arms: list[ScorecardStageArm]
+    #: Ordered semantic -> fused -> reranked, each against the one before it.
+    paired_comparisons: list[ScorecardStagePairedComparison]
     candidate_recall_ceiling: ScorecardCandidateRecallCeiling
     per_query: list[ScorecardStageAblationQuery]
 

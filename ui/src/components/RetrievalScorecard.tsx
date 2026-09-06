@@ -597,6 +597,30 @@ function StageAblationSection({ ablation }: { ablation: ScorecardStageAblation }
         <strong>Small sample:</strong> {ablation.spread_note}
       </p>
 
+      {/* What each step actually changed, search by search.
+          Two averages side by side invite the reader to subtract them and call
+          the remainder an improvement. These paths answer the same searches, so
+          the difference is measurable per search, and its own spread is the only
+          thing that can say whether the step is separable from no change at all.
+          Rendered whether or not the arms are attributed, because it is derived
+          from the same per-search numbers the arms are. */}
+      {ablation.paired_comparisons.length ? (
+        <ul className="labs-ablation-steps">
+          {ablation.paired_comparisons.map((step) => (
+            <li key={`${step.from_key}-${step.to_key}`}>
+              <p className="labs-ablation-step-verdict">
+                <strong>{step.separable ? "Separable:" : "Not separable:"}</strong>{" "}
+                {step.verdict}
+              </p>
+              <p className="labs-ablation-step-record">
+                {step.wins} better · {step.losses} worse · {step.ties} unchanged
+                {" "}across {ablation.scored_query_count} searches
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
       {ablation.attributed ? (
         <>
           <PlaygroundFigures label="Candidate pool limits before reranking">

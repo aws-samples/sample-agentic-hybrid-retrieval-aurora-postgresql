@@ -12472,6 +12472,33 @@
   border-top: 1px solid var(--line);
 }
 
+.labs-ablation-steps {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.labs-ablation-steps > li {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--paper-warm);
+}
+
+.labs-ablation-step-verdict {
+  margin: 0;
+  font-size: var(--labs-detail);
+  color: var(--ink);
+}
+
+.labs-ablation-step-record {
+  margin: 6px 0 0;
+  font-size: var(--labs-detail);
+  color: var(--ink-soft);
+}
+
 .labs-ablation-query-metrics {
   display: grid;
   gap: 4px;

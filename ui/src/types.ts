@@ -1166,6 +1166,27 @@ export interface ScorecardStageAblationQuery {
  * A -- `attributed` here can be false while section A's is true, or the
  * reverse, because each is judged against its own committed measurement.
  */
+/**
+ * One step measured against the step before it, on the same searches.
+ *
+ * The paths are not independent samples -- every one answers the same scored
+ * queries -- so the only spread that can say whether a step's difference is
+ * real is the spread of the per-search differences. `separable` is false when
+ * the average difference is inside that spread.
+ */
+export interface ScorecardStagePairedComparison {
+  from_key: string;
+  to_key: string;
+  label: string;
+  mean_difference: number;
+  difference_stdev: number;
+  wins: number;
+  losses: number;
+  ties: number;
+  separable: boolean;
+  verdict: string;
+}
+
 export interface ScorecardStageAblation {
   attributed: boolean;
   attribution_note: string;
@@ -1173,6 +1194,8 @@ export interface ScorecardStageAblation {
   spread_note: string;
   scored_query_count: number;
   arms: ScorecardStageArm[];
+  /** Ordered semantic -> combined -> reranked, each against the one before it. */
+  paired_comparisons: ScorecardStagePairedComparison[];
   candidate_recall_ceiling: ScorecardCandidateRecallCeiling;
   per_query: ScorecardStageAblationQuery[];
 }

@@ -90,6 +90,7 @@ const minimalScorecard: RetrievalScorecardResponse = {
     spread_note: "fixture spread note",
     scored_query_count: 20,
     arms: [],
+    paired_comparisons: [],
     candidate_recall_ceiling: {
       pool_recall_ceiling: 0,
       judged_relevant_never_fetched: 0,
