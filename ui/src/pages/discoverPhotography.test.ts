@@ -124,16 +124,34 @@ describe("Discover entry points", () => {
     ).toEqual([]);
   });
 
-  it("fails for the plateless categories the unconstrained chips reached", () => {
-    // The guard has to be able to fail. These are the real categories "Focus
-    // headphones" and "Quiet home office" retrieved with no constraint: neither owns
-    // a photograph, so both collapse to the one domain-neutral plate for the domain.
-    expect(distinctPhotographs("acoustic-headphones", "home_office")).toBe(1);
-    expect(distinctPhotographs("mesh-office-chairs", "home_office")).toBe(1);
+  it("fails for a category that still owns no photography", () => {
+    // The guard has to be able to fail, and it has to fail on something real.
+    //
+    // It used to demonstrate that on `acoustic-headphones` and
+    // `mesh-office-chairs` -- the categories "Focus headphones" and "Quiet home
+    // office" reached unconstrained. Both were repaired at source rather than
+    // routed around: they joined `relatedCategories` in media.ts, so each now
+    // draws on the plated category it is interchangeable with and fills a page.
+    // Leaving them here would have left a falsifier that no longer falsifies.
+    //
+    // `humidifiers` replaces them, on the same terms: no plate set, no exact
+    // shot, no interchangeable neighbour -- an air purifier is not a humidifier
+    // -- so every row in it resolves to the one domain-neutral plate. When it
+    // gets photography this test goes red, which is the signal to move the
+    // falsifier to whatever is still starved rather than to delete it.
+    expect(distinctPhotographs("humidifiers", "home_office")).toBe(1);
     expect(
       tooShallow([
-        { label: "unconstrained", category: "acoustic-headphones", domain: "home_office" },
+        { label: "unconstrained", category: "humidifiers", domain: "home_office" },
       ]),
     ).toHaveLength(1);
+  });
+
+  it("records the two categories the falsifier used to name as repaired", () => {
+    // Not decoration: this is what stops `relatedCategories` being quietly
+    // narrowed back. Both were one photograph for twelve rows on the Lab 1
+    // anchor query, which is the most-run query in the session.
+    expect(distinctPhotographs("acoustic-headphones", "home_office")).toBe(PAGE_SIZE);
+    expect(distinctPhotographs("mesh-office-chairs", "home_office")).toBe(PAGE_SIZE);
   });
 });

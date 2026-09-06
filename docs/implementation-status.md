@@ -35,7 +35,12 @@ exercise, not whether semantic retrieval exists.
   lane;
 - behavioral assertions `rrf_recomputes` and `rerank_off_invariant`;
 - per-token trigram expansion and the measured 500K trigram latency issue;
-- broader media fallback coverage; and
+- category photography for the remaining plateless categories. Eleven
+  categories own a plate set; the rest fill from their own exact shots and,
+  where an interchangeable neighbour exists, from `relatedCategories` in
+  `ui/src/media.ts`. `true-wireless-earbuds` is the largest category still
+  one photograph short of a full page and has no interchangeable neighbour,
+  so it needs a plate run rather than another related-category row; and
 - corpus-wide evaluation beyond the curated canonical release set.
 
 Hash embeddings are development-only and cannot support workshop relevance

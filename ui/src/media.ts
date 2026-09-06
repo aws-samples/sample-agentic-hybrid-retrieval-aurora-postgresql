@@ -188,12 +188,30 @@ function buildCategoryPools(): Map<string, string[]> {
  * is a running shoe either way, so a participant reads a varied catalog rather
  * than a mistake. Anything looser is how a treadmill ends up illustrated with
  * an exercise bike, and the workshop is a demonstration of retrieval accuracy.
+ *
+ * The headphone, chair and running rows below were added after the Lab 1 anchor
+ * query -- the most-run query in the session -- returned twelve results drawn
+ * from six photographs, seven of them the same one. Those seven were
+ * `acoustic-headphones`, a category with no plate set and exactly one exact
+ * shot, so every row in it resolved to the same file. The bar for joining a row
+ * here is the same as it was: the same object, photographed the same way. A
+ * stability trainer is a road shoe with a support wedge, and one of the road
+ * plates is literally that. `gaming-headsets` and `conference-headsets` are
+ * deliberately absent even though they are the larger categories, because a
+ * boom mic is a visible difference and a participant would read it as an error.
  */
 const relatedCategories: Record<string, string[]> = {
   "trail-running-shoes": ["road-running-shoes", "carbon-racing-shoes", "cross-training-shoes"],
-  "road-running-shoes": ["carbon-racing-shoes", "cross-training-shoes"],
+  "road-running-shoes": ["carbon-racing-shoes", "cross-training-shoes", "stability-running-shoes"],
   "carbon-racing-shoes": ["road-running-shoes", "cross-training-shoes"],
   "cross-training-shoes": ["road-running-shoes", "carbon-racing-shoes"],
+  "stability-running-shoes": ["road-running-shoes", "cross-training-shoes"],
+  "walking-shoes": ["road-running-shoes", "cross-training-shoes"],
+  "acoustic-headphones": ["over-ear-headphones"],
+  "over-ear-headphones": ["acoustic-headphones"],
+  "mesh-office-chairs": ["ergonomic-office-chairs", "executive-chairs"],
+  "executive-chairs": ["ergonomic-office-chairs", "mesh-office-chairs"],
+  "ergonomic-office-chairs": ["mesh-office-chairs", "executive-chairs"],
   "quiet-keyboards": ["mechanical-keyboards", "ergonomic-keyboards"],
   "mechanical-keyboards": ["quiet-keyboards", "ergonomic-keyboards"],
   "ergonomic-keyboards": ["quiet-keyboards", "mechanical-keyboards"],

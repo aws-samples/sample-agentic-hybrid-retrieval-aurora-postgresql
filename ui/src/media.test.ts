@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  categoryPoolSize,
   domainMedia,
   productBoundImage,
   productImage,
@@ -183,16 +184,19 @@ describe("productImage", () => {
 
 describe("productImageMap", () => {
   /**
-   * Installed photography for `over-ear-headphones`: fourteen product-bound
-   * shots plus six category plates.
+   * Installed photography reachable from `over-ear-headphones`: fourteen
+   * product-bound shots, six category plates, and the one exact
+   * `acoustic-headphones` shot the related-category row now brings in.
    *
    * Hard-coded rather than derived from the manifests, because a test that reads
    * its own expectation out of the data it is judging cannot fail. When plates
    * land for this category the pool grows and the three tests below go red,
    * which is the signal to raise `exhausting` with it - they only measure the
-   * exhaustion behaviour while they draw more rows than the pool holds.
+   * exhaustion behaviour while they draw more rows than the pool holds. That is
+   * what happened when `acoustic-headphones` joined `relatedCategories`, and it
+   * is the reason this number is 21 rather than 20.
    */
-  const headphonePool = 20;
+  const headphonePool = 21;
   const exhausting = headphonePool * 2;
 
   it("gives every card its own photograph while the pool lasts", () => {
@@ -244,5 +248,68 @@ describe("productImageMap", () => {
   it("is stable for the same result set", () => {
     const rows = Array.from({ length: 6 }, (_, index) => filler(400 + index));
     expect([...productImageMap(rows)]).toEqual([...productImageMap(rows)]);
+  });
+});
+
+/**
+ * The pool-size guard, wired to something.
+ *
+ * `categoryPoolSize` documented itself as the check standing between "a shopper
+ * seeing twelve products" and "one photograph twelve times", and nothing called
+ * it -- exported, unused, a guard in name only. The failure it describes was
+ * live: the Lab 1 anchor query returned twelve rows drawn from six photographs,
+ * seven of them the same file, because `acoustic-headphones` had a pool of one.
+ */
+describe("category photography is deep enough to fill a page", () => {
+  // What Shop asks for, and therefore how many distinct photographs a category
+  // needs before a grid starts repeating.
+  const PAGE = 12;
+
+  // Every category a participant can land on by following the session: the
+  // Discover tiles and merchandising doors, plus the categories the three
+  // mission queries return. Named rather than derived from the manifests, so
+  // this cannot agree with a shrinking pool.
+  const REACHABLE: Array<[string, Domain]> = [
+    ["over-ear-headphones", "consumer_electronics"],
+    ["acoustic-headphones", "home_office"],
+    ["quiet-keyboards", "home_office"],
+    ["mechanical-keyboards", "home_office"],
+    ["ergonomic-office-chairs", "home_office"],
+    ["mesh-office-chairs", "home_office"],
+    ["executive-chairs", "home_office"],
+    ["electric-standing-desks", "home_office"],
+    ["charging-docks", "consumer_electronics"],
+    ["road-running-shoes", "running_fitness"],
+    ["stability-running-shoes", "running_fitness"],
+    ["walking-shoes", "running_fitness"],
+    ["mobility-tools", "running_fitness"],
+  ];
+
+  it.each(REACHABLE)("%s can fill a page without repeating", (categoryKey, domain) => {
+    expect(categoryPoolSize(categoryKey, domain)).toBeGreaterThanOrEqual(PAGE);
+  });
+
+  /**
+   * The gap this guard found on the day it was written, recorded rather than
+   * papered over.
+   *
+   * `true-wireless-earbuds` is the catalog's third-largest category (13,000
+   * products) and Discover leads with an EchoBud S2 card, but it has no plate
+   * set: eleven exact shots, one short of a page. It gets no `relatedCategories`
+   * row because it has no interchangeable neighbour -- an earbud is not an
+   * over-ear headphone, and pretending otherwise is the mistake that list
+   * exists to prevent. The fix is a plate run for the category. Generating
+   * plates will turn this assertion red, which is the signal to move the key up
+   * into REACHABLE above.
+   */
+  it("records true-wireless-earbuds as still short of a page", () => {
+    expect(categoryPoolSize("true-wireless-earbuds", "consumer_electronics")).toBe(11);
+  });
+
+  it("names a category that is genuinely starved, so the floor is load-bearing", () => {
+    // Witness. Every assertion above would pass on a codebase where every pool
+    // were enormous, and prove nothing about the floor. A category with neither
+    // plates nor exact shots is still one photograph for every row.
+    expect(categoryPoolSize("desk-fans", "home_office")).toBeLessThan(PAGE);
   });
 });
