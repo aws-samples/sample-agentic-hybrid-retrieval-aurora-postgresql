@@ -91,6 +91,25 @@ function isActive(pathname: string, to: string) {
   return pathname.startsWith(to);
 }
 
+/**
+ * Whether this surface reports Lab 1's repair state in the header.
+ *
+ * Everywhere but Discover. Shop keeps the chips because Shop's own callout
+ * flips to `Repair verified` on the same screen, and a header that disagreed
+ * with it would be the workshop contradicting itself -- the defect the re-read
+ * below exists to prevent. Discover is the storefront entry: a shopper landing
+ * there has no lab open to be broken, so `source: broken` is a fact about
+ * nothing they are looking at.
+ *
+ * The chips hide; the zero-width placeholder still renders in their place. It
+ * is the tallest thing in the row, so dropping it as well would make the header
+ * shorter on Discover than everywhere else and move the nav on the first
+ * navigation away.
+ */
+export function showsLabState(pathname: string): boolean {
+  return pathname !== "/" && !pathname.startsWith("/discover");
+}
+
 export function SiteHeader({ inert = false }: { inert?: boolean }) {
   const [open, setOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -252,7 +271,7 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
           role="group"
           aria-label={`Lab ${labNumber} state`}
         >
-          {labs ? (
+          {labs && showsLabState(pathname) ? (
             <>
               <span className="site-lab-chip" data-state={activeLab?.source_state ?? "unchecked"}>
                 source: {activeLab ? activeLab.source_state : NOT_CHECKED}

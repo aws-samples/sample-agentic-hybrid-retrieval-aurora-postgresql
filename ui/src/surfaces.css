@@ -102,6 +102,14 @@
   position: relative;
   z-index: 1;
   display: grid;
+  /* The column is `width`-constrained, but an implicit `auto` track is not: it
+     sizes to its widest item's max-content, and .discover-hero-prompts is a
+     wrapping flex row whose max-content is all three query chips on one
+     unwrapped line. That measured 1494px inside this 795px column, and every
+     sibling declaring `width: 100%` -- the search pill above all -- inherited
+     the blowout and ran across the photograph. `minmax(0, 1fr)` is the same
+     fix .discover-search already applies to its own children. */
+  grid-template-columns: minmax(0, 1fr);
   width: min(100%, max(46%, 560px));
   justify-items: start;
   padding-block: clamp(54px, 6vw, 82px);
@@ -5308,8 +5316,46 @@
   text-decoration: underline;
 }
 
-/* Nine facts on one line, in the order a failure is usually reached: the
-   cluster, then what is in it, then what indexes it, then the models. */
+/* One verdict line, with nine facts behind it in the order a failure is usually
+   reached: the cluster, then what is in it, then what indexes it, then the
+   models. The disclosure marker is the whole affordance, so the summary carries
+   no other chrome. */
+.labs-readiness-disclosure > summary {
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.labs-readiness-verdict {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+  font-weight: 700;
+}
+
+/* A problem is the one state that may raise its voice; `not checked` stays
+   drawn back, matching the row treatment below. */
+.labs-readiness-verdict[data-state="problem"] {
+  border-color: var(--maroon-800);
+  color: var(--maroon-800);
+}
+
+.labs-readiness-verdict[data-state="unchecked"] {
+  border-style: dashed;
+  background: transparent;
+  color: var(--ink-soft);
+}
+
+.labs-readiness-disclosure[open] > summary {
+  margin-bottom: 10px;
+}
+
 .labs-readiness dl {
   display: flex;
   flex-wrap: wrap;
@@ -5344,13 +5390,22 @@
 
 /* An unmeasured row is drawn back, never absent: the reader has to be able to
    tell "checked and fine" from "nothing checked this" at a glance. */
-.labs-readiness-row.is-unknown {
+.labs-readiness-row.is-unchecked {
   border-style: dashed;
   background: transparent;
 }
 
-.labs-readiness-row.is-unknown dd {
+.labs-readiness-row.is-unchecked dd {
   color: var(--ink-soft);
+}
+
+/* Actionable now, so it is the one row that carries colour. */
+.labs-readiness-row.is-problem {
+  border-color: var(--maroon-800);
+}
+
+.labs-readiness-row.is-problem dd {
+  color: var(--maroon-800);
 }
 
 .mosaic-studio-page {

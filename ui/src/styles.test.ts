@@ -93,6 +93,36 @@ export function hexLiterals(sheets: Sheet[]): string[] {
   );
 }
 
+/**
+ * Grid containers whose track must stay pinned, and why each one is here.
+ *
+ * A `width`-constrained grid container does *not* constrain its implicit track:
+ * an `auto` track sizes to its widest item's max-content and overflows the box
+ * silently. Measured on 2026-09-06: `.discover-hero-content` is 795px wide, but
+ * `.discover-hero-prompts` inside it is a wrapping flex row whose max-content is
+ * all three lab queries on one unwrapped line, which sized the track to 1494px.
+ * Every sibling declaring `width: 100%` inherited it, so the Discover search
+ * pill rendered at 1494px and ran across the hero photograph.
+ *
+ * A general "grid plus width needs a track" rule was tried and rejected: it
+ * flags 46 blocks, nearly all fixed-size icons and buttons where an implicit
+ * track is harmless. This is a pin on the containers that actually hold a
+ * full-width child, not a lint.
+ */
+const PINNED_GRID_TRACKS = [".discover-hero-content"] as const;
+
+/** Pinned containers that have lost their explicit `grid-template-columns`. */
+export function unpinnedGridTracks(sheets: Sheet[]): string[] {
+  const text = sheets.map((sheet) => sheet.text).join("\n");
+  return PINNED_GRID_TRACKS.filter((selector) => {
+    const block = new RegExp(
+      `^\\${selector} \\{([^]*?)^\\}`,
+      "m",
+    ).exec(text);
+    return !block || !/grid-template-columns:/.test(block[1]);
+  });
+}
+
 describe("stylesheet vocabulary", () => {
   it("references only custom properties that something defines", async () => {
     expect(undefinedReferences(await readSheets())).toEqual([]);
@@ -113,6 +143,10 @@ describe("stylesheet vocabulary", () => {
       `raw hex literals rose past ${HEX_LITERAL_CEILING}; the newest look like:\n` +
         literals.slice(-5).join("\n"),
     ).toBeLessThanOrEqual(HEX_LITERAL_CEILING);
+  });
+
+  it("keeps a width-constrained grid container from inheriting a child's max-content", async () => {
+    expect(unpinnedGridTracks(await readSheets())).toEqual([]);
   });
 
   it("can fail: each check reports the defect it exists for", () => {
@@ -143,5 +177,20 @@ describe("stylesheet vocabulary", () => {
     expect(hexLiterals(sheets)).toEqual([
       "styles.css:7 #ded6ca in .a { color: var(--ink-muted); border: 1px solid #ded6ca; }",
     ]);
+    // The hero column as it stood before 2026-09-06: width-constrained, grid,
+    // and no track of its own, which is exactly what let the prompts row size it.
+    const unpinned: Sheet[] = [
+      {
+        name: "surfaces.css",
+        text: [
+          ".discover-hero-content {",
+          "  display: grid;",
+          "  width: min(100%, max(46%, 560px));",
+          "  justify-items: start;",
+          "}",
+        ].join("\n"),
+      },
+    ];
+    expect(unpinnedGridTracks(unpinned)).toEqual([".discover-hero-content"]);
   });
 });

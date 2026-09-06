@@ -248,6 +248,42 @@ describe("Shell navigation", () => {
     ).toBe("/labs/retrieval");
   });
 
+  it("keeps Lab 1's repair state off the storefront entry, at the same header height", async () => {
+    // Discover is where a shopper lands. `source: broken` there is a verdict on
+    // a lab they have not opened, printed over the storefront hero. Shop keeps
+    // the chips -- its own callout flips on the same screen and the two must
+    // agree -- so only this one surface drops them.
+    window.history.replaceState({}, "", "/");
+    vi.mocked(api.health).mockResolvedValue(healthFixture(null));
+    vi.mocked(api.labsState).mockResolvedValue(labsFixture);
+    const { container, unmount } = render(
+      <CommerceProvider>
+        <Shell>
+          <div>Discover content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+
+    await waitFor(() => expect(api.labsState).toHaveBeenCalled());
+    expect(screen.queryByText("source: broken")).toBeNull();
+    expect(screen.queryByText("database: stale")).toBeNull();
+    // The placeholder is what holds the row's height, so the nav does not move
+    // when the participant leaves Discover for Shop.
+    expect(container.querySelector(".site-lab-state-pending")).not.toBeNull();
+    unmount();
+
+    // The same read, one surface over, still reports.
+    window.history.replaceState({}, "", "/catalog");
+    render(
+      <CommerceProvider>
+        <Shell>
+          <div>Shop content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("source: broken")).toBeTruthy());
+  });
+
   it("hides the Code Editor button when the service reports no Code Editor", async () => {
     // A workshop image without a Code Editor is a real deployment, not a fault.
     // A dead button pointing nowhere would be the fault.

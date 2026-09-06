@@ -46,8 +46,78 @@ function rows() {
   ]);
 }
 
+/** The disclosure's open state, which is derived rather than stored. */
+function disclosureOpen(): boolean {
+  return Boolean(
+    document.querySelector<HTMLDetailsElement>(".labs-readiness-disclosure")?.open,
+  );
+}
+
 describe("ReadinessStrip", () => {
   afterEach(cleanup);
+
+  it("stays one line while the room is fine, keeping every fact behind it", () => {
+    render(<ReadinessStrip readiness={readiness} />);
+
+    expect(screen.getByText("Environment ready")).toBeTruthy();
+    expect(disclosureOpen()).toBe(false);
+    // Collapsed is not the same as discarded: a stuck participant opens this and
+    // the nine facts are all still there.
+    expect(rows()).toHaveLength(9);
+  });
+
+  it("opens itself on a missing index and puts the problem first", () => {
+    const database = {
+      ...readiness.database,
+      missing_retrieval_indexes: ["product_document_trgm_idx"],
+    };
+    render(<ReadinessStrip readiness={{ ...readiness, database }} />);
+
+    expect(screen.getByText("Environment: 1 problem")).toBeTruthy();
+    expect(disclosureOpen()).toBe(true);
+    // Nine facts and one of them is why the lab is not answering; it goes first
+    // rather than seventh.
+    expect(rows()[0]).toEqual(["Indexes", "missing: product_document_trgm_idx"]);
+  });
+
+  it("treats a corpus the embedder did not finish as a problem, not a fact", () => {
+    // The quietest failure in the room: nothing errors, the semantic arm just
+    // returns less. The two numbers are already printed; only the verdict is new.
+    const database = { ...readiness.database, embedded_product_count: 380_000 };
+    render(<ReadinessStrip readiness={{ ...readiness, database }} />);
+
+    expect(screen.getByText("Environment: 1 problem")).toBeTruthy();
+    expect(rows()[0]).toEqual(["Data", "500,000 products, 380,000 embedded"]);
+  });
+
+  it("never reports an unread environment as ready", () => {
+    render(<ReadinessStrip readiness={null} />);
+
+    // Nine unread rows, and the headline may not round them up to "ready".
+    expect(screen.getByText("Environment: 9 not checked")).toBeTruthy();
+    expect(disclosureOpen()).toBe(true);
+    expect(screen.queryByText("Environment ready")).toBeNull();
+  });
+
+  it("separates a ground truth that is missing from one nothing read", () => {
+    const seeded = readiness.database;
+    const { unmount } = render(
+      <ReadinessStrip
+        readiness={{ ...readiness, database: { ...seeded, exact_neighbor_ground_truth: "missing" } }}
+      />,
+    );
+    // `missing` is a facilitator preflight step, so it is actionable.
+    expect(screen.getByText("Environment: 1 problem")).toBeTruthy();
+    unmount();
+
+    // `unknown` means the read failed. That is not a claim about the table.
+    render(
+      <ReadinessStrip
+        readiness={{ ...readiness, database: { ...seeded, exact_neighbor_ground_truth: "unknown" } }}
+      />,
+    );
+    expect(screen.getByText("Environment: 1 not checked")).toBeTruthy();
+  });
 
   it("reports the nine things a lab needs before it can be believed", () => {
     render(<ReadinessStrip readiness={readiness} />);
