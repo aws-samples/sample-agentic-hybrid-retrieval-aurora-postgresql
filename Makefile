@@ -437,17 +437,23 @@ test-aurora-contracts:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m pytest -q \
 		tests/test_sql_integration.py
 
-# Every `pytest.mark.aurora` test lives in these two files, and until this target
-# existed none of them ran anywhere: tests/conftest.py skips the marker whenever
-# DATABASE_URL is unset, which is every offline CI run, and test-aurora-contracts
-# above names only test_sql_integration.py. The Lab 1 anchor invariants were red
-# for the whole `Sonorra WHC720` release and no gate reported it -- the failure
-# surfaced in a clean-account deployment instead, after a 24-minute bootstrap.
+# Every `pytest.mark.aurora` test, and until this target existed none of them ran
+# anywhere: tests/conftest.py skips the marker whenever DATABASE_URL is unset,
+# which is every offline CI run, and test-aurora-contracts above names only
+# test_sql_integration.py. The Lab 1 anchor invariants were red for the whole
+# `Sonorra WHC720` release and no gate reported it -- the failure surfaced in a
+# clean-account deployment instead, after a 24-minute bootstrap.
+#
+# The file list drifted once already, in exactly the way this target exists to
+# prevent: tests/test_coverage.py grew five marked tests, the comment above still
+# said "these two files", and the live coverage-floor calibration ran in no job at
+# all. tests/test_aurora_marker_coverage.py now derives the list from the marker
+# and fails when a marked file is not named here, so the next one cannot go quiet.
 #
 # Unlike test-aurora-contracts, these call paid Bedrock APIs: one query embedding
 # and one rerank per retrieval, bounded by the number of tests. Run this target
 # only from the explicitly credentialed model-release lane or an authorized
-# operator shell.
+# operator shell. test_coverage.py's marked tests are SQL-only and add no spend.
 #
 # Keep the marker check below. It fails closed if a marked test is ever silently
 # skipped here, so a missing DSN can never present as a pass.
@@ -458,6 +464,7 @@ test-aurora-invariants:
 		exit 2; \
 	}
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m pytest -q -rs \
+		tests/test_coverage.py \
 		tests/test_lab1_anchor_invariants.py \
 		tests/test_retrieval_scope.py
 
