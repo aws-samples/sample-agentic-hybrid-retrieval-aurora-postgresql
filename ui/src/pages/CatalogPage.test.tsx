@@ -42,6 +42,7 @@ import { CommerceDrawer } from "../components/CommerceDrawer";
 // `test` block in vite.config.ts -- so this stays scoped to this file.
 configure({ asyncUtilTimeout: 5000 });
 import { stageDwellMs } from "../components/AskMosaic";
+import { catalogGhostQueries } from "../components/CatalogSearchComposer";
 import { coreMosaicLabs } from "../labMissions";
 import { showcaseCatalogPage } from "../showcase";
 import { starterPath } from "../starters";
@@ -828,6 +829,78 @@ describe("CatalogPage", () => {
       </CommerceProvider>,
     );
   }
+
+  it("says which words the catalog does not carry, on the surface that searched", async () => {
+    // Coverage was measured, served on every search response, and rendered only
+    // by /search -- a route nothing linked to -- so no participant ever saw it.
+    // It moved here with the page's deletion rather than dying with it.
+    window.history.replaceState({}, "", "/catalog?q=quiet+keyboard+with+haptic+pedals");
+    vi.mocked(api.search).mockResolvedValue({
+      ...searchResponse,
+      coverage: {
+        confidence: "unanchored",
+        unmatched_terms: ["haptic", "pedals"],
+        terms: [],
+        note: "Two request words are absent from the catalog vocabulary.",
+      },
+    });
+    renderPage();
+
+    const notice = await screen.findByTestId("coverage-notice");
+    expect(within(notice).getByText("haptic")).toBeTruthy();
+    expect(within(notice).getByText("pedals")).toBeTruthy();
+  });
+
+  it("runs a suggested search on its own terms, not inside the browsed category", async () => {
+    // Reproduced against the running app: Running & fitness selected, then the
+    // keyboard suggestion taken, returned twelve rowing machines. The retrieval
+    // was right -- `domain` is an eligibility gate applied before ranking and it
+    // was still on -- so the fix belongs to what the pill sends, not to ranking.
+    window.history.replaceState({}, "", "/catalog?domain=running_fitness");
+    vi.mocked(api.search).mockResolvedValue(searchResponse);
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+
+    const suggestion = screen.getByRole("button", {
+      name: catalogGhostQueries[0],
+    });
+    fireEvent.click(suggestion);
+
+    await waitFor(() => expect(api.search).toHaveBeenCalled());
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get("q")).toBe(catalogGhostQueries[0]);
+    // The gate the shopper was browsing under is gone, and so is the run that
+    // was retrieved under it.
+    expect(params.get("domain")).toBeNull();
+    expect(params.get("event")).toBeNull();
+    // And the request actually sent carries no domain either.
+    expect(vi.mocked(api.search).mock.calls.at(-1)?.[1]).toMatchObject({
+      domain: undefined,
+    });
+  });
+
+  it("keeps the browsed category for a query the shopper typed", async () => {
+    // The other half of the rule, and the reason this is not a blanket clear: a
+    // typed query refines the view in front of the shopper, and the gates it
+    // forwards are what a lab verdict compares a run against.
+    window.history.replaceState({}, "", "/catalog?domain=running_fitness");
+    vi.mocked(api.search).mockResolvedValue(searchResponse);
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+
+    const field = screen.getByRole("combobox", { name: "Product search" });
+    fireEvent.change(field, { target: { value: "carbon plate racing shoe" } });
+    fireEvent.submit(field.closest("form")!);
+
+    await waitFor(() =>
+      expect(new URLSearchParams(window.location.search).get("q")).toBe(
+        "carbon plate racing shoe",
+      ),
+    );
+    expect(new URLSearchParams(window.location.search).get("domain")).toBe(
+      "running_fitness",
+    );
+  });
 
   it("offers no comparison while browsing, because nothing has granted anything", async () => {
     // The affordance and the authority arrive together. Browsing the catalog

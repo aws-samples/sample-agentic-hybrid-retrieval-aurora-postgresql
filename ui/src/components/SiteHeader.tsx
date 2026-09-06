@@ -76,11 +76,7 @@ const navLinks = [
 function isActive(pathname: string, to: string) {
   if (to === "/") return pathname === "/" || pathname === "/discover";
   if (to === "/catalog") {
-    return (
-      pathname.startsWith("/catalog")
-      || pathname.startsWith("/search")
-      || pathname.startsWith("/products/")
-    );
+    return pathname.startsWith("/catalog") || pathname.startsWith("/products/");
   }
   // The Playground's other two lenses still live under their own paths, and the
   // nav entry has to stay lit on them or the header would report the participant

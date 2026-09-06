@@ -36,6 +36,7 @@ import {
   catalogGhostQueries,
 } from "../components/CatalogSearchComposer";
 import { CodeEditorLink } from "../components/CodeEditorLink";
+import { CoverageNotice } from "../components/CoverageNotice";
 import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { ProductCard } from "../components/ProductCard";
@@ -801,6 +802,35 @@ export function CatalogPage() {
     setSearchParams(next);
   }
 
+  /**
+   * A suggested search replaces the request, gates included.
+   *
+   * The pills state a complete need -- "quiet mechanical keyboard for a shared
+   * office" already names the category and the setting -- so running one inside
+   * whatever the shopper happened to be browsing is not a refinement of it, it
+   * is a contradiction. Selecting Running & fitness and then taking the keyboard
+   * suggestion returned twelve rowing machines, and returned them *correctly*:
+   * the domain gate is an eligibility filter applied before ranking, and nothing
+   * had turned it off.
+   *
+   * A typed query still keeps the filters. That one is a deliberate refinement
+   * of a view the shopper is looking at, and the gates it forwards are what the
+   * lab verdicts compare a run against.
+   *
+   * Built from nothing rather than filtered down, for the same reason
+   * `clearFilters` is: `event` records the run retrieved under the old gates,
+   * and it must not survive into a URL that no longer applies them.
+   */
+  function searchSuggestion(query: string) {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return;
+    const next = new URLSearchParams();
+    if (sort !== "featured") next.set("sort", sort);
+    next.set("q", trimmed);
+    next.set("view", "results");
+    setSearchParams(next);
+  }
+
   function clearSearch() {
     const next = new URLSearchParams(searchParams);
     next.delete("q");
@@ -1090,7 +1120,7 @@ export function CatalogPage() {
                     <button
                       type="button"
                       key={suggestion}
-                      onClick={() => searchCatalog(suggestion)}
+                      onClick={() => searchSuggestion(suggestion)}
                     >
                       {suggestion}
                     </button>
@@ -1433,6 +1463,12 @@ export function CatalogPage() {
               </button>
             ) : null}
           </div>
+
+          {/* Which words of the request the catalog does not carry. This used to
+              render only on /search, a route nothing linked to, so coverage was
+              measured and served and never shown to anybody. It belongs where
+              the searching happens. */}
+          <CoverageNotice coverage={retrieval?.coverage} />
 
           {/* One disclosure, and the bridge out of it. Everything a shopper needs
               is above; a participant who wants the SQL follows their own words

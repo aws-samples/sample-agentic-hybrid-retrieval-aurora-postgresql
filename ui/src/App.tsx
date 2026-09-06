@@ -22,14 +22,10 @@ const ProductPage = lazy(() =>
 const RetrievalLabPage = lazy(() =>
   import("./pages/RetrievalLabPage").then(({ RetrievalLabPage: Page }) => ({ default: Page })),
 );
-const SearchPage = lazy(() =>
-  import("./pages/SearchPage").then(({ SearchPage: Page }) => ({ default: Page })),
-);
 
 function titleForPath(pathname: string): string {
   if (pathname === "/" || pathname === "/discover") return "Discover | Mosaic";
   if (pathname === "/catalog") return "Shop | Mosaic";
-  if (pathname === "/search") return "Search | Mosaic";
   if (pathname.startsWith("/products/")) return "Product details | Mosaic";
   if (pathname === "/labs/retrieval") return "Playground | Mosaic";
   if (pathname === "/mosaic-labs/hnsw") return "Vector index at scale | Mosaic";
@@ -59,7 +55,6 @@ function RoutedSurface() {
           <Route path="/" component={DiscoverPage} />
           <Route path="/discover" component={DiscoverPage} />
           <Route path="/catalog" component={CatalogPage} />
-          <Route path="/search" component={SearchPage} />
           <Route path="/mosaic-labs/hnsw" component={PerformancePage} />
           <Route path="/mosaic-labs/studio" component={MosaicStudioPage} />
           <Route path="/mosaic-labs">
