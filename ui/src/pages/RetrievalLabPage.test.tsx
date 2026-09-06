@@ -700,7 +700,8 @@ describe("RetrievalLabPage", () => {
 
   it("bridges each customer word to the PostgreSQL feature behind it", () => {
     // The whole reason this surface exists, so it is above the stages and not
-    // behind a disclosure.
+    // behind a disclosure. Before a run it is also the only place carrying the
+    // mapping: the dormant Retrieve stage lists the three arm labels alone.
     const { container } = render(<RetrievalLabPage />);
     const bridge = container.querySelector(".labs-bridge")!;
     const pairs = [...bridge.querySelectorAll("dl > div")].map((row) => [
@@ -713,6 +714,25 @@ describe("RetrievalLabPage", () => {
       ["Close spelling", "pg_trgm"],
       ["Meaning match", "pgvector / HNSW"],
     ]);
+  });
+
+  it("stands the bridge's mapping down once the channel map carries it", async () => {
+    // Measured on the running page: after a run the bridge's three rows and the
+    // Retrieve channel map's three rows are the same pairs, in the same words,
+    // about one screen apart -- and the channel map adds the index that served
+    // each arm, the candidates it found, and when it earns its place. Two copies
+    // of one table, the smaller one first, is the reading tax this removes.
+    const { container } = render(<RetrievalLabPage />);
+    expect(container.querySelectorAll(".labs-bridge dl > div")).toHaveLength(3);
+
+    fireEvent.click(screen.getByRole("button", { name: "Run pipeline" }));
+    await screen.findByText("Repair verified");
+
+    expect(container.querySelector(".labs-bridge dl")).toBeNull();
+    // The contract sentence is not a glossary row and stays in both states.
+    expect(
+      container.querySelector(".labs-bridge")?.textContent,
+    ).toContain("Every number on this page is a value the run reported.");
   });
 
   it("carries one way to start each of the three things it can run", () => {

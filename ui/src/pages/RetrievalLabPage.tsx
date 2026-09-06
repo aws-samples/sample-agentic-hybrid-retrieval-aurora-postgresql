@@ -749,17 +749,28 @@ export function RetrievalLabPage() {
 
       {/* The bridge, above the three stages: the words Shop uses on the left, the
           PostgreSQL feature that produced them on the right. It is the whole
-          reason this surface exists, so it is not behind a disclosure. */}
+          reason this surface exists, so it is not behind a disclosure.
+
+          The mapping half stands down once a run has landed. Before one, it is
+          the only place on screen carrying it -- the dormant Retrieve stage
+          lists the three arm labels with no mechanism beside them. After one,
+          `RetrievalChannelMap` prints the same three pairs verbatim and adds the
+          index that served each, the candidates it found, and when it earns its
+          place, so keeping this row too would put a strictly smaller copy of the
+          same table one screen above the real one. The paragraph stays either
+          way: it is the page's contract, not a glossary. */}
       <section className="labs-bridge" aria-labelledby="labs-bridge-title">
         <h2 id="labs-bridge-title">What Shop calls it, and what Aurora runs</h2>
-        <dl>
-          {armLanguage.map((arm) => (
-            <div key={arm.key}>
-              <dt>{arm.label}</dt>
-              <dd><code>{arm.mechanism}</code></dd>
-            </div>
-          ))}
-        </dl>
+        {response ? null : (
+          <dl>
+            {armLanguage.map((arm) => (
+              <div key={arm.key}>
+                <dt>{arm.label}</dt>
+                <dd><code>{arm.mechanism}</code></dd>
+              </div>
+            ))}
+          </dl>
+        )}
         <p>
           One query, three product lists. Aurora combines their positions, then
           reranks the shared pool. Every number on this page is a value the run
