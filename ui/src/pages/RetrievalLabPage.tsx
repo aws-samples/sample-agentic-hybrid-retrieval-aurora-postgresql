@@ -668,13 +668,6 @@ export function RetrievalLabPage() {
     <div className="page mosaic-labs-page labs-premium lab-page" ref={pageRef}>
       <MosaicLabsTabs active="retrieval" />
 
-      {/* Where the participant is and what the room currently holds, in that
-          order, above everything a run produces. Both are about the session
-          rather than about any one run, which is why they sit above the
-          masthead's controls rather than inside a stage. */}
-      <LabRail missionId={example?.id ?? null} />
-      <ReadinessStrip readiness={readiness} />
-
       <MosaicLabsMasthead
         action={(
           <form
@@ -746,6 +739,12 @@ export function RetrievalLabPage() {
         deck={RETRIEVAL_SURFACE.headline}
         title={RETRIEVAL_SURFACE.title}
       />
+
+      <LabRail
+        missionId={example?.id ?? null}
+        refreshKey={`${response?.search_event_id ?? ""}:${agentRunId ?? ""}:${baselineReads}`}
+      />
+      <ReadinessStrip readiness={readiness} />
 
       {/* The bridge, above the three stages: the words Shop uses on the left, the
           PostgreSQL feature that produced them on the right. It is the whole

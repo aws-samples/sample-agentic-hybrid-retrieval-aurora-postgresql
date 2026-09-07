@@ -821,3 +821,65 @@ def test_the_prompt_tells_the_model_what_an_unanchored_verdict_outranks():
         "call synthesize_cited_answer once with the products you retrieved"
         not in prompt
     ), "the superseded instruction to synthesize over retrieved products is back"
+
+
+def test_fallback_streams_receipts_without_blocking_other_requests(monkeypatch):
+    import threading
+    import time
+
+    state = run_state(coverage=[grounded()])
+    _install_run(monkeypatch, state)
+    monkeypatch.setattr("service.agent.build_agent", _SilentStreamingAgent)
+    entered, release = threading.Event(), threading.Event()
+    concurrent_progress = []
+    persisted = []
+    monkeypatch.setattr(
+        agent_tools,
+        "persist_completed_run",
+        lambda state, **kw: persisted.extend(state["trace"]),
+    )
+
+    def fallback(question):
+        entered.set()
+        agent_tools._record(
+            "get_product_evidence",
+            {"product_id": 101},
+            time.perf_counter(),
+            result_count=1,
+            detail="Evidence returned by fallback",
+        )
+        if not release.wait(timeout=2):
+            raise RuntimeError("event loop could not progress")
+        concurrent_progress.append(True)
+        raise RuntimeError("synthesis refused")
+
+    monkeypatch.setattr(agent_tools, "complete_grounded_answer", fallback)
+
+    async def collect():
+        events = []
+
+        async def unblock():
+            await asyncio.to_thread(entered.wait, 2)
+            release.set()
+
+        other = asyncio.create_task(unblock())
+        try:
+            async for event in ProductDiscoveryAgent().stream(
+                AgentRequest(question=QUESTION)
+            ):
+                events.append(event)
+        except RuntimeError:
+            pass
+        await other
+        return events
+
+    events = asyncio.run(collect())
+    assert concurrent_progress, "fallback blocked the event loop"
+    assert persisted, "fallback never recorded its evidence call"
+    partials = [event["agent_partial"] for event in events if "agent_partial" in event]
+    assert partials[-1].trace[-1].tool == "get_product_evidence"
+    failure = next(
+        event["agent_failure"] for event in events if "agent_failure" in event
+    )
+    assert failure["agent_run_id"] == str(state["agent_run_id"])
+    assert failure["code"] == "grounding_contract"

@@ -1,7 +1,8 @@
 # Build agentic hybrid retrieval with Amazon Aurora PostgreSQL
 
 [![Project CI](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/actions/workflows/github-code-scanning/codeql)
+[![CodeQL](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/actions/workflows/github-code-scanning/codeql/badge.svg?branch=main)](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/actions/workflows/github-code-scanning/codeql)
+[![Code Quality](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/actions/workflows/github-code-quality/codeql/badge.svg?branch=main)](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/actions/workflows/github-code-quality/codeql)
 [![Python 3.13](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Node.js 22](https://img.shields.io/badge/Node.js-22-5FA04E?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
 [![PostgreSQL 18](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
@@ -43,7 +44,7 @@ Prerequisites:
 - Python `3.13` and [`uv`](https://docs.astral.sh/uv/);
 - Node.js `22` and npm, matching the workshop host, which installs the
   versioned `nodejs22 nodejs22-npm` pair and asserts `v22`
-  (`deploy/mosaic-bootstrap.sh:98`, `:109`);
+  in [`deploy/mosaic-bootstrap.sh`](deploy/mosaic-bootstrap.sh);
 - PostgreSQL client tools;
 - AWS credentials for Amazon Bedrock in `us-east-1`;
 - an Aurora PostgreSQL `DATABASE_URL` for the Mosaic catalog.
@@ -74,6 +75,10 @@ make ui-dev
 Open `http://127.0.0.1:5173`. The API defaults to
 `http://127.0.0.1:8000`. Override `UI_PORT`, `API_PORT`, or
 `CATALOG_API_PROXY` when those ports are occupied.
+
+For example, run the API with `make api-serve API_PORT=8014`, then run
+`make ui-dev UI_PORT=5174 API_PORT=8014` in the second terminal. The UI proxy
+follows `API_PORT`; an explicit `CATALOG_API_PROXY` takes precedence.
 
 Useful runtime probes:
 
@@ -108,17 +113,34 @@ the navigation prints for it (`/discover`, `/shop`, `/playground`) as well as at
 its canonical path (`/`, `/catalog`, `/labs/retrieval`), which is what workshop
 instructions deep-link to:
 
-- **Discover** - editorial product discovery and direct search;
+- **Discover** - editorial product discovery, direct search, and excerpts from
+  the synthetic review corpus;
 - **Shop** - hybrid search, filters, sorting, product detail, and Ask Mosaic.
-  Results can be ticked two at a time and compared side by side; the
+  Select two to five results and compare them side by side; the
   comparison is served by `POST /api/retrieval/events/{id}/compare`, which
   retrieves nothing and reads that run's persisted receipt, so it shows which
   arms found each product and how reranking moved it. The tick boxes appear
   only once a search has run, because a retrieval's grant is what authorises
   a comparison. A search whose words the catalog does not carry says so above
   the results;
-- **Playground** - read-only inspection of retrieval, ranking, and evidence,
-  with Vector index at scale and Catalog studio alongside it.
+- **Playground** - candidate diagnostics, ranking comparison, streamed agent
+  runs, and completion proofs, with Vector index at scale and Catalog studio
+  alongside it. Agent progress and results follow one vertical reading order;
+  the recorded run remains available for inspection when synthesis fails.
+
+The storefront is designed for laptop browser viewports at normal zoom. Page
+changes use a short, soft reveal beneath the persistent navigation; reduced
+motion disables it. Ask Mosaic shows retrieval progress before bringing the
+cited answer forward and folding the activity into **Steps and sources**.
+
+<details>
+<summary>See Shop and Playground</summary>
+
+![Shop with the complete hero, product search, and Ask Mosaic invitation](docs/images/mosaic-shop.webp)
+
+![Playground with its lab controls and retrieval diagnostics](docs/images/mosaic-playground.webp)
+
+</details>
 
 Search and agent results always come from the API. The UI does not recreate
 retrieval scores or silently substitute fixture products when Aurora, Bedrock,
@@ -159,6 +181,8 @@ Aurora is both the search engine and the context system: canonical product
 metadata, FTS documents, trigram-normalized text, structured attributes,
 embeddings, HNSW indexes, evidence, retrieval events, judgments, and benchmark
 records remain in one transactionally consistent data plane.
+Search, model invocation, and synthesis span multiple transactions; persisted
+receipts connect those stages.
 
 See [the architecture reference](docs/architecture.md) and
 [the API contract](docs/api-contract.md) for the complete runtime boundaries.
@@ -182,6 +206,12 @@ starter states are injected by `scripts/lab_state.py`; a failure already present
 in the repository is a defect, not an exercise. The single source for lab
 timings, queries, targets, assertions, and checkpoints is
 [`data/evals/mosaic_labs_missions.json`](data/evals/mosaic_labs_missions.json).
+
+In Playground, **Code repaired** describes the exercise file and **SQL repair
+applied** describes the installed Aurora function. Completion proof separately
+checks the recorded behavior. Starting a new run clears the previous run's
+proof. Both the browser and CLI run the mission's required supporting controls;
+Reason also requires independent target searches and a retrieval explanation.
 
 Read [the curriculum](docs/retrieval-curriculum.md) and
 [the intentional-gap contract](docs/intentional-gaps.md) before changing a lab
@@ -267,6 +297,7 @@ make validate-evals
 FUNCTION_CENSUS_REQUIRE_DB=1 make validate-functions
 make db-verify-bootstrap
 make test
+make test-aurora-invariants
 make score-evals
 ```
 
@@ -296,20 +327,42 @@ new scorecard.
 schema-package, MCP, UI, build, and dependency-audit gates on pull requests and
 pushes to `main`.
 
-The manually dispatched **Aurora release contracts** job runs only on a
-networked self-hosted runner labeled `mosaic-aurora`. It requires:
+Release checks run on a networked self-hosted runner labeled `mosaic-aurora`:
 
-- `MOSAIC_AURORA_DATABASE_URL`;
-- `MOSAIC_AURORA_CI_ROLE_ARN`;
-- OIDC access to the configured AWS role in `us-east-1`.
+| Job | Trigger | Required configuration |
+|---|---|---|
+| Non-billed Aurora release contracts | A `v*` tag or manual workflow dispatch, after offline checks | `MOSAIC_AURORA_DATABASE_URL` and the `MOSAIC_WORKSHOP_REPO` repository variable |
+| Billed model-backed Aurora invariants | After the non-billed job, on those same release triggers | Approval through `mosaic-aurora-billed`, plus `MOSAIC_AURORA_CI_ROLE_ARN` and OIDC access in `us-east-1` |
+| Billed canonical scorecard | Manual dispatch with `run_billed_scorecard=true`, after both preceding jobs | The same approved environment, database, AWS role, and OIDC access |
 
-That job runs the live mission, evaluation, function-census, bootstrap,
-integration-test, and canonical-scorecard gates against Aurora. A missing
-database or AWS role fails closed.
+The non-billed job checks the published Studio pin and bootstrap, live missions,
+filter contracts, function census, bootstrap acceptance, and SQL integration.
+Model invocations are confined to the billed jobs. A green source CI badge
+does not certify a fresh Workshop Studio deployment or a new scorecard.
 
-GitHub CodeQL default setup scans Python and JavaScript/TypeScript. Actions are
+GitHub CodeQL default setup scans Python and JavaScript/TypeScript; Code Quality
+runs as a separate GitHub workflow. Actions are
 pinned to full commit SHAs, workflow permissions are minimal, and dependency
 auditing is part of the UI gate.
+
+### Publish source and repin Workshop Studio
+
+Commit and push the validated application changes before repinning. From the
+companion Workshop Studio checkout, run:
+
+```bash
+uv run --no-project --with PyYAML==6.0.3 python scripts/repin.py \
+  --source-repo ../sample-agentic-hybrid-retrieval-aurora-postgresql
+uv run --no-project --with PyYAML==6.0.3 python scripts/repin.py --check \
+  --source-repo ../sample-agentic-hybrid-retrieval-aurora-postgresql
+```
+
+The repin requires a clean source checkout at published `origin/main`. It
+updates every source-revision consumer, the bootstrap hash, and the derived
+infrastructure revision together. The event owner then publishes the Studio
+assets to S3, verifies the delivered bootstrap, validates the Studio checkout,
+and commits and pushes that repository. The complete procedure belongs to its
+`FACILITATOR_GUIDE.md`.
 
 ## Aurora bootstrap and recovery
 

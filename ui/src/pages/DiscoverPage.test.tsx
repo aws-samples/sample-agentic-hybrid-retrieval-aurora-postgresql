@@ -435,7 +435,7 @@ describe("DiscoverPage", () => {
     expect(container.querySelector(".discover-editorial-picks")).toBeNull();
   });
 
-  it("quotes real customer voices with the products they reviewed", async () => {
+  it("pairs catalog review excerpts with decorative AI portraits and product links", async () => {
     vi.mocked(api.reviewHighlights).mockResolvedValue(voicesFixture);
     const { container } = renderPage();
 
@@ -444,6 +444,12 @@ describe("DiscoverPage", () => {
     });
     const quote = container.querySelector(".discover-voice blockquote")!;
     expect(quote.textContent).toContain(voicesFixture[0].quote);
+    const portrait = container.querySelector(".discover-voice-portrait")!;
+    expect(portrait.getAttribute("src")).toBe(
+      "/assets/images/mosaic/voices/voice-01.webp",
+    );
+    expect(portrait.getAttribute("alt")).toBe("");
+    expect(screen.getByText("Synthetic reviews · AI portraits")).toBeTruthy();
     const caption = container.querySelector(".discover-voice figcaption")!;
     expect(caption.textContent).toContain("5.0");
     expect(caption.textContent).toContain("Verified purchase");
@@ -458,6 +464,9 @@ describe("DiscoverPage", () => {
     expect(
       container.querySelector(".discover-voice blockquote")?.textContent,
     ).toContain(voicesFixture[1].quote);
+    expect(
+      container.querySelector(".discover-voice-portrait")?.getAttribute("src"),
+    ).toBe("/assets/images/mosaic/voices/voice-02.webp");
   });
 
   it("advances to the next voice on its own", async () => {

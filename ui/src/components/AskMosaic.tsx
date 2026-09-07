@@ -94,14 +94,6 @@ export interface AskMosaicTurn {
   loading: boolean;
 }
 
-/**
- * The concierge's four steps, named for what a shopper gets out of each one.
- *
- * They read "Interpret / Retrieve / Compare / Cite" over titles like "Intent
- * understanding" and "Cite & summarize" — a pipeline diagram in a panel a
- * shopper opens to be helped choosing headphones. Understanding, Recommendations,
- * Compare, Why these: same four steps, same four panels, same measured content.
- */
 const fullRetrievalStages: Array<{
   id: AssistStage;
   label: string;
@@ -110,49 +102,47 @@ const fullRetrievalStages: Array<{
 }> = [
   {
     id: "understand",
-    label: "Understanding",
-    title: "What I understood",
-    description: "Turning your request into catalog filters.",
+    label: "Request",
+    title: "Search criteria",
+    description: "Identifying requirements and catalog filters from your request.",
   },
   {
     id: "retrieve",
-    label: "Recommendations",
-    title: "What I found",
-    description: "Searching the catalog for products with records behind them.",
+    label: "Retrieval",
+    title: "Product shortlist",
+    description: "Finding relevant products within your search criteria.",
   },
   {
     id: "rank",
-    label: "Compare",
-    title: "How they compare",
-    description: "Weighing the shortlist on catalog facts, side by side.",
+    label: "Comparison",
+    title: "Product comparison",
+    description: "Comparing features and trade-offs using catalog records.",
   },
   {
     id: "answer",
-    label: "Why these",
-    // Not "Why these" twice. The label sits in this card's eyebrow now, directly
-    // above the title, and a step that names itself twice reads as a stutter.
-    title: "What this rests on",
-    description: "Naming the product records the recommendation rests on.",
+    label: "Attribution",
+    title: "Supporting evidence",
+    description: "Linking recommendations to their source records.",
   },
 ];
 
 const focusedFollowUpStages: typeof fullRetrievalStages = [
   {
     id: "understand",
-    label: "Understanding",
-    title: "What you're asking about",
-    description: "Reading your follow-up against the products I just found.",
+    label: "Request",
+    title: "Follow-up context",
+    description: "Interpreting your follow-up in the context of the current shortlist.",
   },
   {
     id: "rank",
-    label: "Compare",
-    title: "How they compare",
-    description: "Reading only the records this question needs.",
+    label: "Comparison",
+    title: "Product comparison",
+    description: "Reviewing the product records relevant to your follow-up.",
   },
   {
     id: "answer",
-    label: "Why these",
-    title: "What this rests on",
+    label: "Attribution",
+    title: "Supporting evidence",
     description: "Checking the new answer against freshly retrieved evidence.",
   },
 ];
@@ -303,10 +293,10 @@ function StageRail({
     stages.findIndex((item) => item.id === presentedStage),
   );
   return (
-    <section className="ask-mosaic-timeline" aria-label="Steps I took">
+    <section className="ask-mosaic-timeline" aria-label="Retrieval activity">
       <p className="ask-mosaic-timeline-heading">
         <GitCompareArrows size={14} aria-hidden="true" />
-        Steps I took
+        Retrieval activity
       </p>
       <ol className="ask-mosaic-progress" aria-label="Ask Mosaic activity">
         {stages.map((stage, index) => {
@@ -333,13 +323,8 @@ function StageRail({
             : stage.description;
           return (
             <li className={state} key={stage.id}>
-              {/* The rail is the node and the connector, nothing else. The step
-                  name used to sit beside the node in a 104px track, which left
-                  the text 64px: "Recommendations" is one unbreakable 110px word,
-                  so it overflowed and the card's own background painted over the
-                  spill. Measured before the fix: client=64, scroll=110. As a card
-                  eyebrow it cannot clip at any label length, and the 72px the
-                  rail gave back go to the shortlist and the comparison. */}
+              {/* Keeping labels inside the card preserves space for their text
+                  and the comparison at narrow drawer widths. */}
               <span className="ask-mosaic-stage-rail">
                 <span className="ask-mosaic-stage-node" aria-hidden="true">
                   {state === "complete"
@@ -1205,6 +1190,12 @@ function Turn({
       </div>
 
       {turn.loading || turn.stage || response ? (
+        <details className="ask-mosaic-process" open={!answerVisible || Boolean(turn.error)}>
+          <summary>
+            <span>{turn.error ? "Request details" : answerVisible ? "Steps and sources" : "Search in progress"}</span>
+            <small>{turn.error ? "Request interrupted" : answerVisible ? "Inspect what Mosaic used" : presentedStageTitle}</small>
+            <ChevronDown size={16} aria-hidden="true" />
+          </summary>
         <StageRail
           actualStage={actualStage}
           complete={answerSettled}
@@ -1216,6 +1207,7 @@ function Turn({
           panels={stagePanels}
           onPresentationProgress={onStageProgress}
         />
+        </details>
       ) : null}
 
       {turn.error ? (
@@ -1372,6 +1364,10 @@ function EntryState({
   const fuzzy = misspelledExample(examples);
   return (
     <section className="ask-mosaic-empty">
+      <div className="ask-mosaic-welcome">
+        <h3>Find your next good fit.</h3>
+        <p>Tell me what matters: your space, your budget, or the details you won't compromise on.</p>
+      </div>
       {starters.length ? (
         <div className="ask-mosaic-starters">
           <h4>Try asking</h4>
@@ -1667,7 +1663,7 @@ export function AskMosaic({
             <span><Sparkles size={19} /></span>
             <div>
               <h2 id="ask-mosaic-title">Ask Mosaic</h2>
-              <p>A concierge that shows its work</p>
+              <p>Thoughtful picks. Sources you can inspect.</p>
             </div>
           </div>
           {/* Only once there is something to discard. On the entry state the

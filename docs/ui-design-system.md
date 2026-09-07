@@ -99,11 +99,15 @@ micro size with 0.05em tracking.
 
 ## Chrome behaviour
 
+- The site header contains navigation, Code Editor when configured, and the bag.
+  Repair status belongs to the Playground rail and completion proof. Its labels
+  distinguish “Code repaired” from “SQL repair applied”; neither substitutes
+  for passing behavioral checks. The rail refreshes after a new run or proof.
 - The labs rail is sticky under the header. Once it sticks it condenses:
   the edit line and the next-lab link fold away and the lab name, stage
   links, and state chips share one row. `LabRail` reads the stuck state from
   an `IntersectionObserver` against a root shrunk by the header, and holds
-  its flow footprint constant with a matching negative bottom margin so
+  its flow footprint constant with a matching positive bottom margin so
   nothing under it moves. It measures its own height into
   `--labs-rail-height`, which the stage anchors add to their scroll margin.
 - The rank comparison box chains vertical scrolling to the page and caps its
@@ -112,12 +116,40 @@ micro size with 0.05em tracking.
 - With a query on the URL, the Shop hero drops its editorial still, the
   headline falls to one line, and the console meets it, so the first result
   is inside the first viewport on a 1366x768 laptop. Without a query the
-  full hero stands.
+  full hero stands. Desktop browsing uses a 1340px shell cap and scales the
+  visible photograph and its overlap together, matching the approved 90%
+  reference at normal browser zoom. The complete Ask Mosaic explanation
+  remains visible across the 900px viewport-height boundary. A 58px search
+  field, 18px inset, and 40px example pills keep the strip in proportion;
+  touch targets stay at least 44px high. Search results and the open sidecar
+  retain their denser layouts. The photograph shares the strip's right edge.
+- Playground opens with its title and full-width query controls, then the
+  sticky lab rail. The rank table's reading guide collapses when a recorded
+  response is available. Run provenance names Aurora and the event ID; replay
+  does not claim the request ran just now in this browser.
+- Ask Mosaic shows the activity trail during retrieval. When the answer
+  becomes available, the trail folds into “Steps and sources” so the answer
+  leads while the searches, comparisons, evidence, and tool activity remain
+  inspectable.
+- Navigation reveals the destination with a 240ms opacity transition beneath
+  the persistent header. It begins after the route's code loads, resets scroll
+  and keyboard focus for a new page, and leaves query changes mounted. Reduced
+  motion disables the reveal; fixed drawers and sticky rails remain untransformed.
+- Playground's agent run moves focus to one results area when submitted.
+  Subsequent stream updates do not move focus or scroll the page. The service's
+  latest stage and client elapsed time sit above a stable answer area. Retrieval
+  details contain compact product rows; evidence and citations form a separate
+  disclosure that opens after an error. Partial receipts never appear above
+  the answer and push it down as they arrive.
 - Stage 04 Prove reads verdict, then the maintainers' release baseline,
   then the package finale. While the baseline is held for an unmeasured
   revision it collapses to one disclosure line; opened, the full record and
   its provenance are there.
 - Disclosures are native `<details>`, each with a hint of what is inside.
+- Completion proof keeps failed checks visible and passing checks expandable.
+  Both outcomes retain their receipts and can download the exact measured
+  JSON. The final skill download packages the canonical skill folder and its
+  relative references.
 
 ## Route architecture
 

@@ -1108,13 +1108,7 @@ def test_focused_followup_persists_inherited_scope_for_the_next_turn():
 
     assert persisted["search_event_ids"] == []
     assert persisted["context_search_event_ids"] == [str(inherited_event_id)]
-    assert persisted["selected_products"] == [
-        {
-            "product_id": 101,
-            "title": "AuriLogic Flight ANC",
-            "model": "FL-48",
-        }
-    ]
+    assert persisted["selected_products"] == [product().model_dump(mode="json")]
 
 
 def test_focused_followup_synthesis_does_not_require_a_ranking_replay(
@@ -1796,6 +1790,49 @@ def test_agent_stream_forwards_strands_tool_stages_and_validated_answer(monkeypa
     assert "event: answer_delta" in stream.text
     assert "event: complete" in stream.text
     assert "Choose the quiet option [1]." in stream.text
+
+
+def test_failed_stream_exposes_its_persisted_run_and_last_receipts(monkeypatch):
+    from service.models import AgentPartial, ToolTraceStep
+
+    run_id = str(uuid4())
+
+    class FailedAgent:
+        async def stream(self, _request):
+            yield {
+                "agent_partial": AgentPartial(
+                    plan=[],
+                    candidates=[],
+                    trace=[
+                        ToolTraceStep(
+                            sequence=1,
+                            tool="get_product_evidence",
+                            detail="Evidence loaded",
+                            result_count=1,
+                            origin="controller_fallback",
+                        )
+                    ],
+                )
+            }
+            yield {
+                "agent_failure": {
+                    "agent_run_id": run_id,
+                    "code": "grounding_contract",
+                    "detail": "Internal validation failure",
+                }
+            }
+
+    monkeypatch.setattr("service.main.get_product_discovery_agent", FailedAgent)
+    stream = TestClient(app).post(
+        "/api/agent/answer/stream", json={"question": "Find a quiet keyboard"}
+    )
+    assert stream.status_code == 200
+    assert stream.text.index("event: partial") < stream.text.index("event: error")
+    assert "get_product_evidence" in stream.text
+    assert run_id in stream.text
+    assert "grounding_contract" in stream.text
+    assert "Internal validation failure" not in stream.text
+    assert "event: complete" not in stream.text
 
 
 def test_agent_stream_uses_a_compact_path_for_grounded_followups(monkeypatch):

@@ -93,14 +93,33 @@ def _graded(checks: list[LabCheck]) -> list[str]:
 
 def validate_lab_1(base_url: str) -> list[str]:
     mission = _mission("retrieve")
-    return _graded(lab_checks.lab_1_checks(mission, _search(base_url, mission)))
+    checks = _graded(lab_checks.lab_1_checks(mission, _search(base_url, mission)))
+    return checks + _validate_controls(base_url, 1)
 
 
 def validate_lab_2(base_url: str) -> list[str]:
     mission = _mission("rank")
     first = _search(base_url, mission)
     second = _search(base_url, mission)
-    return _graded(lab_checks.lab_2_checks(mission, first, second))
+    checks = _graded(lab_checks.lab_2_checks(mission, first, second))
+    return checks + _validate_controls(base_url, 2)
+
+
+def _validate_controls(base_url: str, lab_id: int) -> list[str]:
+    checks = []
+    for mission in lab_checks.supporting_checks_for_lab(lab_id):
+        response = _search(base_url, mission)
+        receipt = _request(
+            base_url, f"/api/retrieval/events/{response['search_event_id']}"
+        )
+        checks.extend(
+            _graded(
+                lab_checks.retrieval_control_checks(
+                    mission, response, receipt.get("candidates") or []
+                )
+            )
+        )
+    return checks
 
 
 def _receipts(base_url: str, agent: dict[str, Any]) -> tuple[RetrievalReceipt, ...]:

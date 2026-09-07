@@ -41,6 +41,7 @@ function RoutedSurface() {
   useEffect(() => {
     document.title = titleForPath(pathname);
     if (previousPathname.current !== pathname) {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
       document.getElementById("main-content")?.focus({ preventScroll: true });
     }
     previousPathname.current = pathname;
@@ -51,42 +52,46 @@ function RoutedSurface() {
       <Suspense
         fallback={<p className="route-loading" role="status">Loading Mosaic...</p>}
       >
-        <Switch>
-          <Route path="/" component={DiscoverPage} />
-          <Route path="/discover" component={DiscoverPage} />
-          <Route path="/catalog" component={CatalogPage} />
-          {/* Same reason as /playground below: the name in the navigation has to
-              be typeable. Two of the three nav labels already were -- /discover
-              resolves and /playground redirects -- while /shop fell through to
-              the catch-all and dropped the participant on Discover with nothing
-              said. The canonical path stays /catalog, which is what the workshop
-              instructions deep-link to. */}
-          <Route path="/shop">
-            <Redirect to="/catalog" replace />
-          </Route>
-          <Route path="/mosaic-labs/hnsw" component={PerformancePage} />
-          <Route path="/mosaic-labs/studio" component={MosaicStudioPage} />
-          <Route path="/mosaic-labs">
-            <Redirect to="/labs/retrieval" replace />
-          </Route>
-          <Route path="/inspiration">
-            <Redirect to="/labs/retrieval" replace />
-          </Route>
-          <Route path="/products/:productId" component={ProductPage} />
-          <Route path="/labs/retrieval" component={RetrievalLabPage} />
-          {/* The surface is named Playground in navigation, so the name is
-              typeable. The canonical path stays /labs/retrieval, which is what
-              the workshop instructions deep-link to. */}
-          <Route path="/playground">
-            <Redirect to="/labs/retrieval" replace />
-          </Route>
-          <Route path="/labs/performance">
-            <Redirect to="/mosaic-labs/hnsw" replace />
-          </Route>
-          <Route>
-            <Redirect to="/" replace />
-          </Route>
-        </Switch>
+        {/* Inside Suspense so the reveal starts when the destination is ready.
+            Query updates keep this surface mounted and preserve its controls. */}
+        <div className="route-surface" key={pathname}>
+          <Switch>
+            <Route path="/" component={DiscoverPage} />
+            <Route path="/discover" component={DiscoverPage} />
+            <Route path="/catalog" component={CatalogPage} />
+            {/* Same reason as /playground below: the name in the navigation has to
+                be typeable. Two of the three nav labels already were -- /discover
+                resolves and /playground redirects -- while /shop fell through to
+                the catch-all and dropped the participant on Discover with nothing
+                said. The canonical path stays /catalog, which is what the workshop
+                instructions deep-link to. */}
+            <Route path="/shop">
+              <Redirect to="/catalog" replace />
+            </Route>
+            <Route path="/mosaic-labs/hnsw" component={PerformancePage} />
+            <Route path="/mosaic-labs/studio" component={MosaicStudioPage} />
+            <Route path="/mosaic-labs">
+              <Redirect to="/labs/retrieval" replace />
+            </Route>
+            <Route path="/inspiration">
+              <Redirect to="/labs/retrieval" replace />
+            </Route>
+            <Route path="/products/:productId" component={ProductPage} />
+            <Route path="/labs/retrieval" component={RetrievalLabPage} />
+            {/* The surface is named Playground in navigation, so the name is
+                typeable. The canonical path stays /labs/retrieval, which is what
+                the workshop instructions deep-link to. */}
+            <Route path="/playground">
+              <Redirect to="/labs/retrieval" replace />
+            </Route>
+            <Route path="/labs/performance">
+              <Redirect to="/mosaic-labs/hnsw" replace />
+            </Route>
+            <Route>
+              <Redirect to="/" replace />
+            </Route>
+          </Switch>
+        </div>
       </Suspense>
     </RouteErrorBoundary>
   );

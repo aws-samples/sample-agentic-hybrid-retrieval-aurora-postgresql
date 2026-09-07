@@ -1667,7 +1667,7 @@ describe("RetrievalLabPage", () => {
       const href = within(rail).getByRole("link", { name: stage }).getAttribute("href")!;
       expect(container.querySelector(href)?.textContent).toBe(stage);
     }
-    expect(await within(rail).findByText("source: broken")).toBeTruthy();
+    expect(await within(rail).findByText("Code needs repair")).toBeTruthy();
     // The readiness read is rejected in this suite, so no row may claim a value.
     expect(within(strip).getAllByText("not checked").length).toBe(9);
   });

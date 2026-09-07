@@ -419,6 +419,9 @@ def _record(
         }
     )
 
+    if callback := state.get("_progress_callback"):
+        callback()
+
 
 def _failure(message: str, recovery: str) -> dict[str, Any]:
     return {"ok": False, "error": message, "recovery": recovery}
@@ -1400,14 +1403,7 @@ def _persisted_intent(
         "outcome": record.get("outcome", "grounded") if record else None,
         "decline_reason": record.get("decline_reason") if record else None,
         "selected_products": (
-            [
-                {
-                    "product_id": product.product_id,
-                    "title": product.title,
-                    "model": product.model,
-                }
-                for product in record["recommendations"]
-            ]
+            [product.model_dump(mode="json") for product in record["recommendations"]]
             if record
             else []
         ),

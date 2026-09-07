@@ -7,12 +7,11 @@ import { formatPriceCompact, leafCategory } from "../format";
 import { productImageMap } from "../media";
 import { Criteria, Searches } from "./agentAnswerParts";
 import { CodeBlock } from "./CodeBlock";
+import { ReasonRunStatus, type AgentPhase } from "./ReasonRunStatus";
 import {
   PlaygroundDisclosure,
   PlaygroundDisclosureShelf,
   PlaygroundDormant,
-  PlaygroundFigure,
-  PlaygroundFigures,
 } from "./PlaygroundStage";
 import type {
   AgentCitation,
@@ -62,13 +61,9 @@ import type {
  *   product retrieved      ->  successful search_products steps, result_count
  *   grounded answer         ->  whether this run produced the answer of record
  *
- * The chain audits an answer, so the answer comes first. Above it, in the order
- * the run produced them: the filters retrieval enforced and the searches issued
- * (`response.plan`), the products those searches returned
- * (`response.recommendations`), the answer of record itself (`response.answer`),
- * and the quote, product, source URI and revision behind every claim
- * (`response.citations`). Without them a participant who repaired Lab 3 watched
- * six rows turn green and never read the sentence the repair bought.
+ * The answer stays above the inspection details, so partial retrieval updates
+ * cannot push it further down the page. The evidence chain opens automatically
+ * after an error because it carries the facts needed to diagnose the refusal.
  */
 
 type ChainState = "pass" | "blocked" | "pending";
@@ -303,13 +298,12 @@ interface ReasonStageProps {
   question: string;
   filters: SearchFilters;
   /**
-   * The run this stage just persisted, handed up as soon as it completes.
+   * Clear the prior proof on start; publish the persisted run on success or failure.
    *
    * Lab 3's completion proof grades a persisted turn rather than spending a new
-   * one, so it has to be told which turn to read, and this is the only place
-   * that id exists.
+   * one, so it must follow the current attempt even when that attempt fails.
    */
-  onAgentRun?: (agentRunId: string) => void;
+  onAgentRun?: (agentRunId: string | null) => void;
 }
 
 export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps) {
@@ -324,6 +318,12 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
   const [contracts, setContracts] = useState<ToolContract[] | null>(null);
   const [contractsError, setContractsError] = useState("");
   const [contractsPending, setContractsPending] = useState(false);
+  const [phase, setPhase] = useState<AgentPhase | null>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [finishedAt, setFinishedAt] = useState<number | null>(null);
+  const [failedRunId, setFailedRunId] = useState<string | null>(null);
+  const runPanel = useRef<HTMLDivElement>(null);
+  const runInFlight = useRef(false);
   const runVersion = useRef(0);
   const recordsRequestVersion = useRef(0);
   const contractsRequestVersion = useRef(0);
@@ -331,6 +331,21 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
   useEffect(() => {
     setDraft(question);
   }, [question]);
+
+  // Move to the run once. Incoming receipts must not pull a reader away from
+  // evidence they have chosen to inspect.
+  useEffect(() => {
+    if (startedAt === null) return;
+    const panel = runPanel.current;
+    panel?.focus({ preventScroll: true });
+    panel?.scrollIntoView?.({ block: "start", behavior: "instant" });
+  }, [startedAt]);
+
+  useEffect(() => () => {
+    runVersion.current += 1;
+    recordsRequestVersion.current += 1;
+    contractsRequestVersion.current += 1;
+  }, []);
 
   const trace: ToolTraceStep[] = response?.trace ?? partial?.trace ?? [];
   const plan: AgentPlanStep[] = response?.plan ?? partial?.plan ?? [];
@@ -405,10 +420,16 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
   }
 
   async function run(requestedQuestion = draft.trim()) {
-    if (requestedQuestion.length < 2) return;
+    if (runInFlight.current || requestedQuestion.length < 2) return;
+    runInFlight.current = true;
+    onAgentRun?.(null);
+    setFailedRunId(null);
     const request = ++runVersion.current;
     recordsRequestVersion.current += 1;
     setLoading(true);
+    setStartedAt(Date.now());
+    setFinishedAt(null);
+    setPhase(null);
     setError("");
     setResponse(null);
     setPartial(null);
@@ -422,7 +443,8 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
       // register what it returned.
       await api.agentStream(requestedQuestion, filters, (event) => {
         if (request !== runVersion.current) return;
-        if (event.type === "partial") setPartial(event.partial);
+        if (event.type === "stage") setPhase(event);
+        else if (event.type === "partial") setPartial(event.partial);
         else if (event.type === "answer_start" || event.type === "complete") {
           setResponse(event.response);
           if (event.type === "complete") {
@@ -437,9 +459,17 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
     } catch (cause) {
       if (request === runVersion.current) {
         setError(cause instanceof Error ? cause.message : "The agent run failed");
+        if (cause instanceof Error && "agentRunId" in cause && typeof cause.agentRunId === "string") {
+          setFailedRunId(cause.agentRunId);
+          onAgentRun?.(cause.agentRunId);
+        }
       }
     } finally {
-      if (request === runVersion.current) setLoading(false);
+      if (request === runVersion.current) {
+        runInFlight.current = false;
+        setFinishedAt(Date.now());
+        setLoading(false);
+      }
     }
   }
 
@@ -503,6 +533,7 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
           }}
           placeholder="Ask Mosaic to compare products and cite the evidence"
           rows={4}
+          readOnly={loading}
           value={draft}
         />
         {/* A labelled button, the same shape as Run pipeline in the masthead:
@@ -526,105 +557,27 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
         </div>
       </form>
 
-      {error ? (
-        <p className="labs-reason-error" role="alert">
-          <AlertTriangle aria-hidden="true" size={16} />
-          {error}
-        </p>
-      ) : null}
-
-      {trace.length || response ? (
-        <>
-          <PlaygroundFigures label="Agent run figures">
-            <PlaygroundFigure
-              label="Products retrieved"
-              value={products.length}
-              detail="returned by the agent's own searches"
-            />
-            <PlaygroundFigure
-              label="Tool calls"
-              value={trace.length}
-              detail={`${successful(trace, EVIDENCE_TOOL).length} evidence lookups`}
-            />
-            {/* "none authorized" is a verdict, so it waits for the run to stop. */}
-            <PlaygroundFigure
-              label="Evidence IDs cited"
-              value={
-                new Set(citations.map((citation) => citation.evidence_id)).size
-              }
-              detail={
-                citations.length
-                  ? citations
-                    .slice(0, 3)
-                    .map((citation) => `#${citation.evidence_id}`)
-                    .join(", ")
-                  : loading
-                    ? "still running"
-                    : "none authorized"
-              }
-            />
-          </PlaygroundFigures>
-
-          {/* The plan the agent executed, before anything it concluded from it:
-              the filters retrieval enforced, then the searches it issued. Both
-              are the same components Shop prints, over the same `plan`, so the
-              two surfaces cannot drift into two accounts of one run. */}
-          {plan.length ? (
-            <Criteria
-              headingId="reason-criteria-title"
-              plan={plan}
-              title="Filters the agent searched with"
-            />
+      {startedAt !== null ? (
+        <div className="labs-reason-run" ref={runPanel} role="region" tabIndex={-1} aria-label="Agent run results">
+          <ReasonRunStatus
+            phase={phase}
+            loading={loading}
+            startedAt={startedAt}
+            finishedAt={finishedAt}
+            error={error}
+            declined={declined}
+            runId={response?.agent_run_id ?? failedRunId ?? undefined}
+            searchCount={plan.length}
+            productCount={products.length}
+            toolCount={trace.length}
+          />
+          {error ? (
+            <p className="labs-reason-error" role="alert">
+              <AlertTriangle aria-hidden="true" size={16} />
+              {error}
+            </p>
           ) : null}
-          {plan.length ? (
-            <Searches open plan={plan} title="Searches the agent issued" />
-          ) : null}
-
-          {products.length ? (
-            <section
-              className="labs-reason-products"
-              aria-labelledby="reason-products-title"
-            >
-              <header>
-                <h3 id="reason-products-title">Products carried into reasoning</h3>
-                <small>{products.length} from this agent run</small>
-              </header>
-              <ul>
-                {products.map((product) => (
-                  <li key={product.product_id}>
-                    <img
-                      alt={product.title}
-                      src={productImages.get(product.product_id)}
-                    />
-                    <div>
-                      {/* The recommendation is a row a reader can open. The
-                          product page holds the record the evidence was drawn
-                          from, and it was one page away with no way to get there. */}
-                      <strong>
-                        <Link href={`/products/${product.product_id}`}>
-                          {product.title}
-                        </Link>
-                      </strong>
-                      <span>
-                        {product.brand} · {leafCategory(product.category_path)} ·{" "}
-                        {formatPriceCompact(product.price_cents, product.currency)}
-                      </span>
-                      <small>product {product.product_id}</small>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-
-          {/* Lab 3's payoff, and until now the one thing this stage never showed.
-              Six green rows say the repair worked; they do not say what it bought.
-              Markdown because that is what synthesis writes, and the answer is
-              printed as authored -- no emphasis added here, because on this stage
-              the text is the artifact under inspection. A declined answer is a
-              different fact than a grounded one, so it gets its own block
-              instead of a heading that claims a recommendation was made. */}
-          {response?.answer ? (
+          {response?.answer && !error ? (
             declined ? (
               <DeclinedNotice answer={response.answer} />
             ) : (
@@ -638,215 +591,290 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
                 </div>
               </section>
             )
-          ) : null}
-
-          {/* Every field that makes a citation checkable rather than asserted:
-              the quote the claim rests on, the product it is about, and the
-              source URI and revision of the record it came from. */}
-          {citations.length ? (
-            <section
-              className="labs-reason-citations"
-              aria-labelledby="reason-citations-title"
-            >
-              <h3 id="reason-citations-title">What each claim cites</h3>
-              <small>
-                Cited by the answer. The records the application authorized are listed
-                under the evidence chain below.
-              </small>
-              <ol>
-                {citations.map((citation) => (
-                  <li key={`${citation.number}-${citation.evidence_id}`}>
-                    <span>[{citation.number}]</span>
-                    <div>
-                      <strong>{citation.title}</strong>
-                      <blockquote>{citation.quote}</blockquote>
-                      <small>
-                        product {citation.product_id} · evidence{" "}
-                        {citation.evidence_id} · {citation.revision}
-                      </small>
-                      <code>{citation.source_uri}</code>
-                    </div>
-                  </li>
-                ))}
-              </ol>
+          ) : (
+            <section className="labs-reason-answer labs-reason-answer-waiting" aria-label="Agent answer">
+              <h3>{error ? "No completed answer" : "Awaiting the cited answer"}</h3>
+              <p>{error
+                ? "The available retrieval and evidence records remain below for diagnosis. Run the agent again after addressing the reported error."
+                : "The answer will appear here when synthesis has checked its sources. You can inspect the retrieval activity as it arrives below."}</p>
             </section>
-          ) : null}
+          )}
 
-          <div className="labs-citation-boundary">
-            <span>Answer evidence boundary</span>
-            <strong>
-              Retrieval makes evidence visible. Registration makes it citable.
-            </strong>
-            <p>
-              Only records registered for this run may support the answer. Synthesis
-              rejects a citation outside that set, even when the model has seen the
-              record.
-            </p>
-          </div>
-
-          <ol className="labs-chain" aria-label="Evidence state chain">
-            {chain.map((step) => (
-              <li className={`is-${step.state}`} key={step.key}>
-                <ChainMark state={step.state} />
-                <strong>{step.title}</strong>
-                <b>{step.value}</b>
-                <small>{step.source}</small>
-              </li>
-            ))}
-          </ol>
-
-          <PlaygroundDisclosureShelf>
-            <PlaygroundDisclosure
-              label="View tool calls"
-              hint={`${trace.length} receipts`}
-            >
-              <ol className="labs-trace">
-                {trace.map((step) => (
-                  <li className={step.outcome} key={step.sequence}>
-                    <span>{String(step.sequence).padStart(2, "0")}</span>
-                    <div>
-                      <code>{step.tool}</code>
-                      <small>{step.detail}</small>
-                      <p>
-                        <em>{step.outcome}</em>
-                        {step.result_count != null ? (
-                          <em>{step.result_count} rows</em>
-                        ) : null}
-                        {step.latency_ms != null ? (
-                          <em>{Math.round(step.latency_ms)} ms</em>
-                        ) : null}
-                        {step.retrieval_run_id ? (
-                          <em>run {step.retrieval_run_id.slice(0, 8)}</em>
-                        ) : null}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </PlaygroundDisclosure>
-
-            <PlaygroundDisclosure
-              key={`evidence-${response?.agent_run_id ?? "pending"}`}
-              label="View evidence records"
-              hint="fetches every cited id"
-              onOpen={loadEvidenceRecords}
-            >
-              {recordsError ? (
-                <p className="labs-disclosure-error" role="alert">{recordsError}</p>
+          <details className="labs-reason-section" key={`retrieval-${startedAt}`}>
+            <summary>
+              <span>Retrieval details</span>
+              <small>{plan.length
+                ? `${plan.length} ${plan.length === 1 ? "search" : "searches"} · ${products.length} ${products.length === 1 ? "product" : "products"}`
+                : loading ? "Waiting for retrieval activity" : "No retrieval activity recorded"}</small>
+            </summary>
+            <div className="labs-reason-section-body">
+              {/* Shared with Shop so both surfaces report the same executed plan. */}
+              {plan.length ? (
+                <Criteria
+                  headingId="reason-criteria-title"
+                  plan={plan}
+                  title="Filters the agent searched with"
+                />
               ) : null}
-              {recordsError ? (
-                <button
-                  className="secondary-button"
-                  disabled={recordsPending}
-                  onClick={loadEvidenceRecords}
-                  type="button"
+              {plan.length ? (
+                <Searches open plan={plan} title="Searches the agent issued" />
+              ) : null}
+
+              {products.length ? (
+                <section
+                  className="labs-reason-products"
+                  aria-labelledby="reason-products-title"
                 >
-                  Retry evidence records
-                </button>
-              ) : null}
-              {records === null ? (
-                <p role="status">
-                  {recordsPending
-                    ? "Resolving cited evidence ids."
-                    : "Open to resolve cited evidence ids."}
-                </p>
-              ) : records.length ? (
-                <ol className="labs-evidence-records">
-                  {records.map((record) => {
-                    const product = productById.get(record.product_id);
-                    const image = product
-                      ? productImages.get(product.product_id)
-                      : null;
-                    return (
-                      <li
-                        className={image ? "has-product-image" : undefined}
-                        key={record.evidence_id}
-                      >
-                        <span>#{record.evidence_id}</span>
-                        {image && product ? (
-                          <img
-                            alt=""
-                            aria-hidden="true"
-                            src={image}
-                          />
-                        ) : null}
+                  <header>
+                    <h3 id="reason-products-title">Products carried into reasoning</h3>
+                    <small>{products.length} from this agent run</small>
+                  </header>
+                  <ul>
+                    {products.map((product) => (
+                      <li key={product.product_id}>
+                        <img
+                          alt={product.title}
+                          src={productImages.get(product.product_id)}
+                        />
                         <div>
-                          <strong>{record.title}</strong>
-                          <small>
-                            {record.evidence_type} · {record.source_name} ·{" "}
-                            {record.revision} · product {record.product_id}
-                          </small>
-                          <p>{record.text}</p>
-                          <code>{record.source_uri}</code>
+                          {/* The recommendation is a row a reader can open. The
+                              product page holds the record the evidence was drawn
+                              from, and it was one page away with no way to get there. */}
+                          <strong>
+                            <Link href={`/products/${product.product_id}`}>
+                              {product.title}
+                            </Link>
+                          </strong>
+                          <span>
+                            {product.brand} · {leafCategory(product.category_path)} ·{" "}
+                            {formatPriceCompact(product.price_cents, product.currency)}
+                          </span>
+                          <small>product {product.product_id}</small>
                         </div>
-                      </li>
-                    );
-                  })}
-                </ol>
-              ) : citations.length ? (
-                <p>No cited evidence records resolved.</p>
-              ) : (
-                <p>
-                  This run authorized no citations, so there is no evidence id to
-                  resolve.
-                </p>
-              )}
-            </PlaygroundDisclosure>
-
-            <PlaygroundDisclosure
-              label="View tool contract"
-              hint="GET /api/tools"
-              onOpen={loadContracts}
-            >
-              {contractsError ? (
-                <p className="labs-disclosure-error" role="alert">{contractsError}</p>
-              ) : null}
-              {contractsError ? (
-                <button
-                  className="secondary-button"
-                  disabled={contractsPending}
-                  onClick={loadContracts}
-                  type="button"
-                >
-                  Retry tool contract
-                </button>
-              ) : contracts === null ? (
-                <p role="status">
-                  {contractsPending
-                    ? "Loading the registered contracts."
-                    : "Open to load the registered contracts."}
-                </p>
-              ) : (
-                <>
-                  <p className="labs-contract-note">
-                    Every call above is audited against one of these. Typed
-                    arguments only, and each contract declares whether it may
-                    write.
-                  </p>
-                  <ul className="labs-contracts">
-                    {contracts.map((contract) => (
-                      <li key={contract.name}>
-                        <code>{contract.name}</code>
-                        <em>v{contract.tool_version}</em>
-                        <b>{contract.read_only ? "read-only" : "writes"}</b>
-                        <small>{contract.description}</small>
                       </li>
                     ))}
                   </ul>
-                  <CodeBlock
-                    code={JSON.stringify(contracts, null, 2)}
-                    label="tools.agent.json"
-                  />
-                </>
-              )}
-            </PlaygroundDisclosure>
-          </PlaygroundDisclosureShelf>
-        </>
-      ) : loading ? (
-        <p className="labs-reason-awaiting" role="status">
-          Planning, retrieving, comparing, looking up evidence, and writing the
-          cited answer.
-        </p>
+                </section>
+              ) : null}
+
+
+              {!plan.length && !products.length ? <p className="labs-reason-awaiting">{loading ? "Searches and candidate products will appear as the service reports them." : "No searches or candidate products were reported."}</p> : null}
+            </div>
+          </details>
+
+          <details className="labs-reason-section" key={`evidence-${startedAt}`} open={Boolean(error)}>
+            <summary>
+              <span>Evidence and citations</span>
+              <small>{error ? "Inspect why the run stopped"
+                : recordsPending ? "Resolving cited records"
+                  : citations.length ? `${citations.length} ${citations.length === 1 ? "citation" : "citations"} · ${resolved ?? 0} ${resolved === 1 ? "record" : "records"} resolved`
+                    : loading ? "Waiting for authorized evidence" : "No citations authorized"}</small>
+            </summary>
+            <div className="labs-reason-section-body">
+              <div className="labs-citation-boundary">
+                <span>Answer evidence boundary</span>
+                <strong>
+                  Retrieval makes evidence visible. Registration makes it citable.
+                </strong>
+                <p>
+                  Only records registered for this run may support the answer. Synthesis
+                  rejects a citation outside that set, even when the model has seen the
+                  record.
+                </p>
+              </div>
+
+              <ol className="labs-chain" aria-label="Evidence state chain">
+                {chain.map((step) => (
+                  <li className={`is-${step.state}`} key={step.key}>
+                    <ChainMark state={step.state} />
+                    <strong>{step.title}</strong>
+                    <b>{step.value}</b>
+                    <small>{step.source}</small>
+                  </li>
+                ))}
+              </ol>
+
+              {/* Every field that makes a citation checkable rather than asserted:
+                  the quote the claim rests on, the product it is about, and the
+                  source URI and revision of the record it came from. */}
+              {citations.length ? (
+                <section
+                  className="labs-reason-citations"
+                  aria-labelledby="reason-citations-title"
+                >
+                  <h3 id="reason-citations-title">What each claim cites</h3>
+                  <small>
+                    Cited by the answer. The records the application authorized are listed
+                    under the evidence chain below.
+                  </small>
+                  <ol>
+                    {citations.map((citation) => (
+                      <li key={`${citation.number}-${citation.evidence_id}`}>
+                        <span>[{citation.number}]</span>
+                        <div>
+                          <strong>{citation.title}</strong>
+                          <blockquote>{citation.quote}</blockquote>
+                          <small>
+                            product {citation.product_id} · evidence{" "}
+                            {citation.evidence_id} · {citation.revision}
+                          </small>
+                          <code>{citation.source_uri}</code>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              ) : null}
+
+              <PlaygroundDisclosureShelf>
+                <PlaygroundDisclosure
+                  label="View tool calls"
+                  hint={`${trace.length} receipts`}
+                >
+                  <ol className="labs-trace">
+                    {trace.map((step) => (
+                      <li className={step.outcome} key={step.sequence}>
+                        <span>{String(step.sequence).padStart(2, "0")}</span>
+                        <div>
+                          <code>{step.tool}</code>
+                          <small>{step.detail}</small>
+                          <p>
+                            <em>{step.outcome}</em>
+                            {step.result_count != null ? (
+                              <em>{step.result_count} rows</em>
+                            ) : null}
+                            {step.latency_ms != null ? (
+                              <em>{Math.round(step.latency_ms)} ms</em>
+                            ) : null}
+                            {step.retrieval_run_id ? (
+                              <em>run {step.retrieval_run_id.slice(0, 8)}</em>
+                            ) : null}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </PlaygroundDisclosure>
+
+                <PlaygroundDisclosure
+                  key={`evidence-${response?.agent_run_id ?? "pending"}`}
+                  label="View evidence records"
+                  hint="fetches every cited id"
+                  onOpen={loadEvidenceRecords}
+                >
+                  {recordsError ? (
+                    <p className="labs-disclosure-error" role="alert">{recordsError}</p>
+                  ) : null}
+                  {recordsError ? (
+                    <button
+                      className="secondary-button"
+                      disabled={recordsPending}
+                      onClick={loadEvidenceRecords}
+                      type="button"
+                    >
+                      Retry evidence records
+                    </button>
+                  ) : null}
+                  {records === null ? (
+                    <p role="status">
+                      {recordsPending
+                        ? "Resolving cited evidence ids."
+                        : "Open to resolve cited evidence ids."}
+                    </p>
+                  ) : records.length ? (
+                    <ol className="labs-evidence-records">
+                      {records.map((record) => {
+                        const product = productById.get(record.product_id);
+                        const image = product
+                          ? productImages.get(product.product_id)
+                          : null;
+                        return (
+                          <li
+                            className={image ? "has-product-image" : undefined}
+                            key={record.evidence_id}
+                          >
+                            <span>#{record.evidence_id}</span>
+                            {image && product ? (
+                              <img
+                                alt=""
+                                aria-hidden="true"
+                                src={image}
+                              />
+                            ) : null}
+                            <div>
+                              <strong>{record.title}</strong>
+                              <small>
+                                {record.evidence_type} · {record.source_name} ·{" "}
+                                {record.revision} · product {record.product_id}
+                              </small>
+                              <p>{record.text}</p>
+                              <code>{record.source_uri}</code>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  ) : citations.length ? (
+                    <p>No cited evidence records resolved.</p>
+                  ) : (
+                    <p>
+                      This run authorized no citations, so there is no evidence id to
+                      resolve.
+                    </p>
+                  )}
+                </PlaygroundDisclosure>
+
+                <PlaygroundDisclosure
+                  label="View tool contract"
+                  hint="GET /api/tools"
+                  onOpen={loadContracts}
+                >
+                  {contractsError ? (
+                    <p className="labs-disclosure-error" role="alert">{contractsError}</p>
+                  ) : null}
+                  {contractsError ? (
+                    <button
+                      className="secondary-button"
+                      disabled={contractsPending}
+                      onClick={loadContracts}
+                      type="button"
+                    >
+                      Retry tool contract
+                    </button>
+                  ) : contracts === null ? (
+                    <p role="status">
+                      {contractsPending
+                        ? "Loading the registered contracts."
+                        : "Open to load the registered contracts."}
+                    </p>
+                  ) : (
+                    <>
+                      <p className="labs-contract-note">
+                        Every call above is audited against one of these. Typed
+                        arguments only, and each contract declares whether it may
+                        write.
+                      </p>
+                      <ul className="labs-contracts">
+                        {contracts.map((contract) => (
+                          <li key={contract.name}>
+                            <code>{contract.name}</code>
+                            <em>v{contract.tool_version}</em>
+                            <b>{contract.read_only ? "read-only" : "writes"}</b>
+                            <small>{contract.description}</small>
+                          </li>
+                        ))}
+                      </ul>
+                      <CodeBlock
+                        code={JSON.stringify(contracts, null, 2)}
+                        label="tools.agent.json"
+                      />
+                    </>
+                  )}
+                </PlaygroundDisclosure>
+              </PlaygroundDisclosureShelf>
+            </div>
+          </details>
+        </div>
       ) : (
         /* The six states the chain will report, in order, with nothing in them.
            Retrieve and Rank draw their shape while dormant; this stage did not, so
@@ -864,19 +892,10 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
         />
       )}
 
-      {/* A footnote, not a feature. Every claim here is a table this page already
-          reads back, and it says plainly what Mosaic does not remember, so the
-          question every agent session gets asked is answered on screen without
-          a memory store that would hide exactly what Lab 3 makes visible. */}
       <p className="labs-memory-note">
-        <strong>Where memory lives.</strong> Every run on this page is written to
-        Aurora before it is shown: the search and its candidates, the agent run,
-        the evidence records it cited, and the citations it was allowed to use. A
-        follow-up in Ask Mosaic reuses the shortlist from the run before it, and
-        the server, not the model, decides what that shortlist holds. Nothing here
-        remembers a shopper between visits. Adding that would be one more
-        retrieval over these same tables, with the same filters and the same
-        evidence rules, rather than a separate memory store.
+        <strong>Run records in Aurora.</strong> Completed answers retain their
+        searches, cited evidence, and tool receipts. Ask Mosaic follow-ups reuse
+        the current shortlist; this view does not retain shopper memory between visits.
       </p>
     </div>
   );

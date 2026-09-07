@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import re
+import zipfile
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -14,7 +16,7 @@ from uuid import UUID
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from psycopg import OperationalError
 from psycopg_pool import PoolTimeout
 
@@ -66,7 +68,11 @@ from service.models import (
     SearchResponse,
 )
 from service.retrieval import get_retrieval_service, signals_from_receipt
-from service.retrieval_replay import UnknownSearchEvent, replay_search_response
+from service.retrieval_replay import (
+    UnknownSearchEvent,
+    load_candidate_receipts,
+    replay_search_response,
+)
 from service.retrieval_scope import (
     SCOPE_DENIED_DETAIL,
     ScopeViolation,
@@ -450,6 +456,19 @@ async def stream_agent_answer(request: AgentRequest) -> StreamingResponse:
             )
             current_stage = "understand"
             async for event in get_product_discovery_agent().stream(request):
+                failure = event.get("agent_failure")
+                if failure is not None:
+                    yield _sse(
+                        "error",
+                        {
+                            **failure,
+                            "detail": "Grounded synthesis refused the answer. Inspect the recorded evidence and citations, repair the evidence contract, then run again."
+                            if failure.get("code") == "grounding_contract"
+                            else failure["detail"],
+                        },
+                    )
+                    return
+
                 # Retrieval that has already happened, forwarded as soon as it
                 # lands. Without this the panel holds four collapsed stages for
                 # the length of the run and reveals everything at the end.
@@ -656,16 +675,7 @@ def retrieval_event(search_event_id: UUID) -> RetrievalRunResponse:
         ).fetchone()
         if event is None:
             raise HTTPException(404, "Search event not found")
-        candidates = connection.execute(
-            """
-            SELECT product_id, result_rank, fts_rank, trigram_rank,
-                   semantic_rank, fused_rank, rerank_rank, scores, provenance
-            FROM mosaic.search_result_event
-            WHERE search_event_id = %s
-            ORDER BY result_rank
-            """,
-            (search_event_id,),
-        ).fetchall()
+        candidates = load_candidate_receipts(connection, search_event_id)
     return RetrievalRunResponse(
         run=dict(event),
         candidates=[dict(row) for row in candidates],
@@ -778,6 +788,32 @@ def tool_contracts(
 ) -> dict[str, Any]:
     """Expose one explicitly scoped view of the canonical tool contracts."""
     return {"surface": surface, "tools": contracts_for_surface(surface)}
+
+
+@app.get("/api/skill-package")
+def download_skill_package() -> Response:
+    """Download the canonical skill and its references as one portable folder."""
+    package = ROOT / "skills" / "mosaic-hybrid-retrieval"
+    files = [package / "SKILL.md", *sorted((package / "references").rglob("*.md"))]
+    if not files[0].is_file():
+        raise HTTPException(
+            status_code=503,
+            detail="The skill package is missing; restore skills/mosaic-hybrid-retrieval.",
+        )
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for path in files:
+            if path.is_file() and path.resolve().is_relative_to(package.resolve()):
+                archive.writestr(
+                    str(path.relative_to(package.parent)), path.read_bytes()
+                )
+    return Response(
+        content=output.getvalue(),
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": 'attachment; filename="mosaic-hybrid-retrieval.zip"'
+        },
+    )
 
 
 @app.get("/api/hnsw/substrate")

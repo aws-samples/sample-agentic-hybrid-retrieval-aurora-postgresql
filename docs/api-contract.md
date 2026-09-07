@@ -1,5 +1,16 @@
 # Mosaic API contract
 
+## Portable skill download
+
+`GET /api/skill-package`
+
+Returns an `application/zip` attachment named `mosaic-hybrid-retrieval.zip`.
+The archive contains the canonical `skills/mosaic-hybrid-retrieval/SKILL.md`
+and its Markdown references under one folder, preserving relative links.
+It does not query Aurora or invoke a model. A missing skill returns HTTP 503
+with the directory to restore. References resolving outside the package are
+excluded.
+
 ## Hybrid retrieval
 
 `POST /api/search`
@@ -106,6 +117,13 @@ denial.
 The streaming route emits server-sent application stages and then the same
 citation-bounded answer contract. It does not expose model reasoning or claim
 general semantic entailment.
+
+Controller fallback work streams partial tool receipts as they arrive and runs
+blocking dependencies in a worker. If a persisted run fails, the terminal
+`error` event includes `agent_run_id`, a `grounding_contract` or `agent_runtime`
+code, and a safe `detail`. The browser can inspect that failed run without
+retaining a completion verdict from an earlier attempt. Failures before a run
+is persisted may have no run ID.
 
 ## Telemetry timeline
 
@@ -315,8 +333,8 @@ The proof request body is `{"agent_run_id": uuid | null}`. The response is:
   serves;
 - `checks`, each `{name, passed, falsifier, detail}`. The falsifier is served
   next to the verdict because a green check is not evidence on its own: a
-  reader has to be able to see what would have made it fail. Lab 1 ships 4
-  checks, Lab 2 ships 5, Lab 3 ships 5;
+  reader has to be able to see what would have made it fail. With the current
+  mission contract, Lab 1 ships 11 checks, Lab 2 ships 17, and Lab 3 ships 16;
 - `evidence`: `{search_event_ids, agent_run_id, evidence_ids}`, so every
   verdict is replayable through `GET /api/retrieval/events/{search_event_id}`,
   `GET /api/telemetry/agent-turns/{agent_turn_id}`, and
@@ -339,11 +357,23 @@ Labs 1 and 2 re-run their mission's `query` and `filters` from
 `service.telemetry.search_with_telemetry` call `POST /api/search` makes, with
 `include_diagnostics` and `rerank` on and the mission's own `top_k`. Lab 2 runs
 it twice, because "the pre-rerank order is repeatable" is not answerable from
-one run. Lab 3 grades the persisted turn named by `agent_run_id` and spends no
+one run. Both labs also execute their required supporting controls from that
+same manifest: G-001/G-012 for Retrieve and G-007/G-009 for Rank. Every candidate
+in each control's persisted fused pool is checked through the production
+`mosaic_search.matches_filters` predicate. The receipt API exposes this current
+eligibility under the recorded filters as `candidates[].eligible`; it is not a
+historical availability snapshot.
+
+Lab 3 grades the persisted turn named by `agent_run_id` and spends no
 agent turn: a missing or ungrounded run fails with a falsifier naming Stage 03,
 the Reason stage that produces one. The two missing-run cases read differently,
 because they have different next steps: submitting no `agent_run_id` at all,
 and submitting one no turn was persisted under. An unknown `lab_id` is a 404.
+
+The browser applies the CLI's canonical question, target, independent-search,
+comparison, explanation, execution-origin, eligibility, and evidence predicates
+to the saved turn. If its explained search has no saved EXPLAIN plan, the proof
+captures and replays that plan; this can require embedding and database work.
 
 Lab 3's `citation evidence resolves` check compares each persisted citation
 against the evidence row it names on all five fields `GET /api/evidence/{id}`

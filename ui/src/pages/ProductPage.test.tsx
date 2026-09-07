@@ -45,6 +45,29 @@ describe("ProductPage", () => {
 
   afterEach(cleanup);
 
+  it("labels false attributes accurately and opens the actual source records", async () => {
+    const product = showcaseProductDetail(1);
+    if (!product) throw new Error("Missing product fixture");
+    vi.mocked(api.product).mockResolvedValue({ ...product, attributes: { wireless: false, connection: "USB-C" } });
+    const scroll = vi.fn();
+    const { container } = render(<CommerceProvider><ProductPage /></CommerceProvider>);
+    await screen.findByRole("heading", { name: product.title });
+    const facts = container.querySelector(".product-key-facts")!;
+    expect(facts.querySelector("dt")?.textContent).toBe("wireless");
+    expect(facts.querySelector("dd")?.textContent).toBe("No");
+    expect(facts.textContent).toContain("connectionUSB-C");
+
+    const information = container.querySelector<HTMLElement>("#product-information")!;
+    information.scrollIntoView = scroll;
+    fireEvent.click(screen.getByRole("button", { name: "Inspect source records" }));
+    const tab = container.querySelector("#product-tab-evidence")!;
+    expect(tab.getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(tab);
+    expect(scroll).toHaveBeenCalledWith({ block: "start" });
+    expect(container.querySelector('[role="tabpanel"]')?.getAttribute("aria-labelledby"))
+      .toBe("product-tab-evidence");
+  });
+
   it("ignores an older product response after the route changes", async () => {
     const first = deferredProduct();
     const second = deferredProduct();

@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from service.assertions import evaluate_signal_assertions, falsifier_for
 from service.retrieval_fingerprint import explain
 
 REPO = Path(__file__).resolve().parents[1]
@@ -127,6 +128,96 @@ def load_case(case_id: str) -> dict[str, Any]:
 def mission_for_lab(lab_id: int) -> dict[str, Any]:
     """The mission a lab is graded against."""
     return load_mission(LAB_STAGES[lab_id])
+
+
+def supporting_checks_for_lab(lab_id: int) -> list[dict[str, Any]]:
+    """Resolve required controls by placement in the canonical mission contract."""
+    contract = json.loads(MISSION_CONTRACT.read_text(encoding="utf-8"))
+    return [
+        item
+        for item in contract["supporting_checks"]
+        if item.get("core") and item.get("placement") == f"lab-{lab_id}"
+    ]
+
+
+def retrieval_control_checks(
+    mission: Mapping[str, Any],
+    response: Mapping[str, Any],
+    candidates: Sequence[Mapping[str, Any]],
+) -> list[LabCheck]:
+    """Grade each declared control assertion against a served run and its pool."""
+    results = list(response.get("results") or [])
+    diagnostics = response.get("diagnostics") or {}
+    judgments = evaluate_signal_assertions(
+        mission, diagnostics.get("candidate_counts") or {}
+    )
+    target_ids = set(mission["target_product_ids"])
+    served_ids = {item["product_id"] for item in results[: mission["top_k"]]}
+    judgments.update(
+        {
+            "target_in_top_k": bool(target_ids) and target_ids <= served_ids,
+            "hard_filters_hold": bool(candidates)
+            and all(row.get("eligible") is True for row in candidates)
+            and bool(results)
+            and all(eligible(row, mission["filters"]) for row in results),
+            "rank_provenance_present": bool(results)
+            and all(
+                all(
+                    (row.get("signals") or {}).get(key) is not None
+                    for key in ("pre_rerank_rank", "final_rank")
+                )
+                for row in results
+            ),
+            "rerank_score_present": bool(results)
+            and diagnostics.get("rerank_status") == "applied"
+            and all(
+                (row.get("signals") or {}).get("rerank_score") is not None
+                for row in results
+            ),
+        }
+    )
+    checks = []
+    for name in mission["assertions"]:
+        if name not in judgments:
+            raise ValueError(
+                explain(
+                    f"control {mission['id']} assertion {name!r} has no evaluator",
+                    "add its production-path evaluator before admitting this control",
+                )
+            )
+        passed = judgments[name]
+        checks.append(
+            LabCheck(
+                name=f"{mission['canonical_query_id']}: {name}",
+                passed=passed,
+                falsifier=falsifier_for(name),
+                detail=f"{mission['canonical_query_id']} {name}: {len(results)} served, {len(candidates)} candidates checked"
+                if passed
+                else explain(
+                    f"{mission['canonical_query_id']} {name} failed: served {sorted(served_ids)}, targets {sorted(target_ids)}, ineligible {[row['product_id'] for row in candidates if row.get('eligible') is not True]}",
+                    "inspect this control's recorded retrieval and restore its declared signals and filters",
+                ),
+            )
+        )
+    return checks
+
+
+def mission_request_check(
+    mission: Mapping[str, Any], agent: Mapping[str, Any]
+) -> LabCheck:
+    expected = " ".join(str(mission.get("query") or "").split()).casefold()
+    actual = " ".join(str(agent.get("question") or "").split()).casefold()
+    return LabCheck(
+        name="canonical mission request answered",
+        passed=bool(expected) and expected == actual,
+        falsifier="the saved run answered a different question or has no recorded question",
+        detail=f"Recorded question matches {mission.get('id')}"
+        if expected and actual == expected
+        else explain(
+            f"recorded question {agent.get('question')!r} differs from {mission.get('query')!r}",
+            "run the canonical Reason mission before requesting completion proof",
+        ),
+    )
 
 
 def eligible(result: Mapping[str, Any], filters: Mapping[str, Any]) -> bool:
@@ -1112,7 +1203,9 @@ def agent_response_checks(
     appears in no receipt at all, "you missed a target class" is the actionable
     message, and "your searches were not independent" is a consequence of it.
     """
-    checks = [
+    checks = (
+        [mission_request_check(mission, agent)] if mission.get("query") else []
+    ) + [
         _check_constraints(mission, agent),
         _check_target_coverage(mission, evidence),
     ]

@@ -12,7 +12,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { CommerceProvider } from "../commerce";
-import type { HealthResponse, LabStateResponse } from "../types";
+import type { HealthResponse } from "../types";
 import { Shell } from "./Shell";
 
 vi.mock("../api", () => ({
@@ -36,36 +36,12 @@ function healthFixture(codeEditorUrl: string | null): HealthResponse {
   };
 }
 
-const labsFixture: LabStateResponse = {
-  labs: [
-    {
-      lab_id: 1,
-      source_state: "broken",
-      database_state: "stale",
-      detail: "The trigram CTE is still commented out.",
-    },
-    {
-      lab_id: 2,
-      source_state: "solved",
-      database_state: "applied",
-      detail: "The reciprocal-rank formula is restored and applied.",
-    },
-    {
-      lab_id: 3,
-      source_state: "solved",
-      database_state: "not_applicable",
-      detail: "Lab 3's seam lives in the API process.",
-    },
-  ],
-};
-
 describe("Shell navigation", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/catalog");
     vi.mocked(api.health).mockReset();
     vi.mocked(api.labsState).mockReset();
     // Left pending by default, which keeps the synchronous tests act()-clean.
-    // The tests that assert on the header's lab state resolve them themselves.
     vi.mocked(api.health).mockReturnValue(new Promise(() => {}));
     vi.mocked(api.labsState).mockReturnValue(new Promise(() => {}));
   });
@@ -248,47 +224,24 @@ describe("Shell navigation", () => {
     ).toBe("/labs/retrieval");
   });
 
-  it("keeps Lab 1's repair state off the storefront entry, at the same header height", async () => {
-    // Discover is where a shopper lands. `source: broken` there is a verdict on
-    // a lab they have not opened, printed over the storefront hero. Shop keeps
-    // the chips -- its own callout flips on the same screen and the two must
-    // agree -- so only this one surface drops them.
-    window.history.replaceState({}, "", "/");
-    vi.mocked(api.health).mockResolvedValue(healthFixture(null));
-    vi.mocked(api.labsState).mockResolvedValue(labsFixture);
-    const { container, unmount } = render(
-      <CommerceProvider>
-        <Shell>
-          <div>Discover content</div>
-        </Shell>
-      </CommerceProvider>,
-    );
-
-    await waitFor(() => expect(api.labsState).toHaveBeenCalled());
-    expect(screen.queryByText("source: broken")).toBeNull();
-    expect(screen.queryByText("database: stale")).toBeNull();
-    // The placeholder is what holds the row's height, so the nav does not move
-    // when the participant leaves Discover for Shop.
-    expect(container.querySelector(".site-lab-state-pending")).not.toBeNull();
-    unmount();
-
-    // The same read, one surface over, still reports.
-    window.history.replaceState({}, "", "/catalog");
-    render(
-      <CommerceProvider>
-        <Shell>
-          <div>Shop content</div>
-        </Shell>
-      </CommerceProvider>,
-    );
-    await waitFor(() => expect(screen.getByText("source: broken")).toBeTruthy());
-  });
+  it.each(["/", "/catalog", "/products/2", "/labs/retrieval"])(
+    "keeps workshop repair status out of the site header on %s", async (path) => {
+      window.history.replaceState({}, "", path);
+      vi.mocked(api.health).mockResolvedValue(healthFixture(null));
+      const { container } = render(
+        <CommerceProvider><Shell><div>Page content</div></Shell></CommerceProvider>,
+      );
+      await waitFor(() => expect(api.health).toHaveBeenCalled());
+      expect(container.querySelector(".site-lab-state")).toBeNull();
+      expect(api.labsState).not.toHaveBeenCalled();
+      expect(screen.getByRole("navigation", { name: "Storefront" })).toBeTruthy();
+    },
+  );
 
   it("hides the Code Editor button when the service reports no Code Editor", async () => {
     // A workshop image without a Code Editor is a real deployment, not a fault.
     // A dead button pointing nowhere would be the fault.
     vi.mocked(api.health).mockResolvedValue(healthFixture(null));
-    vi.mocked(api.labsState).mockResolvedValue(labsFixture);
     render(
       <CommerceProvider>
         <Shell>
@@ -297,7 +250,7 @@ describe("Shell navigation", () => {
       </CommerceProvider>,
     );
 
-    await waitFor(() => expect(screen.getByText("source: broken")).toBeTruthy());
+    await waitFor(() => expect(api.health).toHaveBeenCalled());
     expect(screen.queryByRole("link", { name: "Code Editor" })).toBeNull();
   });
 
@@ -305,7 +258,6 @@ describe("Shell navigation", () => {
     vi.mocked(api.health).mockResolvedValue(
       healthFixture("https://code.mosaic-workshop.example"),
     );
-    vi.mocked(api.labsState).mockResolvedValue(labsFixture);
     render(
       <CommerceProvider>
         <Shell>
@@ -325,144 +277,6 @@ describe("Shell navigation", () => {
         .getAllByRole("link")
         .map((entry) => entry.textContent),
     ).toEqual(["Discover", "Shop", "Playground"]);
-  });
-
-  it("reports Lab 1 by default, in both the places a lab can be broken", async () => {
-    vi.mocked(api.health).mockResolvedValue(healthFixture(null));
-    vi.mocked(api.labsState).mockResolvedValue(labsFixture);
-    render(
-      <CommerceProvider>
-        <Shell>
-          <div>Shop content</div>
-        </Shell>
-      </CommerceProvider>,
-    );
-
-    const state = await screen.findByRole("group", { name: "Lab 1 state" });
-    // Two chips, not one verdict. An edited file in front of an unapplied
-    // cluster is the most common way a repair looks finished and is not, and
-    // collapsing the two states would hide exactly that.
-    expect(state.textContent).toBe("source: brokendatabase: stale");
-  });
-
-  it("follows the lab named on the URL, by mission and by example", async () => {
-    vi.mocked(api.health).mockResolvedValue(healthFixture(null));
-    vi.mocked(api.labsState).mockResolvedValue(labsFixture);
-    window.history.replaceState({}, "", "/catalog?mission=rank-with-evidence");
-    const { unmount } = render(
-      <CommerceProvider>
-        <Shell>
-          <div>Shop content</div>
-        </Shell>
-      </CommerceProvider>,
-    );
-
-    expect(
-      (await screen.findByRole("group", { name: "Lab 2 state" })).textContent,
-    ).toBe("source: solveddatabase: applied");
-    unmount();
-
-    window.history.replaceState({}, "", "/labs/retrieval?example=agentic-research");
-    render(
-      <CommerceProvider>
-        <Shell>
-          <div>Playground content</div>
-        </Shell>
-      </CommerceProvider>,
-    );
-
-    // Lab 3's seam lives in the API process, so there is no schema to re-apply
-    // and the chip says so rather than printing a stale-looking verdict.
-    expect(
-      (await screen.findByRole("group", { name: "Lab 3 state" })).textContent,
-    ).toBe("source: solveddatabase: not applicable");
-  });
-
-  it("re-reads the lab state when Shop records a new run", async () => {
-    // Shop's callout flips to `Repair verified` the moment a re-run comes back
-    // repaired. The header used to keep printing `source: broken` beside it
-    // until the page was reloaded, which is the workshop contradicting itself
-    // on one screen. The run Shop records on its own URL is the signal.
-    vi.mocked(api.health).mockResolvedValue(healthFixture(null));
-    vi.mocked(api.labsState).mockResolvedValue(labsFixture);
-    window.history.replaceState(
-      {},
-      "",
-      "/catalog?q=noice+cancelng+hedfones&event=9614ed9b-4ceb-4aad-9276-4e69af2231b9",
-    );
-    render(
-      <CommerceProvider>
-        <Shell>
-          <div>Shop content</div>
-        </Shell>
-      </CommerceProvider>,
-    );
-
-    expect(
-      (await screen.findByRole("group", { name: "Lab 1 state" })).textContent,
-    ).toBe("source: brokendatabase: stale");
-    expect(vi.mocked(api.labsState)).toHaveBeenCalledTimes(1);
-
-    vi.mocked(api.labsState).mockResolvedValue({
-      labs: [
-        { ...labsFixture.labs[0], source_state: "solved", database_state: "applied" },
-        ...labsFixture.labs.slice(1),
-      ],
-    });
-    act(() => {
-      window.history.replaceState(
-        {},
-        "",
-        "/catalog?q=noice+cancelng+hedfones&event=2c58f0a1-7d3e-4a90-8b21-6f0d5c9e4471",
-      );
-    });
-
-    await waitFor(() =>
-      expect(screen.getByRole("group", { name: "Lab 1 state" }).textContent).toBe(
-        "source: solveddatabase: applied",
-      )
-    );
-    expect(vi.mocked(api.labsState)).toHaveBeenCalledTimes(2);
-  });
-
-  it("holds the chips' space open before the first read lands", async () => {
-    // Otherwise two chips appear beside the bag a round trip after first paint
-    // and shove the header's actions sideways under the participant's cursor.
-    vi.mocked(api.health).mockResolvedValue(healthFixture(null));
-    vi.mocked(api.labsState).mockResolvedValue(labsFixture);
-    render(
-      <CommerceProvider>
-        <Shell>
-          <div>Shop content</div>
-        </Shell>
-      </CommerceProvider>,
-    );
-
-    const state = screen.getByRole("group", { name: "Lab 1 state" });
-    expect(state.textContent).toBe("");
-    expect(state.querySelector(".site-lab-state-pending")).toBeTruthy();
-
-    await waitFor(() =>
-      expect(state.textContent).toBe("source: brokendatabase: stale")
-    );
-    expect(state.querySelector(".site-lab-state-pending")).toBeNull();
-  });
-
-  it("says the lab state was not checked when the read fails", async () => {
-    // A failed status call is not a verdict on the participant's repair. Showing
-    // `broken` here would send someone to edit SQL that was never the problem.
-    vi.mocked(api.health).mockResolvedValue(healthFixture(null));
-    vi.mocked(api.labsState).mockRejectedValue(new Error("connection refused"));
-    render(
-      <CommerceProvider>
-        <Shell>
-          <div>Shop content</div>
-        </Shell>
-      </CommerceProvider>,
-    );
-
-    const state = await screen.findByRole("group", { name: "Lab 1 state" });
-    expect(state.textContent).toBe("source: not checkeddatabase: not checked");
   });
 
   it("closes the storefront with official marks inside the demo contract", () => {

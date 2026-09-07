@@ -2,6 +2,7 @@ import { ArrowRight, FileCode2 } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { api } from "../api";
+import { labStateCopy } from "../labStateCopy";
 import {
   coreMosaicLabs,
   mosaicRetrievalExamples,
@@ -75,12 +76,10 @@ export function activeCoreLab(missionId: string | null): MosaicLabMission {
   return coreMosaicLabs[0];
 }
 
-/** `not_applicable` is a sentence, not an identifier, once it reaches a chip. */
-function readableState(state: string): string {
-  return state.replaceAll("_", " ");
-}
-
-export function LabRail({ missionId }: { missionId: string | null }) {
+export function LabRail({ missionId, refreshKey = "" }: {
+  missionId: string | null;
+  refreshKey?: string;
+}) {
   const lab = activeCoreLab(missionId);
   const labNumber = coreMosaicLabs.indexOf(lab) + 1;
   const nextLab = coreMosaicLabs[labNumber];
@@ -119,11 +118,8 @@ export function LabRail({ missionId }: { missionId: string | null }) {
   }, []);
 
   /**
-   * Read once per mount rather than polled. The route is side-effect free and
-   * cheap, but a participant edits a file and re-applies it out of band, so a
-   * chip that refreshed on its own would still be behind whatever they just did.
-   * Reloading the page is the honest refresh, and it is the one they already
-   * make after applying SQL.
+   * A new run or proof follows an out-of-band repair. Refresh on those events
+   * so the rail cannot keep an old fault label beside a newly passing proof.
    */
   useEffect(() => {
     let active = true;
@@ -138,7 +134,7 @@ export function LabRail({ missionId }: { missionId: string | null }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [missionId, refreshKey]);
 
   const state = labStates?.find((record) => record.lab_id === labNumber) ?? null;
   const edit = lab.participant_edit;
@@ -182,7 +178,7 @@ export function LabRail({ missionId }: { missionId: string | null }) {
   /**
    * A condensed rail is shorter, and a shorter box in the flow would move
    * everything under it up by the difference at the exact moment the reader
-   * scrolls past. A matching negative bottom margin keeps the footprint the
+   * scrolls past. A matching positive bottom margin keeps the footprint the
    * size it had while expanded, so condensing changes nothing but the rail.
    */
   const expandedHeight = useRef(0);
@@ -212,7 +208,7 @@ export function LabRail({ missionId }: { missionId: string | null }) {
       aria-label="Lab rail"
       className={stuck ? "labs-rail is-stuck" : "labs-rail"}
       ref={railRef}
-      style={footprintFix ? { marginBottom: -footprintFix } : undefined}
+      style={footprintFix ? { marginBottom: footprintFix } : undefined}
     >
       <div className="labs-rail-lab">
         <span className="labs-rail-kicker">
@@ -251,10 +247,9 @@ export function LabRail({ missionId }: { missionId: string | null }) {
           repaired file in front of an unrepaired cluster, and a single "lab
           state" would report that as solved. */}
       <ul aria-label="Lab state" className="labs-rail-state">
-        <li>source: {state ? state.source_state : "not checked"}</li>
-        <li>
-          database: {state ? readableState(state.database_state) : "not checked"}
-        </li>
+        {labStateCopy(state ?? null).map(({ label, description }) => (
+          <li key={label} title={description}>{label}</li>
+        ))}
       </ul>
 
       {nextLab ? (

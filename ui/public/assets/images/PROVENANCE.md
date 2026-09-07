@@ -45,6 +45,16 @@ and no catalog domain covers power tools.
 The editorial posters contain product names and feature bullets composited into
 the pixels. They are not used as catalog photography.
 
+## Generated review portraits
+
+`mosaic/voices/voice-01.webp` through `voice-05.webp` are fictional adult portraits
+created for Discover on 2026-09-07. They add decorative
+photography to Discover's review strip and do not identify actual reviewers.
+The strip discloses “Synthetic reviews · AI portraits”; its review text and
+product links still come from Aurora. Each original PNG was resized once to
+256 × 256 and encoded with `cwebp -q 85 -m 6`. See the
+[final assets and exact prompts](mosaic/voices/README.md).
+
 ## Verification
 
 `asset-manifest.json` in the source package records a SHA-256 for 11 of the

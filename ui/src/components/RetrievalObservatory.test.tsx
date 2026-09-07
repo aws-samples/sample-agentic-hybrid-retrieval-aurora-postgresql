@@ -60,7 +60,7 @@ describe("RetrievalObservatory", () => {
 
     expect(container.querySelector(".labs-matrix-table")).toBeNull();
     expect(container.querySelector(".labs-dormant")).toBeNull();
-    expect(screen.queryByText("Live run")).toBeNull();
+    expect(screen.queryByText("Recorded run")).toBeNull();
     const empty = screen.getByRole("status");
     expect(empty.classList.contains("labs-ranking-empty")).toBe(true);
     expect(empty.querySelector("svg")).toBeTruthy();
@@ -77,6 +77,7 @@ describe("RetrievalObservatory", () => {
         name: "How each product reached its final position",
       }),
     ).toBeTruthy();
+    fireEvent.click(screen.getByText("How to read this table"));
     const guide = screen.getByRole("list", {
       name: "How to read the ranking table",
     });
@@ -167,10 +168,12 @@ describe("RetrievalObservatory", () => {
     expect(container.querySelector(".labs-matrix-cell.is-focused")).toBeNull();
   });
 
-  it("labels a completed response as a live run", () => {
+  it("attributes a recorded response without claiming it just ran in this browser", () => {
     const { container } = renderObservatory({ response: liveResponse });
 
-    expect(screen.getByText("Live run")).toBeTruthy();
+    expect(screen.getByText("Recorded run")).toBeTruthy();
+    expect(screen.getByText("Aurora PostgreSQL")).toBeTruthy();
+    expect(screen.queryByText("This browser, just now")).toBeNull();
     expect(screen.getByText("feedface")).toBeTruthy();
     expect(container.querySelectorAll(".labs-matrix-table tbody")).toHaveLength(1);
     expect(screen.getByText("Liveonly Test Headphone")).toBeTruthy();

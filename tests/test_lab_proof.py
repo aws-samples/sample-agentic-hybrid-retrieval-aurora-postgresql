@@ -101,6 +101,7 @@ class _FakeConnection:
         self.tools = tools or []
         self.statements: list[str] = []
         self.transactions = 0
+        self.candidates = []
 
     @contextmanager
     def transaction(self):
@@ -123,7 +124,7 @@ class _FakeConnection:
                 [{"first_contribution": first, "second_contribution": second}]
             )
         if "mosaic.search_result_event" in sql:
-            return _FakeCursor([])
+            return _FakeCursor(self.candidates)
         if "mosaic.agent_turn" in sql and "agent_tool_event" not in sql:
             return _FakeCursor([self.turn] if self.turn else [])
         if "mosaic.search_event" in sql:
@@ -202,6 +203,57 @@ def _response(results: list[ProductSummary], *, trigram_in_pool: int) -> SearchR
     )
 
 
+def _with_controls(monkeypatch, primary):
+    controls = {
+        m["query"]: m
+        for n in (1, 2)
+        for m in lab_proof.lab_checks.supporting_checks_for_lab(n)
+    }
+    receipts = {}
+
+    def search(request):
+        if request.query not in controls:
+            return primary(request)
+        mission = controls[request.query]
+        arm = RankSignal(rank=1, rrf_contribution=1 / (RetrievalProfile().rrf_k + 1))
+        rows = [
+            _product(
+                pid,
+                ResultSignals(
+                    fts=arm,
+                    trigram=arm,
+                    semantic=arm,
+                    pre_rerank_rank=i + 1,
+                    final_rank=i + 1,
+                    rerank_score=0.9,
+                    rrf_score=arm.rrf_contribution * 3,
+                    pre_rerank_score=arm.rrf_contribution * 3,
+                ),
+                **{
+                    key: value
+                    for key, value in mission["filters"].items()
+                    if key in {"domain", "attributes"}
+                },
+            )
+            for i, pid in enumerate(mission["target_product_ids"])
+        ]
+        response = _response(rows, trigram_in_pool=len(rows))
+        response.diagnostics.candidate_counts.update(
+            fts_in_pool=len(rows), semantic_in_pool=len(rows)
+        )
+        receipts[response.search_event_id] = [
+            {"product_id": row.product_id, "eligible": True} for row in rows
+        ]
+        return response
+
+    monkeypatch.setattr(lab_proof, "search_with_telemetry", search)
+    monkeypatch.setattr(
+        lab_proof,
+        "load_candidate_receipts",
+        lambda connection, event_id: receipts[event_id],
+    )
+
+
 def _lab_1_search(monkeypatch, *, solved: bool = True) -> None:
     rrf_k = RetrievalProfile().rrf_k
     results = (
@@ -209,9 +261,8 @@ def _lab_1_search(monkeypatch, *, solved: bool = True) -> None:
         if solved
         else []
     )
-    monkeypatch.setattr(
-        lab_proof,
-        "search_with_telemetry",
+    _with_controls(
+        monkeypatch,
         lambda request: _response(results, trigram_in_pool=7 if solved else 0),
     )
 
@@ -238,11 +289,7 @@ def _lab_2_search(monkeypatch) -> None:
         category_key="office_chairs",
         attributes={"seat_depth_adjustable": True},
     )
-    monkeypatch.setattr(
-        lab_proof,
-        "search_with_telemetry",
-        lambda request: _response([product], trigram_in_pool=9),
-    )
+    _with_controls(monkeypatch, lambda request: _response([product], trigram_in_pool=9))
 
 
 def _persisted_turn() -> dict:
@@ -267,7 +314,10 @@ EVIDENCE_REVISION = "2026-08-11"
 #: quote is carried because the citation check compares it against the evidence
 #: row's own text, not only the product id.
 CITED_EVIDENCE: dict[int, tuple[int, str]] = {
-    9001: (370001, "Seat depth adjusts across a 60 mm range."),
+    9001: (
+        370001,
+        "Supports 12-hour workdays. Seat depth adjusts across a 60 mm range.",
+    ),
     9002: (429001, "Damped tactile switches cut typing noise."),
 }
 
@@ -357,11 +407,65 @@ def _persisted_searches() -> list[dict]:
 
 
 def _grounded_connection() -> _FakeConnection:
-    return _FakeConnection(
+    connection = _FakeConnection(
         turn=_persisted_turn(),
         searches=_persisted_searches(),
         tools=_persisted_tools(),
     )
+    mission = lab_proof.lab_checks.mission_for_lab(3)
+    connection.turn["user_message"] = mission["query"]
+    for product in connection.turn["extracted_intent"]["selected_products"]:
+        product.update(
+            domain="home_office",
+            price_cents=16999,
+            availability="in_stock",
+            attributes={},
+        )
+    connection.searches.append(dict(connection.searches[0], search_event_id=uuid4()))
+    trace = []
+    for index, (search, product_id) in enumerate(
+        zip(connection.searches, (370001, 429001), strict=True)
+    ):
+        search.update(
+            query_text=("ergonomic chair" if index == 0 else "quiet keyboard"),
+            plan_json=[{"Plan": {"Node Type": "Append"}}],
+        )
+        connection.candidates.append(
+            {"search_event_id": search["search_event_id"], "product_id": product_id}
+        )
+        trace.append(
+            dict(
+                connection.tools[0],
+                tool_name="search_products",
+                search_event_id=search["search_event_id"],
+                input_payload={
+                    "query": search["query_text"],
+                    "applied_filters": search["filters"],
+                },
+            )
+        )
+    trace.append(
+        dict(
+            connection.tools[0],
+            tool_name="compare_products",
+            input_payload={"product_ids": [370001, 429001]},
+        )
+    )
+    trace.extend(connection.tools[:-1])
+    trace.append(
+        dict(
+            connection.tools[0],
+            tool_name="explain_retrieval",
+            input_payload={
+                "search_event_id": str(connection.searches[0]["search_event_id"])
+            },
+        )
+    )
+    trace.append(connection.tools[-1])
+    for tool in trace:
+        tool["execution_origin"] = "model"
+    connection.tools = trace
+    return connection
 
 
 def _resolve_evidence(monkeypatch, *, product_ids: dict[int, int] | None = None):
@@ -464,38 +568,38 @@ def test_editing_an_unowned_file_leaves_source_state_alone(
 # ---------------------------------------------------------------------------
 
 
-def test_lab_1_proof_runs_four_checks(monkeypatch) -> None:
+def test_lab_1_proof_runs_primary_and_controls(monkeypatch) -> None:
     _use(monkeypatch, _FakeConnection())
     _lab_1_search(monkeypatch)
 
     proof = lab_proof.completion_proof(1)
 
-    assert len(proof.checks) == 4, [check.name for check in proof.checks]
+    assert len(proof.checks) == 11, [check.name for check in proof.checks]
     assert proof.status == "pass"
-    assert len(proof.evidence.search_event_ids) == 1
+    assert len(proof.evidence.search_event_ids) == 3
     assert proof.database_state == "applied"
 
 
-def test_lab_2_proof_runs_five_checks_over_two_searches(monkeypatch) -> None:
+def test_lab_2_proof_runs_primary_twice_and_controls(monkeypatch) -> None:
     _use(monkeypatch, _FakeConnection())
     _lab_2_search(monkeypatch)
 
     proof = lab_proof.completion_proof(2)
 
-    assert len(proof.checks) == 5, [check.name for check in proof.checks]
+    assert len(proof.checks) == 17, [check.name for check in proof.checks]
     assert proof.status == "pass"
-    assert len(proof.evidence.search_event_ids) == 2, (
+    assert len(proof.evidence.search_event_ids) == 4, (
         "Lab 2 proves pre-rerank repeatability, which needs two persisted runs"
     )
 
 
-def test_lab_3_proof_runs_six_checks_over_persisted_rows(monkeypatch) -> None:
+def test_lab_3_proof_runs_sixteen_checks_over_persisted_rows(monkeypatch) -> None:
     _use(monkeypatch, _grounded_connection())
     _resolve_evidence(monkeypatch)
 
     proof = lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID)
 
-    assert len(proof.checks) == 6, [check.name for check in proof.checks]
+    assert len(proof.checks) == 16, [check.name for check in proof.checks]
     assert proof.status == "pass"
     assert proof.database_state == "not_applicable"
     assert proof.evidence.agent_run_id == AGENT_RUN_ID
@@ -513,7 +617,7 @@ def test_lab_3_without_a_run_id_fails_naming_stage_03(monkeypatch) -> None:
     proof = lab_proof.completion_proof(3)
 
     assert proof.status == "fail"
-    assert len(proof.checks) == 6
+    assert len(proof.checks) == 16
     assert all("Stage 03" in check.detail for check in proof.checks)
     # Lab 3's runtime is the uvicorn process, which imports service/agent_tools.py
     # once at startup. A participant who edited the file and re-ran Stage 03
@@ -544,7 +648,7 @@ def test_lab_3_spends_no_agent_turn(monkeypatch) -> None:
 
     proof = lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID)
 
-    assert len(proof.evidence.search_event_ids) == 1, (
+    assert len(proof.evidence.search_event_ids) == 2, (
         "the persisted turn's own receipts, not a receipt this proof created"
     )
 
@@ -652,7 +756,7 @@ def test_routes_serve_state_and_proof(monkeypatch) -> None:
     assert [lab["lab_id"] for lab in state.json()["labs"]] == [1, 2, 3]
     assert proof.status_code == 200
     assert proof.json()["lab_id"] == 1
-    assert len(proof.json()["checks"]) == 4
+    assert len(proof.json()["checks"]) == 11
 
 
 def test_an_unrouted_lab_id_is_a_404(monkeypatch) -> None:
@@ -690,3 +794,53 @@ def test_an_unreachable_database_is_a_503_on_both_lab_routes(monkeypatch) -> Non
     for response in (state, proof):
         assert "rds.amazonaws.com" not in response.text
         assert "fix:" in response.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "violation",
+    [
+        "question",
+        "comparison",
+        "explanation",
+        "independent searches",
+        "execution origin",
+    ],
+)
+def test_saved_proof_rejects_missing_mission_work(monkeypatch, violation):
+    connection = _grounded_connection()
+    _use(monkeypatch, connection)
+    _resolve_evidence(monkeypatch)
+    assert lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID).status == "pass"
+    if violation == "question":
+        connection.turn["user_message"] = "Find one mesh chair under $800."
+    elif violation == "independent searches":
+        connection.searches[1]["query_text"] = connection.searches[0]["query_text"]
+    elif violation == "execution origin":
+        connection.tools[0].pop("execution_origin")
+    else:
+        tool = "compare_products" if violation == "comparison" else "explain_retrieval"
+        connection.tools = [
+            item for item in connection.tools if item["tool_name"] != tool
+        ]
+    proof = lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID)
+    assert proof.status == "fail", f"mission violation {violation} received PASS"
+
+
+@pytest.mark.parametrize(
+    ("lab_id", "expected"), [(1, {"G-001", "G-012"}), (2, {"G-007", "G-009"})]
+)
+def test_browser_proof_executes_every_required_control(monkeypatch, lab_id, expected):
+    _use(monkeypatch, _FakeConnection())
+    (_lab_1_search if lab_id == 1 else _lab_2_search)(monkeypatch)
+    executed = []
+    original = lab_proof.lab_checks.retrieval_control_checks
+
+    def witnessed(mission, response, candidates):
+        executed.append(mission["canonical_query_id"])
+        assert candidates, "control pool must really have been loaded"
+        return original(mission, response, candidates)
+
+    monkeypatch.setattr(lab_proof.lab_checks, "retrieval_control_checks", witnessed)
+    proof = lab_proof.completion_proof(lab_id)
+    assert proof.status == "pass"
+    assert set(executed) == expected

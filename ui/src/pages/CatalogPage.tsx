@@ -58,6 +58,7 @@ import {
 import {
   coreMosaicLabs,
   mosaicRetrievalExamples,
+  shopMissionHref,
   type MosaicLabMission,
 } from "../labMissions";
 import {
@@ -288,7 +289,7 @@ const retrievalScope = [
 const shopSuggestedQueries = [
   catalogGhostQueries[0],
   catalogGhostQueries[1],
-  catalogGhostQueries[3],
+  ...(retrievalLab ? [retrievalLab.query] : []),
 ];
 
 function HybridRetrievalTrace() {
@@ -824,6 +825,11 @@ export function CatalogPage() {
   function searchSuggestion(query: string) {
     const trimmed = query.trim();
     if (trimmed.length < 2) return;
+    if (retrievalLab && trimmed === retrievalLab.query) {
+      const href = shopMissionHref(retrievalLab, { view: "results" });
+      setSearchParams(new URLSearchParams(href.slice(href.indexOf("?") + 1)));
+      return;
+    }
     const next = new URLSearchParams();
     if (sort !== "featured") next.set("sort", sort);
     next.set("q", trimmed);
@@ -1115,7 +1121,7 @@ export function CatalogPage() {
                 </section>
 
                 <div className="shop-suggested" aria-label="Suggested searches">
-                  <span>Suggested for you</span>
+                  <span>Try a search</span>
                   {shopSuggestedQueries.map((suggestion) => (
                     <button
                       type="button"

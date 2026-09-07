@@ -359,6 +359,14 @@ function LabGraphic({ variant }: { variant: "retrieve" | "rank" | "reason" }) {
 // authoritative live catalog and retrieval surface.
 const featuredPreview = showcaseCatalogPage({}, 0, 4, "featured").products;
 
+const voicePortraits = [
+  "/assets/images/mosaic/voices/voice-01.webp",
+  "/assets/images/mosaic/voices/voice-02.webp",
+  "/assets/images/mosaic/voices/voice-03.webp",
+  "/assets/images/mosaic/voices/voice-04.webp",
+  "/assets/images/mosaic/voices/voice-05.webp",
+];
+
 /**
  * One verbatim review excerpt at a time, cycling below the merchandising row.
  *
@@ -396,9 +404,21 @@ function DiscoverVoices({
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
     >
-      <span className="discover-voices-lede">What others are saying</span>
+      <span className="discover-voices-lede">
+        <span>What others are saying</span>
+        <small>Synthetic reviews · AI&nbsp;portraits</small>
+      </span>
       {/* Remounting on review_id is what replays the entrance animation. */}
       <figure className="discover-voice" key={voice.review_id}>
+        <img
+          className="discover-voice-portrait"
+          src={voicePortraits[index % voicePortraits.length]}
+          alt=""
+          width={64}
+          height={64}
+          loading="lazy"
+          decoding="async"
+        />
         <blockquote>&ldquo;{voice.quote}&rdquo;</blockquote>
         <figcaption>
           <span className="discover-voice-rating">
@@ -525,17 +545,17 @@ export function DiscoverPage() {
           className="discover-backdrop"
           initial={
             reduceMotion
-              ? { opacity: 0.88 }
-              : { opacity: 0.78, scale: 1.025, clipPath: "inset(0 0 0 4%)" }
+              ? false
+              : { opacity: 0.78, transform: "scale(1.025)", clipPath: "inset(0 0 0 4%)" }
           }
           animate={
             reduceMotion
               ? { opacity: 1 }
-              : { opacity: 1, scale: 1, clipPath: "inset(0 0 0 0%)" }
+              : { opacity: 1, transform: "scale(1)", clipPath: "inset(0 0 0 0%)" }
           }
           transition={
             reduceMotion
-              ? { duration: 0.2 }
+              ? { duration: 0 }
               : { duration: 0.8, ease: EASE_OUT }
           }
         >
@@ -550,6 +570,7 @@ export function DiscoverPage() {
             alt="A sunlit travertine desk with cream over-ear headphones, a fabric speaker, a tablet, earbuds, and a keyboard"
             width={1672}
             height={941}
+            fetchPriority="high"
           />
         </motion.picture>
         <div className="discover-scrim" aria-hidden="true" />

@@ -176,6 +176,78 @@ def test_a_check_may_not_be_constructed_without_a_falsifier():
         LabCheck(name="anything", passed=True, falsifier="  ", detail="fine")
 
 
+@pytest.mark.parametrize(
+    "mission",
+    [
+        mission
+        for lab in (1, 2)
+        for mission in lab_checks.supporting_checks_for_lab(lab)
+    ],
+    ids=lambda mission: mission["canonical_query_id"],
+)
+def test_control_assertions_reject_their_declared_violations(mission):
+    from copy import deepcopy
+
+    filters = mission["filters"]
+    response = {
+        "results": [
+            {
+                "product_id": product_id,
+                "domain": filters.get("domain"),
+                "price_cents": filters.get("max_price_cents", 10000),
+                "availability": "in_stock",
+                "attributes": filters.get("attributes", {}),
+                "signals": {
+                    "pre_rerank_rank": rank,
+                    "final_rank": rank,
+                    "rerank_score": 0.9,
+                },
+            }
+            for rank, product_id in enumerate(mission["target_product_ids"], 1)
+        ],
+        "diagnostics": {
+            "candidate_counts": {"fts_in_pool": 2, "semantic_in_pool": 2},
+            "rerank_status": "applied",
+        },
+    }
+    candidates = [
+        {"product_id": row["product_id"], "eligible": True}
+        for row in response["results"]
+    ]
+    # An unseen tail candidate must be checked just as strictly as the winner.
+    candidates.append({"product_id": 999999, "eligible": True})
+    checks = lab_checks.retrieval_control_checks(mission, response, candidates)
+    assert all(check.passed for check in checks), checks
+    for assertion in mission["assertions"]:
+        broken, pool = deepcopy(response), deepcopy(candidates)
+        if assertion == "target_in_top_k":
+            broken["results"] = []
+        elif assertion == "hard_filters_hold":
+            pool[-1]["eligible"] = False
+        elif assertion.endswith("signal_present"):
+            arm = assertion.removesuffix("_signal_present")
+            broken["diagnostics"]["candidate_counts"][f"{arm}_in_pool"] = 0
+        elif assertion == "rank_provenance_present":
+            broken["results"][0]["signals"]["pre_rerank_rank"] = None
+        elif assertion == "rerank_score_present":
+            broken["results"][0]["signals"]["rerank_score"] = None
+        else:
+            pytest.fail(f"Add the permanent falsifier for {assertion}")
+        failed = lab_checks.retrieval_control_checks(mission, broken, pool)
+        assert not _by_name(
+            failed, f"{mission['canonical_query_id']}: {assertion}"
+        ).passed
+
+
+def test_control_eligibility_survives_api_serialization():
+    from service.models import SearchResultEventRecord
+
+    row = SearchResultEventRecord(
+        product_id=1, result_rank=1, scores={}, provenance={}, eligible=True
+    )
+    assert row.model_dump(mode="json")["eligible"] is True
+
+
 def test_lab_1_reports_exactly_four_checks():
     checks = lab_checks.lab_1_checks(LAB_1_MISSION, _lab_1_response())
 

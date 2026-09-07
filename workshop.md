@@ -20,6 +20,15 @@ The central lesson is:
 
 A plausible product card is not proof that search is healthy. A correct final answer is not proof that ranking was correct. Evidence the model has seen is not citable until the application says so.
 
+### The spoken opening
+
+> This is a shopping site with half a million products on Aurora PostgreSQL. Search it and you get a page of plausible results. Across three labs, you'll find and fix three faults behind that page: one in candidate search, one in ranking, and one in what the agent is allowed to cite. Each fix is a few lines. The work is the diagnosis.
+
+Have Shop loaded with the misspelled query before speaking. When the headphones
+are absent from the results, explain that the close-spelling index is healthy and
+finds the target directly, but its rows never enter fusion. Then introduce
+Retrieve → Rank → Reason. Only the current lab's fault is installed.
+
 ## What participants do
 
 1. Open three browser tabs from the Event Dashboard: Code Editor and Mosaic, plus the guide itself.
@@ -42,12 +51,19 @@ A browser VS Code with a terminal already connected to the participant's own Aur
 
 `uv run python scripts/lab_state.py status` reports each lab as BROKEN or SOLVED. At the start, Lab 1 is BROKEN and Labs 2 and 3 read SOLVED; each later lab resets only its own fault and keeps the repairs already made.
 
+The Playground uses **Code needs repair** or **Code repaired** for the file and
+**SQL repair not applied** or **SQL repair applied** for Aurora. Lab 3 says
+**No SQL update required**. These describe the repair's installation; only the
+completion proof verifies its behavior. The storefront header carries navigation,
+and the Playground lab rail carries these exercise states.
+
 ### Mosaic
 
-The customer-facing store, with three surfaces:
+The application has three navigation destinations, with Ask Mosaic inside Shop:
 
+- **Discover.** The editorial entry point, with the three canonical lab prompts and excerpts from synthetic catalog reviews. Its portraits are illustrative. Navigation uses a short reveal that respects reduced-motion preferences.
 - **Shop.** Keyword and filter search over the catalog. Every result card can open "See how this was retrieved", which lands on the Playground with the same query and the same filters. Ticking two or more results compares them side by side, and the comparison is worth showing: under the price and the rating it prints which search methods found each product, its rank before reranking, and the rank the shopper was shown. Those three rows come from the run's saved receipt, not from the list on screen, which is why a comparison is only offered once a search has run. If the catalog carries none of a request's words, Shop says which ones above the results rather than returning a confident page of near misses.
-- **Ask Mosaic.** The agent, in a side panel on Shop. It shows its work: the steps it took, the filters it searched with, the shortlist, the evidence it cited, and what the agent did, tool by tool. Its receipt reads the same way as the Playground's.
+- **Ask Mosaic.** The agent, in a side panel on Shop. It shows progress while gathering evidence, then leads with the cited answer. **Steps and sources** holds the request interpretation, searches, product comparison, supporting evidence, and tool activity. Its receipt reads the same way as the Playground's.
 - **Playground.** The proof surface, in four numbered stages. This is where the repairs become visible, and where most of the teaching happens.
 
 ### The Playground, stage by stage
@@ -55,10 +71,16 @@ The customer-facing store, with three surfaces:
 - **01 Retrieve.** Three ways Aurora looked for the same product: exact terms (full-text search), close spelling (trigram matching), and meaning match (vector similarity). Each shows how many candidates it put in the pool. In the broken Lab 1 state the close-spelling arm reads "not in this pool" while its index is healthy. That contrast is the whole lesson.
 - **02 Rank.** One table, one row per result: where each product sat in each arm, its fused position before reranking, its rerank score, and its final position. Select a column heading to read the SQL behind it.
 - **Repair evidence.** Paste two persisted run ids to see what a fix changed.
-- **03 Reason.** Run the agent on a fixed question and read a six-row chain: products retrieved, evidence returned to the model, evidence registered, evidence authorized, citations resolved, grounded answer. In the broken Lab 3 state the run refuses to answer, and that refusal is correct.
+- **03 Reason.** Run the agent on the mission question. Focus moves to one results area, with the current stage, elapsed time, and recorded counts above a vertical sequence of progress and results. The evidence chain traces products retrieved, evidence returned to the model, evidence registered, evidence authorized, citations resolved, and grounded answer. In the broken Lab 3 state the run refuses to answer, and that refusal is correct. An interrupted run retains the available receipts for diagnosis.
 - **04 Prove.** The scorecard, in five plain sections: can search find the right products, did known-good checks still pass, did hard filters hold, did the agent stay inside its evidence rules, and what each ranking step added. Then the package finale: the same capability as a portable skill.
 
 Every number on the Playground is a value the run reported. Nothing is typed in, estimated, or animated for effect.
+
+The completion proof evaluates the mission, not just a successful response.
+Retrieve and Rank also run their independent supporting controls. Reason checks
+the persisted question, target searches, tool activity, evidence, citations, and
+retrieval explanation. Starting another run clears the previous proof; a prior
+PASS cannot certify a pending or failed attempt.
 
 ## The three-lab journey
 
@@ -98,7 +120,7 @@ The step-by-step comparison in section E is measured, and it is honest: combinin
 Use this plain-language sequence:
 
 1. The shopper's words and filters arrive as one request.
-2. Aurora runs three searches in parallel, each applying the same eligibility filters before any limit.
+2. Aurora evaluates three candidate searches, each applying the same eligibility filters before any limit.
 3. Reciprocal rank fusion combines the three position lists into one bounded candidate pool.
 4. Cohere Rerank on Amazon Bedrock reorders that pool. It cannot add to it.
 5. Every run is written to Aurora with an id, so it can be read back and compared later.
@@ -106,6 +128,10 @@ Use this plain-language sequence:
 7. The application, not the model, decides which evidence may be cited. If nothing qualifies, there is no answer of record.
 
 The ownership line to repeat: Aurora owns retrieval truth, Bedrock models provide intelligence, and the application owns execution and citation authority. No AgentCore resource is deployed by this workshop.
+
+These stages span multiple transactions. Their persisted receipts connect the
+workflow; avoid describing the complete model-and-database interaction as one
+transaction.
 
 Models pinned for the event: Cohere Embed v4 for embeddings, Cohere Rerank 3.5 for reranking, Claude Sonnet 4.6 for the agent and synthesis.
 
@@ -218,9 +244,14 @@ Follow the event-owner preflight in the Workshop Studio repository's `FACILITATO
 
 - confirm the account can invoke all three pinned models;
 - confirm readiness reports 500,000 products and 500,000 embeddings;
+- check Shop at 100% browser zoom on a laptop: the hero composition, full Ask Mosaic explanation, and search examples should remain readable without crossing into a different layout at 900px of viewport height;
 - confirm Lab 1 reads BROKEN and Labs 2 and 3 read SOLVED;
 - seed the HNSW exact ground truth, which the cached bootstrap does not do and which Vector index at scale needs to render at all;
 - run all three labs and the completion gate yourself from the rendered guide.
+
+Treat a scorecard with mismatched source or settings as a historical measurement.
+A successful source CI run and the local model rehearsals do not substitute for
+fresh, attributed release measurements or a provision-to-completion rehearsal.
 
 Beyond the guide, keep at least one replacement event account available. A broken account gets replaced; nobody improvises infrastructure at the table.
 

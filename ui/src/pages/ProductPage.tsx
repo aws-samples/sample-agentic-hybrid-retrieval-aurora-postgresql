@@ -26,7 +26,7 @@ import { cartQuantityLimit, useCommerce } from "../commerce";
 import { MosaicMark } from "../components/MosaicMark";
 import { ProductCard } from "../components/ProductCard";
 import { ErrorState, LoadingState } from "../components/States";
-import { formatAvailability, formatPrice, isPurchasable, leafCategory } from "../format";
+import { formatAttributeValue, formatAvailability, formatPrice, isPurchasable, leafCategory } from "../format";
 import { productEditorialPoster, productImageMap, productImages } from "../media";
 import type { ProductDetail, ProductSummary } from "../types";
 
@@ -264,31 +264,35 @@ export function ProductPage() {
       {/* Evidence row. Every panel states what the catalog actually holds; the
           reference board's confidence dial is driven by the rating and review
           count rather than an invented score. */}
-      <section className="product-evidence-row" aria-label="Why Mosaic surfaces this product">
+      <section className="product-evidence-row" aria-label="Product facts and sources">
         <article>
-          <header><Sparkles size={15} /><h3>Why Mosaic recommends this</h3></header>
+          <header><Sparkles size={15} /><h3>About this product</h3></header>
           <p>{product.short_description}</p>
         </article>
         <article>
-          <header><Check size={15} /><h3>Matching attributes</h3></header>
-          <ul>
+          <header><Check size={15} /><h3>Product details</h3></header>
+          <dl className="product-key-facts">
             {attributes.slice(0, 4).map(([key, value]) => (
-              <li key={key}>
-                <Check size={14} />
-                <span>{Array.isArray(value) ? value.join(", ") : String(value)}</span>
-              </li>
+              <div key={key}>
+                <dt>{key.replaceAll("_", " ")}</dt>
+                <dd>{formatAttributeValue(value)}</dd>
+              </div>
             ))}
-          </ul>
+          </dl>
         </article>
         <article>
-          <header><Database size={15} /><h3>Evidence &amp; retrieval</h3></header>
+          <header><Database size={15} /><h3>Source evidence</h3></header>
           <p>
-            Selected by hybrid retrieval over the loaded catalog using lexical,
-            trigram, and vector signals.
+            Inspect this product's source records and revisions. A catalog page
+            alone does not explain how a search ranked it.
           </p>
-          <Link className="text-link" href="/labs/retrieval">
-            See how ranking works <ArrowRight size={15} />
-          </Link>
+          <button className="text-link product-source-link" type="button" onClick={() => {
+            setTab("evidence");
+            document.getElementById("product-tab-evidence")?.focus({ preventScroll: true });
+            document.getElementById("product-information")?.scrollIntoView({ block: "start" });
+          }}>
+            Inspect source records <ArrowRight size={15} aria-hidden="true" />
+          </button>
         </article>
         {/* The reference board shows a "confidence score" dial. There is no such
             column in the catalog, so this panel reports the rating the row does
@@ -332,7 +336,7 @@ export function ProductPage() {
         </section>
       ) : null}
 
-      <nav className="product-tabs" aria-label="Product information" role="tablist">
+      <nav id="product-information" className="product-tabs" aria-label="Product information" role="tablist">
         {([
           ["overview", "Overview"],
           ["specs", "Specifications"],
@@ -370,7 +374,7 @@ export function ProductPage() {
               {attributes.map(([key, value]) => (
                 <div key={key}>
                   <dt>{key.replaceAll("_", " ")}</dt>
-                  <dd>{Array.isArray(value) ? value.join(", ") : String(value)}</dd>
+                  <dd>{formatAttributeValue(value)}</dd>
                 </div>
               ))}
             </dl>
@@ -425,7 +429,7 @@ export function ProductPage() {
             {attributes.map(([key, value]) => (
               <div key={key}>
                 <dt>{key.replaceAll("_", " ")}</dt>
-                <dd>{Array.isArray(value) ? value.join(", ") : String(value)}</dd>
+                <dd>{formatAttributeValue(value)}</dd>
               </div>
             ))}
           </dl>

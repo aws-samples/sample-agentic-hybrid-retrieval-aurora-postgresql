@@ -180,15 +180,20 @@ describe("AskMosaic declined outcome", () => {
       ),
     ).toBeTruthy();
 
-    // The steps timeline stays visible, and no compare panel exists to open:
+    // The answer leads; the actual searches remain available to inspect.
+    const process = screen.getByText("Steps and sources").closest("details")!;
+    expect(process.open).toBe(false);
+    fireEvent.click(screen.getByText("Steps and sources"));
+    expect(process.open).toBe(true);
+    // No compare panel exists to open:
     // recommendations are empty by contract on a declined answer, so the
     // comparison stage never has a panel to disclose.
-    expect(screen.getByLabelText("Steps I took")).toBeTruthy();
+    expect(screen.getByLabelText("Retrieval activity")).toBeTruthy();
     expect(screen.queryByText("Side by side, on catalog data")).toBeNull();
 
-    // The "Recommendations" step still discloses the searches that were
+    // The "Retrieval" step still discloses the searches that were
     // tried, with no shortlist beside them.
-    openStage("Recommendations");
+    openStage("Retrieval");
     expect(screen.queryByText("The shortlist")).toBeNull();
     const searchesDetails = screen.getByText("How I searched").closest("details");
     expect(searchesDetails).not.toBeNull();
@@ -197,9 +202,9 @@ describe("AskMosaic declined outcome", () => {
       within(searchesDetails as HTMLElement).getByText("jetpack propulsion pack"),
     ).toBeTruthy();
 
-    // The "Why these" step still discloses what the agent did; there are no
+    // The "Attribution" step still discloses what the agent did; there are no
     // citations to disclose beside it.
-    openStage("Why these");
+    openStage("Attribution");
     expect(screen.queryByText("Evidence it cited")).toBeNull();
     expect(screen.getByText("What the agent did")).toBeTruthy();
     expect(screen.queryByText("No evidence cited")).toBeNull();
@@ -214,7 +219,7 @@ describe("AskMosaic declined outcome", () => {
     expect(screen.getByText("Final recommendation")).toBeTruthy();
     expect(screen.getByText("Backed by evidence")).toBeTruthy();
 
-    openStage("Recommendations");
+    openStage("Retrieval");
     expect(screen.getByText("The shortlist")).toBeTruthy();
   });
 });

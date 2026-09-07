@@ -546,7 +546,7 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
-    const timeline = within(dialog).getByLabelText("Steps I took");
+    const timeline = within(dialog).getByLabelText("Retrieval activity");
     await waitFor(() =>
       expect(within(dialog).queryByText("The shortlist")).not.toBeNull());
 
@@ -637,7 +637,7 @@ describe("CatalogPage", () => {
       );
       fireEvent.click(screen.getByRole("button", { name: "Send request" }));
       const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
-      const timeline = within(dialog).getByLabelText("Steps I took");
+      const timeline = within(dialog).getByLabelText("Retrieval activity");
       const seconds = () => [
         ...timeline.querySelectorAll(".ask-mosaic-stage-elapsed"),
       ].map((reading) => Number.parseInt(reading.textContent ?? "", 10));
@@ -1543,11 +1543,11 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
-    const timeline = within(dialog).getByLabelText("Steps I took");
+    const timeline = within(dialog).getByLabelText("Retrieval activity");
     expect(
       [...timeline.querySelectorAll(".ask-mosaic-stage-label")]
         .map((stage) => stage.textContent),
-    ).toEqual(["Understanding", "Recommendations", "Compare", "Why these"]);
+    ).toEqual(["Request", "Retrieval", "Comparison", "Attribution"]);
     // The settled state. While the run is live a step that just finished holds
     // its result open for a dwell, so this has to wait for the run to finish
     // before it can claim the cards are folded.
@@ -1725,15 +1725,15 @@ describe("CatalogPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Compare top two" }));
     await waitFor(() => expect(api.agentStream).toHaveBeenCalledTimes(2));
 
-    const timelines = within(dialog).getAllByLabelText("Steps I took");
+    const timelines = within(dialog).getAllByLabelText("Retrieval activity");
     const followupCards = timelines[1].querySelectorAll(".ask-mosaic-stage-summary");
     expect(followupCards).toHaveLength(3);
     expect(
       [...timelines[1].querySelectorAll(".ask-mosaic-stage-label")].map(
         (stage) => stage.textContent,
       ),
-    ).toEqual(["Understanding", "Compare", "Why these"]);
-    expect(within(timelines[1]).queryByText("Recommendations")).toBeNull();
+    ).toEqual(["Request", "Comparison", "Attribution"]);
+    expect(within(timelines[1]).queryByText("Retrieval")).toBeNull();
   });
 
   it("returns a new-candidate follow-up to the full retrieval path", async () => {
@@ -1770,11 +1770,11 @@ describe("CatalogPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Send request" }));
     await waitFor(() => expect(api.agentStream).toHaveBeenCalledTimes(2));
 
-    const timelines = within(dialog).getAllByLabelText("Steps I took");
+    const timelines = within(dialog).getAllByLabelText("Retrieval activity");
     const followupCards = timelines[1].querySelectorAll(".ask-mosaic-stage-summary");
     expect(followupCards).toHaveLength(4);
-    expect(within(timelines[1]).getByText("Recommendations")).toBeTruthy();
-    expect(within(timelines[1]).getByText("Compare")).toBeTruthy();
+    expect(within(timelines[1]).getByText("Retrieval")).toBeTruthy();
+    expect(within(timelines[1]).getByText("Comparison")).toBeTruthy();
     expect(invocation).toBe(2);
   });
 
@@ -1909,7 +1909,7 @@ describe("CatalogPage", () => {
 
     await waitFor(
       () => expect(
-        within(dialog).getByText("How they compare"),
+        within(dialog).getByText("Product comparison"),
       ).toBeTruthy(),
       { timeout: stageDwellMs * 3 + 2000 },
     );
@@ -1953,6 +1953,42 @@ describe("CatalogPage", () => {
         { signal: expect.any(AbortSignal) },
       ),
     );
+  });
+
+  it("keeps Ask Mosaic starters within the selected domain", async () => {
+    window.history.replaceState({}, "", "/catalog?domain=running_fitness");
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    const starters = await screen.findByRole("list", { name: "Example questions" });
+    const questions = within(starters).getAllByRole("button");
+    expect(questions.length).toBeGreaterThan(0);
+    for (const example of examples.filter((item) => item.domain !== "running_fitness")) {
+      expect(within(starters).queryByRole("button", { name: example.query })).toBeNull();
+    }
+  });
+
+  it("does not suggest unrelated agent examples inside a category", async () => {
+    window.history.replaceState({}, "", "/catalog?category_key=quiet-keyboards");
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    const panel = screen.getByRole("complementary", { name: "Ask Mosaic" });
+    expect(within(panel).queryByRole("list", { name: "Example questions" })).toBeNull();
+    expect(within(panel).getByText("Your preferences")).toBeTruthy();
+  });
+
+  it("runs the typo pill with its canonical mission filters", async () => {
+    const mission = coreMosaicLabs.find((item) => item.stage === "retrieve")!;
+    window.history.replaceState({}, "", "/catalog?domain=running_fitness&brand=OldBrand");
+    vi.mocked(api.search).mockResolvedValue(searchResponse);
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: mission.query }));
+    await waitFor(() => expect(api.search).toHaveBeenCalled());
+    expect(vi.mocked(api.search).mock.calls.at(-1)?.[1]).toMatchObject(mission.filters);
+    expect(new URLSearchParams(window.location.search).get("brand")).toBeNull();
+    expect(new URLSearchParams(window.location.search).get("mission")).toBe(mission.id);
   });
 
   it("shows a distinct retrieval-arm label on every starter card, never repeated", async () => {
@@ -2115,7 +2151,7 @@ describe("CatalogPage", () => {
     const reopened = screen.getByRole("complementary", { name: "Ask Mosaic" });
     expect(within(reopened).getByText("Final recommendation")).toBeTruthy();
     expect(
-      [...within(reopened).getByLabelText("Steps I took")
+      [...within(reopened).getByLabelText("Retrieval activity")
         .querySelectorAll(".ask-mosaic-stage-summary")]
       .map((card) => card.getAttribute("aria-expanded")),
     ).toEqual(["false", "false", "false", "true"]);

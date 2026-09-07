@@ -74,7 +74,7 @@ function proofFixture(
     ],
     evidence: {
       search_event_ids: [EVENT_ONE],
-      agent_run_id: null,
+      agent_run_id: labId === 3 ? AGENT_RUN : null,
       evidence_ids: [],
     },
     identity: {
@@ -99,6 +99,39 @@ function labBlock(labId: number): HTMLElement {
 }
 
 describe("CompletionProof", () => {
+  it.each(["pass", "fail"] as const)("exports the exact %s record with complete measurement identity", async (status) => {
+    const proof = proofFixture(1, { status });
+    vi.mocked(api.labProof).mockResolvedValue(proof);
+    render(<CompletionProof activeLab={1} agentRunId={null} />);
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof for Lab 1" }));
+    await waitFor(() => expect(labBlock(1).textContent).toContain(status.toUpperCase()));
+
+    const download = labBlock(1).querySelector<HTMLAnchorElement>("a[download]")!;
+    const exported = JSON.parse(decodeURIComponent(download.href.split(",")[1]));
+    expect(exported).toEqual(proof);
+    expect(exported.evidence.search_event_ids).toEqual([EVENT_ONE]);
+    expect(download.download).toMatch(/^mosaic-lab-1-.*\.json$/);
+  });
+
+  it("requires another proof after the agent run changes", async () => {
+    vi.mocked(api.labProof).mockImplementation(async (labId, request) =>
+      proofFixture(labId, {
+        evidence: { search_event_ids: [], evidence_ids: [8801], agent_run_id: request.agent_run_id ?? null },
+      }));
+    const { rerender } = render(<CompletionProof activeLab={3} agentRunId={AGENT_RUN} />);
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof for Lab 3" }));
+    await waitFor(() => expect(labBlock(3).textContent).toContain("PASS"));
+
+    rerender(<CompletionProof activeLab={3} agentRunId={EVENT_TWO} />);
+    expect(labBlock(3).textContent).not.toContain("PASS");
+    expect(labBlock(3).textContent).toContain("Not run yet");
+    expect(api.labProof).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof for Lab 3" }));
+    await waitFor(() => expect(labBlock(3).textContent).toContain("PASS"));
+    expect(api.labProof).toHaveBeenLastCalledWith(3, { agent_run_id: EVENT_TWO });
+  });
+
   it("offers the lab in front first, and the gate second, grading neither", () => {
     render(<CompletionProof activeLab={2} agentRunId={null} />);
 
@@ -166,8 +199,8 @@ describe("CompletionProof", () => {
     const block = labBlock(1);
     // A pass is three facts, not one: the checks held, the file is repaired,
     // and Aurora holds that repair.
-    expect(block.textContent).toContain("source solved");
-    expect(block.textContent).toContain("database applied");
+    expect(block.textContent).toContain("Code repaired");
+    expect(block.textContent).toContain("SQL repair applied");
     expect(block.textContent).toContain("1420 ms");
     // Short form, the same eight characters the run summary uses, so a
     // participant can match a proof to a receipt by eye.
@@ -212,7 +245,8 @@ describe("CompletionProof", () => {
     expect(block.textContent).toContain("0 of 12 candidates entered through pg_trgm");
     // Only the checks that failed are expanded. A wall of green rows with
     // their falsifiers buries the one line the participant has to read.
-    expect(block.textContent).not.toContain("product 2 returned at rank 4");
+    expect(within(block).getByText("product 2 returned at rank 4").closest("details")?.open)
+      .toBe(false);
     // Paired positive: lab 2 still passed, so a failure in one lab is not
     // reported as a failure of the block.
     expect(labBlock(2).textContent).toContain("PASS");
@@ -288,9 +322,8 @@ describe("CompletionProof", () => {
       "The source file is repaired but the database still holds the old function."
       + " Run make db-apply-search-functions.",
     );
-    // A failed lab never gets a pass's receipts: event ids under a FAIL read
-    // as evidence the lab is finished.
-    expect(within(block).queryByText("aa11bb22")).toBeNull();
+    // Failure receipts remain inspectable without competing with the repair.
+    expect(within(block).getByText("aa11bb22").closest("details")?.open).toBe(false);
     // Paired positive: lab 2 passed on the same press and keeps its receipt.
     expect(within(labBlock(2)).getByText("aa11bb22")).toBeTruthy();
   });

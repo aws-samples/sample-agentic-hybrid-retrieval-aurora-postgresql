@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from service.bedrock import get_bedrock_client
@@ -27,11 +28,19 @@ brackets, for example [1]. Never invent products, prices, specifications,
 availability, scores, or sources.
 Every sentence or bullet that names a product must include evidence for that
 same product in that sentence. Do not put product names in headings.
+Keep measured specifications in sentences about one product. Use each product's
+full supplied title when comparing measurements, with citations for both products.
+Do not turn a duration in the shopper's request into a product rating unless
+that product's cited specification supports it. Write structured attributes as
+natural-language labels, never raw JSON keys: recommended_hours is recommended
+daily use, max_user_weight_lb is weight capacity, recline_deg is recline, and
+os_compatibility is operating system compatibility. Express their measurements
+in hours, pounds, and degrees. Preserve the supplied value and unit family.
 
 Prices in the evidence are integer cents. Convert one exactly and keep both
 decimal places, so 39999 cents is "$399.99". Never round a price and never
-soften one with "roughly", "around", or "about". Write every other figure in the
-form the evidence uses, including any unit letters, and do not introduce a
+soften one with "roughly", "around", or "about". Preserve every other figure
+and its unit family, and do not introduce a
 threshold of your own, not even as a rule of thumb.
 
 Write at most 150 words in natural, confident shopping prose. The interface
@@ -244,50 +253,6 @@ def _availability_failures(
     return agreed, refuted
 
 
-def _measurable_claims(
-    sentence: str,
-    *,
-    ignored_phrases: Sequence[str] = (),
-) -> set[str]:
-    """Extract numeric and availability claims that evidence can falsify."""
-    without_citations = re.sub(r"\[\d+\]", "", sentence)
-    for phrase in sorted(ignored_phrases, key=len, reverse=True):
-        without_citations = re.sub(
-            re.escape(phrase),
-            lambda match: " " * len(match.group()),
-            without_citations,
-            flags=re.IGNORECASE,
-        )
-    claims: set[str] = set()
-    currency_spans: list[tuple[int, int]] = []
-    for match in re.finditer(_CURRENCY_PATTERN, without_citations):
-        claims.add(_cents(match.group(1), match.group(2)))
-        currency_spans.append(match.span())
-    without_currency = "".join(
-        " " if any(start <= index < end for start, end in currency_spans) else char
-        for index, char in enumerate(without_citations)
-    )
-    # A figure's attached letters belong to it. The catalog writes
-    # `"armrests": "4D"` and `"water_rating": "IP55"`, so an answer repeating
-    # either verbatim has to be checkable as that whole token. Matching a digit
-    # run inside one produced claims the record never states alone - "4" out of
-    # "4D", and "5" out of "IP55" because only the second digit cleared a
-    # letters-only lookbehind - and it left an invented "IP68" unchecked.
-    claims.update(
-        value.replace(",", "")
-        for value in re.findall(
-            r"(?<![A-Za-z0-9])[A-Za-z]*\d[\d,]*(?:\.\d+)?[A-Za-z]*", without_currency
-        )
-    )
-    normalized = _normalized_support_text(without_citations)
-    claims.update(
-        phrase
-        for phrase in ("in stock", "low stock", "out of stock", "preorder")
-        if phrase in normalized
-    )
-    return claims
-
-
 def _product_names(product: ProductSummary) -> set[str]:
     return {
         value.casefold()
@@ -353,7 +318,10 @@ _UNIT_ALIASES = {
     "grams": "gram",
     "kg": "kilogram",
     "kilogram": "kilogram",
-    "kilograms": "kilograms",
+    "kilograms": "kilogram",
+    "deg": "degree",
+    "degree": "degree",
+    "degrees": "degree",
     "lb": "pound",
     "lbs": "pound",
     "pound": "pound",
@@ -386,29 +354,60 @@ def _unit_family(word: str) -> str | None:
     return _UNIT_ALIASES.get(word.casefold())
 
 
-def _figure_units(sentence: str) -> dict[str, str]:
-    """The unit each figure in a sentence is stated in, where it states one.
+@dataclass(frozen=True)
+class MeasurableClaim:
+    """One occurrence; equal figures in different units are different facts."""
 
-    Read from the sentence rather than from the claim token, because the unit
-    is usually the next word: "999-hour battery life" yields the claim `999`
-    and leaves `hour` behind, and without it the figure matched any 999 in the
-    evidence whatever it measured.
-    """
-    units: dict[str, str] = {}
+    value: str
+    start: int
+    end: int
+    unit: str | None = None
+    currency: bool = False
+
+
+def _measurable_claims(
+    sentence: str, ignored_phrases: Iterable[str] = ()
+) -> list[MeasurableClaim]:
+    masked = re.sub(r"\[\d+\]", lambda m: " " * len(m.group()), sentence)
+    for phrase in sorted(ignored_phrases, key=len, reverse=True):
+        masked = re.sub(
+            re.escape(phrase),
+            lambda m: " " * len(m.group()),
+            masked,
+            flags=re.IGNORECASE,
+        )
+    claims = []
+    for match in re.finditer(_CURRENCY_PATTERN, masked):
+        claims.append(
+            MeasurableClaim(_cents(*match.groups()), *match.span(), currency=True)
+        )
     for match in re.finditer(
-        r"(?<![A-Za-z0-9])(\d[\d,]*(?:\.\d+)?)([A-Za-z]+)?(?:[\s-]+([A-Za-z]+))?",
-        sentence,
+        r"(?<![A-Za-z0-9])[A-Za-z]*\d[\d,]*(?:\.\d+)?[A-Za-z]*", masked
     ):
-        figure = match.group(1).replace(",", "")
-        attached, following = match.group(2), match.group(3)
-        family = _unit_family(attached) if attached else None
-        if family is None and not attached and following:
-            family = _unit_family(following)
-        if family:
-            units.setdefault(figure, family)
-            if attached:
-                units.setdefault(f"{figure}{attached}", family)
-    return units
+        if any(c.start <= match.start() < c.end for c in claims):
+            continue
+        value = match.group().replace(",", "")
+        unit = None
+        if not _IDENTIFIER_SHAPE.match(value):
+            attached = re.search(r"[A-Za-z]+$", value)
+            following = re.match(r"[\s-]+([A-Za-z]+)", masked[match.end() :])
+            unit = (
+                _unit_family(attached.group())
+                if attached
+                else _unit_family(following.group(1))
+                if following
+                else None
+            )
+        claims.append(MeasurableClaim(value, *match.span(), unit=unit))
+    for match in re.finditer(
+        r"\b(?:in[ _-]stock|low[ _-]stock|out[ _-]of[ _-]stock|preorder)\b",
+        masked,
+        re.IGNORECASE,
+    ):
+        claims.append(
+            MeasurableClaim(_normalized_support_text(match.group()), *match.span())
+        )
+    return sorted(claims, key=lambda c: c.start)
 
 
 def _states_figure_in_unit(support: str, figure: str, family: str) -> bool:
@@ -435,86 +434,47 @@ def _states_figure_in_unit(support: str, figure: str, family: str) -> bool:
     return re.search(pattern, support) is not None
 
 
-def _unsupported_claims(
-    claims: set[str],
-    evidence_records: Sequence[EvidenceRecord],
-    *,
-    units: Mapping[str, str] | None = None,
-) -> list[str]:
-    support = _normalized_support_text(
-        " ".join(f"{record.title} {record.text}" for record in evidence_records)
-    )
-    units = units or {}
-    unsupported: list[str] = []
-    for claim in claims:
-        family = units.get(claim)
-        if family:
-            # The figure was stated in a unit, so the evidence has to state it
-            # in the same one. Matching the bare digits accepted a "48-year
-            # warranty" on the strength of "48 hours of playback": same figure,
-            # different measurement, and the answer was wrong by a factor of
-            # about nine thousand.
-            if not _states_figure_in_unit(support, claim, family):
-                unsupported.append(claim)
+def _structured_measurement(record: EvidenceRecord, claim: MeasurableClaim) -> bool:
+    attributes = record.metadata.get("attributes")
+    if not isinstance(attributes, dict):
+        return False
+    numeric = re.search(r"\d[\d,]*(?:\.\d+)?", claim.value)
+    if numeric is None:
+        return False
+    for name, value in attributes.items():
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
             continue
-        readings = {claim}
-        numeric_core = re.search(r"\d[\d,]*(?:\.\d+)?", claim)
-        # A measurement's own abbreviation is the same claim written shorter --
-        # "48h" against a record's "48-hour" -- so its digits are an acceptable
-        # second reading. An *identifier* is not: reducing "IP68" to "68" let an
-        # invented water rating ride on a weight of 68 grams, so it is supported
-        # only by itself.
-        if (
-            numeric_core
-            and numeric_core.group() != claim
-            and not _IDENTIFIER_SHAPE.match(claim)
-        ):
-            readings.add(numeric_core.group())
-        if not any(
-            re.search(
-                rf"(?<![A-Za-z0-9]){re.escape(_normalized_support_text(reading))}"
-                r"(?![A-Za-z0-9])",
-                support,
-            )
-            for reading in readings
-        ):
-            unsupported.append(claim)
-    return sorted(unsupported)
+        unit = _unit_family(str(name).rsplit("_", 1)[-1])
+        if unit == claim.unit and value == float(numeric.group().replace(",", "")):
+            return True
+    return False
 
 
-def _product_claims(
-    sentence: str,
+def _claim_supported(
+    claim: MeasurableClaim,
+    segment: str,
     products: Sequence[ProductSummary],
-) -> list[tuple[int, set[str]]]:
-    """Associate comparison-clause measurements with the product they describe."""
-    ignored_names = {name for product in products for name in _product_names(product)}
-    by_product: dict[int, set[str]] = {}
-    clauses = re.split(
-        r"\s*(?:;|\bwhile\b|\bwhereas\b)\s*",
-        sentence,
-        flags=re.IGNORECASE,
+    records: Sequence[EvidenceRecord],
+) -> bool:
+    if claim.currency:
+        return claim.value in _price_settled_claims(segment, [claim.value], products)
+    if claim.value in _AVAILABILITY_CLAIMS:
+        agreed, refuted = _availability_failures([claim.value], products)
+        return claim.value in agreed and claim.value not in refuted
+    support = _normalized_support_text(
+        " ".join(f"{record.title} {record.text}" for record in records)
     )
-    for clause in clauses:
-        mentions = _named_product_mentions(clause, products)
-        claims = _measurable_claims(clause, ignored_phrases=ignored_names)
-        if not mentions or not claims:
-            continue
-        distinct_product_ids = {product_id for _, _, product_id in mentions}
-        if len(distinct_product_ids) == 1:
-            product_id = next(iter(distinct_product_ids))
-            by_product.setdefault(product_id, set()).update(claims)
-            continue
-        for index, (start, _, product_id) in enumerate(mentions):
-            segment_start = 0 if index == 0 else start
-            segment_end = (
-                mentions[index + 1][0] if index + 1 < len(mentions) else len(clause)
-            )
-            segment_claims = _measurable_claims(
-                clause[segment_start:segment_end],
-                ignored_phrases=ignored_names,
-            )
-            by_product.setdefault(product_id, set()).update(segment_claims)
-    return list(by_product.items())
+    if claim.unit:
+        return _states_figure_in_unit(support, claim.value, claim.unit) or any(
+            _structured_measurement(record, claim) for record in records
+        )
+    return (
+        re.search(
+            rf"(?<![A-Za-z0-9]){re.escape(_normalized_support_text(claim.value))}(?![A-Za-z0-9])",
+            support,
+        )
+        is not None
+    )
 
 
 def _validate_measurable_claim_support(
@@ -522,91 +482,74 @@ def _validate_measurable_claim_support(
     products: Sequence[ProductSummary],
     evidence_records: Sequence[EvidenceRecord],
 ) -> None:
-    """Reject measurable claims absent from the evidence cited in that sentence."""
-    sentences = [
-        sentence.strip()
-        for sentence in re.split(r"(?<=[.!?])\s+|\n+", answer)
-        if sentence.strip()
-    ]
+    """Validate every claim occurrence against its product and cited sources."""
     ignored_names = {name for product in products for name in _product_names(product)}
     by_product_id = {product.product_id: product for product in products}
-    for sentence in sentences:
-        claims = _measurable_claims(sentence, ignored_phrases=ignored_names)
-        if not claims:
-            continue
-        units = _figure_units(sentence)
+    previous_subjects: set[int] = set()
+    for sentence in re.split(r"(?<=[.!?])\s+|\n+", answer):
         cited = {int(value) for value in re.findall(r"\[(\d+)\]", sentence)}
-        if cited:
-            cited_records = [evidence_records[number - 1] for number in cited]
-        else:
-            # An uncited sentence used to be skipped whole, so a citation on one
-            # sentence authorized a fabricated figure in the next: "...is a good
-            # fit [1]. It has 999-hour battery life." passed.
-            #
-            # Only claims shaped like a product fact are checked here -- a figure
-            # stated in a unit, an identifier, an availability phrase. A bare
-            # count carries no unit and no attribute ("here are 3 options"), and
-            # demanding evidence for it is how this validator has produced false
-            # rejections before. Anything checkable is checked against the whole
-            # supplied evidence set, because the sentence named no subset.
-            claims = {
-                claim
-                for claim in claims
-                if claim in units
-                or _IDENTIFIER_SHAPE.match(claim)
-                or claim in _AVAILABILITY_CLAIMS
-            }
-            if not claims:
-                continue
-            cited_records = list(evidence_records)
-        mentions = _named_product_mentions(sentence, products)
-        if not mentions:
-            cited_products = [
-                by_product_id[record.product_id]
-                for record in cited_records
-                if record.product_id in by_product_id
-            ]
-            settled, refuted = _availability_failures(claims, cited_products)
-            settled |= _price_settled_claims(sentence, claims, cited_products)
-            unsupported = sorted(
-                refuted
-                | {
-                    claim
-                    for claim in _unsupported_claims(claims, cited_records, units=units)
-                    if claim not in settled and claim not in refuted
-                }
-            )
-            if unsupported:
-                raise SynthesisOutputError(
-                    "Synthesized sentence contains unsupported numeric claim or "
-                    f"availability claim {unsupported}: {sentence}"
-                )
-            continue
-
-        for product_id, named_claims in _product_claims(sentence, products):
-            product_records = [
-                record for record in cited_records if record.product_id == product_id
-            ]
-            named_product = by_product_id.get(product_id)
-            named_products = [named_product] if named_product else []
-            settled, refuted = _availability_failures(named_claims, named_products)
-            settled |= _price_settled_claims(sentence, named_claims, named_products)
-            unsupported = sorted(
-                refuted
-                | {
-                    claim
-                    for claim in _unsupported_claims(
-                        named_claims, product_records, units=units
+        records = (
+            [evidence_records[number - 1] for number in cited]
+            if cited
+            else list(evidence_records)
+        )
+        sentence_subjects = {
+            pid for _, _, pid in _named_product_mentions(sentence, products)
+        }
+        for clause in re.split(
+            r"\s*(?:;|\bwhile\b|\bwhereas\b)\s*", sentence, flags=re.IGNORECASE
+        ):
+            mentions = _named_product_mentions(clause, products)
+            segments = (
+                [
+                    (
+                        clause[
+                            0 if index == 0 else start : mentions[index + 1][0]
+                            if index + 1 < len(mentions)
+                            else len(clause)
+                        ],
+                        {pid},
                     )
-                    if claim not in settled and claim not in refuted
-                }
+                    for index, (start, _, pid) in enumerate(mentions)
+                ]
+                if mentions
+                else [(clause, sentence_subjects or previous_subjects)]
             )
-            if unsupported:
-                raise SynthesisOutputError(
-                    "Synthesized sentence contains unsupported numeric claim or "
-                    f"availability claim {unsupported} for product {product_id}: "
-                    f"{sentence}"
+            for segment, subjects in segments:
+                scoped_records = [
+                    r for r in records if not subjects or r.product_id in subjects
+                ]
+                scoped_products = (
+                    [by_product_id[pid] for pid in subjects if pid in by_product_id]
+                    if subjects
+                    else [
+                        p
+                        for p in products
+                        if any(r.product_id == p.product_id for r in scoped_records)
+                    ]
                 )
+                for claim in _measurable_claims(segment, ignored_names):
+                    if not cited and not (
+                        claim.currency
+                        or claim.unit
+                        or _IDENTIFIER_SHAPE.match(claim.value)
+                        or claim.value in _AVAILABILITY_CLAIMS
+                    ):
+                        continue
+                    if not _claim_supported(
+                        claim, segment, scoped_products, scoped_records
+                    ):
+                        subject_label = (
+                            f"product {next(iter(subjects))}"
+                            if len(subjects) == 1
+                            else f"products {sorted(subjects)}"
+                        )
+                        raise SynthesisOutputError(
+                            "Synthesized sentence contains unsupported numeric claim or "
+                            f"availability claim {[claim.value]} for {subject_label}: {sentence}"
+                        )
+        if sentence_subjects:
+            previous_subjects = sentence_subjects
 
 
 def _validated_output(

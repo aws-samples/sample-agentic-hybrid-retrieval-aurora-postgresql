@@ -322,23 +322,43 @@
 }
 
 .discover-voices-lede {
+  display: grid;
+  gap: 7px;
   max-width: 60ch;
   color: var(--ink-soft);
   font-size: 13px;
+}
+
+.discover-voices-lede small {
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 /* The min-height is the tallest two-line quote, so the band holds its
    breath while it cycles instead of reflowing the page under the reader. */
 .discover-voice {
   display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
   min-height: 76px;
   align-content: center;
-  gap: 9px;
+  gap: 9px 18px;
   margin: 0;
   animation: discover-voice-in 480ms ease both;
 }
 
+.discover-voice-portrait {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-self: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--paper);
+}
+
 .discover-voice blockquote {
+  grid-column: 2;
   margin: 0;
   color: var(--ink);
   font-family: var(--display);
@@ -348,6 +368,7 @@
 }
 
 .discover-voice figcaption {
+  grid-column: 2;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -444,6 +465,41 @@
   .discover-voices {
     grid-template-columns: 1fr;
     gap: 12px;
+  }
+
+  .discover-voices-lede {
+    grid-template-columns: 1fr 1fr;
+    align-items: baseline;
+    gap: 12px;
+    max-width: none;
+  }
+
+  .discover-voices-lede small {
+    justify-self: end;
+    max-width: 145px;
+    text-align: right;
+  }
+
+  .discover-voice {
+    grid-template-columns: 48px minmax(0, 1fr);
+    column-gap: 14px;
+  }
+
+  .discover-voice-portrait {
+    align-self: start;
+    width: 48px;
+    height: 48px;
+  }
+
+  .discover-voices-dots {
+    justify-self: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .discover-voice {
+    min-height: 180px;
+    align-content: start;
   }
 }
 
@@ -1845,11 +1901,9 @@
   line-height: 1.6;
 }
 
-/* Editorial hero: the still bleeds off the top and right of the surface, the
-   headline sits on bare canvas beside it, and the search console straddles the
-   photograph's lower edge. The negative margins cancel .shop-main's padding, so
-   the bleed stops at the same column as the product grid and keeps working when
-   the Ask Mosaic sidecar narrows the column. */
+/* The photograph and console share the product grid's right edge. Keeping
+   that alignment as the sidecar opens prevents a sliver of image protruding
+   beside the console's lower half. */
 
 .shop-hero {
   position: relative;
@@ -1860,7 +1914,7 @@
 .shop-hero-photo {
   position: absolute;
   top: 0;
-  right: 0;
+  right: var(--shop-pad-inline);
   width: min(62%, 960px);
   height: clamp(340px, 36vw, 560px);
   overflow: hidden;
@@ -1869,9 +1923,7 @@
   mask-image: linear-gradient(90deg, transparent 0, #000 14%);
 }
 
-/* The console card covers most of the still's lower edge, but a strip of it
-   stays visible outside the card's right margin. Fading that strip into the
-   canvas avoids a cut line hanging in mid-air beside the card. */
+/* Soften the photograph's base where the console overlaps it. */
 
 .shop-hero-photo::after {
   position: absolute;
@@ -2407,9 +2459,7 @@
    sidecar, which is why the width test also excludes that state. */
 
 @media (min-width: 1181px) {
-  /* 36%, not 41%: the search field is what a shopper came to use, and the panel
-     beside it explaining Ask Mosaic should support that rather than compete with
-     it for the same fold. */
+  /* Keep the complete invitation readable while search owns most of the row. */
   .shop-canvas:not(.assist-open) .shop-console {
     grid-template-columns: minmax(0, 1.78fr) minmax(0, 1fr);
   }
@@ -2989,17 +3039,15 @@
   flex-direction: column;
   gap: 0;
   overflow: hidden;
-  border: 1px solid rgb(92 75 62 / 12%);
+  border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
-  box-shadow: 0 8px 26px rgb(48 37 28 / 7%);
-  transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+  transition: border-color var(--motion-fast) ease;
 }
 
-.shop-product-card:hover {
-  border-color: rgb(92 75 62 / 24%);
-  box-shadow: 0 18px 38px rgb(48 37 28 / 12%);
-  transform: translateY(-3px);
+.shop-product-card:hover,
+.shop-product-card:focus-within {
+  border-color: var(--line-strong);
 }
 
 .shop-product-card .product-image {
@@ -3023,11 +3071,14 @@
   object-fit: cover;
   object-position: center;
   image-rendering: auto;
-  transition: transform 240ms ease;
+  transition: transform var(--motion-settle) var(--ease-out);
 }
 
-.shop-product-card:hover .product-image img {
-  transform: scale(1.035);
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .shop-product-card .product-image:hover img,
+  .shop-product-card .product-image:focus-visible img {
+    transform: scale(1.025);
+  }
 }
 
 .shop-product-card .catalog-favorite-button {
@@ -3107,13 +3158,12 @@
 
 .shop-product-card h3 {
   margin: 0;
-  overflow: hidden;
   font-family: var(--display);
   font-size: 21px;
   font-weight: 500;
   line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
 .shop-card-rating {
@@ -3207,6 +3257,8 @@
   min-width: 0;
   align-items: baseline;
   gap: 11px;
+  flex-wrap: wrap;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .shop-card-price strong {
@@ -3957,6 +4009,44 @@
   scroll-behavior: auto;
 }
 
+.ask-mosaic-process {
+  min-width: 0;
+  border-block: 1px solid var(--line);
+}
+
+.ask-mosaic-process > summary {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+}
+
+.ask-mosaic-process > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ask-mosaic-process > summary > span {
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.ask-mosaic-process > summary > small {
+  flex: 1;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.ask-mosaic-process[open] > summary > svg {
+  transform: rotate(180deg);
+}
+
+.ask-mosaic-process > .ask-mosaic-timeline {
+  padding-block: 12px;
+}
+
 /* One exchange. Successive turns are ruled rather than boxed: the panel is a
    column of reading matter, and a card per turn nested a shortlist, three
    receipts, and a chip list inside a second border. */
@@ -4123,8 +4213,26 @@
   display: grid;
   justify-items: start;
   gap: 16px;
-  padding: 28px 0 0;
+  padding: 8px 0 0;
   text-align: left;
+}
+
+.ask-mosaic-welcome h3 {
+  margin: 0 0 10px;
+  color: var(--maroon-950);
+  font-family: var(--display);
+  font-size: clamp(28px, 2.2vw, 34px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+}
+
+.ask-mosaic-welcome p {
+  max-width: 48ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .ask-mosaic-starters {
@@ -4169,19 +4277,17 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
-  box-shadow: 0 1px 2px rgb(48 37 28 / 4%);
+  box-shadow: none;
   color: var(--ink);
   font-family: var(--sans);
   text-align: left;
-  transition: border-color 200ms ease, box-shadow 200ms ease,
-    transform 200ms ease;
+  transition: border-color var(--motion-fast) ease, background-color var(--motion-fast) ease;
 }
 
 .ask-mosaic-starters button:hover,
 .ask-mosaic-starters button:focus-visible {
-  border-color: rgb(103 24 37 / 26%);
-  box-shadow: 0 8px 22px rgb(103 24 37 / 10%);
-  transform: translateY(-1px);
+  border-color: var(--maroon-700);
+  background: var(--paper-warm);
 }
 
 .ask-mosaic-starters button:active {
@@ -5204,7 +5310,7 @@
    lab name and the stage links share one row, and the state chips keep their
    place: a participant deep in Stage 03 still reads which lab this is and where
    it stands, in a strip a third the height. LabRail toggles the class from an
-   IntersectionObserver and holds the flow footprint steady with a negative
+   IntersectionObserver and holds the flow footprint steady with a positive
    bottom margin, so nothing under the rail moves when it changes shape. */
 .labs-rail.is-stuck {
   gap: 6px 18px;
@@ -5312,13 +5418,17 @@
 
 .labs-rail-edit {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   margin: 0;
   color: var(--ink-soft);
 }
 
 .labs-rail-edit code {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-family: var(--mono);
   font-size: var(--labs-mono);
 }
@@ -6284,6 +6394,26 @@
     font-size: 17px;
   }
 
+  .shop-product-card .product-card-body {
+    padding-inline: 12px;
+  }
+
+  .shop-card-kicker {
+    flex-wrap: wrap;
+    gap: 2px 6px;
+    white-space: normal;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  .shop-card-price {
+    gap: 3px 8px;
+  }
+
+  .shop-card-footer {
+    align-items: center;
+  }
+
   .shop-card-signals span:nth-child(n + 4) {
     display: none;
   }
@@ -6400,7 +6530,7 @@
   }
 }
 
-@media (max-width: 420px) {
+@media (max-width: 359px) {
   .shop-product-grid,
   .shop-canvas.assist-open .shop-product-grid {
     grid-template-columns: 1fr;
@@ -6745,6 +6875,22 @@
   background: var(--paper);
   grid-template-columns: repeat(3, minmax(0, 1fr));
   list-style: none;
+}
+
+.labs-ranking-reading > summary {
+  min-height: 44px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.labs-ranking-reading > summary > span {
+  margin-left: 14px;
+  color: var(--ink-soft);
+  font-weight: 400;
 }
 
 .labs-ranking-guide > li {
@@ -8067,7 +8213,7 @@
   }
 }
 
-@media (max-width: 420px) {
+@media (max-width: 359px) {
   .catalog-skeleton-grid {
     grid-template-columns: 1fr;
   }
@@ -9813,10 +9959,10 @@
 .ask-mosaic-header p {
   margin-top: 5px;
   color: var(--ink-soft);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 450;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .ask-mosaic-body {
@@ -10951,6 +11097,246 @@
   --labs-form-measure: 74ch;
 }
 
+.lab-page .labs-intro {
+  background: transparent;
+  border-bottom: 0;
+}
+
+.lab-page .labs-intro-copy {
+  width: 100%;
+  padding-block: 0;
+}
+
+.lab-page .labs-intro-actions,
+.lab-page .retrieval-run-action {
+  width: 100%;
+}
+
+.lab-page .retrieval-run-action {
+  padding: 18px;
+  border-color: var(--line-strong);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgb(48 37 28 / 3%);
+}
+
+.lab-page .retrieval-run-action .primary-button {
+  min-height: 44px;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.lab-page .labs-rail {
+  border-radius: 8px;
+}
+
+.lab-page .labs-rail.is-stuck {
+  box-shadow: 0 4px 12px rgb(48 37 28 / 5%);
+}
+
+/* Match the full hero composition at normal browser zoom. Its visible scene
+   and overlap scale together, so viewport height cannot lift the console over
+   the headphones and shoe or remove the Ask Mosaic explanation. */
+@media (min-width: 901px) {
+  .shop-canvas:not(.assist-open) .shop-main:has(.shop-hero:not(.is-searching)) {
+    --shop-scene-height: clamp(280px, min(24vw, 42svh), 360px);
+    --shop-pad-block: clamp(28px, 2.6vw, 40px);
+
+    width: min(100%, var(--shell-width), 1340px);
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-heading {
+    min-height: calc(var(--shop-scene-height) - var(--shop-pad-block));
+    align-content: start;
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) h1 {
+    font-size: clamp(42px, 4vw, 58px);
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero-photo {
+    height: calc(var(--shop-scene-height) * 1.4);
+    max-height: 100%;
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console {
+    margin-top: 0;
+    box-shadow: 0 16px 40px rgb(48 37 28 / 11%);
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console-search {
+    align-content: start;
+    gap: 13px;
+    padding: 18px;
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-suggested {
+    gap: 8px;
+    padding-inline: 0;
+    mask-image: none;
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-search {
+    padding: 5px 6px 5px 3px;
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .search-composer {
+    min-height: 46px;
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .search-composer input {
+    height: 46px;
+    font-size: 14px;
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .catalog-idle-suggestion {
+    font-size: 14px;
+    line-height: 46px;
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .catalog-autocomplete > button[type="submit"] {
+    width: 44px;
+    height: 44px;
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console-note {
+    gap: 6px;
+    padding: 18px 116px 18px 22px;
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console-note > small {
+    display: block;
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console-note > strong {
+    font-size: 18px;
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console-note ul {
+    display: grid;
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console-note li {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console-note-action {
+    margin-top: 6px;
+    padding-inline: 16px;
+  }
+
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console-note-photo {
+    width: 132px;
+  }
+
+  .shop-canvas:not(.assist-open) .shop-main:has(.shop-hero:not(.is-searching)) .shop-controls {
+    margin-top: 32px;
+    padding-bottom: 10px;
+  }
+}
+
+@media (min-width: 901px) and (pointer: fine) {
+  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-suggested > button {
+    min-height: 40px;
+    padding-inline: 13px;
+  }
+}
+
+/* Laptop height, not physical screen size, determines how much of a run is
+   visible. Keep the controls and first results together without shrinking
+   the reading text or the diagnostic table. */
+@media (min-width: 901px) and (max-height: 900px) {
+  .discover-hero {
+    min-height: min(550px, calc(100svh - var(--topbar-height)));
+  }
+
+  .discover-hero-content {
+    padding-block: 40px;
+  }
+
+  .shop-main {
+    --shop-pad-block: 24px;
+  }
+
+  .shop-heading h1 {
+    font-size: clamp(42px, 3.8vw, 54px);
+  }
+
+  .shop-console {
+    margin-top: 40px;
+  }
+
+  .shop-hero-photo {
+    height: clamp(300px, 28vw, 420px);
+  }
+
+  .shop-console-note {
+    padding-block: 16px;
+  }
+
+  .shop-console-note ul,
+  .shop-hero.is-searching .shop-console-note > small,
+  .shop-hero.is-searching .shop-suggested {
+    display: none;
+  }
+
+  .shop-hero.is-searching .shop-console {
+    margin-top: 12px;
+  }
+
+  .shop-hero.is-searching .shop-console-search {
+    align-content: center;
+    padding-block: 14px;
+  }
+
+  .shop-controls {
+    margin-top: 16px;
+    padding-bottom: 8px;
+  }
+
+  .shop-filter-chips {
+    padding-top: 8px;
+  }
+
+  .shop-query-state {
+    margin-top: 10px;
+  }
+
+  .lab-page.labs-premium {
+    gap: 24px;
+    padding-top: 24px;
+  }
+
+  .lab-page .labs-intro-copy {
+    padding-block: 0;
+  }
+
+  .lab-page .labs-intro-copy h1 {
+    font-size: var(--labs-h2);
+  }
+
+  .lab-page .labs-intro-copy > .labs-intro-deck {
+    max-width: none;
+    font-size: var(--labs-body);
+  }
+
+  .lab-page .labs-bridge {
+    gap: 12px;
+    padding-block: 18px;
+  }
+
+  .lab-page .labs-bridge dl > div {
+    padding: 12px 16px;
+  }
+
+  .lab-page .labs-stage {
+    gap: 20px;
+    padding-top: 24px;
+  }
+}
+
 /* The bridge, above the stages. Two columns of the same table, not a diagram:
    left is what Shop prints, right is what Aurora ran. */
 .labs-bridge {
@@ -11578,6 +11964,159 @@
   gap: clamp(16px, 1.8vw, 24px);
 }
 
+.labs-reason-run {
+  display: grid;
+  min-width: 0;
+  gap: 18px;
+  scroll-margin-top: calc(var(--topbar-height) + var(--labs-rail-height, 0px) + 18px);
+}
+
+.labs-reason-run:focus {
+  outline: none;
+}
+
+.labs-reason-run-status {
+  padding: 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.labs-reason-run-heading {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.labs-reason-run-heading > svg {
+  margin-top: 2px;
+  color: var(--maroon-800);
+}
+
+.labs-reason-run-status[data-state="error"] .labs-reason-run-heading > svg {
+  color: var(--danger);
+}
+
+.labs-reason-run-heading h3 {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--labs-h3);
+  line-height: 1.3;
+}
+
+.labs-reason-run-heading p {
+  min-height: 2.8em;
+  max-width: 72ch;
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.4;
+}
+
+.labs-reason-elapsed {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  color: var(--ink);
+  font-size: var(--labs-lead);
+  font-variant-numeric: tabular-nums;
+}
+
+.labs-reason-elapsed small {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+}
+
+.labs-reason-run-meta,
+.labs-reason-run-meta dl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 20px;
+  margin: 0;
+  font-size: var(--labs-detail);
+}
+
+.labs-reason-run-meta {
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-soft);
+}
+
+.labs-reason-run-meta dl > div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.labs-reason-run-meta dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.labs-reason-run-meta code {
+  font-size: var(--labs-mono);
+}
+
+.labs-reason-section {
+  min-width: 0;
+  border-block: 1px solid var(--line);
+}
+
+.labs-reason-section + .labs-reason-section {
+  margin-top: -18px;
+  border-top: 0;
+}
+
+.labs-reason-section > summary {
+  padding: 18px 4px;
+  color: var(--ink);
+  font-size: var(--labs-body);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.labs-reason-section > summary small {
+  display: inline-block;
+  margin-left: 14px;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  font-weight: 400;
+}
+
+.labs-reason-section-body {
+  display: grid;
+  min-width: 0;
+  gap: 20px;
+  padding-block: 0 20px;
+}
+
+.labs-reason-answer-waiting > p {
+  min-height: 5em;
+  max-width: 74ch;
+  margin: 0;
+  padding: 18px;
+  color: var(--ink-soft);
+  font-size: var(--labs-body);
+  line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .labs-reason-run-status {
+    padding: 16px;
+  }
+
+  .labs-reason-section > summary small {
+    display: block;
+    margin: 5px 0 0 18px;
+  }
+}
+
 .labs-reason-composer {
   display: grid;
   gap: 10px;
@@ -11728,24 +12267,28 @@
   display: grid;
   margin: 0;
   padding: 0;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   list-style: none;
 }
 
 .labs-reason-products li {
   display: grid;
   min-width: 0;
-  grid-template-rows: auto 1fr;
-  border-right: 1px solid var(--line);
+  grid-template-columns: 80px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
 }
 
 .labs-reason-products li:last-child {
-  border-right: 0;
+  border-bottom: 0;
 }
 
 .labs-reason-products img {
-  width: 100%;
-  aspect-ratio: 3 / 2;
+  width: 80px;
+  height: 64px;
+  border-radius: 4px;
   background: var(--paper-warm);
   object-fit: cover;
 }
@@ -11754,7 +12297,7 @@
   display: grid;
   align-content: start;
   gap: 4px;
-  padding: 12px 14px 14px;
+  min-width: 0;
 }
 
 .labs-reason-products li strong {
@@ -12114,19 +12657,14 @@
   }
 
   .labs-reason-products li {
-    grid-template-columns: 7.5rem minmax(0, 1fr);
-    grid-template-rows: auto;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .labs-reason-products li:last-child {
-    border-bottom: 0;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px;
   }
 
   .labs-reason-products img {
-    height: 100%;
-    min-height: 7rem;
+    width: 56px;
+    height: 56px;
   }
 
   .labs-evidence-records > li.has-product-image {
@@ -12340,6 +12878,63 @@
   gap: 2px;
   padding-left: 10px;
   border-left: 2px solid var(--danger);
+}
+
+.labs-proof-checks > li.is-pass {
+  border-left: 1px solid var(--green);
+}
+
+.labs-proof-inspection {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.55;
+}
+
+.labs-proof-inspection > summary {
+  width: fit-content;
+  padding-block: 10px;
+  color: var(--maroon-800);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.labs-proof-inspection > summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.labs-proof-inspection[open] > summary {
+  margin-bottom: 6px;
+}
+
+.labs-proof-inspection > p {
+  max-width: 72ch;
+  margin-block: 8px;
+}
+
+.labs-proof-inspection code {
+  overflow-wrap: anywhere;
+}
+
+.labs-proof-download {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  color: var(--maroon-800);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.labs-proof-question {
+  padding-block: 4px;
+  border-block: 1px solid var(--line);
+}
+
+.labs-package-download {
+  width: fit-content;
+  max-width: 100%;
 }
 
 .labs-proof-checks code {
@@ -13077,8 +13672,8 @@
 
 /* Shop's plan components carry their own top margin; the stage is a grid with
    its own gap, so the two would compound. */
-.labs-reason > .ask-mosaic-criteria,
-.labs-reason > .ask-mosaic-receipt {
+.labs-reason-section-body > .ask-mosaic-criteria,
+.labs-reason-section-body > .ask-mosaic-receipt {
   margin-top: 0;
 }
 
@@ -13125,6 +13720,10 @@
   color: var(--ink);
   font-size: var(--labs-body);
   line-height: 1.65;
+}
+
+.labs-reason-prose > * {
+  max-width: 78ch;
 }
 
 .labs-reason-prose > :first-child {
@@ -13417,72 +14016,6 @@
   border-color: var(--maroon-800);
   background: var(--maroon-100);
   color: var(--maroon-900);
-}
-
-/* Header: where each lab stands, in the two places a lab can be broken. */
-.site-lab-state {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.site-lab-chip {
-  display: inline-flex;
-  align-items: center;
-  /* Pinned rather than left to the font's line box, because the placeholder
-     below has to reserve exactly this height before the first read lands. */
-  min-height: 22px;
-  padding: 3px 9px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--paper-warm);
-  color: var(--ink-soft);
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-}
-
-/* Reserved space, drawn as nothing.
-
-   `/api/labs/state` is a round trip, and until it lands there are no chips.
-   Rendering the container empty let the header settle at one height and then
-   grow, shoving the bag sideways after the fetch. Zero width so nothing is
-   implied about the verdict, one chip's height so the row never changes. */
-.site-lab-state-pending {
-  display: inline-block;
-  width: 0;
-  height: 22px;
-}
-
-/* Green for done, red for the seam the participant is here to close, amber for
-   an edited file in front of an unapplied cluster. `not applicable` and
-   `not checked` stay neutral: neither is a verdict on the repair. */
-.site-lab-chip[data-state="solved"],
-.site-lab-chip[data-state="applied"] {
-  border-color: var(--green-line);
-  background: var(--green-soft);
-  color: var(--green);
-}
-
-.site-lab-chip[data-state="broken"] {
-  border-color: var(--danger-line);
-  background: var(--danger-soft);
-  color: var(--maroon-700);
-}
-
-.site-lab-chip[data-state="stale"] {
-  border-color: var(--gold-line);
-  background: var(--gold-soft);
-  color: var(--gold);
-}
-
-/* Two chips and a button do not fit beside the bag on a phone, and the lab
-   readout is the half a participant can get back by opening the Playground. */
-@media (max-width: 900px) {
-  .site-lab-state {
-    display: none;
-  }
 }
 
 @media (max-width: 620px) {

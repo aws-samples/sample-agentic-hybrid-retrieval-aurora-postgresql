@@ -282,6 +282,10 @@ class SearchResultEventRecord(WireModel):
     rerank_rank: int | None = None
     scores: dict[str, Any]
     provenance: dict[str, Any]
+    eligible: bool | None = Field(
+        default=None,
+        description="Current catalog eligibility under the persisted request filters.",
+    )
 
 
 class RetrievalRunResponse(WireModel):

@@ -76,3 +76,12 @@ export function leafCategory(path: string): string {
   const parts = path.split(">").map((part) => part.trim()).filter(Boolean);
   return parts.length ? parts[parts.length - 1] : path;
 }
+
+/** Keep catalog values readable without changing the underlying evidence. */
+export function formatAttributeValue(value: unknown): string {
+  if (value === null || value === undefined) return "Not specified";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (Array.isArray(value)) return value.map(formatAttributeValue).join(", ");
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}

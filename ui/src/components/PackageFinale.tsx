@@ -1,4 +1,4 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { ToolContract } from "../types";
@@ -79,6 +79,9 @@ export function PackageFinale() {
             <code>skills/mosaic-hybrid-retrieval/</code>
             <small>Keep the whole folder together.</small>
           </p>
+          <a className="secondary-button labs-package-download" href="/api/skill-package" download>
+            <Download size={16} aria-hidden="true" /> Download skill package
+          </a>
           <ul className="labs-contracts labs-skill-capabilities">
             {skill.map((contract) => (
               <li key={contract.name}>

@@ -1,7 +1,8 @@
-import { AlertTriangle, LoaderCircle, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Download, LoaderCircle, ShieldCheck } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { ApiError, api } from "../api";
 import { coreMosaicLabs } from "../labMissions";
+import { labStateCopy } from "../labStateCopy";
 import type { CompletionProofResponse } from "../types";
 import { shortEventId } from "./RunSummary";
 
@@ -45,11 +46,6 @@ type LabOutcome =
 type Outcomes = Record<LabId, LabOutcome>;
 
 const IDLE_OUTCOMES: Outcomes = { 1: { kind: "idle" }, 2: { kind: "idle" }, 3: { kind: "idle" } };
-
-/** `not_applicable` is a sentence, not an identifier, once it reaches a badge. */
-function readableState(state: string): string {
-  return state.replaceAll("_", " ");
-}
 
 /**
  * Why the proof could not run, in the terms a room problem has to use.
@@ -135,6 +131,7 @@ function failureReason(proof: CompletionProofResponse): string | null {
 
 function ProofDetail({ proof }: { proof: CompletionProofResponse }) {
   const failed = proof.checks.filter((check) => !check.passed);
+  const passed = proof.checks.filter((check) => check.passed);
   const reason = proof.status === "fail" && !failed.length
     ? failureReason(proof)
     : null;
@@ -144,8 +141,9 @@ function ProofDetail({ proof }: { proof: CompletionProofResponse }) {
           Aurora holds that repair. A pass on the first two alone is a repaired
           file in front of an unrepaired cluster. */}
       <p className="labs-proof-states">
-        <span>source {readableState(proof.source_state)}</span>
-        <span>database {readableState(proof.database_state)}</span>
+        {labStateCopy(proof).map(({ label, description }) => (
+          <span key={label} title={description}>{label}</span>
+        ))}
         <span>
           {proof.checks.length - failed.length} of {proof.checks.length} checks passed
         </span>
@@ -163,9 +161,36 @@ function ProofDetail({ proof }: { proof: CompletionProofResponse }) {
           ))}
         </ul>
       ) : null}
-      {/* Receipts belong to a pass. Event ids under a FAIL read as evidence
-          the lab is finished. */}
-      {proof.status === "pass" ? <ProofEvidence proof={proof} /> : null}
+      {passed.length ? (
+        <details className="labs-proof-inspection">
+          <summary>Inspect {passed.length} passing {passed.length === 1 ? "check" : "checks"}</summary>
+          <ul className="labs-proof-checks">
+            {passed.map((check) => (
+              <li className="is-pass" key={check.name}>
+                <code>{check.name}</code>
+                <b>{check.detail}</b>
+                <small>fails when: {check.falsifier}</small>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+      <details className="labs-proof-inspection">
+        <summary>Receipts and measurement identity</summary>
+        <ProofEvidence proof={proof} />
+        <p className="labs-proof-note">
+          Recorded {new Date(proof.finished_at).toLocaleString()}. Source revision{" "}
+          <code>{proof.identity.source_revision ?? "unavailable"}</code>.
+          These receipts record this check, including when it fails.
+        </p>
+        <a
+          className="labs-proof-download"
+          download={`mosaic-lab-${proof.lab_id}-${proof.finished_at.replaceAll(":", "-")}.json`}
+          href={`data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(proof, null, 2))}`}
+        >
+          <Download size={15} aria-hidden="true" /> Download recorded checks
+        </a>
+      </details>
     </>
   );
 }
@@ -249,10 +274,15 @@ export function CompletionProof({
    * Read rather than stored, so clearing the agent run cannot leave a Lab 3
    * verdict on screen that no run on this page supports.
    */
-  const outcomeFor = (labId: LabId): LabOutcome =>
-    labId === 3 && !agentRunId
-      ? { kind: "skipped", reason: LAB_3_PREREQUISITE }
-      : outcomes[labId];
+  const outcomeFor = (labId: LabId): LabOutcome => {
+    if (labId !== 3) return outcomes[labId];
+    if (!agentRunId) return { kind: "skipped", reason: LAB_3_PREREQUISITE };
+    const outcome = outcomes[labId];
+    if (outcome.kind === "proved" && outcome.proof.evidence.agent_run_id !== agentRunId) {
+      return { kind: "idle" };
+    }
+    return outcome;
+  };
 
   /**
    * One lab at a time, and only the labs this press named.
@@ -335,13 +365,14 @@ export function CompletionProof({
         </div>
       </header>
       <p className="labs-proof-intro">
-        The first button grades the lab you are in. Labs 1 and 2 re-run their
-        mission through the same search path Shop uses, so each press costs a
-        real retrieval. Lab 3 grades the agent run stage 03 already persisted and
-        spends no new turn. Prove all three when you are finished, and read it as
-        the completion gate rather than as a grade on the lab in front of you.
-        Every check is served with the condition that would have failed it.
+        Labs 1 and 2 run fresh searches against Aurora. Lab 3 checks the saved
+        agent run from Reason without starting another turn. Open each result
+        to inspect what was checked, what would make it fail, and its receipts.
       </p>
+      <details className="labs-proof-inspection labs-proof-question">
+        <summary>Explain the repair</summary>
+        <p>{coreMosaicLabs[activeLab - 1]?.participant_edit?.checkpoint_question}</p>
+      </details>
       <ul className="labs-proof-labs">
         {LAB_IDS.map((labId) => (
           <LabProofRow

@@ -12,10 +12,11 @@ Three deliberate boundaries:
 * Labs 1 and 2 re-run their mission through
   `service.telemetry.search_with_telemetry` -- the same call `POST /api/search`
   makes -- so the proof is graded on a real retrieval with a real receipt,
-  not on a reimplementation. Lab 2 runs it twice because repeatability is one
-  of the five things it proves.
-* Lab 3 reads persisted rows only and spends no agent turn. A proof that ran
-  the agent would cost a model call per press and, worse, would grade a fresh
+  not on a reimplementation. Lab 2 repeats its primary mission to prove
+  repeatability. Both labs also run the manifest's required supporting controls.
+* Lab 3 grades persisted rows and spends no agent turn. If its explained
+  retrieval has no saved EXPLAIN plan, the proof captures and replays one.
+  Re-running the agent would spend another turn and grade a fresh
   run rather than the one the participant is looking at.
 
 `status` is the conjunction of three separate facts: every check passed, the
@@ -47,7 +48,12 @@ from service import lab_checks
 from service.catalog import get_evidence_record
 from service.config import get_settings
 from service.db import connect
-from service.lab_checks import LabCheck, PersistedAgentRun
+from service.lab_checks import (
+    AgentEvidence,
+    LabCheck,
+    PersistedAgentRun,
+    RetrievalReceipt,
+)
 from service.models import (
     CompletionProofEvidence,
     CompletionProofIdentity,
@@ -60,11 +66,13 @@ from service.models import (
     SearchRequest,
     SearchResponse,
 )
+from service.retrieval import get_retrieval_service
 from service.retrieval_fingerprint import (
     compute_live_retrieval_settings_sha256,
     compute_retrieval_fingerprint,
     explain,
 )
+from service.retrieval_replay import load_candidate_receipts
 from service.scorecard import retrieval_scorecard
 from service.telemetry import search_with_telemetry
 from service.telemetry_contract import AgentTurnRows, load_agent_turn_rows
@@ -209,6 +217,16 @@ def _retrieval_checks(
         if lab_id == 1
         else lab_checks.lab_2_checks(mission, graded[0], graded[1])
     )
+    for control in lab_checks.supporting_checks_for_lab(lab_id):
+        response = _mission_search(control)
+        with connect() as connection:
+            candidates = load_candidate_receipts(connection, response.search_event_id)
+        checks.extend(
+            lab_checks.retrieval_control_checks(
+                control, response.model_dump(mode="json"), candidates
+            )
+        )
+        responses.append(response)
     return checks, [response.search_event_id for response in responses]
 
 
@@ -281,6 +299,80 @@ def _persisted_run(rows: AgentTurnRows) -> PersistedAgentRun:
         ),
         outcome=_as_dict(rows.turn.get("extracted_intent")).get("outcome"),
     )
+
+
+def _persisted_mission_checks(
+    mission: Mapping[str, Any],
+    rows: AgentTurnRows | None,
+    run: PersistedAgentRun | None,
+    requested_run_id: str | None,
+) -> list[LabCheck]:
+    if rows is None or run is None:
+        missing = lab_checks.missing_run_detail(requested_run_id)
+        return [
+            LabCheck(check.name, False, check.falsifier, missing)
+            for check in lab_checks.agent_response_checks(mission, {}, AgentEvidence())
+        ]
+    trace = [
+        {
+            "tool": tool["tool_name"],
+            "outcome": tool.get("outcome"),
+            "origin": tool.get("execution_origin"),
+            "arguments": _as_dict(tool.get("input_payload")),
+            "result_count": _as_dict(tool.get("output_payload")).get("result_count"),
+            "retrieval_run_id": str(tool["search_event_id"])
+            if tool.get("search_event_id")
+            else None,
+        }
+        for tool in rows.tools
+    ]
+    agent = {
+        "question": rows.turn.get("user_message"),
+        "answer": run.assistant_message,
+        "recommendations": _as_dict(rows.turn.get("extracted_intent")).get(
+            "selected_products"
+        )
+        or [],
+        "trace": trace,
+        "citations": run.citations,
+    }
+    receipts = tuple(
+        RetrievalReceipt(
+            str(search["search_event_id"]),
+            search.get("query_text") or "",
+            frozenset(
+                int(row["product_id"])
+                for row in rows.candidates
+                if row["search_event_id"] == search["search_event_id"]
+            ),
+        )
+        for search in rows.searches
+    )
+    explained = lab_checks.explained_search_event_id(agent)
+    search = next(
+        (
+            search
+            for search in rows.searches
+            if str(search["search_event_id"]) == explained
+        ),
+        None,
+    )
+    captured = search.get("plan_json") if search else None
+    replayed = captured
+    if (
+        mission.get("requires_explain_plan")
+        and search
+        and captured is None
+        and run.synthesis_outcome == "success"
+    ):
+        captured = get_retrieval_service().capture_plan(UUID(explained)).plan
+        with connect() as connection:
+            replayed = connection.execute(
+                "SELECT plan_json FROM mosaic.search_event WHERE search_event_id = %s",
+                (UUID(explained),),
+            ).fetchone()["plan_json"]
+    evidence = AgentEvidence(receipts, run.resolved_evidence, captured, replayed)
+    return lab_checks.agent_response_checks(mission, agent, evidence)
 
 
 def _identity() -> CompletionProofIdentity:
@@ -363,6 +455,11 @@ def completion_proof(
             mission,
             run,
             requested_run_id=str(agent_run_id) if agent_run_id is not None else None,
+        )
+        checks.extend(
+            _persisted_mission_checks(
+                mission, rows, run, str(agent_run_id) if agent_run_id else None
+            )
         )
         # The turn's own receipts, not new ones: this path issues no retrieval,
         # and reporting them is what makes the verdict replayable afterwards.

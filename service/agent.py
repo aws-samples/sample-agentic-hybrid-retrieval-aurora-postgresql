@@ -13,7 +13,11 @@ from strands.models import BedrockModel
 
 from service import agent_tools
 from service.config import get_settings
-from service.model_runtime import ModelRuntimeError, model_runtime_error
+from service.model_runtime import (
+    ModelRuntimeError,
+    model_runtime_error,
+    safe_model_runtime_message,
+)
 from service.models import (
     AgentPartial,
     AgentPlanStep,
@@ -370,6 +374,38 @@ class ProductDiscoveryAgent:
             )
             return self._response(request, state, result, error)
 
+    async def _stream_fallback(self, request: AgentRequest, state: dict[str, Any]):
+        """Forward controller receipts while blocking dependencies run in a worker."""
+        loop = asyncio.get_running_loop()
+        queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+
+        def progress():
+            snapshot = _partial(state)
+            if snapshot.trace:
+                loop.call_soon_threadsafe(
+                    queue.put_nowait,
+                    {"current_tool_use": {"name": snapshot.trace[-1].tool}},
+                )
+            loop.call_soon_threadsafe(queue.put_nowait, {"agent_partial": snapshot})
+
+        async def finish():
+            state["_progress_callback"] = progress
+            try:
+                return await asyncio.to_thread(self._finalize_if_needed, request, state)
+            finally:
+                state.pop("_progress_callback", None)
+                queue.put_nowait(None)
+
+        task = asyncio.create_task(finish())
+        try:
+            while (event := await queue.get()) is not None:
+                yield event
+            yield {"fallback_error": await task}
+        finally:
+            # A running thread cannot be cancelled safely: finish its owned work
+            # before its request context and telemetry are released.
+            await asyncio.shield(task)
+
     async def stream(self, request: AgentRequest):
         """Yield native Strands lifecycle events for one canonical agent run."""
         state = agent_tools.start_run(
@@ -410,11 +446,15 @@ class ProductDiscoveryAgent:
 
             fallback_error = model_runtime_error(error) if error is not None else None
             if fallback_error is None:
-                fallback_error = self._finalize_if_needed(request, state)
+                async for fallback_event in self._stream_fallback(request, state):
+                    if "fallback_error" in fallback_event:
+                        fallback_error = fallback_event["fallback_error"]
+                    else:
+                        yield fallback_event
             if fallback_error is not None:
                 error = fallback_error
             strands_usage = _usage(result) if result is not None else {}
-            self._persist(state, result, error)
+            await asyncio.to_thread(self._persist, state, result, error)
             record = state["answer_of_record"]
             observation.finish(
                 answer=record["answer"] if record else None,
@@ -428,6 +468,19 @@ class ProductDiscoveryAgent:
             )
 
             if error is not None and record is None:
+                yield {"agent_partial": _partial(state)}
+                yield {
+                    "agent_failure": {
+                        "agent_run_id": str(state["agent_run_id"]),
+                        "code": "grounding_contract"
+                        if isinstance(error, GroundingContractError)
+                        else "agent_runtime",
+                        "detail": safe_model_runtime_message(
+                            error,
+                            fallback="The agent run failed. Inspect its recorded activity and retry.",
+                        ),
+                    }
+                }
                 raise error
             yield {"agent_response": self._response(request, state, result, None)}
 

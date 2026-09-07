@@ -49,6 +49,29 @@ _CANDIDATE_SQL = """
 """
 
 
+def load_candidate_receipts(
+    connection: Any, search_event_id: UUID
+) -> list[dict[str, Any]]:
+    """Read the full fused pool and check eligibility through production SQL."""
+    return [
+        dict(row)
+        for row in connection.execute(
+            """
+        SELECT receipt.product_id, receipt.result_rank, receipt.fts_rank,
+               receipt.trigram_rank, receipt.semantic_rank, receipt.fused_rank,
+               receipt.rerank_rank, receipt.scores, receipt.provenance,
+               coalesce(mosaic_search.matches_filters(document, event.filters), false) AS eligible
+        FROM mosaic.search_result_event AS receipt
+        JOIN mosaic.search_event AS event USING (search_event_id)
+        LEFT JOIN mosaic_search.product_document AS document USING (product_id)
+        WHERE receipt.search_event_id = %s
+        ORDER BY receipt.result_rank
+        """,
+            (search_event_id,),
+        ).fetchall()
+    ]
+
+
 class UnknownSearchEvent(Exception):
     """No `mosaic.search_event` row carries the requested id."""
 

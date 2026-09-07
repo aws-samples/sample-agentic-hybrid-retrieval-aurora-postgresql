@@ -26,6 +26,7 @@
   color-scheme: light;
   font-family: var(--sans);
   font-synthesis: none;
+  font-optical-sizing: auto;
   text-rendering: optimizeLegibility;
   --maroon-950: #2b0d13;
   --maroon-900: #45101b;
@@ -57,6 +58,9 @@
      maroon ring on a maroon panel is not a ring. */
   --focus: var(--maroon-800);
   --shadow: 0 16px 36px rgb(43 13 19 / 8%);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --motion-fast: 160ms;
+  --motion-settle: 320ms;
   /* Type system. Both faces were identified by matching normalized glyph masks
      against the landing board rather than by eye: Newsreader scored IoU 0.710
      on "Designed" (next best 0.622) and Schibsted Grotesk correlated 0.766 on
@@ -170,6 +174,7 @@ h1,
 h2 {
   font-family: var(--display);
   font-weight: 500;
+  text-wrap: balance;
 }
 
 h1 {
@@ -260,6 +265,28 @@ button:disabled {
 
 .app-main:focus {
   outline: 0;
+}
+
+/* Opacity keeps fixed drawers and sticky lab rails in their existing coordinate
+   system while the destination settles beneath the persistent header. */
+.route-surface {
+  animation: route-reveal 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes route-reveal {
+  from {
+    opacity: 0.3;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-surface {
+    animation: none;
+  }
 }
 
 .route-loading {
@@ -3224,6 +3251,22 @@ button:disabled {
   line-height: 1.04;
 }
 
+@media (min-width: 901px) and (max-height: 900px) {
+  .product-page {
+    padding-top: 24px;
+  }
+
+  .product-hero {
+    gap: 36px;
+    padding-bottom: 32px;
+  }
+
+  .product-summary h1 {
+    margin-bottom: 14px;
+    font-size: clamp(36px, 3.2vw, 46px);
+  }
+}
+
 .rating-row.prominent {
   margin-bottom: 24px;
   font-size: 13px;
@@ -3434,6 +3477,39 @@ button:disabled {
   list-style: none;
 }
 
+.product-key-facts {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.product-key-facts > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 12px;
+}
+
+.product-key-facts dt {
+  color: var(--ink-soft);
+  text-transform: capitalize;
+}
+
+.product-key-facts dd {
+  margin: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.product-source-link {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+
 .product-evidence-row li {
   display: flex;
   align-items: flex-start;
@@ -3557,6 +3633,7 @@ button:disabled {
   gap: 36px;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
+  scroll-margin-top: calc(var(--topbar-height) + 16px);
 }
 
 .product-tabs button {
@@ -3583,7 +3660,10 @@ button:disabled {
   bottom: -1px;
   left: 0;
   height: 2px;
-  background: transparent;
+  background: var(--maroon-800);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--motion-fast) var(--ease-out);
   content: "";
 }
 
@@ -3592,7 +3672,39 @@ button:disabled {
 }
 
 .product-tabs button.active::after {
-  background: var(--maroon-800);
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :is(.primary-button, .secondary-button, .product-cta-primary,
+    .product-cta-secondary, .commerce-primary-button, .shop-console-note-action,
+    .discover-editorial-cta, .shop-quick-add):not(:disabled) {
+    transition: background-color var(--motion-fast) ease,
+      border-color var(--motion-fast) ease,
+      color var(--motion-fast) ease,
+      transform var(--motion-fast) var(--ease-out);
+  }
+
+  :where(.primary-button, .secondary-button, .product-cta-primary,
+    .product-cta-secondary, .commerce-primary-button, .shop-console-note-action,
+    .discover-editorial-cta, .shop-quick-add):active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .product-page [role="tabpanel"] {
+    animation: product-panel-reveal var(--motion-settle) var(--ease-out);
+  }
+
+  @keyframes product-panel-reveal {
+    from { opacity: 0.72; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-tabs button::after {
+    transition: none;
+  }
 }
 
 .product-overview {

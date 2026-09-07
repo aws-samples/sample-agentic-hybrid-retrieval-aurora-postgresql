@@ -30,6 +30,15 @@ describe("agentStream", () => {
     vi.unstubAllGlobals();
   });
 
+  it("keeps the persisted failed run id on a terminal error", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sseResponse([
+      'event: error\ndata: {"detail":"Grounding refused","agent_run_id":"failed-run","code":"grounding_contract"}\n\n',
+    ])));
+    await expect(api.agentStream("question", {}, () => {})).rejects.toMatchObject({
+      message: "Grounding refused", agentRunId: "failed-run", status: 503,
+    });
+  });
+
   it("rejects a clean EOF that arrives before the complete event", async () => {
     vi.stubGlobal(
       "fetch",

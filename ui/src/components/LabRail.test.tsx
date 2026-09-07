@@ -164,14 +164,26 @@ describe("LabRail", () => {
 
     // Lab 2's file is repaired while Aurora still holds the old body. One chip
     // reporting "solved" would hide exactly that.
-    expect(await screen.findByText("source: solved")).toBeTruthy();
-    expect(screen.getByText("database: stale")).toBeTruthy();
+    expect(await screen.findByText("Code repaired")).toBeTruthy();
+    expect(screen.getByText("SQL repair not applied")).toBeTruthy();
   });
 
-  it("prints not applicable rather than a database verdict for Lab 3", async () => {
+  it("refreshes the repair state after a new run or completion proof", async () => {
+    const { rerender } = render(<LabRail missionId={labOne.id} refreshKey="before" />);
+    await screen.findByText("Code needs repair");
+    vi.mocked(api.labsState).mockResolvedValue({
+      labs: [{ ...labsState.labs[0], source_state: "solved", database_state: "applied" }],
+    });
+    rerender(<LabRail missionId={labOne.id} refreshKey="after" />);
+    expect(await screen.findByText("Code repaired")).toBeTruthy();
+    expect(screen.getByText("SQL repair applied")).toBeTruthy();
+    expect(api.labsState).toHaveBeenCalledTimes(2);
+  });
+
+  it("explains why Lab 3 requires no SQL update", async () => {
     render(<LabRail missionId={labThree.id} />);
 
-    expect(await screen.findByText("database: not applicable")).toBeTruthy();
+    expect(await screen.findByText("No SQL update required")).toBeTruthy();
   });
 
   it("says the state was not checked when the state route does not answer", async () => {
@@ -180,11 +192,11 @@ describe("LabRail", () => {
     render(<LabRail missionId={labOne.id} />);
 
     await waitFor(() => {
-      expect(screen.getByText("source: not checked")).toBeTruthy();
+      expect(screen.getByText("Code not checked")).toBeTruthy();
     });
-    expect(screen.getByText("database: not checked")).toBeTruthy();
+    expect(screen.getByText("Aurora not checked")).toBeTruthy();
     // And never a guess: a failed read must not print a verdict of its own.
-    expect(screen.queryByText(/source: (solved|broken)/)).toBeNull();
+    expect(screen.queryByText(/Code (repaired|needs repair)/)).toBeNull();
   });
 
   it("marks the stage a participant jumped to without moving the lab's own mark", async () => {
@@ -194,7 +206,7 @@ describe("LabRail", () => {
     // facts are true at once, so they get separate marks.
     window.history.replaceState({}, "", "/labs/retrieval");
     render(<LabRail missionId={labOne.id} />);
-    await screen.findByText("source: broken");
+    await screen.findByText("Code needs repair");
     const rail = screen.getByRole("navigation", { name: "Lab rail" });
     const link = (name: string) => within(rail).getByRole("link", { name });
 
@@ -252,26 +264,35 @@ describe("LabRail", () => {
         { intersectionRatio, boundingClientRect: { top }, rootBounds: { top: 71 } },
       ] as unknown as IntersectionObserverEntry[];
     const observer = {} as IntersectionObserver;
+    const heights = vi.spyOn(HTMLElement.prototype, "offsetHeight", "get")
+      .mockImplementation(function (this: HTMLElement) {
+        return this.classList.contains("is-stuck") ? 60 : 100;
+      });
     try {
       render(<LabRail missionId={labOne.id} />);
-      await screen.findByText("source: broken");
+      await screen.findByText("Code needs repair");
       const rail = screen.getByRole("navigation", { name: "Lab rail" });
       expect(rail.className).toBe("labs-rail");
       expect(callback).not.toBeNull();
 
       act(() => callback!(entry(0.96, 70), observer));
       expect(rail.className).toBe("labs-rail is-stuck");
+      // Collapsing the rail must preserve its occupied height, or an anchor
+      // landing on Rank jumps underneath the sticky navigation.
+      expect(rail.offsetHeight + Number.parseFloat(rail.style.marginBottom)).toBe(100);
       // A condensed rail reports a new ratio; it is still stuck.
       act(() => callback!(entry(0.9, 70), observer));
       expect(rail.className).toBe("labs-rail is-stuck");
 
       act(() => callback!(entry(1, 140), observer));
       expect(rail.className).toBe("labs-rail");
+      expect(rail.style.marginBottom).toBe("");
 
       // Clipped at the bottom, not the top: not stuck.
       act(() => callback!(entry(0.5, 640), observer));
       expect(rail.className).toBe("labs-rail");
     } finally {
+      heights.mockRestore();
       vi.unstubAllGlobals();
     }
   });

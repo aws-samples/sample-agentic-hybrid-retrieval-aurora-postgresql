@@ -140,3 +140,71 @@ def test_an_uncited_count_is_not_a_product_claim():
         "Here are 3 options worth comparing.",
         [evidence(BATTERY_EVIDENCE)],
     )
+
+
+@pytest.mark.parametrize("amount", ["999.99", "19.99", "179.98"])
+def test_uncited_currency_must_match_the_subject_price(amount):
+    with pytest.raises(SynthesisOutputError):
+        validate(
+            f"AuriLogic Flight ANC is a good fit [1]. It costs ${amount}.",
+            [evidence(BATTERY_EVIDENCE)],
+        )
+    validate(
+        "AuriLogic Flight ANC is a good fit [1]. It costs $179.99.",
+        [evidence(BATTERY_EVIDENCE)],
+    )
+
+
+@pytest.mark.parametrize("number", [1, 12, 48, 350])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_each_occurrence_keeps_its_unit(number, reverse):
+    facts = [f"{number}-hour battery life", f"a {number}-year warranty"]
+    if reverse:
+        facts.reverse()
+    answer = f"AuriLogic Flight ANC has {' and '.join(facts)} [1]."
+    with pytest.raises(SynthesisOutputError):
+        validate(answer, [evidence(f"Battery life {number} hours.")])
+    validate(
+        answer,
+        [evidence(f"Battery life {number} hours. Warranty {number} years.")],
+    )
+
+
+@pytest.mark.parametrize(
+    ("attribute", "value", "wording"),
+    [
+        ("recommended_hours", 12, "12-hour recommended use"),
+        ("max_user_weight_lb", 350, "350 lb weight capacity"),
+        ("recline_deg", 135, "135-degree recline"),
+    ],
+)
+def test_measurements_use_only_the_cited_records_structured_attributes(
+    attribute, value, wording
+):
+    record = evidence("Catalog specification.").model_copy(
+        update={"metadata": {"attributes": {attribute: value}}}
+    )
+    answer = f"AuriLogic Flight ANC offers {wording} [1]."
+    validate(answer, [record])
+    wrong_record = record.model_copy(
+        update={"metadata": {"attributes": {attribute: value + 1}}}
+    )
+    with pytest.raises(SynthesisOutputError):
+        validate(answer, [wrong_record])
+    with pytest.raises(SynthesisOutputError):
+        validate(answer, [evidence("No measured specification here."), record])
+
+
+def test_pronoun_cannot_borrow_another_products_price():
+    other = product(
+        product_id=2, title="Travel Audio", model="Travel", price_cents=99999
+    )
+    other_record = evidence("Travel specification").model_copy(
+        update={"product_id": 2, "evidence_id": 2}
+    )
+    with pytest.raises(SynthesisOutputError):
+        validate(
+            "Travel Audio is an alternative [2]. AuriLogic Flight ANC is the best fit [1]. It costs $999.99.",
+            [evidence(BATTERY_EVIDENCE), other_record],
+            [product(), other],
+        )

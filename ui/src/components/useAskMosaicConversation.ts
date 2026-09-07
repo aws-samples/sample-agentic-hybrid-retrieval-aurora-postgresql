@@ -157,7 +157,11 @@ export function useAskMosaicConversation(filters: SearchFilters) {
   return {
     answeredTurn,
     clear,
-    examples,
+    // Eval starters declare a domain, but no category or brand scope. Offering
+    // one inside an unrelated hard filter promises a search we cannot run.
+    examples: filters.category_key || filters.brand || Object.keys(filters.attributes ?? {}).length
+      ? []
+      : examples.filter((example) => !filters.domain || example.domain === filters.domain),
     pending,
     run,
     turns,

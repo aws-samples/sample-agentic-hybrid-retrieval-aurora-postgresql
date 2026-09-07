@@ -31,10 +31,12 @@ import type {
 
 export class ApiError extends Error {
   status: number;
+  agentRunId?: string;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, agentRunId?: string) {
     super(message);
     this.status = status;
+    this.agentRunId = agentRunId;
   }
 }
 
@@ -197,7 +199,8 @@ export const api = {
           if (parsed) {
             const payload = JSON.parse(parsed.data) as Record<string, unknown>;
             if (parsed.event === "error") {
-              throw new ApiError(503, String(payload.detail ?? "Agent stream failed"));
+              throw new ApiError(503, String(payload.detail ?? "Agent stream failed"),
+                typeof payload.agent_run_id === "string" ? payload.agent_run_id : undefined);
             }
             if (parsed.event === "stage") {
               onEvent({ type: "stage", ...payload } as AgentStreamEvent);
@@ -333,11 +336,12 @@ export const api = {
   /**
    * Prove one lab is finished, against Aurora, right now.
    *
-   * Labs 1 and 2 re-run their mission through the same search path
-   * `POST /api/search` uses, so this costs a real request each (Lab 2 runs two,
-   * because "the pre-rerank order is repeatable" is not answerable from one).
+   * Labs 1 and 2 re-run their mission and canonical supporting controls through
+   * the same search path `POST /api/search` uses. Lab 2 repeats its primary
+   * mission because repeatability is not answerable from one run.
    * Lab 3 grades the persisted turn named by `agent_run_id` and spends no agent
    * turn of its own, which is why the caller has to say which run to read.
+   * A missing EXPLAIN plan is captured and replayed before grading.
    *
    * 404 for an unknown lab, 503 when the cluster is unreachable. Neither is a
    * verdict on the participant's repair.

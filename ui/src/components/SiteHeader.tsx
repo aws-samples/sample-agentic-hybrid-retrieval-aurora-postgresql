@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { api } from "../api";
 import { useCommerce } from "../commerce";
-import { coreMosaicLabs } from "../labMissions";
 import {
   RETRIEVAL_SURFACE,
   forwardedSearchEvent,
@@ -11,46 +10,8 @@ import {
   playgroundQueryHref,
   useSearchParams,
 } from "../navigation";
-import type { LabDatabaseState, LabStateRecord } from "../types";
 import { CodeEditorLink } from "./CodeEditorLink";
 import { MosaicMark } from "./MosaicMark";
-
-/**
- * `not_applicable` is a sentence, not an enum member, once it reaches a chip.
- *
- * Lab 3's seam lives in the API process, so there is no schema to re-apply and
- * no stale cluster to warn about. Printing the wire value would read as a fourth
- * verdict on the repair.
- */
-const databaseLabels: Record<LabDatabaseState, string> = {
-  applied: "applied",
-  stale: "stale",
-  not_applicable: "not applicable",
-};
-
-/**
- * What the header says when it does not know.
- *
- * A failed `/api/labs/state` read says nothing about the participant's work, and
- * printing `broken` on the strength of one would send someone to edit SQL that
- * was never the problem.
- */
-const NOT_CHECKED = "not checked";
-
-/**
- * Which lab the header is reporting on.
- *
- * `mission` is what Shop and Ask Mosaic carry; `example` is what the Playground
- * carries. Both name a scenario id, and only the three core labs have a lab
- * number, so a supporting check or an unknown id falls back to Lab 1 rather than
- * blanking the readout. Lab 1 is also the honest cold-start default: it is where
- * the session begins.
- */
-function activeLabNumber(params: URLSearchParams): number {
-  const named = params.get("mission") ?? params.get("example") ?? "";
-  const index = coreMosaicLabs.findIndex((mission) => mission.id === named);
-  return index >= 0 ? index + 1 : 1;
-}
 
 /**
  * The one storefront header.
@@ -87,25 +48,6 @@ function isActive(pathname: string, to: string) {
   return pathname.startsWith(to);
 }
 
-/**
- * Whether this surface reports Lab 1's repair state in the header.
- *
- * Everywhere but Discover. Shop keeps the chips because Shop's own callout
- * flips to `Repair verified` on the same screen, and a header that disagreed
- * with it would be the workshop contradicting itself -- the defect the re-read
- * below exists to prevent. Discover is the storefront entry: a shopper landing
- * there has no lab open to be broken, so `source: broken` is a fact about
- * nothing they are looking at.
- *
- * The chips hide; the zero-width placeholder still renders in their place. It
- * is the tallest thing in the row, so dropping it as well would make the header
- * shorter on Discover than everywhere else and move the nav on the first
- * navigation away.
- */
-export function showsLabState(pathname: string): boolean {
-  return pathname !== "/" && !pathname.startsWith("/discover");
-}
-
 export function SiteHeader({ inert = false }: { inert?: boolean }) {
   const [open, setOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -114,16 +56,7 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
   const [location] = useLocation();
   const [searchParams] = useSearchParams();
   const [codeEditorUrl, setCodeEditorUrl] = useState<string | null>(null);
-  /** `null` until the first read settles, so the header never flashes a verdict
-   * it has not read. */
-  const [labs, setLabs] = useState<LabStateRecord[] | null>(null);
   const pathname = location.split("?")[0];
-  const labNumber = activeLabNumber(searchParams);
-  /**
-   * Null covers both "the read failed" and "the service does not know this lab".
-   * Both mean the header has not read a verdict, and both print `not checked`.
-   */
-  const activeLab = labs?.find((lab) => lab.lab_id === labNumber) ?? null;
   const close = () => setOpen(false);
   /**
    * The Playground entry carries the shopper's current Shop request with it.
@@ -174,40 +107,6 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
     };
   }, []);
 
-  /**
-   * Re-read when the participant moves between labs, and when Shop serves a new
-   * run.
-   *
-   * `/api/labs/state` runs no retrieval: it reads the marker blocks in the file
-   * the participant edits and asks Aurora what two functions currently contain.
-   * Navigating to another lab is one moment a repair made in between becomes
-   * worth re-reporting. Re-running the same request is the other, and it was the
-   * one the header missed: Shop's callout flipped to `Repair verified` while
-   * these chips still read `source: broken` until the page was reloaded, which
-   * is the workshop contradicting itself on one screen.
-   *
-   * Keyed on the run Shop records on its own URL rather than on a counter lifted
-   * out of the page. `event` is already the header's channel from Shop -- the
-   * Playground entry above is built from it -- so a re-run refreshes these chips
-   * through the mechanism that exists rather than through a second one.
-   */
-  const servedRunId = searchParams.get("event") ?? "";
-
-  useEffect(() => {
-    let active = true;
-    api.labsState().then(
-      (state) => {
-        if (active) setLabs(state.labs);
-      },
-      () => {
-        if (active) setLabs([]);
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [labNumber, servedRunId]);
-
   useEffect(() => {
     if (!open) return undefined;
     const frame = window.requestAnimationFrame(() => {
@@ -257,36 +156,6 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
       </nav>
 
       <div className="site-actions">
-        {/* `group`, not `status`. A live region announces itself the moment it
-            gains content, so the first read landing turned every page load into
-            "source: broken, database: stale" read aloud over whatever the
-            participant was doing. The chips are a readout to consult, not an
-            alert; the label keeps them findable and named. */}
-        <div
-          className="site-lab-state"
-          role="group"
-          aria-label={`Lab ${labNumber} state`}
-        >
-          {labs && showsLabState(pathname) ? (
-            <>
-              <span className="site-lab-chip" data-state={activeLab?.source_state ?? "unchecked"}>
-                source: {activeLab ? activeLab.source_state : NOT_CHECKED}
-              </span>
-              <span
-                className="site-lab-chip"
-                data-state={activeLab?.database_state ?? "unchecked"}
-              >
-                database: {activeLab ? databaseLabels[activeLab.database_state] : NOT_CHECKED}
-              </span>
-            </>
-          ) : (
-            /* The chips are the tallest thing in this row, so the row was one
-               height before the first read settled and another after it, and
-               the bag beside them jumped. Zero width, one chip's height: the
-               header is drawn at its final size from the first frame. */
-            <span className="site-lab-state-pending" aria-hidden="true" />
-          )}
-        </div>
         <CodeEditorLink href={codeEditorUrl} className="site-code-editor" />
         <button
           className="site-icon site-bag"

@@ -284,6 +284,7 @@ export interface SearchEventRecord {
 
 /** One row of `mosaic.search_result_event`. Arm ranks as the database wrote them. */
 export interface SearchResultEventRecord {
+  eligible?: boolean | null;
   product_id: number;
   result_rank: number;
   fts_rank: number | null;

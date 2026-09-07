@@ -17,6 +17,7 @@ def _agent_response():
         for product_id, price in ((370001, 69900), (429001, 16999))
     ]
     return {
+        "question": validate_lab._mission("reason")["query"],
         "recommendations": recommendations,
         "trace": [
             {
@@ -445,6 +446,9 @@ def test_lab_2_validator_proves_the_canonical_fused_and_final_winner(monkeypatch
     )
     monkeypatch.setattr(validate_lab, "_search", lambda _url, _mission: response)
 
+    monkeypatch.setattr(
+        validate_lab.lab_checks, "supporting_checks_for_lab", lambda _: []
+    )
     checks = validate_lab.validate_lab_2("http://example.test")
 
     assert "canonical winner is fused and final rank 1" in checks
@@ -461,3 +465,36 @@ def test_lab_2_validator_rejects_a_wrong_fused_winner(monkeypatch):
 
     with pytest.raises(validate_lab.LabValidationError, match="not fused rank 1"):
         validate_lab.validate_lab_2("http://example.test")
+
+
+@pytest.mark.parametrize(
+    ("lab_id", "expected"),
+    [(1, ["G-003", "G-001", "G-012"]), (2, ["G-008", "G-008", "G-007", "G-009"])],
+)
+def test_cli_dispatches_primary_and_every_control(monkeypatch, lab_id, expected):
+    executed = []
+    monkeypatch.setattr(
+        validate_lab.lab_checks, f"lab_{lab_id}_checks", lambda *args: []
+    )
+
+    def search(base, mission):
+        executed.append(mission["canonical_query_id"])
+        return {"search_event_id": mission["canonical_query_id"]}
+
+    monkeypatch.setattr(validate_lab, "_search", search)
+    monkeypatch.setattr(
+        validate_lab,
+        "_request",
+        lambda *args: {"candidates": [{"product_id": 1, "eligible": True}]},
+    )
+    checked = []
+
+    def control(mission, response, candidates):
+        checked.append(mission["canonical_query_id"])
+        assert candidates
+        return []
+
+    monkeypatch.setattr(validate_lab.lab_checks, "retrieval_control_checks", control)
+    getattr(validate_lab, f"validate_lab_{lab_id}")("http://example.test")
+    assert executed == expected
+    assert checked == expected[-2:]

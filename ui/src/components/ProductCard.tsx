@@ -216,7 +216,7 @@ export function ProductCard({
 
   return (
     <article className="product-card">
-      <Link className="product-image" href={`/products/${product.product_id}`}>
+      <Link className="product-image" href={`/products/${product.product_id}`} aria-label={`View ${product.title}`}>
         <img
           src={imageSrc ?? productImage(product)}
           alt=""

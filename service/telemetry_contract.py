@@ -388,7 +388,7 @@ def load_agent_turn_rows(connection: Any, agent_turn_id: Any) -> AgentTurnRows |
         return None
     searches = connection.execute(
         """
-        SELECT search_event_id, occurred_at, filters, retrieval_profile,
+        SELECT search_event_id, occurred_at, query_text, plan_json, filters, retrieval_profile,
                source_revision, dataset_manifest_sha256,
                embedding_model_id, rerank_model_id, candidate_counts,
                total_latency_ms, diagnostics
@@ -416,7 +416,7 @@ def load_agent_turn_rows(connection: Any, agent_turn_id: Any) -> AgentTurnRows |
     )
     tools = connection.execute(
         """
-        SELECT search_event_id, tool_name, outcome, input_payload,
+        SELECT search_event_id, tool_name, outcome, execution_origin, input_payload,
                output_payload, duration_ms, error_detail, occurred_at
         FROM mosaic.agent_tool_event
         WHERE agent_turn_id = %s

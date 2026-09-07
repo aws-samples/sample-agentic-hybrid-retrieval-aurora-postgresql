@@ -28,7 +28,7 @@ import type { SearchResponse } from "../types";
 
 interface RetrievalObservatoryProps {
   example: MosaicLabMission | undefined;
-  /** The most recent live response, or null before the participant has run one. */
+  /** A served response, including one replayed from a persisted Shop run. */
   response: SearchResponse | null;
   loading: boolean;
 }
@@ -180,7 +180,7 @@ export function RetrievalObservatory({
         <div className="labs-matrix-provenance">
           {response ? (
             <>
-              <span className="labs-matrix-badge is-live">Live run</span>
+              <span className="labs-matrix-badge is-live">Recorded run</span>
               <dl>
                 <div>
                   <dt>Run</dt>
@@ -188,7 +188,7 @@ export function RetrievalObservatory({
                 </div>
                 <div>
                   <dt>Source</dt>
-                  <dd>This browser, just now</dd>
+                  <dd>Aurora PostgreSQL</dd>
                 </div>
               </dl>
             </>
@@ -196,7 +196,9 @@ export function RetrievalObservatory({
         </div>
       </header>
 
-      <ol
+      <details className="labs-ranking-reading" open={!response}>
+        <summary>How to read this table <span>Find → Combine → Reorder</span></summary>
+        <ol
         aria-label="How to read the ranking table"
         className="labs-ranking-guide"
       >
@@ -214,7 +216,8 @@ export function RetrievalObservatory({
             </div>
           </li>
         ))}
-      </ol>
+        </ol>
+      </details>
 
       {response ? (
         <div className="labs-matrix-controls">

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
-import { createElement } from "react";
+import { createElement, Fragment, useState } from "react";
+import { CompletionProof } from "./CompletionProof";
 import {
   act,
   cleanup,
@@ -11,7 +12,7 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api } from "../api";
+import { api, type AgentStreamEvent } from "../api";
 import { evidenceChain } from "./ReasonStage";
 import { ReasonStage } from "./ReasonStage";
 import type {
@@ -29,6 +30,7 @@ vi.mock("../api", () => ({
     agentStream: vi.fn(),
     evidence: vi.fn(),
     toolContracts: vi.fn(),
+    labProof: vi.fn(),
   },
 }));
 
@@ -360,6 +362,86 @@ async function runAgent() {
 }
 
 describe("ReasonStage composer", () => {
+  it("measures elapsed time while running and stops the clock at completion", async () => {
+    vi.useFakeTimers();
+    try {
+      const completion = deferred<void>();
+      let emit!: (event: AgentStreamEvent) => void;
+      vi.mocked(api.agentStream).mockImplementation((_q, _f, onEvent) => {
+        emit = onEvent;
+        return completion.promise;
+      });
+      render(createElement(ReasonStage, { question: "Compare two products", filters: {} }));
+      fireEvent.click(screen.getByRole("button", { name: "Run the agent" }));
+      act(() => vi.advanceTimersByTime(3000));
+      expect(screen.getByLabelText("3 seconds elapsed")).toBeTruthy();
+      await act(async () => {
+        emit({ type: "complete", response: agentResponse("timed-run", 4021) });
+        completion.resolve();
+        await completion.promise;
+      });
+      act(() => vi.advanceTimersByTime(5000));
+      expect(screen.getByLabelText("3 seconds elapsed")).toBeTruthy();
+      expect(screen.queryByLabelText("8 seconds elapsed")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows reported progress without moving the reading position or submitting twice", async () => {
+    const completion = deferred<void>();
+    let emit!: (event: AgentStreamEvent) => void;
+    vi.mocked(api.agentStream).mockImplementation((_q, _f, onEvent) => {
+      emit = onEvent;
+      return completion.promise;
+    });
+    const originalScroll = HTMLElement.prototype.scrollIntoView;
+    const scroll = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scroll;
+    try {
+      const { container } = render(createElement(ReasonStage, { question: "Compare two products", filters: {} }));
+      fireEvent.click(screen.getByRole("button", { name: "Run the agent" }));
+      expect(screen.getByText("Starting the agent")).toBeTruthy();
+      expect(screen.queryByText("Answer recorded")).toBeNull();
+      expect(scroll).toHaveBeenCalledTimes(1);
+      const panel = container.querySelector(".labs-reason-run")!;
+      expect(document.activeElement).toBe(panel);
+      const prompt = screen.getByRole("textbox", { name: "Question for Mosaic" });
+      prompt.focus();
+      fireEvent.keyDown(prompt, { key: "Enter" });
+      expect(api.agentStream).toHaveBeenCalledTimes(1);
+      act(() => emit({ type: "stage", id: "retrieve", path: "full_retrieval", title: "Retrieve evidence", detail: "Searching the catalog now." }));
+      expect(screen.getByText("Retrieving products and evidence")).toBeTruthy();
+      expect(screen.getByText("Searching the catalog now.")).toBeTruthy();
+      expect(scroll).toHaveBeenCalledTimes(1);
+      expect(document.activeElement).toBe(prompt);
+      expect(screen.getByText("Retrieval details").closest("details")?.open).toBe(false);
+      await act(async () => {
+        emit({ type: "complete", response: agentResponse("completed-run", 4021) });
+        completion.resolve();
+        await completion.promise;
+      });
+      expect(screen.getByText("Answer recorded")).toBeTruthy();
+      expect(scroll).toHaveBeenCalledTimes(1);
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScroll;
+    }
+  });
+
+  it("opens the evidence trail automatically after a failed run", async () => {
+    vi.mocked(api.agentStream).mockImplementation(async (_q, _f, onEvent) => {
+      onEvent({ type: "partial", partial: { plan: [], candidates: [], trace: BROKEN_TRACE } });
+      throw new Error("Synthesis refused: missing evidence");
+    });
+    render(createElement(ReasonStage, { question: "Compare two products", filters: {} }));
+    await runAgent();
+    expect(screen.getByText("Run interrupted")).toBeTruthy();
+    expect(screen.getByText("No completed answer")).toBeTruthy();
+    expect(screen.getByText("Evidence and citations").closest("details")?.open).toBe(true);
+    expect(screen.getByRole("list", { name: "Evidence state chain" }).textContent).toContain("nothing registered");
+    expect(screen.queryByText("Answer recorded")).toBeNull();
+  });
+
   it("renders the canonical question as an editable multiline prompt", () => {
     render(createElement(ReasonStage, {
       question: "Which product is grounded?",
@@ -528,8 +610,8 @@ describe("ReasonStage evidence resolution", () => {
  * rests on.
  *
  * The order is the argument: the plan that ran, the products it returned, the
- * grounded answer, and the quotes behind it all come *before* the chain that
- * audits them. The chain explains an answer the reader has already seen.
+ * grounded answer leads, with the complete retrieval and evidence available
+ * in grouped disclosures. Inspection must not interrupt reading the answer.
  */
 describe("ReasonStage grounded answer", () => {
   const PLAN: AgentPlanStep[] = [
@@ -564,7 +646,7 @@ describe("ReasonStage grounded answer", () => {
     };
   }
 
-  it("renders the plan, the recommendations, the answer and the citations above the evidence chain", async () => {
+  it("leads with the answer and keeps retrieval and evidence in distinct disclosures", async () => {
     const response = payoffResponse();
     vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
       onEvent({ type: "complete", response });
@@ -584,8 +666,17 @@ describe("ReasonStage grounded answer", () => {
     expect(answer.textContent).toContain("Pick the Sonora chair");
     expect(within(answer).getByText("Sonora").tagName).toBe("STRONG");
 
+    const retrieval = screen.getByText("Retrieval details").closest("details")!;
+    const evidence = screen.getByText("Evidence and citations").closest("details")!;
+    expect(retrieval.open).toBe(false);
+    expect(evidence.open).toBe(false);
+    fireEvent.click(screen.getByText("Retrieval details"));
+    fireEvent.click(screen.getByText("Evidence and citations"));
+    expect(retrieval.open).toBe(true);
+    expect(evidence.open).toBe(true);
     const chain = screen.getByRole("list", { name: "Evidence state chain" });
     const ordered = [
+      answer,
       // The filters retrieval actually enforced, unioned across the plan.
       screen.getByText("4.5+ stars"),
       screen.getByText("In stock only"),
@@ -595,10 +686,9 @@ describe("ReasonStage grounded answer", () => {
       // Both recommendations, each linked to its product page.
       screen.getByText("Mosaic QuietType K8"),
       screen.getByText("Aeronex Lumbar Chair"),
-      answer,
+      chain,
       // The quote the single citation rests on.
       screen.getByText("Up to 60 hours of listening."),
-      chain,
     ];
 
     for (let i = 1; i < ordered.length; i += 1) {
@@ -624,13 +714,10 @@ describe("ReasonStage grounded answer", () => {
   });
 
   /**
-   * On this stage the searches are the payoff, not a receipt tucked behind a
-   * click: the finding this closes is that `Searches` rendered `<details>`
-   * with no `open`, so a participant had to click to see what the agent
-   * searched for. Ask Mosaic's own call site keeps the collapsed default (see
-   * `AskMosaic.test.ts`); only the Reason stage opts into `open`.
+   * Opening retrieval details should expose the executed searches immediately,
+   * without requiring another click on their nested receipt.
    */
-  it("keeps the searches receipt open without a click", async () => {
+  it("expands the searches inside retrieval details without another click", async () => {
     const response = payoffResponse();
     vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
       onEvent({ type: "complete", response });
@@ -645,6 +732,7 @@ describe("ReasonStage grounded answer", () => {
     }));
     await runAgent();
 
+    fireEvent.click(screen.getByText("Retrieval details"));
     const details = screen.getByText("Searches the agent issued").closest("details");
     expect(details?.hasAttribute("open")).toBe(true);
   });
@@ -797,4 +885,37 @@ describe("ReasonStage declined outcome", () => {
       "is-pass",
     ]);
   });
+});
+
+it("invalidates a completion pass while the next run is pending or failed", async () => {
+  let fail!: (error: Error) => void;
+  vi.mocked(api.agentStream)
+    .mockImplementationOnce(async (_q, _f, emit) => emit({ type: "complete", response: agentResponse("first-run", 4021) }))
+    .mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+  vi.mocked(api.labProof).mockImplementation(async (labId, request) => ({
+    lab_id: labId, status: "pass", source_state: "solved", database_state: "not_applicable",
+    started_at: "2026-09-06T00:00:00Z", finished_at: "2026-09-06T00:00:01Z", duration_ms: 1000,
+    checks: [{ name: "mission work", passed: true, falsifier: "missing mission work", detail: "all work recorded" }],
+    evidence: { agent_run_id: request.agent_run_id ?? null, search_event_ids: [], evidence_ids: [] },
+    identity: { source_revision: "revision", retrieval_fingerprint: "fingerprint", retrieval_settings_sha256: "settings", embedding_model_id: "embed", rerank_model_id: "rerank", dataset_manifest_sha256: "manifest" },
+    release_baseline: { measured_at: "2026-09-06T00:00:00Z", retrieval_fingerprint: "test", attributed: false },
+  }));
+  function Harness() {
+    const [runId, setRunId] = useState<string | null>(null);
+    return createElement(Fragment, {},
+      createElement(ReasonStage, { question: "Compare products", filters: {}, onAgentRun: setRunId }),
+      createElement(CompletionProof, { activeLab: 3, agentRunId: runId }));
+  }
+  render(createElement(Harness));
+  await runAgent();
+  const prove = screen.getByRole("button", { name: "Run completion proof for Lab 3" });
+  fireEvent.click(prove);
+  const proofRow = screen.getByTestId("completion-proof-lab-3");
+  await waitFor(() => expect(proofRow.textContent).toContain("PASS"));
+  fireEvent.click(screen.getByRole("button", { name: "Run agent again" }));
+  expect(proofRow.textContent).not.toContain("PASS");
+  await act(async () => fail(new Error("Interrupted")));
+  expect(proofRow.textContent).not.toContain("PASS");
+  fireEvent.click(prove);
+  expect(api.labProof).toHaveBeenCalledTimes(1);
 });
