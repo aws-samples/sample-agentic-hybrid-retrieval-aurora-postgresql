@@ -90,7 +90,7 @@ export function Criteria({
 export function Searches({
   plan,
   open = false,
-  title = "How I searched",
+  title = "Searches behind this answer",
 }: {
   plan: AgentPlanStep[];
   open?: boolean;

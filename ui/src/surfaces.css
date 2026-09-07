@@ -5370,24 +5370,10 @@
   text-decoration: underline;
 }
 
-/* Where the reader currently is. Quieter than the lab's own stage below, and a
-   separate fact: clicking a stage jumps to it, and the rail has to acknowledge
-   the jump or the links read as dead controls. */
-.labs-rail-stages a[data-viewing="true"] {
+.labs-rail-stages a[aria-current="location"] {
   color: var(--ink);
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-
-/* The stage the active lab is about. All four links are live from every lab, so
-   without this the rail offers four equal destinations and says nothing about
-   which one the participant is here to change. It outranks the viewing mark on
-   colour, so a participant reading their own stage sees one emphasis, not two. */
-.labs-rail-stages a[aria-current="step"] {
-  color: var(--maroon-800);
   font-weight: 700;
   text-decoration: underline;
-  text-decoration-thickness: 2px;
   text-underline-offset: 4px;
 }
 
@@ -5443,98 +5429,6 @@
 
 .labs-rail-next:hover {
   text-decoration: underline;
-}
-
-/* One verdict line, with nine facts behind it in the order a failure is usually
-   reached: the cluster, then what is in it, then what indexes it, then the
-   models. The disclosure marker is the whole affordance, so the summary carries
-   no other chrome. */
-.labs-readiness-disclosure > summary {
-  cursor: pointer;
-  list-style-position: inside;
-}
-
-.labs-readiness-verdict {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 4px 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--paper);
-  color: var(--ink);
-  font-family: var(--sans);
-  font-size: var(--labs-detail);
-  font-weight: 700;
-}
-
-/* A problem is the one state that may raise its voice; `not checked` stays
-   drawn back, matching the row treatment below. */
-.labs-readiness-verdict[data-state="problem"] {
-  border-color: var(--maroon-800);
-  color: var(--maroon-800);
-}
-
-.labs-readiness-verdict[data-state="unchecked"] {
-  border-style: dashed;
-  background: transparent;
-  color: var(--ink-soft);
-}
-
-.labs-readiness-disclosure[open] > summary {
-  margin-bottom: 10px;
-}
-
-.labs-readiness dl {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 10px;
-  margin: 0;
-}
-
-.labs-readiness-row {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 4px 10px;
-  border: 1px solid #e6ded2;
-  border-radius: 8px;
-  background: var(--paper);
-}
-
-.labs-readiness-row dt {
-  color: var(--ink-soft);
-  font-size: var(--labs-micro);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.labs-readiness-row dd {
-  margin: 0;
-  color: var(--ink);
-  font-family: var(--mono);
-  font-size: var(--labs-mono);
-}
-
-/* An unmeasured row is drawn back, never absent: the reader has to be able to
-   tell "checked and fine" from "nothing checked this" at a glance. */
-.labs-readiness-row.is-unchecked {
-  border-style: dashed;
-  background: transparent;
-}
-
-.labs-readiness-row.is-unchecked dd {
-  color: var(--ink-soft);
-}
-
-/* Actionable now, so it is the one row that carries colour. */
-.labs-readiness-row.is-problem {
-  border-color: var(--maroon-800);
-}
-
-.labs-readiness-row.is-problem dd {
-  color: var(--maroon-800);
 }
 
 .mosaic-studio-page {

@@ -21,7 +21,6 @@ import {
   PlaygroundFigures,
   PlaygroundStage,
 } from "../components/PlaygroundStage";
-import { ReadinessStrip } from "../components/ReadinessStrip";
 import { ReasonStage } from "../components/ReasonStage";
 import { RepairEvidence } from "../components/RepairEvidence";
 import { RetrievalDiagnosticsStrip } from "../components/RetrievalDiagnosticsStrip";
@@ -744,7 +743,6 @@ export function RetrievalLabPage() {
         missionId={example?.id ?? null}
         refreshKey={`${response?.search_event_id ?? ""}:${agentRunId ?? ""}:${baselineReads}`}
       />
-      <ReadinessStrip readiness={readiness} />
 
       {/* The bridge, above the three stages: the words Shop uses on the left, the
           PostgreSQL feature that produced them on the right. It is the whole

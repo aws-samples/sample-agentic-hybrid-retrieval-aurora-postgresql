@@ -1608,13 +1608,13 @@ describe("CatalogPage", () => {
 
     // The searches behind the shortlist, from AgentResponse.plan, which the
     // panel used to fetch and never render.
-    expect(within(dialog).getByText("How I searched")).toBeTruthy();
+    expect(within(dialog).getByText("Searches behind this answer")).toBeTruthy();
     expect(within(dialog).getByText(agentResponse.plan[0].query)).toBeTruthy();
-    expect(within(dialog).getByText("How I searched").closest("details")?.open).toBe(false);
+    expect(within(dialog).getByText("Searches behind this answer").closest("details")?.open).toBe(false);
 
     fireEvent.click(stageButtons[2]);
     expect(stageButtons[2].getAttribute("aria-expanded")).toBe("true");
-    expect(within(dialog).getByText("Why this one is first").closest("details")?.open).toBe(false);
+    expect(within(dialog).getByText("Why this result ranks first").closest("details")?.open).toBe(false);
 
     // Scoped to the candidate list: the answer now carries the same products as
     // buyable picks, so the product name matches a button in two places.

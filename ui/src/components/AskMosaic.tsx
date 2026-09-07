@@ -710,7 +710,7 @@ function Ranking({ candidates }: { candidates: ProductSummary[] }) {
   return (
     <details className="ask-mosaic-ranking">
       <summary>
-        <span>Why this one is first</span>
+        <span>Why this result ranks first</span>
         <small>{winner.model}</small>
       </summary>
       <dl>

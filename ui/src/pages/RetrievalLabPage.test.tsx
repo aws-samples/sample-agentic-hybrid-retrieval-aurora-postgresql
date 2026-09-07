@@ -1646,19 +1646,16 @@ describe("RetrievalLabPage", () => {
     expect(screen.getByText("observatory loading: false")).toBeTruthy();
   });
 
-  it("says which lab this is, and what it is waiting on, above the stages", async () => {
+  it("says which lab this is above the stages", async () => {
     // Four numbered stages describe the pipeline, not the session. Nothing on
     // screen used to name the lab the participant was in or the file they were
     // there to edit, so the rail carries both, above the first stage.
     const { container } = render(<RetrievalLabPage />);
 
     const rail = screen.getByRole("navigation", { name: "Lab rail" });
-    const strip = screen.getByLabelText("Environment readiness");
     const firstStage = container.querySelector(".labs-stage")!;
 
     expect(rail.compareDocumentPosition(firstStage))
-      .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(strip.compareDocumentPosition(firstStage))
       .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     expect(within(rail).getByText(mosaicRetrievalExamples[0].title)).toBeTruthy();
     // The stage links are in-page anchors, so each one has to land on a heading
@@ -1668,8 +1665,7 @@ describe("RetrievalLabPage", () => {
       expect(container.querySelector(href)?.textContent).toBe(stage);
     }
     expect(await within(rail).findByText("Code needs repair")).toBeTruthy();
-    // The readiness read is rejected in this suite, so no row may claim a value.
-    expect(within(strip).getAllByText("not checked").length).toBe(9);
+    expect(screen.queryByLabelText("Environment readiness")).toBeNull();
   });
 
   it("holds every stage link's target clear of the sticky chrome above it", () => {
@@ -1714,7 +1710,7 @@ describe("RetrievalLabPage", () => {
       const { container, unmount } = render(<RetrievalLabPage />);
       const rail = screen.getByRole("navigation", { name: "Lab rail" });
 
-      const marked = [...rail.querySelectorAll('[aria-current="step"]')];
+      const marked = [...rail.querySelectorAll('[aria-current="location"]')];
       expect(marked.map((link) => link.textContent)).toEqual([current]);
       // The marked link's target is one of this page's own stage headings, so a
       // rail that marked the right word and pointed it somewhere else is red.

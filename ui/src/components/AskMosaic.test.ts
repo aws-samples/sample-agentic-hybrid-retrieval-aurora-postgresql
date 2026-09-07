@@ -56,7 +56,7 @@ describe("Searches", () => {
     ];
     render(createElement(Searches, { plan }));
 
-    const details = screen.getByText("How I searched").closest("details");
+    const details = screen.getByText("Searches behind this answer").closest("details");
     expect(details?.hasAttribute("open")).toBe(false);
   });
 });
@@ -195,9 +195,9 @@ describe("AskMosaic declined outcome", () => {
     // tried, with no shortlist beside them.
     openStage("Retrieval");
     expect(screen.queryByText("The shortlist")).toBeNull();
-    const searchesDetails = screen.getByText("How I searched").closest("details");
+    const searchesDetails = screen.getByText("Searches behind this answer").closest("details");
     expect(searchesDetails).not.toBeNull();
-    fireEvent.click(screen.getByText("How I searched"));
+    fireEvent.click(screen.getByText("Searches behind this answer"));
     expect(
       within(searchesDetails as HTMLElement).getByText("jetpack propulsion pack"),
     ).toBeTruthy();

@@ -84,18 +84,7 @@ export function LabRail({ missionId, refreshKey = "" }: {
   const labNumber = coreMosaicLabs.indexOf(lab) + 1;
   const nextLab = coreMosaicLabs[labNumber];
   const [labStates, setLabStates] = useState<LabStateRecord[] | null>(null);
-  /**
-   * The stage section currently under the reader, which is not the same claim as
-   * `aria-current="step"` below.
-   *
-   * These four links look like tabs and scroll like tabs, so clicking one and
-   * watching nothing change reads as a broken control. But the mark they carry
-   * already means something else -- the stage *this lab* changes -- and it is
-   * the only thing on the rail that says so. Rather than overload one indicator
-   * with two facts, "where you are" gets its own quieter treatment and the
-   * lab's own stage keeps the loud one.
-   */
-  const [viewingStage, setViewingStage] = useState<string | null>(
+  const [selectedStage, setSelectedStage] = useState<string | null>(
     () => stageFromHash(typeof window === "undefined" ? "" : window.location.hash),
   );
 
@@ -111,7 +100,7 @@ export function LabRail({ missionId, refreshKey = "" }: {
    */
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
-    const sync = () => setViewingStage(stageFromHash(window.location.hash));
+    const sync = () => setSelectedStage(stageFromHash(window.location.hash));
     sync();
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
@@ -138,6 +127,7 @@ export function LabRail({ missionId, refreshKey = "" }: {
 
   const state = labStates?.find((record) => record.lab_id === labNumber) ?? null;
   const edit = lab.participant_edit;
+  const currentStage = selectedStage ?? lab.stage;
 
   /**
    * Condensed while stuck. Sticky under the site header, the full rail costs
@@ -217,16 +207,11 @@ export function LabRail({ missionId, refreshKey = "" }: {
         <strong>{lab.title}</strong>
       </div>
 
-      {/* The lab's own stage is marked rather than merely listed. All four are
-          reachable from every lab -- a participant in Lab 2 still reads the
-          Retrieve stage above their work -- but only one of them is the stage
-          this lab changes, and nothing else on the rail says which. */}
       <ol aria-label="Lab stages" className="labs-rail-stages">
         {RAIL_STAGES.map((entry) => (
           <li key={entry.stage}>
             <a
-              aria-current={entry.stage === lab.stage ? "step" : undefined}
-              data-viewing={entry.stage === viewingStage ? "true" : undefined}
+              aria-current={entry.stage === currentStage ? "location" : undefined}
               href={`#labs-stage-${entry.stage}`}
             >
               {entry.label}

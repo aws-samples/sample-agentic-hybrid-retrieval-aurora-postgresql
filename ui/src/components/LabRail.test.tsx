@@ -77,11 +77,7 @@ describe("LabRail", () => {
     expect(within(rail).getByText(labOne.participant_edit!.task)).toBeTruthy();
   });
 
-  it("marks the stage the active lab is about, and only that one", () => {
-    // Every lab offers all four links, so the only thing distinguishing Lab 2's
-    // rail from Lab 1's is which of them is marked current. Getting that from a
-    // module constant rather than from the mission would put Lab 2's participant
-    // on the retrieval stage.
+  it("selects the lab's stage before a participant picks another", () => {
     const expected: Array<[string, string]> = [
       [labOne.id, "Retrieve"],
       [labTwo.id, "Rank"],
@@ -110,7 +106,7 @@ describe("LabRail", () => {
           .map((link) => link.getAttribute("href")),
       ).toEqual(STAGE_HREFS);
       expect(
-        [...rail.querySelectorAll('[aria-current="step"]')].map(
+        [...rail.querySelectorAll('[aria-current="location"]')].map(
           (link) => link.textContent,
         ),
       ).toEqual([current]);
@@ -199,48 +195,39 @@ describe("LabRail", () => {
     expect(screen.queryByText(/Code (repaired|needs repair)/)).toBeNull();
   });
 
-  it("marks the stage a participant jumped to without moving the lab's own mark", async () => {
-    // The four links scroll like tabs, so clicking one and seeing nothing change
-    // reads as a dead control. But the mark they already carry means "the stage
-    // this lab changes", and it is the only thing on the rail that says so. Both
-    // facts are true at once, so they get separate marks.
+  it("moves the selected state to the stage a participant opens", async () => {
     window.history.replaceState({}, "", "/labs/retrieval");
     render(<LabRail missionId={labOne.id} />);
     await screen.findByText("Code needs repair");
     const rail = screen.getByRole("navigation", { name: "Lab rail" });
     const link = (name: string) => within(rail).getByRole("link", { name });
 
-    // Lab 1 is a Retrieve lab, so that mark is there before any jump, and no
-    // stage is marked as the one being read.
-    expect(link("Retrieve").getAttribute("aria-current")).toBe("step");
-    expect(link("Retrieve").getAttribute("data-viewing")).toBeNull();
-    expect(link("Rank").getAttribute("data-viewing")).toBeNull();
+    expect(link("Retrieve").getAttribute("aria-current")).toBe("location");
+    expect(link("Rank").getAttribute("aria-current")).toBeNull();
 
     act(() => {
       window.location.hash = "#labs-stage-rank";
       window.dispatchEvent(new HashChangeEvent("hashchange"));
     });
 
-    expect(link("Rank").getAttribute("data-viewing")).toBe("true");
-    // The lab's own stage did not move, because jumping did not change it.
-    expect(link("Retrieve").getAttribute("aria-current")).toBe("step");
-    expect(link("Retrieve").getAttribute("data-viewing")).toBeNull();
-    expect(link("Rank").getAttribute("aria-current")).toBeNull();
+    expect(link("Rank").getAttribute("aria-current")).toBe("location");
+    expect(link("Retrieve").getAttribute("aria-current")).toBeNull();
 
     act(() => {
       window.location.hash = "#labs-stage-reason";
       window.dispatchEvent(new HashChangeEvent("hashchange"));
     });
-    expect(link("Reason").getAttribute("data-viewing")).toBe("true");
-    expect(link("Rank").getAttribute("data-viewing")).toBeNull();
+    expect(link("Reason").getAttribute("aria-current")).toBe("location");
+    expect(link("Rank").getAttribute("aria-current")).toBeNull();
 
-    // A hash that belongs to something else on the page marks no stage at all.
+    // An unrelated hash returns the rail to the lab's own starting stage.
     act(() => {
       window.location.hash = "#some-other-anchor";
       window.dispatchEvent(new HashChangeEvent("hashchange"));
     });
-    for (const name of ["Retrieve", "Rank", "Reason", "Prove"]) {
-      expect(link(name).getAttribute("data-viewing")).toBeNull();
+    expect(link("Retrieve").getAttribute("aria-current")).toBe("location");
+    for (const name of ["Rank", "Reason", "Prove"]) {
+      expect(link(name).getAttribute("aria-current")).toBeNull();
     }
     window.history.replaceState({}, "", "/labs/retrieval");
   });
