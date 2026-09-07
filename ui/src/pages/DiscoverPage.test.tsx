@@ -10,6 +10,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
+import { createDiscoverData, discoverData, preloadDiscover } from "../discoverData";
 import { CommerceProvider } from "../commerce";
 import { coreMosaicLabs, retrievalExampleHref } from "../labMissions";
 import { RETRIEVAL_SURFACE, forwardedSearchFilters } from "../navigation";
@@ -25,16 +26,13 @@ import { DiscoverPage, editorialStories, merchandisingDoors } from "./DiscoverPa
 vi.mock("../api", () => ({
   api: {
     catalog: vi.fn(),
+    catalogCounts: vi.fn(),
     product: vi.fn(),
     reviewHighlights: vi.fn(),
     suggestions: vi.fn(),
     summary: vi.fn(),
   },
 }));
-
-function countPage(total: number): CatalogPage {
-  return { total, offset: 0, limit: 1, products: [], facets: {} };
-}
 
 // The full ProductSummary shape with the fields the pick rows read: id for the
 // link, title, price and currency.
@@ -127,7 +125,9 @@ const voicesFixture: ReviewHighlight[] = [
 describe("DiscoverPage", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
+    Object.assign(discoverData, createDiscoverData());
     vi.mocked(api.catalog).mockReset();
+    vi.mocked(api.catalogCounts).mockReset();
     vi.mocked(api.reviewHighlights).mockReset();
     vi.mocked(api.summary).mockReset();
     vi.mocked(api.suggestions).mockReset();
@@ -135,6 +135,7 @@ describe("DiscoverPage", () => {
     // test. Leaving the reads pending keeps the synchronous tests act()-clean;
     // the band tests override these with real resolutions.
     vi.mocked(api.catalog).mockReturnValue(new Promise(() => {}));
+    vi.mocked(api.catalogCounts).mockReturnValue(new Promise(() => {}));
     vi.mocked(api.reviewHighlights).mockReturnValue(new Promise(() => {}));
     vi.mocked(api.summary).mockReturnValue(new Promise(() => {}));
     vi.mocked(api.suggestions).mockResolvedValue({
@@ -349,35 +350,54 @@ describe("DiscoverPage", () => {
     expect(screen.getByRole("link", { name: "Auraluxe H9" })).toBeTruthy();
     expect(screen.getByText("4.8")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Shop all" }).getAttribute("href")).toBe("/catalog");
-    // The preview above rendered synchronously from showcase data. The only
-    // catalog requests Discover makes on mount are the merchandising count
-    // reads (one per door, limit 1) and the editorial pick reads (one per
-    // story, limit 3) — never a page of preview products.
+    // Preview cards render synchronously; only the editorial stories request
+    // product rows. The doors share a separate count-only request.
     const calls = vi.mocked(api.catalog).mock.calls;
     expect(calls).toHaveLength(
-      merchandisingDoors.length + editorialStories.length,
+      editorialStories.length,
     );
     for (const call of calls) {
       expect(call[1]).toBe(0);
-      expect([1, 3]).toContain(call[2]);
+      expect(call[2]).toBe(3);
     }
   });
 
+  it("renders the filter links with the page without inventing pending counts", () => {
+    const { container } = renderPage();
+    expect(screen.getByText("Shop by what matters")).toBeTruthy();
+    expect(container.querySelectorAll(".discover-merch-door")).toHaveLength(3);
+    expect([...container.querySelectorAll(".discover-merch-count")].map(node => node.textContent))
+      .toEqual(["", "", ""]);
+    expect(container.querySelector(".discover-voice blockquote")).toBeNull();
+  });
+
+  it("renders prefetched counts and reviews immediately and reuses them on return", async () => {
+    vi.mocked(api.catalogCounts).mockResolvedValue([101, 199, 190]);
+    vi.mocked(api.reviewHighlights).mockResolvedValue(voicesFixture);
+    preloadDiscover();
+    await Promise.all([discoverData.counts.load(), discoverData.voices.load()]);
+    const first = renderPage();
+    expect(first.container.querySelector(".discover-voice blockquote")?.textContent)
+      .toContain(voicesFixture[0].quote);
+    expect(first.container.querySelector(".discover-merch-count")?.textContent).toBe("101");
+    await act(async () => {});
+    first.unmount();
+    const returned = renderPage();
+    expect(returned.container.querySelector(".discover-voice blockquote")?.textContent)
+      .toContain(voicesFixture[0].quote);
+    await act(async () => {});
+    expect(api.catalogCounts).toHaveBeenCalledTimes(1);
+    expect(api.reviewHighlights).toHaveBeenCalledTimes(1);
+  });
+
   it("opens merchandising doors with live counts routed through Shop's params", async () => {
-    const totals: Record<string, number> = {
-      max_price_cents: 1243,
-      in_stock_only: 861,
-      min_rating: 402,
-    };
-    vi.mocked(api.catalog).mockImplementation((filters: SearchFilters) => {
-      const key = Object.keys(filters)[0];
-      return Promise.resolve(countPage(totals[key]));
-    });
+    vi.mocked(api.catalogCounts).mockResolvedValue([1243, 861, 402]);
     const { container } = renderPage();
 
     await waitFor(() => {
-      expect(container.querySelectorAll(".discover-merch-door")).toHaveLength(3);
+      expect(container.querySelector(".discover-merch-count")?.textContent).toBe("1,243");
     });
+    expect(api.catalogCounts).toHaveBeenCalledWith(merchandisingDoors.map(door => door.filters));
     const doors = Array.from(
       container.querySelectorAll<HTMLAnchorElement>(".discover-merch-door"),
     );
@@ -386,16 +406,14 @@ describe("DiscoverPage", () => {
       "/catalog?in_stock_only=true",
       "/catalog?min_rating=4",
     ]);
-    // Counts are the doors' own limit-1 totals, formatted for reading.
+    // The ordered counts come from the same filters the links carry.
     expect(doors.map((door) => door.querySelector(".discover-merch-count")?.textContent))
       .toEqual(["1,243", "861", "402"]);
     expect(screen.getByText("Shop by what matters")).toBeTruthy();
   });
 
   it("keeps a door shut when its count is zero", async () => {
-    vi.mocked(api.catalog).mockImplementation((filters: SearchFilters) =>
-      Promise.resolve(countPage("in_stock_only" in filters ? 0 : 57)),
-    );
+    vi.mocked(api.catalogCounts).mockResolvedValue([57, 0, 57]);
     const { container } = renderPage();
 
     await waitFor(() => {
@@ -420,12 +438,13 @@ describe("DiscoverPage", () => {
     // No skeletons, no placeholders, no invented numbers: a band that cannot
     // prove its figures does not render.
     vi.mocked(api.catalog).mockRejectedValue(new Error("api down"));
+    vi.mocked(api.catalogCounts).mockRejectedValue(new Error("api down"));
     vi.mocked(api.summary).mockRejectedValue(new Error("api down"));
     const { container } = renderPage();
 
     await waitFor(() => {
       expect(vi.mocked(api.catalog)).toHaveBeenCalledTimes(
-        merchandisingDoors.length + editorialStories.length,
+        editorialStories.length,
       );
       expect(vi.mocked(api.summary)).toHaveBeenCalledTimes(1);
     });
@@ -449,7 +468,7 @@ describe("DiscoverPage", () => {
       "/assets/images/mosaic/voices/voice-01.webp",
     );
     expect(portrait.getAttribute("alt")).toBe("");
-    expect(screen.getByText("Synthetic reviews · AI portraits")).toBeTruthy();
+    expect(screen.getByText("AI-generated images are for illustrative purposes only. Reviews are from the synthetic catalog.")).toBeTruthy();
     const caption = container.querySelector(".discover-voice figcaption")!;
     expect(caption.textContent).toContain("5.0");
     expect(caption.textContent).toContain("Verified purchase");

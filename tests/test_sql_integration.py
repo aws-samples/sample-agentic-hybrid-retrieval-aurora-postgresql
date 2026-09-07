@@ -72,6 +72,31 @@ def test_the_projection_is_fully_embedded_in_one_model_space(connection):
     assert at_1024 == products
 
 
+def test_batched_counts_match_shop_with_empty_and_combined_filters():
+    from fastapi.testclient import TestClient
+
+    from service.main import app
+
+    filters = [
+        {"max_price_cents": 20000},
+        {"in_stock_only": True},
+        {"min_rating": 4},
+        {"brand": "no-such-mosaic-brand"},
+        {"domain": "home_office", "in_stock_only": True, "max_price_cents": 30000},
+        {"include_refurbished": False, "include_sponsored": False},
+    ]
+    client = TestClient(app)
+    response = client.post("/api/catalog/counts", json=filters)
+    assert response.status_code == 200
+    counts = response.json()
+    assert counts == [
+        client.get("/api/catalog/products", params={**item, "limit": 1}).json()["total"]
+        for item in filters
+    ]
+    assert counts[0] > 0
+    assert counts[3] == 0
+
+
 def test_database_level_trigram_gates_match_the_profile(connection, profile):
     """Every new Aurora session must inherit deterministic pg_trgm index gates."""
     connection.execute("SELECT similarity('mosaic', 'mosaic')").fetchone()

@@ -10,11 +10,11 @@ import zipfile
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from botocore.exceptions import BotoCoreError, ClientError
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import Body, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from psycopg import OperationalError
@@ -27,6 +27,7 @@ from service.agent import get_product_discovery_agent
 from service.catalog import (
     catalog_suggestions,
     catalog_summary,
+    count_products,
     get_evidence_record,
     get_product,
     get_product_evidence_records,
@@ -46,6 +47,7 @@ from service.model_runtime import (
 from service.models import (
     AgentRequest,
     AgentResponse,
+    CatalogFilters,
     CatalogPage,
     CatalogSuggestionsResponse,
     CompletionProofRequest,
@@ -63,7 +65,6 @@ from service.models import (
     RetrievalRunResponse,
     RetrievalScorecardResponse,
     ReviewHighlightsResponse,
-    SearchFilters,
     SearchRequest,
     SearchResponse,
 )
@@ -310,7 +311,7 @@ def get_catalog_products(
     sort: str = "featured",
 ) -> CatalogPage:
     try:
-        filters = SearchFilters(
+        filters = CatalogFilters(
             domain=domain,
             category_key=category_key,
             brand=brand,
@@ -330,6 +331,14 @@ def get_catalog_products(
         limit=limit,
         sort=sort,
     )
+
+
+@app.post("/api/catalog/counts", response_model=list[int])
+def get_catalog_counts(
+    filters: Annotated[list[CatalogFilters], Body(min_length=1, max_length=12)],
+) -> list[int]:
+    """Return one Shop count per filter group, preserving the requested order."""
+    return count_products(filters)
 
 
 @app.get("/api/products/{product_id}", response_model=ProductDetail)

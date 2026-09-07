@@ -2,7 +2,7 @@
 
 Created for Discover on 2026-09-07. All five subjects are fictional adults. The portraits are decorative UI photography: they do not identify the authors of the synthetic reviews or supply retrieval evidence. The existing review excerpts, ratings, purchase flags, and product links continue to come from Aurora.
 
-The UI displays “Synthetic reviews · AI portraits” beside the strip. Each square PNG was resized and encoded once with `cwebp -resize 256 256 -q 85 -m 6`. The 256 × 256 WebPs below are the final runtime assets.
+The UI displays “AI-generated images are for illustrative purposes only. Reviews are from the synthetic catalog.” beside the strip. Each square PNG was resized and encoded once with `cwebp -resize 256 256 -q 85 -m 6`. The 256 × 256 WebPs below are the final runtime assets.
 
 ## Final assets and exact prompts
 

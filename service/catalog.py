@@ -140,6 +140,29 @@ def _summary(row: dict[str, Any]) -> ProductSummary:
     )
 
 
+def count_products(filters: list[SearchFilters]) -> list[int]:
+    """Count Shop filter groups in one round trip without products or facets."""
+    with connect() as connection:
+        rows = connection.execute(
+            """
+            SELECT (
+                SELECT count(*)
+                FROM mosaic_search.product_document d
+                WHERE d.product_id = ANY(%s::bigint[])
+                  AND mosaic_search.matches_filters(d, requested.filters)
+            ) AS count
+            FROM jsonb_array_elements(%s::jsonb) WITH ORDINALITY
+                 AS requested(filters, position)
+            ORDER BY requested.position
+            """,
+            (
+                list(_PHOTOGRAPHED_PRODUCT_IDS),
+                json.dumps([item.as_sql_json() for item in filters]),
+            ),
+        ).fetchall()
+    return [row["count"] for row in rows]
+
+
 def list_products(
     filters: SearchFilters,
     *,

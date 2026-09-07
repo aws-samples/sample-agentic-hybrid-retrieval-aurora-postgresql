@@ -146,6 +146,13 @@ class SearchFilters(BaseModel):
         return filters
 
 
+class CatalogFilters(SearchFilters):
+    """Browsing includes the entire Shop edit unless the shopper narrows it."""
+
+    include_refurbished: bool = True
+    include_sponsored: bool = True
+
+
 class SearchRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

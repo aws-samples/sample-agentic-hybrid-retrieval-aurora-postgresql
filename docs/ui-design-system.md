@@ -99,6 +99,11 @@ micro size with 0.05em tracking.
 
 ## Chrome behaviour
 
+- Discover starts its counts, reviews, and summary reads before the route mounts.
+  Concurrent consumers share requests, and returns within 60 seconds reuse the
+  last successful editorial response. Filter links render immediately; their
+  counts require an Aurora response. Reviews have no entrance animation, and
+  their fictional-image and synthetic-review disclosure is a 10.5px footnote.
 - The site header contains navigation, Code Editor when configured, and the bag.
   Repair status belongs to the Playground rail and completion proof. Its labels
   distinguish “Code repaired” from “SQL repair applied”; neither substitutes

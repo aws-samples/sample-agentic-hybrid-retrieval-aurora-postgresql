@@ -147,6 +147,7 @@ adapter exports only aggregate counts and timings; see
 - `GET /api/catalog/summary`
 - `GET /api/catalog/suggestions`
 - `GET /api/catalog/products`
+- `POST /api/catalog/counts`
 - `GET /api/catalog/reviews/highlights`
 - `GET /api/products/{product_id}`
 - `GET /api/evidence/{evidence_id}`
@@ -236,6 +237,15 @@ for introspection; no served surface does.
 `data/media/asset_labels_200.json`. `sort=featured` preserves manifest order;
 facets and other sort modes stay bounded to that photographed edit. Search and
 Ask Mosaic continue to retrieve across all 500,000 products.
+
+`POST /api/catalog/counts` accepts a JSON array of 1–12 `CatalogFilters` objects
+and returns a count array in the same order, including zero results. It reads
+the same photographed cohort with production `matches_filters`. Like Shop,
+browsing includes refurbished and sponsored products unless excluded explicitly.
+The batch runs in one Aurora
+round trip, without hydrating products or computing unused facets. Discover
+uses it for its filter links. Its recent editorial reads are reused in browser
+memory for up to 60 seconds; search, agent, and proof requests remain uncached.
 
 ## Runtime status
 

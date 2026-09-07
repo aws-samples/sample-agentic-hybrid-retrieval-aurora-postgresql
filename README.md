@@ -114,7 +114,9 @@ its canonical path (`/`, `/catalog`, `/labs/retrieval`), which is what workshop
 instructions deep-link to:
 
 - **Discover** - editorial product discovery, direct search, and excerpts from
-  the synthetic review corpus;
+  the synthetic review corpus. Filter links render with the page; counts and
+  reviews are prefetched, with successful editorial reads reused for up to
+  60 seconds when returning to Discover;
 - **Shop** - hybrid search, filters, sorting, product detail, and Ask Mosaic.
   Select two to five results and compare them side by side; the
   comparison is served by `POST /api/retrieval/events/{id}/compare`, which
@@ -289,7 +291,7 @@ make ui-audit
 
 With `DATABASE_URL` pointing at the intended Aurora cluster:
 
-The full Python gate includes 13 read-only integration tests against Aurora.
+The full Python gate includes 14 read-only integration tests against Aurora.
 
 ```bash
 MISSION_GATE_REQUIRE_DB=1 make validate-missions

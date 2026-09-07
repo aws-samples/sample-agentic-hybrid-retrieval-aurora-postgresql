@@ -99,6 +99,12 @@ function parseSseFrame(frame: string): { event: string; data: string } | null {
 export const api = {
   summary: () => request<CatalogSummary>("/api/catalog/summary"),
 
+  catalogCounts: (filters: SearchFilters[]) =>
+    request<number[]>("/api/catalog/counts", {
+      method: "POST",
+      body: JSON.stringify(filters),
+    }),
+
   suggestions: (query: string, signal?: AbortSignal) =>
     request<CatalogSuggestionsResponse>(
       `/api/catalog/suggestions?q=${encodeURIComponent(query)}`,

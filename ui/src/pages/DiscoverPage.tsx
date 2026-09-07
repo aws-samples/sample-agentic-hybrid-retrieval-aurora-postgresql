@@ -2,10 +2,11 @@ import { ArrowRight, Search, Send, Star } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
-import { api } from "../api";
 import { CatalogSearchComposer } from "../components/CatalogSearchComposer";
 import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { ProductCard } from "../components/ProductCard";
+import { discoverData } from "../discoverData";
+import { editorialStories, merchandisingDoors, type EditorialStory } from "../discoverContent";
 import { formatPrice } from "../format";
 import {
   coreMosaicLabs,
@@ -23,67 +24,9 @@ import type {
   SearchFilters,
 } from "../types";
 
+export { editorialStories, merchandisingDoors } from "../discoverContent";
+
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
-
-type EditorialStory = {
-  topic: string;
-  title: string;
-  caption: string;
-  query: string;
-  image: string;
-  imageFit?: "cover";
-  filters: Pick<SearchFilters, "domain" | "category_key">;
-};
-
-/**
- * Three editorial entries below the hero, each of which runs a real request.
- *
- * They used to be three same-shaped white cards in a row. Now the first is a
- * full-width image-led band and the other two sit beside it as photographs with
- * their copy on bare canvas, so the section reads as an edit rather than as three
- * containers.
- */
-export const editorialStories: EditorialStory[] = [
-  {
-    topic: "Over-ear headphones",
-    title: "For focus, and for the long way home",
-    caption:
-      "Comfort, isolation, and battery life weighed together, not one at a time.",
-    query: "Find the best over-ear headphones for focus and travel.",
-    image: "/assets/images/mosaic/ce-over-ear-headphones-02-catalog-3x2.webp",
-    // The catalog plates are 3:2 and this frame is wider, so it fills rather
-    // than sitting letterboxed inside it.
-    imageFit: "cover",
-    filters: {
-      domain: "consumer_electronics",
-      category_key: "over-ear-headphones",
-    },
-  },
-  {
-    topic: "Workspace",
-    title: "Made to be sat in all day",
-    caption: "Fit, budget, and must-haves become real catalog constraints.",
-    query:
-      "Find an ergonomic mesh chair for long workdays with adjustable lumbar support.",
-    image: "/assets/images/mosaic/category/workspace.webp",
-    filters: {
-      domain: "home_office",
-      category_key: "ergonomic-office-chairs",
-    },
-  },
-  {
-    topic: "Running & fitness",
-    title: "For the miles after the miles",
-    caption: "Portable recovery tools for tired legs and limited carry-on space.",
-    query: "Recovery tools for sore calves after long runs that fit in a carry-on.",
-    image: "/assets/images/mosaic/category/performance.webp",
-    imageFit: "cover",
-    filters: {
-      domain: "running_fitness",
-      category_key: "mobility-tools",
-    },
-  },
-];
 
 /**
  * The hero's three chips are the three labs' own queries, in lab order.
@@ -108,38 +51,6 @@ const heroPrompts: Array<{ label: string; href: string }> =
     label: mission.query,
     href: shopMissionHref(mission, { view: "results" }),
   }));
-
-/**
- * Merchandising doors under the hero, each a plain link into Shop with its
- * filter already set.
- *
- * The count on a chip is the `total` from the same /api/catalog/products
- * request Shop runs when the door opens, taken with `limit: 1` so only the
- * number travels. Nothing is hardcoded: a door whose count has not arrived,
- * failed, or came back zero simply does not render, because a chip promising
- * an empty shelf is worse than no chip.
- */
-export const merchandisingDoors: Array<{
-  label: string;
-  filters: SearchFilters;
-  params: Record<string, string>;
-}> = [
-  {
-    label: "Under $200",
-    filters: { max_price_cents: 20000 },
-    params: { max_price_cents: "20000" },
-  },
-  {
-    label: "In stock now",
-    filters: { in_stock_only: true },
-    params: { in_stock_only: "true" },
-  },
-  {
-    label: "Rated 4★ and up",
-    filters: { min_rating: 4 },
-    params: { min_rating: "4" },
-  },
-];
 
 /**
  * Browse entries for the category rail.
@@ -406,17 +317,15 @@ function DiscoverVoices({
     >
       <span className="discover-voices-lede">
         <span>What others are saying</span>
-        <small>Synthetic reviews · AI&nbsp;portraits</small>
       </span>
-      {/* Remounting on review_id is what replays the entrance animation. */}
-      <figure className="discover-voice" key={voice.review_id}>
+      <figure className="discover-voice">
         <img
           className="discover-voice-portrait"
           src={voicePortraits[index % voicePortraits.length]}
           alt=""
           width={64}
           height={64}
-          loading="lazy"
+          loading="eager"
           decoding="async"
         />
         <blockquote>&ldquo;{voice.quote}&rdquo;</blockquote>
@@ -445,6 +354,9 @@ function DiscoverVoices({
           ))}
         </span>
       ) : null}
+      <small className="discover-voices-disclosure">
+        AI-generated images are for illustrative purposes only. Reviews are from the synthetic catalog.
+      </small>
     </section>
   );
 }
@@ -455,59 +367,50 @@ export function DiscoverPage() {
   // product, because a per-product hash cannot guarantee distinctness.
   const previewImages = useMemo(() => productImageMap(featuredPreview), []);
   const reduceMotion = useReducedMotion() ?? false;
-  const [doorCounts, setDoorCounts] = useState<ReadonlyMap<string, number>>(
-    new Map(),
+  const [doorCounts, setDoorCounts] = useState(() => discoverData.counts.peek());
+  const [proof, setProof] = useState<CatalogSummary["total"] | null>(
+    () => discoverData.summary.peek()?.total ?? null,
   );
-  const [proof, setProof] = useState<CatalogSummary["total"] | null>(null);
-  const [voices, setVoices] = useState<ReviewHighlight[]>([]);
-  const [storyPicks, setStoryPicks] = useState<
-    ReadonlyMap<string, ProductSummary[]>
-  >(new Map());
+  const [voices, setVoices] = useState<ReviewHighlight[]>(
+    () => discoverData.voices.peek() ?? [],
+  );
+  const [storyPicks, setStoryPicks] = useState<ReadonlyMap<string, ProductSummary[]>>(
+    () => new Map(discoverData.stories.map(story => [
+      story.topic, story.products.peek()?.products ?? [],
+    ])),
+  );
 
   useEffect(() => {
     let active = true;
-    // A door that fails stays hidden rather than showing a stale or invented
-    // number, so rejections end here deliberately.
-    for (const door of merchandisingDoors) {
-      api.catalog(door.filters, 0, 1).then(
-        (page) => {
-          if (!active) return;
-          setDoorCounts((counts) => new Map(counts).set(door.label, page.total));
+    // Start the near-hero reads before the below-fold stories. The shared reads
+    // also prevent StrictMode and rapid returns from duplicating Aurora work.
+    discoverData.voices.load().then(
+      highlights => { if (active) setVoices(highlights); },
+      () => { if (active) setVoices([]); },
+    );
+    discoverData.counts.load().then(
+      counts => { if (active) setDoorCounts(counts); },
+      () => { if (active) setDoorCounts([]); },
+    );
+    discoverData.summary.load().then(
+      summary => { if (active) setProof(summary.total); },
+      () => { if (active) setProof(null); },
+    );
+    for (const story of discoverData.stories) {
+      story.products.load().then(
+        page => {
+          if (active) setStoryPicks(picks => new Map(picks).set(story.topic, page.products));
         },
         () => {},
       );
     }
-    // Each editorial story lists the top-rated picks from its own category, so
-    // the copy column carries real rows rather than empty canvas. A story whose
-    // read fails shows no rows, same as the doors.
-    for (const story of editorialStories) {
-      api.catalog(story.filters, 0, 3, "rating").then(
-        (page) => {
-          if (!active) return;
-          setStoryPicks((picks) => new Map(picks).set(story.topic, page.products));
-        },
-        () => {},
-      );
-    }
-    api.summary().then(
-      (summary) => {
-        if (active) setProof(summary.total);
-      },
-      () => {},
-    );
-    api.reviewHighlights().then(
-      (highlights) => {
-        if (active) setVoices(highlights);
-      },
-      () => {},
-    );
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
+  // The filter links are usable immediately. Counts appear only once Aurora
+  // supplies them, and a confirmed empty or unavailable shelf removes its link.
   const openDoors = merchandisingDoors.filter(
-    (door) => (doorCounts.get(door.label) ?? 0) > 0,
+    (_, index) => doorCounts === undefined || (doorCounts[index] ?? 0) > 0,
   );
   const proofLine =
     proof && proof.reviews > 0 && proof.average_rating !== null ? proof : null;
@@ -628,7 +531,7 @@ export function DiscoverPage() {
                   >
                     {door.label}
                     <span className="discover-merch-count">
-                      {(doorCounts.get(door.label) ?? 0).toLocaleString()}
+                      {doorCounts?.[merchandisingDoors.indexOf(door)]?.toLocaleString()}
                     </span>
                   </Link>
                 ))}

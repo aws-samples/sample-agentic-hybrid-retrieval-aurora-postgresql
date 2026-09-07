@@ -241,8 +241,7 @@
   color: var(--paper);
 }
 
-/* Merchandising doors and the review proof line. Both carry live numbers, so
-   the whole row waits for them: no skeletons, no placeholders. */
+/* Filter links work before the counts arrive; only Aurora supplies figures. */
 .discover-merch {
   display: flex;
   flex-wrap: wrap;
@@ -285,6 +284,7 @@
 }
 
 .discover-merch-count {
+  min-width: 3ch;
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
   font-weight: 500;
@@ -329,9 +329,11 @@
   font-size: 13px;
 }
 
-.discover-voices-lede small {
-  font-size: 12px;
-  line-height: 1.5;
+.discover-voices-disclosure {
+  grid-column: 1 / -1;
+  color: var(--ink-soft);
+  font-size: 10.5px;
+  line-height: 1.45;
 }
 
 /* The min-height is the tallest two-line quote, so the band holds its
@@ -343,7 +345,6 @@
   align-content: center;
   gap: 9px 18px;
   margin: 0;
-  animation: discover-voice-in 480ms ease both;
 }
 
 .discover-voice-portrait {
@@ -449,18 +450,6 @@
   }
 }
 
-@keyframes discover-voice-in {
-  from {
-    opacity: 0;
-    transform: translateY(7px);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
 @media (max-width: 860px) {
   .discover-voices {
     grid-template-columns: 1fr;
@@ -468,16 +457,7 @@
   }
 
   .discover-voices-lede {
-    grid-template-columns: 1fr 1fr;
-    align-items: baseline;
-    gap: 12px;
     max-width: none;
-  }
-
-  .discover-voices-lede small {
-    justify-self: end;
-    max-width: 145px;
-    text-align: right;
   }
 
   .discover-voice {
