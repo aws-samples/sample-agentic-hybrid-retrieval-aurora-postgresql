@@ -131,10 +131,9 @@ micro size with 0.05em tracking.
   becomes available, the trail folds into “Steps and sources” so the answer
   leads while the searches, comparisons, evidence, and tool activity remain
   inspectable.
-- Navigation reveals the destination with a 240ms opacity transition beneath
-  the persistent header. It begins after the route's code loads, resets scroll
-  and keyboard focus for a new page, and leaves query changes mounted. Reduced
-  motion disables the reveal; fixed drawers and sticky rails remain untransformed.
+- Navigation displays the destination without a page transition. The header
+  persists, scroll and keyboard focus reset for a new page, and query changes
+  leave the current page mounted.
 - Playground's agent run moves focus to one results area when submitted.
   Subsequent stream updates do not move focus or scroll the page. The service's
   latest stage and client elapsed time sit above a stable answer area. Retrieval

@@ -129,9 +129,9 @@ instructions deep-link to:
   the recorded run remains available for inspection when synthesis fails.
 
 The storefront is designed for laptop browser viewports at normal zoom. Page
-changes use a short, soft reveal beneath the persistent navigation; reduced
-motion disables it. Ask Mosaic shows retrieval progress before bringing the
-cited answer forward and folding the activity into **Steps and sources**.
+navigation keeps the header in place and restores scroll and keyboard focus.
+Ask Mosaic shows retrieval progress before bringing the cited answer forward
+and folding the activity into **Steps and sources**.
 
 <details>
 <summary>See Shop and Playground</summary>
