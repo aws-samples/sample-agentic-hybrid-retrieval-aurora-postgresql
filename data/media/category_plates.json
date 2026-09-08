@@ -159,6 +159,43 @@
         "No brand tag, care label or size label sewn into the fabric, and no printed text on any strap or buckle",
         "The support stands alone: no chair, no seat back and no person in the frame"
       ]
+    },
+    "productivity-monitors": {
+      "domain": "home_office",
+      "prefix": "ho-productivity-monitors",
+      "cohort_plates_installed": 3,
+      "surfaces": [
+        "Discover monitor collection",
+        "Shop productivity-monitor results"
+      ],
+      "extra_constraints": [
+        "A single flat 16:9 desktop display on its own stand; no curved or ultrawide panels",
+        "No logos, lettering, third-party marks or people"
+      ]
+    },
+    "monitor-arms": {
+      "domain": "home_office",
+      "prefix": "ho-monitor-arms",
+      "cohort_plates_installed": 1,
+      "surfaces": [
+        "Search beyond the workspace edit"
+      ],
+      "extra_constraints": [
+        "Complete physically plausible accessory, no logos, no people",
+        "Category-representative imagery, not product-verified specifications"
+      ]
+    },
+    "cable-management": {
+      "domain": "home_office",
+      "prefix": "ho-cable-management",
+      "cohort_plates_installed": 2,
+      "surfaces": [
+        "Search beyond the workspace edit"
+      ],
+      "extra_constraints": [
+        "Complete physically plausible accessory, no logos, no people",
+        "Category-representative imagery, not product-verified specifications"
+      ]
     }
   },
   "plates": [
@@ -1081,6 +1118,174 @@
       "subject": "a lumbar cushion in deep maroon corduroy with piped cream edges and a plain front face",
       "installed": true,
       "sha256": "c266ddbd240c7dce0f588330659b971abf8768cf2d32efba2b3cc4dbfe7131ce"
+    },
+    {
+      "plate_id": "ho-productivity-monitors-plate-01",
+      "category_key": "productivity-monitors",
+      "framing": "F1",
+      "subject": "graphite flat 32-inch display with an adjustable column and rectangular base",
+      "installed": true,
+      "sha256": "1e8542015633d466e8cedcf4de203911d005869b6cb2111cea0024f2c4da8f74"
+    },
+    {
+      "plate_id": "ho-productivity-monitors-plate-02",
+      "category_key": "productivity-monitors",
+      "framing": "F1",
+      "subject": "silver flat 32-inch display with a thin frame and rectangular stand",
+      "installed": true,
+      "sha256": "8b4c9e5fa1bf2c160aabc707c016d94b7098d1d50b958c59b77e5bc150bafb6c"
+    },
+    {
+      "plate_id": "ho-productivity-monitors-plate-03",
+      "category_key": "productivity-monitors",
+      "framing": "F1",
+      "subject": "graphite flat 32-inch studio display with a substantial adjustable stand",
+      "installed": true,
+      "sha256": "bc8d3b016c5e7567f292fc1208a3ab2ee569afc70da9217ee415e0d8d7daccc2"
+    },
+    {
+      "plate_id": "ho-productivity-monitors-plate-04",
+      "category_key": "productivity-monitors",
+      "framing": "F1",
+      "subject": "graphite flat 32-inch display with a rectangular stand and subtle surface wear",
+      "installed": true,
+      "sha256": "ea4020e2e7afe2d883dbfd8a6bc1f5996a57e0c0353fba29c251c84276a9e7a0"
+    },
+    {
+      "plate_id": "ho-productivity-monitors-plate-05",
+      "category_key": "productivity-monitors",
+      "framing": "F1",
+      "subject": "white flat 27-inch display with a height-adjustable stand",
+      "installed": true,
+      "sha256": "e17cfdc9cc37612c42fe57913a8b1415be8564768d32093d80104595c6f5a660"
+    },
+    {
+      "plate_id": "ho-productivity-monitors-plate-06",
+      "category_key": "productivity-monitors",
+      "framing": "F1",
+      "subject": "black flat 32-inch display with a fixed tilt stand",
+      "installed": true,
+      "sha256": "44295f6d2ee4666fcc16799f8eab3bd40dc2cdfe9779c8f1d9cd32fc03056680"
+    },
+    {
+      "plate_id": "ho-productivity-monitors-plate-07",
+      "category_key": "productivity-monitors",
+      "framing": "F1",
+      "subject": "warm-grey flat 24-inch display with a cylindrical silver neck and circular base",
+      "installed": true,
+      "sha256": "52b80d29d2b1b946980f16617f8ef18efb9d8bef172189e1b711756c1f6446c1"
+    },
+    {
+      "plate_id": "ho-productivity-monitors-plate-08",
+      "category_key": "productivity-monitors",
+      "framing": "F1",
+      "subject": "bronze flat 27-inch display with a rectangular column and oval foot",
+      "installed": true,
+      "sha256": "1bf612061057ecadc0a5f91abf41e6a4860aae9e94358910008c7064a01b9a72"
+    },
+    {
+      "plate_id": "ho-productivity-monitors-plate-09",
+      "category_key": "productivity-monitors",
+      "framing": "F1",
+      "subject": "black flat 32-inch display with a silver hollow rectangular loop stand",
+      "installed": true,
+      "sha256": "b4e2785cce432fe0da8c139fb4ba160f02187537cf72779fb255a85f4bc5cf65"
+    },
+    {
+      "plate_id": "ho-monitor-arms-plate-01",
+      "category_key": "monitor-arms",
+      "framing": "F1",
+      "subject": "One matte graphite single-monitor gas-spring arm, two articulated segments, adjustable elbow, exposed square four-slot VESA plate, a complete screw-operated desk-edge C-clamp with visible padded jaw. Freestanding studio product packshot of the complete arm and clamp, no monitor, table or props.",
+      "installed": true,
+      "sha256": "bdb0bbc9ef132b0008ca3dd82087740a15d7808c15220bd3bb1dce8b9b281967"
+    },
+    {
+      "plate_id": "ho-monitor-arms-plate-02",
+      "category_key": "monitor-arms",
+      "framing": "F1",
+      "subject": "One silver aluminium single-monitor arm with a round vertical post, two short hinged horizontal links, square four-slot VESA plate, silver desk-edge C-clamp. An upright mechanical post-based design, not a gas-spring shell. Complete arm shown upright resting on its clamp, no monitor or props.",
+      "installed": true,
+      "sha256": "ca82a76759dbeb3e2c54b6bb287f90f88aa7f3b28871001ef28e4326706013dc"
+    },
+    {
+      "plate_id": "ho-monitor-arms-plate-03",
+      "category_key": "monitor-arms",
+      "framing": "F1",
+      "subject": "One satin white single-monitor gas-spring arm with thick rounded pivot housings, black joints, flat square VESA mounting head, matching white desk clamp with black adjustment screw. Complete arm in compact raised position, no monitor or props.",
+      "installed": true,
+      "sha256": "e24877c39895720ced0de8a6cb1cdaef2d7be077c0caf225714e9ca1e6b3dea3"
+    },
+    {
+      "plate_id": "ho-monitor-arms-plate-04",
+      "category_key": "monitor-arms",
+      "framing": "F1",
+      "subject": "One matte black heavy-duty single-monitor arm with a broad angular lower segment, robust cylindrical elbow, short upper segment and square four-slot VESA plate, wide black desk clamp. Complete object upright, no monitor or props.",
+      "installed": true,
+      "sha256": "442bd9cb60942c73d8c75a496fcf1e7c5fb578eb56cb9924b2c5556fd04c44a4"
+    },
+    {
+      "plate_id": "ho-monitor-arms-plate-05",
+      "category_key": "monitor-arms",
+      "framing": "F1",
+      "subject": "One satin silver dual-monitor arm: one common central post, two independent articulated arms branching left and right, exactly two square VESA mounting plates, and one complete broad desk clamp at its foot. Arms extended to different heights to make geometry understandable. No screens or props.",
+      "installed": true,
+      "sha256": "896264b54d046076b6144e315d4407a180ff86a97afea4547463f3e0a1884c75"
+    },
+    {
+      "plate_id": "ho-monitor-arms-plate-06",
+      "category_key": "monitor-arms",
+      "framing": "F1",
+      "subject": "One warm-grey freestanding monitor support: weighted slim rectangular desk base, upright telescoping metal column, a single articulated short horizontal arm and square four-slot VESA plate. Clearly freestanding on the weighted base; no desk clamp. No display or props.",
+      "installed": true,
+      "sha256": "cac8db5f33865ce114c8ea0ac269db0753f0e5de07cb0b19a80d03420b5ca89a"
+    },
+    {
+      "plate_id": "ho-cable-management-plate-01",
+      "category_key": "cable-management",
+      "framing": "F1",
+      "subject": "One long graphite powder-coated steel under-desk cable tray with a perforated flat floor, short raised edges and two integrated screw-adjustable desk-edge clamps. Show complete tray and clamp jaws in a three-quarter elevated view that reveals the empty interior. No cables or desk.",
+      "installed": true,
+      "sha256": "5e400dcc790981042b089e396478e1aa58b1532d1f0e9e5cb7bd33dc056ec602"
+    },
+    {
+      "plate_id": "ho-cable-management-plate-02",
+      "category_key": "cable-management",
+      "framing": "F1",
+      "subject": "One cream powder-coated steel under-desk cable basket made of neatly welded metal wire, rectangular 45 cm proportions and two simple raised mounting tabs with screw holes. Show empty basket resting naturally on studio surface. No clamps, wires, desk or props.",
+      "installed": true,
+      "sha256": "4b41dcd74b9a53d67d3497833aeb16089f7e984a7c4b44e656150a99cc29c31b"
+    },
+    {
+      "plate_id": "ho-cable-management-plate-03",
+      "category_key": "cable-management",
+      "framing": "F1",
+      "subject": "One long slim satin-white aluminium cable channel with a partly slid-open snap-on lid revealing an empty U-shaped trough, plus subtle unlabelled mounting holes. Show lid still attached, one coherent product, no loose components, cables or desk.",
+      "installed": true,
+      "sha256": "7de0f73a62f0aa3a80fc14ab0b61fa3bd7dc1a86d842ea132ee621a32444f289"
+    },
+    {
+      "plate_id": "ho-cable-management-plate-04",
+      "category_key": "cable-management",
+      "framing": "F1",
+      "subject": "One low rectangular charcoal cable-organizer box with rounded corners, a fitted light bamboo lid slightly lifted at one end, and small cord exit slots in both short sides. Empty interior, no electronics, no power strip, no cables or other props.",
+      "installed": true,
+      "sha256": "a32c4a858fc0aeab526592668bcca9c2e0f8e302d8df146c9b975797b634854f"
+    },
+    {
+      "plate_id": "ho-cable-management-plate-05",
+      "category_key": "cable-management",
+      "framing": "F1",
+      "subject": "One flexible dark-grey woven textile under-desk cable hammock with reinforced edges and four small metal mounting brackets, displayed as a shallow taut sling with a visibly open interior. Entire coherent accessory resting on the surface, no desk, no wires or props.",
+      "installed": true,
+      "sha256": "f8d57bc37b9ee555aa2dd48aefe913e53af6cbf8508e05f8068bee3dca34a4ce"
+    },
+    {
+      "plate_id": "ho-cable-management-plate-06",
+      "category_key": "cable-management",
+      "framing": "F1",
+      "subject": "One light-grey segmented vertical cable spine for a sit-stand desk: a flexible chain of about sixteen repeated smooth oval plastic links curved gently into a shallow S, one small upper mounting bracket, and one weighted circular foot resting on the studio surface. Individual links form a single continuous column, no desk or cables.",
+      "installed": true,
+      "sha256": "a7cdabf61a599b40bcb3c367c8d9562c653f7520a1eb9e273f77e6faab660574"
     }
   ],
   "domain_neutral_note": "Served when a category has no plate and no cohort plate of the same subject. A card showing a warm empty still-life reads as photography pending; a card showing another category's product is a factual error a participant will catch. These three replace the per-domain product photograph that mesh-wi-fi-systems, treadmills, sound-masking-devices and lumbar-supports resolve to today.",

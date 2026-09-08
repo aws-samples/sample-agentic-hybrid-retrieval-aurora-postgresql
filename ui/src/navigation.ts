@@ -65,12 +65,8 @@ const FORWARDED_NUMBER_FILTERS = [
 ] as const;
 
 /**
- * Every gate this hand-off can carry, in one list.
- *
- * `forwardedSearchFilters` writes these and only these, so they are also the
- * only keys on which two requests can be compared for "same gates". The lab
- * outcome reads it for exactly that: a scenario's verdict applies to a run that
- * asked the scenario's question, and the question includes its eligibility.
+ * Scalar gates carried between surfaces. Attribute maps are encoded as JSON
+ * and compared structurally, so their key order cannot change a lab verdict.
  */
 export const FORWARDABLE_FILTER_KEYS = [
   ...FORWARDED_STRING_FILTERS,
@@ -113,6 +109,11 @@ export function playgroundQueryHref(
     }
   }
   if (filters.in_stock_only === true) params.set("in_stock_only", "true");
+  const attributes = filters.attributes;
+  if (attributes && typeof attributes === "object" && !Array.isArray(attributes)
+    && Object.keys(attributes).length > 0) {
+    params.set("attributes", JSON.stringify(attributes));
+  }
   const event = searchEventId?.trim();
   if (event) params.set("event", event);
   return `${RETRIEVAL_SURFACE.path}?${params}`;
@@ -173,8 +174,8 @@ export function playgroundProofHref(missionId: string, agentRunId: string): stri
  */
 export function forwardedSearchFilters(
   params: URLSearchParams,
-): Record<string, string | number | boolean> {
-  const filters: Record<string, string | number | boolean> = {};
+): Record<string, unknown> {
+  const filters: Record<string, unknown> = {};
   for (const name of FORWARDED_STRING_FILTERS) {
     const value = params.get(name);
     if (value) filters[name] = value;
@@ -188,5 +189,36 @@ export function forwardedSearchFilters(
     if (Number.isFinite(value) && value > 0) filters[name] = value;
   }
   if (params.get("in_stock_only") === "true") filters.in_stock_only = true;
+  try {
+    const attributes: unknown = JSON.parse(params.get("attributes") ?? "null");
+    if (attributes && typeof attributes === "object" && !Array.isArray(attributes)
+      && Object.keys(attributes).length > 0) {
+      filters.attributes = attributes;
+    }
+  } catch {
+    // A hand-edited URL must not crash the search surface.
+  }
   return filters;
+}
+
+/** Accept only a same-site Shop path as a product's return destination. */
+export function catalogReturnPath(value: string | null): string | null {
+  if (!value?.startsWith("/catalog")) return null;
+  try {
+    const url = new URL(value, "https://mosaic.invalid");
+    return url.origin === "https://mosaic.invalid" && url.pathname === "/catalog"
+      ? url.pathname + url.search
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Carry the original Shop context through successive product-page visits. */
+export function productDetailHref(productId: number): string {
+  const current = window.location;
+  const from = current.pathname === "/catalog"
+    ? current.pathname + current.search
+    : catalogReturnPath(new URLSearchParams(current.search).get("from"));
+  return `/products/${productId}${from ? `?${new URLSearchParams({ from })}` : ""}`;
 }

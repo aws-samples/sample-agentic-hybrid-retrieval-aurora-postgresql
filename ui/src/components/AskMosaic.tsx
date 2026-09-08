@@ -31,12 +31,8 @@ import {
   armLanguage,
 } from "../retrievalLanguage";
 import { lockBodyScroll } from "../scrollLock";
-import {
-  misspelledExample,
-  starterExamples,
-  starterPath,
-  starterPathLabels,
-} from "../starters";
+import { useTypewriterReveal } from "../useTypewriterReveal";
+import type { mosaicLabManifest } from "../labMissions";
 import type {
   AgentCitation,
   AgentPartial,
@@ -44,7 +40,7 @@ import type {
   AgentResponse,
   ProductSummary,
   ResultSignals,
-  RetrievalExample,
+  SearchFilters,
   ToolTraceStep,
 } from "../types";
 import { Criteria, Searches } from "./agentAnswerParts";
@@ -67,6 +63,8 @@ export type AssistExecutionPath = "focused_follow_up" | "full_retrieval";
 export interface AskMosaicTurn {
   id: number;
   question: string;
+  /** Keeps a saved conversation from replacing results for a different Shop request. */
+  contextKey?: string;
   response: AgentResponse | null;
   /** True only after the stream's terminal `complete` event has arrived. */
   completed: boolean;
@@ -956,67 +954,6 @@ function FollowUps({
   );
 }
 
-/**
- * Cuts the reveal back to the last point that renders cleanly as Markdown.
- *
- * A slice that stops between a bold marker and its close would paint literal
- * asterisks for a few frames. Holding the reveal just before the opener means
- * an emphasized phrase appears whole once its closing marker has streamed in.
- */
-function balancedMarkdownSlice(text: string, length: number): string {
-  if (length >= text.length) return text;
-  const slice = text.slice(0, length);
-  const boldMarks = slice.split("**").length - 1;
-  if (boldMarks % 2 === 0) return slice;
-  return slice.slice(0, slice.lastIndexOf("**"));
-}
-
-interface TypewriterReveal {
-  /** The prose typed so far; the full text once the reveal has caught up. */
-  text: string;
-  done: boolean;
-}
-
-/**
- * Paces streamed prose into a left-to-right typewriter reveal.
- *
- * The service delivers the answer in three-word chunks, and painting each chunk
- * the moment it lands makes the paragraph pop and reflow rather than write.
- * This advances a few characters per animation frame instead, speeding up with
- * the backlog so it trails the live stream by well under a second, then types
- * the tail out after the stream closes. A turn that mounts already answered —
- * reopening the panel, revisiting history — renders whole, as does everything
- * under reduced motion.
- */
-function useTypewriterReveal(
-  text: string,
-  streaming: boolean,
-  enabled: boolean,
-  instant: boolean,
-): TypewriterReveal {
-  const [startedStreaming] = useState(streaming);
-  const [revealedCount, setRevealedCount] = useState(0);
-  const pace = enabled && startedStreaming && !instant;
-  const done = !pace || revealedCount >= text.length;
-  useEffect(() => {
-    if (done) return undefined;
-    let frame = window.requestAnimationFrame(function step() {
-      setRevealedCount((current) => {
-        const backlog = text.length - current;
-        if (backlog <= 0) return current;
-        if (backlog > 240) return current + 14;
-        if (backlog > 60) return current + 8;
-        return current + 3;
-      });
-      frame = window.requestAnimationFrame(step);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [done, text]);
-  if (!enabled) return { text: "", done: false };
-  if (!pace) return { text, done: true };
-  return { text: balancedMarkdownSlice(text, revealedCount), done };
-}
-
 interface TurnProps {
   turn: AskMosaicTurn;
   isLatest: boolean;
@@ -1330,120 +1267,29 @@ function Turn({
   );
 }
 
-/**
- * One card per retrieval arm, so the entry state shows the contrast the
- * workshop teaches before anyone types: the same catalog answers exact terms
- * and meaning, both on click, and a misspelling by filling a box rather than
- * pressing one.
- * The eval metadata stays behind the surface; shoppers see useful questions,
- * while the run itself reports what actually happened.
- */
-function EntryState({
-  examples,
-  onRun,
-  onSeed,
-}: {
-  /** The eval set, unfiltered. Both selectors below read it. */
-  examples: RetrievalExample[];
-  onRun: (query: string) => void;
-  /** Puts a query in the composer without sending it. */
-  onSeed: (query: string) => void;
-}) {
-  const starters = starterExamples(examples);
-  /**
-   * The close-spelling path, offered as a box to fill rather than a question to
-   * press.
-   *
-   * The other two `starters` run on click, and this one deliberately does not.
-   * Its query is misspelled on purpose - it is how the eval set exercises the
-   * trigram arm - and a card that printed it would ship a spelling mistake as
-   * the store's own suggestion. Loading it into the composer instead leaves the
-   * typo where the lesson needs it: in the shopper's input, sent by the
-   * shopper. Mosaic does not manufacture the typo. Mosaic handles it.
-   */
-  const fuzzy = misspelledExample(examples);
-  return (
-    <section className="ask-mosaic-empty">
-      <div className="ask-mosaic-welcome">
-        <h3>Find your next good fit.</h3>
-        <p>Tell me what matters: your space, your budget, or the details you won't compromise on.</p>
-      </div>
-      {starters.length ? (
-        <div className="ask-mosaic-starters">
-          <h4>Try asking</h4>
-          <ul aria-label="Example questions">
-            {starters.map((starter) => (
-              <li key={starter.query_id}>
-                <button
-                  type="button"
-                  aria-label={starter.query}
-                  onClick={() => onRun(starter.query)}
-                >
-                  <span className="ask-mosaic-starter-path">
-                    {starterPathLabels[starterPath(starter)]}
-                  </span>
-                  <ArrowUpRight
-                    className="ask-mosaic-starter-go"
-                    size={14}
-                    aria-hidden="true"
-                  />
-                  <span className="ask-mosaic-starter-query">
-                    {starter.query}
-                  </span>
-                </button>
-              </li>
-            ))}
-            {fuzzy ? (
-              <li key={fuzzy.query_id}>
-                <button
-                  className="ask-mosaic-starter-seed"
-                  type="button"
-                  aria-label="Put a misspelled search in the box, ready to send"
-                  onClick={() => onSeed(fuzzy.query)}
-                >
-                  <span className="ask-mosaic-starter-path">
-                    {starterPathLabels.misspelled}
-                  </span>
-                  <PencilLine
-                    className="ask-mosaic-starter-go"
-                    size={14}
-                    aria-hidden="true"
-                  />
-                  <span className="ask-mosaic-starter-query">
-                    Search with typos in it
-                  </span>
-                  <span className="ask-mosaic-starter-hint">
-                    Fills the box. You send it.
-                  </span>
-                </button>
-              </li>
-            ) : null}
-          </ul>
-        </div>
-      ) : null}
+type WorkspaceRequest = typeof mosaicLabManifest.playground.requests[number];
 
-      <details className="ask-mosaic-capability">
-        <summary>
-          <span>
-            <strong>What I can do</strong>
-            <small>Five things, and you can see each one run</small>
-          </span>
-          <ChevronDown size={17} aria-hidden="true" />
-        </summary>
-        <div>
-          <ul className="ask-mosaic-toolset" aria-label="Tools available to the agent">
-            {agentTools.map((tool) => (
-              <li key={tool.fn}>
-                <span>{tool.label}</span>
-                <code>{tool.fn}</code>
-              </li>
-            ))}
-          </ul>
-          <small>Typed tools only. No free-text SQL.</small>
-        </div>
-      </details>
-    </section>
-  );
+function EntryState({ suggestions, onRun }: {
+  suggestions: WorkspaceRequest[];
+  onRun: (query: string, filters?: SearchFilters) => void;
+}) {
+  return <section className="ask-mosaic-empty">
+    <div className="ask-mosaic-welcome">
+      <h3>Make room for better work.</h3>
+      <p>Tell me about your day, your desk and your budget. I’ll help you find the pieces that fit.</p>
+    </div>
+    {suggestions.length ? <div className="ask-mosaic-starters">
+      <h4>A place to start</h4>
+      <ul aria-label="Example questions">{suggestions.map((suggestion) => <li key={suggestion.id}>
+        <button type="button" aria-label={suggestion.query} onClick={() => onRun(suggestion.query, suggestion.filters)}>
+          <span className="ask-mosaic-starter-path">{suggestion.shop_label}</span>
+          <ArrowUpRight className="ask-mosaic-starter-go" size={17} aria-hidden="true" />
+          {suggestion.query !== suggestion.shop_label ? <span className="ask-mosaic-starter-query">{suggestion.query}</span> : null}
+        </button>
+      </li>)}</ul>
+    </div> : null}
+    <p className="ask-mosaic-entry-note">I can compare products, check specifications and explain my picks with sources. You can refine the shortlist as we go.</p>
+  </section>;
 }
 
 interface AskMosaicProps {
@@ -1455,18 +1301,14 @@ interface AskMosaicProps {
   /** Oldest exchange first. */
   turns: AskMosaicTurn[];
   pending: boolean;
-  /**
-   * The eval set the entry state draws its examples from. Empty if the fetch
-   * failed, which is why the entry state treats them as optional.
-   */
-  examples: RetrievalExample[];
+  suggestions: WorkspaceRequest[];
   /** Photographs the Shop grid assigned, so the rail agrees with the cards. */
   imageByProductId: Map<number, string>;
   highlightedProductId: number | null;
   onClose: () => void;
   /** Discards the conversation and leaves the panel open on the entry state. */
   onClear: () => void;
-  onRun: (query: string) => void;
+  onRun: (query: string, filters?: SearchFilters) => void;
   onHighlight: (productId: number | null) => void;
   onSelectProduct: (productId: number) => void;
 }
@@ -1477,7 +1319,7 @@ export function AskMosaic({
   contextFilters,
   turns,
   pending,
-  examples,
+  suggestions,
   imageByProductId,
   highlightedProductId,
   onClose,
@@ -1663,7 +1505,7 @@ export function AskMosaic({
             <span><Sparkles size={19} /></span>
             <div>
               <h2 id="ask-mosaic-title">Ask Mosaic</h2>
-              <p>Thoughtful picks. Sources you can inspect.</p>
+              <p>Your workspace, considered.</p>
             </div>
           </div>
           {/* Only once there is something to discard. On the entry state the
@@ -1714,9 +1556,8 @@ export function AskMosaic({
             ))
           ) : (
             <EntryState
-              examples={examples}
+              suggestions={suggestions}
               onRun={onRun}
-              onSeed={editRequest}
             />
           )}
         </div>
@@ -1728,9 +1569,9 @@ export function AskMosaic({
           {contextFilters.length ? (
             <div
               className="ask-mosaic-context"
-              aria-label="Your preferences, passed to Ask Mosaic"
+              aria-label="Current search filters, passed to Ask Mosaic"
             >
-              <span>Your preferences</span>
+              <span>Search filters</span>
               <strong>{contextFilters.join(" · ")}</strong>
             </div>
           ) : null}

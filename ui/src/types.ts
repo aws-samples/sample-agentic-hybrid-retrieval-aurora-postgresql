@@ -114,6 +114,8 @@ export interface ProductReview {
 }
 
 export interface ProductDetail extends ProductSummary {
+  warranty_months?: number | null;
+  shipping_days?: number | null;
   long_description: string;
   canonical_group_id: string;
   source_system: string;

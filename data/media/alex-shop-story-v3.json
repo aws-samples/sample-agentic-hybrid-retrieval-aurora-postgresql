@@ -1,0 +1,23 @@
+{
+  "version": 3,
+  "purpose": "Shop editorial imagery, not photographs bound to a catalog SKU",
+  "source": "User-provided Grok design reference",
+  "method": "Existing JPEG assets converted to WebP; no crop or generative changes",
+  "assets": [
+    {
+      "source": "/Users/shayons/Desktop/DAT410-UI-rehaul/grok/public/products/solace.jpg",
+      "runtime_path": "/assets/images/mosaic/alex-focus-editorial-v3.webp",
+      "sha256": "15ec3c129c4aabe985707b5f40a2108650d1ec87f8d54d9112725e8e86488ac2"
+    },
+    {
+      "source": "/Users/shayons/Desktop/DAT410-UI-rehaul/grok/public/products/arc.jpg",
+      "runtime_path": "/assets/images/mosaic/alex-comfort-editorial-v3.webp",
+      "sha256": "7e080e62f09b5d68a43d5c2cb57b95fe742f3bf43691723bd77bf35e2b60d95e"
+    },
+    {
+      "source": "/Users/shayons/Desktop/DAT410-UI-rehaul/grok/public/products/atelier.jpg",
+      "runtime_path": "/assets/images/mosaic/alex-workspace-editorial-v3.webp",
+      "sha256": "8a99ccd120d0cccc928dc8d5d42f83ba6f60c18692c7400969600b8cf7b63611"
+    }
+  ]
+}

@@ -89,6 +89,9 @@ export function HnswParetoCurve({
 
       {attribution.attributed ? null : (
         <div className="hnsw-attribution" role="note">
+          <p>Historical experiment: these measurements describe a different catalog or source revision. Live probes are shown separately.</p>
+          <details>
+          <summary>Where these measurements came from</summary>
           <p>{attribution.attribution_note}</p>
           <dl>
             <div>
@@ -124,6 +127,7 @@ export function HnswParetoCurve({
               </dd>
             </div>
           </dl>
+          </details>
         </div>
       )}
 

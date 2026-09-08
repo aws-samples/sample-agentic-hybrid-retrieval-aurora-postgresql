@@ -13,16 +13,10 @@ import type { Domain, ProductSummary } from "../types";
  * domain-neutral plate twelve times. "Quiet home office" did the same through
  * `mesh-office-chairs`.
  *
- * The hero chips are no longer covered here. They are the three labs' own
- * queries now, gated by each lab's own filters, and a lab's gates are fixed by
- * `data/evals/mosaic_labs_missions.json` rather than chosen for photography. A
- * category-depth rule over them would be a rule this file cannot enforce: the
- * only remedy would be to change a lab's request.
- *
  * A live query is the only way to know which subcategory a phrase actually
  * retrieves, and these tests have no database. What they hold is the half that is
  * checkable offline and that was the real defect: the constraint exists, and the
- * category it names can illustrate a full page. A chip pointed at a category with
+ * category it names can illustrate a full page. An entry pointed at a category with
  * one plate cannot show twelve products whatever the retrieval does.
  *
  * The assertion runs the real resolver over a synthetic page rather than checking a

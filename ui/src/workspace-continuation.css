@@ -1,0 +1,54 @@
+.workspace-continuation {
+  margin-top: 64px;
+  padding-top: 42px;
+  border-top: 1px solid var(--line);
+}
+
+.workspace-continuation h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(32px, 3vw, 42px);
+  font-weight: 450;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+.workspace-continuation header > p {
+  margin: 10px 0 28px;
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.workspace-continuation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.workspace-continuation-status {
+  margin: 16px 0 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.workspace-continuation-status p { margin: 0 0 12px; }
+.workspace-continuation-status button {
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.workspace-continuation-status button:hover { background: var(--paper-warm); border-color: var(--line-strong); }
+
+@media (max-width: 540px) {
+  .workspace-continuation { margin-top: 44px; padding-top: 32px; }
+  .workspace-continuation-grid { grid-template-columns: minmax(0, 1fr); gap: 30px; }
+}

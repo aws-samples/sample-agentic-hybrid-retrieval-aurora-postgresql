@@ -85,3 +85,33 @@ export function formatAttributeValue(value: unknown): string {
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
 }
+
+const ATTRIBUTE_LABELS: Record<string, string> = {
+  size_in: "Screen size", resolution: "Resolution", panel: "Panel", refresh_hz: "Refresh rate",
+  usb_c_power_w: "USB-C power", vesa: "VESA mount", curved: "Curved screen",
+  lumbar_support: "Lumbar support", lumbar: "Lumbar support", armrests: "Armrests",
+  recommended_hours: "Recommended use", seat_depth_adjustable: "Seat depth adjustment",
+  height_adjustable: "Height adjustment", battery_life_hours: "Battery life",
+  battery_hours: "Battery life", anc: "Active noise cancellation", multipoint: "Multipoint",
+  mic: "Microphone", microphone: "Microphone", weight_kg: "Weight", weight_g: "Weight",
+  best_for: "Suggested uses", color_gamut_pct: "Gamut coverage",
+};
+
+export function formatAttributeLabel(key: string): string {
+  return ATTRIBUTE_LABELS[key] ?? key.replaceAll("_", " ");
+}
+
+export function productFacts(attributes: Record<string, unknown>, count = 4) {
+  const order = ["size_in", "resolution", "panel", "usb_c_power_w", "refresh_hz", "recommended_hours", "lumbar_support", "lumbar", "armrests", "seat_depth_adjustable", "anc", "battery_life_hours", "battery_hours", "multipoint"];
+  return Object.entries(attributes)
+    .filter(([, value]) => value !== null && value !== undefined)
+    .sort(([a], [b]) => (order.includes(a) ? order.indexOf(a) : order.length) - (order.includes(b) ? order.indexOf(b) : order.length))
+    .slice(0, count)
+    .map(([key, value]) => ({
+      key,
+      label: formatAttributeLabel(key),
+      value: typeof value === "number" && /(_in|_hz|_w|_hours|_kg|_g)$/.test(key)
+        ? `${value}${key.endsWith("_in") ? '″' : key.endsWith("_hz") ? " Hz" : key.endsWith("_w") ? " W" : key.endsWith("_kg") ? " kg" : key.endsWith("_g") ? " g" : " hours"}`
+        : formatAttributeValue(value),
+    }));
+}

@@ -152,7 +152,7 @@ function renderAskMosaic(response: AgentResponse) {
         contextFilters: [],
         turns: [settledTurn(response)],
         pending: false,
-        examples: [],
+        suggestions: [],
         imageByProductId: new Map(),
         highlightedProductId: null,
         onClose: () => {},

@@ -538,6 +538,8 @@ class ProductComparisonResponse(BaseModel):
 
 
 class ProductDetail(ProductSummary):
+    warranty_months: int | None = None
+    shipping_days: int | None = None
     long_description: str
     canonical_group_id: str
     source_system: str

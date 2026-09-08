@@ -30,10 +30,11 @@ import { flushSync } from "react-dom";
 import { Link } from "wouter";
 import { api } from "../api";
 import { AskMosaic } from "../components/AskMosaic";
+import { RetrievalJourney } from "../components/RetrievalJourney";
+import { ContinueWorkspace } from "../components/ContinueWorkspace";
 import { ScopedComparison } from "../components/ScopedComparison";
 import {
   CatalogSearchComposer,
-  catalogGhostQueries,
 } from "../components/CatalogSearchComposer";
 import { CodeEditorLink } from "../components/CodeEditorLink";
 import { CoverageNotice } from "../components/CoverageNotice";
@@ -58,11 +59,12 @@ import {
 import {
   coreMosaicLabs,
   mosaicRetrievalExamples,
-  shopMissionHref,
+  mosaicLabManifest,
   type MosaicLabMission,
 } from "../labMissions";
 import {
   RETRIEVAL_SURFACE,
+  forwardedSearchFilters,
   playgroundProofHref,
   playgroundQueryHref,
   useSearchParams,
@@ -87,9 +89,9 @@ const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
 const domainOptions: Array<{ value?: Domain; label: string }> = [
   { label: "All products" },
+  { value: "home_office", label: "Workspace" },
   { value: "consumer_electronics", label: "Electronics" },
   { value: "running_fitness", label: "Running & fitness" },
-  { value: "home_office", label: "Workspace" },
 ];
 
 const domainLabels: Record<Domain, string> = {
@@ -211,7 +213,7 @@ interface RetrievalLabCallout {
  *
  * Keyed on the run rather than on `?mission=`, so a participant who typed the
  * misspelled query themselves meets the same callout as one who arrived from the
- * hero chip. Both the words and the gates have to match: the same words under
+ * guide's exercise link. Both the words and the gates have to match: the same words under
  * wider gates retrieved a different pool, and grading that would report a defect
  * the run never exercised.
  *
@@ -286,11 +288,7 @@ const retrievalScope = [
   "Reranking the shortlist",
 ];
 
-const shopSuggestedQueries = [
-  catalogGhostQueries[0],
-  catalogGhostQueries[1],
-  ...(retrievalLab ? [retrievalLab.query] : []),
-];
+const shopSuggestedQueries = mosaicLabManifest.playground.requests;
 
 function HybridRetrievalTrace() {
   return (
@@ -322,7 +320,7 @@ function HybridRetrievalTrace() {
 
 export function CatalogPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [page, setPage] = useState<CatalogPage | null>(null);
+  const [catalogPage, setPage] = useState<CatalogPage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -333,7 +331,7 @@ export function CatalogPage() {
     availability: false,
     rating: false,
   });
-  const [retrieval, setRetrieval] = useState<SearchResponse | null>(null);
+  const [retrievalResponse, setRetrieval] = useState<SearchResponse | null>(null);
   /**
    * Products the participant ticked to compare, in the order they ticked them.
    *
@@ -381,7 +379,7 @@ export function CatalogPage() {
    *
    * `?view=results` scrolls the results header to the top of the window, which
    * put the Lab 1 callout one line above the fold: a participant arriving from
-   * the hero chip landed on a page of plausible headphones with the sentence
+   * the guide's exercise link landed on a page of plausible headphones with the sentence
    * explaining them just off screen. The callout is the reason for the arrival,
    * so it is the anchor whenever it is on the page.
    */
@@ -405,9 +403,12 @@ export function CatalogPage() {
   const minPriceCents = searchParams.get("min_price_cents");
   const maxPriceCents = searchParams.get("max_price_cents");
   const inStockOnly = searchParams.get("in_stock_only") === "true";
+  const attributeParams = searchParams.get("attributes");
   const lowPrice = priceFromCents(minPriceCents, 0);
   const highPrice = priceFromCents(maxPriceCents, priceCeiling);
   const activeQuery = searchParams.get("q")?.trim() ?? "";
+  const browseCollection = searchParams.get("collection") === "all" || domain || categoryKey
+    ? "all" : "workspace";
   const requestedView = searchParams.get("view");
   const filters: SearchFilters = {
     domain,
@@ -418,12 +419,17 @@ export function CatalogPage() {
     min_rating: minRating ? Number(minRating) : undefined,
     min_price_cents: minPriceCents ? Number(minPriceCents) : undefined,
     max_price_cents: maxPriceCents ? Number(maxPriceCents) : undefined,
+    attributes: forwardedSearchFilters(searchParams).attributes as SearchFilters["attributes"],
   };
   const retrievalRequest = retrievalRequestKey(activeQuery, filters);
+  // Products and their receipts must answer the same request as the heading,
+  // including while a replacement search is pending or has failed.
+  const retrieval = activeQuery && servedRequest === retrievalRequest ? retrievalResponse : null;
+  const page = activeQuery ? null : catalogPage;
   const {
     answeredTurn,
     clear: clearAgentThread,
-    examples: agentExamples,
+    suggestions: agentSuggestions,
     pending: agentPending,
     run: askAgent,
     turns: agentTurns,
@@ -437,11 +443,12 @@ export function CatalogPage() {
     minRating,
     minPriceCents,
     maxPriceCents,
+    ...Object.keys(filters.attributes ?? {}),
   ].filter(Boolean).length;
   // The panel holds a conversation, so Shop follows the newest exchange that
   // produced an answer: an in-flight follow-up leaves the current shortlist,
   // banner, and numbering in place until its own answer arrives.
-  const agent = answeredTurn?.response ?? null;
+  const agent = answeredTurn?.contextKey === retrievalRequest ? answeredTurn.response : null;
   const agentQuestion = answeredTurn?.question ?? "";
   const labMission = mosaicRetrievalExamples.find(
     (mission) => mission.id === searchParams.get("mission") && mission.stage === "reason",
@@ -450,6 +457,16 @@ export function CatalogPage() {
     ? agentLabOutcome(labMission, agent, answeredTurn?.error ?? "")
     : null;
   const labCallout = retrievalLabCallout(retrieval, readiness);
+  const requestMission = coreMosaicLabs.find(
+    (mission) => mission.id === searchParams.get("mission") && mission.query === activeQuery,
+  );
+  const rankMission = coreMosaicLabs.find(
+    (mission) => mission.stage === "rank" && retrieval?.query === mission.query
+      && runMatchesMissionGates(mission, retrieval),
+  );
+  const rankOutcome = rankMission && retrieval
+    ? retrievalLabOutcome(rankMission, retrieval, readiness)
+    : null;
 
   const load = useCallback(() => {
     const version = catalogRequestVersion.current + 1;
@@ -457,7 +474,7 @@ export function CatalogPage() {
     setLoading(true);
     setError("");
     api
-      .catalog(filters, offset, pageSize, sort)
+      .catalog(filters, offset, pageSize, sort, browseCollection)
       .then((nextPage) => {
         if (version === catalogRequestVersion.current) setPage(nextPage);
       })
@@ -482,6 +499,7 @@ export function CatalogPage() {
     maxPriceCents,
     offset,
     sort,
+    browseCollection,
   ]);
 
   useEffect(() => {
@@ -511,7 +529,7 @@ export function CatalogPage() {
     setRetrievalLoading(true);
     const request = retrievalRequest;
     api
-      .search(activeQuery, filters, { limit: pageSize, rerank: true })
+      .search(activeQuery, filters, { limit: requestMission?.top_k ?? pageSize, rerank: true })
       .then((response) => {
         if (version !== retrievalRequestVersion.current) return;
         setRetrieval(response);
@@ -538,6 +556,8 @@ export function CatalogPage() {
     minPriceCents,
     maxPriceCents,
     retrievalNonce,
+    attributeParams,
+    requestMission?.id,
   ]);
 
   /**
@@ -595,14 +615,10 @@ export function CatalogPage() {
    * the header one. Replaced rather than pushed: this records the request
    * already on screen, it is not somewhere a shopper navigated to.
    *
-   * Only the run that answers the request the URL is currently making. A
-   * response outlives its own request -- the grid keeps showing it while the
-   * next search runs -- and recording it against the new query would hand the
-   * Playground a run from a question nobody asked.
+   * Only the run that answers the current request can authorize this hand-off.
+   * The previous response may still be held in state while its replacement loads.
    */
-  const servedSearchEventId = retrieval && servedRequest === retrievalRequest
-    ? retrieval.search_event_id
-    : "";
+  const servedSearchEventId = retrieval?.search_event_id ?? "";
 
   useEffect(() => {
     const recorded = searchParams.get("event") ?? "";
@@ -781,6 +797,7 @@ export function CatalogPage() {
 
   function update(name: string, value?: string, resetPage = true) {
     const next = new URLSearchParams(searchParams);
+    if (name === "domain") next.set("collection", "all");
     if (value) next.set(name, value);
     else next.delete(name);
     if (resetPage) next.delete("offset");
@@ -803,37 +820,15 @@ export function CatalogPage() {
     setSearchParams(next);
   }
 
-  /**
-   * A suggested search replaces the request, gates included.
-   *
-   * The pills state a complete need -- "quiet mechanical keyboard for a shared
-   * office" already names the category and the setting -- so running one inside
-   * whatever the shopper happened to be browsing is not a refinement of it, it
-   * is a contradiction. Selecting Running & fitness and then taking the keyboard
-   * suggestion returned twelve rowing machines, and returned them *correctly*:
-   * the domain gate is an eligibility filter applied before ranking, and nothing
-   * had turned it off.
-   *
-   * A typed query still keeps the filters. That one is a deliberate refinement
-   * of a view the shopper is looking at, and the gates it forwards are what the
-   * lab verdicts compare a run against.
-   *
-   * Built from nothing rather than filtered down, for the same reason
-   * `clearFilters` is: `event` records the run retrieved under the old gates,
-   * and it must not survive into a URL that no longer applies them.
-   */
-  function searchSuggestion(query: string) {
-    const trimmed = query.trim();
-    if (trimmed.length < 2) return;
-    if (retrievalLab && trimmed === retrievalLab.query) {
-      const href = shopMissionHref(retrievalLab, { view: "results" });
-      setSearchParams(new URLSearchParams(href.slice(href.indexOf("?") + 1)));
-      return;
-    }
+  // A complete suggested need replaces incompatible browse filters and stale receipts.
+  function searchSuggestion(suggestion: typeof shopSuggestedQueries[number]) {
     const next = new URLSearchParams();
     if (sort !== "featured") next.set("sort", sort);
-    next.set("q", trimmed);
+    next.set("q", suggestion.query);
     next.set("view", "results");
+    for (const [key, value] of Object.entries(suggestion.filters)) {
+      if (value !== undefined) next.set(key, typeof value === "object" ? JSON.stringify(value) : String(value));
+    }
     setSearchParams(next);
   }
 
@@ -932,8 +927,8 @@ export function CatalogPage() {
     setDrawerProductId(null);
   }
 
-  const catalogCategories = page?.facets.category_key ?? [];
-  const catalogBrands = page?.facets.brand ?? [];
+  const catalogCategories = catalogPage?.facets.category_key ?? [];
+  const catalogBrands = catalogPage?.facets.brand ?? [];
   const baseProducts = retrieval?.results ?? page?.products ?? [];
   const agentProducts = agent?.recommendations.length
     ? agent.recommendations
@@ -1021,6 +1016,23 @@ export function CatalogPage() {
       remove: () => update("domain"),
     });
   }
+  for (const [key, value] of Object.entries(filters.attributes ?? {})) {
+    filterChips.push({
+      key: `attribute-${key}`,
+      label: `${formatCategoryKey(key.replaceAll("_", "-"))}: ${
+        typeof value === "boolean" ? (value ? "Yes" : "No") : JSON.stringify(value)
+      }`,
+      remove: () => {
+        const next = new URLSearchParams(searchParams);
+        const attributes = { ...filters.attributes };
+        delete attributes[key];
+        if (Object.keys(attributes).length) next.set("attributes", JSON.stringify(attributes));
+        else next.delete("attributes");
+        next.delete("offset");
+        setSearchParams(next);
+      },
+    });
+  }
   if (categoryKey) {
     filterChips.push({
       key: "category",
@@ -1077,34 +1089,24 @@ export function CatalogPage() {
       <div className={agentOpen ? "shop-canvas assist-open" : "shop-canvas"}>
         <section className="shop-main">
           <div className={activeQuery ? "shop-hero is-searching" : "shop-hero"}>
-            {/* With a query on the URL the page's job is the result list, so
-                the still steps aside. Not rendered rather than hidden: a hidden
-                <img> still downloads, and this page arrives from Discover
-                already searching. */}
-            {activeQuery ? null : (
-              <div className="shop-hero-photo">
-                <img
-                  src="/assets/images/mosaic/hero-editorial-still.webp"
-                  alt=""
-                  width={1672}
-                  height={941}
-                  fetchPriority="high"
-                  decoding="async"
-                />
-              </div>
-            )}
-
             {/* No "SHOP" label above the headline: the header's active nav entry
                 already says where the participant is. */}
             <header className="shop-heading">
               <h1 className="commerce-display">
                 Find what fits <em>your world.</em>
               </h1>
-              <p className="shop-lede">
+              {activeQuery ? <p className="shop-lede">
                 Search in your own words, browse with intention, or ask Mosaic
                 for help deciding.
-              </p>
+              </p> : <div className="shop-alex-story">
+                <img src="/assets/images/mosaic/alex-shopper-v1.jpg" alt="Alex" width={64} height={64} />
+                <p><strong>Alex’s home office, coming together.</strong>
+                  His desk and laptop are ready. Next: focus, comfort and a setup that fits his day.
+                </p>
+              </div>}
             </header>
+
+            {!activeQuery && !agentOpen ? <RetrievalJourney /> : null}
 
             <div className="shop-console">
               <div className="shop-console-search">
@@ -1113,22 +1115,27 @@ export function CatalogPage() {
                     initialValue={retrievalQuery}
                     pending={retrievalLoading}
                     leadingIcon={<GenerativeSearchIcon size={18} />}
-                    placeholder="Search a product, model, or describe what you need"
+                    placeholder="Search a product, model or idea"
                     submitIcon={<Send size={16} aria-hidden="true" />}
                     submitIconOnly
                     onSubmit={searchCatalog}
                   />
                 </section>
+                {readiness?.database.product_count ? (
+                  <p className="shop-search-scope">
+                    {retrievalLoading ? "Searching" : "Search"} {readiness.database.product_count.toLocaleString()} products
+                  </p>
+                ) : null}
 
                 <div className="shop-suggested" aria-label="Suggested searches">
-                  <span>Try a search</span>
+                  <span>Explore</span>
                   {shopSuggestedQueries.map((suggestion) => (
                     <button
                       type="button"
-                      key={suggestion}
+                      key={suggestion.id}
                       onClick={() => searchSuggestion(suggestion)}
                     >
-                      {suggestion}
+                      {suggestion.shop_label}
                     </button>
                   ))}
                 </div>
@@ -1139,25 +1146,9 @@ export function CatalogPage() {
                   same three promises, so the fold carried the invitation twice. */}
               {agentOpen ? null : (
               <aside className="shop-console-note" aria-label="What Ask Mosaic does">
-                <small>Ask Mosaic</small>
-                <strong>I can help you choose.</strong>
-                <ul>
-                  <li>
-                    <Check size={13} aria-hidden="true" />
-                    Turns your request into catalog constraints
-                  </li>
-                  <li>
-                    <Check size={13} aria-hidden="true" />
-                    Compares candidates on record data
-                  </li>
-                  <li>
-                    <Check size={13} aria-hidden="true" />
-                    Cites the evidence behind each pick
-                  </li>
-                </ul>
-                <p className="shop-console-note-mobile">
-                  Turns your request into constraints, compares candidates, and
-                  cites every pick.
+                <strong>A little help choosing?</strong>
+                <p className="shop-console-note-copy">
+                  Tell Mosaic what matters. Get a considered shortlist, with the details behind each pick.
                 </p>
                 <button
                   className="mosaic-ask-button shop-console-note-action"
@@ -1169,15 +1160,6 @@ export function CatalogPage() {
                   <Sparkles size={15} aria-hidden="true" />
                   {agent ? "Return to Ask Mosaic" : "Ask Mosaic"}
                 </button>
-                <img
-                  className="shop-console-note-photo"
-                  src="/assets/images/mosaic/echobud-s2.webp"
-                  alt=""
-                  width={1200}
-                  height={1200}
-                  loading="lazy"
-                  decoding="async"
-                />
               </aside>
               )}
             </div>
@@ -1191,16 +1173,28 @@ export function CatalogPage() {
                 ref={domainTabsRef}
                 onScroll={syncDomainScroll}
               >
-                {domainOptions.map((option) => (
+                {!activeQuery ? (
                   <button
                     type="button"
-                    className={domain === option.value ? "active" : ""}
-                    aria-pressed={domain === option.value}
+                    className={browseCollection === "workspace" ? "active" : ""}
+                    aria-pressed={browseCollection === "workspace"}
+                    onClick={() => {
+                      const next = new URLSearchParams(searchParams);
+                      for (const key of ["collection", "domain", "category_key", "offset"]) next.delete(key);
+                      setSearchParams(next);
+                    }}
+                  >Workspace edit</button>
+                ) : null}
+                {domainOptions.filter(option => activeQuery || browseCollection === "all" || option.value !== "running_fitness").map((option) => (
+                  <button
+                    type="button"
+                    className={domain === option.value && (activeQuery || browseCollection === "all") ? "active" : ""}
+                    aria-pressed={domain === option.value && Boolean(activeQuery || browseCollection === "all")}
                     key={option.value ?? "all"}
                     onClick={() => update("domain", option.value)}
                   >
                     {option.label}
-                    {domain === option.value ? (
+                    {domain === option.value && (activeQuery || browseCollection === "all") ? (
                       <motion.span
                         className="shop-domain-indicator"
                         layoutId="shop-domain-indicator"
@@ -1412,6 +1406,40 @@ export function CatalogPage() {
             </section>
           ) : null}
 
+          {rankOutcome && rankMission && retrieval ? (
+            <section ref={labCalloutRef} className={`shop-lab-callout ${rankOutcome.tone}`}
+              aria-label={`Lab ${coreMosaicLabs.indexOf(rankMission) + 1} outcome`}>
+              <h2>{rankOutcome.title}</h2>
+              <p>{rankOutcome.detail}</p>
+              <p>The guide repairs the order before reranking. The final first result can stay the same.</p>
+              <table className="shop-lab-ranks">
+                <caption>Compare the leading candidates in this run</caption>
+                <thead><tr><th scope="col">Product</th><th scope="col">Before reranking</th><th scope="col">After reranking</th></tr></thead>
+                <tbody>
+                  {[...retrieval.results]
+                    .sort((left, right) => (left.signals?.pre_rerank_rank ?? Infinity)
+                      - (right.signals?.pre_rerank_rank ?? Infinity))
+                    .slice(0, 2).map((product) => (
+                      <tr key={product.product_id}>
+                        <th scope="row">{product.brand} {product.model}</th>
+                        <td>{product.signals?.pre_rerank_rank ?? "Unavailable"}</td>
+                        <td>{product.signals?.final_rank ?? "Unavailable"}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+              <div className="shop-lab-callout-actions">
+                <Link className="shop-lab-callout-playground" href={`${playgroundQueryHref(
+                  retrieval.query, retrieval.applied_filters, retrieval.search_event_id,
+                )}&example=${encodeURIComponent(rankMission.id)}#labs-stage-rank`}>
+                  Inspect this run in the {RETRIEVAL_SURFACE.label}
+                  <ArrowUpRight size={14} aria-hidden="true" />
+                </Link>
+                <button type="button" onClick={() => setRetrievalNonce((run) => run + 1)}>Search again</button>
+              </div>
+            </section>
+          ) : null}
+
           {agentProducts || activeQuery || retrievalError ? (
             <div
               ref={resultsAnchorRef}
@@ -1444,7 +1472,7 @@ export function CatalogPage() {
                 </>
               ) : retrieval ? (
                 <>
-                  <strong>{retrieval.results.length}</strong> best matches
+                  <strong>{retrieval.results.length}</strong> {retrieval.results.length === 1 ? "best match" : "best matches"}
                   <small> · chosen from {retrieval.diagnostics?.candidate_counts.fused_pool ?? "-"} candidates</small>
                 </>
               ) : page ? (
@@ -1455,7 +1483,7 @@ export function CatalogPage() {
                         {Math.min(offset + 1, page.total)}-
                         {Math.min(offset + pageSize, page.total)}
                       </strong>
-                      {" "}of {page.total.toLocaleString()} products
+                      {" "}of {page.total.toLocaleString()} {browseCollection === "workspace" ? "workspace picks" : "products"}
                     </>
                   ) : (
                     <><strong>0</strong> products</>
@@ -1463,7 +1491,29 @@ export function CatalogPage() {
                 </>
               ) : retrievalLoading && activeQuery ? "Searching products" : "Loading catalog"}
             </p>
-            {agent && !agentOpen ? (
+              {!retrieval && !agentProducts && page ? (
+                <nav className="shop-pagination" aria-label="Product pages">
+                  <button
+                    type="button"
+                    disabled={offset === 0}
+                    onClick={() => update("offset", String(Math.max(0, offset - pageSize)), false)}
+                  >
+                    <ChevronLeft size={17} /> Previous
+                  </button>
+                  <span>
+                    Page {offset / pageSize + 1} of{" "}
+                    {Math.max(1, Math.ceil(page.total / pageSize)).toLocaleString()}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={offset + pageSize >= page.total}
+                    onClick={() => update("offset", String(offset + pageSize), false)}
+                  >
+                    Next <ChevronRight size={17} />
+                  </button>
+                </nav>
+              ) : null}
+            {answeredTurn?.response && !agentOpen ? (
               <button type="button" onClick={openAgent}>
                 <Sparkles size={15} /> Reopen Ask Mosaic
               </button>
@@ -1561,30 +1611,10 @@ export function CatalogPage() {
                   onClear={() => setComparisonIds([])}
                 />
               ) : null}
-              {!retrieval && !agentProducts && page ? (
-                <div className="shop-pagination">
-                  <button
-                    type="button"
-                    disabled={offset === 0}
-                    onClick={() => update("offset", String(Math.max(0, offset - pageSize)), false)}
-                  >
-                    <ChevronLeft size={17} /> Previous
-                  </button>
-                  <span>
-                    Page {offset / pageSize + 1} of{" "}
-                    {Math.max(1, Math.ceil(page.total / pageSize)).toLocaleString()}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={offset + pageSize >= page.total}
-                    onClick={() => update("offset", String(offset + pageSize), false)}
-                  >
-                    Next <ChevronRight size={17} />
-                  </button>
-                </div>
-              ) : null}
+
             </div>
           ) : null}
+          {!activeQuery && !agentOpen && !agentProducts && !filterChips.length && browseCollection === "workspace" && offset === 0 && page && !error ? <ContinueWorkspace /> : null}
         </section>
 
         <AskMosaic
@@ -1594,11 +1624,24 @@ export function CatalogPage() {
           contextFilters={filterChips.map((chip) => chip.label)}
           turns={agentTurns}
           pending={agentPending}
-          examples={agentExamples}
+          suggestions={agentSuggestions}
           highlightedProductId={highlightedProductId}
           onClose={closeAgent}
           onClear={clearAgentConversation}
-          onRun={(query) => void askAgent(query)}
+          onRun={(query, suggestedFilters) => {
+            if (!suggestedFilters) {
+              void askAgent(query, filters, retrievalRequest);
+              return;
+            }
+            const next = new URLSearchParams(searchParams);
+            next.delete("event");
+            for (const [key, value] of Object.entries(suggestedFilters)) {
+              if (value !== undefined) next.set(key, typeof value === "object" ? JSON.stringify(value) : String(value));
+            }
+            setSearchParams(next);
+            const requestFilters = { ...filters, ...suggestedFilters };
+            void askAgent(query, requestFilters, retrievalRequestKey(activeQuery, requestFilters));
+          }}
           onHighlight={setHighlightedProductId}
           onSelectProduct={openProductDrawer}
         />

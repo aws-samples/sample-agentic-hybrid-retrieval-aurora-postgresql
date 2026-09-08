@@ -11,7 +11,6 @@ const LABELS: Record<string, string> = {
 
 type HnswRepresentationsProps = {
   representations: Representations;
-  fp32SizeBytes: number;
   /** Whether the artifact these numbers live in describes the connected cluster. */
   attributed: boolean;
 };
@@ -25,12 +24,12 @@ type HnswRepresentationsProps = {
  */
 export function HnswRepresentations({
   representations,
-  fp32SizeBytes,
   attributed,
 }: HnswRepresentationsProps) {
   const { rows, payload_bytes, quantization_distribution, blog_operating_point } =
     representations;
   const distribution = quantization_distribution;
+  const fp32SizeBytes = rows.find((row) => row.representation === "fp32")?.index_size_bytes;
   const headline = rows.filter(
     (row) => row.representation !== "binary_two_pass" || row.overfetch === 200,
   );
@@ -77,19 +76,17 @@ export function HnswRepresentations({
                     : payload_bytes.binary;
               return (
                 <tr
-                  className={row.representation === "halfvec" ? "recommended" : undefined}
                   key={`${row.representation}-${row.overfetch ?? "none"}`}
                 >
                   <th scope="row">
                     <code>{LABELS[row.representation] ?? row.representation}</code>
-                    {row.representation === "halfvec" ? <em>recommended</em> : null}
                   </th>
                   <td>{payload.toLocaleString()} B</td>
                   <td>
                     {formatBytes(row.index_size_bytes)}
-                    <small>
+                    {fp32SizeBytes ? <small>
                       {(fp32SizeBytes / row.index_size_bytes).toFixed(1)}x smaller
-                    </small>
+                    </small> : null}
                   </td>
                   <td>{row.bytes_per_vector.toLocaleString()} B</td>
                   <td>{(row.recall_at_k * 100).toFixed(2)}%</td>
@@ -128,7 +125,7 @@ export function HnswRepresentations({
         <div className="hnsw-repr-note">
           <Info aria-hidden="true" size={16} />
           <div>
-            <strong>Binary needs depth on this distribution, and then it wins.</strong>
+            <strong>Binary recall depends on candidate depth.</strong>
             <p>
               {distribution.dimensions_over_80pct_one_sided} of{" "}
               {distribution.dimensions_total} dimensions are more than 80% one-sided, so
@@ -137,16 +134,16 @@ export function HnswRepresentations({
                   distribution.dimensions_total) *
                   100,
               )}
-              % of the bits carry no discriminative information, and hamming ordering agrees
+              % of the dimensions have strongly biased sign bits. Hamming ordering agrees
               with cosine on only {Math.round(distribution.top50_hamming_cosine_overlap * 100)}%
-              of the top 50. Reranking is what recovers it.
+              of the top 50. A deeper candidate pool followed by exact cosine rescoring recovered recall in this experiment.
             </p>
           </div>
         </div>
       </div>
 
       <details className="hnsw-repr-operating-point">
-        <summary>Operating point where binary overtakes fp32</summary>
+        <summary>Compare deeper binary candidate pools</summary>
         <div
           aria-label="Binary operating point"
           className="hnsw-table-scroll"

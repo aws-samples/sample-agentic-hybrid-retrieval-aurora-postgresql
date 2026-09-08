@@ -1,0 +1,67 @@
+{
+  "method": "built-in image_gen",
+  "provenance_tier": "category-representative",
+  "note": "Six compatible flat-monitor photographs reused from the curated review batch, plus three new industrial designs. These illustrate the category; they do not install the proposed product records, assert per-product specifications, or replace product-bound photography. Runtime files are governed by category_plates.json.",
+  "images": [
+    {
+      "plate_id": "ho-productivity-monitors-plate-01",
+      "prompt": "Use case: product-mockup. Generate one high-quality photorealistic ecommerce catalog photograph of a single fictional product. Landscape 3:2, ideally 1536 by 1024. Warm light-gray seamless studio background, soft directional light from upper left, natural contact shadow, detailed manufactured materials. Entire product and base inside frame, centered with generous consistent margins. No people, no room props, no pedestals, no collage, no floating product, no logos, no brand lettering, no text overlays or badges. This is retail product photography, with plausible joints and finish, not a futuristic concept illustration.\nSubject: Mosaic Atelier 32: flat 32-inch-class 16:9 monitor, graphite frame, thin but realistic bezels, visibly telescoping rectangular height-adjustable column with a cable pass-through and restrained rectangular dark metal base. Three-quarter front view, entire stand visible. Screen displays a refined desktop with two side-by-side application windows: one neutral editor with tiny abstract lines, one landscape photograph preview. No readable text. Matte screen with restrained reflections, 16:9 geometry is crucial.",
+      "source_sha256": "850ad5a659f2de80cf3f73c8c267b2262ef67155e79f815f29e02e009071cc8a",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-productivity-monitors-plate-01-catalog-3x2.webp",
+      "reused_review_product_id": 420001
+    },
+    {
+      "plate_id": "ho-productivity-monitors-plate-02",
+      "prompt": "Use case: product-mockup. Generate one high-quality photorealistic ecommerce catalog photograph of a single fictional product. Landscape 3:2, ideally 1536 by 1024. Warm light-gray seamless studio background, soft directional light from upper left, natural contact shadow, detailed manufactured materials. Entire product and base inside frame, centered with generous consistent margins. No people, no room props, no pedestals, no collage, no floating product, no logos, no brand lettering, no text overlays or badges. This is retail product photography, with plausible joints and finish, not a futuristic concept illustration.\nSubject: Mosaic Atelier 32 Lite: flat 32-inch-class 16:9 monitor with a practical silver rear housing, black bezel slightly thicker than flagship displays, simple height-adjustable silver column with visible sliding rail and rectangular silver base. Three-quarter front view. Screen shows a muted blue-gray desktop with two application panes and abstract document lines, no readable text. Plausible affordable manufactured monitor, no gaming lighting. USB-C charging wattage cannot be seen and must not be written on the image.",
+      "source_sha256": "3c1c12a0062563935fc9f12b163cb041ef40fe08ad3203037eea41e84d3ca6d1",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-productivity-monitors-plate-02-catalog-3x2.webp",
+      "reused_review_product_id": 420003
+    },
+    {
+      "plate_id": "ho-productivity-monitors-plate-03",
+      "prompt": "Use case: product-mockup. Generate one high-quality photorealistic ecommerce catalog photograph of a single fictional product. Landscape 3:2, ideally 1536 by 1024. Warm light-gray seamless studio background, soft directional light from upper left, natural contact shadow, detailed manufactured materials. Entire product and base inside frame, centered with generous consistent margins. No people, no room props, no pedestals, no collage, no floating product, no logos, no brand lettering, no text overlays or badges. This is retail product photography, with plausible joints and finish, not a futuristic concept illustration.\nSubject: Mosaic Atelier 32 Studio: premium flat 32-inch-class 16:9 monitor with a deep graphite chassis, thin squared bezel, finely machined silver height-adjustable column with pivot joint and broad low rectangular metal foot. Three-quarter front view. Screen displays a clean photo-editing layout: large natural coastal photograph, narrow side panel with abstract adjustment controls and no readable text. Realistic optical matte coating. The physical design should look like a professional high-refresh desk display, not a gaming monitor. No claims printed in image.",
+      "source_sha256": "25e7226c50603694ff05cd0a2dd73c03ac0d1f2c5c2a4b92b09adeef44f0714d",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-productivity-monitors-plate-03-catalog-3x2.webp",
+      "reused_review_product_id": 420004
+    },
+    {
+      "plate_id": "ho-productivity-monitors-plate-04",
+      "prompt": "Use case: product-mockup. Generate one high-quality photorealistic ecommerce catalog photograph of a single fictional product. Landscape 3:2, ideally 1536 by 1024. Warm light-gray seamless studio background, soft directional light from upper left, natural contact shadow, detailed manufactured materials. Entire product and base inside frame, centered with generous consistent margins. No people, no room props, no pedestals, no collage, no floating product, no logos, no brand lettering, no text overlays or badges. This is retail product photography, with plausible joints and finish, not a futuristic concept illustration.\nSubject: Mosaic Atelier 32 Renewed: a refurbished flat 32-inch-class 16:9 monitor in the same restrained graphite design family as a professional workspace display, dark thin bezel, telescoping rectangular height-adjustable column with cable pass-through and rectangular base. Three-quarter front view. Tiny plausible handling scuff on one corner of the base only, no damage to screen. Screen shows a simple muted landscape wallpaper. No refurbishment sticker, no label, no packaging, no badge. Ordinary working product, not visibly broken.",
+      "source_sha256": "46a498226011bf292a2779b2aaef0306db8133791f07a44395f65fb4509e90ca",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-productivity-monitors-plate-04-catalog-3x2.webp",
+      "reused_review_product_id": 420005
+    },
+    {
+      "plate_id": "ho-productivity-monitors-plate-05",
+      "prompt": "Use case: product-mockup. Generate one high-quality photorealistic ecommerce catalog photograph of a single fictional product. Landscape 3:2, ideally 1536 by 1024. Warm light-gray seamless studio background, soft directional light from upper left, natural contact shadow, detailed manufactured materials. Entire product and base inside frame, centered with generous consistent margins. No people, no room props, no pedestals, no collage, no floating product, no logos, no brand lettering, no text overlays or badges. This is retail product photography, with plausible joints and finish, not a futuristic concept illustration.\nSubject: FocusOffice Clarity 27: compact flat 27-inch-class 16:9 monitor with a matte white rear enclosure, thin black inner bezel, white height-adjustable stand with a simple oval base. Three-quarter front view. Screen shows a bright uncluttered document workspace with a warm ivory window and tiny abstract gray text-like lines; no readable words. Clean practical small-workspace design with visible stand adjustment, no gaming details.",
+      "source_sha256": "47a1546a77cd5b717dbf40f71db52f55d9f2d8f922b69dff413f81ade4854be3",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-productivity-monitors-plate-05-catalog-3x2.webp",
+      "reused_review_product_id": 420006
+    },
+    {
+      "plate_id": "ho-productivity-monitors-plate-06",
+      "prompt": "Use case: product-mockup. Generate one high-quality photorealistic ecommerce catalog photograph of a single fictional product. Landscape 3:2, ideally 1536 by 1024. Warm light-gray seamless studio background, soft directional light from upper left, natural contact shadow, detailed manufactured materials. Entire product and base inside frame, centered with generous consistent margins. No people, no room props, no pedestals, no collage, no floating product, no logos, no brand lettering, no text overlays or badges. This is retail product photography, with plausible joints and finish, not a futuristic concept illustration.\nSubject: SpaceLiving Canvas 32: flat 32-inch-class 16:9 monitor with matte black plastic enclosure and a practical slightly thicker bezel. Crucial: fixed-height short solid stand with two simple outward angled feet and a basic tilt hinge; NO telescoping rail, NO height-adjustment slots, NO elaborate ergonomic arm. Three-quarter front view. Screen shows an understated warm landscape wallpaper. Affordable credible manufactured display, no visible USB-C cable, no decals.",
+      "source_sha256": "1af3495a8928736de024c5753404096587aa2b5ebe355f32e0dca0985cda9d76",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-productivity-monitors-plate-06-catalog-3x2.webp",
+      "reused_review_product_id": 420008
+    },
+    {
+      "plate_id": "ho-productivity-monitors-plate-07",
+      "prompt": "Use case: product-mockup. Asset type: category-representative catalog photograph for the fictional Mosaic workspace shop. Create exactly one photorealistic studio product photograph of a single flat 16:9 productivity desktop monitor, landscape 1536x1024. Warm ivory seamless background and matte pale limestone surface, subtle natural contact shadow, soft window light from upper left, elegant restrained commercial photography. Entire object and stand visible with 15 percent breathing room, fills about 65 percent of frame. Screen on with only a quiet abstract burgundy, pale taupe and cream geometric wallpaper, no text, no user interface. No logos, no lettering, no brands, no watermark, no people, no desk accessories, no collage, no curved or ultrawide panel. Physically coherent single stand and panel. Subject: compact 24-inch flat monitor with a matte warm-grey frame, subtly thicker lower bezel, short silver cylindrical neck on a circular silver base. Shown three-quarter front facing slightly right.",
+      "source_sha256": "17fb0df2cd8fe52bd5b82a8ddd58d6b4ac7cda8f82c637fce84e4bebd0958163",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-productivity-monitors-plate-07-catalog-3x2.webp"
+    },
+    {
+      "plate_id": "ho-productivity-monitors-plate-08",
+      "prompt": "Use case: product-mockup. Asset type: category-representative catalog photograph for the fictional Mosaic workspace shop. Create exactly one photorealistic studio product photograph of a single flat 16:9 productivity desktop monitor, landscape 1536x1024. Warm ivory seamless background and matte pale limestone surface, subtle natural contact shadow, soft window light from upper left, elegant restrained commercial photography. Entire object and stand visible with 15 percent breathing room, fills about 65 percent of frame. Screen on with only a quiet abstract burgundy, pale taupe and cream geometric wallpaper, no text, no user interface. No logos, no lettering, no brands, no watermark, no people, no desk accessories, no collage, no curved or ultrawide panel. Physically coherent single stand and panel. Subject: 27-inch flat monitor with a warm bronze metal frame, slim bezel, solid bronze rectangular column and a wide flat oval foot. Shown almost straight on, very slightly from left.",
+      "source_sha256": "9e069f1e184a1d25d1235425bc608f300da5639d2362e36d12e6626d0319a0c9",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-productivity-monitors-plate-08-catalog-3x2.webp"
+    },
+    {
+      "plate_id": "ho-productivity-monitors-plate-09",
+      "prompt": "Use case: product-mockup. Asset type: category-representative catalog photograph for the fictional Mosaic workspace shop. Create exactly one photorealistic studio product photograph of a single flat 16:9 productivity desktop monitor, landscape 1536x1024. Warm ivory seamless background and matte pale limestone surface, subtle natural contact shadow, soft window light from upper left, elegant restrained commercial photography. Entire object and stand visible with 15 percent breathing room, fills about 65 percent of frame. Screen on with only a quiet abstract burgundy, pale taupe and cream geometric wallpaper, no text, no user interface. No logos, no lettering, no brands, no watermark, no people, no desk accessories, no collage, no curved or ultrawide panel. Physically coherent single stand and panel. Subject: 32-inch flat monitor with a satin black bezel and an architectural silver rectangular loop stand with a hollow centre, visually distinct from a solid base. Shown three-quarter front from a slightly elevated camera.",
+      "source_sha256": "b287afd3c46e0c95e743d33e7e4b20d6ff6205dd2400e80e63898b47d2bea787",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-productivity-monitors-plate-09-catalog-3x2.webp"
+    }
+  ]
+}

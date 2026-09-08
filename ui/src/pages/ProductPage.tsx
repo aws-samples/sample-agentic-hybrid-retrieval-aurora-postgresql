@@ -3,7 +3,7 @@ import {
   ArrowRight,
   Check,
   Database,
-  RotateCcw,
+  Heart,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
@@ -13,7 +13,6 @@ import {
 import {
   CSSProperties,
   type KeyboardEvent,
-  type MouseEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -24,16 +23,18 @@ import { Link, useRoute } from "wouter";
 import { api } from "../api";
 import { cartQuantityLimit, useCommerce } from "../commerce";
 import { MosaicMark } from "../components/MosaicMark";
+import { ProductComplements } from "../components/ProductComplements";
+import { catalogReturnPath } from "../navigation";
 import { ProductCard } from "../components/ProductCard";
 import { ErrorState, LoadingState } from "../components/States";
-import { formatAttributeValue, formatAvailability, formatPrice, isPurchasable, leafCategory } from "../format";
+import { productFacts, formatAttributeLabel, formatAttributeValue, formatAvailability, formatPrice, isPurchasable, leafCategory } from "../format";
 import { productEditorialPoster, productImageMap, productImages } from "../media";
 import type { ProductDetail, ProductSummary } from "../types";
 
 type DetailTab = "overview" | "specs" | "reviews" | "evidence";
 
 export function ProductPage() {
-  const { addItem, itemQuantity } = useCommerce();
+  const { addItem, itemQuantity, isFavorite, toggleFavorite } = useCommerce();
   const [, params] = useRoute("/products/:productId");
   const productId = params?.productId;
   const [product, setProduct] = useState<ProductDetail | null>(null);
@@ -55,11 +56,11 @@ export function ProductPage() {
     setRelatedLoading(true);
     setRelatedError("");
     api
-      .catalog({ domain: sourceProduct.domain }, 0, 5, "rating")
-      .then((page) => {
+      .similarProducts(sourceProduct.product_id)
+      .then((products) => {
         if (version !== relatedRequestVersion.current) return;
         setRelated(
-          page.products
+          products
             .filter((item) => item.product_id !== sourceProduct.product_id)
             .slice(0, 4),
         );
@@ -130,13 +131,9 @@ export function ProductPage() {
     domain: product.domain,
     category_key: product.category_key,
   });
-  const catalogReturnHref = `/catalog?${catalogReturnParams}`;
-
-  function returnToCatalog(event: MouseEvent<HTMLAnchorElement>) {
-    if (window.history.length <= 1) return;
-    event.preventDefault();
-    window.history.back();
-  }
+  const catalogReturnHref = catalogReturnPath(new URLSearchParams(window.location.search).get("from")) ?? `/catalog?${catalogReturnParams}`;
+  const saved = isFavorite(product.product_id);
+  const similarLabel = product.category_key.includes("monitors") ? "Similar monitors" : product.category_key.includes("headphones") ? "Similar headphones" : product.category_key.includes("chairs") ? "Similar chairs" : "Similar options";
 
   function moveTabFocus(event: KeyboardEvent<HTMLButtonElement>) {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -163,7 +160,6 @@ export function ProductPage() {
       <Link
         className="back-link"
         href={catalogReturnHref}
-        onClick={returnToCatalog}
       >
         <ArrowLeft size={16} /> Back to catalog
       </Link>
@@ -188,7 +184,7 @@ export function ProductPage() {
             </div>
           ) : null}
           <div className="product-main-image">
-            <img src={selectedImage || gallery[0]} alt="" />
+            <img src={selectedImage || gallery[0]} alt={product.title} />
           </div>
         </div>
         <div className="product-summary">
@@ -253,11 +249,15 @@ export function ProductPage() {
             </Link>
           </div>
 
-          <div className="product-assurances">
-            <span><RotateCcw size={19} /><small>60-day free returns</small></span>
-            <span><ShieldCheck size={19} /><small>2-year warranty</small></span>
-            <span><Truck size={19} /><small>Free shipping over $75</small></span>
-          </div>
+          <button type="button" className="product-save-button" aria-label={saved ? `Remove ${product.title} from saved products` : `Save ${product.title}`} aria-pressed={saved} onClick={() => toggleFavorite(product.product_id)}>
+            <Heart size={17} fill={saved ? "currentColor" : "none"} /> {saved ? "Saved to your shortlist" : "Save to your shortlist"}
+          </button>
+          {product.warranty_months != null || product.shipping_days != null ? (
+            <div className="product-assurances">
+              {product.warranty_months != null ? <span><ShieldCheck size={19} /><small>{product.warranty_months ? `${product.warranty_months}-month warranty` : "No warranty listed"}</small></span> : null}
+              {product.shipping_days != null ? <span><Truck size={19} /><small>{product.shipping_days ? `Ships in ${product.shipping_days} days` : "Same-day shipping"}</small></span> : null}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -272,10 +272,10 @@ export function ProductPage() {
         <article>
           <header><Check size={15} /><h3>Product details</h3></header>
           <dl className="product-key-facts">
-            {attributes.slice(0, 4).map(([key, value]) => (
+            {productFacts(product.attributes).map(({ key, label, value }) => (
               <div key={key}>
-                <dt>{key.replaceAll("_", " ")}</dt>
-                <dd>{formatAttributeValue(value)}</dd>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
               </div>
             ))}
           </dl>
@@ -373,7 +373,7 @@ export function ProductPage() {
             <dl className="spec-table">
               {attributes.map(([key, value]) => (
                 <div key={key}>
-                  <dt>{key.replaceAll("_", " ")}</dt>
+                  <dt>{formatAttributeLabel(key)}</dt>
                   <dd>{formatAttributeValue(value)}</dd>
                 </div>
               ))}
@@ -428,7 +428,7 @@ export function ProductPage() {
           <dl className="spec-table">
             {attributes.map(([key, value]) => (
               <div key={key}>
-                <dt>{key.replaceAll("_", " ")}</dt>
+                <dt>{formatAttributeLabel(key)}</dt>
                 <dd>{formatAttributeValue(value)}</dd>
               </div>
             ))}
@@ -494,6 +494,8 @@ export function ProductPage() {
         </section>
       ) : null}
 
+      <ProductComplements categoryKey={product.category_key} />
+
       {relatedLoading ? (
         <section className="related-products" aria-label="Related products">
           <LoadingState label="Loading related products" />
@@ -510,9 +512,9 @@ export function ProductPage() {
           <div className="section-heading">
             <div>
               <p className="eyebrow">Continue exploring</p>
-              <h2>You may also like</h2>
+              <h2>{similarLabel}</h2>
             </div>
-            <Link className="text-link" href={`/catalog?domain=${product.domain}`}>
+            <Link className="text-link" href={`/catalog?domain=${product.domain}&category_key=${product.category_key}`}>
               View all <ArrowRight size={16} />
             </Link>
           </div>

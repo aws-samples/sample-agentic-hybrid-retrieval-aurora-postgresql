@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { forwardedSearchFilters } from "./navigation";
 import {
   coreMosaicLabs,
   retrievalExampleHref,
@@ -40,12 +41,8 @@ describe("participant query contract", () => {
     });
   });
 
-  it("spells a lab's Shop address one way for the chip and for the band card", () => {
-    // Discover's hero chip and the labs band's card are the same request from
-    // two places on one page. They were built by two encoders, and the second
-    // one wrote every scalar filter under its own name rather than the gates
-    // `forwardedSearchFilters` can read back. `view=results` is the whole
-    // difference: a chip is a hand-off that has to arrive at the results.
+  it("preserves the mission address when targeting the result list directly", () => {
+    // A result-list target must retain the scenario link's question and gates.
     const reason = coreMosaicLabs.find((lab) => lab.stage === "reason");
     expect(reason).toBeDefined();
 
@@ -62,10 +59,7 @@ describe("participant query contract", () => {
     expect(chipParams.toString()).toBe(cardParams.toString());
   });
 
-  it("carries only the gates a Shop link can read back", () => {
-    // `playgroundQueryHref` is the one encoder, so `attributes` -- a map no URL
-    // in this app forwards -- cannot reach Shop under a name Shop would ignore
-    // while the lab still reported its own gates.
+  it("carries the ranking mission's full filter set into Shop", () => {
     const rank = coreMosaicLabs.find((lab) => lab.stage === "rank");
     expect(rank!.filters.attributes).toBeDefined();
 
@@ -73,7 +67,7 @@ describe("participant query contract", () => {
       shopMissionHref(rank!, { view: "results" }).split("?", 2)[1],
     );
 
-    expect(params.get("attributes")).toBeNull();
+    expect(forwardedSearchFilters(params)).toEqual(rank!.filters);
     expect(params.get("mission")).toBe(rank!.id);
     expect(params.get("q")).toBe(rank!.query);
     expect(params.get("domain")).toBe("home_office");

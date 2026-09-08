@@ -929,7 +929,10 @@ def test_agent_prompt_resolves_followups_from_bounded_grounded_context():
     assert "asks for alternatives" in prompt
 
 
-def test_followup_context_is_loaded_from_the_grounded_aurora_turn(monkeypatch):
+@pytest.mark.parametrize("full_product_record", [False, True])
+def test_followup_context_is_loaded_from_the_grounded_aurora_turn(
+    monkeypatch, full_product_record
+):
     previous_run_id = uuid4()
     session_id = uuid4()
     inherited_event_id = uuid4()
@@ -972,7 +975,14 @@ def test_followup_context_is_loaded_from_the_grounded_aurora_turn(monkeypatch):
                         "extracted_intent": {
                             "search_event_ids": [],
                             "context_search_event_ids": [str(inherited_event_id)],
-                            "selected_products": previous_products,
+                            "selected_products": agent_tools._persisted_intent(
+                                {"search_event_ids": []},
+                                {"recommendations": [product()]},
+                                [],
+                                {},
+                            )["selected_products"]
+                            if full_product_record
+                            else previous_products,
                         },
                     }
                 )

@@ -61,7 +61,7 @@ const mosaicProductImageSets: MosaicImageSet[] = [
   [/\bpulse\s*one\b/i, [`${ASSETS}/mosaic/pulse-one.webp`]],
   [/\bstride\s*pro\b/i, [`${ASSETS}/mosaic/stride-pro-studio.webp`]],
   [/\bforma\s*ergonomic\b/i, [`${ASSETS}/mosaic/forma-ergonomic-studio.webp`]],
-  [/\batelier\s*32\b/i, [`${ASSETS}/mosaic/atelier-32.webp`]],
+  [/\batelier\s*32\b/i, [`${ASSETS}/mosaic/ho-ultrawide-monitors-atelier-32-detail-1x1.webp`]],
   [/\bmelody\s*go\b/i, [`${ASSETS}/mosaic/melody-go-scene.webp`]],
   [/\blume\s*desk\s*lamp\b/i, [`${ASSETS}/mosaic/lume-desk-lamp-scene.webp`]],
   [/\bcarryall\s*sleeve\b/i, [`${ASSETS}/mosaic/carryall-sleeve.webp`]],
@@ -270,7 +270,7 @@ function boundImage(product: ProductSummary): string | null {
  * `productImageMap` bounds a grid at `ceil(rows / pool)` copies of one file, so a
  * category whose pool is smaller than the page size repeats — and a category with
  * no pool at all falls through to a single domain-neutral plate and gives every row
- * the same picture. Discover's chips are checked against this, because that is the
+ * the same picture. Discover's category entries are checked against this, because that is the
  * difference between a shopper seeing twelve products and seeing one photograph
  * twelve times.
  */

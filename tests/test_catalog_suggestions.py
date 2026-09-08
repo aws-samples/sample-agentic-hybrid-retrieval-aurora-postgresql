@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from contextlib import contextmanager
 
+import pytest
 from fastapi.testclient import TestClient
 
 from service import catalog, main
@@ -90,6 +92,43 @@ def test_catalog_browse_is_bounded_to_the_installed_200_product_edit(
         parameters[0] == connection.calls[0][1][0] for _, parameters in connection.calls
     )
     assert "ORDER BY photographed.ordinality" in connection.calls[1][0]
+
+
+def test_workspace_browse_keeps_its_story_and_discovery_gaps(monkeypatch):
+    connection = _BrowseConnection()
+
+    @contextmanager
+    def fake_connect():
+        yield connection
+
+    monkeypatch.setattr(catalog, "connect", fake_connect)
+    catalog.list_products(SearchFilters(), collection="workspace")
+    selected = connection.calls[0][1][0]
+    media = json.loads(catalog._PRODUCT_MEDIA_MANIFEST.read_text())["products"]
+    rows = {row["product_id"]: row for row in media}
+    assert selected
+    assert len(selected) == len(set(selected))
+    assert all(
+        rows[product_id]["domain"] != "running_fitness" for product_id in selected
+    )
+    assert not {"Cable Management", "Monitor Arms"} & {
+        rows[product_id]["subcategory"] for product_id in selected
+    }
+    assert [rows[product_id]["subcategory"] for product_id in selected[:3]] == [
+        "Productivity Monitors",
+        "Ergonomic Office Chairs",
+        "Over-Ear Headphones",
+    ]
+    assert all(parameters[0] == selected for _, parameters in connection.calls)
+    assert set(selected) < set(catalog._PHOTOGRAPHED_PRODUCT_IDS)
+
+
+def test_unknown_browse_collection_names_the_fix():
+    with pytest.raises(catalog.HTTPException) as error:
+        catalog.list_products(SearchFilters(), collection="workspce")
+    assert error.value.status_code == 422
+    assert "workspce" in error.value.detail
+    assert "Use 'workspace' or 'all'" in error.value.detail
 
 
 def test_catalog_suggestions_use_the_indexed_projection_without_model_calls(

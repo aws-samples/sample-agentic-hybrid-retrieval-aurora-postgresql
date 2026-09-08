@@ -42,8 +42,9 @@ import { CommerceDrawer } from "../components/CommerceDrawer";
 // `test` block in vite.config.ts -- so this stays scoped to this file.
 configure({ asyncUtilTimeout: 5000 });
 import { stageDwellMs } from "../components/AskMosaic";
-import { catalogGhostQueries } from "../components/CatalogSearchComposer";
-import { coreMosaicLabs } from "../labMissions";
+import { mosaicLabManifest } from "../labMissions";
+import { coreMosaicLabs, shopMissionHref } from "../labMissions";
+import { seedRun } from "../retrievalSeed";
 import { showcaseCatalogPage } from "../showcase";
 import { starterPath } from "../starters";
 import type {
@@ -852,6 +853,7 @@ describe("CatalogPage", () => {
   });
 
   it("runs a suggested search on its own terms, not inside the browsed category", async () => {
+    const request = mosaicLabManifest.playground.requests.find((item) => item.id === "room-for-code")!;
     // Reproduced against the running app: Running & fitness selected, then the
     // keyboard suggestion taken, returned twelve rowing machines. The retrieval
     // was right -- `domain` is an eligibility gate applied before ranking and it
@@ -862,21 +864,20 @@ describe("CatalogPage", () => {
     await screen.findByText(catalog.products[0].model);
 
     const suggestion = screen.getByRole("button", {
-      name: catalogGhostQueries[0],
+      name: request.shop_label,
     });
     fireEvent.click(suggestion);
 
     await waitFor(() => expect(api.search).toHaveBeenCalled());
     const params = new URLSearchParams(window.location.search);
-    expect(params.get("q")).toBe(catalogGhostQueries[0]);
+    expect(params.get("q")).toBe(request.query);
     // The gate the shopper was browsing under is gone, and so is the run that
     // was retrieved under it.
-    expect(params.get("domain")).toBeNull();
+    expect(params.get("domain")).toBe("home_office");
     expect(params.get("event")).toBeNull();
-    // And the request actually sent carries no domain either.
-    expect(vi.mocked(api.search).mock.calls.at(-1)?.[1]).toMatchObject({
-      domain: undefined,
-    });
+    expect(vi.mocked(api.search).mock.calls.at(-1)?.[1]).toMatchObject(
+      request.filters,
+    );
   });
 
   it("keeps the browsed category for a query the shopper typed", async () => {
@@ -974,7 +975,7 @@ describe("CatalogPage", () => {
 
     expect(
       screen.getByText(
-        "Search in your own words, browse with intention, or ask Mosaic for help deciding.",
+        "Alex’s home office, coming together.",
       ),
     ).toBeTruthy();
     expect(screen.queryByText(/photographed in one light/i)).toBeNull();
@@ -983,7 +984,7 @@ describe("CatalogPage", () => {
     const searchSubmit = within(search).getByRole("button", { name: "Search" });
     expect(searchSubmit.textContent).toBe("");
     expect(searchSubmit.querySelector("svg")).toBeTruthy();
-    expect(document.querySelectorAll(".shop-suggested > button")).toHaveLength(3);
+    expect(document.querySelectorAll(".shop-suggested > button")).toHaveLength(mosaicLabManifest.playground.requests.length);
     expect(
       screen.getByRole("complementary", { name: "What Ask Mosaic does" })
         .contains(screen.getByRole("button", { name: "Ask Mosaic" })),
@@ -994,18 +995,18 @@ describe("CatalogPage", () => {
     ).toBe(true);
   });
 
-  it("steps the editorial still aside while a query is on the URL", async () => {
+  it("steps the illustrated journey aside while a query is on the URL", async () => {
     // With a query, the page's job is the result list. On a 1366x768 laptop the
-    // still plus the full-height headline pushed the first result below the
+    // imagery plus the full-height headline pushed the first result below the
     // fold, and on the surface whose whole point is watching a query break,
-    // that put the break out of sight. The still is not rendered at all: a
+    // that put the break out of sight. The journey is not rendered at all: a
     // hidden <img> still downloads.
     window.history.replaceState({}, "", "/catalog?q=quiet%20keyboard");
     const { container, unmount } = renderPage();
     await waitFor(() => expect(api.search).toHaveBeenCalled());
 
     expect(container.querySelector(".shop-hero")?.className).toBe("shop-hero is-searching");
-    expect(container.querySelector(".shop-hero-photo")).toBeNull();
+    expect(container.querySelector(".shop-journey")).toBeNull();
     // The headline stays: it is the page's one h1, only smaller in CSS.
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
       "Find what fits your world.",
@@ -1015,10 +1016,10 @@ describe("CatalogPage", () => {
     window.history.replaceState({}, "", "/catalog");
     const opened = renderPage();
     await screen.findByText(
-      "Search in your own words, browse with intention, or ask Mosaic for help deciding.",
+      "Alex’s home office, coming together.",
     );
     expect(opened.container.querySelector(".shop-hero")?.className).toBe("shop-hero");
-    expect(opened.container.querySelector(".shop-hero-photo img")).not.toBeNull();
+    expect(opened.container.querySelector(".shop-journey img")).not.toBeNull();
   });
 
   it("runs hybrid retrieval from the Shop query and renders real rank signals", async () => {
@@ -1116,6 +1117,9 @@ describe("CatalogPage", () => {
     });
     expect(new URLSearchParams(window.location.search).get("event")).toBeNull();
 
+    expect(document.querySelectorAll(".shop-product-grid [data-product-id]")).toHaveLength(0);
+    expect(document.querySelector(".shop-ranking-receipt")).toBeNull();
+
     await act(async () => {
       inFlight.resolve(secondRun);
     });
@@ -1146,6 +1150,8 @@ describe("CatalogPage", () => {
     });
     expect(new URLSearchParams(window.location.search).get("q")).toBe("quiet keyboard");
     expect(new URLSearchParams(window.location.search).get("event")).toBeNull();
+    expect(document.querySelectorAll(".shop-product-grid [data-product-id]")).toHaveLength(0);
+    expect(document.querySelector(".shop-ranking-receipt")).toBeNull();
 
     await act(async () => {
       inFlight.resolve({ ...searchResponse, search_event_id: SECOND_EVENT_ID });
@@ -1271,7 +1277,7 @@ describe("CatalogPage", () => {
     };
 
     renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Running & fitness" }));
+    fireEvent.click(screen.getByRole("button", { name: "Electronics" }));
     await waitFor(() => expect(api.catalog).toHaveBeenCalledTimes(2));
 
     await act(async () => pending[1]({
@@ -1285,6 +1291,100 @@ describe("CatalogPage", () => {
     await act(async () => pending[0](catalog));
     expect(screen.getByText("Newest filter result")).toBeTruthy();
     expect(screen.queryByText(catalog.products[0].model)).toBeNull();
+  });
+
+  it("replaces browse products and headphones with loading until the chair search answers", async () => {
+    const calls = mosaicLabManifest.playground.requests.find((request) => request.id === "clear-calls")!;
+    const comfort = mosaicLabManifest.playground.requests.find((request) => request.id === "comfortable-days")!;
+    const headphones = { ...recommendations[0], product_id: 2, model: "WH-C720" };
+    const chair = { ...recommendations[0], product_id: 370002, model: "Pro Mesh" };
+    const first = deferredSearch<SearchResponse>();
+    const second = deferredSearch<SearchResponse>();
+    vi.mocked(api.search).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+
+    fireEvent.click(screen.getByRole("button", { name: calls.label }));
+    await waitFor(() => expect(api.search).toHaveBeenCalledTimes(1));
+    expect(document.querySelectorAll(".shop-product-grid [data-product-id]")).toHaveLength(0);
+    expect(screen.getByRole("status", { name: "Loading products" })).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "Product pages" })).toBeNull();
+
+    await act(async () => first.resolve({
+      ...searchResponse, query: calls.query, applied_filters: { ...calls.filters }, results: [headphones],
+    }));
+    expect(document.querySelector('.shop-product-grid [data-product-id="2"]')).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: comfort.label }));
+    await waitFor(() => expect(api.search).toHaveBeenCalledTimes(2));
+    expect(api.search).toHaveBeenLastCalledWith(comfort.query, comfort.filters, { limit: 12, rerank: true });
+    expect(document.querySelectorAll(".shop-product-grid [data-product-id]")).toHaveLength(0);
+    expect(document.querySelector(".shop-ranking-receipt")).toBeNull();
+    expect(document.querySelector(".shop-results-heading")?.textContent).toContain("Searching products");
+    expect(screen.getByRole("status", { name: "Loading products" })).toBeTruthy();
+    expect(new URLSearchParams(window.location.search).get("event")).toBeNull();
+
+    await act(async () => second.resolve({
+      ...searchResponse, search_event_id: SECOND_EVENT_ID, query: comfort.query,
+      applied_filters: { ...comfort.filters }, results: [chair],
+    }));
+    expect([...document.querySelectorAll(".shop-product-grid [data-product-id]")]
+      .map((card) => card.getAttribute("data-product-id"))).toEqual(["370002"]);
+    expect(screen.queryByRole("status", { name: "Loading products" })).toBeNull();
+    expect(new URLSearchParams(window.location.search).get("event")).toBe(SECOND_EVENT_ID);
+  });
+
+  it("keeps chair results when an abandoned headphones search finishes later", async () => {
+    const calls = mosaicLabManifest.playground.requests.find((request) => request.id === "clear-calls")!;
+    const comfort = mosaicLabManifest.playground.requests.find((request) => request.id === "comfortable-days")!;
+    const first = deferredSearch<SearchResponse>();
+    const second = deferredSearch<SearchResponse>();
+    vi.mocked(api.search).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: calls.label }));
+    await waitFor(() => expect(api.search).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: comfort.label }));
+    await waitFor(() => expect(api.search).toHaveBeenCalledTimes(2));
+
+    await act(async () => second.resolve({
+      ...searchResponse, search_event_id: SECOND_EVENT_ID, query: comfort.query,
+      results: [{ ...recommendations[0], product_id: 370002, model: "Pro Mesh" }],
+    }));
+    expect(await screen.findByText("Pro Mesh")).toBeTruthy();
+    await act(async () => first.resolve({
+      ...searchResponse, query: calls.query,
+      results: [{ ...recommendations[0], product_id: 2, model: "WH-C720" }],
+    }));
+    expect([...document.querySelectorAll(".shop-product-grid [data-product-id]")]
+      .map((card) => card.getAttribute("data-product-id"))).toEqual(["370002"]);
+    expect(new URLSearchParams(window.location.search).get("event")).toBe(SECOND_EVENT_ID);
+    expect(document.querySelector(".shop-query-state")?.textContent).toContain(comfort.query);
+  });
+
+  it("keeps the Ask Mosaic conversation without mixing its old picks into a new search", async () => {
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Ask Mosaic request" }), {
+      target: { value: agentResponse.question },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+    await screen.findByText("Ask Mosaic shortlist");
+    const comfort = mosaicLabManifest.playground.requests.find((request) => request.id === "comfortable-days")!;
+    const next = deferredSearch<SearchResponse>();
+    vi.mocked(api.search).mockReturnValueOnce(next.promise);
+    fireEvent.click(screen.getByRole("button", { name: comfort.label }));
+    await waitFor(() => expect(api.search).toHaveBeenCalledTimes(1));
+    expect(document.querySelectorAll(".shop-product-grid [data-product-id]")).toHaveLength(0);
+    expect(screen.queryByText("Ask Mosaic shortlist")).toBeNull();
+    expect(within(screen.getByRole("complementary", { name: "Ask Mosaic" }))
+      .getByText(agentResponse.question)).toBeTruthy();
+
+    await act(async () => next.resolve({
+      ...searchResponse, search_event_id: SECOND_EVENT_ID, query: comfort.query,
+      results: [{ ...recommendations[0], product_id: 370002, model: "Pro Mesh" }],
+    }));
+    expect([...document.querySelectorAll(".shop-product-grid [data-product-id]")]
+      .map((card) => card.getAttribute("data-product-id"))).toEqual(["370002"]);
   });
 
   it("renders zero-result catalog arithmetic without an impossible range", async () => {
@@ -1340,6 +1440,7 @@ describe("CatalogPage", () => {
   });
 
   it("moves one shared indicator between product domains", async () => {
+    window.history.replaceState({}, "", "/catalog?collection=all");
     renderPage();
     await screen.findByText(catalog.products[0].model);
 
@@ -1467,74 +1568,14 @@ describe("CatalogPage", () => {
     ).toHaveLength(1);
     expect(within(panel).queryByText("Shop context")).toBeNull();
     expect(
-      within(panel).queryByLabelText("Your preferences, passed to Ask Mosaic"),
+      within(panel).queryByLabelText("Current search filters, passed to Ask Mosaic"),
     ).toBeNull();
 
-    // The entry state names the five tools registered in service/agent_tools.py,
-    // by what each one does, with the function it calls beside it. Its whole
-    // capability list used to be the bare Python names.
-    const toolset = within(panel).getByRole("list", {
-      name: "Tools available to the agent",
-    });
-    const capability = within(panel).getByText("What I can do").closest("details");
-    expect(capability?.open).toBe(false);
-    expect(
-      within(toolset)
-        .getAllByRole("listitem")
-        .map((tool) => tool.textContent),
-    ).toEqual([
-      "Search the catalogsearch_products",
-      "Compare options side by sidecompare_products",
-      "Look up specs and reviewsget_product_evidence",
-      "Replay the ranking signalsexplain_retrieval",
-      "Write the cited recommendationsynthesize_cited_answer",
-    ]);
-
-    // Starters are vetted questions, one per clickable retrieval arm. Eval
-    // provenance and expected-technique tags stay off the shopper surface; the
-    // completed run is where actual retrieval evidence belongs.
-    const starters = await within(panel).findByRole("list", {
-      name: "Example questions",
-    });
-    expect(
-      within(starters)
-        .getAllByRole("button")
-        .map((button) => [
-          button.querySelector(".ask-mosaic-starter-path")?.textContent,
-          button.querySelector(".ask-mosaic-starter-query")?.textContent,
-        ]),
-    ).toEqual([
-      ["Exact terms", examples[4].query],
-      ["Meaning match", examples[7].query],
-      // The close-spelling lane, which says what it does instead of printing the
-      // query it loads. `D-004` over `D-002` because it is the shorter of the two
-      // misspelled rows, so what lands in the composer is short enough to read the
-      // misspellings in before sending it.
-      ["Close spelling", "Search with typos in it"],
-    ]);
-    expect(starters.textContent).not.toContain("eval set");
-    expect(starters.querySelector(".ask-mosaic-starter-arms")).toBeNull();
-    // No card prints a misspelling. The eval set's fuzzy queries are misspelled on
-    // purpose and the two run-on-click cards print a starter verbatim on a button
-    // in Mosaic's own voice, so offering one shipped a spelling mistake as the
-    // store's suggestion. The third card reaches the same lane without printing
-    // one, which is why this assertion still has to hold with it on screen.
-    for (const word of ["ergonmic", "ofice", "noice", "hedphones"]) {
-      expect(starters.textContent).not.toContain(word);
-    }
-
-    // It loads, it does not send. The typo has to be in the shopper's input and
-    // sent by the shopper, or the store authored it after all.
-    fireEvent.click(
-      within(starters).getByRole("button", {
-        name: "Put a misspelled search in the box, ready to send",
-      }),
-    );
-    expect(
-      screen.getByRole<HTMLInputElement>("textbox", { name: "Ask Mosaic request" })
-        .value,
-    ).toBe(examples[3].query);
-    expect(api.agentStream).not.toHaveBeenCalled();
+    const starters = await within(panel).findByRole("list", { name: "Example questions" });
+    expect(within(starters).getAllByRole("button").map((button) => button.getAttribute("aria-label")))
+      .toEqual(mosaicLabManifest.playground.requests.map((request) => request.query));
+    expect(within(panel).queryByRole("list", { name: "Tools available to the agent" })).toBeNull();
+    expect(within(panel).queryByText("Search with typos in it")).toBeNull();
 
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
@@ -1942,12 +1983,12 @@ describe("CatalogPage", () => {
     await screen.findByText(catalog.products[0].model);
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
 
-    fireEvent.click(await screen.findByRole("button", { name: examples[4].query }));
+    fireEvent.click(await screen.findByRole("button", { name: mosaicLabManifest.playground.requests[0].query }));
 
     await waitFor(() =>
       expect(api.agentStream).toHaveBeenCalledWith(
-        examples[4].query,
-        {},
+        mosaicLabManifest.playground.requests[0].query,
+        expect.objectContaining(mosaicLabManifest.playground.requests[0].filters),
         expect.any(Function),
         undefined,
         { signal: expect.any(AbortSignal) },
@@ -1960,12 +2001,8 @@ describe("CatalogPage", () => {
     renderPage();
     await screen.findByText(catalog.products[0].model);
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
-    const starters = await screen.findByRole("list", { name: "Example questions" });
-    const questions = within(starters).getAllByRole("button");
-    expect(questions.length).toBeGreaterThan(0);
-    for (const example of examples.filter((item) => item.domain !== "running_fitness")) {
-      expect(within(starters).queryByRole("button", { name: example.query })).toBeNull();
-    }
+    expect(screen.queryByRole("list", { name: "Example questions" })).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Ask Mosaic request" })).toBeTruthy();
   });
 
   it("does not suggest unrelated agent examples inside a category", async () => {
@@ -1975,48 +2012,98 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
     const panel = screen.getByRole("complementary", { name: "Ask Mosaic" });
     expect(within(panel).queryByRole("list", { name: "Example questions" })).toBeNull();
-    expect(within(panel).getByText("Your preferences")).toBeTruthy();
+    expect(within(panel).getByText("Search filters")).toBeTruthy();
   });
 
-  it("runs the typo pill with its canonical mission filters", async () => {
+  it("keeps the typo mission reachable from its guide with canonical filters", async () => {
     const mission = coreMosaicLabs.find((item) => item.stage === "retrieve")!;
-    window.history.replaceState({}, "", "/catalog?domain=running_fitness&brand=OldBrand");
+    window.history.replaceState({}, "", shopMissionHref(mission, { view: "results" }));
     vi.mocked(api.search).mockResolvedValue(searchResponse);
     renderPage();
-    await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: mission.query }));
     await waitFor(() => expect(api.search).toHaveBeenCalled());
     expect(vi.mocked(api.search).mock.calls.at(-1)?.[1]).toMatchObject(mission.filters);
-    expect(new URLSearchParams(window.location.search).get("brand")).toBeNull();
     expect(new URLSearchParams(window.location.search).get("mission")).toBe(mission.id);
   });
 
-  it("shows a distinct retrieval-arm label on every starter card, never repeated", async () => {
-    // The bug this guards against: `starterPath` used to fall through to a
-    // catch-all "plain" path for any query naming `semantic`/`vector` without
-    // also naming `fts` or `pg_trgm`. Two of the rendered cards then both read
-    // "Plain language" and no card ever read "Meaning match", even though the
-    // underlying queries exercised different arms.
+  it("runs the ranking lab with every guide constraint, including seat depth", async () => {
+    const mission = coreMosaicLabs.find((item) => item.stage === "rank")!;
+    window.history.replaceState({}, "", shopMissionHref(mission));
+    vi.mocked(api.search).mockResolvedValue(searchResponse);
+    renderPage();
+    await waitFor(() => expect(api.search).toHaveBeenCalled());
+    expect(vi.mocked(api.search).mock.calls.at(-1)?.[1]).toMatchObject(mission.filters);
+    expect(vi.mocked(api.search).mock.calls.at(-1)?.[2]?.limit).toBe(mission.top_k);
+    await waitFor(() => expect(new URLSearchParams(window.location.search).get("event")).toBe(SEARCH_EVENT_ID));
+    fireEvent.click(screen.getByRole("button", { name: "Seat Depth Adjustable: Yes" }));
+    await waitFor(() => expect(vi.mocked(api.search).mock.calls.at(-1)?.[1].attributes).toBeUndefined());
+  });
+
+  it("shows the fusion repair even when the final top product does not change", async () => {
+    const mission = coreMosaicLabs.find((item) => item.stage === "rank")!;
+    const fusionK = seedRun.diagnostics!.retrieval_profile.rrf_k;
+    const run = (fixed: boolean): SearchResponse => ({
+      ...searchResponse,
+      query: mission.query,
+      applied_filters: { ...mission.filters },
+      diagnostics: {
+        ...searchResponse.diagnostics!,
+        retrieval_profile: seedRun.diagnostics!.retrieval_profile,
+      },
+      results: [370002, 370001].map((id, index) => {
+        const rank = index + 1;
+        const contribution = 1 / (fusionK + (fixed ? rank : 1));
+        return {
+          ...catalog.products[0],
+          product_id: id,
+          brand: id === 370002 ? "PostureWorks" : "Mosaic",
+          model: id === 370002 ? "Pro Mesh" : "Forma Ergonomic",
+          domain: "home_office",
+          availability: "in_stock",
+          attributes: mission.filters.attributes ?? {},
+          signals: {
+            fts: { rank, raw_score: 1, rrf_contribution: contribution },
+            trigram: { rank, raw_score: 1, rrf_contribution: contribution },
+            semantic: { rank, raw_score: 1, rrf_contribution: contribution },
+            rrf_score: 3 * contribution,
+            pre_rerank_score: 3 * contribution,
+            pre_rerank_rank: fixed ? rank : 3 - rank,
+            final_rank: rank,
+            rerank_score: 1 / rank,
+            score_semantics: "rank_fusion_then_bounded_rerank",
+          },
+        };
+      }),
+    });
+    window.history.replaceState({}, "", shopMissionHref(mission));
+    vi.mocked(api.search).mockResolvedValueOnce(run(false)).mockResolvedValue(run(true));
+    renderPage();
+    const callout = await screen.findByRole("region", { name: "Lab 2 outcome" });
+    expect(callout.textContent).toContain("Fusion is flattening per-arm rank");
+    expect(within(callout).getByRole("row", { name: "PostureWorks Pro Mesh 2 1" })).toBeTruthy();
+    const link = within(callout).getByRole("link", { name: /Inspect this run/ });
+    const target = new URL(link.getAttribute("href")!, "http://localhost");
+    expect(target.searchParams.get("event")).toBe(SEARCH_EVENT_ID);
+    expect(target.searchParams.get("example")).toBe(mission.id);
+    expect(JSON.parse(target.searchParams.get("attributes")!)).toEqual(mission.filters.attributes);
+    fireEvent.click(within(callout).getByRole("button", { name: "Search again" }));
+    await within(callout).findByText("Fusion now respects source rank");
+    expect(within(callout).getByRole("row", { name: "PostureWorks Pro Mesh 1 1" })).toBeTruthy();
+  });
+
+  it("offers the compatible workspace request inside a monitor category", async () => {
+    window.history.replaceState({}, "", "/catalog?domain=home_office&category_key=productivity-monitors");
     renderPage();
     await screen.findByText(catalog.products[0].model);
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
-
     const starters = await screen.findByRole("list", { name: "Example questions" });
-    const pathLabels = within(starters)
-      .getAllByRole("button")
-      .map((button) => button.querySelector(".ask-mosaic-starter-path")?.textContent);
-
-    // Witness: exactly three cards rendered - two clickable arms plus the
-    // close-spelling box - a literal independent of the uniqueness check
-    // below, so this cannot pass on an empty or short-circuited list.
-    expect(pathLabels).toHaveLength(3);
-    // No two cards carry the same label: the set of labels is exactly the
-    // three distinct retrieval-arm names, matching `armLabel` in
-    // `retrievalLanguage.ts` rather than a locally invented fourth string.
-    expect(new Set(pathLabels)).toEqual(
-      new Set(["Exact terms", "Meaning match", "Close spelling"]),
-    );
-    expect(new Set(pathLabels).size).toBe(3);
+    const requests = within(starters).getAllByRole("button");
+    expect(requests).toHaveLength(1);
+    expect(requests[0].getAttribute("aria-label")).toBe(mosaicLabManifest.playground.requests.find((request) => request.id === "room-for-code")!.query);
+    fireEvent.click(requests[0]);
+    await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
+    expect(vi.mocked(api.agentStream).mock.calls.at(-1)?.[1]).toMatchObject({
+      domain: "home_office", category_key: "productivity-monitors",
+    });
   });
 
   it("throws rather than silently mislabeling a row that names no known retrieval arm", () => {
@@ -2061,9 +2148,9 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
     const assist = screen.getByRole("complementary", { name: "Ask Mosaic" });
     const context = within(assist).getByLabelText(
-      "Your preferences, passed to Ask Mosaic",
+      "Current search filters, passed to Ask Mosaic",
     );
-    expect(within(context).getByText("Your preferences")).toBeTruthy();
+    expect(within(context).getByText("Search filters")).toBeTruthy();
     expect(within(context).getByText("In stock")).toBeTruthy();
   });
 
@@ -2127,7 +2214,7 @@ describe("CatalogPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Clear shortlist" }));
     expect(screen.queryByText("Ask Mosaic shortlist")).toBeNull();
-    expect(screen.getByText(/of 200 products/)).toBeTruthy();
+    expect(screen.getByText(/of 200 workspace picks/)).toBeTruthy();
   });
 
   it("reopens a settled answer without replaying its presentation queue", async () => {
@@ -2226,7 +2313,7 @@ describe("CatalogPage", () => {
 
   it("names the reproduced Lab 1 fault when the target never comes back", async () => {
     // The break-first journey turns on this moment. A participant arrives from
-    // the hero chip, sees a page of plausible headphones, and has no way to know
+    // the guide's exercise link, sees a page of plausible headphones, and has no way to know
     // the one product the query is about is absent. The callout is what makes
     // the fault legible before the diagnosis is asked for.
     vi.mocked(api.search).mockResolvedValue(lab1Search(false));

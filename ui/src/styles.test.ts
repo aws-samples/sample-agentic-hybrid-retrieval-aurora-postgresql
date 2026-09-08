@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
  * nowhere. None of that is visible in a diff, so the checks live here, as
  * functions over the sheet text with a fixture that proves each one can fail.
  */
-const SHEETS = ["styles.css", "surfaces.css"] as const;
+const SHEETS = ["styles.css", "surfaces.css", "discover.css", "playground.css", "inspector.css"] as const;
 
 /** Custom properties components set with inline style; the sheets only read them. */
 const SET_FROM_COMPONENTS = new Set(["--labs-rail-height", "--low", "--high", "--sweep"]);
@@ -119,7 +119,9 @@ export function unpinnedGridTracks(sheets: Sheet[]): string[] {
       `^\\${selector} \\{([^]*?)^\\}`,
       "m",
     ).exec(text);
-    return !block || !/grid-template-columns:/.test(block[1]);
+    // A block layout has no implicit grid track. Pin that replacement explicitly
+    // so removing the selector or reintroducing an unbounded grid still fails.
+    return !block || (!/display:\s*block;/.test(block[1]) && !/grid-template-columns:/.test(block[1]));
   });
 }
 
@@ -192,5 +194,7 @@ describe("stylesheet vocabulary", () => {
       },
     ];
     expect(unpinnedGridTracks(unpinned)).toEqual([".discover-hero-content"]);
+    expect(unpinnedGridTracks([{ name: "discover.css", text: ".discover-hero-content {\n  display: block;\n}" }])).toEqual([]);
+    expect(unpinnedGridTracks([{ name: "unrelated.css", text: ".other { display: block; }" }])).toEqual([".discover-hero-content"]);
   });
 });

@@ -645,7 +645,7 @@ describe("RetrievalLabPage", () => {
     ).toEqual(["/labs/retrieval", "/mosaic-labs/hnsw"]);
     expect(
       within(strip)
-        .getByRole("link", { name: "Playground" })
+        .getByRole("link", { name: "Pipeline" })
         .getAttribute("aria-current"),
     ).toBe("page");
     expect(within(strip).queryByRole("link", { name: "Catalog studio" })).toBeNull();

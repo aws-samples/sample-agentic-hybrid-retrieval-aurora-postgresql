@@ -1,0 +1,11 @@
+{
+  "product_id": 385432,
+  "title": "Mosaic Nest Oak Upholstered Desk Chair",
+  "generation_method": "built-in image_gen",
+  "reference_role": "User-supplied aesthetic reference: upholstered swivel chair with oak base in a cream room.",
+  "master": "docs/presentation-assets/nest-oak-chair-v1.png",
+  "versioned_runtime": "ui/public/assets/images/mosaic/nest-oak-chair-v1.webp",
+  "catalog_binding": "data/media/asset_labels_200.json",
+  "prompt": "Photorealistic Mosaic catalog photograph. A distinct compact upholstered swivel desk chair with warm oatmeal woven fabric, rounded low back and fixed wraparound arms, a separate padded seat, gas-lift height lever, oak-clad five-spoke base and black twin-wheel casters. Full chair centered in a 3:2 landscape image on cream studio floor and backdrop with subtle daylight shadows. Modern furniture photography, crisp fabric and plausible construction. No mesh, headrest, separate lumbar adjustment, adjustable arms, text, logo, watermark, desk, plant or rug.",
+  "copy_note": "Four-hour catalog use recommendation; fixed lumbar, armrests and seat depth. These are synthetic design specifications, not ergonomic or medical guarantees."
+}

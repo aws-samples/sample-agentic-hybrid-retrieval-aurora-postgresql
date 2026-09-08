@@ -34,6 +34,7 @@ from service.catalog import (
     get_product_summaries,
     list_products,
     review_highlights,
+    similar_products,
 )
 from service.config import get_settings
 from service.db import close_pool, connect, get_pool, readiness
@@ -61,6 +62,7 @@ from service.models import (
     ProductDetail,
     ProductEvidenceRequest,
     ProductEvidenceResponse,
+    ProductSummary,
     RetrievalPlanResponse,
     RetrievalRunResponse,
     RetrievalScorecardResponse,
@@ -309,6 +311,7 @@ def get_catalog_products(
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=12, ge=1, le=60),
     sort: str = "featured",
+    collection: str = "all",
 ) -> CatalogPage:
     try:
         filters = CatalogFilters(
@@ -330,6 +333,7 @@ def get_catalog_products(
         offset=offset,
         limit=limit,
         sort=sort,
+        collection=collection,
     )
 
 
@@ -344,6 +348,11 @@ def get_catalog_counts(
 @app.get("/api/products/{product_id}", response_model=ProductDetail)
 def get_product_detail(product_id: int) -> ProductDetail:
     return get_product(product_id)
+
+
+@app.get("/api/products/{product_id}/similar", response_model=list[ProductSummary])
+def get_similar_products(product_id: int) -> list[ProductSummary]:
+    return similar_products(product_id)
 
 
 @app.get("/api/evidence/{evidence_id}", response_model=EvidenceRecord)

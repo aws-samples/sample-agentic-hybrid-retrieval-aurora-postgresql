@@ -17,7 +17,7 @@ import { ProductPage } from "./ProductPage";
 
 vi.mock("../api", () => ({
   api: {
-    catalog: vi.fn(),
+    similarProducts: vi.fn(),
     product: vi.fn(),
   },
 }));
@@ -39,8 +39,8 @@ describe("ProductPage", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/products/1");
     vi.mocked(api.product).mockReset();
-    vi.mocked(api.catalog).mockReset();
-    vi.mocked(api.catalog).mockResolvedValue(showcaseCatalogPage({}, 0, 5));
+    vi.mocked(api.similarProducts).mockReset();
+    vi.mocked(api.similarProducts).mockResolvedValue(showcaseCatalogPage({}, 0, 5).products);
   });
 
   afterEach(cleanup);
@@ -151,7 +151,7 @@ describe("ProductPage", () => {
     const product = showcaseProductDetail(1);
     if (!product) throw new Error("Missing primary product fixture");
     vi.mocked(api.product).mockResolvedValue(product);
-    vi.mocked(api.catalog).mockReturnValue(new Promise(() => {}));
+    vi.mocked(api.similarProducts).mockReturnValue(new Promise(() => {}));
 
     render(
       <CommerceProvider>
@@ -171,9 +171,9 @@ describe("ProductPage", () => {
     if (!product) throw new Error("Missing primary product fixture");
     const relatedPage = showcaseCatalogPage({}, 0, 5);
     vi.mocked(api.product).mockResolvedValue(product);
-    vi.mocked(api.catalog)
+    vi.mocked(api.similarProducts)
       .mockRejectedValueOnce(new Error("related catalog unavailable"))
-      .mockResolvedValueOnce(relatedPage);
+      .mockResolvedValueOnce(relatedPage.products);
 
     render(
       <CommerceProvider>
@@ -187,12 +187,12 @@ describe("ProductPage", () => {
     if (!panel) throw new Error("Missing related-product error panel");
     fireEvent.click(panel.querySelector("button")!);
 
-    expect(await screen.findByRole("heading", { name: "You may also like" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Similar headphones" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: product.title })).toBeTruthy();
-    expect(api.catalog).toHaveBeenCalledTimes(2);
+    expect(api.similarProducts).toHaveBeenCalledTimes(2);
   });
 
-  it("returns through browser history so catalog filters and search context survive", async () => {
+  it("returns to the carried catalog context even after another product page", async () => {
     const product = showcaseProductDetail(1);
     if (!product) throw new Error("Missing product return fixture");
     vi.mocked(api.product).mockResolvedValue(product);
@@ -201,7 +201,8 @@ describe("ProductPage", () => {
       "",
       "/catalog?domain=consumer_electronics&brand=Mosaic&q=headphones",
     );
-    window.history.pushState({}, "", "/products/1");
+    window.history.pushState({}, "", "/products/17001");
+    window.history.pushState({}, "", "/products/1?from=" + encodeURIComponent("/catalog?domain=consumer_electronics&brand=Mosaic&q=headphones"));
 
     render(
       <CommerceProvider>
@@ -211,13 +212,28 @@ describe("ProductPage", () => {
 
     const back = await screen.findByRole("link", { name: "Back to catalog" });
     expect(back.getAttribute("href")).toContain("domain=consumer_electronics");
-    expect(back.getAttribute("href")).toContain("category_key=");
+    expect(back.getAttribute("href")).toContain("brand=Mosaic");
     fireEvent.click(back);
 
     await waitFor(() => expect(window.location.pathname).toBe("/catalog"));
     const params = new URLSearchParams(window.location.search);
     expect(params.get("brand")).toBe("Mosaic");
     expect(params.get("q")).toBe("headphones");
+  });
+
+  it("saves the current product and only displays its actual warranty", async () => {
+    const product = showcaseProductDetail(1)!;
+    vi.mocked(api.product).mockResolvedValue({ ...product, warranty_months: 18 });
+    render(<CommerceProvider><ProductPage /></CommerceProvider>);
+    await screen.findByRole("heading", { name: product.title });
+    const save = screen.getByRole("button", { name: `Save ${product.title}` });
+    fireEvent.click(save);
+    expect(save.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("18-month warranty")).toBeTruthy();
+    expect(screen.queryByText("2-year warranty")).toBeNull();
+    expect(screen.queryByText("60-day free returns")).toBeNull();
+    expect(document.querySelector(".product-main-image img")?.getAttribute("alt")).toBe(product.title);
+    fireEvent.click(save);
   });
 
   it("exposes selected image and tab state and supports tab keyboard navigation", async () => {

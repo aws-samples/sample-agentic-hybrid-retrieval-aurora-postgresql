@@ -1,0 +1,90 @@
+.instrument-page .instrument-intro { max-width: 880px; }
+.instrument-intro .labs-intro-actions { margin-top: 20px; }
+.instrument-back { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--maroon-800); font-size: var(--labs-body); }
+.instrument-back:hover { text-decoration: underline; text-underline-offset: 4px; }
+.instrument-evidence { display: flex; flex-wrap: wrap; gap: 14px 32px; padding: 20px 0; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: var(--labs-detail); }
+.instrument-evidence strong { margin-right: 8px; color: var(--ink); font-weight: 550; }
+
+.instrument-page .hnsw-rail { padding: 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: var(--ivory); backdrop-filter: none; }
+.instrument-page .hnsw-rail-acts { flex-wrap: wrap; gap: 12px 32px; }
+.instrument-page .hnsw-rail-acts a { align-items: center; min-height: 52px; gap: 10px; font-size: var(--labs-body); font-weight: 500; }
+.instrument-page .hnsw-rail-acts b { font-family: var(--sans); font-weight: 400; }
+.instrument-page .hnsw-rail-acts a[data-viewing="true"] { text-decoration-thickness: 1px; }
+
+.instrument-page .hnsw-act { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 36px; padding: 44px 0; border-bottom: 1px solid var(--line); }
+.instrument-page .hnsw-act > * { min-width: 0; }
+.instrument-page .hnsw-act-head { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 2fr); align-items: start; gap: 60px; padding: 0; border: 0; }
+.instrument-page .hnsw-act-head h2 { font-family: var(--display); font-size: var(--labs-h2); font-weight: 400; line-height: 1.1; letter-spacing: -0.02em; }
+.instrument-page .hnsw-act-summary { max-width: 65ch; font-size: var(--labs-body); line-height: 1.65; }
+
+.instrument-page :is(.hnsw-live, .hnsw-envelope, .hnsw-pareto, .hnsw-ring, .hnsw-cliff, .hnsw-repr, .hnsw-ab) { overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.instrument-page :is(.hnsw-live, .hnsw-envelope, .hnsw-pareto, .hnsw-ring, .hnsw-cliff, .hnsw-repr, .hnsw-ab, .hnsw-production) > header { padding: 0 0 20px; border-bottom: 1px solid var(--line); }
+.instrument-page :is(.hnsw-live, .hnsw-envelope, .hnsw-pareto, .hnsw-ring, .hnsw-cliff, .hnsw-repr, .hnsw-ab, .hnsw-production) h2 { font-family: var(--sans); font-size: var(--labs-h3); font-weight: 550; letter-spacing: 0; line-height: 1.4; }
+.instrument-page :is(.hnsw-live, .hnsw-envelope, .hnsw-pareto, .hnsw-ring, .hnsw-cliff, .hnsw-repr, .hnsw-ab, .hnsw-production) > header p { max-width: 75ch; line-height: 1.65; }
+.instrument-page .hnsw-evidence-badge { font-weight: 500; letter-spacing: 0; }
+.instrument-page .hnsw-live-facts > div { min-height: 96px; padding: 20px 18px; }
+.instrument-page .hnsw-live-facts > div:first-child { padding-left: 0; }
+.instrument-page .hnsw-live-facts strong { font-weight: 500; }
+.instrument-page .hnsw-live-value--metric { font-size: var(--labs-h2); }
+.instrument-page .hnsw-storage { padding: 24px 0; }
+.instrument-page .hnsw-storage-headline strong { font-weight: 500; }
+.instrument-page .hnsw-storage-legend { gap: 20px; }
+.instrument-page .hnsw-storage-legend li { padding: 0; border: 0; background: transparent; box-shadow: none; }
+.instrument-page .hnsw-storage-legend-metric strong { font-weight: 500; }
+.instrument-page .hnsw-live > footer { padding: 16px 0; background: transparent; }
+
+.instrument-page .hnsw-pareto-layout { gap: 28px; padding-top: 24px; }
+.instrument-page .hnsw-pareto-plot { border: 1px solid var(--line); border-radius: 12px; background: var(--paper-warm); }
+.instrument-page .hnsw-pareto-plot .axis { stroke: var(--line-strong); }
+.instrument-page .hnsw-pareto-plot .curve { stroke: var(--maroon-800); }
+.instrument-page .hnsw-pareto-plot .saturation { stroke: var(--gold); }
+.instrument-page .hnsw-pareto-plot .point { fill: var(--maroon-800); stroke: var(--paper); }
+.instrument-page .hnsw-pareto-plot .point.active { fill: var(--maroon-800); stroke: var(--maroon-800); }
+.instrument-page .hnsw-pareto-plot :is(.point-label, .axis-title) { fill: var(--ink-soft); }
+.instrument-page .hnsw-pareto-plot figcaption { color: var(--ink-soft); }
+.instrument-page .hnsw-pareto-readout { padding: 0; }
+.instrument-page .hnsw-pareto-metrics dd { font-weight: 500; }
+.instrument-page .hnsw-probe-button { min-height: 48px; border-radius: 8px; background: var(--maroon-800); font-size: var(--labs-body); font-weight: 500; }
+.instrument-page .hnsw-probe-button:hover:not(:disabled) { background: var(--maroon-900); }
+.instrument-page .hnsw-probe-button:disabled { opacity: .6; }
+.instrument-page .hnsw-probe-result > header code { min-width: 0; overflow-wrap: anywhere; }
+.instrument-page .hnsw-attribution { margin: 20px 0 0; padding: 18px 20px; border: 0; border-radius: 8px; background: var(--paper-warm); }
+.instrument-page .hnsw-attribution p { margin: 0; color: var(--ink-soft); }
+.instrument-page .hnsw-attribution summary { padding: 12px 0 0; min-height: 44px; color: var(--maroon-800); font-size: var(--labs-detail); cursor: pointer; }
+.instrument-page .hnsw-attribution details[open] > p { margin: 12px 0 16px; }
+.instrument-page .hnsw-attribution dt { letter-spacing: 0; text-transform: none; }
+
+.instrument-page .hnsw-ring-layout { padding-top: 24px; }
+.instrument-page .hnsw-ring-plot { padding-left: 0; background: transparent; }
+.instrument-page .hnsw-cliff-controls { padding: 24px 0; }
+.instrument-page .hnsw-repr-notes { padding: 24px 0; }
+.instrument-page .hnsw-repr-note { background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+.instrument-page .hnsw-repr-note strong { font-weight: 550; }
+.instrument-page .hnsw-repr-operating-point { margin: 0; }
+.instrument-page .hnsw-production > div { gap: 28px; padding-top: 20px; }
+.instrument-page .hnsw-production article { border: 0; border-radius: 0; padding: 0; background: transparent; box-shadow: none; }
+.instrument-page .hnsw-production article strong { font-weight: 550; }
+.instrument-page .hnsw-next { padding: 24px 0; }
+.instrument-page .hnsw-table-scroll { max-width: 100%; }
+.instrument-page :is(.hnsw-envelope-table, .hnsw-repr-table) th { font-weight: 500; }
+.instrument-page :is(.hnsw-envelope-table, .hnsw-repr-table) thead th { letter-spacing: 0; text-transform: none; }
+.instrument-page :is(.hnsw-envelope-table, .hnsw-repr-table) :is(th, td) { padding-top: 16px; padding-bottom: 16px; }
+
+@media (max-width: 900px) {
+  .instrument-page .hnsw-act-head { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .instrument-page .hnsw-pareto-layout { grid-template-columns: minmax(0, 1fr); }
+  .instrument-page .hnsw-pareto-readout { padding-bottom: 20px; }
+}
+
+@media (max-width: 640px) {
+  .instrument-evidence { display: grid; gap: 12px; }
+  .instrument-page .hnsw-act { padding: 32px 0; gap: 28px; }
+  .instrument-page :is(.hnsw-live, .hnsw-envelope, .hnsw-pareto, .hnsw-ring, .hnsw-cliff, .hnsw-repr, .hnsw-ab, .hnsw-production) > header { flex-direction: column; gap: 12px; }
+  .instrument-page .hnsw-live-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .instrument-page .hnsw-live-facts > div { min-height: 0; padding: 16px 12px 16px 0; border: 0; }
+  .instrument-page .hnsw-live-facts > div:last-child { grid-column: 1 / -1; }
+  .instrument-page .hnsw-live > footer { flex-wrap: wrap; }
+  .instrument-page .hnsw-live > footer code { white-space: normal; overflow-wrap: anywhere; }
+  .instrument-page .hnsw-attribution dl { grid-template-columns: minmax(0, 1fr); }
+  .instrument-page .hnsw-evidence-badge { max-width: 100%; white-space: normal; }
+}

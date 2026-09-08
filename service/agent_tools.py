@@ -18,6 +18,7 @@ from service.coverage import decline_note, decline_reason
 from service.db import connect
 from service.model_runtime import model_runtime_error
 from service.models import (
+    AgentContextProduct,
     AgentConversationContext,
     ProductSummary,
     QueryCoverage,
@@ -160,13 +161,21 @@ def _load_conversation_context(
                 "The previous Ask Mosaic answer has invalid persisted context"
             )
         persisted_products = intent.get("selected_products")
-        if persisted_products is not None and (
-            not isinstance(persisted_products, list)
-            or supplied_products != persisted_products
-        ):
-            raise ConversationContextError(
-                "The follow-up product identities do not match the previous answer"
-            )
+        if persisted_products is not None:
+            try:
+                # Receipts retain full products; clients carry only their identities.
+                persisted_identities = [
+                    {key: product[key] for key in AgentContextProduct.model_fields}
+                    for product in persisted_products
+                ]
+            except (KeyError, TypeError) as error:
+                raise ConversationContextError(
+                    "The previous Ask Mosaic answer has invalid persisted product identities"
+                ) from error
+            if supplied_products != persisted_identities:
+                raise ConversationContextError(
+                    "The follow-up product identities do not match the previous answer"
+                )
 
         context_event_ids = _uuid_list(
             [

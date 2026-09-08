@@ -22,12 +22,12 @@ describe("MosaicStudioPage", () => {
     // longer an entry in it: it runs no retrieval and grades no lab, so nothing
     // in the strip is marked current here.
     expect(
-      screen.getByRole("link", { name: "Playground" }).getAttribute("href"),
+      screen.getByRole("link", { name: "Pipeline" }).getAttribute("href"),
     ).toBe("/labs/retrieval");
     expect(screen.queryByRole("link", { name: "Catalog studio" })).toBeNull();
     expect(
       screen
-        .getByRole("link", { name: "Advanced: Vector index at scale" })
+        .getByRole("link", { name: "Scale & HNSW" })
         .getAttribute("href"),
     ).toBe("/mosaic-labs/hnsw");
     expect(

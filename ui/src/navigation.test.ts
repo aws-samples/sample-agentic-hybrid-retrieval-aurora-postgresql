@@ -94,18 +94,22 @@ describe("Shop to Playground hand-off", () => {
       .toEqual({ domain: "home_office" });
   });
 
-  it("ignores an attribute map, which cannot survive a query string", () => {
-    // `SearchFilters.attributes` is a nested object. Serialising it as
-    // "[object Object]" would forward a gate the Playground could not apply, so it
-    // is left out of the forwarded set entirely.
+  it("preserves typed attribute constraints between search surfaces", () => {
     const href = playgroundQueryHref("chair", {
       domain: "home_office",
-      attributes: { headrest: true },
+      attributes: { headrest: false, recommended_hours: 12, lumbar_support: "Dynamic" },
     });
 
-    expect(href).not.toContain("attributes");
     expect(forwardedSearchFilters(new URLSearchParams(href.split("?")[1])))
-      .toEqual({ domain: "home_office" });
+      .toEqual({
+        domain: "home_office",
+        attributes: { headrest: false, recommended_hours: 12, lumbar_support: "Dynamic" },
+      });
+  });
+
+  it.each(["broken-json", "null", "[]", "true"])("ignores an invalid attribute map: %s", (raw) => {
+    expect(forwardedSearchFilters(new URLSearchParams({ attributes: raw })))
+      .toEqual({});
   });
 });
 

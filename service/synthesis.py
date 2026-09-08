@@ -348,6 +348,9 @@ _UNIT_ALIASES = {
 #: A figure whose letters come *before* its digits is an identifier, not a
 #: measurement: `IP68`, `WH-C720`, `A2342`. It is supported only by itself.
 _IDENTIFIER_SHAPE = re.compile(r"^[A-Za-z]+\d")
+_RESOLUTION_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9])\d+\s*[x×]\s*\d+(?![A-Za-z0-9])", re.IGNORECASE
+)
 
 
 def _unit_family(word: str) -> str | None:
@@ -381,6 +384,10 @@ def _measurable_claims(
         claims.append(
             MeasurableClaim(_cents(*match.groups()), *match.span(), currency=True)
         )
+    # Keep both dimensions together; two supported numbers do not prove a resolution.
+    for match in _RESOLUTION_PATTERN.finditer(masked):
+        value = re.sub(r"\s*[x×]\s*", "x", match.group().casefold())
+        claims.append(MeasurableClaim(value, *match.span(), unit="resolution"))
     for match in re.finditer(
         r"(?<![A-Za-z0-9])[A-Za-z]*\d[\d,]*(?:\.\d+)?[A-Za-z]*", masked
     ):
@@ -464,6 +471,11 @@ def _claim_supported(
     support = _normalized_support_text(
         " ".join(f"{record.title} {record.text}" for record in records)
     )
+    if claim.unit == "resolution":
+        return claim.value in {
+            re.sub(r"\s*[x×]\s*", "x", match.group().casefold())
+            for match in _RESOLUTION_PATTERN.finditer(support)
+        }
     if claim.unit:
         return _states_figure_in_unit(support, claim.value, claim.unit) or any(
             _structured_measurement(record, claim) for record in records

@@ -26,12 +26,11 @@ inside the broken boundary still works:
 
 | Time | Stage | Required outcome | Stable eval anchors |
 |---:|---|---|---|
-| 0-10 min | Introduction | Frame the pipeline thesis, open Mosaic, and capture the baseline | `typo-recovery` before repair |
-| 10-20 min | Retrieve | Reconnect one candidate arm and prove candidate recall without weakening eligibility | `typo-recovery`, with control anchors |
-| 20-30 min | Rank | Repair one RRF formula and prove why final rank masked it | `rank-with-evidence`, with control anchors |
-| 30-45 min | Reason | Attach evidence identity to synthesis state and prove citation scope | `agentic-research`, with one evidence control |
-| 45-50 min | Prove (unnumbered finale) | Run the completion gate and separate regression, quality, and contract evaluation | all required checks |
-| 50-60 min | Flex | Use one optional lab, recover, or take questions | n/a |
+| 0-12 min | Introduction / Overview / Presentation | Meet Alex, frame the three lessons and architecture | `typo-recovery` before repair |
+| 12-22 min | Retrieve | Reconnect one candidate arm and prove candidate recall without weakening eligibility | `typo-recovery`, with control anchors |
+| 22-32 min | Rank | Repair one RRF formula and prove why final rank masked it | `rank-with-evidence`, with control anchors |
+| 32-52 min | Reason | Attach evidence identity to synthesis state, prove citation scope and run the completion gate | `agentic-research`, with one evidence control |
+| 52-60 min | Flex | Use one optional lab, recover, or take questions | n/a |
 
 The stable IDs remain evaluation identifiers and starter-gap ownership keys.
 They are checkpoints inside three labs, not participant navigation.
@@ -142,7 +141,7 @@ vocabulary rather than three unrelated troubleshooting workflows.
 
 ## Advanced Labs (OPTIONAL)
 
-Optional work does not consume the required 35-minute three-lab path or the
+Optional work does not consume the required 40-minute three-lab path or the
 five-minute Prove finale:
 
 1. Tune the HNSW operating point with recall, latency, plans, filter

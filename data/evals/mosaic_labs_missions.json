@@ -7,10 +7,10 @@
   },
   "session": {
     "total_minutes": 60,
-    "orientation_minutes": 10,
-    "core_lab_minutes": 35,
-    "scorecard_minutes": 5,
-    "contingency_minutes": 10
+    "orientation_minutes": 12,
+    "core_lab_minutes": 40,
+    "scorecard_minutes": 0,
+    "contingency_minutes": 8
   },
   "corpus": {
     "catalog_products": 500000,
@@ -136,7 +136,7 @@
       "id": "agentic-research",
       "stage": "reason",
       "core": true,
-      "duration_minutes": 15,
+      "duration_minutes": 20,
       "title": "Lab 3 - Build the retrieval agent",
       "discover_label": "Evidence-backed agent answer",
       "canonical_query_id": "G-021",
@@ -477,5 +477,53 @@
       ],
       "top_k": 10
     }
-  ]
+  ],
+  "playground": {
+    "default_request": "room-for-code",
+    "requests": [
+      {
+        "id": "clear-calls",
+        "label": "Clearer calls",
+        "shop_label": "Clearer calls",
+        "query": "I take video calls from home and need headphones that keep my voice clear despite background noise.",
+        "filters": {
+          "domain": "consumer_electronics",
+          "category_key": "over-ear-headphones"
+        },
+        "notice": "Alex needs the other person to hear him clearly. Follow microphone performance through retrieval and ranking; listening noise cancellation alone does not prove call clarity."
+      },
+      {
+        "id": "comfortable-days",
+        "label": "Comfortable days",
+        "shop_label": "Comfortable days",
+        "query": "a chair that keeps me comfortable through long coding sessions, with support I can adjust to fit me",
+        "filters": {
+          "domain": "home_office",
+          "category_key": "ergonomic-office-chairs"
+        },
+        "notice": "Follow Alex’s need for adjustable support from candidate retrieval through ranking and a comparison grounded in product details."
+      },
+      {
+        "id": "room-for-code",
+        "label": "Room to code",
+        "shop_label": "Room to code",
+        "query": "I want room for my code, documentation and a video call without constantly switching windows",
+        "filters": {
+          "domain": "home_office",
+          "category_key": "productivity-monitors"
+        },
+        "notice": "Watch how an intent-led request finds monitors, changes their order and leads to an evidence-based comparison."
+      },
+      {
+        "id": "exact-model",
+        "label": "Exact model · control",
+        "shop_label": "Mosaic Atelier 32",
+        "query": "Mosaic Atelier 32",
+        "filters": {
+          "domain": "home_office"
+        },
+        "notice": "A known model name is a useful control: agreement across methods can be the right result."
+      }
+    ]
+  }
 }

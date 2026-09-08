@@ -1,83 +1,66 @@
+import { mosaicLabManifest } from "./labMissions";
 import type { SearchFilters } from "./types";
 
 export type EditorialStory = {
   topic: string;
   title: string;
-  caption: string;
-  query: string;
+  situation: string;
+  considerations: string;
   image: string;
-  imageFit?: "cover";
+  imageWidth: number;
+  imageHeight: number;
+  imageAlt: string;
+  query: string;
   filters: Pick<SearchFilters, "domain" | "category_key">;
 };
 
-/**
- * Three editorial entries below the hero, each of which runs a real request.
- *
- * They used to be three same-shaped white cards in a row. Now the first is a
- * full-width image-led band and the other two sit beside it as photographs with
- * their copy on bare canvas, so the section reads as an edit rather than as three
- * containers.
- */
-export const editorialStories: EditorialStory[] = [
-  {
-    topic: "Over-ear headphones",
-    title: "For focus, and for the long way home",
-    caption:
-      "Comfort, isolation, and battery life weighed together, not one at a time.",
-    query: "Find the best over-ear headphones for focus and travel.",
-    image: "/assets/images/mosaic/ce-over-ear-headphones-02-catalog-3x2.webp",
-    // The catalog plates are 3:2 and this frame is wider, so it fills rather
-    // than sitting letterboxed inside it.
-    imageFit: "cover",
-    filters: {
-      domain: "consumer_electronics",
-      category_key: "over-ear-headphones",
-    },
+const storyContent = {
+  "clear-calls": {
+    topic: "Headphones",
+    situation: "Home isn’t always quiet. Alex needs his teammates to hear his voice, even when there’s noise in the background.",
+    considerations: "Start with microphone clarity. Then compare listening comfort and noise cancellation for focused work between calls.",
+    image: "/assets/images/mosaic/alex-focus-editorial-v3.webp",
+    imageWidth: 1600,
+    imageHeight: 1200,
+    imageAlt: "Graphite headphones beside a laptop and burgundy notebook on a felt desk mat",
   },
-  {
-    topic: "Workspace",
-    title: "Made to be sat in all day",
-    caption: "Fit, budget, and must-haves become real catalog constraints.",
-    query:
-      "Find an ergonomic mesh chair for long workdays with adjustable lumbar support.",
-    image: "/assets/images/mosaic/category/workspace.webp",
-    filters: {
-      domain: "home_office",
-      category_key: "ergonomic-office-chairs",
-    },
+  "comfortable-days": {
+    topic: "Chairs",
+    situation: "A quick call becomes a long coding session. Alex wants a chair he can adjust to his body and the way he works.",
+    considerations: "Look at lumbar support, seat depth and arm adjustments. A soft seat alone doesn’t tell the whole story.",
+    image: "/assets/images/mosaic/alex-long-day-editorial-v1.webp",
+    imageWidth: 1792,
+    imageHeight: 1008,
+    imageAlt: "A mesh office chair with a burgundy throw beside an oak desk in warm daylight",
   },
-  {
-    topic: "Running & fitness",
-    title: "For the miles after the miles",
-    caption: "Portable recovery tools for tired legs and limited carry-on space.",
-    query: "Recovery tools for sore calves after long runs that fit in a carry-on.",
-    image: "/assets/images/mosaic/category/performance.webp",
-    imageFit: "cover",
-    filters: {
-      domain: "running_fitness",
-      category_key: "mobility-tools",
-    },
+  "room-for-code": {
+    topic: "Monitors",
+    situation: "Code, documentation, a video call. Alex’s laptop screen makes him choose what stays visible. He wants room for all three.",
+    considerations: "Compare screen space and text clarity, then check the connection to his laptop. USB-C ports don’t all do the same job.",
+    image: "/assets/images/mosaic/alex-screen-space-editorial-v1.webp",
+    imageWidth: 1600,
+    imageHeight: 1200,
+    imageAlt: "A wide monitor on an adjustable arm above a clear oak work surface",
   },
-];
+};
 
-export const merchandisingDoors: Array<{
-  label: string;
-  filters: SearchFilters;
-  params: Record<string, string>;
-}> = [
-  {
-    label: "Under $200",
-    filters: { max_price_cents: 20000 },
-    params: { max_price_cents: "20000" },
-  },
-  {
-    label: "In stock now",
-    filters: { in_stock_only: true },
-    params: { in_stock_only: "true" },
-  },
-  {
-    label: "Rated 4★ and up",
-    filters: { min_rating: 4 },
-    params: { min_rating: "4" },
-  },
-];
+// Discover and Shop must send the same customer need to the same photographed category.
+export const editorialStories: EditorialStory[] = mosaicLabManifest.playground.requests.flatMap(request => {
+  const content = storyContent[request.id as keyof typeof storyContent];
+  return content ? [{ ...content, title: request.shop_label, query: request.query, filters: request.filters }] : [];
+});
+
+export function categoryHref(story: EditorialStory): string {
+  return "/catalog?" + new URLSearchParams(
+    Object.entries(story.filters).filter((entry): entry is [string, string] =>
+      typeof entry[1] === "string",
+    ),
+  );
+}
+
+export function storyHref(story: EditorialStory): string {
+  const params = new URLSearchParams(categoryHref(story).split("?")[1]);
+  params.set("q", story.query);
+  params.set("view", "results");
+  return "/catalog?" + params;
+}

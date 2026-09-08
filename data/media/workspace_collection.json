@@ -1,0 +1,41 @@
+{
+  "name": "Workspace edit",
+  "purpose": "Alex's photographed browse selection. Search remains independent and uses the full corpus. Monitor arms and cable management are intentionally left for search to discover.",
+  "groups": [
+    [
+      "Productivity Monitors",
+      "Ultrawide Monitors",
+      "Portable Monitors"
+    ],
+    [
+      "Ergonomic Office Chairs",
+      "Executive Chairs"
+    ],
+    [
+      "Over-Ear Headphones",
+      "Acoustic Headphones",
+      "Conference Headsets",
+      "True Wireless Earbuds"
+    ],
+    [
+      "Quiet Keyboards",
+      "Ergonomic Keyboards",
+      "Mechanical Keyboards",
+      "Trackballs",
+      "Desk Lamps",
+      "Circadian Lighting",
+      "Docking Stations",
+      "Conference Webcams",
+      "External Storage",
+      "Desktop Organizers",
+      "Laptop Stands",
+      "Footrests",
+      "Protective Sleeves"
+    ]
+  ],
+  "supporting_product_ids": [
+    451773,
+    484438,
+    474001
+  ]
+}

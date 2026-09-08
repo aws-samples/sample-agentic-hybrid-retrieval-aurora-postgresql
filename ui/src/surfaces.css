@@ -15,11 +15,6 @@
   background: var(--ivory);
 }
 
-.discover-experience {
-  background: var(--ivory);
-  color: var(--ink);
-}
-
 /* Discover, Shop, and the three Labs mastheads share one premium display voice:
    Newsreader at the display cut its optical axis reaches at these sizes.
    Weight 500, not 600 - the heavier cut was reviewed live at 54-76px and
@@ -40,1083 +35,6 @@
   padding-bottom: 0.04em;
 }
 
-/* Full-bleed editorial hero. It used to be a 1440px rounded rectangle with a
-   1px border and a drop shadow floating 28px below the header, which read as a
-   hero sitting inside a card: the photograph stopped 24px short of the window on
-   both sides and the frame, not the picture, was the first thing on the page.
-   Edge to edge, no radius, no border — the composition is the photograph and the
-   copy column standing in it, and the copy column's left edge lines up with
-   --shell-width so the page keeps one spine. */
-.discover-hero {
-  position: relative;
-  isolation: isolate;
-  display: grid;
-  width: 100%;
-  min-height: min(620px, calc(100vh - var(--topbar-height)));
-  align-items: center;
-  margin: 0;
-  overflow: hidden;
-  background: #d9d0c4;
-}
-
-.discover-backdrop,
-.discover-scrim {
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-/* Two hero crops: the wide desk scene, and the portrait scene under 640px
-   where a 16:9 frame would show only a third of the photograph. */
-.discover-backdrop img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-}
-
-/* The source image deliberately leaves a quiet wall on the left. The scrim
-   still protects the headline, but clears before the lower still life so the
-   photograph carries into the copy side instead of ending at an invisible
-   vertical boundary. */
-.discover-scrim {
-  pointer-events: none;
-  background:
-    linear-gradient(
-      90deg,
-      var(--ivory) 0%,
-      var(--ivory) 27%,
-      rgb(249 246 241 / 91%) 38%,
-      rgb(249 246 241 / 0%) 54%
-    );
-}
-
-/* Roughly 45% copy against 55% photograph. The 560px floor is what keeps
-   "Objects that shape" on one line once the viewport is too narrow for 45% to
-   hold a 52px headline; below 900px the hero stacks and this column goes full
-   width. The left inset matches --shell-width, so the headline starts on the
-   same vertical line as every section heading below it. */
-.discover-hero-content {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  /* The column is `width`-constrained, but an implicit `auto` track is not: it
-     sizes to its widest item's max-content, and .discover-hero-prompts is a
-     wrapping flex row whose max-content is all three query chips on one
-     unwrapped line. That measured 1494px inside this 795px column, and every
-     sibling declaring `width: 100%` -- the search pill above all -- inherited
-     the blowout and ran across the photograph. `minmax(0, 1fr)` is the same
-     fix .discover-search already applies to its own children. */
-  grid-template-columns: minmax(0, 1fr);
-  width: min(100%, max(46%, 560px));
-  justify-items: start;
-  padding-block: clamp(54px, 6vw, 82px);
-  padding-inline: calc((100% - var(--shell-width)) / 2) clamp(24px, 3vw, 48px);
-  text-align: left;
-}
-
-.discover-hero h1 {
-  display: grid;
-  margin: 0;
-  color: var(--ink);
-  font-size: clamp(54px, 4.9vw, 76px);
-}
-
-.discover-hero h1 em {
-  display: block;
-}
-
-.discover-hero h1 > span {
-  white-space: nowrap;
-}
-
-.discover-hero-sub {
-  max-width: 46ch;
-  margin: 26px 0 0;
-  color: var(--ink-soft);
-  font-family: var(--sans);
-  font-size: clamp(15px, 1.2vw, 17px);
-  font-weight: 450;
-  line-height: 1.62;
-}
-
-/* The search pill sits in the hero rather than a section below it, so the field
-   is the first thing the surface offers. The scrim already flattens the left of
-   the photograph, which is what lets a paper-coloured pill read cleanly here. */
-.discover-hero .discover-search {
-  width: 100%;
-  margin-top: 30px;
-}
-
-/* Three lab queries, wrapping as units instead of dividing a fixed
-   three-column track. The label sits on its own line above them. */
-.discover-hero-prompts {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.discover-hero-prompts > span {
-  flex: 1 0 100%;
-  margin-right: 0;
-  color: var(--ink-soft);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-/* Scrolling body */
-
-.discover-body {
-  display: grid;
-  width: var(--shell-width);
-  gap: clamp(56px, 7vw, 100px);
-  margin: 0 auto;
-  padding: clamp(48px, 6vw, 84px) 0 clamp(68px, 8vw, 108px);
-}
-
-.discover-section {
-  display: grid;
-  gap: 23px;
-}
-
-.discover-section-heading {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-/* Serif, like the hero and the Playground band. These were the only editorial
-   headings on the surface still set in the sans, which read as a section label
-   rather than as a line of writing. */
-.discover-section-heading h2 {
-  max-width: 26ch;
-  margin: 0;
-  font-family: var(--display);
-  font-size: clamp(30px, 3vw, 44px);
-  font-weight: 400;
-  letter-spacing: -0.005em;
-  line-height: 1.06;
-}
-
-.discover-section-heading p {
-  max-width: 60ch;
-  margin: 10px 0 0;
-  color: var(--ink-soft);
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-/* The one call-to-action treatment on the storefront: a solid maroon pill with
-   no arrow. The editorial stories, the plate, the section header and the labs
-   band (inverted there — see .discover-labs-cta) all use it, where before each
-   carried its own mix of underlined links, outlined pills and trailing arrows. */
-.discover-cta {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  justify-self: start;
-  padding: 0 22px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--maroon-800);
-  color: var(--paper);
-  font-family: var(--sans);
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  transition: background 180ms ease;
-}
-
-.discover-cta:hover {
-  background: var(--maroon-700);
-  color: var(--paper);
-}
-
-/* Filter links work before the counts arrive; only Aurora supplies figures. */
-.discover-merch {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px 28px;
-}
-
-.discover-merch-doors {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-
-.discover-merch-lede {
-  max-width: 60ch;
-  margin-right: 6px;
-  color: var(--ink-soft);
-  font-size: 13px;
-}
-
-.discover-merch-door {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  gap: 9px;
-  padding: 0 18px;
-  border: 1px solid rgb(92 75 62 / 20%);
-  border-radius: 999px;
-  color: var(--ink);
-  font-size: 12.5px;
-  font-weight: 600;
-  transition: border-color 180ms ease, color 180ms ease;
-}
-
-.discover-merch-door:hover {
-  border-color: var(--maroon-800);
-  color: var(--maroon-900);
-}
-
-.discover-merch-count {
-  min-width: 3ch;
-  color: var(--ink-soft);
-  font-variant-numeric: tabular-nums;
-  font-weight: 500;
-}
-
-.discover-merch-proof {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 13px;
-}
-
-.discover-merch-proof svg {
-  color: var(--maroon-800);
-  fill: currentcolor;
-}
-
-.discover-merch-proof strong {
-  color: var(--ink);
-  font-weight: 600;
-}
-
-/* What others are saying — one verbatim review excerpt at a time, between
-   hairlines. A single quiet line rather than a wall of cards: the corpus
-   holds five distinct voices, and each earns one sentence. */
-.discover-voices {
-  display: grid;
-  grid-template-columns: 150px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px 40px;
-  padding: 24px 4px;
-  border-block: 1px solid rgb(92 75 62 / 14%);
-}
-
-.discover-voices-lede {
-  display: grid;
-  gap: 7px;
-  max-width: 60ch;
-  color: var(--ink-soft);
-  font-size: 13px;
-}
-
-.discover-voices-disclosure {
-  grid-column: 1 / -1;
-  color: var(--ink-soft);
-  font-size: 10.5px;
-  line-height: 1.45;
-}
-
-/* The min-height is the tallest two-line quote, so the band holds its
-   breath while it cycles instead of reflowing the page under the reader. */
-.discover-voice {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr);
-  min-height: 76px;
-  align-content: center;
-  gap: 9px 18px;
-  margin: 0;
-}
-
-.discover-voice-portrait {
-  grid-column: 1;
-  grid-row: 1 / span 2;
-  align-self: center;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: var(--paper);
-}
-
-.discover-voice blockquote {
-  grid-column: 2;
-  margin: 0;
-  color: var(--ink);
-  font-family: var(--display);
-  font-size: 21px;
-  font-style: italic;
-  line-height: 1.35;
-}
-
-.discover-voice figcaption {
-  grid-column: 2;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 7px 14px;
-  color: var(--ink-soft);
-  font-size: 12.5px;
-}
-
-.discover-voice-rating {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-.discover-voice-rating svg {
-  color: var(--maroon-800);
-  fill: currentcolor;
-}
-
-.discover-voice figcaption a {
-  color: var(--ink);
-  font-weight: 600;
-  text-decoration: underline;
-  text-decoration-color: rgb(92 75 62 / 35%);
-  text-underline-offset: 3px;
-}
-
-.discover-voice figcaption a:hover {
-  color: var(--maroon-900);
-}
-
-.discover-voice figcaption em {
-  color: var(--green);
-  font-style: normal;
-}
-
-.discover-voices-dots {
-  display: inline-flex;
-  gap: 2px;
-}
-
-.discover-voices-dots button {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  cursor: pointer;
-}
-
-.discover-voices-dots button::before {
-  width: 8px;
-  height: 8px;
-  border: 1px solid rgb(92 75 62 / 45%);
-  border-radius: 50%;
-  background: transparent;
-  content: "";
-  transition:
-    background-color 180ms cubic-bezier(0.23, 1, 0.32, 1),
-    border-color 180ms cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-.discover-voices-dots button.is-active::before {
-  border-color: var(--maroon-800);
-  background: var(--maroon-800);
-}
-
-@media (pointer: coarse) {
-  .discover-voices-dots button {
-    width: 44px;
-    height: 44px;
-  }
-}
-
-@media (max-width: 860px) {
-  .discover-voices {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .discover-voices-lede {
-    max-width: none;
-  }
-
-  .discover-voice {
-    grid-template-columns: 48px minmax(0, 1fr);
-    column-gap: 14px;
-  }
-
-  .discover-voice-portrait {
-    align-self: start;
-    width: 48px;
-    height: 48px;
-  }
-
-  .discover-voices-dots {
-    justify-self: center;
-  }
-}
-
-@media (max-width: 480px) {
-  .discover-voice {
-    min-height: 180px;
-    align-content: start;
-  }
-}
-
-/* Shell properties live in the shared .discover-search/.shop-search rule
-   further down; Discover keeps one search composer inside it. */
-.discover-search {
-  grid-template-columns: minmax(0, 1fr);
-  padding: 8px 4px;
-}
-
-/* Editorial intent cards */
-
-/* One lead entry across the full width, then two supporting ones beneath it. The
-   asymmetry is what stops three equal cards from reading as a menu with no
-   recommendation in it; it used to be produced by nesting a 45/55 split inside a
-   1.28fr column, which left the lead copy on a 25%-wide measure. */
-.discover-editorial-grid {
-  display: grid;
-  gap: clamp(26px, 3vw, 48px) clamp(24px, 3vw, 44px);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.discover-editorial-card {
-  display: grid;
-  gap: 16px;
-}
-
-/* No panel: the photograph is the card. This carried a 1px border, a 22px radius,
-   an ivory fill and a drop shadow, so the lead entry read as a container with a
-   picture in it rather than as a picture with a caption. Copy 45, photograph 55,
-   which is also the hero's split. */
-.discover-editorial-card.is-featured {
-  grid-column: 1 / -1;
-  align-items: start;
-  padding: 0;
-  gap: clamp(26px, 3.4vw, 56px);
-  grid-template-columns: minmax(0, 58fr) minmax(0, 42fr);
-}
-
-/* Landscape for the lead entry: it now has the full width, and a 4:5 portrait
-   across 55% of 1480px is a 1000px-tall photograph. */
-.discover-editorial-card.is-featured .discover-editorial-media {
-  aspect-ratio: 16 / 10;
-}
-
-/* The image leads visually and the copy begins near its top edge. This reverses
-   the hero's copy-left composition and makes the first edit read immediately
-   as a story rather than as another large blank field followed by a picture. */
-.discover-editorial-card.is-featured .discover-editorial-media {
-  grid-area: 1 / 1;
-}
-
-.discover-editorial-card.is-featured .discover-editorial-body {
-  grid-area: 1 / 2;
-  gap: 10px;
-  padding-top: clamp(18px, 2.4vw, 38px);
-}
-
-.discover-editorial-card.is-featured .discover-editorial-body strong {
-  font-size: clamp(28px, 2.6vw, 38px);
-  line-height: 1.1;
-}
-
-.discover-editorial-card.is-featured .discover-editorial-body em {
-  max-width: 40ch;
-  font-size: 14.5px;
-}
-
-/* Supporting entries: a larger plate than the 112px thumbnail this replaces, copy
-   beside it, no panel around either. */
-.discover-editorial-card:not(.is-featured) {
-  align-items: start;
-  padding: 24px 0 0;
-  border-top: 1px solid var(--line);
-  gap: clamp(18px, 2vw, 28px);
-  grid-template-columns: minmax(0, 38%) minmax(0, 1fr);
-}
-
-.discover-editorial-card:not(.is-featured) .discover-editorial-body strong {
-  font-size: 20px;
-}
-
-.discover-editorial-card:not(.is-featured) .discover-editorial-body em {
-  font-size: 13px;
-}
-
-.discover-editorial-card:not(.is-featured) .discover-editorial-body {
-  padding-top: 8px;
-}
-
-/* The two cards in this row hold different amounts of copy, and the running
-   story holds the least: `mobility-tools` has one product in the 200-product
-   photographed edit against fourteen for headphones, so its picks list is one
-   row where its neighbour's is three. With both columns hugging their content
-   the two CTAs landed 48px apart and the short card read as one that had failed
-   to finish loading. Stretching the body and floating the button to its bottom
-   puts the pair on a common baseline; the extra space becomes margin above the
-   button rather than a hole in the middle of the band. */
-.discover-editorial-card:not(.is-featured) {
-  align-items: stretch;
-}
-
-.discover-editorial-card:not(.is-featured) .discover-editorial-media {
-  align-self: start;
-}
-
-.discover-editorial-card:not(.is-featured) .discover-editorial-body {
-  display: flex;
-  flex-direction: column;
-}
-
-.discover-editorial-card:not(.is-featured) .discover-cta {
-  /* `justify-self: start` on the base rule is what keeps this a pill rather than
-     a full-width bar, and flex ignores it: the cross axis of a column is
-     horizontal, so `align-self` is the property that carries here. */
-  align-self: flex-start;
-  margin-top: auto;
-}
-
-/* A button now, not a span: the photograph is the part of the card that still
-   runs the story's query, since the copy column carries links of its own. */
-.discover-editorial-media {
-  display: block;
-  overflow: hidden;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: #e2d3c0;
-  cursor: pointer;
-  /* Portrait, because the commissioned starter photographs are portrait crops
-     and the former landscape frame removed the chair base and much of the
-     shoe. A starter illustrated by a 3:2 catalog plate instead sets
-     `imageFit: "cover"` so it fills this frame rather than letterboxing in it. */
-  aspect-ratio: 4 / 5;
-}
-
-.discover-editorial-media img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  transition: transform 240ms ease;
-}
-
-.discover-editorial-media.is-cover img {
-  object-fit: cover;
-}
-
-.discover-editorial-media:hover img {
-  transform: scale(1.03);
-}
-
-/* min-width: 0 and an explicit minmax(0, 1fr) track, because the pick list
-   below carries nowrap titles: an automatic track sized itself to their
-   max-content width, and the copy column then refused to shrink under 900px
-   and pushed the page 86px past the viewport on a tablet-width window. */
-.discover-editorial-body {
-  display: grid;
-  gap: 7px;
-  min-width: 0;
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.discover-editorial-body small {
-  color: var(--maroon-800);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.discover-editorial-body strong {
-  font-family: var(--display);
-  font-size: 21px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-}
-
-/* The caption is editorial copy now, not the verbatim query, so the generated
-   "TRY ASKING" label above it no longer described what follows. */
-.discover-editorial-body em {
-  color: var(--ink-soft);
-  font-size: 13px;
-  font-style: normal;
-  line-height: 1.55;
-}
-
-/* The top-rated picks from the story's own category, fetched live at mount.
-   Hairline rows, because the copy column filled barely a fifth of a plate that
-   stands nearly five hundred pixels tall. */
-.discover-editorial-picks {
-  display: grid;
-  margin-top: 8px;
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.discover-editorial-picks a {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 11px 0;
-  border-top: 1px solid rgb(92 75 62 / 14%);
-  color: var(--ink);
-  font-size: 13.5px;
-  font-weight: 500;
-}
-
-.discover-editorial-picks a:last-child {
-  border-bottom: 1px solid rgb(92 75 62 / 14%);
-}
-
-.discover-editorial-pick-title {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.discover-editorial-picks a:hover .discover-editorial-pick-title {
-  color: var(--maroon-900);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.discover-editorial-pick-price {
-  flex: 0 0 auto;
-  color: var(--ink-soft);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-}
-
-.discover-editorial-body .discover-cta {
-  margin-top: 10px;
-}
-
-/* Category rail
- *
- * Six real `category_key` values, each on its own commissioned plate. It scrolls
- * sideways rather than wrapping, so the row height stays fixed however many
- * entries the list grows to. The 140px floor is low enough that all six still
- * fit unclipped down to a 1024px laptop; narrower than that the row becomes a
- * real scroller, which is where a partly visible tile reads as an affordance
- * rather than a broken edge.
- */
-
-/* The category rail sits under the same heading as the featured edit, separated
-   by a rule rather than by a second section header. */
-.discover-intention-fold {
-  display: grid;
-  gap: 14px;
-  margin-top: clamp(22px, 2.4vw, 34px);
-  padding-top: clamp(18px, 2vw, 26px);
-  border-top: 1px solid rgb(92 75 62 / 12%);
-}
-
-.discover-intention-fold > p {
-  max-width: 60ch;
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 13.5px;
-}
-
-.discover-intention-rail {
-  display: grid;
-  gap: clamp(12px, 1.4vw, 18px);
-  grid-auto-columns: minmax(160px, 1fr);
-  grid-auto-flow: column;
-  overflow-x: auto;
-  padding-bottom: 4px;
-  scroll-snap-type: x proximity;
-}
-
-.discover-intention-tile {
-  display: grid;
-  gap: 11px;
-  scroll-snap-align: start;
-  transition: transform 200ms ease;
-}
-
-.discover-intention-tile:hover {
-  transform: translateY(-2px);
-}
-
-.discover-intention-media {
-  display: block;
-  overflow: hidden;
-  border: 1px solid rgb(92 75 62 / 12%);
-  border-radius: 14px;
-  background: #e7e0d5;
-  box-shadow: 0 10px 24px rgb(48 37 28 / 6%);
-  aspect-ratio: 3 / 2;
-}
-
-.discover-intention-media img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 240ms ease;
-}
-
-.discover-intention-tile:hover .discover-intention-media img {
-  transform: scale(1.04);
-}
-
-.discover-intention-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--ink);
-  font-family: var(--sans);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.discover-intention-tile:hover .discover-intention-label {
-  color: var(--maroon-900);
-}
-
-/* Mosaic Studio is an optional Labs composition study. It uses real
-   premium-cohort records and links directly to their product pages; it is not
-   part of the three-lab workshop path or a retrieval result. */
-.discover-studio {
-  /* Espresso field. Every control inside it - the two actions and, once the
-     canvas assembles, each piece - sits on dark, so the ring inverts here. */
-  --focus: #f6ece7;
-
-  position: relative;
-  display: grid;
-  min-height: 400px;
-  grid-template-columns: minmax(0, 0.88fr) minmax(390px, 1.12fr);
-  overflow: hidden;
-  border: 1px solid rgb(92 75 62 / 15%);
-  border-radius: 8px;
-  background:
-    radial-gradient(circle at 6% 10%, rgb(204 156 88 / 14%), transparent 32%),
-    linear-gradient(135deg, #392820 0%, #251b18 70%, #1e1714 100%);
-  box-shadow: 0 22px 54px rgb(48 37 28 / 14%);
-}
-
-.discover-studio-copy {
-  position: relative;
-  z-index: 3;
-  display: grid;
-  align-content: center;
-  justify-items: start;
-  gap: 14px;
-  padding: clamp(32px, 4.6vw, 64px);
-}
-
-.discover-studio-copy > p:first-child {
-  margin: 0;
-  color: #deb86b;
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.discover-studio-copy h2 {
-  max-width: 430px;
-  margin: 0;
-  color: var(--ivory);
-  font-size: clamp(34px, 3.3vw, 48px);
-  font-weight: 400;
-  line-height: 1.03;
-}
-
-.discover-studio-copy > span {
-  max-width: 420px;
-  color: rgb(255 250 242 / 73%);
-  font-size: 14px;
-  line-height: 1.62;
-}
-
-.discover-studio-brief {
-  max-width: 420px;
-  margin: 2px 0 0;
-  padding-left: 12px;
-  border-left: 1px solid rgb(222 184 107 / 52%);
-  color: rgb(255 250 242 / 76%);
-  font-family: var(--display);
-  font-size: 15px;
-  font-style: italic;
-  line-height: 1.5;
-}
-
-.discover-studio-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 11px;
-  margin-top: 9px;
-}
-
-.discover-studio-actions > button,
-.discover-studio-actions > a {
-  display: inline-flex;
-  min-height: 45px;
-  align-items: center;
-  gap: 8px;
-  padding: 0 17px;
-  border-radius: 999px;
-  font-size: 12.5px;
-  font-weight: 700;
-  transition: box-shadow 180ms ease, transform 180ms ease, background 180ms ease;
-}
-
-.discover-studio-actions > button {
-  border: 1px solid rgb(255 250 242 / 22%);
-  background: var(--ivory);
-  color: #321e1c;
-}
-
-.discover-studio-actions > button:hover {
-  box-shadow: 0 12px 25px rgb(0 0 0 / 18%);
-  transform: translateY(-2px);
-}
-
-.discover-studio-actions > a {
-  border: 1px solid rgb(255 250 242 / 26%);
-  color: var(--ivory);
-}
-
-.discover-studio-actions > a:hover {
-  border-color: rgb(255 250 242 / 64%);
-  background: rgb(255 250 242 / 8%);
-}
-
-.discover-studio-canvas {
-  position: relative;
-  min-width: 0;
-  overflow: hidden;
-  background:
-    radial-gradient(circle at 72% 42%, rgb(222 184 107 / 10%), transparent 34%),
-    linear-gradient(90deg, rgb(255 250 242 / 0%), rgb(255 250 242 / 5%));
-}
-
-.discover-studio-canvas::before,
-.discover-studio-canvas::after {
-  position: absolute;
-  border: 1px solid rgb(255 250 242 / 12%);
-  border-radius: 50%;
-  content: "";
-}
-
-.discover-studio-canvas::before {
-  width: 440px;
-  height: 440px;
-  top: -146px;
-  right: -86px;
-}
-
-.discover-studio-canvas::after {
-  width: 270px;
-  height: 270px;
-  bottom: -162px;
-  left: 7%;
-}
-
-.discover-studio-grid {
-  position: absolute;
-  inset: 24px;
-  border: 1px solid rgb(255 250 242 / 11%);
-  border-radius: 8px;
-}
-
-.discover-studio-orbit,
-.discover-studio-route {
-  position: absolute;
-  display: block;
-  pointer-events: none;
-}
-
-.discover-studio-orbit {
-  border: 1px solid rgb(222 184 107 / 30%);
-  border-radius: 50%;
-}
-
-.discover-studio-orbit-one {
-  width: 260px;
-  height: 260px;
-  top: 13%;
-  left: 13%;
-}
-
-.discover-studio-orbit-two {
-  width: 160px;
-  height: 160px;
-  right: 10%;
-  bottom: 12%;
-}
-
-.discover-studio-route {
-  z-index: 1;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, #d9b46c, transparent);
-  opacity: 0;
-  transform-origin: left center;
-  transition: opacity 280ms ease;
-}
-
-.discover-studio-route-one {
-  width: 74%;
-  top: 44%;
-  left: 6%;
-  transform: rotate(-18deg);
-}
-
-.discover-studio-route-two {
-  width: 64%;
-  right: 4%;
-  bottom: 29%;
-  transform: rotate(30deg);
-}
-
-.discover-studio-piece,
-.discover-studio-placeholder {
-  position: absolute;
-  z-index: 2;
-  display: grid;
-  width: min(38%, 220px);
-  gap: 7px;
-  padding: 8px;
-  border: 1px solid rgb(255 250 242 / 17%);
-  border-radius: 14px;
-  background: rgb(255 250 242 / 10%);
-  box-shadow: 0 16px 32px rgb(0 0 0 / 18%);
-  opacity: 0.32;
-  transform: translateY(18px) scale(0.94);
-  transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease,
-    opacity 380ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 460ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.discover-studio-piece {
-  color: var(--ivory);
-}
-
-.discover-studio-piece > a {
-  display: grid;
-  gap: 7px;
-  color: inherit;
-}
-
-.discover-studio-piece > a > span:last-child {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.discover-studio-piece:hover,
-.discover-studio-piece:focus-visible {
-  border-color: rgb(222 184 107 / 76%);
-  box-shadow: 0 20px 42px rgb(0 0 0 / 28%);
-}
-
-.discover-studio-piece-image {
-  display: block;
-  height: 104px;
-  overflow: hidden;
-  border-radius: 9px;
-  background: #e8decd;
-}
-
-.discover-studio-piece-image img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.discover-studio-piece > span:last-of-type {
-  display: grid;
-  min-width: 0;
-  gap: 2px;
-}
-
-.discover-studio-candidate-count {
-  color: rgb(255 250 242 / 64%);
-  font-family: var(--mono);
-  font-size: 8.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.discover-studio-piece > button {
-  display: inline-flex;
-  width: fit-content;
-  min-height: 25px;
-  align-items: center;
-  gap: 5px;
-  padding: 0 7px;
-  border: 1px solid rgb(255 250 242 / 28%);
-  border-radius: 999px;
-  background: rgb(255 250 242 / 10%);
-  color: var(--ivory);
-  font-size: 9px;
-  font-weight: 700;
-  transition: border-color 180ms ease, background 180ms ease;
-}
-
-.discover-studio-piece > button:hover:not(:disabled) {
-  border-color: rgb(222 184 107 / 82%);
-  background: rgb(222 184 107 / 18%);
-}
-
-.discover-studio-piece > button:disabled {
-  cursor: not-allowed;
-  opacity: 0.48;
-}
-
-.discover-studio-piece small {
-  color: #e0bd7d;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.discover-studio-piece strong {
-  overflow: hidden;
-  color: var(--ivory);
-  font-family: var(--display);
-  font-size: 17px;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.discover-studio-piece em {
-  color: rgb(255 250 242 / 68%);
-  font-size: 11px;
-  font-style: normal;
-}
-
 .studio-piece-seat {
   top: 12%;
   left: 10%;
@@ -1135,83 +53,6 @@
   left: 29%;
   transform: translateY(18px) rotate(-1deg) scale(0.94);
   transition-delay: 160ms;
-}
-
-.discover-studio-placeholder {
-  min-height: 148px;
-  background: rgb(255 250 242 / 5%);
-}
-
-.discover-studio-canvas.assembled .discover-studio-piece,
-.discover-studio-canvas.assembled .discover-studio-placeholder {
-  opacity: 1;
-  transform: translateY(0) rotate(0) scale(1);
-}
-
-.discover-studio-canvas.assembled .discover-studio-piece {
-  animation: discover-studio-piece-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.discover-studio-canvas.assembled .studio-piece-display {
-  animation-delay: 80ms;
-}
-
-.discover-studio-canvas.assembled .studio-piece-input {
-  animation-delay: 160ms;
-}
-
-.discover-studio-canvas.assembled .studio-piece-seat {
-  transform: rotate(-4deg);
-}
-
-.discover-studio-canvas.assembled .studio-piece-display {
-  transform: rotate(3deg);
-}
-
-.discover-studio-canvas.assembled .studio-piece-input {
-  transform: rotate(-1deg);
-}
-
-.discover-studio-canvas.assembled .discover-studio-route {
-  opacity: 0.8;
-  animation: discover-studio-route 1.05s ease-out both;
-}
-
-.discover-studio-canvas.assembled .discover-studio-route-two {
-  animation-delay: 120ms;
-}
-
-.discover-studio-state {
-  position: absolute;
-  z-index: 4;
-  right: 33px;
-  bottom: 27px;
-  color: rgb(255 250 242 / 61%);
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-@keyframes discover-studio-route {
-  from {
-    clip-path: inset(0 100% 0 0);
-  }
-
-  to {
-    clip-path: inset(0 0 0 0);
-  }
-}
-
-@keyframes discover-studio-piece-in {
-  from {
-    opacity: 0;
-    transform: translateY(24px) scale(0.9);
-  }
-
-  to {
-    opacity: 1;
-  }
 }
 
 @media (max-width: 900px) {
@@ -1240,572 +81,12 @@
     min-height: 48px;
     padding-left: 0;
   }
-
-  .discover-studio {
-    min-height: 0;
-    grid-template-columns: 1fr;
-  }
-
-  .discover-studio-copy {
-    padding: 42px clamp(24px, 6vw, 52px);
-  }
-
-  .discover-studio-canvas {
-    min-height: 390px;
-  }
 }
 
 @media (max-width: 540px) {
-  .discover-studio-copy {
-    padding: 34px 24px;
-  }
-
-  .discover-studio-copy h2 {
-    font-size: 36px;
-  }
-
-  .discover-studio-actions {
-    align-items: stretch;
-  }
-
-  .discover-studio-actions > button,
-  .discover-studio-actions > a {
-    justify-content: center;
-  }
-
-  .discover-studio-canvas {
-    min-height: 340px;
-  }
-
-  .discover-studio-grid {
-    inset: 15px;
-  }
-
-  .discover-studio-piece,
-  .discover-studio-placeholder {
-    width: 42%;
-    padding: 6px;
-  }
-
-  .discover-studio-piece-image {
-    height: 82px;
-  }
-
-  .discover-studio-piece strong {
-    font-size: 14px;
-  }
 
   .studio-piece-input {
     left: 28%;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .discover-studio-actions > button:hover {
-    transform: none;
-  }
-
-  .discover-studio-canvas.assembled .discover-studio-piece,
-  .discover-studio-canvas.assembled .discover-studio-route {
-    animation: none;
-  }
-}
-
-/* Shop preview */
-
-/* The same 55/45 split as the hero and the lead editorial entry. At 1.68fr the copy
-   column measured 37ch against a 46ch paragraph, so the text sat in a narrow strip
-   with a quarter of the band empty beside it. */
-.discover-plate {
-  display: grid;
-  align-items: center;
-  gap: clamp(22px, 3vw, 48px);
-  grid-template-columns: minmax(0, 55fr) minmax(0, 45fr);
-}
-
-.discover-plate-media {
-  display: block;
-  overflow: hidden;
-  border-radius: 8px;
-  background: var(--paper-warm);
-  aspect-ratio: 16 / 10;
-}
-
-.discover-plate-media img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.discover-plate-copy {
-  display: grid;
-  justify-items: start;
-  gap: 12px;
-  padding-right: clamp(0px, 1vw, 18px);
-}
-
-.discover-plate-copy small {
-  color: var(--maroon-800);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.discover-plate-copy strong {
-  font-family: var(--display);
-  font-size: clamp(24px, 2.2vw, 32px);
-  font-weight: 400;
-  line-height: 1.12;
-}
-
-.discover-plate-copy p {
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 14px;
-  line-height: 1.62;
-}
-
-.discover-shop-grid {
-  display: grid;
-  gap: clamp(18px, 2vw, 28px);
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-/* Labs band */
-
-/* The closing statement of the route. A deep-maroon panel, aligned to the Shop
-   grid above it, with the three lab scenes carried over onto it: warm
-   photography on dark ground reads as plates in a magazine rather than as app
-   cards, and the dark field is the only place on Discover that inverts. */
-.discover-labs {
-  /* The only inverted field on the route, so the maroon focus ring would land
-     on maroon here. Its one focusable is the CTA. */
-  --focus: #f6ece7;
-
-  position: relative;
-  isolation: isolate;
-  gap: 0;
-  overflow: hidden;
-  padding: clamp(28px, 3.2vw, 52px);
-  border-radius: 8px;
-  background:
-    radial-gradient(118% 150% at 4% 6%, #5d1421 0%, rgb(93 20 33 / 0%) 56%),
-    linear-gradient(112deg, var(--maroon-950) 0%, #380e18 44%, var(--maroon-900) 100%);
-  box-shadow: 0 24px 56px rgb(43 13 19 / 24%);
-}
-
-.discover-labs-inner {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  align-items: center;
-  gap: clamp(24px, 3vw, 44px);
-  grid-template-columns: minmax(252px, 0.8fr) minmax(0, 2fr);
-}
-
-.discover-labs-copy {
-  display: grid;
-  justify-items: start;
-  gap: 14px;
-  padding-right: clamp(0px, 1vw, 14px);
-}
-
-.discover-labs h2 {
-  margin: 0;
-  color: var(--ivory);
-  font-family: var(--display);
-  font-size: clamp(30px, 3vw, 44px);
-  font-weight: 400;
-  letter-spacing: 0;
-  line-height: 1.06;
-}
-
-.discover-labs h2 em {
-  display: block;
-  color: #e3bc85;
-  font-style: italic;
-  font-weight: 400;
-}
-
-.discover-labs-lede {
-  max-width: 34ch;
-  margin: 0;
-  color: rgb(253 247 236 / 74%);
-  font-size: 13.5px;
-  line-height: 1.62;
-}
-
-/* The shared CTA pill, inverted: solid maroon vanishes on the band's own
-   maroon ground, so the one button here goes cream with dark text. */
-.discover-labs-cta {
-  margin-top: 4px;
-  background: var(--ivory);
-  color: var(--maroon-950);
-}
-
-.discover-labs-cta:hover {
-  background: var(--paper-strong);
-  color: var(--maroon-950);
-}
-
-.discover-labs-grid {
-  display: grid;
-  gap: clamp(12px, 1.4vw, 18px);
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-/* A single dropped plate gives the row an editorial rhythm. Margin rather than
-   a transform, so the band grows by the offset instead of clipping the caption
-   against its own overflow. */
-.discover-labs-grid > :nth-child(2) {
-  margin-top: clamp(10px, 1.6vw, 24px);
-}
-
-.discover-lab-card {
-  display: grid;
-  height: 100%;
-  align-content: start;
-  gap: 12px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--ivory);
-  transition: color 180ms ease;
-}
-
-.discover-lab-card:hover {
-  color: #f0d3a6;
-}
-
-.discover-lab-graphic {
-  position: relative;
-  display: block;
-  width: 100%;
-  aspect-ratio: 4 / 5;
-  overflow: hidden;
-  border: 1px solid rgb(253 247 236 / 16%);
-  border-radius: 14px;
-  background: #e9dfd1;
-  box-shadow: 0 18px 38px rgb(20 6 10 / 34%);
-  clip-path: inset(0 round 14px);
-  contain: paint;
-  isolation: isolate;
-  transition: box-shadow 180ms ease, transform 180ms ease, border-color 180ms ease;
-}
-
-.discover-lab-scene {
-  position: absolute;
-  inset: 0;
-  display: block;
-  overflow: hidden;
-}
-
-.discover-lab-scene-photo {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 500ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.discover-lab-card:hover .discover-lab-graphic,
-.discover-lab-card:focus-visible .discover-lab-graphic {
-  border-color: rgb(240 211 166 / 52%);
-  box-shadow: 0 22px 44px rgb(20 6 10 / 44%);
-  transform: translateY(-3px);
-}
-
-.discover-lab-card:hover .discover-lab-scene-photo,
-.discover-lab-card:focus-visible .discover-lab-scene-photo {
-  transform: scale(1.025);
-}
-
-.discover-lab-query-pill,
-.discover-lab-scene-label {
-  position: absolute;
-  z-index: 4;
-  top: 14px;
-  left: 14px;
-  display: inline-flex;
-  max-width: calc(100% - 28px);
-  min-height: 30px;
-  align-items: center;
-  gap: 7px;
-  padding: 0 11px;
-  border: 1px solid rgb(255 253 248 / 58%);
-  border-radius: 999px;
-  background: rgb(255 253 248 / 90%);
-  box-shadow: 0 8px 18px rgb(49 36 27 / 14%);
-  color: var(--ink);
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-  backdrop-filter: blur(10px);
-}
-
-.discover-lab-candidate {
-  position: absolute;
-  z-index: 3;
-  display: block;
-  width: 40%;
-  overflow: hidden;
-  border: 2.5px solid rgb(255 253 248 / 92%);
-  border-radius: 9px;
-  background: #eadfce;
-  box-shadow: 0 12px 26px rgb(47 34 24 / 26%);
-  aspect-ratio: 3 / 2;
-}
-
-.discover-lab-candidate img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.discover-lab-candidate-one {
-  right: 14px;
-  bottom: 54px;
-  transform: rotate(2deg);
-}
-
-.discover-lab-candidate-two {
-  bottom: 92px;
-  left: 14px;
-  width: 34%;
-  transform: rotate(-3deg);
-}
-
-.discover-lab-channel-strip {
-  position: absolute;
-  z-index: 5;
-  right: 12px;
-  bottom: 12px;
-  left: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-}
-
-.discover-lab-channel-strip span {
-  display: inline-flex;
-  min-height: 24px;
-  align-items: center;
-  padding: 0 8px;
-  border: 1px solid rgb(255 253 248 / 52%);
-  border-radius: 999px;
-  background: rgb(54 43 35 / 82%);
-  color: var(--paper);
-  font-family: var(--mono);
-  font-size: 9.5px;
-  letter-spacing: 0;
-  white-space: nowrap;
-  backdrop-filter: blur(9px);
-}
-
-.discover-lab-scene-rank {
-  background: #2d2723;
-}
-
-.discover-lab-scene-rank .discover-lab-scene-label {
-  color: var(--maroon-950);
-}
-
-/* Anchored to the bottom with an explicit height rather than stretched between
-   two insets: on the taller plate the stretched version cropped each product
-   into a sliver. The negative inline margin overlaps the three cards, which buys
-   back the width that overlap costs in the grid track. */
-.discover-lab-rank-products {
-  position: absolute;
-  inset: auto 12px 40px;
-  display: grid;
-  height: 62%;
-  align-items: end;
-  gap: 0;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.discover-lab-rank-product {
-  position: relative;
-  display: block;
-  height: 78%;
-  margin-inline: -4px;
-  overflow: hidden;
-  border: 2px solid rgb(255 253 248 / 72%);
-  border-radius: 9px;
-  background: #e9dfd1;
-  box-shadow: 0 14px 26px rgb(0 0 0 / 28%);
-  transition: transform 380ms ease;
-}
-
-.discover-lab-rank-product-one {
-  z-index: 2;
-  height: 100%;
-  transform: translateY(-5px);
-}
-
-.discover-lab-rank-product-three {
-  height: 86%;
-}
-
-.discover-lab-rank-product img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.discover-lab-rank-product b {
-  position: absolute;
-  z-index: 2;
-  top: 6px;
-  left: 6px;
-  display: grid;
-  width: 22px;
-  height: 22px;
-  place-items: center;
-  border-radius: 50%;
-  background: rgb(255 253 248 / 92%);
-  color: var(--maroon-900);
-  font-size: 9px;
-  font-weight: 700;
-  box-shadow: 0 4px 12px rgb(49 36 27 / 14%);
-}
-
-.discover-lab-rank-receipt {
-  position: absolute;
-  z-index: 4;
-  right: 14px;
-  bottom: 14px;
-  left: 14px;
-  display: flex;
-  min-height: 26px;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  color: rgb(255 253 248 / 72%);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.discover-lab-rank-receipt strong {
-  color: var(--paper);
-  font-weight: 700;
-}
-
-.discover-lab-scene-reason::after {
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  background: rgb(50 35 25 / 8%);
-  content: "";
-}
-
-.discover-lab-evidence {
-  position: absolute;
-  z-index: 3;
-  right: 12px;
-  bottom: 12px;
-  left: 12px;
-  display: grid;
-  gap: 5px;
-  padding: 13px 14px;
-  border: 1px solid rgb(255 253 248 / 70%);
-  border-radius: 11px;
-  background: rgb(255 253 248 / 92%);
-  box-shadow: 0 16px 32px rgb(49 36 27 / 22%);
-  backdrop-filter: blur(12px);
-}
-
-.discover-lab-evidence small {
-  color: var(--maroon-800);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.discover-lab-evidence > strong {
-  color: var(--ink);
-  font-family: var(--display);
-  font-size: 18px;
-  font-weight: 500;
-}
-
-.discover-lab-evidence > span {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  color: var(--ink-soft);
-  font-size: 11px;
-}
-
-.discover-lab-evidence > span b {
-  color: var(--maroon-800);
-  font-size: 9.5px;
-}
-
-.discover-lab-evidence em {
-  margin-top: 2px;
-  padding-top: 7px;
-  border-top: 1px solid rgb(92 75 62 / 14%);
-  color: var(--ink);
-  font-size: 10.5px;
-  font-style: normal;
-  font-weight: 700;
-}
-
-.discover-lab-copy {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 5px;
-  padding: 0 2px;
-  background: transparent;
-}
-
-.discover-lab-copy small {
-  color: #dcb277;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-/* Left to inherit from the card so the hover tint reaches the title. */
-.discover-lab-copy strong {
-  font-family: var(--display);
-  font-size: 17px;
-  font-weight: 500;
-  line-height: 1.2;
-}
-
-.discover-lab-copy em {
-  color: rgb(253 247 236 / 68%);
-  font-size: 12px;
-  font-style: normal;
-  line-height: 1.48;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .discover-editorial-media:hover img,
-  .discover-intention-tile:hover,
-  .discover-intention-tile:hover .discover-intention-media img,
-  .discover-lab-card:hover .discover-lab-graphic,
-  .discover-lab-card:hover .discover-lab-scene-photo {
-    transform: none;
-  }
-
-  .discover-lab-candidate-one,
-  .discover-lab-candidate-two,
-  .discover-lab-rank-product-one,
-  .discover-lab-evidence > span b,
-  .discover-voice {
-    animation: none;
   }
 }
 
@@ -1820,6 +101,7 @@
 }
 
 .shop-canvas {
+  --shop-column-gap: clamp(18px, 1.8vw, 28px);
   display: grid;
   min-height: calc(100vh - var(--topbar-height));
   grid-template-columns: minmax(0, 1fr);
@@ -1834,14 +116,10 @@
 /* Not a fixed 1400px column: with the assistant open the grid track is already
    narrower than the page, so a second cap here fought the first and left a strip
    of dead canvas between the products and the panel. The shell width applies
-   only while the assistant is closed.
-
-   The two paddings are tokens because .shop-hero cancels them with negative
-   margins to bleed the still off the top and right. They were written out twice
-   in different values once already. */
+   only while the assistant is closed. */
 .shop-main {
   --shop-pad-block: clamp(30px, 3.4vw, 48px);
-  --shop-pad-inline: clamp(20px, 3vw, 44px);
+  --shop-pad-inline: 0px;
 
   width: min(100%, var(--shell-width));
   min-width: 0;
@@ -1855,112 +133,70 @@
   width: 100%;
 }
 
-.shop-heading {
-  display: grid;
-  gap: 13px;
-  margin: 0 0 clamp(28px, 3.4vw, 44px);
-}
-
-.shop-heading h1 {
-  margin: 0;
-  font-size: clamp(42px, 4.4vw, 64px);
-}
-
-/* Block, not inline: the second clause is the line that carries the italic, so
-   it must break there at every width rather than wherever the column ends. */
-
-.shop-heading h1 em {
-  display: block;
-}
-
 .shop-lede {
-  max-width: 58ch;
+  max-width: 75ch;
   margin: 0;
   color: var(--ink-soft);
   font-size: 14.5px;
   line-height: 1.6;
 }
 
-/* The photograph and console share the product grid's right edge. Keeping
-   that alignment as the sidecar opens prevents a sliver of image protruding
-   beside the console's lower half. */
-
 .shop-hero {
-  position: relative;
-  margin: calc(-1 * var(--shop-pad-block)) calc(-1 * var(--shop-pad-inline)) 0;
-  padding: var(--shop-pad-block) var(--shop-pad-inline) 0;
+  --shop-story-columns: repeat(3, minmax(0, 1fr));
+  --shop-story-gap: 26px;
+  display: grid;
+  gap: 32px;
 }
 
-.shop-hero-photo {
-  position: absolute;
-  top: 0;
-  right: var(--shop-pad-inline);
-  width: min(62%, 960px);
-  height: clamp(340px, 36vw, 560px);
-  overflow: hidden;
-  /* The still opens on an ivory wall, so a soft left edge reads as one
-     continuous surface with the canvas rather than a pasted-in rectangle. */
-  mask-image: linear-gradient(90deg, transparent 0, #000 14%);
+.shop-heading {
+  display: grid;
+  grid-template-columns: var(--shop-story-columns);
+  align-items: end;
+  gap: var(--shop-story-gap);
 }
 
-/* Soften the photograph's base where the console overlaps it. */
-
-.shop-hero-photo::after {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: clamp(60px, 8vw, 110px);
-  background: linear-gradient(180deg, rgb(251 248 241 / 0%), var(--ivory));
-  content: "";
+.shop-heading h1 {
+  grid-column: span 2;
+  margin: 0;
+  font-size: clamp(40px, 4.5vw, 64px);
 }
 
-.shop-hero-photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 62% 48%;
-}
-
-.shop-hero .shop-heading {
-  position: relative;
-  max-width: 44%;
-  margin-bottom: 0;
-}
-
-.shop-hero .shop-lede {
-  max-width: 46ch;
-}
-
-/* Searching. With a query on the URL the page's job is the result list, so the
-   headline drops to one line and the console meets it. On a 1366x768 laptop
-   the first result began below the fold, and on the surface whose whole point
-   is watching a query break that put the break out of sight. Search and
-   results share the first viewport instead. */
-.shop-hero.is-searching .shop-heading {
-  max-width: none;
-}
-
-.shop-hero.is-searching .shop-heading h1 {
-  font-size: clamp(28px, 2.6vw, 36px);
-}
-
-.shop-hero.is-searching .shop-heading h1 em {
+.shop-heading h1 em {
   display: inline;
+  white-space: nowrap;
 }
 
-.shop-hero.is-searching .shop-lede {
-  display: none;
+.shop-journey {
+  min-width: 0;
+  margin: 0;
+}
+.shop-alex-story { display: flex; align-items: center; gap: 16px; padding: 22px; background: var(--paper-warm); border-radius: 16px; }
+.shop-alex-story img { width: 64px; height: 64px; flex-shrink: 0; border-radius: 50%; }
+.shop-alex-story p { margin: 0; color: var(--ink-soft); font-size: 14px; line-height: 1.6; }
+.shop-alex-story strong { display: block; margin-bottom: 4px; color: var(--ink); font-size: 15px; font-weight: 550; }
+.shop-hero.is-searching .shop-heading { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.shop-hero.is-searching .shop-heading h1 { grid-column: 1; }
+.shop-journey-sequence { display: grid; grid-template-columns: var(--shop-story-columns); gap: var(--shop-story-gap); list-style: none; margin: 0; padding: 0; }
+.shop-journey-sequence:focus-visible { outline: 2px solid var(--focus); outline-offset: 5px; border-radius: 10px; }
+.shop-journey-sequence li { min-width: 0; }
+.shop-journey-sequence img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: contain; border-radius: 16px; }
+.shop-journey-caption { padding: 18px 0 0; }
+.shop-journey-stage { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; color: var(--maroon-800); font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; }
+.shop-journey-number { color: var(--ink-soft); font-family: var(--display); font-size: 16px; letter-spacing: 0; }
+.shop-journey-rule { height: 1px; flex: 1; margin-left: 10px; background: var(--line); }
+.shop-journey h2 { margin: 0; color: var(--ink); font-family: var(--masthead); font-size: clamp(22px, 2vw, 28px); font-weight: 500; line-height: 1.15; }
+.shop-journey-caption p { margin: 8px 0 0; color: var(--ink-soft); font-size: 14px; line-height: 1.6; }
+
+.shop-hero > .shop-console {
+  grid-column: 1 / -1;
 }
 
-.shop-hero.is-searching .shop-console {
-  margin-top: 18px;
+.shop-search-scope {
+  margin: 0 4px;
+  color: var(--ink-soft);
+  font-size: 13px;
 }
 
-/* Search shells share their field treatment. Ask Mosaic is a separate action
-   in Shop, so the catalog field remains unambiguously search-only. */
-
-.discover-search,
 .shop-search {
   display: grid;
   width: 100%;
@@ -2327,198 +563,138 @@
   left: 118%;
 }
 
-/* The search console. Deliberately not clipped: the autocomplete panel drops
-   out of the pill on absolute position, so overflow: hidden here would cut the
-   suggestions off. Only the note cell clips, for its photograph. */
+/* Autocomplete extends outside the console, so its container must not clip. */
 
 .shop-console {
-  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  /* The card is meant to sit into the still's lower edge, not over its subject.
-     At 36px it started 294px into a 490px photo and hid 40% of it, including the
-     plinth the objects stand on. This drops it far enough to keep the staging
-     visible while the layered overlap survives. */
-  margin-top: clamp(34px, 7vw, 104px);
-  border: 1px solid rgb(92 75 62 / 10%);
-  border-radius: 8px;
-  background: var(--paper);
-  box-shadow: 0 20px 48px rgb(48 37 28 / 13%);
-}
-
-@media (min-width: 901px) {
-  /* Keep the console connected to the hero, but let the still's headphones,
-     shoe, and laptop read as one composition before the panel crosses it. */
-  .shop-console {
-    margin-top: clamp(72px, 10vw, 160px);
-  }
+  align-items: stretch;
+  gap: 28px;
 }
 
 .shop-console-search {
   display: grid;
-  min-width: 0;
   align-content: start;
-  gap: 15px;
-  padding: clamp(15px, 1.5vw, 21px);
+  min-width: 0;
+  gap: 10px;
 }
-
-/* Inside the console the pill is a field, not a raised object - the card
-   already carries the elevation. */
 
 .shop-console .shop-search {
   min-height: 0;
-  padding: 6px 7px 6px 3px;
-  border-color: rgb(92 75 62 / 15%);
+  padding: 9px 10px 9px 8px;
+  border-color: var(--line);
+  border-radius: 999px;
+  background: var(--paper);
   box-shadow: none;
 }
 
 .shop-console .shop-search:focus-within {
-  border-color: rgb(92 75 62 / 34%);
-  box-shadow: 0 8px 20px rgb(48 37 28 / 8%);
+  border-color: var(--maroon-700);
 }
-
-/* One row that scrolls. These are whole example queries rather than one-word
-   facets, so wrapping them turns a caption into a three-line block and pushes
-   the console over the photograph's bottom edge. */
 
 .shop-suggested {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 9px;
-  overflow-x: auto;
-  padding: 0 5px 2px;
-  mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 34px), transparent);
-  scrollbar-width: none;
-}
-
-.shop-suggested::-webkit-scrollbar {
-  display: none;
+  gap: 8px;
+  padding: 0 4px;
 }
 
 .shop-suggested > span {
-  flex: 0 0 auto;
-  margin-right: 3px;
+  margin-right: 5px;
   color: var(--ink-soft);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 13px;
 }
 
 .shop-suggested > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   min-height: 44px;
-  flex: 0 0 auto;
-  padding: 0 15px;
-  border: 1px solid rgb(92 75 62 / 16%);
+  padding: 0 17px;
+  border: 1px solid var(--line);
   border-radius: 999px;
-  background: transparent;
+  background: var(--paper);
   color: var(--ink);
-  font-size: 12.5px;
-  transition: border-color 180ms ease, background-color 180ms ease;
+  font-size: 14px;
+  text-align: left;
 }
 
 .shop-suggested > button:hover {
-  border-color: rgb(92 75 62 / 34%);
+  color: var(--maroon-700);
+  border-color: var(--line-strong);
   background: var(--paper-warm);
 }
 
 .shop-console-note {
-  position: relative;
   display: grid;
-  align-content: start;
-  gap: 7px;
-  overflow: hidden;
-  padding: clamp(17px, 1.7vw, 23px) 132px clamp(17px, 1.7vw, 23px) clamp(20px, 2vw, 28px);
-  border-top: 1px solid rgb(92 75 62 / 12%);
-  border-radius: 0 0 8px 8px;
-  background: linear-gradient(180deg, rgb(236 231 222 / 34%), rgb(236 231 222 / 0%) 72%);
-}
-
-/* The note sits beside the search field only where both cells can hold their
-   content. Ask Mosaic takes 410-520px off this column when it opens as a
-   sidecar, which is why the width test also excludes that state. */
-
-@media (min-width: 1181px) {
-  /* Keep the complete invitation readable while search owns most of the row. */
-  .shop-canvas:not(.assist-open) .shop-console {
-    grid-template-columns: minmax(0, 1.78fr) minmax(0, 1fr);
-  }
-
-  .shop-canvas:not(.assist-open) .shop-console-note {
-    border-top: 0;
-    border-left: 1px solid rgb(92 75 62 / 12%);
-    border-radius: 0 8px 8px 0;
-  }
-}
-
-.shop-console-note > small {
-  color: var(--maroon-800);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  align-content: center;
+  gap: 8px;
+  padding: 0;
 }
 
 .shop-console-note > strong {
   color: var(--ink);
-  font-family: var(--display);
-  font-size: 19px;
-  font-weight: 400;
-  letter-spacing: 0.01em;
+  font-family: var(--sans);
+  font-size: 18px;
+  font-weight: 550;
+  line-height: 1.3;
 }
 
-.shop-console-note ul {
-  display: grid;
-  gap: 5px;
-  margin: 5px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.shop-console-note-mobile {
-  display: none;
+.shop-console-note-copy {
+  max-width: 50ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14.5px;
+  line-height: 1.6;
 }
 
 .shop-console-note-action {
-  z-index: 1;
+  display: inline-flex;
+  align-items: center;
   justify-self: start;
+  gap: 8px;
   min-height: 44px;
-  margin-top: 7px;
-  padding-inline: 18px;
+  margin-top: 6px;
+  padding: 0 19px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+@media (min-width: 901px) {
+  .shop-canvas:not(.assist-open) .shop-console {
+    grid-template-columns: var(--shop-story-columns);
+    column-gap: var(--shop-story-gap);
+  }
+  .shop-canvas:not(.assist-open) .shop-console-search { grid-column: span 2; }
+}
+
+@media (max-width: 900px) {
+  .shop-heading {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .shop-heading h1 { grid-column: 1; }
+  .shop-journey-sequence { gap: 14px; }
+  .shop-console-note {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    padding: 18px 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+  .shop-console-note-copy {
+    grid-column: 1;
+  }
+  .shop-console-note-action {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    margin-top: 0;
+  }
 }
 
 .shop-assist-rail svg:first-child {
   color: #e0b96f;
-}
-
-.shop-console-note li {
-  display: grid;
-  align-items: start;
-  gap: 8px;
-  grid-template-columns: 15px minmax(0, 1fr);
-  color: var(--ink-soft);
-  font-size: 12.5px;
-  line-height: 1.45;
-}
-
-.shop-console-note li svg {
-  margin-top: 2px;
-  color: var(--maroon-800);
-}
-
-/* Bleeds into the card's outside corner, faded so it reads as part of the
-   paper rather than a second panel. */
-
-.shop-console-note-photo {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 148px;
-  height: 100%;
-  object-fit: cover;
-  object-position: 46% 54%;
-  mask-image: linear-gradient(90deg, transparent 0, #000 62%);
-  pointer-events: none;
 }
 
 .shop-assist-rail {
@@ -2796,6 +972,7 @@
 
 .shop-results-heading {
   display: flex;
+  flex-wrap: wrap;
   min-height: 54px;
   align-items: center;
   justify-content: space-between;
@@ -2934,7 +1111,7 @@
 .shop-product-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: clamp(20px, 2vw, 32px) clamp(18px, 1.8vw, 28px);
+  gap: clamp(20px, 2vw, 32px) var(--shop-column-gap);
 }
 
 .catalog-skeleton {
@@ -2944,7 +1121,7 @@
 .catalog-skeleton-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: clamp(20px, 2vw, 32px) clamp(18px, 1.8vw, 28px);
+  gap: clamp(20px, 2vw, 32px) var(--shop-column-gap);
 }
 
 .catalog-skeleton-card {
@@ -3019,9 +1196,9 @@
   flex-direction: column;
   gap: 0;
   overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--paper);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   transition: border-color var(--motion-fast) ease;
 }
 
@@ -3036,7 +1213,7 @@
   width: 100%;
   aspect-ratio: 3 / 2;
   overflow: hidden;
-  border-radius: 0;
+  border-radius: 12px;
   background: var(--paper-warm);
 }
 
@@ -3066,12 +1243,12 @@
   right: 12px;
   width: 44px;
   height: 44px;
-  border: 1px solid rgb(108 34 49 / 24%);
+  border: 0;
   background: rgb(255 254 250 / 94%);
   color: var(--maroon-900);
-  box-shadow: 0 5px 16px rgb(48 37 28 / 14%);
-  backdrop-filter: blur(6px);
-  opacity: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  opacity: 1;
   transition:
     opacity 180ms ease,
     border-color 180ms ease,
@@ -3086,7 +1263,7 @@
   border-color: var(--maroon-800);
   background: var(--paper);
   color: var(--maroon-900);
-  box-shadow: 0 7px 20px rgb(48 37 28 / 18%);
+  box-shadow: none;
 }
 
 .shop-product-card .catalog-favorite-button.active {
@@ -3106,44 +1283,55 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  padding: 13px 15px 13px;
+  padding: 16px 2px 4px;
 }
 
-.shop-card-kicker {
+.shop-card-meta {
   display: flex;
   min-width: 0;
   align-items: center;
   gap: 8px;
-  margin: 0 0 6px;
+  margin: 5px 0 0;
   overflow: hidden;
   color: var(--ink-soft);
-  font-size: 11px;
-  letter-spacing: 0.04em;
+  font-size: 12px;
+  letter-spacing: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.shop-card-kicker span {
+.shop-card-meta span {
   color: var(--ink-soft);
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
-.shop-card-kicker span::after {
+.shop-card-meta span::after {
   margin-left: 8px;
   color: var(--line-strong);
   content: "/";
 }
 
+.shop-card-description {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 9px 0 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .shop-product-card h3 {
   margin: 0;
-  font-family: var(--display);
-  font-size: 21px;
-  font-weight: 500;
-  line-height: 1.2;
+  font-family: var(--sans);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.4;
   overflow-wrap: anywhere;
-  text-wrap: balance;
+  text-wrap: pretty;
 }
 
 .shop-card-rating {
@@ -3258,9 +1446,9 @@
   place-items: center;
   border: 1px solid rgb(92 75 62 / 22%);
   border-radius: 50%;
-  background: var(--paper-warm);
-  color: var(--ink-soft);
-  opacity: 0;
+  background: var(--paper);
+  color: var(--maroon-800);
+  opacity: 1;
   transition: opacity 180ms ease, background 180ms ease, color 180ms ease;
 }
 
@@ -3346,9 +1534,9 @@
   align-items: center;
   justify-content: center;
   gap: 24px;
-  margin-top: clamp(40px, 4vw, 60px);
+  margin: 0;
   color: var(--ink-soft);
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .shop-pagination button {
@@ -4237,113 +2425,49 @@
   list-style: none;
 }
 
-/*
- * One card per retrieval path. The path name is the headline and the query sits
- * under it, so three short labels carry the scan and the sentences stop
- * competing with each other. These were flat one-line rows of the eval set's
- * three longest queries.
- */
 .ask-mosaic-starters button {
-  position: relative;
   display: grid;
   width: 100%;
-  grid-template-areas:
-    "path go"
-    "query query"
-    "hint hint";
+  grid-template-areas: "path go" "query query";
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 7px 10px;
-  padding: 12px 14px 11px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--paper);
-  box-shadow: none;
+  gap: 7px 12px;
+  padding: 18px 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
   color: var(--ink);
   font-family: var(--sans);
   text-align: left;
-  transition: border-color var(--motion-fast) ease, background-color var(--motion-fast) ease;
 }
 
-.ask-mosaic-starters button:hover,
-.ask-mosaic-starters button:focus-visible {
-  border-color: var(--maroon-700);
-  background: var(--paper-warm);
-}
-
-.ask-mosaic-starters button:active {
-  box-shadow: 0 1px 2px rgb(48 37 28 / 4%);
-  transform: translateY(0);
+.ask-mosaic-starters button:hover {
+  color: var(--maroon-700);
 }
 
 .ask-mosaic-starter-path {
-  align-self: center;
   grid-area: path;
-  color: var(--maroon-800);
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 17px;
+  font-weight: 500;
 }
 
 .ask-mosaic-starter-go {
   align-self: center;
   grid-area: go;
   color: var(--maroon-700);
-  opacity: 0.45;
-  transition: opacity 200ms ease, transform 200ms ease;
-}
-
-.ask-mosaic-starters button:hover .ask-mosaic-starter-go,
-.ask-mosaic-starters button:focus-visible .ask-mosaic-starter-go {
-  opacity: 1;
-  transform: translate(2px, -2px);
 }
 
 .ask-mosaic-starter-query {
-  max-width: 60ch;
   grid-area: query;
-  color: var(--ink);
-  font-size: 14px;
-  line-height: 1.42;
-}
-
-/*
- * The close-spelling card, which loads its query rather than running it.
- *
- * Dashed, because the thing it produces is an unfinished request: a misspelled
- * query lands in the composer and the shopper sends it. The three cards above run
- * on click and print the query they will run; this one cannot print its query
- * without the store suggesting a spelling mistake in its own voice, so it says
- * what it does instead.
- */
-.ask-mosaic-starters .ask-mosaic-starter-seed {
-  border-style: dashed;
-  background: var(--paper-warm);
-}
-
-.ask-mosaic-starter-hint {
-  grid-area: hint;
-  margin-top: -3px;
   color: var(--ink-soft);
-  font-size: 12px;
-  line-height: 1.35;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
-.ask-mosaic-starters .ask-mosaic-starter-seed:hover .ask-mosaic-starter-go,
-.ask-mosaic-starters
-  .ask-mosaic-starter-seed:focus-visible
-  .ask-mosaic-starter-go {
-  transform: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ask-mosaic-starters button:hover,
-  .ask-mosaic-starters button:focus-visible,
-  .ask-mosaic-starters button:hover .ask-mosaic-starter-go,
-  .ask-mosaic-starters button:focus-visible .ask-mosaic-starter-go {
-    transform: none;
-  }
+.ask-mosaic-entry-note {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .ask-mosaic-capability {
@@ -5765,79 +3889,12 @@
     height: 100%;
     grid-column: auto;
   }
-
-  /* Below the two-column band the statement becomes a single banner row with the
-     pill at the far right, and the plates take the full width beneath it - so
-     they revert to squares rather than growing into very tall portraits. */
-  .discover-labs-inner {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 30px;
-  }
-
-  .discover-labs-copy {
-    align-items: center;
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .discover-labs h2,
-  .discover-labs-lede {
-    grid-column: 1;
-  }
-
-  .discover-labs-lede {
-    max-width: 76ch;
-  }
-
-  .discover-labs-cta {
-    margin-top: 0;
-    grid-column: 2;
-    grid-row: 1 / -1;
-    align-self: center;
-    justify-self: end;
-  }
-
-  .discover-labs-grid > :nth-child(2) {
-    margin-top: 0;
-  }
-
-  .discover-lab-graphic {
-    aspect-ratio: 1;
-  }
-
-  /* The headline needs more of the row than the still does once the column
-     narrows, or "Find what fits" breaks across three lines. */
-  .shop-hero-photo {
-    width: min(52%, 640px);
-    height: clamp(272px, 30vw, 360px);
-  }
-
-  .shop-hero .shop-heading {
-    max-width: 47%;
-  }
 }
 
 @media (max-width: 900px) {
 
   .shop-product-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  /* Two columns no longer hold both the headline and the still, so the still
-     becomes a full-width band and the type moves below it. */
-  .shop-hero {
-    padding-top: 0;
-  }
-
-  .shop-hero-photo {
-    position: static;
-    width: auto;
-    height: clamp(190px, 32vw, 260px);
-    margin: 0 calc(-1 * clamp(24px, 5vw, 60px)) clamp(24px, 3vw, 34px);
-    mask-image: none;
-  }
-
-  .shop-hero .shop-heading {
-    max-width: none;
   }
 
   .labs-premium {
@@ -5853,159 +3910,33 @@
     width: 100%;
     padding: 20px 24px 0;
   }
-
-  /* The overlaid hero is a desktop composition. Below 900px the copy column is
-     too narrow to keep the headline, lede, search field and prompt row clear of
-     the photograph - the prompt chips end up floating over the still life - so
-     the picture becomes its own band and the copy sits on paper beneath it. */
-  .discover-hero {
-    min-height: 0;
-    align-items: stretch;
-    background: var(--paper);
-    grid-template-rows: 260px auto;
-  }
-
-  .discover-backdrop {
-    position: relative;
-    z-index: 0;
-    inset: auto;
-    height: 260px;
-    grid-row: 1;
-  }
-
-  /* Nothing overlaps the photograph any more, so there is nothing to even out. */
-  .discover-scrim {
-    display: none;
-  }
-
-  .discover-hero-content {
-    width: 100%;
-    padding: 30px clamp(20px, 4vw, 34px) 34px;
-    grid-row: 2;
-  }
-
-  /* Under 900px the featured card's copy and plate no longer both fit on one
-     row, so the whole set stacks and the lead card keeps its emphasis through
-     size rather than through position. */
-  .discover-editorial-grid {
-    gap: 14px;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .discover-editorial-card.is-featured {
-    grid-row: auto;
-    grid-template-columns: minmax(0, 56%) minmax(0, 1fr);
-  }
-
-  /* Once the row is scrolling anyway, stop shrinking the plates to fit. */
-  .discover-intention-rail {
-    grid-auto-columns: minmax(170px, 1fr);
-  }
-
-  .discover-plate {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .discover-shop-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .discover-labs {
-    padding: 22px 18px 26px;
-  }
-
-  /* One plate per row: a landscape crop keeps a full-width scene from taking
-     over the viewport. */
-  .discover-labs-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .discover-lab-graphic {
-    aspect-ratio: 16 / 10;
-  }
-
-  /* The overlays are proportioned for a ~270px portrait plate. On a full-width
-     landscape one the same percentages leave the rank cluster floating over dead
-     ground and stretch the evidence card into a banner, so both re-anchor. */
-  .discover-lab-rank-products {
-    inset: auto 14px 32px;
-    height: 78%;
-  }
-
-  /* The rank order is carried by height, so the three restate together - a lone
-     override on the base class would flatten the leader back into the pack. */
-  .discover-lab-rank-product {
-    height: 84%;
-    margin-inline: -6px;
-  }
-
-  .discover-lab-rank-product-one {
-    height: 100%;
-  }
-
-  .discover-lab-rank-product-three {
-    height: 91%;
-  }
-
-  .discover-lab-evidence {
-    right: auto;
-    max-width: min(360px, 68%);
-  }
 }
 
 /* Laptop-height desktops (1366x768 is the room display) have to clear the fold
-   with the headline, lede, search field and prompt row all inside the hero. The
+   with the headline, lede and search field all inside the hero. The
    base min(560px, 100vh - 128px) height does not buy that room on its own;
    tighter block padding does. */
-@media (min-width: 901px) and (max-height: 850px) {
-  .discover-hero-content {
-    padding-block: clamp(40px, 6vh, 64px);
-  }
-
-  .discover-body {
-    padding-top: clamp(40px, 5vh, 60px);
-  }
-
-  .discover-search {
-    min-height: 58px;
-  }
-}
 
 /* Shorter windows still (1024x640 is the tight case) need more.
    Recompute the height against the shorter window - a 440px ceiling instead of
    560px, and more chrome subtracted - and fix the block padding, so the hero
    asks for no more height than its own content needs. */
-@media (min-width: 901px) and (max-height: 700px) {
-  .discover-hero {
-    min-height: clamp(260px, calc(100vh - 344px), 440px);
-  }
-
-  .discover-hero-content {
-    padding-block: 28px;
-  }
-}
 
 @media (max-width: 640px) {
-  /* No room for a banner row on a phone: the statement stacks again and the pill
-     goes back under the lede. */
-  .discover-labs-copy {
-    grid-template-columns: minmax(0, 1fr);
-  }
 
-  .discover-labs-cta {
-    margin-top: 4px;
-    grid-column: 1;
-    grid-row: auto;
-    justify-self: start;
+  .shop-journey-sequence {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 86%;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
   }
-
-  /* A phone plate is ~190px tall, so the cluster has to clear both the shortlist
-     pill above it and the fusion receipt below it or the leader card lands under
-     one of them. */
-  .discover-lab-rank-products {
-    inset: auto 12px 40px;
-    height: 56%;
-  }
+  .shop-journey-sequence li { scroll-snap-align: start; }
+  .shop-alex-story { gap: 12px; }
+  .shop-alex-story img { width: 56px; height: 56px; }
 
   /* The 60px strip of catalog the panel leaves visible at tablet width is worth
      a third of the shortlist's text column on a phone, and there is nothing to
@@ -6044,142 +3975,23 @@
     gap: 10px;
   }
 
-  .discover-experience {
-    height: auto;
-    min-height: 100svh;
-    overflow: visible;
-  }
-
-  /* The stacked hero arrives at 900px; a phone only needs a shallower band. */
-  .discover-hero {
-    grid-template-rows: 236px auto;
-  }
-
-  .discover-backdrop {
-    height: 236px;
-  }
-
-  .discover-backdrop img {
-    object-position: 61% center;
-  }
-
-  .discover-hero-content {
-    justify-items: start;
-    padding: 26px 24px 32px;
-    text-align: left;
-  }
-
-  .discover-hero .discover-search {
-    max-width: none;
-    margin-top: 20px;
-  }
-
-  /* Chips stacked in a column would push the field off a phone screen; the row
-     scrolls sideways instead. */
-  .discover-hero-prompts {
-    width: 100%;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 2px;
-  }
-
-  .discover-hero-prompts > span {
-    flex: 0 0 auto;
-  }
-
-  .discover-hero h1 {
-    max-width: 390px;
-    font-size: clamp(42px, 13vw, 54px);
-  }
-
-  .discover-hero h1 > span {
-    white-space: normal;
-  }
-
-  .discover-hero-sub {
-    max-width: 340px;
-  }
-
-  /* The pill becomes a stacked block on a phone, so the radius drops from a pill
-     to the panel value the rest of the product uses. */
-  .shop-search {
-    position: relative;
-    grid-template-columns: minmax(0, 1fr);
-    padding: 10px;
-    border-radius: 8px;
-  }
-
-  .shop-hero-photo {
-    height: 174px;
-    margin-bottom: 20px;
-  }
-
-  .shop-console {
-    margin-top: 20px;
-  }
-
-  .shop-console .shop-search {
-    padding: 8px;
-  }
-
   .shop-suggested {
-    overflow: hidden;
-    mask-image: none;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
   }
-
+  .shop-suggested > span {
+    display: none;
+  }
   .shop-suggested > button {
-    min-width: 0;
-    flex: 1 1 auto;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    flex: 0 0 auto;
     white-space: nowrap;
   }
-
-  .shop-suggested > button:nth-of-type(n + 2) {
+  .shop-console-note-copy {
     display: none;
-  }
-
-  /* A 148px photograph on a phone-width card leaves the bullets about 180px of
-     column, which wraps every one of them onto three lines. */
-  .shop-console-note {
-    gap: 3px;
-    padding-block: 14px;
-    padding-right: clamp(20px, 2vw, 28px);
-  }
-
-  .shop-console-note > small {
-    display: none;
-  }
-
-  .shop-console-note ul {
-    display: none;
-  }
-
-  .shop-console-note-mobile {
-    display: block;
-    max-width: 34ch;
-    margin: 2px 0 0;
-    color: var(--ink-soft);
-    font-size: 12.5px;
-    line-height: 1.45;
-  }
-
-  .shop-console-note-photo {
-    display: none;
-  }
-
-  .discover-search {
-    position: relative;
-    grid-template-columns: minmax(0, 1fr);
-    padding: 10px;
-    border-radius: 8px;
-  }
-
-  .discover-search .search-composer,
-  .shop-search .search-composer {
-    min-height: 50px;
-    border: 1px solid rgb(92 75 62 / 14%);
-    background: var(--paper);
   }
 
   .catalog-suggestions {
@@ -6194,10 +4006,6 @@
   }
 
   .shop-search .catalog-suggestions > button {
-    grid-template-columns: 40px minmax(0, 1fr);
-  }
-
-  .discover-search .catalog-suggestions > button {
     grid-template-columns: 40px minmax(0, 1fr);
   }
 
@@ -6262,22 +4070,33 @@
     right: 8px;
     width: 44px;
     height: 44px;
+    opacity: 1;
+    box-shadow: none;
+    backdrop-filter: none;
+    border: 0;
   }
 
   .shop-product-card h3 {
     font-size: 17px;
+    font-family: var(--sans);
+    font-weight: 600;
+    line-height: 1.4;
+    text-wrap: pretty;
   }
 
   .shop-product-card .product-card-body {
     padding-inline: 12px;
+    padding: 16px 2px 4px;
   }
 
-  .shop-card-kicker {
+  .shop-card-meta {
     flex-wrap: wrap;
     gap: 2px 6px;
     white-space: normal;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.4;
+    margin: 5px 0 0;
+    letter-spacing: 0;
   }
 
   .shop-card-price {
@@ -6346,36 +4165,6 @@
   .page-header {
     overflow-wrap: anywhere;
   }
-
-  .discover-hero-sub {
-    margin-top: 14px;
-  }
-
-  /* The natural-language field remains a single compact row on phones. */
-  .discover-search {
-    min-height: auto;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .discover-editorial-grid,
-  .discover-shop-grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* On a phone the featured card's plate goes above its copy rather than beside
-     it; a 45% column is too narrow to show the object. */
-  .discover-editorial-card.is-featured {
-    grid-column: auto;
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .discover-editorial-card.is-featured .discover-editorial-media {
-    grid-area: auto;
-  }
-
-  .discover-editorial-card.is-featured .discover-editorial-body {
-    grid-area: auto;
-  }
 }
 
 @media (max-width: 900px) {
@@ -6433,24 +4222,6 @@
   }
 }
 
-/* The Studio tour moves between preloaded fixtures. The stack transition is
-   visual only; Studio does not claim jointly ranked products. */
-.discover-studio-actions > button.discover-studio-tour {
-  border-color: rgb(255 250 242 / 28%);
-  background: rgb(255 250 242 / 8%);
-  color: var(--ivory);
-}
-
-.discover-studio-actions > button.discover-studio-tour:hover:not(:disabled) {
-  border-color: rgb(222 184 107 / 80%);
-  background: rgb(222 184 107 / 16%);
-}
-
-.discover-studio-actions > button.discover-studio-tour:disabled {
-  cursor: wait;
-  opacity: 0.55;
-}
-
 .studio-piece-seat {
   --studio-rotation: -4deg;
   --studio-stack-x: clamp(78px, 12vw, 178px);
@@ -6470,19 +4241,6 @@
   --studio-stack-x: clamp(30px, 3vw, 46px);
   --studio-stack-y: clamp(-80px, -5vw, -34px);
   --studio-stack-rotation: 9deg;
-}
-
-.discover-studio-canvas.assembled.touring .discover-studio-piece {
-  animation: studio-piece-tour 860ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  will-change: opacity, transform;
-}
-
-.discover-studio-canvas.assembled.touring .studio-piece-display {
-  animation-delay: 100ms;
-}
-
-.discover-studio-canvas.assembled.touring .studio-piece-input {
-  animation-delay: 200ms;
 }
 
 @keyframes studio-piece-tour {
@@ -6509,9 +4267,6 @@
 }
 
 @media (max-width: 640px) {
-  .discover-studio-canvas.assembled.touring .discover-studio-piece {
-    animation-name: studio-piece-tour-compact;
-  }
 
   @keyframes studio-piece-tour-compact {
     from {
@@ -6528,12 +4283,6 @@
       opacity: 1;
       transform: rotate(var(--studio-rotation)) scale(1);
     }
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .discover-studio-canvas.assembled.touring .discover-studio-piece {
-    animation: none;
   }
 }
 
@@ -9660,29 +7409,6 @@
   }
 }
 
-/* ---------------------------------------------------------------------------
-   Mosaic premium alignment. These rules finish the Claude Code pass against
-   the supplied Discover, Shop, Ask Mosaic, and Retrieval Observatory boards.
-   They intentionally leave the HNSW and Studio instruments structurally intact.
-   --------------------------------------------------------------------------- */
-
-/* The two card rules that used to sit here reset a border-radius and a shadow
-   the cards no longer have. */
-.discover-intention-media {
-  border-radius: 8px;
-  box-shadow: none;
-}
-
-.shop-console {
-  box-shadow: 0 16px 38px rgb(48 37 28 / 9%);
-}
-
-@media (min-width: 1181px) {
-  .shop-canvas:not(.assist-open) .shop-console-note {
-    border-radius: 0 8px 8px 0;
-  }
-}
-
 .shop-controls {
   margin-top: clamp(30px, 3.4vw, 46px);
   padding-bottom: 12px;
@@ -10708,14 +8434,6 @@
     min-height: 44px;
   }
 
-  .discover-hero {
-    border-radius: 0;
-  }
-
-  .shop-console {
-    border-radius: 7px;
-  }
-
   .shop-filter-toolbar {
     padding-block: 11px;
   }
@@ -10779,10 +8497,6 @@
     transition: none;
   }
 
-}
-
-.discover-search .catalog-suggestions {
-  display: none;
 }
 
 @media (max-width: 640px) {
@@ -11007,162 +8721,14 @@
   box-shadow: 0 4px 12px rgb(48 37 28 / 5%);
 }
 
-/* Match the full hero composition at normal browser zoom. Its visible scene
-   and overlap scale together, so viewport height cannot lift the console over
-   the headphones and shoe or remove the Ask Mosaic explanation. */
-@media (min-width: 901px) {
-  .shop-canvas:not(.assist-open) .shop-main:has(.shop-hero:not(.is-searching)) {
-    --shop-scene-height: clamp(280px, min(24vw, 42svh), 360px);
-    --shop-pad-block: clamp(28px, 2.6vw, 40px);
-
-    width: min(100%, var(--shell-width), 1340px);
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-heading {
-    min-height: calc(var(--shop-scene-height) - var(--shop-pad-block));
-    align-content: start;
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) h1 {
-    font-size: clamp(42px, 4vw, 58px);
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero-photo {
-    height: calc(var(--shop-scene-height) * 1.4);
-    max-height: 100%;
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console {
-    margin-top: 0;
-    box-shadow: 0 16px 40px rgb(48 37 28 / 11%);
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console-search {
-    align-content: start;
-    gap: 13px;
-    padding: 18px;
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-suggested {
-    gap: 8px;
-    padding-inline: 0;
-    mask-image: none;
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-search {
-    padding: 5px 6px 5px 3px;
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .search-composer {
-    min-height: 46px;
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .search-composer input {
-    height: 46px;
-    font-size: 14px;
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .catalog-idle-suggestion {
-    font-size: 14px;
-    line-height: 46px;
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .catalog-autocomplete > button[type="submit"] {
-    width: 44px;
-    height: 44px;
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console-note {
-    gap: 6px;
-    padding: 18px 116px 18px 22px;
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console-note > small {
-    display: block;
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console-note > strong {
-    font-size: 18px;
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console-note ul {
-    display: grid;
-    gap: 4px;
-    margin-top: 4px;
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console-note li {
-    font-size: 12px;
-    line-height: 1.4;
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console-note-action {
-    margin-top: 6px;
-    padding-inline: 16px;
-  }
-
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-console-note-photo {
-    width: 132px;
-  }
-
-  .shop-canvas:not(.assist-open) .shop-main:has(.shop-hero:not(.is-searching)) .shop-controls {
-    margin-top: 32px;
-    padding-bottom: 10px;
-  }
-}
-
-@media (min-width: 901px) and (pointer: fine) {
-  .shop-canvas:not(.assist-open) .shop-hero:not(.is-searching) .shop-suggested > button {
-    min-height: 40px;
-    padding-inline: 13px;
-  }
-}
-
 /* Laptop height, not physical screen size, determines how much of a run is
    visible. Keep the controls and first results together without shrinking
    the reading text or the diagnostic table. */
 @media (min-width: 901px) and (max-height: 900px) {
-  .discover-hero {
-    min-height: min(550px, calc(100svh - var(--topbar-height)));
-  }
-
-  .discover-hero-content {
-    padding-block: 40px;
-  }
 
   .shop-main {
     --shop-pad-block: 24px;
-  }
-
-  .shop-heading h1 {
-    font-size: clamp(42px, 3.8vw, 54px);
-  }
-
-  .shop-console {
-    margin-top: 40px;
-  }
-
-  .shop-hero-photo {
-    height: clamp(300px, 28vw, 420px);
-  }
-
-  .shop-console-note {
-    padding-block: 16px;
-  }
-
-  .shop-console-note ul,
-  .shop-hero.is-searching .shop-console-note > small,
-  .shop-hero.is-searching .shop-suggested {
-    display: none;
-  }
-
-  .shop-hero.is-searching .shop-console {
-    margin-top: 12px;
-  }
-
-  .shop-hero.is-searching .shop-console-search {
-    align-content: center;
-    padding-block: 14px;
+    --shop-pad-inline: 0px;
   }
 
   .shop-controls {
@@ -13823,49 +11389,6 @@
   overflow-wrap: anywhere;
 }
 
-/* Break-first callout and header */
-
-/* The hero chips are links, not buttons: they are the three labs' own requests,
-   and a participant has to be able to copy one, reopen it, and compare two
-   runs. */
-.discover-hero-prompts > a {
-  /* inline-block, not inline-flex: `text-overflow` has nothing to act on inside
-     a flex container, so the flex version clipped the reasoning lab's query
-     mid-word with no ellipsis. `line-height` supplies the 34px height that
-     `align-items` used to. */
-  display: inline-block;
-  max-width: min(38ch, 100%);
-  padding: 0 14px;
-  line-height: 32px;
-  border: 1px solid rgb(92 75 62 / 18%);
-  border-radius: 999px;
-  background: rgb(255 253 248 / 82%);
-  color: var(--ink);
-  font-size: 12.5px;
-  font-weight: 500;
-  /* The reasoning lab's query is a paragraph. It truncates rather than wrapping
-     the hero out of shape; `title` on the element carries the whole thing, and
-     the full text stays in the DOM. */
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
-}
-
-.discover-hero-prompts > a:hover,
-.discover-hero-prompts > a:focus-visible {
-  border-color: var(--maroon-800);
-  background: var(--paper);
-  color: var(--maroon-900);
-}
-
-@media (max-width: 720px) {
-  .discover-hero-prompts > a {
-    max-width: 26ch;
-    flex: 0 0 auto;
-  }
-}
-
 /* One way into the Code Editor, drawn the same in the header and in the Shop
    callout so a participant recognises it the second time. */
 .code-editor-link {
@@ -13904,6 +11427,7 @@
    underneath it, because the lesson is that a page of plausible headphones and a
    missing product are the same screen. */
 .shop-lab-callout {
+  scroll-margin-top: calc(var(--topbar-height) + 24px);
   display: grid;
   gap: 8px;
   margin: 0 0 18px;
@@ -13957,6 +11481,26 @@
   font-family: var(--mono);
   font-size: 12px;
   overflow-wrap: anywhere;
+}
+
+.shop-lab-ranks {
+  width: 100%;
+  margin-block: 16px;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.shop-lab-ranks caption {
+  text-align: left;
+  padding-bottom: 8px;
+}
+
+.shop-lab-ranks th,
+.shop-lab-ranks td {
+  padding: 8px;
+  border-bottom: 1px solid var(--line-strong);
+  text-align: left;
 }
 
 .shop-lab-callout-actions {
@@ -14161,4 +11705,33 @@
 .shop-comparison-table tr.shop-comparison-rule td {
   border-top: 1px solid var(--line);
   padding-top: 14px;
+}
+
+.product-save-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 8px 0;
+  margin-top: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--maroon-800);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.product-breadcrumb { color: var(--ink-soft); }
+.product-complements { margin-top: 64px; }
+.product-complements-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.product-complement-image { display: block; overflow: hidden; border-radius: 12px; background: var(--paper); }
+.product-complement-image img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; }
+.product-complements-grid h3 { margin: 20px 0 8px; font-family: var(--display); font-size: 28px; font-weight: 500; }
+.product-complements-grid p { max-width: 46ch; margin: 0 0 16px; color: var(--ink-soft); font-size: 15px; line-height: 1.6; }
+.product-complement-link { display: inline-flex; align-items: center; min-height: 44px; padding: 10px 18px; border: 1px solid var(--line); border-radius: 999px; font-size: 14px; font-weight: 500; }
+.product-complement-link:hover { background: var(--paper); border-color: var(--maroon-800); }
+@media (max-width: 650px) {
+  .product-complements-grid { grid-template-columns: 1fr; gap: 32px; }
+  .product-complements { margin-top: 40px; }
 }

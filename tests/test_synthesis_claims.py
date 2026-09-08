@@ -63,6 +63,27 @@ def validate(answer: str, records, products=None) -> None:
     )
 
 
+@pytest.mark.parametrize("resolution", ["3840x2160", "3840 × 2160", "3840 x 2160"])
+def test_supported_display_resolution_is_one_measurement(resolution):
+    monitor = product(title="Mosaic Atelier 32", model="Atelier 32")
+    validate(
+        f"Mosaic Atelier 32 has a {resolution} display [1].",
+        [evidence("Display resolution: 3840x2160.")],
+        [monitor],
+    )
+
+
+@pytest.mark.parametrize("resolution", ["3840x1440", "2560x2160"])
+def test_resolution_cannot_combine_dimensions_from_different_displays(resolution):
+    monitor = product(title="Mosaic Atelier 32", model="Atelier 32")
+    with pytest.raises(SynthesisOutputError, match="unsupported numeric claim"):
+        validate(
+            f"Mosaic Atelier 32 has a {resolution} display [1].",
+            [evidence("Display options: 3840x2160 and 2560x1440.")],
+            [monitor],
+        )
+
+
 def test_an_uncited_sentence_cannot_ride_on_the_citation_before_it():
     """The citation resolves; the sentence after it is invented.
 

@@ -49,9 +49,9 @@ const footerColumns: Array<{
     links: [
       { label: "Discover", href: "/" },
       { label: "All products", href: "/catalog" },
-      { label: "Electronics", href: "/catalog?domain=consumer_electronics" },
-      { label: "Running & fitness", href: "/catalog?domain=running_fitness" },
-      { label: "Workspace", href: "/catalog?domain=home_office" },
+      { label: "Monitors", href: "/catalog?domain=home_office&category_key=productivity-monitors" },
+      { label: "Chairs", href: "/catalog?domain=home_office&category_key=ergonomic-office-chairs" },
+      { label: "Headphones", href: "/catalog?domain=consumer_electronics&category_key=over-ear-headphones" },
     ],
   },
   {

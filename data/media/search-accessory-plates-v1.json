@@ -1,0 +1,79 @@
+{
+  "method": "built-in image_gen",
+  "provenance_tier": "category-representative",
+  "note": "Additional variety for the search-only discovery categories. These assets do not add products to the workspace browse selection and do not replace exact product-bound photography. Runtime files are governed by category_plates.json.",
+  "images": [
+    {
+      "plate_id": "ho-monitor-arms-plate-01",
+      "prompt": "Use case: product-mockup. Generate one photorealistic retail product photo, landscape 1536x1024, one single fictional desk accessory. Warm ivory seamless studio background, pale limestone surface, soft light from upper left, subtle contact shadow, real manufactured detail, no pedestal. Entire object in frame with comfortable margins, centered at about 65% fill, three-quarter eye-level camera. No logos, brands, lettering, watermarks, captions, people, cables attached to unrelated devices, collage or multiple panels. Physically plausible construction; no impossible hinges or floating parts. One matte graphite single-monitor gas-spring arm, two articulated segments, adjustable elbow, exposed square four-slot VESA plate, a complete screw-operated desk-edge C-clamp with visible padded jaw. Freestanding studio product packshot of the complete arm and clamp, no monitor, table or props.",
+      "source_sha256": "6768fe3a67abaab92c4c6b904d941f5d7d62d1bef1e70425b40f020b940736b8",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-monitor-arms-plate-01-catalog-3x2.webp"
+    },
+    {
+      "plate_id": "ho-monitor-arms-plate-02",
+      "prompt": "Use case: product-mockup. Generate one photorealistic retail product photo, landscape 1536x1024, one single fictional desk accessory. Warm ivory seamless studio background, pale limestone surface, soft light from upper left, subtle contact shadow, real manufactured detail, no pedestal. Entire object in frame with comfortable margins, centered at about 65% fill, three-quarter eye-level camera. No logos, brands, lettering, watermarks, captions, people, cables attached to unrelated devices, collage or multiple panels. Physically plausible construction; no impossible hinges or floating parts. One silver aluminium single-monitor arm with a round vertical post, two short hinged horizontal links, square four-slot VESA plate, silver desk-edge C-clamp. An upright mechanical post-based design, not a gas-spring shell. Complete arm shown upright resting on its clamp, no monitor or props.",
+      "source_sha256": "e75a4b02207f0c986c84afe01d5a5baeefb985de9671a4578ca9a388ab751500",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-monitor-arms-plate-02-catalog-3x2.webp"
+    },
+    {
+      "plate_id": "ho-monitor-arms-plate-03",
+      "prompt": "Use case: product-mockup. Generate one photorealistic retail product photo, landscape 1536x1024, one single fictional desk accessory. Warm ivory seamless studio background, pale limestone surface, soft light from upper left, subtle contact shadow, real manufactured detail, no pedestal. Entire object in frame with comfortable margins, centered at about 65% fill, three-quarter eye-level camera. No logos, brands, lettering, watermarks, captions, people, cables attached to unrelated devices, collage or multiple panels. Physically plausible construction; no impossible hinges or floating parts. One satin white single-monitor gas-spring arm with thick rounded pivot housings, black joints, flat square VESA mounting head, matching white desk clamp with black adjustment screw. Complete arm in compact raised position, no monitor or props.",
+      "source_sha256": "d408687e571eb9d50841904b33a88328757e29e2d558170e613f05967a15aac5",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-monitor-arms-plate-03-catalog-3x2.webp"
+    },
+    {
+      "plate_id": "ho-monitor-arms-plate-04",
+      "prompt": "Use case: product-mockup. Generate one photorealistic retail product photo, landscape 1536x1024, one single fictional desk accessory. Warm ivory seamless studio background, pale limestone surface, soft light from upper left, subtle contact shadow, real manufactured detail, no pedestal. Entire object in frame with comfortable margins, centered at about 65% fill, three-quarter eye-level camera. No logos, brands, lettering, watermarks, captions, people, cables attached to unrelated devices, collage or multiple panels. Physically plausible construction; no impossible hinges or floating parts. One matte black heavy-duty single-monitor arm with a broad angular lower segment, robust cylindrical elbow, short upper segment and square four-slot VESA plate, wide black desk clamp. Complete object upright, no monitor or props.",
+      "source_sha256": "faffedb10cf88890163f79cef9d57f0ce6c38f77f13bee35775f91f2b898ada5",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-monitor-arms-plate-04-catalog-3x2.webp"
+    },
+    {
+      "plate_id": "ho-monitor-arms-plate-05",
+      "prompt": "Use case: product-mockup. Generate one photorealistic retail product photo, landscape 1536x1024, one single fictional desk accessory. Warm ivory seamless studio background, pale limestone surface, soft light from upper left, subtle contact shadow, real manufactured detail, no pedestal. Entire object in frame with comfortable margins, centered at about 65% fill, three-quarter eye-level camera. No logos, brands, lettering, watermarks, captions, people, cables attached to unrelated devices, collage or multiple panels. Physically plausible construction; no impossible hinges or floating parts. One satin silver dual-monitor arm: one common central post, two independent articulated arms branching left and right, exactly two square VESA mounting plates, and one complete broad desk clamp at its foot. Arms extended to different heights to make geometry understandable. No screens or props.",
+      "source_sha256": "92ae4b02b6b1f64f39272ab475c5fb3c97fb6f3eb87a05f038626f55e2e72406",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-monitor-arms-plate-05-catalog-3x2.webp"
+    },
+    {
+      "plate_id": "ho-monitor-arms-plate-06",
+      "prompt": "Use case: product-mockup. Generate one photorealistic retail product photo, landscape 1536x1024, one single fictional desk accessory. Warm ivory seamless studio background, pale limestone surface, soft light from upper left, subtle contact shadow, real manufactured detail, no pedestal. Entire object in frame with comfortable margins, centered at about 65% fill, three-quarter eye-level camera. No logos, brands, lettering, watermarks, captions, people, cables attached to unrelated devices, collage or multiple panels. Physically plausible construction; no impossible hinges or floating parts. One warm-grey freestanding monitor support: weighted slim rectangular desk base, upright telescoping metal column, a single articulated short horizontal arm and square four-slot VESA plate. Clearly freestanding on the weighted base; no desk clamp. No display or props.",
+      "source_sha256": "b8711bd589df7590a1011b181a6c9e571b745ade217abfb25adaf17014cf28cb",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-monitor-arms-plate-06-catalog-3x2.webp"
+    },
+    {
+      "plate_id": "ho-cable-management-plate-01",
+      "prompt": "Use case: product-mockup. Generate one photorealistic retail product photo, landscape 1536x1024, one single fictional desk accessory. Warm ivory seamless studio background, pale limestone surface, soft light from upper left, subtle contact shadow, real manufactured detail, no pedestal. Entire object in frame with comfortable margins, centered at about 65% fill, three-quarter eye-level camera. No logos, brands, lettering, watermarks, captions, people, cables attached to unrelated devices, collage or multiple panels. Physically plausible construction; no impossible hinges or floating parts. One long graphite powder-coated steel under-desk cable tray with a perforated flat floor, short raised edges and two integrated screw-adjustable desk-edge clamps. Show complete tray and clamp jaws in a three-quarter elevated view that reveals the empty interior. No cables or desk.",
+      "source_sha256": "bad406ac177ac44c7b51833e232c9da33546ceeffd604582fed73a10695f2a5d",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-cable-management-plate-01-catalog-3x2.webp"
+    },
+    {
+      "plate_id": "ho-cable-management-plate-02",
+      "prompt": "Use case: product-mockup. Generate one photorealistic retail product photo, landscape 1536x1024, one single fictional desk accessory. Warm ivory seamless studio background, pale limestone surface, soft light from upper left, subtle contact shadow, real manufactured detail, no pedestal. Entire object in frame with comfortable margins, centered at about 65% fill, three-quarter eye-level camera. No logos, brands, lettering, watermarks, captions, people, cables attached to unrelated devices, collage or multiple panels. Physically plausible construction; no impossible hinges or floating parts. One cream powder-coated steel under-desk cable basket made of neatly welded metal wire, rectangular 45 cm proportions and two simple raised mounting tabs with screw holes. Show empty basket resting naturally on studio surface. No clamps, wires, desk or props.",
+      "source_sha256": "ce3d55cff7be34c5462e7ce02232ede4cc7749ba30766db9be4a746b31dd5d75",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-cable-management-plate-02-catalog-3x2.webp"
+    },
+    {
+      "plate_id": "ho-cable-management-plate-03",
+      "prompt": "Use case: product-mockup. Generate one photorealistic retail product photo, landscape 1536x1024, one single fictional desk accessory. Warm ivory seamless studio background, pale limestone surface, soft light from upper left, subtle contact shadow, real manufactured detail, no pedestal. Entire object in frame with comfortable margins, centered at about 65% fill, three-quarter eye-level camera. No logos, brands, lettering, watermarks, captions, people, cables attached to unrelated devices, collage or multiple panels. Physically plausible construction; no impossible hinges or floating parts. One long slim satin-white aluminium cable channel with a partly slid-open snap-on lid revealing an empty U-shaped trough, plus subtle unlabelled mounting holes. Show lid still attached, one coherent product, no loose components, cables or desk.",
+      "source_sha256": "d88f271ba148e79979438597b1a6d3e8bee94590badba48a6208a0b789bb5db9",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-cable-management-plate-03-catalog-3x2.webp"
+    },
+    {
+      "plate_id": "ho-cable-management-plate-04",
+      "prompt": "Use case: product-mockup. Generate one photorealistic retail product photo, landscape 1536x1024, one single fictional desk accessory. Warm ivory seamless studio background, pale limestone surface, soft light from upper left, subtle contact shadow, real manufactured detail, no pedestal. Entire object in frame with comfortable margins, centered at about 65% fill, three-quarter eye-level camera. No logos, brands, lettering, watermarks, captions, people, cables attached to unrelated devices, collage or multiple panels. Physically plausible construction; no impossible hinges or floating parts. One low rectangular charcoal cable-organizer box with rounded corners, a fitted light bamboo lid slightly lifted at one end, and small cord exit slots in both short sides. Empty interior, no electronics, no power strip, no cables or other props.",
+      "source_sha256": "c575f1b66d45ffaa0e08d8104925ef86a67f91c70f26dbd30506b6e6bd23f09f",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-cable-management-plate-04-catalog-3x2.webp"
+    },
+    {
+      "plate_id": "ho-cable-management-plate-05",
+      "prompt": "Use case: product-mockup. Generate one photorealistic retail product photo, landscape 1536x1024, one single fictional desk accessory. Warm ivory seamless studio background, pale limestone surface, soft light from upper left, subtle contact shadow, real manufactured detail, no pedestal. Entire object in frame with comfortable margins, centered at about 65% fill, three-quarter eye-level camera. No logos, brands, lettering, watermarks, captions, people, cables attached to unrelated devices, collage or multiple panels. Physically plausible construction; no impossible hinges or floating parts. One flexible dark-grey woven textile under-desk cable hammock with reinforced edges and four small metal mounting brackets, displayed as a shallow taut sling with a visibly open interior. Entire coherent accessory resting on the surface, no desk, no wires or props.",
+      "source_sha256": "304997e5c532fb4678c70cab77867a162d0fcfe00b35f274251539b147cbe9ab",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-cable-management-plate-05-catalog-3x2.webp"
+    },
+    {
+      "plate_id": "ho-cable-management-plate-06",
+      "prompt": "Use case: product-mockup. Generate one photorealistic retail product photo, landscape 1536x1024, one single fictional desk accessory. Warm ivory seamless studio background, pale limestone surface, soft light from upper left, subtle contact shadow, real manufactured detail, no pedestal. Entire object in frame with comfortable margins, centered at about 65% fill, three-quarter eye-level camera. No logos, brands, lettering, watermarks, captions, people, cables attached to unrelated devices, collage or multiple panels. Physically plausible construction; no impossible hinges or floating parts. One light-grey segmented vertical cable spine for a sit-stand desk: a flexible chain of about sixteen repeated smooth oval plastic links curved gently into a shallow S, one small upper mounting bracket, and one weighted circular foot resting on the studio surface. Individual links form a single continuous column, no desk or cables.",
+      "source_sha256": "d7d9df3ea6c9ab1c7dbe1edcf49822a5b444c290cb574a9e29f1c4b8ef53ca14",
+      "runtime_path": "ui/public/assets/images/mosaic/ho-cable-management-plate-06-catalog-3x2.webp"
+    }
+  ]
+}

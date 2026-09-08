@@ -334,10 +334,9 @@ button:disabled {
   display: grid;
   min-height: var(--topbar-height);
   align-items: center;
-  padding: 0 clamp(18px, 3.4vw, 60px);
+  padding: 0 max(18px, calc((100% - var(--shell-width)) / 2));
   border-bottom: 1px solid rgb(92 75 62 / 12%);
-  background: rgb(252 249 243 / 92%);
-  backdrop-filter: blur(18px);
+  background: var(--ivory);
   grid-template-columns: minmax(160px, 1fr) auto minmax(160px, 1fr);
 }
 
@@ -422,6 +421,26 @@ button:disabled {
   color: var(--ink);
   cursor: pointer;
   transition: border-color 180ms ease, background 180ms ease;
+}
+
+.site-shopper {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 9px;
+  margin-inline: 4px 8px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 560;
+}
+
+.site-shopper img {
+  display: block;
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .site-icon:hover {
@@ -514,6 +533,19 @@ button:disabled {
     width: 24px;
     height: 24px;
   }
+
+  .site-shopper {
+    margin-inline: 0;
+  }
+
+  .site-shopper span {
+    display: none;
+  }
+
+  .site-shopper img {
+    width: 40px;
+    height: 40px;
+  }
 }
 
 /*
@@ -524,7 +556,7 @@ button:disabled {
  * with no bottom to the document.
  */
 .site-footer {
-  margin-top: 104px;
+  margin-top: 64px;
   border-top: 1px solid rgb(92 75 62 / 14%);
   background: var(--paper-warm);
   color: var(--ink-soft);
@@ -668,10 +700,8 @@ button:disabled {
   margin: 0 0 13px;
   color: var(--ink-soft);
   font-family: var(--sans);
-  font-size: 10px;
-  font-weight: 780;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
+  font-size: 14px;
+  font-weight: 650;
 }
 
 .site-footer-column ul {
@@ -684,7 +714,7 @@ button:disabled {
 
 .site-footer-column a {
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.4;
 }
 
@@ -3656,7 +3686,7 @@ button:disabled {
 @media (prefers-reduced-motion: no-preference) {
   :is(.primary-button, .secondary-button, .product-cta-primary,
     .product-cta-secondary, .commerce-primary-button, .shop-console-note-action,
-    .discover-editorial-cta, .shop-quick-add):not(:disabled) {
+    .shop-quick-add):not(:disabled) {
     transition: background-color var(--motion-fast) ease,
       border-color var(--motion-fast) ease,
       color var(--motion-fast) ease,
@@ -3665,7 +3695,7 @@ button:disabled {
 
   :where(.primary-button, .secondary-button, .product-cta-primary,
     .product-cta-secondary, .commerce-primary-button, .shop-console-note-action,
-    .discover-editorial-cta, .shop-quick-add):active:not(:disabled) {
+    .shop-quick-add):active:not(:disabled) {
     transform: scale(0.98);
   }
 
@@ -6444,123 +6474,6 @@ body {
 
 /* Mosaic Labs and validated retrieval examples */
 
-.discover-missions {
-  width: min(100%, 1600px);
-  margin: 0 auto;
-  padding: 64px 48px 76px;
-  border-top: 1px solid #e9dfd3;
-  background: var(--paper);
-}
-
-.discover-missions-heading {
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(260px, 0.65fr) auto;
-  gap: 36px;
-  align-items: end;
-  margin-bottom: 30px;
-}
-
-.discover-missions-heading h2 {
-  margin: 4px 0 0;
-  font-size: 36px;
-  line-height: 1.1;
-}
-
-.discover-missions-heading > p {
-  max-width: 420px;
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
-.discover-missions-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding-bottom: 3px;
-  color: var(--maroon-800);
-  font-size: 12px;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.discover-mission-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  margin: 0;
-  padding: 0;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  list-style: none;
-}
-
-.discover-mission-grid li {
-  min-width: 0;
-  border-right: 1px solid var(--line);
-}
-
-.discover-mission-grid li:last-child {
-  border-right: 0;
-}
-
-.discover-mission-grid a {
-  display: flex;
-  min-height: 218px;
-  flex-direction: column;
-  align-items: flex-start;
-  padding: 20px;
-  color: var(--ink);
-  transition: background 160ms ease;
-}
-
-.discover-mission-grid a:hover {
-  background: var(--paper-warm);
-}
-
-.discover-mission-number {
-  margin-bottom: 30px;
-  color: var(--maroon-800);
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 800;
-}
-
-.discover-mission-grid strong {
-  display: block;
-  min-height: 40px;
-  margin-bottom: 12px;
-  font-family: var(--display);
-  font-size: 18px;
-  font-weight: 500;
-  line-height: 1.12;
-}
-
-.discover-mission-grid code {
-  display: -webkit-box;
-  min-height: 48px;
-  overflow: hidden;
-  color: var(--ink-soft);
-  font-family: var(--sans);
-  font-size: 10px;
-  line-height: 1.45;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-}
-
-.discover-mission-state {
-  margin-top: auto;
-  padding-top: 16px;
-  color: #6d5d55;
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.discover-mission-state.repair {
-  color: var(--maroon-800);
-}
-
 .mosaic-labs-page {
   display: grid;
   max-width: 1400px;
@@ -6708,22 +6621,6 @@ body {
 }
 
 @media (max-width: 1120px) {
-  .discover-missions-heading{
-    grid-template-columns: 1fr;
-    gap: 22px;
-  }
-
-  .discover-mission-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .discover-mission-grid li:nth-child(3) {
-    border-right: 0;
-  }
-
-  .discover-mission-grid li:nth-child(-n + 3) {
-    border-bottom: 1px solid var(--line);
-  }
 
   .mosaic-lab-mission-list > li {
     grid-template-columns: 44px 110px minmax(230px, 1fr) minmax(180px, 0.68fr);
@@ -6736,44 +6633,6 @@ body {
 }
 
 @media (max-width: 760px) {
-  .discover-missions {
-    padding: 44px 24px 52px;
-  }
-
-  .discover-missions-heading h2 {
-    font-size: 31px;
-  }
-
-  .discover-mission-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .discover-mission-grid li,
-  .discover-mission-grid li:nth-child(3) {
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-
-  .discover-mission-grid li:last-child {
-    border-bottom: 0;
-  }
-
-  .discover-mission-grid a {
-    min-height: 0;
-  }
-
-  .discover-mission-number {
-    margin-bottom: 16px;
-  }
-
-  .discover-mission-grid strong,
-  .discover-mission-grid code {
-    min-height: 0;
-  }
-
-  .discover-mission-state {
-    margin-top: 16px;
-  }
 
   .mosaic-labs-page {
     gap: 42px;
@@ -7024,7 +6883,8 @@ body {
 /* Premium shop and demo commerce flow */
 
 .page {
-  animation: route-page-enter 180ms ease-out both;
+  /* A retained transform makes fixed drawers follow the scrolled page. */
+  animation: route-page-enter 180ms ease-out backwards;
 }
 
 .catalog-body {

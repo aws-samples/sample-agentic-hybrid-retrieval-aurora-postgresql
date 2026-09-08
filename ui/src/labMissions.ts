@@ -73,11 +73,30 @@ interface MosaicLabManifest {
   missions: MosaicLabMission[];
   /** Required checkpoints and optional advanced checks backed by the same evaluator. */
   supporting_checks: MosaicLabMission[];
+  /** Ungraded requests for inspecting an agent pipeline; labs remain above. */
+  playground: {
+    default_request: string;
+    requests: Array<{
+      id: string;
+      label: string;
+      shop_label: string;
+      query: string;
+      filters: SearchFilters;
+      notice: string;
+    }>;
+  };
 }
 
 export const mosaicLabManifest = missionManifest as MosaicLabManifest;
 export const coreMosaicLabs = mosaicLabManifest.missions;
 export const supportingMosaicChecks = mosaicLabManifest.supporting_checks;
+
+export function workspaceRequests(filters: SearchFilters) {
+  return mosaicLabManifest.playground.requests.filter((request) =>
+    (!filters.domain || request.filters.domain === filters.domain) &&
+    (!filters.category_key || request.filters.category_key === filters.category_key)
+  );
+}
 
 /**
  * Every validated retrieval example, with the required labs first. The
@@ -141,11 +160,7 @@ export function retrievalExamplesByStage(): Array<{
  * `ask` and `mode` only, so without it that lab would land on a page of ranked
  * products with the lab it names nowhere on screen.
  *
- * `view` is the only thing a caller may add. Discover's hero chips set it,
- * because a hand-off from a landing page has to arrive at the results it asked
- * for rather than at the top of the storefront; the labs band, which is already
- * a list of labs, does not. Two builders for one address is how the chip and the
- * card came to spell the same lab differently.
+ * `view` can target the result list directly when launching an exercise.
  */
 export function shopMissionHref(
   mission: MosaicLabMission,
@@ -164,8 +179,7 @@ export function shopMissionHref(
 
 export function retrievalExampleHref(example: MosaicLabMission) {
   // A reasoning lab's request is a question for the agent, and the agent lives
-  // in Shop. Built by `shopMissionHref` rather than beside it, so this card and
-  // Discover's hero chip cannot encode one lab two ways.
+  // in Shop. Reuse the same encoder so its eligibility gates travel with it.
   if (example.stage === "reason") return shopMissionHref(example);
   return `/labs/retrieval?example=${encodeURIComponent(example.id)}`;
 }

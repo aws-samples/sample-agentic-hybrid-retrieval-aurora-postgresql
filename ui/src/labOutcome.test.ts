@@ -272,9 +272,7 @@ describe("lab outcome diagnostics", () => {
     ).toBe(true);
   });
 
-  it("ignores the attribute map when comparing gates", () => {
-    // `attributes` is not forwardable, so Shop can never carry it and a run that
-    // omits it is not thereby a different request.
+  it("does not grade a wider pool as the ranking mission's own request", () => {
     const mission = coreMosaicLabs.find((item) => item.stage === "rank")!;
     const ran = response(product(370002, (rank) => 1 / (testFusionK + rank)));
 
@@ -283,7 +281,27 @@ describe("lab outcome diagnostics", () => {
         ...ran,
         applied_filters: { domain: "home_office", in_stock_only: true },
       }),
-    ).toBe(true);
+    ).toBe(false);
+    expect(runMatchesMissionGates(mission, {
+      ...ran, applied_filters: { ...mission.filters },
+    })).toBe(true);
+    expect(runMatchesMissionGates(mission, {
+      ...ran, applied_filters: { ...mission.filters, attributes: { seat_depth_adjustable: false } },
+    })).toBe(false);
+  });
+
+  it("compares attribute values independently of key order without dropping false", () => {
+    const mission = {
+      ...coreMosaicLabs[0],
+      filters: { attributes: { headrest: false, recommended_hours: 12 } },
+    } satisfies MosaicLabMission;
+    const ran = response(product(2, (rank) => 1 / (testFusionK + rank)));
+    expect(runMatchesMissionGates(mission, {
+      ...ran, applied_filters: { attributes: { recommended_hours: 12, headrest: false } },
+    })).toBe(true);
+    expect(runMatchesMissionGates(mission, {
+      ...ran, applied_filters: { attributes: { recommended_hours: 12 } },
+    })).toBe(false);
   });
 
   it("treats a false gate and an absent one as the same request", () => {

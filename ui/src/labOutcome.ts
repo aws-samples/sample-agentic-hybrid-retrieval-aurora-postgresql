@@ -74,10 +74,8 @@ function rrfIsCorrect(product: ProductSummary, rrfK: number) {
  * gates retrieved a different pool, and grading it against the scenario would
  * report a repair that was never exercised, or a defect that was never present.
  *
- * Compared over `FORWARDABLE_FILTER_KEYS` rather than over every key, because
- * those are the only gates a link can carry between surfaces. `attributes` is a
- * map Shop cannot forward, so a run that omits it is not thereby a different
- * request, and comparing it would make every carried arrival read as a mismatch.
+ * Attribute constraints travel as JSON and must agree too: dropping a required
+ * seat-depth adjustment changes Lab 2's candidate pool even with identical words.
  */
 export function runMatchesMissionGates(
   mission: MosaicLabMission,
@@ -87,7 +85,18 @@ export function runMatchesMissionGates(
   const wanted = mission.filters as Record<string, unknown>;
   return FORWARDABLE_FILTER_KEYS.every(
     (key) => comparableGate(applied[key]) === comparableGate(wanted[key]),
-  );
+  ) && sameJsonValue(applied.attributes ?? {}, wanted.attributes ?? {});
+}
+
+function sameJsonValue(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+  if (!left || !right || typeof left !== "object" || typeof right !== "object") return false;
+  if (Array.isArray(left) !== Array.isArray(right)) return false;
+  const leftMap = left as Record<string, unknown>;
+  const rightMap = right as Record<string, unknown>;
+  const keys = Object.keys(leftMap);
+  return keys.length === Object.keys(rightMap).length
+    && keys.every((key) => Object.hasOwn(rightMap, key) && sameJsonValue(leftMap[key], rightMap[key]));
 }
 
 /**

@@ -1,5 +1,6 @@
 import { AlertTriangle, ArrowRightLeft, LoaderCircle, Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "wouter";
 import { ApiError, api } from "../api";
 import {
   clearPinnedBaseline,
@@ -41,6 +42,7 @@ import {
   coreMosaicLabs,
   mosaicRetrievalExamples,
   retrievalExamplesByStage,
+  shopMissionHref,
 } from "../labMissions";
 import {
   liveRetrievalOutcome,
@@ -56,6 +58,7 @@ import {
 } from "../navigation";
 import { armLanguage } from "../retrievalLanguage";
 import type { ReadinessResponse, SearchFilters, SearchResponse } from "../types";
+import "../playground.css";
 
 type RunMeasurement = {
   label: string;
@@ -406,6 +409,7 @@ export function RetrievalLabPage() {
    * rail resolves it: a supporting check is placed under its parent lab rather
    * than reading as having left it.
    */
+  const activeLab = activeCoreLab(example?.id ?? null);
   const activeLabNumber = useMemo(() => {
     const lab = activeCoreLab(example?.id ?? null);
     const index = coreMosaicLabs.indexOf(lab);
@@ -743,6 +747,31 @@ export function RetrievalLabPage() {
         missionId={example?.id ?? null}
         refreshKey={`${response?.search_event_id ?? ""}:${agentRunId ?? ""}:${baselineReads}`}
       />
+
+      {activeLab.participant_edit ? (
+        <details className="playground-repair-brief">
+          <summary>
+            <span>What changes with this repair</span>
+            <small>Starting fault → expected outcome</small>
+          </summary>
+          <div className="playground-repair-comparison">
+            <section>
+              <h2>Starting fault</h2>
+              <p>{activeLab.participant_edit?.broken_state}</p>
+            </section>
+            <section>
+              <h2>Expected after repair</h2>
+              <p>{activeLab.participant_edit?.fixed_state}</p>
+            </section>
+          </div>
+          <div className="playground-repair-footer">
+            <p>These are the exercise expectations. Run completion proof to verify your result.</p>
+            <Link href={shopMissionHref(activeLab)}>
+              Open the lab request in Shop
+            </Link>
+          </div>
+        </details>
+      ) : null}
 
       {/* The bridge, above the three stages: the words Shop uses on the left, the
           PostgreSQL feature that produced them on the right. It is the whole

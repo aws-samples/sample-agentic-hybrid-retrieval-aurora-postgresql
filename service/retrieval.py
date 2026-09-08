@@ -62,6 +62,28 @@ def _identity_key(value: str) -> str:
     return re.sub(r"[^a-z0-9]", "", value.lower())
 
 
+def _is_exact_identity_query(query: str, row: dict[str, Any]) -> bool:
+    """Recognize a whole SKU, title, or brand-and-model lookup, not a mention."""
+    identities = [row.get("sku", ""), row.get("title", "")]
+    if row.get("brand_name") and row.get("model_name"):
+        identities.append(f"{row['brand_name']} {row['model_name']}")
+    key = _identity_key(query)
+    return bool(key) and any(
+        key == _identity_key(value) for value in identities if value
+    )
+
+
+def _served_candidates(
+    candidates: list[dict[str, Any]], request: SearchRequest, profile: RetrievalProfile
+) -> list[dict[str, Any]]:
+    """Keep a pure identity lookup precise while retaining every audited candidate."""
+    exact_count = sum(bool(row.get("exact_identity_match")) for row in candidates)
+    if exact_count:
+        profile.authorized_limit = min(request.authorized_limit, exact_count)
+        return candidates[: min(request.limit, exact_count)]
+    return candidates[: request.limit]
+
+
 def _is_exact_sku_match(query: str, sku: str) -> bool:
     """Return whether the request contains this complete, unambiguous catalog SKU."""
     sku_key = _identity_key(sku)
@@ -82,9 +104,10 @@ def _is_exact_sku_match(query: str, sku: str) -> bool:
 def _final_candidate_sort_key(
     row: dict[str, Any],
     rerank_scores: dict[int, float],
-) -> tuple[bool, bool, float, int, int]:
+) -> tuple[bool, bool, bool, float, int, int]:
     """Order final results without allowing a reranker to override a full SKU."""
     return (
+        not row.get("exact_identity_match", False),
         not row["exact_sku_match"],
         row["product_id"] not in rerank_scores,
         -rerank_scores.get(row["product_id"], 0.0),
@@ -352,6 +375,7 @@ class RetrievalService:
             for fused_rank, row in enumerate(candidates, 1):
                 row["pre_rerank_rank"] = fused_rank
                 row["exact_sku_match"] = _is_exact_sku_match(normalized, row["sku"])
+                row["exact_identity_match"] = _is_exact_identity_query(normalized, row)
 
             rerank_status = "disabled"
             rerank_scores: dict[int, float] = {}
@@ -412,7 +436,16 @@ class RetrievalService:
                     row["semantic_rank"] is not None for row in candidates
                 ),
             }
-            selected = candidates[: request.limit]
+            selected = _served_candidates(candidates, request, profile)
+            ranking_policy = [
+                "RRF candidate fusion",
+                "managed reranking",
+                "exact SKU preservation",
+            ]
+            if any(row["exact_identity_match"] for row in candidates):
+                ranking_policy.append(
+                    "exact identity lookup: serve matching identities only"
+                )
 
             # Coverage and the receipt write are inside the measured window,
             # because the caller waits for both.
@@ -478,6 +511,9 @@ class RetrievalService:
                                         ),
                                         "rerank": _as_float(row["rerank_score"]),
                                         "exact_sku_match": row["exact_sku_match"],
+                                        "exact_identity_match": row[
+                                            "exact_identity_match"
+                                        ],
                                     }
                                 ),
                                 "provenance": json.dumps(row["provenance"]),
@@ -494,7 +530,8 @@ class RetrievalService:
                     UPDATE mosaic.search_event
                     SET candidate_counts = %s::jsonb,
                         total_latency_ms = %s,
-                        diagnostics = %s::jsonb
+                        diagnostics = %s::jsonb,
+                        retrieval_profile = %s::jsonb
                     WHERE search_event_id = %s
                     """,
                     (
@@ -505,15 +542,12 @@ class RetrievalService:
                                 "status": "ok",
                                 "strategy": self._strategy(),
                                 "rerank_status": rerank_status,
-                                "ranking_policy": [
-                                    "RRF candidate fusion",
-                                    "managed reranking",
-                                    "exact SKU preservation",
-                                ],
+                                "ranking_policy": ranking_policy,
                                 "stage_timings_ms": stage_timings,
                                 "warnings": warnings,
                             }
                         ),
+                        profile.model_dump_json(),
                         search_event_id,
                     ),
                 )
@@ -547,11 +581,7 @@ class RetrievalService:
                 embedding_dimensions=self.settings.embedding_dimensions,
                 rerank_model_id=(self._reranker().model_id if request.rerank else None),
                 rerank_status=rerank_status,
-                ranking_policy=[
-                    "RRF candidate fusion",
-                    "managed reranking",
-                    "exact SKU preservation",
-                ],
+                ranking_policy=ranking_policy,
                 retrieval_profile=profile,
                 candidate_counts=candidate_counts,
                 stage_timings_ms=stage_timings,

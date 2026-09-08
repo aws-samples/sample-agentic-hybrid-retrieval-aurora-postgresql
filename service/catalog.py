@@ -9,6 +9,7 @@ validator delegates to that function rather than carrying a second predicate.
 from __future__ import annotations
 
 import json
+from itertools import zip_longest
 from pathlib import Path
 from typing import Any
 
@@ -87,6 +88,35 @@ def _load_photographed_product_ids() -> tuple[int, ...]:
 
 
 _PHOTOGRAPHED_PRODUCT_IDS = _load_photographed_product_ids()
+
+
+def _workspace_product_ids() -> tuple[int, ...]:
+    """Interleave photographed workspace categories without constraining search."""
+    media = json.loads(_PRODUCT_MEDIA_MANIFEST.read_text(encoding="utf-8"))
+    collection = json.loads(
+        _PRODUCT_MEDIA_MANIFEST.with_name("workspace_collection.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    groups = [
+        [
+            int(row["product_id"])
+            for row in media["products"]
+            if row["subcategory"] in categories and row["domain"] != "running_fitness"
+        ]
+        for categories in collection["groups"]
+    ]
+    return tuple(
+        dict.fromkeys(
+            product_id
+            for group in zip_longest(*groups)
+            for product_id in group
+            if product_id is not None
+        )
+    )
+
+
+_WORKSPACE_PRODUCT_IDS = _workspace_product_ids()
 
 
 def _where(filters: SearchFilters) -> tuple[str, list[Any]]:
@@ -169,11 +199,22 @@ def list_products(
     offset: int = 0,
     limit: int = 12,
     sort: str = "featured",
+    collection: str = "all",
 ) -> CatalogPage:
+    if collection not in {"all", "workspace"}:
+        raise HTTPException(
+            422,
+            f"Catalog collection rule: {collection!r} is unsupported. "
+            "Use 'workspace' or 'all'.",
+        )
     if sort not in _SORTS:
         raise HTTPException(422, f"Unsupported sort: {sort}")
     where, parameters = _where(filters)
-    photographed = list(_PHOTOGRAPHED_PRODUCT_IDS)
+    photographed = list(
+        _WORKSPACE_PRODUCT_IDS
+        if collection == "workspace"
+        else _PHOTOGRAPHED_PRODUCT_IDS
+    )
     with connect() as connection:
         total = connection.execute(
             f"""
@@ -400,16 +441,69 @@ def catalog_suggestions(query: str) -> CatalogSuggestionsResponse:
     )
 
 
+def similar_products(product_id: int) -> list[ProductSummary]:
+    """Find distinct alternatives by cosine distance within the photographed edit.
+
+    This is a bounded merchandising read over installed photography, not the
+    workshop's full-catalog HNSW search. Reusing the stored product vector avoids
+    embedding a brand name and treating its lexical neighbors as alternatives.
+    """
+    with connect() as connection:
+        if (
+            connection.execute(
+                "SELECT product_id FROM mosaic_search.product_document WHERE product_id = %s",
+                (product_id,),
+            ).fetchone()
+            is None
+        ):
+            raise HTTPException(404, "Product not found")
+        rows = connection.execute(
+            f"""
+            WITH photographed AS MATERIALIZED (
+                SELECT * FROM mosaic_search.product_document
+                WHERE product_id = ANY(%s::bigint[]) AND embedding IS NOT NULL
+            ), alternatives AS (
+                SELECT {_SUMMARY_COLUMNS},
+                       d.embedding <=> source.embedding AS distance,
+                       row_number() OVER (
+                           PARTITION BY coalesce(nullif(d.canonical_group_id, ''), d.product_id::text)
+                           ORDER BY d.embedding <=> source.embedding, d.product_id
+                       ) AS variant_position
+                FROM photographed d
+                JOIN mosaic_search.product_document source ON source.product_id = %s
+                WHERE source.embedding IS NOT NULL
+                  AND d.product_id <> source.product_id
+                  AND (nullif(d.canonical_group_id, '') IS NULL
+                       OR d.canonical_group_id IS DISTINCT FROM nullif(source.canonical_group_id, ''))
+                  AND d.domain = source.domain
+                  AND (d.category_key = source.category_key OR (
+                      source.category_key IN ('ultrawide-monitors', 'productivity-monitors')
+                      AND d.category_key IN ('ultrawide-monitors', 'productivity-monitors')
+                  ))
+                  AND d.availability IN ('in_stock', 'low_stock')
+                  AND d.inventory_count > 0
+            )
+            SELECT * FROM alternatives
+            WHERE variant_position = 1
+            ORDER BY distance, product_id
+            LIMIT 4
+            """,
+            (list(_PHOTOGRAPHED_PRODUCT_IDS), product_id),
+        ).fetchall()
+    return [_summary(dict(row)) for row in rows]
+
+
 def get_product(product_id: int) -> ProductDetail:
     with connect() as connection:
         row = connection.execute(
             f"""
             SELECT {_SUMMARY_COLUMNS},
-                   p.long_description, p.source_system,
+                   p.long_description, p.source_system, offer.warranty_months, offer.shipping_days,
                    media.runtime_uri AS image_url,
                    media.image_source
             FROM mosaic_search.product_document d
             JOIN mosaic.product p USING (product_id)
+            JOIN mosaic.product_offer offer USING (product_id)
             LEFT JOIN LATERAL (
                 SELECT a.runtime_uri, a.tier::text AS image_source
                 FROM mosaic.product_media pm
@@ -466,6 +560,8 @@ def _detail(
         {
             **summary.model_dump(),
             "long_description": row["long_description"],
+            "warranty_months": row.get("warranty_months"),
+            "shipping_days": row.get("shipping_days"),
             "canonical_group_id": row["canonical_group_id"] or "",
             "source_system": row["source_system"],
             "updated_at": row["updated_at"],

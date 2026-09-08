@@ -18,6 +18,8 @@ import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { ErrorState, LoadingState } from "../components/States";
 import { formatBytes, storageSegments } from "../hnsw";
+import "../inspector.css";
+import "../instrument.css";
 import type {
   BenchmarkProjection,
   HnswFilterMode,
@@ -380,7 +382,7 @@ export function PerformancePage() {
               <strong className="hnsw-live-value hnsw-live-value--config">
                 m={measured.index.m} / ef_construction={measured.index.ef_construction}
               </strong>
-              <span>build parameters</span>
+              <span>recorded build parameters</span>
             </div>
           </div>
 
@@ -423,9 +425,7 @@ export function PerformancePage() {
                 {substrate.index.bytes_per_vector.toLocaleString()} bytes per vector
               </strong>{" "}
               against a {substrate.index.fp32_payload_bytes.toLocaleString()}-byte fp32
-              payload. That is {substrate.index.overhead_factor}x overhead at m=
-              {measured.index.m}.
-              The index is larger than the TOAST that stores the vectors it indexes.
+              payload. That is {substrate.index.overhead_factor}x overhead.
               Relation overhead covers TOAST indexes and auxiliary relation forks.
             </p>
           </div>
@@ -449,7 +449,6 @@ export function PerformancePage() {
         {measured.representations ? (
           <HnswRepresentations
             attributed={measured.attribution.attributed}
-            fp32SizeBytes={substrate.index.size_bytes}
             representations={measured.representations}
           />
         ) : measured.representations_unavailable_reason ? (
@@ -620,12 +619,9 @@ export function PerformancePage() {
 
         </HnswAct>
 
-        {/* One way back, to the surface the three required labs run on. Catalog
-            studio used to sit here as an onward step, which read as a fourth
-            thing to get through; it is reachable from the footer. */}
         <nav className="hnsw-next" aria-label="Other Playground lenses">
-          <Link href="/labs/retrieval">
-            <ArrowLeft aria-hidden="true" size={16} /> Playground
+          <Link href="/mosaic-labs/hnsw">
+            <ArrowLeft aria-hidden="true" size={16} /> Back to Scale & HNSW
           </Link>
         </nav>
       </>
@@ -633,13 +629,20 @@ export function PerformancePage() {
   })();
 
   return (
-    <div className="page mosaic-labs-page labs-premium hnsw-page">
+    <div className="page pipeline-inspector hnsw-page instrument-page">
       <MosaicLabsTabs active="hnsw" />
+      <div className="inspector-intro instrument-intro">
       <MosaicLabsMasthead
-        deck="Measure the index against the exact answers, watch recall stop improving, and find the filter that returns nothing while ten matches exist."
-        supportingText="Measured on the live 500K corpus. Projections are labelled."
-        title="Tune HNSW against the exact answers."
+        deck="Explore the index behind Alex’s search. Compare storage, test recall against exact neighbors, and see how filters change the work."
+        title={<>Look closer.<br />Measure the tradeoffs.</>}
+        action={<Link className="instrument-back" href="/mosaic-labs/hnsw"><ArrowLeft size={16} aria-hidden="true" /> Back to Scale & HNSW</Link>}
       />
+      </div>
+      <div className="instrument-evidence" aria-label="Measurement sources">
+        <span><strong>Live</strong> Connected Aurora index and requested probes</span>
+        <span><strong>Recorded</strong> Prior experiments with their source details</span>
+        <span><strong>Projected</strong> Estimates with stated assumptions</span>
+      </div>
       {content}
     </div>
   );

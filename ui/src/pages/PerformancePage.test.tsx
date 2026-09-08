@@ -296,7 +296,7 @@ describe("PerformancePage", () => {
     expect(container.querySelector(".labs-intro")?.className).toBe("labs-intro");
     expect(
       screen
-        .getByRole("link", { name: "Advanced: Vector index at scale" })
+        .getByRole("link", { name: "Scale & HNSW" })
         .getAttribute("aria-current"),
     ).toBe("page");
   });
@@ -621,12 +621,14 @@ describe("PerformancePage", () => {
     expect(screen.queryByText(/past 1.96M products, NVMe is worth/i)).toBeNull();
   });
 
-  it("shows the three representations with halfvec marked recommended", async () => {
+  it("shows measured representations without declaring an unconditional recommendation", async () => {
+    vi.mocked(api.hnswSubstrate).mockResolvedValue({ ...substrate, index: { ...substrate.index, size_bytes: substrate.index.size_bytes * 2 } });
     render(<PerformancePage />);
     await screen.findByRole("heading", { name: /three ways to store them/ });
 
     expect(screen.getByText("halfvec(1024)")).toBeTruthy();
-    expect(screen.getByText("recommended")).toBeTruthy();
+    expect(screen.queryByText("recommended")).toBeNull();
+    expect(screen.getByText("3.0x smaller")).toBeTruthy();
     expect(screen.getByText(/cut the index by 3x, not 2x/)).toBeTruthy();
     expect(screen.getByText("Existing index")).toBeTruthy();
     expect(screen.queryByText("not measured")).toBeNull();

@@ -6,6 +6,8 @@ import json
 from typing import Any
 
 SCALAR_FIELDS = (
+    "category",
+    "subcategory",
     "brand",
     "model",
     "title",
@@ -88,10 +90,11 @@ def apply_curated_override(row: dict[str, str], override: dict[str, Any]) -> Non
     row["aliases_json"] = compact(aliases)
     row["challenge_cohorts_json"] = compact(cohorts)
     row["metadata_completeness"] = "1.0000"
-    row["quality_score"] = "0.9700"
-    row["freshness_score"] = "0.9400"
-    row["popularity_score"] = "0.9200"
-    row["return_rate"] = "0.0280"
+    if not override.get("preserve_commerce_signals", False):
+        row["quality_score"] = "0.9700"
+        row["freshness_score"] = "0.9400"
+        row["popularity_score"] = "0.9200"
+        row["return_rate"] = "0.0280"
     row["source_system"] = "curated_merchandising"
     row["search_text"], row["embedding_text"] = text_parts(
         row, attributes, tags, aliases

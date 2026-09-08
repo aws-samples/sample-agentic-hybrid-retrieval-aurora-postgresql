@@ -1,0 +1,23 @@
+{
+  "method": "built-in image_gen",
+  "role": "Cream background refinement of the illustrative Alex workspace story. Products are editorial subjects, not catalog SKU identification.",
+  "original_generation": "data/media/alex-shop-story-v1.json",
+  "edit_prompt": "Use case: lighting-weather. Edit this existing photograph with a subtle color-material adjustment only. Shift the pale background surfaces (white walls, light desk, pale floor/rug) gently toward luminous warm ivory / soft cream, harmonizing with website background #fbf8f1. Preserve this exact camera framing, composition, every object, all product geometry, screen contents, windows and outside view. Preserve crisp graphite-black products, brushed aluminum, burgundy accents, and realistic textures. Keep whites bright and modern, a slight warm cream undertone rather than beige or yellow. No sepia wash, no golden haze, no vintage styling, no added objects, no text. The difference should feel like a carefully art-directed neutral background, not a filter applied across the products. Maintain original 3:2 landscape format.",
+  "scenes": [
+    {
+      "key": "focus",
+      "asset": "ui/public/assets/images/mosaic/alex-focus-hero-v2.webp",
+      "source_path": "/Users/shayons/.codex-openai/generated_images/01a07ec3-7403-79a0-a667-03bcea4364eb/exec-69dc8b07-9866-40bb-bed2-b38a40a5f07a.png"
+    },
+    {
+      "key": "comfort",
+      "asset": "ui/public/assets/images/mosaic/alex-comfort-hero-v2.webp",
+      "source_path": "/Users/shayons/.codex-openai/generated_images/01a07ec3-7403-79a0-a667-03bcea4364eb/exec-67436231-66af-486b-b53c-04f9bda2d834.png"
+    },
+    {
+      "key": "workspace",
+      "asset": "ui/public/assets/images/mosaic/alex-workspace-hero-v2.webp",
+      "source_path": "/Users/shayons/.codex-openai/generated_images/01a07ec3-7403-79a0-a667-03bcea4364eb/exec-77be53d5-a451-40b3-9c80-7114ba0240be.png"
+    }
+  ]
+}

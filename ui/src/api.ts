@@ -17,6 +17,7 @@ import type {
   HnswSubstrate,
   ProductComparisonResponse,
   ProductDetail,
+  ProductSummary,
   LabStateResponse,
   ReadinessResponse,
   RetrievalExample,
@@ -111,11 +112,12 @@ export const api = {
       { signal },
     ),
 
-  catalog: (filters: SearchFilters, offset = 0, limit = 12, sort = "featured") => {
+  catalog: (filters: SearchFilters, offset = 0, limit = 12, sort = "featured", collection: "all" | "workspace" = "all") => {
     const params = new URLSearchParams({
       offset: String(offset),
       limit: String(limit),
       sort,
+      collection,
     });
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && key !== "attributes") {
@@ -124,6 +126,9 @@ export const api = {
     });
     return request<CatalogPage>(`/api/catalog/products?${params}`);
   },
+
+  similarProducts: (productId: number) =>
+    request<ProductSummary[]>(`/api/products/${productId}/similar`),
 
   product: (productId: number) =>
     request<ProductDetail>(`/api/products/${productId}`),

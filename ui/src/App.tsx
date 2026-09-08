@@ -14,13 +14,13 @@ const MosaicStudioPage = lazy(() =>
   import("./pages/MosaicStudioPage").then(({ MosaicStudioPage: Page }) => ({ default: Page })),
 );
 const PerformancePage = lazy(() =>
-  import("./pages/PerformancePage").then(({ PerformancePage: Page }) => ({ default: Page })),
+  import("./pages/ScaleInspectorPage").then(({ ScaleInspectorPage: Page }) => ({ default: Page })),
 );
 const ProductPage = lazy(() =>
   import("./pages/ProductPage").then(({ ProductPage: Page }) => ({ default: Page })),
 );
 const RetrievalLabPage = lazy(() =>
-  import("./pages/RetrievalLabPage").then(({ RetrievalLabPage: Page }) => ({ default: Page })),
+  import("./pages/PlaygroundPage").then(({ PlaygroundPage: Page }) => ({ default: Page })),
 );
 
 function titleForPath(pathname: string): string {

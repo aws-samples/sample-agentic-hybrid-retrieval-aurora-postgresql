@@ -33,12 +33,11 @@ Aurora only. There is no local database and no `make` target creates one. See
 
 | Clock | Stage | Required outcome |
 |---|---|---|
-| 00:00-00:10 | Getting started | Frame the pipeline thesis, open both participant surfaces, and capture the baseline failure |
-| 00:10-00:20 | Retrieve | Restore one candidate channel and prove recall, eligibility, and the HNSW plan |
-| 00:20-00:30 | Rank | Repair RRF and prove why reranking hid the broken fused order |
-| 00:30-00:45 | Reason | Attach evidence identity to synthesis state and prove citation authorization |
-| 00:45-00:50 | Wrap-up | Run the completion gate and separate regression, quality, and contract evaluation |
-| 00:50-01:00 | Flex | Use one optional lab, recover a table, or take questions |
+| 00:00-00:12 | Introduction / Overview / Presentation | Meet Alex, frame the three lessons and explain the architecture |
+| 00:12-00:22 | Retrieve | Restore one candidate channel and prove recall, eligibility, and the HNSW plan |
+| 00:22-00:32 | Rank | Repair RRF and prove why reranking hid the broken fused order |
+| 00:32-00:52 | Reason | Attach evidence identity to synthesis state, prove citation authorization and run the completion gate |
+| 00:52-01:00 | Flex | Use one optional lab, recover a table, or take questions |
 
 ## Eight proof anchors
 

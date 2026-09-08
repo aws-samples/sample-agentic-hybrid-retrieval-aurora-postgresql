@@ -1,0 +1,34 @@
+.reason-products { margin: 0 0 32px; color: var(--ink); font-family: var(--sans); }
+.reason-products > header { margin-bottom: 18px; }
+.reason-products > header h3 { margin: 0; font-family: var(--sans); font-size: 18px; font-weight: 500; line-height: 1.4; }
+.reason-products > header p { max-width: 65ch; margin: 6px 0 0; color: var(--ink-soft); font-size: 14px; line-height: 1.6; }
+.reason-products > ul { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 20px; margin: 0; padding: 0; list-style: none; }
+.reason-products li { min-width: 0; }
+.reason-product-link { display: block; color: inherit; text-decoration: none; }
+.reason-product-photo { aspect-ratio: 3 / 2; overflow: hidden; border-radius: 12px; background: var(--paper-warm); }
+.reason-product-photo img { display: block; width: 100%; height: 100%; object-fit: contain; animation: reason-product-arrive 480ms cubic-bezier(0.16, 1, 0.3, 1) var(--product-reveal-delay, 0ms) backwards; }
+.reason-product-copy { display: grid; gap: 4px; margin-top: 14px; }
+.reason-product-copy strong { font-size: 16px; line-height: 1.45; font-weight: 500; overflow-wrap: anywhere; }
+.reason-product-copy > span { color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+.reason-product-meta { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; margin-top: 10px; font-size: 14px; }
+.reason-product-meta strong { font-weight: 500; font-variant-numeric: tabular-nums; }
+.reason-product-meta > span { color: var(--maroon-800); font-size: 12px; }
+.reason-product-link:hover .reason-product-copy strong { text-decoration: underline; text-underline-offset: 4px; }
+.reason-product-link:focus-visible { outline: 2px solid var(--maroon-800); outline-offset: 5px; border-radius: 12px; }
+
+@keyframes reason-product-arrive { from { opacity: 0.35; } to { opacity: 1; } }
+
+@media (max-width: 760px) {
+  .reason-products > ul { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 480px) {
+  .reason-products > ul { gap: 24px 12px; }
+  .reason-product-photo { border-radius: 8px; }
+  .reason-product-copy strong { font-size: 14px; }
+  .reason-product-meta { display: grid; gap: 4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reason-product-photo img { animation: none; }
+}

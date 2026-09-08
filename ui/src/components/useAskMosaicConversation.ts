@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
-import type { RetrievalExample, SearchFilters } from "../types";
+import { workspaceRequests } from "../labMissions";
+import type { SearchFilters } from "../types";
 import type { AskMosaicTurn } from "./AskMosaic";
 
 function lastAnswered(turns: AskMosaicTurn[]): AskMosaicTurn | null {
@@ -13,32 +14,16 @@ function lastAnswered(turns: AskMosaicTurn[]): AskMosaicTurn | null {
 /**
  * Owns the conversation shared by every Ask Mosaic drawer.
  *
- * The drawer is presentational. Keeping examples, streaming events, follow-up
+ * The drawer is presentational. Keeping streaming events, follow-up
  * context, and cancellation here prevents Discover and Shop from drifting into
  * different assistants behind matching controls.
  */
 export function useAskMosaicConversation(filters: SearchFilters) {
   const [turns, setTurns] = useState<AskMosaicTurn[]>([]);
-  const [examples, setExamples] = useState<RetrievalExample[]>([]);
   const requestVersion = useRef(0);
   const requestController = useRef<AbortController | null>(null);
   const pending = turns.some((turn) => turn.loading);
   const answeredTurn = lastAnswered(turns);
-
-  useEffect(() => {
-    let active = true;
-    api
-      .examples()
-      .then((nextExamples) => {
-        if (active) setExamples(nextExamples);
-      })
-      .catch(() => {
-        if (active) setExamples([]);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   useEffect(() => () => {
     requestVersion.current += 1;
@@ -52,7 +37,7 @@ export function useAskMosaicConversation(filters: SearchFilters) {
     setTurns([]);
   }
 
-  async function run(question: string) {
+  async function run(question: string, requestFilters: SearchFilters = filters, contextKey?: string) {
     const trimmed = question.trim();
     if (trimmed.length < 2 || pending) return;
     const context = answeredTurn?.response
@@ -77,6 +62,7 @@ export function useAskMosaicConversation(filters: SearchFilters) {
       {
         id: version,
         question: trimmed,
+        contextKey,
         response: null,
         completed: false,
         partial: null,
@@ -96,7 +82,7 @@ export function useAskMosaicConversation(filters: SearchFilters) {
       ));
     };
     try {
-      await api.agentStream(trimmed, filters, (event) => {
+      await api.agentStream(trimmed, requestFilters, (event) => {
         if (version !== requestVersion.current) return;
         if (event.type === "stage") {
           setTurns((current) => current.map((turn) => (
@@ -157,11 +143,8 @@ export function useAskMosaicConversation(filters: SearchFilters) {
   return {
     answeredTurn,
     clear,
-    // Eval starters declare a domain, but no category or brand scope. Offering
-    // one inside an unrelated hard filter promises a search we cannot run.
-    examples: filters.category_key || filters.brand || Object.keys(filters.attributes ?? {}).length
-      ? []
-      : examples.filter((example) => !filters.domain || example.domain === filters.domain),
+    suggestions: filters.brand || Object.keys(filters.attributes ?? {}).length
+      ? [] : workspaceRequests(filters),
     pending,
     run,
     turns,

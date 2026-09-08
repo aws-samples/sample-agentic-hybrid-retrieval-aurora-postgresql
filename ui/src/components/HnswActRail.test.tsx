@@ -99,7 +99,7 @@ describe("HnswAct", () => {
         <p>body</p>
       </HnswAct>,
     );
-    expect(screen.getByRole("region", { name: "What it costs to tune" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Recall & filters" })).toBeTruthy();
   });
 
   it("refuses an act it does not define rather than rendering an empty group", () => {

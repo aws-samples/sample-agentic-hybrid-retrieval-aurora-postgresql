@@ -17,19 +17,19 @@
   "filter_targets_found": 720,
   "full_dataset_shards": [
     {
-      "bytes": 41156429,
+      "bytes": 41184575,
       "path": "data/full/products_consumer_electronics.csv.gz",
-      "sha256": "d109ca13c2b6311a53eca3d1dce67bb8a484954109f813503ac53d4954d8ea47"
+      "sha256": "970b6a6d65f7dc8d800e6dead6f596f08b3112ac1eda392776e31ef81a037bc8"
     },
     {
-      "bytes": 31485037,
+      "bytes": 31507644,
       "path": "data/full/products_running_fitness.csv.gz",
-      "sha256": "d6df9eced609d756fbc5fdec08a3c09bfc477ce77b576407587639fe9892133c"
+      "sha256": "de292c60b17467376bba882da0bf2251ffddf27599b3743e6fc7d7e93b8bb341"
     },
     {
-      "bytes": 25512547,
+      "bytes": 25540771,
       "path": "data/full/products_home_office.csv.gz",
-      "sha256": "9e7e5f5f31c35aacfb79b3d6661bcafd4afb6b6dd00b3fc3a7ef5d26ebd4e649"
+      "sha256": "beac0bdec644c4f0ea650cdb1906b3ccc6baafc42427f74834cbc6e7f9fefaa8"
     }
   ],
   "github_file_limit_bytes": 100000000,
@@ -49,12 +49,12 @@
   },
   "rows": 500000,
   "source_systems": {
-    "Catalog API": 100102,
-    "ERP": 100057,
-    "Marketplace": 100218,
-    "PIM": 99636,
-    "Vendor Feed": 99960,
-    "curated_merchandising": 27
+    "Catalog API": 100060,
+    "ERP": 100019,
+    "Marketplace": 100186,
+    "PIM": 99601,
+    "Vendor Feed": 99934,
+    "curated_merchandising": 200
   },
   "subcategories": 160,
   "subcategory_model_pairs": 468181,

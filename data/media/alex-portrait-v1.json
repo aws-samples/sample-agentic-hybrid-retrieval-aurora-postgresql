@@ -1,0 +1,12 @@
+{
+  "mode": "built-in image_gen",
+  "prompt": "Use case: photorealistic-natural. Asset type: small shopper profile portrait in the top-right header of Mosaic, a fictional home-office shopping website. Create an original fictional adult named Alex, an approachable man in his early thirties, short dark slightly wavy hair, light stubble, natural relaxed smile, looking at camera. Tight head-and-shoulders portrait, face centered and large enough to remain recognizable as a 36px circular avatar, complete head with a little breathing room. Plain muted warm ivory background, simple dark olive crewneck, soft window light, realistic skin texture, understated editorial photograph. Square composition. No text, no logo, no watermark, no UI, no additional people. This is a fictional person, not based on any real individual.",
+  "source": "/Users/shayons/.codex-openai/generated_images/01a07ec3-7403-79a0-a667-03bcea4364eb/exec-f58ff6f3-cfa7-42da-9c4b-23a0e4747cf4.png",
+  "runtime_asset": "ui/public/assets/images/mosaic/alex-shopper-v1.jpg",
+  "original_asset": ".local/mosaic-redesign/alex-workspace-v3/alex-shopper-original-v1.png",
+  "runtime_encoding": "144 \u00d7 144 JPEG, quality 85; original composition retained",
+  "identity": "fictional workshop shopper; no authentication",
+  "slide_asset": "ui/public/assets/images/mosaic/alex-headshot-v1.jpg",
+  "slide_encoding": "Original square resolution retained; JPEG quality 92",
+  "slide_sha256": "a75f8a76c2745c783aba1d5edcf364df01b861eb52e8cf07820749a0c09f12f0"
+}

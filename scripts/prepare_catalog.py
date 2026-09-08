@@ -185,6 +185,8 @@ def rebuild_sample(
 def prepare_path(
     path: Path,
     overrides: dict[int, dict[str, Any]],
+    *,
+    repair_quality_edges: bool = True,
 ) -> tuple[int, int, set[int]]:
     temp_path = path.with_name(path.name + ".tmp")
     rows = 0
@@ -209,7 +211,7 @@ def prepare_path(
         writer.writeheader()
         for row in reader:
             rows += 1
-            repairs += patch_known_quality_edges(row)
+            repairs += patch_known_quality_edges(row) if repair_quality_edges else 0
             product_id = int(row["product_id"])
             if product_id in overrides:
                 apply_curated_override(row, overrides[product_id])
@@ -222,12 +224,16 @@ def prepare_path(
 def prepare_paths(
     paths: Iterable[Path],
     overrides: dict[int, dict[str, Any]],
+    *,
+    repair_quality_edges: bool = True,
 ) -> tuple[int, int, set[int]]:
     rows = 0
     repairs = 0
     seen: set[int] = set()
     for path in paths:
-        path_rows, path_repairs, path_seen = prepare_path(path, overrides)
+        path_rows, path_repairs, path_seen = prepare_path(
+            path, overrides, repair_quality_edges=repair_quality_edges
+        )
         rows += path_rows
         repairs += path_repairs
         seen.update(path_seen)
@@ -247,6 +253,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--allow-missing-overrides", action="store_true")
     parser.add_argument("--sample-output", type=Path)
     parser.add_argument("--skip-sample", action="store_true")
+    parser.add_argument("--skip-quality-repairs", action="store_true")
     return parser.parse_args()
 
 
@@ -259,7 +266,9 @@ def main() -> int:
     )
     overrides = {int(item["product_id"]): item for item in override_rows}
     paths = args.catalog or catalog_paths(args.manifest)
-    rows, repairs, seen = prepare_paths(paths, overrides)
+    rows, repairs, seen = prepare_paths(
+        paths, overrides, repair_quality_edges=not args.skip_quality_repairs
+    )
     missing = set(overrides) - seen
     if missing and not args.allow_missing_overrides:
         raise RuntimeError(f"Override product IDs not found: {sorted(missing)}")

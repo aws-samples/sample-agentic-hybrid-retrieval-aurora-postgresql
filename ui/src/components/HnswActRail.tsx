@@ -22,20 +22,20 @@ export const HNSW_ACTS = [
   {
     slug: "cost",
     label: "Cost",
-    title: "What it costs",
+    title: "Index & storage",
     summary: "The index on the connected cluster, and the ways those vectors could be stored instead.",
   },
   {
     slug: "tuning",
     label: "Tuning",
-    title: "What it costs to tune",
-    summary: "Recall bought against latency, the neighbourhood that measures it, and what a filter does to the guarantee.",
+    title: "Recall & filters",
+    summary: "Compare search effort with exact neighbors, then explore selective filters and the memory budget.",
   },
   {
     slug: "scale",
     label: "Scale",
-    title: "What it costs at scale",
-    summary: "The same index projected past this corpus, tested against a second substrate, and what all of it decided.",
+    title: "Scale experiments",
+    summary: "Separate projections from controlled hardware comparisons, and trace each operating decision to its evidence.",
   },
 ] as const;
 
@@ -73,7 +73,6 @@ export function HnswActRail() {
 
   return (
     <nav aria-label="Vector index acts" className="hnsw-rail">
-      <span className="hnsw-rail-kicker">Vector index at scale</span>
       <ol className="hnsw-rail-acts">
         {HNSW_ACTS.map((act, index) => (
           <li key={act.slug}>
@@ -117,7 +116,6 @@ export function HnswAct({
       id={`hnsw-act-${slug}`}
     >
       <header className="hnsw-act-head">
-        <p className="hnsw-act-kicker">{act.label}</p>
         <h2 id={`hnsw-act-${slug}-title`}>{act.title}</h2>
         <p className="hnsw-act-summary">{act.summary}</p>
       </header>

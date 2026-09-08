@@ -73,7 +73,7 @@
   "media_mapping": {
     "path": "data/full/product_image_urls.csv.gz",
     "rows": 500000,
-    "sha256": "43432518e37fe7ec004c68f4797de9e0a45a54251ef7ca9d4e705a123fc0afea"
+    "sha256": "bcf617fb659a49e13cea4373dc0d1d1d21d2fc2087acd16979d821b21f9b0585"
   },
   "generated_at": "2026-08-07T02:59:23.659449+00:00",
   "license": "Synthetic data generated for demonstration and workshop use; no real products or reviews are represented.",
@@ -150,8 +150,8 @@
     "home_office::Displays::Monitor Arms": 3000,
     "home_office::Displays::Portable Monitors": 2000,
     "home_office::Displays::Privacy Screens": 1000,
-    "home_office::Displays::Productivity Monitors": 6000,
-    "home_office::Displays::Ultrawide Monitors": 3000,
+    "home_office::Displays::Productivity Monitors": 6007,
+    "home_office::Displays::Ultrawide Monitors": 2993,
     "home_office::Ergonomics::Anti-Fatigue Mats": 1500,
     "home_office::Ergonomics::Footrests": 2000,
     "home_office::Ergonomics::Keyboard Trays": 1500,
@@ -244,5 +244,6 @@
     "running_fitness::Yoga & Mobility::Yoga Mats": 3500
   },
   "total_products": 500000,
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "catalog_revision": "2026-09-08-distinct-shop-selection-v2"
 }

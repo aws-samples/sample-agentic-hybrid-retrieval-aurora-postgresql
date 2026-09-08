@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "purpose": "Illustrative scenes for Alex\u2019s home-office brief, not SKU-bound product photographs",
+  "source": "User-provided Grok design reference",
+  "method": "Existing JPEG assets converted to WebP; no crop or generative changes",
+  "assets": [
+    {
+      "source": "/Users/shayons/Desktop/DAT410-UI-rehaul/grok/public/discover/long-day.jpg",
+      "runtime_path": "/assets/images/mosaic/alex-long-day-editorial-v1.webp",
+      "sha256": "556a3b4573bd92c7fd35205b0505d005607ad29ee0b08aa44f320803363fdd79"
+    },
+    {
+      "source": "/Users/shayons/Desktop/DAT410-UI-rehaul/grok/public/products/canvas.jpg",
+      "runtime_path": "/assets/images/mosaic/alex-screen-space-editorial-v1.webp",
+      "sha256": "44efd6c98cd52f2018eec8262abf87c9ec488a05e1a3be12af0498fb493b1e52"
+    }
+  ]
+}

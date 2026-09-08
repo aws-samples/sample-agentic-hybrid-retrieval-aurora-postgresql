@@ -150,6 +150,7 @@ adapter exports only aggregate counts and timings; see
 - `POST /api/catalog/counts`
 - `GET /api/catalog/reviews/highlights`
 - `GET /api/products/{product_id}`
+- `GET /api/products/{product_id}/similar` returns up to four distinct, in-stock alternatives from the photographed selection, ordered by cosine distance to the stored product embedding within the same category (or monitor family). This bounded merchandising read does not run the 500K search pipeline or assert accessory compatibility.
 - `GET /api/evidence/{evidence_id}`
 - `POST /api/products/{product_id}/evidence` requires `retrieval_scope_id`, the
   `search_event_id` of the retrieval that granted the product. A product the

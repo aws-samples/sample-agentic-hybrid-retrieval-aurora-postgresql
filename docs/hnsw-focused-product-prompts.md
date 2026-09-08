@@ -548,7 +548,7 @@ angular rear housing, fixed low T-shaped stand, narrow bezels, and an abstract
 coral-to-graphite gradient on the screen
 COMPOSITION: side three-quarter view on travertine desk; directional window
 light; pale sand background
-SAVE AS: ho-ultrawide-monitors-p420496-catalog-3x2.png
+SAVE AS: ho-productivity-monitors-p420496-catalog-3x2.png
 ```
 
 ```text
@@ -559,7 +559,7 @@ height-adjustable central column, rounded rectangular base, subtly textured rear
 shell, and an abstract warm sand-and-burgundy screen gradient
 COMPOSITION: straight-on front view on pale oak; soft symmetrical daylight;
 cream plaster wall
-SAVE AS: ho-ultrawide-monitors-p420607-catalog-3x2.png
+SAVE AS: ho-productivity-monitors-p420607-catalog-3x2.png
 ```
 
 ```text
@@ -570,7 +570,7 @@ high-refresh panel, fixed minimalist pedestal, low-profile V-shaped base, sharp
 bezel geometry, and an abstract ocean-to-maroon gradient on the screen
 COMPOSITION: low front three-quarter angle on dark forest stone; warm rim light;
 pale bone backdrop
-SAVE AS: ho-ultrawide-monitors-p421678-catalog-3x2.png
+SAVE AS: ho-productivity-monitors-p421678-catalog-3x2.png
 ```
 
 ```text
@@ -581,7 +581,7 @@ substantial height-adjustable column, broad stable foot, discreet rear cable
 management, and an abstract coral-and-sand gradient on the screen
 COMPOSITION: side profile turned slightly toward camera on a cream desk; soft
 late-afternoon light; plum wall
-SAVE AS: ho-ultrawide-monitors-p421833-catalog-3x2.png
+SAVE AS: ho-productivity-monitors-p421833-catalog-3x2.png
 ```
 
 ```text
@@ -592,7 +592,7 @@ fixed compact stand, nearly invisible top and side bezels, a clean matte rear,
 and an abstract amber-to-forest gradient on the screen
 COMPOSITION: centered frontal view on a coral-toned stone desk; diffuse daylight;
 warm sand backdrop
-SAVE AS: ho-ultrawide-monitors-p422221-catalog-3x2.png
+SAVE AS: ho-productivity-monitors-p422221-catalog-3x2.png
 ```
 
 ```text
@@ -614,7 +614,7 @@ asymmetrical metal stand, faceted rear shell, restrained dark bezels, and an
 abstract forest-to-sand gradient on the screen
 COMPOSITION: front three-quarter view from the right on pale limestone; narrow
 shaft of daylight; muted burgundy background
-SAVE AS: ho-ultrawide-monitors-p422329-catalog-3x2.png
+SAVE AS: ho-productivity-monitors-p422329-catalog-3x2.png
 ```
 
 ## Running and fitness Search/Discover extension - 16 images

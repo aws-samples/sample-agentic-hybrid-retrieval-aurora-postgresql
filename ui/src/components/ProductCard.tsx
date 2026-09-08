@@ -2,6 +2,8 @@ import { Check, Heart, ShoppingBag, Star } from "lucide-react";
 import { Link } from "wouter";
 import { cartQuantityLimit, useCommerce } from "../commerce";
 import { formatAvailability, formatPrice, isPurchasable, leafCategory } from "../format";
+import { shopDescription } from "../shopCopy";
+import { productDetailHref } from "../navigation";
 import { productImage } from "../media";
 import { FINAL_LABEL, FUSED_LABEL, armLabel } from "../retrievalLanguage";
 import type { ProductSummary } from "../types";
@@ -55,6 +57,7 @@ export function ProductCard({
   const quantityLimit = cartQuantityLimit(product);
   const quantityAtLimit = quantity > 0 && quantity >= quantityLimit;
   const signals = product.signals;
+  const description = shopDescription(product);
   const productTags = product.tags.filter((tag): tag is string => typeof tag === "string");
   const tags = Array.from(new Set([...collectionLabels, ...productTags])).slice(0, 3);
 
@@ -85,7 +88,7 @@ export function ProductCard({
           }
         }}
       >
-        <Link className="product-image" href={`/products/${product.product_id}`}>
+        <Link className="product-image" href={productDetailHref(product.product_id)}>
           <img
             src={imageSrc ?? productImage(product)}
             alt={product.title}
@@ -107,13 +110,16 @@ export function ProductCard({
           <Heart size={18} fill={saved ? "currentColor" : "none"} />
         </button>
         <div className="product-card-body">
-          <p className="shop-card-kicker">
+          <h3>
+            <Link href={productDetailHref(product.product_id)}>{product.model}</Link>
+          </h3>
+          <p className="shop-card-meta">
             <span>{product.brand}</span>
             {leafCategory(product.category_path)}
           </p>
-          <h3>
-            <Link href={`/products/${product.product_id}`}>{product.model}</Link>
-          </h3>
+          {description ? (
+            <p className="shop-card-description" title={description}>{description}</p>
+          ) : null}
           {/* "Why this match", not "Why ranked #3": a shopper deciding between two
               chairs is asking what Mosaic noticed, and the number is inside. Every
               row is one product's own position, never a pool count. */}
@@ -216,7 +222,7 @@ export function ProductCard({
 
   return (
     <article className="product-card">
-      <Link className="product-image" href={`/products/${product.product_id}`} aria-label={`View ${product.title}`}>
+      <Link className="product-image" href={productDetailHref(product.product_id)} aria-label={`View ${product.title}`}>
         <img
           src={imageSrc ?? productImage(product)}
           alt=""
@@ -240,7 +246,7 @@ export function ProductCard({
       <div className="product-card-body">
         <p className="eyebrow">{leafCategory(product.category_path)}</p>
         <h3>
-          <Link href={`/products/${product.product_id}`}>{product.title}</Link>
+          <Link href={productDetailHref(product.product_id)}>{product.title}</Link>
         </h3>
         <div className="price-row">
           <strong>{formatPrice(product.price_cents, product.currency)}</strong>
@@ -297,7 +303,7 @@ export function ProductCard({
               Compare
             </label>
           ) : null}
-          <Link className="product-detail-link" href={`/products/${product.product_id}`}>
+          <Link className="product-detail-link" href={productDetailHref(product.product_id)}>
             View details
           </Link>
         </div>

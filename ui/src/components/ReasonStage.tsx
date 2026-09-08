@@ -8,6 +8,7 @@ import { productImageMap } from "../media";
 import { Criteria, Searches } from "./agentAnswerParts";
 import { CodeBlock } from "./CodeBlock";
 import { ReasonRunStatus, type AgentPhase } from "./ReasonRunStatus";
+import { ReasonProducts } from "./ReasonProducts";
 import {
   PlaygroundDisclosure,
   PlaygroundDisclosureShelf,
@@ -586,6 +587,7 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
                 aria-labelledby="reason-answer-title"
               >
                 <h3 id="reason-answer-title">The grounded answer</h3>
+                <ReasonProducts products={response.recommendations} citations={citations} title="Mosaic’s picks for Alex" />
                 <div className="labs-reason-prose">
                   <Markdown>{response.answer}</Markdown>
                 </div>

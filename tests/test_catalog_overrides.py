@@ -12,6 +12,33 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_curated_taxonomy_correction_preserves_product_identity():
+    from scripts.catalog_overrides import apply_curated_override
+
+    row = {
+        "product_id": "420001",
+        "sku": "HO-ULTRA-0420001",
+        "title": "Mosaic Atelier 32 Premium Workspace Display",
+        "brand": "Mosaic",
+        "model": "Atelier 32",
+        "category": "Displays",
+        "subcategory": "Ultrawide Monitors",
+        "short_description": "A flat 32-inch 4K monitor.",
+        "long_description": "A 16:9 workspace display with USB-C power.",
+        "attributes_json": "{}",
+        "tags_json": "[]",
+        "aliases_json": "[]",
+        "challenge_cohorts_json": "[]",
+    }
+    apply_curated_override(row, {"subcategory": "Productivity Monitors"})
+
+    assert row["subcategory"] == "Productivity Monitors"
+    assert "Productivity Monitors" in row["search_text"]
+    assert "Ultrawide Monitors" not in row["search_text"]
+    assert row["product_id"] == "420001"
+    assert row["sku"] == "HO-ULTRA-0420001"
+
+
 def _load_transform_module():
     path = ROOT / "db" / "scripts" / "transform_legacy_catalog.py"
     spec = importlib.util.spec_from_file_location("catalog_transform_for_test", path)
@@ -130,3 +157,42 @@ def test_transform_applies_curated_aliases_before_bootstrap_normalization(
         normalized = next(csv.DictReader(handle))
     assert normalized["title"] == "Sonora Roam 2 Portable Bluetooth Speaker"
     assert "waterproof Wi-Fi Bluetooth speaker" in json.loads(normalized["aliases"])
+
+
+def test_copy_edit_preserves_existing_commerce_signals():
+    from scripts.catalog_overrides import apply_curated_override
+
+    row = {
+        "title": "Chair",
+        "brand": "Mosaic",
+        "model": "Nest",
+        "category": "Seating",
+        "subcategory": "Executive Chairs",
+        "short_description": "Old copy",
+        "long_description": "Old details",
+        "attributes_json": "{}",
+        "tags_json": "[]",
+        "aliases_json": "[]",
+        "challenge_cohorts_json": "[]",
+        "quality_score": "0.72",
+        "freshness_score": "0.81",
+        "popularity_score": "0.55",
+        "return_rate": "0.04",
+    }
+    before = {
+        key: row[key]
+        for key in (
+            "quality_score",
+            "freshness_score",
+            "popularity_score",
+            "return_rate",
+        )
+    }
+    apply_curated_override(
+        row,
+        {
+            "short_description": "Oatmeal upholstery with a light oak base.",
+            "preserve_commerce_signals": True,
+        },
+    )
+    assert {key: row[key] for key in before} == before

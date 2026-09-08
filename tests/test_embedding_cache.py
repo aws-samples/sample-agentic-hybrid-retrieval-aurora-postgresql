@@ -107,7 +107,7 @@ def test_embedding_cache_contract_is_pinned_to_the_workshop_artifact():
     assert contract == {
         "schema_version": 1,
         "manifest_sha256": (
-            "134d255b14d72bcf955d5e1bde93bf4982543506464844f91291e1c84b22fc8c"
+            "f979f6e2f00e74846622c882f10365c6c2ee03ceb80a5cf2e06b6b62a3eacda1"
         ),
         "embedding_model_id": "us.cohere.embed-v4:0",
         "dimensions": 1024,

@@ -1,0 +1,299 @@
+.lab-page.labs-premium {
+  gap: 28px;
+  padding-top: 24px;
+}
+
+.lab-page .mosaic-labs-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  padding: 0 0 16px;
+}
+
+.lab-page .mosaic-labs-tabs > div {
+  gap: 24px;
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.lab-page .mosaic-labs-tabs > div a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  font-weight: 500;
+}
+
+.lab-page .mosaic-labs-tabs > div a.active {
+  border-color: var(--maroon-800);
+  color: var(--maroon-800);
+  font-weight: 600;
+}
+
+.lab-page .mosaic-labs-tabs > small {
+  font-size: var(--labs-detail);
+}
+
+.lab-page .labs-intro {
+  padding: 12px 0 0;
+}
+
+.lab-page .labs-intro-copy h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: var(--labs-display);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+}
+
+.lab-page .labs-intro-copy > .labs-intro-deck {
+  max-width: 68ch;
+  margin-top: 14px;
+  font-size: var(--labs-lead);
+  line-height: 1.65;
+}
+
+.lab-page .labs-intro-actions {
+  margin-top: 28px;
+}
+
+.lab-page .retrieval-run-action {
+  gap: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.lab-page .retrieval-run-action label > span {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.lab-page .retrieval-run-action input,
+.lab-page .retrieval-run-action select,
+.lab-page .retrieval-run-action .primary-button {
+  min-height: 48px;
+  border-radius: 8px;
+  font-size: var(--labs-body);
+}
+
+.lab-page .labs-rail {
+  padding: 16px 18px;
+  border-color: var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+
+.lab-page .labs-rail-stages a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 0 8px;
+}
+
+.lab-page .labs-rail-kicker {
+  color: var(--ink-soft);
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.lab-page .labs-rail-edit small {
+  line-height: 1.6;
+}
+
+.playground-repair-brief {
+  margin-top: -12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+}
+
+.playground-repair-brief > summary {
+  min-height: 52px;
+  padding: 16px 20px;
+  cursor: pointer;
+  font-size: var(--labs-body);
+  font-weight: 500;
+}
+
+.playground-repair-brief > summary small {
+  float: right;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  font-weight: 400;
+}
+
+.playground-repair-comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 1px solid var(--line);
+}
+
+.playground-repair-comparison > section {
+  padding: 24px;
+}
+
+.playground-repair-comparison > section + section {
+  border-left: 1px solid var(--line);
+}
+
+.playground-repair-comparison h2 {
+  margin: 0 0 12px;
+  font-size: var(--labs-h3);
+  font-weight: 600;
+}
+
+.playground-repair-comparison p {
+  max-width: 65ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-body);
+  line-height: 1.7;
+}
+
+.playground-repair-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+  font-size: var(--labs-detail);
+}
+
+.playground-repair-footer p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.playground-repair-footer a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  color: var(--maroon-800);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.lab-page .labs-bridge {
+  gap: 16px;
+  padding: 8px 0 24px;
+  border-top: 0;
+}
+
+.lab-page .labs-bridge dl > div {
+  padding: 16px 20px;
+  background: var(--paper-warm);
+}
+
+.lab-page .labs-stage {
+  gap: 24px;
+  padding-top: 32px;
+}
+
+.lab-page .labs-stage-copy h2 {
+  font-weight: 500;
+  letter-spacing: -0.025em;
+}
+
+.lab-page .labs-stage-copy p {
+  max-width: 70ch;
+  line-height: 1.65;
+}
+
+.lab-page .labs-stage-number {
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+@media (max-width: 760px) {
+  .lab-page.labs-premium {
+    gap: 24px;
+    padding-inline: 16px;
+    padding-top: 12px;
+  }
+
+  .lab-page .mosaic-labs-tabs {
+    gap: 8px 16px;
+    padding-bottom: 12px;
+  }
+
+  .lab-page .mosaic-labs-tabs > div {
+    display: flex;
+    width: 100%;
+    gap: 20px;
+  }
+
+  .lab-page .mosaic-labs-tabs > div a {
+    white-space: normal;
+  }
+
+  .lab-page .mosaic-labs-tabs > small {
+    flex: 1;
+    text-align: left;
+    font-size: var(--labs-micro);
+  }
+
+  .lab-page .labs-intro-copy h1 {
+    font-size: var(--labs-h2);
+  }
+
+  .lab-page .labs-intro-actions {
+    margin-top: 20px;
+  }
+
+  .lab-page .retrieval-run-action {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .lab-page .retrieval-run-action .primary-button {
+    width: 100%;
+  }
+
+  .lab-page .labs-rail {
+    padding: 14px;
+  }
+
+  .lab-page .labs-rail-stages {
+    gap: 4px;
+  }
+
+  .playground-repair-brief > summary small {
+    display: none;
+  }
+
+  .playground-repair-comparison {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .playground-repair-comparison > section + section {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .playground-repair-comparison > section,
+  .playground-repair-footer {
+    padding: 20px;
+  }
+}

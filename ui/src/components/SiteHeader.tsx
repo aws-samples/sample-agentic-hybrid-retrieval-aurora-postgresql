@@ -157,6 +157,15 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
 
       <div className="site-actions">
         <CodeEditorLink href={codeEditorUrl} className="site-code-editor" />
+        <div className="site-shopper" title="Shopping as Alex">
+          <img
+            src="/assets/images/mosaic/alex-shopper-v1.jpg"
+            alt="Alex, your Mosaic shopper"
+            width={46}
+            height={46}
+          />
+          <span>Welcome, Alex!</span>
+        </div>
         <button
           className="site-icon site-bag"
           type="button"

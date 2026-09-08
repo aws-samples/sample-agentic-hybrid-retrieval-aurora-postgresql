@@ -1,8 +1,15 @@
-# DAT410 Mosaic - Co-Presenter Brief
+# DAT410 Mosaic — Co-Presenter Brief
 
 > Staff brief, written in plain language. It carries no secrets, so it is fine for a participant to find it in Code Editor. Use it to understand the story, divide presenter roles, and answer questions the same way at every table. The operational checklist lives in the Workshop Studio repository's `FACILITATOR_GUIDE.md`; this file does not repeat it.
 
 ## The workshop in one minute
+
+Participants are the engineers; Alex is their customer. Alex is setting up a home office for coding, video calls and focused work.
+
+- **A reranker cannot recover a product that never entered the candidate pool.**
+- **A correct-looking result can hide broken ranking.**
+- **Returned evidence still has to be registered before it can support an answer.**
+
 
 Mosaic is a shopping catalog of 500,000 products across consumer electronics, running and fitness, and home office. A shopper can search with keywords or ask in plain language. Both paths run against one Aurora PostgreSQL database, and both can look right while the retrieval behind them is wrong.
 
@@ -24,19 +31,95 @@ A plausible product card is not proof that search is healthy. A correct final an
 
 > This is a shopping site with half a million products on Aurora PostgreSQL. Search it and you get a page of plausible results. Across three labs, you'll find and fix three faults behind that page: one in candidate search, one in ranking, and one in what the agent is allowed to cite. Each fix is a few lines. The work is the diagnosis.
 
-Have Shop loaded with the misspelled query before speaking. When the headphones
-are absent from the results, explain that the close-spelling index is healthy and
-finds the target directly, but its rows never enter fusion. Then introduce
-Retrieve → Rank → Reason. Only the current lab's fault is installed.
+Show a 30-second control first: `noise cancelling headphones` works. Then show
+`noice cancelng hedfones`: the Sonora WH-C720 disappears. Search is not completely
+broken; one candidate path is disconnected. A healthy close-spelling index can
+find the target, but its rows never reach fusion. Only the current lab's fault
+is installed.
+
+## Introduction / Overview / Presentation
+
+Reserve the first **10–12 minutes for the presentation**, regardless of how
+quickly participants can open their accounts. The planned agenda allocates 12.
+Do not turn this block into troubleshooting or an early start on Lab 1.
+
+Use five beats:
+
+1. **Meet Alex.** A software engineer setting up a home office for video calls,
+   long coding sessions and focused work. The participants build the system;
+   Alex uses it. No customer login exercise is needed.
+2. **The three lessons.** Put the three bold sentences above on the opening
+   slide. Each returns at the start and end of its lab.
+3. **One request, several ways to find a product.** Exact model/terms, spelling
+   errors and intent need different retrieval signals. Filters decide eligibility.
+4. **How the system fits together.** Aurora holds the catalog, retrieval indexes
+   and saved evidence; Bedrock supplies embeddings, reranking and the agent model;
+   the application validates tool use and citations.
+5. **The participant mission.** Follow the lab guides. Observe the fault, inspect
+   its cause, repair a small marked block, and rerun the same request to prove it.
+
+Discover introduces the person and the problem; Shop supplies the choices. The
+photographed workspace selection keeps the first impression focused on Alex.
+Search still reaches 500,000 products. The scale reveal belongs beside search
+and in Playground.
+
+## Alex’s journey
+
+**Discover opens with “How a room learns you.”** A large photograph shows the
+workspace Alex is working toward. Beside it, **Meet Alex** makes the brief
+specific: a software engineer whose day moves between coding, team calls and
+focused work. His desk and laptop are already in place. His headphones, chair
+and monitor are still to choose. The portrait and brief establish the customer;
+there is no shopper login exercise or invented “2 of 7” completion counter.
+
+The slide-ready [Meet Alex bio and full-resolution headshot](docs/presentation-assets/meet-alex.md)
+use the same persona.
+
+The next section is **Three needs. One working day.** Each illustrated story
+explains the situation, names the details that matter, and offers a pill that
+runs a real, category-scoped Shop search. The order matches Shop’s Explore pills:
+
+| Alex’s need | The customer problem | What the choice must establish | Where the story goes |
+|---|---|---|---|
+| **Clearer calls** | Background noise at home makes it harder for teammates to hear him. | Microphone clarity for the person listening, plus comfort and noise cancellation for Alex. Listening noise cancellation alone does not establish outgoing voice clarity. | Find headphones for Alex → headphones search and comparison. |
+| **Comfortable days** | A short call becomes a long coding session. | Lumbar support, seat depth and arm adjustments that fit his body and working day. | Find chairs for Alex → chair search and comparison. |
+| **Room to code** | Code, documentation and a video call compete for his laptop screen. | Screen space, readable text and a connection his laptop supports. | Find monitors for Alex → monitor search; **Mosaic Atelier 32** is also the exact-model control. |
+
+From there, the customer experience continues:
+
+1. **Shop the choices.** Browse the workspace edit or search the full catalog.
+   Discover’s story actions and Shop’s matching Explore pills use the same
+   queries and filters from the mission manifest. A visitor can also describe a
+   different need in the general search box.
+2. **Look closely.** Open a product for its complete description, specifications
+   and reviews. Similar monitors are alternatives; monitor arms, docks and cable
+   management are supporting categories whose compatibility still needs checking.
+3. **Ask for help choosing.** Ask Mosaic gathers and compares evidence, then
+   explains its shortlist with product images and citations. Follow-ups can use
+   the previous grounded run in that conversation.
+4. **Continue the workspace.** On the first unfiltered Shop page, a separate
+   supporting edit offers lighting, a dock and a laptop stand. Its products and
+   prices come from the catalog. It disappears during search, filtered browsing
+   and Ask Mosaic, keeping the retrieved result set clear.
+5. **Inspect the system behind the choice.** Participants move to Playground to
+   see which products entered the pool, how their ranks changed, and what evidence
+   supports the answer. Scale & HNSW explains the search across 500,000 products.
+
+Discover establishes the brief and carries no product inventory grid or lab
+instructions. The guides remain the participant entry point and install each
+lab’s deliberate fault. The customer journey above gives those repairs context;
+the core lab contracts and the remaining Reason handoff are specified below.
+Cross-conversation preference memory is an optional extension, not something the
+Welcome Alex profile or the Discover brief already implements.
 
 ## What participants do
 
 1. Open three browser tabs from the Event Dashboard: Code Editor and Mosaic, plus the guide itself.
-2. In Shop, search `noice cancelng hedfones` and see the Sonora WH-C720 headphones missing. That is the starting fault.
+2. In Shop, observe the correctly spelled control, then search `noice cancelng hedfones` and see the Sonora WH-C720 missing. That contrast diagnoses the starting fault.
 3. Lab 1: reconnect the close-spelling search arm to fusion, in SQL.
 4. Lab 2: repair the fusion arithmetic so rank position counts again, in SQL.
 5. Lab 3: register retrieved evidence into the application state that authorizes citations, in Python.
-6. Run the completion gate, then use the flex time for Vector index at scale, the retrieval scorecard, catch-up, or questions.
+6. Run the completion gate inside Lab 3, then use the remaining time for an optional exercise, catch-up or questions.
 
 Each lab has a manual path and an optional coding-agent path (`claude` from the repository root, with guardrails). Both produce the same small diff and pass the same validator. Each lab also has a five-minute **Fast track** that compresses the implementation, never the proof.
 
@@ -51,7 +134,7 @@ A browser VS Code with a terminal already connected to the participant's own Aur
 
 `uv run python scripts/lab_state.py status` reports each lab as BROKEN or SOLVED. At the start, Lab 1 is BROKEN and Labs 2 and 3 read SOLVED; each later lab resets only its own fault and keeps the repairs already made.
 
-The Playground uses **Code needs repair** or **Code repaired** for the file and
+The guided Playground uses **Code needs repair** or **Code repaired** for the file and
 **SQL repair not applied** or **SQL repair applied** for Aurora. Lab 3 says
 **No SQL update required**. These describe the repair's installation; only the
 completion proof verifies its behavior. The storefront header carries navigation,
@@ -61,12 +144,44 @@ and the Playground lab rail carries these exercise states.
 
 The application has three navigation destinations, with Ask Mosaic inside Shop:
 
-- **Discover.** The editorial entry point, with the three canonical lab prompts and excerpts from synthetic catalog reviews. Its portraits are illustrative.
-- **Shop.** Keyword and filter search over the catalog. Every result card can open "See how this was retrieved", which lands on the Playground with the same query and the same filters. Ticking two or more results compares them side by side, and the comparison is worth showing: under the price and the rating it prints which search methods found each product, its rank before reranking, and the rank the shopper was shown. Those three rows come from the run's saved receipt, not from the list on screen, which is why a comparison is only offered once a search has run. If the catalog carries none of a request's words, Shop says which ones above the results rather than returning a confident page of near misses.
-- **Ask Mosaic.** The agent, in a side panel on Shop. It shows progress while gathering evidence, then leads with the cited answer. **Steps and sources** holds the request interpretation, searches, product comparison, supporting evidence, and tool activity. Its receipt reads the same way as the Playground's.
-- **Playground.** The proof surface, in four numbered stages. This is where the repairs become visible, and where most of the teaching happens.
+- **Discover.** The home-office brief described above: Alex, his room, three needs, and routes into search or category browsing. The illustrated scenes are inspiration, not a product bundle or a completed purchase.
+- **Shop.** The default Workspace edit currently shows 71 picks selected from the 200 photographed products; keyword search reaches the full 500,000-product catalog. Every result card can open "See how this was retrieved", carrying the query, filters and saved search event into the Playground. Ticking two or more results compares them side by side, and the comparison is worth showing: under the price and the rating it prints which search methods found each product, its rank before reranking, and the rank the shopper was shown. Those three rows come from the run's saved receipt, not from the list on screen, which is why a comparison is only offered once a search has run. If the catalog carries none of a request's words, Shop says which ones above the results rather than returning a confident page of near misses.
+- **Ask Mosaic.** The agent, in a side panel on Shop or a mobile overlay below the header. It shows progress while gathering evidence, then leads with the cited answer. **Steps and sources** holds the request interpretation, searches, product comparison, supporting evidence, and tool activity. Follow-ups carry context from the prior grounded run; they do not establish preference memory across visits.
+- **Playground.** `/labs/retrieval` defaults to **Pipeline**, a three-stage inspection of Retrieve, Rank and Reason. Alex's request choices come from the canonical mission manifest. One **Play pipeline** action makes a real agent request; the stages read its records. A saved Shop event opens its original receipt, and Play starts a new complete run when an agent answer is needed. **Scale & HNSW** is the adjacent inspection lens.
 
-### The Playground, stage by stage
+The guides and proof links retain the four-stage guided Playground through
+`example`, `run`, or `view=lab` on `/labs/retrieval`. Use those guide links for
+the exercises below. The home-office presentation does not change any core lab
+question, target, repair or completion contract. The installed Shop selection has 200 individually written, concise descriptions.
+Its source, Aurora rows, Cohere vectors and specification evidence are promoted
+together. `data/curated/proposals/` retains earlier design sketches; the active
+source is `data/curated/demo_products.json`.
+
+Product pages carry the same typography and shopping controls. “Similar monitors”
+uses the stored product vector to find alternatives within the photographed
+selection. “Complete your setup” points to monitor arms, docks and cable
+management separately; those category relationships do not assert that every
+accessory fits. VESA patterns, display weight, desk clamp range and connection
+requirements are the facts needed to establish compatibility. A whole model or
+SKU lookup serves the matching identity without padding the result with weak
+neighbors; Playground retains the complete candidate audit.
+
+Shop introduces Alex beside a compact title, then shows three large scenes:
+headphones for focus, a chair for comfort, and the complete workspace. Their
+Retrieve → Rank → Reason labels follow the core mission order; the captions
+tell the shopping story without giving exercise instructions. Search and Ask
+sit immediately below. The scenes scroll horizontally on mobile and step
+aside during a search or an open Ask conversation.
+
+Explore and Ask follow the canonical Pipeline request order: **Clearer calls**,
+**Comfortable days**, **Room to code**, then the **Mosaic Atelier 32** exact-model
+control.
+
+Pipeline still opens on Room to code. Comfortable days adds a scoped
+chair-shopping request; it does not change Lab 2's question or proof. Ask shows
+only suggestions compatible with the current filters.
+
+### The guided Playground, stage by stage
 
 - **01 Retrieve.** Three ways Aurora looked for the same product: exact terms (full-text search), close spelling (trigram matching), and meaning match (vector similarity). Each shows how many candidates it put in the pool. In the broken Lab 1 state the close-spelling arm reads "not in this pool" while its index is healthy. That contrast is the whole lesson.
 - **02 Rank.** One table, one row per result: where each product sat in each arm, its fused position before reranking, its rerank score, and its final position. Select a column heading to read the SQL behind it.
@@ -84,11 +199,36 @@ PASS cannot certify a pending or failed attempt.
 
 ## The three-lab journey
 
-| Lab | Broken state | Participant lesson | Bounded change | Proof |
-|---|---|---|---|---|
-| **1 Retrieve** (10 min) | The trigram arm works and returns product 2 at rank 1, but its rows never join the fusion query, so an all-misspelled search cannot find the Sonora WH-C720. | A healthy component inside a broken composition. Recall before ranking: a reranker cannot recover a candidate that never entered the pool. | Restore the `typo` CTE in `search_hybrid_rrf` and add its rows to the channels union. Nothing else changes. | The same request returns product 2 with a trigram rank, and the Lab 1 validator passes. Golden case G-003. |
-| **2 Rank** (10 min) | Fusion gives every rank the same contribution, so the wrong chair leads the fused order. The reranker then quietly puts the right chair first, hiding the defect. | A correct answer is not proof of a correct pipeline. Keep the pre-rerank order and every per-arm contribution visible. | Restore a contribution that decreases as rank increases, `1 / (k + rank)`, in the marked formula. | Product 370002 is first both before and after reranking, with correct per-arm contributions. Golden case G-008. |
-| **3 Reason** (15 min) | The evidence tool returns records to the model, but the application never registers them, so synthesis refuses to cite anything and the run fails closed. | Evidence seen is not evidence citable. The model requests; the application decides what may reach the answer. | Attach each returned evidence record to application state, keyed by product, in the marked block of `get_product_evidence`. | The agent returns a cited comparison and every citation resolves to a real evidence record. Golden case G-021. |
+| Lab | What Alex sees before | What is broken | PostgreSQL and model mechanisms | Small repair and good state | What proves it |
+|---|---|---|---|---|---|
+| **Retrieve — 10 min** | Correct spelling works; the misspelled headphone search loses Sonora WH-C720. | The trigram search works on its own but its rows never enter fusion. | `tsvector` / `tsquery` with GIN for terms; `pg_trgm` for close spelling; pgvector and HNSW for meaning; SQL eligibility filters inside each arm. | Reconnect the `typo` CTE and union. The same typo now returns the eligible headphones. | Product 2 has a real trigram contribution in the saved run; Lab 1 validator passes. |
+| **Rank — 10 min** | The final first chair looks correct, while the wrong chair leads before reranking. | Reciprocal rank fusion assigns every source rank the same contribution. | SQL combines ranked candidate sets using **RRF**, `1 / (k + rank)`. **Cohere Rerank** on Bedrock reorders the bounded pool. Raw scores from different arms are not directly comparable. | Restore the contribution formula. PostureWorks Pro Mesh leads before and after reranking. | Inspect per-arm contributions and pre-rerank movement; product 370002 leads; Lab 2 validator passes. |
+| **Reason — 20 min** | Ask Mosaic finds products and reads their specs but refuses to produce a cited recommendation. | Evidence reaches the model but is not registered in the application state used to authorize citations. | A Strands agent calls typed tools; Aurora supplies products, saved search receipts, `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)` and versioned evidence rows. The application validates citation IDs and ownership. | Repair the one registration block in `get_product_evidence`. Product images, a comparison and a grounded answer appear. | Independent target searches, comparison, evidence reads, a saved plan and resolvable citations; Lab 3 and the completion gate pass. |
+
+**Retrieve:** a reranker cannot recover a product that never entered the pool.
+**Rank:** a correct-looking result can hide broken ranking. Cohere is masking a
+math bug, and a model call has cost and latency. Repairing fusion does not itself
+remove the reranker call; claim savings only when a separate measured policy
+actually skips it. **Reason:** returned evidence must be registered before it
+can support an answer.
+
+**Filters deserve their own explanation.** Each SQL arm applies eligibility
+before its candidate limit. That does not mean an HNSW graph only visits eligible
+rows: selective filters can leave an approximate scan short, and iterative scans
+may need to explore further. Inspect both eligibility and candidate count.
+
+### Continuity to finish before the event freeze
+
+The intended payoff is **headphones found → chair shortlisted → chair carried
+into a monitor-and-chair workspace recommendation**. Carry the Lab 2 chair's
+explicit identity or saved selection into Reason, then retrieve fresh evidence
+for the final comparison. This core hand-off must work with Memory disabled.
+
+The current `G-021` contract still requests a quiet keyboard and a 12-hour chair;
+it does not yet consume the Lab 2 selection. Do not present the monitor finale
+as implemented until the mission, guide, hand-off and production proof agree.
+Catalog promotion follows the same discipline: source text, structured facts,
+Cohere vectors, evidence and the portable cache must describe the same revision.
 
 The starting fault in each lab is intentional. Do not "fix" it before the lab, and do not describe the Lab 3 refusal as an outage.
 
@@ -127,7 +267,7 @@ Use this plain-language sequence:
 6. For Ask Mosaic, a Strands agent on Amazon Bedrock plans focused searches and may call five typed, read-only tools.
 7. The application, not the model, decides which evidence may be cited. If nothing qualifies, there is no answer of record.
 
-The ownership line to repeat: Aurora owns retrieval truth, Bedrock models provide intelligence, and the application owns execution and citation authority. No AgentCore resource is deployed by this workshop.
+The ownership line to repeat: Aurora owns retrieval truth, Bedrock models provide intelligence, and the application owns execution and citation authority. AgentCore is optional; the core labs do not require a Runtime, Gateway or Memory resource.
 
 These stages span multiple transactions. Their persisted receipts connect the
 workflow; avoid describing the complete model-and-database interaction as one
@@ -139,20 +279,94 @@ Models pinned for the event: Cohere Embed v4 for embeddings, Cohere Rerank 3.5 f
 
 | Time | Room activity | Checkpoint |
 |---|---|---|
-| 0:00 to 0:10 | Framing, open the three tabs, run the misspelled search in Shop | Both URLs load and Lab 1 reads BROKEN |
-| 0:10 to 0:20 | Lab 1 Retrieve | Product 2 returns with a trigram rank; validator passes |
-| 0:20 to 0:30 | Lab 2 Rank | Product 370002 leads before and after reranking; validator passes |
-| 0:30 to 0:45 | Lab 3 Reason | The refusal becomes a cited answer; every citation resolves |
-| 0:45 to 0:50 | Completion gate and takeaways | All three validators pass; the guide marks DONE |
-| 0:50 to 1:00 | Flex: Vector index at scale, scorecard, catch-up, or questions | Nothing required here |
+| 0:00–0:12 | **Introduction / Overview / Presentation** | Alex, the three lessons, architecture and the lab method |
+| 0:12–0:22 | **Lab 1 — Retrieve** | Headphones return through the repaired trigram arm |
+| 0:22–0:32 | **Lab 2 — Rank** | The chair leads before and after reranking |
+| 0:32–0:52 | **Lab 3 — Reason**, including completion proof and takeaways | Registered evidence becomes a cited answer; all required checks pass |
+| 0:52–1:00 | **Optional / flex** | Memory if rehearsed, HNSW, recovery or questions |
 
-The hands-on path must reach its last proof at minute 45. The two-minute recovery buffer is part of the 60, not spare lab time. If a table is behind, point them at the lab's Fast track immediately rather than at the end.
+The canonical budget is **12 + 10 + 10 + 20 + 8 = 60 minutes**. If the presentation
+finishes in 10 minutes, those two minutes go to flex. Proof is included in each
+lab; there is no additional mandatory five-minute conclusion that consumes flex.
+Timings live in `data/evals/mosaic_labs_missions.json`.
 
-## Flex time
+One presenter carries Alex's story and the before/after demonstrations. The
+other owns the SQL/tool explanation, monitors room progress and helps with
+recovery. Both use the same checkpoints. Switch roles between labs if helpful.
 
-The last ten minutes are unstructured. Vector index at scale, the scorecard, catch-up and questions come first. The beats below are what to reach for after those, or when a table finished early. Nothing here is required, nothing here is a fourth lab, and no AgentCore resource is deployed by this workshop. Treat each one as something to say and show from your own screen.
+If a table falls behind, use the guide's Fast track promptly. `make reset-lab-N`
+reinstalls that lab's fault and restores its prerequisites; the corresponding
+`make solution-lab-N` is the recovery route. Apply changed SQL and restart the
+API where the guide requires it, then run the same validator. A rescue is not a
+pass until its production check runs.
 
-Vector index at scale reads in three acts, named in the rail at the top of it and jumpable from there: **Cost** is what the index takes on the connected cluster and how those vectors could be stored instead; **Tuning** is recall bought against latency, the exact neighbourhood that measures it, and what a filter does to the guarantee; **Scale** is the same index projected past this corpus, tested against a second substrate, and what all of it decided. Driving it front to back takes about six screens, so pick the act that answers the question you were asked rather than scrolling from the top.
+## Optional / flex: keep the core story complete without it
+
+The final eight minutes are optional. Pick one exercise; do not try to teach
+Memory, Runtime, Gateway and HNSW as four additional labs.
+
+### Recommended AgentCore split
+
+| Component | What it adds | Recommended participant experience | Current release status |
+|---|---|---|---|
+| **Memory — user preference strategy** | Alex's preferences survive a new conversation. | A 5–7 minute flex: inspect an already extracted preference, connect retrieval of it, start a new conversation and inspect which record was used. | Planned; not wired into the application or verified as a participant exercise yet. |
+| **Runtime** | A managed place to run the existing Strands agent. | Pre-deploy if chosen. A brief architecture callout or invocation of a ready endpoint; no image build or deployment during flex. | Adapter and container source exist in `deploy/agentcore/`; an event deployment still needs rehearsal. |
+| **Gateway** | A managed authenticated entry point to the agent's tools. | Pre-deploy if chosen. Show the tool boundary and one tool call; no participant IAM/OAuth setup during flex. | An optional architecture path, not a required or verified live dependency. |
+
+Runtime and Gateway can be pre-deployed, but they are not prerequisites for
+calling Memory from the existing application. Adopt them only if they make the
+architecture explanation clearer and the fresh-account rehearsal passes. Aurora
+continues to own retrieval scope and product evidence wherever the agent runs.
+[AgentCore Gateway documentation](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway.html)
+describes the managed tool and authentication boundary.
+
+**Do not promise that new preference extraction is instant or deterministic.**
+The built-in strategy extracts and consolidates preferences asynchronously;
+AWS says new insights may take a minute or more to appear. Create the Memory
+resource and activate its strategy before recording the seed conversation, then
+verify the extracted record before participants arrive.
+[Saving and retrieving insights](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/long-term-saving-and-retrieving-insights.html)
+
+A reliable flex has a deterministic acceptance check around that asynchronous
+service: the configured account and Alex namespace return the expected record;
+a new conversation uses it; the saved run identifies that record; and an
+explicit current request overrides a conflicting preference. Product claims
+still require catalog evidence. Preferences never become product citations.
+The strategy captures preferences from conversational data; it is distinct from
+Ask Mosaic's existing previous-shortlist context.
+[User preference strategy](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/user-preference-memory-strategy.html)
+
+Let participants save a new preference as a stretch step and observe extraction
+when it finishes. The timed exercise uses the verified seed. If readiness fails,
+show a clearly labelled facilitator recording or use HNSW; do not silently replace
+a missing Memory response with a hardcoded preference and call it live.
+
+For 100+ participants, preflight every dedicated account's Memory strategy,
+namespace, extracted record, permissions and model access. Rehearse the exact
+write/read/new-session path repeatedly in fresh accounts, and measure its time.
+No local success yet establishes room-wide capacity or a guarantee that every
+new extraction will finish during flex.
+
+**Scale & HNSW** at `/mosaic-labs/hnsw` defaults to a read-only explanation of
+the index, recall versus search effort, and selective filters. It separates
+current Aurora index facts from recorded measurements. The optional halfvec
+and two-pass binary section reuses recorded comparisons; when attribution
+differs from the current catalog or code, present those results as historical.
+This interface change adds no new benchmarks or workshop-capacity evidence.
+
+**Open advanced instrument** (`?view=bench`) uses the same open reading layout
+as Pipeline and retains the live probe controls. Its rail names three sections:
+**Index & storage** covers the connected cluster and recorded representation
+comparisons; **Recall & filters** compares approximate search with exact
+neighbors; **Scale experiments** presents projections and recorded substrate
+comparisons. Pick the section that answers the question you were asked.
+
+Keep its **Live**, **Recorded** and **Projected** labels in the explanation.
+The source details for historical measurements can be expanded, but the mismatch warning stays visible.
+Representation ratios use one recorded artifact, and the displayed build
+parameters are labelled recorded. A live probe's server timing comes from its
+second, warm execution. Neither that timing nor the halfvec comparison is a
+general recommendation or evidence of concurrent workshop capacity.
 
 ### Observability without moving the ledger
 
@@ -217,8 +431,8 @@ Own the tabs, the Code Editor terminal, syntax recovery and the validators. Help
 - Filters are applied inside every search arm before any limit. They are never a reranker hint.
 - Raw full-text, trigram, vector, fusion and rerank scores do not share a scale. That is why fusion uses positions.
 - The reranker receives a bounded pool. It does not replace retrieval.
-- The agent is one bounded Strands agent with five typed, read-only tools. It does not delegate, remember across visits, or traverse a graph.
-- Mosaic's memory is Aurora. Every run, candidate, evidence record and citation is persisted with an id. Nothing remembers a shopper between visits, and the Reason stage says so in a footnote.
+- The core agent is one bounded Strands agent with five typed, read-only tools. Cross-visit preferences are an optional Memory extension; no graph traversal is claimed.
+- Aurora persists every run, candidate, evidence record and citation with an id. Ask follow-ups use prior grounded-run context. The optional Memory extension is not yet a verified event exercise. “Welcome, Alex!” alone does not establish cross-visit memory.
 - Any harness that speaks MCP can call the same three tools with the same contracts. That is the answer to "does this only work with Strands".
 
 ## Words to use
@@ -244,8 +458,8 @@ Follow the event-owner preflight in the Workshop Studio repository's `FACILITATO
 
 - confirm the account can invoke all three pinned models;
 - confirm readiness reports 500,000 products and 500,000 embeddings;
-- check Shop at 100% browser zoom on a laptop: the hero composition, full Ask Mosaic explanation, and search examples should remain readable without crossing into a different layout at 900px of viewport height;
-- confirm Lab 1 reads BROKEN and Labs 2 and 3 read SOLVED;
+- check Shop at 100% browser zoom on a laptop: search examples and the full Ask Mosaic invitation should remain readable; on mobile, open Ask after scrolling and confirm its title and close action stay below the header and its panel reaches the viewport bottom;
+- confirm Lab 1 reads BROKEN and Labs 2 and 3 read SOLVED; rehearse the spelled control before the typo;
 - seed the HNSW exact ground truth, which the cached bootstrap does not do and which Vector index at scale needs to render at all;
 - run all three labs and the completion gate yourself from the rendered guide.
 

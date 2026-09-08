@@ -191,7 +191,9 @@ See [the architecture reference](docs/architecture.md) and
 
 ## Workshop path
 
-The 60-minute session follows one system through three required labs:
+The 60-minute session reserves 12 minutes for an Introduction / Overview /
+Presentation, 40 minutes for the three labs (including their proofs and the
+completion gate), and 8 minutes for optional work or recovery:
 
 ```text
 RETRIEVE -> RANK -> REASON
@@ -201,7 +203,7 @@ RETRIEVE -> RANK -> REASON
 |---|---:|---|
 | **1. Build hybrid retrieval** | 10 min | Prove the right eligible candidates entered the pool, then reconnect one missing candidate arm |
 | **2. Fuse, rerank, and inspect** | 10 min | Repair `1 / (k + rank)` and prove why a correct final answer can hide incorrect fusion |
-| **3. Build the retrieval agent** | 15 min | Attach evidence identity to application-owned synthesis state and prove every citation resolves |
+| **3. Build the retrieval agent** | 20 min | Attach evidence identity to application-owned synthesis state and prove every citation resolves |
 
 The checked-in source is the solved reference implementation. Deliberate
 starter states are injected by `scripts/lab_state.py`; a failure already present
