@@ -1945,7 +1945,7 @@ def test_agent_stream_returns_to_full_retrieval_when_followup_searches(monkeypat
     assert '"id": "retrieve"' in stream.text
 
 
-def test_agent_stream_does_not_expose_exception_text(monkeypatch):
+def test_agent_stream_does_not_expose_exception_text(monkeypatch, caplog):
     sentinel = "SENSITIVE_AGENT_STACK"
 
     class FailingStreamingAgent:
@@ -1967,10 +1967,36 @@ def test_agent_stream_does_not_expose_exception_text(monkeypatch):
     assert stream.status_code == 200
     assert "event: error" in stream.text
     assert sentinel not in stream.text
+    assert sentinel not in caplog.text
+    assert "error_type=RuntimeError" in caplog.text
     assert "RuntimeError" not in stream.text
     assert (
         "Agent response failed. Retry after checking the runtime and retrieval service."
     ) in stream.text
+
+
+def test_invalid_followup_returns_conversation_recovery_in_both_transports(monkeypatch):
+    class InvalidContextAgent:
+        def answer(self, _request):
+            raise agent_tools.ConversationContextError("PRIVATE_CONTEXT_DETAIL")
+
+        async def stream(self, _request):
+            if False:
+                yield {}
+            raise agent_tools.ConversationContextError("PRIVATE_CONTEXT_DETAIL")
+
+    monkeypatch.setattr("service.main.get_product_discovery_agent", lambda: InvalidContextAgent())
+    client = TestClient(app)
+    payload = {"question": "Which one is quieter?", "filters": {}, "result_limit": 2}
+    direct = client.post("/api/agent/answer", json=payload)
+    stream = client.post("/api/agent/answer/stream", json=payload)
+    assert direct.status_code == 409
+    assert "event: error" in stream.text
+    assert '"code": "conversation_context"' in stream.text
+    for response in (direct, stream):
+        assert "Start a new conversation" in response.text
+        assert "runtime and retrieval service" not in response.text
+        assert "PRIVATE_CONTEXT_DETAIL" not in response.text
 
 
 def test_retrieval_sql_casts_python_values_to_the_function_contract():

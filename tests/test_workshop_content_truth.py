@@ -40,13 +40,14 @@ def test_reason_lab_teaches_citation_scope_not_authorization():
     assert reason["requires_explain_plan"] is True
 
 
-def test_repo_abstract_promises_focused_repairs_and_inspection():
+def test_repo_abstract_retains_the_submitted_level_400_building_promise():
     abstract = _read("docs/session-abstract.md").casefold()
 
-    assert "restore" in abstract
-    assert "repair" in abstract
-    assert "inspect" in abstract
-    assert "implement every" not in abstract
+    assert "level: 400" in abstract
+    assert "implement postgresql full-text search" in abstract
+    assert "wire these capabilities into agent tools" in abstract
+    assert "compare sources" in abstract
+    assert "working code, schema patterns, ranking templates" in abstract
 
 
 def test_evaluation_docs_count_twenty_product_cases_plus_one_agent_case():

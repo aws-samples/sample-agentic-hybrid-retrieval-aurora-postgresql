@@ -22,6 +22,9 @@ const ProductPage = lazy(() =>
 const RetrievalLabPage = lazy(() =>
   import("./pages/PlaygroundPage").then(({ PlaygroundPage: Page }) => ({ default: Page })),
 );
+const SessionMemoryPage = lazy(() =>
+  import("./pages/SessionMemoryPage").then(({ SessionMemoryPage: Page }) => ({ default: Page })),
+);
 
 function titleForPath(pathname: string): string {
   if (pathname === "/" || pathname === "/discover") return "Discover | Mosaic";
@@ -29,6 +32,7 @@ function titleForPath(pathname: string): string {
   if (pathname.startsWith("/products/")) return "Product details | Mosaic";
   if (pathname === "/labs/retrieval") return "Playground | Mosaic";
   if (pathname === "/mosaic-labs/hnsw") return "Vector index at scale | Mosaic";
+  if (pathname === "/mosaic-labs/memory") return "Session & Memory | Mosaic";
   if (pathname === "/mosaic-labs/studio") return "Catalog studio | Mosaic";
   return "Mosaic";
 }
@@ -66,6 +70,7 @@ function RoutedSurface() {
             <Redirect to="/catalog" replace />
           </Route>
           <Route path="/mosaic-labs/hnsw" component={PerformancePage} />
+          <Route path="/mosaic-labs/memory" component={SessionMemoryPage} />
           <Route path="/mosaic-labs/studio" component={MosaicStudioPage} />
           <Route path="/mosaic-labs">
             <Redirect to="/labs/retrieval" replace />

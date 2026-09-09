@@ -934,8 +934,7 @@ export function CatalogPage() {
     ? agent.recommendations
     : null;
   const visibleProducts = mergeVisibleProducts(agentProducts, baseProducts);
-  // One photograph per card. Assigned across the whole set rather than per
-  // product, because a per-product hash cannot guarantee distinctness.
+  // Use the same product photos in Shop and Playground, including agent picks.
   const gridImages = productImageMap(visibleProducts);
   const assistRanks = new Map(
     (agentProducts ?? []).map((product, index) => [product.product_id, index + 1]),
@@ -1474,6 +1473,13 @@ export function CatalogPage() {
                 <>
                   <strong>{retrieval.results.length}</strong> {retrieval.results.length === 1 ? "best match" : "best matches"}
                   <small> · chosen from {retrieval.diagnostics?.candidate_counts.fused_pool ?? "-"} candidates</small>
+                  {/* The comparison itself stays below the results; this is the
+                      acknowledgement a tick needs before the reader scrolls. */}
+                  {comparisonScopeId && comparisonIds.length ? (
+                    <small className="shop-compare-status" role="status">
+                      {" · "}{comparisonIds.length} selected{comparisonIds.length > 1 ? ", compare below" : ", tick one more to compare"}
+                    </small>
+                  ) : null}
                 </>
               ) : page ? (
                 <>
@@ -1532,8 +1538,8 @@ export function CatalogPage() {
           {retrieval ? (
             <details className="shop-ranking-receipt">
               <summary>
-                <span>Why these results, in this order</span>
-                <small>Where each match came from, and what reranking changed</small>
+                <span>{agentProducts ? "How the search results were ranked" : "Why these results, in this order"}</span>
+                <small>{agentProducts ? "Ask Mosaic’s picks appear first in Shop. This record shows the original search order." : "Where each match came from, and what reranking changed"}</small>
               </summary>
               <SearchRetrievalReceipt response={retrieval} />
               {/* Suppressed while the Lab 1 callout carries the same link above,

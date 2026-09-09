@@ -228,7 +228,7 @@ button:disabled {
 .eyebrow {
   margin-bottom: 8px;
   color: var(--maroon-700);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -4276,7 +4276,6 @@ button:disabled {
   border-radius: 10px;
   background: #211d1c;
   color: var(--paper-warm);
-  box-shadow: 0 10px 24px -16px rgb(33 29 28 / 55%);
 }
 
 .code-toolbar {
@@ -4315,7 +4314,7 @@ button:disabled {
   padding: 16px;
   overflow: auto;
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 1.65;
   white-space: pre;
 }

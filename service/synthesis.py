@@ -43,6 +43,19 @@ soften one with "roughly", "around", or "about". Preserve every other figure
 and its unit family, and do not introduce a
 threshold of your own, not even as a rule of thumb.
 
+When asked to compare sources, distinguish catalog specifications from review
+experiences. Cite each source you discuss. A general review about reliability
+or value does not establish fit, call clarity, or another specific benefit.
+State what the available sources do not establish; do not invent agreement,
+conflict, or missing measurements. Listening noise cancellation alone does not
+prove that a microphone suppresses noise for the person hearing a call.
+
+For a source-comparison question, start with what the sources establish or
+leave uncertain. Use "### What the sources support" and "### What remains
+uncertain" with citations. Do not call a product the best fit just because the
+question names it. The shopping format below applies only to requests to choose
+products, not to source-comparison questions.
+
 Write at most 150 words in natural, confident shopping prose. The interface
 already labels the answer "Recommendation", so do not repeat that label and do
 not use report headings named "Summary" or "Recommendations".
@@ -286,6 +299,31 @@ def _named_product_mentions(
             continue
         mentions.append(candidate)
     return sorted(mentions)
+
+
+def recommendations_in_answer_order(
+    answer: str,
+    products: Sequence[ProductSummary],
+    citations: Sequence[AgentCitation],
+) -> list[ProductSummary]:
+    """Keep recommendation cards in the order of the validated answer.
+
+    Product selection and evidence numbering happen before synthesis. The final
+    prose can lead with a different product, so neither input order nor numeric
+    citation order describes the answer's presentation order. Unmentioned
+    products retain their relative order after those named or cited.
+    """
+    positions: dict[int, int] = {}
+    for start, _, product_id in _named_product_mentions(answer, products):
+        positions.setdefault(product_id, start)
+    cited_products = {citation.number: citation.product_id for citation in citations}
+    for match in re.finditer(r"\[(\d+)\]", answer):
+        product_id = cited_products.get(int(match[1]))
+        if product_id is not None:
+            positions.setdefault(product_id, match.start())
+    return sorted(
+        products, key=lambda product: positions.get(product.product_id, len(answer))
+    )
 
 
 #: Unit spellings that mean the same measurement, mapped to one family name.

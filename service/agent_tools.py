@@ -27,6 +27,7 @@ from service.models import (
 )
 from service.retrieval import get_retrieval_service, signals_from_receipt
 from service.retrieval_fingerprint import explain
+from service.synthesis import recommendations_in_answer_order
 from service.synthesis import synthesize_cited_answer as synthesize_answer
 from service.telemetry import search_with_telemetry
 
@@ -150,7 +151,14 @@ def _load_conversation_context(
         supplied_products = [
             recommendation.model_dump() for recommendation in context.recommendations
         ]
-        if [item["product_id"] for item in supplied_products] != selected_ids:
+        supplied_ids = [item["product_id"] for item in supplied_products]
+        # Synthesis records its input order; the saved answer may lead with a
+        # different pick. Scope must agree, then saved identities pin display order.
+        if (
+            len(supplied_ids) != len(selected_ids)
+            or len(set(supplied_ids)) != len(supplied_ids)
+            or set(supplied_ids) != set(selected_ids)
+        ):
             raise ConversationContextError(
                 "The follow-up products do not match the previous answer of record"
             )
@@ -176,6 +184,7 @@ def _load_conversation_context(
                 raise ConversationContextError(
                     "The follow-up product identities do not match the previous answer"
                 )
+            selected_ids = supplied_ids
 
         context_event_ids = _uuid_list(
             [
@@ -273,12 +282,13 @@ def start_run(
     base_filters: SearchFilters,
     result_limit: int,
     context: AgentConversationContext | None = None,
+    *, session_id: UUID | None = None,
 ) -> dict[str, Any]:
     # A question is one turn of one session. The schema models the session so a
     # follow-up can be tied to what came before it; a single-turn ask still
     # creates both rows rather than a special flat case.
     if context is None:
-        agent_session_id = uuid4()
+        agent_session_id = session_id or uuid4()
         context_products: list[ProductSummary] = []
         context_search_event_ids: list[UUID] = []
     else:
@@ -314,7 +324,7 @@ def start_run(
         "answer_of_record": None,
     }
     with connect() as connection:
-        if context is None:
+        if context is None and session_id is None:
             connection.execute(
                 """
                 INSERT INTO mosaic.agent_session (agent_session_id, metadata)
@@ -1186,7 +1196,7 @@ def synthesize_cited_answer(
     state["answer_of_record"] = {
         "answer": answer,
         "citations": citations,
-        "recommendations": products,
+        "recommendations": recommendations_in_answer_order(answer, products, citations),
         "usage": usage,
     }
     _record(
@@ -1332,7 +1342,7 @@ def finalize_retrieved_answer(
     state["answer_of_record"] = {
         "answer": answer,
         "citations": citations,
-        "recommendations": products,
+        "recommendations": recommendations_in_answer_order(answer, products, citations),
         "usage": usage,
     }
     _record(
@@ -1400,6 +1410,7 @@ def _persisted_intent(
     """Build the server-owned scope needed to authorize a later follow-up."""
     return {
         "plan": plan,
+        "memory": state.get("memory", {}),
         "search_event_ids": [str(value) for value in state["search_event_ids"]],
         "context_search_event_ids": [
             str(value) for value in state.get("context_search_event_ids", [])
@@ -1416,6 +1427,9 @@ def _persisted_intent(
             if record
             else []
         ),
+        "retrieved_evidence": [
+            item.model_dump(mode="json") for item in state.get("evidence", {}).values()
+        ],
         "usage": usage,
         "telemetry": state.get("telemetry", {}),
     }

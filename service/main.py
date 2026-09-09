@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import io
 import json
+import logging
 import re
 import zipfile
 from collections.abc import AsyncIterator
@@ -24,6 +25,8 @@ from scripts.seed_exact_neighbors import StaleGroundTruth
 from scripts.tool_contracts import contracts_for_surface
 from service import hnsw
 from service.agent import get_product_discovery_agent
+from service.agent_tools import ConversationContextError
+from service.builder_package import build_package
 from service.catalog import (
     catalog_suggestions,
     catalog_summary,
@@ -82,6 +85,8 @@ from service.retrieval_scope import (
     assert_products_in_retrieval_scope,
 )
 from service.scorecard import retrieval_scorecard
+from service.session_memory import prepare_request
+from service.session_memory import router as session_memory_router
 from service.telemetry import search_with_telemetry
 from service.telemetry_contract import (
     AgentTelemetryResponse,
@@ -91,6 +96,10 @@ from service.telemetry_contract import (
 
 ROOT = Path(__file__).resolve().parents[1]
 settings = get_settings()
+logger = logging.getLogger(__name__)
+_CONVERSATION_ERROR_DETAIL = (
+    "Mosaic could not reopen the previous answer. Start a new conversation and try again."
+)
 
 
 @asynccontextmanager
@@ -122,6 +131,12 @@ app = FastAPI(
     version="0.2.0",
     lifespan=_lifespan,
 )
+# The tool census inspects concrete APIRoutes, including these non-tool routes.
+for memory_route in session_memory_router.routes:
+    app.add_api_route(
+        memory_route.path, memory_route.endpoint, methods=memory_route.methods,
+        status_code=memory_route.status_code, tags=["session-memory"],
+    )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.cors_origins),
@@ -432,9 +447,12 @@ def fusion_comparison(request: SearchRequest) -> FusionComparisonResponse:
 
 
 @app.post("/api/agent/answer", response_model=AgentResponse)
-def agent_answer(request: AgentRequest) -> AgentResponse:
+def agent_answer(request: AgentRequest, http_request: Request = None) -> AgentResponse:
     try:
+        request = prepare_request(request, http_request)
         return get_product_discovery_agent().answer(request)
+    except ConversationContextError as error:
+        raise HTTPException(409, _CONVERSATION_ERROR_DETAIL) from error
     except (ClientError, BotoCoreError) as error:
         raise _model_error(error) from error
     except RuntimeError as error:
@@ -442,13 +460,15 @@ def agent_answer(request: AgentRequest) -> AgentResponse:
 
 
 @app.post("/api/agent/answer/stream")
-async def stream_agent_answer(request: AgentRequest) -> StreamingResponse:
+async def stream_agent_answer(request: AgentRequest, http_request: Request = None) -> StreamingResponse:
     """Stream safe retrieval progress and a paced cited-answer delivery.
 
     The transport reports application-owned retrieval milestones, not private
     model reasoning. Agent execution remains bounded by the same typed,
     read-only tool contract as the completed-response endpoint.
     """
+
+    request = await asyncio.to_thread(prepare_request, request, http_request)
 
     async def events():
         try:
@@ -566,6 +586,17 @@ async def stream_agent_answer(request: AgentRequest) -> StreamingResponse:
         # This is the terminal SSE boundary for model and plugin failures. It
         # must convert every failure into an allowlisted participant message.
         except Exception as error:  # noqa: BLE001
+            logger.warning(
+                "Agent response stream failed: error_type=%s previous_run_id=%s",
+                type(error).__name__,
+                request.context.previous_agent_run_id if request.context else None,
+            )
+            if isinstance(error, ConversationContextError):
+                yield _sse(
+                    "error",
+                    {"code": "conversation_context", "detail": _CONVERSATION_ERROR_DETAIL},
+                )
+                return
             yield _sse(
                 "error",
                 {
@@ -831,6 +862,23 @@ def download_skill_package() -> Response:
         headers={
             "Content-Disposition": 'attachment; filename="mosaic-hybrid-retrieval.zip"'
         },
+    )
+
+
+@app.get("/api/builder-package")
+def builder_package_route() -> Response:
+    """Download the participant exercise and its reference SQL without local state."""
+    try:
+        content = build_package(ROOT)
+    except (OSError, ValueError) as error:
+        raise HTTPException(
+            503,
+            "Builder files are unavailable; restore the files listed in service/builder_package.py from the Mosaic checkout.",
+        ) from error
+    return Response(
+        content=content,
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="mosaic-builder.zip"'},
     )
 
 

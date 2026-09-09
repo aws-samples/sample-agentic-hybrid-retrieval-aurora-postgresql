@@ -9,7 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import measuredArtifact from "../../../data/benchmarks/hnsw_measured.json";
+import measuredArtifact from "../../../data/benchmarks/archive/hnsw_measured_2026-08-17.json";
 import scaleProjection from "../../../data/benchmarks/scale_projection.json";
 import { api } from "../api";
 import { formatBytes, storageSegments } from "../hnsw";
@@ -42,7 +42,7 @@ const projection = scaleProjection satisfies BenchmarkProjection;
 // The server adds `attribution` on the way out; the committed file does not carry
 // it. The default fixture is the attributed case, which is what the MEASURED badge
 // requires. `measuredElsewhere` below is the same artifact under the state the
-// committed one is actually in today: measured on another corpus, from a dirty tree.
+// archived one was in: measured on another corpus, from a dirty tree.
 const attribution: HnswAttribution = {
   measured_source_revision: "e5b10efde607114d0ef78bbbfaceadcd54b1a7c1",
   measured_source_worktree_dirty: false,
@@ -429,27 +429,27 @@ describe("PerformancePage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Home office only/ }));
 
     expect(await screen.findByText(/Less selective, and far worse/)).toBeTruthy();
-    expect(screen.getByText(/100 of the 100 nearest neighbours/)).toBeTruthy();
+    expect(screen.getByText(/How close the matching products are matters/)).toBeTruthy();
   });
 
-  it("names the memory budget rather than the tuple cap on the budget-bound preset", async () => {
+  it("explains work limits without borrowing an unmeasured tuple sweep", async () => {
     render(<PerformancePage />);
     await screen.findByRole("heading", { name: /Add a WHERE clause/ });
 
     fireEvent.click(screen.getByRole("button", { name: /Refurbished above/ }));
 
     expect(
-      await screen.findByText(/binding limit is work_mem x scan_mem_multiplier/),
+      await screen.findByText(/available memory and tuple budget/),
     ).toBeTruthy();
-    expect(screen.getByText(/max_scan_tuples from 20,000 to 1,000,000/)).toBeTruthy();
+    expect(screen.queryByText(/max_scan_tuples from 20,000 to 1,000,000/)).toBeNull();
   });
 
-  it("offers the pre-fix memory budget so the truncation can be reproduced", async () => {
+  it("offers both measured memory budgets", async () => {
     render(<PerformancePage />);
     await screen.findByRole("heading", { name: /Add a WHERE clause/ });
 
-    expect(screen.getByText(/\(pre-fix\)/)).toBeTruthy();
-    expect(screen.getByText(/\(shipped\)/)).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /4 MB/ })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /8 MB/ })).toBeTruthy();
   });
 
   it("renders no build-time column, because it was never measured", async () => {

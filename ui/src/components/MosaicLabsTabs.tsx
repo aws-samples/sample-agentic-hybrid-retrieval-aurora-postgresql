@@ -1,12 +1,12 @@
 import { Link } from "wouter";
 import { RETRIEVAL_SURFACE } from "../navigation";
 
-type MosaicLabsTab = "retrieval" | "hnsw";
+type MosaicLabsTab = "retrieval" | "hnsw" | "memory";
 
 const sourceRepositoryUrl =
   "https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql";
 
-/** Shared navigation for inspecting a pipeline and its vector index. */
+/** Shared navigation for how Mosaic searches and remembers. */
 export function MosaicLabsTabs({
   active,
 }: {
@@ -34,9 +34,16 @@ export function MosaicLabsTabs({
         >
           Scale & HNSW
         </Link>
+        <Link
+          aria-current={active === "memory" ? "page" : undefined}
+          className={active === "memory" ? "active" : ""}
+          href="/mosaic-labs/memory"
+        >
+          Session & Memory
+        </Link>
       </div>
       <small>
-        Inspect how Mosaic works
+        Behind the results
       </small>
       <a
         aria-label="View Mosaic source on GitHub (opens in a new tab)"

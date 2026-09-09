@@ -267,12 +267,9 @@ function boundImage(product: ProductSummary): string | null {
 /**
  * How many distinct photographs a category can draw on.
  *
- * `productImageMap` bounds a grid at `ceil(rows / pool)` copies of one file, so a
- * category whose pool is smaller than the page size repeats — and a category with
- * no pool at all falls through to a single domain-neutral plate and gives every row
- * the same picture. Discover's category entries are checked against this, because that is the
- * difference between a shopper seeing twelve products and seeing one photograph
- * twelve times.
+ * Categories need a range of photos even though each product's stable choice can
+ * repeat within a page. A category with no pool falls back to a single neutral
+ * plate. Discover's category entries are checked against this floor.
  */
 export function categoryPoolSize(
   categoryKey: string,
@@ -359,43 +356,15 @@ function leastUsed(pool: string[], start: number, uses: Map<string, number>): st
 }
 
 /**
- * Assign one photograph per product across a whole result set, avoiding repeats.
- *
- * Hashing a product id into a pool cannot do this. Twelve independent draws from
- * a pool of twelve yield about 7.7 distinct values, so a full grid always
- * repeated something even where the pool was large enough. This walks the result
- * list instead: product-bound photography is placed first and reserves its file,
- * then each remaining row takes the least-used photograph in its category pool.
- *
- * The cost is that a filler row's photograph depends on the result set it appears
- * in, so the same product can show a different plate under a different query.
- * That is the price of the guarantee, and it only ever applies to rows that have
- * no photograph of their own. A pool smaller than the number of rows drawing from
- * it still repeats, evenly, which is the honest signal that the category needs
- * plates rather than a photograph of something else.
+ * Keep a product's photo stable across Shop, ranking and the agent's shortlist.
+ * Category photos may repeat; changing one to suit its neighbours would make the
+ * same product look like a different item after reranking or recommendation.
  */
 export function productImageMap(products: ProductSummary[]): Map<number, string> {
   const assigned = new Map<number, string>();
-  const uses = new Map<string, number>();
-  const filler: ProductSummary[] = [];
-
   for (const product of products) {
     if (assigned.has(product.product_id)) continue;
-    const bound = boundImage(product);
-    if (bound) {
-      assigned.set(product.product_id, bound);
-      uses.set(bound, (uses.get(bound) ?? 0) + 1);
-    } else {
-      filler.push(product);
-    }
-  }
-
-  for (const product of filler) {
-    if (assigned.has(product.product_id)) continue;
-    const pool = categoryPool(product);
-    const chosen = leastUsed(pool, spread(product.product_id, pool.length), uses);
-    uses.set(chosen, (uses.get(chosen) ?? 0) + 1);
-    assigned.set(product.product_id, chosen);
+    assigned.set(product.product_id, productImage(product));
   }
 
   return assigned;

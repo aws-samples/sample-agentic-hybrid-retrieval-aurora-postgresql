@@ -402,6 +402,7 @@ export interface AgentResponse {
   recommendations: ProductSummary[];
   citations: AgentCitation[];
   trace: ToolTraceStep[];
+  retrieved_evidence?: EvidenceRecord[];
   /**
    * Optional so a fixture or an older build that predates this field still
    * parses; an absent value reads the same as the server's own `"grounded"`
@@ -712,12 +713,14 @@ export interface HnswStorage {
 export interface HnswEfPoint {
   ef_search: number;
   server_ms: number;
+  server_p95_ms?: number;
   shared_hit_blocks: number;
   recall_at_k: number;
   estimated_total_cost: number;
 }
 
 export interface HnswFilterMode {
+  ef_search?: number;
   iterative_scan: "off" | "strict_order" | "relaxed_order";
   scan_mem_multiplier: number;
   scan_mem_mb: number;
@@ -843,7 +846,7 @@ export interface HnswRepresentations {
   payload_bytes: { fp32: number; halfvec: number; binary: number };
   note: string;
   rows: HnswRepresentationRow[];
-  quantization_distribution: {
+  quantization_distribution?: {
     why_binary_underperforms_here: string;
     fraction_components_positive: number;
     components_within_10pct_of_zero: number;
@@ -868,7 +871,7 @@ export interface HnswRepresentations {
     }>;
     tradeoff: string;
   };
-  native_binary_comparison: {
+  native_binary_comparison?: {
     question: string;
     answer: string;
     evidence: string[];
@@ -1225,4 +1228,62 @@ export interface RetrievalScorecardResponse {
   eligibility_contracts: ScorecardEligibilityContracts;
   agent_contracts: ScorecardAgentContracts;
   stage_ablation: ScorecardStageAblation;
+}
+export interface MemoryRecord {
+  id: string;
+  strategy_id: string;
+  strategy_type?: string;
+  text: string;
+  namespaces: string[];
+  created_at: string;
+  score: number | null;
+}
+export interface MemoryStrategy {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  namespaces: string[];
+  reflection_namespaces: string[];
+}
+export interface MemoryEvent {
+  id: string;
+  created_at: string;
+  messages: Array<{ role: string; text: string }>;
+}
+export interface SessionMemorySnapshot {
+  enabled?: boolean;
+  status?: string;
+  records?: MemoryRecord[];
+  event_ids_read?: string[];
+  written_event_id?: string;
+  write_status?: "stored" | "failed";
+}
+export interface ShopperSession {
+  agent_session_id: string;
+  started_at: string;
+  ended_at: string | null;
+  label: string | null;
+  turns: Array<{
+    run_id: string;
+    question: string;
+    answer: string | null;
+    created_at: string;
+    products: ProductSummary[];
+    search_ids: string[];
+    memory: SessionMemorySnapshot;
+    citations: AgentCitation[];
+  }>;
+}
+export interface SessionMemoryResponse {
+  memory_status: "connected" | "not_configured" | "unavailable";
+  actor_id: string;
+  configuration: {
+    memory_id: string;
+    status: string;
+    event_expiry_days: number;
+    strategies: MemoryStrategy[];
+  } | null;
+  sessions: ShopperSession[];
+  active_session_id: string | null;
 }

@@ -33,14 +33,14 @@ const storyContent = {
     imageHeight: 1008,
     imageAlt: "A mesh office chair with a burgundy throw beside an oak desk in warm daylight",
   },
-  "room-for-code": {
-    topic: "Monitors",
-    situation: "Code, documentation, a video call. Alex’s laptop screen makes him choose what stays visible. He wants room for all three.",
-    considerations: "Compare screen space and text clarity, then check the connection to his laptop. USB-C ports don’t all do the same job.",
-    image: "/assets/images/mosaic/alex-screen-space-editorial-v1.webp",
-    imageWidth: 1600,
-    imageHeight: 1200,
-    imageAlt: "A wide monitor on an adjustable arm above a clear oak work surface",
+  "quiet-typing": {
+    topic: "Keyboards",
+    situation: "Alex takes notes while his teammates talk. He wants a keyboard that feels good to type on without taking over the call.",
+    considerations: "Compare typing noise and switch feel. Then check the layout and wireless connection for his daily work.",
+    image: "/assets/images/mosaic/ho-quiet-keyboards-01-catalog-3x2.webp",
+    imageWidth: 1200,
+    imageHeight: 800,
+    imageAlt: "A cream mechanical keyboard with maroon keys on a warm stone surface",
   },
 };
 

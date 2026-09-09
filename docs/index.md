@@ -17,6 +17,8 @@ honest.
 | `catalog-spec.md` | Dataset taxonomy, schema, attributes, and challenge cohorts |
 | `category-plate-prompts.md` | Prompt set for category-plate imagery |
 | `data-generation.md` | Regeneration, reviews, embeddings, and scale extension |
+| `build-retrieval-tool.md` | Hands-on extension: implement filters, register a typed tool and verify saved searches |
+| `use-in-your-app.md` | Take-home implementation map for schema, SQL, ranking and agent tools |
 | `retrieval-curriculum.md` | Builder-session learning flow |
 | `pg-trgm-lab.md` | Typo-tolerance lesson and evaluation |
 | `fusion-rerank.md` | Candidate fusion, deterministic filters, and reranking |
@@ -41,7 +43,11 @@ honest.
 | `media-shot-list.md` | Manifest-derived outstanding product image work |
 | `instructor-guide.md` | Facilitation narrative and failure-safe plan |
 | `session-abstract.md` | Session title, abstract, and audience framing |
+| `session-memory.md` | AgentCore events, memory strategies, cross-session recall, setup and verification |
+| `mosaic-parking-lot.md` | Remaining product ideas and their current status |
 | `intentional-gaps.md` | Deliberate starter gaps and their recovery contracts |
 | `implementation-status.md` | What is complete versus environment-dependent |
 | `house-standards.md` | Binding assertions, probes, and release-gate standards |
 | `rewrite-losses.md` | Retired predecessor scope and non-recoverable history |
+
+- [Abstract delivery map](abstract-delivery-map.md): what each required lab teaches, what participants implement, and what stays in flex.

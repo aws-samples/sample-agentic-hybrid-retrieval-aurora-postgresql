@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import Markdown from "react-markdown";
 import { cartQuantityLimit, useCommerce } from "../commerce";
 import {
   formatAvailability,
@@ -46,6 +45,8 @@ import type {
 import { Criteria, Searches } from "./agentAnswerParts";
 import { AgentRetrievalReceipt } from "./RetrievalReceipt";
 import { SearchComposer } from "./SearchComposer";
+import { ProductAnswer } from "./ProductAnswer";
+import { ResultProductCard } from "./ResultProductCard";
 
 export type AssistStage = "understand" | "retrieve" | "rank" | "answer";
 export type AssistExecutionPath = "focused_follow_up" | "full_retrieval";
@@ -846,69 +847,16 @@ function DeclinedNotice({ answer }: { answer: string }) {
  * The bag button is the cart the rest of the store uses, so a participant can
  * finish the errand the answer started instead of reading about it.
  */
-function Picks({
-  products,
-  imageByProductId,
-  onHighlight,
-  onSelectProduct,
-}: {
-  products: ProductSummary[];
-  imageByProductId: Map<number, string>;
-  onHighlight: (productId: number | null) => void;
-  onSelectProduct: (productId: number) => void;
+function ShoppingResultCard({ product, position, imageByProductId, onHighlight, onSelectProduct }: {
+  product: ProductSummary; position: number; imageByProductId: Map<number, string>;
+  onHighlight: (productId: number | null) => void; onSelectProduct: (productId: number) => void;
 }) {
   const { addItem, itemQuantity } = useCommerce();
-  if (!products.length) return null;
-  return (
-    <section className="ask-mosaic-picks" aria-label="Recommended products">
-      <ol>
-        {products.slice(0, 3).map((product) => {
-          const inBag = itemQuantity(product.product_id);
-          const limit = cartQuantityLimit(product);
-          return (
-            <li key={product.product_id}>
-              <button
-                className="ask-mosaic-pick-open"
-                type="button"
-                onClick={() => onSelectProduct(product.product_id)}
-                onFocus={() => onHighlight(product.product_id)}
-                onBlur={() => onHighlight(null)}
-                onMouseEnter={() => onHighlight(product.product_id)}
-                onMouseLeave={() => onHighlight(null)}
-              >
-                <img
-                  src={imageByProductId.get(product.product_id) ?? productImage(product)}
-                  alt=""
-                  width={1200}
-                  height={800}
-                  loading="lazy"
-                  decoding="async"
-                />
-                <span>
-                  <strong>{product.brand} {product.model}</strong>
-                  <small>{formatCategoryKey(product.category_key)}</small>
-                </span>
-              </button>
-              <span className="ask-mosaic-pick-meta">
-                <strong>{formatPrice(product.price_cents, product.currency)}</strong>
-                <small>{formatAvailability(product.availability)}</small>
-              </span>
-              <button
-                className={inBag ? "ask-mosaic-pick-add in-bag" : "ask-mosaic-pick-add"}
-                type="button"
-                disabled={!limit || inBag >= limit}
-                title={limit ? undefined : "Out of stock"}
-                onClick={() => addItem(product)}
-              >
-                <ShoppingBag size={14} aria-hidden="true" />
-                {inBag ? `In bag (${inBag})` : "Add to bag"}
-              </button>
-            </li>
-          );
-        })}
-      </ol>
-    </section>
-  );
+  const inBag = itemQuantity(product.product_id);
+  const limit = cartQuantityLimit(product);
+  return <ResultProductCard product={product} imageSrc={imageByProductId.get(product.product_id)} rank={position}
+    onHighlight={onHighlight} onSelect={onSelectProduct}
+    footer={<button className={inBag ? "ask-mosaic-pick-add in-bag" : "ask-mosaic-pick-add"} type="button" disabled={!limit || inBag >= limit} title={limit ? undefined : "Out of stock"} onClick={() => addItem(product)}><ShoppingBag size={14} aria-hidden="true" />{inBag ? `In bag (${inBag})` : "Add to bag"}</button>} />;
 }
 
 /**
@@ -1196,9 +1144,7 @@ function Turn({
                     caret after the product cards instead of the prose being
                     written. */}
                 <div className="ask-mosaic-prose">
-                  <Markdown>
-                    {boldRecommendationNames(reveal.text, response.recommendations)}
-                  </Markdown>
+                  <ProductAnswer text={boldRecommendationNames(reveal.text, response.recommendations)} products={response.recommendations} citations={response.citations} complete={answerSettled} label="Recommended products" renderCard={(product, position) => <ShoppingResultCard product={product} position={position} imageByProductId={imageByProductId} onHighlight={onHighlight} onSelectProduct={onSelectProduct} />} />
                 </div>
                 {/* A fail-closed run is a fact about this answer, and an absent
                     badge does not state it. */}
@@ -1211,29 +1157,6 @@ function Turn({
                 ) : null}
               </>
             )}
-            {/* The prose named these products. Here they are, priced and
-                buyable, so the recommendation ends in the store rather than in
-                a paragraph. Empty by contract on a declined answer, so this
-                renders nothing there. */}
-            <AnimatePresence initial={false}>
-              {answerSettled ? (
-                <motion.div
-                  initial={{ opacity: 0, transform: "translateY(6px)" }}
-                  animate={{ opacity: 1, transform: "translateY(0)" }}
-                  transition={{
-                    duration: reduceMotion ? 0 : 0.22,
-                    ease: [0.23, 1, 0.32, 1],
-                  }}
-                >
-                  <Picks
-                    products={response.recommendations}
-                    imageByProductId={imageByProductId}
-                    onHighlight={onHighlight}
-                    onSelectProduct={onSelectProduct}
-                  />
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
           </section>
 
           {answerSettled && !declined ? (

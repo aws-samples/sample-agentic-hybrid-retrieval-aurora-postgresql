@@ -1,5 +1,10 @@
 # Benchmark methodology
 
+The latest measured run is in [Current scale benchmarks](current-scale-benchmarks.md),
+including its scope, results, samples and rerun command. That run measures warm
+vector search across the current anchors; the broader methodology below also
+covers other benchmark types.
+
 ## Measurement boundaries
 
 Separate these timings:

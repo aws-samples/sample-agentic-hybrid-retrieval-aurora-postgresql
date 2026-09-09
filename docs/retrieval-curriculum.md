@@ -139,6 +139,20 @@ Search receipts leave evidence IDs empty because synthesis has not run. Agent
 receipts add evidence IDs and tool latency. Participants learn one diagnostic
 vocabulary rather than three unrelated troubleshooting workflows.
 
+## Build-and-wire extension
+
+[Build a retrieval tool](build-retrieval-tool.md) adds a participant-owned tool
+on top of the solved pipeline. Generate a starter, implement the headphone
+eligibility rule, register the typed tool, and run the live API checker with two
+budgets. Then let the configured Bedrock agent invoke it. This fits flex time or
+continues after the session; the three required lab contracts stay unchanged.
+The [adaptation guide](use-in-your-app.md) maps every abstract promise to its
+working schema, SQL or application file.
+
+The main Pipeline also offers Plan my workspace (the canonical Lab 3 request)
+and Check the sources (specification versus sample review evidence). The latter
+shows retrieved records even when the answer does not cite them.
+
 ## Advanced Labs (OPTIONAL)
 
 Optional work does not consume the required 40-minute three-lab path or the

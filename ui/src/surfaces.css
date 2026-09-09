@@ -101,7 +101,7 @@
 }
 
 .shop-canvas {
-  --shop-column-gap: clamp(18px, 1.8vw, 28px);
+  --shop-column-gap: clamp(24px, 2.4vw, 40px);
   display: grid;
   min-height: calc(100vh - var(--topbar-height));
   grid-template-columns: minmax(0, 1fr);
@@ -924,9 +924,9 @@
   overflow: hidden;
   color: var(--ink);
   font-family: var(--display);
-  font-size: 18px;
-  font-style: normal;
-  line-height: 1.35;
+  font-size: 26px;
+  font-style: italic;
+  line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -935,7 +935,7 @@
   flex: 0 0 auto;
   color: var(--maroon-800);
   font-family: var(--sans);
-  font-size: 11px;
+  font-size: 12px;
   font-style: normal;
   font-weight: 600;
   letter-spacing: 0.12em;
@@ -977,6 +977,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+}
+
+.shop-results-heading .shop-compare-status {
+  color: var(--maroon-800);
+  font-weight: 600;
 }
 
 .shop-results-heading > p {
@@ -1039,7 +1044,7 @@
   margin: 0 0 4px;
   color: var(--maroon-800);
   font-family: var(--sans);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1093,7 +1098,7 @@
   border-radius: 999px;
   background: var(--paper-warm);
   color: var(--ink-soft);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -1108,10 +1113,12 @@
   opacity: 0.5;
 }
 
+/* Three across at laptop width. Four gave a 296px card at 1366, which is a
+   thumbnail; three gives the photograph 397px and the title a serif line. */
 .shop-product-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: clamp(20px, 2vw, 32px) var(--shop-column-gap);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(32px, 3vw, 48px) var(--shop-column-gap);
 }
 
 .catalog-skeleton {
@@ -1120,8 +1127,8 @@
 
 .catalog-skeleton-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: clamp(20px, 2vw, 32px) var(--shop-column-gap);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(32px, 3vw, 48px) var(--shop-column-gap);
 }
 
 .catalog-skeleton-card {
@@ -1213,7 +1220,7 @@
   width: 100%;
   aspect-ratio: 3 / 2;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--paper-warm);
 }
 
@@ -1283,7 +1290,7 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
-  padding: 16px 2px 4px;
+  padding: 18px 0 8px;
 }
 
 .shop-card-meta {
@@ -1291,11 +1298,11 @@
   min-width: 0;
   align-items: center;
   gap: 8px;
-  margin: 5px 0 0;
+  margin: 6px 0 0;
   overflow: hidden;
   color: var(--ink-soft);
-  font-size: 12px;
-  letter-spacing: 0;
+  font-size: 13px;
+  letter-spacing: 0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1316,20 +1323,23 @@
 .shop-card-description {
   display: -webkit-box;
   overflow: hidden;
-  margin: 9px 0 0;
+  margin: 10px 0 0;
   color: var(--ink-soft);
   font-size: 13px;
   line-height: 1.55;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
 }
 
+/* The product page already names a product in Newsreader; the card now does
+   the same, so the photograph and the name share one voice. */
 .shop-product-card h3 {
   margin: 0;
-  font-family: var(--sans);
-  font-size: 17px;
-  font-weight: 600;
-  line-height: 1.4;
+  font-family: var(--display);
+  font-size: 23px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
   overflow-wrap: anywhere;
   text-wrap: pretty;
 }
@@ -1365,7 +1375,7 @@
   align-items: center;
   color: var(--maroon-800);
   cursor: pointer;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
   list-style-position: inside;
   text-underline-offset: 3px;
@@ -1377,12 +1387,10 @@
 
 .shop-card-signals > dl {
   display: grid;
-  gap: 5px;
-  margin: 0 0 7px;
-  padding: 9px 10px;
-  border: 1px solid rgb(92 75 62 / 12%);
-  border-radius: 6px;
-  background: var(--ivory);
+  gap: 0;
+  margin: 0 0 8px;
+  padding: 0;
+  border-top: 1px solid var(--line);
 }
 
 .shop-card-signals > dl > div {
@@ -1390,12 +1398,14 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line);
 }
 
 .shop-card-signals dt,
 .shop-card-signals dd {
   margin: 0;
-  font-size: 10.5px;
+  font-size: 12px;
   line-height: 1.35;
 }
 
@@ -1415,9 +1425,8 @@
   justify-content: space-between;
   gap: 12px;
   margin-top: auto;
-  /* The add button is taller than the price it sits beside, so it already
-     supplies most of the space under the title. */
-  padding-top: 7px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
 }
 
 .shop-card-price {
@@ -1431,7 +1440,7 @@
 
 .shop-card-price strong {
   color: var(--ink);
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 600;
   letter-spacing: 0.01em;
 }
@@ -3844,16 +3853,6 @@
   }
 }
 
-/* Four across holds down to ~1280, where a card is still 265px wide - wide
-   enough for the photograph to carry the card, which is the point of the grid.
-   The Ask Mosaic sidecar overrides this to two on its own. */
-
-@media (max-width: 1280px) {
-  .shop-product-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 1180px) {
   .shop-canvas.assist-open {
     grid-template-columns: 1fr;
@@ -4034,6 +4033,7 @@
   }
 
   .shop-query-state > span {
+    font-size: 22px;
     white-space: normal;
   }
 
@@ -5776,12 +5776,6 @@
 /* Tracks .shop-product-grid so the skeleton does not resolve into a different
    column count than the products that replace it. */
 
-@media (max-width: 1280px) {
-  .catalog-skeleton-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 900px) {
   .catalog-skeleton-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -7418,9 +7412,9 @@
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 8px;
+  gap: 22px;
   overflow-x: auto;
-  padding: 14px 0;
+  padding: 10px 0;
   border-bottom: 1px solid rgb(92 75 62 / 12%);
   scrollbar-width: none;
 }
@@ -7437,26 +7431,39 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 0 14px;
-  border: 1px solid rgb(92 75 62 / 17%);
-  border-radius: 6px;
-  background: var(--paper);
-  color: var(--ink);
-  font-size: 12px;
-  font-weight: 620;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 500;
   letter-spacing: 0;
-  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
+  transition: border-color 180ms ease, color 180ms ease;
 }
 
 .shop-filter-toolbar > button:hover,
 .shop-filter-toolbar .shop-sort:hover {
-  border-color: rgb(92 75 62 / 34%);
-  background: var(--paper-warm);
+  border-bottom-color: var(--line-strong);
+  color: var(--ink);
 }
 
 .shop-filter-toolbar .shop-filter-button.all {
-  border-color: var(--maroon-800);
   color: var(--maroon-900);
+  font-weight: 600;
+}
+
+.shop-filter-toolbar .shop-filter-button.all[aria-expanded="true"] {
+  border-bottom-color: var(--maroon-800);
+  color: var(--maroon-900);
+}
+
+/* Green is the record's word for in stock; the switch keeps it when active. */
+.shop-filter-toolbar .shop-stock-toggle.active {
+  border-bottom-color: var(--green);
+  background: transparent;
+  color: var(--green);
 }
 
 .shop-filter-toolbar .shop-filter-button > span {
@@ -7472,7 +7479,7 @@
 }
 
 .shop-filter-toolbar .shop-sort {
-  min-width: 136px;
+  min-width: 0;
   margin-left: auto;
   padding-right: 10px;
 }

@@ -34,10 +34,10 @@ Aurora only. There is no local database and no `make` target creates one. See
 | Clock | Stage | Required outcome |
 |---|---|---|
 | 00:00-00:12 | Introduction / Overview / Presentation | Meet Alex, frame the three lessons and explain the architecture |
-| 00:12-00:22 | Retrieve | Restore one candidate channel and prove recall, eligibility, and the HNSW plan |
+| 00:12-00:22 | Retrieve | Restore one candidate channel and prove recall and eligibility |
 | 00:22-00:32 | Rank | Repair RRF and prove why reranking hid the broken fused order |
 | 00:32-00:52 | Reason | Attach evidence identity to synthesis state, prove citation authorization and run the completion gate |
-| 00:52-01:00 | Flex | Use one optional lab, recover a table, or take questions |
+| 00:52-01:00 | Flex | Build a retrieval tool by default, with HNSW as the fallback |
 
 ## Eight proof anchors
 
@@ -80,8 +80,7 @@ plausible pool without the target. Do not claim embeddings recovered the typo.
 The checkpoint proves that different retrieval channels solve different failure
 modes and that the Lab 1 objective is candidate recall, not the final winner.
 Ask explicitly: "Why is seeing product 2 not enough to declare retrieval
-healthy?" Keep the required HNSW plan check to 60-90 seconds and do not rebuild
-an index.
+healthy?" Have participants run G-012 and inspect the candidate receipt themselves. Keep the HNSW plan check in Go deeper for tables ahead of time.
 
 ### Lab 2 - Fuse, rerank, and inspect
 
@@ -107,8 +106,7 @@ but fresh evidence and citation validation are required for every answer.
 
 ### Advanced Labs (OPTIONAL)
 
-HNSW quality is workload-specific. The required path proves one index plan and
-bounded pool. Recall/latency tuning remains optional rather than becoming a
+HNSW quality is workload-specific. The required path proves candidate inclusion and eligibility. The optional plan inspection reads the existing index. Recall/latency tuning remains optional rather than becoming a
 rushed fourth lab.
 
 After Lab 3, show contract portability in under a minute. No AgentCore resource
@@ -140,3 +138,13 @@ managed runtime or tool transport without taking over retrieval.
 - Why did result 1 outrank result 2 before and after reranking?
 - What evidence should an agent retain for a recommendation?
 - How much Recall@K would you trade for p95 latency in this workload?
+
+## Carry the story and reuse the proof
+
+Discover’s third need is quiet typing. Carry the chair search from Lab 2 into Lab 3’s keyboard-and-chair request. The monitor stays an exact-model control and optional HNSW example; the canonical lab missions are unchanged.
+
+Ask each checkpoint question before repair. Lab 3 should explicitly show the keyboard and chair searches in `plan`, explain that the prompt names their taxonomy, and separate HTTP 503 failure from a successful answer that declines unsupported claims.
+
+At the end of Lab 3, use `scripts/validate_lab.py --lab 3 --save-receipt .local/lab-3-validation.json`. The completion gate uses `--reuse-receipt` with that same file: it binds the source and settings, reopens both Aurora agent runs and resolves their evidence again. It saves two model invocations, without accepting a cached verdict or a facilitator’s demonstration as completion.
+
+Default the eight-minute flex block to [Build a retrieval tool](build-retrieval-tool.md). Its four hints preserve the final two-budget proof and agent call. HNSW is the fallback. Use [the delivery map](abstract-delivery-map.md) to distinguish what attendees implement from what they inspect.

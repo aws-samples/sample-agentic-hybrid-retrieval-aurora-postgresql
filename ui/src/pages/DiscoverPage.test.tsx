@@ -80,7 +80,7 @@ describe("DiscoverPage", () => {
     const { container } = renderPage();
     const categories = within(screen.getByRole("navigation", { name: "Workspace categories" }));
     expect(categories.getAllByRole("link").map(link => link.textContent)).toEqual([
-      "Headphones", "Chairs", "Monitors",
+      "Headphones", "Chairs", "Keyboards",
     ]);
     expect(container.textContent).not.toMatch(/running|fitness|shoes|treadmill/i);
     expect([...container.querySelectorAll("img")].map(image => image.src).join(" ")).not.toMatch(/fitness|running|shoes/);
@@ -89,8 +89,8 @@ describe("DiscoverPage", () => {
   it("links each category to the correct domain, including cross-domain audio", () => {
     renderPage();
     const categories = within(screen.getByRole("navigation", { name: "Workspace categories" }));
-    expect(categories.getByRole("link", { name: "Monitors" }).getAttribute("href")).toBe(
-      "/catalog?domain=home_office&category_key=productivity-monitors",
+    expect(categories.getByRole("link", { name: "Keyboards" }).getAttribute("href")).toBe(
+      "/catalog?domain=home_office&category_key=quiet-keyboards",
     );
     expect(categories.getByRole("link", { name: "Chairs" }).getAttribute("href")).toBe(
       "/catalog?domain=home_office&category_key=ergonomic-office-chairs",

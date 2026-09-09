@@ -15,13 +15,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_api_contract_documents_every_application_route():
     contract = (ROOT / "docs" / "api-contract.md").read_text(encoding="utf-8")
-    documented = set(re.findall(r"`(GET|POST) (/api/[^`]+)`", contract))
+    documented = set(re.findall(r"`(GET|POST|PUT|DELETE) (/api/[^`]+)`", contract))
     actual = {
         (method, route.path)
         for route in app.routes
         if isinstance(route, APIRoute) and route.path.startswith("/api/")
         for method in route.methods
-        if method in {"GET", "POST"}
+        if method in {"GET", "POST", "PUT", "DELETE"}
     }
 
     assert actual <= documented, (

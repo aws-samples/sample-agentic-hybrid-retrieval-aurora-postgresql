@@ -762,15 +762,11 @@ describe("CatalogPage", () => {
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
     await within(dialog).findByText("Final recommendation");
-    const picks = within(dialog).getByLabelText("Recommended products");
-    expect(
-      [...picks.querySelectorAll(".ask-mosaic-pick-open strong")]
+    await waitFor(() => expect(
+      [...within(dialog).getByLabelText("Recommended products").querySelectorAll(".result-product-name")]
         .map((name) => name.textContent),
-    ).toEqual(
-      recommendations
-        .slice(0, 3)
-        .map((product) => `${product.brand} ${product.model}`),
-    );
+    ).toEqual(recommendations.map((product) => product.title)));
+    const picks = within(dialog).getByLabelText("Recommended products");
 
     const add = within(picks).getAllByRole("button", { name: /Add to bag/ })[0];
     fireEvent.click(add);
@@ -853,7 +849,7 @@ describe("CatalogPage", () => {
   });
 
   it("runs a suggested search on its own terms, not inside the browsed category", async () => {
-    const request = mosaicLabManifest.playground.requests.find((item) => item.id === "room-for-code")!;
+    const request = mosaicLabManifest.playground.requests.find((item) => item.id === "quiet-typing")!;
     // Reproduced against the running app: Running & fitness selected, then the
     // keyboard suggestion taken, returned twelve rowing machines. The retrieval
     // was right -- `domain` is an eligibility gate applied before ranking and it
@@ -1710,7 +1706,7 @@ describe("CatalogPage", () => {
           model: product.model,
         })),
       },
-      { signal: expect.any(AbortSignal) },
+      { signal: expect.any(AbortSignal), useMemory: true },
     );
 
     // The follow-up appends to the conversation. It used to overwrite the single
@@ -1991,7 +1987,7 @@ describe("CatalogPage", () => {
         expect.objectContaining(mosaicLabManifest.playground.requests[0].filters),
         expect.any(Function),
         undefined,
-        { signal: expect.any(AbortSignal) },
+        { signal: expect.any(AbortSignal), useMemory: true },
       ),
     );
   });
@@ -2006,7 +2002,7 @@ describe("CatalogPage", () => {
   });
 
   it("does not suggest unrelated agent examples inside a category", async () => {
-    window.history.replaceState({}, "", "/catalog?category_key=quiet-keyboards");
+    window.history.replaceState({}, "", "/catalog?category_key=productivity-monitors");
     renderPage();
     await screen.findByText(catalog.products[0].model);
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
@@ -2090,19 +2086,19 @@ describe("CatalogPage", () => {
     expect(within(callout).getByRole("row", { name: "PostureWorks Pro Mesh 1 1" })).toBeTruthy();
   });
 
-  it("offers the compatible workspace request inside a monitor category", async () => {
-    window.history.replaceState({}, "", "/catalog?domain=home_office&category_key=productivity-monitors");
+  it("offers the compatible workspace request inside a keyboard category", async () => {
+    window.history.replaceState({}, "", "/catalog?domain=home_office&category_key=quiet-keyboards");
     renderPage();
     await screen.findByText(catalog.products[0].model);
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
     const starters = await screen.findByRole("list", { name: "Example questions" });
     const requests = within(starters).getAllByRole("button");
     expect(requests).toHaveLength(1);
-    expect(requests[0].getAttribute("aria-label")).toBe(mosaicLabManifest.playground.requests.find((request) => request.id === "room-for-code")!.query);
+    expect(requests[0].getAttribute("aria-label")).toBe(mosaicLabManifest.playground.requests.find((request) => request.id === "quiet-typing")!.query);
     fireEvent.click(requests[0]);
     await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
     expect(vi.mocked(api.agentStream).mock.calls.at(-1)?.[1]).toMatchObject({
-      domain: "home_office", category_key: "productivity-monitors",
+      domain: "home_office", category_key: "quiet-keyboards",
     });
   });
 

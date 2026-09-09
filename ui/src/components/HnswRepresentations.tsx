@@ -122,7 +122,7 @@ export function HnswRepresentations({
           </div>
         </div>
 
-        <div className="hnsw-repr-note">
+        {distribution ? <div className="hnsw-repr-note">
           <Info aria-hidden="true" size={16} />
           <div>
             <strong>Binary recall depends on candidate depth.</strong>
@@ -139,7 +139,7 @@ export function HnswRepresentations({
               of the top 50. A deeper candidate pool followed by exact cosine rescoring recovered recall in this experiment.
             </p>
           </div>
-        </div>
+        </div> : null}
       </div>
 
       <details className="hnsw-repr-operating-point">

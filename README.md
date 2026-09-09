@@ -125,10 +125,26 @@ instructions deep-link to:
   only once a search has run, because a retrieval's grant is what authorises
   a comparison. A search whose words the catalog does not carry says so above
   the results;
-- **Playground** - candidate diagnostics, ranking comparison, streamed agent
-  runs, and completion proofs, with Vector index at scale and Catalog studio
-  alongside it. Agent progress and results follow one vertical reading order;
-  the recorded run remains available for inspection when synthesis fails.
+- **Playground** - Retrieve, Rank, and Reason appear side by side on laptop and
+  desktop screens. Follow matching products, changes in rank, and the agent’s
+  progress and answer, then open search details and sources within each column.
+  Retrieve and Rank follow the same preview products before and after reranking.
+  Each recommendation links to the search that returned it, including when the
+  agent uses more than one search. All three columns use the full product title,
+  and photos stay consistent with Shop. Shop links open the saved search; **Start a new run** searches
+  again, with a way back to the saved Shop results.
+  Clearer calls is the starting request. Plan my workspace demonstrates separate
+  searches for two product needs; Check the sources compares specification and
+  sample review records read by the agent. Coding exercises and adaptation guides
+  live in the workshop and take-home documentation.
+  **Session & Memory** explores AgentCore conversation events, semantic facts,
+  user preferences, session summaries and episodic memory. Inspect the connected
+  strategies and extracted records, then recall relevant context in a new
+  session. Aurora still supplies product evidence. See [setup and behavior](docs/session-memory.md).
+   Scale & HNSW includes an interactive
+  3D graph illustration, Off / Strict / Relaxed scan comparisons, and full
+  precision, halfvec and binary measurements. Detailed benchmarks and SQL are
+  available in an expandable section.
 
 The storefront is designed for laptop browser viewports at normal zoom. Page
 navigation keeps the header in place and restores scroll and keyboard focus.
@@ -216,6 +232,10 @@ applied** describes the installed Aurora function. Completion proof separately
 checks the recorded behavior. Starting a new run clears the previous run's
 proof. Both the browser and CLI run the mission's required supporting controls;
 Reason also requires independent target searches and a retrieval explanation.
+
+Build your own filtered tool with [the hands-on extension](docs/build-retrieval-tool.md),
+then follow [the implementation map](docs/use-in-your-app.md) to adapt the schema,
+ranking SQL and evidence boundary.
 
 Read [the curriculum](docs/retrieval-curriculum.md) and
 [the intentional-gap contract](docs/intentional-gaps.md) before changing a lab
@@ -317,7 +337,11 @@ These assets answer different questions:
 - the 20 product-retrieval cases measure retrieval quality;
 - the 720 generated fixtures test whether filters violated their contract.
 
-Only `scripts/benchmark_hnsw.py` records measured Aurora performance.
+The [current scale benchmarks](docs/current-scale-benchmarks.md) cover all 30
+anchor products across the current 500,000-vector Aurora catalog, with exact
+top-10 comparisons and warm database p50/p95 timings. The report includes the
+rerun command and raw samples. `scripts/benchmark_mosaic_scale.py` refreshes the
+current artifact; `scripts/benchmark_hnsw.py` is the older sweep-only runner.
 `scripts/simulate_scale.py` produces a labeled projection and must not be
 presented as benchmark evidence.
 
@@ -439,6 +463,9 @@ path, and no lab reads a span.
 See [the portable telemetry contract](docs/telemetry-contract.md).
 
 ## Participant takeaway skill
+
+The primary takeaway is the **Mosaic Hybrid Retrieval Skill**. The optional
+build-a-tool exercise is additional practice in the Workshop Studio guide.
 
 [`skills/mosaic-hybrid-retrieval/`](skills/mosaic-hybrid-retrieval/) packages
 the bounded retrieval capability participants can take away. Keep the whole

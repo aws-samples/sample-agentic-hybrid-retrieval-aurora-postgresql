@@ -76,6 +76,11 @@ interface MosaicLabManifest {
   /** Ungraded requests for inspecting an agent pipeline; labs remain above. */
   playground: {
     default_request: string;
+    guided_requests: Array<{
+      id: string;
+      label: string;
+      notice: string;
+    } & ({ mission_id: string } | { query: string; filters: SearchFilters })>;
     requests: Array<{
       id: string;
       label: string;
@@ -90,6 +95,22 @@ interface MosaicLabManifest {
 export const mosaicLabManifest = missionManifest as MosaicLabManifest;
 export const coreMosaicLabs = mosaicLabManifest.missions;
 export const supportingMosaicChecks = mosaicLabManifest.supporting_checks;
+
+/** Resolve graded requests from their mission so the demo cannot fork its query or filters. */
+export function resolvePipelineRequests(manifest: MosaicLabManifest) {
+  return [
+    ...manifest.playground.requests,
+    ...manifest.playground.guided_requests.map((request) => {
+      if (!("mission_id" in request)) return request;
+      const mission = manifest.missions.find((item) => item.id === request.mission_id);
+      if (!mission) throw new Error(`Unknown Playground mission ${request.mission_id}; use an id from missions.`);
+      return { ...request, query: mission.query, filters: mission.filters };
+    }),
+  ];
+}
+
+export const pipelineRequests = resolvePipelineRequests(mosaicLabManifest);
+
 
 export function workspaceRequests(filters: SearchFilters) {
   return mosaicLabManifest.playground.requests.filter((request) =>

@@ -146,6 +146,7 @@ from the example file and fails if a setting is missing from this table.
 | `MOSAIC_CODE_EDITOR_URL` | Leave unset | Points participants at a Code Editor the runtime does not have. The service refuses to start if the value carries a `tkn=` token. |
 | `MOSAIC_AGENTCORE_OBSERVABILITY` | Runtime environment variable | `false` unless an OpenTelemetry exporter is actually configured. Aurora stays the canonical ledger either way. See `docs/telemetry-contract.md`. |
 | `MOSAIC_AGENTCORE_CAPTURE_CONTENT` | Runtime environment variable | `false`. Turning it on projects question and answer text off Aurora. |
+| `MOSAIC_AGENTCORE_MEMORY_ID` | Runtime environment variable | Optional Memory resource for conversation events and built-in strategies. The browser Session & Memory endpoints use it; `/invocations` does not accept a browser identity. See [Session & Memory](session-memory.md). |
 
 ## IAM the runtime role needs
 

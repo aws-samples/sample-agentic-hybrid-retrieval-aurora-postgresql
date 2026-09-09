@@ -684,8 +684,8 @@ describe("ReasonStage grounded answer", () => {
       screen.getByText("quiet mechanical keyboard"),
       screen.getByText("lumbar support office chair"),
       // Both recommendations, each linked to its product page.
-      screen.getByText("Mosaic QuietType K8"),
-      screen.getByText("Aeronex Lumbar Chair"),
+      within(retrieval).getByText("Mosaic QuietType K8"),
+      within(retrieval).getByText("Aeronex Lumbar Chair"),
       chain,
       // The quote the single citation rests on.
       screen.getByText("Up to 60 hours of listening."),

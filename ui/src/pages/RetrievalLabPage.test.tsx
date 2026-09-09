@@ -634,15 +634,13 @@ describe("RetrievalLabPage", () => {
       ),
     ).toBeTruthy();
     // Internal routes only; the strip also carries an outbound GitHub link.
-    // Two destinations, not three. Catalog studio runs no retrieval and grades
-    // nothing, so it is not a lens on this surface; its own route and the footer
-    // link to it both stay.
+    // Session & Memory joins the pipeline and vector index as a Playground lens.
     expect(
       within(strip)
         .getAllByRole("link")
         .map((link) => link.getAttribute("href"))
         .filter((href) => href?.startsWith("/")),
-    ).toEqual(["/labs/retrieval", "/mosaic-labs/hnsw"]);
+    ).toEqual(["/labs/retrieval", "/mosaic-labs/hnsw", "/mosaic-labs/memory"]);
     expect(
       within(strip)
         .getByRole("link", { name: "Pipeline" })

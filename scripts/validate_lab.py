@@ -201,8 +201,27 @@ def validate_agent_response(
     return _graded(lab_checks.agent_response_checks(mission, agent, evidence))
 
 
-def validate_lab_3(base_url: str) -> list[str]:
+def validate_lab_3(
+    base_url: str,
+    *,
+    save_receipt: Path | None = None,
+    reuse_receipt: Path | None = None,
+) -> list[str]:
+    from service.lab_validation_receipt import (
+        read_receipt,
+        replay_receipt,
+        validation_identity,
+    )
+
+    identity = (
+        validation_identity(base_url, _request(base_url, "/api/readiness"))
+        if save_receipt or reuse_receipt
+        else None
+    )
+    if reuse_receipt:
+        return _graded(replay_receipt(read_receipt(reuse_receipt), identity))
     checks: list[str] = []
+    runs: dict[str, str] = {}
     for mission in (_mission("reason"), _case("evidence-grounding")):
         agent = _request(
             base_url,
@@ -217,6 +236,19 @@ def validate_lab_3(base_url: str) -> list[str]:
             f"{mission['canonical_query_id']}: {check}"
             for check in validate_agent_response(base_url, mission, agent)
         )
+        if save_receipt:
+            runs[mission["canonical_query_id"]] = agent["agent_run_id"]
+    if save_receipt:
+        _require(
+            identity
+            == validation_identity(base_url, _request(base_url, "/api/readiness")),
+            "found code or settings changed during validation; fix: rerun Lab 3 validation",
+        )
+        save_receipt.parent.mkdir(parents=True, exist_ok=True)
+        save_receipt.write_text(
+            json.dumps({"version": 1, "identity": identity, "runs": runs}, indent=2)
+            + "\n"
+        )
     return checks
 
 
@@ -224,12 +256,26 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--lab", type=int, required=True, choices=(1, 2, 3))
     parser.add_argument("--api-url", default="http://127.0.0.1:8000")
+    receipt = parser.add_mutually_exclusive_group()
+    receipt.add_argument("--save-receipt", type=Path)
+    receipt.add_argument("--reuse-receipt", type=Path)
     args = parser.parse_args()
-    checks = {
+    if (args.save_receipt or args.reuse_receipt) and args.lab != 3:
+        parser.error("found receipt option on another lab; fix: use it with --lab 3")
+    validator = {
         1: validate_lab_1,
         2: validate_lab_2,
         3: validate_lab_3,
-    }[args.lab](args.api_url)
+    }[args.lab]
+    checks = (
+        validator(
+            args.api_url,
+            save_receipt=args.save_receipt,
+            reuse_receipt=args.reuse_receipt,
+        )
+        if args.lab == 3
+        else validator(args.api_url)
+    )
     for check in checks:
         print(f"PASS: {check}")
     print(f"Lab {args.lab}: production-path validation passed")

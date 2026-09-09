@@ -222,6 +222,7 @@ class Settings:
     code_editor_url: str | None = None
     agentcore_observability_enabled: bool = False
     agentcore_capture_content: bool = False
+    agentcore_memory_id: str | None = None
 
     @property
     def embedding_dimensions(self) -> int:
@@ -309,4 +310,5 @@ def get_settings() -> Settings:
             "MOSAIC_AGENTCORE_CAPTURE_CONTENT",
             False,
         ),
+        agentcore_memory_id=os.getenv("MOSAIC_AGENTCORE_MEMORY_ID") or None,
     )

@@ -8,6 +8,8 @@ export interface PipelineReceipt {
   error?: string;
 }
 
+export type PipelinePhase = "retrieve" | "rank" | "reason";
+
 /** Follow only the search receipts emitted by this agent turn. */
 export function usePipelineRun(requestKey: string, carriedEvent: string | null) {
   const [receipts, setReceipts] = useState<PipelineReceipt[]>([]);
@@ -19,8 +21,12 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
   const [running, setRunning] = useState(false);
   const [reading, setReading] = useState(false);
   const [status, setStatus] = useState("");
+  const [phase, setPhase] = useState<PipelinePhase | null>(null);
   const [error, setError] = useState("");
   const [runId, setRunId] = useState<string | null>(null);
+  const [savedResponse, setSavedResponse] = useState<SearchResponse | null>(null);
+  const [started, setStarted] = useState(false);
+  const [replay, setReplay] = useState(0);
   const version = useRef(0);
   const controller = useRef<AbortController | null>(null);
   const inFlight = useRef(false);
@@ -36,14 +42,20 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
     setStreamed("");
     setCompleted(false);
     setRunId(null);
+    setSavedResponse(null);
+    setStarted(false);
     setError("");
     setStatus("");
+    setPhase(null);
     setRunning(false);
     setReading(Boolean(carriedEvent));
     if (carriedEvent) {
       setReceipts([{ id: carriedEvent }]);
       void api.retrievalEventResponse(carriedEvent).then((response) => {
-        if (current === version.current) setReceipts([{ id: carriedEvent, response }]);
+        if (current === version.current) {
+          setReceipts([{ id: carriedEvent, response }]);
+          setSavedResponse(response);
+        }
       }).catch((cause: unknown) => {
         if (current === version.current) setReceipts([{
           id: carriedEvent,
@@ -57,7 +69,7 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
       version.current += 1;
       controller.current?.abort();
     };
-  }, [requestKey, carriedEvent]);
+  }, [requestKey, carriedEvent, replay]);
 
   async function play(question: string, filters: SearchFilters) {
     if (inFlight.current) return;
@@ -68,6 +80,7 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
     controller.current = abort;
     setReading(false);
     setRunning(true);
+    setStarted(true);
     setError("");
     setAnswer(null);
     setPartial(null);
@@ -77,6 +90,7 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
     setReceipts([]);
     setRunId(null);
     setStatus("Starting Alex’s request…");
+    setPhase("retrieve");
     const reads = new Map<string, Promise<void>>();
 
     function followTrace(steps: ToolTraceStep[]) {
@@ -100,12 +114,17 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
     try {
       await api.agentStream(question, filters, (event) => {
         if (current !== version.current) return;
-        if (event.type === "stage") setStatus(event.detail);
+        if (event.type === "stage") {
+          const next = event.id === "answer" ? "reason" : event.id === "rank" ? "rank" : "retrieve";
+          setPhase(next);
+          setStatus(next === "retrieve" ? "Finding matching products…" : next === "rank" ? "Checking the ranked matches…" : "Preparing Mosaic’s recommendation…");
+        }
         if (event.type === "partial") {
           setPartial(event.partial);
           followTrace(event.partial.trace);
         }
         if (event.type === "answer_start") {
+          setPhase("reason");
           followTrace(event.response.trace);
           setAnswer(event.response);
           setRunId(event.response.agent_run_id);
@@ -113,6 +132,7 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
         }
         if (event.type === "answer_delta") setStreamed((text) => text + event.delta);
         if (event.type === "complete") {
+          setPhase("reason");
           followTrace(event.response.trace);
           setAnswer(event.response);
           setRunId(event.response.agent_run_id);
@@ -138,5 +158,9 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
     }
   }
 
-  return { receipts, trace, answer, partial, streamed, completed, running, reading, status, error, runId, play };
+  function restoreSavedSearch() {
+    if (carriedEvent && !inFlight.current) setReplay((value) => value + 1);
+  }
+
+  return { receipts, trace, answer, partial, streamed, completed, running, reading, status, phase, error, runId, savedResponse, started, play, restoreSavedSearch };
 }

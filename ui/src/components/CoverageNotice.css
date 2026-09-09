@@ -10,7 +10,7 @@
   margin: 0 0 18px;
   padding: 14px 16px;
   border: 1px solid var(--line-dark);
-  border-left: 3px solid var(--gold);
+  border-left: 2px solid var(--gold);
   border-radius: 6px;
   background: var(--gold-soft);
   color: var(--ink);

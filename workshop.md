@@ -65,7 +65,7 @@ and in Playground.
 
 ## Alex’s journey
 
-**Discover opens with “How a room learns you.”** A large photograph shows the
+**Discover opens with “How a room learns about you.”** A large photograph shows the
 workspace Alex is working toward. Beside it, **Meet Alex** makes the brief
 specific: a software engineer whose day moves between coding, team calls and
 focused work. His desk and laptop are already in place. His headphones, chair
@@ -83,7 +83,7 @@ runs a real, category-scoped Shop search. The order matches Shop’s Explore pil
 |---|---|---|---|
 | **Clearer calls** | Background noise at home makes it harder for teammates to hear him. | Microphone clarity for the person listening, plus comfort and noise cancellation for Alex. Listening noise cancellation alone does not establish outgoing voice clarity. | Find headphones for Alex → headphones search and comparison. |
 | **Comfortable days** | A short call becomes a long coding session. | Lumbar support, seat depth and arm adjustments that fit his body and working day. | Find chairs for Alex → chair search and comparison. |
-| **Room to code** | Code, documentation and a video call compete for his laptop screen. | Screen space, readable text and a connection his laptop supports. | Find monitors for Alex → monitor search; **Mosaic Atelier 32** is also the exact-model control. |
+| **Quiet typing** | Alex takes notes while teammates talk. | Typing noise, mechanical feel, layout and wireless connection. | Find keyboards for Alex → keyboard search; carry it into **Plan my workspace**. |
 
 From there, the customer experience continues:
 
@@ -149,6 +149,18 @@ The application has three navigation destinations, with Ask Mosaic inside Shop:
 - **Ask Mosaic.** The agent, in a side panel on Shop or a mobile overlay below the header. It shows progress while gathering evidence, then leads with the cited answer. **Steps and sources** holds the request interpretation, searches, product comparison, supporting evidence, and tool activity. Follow-ups carry context from the prior grounded run; they do not establish preference memory across visits.
 - **Playground.** `/labs/retrieval` defaults to **Pipeline**, a three-stage inspection of Retrieve, Rank and Reason. Alex's request choices come from the canonical mission manifest. One **Play pipeline** action makes a real agent request; the stages read its records. A saved Shop event opens its original receipt, and Play starts a new complete run when an agent answer is needed. **Scale & HNSW** is the adjacent inspection lens.
 
+Pipeline also offers **Plan my workspace**, which resolves its question and
+filters from Lab 3, and **Check the sources**, which compares a specification
+with sample review evidence. Source comparison stays inside Reason and includes
+records the agent read but did not cite. Missing review evidence is shown as
+missing, not filled in.
+
+The Workshop Studio guide contains **Build a retrieval tool**, a starter-generation
+exercise and a live API check with two budgets. Coding instructions live in the guide,
+not on a Mosaic app page. Its downloadable guide maps the schema, ranking SQL,
+model integration and evidence boundary for adaptation after the session. Use
+this extension during flex time or as take-home work; it adds no required lab.
+
 The guides and proof links retain the four-stage guided Playground through
 `example`, `run`, or `view=lab` on `/labs/retrieval`. Use those guide links for
 the exercises below. The home-office presentation does not change any core lab
@@ -174,10 +186,10 @@ sit immediately below. The scenes scroll horizontally on mobile and step
 aside during a search or an open Ask conversation.
 
 Explore and Ask follow the canonical Pipeline request order: **Clearer calls**,
-**Comfortable days**, **Room to code**, then the **Mosaic Atelier 32** exact-model
+**Comfortable days**, **Quiet typing**, then the **Mosaic Atelier 32** exact-model
 control.
 
-Pipeline still opens on Room to code. Comfortable days adds a scoped
+Pipeline opens on Clearer calls. Comfortable days adds a scoped
 chair-shopping request; it does not change Lab 2's question or proof. Ask shows
 only suggestions compatible with the current filters.
 

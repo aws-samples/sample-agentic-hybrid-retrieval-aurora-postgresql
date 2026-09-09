@@ -124,7 +124,7 @@ export function useAskMosaicConversation(filters: SearchFilters) {
             stageDetail: "",
           });
         }
-      }, context, { signal: controller.signal });
+      }, context, { signal: controller.signal, useMemory: true });
     } catch (cause) {
       if (version !== requestVersion.current) return;
       patch({

@@ -183,57 +183,32 @@ describe("productImage", () => {
 });
 
 describe("productImageMap", () => {
-  /**
-   * Installed photography reachable from `over-ear-headphones`: fourteen
-   * product-bound shots, six category plates, and the one exact
-   * `acoustic-headphones` shot the related-category row now brings in.
-   *
-   * Hard-coded rather than derived from the manifests, because a test that reads
-   * its own expectation out of the data it is judging cannot fail. When plates
-   * land for this category the pool grows and the three tests below go red,
-   * which is the signal to raise `exhausting` with it - they only measure the
-   * exhaustion behaviour while they draw more rows than the pool holds. That is
-   * what happened when `acoustic-headphones` joined `relatedCategories`, and it
-   * is the reason this number is 21 rather than 20.
-   */
-  const headphonePool = 21;
-  const exhausting = headphonePool * 2;
-
-  it("gives every card its own photograph while the pool lasts", () => {
-    // Hashing cannot do this. Four independent draws from a pool of six repeat
-    // a value about a third of the time, and twelve draws from twelve yield
-    // about 7.7 distinct values, so a grid always repeated something.
-    const rows = Array.from({ length: headphonePool }, (_, index) => filler(100 + index));
-    const assigned = productImageMap(rows);
-    expect(assigned.size).toBe(headphonePool);
-    expect(new Set(assigned.values()).size).toBe(headphonePool);
+  it("keeps each photo when ranking reverses the result order", () => {
+    const rows = Array.from({ length: 42 }, (_, index) => filler(10000 + index));
+    expect(productImageMap([...rows].reverse())).toEqual(productImageMap(rows));
   });
 
-  it("repeats only after the pool is exhausted", () => {
-    const rows = Array.from({ length: exhausting }, (_, index) => filler(200 + index));
-    const assigned = productImageMap(rows);
-    const inOrder = rows.map((row) => assigned.get(row.product_id));
-    // The first page-worth of rows still gets clean photography; the surplus
-    // repeats, which is the signal to generate plates.
-    expect(new Set(inOrder.slice(0, headphonePool)).size).toBe(headphonePool);
-    expect(new Set(inOrder).size).toBe(headphonePool);
-  });
-
-  it("spreads an exhausted pool evenly instead of overloading one photograph", () => {
-    // Falling back to the hashed choice put four copies of one photograph in a
-    // twelve-card grid drawing on a pool of six. Twice as many rows as plates
-    // cannot do better than two copies each, and it should not do worse.
-    const rows = Array.from({ length: exhausting }, (_, index) => filler(200 + index));
-    const counts = new Map<string, number>();
-    for (const image of productImageMap(rows).values()) {
-      counts.set(image, (counts.get(image) ?? 0) + 1);
+  it("keeps Shop photos when Reason selects a smaller shortlist or a single product", () => {
+    const rows = Array.from({ length: 42 }, (_, index) => filler(10000 + index));
+    const shopImages = productImageMap(rows);
+    const picks = rows.filter((_, index) => index % 3 === 0).reverse();
+    for (const row of picks) {
+      expect(productImageMap(picks).get(row.product_id)).toBe(shopImages.get(row.product_id));
+      expect(productImageMap([row]).get(row.product_id)).toBe(shopImages.get(row.product_id));
+      expect(productImage(row)).toBe(shopImages.get(row.product_id));
     }
-    expect(Math.max(...counts.values())).toBe(exhausting / headphonePool);
+  });
+
+  it("does not change a category photo when a product with its own photo joins the list", () => {
+    const rows = Array.from({ length: 42 }, (_, index) => filler(10000 + index));
+    const before = productImageMap(rows);
+    const after = productImageMap([product({ product_id: 1 }), ...rows]);
+    for (const row of rows) {
+      expect(after.get(row.product_id)).toBe(before.get(row.product_id));
+    }
   });
 
   it("leaves a product's own photograph on its own card", () => {
-    // The flagship shares a pool with the filler rows around it, so an
-    // unreserved assignment could hand its photograph to a different product.
     const rows = [
       product({ product_id: 1 }),
       ...Array.from({ length: 5 }, (_, index) => filler(300 + index)),
@@ -242,7 +217,6 @@ describe("productImageMap", () => {
     expect(assigned.get(1)).toBe(
       "/assets/images/mosaic/ce-over-ear-headphones-auraluxe-h9-catalog-3x2.webp",
     );
-    expect(new Set(assigned.values()).size).toBe(rows.length);
   });
 
   it("is stable for the same result set", () => {
@@ -261,8 +235,8 @@ describe("productImageMap", () => {
  * seven of them the same file, because `acoustic-headphones` had a pool of one.
  */
 describe("category photography is deep enough to fill a page", () => {
-  // What Shop asks for, and therefore how many distinct photographs a category
-  // needs before a grid starts repeating.
+  // A range of available photos for a Shop page. Stable per-product choices can
+  // still repeat; the floor checks catalog variety, not uniqueness in a grid.
   const PAGE = 12;
 
   // Every category a participant can land on by following the session: the
@@ -285,7 +259,7 @@ describe("category photography is deep enough to fill a page", () => {
     ["mobility-tools", "running_fitness"],
   ];
 
-  it.each(REACHABLE)("%s can fill a page without repeating", (categoryKey, domain) => {
+  it.each(REACHABLE)("%s has at least a page of available photos", (categoryKey, domain) => {
     expect(categoryPoolSize(categoryKey, domain)).toBeGreaterThanOrEqual(PAGE);
   });
 

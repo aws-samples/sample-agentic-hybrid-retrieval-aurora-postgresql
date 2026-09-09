@@ -94,6 +94,28 @@ export function hexLiterals(sheets: Sheet[]): string[] {
 }
 
 /**
+ * Font sizes below the 12px floor the design record sets for micro text.
+ *
+ * Measured 2026-09-09: 212 declarations across the five sheets sat under that
+ * floor, 98 of them at 10px, and the two worst carriers were the sitewide
+ * `.eyebrow` primitive at 11px and Shop's per-card retrieval breakdown at
+ * 10.5px, repeated on every card. A ratchet like the hex one: lower it when a
+ * pass raises more, never raise it. A new sub-floor size fails with the line
+ * it landed on, and the fix is a size from the documented scale.
+ */
+const SMALL_TYPE_CEILING = 205;
+
+const SMALL_TYPE = /font-size:\s*((?:[0-9]|1[01])(?:\.[0-9]+)?)px/g;
+
+export function smallTypeLiterals(sheets: Sheet[]): string[] {
+  return sheets.flatMap(({ name, text }) =>
+    text.split("\n").flatMap((line, index) =>
+      [...line.matchAll(SMALL_TYPE)].map((m) => `${name}:${index + 1} ${m[1]}px in ${line.trim()}`),
+    ),
+  );
+}
+
+/**
  * Grid containers whose track must stay pinned, and why each one is here.
  *
  * A `width`-constrained grid container does *not* constrain its implicit track:
@@ -147,6 +169,15 @@ describe("stylesheet vocabulary", () => {
     ).toBeLessThanOrEqual(HEX_LITERAL_CEILING);
   });
 
+  it("holds the ratchet on font sizes below the 12px floor", async () => {
+    const literals = smallTypeLiterals(await readSheets());
+    expect(
+      literals.length,
+      `sub-12px font sizes rose past ${SMALL_TYPE_CEILING}; the newest look like:\n` +
+        literals.slice(-5).join("\n"),
+    ).toBeLessThanOrEqual(SMALL_TYPE_CEILING);
+  });
+
   it("keeps a width-constrained grid container from inheriting a child's max-content", async () => {
     expect(unpinnedGridTracks(await readSheets())).toEqual([]);
   });
@@ -179,6 +210,12 @@ describe("stylesheet vocabulary", () => {
     expect(hexLiterals(sheets)).toEqual([
       "styles.css:7 #ded6ca in .a { color: var(--ink-muted); border: 1px solid #ded6ca; }",
     ]);
+    // 12px is the floor, not a violation; three digits are not small.
+    expect(
+      smallTypeLiterals([
+        { name: "surfaces.css", text: ".c { font-size: 10.5px; }\n.d { font-size: 12px; }\n.e { font-size: 100px; }" },
+      ]),
+    ).toEqual(["surfaces.css:1 10.5px in .c { font-size: 10.5px; }"]);
     // The hero column as it stood before 2026-09-06: width-constrained, grid,
     // and no track of its own, which is exactly what let the prompts row size it.
     const unpinned: Sheet[] = [

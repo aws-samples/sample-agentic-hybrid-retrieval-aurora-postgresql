@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import { forwardedSearchFilters } from "./navigation";
 import {
   coreMosaicLabs,
+  mosaicLabManifest,
+  pipelineRequests,
+  resolvePipelineRequests,
   retrievalExampleHref,
   shopMissionHref,
   supportingMosaicChecks,
@@ -75,4 +78,16 @@ describe("participant query contract", () => {
     // Only the reasoning lab asks the agent a question.
     expect(params.get("ask")).toBeNull();
   });
+});
+
+it("resolves the multi-part Pipeline request from the canonical mission and rejects a broken reference", () => {
+  const mission = coreMosaicLabs.find((lab) => lab.id === "agentic-research")!;
+  const request = pipelineRequests.find((item) => item.id === "plan-workspace")!;
+  expect(request.query).toBe(mission.query);
+  expect(request.filters).toBe(mission.filters);
+  const changed = structuredClone(mosaicLabManifest);
+  changed.missions.find((lab) => lab.id === mission.id)!.query = "An updated two-part request";
+  expect(resolvePipelineRequests(changed).find((item) => item.id === request.id)?.query).toBe("An updated two-part request");
+  changed.missions = changed.missions.filter((lab) => lab.id !== mission.id);
+  expect(() => resolvePipelineRequests(changed)).toThrow(/Unknown Playground mission/);
 });

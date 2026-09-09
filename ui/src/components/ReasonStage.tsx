@@ -1,6 +1,5 @@
 import { AlertTriangle, Check, LoaderCircle, Minus, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import Markdown from "react-markdown";
 import { Link } from "wouter";
 import { api } from "../api";
 import { formatPriceCompact, leafCategory } from "../format";
@@ -8,7 +7,7 @@ import { productImageMap } from "../media";
 import { Criteria, Searches } from "./agentAnswerParts";
 import { CodeBlock } from "./CodeBlock";
 import { ReasonRunStatus, type AgentPhase } from "./ReasonRunStatus";
-import { ReasonProducts } from "./ReasonProducts";
+import { ProductAnswer } from "./ProductAnswer";
 import {
   PlaygroundDisclosure,
   PlaygroundDisclosureShelf,
@@ -587,9 +586,8 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
                 aria-labelledby="reason-answer-title"
               >
                 <h3 id="reason-answer-title">The grounded answer</h3>
-                <ReasonProducts products={response.recommendations} citations={citations} title="Mosaic’s picks for Alex" />
                 <div className="labs-reason-prose">
-                  <Markdown>{response.answer}</Markdown>
+                  <ProductAnswer text={response.answer} products={response.recommendations} citations={citations} />
                 </div>
               </section>
             )
@@ -897,7 +895,7 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
       <p className="labs-memory-note">
         <strong>Run records in Aurora.</strong> Completed answers retain their
         searches, cited evidence, and tool receipts. Ask Mosaic follow-ups reuse
-        the current shortlist; this view does not retain shopper memory between visits.
+        the current shortlist. Session &amp; Memory lets Alex save preferences for future Ask Mosaic requests.
       </p>
     </div>
   );

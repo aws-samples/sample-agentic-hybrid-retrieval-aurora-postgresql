@@ -1,5 +1,16 @@
 # Implementation status
 
+## Session & Memory update · 9 September 2026
+
+The third Playground tab teaches AgentCore conversation events and its four
+built-in strategies: semantic facts, user preferences, session summaries and
+episodic memory. It shows live configuration, scoped events, extracted records
+and relevant memory retrieval. Ask Mosaic can use memories as context while
+Aurora remains the source of product evidence. See [setup and behavior](session-memory.md).
+
+Runtime deployment, Gateway integration and strategy customization remain in
+the [parking lot](mosaic-parking-lot.md). They are not additional required labs.
+
 ## Release baseline
 
 - 500,000-product Mosaic catalog on Aurora PostgreSQL 18.3 with 1,024-dimension

@@ -13,6 +13,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    PrivateAttr,
     StringConstraints,
     field_validator,
     model_validator,
@@ -705,6 +706,9 @@ class AgentRequest(BaseModel):
     filters: SearchFilters = Field(default_factory=SearchFilters)
     result_limit: int = Field(default=6, ge=2, le=12)
     context: AgentConversationContext | None = None
+    use_memory: bool = False
+    session_id: UUID | None = None
+    _memory_context: dict[str, Any] = PrivateAttr(default_factory=dict)
 
 
 class AgentPlanStep(BaseModel):
@@ -764,6 +768,8 @@ class AgentResponse(BaseModel):
     recommendations: list[ProductSummary]
     citations: list[AgentCitation]
     trace: list[ToolTraceStep]
+    # Snapshots of the records the tools read, including sources not cited.
+    retrieved_evidence: list[EvidenceRecord] = Field(default_factory=list)
     outcome: AgentOutcome = "grounded"
     #: Why the run declined, naming the unmatched terms. `None` on a grounded
     #: answer, so its presence and `outcome` cannot disagree.

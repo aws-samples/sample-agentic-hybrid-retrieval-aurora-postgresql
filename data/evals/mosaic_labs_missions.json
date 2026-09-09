@@ -479,7 +479,22 @@
     }
   ],
   "playground": {
-    "default_request": "room-for-code",
+    "default_request": "clear-calls",
+    "guided_requests": [
+      {
+        "id": "plan-workspace",
+        "label": "Plan my workspace",
+        "mission_id": "agentic-research",
+        "notice": "One request, two product needs. Follow the separate keyboard and chair searches, their filters, and the evidence behind the final choices."
+      },
+      {
+        "id": "check-sources",
+        "label": "Check the sources",
+        "query": "For the Sonora WH-C720 headphones, compare the specifications with review evidence about fit. What do the sources support, and what remains uncertain?",
+        "filters": {"domain": "consumer_electronics", "category_key": "over-ear-headphones"},
+        "notice": "Compare the catalog specification with sample review evidence about fit. A general review does not prove every advertised benefit."
+      }
+    ],
     "requests": [
       {
         "id": "clear-calls",
@@ -504,15 +519,15 @@
         "notice": "Follow Alex’s need for adjustable support from candidate retrieval through ranking and a comparison grounded in product details."
       },
       {
-        "id": "room-for-code",
-        "label": "Room to code",
-        "shop_label": "Room to code",
-        "query": "I want room for my code, documentation and a video call without constantly switching windows",
+        "id": "quiet-typing",
+        "label": "Quiet typing",
+        "shop_label": "Quiet typing",
+        "query": "a quiet mechanical keyboard for typing during video calls without distracting my teammates",
         "filters": {
           "domain": "home_office",
-          "category_key": "productivity-monitors"
+          "category_key": "quiet-keyboards"
         },
-        "notice": "Watch how an intent-led request finds monitors, changes their order and leads to an evidence-based comparison."
+        "notice": "Alex wants mechanical feel without distracting people on calls. Compare typing noise and feel, then carry the keyboard into Plan my workspace."
       },
       {
         "id": "exact-model",

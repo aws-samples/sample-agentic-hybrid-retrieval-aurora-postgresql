@@ -1,5 +1,41 @@
 # Mosaic API contract
 
+## Session and memory
+
+`GET /api/session-memory/identity` initializes an opaque, HttpOnly browser cookie.
+`GET /api/session-memory` returns the browser actor, its latest 12 Aurora sessions
+(up to 20 turns each), active session, and the actual AgentCore resource and
+strategy configuration. Responses are not cached. Earlier anonymous runs remain
+unassigned.
+
+`GET /api/session-memory/events` with `session_id=UUID` reads up to 30 conversation events
+from AgentCore for an owned session. `POST /api/session-memory/events` accepts
+`text`, a UUID `request_id`, and optional owned `session_id`; it stores a USER
+event, creates a session when necessary, and returns `session_id` and `event_id`.
+It never invents an assistant reply. Extraction runs asynchronously.
+
+`GET /api/session-memory/records` with `strategy_id=ID` and optional `session_id=UUID` reads up to 20
+records per configured namespace, scoped to this browser actor. The optional
+session selects session summaries and episodes; actor-level reflections remain
+available. `has_more` identifies bounded reads. Callers cannot supply namespaces.
+
+`POST /api/session-memory/recall` accepts `query` and returns relevant semantic
+and user-preference records using AgentCore's RetrieveMemoryRecords API.
+`POST /api/session-memory/new-session` clears the active conversation pointer
+and returns 204. Actor-level memories remain available.
+
+Agent requests accept `use_memory` (false by default) and optional `session_id`.
+An owned session restores Aurora's prior shortlist and, with memory enabled,
+recent AgentCore events. Relevant facts and preferences enter the prompt as
+untrusted context. They do not change filters in application code or authorize
+products or citations. Completed opted-in turns write their actual messages as
+an event. Aurora records the memory IDs read and event-write success or failure.
+
+Read errors return 503; retry or opt out. An event-write error does not discard a
+completed cited answer, and its failed write stays visible in the saved run.
+The Session & Memory page and Ask Mosaic in Shop opt in; canonical Pipeline and
+lab requests retain their existing behavior. See [Session & Memory](session-memory.md).
+
 ## Portable skill download
 
 `GET /api/skill-package`
@@ -76,10 +112,18 @@ The Strands response contains:
   availability, and mission-claim checks;
 - source-backed product recommendations;
 - numbered citations;
+- `retrieved_evidence`, the source-record snapshots read during the run, including
+  uncited records, with their product IDs, source types, text and revisions;
 - bounded tool trace with retrieval run IDs;
 - `outcome`, either `grounded` or `declined`;
 - `decline_reason`, naming the unmatched query terms on a declined answer and
   `null` on a grounded one.
+
+Follow-ups preserve the saved answer's product order even when it differs from
+the synthesis tool's input order. Product membership, identities and ranking
+receipts must still agree with the persisted run. An invalid prior answer returns
+HTTP 409 on the completed-response route, or an SSE `error` with
+`code: conversation_context`, asking the visitor to start a new conversation.
 
 ### Declined answers
 
@@ -459,3 +503,12 @@ whether a lab is finished.
 - inventory freshness policy;
 - pagination and canonical-group diversity;
 - deployment alarms and benchmark provenance.
+
+## Builder exercise package
+
+`GET /api/builder-package`
+
+Downloads `mosaic-builder.zip` with the runnable tool reference, starter generator,
+live API checker, build guide, adaptation map and selected canonical SQL/config
+files. Run the exercise from the full Mosaic checkout. The package is an explicit
+public-source allowlist and includes no environment files or participant work.

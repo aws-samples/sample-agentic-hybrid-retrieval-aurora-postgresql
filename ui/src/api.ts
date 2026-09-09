@@ -27,6 +27,9 @@ import type {
   ReviewHighlight,
   SearchFilters,
   SearchResponse,
+  SessionMemoryResponse,
+  MemoryRecord,
+  MemoryEvent,
   ToolContract,
 } from "./types";
 
@@ -56,6 +59,8 @@ export type AgentStreamEvent =
 
 export type AgentStreamOptions = {
   signal?: AbortSignal;
+  useMemory?: boolean;
+  sessionId?: string;
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -76,7 +81,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     }
     throw new ApiError(response.status, message);
   }
-  return (await response.json()) as T;
+  return response.status === 204 ? undefined as T : (await response.json()) as T;
 }
 
 async function streamResponseError(response: Response): Promise<ApiError> {
@@ -98,6 +103,14 @@ function parseSseFrame(frame: string): { event: string; data: string } | null {
 }
 
 export const api = {
+  sessionMemory: () => request<SessionMemoryResponse>("/api/session-memory"),
+  memoryEvents: (sessionId: string) => request<{ events: MemoryEvent[]; has_more: boolean }>(`/api/session-memory/events?session_id=${encodeURIComponent(sessionId)}`),
+  addMemoryEvent: (text: string, sessionId?: string) => request<{ session_id: string; event_id: string }>("/api/session-memory/events", {
+    method: "POST", body: JSON.stringify({ text, session_id: sessionId ?? null, request_id: crypto.randomUUID() }),
+  }),
+  memoryRecords: (strategyId: string, sessionId?: string) => request<{ records: MemoryRecord[]; has_more: boolean; namespaces: string[] }>(`/api/session-memory/records?strategy_id=${encodeURIComponent(strategyId)}${sessionId ? `&session_id=${encodeURIComponent(sessionId)}` : ""}`),
+  recallMemory: (query: string) => request<{ records: MemoryRecord[] }>("/api/session-memory/recall", { method: "POST", body: JSON.stringify({ query }) }),
+  newSession: () => request<void>("/api/session-memory/new-session", { method: "POST" }),
   summary: () => request<CatalogSummary>("/api/catalog/summary"),
 
   catalogCounts: (filters: SearchFilters[]) =>
@@ -179,6 +192,7 @@ export const api = {
     context?: AgentConversationContext,
     options: AgentStreamOptions = {},
   ) => {
+    if (options.useMemory) await request("/api/session-memory/identity", { signal: options.signal });
     const response = await fetch("/api/agent/answer/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -188,6 +202,8 @@ export const api = {
         filters,
         result_limit: 6,
         context,
+        use_memory: options.useMemory ?? false,
+        session_id: options.sessionId,
       }),
     });
     if (!response.ok) throw await streamResponseError(response);

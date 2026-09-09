@@ -4,8 +4,10 @@ What the storefront and the Playground actually look like, why, and what
 enforces it. This is the incumbent design record. Shared tokens come from
 `ui/src/styles.css`; surface behaviour comes from `surfaces.css`,
 `discover.css`, `inspector.css`, `instrument.css`, and `reason-products.css`.
-`workspace-continuation.css` styles the supporting Shop collection. Where a
-number is a measurement, the section says how it was measured.
+`workspace-continuation.css` styles the supporting Shop collection;
+`session-memory.css` and `result-product-card.css` own the memory inspector and
+shared answer/retrieval cards. Where a number is a measurement, the section
+says how it was measured.
 
 ## Direction
 
@@ -79,22 +81,35 @@ token.
 Both faces are self-hosted as Latin variable `woff2` files.
 
 - Display and masthead: Newsreader, weights 400 to 600. Discover and Shop
-  headlines, Pipeline and Scale introductions, product names, prices, and
-  the large benchmark figures. The advanced instrument uses Newsreader for
-  its introduction and section titles, with Schibsted controls and detail.
+  headlines, Pipeline and Scale introductions, product names, the product
+  page's hero price, and the large benchmark figures. The advanced instrument
+  uses Newsreader for its introduction and section titles, with Schibsted
+  controls and detail. Grid-card prices are Schibsted on purpose: the card is
+  an operational surface and its price sits beside a sans control, so the
+  serif is reserved for the product page where the price is the headline.
 - Interface: Schibsted Grotesk, weights 400 to 700. Navigation, controls,
   cards, answers, and lab controls. “A little help choosing?” stays sans serif.
 - Technical: the platform monospace stack. SQL, source references, run ids,
   scores, and settings values only. Monospace is never a costume for
   "technical".
 
+Discover and Shop mastheads use `clamp(48px, 5.1vw, 72px)`, which renders
+at 70px on a 1366px laptop.
+
 The guided lab uses this scale: display `clamp(36px, 3.6vw, 54px)`, stage
 headings `clamp(30px, 2.6vw, 40px)`, section headings 19px, lead 17px, body
 15px, detail 13px, micro 12px, and monospace 13px. Uppercase labels sit at
 micro size with 0.05em tracking.
 
-Pipeline and Scale use an editorial introduction at `clamp(40px, 4.3vw, 64px)`
-with 18px supporting copy, followed by sans serif inspection content. Alex's
+12px is the floor for any text, including the sitewide `.eyebrow`, Shop's
+per-card retrieval breakdown, the search-progress steps, and code blocks.
+The stylesheet test holds a ratchet on `font-size` literals below it: 205
+legacy declarations remained on 2026-09-09, and the count may only fall.
+Long-form copy on the Build view and the Scale page is capped at 70ch.
+
+Pipeline, Scale & HNSW and Session & Memory share the larger Newsreader headline:
+`clamp(40px, 4.3vw, 64px)`, weight 400 and line height 1.08, followed by sans
+serif inspection content. Alex's
 circular Pipeline portrait is 128px on desktop, 112px under 1000px, and 88px
 under 760px; the request and single Play action stay prominent on mobile.
 
@@ -103,14 +118,17 @@ under 760px; the request and single Play action stay prominent on mobile.
 - Site header 70px, 66px at 900px and below, 62px at 460px and below, sticky
   at the top.
 - Page width 1480px; the shell is `min(92vw, 1480px)`.
-- Radius 8px for product imagery and cards, 16px for Shop hero imagery and
-  Alex's brief, 6px for inner details, 12px for inspector callouts, and 999px
-  for Shop search, chips and Ask actions.
+- Radius 8px for Shop product imagery and cards, 16px for shared answer/retrieval
+  cards, Shop hero imagery and Alex's brief, 6px for inner details, 12px for
+  inspector callouts and memory records, and 999px for Shop search, chips and
+  Ask actions.
 - Boundaries are 1px. Maroon on a boundary means active or flagged. The
-  only rule thicker than 1px is the 2px left rule on a blockquote or a
-  failed check, which is a quotation mark, not an accent.
+  2px left rule on a blockquote, a failed check, or the gold coverage notice
+  signals a quotation or caution. The selected memory strategy uses a 2px
+  maroon underline.
 - The shared shadow is offset and blurred. Shop's Ask action and sidecar keep
   their existing local elevation; Pipeline and Scale use rules and warm fills.
+  Code blocks carry a 1px ink-soft boundary and no shadow of their own.
 
 ## Chrome behaviour
 
@@ -126,6 +144,15 @@ under 760px; the request and single Play action stay prominent on mobile.
   count; `discoverData` fetches no catalog products. Discover ends with a Shop
   invitation, without an inventory grid, numeric progress or lab instructions.
   Its disclosure identifies Alex as fictional and the imagery as illustrative.
+- Shop results run three across at laptop width on 3:2 plates with the 8px
+  product radius, so a card at 1366px gives the photograph 397px rather than
+  a 296px thumbnail. The product name is Newsreader at 23px, one voice with
+  the product page; brand and category are one sans line; the specification
+  is clamped to one line; “Why this match” and the price row sit on hairline
+  rules, not in boxes. The filter row is text with the navigation's underline
+  for the open sheet and the active stock switch, so it does not compete with
+  the photography beneath it. The results line sets the shopper's own words
+  in italic Newsreader at 26px under a 12px uppercase label.
 - The site header contains navigation, Code Editor when configured, Alex's
   portrait with “Welcome, Alex!”, and the bag. Repair status belongs to the
   guided Playground rail and completion proof. Its labels
@@ -172,17 +199,44 @@ under 760px; the request and single Play action stay prominent on mobile.
   stages inspect saved records. A carried Shop event is read without rerunning
   it. If the agent searched several times, Retrieve and Rank share one selected
   search receipt. SQL, settings, citations and tool traces use disclosures.
-- Pipeline's Reason stage shows up to the first three partial candidates as
-  “Under consideration”, explicitly labelled with the displayed and retrieved
-  counts. The answer's recommendation set replaces that preview with product
-  photographs, prices, distinct cited-source counts and product-detail links.
-  The shared `ReasonProducts` gallery uses three desktop columns and two at
-  760px and below; the guided Reason stage uses the same final gallery.
-- Pipeline and Ask Mosaic share `useTypewriterReveal` for paced answer prose.
-  Completed answers mounted afresh render immediately. Reduced motion removes
-  both the typewriter pacing and the gallery's image entrance effect. An
-  interrupted Pipeline run clears its answer and streamed prose while retaining
-  partial candidates and tool receipts for diagnosis.
+- Pipeline Retrieve and Rank use `ResultProductCard` for the same set of up to
+  three returned products: Retrieve orders them by recorded pre-rerank positions; Rank
+  shows final order with before/final positions in the footer. Photography fills
+  the card width in a 3:2 frame, with the image contained inside it. Category,
+  Newsreader product name, actual rating and review count, price and stock status
+  sit below the image. These cards retain the shared maroon/cream tokens.
+- `ProductAnswer` places each returned recommendation once, immediately after
+  the first paragraph naming its title or model; unmatched recommendations
+  append after the prose. Cards appear only when the answer prose is complete.
+  Pipeline Reason, guided Reason, Ask Mosaic and saved memory turns share this
+  renderer. Pipeline cards include distinct cited-source counts and links to
+  the recorded search and rank; their main link opens product detail. Ask uses
+  horizontal photo/copy cards, retaining product-drawer selection, catalog
+  highlighting and the existing stock-aware Add to bag action.
+- Pipeline displays streamed answer prose; Ask Mosaic uses `useTypewriterReveal`
+  for paced prose, with completed answers mounted afresh shown immediately and
+  reduced motion removing the pacing. An interrupted Pipeline run clears its
+  answer and streamed prose while retaining partial candidates and tool receipts
+  for diagnosis.
+- Session & Memory introduces events, strategies and recall, then shows Alex's
+  connection status and session controls. The desktop inspector puts conversation
+  entry and stored events on the left, with a wider strategy/records column on
+  the right. At 760px and below it stacks in the same DOM order: conversation,
+  strategies, then recall. Collapsed events show a two-line message preview;
+  opening the native disclosure reveals all messages, roles and the event ID.
+- Four built-in strategy choices—Facts (semantic), Preferences, Summaries and
+  Episodes—show actual connection status, scope and processing steps, followed
+  by returned records. Record details disclose IDs, namespaces and original
+  content; strategy configuration and AWS references remain expandable. Empty
+  records explain asynchronous extraction separately from read errors. Examples
+  fill the editable event field; only submission stores an event. Recall and
+  Ask sit below the inspector with an explicit memory toggle, relevant records
+  and a cited answer only after the visitor submits a request. Saved turns live
+  in the collapsed “Earlier answers” disclosure; switching sessions or adding an
+  event clears the current answer display. This surface teaches memory through conversation,
+  without budget controls or a manual preference form.
+- Bottom-of-page links follow the Playground tabs: Pipeline leads to Scale &
+  HNSW, which leads to Session & Memory using the same heading, copy and arrow link.
 - The advanced instrument shares Pipeline's open layout: Index & storage,
   Recall & filters, and Scale experiments use section rules, light charts and
   progressive detail. Live probe controls remain available. Historical
@@ -229,6 +283,7 @@ under 760px; the request and single Play action stay prominent on mobile.
 | `/labs/retrieval` | Pipeline: read-only inspection of 01 Retrieve, 02 Rank, 03 Reason; one Play starts a real run, and `scene` selects a canonical request |
 | `/labs/retrieval?view=lab` | Guided Playground: Retrieve, Rank, Reason, Prove, lab rail and completion proof; URLs containing `example` or `run` also select this surface |
 | `/mosaic-labs/hnsw` | Scale & HNSW: read-only index explanation, current Aurora substrate and attributed recorded measurements, including optional halfvec/binary comparisons |
+| `/mosaic-labs/memory` | Session & Memory: AgentCore events, four built-in strategies and actual records; conversation and strategy columns lead to recall and Aurora-backed cited answers |
 | `/mosaic-labs/hnsw?view=bench` | Advanced instrument: Index & storage, Recall & filters, Scale experiments; live probes, recorded experiments and projections carry distinct labels |
 | `/mosaic-labs/studio` | Studio: real catalog objects as a composition study, not a recommendation |
 
@@ -246,9 +301,11 @@ lab reachable without making it the default inspection surface.
 - Citations and source revisions are inspectable from the answer.
 - Technical detail discloses progressively without blocking the task.
 - Controls keep stable dimensions while content loads.
-- Ask follow-ups carry context from the prior grounded agent run. Alex's
-  welcome is a shopper persona, not stored user preferences; AgentCore
-  preference memory is not implemented.
+- Ask follow-ups carry context from the prior grounded agent run. AgentCore
+  facts and preferences are extracted from conversation under this browser's
+  actor; starting a new session keeps that actor and its long-term memories.
+  Memory supplies context; Aurora supplies product facts and citation evidence.
+  The welcome portrait itself makes no claim about stored preferences.
 - Scale distinguishes current index facts from recorded experiments. When
   attribution does not match the current catalog or code, the comparison stays
   historical. The new presentation does not establish new benchmark results,
@@ -275,6 +332,8 @@ long-day chair and screen-space illustrations are recorded in
 `data/media/alex-discover-studio-v1.json`, also converted from the user-provided
 Grok reference. The room remains uncropped; need-card imagery fills 4:3 frames.
 Shop's continuation instead uses the live products' catalog photography.
+The Session & Memory and shared answer/retrieval-card extension reuses the
+existing Alex portrait and product media; it introduces no shipping raster assets.
 
 The default Workspace edit currently selects 71 products from that 200-product
 photographed cohort through `data/media/workspace_collection.json`; the UI reads
@@ -309,9 +368,13 @@ The Grok-reference Shop update received a **ship** review of its desktop and
 mobile captures, with no fixes requested. This is the reviewer's verdict, not
 separate user approval of the rendered result. The advanced instrument's fresh
 finish review was **ship**, with no material fixes requested.
-The Reason extension received a scoped **ship** review of the desktop and
-mobile Pipeline captures; the guided gallery and motion paths were reviewed
-from code, with runtime checks performed separately.
+The Session & Memory and shared product-card extension received a fresh review
+of six desktop/mobile captures for memory, Pipeline and Ask Mosaic. Its final
+verdict was **ship**, scoring both requested memory fixes resolved: collapsed
+event previews with disclosure markers and removal of the redundant recall
+eyebrow. The verdict pass covered those
+fixes; it does not imply user approval. Current evidence lives in
+`.impeccable/review/{memory,pipeline,ask}-{desktop,mobile}.png`.
 The Discover studio, its three needs and the Shop continuation received a
 scoped **ship** review with no must-fix findings across desktop, mobile and
 the user's 2048px viewport. The studio detector reported no findings.

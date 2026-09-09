@@ -32,6 +32,16 @@ CREATE TABLE IF NOT EXISTS mosaic.agent_turn (
     UNIQUE (agent_session_id, turn_number)
 );
 
+-- AgentCore holds events and extracted memories. Aurora scopes the browser
+-- actor and ties its active conversation to inspectable retrieval runs.
+CREATE TABLE IF NOT EXISTS mosaic.shopper_profile (
+    shopper_id text PRIMARY KEY CHECK (shopper_id ~ '^[a-f0-9]{64}$'),
+    active_session_id uuid REFERENCES mosaic.agent_session(agent_session_id),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS agent_session_shopper_idx
+    ON mosaic.agent_session ((user_context->>'shopper_id'), started_at DESC);
+
 CREATE TABLE IF NOT EXISTS mosaic.agent_tool_event (
     tool_event_id      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     agent_turn_id      uuid NOT NULL REFERENCES mosaic.agent_turn(agent_turn_id) ON DELETE CASCADE,
