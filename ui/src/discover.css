@@ -61,6 +61,7 @@
   object-fit: contain;
 }
 
+
 .discover-hero-photo figcaption {
   position: absolute;
   right: 18px;
@@ -80,6 +81,59 @@
   justify-items: start;
   align-content: center;
   padding: clamp(24px, 3.2vw, 48px);
+}
+
+/* The card ends inside the first frame. Its height is the smaller of the
+   photograph's 4:3 height for its column, 57.5% of the card and so 43.125cqw,
+   and the viewport less the header and the heading block; it is never less
+   than the brief needs, and the photograph covers whatever the card becomes.
+   Measured 2026-09-09: 1728x1027 and 1440x900 already fit; 1647x875, a
+   16-inch at larger text, ran 58px past the fold and 1366x768 ran 64px past.
+   These rules sit after the base brief rule on purpose: equal specificity,
+   later wins. */
+@media (min-width: 761px) {
+  /* Container units resolve against an ancestor container, never the element
+     itself, so the hero section is the container and the card reads its width. */
+  .discover-hero {
+    container-type: inline-size;
+  }
+
+  .discover-studio {
+    --discover-first-frame: calc(100dvh - var(--topbar-height) - 260px);
+    min-height: min(43.125cqw, var(--discover-first-frame));
+  }
+
+  .discover-hero-photo {
+    align-self: stretch;
+    min-height: 360px;
+  }
+
+  .discover-hero-photo > img {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    aspect-ratio: auto;
+    object-fit: cover;
+  }
+}
+
+@media (min-width: 761px) and (max-height: 800px) {
+  .discover-hero {
+    padding-top: 28px;
+  }
+
+  .discover-heading {
+    margin-bottom: 24px;
+  }
+
+  .discover-hero-content {
+    padding-top: 24px;
+    padding-bottom: 24px;
+  }
+
+  .discover-studio {
+    --discover-first-frame: calc(100dvh - var(--topbar-height) - 216px);
+  }
 }
 
 .discover-alex-intro {

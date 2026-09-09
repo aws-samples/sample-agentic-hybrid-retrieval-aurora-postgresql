@@ -134,8 +134,15 @@ under 760px; the request and single Play action stay prominent on mobile.
 
 ## Chrome behaviour
 
-- Discover opens with “How a room learns you.” A full, uncropped 4:3 room
-  photograph sits left of Alex's brief on a warm cream surface. His portrait
+- Discover opens with “How a room learns you.” A 4:3 room photograph sits
+  left of Alex's brief on a warm cream surface, and the card ends inside the
+  first frame: above the mobile stack the photograph is capped at the viewport
+  height less the header and the heading block, and covers the capped box, so
+  a short viewport crops the room rather than chopping the card at the fold.
+  Under 800px of height the heading and the brief tighten their spacing so
+  the brief's text still fits. Measured 2026-09-09: 1728×1027 and 1440×900
+  fit as they were; 1647×875 and 1366×768 ran past the fold and now end
+  above it. His portrait
   is 88px on desktop, 72px at intermediate widths and 80px on mobile. The brief
   names the desk and laptop already in place, with headphones, chair and
   monitor still to choose. The studio stacks at 760px and below.
