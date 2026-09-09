@@ -87,7 +87,11 @@ Use these two function bodies in your working copy. Preserve the existing positi
 
 ```python
 def call_filters(max_price_cents: int) -> SearchFilters:
-    if isinstance(max_price_cents, bool) or not isinstance(max_price_cents, int) or max_price_cents <= 0:
+    if (
+        isinstance(max_price_cents, bool)
+        or not isinstance(max_price_cents, int)
+        or max_price_cents <= 0
+    ):
         raise ValueError("max_price_cents must be a positive integer")
     return SearchFilters(
         category_key="over-ear-headphones",

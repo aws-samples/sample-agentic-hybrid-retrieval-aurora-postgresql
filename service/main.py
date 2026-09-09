@@ -97,9 +97,7 @@ from service.telemetry_contract import (
 ROOT = Path(__file__).resolve().parents[1]
 settings = get_settings()
 logger = logging.getLogger(__name__)
-_CONVERSATION_ERROR_DETAIL = (
-    "Mosaic could not reopen the previous answer. Start a new conversation and try again."
-)
+_CONVERSATION_ERROR_DETAIL = "Mosaic could not reopen the previous answer. Start a new conversation and try again."
 
 
 @asynccontextmanager
@@ -134,8 +132,11 @@ app = FastAPI(
 # The tool census inspects concrete APIRoutes, including these non-tool routes.
 for memory_route in session_memory_router.routes:
     app.add_api_route(
-        memory_route.path, memory_route.endpoint, methods=memory_route.methods,
-        status_code=memory_route.status_code, tags=["session-memory"],
+        memory_route.path,
+        memory_route.endpoint,
+        methods=memory_route.methods,
+        status_code=memory_route.status_code,
+        tags=["session-memory"],
     )
 app.add_middleware(
     CORSMiddleware,
@@ -460,7 +461,9 @@ def agent_answer(request: AgentRequest, http_request: Request = None) -> AgentRe
 
 
 @app.post("/api/agent/answer/stream")
-async def stream_agent_answer(request: AgentRequest, http_request: Request = None) -> StreamingResponse:
+async def stream_agent_answer(
+    request: AgentRequest, http_request: Request = None
+) -> StreamingResponse:
     """Stream safe retrieval progress and a paced cited-answer delivery.
 
     The transport reports application-owned retrieval milestones, not private
@@ -594,7 +597,10 @@ async def stream_agent_answer(request: AgentRequest, http_request: Request = Non
             if isinstance(error, ConversationContextError):
                 yield _sse(
                     "error",
-                    {"code": "conversation_context", "detail": _CONVERSATION_ERROR_DETAIL},
+                    {
+                        "code": "conversation_context",
+                        "detail": _CONVERSATION_ERROR_DETAIL,
+                    },
                 )
                 return
             yield _sse(

@@ -1985,7 +1985,9 @@ def test_invalid_followup_returns_conversation_recovery_in_both_transports(monke
                 yield {}
             raise agent_tools.ConversationContextError("PRIVATE_CONTEXT_DETAIL")
 
-    monkeypatch.setattr("service.main.get_product_discovery_agent", lambda: InvalidContextAgent())
+    monkeypatch.setattr(
+        "service.main.get_product_discovery_agent", lambda: InvalidContextAgent()
+    )
     client = TestClient(app)
     payload = {"question": "Which one is quieter?", "filters": {}, "result_limit": 2}
     direct = client.post("/api/agent/answer", json=payload)

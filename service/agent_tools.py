@@ -282,7 +282,8 @@ def start_run(
     base_filters: SearchFilters,
     result_limit: int,
     context: AgentConversationContext | None = None,
-    *, session_id: UUID | None = None,
+    *,
+    session_id: UUID | None = None,
 ) -> dict[str, Any]:
     # A question is one turn of one session. The schema models the session so a
     # follow-up can be tied to what came before it; a single-turn ask still
