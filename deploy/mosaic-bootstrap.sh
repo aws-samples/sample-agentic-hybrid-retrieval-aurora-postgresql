@@ -802,6 +802,7 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA mosaic, mosaic_search
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA mosaic_search
     TO :"app_user";
 GRANT INSERT, UPDATE ON TABLE
+    mosaic.shopper_profile,
     mosaic.agent_session,
     mosaic.agent_turn,
     mosaic.search_event

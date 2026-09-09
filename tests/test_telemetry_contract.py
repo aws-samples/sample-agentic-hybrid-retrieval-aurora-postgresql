@@ -21,9 +21,28 @@ from service.telemetry import (
     record_retrieval_span,
     retrieval_span_attributes,
 )
-from service.telemetry_contract import build_agent_telemetry_contract
+from service.telemetry_contract import _ranking_receipt, build_agent_telemetry_contract
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.mark.parametrize(
+    "profile, expected",
+    [
+        ({}, "unknown"),
+        ({"result_limit": 4}, "unknown"),
+        ({"authorized_limit": None, "result_limit": 4}, "unknown"),
+        ({"authorized_limit": 0, "result_limit": 4}, "served_not_authorized"),
+        ({"authorized_limit": 1, "result_limit": 4}, "authorized"),
+    ],
+)
+def test_receipt_never_infers_authorization(profile, expected):
+    receipt = _ranking_receipt(
+        {"search_event_id": uuid4(), "product_id": 2, "result_rank": 1}, profile
+    )
+    assert receipt["disposition"] == expected
+    if expected == "unknown":
+        assert receipt["drop_reason"] == "missing_authorization"
 
 
 @pytest.fixture(autouse=True)

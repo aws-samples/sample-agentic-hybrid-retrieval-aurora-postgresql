@@ -20,6 +20,10 @@ RetrieveMemoryRecords for relevant semantic and user-preference records.
 The answer area starts empty. Only a request submitted on this visit appears
 inline; saved turns remain available in the collapsed **Earlier answers** section.
 Switching sessions or adding another event clears the current answer display.
+**New session** keeps the same Alex and his extracted memories. **Start fresh**
+begins with a separate Alex in this browser and clears the visible conversation,
+records, recalled context and answer. Earlier sessions and memory records remain
+stored; the reset does not delete anything from the shared AgentCore resource.
 Examples only fill the editable message field. They become real events when the
 visitor submits them; the application never fabricates extracted records.
 
@@ -78,6 +82,7 @@ retry or turn memory off. Neither records nor events enter product citation scop
 
 The demo uses a random 256-bit HttpOnly, SameSite cookie and hashes it into the
 actor ID. Session ownership is checked before reading events or running a model.
+That includes follow-ups naming a prior run, even when the cookie is omitted.
 Callers cannot submit actor IDs or namespace paths. Configured namespaces must
 start with `/mosaic/{actorId}/`; shared paths are excluded. Reflections remain
 scoped to the actor rather than combining different shoppers.

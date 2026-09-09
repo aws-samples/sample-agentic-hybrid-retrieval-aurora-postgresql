@@ -1,4 +1,4 @@
-import { ArrowRight, LoaderCircle, Plus, RotateCcw, Send } from "lucide-react";
+import { ArrowRight, LoaderCircle, Plus, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import Markdown from "react-markdown";
 import { Link } from "wouter";
@@ -6,6 +6,7 @@ import { api } from "../api";
 import { ProductAnswer } from "../components/ProductAnswer";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
+import { MosaicRunButton } from "../components/MosaicRunButton";
 import { playgroundQueryHref } from "../navigation";
 import type { MemoryEvent, MemoryRecord, SessionMemoryResponse, ShopperSession } from "../types";
 import "../inspector.css";
@@ -131,13 +132,25 @@ export function SessionMemoryPage() {
   async function startNew() {
     await act(async () => { await api.newSession(); if (!mounted.current) return; setSelected(null); setAnswer(""); setCurrentRunId(null); setRecalled(null); await refresh(); setNotice("New session. Alex keeps the same actor ID; his earlier memories remain available."); });
   }
+  async function resetAlex() {
+    await act(async () => {
+      await api.resetAlex();
+      if (!mounted.current) return;
+      setData(null); setSelected(null); setAnswer(""); setCurrentRunId(null); setRecalled(null);
+      setEvents([]); setRecords([]); setReadError(""); setHasMore(false); setEventsMore(false);
+      setType("SEMANTIC"); setText(strategies[0].example);
+      setQuestion("Which headphones would suit the way I work at home?"); setUseMemory(true);
+      await refresh(true);
+      if (mounted.current) setNotice("A fresh start for Alex. Add a conversation event, then explore what AgentCore remembers. Earlier records have not been deleted.");
+    });
+  }
   async function ask(event: FormEvent) {
-    event.preventDefault(); setPending(true); setError(""); setAnswer(""); setCurrentRunId(null); setStage("Reading relevant memories");
+    event.preventDefault(); setPending(true); setError(""); setAnswer(""); setCurrentRunId(null); setStage(useMemory ? "Reading memories" : "Reading the request");
     const controller = new AbortController(); abort.current = controller;
     try {
       await api.agentStream(question, {}, (event) => {
         if (!mounted.current) return;
-        if (event.type === "stage") setStage(({ understand: "Reading Alex’s request", retrieve: "Finding products", rank: "Comparing the shortlist", answer: "Checking the answer and its sources" })[event.id]);
+        if (event.type === "stage") setStage(({ understand: "Reading the request", retrieve: "Finding products", rank: "Comparing matches", answer: "Preparing the answer" })[event.id]);
         else if (event.type === "answer_delta") setAnswer((value) => value + event.delta);
         else if (event.type === "complete") { setAnswer(event.response.answer); setCurrentRunId(event.response.agent_run_id); }
       }, undefined, { signal: controller.signal, sessionId: selected ?? undefined, useMemory });
@@ -152,7 +165,7 @@ export function SessionMemoryPage() {
     <ol className="memory-flow" aria-label="How AgentCore Memory works"><li><span>01 · Short-term</span><strong>Store conversation events</strong><p>Messages grouped by actor and session.</p></li><li><span>02 · Strategies</span><strong>Extract useful memories</strong><p>Each strategy keeps a different kind of context.</p></li><li><span>03 · Long-term</span><strong>Recall what matters</strong><p>Retrieve relevant records for the next request.</p></li></ol>
     {error && <div className="memory-error" role="alert"><p>{error}</p>{!data && <button className="secondary-button" onClick={() => { setError(""); refresh(true).catch((cause) => setError(cause.message)); }}>Retry</button>}</div>}
     {!data ? <p className="memory-loading" role="status"><LoaderCircle className="memory-spinner" size={18} />Loading sessions and strategies…</p> : <>
-      <div className="memory-profile"><img src="/assets/images/mosaic/alex-headshot-v1.jpg" alt="Alex" width={64} height={64} /><div><strong>Same Alex. Many conversations.</strong><span>{connected ? "Connected to AgentCore Memory" : data.memory_status === "unavailable" ? "AgentCore Memory is temporarily unavailable" : "AgentCore Memory is not connected"}</span></div><button className="secondary-button" onClick={startNew} disabled={locked}><Plus size={16} aria-hidden="true" />New session</button></div>
+      <div className="memory-profile"><img src="/assets/images/mosaic/alex-headshot-v1.jpg" alt="Alex" width={64} height={64} /><div><strong>Same Alex. Many conversations.</strong><span>{connected ? "Connected to AgentCore Memory" : data.memory_status === "unavailable" ? "AgentCore Memory is temporarily unavailable" : "AgentCore Memory is not connected"}</span></div><div className="memory-session-actions"><button className="secondary-button" onClick={startNew} disabled={locked}><Plus size={16} aria-hidden="true" />New session</button><button className="memory-text-button" onClick={resetAlex} disabled={locked}><RotateCcw size={16} aria-hidden="true" />Start fresh</button><small>New session keeps Alex’s memories. Start fresh begins with a new Alex.</small></div></div>
       <div className="memory-session-bar"><label>Session<select value={selected ?? ""} disabled={locked} onChange={(event) => { setSelected(event.target.value || null); setRecalled(null); setAnswer(""); setCurrentRunId(null); }}><option value="">New conversation</option>{data.sessions.map((item) => <option key={item.agent_session_id} value={item.agent_session_id}>{date(item.started_at)} · {item.label || item.turns[0]?.question.slice(0, 70) || "Conversation"}</option>)}</select></label><button className="memory-text-button" onClick={() => act(async () => { await refresh(); })} disabled={locked || loading}><RotateCcw size={16} aria-hidden="true" />Refresh memories</button></div>
       <p className="memory-notice" role="status">{notice}</p>
       <div className="memory-layout">
@@ -171,7 +184,7 @@ export function SessionMemoryPage() {
         </section>
       </div>
       <section className="memory-recall" aria-labelledby="memory-recall-heading"><div className="memory-recall-intro"><h2 id="memory-recall-heading">Bring context into the next request.</h2><p>Recall finds relevant facts and preferences in AgentCore. Ask Mosaic uses those records as context, then searches Aurora for products and cited evidence.</p><details><summary>Actor, session and memory resource</summary><dl><dt>Actor · this browser’s Alex</dt><dd><code>{data.actor_id}</code></dd><dt>Session · this conversation</dt><dd><code>{selected ?? "Created when you add an event or ask Mosaic"}</code></dd><dt>AgentCore Memory resource</dt><dd><code>{data.configuration?.memory_id ?? "Not connected"}</code></dd></dl><p>Stored events expire after {data.configuration?.event_expiry_days ?? "the configured number of"} days. That setting does not delete long-term memory records.</p></details></div>
-        <div><form onSubmit={ask} className="memory-composer"><label htmlFor="memory-question">Ask about Alex’s workspace</label><textarea id="memory-question" value={question} onChange={(event) => { setQuestion(event.target.value); setRecalled(null); }} minLength={4} maxLength={2000} rows={3} required disabled={locked} /><label className="memory-check"><input type="checkbox" checked={useMemory} onChange={(event) => setUseMemory(event.target.checked)} disabled={locked} />Use AgentCore Memory for this request</label><div className="memory-recall-actions"><button type="button" className="secondary-button" disabled={locked || !connected || question.length < 4} onClick={() => act(async () => { const result = await api.recallMemory(question); if (mounted.current) setRecalled(result.records); })}>Recall memories</button><button className="primary-button" type="submit" disabled={locked || (useMemory && data.memory_status === "unavailable")}><Send size={16} aria-hidden="true" />Ask Mosaic</button></div><p className="memory-empty">{useMemory ? "Reads relevant memories and stores this conversation as an event. Memory text is context; it cannot support a product citation." : "This request uses Aurora without reading or writing AgentCore Memory."}</p></form>
+        <div><form onSubmit={ask} className="memory-composer"><label htmlFor="memory-question">Ask about Alex’s workspace</label><textarea id="memory-question" value={question} onChange={(event) => { setQuestion(event.target.value); setRecalled(null); }} minLength={4} maxLength={2000} rows={3} required disabled={locked} /><label className="memory-check"><input type="checkbox" checked={useMemory} onChange={(event) => setUseMemory(event.target.checked)} disabled={locked} />Use AgentCore Memory for this request</label><div className="memory-recall-actions"><button type="button" className="secondary-button" disabled={locked || !connected || question.length < 4} onClick={() => act(async () => { const result = await api.recallMemory(question); if (mounted.current) setRecalled(result.records); })}>Recall memories</button><MosaicRunButton type="submit" running={pending} disabled={locked || (useMemory && data.memory_status === "unavailable")}>{pending ? stage || "Reading the request" : "Ask Mosaic"}</MosaicRunButton></div><p className="memory-empty">{useMemory ? "Reads relevant memories and stores this conversation as an event. Memory text is context; it cannot support a product citation." : "This request uses Aurora without reading or writing AgentCore Memory."}</p></form>
           {recalled !== null && <div className="memory-recall-results" aria-live="polite"><h3>{recalled.length} relevant memor{recalled.length === 1 ? "y" : "ies"} returned</h3><Records records={recalled} />{!recalled.length && <p>No extracted facts or preferences matched this request.</p>}</div>}
           {pending && <p className="memory-progress" role="status"><LoaderCircle className="memory-spinner" size={18} aria-hidden="true" />{stage}</p>}{answer && !currentTurn && <div className="memory-answer-copy"><Markdown>{answer}</Markdown></div>}
           {currentTurn && <div className="memory-current-answer"><Turn turn={currentTurn} /></div>}

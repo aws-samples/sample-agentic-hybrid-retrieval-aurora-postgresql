@@ -25,7 +25,7 @@ export function MosaicLabsTabs({
           className={active === "retrieval" ? "active" : ""}
           href={RETRIEVAL_SURFACE.path}
         >
-          Pipeline
+          Hybrid retrieval
         </Link>
         <Link
           aria-current={active === "hnsw" ? "page" : undefined}

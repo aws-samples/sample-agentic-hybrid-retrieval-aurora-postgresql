@@ -23,6 +23,15 @@ available. `has_more` identifies bounded reads. Callers cannot supply namespaces
 and user-preference records using AgentCore's RetrieveMemoryRecords API.
 `POST /api/session-memory/new-session` clears the active conversation pointer
 and returns 204. Actor-level memories remain available.
+`POST /api/session-memory/reset` requires the initialized browser cookie, rotates
+it to a fresh actor, and returns 204 with `Cache-Control: no-store`. It deletes
+no sessions, events or long-term records. The next session read starts empty.
+
+Browser-owned follow-ups require the owning cookie whether they name `session_id`
+or `context.previous_agent_run_id`. Omitting the cookie does not bypass ownership.
+Unowned headless lab turns retain their existing context checks. Inherited
+recommendations must pass the current request's filters through Aurora's
+`matches_filters` predicate before either synthesis path may recommend them.
 
 Agent requests accept `use_memory` (false by default) and optional `session_id`.
 An owned session restores Aurora's prior shortlist and, with memory enabled,
@@ -33,7 +42,7 @@ an event. Aurora records the memory IDs read and event-write success or failure.
 
 Read errors return 503; retry or opt out. An event-write error does not discard a
 completed cited answer, and its failed write stays visible in the saved run.
-The Session & Memory page and Ask Mosaic in Shop opt in; canonical Pipeline and
+The Session & Memory page and Ask Mosaic in Shop opt in; canonical Hybrid retrieval and
 lab requests retain their existing behavior. See [Session & Memory](session-memory.md).
 
 ## Portable skill download

@@ -4,6 +4,14 @@ export const graphSteps = [
   { label: "Find neighbors", explanation: "Explore the bottom layer for candidates. Filters and ranking decide what reaches Alex." },
 ];
 
+// Twelve seconds is the illustration's playback length, not a search timing.
+export const graphTourDuration = 12_000;
+export const graphCandidates = [
+  { id: "headset", label: "Headset", image: "/assets/images/mosaic/ce-gaming-headsets-catalog-3x2.webp" },
+  { id: "headphones", label: "Headphones", image: "/assets/images/mosaic/ce-over-ear-headphones-auraluxe-h9-catalog-3x2.webp" },
+  { id: "earbuds", label: "Earbuds", image: "/assets/images/mosaic/ce-true-wireless-earbuds-echobud-s2-catalog-3x2.webp" },
+];
+
 // Teaching coordinates, not embedding coordinates or recorded pgvector edges.
 export const graphProducts = [
   { id: "lamp", label: "Desk lamp", x: -4.5, z: -1.5 },

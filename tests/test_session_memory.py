@@ -207,3 +207,63 @@ def test_unconfigured_memory_leaves_conversation_available(monkeypatch):
         memory._memory_id()
     assert rejected.value.status_code == 503
     assert "Aurora sessions" in rejected.value.detail
+
+
+@pytest.mark.parametrize("cookie", [None, "b" * 64, "a" * 64])
+def test_follow_up_checks_owner_even_without_a_cookie(monkeypatch, cookie):
+    def browser(token):
+        return Request(
+            {
+                "type": "http",
+                "headers": [(b"cookie", f"mosaic_shopper={token}".encode())]
+                if token
+                else [],
+            }
+        )
+
+    owner = memory.shopper_id(browser("a" * 64))
+    connection = MagicMock()
+    connection.execute.return_value.fetchone.return_value = {"shopper_id": owner}
+    monkeypatch.setattr(memory, "connect", lambda: connection)
+    connection.__enter__.return_value = connection
+    monkeypatch.setattr(memory, "_profile", MagicMock())
+    request = AgentRequest(
+        question="Tell me more",
+        context={
+            "previous_agent_run_id": str(uuid4()),
+            "previous_question": "Clearer calls",
+            "recommendations": [
+                {"product_id": 2, "title": "Headphones", "model": "WH-C720"}
+            ],
+        },
+    )
+    if cookie == "a" * 64:
+        assert (
+            memory.prepare_request(request, browser(cookie)).context == request.context
+        )
+    else:
+        with pytest.raises(HTTPException) as rejected:
+            memory.prepare_request(request, browser(cookie))
+        assert rejected.value.status_code == 404
+    connection.execute.assert_called_once()
+
+
+def test_start_fresh_rotates_identity_without_deleting_records(monkeypatch):
+    request = Request(
+        {
+            "type": "http",
+            "scheme": "https",
+            "headers": [(b"cookie", b"mosaic_shopper=" + b"a" * 64)],
+        }
+    )
+    database, provider = MagicMock(), MagicMock()
+    monkeypatch.setattr(memory, "connect", database)
+    monkeypatch.setattr(memory, "memory_client", provider)
+    response = Response()
+    memory.reset_browser(request, response)
+    token = response.headers["set-cookie"].split(";", 1)[0].split("=", 1)[1]
+    assert len(token) == 64 and token != "a" * 64
+    assert "HttpOnly" in response.headers["set-cookie"]
+    assert response.headers["cache-control"] == "no-store"
+    database.assert_not_called()
+    provider.assert_not_called()

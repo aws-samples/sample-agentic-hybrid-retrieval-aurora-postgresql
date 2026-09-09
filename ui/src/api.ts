@@ -111,6 +111,7 @@ export const api = {
   memoryRecords: (strategyId: string, sessionId?: string) => request<{ records: MemoryRecord[]; has_more: boolean; namespaces: string[] }>(`/api/session-memory/records?strategy_id=${encodeURIComponent(strategyId)}${sessionId ? `&session_id=${encodeURIComponent(sessionId)}` : ""}`),
   recallMemory: (query: string) => request<{ records: MemoryRecord[] }>("/api/session-memory/recall", { method: "POST", body: JSON.stringify({ query }) }),
   newSession: () => request<void>("/api/session-memory/new-session", { method: "POST" }),
+  resetAlex: () => request<void>("/api/session-memory/reset", { method: "POST" }),
   summary: () => request<CatalogSummary>("/api/catalog/summary"),
 
   catalogCounts: (filters: SearchFilters[]) =>

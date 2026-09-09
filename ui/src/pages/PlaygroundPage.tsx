@@ -1,10 +1,11 @@
-import { ArrowRight, Check, ChevronDown, LoaderCircle, Play, Sparkles } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, LoaderCircle, Sparkles } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "wouter";
 import { api } from "../api";
 import { CodeBlock } from "../components/CodeBlock";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
+import { MosaicRunButton } from "../components/MosaicRunButton";
 import { PersistedRunDisclosures, RrfMath } from "../components/RetrievalProvenance";
 import { KeepInMind } from "../components/KeepInMind";
 import { ProductAnswer } from "../components/ProductAnswer";
@@ -84,7 +85,7 @@ function RetrieveDetails({ response, receipts, selectedId, onSelect }: {
     {response ? <InspectorDetail title="Request, filters & retrieval settings">
       <p>PostgreSQL checks the search filters with <code>mosaic_search.matches_filters</code>.</p>
       <CodeBlock label="Search record" code={JSON.stringify({ query: response.query, applied_filters: response.applied_filters, embedding_model_id: diagnostics?.embedding_model_id, retrieval_profile: diagnostics?.retrieval_profile, candidate_counts: counts }, null, 2)} />
-    </InspectorDetail> : <p className="inspector-waiting">Play the pipeline to see how each search helps.</p>}
+    </InspectorDetail> : <p className="inspector-waiting">Run Mosaic to see how each search helps.</p>}
     {response ? <PersistedRunDisclosures response={response} /> : null}
     {response ? <KeepInMind>Every search is a write: this run is saved as a receipt with an id, and its search record above carries the <code>ef_search</code> and <code>iterative_scan</code> settings that decide whether a filtered HNSW scan keeps going.</KeepInMind> : null}
   </>;
@@ -202,6 +203,9 @@ function PipelineInspector() {
   const inspect = (stage: Inspection) => { setHighlightedId(null); setExpanded((value) => ({ ...value, [stage]: !value[stage] })); };
   const renderSearchLink = (product: ProductSummary) => <ProductSearchLinks product={product} receipts={pipeline.receipts} running={pipeline.running} onSelect={(id, productId) => { setSelectedId(id); setHighlightedId(productId); setExpanded((value) => ({ ...value, rank: true })); }} />;
   const count = readiness?.database.product_count;
+  const runLabel = pipeline.running
+    ? pipeline.completed ? "Finishing up" : ({ retrieve: "Finding products", rank: "Comparing matches", reason: "Preparing the answer" })[pipeline.phase ?? "retrieve"]
+    : pipeline.reading ? "Reading saved search" : pipeline.error ? "Try again" : pipeline.completed ? "Run again" : carriedEvent ? "Start a new run" : "Run Mosaic";
   const columnState = (stage: Inspection): ColumnState => {
     if (!pipeline.started) return "idle";
     if (pipeline.completed) return "complete";
@@ -216,7 +220,7 @@ function PipelineInspector() {
     <section className="inspector-request" aria-label="Pipeline request">
       <img className="inspector-alex" src="/assets/images/mosaic/alex-headshot-v1.jpg" alt="Alex, Mosaic’s example shopper" width={128} height={128} />
       <div><h2>{question || "No request is available"}</h2><p>Alex’s workspace{count ? ` · Searching ${count.toLocaleString()} products` : ""}{runFilters.category_key ? ` · Filter: ${runFilters.category_key.replaceAll("-", " ")}` : ""}</p></div>
-      <button type="button" className="inspector-play" disabled={pipeline.running || pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} aria-busy={pipeline.running} onClick={() => { setSelectedId(null); setHighlightedId(null); setExpanded({ retrieve: false, rank: false, reason: false }); void pipeline.play(question, runFilters); }}><Play size={18} fill="currentColor" aria-hidden="true" />{pipeline.running ? "Playing pipeline…" : carriedEvent ? "Start a new run" : "Play pipeline"}</button>
+      <MosaicRunButton type="button" className="inspector-play" running={pipeline.running} stage={pipeline.phase ? ["retrieve", "rank", "reason"].indexOf(pipeline.phase) : undefined} disabled={pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} onClick={() => { setSelectedId(null); setHighlightedId(null); setExpanded({ retrieve: false, rank: false, reason: false }); void pipeline.play(question, runFilters); }}>{runLabel}</MosaicRunButton>
     </section>
     <div className="inspector-context-bar">
       <details className="inspector-about-request"><summary>About Alex’s request</summary><p>Alex is a software engineer building a home office for coding, calls and focused work.</p>{!params.has("q") && selectedRequest ? <p>{selectedRequest.notice}</p> : null}<Link href="/catalog">Choose another request in Shop <ArrowRight size={14} aria-hidden="true" /></Link></details>

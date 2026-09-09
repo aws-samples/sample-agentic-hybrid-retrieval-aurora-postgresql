@@ -135,3 +135,67 @@ def test_a_follow_up_that_never_searched_keeps_its_products(over_budget):
 
     assert agent_tools._retrieval_attempted(state) is False
     assert agent_tools._fallback_product_ids(state) == [over_budget.product_id]
+
+
+@pytest.mark.parametrize("eligible", [False, True])
+def test_synthesis_rechecks_inherited_products_without_another_search(
+    monkeypatch, over_budget, eligible
+):
+    from unittest.mock import MagicMock
+
+    from service.models import SearchFilters
+
+    state = follow_up_state(over_budget)
+    state["base_filters"] = SearchFilters(max_price_cents=BUDGET_CENTS)
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchall.return_value = (
+        [{"product_id": over_budget.product_id}] if eligible else []
+    )
+    monkeypatch.setattr(agent_tools, "connect", lambda: connection)
+    record = MagicMock()
+    monkeypatch.setattr(agent_tools, "_record", record)
+    with agent_tools.bind_run(state):
+        result = agent_tools.synthesize_cited_answer(
+            FOLLOW_UP, [over_budget.product_id]
+        )
+    assert result["ok"] is False
+    if eligible:
+        assert "lack retrieved evidence" in result["error"]
+        assert over_budget.product_id in state["products"]
+    else:
+        assert "current filters" in result["error"]
+        assert str(over_budget.product_id) in result["error"]
+        assert over_budget.product_id not in state["products"]
+    sql, params = connection.execute.call_args.args
+    assert "mosaic_search.matches_filters" in sql
+    assert params[0] == [over_budget.product_id]
+    import json
+
+    assert json.loads(params[1])["max_price_cents"] == BUDGET_CENTS
+    record.assert_called_once()
+
+
+@pytest.mark.aurora
+@pytest.mark.parametrize("synthesis_path", ["model", "controller"])
+def test_inherited_eligibility_uses_auroras_filter_rules(monkeypatch, synthesis_path):
+    from unittest.mock import MagicMock
+
+    from service.catalog import get_product_summaries
+    from service.models import SearchFilters
+
+    inherited = get_product_summaries([2])[0]
+    assert inherited.price_cents > 0
+    state = follow_up_state(inherited)
+    state["base_filters"] = SearchFilters(max_price_cents=inherited.price_cents - 1)
+    record = MagicMock()
+    monkeypatch.setattr(agent_tools, "_record", record)
+    with agent_tools.bind_run(state):
+        if synthesis_path == "model":
+            result = agent_tools.synthesize_cited_answer(FOLLOW_UP, [2])
+            assert result["ok"] is False and "current filters" in result["error"]
+            record.assert_called_once()
+        else:
+            with pytest.raises(RuntimeError, match="current filters"):
+                agent_tools.finalize_retrieved_answer(FOLLOW_UP, product_ids=[2])
+    assert 2 not in state["products"]

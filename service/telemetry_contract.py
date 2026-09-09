@@ -79,11 +79,15 @@ def _sum_numbers(*values: Any) -> int | float | None:
 def _disposition(
     result_rank: int,
     *,
-    result_limit: int,
-    authorized_limit: int,
+    result_limit: int | None,
+    authorized_limit: int | None,
 ) -> tuple[str, str | None]:
+    if authorized_limit is None:
+        return "unknown", "missing_authorization"
     if result_rank <= authorized_limit:
         return "authorized", None
+    if result_limit is None:
+        return "not_authorized", None
     if result_rank <= result_limit:
         return "served_not_authorized", None
     return "outside_served_window", "outside_served_window"
@@ -99,8 +103,13 @@ def _ranking_receipt(
         return _number(_as_dict(channels.get(name)).get("rrf_contribution"))
 
     result_rank = int(row["result_rank"])
-    result_limit = int(profile.get("result_limit") or result_rank)
-    authorized_limit = int(profile.get("authorized_limit") or result_limit)
+
+    def limit(name: str) -> int | None:
+        value = profile.get(name)
+        return value if type(value) is int and value >= 0 else None
+
+    result_limit = limit("result_limit")
+    authorized_limit = limit("authorized_limit")
     disposition, drop_reason = _disposition(
         result_rank,
         result_limit=result_limit,

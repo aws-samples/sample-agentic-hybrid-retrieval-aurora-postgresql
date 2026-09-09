@@ -184,9 +184,9 @@ The application has three navigation destinations, with Ask Mosaic inside Shop:
 - **Discover.** The home-office brief described above: Alex, his room, three needs, and routes into search or category browsing. The illustrated scenes are inspiration, not a product bundle or a completed purchase.
 - **Shop.** The default Workspace edit currently shows 71 picks selected from the 200 photographed products; keyword search reaches the full 500,000-product catalog. Every result card can open "See how this was retrieved", carrying the query, filters and saved search event into the Playground. Ticking two or more results compares them side by side, and the comparison is worth showing: under the price and the rating it prints which search methods found each product, its rank before reranking, and the rank the shopper was shown. Those three rows come from the run's saved receipt, not from the list on screen, which is why a comparison is only offered once a search has run. If the catalog carries none of a request's words, Shop says which ones above the results rather than returning a confident page of near misses.
 - **Ask Mosaic.** The agent, in a side panel on Shop or a mobile overlay below the header. It shows progress while gathering evidence, then leads with the cited answer. **Steps and sources** holds the request interpretation, searches, product comparison, supporting evidence, and tool activity. Follow-ups carry context from the prior grounded run; they do not establish preference memory across visits.
-- **Playground.** `/labs/retrieval` defaults to **Pipeline**, a three-stage inspection of Retrieve, Rank and Reason. Each column ends with a **Keep in mind** line that states the lesson the column proves, and Retrieve's search details add one more beside the search record, on the receipt and the HNSW settings; the sentences are the ones on the opening slides. Alex's request choices come from the canonical mission manifest. One **Play pipeline** action makes a real agent request; the stages read its records. A saved Shop event opens its original receipt, and Play starts a new complete run when an agent answer is needed. **Scale & HNSW** is the adjacent inspection lens.
+- **Playground.** `/labs/retrieval` defaults to **Hybrid retrieval**, a three-stage inspection of Retrieve, Rank and Reason. Each column ends with a **Keep in mind** line that states the lesson the column proves, and Retrieve's search details add one more beside the search record, on the receipt and the HNSW settings; the sentences are the ones on the opening slides. Alex's request choices come from the canonical mission manifest. One **Run Mosaic** action makes a real agent request; the stages read its records. A saved Shop event opens its original receipt, and Run Mosaic starts a new complete run when an agent answer is needed. **Scale & HNSW** is the adjacent inspection lens.
 
-Pipeline also offers **Plan my workspace**, which resolves its question and
+Hybrid retrieval also offers **Plan my workspace**, which resolves its question and
 filters from Lab 3, and **Check the sources**, which compares a specification
 with sample review evidence. Source comparison stays inside Reason and includes
 records the agent read but did not cite. Missing review evidence is shown as
@@ -222,11 +222,11 @@ tell the shopping story without giving exercise instructions. Search and Ask
 sit immediately below. The scenes scroll horizontally on mobile and step
 aside during a search or an open Ask conversation.
 
-Explore and Ask follow the canonical Pipeline request order: **Clearer calls**,
+Explore and Ask follow the canonical Hybrid retrieval request order: **Clearer calls**,
 **Comfortable days**, **Quiet typing**, then the **Mosaic Atelier 32** exact-model
 control.
 
-Pipeline opens on Clearer calls. Comfortable days adds a scoped
+Hybrid retrieval opens on Clearer calls. Comfortable days adds a scoped
 chair-shopping request; it does not change Lab 2's question or proof. Ask shows
 only suggestions compatible with the current filters.
 
@@ -404,7 +404,7 @@ differs from the current catalog or code, present those results as historical.
 This interface change adds no new benchmarks or workshop-capacity evidence.
 
 **Open advanced instrument** (`?view=bench`) uses the same open reading layout
-as Pipeline and retains the live probe controls. Its rail names three sections:
+as Hybrid retrieval and retains the live probe controls. Its rail names three sections:
 **Index & storage** covers the connected cluster and recorded representation
 comparisons; **Recall & filters** compares approximate search with exact
 neighbors; **Scale experiments** presents projections and recorded substrate

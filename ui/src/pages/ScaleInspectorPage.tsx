@@ -112,7 +112,7 @@ function ScaleInspector() {
     {substrate ? <p className="scale-catalog-context">{substrate.corpus.vector_count.toLocaleString()} product embeddings · {substrate.corpus.dimensions} dimensions · pgvector {substrate.aurora.vector_extension_version}</p> : null}
     {pending ? <p role="status">Reading the catalog and benchmarks…</p> : null}
     {errors.length ? <div className="inspector-error" role="alert">{errors.join(" ")} <button type="button" className="text-button" onClick={() => setAttempt((value) => value + 1)}>Retry loading</button></div> : null}
-    <ScaleSection id="scale-mechanism" title="How it finds neighbors" description="Follow Alex’s search through layers of connected products."><HnswSearchGraph /></ScaleSection>
+    <ScaleSection id="scale-mechanism" title="How it finds neighbors" description="Follow Alex’s search through an HNSW graph—layers of connected products."><HnswSearchGraph /></ScaleSection>
     <FilterComparison measured={measured} />
     <RepresentationComparison measured={measured} />
     {measured ? <AdvancedBenchmarks measured={measured} /> : null}

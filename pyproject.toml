@@ -24,7 +24,6 @@ agentcore-observability = [
 
 [dependency-groups]
 dev = [
-    "httpx2>=2.10.0",
     "pytest>=9.0.3,<10",
     "ruff>=0.16,<1",
 ]

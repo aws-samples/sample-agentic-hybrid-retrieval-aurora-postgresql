@@ -643,7 +643,7 @@ describe("RetrievalLabPage", () => {
     ).toEqual(["/labs/retrieval", "/mosaic-labs/hnsw", "/mosaic-labs/memory"]);
     expect(
       within(strip)
-        .getByRole("link", { name: "Pipeline" })
+        .getByRole("link", { name: "Hybrid retrieval" })
         .getAttribute("aria-current"),
     ).toBe("page");
     expect(within(strip).queryByRole("link", { name: "Catalog studio" })).toBeNull();

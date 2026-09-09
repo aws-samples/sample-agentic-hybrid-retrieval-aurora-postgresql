@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -154,6 +156,57 @@ def test_dockerfile_ships_the_module_its_command_runs():
         f"found no COPY of {entry_point}; fix: copy the entry point, because "
         "the image otherwise has no module for its CMD to import"
     )
+
+
+def test_packaged_application_imports_and_serves_downloads(tmp_path):
+    """Run the actual adapter from only the final image's COPY tree."""
+    final_stage = DOCKERFILE.read_text().rsplit("\nFROM ", 1)[1]
+    copied = []
+    for instruction in _instructions(final_stage):
+        if not instruction.startswith("COPY ") or "--from=" in instruction:
+            continue
+        _, *sources, destination = shlex.split(instruction)
+        for source in sources:
+            origin = ROOT / source
+            target = tmp_path / destination
+            if origin.is_dir():
+                shutil.copytree(origin, target, dirs_exist_ok=True)
+            else:
+                if destination.endswith("/"):
+                    target /= origin.name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(origin, target)
+            copied.append(source)
+    assert "service/" in copied and "deploy/agentcore/app.py" in copied
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            """
+import io, zipfile
+from fastapi.testclient import TestClient
+from deploy.agentcore.app import app
+client = TestClient(app)
+for route in ('/api/skill-package', '/api/builder-package'):
+    response = client.get(route)
+    assert response.status_code == 200, (route, response.text)
+    with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+        assert archive.testzip() is None
+        assert len(archive.namelist()) > 1
+print('Packaged adapter imported; both downloads opened successfully')
+""",
+        ],
+        cwd=tmp_path,
+        env={**os.environ, "PYTHONPATH": str(tmp_path), "DATABASE_URL": ""},
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
+    )
+    assert result.returncode == 0, (
+        f"Packaged application failed: {result.stderr}; fix: include the required public files in deploy/agentcore/Dockerfile"
+    )
+    assert "both downloads opened successfully" in result.stdout
 
 
 def test_makefile_declares_the_agentcore_targets():

@@ -83,6 +83,79 @@ def test_the_source_of_truth_is_here(script: str) -> None:
     assert "mosaic-ui" in script
 
 
+@pytest.mark.aurora
+@pytest.mark.parametrize("omit_profile_grant", [True, False])
+def test_runtime_role_can_attach_a_browser_conversation(
+    script, monkeypatch, omit_profile_grant
+):
+    """Exercise the bootstrap's actual grants; roll back the role and all records."""
+    from contextlib import contextmanager
+    from uuid import uuid4
+
+    import psycopg
+    from psycopg.rows import dict_row
+
+    from service import session_memory
+    from service.config import get_settings
+    from service.models import AgentRequest
+
+    grants = re.findall(r"^GRANT[\s\S]*?;", script, re.MULTILINE)
+    grants = [grant for grant in grants if ':"app_user"' in grant]
+    assert len(grants) >= 6, "runtime grants missing; restore the bootstrap role setup"
+    if omit_profile_grant:
+        grants = [
+            grant.replace("    mosaic.shopper_profile,\n", "") for grant in grants
+        ]
+    with (
+        psycopg.connect(
+            get_settings().database_url, row_factory=dict_row
+        ) as connection,
+        connection.transaction(force_rollback=True),
+    ):
+        if not connection.execute(
+            "SELECT 1 FROM pg_roles WHERE rolname = 'mosaic_runtime'"
+        ).fetchone():
+            connection.execute("CREATE ROLE mosaic_runtime NOLOGIN")
+        connection.execute("REVOKE ALL ON mosaic.shopper_profile FROM mosaic_runtime")
+        for grant in grants:
+            connection.execute(grant.replace(':"app_user"', '"mosaic_runtime"'))
+        connection.execute("SET LOCAL ROLE mosaic_runtime")
+        assert (
+            connection.execute("SELECT current_user AS name").fetchone()["name"]
+            == "mosaic_runtime"
+        )
+
+        @contextmanager
+        def connect():
+            yield connection
+
+        monkeypatch.setattr(session_memory, "connect", connect)
+        actor, session_id = uuid4().hex + uuid4().hex, uuid4()
+        if omit_profile_grant:
+            with pytest.raises(psycopg.errors.InsufficientPrivilege):
+                session_memory._profile(connection, actor)
+            return
+        session_memory._profile(connection, actor)
+        connection.execute(
+            "INSERT INTO mosaic.agent_session (agent_session_id) VALUES (%s)",
+            (session_id,),
+        )
+        request = AgentRequest(question="Clearer calls")
+        request._memory_context = {
+            "shopper_id": actor,
+            "events": [],
+            "status": "off",
+        }
+        session_memory.attach_run(request, {"agent_session_id": session_id})
+        assert (
+            connection.execute(
+                "SELECT active_session_id FROM mosaic.shopper_profile WHERE shopper_id = %s",
+                (actor,),
+            ).fetchone()["active_session_id"]
+            == session_id
+        )
+
+
 def test_lab1_acceptance_request_matches_the_mission(script: str) -> None:
     """Changing the mission cannot leave a stale fresh-stack acceptance request."""
     mission = _lab1_mission()

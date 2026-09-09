@@ -27,7 +27,11 @@ Candidate disposition is derived from the receipt that already exists:
 - `served_not_authorized`: returned to the caller but withheld from downstream
   evidence tools;
 - `outside_served_window`: retained in the inspectable fused pool but not
-  returned by that search.
+  returned by that search;
+- `not_authorized`: outside the explicit grant, with no recorded served limit;
+- `unknown`: no valid `authorized_limit` was recorded. `drop_reason` is
+  `missing_authorization`; neither a served limit nor a candidate's rank can
+  stand in for a grant. An explicit zero authorizes no candidates.
 
 This keeps the existing candidate-count vocabulary and retrieval semantics
 unchanged.

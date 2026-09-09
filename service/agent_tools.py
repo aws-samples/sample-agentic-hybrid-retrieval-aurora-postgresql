@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Mapping
+from contextlib import contextmanager
 from contextvars import ContextVar
 from time import perf_counter
 from typing import Any, Literal
@@ -386,6 +387,16 @@ def _state() -> dict[str, Any]:
     if state is None:
         raise RuntimeError("No Strands agent run is active")
     return state
+
+
+@contextmanager
+def bind_run(state: dict[str, Any]):
+    """Bind worker-created state to this task and its tool workers, then restore it."""
+    token = _RUN.set(state)
+    try:
+        yield
+    finally:
+        _RUN.reset(token)
 
 
 def _retrieval_attempted(state: Mapping[str, Any]) -> bool:
@@ -1069,6 +1080,29 @@ def record_declined_answer(state: dict[str, Any]) -> bool:
     return True
 
 
+def _excluded_inherited_products(
+    state: dict[str, Any], product_ids: list[int]
+) -> list[int]:
+    """Recheck inherited identities with Aurora's current filter predicate."""
+    inherited = [
+        item for item in product_ids if item in state.get("context_product_ids", [])
+    ]
+    if not inherited:
+        return []
+    with connect() as connection:
+        rows = connection.execute(
+            """SELECT d.product_id FROM mosaic_search.product_document d
+               WHERE d.product_id = ANY(%s::bigint[])
+                 AND mosaic_search.matches_filters(d, %s::jsonb)""",
+            (inherited, json.dumps(state["base_filters"].as_sql_json())),
+        ).fetchall()
+    eligible = {row["product_id"] for row in rows}
+    excluded = [item for item in inherited if item not in eligible]
+    for item in excluded:
+        state["products"].pop(item, None)
+    return excluded
+
+
 @tool
 def synthesize_cited_answer(
     question: str,
@@ -1118,6 +1152,20 @@ def synthesize_cited_answer(
         return _failure(
             f"products are outside this turn's authorized scope: {unknown}",
             "synthesize from the current retrieval or previous grounded answer.",
+        )
+    excluded = _excluded_inherited_products(state, unique_ids)
+    if excluded:
+        _record(
+            "synthesize_cited_answer",
+            {"question": question, "product_ids": unique_ids},
+            started,
+            result_count=0,
+            detail=f"Inherited products fail current filters: {excluded}.",
+            outcome="denied",
+        )
+        return _failure(
+            f"previously recommended products fail the current filters: {excluded}",
+            "call search_products with the current filters and choose eligible products.",
         )
     products = [state["products"][item] for item in unique_ids]
     explanations = [
@@ -1312,9 +1360,7 @@ def finalize_retrieved_answer(
             if product_id in state["products"]
         ][: min(state["result_limit"], 4)]
     )
-    # Every path into synthesis passes through here -- the model's own
-    # `synthesize_cited_answer` and the controller's recovery alike -- so the
-    # rule is asserted once, at the boundary, rather than at each caller.
+    # Controller recovery must obey the same current-turn scope as the model.
     #
     # The rule: once this turn has attempted a retrieval, only what a successful
     # search returned may be recommended. A turn that never searched is a
@@ -1327,6 +1373,12 @@ def finalize_retrieved_answer(
         selected_ids = [
             product_id for product_id in selected_ids if product_id in retrieved
         ]
+    excluded = _excluded_inherited_products(state, selected_ids)
+    if excluded:
+        raise RuntimeError(
+            f"Previously recommended products fail the current filters: {excluded}; "
+            "call search_products with the current filters and choose eligible products."
+        )
     products = [state["products"][product_id] for product_id in selected_ids]
     if not products:
         raise RuntimeError("No retrieved products are available for synthesis")

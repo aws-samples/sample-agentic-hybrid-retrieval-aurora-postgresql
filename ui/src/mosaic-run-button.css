@@ -1,0 +1,33 @@
+.mosaic-run-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 58px;
+  width: 248px;
+  max-width: 100%;
+  padding: 14px 18px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--maroon-800);
+  color: var(--paper);
+  font: 500 17px/1.4 var(--sans);
+  cursor: pointer;
+  transition: background-color 180ms ease, transform 180ms ease;
+}
+.mosaic-run-button:hover:not(:disabled) { background: var(--maroon-900); transform: translateY(-1px); }
+.mosaic-run-button:active:not(:disabled) { transform: translateY(0); }
+.mosaic-run-button:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
+.mosaic-run-button:disabled { opacity: .55; cursor: default; }
+.mosaic-run-button[aria-busy="true"]:disabled { opacity: 1; cursor: progress; }
+.mosaic-run-spinner { flex-shrink: 0; animation: mosaic-run-spin 1s linear infinite; }
+.mosaic-run-steps { position: absolute; bottom: 7px; display: flex; gap: 4px; }
+.mosaic-run-steps > span { width: 20px; height: 2px; background: var(--paper); opacity: .3; }
+.mosaic-run-steps > span[data-reached="true"] { opacity: 1; }
+@keyframes mosaic-run-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .mosaic-run-button { transition: none; }
+  .mosaic-run-button:hover:not(:disabled) { transform: none; }
+  .mosaic-run-spinner { animation: none; }
+}

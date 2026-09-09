@@ -59,7 +59,13 @@ COPY scripts/ ./scripts/
 COPY data/benchmarks/ ./data/benchmarks/
 COPY data/evals/ ./data/evals/
 COPY data/media/asset_labels_200.json ./data/media/asset_labels_200.json
+COPY data/media/workspace_collection.json ./data/media/workspace_collection.json
 COPY data/full/manifest.json ./data/full/manifest.json
+
+# Public downloads are part of the API, including when Runtime hosts it.
+COPY skills/mosaic-hybrid-retrieval/ ./skills/mosaic-hybrid-retrieval/
+COPY docs/build-retrieval-tool.md docs/use-in-your-app.md ./docs/
+COPY examples/call_headphones.py ./examples/call_headphones.py
 
 # The container entry point, and the only file from deploy/ that belongs in the
 # image. It is the module named in CMD below, so the image would start into an

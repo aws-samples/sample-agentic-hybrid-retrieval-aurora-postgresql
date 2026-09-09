@@ -46,6 +46,25 @@ it("new sessions keep the actor and can recall real records independently of eve
   await screen.findByText("Alex shares an office", { selector: "p" });
   expect(recall).toHaveBeenCalledWith("Which headphones would suit the way I work at home?");
 });
+it("starts with a fresh Alex and clears recalled memories without running the agent", async () => {
+  vi.spyOn(api, "recallMemory").mockResolvedValue({ records: [{ id: "old-fact", strategy_id: "SEMANTIC", text: "Earlier Alex’s preference", namespaces: ["/mosaic/alex-browser/"], created_at: "2026-09-09T17:45:00Z", score: null }] });
+  const stream = vi.spyOn(api, "agentStream");
+  const reset = vi.spyOn(api, "resetAlex").mockImplementation(async () => {
+    vi.mocked(api.sessionMemory).mockResolvedValue({ ...response, actor_id: "fresh-alex" });
+  });
+  render(<SessionMemoryPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Recall memories" }));
+  await screen.findByText("Earlier Alex’s preference", { selector: "p" });
+  fireEvent.click(screen.getByRole("button", { name: "Start fresh" }));
+  await screen.findByText(/A fresh start for Alex/);
+  expect(screen.getByText("fresh-alex")).toBeTruthy();
+  expect(screen.queryByText("Earlier Alex’s preference")).toBeNull();
+  expect(screen.getByLabelText("Session")).toHaveProperty("value", "");
+  expect(screen.getByText("Your answer will appear here after you ask Mosaic.")).toBeTruthy();
+  expect(reset).toHaveBeenCalledOnce();
+  expect(api.newSession).not.toHaveBeenCalled();
+  expect(stream).not.toHaveBeenCalled();
+});
 it("shows a failed record read as an error rather than an empty successful extraction", async () => {
   vi.mocked(api.memoryRecords).mockRejectedValue(new Error("AgentCore access denied"));
   render(<SessionMemoryPage />);

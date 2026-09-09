@@ -146,7 +146,7 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
       setAnswer(null);
       setStreamed("");
       setCompleted(false);
-      setError(cause instanceof Error ? cause.message : "The pipeline could not finish. Try Play pipeline again.");
+      setError(cause instanceof Error ? cause.message : "The pipeline could not finish. Select Try again to start another run.");
       if (cause instanceof ApiError) setRunId(cause.agentRunId ?? null);
       setStatus("Pipeline stopped. The available records are shown below.");
     } finally {

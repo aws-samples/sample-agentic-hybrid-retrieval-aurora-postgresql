@@ -81,7 +81,7 @@ token.
 Both faces are self-hosted as Latin variable `woff2` files.
 
 - Display and masthead: Newsreader, weights 400 to 600. Discover and Shop
-  headlines, Pipeline and Scale introductions, product names, the product
+  headlines, Hybrid retrieval and Scale introductions, product names, the product
   page's hero price, and the large benchmark figures. The advanced instrument
   uses Newsreader for its introduction and section titles, with Schibsted
   controls and detail. Grid-card prices are Schibsted on purpose: the card is
@@ -109,10 +109,10 @@ literals under 12px: 204 legacy declarations remained on 2026-09-09, and
 the count may only fall.
 Long-form copy on the Build view and the Scale page is capped at 70ch.
 
-Pipeline, Scale & HNSW and Session & Memory share the larger Newsreader headline:
+Hybrid retrieval, Scale & HNSW and Session & Memory share the larger Newsreader headline:
 `clamp(40px, 4.3vw, 64px)`, weight 400 and line height 1.08, followed by sans
 serif inspection content. Alex's
-circular Pipeline portrait is 128px on desktop, 112px under 1000px, and 88px
+circular Hybrid retrieval portrait is 128px on desktop, 112px under 1000px, and 88px
 under 760px; the request and single Play action stay prominent on mobile.
 
 ## Geometry
@@ -129,7 +129,7 @@ under 760px; the request and single Play action stay prominent on mobile.
   signals a quotation or caution. The selected memory strategy uses a 2px
   maroon underline.
 - The shared shadow is offset and blurred. Shop's Ask action and sidecar keep
-  their existing local elevation; Pipeline and Scale use rules and warm fills.
+  their existing local elevation; Hybrid retrieval and Scale use rules and warm fills.
   Code blocks carry a 1px ink-soft boundary and no shadow of their own.
 
 ## Chrome behaviour
@@ -202,17 +202,24 @@ under 760px; the request and single Play action stay prominent on mobile.
   loaded products and offers retry. Three desktop columns become one at 540px
   and below. This is a browse collection, with no compatibility guarantee or
   change to search ranking.
-- Explore and Ask suggestions share the Pipeline request manifest: Clearer
-  calls, Comfortable days, Room to code, then the Mosaic Atelier 32 exact-model
+- Explore and Ask suggestions share the Hybrid retrieval request manifest: Clearer
+  calls, Comfortable days, Quiet typing, then the Mosaic Atelier 32 exact-model
   control. Ask shows the requests compatible with the current filters. The
-  Pipeline's default remains `room-for-code`; the chair request is a scoped
+  Hybrid retrieval's default is `clear-calls`; the chair request is a scoped
   shopping intent, not a replacement lab mission.
-- The default Pipeline opens with canonical scene choices, Alex's portrait and
-  request, and one Play button. Play makes a real agent request; the three
+- The default Hybrid retrieval opens with canonical scene choices, Alex's portrait and
+  request, and one Run Mosaic button. Run Mosaic makes a real agent request; the three
   stages inspect saved records. A carried Shop event is read without rerunning
   it. If the agent searched several times, Retrieve and Rank share one selected
   search receipt. SQL, settings, citations and tool traces use disclosures.
-- Pipeline Retrieve and Rank use `ResultProductCard` for the same set of up to
+- Run Mosaic and Ask Mosaic share a 58px maroon button with a 12px radius and
+  generous sans-serif text. Running requests show a spinner and the current
+  stage; Hybrid retrieval adds three subtle stage marks and offers Run again
+  after completion. No arrow appears in either action.
+- Desktop retrieval columns share grid rows for headers, content, disclosure
+  buttons and panels. Search details, Why the order changed and Answer and
+  sources stay aligned, with each panel contained in its column.
+- Hybrid retrieval Retrieve and Rank use `ResultProductCard` for the same set of up to
   three returned products: Retrieve orders them by recorded pre-rerank positions; Rank
   shows final order with before/final positions in the footer. Photography fills
   the card width in a 3:2 frame, with the image contained inside it. Category,
@@ -221,14 +228,14 @@ under 760px; the request and single Play action stay prominent on mobile.
 - `ProductAnswer` places each returned recommendation once, immediately after
   the first paragraph naming its title or model; unmatched recommendations
   append after the prose. Cards appear only when the answer prose is complete.
-  Pipeline Reason, guided Reason, Ask Mosaic and saved memory turns share this
-  renderer. Pipeline cards include distinct cited-source counts and links to
+  Hybrid retrieval Reason, guided Reason, Ask Mosaic and saved memory turns share this
+  renderer. Hybrid retrieval cards include distinct cited-source counts and links to
   the recorded search and rank; their main link opens product detail. Ask uses
   horizontal photo/copy cards, retaining product-drawer selection, catalog
   highlighting and the existing stock-aware Add to bag action.
-- Pipeline displays streamed answer prose; Ask Mosaic uses `useTypewriterReveal`
+- Hybrid retrieval displays streamed answer prose; Ask Mosaic uses `useTypewriterReveal`
   for paced prose, with completed answers mounted afresh shown immediately and
-  reduced motion removing the pacing. An interrupted Pipeline run clears its
+  reduced motion removing the pacing. An interrupted Hybrid retrieval run clears its
   answer and streamed prose while retaining partial candidates and tool receipts
   for diagnosis.
 - Session & Memory introduces events, strategies and recall, then shows Alex's
@@ -237,6 +244,10 @@ under 760px; the request and single Play action stay prominent on mobile.
   the right. At 760px and below it stacks in the same DOM order: conversation,
   strategies, then recall. Collapsed events show a two-line message preview;
   opening the native disclosure reveals all messages, roles and the event ID.
+- New session keeps the browser’s Alex and his memories. Start fresh rotates
+  the private browser cookie, clears displayed sessions, records and answers,
+  and begins a separate Alex. Earlier records remain stored; no shared Memory
+  resource or other browser’s records are deleted.
 - Four built-in strategy choices—Facts (semantic), Preferences, Summaries and
   Episodes—show actual connection status, scope and processing steps, followed
   by returned records. Record details disclose IDs, namespaces and original
@@ -248,9 +259,16 @@ under 760px; the request and single Play action stay prominent on mobile.
   in the collapsed “Earlier answers” disclosure; switching sessions or adding an
   event clears the current answer display. This surface teaches memory through conversation,
   without budget controls or a manual preference form.
-- Bottom-of-page links follow the Playground tabs: Pipeline leads to Scale &
+- Bottom-of-page links follow the Playground tabs: Hybrid retrieval leads to Scale &
   HNSW, which leads to Session & Memory using the same heading, copy and arrow link.
-- The advanced instrument shares Pipeline's open layout: Index & storage,
+- How it finds neighbors names HNSW beside a cream 3D sculpture: three floating
+  layers, connected product types and a restrained maroon search path. Watch the
+  search guides the visitor through the layers; pause, resume, replay, drag,
+  keyboard and zoom controls remain available. Candidate cards appear at the
+  end and identify illustrated product types. The caption states that this is
+  not a recorded Aurora traversal. Hidden views pause; reduced motion uses
+  fixed-camera steps; WebGL failure offers a flat graph and retry.
+- The advanced instrument shares Hybrid retrieval's open layout: Index & storage,
   Recall & filters, and Scale experiments use section rules, light charts and
   progressive detail. Live probe controls remain available. Historical
   provenance starts collapsed while its warning remains visible. Mobile
@@ -293,14 +311,14 @@ under 760px; the request and single Play action stay prominent on mobile.
 | `/`, `/discover` | Discover: Alex's room brief, three illustrated shopping needs, general search and category browsing; product inventories live in Shop |
 | `/catalog` | Shop: faceted browsing, hybrid search, product cards, Ask Mosaic as a sidecar |
 | `/products/:productId` | Product detail: media, catalog copy, price and availability, attributes, evidence excerpts |
-| `/labs/retrieval` | Pipeline: read-only inspection of 01 Retrieve, 02 Rank, 03 Reason; one Play starts a real run, and `scene` selects a canonical request |
+| `/labs/retrieval` | Hybrid retrieval: read-only inspection of 01 Retrieve, 02 Rank, 03 Reason; one Run Mosaic action starts a real run, and `scene` selects a canonical request |
 | `/labs/retrieval?view=lab` | Guided Playground: Retrieve, Rank, Reason, Prove, lab rail and completion proof; URLs containing `example` or `run` also select this surface |
 | `/mosaic-labs/hnsw` | Scale & HNSW: read-only index explanation, current Aurora substrate and attributed recorded measurements, including optional halfvec/binary comparisons |
 | `/mosaic-labs/memory` | Session & Memory: AgentCore events, four built-in strategies and actual records; conversation and strategy columns lead to recall and Aurora-backed cited answers |
 | `/mosaic-labs/hnsw?view=bench` | Advanced instrument: Index & storage, Recall & filters, Scale experiments; live probes, recorded experiments and projections carry distinct labels |
 | `/mosaic-labs/studio` | Studio: real catalog objects as a composition study, not a recommendation |
 
-`/playground` and `/mosaic-labs` redirect to the Pipeline; `/labs/performance`
+`/playground` and `/mosaic-labs` redirect to the Hybrid retrieval; `/labs/performance`
 redirects to Scale & HNSW. Existing guide and proof links keep the four-stage
 lab reachable without making it the default inspection surface.
 
@@ -382,7 +400,7 @@ mobile captures, with no fixes requested. This is the reviewer's verdict, not
 separate user approval of the rendered result. The advanced instrument's fresh
 finish review was **ship**, with no material fixes requested.
 The Session & Memory and shared product-card extension received a fresh review
-of six desktop/mobile captures for memory, Pipeline and Ask Mosaic. Its final
+of six desktop/mobile captures for memory, Hybrid retrieval and Ask Mosaic. Its final
 verdict was **ship**, scoring both requested memory fixes resolved: collapsed
 event previews with disclosure markers and removal of the redundant recall
 eyebrow. The verdict pass covered those

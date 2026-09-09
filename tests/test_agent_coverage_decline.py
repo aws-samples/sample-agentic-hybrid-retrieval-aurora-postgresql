@@ -883,3 +883,62 @@ def test_fallback_streams_receipts_without_blocking_other_requests(monkeypatch):
     )
     assert failure["agent_run_id"] == str(state["agent_run_id"])
     assert failure["code"] == "grounding_contract"
+
+
+@pytest.mark.parametrize("blocked_step", ["start", "attach"])
+def test_stream_startup_yields_and_preserves_tool_context(monkeypatch, blocked_step):
+    import threading
+    from types import SimpleNamespace
+
+    state = run_state(coverage=[grounded()])
+    entered, release = threading.Event(), threading.Event()
+    witnessed = []
+
+    def blocking():
+        entered.set()
+        assert release.wait(1), (
+            "stream startup blocked the event loop; move database work to a worker"
+        )
+
+    def start(*args, **kwargs):
+        if blocked_step == "start":
+            blocking()
+        agent_tools._RUN.set(state)
+        return state
+
+    def attach(*args):
+        assert agent_tools._state() is state
+        if blocked_step == "attach":
+            blocking()
+
+    async def model(prompt):
+        assert agent_tools._state() is state
+        assert await asyncio.to_thread(agent_tools._state) is state
+        witnessed.append("model_and_worker")
+        yield {"startup_checked": True}
+
+    monkeypatch.setattr(agent_tools, "start_run", start)
+    monkeypatch.setattr("service.session_memory.attach_run", attach)
+    monkeypatch.setattr(
+        "service.agent.build_agent", lambda: SimpleNamespace(stream_async=model)
+    )
+
+    async def collect():
+        previous = agent_tools._RUN.get()
+
+        async def unblock():
+            assert await asyncio.to_thread(entered.wait, 2)
+            release.set()
+
+        other = asyncio.create_task(unblock())
+        stream = ProductDiscoveryAgent().stream(AgentRequest(question=QUESTION))
+        try:
+            event = await anext(stream)
+            assert event == {"startup_checked": True}
+        finally:
+            await stream.aclose()
+            await other
+        assert agent_tools._RUN.get() is previous
+
+    asyncio.run(collect())
+    assert witnessed == ["model_and_worker"]

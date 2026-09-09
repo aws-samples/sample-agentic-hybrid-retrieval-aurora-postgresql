@@ -40,11 +40,13 @@ class MemoryQuery(BaseModel):
     query: str = Field(min_length=4, max_length=2000)
 
 
-def shopper_id(request: Request | None, response: Response | None = None) -> str | None:
+def shopper_id(
+    request: Request | None, response: Response | None = None, *, fresh: bool = False
+) -> str | None:
     """Resolve a random browser capability without accepting a caller's actor ID."""
     if request is None:
         return None
-    token = request.cookies.get(COOKIE, "")
+    token = "" if fresh else request.cookies.get(COOKIE, "")
     if not re.fullmatch(r"[a-f0-9]{64}", token):
         if response is None:
             return None
@@ -228,6 +230,14 @@ def initialize_browser(request: Request, response: Response):
     shopper_id(request, response)
     response.headers["Cache-Control"] = "no-store"
     return {"ready": True}
+
+
+@router.post("/reset", status_code=204)
+def reset_browser(request: Request, response: Response):
+    """Start a separate actor without deleting the previous actor's records."""
+    _actor(request)
+    shopper_id(request, response, fresh=True)
+    response.headers["Cache-Control"] = "no-store"
 
 
 @router.get("")
@@ -442,12 +452,11 @@ def prepare_request(
 ) -> AgentRequest:
     """Restore owned conversation context and retrieve memories before the model runs."""
     actor = shopper_id(http_request)
-    if not actor:
-        if request.session_id:
-            raise HTTPException(404, "This session is not available in this browser.")
+    if not actor and request.session_id:
+        raise HTTPException(404, "This session is not available in this browser.")
+    if not actor and not request.context:
         return request
     with connect() as connection:
-        _profile(connection, actor)
         context = request.context
         if context:
             owner = connection.execute(
@@ -459,6 +468,11 @@ def prepare_request(
                 raise HTTPException(
                     404, "This session is not available in this browser."
                 )
+        # Headless turns have no browser owner. A browser-owned prior turn must
+        # still pass the check above when the caller omits its cookie.
+        if not actor:
+            return request
+        _profile(connection, actor)
         if request.session_id:
             _own_session(connection, actor, request.session_id)
             row = connection.execute(
