@@ -297,3 +297,13 @@ it("keeps the first search counts when a later search supplies the leading recom
   fireEvent.change(selector, { target: { value: secondSearchId } });
   expect(visibleCounts()).toEqual(["0", "0", "50"]);
 });
+
+it("keeps the three lessons in view at rest, one per column, before any run", () => {
+  vi.spyOn(api, "agentStream").mockResolvedValue(undefined);
+  render(<PlaygroundPage />);
+  const lessons = screen.getAllByLabelText("Keep in mind").map((aside) => aside.textContent ?? "");
+  expect(lessons).toHaveLength(3);
+  expect(lessons[0]).toContain("A reranker can only reorder what entered this pool");
+  expect(lessons[1]).toContain("Fusion adds rank positions, never raw scores");
+  expect(lessons[2]).toContain("not citable until the application registers it");
+});

@@ -1,5 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { ResultProductCard } from "./ResultProductCard";
+import { KeepInMind } from "./KeepInMind";
 import { productImageMap } from "../media";
 import type { ProductSummary, SearchResponse } from "../types";
 
@@ -32,6 +33,7 @@ export function RetrieveOverview({ response }: { response?: SearchResponse }) {
       <ProductPreview products={products} />
       <p className="inspector-note">Following the same {products.length} products as Rank, in their earlier order. This is a preview of the returned results.</p>
     </> : <p className="inspector-waiting">This search returned no products.</p> : <p className="inspector-waiting">Matching products will appear as the search finishes.</p>}
+    <KeepInMind>Recall is decided here. A reranker can only reorder what entered this pool, and every filter was applied inside each arm before any limit.</KeepInMind>
   </>;
 }
 
@@ -46,5 +48,6 @@ export function RankOverview({ response }: { response?: SearchResponse }) {
       <p className="inspector-note">#1 is the highest rank. RRF and reranker scores use different scales; a higher score is better within each step.</p>
       <p className="inspector-note">Showing {products.length} of {response.results.length} results. Reranking: <strong>{response.diagnostics?.rerank_status ?? "not reported"}</strong>.</p>
     </> : <p className="inspector-waiting">No products were returned, so no ranking is available.</p> : <p className="inspector-waiting">See how the order changes as Mosaic compares the products.</p>}
+    <KeepInMind>Fusion adds rank positions, never raw scores, because the three arms do not share a scale. The reranker reorders the pool it is handed; it cannot add a product to it.</KeepInMind>
   </>;
 }

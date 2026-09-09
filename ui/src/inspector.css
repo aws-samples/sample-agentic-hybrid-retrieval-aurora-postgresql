@@ -146,6 +146,11 @@
 .inspector-channels strong { min-width: 3ch; text-align: right; font-size: 26px; font-weight: 400; font-variant-numeric: tabular-nums; }
 .inspector-mechanism { color: var(--maroon-800); font-size: 13px; }
 .inspector-note { color: var(--ink-soft); font-size: 14px; }
+.inspector-keep { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; align-items: baseline; margin: 18px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
+.inspector-keep-label { color: var(--maroon-800); font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.inspector-keep p { margin: 0; max-width: 60ch; color: var(--ink); font-size: 14px; line-height: 1.55; }
+.inspector-keep code { font-family: var(--mono); font-size: 13px; }
+@media (max-width: 640px) { .inspector-keep { grid-template-columns: 1fr; } }
 .inspector-waiting { padding: 20px 24px; border-radius: 8px; background: var(--paper-warm); color: var(--ink-soft); font-size: 15px; }
 .inspector-reason-status { display: flex; align-items: center; gap: 12px; }
 .inspector-reason-status svg { flex-shrink: 0; color: var(--maroon-800); }

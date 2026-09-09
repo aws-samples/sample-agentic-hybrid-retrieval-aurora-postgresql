@@ -128,6 +128,8 @@ instructions deep-link to:
 - **Playground** - Retrieve, Rank, and Reason appear side by side on laptop and
   desktop screens. Follow matching products, changes in rank, and the agent’s
   progress and answer, then open search details and sources within each column.
+  Each column ends with a **Keep in mind** line naming the lesson it proves,
+  the same line the opening slides carry.
   Retrieve and Rank follow the same preview products before and after reranking.
   Each recommendation links to the search that returned it, including when the
   agent uses more than one search. All three columns use the full product title,

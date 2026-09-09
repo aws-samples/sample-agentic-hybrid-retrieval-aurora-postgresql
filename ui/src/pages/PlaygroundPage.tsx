@@ -6,6 +6,7 @@ import { CodeBlock } from "../components/CodeBlock";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { PersistedRunDisclosures, RrfMath } from "../components/RetrievalProvenance";
+import { KeepInMind } from "../components/KeepInMind";
 import { ProductAnswer } from "../components/ProductAnswer";
 import { RankOverview, RetrieveOverview } from "../components/PipelineOverview";
 import { formatPriceCompact } from "../format";
@@ -85,6 +86,8 @@ function RetrieveDetails({ response, receipts, selectedId, onSelect }: {
       <CodeBlock label="Search record" code={JSON.stringify({ query: response.query, applied_filters: response.applied_filters, embedding_model_id: diagnostics?.embedding_model_id, retrieval_profile: diagnostics?.retrieval_profile, candidate_counts: counts }, null, 2)} />
     </InspectorDetail> : <p className="inspector-waiting">Play the pipeline to see how each search helps.</p>}
     {response ? <PersistedRunDisclosures response={response} /> : null}
+    {response ? <KeepInMind>Every search is a write. Aurora saved this run as a receipt with an id, and Rank and Reason read that receipt back rather than the screen.</KeepInMind> : null}
+    <KeepInMind>One HNSW scan returns at most <code>ef_search</code> rows. A selective filter can starve the meaning arm unless <code>iterative_scan</code> lets the scan continue, which is why both settings sit in the search record above.</KeepInMind>
   </>;
 }
 
@@ -146,6 +149,7 @@ function ReasonOverview({ answer, partial, streamed, completed, running, active,
       : working && active ? <p className="inspector-waiting inspector-reason-status" role="status"><LoaderCircle className="spin" size={20} aria-hidden="true" /><span>The agent is working. {partial?.candidates.length ? `Comparing ${partial.candidates.length} products and checking their sources.` : "It is checking products and sources."}</span></p>
       : <p className="inspector-waiting">{failed ? "The run stopped before the answer was ready. Open the activity log for details." : working ? "Mosaic will explain its picks after checking the products and sources." : hasSearch ? "This view contains the saved search results. Start a new run to let Mosaic search and make recommendations." : "Mosaic will compare the products and explain its picks, with links to the sources."}</p>}
     {answer && completed && multipleSearches ? <p className="inspector-note">Each pick links to its search; Rank shows one search at a time.</p> : null}
+    <KeepInMind>Evidence the model has read is not citable until the application registers it. The model requests tools; the application decides what runs, and the agent never writes SQL.</KeepInMind>
   </>;
 }
 

@@ -58,6 +58,41 @@ Use five beats:
 5. **The participant mission.** Follow the lab guides. Observe the fault, inspect
    its cause, repair a small marked block, and rerun the same request to prove it.
 
+### The deck: eleven slides, one script for five presenters
+
+Fifty participants sit at five tables of ten, and each table has its own
+presenter. The deck is projected once; every presenter then says the same
+lines at their table, and the Playground repeats the ones that matter as
+**Keep in mind** lines under each column. Read the line, do not improvise a
+different one. Twelve minutes is about one minute a slide; slides 2, 5 and 6
+may take ninety seconds.
+
+| # | Slide | The line to say | Owner |
+|---|---|---|---|
+| 1 | Title | Retrieval correctness is a pipeline property, not a top-1 result. | Lead |
+| 2 | Meet Alex | A software engineer furnishing a home office: clearer calls, comfortable days, quiet typing. You build the system; Alex uses it. | Lead |
+| 3 | The three lessons | A reranker cannot recover a product that never entered the candidate pool. A correct-looking result can hide broken ranking. Returned evidence still has to be registered before it can support an answer. | Lead |
+| 4 | One request, three ways in | Exact terms, close spelling and meaning are three candidate searches; filters decide eligibility inside every one of them, before any limit. | Technical |
+| 5 | How it fits together | Aurora owns retrieval truth, Bedrock models provide intelligence, the application owns execution and citation authority, and AgentCore may host it without becoming the authority. | Technical |
+| 6 | Aurora truth: filtered vector search | One HNSW scan returns at most `ef_search` rows, so a selective filter can starve the arm; pgvector 0.8 iterative scans resume the walk. On this catalog the home-office filter drops recall to 0.19 with iterative scan off and recovers to 0.44 with it on. | Grant |
+| 7 | Aurora truth: every search is a write | Each search appends a receipt with an id; that is what makes runs replayable, and it means search needs write capacity, retention, and a writer endpoint. | Grant |
+| 8 | Why the agent never writes SQL | The model requests five typed, read-only tools; the application decides what runs and what may be cited. Text-to-SQL can drop the filter; a typed tool cannot. | Technical |
+| 9 | What a turn costs | Lab 3 spends six agent loops per participant, each about 40 seconds on the pinned model, and Aurora persists every turn's usage; read the cost from the receipt, not from a guess. | Technical |
+| 10 | The method | Broken, Diagnose, Fix, Prove. The fix is small on purpose; the fast track compresses the fix, never the proof. | Lead |
+| 11 | Your mission | Three tabs from the Event Dashboard, the addresses in the guide, the Keep in mind lines under each Playground column. Required work is DONE at minute 52. | Lead |
+
+### Slide, app, or guide: where each idea lives
+
+| Idea | Lives on | Why there |
+|---|---|---|
+| The thesis, the three lessons, the four ownership rules | Slides 1, 3, 5, and the lab pages' opening line | Spoken once, identical at five tables |
+| Filtered vector search and receipts as writes | Slides 6 and 7, then Retrieve's search details in the Playground | Said by Grant; met again beside the actual `ef_search` value and the actual receipt id |
+| Recall is decided in Retrieve; fusion adds ranks not scores; evidence must be registered | A **Keep in mind** line under each Playground column, at rest and after a run | The participant is looking at the proof when they read the lesson |
+| Why the agent never writes SQL | Slide 8 and the Reason column's Keep in mind line | The one design decision the labs never name otherwise |
+| What a turn costs | Slide 9 only | A number, not an exercise; the receipts carry it |
+| The repair, the proof, the escape hatches | The lab pages only | Table-paced, per participant |
+| HNSW tuning, the builder exercise, Session and Memory, AgentCore | Optional surfaces and flex time | Never in the twelve minutes or the required path |
+
 Discover introduces the person and the problem; Shop supplies the choices. The
 photographed workspace selection keeps the first impression focused on Alex.
 Search still reaches 500,000 products. The scale reveal belongs beside search
@@ -147,7 +182,7 @@ The application has three navigation destinations, with Ask Mosaic inside Shop:
 - **Discover.** The home-office brief described above: Alex, his room, three needs, and routes into search or category browsing. The illustrated scenes are inspiration, not a product bundle or a completed purchase.
 - **Shop.** The default Workspace edit currently shows 71 picks selected from the 200 photographed products; keyword search reaches the full 500,000-product catalog. Every result card can open "See how this was retrieved", carrying the query, filters and saved search event into the Playground. Ticking two or more results compares them side by side, and the comparison is worth showing: under the price and the rating it prints which search methods found each product, its rank before reranking, and the rank the shopper was shown. Those three rows come from the run's saved receipt, not from the list on screen, which is why a comparison is only offered once a search has run. If the catalog carries none of a request's words, Shop says which ones above the results rather than returning a confident page of near misses.
 - **Ask Mosaic.** The agent, in a side panel on Shop or a mobile overlay below the header. It shows progress while gathering evidence, then leads with the cited answer. **Steps and sources** holds the request interpretation, searches, product comparison, supporting evidence, and tool activity. Follow-ups carry context from the prior grounded run; they do not establish preference memory across visits.
-- **Playground.** `/labs/retrieval` defaults to **Pipeline**, a three-stage inspection of Retrieve, Rank and Reason. Alex's request choices come from the canonical mission manifest. One **Play pipeline** action makes a real agent request; the stages read its records. A saved Shop event opens its original receipt, and Play starts a new complete run when an agent answer is needed. **Scale & HNSW** is the adjacent inspection lens.
+- **Playground.** `/labs/retrieval` defaults to **Pipeline**, a three-stage inspection of Retrieve, Rank and Reason. Each column ends with a **Keep in mind** line that states the lesson the column proves, and Retrieve's search details add two more beside the receipt id and the HNSW settings; the sentences are the ones on the opening slides. Alex's request choices come from the canonical mission manifest. One **Play pipeline** action makes a real agent request; the stages read its records. A saved Shop event opens its original receipt, and Play starts a new complete run when an agent answer is needed. **Scale & HNSW** is the adjacent inspection lens.
 
 Pipeline also offers **Plan my workspace**, which resolves its question and
 filters from Lab 3, and **Check the sources**, which compares a specification
