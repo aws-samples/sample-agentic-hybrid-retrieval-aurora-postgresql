@@ -4222,6 +4222,11 @@
   .site-footer {
     padding-bottom: 76px;
   }
+
+  /* Keyboard focus that lands in the last row scrolls clear of the docked rail. */
+  html {
+    scroll-padding-bottom: 96px;
+  }
 }
 
 @media (max-width: 359px) {

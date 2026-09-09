@@ -99,3 +99,21 @@ it("keeps saved answers collapsed and shows only a newly requested answer inline
   expect(reopened.container.querySelector(".memory-current-answer")).toBeNull();
   expect(stream).toHaveBeenCalledTimes(1);
 });
+
+it("says when a session's runs kept memory off, and names each record's scope", async () => {
+  const session: ShopperSession = {
+    agent_session_id: "session-off", started_at: "2026-09-09T17:44:11Z", ended_at: null, label: null,
+    turns: [{ run_id: "run-1", question: "I take video calls from home", answer: "Answer.", created_at: "2026-09-09T17:44:40Z", products: [], search_ids: [], citations: [], memory: { status: "off", enabled: false, records: [], event_ids_read: [] } }],
+  };
+  vi.mocked(api.sessionMemory).mockResolvedValue({ ...structuredClone(response), sessions: [session], active_session_id: "session-off" });
+  vi.mocked(api.memoryRecords).mockResolvedValue({ has_more: false, namespaces: [], records: [
+    { id: "fact-1", strategy_id: "SEMANTIC", text: "Alex shares an office.", namespaces: ["/mosaic/alex-browser/strategies/SEMANTIC/"], created_at: "2026-09-09T17:45:00Z", score: null },
+    { id: "summary-1", strategy_id: "SEMANTIC", text: "Alex asked about headphones.", namespaces: ["/mosaic/alex-browser/strategies/SEMANTIC/sessions/session-off/"], created_at: "2026-09-09T17:46:00Z", score: null },
+  ] });
+  render(<SessionMemoryPage />);
+  await screen.findByText(/kept memory off, so no conversation event was stored/);
+  expect(screen.queryByText("No AgentCore events returned for this session.")).toBeNull();
+  await screen.findByText("Alex shares an office.", { selector: "p" });
+  expect(screen.getByText("Kept for Alex across sessions")).toBeTruthy();
+  expect(screen.getByText("From this session")).toBeTruthy();
+});

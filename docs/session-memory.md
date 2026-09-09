@@ -23,6 +23,11 @@ Switching sessions or adding another event clears the current answer display.
 Examples only fill the editable message field. They become real events when the
 visitor submits them; the application never fabricates extracted records.
 
+Runs started from the Playground and the lab proofs keep memory off, so their
+sessions appear in the list with no conversation events, and the page says so.
+Facts and preferences are kept for the actor across sessions, and every record
+names its scope, so a record can appear under a session that stored no event.
+
 Extraction runs asynchronously. A stored event does not prove that extraction
 finished, and an empty record list is not a failure or a promise of a future
 record. Episodic extraction waits for a completed episode. The UI reports actual

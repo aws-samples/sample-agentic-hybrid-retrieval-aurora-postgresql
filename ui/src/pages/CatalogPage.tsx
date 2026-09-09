@@ -675,9 +675,14 @@ export function CatalogPage() {
       setAgentOpen(next);
       return;
     }
-    document.startViewTransition(() => {
+    const transition = document.startViewTransition(() => {
       flushSync(() => setAgentOpen(next));
     });
+    // A hidden document or an interrupting transition rejects both promises
+    // with InvalidStateError after the state change has already applied, so
+    // the only work left is keeping that rejection out of the console.
+    transition.ready.catch(() => undefined);
+    transition.finished.catch(() => undefined);
   }, []);
 
   useEffect(() => {

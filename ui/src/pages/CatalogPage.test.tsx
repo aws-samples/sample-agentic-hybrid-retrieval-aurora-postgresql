@@ -2528,4 +2528,26 @@ describe("CatalogPage", () => {
     // what the participant needs, and the Code Editor is one way to reach it.
     expect(callout.textContent).toContain(lab1.participant_edit!.file);
   });
+
+  it("keeps a skipped view transition out of the console when opening Ask Mosaic", async () => {
+    // Chrome rejects ready and finished with InvalidStateError when the document
+    // is hidden or another transition interrupts; the panel has already opened.
+    const skipped = () => Promise.reject(new DOMException("Transition was aborted because of invalid state", "InvalidStateError"));
+    const startViewTransition = vi.fn((update: () => void) => {
+      update();
+      return { ready: skipped(), finished: skipped(), updateCallbackDone: Promise.resolve(), skipTransition: vi.fn() };
+    });
+    Object.defineProperty(document, "startViewTransition", { configurable: true, value: startViewTransition });
+    try {
+      renderPage();
+      await screen.findByText(catalog.products[0].model);
+      fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+      expect(screen.getByRole("complementary", { name: "Ask Mosaic" })).toBeTruthy();
+      expect(startViewTransition).toHaveBeenCalledTimes(1);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    } finally {
+      delete (document as { startViewTransition?: unknown }).startViewTransition;
+    }
+  });
+
 });
