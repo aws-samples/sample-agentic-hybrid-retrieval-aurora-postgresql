@@ -1,7 +1,7 @@
 import { Link } from "wouter";
-import { RETRIEVAL_SURFACE } from "../navigation";
+import { PLAYGROUND_TABS } from "../navigation";
 
-type MosaicLabsTab = "retrieval" | "hnsw" | "memory";
+type MosaicLabsTab = (typeof PLAYGROUND_TABS)[number]["id"];
 
 const sourceRepositoryUrl =
   "https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql";
@@ -10,37 +10,22 @@ const sourceRepositoryUrl =
 export function MosaicLabsTabs({
   active,
 }: {
-  /**
-   * Which entry is current, omitted by a surface that is not one of them.
-   * Catalog studio carries the strip so a reader can leave it, and marks
-   * nothing: it is no longer a Playground lens.
-   */
+  /** Which entry is current, omitted by a surface that is not one of them. */
   active?: MosaicLabsTab;
 }) {
   return (
     <nav className="mosaic-labs-tabs" aria-label="Playground lenses">
       <div>
-        <Link
-          aria-current={active === "retrieval" ? "page" : undefined}
-          className={active === "retrieval" ? "active" : ""}
-          href={RETRIEVAL_SURFACE.path}
-        >
-          Hybrid retrieval
-        </Link>
-        <Link
-          aria-current={active === "hnsw" ? "page" : undefined}
-          className={active === "hnsw" ? "active" : ""}
-          href="/mosaic-labs/hnsw"
-        >
-          Scale & HNSW
-        </Link>
-        <Link
-          aria-current={active === "memory" ? "page" : undefined}
-          className={active === "memory" ? "active" : ""}
-          href="/mosaic-labs/memory"
-        >
-          Session & Memory
-        </Link>
+        {PLAYGROUND_TABS.map((tab) => (
+          <Link
+            key={tab.id}
+            aria-current={active === tab.id ? "page" : undefined}
+            className={active === tab.id ? "active" : ""}
+            href={tab.path}
+          >
+            {tab.label}
+          </Link>
+        ))}
       </div>
       <small>
         Behind the results

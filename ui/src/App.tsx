@@ -1,17 +1,15 @@
 import { lazy, Suspense, useEffect, useRef } from "react";
-import { Redirect, Route, Switch, useLocation } from "wouter";
+import { Redirect, Route, Switch, useLocation, useSearch } from "wouter";
 import { CommerceProvider } from "./commerce";
 import { RouteErrorBoundary } from "./components/RouteErrorBoundary";
 import { Shell } from "./components/Shell";
+import { PLAYGROUND_TABS, RETRIEVAL_SURFACE } from "./navigation";
 
 const CatalogPage = lazy(() =>
   import("./pages/CatalogPage").then(({ CatalogPage: Page }) => ({ default: Page })),
 );
 const DiscoverPage = lazy(() =>
   import("./pages/DiscoverPage").then(({ DiscoverPage: Page }) => ({ default: Page })),
-);
-const MosaicStudioPage = lazy(() =>
-  import("./pages/MosaicStudioPage").then(({ MosaicStudioPage: Page }) => ({ default: Page })),
 );
 const PerformancePage = lazy(() =>
   import("./pages/ScaleInspectorPage").then(({ ScaleInspectorPage: Page }) => ({ default: Page })),
@@ -30,11 +28,14 @@ function titleForPath(pathname: string): string {
   if (pathname === "/" || pathname === "/discover") return "Discover | Mosaic";
   if (pathname === "/catalog") return "Shop | Mosaic";
   if (pathname.startsWith("/products/")) return "Product details | Mosaic";
-  if (pathname === "/labs/retrieval") return "Playground | Mosaic";
-  if (pathname === "/mosaic-labs/hnsw") return "Vector index at scale | Mosaic";
-  if (pathname === "/mosaic-labs/memory") return "Session & Memory | Mosaic";
-  if (pathname === "/mosaic-labs/studio") return "Catalog studio | Mosaic";
+  const tab = PLAYGROUND_TABS.find((item) => item.path === pathname);
+  if (tab) return `${tab.label} | Mosaic`;
   return "Mosaic";
+}
+
+function RouteAlias({ to }: { to: string }) {
+  const search = useSearch();
+  return <Redirect to={`${to}${search ? `?${search}` : ""}${window.location.hash}`} replace />;
 }
 
 function RoutedSurface() {
@@ -67,16 +68,18 @@ function RoutedSurface() {
               said. The canonical path stays /catalog, which is what the workshop
               instructions deep-link to. */}
           <Route path="/shop">
-            <Redirect to="/catalog" replace />
+            <RouteAlias to="/catalog" />
           </Route>
           <Route path="/mosaic-labs/hnsw" component={PerformancePage} />
           <Route path="/mosaic-labs/memory" component={SessionMemoryPage} />
-          <Route path="/mosaic-labs/studio" component={MosaicStudioPage} />
+          <Route path="/mosaic-labs/studio">
+            <RouteAlias to={RETRIEVAL_SURFACE.path} />
+          </Route>
           <Route path="/mosaic-labs">
-            <Redirect to="/labs/retrieval" replace />
+            <RouteAlias to={RETRIEVAL_SURFACE.path} />
           </Route>
           <Route path="/inspiration">
-            <Redirect to="/labs/retrieval" replace />
+            <RouteAlias to={RETRIEVAL_SURFACE.path} />
           </Route>
           <Route path="/products/:productId" component={ProductPage} />
           <Route path="/labs/retrieval" component={RetrievalLabPage} />
@@ -84,10 +87,10 @@ function RoutedSurface() {
               typeable. The canonical path stays /labs/retrieval, which is what
               the workshop instructions deep-link to. */}
           <Route path="/playground">
-            <Redirect to="/labs/retrieval" replace />
+            <RouteAlias to={RETRIEVAL_SURFACE.path} />
           </Route>
           <Route path="/labs/performance">
-            <Redirect to="/mosaic-labs/hnsw" replace />
+            <RouteAlias to="/mosaic-labs/hnsw" />
           </Route>
           <Route>
             <Redirect to="/" replace />

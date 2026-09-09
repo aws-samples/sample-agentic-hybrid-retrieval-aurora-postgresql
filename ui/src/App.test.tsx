@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+import { SiteFooter } from "./components/SiteFooter";
 
 vi.mock("./components/Shell", () => ({
   Shell: ({ children }: { children: React.ReactNode }) => (
@@ -17,6 +18,7 @@ vi.mock("./pages/MosaicStudioPage", () => ({ MosaicStudioPage: () => <p>Studio r
 vi.mock("./pages/ScaleInspectorPage", () => ({ ScaleInspectorPage: () => <p>HNSW route</p> }));
 vi.mock("./pages/ProductPage", () => ({ ProductPage: () => <p>Product route</p> }));
 vi.mock("./pages/PlaygroundPage", () => ({ PlaygroundPage: () => <p>Retrieval route</p> }));
+vi.mock("./pages/SessionMemoryPage", () => ({ SessionMemoryPage: () => <p>Memory route</p> }));
 
 beforeEach(() => {
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
@@ -29,6 +31,44 @@ afterEach(() => {
 });
 
 describe("App Labs routes", () => {
+  it.each([
+    ["Hybrid retrieval", "/labs/retrieval", "Retrieval route"],
+    ["Scale & HNSW", "/mosaic-labs/hnsw", "HNSW route"],
+    ["Session & Memory", "/mosaic-labs/memory", "Memory route"],
+  ])("opens the current %s surface from the footer", async (label, path, marker) => {
+    window.history.replaceState({}, "", "/catalog");
+    render(<><SiteFooter /><App /></>);
+    await screen.findByText("Catalog route");
+    const footer = within(screen.getByRole("contentinfo"));
+    fireEvent.click(footer.getByRole("link", { name: label }));
+    expect(await screen.findByText(marker)).toBeTruthy();
+    expect(window.location.pathname).toBe(path);
+    await waitFor(() => expect(document.title).toBe(`${label} | Mosaic`));
+    expect(footer.queryByRole("link", { name: "Catalog studio" })).toBeNull();
+  });
+
+  it("takes old Catalog Studio bookmarks to the current Playground", async () => {
+    window.history.replaceState({}, "", "/mosaic-labs/studio");
+    render(<App />);
+    expect(await screen.findByText("Retrieval route")).toBeTruthy();
+    expect(window.location.pathname).toBe("/labs/retrieval");
+    expect(screen.queryByText("Studio route")).toBeNull();
+  });
+
+  it.each([
+    ["/shop", "/catalog"],
+    ["/playground", "/labs/retrieval"],
+    ["/mosaic-labs", "/labs/retrieval"],
+    ["/inspiration", "/labs/retrieval"],
+    ["/labs/performance", "/mosaic-labs/hnsw"],
+  ])("preserves the saved request and section through %s", async (alias, destination) => {
+    const query = "?q=clearer+calls&max_price_cents=30000&event=9614ed9b-4ceb-4aad-9276-4e69af2231b9&view=bench";
+    window.history.replaceState({}, "", `${alias}${query}#details`);
+    render(<App />);
+    await waitFor(() => expect(window.location.pathname).toBe(destination));
+    expect(window.location.search).toBe(query);
+    expect(window.location.hash).toBe("#details");
+  });
   it("preserves a draft on query changes and resets scroll and focus for a new page", async () => {
     window.history.replaceState({}, "", "/catalog");
     render(<App />);
@@ -68,7 +108,7 @@ describe("App Labs routes", () => {
     await waitFor(() => expect(window.location.pathname).toBe("/mosaic-labs/hnsw"));
     expect(await screen.findByText("HNSW route")).toBeTruthy();
     await waitFor(() => {
-      expect(document.title).toBe("Vector index at scale | Mosaic");
+      expect(document.title).toBe("Scale & HNSW | Mosaic");
       expect(document.activeElement).toBe(document.getElementById("main-content"));
     });
   });

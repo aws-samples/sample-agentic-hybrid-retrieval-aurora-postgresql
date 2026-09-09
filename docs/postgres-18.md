@@ -68,7 +68,7 @@ the server version string, the pgvector extension version, product and embedded
 product counts, embedding dimensions and stored embedding model ids, the
 premium cohort and evidence coverage counts, any missing or invalid retrieval
 index among the three named above, any missing retrieval function, and whether
-the exact-neighbour ground truth used by the Vector index at scale lens has
+the exact-neighbour ground truth used by the Scale & HNSW lens has
 been seeded. The endpoint reports `ready` only when the database, the model
 space, and Bedrock credentials all pass; otherwise it reports `blocked` with
 the failing field visible.
@@ -80,7 +80,7 @@ until it is measured. Nobody has run this corpus on an earlier PostgreSQL major
 version with the same instance class, the same indexes, and the same retrieval
 profile, so there is no basis for saying this pipeline is faster on 18 than on
 17, and this page will not imply it. The measured claims the workshop does
-stand behind are the retrieval scorecard and the Vector index at scale
+stand behind are the retrieval scorecard and the Scale & HNSW
 artifact, each served with its own provenance.
 
 Release-note features of PostgreSQL 18 that this pipeline does not exercise are

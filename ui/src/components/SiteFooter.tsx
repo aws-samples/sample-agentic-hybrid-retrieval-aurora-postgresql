@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { RETRIEVAL_SURFACE } from "../navigation";
+import { PLAYGROUND_TABS } from "../navigation";
 import { MosaicMark } from "./MosaicMark";
 
 const sourceRepositoryUrl =
@@ -56,12 +56,8 @@ const footerColumns: Array<{
   },
   {
     id: "behind",
-    heading: "Behind the results",
-    links: [
-      { label: "Retrieve, rank, reason", href: RETRIEVAL_SURFACE.path },
-      { label: "Vector index at scale", href: "/mosaic-labs/hnsw" },
-      { label: "Catalog studio", href: "/mosaic-labs/studio" },
-    ],
+    heading: "Playground",
+    links: PLAYGROUND_TABS.map(({ label, path }) => ({ label, href: path })),
   },
   {
     id: "built",

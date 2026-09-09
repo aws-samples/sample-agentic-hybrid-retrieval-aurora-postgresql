@@ -28,7 +28,7 @@ SELECT extversion FROM pg_extension WHERE extname = 'vector';
    transaction block and is pointless before embeddings exist. If a concurrent
    build was interrupted, run `make db-drop-invalid-indexes` first; the
    bootstrap's `index_creation` phase does this automatically. The optional
-   halfvec and binary indexes for the Vector index at scale lens are a separate
+   halfvec and binary indexes for the Scale & HNSW lens are a separate
    `make db-index-quantized`.
 6. `make db-load-cohort` — the 120 premium products with real photography.
 7. `make db-smoke` — correctness queries.

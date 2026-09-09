@@ -340,7 +340,7 @@ describe("Shell navigation", () => {
       "/catalog",
       "/labs/retrieval",
       "/mosaic-labs/hnsw",
-      "/mosaic-labs/studio",
+      "/mosaic-labs/memory",
     ];
     const hrefs = within(footer)
       .getAllByRole("link")
