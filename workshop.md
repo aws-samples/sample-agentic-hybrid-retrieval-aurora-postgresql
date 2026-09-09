@@ -65,7 +65,9 @@ presenter. The deck is projected once; every presenter then says the same
 lines at their table, and the Playground repeats the ones that matter as
 **Keep in mind** lines under each column. Read the line, do not improvise a
 different one. Twelve minutes is about one minute a slide; slides 2, 5 and 6
-may take ninety seconds.
+may take ninety seconds. Owners are roles, never names: the lead presenter,
+the technical co-presenter, and the Aurora presenter who carries the two
+Aurora truths.
 
 | # | Slide | The line to say | Owner |
 |---|---|---|---|
@@ -74,8 +76,8 @@ may take ninety seconds.
 | 3 | The three lessons | A reranker cannot recover a product that never entered the candidate pool. A correct-looking result can hide broken ranking. Returned evidence still has to be registered before it can support an answer. | Lead |
 | 4 | One request, three ways in | Exact terms, close spelling and meaning are three candidate searches; filters decide eligibility inside every one of them, before any limit. | Technical |
 | 5 | How it fits together | Aurora owns retrieval truth, Bedrock models provide intelligence, the application owns execution and citation authority, and AgentCore may host it without becoming the authority. | Technical |
-| 6 | Aurora truth: filtered vector search | One HNSW scan returns at most `ef_search` rows, so a selective filter can starve the arm; pgvector 0.8 iterative scans resume the walk. On this catalog the home-office filter drops recall to 0.19 with iterative scan off and recovers to 0.44 with it on. | Grant |
-| 7 | Aurora truth: every search is a write | Each search appends a receipt with an id; that is what makes runs replayable, and it means search needs write capacity, retention, and a writer endpoint. | Grant |
+| 6 | Aurora truth: filtered vector search | One HNSW scan returns at most `ef_search` rows, so a selective filter can starve the arm; pgvector 0.8 iterative scans resume the walk. On this catalog the home-office filter drops recall to 0.19 with iterative scan off and recovers to 0.44 with it on. | Aurora presenter |
+| 7 | Aurora truth: every search is a write | Each search appends a receipt with an id; that is what makes runs replayable, and it means search needs write capacity, retention, and a writer endpoint. | Aurora presenter |
 | 8 | Why the agent never writes SQL | The model requests five typed, read-only tools; the application decides what runs and what may be cited. Text-to-SQL can drop the filter; a typed tool cannot. | Technical |
 | 9 | What a turn costs | Lab 3 spends six agent loops per participant, each about 40 seconds on the pinned model, and Aurora persists every turn's usage; read the cost from the receipt, not from a guess. | Technical |
 | 10 | The method | Broken, Diagnose, Fix, Prove. The fix is small on purpose; the fast track compresses the fix, never the proof. | Lead |
@@ -86,7 +88,7 @@ may take ninety seconds.
 | Idea | Lives on | Why there |
 |---|---|---|
 | The thesis, the three lessons, the four ownership rules | Slides 1, 3, 5, and the lab pages' opening line | Spoken once, identical at five tables |
-| Filtered vector search and receipts as writes | Slides 6 and 7, then Retrieve's search details in the Playground | Said by Grant; met again beside the actual `ef_search` value and the actual receipt id |
+| Filtered vector search and receipts as writes | Slides 6 and 7, then Retrieve's search details in the Playground | Said by the Aurora presenter; met again beside the actual `ef_search` value and the actual receipt id |
 | Recall is decided in Retrieve; fusion adds ranks not scores; evidence must be registered | A **Keep in mind** line under each Playground column, at rest and after a run | The participant is looking at the proof when they read the lesson |
 | Why the agent never writes SQL | Slide 8 and the Reason column's Keep in mind line | The one design decision the labs never name otherwise |
 | What a turn costs | Slide 9 only | A number, not an exercise; the receipts carry it |
