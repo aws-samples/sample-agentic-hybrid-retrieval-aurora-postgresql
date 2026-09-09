@@ -14,6 +14,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
+from scripts.simulate_scale import measured_baseline
+
 ROOT = Path(__file__).resolve().parents[1]
 MEASURED = json.loads(
     (ROOT / "data" / "benchmarks" / "hnsw_measured.json").read_text(encoding="utf-8")
@@ -43,7 +47,8 @@ def test_the_baseline_row_is_the_measured_operating_point():
     baseline = baseline_row()
     point = measured_operating_point()
 
-    assert baseline["p95_latency_ms"] == round(point["server_ms"], 2)
+    assert baseline["p95_latency_ms"] == round(point["server_p95_ms"], 2)
+    assert point["server_p95_ms"] != point["server_ms"]
     assert baseline["recall_at_10"] == round(point["recall_at_k"], 4)
     assert baseline["ef_search"] == SERVED_EF_SEARCH
 
@@ -107,3 +112,19 @@ def test_the_projection_records_the_measurement_it_derives_from():
     assert assumptions["measured_source"].endswith("hnsw_measured.json")
     assert assumptions["measured_captured_at"] == MEASURED["captured_at"]
     assert assumptions["bytes_per_vector"] == MEASURED["index"]["bytes_per_vector"]
+
+
+def test_a_sampled_server_time_cannot_stand_in_for_p95(tmp_path):
+    payload = json.loads(json.dumps(MEASURED))
+    point = next(
+        row for row in payload["ef_sweep"] if row["ef_search"] == SERVED_EF_SEARCH
+    )
+    del point["server_p95_ms"]
+    path = tmp_path / "measured.json"
+    path.write_text(json.dumps(payload))
+    with pytest.raises(SystemExit, match="no server p95.*fix:"):
+        measured_baseline(path)
+    point["server_p95_ms"] = measured_operating_point()["server_p95_ms"]
+    payload["provenance"]["source_revision"] = "an unrelated display change"
+    path.write_text(json.dumps(payload))
+    assert measured_baseline(path)["latency_p95_ms"] == point["server_p95_ms"]

@@ -82,8 +82,13 @@ def measured_baseline(
             f"(have {available}); fix: re-run `make benchmark-hnsw` including it"
         )
     index = measured["index"]
+    if row.get("server_p95_ms") is None:
+        raise SystemExit(
+            f"found no server p95 at ef_search {ef_search}; "
+            "fix: run `make benchmark-hnsw` to record server percentiles before projecting p95"
+        )
     return {
-        "latency_p95_ms": row["server_ms"],
+        "latency_p95_ms": row["server_p95_ms"],
         "recall": row["recall_at_k"],
         "bytes_per_vector": index["bytes_per_vector"],
         "dimensions": index["dimensions"],
@@ -140,7 +145,7 @@ def main() -> None:
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
 
     with arguments.output.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]), lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 

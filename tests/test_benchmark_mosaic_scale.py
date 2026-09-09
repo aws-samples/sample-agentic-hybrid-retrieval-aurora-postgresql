@@ -1,3 +1,5 @@
+import subprocess
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -38,3 +40,38 @@ def test_no_measurement_or_no_truth_cannot_be_published(samples):
 def test_binary_depth_reaches_the_production_probe_parameters():
     request = SimpleNamespace(representation="binary", k=10, overfetch=200)
     assert probe_parameters(request, "vector") == ["vector", 200, "vector", 10]
+
+
+def test_make_benchmark_requires_hardware_before_starting_a_query():
+    root = Path(__file__).resolve().parents[1]
+    rejected = subprocess.run(
+        [
+            "make",
+            "--no-print-directory",
+            "benchmark-hnsw",
+            "AURORA_INSTANCE_CLASS=",
+            "DATABASE_URL=unused",
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert rejected.returncode != 0
+    assert "Benchmark hardware rule" in rejected.stdout
+    assert "fix:" in rejected.stdout
+    preview = subprocess.run(
+        [
+            "make",
+            "-n",
+            "benchmark-hnsw",
+            "AURORA_INSTANCE_CLASS=db.r8g.2xlarge",
+            "DATABASE_URL=unused",
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "scripts/benchmark_mosaic_scale.py" in preview.stdout
+    assert '--instance-class "db.r8g.2xlarge"' in preview.stdout

@@ -2,12 +2,12 @@
   "warning": "PROJECTED beyond 500K. The 500K row is measured; every larger row is extrapolated from it by the stated growth assumptions. Baseline read from data/benchmarks/hnsw_measured.json.",
   "assumptions": {
     "measured_source": "data/benchmarks/hnsw_measured.json",
-    "measured_captured_at": "2026-08-17T08:07:27.126043+00:00",
-    "measured_source_revision": "e5b10efde607114d0ef78bbbfaceadcd54b1a7c1",
+    "measured_captured_at": "2026-09-09T02:44:18.002479+00:00",
+    "measured_source_revision": "ba81904d3e4654bce62046535fc65053d7917bb5",
     "measured_instance_class": "db.r8g.2xlarge",
-    "baseline_latency_p95_ms": 2.711,
-    "baseline_recall": 0.992,
-    "bytes_per_vector": 8189,
+    "baseline_latency_p95_ms": 2.434,
+    "baseline_recall": 0.99,
+    "bytes_per_vector": 8218,
     "dimensions": 1024,
     "m": 16,
     "ef_construction": 200,
@@ -21,9 +21,9 @@
     {
       "scale": 500000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 2.71,
-      "recall_at_10": 0.992,
-      "index_size_gb": 4.09,
+      "p95_latency_ms": 2.43,
+      "recall_at_10": 0.99,
+      "index_size_gb": 4.11,
       "dimensions": 1024,
       "m": 16,
       "ef_search": 100
@@ -31,9 +31,9 @@
     {
       "scale": 1000000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 2.9,
-      "recall_at_10": 0.9896,
-      "index_size_gb": 8.19,
+      "p95_latency_ms": 2.6,
+      "recall_at_10": 0.9876,
+      "index_size_gb": 8.22,
       "dimensions": 1024,
       "m": 16,
       "ef_search": 100
@@ -41,9 +41,9 @@
     {
       "scale": 5000000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 3.36,
-      "recall_at_10": 0.984,
-      "index_size_gb": 40.95,
+      "p95_latency_ms": 3.02,
+      "recall_at_10": 0.982,
+      "index_size_gb": 41.09,
       "dimensions": 1024,
       "m": 16,
       "ef_search": 100
@@ -51,9 +51,9 @@
     {
       "scale": 10000000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 3.57,
-      "recall_at_10": 0.9816,
-      "index_size_gb": 81.89,
+      "p95_latency_ms": 3.2,
+      "recall_at_10": 0.9796,
+      "index_size_gb": 82.18,
       "dimensions": 1024,
       "m": 16,
       "ef_search": 100
@@ -61,9 +61,9 @@
     {
       "scale": 100000000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 4.29,
-      "recall_at_10": 0.9736,
-      "index_size_gb": 818.9,
+      "p95_latency_ms": 3.85,
+      "recall_at_10": 0.9716,
+      "index_size_gb": 821.8,
       "dimensions": 1024,
       "m": 16,
       "ef_search": 100

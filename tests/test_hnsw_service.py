@@ -337,6 +337,10 @@ def test_the_measured_artifact_separates_its_claim_classes(monkeypatch):
     """
     _stub_quantized_indexes_valid(monkeypatch)
 
+    monkeypatch.setattr(
+        "service.hnsw.MEASURED_ARTIFACT",
+        ROOT / "data/benchmarks/archive/hnsw_measured_2026-08-17.json",
+    )
     payload = measured()
 
     nvme = payload["local_nvme"]
@@ -376,7 +380,7 @@ def _stub_settings(monkeypatch, settings) -> None:
 
 
 def test_measured_refuses_to_claim_an_artifact_measured_on_another_corpus(monkeypatch):
-    """The committed artifact was measured elsewhere, and must say so.
+    """The archived artifact was measured elsewhere, and must say so.
 
     Its provenance records manifest 7cd7a5ae and `source_worktree_dirty: true`,
     while the connected corpus reports d5abc2c0. Serving that under an
@@ -385,6 +389,10 @@ def test_measured_refuses_to_claim_an_artifact_measured_on_another_corpus(monkey
     _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
     _stub_quantized_indexes_valid(monkeypatch)
 
+    monkeypatch.setattr(
+        "service.hnsw.MEASURED_ARTIFACT",
+        ROOT / "data/benchmarks/archive/hnsw_measured_2026-08-17.json",
+    )
     attribution = measured()["attribution"]
 
     assert attribution["attributed"] is False

@@ -534,11 +534,15 @@ check-exact-neighbors:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/seed_exact_neighbors.py --check
 
 # Captures data/benchmarks/hnsw_measured.json, the artifact the HNSW instrument
-# replays. Read-only against the catalog; writes measured rows to mosaic_bench.
+# replays, plus raw per-query samples. Uses all current anchors and existing indexes.
+# Read-only against Aurora. Run from a clean worktree with AURORA_INSTANCE_CLASS set.
 benchmark-hnsw:
-	@DATABASE_URL="$(DATABASE_URL)" AURORA_INSTANCE_CLASS="$(AURORA_INSTANCE_CLASS)" \
-		$(PYTHON) scripts/benchmark_hnsw.py --queries 25 --k 10 \
-		--ef-search 10 20 40 80 100 200 400 --filter-preset-matrix
+	@test -n "$(AURORA_INSTANCE_CLASS)" || { echo "Benchmark hardware rule: AURORA_INSTANCE_CLASS is empty; fix: set it to the connected Aurora instance class."; exit 1; }
+	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/benchmark_mosaic_scale.py \
+		--output data/benchmarks/hnsw_measured.json --k 10 \
+		--ef-search 10 20 40 80 100 200 400 --binary-depth 10 20 50 100 200 \
+		--deep-ef-search 800 --deep-binary-depth 1400 3000 \
+		--instance-class "$(AURORA_INSTANCE_CLASS)"
 
 benchmark-ask-mosaic:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/benchmark_ask_mosaic.py

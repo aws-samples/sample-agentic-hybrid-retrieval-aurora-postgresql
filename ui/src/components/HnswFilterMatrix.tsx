@@ -26,27 +26,27 @@ const CHARACTER_NOTES: Record<string, { headline: string; detail: string }> = {
   uncorrelated: {
     headline: "Selective, and uncorrelated with the neighbourhood.",
     detail:
-      "A rating floor cuts most of the corpus but is spread evenly through vector space, so the candidates HNSW visits still contain matches. Iterative scan is not needed.",
+      "A rating floor can leave matches near many query vectors. Compare Off with Strict and Relaxed to see whether another pass recovers more of them.",
   },
   anti_correlated: {
     headline: "Less selective, and far worse.",
     detail:
-      "This filter is more permissive than the rating floor and performs dramatically worse, because it is anti-correlated with where the query lives: measured, 100 of the 100 nearest neighbours of a consumer-electronics anchor are also consumer electronics. Selectivity is the metric everyone reaches for and it predicts the wrong answer here. Correlation is the risk.",
+      "A home-office filter can remove the nearby products for queries from other domains. How close the matching products are matters as well as how many products pass the filter.",
   },
   selective_uncorrelated: {
     headline: "Narrow enough that the graph runs out of matches.",
     detail:
-      "Under a thousand rows qualify. Turning iterative scan on recovers most of them, at roughly six times the buffers.",
+      "A brand and stock filter leaves a small part of the catalog. Iterative scans can recover more matches, with extra work. Compare the returned rows, recall and time together.",
   },
   selective_correlated: {
-    headline: "The knob whose name suggests it should help, and does not.",
+    headline: "More scanning still has a work limit.",
     detail:
-      "Raising max_scan_tuples from 20,000 to 1,000,000 changes nothing here: measured zero rows at 20K, 100K, 500K and 1M alike. The binding limit is work_mem x scan_mem_multiplier. Raise the budget and rows appear; raise the tuple cap and nothing does.",
+      "A narrow filter can need more scanning than the available memory and tuple budget allow. The measured memory settings show whether extra room helped this query set.",
   },
   planner_abandons_hnsw: {
     headline: "Postgres stops using the index, correctly.",
     detail:
-      "At six matching rows the planner abandons HNSW for a filtered exact scan and returns every one of them. HNSW is not always the answer, and the planner already knows that.",
+      "For a very small matching set, PostgreSQL can choose a filtered exact scan. The plan node shows which path this measurement used.",
   },
 };
 
@@ -175,7 +175,6 @@ export function HnswFilterMatrix({
                     {budget} MB
                     <small>
                       x{Math.round((budget / workMemMb) * 10) / 10}
-                      {budget === workMemMb ? " (pre-fix)" : " (shipped)"}
                     </small>
                   </span>
                 </label>

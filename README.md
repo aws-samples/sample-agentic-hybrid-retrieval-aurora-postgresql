@@ -317,7 +317,11 @@ These assets answer different questions:
 - the 20 product-retrieval cases measure retrieval quality;
 - the 720 generated fixtures test whether filters violated their contract.
 
-Only `scripts/benchmark_hnsw.py` records measured Aurora performance.
+The [current scale benchmarks](docs/current-scale-benchmarks.md) cover all 30
+anchor products across the current 500,000-vector Aurora catalog, with exact
+top-10 comparisons and warm database p50/p95 timings. The report includes the
+rerun command and raw samples. `scripts/benchmark_mosaic_scale.py` refreshes the
+current artifact; `scripts/benchmark_hnsw.py` is the older sweep-only runner.
 `scripts/simulate_scale.py` produces a labeled projection and must not be
 presented as benchmark evidence.
 

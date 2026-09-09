@@ -712,12 +712,14 @@ export interface HnswStorage {
 export interface HnswEfPoint {
   ef_search: number;
   server_ms: number;
+  server_p95_ms?: number;
   shared_hit_blocks: number;
   recall_at_k: number;
   estimated_total_cost: number;
 }
 
 export interface HnswFilterMode {
+  ef_search?: number;
   iterative_scan: "off" | "strict_order" | "relaxed_order";
   scan_mem_multiplier: number;
   scan_mem_mb: number;
@@ -843,7 +845,7 @@ export interface HnswRepresentations {
   payload_bytes: { fp32: number; halfvec: number; binary: number };
   note: string;
   rows: HnswRepresentationRow[];
-  quantization_distribution: {
+  quantization_distribution?: {
     why_binary_underperforms_here: string;
     fraction_components_positive: number;
     components_within_10pct_of_zero: number;
@@ -868,7 +870,7 @@ export interface HnswRepresentations {
     }>;
     tradeoff: string;
   };
-  native_binary_comparison: {
+  native_binary_comparison?: {
     question: string;
     answer: string;
     evidence: string[];

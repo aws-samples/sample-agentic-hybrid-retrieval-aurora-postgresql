@@ -159,8 +159,8 @@ def main() -> None:
             "Benchmark source rule: checkout has uncommitted work; commit the benchmark code in an isolated branch before measuring."
         )
     import psycopg
-    from psycopg.rows import dict_row
     from pgvector.psycopg import register_vector
+    from psycopg.rows import dict_row
 
     profile = load_profile()
     started = datetime.now(UTC).isoformat()
