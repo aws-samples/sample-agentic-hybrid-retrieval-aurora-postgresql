@@ -2465,7 +2465,7 @@ button:disabled {
   align-items: center;
   gap: 5px;
   color: var(--ink-soft);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
 }
 

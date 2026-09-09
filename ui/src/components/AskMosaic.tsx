@@ -1128,6 +1128,11 @@ function Turn({
                 <p>
                   <Sparkles size={14} />
                   {answerSettled ? "Final recommendation" : "Writing the answer"}
+                  {!reveal.done && reveal.text ? (
+                    <button type="button" className="ask-mosaic-skip-reveal" onClick={reveal.skip}>
+                      Show the full answer
+                    </button>
+                  ) : null}
                   {response.citations.length ? (
                     <span className="ask-mosaic-cited-support">
                       <CircleCheck size={12} aria-hidden="true" />

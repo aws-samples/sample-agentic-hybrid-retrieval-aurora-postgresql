@@ -2617,6 +2617,23 @@
 
 .ask-mosaic-answer h1,
 .ask-mosaic-answer h2,
+.ask-mosaic-skip-reveal {
+  margin-left: auto;
+  min-height: 32px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--maroon-line);
+  background: transparent;
+  color: var(--maroon-800);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ask-mosaic-skip-reveal:hover {
+  border-bottom-color: var(--maroon-800);
+}
+
 .ask-mosaic-answer h3 {
   margin: 16px 0 7px;
   color: var(--ink);
@@ -4168,11 +4185,15 @@
 }
 
 @media (max-width: 900px) {
+  /* Docked across the bottom rather than floating over the results: a pill at
+     the corner covered the results line and card prices at 500px. */
   .shop-assist-rail {
     top: auto;
     right: 16px;
-    bottom: 16px;
+    bottom: 12px;
+    left: 16px;
     width: auto;
+    justify-content: center;
     min-height: 48px;
     grid-auto-flow: column;
     grid-template-columns: auto auto auto;
@@ -4190,6 +4211,16 @@
   .shop-assist-rail span {
     writing-mode: horizontal-tb;
     transform: none;
+  }
+
+  .shop-main {
+    padding-bottom: 88px;
+  }
+
+  /* The footer sits outside .shop-main; without its own reserve the docked
+     rail covered the disclosure line at the very end of the page. */
+  .site-footer {
+    padding-bottom: 76px;
   }
 }
 

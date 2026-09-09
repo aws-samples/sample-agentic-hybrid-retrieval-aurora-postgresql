@@ -86,8 +86,7 @@ function RetrieveDetails({ response, receipts, selectedId, onSelect }: {
       <CodeBlock label="Search record" code={JSON.stringify({ query: response.query, applied_filters: response.applied_filters, embedding_model_id: diagnostics?.embedding_model_id, retrieval_profile: diagnostics?.retrieval_profile, candidate_counts: counts }, null, 2)} />
     </InspectorDetail> : <p className="inspector-waiting">Play the pipeline to see how each search helps.</p>}
     {response ? <PersistedRunDisclosures response={response} /> : null}
-    {response ? <KeepInMind>Every search is a write. Aurora saved this run as a receipt with an id, and Rank and Reason read that receipt back rather than the screen.</KeepInMind> : null}
-    <KeepInMind>One HNSW scan returns at most <code>ef_search</code> rows. A selective filter can starve the meaning arm unless <code>iterative_scan</code> lets the scan continue, which is why both settings sit in the search record above.</KeepInMind>
+    {response ? <KeepInMind>Every search is a write: this run is saved as a receipt with an id, and its search record above carries the <code>ef_search</code> and <code>iterative_scan</code> settings that decide whether a filtered HNSW scan keeps going.</KeepInMind> : null}
   </>;
 }
 

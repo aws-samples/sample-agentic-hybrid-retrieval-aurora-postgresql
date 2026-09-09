@@ -101,10 +101,12 @@ headings `clamp(30px, 2.6vw, 40px)`, section headings 19px, lead 17px, body
 15px, detail 13px, micro 12px, and monospace 13px. Uppercase labels sit at
 micro size with 0.05em tracking.
 
-12px is the floor for any text, including the sitewide `.eyebrow`, Shop's
-per-card retrieval breakdown, the search-progress steps, and code blocks.
-The stylesheet test holds a ratchet on `font-size` literals below it: 205
-legacy declarations remained on 2026-09-09, and the count may only fall.
+12px is the floor for new text. It already holds for the sitewide
+`.eyebrow`, Shop's per-card retrieval breakdown and its Compare label, the
+search-progress steps, and code blocks; the site footer and older chrome
+still sit below it. The stylesheet test holds a ratchet on `font-size`
+literals under 12px: 204 legacy declarations remained on 2026-09-09, and
+the count may only fall.
 Long-form copy on the Build view and the Scale page is capped at 70ch.
 
 Pipeline, Scale & HNSW and Session & Memory share the larger Newsreader headline:
@@ -153,6 +155,10 @@ under 760px; the request and single Play action stay prominent on mobile.
   for the open sheet and the active stock switch, so it does not compete with
   the photography beneath it. The results line sets the shopper's own words
   in italic Newsreader at 26px under a 12px uppercase label.
+- Under 900px the Try Ask Mosaic rail docks across the bottom of Shop and the
+  page reserves 88px beneath its results, so the rail never covers a result
+  line or a card price. The Ask Mosaic answer offers "Show the full answer"
+  while it is still being written, which ends the paced reveal for the turn.
 - The site header contains navigation, Code Editor when configured, Alex's
   portrait with “Welcome, Alex!”, and the bag. Repair status belongs to the
   guided Playground rail and completion proof. Its labels

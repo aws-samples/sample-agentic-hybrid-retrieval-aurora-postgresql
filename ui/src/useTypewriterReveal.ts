@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 /**
  * Cuts the reveal back to the last point that renders cleanly as Markdown.
@@ -19,6 +19,8 @@ interface TypewriterReveal {
   /** The prose typed so far; the full text once the reveal has caught up. */
   text: string;
   done: boolean;
+  /** Abandon the pacing: show everything now, and everything that streams in after. */
+  skip: () => void;
 }
 
 /**
@@ -40,7 +42,12 @@ export function useTypewriterReveal(
 ): TypewriterReveal {
   const [startedStreaming] = useState(streaming);
   const [revealedCount, setRevealedCount] = useState(0);
-  const pace = enabled && startedStreaming && !instant;
+  // A reader who has already seen "Backed by evidence" should not wait a
+  // minute for prose the service finished; one click or key ends the pacing
+  // for the rest of the turn.
+  const [skipped, setSkipped] = useState(false);
+  const skip = useCallback(() => setSkipped(true), []);
+  const pace = enabled && startedStreaming && !instant && !skipped;
   const done = !pace || revealedCount >= text.length;
   useEffect(() => {
     if (done) return undefined;
@@ -56,7 +63,7 @@ export function useTypewriterReveal(
     });
     return () => window.cancelAnimationFrame(frame);
   }, [done, text]);
-  if (!enabled) return { text: "", done: false };
-  if (!pace) return { text, done: true };
-  return { text: balancedMarkdownSlice(text, revealedCount), done };
+  if (!enabled) return { text: "", done: false, skip };
+  if (!pace) return { text, done: true, skip };
+  return { text: balancedMarkdownSlice(text, revealedCount), done, skip };
 }

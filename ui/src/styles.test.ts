@@ -103,7 +103,7 @@ export function hexLiterals(sheets: Sheet[]): string[] {
  * pass raises more, never raise it. A new sub-floor size fails with the line
  * it landed on, and the fix is a size from the documented scale.
  */
-const SMALL_TYPE_CEILING = 205;
+const SMALL_TYPE_CEILING = 204;
 
 const SMALL_TYPE = /font-size:\s*((?:[0-9]|1[01])(?:\.[0-9]+)?)px/g;
 
