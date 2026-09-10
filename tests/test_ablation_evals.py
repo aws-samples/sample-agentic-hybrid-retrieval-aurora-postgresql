@@ -21,19 +21,23 @@ from typing import Any, Self
 import pytest
 
 from scripts.ablation_evals import (
+    ARM_LEXICAL_ONLY,
     ARM_RRF_FUSED,
     ARM_RRF_RERANKED,
     ARM_SEMANTIC_ONLY,
+    ARM_TRIGRAM_ONLY,
     CEILING_BOUNDED_ARMS,
     AblationMeasurementError,
     assert_ceiling_bounds_fusion_arms,
     assert_reproduces_committed_metrics,
     candidate_recall_ceiling,
+    lexical_only_arm,
     load_served_arm,
     measured_ablation,
     relevant_ids,
     rrf_fused_arm,
     semantic_only_arm,
+    trigram_only_arm,
 )
 from scripts.evaluate import evaluate
 from scripts.score_evals import ranked_result_sha256
@@ -277,20 +281,32 @@ class ScriptedConnection:
         self,
         semantic_rows: dict[str, list[dict[str, Any]]],
         fusion_rows: dict[str, list[dict[str, Any]]],
+        fts_rows: dict[str, list[dict[str, Any]]] | None = None,
+        trigram_rows: dict[str, list[dict[str, Any]]] | None = None,
     ) -> None:
         self.semantic_rows = semantic_rows
         self.fusion_rows = fusion_rows
+        self.fts_rows = fts_rows or {}
+        self.trigram_rows = trigram_rows or {}
         self.semantic_calls: list[str] = []
         self.fusion_calls: list[str] = []
+        self.fts_calls: list[str] = []
+        self.trigram_calls: list[str] = []
         self._pending: list[dict[str, Any]] = []
 
     def execute(self, sql: str, params: Any = None) -> ScriptedConnection:
         # `configure_hnsw` binds a positional tuple, not the named dict every
-        # arm query uses; it never matches either branch below.
+        # arm query uses; it never matches any branch below.
         marker = params.get("filters", "") if isinstance(params, dict) else ""
         if "mosaic_search.search_vector(" in sql:
             self.semantic_calls.append(marker)
             self._pending = self.semantic_rows[marker]
+        elif "mosaic_search.search_fts(" in sql:
+            self.fts_calls.append(marker)
+            self._pending = self.fts_rows.get(marker, [])
+        elif "mosaic_search.search_trigram(" in sql:
+            self.trigram_calls.append(marker)
+            self._pending = self.trigram_rows.get(marker, [])
         elif "search_hybrid_rrf(" in sql:
             self.fusion_calls.append(marker)
             self._pending = self.fusion_rows[marker]
@@ -376,6 +392,42 @@ def test_semantic_only_arm_ranks_by_search_vector_and_embeds_each_query_once():
     assert sorted(connection.semantic_calls) == sorted([_Q1_MARKER, _Q2_MARKER])
     # Each distinct query text is embedded exactly once.
     assert embedder.calls == ["first ablation query", "second ablation query"]
+
+
+def test_text_arms_rank_by_their_own_channel_and_never_embed():
+    """The lexical and trigram arms read the query text: no embedding is made,
+    each channel's SQL runs once per query, and each returns its own rank."""
+    embedder = CountingEmbedder()
+    connection = ScriptedConnection(
+        semantic_rows={},
+        fusion_rows={},
+        fts_rows={
+            _Q1_MARKER: [
+                {"product_id": 101, "fts_rank": 1},
+                {"product_id": 555, "fts_rank": 2},
+            ],
+            _Q2_MARKER: [],
+        },
+        trigram_rows={
+            _Q1_MARKER: [],
+            _Q2_MARKER: [{"product_id": 201, "trigram_rank": 1}],
+        },
+    )
+    retrieval = RetrievalService(
+        embedding_provider=embedder, connection_factory=lambda: connection
+    )
+
+    lexical = lexical_only_arm(retrieval, _QUERIES)
+    trigram = trigram_only_arm(retrieval, _QUERIES)
+
+    assert lexical == {"G-Q1": [(1, 101), (2, 555)], "G-Q2": []}
+    assert trigram == {"G-Q1": [], "G-Q2": [(1, 201)]}
+    # Witness: each channel's own function ran, once per query, and the
+    # semantic channel and the embedder were never touched.
+    assert sorted(connection.fts_calls) == sorted([_Q1_MARKER, _Q2_MARKER])
+    assert sorted(connection.trigram_calls) == sorted([_Q1_MARKER, _Q2_MARKER])
+    assert connection.semantic_calls == []
+    assert embedder.calls == []
 
 
 def test_rrf_fused_arm_ranks_by_the_served_fusion_function_and_returns_the_full_pool():
@@ -494,6 +546,16 @@ def ablation_environment(tmp_path, monkeypatch):
             _Q1_MARKER: [{"product_id": 998}, {"product_id": 101}],
             _Q2_MARKER: [{"product_id": 201}],
         },
+        fts_rows={
+            # G-Q1: exact terms find the relevant product first; G-Q2: nothing.
+            _Q1_MARKER: [{"product_id": 101, "fts_rank": 1}],
+            _Q2_MARKER: [],
+        },
+        trigram_rows={
+            # Close spelling finds nothing relevant on either query.
+            _Q1_MARKER: [{"product_id": 777, "trigram_rank": 1}],
+            _Q2_MARKER: [],
+        },
     )
     retrieval = RetrievalService(
         embedding_provider=CountingEmbedder(), connection_factory=lambda: connection
@@ -526,12 +588,29 @@ def ablation_environment(tmp_path, monkeypatch):
     return {"truth": truth, "scorecard_path": scorecard_path}
 
 
-def test_measured_ablation_assembles_all_three_arms_and_the_ceiling(
+def test_measured_ablation_assembles_all_five_arms_and_the_ceiling(
     ablation_environment,
 ):
     result = measured_ablation()
 
-    assert set(result["arms"]) == {ARM_SEMANTIC_ONLY, ARM_RRF_FUSED, ARM_RRF_RERANKED}
+    assert list(result["arms"]) == [
+        ARM_LEXICAL_ONLY,
+        ARM_TRIGRAM_ONLY,
+        ARM_SEMANTIC_ONLY,
+        ARM_RRF_FUSED,
+        ARM_RRF_RERANKED,
+    ]
+    # Hand-verifiable: exact terms find G-Q1's product at rank 1 and nothing
+    # for G-Q2 -> recall 0.5, nDCG 0.5; close spelling finds nothing relevant.
+    assert result["arms"][ARM_LEXICAL_ONLY]["recall@10"] == pytest.approx(0.5)
+    assert result["arms"][ARM_LEXICAL_ONLY]["ndcg@10"] == pytest.approx(0.5)
+    assert result["arms"][ARM_TRIGRAM_ONLY]["recall@10"] == pytest.approx(0.0)
+    # Every single arm is recorded against the ceiling, none asserted against it.
+    assert set(result["candidate_recall_ceiling"]["unbounded_arms"]) == {
+        ARM_LEXICAL_ONLY,
+        ARM_TRIGRAM_ONLY,
+        ARM_SEMANTIC_ONLY,
+    }
     # Hand-verifiable: semantic misses G-Q1 entirely (recall 0) but finds
     # G-Q2 (recall 1) -> mean 0.5.
     assert result["arms"][ARM_SEMANTIC_ONLY]["recall@10"] == pytest.approx(0.5)

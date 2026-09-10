@@ -108,6 +108,28 @@ def _stage_ablation_artifact(**overrides) -> dict:
         "spread_note": "20 queries and 74 judgments cannot separate small differences.",
         "scored_query_count": 20,
         "arms": {
+            "lexical_only": {
+                "label": "Lexical only",
+                "description": "fixture description",
+                "recall@10": 0.6,
+                "mrr": 0.65,
+                "ndcg@10": 0.61,
+                "ndcg@10_min": 0.0,
+                "ndcg@10_max": 1.0,
+                "ndcg@10_stdev": 0.41,
+                "ndcg@10_query_wins": 9,
+            },
+            "trigram_only": {
+                "label": "Trigram only",
+                "description": "fixture description",
+                "recall@10": 0.3,
+                "mrr": 0.35,
+                "ndcg@10": 0.31,
+                "ndcg@10_min": 0.0,
+                "ndcg@10_max": 1.0,
+                "ndcg@10_stdev": 0.44,
+                "ndcg@10_query_wins": 5,
+            },
             "semantic_only": {
                 "label": "Semantic only",
                 "description": "fixture description",
@@ -151,10 +173,18 @@ def _stage_ablation_artifact(**overrides) -> dict:
             "judged_relevant_never_fetched": 2,
             "description": "fixture ceiling description",
             "unbounded_arms": {
+                "lexical_only": {
+                    "note": "Lexical-only has its own candidate pool.",
+                    "recall@10": 0.6,
+                },
+                "trigram_only": {
+                    "note": "Trigram-only has its own candidate pool.",
+                    "recall@10": 0.3,
+                },
                 "semantic_only": {
                     "note": "Semantic-only has its own larger candidate pool.",
                     "recall@10": 0.7,
-                }
+                },
             },
         },
         "per_query": [
@@ -162,6 +192,8 @@ def _stage_ablation_artifact(**overrides) -> dict:
                 "query_id": "G-001",
                 "query_text": "EchoBud S2",
                 "ndcg@10": {
+                    "lexical_only": 1.0,
+                    "trigram_only": 0.0,
                     "semantic_only": 1.0,
                     "rrf_fused_no_rerank": 1.0,
                     "rrf_fused_reranked": 1.0,
@@ -629,7 +661,13 @@ def test_stage_ablation_projects_every_arm_and_the_ceiling():
 
     assert result.attributed is True
     keys = {arm.key for arm in result.arms}
-    assert keys == {"semantic_only", "rrf_fused_no_rerank", "rrf_fused_reranked"}
+    assert keys == {
+        "lexical_only",
+        "trigram_only",
+        "semantic_only",
+        "rrf_fused_no_rerank",
+        "rrf_fused_reranked",
+    }
     reranked = next(arm for arm in result.arms if arm.key == "rrf_fused_reranked")
     assert reranked.recall_at_10 == 0.8667
     assert reranked.ndcg_at_10_query_wins == 16
@@ -659,7 +697,7 @@ def test_stage_ablation_is_withheld_when_its_own_fingerprint_does_not_match():
     assert result.attribution_note.startswith(PENDING_TEXT)
     # Witness: the arms and ceiling are still projected even while withheld,
     # so the UI -- not this projection -- decides what to hide.
-    assert len(result.arms) == 3
+    assert len(result.arms) == 5
 
 
 def test_stage_ablation_attribution_is_independent_of_the_main_artifacts():
@@ -791,6 +829,8 @@ def test_api_serves_the_stage_ablation_section_alongside_the_other_four():
     }
     ablation = payload["stage_ablation"]
     assert {arm["key"] for arm in ablation["arms"]} == {
+        "lexical_only",
+        "trigram_only",
         "semantic_only",
         "rrf_fused_no_rerank",
         "rrf_fused_reranked",
@@ -802,7 +842,11 @@ def test_api_serves_the_stage_ablation_section_alongside_the_other_four():
         "rrf_fused_no_rerank",
         "rrf_fused_reranked",
     }
-    assert set(ceiling_contract["unbounded_arms"]) == {"semantic_only"}
+    assert set(ceiling_contract["unbounded_arms"]) == {
+        "lexical_only",
+        "trigram_only",
+        "semantic_only",
+    }
     ceiling = ceiling_contract["pool_recall_ceiling"]
     arms = {arm["key"]: arm for arm in ablation["arms"]}
     for arm_key in ceiling_contract["bounds_arms"]:

@@ -978,7 +978,13 @@ class ScorecardStageArm(BaseModel):
     see `stage_ablation.spread_note`.
     """
 
-    key: Literal["semantic_only", "rrf_fused_no_rerank", "rrf_fused_reranked"]
+    key: Literal[
+        "lexical_only",
+        "trigram_only",
+        "semantic_only",
+        "rrf_fused_no_rerank",
+        "rrf_fused_reranked",
+    ]
     label: str
     description: str
     recall_at_10: float
@@ -1011,7 +1017,7 @@ class ScorecardCandidateRecallCeiling(BaseModel):
     judged_relevant_never_fetched: int
     description: str
     unbounded_arms: dict[
-        Literal["semantic_only"],
+        Literal["lexical_only", "trigram_only", "semantic_only"],
         ScorecardUnboundedCeilingArm,
     ]
 
@@ -1055,8 +1061,8 @@ class ScorecardStagePairedComparison(BaseModel):
 
 class ScorecardStageAblation(BaseModel):
     """Section E: what each retrieval stage contributes, measured rather than
-    asserted -- semantic-only vs the served fusion function with reranking
-    off vs the full served path. A separate artifact and a separate
+    asserted -- each single arm alone vs the served fusion function with
+    reranking off vs the full served path. A separate artifact and a separate
     attribution gate from section A: this decomposes the same served-path
     quality section A reports as a single number, but is its own
     `data/evals/canonical_stage_ablation.json` measurement, not a re-labeling

@@ -531,10 +531,13 @@ def _agent_contracts() -> ScorecardAgentContracts:
     return ScorecardAgentContracts(guarantees=guarantees)
 
 
-#: The order the arms build on one another: each is compared with the one
-#: before it, because that difference is the thing the step actually added.
+#: The order the arms build on one another: combining is compared with each
+#: single arm it replaced, then reranking with the combined list it reorders,
+#: because that difference is the thing the step actually added.
 _ABLATION_STEPS = (
-    ("semantic_only", "rrf_fused_no_rerank", "Combining all three search methods"),
+    ("lexical_only", "rrf_fused_no_rerank", "Combining, against exact terms alone"),
+    ("trigram_only", "rrf_fused_no_rerank", "Combining, against close spelling alone"),
+    ("semantic_only", "rrf_fused_no_rerank", "Combining, against meaning match alone"),
     ("rrf_fused_no_rerank", "rrf_fused_reranked", "Reranking the combined list"),
 )
 

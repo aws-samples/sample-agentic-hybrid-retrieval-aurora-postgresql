@@ -6,14 +6,18 @@ proves the served path (RRF fusion + managed reranking) meets a quality floor,
 but a single number cannot show a participant *why*: how much of that quality
 came from fusing three retrievers versus from reranking the fused pool.
 
-Three arms, over the same 20 scored canonical queries and the same judgments
+Five arms, over the same 20 scored canonical queries and the same judgments
 `scripts/score_evals.py` already uses:
 
-    1. semantic_only       -- `mosaic_search.search_vector`, no fusion, no rerank
-    2. rrf_fused_no_rerank -- the served fusion function, reranking off
-    3. rrf_fused_reranked  -- the current production path
+    1. lexical_only        -- `mosaic_search.search_fts`, no fusion, no rerank
+    2. trigram_only        -- `mosaic_search.search_trigram`, no fusion, no rerank
+    3. semantic_only       -- `mosaic_search.search_vector`, no fusion, no rerank
+    4. rrf_fused_no_rerank -- the served fusion function, reranking off
+    5. rrf_fused_reranked  -- the current production path
 
-Arm 3 is never re-served. Managed reranking costs money per call, and
+The three single arms are what a participant would ship without hybrid
+retrieval; together with the fused arm they answer "what did combining buy".
+Arm 5 is never re-served. Managed reranking costs money per call, and
 `data/evals/canonical_ranked_results.csv` already carries the exact ranked
 output of the last reviewed production run, committed and reduced to
 `query_id,product_id,rank` so a clean clone can reproduce it. This script
@@ -24,11 +28,12 @@ precision. A mismatch means the CSV or the committed scorecard no longer
 describes the same measurement, and this script stops rather than publish a
 number it cannot back.
 
-Arms 1 and 2 call Aurora directly through `mosaic_search.search_vector` and
-the same fusion SQL `service.retrieval.RetrievalService` serves, bypassing
+Arms 1 to 4 call Aurora directly through the per-channel search functions
+and the same fusion SQL `service.retrieval.RetrievalService` serves, bypassing
 `RetrievalService.search()` so no `mosaic.search_event` row is written --
-this script only ever issues `SELECT`s. Each query is embedded once (cached by
-`RetrievalService._embed_query`) and shared between arms 1 and 2.
+this script only ever issues `SELECT`s. The two text arms need no embedding;
+each query is embedded once (cached by `RetrievalService._embed_query`) and
+shared between arms 3 and 4.
 
 `candidate_recall_ceiling` answers a different question than any arm's
 Recall@10: of the judged-relevant products, how many did the *fused* pool
@@ -36,9 +41,9 @@ Recall@10: of the judged-relevant products, how many did the *fused* pool
 participant) contain at all? Reranking only ever reorders that pool -- it
 never adds a candidate -- so this is the ceiling reranking could reach. Both
 arm 2 and arm 3's top-10 are drawn from this same pool, so the ceiling bounds
-their Recall@10 by construction. It does not bound arm 1, which retrieves
-independently of fusion; the assembled artifact records where arm 1 sits
-against the ceiling rather than assuming the relationship.
+their Recall@10 by construction. It does not bound the three single arms,
+which retrieve independently of fusion; the assembled artifact records where
+each of them sits against the ceiling rather than assuming the relationship.
 """
 
 from __future__ import annotations
@@ -87,17 +92,34 @@ SERVED_RESULTS_PATH = REPO / "data" / "evals" / "canonical_ranked_results.csv"
 CANONICAL_SCORECARD_PATH = REPO / "data" / "evals" / "canonical_scorecard.json"
 ABLATION_PATH = REPO / "data" / "evals" / "canonical_stage_ablation.json"
 
+ARM_LEXICAL_ONLY = "lexical_only"
+ARM_TRIGRAM_ONLY = "trigram_only"
 ARM_SEMANTIC_ONLY = "semantic_only"
 ARM_RRF_FUSED = "rrf_fused_no_rerank"
 ARM_RRF_RERANKED = "rrf_fused_reranked"
 
+#: The three arms a participant could ship on their own, in the order the
+#: Playground names them. None is bounded by the fused-pool ceiling.
+SINGLE_ARMS = (ARM_LEXICAL_ONLY, ARM_TRIGRAM_ONLY, ARM_SEMANTIC_ONLY)
+
 ARM_LABELS: dict[str, str] = {
+    ARM_LEXICAL_ONLY: "Lexical only",
+    ARM_TRIGRAM_ONLY: "Trigram only",
     ARM_SEMANTIC_ONLY: "Semantic only",
     ARM_RRF_FUSED: "RRF fused, reranking off",
     ARM_RRF_RERANKED: "RRF fused + managed reranking (served path)",
 }
 
 ARM_DESCRIPTIONS: dict[str, str] = {
+    ARM_LEXICAL_ONLY: (
+        "mosaic_search.search_fts alone: PostgreSQL full-text search over the "
+        "weighted product document, with no trigram or semantic arm and no "
+        "fusion."
+    ),
+    ARM_TRIGRAM_ONLY: (
+        "mosaic_search.search_trigram alone: pg_trgm similarity over the "
+        "product identity text, with no lexical or semantic arm and no fusion."
+    ),
     ARM_SEMANTIC_ONLY: (
         "mosaic_search.search_vector alone: dense cosine ranking over the "
         "product embedding, with no lexical or trigram arm and no fusion."
@@ -200,6 +222,82 @@ def load_served_arm(
             )
         )
     return dict(ranked)
+
+
+def _text_channel_arm(
+    retrieval: RetrievalService,
+    queries: list[dict[str, Any]],
+    *,
+    sql: str,
+    rank_column: str,
+    parameters: dict[str, Any],
+) -> dict[str, list[tuple[int, int]]]:
+    """Rank every candidate one text channel finds on its own.
+
+    No embedding is made: the lexical and trigram channels read the query
+    text, so this is the exact SQL the served fusion function calls for that
+    channel, run alone and never fused. The full ranked list is kept because
+    `evaluate()` trims to the top K itself.
+    """
+    ranked: dict[str, list[tuple[int, int]]] = {}
+    for query in queries:
+        normalized = normalize_query(query["query"])
+        filters = SearchFilters.model_validate(query.get("filters") or {}).as_sql_json()
+        with retrieval.connection_factory() as connection:
+            rows = connection.execute(
+                sql,
+                {"query": normalized, "filters": json.dumps(filters), **parameters},
+            ).fetchall()
+        ranked[query["query_id"]] = [
+            (int(row[rank_column]), int(row["product_id"])) for row in rows
+        ]
+    return ranked
+
+
+def lexical_only_arm(
+    retrieval: RetrievalService,
+    queries: list[dict[str, Any]],
+) -> dict[str, list[tuple[int, int]]]:
+    """`mosaic_search.search_fts` alone, at the served `fts_limit`."""
+    profile = retrieval._profile(SearchRequest(query="ablation profile", limit=K))
+    return _text_channel_arm(
+        retrieval,
+        queries,
+        sql="""
+            SELECT product_id, fts_rank
+            FROM mosaic_search.search_fts(
+                %(query)s::text, %(filters)s::jsonb, %(limit)s::integer
+            )
+            ORDER BY fts_rank
+            """,
+        rank_column="fts_rank",
+        parameters={"limit": profile.fts_limit},
+    )
+
+
+def trigram_only_arm(
+    retrieval: RetrievalService,
+    queries: list[dict[str, Any]],
+) -> dict[str, list[tuple[int, int]]]:
+    """`mosaic_search.search_trigram` alone, at the served limit and threshold."""
+    profile = retrieval._profile(SearchRequest(query="ablation profile", limit=K))
+    return _text_channel_arm(
+        retrieval,
+        queries,
+        sql="""
+            SELECT product_id, trigram_rank
+            FROM mosaic_search.search_trigram(
+                %(query)s::text, %(filters)s::jsonb, %(limit)s::integer,
+                %(threshold)s::real
+            )
+            ORDER BY trigram_rank
+            """,
+        rank_column="trigram_rank",
+        parameters={
+            "limit": profile.trigram_limit,
+            "threshold": profile.trigram_threshold,
+        },
+    )
 
 
 def semantic_only_arm(
@@ -493,7 +591,7 @@ def assert_served_arm_shares_current_identity(
 
 
 #: Arms whose top-K is drawn from the fused pool the ceiling is computed over.
-#: `semantic_only` is deliberately absent -- see below.
+#: The single arms are deliberately absent -- see below.
 CEILING_BOUNDED_ARMS = (ARM_RRF_FUSED, ARM_RRF_RERANKED)
 
 
@@ -571,7 +669,7 @@ def _arm_metrics(
 
 
 def measured_ablation() -> dict[str, Any]:
-    """Measure all three arms and assemble the ablation artifact."""
+    """Measure all five arms and assemble the ablation artifact."""
     settings = get_settings()
     _require_clean_source(settings)
 
@@ -615,6 +713,8 @@ def measured_ablation() -> dict[str, Any]:
     )
 
     retrieval = get_retrieval_service()
+    lexical_result = _arm_metrics(lexical_only_arm(retrieval, queries), truth)
+    trigram_result = _arm_metrics(trigram_only_arm(retrieval, queries), truth)
     semantic_ranked = semantic_only_arm(retrieval, queries)
     semantic_result = _arm_metrics(semantic_ranked, truth)
     fused_ranked, fused_pools = rrf_fused_arm(retrieval, queries)
@@ -622,6 +722,8 @@ def measured_ablation() -> dict[str, Any]:
     ceiling = candidate_recall_ceiling(fused_pools, truth)
 
     arm_results = {
+        ARM_LEXICAL_ONLY: lexical_result,
+        ARM_TRIGRAM_ONLY: trigram_result,
         ARM_SEMANTIC_ONLY: semantic_result,
         ARM_RRF_FUSED: fused_result,
         ARM_RRF_RERANKED: served_result,
@@ -721,20 +823,19 @@ def measured_ablation() -> dict[str, Any]:
             ),
             "bounds_arms": list(CEILING_BOUNDED_ARMS),
             "unbounded_arms": {
-                ARM_SEMANTIC_ONLY: {
-                    f"recall@{K}": arm_results[ARM_SEMANTIC_ONLY]["metrics"][
-                        f"recall@{K}"
-                    ],
+                arm: {
+                    f"recall@{K}": arm_results[arm]["metrics"][f"recall@{K}"],
                     "note": (
-                        "Not bounded by this ceiling. search_vector returns "
-                        "semantic_limit candidates and this arm takes its own "
-                        "top-K from those, while the fused pool is capped at "
+                        "Not bounded by this ceiling. This channel returns its "
+                        "own candidate limit and this arm takes its own top-K "
+                        "from those, while the fused pool is capped at "
                         "fused_limit after RRF scores three channels together, "
                         "so a judged-relevant product can appear here and still "
                         "be absent from the fused pool. Recorded for "
                         "comparison, never asserted against."
                     ),
                 }
+                for arm in SINGLE_ARMS
             },
         },
         "per_query": per_query_payload,
