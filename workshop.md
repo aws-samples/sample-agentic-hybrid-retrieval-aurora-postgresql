@@ -349,7 +349,7 @@ Models pinned for the event: Cohere Embed v4 for embeddings, Cohere Rerank 3.5 f
 | 0:12–0:22 | **Lab 1 — Retrieve** | Headphones return through the repaired trigram arm |
 | 0:22–0:32 | **Lab 2 — Rank** | The chair leads before and after reranking |
 | 0:32–0:52 | **Lab 3 — Reason**, including completion proof and takeaways | Registered evidence becomes a cited answer; all required checks pass |
-| 0:52–1:00 | **Optional / flex** | Scale & HNSW by default; Session & Memory as an extension when connected and rehearsed; recovery or questions |
+| 0:52–1:00 | **Optional / flex** | Build a retrieval tool by default, Scale & HNSW as the fallback; Session & Memory as an extension when connected and rehearsed; recovery or questions |
 
 The canonical budget is **12 + 10 + 10 + 20 + 8 = 60 minutes**. If the presentation
 finishes in 10 minutes, those two minutes go to flex. Proof is included in each
@@ -371,9 +371,12 @@ pass until its production check runs.
 The final eight minutes are optional. Pick one exercise; do not try to teach
 Memory, Runtime, Gateway and HNSW as four additional labs.
 
-**Scale & HNSW is the default flex**: read-only, deterministic, and it makes no
-billed call. **Session & Memory stays in the app as an extension of the core
-path.** Nothing in the three labs depends on it, Playground runs and lab proofs
+**Build a retrieval tool is the default flex**, as the participant guide says:
+a six-to-eight-minute command-line exercise that writes one eligibility rule,
+registers one typed tool and proves Aurora applied the caller's budget. It
+needs no Playground page. **Scale & HNSW is the fallback**: read-only,
+deterministic, and it makes no billed call. **Session & Memory stays in the app
+as an extension of the core path.** Nothing in the three labs depends on it, Playground runs and lab proofs
 keep memory off, and the tab says so in its own masthead. Offer it only when the
 account's Memory resource is connected and the facilitator has rehearsed it. It
 extends the story after the completion gate; it never sits inside it.

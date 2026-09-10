@@ -331,7 +331,14 @@ make score-evals
 production `mosaic_search.matches_filters` function. `make score-evals` runs
 the served retrieval path over the canonical scorecard and verifies source,
 dataset, retrieval-profile, model, Aurora, ranked-result, and metric provenance.
-It is a release gate, not a general benchmark command.
+It is a release gate, not a general benchmark command. After any change to a
+file in the retrieval fingerprint, Prove reports the scorecard as pending and
+two scorecard tests go red until both measurements run again, in order and
+each from a clean commit with `AURORA_INSTANCE_CLASS` exported: `make
+score-evals SCORE_EVAL_ARGS="--restart --write-baseline"`, commit the two
+scorecard artifacts, then `make ablation-evals` and commit the ablation
+artifact. The sequence is spelled out in
+[`docs/evaluation-plan.md`](docs/evaluation-plan.md).
 
 These assets answer different questions:
 

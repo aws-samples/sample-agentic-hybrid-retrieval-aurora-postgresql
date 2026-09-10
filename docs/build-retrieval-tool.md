@@ -4,7 +4,7 @@ Alex needs available over-ear headphones with a microphone, within his budget. W
 
 A microphone flag proves that a microphone exists. It does not prove voice clarity or microphone noise suppression. Keep those questions for the evidence step.
 
-The main takeaway remains the [Mosaic Hybrid Retrieval Skill](../skills/mosaic-hybrid-retrieval/SKILL.md). This exercise is optional practice.
+The takeaway remains the SQL, the eval harness and the citation guard named in the README's **Participant takeaway** table, with the [Mosaic Hybrid Retrieval Skill](../skills/mosaic-hybrid-retrieval/SKILL.md) describing how an agent calls them. This exercise is optional practice, run from the command line; no Playground page is needed for it.
 
 ## 1. Create your working file
 
