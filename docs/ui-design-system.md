@@ -263,6 +263,9 @@ under 760px; the request and single Play action stay prominent on mobile.
   in the collapsed “Earlier answers” disclosure; switching sessions or adding an
   event clears the current answer display. This surface teaches memory through conversation,
   without budget controls or a manual preference form.
+- The footer’s Playground column and the tab strip share `PLAYGROUND_TABS` in
+  `navigation.ts`: Hybrid retrieval, Scale & HNSW, Session & Memory. Browser
+  titles use those same names. Catalog Studio is no longer linked or served.
 - Bottom-of-page links follow the Playground tabs: Hybrid retrieval leads to Scale &
   HNSW, which leads to Session & Memory using the same heading, copy and arrow link.
 - How it finds neighbors names HNSW beside a cream 3D sculpture: three floating
@@ -320,10 +323,12 @@ under 760px; the request and single Play action stay prominent on mobile.
 | `/mosaic-labs/hnsw` | Scale & HNSW: read-only index explanation, current Aurora substrate and attributed recorded measurements, including optional halfvec/binary comparisons |
 | `/mosaic-labs/memory` | Session & Memory: AgentCore events, four built-in strategies and actual records; conversation and strategy columns lead to recall and Aurora-backed cited answers |
 | `/mosaic-labs/hnsw?view=bench` | Advanced instrument: Index & storage, Recall & filters, Scale experiments; live probes, recorded experiments and projections carry distinct labels |
-| `/mosaic-labs/studio` | Studio: real catalog objects as a composition study, not a recommendation |
+| `/mosaic-labs/studio` | Retired composition page; redirects to Hybrid retrieval |
 
-`/playground` and `/mosaic-labs` redirect to the Hybrid retrieval; `/labs/performance`
-redirects to Scale & HNSW. Existing guide and proof links keep the four-stage
+`/playground`, `/mosaic-labs` and `/inspiration` redirect to Hybrid retrieval;
+`/shop` redirects to Shop and `/labs/performance` redirects to Scale & HNSW.
+Aliases preserve query parameters and section anchors, including filters, saved
+search IDs and advanced-view choices. Existing guide and proof links keep the four-stage
 lab reachable without making it the default inspection surface.
 
 ## Interaction principles

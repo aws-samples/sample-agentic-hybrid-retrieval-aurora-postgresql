@@ -30,6 +30,13 @@ export const RETRIEVAL_SURFACE = {
     "A search can return a plausible top result while the system behind it is wrong.",
 } as const;
 
+/** Keep tab names, footer destinations and browser titles in the same order. */
+export const PLAYGROUND_TABS = [
+  { id: "retrieval", path: RETRIEVAL_SURFACE.path, label: "Hybrid retrieval" },
+  { id: "hnsw", path: "/mosaic-labs/hnsw", label: "Scale & HNSW" },
+  { id: "memory", path: "/mosaic-labs/memory", label: "Session & Memory" },
+] as const;
+
 export function useNavigate() {
   const [, navigate] = useLocation();
   return (to: string, options?: NavigationOptions) => navigate(to, options);

@@ -105,7 +105,7 @@ copyable canonical SQL.
 
 API: `GET /api/retrieval/examples` and `POST /api/search`.
 
-## `/mosaic-labs/hnsw` - Vector index at scale
+## `/mosaic-labs/hnsw` - Scale & HNSW
 
 Purpose: teach HNSW as a measured workload rather than a checkbox.
 
@@ -127,14 +127,14 @@ Outputs:
 API: `GET /api/benchmarks/projection`. Projected output must never be labeled as
 an Aurora measurement.
 
-## `/mosaic-labs/studio` - Catalog studio (fixture-backed, outside the session path)
+## `/mosaic-labs/memory` - Session & Memory
 
-Purpose: let a participant compose real catalog objects into a visual study
-after they have used the live retrieval system in Shop.
+Purpose: explore AgentCore conversation events, memory strategies and recall.
+The page starts with empty answer areas and reads actual stored records when
+connected. New session keeps Alex’s identity; Start fresh begins a separate Alex.
 
-Catalog studio does not execute or emulate a search. It reads from a fixed set
-of local fixtures, not a live retrieval request, and sits outside the
-one-hour hands-on path.
+The former `/mosaic-labs/studio` route redirects to Hybrid retrieval. The footer
+and tab strip expose the same three current destinations in the same order.
 
 ## Ownership boundary
 
