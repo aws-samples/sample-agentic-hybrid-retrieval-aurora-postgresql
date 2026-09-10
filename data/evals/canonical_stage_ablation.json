@@ -1,38 +1,60 @@
 {
-  "ablation_methodology_sha256": "cbcd4a559308fc77bfc6e4988d2f750e3a1d26489ca1bc4510f777042f7f7038",
+  "ablation_methodology_sha256": "91ec3e6ccd487ff9a8fb2faf810d9266abebdf79adc1acc7c3cd0d0a8469cf42",
   "arms": {
+    "lexical_only": {
+      "description": "mosaic_search.search_fts alone: PostgreSQL full-text search over the weighted product document, with no trigram or semantic arm and no fusion.",
+      "label": "Lexical only",
+      "mrr": 0.65,
+      "ndcg@10": 0.5944958294870315,
+      "ndcg@10_max": 1.0,
+      "ndcg@10_min": 0.0,
+      "ndcg@10_query_wins": 10,
+      "ndcg@10_stdev": 0.4554634661281512,
+      "recall@10": 0.575
+    },
     "rrf_fused_no_rerank": {
       "description": "The served fusion function (unweighted reciprocal rank fusion over FTS, trigram, and semantic candidates), with managed reranking disabled so the fused order is returned unchanged.",
       "label": "RRF fused, reranking off",
-      "mrr": 0.8721428571428571,
-      "ndcg@10": 0.8318922284892756,
+      "mrr": 0.915,
+      "ndcg@10": 0.8579807342533361,
       "ndcg@10_max": 1.0,
-      "ndcg@10_min": 0.09751658939953338,
+      "ndcg@10_min": 0.2890648263178878,
       "ndcg@10_query_wins": 14,
-      "ndcg@10_stdev": 0.2684748459746237,
-      "recall@10": 0.8833333333333334
+      "ndcg@10_stdev": 0.2228004074168519,
+      "recall@10": 0.9083333333333334
     },
     "rrf_fused_reranked": {
       "description": "The production path: the same fused pool as rrf_fused_no_rerank, reordered by managed reranking. Recomputed from data/evals/canonical_ranked_results.csv rather than re-served, so this measurement spends no reranker calls.",
       "label": "RRF fused + managed reranking (served path)",
-      "mrr": 0.9266666666666667,
-      "ndcg@10": 0.8740402307639645,
+      "mrr": 0.8916666666666666,
+      "ndcg@10": 0.8509025943737966,
       "ndcg@10_max": 1.0,
-      "ndcg@10_min": 0.2834654253028414,
-      "ndcg@10_query_wins": 17,
-      "ndcg@10_stdev": 0.2154548215036289,
-      "recall@10": 0.8666666666666666
+      "ndcg@10_min": 0.2441638274044765,
+      "ndcg@10_query_wins": 14,
+      "ndcg@10_stdev": 0.22806063508863908,
+      "recall@10": 0.8916666666666666
     },
     "semantic_only": {
       "description": "mosaic_search.search_vector alone: dense cosine ranking over the product embedding, with no lexical or trigram arm and no fusion.",
       "label": "Semantic only",
-      "mrr": 0.7125,
-      "ndcg@10": 0.6593610947746928,
+      "mrr": 0.6849999999999999,
+      "ndcg@10": 0.6387048587493215,
       "ndcg@10_max": 1.0,
       "ndcg@10_min": 0.0,
-      "ndcg@10_query_wins": 12,
-      "ndcg@10_stdev": 0.4198785140938487,
-      "recall@10": 0.7
+      "ndcg@10_query_wins": 11,
+      "ndcg@10_stdev": 0.42081913299369283,
+      "recall@10": 0.6833333333333333
+    },
+    "trigram_only": {
+      "description": "mosaic_search.search_trigram alone: pg_trgm similarity over the product identity text, with no lexical or semantic arm and no fusion.",
+      "label": "Trigram only",
+      "mrr": 0.9,
+      "ndcg@10": 0.8022365664238686,
+      "ndcg@10_max": 1.0,
+      "ndcg@10_min": 0.0,
+      "ndcg@10_query_wins": 14,
+      "ndcg@10_stdev": 0.31898290181372146,
+      "recall@10": 0.7916666666666667
     }
   },
   "candidate_recall_ceiling": {
@@ -44,14 +66,22 @@
     "judged_relevant_never_fetched": 2,
     "pool_recall_ceiling": 0.95,
     "unbounded_arms": {
+      "lexical_only": {
+        "note": "Not bounded by this ceiling. This channel returns its own candidate limit and this arm takes its own top-K from those, while the fused pool is capped at fused_limit after RRF scores three channels together, so a judged-relevant product can appear here and still be absent from the fused pool. Recorded for comparison, never asserted against.",
+        "recall@10": 0.575
+      },
       "semantic_only": {
-        "note": "Not bounded by this ceiling. search_vector returns semantic_limit candidates and this arm takes its own top-K from those, while the fused pool is capped at fused_limit after RRF scores three channels together, so a judged-relevant product can appear here and still be absent from the fused pool. Recorded for comparison, never asserted against.",
-        "recall@10": 0.7
+        "note": "Not bounded by this ceiling. This channel returns its own candidate limit and this arm takes its own top-K from those, while the fused pool is capped at fused_limit after RRF scores three channels together, so a judged-relevant product can appear here and still be absent from the fused pool. Recorded for comparison, never asserted against.",
+        "recall@10": 0.6833333333333333
+      },
+      "trigram_only": {
+        "note": "Not bounded by this ceiling. This channel returns its own candidate limit and this arm takes its own top-K from those, while the fused pool is capped at fused_limit after RRF scores three channels together, so a judged-relevant product can appear here and still be absent from the fused pool. Recorded for comparison, never asserted against.",
+        "recall@10": 0.7916666666666667
       }
     }
   },
   "k": 10,
-  "measured_at": "2026-08-29T18:06:05.438578+00:00",
+  "measured_at": "2026-09-10T04:43:26.708043+00:00",
   "models": {
     "embedding": "us.cohere.embed-v4:0",
     "rerank": "cohere.rerank-v3-5:0"
@@ -61,9 +91,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
+        "lexical_only": 1.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 1.0
+        "semantic_only": 1.0,
+        "trigram_only": 1.0
       },
       "pool_recall": 1.0,
       "query_id": "G-001",
@@ -74,9 +106,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
+        "lexical_only": 1.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 1.0
+        "semantic_only": 1.0,
+        "trigram_only": 1.0
       },
       "pool_recall": 1.0,
       "query_id": "G-002",
@@ -87,9 +121,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
+        "lexical_only": 0.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 0.0
+        "semantic_only": 0.0,
+        "trigram_only": 1.0
       },
       "pool_recall": 1.0,
       "query_id": "G-003",
@@ -100,9 +136,11 @@
       "found_in_pool": 2,
       "missed_product_ids": [],
       "ndcg@10": {
+        "lexical_only": 0.0,
         "rrf_fused_no_rerank": 0.3003089125797725,
-        "rrf_fused_reranked": 0.2834654253028414,
-        "semantic_only": 0.7713056792278157
+        "rrf_fused_reranked": 0.2441638274044765,
+        "semantic_only": 0.8267447024279065,
+        "trigram_only": 0.08099012151509755
       },
       "pool_recall": 1.0,
       "query_id": "G-004",
@@ -113,9 +151,11 @@
       "found_in_pool": 3,
       "missed_product_ids": [],
       "ndcg@10": {
-        "rrf_fused_no_rerank": 0.7763672830184426,
+        "lexical_only": 0.0,
+        "rrf_fused_no_rerank": 0.8556691603792903,
         "rrf_fused_reranked": 0.6735439182299785,
-        "semantic_only": 0.9013166960252389
+        "semantic_only": 0.5787412556559733,
+        "trigram_only": 0.6735439182299785
       },
       "pool_recall": 1.0,
       "query_id": "G-005",
@@ -128,9 +168,11 @@
         429002
       ],
       "ndcg@10": {
+        "lexical_only": 0.7871546029909718,
         "rrf_fused_no_rerank": 0.7871546029909718,
         "rrf_fused_reranked": 0.7871546029909718,
-        "semantic_only": 0.0
+        "semantic_only": 0.0,
+        "trigram_only": 0.7871546029909718
       },
       "pool_recall": 0.5,
       "query_id": "G-006",
@@ -141,9 +183,11 @@
       "found_in_pool": 2,
       "missed_product_ids": [],
       "ndcg@10": {
-        "rrf_fused_no_rerank": 0.9176601606601069,
-        "rrf_fused_reranked": 0.95583058934618,
-        "semantic_only": 0.7871546029909718
+        "lexical_only": 0.7871546029909718,
+        "rrf_fused_no_rerank": 0.9073218002554915,
+        "rrf_fused_reranked": 0.9324441894571632,
+        "semantic_only": 0.4966392596877323,
+        "trigram_only": 1.0
       },
       "pool_recall": 1.0,
       "query_id": "G-007",
@@ -154,9 +198,11 @@
       "found_in_pool": 2,
       "missed_product_ids": [],
       "ndcg@10": {
+        "lexical_only": 0.9467676761267002,
         "rrf_fused_no_rerank": 0.9467676761267002,
         "rrf_fused_reranked": 0.9467676761267002,
-        "semantic_only": 0.9467676761267002
+        "semantic_only": 0.9467676761267002,
+        "trigram_only": 0.9467676761267002
       },
       "pool_recall": 1.0,
       "query_id": "G-008",
@@ -167,9 +213,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
+        "lexical_only": 1.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 1.0
+        "semantic_only": 1.0,
+        "trigram_only": 1.0
       },
       "pool_recall": 1.0,
       "query_id": "G-009",
@@ -180,9 +228,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
-        "rrf_fused_no_rerank": 1.0,
+        "lexical_only": 0.0,
+        "rrf_fused_no_rerank": 0.2890648263178878,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 1.0
+        "semantic_only": 1.0,
+        "trigram_only": 0.0
       },
       "pool_recall": 1.0,
       "query_id": "G-010",
@@ -193,9 +243,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
+        "lexical_only": 1.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 1.0
+        "semantic_only": 1.0,
+        "trigram_only": 1.0
       },
       "pool_recall": 1.0,
       "query_id": "G-011",
@@ -206,9 +258,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
+        "lexical_only": 1.0,
         "rrf_fused_no_rerank": 0.9173194127129571,
-        "rrf_fused_reranked": 0.3548675899387485,
-        "semantic_only": 0.3950679673211227
+        "rrf_fused_reranked": 0.3950679673211227,
+        "semantic_only": 0.3548675899387485,
+        "trigram_only": 0.9173194127129571
       },
       "pool_recall": 1.0,
       "query_id": "G-012",
@@ -221,9 +275,11 @@
         234002
       ],
       "ndcg@10": {
+        "lexical_only": 0.7452525342261976,
         "rrf_fused_no_rerank": 0.7452525342261976,
         "rrf_fused_reranked": 0.7452525342261976,
-        "semantic_only": 0.7452525342261976
+        "semantic_only": 0.7452525342261976,
+        "trigram_only": 0.7452525342261976
       },
       "pool_recall": 0.5,
       "query_id": "G-013",
@@ -234,9 +290,11 @@
       "found_in_pool": 2,
       "missed_product_ids": [],
       "ndcg@10": {
-        "rrf_fused_no_rerank": 0.35990145706319066,
+        "lexical_only": 0.0,
+        "rrf_fused_no_rerank": 0.5856716025542826,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 0.0
+        "semantic_only": 0.0,
+        "trigram_only": 1.0
       },
       "pool_recall": 1.0,
       "query_id": "G-014",
@@ -247,9 +305,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
+        "lexical_only": 0.0,
         "rrf_fused_no_rerank": 1.0,
-        "rrf_fused_reranked": 1.0,
-        "semantic_only": 0.0
+        "rrf_fused_reranked": 0.5,
+        "semantic_only": 0.0,
+        "trigram_only": 1.0
       },
       "pool_recall": 1.0,
       "query_id": "G-015",
@@ -260,9 +320,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
+        "lexical_only": 1.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 1.0
+        "semantic_only": 1.0,
+        "trigram_only": 1.0
       },
       "pool_recall": 1.0,
       "query_id": "G-016",
@@ -273,9 +335,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
+        "lexical_only": 1.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 1.0
+        "semantic_only": 1.0,
+        "trigram_only": 1.0
       },
       "pool_recall": 1.0,
       "query_id": "G-017",
@@ -286,9 +350,11 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
+        "lexical_only": 0.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 1.0
+        "semantic_only": 1.0,
+        "trigram_only": 1.0
       },
       "pool_recall": 1.0,
       "query_id": "G-018",
@@ -299,9 +365,11 @@
       "found_in_pool": 2,
       "missed_product_ids": [],
       "ndcg@10": {
-        "rrf_fused_no_rerank": 0.09751658939953338,
-        "rrf_fused_reranked": 0.7871546029909718,
-        "semantic_only": 0.0
+        "lexical_only": 0.8339912323981488,
+        "rrf_fused_no_rerank": 1.0,
+        "rrf_fused_reranked": 0.888707665873224,
+        "semantic_only": 0.0,
+        "trigram_only": 0.5743091194356716
       },
       "pool_recall": 1.0,
       "query_id": "G-019",
@@ -312,9 +380,11 @@
       "found_in_pool": 2,
       "missed_product_ids": [],
       "ndcg@10": {
-        "rrf_fused_no_rerank": 0.7895959410076381,
-        "rrf_fused_reranked": 0.9467676761267002,
-        "semantic_only": 0.6403567395758113
+        "lexical_only": 0.7895959410076381,
+        "rrf_fused_no_rerank": 0.8250841569231713,
+        "rrf_fused_reranked": 0.9049495058460971,
+        "semantic_only": 0.8250841569231713,
+        "trigram_only": 0.31939394323979897
       },
       "pool_recall": 1.0,
       "query_id": "G-020",
@@ -324,18 +394,19 @@
   ],
   "query_set": "data/evals/canonical_queries.jsonl",
   "query_set_sha256": "d1ce67635a35559dc04dca229ab22771edfa199ce95be25a7b527a7b5d05468e",
-  "retrieval_fingerprint": "b3b1d2e6de60c47cfa0e63fc58c05faa0cfc354ef8cde09cfc75e3e38e88da17",
+  "retrieval_fingerprint": "61dc4fb9e1ed3dbc678dc9be8151817c443c87c359e0b40b0ec8de92ba6e2357",
+  "retrieval_settings_sha256": "3635fb13943e9504b42c530ffcd75317f5f326d1abf569e108078aa55498116e",
   "scored_query_count": 20,
   "scored_query_set_sha256": "f9d840a4fb5fa58a5a3af798ef1a3eb3b34f6073997125e2d969f755bda3f36e",
   "served_scorecard_reference": {
-    "measured_at": "2026-08-29T18:05:06.801770+00:00",
+    "measured_at": "2026-09-10T04:42:04.699612+00:00",
     "path": "data/evals/canonical_scorecard.json",
-    "retrieval_fingerprint": "b3b1d2e6de60c47cfa0e63fc58c05faa0cfc354ef8cde09cfc75e3e38e88da17",
-    "source_revision": "2ae2e1a7a1b8020583610715ccccea95c4dcb6de"
+    "retrieval_fingerprint": "61dc4fb9e1ed3dbc678dc9be8151817c443c87c359e0b40b0ec8de92ba6e2357",
+    "source_revision": "f9ad1b5164f32702819d22028aaca29695311ce2"
   },
   "source": {
-    "revision": "d1be6b3c38e09b1665e0797e0cc66ebe4b28b59a",
+    "revision": "34718687526aec32f10eb7e74a30dc5b22a30f85",
     "worktree_dirty": false
   },
-  "spread_note": "20 queries and 74 judgments cannot separate small differences between arms. Read every mean alongside its own per-query minimum, maximum, and standard deviation, and treat a mean difference smaller than that spread as within noise rather than as a proven improvement."
+  "spread_note": "20 queries and 74 judgments cannot separate small differences between these paths. Every path answers the same searches, so read each step as the difference on each search rather than as two separate averages: the comparison below reports that difference, the spread of the differences, and how many searches each step won and lost. A step whose average difference is smaller than that spread is one this query set cannot tell apart from no change."
 }

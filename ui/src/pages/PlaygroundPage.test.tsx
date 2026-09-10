@@ -313,7 +313,10 @@ const measuredArm = (key: ScorecardStageArm["key"], ndcg: number, recall: number
 const measuredAblation = {
   attributed: true, attribution_note: "", measured_at: "2026-09-10T00:00:00+00:00", spread_note: "", scored_query_count: 20,
   arms: [measuredArm("lexical_only", 0.61, 0.6, 0.65), measuredArm("trigram_only", 0.31, 0.3, 0.35), measuredArm("semantic_only", 0.66, 0.7, 0.71), measuredArm("rrf_fused_no_rerank", 0.83, 0.88, 0.87), measuredArm("rrf_fused_reranked", 0.87, 0.87, 0.93)],
-  paired_comparisons: [{ from_key: "rrf_fused_no_rerank", to_key: "rrf_fused_reranked", label: "Reranking the combined list", mean_difference: 0.04, difference_stdev: 0.1, wins: 4, losses: 3, ties: 13, separable: false, verdict: "fixture" }],
+  paired_comparisons: [
+    { from_key: "semantic_only", to_key: "rrf_fused_no_rerank", label: "Combining, against meaning match alone", mean_difference: 0.17, difference_stdev: 0.4, wins: 8, losses: 2, ties: 10, separable: false, verdict: "fixture" },
+    { from_key: "rrf_fused_no_rerank", to_key: "rrf_fused_reranked", label: "Reranking the combined list", mean_difference: 0.04, difference_stdev: 0.1, wins: 4, losses: 3, ties: 13, separable: false, verdict: "fixture" },
+  ],
   candidate_recall_ceiling: { pool_recall_ceiling: 0.95, judged_relevant_never_fetched: 2, description: "fixture" },
   per_query: [],
 };
@@ -333,7 +336,7 @@ it("prints what each arm alone scores from the measured artifact and counts this
   expect(within(table).getAllByRole("rowheader").map((cell) => cell.textContent)).toEqual(["Keyword alone", "Close spelling alone", "Meaning alone", "All three combined", "Combined, then reranked"]);
   expect(within(table).getByRole("row", { name: /Keyword alone/ }).textContent).toContain("0.61");
   expect(within(table).getByRole("row", { name: /Combined, then reranked/ }).textContent).toContain("0.93");
-  expect(screen.getByText("Combining adds +0.17 nDCG@10 over Meaning alone; reranking moves it +0.04, inside the spread of these searches.")).toBeTruthy();
+  expect(screen.getByText("Combining adds +0.17 nDCG@10 over Meaning alone (inside the spread of these searches); reranking moves it +0.04 (inside the spread of these searches).")).toBeTruthy();
   expect(await screen.findByText("In this run, 2 of the 4 products returned came from one arm only. A single arm would have missed them.")).toBeTruthy();
   expect(screen.getByText(/reranking moved the ordering score by \+0\.04 on average, inside the spread/)).toBeTruthy();
   expect(within(table).getByRole("link", { name: "Prove shows each step’s spread." }).getAttribute("href")).toBe("/labs/retrieval?view=lab#labs-stage-prove");

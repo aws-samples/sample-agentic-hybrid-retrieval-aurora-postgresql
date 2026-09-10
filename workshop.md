@@ -307,7 +307,19 @@ Keep three questions separate, because the scorecard keeps them separate:
 - **How good is ranking across the whole test set?** Recall@10, MRR and nDCG@10 over twenty graded searches, shown with plain labels.
 - **Did a hard filter ever leak?** Pass-or-fail checks, never averaged in.
 
-The step-by-step comparison in section E is measured, and it is honest: each arm alone, all three combined, and combined then reranked, on the same twenty graded searches. Combining the arms is the large step; reranking adds little on this set and costs some recall. Say that plainly if asked. It is the workshop's own data, and the Playground's Retrieve column prints the same table under **Without hybrid** so participants meet it before any lab.
+The step-by-step comparison in section E is measured, and it is honest: each arm alone, all three combined, and combined then reranked, on the same twenty graded searches. Combining the arms is the large step; reranking adds nothing on this set and costs a little recall. Say that plainly if asked. It is the workshop's own data, and the Playground's Retrieve column prints the same table under **Without hybrid** so participants meet it before any lab.
+
+Measured 2026-09-10 on the workshop cluster, 20 graded searches, k = 10. The Playground's Retrieve column prints the same rows from the served artifact:
+
+| Arm | nDCG@10 | Recall@10 | MRR | Best ordering on |
+|---|---|---|---|---|
+| Exact terms alone | 0.594 | 0.575 | 0.650 | 10 of 20 |
+| Close spelling alone | 0.802 | 0.792 | 0.900 | 14 of 20 |
+| Meaning match alone | 0.639 | 0.683 | 0.685 | 11 of 20 |
+| All three combined | 0.858 | 0.908 | 0.915 | 14 of 20 |
+| Combined, then reranked (served) | 0.851 | 0.892 | 0.892 | 14 of 20 |
+
+Read it with the spread in mind. Section E compares each step with the arm it replaced, search by search: combining beat exact terms alone on 10 searches and lost 1, beat close spelling alone on 5 and lost 2, beat meaning match alone on 8 and lost 2; reranking the combined list won 4 and lost 5. None of those average differences clears the spread of the per-search differences on twenty searches, so say "combining wins on this set" and never "proven". Close spelling alone is the strongest single arm here because many graded searches name a product; combining still leads on every metric. Reranking reorders the same pool and, on this build, moves every metric slightly down. The pool ceiling stays 0.95: 2 judged-relevant products were never fetched by any arm, and no reranker can recover them.
 
 ## Architecture and authority
 

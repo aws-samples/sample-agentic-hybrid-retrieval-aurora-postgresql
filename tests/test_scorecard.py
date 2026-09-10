@@ -657,17 +657,20 @@ def test_agent_contracts_reject_an_unmapped_assertion_name(monkeypatch):
 def test_stage_ablation_projects_every_arm_and_the_ceiling():
     from service.scorecard import _stage_ablation
 
-    result = _stage_ablation(_stage_ablation_artifact(), _current())
+    artifact = _stage_ablation_artifact()
+    # The committed artifact is written with sorted keys; the projection must
+    # not inherit that alphabetical order.
+    artifact["arms"] = dict(sorted(artifact["arms"].items()))
+    result = _stage_ablation(artifact, _current())
 
     assert result.attributed is True
-    keys = {arm.key for arm in result.arms}
-    assert keys == {
+    assert [arm.key for arm in result.arms] == [
         "lexical_only",
         "trigram_only",
         "semantic_only",
         "rrf_fused_no_rerank",
         "rrf_fused_reranked",
-    }
+    ]
     reranked = next(arm for arm in result.arms if arm.key == "rrf_fused_reranked")
     assert reranked.recall_at_10 == 0.8667
     assert reranked.ndcg_at_10_query_wins == 16
@@ -716,26 +719,12 @@ def test_stage_ablation_attribution_is_independent_of_the_main_artifacts():
 # --- The API route -----------------------------------------------------
 
 
-@pytest.mark.xfail(
-    reason=(
-        "Pending re-measurement, not a defect. db/sql/20_query_coverage.sql "
-        "joined the retrieval fingerprint's blanket db/sql/*.sql category, so "
-        "the committed scorecard no longer describes the running path and "
-        "reads as pending attribution -- the designed state, not a break. "
-        "The committed artifact also predates retrieval_settings_sha256 and "
-        "so records none, which is a second, independent pending reason: the "
-        "resolved retrieval settings are now part of the gate because "
-        "environment overrides move them behind every file hash's back. "
-        "Coverage classifies without filtering, so it cannot move any of the "
-        "20 scored numbers; the re-measurement is required anyway to set "
-        "mosaic_search.query_term_coverage's word_similarity_floor, which is "
-        "blocked on Aurora reachability. Clear this marker by running "
-        '`make score-evals SCORE_EVAL_ARGS="--restart --write-baseline"` '
-        "from a clean commit. It will report XPASS the moment that lands."
-    ),
-    strict=False,
-)
 def test_api_serves_attributed_scorecard_after_remeasurement():
+    """The real repository, not a fixture: the committed baseline was measured
+    on 2026-09-10 from a clean commit on the running retrieval path, so the
+    route serves it attributed. The next retrieval-code change turns this red
+    again until `make score-evals SCORE_EVAL_ARGS="--restart --write-baseline"`
+    runs from a clean commit; that is the designed state, not a break."""
     payload = TestClient(app).get("/api/scorecard").json()
 
     assert payload["provenance"]["attributed"] is True
@@ -1115,28 +1104,28 @@ def test_provenance_carries_both_sides_of_the_settings_comparison():
     assert len(provenance.current_retrieval_settings_sha256) == 64
 
 
-def test_the_committed_artifact_reads_unattributed_for_want_of_a_settings_hash():
-    """The real repository, not a fixture: today's committed baseline predates
-    this mechanism, so it records no settings hash and the served scorecard
-    must say so alongside the fingerprint mismatch it already reports.
+def test_the_committed_artifact_carries_its_settings_hash_and_reads_attributed():
+    """The real repository, not a fixture: the committed baseline records the
+    resolved retrieval settings it was measured under, and the served
+    scorecard attributes it to the running path.
 
     This pins the state the repository is actually in, the same way
     `service.retrieval_fingerprint._EXPECTED_CATEGORY_COUNTS` pins its file
-    counts. The next `scripts/score_evals.py --write-baseline` records the hash
-    and this test must be updated in the same change -- as must the xfail
-    marker on `test_api_serves_attributed_scorecard_after_remeasurement` above,
-    which describes the same pending state.
+    counts. A retrieval-code change flips `attributed` to False until the next
+    `scripts/score_evals.py --write-baseline` from a clean commit, and
+    `test_api_serves_attributed_scorecard_after_remeasurement` above turns red
+    with it; update both in the same change as that re-measure.
     """
     artifact = json.loads(SCORECARD_ARTIFACT.read_text(encoding="utf-8"))
-    assert "retrieval_settings_sha256" not in artifact
+    assert len(artifact["retrieval_settings_sha256"]) == 64
 
     provenance = retrieval_scorecard().provenance
 
-    assert provenance.attributed is False
-    assert provenance.retrieval_settings_sha256 is None
+    assert provenance.attributed is True
+    assert provenance.retrieval_settings_sha256 == artifact["retrieval_settings_sha256"]
     assert (
-        "no retrieval settings hash was recorded when this artifact was measured"
-        in provenance.attribution_note
+        provenance.current_retrieval_settings_sha256
+        == provenance.retrieval_settings_sha256
     )
 
 

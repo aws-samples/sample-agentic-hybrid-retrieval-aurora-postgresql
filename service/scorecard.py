@@ -531,6 +531,17 @@ def _agent_contracts() -> ScorecardAgentContracts:
     return ScorecardAgentContracts(guarantees=guarantees)
 
 
+#: The order a reader meets the arms in: each single arm, then the two
+#: stages built on them. The artifact is written with sorted keys, so file
+#: order is alphabetical and would put the served path second.
+_ARM_ORDER = (
+    "lexical_only",
+    "trigram_only",
+    "semantic_only",
+    "rrf_fused_no_rerank",
+    "rrf_fused_reranked",
+)
+
 #: The order the arms build on one another: combining is compared with each
 #: single arm it replaced, then reranking with the combined list it reorders,
 #: because that difference is the thing the step actually added.
@@ -618,20 +629,23 @@ def _stage_ablation(
         methodology_key="ablation_methodology_sha256",
         methodology_expected=current.ablation_methodology_sha256,
     )
+    ordered_keys = [key for key in _ARM_ORDER if key in artifact["arms"]] + [
+        key for key in artifact["arms"] if key not in _ARM_ORDER
+    ]
     arms = [
         ScorecardStageArm(
             key=key,
-            label=values["label"],
-            description=values["description"],
-            recall_at_10=values["recall@10"],
-            mrr=values["mrr"],
-            ndcg_at_10=values["ndcg@10"],
-            ndcg_at_10_min=values["ndcg@10_min"],
-            ndcg_at_10_max=values["ndcg@10_max"],
-            ndcg_at_10_stdev=values["ndcg@10_stdev"],
-            ndcg_at_10_query_wins=values["ndcg@10_query_wins"],
+            label=artifact["arms"][key]["label"],
+            description=artifact["arms"][key]["description"],
+            recall_at_10=artifact["arms"][key]["recall@10"],
+            mrr=artifact["arms"][key]["mrr"],
+            ndcg_at_10=artifact["arms"][key]["ndcg@10"],
+            ndcg_at_10_min=artifact["arms"][key]["ndcg@10_min"],
+            ndcg_at_10_max=artifact["arms"][key]["ndcg@10_max"],
+            ndcg_at_10_stdev=artifact["arms"][key]["ndcg@10_stdev"],
+            ndcg_at_10_query_wins=artifact["arms"][key]["ndcg@10_query_wins"],
         )
-        for key, values in artifact["arms"].items()
+        for key in ordered_keys
     ]
     per_query = [
         ScorecardStageAblationQuery(

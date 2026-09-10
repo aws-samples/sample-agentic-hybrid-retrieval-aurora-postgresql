@@ -38,9 +38,13 @@ export function stageGainSentence(ablation: ScorecardStageAblation): string | nu
   const reranked = arms.get("rrf_fused_reranked");
   const bestSingle = ablation.arms.filter((arm) => singleArms.has(arm.key)).sort((a, b) => b.ndcg_at_10 - a.ndcg_at_10)[0];
   if (!fused || !reranked || !bestSingle) return null;
-  const rerankStep = ablation.paired_comparisons.find((step) => step.to_key === "rrf_fused_reranked");
-  const rerank = `reranking ${rerankStep?.separable ? "adds" : "moves it"} ${signed(reranked.ndcg_at_10 - fused.ndcg_at_10)}${rerankStep && !rerankStep.separable ? ", inside the spread of these searches" : ""}`;
-  return `Combining adds ${signed(fused.ndcg_at_10 - bestSingle.ndcg_at_10)} nDCG@10 over ${armTitle[bestSingle.key]}; ${rerank}.`;
+  const inside = (fromKey: ScorecardStageArmKey, toKey: ScorecardStageArmKey) => {
+    const step = ablation.paired_comparisons.find((item) => item.from_key === fromKey && item.to_key === toKey);
+    return step && !step.separable ? " (inside the spread of these searches)" : "";
+  };
+  const combining = `Combining adds ${signed(fused.ndcg_at_10 - bestSingle.ndcg_at_10)} nDCG@10 over ${armTitle[bestSingle.key]}${inside(bestSingle.key, "rrf_fused_no_rerank")}`;
+  const rerank = `reranking moves it ${signed(reranked.ndcg_at_10 - fused.ndcg_at_10)}${inside("rrf_fused_no_rerank", "rrf_fused_reranked")}`;
+  return `${combining}; ${rerank}.`;
 }
 
 function ProductPreview({ products, ranked = false }: { products: ProductSummary[]; ranked?: boolean }) {
