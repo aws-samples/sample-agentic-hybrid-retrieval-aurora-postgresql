@@ -102,7 +102,7 @@ and in Playground.
 
 ## Alex’s journey
 
-**Discover opens with “How a room learns about you.”** A large photograph shows the
+**Discover opens with “A room built around the way you work.”** A large photograph shows the
 workspace Alex is working toward. Beside it, **Meet Alex** makes the brief
 specific: a software engineer whose day moves between coding, team calls and
 focused work. His desk and laptop are already in place. His headphones, chair
@@ -184,7 +184,7 @@ The application has three navigation destinations, with Ask Mosaic inside Shop:
 - **Discover.** The home-office brief described above: Alex, his room, three needs, and routes into search or category browsing. The illustrated scenes are inspiration, not a product bundle or a completed purchase.
 - **Shop.** The default Workspace edit currently shows 71 picks selected from the 200 photographed products; keyword search reaches the full 500,000-product catalog. Every result card can open "See how this was retrieved", carrying the query, filters and saved search event into the Playground. Ticking two or more results compares them side by side, and the comparison is worth showing: under the price and the rating it prints which search methods found each product, its rank before reranking, and the rank the shopper was shown. Those three rows come from the run's saved receipt, not from the list on screen, which is why a comparison is only offered once a search has run. If the catalog carries none of a request's words, Shop says which ones above the results rather than returning a confident page of near misses.
 - **Ask Mosaic.** The agent, in a side panel on Shop or a mobile overlay below the header. It shows progress while gathering evidence, then leads with the cited answer. **Steps and sources** holds the request interpretation, searches, product comparison, supporting evidence, and tool activity. Follow-ups carry context from the prior grounded run; they do not establish preference memory across visits.
-- **Playground.** `/labs/retrieval` defaults to **Hybrid retrieval**, a three-stage inspection of Retrieve, Rank and Reason. Each column ends with a **Keep in mind** line that states the lesson the column proves, and Retrieve's search details add one more beside the search record, on the receipt and the HNSW settings; the sentences are the ones on the opening slides. Alex's request choices come from the canonical mission manifest. One **Run Mosaic** action makes a real agent request; the stages read its records. A saved Shop event opens its original receipt, and Run Mosaic starts a new complete run when an agent answer is needed. **Scale & HNSW** is the adjacent inspection lens.
+- **Playground.** `/labs/retrieval` defaults to **Hybrid retrieval**, a three-stage inspection of Retrieve, Rank and Reason. Each column ends with a **Keep in mind** line that states the lesson the column proves, and Retrieve's search details add one more beside the search record, on the receipt and the HNSW settings; the sentences are the ones on the opening slides. Alex's request choices come from the canonical mission manifest. One send action, the same paper plane Discover uses (its tooltip reads **Run Mosaic**), makes a real agent request; the stages read its records. A saved Shop event opens its original receipt, and Run Mosaic starts a new complete run when an agent answer is needed. **Scale & HNSW** is the adjacent inspection lens.
 
 Hybrid retrieval also offers **Plan my workspace**, which resolves its question and
 filters from Lab 3, and **Check the sources**, which compares a specification
@@ -236,7 +236,7 @@ only suggestions compatible with the current filters.
 - **02 Rank.** One table, one row per result: where each product sat in each arm, its fused position before reranking, its rerank score, and its final position. Select a column heading to read the SQL behind it.
 - **Repair evidence.** Paste two persisted run ids to see what a fix changed.
 - **03 Reason.** Run the agent on the mission question. Focus moves to one results area, with the current stage, elapsed time, and recorded counts above a vertical sequence of progress and results. The evidence chain traces products retrieved, evidence returned to the model, evidence registered, evidence authorized, citations resolved, and grounded answer. In the broken Lab 3 state the run refuses to answer, and that refusal is correct. An interrupted run retains the available receipts for diagnosis.
-- **04 Prove.** The scorecard, in five plain sections: can search find the right products, did known-good checks still pass, did hard filters hold, did the agent stay inside its evidence rules, and what each ranking step added. Then the package finale: the same capability as a portable skill.
+- **04 Prove.** The scorecard, in five plain sections: can search find the right products, did known-good checks still pass, did hard filters hold, did the agent stay inside its evidence rules, and what each ranking step added. Then the package finale: the SQL, the eval harness and the citation guard to take home, with the skill that describes how an agent calls them.
 
 Every number on the Playground is a value the run reported. Nothing is typed in, estimated, or animated for effect.
 
@@ -262,7 +262,8 @@ actually skips it. **Reason:** returned evidence must be registered before it
 can support an answer.
 
 **Filters deserve their own explanation.** Each SQL arm applies eligibility
-before its candidate limit. That does not mean an HNSW graph only visits eligible
+before its candidate limit. Eligibility and the limit are two budgets, and
+neither gets to change the other. That does not mean an HNSW graph only visits eligible
 rows: selective filters can leave an approximate scan short, and iterative scans
 may need to explore further. Inspect both eligibility and candidate count.
 
@@ -293,6 +294,10 @@ Read a Playground run in this order, top to bottom:
    inside the total rather than adding up to it: the total is the wall clock the
    caller waited on. An embed reading `<1` is a cache hit, not a free model call;
    the service reuses a query's first vector so repeated runs stay comparable.
+   When a plan receipt is open, read it in this order: the scan type and the
+   index it names, actual rows against the filter, sorts and buffers, then
+   parallel workers. An arm wrapped in a `plpgsql` function appears as an opaque
+   function scan with no index named; only the HNSW index shows by name.
 4. The Reason chain: six rows, each naming the field it was read from.
 5. The receipt band at the bottom of Rank or of an Ask Mosaic answer: filters, candidates found, before reranking, final position, evidence records, time.
 
@@ -302,7 +307,7 @@ Keep three questions separate, because the scorecard keeps them separate:
 - **How good is ranking across the whole test set?** Recall@10, MRR and nDCG@10 over twenty graded searches, shown with plain labels.
 - **Did a hard filter ever leak?** Pass-or-fail checks, never averaged in.
 
-The step-by-step comparison in section E is measured, and it is honest: combining the three arms adds a lot; reranking adds little on this set and costs some recall. Say that plainly if asked. It is the workshop's own data.
+The step-by-step comparison in section E is measured, and it is honest: each arm alone, all three combined, and combined then reranked, on the same twenty graded searches. Combining the arms is the large step; reranking adds little on this set and costs some recall. Say that plainly if asked. It is the workshop's own data, and the Playground's Retrieve column prints the same table under **Without hybrid** so participants meet it before any lab.
 
 ## Architecture and authority
 
@@ -332,7 +337,7 @@ Models pinned for the event: Cohere Embed v4 for embeddings, Cohere Rerank 3.5 f
 | 0:12–0:22 | **Lab 1 — Retrieve** | Headphones return through the repaired trigram arm |
 | 0:22–0:32 | **Lab 2 — Rank** | The chair leads before and after reranking |
 | 0:32–0:52 | **Lab 3 — Reason**, including completion proof and takeaways | Registered evidence becomes a cited answer; all required checks pass |
-| 0:52–1:00 | **Optional / flex** | Memory if rehearsed, HNSW, recovery or questions |
+| 0:52–1:00 | **Optional / flex** | Scale & HNSW by default; Session & Memory as an extension when connected and rehearsed; recovery or questions |
 
 The canonical budget is **12 + 10 + 10 + 20 + 8 = 60 minutes**. If the presentation
 finishes in 10 minutes, those two minutes go to flex. Proof is included in each
@@ -354,11 +359,18 @@ pass until its production check runs.
 The final eight minutes are optional. Pick one exercise; do not try to teach
 Memory, Runtime, Gateway and HNSW as four additional labs.
 
+**Scale & HNSW is the default flex**: read-only, deterministic, and it makes no
+billed call. **Session & Memory stays in the app as an extension of the core
+path.** Nothing in the three labs depends on it, Playground runs and lab proofs
+keep memory off, and the tab says so in its own masthead. Offer it only when the
+account's Memory resource is connected and the facilitator has rehearsed it. It
+extends the story after the completion gate; it never sits inside it.
+
 ### Recommended AgentCore split
 
 | Component | What it adds | Recommended participant experience | Current release status |
 |---|---|---|---|
-| **Memory — user preference strategy** | Alex's preferences survive a new conversation. | A 5–7 minute flex: inspect an already extracted preference, connect retrieval of it, start a new conversation and inspect which record was used. | Planned; not wired into the application or verified as a participant exercise yet. |
+| **Memory — user preference strategy** | Alex's preferences survive a new conversation. | A 5–7 minute flex: inspect an already extracted preference, connect retrieval of it, start a new conversation and inspect which record was used. | Wired: the Session & Memory tab stores events, shows each strategy, recalls records and runs Ask Mosaic with memory context against a connected AgentCore Memory resource. The connection is optional and not provisioned by the base workshop stack; extraction is asynchronous; not yet rehearsed as a participant exercise in a fresh account. |
 | **Runtime** | A managed place to run the existing Strands agent. | Pre-deploy if chosen. A brief architecture callout or invocation of a ready endpoint; no image build or deployment during flex. | Adapter and container source exist in `deploy/agentcore/`; an event deployment still needs rehearsal. |
 | **Gateway** | A managed authenticated entry point to the agent's tools. | Pre-deploy if chosen. Show the tool boundary and one tool call; no participant IAM/OAuth setup during flex. | An optional architecture path, not a required or verified live dependency. |
 
@@ -500,6 +512,11 @@ Use the shopper's words first and the mechanism second, the way the Playground d
 | Known-good checks | the fixed behaviors the labs depend on | golden anchors, regression anchors |
 | Step-by-step comparison | one ranking step changed at a time | ablation |
 | Where these numbers come from | which code version was measured | provenance, attribution |
+
+When a table asks for a model-only answer beside a grounded one, hold the model,
+the prompt and the settings constant, say what context each side was given, and
+never fabricate a bad answer for the ungrounded side. The contrast has to be one
+a participant could reproduce.
 
 ## Before the session
 

@@ -34,7 +34,7 @@ framing is in [the session abstract](docs/session-abstract.md).
 
 **Jump to:** [Quick start](#quick-start) | [Architecture](#architecture) |
 [Workshop path](#workshop-path) | [Validation](#validation) |
-[Participant takeaway](#participant-takeaway-skill) |
+[Participant takeaway](#participant-takeaway) |
 [Repository map](#repository-map)
 
 ## Quick start
@@ -464,18 +464,23 @@ path, and no lab reads a span.
 
 See [the portable telemetry contract](docs/telemetry-contract.md).
 
-## Participant takeaway skill
+## Participant takeaway
 
-The primary takeaway is the **Mosaic Hybrid Retrieval Skill**. The optional
-build-a-tool exercise is additional practice in the Workshop Studio guide.
+Three artifacts transfer to another catalog without Mosaic, and one wrapper
+describes how an agent calls them. Each lab repairs one of the three.
 
-[`skills/mosaic-hybrid-retrieval/`](skills/mosaic-hybrid-retrieval/) packages
-the bounded retrieval capability participants can take away. Keep the whole
-folder together: `SKILL.md` declares the four-operation HTTP skill surface, and
-its references provide the generated argument-to-HTTP map, the exact
-HTTP/MCP/A2A deployment status, and an adaptation checklist.
-It is a portable declaration and operating guide, not a standalone retrieval
-runtime; callers still need a deployed service implementing the contract.
+| Take home | Where it lives | What it proves |
+|---|---|---|
+| **The SQL.** Three candidate arms with eligibility applied inside each, unweighted reciprocal rank fusion over rank positions, and a bounded pool handed to the reranker. | [`db/sql/09_search_functions.sql`](db/sql/09_search_functions.sql), tuned only by [`db/config/retrieval.yaml`](db/config/retrieval.yaml) | Labs 1 and 2: a healthy arm can be disconnected from fusion, and fusion arithmetic can be wrong while the page looks right. |
+| **The eval.** Twenty graded searches scored on Recall@10, MRR and nDCG@10, and a stage ablation that scores each arm alone, all three combined, and combined then reranked. | [`scripts/score_evals.py`](scripts/score_evals.py), [`scripts/ablation_evals.py`](scripts/ablation_evals.py), [`data/evals/`](data/evals/) | Prove, and the **Without hybrid** table on the Playground's Retrieve column. Copy the harness and replace the query set. |
+| **The guard.** Retrieved evidence is registered and authorized by the application before synthesis may cite it, and the claim checks reject what the evidence cannot support. | [`service/agent_tools.py`](service/agent_tools.py), [`service/synthesis.py`](service/synthesis.py) | Lab 3: the model requests tools; the application decides what runs and what is citable. |
+| **The skill.** The four-operation contract a calling agent uses. | [`skills/mosaic-hybrid-retrieval/`](skills/mosaic-hybrid-retrieval/) | A description of the capability, not a runtime: callers still need a deployed service implementing the contract. |
+
+Keep the skill folder together: `SKILL.md` declares the four-operation HTTP
+skill surface, and its references provide the generated argument-to-HTTP map,
+the exact HTTP/MCP/A2A deployment status, and an adaptation checklist. The
+optional build-a-tool exercise is additional practice in the Workshop Studio
+guide.
 
 The reusable teachings are the architecture's invariants: apply hard eligibility
 before candidate limits, bound every retrieval stage, fuse before reranking,
