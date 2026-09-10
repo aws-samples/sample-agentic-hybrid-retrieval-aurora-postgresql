@@ -7,7 +7,7 @@
   },
   "canonical_query_count": 21,
   "database_instance_id": "agenticretrievalcorestack-aurorapostgresretrievalc-5wdg4dpl2bg2",
-  "dataset_manifest_sha256": "d5abc2c047f73726926260bb6a5364b50295acc4c6b2a3e9e35d47e93eb5c464",
+  "dataset_manifest_sha256": "2cbb04b93521a62be0c6512cec13a70149c51e24543f8a3d6e53d335ae7f5774",
   "deterministic_release_checks": [
     {
       "concept_label": "Exact identity",
@@ -64,11 +64,11 @@
     "scan_mem_multiplier": 2.0
   },
   "k": 10,
-  "measured_at": "2026-08-29T18:05:06.801770+00:00",
+  "measured_at": "2026-09-10T04:42:04.699612+00:00",
   "metrics": {
-    "mrr": 0.9266666666666667,
-    "ndcg@10": 0.8740402307639645,
-    "recall@10": 0.8666666666666666
+    "mrr": 0.8916666666666666,
+    "ndcg@10": 0.8509025943737966,
+    "recall@10": 0.8916666666666666
   },
   "models": {
     "embedding": "us.cohere.embed-v4:0",
@@ -101,11 +101,11 @@
     },
     {
       "concept_label": "Semantic intent and filters",
-      "ndcg@10": 0.2834654253028414,
+      "ndcg@10": 0.2441638274044765,
       "query_id": "G-004",
       "query_text": "noise cancelling headphones for a long flight under $200 with at least 40 hours of battery",
       "recall@10": 0.5,
-      "reciprocal_rank": 0.3333333333333333
+      "reciprocal_rank": 0.25
     },
     {
       "concept_label": "Hard price negative",
@@ -125,7 +125,7 @@
     },
     {
       "concept_label": "Comparison and reranking",
-      "ndcg@10": 0.95583058934618,
+      "ndcg@10": 0.9324441894571632,
       "query_id": "G-007",
       "query_text": "quiet wireless keyboard for a shared office; compare mechanical feel with the cheaper alternative",
       "recall@10": 1.0,
@@ -165,11 +165,11 @@
     },
     {
       "concept_label": "Eligibility before ANN",
-      "ndcg@10": 0.3548675899387485,
+      "ndcg@10": 0.3950679673211227,
       "query_id": "G-012",
       "query_text": "carbon plated marathon shoe under $220 with stable cornering",
       "recall@10": 1.0,
-      "reciprocal_rank": 0.2
+      "reciprocal_rank": 0.25
     },
     {
       "concept_label": "Typo alias with refurbished override",
@@ -189,11 +189,11 @@
     },
     {
       "concept_label": "Structured watch filter",
-      "ndcg@10": 1.0,
+      "ndcg@10": 0.5,
       "query_id": "G-015",
       "query_text": "fitness watch under $300 with GPS, sleep tracking, and training readiness",
       "recall@10": 1.0,
-      "reciprocal_rank": 1.0
+      "reciprocal_rank": 0.3333333333333333
     },
     {
       "concept_label": "Semantic running watch",
@@ -221,15 +221,15 @@
     },
     {
       "concept_label": "Evidence retrieval and citation",
-      "ndcg@10": 0.7871546029909718,
+      "ndcg@10": 0.888707665873224,
       "query_id": "G-019",
       "query_text": "Which ergonomic chair best supports 12-hour workdays, and what evidence supports the recommendation?",
-      "recall@10": 0.5,
+      "recall@10": 1.0,
       "reciprocal_rank": 1.0
     },
     {
       "concept_label": "Graded sibling ordering",
-      "ndcg@10": 0.9467676761267002,
+      "ndcg@10": 0.9049495058460971,
       "query_id": "G-020",
       "query_text": "ergonomic mesh chair with adjustable lumbar and seat depth for twelve hour workdays",
       "recall@10": 1.0,
@@ -239,8 +239,8 @@
   "product_retrieval_query_count": 20,
   "query_set": "data/evals/canonical_queries.jsonl",
   "query_set_sha256": "d1ce67635a35559dc04dca229ab22771edfa199ce95be25a7b527a7b5d05468e",
-  "ranked_result_sha256": "5a07e31afb84d6712c7de4f1b9f322c5534b7f45557baf65301086f8cb702854",
-  "retrieval_fingerprint": "b3b1d2e6de60c47cfa0e63fc58c05faa0cfc354ef8cde09cfc75e3e38e88da17",
+  "ranked_result_sha256": "3aeed26dafe0646eac8b52b82d940ccdd9f53e0a1fdcce6399f2e50132347135",
+  "retrieval_fingerprint": "61dc4fb9e1ed3dbc678dc9be8151817c443c87c359e0b40b0ec8de92ba6e2357",
   "retrieval_profile": {
     "authorized_limit": 10,
     "ef_search": 100,
@@ -258,10 +258,11 @@
     "weight_semantic": 0.45,
     "weight_trigram": 0.1
   },
-  "scorecard_methodology_sha256": "f2cc7a587628af06d315bb0cea7c146894a0efd34031fd6a2daadc9584bacde5",
+  "retrieval_settings_sha256": "3635fb13943e9504b42c530ffcd75317f5f326d1abf569e108078aa55498116e",
+  "scorecard_methodology_sha256": "6286d0eeb94bf00cd32b0419ceeae71191b6e14a2118844ebb78351b02d171d1",
   "scored_query_set_sha256": "f9d840a4fb5fa58a5a3af798ef1a3eb3b34f6073997125e2d969f755bda3f36e",
   "source": {
-    "revision": "2ae2e1a7a1b8020583610715ccccea95c4dcb6de",
+    "revision": "f9ad1b5164f32702819d22028aaca29695311ce2",
     "worktree_dirty": false
   },
   "strategy": "rrf_fusion+rerank+exact_sku_preservation"
