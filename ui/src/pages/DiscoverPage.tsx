@@ -40,7 +40,7 @@ export function DiscoverPage() {
       <section className="discover-hero" aria-labelledby="discover-title">
         <header className="discover-heading">
           <h1 id="discover-title" className="commerce-display">
-            How a room <em>learns about you.</em>
+            A room built around <em>the way you work.</em>
           </h1>
           <p>Good choices start with the person using them. Let’s build a home office around the way Alex spends his day.</p>
         </header>
@@ -89,21 +89,19 @@ export function DiscoverPage() {
           <div>
             <h2>Start with what matters to you.</h2>
             <p>Follow Alex’s brief below, or describe your own.</p>
-          </div>
-          <div>
-            <div className="discover-search" role="search">
-              <CatalogSearchComposer
-                inputLabel="Search products"
-                leadingIcon={<GenerativeSearchIcon size={20} />}
-                onSubmit={search}
-                placeholder="What would make work feel better?"
-                showSuggestions={false}
-                suggestionsOnType={false}
-                submitIcon={<Send size={16} aria-hidden="true" />}
-                submitIconOnly
-              />
-            </div>
             {searchCount ? <p className="discover-search-scope">Search {searchCount.toLocaleString()} products</p> : null}
+          </div>
+          <div className="discover-search" role="search">
+            <CatalogSearchComposer
+              inputLabel="Search products"
+              leadingIcon={<GenerativeSearchIcon size={20} />}
+              onSubmit={search}
+              placeholder="What would make work feel better?"
+              showSuggestions={false}
+              suggestionsOnType={false}
+              submitIcon={<Send size={16} aria-hidden="true" />}
+              submitIconOnly
+            />
           </div>
         </div>
       </section>

@@ -741,9 +741,11 @@ describe("RetrievalLabPage", () => {
     // verbs name which is which, and they appear in the order the session runs
     // them.
     render(<RetrievalLabPage />);
+    // The pipeline's control is the paper plane, named by its tooltip rather
+    // than printed text, so read each control's accessible name.
     const actions = screen
       .getAllByRole("button")
-      .map((button) => button.textContent?.trim());
+      .map((button) => button.getAttribute("aria-label") ?? button.textContent?.trim());
     expect(actions.filter((label) => /^Run|^Replay/.test(label ?? ""))).toEqual([
       "Run pipeline",
       "Run the agent",
@@ -764,7 +766,8 @@ describe("RetrievalLabPage", () => {
 
     expect(controls[0].tagName).toBe("SELECT");
     expect(controls[1].tagName).toBe("INPUT");
-    expect(controls[2].textContent).toContain("Run pipeline");
+    expect(controls[2].tagName).toBe("BUTTON");
+    expect(controls[2].getAttribute("aria-label")).toBe("Run pipeline");
     // One picker on the page, not one per instrument.
     expect(container.querySelectorAll("select")).toHaveLength(1);
   });

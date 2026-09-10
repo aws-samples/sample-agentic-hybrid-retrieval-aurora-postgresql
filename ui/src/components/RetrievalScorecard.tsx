@@ -472,6 +472,14 @@ function StageArmList({
     ScorecardStageArm["key"],
     { title: string; purpose: string }
   > = {
+    lexical_only: {
+      title: "Exact terms only",
+      purpose: "What full-text search finds on its own, with no close spelling, meaning match, combining, or reranking.",
+    },
+    trigram_only: {
+      title: "Close spelling only",
+      purpose: "What trigram matching finds on its own, with no exact terms, meaning match, combining, or reranking.",
+    },
     semantic_only: {
       title: "Meaning match only",
       purpose: "What meaning match finds on its own, with no exact terms, close spelling, combining, or reranking.",
@@ -542,6 +550,8 @@ function StageAblationPerQueryList({
   arms: ScorecardStageArm[];
 }) {
   const armTitles: Record<ScorecardStageArm["key"], string> = {
+    lexical_only: "Exact terms only",
+    trigram_only: "Close spelling only",
     semantic_only: "Meaning match only",
     rrf_fused_no_rerank: "All three search methods combined",
     rrf_fused_reranked: "Combined, then reranked",

@@ -1,33 +1,40 @@
+/* The same disc Discover's search pill submits with: 44px, maroon-900, a soft
+   shadow, maroon-800 under the pointer. Kept identical on purpose, so a
+   participant who has sent one request recognises every other send. */
 .mosaic-run-button {
-  position: relative;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
-  min-height: 58px;
-  width: 248px;
-  max-width: 100%;
-  padding: 14px 18px;
+  gap: 12px;
+  padding: 0;
   border: 0;
-  border-radius: 12px;
-  background: var(--maroon-800);
-  color: var(--paper);
-  font: 500 17px/1.4 var(--sans);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font: 500 15px/1.4 var(--sans);
   cursor: pointer;
-  transition: background-color 180ms ease, transform 180ms ease;
 }
-.mosaic-run-button:hover:not(:disabled) { background: var(--maroon-900); transform: translateY(-1px); }
-.mosaic-run-button:active:not(:disabled) { transform: translateY(0); }
+.mosaic-run-disc {
+  display: grid;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--maroon-900);
+  box-shadow: 0 7px 18px rgb(69 16 27 / 18%);
+  color: var(--paper);
+  transition: background-color 180ms ease;
+}
+.mosaic-run-button:hover:not(:disabled) .mosaic-run-disc { background: var(--maroon-800); }
 .mosaic-run-button:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
 .mosaic-run-button:disabled { opacity: .55; cursor: default; }
 .mosaic-run-button[aria-busy="true"]:disabled { opacity: 1; cursor: progress; }
-.mosaic-run-spinner { flex-shrink: 0; animation: mosaic-run-spin 1s linear infinite; }
-.mosaic-run-steps { position: absolute; bottom: 7px; display: flex; gap: 4px; }
-.mosaic-run-steps > span { width: 20px; height: 2px; background: var(--paper); opacity: .3; }
-.mosaic-run-steps > span[data-reached="true"] { opacity: 1; }
+.mosaic-run-button.labelled { padding-left: 6px; }
+.mosaic-run-button.labelled:hover:not(:disabled) .mosaic-run-label { color: var(--maroon-800); }
+.mosaic-run-label { transition: color 180ms ease; }
+.mosaic-run-spinner { animation: mosaic-run-spin 1s linear infinite; }
 @keyframes mosaic-run-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .mosaic-run-button { transition: none; }
-  .mosaic-run-button:hover:not(:disabled) { transform: none; }
+  .mosaic-run-disc, .mosaic-run-label { transition: none; }
   .mosaic-run-spinner { animation: none; }
 }

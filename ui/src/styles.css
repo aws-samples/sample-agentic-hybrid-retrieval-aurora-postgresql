@@ -3980,13 +3980,6 @@ button:disabled {
   box-shadow: 0 4px 14px rgb(55 36 25 / 4%);
 }
 
-.retrieval-run-action .primary-button {
-  min-height: 44px;
-  border-radius: 6px;
-  box-shadow: none;
-  white-space: nowrap;
-}
-
 .retrieval-run-feedback {
   display: inline-flex;
   min-height: 44px;

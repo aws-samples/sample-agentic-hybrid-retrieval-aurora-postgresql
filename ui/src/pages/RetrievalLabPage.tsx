@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRightLeft, LoaderCircle, Play } from "lucide-react";
+import { AlertTriangle, ArrowRightLeft } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { ApiError, api } from "../api";
@@ -12,6 +12,7 @@ import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { LabRail, activeCoreLab } from "../components/LabRail";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
+import { MosaicRunButton } from "../components/MosaicRunButton";
 import { FusionDefectLens } from "../components/FusionDefectLens";
 import { PackageFinale } from "../components/PackageFinale";
 import {
@@ -710,19 +711,12 @@ export function RetrievalLabPage() {
                 value={query}
               />
             </label>
-            <button
-              className="primary-button"
+            <MosaicRunButton
               type="submit"
-              aria-busy={loading}
-              disabled={!example || !query.trim() || loading}
-            >
-              {loading ? (
-                <LoaderCircle aria-hidden="true" className="spin" size={17} />
-              ) : (
-                <Play aria-hidden="true" size={17} fill="currentColor" />
-              )}
-              {loading ? "Running pipeline" : "Run pipeline"}
-            </button>
+              label={loading ? "Running pipeline" : "Run pipeline"}
+              running={loading}
+              disabled={!example || !query.trim()}
+            />
             {loading ? (
               <span className="retrieval-run-feedback" role="status">
                 Embedding, retrieving, fusing, and reranking.

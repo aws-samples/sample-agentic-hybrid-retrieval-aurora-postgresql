@@ -1145,8 +1145,15 @@ export interface ScorecardAgentContracts {
  * every mean here travels with the spread that qualifies it. See
  * `ScorecardStageAblation.spread_note`.
  */
+export type ScorecardStageArmKey =
+  | "lexical_only"
+  | "trigram_only"
+  | "semantic_only"
+  | "rrf_fused_no_rerank"
+  | "rrf_fused_reranked";
+
 export interface ScorecardStageArm {
-  key: "semantic_only" | "rrf_fused_no_rerank" | "rrf_fused_reranked";
+  key: ScorecardStageArmKey;
   label: string;
   description: string;
   recall_at_10: number;
@@ -1214,7 +1221,7 @@ export interface ScorecardStageAblation {
   spread_note: string;
   scored_query_count: number;
   arms: ScorecardStageArm[];
-  /** Ordered semantic -> combined -> reranked, each against the one before it. */
+  /** Combining against each single arm, then reranking against the combined list. */
   paired_comparisons: ScorecardStagePairedComparison[];
   candidate_recall_ceiling: ScorecardCandidateRecallCeiling;
   per_query: ScorecardStageAblationQuery[];

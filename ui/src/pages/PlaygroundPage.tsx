@@ -15,7 +15,7 @@ import { mosaicLabManifest, pipelineRequests } from "../labMissions";
 import { SourceComparison } from "../components/SourceComparison";
 import { productImageMap } from "../media";
 import { forwardedSearchEvent, forwardedSearchFilters, useSearchParams } from "../navigation";
-import type { AgentPartial, AgentResponse, ProductSummary, ReadinessResponse, SearchFilters, SearchResponse, ToolTraceStep } from "../types";
+import type { AgentPartial, AgentResponse, ProductSummary, ReadinessResponse, ScorecardStageAblation, SearchFilters, SearchResponse, ToolTraceStep } from "../types";
 import { usePipelineRun, type PipelineReceipt } from "../usePipelineRun";
 import { RetrievalLabPage } from "./RetrievalLabPage";
 import "../inspector.css";
@@ -184,6 +184,7 @@ function PipelineInspector() {
   const [expanded, setExpanded] = useState<Record<Inspection, boolean>>({ retrieve: false, rank: false, reason: false });
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
   const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
+  const [ablation, setAblation] = useState<ScorecardStageAblation | null>(null);
   useEffect(() => { setExpanded({ retrieve: false, rank: false, reason: false }); setSelectedId(null); setHighlightedId(null); }, [requestKey]);
   useEffect(() => {
     if (!expanded.rank || highlightedId == null) return;
@@ -194,6 +195,8 @@ function PipelineInspector() {
   useEffect(() => {
     let active = true;
     void api.readiness().then((value) => { if (active) setReadiness(value); }).catch(() => {});
+    // The committed measurement behind "why hybrid": read-only, no Aurora call.
+    void api.scorecard().then((value) => { if (active) setAblation(value.stage_ablation); }).catch(() => {});
     return () => { active = false; };
   }, []);
   const selected = pipeline.receipts.find((item) => item.id === selectedId) ?? pipeline.receipts[0];
@@ -220,11 +223,11 @@ function PipelineInspector() {
     <section className="inspector-request" aria-label="Pipeline request">
       <img className="inspector-alex" src="/assets/images/mosaic/alex-headshot-v1.jpg" alt="Alex, Mosaic’s example shopper" width={128} height={128} />
       <div><h2>{question || "No request is available"}</h2><p>Alex’s workspace{count ? ` · Searching ${count.toLocaleString()} products` : ""}{runFilters.category_key ? ` · Filter: ${runFilters.category_key.replaceAll("-", " ")}` : ""}</p></div>
-      <MosaicRunButton type="button" className="inspector-play" running={pipeline.running} stage={pipeline.phase ? ["retrieve", "rank", "reason"].indexOf(pipeline.phase) : undefined} disabled={pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} onClick={() => { setSelectedId(null); setHighlightedId(null); setExpanded({ retrieve: false, rank: false, reason: false }); void pipeline.play(question, runFilters); }}>{runLabel}</MosaicRunButton>
+      <MosaicRunButton type="button" className="inspector-play" label={runLabel} running={pipeline.running} disabled={pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} onClick={() => { setSelectedId(null); setHighlightedId(null); setExpanded({ retrieve: false, rank: false, reason: false }); void pipeline.play(question, runFilters); }} />
     </section>
     <div className="inspector-context-bar">
       <details className="inspector-about-request"><summary>About Alex’s request</summary><p>Alex is a software engineer building a home office for coding, calls and focused work.</p>{!params.has("q") && selectedRequest ? <p>{selectedRequest.notice}</p> : null}<Link href="/catalog">Choose another request in Shop <ArrowRight size={14} aria-hidden="true" /></Link></details>
-      <div className="inspector-run-status" role="status">{pipeline.reading ? "Reading the saved Shop search…" : pipeline.status || (carriedEvent ? "Saved Shop search" : "Ready when you are. See how Mosaic finds, ranks and recommends products for Alex.")}</div>
+      <div className="inspector-run-status" role="status">{pipeline.reading ? "Reading the saved Shop search…" : pipeline.status || (carriedEvent ? "Saved Shop search" : "Ready when you are. Send Alex’s request and see how Mosaic finds, ranks and recommends products.")}</div>
     </div>
     {carriedEvent ? <div className="inspector-saved-search"><p>{pipeline.started ? "This is a new run. Mosaic can change the search wording and choose different products." : "You’re viewing the saved Shop search. Starting a new run lets Mosaic search again; its picks may change."}</p>{pipeline.started ? <button type="button" disabled={pipeline.running} onClick={() => { setSelectedId(null); setHighlightedId(null); setExpanded({ retrieve: false, rank: false, reason: false }); pipeline.restoreSavedSearch(); }}>Back to saved Shop results <ArrowRight size={14} aria-hidden="true" /></button> : null}</div> : null}
     {pipeline.error ? <p className="inspector-error" role="alert">{pipeline.error}</p> : null}
@@ -232,8 +235,8 @@ function PipelineInspector() {
     {selected ? <p className="inspector-receipt">Search {pipeline.receipts.indexOf(selected) + 1}{response ? ` · ${response.query}` : selected.error ? " · Could not load" : " · Reading…"}<span>Search record <code>{selected.id}</code></span></p> : null}
     {selected?.error ? <p className="inspector-error" role="alert">This record could not be read: {selected.error} {carriedEvent && !pipeline.started ? "Reload this page to retry the saved Shop search." : "Start a new run to try again."}</p> : null}
     <div className="inspector-pipeline-grid">
-      <PipelineColumn stage="retrieve" state={columnState("retrieve")} number="01" title="Retrieve" description="Find products through words, spelling and meaning." expanded={expanded.retrieve} onInspect={() => inspect("retrieve")} details={<RetrieveDetails response={response} receipts={pipeline.receipts} selectedId={selected?.id} onSelect={(id) => { setSelectedId(id); setHighlightedId(null); }} />}><RetrieveOverview response={response} /></PipelineColumn>
-      <PipelineColumn stage="rank" state={columnState("rank")} number="02" title="Rank" description="See which products rise to the top." expanded={expanded.rank} onInspect={() => inspect("rank")} details={<RankDetails response={response} highlightedId={highlightedId} />}><RankOverview response={response} /></PipelineColumn>
+      <PipelineColumn stage="retrieve" state={columnState("retrieve")} number="01" title="Retrieve" description="Find products through words, spelling and meaning." expanded={expanded.retrieve} onInspect={() => inspect("retrieve")} details={<RetrieveDetails response={response} receipts={pipeline.receipts} selectedId={selected?.id} onSelect={(id) => { setSelectedId(id); setHighlightedId(null); }} />}><RetrieveOverview response={response} ablation={ablation} /></PipelineColumn>
+      <PipelineColumn stage="rank" state={columnState("rank")} number="02" title="Rank" description="See which products rise to the top." expanded={expanded.rank} onInspect={() => inspect("rank")} details={<RankDetails response={response} highlightedId={highlightedId} />}><RankOverview response={response} ablation={ablation} /></PipelineColumn>
       <PipelineColumn stage="reason" state={columnState("reason")} number="03" title="Reason" description="Compare the products and explain the choice." expanded={expanded.reason} onInspect={() => inspect("reason")} details={<><ReasonEvidence answer={pipeline.completed ? pipeline.answer : null} trace={pipeline.trace} />{pipeline.runId ? <p className="inspector-receipt">Agent record <code>{pipeline.runId}</code></p> : null}</>}><ReasonOverview answer={pipeline.answer} partial={pipeline.partial} streamed={pipeline.streamed} completed={pipeline.completed} running={pipeline.running} active={pipeline.phase === "reason"} hasSearch={Boolean(response)} failed={Boolean(pipeline.error)} renderSearchLink={renderSearchLink} multipleSearches={pipeline.receipts.length > 1} /></PipelineColumn>
     </div>
     <aside className="inspector-scale-link"><div><h2>And when the catalog grows?</h2><p>Explore how HNSW finds similar products quickly, and how filters affect the search.</p></div><Link href="/mosaic-labs/hnsw">Explore scale & HNSW <ArrowRight size={18} aria-hidden="true" /></Link></aside>

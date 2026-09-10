@@ -134,7 +134,7 @@ under 760px; the request and single Play action stay prominent on mobile.
 
 ## Chrome behaviour
 
-- Discover opens with “How a room learns you.” A 4:3 room photograph sits
+- Discover opens with “A room built around the way you work.” A 4:3 room photograph sits
   left of Alex's brief on a warm cream surface, and the card ends inside the
   first frame: above the mobile stack the photograph is capped at the viewport
   height less the header and the heading block, and covers the capped box, so
@@ -208,14 +208,18 @@ under 760px; the request and single Play action stay prominent on mobile.
   Hybrid retrieval's default is `clear-calls`; the chair request is a scoped
   shopping intent, not a replacement lab mission.
 - The default Hybrid retrieval opens with canonical scene choices, Alex's portrait and
-  request, and one Run Mosaic button. Run Mosaic makes a real agent request; the three
+  request, and one paper-plane send (tooltip Run Mosaic). It makes a real agent request; the three
   stages inspect saved records. A carried Shop event is read without rerunning
   it. If the agent searched several times, Retrieve and Rank share one selected
   search receipt. SQL, settings, citations and tool traces use disclosures.
-- Run Mosaic and Ask Mosaic share a 58px maroon button with a 12px radius and
-  generous sans-serif text. Running requests show a spinner and the current
-  stage; Hybrid retrieval adds three subtle stage marks and offers Run again
-  after completion. No arrow appears in either action.
+- Every send on the Playground is the paper plane Discover submits a search
+  with: `MosaicRunButton`, a 44px maroon-900 disc with a soft shadow, maroon-800
+  under the pointer, a 16px plane, and a spinner while the request is in flight.
+  The request card and the guided lab's query field use it alone, named by its
+  tooltip (Run Mosaic, Run again, Run pipeline). Session & Memory prints the
+  label beside the disc because the guide tells participants to choose
+  **Ask Mosaic** and a second button sits next to it. No arrow, no stage marks;
+  the status line under the card and the column states carry progress.
 - Desktop retrieval columns share grid rows for headers, content, disclosure
   buttons and panels. Search details, Why the order changed and Answer and
   sources stay aligned, with each panel contained in its column.
@@ -311,7 +315,7 @@ under 760px; the request and single Play action stay prominent on mobile.
 | `/`, `/discover` | Discover: Alex's room brief, three illustrated shopping needs, general search and category browsing; product inventories live in Shop |
 | `/catalog` | Shop: faceted browsing, hybrid search, product cards, Ask Mosaic as a sidecar |
 | `/products/:productId` | Product detail: media, catalog copy, price and availability, attributes, evidence excerpts |
-| `/labs/retrieval` | Hybrid retrieval: read-only inspection of 01 Retrieve, 02 Rank, 03 Reason; one Run Mosaic action starts a real run, and `scene` selects a canonical request |
+| `/labs/retrieval` | Hybrid retrieval: read-only inspection of 01 Retrieve, 02 Rank, 03 Reason; one paper-plane send (Run Mosaic) starts a real run, and `scene` selects a canonical request |
 | `/labs/retrieval?view=lab` | Guided Playground: Retrieve, Rank, Reason, Prove, lab rail and completion proof; URLs containing `example` or `run` also select this surface |
 | `/mosaic-labs/hnsw` | Scale & HNSW: read-only index explanation, current Aurora substrate and attributed recorded measurements, including optional halfvec/binary comparisons |
 | `/mosaic-labs/memory` | Session & Memory: AgentCore events, four built-in strategies and actual records; conversation and strategy columns lead to recall and Aurora-backed cited answers |

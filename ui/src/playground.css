@@ -88,8 +88,7 @@
 }
 
 .lab-page .retrieval-run-action input,
-.lab-page .retrieval-run-action select,
-.lab-page .retrieval-run-action .primary-button {
+.lab-page .retrieval-run-action select {
   min-height: 48px;
   border-radius: 8px;
   font-size: var(--labs-body);
@@ -267,8 +266,8 @@
     gap: 14px;
   }
 
-  .lab-page .retrieval-run-action .primary-button {
-    width: 100%;
+  .lab-page .retrieval-run-action .mosaic-run-button {
+    margin-left: auto;
   }
 
   .lab-page .labs-rail {
