@@ -1845,7 +1845,31 @@ def test_failed_stream_exposes_its_persisted_run_and_last_receipts(monkeypatch):
     assert "event: complete" not in stream.text
 
 
+class _NoOwnerConnection:
+    """A headless follow-up's ownership check, answered offline.
+
+    `service.session_memory.prepare_request` opens Aurora to confirm that the
+    previous turn is not owned by a browser session before a caller without a
+    cookie may continue it. These stream tests are about which execution path
+    the route reports, not about memory, so the check runs against a connection
+    that reports no owner rather than against a live cluster.
+    """
+
+    def execute(self, *_args, **_kwargs):
+        return self
+
+    def fetchone(self):
+        return None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return None
+
+
 def test_agent_stream_uses_a_compact_path_for_grounded_followups(monkeypatch):
+    monkeypatch.setattr("service.session_memory.connect", lambda: _NoOwnerConnection())
     previous_run_id = uuid4()
     response = AgentResponse(
         agent_run_id=uuid4(),
@@ -1897,6 +1921,7 @@ def test_agent_stream_uses_a_compact_path_for_grounded_followups(monkeypatch):
 
 
 def test_agent_stream_returns_to_full_retrieval_when_followup_searches(monkeypatch):
+    monkeypatch.setattr("service.session_memory.connect", lambda: _NoOwnerConnection())
     previous_run_id = uuid4()
     response = AgentResponse(
         agent_run_id=uuid4(),
