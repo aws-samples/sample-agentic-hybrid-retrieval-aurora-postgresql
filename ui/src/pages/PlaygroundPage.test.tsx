@@ -193,6 +193,30 @@ it("follows the live stages left to right and returns to Retrieve for a second s
   expect(document.querySelectorAll('.inspector-column[aria-current="step"]')).toHaveLength(0);
 });
 
+it.each([
+  ["retrieve", ["failed", "blocked", "blocked"]],
+  ["rank", ["complete", "failed", "blocked"]],
+  ["answer", ["complete", "complete", "failed"]],
+] as const)("ends waiting states after a failure at %s and supports retry", async (id, expected) => {
+  const stream = vi.spyOn(api, "agentStream").mockImplementationOnce(async (_question, _filters, emit) => {
+    emit({ type: "stage", id, path: "full_retrieval", title: id, detail: id });
+    throw new Error("Catalog connection unavailable.");
+  });
+  render(<PlaygroundPage />);
+  fireEvent.click(screen.getByRole("button", { name: "Run Mosaic" }));
+  await screen.findByRole("alert");
+  const regions = ["Retrieve", "Rank", "Reason"].map((name) => screen.getByRole("region", { name }));
+  expect(regions.map((region) => region.dataset.state)).toEqual(expected);
+  expect(screen.queryByRole("status", { name: /waiting|working/ })).toBeNull();
+  expect(screen.queryByText("Matching products will appear as the search finishes.")).toBeNull();
+  expect(screen.getByText("No search results are available from this run.")).toBeTruthy();
+  stream.mockImplementationOnce(async (_question, _filters, emit) => emit({ type: "complete", response: { agent_run_id: agentId, question: defaultRequest.query, answer: "Recovered.", plan: [], recommendations: [], citations: [], trace: [] } }));
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  await screen.findByText("Recovered.");
+  expect(regions.map((region) => region.dataset.state)).toEqual(["complete", "complete", "complete"]);
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
 it("keeps each detail panel inside its column and lets all three stay open", async () => {
   const products = showcaseCatalogPage({}, 0, 2).products.map((product, index) => ranked(product, index + 4, index + 1));
   vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(savedSearch(firstSearchId, products));
@@ -350,4 +374,3 @@ it("says the measured comparison is waiting when the artifact is not attributed 
   expect(await screen.findByText("The measured comparison is waiting for a re-measure on this build.")).toBeTruthy();
   expect(screen.queryByRole("table", { name: "Scores for each search method" })).toBeNull();
 });
-

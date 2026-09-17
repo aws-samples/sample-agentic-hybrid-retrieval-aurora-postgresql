@@ -395,6 +395,11 @@ reinstalls that lab's fault and restores its prerequisites; the corresponding
 API where the guide requires it, then run the same validator. A rescue is not a
 pass until its production check runs.
 
+A catalog connection timeout is an availability problem, not a lab verdict.
+Retry once, then check Aurora connectivity and database capacity before changing
+the participant's code or pool settings. Keep the failed request visible so the
+same action can be repeated after access is restored.
+
 ### The closing minute, within Lab 3
 
 Keep the checked answer on screen after the completion gate. Ask one participant

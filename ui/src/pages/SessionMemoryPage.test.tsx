@@ -18,6 +18,17 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
+it("stops the loading indicator after an initial failure and retries the connection", async () => {
+  vi.mocked(api.sessionMemory).mockRejectedValueOnce(new Error("Catalog connection unavailable."));
+  render(<SessionMemoryPage />);
+  await screen.findByRole("alert");
+  expect(screen.queryByText("Loading conversations and memory settings…")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await screen.findByRole("heading", { name: "What AgentCore remembers" });
+  expect(api.sessionMemory).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
 it.each([
   ['{"fact":"Alex shares an office."}', "Alex shares an office."],
   ['{"summary":"Alex compared two keyboards."}', "Alex compared two keyboards."],

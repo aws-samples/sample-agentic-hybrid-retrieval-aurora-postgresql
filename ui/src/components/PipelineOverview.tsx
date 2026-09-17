@@ -79,7 +79,7 @@ function WithoutHybrid({ response, ablation }: { response?: SearchResponse; abla
   </section>;
 }
 
-export function RetrieveOverview({ response, ablation }: { response?: SearchResponse; ablation?: ScorecardStageAblation | null }) {
+export function RetrieveOverview({ response, ablation, stopped = false }: { response?: SearchResponse; ablation?: ScorecardStageAblation | null; stopped?: boolean }) {
   const counts = response?.diagnostics?.candidate_counts;
   // These are the recorded returned products, not an invented view of the whole pool.
   const products = previewProducts(response).sort((a, b) => (a.signals?.pre_rerank_rank ?? Infinity) - (b.signals?.pre_rerank_rank ?? Infinity));
@@ -94,13 +94,13 @@ export function RetrieveOverview({ response, ablation }: { response?: SearchResp
       <h3 className="inspector-preview-title">The same matches, before reranking</h3>
       <ProductPreview products={products} />
       <p className="inspector-note">Following the same {products.length} products as Rank, in their earlier order. This is a preview of the returned results.</p>
-    </> : <p className="inspector-waiting">This search returned no products.</p> : <p className="inspector-waiting">Matching products will appear as the search finishes.</p>}
+    </> : <p className="inspector-waiting">This search returned no products.</p> : <p className="inspector-waiting">{stopped ? "No search results are available from this run." : "Matching products will appear as the search finishes."}</p>}
     <WithoutHybrid response={response} ablation={ablation} />
     <KeepInMind>A reranker can only reorder what entered this pool. Each search method applies the filters before limiting its results, so an eligible product can reach the combined list.</KeepInMind>
   </>;
 }
 
-export function RankOverview({ response, ablation }: { response?: SearchResponse; ablation?: ScorecardStageAblation | null }) {
+export function RankOverview({ response, ablation, stopped = false }: { response?: SearchResponse; ablation?: ScorecardStageAblation | null; stopped?: boolean }) {
   const products = previewProducts(response);
   const rerankStep = ablation?.attributed ? ablation.paired_comparisons.find((step) => step.to_key === "rrf_fused_reranked") : undefined;
   return <>
@@ -112,7 +112,7 @@ export function RankOverview({ response, ablation }: { response?: SearchResponse
       <ProductPreview products={products} ranked />
       <p className="inspector-note">#1 is the highest rank. RRF and reranker scores use different scales; a higher score is better within each step.</p>
       <p className="inspector-note">Showing {products.length} of {response.results.length} results. Reranking: <strong>{response.diagnostics?.rerank_status ?? "not reported"}</strong>.</p>
-    </> : <p className="inspector-waiting">No products were returned, so no ranking is available.</p> : <p className="inspector-waiting">See how the order changes as Mosaic compares the products.</p>}
+    </> : <p className="inspector-waiting">No products were returned, so no ranking is available.</p> : <p className="inspector-waiting">{stopped ? "No ranking is available from this run." : "See how the order changes as Mosaic compares the products."}</p>}
     <KeepInMind>Each search method scores matches differently. RRF combines them using 1 / (k + rank) for each position. The reranker can reorder these products, but cannot add a missing one.</KeepInMind>
   </>;
 }

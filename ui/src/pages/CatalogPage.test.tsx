@@ -1260,6 +1260,23 @@ describe("CatalogPage", () => {
       await screen.findByText("Aurora catalog is unavailable"),
     ).toBeTruthy();
     expect(document.querySelectorAll("[data-product-id]")).toHaveLength(0);
+    expect(screen.queryByText("Loading catalog")).toBeNull();
+  });
+
+  it("ends the loading message when a search fails and lets the same request retry", async () => {
+    window.history.replaceState({}, "", "/catalog?q=quiet+keyboard");
+    vi.mocked(api.search).mockRejectedValueOnce(new Error("Catalog connection timed out."));
+    renderPage();
+
+    await screen.findByText("Search unavailable");
+    expect(screen.queryByText("Loading catalog")).toBeNull();
+    expect(screen.queryByRole("status", { name: "Loading products" })).toBeNull();
+    expect(document.querySelectorAll(".shop-product-grid [data-product-id]")).toHaveLength(0);
+
+    vi.mocked(api.search).mockResolvedValueOnce(searchResponse);
+    fireEvent.submit(screen.getByRole("combobox", { name: "Product search" }).closest("form")!);
+    await waitFor(() => expect(document.querySelectorAll(".shop-product-grid [data-product-id]").length).toBeGreaterThan(0));
+    expect(screen.queryByText("Search unavailable")).toBeNull();
   });
 
   it("keeps the newest catalog page when an older request resolves last", async () => {

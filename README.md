@@ -202,6 +202,12 @@ after repair. Candidate counts overlap, so they do not measure unique additions.
 Search and agent results always come from the API. The UI does not recreate
 retrieval scores or silently substitute fixture products when Aurora, Bedrock,
 reranking, evidence, or synthesis is unavailable.
+If a catalog connection times out, the app reports the wait and asks the
+facilitator to check Aurora connectivity and database capacity. A timeout alone
+does not establish that the connection pool is full.
+When a Playground run stops, its active stage says **Stopped** and later stages
+say **Not reached**. Available search records remain inspectable; **Try again**
+starts a new run. In Shop, submitting the same question starts a fresh search.
 
 ## Architecture
 

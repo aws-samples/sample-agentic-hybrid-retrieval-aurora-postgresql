@@ -1,10 +1,4 @@
-"""Pool exhaustion has to say something a participant can act on.
-
-`psycopg_pool.PoolTimeout` subclasses `psycopg.OperationalError`, not
-`RuntimeError`, so the `except RuntimeError` in every route misses it and Starlette
-answers a bare "Internal Server Error". Under a full workshop room that is the
-most likely failure of all.
-"""
+"""Connection failures need safe, actionable responses without a guessed cause."""
 
 from __future__ import annotations
 
@@ -21,7 +15,7 @@ def _client() -> TestClient:
     return TestClient(main.app, raise_server_exceptions=False)
 
 
-def test_pool_exhaustion_answers_503_with_the_knobs_to_turn(monkeypatch):
+def test_connection_timeout_answers_503_without_assuming_pool_exhaustion(monkeypatch):
     def saturated(*_args, **_kwargs):
         raise PoolTimeout("couldn't get a connection after 20.00 sec")
 
@@ -31,9 +25,13 @@ def test_pool_exhaustion_answers_503_with_the_knobs_to_turn(monkeypatch):
 
     assert response.status_code == 503
     detail = response.json()["detail"]
-    assert "Every database connection is busy" in detail
-    assert "DB_POOL_MAX_SIZE" in detail
-    assert "DB_POOL_TIMEOUT_SECONDS" in detail
+    assert "catalog connection" in detail
+    assert "Retry" in detail
+    assert "Aurora connectivity" in detail
+    assert "database capacity" in detail
+    assert "Every database connection is busy" not in detail
+    assert "DB_POOL_MAX_SIZE" not in detail
+    assert "DB_POOL_TIMEOUT_SECONDS" not in detail
 
 
 def test_pool_exhaustion_never_echoes_the_connection_string(monkeypatch):

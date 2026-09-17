@@ -28,7 +28,7 @@ const requestGroups = [
   { label: "Agent examples", requests: requests.filter((request) => !primaryRequestIds.has(request.id)) },
 ].filter((group) => group.requests.length);
 type Inspection = "retrieve" | "rank" | "reason";
-type ColumnState = "idle" | "pending" | "active" | "complete" | "failed";
+type ColumnState = "idle" | "pending" | "active" | "complete" | "failed" | "blocked";
 
 function PipelineColumn({ stage, state, number, title, description, expanded, onInspect, children, details }: {
   stage: Inspection; number: string; title: string; description: string;
@@ -36,7 +36,7 @@ function PipelineColumn({ stage, state, number, title, description, expanded, on
   expanded: boolean; onInspect: () => void; children: ReactNode; details: ReactNode;
 }) {
   return <section className="inspector-column" data-state={state} id={`inspect-${stage}`} aria-current={state === "active" ? "step" : undefined} aria-labelledby={`inspect-${stage}-title`}>
-    <header><span className="inspector-step-number">{number}</span><h2 id={`inspect-${stage}-title`}>{title}</h2>{state !== "idle" ? <span className="inspector-stage-state" role="status" aria-label={`${title}: ${state === "active" ? "working" : state === "complete" ? "done" : state === "failed" ? "stopped" : "waiting"}`}>{state === "active" ? <LoaderCircle className="spin" size={15} aria-hidden="true" /> : state === "complete" ? <Check size={15} aria-hidden="true" /> : null}{state === "active" ? "Working" : state === "complete" ? "Done" : state === "failed" ? "Stopped" : "Waiting"}</span> : null}<p>{description}</p></header>
+    <header><span className="inspector-step-number">{number}</span><h2 id={`inspect-${stage}-title`}>{title}</h2>{state !== "idle" ? <span className="inspector-stage-state" role="status" aria-label={`${title}: ${state === "active" ? "working" : state === "complete" ? "done" : state === "failed" ? "stopped" : state === "blocked" ? "not reached" : "waiting"}`}>{state === "active" ? <LoaderCircle className="spin" size={15} aria-hidden="true" /> : state === "complete" ? <Check size={15} aria-hidden="true" /> : null}{state === "active" ? "Working" : state === "complete" ? "Done" : state === "failed" ? "Stopped" : state === "blocked" ? "Not reached" : "Waiting"}</span> : null}<p>{description}</p></header>
     <div className="inspector-column-body">{children}</div>
     <button id={`inspect-${stage}-button`} type="button" className="inspector-inspect-button" aria-expanded={expanded} aria-controls={`inspect-${stage}-details`} onClick={onInspect}>{stage === "retrieve" ? "Search details" : stage === "rank" ? "Why the order changed" : "Answer and sources"}<ChevronDown size={16} aria-hidden="true" /></button>
     <div id={`inspect-${stage}-details`} className="inspector-column-details" role="region" aria-labelledby={`inspect-${stage}-button`} hidden={!expanded}>{expanded ? details : null}</div>
@@ -153,9 +153,9 @@ function ReasonOverview({ answer, partial, streamed, completed, running, active,
   </>;
 }
 
-function ReasonEvidence({ answer, trace }: { answer: AgentResponse | null; trace: ToolTraceStep[] }) {
+function ReasonEvidence({ answer, trace, failed }: { answer: AgentResponse | null; trace: ToolTraceStep[]; failed: boolean }) {
   return <>
-    {answer ? <p className="inspector-note">Source numbers in the answer identify evidence, not recommendation ranks.</p> : <p className="inspector-note">The answer is not ready yet. You can see the steps taken so far below.</p>}
+    {answer ? <p className="inspector-note">Source numbers in the answer identify evidence, not recommendation ranks.</p> : <p className="inspector-note">{failed ? "The run stopped without a completed answer. Any recorded steps are shown below." : "The answer is not ready yet. You can see the steps taken so far below."}</p>}
     {answer?.recommendations.length ? <InspectorDetail title="Compare the sources"><SourceComparison answer={answer} /></InspectorDetail> : null}
     {answer?.citations.length ? <InspectorDetail title={`Sources for this answer · ${answer.citations.length} citations`}>
       <ol className="inspector-citations">{answer.citations.map((citation) => <li key={`${citation.number}-${citation.evidence_id}`} value={citation.number}>
@@ -214,7 +214,8 @@ function PipelineInspector() {
     if (pipeline.completed) return "complete";
     if (stage === pipeline.phase) return pipeline.error ? "failed" : pipeline.running ? "active" : "pending";
     const order: Inspection[] = ["retrieve", "rank", "reason"];
-    return pipeline.phase && order.indexOf(stage) < order.indexOf(pipeline.phase) ? "complete" : "pending";
+    if (pipeline.phase && order.indexOf(stage) < order.indexOf(pipeline.phase)) return "complete";
+    return pipeline.error ? "blocked" : "pending";
   };
   return <div className="page pipeline-inspector pipeline-overview">
     <MosaicLabsTabs active="retrieval" />
@@ -236,9 +237,9 @@ function PipelineInspector() {
     {selected ? <p className="inspector-receipt">Search {pipeline.receipts.indexOf(selected) + 1}{response ? ` · ${response.query}` : selected.error ? " · Could not load" : " · Reading…"}<span>Search record <code>{selected.id}</code></span></p> : null}
     {selected?.error ? <p className="inspector-error" role="alert">This record could not be read: {selected.error} {carriedEvent && !pipeline.started ? "Reload this page to retry the saved Shop search." : "Start a new run to try again."}</p> : null}
     <div className="inspector-pipeline-grid">
-      <PipelineColumn stage="retrieve" state={columnState("retrieve")} number="01" title="Retrieve" description="Which eligible products can we find?" expanded={expanded.retrieve} onInspect={() => inspect("retrieve")} details={<RetrieveDetails response={response} receipts={pipeline.receipts} selectedId={selected?.id} onSelect={(id) => { setSelectedId(id); setHighlightedId(null); }} />}><RetrieveOverview response={response} ablation={ablation} /></PipelineColumn>
-      <PipelineColumn stage="rank" state={columnState("rank")} number="02" title="Rank" description="How should we order those products?" expanded={expanded.rank} onInspect={() => inspect("rank")} details={<RankDetails response={response} highlightedId={highlightedId} />}><RankOverview response={response} ablation={ablation} /></PipelineColumn>
-      <PipelineColumn stage="reason" state={columnState("reason")} number="03" title="Reason" description="What choice can the sources support?" expanded={expanded.reason} onInspect={() => inspect("reason")} details={<><ReasonEvidence answer={pipeline.completed ? pipeline.answer : null} trace={pipeline.trace} />{pipeline.runId ? <p className="inspector-receipt">Agent record <code>{pipeline.runId}</code></p> : null}</>}><ReasonOverview answer={pipeline.answer} partial={pipeline.partial} streamed={pipeline.streamed} completed={pipeline.completed} running={pipeline.running} active={pipeline.phase === "reason"} hasSearch={Boolean(response)} failed={Boolean(pipeline.error)} renderSearchLink={renderSearchLink} multipleSearches={pipeline.receipts.length > 1} /></PipelineColumn>
+      <PipelineColumn stage="retrieve" state={columnState("retrieve")} number="01" title="Retrieve" description="Which eligible products can we find?" expanded={expanded.retrieve} onInspect={() => inspect("retrieve")} details={<RetrieveDetails response={response} receipts={pipeline.receipts} selectedId={selected?.id} onSelect={(id) => { setSelectedId(id); setHighlightedId(null); }} />}><RetrieveOverview response={response} ablation={ablation} stopped={Boolean(pipeline.error)} /></PipelineColumn>
+      <PipelineColumn stage="rank" state={columnState("rank")} number="02" title="Rank" description="How should we order those products?" expanded={expanded.rank} onInspect={() => inspect("rank")} details={<RankDetails response={response} highlightedId={highlightedId} />}><RankOverview response={response} ablation={ablation} stopped={Boolean(pipeline.error)} /></PipelineColumn>
+      <PipelineColumn stage="reason" state={columnState("reason")} number="03" title="Reason" description="What choice can the sources support?" expanded={expanded.reason} onInspect={() => inspect("reason")} details={<><ReasonEvidence answer={pipeline.completed ? pipeline.answer : null} trace={pipeline.trace} failed={Boolean(pipeline.error)} />{pipeline.runId ? <p className="inspector-receipt">Agent record <code>{pipeline.runId}</code></p> : null}</>}><ReasonOverview answer={pipeline.answer} partial={pipeline.partial} streamed={pipeline.streamed} completed={pipeline.completed} running={pipeline.running} active={pipeline.phase === "reason"} hasSearch={Boolean(response)} failed={Boolean(pipeline.error)} renderSearchLink={renderSearchLink} multipleSearches={pipeline.receipts.length > 1} /></PipelineColumn>
     </div>
     <aside className="inspector-scale-link inspector-takeaway"><div><h2>From a result to a supported choice.</h2><p>Follow one recommendation back to its sources, then to the search and ranks that brought it here. Use the same checks in your own application.</p><nav aria-label="Optional explorations"><span>Optional</span><Link href="/mosaic-labs/hnsw">Explore scale & HNSW</Link><Link href="/mosaic-labs/memory">Explore session & memory</Link></nav></div><a href="/api/skill-package">Download the retrieval skill <ArrowRight size={18} aria-hidden="true" /></a></aside>
   </div>;

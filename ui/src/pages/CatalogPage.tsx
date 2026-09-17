@@ -825,6 +825,8 @@ export function CatalogPage() {
     next.delete("event");
     next.set("view", "results");
     setSearchParams(next);
+    // Repeating a request must retry even when no URL filter has changed.
+    if (trimmed === activeQuery) setRetrievalNonce((run) => run + 1);
   }
 
   // A complete suggested need replaces incompatible browse filters and stale receipts.
@@ -1511,7 +1513,7 @@ export function CatalogPage() {
                     <><strong>0</strong> products</>
                   )}
                 </>
-              ) : retrievalLoading && activeQuery ? "Searching products" : "Loading catalog"}
+              ) : retrievalError ? "No search results to show" : error ? "Catalog unavailable" : retrievalLoading && activeQuery ? "Searching products" : "Loading catalog"}
             </p>
               {!retrieval && !agentProducts && page ? (
                 <nav className="shop-pagination" aria-label="Product pages">

@@ -147,23 +147,21 @@ app.add_middleware(
 
 
 @app.exception_handler(PoolTimeout)
-async def _pool_saturated(_: Request, __: PoolTimeout) -> JSONResponse:
-    """Say the pool is busy rather than returning a bare 500.
+async def _connection_timeout(_: Request, __: PoolTimeout) -> JSONResponse:
+    """Report the wait without diagnosing saturation from a timeout alone.
 
-    `PoolTimeout` subclasses `psycopg.OperationalError`, not `RuntimeError`, so the
-    `except RuntimeError` in each route does not catch it and Starlette answers
-    "Internal Server Error" with no explanation. Under a full workshop room that is
-    the most likely failure, and it is the one a participant can act on.
+    An unreachable Aurora cluster also exhausts this wait while the pool has no
+    usable connections. Increasing pool limits cannot repair that failure.
     """
     settings = get_settings()
     return JSONResponse(
         status_code=503,
         content={
             "detail": (
-                "Every database connection is busy. Retry in a moment. If this "
-                f"persists, raise DB_POOL_MAX_SIZE (currently "
-                f"{settings.db_pool_max_size}) or DB_POOL_TIMEOUT_SECONDS "
-                f"(currently {settings.db_pool_timeout:g}s)."
+                "Mosaic could not get a catalog connection within "
+                f"{settings.db_pool_timeout:g} seconds. Retry in a moment. If this "
+                "continues, ask your facilitator to check Aurora connectivity "
+                "and database capacity."
             )
         },
     )
