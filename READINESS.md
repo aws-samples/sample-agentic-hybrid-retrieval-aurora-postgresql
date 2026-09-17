@@ -121,8 +121,8 @@ labs, the completion gate, and the scorecard untouched.
 
 ## Release measurement checks
 
-The committed canonical scorecard and stage ablation were measured on
-10 September 2026. The running service checks their retrieval, methodology,
+The committed canonical scorecard and stage ablation record their measurement
+dates and immutable source revisions. The running service checks their retrieval, methodology,
 model, query-set, and configuration identities before attributing them.
 The 17 September audit confirmed the scorecard and HNSW attribution against
 the existing Aurora cluster; neither substitutes for participant proof.
