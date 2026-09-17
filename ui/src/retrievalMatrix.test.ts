@@ -228,7 +228,7 @@ describe("before and after reranking", () => {
 });
 
 describe("column measures", () => {
-  it("counts the rows each arm actually returned", () => {
+  it("counts the rows each search method actually returned", () => {
     const matrix = buildRetrievalMatrix(
       response([
         product(1, {}, signals({
@@ -313,14 +313,14 @@ describe("row verdicts", () => {
       ]),
     );
     expect(matrix.rows[0].verdict).toBe(
-      "Only the vector arm found it: it shares no word with the query.",
+      "Only meaning match found it: it shares no word with the query.",
     );
     expect(matrix.rows[0].reasons.map((reason) => reason.label)).toContain(
       "No query word in this record; nearest by meaning",
     );
   });
 
-  it("names every arm that reported the row", () => {
+  it("names every search method that reported the row", () => {
     const matrix = buildRetrievalMatrix(
       response([
         product(1, {}, signals({

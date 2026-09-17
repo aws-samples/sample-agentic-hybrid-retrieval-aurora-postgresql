@@ -55,7 +55,7 @@ export function HnswControlledAb({ nvme, attributed }: HnswControlledAbProps) {
 
       <div className="hnsw-ab-body">
         <div
-          aria-label="Controlled Aurora A/B results"
+          aria-label="Results from two Aurora configurations"
           className="hnsw-table-scroll hnsw-ab-table-scroll"
           role="region"
           tabIndex={0}
@@ -96,7 +96,7 @@ export function HnswControlledAb({ nvme, attributed }: HnswControlledAbProps) {
         </div>
 
         <div className="hnsw-ab-controls">
-          <h3>Controls</h3>
+          <h3>Settings kept the same</h3>
           <ul>
             {nvme.controls.map((control) => (
               <li key={control}>

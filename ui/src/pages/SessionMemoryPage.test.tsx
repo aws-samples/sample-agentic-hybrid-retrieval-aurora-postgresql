@@ -18,12 +18,27 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
+it.each([
+  ['{"fact":"Alex shares an office."}', "Alex shares an office."],
+  ['{"summary":"Alex compared two keyboards."}', "Alex compared two keyboards."],
+  ['{"turns":[null,{"situation":"Alex needs quieter typing.","thought":"Internal processing details"}]}', "Alex needs quieter typing."],
+  ['{"unknown_format":{"detail":"Original content"}}', "This memory contains structured details. Open Record details to inspect what AgentCore saved."],
+  ["null", "This memory contains structured details. Open Record details to inspect what AgentCore saved."],
+])("previews memory content and preserves the complete original record: %s", async (text, preview) => {
+  vi.mocked(api.memoryRecords).mockResolvedValue({ records: [{ id: "record-1", strategy_id: "SEMANTIC", text, namespaces: ["/mosaic/alex-browser/"], created_at: "2026-09-17T12:00:00Z", score: null }], has_more: false, namespaces: [] });
+  render(<SessionMemoryPage />);
+  const summary = await screen.findByText(preview, { selector: "p" });
+  const details = summary.closest("article")!.querySelector("details")!;
+  expect(details.open).toBe(false);
+  expect(details.querySelector("pre")!.textContent).toBe(text);
+});
+
 it("teaches the four strategies and never presents a budget form", async () => {
   render(<SessionMemoryPage />);
-  await screen.findByRole("heading", { name: "What the strategies keep" });
+  await screen.findByRole("heading", { name: "What AgentCore remembers" });
   expect(screen.queryByLabelText(/budget/i)).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: /Episodes.*Episodic/ }));
-  await screen.findByText(/An episode appears after AgentCore detects/);
+  fireEvent.click(screen.getByRole("button", { name: /Past outcomes.*What worked/ }));
+  await screen.findByText(/AgentCore saves an outcome after it detects/);
   await waitFor(() => expect(api.memoryRecords).toHaveBeenCalledWith("EPISODIC", undefined));
   expect(screen.getByText("No records returned yet.")).toBeTruthy();
 });
@@ -32,17 +47,17 @@ it("stores the actual event then reads the selected session without claiming ext
   render(<SessionMemoryPage />);
   const input = await screen.findByLabelText("Alex says");
   fireEvent.change(input, { target: { value: "I share an office and prefer quiet typing." } });
-  fireEvent.click(screen.getByRole("button", { name: "Add conversation event" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save message" }));
   await waitFor(() => expect(api.addMemoryEvent).toHaveBeenCalledWith("I share an office and prefer quiet typing.", undefined));
-  await screen.findByText(/Event stored in AgentCore. Memory extraction runs separately/);
+  await screen.findByText(/Message saved in AgentCore. It processes useful details in the background/);
   await waitFor(() => expect(api.memoryEvents).toHaveBeenCalledWith("session-1"));
 });
 it("new sessions keep the actor and can recall real records independently of events", async () => {
   const recall = vi.spyOn(api, "recallMemory").mockResolvedValue({ records: [{ id: "record-1", strategy_id: "SEMANTIC", text: "Alex shares an office", namespaces: ["/mosaic/alex/"], created_at: "2026-09-09T10:00:00Z", score: .8 }] });
   render(<SessionMemoryPage />);
   fireEvent.click(await screen.findByRole("button", { name: "New session" }));
-  await screen.findByText(/New session. Alex keeps the same actor ID/);
-  fireEvent.click(screen.getByRole("button", { name: "Recall memories" }));
+  await screen.findByText(/New session. Alex keeps the same user ID/);
+  fireEvent.click(screen.getByRole("button", { name: "Find relevant memories" }));
   await screen.findByText("Alex shares an office", { selector: "p" });
   expect(recall).toHaveBeenCalledWith("Which headphones would suit the way I work at home?");
 });
@@ -53,7 +68,7 @@ it("starts with a fresh Alex and clears recalled memories without running the ag
     vi.mocked(api.sessionMemory).mockResolvedValue({ ...response, actor_id: "fresh-alex" });
   });
   render(<SessionMemoryPage />);
-  fireEvent.click(await screen.findByRole("button", { name: "Recall memories" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Find relevant memories" }));
   await screen.findByText("Earlier Alex’s preference", { selector: "p" });
   fireEvent.click(screen.getByRole("button", { name: "Start fresh" }));
   await screen.findByText(/A fresh start for Alex/);
@@ -130,8 +145,8 @@ it("says when a session's runs kept memory off, and names each record's scope", 
     { id: "summary-1", strategy_id: "SEMANTIC", text: "Alex asked about headphones.", namespaces: ["/mosaic/alex-browser/strategies/SEMANTIC/sessions/session-off/"], created_at: "2026-09-09T17:46:00Z", score: null },
   ] });
   render(<SessionMemoryPage />);
-  await screen.findByText(/kept memory off, so no conversation event was stored/);
-  expect(screen.queryByText("No AgentCore events returned for this session.")).toBeNull();
+  await screen.findByText(/Memory was off for these requests, so their messages were not saved in AgentCore/);
+  expect(screen.queryByText("No saved messages were returned for this session.")).toBeNull();
   await screen.findByText("Alex shares an office.", { selector: "p" });
   expect(screen.getByText("Kept for Alex across sessions")).toBeTruthy();
   expect(screen.getByText("From this session")).toBeTruthy();

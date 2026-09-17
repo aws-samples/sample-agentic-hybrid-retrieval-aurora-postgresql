@@ -89,39 +89,39 @@ export function HnswParetoCurve({
 
       {attribution.attributed ? null : (
         <div className="hnsw-attribution" role="note">
-          <p>Historical experiment: these measurements describe a different catalog or source revision. Live probes are shown separately.</p>
+          <p>Earlier measurements: these results describe another catalog or code version. Live search tests are shown separately.</p>
           <details>
           <summary>Where these measurements came from</summary>
           <p>{attribution.attribution_note}</p>
           <dl>
             <div>
-              <dt>Measured on dataset manifest</dt>
+              <dt>Catalog version used for this measurement</dt>
               <dd>
                 <code>{attribution.measured_dataset_manifest_sha256 ?? "not recorded"}</code>
               </dd>
             </div>
             <div>
-              <dt>Connected dataset manifest</dt>
+              <dt>Catalog version connected now</dt>
               <dd>
                 <code>{attribution.current_dataset_manifest_sha256}</code>
               </dd>
             </div>
             <div>
-              <dt>Clean worktree at measurement</dt>
+              <dt>All code changes saved in Git when measured</dt>
               <dd>{attribution.measured_source_worktree_dirty === false ? "yes" : "no"}</dd>
             </div>
             <div>
-              <dt>Clean worktree now</dt>
+              <dt>All current code changes saved in Git</dt>
               <dd>{attribution.current_source_worktree_dirty ? "no" : "yes"}</dd>
             </div>
             <div>
-              <dt>Measured at revision</dt>
+              <dt>Code version measured</dt>
               <dd>
                 <code>{attribution.measured_source_revision ?? "not recorded"}</code>
               </dd>
             </div>
             <div>
-              <dt>Running revision</dt>
+              <dt>Code version running now</dt>
               <dd>
                 <code>{attribution.current_source_revision}</code>
               </dd>
@@ -351,7 +351,7 @@ export function HnswParetoCurve({
           {probe ? (
             <div className="hnsw-probe-result">
               <header>
-                <span className="hnsw-evidence-badge live probe">LIVE PROBE</span>
+                <span className="hnsw-evidence-badge live probe">LIVE SEARCH</span>
                 <code>
                   {probe.plan.node}
                   {probe.plan.index_name ? ` using ${probe.plan.index_name}` : ""}

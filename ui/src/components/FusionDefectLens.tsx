@@ -92,8 +92,7 @@ function TieCollapseExample({ tie }: { tie: FusionDefectTieCollapse }) {
   return (
     <>
       <p className="labs-contract-note">
-        {tie.tieGroupSize} of this run's {tie.poolSize} pooled candidates share an arm
-        count, and therefore the exact same broken score,{" "}
+        {tie.tieGroupSize} of this run's {tie.poolSize} pooled candidates were found by the same number of search methods, so they receive the same broken score,{" "}
         {tie.first.brokenScore.toFixed(6)}. <code>mosaic_search.search_hybrid_rrf</code>{" "}
         (<code>db/sql/09_search_functions.sql:515</code>) then resolves that tie by
         ascending <code>product_id</code>, not relevance. Product #
@@ -225,8 +224,8 @@ export function FusionDefectLens({ response }: { response: SearchResponse }) {
     <>
       <p className="labs-rrf-formula">
         <code>expected = 1 / (rrf_k + source_rank)</code>. Lab 2 replaces that with{" "}
-        <code>broken = 1 / (rrf_k + 1)</code> -- every arm treated as though it held
-        rank 1. <code>rrf_k = {rrfK}</code> and this run's fused pool is bounded at{" "}
+        <code>broken = 1 / (rrf_k + 1)</code> -- every search method treated as though it held
+        rank 1. <code>rrf_k = {rrfK}</code> and this run's combined list is limited to{" "}
         <code>fused_limit = {fusedLimit}</code>, both read from this run's own
         retrieval profile, not retyped here.
       </p>
@@ -286,10 +285,10 @@ export function FusionDefectLens({ response }: { response: SearchResponse }) {
                   {" "}at fused rank #{inversion.target.fusedRank} -- and unlike the tie above,
                   this is a genuine inversion: product #{inversion.target.productId} is rank #1
                   in {armLabel[inversion.targetArm]}, product #{inversion.competitor.productId}
-                  &apos;s worst individual arm rank is only #{inversion.competitorWorstRank} in
+                  &apos;s worst position within one search method is only #{inversion.competitorWorstRank} in
                   {" "}{armLabel[inversion.competitorArm]}, and even correct RRF -- summing
                   product #{inversion.competitor.productId}&apos;s real contributions across
-                  every arm it holds -- still places it ahead. The broken formula did not
+                  every search method that found it -- still places it ahead. The broken formula did not
                   invent this order; it just also produced it, for the wrong reason.
                 </p>
 
@@ -323,7 +322,7 @@ export function FusionDefectLens({ response }: { response: SearchResponse }) {
                       This run&apos;s reranker still placed product #{inversion.competitor.productId}
                       {" "}at final rank #{inversion.competitor.finalRank}. That is a reasonable
                       outcome, and it happened despite the fused order&apos;s bias toward
-                      arm count, not because that bias was correct.
+                      the number of matching search methods, not because that bias was correct.
                     </p>
                   )}
               </>

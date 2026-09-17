@@ -119,7 +119,7 @@ const fullRetrievalStages: Array<{
   },
   {
     id: "answer",
-    label: "Attribution",
+    label: "Sources",
     title: "Supporting evidence",
     description: "Linking recommendations to their source records.",
   },
@@ -140,7 +140,7 @@ const focusedFollowUpStages: typeof fullRetrievalStages = [
   },
   {
     id: "answer",
-    label: "Attribution",
+    label: "Sources",
     title: "Supporting evidence",
     description: "Checking the new answer against freshly retrieved evidence.",
   },

@@ -96,7 +96,7 @@ describe("RetrievalObservatory", () => {
     const steps = [...guide.children];
     expect(steps).toHaveLength(3);
     expect(steps[0].textContent).toContain("01");
-    expect(steps[0].textContent).toContain("Rank in each arm");
+    expect(steps[0].textContent).toContain("Rank in each search method");
     expect(steps[1].textContent).toContain("02");
     expect(steps[1].textContent).toContain("RRF contribution");
     expect(steps[1].textContent).toContain("Before reranking");
@@ -125,7 +125,7 @@ describe("RetrievalObservatory", () => {
     expect(headings[3]).toContain(`${found("semantic")} of ${seedRun.results.length}`);
   });
 
-  it("marks an arm that returned nothing as not found, not as zero", () => {
+  it("marks an search method that returned nothing as not found, not as zero", () => {
     // A rank of 0 or a dash reads as "ranked last". The distinction the labs turn
     // on is that the retriever never produced the row at all.
     const { container } = renderObservatory({ response: seedRun });
@@ -142,12 +142,12 @@ describe("RetrievalObservatory", () => {
     // words nor meaning found it.
     const target = [...rows].find((row) => row.className.includes("is-target"));
     expect(target).toBeTruthy();
-    expect(target!.textContent).toContain("Only the close spelling arm found it.");
+    expect(target!.textContent).toContain("Only the close spelling search method found it.");
     expect(target!.textContent).toMatch(/Repaired spelling: \w+ to \w+/);
 
     // Every other row in this capture came back on meaning alone.
     const vectorOnly = [...rows].find((row) =>
-      row.textContent?.includes("Only the vector arm found it"),
+      row.textContent?.includes("Only meaning match found it"),
     );
     expect(vectorOnly).toBeTruthy();
     expect(vectorOnly!.textContent).toMatch(/nearest by meaning/);

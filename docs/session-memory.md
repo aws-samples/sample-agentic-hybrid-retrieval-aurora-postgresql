@@ -7,7 +7,14 @@ inspectable. There is no budget exercise or manually entered preference form.
 
 ## What the page shows
 
-| Strategy | What it keeps | Mosaic scope |
+The page uses **Facts**, **Preferences**, **Summaries**, and **Past outcomes**.
+**Save message** writes a conversation event; **Find relevant memories** searches
+saved facts and preferences. Technical configuration stays under **AWS settings
+and documentation**. Structured records show a source-supplied preview when
+available, with the complete original retained under **Record details**.
+The table below maps the interface to the AgentCore API types.
+
+| AgentCore strategy | What it keeps | Mosaic scope |
 |---|---|---|
 | Semantic | Facts from conversation, such as Alex sharing an office | Across this actor's sessions |
 | User preference | Choices and preferences extracted from conversation | Across this actor's sessions |

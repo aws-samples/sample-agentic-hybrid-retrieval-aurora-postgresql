@@ -305,7 +305,7 @@ it("keeps the three lessons in view at rest, one per column, before any run", ()
   const lessons = screen.getAllByLabelText("Keep in mind").map((aside) => aside.textContent ?? "");
   expect(lessons).toHaveLength(3);
   expect(lessons[0]).toContain("A reranker can only reorder what entered this pool");
-  expect(lessons[1]).toContain("Fusion adds rank positions, never raw scores");
+  expect(lessons[1]).toContain("RRF combines them using 1 / (k + rank)");
   expect(lessons[2]).toContain("not citable until the application registers it");
 });
 
@@ -332,20 +332,20 @@ it("prints what each arm alone scores from the measured artifact and counts this
   window.history.replaceState({}, "", `/labs/retrieval?event=${firstSearchId}`);
   vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(savedSearch(firstSearchId, products));
   render(<PlaygroundPage />);
-  const table = await screen.findByRole("table", { name: "What each arm alone scores" });
+  const table = await screen.findByRole("table", { name: "Scores for each search method" });
   expect(within(table).getAllByRole("rowheader").map((cell) => cell.textContent)).toEqual(["Keyword alone", "Close spelling alone", "Meaning alone", "All three combined", "Combined, then reranked"]);
   expect(within(table).getByRole("row", { name: /Keyword alone/ }).textContent).toContain("0.61");
   expect(within(table).getByRole("row", { name: /Combined, then reranked/ }).textContent).toContain("0.93");
-  expect(screen.getByText("Combining adds +0.17 nDCG@10 over Meaning alone (inside the spread of these searches); reranking moves it +0.04 (inside the spread of these searches).")).toBeTruthy();
-  expect(await screen.findByText("In this run, 2 of the 4 products returned came from one arm only. A single arm would have missed them.")).toBeTruthy();
+  expect(screen.getByText("Combining changes the ordering score (nDCG@10) by +0.17 compared with Meaning alone (inside the spread of these searches); reranking moves it +0.04 (inside the spread of these searches).")).toBeTruthy();
+  expect(await screen.findByText("In this run, 2 of the 4 products returned were found by only one search method. Those products depend on the method that found them.")).toBeTruthy();
   expect(screen.getByText(/reranking moved the ordering score by \+0\.04 on average, inside the spread/)).toBeTruthy();
-  expect(within(table).getByRole("link", { name: "Prove shows each step’s spread." }).getAttribute("href")).toBe("/labs/retrieval?view=lab#labs-stage-prove");
+  expect(within(table).getByRole("link", { name: "Open Prove for score definitions and results for each search." }).getAttribute("href")).toBe("/labs/retrieval?view=lab#labs-stage-prove");
 });
 
 it("says the measured comparison is waiting when the artifact is not attributed to this build", async () => {
   vi.spyOn(api, "scorecard").mockResolvedValue({ stage_ablation: { ...measuredAblation, attributed: false } } as unknown as RetrievalScorecardResponse);
   render(<PlaygroundPage />);
   expect(await screen.findByText("The measured comparison is waiting for a re-measure on this build.")).toBeTruthy();
-  expect(screen.queryByRole("table", { name: "What each arm alone scores" })).toBeNull();
+  expect(screen.queryByRole("table", { name: "Scores for each search method" })).toBeNull();
 });
 

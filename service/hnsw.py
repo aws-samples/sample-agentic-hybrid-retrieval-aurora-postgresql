@@ -182,32 +182,32 @@ def _measured_attribution(provenance: dict[str, Any]) -> dict[str, Any]:
     reasons: list[str] = []
     if current_manifest in ("", UNRESOLVED_MANIFEST):
         reasons.append(
-            f"The connected corpus reports an unresolved dataset manifest "
-            f"({current_manifest!r}), so no measurement can be attributed to it."
+            f"The connected catalog has no verified data version "
+            f"({current_manifest!r}), so these measurements cannot be matched to it."
         )
     elif measured_manifest != current_manifest:
         reasons.append(
-            f"These numbers were measured on a different dataset manifest "
+            f"These numbers were measured on a different catalog version "
             f"({measured_manifest[:12]} measured, {current_manifest[:12]} connected)."
         )
     if measured_dirty is not False:
         reasons.append(
-            f"The measurement itself came from a dirty worktree "
+            f"The measurement was taken with code changes that were not saved in Git "
             f"(source_worktree_dirty is {measured_dirty!r}), so its recorded "
             f"revision does not describe the code that produced these numbers."
         )
 
     if reasons:
         recovery = (
-            "Re-run `make benchmark-hnsw` against the connected corpus from a "
-            "clean worktree to reclaim these numbers as current, or read this "
+            "Save the code changes in Git, then run `make benchmark-hnsw` against "
+            "the connected catalog to measure it, or read this "
             "panel as a record of another cluster."
         )
         note = " ".join([*reasons, recovery])
     else:
         note = (
-            f"Measured on the connected corpus "
-            f"({current_manifest[:12]}) from a clean worktree at revision "
+            f"Measured on the connected catalog "
+            f"({current_manifest[:12]}), with all code changes saved at version "
             f"{str(provenance.get('source_revision') or '')[:12]}."
         )
     return {

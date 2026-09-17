@@ -70,9 +70,9 @@ export interface ChannelReading {
  * arm two different ways.
  */
 const armPurpose: Record<RetrievalArm, string> = {
-  fts: "Wins when the words a shopper typed already appear in the catalog, such as a model name or a brand.",
-  trigram: "Earns its place when those words are misspelled or a variant, so character overlap finds what exact matching missed.",
-  semantic: "Answers a described benefit or intent that shares no words with the product text at all.",
+  fts: "Finds words in the catalog, such as a model name or brand that the shopper typed.",
+  trigram: "Matches overlapping groups of characters to find misspellings and similar names.",
+  semantic: "Matches the meaning of a request to product descriptions, even when they use different words.",
 };
 
 export function readChannels(
@@ -159,7 +159,7 @@ function ChannelSplit({ reading }: { reading: ChannelReading }) {
         <strong>{reading.mechanism} contribution to the served pool:</strong>{" "}
         <b className="is-warn">DISCONNECTED</b>
         <small>
-          This scenario is written to require the {reading.label.toLowerCase()} arm,
+          This scenario is written to require the {reading.label.toLowerCase()} search method,
           and no candidate in the pool of {reading.pool} carries a rank from it.
         </small>
       </p>

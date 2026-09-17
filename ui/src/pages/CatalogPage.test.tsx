@@ -942,7 +942,7 @@ describe("CatalogPage", () => {
     expect(within(panel).getByText("Rank before reranking")).toBeTruthy();
     expect(within(panel).getByText("Rank shown to you")).toBeTruthy();
     // recommendations[0] carries fts rank 1 and semantic rank 2, no trigram.
-    expect(within(panel).getAllByText("full text, semantic").length).toBeGreaterThan(0);
+    expect(within(panel).getAllByText("exact terms, meaning match").length).toBeGreaterThan(0);
   });
 
   it("reports a refused comparison instead of showing an empty table", async () => {
@@ -1516,7 +1516,7 @@ describe("CatalogPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
-    expect(await screen.findByText("Grounding verified")).toBeTruthy();
+    expect(await screen.findByText("Sources checked")).toBeTruthy();
     expect(
       screen.getByText("Every citation resolves to retrieved evidence"),
     ).toBeTruthy();
@@ -1584,7 +1584,7 @@ describe("CatalogPage", () => {
     expect(
       [...timeline.querySelectorAll(".ask-mosaic-stage-label")]
         .map((stage) => stage.textContent),
-    ).toEqual(["Request", "Retrieval", "Comparison", "Attribution"]);
+    ).toEqual(["Request", "Retrieval", "Comparison", "Sources"]);
     // The settled state. While the run is live a step that just finished holds
     // its result open for a dwell, so this has to wait for the run to finish
     // before it can claim the cards are folded.
@@ -1769,7 +1769,7 @@ describe("CatalogPage", () => {
       [...timelines[1].querySelectorAll(".ask-mosaic-stage-label")].map(
         (stage) => stage.textContent,
       ),
-    ).toEqual(["Request", "Comparison", "Attribution"]);
+    ).toEqual(["Request", "Comparison", "Sources"]);
     expect(within(timelines[1]).queryByText("Retrieval")).toBeNull();
   });
 
@@ -2074,7 +2074,7 @@ describe("CatalogPage", () => {
     vi.mocked(api.search).mockResolvedValueOnce(run(false)).mockResolvedValue(run(true));
     renderPage();
     const callout = await screen.findByRole("region", { name: "Lab 2 outcome" });
-    expect(callout.textContent).toContain("Fusion is flattening per-arm rank");
+    expect(callout.textContent).toContain("Combining scores ignores each search position");
     expect(within(callout).getByRole("row", { name: "PostureWorks Pro Mesh 2 1" })).toBeTruthy();
     const link = within(callout).getByRole("link", { name: /Inspect this run/ });
     const target = new URL(link.getAttribute("href")!, "http://localhost");
@@ -2116,7 +2116,7 @@ describe("CatalogPage", () => {
         expected_techniques: ["rerank", "filters"],
         variant: 1,
       }),
-    ).toThrow(/no known retrieval arm/);
+    ).toThrow(/no known retrieval search method/);
   });
 
   it("opens contextual filters and keeps active constraints visible", async () => {

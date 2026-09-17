@@ -219,7 +219,7 @@ def _release_check_total(scored: list[dict[str, Any]]) -> int:
 #: `attribution_note` carries additional detail for the disclosure below it;
 #: the UI must render this constant unmodified as the headline, not a
 #: paraphrase of it.
-PENDING_TEXT = "Metrics pending evaluation for this retrieval revision"
+PENDING_TEXT = "Search scores need measurements for this code version"
 
 #: What this artifact is. The canonical scorecard is a maintainers' release
 #: baseline measured against Aurora at one revision, not the attendee's own
@@ -370,17 +370,17 @@ def _attribution(
         reasons.append("the test searches or their grades changed")
     if not methodology_matches:
         reasons.append(
-            "no measurement methodology hash was recorded"
+            "no version was recorded for the measurement procedure"
             if not artifact_methodology
             else (
-                f"the measurement methodology changed "
+                f"the measurement procedure changed "
                 f"({artifact_methodology[:12]} measured, "
                 f"{expected_methodology[:12]} running)"
             )
         )
     if not settings_match:
         reasons.append(
-            "no retrieval settings hash was recorded when this artifact was measured"
+            "no search settings version was recorded with these measurements"
             if not artifact_settings
             else (
                 f"the live retrieval settings changed "
@@ -397,7 +397,7 @@ def _attribution(
     # the scorecard's costs anything.
     remedy = (
         "Rerun scripts/score_evals.py --write-baseline once the change is "
-        "reviewed, then commit the regenerated artifact."
+        "reviewed, then save the new measurement files in Git."
     )
     return False, f"{PENDING_TEXT}: " + "; ".join(reasons) + f". {remedy}"
 

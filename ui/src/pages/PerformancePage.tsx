@@ -164,7 +164,7 @@ export function PerformancePage() {
             : nextAnchors[0]?.product_id ?? null
         ));
         if (!nextAnchors.length) {
-          setAnchorsError("No HNSW probe anchors are available for this dataset.");
+          setAnchorsError("No HNSW search test products are available for this dataset.");
         }
       })
       .catch((cause: unknown) => {
@@ -172,7 +172,7 @@ export function PerformancePage() {
         setAnchors([]);
         setAnchorId(null);
         setAnchorsError(
-          cause instanceof Error ? cause.message : "HNSW probe anchors are unavailable",
+          cause instanceof Error ? cause.message : "HNSW search test products are unavailable",
         );
       })
       .finally(() => {
@@ -273,7 +273,7 @@ export function PerformancePage() {
 
   const runProbe = useCallback(() => {
     if (anchorId === null || efSearch === null) {
-      setProbeError("Load a probe anchor before running a live HNSW query.");
+      setProbeError("Load a search test product before running a live HNSW query.");
       return;
     }
     probeController.current?.abort();
@@ -299,7 +299,7 @@ export function PerformancePage() {
       })
       .catch((cause: unknown) => {
         if (controller.signal.aborted || version !== probeRequestVersion.current) return;
-        setProbeError(cause instanceof Error ? cause.message : "The HNSW probe failed");
+        setProbeError(cause instanceof Error ? cause.message : "The HNSW search test failed");
       })
       .finally(() => {
         if (version !== probeRequestVersion.current) return;
@@ -391,7 +391,7 @@ export function PerformancePage() {
               <HardDrive aria-hidden="true" size={18} />
               <strong>{formatBytes(substrate.index.size_bytes)}</strong>
               <span>
-                of HNSW index over {formatBytes(substrate.storage.heap_bytes)} of heap
+                of HNSW index over {formatBytes(substrate.storage.heap_bytes)} of table data
               </span>
             </div>
             <div
@@ -424,9 +424,8 @@ export function PerformancePage() {
               <strong>
                 {substrate.index.bytes_per_vector.toLocaleString()} bytes per vector
               </strong>{" "}
-              against a {substrate.index.fp32_payload_bytes.toLocaleString()}-byte fp32
-              payload. That is {substrate.index.overhead_factor}x overhead.
-              Relation overhead covers TOAST indexes and auxiliary relation forks.
+              against a {substrate.index.fp32_payload_bytes.toLocaleString()}-byte vector stored as 32-bit numbers. That is {substrate.index.overhead_factor}x overhead.
+              Other storage includes indexes for large values (TOAST) and files PostgreSQL uses to track free space and row visibility.
             </p>
           </div>
 
@@ -472,10 +471,10 @@ export function PerformancePage() {
         />
 
         {anchorsLoading ? (
-          <LoadingState label="Loading HNSW probe anchors" />
+          <LoadingState label="Loading products for the search test" />
         ) : anchorsError ? (
           <section className="hnsw-neighborhood-unavailable" aria-live="polite">
-            <h2>Live probe anchors are unavailable.</h2>
+            <h2>Products for the live search test are unavailable.</h2>
             <ErrorState message={anchorsError} onRetry={loadAnchors} />
           </section>
         ) : neighborhood ? (
@@ -488,7 +487,7 @@ export function PerformancePage() {
           />
         ) : neighborhoodError ? (
           <section className="hnsw-neighborhood-unavailable" aria-live="polite">
-            <h2>Exact neighbours are unavailable for this anchor.</h2>
+            <h2>Exact nearest matches are unavailable for this product.</h2>
             <ErrorState
               message={neighborhoodError}
               onRetry={() => setNeighborhoodRetry((current) => current + 1)}
@@ -523,7 +522,7 @@ export function PerformancePage() {
                 Where this goes at ten and a hundred million.
               </h2>
               <p>
-                Extrapolated from the measured 500K row above. Index size is arithmetic at{" "}
+                Estimated from the 500K measurement above. Index size uses{" "}
                 {projection.assumptions.bytes_per_vector.toLocaleString()} bytes per vector;
                 latency and recall use the stated growth assumptions.
               </p>
@@ -534,7 +533,7 @@ export function PerformancePage() {
           </header>
 
           <div
-            aria-label="Projected HNSW scale envelope"
+            aria-label="Estimated HNSW results at larger catalog sizes"
             className="hnsw-table-scroll"
             role="region"
             tabIndex={0}
@@ -619,7 +618,7 @@ export function PerformancePage() {
 
         </HnswAct>
 
-        <nav className="hnsw-next" aria-label="Other Playground lenses">
+        <nav className="hnsw-next" aria-label="Other Playground sections">
           <Link href="/mosaic-labs/hnsw">
             <ArrowLeft aria-hidden="true" size={16} /> Back to Scale & HNSW
           </Link>
@@ -639,7 +638,7 @@ export function PerformancePage() {
       />
       </div>
       <div className="instrument-evidence" aria-label="Measurement sources">
-        <span><strong>Live</strong> Connected Aurora index and requested probes</span>
+        <span><strong>Live</strong> Connected Aurora index and requested search tests</span>
         <span><strong>Recorded</strong> Prior experiments with their source details</span>
         <span><strong>Projected</strong> Estimates with stated assumptions</span>
       </div>

@@ -393,29 +393,23 @@ export function fusedToFinalGap(candidate: FusionDefectCandidate): FusionDefectG
 export { SUSPICIOUS_GAP_CAUTION };
 
 export const BROKEN_TIE_MECHANISM =
-  "Every arm contributes exactly 1 / (rrf_k + 1) under the broken formula, "
-  + "no matter its own rank -- so candidates with equal arm counts tie "
+  "Every search method contributes exactly 1 / (rrf_k + 1) under the broken formula, "
+  + "no matter its own rank -- so candidates with the same number of matching search methods tie "
   + "exactly. mosaic_search.search_hybrid_rrf breaks that tie on ascending "
   + "product_id, not relevance. The broken formula does not fail to rank "
   + "these candidates; it ranks them by product id.";
 
 export const NO_TIE_COLLAPSE_EXAMPLE =
-  "This run's full fused pool holds no two candidates sharing an arm count "
-  + "with the smaller product_id belonging to the truly worse one -- either "
-  + "no two candidates share an arm count at all, or the largest tie group's "
-  + "product_id order happens to already agree with the real measured "
-  + "order. Try another query if this pool happens not to have the shape.";
+  "This search has no example of a worse result winning a tie because its product_id is smaller. "
+  + "Either no two candidates were found by the same number of search methods, or the product_id "
+  + "order within the largest tied group already agrees with the measured order. Try another search.";
 
 export const NO_COMPETITOR_EXAMPLE =
-  "This run's fused pool holds no rank-1 single-arm target that a multi-arm "
-  + "competitor already outranks under both formulas. That pairing needs a "
-  + "candidate found by only one arm at that arm's own rank 1, a different "
-  + "candidate found by more than one arm ranked ahead of it in the fused "
-  + "order, and that competitor's own correct RRF contributions -- summed "
-  + "across every arm it holds -- adding up to less than the target's single "
-  + "contribution. Two arms legitimately outscoring one arm is not the "
-  + "defect; try another query if this pool happens not to have a pair that "
-  + "clears that bar.";
+  "This search has no matching example. Look for a product ranked first by only one search method "
+  + "and a competitor found by several methods. The competitor must appear ahead in the combined "
+  + "order even though its correct RRF contributions sum to less than the first product's contribution. "
+  + "Several matches can legitimately outscore one; that alone does not demonstrate the broken formula. "
+  + "Try another search to find a pair that meets these conditions.";
 
 export const FUSION_DEFECT_TEACHING_LINE =
   "A correct answer is not proof of a correct pipeline.";

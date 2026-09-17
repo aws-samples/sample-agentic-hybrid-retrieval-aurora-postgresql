@@ -106,7 +106,7 @@ describe("storageSegments", () => {
 
     expect(segments.at(-1)).toEqual({
       key: "relation_overhead",
-      label: "Relation overhead",
+      label: "Other PostgreSQL storage",
       bytes: 69_476_352,
       percent: 0.6,
     });

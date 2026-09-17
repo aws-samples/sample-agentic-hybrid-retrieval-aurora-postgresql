@@ -43,7 +43,7 @@ export function ReasonRunStatus({
     : "The run did not complete. Inspect the recorded activity below."
     : loading ? phase?.detail ?? "Waiting for the first progress update from the service."
       : declined ? "The agent completed without a matching recommendation."
-        : "The answer and its run receipt are ready to inspect.";
+        : "The answer, searches and sources are ready to inspect.";
 
   return (
     <header className="labs-reason-run-status" data-state={error ? "error" : loading ? "running" : "settled"}>

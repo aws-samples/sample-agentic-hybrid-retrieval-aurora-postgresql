@@ -144,7 +144,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         name="expected_products_considered",
         arm=None,
         falsifier=(
-            "none of the canonical target products appears in the persisted "
+            "none of the target products named in the test appears in the saved "
             "candidate receipts for the agent's retrieval runs"
         ),
     ),

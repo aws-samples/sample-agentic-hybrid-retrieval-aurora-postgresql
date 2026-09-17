@@ -40,10 +40,9 @@ import type {
  * time this loads regardless of either artifact's attribution.
  */
 
-//: The owner-specified, exact participant-facing pending string. Rendered
-//: verbatim -- never paraphrased -- whenever `provenance.attributed` is false.
+// Keep the pending headline aligned with the service; measurement rules stay unchanged.
 export const SCORECARD_PENDING_HEADLINE =
-  "Metrics pending evaluation for this retrieval revision";
+  "Search scores need measurements for this code version";
 
 /**
  * Read a string field out of a loosely-typed scorecard row, never surfacing
@@ -150,7 +149,7 @@ function RetrievalQualitySection({
         id="scorecard-quality-title"
         index="A"
         question="Can search find the right products?"
-        technicalName="Release baseline"
+        technicalName="Maintainers’ test results"
       />
       {/* Whose measurement this is, before any number from it. The section used
           to open on the sample description alone, which let a participant read
@@ -159,13 +158,13 @@ function RetrievalQualitySection({
         className="labs-scorecard-sample"
         data-testid="scorecard-release-baseline-lead"
       >
-        Measured by the maintainers at fingerprint{" "}
+        Measured by the maintainers on search code{" "}
         <code>
           {provenance.retrieval_fingerprint
             ? provenance.retrieval_fingerprint.slice(0, 12)
             : "none recorded"}
         </code>
-        , not a record of your repairs.
+        . Your lab checks verify your own repairs.
       </p>
       <p className="labs-scorecard-sample">{quality.sample_description}</p>
 
@@ -254,12 +253,12 @@ function RetrievalQualitySection({
               when this page read it. A baseline rendered months later must not
               read as a measurement taken now. */}
           <div>
-            <dt>served at</dt>
+            <dt>results loaded at</dt>
             <dd className="mono">{provenance.served_at}</dd>
           </div>
           <div>
-            <dt>artifact kind</dt>
-            <dd className="mono">{provenance.artifact_kind}</dd>
+            <dt>measurement type</dt>
+            <dd>Maintainers’ saved test results</dd>
           </div>
         </dl>
       </PlaygroundDisclosure>
@@ -421,7 +420,7 @@ function AgentContractsSection({
       <ScorecardSectionHeading
         id="scorecard-agent-title"
         index="D"
-        question="Did the agent stay inside its evidence boundaries?"
+        question="Did the agent use only allowed products and sources?"
         technicalName="Evidence rules the agent follows"
       />
       <p className="labs-contract-note">
@@ -502,7 +501,6 @@ function StageArmList({
           <li key={arm.key}>
             <header>
               <h4>{language.title}</h4>
-              <code>{arm.label}</code>
               <p>{language.purpose}</p>
             </header>
             <dl>
@@ -534,7 +532,6 @@ function StageArmList({
               spread of {arm.ndcg_at_10_stdev.toFixed(4)}. Best ordering on{" "}
               {arm.ndcg_at_10_query_wins} of {totalQueries} searches.
             </p>
-            <p className="labs-ablation-source">{arm.description}</p>
           </li>
         );
       })}
@@ -599,9 +596,9 @@ function StageAblationSection({ ablation }: { ablation: ScorecardStageAblation }
         technicalName="Step-by-step comparison"
       />
       <p className="labs-scorecard-intro">
-        The same test searches are scored three ways so that one step changes at
-        a time: meaning match on its own, all three search methods combined, and
-        the combined list after reranking.
+        Compare {ablation.arms.length} ways to answer the same test searches:
+        each search method on its own, all three combined, and the combined list
+        after reranking. The scores show what each method and ranking step adds.
       </p>
       <p className="labs-scorecard-sample">
         <strong>Small sample:</strong> {ablation.spread_note}
@@ -619,7 +616,7 @@ function StageAblationSection({ ablation }: { ablation: ScorecardStageAblation }
           {ablation.paired_comparisons.map((step) => (
             <li key={`${step.from_key}-${step.to_key}`}>
               <p className="labs-ablation-step-verdict">
-                <strong>{step.separable ? "Separable:" : "Not separable:"}</strong>{" "}
+                <strong>{step.separable ? "Average change exceeds variation:" : "Results vary by search:"}</strong>{" "}
                 {step.verdict}
               </p>
               <p className="labs-ablation-step-record">
@@ -657,7 +654,7 @@ function StageAblationSection({ ablation }: { ablation: ScorecardStageAblation }
 
           {totalQueries ? (
             <PlaygroundDisclosure
-              label="Compare every search across the three versions"
+              label={`Compare every search across ${ablation.arms.length} methods`}
               hint={`${totalQueries} searches, ordering score shown`}
             >
               <StageAblationPerQueryList rows={ablation.per_query} arms={ablation.arms} />
@@ -780,8 +777,8 @@ export function RetrievalScorecard({ refreshKey = 0 }: RetrievalScorecardProps) 
   if (!data.provenance.attributed) {
     return (
       <PlaygroundDisclosure
-        label="Maintainers' release baseline"
-        hint="held until this revision is measured"
+        label="Maintainers’ saved test results"
+        hint="waiting for measurements of this code version"
       >
         {scorecard}
       </PlaygroundDisclosure>

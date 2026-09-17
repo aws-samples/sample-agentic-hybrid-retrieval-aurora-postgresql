@@ -167,7 +167,7 @@ export function RepairEvidence({
       <div className="labs-repair-content">
         <h3 id="labs-repair-title">Repair evidence</h3>
         <p className="labs-repair-intro">
-          What a fix actually changed, read back from two persisted runs: which arms
+          What a fix actually changed, read back from two persisted runs: which search methods
           contributed to the served pool, and where the target result sat before and
           after reranking. Rank alone can look unchanged even when the repair worked.
         </p>
@@ -266,11 +266,11 @@ export function RepairEvidence({
               <p className="labs-repair-no-before" role="status">{NO_BEFORE_EVENT}</p>
             ) : null}
 
-            <div className="labs-rrf-scroll" role="region" tabIndex={0} aria-label="Arm participation delta">
+            <div className="labs-rrf-scroll" role="region" tabIndex={0} aria-label="Search methods before and after">
               <table className="labs-rrf-table">
                 <thead>
                   <tr>
-                    <th scope="col">Arm</th>
+                    <th scope="col">Search method</th>
                     <th scope="col">In pool, before</th>
                     <th scope="col">In pool, after</th>
                     <th scope="col">Target rank, before</th>

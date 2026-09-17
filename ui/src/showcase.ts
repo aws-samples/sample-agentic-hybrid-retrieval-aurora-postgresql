@@ -464,7 +464,7 @@ function canonicalSeedRow(row: PremiumCohortRow): ShowcaseSeed {
       `A premium ${row.subcategory.toLowerCase()} selection from the Mosaic ${row.category.toLowerCase()} collection.`,
     long_description:
       authored?.long_description ??
-      `${row.merchandising_title} is part of the fixed 120-product Mosaic workshop cohort, selected for catalog browsing and retrieval evaluation.`,
+      `${row.merchandising_title} is one of the sample products selected for browsing and search exercises.`,
     attributes: authored?.attributes ?? {},
     tags: authored?.tags ?? [row.category, row.subcategory],
     sku: row.sku,

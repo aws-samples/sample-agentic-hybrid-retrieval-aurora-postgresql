@@ -39,7 +39,7 @@ broken; one candidate path is disconnected. A healthy close-spelling index can
 find the target, but its rows never reach fusion. Only the current lab's fault
 is installed.
 
-Use product provenance as well as aggregate counts: the meaning-only and broken
+Use each product's search details as well as aggregate counts: the meaning-only and broken
 typo requests can both show only semantic candidates while answering different
 questions. A correctly spelled request can also receive close-spelling matches.
 Pin the broken typo receipt before repair and repeat the identical request after
@@ -533,7 +533,10 @@ Own the tabs, the Code Editor terminal, syntax recovery and the validators. Help
 
 ## Words to use
 
-Use the shopper's words first and the mechanism second, the way the Playground does.
+Use ordinary language first and explain the mechanism where participants inspect
+it. The app's copy standard is in `VOICE.md`. L400 depth comes from real SQL,
+settings, ranking arithmetic, sources, failure checks and tradeoffs; participants
+should not need research vocabulary to understand the result.
 
 | Say | It means | Avoid |
 |---|---|---|
@@ -547,6 +550,10 @@ Use the shopper's words first and the mechanism second, the way the Playground d
 | Known-good checks | the fixed behaviors the labs depend on | golden anchors, regression anchors |
 | Step-by-step comparison | one ranking step changed at a time | ablation |
 | Where these numbers come from | which code version was measured | provenance, attribution |
+| Search summary | the saved filters, candidates, ranks and time for one request | retrieval receipt |
+| Answer with sources | the answer and the records it cites | grounded answer |
+| Past outcomes | completed interactions and what worked | episodes, episodic memory |
+| Processing in the background | a saved message can appear before a useful memory is ready | asynchronous extraction, consolidation |
 
 When a table asks for a model-only answer beside a grounded one, hold the model,
 the prompt and the settings constant, say what context each side was given, and

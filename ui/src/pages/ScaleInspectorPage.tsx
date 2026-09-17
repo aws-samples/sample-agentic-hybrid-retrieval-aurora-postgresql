@@ -26,7 +26,7 @@ function ScaleSection({ id, title, description, children }: { id: string; title:
 }
 function MeasurementNote({ measured }: { measured: HnswMeasured }) {
   const median = measured.ef_sweep.some((point) => point.server_p95_ms != null);
-  return <p className="scale-measurement-note"><strong>{measured.attribution.attributed ? "Measured on this catalog" : "Earlier catalog benchmark"}</strong> · {new Date(measured.captured_at).toLocaleDateString("en-GB")} · {measured.provenance.queries ?? "Recorded"} queries. {median ? "Warm database time, p50." : "Database time from a sampled query."}</p>;
+  return <p className="scale-measurement-note"><strong>{measured.attribution.attributed ? "Measured on this catalog" : "Earlier catalog benchmark"}</strong> · {new Date(measured.captured_at).toLocaleDateString("en-GB")} · {measured.provenance.queries ?? "Recorded"} queries. {median ? "Typical database time with data already cached (p50)." : "Database time from a sampled query."}</p>;
 }
 function FilterComparison({ measured }: { measured: HnswMeasured | null }) {
   const [preset, setPreset] = useState("brand_stock");
@@ -56,7 +56,7 @@ function RepresentationComparison({ measured }: { measured: HnswMeasured | null 
   const rows = [...representations?.rows.filter((row) => ["fp32", "halfvec"].includes(row.representation)) ?? [], ...selected ? [selected] : []];
   const fullSize = rows.find((row) => row.representation === "fp32")?.index_size_bytes;
   return <ScaleSection id="scale-representations" title="A smaller index." description="Keep the same embeddings. Change how the index stores them, then compare size, speed and matches.">
-    <p className="scale-intro-note"><strong>halfvec</strong> stores each number in 16 bits. <strong>Binary quantization</strong> keeps one sign bit, then checks its shortlist against the original vectors.</p>
+    <p className="scale-intro-note"><strong>halfvec</strong> stores each number in 16 bits. <strong>Binary storage</strong> keeps one sign bit, then checks its shortlist against the original vectors.</p>
     {measured && representations ? <>
       <MeasurementNote measured={measured} />
       <div className="inspector-table-scroll" role="region" aria-label="Vector format benchmarks" tabIndex={0}><table className="inspector-table scale-comparison-table"><thead><tr><th>Format</th><th>Index size</th><th>Recall@{representations.k}</th><th>Server time</th></tr></thead><tbody>{rows.map((row) => <tr key={row.representation}><th scope="row">{row.representation === "fp32" ? "vector · full precision" : row.representation === "halfvec" ? "halfvec" : "Binary + cosine"}{row.overfetch ? <small>{row.overfetch} candidates checked</small> : null}</th><td>{formatBytes(row.index_size_bytes)}{fullSize && row.index_size_bytes < fullSize ? <small>{(fullSize / row.index_size_bytes).toFixed(1)}× smaller</small> : null}</td><td>{percent(row.recall_at_k)}</td><td>{row.server_ms} ms</td></tr>)}</tbody></table></div>
@@ -83,7 +83,7 @@ function AdvancedBenchmarks({ measured }: { measured: HnswMeasured }) {
     <h3>Strict and relaxed ordering</h3>
     <CodeBlock label="Iterative scan examples" code={`BEGIN;\nSET LOCAL hnsw.iterative_scan = 'strict_order';\n-- Run the filtered nearest-neighbor query.\nCOMMIT;\n\nBEGIN;\nSET LOCAL hnsw.iterative_scan = 'relaxed_order';\nWITH matches AS MATERIALIZED (\n  SELECT product_id, embedding <=> $1 AS distance\n  FROM mosaic_search.product_document\n  WHERE embedding IS NOT NULL AND category_key = $2\n  ORDER BY distance\n  LIMIT $3\n)\nSELECT * FROM matches ORDER BY distance + 0;\nCOMMIT;`} />
     <p>Strict keeps the returned rows in distance order; it is still approximate search. Relaxed can improve recall, then the outer sort restores order. The <code>+ 0</code> is needed on PostgreSQL 17+.</p>
-    <div className="scale-reference-links"><a href="https://github.com/pgvector/pgvector#iterative-index-scans" target="_blank" rel="noreferrer">pgvector scan modes <ArrowRight size={14} /></a><a href="https://aws.amazon.com/blogs/database/scale-pgvector-with-binary-quantization-on-amazon-aurora-postgresql/" target="_blank" rel="noreferrer">AWS binary quantization study <ArrowRight size={14} /></a><button type="button" onClick={() => downloadMeasurements(measured)}><Download size={14} />Download measurements</button><Link href="/mosaic-labs/hnsw?view=bench">Full benchmark workbench <ArrowRight size={14} /></Link></div>
+    <div className="scale-reference-links"><a href="https://github.com/pgvector/pgvector#iterative-index-scans" target="_blank" rel="noreferrer">pgvector scan modes <ArrowRight size={14} /></a><a href="https://aws.amazon.com/blogs/database/scale-pgvector-with-binary-quantization-on-amazon-aurora-postgresql/" target="_blank" rel="noreferrer">AWS guide to smaller vector indexes <ArrowRight size={14} /></a><button type="button" onClick={() => downloadMeasurements(measured)}><Download size={14} />Download measurements</button><Link href="/mosaic-labs/hnsw?view=bench">Full benchmark workbench <ArrowRight size={14} /></Link></div>
   </div></details>;
 }
 function ScaleInspector() {

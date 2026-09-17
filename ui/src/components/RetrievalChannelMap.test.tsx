@@ -132,11 +132,11 @@ render(<RetrievalChannelMap readings={readings} />);
     expect(screen.getAllByText("When this helps")).toHaveLength(3);
     expect(screen.getByText("5 of 12 candidates")).toBeTruthy();
     expect(
-      screen.getByText(/words a shopper typed already appear in the catalog/i),
+      screen.getByText(/Finds words in the catalog/i),
     ).toBeTruthy();
   });
 
-  it("reports every arm as contributing with its share of the pool", () => {
+  it("reports every search method as contributing with its share of the pool", () => {
     const readings = readChannels(
       response({
         fused_pool: 12,
@@ -167,7 +167,7 @@ render(<RetrievalChannelMap readings={readings} />);
     ]);
   });
 
-  it("names the Postgres index and the purpose of every arm, healthy or not", () => {
+  it("names the Postgres index and the purpose of every search method, healthy or not", () => {
     // The gap this closes: before, `indexName` only ever reached the screen
     // inside the broken-arm split, and nothing said what an arm was for. Both
     // must be present for every arm in the ordinary, nothing-broken state, not
@@ -189,16 +189,16 @@ render(<RetrievalChannelMap readings={readings} />);
       "product_document_embedding_hnsw_cosine_idx",
     ]);
     expect(readings.map((reading) => reading.purpose)).toEqual([
-      "Wins when the words a shopper typed already appear in the catalog, such as a model name or a brand.",
-      "Earns its place when those words are misspelled or a variant, so character overlap finds what exact matching missed.",
-      "Answers a described benefit or intent that shares no words with the product text at all.",
+      "Finds words in the catalog, such as a model name or brand that the shopper typed.",
+      "Matches overlapping groups of characters to find misspellings and similar names.",
+      "Matches the meaning of a request to product descriptions, even when they use different words.",
     ]);
     // Every arm is contributing, none disconnected: this is the healthy state,
     // and the two facts above hold in it exactly as they hold in the broken one.
     expect(readings.every((reading) => reading.state === "contributing")).toBe(true);
   });
 
-  it("calls the required arm disconnected while its index stays healthy", () => {
+  it("calls the required search method disconnected while its index stays healthy", () => {
     // The measured Lab 1 broken state: the trigram GIN index is present and valid,
     // and no candidate in the pool carries a trigram rank.
     const readings = readChannels(
@@ -221,7 +221,7 @@ render(<RetrievalChannelMap readings={readings} />);
     expect(readings[2].state).toBe("contributing");
   });
 
-  it("does not call an arm disconnected when the scenario never required it", () => {
+  it("does not call an search method disconnected when the scenario never required it", () => {
     // An exactly-spelled query can legitimately produce nothing above the trigram
     // threshold. That is the arm having nothing to say, not the arm being unwired,
     // and this response cannot tell the difference on its own.
@@ -239,7 +239,7 @@ render(<RetrievalChannelMap readings={readings} />);
     expect(readings[1].state).toBe("silent");
   });
 
-  it("reads hnsw as the meaning-match arm the scenario required", () => {
+  it("reads hnsw as the meaning-match search method the scenario required", () => {
     // Labs 2 and 3 name that arm `hnsw` in their `expected_techniques`, after
     // the index rather than the retriever. Matching only `vector` and `semantic`
     // left the arm those labs are built on unrequired, so a meaning-match arm
@@ -260,7 +260,7 @@ render(<RetrievalChannelMap readings={readings} />);
     expect(readings[2].indexName).toBe("product_document_embedding_hnsw_cosine_idx");
   });
 
-  it("requires no semantic arm in Lab 1's own scenario", () => {
+  it("requires no semantic search method in Lab 1's own scenario", () => {
     // The positive witness for the constant above. `typo-recovery` declares
     // pg_trgm and no semantic technique at all, so a meaning-match arm that
     // contributed nothing to *this* lab's pool is an arm with nothing to say.

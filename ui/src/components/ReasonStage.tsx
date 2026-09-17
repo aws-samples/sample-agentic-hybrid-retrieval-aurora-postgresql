@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { api } from "../api";
 import { formatPriceCompact, leafCategory } from "../format";
 import { productImageMap } from "../media";
+import { toolPurpose } from "../retrievalLanguage";
 import { Criteria, Searches } from "./agentAnswerParts";
 import { CodeBlock } from "./CodeBlock";
 import { ReasonRunStatus, type AgentPhase } from "./ReasonRunStatus";
@@ -183,15 +184,15 @@ export function evidenceChain(
       source: blocked
         ? blocked.detail
         : registered
-          ? "synthesis was not blocked for missing evidence"
+          ? "the answer had the sources it needed"
           : running
-            ? "waiting for synthesis to report"
-            : "the run stopped before synthesis reported",
+            ? "waiting for the answer check"
+            : "the run stopped before the answer check",
       state: registered ? "pass" : blocked ? failed("blocked") : "pending",
     },
     {
       key: "authorized",
-      title: "Evidence authorized for synthesis",
+      title: "Sources allowed in the answer",
       value: synthesized ? "authorized" : running ? "not yet" : "refused",
       source: synthesized
         ? `${SYNTHESIS_TOOL} completed`
@@ -217,13 +218,13 @@ export function evidenceChain(
     },
     {
       key: "answer",
-      title: "Grounded answer",
+      title: "Answer with sources",
       value: answered ? "answered" : running ? "not yet" : "blocked",
       source: answered
-        ? "a citation-bounded answer of record was persisted"
+        ? "the answer was saved with sources for the products it recommends"
         : running
           ? `${SYNTHESIS_TOOL} has not reported`
-          : "the run stopped without a citation-bounded answer of record",
+          : "the run stopped before saving an answer with supporting sources",
       state: answered ? "pass" : failed("blocked"),
     },
   ];
@@ -245,7 +246,7 @@ function declinedEvidenceChain(chain: EvidenceStep[]): EvidenceStep[] {
     if (step.key === "answer") {
       return {
         ...step,
-        value: "declined, not grounded",
+        value: "no recommendation",
         source: "A declined answer is not Lab 3's fail-closed 503: retrieval "
           + "and the pipeline finished, and the application chose not to "
           + "recommend for this request.",
@@ -585,7 +586,7 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
                 className="labs-reason-answer"
                 aria-labelledby="reason-answer-title"
               >
-                <h3 id="reason-answer-title">The grounded answer</h3>
+                <h3 id="reason-answer-title">The answer and its sources</h3>
                 <div className="labs-reason-prose">
                   <ProductAnswer text={response.answer} products={response.recommendations} citations={citations} />
                 </div>
@@ -596,7 +597,7 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
               <h3>{error ? "No completed answer" : "Awaiting the cited answer"}</h3>
               <p>{error
                 ? "The available retrieval and evidence records remain below for diagnosis. Run the agent again after addressing the reported error."
-                : "The answer will appear here when synthesis has checked its sources. You can inspect the retrieval activity as it arrives below."}</p>
+                : "The answer will appear here after its sources have been checked. You can inspect the searches as their results arrive below."}</p>
             </section>
           )}
 
@@ -672,14 +673,13 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
             </summary>
             <div className="labs-reason-section-body">
               <div className="labs-citation-boundary">
-                <span>Answer evidence boundary</span>
+                <span>Sources allowed for this answer</span>
                 <strong>
                   Retrieval makes evidence visible. Registration makes it citable.
                 </strong>
                 <p>
-                  Only records registered for this run may support the answer. Synthesis
-                  rejects a citation outside that set, even when the model has seen the
-                  record.
+                  Only records registered for this run may support the answer. The application
+                  rejects citations to other records, even when the model has seen them.
                 </p>
               </div>
 
@@ -825,7 +825,7 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
                 </PlaygroundDisclosure>
 
                 <PlaygroundDisclosure
-                  label="View tool contract"
+                  label="View tool inputs and permissions"
                   hint="GET /api/tools"
                   onOpen={loadContracts}
                 >
@@ -839,20 +839,18 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
                       onClick={loadContracts}
                       type="button"
                     >
-                      Retry tool contract
+                      Reload tool details
                     </button>
                   ) : contracts === null ? (
                     <p role="status">
                       {contractsPending
-                        ? "Loading the registered contracts."
-                        : "Open to load the registered contracts."}
+                        ? "Loading tool definitions."
+                        : "Open to load tool definitions."}
                     </p>
                   ) : (
                     <>
                       <p className="labs-contract-note">
-                        Every call above is audited against one of these. Typed
-                        arguments only, and each contract declares whether it may
-                        write.
+                        The application checks every call against these definitions: which inputs it accepts and whether it may change data.
                       </p>
                       <ul className="labs-contracts">
                         {contracts.map((contract) => (
@@ -860,7 +858,7 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
                             <code>{contract.name}</code>
                             <em>v{contract.tool_version}</em>
                             <b>{contract.read_only ? "read-only" : "writes"}</b>
-                            <small>{contract.description}</small>
+                            <small>{toolPurpose[contract.name] ?? "See the inputs, outputs and permissions in the API response below."}</small>
                           </li>
                         ))}
                       </ul>
@@ -884,17 +882,17 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
             "Product retrieved",
             "Returned to the model",
             "Registered",
-            "Authorized for synthesis",
+            "Allowed in the answer",
             "Citations resolved",
-            "Grounded answer",
+            "Answer with sources",
           ]}
-          hint="Run the agent to trace one question from retrieval to a grounded answer. These six are different things, and the Lab 3 repair is the difference between evidence returned to the model and evidence registered into application state."
+          hint="Run the agent and follow the question through each step. Lab 3 repairs the step that lets the application use returned evidence as a source in the answer."
         />
       )}
 
       <p className="labs-memory-note">
         <strong>Run records in Aurora.</strong> Completed answers retain their
-        searches, cited evidence, and tool receipts. Ask Mosaic follow-ups reuse
+        searches, cited evidence, and tool results. Ask Mosaic follow-ups reuse
         the current shortlist. Session &amp; Memory lets Alex save preferences for future Ask Mosaic requests.
       </p>
     </div>

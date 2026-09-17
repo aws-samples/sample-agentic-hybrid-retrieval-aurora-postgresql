@@ -495,8 +495,8 @@ describe("ReasonStage evidence resolution", () => {
 
     const image = screen.getByRole("img", { name: "Mosaic QuietType K8" });
     expect(image.getAttribute("src")).toContain("/assets/images/mosaic/");
-    expect(screen.getByText("Answer evidence boundary")).toBeTruthy();
-    expect(screen.getByText("Evidence authorized for synthesis")).toBeTruthy();
+    expect(screen.getByText("Sources allowed for this answer")).toBeTruthy();
+    expect(screen.getByText("Sources allowed in the answer")).toBeTruthy();
     expect(screen.queryByText(/authentication or RBAC/i)).toBeNull();
   });
 
@@ -589,12 +589,12 @@ describe("ReasonStage evidence resolution", () => {
       filters: {},
     }));
     await runAgent();
-    openDisclosure("View tool contract");
+    openDisclosure("View tool inputs and permissions");
 
     expect((await screen.findByRole("alert")).textContent).toContain(
       "temporary contract failure",
     );
-    fireEvent.click(screen.getByRole("button", { name: "Retry tool contract" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reload tool details" }));
 
     expect(await screen.findByText("search_products")).toBeTruthy();
     expect(screen.queryByText("temporary contract failure")).toBeNull();
@@ -662,7 +662,7 @@ describe("ReasonStage grounded answer", () => {
     await runAgent();
 
     // The answer of record, rendered as Markdown rather than printed raw.
-    const answer = screen.getByRole("region", { name: "The grounded answer" });
+    const answer = screen.getByRole("region", { name: "The answer and its sources" });
     expect(answer.textContent).toContain("Pick the Sonora chair");
     expect(within(answer).getByText("Sonora").tagName).toBe("STRONG");
 
@@ -743,7 +743,7 @@ describe("ReasonStage grounded answer", () => {
       filters: {},
     }));
 
-    expect(screen.queryByRole("region", { name: "The grounded answer" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "The answer and its sources" })).toBeNull();
     expect(screen.queryByRole("region", { name: "What each claim cites" })).toBeNull();
     expect(screen.queryByText("Filters I searched with")).toBeNull();
     // The dormant shape is still the six states, drawn empty.
@@ -823,7 +823,7 @@ describe("ReasonStage declined outcome", () => {
       "Nothing in the catalog matches part of this request",
     );
     expect(screen.getByText(response.answer)).toBeTruthy();
-    expect(screen.queryByText("The grounded answer")).toBeNull();
+    expect(screen.queryByText("The answer and its sources")).toBeNull();
 
     const chain = screen.getByRole("list", { name: "Evidence state chain" });
     // The declined block sits above the chain it explains.
@@ -865,7 +865,7 @@ describe("ReasonStage declined outcome", () => {
     expect(
       screen.queryByText("Nothing in the catalog matches part of this request"),
     ).toBeNull();
-    expect(screen.getByText("The grounded answer")).toBeTruthy();
+    expect(screen.getByText("The answer and its sources")).toBeTruthy();
 
     await waitFor(() => {
       expect(

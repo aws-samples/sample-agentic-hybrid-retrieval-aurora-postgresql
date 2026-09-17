@@ -38,7 +38,7 @@ const RANKING_GUIDE = [
     number: "01",
     title: "Find",
     description: "Each retrieval method makes its own candidate list.",
-    fields: ["Rank in each arm"],
+    fields: ["Rank in each search method"],
   },
   {
     number: "02",
@@ -296,10 +296,10 @@ export function RetrievalObservatory({
               </p>
             )}
             <p className="labs-matrix-note">
-              Arm ranks are positions within each retriever's own candidate list, so
+              Search method ranks are positions within each retriever's own candidate list, so
               they run past the twelve rows shown here. <strong>Before / after</strong>
               {" "}compares positions among these rows only: the left number is the
-              order that would have shipped with reranking off. Raw arm scores, fused
+              order that would have shipped with reranking off. Raw search method scores, fused
               scores, and rerank scores are on different scales and are not
               probabilities.
             </p>
@@ -307,7 +307,7 @@ export function RetrievalObservatory({
         </>
       ) : loading ? (
         <p className="labs-matrix-awaiting" role="status">
-          Embedding the query, running all three arms, fusing, and reranking.
+          Embedding the query, running all three search methods, fusing, and reranking.
         </p>
       ) : (
         <div className="labs-ranking-empty" role="status">

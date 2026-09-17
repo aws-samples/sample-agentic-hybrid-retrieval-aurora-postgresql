@@ -171,7 +171,7 @@ export function SiteFooter({ inert = false }: { inert?: boolean }) {
         <div className="site-footer-legal">
           <p>
             Nothing here charges a card. Products, prices, reviews and
-            availability are synthetic data built for this workshop.
+            availability are sample data created for this workshop.
           </p>
           <p className="site-footer-copyright">
             © Amazon.com, Inc. or its affiliates. Sample code under MIT-0.

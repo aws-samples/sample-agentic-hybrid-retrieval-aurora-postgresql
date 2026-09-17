@@ -29,7 +29,7 @@ describe("HnswActRail", () => {
     // Three, not eight. Eight rail entries is a table of contents, which is a
     // second thing to read; the reader is missing a spine, not an index.
     render(<HnswActRail />);
-    const rail = screen.getByRole("navigation", { name: "Vector index acts" });
+    const rail = screen.getByRole("navigation", { name: "Vector index sections" });
     const links = within(rail).getAllByRole("link");
 
     expect(links.map((link) => link.getAttribute("href"))).toEqual([

@@ -117,7 +117,7 @@ export function storageSegments(
   if (overheadBytes > 0) {
     segments.push({
       key: "relation_overhead",
-      label: "Relation overhead",
+      label: "Other PostgreSQL storage",
       bytes: overheadBytes,
       percent: Math.round((overheadBytes / total) * 1000) / 10,
     });

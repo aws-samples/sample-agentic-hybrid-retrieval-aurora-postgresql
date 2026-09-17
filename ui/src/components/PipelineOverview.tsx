@@ -42,7 +42,7 @@ export function stageGainSentence(ablation: ScorecardStageAblation): string | nu
     const step = ablation.paired_comparisons.find((item) => item.from_key === fromKey && item.to_key === toKey);
     return step && !step.separable ? " (inside the spread of these searches)" : "";
   };
-  const combining = `Combining adds ${signed(fused.ndcg_at_10 - bestSingle.ndcg_at_10)} nDCG@10 over ${armTitle[bestSingle.key]}${inside(bestSingle.key, "rrf_fused_no_rerank")}`;
+  const combining = `Combining changes the ordering score (nDCG@10) by ${signed(fused.ndcg_at_10 - bestSingle.ndcg_at_10)} compared with ${armTitle[bestSingle.key]}${inside(bestSingle.key, "rrf_fused_no_rerank")}`;
   const rerank = `reranking moves it ${signed(reranked.ndcg_at_10 - fused.ndcg_at_10)}${inside("rrf_fused_no_rerank", "rrf_fused_reranked")}`;
   return `${combining}; ${rerank}.`;
 }
@@ -63,14 +63,14 @@ function WithoutHybrid({ response, ablation }: { response?: SearchResponse; abla
   const gain = ablation?.attributed ? stageGainSentence(ablation) : null;
   return <section className="inspector-without-hybrid" aria-labelledby="inspector-without-hybrid-title">
     <h3 id="inspector-without-hybrid-title" className="inspector-preview-title">Without hybrid</h3>
-    {returned.length ? <p className="inspector-note">In this run, {oneArmOnly} of the {returned.length} products returned came from one arm only. A single arm would have missed {oneArmOnly === 1 ? "it" : "them"}.</p> : null}
+    {returned.length ? <p className="inspector-note">In this run, {oneArmOnly} of the {returned.length} products returned were found by only one search method. Those products depend on the method that found them.</p> : null}
     {ablation?.attributed ? <>
-      <table className="inspector-arm-table" aria-label="What each arm alone scores">
-        <thead><tr><th scope="col">Arm</th><th scope="col">nDCG@10</th><th scope="col">Recall@10</th><th scope="col">MRR</th></tr></thead>
+      <table className="inspector-arm-table" aria-label="Scores for each search method">
+        <thead><tr><th scope="col">Method</th><th scope="col">Ordering <small>nDCG@10</small></th><th scope="col">Found <small>Recall@10</small></th><th scope="col">First match <small>MRR</small></th></tr></thead>
         <tbody>{ablation.arms.map((arm) => <tr key={arm.key} data-served={arm.key === "rrf_fused_reranked" || undefined}>
           <th scope="row">{armTitle[arm.key]}</th><td>{arm.ndcg_at_10.toFixed(2)}</td><td>{arm.recall_at_10.toFixed(2)}</td><td>{arm.mrr.toFixed(2)}</td>
         </tr>)}</tbody>
-        <caption>Measured on {ablation.scored_query_count} graded searches against this catalog. <Link href="/labs/retrieval?view=lab#labs-stage-prove">Prove shows each step’s spread.</Link></caption>
+        <caption>Measured on {ablation.scored_query_count} graded searches against this catalog. <Link href="/labs/retrieval?view=lab#labs-stage-prove">Open Prove for score definitions and results for each search.</Link></caption>
       </table>
       {gain ? <p className="inspector-note">{gain}</p> : null}
     </> : <p className="inspector-note">{ablation ? "The measured comparison is waiting for a re-measure on this build." : "Loading the measured comparison…"}</p>}
@@ -94,7 +94,7 @@ export function RetrieveOverview({ response, ablation }: { response?: SearchResp
       <ProductPreview products={products} />
       <p className="inspector-note">Following the same {products.length} products as Rank, in their earlier order. This is a preview of the returned results.</p>
     </> : <p className="inspector-waiting">This search returned no products.</p> : <p className="inspector-waiting">Matching products will appear as the search finishes.</p>}
-    <KeepInMind>Recall is decided here. A reranker can only reorder what entered this pool, and every filter was applied inside each arm before any limit.</KeepInMind>
+    <KeepInMind>A reranker can only reorder what entered this pool. Each search method applies the filters before limiting its results, so an eligible product can reach the combined list.</KeepInMind>
   </>;
 }
 
@@ -104,13 +104,13 @@ export function RankOverview({ response, ablation }: { response?: SearchResponse
   return <>
     <div className="inspector-rank-flow"><span>RRF fusion</span><ArrowRight size={14} aria-hidden="true" /><span>Cohere Rerank</span></div>
     <p className="inspector-note">Combine the search results, then check how well each product fits Alex’s request.</p>
-    {rerankStep ? <p className="inspector-note">Measured on {ablation?.scored_query_count} graded searches: combining the arms is the large step; reranking moved the ordering score by {signed(rerankStep.mean_difference)} on average, {rerankStep.separable ? "more than" : "inside"} the spread of the per-search differences.</p> : null}
+    {rerankStep ? <p className="inspector-note">Measured on {ablation?.scored_query_count} graded searches: reranking moved the ordering score by {signed(rerankStep.mean_difference)} on average, {rerankStep.separable ? "more than" : "inside"} the spread of the per-search differences.</p> : null}
     {response ? products.length ? <>
       <div className="inspector-preview-heading"><h3 className="inspector-preview-title">Top matches</h3><span>RRF rank → final rank</span></div>
       <ProductPreview products={products} ranked />
       <p className="inspector-note">#1 is the highest rank. RRF and reranker scores use different scales; a higher score is better within each step.</p>
       <p className="inspector-note">Showing {products.length} of {response.results.length} results. Reranking: <strong>{response.diagnostics?.rerank_status ?? "not reported"}</strong>.</p>
     </> : <p className="inspector-waiting">No products were returned, so no ranking is available.</p> : <p className="inspector-waiting">See how the order changes as Mosaic compares the products.</p>}
-    <KeepInMind>Fusion adds rank positions, never raw scores, because the three arms do not share a scale. The reranker reorders the pool it is handed; it cannot add a product to it.</KeepInMind>
+    <KeepInMind>Each search method scores matches differently. RRF combines them using 1 / (k + rank) for each position. The reranker can reorder these products, but cannot add a missing one.</KeepInMind>
   </>;
 }

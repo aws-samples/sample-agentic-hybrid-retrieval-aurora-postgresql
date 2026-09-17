@@ -396,8 +396,8 @@ def test_measured_refuses_to_claim_an_artifact_measured_on_another_corpus(monkey
     attribution = measured()["attribution"]
 
     assert attribution["attributed"] is False
-    assert "different dataset manifest" in attribution["attribution_note"]
-    assert "dirty worktree" in attribution["attribution_note"]
+    assert "different catalog version" in attribution["attribution_note"]
+    assert "code changes that were not saved in Git" in attribution["attribution_note"]
     assert "make benchmark-hnsw" in attribution["attribution_note"]
     assert attribution["measured_source_revision"].startswith("e5b10ef")
     assert attribution["measured_source_worktree_dirty"] is True
@@ -448,7 +448,7 @@ def test_measured_is_attributed_when_the_corpus_matches_and_the_tree_was_clean(
     attribution = measured()["attribution"]
 
     assert attribution["attributed"] is True
-    assert "different dataset manifest" not in attribution["attribution_note"]
+    assert "different catalog version" not in attribution["attribution_note"]
     assert "dirty worktree" not in attribution["attribution_note"]
 
 
@@ -465,7 +465,7 @@ def test_measured_is_not_attributed_when_the_connected_manifest_is_unresolved(
     attribution = measured()["attribution"]
 
     assert attribution["attributed"] is False
-    assert "unresolved dataset manifest" in attribution["attribution_note"]
+    assert "no verified data version" in attribution["attribution_note"]
 
 
 # --- Representations: advertised only while the indexes behind them exist -----

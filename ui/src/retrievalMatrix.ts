@@ -260,7 +260,7 @@ function reasonsFor(
     reasons.push({
       kind: "semantic",
       label: shared.length
-        ? "No arm matched its words; nearest by meaning"
+        ? "Neither words nor spelling found it; nearest by meaning"
         : "No query word in this record; nearest by meaning",
     });
   }
@@ -278,16 +278,16 @@ function verdictFor(product: ProductSummary, query: string): string {
   if (signals.trigram.rank !== null) arms.push("close spelling");
   if (signals.semantic.rank !== null) arms.push("meaning");
   if (arms.length === 0) {
-    return "No candidate arm reported this row, so it needs investigation.";
+    return "No candidate search method reported this row, so it needs investigation.";
   }
   if (arms.length === 1 && signals.semantic.rank !== null) {
     const shared = sharedWords(query, product);
     return shared.length
-      ? "Only the vector arm found it: its words rank too low for the lexical arms."
-      : "Only the vector arm found it: it shares no word with the query.";
+      ? "Only meaning match found it: word and spelling matches ranked too low to reach the result list."
+      : "Only meaning match found it: it shares no word with the query.";
   }
   if (arms.length === 1) {
-    return `Only the ${arms[0]} arm found it.`;
+    return `Only the ${arms[0]} search method found it.`;
   }
   return `Found by ${arms.slice(0, -1).join(", ")} and ${arms[arms.length - 1]}.`;
 }

@@ -176,7 +176,7 @@ function ProofDetail({ proof }: { proof: CompletionProofResponse }) {
         </details>
       ) : null}
       <details className="labs-proof-inspection">
-        <summary>Receipts and measurement identity</summary>
+        <summary>Saved runs and measurement details</summary>
         <ProofEvidence proof={proof} />
         <p className="labs-proof-note">
           Recorded {new Date(proof.finished_at).toLocaleString()}. Source revision{" "}
@@ -367,7 +367,7 @@ export function CompletionProof({
       <p className="labs-proof-intro">
         Labs 1 and 2 run fresh searches against Aurora. Lab 3 checks the saved
         agent run from Reason without starting another turn. Open each result
-        to inspect what was checked, what would make it fail, and its receipts.
+        to inspect what was checked, what would make it fail, and its saved results.
       </p>
       <details className="labs-proof-inspection labs-proof-question">
         <summary>Explain the repair</summary>

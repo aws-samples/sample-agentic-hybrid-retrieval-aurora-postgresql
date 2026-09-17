@@ -57,7 +57,7 @@ const minimalScorecard: RetrievalScorecardResponse = {
     current_source_revision: "1".repeat(40),
     current_source_worktree_dirty: false,
     attributed: false,
-    attribution_note: "Metrics pending evaluation for this retrieval revision: fixture.",
+    attribution_note: "Search scores need measurements for this code version: fixture.",
   },
   retrieval_quality: {
     sample_size: 19,
@@ -85,7 +85,7 @@ const minimalScorecard: RetrievalScorecardResponse = {
   agent_contracts: { guarantees: [] },
   stage_ablation: {
     attributed: false,
-    attribution_note: "Metrics pending evaluation for this retrieval revision: fixture.",
+    attribution_note: "Search scores need measurements for this code version: fixture.",
     measured_at: "2026-08-23T21:53:32.664198Z",
     spread_note: "fixture spread note",
     scored_query_count: 20,
@@ -621,12 +621,12 @@ describe("RetrievalLabPage", () => {
 
   afterEach(cleanup);
 
-  it("is reachable from the other Playground lenses and marks itself current", () => {
+  it("is reachable from the other Playground sections and marks itself current", () => {
     // A documented participant surface that carried no navigation, so the only ways
     // in were a product-page link and a lab-mission deep link.
     render(<RetrievalLabPage />);
 
-    const strip = screen.getByRole("navigation", { name: "Playground lenses" });
+    const strip = screen.getByRole("navigation", { name: "Playground sections" });
     expect(screen.getByRole("heading", { name: "Mosaic Playground" })).toBeTruthy();
     expect(
       screen.getByText(
@@ -690,7 +690,7 @@ describe("RetrievalLabPage", () => {
       + " moved.",
     );
     expect(summaries[2]).toBe(
-      "Ground the agent's answer. Which products and evidence the agent"
+      "Support the agent's answer with sources. Which products and evidence the agent"
       + " received, what the application allowed into the answer, and whether"
       + " every citation resolves.",
     );
@@ -837,7 +837,7 @@ describe("RetrievalLabPage", () => {
     expect(screen.queryByText("Repair verified")).toBeNull();
   });
 
-  it("shows every arm's own Postgres index in the ordinary, nothing-broken render", async () => {
+  it("shows every search method's own Postgres index in the ordinary, nothing-broken render", async () => {
     // The gap this closes: `indexName` used to reach the screen only inside
     // `ChannelSplit`, the split rendered solely for a required arm the run did
     // not get. A check that only asserted the text appeared somewhere would
@@ -1104,7 +1104,7 @@ describe("RetrievalLabPage", () => {
     expect(header).toBeTruthy();
     expect(header?.firstElementChild).toBe(heading);
     expect(heading.nextElementSibling?.textContent).toBe(
-      "The three labs become one portable retrieval capability with Aurora as its evidence authority.",
+      "Reuse the search and evidence tools from these labs in another application. Aurora stores the products, search results and sources.",
     );
   });
 
@@ -1139,7 +1139,7 @@ describe("RetrievalLabPage", () => {
     // Each row also carries what the operation does, which is the part another
     // agent needs in order to call it. A literal, not read back off the fixture.
     expect(
-      await screen.findByText(/Compare two to five authorized products/i),
+      await screen.findByText(/Compare products from the current search or the previous answer/i),
     ).toBeTruthy();
     expect(await screen.findAllByText("catalog read-only")).toHaveLength(4);
   });
@@ -1183,13 +1183,13 @@ describe("RetrievalLabPage", () => {
     });
 
     expect(
-      await screen.findByText(/retrieval authority stays in Aurora/i),
+      await screen.findByText(/Aurora stores the products, search results and sources/i),
     ).toBeTruthy();
     expect(
       await screen.findByText("skills/mosaic-hybrid-retrieval/"),
     ).toBeTruthy();
     expect(
-      await screen.findByText(/replace Mosaic's schema, language, models/i),
+      await screen.findByText(/Adapt the schema, copy, models, settings/i),
     ).toBeTruthy();
   });
 
@@ -1342,7 +1342,7 @@ describe("RetrievalLabPage", () => {
     // And Stage 02's receipt reports the run's own latency, which only a
     // persisted run can supply here.
     expect(
-      screen.getByLabelText("End-to-end retrieval receipt").textContent,
+      screen.getByLabelText("Search steps and results").textContent,
     ).toContain("785 ms");
     expect(screen.queryByText(/Run the pipeline to fill each step/)).toBeNull();
     expect(api.search).not.toHaveBeenCalled();
@@ -1618,7 +1618,7 @@ describe("RetrievalLabPage", () => {
     // The Shop run carries no trigram rank on the target, which is the defect
     // Lab 1 exists to show, so the verdict is the scenario's own.
     expect(await screen.findByText("Issue reproduced")).toBeTruthy();
-    expect(screen.getByText("Fuzzy retrieval is still disconnected")).toBeTruthy();
+    expect(screen.getByText("Close-spelling search is still disconnected")).toBeTruthy();
     expect(screen.queryByText("Shop run loaded")).toBeNull();
   });
 

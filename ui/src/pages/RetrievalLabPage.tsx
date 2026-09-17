@@ -896,7 +896,7 @@ export function RetrievalLabPage() {
               <PlaygroundFigure
                 label="Candidate pool"
                 value={counts.fused_pool ?? 0}
-                detail={`bounded at ${profile.fused_limit} by the retrieval profile`}
+                detail={`limited to ${profile.fused_limit} by the retrieval profile`}
               />
               <PlaygroundFigure
                 label="Rows returned"
@@ -910,7 +910,7 @@ export function RetrievalLabPage() {
             <PlaygroundDisclosureShelf>
               <PlaygroundDisclosure
                 label="View candidate rows"
-                hint={`${response.results.length} returned rows, every arm rank`}
+                hint={`${response.results.length} returned rows, every search method rank`}
               >
                 <CandidateRows products={response.results} />
               </PlaygroundDisclosure>
@@ -931,14 +931,14 @@ export function RetrievalLabPage() {
           </>
         ) : loading ? (
           <p className="labs-stage-awaiting" role="status">
-            Embedding the query and running all three arms.
+            Embedding the query and running all three search methods.
           </p>
         ) : (
           <PlaygroundDormant
             steps={[
               ...armLanguage.map((arm) => arm.label),
               "Eligibility gates",
-              "Bounded candidate pool",
+              "Candidate limit",
             ]}
             hint="Run the pipeline to fill each step with the count it reported."
           />
@@ -1022,7 +1022,7 @@ export function RetrievalLabPage() {
       <PlaygroundStage
         number="03"
         title="Reason"
-        summary="Ground the agent's answer. Which products and evidence the agent received, what the application allowed into the answer, and whether every citation resolves."
+        summary="Support the agent's answer with sources. Which products and evidence the agent received, what the application allowed into the answer, and whether every citation resolves."
       >
         {reasonScenario ? (
           <ReasonStage
@@ -1036,7 +1036,7 @@ export function RetrievalLabPage() {
       <PlaygroundStage
         number="04"
         title="Prove"
-        summary="Did the fixes improve the scenarios they target without breaking anything that already worked? Your own labs are proved against Aurora here; the release baseline under them was measured by the maintainers."
+        summary="Did the fixes improve the scenarios they target without breaking anything that already worked? Your lab checks run against Aurora here. The saved test results below were measured by the maintainers."
       >
         {/* The participant's own verdict first. The baseline below it is the
             maintainers' measurement, and reading it first is what made three

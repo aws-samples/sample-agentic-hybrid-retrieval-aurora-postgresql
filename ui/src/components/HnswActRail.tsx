@@ -29,13 +29,13 @@ export const HNSW_ACTS = [
     slug: "tuning",
     label: "Tuning",
     title: "Recall & filters",
-    summary: "Compare search effort with exact neighbors, then explore selective filters and the memory budget.",
+    summary: "Compare search settings against an exact search, then test filters that exclude most products and adjust the memory budget.",
   },
   {
     slug: "scale",
     label: "Scale",
     title: "Scale experiments",
-    summary: "Separate projections from controlled hardware comparisons, and trace each operating decision to its evidence.",
+    summary: "Compare estimates with hardware measurements, then use the results to choose settings for your application.",
   },
 ] as const;
 
@@ -72,7 +72,7 @@ export function HnswActRail() {
   }, []);
 
   return (
-    <nav aria-label="Vector index acts" className="hnsw-rail">
+    <nav aria-label="Vector index sections" className="hnsw-rail">
       <ol className="hnsw-rail-acts">
         {HNSW_ACTS.map((act, index) => (
           <li key={act.slug}>

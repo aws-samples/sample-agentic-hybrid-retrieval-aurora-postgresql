@@ -87,7 +87,7 @@ function RetrieveDetails({ response, receipts, selectedId, onSelect }: {
       <CodeBlock label="Search record" code={JSON.stringify({ query: response.query, applied_filters: response.applied_filters, embedding_model_id: diagnostics?.embedding_model_id, retrieval_profile: diagnostics?.retrieval_profile, candidate_counts: counts }, null, 2)} />
     </InspectorDetail> : <p className="inspector-waiting">Run Mosaic to see how each search helps.</p>}
     {response ? <PersistedRunDisclosures response={response} /> : null}
-    {response ? <KeepInMind>Every search is a write: this run is saved as a receipt with an id, and its search record above carries the <code>ef_search</code> and <code>iterative_scan</code> settings that decide whether a filtered HNSW scan keeps going.</KeepInMind> : null}
+    {response ? <KeepInMind>Aurora saves each search with an ID. The saved record includes the <code>ef_search</code> and <code>iterative_scan</code> settings that decide whether a filtered HNSW scan keeps going.</KeepInMind> : null}
   </>;
 }
 

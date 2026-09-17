@@ -290,7 +290,7 @@ describe("RetrievalScorecard", () => {
     expect(screen.getByText("B. Did known critical examples still pass?")).toBeTruthy();
     expect(screen.getByText("C. Did hard filters stay enforced?")).toBeTruthy();
     expect(
-      screen.getByText("D. Did the agent stay inside its evidence boundaries?"),
+      screen.getByText("D. Did the agent use only allowed products and sources?"),
     ).toBeTruthy();
   });
 
@@ -501,7 +501,7 @@ describe("RetrievalScorecard", () => {
     render(<RetrievalScorecard />);
 
     await screen.findByText(
-      "D. Did the agent stay inside its evidence boundaries?",
+      "D. Did the agent use only allowed products and sources?",
     );
     expect(screen.getByText("Evidence rules the agent follows")).toBeTruthy();
 
@@ -548,17 +548,17 @@ describe("RetrievalScorecard stage ablation", () => {
     expect(screen.getByText("Step-by-step comparison")).toBeTruthy();
     expect(
       screen.getByText(
-        /scored three ways so that one step changes at a time/i,
+        /Compare 3 ways to answer the same test searches/i,
       ),
     ).toBeTruthy();
 
     expect(screen.getByText("Meaning match only")).toBeTruthy();
     expect(screen.getByText("All three search methods combined")).toBeTruthy();
     expect(screen.getByText("Combined, then reranked")).toBeTruthy();
-    expect(screen.getByText("Semantic only")).toBeTruthy();
-    expect(screen.getByText("RRF fused, reranking off")).toBeTruthy();
+    expect(screen.getByText("What meaning match finds on its own, with no exact terms, close spelling, combining, or reranking.")).toBeTruthy();
+    expect(screen.getByText("The order produced once exact terms, close spelling, and meaning match are combined.")).toBeTruthy();
     expect(
-      screen.getByText("RRF fused + managed reranking (served path)"),
+      screen.getByText("The order shoppers actually see: the reranker reorders the same combined candidate pool."),
     ).toBeTruthy();
     expect(screen.getAllByText("Relevant products in the top 10")).toHaveLength(3);
     expect(screen.getAllByText("First relevant result")).toHaveLength(3);
@@ -641,7 +641,7 @@ describe("RetrievalScorecard stage ablation", () => {
     render(<RetrievalScorecard />);
 
     const disclosure = (
-      await screen.findByText("Compare every search across the three versions")
+      await screen.findByText("Compare every search across 3 methods")
     ).closest("details") as HTMLElement;
 
     expect(within(disclosure).getAllByRole("listitem")).toHaveLength(2);
@@ -702,11 +702,11 @@ describe("RetrievalScorecard stage ablation", () => {
 
     const lead = await screen.findByTestId("scorecard-release-baseline-lead");
     expect(lead.textContent).toBe(
-      "Measured by the maintainers at fingerprint f1e2d3c4b5a6, not a record of your repairs.",
+      "Measured by the maintainers on search code f1e2d3c4b5a6. Your lab checks verify your own repairs.",
     );
     // Negative half: the label that used to sit here claimed the section was
     // about search quality now, which is the reading being replaced.
-    expect(screen.getByText("Release baseline")).toBeTruthy();
+    expect(screen.getByText("Maintainers’ test results")).toBeTruthy();
     expect(screen.queryByText("Search quality")).toBeNull();
 
     // Two facts a baseline has to separate: when it was measured, and when
@@ -714,10 +714,10 @@ describe("RetrievalScorecard stage ablation", () => {
     const disclosure = (
       await screen.findByText("Where these numbers come from")
     ).closest("details") as HTMLElement;
-    expect(within(disclosure).getByText("served at")).toBeTruthy();
+    expect(within(disclosure).getByText("results loaded at")).toBeTruthy();
     expect(within(disclosure).getByText("2026-09-04T09:15:00Z")).toBeTruthy();
-    expect(within(disclosure).getByText("artifact kind")).toBeTruthy();
-    expect(within(disclosure).getByText("release_baseline")).toBeTruthy();
+    expect(within(disclosure).getByText("measurement type")).toBeTruthy();
+    expect(within(disclosure).getByText("Maintainers’ saved test results")).toBeTruthy();
   });
 
   it("says so plainly when the artifact recorded no fingerprint of its own", async () => {
@@ -731,7 +731,7 @@ describe("RetrievalScorecard stage ablation", () => {
 
     const lead = await screen.findByTestId("scorecard-release-baseline-lead");
     expect(lead.textContent).toBe(
-      "Measured by the maintainers at fingerprint none recorded, not a record of your repairs.",
+      "Measured by the maintainers on search code none recorded. Your lab checks verify your own repairs.",
     );
     expect(lead.textContent).not.toContain("f1e2d3c4b5a6");
   });

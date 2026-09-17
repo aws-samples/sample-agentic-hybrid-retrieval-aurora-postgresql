@@ -329,7 +329,7 @@ describe("Shell navigation", () => {
     // to say that none of it is real. Everything else on the page is built to be
     // believed, which is exactly why this line cannot go missing.
     expect(footer.textContent).toContain("Nothing here charges a card");
-    expect(footer.textContent).toContain("synthetic data");
+    expect(footer.textContent).toContain("sample data");
 
     // No invented destinations. A shop footer is where About, Careers, Returns,
     // Accessibility and a newsletter field that posts nowhere accumulate, and a

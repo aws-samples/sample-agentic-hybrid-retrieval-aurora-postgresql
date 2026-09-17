@@ -48,7 +48,7 @@ export function RrfMath({ response }: { response: SearchResponse }) {
   return (
     <>
       <p className="labs-rrf-formula">
-        <code>contribution = 1 / (k + rank_in_that_arm)</code>, summed over the arms
+        <code>contribution = 1 / (k + rank_in_that_arm)</code>, summed over the search methods
         that found the row. <code>k = {rrfK}</code> for this run.
       </p>
       <p>Higher RRF scores rank better before reranking. Rank #1 is first. The reranker uses a separate score, so a low RRF score alone does not tell you whether a product will move up.</p>

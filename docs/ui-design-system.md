@@ -252,11 +252,11 @@ under 760px; the request and single Play action stay prominent on mobile.
   the private browser cookie, clears displayed sessions, records and answers,
   and begins a separate Alex. Earlier records remain stored; no shared Memory
   resource or other browser’s records are deleted.
-- Four built-in strategy choices—Facts (semantic), Preferences, Summaries and
-  Episodes—show actual connection status, scope and processing steps, followed
+- Four built-in memory choices—Facts, Preferences, Summaries and
+  Past outcomes—show actual connection status, scope and processing steps, followed
   by returned records. Record details disclose IDs, namespaces and original
   content; strategy configuration and AWS references remain expandable. Empty
-  records explain asynchronous extraction separately from read errors. Examples
+  records explain background processing separately from read errors. Examples
   fill the editable event field; only submission stores an event. Recall and
   Ask sit below the inspector with an explicit memory toggle, relevant records
   and a cited answer only after the visitor submits a request. Saved turns live

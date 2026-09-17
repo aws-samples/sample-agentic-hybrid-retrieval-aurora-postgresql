@@ -21,7 +21,7 @@ describe("RetrievalReceipt", () => {
     render(<SearchRetrievalReceipt response={seedRun} />);
 
     const receipt = screen.getByRole("region", {
-      name: "End-to-end retrieval receipt",
+      name: "Search steps and results",
     });
     // One vocabulary, on Shop and on the Playground alike. A `plainLanguage`
     // boolean used to give the same six stages two sets of words, so the Playground
@@ -43,7 +43,7 @@ describe("RetrievalReceipt", () => {
       "Time",
     ]);
     expect(within(receipt).getByText("Not requested")).toBeTruthy();
-    expect(within(receipt).getByText("search receipt only")).toBeTruthy();
+    expect(within(receipt).getByText("search results only")).toBeTruthy();
     // Per-arm counts carry the denominator that makes them counts. Printed as
     // "Close spelling 2" beside a column of `#position` values, four readers in a
     // row took them for ranks.
@@ -105,7 +105,7 @@ describe("RetrievalReceipt", () => {
     );
 
     const receipt = screen.getByRole("region", {
-      name: "End-to-end retrieval receipt",
+      name: "Search steps and results",
     });
     expect(within(receipt).getByText("Inherited")).toBeTruthy();
     expect(within(receipt).getByText("reused the earlier shortlist")).toBeTruthy();

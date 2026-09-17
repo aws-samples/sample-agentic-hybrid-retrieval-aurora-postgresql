@@ -87,7 +87,7 @@ export function starterPath(example: RetrievalExample): StarterPath {
     return "semantic";
   }
   throw new Error(
-    `starterPath: query_id ${example.query_id} names no known retrieval arm ` +
+    `starterPath: query_id ${example.query_id} names no known retrieval search method ` +
       `(expected one of pg_trgm, fts, semantic, vector in expected_techniques, ` +
       `got ${JSON.stringify(example.expected_techniques)})`,
   );

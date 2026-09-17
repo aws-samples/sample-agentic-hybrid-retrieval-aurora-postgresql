@@ -182,7 +182,7 @@ function participantCopy(
         }
       : {
           label: "Issue reproduced",
-          title: "Fuzzy retrieval is still disconnected",
+          title: "Close-spelling search is still disconnected",
           detail:
             "The request completed, but the target has no trigram contribution in the fused pool.",
         };
@@ -193,26 +193,26 @@ function participantCopy(
           label: "Repair verified",
           title: "Fusion now respects source rank",
           detail:
-            "Per-arm contributions follow 1 / (k + rank), and the expected product leads before reranking.",
+            "Each search method contributes 1 / (k + rank), and the expected product leads before reranking.",
         }
       : {
           label: "Issue reproduced",
-          title: "Fusion is flattening per-arm rank",
+          title: "Combining scores ignores each search position",
           detail:
-            "The final order looks plausible, but the fused order does not preserve each arm's rank.",
+            "The final order looks plausible, but the combined order ignores the positions from each search method.",
         };
   }
   if (mission.stage === "reason") {
     return fixed
       ? {
-          label: "Grounding verified",
+          label: "Sources checked",
           title: "Every citation resolves to retrieved evidence",
           detail:
-            "The answer of record is bounded to retrieved products and product-owned evidence.",
+            "The saved answer uses only products returned by search and sources belonging to those products.",
         }
       : {
-          label: "Grounding blocked",
-          title: "Synthesis cannot authorize its evidence",
+          label: "Sources not available",
+          title: "The application cannot use the returned evidence",
           detail:
             "Retrieval completed, but the application correctly refused an unsupported answer.",
         };
@@ -291,7 +291,7 @@ export function retrievalLabOutcome(
     label: observed ? "Check passed" : "Review needed",
     title: observed ? "Expected targets are present" : "Expected targets are missing",
     detail: observed
-      ? "Inspect the visible provenance before accepting the checkpoint."
+      ? "Check which searches found the product and how its rank changed before accepting the checkpoint."
       : "The current response does not contain every expected eligible target.",
   };
 }
@@ -347,7 +347,7 @@ export function liveRetrievalOutcome(
     title,
     detail: gatesDiverged
       ? "This run used Shop's gates, so the lab verdict does not apply. Select the scenario and run it, or run the completion proof in Prove, to judge the repair against the scenario's own gates."
-      : "This query is outside the selected checkpoint. Inspect its per-arm ranks and eligibility directly.",
+      : "This query is outside the selected checkpoint. Check the positions from each search method and whether the products meet its filters.",
   };
 }
 
@@ -390,12 +390,12 @@ export function agentLabOutcome(
 
   return {
     tone: grounded ? "fixed" : "broken",
-    label: grounded ? "Grounding verified" : "Grounding blocked",
+    label: grounded ? "Sources checked" : "Sources not available",
     title: grounded
       ? "Every citation resolves to retrieved evidence"
-      : "The answer is missing required grounding",
+      : "The answer is missing required sources",
     detail: grounded
       ? "Tool receipts and evidence-backed citations are visible below."
-      : "The current answer does not expose the required grounding evidence.",
+      : "The current answer does not show the required supporting sources.",
   };
 }

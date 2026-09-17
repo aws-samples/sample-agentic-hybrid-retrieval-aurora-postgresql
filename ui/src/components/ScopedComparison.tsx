@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { armLabel } from "../retrievalLanguage";
 import type { ProductSummary, RankSignal } from "../types";
 
 /**
@@ -24,9 +25,9 @@ import type { ProductSummary, RankSignal } from "../types";
 
 /** Which arms found a product, in the order the workshop teaches them. */
 const ARMS = [
-  ["fts", "Full text"],
-  ["trigram", "Trigram"],
-  ["semantic", "Semantic"],
+  ["fts", armLabel.fts],
+  ["trigram", armLabel.trigram],
+  ["semantic", armLabel.semantic],
 ] as const;
 
 function armRank(product: ProductSummary, arm: (typeof ARMS)[number][0]): RankSignal | null {
@@ -38,7 +39,7 @@ function foundBy(product: ProductSummary): string {
   const hits = ARMS.filter(([arm]) => armRank(product, arm)?.rank != null).map(
     ([, label]) => label.toLowerCase(),
   );
-  return hits.length ? hits.join(", ") : "not in any arm";
+  return hits.length ? hits.join(", ") : "not found by any search method";
 }
 
 function priceDisplay(product: ProductSummary): string {
@@ -100,7 +101,7 @@ export function ScopedComparison({
       {error ? (
         <p className="shop-comparison-error">{error}</p>
       ) : !products ? (
-        <p className="shop-comparison-pending">Reading the retrieval receipt…</p>
+        <p className="shop-comparison-pending">Reading the saved search…</p>
       ) : (
         <div className="shop-comparison-scroll">
           <table className="shop-comparison-table">

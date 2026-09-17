@@ -52,6 +52,16 @@ export const armLabel: Record<RetrievalArm, string> = {
 export const FUSED_LABEL = "Before reranking";
 export const FINAL_LABEL = "Final position";
 
+/** Interface summaries; the raw tool definitions remain available for inspection. */
+export const toolPurpose: Record<string, string> = {
+  search_products: "Search Aurora by words, spelling and meaning, then combine and rerank the filtered matches.",
+  get_product_evidence: "Read current specifications and reviews for a product returned by search.",
+  compare_products: "Compare products from the current search or the previous answer.",
+  explain_retrieval: "Read the saved search to explain which methods found a product and how its rank changed.",
+  synthesize_cited_answer: "Write an answer using allowed products and current sources, check its citations and claims, then save the checked answer.",
+  inspect_retrieval_run: "Read a saved search through MCP, without running the search again.",
+};
+
 /**
  * The `candidate_counts` keys each arm reports, so a caller reading counts and a
  * caller reading per-row ranks cannot disagree about which arm is which.

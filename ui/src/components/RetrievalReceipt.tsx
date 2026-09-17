@@ -58,9 +58,9 @@ function ReceiptBand({
   path: string;
 }) {
   return (
-    <section className="retrieval-receipt" aria-label="End-to-end retrieval receipt">
+    <section className="retrieval-receipt" aria-label="Search steps and results">
       <header>
-        <strong>Retrieval receipt</strong>
+        <strong>Search summary</strong>
         <span>{path}</span>
       </header>
       <dl>
@@ -131,7 +131,7 @@ export function SearchRetrievalReceipt({
         {
           label: "Evidence records",
           value: "Not requested",
-          detail: "search receipt only",
+          detail: "search results only",
         },
         {
           label: "Time",

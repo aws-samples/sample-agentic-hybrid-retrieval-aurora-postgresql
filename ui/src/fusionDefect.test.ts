@@ -166,7 +166,7 @@ describe("armContribution", () => {
     expect(broken).toBeGreaterThan(expected!);
   });
 
-  it("reports both formulas as absent when the arm never found the candidate", () => {
+  it("reports both formulas as absent when the search method never found the candidate", () => {
     expect(armContribution(null, RRF_K)).toEqual({ expected: null, broken: null });
   });
 });
@@ -180,7 +180,7 @@ describe("candidatesFromResults / candidatesFromPersistedPool", () => {
    * printed the same number for both, which is exactly the failure mode this
    * asserts against.
    */
-  it("keeps expected and broken different for a non-rank-1 arm, and identical for a rank-1 arm, on real returned rows", () => {
+  it("keeps expected and broken different for a non-rank-1 search method, and identical for a rank-1 search method, on real returned rows", () => {
     const results: ProductSummary[] = [
       product({
         product_id: 4,
@@ -314,7 +314,7 @@ describe("brokenOrder", () => {
    * ascending `product_id`; this proves this function reproduces exactly
    * that, rather than leaving the tie in input order or some other rule.
    */
-  it("resolves an equal-arm-count tie to ascending product_id, which is not the real measured order", () => {
+  it("resolves an equal-search method-count tie to ascending product_id, which is not the real measured order", () => {
     const pool: SearchResultEventRecord[] = [
       { product_id: 300, result_rank: 2, fts_rank: null, trigram_rank: null, semantic_rank: 40, fused_rank: 2, rerank_rank: null, scores: {}, provenance: {} },
       { product_id: 100, result_rank: 1, fts_rank: null, trigram_rank: null, semantic_rank: 5, fused_rank: 1, rerank_rank: null, scores: {}, provenance: {} },
@@ -377,7 +377,7 @@ describe("findTieCollapseExample / invertedPairCount", () => {
     expect(invertedPairCount(ranked)).toBe(538);
   });
 
-  it("returns null when no two candidates share an arm count", () => {
+  it("returns null when no two candidates are found by the same number of search methods", () => {
     const distinctArmCounts: SearchResultEventRecord[] = [
       { product_id: 1, result_rank: 1, fts_rank: 1, trigram_rank: 1, semantic_rank: 1, fused_rank: 1, rerank_rank: null, scores: {}, provenance: {} },
       { product_id: 2, result_rank: 2, fts_rank: 2, trigram_rank: null, semantic_rank: null, fused_rank: 2, rerank_rank: null, scores: {}, provenance: {} },
@@ -421,7 +421,7 @@ describe("findFusionDefectCase", () => {
     expect(findFusionDefectCase(rows)).toBeNull();
   });
 
-  it("does not fire on an unrelated pool with no multi-arm competitor", () => {
+  it("does not fire on an unrelated pool with no multiple-method competitor", () => {
     // Independence: a pool where every candidate is single-arm has no
     // competitor to find, regardless of who holds rank 1.
     const singleArmOnly: SearchResultEventRecord[] = POOL.map((row) => ({

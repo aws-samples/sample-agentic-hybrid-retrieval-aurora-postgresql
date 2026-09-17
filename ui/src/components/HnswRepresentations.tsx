@@ -40,16 +40,16 @@ export function HnswRepresentations({
         <div>
           <h2 id="hnsw-repr-title">The same vectors, three ways to store them.</h2>
           <p>
-            halfvec and bit are casts of the fp32 column, not new embeddings. Recall for every
-            representation is measured against the exact fp32 answer, so none of them is
-            graded against itself.
+            Convert the existing 32-bit vectors to smaller halfvec or bit values without
+            calling the embedding model again. Compare each format with an exact search
+            over the original vectors to count how many nearest matches it keeps.
           </p>
         </div>
         <HnswMeasuredBadge attributed={attributed} />
       </header>
 
       <div
-        aria-label="Vector representation benchmark"
+        aria-label="Vector storage comparison"
         className="hnsw-table-scroll"
         role="region"
         tabIndex={0}
@@ -57,8 +57,8 @@ export function HnswRepresentations({
         <table className="hnsw-repr-table">
           <thead>
             <tr>
-              <th scope="col">Representation</th>
-              <th scope="col">Payload</th>
+              <th scope="col">Format</th>
+              <th scope="col">Vector data</th>
               <th scope="col">Index</th>
               <th scope="col">Per vector</th>
               <th scope="col">Recall@{representations.k}</th>
@@ -125,18 +125,19 @@ export function HnswRepresentations({
         {distribution ? <div className="hnsw-repr-note">
           <Info aria-hidden="true" size={16} />
           <div>
-            <strong>Binary recall depends on candidate depth.</strong>
+            <strong>Binary search can need more candidates.</strong>
             <p>
               {distribution.dimensions_over_80pct_one_sided} of{" "}
-              {distribution.dimensions_total} dimensions are more than 80% one-sided, so
+              {distribution.dimensions_total} vector positions have the same sign in more than 80% of products, so
               roughly {Math.round(
                 (distribution.dimensions_over_80pct_one_sided /
                   distribution.dimensions_total) *
                   100,
               )}
-              % of the dimensions have strongly biased sign bits. Hamming ordering agrees
-              with cosine on only {Math.round(distribution.top50_hamming_cosine_overlap * 100)}%
-              of the top 50. A deeper candidate pool followed by exact cosine rescoring recovered recall in this experiment.
+              % of the positions rarely differ after conversion to bits. Ranking by different
+              bits (Hamming distance) shares only {Math.round(distribution.top50_hamming_cosine_overlap * 100)}%
+              of the top 50 with the original cosine ranking. Fetching more candidates,
+              then rescoring them with the original vectors, recovered more nearest matches in this test.
             </p>
           </div>
         </div> : null}
@@ -145,7 +146,7 @@ export function HnswRepresentations({
       <details className="hnsw-repr-operating-point">
         <summary>Compare deeper binary candidate pools</summary>
         <div
-          aria-label="Binary operating point"
+          aria-label="Binary search settings and results"
           className="hnsw-table-scroll"
           role="region"
           tabIndex={0}

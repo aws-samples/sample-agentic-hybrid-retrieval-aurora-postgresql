@@ -1,6 +1,7 @@
 import { AlertTriangle, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { toolPurpose } from "../retrievalLanguage";
 import type { ToolContract } from "../types";
 
 /**
@@ -55,8 +56,8 @@ export function PackageFinale() {
       <header className="labs-package-heading">
         <h3 id="labs-package-title">Package what you built</h3>
         <p>
-          The three labs become one portable retrieval capability with Aurora as
-          its evidence authority.
+          Reuse the search and evidence tools from these labs in another application.
+          Aurora stores the products, search results and sources.
         </p>
       </header>
       <p className="labs-package-name">Mosaic Hybrid Retrieval Skill</p>
@@ -67,12 +68,12 @@ export function PackageFinale() {
           {skillError}
         </p>
       ) : skill === null ? (
-        <p role="status">Reading the declared capability.</p>
+        <p role="status">Loading the available tools.</p>
       ) : (
         <>
           <p className="labs-contract-note">
-            Its package carries the callable contract, checked HTTP mapping,
-            composition profile, and adaptation guide.
+            The package includes tool inputs and outputs, HTTP endpoints,
+            instructions for combining the tools, and a guide to adapting them.
           </p>
           <p className="labs-skill-takeaway">
             <span>Participant takeaway</span>
@@ -87,7 +88,7 @@ export function PackageFinale() {
               <li key={contract.name}>
                 <code>{contract.name}</code>
                 <b>{contract.read_only ? "catalog read-only" : "writes"}</b>
-                <small>{contract.description}</small>
+                <small>{toolPurpose[contract.name] ?? "Read this tool’s inputs and outputs in the downloaded package."}</small>
               </li>
             ))}
           </ul>
@@ -109,10 +110,11 @@ export function PackageFinale() {
             </li>
           </ul>
           <p className="labs-skill-closing">
-            The interface can move. Retrieval authority stays in Aurora. Keep
-            pre-limit eligibility, bounded pools, receipts, grant scope, and
-            source attribution; replace Mosaic&apos;s schema, language,
-            models, tuning, identity, retention, and evaluation corpus.
+            For your own application, filter products before applying result limits,
+            cap the candidate list, save each search, and keep comparisons within
+            the returned products. Require sources for claims. Adapt the schema,
+            copy, models, settings, user IDs, retention rules and test searches
+            to your use case.
           </p>
         </>
       )}

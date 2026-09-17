@@ -202,9 +202,9 @@ describe("AskMosaic declined outcome", () => {
       within(searchesDetails as HTMLElement).getByText("jetpack propulsion pack"),
     ).toBeTruthy();
 
-    // The "Attribution" step still discloses what the agent did; there are no
+    // The "Sources" step still discloses what the agent did; there are no
     // citations to disclose beside it.
-    openStage("Attribution");
+    openStage("Sources");
     expect(screen.queryByText("Evidence it cited")).toBeNull();
     expect(screen.getByText("What the agent did")).toBeTruthy();
     expect(screen.queryByText("No evidence cited")).toBeNull();

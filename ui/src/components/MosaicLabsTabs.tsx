@@ -14,7 +14,7 @@ export function MosaicLabsTabs({
   active?: MosaicLabsTab;
 }) {
   return (
-    <nav className="mosaic-labs-tabs" aria-label="Playground lenses">
+    <nav className="mosaic-labs-tabs" aria-label="Playground sections">
       <div>
         {PLAYGROUND_TABS.map((tab) => (
           <Link

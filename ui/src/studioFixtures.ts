@@ -20,7 +20,7 @@ function fixtureProduct(productId: number): ProductSummary {
   const product = showcaseProductDetail(productId);
   if (!product) {
     throw new Error(
-      `Mosaic Studio fixture references product ${productId}, which is not present in the local premium cohort.`,
+      `Mosaic Studio fixture references product ${productId}, which is not in the workshop sample products.`,
     );
   }
   return product;

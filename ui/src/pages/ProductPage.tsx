@@ -468,7 +468,7 @@ export function ProductPage() {
                   {review.review_date ? ` / ${review.review_date}` : ""}
                 </cite>
               </blockquote>
-            )) : <p className="muted">No review evidence is loaded for this sample product.</p>}
+            )) : <p className="muted">No reviews are loaded for this sample product.</p>}
           </div>
         </section>
       ) : null}
@@ -480,8 +480,8 @@ export function ProductPage() {
           id="product-panel-evidence"
           role="tabpanel"
         >
-          <p className="eyebrow">Source attribution</p>
-          <h2>Inspectable catalog evidence</h2>
+          <p className="eyebrow">Source details</p>
+          <h2>Check the product source</h2>
           <div className="source-box">
             <Database size={20} />
             <div>

@@ -484,7 +484,7 @@ whether a lab is finished.
   `source_revision` is never part of the gate; it and the current server's own
   worktree cleanliness (`current_source_worktree_dirty`) stay display and
   audit evidence only. When `attributed` is false, `provenance.attribution_note`
-  starts with the exact string `Metrics pending evaluation for this retrieval revision`.
+  starts with the exact string `Search scores need measurements for this code version`.
 
   Five provenance fields describe how this artifact is served, not just what it
   measured:

@@ -889,7 +889,7 @@ def test_scorecard_methodology_mismatch_marks_section_a_pending():
 
     assert attributed is False
     assert note.startswith(PENDING_TEXT)
-    assert "the measurement methodology changed" in note
+    assert "the measurement procedure changed" in note
 
 
 def test_missing_scorecard_methodology_hash_fails_closed():
@@ -901,7 +901,7 @@ def test_missing_scorecard_methodology_hash_fails_closed():
     attributed, note = _attribution(artifact, _current())
 
     assert attributed is False
-    assert "no measurement methodology hash was recorded" in note
+    assert "no version was recorded for the measurement procedure" in note
 
 
 def test_no_pending_reason_offers_to_replay_historical_output():
@@ -941,7 +941,7 @@ def test_ablation_methodology_mismatch_leaves_section_a_attributed():
 
     assert section_a_attributed is True
     assert section_e.attributed is False
-    assert "the measurement methodology changed" in section_e.attribution_note
+    assert "the measurement procedure changed" in section_e.attribution_note
 
 
 def test_shared_methodology_input_marks_both_sections_pending():
@@ -989,10 +989,7 @@ def test_attribution_hides_when_the_artifact_recorded_no_settings_hash():
     attributed, note = _attribution(artifact, _current())
 
     assert attributed is False
-    assert (
-        "no retrieval settings hash was recorded when this artifact was measured"
-        in note
-    )
+    assert "no search settings version was recorded with these measurements" in note
 
 
 def test_attribution_stays_attributed_when_the_recorded_settings_still_match():

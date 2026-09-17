@@ -54,7 +54,7 @@ export const SUSPICIOUS_GAP_THRESHOLD = 10;
 
 export const RANK_UNCHANGED_REASSURANCE =
   "Rank held steady before and after. That is not a failed repair: this scenario "
-  + "proves itself by changing which arm actually supports the result, not by "
+  + "proves itself by changing which search method actually supports the result, not by "
   + "reordering an answer that was already on top.";
 
 export const SUSPICIOUS_GAP_CAUTION =

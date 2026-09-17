@@ -390,14 +390,14 @@ describe("PerformancePage", () => {
     ).toBeTruthy();
   });
 
-  it("labels a live probe result distinctly from the measured curve", async () => {
+  it("labels a live search test result distinctly from the measured curve", async () => {
     render(<PerformancePage />);
     await screen.findByRole("heading", { name: /Recall you can buy/ });
     await waitForProbeAnchor();
 
     fireEvent.click(screen.getByRole("button", { name: /Run on Aurora now/ }));
 
-    await waitFor(() => expect(screen.getByText("LIVE PROBE")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("LIVE SEARCH")).toBeTruthy());
     expect(screen.getByText(/Index Scan using/)).toBeTruthy();
     expect(screen.getByText("0.624 ms")).toBeTruthy();
     expect(screen.getAllByText("MEASURED").length).toBeGreaterThan(0);
@@ -527,7 +527,7 @@ describe("PerformancePage", () => {
 
     expect(await screen.findByText("LIVE AURORA INDEX")).toBeTruthy();
     const heading = await screen.findByRole("heading", {
-      name: "Live probe anchors are unavailable.",
+      name: "Products for the live search test are unavailable.",
     });
     const panel = heading.closest("section");
     if (!panel) throw new Error("Missing anchor failure panel");
@@ -568,7 +568,7 @@ describe("PerformancePage", () => {
       resolveProbe(probeResult);
       await pendingProbe;
     });
-    expect(screen.queryByText("LIVE PROBE")).toBeNull();
+    expect(screen.queryByText("LIVE SEARCH")).toBeNull();
     expect(
       (screen.getByRole("button", {
         name: /Run on Aurora now/,
@@ -676,13 +676,13 @@ describe("PerformancePage", () => {
     await screen.findByRole("heading", { name: "Side-by-side test at scale" });
 
     const representations = screen.getByRole("region", {
-      name: "Vector representation benchmark",
+      name: "Vector storage comparison",
     });
     const controlledAb = screen.getByRole("region", {
-      name: "Controlled Aurora A/B results",
+      name: "Results from two Aurora configurations",
     });
     const projectionTable = screen.getByRole("region", {
-      name: "Projected HNSW scale envelope",
+      name: "Estimated HNSW results at larger catalog sizes",
     });
 
     expect(representations.getAttribute("tabindex")).toBe("0");
@@ -707,9 +707,9 @@ describe("PerformancePage", () => {
     expect(screen.queryByText("MEASURED")).toBeNull();
     expect(screen.getByText(/a different dataset manifest/)).toBeTruthy();
     expect(screen.getByText("7cd7a5ae4c7cab2667c5433427d28a36dd12897e47f7c473f508ef93f43f95ec")).toBeTruthy();
-    expect(screen.getByText("Measured on dataset manifest")).toBeTruthy();
-    expect(screen.getByText("Connected dataset manifest")).toBeTruthy();
-    expect(screen.getByText("Clean worktree at measurement")).toBeTruthy();
+    expect(screen.getByText("Catalog version used for this measurement")).toBeTruthy();
+    expect(screen.getByText("Catalog version connected now")).toBeTruthy();
+    expect(screen.getByText("All code changes saved in Git when measured")).toBeTruthy();
   });
 
   it("says MEASURED when the artifact describes the connected corpus", async () => {
@@ -731,7 +731,7 @@ describe("PerformancePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Run on Aurora now/ }));
 
-    await waitFor(() => expect(screen.getByText("LIVE PROBE")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("LIVE SEARCH")).toBeTruthy());
     expect(screen.getByText(/second execution of the same statement/)).toBeTruthy();
     expect(screen.getByText(/buffers were already warm/)).toBeTruthy();
   });

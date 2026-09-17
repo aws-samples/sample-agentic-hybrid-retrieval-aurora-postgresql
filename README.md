@@ -151,6 +151,10 @@ instructions deep-link to:
 
 The storefront is designed for laptop browser viewports at normal zoom. Page
 navigation keeps the header in place and restores scroll and keyboard focus.
+The app explains each step in ordinary language: search details, sources used,
+saved results, and comparisons between methods. Expanded details retain the SQL,
+ranking formula, settings, API records, and measurement limits needed to build
+and diagnose the system. [Participant language](VOICE.md) defines this standard.
 Ask Mosaic shows retrieval progress before bringing the cited answer forward
 and folding the activity into **Steps and sources**.
 Before writing an answer, a separate model review checks the current request
@@ -164,7 +168,7 @@ are retained with the turn.
 
 For Lab 1, compare the meaning-only, correctly spelled and misspelled requests
 under identical filters. **Pin as baseline** in the retrieval lab preserves
-the saved before receipt across reloads; compare it with the repeated request
+the saved before result across reloads; compare it with the repeated request
 after repair. Candidate counts overlap, so they do not measure unique additions.
 
 <details>
