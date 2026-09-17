@@ -13,6 +13,7 @@ from uuid import UUID, uuid4
 
 from strands import tool
 
+from service.answerability import SynthesisDeclined
 from service.catalog import get_product_evidence_records, get_product_summaries
 from service.config import get_settings
 from service.coverage import decline_note, decline_reason
@@ -306,6 +307,7 @@ def start_run(
         # Public API compatibility: one request is one persisted agent turn.
         "agent_run_id": agent_turn_id,
         "question": question,
+        "previous_question": context.previous_question if context is not None else None,
         "base_filters": base_filters,
         "result_limit": result_limit,
         "execution_path": (
@@ -995,9 +997,9 @@ def explain_retrieval(search_event_id: str) -> dict[str, Any]:
 def coverage_refusal(state: dict[str, Any]) -> tuple[str, str] | None:
     """The answer and reason a run owes when it may not recommend.
 
-    A turn declines only when it issued at least one search and every one of
-    them came back `unanchored`. Three cases deliberately stay on the grounded
-    path:
+    This coverage gate declines when at least one search ran and every search
+    came back `unanchored`. Passing it still requires the separate answerability
+    and evidence checks. Three cases continue to those checks:
 
     - no search at all, which is a closed-world follow-up over an already
       authorized shortlist and has no coverage verdict of its own;
@@ -1103,6 +1105,47 @@ def _excluded_inherited_products(
     return excluded
 
 
+def record_unsupported_answer(
+    state: dict[str, Any], decline: SynthesisDeclined | None = None
+) -> None:
+    """Persist a refusal without attaching unrelated recommendation cards."""
+    reason = decline.review.reason if decline else "no_supported_catalog_answer"
+    note = (
+        "The available product evidence does not establish the requirements or "
+        "compatibility in this request. No product is recommended."
+        if reason == "unsupported_requirements"
+        else "I cannot support this request with the available catalog evidence. "
+        "No product is recommended."
+    )
+    state["answer_of_record"] = {
+        "answer": note,
+        "citations": [],
+        "recommendations": [],
+        "usage": {
+            **decline.usage,
+            "answerability": decline.review.model_dump(),
+        }
+        if decline
+        else {},
+        "outcome": "declined",
+        "decline_reason": reason,
+    }
+
+
+def _synthesis_question(state: dict[str, Any]) -> str:
+    """Keep the current request authoritative even if a tool rewrites it."""
+    question = state["question"]
+    previous = state.get("previous_question")
+    if previous:
+        return json.dumps(
+            {
+                "current_request": question,
+                "previous_request_for_reference_resolution_only": previous,
+            }
+        )
+    return question
+
+
 @tool
 def synthesize_cited_answer(
     question: str,
@@ -1125,6 +1168,13 @@ def synthesize_cited_answer(
     started = perf_counter()
     state = _state()
     unique_ids = list(dict.fromkeys(product_ids))
+    if state["answer_of_record"] is not None:
+        record = state["answer_of_record"]
+        return {
+            "ok": True,
+            "answer": record["answer"],
+            "citations": [citation.model_dump() for citation in record["citations"]],
+        }
     if record_declined_answer(state):
         # Checked before the product bounds, because which products the model
         # chose cannot matter: every search this turn named something the
@@ -1224,7 +1274,24 @@ def synthesize_cited_answer(
             "call get_product_evidence for every product before synthesis.",
         )
     try:
-        answer, citations, usage = synthesize_answer(question, products, evidence)
+        answer, citations, usage = synthesize_answer(
+            _synthesis_question(state), products, evidence
+        )
+    except SynthesisDeclined as decline:
+        record_unsupported_answer(state, decline)
+        _record(
+            "synthesize_cited_answer",
+            {"question": state["question"], "product_ids": unique_ids},
+            started,
+            result_count=0,
+            outcome="denied",
+            detail=f"Answerability review declined: {decline.review.reason}.",
+        )
+        return {
+            "ok": True,
+            "answer": state["answer_of_record"]["answer"],
+            "citations": [],
+        }
     except Exception as error:
         classified = model_runtime_error(error)
         if classified is not None:
@@ -1391,7 +1458,22 @@ def finalize_retrieved_answer(
     if not evidence:
         raise RuntimeError("No retrieved evidence is available for grounded synthesis")
 
-    answer, citations, usage = synthesize_answer(question, products, evidence)
+    try:
+        answer, citations, usage = synthesize_answer(
+            _synthesis_question(state), products, evidence
+        )
+    except SynthesisDeclined as decline:
+        record_unsupported_answer(state, decline)
+        _record(
+            "synthesize_cited_answer",
+            {"question": state["question"], "product_ids": selected_ids},
+            started,
+            result_count=0,
+            outcome="denied",
+            detail=f"Answerability review declined: {decline.review.reason}.",
+            origin="controller_fallback",
+        )
+        return
     state["answer_of_record"] = {
         "answer": answer,
         "citations": citations,

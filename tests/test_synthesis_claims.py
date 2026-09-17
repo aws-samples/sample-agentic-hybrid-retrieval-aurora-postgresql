@@ -229,3 +229,58 @@ def test_pronoun_cannot_borrow_another_products_price():
             [evidence(BATTERY_EVIDENCE), other_record],
             [product(), other],
         )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "Model A2342 has not been tested for compatibility. Power: 30W. GaN charger.",
+        "Model A2342 is listed in a shopper question. Power: 30W. GaN charger.",
+        "Not compatible with model A2342. Power: 30W. GaN charger.",
+    ],
+)
+def test_model_identifier_presence_does_not_establish_compatibility(source):
+    with pytest.raises(SynthesisOutputError, match="unsupported compatibility claim"):
+        validate(
+            "AuriLogic Flight ANC is compatible with model A2342 [1].",
+            [evidence(source)],
+        )
+
+
+def test_explicit_supported_compatibility_can_be_stated():
+    validate(
+        "AuriLogic Flight ANC is compatible with model A2342 [1].",
+        [evidence("Compatible with model A2342.")],
+    )
+
+
+def test_compatibility_cannot_borrow_a_cited_siblings_positive_relationship():
+    first = product()
+    second = product(product_id=2, title="AuriLogic Office ANC", model="Office ANC")
+    records = [
+        evidence("Not compatible with model A2342."),
+        evidence("Compatible with model A2342.").model_copy(
+            update={"evidence_id": 2, "product_id": 2}
+        ),
+    ]
+    with pytest.raises(SynthesisOutputError, match="unsupported compatibility claim"):
+        validate(
+            "AuriLogic Flight ANC is compatible with model A2342 [1][2].",
+            records,
+            [first, second],
+        )
+
+
+def test_unrelated_negative_phrase_cannot_disable_compatibility_validation():
+    with pytest.raises(SynthesisOutputError, match="unsupported compatibility claim"):
+        validate(
+            "AuriLogic Flight ANC is not expensive and is compatible with model A2342 [1].",
+            [evidence("Model A2342 compatibility has not been tested.")],
+        )
+
+
+def test_unrelated_negative_feature_does_not_invalidate_explicit_compatibility():
+    validate(
+        "AuriLogic Flight ANC is compatible with model A2342 [1].",
+        [evidence("Compatible with model A2342 with no adapter required.")],
+    )

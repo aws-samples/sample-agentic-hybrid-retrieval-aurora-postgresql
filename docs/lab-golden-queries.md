@@ -51,7 +51,8 @@ evidence, not the golden record; retain the response JSON and retrieval event.
 
 ## Verified Lab 2 movement
 
-The release Aurora corpus establishes this deterministic top-two story:
+The release Aurora corpus, with the exact mission query and filters, reproduces
+this top-two example (rechecked September 17, 2026):
 
 | State | Fused rank 1 | Fused rank 2 | Final rank 1 | Final rank 2 |
 |---|---:|---:|---:|---:|
@@ -64,3 +65,11 @@ differences, and the stable product-ID tie-breaker then puts 370001 first.
 Cohere Rerank recovers 370002 in the final order in both states. That is the
 lesson: final output alone is insufficient proof that candidate fusion is
 correct.
+
+The repair criterion is the contribution invariant, not a mandatory rank flip.
+If a differently configured run already puts 370002 first, inspect the source
+ranks and contributions: `1 / (k + 1)` is still broken when distinct source ranks
+receive equal credit. Restore the canonical query and filters before comparing
+with the table. Reranking is required by default; an unavailable reranker fails
+the request. Fused-order fallback exists only with `RERANK_REQUIRED=false`, and
+its `unavailable` receipt does not pass Lab 2's reranking check.

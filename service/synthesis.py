@@ -8,6 +8,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from service.answerability import SynthesisDeclined, assess_answerability
 from service.bedrock import get_bedrock_client
 from service.config import Settings, get_settings
 from service.models import (
@@ -637,6 +638,7 @@ def _validated_output(
         )
     _validate_product_claim_citations(answer, products, evidence_records)
     _validate_measurable_claim_support(answer, products, evidence_records)
+    _validate_compatibility_claims(answer, products, evidence_records)
     citations = [
         AgentCitation(
             number=number,
@@ -651,6 +653,75 @@ def _validated_output(
         for number in cited_numbers
     ]
     return answer, citations
+
+
+_COMPATIBILITY_CLAIM = re.compile(
+    r"\b(?:compatible\s+with|works?\s+with|(?:can|will)\s+charge)\s+"
+    r"(?:model\s+)?([a-z][a-z0-9-]*\d[a-z0-9-]*)\b",
+    re.IGNORECASE,
+)
+_NEGATED_COMPATIBILITY_PREFIX = re.compile(
+    r"\b(?:not|never)\s+$|"
+    r"\b(?:not|never)\s+(?:verified|confirmed|tested|established)(?:\s+to be)?\s+$|"
+    r"\b(?:cannot|can't)\s+(?:confirm|establish|verify)\b[^.!?]{0,60}$",
+    re.IGNORECASE,
+)
+
+
+def _explicit_compatibility_support(passage: str, target: str) -> bool:
+    """Keep negation on the relationship it qualifies, not unrelated features."""
+    return any(
+        match.group(1).casefold() == target.casefold()
+        and not _NEGATED_COMPATIBILITY_PREFIX.search(passage[: match.start()])
+        and not re.match(
+            r"\s+(?:is|was|has|have)\s+(?:not|never|unknown|unverified|unconfirmed)\b",
+            passage[match.end() :],
+            re.IGNORECASE,
+        )
+        for match in _COMPATIBILITY_CLAIM.finditer(passage)
+    )
+
+
+def _validate_compatibility_claims(
+    answer: str,
+    products: Sequence[ProductSummary],
+    evidence_records: Sequence[EvidenceRecord],
+) -> None:
+    """Require an affirmative source relationship, not a coincidental model ID."""
+    previous_subjects = {product.product_id for product in products}
+    for sentence in re.split(r"(?<=[.!?])\s+|\n+", answer):
+        mentions = _named_product_mentions(sentence, products)
+        for match in _COMPATIBILITY_CLAIM.finditer(sentence):
+            if _NEGATED_COMPATIBILITY_PREFIX.search(sentence[: match.start()]):
+                continue
+            target = match.group(1)
+            cited = {int(value) for value in re.findall(r"\[(\d+)\]", sentence)}
+            preceding = [item for item in mentions if item[0] < match.start()]
+            subjects = (
+                {preceding[-1][2]}
+                if preceding
+                else {mentions[0][2]}
+                if mentions
+                else previous_subjects
+            )
+            supported = all(
+                any(
+                    _explicit_compatibility_support(passage, target)
+                    for number in cited
+                    if evidence_records[number - 1].product_id == subject
+                    for passage in re.split(
+                        r"(?<=[.!?])\s+|\n+", evidence_records[number - 1].text
+                    )
+                )
+                for subject in subjects
+            )
+            if not supported:
+                raise SynthesisOutputError(
+                    f"unsupported compatibility claim for {target}; "
+                    "cite an explicit supported relationship or state the uncertainty"
+                )
+        if mentions:
+            previous_subjects = {item[2] for item in mentions}
 
 
 def _combined_usage(responses: Sequence[dict[str, Any]]) -> dict[str, Any]:
@@ -679,10 +750,10 @@ def synthesize_cited_answer(
 ) -> tuple[str, list[AgentCitation], dict[str, Any]]:
     """Write the citation-bounded answer of record for one turn.
 
-    Every answer this function produces recommends a product. A run that may
-    not recommend never reaches here: `agent_tools.record_declined_answer`
-    writes the declining answer of record deterministically, without a model
-    call, so there is no declining variant of this prompt to select.
+    Term-coverage refusals are handled before this function. A separate model
+    review here checks current intent and evidence before writing product prose.
+    Unsupported requests raise `SynthesisDeclined`; both agent finalizers turn
+    that decision into a deterministic refusal without recommendation cards.
 
     Args:
         question: The shopper question the answer must address.
@@ -755,6 +826,15 @@ def synthesize_cited_answer(
         "bedrock-runtime",
         settings.aws_region,
     )
+    review, review_usage = assess_answerability(
+        question,
+        products,
+        evidence_records,
+        client=runtime,
+        model_id=settings.synthesis_model_id,
+    )
+    if not review.request_supported:
+        raise SynthesisDeclined(review, review_usage)
     messages = [
         {
             "role": "user",
@@ -819,4 +899,10 @@ def synthesize_cited_answer(
             )
         )
         answer, citations = _validated_output(responses[-1], products, evidence_records)
-    return answer, citations, _combined_usage(responses)
+    usage = _combined_usage(responses)
+    usage["answerability"] = review.model_dump()
+    usage["answerability_usage"] = review_usage
+    for key, value in review_usage.items():
+        if isinstance(value, (int, float)):
+            usage[key] = usage.get(key, 0) + value
+    return answer, citations, usage

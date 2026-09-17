@@ -393,6 +393,13 @@ class ProductDiscoveryAgent:
                 logger.warning("Strands agent loop failed: %s", caught, exc_info=True)
 
             fallback_error = model_runtime_error(error) if error is not None else None
+            if (
+                error is None
+                and state["answer_of_record"] is None
+                and not state["products"]
+                and not state["trace"]
+            ):
+                agent_tools.record_unsupported_answer(state)
             if fallback_error is None:
                 fallback_error = self._finalize_if_needed(request, state)
             if fallback_error is not None:
@@ -495,6 +502,13 @@ class ProductDiscoveryAgent:
                 fallback_error = (
                     model_runtime_error(error) if error is not None else None
                 )
+                if (
+                    error is None
+                    and state["answer_of_record"] is None
+                    and not state["products"]
+                    and not state["trace"]
+                ):
+                    agent_tools.record_unsupported_answer(state)
                 if fallback_error is None:
                     async for fallback_event in self._stream_fallback(request, state):
                         if "fallback_error" in fallback_event:

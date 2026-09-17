@@ -681,7 +681,7 @@ describe("CatalogPage", () => {
       release();
       clock.mockRestore();
     }
-  });
+  }, stageDwellMs * 4 + 10_000);
 
   it("clears the conversation without dismissing the panel", async () => {
     // Shop's "Clear shortlist" closes the panel because it is a Shop control. This
@@ -771,7 +771,7 @@ describe("CatalogPage", () => {
     const add = within(picks).getAllByRole("button", { name: /Add to bag/ })[0];
     fireEvent.click(add);
     expect(within(picks).getAllByRole("button", { name: /In bag \(1\)/ })).toHaveLength(1);
-  });
+  }, stageDwellMs * 4 + 10_000);
 
   it("opens a chosen pick as a drawer beside the conversation, not a navigation", async () => {
     // Going deeper on a pick used to route to /products/:id, which tore the
@@ -2333,6 +2333,14 @@ describe("CatalogPage", () => {
     // the lab guide cannot drift apart.
     expect(callout.textContent).toContain(lab1.participant_edit!.file);
     expect(callout.textContent).toContain(lab1.participant_edit!.task);
+    const baselineLink = within(callout).getByRole("link", {
+      name: "Inspect this run in the Playground",
+    });
+    const baselineUrl = new URL(baselineLink.getAttribute("href")!, window.location.origin);
+    expect(baselineUrl.searchParams.get("example")).toBe(lab1.id);
+    expect(baselineUrl.searchParams.get("event")).toBe(lab1Search(false).search_event_id);
+    expect(baselineUrl.searchParams.get("q")).toBe(lab1.query);
+    expect(baselineUrl.searchParams.get("max_price_cents")).toBe("20000");
 
     const codeEditor = within(callout).getByRole("link", { name: "Code Editor" });
     expect(codeEditor.getAttribute("href")).toBe(
@@ -2486,6 +2494,7 @@ describe("CatalogPage", () => {
     expect(playground).toHaveLength(1);
     expect(callout.contains(playground[0])).toBe(true);
     expect(playground[0].getAttribute("href")).toContain("/labs/retrieval?");
+    expect(playground[0].getAttribute("href")).toContain("example=typo-recovery");
   });
 
   it("stays silent for a run the lab does not describe", async () => {

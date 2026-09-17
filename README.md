@@ -153,6 +153,19 @@ The storefront is designed for laptop browser viewports at normal zoom. Page
 navigation keeps the header in place and restores scroll and keyboard focus.
 Ask Mosaic shows retrieval progress before bringing the cited answer forward
 and folding the activity into **Steps and sources**.
+Before writing an answer, a separate model review checks the current request
+against every selected product and its fresh evidence. Prior turns resolve
+references; they do not authorize a product pitch after the topic changes.
+Unsupported requests and unproven device compatibility receive a clear decline
+with no recommendation cards. Citation and numeric checks still validate the
+answer after writing. The semantic review is an additional model judgment,
+not a proof of every possible natural-language claim; its decision and usage
+are retained with the turn.
+
+For Lab 1, compare the meaning-only, correctly spelled and misspelled requests
+under identical filters. **Pin as baseline** in the retrieval lab preserves
+the saved before receipt across reloads; compare it with the repeated request
+after repair. Candidate counts overlap, so they do not measure unique additions.
 
 <details>
 <summary>See Shop and Playground</summary>

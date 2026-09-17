@@ -1370,11 +1370,11 @@ export function CatalogPage() {
                       the evidence rather than the same link twice. */}
                   <Link
                     className="shop-lab-callout-playground"
-                    href={playgroundQueryHref(
+                    href={`${playgroundQueryHref(
                       retrieval!.query,
                       retrieval!.applied_filters,
                       retrieval!.search_event_id,
-                    )}
+                    )}&example=${encodeURIComponent(labCallout.mission.id)}#labs-stage-retrieve`}
                   >
                     See how this was retrieved in the {RETRIEVAL_SURFACE.label}
                     <ArrowUpRight size={14} aria-hidden="true" />
@@ -1398,6 +1398,15 @@ export function CatalogPage() {
                   </p>
                   <div className="shop-lab-callout-actions">
                     <CodeEditorLink href={codeEditorUrl} />
+                    <Link
+                      className="shop-lab-callout-playground"
+                      href={`${playgroundQueryHref(
+                        retrieval!.query, retrieval!.applied_filters, retrieval!.search_event_id,
+                      )}&example=${encodeURIComponent(labCallout.mission.id)}#labs-stage-retrieve`}
+                    >
+                      Inspect this run in the {RETRIEVAL_SURFACE.label}
+                      <ArrowUpRight size={14} aria-hidden="true" />
+                    </Link>
                     <button
                       type="button"
                       onClick={() => setRetrievalNonce((run) => run + 1)}

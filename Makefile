@@ -468,6 +468,7 @@ test-aurora-invariants:
 	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m pytest -q -rs \
 		tests/test_coverage.py \
 		tests/test_lab1_anchor_invariants.py \
+		tests/test_answerability_live.py \
 		tests/test_retrieval_scope.py
 
 # Five targets were DELETED in Phase 2 Unit E. They installed and loaded the

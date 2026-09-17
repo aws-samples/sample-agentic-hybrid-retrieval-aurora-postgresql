@@ -31,11 +31,31 @@ A plausible product card is not proof that search is healthy. A correct final an
 
 > This is a shopping site with half a million products on Aurora PostgreSQL. Search it and you get a page of plausible results. Across three labs, you'll find and fix three faults behind that page: one in candidate search, one in ranking, and one in what the agent is allowed to cite. Each fix is a few lines. The work is the diagnosis.
 
-Show a 30-second control first: `noise cancelling headphones` works. Then show
+Show three brief searches under Electronics, in-stock and under-$200 filters:
+`something to help me concentrate when the house is loud`, then the correctly
+spelled control `noise cancelling headphones`. Finally show
 `noice cancelng hedfones`: the Sonora WH-C720 disappears. Search is not completely
 broken; one candidate path is disconnected. A healthy close-spelling index can
 find the target, but its rows never reach fusion. Only the current lab's fault
 is installed.
+
+Use product provenance as well as aggregate counts: the meaning-only and broken
+typo requests can both show only semantic candidates while answering different
+questions. A correctly spelled request can also receive close-spelling matches.
+Pin the broken typo receipt before repair and repeat the identical request after
+repair; the baseline survives the required reload.
+
+Lab 2's current fixture swaps the fused top two while keeping the final winner.
+The essential diagnosis is equal contributions for unequal source ranks. Even
+if a different run already shows the expected winner, inspect and repair that
+formula; a plausible first result alone cannot pass the production validator.
+
+Lab 3 separates authorization, relevance and claim support. Registered evidence
+IDs authorize citation; a separate review checks the current request and its
+requirements before answer writing. Unknown device compatibility and unrelated
+follow-ups decline without product cards. This review adds one bounded model
+call to a supported answer and records its usage; it does not turn semantic
+judgment into a deterministic guarantee.
 
 ## Introduction / Overview / Presentation
 

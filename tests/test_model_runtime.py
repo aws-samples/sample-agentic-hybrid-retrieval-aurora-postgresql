@@ -82,8 +82,35 @@ class FakeSynthesisClient:
         )
         self.request = None
         self.requests: list[dict] = []
+        self.review_requests: list[dict] = []
 
     def converse(self, **kwargs):
+        text = kwargs["messages"][0]["content"][0]["text"]
+        if text.startswith('{"question":'):
+            payload = json.loads(text)
+            if "response_schema" in payload:
+                self.review_requests.append(kwargs)
+                review = {
+                    "request_supported": True,
+                    "reason": "supported",
+                    "products": [
+                        {
+                            "product_id": p["product_id"],
+                            "supported": True,
+                            "evidence_ids": [
+                                e["evidence_id"]
+                                for e in payload["evidence"]
+                                if e["product_id"] == p["product_id"]
+                            ],
+                        }
+                        for p in payload["products"]
+                    ],
+                }
+                return {
+                    "stopReason": "end_turn",
+                    "usage": {"totalTokens": 17},
+                    "output": {"message": {"content": [{"text": json.dumps(review)}]}},
+                }
         self.request = kwargs
         self.requests.append(kwargs)
         index = min(len(self.requests) - 1, len(self.answers) - 1)
@@ -259,7 +286,8 @@ def test_synthesis_returns_only_validated_citations():
     assert "[1]" in answer
     assert citations[0].evidence_id == 9001
     assert citations[0].source_uri == "mosaic://evidence/product-spec/101"
-    assert usage["totalTokens"] == 260
+    assert usage["totalTokens"] == 277
+    assert len(client.review_requests) == 1
     assert client.request["inferenceConfig"] == {"maxTokens": 1_400}
     assert (
         '"allowed_evidence_numbers": [1]'
@@ -320,7 +348,7 @@ def test_synthesis_repairs_one_invalid_citation_draft_inside_its_boundary():
     assert {citation.product_id for citation in citations} == {101, 102}
     assert len(client.requests) == 2
     assert usage["attempts"] == 2
-    assert usage["totalTokens"] == 520
+    assert usage["totalTokens"] == 537
 
 
 def test_synthesis_rejects_a_truncated_model_response():
@@ -719,6 +747,7 @@ def test_synthesis_assigns_pre_name_comparison_numbers_to_the_following_product(
 def test_agent_finalizes_retrieved_products_when_orchestration_stops(monkeypatch):
     source = evidence()
     state = {
+        "question": "What should I buy?",
         "result_limit": 4,
         "products": {101: product()},
         "evidence": {source.evidence_id: source},
@@ -1139,6 +1168,7 @@ def test_focused_followup_synthesis_does_not_require_a_ranking_replay(
         }
     )
     state = {
+        "question": "Which one is the better value?",
         "execution_path": "focused_follow_up",
         "searches": [],
         "products": {101: product(), 102: second},
