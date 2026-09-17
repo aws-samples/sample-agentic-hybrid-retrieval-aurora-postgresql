@@ -16,11 +16,11 @@
       "description": "The served fusion function (unweighted reciprocal rank fusion over FTS, trigram, and semantic candidates), with managed reranking disabled so the fused order is returned unchanged.",
       "label": "RRF fused, reranking off",
       "mrr": 0.915,
-      "ndcg@10": 0.8579807342533361,
+      "ndcg@10": 0.8586839961443257,
       "ndcg@10_max": 1.0,
       "ndcg@10_min": 0.2890648263178878,
       "ndcg@10_query_wins": 14,
-      "ndcg@10_stdev": 0.2228004074168519,
+      "ndcg@10_stdev": 0.22191607746726352,
       "recall@10": 0.9083333333333334
     },
     "rrf_fused_reranked": {
@@ -81,7 +81,7 @@
     }
   },
   "k": 10,
-  "measured_at": "2026-09-17T10:47:35.787005+00:00",
+  "measured_at": "2026-09-17T11:38:11.531019+00:00",
   "models": {
     "embedding": "us.cohere.embed-v4:0",
     "rerank": "cohere.rerank-v3-5:0"
@@ -291,7 +291,7 @@
       "missed_product_ids": [],
       "ndcg@10": {
         "lexical_only": 0.0,
-        "rrf_fused_no_rerank": 0.5856716025542826,
+        "rrf_fused_no_rerank": 0.5997368403740738,
         "rrf_fused_reranked": 1.0,
         "semantic_only": 0.0,
         "trigram_only": 1.0
@@ -399,13 +399,13 @@
   "scored_query_count": 20,
   "scored_query_set_sha256": "f9d840a4fb5fa58a5a3af798ef1a3eb3b34f6073997125e2d969f755bda3f36e",
   "served_scorecard_reference": {
-    "measured_at": "2026-09-17T10:45:35.506553+00:00",
+    "measured_at": "2026-09-17T11:36:16.268341+00:00",
     "path": "data/evals/canonical_scorecard.json",
     "retrieval_fingerprint": "61dc4fb9e1ed3dbc678dc9be8151817c443c87c359e0b40b0ec8de92ba6e2357",
-    "source_revision": "ab19d5c3f1b7718332f140581c77ac9fba289540"
+    "source_revision": "8d9a01abf373b412ca2bdb77e644ce7f5714996c"
   },
   "source": {
-    "revision": "78f59def82b4d95802e81fb86c7503a51712106b",
+    "revision": "0c6472770ea64367075db10a05fd6d5d0cd3cfec",
     "worktree_dirty": false
   },
   "spread_note": "20 queries and 74 judgments cannot separate small differences between these paths. Every path answers the same searches, so read each step as the difference on each search rather than as two separate averages: the comparison below reports that difference, the spread of the differences, and how many searches each step won and lost. A step whose average difference is smaller than that spread is one this query set cannot tell apart from no change."
