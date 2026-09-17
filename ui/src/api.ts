@@ -28,6 +28,7 @@ import type {
   SearchFilters,
   SearchResponse,
   SessionMemoryResponse,
+  MemoryConnectionStatus,
   MemoryRecord,
   MemoryEvent,
   ToolContract,
@@ -104,6 +105,7 @@ function parseSseFrame(frame: string): { event: string; data: string } | null {
 
 export const api = {
   sessionMemory: () => request<SessionMemoryResponse>("/api/session-memory"),
+  memoryStatus: () => request<MemoryConnectionStatus>("/api/session-memory/status"),
   memoryEvents: (sessionId: string) => request<{ events: MemoryEvent[]; has_more: boolean }>(`/api/session-memory/events?session_id=${encodeURIComponent(sessionId)}`),
   addMemoryEvent: (text: string, sessionId?: string) => request<{ session_id: string; event_id: string }>("/api/session-memory/events", {
     method: "POST", body: JSON.stringify({ text, session_id: sessionId ?? null, request_id: crypto.randomUUID() }),

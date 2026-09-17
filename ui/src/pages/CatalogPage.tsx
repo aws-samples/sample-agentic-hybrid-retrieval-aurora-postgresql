@@ -30,6 +30,7 @@ import { flushSync } from "react-dom";
 import { Link } from "wouter";
 import { api } from "../api";
 import { AskMosaic } from "../components/AskMosaic";
+import { useAskMosaicMemory } from "../components/AskMosaicMemory";
 import { RetrievalJourney } from "../components/RetrievalJourney";
 import { ContinueWorkspace } from "../components/ContinueWorkspace";
 import { ScopedComparison } from "../components/ScopedComparison";
@@ -426,6 +427,10 @@ export function CatalogPage() {
   // including while a replacement search is pending or has failed.
   const retrieval = activeQuery && servedRequest === retrievalRequest ? retrievalResponse : null;
   const page = activeQuery ? null : catalogPage;
+  const labMission = mosaicRetrievalExamples.find(
+    (mission) => mission.id === searchParams.get("mission") && mission.stage === "reason",
+  );
+  const memory = useAskMosaicMemory(agentOpen && !labMission);
   const {
     answeredTurn,
     clear: clearAgentThread,
@@ -433,7 +438,7 @@ export function CatalogPage() {
     pending: agentPending,
     run: askAgent,
     turns: agentTurns,
-  } = useAskMosaicConversation(filters);
+  } = useAskMosaicConversation(filters, !labMission && memory.enabled);
   const activeFilterCount = [
     domain,
     categoryKey,
@@ -450,9 +455,6 @@ export function CatalogPage() {
   // banner, and numbering in place until its own answer arrives.
   const agent = answeredTurn?.contextKey === retrievalRequest ? answeredTurn.response : null;
   const agentQuestion = answeredTurn?.question ?? "";
-  const labMission = mosaicRetrievalExamples.find(
-    (mission) => mission.id === searchParams.get("mission") && mission.stage === "reason",
-  );
   const labOutcome = labMission && (agent || answeredTurn?.error)
     ? agentLabOutcome(labMission, agent, answeredTurn?.error ?? "")
     : null;
@@ -1638,6 +1640,7 @@ export function CatalogPage() {
         </section>
 
         <AskMosaic
+          memory={labMission ? undefined : memory}
           imageByProductId={gridImages}
           open={agentOpen}
           seedQuery={activeQuery}

@@ -5,6 +5,14 @@ events stored by actor and session, and long-term records produced by strategies
 It keeps Alex's home office as the context while making AgentCore's behavior
 inspectable. There is no budget exercise or manually entered preference form.
 
+Ask Mosaic in Shop uses this same connection through **Use saved memories**,
+which starts off. Each opted-in answer has a **Memories used** section containing
+the records actually read, the number of earlier conversation events read, and
+whether saving the conversation succeeded. **View memories** opens the Playground
+inspector. Clearing chat starts a new session, keeping the same browser actor
+and saved facts and preferences. Follow-ups work from the current shortlist with
+memory off. Required lab requests keep memory off and do not offer this control.
+
 ## What the page shows
 
 The page uses **Facts**, **Preferences**, **Summaries**, and **Past outcomes**.

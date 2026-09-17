@@ -166,6 +166,19 @@ function renderAskMosaic(response: AgentResponse) {
 }
 
 describe("AskMosaic declined outcome", () => {
+  it("distinguishes missing review evidence from a missing catalog product", () => {
+    renderAskMosaic({
+      ...DECLINED_RESPONSE,
+      question: "What do the specs and reviews say about OH-M349?",
+      plan: [],
+      decline_reason: "insufficient_evidence",
+      answer: "The available sources do not provide enough detail to answer this request.",
+    });
+    expect(screen.getByText("The sources do not answer this yet")).toBeTruthy();
+    expect(screen.queryByText("Nothing in the catalog matches part of this request")).toBeNull();
+    expect(screen.queryByText(/drop the term named above/)).toBeNull();
+  });
+
   it("renders the declined block, hides the shortlist and compare/cite panels, and keeps the searches list", () => {
     renderAskMosaic(DECLINED_RESPONSE);
 

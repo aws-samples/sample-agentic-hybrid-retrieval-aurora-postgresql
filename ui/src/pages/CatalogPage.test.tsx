@@ -67,6 +67,7 @@ vi.mock("../api", () => ({
     suggestions: vi.fn(),
     search: vi.fn(),
     agentStream: vi.fn(),
+    memoryStatus: vi.fn().mockResolvedValue({ memory_status: "not_configured", configuration: null }),
     examples: vi.fn(),
     health: vi.fn(),
     readiness: vi.fn(),
@@ -474,6 +475,7 @@ describe("CatalogPage", () => {
     vi.mocked(api.suggestions).mockReset();
     vi.mocked(api.search).mockReset();
     vi.mocked(api.agentStream).mockReset();
+    vi.mocked(api.memoryStatus).mockReset().mockResolvedValue({ memory_status: "not_configured", configuration: null });
     vi.mocked(api.examples).mockReset();
     vi.mocked(api.health).mockReset();
     vi.mocked(api.readiness).mockReset();
@@ -1509,6 +1511,8 @@ describe("CatalogPage", () => {
 
     await screen.findByRole("complementary", { name: "Ask Mosaic" });
     expect(document.querySelector(".lab-outcome")).toBeNull();
+    expect(screen.queryByRole("checkbox", { name: "Use saved memories" })).toBeNull();
+    expect(api.memoryStatus).not.toHaveBeenCalled();
 
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
@@ -1517,6 +1521,7 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
     expect(await screen.findByText("Sources checked")).toBeTruthy();
+    expect(vi.mocked(api.agentStream).mock.calls.at(-1)?.[4]?.useMemory).toBe(false);
     expect(
       screen.getByText("Every citation resolves to retrieved evidence"),
     ).toBeTruthy();
@@ -1706,7 +1711,7 @@ describe("CatalogPage", () => {
           model: product.model,
         })),
       },
-      { signal: expect.any(AbortSignal), useMemory: true },
+      { signal: expect.any(AbortSignal), useMemory: false, sessionId: undefined },
     );
 
     // The follow-up appends to the conversation. It used to overwrite the single
@@ -1987,7 +1992,7 @@ describe("CatalogPage", () => {
         expect.objectContaining(mosaicLabManifest.playground.requests[0].filters),
         expect.any(Function),
         undefined,
-        { signal: expect.any(AbortSignal), useMemory: true },
+        { signal: expect.any(AbortSignal), useMemory: false, sessionId: undefined },
       ),
     );
   });

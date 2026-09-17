@@ -8,6 +8,9 @@
 strategy configuration. Responses are not cached. Earlier anonymous runs remain
 unassigned.
 
+`GET /api/session-memory/status` returns `memory_status` and the actual resource
+`configuration` without reading or creating shopper history. It is not cached.
+
 `GET /api/session-memory/events` with `session_id=UUID` reads up to 30 conversation events
 from AgentCore for an owned session. `POST /api/session-memory/events` accepts
 `text`, a UUID `request_id`, and optional owned `session_id`; it stores a USER
@@ -35,15 +38,22 @@ recommendations must pass the current request's filters through Aurora's
 
 Agent requests accept `use_memory` (false by default) and optional `session_id`.
 An owned session restores Aurora's prior shortlist and, with memory enabled,
-recent AgentCore events. Relevant facts and preferences enter the prompt as
+recent AgentCore events. Explicit follow-up context takes precedence over the
+latest saved shortlist, and must belong to the supplied session when both are
+present. A mismatched pair returns 409. Relevant facts and preferences enter the prompt as
 untrusted context. They do not change filters in application code or authorize
 products or citations. Completed opted-in turns write their actual messages as
 an event. Aurora records the memory IDs read and event-write success or failure.
+Agent responses include `session_id` and `memory`, containing the actual records,
+event IDs read, connection state and event-write result. They omit the browser
+cookie and private actor context.
 
 Read errors return 503; retry or opt out. An event-write error does not discard a
 completed cited answer, and its failed write stays visible in the saved run.
-The Session & Memory page and Ask Mosaic in Shop opt in; canonical Hybrid retrieval and
-lab requests retain their existing behavior. See [Session & Memory](session-memory.md).
+The Session & Memory page opts in. Ask Mosaic in Shop starts off and offers an
+explicit **Use saved memories** control; its required lab route keeps memory off.
+Canonical Hybrid retrieval and lab requests retain their existing behavior.
+See [Session & Memory](session-memory.md).
 
 ## Portable skill download
 
@@ -125,8 +135,8 @@ The Strands response contains:
   uncited records, with their product IDs, source types, text and revisions;
 - bounded tool trace with retrieval run IDs;
 - `outcome`, either `grounded` or `declined`;
-- `decline_reason`, naming the unmatched query terms on a declined answer and
-  `null` on a grounded one.
+- `decline_reason`, naming the unmatched query terms or a source-review reason
+  on a declined answer and `null` on a grounded one.
 
 Follow-ups preserve the saved answer's product order even when it differs from
 the synthesis tool's input order. Product membership, identities and ranking
@@ -142,6 +152,15 @@ something the catalog does not carry. The answer of record then states the
 absence and names the terms, `recommendations` and `citations` are empty, and
 `outcome` is `declined`.
 
+A separate source review can also decline with `unsupported_requirements`,
+`insufficient_evidence`, or `unrelated_request`. A run without a supported product
+answer uses `no_supported_catalog_answer`. The interface explains each reason without
+labeling it a missing catalog term. Informational questions about specs and
+reviews may explain available facts and missing review excerpts; they must not
+invent reviews or endorse an unproven requirement. Ratings and review counts do
+not stand in for review text. Device compatibility still requires explicit
+supporting evidence.
+
 **A declined answer is HTTP 200.** It is an answer, not a failure: the pipeline
 ran, retrieval returned its closest candidates, and the application decided
 those candidates may not be presented as the answer. HTTP 503 remains the
@@ -149,7 +168,7 @@ fail-closed pipeline signal Lab 3 teaches, raised when retrieval or grounded
 synthesis could not produce an answer of record at all. Reading a decline as a
 503, or a 503 as a decline, inverts both diagnoses.
 
-Coverage of `unavailable`, or no `coverage` at all, never declines. An unseeded
+Coverage of `unavailable`, or no `coverage` at all, never causes a coverage decline. An unseeded
 corpus vocabulary makes every term look absent, so refusing on it would turn one
 skipped seed step into a total outage that presents as a working guardrail. That
 fail-safe is deliberate and is exercised by `tests/test_agent_coverage_decline.py`.

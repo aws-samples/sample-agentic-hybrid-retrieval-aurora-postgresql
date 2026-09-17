@@ -62,3 +62,43 @@ def test_current_intent_and_evidence_agree_live(real_sources, question, supporte
         f"answerability: {question!r} returned {review.model_dump()}; "
         "inspect current intent and its source evidence before allowing a product answer"
     )
+
+
+@pytest.mark.aurora
+@pytest.mark.parametrize(
+    "question,supported",
+    [
+        ("What do the specs and reviews say about OH-M349?", True),
+        ("What do reviews say about the microphone on OH-M349?", True),
+        ("Compare the specifications with customer experiences for OH-M349", True),
+        (
+            "Recommend OH-M349 only if customer reviews confirm clear calls in noisy rooms",
+            False,
+        ),
+    ],
+)
+def test_missing_reviews_allow_source_limits_not_invented_endorsements(
+    question, supported
+):
+    products = get_product_summaries([11192])
+    evidence = get_product_evidence_records(
+        11192, question, get_retrieval_service().embed_query(question)
+    )
+    assert evidence and {record.evidence_type for record in evidence} == {
+        "product_spec"
+    }
+    settings = get_settings()
+    review, usage = assess_answerability(
+        json.dumps(
+            {
+                "current_request": question,
+                "previous_request_for_reference_resolution_only": "Headphones for clearer calls at home",
+            }
+        ),
+        products,
+        evidence,
+        client=get_bedrock_client("bedrock-runtime", settings.aws_region),
+        model_id=settings.synthesis_model_id,
+    )
+    assert usage.get("outputTokens", 0) > 0
+    assert review.request_supported is supported, review.model_dump()

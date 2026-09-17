@@ -1,3 +1,4 @@
+import { memoryRecordText } from "../memoryRecordText";
 import { ArrowRight, LoaderCircle, Plus, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import Markdown from "react-markdown";
@@ -20,34 +21,11 @@ const strategies = [
 ];
 const date = (value: string) => new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value));
 
-function recordText(text: string): string {
-  try {
-    const value = JSON.parse(text);
-    if (typeof value === "string") return value;
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      for (const key of ["preference", "fact", "summary", "situation"]) {
-        if (typeof value[key] === "string" && value[key].trim()) return value[key];
-      }
-      if (Array.isArray(value.turns)) {
-        const situations = value.turns
-          .map((turn: unknown) => turn && typeof turn === "object" && "situation" in turn ? turn.situation : null)
-          .filter((situation: unknown): situation is string => typeof situation === "string" && Boolean(situation.trim()));
-        if (situations.length) return situations.join("\n\n");
-      }
-    }
-    return "This memory contains structured details. Open Record details to inspect what AgentCore saved.";
-  } catch { /* Summary and episodic records use XML fragments. */ }
-  if (text.trim().startsWith("<")) {
-    const xml = new DOMParser().parseFromString(`<memory>${text}</memory>`, "application/xml");
-    if (!xml.querySelector("parsererror")) return xml.documentElement.textContent?.trim() || text;
-  }
-  return text;
-}
 
 function Records({ records, sessionId = null }: { records: MemoryRecord[]; sessionId?: string | null }) {
   return <div className="memory-records">{records.map((record) => <article key={record.id} className="memory-record">
     <div className="memory-record-meta"><span>Saved memory</span><span className="memory-record-scope">{sessionId && record.namespaces.some((path) => path.includes(sessionId)) ? "From this session" : "Kept for Alex across sessions"}</span>{record.created_at && <time dateTime={record.created_at}>{date(record.created_at)}</time>}</div>
-    <p className="memory-record-text">{recordText(record.text)}</p>
+    <p className="memory-record-text">{memoryRecordText(record.text)}</p>
     <details><summary>Record details</summary><dl><dt>Record ID</dt><dd><code>{record.id}</code></dd><dt>Memory configuration ID</dt><dd><code>{record.strategy_id}</code></dd><dt>Namespace · where it is stored</dt><dd>{record.namespaces.map((path) => <code key={path}>{path}</code>)}</dd></dl><pre>{record.text}</pre></details>
   </article>)}</div>;
 }

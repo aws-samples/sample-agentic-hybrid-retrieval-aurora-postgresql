@@ -199,6 +199,57 @@ def test_opt_out_captures_nothing(monkeypatch):
     client.create_event.assert_not_called()
 
 
+def test_connection_status_does_not_read_or_create_shopper_history(monkeypatch):
+    database, provider = MagicMock(), MagicMock()
+    monkeypatch.setattr(memory, "connect", database)
+    monkeypatch.setattr(memory, "_configuration", provider)
+    monkeypatch.setattr(
+        memory, "get_settings", lambda: SimpleNamespace(agentcore_memory_id=None)
+    )
+    response = Response()
+    assert memory.read_memory_status(response) == {
+        "memory_status": "not_configured",
+        "configuration": None,
+    }
+    assert response.headers["cache-control"] == "no-store"
+    database.assert_not_called()
+    provider.assert_not_called()
+
+
+def test_answer_exposes_saved_memory_receipt_and_session_but_not_actor_secret():
+    from service.agent import ProductDiscoveryAgent
+
+    session = uuid4()
+    snapshot = {
+        "enabled": True,
+        "status": "connected",
+        "records": [],
+        "write_status": "failed",
+    }
+    response = ProductDiscoveryAgent()._response(
+        AgentRequest(question="What do its reviews say?"),
+        {
+            "agent_run_id": uuid4(),
+            "agent_session_id": session,
+            "question": "What do its reviews say?",
+            "searches": [],
+            "trace": [],
+            "memory": snapshot,
+            "_memory_actor": "private-actor",
+            "answer_of_record": {
+                "answer": "Only specs were available.",
+                "recommendations": [],
+                "citations": [],
+            },
+        },
+        None,
+        None,
+    )
+    assert response.session_id == session
+    assert response.memory == snapshot
+    assert "private-actor" not in response.model_dump_json()
+
+
 def test_unconfigured_memory_leaves_conversation_available(monkeypatch):
     monkeypatch.setattr(
         memory, "get_settings", lambda: SimpleNamespace(agentcore_memory_id=None)
@@ -267,3 +318,49 @@ def test_start_fresh_rotates_identity_without_deleting_records(monkeypatch):
     assert response.headers["cache-control"] == "no-store"
     database.assert_not_called()
     provider.assert_not_called()
+
+
+@pytest.mark.parametrize("same_session", [True, False])
+def test_explicit_follow_up_context_is_preserved_and_bound_to_its_session(
+    monkeypatch, same_session
+):
+    browser = Request(
+        {
+            "type": "http",
+            "headers": [(b"cookie", b"mosaic_shopper=" + b"a" * 64)],
+        }
+    )
+    session = uuid4()
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = {
+        "shopper_id": memory.shopper_id(browser),
+        "agent_session_id": session if same_session else uuid4(),
+    }
+    monkeypatch.setattr(memory, "connect", lambda: connection)
+    monkeypatch.setattr(memory, "_profile", MagicMock())
+    owned = MagicMock()
+    monkeypatch.setattr(memory, "_own_session", owned)
+    recall = MagicMock()
+    monkeypatch.setattr(memory, "recall_records", recall)
+    request = AgentRequest(
+        question="What do the specs and reviews say?",
+        session_id=session,
+        context={
+            "previous_agent_run_id": uuid4(),
+            "previous_question": "Clearer calls",
+            "recommendations": [
+                {"product_id": 11192, "title": "Headphones", "model": "OH-M349"}
+            ],
+        },
+    )
+    if same_session:
+        assert memory.prepare_request(request, browser).context == request.context
+        owned.assert_called_once_with(connection, memory.shopper_id(browser), session)
+    else:
+        with pytest.raises(HTTPException) as rejected:
+            memory.prepare_request(request, browser)
+        assert rejected.value.status_code == 409
+        owned.assert_not_called()
+    connection.execute.assert_called_once()
+    recall.assert_not_called()

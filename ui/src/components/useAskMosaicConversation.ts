@@ -18,10 +18,11 @@ function lastAnswered(turns: AskMosaicTurn[]): AskMosaicTurn | null {
  * context, and cancellation here prevents Discover and Shop from drifting into
  * different assistants behind matching controls.
  */
-export function useAskMosaicConversation(filters: SearchFilters) {
+export function useAskMosaicConversation(filters: SearchFilters, useMemory = false) {
   const [turns, setTurns] = useState<AskMosaicTurn[]>([]);
   const requestVersion = useRef(0);
   const requestController = useRef<AbortController | null>(null);
+  const sessionId = useRef<string | undefined>(undefined);
   const pending = turns.some((turn) => turn.loading);
   const answeredTurn = lastAnswered(turns);
 
@@ -34,6 +35,7 @@ export function useAskMosaicConversation(filters: SearchFilters) {
     requestVersion.current += 1;
     requestController.current?.abort();
     requestController.current = null;
+    sessionId.current = undefined;
     setTurns([]);
   }
 
@@ -116,6 +118,7 @@ export function useAskMosaicConversation(filters: SearchFilters) {
               : turn),
           ));
         } else {
+          sessionId.current = event.response.session_id ?? sessionId.current;
           patch({
             response: event.response,
             completed: true,
@@ -124,7 +127,7 @@ export function useAskMosaicConversation(filters: SearchFilters) {
             stageDetail: "",
           });
         }
-      }, context, { signal: controller.signal, useMemory: true });
+      }, context, { signal: controller.signal, useMemory, sessionId: sessionId.current });
     } catch (cause) {
       if (version !== requestVersion.current) return;
       patch({

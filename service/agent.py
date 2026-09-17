@@ -333,6 +333,8 @@ class ProductDiscoveryAgent:
 
         return AgentResponse(
             agent_run_id=state["agent_run_id"],
+            session_id=state.get("agent_session_id"),
+            memory=state.get("memory", {}),
             question=request.question,
             answer=record["answer"],
             plan=_plan_steps(state),

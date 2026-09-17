@@ -1,3 +1,4 @@
+import { DeclinedAnswer } from "./DeclinedAnswer";
 import { AlertTriangle, Check, LoaderCircle, Minus, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
@@ -231,14 +232,9 @@ export function evidenceChain(
 }
 
 /**
- * Overrides every row but the first for a declined run.
- *
- * `record_declined_answer` writes the answer of record before evidence is
- * returned, registered, or authorized and before any citation is issued, so
- * none of those steps ran -- they were never reached, not refused. Only
- * `retrieved` is left as `evidenceChain` computed it: the searches the agent
- * issued are the one part of this chain a decline still has a real answer
- * for, including when they came back empty.
+ * Preserve steps witnessed by the trace when a later answer check declines.
+ * Catalog coverage may stop before evidence is read; source support may stop
+ * after it. A declined answer itself proves neither registration nor citation.
  */
 function declinedEvidenceChain(chain: EvidenceStep[]): EvidenceStep[] {
   return chain.map((step) => {
@@ -253,35 +249,16 @@ function declinedEvidenceChain(chain: EvidenceStep[]): EvidenceStep[] {
         state: "pending",
       };
     }
+    if (step.state === "pass") return step;
     return {
       ...step,
       value: "not reached",
-      source: "This run declined before reaching this step, which is a "
-        + "catalog-coverage decision, not a failure.",
+      source: "This step did not complete before the answer was declined. Inspect the recorded activity for the reason.",
       state: "pending",
     };
   });
 }
 
-/**
- * The catalog-gap notice a declined answer renders above the evidence chain.
- *
- * See `DeclinedNotice` in `AskMosaic.tsx` for the same fact stated in Shop's
- * vocabulary; this is the Playground's version, printed above the chain that
- * would otherwise misreport an unreached step as a failure.
- */
-function DeclinedNotice({ answer }: { answer: string }) {
-  return (
-    <section className="labs-declined" aria-label="Declined answer">
-      <h3>Nothing in the catalog matches part of this request</h3>
-      <p>{answer}</p>
-      <small>
-        This is a catalog gap, not a retrieval fault. Try different words or
-        drop the term named above.
-      </small>
-    </section>
-  );
-}
 
 function ChainMark({ state }: { state: ChainState }) {
   if (state === "pass") {
@@ -362,17 +339,15 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
     : null;
   /**
    * A declined answer is settled and real, but it is not this chain's claim.
-   * The chain audits whether a *grounded* answer is backed by registered,
-   * authorized evidence; a decline never reaches registration or synthesis
-   * because `record_declined_answer` writes the answer of record before
-   * either runs, so those rows read as "not reached" here rather than as a
-   * failure of the mechanism Lab 3 teaches.
+   * A later review can decline after evidence was fetched and registered.
+   * Preserve witnessed steps without inferring citation success from the
+   * mere presence of a completed response.
    */
   const declined = Boolean(response) && !loading && response?.outcome === "declined";
   const baseChain = evidenceChain(
     trace,
     citations,
-    Boolean(response) && !loading,
+    Boolean(response) && !loading && !declined,
     resolved,
     loading,
   );
@@ -580,7 +555,7 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
           ) : null}
           {response?.answer && !error ? (
             declined ? (
-              <DeclinedNotice answer={response.answer} />
+              <DeclinedAnswer answer={response.answer} reason={response.decline_reason} className="labs-declined" />
             ) : (
               <section
                 className="labs-reason-answer"

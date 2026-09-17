@@ -154,6 +154,11 @@ navigation keeps the header in place and restores scroll and keyboard focus.
 Opening Ask Mosaic preserves space around the catalog, and long search questions
 wrap in full. The panel keeps its title and follow-up box visible while the
 conversation scrolls; waiting and completed steps use compact rows.
+**Use saved memories** optionally connects Ask Mosaic to the same AgentCore
+Memory resource as the Playground. It starts off. With it enabled, each answer's
+**Memories used** section shows the records read and whether the conversation was
+saved. **Clear chat** starts a new conversation while keeping saved preferences.
+Ordinary follow-ups work with memory off; the required labs keep it off.
 The app explains each step in ordinary language: search details, sources used,
 saved results, and comparisons between methods. Expanded details retain the SQL,
 ranking formula, settings, API records, and measurement limits needed to build
@@ -163,6 +168,9 @@ and folding the activity into **Steps and sources**.
 Before writing an answer, a separate model review checks the current request
 against every selected product and its fresh evidence. Prior turns resolve
 references; they do not authorize a product pitch after the topic changes.
+Questions about specs and reviews explain the available source facts and any
+missing review excerpts. A rating or review count cannot establish what reviewers
+said. Missing review text is not reported as a missing product.
 Unsupported requests and unproven device compatibility receive a clear decline
 with no recommendation cards. Citation and numeric checks still validate the
 answer after writing. The semantic review is an additional model judgment,

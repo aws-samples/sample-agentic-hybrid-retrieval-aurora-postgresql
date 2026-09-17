@@ -8459,6 +8459,85 @@
   border-radius: 50%;
 }
 
+.ask-mosaic-memory-control {
+  margin: 0 4px 12px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.ask-mosaic-memory-control > div,
+.ask-mosaic-memory-control label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ask-mosaic-memory-control > div {
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.ask-mosaic-memory-control label {
+  min-height: 32px;
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.ask-mosaic-memory-control input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--maroon-800);
+}
+
+.ask-mosaic-memory-control a,
+.ask-mosaic-memory-receipt a {
+  color: var(--maroon-800);
+  text-underline-offset: 3px;
+}
+
+.ask-mosaic-memory-control p {
+  margin: 2px 0 0;
+}
+
+.ask-mosaic-memory-control p button {
+  margin-left: 8px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--maroon-800);
+  font: inherit;
+  text-decoration: underline;
+}
+
+.ask-mosaic-memory-receipt {
+  margin-top: 16px;
+  padding-block: 12px;
+  border-block: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.ask-mosaic-memory-receipt > summary {
+  min-height: 32px;
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.ask-mosaic-memory-receipt > summary span {
+  margin-left: 8px;
+  color: var(--maroon-800);
+}
+
+.ask-mosaic-memory-receipt pre {
+  max-width: 100%;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 1180px) {
   .ask-mosaic-sidecar {
     width: min(680px, calc(100vw - 48px));

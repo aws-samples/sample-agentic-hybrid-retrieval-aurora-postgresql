@@ -386,8 +386,8 @@ export interface ToolTraceStep {
 /**
  * Mirrors `service.models.AgentOutcome`.
  *
- * `declined` is what the agent returns when every search it issued named
- * something the catalog does not carry: `answer` states the absence,
+ * `declined` means the catalog or the selected sources cannot support the
+ * current request: `answer` explains the specific limitation,
  * `recommendations` and `citations` are empty, and this is HTTP 200, not the
  * fail-closed 503 Lab 3 teaches. See `docs/api-contract.md`'s "Declined
  * answers" section.
@@ -396,6 +396,8 @@ export type AgentOutcome = "grounded" | "declined";
 
 export interface AgentResponse {
   agent_run_id: string;
+  session_id?: string | null;
+  memory?: SessionMemorySnapshot;
   question: string;
   answer: string;
   plan: AgentPlanStep[];
@@ -409,7 +411,7 @@ export interface AgentResponse {
    * default.
    */
   outcome?: AgentOutcome;
-  /** Why the run declined, naming the unmatched terms. `null` on a grounded answer. */
+  /** A review reason or unmatched catalog terms. Null on a grounded answer. */
   decline_reason?: string | null;
 }
 
@@ -1282,15 +1284,17 @@ export interface ShopperSession {
     citations: AgentCitation[];
   }>;
 }
-export interface SessionMemoryResponse {
+export interface MemoryConnectionStatus {
   memory_status: "connected" | "not_configured" | "unavailable";
-  actor_id: string;
   configuration: {
     memory_id: string;
     status: string;
     event_expiry_days: number;
     strategies: MemoryStrategy[];
   } | null;
+}
+export interface SessionMemoryResponse extends MemoryConnectionStatus {
+  actor_id: string;
   sessions: ShopperSession[];
   active_session_id: string | null;
 }

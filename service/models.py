@@ -752,16 +752,14 @@ AgentOutcome = Literal["grounded", "declined"]
 class AgentResponse(BaseModel):
     """The agent's answer of record for one turn.
 
-    `outcome` is the field a client branches on. A `declined` answer is what
-    the agent returns when every search it issued named something the catalog
-    does not carry: `answer` states the absence, and `recommendations` and
-    `citations` are empty because there is nothing grounded to put in them.
-    Presenting the closest products under that question would be the exact
-    failure `service.coverage` exists to stop, since most of the query
-    matching is what makes the wrong answer look right.
+    A declined answer has no recommendations or citations. Its reason separates
+    missing catalog terms from unsupported requirements, unrelated requests and
+    insufficient evidence. Memory is context used by the run, never a citation.
     """
 
     agent_run_id: UUID
+    session_id: UUID | None = None
+    memory: dict[str, Any] = Field(default_factory=dict)
     question: str
     answer: str
     plan: list[AgentPlanStep]
@@ -771,8 +769,7 @@ class AgentResponse(BaseModel):
     # Snapshots of the records the tools read, including sources not cited.
     retrieved_evidence: list[EvidenceRecord] = Field(default_factory=list)
     outcome: AgentOutcome = "grounded"
-    #: Why the run declined, naming the unmatched terms. `None` on a grounded
-    #: answer, so its presence and `outcome` cannot disagree.
+    #: A review reason or unmatched catalog terms. None on a grounded answer.
     decline_reason: str | None = None
 
 

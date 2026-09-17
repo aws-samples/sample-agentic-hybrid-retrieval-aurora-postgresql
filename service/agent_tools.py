@@ -1110,13 +1110,20 @@ def record_unsupported_answer(
 ) -> None:
     """Persist a refusal without attaching unrelated recommendation cards."""
     reason = decline.review.reason if decline else "no_supported_catalog_answer"
-    note = (
-        "The available product evidence does not establish the requirements or "
-        "compatibility in this request. No product is recommended."
-        if reason == "unsupported_requirements"
-        else "I cannot support this request with the available catalog evidence. "
-        "No product is recommended."
-    )
+    note = {
+        "unsupported_requirements": (
+            "The available product sources do not establish the requirements or "
+            "compatibility in this request. No product is recommended."
+        ),
+        "insufficient_evidence": (
+            "The available sources do not provide enough detail to answer this "
+            "request. Try asking about a specific product feature."
+        ),
+        "unrelated_request": (
+            "Mosaic can help with catalog products, their specifications and "
+            "reviews. This request needs information outside those sources."
+        ),
+    }.get(reason, "I could not answer this request from the available catalog sources.")
     state["answer_of_record"] = {
         "answer": note,
         "citations": [],

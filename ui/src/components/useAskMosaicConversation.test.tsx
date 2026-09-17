@@ -21,3 +21,26 @@ it("starts fresh retrieval after a decline without losing the visible conversati
   expect(result.current.turns).toHaveLength(2);
   expect(result.current.turns[1].executionPath).toBe("full_retrieval");
 });
+
+it("honors memory opt-in, keeps a session for follow-ups, and starts a new session after clear", async () => {
+  const stream = vi.spyOn(api, "agentStream").mockImplementation(async (question, _filters, emit) => {
+    emit({ type: "complete", response: {
+      agent_run_id: "run", session_id: "owned-session", question, answer: "A sourced answer.",
+      recommendations: [], citations: [], plan: [], trace: [],
+    } });
+  });
+  const { result, rerender } = renderHook(({ enabled }) => useAskMosaicConversation({}, enabled), {
+    initialProps: { enabled: false },
+  });
+  await act(() => result.current.run("Headphones for clearer calls"));
+  expect(stream.mock.calls[0][4]).toMatchObject({ useMemory: false, sessionId: undefined });
+  rerender({ enabled: true });
+  await act(() => result.current.run("What do their reviews say?"));
+  expect(stream.mock.calls[1][4]).toMatchObject({ useMemory: true, sessionId: "owned-session" });
+  act(() => result.current.clear());
+  await act(() => result.current.run("Headphones for my workspace"));
+  expect(stream.mock.calls[2][4]).toMatchObject({ useMemory: true, sessionId: undefined });
+  rerender({ enabled: false });
+  await act(() => result.current.run("Explain their specifications"));
+  expect(stream.mock.calls[3][4]).toMatchObject({ useMemory: false, sessionId: "owned-session" });
+});

@@ -1,3 +1,5 @@
+import { DeclinedAnswer } from "./DeclinedAnswer";
+import { MemoryControl, MemoryReceipt, type AskMosaicMemoryControl } from "./AskMosaicMemory";
 import {
   ArrowUpRight,
   Check,
@@ -816,28 +818,6 @@ function Activity({ trace }: { trace: ToolTraceStep[] }) {
   );
 }
 
-/**
- * The catalog-gap notice a declined answer renders instead of a shortlist.
- *
- * A declined `AgentResponse` carries an empty `recommendations` and
- * `citations` on purpose: the agent issued at least one search and every one
- * of them named something the catalog does not carry, so there is nothing
- * grounded to present. This reads as its own outcome rather than as an
- * ordinary answer over an empty shortlist, which is what shipped before this
- * block existed.
- */
-function DeclinedNotice({ answer }: { answer: string }) {
-  return (
-    <section className="ask-mosaic-declined" aria-label="Declined answer">
-      <h3>Nothing in the catalog matches part of this request</h3>
-      <p>{answer}</p>
-      <small>
-        This is a catalog gap, not a retrieval fault. Try different words or
-        drop the term named above.
-      </small>
-    </section>
-  );
-}
 
 /**
  * The recommended products, buyable.
@@ -1122,7 +1102,7 @@ function Turn({
             className={answerSettled ? "ask-mosaic-answer" : "ask-mosaic-answer streaming"}
           >
             {declined ? (
-              <DeclinedNotice answer={reveal.text} />
+              <DeclinedAnswer answer={reveal.text} reason={response.decline_reason} className="ask-mosaic-declined" />
             ) : (
               <>
                 <p>
@@ -1164,6 +1144,7 @@ function Turn({
             )}
           </section>
 
+          {answerSettled ? <MemoryReceipt memory={response.memory} /> : null}
           {answerSettled && !declined ? (
             <motion.div
               className="ask-mosaic-answer-aftermath"
@@ -1221,6 +1202,7 @@ function EntryState({ suggestions, onRun }: {
 }
 
 interface AskMosaicProps {
+  memory?: AskMosaicMemoryControl;
   open: boolean;
   /** What the composer starts with. The Shop query on a cold open. */
   seedQuery: string;
@@ -1242,6 +1224,7 @@ interface AskMosaicProps {
 }
 
 export function AskMosaic({
+  memory,
   open,
   seedQuery,
   contextFilters,
@@ -1494,6 +1477,7 @@ export function AskMosaic({
             above the answer, so the reply to a question appeared below the field
             that would replace it. */}
         <div className="ask-mosaic-composer">
+          {memory ? <MemoryControl memory={memory} pending={pending} /> : null}
           {contextFilters.length ? (
             <div
               className="ask-mosaic-context"

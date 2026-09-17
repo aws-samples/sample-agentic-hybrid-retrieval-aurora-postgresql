@@ -273,6 +273,18 @@ def read_session_memory(request: Request, response: Response):
                 }
                 for t in turns
             ]
+    connection_status = read_memory_status(response)
+    return {
+        **connection_status,
+        "actor_id": actor,
+        "sessions": sessions,
+        "active_session_id": profile["active_session_id"],
+    }
+
+
+@router.get("/status")
+def read_memory_status(response: Response):
+    """Check the shared connection without reading a shopper's saved history."""
     status = "connected" if get_settings().agentcore_memory_id else "not_configured"
     config = None
     try:
@@ -284,9 +296,6 @@ def read_session_memory(request: Request, response: Response):
     return {
         "memory_status": status,
         "configuration": config,
-        "actor_id": actor,
-        "sessions": sessions,
-        "active_session_id": profile["active_session_id"],
     }
 
 
@@ -460,13 +469,22 @@ def prepare_request(
         context = request.context
         if context:
             owner = connection.execute(
-                """SELECT s.user_context->>'shopper_id' AS shopper_id FROM mosaic.agent_turn t
+                """SELECT s.user_context->>'shopper_id' AS shopper_id, s.agent_session_id FROM mosaic.agent_turn t
                    JOIN mosaic.agent_session s USING (agent_session_id) WHERE t.agent_turn_id = %s""",
                 (context.previous_agent_run_id,),
             ).fetchone()
             if owner and owner["shopper_id"] and owner["shopper_id"] != actor:
                 raise HTTPException(
                     404, "This session is not available in this browser."
+                )
+            if (
+                owner
+                and request.session_id
+                and owner["agent_session_id"] != request.session_id
+            ):
+                raise HTTPException(
+                    409,
+                    "The follow-up and conversation do not match. Clear chat and retry.",
                 )
         # Headless turns have no browser owner. A browser-owned prior turn must
         # still pass the check above when the caller omits its cookie.
@@ -475,6 +493,7 @@ def prepare_request(
         _profile(connection, actor)
         if request.session_id:
             _own_session(connection, actor, request.session_id)
+        if request.session_id and context is None:
             row = connection.execute(
                 """SELECT agent_turn_id, user_message, extracted_intent FROM mosaic.agent_turn
                    WHERE agent_session_id = %s AND assistant_message IS NOT NULL ORDER BY turn_number DESC LIMIT 1""",
