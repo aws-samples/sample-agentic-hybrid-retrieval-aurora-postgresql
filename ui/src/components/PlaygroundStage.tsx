@@ -24,7 +24,7 @@ export function PlaygroundStage({
   stale = false,
   children,
 }: {
-  number: string;
+  number?: string;
   title: string;
   summary: string;
   /** A measured one-line verdict, rendered beside the heading. */
@@ -48,7 +48,7 @@ export function PlaygroundStage({
       aria-labelledby={`labs-stage-${slug}`}
     >
       <header className="labs-stage-head">
-        <span className="labs-stage-number" aria-hidden="true">{number}</span>
+        {number ? <span className="labs-stage-number" aria-hidden="true">{number}</span> : null}
         <div className="labs-stage-copy">
           <h2 id={`labs-stage-${slug}`}>{title}</h2>
           <p>{summary}</p>

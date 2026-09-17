@@ -187,6 +187,9 @@
 .inspector-scale-link h2 { margin: 0 0 8px; font-family: var(--display); font-weight: 400; font-size: 30px; }
 .inspector-scale-link p { margin: 0; max-width: 60ch; color: var(--ink-soft); font-size: 15px; }
 .inspector-scale-link a { display: inline-flex; flex-shrink: 0; align-items: center; gap: 12px; min-height: 44px; color: var(--maroon-800); font-size: 15px; }
+.inspector-request-note { margin: 0 0 24px; max-width: 95ch; color: var(--ink-soft); font-size: 15px; line-height: 1.6; }
+.inspector-takeaway nav { display: flex; align-items: center; flex-wrap: wrap; gap: 0 24px; margin-top: 12px; }
+.inspector-takeaway nav a { font-size: 14px; }
 .inspector-facts { margin: 0; }
 .inspector-facts > div { display: flex; flex-wrap: wrap; gap: 12px 24px; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid var(--line); }
 .inspector-facts dt { color: var(--ink-soft); }

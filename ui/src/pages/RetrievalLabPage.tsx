@@ -238,7 +238,7 @@ export function RetrievalLabPage() {
   const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
   /**
    * The last agent run stage 03 persisted, held here because the only thing
-   * that can grade Lab 3 lives in stage 04. Nothing else on the page reads it.
+   * that can grade Lab 3 lives in the Prove section. Nothing else on the page reads it.
    */
   const [agentRunId, setAgentRunId] = useState<string | null>(
     () => forwardedAgentRun(params),
@@ -1034,7 +1034,6 @@ export function RetrievalLabPage() {
       </PlaygroundStage>
 
       <PlaygroundStage
-        number="04"
         title="Prove"
         summary="Did the fixes improve the scenarios they target without breaking anything that already worked? Your lab checks run against Aurora here. The saved test results below were measured by the maintainers."
       >

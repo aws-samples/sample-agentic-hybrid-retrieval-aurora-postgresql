@@ -132,6 +132,10 @@ instructions deep-link to:
   Each column ends with a **Keep in mind** line naming the lesson it proves,
   the same line the opening slides carry.
   Retrieve and Rank follow the same preview products before and after reranking.
+  The story asks three questions: which eligible products can we find, how should
+  we order them, and what choice can the sources support? Method comparisons
+  remain available under **Compare search methods**. Proof is part of each lab,
+  with an unnumbered **Prove** section in the guided view.
   Each recommendation links to the search that returned it, including when the
   agent uses more than one search. All three columns use the full product title,
   and photos stay consistent with Shop. Shop links open the saved search; **Start a new run** searches
@@ -140,6 +144,10 @@ instructions deep-link to:
   searches for two product needs; Check the sources compares specification and
   sample review records read by the agent. Coding exercises and adaptation guides
   live in the workshop and take-home documentation.
+  Lab 3 refines the earlier chair request to 12-hour use and dynamic lumbar
+  support; it can correctly recommend a different chair. It uses fresh searches
+  with memory off. The [presenter brief](workshop.md) carries the opening,
+  transitions and final claim-to-source walkthrough.
   **Session & Memory** explores AgentCore conversation events, semantic facts,
   user preferences, session summaries and episodic memory. Inspect the connected
   strategies and extracted records, then recall relevant context in a new
@@ -514,7 +522,7 @@ describes how an agent calls them. Each lab repairs one of the three.
 | Take home | Where it lives | What it proves |
 |---|---|---|
 | **The SQL.** Three candidate arms with eligibility applied inside each, unweighted reciprocal rank fusion over rank positions, and a bounded pool handed to the reranker. | [`db/sql/09_search_functions.sql`](db/sql/09_search_functions.sql), tuned only by [`db/config/retrieval.yaml`](db/config/retrieval.yaml) | Labs 1 and 2: a healthy arm can be disconnected from fusion, and fusion arithmetic can be wrong while the page looks right. |
-| **The eval.** Twenty graded searches scored on Recall@10, MRR and nDCG@10, and a stage ablation that scores each arm alone, all three combined, and combined then reranked. | [`scripts/score_evals.py`](scripts/score_evals.py), [`scripts/ablation_evals.py`](scripts/ablation_evals.py), [`data/evals/`](data/evals/) | Prove, and the **Without hybrid** table on the Playground's Retrieve column. Copy the harness and replace the query set. |
+| **The eval.** Twenty graded searches scored on Recall@10, MRR and nDCG@10, and a stage ablation that scores each arm alone, all three combined, and combined then reranked. | [`scripts/score_evals.py`](scripts/score_evals.py), [`scripts/ablation_evals.py`](scripts/ablation_evals.py), [`data/evals/`](data/evals/) | Prove, and **Compare search methods** in the Playground's Retrieve column. Copy the harness and replace the query set. |
 | **The guard.** Retrieved evidence is registered and authorized by the application before synthesis may cite it, and the claim checks reject what the evidence cannot support. | [`service/agent_tools.py`](service/agent_tools.py), [`service/synthesis.py`](service/synthesis.py) | Lab 3: the model requests tools; the application decides what runs and what is citable. |
 | **The skill.** The four-operation contract a calling agent uses. | [`skills/mosaic-hybrid-retrieval/`](skills/mosaic-hybrid-retrieval/) | A portable declaration and operating guide, not a standalone retrieval runtime: callers still need a deployed service implementing the contract. |
 

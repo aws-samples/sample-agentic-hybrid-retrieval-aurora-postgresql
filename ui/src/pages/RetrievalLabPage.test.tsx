@@ -28,7 +28,7 @@ import type {
 import { RetrievalLabPage } from "./RetrievalLabPage";
 
 /**
- * Just enough of `GET /api/scorecard` for Stage 04 to mount without an
+ * Just enough of `GET /api/scorecard` for The Prove section to mount without an
  * unmocked-fetch crash. `RetrievalScorecard.test.tsx` owns the real
  * provenance-gating coverage; this file only needs the page as a whole to
  * render.
@@ -117,7 +117,7 @@ vi.mock("../api", () => ({
     // The lab rail reads where each lab stands, in both places a lab can be
     // broken. Its own coverage is in LabRail.test.tsx.
     labsState: vi.fn(),
-    // Stage 04's completion proof posts one lab at a time, and only when the
+    // The Prove section's completion proof posts one lab at a time, and only when the
     // participant presses it. Its own coverage is in CompletionProof.test.tsx.
     labProof: vi.fn(),
     // Stage 03 runs the agent, but only when the participant presses its button.
@@ -129,7 +129,7 @@ vi.mock("../api", () => ({
     // served, which is what fills stages 01 and 02 with its rows.
     retrievalEventResponse: vi.fn(),
     retrievalPlan: vi.fn(),
-    // Stage 04 (Prove) loads the scorecard on mount. Its own tests live in
+    // The Prove section loads the scorecard on mount. Its own tests live in
     // RetrievalScorecard.test.tsx; a resolved default here just keeps every
     // other test in this file from tripping over an unmocked fetch.
     scorecard: vi.fn(),
@@ -411,7 +411,7 @@ function mockPackageRegistry() {
 }
 
 /**
- * A completed agent run, reduced to the one field stage 04 needs from it.
+ * A completed agent run, reduced to the one field the Prove section needs from it.
  *
  * Stage 03's own coverage lives in `ReasonStage.test.tsx`; what matters here is
  * that the run id reaches the completion proof.
@@ -466,7 +466,7 @@ function labProofFor(labId: number) {
 }
 
 /**
- * The Package finale (stage 04, after the scorecard) loads on mount, the
+ * The Package finale (the Prove section, after the scorecard) loads on mount, the
  * same lifecycle the scorecard's own fetch already uses -- there is no
  * disclosure left to open now that packaging is not a click behind stage 03.
  */
@@ -612,7 +612,7 @@ describe("RetrievalLabPage", () => {
     vi.mocked(api.labProof).mockReset();
     vi.mocked(api.scorecard).mockReset();
     vi.mocked(api.scorecard).mockResolvedValue(minimalScorecard);
-    // Stage 04's Package finale loads on mount too, same as the scorecard.
+    // The Prove section's Package finale loads on mount too, same as the scorecard.
     // A resolved default here keeps every test that never calls
     // `mockPackageRegistry()` from tripping the finale's own error branch.
     vi.mocked(api.toolContracts).mockReset();
@@ -651,18 +651,14 @@ describe("RetrievalLabPage", () => {
     expect(strip.textContent).not.toMatch(/Observatory|Optional|Mosaic Labs/);
   });
 
-  it("structures the surface as 01 Retrieve, 02 Rank, 03 Reason, 04 Prove", () => {
-    // The workshop model is Retrieve -> Rank -> Reason -> Prove, so the numbers
-    // carry information rather than decorating a list. This is the only surface
-    // that numbers its sections. Prove is the Retrieval Scorecard: the
-    // culmination, not a fourth lab.
+  it("numbers Retrieve, Rank and Reason and keeps proof outside the stage sequence", () => {
     const { container } = render(<RetrievalLabPage />);
 
     expect(
       [...container.querySelectorAll(".labs-stage-number")].map(
         (node) => node.textContent,
       ),
-    ).toEqual(["01", "02", "03", "04"]);
+    ).toEqual(["01", "02", "03"]);
     expect(
       [...container.querySelectorAll(".labs-stage-copy h2")].map(
         (node) => node.textContent,
@@ -1076,7 +1072,7 @@ describe("RetrievalLabPage", () => {
     vi.mocked(api.labProof).mockRejectedValue(new ApiError(503, "not graded here"));
 
     render(<RetrievalLabPage />);
-    // Stage 04 reveals on its own dwell, so the button is awaited rather than
+    // The Prove section reveals on its own dwell, so the button is awaited rather than
     // read on the first frame.
     const prove = await screen.findByRole(
       "button",
@@ -1207,7 +1203,7 @@ describe("RetrievalLabPage", () => {
     expect(mcp.textContent).toMatch(/3 operations/i);
   });
 
-  it("proves, then baselines, then packages, in that order inside stage 04", async () => {
+  it("proves, then baselines, then packages, in that order inside the Prove section", async () => {
     // The bug this guards against is a layout regression, not a missing
     // feature: rendering the finale back inside Reason, or above the
     // scorecard inside Prove, would still leave every "is it present"
@@ -1257,7 +1253,7 @@ describe("RetrievalLabPage", () => {
   it("grades Lab 3 on the run stage 03 produced, and re-reads the baseline after", async () => {
     // The seam this covers is the one no component test can: the agent run id
     // exists only inside stage 03, and the proof block that needs it lives in
-    // stage 04. Before the two were wired, pressing the proof either refused
+    // the Prove section. Before the two were wired, pressing the proof either refused
     // Lab 3 forever or would have had to spend a second agent turn.
     vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
       onEvent({ type: "complete", response: pageAgentResponse });

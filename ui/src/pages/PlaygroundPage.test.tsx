@@ -332,6 +332,8 @@ it("prints what each arm alone scores from the measured artifact and counts this
   window.history.replaceState({}, "", `/labs/retrieval?event=${firstSearchId}`);
   vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(savedSearch(firstSearchId, products));
   render(<PlaygroundPage />);
+  expect(screen.queryByRole("table", { name: "Scores for each search method" })).toBeNull();
+  fireEvent.click(screen.getByText("Compare search methods"));
   const table = await screen.findByRole("table", { name: "Scores for each search method" });
   expect(within(table).getAllByRole("rowheader").map((cell) => cell.textContent)).toEqual(["Keyword alone", "Close spelling alone", "Meaning alone", "All three combined", "Combined, then reranked"]);
   expect(within(table).getByRole("row", { name: /Keyword alone/ }).textContent).toContain("0.61");

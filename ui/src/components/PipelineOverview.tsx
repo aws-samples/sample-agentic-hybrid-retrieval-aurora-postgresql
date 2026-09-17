@@ -62,8 +62,9 @@ function WithoutHybrid({ response, ablation }: { response?: SearchResponse; abla
   const oneArmOnly = returned.filter((product) => armsThatFound(product) === 1).length;
   const gain = ablation?.attributed ? stageGainSentence(ablation) : null;
   return <section className="inspector-without-hybrid" aria-labelledby="inspector-without-hybrid-title">
-    <h3 id="inspector-without-hybrid-title" className="inspector-preview-title">Without hybrid</h3>
+    <h3 id="inspector-without-hybrid-title" className="inspector-preview-title">Why use more than one search method?</h3>
     {returned.length ? <p className="inspector-note">In this run, {oneArmOnly} of the {returned.length} products returned were found by only one search method. Those products depend on the method that found them.</p> : null}
+    <details className="inspector-detail"><summary>Compare search methods</summary><div>
     {ablation?.attributed ? <>
       <table className="inspector-arm-table" aria-label="Scores for each search method">
         <thead><tr><th scope="col">Method</th><th scope="col">Ordering <small>nDCG@10</small></th><th scope="col">Found <small>Recall@10</small></th><th scope="col">First match <small>MRR</small></th></tr></thead>
@@ -74,6 +75,7 @@ function WithoutHybrid({ response, ablation }: { response?: SearchResponse; abla
       </table>
       {gain ? <p className="inspector-note">{gain}</p> : null}
     </> : <p className="inspector-note">{ablation ? "The measured comparison is waiting for a re-measure on this build." : "Loading the measured comparison…"}</p>}
+    </div></details>
   </section>;
 }
 
@@ -88,12 +90,12 @@ export function RetrieveOverview({ response, ablation }: { response?: SearchResp
       <div><dt>Meaning <small>Cohere Embed · pgvector</small></dt><dd>{counts?.semantic_in_pool ?? "—"}</dd></div>
     </dl>
     <p className="inspector-note">A product can match in more than one way.</p>
-    <WithoutHybrid response={response} ablation={ablation} />
     {response ? products.length ? <>
       <h3 className="inspector-preview-title">The same matches, before reranking</h3>
       <ProductPreview products={products} />
       <p className="inspector-note">Following the same {products.length} products as Rank, in their earlier order. This is a preview of the returned results.</p>
     </> : <p className="inspector-waiting">This search returned no products.</p> : <p className="inspector-waiting">Matching products will appear as the search finishes.</p>}
+    <WithoutHybrid response={response} ablation={ablation} />
     <KeepInMind>A reranker can only reorder what entered this pool. Each search method applies the filters before limiting its results, so an eligible product can reach the combined list.</KeepInMind>
   </>;
 }

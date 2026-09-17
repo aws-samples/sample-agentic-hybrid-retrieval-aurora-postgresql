@@ -306,7 +306,7 @@ under 760px; the request and single Play action stay prominent on mobile.
   details contain compact product rows; evidence and citations form a separate
   disclosure that opens after an error. Partial receipts never appear above
   the answer and push it down as they arrive.
-- The guided lab's Stage 04 Prove reads verdict, then the maintainers' release baseline,
+- The guided lab's unnumbered Prove section reads verdict, then the maintainers' release baseline,
   then the package finale. While the baseline is held for an unmeasured
   revision it collapses to one disclosure line; opened, the full record and
   its provenance are there.
@@ -333,8 +333,8 @@ under 760px; the request and single Play action stay prominent on mobile.
 `/playground`, `/mosaic-labs` and `/inspiration` redirect to Hybrid retrieval;
 `/shop` redirects to Shop and `/labs/performance` redirects to Scale & HNSW.
 Aliases preserve query parameters and section anchors, including filters, saved
-search IDs and advanced-view choices. Existing guide and proof links keep the four-stage
-lab reachable without making it the default inspection surface.
+search IDs and advanced-view choices. Existing guide and proof links keep the three stages and unnumbered Prove
+section reachable without making it the default inspection surface.
 
 ## Interaction principles
 

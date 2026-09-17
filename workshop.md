@@ -15,9 +15,13 @@ Mosaic is a shopping catalog of 500,000 products across consumer electronics, ru
 
 Participants repair three deliberate faults in that pipeline, one per lab, and prove each repair from evidence the database records:
 
-1. **Retrieve.** Did the right eligible products enter the candidate pool?
-2. **Rank.** Was that pool combined correctly before the reranker touched it?
-3. **Reason.** Did the agent's answer cite only evidence the application allowed it to cite?
+1. **Retrieve — find the options.** Which eligible products can we find?
+2. **Rank — establish their order.** How should we order those products?
+3. **Reason — support a decision.** What choice can the sources support?
+
+The engineering proof follows the customer question: candidate membership,
+rank contributions, then claims tied to product evidence. **Prove belongs in
+all three labs. It is not a fourth stage.**
 
 Every lab uses the same rhythm: **Broken, Diagnose, Fix, Prove.** The fix is small on purpose. The point is the diagnosis and the proof.
 
@@ -29,7 +33,11 @@ A plausible product card is not proof that search is healthy. A correct final an
 
 ### The spoken opening
 
-> This is a shopping site with half a million products on Aurora PostgreSQL. Search it and you get a page of plausible results. Across three labs, you'll find and fix three faults behind that page: one in candidate search, one in ranking, and one in what the agent is allowed to cite. Each fix is a few lines. The work is the diagnosis.
+> Alex works from home. He needs headphones for focus, a chair for long days,
+> and a keyboard that stays quiet during calls. We have half a million products
+> in Aurora PostgreSQL. Can we find suitable options, put them in a defensible
+> order, and explain a choice using the sources? You will repair one failure
+> in each step and prove what changed.
 
 Show three brief searches under Electronics, in-stock and under-$200 filters:
 `something to help me concentrate when the house is loud`, then the correctly
@@ -63,57 +71,39 @@ Reserve the first **10–12 minutes for the presentation**, regardless of how
 quickly participants can open their accounts. The planned agenda allocates 12.
 Do not turn this block into troubleshooting or an early start on Lab 1.
 
-Use five beats:
+### The opening: seven beats in twelve minutes
 
-1. **Meet Alex.** A software engineer setting up a home office for video calls,
-   long coding sessions and focused work. The participants build the system;
-   Alex uses it. No customer login exercise is needed.
-2. **The three lessons.** Put the three bold sentences above on the opening
-   slide. Each returns at the start and end of its lab.
-3. **One request, several ways to find a product.** Exact model/terms, spelling
-   errors and intent need different retrieval signals. Filters decide eligibility.
-4. **How the system fits together.** Aurora holds the catalog, retrieval indexes
-   and saved evidence; Bedrock supplies embeddings, reranking and the agent model;
-   the application validates tool use and citations.
-5. **The participant mission.** Follow the lab guides. Observe the fault, inspect
-   its cause, repair a small marked block, and rerun the same request to prove it.
+Show a customer problem before explaining its machinery. One lead carries
+Alex's story; technical and Aurora presenters explain the records behind it.
+Table facilitators use the same three stage questions. These are speaking cues,
+not seven additional participant tasks.
 
-### The deck: eleven slides, one script for five presenters
-
-Fifty participants sit at five tables of ten, and each table has its own
-presenter. The deck is projected once; every presenter then says the same
-lines at their table, and the Playground repeats the ones that matter as
-**Keep in mind** lines under each column. Read the line, do not improvise a
-different one. Twelve minutes is about one minute a slide; slides 2, 5 and 6
-may take ninety seconds. Owners are roles, never names: the lead presenter,
-the technical co-presenter, and the Aurora presenter who carries the two
-Aurora truths.
-
-| # | Slide | The line to say | Owner |
+| Clock | Beat | Say and show | Owner |
 |---|---|---|---|
-| 1 | Title | Retrieval correctness is a pipeline property, not a top-1 result. | Lead |
-| 2 | Meet Alex | A software engineer furnishing a home office: clearer calls, comfortable days, quiet typing. You build the system; Alex uses it. | Lead |
-| 3 | The three lessons | A reranker cannot recover a product that never entered the candidate pool. A correct-looking result can hide broken ranking. Returned evidence still has to be registered before it can support an answer. | Lead |
-| 4 | One request, three ways in | Exact terms, close spelling and meaning are three candidate searches; filters decide eligibility inside every one of them, before any limit. | Technical |
-| 5 | How it fits together | Aurora owns retrieval truth, Bedrock models provide intelligence, the application owns execution and citation authority, and AgentCore may host it without becoming the authority. | Technical |
-| 6 | Aurora truth: filtered vector search | One HNSW scan returns at most `ef_search` rows, so a selective filter can starve the arm; pgvector 0.8 iterative scans resume the walk. On this catalog the home-office filter drops recall to 0.19 with iterative scan off and recovers to 0.44 with it on. | Aurora presenter |
-| 7 | Aurora truth: every search is a write | Each search appends a receipt with an id; that is what makes runs replayable, and it means search needs write capacity, retention, and a writer endpoint. | Aurora presenter |
-| 8 | Why the agent never writes SQL | The model requests five typed, read-only tools; the application decides what runs and what may be cited. Text-to-SQL can drop the filter; a typed tool cannot. | Technical |
-| 9 | What a turn costs | Lab 3's full before/after and validator path makes four agent loops per participant. Completion regrades those saved runs. Measure duration in the fresh account and read usage from Aurora's turn receipts. | Technical |
-| 10 | The method | Broken, Diagnose, Fix, Prove. The fix is small on purpose; the fast track compresses the fix, never the proof. | Lead |
-| 11 | Your mission | Three tabs from the Event Dashboard, the addresses in the guide, the Keep in mind lines under each Playground column. Required work is DONE at minute 52. | Lead |
+| 00:00–01:00 | Meet Alex | Show the home-office brief. Alex needs focus, comfort and quiet typing. Ask: what would make a recommendation worth following? | Lead |
+| 01:00–03:00 | A search that misses | Show the headphone control and the misspelled request with identical filters. The target disappears even though Shop still returns products. Save the broken search. | Lead |
+| 03:00–04:30 | Retrieve: find the options | Show the three search methods and the missing product's path. Filters decide eligibility; a reranker cannot add a product it never receives. | Technical |
+| 04:30–06:00 | Rank: establish their order | Preview the question, not the next fault: if a chair finishes first, how do we know fusion worked? Participants will inspect source ranks and `1 / (k + rank)` before reranking. | Technical |
+| 06:00–08:00 | Reason: support a decision | Preview Alex's final request: a quiet mechanical keyboard and a chair for 12-hour days, each under $800. One request needs separate searches and source comparisons. A source link must support the claim. Do not start a long agent run during the opening. | Lead |
+| 08:00–10:00 | Who owns each decision? | Aurora retrieves, filters and saves records. Bedrock supplies embeddings, reranking and the agent model. The application validates tool calls and citations. Read-only catalog tools still produce audit writes. Show one saved search ID, not a service tour. | Aurora presenter |
+| 10:00–12:00 | Your work and its proof | Open the guide and the two work surfaces. Observe, diagnose, repair, repeat the same request, explain the change. Only the current fault is installed. Fast track keeps the same proof. Required work finishes by minute 52. | Lead |
 
-### Slide, app, or guide: where each idea lives
+The slides introduce a question; each lab answers it with real records. Keep
+SQL, plans, budgets and measured comparisons beside the relevant proof instead
+of front-loading them into the opening.
 
-| Idea | Lives on | Why there |
+### Where the technical depth belongs
+
+| Idea | Show it here | Check, rather than claim |
 |---|---|---|
-| The thesis, the three lessons, the four ownership rules | Slides 1, 3, 5, and the lab pages' opening line | Spoken once, identical at five tables |
-| Filtered vector search and receipts as writes | Slides 6 and 7, then Retrieve's search details in the Playground | Said by the Aurora presenter; met again beside the actual `ef_search` value and the actual receipt id |
-| Recall is decided in Retrieve; fusion adds ranks not scores; evidence must be registered | A **Keep in mind** line under each Playground column, at rest and after a run | The participant is looking at the proof when they read the lesson |
-| Why the agent never writes SQL | Slide 8 and the Reason column's Keep in mind line | The one design decision the labs never name otherwise |
-| What a turn costs | Slide 9 only | A number, not an exercise; the receipts carry it |
-| The repair, the proof, the escape hatches | The lab pages only | Table-paced, per participant |
-| HNSW tuning, the builder exercise, Session and Memory, AgentCore | Optional surfaces and flex time | Never in the twelve minutes or the required path |
+| Candidate coverage and filters | Lab 1; Retrieve's search details | The target entered through close spelling and the ineligible control stayed out |
+| Filtered vector search | Lab 1's expanded plan; optional Scale & HNSW | `ef_search` controls HNSW search breadth; filtering can leave too few matches. Iterative scans can explore further within their limits. It is not a universal returned-row cap. See the [pgvector filtering documentation](https://github.com/pgvector/pgvector#filtering). |
+| Rank fusion and model reranking | Lab 2; Rank | Unequal source positions produce different contributions; a plausible final winner does not prove the formula |
+| Agent choices and application rules | Lab 3; Reason's activity and sources | The model chooses focused searches and asks for tools. Validated arguments, preserved filters and scope checks constrain execution; a typed interface alone does not guarantee correctness |
+| Citation and claim support | Lab 3; source records | Registration makes an evidence ID available for citation. The cited record must also support the particular claim |
+| Persistence, time and cost | Saved search, plan and agent records | Catalog reads create audit writes. Read measured latency and usage; do not imply one transaction spans the model-and-database workflow |
+| Method comparisons | Retrieve's **Compare search methods**; guided **Prove** | Compare all five measured methods on the same graded searches, including cases that get worse |
+| HNSW tuning, tool extension, AgentCore Memory | Optional work after completion | Memory can retain preferences; fresh catalog evidence still supports product claims |
 
 Discover introduces the person and the problem; Shop supplies the choices. The
 photographed workspace selection keeps the first impression focused on Alex.
@@ -140,7 +130,7 @@ runs a real, category-scoped Shop search. The order matches Shop’s Explore pil
 |---|---|---|---|
 | **Clearer calls** | Background noise at home makes it harder for teammates to hear him. | Microphone clarity for the person listening, plus comfort and noise cancellation for Alex. Listening noise cancellation alone does not establish outgoing voice clarity. | Find headphones for Alex → headphones search and comparison. |
 | **Comfortable days** | A short call becomes a long coding session. | Lumbar support, seat depth and arm adjustments that fit his body and working day. | Find chairs for Alex → chair search and comparison. |
-| **Quiet typing** | Alex takes notes while teammates talk. | Typing noise, mechanical feel, layout and wireless connection. | Find keyboards for Alex → keyboard search; carry it into **Plan my workspace**. |
+| **Quiet typing** | Alex takes notes while teammates talk. | Typing noise, mechanical feel, layout and wireless connection. | Find keyboards for Alex → keyboard search; **Plan my workspace** searches both keyboard and chair needs. |
 
 From there, the customer experience continues:
 
@@ -165,7 +155,7 @@ From there, the customer experience continues:
 Discover establishes the brief and carries no product inventory grid or lab
 instructions. The guides remain the participant entry point and install each
 lab’s deliberate fault. The customer journey above gives those repairs context;
-the core lab contracts and the remaining Reason handoff are specified below.
+the core lab contracts and the transition into Reason are specified below.
 Cross-conversation preference memory is an optional extension, not something the
 Welcome Alex profile or the Discover brief already implements.
 
@@ -204,7 +194,7 @@ The application has three navigation destinations, with Ask Mosaic inside Shop:
 - **Discover.** The home-office brief described above: Alex, his room, three needs, and routes into search or category browsing. The illustrated scenes are inspiration, not a product bundle or a completed purchase.
 - **Shop.** The default Workspace edit currently shows 71 picks selected from the 200 photographed products; keyword search reaches the full 500,000-product catalog. Every result card can open "See how this was retrieved", carrying the query, filters and saved search event into the Playground. Ticking two or more results compares them side by side, and the comparison is worth showing: under the price and the rating it prints which search methods found each product, its rank before reranking, and the rank the shopper was shown. Those three rows come from the run's saved receipt, not from the list on screen, which is why a comparison is only offered once a search has run. If the catalog carries none of a request's words, Shop says which ones above the results rather than returning a confident page of near misses.
 - **Ask Mosaic.** The agent, in a side panel on Shop or a mobile overlay below the header. The catalog retains its margins at normal laptop zoom, and long questions wrap in full. The panel keeps its title and follow-up box visible, with compact waiting and completed steps. It shows progress while gathering evidence, then leads with the cited answer. **Steps and sources** holds the request interpretation, searches, product comparison, supporting evidence, and tool activity. Follow-ups carry context from the prior grounded run with memory off. **Use saved memories** is a separate, optional control using the Playground's AgentCore Memory connection. **Memories used** shows actual records read and conversation-save status. Clearing chat starts a new conversation and keeps saved preferences. Required lab requests keep memory off. A specs-and-reviews question explains the available specifications and missing review excerpts without implying the product is absent or inventing customer experiences.
-- **Playground.** `/labs/retrieval` defaults to **Hybrid retrieval**, a three-stage inspection of Retrieve, Rank and Reason. Each column ends with a **Keep in mind** line that states the lesson the column proves, and Retrieve's search details add one more beside the search record, on the receipt and the HNSW settings; the sentences are the ones on the opening slides. Alex's request choices come from the canonical mission manifest. One send action, the same paper plane Discover uses (its tooltip reads **Run Mosaic**), makes a real agent request; the stages read its records. A saved Shop event opens its original receipt, and Run Mosaic starts a new complete run when an agent answer is needed. **Scale & HNSW** is the adjacent inspection lens.
+- **Playground.** `/labs/retrieval` defaults to **Hybrid retrieval**, a three-stage inspection of Retrieve, Rank and Reason. Each column ends with a **Keep in mind** line that states the lesson the column proves, and Retrieve's search details add one more beside the search record, on the receipt and the HNSW settings; the stage questions are the ones introduced in the opening. Alex's request choices come from the canonical mission manifest. One send action, the same paper plane Discover uses (its tooltip reads **Run Mosaic**), makes a real agent request; the stages read its records. A saved Shop event opens its original receipt, and Run Mosaic starts a new complete run when an agent answer is needed. **Scale & HNSW** is the adjacent inspection lens.
 
 Hybrid retrieval also offers **Plan my workspace**, which resolves its question and
 filters from Lab 3, and **Check the sources**, which compares a specification
@@ -218,7 +208,7 @@ not on a Mosaic app page. Its downloadable guide maps the schema, ranking SQL,
 model integration and evidence boundary for adaptation after the session. Use
 this extension during flex time or as take-home work; it adds no required lab.
 
-The guides and proof links retain the four-stage guided Playground through
+The guides and proof links retain the three stages and an unnumbered **Prove** section through
 `example`, `run`, or `view=lab` on `/labs/retrieval`. Use those guide links for
 the exercises below. The home-office presentation does not change any core lab
 question, target, repair or completion contract. The installed Shop selection has 200 individually written, concise descriptions.
@@ -287,39 +277,60 @@ neither gets to change the other. That does not mean an HNSW graph only visits e
 rows: selective filters can leave an approximate scan short, and iterative scans
 may need to explore further. Inspect both eligibility and candidate count.
 
-### Continuity to finish before the event freeze
+### The handoffs: one customer, increasingly demanding questions
 
-The intended payoff is **headphones found → chair shortlisted → chair carried
-into a monitor-and-chair workspace recommendation**. Carry the Lab 2 chair's
-explicit identity or saved selection into Reason, then retrieve fresh evidence
-for the final comparison. This core hand-off must work with Memory disabled.
+| Transition | Spoken bridge | What carries forward |
+|---|---|---|
+| Retrieve → Rank | “We can now find the missing headphone. Alex next needs a chair. Finding suitable products is the start; now show that their order has a sound basis.” | The repaired retrieval path and its eligibility checks, not a headphone selection or a shared result list |
+| Rank → Reason | “We have a chair shortlist for long workdays. Alex now specifies 12-hour use and dynamic lumbar support, and adds a quiet mechanical keyboard. Does the earlier choice still fit?” | The repaired search and ranking, with fresh searches for the refined request |
+| Reason → decision | “Choose one recommendation. Show which source supports it, why an alternative falls short, and which search brought it into consideration.” | An answer the customer can inspect, backed by the records participants just repaired |
 
-The current `G-021` contract still requests a quiet keyboard and a 12-hour chair;
-it does not yet consume the Lab 2 selection. Do not present the monitor finale
-as implemented until the mission, guide, hand-off and production proof agree.
-Catalog promotion follows the same discipline: source text, structured facts,
-Cohere vectors, evidence and the portable cache must describe the same revision.
+**Make the changed requirement explicit.** Lab 2's PostureWorks chair (`370002`)
+lists 10-hour use and adjustable lumbar support. Lab 3's Mosaic Forma chair
+(`370001`) lists 12-hour use and dynamic support. That is a reason to reconsider
+the earlier shortlist. Lab 3 does not automatically consume a saved Lab 2
+selection, and the required path uses no cross-session memory.
 
-The starting fault in each lab is intentional. Do not "fix" it before the lab, and do not describe the Lab 3 refusal as an outage.
+The keyboard comparison is equally concrete: quiet does not by itself mean
+mechanical. Inspect the switch type and noise evidence behind the options the
+run actually returned. A cheaper option may meet the requirements too; explain
+a supported tradeoff or say the sources do not establish a reason to pay more.
+Do not script one fixed product winner for a model-directed search. The question's $800 ceiling applies **to each product**, not
+to the combined purchase. Alex receives advice; the app does not purchase items
+or approve a workplace expense.
+
+Use **Reason** consistently as the third stage. Its purpose is to help Alex
+decide; do not alternate stage names or promise the agent will always recommend
+something. If the sources do not support the request, a qualified answer or a
+clear decline is the right customer outcome. The deliberate missing-registration
+fault is a different case and fails with HTTP 503.
+
+The starting fault in each lab is intentional. Install only the current fault.
+Catalog text, structured facts, vectors and evidence must describe the same
+revision before using a product fact in the story.
 
 ## How to read the proof
 
-Read a Playground run in this order, top to bottom:
+The main Playground puts Retrieve, Rank and Reason side by side. Read one
+selected search across Retrieve and Rank, then follow a recommendation's search
+link from Reason. A multi-part question can call Retrieve and Rank several
+times; the three columns explain responsibilities, not a single irreversible
+execution sequence.
 
-1. The channel list in Retrieve: which arms contributed, and which index served each one.
-2. The figures row: candidate pool size, rows returned, and the filters applied.
-3. The Rank table: before-reranking position against final position, per row.
-   Beside it, the query-time tile names every stage the service instrumented -
-   embed, Postgres, rerank, coverage, persist - in milliseconds. Those stages sit
-   inside the total rather than adding up to it: the total is the wall clock the
-   caller waited on. An embed reading `<1` is a cache hit, not a free model call;
-   the service reuses a query's first vector so repeated runs stay comparable.
-   When a plan receipt is open, read it in this order: the scan type and the
-   index it names, actual rows against the filter, sorts and buffers, then
-   parallel workers. An arm wrapped in a `plpgsql` function appears as an opaque
-   function scan with no index named; only the HNSW index shows by name.
-4. The Reason chain: six rows, each naming the field it was read from.
-5. The receipt band at the bottom of Rank or of an Ask Mosaic answer: filters, candidates found, before reranking, final position, evidence records, time.
+1. **Retrieve:** inspect filters, counts and how each preview product was found.
+2. **Rank:** follow the same products before and after reranking. Open the
+   contribution calculation to establish why their positions changed.
+3. **Reason:** read the answer, compare sources, and follow a pick back to its
+   saved search. Open the activity log to distinguish model-requested calls
+   from deterministic controller completion.
+4. **Prove within each lab:** the guided view keeps the repair checks and saved
+   scorecard in an unnumbered section. They answer different questions: the
+   participant's current repair versus measured quality across the test set.
+
+In expanded details, read elapsed time as measured, not as a sum of overlapping
+stages. For a plan, inspect scan type, filters, actual rows, buffers and settings.
+SQL wrapped in a `plpgsql` function can appear as an opaque function scan; do
+not invent an underlying index from that node alone.
 
 Keep three questions separate, because the scorecard keeps them separate:
 
@@ -327,19 +338,17 @@ Keep three questions separate, because the scorecard keeps them separate:
 - **How good is ranking across the whole test set?** Recall@10, MRR and nDCG@10 over twenty graded searches, shown with plain labels.
 - **Did a hard filter ever leak?** Pass-or-fail checks, never averaged in.
 
-The step-by-step comparison in section E is measured, and it is honest: each arm alone, all three combined, and combined then reranked, on the same twenty graded searches. Combining the arms is the large step; reranking adds nothing on this set and costs a little recall. Say that plainly if asked. It is the workshop's own data, and the Playground's Retrieve column prints the same table under **Without hybrid** so participants meet it before any lab.
+Use the served **Compare search methods** table and the guided scorecard for
+the current measurements. They read `data/evals/canonical_stage_ablation.json` and
+`data/evals/canonical_scorecard.json`; do not maintain another numeric snapshot
+in the presentation. Check the measurement date and build match. Show each
+method alone, combined, and reranked on the same twenty graded searches.
 
-Measured 2026-09-10 on the workshop cluster, 20 graded searches, k = 10. The Playground's Retrieve column prints the same rows from the served artifact:
-
-| Arm | nDCG@10 | Recall@10 | MRR | Best ordering on |
-|---|---|---|---|---|
-| Exact terms alone | 0.594 | 0.575 | 0.650 | 10 of 20 |
-| Close spelling alone | 0.802 | 0.792 | 0.900 | 14 of 20 |
-| Meaning match alone | 0.639 | 0.683 | 0.685 | 11 of 20 |
-| All three combined | 0.858 | 0.908 | 0.915 | 14 of 20 |
-| Combined, then reranked (served) | 0.851 | 0.892 | 0.892 | 14 of 20 |
-
-Read it with the spread in mind. Section E compares each step with the arm it replaced, search by search: combining beat exact terms alone on 10 searches and lost 1, beat close spelling alone on 5 and lost 2, beat meaning match alone on 8 and lost 2; reranking the combined list won 4 and lost 5. None of those average differences clears the spread of the per-search differences on twenty searches, so say "combining wins on this set" and never "proven". Close spelling alone is the strongest single arm here because many graded searches name a product; combining still leads on every metric. Reranking reorders the same pool and, on this build, moves every metric slightly down. The pool ceiling stays 0.95: 2 judged-relevant products were never fetched by any arm, and no reranker can recover them.
+Explain both improvements and regressions. A model reranker may help a
+particular request while the average across this set gets worse. The spread of
+per-search differences limits broader conclusions. A product missing from all
+candidate methods cannot be recovered by reranking. The deliberately broken
+lab examples prove specific failures; they are not a population-quality study.
 
 ## Architecture and authority
 
@@ -350,8 +359,8 @@ Use this plain-language sequence:
 3. Reciprocal rank fusion combines the three position lists into one bounded candidate pool.
 4. Cohere Rerank on Amazon Bedrock reorders that pool. It cannot add to it.
 5. Every run is written to Aurora with an id, so it can be read back and compared later.
-6. For Ask Mosaic, a Strands agent on Amazon Bedrock plans focused searches and may call five typed, read-only tools.
-7. The application, not the model, decides which evidence may be cited. If nothing qualifies, there is no answer of record.
+6. For Ask Mosaic, a Strands agent on Amazon Bedrock plans focused searches and may call five typed tools that read the catalog. Search and agent activity still write audit records.
+7. The application decides which evidence may be cited and checks the draft against product facts. If the available sources cannot support a recommendation, the response explains that limit.
 
 The ownership line to repeat: Aurora owns retrieval truth, Bedrock models provide intelligence, and the application owns execution and citation authority. AgentCore is optional; the core labs do not require a Runtime, Gateway or Memory resource.
 
@@ -385,6 +394,23 @@ reinstalls that lab's fault and restores its prerequisites; the corresponding
 `make solution-lab-N` is the recovery route. Apply changed SQL and restart the
 API where the guide requires it, then run the same validator. A rescue is not a
 pass until its production check runs.
+
+### The closing minute, within Lab 3
+
+Keep the checked answer on screen after the completion gate. Ask one participant
+for the claim, another for its source, and another for the search and rank that
+brought the product into the answer. Use the existing run; do not start a new
+model call to manufacture a cleaner finale.
+
+> We restored a missing route into search, repaired the calculation behind the
+> order, and made the answer use records the application could check. Alex can
+> inspect the basis for the choice. In your application, replace the products
+> and requirements, then keep these three questions: did the right options get
+> in, can you explain the order, and what supports the answer?
+
+Show the retrieval skill download as the take-home implementation. Only then
+introduce an optional extension. Memory answers “what do we remember about
+Alex?”; it does not answer “which product fact is true?”
 
 ## Optional / flex: keep the core story complete without it
 

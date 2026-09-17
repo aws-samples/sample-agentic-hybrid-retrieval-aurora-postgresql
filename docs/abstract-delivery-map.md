@@ -23,6 +23,15 @@ The [submitted abstract](session-abstract.md) describes the complete application
 
 The completion gate remains inside Lab 3. Its saved-run option repeats the checks against current Aurora records without issuing two additional model calls. It rejects changed code or settings, missing runs, a rebroken seam and changed citation records.
 
+The customer story is **find options → establish their order → support a
+decision**. Keep the stage names Retrieve, Rank and Reason. Lab 2 establishes a
+chair shortlist; Lab 3 adds a quiet mechanical keyboard and refines the chair
+requirement to 12-hour use and dynamic lumbar support, each item under $800.
+Fresh searches can therefore support a different chair. This is not a saved
+selection or Memory handoff. The finale traces an existing answer claim to its
+source, product, search and ranking without another model call. The
+[presenter brief](../workshop.md) owns the spoken narrative and transitions.
+
 The build-a-tool guide is the default flex beat. Scale & HNSW is the fallback. AgentCore belongs in the closing architecture slide: preferences may shape retrieval, while product claims still require catalog evidence. Runtime demonstrations require a rehearsed endpoint.
 
 The main takeaway is `skills/mosaic-hybrid-retrieval/`, downloadable from `/api/skill-package`. The builder kit supports the optional exercise; it does not replace the skill. Participant instructions live in the sibling Workshop Studio repository, not in Mosaic’s main Playground.
