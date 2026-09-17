@@ -287,8 +287,13 @@ under 760px; the request and single Play action stay prominent on mobile.
 - Ask Mosaic shows the activity trail during retrieval. When the answer
   becomes available, the trail folds into “Steps and sources” so the answer
   leads while the searches, comparisons, evidence, and tool activity remain
-  inspectable.
+  inspectable. Waiting and collapsed completed steps use compact rows; disabled
+  disclosure buttons retain full text contrast. Nested product rows have no
+  additional drop shadow and reflow against the panel width, not the viewport.
 - Ask is a desktop sidecar and becomes a fixed overlay at 1180px and below.
+  The desktop grid and panel share `--ask-panel-width` (480–600px, with 35vw
+  between). The catalog retains its 24–40px inline gutter at every open-panel
+  width, and search questions wrap instead of being clipped to a single line.
   The overlay starts below the site header and reaches the viewport bottom;
   its title and close action remain visible after scrolling Shop. The `.page`
   entry animation uses `backwards` fill so its completed transform cannot

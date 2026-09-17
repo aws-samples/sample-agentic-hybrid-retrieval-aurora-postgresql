@@ -151,6 +151,9 @@ instructions deep-link to:
 
 The storefront is designed for laptop browser viewports at normal zoom. Page
 navigation keeps the header in place and restores scroll and keyboard focus.
+Opening Ask Mosaic preserves space around the catalog, and long search questions
+wrap in full. The panel keeps its title and follow-up box visible while the
+conversation scrolls; waiting and completed steps use compact rows.
 The app explains each step in ordinary language: search details, sources used,
 saved results, and comparisons between methods. Expanded details retain the SQL,
 ranking formula, settings, API records, and measurement limits needed to build
