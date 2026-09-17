@@ -219,7 +219,7 @@ describe("AskMosaic declined outcome", () => {
     // citations to disclose beside it.
     openStage("Sources");
     expect(screen.queryByText("Evidence it cited")).toBeNull();
-    expect(screen.getByText("What the agent did")).toBeTruthy();
+    expect(screen.getByText("Recorded steps")).toBeTruthy();
     expect(screen.queryByText("No evidence cited")).toBeNull();
   });
 
@@ -234,6 +234,17 @@ describe("AskMosaic declined outcome", () => {
 
     openStage("Retrieval");
     expect(screen.getByText("The shortlist")).toBeTruthy();
+  });
+
+  it("does not describe a failed application-started step as completed", () => {
+    const response = groundedResponse();
+    response.trace = [traceStep(1, "get_product_evidence", { origin: "controller_fallback", outcome: "error" })];
+    renderAskMosaic(response);
+    openStage("Sources");
+    fireEvent.click(screen.getByText("Recorded steps"));
+    expect(screen.getByText("Started by the application")).toBeTruthy();
+    expect(screen.getByText("Step failed")).toBeTruthy();
+    expect(screen.queryByText("Step completed")).toBeNull();
   });
 });
 

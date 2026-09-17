@@ -1638,7 +1638,7 @@ describe("CatalogPage", () => {
     fireEvent.click(evidence);
     expect(within(dialog).getByText("Acoustic switch specification")).toBeTruthy();
 
-    const activity = within(dialog).getByText("What the agent did");
+    const activity = within(dialog).getByText("Recorded steps");
     expect(activity.closest("details")?.open).toBe(false);
     fireEvent.click(activity);
     expect(within(dialog).getByText("search_products")).toBeTruthy();

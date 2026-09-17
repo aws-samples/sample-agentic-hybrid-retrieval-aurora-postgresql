@@ -47,7 +47,7 @@ inside the production validators:
 | Stage | Run | Proof |
 |---|---|---|
 | Retrieve | `G-003` | Neither FTS nor semantic search can recover the target; restoring the trigram channel is the only path in |
-| Retrieve | `G-001` | Exact visible model name remains first with FTS provenance |
+| Retrieve | `G-001` | Exact visible model name remains first with a recorded exact-term match |
 | Retrieve | `G-012` | The eligible carbon racer remains and the refurbished sibling is excluded |
 | Rank | `G-008` | RRF moves from rank-collapsing arithmetic to `1 / (k + source_rank)` |
 | Rank | `G-007` | Mechanical and cheaper keyboard alternatives retain inspectable rank movement |
@@ -62,12 +62,20 @@ every rendered payload for drift.
 
 ## Teaching narrative
 
+Use the role-based opening and expert discussion cues in
+[`workshop.md`](../workshop.md). Participant guide changes are deferred in
+[Workshop lab design TODO](workshop-lab-design-todo.md); the current payloads,
+repairs and validation sequence remain in place.
+
 ### Opening
 
-"Retrieval correctness is a pipeline property, not a top-1 result. Retrieve asks
+"We have provided the catalog, embeddings and application scaffolding. You will
+implement three critical connections and prove what changed. Retrieve asks
 whether the right eligible candidates entered the pool. Rank asks whether that
-pool was combined correctly. Reason asks whether synthesis used only evidence
-the application authorized."
+pool was combined correctly. Reason asks which sources support the choice."
+
+Show the missed product first and collect a prediction. Leave the disconnected
+path and its repair for Lab 1's diagnosis.
 
 ### Lab 1 - Build hybrid retrieval
 
@@ -82,6 +90,11 @@ modes and that the Lab 1 objective is candidate recall, not the final winner.
 Ask explicitly: "Why is seeing product 2 not enough to declare retrieval
 healthy?" Have participants run G-012 and inspect the candidate receipt themselves. Keep the HNSW plan check in Go deeper for tables ahead of time.
 
+Frame G-012 as a transfer check: the same eligibility rule must work beyond
+Alex's office. Return to his shopping brief after checking the running shoes.
+When discussing a recorded plan, distinguish correct SQL filters from enough
+eligible results: an approximate vector scan can still miss qualifying rows.
+
 ### Lab 2 - Fuse, rerank, and inspect
 
 RRF combines independent rank positions without pretending raw FTS, trigram,
@@ -92,6 +105,10 @@ Ask attendees to compare per-arm rank, contribution, fused rank, and final rank
 for the top two results. The line to land is: "A correct answer is not proof of
 a correct pipeline." Historical weighted fusion is optional.
 
+Use the served measured comparison to ask whether reranking earns its extra
+time and usage. Include cases that regress; a formula repair does not itself
+remove an inference call or demonstrate savings.
+
 ### Lab 3 - Build the retrieval agent
 
 The agent receives typed, read-only retrieval tools. The model requests an
@@ -99,6 +116,12 @@ operation; application code decides whether it executes. Evidence returned to
 the model is not citable until the application registers its identity for the
 retrieved product. The broken HTTP 503 is therefore the correct fail-closed
 outcome, not an outage to work around.
+
+Then ask what the cited words actually establish. Compare a specification with
+a review when both are available, and name any unsupported requirement. The
+Playground activity log distinguishes model-requested steps from steps started
+by the application; older records may lack that origin. Count only recorded
+actions, and distinguish failed or declined steps from successful ones.
 
 The implementation is one bounded Strands agent, not a multi-agent or multi-hop
 system. Closed-world follow-ups may inspect a server-authorized prior shortlist,

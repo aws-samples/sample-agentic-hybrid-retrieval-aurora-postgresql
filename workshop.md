@@ -2,13 +2,18 @@
 
 > Staff brief, written in plain language. It carries no secrets, so it is fine for a participant to find it in Code Editor. Use it to understand the story, divide presenter roles, and answer questions the same way at every table. The operational checklist lives in the Workshop Studio repository's `FACILITATOR_GUIDE.md`; this file does not repeat it.
 
+Participant guide revisions are deferred to the workshop design review. Track
+them in [Workshop lab design TODO](docs/workshop-lab-design-todo.md). The speaking
+cues below do not add required exercises or change the mission contract. Use role
+labels in repository material; keep the personal staffing roster outside the repo.
+
 ## The workshop in one minute
 
 Participants are the engineers; Alex is their customer. Alex is setting up a home office for coding, video calls and focused work.
 
 - **A reranker cannot recover a product that never entered the candidate pool.**
 - **A correct-looking result can hide broken ranking.**
-- **Returned evidence still has to be registered before it can support an answer.**
+- **A citation must resolve to an allowed record, and its text must support the claim.**
 
 
 Mosaic is a shopping catalog of 500,000 products across consumer electronics, running and fitness, and home office. A shopper can search with keywords or ask in plain language. Both paths run against one Aurora PostgreSQL database, and both can look right while the retrieval behind them is wrong.
@@ -33,19 +38,24 @@ A plausible product card is not proof that search is healthy. A correct final an
 
 ### The spoken opening
 
-> Alex works from home. He needs headphones for focus, a chair for long days,
+> Alex works from home. He needs headphones for clearer calls, a chair for long days,
 > and a keyboard that stays quiet during calls. We have half a million products
 > in Aurora PostgreSQL. Can we find suitable options, put them in a defensible
 > order, and explain a choice using the sources? You will repair one failure
 > in each step and prove what changed.
 
+> We have provided the catalog, embeddings and application scaffolding. You
+> will implement three critical connections in the search and evidence path,
+> then use the recorded results to explain whether each change worked.
+
 Show three brief searches under Electronics, in-stock and under-$200 filters:
 `something to help me concentrate when the house is loud`, then the correctly
 spelled control `noise cancelling headphones`. Finally show
-`noice cancelng hedfones`: the Sonora WH-C720 disappears. Search is not completely
-broken; one candidate path is disconnected. A healthy close-spelling index can
-find the target, but its rows never reach fusion. Only the current lab's fault
-is installed.
+`noice cancelng hedfones`: the Sonora WH-C720 disappears. Search still returns
+products. Ask the room to predict where the target was lost: finding candidates,
+combining their ranks, or reranking the combined list. Record the prediction
+before opening the search details. Keep the disconnected close-spelling path
+and exact repair for Lab 1's diagnosis. Only the current lab's fault is installed.
 
 Use each product's search details as well as aggregate counts: the meaning-only and broken
 typo requests can both show only semantic candidates while answering different
@@ -89,15 +99,37 @@ not seven additional participant tasks.
 |---|---|---|---|
 | 00:00–01:00 | Meet Alex | Show the home-office brief. Alex needs focus, comfort and quiet typing. Ask: what would make a recommendation worth following? | Lead |
 | 01:00–03:00 | A search that misses | Show the headphone control and the misspelled request with identical filters. The target disappears even though Shop still returns products. Save the broken search. | Lead |
-| 03:00–04:30 | Retrieve: find the options | Show the three search methods and the missing product's path. Filters decide eligibility; a reranker cannot add a product it never receives. | Technical |
+| 03:00–04:30 | Retrieve: find the options | Show the three search methods and ask which record would locate the missing product. Filters decide eligibility; a reranker cannot add a product it never receives. Let Lab 1 establish the cause. | Technical |
 | 04:30–06:00 | Rank: establish their order | Preview the question, not the next fault: if a chair finishes first, how do we know fusion worked? Participants will inspect source ranks and `1 / (k + rank)` before reranking. | Technical |
 | 06:00–08:00 | Reason: support a decision | Preview Alex's final request: a quiet mechanical keyboard and a chair for 12-hour days, each under $800. One request needs separate searches and source comparisons. A source link must support the claim. Do not start a long agent run during the opening. | Lead |
 | 08:00–10:00 | Who owns each decision? | Aurora retrieves, filters and saves records. Bedrock supplies embeddings, reranking and the agent model. The application validates tool calls and citations. Read-only catalog tools still produce audit writes. Show one saved search ID, not a service tour. | Aurora presenter |
-| 10:00–12:00 | Your work and its proof | Open the guide and the two work surfaces. Observe, diagnose, repair, repeat the same request, explain the change. Only the current fault is installed. Fast track keeps the same proof. Required work finishes by minute 52. | Lead |
+| 10:00–12:00 | Your work and its proof | Explain the provided scaffolding and the three connections participants implement. Open the guide and the two work surfaces. Predict, observe, diagnose, repair, repeat the same request, explain the change. Fast track keeps the same proof. Required work finishes by minute 52. | Lead |
 
 The slides introduce a question; each lab answers it with real records. Keep
 SQL, plans, budgets and measured comparisons beside the relevant proof instead
 of front-loading them into the opening.
+
+### Three expert discussions inside the existing proof time
+
+Use these as short presenter questions while participants inspect the existing
+records. They do not add a required query, repair or validation command. Start
+with the participant's prediction and finish with the observed result.
+
+| Stage | Ask | Read together | Limit the conclusion |
+|---|---|---|---|
+| Retrieve | The filters are correct. Why might vector search still return too few eligible products? | Applied filters, returned counts, and an available recorded plan with scan settings, rows and buffers | Eligibility does not establish coverage. HNSW can visit rows that fail the filter; iterative scanning explores further within its limits. An opaque function scan does not reveal its underlying index. |
+| Rank | The final winner looks right. What proves fusion worked, and what justifies the reranker? | Different source ranks, their RRF contributions, earlier and final positions, and the served measured comparison | A correct winner cannot certify the formula. Read improvements and regressions across the graded searches; fixing RRF alone saves no model call. |
+| Reason | The citation opens. Which words support this particular requirement? | One claim, its source type and revision, the product, and its recorded search | A specification and a review answer different questions. Registration permits citation; it does not establish claim support. Say what remains unknown. |
+
+In Reason, also point to two actual search requests and their filters. Identify
+which calls the model requested and which application code started. The main
+Playground's **Answer and sources** reports these separately, with **Origin not
+recorded** for older steps that lack this field. Tool activity records actions;
+it is not a transcript of private model reasoning. One compound question can
+repeat Retrieve and Rank before an answer is supported.
+
+If time is tight, use the current records and one question per stage. Do not
+launch another agent run or open the full HNSW exercise to fill a speaking cue.
 
 ### Where the technical depth belongs
 
@@ -276,13 +308,18 @@ PASS cannot certify a pending or failed attempt.
 math bug, and a model call has cost and latency. Repairing fusion does not itself
 remove the reranker call; claim savings only when a separate measured policy
 actually skips it. **Reason:** returned evidence must be registered before it
-can support an answer.
+may be cited, and its text must support the particular claim.
 
 **Filters deserve their own explanation.** Each SQL arm applies eligibility
 before its candidate limit. Eligibility and the limit are two budgets, and
 neither gets to change the other. That does not mean an HNSW graph only visits eligible
 rows: selective filters can leave an approximate scan short, and iterative scans
 may need to explore further. Inspect both eligibility and candidate count.
+
+Introduce the running-shoe control as an intentional transfer check: "We are
+leaving Alex's office briefly to prove the same eligibility rule works in
+another category." Keep G-012's existing payload and independent target, then
+return to Alex. It is a test of the application, not another shopping need.
 
 ### The handoffs: one customer, increasingly demanding questions
 
@@ -392,9 +429,10 @@ finishes in 10 minutes, those two minutes go to flex. Proof is included in each
 lab; there is no additional mandatory five-minute conclusion that consumes flex.
 Timings live in `data/evals/mosaic_labs_missions.json`.
 
-One presenter carries Alex's story and the before/after demonstrations. The
-other owns the SQL/tool explanation, monitors room progress and helps with
-recovery. Both use the same checkpoints. Switch roles between labs if helpful.
+One lead carries Alex's story, the clock and the projected browser. Assign SQL,
+agent evidence and room support roles before delivery. Use the role table below
+to make each handoff explicit; a presenter joins for the relevant proof and then
+returns control to the lead. Keep the same stage questions at every table.
 
 If a table falls behind, use the guide's Fast track promptly. `make reset-lab-N`
 reinstalls that lab's fault and restores its prerequisites; the corresponding
@@ -520,6 +558,17 @@ For "could a managed gateway do the authorization for us", the appendix at the e
 
 ## Speaker roles
 
+Assign people outside the repository. These are responsibilities, not additional
+talk slots; one person can cover more than one role.
+
+| Role | Owns | Handoff or review question |
+|---|---|---|
+| Lead presenter | Customer story, clock, projected browser and transitions | What changed for Alex, and what record demonstrates it? |
+| SQL presenter | Candidate paths, filtering, fusion arithmetic and plan reading | Does the SQL or plan support the database claim? |
+| Agent presenter | Tool decisions, application checks, source comparison and claim support | Which action did the model request, and what could the application refuse? |
+| Room support | Navigation, syntax recovery, validator outcomes and fast-track pacing | Can the participant explain the repair using their own result? |
+| Technical reviewer | Challenge the database, ranking and answer claims during rehearsal | Does the plan support the claim, does the measurement justify the ranking decision, and does the source support the answer? |
+
 ### Lead presenter
 
 Own the customer story, pacing, transitions and the closing line. Keep asking:
@@ -567,7 +616,9 @@ Own the tabs, the Code Editor terminal, syntax recovery and the validators. Help
 - The reranker receives a bounded pool. It does not replace retrieval.
 - The core agent is one bounded Strands agent with five typed, read-only tools. Cross-visit preferences are an optional Memory extension; no graph traversal is claimed.
 - Aurora persists every run, candidate, evidence record and citation with an id. Ask follow-ups use prior grounded-run context. The optional Memory extension is not yet a verified event exercise. “Welcome, Alex!” alone does not establish cross-visit memory.
-- Any harness that speaks MCP can call the same three tools with the same contracts. That is the answer to "does this only work with Strands".
+- An MCP-capable agent can use the three typed catalog-read-only tools on that
+  surface. The downloadable HTTP skill exposes four operations. Read each
+  surface's declared contract rather than assuming identical tool sets.
 
 ## Words to use
 
@@ -621,10 +672,14 @@ Lab 1 taught us that a healthy component can sit inside a broken pipeline, and t
 
 Lab 2 taught us that a correct answer is not proof of a correct pipeline, so ranking has to stay inspectable.
 
-Lab 3 taught us that evidence the model has seen is not evidence it may cite, and that the application decides.
+Lab 3 taught us that the application controls which evidence may be cited, and
+that the cited text must still support the particular claim.
 
 The method is:
 
 > Find the arm that stayed silent, repair the smallest seam, run the same request again, and prove it from what Aurora recorded.
 
-Then send them to the Prove stage: the scorecard is the same measurement on the same database, and it is theirs to take home.
+Finish on the checked answer and trace one claim back to its source, product
+and search. The completion gate rechecks the participant's saved runs; the
+broader scorecard is a separately dated measurement. Close with the downloadable
+Mosaic Hybrid Retrieval Skill and its adaptation references.

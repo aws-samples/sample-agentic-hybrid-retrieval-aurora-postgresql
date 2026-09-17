@@ -149,13 +149,18 @@ function ReasonOverview({ answer, partial, streamed, completed, running, active,
       : working && active ? <p className="inspector-waiting inspector-reason-status" role="status"><LoaderCircle className="spin" size={20} aria-hidden="true" /><span>The agent is working. {partial?.candidates.length ? `Comparing ${partial.candidates.length} products and checking their sources.` : "It is checking products and sources."}</span></p>
       : <p className="inspector-waiting">{failed ? "The run stopped before the answer was ready. Open the activity log for details." : working ? "Mosaic will explain its picks after checking the products and sources." : hasSearch ? "This view contains the saved search results. Start a new run to let Mosaic search and make recommendations." : "Mosaic will compare the products and explain its picks, with links to the sources."}</p>}
     {answer && completed && multipleSearches ? <p className="inspector-note">Each pick links to its search; Rank shows one search at a time.</p> : null}
-    <KeepInMind>Evidence the model has read is not citable until the application registers it. A valid source link still needs to support the claim. The model requests tools; the application decides what runs.</KeepInMind>
+    <KeepInMind>Evidence the model has read is not citable until the application registers it. A valid source link still needs to support the claim. Read the source for the specific requirement; missing support should remain an open question.</KeepInMind>
   </>;
 }
 
 function ReasonEvidence({ answer, trace, failed }: { answer: AgentResponse | null; trace: ToolTraceStep[]; failed: boolean }) {
+  const modelSteps = trace.filter((step) => step.origin === "model").length;
+  const applicationSteps = trace.filter((step) => step.origin === "controller_fallback").length;
+  const unreportedSteps = trace.length - modelSteps - applicationSteps;
   return <>
     {answer ? <p className="inspector-note">Source numbers in the answer identify evidence, not recommendation ranks.</p> : <p className="inspector-note">{failed ? "The run stopped without a completed answer. Any recorded steps are shown below." : "The answer is not ready yet. You can see the steps taken so far below."}</p>}
+    <p className="inspector-note">The model can request searches, comparisons and sources. Application code checks the arguments, filters and allowed records before carrying out those requests. Each search repeats Retrieve and Rank.</p>
+    {trace.length ? <p className="inspector-note" aria-label="Who requested the recorded steps"><strong>Requested by the model: {modelSteps}.</strong> Started by the application: {applicationSteps}.{unreportedSteps ? ` Origin not recorded: ${unreportedSteps}.` : ""} The activity log shows which steps succeeded, failed or were declined.</p> : null}
     {answer?.recommendations.length ? <InspectorDetail title="Compare the sources"><SourceComparison answer={answer} /></InspectorDetail> : null}
     {answer?.citations.length ? <InspectorDetail title={`Sources for this answer · ${answer.citations.length} citations`}>
       <ol className="inspector-citations">{answer.citations.map((citation) => <li key={`${citation.number}-${citation.evidence_id}`} value={citation.number}>
@@ -165,6 +170,7 @@ function ReasonEvidence({ answer, trace, failed }: { answer: AgentResponse | nul
     <InspectorDetail title={`Activity log${trace.length ? ` · ${trace.length} calls` : ""}`}>
       {trace.length ? <ol className="inspector-trace">{trace.map((step) => <li key={step.sequence}>
         <header><code>{step.tool}</code><span>{step.outcome}{step.latency_ms == null ? "" : ` · ${Math.round(step.latency_ms)} ms`}</span></header>
+        <p className="inspector-note">{step.origin === "model" ? "Requested by the model" : step.origin === "controller_fallback" ? "Started by the application" : "Origin not recorded"}</p>
         <p>{step.detail}</p><CodeBlock label="Step details" code={JSON.stringify({ arguments: step.arguments, retrieval_run_id: step.retrieval_run_id, result_count: step.result_count, origin: step.origin }, null, 2)} />
       </li>)}</ol> : <p>No tool calls have been recorded in this view.</p>}
     </InspectorDetail>

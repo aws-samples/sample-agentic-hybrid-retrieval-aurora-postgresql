@@ -785,7 +785,7 @@ function Activity({ trace }: { trace: ToolTraceStep[] }) {
     <details className="ask-mosaic-receipt">
       <summary>
         <CircleCheck size={17} />
-        What the agent did
+        Recorded steps
         <span>{trace.length}</span>
       </summary>
       <ol className="ask-mosaic-activity">
@@ -795,9 +795,8 @@ function Activity({ trace }: { trace: ToolTraceStep[] }) {
             <div>
               <strong>{toolLabels.get(step.tool) ?? step.tool}</strong>
               <code className="ask-mosaic-tool-fn">{step.tool}</code>
-              {step.origin === "controller_fallback" ? (
-                <small>Completed by the app, not the model</small>
-              ) : null}
+              <small>{step.origin === "model" ? "Requested by the model" : step.origin === "controller_fallback" ? "Started by the application" : "Origin not recorded"}</small>
+              <small>{step.outcome === "success" ? "Step completed" : step.outcome === "error" ? "Step failed" : "Step declined"}</small>
               <small>{step.detail}</small>
               {Object.keys(step.arguments).length ? (
                 <code>{JSON.stringify(step.arguments)}</code>

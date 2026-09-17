@@ -96,7 +96,7 @@ export function RetrieveOverview({ response, ablation, stopped = false }: { resp
       <p className="inspector-note">Following the same {products.length} products as Rank, in their earlier order. This is a preview of the returned results.</p>
     </> : <p className="inspector-waiting">This search returned no products.</p> : <p className="inspector-waiting">{stopped ? "No search results are available from this run." : "Matching products will appear as the search finishes."}</p>}
     <WithoutHybrid response={response} ablation={ablation} />
-    <KeepInMind>A reranker can only reorder what entered this pool. Each search method applies the filters before limiting its results, so an eligible product can reach the combined list.</KeepInMind>
+    <KeepInMind>A reranker can only reorder what entered this pool. Each search method applies the filters before limiting its results. A filtered vector scan can still return too few matches; eligible products may be missed. Check both which products qualify and how many the search found.</KeepInMind>
   </>;
 }
 
@@ -113,6 +113,6 @@ export function RankOverview({ response, ablation, stopped = false }: { response
       <p className="inspector-note">#1 is the highest rank. RRF and reranker scores use different scales; a higher score is better within each step.</p>
       <p className="inspector-note">Showing {products.length} of {response.results.length} results. Reranking: <strong>{response.diagnostics?.rerank_status ?? "not reported"}</strong>.</p>
     </> : <p className="inspector-waiting">No products were returned, so no ranking is available.</p> : <p className="inspector-waiting">{stopped ? "No ranking is available from this run." : "See how the order changes as Mosaic compares the products."}</p>}
-    <KeepInMind>Each search method scores matches differently. RRF combines them using 1 / (k + rank) for each position. The reranker can reorder these products, but cannot add a missing one.</KeepInMind>
+    <KeepInMind>Each search method scores matches differently. RRF combines them using 1 / (k + rank) for each position. A correct final winner can hide broken fusion. Compare the order before reranking, then weigh any measured improvement against the extra time and model usage.</KeepInMind>
   </>;
 }

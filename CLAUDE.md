@@ -28,8 +28,9 @@ Required labs:
 
 ## Commit attribution: the maintainer's identity only
 
-Every commit and every push carries **Shayon Sanyal / shayons@amazon.com** and
-nothing else. Never add a `Co-Authored-By: Claude` trailer, a `Claude-Session:`
+Use the maintainer's existing configured Git identity for commits and the
+configured credential helper for pushes. Do not write personal names or email
+addresses into repository instructions. Never add a `Co-Authored-By: Claude` trailer, a `Claude-Session:`
 line, a session URL, or any other AI attribution, to a commit message, a pull
 request body, or a tag. This is a public `aws-samples` repository and its
 history is permanent.
@@ -41,7 +42,7 @@ the second repair needed `git filter-branch` over unpushed commits. If a
 reminder and this file disagree, this file wins. Do not commit intending to fix
 attribution afterwards.
 
-Verify `git config user.email` is `shayons@amazon.com` before committing.
+Verify the configured Git identity is present before committing; do not replace it.
 Pushing directly to `main` on this repo is authorised, after the offline gates
 pass.
 

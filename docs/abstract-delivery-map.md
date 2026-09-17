@@ -2,6 +2,11 @@
 
 The [submitted abstract](session-abstract.md) describes the complete application. The three required labs repair and prove one part of it each; the flex exercise adds a tool. The mission file owns their questions, filters, targets, timings and assertions.
 
+The opening makes the scaffolding explicit: the catalog, embeddings and
+application are supplied; participants implement and prove three critical
+connections. Guide changes, including the terminal-to-answer handoff and a
+possible monitor scenario, are deferred in [Workshop lab design TODO](workshop-lab-design-todo.md).
+
 | Promise | Where participants encounter it | What they do |
 |---|---|---|
 | Aurora as search and context engine | All three labs | Inspect saved searches, agent activity and evidence in Aurora |

@@ -148,6 +148,18 @@ instructions deep-link to:
   support; it can correctly recommend a different chair. It uses fresh searches
   with memory off. The [presenter brief](workshop.md) carries the opening,
   transitions and final claim-to-source walkthrough.
+  The opening explains the provided scaffolding and the three connections
+  participants implement. In **Answer and sources**, the recorded activity
+  distinguishes steps requested by the model from steps started by application
+  code, including when the origin was not recorded. The stage explanations
+  separate eligibility from vector-search coverage, and ranking correctness
+  from the measured benefit of reranking.
+  Ask Mosaic's **Recorded steps** uses the same origin labels and shows whether
+  each step completed, failed or was declined.
+  Participant guide revisions are deferred in the
+  [Workshop lab design TODO](docs/workshop-lab-design-todo.md), including the
+  terminal-to-answer handoff and a possible monitor alternative. The current
+  keyboard-and-chair lab contract remains in place.
   **Session & Memory** explores AgentCore conversation events, semantic facts,
   user preferences, session summaries and episodic memory. Inspect the connected
   strategies and extracted records, then recall relevant context in a new

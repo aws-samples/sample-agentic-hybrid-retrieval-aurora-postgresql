@@ -333,6 +333,31 @@ it("keeps the three lessons in view at rest, one per column, before any run", ()
   expect(lessons[2]).toContain("not citable until the application registers it");
 });
 
+it("separates recorded model requests, application steps and missing origins without implying success", async () => {
+  const trace: ToolTraceStep[] = [
+    { ...searchStep(firstSearchId, 1), tool: "compare_products", origin: "model", outcome: "error" },
+    { ...searchStep(firstSearchId, 2), tool: "synthesize_cited_answer", origin: "controller_fallback", outcome: "denied" },
+    { ...searchStep(firstSearchId, 3), tool: "get_product_evidence" },
+  ];
+  vi.spyOn(api, "agentStream").mockImplementation(async (_question, _filters, emit) => {
+    emit({ type: "complete", response: { agent_run_id: agentId, question: defaultRequest.query, answer: "The sources do not support a recommendation.", outcome: "declined", plan: [], recommendations: [], citations: [], trace } });
+  });
+  render(<PlaygroundPage />);
+  fireEvent.click(screen.getByRole("button", { name: "Run Mosaic" }));
+  await screen.findByText("No recommendation");
+  fireEvent.click(screen.getByRole("button", { name: "Answer and sources" }));
+  const summary = screen.getByLabelText("Who requested the recorded steps");
+  expect(summary.textContent).toContain("Requested by the model: 1.");
+  expect(summary.textContent).toContain("Started by the application: 1.");
+  expect(summary.textContent).toContain("Origin not recorded: 1.");
+  fireEvent.click(screen.getByText("Activity log · 3 calls"));
+  expect(screen.getByText("Requested by the model", { exact: true })).toBeTruthy();
+  expect(screen.getByText("Started by the application", { exact: true })).toBeTruthy();
+  expect(screen.getByText("Origin not recorded", { exact: true })).toBeTruthy();
+  expect(screen.getByText("error · 10 ms")).toBeTruthy();
+  expect(screen.getByText("denied · 10 ms")).toBeTruthy();
+});
+
 const measuredArm = (key: ScorecardStageArm["key"], ndcg: number, recall: number, mrr: number): ScorecardStageArm => ({ key, label: key, description: "fixture", recall_at_10: recall, mrr, ndcg_at_10: ndcg, ndcg_at_10_min: 0, ndcg_at_10_max: 1, ndcg_at_10_stdev: 0.2, ndcg_at_10_query_wins: 1 });
 const measuredAblation = {
   attributed: true, attribution_note: "", measured_at: "2026-09-10T00:00:00+00:00", spread_note: "", scored_query_count: 20,
