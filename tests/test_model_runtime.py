@@ -88,7 +88,7 @@ class FakeSynthesisClient:
         text = kwargs["messages"][0]["content"][0]["text"]
         if text.startswith('{"question":'):
             payload = json.loads(text)
-            if "response_schema" in payload:
+            if "toolConfig" in kwargs:
                 self.review_requests.append(kwargs)
                 review = {
                     "request_supported": True,
@@ -107,9 +107,20 @@ class FakeSynthesisClient:
                     ],
                 }
                 return {
-                    "stopReason": "end_turn",
+                    "stopReason": "tool_use",
                     "usage": {"totalTokens": 17},
-                    "output": {"message": {"content": [{"text": json.dumps(review)}]}},
+                    "output": {
+                        "message": {
+                            "content": [
+                                {
+                                    "toolUse": {
+                                        "name": "record_answerability",
+                                        "input": review,
+                                    }
+                                }
+                            ]
+                        }
+                    },
                 }
         self.request = kwargs
         self.requests.append(kwargs)

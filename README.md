@@ -176,6 +176,14 @@ and folding the activity into **Steps and sources**.
 Before writing an answer, a separate model review checks the current request
 against every selected product and its fresh evidence. Prior turns resolve
 references; they do not authorize a product pitch after the topic changes.
+The review submits one typed decision through Bedrock tool use. The service
+validates its fields, product ownership and source IDs before writing; prose,
+missing or duplicate decisions, and interrupted responses cannot authorize an answer.
+A field-format failure permits one fresh review of the same inputs. Both calls'
+token use is counted; a second invalid response stops the answer.
+Lab checks follow each mission's declared requirements. The 12-hour-chair source
+checkpoint accepts one supported chair; the main Lab 3 request still requires
+independent keyboard and chair searches and a compared shortlist.
 Questions about specs and reviews explain the available source facts and any
 missing review excerpts. A rating or review count cannot establish what reviewers
 said. Missing review text is not reported as a missing product.

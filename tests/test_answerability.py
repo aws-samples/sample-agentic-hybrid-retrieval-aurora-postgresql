@@ -16,14 +16,25 @@ class Client:
 
     def converse(self, **kwargs):
         self.calls.append(kwargs)
-        text = (
-            json.dumps(self.decision)
-            if len(self.calls) == 1
-            else "AuriLogic Flight ANC has active noise cancellation [1]."
-        )
+        review = len(self.calls) == 1
         return {
-            "stopReason": "end_turn",
-            "output": {"message": {"content": [{"text": text}]}},
+            "stopReason": "tool_use" if review else "end_turn",
+            "output": {
+                "message": {
+                    "content": [
+                        {
+                            "toolUse": {
+                                "name": "record_answerability",
+                                "input": self.decision,
+                            }
+                        }
+                        if review
+                        else {
+                            "text": "AuriLogic Flight ANC has active noise cancellation [1]."
+                        }
+                    ]
+                }
+            },
             "usage": {"inputTokens": 10, "outputTokens": 10},
         }
 
@@ -80,21 +91,134 @@ def test_supported_request_has_separate_review_and_synthesis_witnesses():
     assert usage["answerability"]["request_supported"] is True
 
 
+def test_review_requires_a_typed_decision_before_synthesis():
+    from service.answerability import Answerability
+
+    class CommentaryClient(Client):
+        def converse(self, **kwargs):
+            response = super().converse(**kwargs)
+            if len(self.calls) == 1:
+                config = kwargs.get("toolConfig", {})
+                if config.get("toolChoice") != {
+                    "tool": {"name": "record_answerability"}
+                }:
+                    response["stopReason"] = "end_turn"
+                    response["output"]["message"]["content"] = [
+                        {
+                            "text": (
+                                "The request asks for headphones.\n```json\n"
+                                + json.dumps(self.decision)
+                                + "\n```"
+                            )
+                        }
+                    ]
+                else:
+                    schema = Answerability.model_json_schema()
+                    schema["properties"]["products"]["items"] = schema.pop("$defs")[
+                        "ProductSupport"
+                    ]
+                    assert (
+                        config["tools"][0]["toolSpec"]["inputSchema"]["json"] == schema
+                    )
+            return response
+
+    client = CommentaryClient(decision())
+    answer, citations, _ = run(client)
+    assert answer and citations
+    assert len(client.calls) == 2
+    assert "toolConfig" not in client.calls[1]
+
+
 @pytest.mark.parametrize(
-    "bad",
-    [
-        decision(ids=[999]),
-        {**decision(), "products": []},
-        {**decision(), "products": [{**decision()["products"][0], "product_id": 999}]},
-        {**decision(), "request_supported": "true"},
-        {**decision(), "reason": "unrelated_request"},
-    ],
+    "fault", ["text_only", "wrong_tool", "duplicate", "interrupted"]
 )
-def test_malformed_or_unwitnessed_allow_decisions_fail_closed(bad):
-    client = Client(bad)
+def test_review_rejects_missing_ambiguous_or_interrupted_decisions(fault):
+    class InvalidClient(Client):
+        def converse(self, **kwargs):
+            response = super().converse(**kwargs)
+            content = response["output"]["message"]["content"]
+            if fault == "text_only":
+                content[:] = [{"text": json.dumps(self.decision)}]
+            elif fault == "wrong_tool":
+                content[0]["toolUse"]["name"] = "skip_review"
+            elif fault == "duplicate":
+                content.append(content[0])
+            else:
+                response["stopReason"] = "max_tokens"
+            return response
+
+    client = InvalidClient(decision())
     with pytest.raises(ValueError, match="answerability"):
         run(client)
     assert len(client.calls) == 1
+
+
+@pytest.mark.parametrize(
+    "bad,expected_calls",
+    [
+        (decision(ids=[999]), 1),
+        ({**decision(), "products": []}, 2),
+        (
+            {
+                **decision(),
+                "products": [{**decision()["products"][0], "product_id": 999}],
+            },
+            1,
+        ),
+        ({**decision(), "request_supported": "true"}, 2),
+        ({**decision(), "reason": "unrelated_request"}, 1),
+    ],
+)
+def test_malformed_or_unwitnessed_allow_decisions_fail_closed(bad, expected_calls):
+    client = Client(bad)
+    with pytest.raises(ValueError, match="answerability"):
+        run(client)
+    assert len(client.calls) == expected_calls
+    assert all("toolConfig" in call for call in client.calls)
+
+
+@pytest.mark.parametrize("recovers", [True, False])
+def test_format_retry_is_bounded_and_counts_both_reviews(recovers):
+    from service.answerability import AnswerabilityError, assess_answerability
+
+    class FormatClient:
+        def __init__(self):
+            self.calls = []
+
+        def converse(self, **kwargs):
+            self.calls.append(kwargs)
+            result = decision()
+            if not recovers or len(self.calls) == 1:
+                result["products"] = json.dumps({"products": result["products"]})
+            return {
+                "stopReason": "tool_use",
+                "output": {
+                    "message": {
+                        "content": [
+                            {
+                                "toolUse": {
+                                    "name": "record_answerability",
+                                    "input": result,
+                                }
+                            }
+                        ]
+                    }
+                },
+                "usage": {"inputTokens": 11, "outputTokens": 7, "totalTokens": 18},
+            }
+
+    client = FormatClient()
+    args = ("Find headphones", [product()], [evidence("Noise cancellation")])
+    if recovers:
+        review, usage = assess_answerability(*args, client=client, model_id="test")
+        assert review.request_supported
+        assert usage == {"inputTokens": 22, "outputTokens": 14, "totalTokens": 36}
+    else:
+        with pytest.raises(AnswerabilityError, match="invalid decision"):
+            assess_answerability(*args, client=client, model_id="test")
+    assert len(client.calls) == 2
+    assert client.calls[0]["messages"] == client.calls[1]["messages"]
+    assert client.calls[0]["toolConfig"] == client.calls[1]["toolConfig"]
 
 
 @pytest.mark.parametrize("fallback", [False, True])

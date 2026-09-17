@@ -618,7 +618,7 @@ describe("CatalogPage", () => {
       id: "answer",
       path: "focused_follow_up",
       title: "Compose cited answer",
-      detail: "Preparing the citation-bounded answer of record.",
+      detail: "Preparing an answer with sources.",
     } as const;
     let emit: ((event: AgentStreamEvent) => void) | null = null;
     vi.mocked(api.agentStream).mockImplementation(async (_q, _f, onEvent) => {
@@ -1888,7 +1888,7 @@ describe("CatalogPage", () => {
           id: "answer",
           path: "full_retrieval",
           title: "Compose cited answer",
-          detail: "Preparing the citation-bounded answer of record.",
+          detail: "Preparing an answer with sources.",
         });
         onEvent({
           type: "answer_start",

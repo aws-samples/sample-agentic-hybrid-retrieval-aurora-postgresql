@@ -567,7 +567,7 @@ async def stream_agent_answer(
                     stage = (
                         "answer",
                         "Compose cited answer",
-                        "Preparing the citation-bounded answer of record.",
+                        "Preparing an answer with sources.",
                     )
                 else:
                     stage = None

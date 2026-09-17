@@ -37,6 +37,49 @@ LAB_3_MISSION = {
 }
 
 
+@pytest.mark.parametrize(
+    "case_id,product_ids,has_search,expected",
+    [
+        ("evidence-grounding", [370001], True, True),
+        ("evidence-grounding", [], True, False),
+        ("evidence-grounding", [370001], False, False),
+        ("agentic-research", [370001], True, False),
+    ],
+)
+def test_single_product_source_check_respects_declared_comparison_requirement(
+    case_id, product_ids, has_search, expected
+):
+    mission = lab_checks.load_case(case_id)
+    agent = {
+        "question": mission["query"],
+        "recommendations": [{"product_id": product_id} for product_id in product_ids],
+        "trace": [
+            {
+                "tool": "search_products",
+                "outcome": "success",
+                "origin": "model",
+                "retrieval_run_id": "chair-run",
+                "arguments": {"query": mission["query"]},
+            }
+        ]
+        if has_search
+        else [],
+    }
+    evidence = AgentEvidence(
+        receipts=(
+            RetrievalReceipt("chair-run", mission["query"], frozenset({370001})),
+        ),
+        resolved_evidence={},
+    )
+    check = next(
+        check
+        for check in lab_checks.agent_response_checks(mission, agent, evidence)
+        if check.name
+        in {"retrieval tool invoked", "retrieval and comparison tools invoked"}
+    )
+    assert check.passed is expected, check.detail
+
+
 def _lab_1_response(
     *,
     with_target: bool = True,

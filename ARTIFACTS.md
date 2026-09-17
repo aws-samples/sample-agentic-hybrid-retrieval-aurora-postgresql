@@ -55,37 +55,50 @@ cost an hour once; it should cost nobody a second one.
 
 ### Diagnose in this order
 
-**Run `sslmode=disable` first.** It splits connectivity from TLS in one command:
+Check TCP reachability without sending database credentials:
 
 ```sh
-psql "postgresql://USER:PASS@HOST:5432/mosaic_catalog?sslmode=disable" -c 'SELECT 1'
+nc -vz HOST 5432
 ```
 
 | Result | Meaning |
 |---|---|
-| `FATAL: no pg_hba.conf entry for host "X.X.X.X" ... no encryption` | **The network and the security group are fine.** The server saw you and rejected the unencrypted connection. The problem is TLS — go to the remedy below. |
-| `timeout expired` | Traffic is not arriving. Security group or egress. |
+| TCP connection succeeds | The port is reachable. Next verify TLS and authentication. This alone does not prove either. |
+| TCP connection times out | Check the current egress address, security-group rule, routing and endpoint availability. |
 
-Do not start with the security group. A reachable port plus a hanging session
-looks like a firewall problem and is not one: `nc -z HOST 5432` reported OPEN, and
-a raw SSLRequest packet got `S` back, while `psql` still timed out.
+Never disable TLS to diagnose an authenticated connection. A reachable port plus
+a hanging session can also indicate a TLS negotiation problem.
 
 ### Remedy on a corporate network: `sslnegotiation=direct`
 
-The corporate middlebox breaks PostgreSQL's **negotiated** TLS — send
+On the observed corporate network, the middlebox broke PostgreSQL's **negotiated** TLS — send
 `SSLRequest`, then upgrade the socket in place — but passes TLS from the first
 byte.
 
+Download the [official RDS regional CA bundle](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.SSL.html)
+over HTTPS into an ignored local directory. For `us-east-1`:
+
+```sh
+mkdir -p .local/certs
+curl --fail --show-error --location \
+  https://truststore.pki.rds.amazonaws.com/us-east-1/us-east-1-bundle.pem \
+  --output .local/certs/aws-rds-us-east-1.pem
+chmod 600 .env
 ```
-sslmode=require                        → hangs
-sslmode=prefer                         → hangs
-sslmode=require&sslnegotiation=direct  → works
-```
+
+Keep the actual Aurora endpoint as the hostname in `DATABASE_URL`, and use
+`sslmode=verify-full`, `sslrootcert=/absolute/path/to/the/bundle.pem`, and
+`sslnegotiation=direct`. URL-encode the certificate path if it contains spaces.
+`verify-full` checks both the certificate chain and endpoint identity. Encryption
+without certificate verification does not establish the server's identity.
 
 `.env`'s `DATABASE_URL` carries `&sslnegotiation=direct`. **Single-quote the
 value** or `set -a && . ./.env` dies with `parse error near '&'` — the ampersand is
 a shell background operator. Needs a PostgreSQL 17+ libpq client; psycopg honors it
-from the DSN.
+from the DSN. Never commit the DSN or print it in diagnostic output. After
+connecting, `SELECT ssl, version, cipher, bits FROM pg_stat_ssl WHERE pid =
+pg_backend_pid()` reports the current session's encryption. Storage encryption
+is a separate cluster setting and is not changed by these connection options.
 
 ### Security-group caveat: corporate NAT is a pool, not an address
 

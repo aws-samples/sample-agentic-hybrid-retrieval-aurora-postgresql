@@ -62,8 +62,15 @@ Lab 3 separates authorization, relevance and claim support. Registered evidence
 IDs authorize citation; a separate review checks the current request and its
 requirements before answer writing. Unknown device compatibility and unrelated
 follow-ups decline without product cards. This review adds one bounded model
-call to a supported answer and records its usage; it does not turn semantic
+call to a supported answer, with one additional attempt if field formatting fails,
+and records both calls' usage; it does not turn semantic
 judgment into a deterministic guarantee.
+The review returns one typed decision through Bedrock tool use. The application
+checks its fields and product/source boundaries; commentary cannot substitute
+for that decision, and an incomplete response cannot authorize an answer.
+The chair-only source checkpoint can pass with one supported chair. The main
+Lab 3 mission still requires separate keyboard and chair searches and a comparison;
+the checker reads that distinction from the mission's declared assertions.
 
 ## Introduction / Overview / Presentation
 

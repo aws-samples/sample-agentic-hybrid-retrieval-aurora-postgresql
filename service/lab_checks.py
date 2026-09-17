@@ -857,6 +857,8 @@ def _check_independent_intents(
 def _check_tools_invoked(
     agent: Mapping[str, Any],
     evidence: AgentEvidence,
+    *,
+    require_comparison: bool = True,
 ) -> LabCheck:
     searches = successful_steps(agent, "search_products")
     comparisons = successful_steps(agent, "compare_products")
@@ -870,11 +872,13 @@ def _check_tools_invoked(
     problems = []
     if not searches:
         problems.append("Lab 3 did not invoke search_products successfully")
-    if not comparisons:
+    if require_comparison and not comparisons:
         problems.append("Lab 3 did not invoke compare_products successfully")
-    if len(recommended) < 2:
+    if not recommended:
+        problems.append("Lab 3 did not return a supported product")
+    elif require_comparison and len(recommended) < 2:
         problems.append("Lab 3 did not return a comparison shortlist")
-    elif len(compared & recommended) < 2:
+    elif require_comparison and len(compared & recommended) < 2:
         problems.append("Lab 3 comparison does not cover the recommendation shortlist")
     if ungrounded:
         problems.append(
@@ -882,11 +886,15 @@ def _check_tools_invoked(
             "retrieval receipts"
         )
     return LabCheck(
-        name="retrieval and comparison tools invoked",
+        name=(
+            "retrieval and comparison tools invoked"
+            if require_comparison
+            else "retrieval tool invoked"
+        ),
         passed=not problems,
         falsifier=(
-            "the shortlist is produced without a successful retrieval or "
-            "comparison call, or names a product no receipt granted -- the "
+            "the answer has no supported product, omits successful retrieval or "
+            "a comparison required by its mission, or names a product no receipt granted -- the "
             "shape of an answer the model wrote rather than retrieved."
         ),
         detail=(
@@ -1213,7 +1221,12 @@ def agent_response_checks(
         checks.append(_check_independent_intents(mission, evidence))
     checks.extend(
         [
-            _check_tools_invoked(agent, evidence),
+            _check_tools_invoked(
+                agent,
+                evidence,
+                require_comparison="comparison_tool_called"
+                in mission.get("assertions", ["comparison_tool_called"]),
+            ),
             _check_evidence_retrieved(agent),
             _check_ranking_explanation(mission, agent, evidence),
             _check_execution_origins(agent),
