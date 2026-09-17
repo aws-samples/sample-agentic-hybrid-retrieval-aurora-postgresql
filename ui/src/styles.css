@@ -429,9 +429,128 @@ button:disabled {
   align-items: center;
   gap: 9px;
   margin-inline: 4px 8px;
+  min-height: 44px;
+  padding: 3px 6px 3px 3px;
+  border: 1px solid transparent;
+  border-radius: 28px;
+  background: transparent;
   color: var(--ink);
   font-size: 13px;
   font-weight: 560;
+  cursor: pointer;
+  transition: background 180ms ease, border-color 180ms ease;
+}
+
+.site-shopper:hover,
+.site-shopper[aria-expanded="true"] {
+  border-color: var(--line);
+  background: var(--paper-warm);
+}
+
+.site-shopper-chevron {
+  color: var(--ink-soft);
+}
+
+.site-shopper[aria-expanded="true"] .site-shopper-chevron {
+  transform: rotate(180deg);
+}
+
+.alex-profile-card {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + 10px);
+  right: max(16px, calc((100% - var(--shell-width)) / 2));
+  width: min(364px, calc(100vw - 32px));
+  max-height: calc(100dvh - var(--topbar-height) - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 28px 24px 24px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--paper);
+  box-shadow: 0 16px 44px rgb(43 13 19 / 14%);
+  color: var(--ink);
+}
+
+.alex-profile-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border-color: transparent;
+}
+
+.alex-profile-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-top: 14px;
+}
+
+.alex-profile-heading img {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.alex-profile-heading h2 {
+  margin: 0 0 5px;
+  color: var(--maroon-950);
+  font-family: var(--display);
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.alex-profile-heading p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.alex-profile-card blockquote {
+  margin: 24px 0 14px;
+  color: var(--maroon-900);
+  font-family: var(--display);
+  font-size: 25px;
+  font-style: italic;
+  line-height: 1.25;
+}
+
+.alex-profile-bio {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.alex-profile-details {
+  display: grid;
+  gap: 14px;
+  margin: 20px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.alex-profile-details dt {
+  margin-bottom: 3px;
+  color: var(--ink-soft);
+}
+
+.alex-profile-details dd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.alex-profile-details svg {
+  color: var(--green);
 }
 
 .site-shopper img {
@@ -538,7 +657,8 @@ button:disabled {
     margin-inline: 0;
   }
 
-  .site-shopper span {
+  .site-shopper span,
+  .site-shopper-chevron {
     display: none;
   }
 
