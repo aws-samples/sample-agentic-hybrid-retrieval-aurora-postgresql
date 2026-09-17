@@ -10,7 +10,7 @@ test pass into deployment evidence.
 - `RETRIEVE -> RANK -> REASON`;
 - 500,000 Aurora PostgreSQL product rows and Cohere Embed v4 vectors;
 - a 120-product visual cohort over the same catalog;
-- 45 minutes of required hands-on work inside a 60-minute session;
+- 40 minutes of required hands-on work, including completion, inside a 60-minute session;
 - HNSW tuning remains an optional Advanced Lab.
 
 `data/evals/mosaic_labs_missions.json` owns the lab queries, assertions, and
@@ -74,10 +74,12 @@ are covered by the offline suite (`tests/test_lab_checks.py`,
 
 ## Optional Vector index at scale lens
 
-The committed HNSW artifact (`data/benchmarks/hnsw_measured.json`) was measured
-on a different dataset manifest from a dirty worktree, so the lens renders it
-as `MEASURED ELSEWHERE` with its provenance until it is re-measured on the
-released corpus from a clean checkout. `representations` is served only when
+The committed HNSW artifact (`data/benchmarks/hnsw_measured.json`) records a
+clean-source measurement on 9 September 2026 across 30 anchors on the current
+dataset manifest. The lens checks that provenance against the connected corpus
+and displays `MEASURED ELSEWHERE` if it does not match. These are warmed,
+sequential measurements, not cold-start or concurrent-load results.
+`representations` is served only when
 `make db-index-quantized` has built the halfvec and binary indexes on the
 connected cluster. Exact-neighbour ground truth still requires
 `make db-seed-exact-neighbors` after bootstrap; readiness reports whether it is
@@ -104,23 +106,32 @@ labs, the completion gate, and the scorecard untouched.
   CloudWatch is **PENDING RUNTIME VERIFICATION**.
 - **AgentCore Runtime** (`deploy/agentcore/`, `docs/agentcore-runtime.md`)
   ships a container and a two-route adapter (`GET /ping`, `POST /invocations`)
-  that mounts the service whole; the adapter is unit-tested against a fake
-  agent. No image has been built or deployed from this repository. A
+  that mounts the service whole. On 17 September 2026 the ARM64 image built and
+  ran locally against Aurora and Bedrock: health, readiness, public downloads,
+  and a grounded invocation passed. This verifies the packaged process; a
+  managed Runtime endpoint has not been deployed from this repository. A
   pre-provisioned endpoint in an event account is a facilitator call-out, not a
-  participant step, and no lab depends on it. Whether the image passes
-  Runtime's health check and serves a grounded answer is **PENDING RUNTIME
-  VERIFICATION** until one is deployed and rehearsed.
+  participant step, and no lab depends on it. Managed routing, the execution
+  role, and VPC attachment remain **PENDING RUNTIME VERIFICATION** until an
+  endpoint is deployed and rehearsed.
 - **Postgres 18 facts** (`docs/postgres-18.md`) records the engine and
   extension versions the connected cluster reports and what this pipeline uses.
   It makes no version-to-version performance claim, and none may be added until
   one is measured on this corpus.
 
-## Release measurements still owed
+## Release measurement checks
 
-- Re-run `make score-evals` with `--write-baseline` and the stage ablation
-  after the source freeze: this revision changed SQL and contract files, so the
-  scorecard reads pending until then.
-- Re-measure or retire the HNSW artifact.
+The committed canonical scorecard and stage ablation were measured on
+10 September 2026. The running service checks their retrieval, methodology,
+model, query-set, and configuration identities before attributing them.
+The 17 September audit confirmed the scorecard and HNSW attribution against
+the existing Aurora cluster; neither substitutes for participant proof.
+
+Run `make score-evals` from the clean release candidate to detect live quality
+regressions. If a covered source or configuration change invalidates the
+baseline, review the new ranked results before using `--write-baseline`, then
+re-measure the stage ablation. Re-measure the HNSW artifact when its corpus or
+measurement conditions change.
 
 ## Clean-account acceptance test
 

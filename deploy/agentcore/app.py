@@ -56,6 +56,8 @@ app = FastAPI(
     ),
     version=service_app.version,
     lifespan=_lifespan,
+    # /invocations runs on this outer app, outside the mounted API's handlers.
+    exception_handlers=service_app.exception_handlers,
 )
 
 

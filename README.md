@@ -118,6 +118,7 @@ instructions deep-link to:
   reviews are prefetched, with successful editorial reads reused for up to
   60 seconds when returning to Discover;
 - **Shop** - hybrid search, filters, sorting, product detail, and Ask Mosaic.
+  Browse links preserve product attributes and brand constraints through the API.
   Select two to five results and compare them side by side; the
   comparison is served by `POST /api/retrieval/events/{id}/compare`, which
   retrieves nothing and reads that run's persisted receipt, so it shows which
@@ -470,6 +471,12 @@ where spans go is an operator choice. No AgentCore resource sits in the required
 path, and no lab reads a span.
 
 See [the portable telemetry contract](docs/telemetry-contract.md).
+
+The optional [AgentCore Runtime container](docs/agentcore-runtime.md) packages
+the same service. Its smoke check validates AgentCore health and Mosaic identity
+and removes only its own container. Managed hosts can set
+`MOSAIC_DATABASE_SECRET_ARN` to load the Aurora DSN from Secrets Manager at
+startup, keeping the password out of Runtime environment settings.
 
 ## Participant takeaway
 

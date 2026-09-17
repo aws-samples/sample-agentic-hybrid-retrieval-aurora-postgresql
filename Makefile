@@ -619,27 +619,30 @@ agentcore-image:
 # skill's rule applies: a health check that fails locally fails on AgentCore.
 agentcore-image-smoke:
 	@set -euo pipefail; \
-	if [ -z "$${DATABASE_URL:-}" ]; then \
-		echo "DATABASE_URL is not set. There is no local database; point it at"; \
-		echo "the Aurora cluster before smoking the image."; \
+	if [ -z "$${DATABASE_URL:-}" ] && [ -z "$${MOSAIC_DATABASE_SECRET_ARN:-}" ]; then \
+		echo "Database smoke rule: no DATABASE_URL or MOSAIC_DATABASE_SECRET_ARN;"; \
+		echo "fix: configure the Aurora DSN or its Secrets Manager ARN."; \
 		exit 2; \
 	fi; \
-	$(DOCKER) rm -f $(AGENTCORE_SMOKE_CONTAINER) >/dev/null 2>&1 || true; \
-	trap '$(DOCKER) rm -f $(AGENTCORE_SMOKE_CONTAINER) >/dev/null 2>&1 || true' EXIT; \
+	smoke_dir=$$(mktemp -d); \
+	trap 'if [ -s "$$smoke_dir/cid" ]; then $(DOCKER) rm -f "$$(cat "$$smoke_dir/cid")" >/dev/null 2>&1 || true; fi; rm -rf "$$smoke_dir"' EXIT; \
 	$(DOCKER) run --detach --name $(AGENTCORE_SMOKE_CONTAINER) \
-		--env DATABASE_URL --env BEDROCK_REGION --env AWS_REGION \
+		--cidfile "$$smoke_dir/cid" \
+		--env DATABASE_URL --env MOSAIC_DATABASE_SECRET_ARN --env BEDROCK_REGION --env AWS_REGION \
 		--env AWS_ACCESS_KEY_ID --env AWS_SECRET_ACCESS_KEY --env AWS_SESSION_TOKEN \
 		--publish 127.0.0.1:$(AGENTCORE_SMOKE_PORT):8080 \
 		$(AGENTCORE_IMAGE_TAG) >/dev/null; \
 	for attempt in $$(seq 1 30); do \
-		if curl -fsS "http://127.0.0.1:$(AGENTCORE_SMOKE_PORT)/api/health" >/dev/null 2>&1; then \
+		if curl -fsS --max-time 2 "http://127.0.0.1:$(AGENTCORE_SMOKE_PORT)/ping" >/dev/null 2>&1; then \
 			break; \
 		fi; \
 		sleep 1; \
 	done; \
-	curl -fsS "http://127.0.0.1:$(AGENTCORE_SMOKE_PORT)/api/health"; \
-	echo; \
-	echo "Container $(AGENTCORE_SMOKE_CONTAINER) stopped."
+	curl -fsS --max-time 5 "http://127.0.0.1:$(AGENTCORE_SMOKE_PORT)/ping" \
+		| $(PYTHON) -c 'import json, sys; body = json.load(sys.stdin); status = body.get("status"); sys.exit(0 if status in {"Healthy", "HealthyBusy"} else f"Runtime health rule: found {status!r}; fix: serve the AgentCore adapter /ping route")'; \
+	curl -fsS --max-time 5 "http://127.0.0.1:$(AGENTCORE_SMOKE_PORT)/api/health" \
+		| $(PYTHON) -c 'import json, sys; body = json.load(sys.stdin); service = body.get("service"); sys.exit(0 if service == "catalog-hybrid-retrieval" else f"Runtime identity rule: found {service!r}; fix: package the Mosaic service")'; \
+	echo "AgentCore health and Mosaic identity passed; removing this smoke run's container."
 
 agentcore-deploy:
 	@set -euo pipefail; \

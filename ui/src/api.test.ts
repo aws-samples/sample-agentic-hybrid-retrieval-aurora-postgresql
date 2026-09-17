@@ -25,6 +25,25 @@ function sseResponse(frames: string[]) {
   );
 }
 
+describe("catalog filters", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("preserves JSON attributes and repeated brands when browsing", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}"));
+    vi.stubGlobal("fetch", fetchMock);
+    const attributes = { active_noise_cancellation: true, connectivity: ["Bluetooth"] };
+
+    await api.catalog({ attributes, brands: ["Sonora", "AuriLogic"] }, 12, 12, "price_asc");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const url = new URL(fetchMock.mock.calls[0][0], "https://mosaic.example");
+    expect(JSON.parse(url.searchParams.get("attributes")!)).toEqual(attributes);
+    expect(url.searchParams.getAll("brands")).toEqual(["Sonora", "AuriLogic"]);
+    expect(url.searchParams.get("offset")).toBe("12");
+    expect(url.searchParams.get("sort")).toBe("price_asc");
+  });
+});
+
 describe("agentStream", () => {
   afterEach(() => {
     vi.unstubAllGlobals();

@@ -134,7 +134,12 @@ export const api = {
       collection,
     });
     Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && key !== "attributes") {
+      if (value === undefined || value === null) return;
+      if (key === "attributes") {
+        params.set(key, JSON.stringify(value));
+      } else if (key === "brands" && Array.isArray(value)) {
+        value.forEach((brand) => params.append(key, String(brand)));
+      } else {
         params.set(key, String(value));
       }
     });

@@ -194,6 +194,19 @@ def _model_error(error: Exception) -> HTTPException:
     )
 
 
+def _agent_error(error: Exception) -> HTTPException:
+    return HTTPException(
+        503,
+        safe_model_runtime_message(
+            error,
+            fallback=(
+                "Agent response failed. Check Aurora connectivity and the model "
+                "runtime, then retry."
+            ),
+        ),
+    )
+
+
 def _sse(event: str, payload: dict[str, Any]) -> str:
     return f"event: {event}\ndata: {json.dumps(payload, default=str)}\n\n"
 
@@ -317,6 +330,8 @@ def get_catalog_products(
     domain: str | None = None,
     category_key: str | None = None,
     brand: str | None = None,
+    brands: Annotated[list[str] | None, Query()] = None,
+    attributes: str | None = None,
     availability: str | None = None,
     in_stock_only: bool = False,
     min_price_cents: int | None = Query(default=None, ge=0),
@@ -334,6 +349,8 @@ def get_catalog_products(
             domain=domain,
             category_key=category_key,
             brand=brand,
+            brands=brands or [],
+            attributes=json.loads(attributes) if attributes is not None else {},
             availability=availability,
             in_stock_only=in_stock_only,
             min_price_cents=min_price_cents,
@@ -454,10 +471,8 @@ def agent_answer(request: AgentRequest, http_request: Request = None) -> AgentRe
         return get_product_discovery_agent().answer(request)
     except ConversationContextError as error:
         raise HTTPException(409, _CONVERSATION_ERROR_DETAIL) from error
-    except (ClientError, BotoCoreError) as error:
-        raise _model_error(error) from error
-    except RuntimeError as error:
-        raise HTTPException(503, str(error)) from error
+    except (ClientError, BotoCoreError, RuntimeError) as error:
+        raise _agent_error(error) from error
 
 
 @app.post("/api/agent/answer/stream")
@@ -471,7 +486,12 @@ async def stream_agent_answer(
     read-only tool contract as the completed-response endpoint.
     """
 
-    request = await asyncio.to_thread(prepare_request, request, http_request)
+    try:
+        request = await asyncio.to_thread(prepare_request, request, http_request)
+    except ConversationContextError as error:
+        raise HTTPException(409, _CONVERSATION_ERROR_DETAIL) from error
+    except (ClientError, BotoCoreError, RuntimeError) as error:
+        raise _agent_error(error) from error
 
     async def events():
         try:

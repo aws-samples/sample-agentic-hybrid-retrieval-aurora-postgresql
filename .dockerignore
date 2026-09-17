@@ -1,0 +1,35 @@
+# Keep local credentials, corpus caches, and unrelated workspace files out of
+# the build context, including when the builder runs on another machine.
+**
+!pyproject.toml
+!uv.lock
+!service/
+!service/**
+!db/
+!db/**
+!scripts/
+!scripts/**
+!data/
+!data/benchmarks/
+!data/benchmarks/**
+!data/evals/
+!data/evals/**
+!data/media/
+!data/media/asset_labels_200.json
+!data/media/workspace_collection.json
+!data/full/
+!data/full/manifest.json
+!skills/
+!skills/mosaic-hybrid-retrieval/
+!skills/mosaic-hybrid-retrieval/**
+!docs/
+!docs/build-retrieval-tool.md
+!docs/use-in-your-app.md
+!examples/
+!examples/call_headphones.py
+!deploy/
+!deploy/agentcore/
+!deploy/agentcore/app.py
+**/__pycache__
+**/.env
+**/.env.*

@@ -79,7 +79,7 @@ Aurora truths.
 | 6 | Aurora truth: filtered vector search | One HNSW scan returns at most `ef_search` rows, so a selective filter can starve the arm; pgvector 0.8 iterative scans resume the walk. On this catalog the home-office filter drops recall to 0.19 with iterative scan off and recovers to 0.44 with it on. | Aurora presenter |
 | 7 | Aurora truth: every search is a write | Each search appends a receipt with an id; that is what makes runs replayable, and it means search needs write capacity, retention, and a writer endpoint. | Aurora presenter |
 | 8 | Why the agent never writes SQL | The model requests five typed, read-only tools; the application decides what runs and what may be cited. Text-to-SQL can drop the filter; a typed tool cannot. | Technical |
-| 9 | What a turn costs | Lab 3 spends six agent loops per participant, each about 40 seconds on the pinned model, and Aurora persists every turn's usage; read the cost from the receipt, not from a guess. | Technical |
+| 9 | What a turn costs | Lab 3's full before/after and validator path makes four agent loops per participant. Completion regrades those saved runs. Measure duration in the fresh account and read usage from Aurora's turn receipts. | Technical |
 | 10 | The method | Broken, Diagnose, Fix, Prove. The fix is small on purpose; the fast track compresses the fix, never the proof. | Lead |
 | 11 | Your mission | Three tabs from the Event Dashboard, the addresses in the guide, the Keep in mind lines under each Playground column. Required work is DONE at minute 52. | Lead |
 
@@ -106,7 +106,7 @@ and in Playground.
 workspace Alex is working toward. Beside it, **Meet Alex** makes the brief
 specific: a software engineer whose day moves between coding, team calls and
 focused work. His desk and laptop are already in place. His headphones, chair
-and monitor are still to choose. The portrait and brief establish the customer;
+and keyboard are still to choose. The portrait and brief establish the customer;
 there is no shopper login exercise or invented “2 of 7” completion counter.
 
 The slide-ready [Meet Alex bio and full-resolution headshot](docs/presentation-assets/meet-alex.md)
@@ -450,7 +450,7 @@ Aurora is the ledger. Every run, candidate, evidence record and citation is pers
 
 ### The same process on AgentCore Runtime
 
-The same FastAPI and Strands process participants are running serves on Amazon Bedrock AgentCore Runtime behind a two-route adapter: `deploy/agentcore/app.py` mounts the service whole and adds only `GET /ping` and `POST /invocations`, the routes Runtime checks and calls. The service itself is unchanged, because the evidence authority is Aurora and not the harness. Moving where the agent loop executes does not move the ledger, the retrieval scope, or the rule about what may be cited; the same run ids come back out of the same database. If the event account has a pre-provisioned endpoint, that is a facilitator call-out, not a participant step, and no lab depends on it. The container and the adapter are in `deploy/agentcore/`; the configuration the runtime needs is documented in `docs/agentcore-runtime.md`. No image has been built or deployed from this repository yet.
+The same FastAPI and Strands process participants are running is packaged for Amazon Bedrock AgentCore Runtime behind a two-route adapter: `deploy/agentcore/app.py` mounts the service whole and adds only `GET /ping` and `POST /invocations`, the routes Runtime checks and calls. The service itself is unchanged, because the evidence authority is Aurora and not the harness. Moving where the agent loop executes does not move the ledger, the retrieval scope, or the rule about what may be cited; the same run ids come back out of the same database. If the event account has a pre-provisioned endpoint, that is a facilitator call-out, not a participant step, and no lab depends on it. The container and the adapter are in `deploy/agentcore/`; the configuration the runtime needs is documented in `docs/agentcore-runtime.md`. The ARM64 image passed a local build and grounded invocation against Aurora and Bedrock on 17 September 2026. Managed Runtime routing, IAM, and VPC attachment still need a deployed endpoint.
 
 ### What this runs on
 

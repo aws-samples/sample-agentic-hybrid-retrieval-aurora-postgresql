@@ -12,7 +12,9 @@ deployment identity rather than retrieval tuning and the yaml is not their home.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -37,6 +39,77 @@ class ConfigurationError(RuntimeError):
     request. Enforcing them at load too means a bad value fails at startup with
     the parameter named instead of escaping as an unhandled HTTP 500.
     """
+
+
+def _database_url() -> str | None:
+    """Resolve the Aurora DSN once without exposing it in runtime configuration.
+
+    Managed hosts pass only a secret ARN. Direct DATABASE_URL remains the
+    workshop-host path; specifying both is ambiguous and must fail at startup.
+    """
+    direct = os.getenv("DATABASE_URL")
+    secret_arn = os.getenv("MOSAIC_DATABASE_SECRET_ARN", "").strip()
+    if not secret_arn:
+        return direct
+    if direct:
+        raise ConfigurationError(
+            "Database secret rule: both DATABASE_URL and MOSAIC_DATABASE_SECRET_ARN "
+            "are set; fix: unset DATABASE_URL when using Secrets Manager."
+        )
+    arn = re.fullmatch(
+        r"arn:(?:aws|aws-us-gov|aws-cn):secretsmanager:([a-z0-9-]+):"
+        r"\d{12}:secret:.+",
+        secret_arn,
+    )
+    if not arn:
+        raise ConfigurationError(
+            "Database secret rule: MOSAIC_DATABASE_SECRET_ARN is not a secret ARN; "
+            "fix: use the full Secrets Manager ARN, never a DSN or password."
+        )
+    import boto3
+    from botocore.config import Config
+    from botocore.exceptions import BotoCoreError, ClientError
+    from psycopg import ProgrammingError
+    from psycopg.conninfo import conninfo_to_dict
+
+    try:
+        response = boto3.client(
+            "secretsmanager",
+            region_name=arn.group(1),
+            config=Config(
+                connect_timeout=5,
+                read_timeout=10,
+                retries={"total_max_attempts": 2, "mode": "standard"},
+            ),
+        ).get_secret_value(SecretId=secret_arn, VersionStage="AWSCURRENT")
+    except (BotoCoreError, ClientError) as error:
+        raise ConfigurationError(
+            f"Database secret rule: lookup failed ({type(error).__name__}); "
+            "fix: verify the secret ARN, network access, and the runtime role's "
+            "GetSecretValue and KMS decrypt permissions."
+        ) from None
+    try:
+        value = response.get("SecretString")
+        if isinstance(value, str) and value.lstrip().startswith("{"):
+            value = json.loads(value).get("DATABASE_URL")
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("missing DSN")
+        parsed = conninfo_to_dict(value)
+        host = parsed.get("host", "")
+        if not (
+            ".cluster-" in host
+            and host.endswith((".rds.amazonaws.com", ".rds.amazonaws.com.cn"))
+            and parsed.get("sslmode") in {"require", "verify-ca", "verify-full"}
+        ):
+            raise ValueError("not an Aurora cluster DSN with TLS")
+    except (ValueError, ProgrammingError):
+        # Parser failures can contain the password-bearing input.
+        raise ConfigurationError(
+            "Database secret rule: SecretString does not contain a valid Aurora "
+            "DSN with TLS; fix: store the DSN as text or under the JSON key "
+            "DATABASE_URL, with sslmode=require or certificate verification."
+        ) from None
+    return value
 
 
 # Bounds for settings that are NOT retrieval tuning. Retrieval bounds live in
@@ -258,7 +331,7 @@ def get_settings() -> Settings:
         os.getenv("BEDROCK_CHAT_MODEL", "global.anthropic.claude-sonnet-4-6"),
     )
     return Settings(
-        database_url=os.getenv("DATABASE_URL"),
+        database_url=_database_url(),
         aws_region=os.getenv("BEDROCK_REGION", os.getenv("AWS_REGION", "us-east-1")),
         vector_dimension=profile.vector_dimension,
         embedding_provider=os.getenv("EMBEDDING_PROVIDER", "bedrock"),

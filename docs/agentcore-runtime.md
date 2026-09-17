@@ -40,7 +40,7 @@ build context. It contains:
 - `service/`, the FastAPI application and the Strands agent it hosts.
 - `deploy/agentcore/app.py`, the container's entry point and the only file from
   `deploy/` in the image. It is the adapter described below.
-- `db/` and three named files under `scripts/`, because the retrieval
+- `db/` and `scripts/`, because the retrieval
   fingerprint in `service/retrieval_fingerprint.py` hashes them and refuses to
   produce a fingerprint over a category that lost its files.
 - `data/evals/` and `data/benchmarks/`, the measured artifacts the scorecard and
@@ -49,8 +49,9 @@ build context. It contains:
 
 It deliberately does not contain the UI. The storefront build stays on the
 workshop host and talks to this service over HTTP. It also does not contain
-`.env`. Every `COPY` names an explicit path, so a facilitator's real Aurora DSN
-cannot be swept into a layer by a recursive copy.
+`.env`. The build-context allowlist excludes local credentials and corpus caches
+before they reach the builder. Every `COPY` names an explicit path, so a
+facilitator's real Aurora DSN cannot be swept into a layer by a recursive copy.
 `tests/test_agentcore_artifacts.py` enforces both the explicit-path rule and the
 non-root user.
 
@@ -116,10 +117,12 @@ that importing the adapter leaves no platform route on the workshop
 application, because the labs run that application directly and it should not
 grow a `/ping`.
 
-What remains unverified is the image itself: it has never been built, so the
-build, the local smoke run, and any live endpoint are still claims about a
-Dockerfile rather than about a container that ran. Say that when demonstrating
-this beat.
+On 17 September 2026 the ARM64 image built and passed its local health check.
+The packaged process also reached the existing Aurora cluster, opened both
+public downloads, and served a grounded invocation that passed all nine
+G-019 production-path checks. It ran as UID 1001 without local credentials or
+workspace files in its layers. This is container proof; managed Runtime
+routing, IAM, and VPC attachment still require a deployed endpoint.
 
 ## Environment the runtime needs
 
@@ -132,6 +135,7 @@ from the example file and fails if a setting is missing from this table.
 | Variable | Where the runtime gets it | Notes |
 |---|---|---|
 | `DATABASE_URL` | Secrets Manager, read by the container at startup | The Aurora DSN, including a password. Never an AgentCore environment variable: `get-agent-runtime` returns those in plaintext to anyone who can call it. |
+| `MOSAIC_DATABASE_SECRET_ARN` | Runtime environment variable | Full ARN of the Secrets Manager secret. Store the Aurora DSN as a `SecretString` or as JSON with a `DATABASE_URL` key. Unset `DATABASE_URL` when using this path. |
 | `BEDROCK_REGION` | Runtime environment variable | Region for embedding, rerank, and chat calls. Falls back to `AWS_REGION`, which AgentCore injects. |
 | `BEDROCK_EMBED_MODEL_ID` | Runtime environment variable | `us.cohere.embed-v4:0` |
 | `BEDROCK_RERANK_MODEL_ID` | Runtime environment variable | `cohere.rerank-v3-5:0` |
@@ -199,20 +203,19 @@ set -a; . ./.env; set +a
 make agentcore-image-smoke
 ```
 
-Runs the image with the port published to `127.0.0.1` only, forwards
-`DATABASE_URL` and the AWS credential variables by name so no value is printed,
-polls `GET /api/health` until it answers, prints the response, and removes the
-container. A health check that fails here fails on AgentCore too, so this is the
-cheapest place to find a packaging mistake.
+Runs the image with the port published to `127.0.0.1` only and forwards
+database and AWS settings by name so no credential value is printed. It checks
+the status returned by `GET /ping` and the Mosaic identity at `GET /api/health`,
+then removes only the container created by that run. A name collision fails
+without deleting the existing container. These checks are bounded and do not
+invoke models or claim database readiness.
 
-`/api/health` answering proves the mount is live, since that route is the
-workshop application's and it is only reachable through the adapter. The route
-AgentCore itself checks is `/ping`, so curl it against a running container as
-well:
-
-```sh
-curl -fsS http://127.0.0.1:8080/ping
-```
+For managed startup, configure `MOSAIC_DATABASE_SECRET_ARN` instead of
+`DATABASE_URL`. Settings read the secret's `AWSCURRENT` version once, before
+opening the database pool, with bounded connection and retry limits. Restart
+the service after rotating the database credentials. An inaccessible or invalid
+secret fails startup with a redacted error; it cannot silently select another
+database source.
 
 ## Deploy
 

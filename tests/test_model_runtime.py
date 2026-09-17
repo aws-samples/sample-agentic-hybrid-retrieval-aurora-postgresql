@@ -2000,6 +2000,42 @@ def test_agent_stream_does_not_expose_exception_text(monkeypatch, caplog):
     ) in stream.text
 
 
+@pytest.mark.parametrize("path", ["/api/agent/answer", "/api/agent/answer/stream"])
+def test_agent_preparation_runtime_failure_is_safe_and_actionable(monkeypatch, path):
+    calls = []
+
+    def unavailable(*_args):
+        calls.append("prepare")
+        raise RuntimeError("PRIVATE_PREPARATION_DETAIL")
+
+    monkeypatch.setattr("service.main.prepare_request", unavailable)
+    monkeypatch.setattr(
+        "service.main.get_product_discovery_agent",
+        lambda: pytest.fail("the agent must not run after preparation fails"),
+    )
+    response = TestClient(app, raise_server_exceptions=False).post(
+        path, json={"question": "Find a quiet keyboard"}
+    )
+    assert calls == ["prepare"]
+    assert response.status_code == 503
+    assert "PRIVATE_PREPARATION_DETAIL" not in response.text
+    assert "retry" in response.json()["detail"].lower()
+
+
+def test_direct_agent_runtime_failure_does_not_expose_exception_text(monkeypatch):
+    class FailedAgent:
+        def answer(self, _request):
+            raise RuntimeError("PRIVATE_AGENT_DETAIL")
+
+    monkeypatch.setattr("service.main.get_product_discovery_agent", FailedAgent)
+    response = TestClient(app).post(
+        "/api/agent/answer", json={"question": "Find a quiet keyboard"}
+    )
+    assert response.status_code == 503
+    assert "PRIVATE_AGENT_DETAIL" not in response.text
+    assert "retry" in response.json()["detail"].lower()
+
+
 def test_invalid_followup_returns_conversation_recovery_in_both_transports(monkeypatch):
     class InvalidContextAgent:
         def answer(self, _request):

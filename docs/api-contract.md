@@ -292,6 +292,11 @@ for introspection; no served surface does.
 facets and other sort modes stay bounded to that photographed edit. Search and
 Ask Mosaic continue to retrieve across all 500,000 products.
 
+Browse filters use the same typed constraints as search. Pass `attributes` as a
+JSON object encoded in the query string and repeat `brands` for each permitted
+brand. Invalid values return HTTP 422 before querying Aurora; counts, facets,
+and products retain the same filters.
+
 `POST /api/catalog/counts` accepts a JSON array of 1–12 `CatalogFilters` objects
 and returns a count array in the same order, including zero results. It reads
 the same photographed cohort with production `matches_filters`. Like Shop,

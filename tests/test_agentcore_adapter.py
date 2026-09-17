@@ -132,14 +132,40 @@ def test_invocations_rejects_a_malformed_payload(agent):
 
 def test_invocations_maps_a_failed_run_the_way_the_service_route_does(agent):
     """`RuntimeError` is 503 on `/api/agent/answer`, so it is 503 here."""
-    agent.failure = RuntimeError("Rerank is required and the model is unreachable.")
+    agent.failure = RuntimeError("PRIVATE_RUNTIME_DETAIL")
 
     response = TestClient(adapter_app).post(
         "/invocations", json={"question": "quiet keyboard for an open-plan office"}
     )
 
     assert response.status_code == 503, response.text
-    assert "Rerank is required" in response.json()["detail"]
+    direct = TestClient(service_app).post(
+        "/api/agent/answer", json={"question": "quiet keyboard for an open-plan office"}
+    )
+    assert response.json() == direct.json()
+    assert "PRIVATE_RUNTIME_DETAIL" not in response.text
+    assert "retry" in response.json()["detail"].lower()
+
+
+@pytest.mark.parametrize("error_type", ["OperationalError", "PoolTimeout"])
+def test_invocations_preserves_database_outage_responses(agent, error_type):
+    from psycopg import OperationalError
+    from psycopg_pool import PoolTimeout
+
+    agent.failure = {"OperationalError": OperationalError, "PoolTimeout": PoolTimeout}[
+        error_type
+    ]("PRIVATE_DATABASE_DETAIL")
+    payload = {"question": "quiet keyboard for an open-plan office"}
+    response = TestClient(adapter_app, raise_server_exceptions=False).post(
+        "/invocations", json=payload
+    )
+    direct = TestClient(service_app, raise_server_exceptions=False).post(
+        "/api/agent/answer", json=payload
+    )
+    assert direct.status_code == 503
+    assert response.status_code == 503
+    assert response.json() == direct.json()
+    assert "PRIVATE_DATABASE_DETAIL" not in response.text
 
 
 def test_adapter_serves_every_route_the_service_serves():

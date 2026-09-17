@@ -2,7 +2,7 @@
 
 Alex is a software engineer setting up his home office. His day moves between
 coding, video calls and focused work. He already has a laptop and desk; now he
-needs a crisp monitor, a supportive chair and headphones that help him concentrate.
+needs a quiet keyboard, a supportive chair and headphones that help him concentrate.
 
 **One mission: build a workspace that fits his day.**
 
@@ -19,8 +19,8 @@ The Pipeline uses the same image at 128 CSS pixels on desktop.
 Alex gives us one shopping mission with several kinds of request. Retrieve finds
 candidate products through words, spelling and meaning. Rank combines those
 candidates and evaluates relevance. Reason uses product evidence to explain a
-choice. Optional preference memory can carry his constraints into later requests;
-it is not currently connected in Mosaic.
+choice. Optional preference memory can carry his constraints into later requests
+when configured and separately rehearsed.
 
 Alex is a fictional workshop persona. His portrait was generated with the built-in
 image generation tool; its prompt and provenance are in
