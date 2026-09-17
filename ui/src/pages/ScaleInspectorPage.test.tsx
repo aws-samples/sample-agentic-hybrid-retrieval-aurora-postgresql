@@ -1,0 +1,29 @@
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { api } from "../api";
+import { ScaleInspectorPage } from "./ScaleInspectorPage";
+
+vi.mock("../api", () => ({ api: { hnswSubstrate: vi.fn(), hnswMeasured: vi.fn() } }));
+vi.mock("../components/HnswSearchGraph", () => ({ HnswSearchGraph: () => <div data-testid="graph-renderer">Graph</div> }));
+vi.mock("./PerformancePage", () => ({ PerformancePage: () => null }));
+afterEach(() => { cleanup(); vi.resetAllMocks(); });
+
+describe("ScaleInspectorPage", () => {
+  it("keeps the illustration unmounted until opened and releases it when closed", async () => {
+    vi.mocked(api.hnswSubstrate).mockRejectedValue(new Error("offline"));
+    vi.mocked(api.hnswMeasured).mockRejectedValue(new Error("offline"));
+    render(<ScaleInspectorPage />);
+    await screen.findByRole("alert");
+    const summary = screen.getByText("How HNSW finds neighbors");
+    const filters = screen.getByRole("heading", { name: "Keep looking after filters." });
+    const formats = screen.getByRole("heading", { name: "A smaller index." });
+    expect(filters.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(formats.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByTestId("graph-renderer")).toBeNull();
+    fireEvent.click(summary);
+    expect(await screen.findByTestId("graph-renderer")).toBeTruthy();
+    fireEvent.click(summary);
+    await waitFor(() => expect(screen.queryByTestId("graph-renderer")).toBeNull());
+  });
+});

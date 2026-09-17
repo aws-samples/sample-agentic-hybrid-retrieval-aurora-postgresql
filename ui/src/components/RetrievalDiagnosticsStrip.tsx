@@ -1,4 +1,5 @@
 import type { SearchResponse } from "../types";
+import "../retrieval-readout.css";
 
 /**
  * The measured band for one retrieval run.
@@ -78,6 +79,23 @@ function timingBreakdown(timings: Record<string, number>) {
     .join(" · ");
 }
 
+export function SearchTimingDetails({ response }: { response: SearchResponse }) {
+  const diagnostics = response.diagnostics;
+  if (!diagnostics) return <p>No timings were reported for this search.</p>;
+  const databaseTime = diagnostics.stage_timings_ms.postgresql_retrieval;
+  return <section className="retrieval-readout" aria-label="Recorded search timings">
+    <dl>
+      <div><dt>Search request time</dt><dd>{diagnostics.total_latency_ms} ms</dd></div>
+      <div><dt>Database retrieval stage</dt><dd>{databaseTime == null ? "Not reported" : `${timingValue(databaseTime)} ms`}</dd></div>
+    </dl>
+    <p>{timingBreakdown(diagnostics.stage_timings_ms) || "No stage timings reported"}</p>
+    <p>Recorded stages, in milliseconds, inside the search request. The database
+      stage includes the application’s database round trip. It is different from
+      PostgreSQL execution time in a plan capture. Embed can include a cache lookup.
+      Stages do not sum to the total; answer generation takes additional time.</p>
+  </section>;
+}
+
 export function RetrievalDiagnosticsStrip({ response }: { response: SearchResponse }) {
   const diagnostics = response.diagnostics;
   if (!diagnostics) return null;
@@ -93,7 +111,7 @@ export function RetrievalDiagnosticsStrip({ response }: { response: SearchRespon
           Retrieve stage's own "Rows returned" tile verbatim one panel above. */}
       <dl className="lab-diagnostics-figures">
         <div>
-          <dt>Query time</dt>
+          <dt>Search request time</dt>
           <dd>{diagnostics.total_latency_ms}<em>ms</em></dd>
           {/* The figure above is the wall clock the caller waited on, and the
               stages below are the spans the service instrumented inside it. They
@@ -103,8 +121,9 @@ export function RetrievalDiagnosticsStrip({ response }: { response: SearchRespon
             {breakdown || "No stage timings reported"}
             {breakdown ? (
               <span className="lab-diagnostics-timing-note">
-                Instrumented stages, in milliseconds. They sit inside the total
-                and do not sum to it.
+                Recorded stages, in milliseconds. They sit inside the total
+                and do not sum to it. Postgres includes the database round trip;
+                Embed can include a cache lookup. Answer generation takes additional time.
               </span>
             ) : null}
           </small>

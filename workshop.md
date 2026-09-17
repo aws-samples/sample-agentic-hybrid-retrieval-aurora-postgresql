@@ -371,10 +371,26 @@ execution sequence.
    scorecard in an unnumbered section. They answer different questions: the
    participant's current repair versus measured quality across the test set.
 
-In expanded details, read elapsed time as measured, not as a sum of overlapping
-stages. For a plan, inspect scan type, filters, actual rows, buffers and settings.
-SQL wrapped in a `plpgsql` function can appear as an opaque function scan; do
-not invent an underlying index from that node alone.
+In expanded details, distinguish the recorded search request time from the
+database retrieval stage, which includes the application's database round trip.
+Embedding time may include a cache lookup. The recorded stages do not sum to the
+total, and generating the agent's answer takes additional time.
+
+**View retrieval event** reads saved ranks and the original environment; its
+candidate eligibility check uses the current catalog. **Run EXPLAIN ANALYZE**
+executes SQL again with the saved query, filters and search settings, current
+functions and data, and the configured query embedding provider. It replaces
+the saved plan without changing the original candidate ranks. Read estimated
+and actual rows per loop, loops, planning and execution time, buffers and settings.
+Buffer counts at the top node include child work; do not add them again.
+SQL wrapped in a `plpgsql` function can appear as an opaque Function Scan; the
+summary lists only index names actually visible in the plan. It does not infer
+the indexes used inside the function.
+
+For the answer, check the meaning of a measurement as well as its number and
+unit. Battery life does not establish recommended daily use. Mosaic rejects
+that substitution even when the citation resolves to the correct product;
+the source walkthrough should make the same distinction.
 
 Keep three questions separate, because the scorecard keeps them separate:
 
@@ -471,7 +487,11 @@ Memory, Runtime, Gateway and HNSW as four additional labs.
 a six-to-eight-minute command-line exercise that writes one eligibility rule,
 registers one typed tool and proves Aurora applied the caller's budget. It
 needs no Playground page. **Scale & HNSW is the fallback**: read-only,
-deterministic, and it makes no billed call. **Session & Memory stays in the app
+deterministic, and it makes no billed call. Start with the dated filter and
+vector-format comparisons: matches found, database time and index size. Current
+index details are separate from those saved measurements. Open the HNSW graph
+only to explain the mechanism; it illustrates a search, not the measured run.
+**Session & Memory stays in the app
 as an extension of the core path.** Nothing in the three labs depends on it, Playground runs and lab proofs
 keep memory off, and the tab says so in its own masthead. Offer it only when the
 account's Memory resource is connected and the facilitator has rehearsed it. It

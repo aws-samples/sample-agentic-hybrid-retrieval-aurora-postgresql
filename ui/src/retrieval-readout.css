@@ -1,0 +1,9 @@
+.retrieval-readout { min-width: 0; margin-block: 16px; font-size: 13px; line-height: 1.6; }
+.retrieval-readout dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; margin: 16px 0; }
+.retrieval-readout dl > div { min-width: 0; padding-top: 10px; border-top: 1px solid var(--line); }
+.retrieval-readout dt { color: var(--ink-soft); font-size: 12px; }
+.retrieval-readout dd { margin: 4px 0 0; color: var(--ink); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.retrieval-readout p { color: var(--ink-soft); }
+.retrieval-readout strong { color: var(--ink); font-weight: 600; }
+.retrieval-readout code { overflow-wrap: anywhere; }
+@media (max-width: 420px) { .retrieval-readout dl { grid-template-columns: minmax(0, 1fr); } }

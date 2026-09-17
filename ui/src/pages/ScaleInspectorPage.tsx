@@ -42,7 +42,7 @@ function FilterComparison({ measured }: { measured: HnswMeasured | null }) {
       <MeasurementNote measured={measured} />
       {rows.length ? <>
         <div className="inspector-table-scroll" role="region" aria-label="Off, strict and relaxed scan comparison" tabIndex={0}><table className="inspector-table scale-comparison-table"><thead><tr><th>Scan mode</th><th>Products found · average</th><th>Recall@{measured.provenance.k ?? "k"}</th><th>Server time</th></tr></thead><tbody>{rows.map((row) => <tr key={row.iterative_scan}><th scope="row">{modes[row.iterative_scan].title}<small>{modes[row.iterative_scan].description}</small></th><td><strong>{amount(row.rows_returned)} / {amount(exact)}</strong><span className="scale-found-track" aria-hidden="true"><span style={{ width: `${exact ? Math.min(row.rows_returned / exact, 1) * 100 : 0}%` }} /></span></td><td>{percent(row.recall_at_k)}</td><td>{row.server_ms} ms</td></tr>)}</tbody></table></div>
-        <p className="scale-takeaway">{strictGain > 0 ? `Strict scanning found ${amount(strictGain)} more products on average than Off in this test.` : "More scanning did not increase the average number of products in this test."} Scans still stop at their work limit.</p>
+        <p className="scale-takeaway">{strictGain > 0 ? `Strict scanning found ${amount(strictGain)} more products on average than Off in this test.` : "Strict scanning did not increase the average number of products in this test."} Scans still stop at their work limit.</p>
         <p className="scale-measurement-note">Same filter{rows[0].ef_search != null ? ` · ef_search ${rows[0].ef_search}` : ""} · {rows[0].scan_mem_mb} MB scan memory. Recall is the share of the exact closest matches found.</p>
       </> : <p>No comparison with matching search and memory settings is available.</p>}
     </> : <p className="inspector-waiting">Filter measurements are not available yet.</p>}
@@ -92,6 +92,7 @@ function ScaleInspector() {
   const [errors, setErrors] = useState<string[]>([]);
   const [pending, setPending] = useState(true);
   const [attempt, setAttempt] = useState(0);
+  const [illustrationOpen, setIllustrationOpen] = useState(false);
   useEffect(() => {
     let active = true;
     setPending(true); setErrors([]);
@@ -108,14 +109,20 @@ function ScaleInspector() {
   }, [attempt]);
   return <div className="page pipeline-inspector scale-essentials">
     <MosaicLabsTabs active="hnsw" />
-    <div className="inspector-intro"><MosaicLabsMasthead title={<>A small shortlist.<br />A much larger search.</>} deck="How Mosaic finds a fit for Alex across the workspace catalog." /></div>
-    {substrate ? <p className="scale-catalog-context">{substrate.corpus.vector_count.toLocaleString()} product embeddings · {substrate.corpus.dimensions} dimensions · pgvector {substrate.aurora.vector_extension_version}</p> : null}
+    <div className="inspector-intro"><MosaicLabsMasthead title={<>A small shortlist.<br />A much larger search.</>} deck="Compare the matches found, database time and index size before choosing a search setting." /></div>
+    {substrate ? <p className="scale-catalog-context"><strong>Current index</strong> · {substrate.corpus.vector_count.toLocaleString()} product embeddings · {substrate.corpus.dimensions ?? "Unreported"} dimensions · pgvector {substrate.aurora.vector_extension_version ?? "version not reported"}</p> : null}
     {pending ? <p role="status">Reading the catalog and benchmarks…</p> : null}
     {errors.length ? <div className="inspector-error" role="alert">{errors.join(" ")} <button type="button" className="text-button" onClick={() => setAttempt((value) => value + 1)}>Retry loading</button></div> : null}
-    <ScaleSection id="scale-mechanism" title="How it finds neighbors" description="Follow Alex’s search through an HNSW graph—layers of connected products."><HnswSearchGraph /></ScaleSection>
+    <p className="scale-intro-note">The comparisons below are saved measurements, dated in each section.
+      They do not rerun when the current index or settings change. Compare recall
+      against exact search, then decide whether the time and memory tradeoff fits your request.</p>
     <FilterComparison measured={measured} />
     <RepresentationComparison measured={measured} />
     {measured ? <AdvancedBenchmarks measured={measured} /> : null}
+    <details className="scale-advanced" id="scale-mechanism" onToggle={(event) => setIllustrationOpen(event.currentTarget.open)}>
+      <summary>How HNSW finds neighbors <span>Illustration, not a measured search</span><ChevronDown size={20} aria-hidden="true" /></summary>
+      <div>{illustrationOpen ? <HnswSearchGraph /> : null}</div>
+    </details>
     <aside className="inspector-scale-link"><div><h2>And when Alex comes back?</h2><p>See how AgentCore keeps conversation details and recalls what matters for the next request.</p></div><Link href="/mosaic-labs/memory">Explore session & memory <ArrowRight size={18} aria-hidden="true" /></Link></aside>
   </div>;
 }

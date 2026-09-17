@@ -103,11 +103,11 @@ describe("PersistedRunDisclosures", () => {
 
     const view = render(<PersistedRunDisclosures response={response("run-aaaaa")} />);
     openDisclosure("View retrieval event");
-    openDisclosure("View EXPLAIN");
+    openDisclosure("Run EXPLAIN ANALYZE");
 
     view.rerender(<PersistedRunDisclosures response={response("run-bbbbb")} />);
     openDisclosure("View retrieval event");
-    openDisclosure("View EXPLAIN");
+    openDisclosure("Run EXPLAIN ANALYZE");
 
     await act(async () => {
       eventB.resolve(persistedRun("run-bbbbb"));
@@ -149,12 +149,12 @@ describe("PersistedRunDisclosures", () => {
       .mockResolvedValueOnce(plan("run-retry"));
 
     render(<PersistedRunDisclosures response={response("run-retry")} />);
-    openDisclosure("View EXPLAIN");
+    openDisclosure("Run EXPLAIN ANALYZE");
     expect((await screen.findByRole("alert")).textContent).toContain(
       "temporary plan failure",
     );
 
-    reopenDisclosure("View EXPLAIN");
+    reopenDisclosure("Run EXPLAIN ANALYZE");
 
     expect(await screen.findByText(/plan run-retry/)).toBeTruthy();
     expect(vi.mocked(api.retrievalPlan)).toHaveBeenCalledTimes(2);

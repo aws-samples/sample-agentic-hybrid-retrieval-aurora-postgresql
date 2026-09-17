@@ -33,8 +33,11 @@ Keep measured specifications in sentences about one product. Use each product's
 full supplied title when comparing measurements, with citations for both products.
 Do not turn a duration in the shopper's request into a product rating unless
 that product's cited specification supports it. Write structured attributes as
-natural-language labels, never raw JSON keys: recommended_hours is recommended
-daily use, max_user_weight_lb is weight capacity, recline_deg is recline, and
+natural-language labels, never raw JSON keys: battery_hours is battery life;
+recommended_hours is recommended use only when that exact attribute is supplied.
+Never turn battery life or playback time into recommended daily use. A matching
+number and unit do not establish a different kind of measurement.
+max_user_weight_lb is weight capacity, recline_deg is recline, and
 os_compatibility is operating system compatibility. Express their measurements
 in hours, pounds, and degrees. Preserve the supplied value and unit family.
 
@@ -488,7 +491,38 @@ def _states_figure_in_unit(support: str, figure: str, family: str) -> bool:
     return re.search(pattern, support) is not None
 
 
-def _structured_measurement(record: EvidenceRecord, claim: MeasurableClaim) -> bool:
+def _duration_kind(text: str, claim: MeasurableClaim) -> str | None:
+    """Bind an hourly measurement to its closest label within the same clause."""
+    if claim.unit != "hour":
+        return None
+    boundaries = list(
+        re.finditer(
+            r"[;.!?]|,(?!\d)|\b(?:and|but|while|whereas)\b", text, re.IGNORECASE
+        )
+    )
+    start = max((m.end() for m in boundaries if m.end() <= claim.start), default=0)
+    end = min(
+        (m.start() for m in boundaries if m.start() >= claim.end), default=len(text)
+    )
+    labels = []
+    for kind, pattern in (
+        ("battery_hours", r"\b(?:battery|playback|single charge)\b"),
+        (
+            "recommended_hours",
+            r"\b(?:recommended(?:[ _-]+daily)?[ _-]+(?:use|usage|hours)|daily[ _-]+(?:use|usage))\b",
+        ),
+    ):
+        for match in re.finditer(pattern, text[start:end], re.IGNORECASE):
+            distance = max(
+                start + match.start() - claim.end, claim.start - start - match.end(), 0
+            )
+            labels.append((distance, kind))
+    return min(labels)[1] if labels else None
+
+
+def _structured_measurement(
+    record: EvidenceRecord, claim: MeasurableClaim, meaning: str | None = None
+) -> bool:
     attributes = record.metadata.get("attributes")
     if not isinstance(attributes, dict):
         return False
@@ -496,6 +530,8 @@ def _structured_measurement(record: EvidenceRecord, claim: MeasurableClaim) -> b
     if numeric is None:
         return False
     for name, value in attributes.items():
+        if meaning is not None and name != meaning:
+            continue
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             continue
         unit = _unit_family(str(name).rsplit("_", 1)[-1])
@@ -524,6 +560,20 @@ def _claim_supported(
             for match in _RESOLUTION_PATTERN.finditer(support)
         }
     if claim.unit:
+        meaning = _duration_kind(segment, claim)
+        if meaning is not None:
+            figure = re.search(r"\d[\d,]*(?:\.\d+)?", claim.value).group()
+            # A duration in one field cannot authorize another field with the
+            # same value and unit, even when both belong to the same product.
+            return any(
+                _duration_kind(support, stated) == meaning
+                and _states_figure_in_unit(support[stated.start :], figure, claim.unit)
+                and re.search(r"\d[\d,]*(?:\.\d+)?", stated.value).group() == figure
+                for stated in _measurable_claims(support)
+                if stated.unit == claim.unit
+            ) or any(
+                _structured_measurement(record, claim, meaning) for record in records
+            )
         return _states_figure_in_unit(support, claim.value, claim.unit) or any(
             _structured_measurement(record, claim) for record in records
         )
@@ -605,7 +655,8 @@ def _validate_measurable_claim_support(
                         )
                         raise SynthesisOutputError(
                             "Synthesized sentence contains unsupported numeric claim or "
-                            f"availability claim {[claim.value]} for {subject_label}: {sentence}"
+                            f"availability claim {[claim.value]} for {subject_label}: {sentence}. "
+                            "Use the cited measurement's original meaning, value and unit."
                         )
         if sentence_subjects:
             previous_subjects = sentence_subjects

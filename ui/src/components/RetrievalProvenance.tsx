@@ -9,6 +9,7 @@ import type {
 } from "../types";
 import { CodeBlock } from "./CodeBlock";
 import { PlaygroundDisclosure } from "./PlaygroundStage";
+import { QueryPlanSummary } from "./QueryPlanSummary";
 
 /**
  * The three disclosures that read a run back out of Postgres, plus the fusion
@@ -298,10 +299,18 @@ export function PersistedRunDisclosures({ response }: { response: SearchResponse
           <>
             <p className="labs-contract-note">
               {event.candidates.length} rows in{" "}
-              <code>mosaic.search_result_event</code>, written by the request that
-              produced what is on screen. Everything above came from the same two
-              tables.
+              <code>mosaic.search_result_event</code>. Ranks and scores were saved
+              by the original request. Each candidate’s <code>eligible</code> field
+              checks the current catalog against the saved filters.
             </p>
+            <div className="retrieval-readout">
+              <dl aria-label="Saved search context">
+                <div><dt>Recorded at</dt><dd>{event.run.occurred_at}</dd></div>
+                <div><dt>PostgreSQL version</dt><dd>{event.run.database_version ?? "Not recorded"}</dd></div>
+                <div><dt>pgvector version</dt><dd>{event.run.vector_extension_version ?? "Not recorded"}</dd></div>
+                <div><dt>Source revision</dt><dd><code>{event.run.source_revision ?? "Not recorded"}</code>{event.run.source_worktree_dirty === true ? " · includes local changes" : event.run.source_worktree_dirty === false ? " · clean checkout" : " · checkout state not recorded"}</dd></div>
+              </dl>
+            </div>
             <CodeBlock
               code={JSON.stringify(event, null, 2)}
               label={`search_event_${runId.slice(0, 8)}.json`}
@@ -312,23 +321,29 @@ export function PersistedRunDisclosures({ response }: { response: SearchResponse
 
       <PlaygroundDisclosure
         key={`plan-${runId}`}
-        label="View EXPLAIN"
-        hint="runs EXPLAIN ANALYZE on this run's SQL"
+        label="Run EXPLAIN ANALYZE"
+        hint="executes search SQL again with current data"
         onOpen={loadPlan}
       >
+        <p>Reuses the saved query, filters and search settings with the current SQL
+          functions and catalog. A query embedding may be requested from the
+          configured model if it is not cached. This captures SQL work only;
+          reranking and the agent are not run.</p>
+        <p>The capture replaces the plan saved on this search record. The original
+          candidate ranks stay unchanged. Reopening this panel shows this capture.</p>
         {planError ? (
           <p className="labs-disclosure-error" role="alert">{planError}</p>
         ) : plan === null ? (
           <p role="status">
             {planPending
-              ? "Capturing EXPLAIN (ANALYZE, FORMAT JSON) for this event."
+              ? "Executing EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)."
               : "Open to capture the plan."}
           </p>
         ) : (
-          <CodeBlock
+          <><QueryPlanSummary plan={plan.plan} /><CodeBlock
             code={JSON.stringify(plan.plan, null, 2)}
             label="explain_analyze.json"
-          />
+          /></>
         )}
       </PlaygroundDisclosure>
     </>

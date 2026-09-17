@@ -272,6 +272,7 @@ export interface SearchEventRecord {
   filters: Record<string, unknown>;
   retrieval_profile: Record<string, unknown>;
   source_revision: string | null;
+  source_worktree_dirty?: boolean | null;
   embedding_model_id: string | null;
   rerank_model_id: string | null;
   retrieval_strategy: string | null;

@@ -156,6 +156,14 @@ instructions deep-link to:
   from the measured benefit of reranking.
   Ask Mosaic's **Recorded steps** uses the same origin labels and shows whether
   each step completed, failed or was declined.
+  **View retrieval event** reads the saved search context and ranks from Aurora;
+  candidate eligibility is checked against the current catalog. **Run EXPLAIN
+  ANALYZE** executes the search SQL again and saves a new plan. Its summary shows
+  reported rows, loops, times, buffers and visible index names without guessing
+  what happened inside a Function Scan. Recorded search timings distinguish the
+  database round trip from the complete search request and new plan execution.
+  Answer checks also keep battery life and recommended use separate: the same
+  number of hours in one field cannot support a claim about the other.
   Participant guide revisions are deferred in the
   [Workshop lab design TODO](docs/workshop-lab-design-todo.md), including the
   terminal-to-answer handoff and a possible monitor alternative. The current
@@ -164,10 +172,10 @@ instructions deep-link to:
   user preferences, session summaries and episodic memory. Inspect the connected
   strategies and extracted records, then recall relevant context in a new
   session. Aurora still supplies product evidence. See [setup and behavior](docs/session-memory.md).
-   Scale & HNSW includes an interactive
-  3D graph illustration, Off / Strict / Relaxed scan comparisons, and full
-  precision, halfvec and binary measurements. Detailed benchmarks and SQL are
-  available in an expandable section.
+  **Scale & HNSW** starts with saved Off / Strict / Relaxed scan comparisons and
+  full precision, halfvec and binary measurements. Current index details are
+  separate from dated benchmarks. Detailed SQL and the interactive 3D graph
+  illustration are available on demand; the graph runs only while expanded.
 
 The storefront is designed for laptop browser viewports at normal zoom. Page
 navigation keeps the header in place and restores scroll and keyboard focus.

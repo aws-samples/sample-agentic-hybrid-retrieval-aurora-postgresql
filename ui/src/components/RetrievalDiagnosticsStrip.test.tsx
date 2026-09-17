@@ -4,7 +4,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { seedRun } from "../retrievalSeed";
 import type { SearchResponse } from "../types";
-import { RetrievalDiagnosticsStrip } from "./RetrievalDiagnosticsStrip";
+import { RetrievalDiagnosticsStrip, SearchTimingDetails } from "./RetrievalDiagnosticsStrip";
 
 /**
  * The strip's contract is one sentence: every figure on it is read off the
@@ -22,7 +22,7 @@ function breakdown(): string {
   const strip = screen.getByRole("region", {
     name: "Measured retrieval diagnostics",
   });
-  const queryTime = within(strip).getByText("Query time").parentElement;
+  const queryTime = within(strip).getByText("Search request time").parentElement;
   if (!queryTime) throw new Error("the query-time tile lost its container");
   const note = queryTime.querySelector("small");
   if (!note) throw new Error("the query-time tile lost its breakdown");
@@ -31,6 +31,17 @@ function breakdown(): string {
 
 describe("RetrievalDiagnosticsStrip stage timings", () => {
   afterEach(cleanup);
+
+  it("distinguishes request time, the database stage, and an unreported stage", () => {
+    const measured = withTimings({ postgresql_retrieval: 0.006, rerank: 5 });
+    const view = render(<SearchTimingDetails response={measured} />);
+    expect(screen.getByText("Database retrieval stage").nextElementSibling?.textContent).toBe("<1 ms");
+    expect(screen.getByText("Search request time").nextElementSibling?.textContent).toBe(`${measured.diagnostics!.total_latency_ms} ms`);
+    view.rerender(<SearchTimingDetails response={withTimings({ rerank: 5 })} />);
+    expect(screen.getByText("Database retrieval stage").nextElementSibling?.textContent).toBe("Not reported");
+    view.rerender(<SearchTimingDetails response={{ ...measured, diagnostics: null }} />);
+    expect(screen.getByText("No timings were reported for this search.")).toBeTruthy();
+  });
 
   it("prints every stage the run reported, not a hardcoded subset", () => {
     // Measured live on 2026-09-06: the service times five stages. A three-key

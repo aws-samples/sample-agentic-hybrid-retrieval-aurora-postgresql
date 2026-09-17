@@ -7,6 +7,7 @@ import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { MosaicRunButton } from "../components/MosaicRunButton";
 import { PersistedRunDisclosures, RrfMath } from "../components/RetrievalProvenance";
+import { SearchTimingDetails } from "../components/RetrievalDiagnosticsStrip";
 import { KeepInMind } from "../components/KeepInMind";
 import { ProductAnswer } from "../components/ProductAnswer";
 import { RankOverview, RetrieveOverview } from "../components/PipelineOverview";
@@ -110,7 +111,7 @@ function RankDetails({ response, highlightedId }: { response?: SearchResponse; h
         </li>)}</ul>
       </div> : <p className="inspector-waiting">This search returned no products. No ranking is available.</p>}
       <InspectorDetail title="How the combined score is calculated"><RrfMath response={response} /></InspectorDetail>
-      <InspectorDetail title="Ranking rules and time taken"><CodeBlock label="Ranking details" code={JSON.stringify({ ranking_policy: response.diagnostics?.ranking_policy, stage_timings_ms: response.diagnostics?.stage_timings_ms, total_latency_ms: response.diagnostics?.total_latency_ms }, null, 2)} /></InspectorDetail>
+      <InspectorDetail title="Ranking rules and time taken"><SearchTimingDetails response={response} /><CodeBlock label="Ranking details" code={JSON.stringify({ ranking_policy: response.diagnostics?.ranking_policy, stage_timings_ms: response.diagnostics?.stage_timings_ms, total_latency_ms: response.diagnostics?.total_latency_ms }, null, 2)} /></InspectorDetail>
     </> : <p className="inspector-waiting">The same products will appear here with their positions at each ranking step.</p>}
   </>;
 }

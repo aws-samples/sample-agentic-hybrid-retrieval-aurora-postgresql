@@ -106,6 +106,40 @@ def test_the_same_figure_in_a_different_unit_is_not_support():
         )
 
 
+@pytest.mark.parametrize(
+    "wording",
+    [
+        "48 hours of recommended daily use",
+        "48-hour recommended use",
+        "recommended daily use of 48 hours",
+    ],
+)
+@pytest.mark.parametrize("structured", [False, True])
+def test_battery_duration_cannot_be_relabelled_as_recommended_use(wording, structured):
+    record = evidence(BATTERY_EVIDENCE)
+    if structured:
+        record = evidence("Catalog specification.").model_copy(
+            update={"metadata": {"attributes": {"battery_hours": 48}}}
+        )
+    with pytest.raises(SynthesisOutputError, match="unsupported numeric claim"):
+        validate(f"AuriLogic Flight ANC offers {wording} [1].", [record])
+
+
+def test_equal_hour_values_keep_their_measurement_meanings():
+    answer = "AuriLogic Flight ANC offers 48-hour battery life and 48-hour recommended use [1]."
+    with pytest.raises(SynthesisOutputError, match="unsupported numeric claim"):
+        validate(answer, [evidence(BATTERY_EVIDENCE)])
+    validate(answer, [evidence(BATTERY_EVIDENCE + " Recommended use: 48 hours.")])
+
+
+def test_recommended_use_cannot_authorize_battery_life():
+    with pytest.raises(SynthesisOutputError, match="unsupported numeric claim"):
+        validate(
+            "AuriLogic Flight ANC offers 12-hour battery life [1].",
+            [evidence("Recommended use: 12 hours.")],
+        )
+
+
 def test_an_identifier_is_supported_only_by_itself():
     """`IP68` is not 68 grams, and it is not IP55."""
     with pytest.raises(SynthesisOutputError, match="IP68"):
