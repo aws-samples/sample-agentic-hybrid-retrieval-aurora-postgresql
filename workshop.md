@@ -359,7 +359,9 @@ The main Playground puts Retrieve, Rank and Reason side by side. Read one
 selected search across Retrieve and Rank, then follow a recommendation's search
 link from Reason. A multi-part question can call Retrieve and Rank several
 times; the three columns explain responsibilities, not a single irreversible
-execution sequence.
+execution sequence. Each column uses the same arrangement: summary, product
+cards, notes, lesson and inspection control. Reason keeps all recommendations
+together; expand **Read Mosaic’s full answer** for the complete explanation.
 
 1. **Retrieve:** inspect filters, counts and how each preview product was found.
 2. **Rank:** follow the same products before and after reranking. Open the

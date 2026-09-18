@@ -127,8 +127,11 @@ instructions deep-link to:
   a comparison. A search whose words the catalog does not carry says so above
   the results;
 - **Playground** - Retrieve, Rank, and Reason appear side by side on laptop and
-  desktop screens. Follow matching products, changes in rank, and the agent’s
-  progress and answer, then open search details and sources within each column.
+  desktop screens, with aligned summaries, compact product cards, notes and
+  inspection controls. Follow matching products and changes in rank across
+  the columns. Reason groups every recommendation together; **Read Mosaic’s
+  full answer** expands the complete explanation. Search details and sources
+  remain available within each column. Narrow screens stack the stages.
   Each column ends with a **Keep in mind** line naming the lesson it proves,
   the same line the opening slides carry.
   Retrieve and Rank follow the same preview products before and after reranking.

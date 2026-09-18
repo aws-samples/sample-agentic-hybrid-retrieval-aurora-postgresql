@@ -1,4 +1,5 @@
 import { ArrowRight } from "lucide-react";
+import type { ReactNode } from "react";
 import { Link } from "wouter";
 import { ResultProductCard } from "./ResultProductCard";
 import { KeepInMind } from "./KeepInMind";
@@ -19,6 +20,18 @@ const armTitle: Record<ScorecardStageArmKey, string> = {
 };
 const singleArms = new Set<ScorecardStageArmKey>(["lexical_only", "trigram_only", "semantic_only"]);
 const signed = (value: number) => `${value >= 0 ? "+" : ""}${value.toFixed(2)}`;
+
+/** Shared rows keep each stage's summary, results and explanation aligned. */
+export function PipelineOverviewSections({ summary, children, notes, lesson }: {
+  summary: ReactNode; children: ReactNode; notes: ReactNode; lesson: ReactNode;
+}) {
+  return <>
+    <div className="inspector-stage-summary">{summary}</div>
+    <div className="inspector-stage-results">{children}</div>
+    <div className="inspector-stage-notes">{notes}</div>
+    <KeepInMind>{lesson}</KeepInMind>
+  </>;
+}
 
 /** How many of the three arms fetched this product: null ranks are arms that never saw it. */
 export function armsThatFound(product: ProductSummary): number {
@@ -83,36 +96,40 @@ export function RetrieveOverview({ response, ablation, stopped = false }: { resp
   const counts = response?.diagnostics?.candidate_counts;
   // These are the recorded returned products, not an invented view of the whole pool.
   const products = previewProducts(response).sort((a, b) => (a.signals?.pre_rerank_rank ?? Infinity) - (b.signals?.pre_rerank_rank ?? Infinity));
-  return <>
+  return <PipelineOverviewSections summary={<>
     <dl className="inspector-arm-counts" aria-label="Matches found by each search">
-      <div><dt>Keyword <small>tsvector · GIN</small></dt><dd>{counts?.fts_in_pool ?? "—"}</dd></div>
-      <div><dt>Close spelling <small>pg_trgm · GIN</small></dt><dd>{counts?.trigram_in_pool ?? "—"}</dd></div>
-      <div><dt>Meaning <small>Cohere Embed · pgvector</small></dt><dd>{counts?.semantic_in_pool ?? "—"}</dd></div>
+      <div><dt>Keyword</dt><dd>{counts?.fts_in_pool ?? "—"}</dd></div>
+      <div><dt>Close spelling</dt><dd>{counts?.trigram_in_pool ?? "—"}</dd></div>
+      <div><dt>Meaning</dt><dd>{counts?.semantic_in_pool ?? "—"}</dd></div>
     </dl>
     <p className="inspector-note">A product can match in more than one way.</p>
-    {response ? products.length ? <>
-      <h3 className="inspector-preview-title">The same matches, before reranking</h3>
-      <ProductPreview products={products} />
-      <p className="inspector-note">Following the same {products.length} products as Rank, in their earlier order. This is a preview of the returned results.</p>
-    </> : <p className="inspector-waiting">This search returned no products.</p> : <p className="inspector-waiting">{stopped ? "No search results are available from this run." : "Matching products will appear as the search finishes."}</p>}
+  </>} notes={<>
+    {products.length ? <p className="inspector-note">Following the same {products.length} products as Rank, in their earlier order. This is a preview of the returned results.</p> : null}
     <WithoutHybrid response={response} ablation={ablation} />
-    <KeepInMind>A reranker can only reorder what entered this pool. Each search method applies the filters before limiting its results. A filtered vector scan can still return too few matches; eligible products may be missed. Check both which products qualify and how many the search found.</KeepInMind>
-  </>;
+  </>} lesson="A reranker can only reorder what entered this pool. Each search method applies the filters before limiting its results. A filtered vector scan can still return too few matches; eligible products may be missed. Check both which products qualify and how many the search found.">
+    <h3 className="inspector-preview-title">Before reranking</h3>
+    {response ? products.length ? <>
+      <ProductPreview products={products} />
+    </> : <p className="inspector-waiting">This search returned no products.</p> : <p className="inspector-waiting">{stopped ? "No search results are available from this run." : "Matching products will appear as the search finishes."}</p>}
+  </PipelineOverviewSections>;
 }
 
 export function RankOverview({ response, ablation, stopped = false }: { response?: SearchResponse; ablation?: ScorecardStageAblation | null; stopped?: boolean }) {
   const products = previewProducts(response);
   const rerankStep = ablation?.attributed ? ablation.paired_comparisons.find((step) => step.to_key === "rrf_fused_reranked") : undefined;
-  return <>
+  return <PipelineOverviewSections summary={<>
     <div className="inspector-rank-flow"><span>RRF fusion</span><ArrowRight size={14} aria-hidden="true" /><span>Cohere Rerank</span></div>
     <p className="inspector-note">Combine the search results, then check how well each product fits Alex’s request.</p>
-    {rerankStep ? <p className="inspector-note">Measured on {ablation?.scored_query_count} graded searches: reranking moved the ordering score by {signed(rerankStep.mean_difference)} on average, {rerankStep.separable ? "more than" : "inside"} the spread of the per-search differences.</p> : null}
-    {response ? products.length ? <>
-      <div className="inspector-preview-heading"><h3 className="inspector-preview-title">Top matches</h3><span>RRF rank → final rank</span></div>
-      <ProductPreview products={products} ranked />
+  </>} notes={<>
+    {products.length ? <>
       <p className="inspector-note">#1 is the highest rank. RRF and reranker scores use different scales; a higher score is better within each step.</p>
-      <p className="inspector-note">Showing {products.length} of {response.results.length} results. Reranking: <strong>{response.diagnostics?.rerank_status ?? "not reported"}</strong>.</p>
+      <p className="inspector-note">Showing {products.length} of {response!.results.length} results. Reranking: <strong>{response?.diagnostics?.rerank_status ?? "not reported"}</strong>.</p>
+    </> : null}
+    {rerankStep ? <p className="inspector-note">Measured on {ablation?.scored_query_count} graded searches: reranking moved the ordering score by {signed(rerankStep.mean_difference)} on average, {rerankStep.separable ? "more than" : "inside"} the spread of the per-search differences.</p> : null}
+  </>} lesson="Each search method scores matches differently. RRF combines them using 1 / (k + rank) for each position. A correct final winner can hide broken fusion. Compare the order before reranking, then weigh any measured improvement against the extra time and model usage.">
+    <h3 className="inspector-preview-title">After reranking</h3>
+    {response ? products.length ? <>
+      <ProductPreview products={products} ranked />
     </> : <p className="inspector-waiting">No products were returned, so no ranking is available.</p> : <p className="inspector-waiting">{stopped ? "No ranking is available from this run." : "See how the order changes as Mosaic compares the products."}</p>}
-    <KeepInMind>Each search method scores matches differently. RRF combines them using 1 / (k + rank) for each position. A correct final winner can hide broken fusion. Compare the order before reranking, then weigh any measured improvement against the extra time and model usage.</KeepInMind>
-  </>;
+  </PipelineOverviewSections>;
 }

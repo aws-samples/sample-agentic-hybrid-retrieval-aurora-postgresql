@@ -129,7 +129,7 @@ it("does not start from URL filters when a saved Shop record cannot be loaded", 
   expect(stream).not.toHaveBeenCalled();
 });
 
-it("streams the full answer above the cards and waits for its final recommendation order", async () => {
+it("streams the full answer, then groups every pick and keeps the complete explanation expandable", async () => {
   const products = showcaseCatalogPage({}, 0, 3).products;
   let emit!: Parameters<typeof api.agentStream>[2];
   let finish!: () => void;
@@ -156,7 +156,12 @@ it("streams the full answer above the cards and waits for its final recommendati
   const picks = screen.getByRole("region", { name: "Mosaic’s picks for Alex" });
   expect(productLinks(picks)).toEqual([products[1], products[0]].map((product) => `/products/${product.product_id}`));
   const prose = reason.querySelector(".inspector-answer")!;
-  expect(prose.textContent).toContain("The final sentence.");
+  const fullAnswer = within(reason).getByText("Read Mosaic’s full answer").closest("details")!;
+  expect(fullAnswer.open).toBe(false);
+  expect(fullAnswer.textContent).toContain(response.answer);
+  fireEvent.click(within(reason).getByText("Read Mosaic’s full answer"));
+  expect(fullAnswer.open).toBe(true);
+  expect(fullAnswer.textContent).toContain("The final sentence.");
   expect(prose.compareDocumentPosition(picks) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(prose.getAttribute("aria-busy")).toBe("false");
   fireEvent.click(screen.getByRole("button", { name: "Quiet typing" }));
@@ -344,7 +349,7 @@ it("separates recorded model requests, application steps and missing origins wit
   });
   render(<PlaygroundPage />);
   fireEvent.click(screen.getByRole("button", { name: "Run Mosaic" }));
-  await screen.findByText("No recommendation");
+  await screen.findByText(/^No recommendation:/);
   fireEvent.click(screen.getByRole("button", { name: "Answer and sources" }));
   const summary = screen.getByLabelText("Who requested the recorded steps");
   expect(summary.textContent).toContain("Requested by the model: 1.");

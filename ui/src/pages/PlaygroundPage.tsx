@@ -10,7 +10,7 @@ import { PersistedRunDisclosures, RrfMath } from "../components/RetrievalProvena
 import { SearchTimingDetails } from "../components/RetrievalDiagnosticsStrip";
 import { KeepInMind } from "../components/KeepInMind";
 import { ProductAnswer } from "../components/ProductAnswer";
-import { RankOverview, RetrieveOverview } from "../components/PipelineOverview";
+import { PipelineOverviewSections, RankOverview, RetrieveOverview } from "../components/PipelineOverview";
 import { formatPriceCompact } from "../format";
 import { mosaicLabManifest, pipelineRequests } from "../labMissions";
 import { SourceComparison } from "../components/SourceComparison";
@@ -119,8 +119,7 @@ function RankDetails({ response, highlightedId }: { response?: SearchResponse; h
 function ReasonAnswer({ answer, streamed, completed, renderSearchLink }: { answer: AgentResponse; streamed: string; completed: boolean; renderSearchLink: (product: ProductSummary) => ReactNode }) {
   const text = completed ? answer.answer : streamed;
   return <div className="inspector-answer" aria-busy={!completed}>
-    <p className="inspector-answer-status" role="status"><Sparkles size={17} aria-hidden="true" />{answer.outcome === "declined" ? "No recommendation" : completed ? "Mosaic’s answer" : "Writing Mosaic’s answer…"}</p>
-    <div className="inspector-answer-prose"><ProductAnswer text={text} products={answer.recommendations} citations={answer.citations} complete={completed} renderSearchLink={renderSearchLink} /></div>
+    <div className="inspector-answer-prose"><ProductAnswer text={completed && answer.recommendations.length ? "" : text} products={answer.recommendations} citations={answer.citations} complete={completed} renderSearchLink={renderSearchLink} /></div>
   </div>;
 }
 
@@ -145,13 +144,25 @@ function ReasonOverview({ answer, partial, streamed, completed, running, active,
   renderSearchLink: (product: ProductSummary) => ReactNode; multipleSearches: boolean;
 }) {
   const working = running && !completed && !failed;
-  return <>
+  const answerStatus = !answer
+    ? "Read the product evidence, compare the options, and explain the choice with sources."
+    : answer.outcome === "declined"
+      ? "No recommendation: the available sources do not support a choice."
+      : completed
+        ? `${answer.recommendations.length ? `${answer.recommendations.length} ${answer.recommendations.length === 1 ? "recommendation" : "recommendations"}` : "Answer ready"} · ${answer.citations.length} ${answer.citations.length === 1 ? "source link" : "source links"}. Read the full answer below.`
+        : "Writing Mosaic’s answer…";
+  return <PipelineOverviewSections summary={<>
+    <div className="inspector-rank-flow"><Sparkles size={15} aria-hidden="true" /><span>Compare sources</span><ArrowRight size={14} aria-hidden="true" /><span>Explain the choice</span></div>
+    <p className="inspector-note" role={answer ? "status" : undefined}>{answerStatus}</p>
+  </>} notes={<>
+    {answer && completed && answer.recommendations.length ? <InspectorDetail title="Read Mosaic’s full answer"><div className="inspector-answer-prose"><ProductAnswer text={answer.answer} products={[]} /></div></InspectorDetail> : null}
+    {answer && completed && multipleSearches ? <p className="inspector-note">Each pick links to its search; Rank shows one search at a time.</p> : null}
+  </>} lesson="Evidence the model has read is not citable until the application registers it. A valid source link still needs to support the claim. Read the source for the specific requirement; missing support should remain an open question.">
+    <h3 className="inspector-preview-title">{answer && !answer.recommendations.length ? "Mosaic’s answer" : "Recommended products"}</h3>
     {answer ? <ReasonAnswer answer={answer} streamed={streamed} completed={completed} renderSearchLink={renderSearchLink} />
       : working && active ? <p className="inspector-waiting inspector-reason-status" role="status"><LoaderCircle className="spin" size={20} aria-hidden="true" /><span>The agent is working. {partial?.candidates.length ? `Comparing ${partial.candidates.length} products and checking their sources.` : "It is checking products and sources."}</span></p>
       : <p className="inspector-waiting">{failed ? "The run stopped before the answer was ready. Open the activity log for details." : working ? "Mosaic will explain its picks after checking the products and sources." : hasSearch ? "This view contains the saved search results. Start a new run to let Mosaic search and make recommendations." : "Mosaic will compare the products and explain its picks, with links to the sources."}</p>}
-    {answer && completed && multipleSearches ? <p className="inspector-note">Each pick links to its search; Rank shows one search at a time.</p> : null}
-    <KeepInMind>Evidence the model has read is not citable until the application registers it. A valid source link still needs to support the claim. Read the source for the specific requirement; missing support should remain an open question.</KeepInMind>
-  </>;
+  </PipelineOverviewSections>;
 }
 
 function ReasonEvidence({ answer, trace, failed }: { answer: AgentResponse | null; trace: ToolTraceStep[]; failed: boolean }) {
