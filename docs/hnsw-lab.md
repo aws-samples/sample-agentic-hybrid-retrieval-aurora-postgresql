@@ -34,7 +34,7 @@ For each selected scale and hardware profile, capture:
 
 ### 1. Establish exact ground truth
 
-For a sampled query set, disable index scans in a local transaction and retrieve exact nearest neighbors. Save the IDs; these become recall ground truth.
+For a sampled query set, turn `enable_indexscan` and `enable_bitmapscan` off as session settings, retrieve exact nearest neighbors, and `RESET` both in a `finally` block. Save the IDs; these become recall ground truth. The runners deliberately avoid `SET LOCAL` here: psycopg degrades a nested transaction block to a savepoint, and `SET LOCAL` survives `RELEASE SAVEPOINT`, so a transaction-local setting would leak into the ANN measurements and report recall 1.0 from sequential scans.
 
 ### 2. Sweep `ef_search`
 
@@ -71,14 +71,15 @@ Rebuild a smaller lab table with `m` and `ef_construction` variations. Observe b
 
 - `scripts/benchmark_hnsw.py` emits **measured** JSON results and persists the
   same run to `mosaic_bench.run` and `mosaic_bench.measurement`.
-- Exact filtered ground truth disables index and bitmap scans transactionally.
+- Exact filtered ground truth disables index and bitmap scans as session settings and resets them afterwards; see the note above on why not `SET LOCAL`.
   ANN sessions call the production `mosaic_search.configure_hnsw` function.
 - Every run records source and dataset identity, Aurora engine and instance
   identity, pgvector version, index definition and size, filter selectivity,
   deterministic query-sample identity, runtime settings, recall, latency, and
   an `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)` plan.
 - `scripts/simulate_scale.py` emits **simulated_calibrated** projections.
-- `db/sql/08_indexes_concurrent.sql` holds the HNSW index definitions. The
+- `db/sql/08_indexes_concurrent.sql` holds the fp32 HNSW index definition;
+  `db/sql/19_indexes_quantized.sql` holds the halfvec and binary ones. The
   inspection and filter-selectivity exercises that lived in the deleted
   `sql/06_hnsw_performance_lab.sql` are unported; the `hnsw-performance` check in
   `data/evals/mosaic_labs_missions.json` is their surviving home under Advanced

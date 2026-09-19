@@ -30,7 +30,7 @@ A fast HNSW query does not imply a fast end-to-end search experience.
 
 ## Exact baseline
 
-Recall requires a ground truth. For the sampled query vectors, run exact nearest-neighbor search with ANN index scans disabled in a local transaction. Store exact top-k IDs and compare ANN overlap.
+Recall requires a ground truth. For the sampled query vectors, run exact nearest-neighbor search with `enable_indexscan` and `enable_bitmapscan` turned off as session settings and `RESET` afterwards, not `SET LOCAL`, which survives a released savepoint and would leak into the ANN runs. Store exact top-k IDs and compare ANN overlap.
 
 ## Latency reporting
 

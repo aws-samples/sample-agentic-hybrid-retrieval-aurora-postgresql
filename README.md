@@ -20,7 +20,7 @@ evidence that reaches an agent but cannot safely support its answer.
 Mosaic is a production-shaped product discovery application that pairs
 PostgreSQL full-text search, `pg_trgm`, pgvector HNSW, reciprocal-rank fusion,
 and managed reranking with a React storefront, a typed FastAPI service, a
-Strands agent, and an optional MCP 2.0 adapter, backed by a 500,000-product
+Strands agent, and an optional MCP adapter, backed by a 500,000-product
 synthetic catalog and deterministic release gates. The complete session
 framing is in [the session abstract](docs/session-abstract.md).
 
@@ -56,6 +56,10 @@ make setup
 make ui-install
 cp config/.env.example .env
 ```
+
+`ui/package-lock.json` stays at lockfile version 3, which the Node 22 bundled
+npm 10 reads. Regenerate it with `npx npm@12 install --package-lock-only`
+from `ui/` (npm 10's resolver crashes on lock changes) and then run `npm ci`.
 
 Edit `.env`, then start the API:
 
@@ -106,7 +110,7 @@ Corporate-network TLS and security-group diagnostics are documented in
 | Candidate fusion | Unweighted reciprocal-rank fusion | Per-arm ranks, contributions, and pre-rerank order |
 | Final ordering | Cohere Rerank 3.5 through Amazon Bedrock | Rerank score, final rank, and exact-identity preservation |
 | Grounded recommendations | Strands tools over product and evidence records | Tool trace, retrieval IDs, evidence IDs, and numbered citations |
-| Production diagnosis | Persisted events and on-demand `EXPLAIN (ANALYZE, BUFFERS, SETTINGS)` | Query plan, indexes, runtime settings, and Aurora identity |
+| Production diagnosis | Persisted events and on-demand `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)` | Query plan, indexes, runtime settings, and Aurora identity |
 
 The visible application surfaces are three, and each is reachable at the name
 the navigation prints for it (`/discover`, `/shop`, `/playground`) as well as at
@@ -167,10 +171,12 @@ instructions deep-link to:
   database round trip from the complete search request and new plan execution.
   Answer checks also keep battery life and recommended use separate: the same
   number of hours in one field cannot support a claim about the other.
-  Participant guide revisions are deferred in the
-  [Workshop lab design TODO](docs/workshop-lab-design-todo.md), including the
-  terminal-to-answer handoff and a possible monitor alternative. The current
-  keyboard-and-chair lab contract remains in place.
+  The participant guide in the companion Workshop Studio repository follows
+  the [lab exercise design](docs/superpowers/specs/2026-09-19-lab-exercise-design.md):
+  every lab page has the same shape and four numbered tasks (observe,
+  diagnose, repair, prove). The keyboard-and-chair Lab 3 contract is settled;
+  the terminal runs the before and after requests and Shop shows the same
+  question as a separate, optional run.
   **Session & Memory** explores AgentCore conversation events, semantic facts,
   user preferences, session summaries and episodic memory. Inspect the connected
   strategies and extracted records, then recall relevant context in a new
@@ -246,7 +252,7 @@ starts a new run. In Shop, submitting the same question starts a fresh search.
 flowchart LR
     U[Buyer or builder] --> UI[React: Discover, Shop, Playground]
     UI --> API[FastAPI retrieval and agent API]
-    H[MCP-compatible host] --> MCP[MCP 2.0 adapter]
+    H[MCP-compatible host] --> MCP[MCP adapter]
     MCP --> API
 
     API --> Q[Query and filter contract]
@@ -504,7 +510,8 @@ The complete restore policy and the non-recoverable predecessor history are in
 ## Optional MCP contract
 
 MCP interoperability is supported reference material rather than a fourth
-required lab. The isolated MCP 2.0 environment exposes three typed,
+required lab. The isolated MCP environment (specification revision
+`2026-07-28`, `mcp` SDK 2.0) exposes three typed,
 catalog-read-only product search, product evidence, and retrieval-run inspection
 tools over the same API:
 
@@ -612,7 +619,7 @@ data/         Catalog shards, dictionaries, evaluations, and media manifests
 db/           Aurora schemas, loaders, indexes, retrieval functions, and labs
 deploy/       Source-owned Code Editor bootstrap and delivery contract
 docs/         Architecture, curriculum, evaluation, operations, and UI contracts
-mcp-server/   Isolated MCP 2.0 adapter
+mcp-server/   Isolated MCP adapter
 scripts/      Data, embedding, validation, scorecard, and benchmark tooling
 service/      FastAPI, retrieval orchestration, Strands tools, and model clients
 skills/       Participant takeaway skill, checked adapter map, and adaptation guidance

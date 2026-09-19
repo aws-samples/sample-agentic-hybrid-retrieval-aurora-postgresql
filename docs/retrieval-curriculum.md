@@ -149,7 +149,7 @@ continues after the session; the three required lab contracts stay unchanged.
 The [adaptation guide](use-in-your-app.md) maps every abstract promise to its
 working schema, SQL or application file.
 
-The main Pipeline also offers Plan my workspace (the canonical Lab 3 request)
+The main Playground also offers Plan my workspace (the canonical Lab 3 request)
 and Check the sources (specification versus sample review evidence). The latter
 shows retrieved records even when the answer does not cite them.
 

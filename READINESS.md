@@ -25,15 +25,20 @@ Run these against the release candidate:
 make lint
 make validate
 make validate-db
-python scripts/config_tripwire.py
-python scripts/retrieval_profile.py --check
-python scripts/mission_contract.py --shape-only
+make validate-config
+make validate-release-workflow
+uv run python scripts/mission_contract.py --shape-only
+PYTHONPATH=. uv run pytest -q
+make mcp-install && make mcp-test && make mcp-wheel-smoke
 cd ui && npm test && npm run build && npm audit --audit-level=moderate
 ```
 
-These gates prove source shape, deterministic contracts, package integrity, and
-offline behavior. They do not prove Aurora connectivity, Bedrock entitlement,
-asset transfer, or live-session timing.
+This is the list `.github/workflows/ci.yml` runs on every push and pull
+request; `README.md` prints the same one. The offline pytest run covers the
+whole suite except the files marked `aurora`, which `tests/conftest.py` skips
+without a `DATABASE_URL`. These gates prove source shape, deterministic
+contracts, package integrity, and offline behavior. They do not prove Aurora
+connectivity, Bedrock entitlement, asset transfer, or live-session timing.
 
 ## Aurora-backed gates
 

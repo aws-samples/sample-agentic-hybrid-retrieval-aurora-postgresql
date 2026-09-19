@@ -51,7 +51,10 @@ because `ANALYZE` executes the query, so a plan exists for the events somebody
 asked about, not for every search. Read that plan carefully: the full-text and
 trigram arms are `plpgsql` functions, so they appear as opaque function scans
 with no index named inside them, while the vector arm is a `sql` function the
-planner can inline, so its HNSW index does appear. The per-arm index names on
+planner can inline, so its HNSW index does appear, provided the outer
+`search_hybrid_rrf` stays inlinable too (SQL-language, one `SELECT`, not
+`STRICT`, not `VOLATILE`, no `SET` clause); otherwise the whole call collapses
+to one opaque function scan. The per-arm index names on
 the Playground's channel list and their validity in readiness are the
 authority, not the plan text.
 

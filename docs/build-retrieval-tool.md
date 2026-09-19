@@ -8,7 +8,7 @@ The takeaway remains the SQL, the eval harness and the citation guard named in t
 
 ## 1. Create your working file
 
-Start from the Mosaic repository in Code Editor, with its Python dependencies installed and the API running against Aurora. Replace `YOUR_MOSAIC_APP_URL` with your Mosaic app’s base address, before `/labs` or `/catalog`. The participant instructions are in the Workshop Studio guide’s optional flex section.
+Start from the Mosaic repository in Code Editor, with its Python dependencies installed and the API running against Aurora. Replace `YOUR_MOSAIC_APP_URL` with your Mosaic app’s base address, before `/labs/retrieval` or `/catalog`. The participant instructions are in the Workshop Studio guide’s optional flex section.
 
 ```bash
 export MOSAIC_API_URL=YOUR_MOSAIC_APP_URL

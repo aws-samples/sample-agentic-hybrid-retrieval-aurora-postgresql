@@ -65,7 +65,8 @@ queries. Candidate depth and search effort are part of each configuration.
   scan-tuple limit. Filter comparisons hold search effort and memory constant.
 - Query vectors are the current anchor products' stored embeddings. Exact
   full-precision top-10 IDs were recomputed for every anchor and filter using
-  transaction-local settings that disable index and bitmap scans. The anchor
+  session settings that disable index and bitmap scans and are reset after
+  each query. The anchor
   itself is included when it passes the filter. Recall is ID overlap against
   that exact result, averaged across anchors; equal-distance ties are not
   treated as interchangeable IDs.

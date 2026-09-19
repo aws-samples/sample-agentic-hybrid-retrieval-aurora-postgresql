@@ -28,7 +28,7 @@ the [parking lot](mosaic-parking-lot.md). They are not additional required labs.
 - three required labs, two embedded Lab 1 checkpoints, and three optional
   Advanced Labs; the HNSW check is governed by
   `data/evals/mosaic_labs_missions.json`;
-- isolated MCP 2.0 adapter exposing the canonical read-only retrieval tools; and
+- isolated MCP adapter (specification revision `2026-07-28`) exposing the canonical read-only retrieval tools; and
 - snapshot-safe schema upgrades plus release gates that require the live Aurora
   integration suite.
 
@@ -49,9 +49,9 @@ exercise, not whether semantic retrieval exists.
 - category photography for the remaining plateless categories. Eleven
   categories own a plate set; the rest fill from their own exact shots and,
   where an interchangeable neighbour exists, from `relatedCategories` in
-  `ui/src/media.ts`. `true-wireless-earbuds` is the largest category still
-  one photograph short of a full page and has no interchangeable neighbour,
-  so it needs a plate run rather than another related-category row; and
+  `ui/src/media.ts`. The premium cohort's own shot list
+  (`docs/media-shot-list.md`) is complete; a plate run for a category such as
+  `true-wireless-earbuds` would widen its browse page and is optional; and
 - corpus-wide evaluation beyond the curated canonical release set.
 
 Hash embeddings are development-only and cannot support workshop relevance

@@ -2,10 +2,11 @@
 
 > Staff brief, written in plain language. It carries no secrets, so it is fine for a participant to find it in Code Editor. Use it to understand the story, divide presenter roles, and answer questions the same way at every table. The operational checklist lives in the Workshop Studio repository's `FACILITATOR_GUIDE.md`; this file does not repeat it.
 
-Participant guide revisions are deferred to the workshop design review. Track
-them in [Workshop lab design TODO](docs/workshop-lab-design-todo.md). The speaking
-cues below do not add required exercises or change the mission contract. Use role
-labels in repository material; keep the personal staffing roster outside the repo.
+The participant guide follows the [lab exercise design](docs/superpowers/specs/2026-09-19-lab-exercise-design.md):
+every lab page has the same shape, and its four numbered tasks are the
+Broken, Diagnose, Fix, Prove rhythm. The speaking cues below do not add
+required exercises or change the mission contract. Use role labels in
+repository material; keep the personal staffing roster outside the repo.
 
 ## The workshop in one minute
 
@@ -200,12 +201,11 @@ Welcome Alex profile or the Discover brief already implements.
 
 ## What participants do
 
-1. Open three browser tabs from the Event Dashboard: Code Editor and Mosaic, plus the guide itself.
-2. In Shop, observe the correctly spelled control, then search `noice cancelng hedfones` and see the Sonora WH-C720 missing. That contrast diagnoses the starting fault.
-3. Lab 1: reconnect the close-spelling search arm to fusion, in SQL.
-4. Lab 2: repair the fusion arithmetic so rank position counts again, in SQL.
-5. Lab 3: register retrieved evidence into the application state that authorizes citations, in Python.
-6. Run the completion gate inside Lab 3, then use the remaining time for an optional exercise, catch-up or questions.
+1. Open three browser tabs from the Event Dashboard: Code Editor and Mosaic, plus the guide itself. The introduction shows one healthy meaning-only search and the three names Shop prints for its searches.
+2. Lab 1, Tasks 1a to 1d: run the meaning-only, correctly spelled and misspelled searches under the same filters and see the Sonora WH-C720 vanish; probe the close-spelling search directly in SQL; reconnect it to fusion; prove the typo comes back and that the correctly spelled search gained candidates too.
+3. Lab 2, Tasks 2a to 2d: compare the combined order with the final order for the chair search; find equal contributions for unequal ranks and a collapsed pool; restore `1 / (k + rank)` in SQL; prove every contribution and run the controls.
+4. Lab 3, Tasks 3a to 3d: read the fail-closed HTTP 503; trace evidence from the tool to the state that authorizes citations; register it in Python and restart; resolve every citation, read the sources, and run the validator.
+5. Run the completion gate inside Lab 3, then use the remaining time for an optional exercise, catch-up or questions.
 
 Each lab has a manual path and an optional coding-agent path (`claude` from the repository root, with guardrails). Both produce the same small diff and pass the same validator. Each lab also has a five-minute **Fast track** that compresses the implementation, never the proof.
 
@@ -548,7 +548,7 @@ and two-pass binary section reuses recorded comparisons; when attribution
 differs from the current catalog or code, present those results as historical.
 This interface change adds no new benchmarks or workshop-capacity evidence.
 
-**Open advanced instrument** (`?view=bench`) uses the same open reading layout
+**Full benchmark workbench** (`?view=bench`) uses the same open reading layout
 as Hybrid retrieval and retains the live probe controls. Its rail names three sections:
 **Index & storage** covers the connected cluster and recorded representation
 comparisons; **Recall & filters** compares approximate search with exact

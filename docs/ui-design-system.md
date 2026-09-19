@@ -327,7 +327,7 @@ under 760px; the request and single Play action stay prominent on mobile.
 | `/labs/retrieval?view=lab` | Guided Playground: Retrieve, Rank, Reason, Prove, lab rail and completion proof; URLs containing `example` or `run` also select this surface |
 | `/mosaic-labs/hnsw` | Scale & HNSW: read-only index explanation, current Aurora substrate and attributed recorded measurements, including optional halfvec/binary comparisons |
 | `/mosaic-labs/memory` | Session & Memory: AgentCore events, four built-in strategies and actual records; conversation and strategy columns lead to recall and Aurora-backed cited answers |
-| `/mosaic-labs/hnsw?view=bench` | Advanced instrument: Index & storage, Recall & filters, Scale experiments; live probes, recorded experiments and projections carry distinct labels |
+| `/mosaic-labs/hnsw?view=bench` | Full benchmark workbench: Index & storage, Recall & filters, Scale experiments; live probes, recorded experiments and projections carry distinct labels |
 | `/mosaic-labs/studio` | Retired composition page; redirects to Hybrid retrieval |
 
 `/playground`, `/mosaic-labs` and `/inspiration` redirect to Hybrid retrieval;

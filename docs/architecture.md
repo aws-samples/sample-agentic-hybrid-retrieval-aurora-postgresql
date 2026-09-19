@@ -5,7 +5,7 @@
 ```mermaid
 flowchart LR
     U[Buyer / builder] --> UI[Mosaic discovery UI]
-    H[MCP-compatible host] --> MCP[Stateless MCP 2.0 adapter]
+    H[MCP-compatible host] --> MCP[Stateless MCP adapter]
     MCP --> API
     UI --> API[Search orchestration API]
     API --> Q[Query understanding]

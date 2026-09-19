@@ -11,7 +11,7 @@ honest.
 | Document | Purpose |
 |---|---|
 | `workshop.md` (repo root) | Co-presenter brief: story, three-lab journey, how to read a run |
-| `workshop-lab-design-todo.md` | Deferred guide design: same-run answer inspection, expert proof discussions and monitor scenario review |
+| `superpowers/specs/2026-09-19-lab-exercise-design.md` | The participant guide's page shape, task structure, printed-number policy and validator pins |
 | `architecture.md` | Runtime and offline architecture |
 | `postgres-18.md` | Engine and pgvector version facts, what the pipeline uses, and what is not claimed |
 | `agentcore-runtime.md` | Optional: shipping the FastAPI and Strands process to Amazon Bedrock AgentCore Runtime unchanged, with Aurora as the evidence authority |

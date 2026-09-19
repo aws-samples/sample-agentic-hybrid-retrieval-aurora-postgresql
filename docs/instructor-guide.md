@@ -63,9 +63,9 @@ every rendered payload for drift.
 ## Teaching narrative
 
 Use the role-based opening and expert discussion cues in
-[`workshop.md`](../workshop.md). Participant guide changes are deferred in
-[Workshop lab design TODO](workshop-lab-design-todo.md); the current payloads,
-repairs and validation sequence remain in place.
+[`workshop.md`](../workshop.md). The participant guide's shape is recorded in
+the [lab exercise design](superpowers/specs/2026-09-19-lab-exercise-design.md);
+the payloads, repairs and validation sequence are unchanged by it.
 
 ### Opening
 

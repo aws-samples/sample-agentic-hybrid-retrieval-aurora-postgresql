@@ -4,8 +4,8 @@ The [submitted abstract](session-abstract.md) describes the complete application
 
 The opening makes the scaffolding explicit: the catalog, embeddings and
 application are supplied; participants implement and prove three critical
-connections. Guide changes, including the terminal-to-answer handoff and a
-possible monitor scenario, are deferred in [Workshop lab design TODO](workshop-lab-design-todo.md).
+connections. The guide's page shape and task structure are recorded in the
+[lab exercise design](superpowers/specs/2026-09-19-lab-exercise-design.md).
 
 | Promise | Where participants encounter it | What they do |
 |---|---|---|

@@ -37,7 +37,7 @@ the MCP server therefore use separate Python environments:
 
 ```text
 .venv/                 FastAPI, Strands, PostgreSQL, and model clients
-mcp-server/.venv/      Mosaic MCP 2.0 adapter and HTTP client
+mcp-server/.venv/      Mosaic MCP adapter and HTTP client
 ```
 
 This is intentional. Both processes consume the same API and Pydantic response

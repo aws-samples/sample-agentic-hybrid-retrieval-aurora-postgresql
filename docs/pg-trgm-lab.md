@@ -15,7 +15,7 @@ The package ships **5,000 deterministic typo cases** in `data/evals/typo_cases.c
 
 ## Indexed text
 
-`trigram_text` combines normalized title, brand, model, subcategory, and aliases. The index the API's arm actually uses is:
+`trigram_text` combines normalized title, brand, model, SKU, category path, aliases, and tags. The index the API's arm actually uses is:
 
 ```sql
 CREATE INDEX product_document_trigram_gin_idx
@@ -26,13 +26,32 @@ ON mosaic_search.product_document USING gin (trigram_text gin_trgm_ops);
 
 Run `db/sql/lab_01_typo_tolerance.sql` and compare:
 
-1. FTS results for the misspelled query
-2. whole-identity `%` candidates for models and SKUs
-3. token-level `<%` word-similarity candidates for prose
-4. score thresholds from 0.60 through 1.00
-5. the indexed execution plan
+1. the strict `websearch_to_tsquery` match count for the misspelled query
+2. `mosaic_search.search_fts` for the same query, including its conjunctive
+   backoff
+3. `mosaic_search.search_trigram` for the same query and filters
+4. the indexed execution plan for the `<%` word-similarity gate
+5. score thresholds from 0.60 through 1.00
+
+The served arm runs the `<%` word-similarity gate first, governed by
+`pg_trgm.word_similarity_threshold`; the whole-string `%` gate, governed by
+`pg_trgm.similarity_threshold`, runs only as a fallback when the first branch
+returns no rows. The function's `minimum_similarity` argument is a separate
+score floor on top of both gates.
 
 ## Query families
+
+The all-miss anchor, where every token defeats the stemmer and only the
+trigram arm recovers the target:
+
+```text
+noice cancelng hedfones
+```
+
+Partial-miss queries, where at least one token is spelled correctly (or stems
+correctly: `canceling` and `cancelling` both stem to `cancel`) so FTS still
+contributes and the trigram arm is one signal among several. Contrast these
+with the anchor rather than treating them as equivalent:
 
 ```text
 noice canceling hedphones
