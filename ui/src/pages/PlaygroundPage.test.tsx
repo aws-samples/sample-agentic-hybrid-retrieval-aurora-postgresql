@@ -164,7 +164,7 @@ it("streams the full answer, then groups every pick and keeps the complete expla
   expect(fullAnswer.textContent).toContain("The final sentence.");
   expect(prose.compareDocumentPosition(picks) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(prose.getAttribute("aria-busy")).toBe("false");
-  fireEvent.click(screen.getByRole("button", { name: "Quiet typing" }));
+  fireEvent.click(screen.getByRole("button", { name: "More screen space" }));
   expect(screen.queryByRole("region", { name: "Mosaic’s picks for Alex" })).toBeNull();
   expect(container.querySelector(".inspector-answer")).toBeNull();
 });
@@ -276,7 +276,7 @@ it("shows the actual rank movement from the agent receipt, then clears it when r
   expect(screen.getByRole("region", { name: "Product ranking details" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Why the order changed" }).getAttribute("aria-expanded")).toBe("true");
   expect(screen.getByText("The recorded answer.")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Quiet typing" }));
+  fireEvent.click(screen.getByRole("button", { name: "More screen space" }));
   expect(screen.queryByText(/#27 before rerank/)).toBeNull();
   expect(screen.queryByRole("region", { name: "Product ranking details" })).toBeNull();
   expect(screen.queryByText("The recorded answer.")).toBeNull();

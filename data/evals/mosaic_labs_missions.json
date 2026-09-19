@@ -519,15 +519,15 @@
         "notice": "Follow Alex’s need for adjustable support from candidate retrieval through ranking and a comparison grounded in product details."
       },
       {
-        "id": "quiet-typing",
-        "label": "Quiet typing",
-        "shop_label": "Quiet typing",
-        "query": "a quiet mechanical keyboard for typing during video calls without distracting my teammates",
+        "id": "more-screen-space",
+        "label": "More screen space",
+        "shop_label": "More screen space",
+        "query": "a 4K monitor for coding and photo editing with USB-C video and laptop charging",
         "filters": {
           "domain": "home_office",
-          "category_key": "quiet-keyboards"
+          "category_key": "productivity-monitors"
         },
-        "notice": "Alex wants mechanical feel without distracting people on calls. Compare typing noise and feel. Plan my workspace adds a chair and searches for both needs."
+        "notice": "Alex wants room for code and reference material, with fewer cables on his desk. Compare screen size, resolution and connections. Check the specifications for USB-C video and charging separately."
       },
       {
         "id": "exact-model",

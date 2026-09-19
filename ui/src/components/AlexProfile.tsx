@@ -69,7 +69,7 @@ export function AlexProfile({ onOpen }: { onOpen: () => void }) {
               <p>Software engineer · Works from home</p>
             </div>
           </div>
-          <blockquote>“Quiet keys, clear calls, and a chair I don’t have to think about.”</blockquote>
+          <blockquote>“Room for my code, clear calls, and a chair I don’t have to think about.”</blockquote>
           <p className="alex-profile-bio">Alex shares a home office with his partner. His days move between writing code, team calls and finding a little room to focus.</p>
           <dl className="alex-profile-details">
             <div><dt>His kind of space</dt><dd>Warm, uncluttered, easy on the eyes.</dd></div>

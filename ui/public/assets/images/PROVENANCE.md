@@ -1,5 +1,20 @@
 # Mosaic image assets
 
+## Monitor replacements, 2026-09-19
+
+Three photographs were generated with the built-in image-generation tool to
+show the complete flat Mosaic Atelier 32 and the curved HorizonView 38 ultrawide.
+The source PNGs are retained under
+`ui/design-references/monitor-refresh-2026-09-19/`. Exact prompts, reference roles,
+native dimensions and runtime paths are recorded in `docs/monitor-image-prompts.md`.
+Runtime files use one WebP quality-94 encode with native dimensions preserved;
+no crop, resize, pixel retouching or upscaling was applied. The product-bound
+manifest records the new hashes. Original supplied assets remain unchanged.
+
+The older Atelier detail URL containing `ultrawide` remains a byte-identical
+compatibility copy of the new flat-monitor detail image. Product pages now use
+the correctly named Productivity Monitors detail path.
+
 The `curated/` set and the files at this directory's root are copied verbatim
 from the supplied asset package:
 
@@ -112,3 +127,11 @@ The supplied renders use the fictional Mosaic brand but several depict
 recognizable real products, and some carry legible third-party maker marks.
 Page text is also baked into the pixels of a few frames. These are accepted for
 now and will be corrected upstream in the asset package, not here.
+
+The same refresh also replaces product 421678 (flat 16:9 Full HD) and product
+422310 (curved 32:9 super-ultrawide), checked against Aurora catalog attributes.
+Both masters and runtime images retain their native 1536 × 1024 dimensions.
+
+- `ho-productivity-monitors-p421678-catalog-3x2.webp`: `cf3c68645991b13a49607999fa9ae84a5610af5652f6cf7aa649b5e2a8060795`
+
+- `ho-ultrawide-monitors-p422310-catalog-3x2.webp`: `d8e8987fc33565a4774795836059d086ff707a640b9fc8f50cd458c0d3a0ed91`

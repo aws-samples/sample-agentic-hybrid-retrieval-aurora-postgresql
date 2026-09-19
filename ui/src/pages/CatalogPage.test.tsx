@@ -851,7 +851,7 @@ describe("CatalogPage", () => {
   });
 
   it("runs a suggested search on its own terms, not inside the browsed category", async () => {
-    const request = mosaicLabManifest.playground.requests.find((item) => item.id === "quiet-typing")!;
+    const request = mosaicLabManifest.playground.requests.find((item) => item.id === "more-screen-space")!;
     // Reproduced against the running app: Running & fitness selected, then the
     // keyboard suggestion taken, returned twelve rowing machines. The retrieval
     // was right -- `domain` is an eligibility gate applied before ranking and it
@@ -2024,7 +2024,7 @@ describe("CatalogPage", () => {
   });
 
   it("does not suggest unrelated agent examples inside a category", async () => {
-    window.history.replaceState({}, "", "/catalog?category_key=productivity-monitors");
+    window.history.replaceState({}, "", "/catalog?category_key=quiet-keyboards");
     renderPage();
     await screen.findByText(catalog.products[0].model);
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
@@ -2108,19 +2108,19 @@ describe("CatalogPage", () => {
     expect(within(callout).getByRole("row", { name: "PostureWorks Pro Mesh 1 1" })).toBeTruthy();
   });
 
-  it("offers the compatible workspace request inside a keyboard category", async () => {
-    window.history.replaceState({}, "", "/catalog?domain=home_office&category_key=quiet-keyboards");
+  it("offers the compatible workspace request inside a monitor category", async () => {
+    window.history.replaceState({}, "", "/catalog?domain=home_office&category_key=productivity-monitors");
     renderPage();
     await screen.findByText(catalog.products[0].model);
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
     const starters = await screen.findByRole("list", { name: "Example questions" });
     const requests = within(starters).getAllByRole("button");
     expect(requests).toHaveLength(1);
-    expect(requests[0].getAttribute("aria-label")).toBe(mosaicLabManifest.playground.requests.find((request) => request.id === "quiet-typing")!.query);
+    expect(requests[0].getAttribute("aria-label")).toBe(mosaicLabManifest.playground.requests.find((request) => request.id === "more-screen-space")!.query);
     fireEvent.click(requests[0]);
     await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
     expect(vi.mocked(api.agentStream).mock.calls.at(-1)?.[1]).toMatchObject({
-      domain: "home_office", category_key: "quiet-keyboards",
+      domain: "home_office", category_key: "productivity-monitors",
     });
   });
 

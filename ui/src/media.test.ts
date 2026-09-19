@@ -5,6 +5,8 @@ import {
   productBoundImage,
   productImage,
   productImageMap,
+  productImages,
+  productEditorialPoster,
 } from "./media";
 import type { Domain, ProductSummary } from "./types";
 
@@ -47,6 +49,25 @@ function filler(product_id: number, overrides: Partial<ProductSummary> = {}) {
 }
 
 describe("productImage", () => {
+  it("binds the reviewed Atelier detail to its product ID, even after a title change", () => {
+    expect(productImages(product({ product_id: 420001, title: "Updated display name" }))).toEqual([
+      "/assets/images/mosaic/ho-productivity-monitors-atelier-32-detail-1x1.webp",
+    ]);
+  });
+
+  it("does not give another Atelier model the flagship's detail photograph or retired poster", () => {
+    const other = filler(20, {
+      title: "Mosaic Atelier 32 Lite",
+      domain: "home_office",
+      category_key: "productivity-monitors",
+    });
+    expect(productImages(other)).not.toContain(
+      "/assets/images/mosaic/ho-productivity-monitors-atelier-32-detail-1x1.webp",
+    );
+    expect(productEditorialPoster(other)).toBeNull();
+    expect(productEditorialPoster(product({ product_id: 420001, title: "Mosaic Atelier 32" }))).toBeNull();
+  });
+
   it("resolves the exact Sonora catalog photograph from the 200-product manifest", () => {
     expect(productBoundImage(2)).toBe(
       "/assets/images/mosaic/ce-over-ear-headphones-02-catalog-3x2.webp",

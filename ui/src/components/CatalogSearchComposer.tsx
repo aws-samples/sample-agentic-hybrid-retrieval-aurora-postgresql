@@ -43,7 +43,7 @@ interface CatalogSearchComposerProps {
 // Alternate exact catalog identities with natural-language shopping intent.
 // The idle examples teach both retrieval modes without changing the input.
 export const catalogGhostQueries = [
-  "quiet mechanical keyboard for a shared office",
+  "a monitor with room for code and documents side by side",
   "Sonora WH-C720",
   "carbon-plated marathon shoes under $220",
   "Ergonomic Office Chairs",

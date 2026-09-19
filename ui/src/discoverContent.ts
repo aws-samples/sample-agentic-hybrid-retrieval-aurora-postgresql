@@ -33,14 +33,14 @@ const storyContent = {
     imageHeight: 1008,
     imageAlt: "A mesh office chair with a burgundy throw beside an oak desk in warm daylight",
   },
-  "quiet-typing": {
-    topic: "Keyboards",
-    situation: "Alex takes notes while his teammates talk. He wants a keyboard that feels good to type on without taking over the call.",
-    considerations: "Compare typing noise and switch feel. Then check the layout and wireless connection for his daily work.",
-    image: "/assets/images/mosaic/ho-quiet-keyboards-01-catalog-3x2.webp",
-    imageWidth: 1200,
-    imageHeight: 800,
-    imageAlt: "A cream mechanical keyboard with maroon keys on a warm stone surface",
+  "more-screen-space": {
+    topic: "Monitors",
+    situation: "Code in one window, reference material in another. Alex wants a clear, comfortable view without constantly switching between them.",
+    considerations: "Compare screen size, resolution and connections. A USB-C port alone doesn’t tell you whether it carries video, charges a laptop, or both.",
+    image: "/assets/images/mosaic/ho-productivity-monitors-atelier-32-catalog-3x2.webp",
+    imageWidth: 1536,
+    imageHeight: 1024,
+    imageAlt: "A flat desktop monitor with a burgundy and sand screen on an oak desk, with its complete stand visible",
   },
 };
 

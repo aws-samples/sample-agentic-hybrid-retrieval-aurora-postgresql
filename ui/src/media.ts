@@ -10,6 +10,12 @@ const catalogImageByProductId = new Map(
     .map((product) => [product.product_id, product.catalog_runtime_path]),
 );
 
+const monitorDetailByProductId = new Map(
+  mediaManifest.products
+    .filter((product) => product.category === "Displays" && product.detail_installed && product.detail_runtime)
+    .map((product) => [product.product_id, `${ASSETS}/mosaic/${product.detail_runtime}`]),
+);
+
 /** The manifest-bound catalog photograph for an exact product, when installed. */
 export function productBoundImage(productId: number): string | null {
   return catalogImageByProductId.get(productId) ?? null;
@@ -61,7 +67,6 @@ const mosaicProductImageSets: MosaicImageSet[] = [
   [/\bpulse\s*one\b/i, [`${ASSETS}/mosaic/pulse-one.webp`]],
   [/\bstride\s*pro\b/i, [`${ASSETS}/mosaic/stride-pro-studio.webp`]],
   [/\bforma\s*ergonomic\b/i, [`${ASSETS}/mosaic/forma-ergonomic-studio.webp`]],
-  [/\batelier\s*32\b/i, [`${ASSETS}/mosaic/ho-ultrawide-monitors-atelier-32-detail-1x1.webp`]],
   [/\bmelody\s*go\b/i, [`${ASSETS}/mosaic/melody-go-scene.webp`]],
   [/\blume\s*desk\s*lamp\b/i, [`${ASSETS}/mosaic/lume-desk-lamp-scene.webp`]],
   [/\bcarryall\s*sleeve\b/i, [`${ASSETS}/mosaic/carryall-sleeve.webp`]],
@@ -91,13 +96,6 @@ const posterByProductName: Array<[RegExp, { src: string; alt: string }]> = [
     {
       src: `${ASSETS}/mosaic/posters/04-stride-pro-poster.png`,
       alt: "Mosaic Stride Pro campaign poster",
-    },
-  ],
-  [
-    /\batelier\s*32\b/i,
-    {
-      src: `${ASSETS}/mosaic/posters/06-atelier-32-poster.png`,
-      alt: "Mosaic Atelier 32 campaign poster",
     },
   ],
 ];
@@ -371,6 +369,8 @@ export function productImageMap(products: ProductSummary[]): Map<number, string>
 }
 
 export function productImages(product: ProductSummary): string[] {
+  const monitorDetail = monitorDetailByProductId.get(product.product_id);
+  if (monitorDetail) return [monitorDetail];
   return matchingMosaicImageSet(product) ?? [productImage(product)];
 }
 
