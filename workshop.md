@@ -102,7 +102,7 @@ not seven additional participant tasks.
 
 | Clock | Beat | Say and show | Owner |
 |---|---|---|---|
-| 00:00–01:00 | Meet Alex | Show the home-office brief. Alex needs focus, comfort and quiet typing. Ask: what would make a recommendation worth following? | Lead |
+| 00:00–01:00 | Meet Alex | Show the home-office brief. Alex needs clearer calls, a comfortable chair and more screen space. Ask: what would make a recommendation worth following? | Lead |
 | 01:00–03:00 | A search that misses | Show the headphone control and the misspelled request with identical filters. The target disappears even though Shop still returns products. Save the broken search. | Lead |
 | 03:00–04:30 | Retrieve: find the options | Show the three search methods and ask which record would locate the missing product. Filters decide eligibility; a reranker cannot add a product it never receives. Let Lab 1 establish the cause. | Technical |
 | 04:30–06:00 | Rank: establish their order | Preview the question, not the next fault: if a chair finishes first, how do we know fusion worked? Participants will inspect source ranks and `1 / (k + rank)` before reranking. | Technical |
@@ -160,7 +160,7 @@ and in Playground.
 workspace Alex is working toward. Beside it, **Meet Alex** makes the brief
 specific: a software engineer whose day moves between coding, team calls and
 focused work. His desk and laptop are already in place. His headphones, chair
-and keyboard are still to choose. The portrait and brief establish the customer;
+and monitor are still to choose. The portrait and brief establish the customer;
 there is no shopper login exercise or invented “2 of 7” completion counter.
 
 The slide-ready [Meet Alex bio and full-resolution headshot](docs/presentation-assets/meet-alex.md)
@@ -174,7 +174,11 @@ runs a real, category-scoped Shop search. The order matches Shop’s Explore pil
 |---|---|---|---|
 | **Clearer calls** | Background noise at home makes it harder for teammates to hear him. | Microphone clarity for the person listening, plus comfort and noise cancellation for Alex. Listening noise cancellation alone does not establish outgoing voice clarity. | Find headphones for Alex → headphones search and comparison. |
 | **Comfortable days** | A short call becomes a long coding session. | Lumbar support, seat depth and arm adjustments that fit his body and working day. | Find chairs for Alex → chair search and comparison. |
-| **Quiet typing** | Alex takes notes while teammates talk. | Typing noise, mechanical feel, layout and wireless connection. | Find keyboards for Alex → keyboard search; **Plan my workspace** searches both keyboard and chair needs. |
+| **More screen space** | Alex needs code and reference material visible together. | Screen size, resolution, and separate confirmation of USB-C video and laptop charging. | Find monitors for Alex → monitor search and comparison. |
+
+Lab 3 extends the brief with a keyboard-and-chair request. Carry forward the
+chair decision from Lab 2, then gather separate evidence for each item. The
+monitor introduction does not change the required lab's repair or checks.
 
 From there, the customer experience continues:
 

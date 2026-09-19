@@ -164,7 +164,7 @@ managed runtime or tool transport without taking over retrieval.
 
 ## Carry the story and reuse the proof
 
-Discover’s third need is quiet typing. Carry the chair search from Lab 2 into Lab 3’s keyboard-and-chair request. The monitor stays an exact-model control and optional HNSW example; the canonical lab missions are unchanged.
+Discover’s third need is more screen space, matching the presentation and Shop's monitor example. Lab 3 extends the brief with a keyboard-and-chair request: carry forward the chair search from Lab 2 and gather separate evidence for the added item. The monitor is also an exact-model control and an optional HNSW example. The required lab missions, repairs and checks are unchanged.
 
 Ask each checkpoint question before repair. Lab 3 should explicitly show the keyboard and chair searches in `plan`, explain that the prompt names their taxonomy, and separate HTTP 503 failure from a successful answer that declines unsupported claims.
 
