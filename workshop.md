@@ -64,10 +64,14 @@ questions. A correctly spelled request can also receive close-spelling matches.
 Pin the broken typo receipt before repair and repeat the identical request after
 repair; the baseline survives the required reload.
 
-Lab 2's current fixture swaps the fused top two while keeping the final winner.
-The essential diagnosis is equal contributions for unequal source ranks. Even
-if a different run already shows the expected winner, inspect and repair that
-formula; a plausible first result alone cannot pass the production validator.
+Lab 2's leader can look right in both states: a chair found by all three
+searches keeps three contributions under the broken formula and still beats a
+chair found by two. An earlier measurement swapped the fused top two; a later
+run on the current build did not, so do not promise the swap. The essential
+diagnosis is equal contributions for unequal source ranks, a collapsed pool,
+and the single-search alternatives ordered by catalog number below the
+leaders. Inspect and repair the formula; a plausible first result alone cannot
+pass the production validator.
 
 Lab 3 separates authorization, relevance and claim support. Registered evidence
 IDs authorize citation; a separate review checks the current request and its

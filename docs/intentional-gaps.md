@@ -73,10 +73,14 @@ the later resets.
   `1 / (rrf_k + 1)`. Candidate generation remains intact, but every candidate
   from an arm contributes as if it held rank 1, so within-arm order disappears.
 - **Restoring it looks like** restoring the inspectable reciprocal-rank formula.
-- **Measured movement** broken fusion orders 370001 then 370002 even though
-  370002 wins all three arms; repaired fusion orders 370002 then 370001. Cohere
-  Rerank returns 370002 then 370001 in both states, deliberately demonstrating
-  why every ranking layer needs its own validation.
+- **Guaranteed movement** every candidate found by the same number of arms
+  shares one fused score, so the single-arm majority of the pool is ordered by
+  product ID instead of by rank; the repair separates them. An earlier
+  measurement also recorded 370001 ahead of 370002 in the broken fused order,
+  which a later run on the current build did not reproduce
+  (`docs/lab-golden-queries.md`). Cohere Rerank returns 370002 first in both
+  states, deliberately demonstrating why every ranking layer needs its own
+  validation.
 - **Assertions that turn green** `rank_provenance_present`,
   `rerank_score_present`, plus the production validator's arithmetic and
   repeatability checks.

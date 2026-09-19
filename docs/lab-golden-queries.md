@@ -10,7 +10,7 @@ contract without creating a second copy of its values.
 | Lab | Canonical query | Bad observation | Participant repair | Good observation |
 |---|---|---|---|---|
 | Retrieve | `G-003` / `typo-recovery` | Neither FTS nor the semantic arm can recover product 2; the disconnected pg_trgm arm contributes nothing, so product 2 is absent from the results | Restore the trigram CTE and candidate channel | Product 2 enters through the restored trigram channel alone, reaches the first 10 results, and retains hard filters |
-| Rank | `G-008` / `rank-with-evidence` | Product 370002 wins every arm, but collapsed contributions put 370001 at fused rank 1; reranking masks the defect | Restore `1 / (k + source_rank)` | Product 370002 is fused and final rank 1, with stable, inspectable contributions |
+| Rank | `G-008` / `rank-with-evidence` | Product 370002 wins every arm; collapsed contributions give every position the same credit, so the pool below the leaders is ordered by product ID and reranking masks the defect | Restore `1 / (k + source_rank)` | Product 370002 is fused and final rank 1, with stable, inspectable contributions |
 | Reason | `G-021` / `agentic-research` | Retrieval and evidence calls occur, but synthesis fails closed with HTTP 503 | Attach retrieved evidence IDs to product-owned synthesis state | HTTP 200, grounded comparison, and citations resolve to real evidence records |
 
 These three are not generic example prompts. Workshop Studio runs the same
@@ -49,22 +49,27 @@ The broken response must fail only the lesson's declared assertion. The fixed
 response must satisfy every declared assertion. A screenshot is presentation
 evidence, not the golden record; retain the response JSON and retrieval event.
 
-## Verified Lab 2 movement
-
-The release Aurora corpus, with the exact mission query and filters, reproduces
-this top-two example (rechecked September 17, 2026):
-
-| State | Fused rank 1 | Fused rank 2 | Final rank 1 | Final rank 2 |
-|---|---:|---:|---:|---:|
-| Broken RRF | 370001 | 370002 | 370002 | 370001 |
-| Repaired RRF | 370002 | 370001 | 370002 | 370001 |
+## Lab 2 movement: what is guaranteed and what is not
 
 Product 370002 ranks first in FTS, pg_trgm, and semantic retrieval for the
-explicit adjustable-lumbar query. The broken formula collapses those ordinal
-differences, and the stable product-ID tie-breaker then puts 370001 first.
-Cohere Rerank recovers 370002 in the final order in both states. That is the
-lesson: final output alone is insufficient proof that candidate fusion is
-correct.
+explicit adjustable-lumbar query. Under the broken `1 / (k + 1)` formula a
+candidate's fused score depends only on how many arms found it, so the
+guaranteed, arithmetic consequence is a collapsed pool: every candidate found
+by the same number of arms shares one score, and the stable product-ID
+tie-breaker orders the single-arm majority of the pool by catalog number
+instead of by rank. Cohere Rerank recovers a plausible order in both states.
+That is the lesson: final output alone is insufficient proof that candidate
+fusion is correct.
+
+A fused top-two swap (370001 ahead of 370002 while broken) was recorded in an
+earlier measurement on the release corpus. A later hands-on run on the
+current build observed 370002 first in both states, which is what the
+arithmetic predicts when 370002 is found by three arms and 370001 by two:
+`3 / 61` beats `2 / 61` regardless of rank. The swap therefore depends on
+370001 also entering the trigram arm, which the trigram threshold decides,
+and it must not be promised. The guide and the facilitator table present it
+as unconfirmed; the clean-account rehearsal records which behaviour the
+shipped build shows.
 
 The repair criterion is the contribution invariant, not a mandatory rank flip.
 If a differently configured run already puts 370002 first, inspect the source
