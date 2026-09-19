@@ -297,7 +297,11 @@ def main() -> int:
         print(f"Lab {args.lab}: SOLUTION ({path.relative_to(REPO)})")
         return 0
     if not lab_is_solved(args.lab):
-        raise SystemExit(f"Lab {args.lab}: BROKEN; run make solution-lab-{args.lab}")
+        raise SystemExit(
+            f"Lab {args.lab}: BROKEN; repair the marked seam, or for full "
+            f"recovery run uv run python scripts/lab_state.py solution "
+            f"--lab {args.lab}"
+        )
     if args.database_url:
         _validate_applied_state(args.lab, args.database_url)
     elif args.lab in {1, 2}:

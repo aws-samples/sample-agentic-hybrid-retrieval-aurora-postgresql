@@ -29,10 +29,10 @@ Two rules, because "one source" needs both halves:
    second `RetrievalProfile` — nine numbers agreeing with the yaml by luck, and
    feeding two generated json-schemas shipped inside `db/`. Widening `SCAN_ROOTS`
    alone would not have found it: for
-   `scan_mem_multiplier: float = Field(default=1, ge=1)`, `DECLARATION` does not
-   match because the token after `:` is `float`, and `ALLOWED_LINE` matches anyway
-   because of `ge=1`. Invisible twice over, which is why it needs its own rule
-   rather than a wider net.
+   a field written as `name: float = Field(default=<n>, ge=1)`, `DECLARATION`
+   does not match because the token after `:` is `float`, and the `ge=1` bound
+   used to exempt the whole line. That shape has its own pattern now
+   (`FIELD_DEFAULT`), and inside `db/models` its own agreement rule.
 
 Usage
 -----
@@ -91,10 +91,12 @@ NUMBER_NAMES = (
     r"scan_mem_multiplier",
 )
 
-# `name = 123`, `name: 123`, `"name": 123`, `name=0.5` — an assignment of a
-# numeric literal to one of the names above.
+# `name = 123`, `name: 123`, `"name": 123`, `name=0.5`, `self.name = 123` — an
+# assignment of a numeric literal to one of the names above. The `.` in the
+# prefix class is what makes an attribute assignment on a profile object a
+# declaration rather than an invisible second copy.
 DECLARATION = re.compile(
-    r"""(?P<prefix>["'\s(,{]|^)
+    r"""(?P<prefix>["'\s(,{.]|^)
         (?P<name>"""
     + "|".join(NUMBER_NAMES)
     + r""")
@@ -120,15 +122,33 @@ RRF_LITERAL = re.compile(
     r"(?:[\w.]+\.)?[\w]*rank\b"
 )
 
-# Lines that name a number without declaring one.
+# `rrf_k: int = Field(default=60, ge=1)` declares a retrieval number in the
+# shape DECLARATION cannot see (the token after `:` is a type). Rule C1d pins
+# this shape inside `db/models`; everywhere else it is a plain second copy.
+FIELD_DEFAULT = re.compile(
+    r"(?P<name>"
+    + "|".join(NUMBER_NAMES)
+    + r")\s*:\s*[\w\[\], |]+\s*=\s*Field\(\s*default\s*=\s*"
+    r"(?P<value>-?\d+(?:\.\d+)?)(?![\d.])"
+)
+
+# Lines that name a number without declaring one. The first group is skipped
+# whole: the value on such a line comes from the yaml or the environment. The
+# second group names sub-expressions that are masked out before the scan, so a
+# `ge=1` or a `> 0` on the same line cannot hide a declaration beside it.
 ALLOWED_LINE = re.compile(
     r"""(?:
         os\.getenv | os\.environ            # the documented override path
-      | ge\s*=|le\s*=|gt\s*=|lt\s*=         # pydantic bounds: ranges, not values
       | Bound\(                             # the bounds table in retrieval_profile
       | _yaml_default | load_profile        # yaml-sourced defaults
       | RAISE\s+EXCEPTION                   # SQL range guards
-      | [<>]=?\s*\d                         # SQL/py comparisons in guards
+    )""",
+    re.VERBOSE,
+)
+MASKED_SPAN = re.compile(
+    r"""(?:
+        \b(?:ge|le|gt|lt)\s*=\s*-?\d+(?:\.\d+)?   # pydantic bounds: ranges, not values
+      | [<>]=?\s*-?\d+(?:\.\d+)?                # SQL/py comparisons in guards
     )""",
     re.VERBOSE,
 )
@@ -229,6 +249,15 @@ SQL_DEFAULTS: tuple[SqlDefault, ...] = (
     # at request time.
     SqlDefault(
         "09_search_functions.sql", "search_hybrid_rrf_weighted", "rrf_k", "rrf_k"
+    ),
+    # The pool size is a fusion input too: the comparison endpoint requires
+    # both functions to fuse the same untruncated pool, and a drifted default
+    # here would truncate one side first.
+    SqlDefault(
+        "09_search_functions.sql",
+        "search_hybrid_rrf_weighted",
+        "result_limit",
+        "fused_limit",
     ),
     SqlDefault(
         "09_search_functions.sql",
@@ -477,6 +506,7 @@ def _scan_file(path: Path, relative: str, report: Report) -> None:
                 function = index.group(1)
         if ALLOWED_LINE.search(line):
             continue
+        line = MASKED_SPAN.sub(" ", line)
         for found in RRF_LITERAL.finditer(line):
             report.fail(
                 f"C1 {relative}:{number}",
@@ -487,10 +517,12 @@ def _scan_file(path: Path, relative: str, report: Report) -> None:
                     "mosaic_search.reciprocal_rank_contribution",
                 ),
             )
-        for pattern in (DECLARATION, FALLBACK):
+        for pattern in (DECLARATION, FALLBACK, FIELD_DEFAULT):
             for found in pattern.finditer(line):
                 name = found.group("name")
                 if is_sql and (function, name) in exempt:
+                    continue
+                if pattern is FIELD_DEFAULT and relative.startswith("db/models/"):
                     continue
                 report.fail(
                     f"C1 {relative}:{number}",

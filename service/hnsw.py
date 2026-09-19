@@ -3,9 +3,9 @@
 Three of the four are plain reads. The fourth, `probe`, issues a real query and is
 the only one with a cost ceiling worth stating: it never reaches a sequential scan,
 because recall is computed against precomputed ground truth rather than by re-running
-the exact query. That exact query measures 2,355 ms and 2,300,855 shared buffer hits
-on this cluster — one per interaction, times a room of participants, would make an
-optional Labs surface a load generator.
+the exact query. The committed artifact records that exact query at about 2.4 s and
+2.4 million shared buffer hits on this cluster — one per interaction, times a room of
+participants, would make an optional Labs surface a load generator.
 
 Every HNSW setting is applied through `mosaic_search.configure_hnsw`, the same
 function served retrieval calls. A probe that reached `set_config` directly would be
@@ -133,7 +133,7 @@ def require_representation_index(connection: Any, representation: str) -> None:
     """Refuse to probe a representation whose index cannot serve the query.
 
     Without this the query still runs: it falls back to a sequential scan over
-    3,870 MB of TOASTed vectors, hits the 5s statement timeout, and reports the
+    the TOASTed vectors, hits the 5s statement timeout, and reports the
     failure as a timeout rather than as the missing index it is.
 
     "Usable" is `service.db.index_states_on`'s answer, the same rule
@@ -438,8 +438,9 @@ def probe_sql(preset: FilterPreset, representation: str = "fp32") -> str:
     """The exact SQL the probe runs, for a preset and a representation.
 
     `embedding IS NOT NULL` is not optional in any of the three shapes. Every index is
-    partial, so a query that drops the predicate cannot use it and falls back to
-    Sort + Seq Scan, measured at 2,182 ms against 2.7 ms for identical rows.
+    partial, so a query that drops the predicate cannot use it and falls back to a
+    sequential scan; the committed artifact's `missing_predicate` entry records that
+    at about 2.3 s against under 2 ms for identical rows.
     """
     predicate = f" AND {preset.predicate_sql}" if preset.predicate_sql else ""
     template = REPRESENTATION_SQL.get(representation)
@@ -686,9 +687,14 @@ def probe(request: Any) -> dict[str, Any]:
             manifest_sha256=manifest,
         )
 
-        # One real transaction. A nested block would degrade to a SAVEPOINT, and
-        # SET LOCAL survives its release — the mechanism that once made a whole
-        # measurement sweep silently run sequential scans and report recall 1.0.
+        # Three statements have already run on this connection, so psycopg has
+        # an implicit transaction open and this block is a SAVEPOINT, not a new
+        # transaction. SET LOCAL survives RELEASE SAVEPOINT and persists until
+        # the outer commit at the end of the checkout, which is harmless here
+        # because nothing else runs on this connection afterwards. Do not add a
+        # second probe inside the same checkout without resetting hnsw.* first;
+        # that leak is the mechanism that once made a whole measurement sweep
+        # silently run sequential scans and report recall 1.0.
         with connection.transaction():
             connection.execute(
                 f"SET LOCAL statement_timeout = '{PROBE_STATEMENT_TIMEOUT}'"

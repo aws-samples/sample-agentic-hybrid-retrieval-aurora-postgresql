@@ -875,7 +875,9 @@ FUNCTION_DEFINITION=$(psql "$DATABASE_URL" -X -Atc \
   "SELECT pg_get_functiondef('mosaic_search.search_hybrid_rrf(text,vector,jsonb,integer,integer,integer,integer,integer,real)'::regprocedure)")
 if grep -q "FROM typo" <<<"$FUNCTION_DEFINITION"; then
   echo "GAP-1 failed: trigram is still wired into unweighted fusion"
-  exit 1
+  # A bare exit skips the ERR trap, so CloudFormation would roll back with
+  # no reason and the log line above would vanish with the instance.
+  signal_failure 1
 fi
 
 cat >/etc/systemd/system/mosaic-api.service <<EOF
@@ -1003,7 +1005,13 @@ curl -fsS -X POST http://127.0.0.1:8000/api/search \
 # from feature_text in db/sql/06_retrieval_projection.sql, because aliases carry
 # the target's own misspellings into search_document and let FTS recover any typo
 # this query could use.
+# `all` over an empty stream is true, so a deploy that returned no results at
+# all (an unbuilt index, an over-filtering predicate) would pass this gate
+# while breaking Lab 1 in a way the trigram repair cannot fix. Require the
+# plausible-but-wrong page the lesson depends on: a full pool, no target.
 jq -e '
+  (.results | length) > 0 and
+  (.diagnostics.candidate_counts.fused_pool // 0) > 0 and
   .diagnostics.candidate_counts.trigram_in_pool == 0 and
   all(.results[]; .product_id != 2)
 ' /tmp/lab1-broken-proof.json

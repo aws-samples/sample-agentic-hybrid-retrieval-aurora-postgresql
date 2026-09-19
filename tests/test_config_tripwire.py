@@ -19,6 +19,7 @@ import pytest
 from scripts.config_tripwire import (
     ALLOWED_LINE,
     DECLARATION,
+    FIELD_DEFAULT,
     INDEX_PARAMETERS,
     SQL_DEFAULTS,
     Report,
@@ -117,6 +118,36 @@ def test_a_second_python_declaration_is_caught(fake_repo, filename, body):
     report = Report()
     scan_declarations(report, repo=fake_repo)
     assert "C1" in rules(report), f"{body!r} was not caught"
+
+
+def test_an_attribute_assignment_is_caught(fake_repo):
+    """`self.rrf_k = 60` decides the served value as surely as `rrf_k = 60`."""
+    (fake_repo / "service" / "profile_copy.py").write_text(
+        "        self.rrf_k = 60\n", encoding="utf-8"
+    )
+    report = Report()
+    scan_declarations(report, repo=fake_repo)
+    assert "C1" in rules(report), report.failures
+
+
+def test_a_pydantic_default_outside_db_models_is_caught(fake_repo):
+    """The shape C1d pins in db/models is a plain second copy anywhere else."""
+    (fake_repo / "service" / "settings_copy.py").write_text(
+        "    rrf_k: int = Field(default=60, ge=1)\n", encoding="utf-8"
+    )
+    report = Report()
+    scan_declarations(report, repo=fake_repo)
+    assert "C1" in rules(report), report.failures
+
+
+def test_a_comparison_on_the_same_line_does_not_hide_a_declaration(fake_repo):
+    """A `> 0` beside a declaration used to exempt the whole line."""
+    (fake_repo / "service" / "guarded_copy.py").write_text(
+        "fts_limit = 120 if rows > 0 else 121\n", encoding="utf-8"
+    )
+    report = Report()
+    scan_declarations(report, repo=fake_repo)
+    assert "C1" in rules(report), report.failures
 
 
 def test_a_typescript_fallback_is_caught(fake_repo):
@@ -352,18 +383,20 @@ def fake_model_repo(fake_repo: Path) -> Path:
     return fake_repo
 
 
-def test_the_pydantic_field_shape_is_invisible_to_rule_1():
-    """Why rule C1d has to exist rather than just widening SCAN_ROOTS.
+def test_the_pydantic_field_shape_is_invisible_to_the_assignment_pattern():
+    """Why rule C1d exists for db/models and FIELD_DEFAULT for everywhere else.
 
     For `scan_mem_multiplier: float = Field(default=1, ge=1)` the DECLARATION
     pattern does not match — the token after `:` is `float`, not a number — and
-    ALLOWED_LINE matches anyway because of `ge=1`. The shape is invisible twice
-    over, so adding `db/models` to SCAN_ROOTS alone leaves the check green.
+    `ge=1` is a bound, not a value. FIELD_DEFAULT is the pattern that sees the
+    shape; inside `db/models` rule C1d pins it to the yaml instead of
+    forbidding it.
     """
     line = "    scan_mem_multiplier: float = Field(default=1, ge=1)\n"
 
     assert DECLARATION.search(line) is None
-    assert ALLOWED_LINE.search(line) is not None
+    assert ALLOWED_LINE.search(line) is None
+    assert FIELD_DEFAULT.search(line) is not None
 
 
 def test_model_defaults_agreeing_with_the_yaml_pass(fake_model_repo: Path):

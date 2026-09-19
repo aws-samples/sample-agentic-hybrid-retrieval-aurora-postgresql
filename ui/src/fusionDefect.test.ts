@@ -438,7 +438,7 @@ describe("findFusionDefectCase", () => {
    * A genuine inversion, constructed so correct RRF also inverts the pair --
    * the predicate `findFusionDefectCase` exists to require. `rrf_k = 60`, so
    * a single-arm rank-1 target's own contribution is `1 / 61 = 0.016393`.
-   * Competitor A holds two arms at ranks 200 and 210 (sum ~= 0.007464);
+   * Competitor A holds two arms at ranks 200 and 210 (sum ~= 0.007550);
    * competitor B holds two arms at ranks 300 and 305 (sum ~= 0.005518). Both
    * sums fall well under 0.016393, so correct RRF places either one above
    * the target too -- this is a real fusion-order inversion, not two arms

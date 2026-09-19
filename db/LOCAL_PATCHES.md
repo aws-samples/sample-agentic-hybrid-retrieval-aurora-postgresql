@@ -147,5 +147,6 @@ Installed clean, then exercised with two real products:
 - The teaching invariant holds: `embedding_text` excludes current price,
   `rerank_text` includes it
 
-Not yet measured, and not to be quoted until it is: HNSW build time, execution
-plans at scale, latency, QPS, Recall@10. Those require the real Aurora cluster.
+HNSW build time, execution plans at scale, latency and Recall@10 were later
+measured on the real Aurora cluster; `data/benchmarks/hnsw_measured.json` and
+`docs/current-scale-benchmarks.md` are the record. Quote those, not this file.

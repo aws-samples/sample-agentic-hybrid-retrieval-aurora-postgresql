@@ -13,7 +13,6 @@ import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Any
 from uuid import UUID
 
@@ -154,9 +153,15 @@ def agent_outcome_attributes(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@lru_cache(maxsize=1)
 def _current_retrieval_fingerprint() -> str:
-    """Hash the measured retrieval closure without adding telemetry to it."""
+    """Hash the measured retrieval closure without adding telemetry to it.
+
+    Computed per receipt, not cached for the process: a participant repairs
+    `db/sql/09_search_functions.sql` and reapplies it with `psql` without
+    restarting the API, and the next receipt must record the code that
+    produced it, not the code the process started with. The manifest is a few
+    dozen small files; hashing them is cheap beside the Aurora round trip.
+    """
     return compute_retrieval_fingerprint()
 
 

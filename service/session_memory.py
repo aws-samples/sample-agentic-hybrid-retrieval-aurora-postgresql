@@ -316,6 +316,11 @@ def add_event(event: ConversationEvent, request: Request):
     """Write the visitor's actual message; never fabricate an assistant reply."""
     actor = _actor(request)
     try:
+        # Resolve or create the session in its own short transaction. The
+        # AgentCore call below is a network round trip, and holding a pooled
+        # connection plus the profile's FOR UPDATE lock across it would let a
+        # slow or throttled Memory service exhaust the pool for every other
+        # request on the host.
         with connect() as connection:
             _profile(connection, actor, lock=True)
             if event.session_id:
@@ -329,21 +334,22 @@ def add_event(event: ConversationEvent, request: Request):
                         json.dumps({"label": event.text[:100]}),
                     ),
                 ).fetchone()["agent_session_id"]
-            saved = memory_client().create_event(
-                memoryId=_memory_id(),
-                actorId=actor,
-                sessionId=str(session_id),
-                eventTimestamp=datetime.now(UTC),
-                clientToken=str(event.request_id),
-                payload=[
-                    {
-                        "conversational": {
-                            "role": "USER",
-                            "content": {"text": event.text},
-                        }
+        saved = memory_client().create_event(
+            memoryId=_memory_id(),
+            actorId=actor,
+            sessionId=str(session_id),
+            eventTimestamp=datetime.now(UTC),
+            clientToken=str(event.request_id),
+            payload=[
+                {
+                    "conversational": {
+                        "role": "USER",
+                        "content": {"text": event.text},
                     }
-                ],
-            )["event"]
+                }
+            ],
+        )["event"]
+        with connect() as connection:
             connection.execute(
                 "UPDATE mosaic.shopper_profile SET active_session_id = %s WHERE shopper_id = %s",
                 (session_id, actor),

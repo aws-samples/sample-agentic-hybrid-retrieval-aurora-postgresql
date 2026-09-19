@@ -12,6 +12,10 @@ MCP_PROJECT ?= mcp-server
 # default could only ever fail — or, worse, succeed against an unintended
 # cluster. Every db-* target requires DATABASE_URL to be set explicitly.
 DATABASE_URL ?=
+# Recipes reference $$DATABASE_URL by name, never $(DATABASE_URL): make -n and
+# make --trace print recipe text after make-variable expansion, so an expanded
+# DSN would put the Aurora password into the terminal and any pasted log.
+export DATABASE_URL
 API_PORT ?= 8000
 UI_PORT ?= 5173
 # deploy/mosaic-bootstrap.sh is the source of truth; the workshop repository keeps
@@ -55,7 +59,7 @@ $(PYTHON_TARGETS): check-python
 # An unset DSN must fail by name, not by handing psql an empty string and letting
 # it try to reach a local socket that does not exist.
 check-dsn:
-	@test -n "$(DATABASE_URL)" || { \
+	@test -n "$${DATABASE_URL:-}" || { \
 		echo "DATABASE_URL is not set. There is no local database; point it at"; \
 		echo "the Aurora cluster. See ARTIFACTS.md for the connection notes,"; \
 		echo "including sslnegotiation=direct on a corporate network."; \
@@ -122,43 +126,43 @@ media-import:
 # are deliberately excluded: CREATE INDEX CONCURRENTLY cannot run inside a
 # transaction block, and they are pointless before embeddings exist.
 db-install:
-	@cd $(SCHEMA_PACKAGE)/sql && psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f install.sql
-	@$(MAKE) db-configure-retrieval DATABASE_URL="$(DATABASE_URL)"
+	@cd $(SCHEMA_PACKAGE)/sql && psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f install.sql
+	@$(MAKE) db-configure-retrieval
 
 # Evaluation and benchmark schemas. Separate so the session's `\dt mosaic.*`
 # shows the 12 tables the application reads, not 21.
 db-install-labs:
-	@cd $(SCHEMA_PACKAGE)/sql && psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f install_labs.sql
+	@cd $(SCHEMA_PACKAGE)/sql && psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f install_labs.sql
 
 # Operator-only compatibility path for historical snapshot restores. Workshop
 # Studio provisions fresh Aurora through db-bootstrap-cached.
 db-upgrade-snapshot:
-	@cd $(SCHEMA_PACKAGE)/sql && psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f upgrade_snapshot.sql
-	@$(MAKE) db-configure-retrieval DATABASE_URL="$(DATABASE_URL)"
+	@cd $(SCHEMA_PACKAGE)/sql && psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f upgrade_snapshot.sql
+	@$(MAKE) db-configure-retrieval
 
 db-configure-retrieval:
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/configure_retrieval_database.py
+	@$(PYTHON) scripts/configure_retrieval_database.py
 
 # The mission contract gate. Shape checks always run; target checks need a DSN
 # and call mosaic_search.matches_filters on the cluster rather than
 # reimplementing filter logic. Set MISSION_GATE_REQUIRE_DB=1 in CI so a missing
 # DSN is a loud failure instead of a silent skip.
 validate-missions:
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/mission_contract.py
+	@$(PYTHON) scripts/mission_contract.py
 
 # The 720-case filter-contract corpus and the 20-query canonical scorecard both
 # call matches_filters on Aurora before an eval can spend model calls or
 # publish metrics.
 validate-evals:
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/run_eval.py --validate-only
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/run_eval.py \
+	@$(PYTHON) scripts/run_eval.py --validate-only
+	@$(PYTHON) scripts/run_eval.py \
 		--queries data/evals/canonical_queries.jsonl --validate-only
 
 # Release-only quality gate. It runs the 20 product-retrieval cases from the
 # curated 21-query set through served FTS + pg_trgm + HNSW + unweighted RRF +
 # managed reranking, then rejects provenance or metric regressions.
 score-evals:
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/score_evals.py $(SCORE_EVAL_ARGS)
+	@$(PYTHON) scripts/score_evals.py $(SCORE_EVAL_ARGS)
 
 # Lab 2's stage ablation: semantic-only vs RRF-fused (rerank off) vs the
 # served RRF+rerank path, over the same 20 queries. Spends NO Cohere rerank
@@ -167,7 +171,7 @@ score-evals:
 # 2 still call Aurora and the embedding model directly (read-only SELECTs, no
 # mosaic.search_event rows written).
 ablation-evals:
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/ablation_evals.py
+	@$(PYTHON) scripts/ablation_evals.py
 
 # db/config/retrieval.yaml is the single source for candidate limits, fusion k,
 # weights, and the trigram threshold. This fails if any other file declares one,
@@ -183,48 +187,48 @@ validate-config:
 # caller passing the old argument count. Needs a DSN; set
 # FUNCTION_CENSUS_REQUIRE_DB=1 in CI so a missing DSN is a loud failure.
 validate-functions:
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/function_census.py
+	@$(PYTHON) scripts/function_census.py
 
 # Lab 1: lexical precision and typo tolerance, against the mosaic_search tree
 # the API reads. Read-only; safe to re-run.
 lab-01:
-	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/lab_01_typo_tolerance.sql
+	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/lab_01_typo_tolerance.sql
 
 lab-status:
 	@$(PYTHON) scripts/lab_state.py status
 
 db-apply-search-functions:
-	@cd $(SCHEMA_PACKAGE)/sql && psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
+	@cd $(SCHEMA_PACKAGE)/sql && psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 \
 		-f 09_search_functions.sql
-	@$(MAKE) db-configure-retrieval DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) db-configure-retrieval
 
 reset-lab-1:
 	@$(PYTHON) scripts/lab_state.py reset --lab 1
-	@$(MAKE) db-apply-search-functions DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) db-apply-search-functions
 
 validate-lab-1:
-	@$(PYTHON) scripts/lab_state.py validate --lab 1 --database-url "$(DATABASE_URL)"
+	@$(PYTHON) scripts/lab_state.py validate --lab 1 --database-url "$$DATABASE_URL"
 	@$(PYTHON) scripts/validate_lab.py --lab 1 --api-url "$(LAB_API_URL)"
 
 solution-lab-1:
 	@$(PYTHON) scripts/lab_state.py solution --lab 1
-	@$(MAKE) db-apply-search-functions DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) db-apply-search-functions
 
 reset-lab-2:
 	@$(PYTHON) scripts/lab_state.py reset --lab 2
-	@$(MAKE) db-apply-search-functions DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) db-apply-search-functions
 
 validate-lab-2:
-	@$(PYTHON) scripts/lab_state.py validate --lab 2 --database-url "$(DATABASE_URL)"
+	@$(PYTHON) scripts/lab_state.py validate --lab 2 --database-url "$$DATABASE_URL"
 	@$(PYTHON) scripts/validate_lab.py --lab 2 --api-url "$(LAB_API_URL)"
 
 solution-lab-2:
 	@$(PYTHON) scripts/lab_state.py solution --lab 2
-	@$(MAKE) db-apply-search-functions DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) db-apply-search-functions
 
 reset-lab-3:
 	@$(PYTHON) scripts/lab_state.py reset --lab 3
-	@$(MAKE) db-apply-search-functions DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) db-apply-search-functions
 	@$(MAKE) restart-lab-api
 
 validate-lab-3:
@@ -262,7 +266,7 @@ db-prepare-mosaic:
 		--output "$(MOSAIC_PREMIUM_COHORT_CSV)"
 
 db-load-mosaic:
-	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
+	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 \
 		-v brands_path="$(MOSAIC_NORMALIZED_DIR)/brands.csv.gz" \
 		-v categories_path="$(MOSAIC_NORMALIZED_DIR)/categories.csv.gz" \
 		-v products_path="$(MOSAIC_NORMALIZED_DIR)/products.csv.gz" \
@@ -271,7 +275,7 @@ db-load-mosaic:
 
 # Run after embeddings are populated.
 db-index-concurrent:
-	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/08_indexes_concurrent.sql
+	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/08_indexes_concurrent.sql
 
 # CREATE INDEX CONCURRENTLY that is interrupted -- a cancelled bootstrap, a
 # dropped connection, a failed build -- leaves the index relation behind with
@@ -285,34 +289,34 @@ db-index-concurrent:
 # be run beside an index build in another shell: it would drop the index that
 # build is still creating.
 db-drop-invalid-indexes: check-dsn
-	@set -e -o pipefail; database_url="$(DATABASE_URL)"; \
+	@set -e -o pipefail; database_url="$$DATABASE_URL"; \
 	psql "$$database_url" -X -v ON_ERROR_STOP=1 -At -c "SELECT format('%I.%I', n.nspname, c.relname) FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE NOT i.indisvalid AND n.nspname IN ('mosaic','mosaic_search','mosaic_bench')" \
 	| while read -r index; do echo "dropping invalid index $$index"; psql "$$database_url" -X -v ON_ERROR_STOP=1 -c "DROP INDEX $$index"; done
 
 # Recovery before creation, in that order, as one target so the bootstrap phase
 # runs both. A prerequisite list would not guarantee the order under `make -j`.
 db-index-recover-and-create:
-	@$(MAKE) db-drop-invalid-indexes DATABASE_URL="$(DATABASE_URL)"
-	@$(MAKE) db-index-concurrent DATABASE_URL="$(DATABASE_URL)"
+	@$(MAKE) db-drop-invalid-indexes
+	@$(MAKE) db-index-concurrent
 
 # The halfvec and binary HNSW indexes, roughly 9 minutes for the pair. Not a
 # bootstrap phase: they exist for the optional representation comparison on the
 # Performance page, which withholds those rows until this has been run.
 db-index-quantized: check-dsn
-	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/19_indexes_quantized.sql
+	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/19_indexes_quantized.sql
 
 db-load-cohort:
-	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
+	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 \
 		-v premium_cohort_path="$(MOSAIC_PREMIUM_COHORT_CSV)" \
 		-f $(SCHEMA_PACKAGE)/sql/15_load_premium_cohort.sql
 
 db-load-evidence:
-	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
+	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 \
 		-v review_evidence_path='data/sample/reviews_15000.csv.gz' \
 		-f $(SCHEMA_PACKAGE)/sql/18_load_evidence.sql
 
 db-smoke:
-	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/99_smoke_test.sql
+	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/99_smoke_test.sql
 
 verify-embedding-cache:
 	@$(PYTHON) scripts/embedding_cache.py verify \
@@ -328,7 +332,7 @@ db-fetch-embeddings:
 	@$(MAKE) verify-embedding-cache
 
 define bootstrap-phase
-	@set -e; database_url="$(DATABASE_URL)"; \
+	@set -e; database_url="$$DATABASE_URL"; \
 	started=$$(date +%s); \
 	printf 'MOSAIC_BOOTSTRAP_PHASE_START phase=%s epoch=%s\n' \
 		"$(1)" "$$started"; \
@@ -365,9 +369,9 @@ db-bootstrap-cached:
 	@cat "$(BOOTSTRAP_TIMINGS_FILE)"
 
 db-verify-bootstrap:
-	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
+	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 \
 		-f $(SCHEMA_PACKAGE)/sql/98_bootstrap_acceptance.sql
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) \
+	@$(PYTHON) \
 		scripts/configure_retrieval_database.py --check
 
 validate-db:
@@ -429,12 +433,12 @@ lint:
 	@$(MAKE) --no-print-directory check-bootstrap-sync
 
 test:
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m pytest
+	@$(PYTHON) -m pytest
 
 # The full offline suite already ran before this release job. This live subset
 # exercises Aurora SQL only and cannot call embedding or reranking models.
 test-aurora-contracts:
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m pytest -q \
+	@$(PYTHON) -m pytest -q \
 		tests/test_sql_integration.py \
 		tests/test_bootstrap_contract.py \
 		tests/test_agent_eligibility.py
@@ -460,12 +464,12 @@ test-aurora-contracts:
 # Keep the marker check below. It fails closed if a marked test is ever silently
 # skipped here, so a missing DSN can never present as a pass.
 test-aurora-invariants:
-	@test -n "$(DATABASE_URL)" || { \
+	@test -n "$${DATABASE_URL:-}" || { \
 		echo "test-aurora-invariants: DATABASE_URL is required; refusing to"; \
 		echo "report a pass built out of skipped aurora-marked tests."; \
 		exit 2; \
 	}
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m pytest -q -rs \
+	@$(PYTHON) -m pytest -q -rs \
 		tests/test_coverage.py \
 		tests/test_lab1_anchor_invariants.py \
 		tests/test_answerability_live.py \
@@ -487,14 +491,14 @@ test-aurora-invariants:
 # SUBSTRATE-1 for why the predecessors cannot be run at all.
 
 db-embed:
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/embed_catalog.py
+	@$(PYTHON) scripts/embed_catalog.py
 
 db-export-embeddings:
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/embedding_cache.py \
+	@$(PYTHON) scripts/embedding_cache.py \
 		export --output "$(EMBEDDING_CACHE_DIR)"
 
 db-import-embeddings:
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/embedding_cache.py \
+	@$(PYTHON) scripts/embedding_cache.py \
 		import "$(EMBEDDING_CACHE_MANIFEST)"
 
 simulate:
@@ -505,7 +509,7 @@ simulate:
 # at 2.4s. Run once per corpus; the HNSW instrument computes recall against these
 # rows rather than re-running the scan per interaction.
 db-seed-exact-neighbors:
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/seed_exact_neighbors.py --k 10
+	@$(PYTHON) scripts/seed_exact_neighbors.py --k 10
 
 # Builds mosaic_search.corpus_lexeme, the vocabulary query coverage reads to tell
 # a misspelling ("hedfones", close to a real term) from an absence ("A2342",
@@ -518,7 +522,7 @@ db-seed-exact-neighbors:
 # vocabulary and every surface behaves exactly as it did before coverage existed.
 # Nothing abstains on a deployment that has not run this.
 db-seed-corpus-lexeme: check-dsn
-	@psql "$(DATABASE_URL)" -v ON_ERROR_STOP=1 \
+	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 \
 		-c "CALL mosaic_search.refresh_corpus_lexeme();" \
 		-c "SELECT count(*) AS corpus_lexemes FROM mosaic_search.corpus_lexeme;"
 
@@ -534,24 +538,24 @@ check-model-access:
 	  --rerank "$$($(PYTHON) -c 'from service.config import get_settings as g; print(g().rerank_model_id)')"
 
 check-exact-neighbors:
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/seed_exact_neighbors.py --check
+	@$(PYTHON) scripts/seed_exact_neighbors.py --check
 
 # Captures data/benchmarks/hnsw_measured.json, the artifact the HNSW instrument
 # replays, plus raw per-query samples. Uses all current anchors and existing indexes.
 # Read-only against Aurora. Run from a clean worktree with AURORA_INSTANCE_CLASS set.
 benchmark-hnsw:
 	@test -n "$(AURORA_INSTANCE_CLASS)" || { echo "Benchmark hardware rule: AURORA_INSTANCE_CLASS is empty; fix: set it to the connected Aurora instance class."; exit 1; }
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/benchmark_mosaic_scale.py \
+	@$(PYTHON) scripts/benchmark_mosaic_scale.py \
 		--output data/benchmarks/hnsw_measured.json --k 10 \
 		--ef-search 10 20 40 80 100 200 400 --binary-depth 10 20 50 100 200 \
 		--deep-ef-search 800 --deep-binary-depth 1400 3000 \
 		--instance-class "$(AURORA_INSTANCE_CLASS)"
 
 benchmark-ask-mosaic:
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) scripts/benchmark_ask_mosaic.py
+	@$(PYTHON) scripts/benchmark_ask_mosaic.py
 
 api-serve:
-	@DATABASE_URL="$(DATABASE_URL)" $(PYTHON) -m uvicorn service.main:app --host 127.0.0.1 --port $(API_PORT)
+	@$(PYTHON) -m uvicorn service.main:app --host 127.0.0.1 --port $(API_PORT)
 
 ui-install:
 	cd ui && npm ci

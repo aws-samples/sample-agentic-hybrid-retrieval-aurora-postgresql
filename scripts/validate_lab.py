@@ -3,10 +3,12 @@
 
 Transport only. Every acceptance condition lives in `service.lab_checks`, which
 `service/lab_proof.py` also calls, so the terminal and the browser cannot
-disagree about whether a lab is finished. This file fetches the evidence those
+disagree about a check they both run. This file fetches the evidence those
 checks need over HTTP and raises on the first failure, which is what a Makefile
 target wants; the endpoint returns every verdict at once, which is what a page
-wants.
+wants. One difference is deliberate: for Lab 3 this transport also runs the
+`evidence-grounding` control (G-019) as its own agent run, which the browser
+proof cannot start, so this is the completion gate of record.
 """
 
 from __future__ import annotations

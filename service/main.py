@@ -41,7 +41,11 @@ from service.catalog import (
 )
 from service.config import get_settings
 from service.db import close_pool, connect, get_pool, readiness
-from service.fusion_comparison import SubstrateError, get_fusion_comparison_service
+from service.fusion_comparison import (
+    LabStateError,
+    SubstrateError,
+    get_fusion_comparison_service,
+)
 from service.hnsw import RepresentationUnavailable
 from service.lab_proof import UnknownLab, completion_proof, lab_states
 from service.model_runtime import (
@@ -452,6 +456,10 @@ def fusion_comparison(request: SearchRequest) -> FusionComparisonResponse:
         return get_fusion_comparison_service().compare(
             request.query, request.filters, top_k=request.limit
         )
+    except LabStateError as error:
+        # 409: the deployment is in Lab 1's deliberate broken state, which the
+        # participant resolves by finishing the repair. Not a defect.
+        raise HTTPException(409, str(error)) from error
     except SubstrateError as error:
         # 500, not 400: the caller did nothing wrong. The two functions have
         # drifted apart, which is a defect in this deployment.

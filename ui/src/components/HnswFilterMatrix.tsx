@@ -238,7 +238,7 @@ export function HnswFilterMatrix({
             <summary>The query and the settings behind this cell</summary>
             <pre>
               <code>
-                {`SET hnsw.ef_search = 100;
+                {`SET hnsw.ef_search = ${mode.ef_search};
 SET hnsw.iterative_scan = '${mode.iterative_scan}';
 SET hnsw.scan_mem_multiplier = ${mode.scan_mem_multiplier};
 

@@ -10,6 +10,11 @@ export function comparableScanModes(level?: HnswFilterLevel): HnswFilterMode[] {
     groups.set(key, [...groups.get(key) ?? [], mode]);
   }
   const complete = [...groups.values()].filter((group) => scanModes.every((key) => group.some((mode) => mode.iterative_scan === key)));
-  complete.sort((a, b) => a[0].scan_mem_mb - b[0].scan_mem_mb || (a[0].ef_search != null && b[0].ef_search != null ? a[0].ef_search - b[0].ef_search : 0));
+  const efOrder = (a: typeof complete[number], b: typeof complete[number]) => {
+    const efA = a[0].ef_search;
+    const efB = b[0].ef_search;
+    return efA != null && efB != null ? efA - efB : 0;
+  };
+  complete.sort((a, b) => a[0].scan_mem_mb - b[0].scan_mem_mb || efOrder(a, b));
   return complete[0] ? scanModes.map((key) => complete[0].find((mode) => mode.iterative_scan === key)!) : [];
 }

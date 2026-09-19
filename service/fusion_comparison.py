@@ -92,6 +92,17 @@ def _arm_substrate(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+class LabStateError(RuntimeError):
+    """The two fusion functions cannot be compared while a lab seam is open.
+
+    `scripts/lab_state.py reset --lab 1` removes the trigram channel from
+    `search_hybrid_rrf` only; the weighted twin has no marked seam and keeps
+    its arm. In that state the substrate assertion below would fire on every
+    request whose trigram arm found anything, and it would blame a deployment
+    drift that is really the participant's unfinished exercise.
+    """
+
+
 class SubstrateError(RuntimeError):
     """The two fusion functions did not receive the same candidate pool.
 
@@ -180,6 +191,26 @@ class FusionComparisonService:
                     profile.scan_mem_multiplier,
                 ),
             )
+            definition_rows = connection.execute(
+                """
+                SELECT pg_get_functiondef(
+                    'mosaic_search.search_hybrid_rrf(text,vector,jsonb,integer,'
+                    'integer,integer,integer,integer,real)'::regprocedure
+                ) AS definition
+                """
+            ).fetchall()
+            unweighted_definition = (
+                str(definition_rows[0]["definition"]) if definition_rows else ""
+            )
+            if "FROM typo" not in unweighted_definition:
+                raise LabStateError(
+                    "found mosaic_search.search_hybrid_rrf without its trigram "
+                    "channel, which is Lab 1's deliberate broken state; fix: "
+                    "complete the Lab 1 repair and reapply "
+                    "db/sql/09_search_functions.sql before comparing fusion "
+                    "methods, because the weighted function still carries the "
+                    "arm and the two pools cannot be identical until then"
+                )
             started = time.perf_counter()
             unweighted = connection.execute(_UNWEIGHTED_SQL, params).fetchall()
             unweighted_ms = round((time.perf_counter() - started) * 1000)

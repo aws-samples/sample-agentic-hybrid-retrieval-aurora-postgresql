@@ -8,6 +8,14 @@ copy until the completion-proof endpoint needed the same claims, and two
 implementations of one claim is how a lab comes to report PASS on the terminal
 and FAIL in the browser.
 
+The evidence sets differ in one declared place. For Labs 1 and 2 both
+transports grade the mission and every control `supporting_checks_for_lab`
+returns. For Lab 3 the CLI additionally runs the `evidence-grounding` control
+(G-019) as a second agent run; the browser proof grades the participant's one
+persisted run and does not start another, so it cannot grade that control. The
+completion gate on the Conclusion page is the CLI, and it is the gate of
+record.
+
 Every check carries its falsifier, for the reason `service/assertions.py`
 states: a check whose failure condition cannot occur reads as evidence while
 proving nothing. `LabCheck` refuses to be constructed without one.

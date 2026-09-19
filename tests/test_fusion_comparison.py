@@ -21,6 +21,7 @@ import pytest
 from service.fusion_comparison import (
     FULL_POOL_LIMIT,
     FusionComparisonService,
+    LabStateError,
     SubstrateError,
 )
 from service.models import SearchFilters
@@ -62,16 +63,37 @@ class StubCursor:
 class StubConnection:
     """Returns a scripted result per query, so divergence can be staged."""
 
-    def __init__(self, unweighted: list[dict], weighted: list[dict]) -> None:
+    def __init__(
+        self,
+        unweighted: list[dict],
+        weighted: list[dict],
+        *,
+        lab_1_repaired: bool = True,
+    ) -> None:
         self.unweighted = unweighted
         self.weighted = weighted
         self.commits = 0
         self.cursor_obj = StubCursor()
+        self.executed_sql: list[str] = []
+        # What pg_get_functiondef reports for search_hybrid_rrf: the trigram
+        # channel is present in the repaired state and absent while Lab 1's
+        # seam is open.
+        self.definition = (
+            "... UNION ALL SELECT product_id, 'trigram' ... FROM typo ..."
+            if lab_1_repaired
+            else "... FROM fts UNION ALL SELECT ... FROM semantic ..."
+        )
 
     def execute(self, sql: str, params: Any = None) -> StubConnection:
-        self._last = (
-            self.weighted if "search_hybrid_rrf_weighted" in sql else self.unweighted
-        )
+        self.executed_sql.append(sql)
+        if "pg_get_functiondef" in sql:
+            self._last = [{"definition": self.definition}]
+        else:
+            self._last = (
+                self.weighted
+                if "search_hybrid_rrf_weighted" in sql
+                else self.unweighted
+            )
         self._params = params
         return self
 
@@ -250,7 +272,7 @@ def test_both_functions_receive_identical_arguments():
 
     class Capturing(StubConnection):
         def execute(self, sql: str, params: Any = None):
-            if "search_hybrid_rrf" in sql:
+            if "search_hybrid_rrf" in sql and "pg_get_functiondef" not in sql:
                 captured.append(dict(params))
             return super().execute(sql, params)
 
@@ -452,3 +474,23 @@ def test_fusion_comparison_normalizes_the_sql_and_embedding_query():
 
     assert embedder.queries == ["mesh chair"]
     assert connection._params["query"] == "mesh chair"
+
+
+def test_an_unrepaired_lab_1_is_named_rather_than_blamed_on_drift():
+    """While Lab 1's seam is open the two pools cannot match, by design.
+
+    `scripts/lab_state.py reset --lab 1` strips the trigram channel from
+    `search_hybrid_rrf` only. Before this check the substrate assertion fired
+    on every Lab 1 request and reported a deployment drift, which sent a
+    participant hunting for a defect that was their unfinished exercise.
+    """
+    connection = StubConnection(
+        IDENTICAL_UNWEIGHTED, IDENTICAL_WEIGHTED, lab_1_repaired=False
+    )
+    with pytest.raises(LabStateError, match="Lab 1"):
+        FusionComparisonService(
+            embedding_provider=StubEmbedder(), connection_factory=lambda: connection
+        ).compare("mesh chair", SearchFilters(), persist=False)
+    assert not any(
+        "FROM mosaic_search.search_hybrid_rrf" in sql for sql in connection.executed_sql
+    ), "the comparison must stop before fusing either pool"

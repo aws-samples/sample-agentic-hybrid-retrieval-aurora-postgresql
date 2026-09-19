@@ -61,7 +61,7 @@ export function neighborhoodPhotographs(
 
 const KIB = 1024;
 // pg_size_pretty stays in a unit until the value would exceed this, which is why it
-// prints "3905 MB" for the HNSW index rather than "3.8 GB".
+// prints "3919 MB" for the HNSW index rather than "3.8 GB".
 const UNIT_LIMIT = 10 * KIB;
 const UNITS = ["bytes", "KiB", "MiB", "GiB", "TiB"] as const;
 
@@ -71,8 +71,9 @@ const UNITS = ["bytes", "KiB", "MiB", "GiB", "TiB"] as const;
  * Deliberately mirrors Postgres rather than picking prettier breakpoints: every size
  * on this page is meant to be checkable against what psql prints for the same
  * relation. Postgres keeps a unit until the value would exceed 10,240 of it, so the
- * 4,094,296,064-byte index reads "3905 MiB" — matching `pg_size_pretty` — instead of
- * "3.8 GiB".
+ * measured 4,108,861,440-byte index reads "3919 MiB" instead of "3.8 GiB". The
+ * arithmetic matches `pg_size_pretty`; only the suffix differs, because Postgres
+ * prints the 1024-based value with an "MB" label.
  */
 export function formatBytes(bytes: number): string {
   let value = bytes;
@@ -128,8 +129,9 @@ export function storageSegments(
 /**
  * The cheapest `ef_search` that reaches the best recall the sweep observed.
  *
- * On the measured corpus this is 100: ef 200 and 400 spend 1.5x and 2.7x the buffers
- * for identical recall. Returns null for an empty sweep rather than inventing a
+ * Whatever the sweep reports: on the September 2026 artifact the best recall (0.99)
+ * is first reached at ef_search 80, and 100, 200 and 400 spend more time for the
+ * same recall. Returns null for an empty sweep rather than inventing a
  * recommendation.
  */
 export function saturationEf(sweep: HnswEfPoint[]): number | null {
@@ -142,13 +144,13 @@ export function saturationEf(sweep: HnswEfPoint[]): number | null {
 /**
  * Plot geometry for the recall-versus-time curve.
  *
- * y spans the *observed* recall range rather than 0 to 1. Over the measured range
- * (0.844 to 0.992) a 0-to-1 axis compresses the whole curve into the top 15% of the
- * box and the saturation at the served ef_search — the one thing this panel exists to
+ * y spans the *observed* recall range rather than 0 to 1. Over a measured range such
+ * as 0.94 to 0.99 a 0-to-1 axis compresses the whole curve into the top of the box
+ * and the saturation at the served ef_search — the one thing this panel exists to
  * show — becomes invisible.
  *
- * x is logarithmic in server time, because the measured points span 0.563 ms to
- * 7.294 ms and a linear axis crowds the cheap half together.
+ * x is logarithmic in server time, because the measured points span under 1 ms to
+ * several ms and a linear axis crowds the cheap half together.
  */
 export function curvePoints(
   sweep: HnswEfPoint[],
