@@ -97,7 +97,8 @@ const ATTRIBUTE_LABELS: Record<string, string> = {
   lumbar_support: "Lumbar support", lumbar: "Lumbar support", armrests: "Armrests",
   recommended_hours: "Recommended use", seat_depth_adjustable: "Seat depth adjustment",
   height_adjustable: "Height adjustment", battery_life_hours: "Battery life",
-  battery_hours: "Battery life", anc: "Active noise cancellation", multipoint: "Multipoint",
+  battery_hours: "Battery life", anc: "Noise cancellation",
+  active_noise_cancellation: "Noise cancellation", multipoint: "Multi-device pairing",
   mic: "Microphone", microphone: "Microphone", weight_kg: "Weight", weight_g: "Weight",
   best_for: "Suggested uses", color_gamut_pct: "Gamut coverage",
 };
@@ -107,7 +108,7 @@ export function formatAttributeLabel(key: string): string {
 }
 
 export function productFacts(attributes: Record<string, unknown>, count = 4) {
-  const order = ["size_in", "resolution", "panel", "usb_c_power_w", "refresh_hz", "recommended_hours", "lumbar_support", "lumbar", "armrests", "seat_depth_adjustable", "anc", "battery_life_hours", "battery_hours", "multipoint"];
+  const order = ["size_in", "resolution", "panel", "usb_c_power_w", "refresh_hz", "recommended_hours", "lumbar_support", "lumbar", "armrests", "seat_depth_adjustable", "active_noise_cancellation", "anc", "microphone", "mic", "battery_life_hours", "battery_hours", "multipoint"];
   return Object.entries(attributes)
     .filter(([, value]) => value !== null && value !== undefined)
     .sort(([a], [b]) => (order.includes(a) ? order.indexOf(a) : order.length) - (order.includes(b) ? order.indexOf(b) : order.length))

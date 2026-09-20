@@ -4,8 +4,18 @@ import type { ProductSummary } from "./types";
 
 /** Long-tail search cards use catalog facts instead of repeated filler prose. */
 export function shopDescription(product: ProductSummary): string {
-  if (productBoundImage(product.product_id)) return product.short_description;
   const a = product.attributes;
+  if (product.category_key.includes("headphones") || product.category_key.includes("earbuds")) {
+    const noiseCancellation = a.active_noise_cancellation ?? a.anc;
+    const microphone = a.microphone ?? a.mic;
+    const facts = [
+      `Noise cancellation: ${typeof noiseCancellation === "boolean" ? (noiseCancellation ? "Yes" : "No") : "Not listed"}`,
+      `Microphone: ${typeof microphone === "boolean" ? (microphone ? "Yes" : "No") : "Not listed"}`,
+    ];
+    if (typeof a.battery_hours === "number") facts.push(`Battery: ${a.battery_hours} hours`);
+    return facts.join(" · ");
+  }
+  if (productBoundImage(product.product_id)) return product.short_description;
   const parts: string[] = [];
   if (product.category_key.includes("chairs")) {
     if (typeof a.material === "string") parts.push(a.material);

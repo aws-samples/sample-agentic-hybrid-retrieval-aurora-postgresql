@@ -1334,7 +1334,7 @@
   font-size: 13px;
   line-height: 1.55;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
 }
 
 /* The product page already names a product in Newsreader; the card now does
