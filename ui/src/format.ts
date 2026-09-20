@@ -78,11 +78,16 @@ export function leafCategory(path: string): string {
 }
 
 /** Keep catalog values readable without changing the underlying evidence. */
-export function formatAttributeValue(value: unknown): string {
+export function formatAttributeValue(value: unknown, key = ""): string {
   if (value === null || value === undefined) return "Not specified";
   if (typeof value === "boolean") return value ? "Yes" : "No";
-  if (Array.isArray(value)) return value.map(formatAttributeValue).join(", ");
+  if (Array.isArray(value)) return value.map((item) => formatAttributeValue(item, key)).join(", ");
   if (typeof value === "object") return JSON.stringify(value);
+  if (typeof value === "number") {
+    const suffix = key.match(/_(in|hz|w|hours|kg|g|pct)$/)?.[1];
+    const unit = suffix && { in: "″", hz: " Hz", w: " W", hours: " hours", kg: " kg", g: " g", pct: "%" }[suffix];
+    if (unit) return `${value}${unit}`;
+  }
   return String(value);
 }
 
@@ -110,8 +115,6 @@ export function productFacts(attributes: Record<string, unknown>, count = 4) {
     .map(([key, value]) => ({
       key,
       label: formatAttributeLabel(key),
-      value: typeof value === "number" && /(_in|_hz|_w|_hours|_kg|_g)$/.test(key)
-        ? `${value}${key.endsWith("_in") ? '″' : key.endsWith("_hz") ? " Hz" : key.endsWith("_w") ? " W" : key.endsWith("_kg") ? " kg" : key.endsWith("_g") ? " g" : " hours"}`
-        : formatAttributeValue(value),
+      value: formatAttributeValue(value, key),
     }));
 }

@@ -5,6 +5,8 @@ import { Link } from "wouter";
 import { api } from "../api";
 import { cartQuantityLimit, useCommerce } from "../commerce";
 import {
+  formatAttributeLabel,
+  formatAttributeValue,
   formatAvailability,
   formatPrice,
   isPurchasable,
@@ -263,12 +265,8 @@ export function ProductDrawer({
                     <dl className="spec-table">
                       {attributes.slice(0, 6).map(([key, value]) => (
                         <div key={key}>
-                          <dt>{key.replaceAll("_", " ")}</dt>
-                          <dd>
-                            {Array.isArray(value)
-                              ? value.join(", ")
-                              : String(value)}
-                          </dd>
+                          <dt>{formatAttributeLabel(key)}</dt>
+                          <dd>{formatAttributeValue(value, key)}</dd>
                         </div>
                       ))}
                     </dl>

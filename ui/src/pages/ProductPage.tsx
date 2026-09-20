@@ -375,7 +375,7 @@ export function ProductPage() {
               {attributes.map(([key, value]) => (
                 <div key={key}>
                   <dt>{formatAttributeLabel(key)}</dt>
-                  <dd>{formatAttributeValue(value)}</dd>
+                  <dd>{formatAttributeValue(value, key)}</dd>
                 </div>
               ))}
             </dl>
@@ -430,7 +430,7 @@ export function ProductPage() {
             {attributes.map(([key, value]) => (
               <div key={key}>
                 <dt>{formatAttributeLabel(key)}</dt>
-                <dd>{formatAttributeValue(value)}</dd>
+                <dd>{formatAttributeValue(value, key)}</dd>
               </div>
             ))}
           </dl>
