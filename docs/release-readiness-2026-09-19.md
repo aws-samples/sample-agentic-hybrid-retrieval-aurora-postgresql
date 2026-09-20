@@ -71,7 +71,7 @@ not a disguised skip. Only the human rehearsal is EXCLUDED.
 | Hosted artifact identity and final hosted journeys | BLOCKED | No matching deployed stack identified; final code is tested locally against existing Aurora. No claim that a CloudFront deployment runs this release |
 | Deck/media/notes | PASS | v9: 12 slides, seven editable code slides, two native tables, notes of 65–72 words in visual order; SQL executed on Aurora and RRF falsifier verified; original app-video pixels preserved |
 | Source commit/push and local Studio pin | PASS at delivery | Final source changes and this report are committed/pushed; remote full SHA independently compared; local tooling re-pins to that exact SHA. Studio remains uncommitted by design |
-| Combined published-package release gate | BLOCKED | The gate correctly requires clean/published Studio state. Local package validation is separate; do not weaken the dirty-Studio guard to label the combined gate green |
+| Combined source/Studio delivery gate | BLOCKED | The gate requires a clean Studio checkout and matching pins/bytes. It does not verify S3 publication; that is a separate check. Do not weaken the dirty-Studio guard to label the combined gate green |
 | Human fresh-event Workshop Studio rehearsal | EXCLUDED | Still required after publication; timing, event IAM, fresh bootstrap, participant flow and cleanup checklist below |
 
 ## Material repairs
@@ -197,7 +197,7 @@ git diff --cached --check
 git diff --cached --stat
 git commit -m "Prepare validated DAT410 workshop release"
 git push origin mainline
-make -C "$SRC" check-bootstrap-release
+make -C "$SRC" check-bootstrap-release RELEASE_SOURCE_SHA="$LOCAL_SHA"
 ```
 
 Then use the established Workshop Studio content publication/import workflow.
