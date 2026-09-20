@@ -28,7 +28,7 @@ import { catalogReturnPath } from "../navigation";
 import { ProductCard } from "../components/ProductCard";
 import { ErrorState, LoadingState } from "../components/States";
 import { productFacts, formatAttributeLabel, formatAttributeValue, formatAvailability, formatPrice, isPurchasable, leafCategory } from "../format";
-import { productEditorialPoster, productImageMap, productImages } from "../media";
+import { productEditorialPoster, productImageMap, productImages, productImageLabel, productImageNote } from "../media";
 import type { ProductDetail, ProductSummary } from "../types";
 
 type DetailTab = "overview" | "specs" | "reviews" | "evidence";
@@ -184,7 +184,8 @@ export function ProductPage() {
             </div>
           ) : null}
           <div className="product-main-image">
-            <img src={selectedImage || gallery[0]} alt={product.title} />
+            <img src={selectedImage || gallery[0]} alt={productImageLabel(product) ? `${product.title}: ${productImageLabel(product)}` : product.title} />
+            {productImageNote(product) ? <p className="category-image-note">{productImageNote(product)}</p> : null}
           </div>
         </div>
         <div className="product-summary">

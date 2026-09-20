@@ -178,28 +178,8 @@ function buildCategoryPools(): Map<string, string[]> {
   return pools;
 }
 
-/**
- * Categories whose photography is interchangeable on sight, used only after a
- * category's own pool is exhausted.
- *
- * This is a short list on purpose. A carbon racer standing in for a road shoe
- * is a running shoe either way, so a participant reads a varied catalog rather
- * than a mistake. Anything looser is how a treadmill ends up illustrated with
- * an exercise bike, and the workshop is a demonstration of retrieval accuracy.
- *
- * The headphone, chair and running rows below were added after the Lab 1 anchor
- * query -- the most-run query in the session -- returned twelve results drawn
- * from six photographs, seven of them the same one. Those seven were
- * `acoustic-headphones`, a category with no plate set and exactly one exact
- * shot, so every row in it resolved to the same file. The bar for joining a row
- * here is the same as it was: the same object, photographed the same way. A
- * stability trainer is a road shoe with a support wedge, and one of the road
- * plates is literally that. `gaming-headsets` and `conference-headsets` are
- * deliberately absent even though they are the larger categories, because a
- * boom mic is a visible difference and a participant would read it as an error.
- */
+/** Shared category photos must preserve visible construction, not just purpose. */
 const relatedCategories: Record<string, string[]> = {
-  "trail-running-shoes": ["road-running-shoes", "carbon-racing-shoes", "cross-training-shoes"],
   "road-running-shoes": ["carbon-racing-shoes", "cross-training-shoes", "stability-running-shoes"],
   "carbon-racing-shoes": ["road-running-shoes", "cross-training-shoes"],
   "cross-training-shoes": ["road-running-shoes", "carbon-racing-shoes"],
@@ -207,12 +187,10 @@ const relatedCategories: Record<string, string[]> = {
   "walking-shoes": ["road-running-shoes", "cross-training-shoes"],
   "acoustic-headphones": ["over-ear-headphones"],
   "over-ear-headphones": ["acoustic-headphones"],
-  "mesh-office-chairs": ["ergonomic-office-chairs", "executive-chairs"],
   "executive-chairs": ["ergonomic-office-chairs", "mesh-office-chairs"],
   "ergonomic-office-chairs": ["mesh-office-chairs", "executive-chairs"],
   "quiet-keyboards": ["mechanical-keyboards", "ergonomic-keyboards"],
   "mechanical-keyboards": ["quiet-keyboards", "ergonomic-keyboards"],
-  "ergonomic-keyboards": ["quiet-keyboards", "mechanical-keyboards"],
 };
 
 /**
@@ -278,6 +256,12 @@ export function categoryPoolSize(
 
 /** Every photograph eligible for a row in this category, best match first. */
 function categoryPool(product: CategoryImageProduct): string[] {
+  if (product.category_key === "mesh-office-chairs") {
+    const verifiedProducts = [370001, 370002, 370003, 370567, 371092, 374727, 375572, 377572, 378616];
+    const verifiedPlates = [1, 2, 4, 5, 7, 9].map((n) =>
+      platePath(`ho-ergonomic-office-chairs-plate-${String(n).padStart(2, "0")}`));
+    return [...verifiedProducts.map((id) => productBoundImage(id)).filter((path): path is string => Boolean(path)), ...verifiedPlates];
+  }
   const primary = categoryPools.get(product.category_key) ?? [];
   const related = (relatedCategories[product.category_key] ?? [])
     .flatMap((key) => categoryPools.get(key) ?? [])
@@ -324,10 +308,26 @@ export function categoryProductImageMap(
   return assigned;
 }
 
+/** Whether the displayed photo illustrates a category rather than this identity. */
+export function usesCategoryImage(product: ProductSummary): boolean {
+  return boundImage(product) === null;
+}
+
 export function productImage(product: ProductSummary): string {
   const bound = boundImage(product);
   if (bound) return bound;
   return categoryProductImage(product);
+}
+
+export function productImageLabel(product: ProductSummary): string | null {
+  if (productImage(product).includes("-domain-neutral-")) return "Photo unavailable";
+  return usesCategoryImage(product) ? "Category image" : null;
+}
+
+export function productImageNote(product: ProductSummary): string | null {
+  const label = productImageLabel(product);
+  if (label === "Photo unavailable") return "A product photograph is not available. Check the specifications for this product’s features.";
+  return label ? "Illustrative category image. Check the specifications for this product’s features." : null;
 }
 
 /**

@@ -137,6 +137,12 @@ def main() -> None:
         ),
     )
 
+    require(
+        quality.get("semantic_issues") == {},
+        f"quality_report.json has semantic_issues={quality.get('semantic_issues')}; "
+        "run make quality and repair category/specification contradictions before packaging.",
+    )
+
     for key in (
         "invalid_updated_before_launch",
         "malformed_skus",

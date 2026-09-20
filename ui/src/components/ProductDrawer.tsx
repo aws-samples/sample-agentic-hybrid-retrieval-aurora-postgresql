@@ -10,7 +10,7 @@ import {
   isPurchasable,
   leafCategory,
 } from "../format";
-import { productImage } from "../media";
+import { productImage, productImageLabel, productImageNote } from "../media";
 import { lockBodyScroll } from "../scrollLock";
 import type { ProductDetail } from "../types";
 
@@ -191,7 +191,8 @@ export function ProductDrawer({
             <div className="product-drawer-body">
               {image ? (
                 <div className="product-drawer-media">
-                  <img src={image} alt={detail?.title ?? ""} />
+                  <img src={image} alt={detail && productImageLabel(detail) ? `${detail.title}: ${productImageLabel(detail)}` : detail?.title ?? ""} />
+                  {detail && productImageNote(detail) ? <p className="category-image-note">{productImageNote(detail)}</p> : null}
                 </div>
               ) : null}
 

@@ -1,5 +1,6 @@
 import { Check, ChevronDown, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
+import { alexBrief } from "../alexBrief";
 
 export function AlexProfile({ onOpen }: { onOpen: () => void }) {
   const [open, setOpen] = useState(false);
@@ -66,11 +67,11 @@ export function AlexProfile({ onOpen }: { onOpen: () => void }) {
             <img src="/assets/images/mosaic/alex-shopper-v1.jpg" alt="" width={64} height={64} />
             <div>
               <h2 id={`${id}-title`} ref={headingRef} tabIndex={-1}>Meet Alex.</h2>
-              <p>Software engineer · Works from home</p>
+              <p>{alexBrief.role}</p>
             </div>
           </div>
-          <blockquote>“Room for my code, clear calls, and a chair I don’t have to think about.”</blockquote>
-          <p className="alex-profile-bio">Alex shares a home office with his partner. His days move between writing code, team calls and finding a little room to focus.</p>
+          <blockquote>“{alexBrief.quote}”</blockquote>
+          <p className="alex-profile-bio">{alexBrief.description}</p>
           <dl className="alex-profile-details">
             <div><dt>His kind of space</dt><dd>Warm, uncluttered, easy on the eyes.</dd></div>
             <div><dt>Already sorted</dt><dd><Check size={15} aria-hidden="true" /> Desk and laptop</dd></div>

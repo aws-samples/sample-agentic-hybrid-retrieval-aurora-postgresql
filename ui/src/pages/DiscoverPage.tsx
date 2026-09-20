@@ -1,6 +1,7 @@
 import { Check, Send } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
+import { alexBrief } from "../alexBrief";
 import { CatalogSearchComposer } from "../components/CatalogSearchComposer";
 import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { categoryHref, editorialStories, storyHref } from "../discoverContent";
@@ -59,9 +60,13 @@ export function DiscoverPage() {
           <div className="discover-hero-content">
             <div className="discover-alex-intro">
               <img src="/assets/images/mosaic/alex-shopper-v1.jpg" alt="Alex" width={88} height={88} />
-              <h2>Meet Alex.</h2>
+              <div>
+                <h2>Meet Alex.</h2>
+                <p className="discover-alex-role">{alexBrief.role}</p>
+              </div>
             </div>
-            <p className="discover-alex-bio">A software engineer making space for good work at home. His day moves between writing code, team calls and time to concentrate.</p>
+            <blockquote className="discover-alex-quote">“{alexBrief.quote}”</blockquote>
+            <p className="discover-alex-bio">{alexBrief.description}</p>
             <dl className="discover-brief">
               <div>
                 <dt>Already in place</dt>

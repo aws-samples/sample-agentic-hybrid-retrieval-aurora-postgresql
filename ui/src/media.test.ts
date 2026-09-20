@@ -4,6 +4,8 @@ import {
   domainMedia,
   productBoundImage,
   productImage,
+  productImageLabel,
+  productImageNote,
   productImageMap,
   productImages,
   productEditorialPoster,
@@ -149,16 +151,15 @@ describe("productImage", () => {
     ).toBe("/assets/images/mosaic/ce-portable-monitors-catalog-3x2.webp");
   });
 
-  it("substitutes a related category only among interchangeable footwear", () => {
-    // Trail shoes have no photograph of their own. A road or racing shoe is
-    // still a running shoe, so the card reads as catalog breadth.
+  it("keeps trail footwear in its own category", () => {
+    // The outsole is meaningful; a road shoe is not a trail-shoe illustration.
     expect(
       productImage(filler(4, {
         domain: "running_fitness",
         category_key: "trail-running-shoes",
         category_path: "Footwear > Trail Running Shoes",
       })),
-    ).toMatch(/-(road-running-shoes|carbon-racing-shoes|cross-training-shoes)-/);
+    ).toMatch(/-trail-running-shoes-/);
   });
 
   it("falls back to a neutral still-life when the category has no photograph", () => {
@@ -306,5 +307,16 @@ describe("category photography is deep enough to fill a page", () => {
     // were enormous, and prove nothing about the floor. A category with neither
     // plates nor exact shots is still one photograph for every row.
     expect(categoryPoolSize("desk-fans", "home_office")).toBeLessThan(PAGE);
+  });
+});
+
+
+describe("photo disclosure", () => {
+  it("distinguishes a missing photo from a representative category photo", () => {
+    const missing = filler(600, { category_key: "no-installed-photography" });
+    expect(productImageLabel(missing)).toBe("Photo unavailable");
+    expect(productImageNote(missing)).toContain("photograph is not available");
+    expect(productImageLabel(filler(10000))).toBe("Category image");
+    expect(productImageLabel(product({ product_id: 1 }))).toBeNull();
   });
 });

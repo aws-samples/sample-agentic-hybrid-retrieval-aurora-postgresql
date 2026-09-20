@@ -4,7 +4,7 @@ import { cartQuantityLimit, useCommerce } from "../commerce";
 import { formatAvailability, formatPrice, isPurchasable, leafCategory } from "../format";
 import { shopDescription } from "../shopCopy";
 import { productDetailHref } from "../navigation";
-import { productImage } from "../media";
+import { productImage, productImageLabel } from "../media";
 import { FINAL_LABEL, FUSED_LABEL, armLabel } from "../retrievalLanguage";
 import type { ProductSummary } from "../types";
 
@@ -91,12 +91,13 @@ export function ProductCard({
         <Link className="product-image" href={productDetailHref(product.product_id)}>
           <img
             src={imageSrc ?? productImage(product)}
-            alt={product.title}
+            alt={productImageLabel(product) ? `${product.title}: ${productImageLabel(product)}` : product.title}
             width={1200}
             height={800}
             loading="lazy"
             decoding="async"
           />
+          {productImageLabel(product) ? <span className="category-image-label">{productImageLabel(product)}</span> : null}
           {assistRank ? <span className="assist-rank-badge">{String(assistRank).padStart(2, "0")}</span> : null}
         </Link>
         <button
@@ -231,6 +232,7 @@ export function ProductCard({
           loading="lazy"
           decoding="async"
         />
+        {productImageLabel(product) ? <span className="category-image-label">{productImageLabel(product)}</span> : null}
         {signals ? <span className="rank-badge">#{signals.final_rank}</span> : null}
       </Link>
       <button

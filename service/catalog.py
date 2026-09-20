@@ -539,6 +539,7 @@ def get_product(product_id: int) -> ProductDetail:
                    rating, is_verified, source_date, metadata
             FROM mosaic.product_evidence
             WHERE product_id = %s
+              AND is_current
               AND evidence_type::text IN ('customer_review', 'verified_review')
             ORDER BY rating DESC NULLS LAST, evidence_id
             LIMIT 8
@@ -724,6 +725,7 @@ def review_highlights(limit: int = 5) -> ReviewHighlightsResponse:
             FROM mosaic.product_evidence e
             JOIN mosaic_search.product_document d USING (product_id)
             WHERE e.product_id = ANY(%s::bigint[])
+              AND e.is_current
               AND e.evidence_type::text
                   IN ('customer_review', 'verified_review')
               AND e.is_verified

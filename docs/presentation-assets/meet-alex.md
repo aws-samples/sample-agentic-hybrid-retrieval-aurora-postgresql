@@ -1,8 +1,14 @@
 # Meet Alex
 
-Alex is a software engineer setting up his home office. His day moves between
-coding, video calls and focused work. He already has a laptop and desk; now he
-needs a quiet keyboard, a supportive chair and headphones that help him concentrate.
+**Software engineer · Works from home**
+
+“I’ve got the desk and the laptop. Now I need a setup I can actually work in,
+every day.”
+
+Alex is setting up his home office. He wants headphones for clear calls and
+fewer distractions, a chair that stays comfortable through a full workday, and
+a monitor big enough to run code and docs side by side without constant
+tab-switching.
 
 **One mission: build a workspace that fits his day.**
 
@@ -16,11 +22,12 @@ The Pipeline uses the same image at 128 CSS pixels on desktop.
 
 ## Speaker note
 
-Alex gives us one shopping mission with several kinds of request. Retrieve finds
-candidate products through words, spelling and meaning. Rank combines those
-candidates and evaluates relevance. Reason uses product evidence to explain a
-choice. Optional preference memory can carry his constraints into later requests
-when configured and separately rehearsed.
+Alex already has the desk and laptop. Our job is to help him finish a setup he
+can work in every day: headphones for calls and concentration, a comfortable
+chair, and enough screen space for code and docs. Retrieve finds suitable
+products, even when a request contains a typo. Rank puts those products in a
+useful order. Reason checks the specifications and reviews before explaining a
+choice. Every step should help Alex make a decision he can check.
 
 Alex is a fictional workshop persona. His portrait was generated with the built-in
 image generation tool; its prompt and provenance are in

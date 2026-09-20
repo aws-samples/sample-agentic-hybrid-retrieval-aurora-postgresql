@@ -17,19 +17,19 @@
   "filter_targets_found": 720,
   "full_dataset_shards": [
     {
-      "bytes": 41184575,
+      "bytes": 40946575,
       "path": "data/full/products_consumer_electronics.csv.gz",
-      "sha256": "970b6a6d65f7dc8d800e6dead6f596f08b3112ac1eda392776e31ef81a037bc8"
+      "sha256": "736fdc1ae1640d224e3c0f5674177a38782390849ba2945c23a6269b12207e3d"
     },
     {
-      "bytes": 31507644,
+      "bytes": 31309068,
       "path": "data/full/products_running_fitness.csv.gz",
-      "sha256": "de292c60b17467376bba882da0bf2251ffddf27599b3743e6fc7d7e93b8bb341"
+      "sha256": "432e30d9e6c99d283548b7731363cdad590118de8ace85aa373767eb4a699458"
     },
     {
-      "bytes": 25540771,
+      "bytes": 24381046,
       "path": "data/full/products_home_office.csv.gz",
-      "sha256": "beac0bdec644c4f0ea650cdb1906b3ccc6baafc42427f74834cbc6e7f9fefaa8"
+      "sha256": "c34f27946941040cbba4fbae6f3a6d5f1e9cc1d3ca30fb4571516e5736ff4f46"
     }
   ],
   "github_file_limit_bytes": 100000000,
@@ -48,6 +48,8 @@
     "p50": 4.4
   },
   "rows": 500000,
+  "semantic_issue_examples": [],
+  "semantic_issues": {},
   "source_systems": {
     "Catalog API": 100060,
     "ERP": 100019,
@@ -57,7 +59,7 @@
     "curated_merchandising": 200
   },
   "subcategories": 160,
-  "subcategory_model_pairs": 468181,
+  "subcategory_model_pairs": 468233,
   "unique_product_uids": 500000,
   "unique_skus": 500000,
   "unsupported_filter_queries": 0

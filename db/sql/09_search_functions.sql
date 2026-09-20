@@ -746,6 +746,7 @@ WITH lexical AS (
            ) AS rank
     FROM mosaic.product_evidence e
     WHERE e.product_id = p_product_id
+      AND e.is_current
       AND (p_evidence_types IS NULL OR e.evidence_type = ANY (p_evidence_types))
       AND e.evidence_document @@ websearch_to_tsquery('english', q)
     ORDER BY score DESC, e.evidence_id
@@ -771,6 +772,7 @@ WITH lexical AS (
     FROM mosaic.product_evidence e
     JOIN mosaic_search.product_document d USING (product_id)
     WHERE e.product_id = p_product_id
+      AND e.is_current
       AND (
           e.embedding IS NOT NULL
           OR (

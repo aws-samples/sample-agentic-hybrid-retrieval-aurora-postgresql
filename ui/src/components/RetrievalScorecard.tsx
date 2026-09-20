@@ -759,6 +759,12 @@ export function RetrievalScorecard({ refreshKey = 0 }: RetrievalScorecardProps) 
   const scorecard = (
     <div className="labs-scorecard">
       {note}
+      <p className="labs-scorecard-intro">
+        These searches check three things: whether suitable products are found,
+        whether the best matches move up, and whether recommendations have
+        supporting sources. Repeat the same request before and after a repair;
+        inspect what changed before trusting a score.
+      </p>
       <RetrievalQualitySection
         quality={data.retrieval_quality}
         provenance={data.provenance}

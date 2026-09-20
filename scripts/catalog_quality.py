@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from catalog_contract import product_matches_filters, unsupported_filter_keys
+from catalog_semantics import repair_catalog_row
 
 ROOT = Path(__file__).resolve().parents[1]
 GITHUB_FILE_LIMIT = 100_000_000
@@ -73,11 +74,18 @@ def main() -> None:
     malformed_skus = 0
     matched_queries: set[str] = set()
     mismatched_queries: set[str] = set()
+    semantic_issues: Counter[str] = Counter()
+    semantic_examples: list[int] = []
 
     for path in paths:
         with gzip.open(path, "rt", encoding="utf-8", newline="") as source:
             for row in csv.DictReader(source):
                 rows += 1
+                _, violations = repair_catalog_row(row)
+                if violations:
+                    semantic_issues.update(violations)
+                    if len(semantic_examples) < 10:
+                        semantic_examples.append(int(row["product_id"]))
                 product_id = int(row["product_id"])
                 product_uids.add(row["product_uid"])
                 skus.add(row["sku"])
@@ -110,6 +118,8 @@ def main() -> None:
     ]
     report: dict[str, Any] = {
         "rows": rows,
+        "semantic_issues": dict(semantic_issues),
+        "semantic_issue_examples": semantic_examples,
         "domain_counts": dict(domain_counts),
         "unique_product_uids": len(product_uids),
         "unique_skus": len(skus),
@@ -157,6 +167,13 @@ def main() -> None:
         f"{len(unsupported_queries)} unsupported eval filters,",
         f"{len(mismatched_queries)} target mismatches.",
     )
+
+    if semantic_issues or mismatched_queries or unsupported_queries:
+        raise SystemExit(
+            f"Catalog meaning/filter rule: issues={dict(semantic_issues)}, "
+            f"examples={semantic_examples}, mismatched queries={sorted(mismatched_queries)}; "
+            "repair the reviewed source records and their exact filter fixtures before release."
+        )
 
 
 if __name__ == "__main__":

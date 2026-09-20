@@ -1525,9 +1525,9 @@
       "detail_runtime": null,
       "upstream_catalog_asset_key": "premium-73425-catalog-3x2",
       "catalog_installed": true,
-      "catalog_sha256": "3e1b6295465ffd72aa09234526dc5da2219677c43fb00bbf8a0863c54bdb32e6",
-      "source_batch": "chatgpt-2026-08-08",
-      "source_filename": "ChatGPT Image Aug 8, 2026, 10_54_21 PM (9).png",
+      "catalog_sha256": "e7a4f307db5964db81904a5568bf29914e43924afe12f91abf47e261cc383e5b",
+      "source_batch": "catalog-semantics-review",
+      "source_filename": "exec-d70c9783-4958-43ce-8819-5e23674650cf.png",
       "detail_installed": false,
       "detail_sha256": null
     },

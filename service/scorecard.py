@@ -96,10 +96,10 @@ METRIC_EXPLANATIONS: dict[str, str] = {
 }
 
 SAMPLE_DESCRIPTION = (
-    "A hand-built set of test searches, each with products graded as right or "
-    "wrong answers, including look-alike wrong answers. Written to trigger "
-    "every failure the labs teach, not to stand in for the whole "
-    "500,000-product catalog."
+    "Prepared searches with selected products graded by suitability. Several "
+    "products can be appropriate for the same request. These checks detect "
+    "known retrieval regressions; they do not represent customer traffic or "
+    "judge every product in the 500,000-product catalog."
 )
 
 ELIGIBILITY_DESCRIPTION = (

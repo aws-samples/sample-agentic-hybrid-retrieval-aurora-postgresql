@@ -1298,25 +1298,25 @@
       "plate_id": "ce-domain-neutral",
       "domain": "consumer_electronics",
       "framing": "F3",
-      "subject": "a loosely folded cream linen cloth resting on a travertine ledge, one corner turned back to show a deep maroon woven underside",
+      "subject": "An empty warm cream travertine ledge against a plaster wall; no merchandise or decorative objects.",
       "installed": true,
-      "sha256": "05b7ac5ecaac0576f2d9df2af85cd5170dbba3f3a429de946151a6bc2f634779"
+      "sha256": "6d821b3e44c88ac945e95d5e1768183a4fb43c560dd48905cac94a7592e38e7c"
     },
     {
       "plate_id": "rf-domain-neutral",
       "domain": "running_fitness",
       "framing": "F3",
-      "subject": "a folded cream cotton towel and a rolled sand-coloured fabric strap resting on a travertine ledge",
+      "subject": "An empty warm cream travertine ledge against a plaster wall; no merchandise or decorative objects.",
       "installed": true,
-      "sha256": "0aac55eea053b8b3a3e695c9a4f036e436c060355768a8150de1f70937fd120d"
+      "sha256": "6d821b3e44c88ac945e95d5e1768183a4fb43c560dd48905cac94a7592e38e7c"
     },
     {
       "plate_id": "ho-domain-neutral",
       "domain": "home_office",
       "framing": "F3",
-      "subject": "a folded cream wool felt mat resting on a warm oak surface, the oak grain filling the lower half of the frame and warm cream plaster rising behind it",
+      "subject": "An empty warm cream travertine ledge against a plaster wall; no merchandise or decorative objects.",
       "installed": true,
-      "sha256": "9ccea80efe7a9e749fd1f2fb24f3efc69fb51b1fa20df22f5b966b25cc27f8a3"
+      "sha256": "6d821b3e44c88ac945e95d5e1768183a4fb43c560dd48905cac94a7592e38e7c"
     }
   ]
 }

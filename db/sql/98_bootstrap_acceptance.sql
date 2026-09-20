@@ -35,7 +35,7 @@ BEGIN
            )
     INTO evidence_count, specification_count, review_count
     FROM mosaic.product_evidence
-    WHERE source_name IN (
+    WHERE is_current AND source_name IN (
         'Mosaic catalog specification',
         'Mosaic synthetic review corpus',
         'Mosaic verified review corpus'

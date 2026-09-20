@@ -196,8 +196,8 @@ def test_subcategory_routing_does_not_use_ambiguous_substrings():
         cable_management, random.Random(1), []
     )
 
-    assert organizer_tags == ["organization", "storage", "workspace"]
-    assert cable_tags == ["organization", "storage", "workspace"]
+    assert organizer_tags == ["organization", "desktop organizers"]
+    assert cable_tags == ["organization", "cable management"]
     assert "moisture_wicking" not in organizer_attributes
     assert "max_power_w" not in cable_attributes
 

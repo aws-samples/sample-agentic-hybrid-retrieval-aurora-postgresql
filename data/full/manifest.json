@@ -4,6 +4,7 @@
     "Low Stock": 52448,
     "Out of Stock": 10139
   },
+  "catalog_revision": "2026-09-08-distinct-shop-selection-v2",
   "category_counts": {
     "consumer_electronics::Accessories": 10000,
     "consumer_electronics::Audio": 55000,
@@ -70,13 +71,13 @@
     "data/full/products_running_fitness.csv.gz",
     "data/full/products_home_office.csv.gz"
   ],
+  "generated_at": "2026-08-07T02:59:23.659449+00:00",
+  "license": "Synthetic data generated for demonstration and workshop use; no real products or reviews are represented.",
   "media_mapping": {
     "path": "data/full/product_image_urls.csv.gz",
     "rows": 500000,
     "sha256": "bcf617fb659a49e13cea4373dc0d1d1d21d2fc2087acd16979d821b21f9b0585"
   },
-  "generated_at": "2026-08-07T02:59:23.659449+00:00",
-  "license": "Synthetic data generated for demonstration and workshop use; no real products or reviews are represented.",
   "sample_dataset": "data/sample/products_5000.csv.gz",
   "scale": 1.0,
   "seed": 20260806,
@@ -144,8 +145,8 @@
     "home_office::Desks::Compact Desks": 2000,
     "home_office::Desks::Corner Desks": 3000,
     "home_office::Desks::Drafting Tables": 1000,
-    "home_office::Desks::Electric Standing Desks": 7000,
-    "home_office::Desks::Fixed Desks": 4000,
+    "home_office::Desks::Electric Standing Desks": 6827,
+    "home_office::Desks::Fixed Desks": 4173,
     "home_office::Desks::Standing Desk Converters": 3000,
     "home_office::Displays::Monitor Arms": 3000,
     "home_office::Displays::Portable Monitors": 2000,
@@ -209,9 +210,9 @@
     "running_fitness::Cardio Equipment::Jump Ropes": 1500,
     "running_fitness::Cardio Equipment::Rowing Machines": 1500,
     "running_fitness::Cardio Equipment::Treadmills": 3000,
-    "running_fitness::Footwear::Carbon Racing Shoes": 8000,
+    "running_fitness::Footwear::Carbon Racing Shoes": 7796,
     "running_fitness::Footwear::Cross-Training Shoes": 5000,
-    "running_fitness::Footwear::Road Running Shoes": 14000,
+    "running_fitness::Footwear::Road Running Shoes": 14204,
     "running_fitness::Footwear::Stability Running Shoes": 7000,
     "running_fitness::Footwear::Trail Running Shoes": 10000,
     "running_fitness::Footwear::Walking Shoes": 6000,
@@ -244,6 +245,5 @@
     "running_fitness::Yoga & Mobility::Yoga Mats": 3500
   },
   "total_products": 500000,
-  "version": "0.1.0",
-  "catalog_revision": "2026-09-08-distinct-shop-selection-v2"
+  "version": "0.1.0"
 }

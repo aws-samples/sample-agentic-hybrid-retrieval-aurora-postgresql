@@ -441,6 +441,7 @@ test-aurora-contracts:
 	@$(PYTHON) -m pytest -q \
 		tests/test_sql_integration.py \
 		tests/test_bootstrap_contract.py \
+		tests/test_evidence_retirement.py \
 		tests/test_agent_eligibility.py
 
 # Every `pytest.mark.aurora` test, and until this target existed none of them ran

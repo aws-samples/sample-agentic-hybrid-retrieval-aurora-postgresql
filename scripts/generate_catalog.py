@@ -11,7 +11,7 @@ The generator is deterministic, streaming, dependency-light, and designed for:
 
 It writes a full gzip-compressed CSV plus compact samples and evaluation files.
 Embeddings are intentionally generated separately so the workshop can switch
-between Bedrock, local, or deterministic development providers.
+between supported Bedrock models; test doubles are confined to tests.
 """
 
 from __future__ import annotations
@@ -38,6 +38,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from db.scripts.transform_legacy_catalog import resolve_category_keys
+from scripts.catalog_semantics import (
+    WRONG_SCHEMA_FIELDS,
+    category_specifications,
+    repair_catalog_row,
+)
+from scripts.filter_case_copy import describe_filter_case
 
 NAMESPACE = uuid.UUID("a6b65282-ccf5-4f7b-9aa4-a0b72bf26420")
 TODAY = date(2026, 8, 6)
@@ -795,6 +801,15 @@ def sku_segment(subcategory: str) -> str:
 def specialized_attributes(
     ctx: ProductContext, rng: random.Random, cohorts: list[str]
 ) -> tuple[dict[str, Any], list[str], str, str]:
+    corrected = category_specifications(ctx.subcategory, rng)
+    if corrected is not None:
+        attrs, description, detail = corrected
+        return (
+            attrs,
+            [ctx.category.lower(), ctx.subcategory.lower()],
+            description.rstrip("."),
+            detail.rstrip("."),
+        )
     s = ctx.subcategory.lower()
     attrs: dict[str, Any] = {}
     tags: list[str] = []
@@ -1535,6 +1550,9 @@ def make_product(ctx: ProductContext, seed: int) -> dict[str, Any]:
         f"Its structured specifications make it easy to compare compatibility, performance, price, availability, and intended use. "
         f"Finish: {color}. Warranty: {rng.choice([12, 18, 24, 36, 60])} months."
     )
+    if ctx.subcategory in WRONG_SCHEMA_FIELDS:
+        short = feature + "."
+        long = short + " " + benefit + "."
     if "hard_negative" in cohorts:
         long += " This product intentionally resembles a nearby search intent but lacks one decisive requested capability."
     if is_refurbished:
@@ -1587,7 +1605,7 @@ def make_product(ctx: ProductContext, seed: int) -> dict[str, Any]:
         [title, short, long, f"Use case: {use_case}.", f"Features: {', '.join(tags)}."]
     )
 
-    return {
+    product = {
         "product_id": ctx.product_id,
         "product_uid": str(uuid.uuid5(NAMESPACE, f"product:{ctx.product_id}")),
         "sku": f"{ctx.domain[:2].upper()}-{sku_segment(ctx.subcategory)}-{ctx.product_id:07d}",
@@ -1629,6 +1647,7 @@ def make_product(ctx: ProductContext, seed: int) -> dict[str, Any]:
         "canonical_group_id": canonical_group_id,
         "image_key": f"{ctx.domain}/{slug(ctx.subcategory)}/{ctx.product_id % 240:03d}.webp",
     }
+    return repair_catalog_row(product)[0]
 
 
 def iter_contexts(scale: float = 1.0) -> Iterable[ProductContext]:
@@ -1718,11 +1737,6 @@ def make_eval_assets(
         }
         if interesting:
             filters["attributes"] = dict(interesting)
-        feature_suffix = (
-            f" with {', '.join(key.replace('_', ' ') for key, _ in interesting[:2])}"
-            if interesting
-            else ""
-        )
         queries = [
             (f"{anchor['brand']} {anchor['model']}", "exact_model", ["lexical"]),
             (
@@ -1731,7 +1745,9 @@ def make_eval_assets(
                 ["semantic", "rerank"],
             ),
             (
-                f"Best {anchor['subcategory'].lower()} under ${price_ceiling}{feature_suffix}",
+                describe_filter_case(
+                    anchor["subcategory"], price_ceiling, dict(interesting)
+                ),
                 "hybrid_filtered",
                 ["lexical", "semantic", "filters", "rrf", "rerank"],
             ),
@@ -1745,7 +1761,7 @@ def make_eval_assets(
                     "filters": filters if intent == "hybrid_filtered" else base_filters,
                     "expected_techniques": techniques,
                     "target_product_id": int(anchor["product_id"]),
-                    "notes": f"Synthetic ground truth anchored to {anchor['sku']} in {domain_label}.",
+                    "notes": f"Generated target/filter fixture for {anchor['sku']} in {domain_label}; not a relevance judgment.",
                 }
             )
 

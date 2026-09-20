@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS mosaic.product_evidence (
     source_date          date,
     rating               numeric(3,2) CHECK (rating BETWEEN 0 AND 5),
     is_verified          boolean NOT NULL DEFAULT false,
+    is_current           boolean NOT NULL DEFAULT true,
     metadata             jsonb NOT NULL DEFAULT '{}'::jsonb,
     trigram_text         text NOT NULL DEFAULT '',
     evidence_document    tsvector GENERATED ALWAYS AS (
@@ -25,6 +26,10 @@ CREATE TABLE IF NOT EXISTS mosaic.product_evidence (
     created_at           timestamptz NOT NULL DEFAULT now(),
     updated_at           timestamptz NOT NULL DEFAULT now()
 );
+
+-- Retired source records retain their identities for saved citations.
+ALTER TABLE mosaic.product_evidence
+    ADD COLUMN IF NOT EXISTS is_current boolean NOT NULL DEFAULT true;
 
 CREATE INDEX IF NOT EXISTS evidence_product_type_idx
     ON mosaic.product_evidence (product_id, evidence_type);

@@ -3816,12 +3816,7 @@
       "privacy_shutter": true,
       "microphone_array": 3,
       "video_resolution": "4K",
-      "field_of_view_deg": 90,
-      "certified_platforms": [
-        "Zoom",
-        "Teams",
-        "Webex"
-      ]
+      "field_of_view_deg": 90
     },
     "tags": [
       "4K webcam",
@@ -3900,20 +3895,20 @@
   {
     "product_id": 461115,
     "preserve_commerce_signals": true,
-    "short_description": "IP67-rated wireless in-ear buds, 10 g, with AAC codec and 28 hours total battery across buds and case.",
-    "long_description": "The AH-A267P is a lightweight in-ear option at 10 g, suited to calls and audio during desk work or travel. AAC codec support keeps Bluetooth audio quality solid on Apple and Android devices, and multipoint pairing holds connections to two sources at once. IP67 waterproofing handles full submersion, a step up from splash-only ratings. There is no active noise cancellation; isolation is passive only. The 28-hour figure reflects combined earbud and charging-case capacity, not a single per-charge runtime.",
+    "short_description": "Over-ear wireless headphones, 295 g, with 28-hour battery life and passive isolation.",
+    "long_description": "Over-ear wireless headphones, 295 g, with 28-hour battery life and passive isolation. Multipoint pairing connects to two devices. A microphone supports calls; no outgoing voice-noise suppression rating is specified. No water-resistance rating is listed.",
     "attributes": {
       "codec": "AAC",
       "foldable": false,
-      "weight_g": 10,
+      "weight_g": 295,
       "microphone": true,
       "multipoint": true,
-      "form_factor": "in-ear",
+      "form_factor": "over-ear",
       "connectivity": [
         "Bluetooth",
         "USB-C"
       ],
-      "water_rating": "IP67",
+      "water_rating": "None",
       "battery_hours": 28,
       "active_noise_cancellation": false
     }
