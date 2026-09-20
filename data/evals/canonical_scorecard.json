@@ -7,7 +7,7 @@
   },
   "canonical_query_count": 21,
   "database_instance_id": "agenticretrievalcorestack-aurorapostgresretrievalc-5wdg4dpl2bg2",
-  "dataset_manifest_sha256": "2cbb04b93521a62be0c6512cec13a70149c51e24543f8a3d6e53d335ae7f5774",
+  "dataset_manifest_sha256": "9d2cc3858b702429589f53508313cd2e8a95e7e06c0b67f7280b6fd5625ade8f",
   "deterministic_release_checks": [
     {
       "concept_label": "Exact identity",
@@ -35,7 +35,7 @@
       "concept_label": "Subcategory and attributes",
       "product_id": 30001,
       "query_id": "G-018",
-      "query_text": "portable waterproof speaker with Wi-Fi and Bluetooth for travel",
+      "query_text": "water-resistant portable speaker with Wi-Fi and Bluetooth, rated IP67",
       "type": "top_rank"
     },
     {
@@ -64,11 +64,11 @@
     "scan_mem_multiplier": 2.0
   },
   "k": 10,
-  "measured_at": "2026-09-20T01:08:01.793493+00:00",
+  "measured_at": "2026-09-20T15:14:47.669021+00:00",
   "metrics": {
     "mrr": 0.8916666666666666,
-    "ndcg@10": 0.8509025943737966,
-    "recall@10": 0.8916666666666666
+    "ndcg@10": 0.824052757152384,
+    "recall@10": 0.8625
   },
   "models": {
     "embedding": "us.cohere.embed-v4:0",
@@ -93,10 +93,10 @@
     },
     {
       "concept_label": "Typo recovery",
-      "ndcg@10": 1.0,
+      "ndcg@10": 0.3903800499921017,
       "query_id": "G-003",
       "query_text": "noice cancelng hedfones",
-      "recall@10": 1.0,
+      "recall@10": 0.25,
       "reciprocal_rank": 1.0
     },
     {
@@ -117,10 +117,10 @@
     },
     {
       "concept_label": "Typo recovery and alias",
-      "ndcg@10": 0.7871546029909718,
+      "ndcg@10": 0.9173194127129571,
       "query_id": "G-006",
       "query_text": "quite mechancial keybord under $180 for shared office",
-      "recall@10": 0.5,
+      "recall@10": 1.0,
       "reciprocal_rank": 1.0
     },
     {
@@ -133,10 +133,10 @@
     },
     {
       "concept_label": "RRF and reranking",
-      "ndcg@10": 0.9467676761267002,
+      "ndcg@10": 0.8556691603792903,
       "query_id": "G-008",
       "query_text": "ergonomic mesh chair for long workdays with adjustable lumbar support",
-      "recall@10": 1.0,
+      "recall@10": 0.6666666666666666,
       "reciprocal_rank": 1.0
     },
     {
@@ -151,7 +151,7 @@
       "concept_label": "Semantic and attribute filter",
       "ndcg@10": 1.0,
       "query_id": "G-010",
-      "query_text": "single-cable 4K monitor for coding and photo editing with at least 90W USB-C power",
+      "query_text": "single-cable 4K monitor for coding and photo editing with 90W USB-C power",
       "recall@10": 1.0,
       "reciprocal_rank": 1.0
     },
@@ -199,15 +199,15 @@
       "concept_label": "Semantic running watch",
       "ndcg@10": 1.0,
       "query_id": "G-016",
-      "query_text": "GPS running watch for marathon training with maps, readiness, and more than 20 days of battery",
+      "query_text": "GPS running watch with onboard maps and training readiness, rated for more than 20 days in smartwatch mode",
       "recall@10": 1.0,
       "reciprocal_rank": 1.0
     },
     {
-      "concept_label": "Compatibility filter",
+      "concept_label": "Multi attribute filter",
       "ndcg@10": 1.0,
       "query_id": "G-017",
-      "query_text": "4K conference webcam certified for Zoom, Teams, and Webex with a privacy shutter",
+      "query_text": "4K conference webcam with auto-framing, noise reduction and a privacy shutter",
       "recall@10": 1.0,
       "reciprocal_rank": 1.0
     },
@@ -215,7 +215,7 @@
       "concept_label": "Subcategory and attributes",
       "ndcg@10": 1.0,
       "query_id": "G-018",
-      "query_text": "portable waterproof speaker with Wi-Fi and Bluetooth for travel",
+      "query_text": "water-resistant portable speaker with Wi-Fi and Bluetooth, rated IP67",
       "recall@10": 1.0,
       "reciprocal_rank": 1.0
     },
@@ -229,7 +229,7 @@
     },
     {
       "concept_label": "Graded sibling ordering",
-      "ndcg@10": 0.9049495058460971,
+      "ndcg@10": 0.938506417451168,
       "query_id": "G-020",
       "query_text": "ergonomic mesh chair with adjustable lumbar and seat depth for twelve hour workdays",
       "recall@10": 1.0,
@@ -238,9 +238,9 @@
   ],
   "product_retrieval_query_count": 20,
   "query_set": "data/evals/canonical_queries.jsonl",
-  "query_set_sha256": "d1ce67635a35559dc04dca229ab22771edfa199ce95be25a7b527a7b5d05468e",
-  "ranked_result_sha256": "3aeed26dafe0646eac8b52b82d940ccdd9f53e0a1fdcce6399f2e50132347135",
-  "retrieval_fingerprint": "2f895ac490b6902b225900c6a9e5c6fa418395105dbf31654b1b39f54b4f70af",
+  "query_set_sha256": "9809749d79cef151644a4a23850701746fe6ebf64a59cda36a00ce0b611c0f37",
+  "ranked_result_sha256": "195d27dc1e11f148281b6fa834c5b9522c12e5363a3566e4e6e8f1ed582afa37",
+  "retrieval_fingerprint": "33cfe9d829c6c222ce1157571689ba3f0bf66a4eddcbb066be0c4913143520d9",
   "retrieval_profile": {
     "authorized_limit": 10,
     "ef_search": 100,
@@ -260,9 +260,9 @@
   },
   "retrieval_settings_sha256": "3635fb13943e9504b42c530ffcd75317f5f326d1abf569e108078aa55498116e",
   "scorecard_methodology_sha256": "49f7fd20a9d1cc4322e2b4999e1b4118c93814191df093779ee89373e154350a",
-  "scored_query_set_sha256": "f9d840a4fb5fa58a5a3af798ef1a3eb3b34f6073997125e2d969f755bda3f36e",
+  "scored_query_set_sha256": "56cc1edf1ff0015fdcd4a298716093a22ae3e1a683980e00983b63be9174d7c9",
   "source": {
-    "revision": "03db7636496b4406e6e8d49e4cc59a6a4c54d324",
+    "revision": "4e97a2813b8c1c1e586dc335c7a4df6518f60ed1",
     "worktree_dirty": false
   },
   "strategy": "rrf_fusion+rerank+exact_sku_preservation"
