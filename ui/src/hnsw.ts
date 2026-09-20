@@ -229,3 +229,12 @@ export function speedupFactor(exactMs: number, serverMs: number): number {
   if (serverMs <= 0) return 0;
   return Math.round(exactMs / serverMs);
 }
+
+/** PostgreSQL reports memory in binary units; a GB must not become one MB. */
+export function postgresMemoryMb(setting: string | undefined): number | null {
+  const match = setting?.trim().match(/^(\d+(?:\.\d+)?)\s*(kB|MB|GB|TB|B)$/i);
+  if (!match) return null;
+  const factor: Record<string, number> = { b: 1 / 1048576, kb: 1 / 1024, mb: 1, gb: 1024, tb: 1048576 };
+  const value = Number(match[1]) * factor[match[2].toLowerCase()];
+  return Number.isFinite(value) && value > 0 ? value : null;
+}

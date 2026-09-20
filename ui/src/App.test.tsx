@@ -14,7 +14,6 @@ vi.mock("./pages/DiscoverPage", () => ({ DiscoverPage: () => <p>Discover route</
 vi.mock("./pages/CatalogPage", () => ({
   CatalogPage: () => <><p>Catalog route</p><input aria-label="Draft search" /></>,
 }));
-vi.mock("./pages/MosaicStudioPage", () => ({ MosaicStudioPage: () => <p>Studio route</p> }));
 vi.mock("./pages/ScaleInspectorPage", () => ({ ScaleInspectorPage: () => <p>HNSW route</p> }));
 vi.mock("./pages/ProductPage", () => ({ ProductPage: () => <p>Product route</p> }));
 vi.mock("./pages/PlaygroundPage", () => ({ PlaygroundPage: () => <p>Retrieval route</p> }));

@@ -27,7 +27,7 @@ Manifest, and why each entry earns its place
 - ``db/config/retrieval.yaml``: the single source for candidate limits,
   fusion k, weights, and HNSW tuning (``scripts.retrieval_profile``).
 - ``service/retrieval.py``, ``service/rerank.py``, ``service/embeddings.py``,
-  ``service/bedrock.py``: the served retrieval, reranking, and
+  ``service/bedrock.py``, ``service/coverage.py``: the served retrieval, reranking, and
   model-invocation path ``scripts/score_evals.py`` measures through
   ``service.retrieval.get_retrieval_service``.
 - ``scripts/retrieval_profile.py``: resolves the yaml above into the profile
@@ -86,12 +86,13 @@ tweak invalidates a billed run. Instead there are two narrower hashes, and
 retrieval quality never depends on ablation code:
 
 - ``scorecard_methodology_sha256`` covers ``service/models.py``,
-  ``scripts/score_evals.py``, and this file.
-- ``ablation_methodology_sha256`` covers those three plus
+  ``scripts/score_evals.py``, ``scripts/run_eval.py``,
+  ``scripts/embed_catalog.py`` (the shared embedding helpers), and this file.
+- ``ablation_methodology_sha256`` covers those five plus
   ``scripts/ablation_evals.py``.
 
 So an ablation-only edit marks the ablation section pending and leaves canonical
-retrieval metrics attributed, while a change to the shared three marks both.
+retrieval metrics attributed, while a change to the shared methodology marks both.
 
 This module is inside both manifests deliberately. The code that decides what
 provenance means must be covered by the provenance it computes, or editing the
@@ -179,7 +180,7 @@ _EXPECTED_CATEGORY_COUNTS: dict[str, int] = {
     # carries a query-coverage step.
     "sql": 27,
     "config": 1,
-    "service": 4,
+    "service": 5,
     "scripts": 3,
     "eval_data": 2,
 }
@@ -212,6 +213,7 @@ def _category_files(repo_root: Path) -> dict[str, tuple[Path, ...]]:
             repo_root / "service" / "rerank.py",
             repo_root / "service" / "embeddings.py",
             repo_root / "service" / "bedrock.py",
+            repo_root / "service" / "coverage.py",
         ),
         "scripts": (
             repo_root / "scripts" / "retrieval_profile.py",
@@ -283,6 +285,8 @@ SCORECARD_METHODOLOGY_FILES: tuple[str, ...] = (
     "scripts/score_evals.py",
     "service/models.py",
     "service/retrieval_fingerprint.py",
+    "scripts/run_eval.py",
+    "scripts/embed_catalog.py",
 )
 
 #: The ablation reuses every scorecard methodology input and adds its own
@@ -296,8 +300,8 @@ ABLATION_METHODOLOGY_FILES: tuple[str, ...] = (
 #: Independent witnesses, per house standards rule 7: literals, never
 #: `len(SCORECARD_METHODOLOGY_FILES)`, which would agree with any edit.
 _EXPECTED_METHODOLOGY_COUNTS: dict[str, int] = {
-    "scorecard": 3,
-    "ablation": 4,
+    "scorecard": 5,
+    "ablation": 6,
 }
 
 

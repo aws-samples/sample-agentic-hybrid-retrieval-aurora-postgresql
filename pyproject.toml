@@ -34,6 +34,8 @@ dev = [
 # excluded it from a plain `pytest` run, so its ten static SQL assertions never
 # executed anywhere. Adding a directory here is the whole fix; they pass.
 testpaths = ["tests", "db/tests"]
+addopts = "--strict-markers"
+empty_parameter_set_mark = "fail_at_collect"
 markers = [
     "aurora: requires the live Aurora cluster and Bedrock model access",
 ]

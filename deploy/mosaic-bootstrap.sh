@@ -14,20 +14,25 @@ exec > >(tee /var/log/mosaic-bootstrap.log | logger -t mosaic-bootstrap -s 2>/de
 #
 # Redaction is not optional: this log captures every command's output, a failing
 # psql can echo a DSN, and stack events are readable by the participant. The
-# secrets are passed as arguments rather than interpolated into a sed script,
+# secrets are passed through the environment rather than interpolated into a sed script,
 # because building a delimited expression around an unescaped secret is the exact
 # class of bug that `pgpass_escape` below exists to fix.
 failure_reason() {
   local prefix='Mosaic bootstrap failed. Tail of /var/log/mosaic-bootstrap.log: '
   local encoded=''
   if command -v python3 >/dev/null 2>&1; then
-    encoded=$(tail -c 4000 /var/log/mosaic-bootstrap.log 2>/dev/null \
-      | python3 -c '
-import json, sys
+    encoded=$(MOSAIC_REDACT_DB="${DB_PASSWORD:-}" \
+      MOSAIC_REDACT_EDITOR="${CODE_EDITOR_PASSWORD:-}" \
+      MOSAIC_REDACT_APP="${APP_DB_PASSWORD:-}" \
+      MOSAIC_REDACT_URL="${DATABASE_URL:-}" python3 -c '
+import json, os, sys
+from urllib.parse import quote, quote_plus
 
-prefix, secrets = sys.argv[1], [s for s in sys.argv[2:] if s]
+prefix = sys.argv[1]
+secrets = [v for k, v in os.environ.items() if k.startswith("MOSAIC_REDACT_") and v]
 flat = " ".join(sys.stdin.read().split())
-for secret in secrets:
+variants = {form for secret in secrets for form in (secret, quote(secret, safe=""), quote_plus(secret))}
+for secret in sorted(variants, key=len, reverse=True):
     flat = flat.replace(secret, "[REDACTED]")
 if not flat:
     sys.stdout.write(json.dumps(prefix + "empty; it failed before writing")[1:-1])
@@ -39,8 +44,7 @@ while True:
         break
     keep -= 64
 sys.stdout.write(encoded)
-' "$prefix" "${DB_PASSWORD:-}" "${CODE_EDITOR_PASSWORD:-}" \
-        "${APP_DB_PASSWORD:-}" "${DATABASE_URL:-}" 2>/dev/null) || encoded=''
+' "$prefix" </var/log/mosaic-bootstrap.log 2>/dev/null) || encoded=''
   fi
   if [[ -n "$encoded" ]]; then
     printf '%s' "$encoded"
@@ -63,6 +67,24 @@ signal_failure() {
   exit "$rc"
 }
 trap 'signal_failure "$?"' ERR
+
+# Retry only repeatable network installs/downloads. SQL repair and cache import
+# remain separate so a retry cannot conceal partially applied database work.
+network_retry() {
+  local attempt rc=1
+  for attempt in 1 2 3 4 5; do
+    if "$@"; then
+      return 0
+    else
+      rc=$?
+    fi
+    if (( attempt < 5 )); then
+      echo "Network step $1 failed (attempt $attempt/5); retrying"
+      sleep "$((attempt * 5))"
+    fi
+  done
+  return "$rc"
+}
 
 required_environment=(
   BOOTSTRAP_WAIT_HANDLE
@@ -116,11 +138,11 @@ REPO="$HOME_FOLDER/sample-agentic-hybrid-retrieval-aurora-postgresql"
 # list said 20, and @anthropic-ai/claude-code declares `node >=22`, so npm
 # reported EBADENGINE at install time and the tool ran outside its supported
 # engine. Installing one Node family leaves nothing to arbitrate.
-dnf install -y git jq nginx nodejs22 nodejs22-npm postgresql15 python3.13 \
+network_retry dnf install -y git jq nginx nodejs22 nodejs22-npm postgresql15 python3.13 \
   python3.13-pip python3.13-setuptools gcc gcc-c++ make sudo tar gzip unzip
 command -v aws >/dev/null 2>&1 || \
-  (dnf install -y awscli2 || dnf install -y awscli)
-python3.13 -m pip install --no-cache-dir uv==0.11.21
+  (network_retry dnf install -y awscli2 || network_retry dnf install -y awscli)
+network_retry python3.13 -m pip install --no-cache-dir uv==0.11.21
 uv --version
 
 # The RHEL 9 PGDG client RPM depends on libldap.so.2, which AL2023 does not
@@ -149,7 +171,7 @@ CODE_EDITOR_ROOT="/home/$CODE_EDITOR_USER/.local/lib/code-editor-$CODE_EDITOR_VE
 CODE_EDITOR_ARCHIVE="/tmp/$CODE_EDITOR_DISTRIBUTION"
 install -d -o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" \
   "$CODE_EDITOR_ROOT" "/home/$CODE_EDITOR_USER/.local/bin"
-curl -fsSL \
+curl --retry 4 --retry-all-errors --connect-timeout 15 --max-time 180 -fsSL \
   "https://code-editor.amazonaws.com/content/code-editor-server/dist/$CODE_EDITOR_VERSION/$CODE_EDITOR_DISTRIBUTION" \
   -o "$CODE_EDITOR_ARCHIVE"
 printf '%s  %s\n' "$CODE_EDITOR_SHA256" "$CODE_EDITOR_ARCHIVE" \
@@ -309,7 +331,7 @@ systemctl enable nginx code-editor
 systemctl restart nginx code-editor
 
 CLAUDE_CODE_VERSION=2.1.233
-npm install -g "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
+network_retry npm install -g "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
 CLAUDE_BIN=$(command -v claude)
 test -n "$CLAUDE_BIN"
 if [ "$CLAUDE_BIN" != /usr/local/bin/claude ]; then
@@ -413,7 +435,7 @@ test -n "$RERANK_CANARY_OK"
 rm -rf "$REPO"
 sudo -u "$CODE_EDITOR_USER" -H git init "$REPO"
 sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" remote add origin "$REPO_URL"
-sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" fetch --depth 1 origin "$SOURCE_REVISION"
+network_retry sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" fetch --depth 1 origin "$SOURCE_REVISION"
 sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" checkout --detach FETCH_HEAD
 test "$(sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" rev-parse HEAD)" = "$SOURCE_REVISION"
 
@@ -597,6 +619,13 @@ SECRET_JSON=$(aws secretsmanager get-secret-value \
 DB_USER=$(jq -r '.username' <<<"$SECRET_JSON")
 DB_PASSWORD=$(jq -r '.password' <<<"$SECRET_JSON")
 DB_PORT=$(jq -r '.port // 5432' <<<"$SECRET_JSON")
+# Verify the database hostname as well as encrypting the connection. The CA
+# bundle arrives over authenticated HTTPS and is read-only to participants.
+install -d -m 755 /etc/pki/mosaic
+curl --retry 4 --retry-all-errors --connect-timeout 15 --max-time 180 -fsSL \
+  "https://truststore.pki.rds.amazonaws.com/$AWS_REGION/$AWS_REGION-bundle.pem" \
+  -o /etc/pki/mosaic/rds-ca-bundle.pem
+chmod 644 /etc/pki/mosaic/rds-ca-bundle.pem
 DATABASE_URL=$(python3.13 - "$DB_USER" "$DB_PASSWORD" \
   "$DB_CLUSTER_ENDPOINT" "$DB_PORT" "$DB_NAME" <<'PY'
 import sys
@@ -606,13 +635,14 @@ user, password, host, port, database = sys.argv[1:6]
 print(
     f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}"
     f"@{host}:{port}/{database}"
-    "?sslmode=require"
+    "?sslmode=verify-full&sslrootcert=/etc/pki/mosaic/rds-ca-bundle.pem"
 )
 PY
 )
 
 cat >"$REPO/.env" <<EOF
 DATABASE_URL='$DATABASE_URL'
+MOSAIC_WORKSHOP_DATABASE=$DB_NAME
 AWS_REGION=$AWS_REGION
 AWS_DEFAULT_REGION=$AWS_REGION
 BEDROCK_REGION=$AWS_REGION
@@ -647,7 +677,8 @@ export PGHOST='$DB_CLUSTER_ENDPOINT'
 export PGPORT='$DB_PORT'
 export PGUSER='$DB_USER'
 export PGDATABASE='$DB_NAME'
-export PGSSLMODE=require
+export PGSSLMODE=verify-full
+export PGSSLROOTCERT=/etc/pki/mosaic/rds-ca-bundle.pem
 EOF
 
 # Match the familiar green identity and blue path used in the Builder workshop
@@ -682,10 +713,12 @@ chmod 600 "/home/$CODE_EDITOR_USER/.pgpass"
 sudo -u "$CODE_EDITOR_USER" -H bash -lc \
   "psql -X -Atc 'SELECT 1' >/dev/null"
 
-sudo -u "$CODE_EDITOR_USER" -H bash -lc \
-  "cd '$REPO' && uv sync --frozen && uv pip check"
-sudo -u "$CODE_EDITOR_USER" -H bash -lc \
-  "cd '$REPO/ui' && npm ci && npm run build"
+network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc \
+  "cd '$REPO' && uv sync --frozen"
+sudo -u "$CODE_EDITOR_USER" -H bash -lc "cd '$REPO' && uv pip check"
+network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc \
+  "cd '$REPO/ui' && npm ci"
+sudo -u "$CODE_EDITOR_USER" -H bash -lc "cd '$REPO/ui' && npm run build"
 
 EMBEDDING_CACHE_URI=$(printf 's3://%s/%sembedding-cache/' \
   "$ASSETS_BUCKET" "$ASSETS_PREFIX")
@@ -803,6 +836,7 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA mosaic_search
     TO :"app_user";
 GRANT INSERT, UPDATE ON TABLE
     mosaic.shopper_profile,
+    mosaic.memory_event_request,
     mosaic.agent_session,
     mosaic.agent_turn,
     mosaic.search_event
@@ -824,7 +858,7 @@ user, password, host, port, database = sys.argv[1:6]
 print(
     f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}"
     f"@{host}:{port}/{database}"
-    "?sslmode=require"
+    "?sslmode=verify-full&sslrootcert=/etc/pki/mosaic/rds-ca-bundle.pem"
 )
 PY
 )

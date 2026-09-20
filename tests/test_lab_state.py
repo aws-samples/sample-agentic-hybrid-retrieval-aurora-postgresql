@@ -48,3 +48,70 @@ def test_reset_and_solution_are_idempotent(lab_repo: Path, lab: int) -> None:
 
     assert _lab_bytes(lab_repo) == first_solution
     assert all(lab_is_solved(candidate, repo=lab_repo) for candidate in LABS)
+
+
+@pytest.mark.parametrize(
+    "identity",
+    [
+        {
+            "name": "unrelated",
+            "aurora": "18.3.0",
+            "catalog": "mosaic_search.product_document",
+        },
+        {"name": "mosaic_catalog", "aurora": "18.3.0", "catalog": None},
+        {
+            "name": "mosaic_catalog",
+            "aurora": None,
+            "catalog": "mosaic_search.product_document",
+        },
+    ],
+)
+def test_reset_guard_rejects_wrong_environment(monkeypatch, identity):
+    from unittest.mock import MagicMock
+
+    from scripts.lab_state import assert_reset_database
+
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = identity
+    monkeypatch.setattr("psycopg.connect", lambda *a, **kw: connection)
+    monkeypatch.delenv("MOSAIC_WORKSHOP_DATABASE", raising=False)
+    with pytest.raises(SystemExit, match="Lab reset rule"):
+        assert_reset_database("test-only")
+
+
+def test_reset_guard_accepts_named_aurora_and_rejects_missing_dsn(monkeypatch):
+    from unittest.mock import MagicMock
+
+    from scripts.lab_state import assert_reset_database
+
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchone.return_value = {
+        "name": "named_workshop",
+        "aurora": "18.3.0",
+        "catalog": "mosaic_search.product_document",
+    }
+    monkeypatch.setattr("psycopg.connect", lambda *a, **kw: connection)
+    monkeypatch.setenv("MOSAIC_WORKSHOP_DATABASE", "named_workshop")
+    assert_reset_database("test-only")
+    with pytest.raises(SystemExit, match="DATABASE_URL is missing"):
+        assert_reset_database(None)
+
+
+def test_reset_checks_identity_before_editing_files(monkeypatch):
+    from scripts import lab_state
+
+    monkeypatch.setattr("sys.argv", ["lab_state.py", "reset", "--lab", "1"])
+
+    def refuse(_):
+        raise SystemExit("wrong database")
+
+    monkeypatch.setattr(lab_state, "assert_reset_database", refuse)
+    monkeypatch.setattr(
+        lab_state,
+        "set_isolated_lab_state",
+        lambda *_: pytest.fail("edited before identity check"),
+    )
+    with pytest.raises(SystemExit, match="wrong database"):
+        lab_state.main()

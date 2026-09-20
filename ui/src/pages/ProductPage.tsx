@@ -349,7 +349,7 @@ export function ProductPage() {
             className={tab === value ? "active" : ""}
             onClick={() => setTab(value)}
             onKeyDown={moveTabFocus}
-            aria-controls={`product-panel-${value}`}
+            aria-controls={tab === value ? `product-panel-${value}` : undefined}
             aria-selected={tab === value}
             id={`product-tab-${value}`}
             role="tab"

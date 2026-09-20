@@ -392,6 +392,7 @@ def _substrate_payload(
         },
         "aurora": aurora | {"instance_class": get_settings().aurora_instance_class},
         "settings": settings,
+        "retrieval": {"ef_search": get_settings().hnsw_ef_search},
     }
 
 

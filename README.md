@@ -395,7 +395,7 @@ make ui-audit
 
 With `DATABASE_URL` pointing at the intended Aurora cluster:
 
-The full Python gate includes 14 read-only integration tests against Aurora.
+The full Python gate includes 15 integration tests against Aurora (read-only queries and a rolled-back retry transaction).
 
 ```bash
 MISSION_GATE_REQUIRE_DB=1 make validate-missions
@@ -648,3 +648,16 @@ issue.
 ## License
 
 This project is licensed under the [MIT No Attribution License](LICENSE).
+
+
+### Supported runtime and security boundary
+
+The UI requires Node.js 22.12 or newer (Node 22 in Workshop Studio and CI).
+The lockfile pins the tested toolchain, including Vitest 4.1.11; upgrades must
+pass the full UI and build checks together. Three.js and its type definitions
+share the same minor version. The optional 3D teaching illustration is loaded
+only when opened; its WebGL renderer remains the largest bundle and is not
+required for any lab.
+
+See [workshop security boundaries](docs/security-boundaries.md) before adapting
+this single-participant sample to a shared application.

@@ -323,7 +323,21 @@ def add_event(event: ConversationEvent, request: Request):
         # request on the host.
         with connect() as connection:
             _profile(connection, actor, lock=True)
-            if event.session_id:
+            saved_request = connection.execute(
+                "SELECT * FROM mosaic.memory_event_request WHERE shopper_id = %s AND request_id = %s",
+                (actor, event.request_id),
+            ).fetchone()
+            if saved_request:
+                if (
+                    saved_request["user_message"] != event.text
+                    or saved_request["requested_session_id"] != event.session_id
+                ):
+                    raise HTTPException(
+                        409,
+                        "This request was already used for a different message. Send a new request.",
+                    )
+                session_id = saved_request["agent_session_id"]
+            elif event.session_id:
                 _own_session(connection, actor, event.session_id)
                 session_id = event.session_id
             else:
@@ -334,12 +348,21 @@ def add_event(event: ConversationEvent, request: Request):
                         json.dumps({"label": event.text[:100]}),
                     ),
                 ).fetchone()["agent_session_id"]
+            if not saved_request:
+                saved_request = connection.execute(
+                    """INSERT INTO mosaic.memory_event_request
+                       (shopper_id, request_id, agent_session_id, requested_session_id, user_message)
+                       VALUES (%s, %s, %s, %s, %s) RETURNING *""",
+                    (actor, event.request_id, session_id, event.session_id, event.text),
+                ).fetchone()
         saved = memory_client().create_event(
             memoryId=_memory_id(),
             actorId=actor,
             sessionId=str(session_id),
-            eventTimestamp=datetime.now(UTC),
-            clientToken=str(event.request_id),
+            eventTimestamp=saved_request["created_at"],
+            clientToken=hashlib.sha256(
+                f"{actor}:{event.request_id}".encode()
+            ).hexdigest(),
             payload=[
                 {
                     "conversational": {

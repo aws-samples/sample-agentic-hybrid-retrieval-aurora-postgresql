@@ -97,13 +97,13 @@ NUMBER_NAMES = (
 # declaration rather than an invisible second copy.
 DECLARATION = re.compile(
     r"""(?P<prefix>["'\s(,{.]|^)
-        (?P<name>"""
+        (?P<name>(?:[a-z][a-z0-9]*_)*(?:"""
     + "|".join(NUMBER_NAMES)
-    + r""")
+    + r"""))
         ["']?\s*(?:=|:)\s*
         (?P<value>-?\d+(?:\.\d+)?)
         (?![\d.])""",
-    re.VERBOSE,
+    re.VERBOSE | re.IGNORECASE,
 )
 
 # A JS/TS fallback that supplies a retrieval number when the API omits one:

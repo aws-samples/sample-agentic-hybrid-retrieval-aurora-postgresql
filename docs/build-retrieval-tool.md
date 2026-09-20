@@ -83,26 +83,23 @@ Ask your coding assistant: “Read the two marked edit points in `.local/call_he
 
 ### Escape hatch 4 — Complete repair
 
-Use these two function bodies in your working copy. Preserve the existing positive-integer budget check above the filter markers.
+Replace only the body between `BUILD_FILTERS_START` and `BUILD_FILTERS_END`:
 
 ```python
-def call_filters(max_price_cents: int) -> SearchFilters:
-    if (
-        isinstance(max_price_cents, bool)
-        or not isinstance(max_price_cents, int)
-        or max_price_cents <= 0
-    ):
-        raise ValueError("max_price_cents must be a positive integer")
     return SearchFilters(
         category_key="over-ear-headphones",
         in_stock_only=True,
         max_price_cents=max_price_cents,
         attributes={"microphone": True},
     )
+```
 
+Then replace only the body between `BUILD_TOOLS_START` and `BUILD_TOOLS_END`:
 
-def registered_tools():
+```python
     return [search_call_headphones]
 ```
+
+Preserve both function declarations, all four markers and the supplied budget check.
 
 For full recovery, copy the solved `examples/call_headphones.py` to a new working filename and pass that filename to the checker. Keep your first attempt for comparison. Complete steps 3 and 4; opening the reference alone is not a completed exercise.

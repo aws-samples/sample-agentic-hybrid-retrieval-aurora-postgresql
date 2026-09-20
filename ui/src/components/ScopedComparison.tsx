@@ -71,6 +71,10 @@ export function ScopedComparison({
   useEffect(() => {
     let current = true;
     setError("");
+    // Clear the previous selection's table before the new request lands;
+    // otherwise a two-product comparison stays on screen under a heading
+    // that already counts three.
+    setProducts(null);
     api.compareScopedProducts(searchEventId, productIds).then(
       (response) => {
         if (current) setProducts(response.products);

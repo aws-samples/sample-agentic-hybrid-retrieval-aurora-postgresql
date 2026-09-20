@@ -42,6 +42,18 @@ CREATE TABLE IF NOT EXISTS mosaic.shopper_profile (
 CREATE INDEX IF NOT EXISTS agent_session_shopper_idx
     ON mosaic.agent_session ((user_context->>'shopper_id'), started_at DESC);
 
+-- Persist the provider request before the network call so a retry uses the same
+-- session, payload and timestamp, including after an uncertain provider timeout.
+CREATE TABLE IF NOT EXISTS mosaic.memory_event_request (
+    shopper_id text NOT NULL REFERENCES mosaic.shopper_profile(shopper_id),
+    request_id uuid NOT NULL,
+    agent_session_id uuid NOT NULL REFERENCES mosaic.agent_session(agent_session_id) ON DELETE CASCADE,
+    requested_session_id uuid,
+    user_message text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (shopper_id, request_id)
+);
+
 CREATE TABLE IF NOT EXISTS mosaic.agent_tool_event (
     tool_event_id      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     agent_turn_id      uuid NOT NULL REFERENCES mosaic.agent_turn(agent_turn_id) ON DELETE CASCADE,

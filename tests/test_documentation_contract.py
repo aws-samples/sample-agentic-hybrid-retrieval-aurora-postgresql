@@ -39,7 +39,7 @@ def test_readme_derives_the_aurora_integration_test_count():
     )
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
 
-    assert f"includes {test_count} read-only integration tests against Aurora" in readme
+    assert f"includes {test_count} integration tests against Aurora" in readme
 
 
 def test_readiness_places_the_python_gate_under_aurora():

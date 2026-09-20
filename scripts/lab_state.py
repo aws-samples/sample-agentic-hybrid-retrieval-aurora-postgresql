@@ -288,6 +288,7 @@ def main() -> int:
             print(f"Lab {lab}: {state}")
         return 0
     if args.action == "reset":
+        assert_reset_database(args.database_url)
         paths = set_isolated_lab_state(args.lab)
         rendered = ", ".join(str(path.relative_to(REPO)) for path in paths)
         print(f"Lab {args.lab}: RESET ISOLATED ({rendered})")
@@ -311,6 +312,37 @@ def main() -> int:
         )
     print(f"Lab {args.lab}: PASS")
     return 0
+
+
+def assert_reset_database(database_url: str | None) -> None:
+    """Refuse a destructive exercise reset outside the named workshop database."""
+    import psycopg
+    from psycopg.rows import dict_row
+
+    expected = os.getenv("MOSAIC_WORKSHOP_DATABASE", "mosaic_catalog")
+    if not database_url:
+        raise SystemExit(
+            "Lab reset rule: DATABASE_URL is missing; fix: select the authorized "
+            "Aurora workshop database before resetting a lab."
+        )
+    with psycopg.connect(
+        database_url, connect_timeout=15, row_factory=dict_row
+    ) as connection:
+        identity = connection.execute(
+            "SELECT current_database() AS name, aurora_version() AS aurora, "
+            "to_regclass('mosaic_search.product_document')::text AS catalog"
+        ).fetchone()
+    if (
+        identity["name"] != expected
+        or not identity["catalog"]
+        or not identity["aurora"]
+    ):
+        raise SystemExit(
+            f"Lab reset rule: found database {identity['name']!r}; expected "
+            f"Aurora workshop database {expected!r} with the Mosaic catalog. "
+            "Fix: select the workshop DATABASE_URL; for a custom workshop name, "
+            "set MOSAIC_WORKSHOP_DATABASE to its provisioned DBName."
+        )
 
 
 def _validate_applied_state(lab: int, database_url: str) -> None:

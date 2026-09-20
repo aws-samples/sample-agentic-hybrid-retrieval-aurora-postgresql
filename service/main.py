@@ -24,7 +24,7 @@ from psycopg_pool import PoolTimeout
 from scripts.seed_exact_neighbors import StaleGroundTruth
 from scripts.tool_contracts import contracts_for_surface
 from service import hnsw
-from service.agent import get_product_discovery_agent
+from service.agent import GroundingContractError, get_product_discovery_agent
 from service.agent_tools import ConversationContextError
 from service.builder_package import build_package
 from service.catalog import (
@@ -101,6 +101,11 @@ from service.telemetry_contract import (
 ROOT = Path(__file__).resolve().parents[1]
 settings = get_settings()
 logger = logging.getLogger(__name__)
+_GROUNDING_ERROR_DETAIL = (
+    "Mosaic could not attach the supporting sources needed for this answer. "
+    "In Lab 3, repair the marked evidence-registration block and restart the "
+    "lab API, then ask again. Outside the lab, inspect the source checks."
+)
 _CONVERSATION_ERROR_DETAIL = "Mosaic could not reopen the previous answer. Start a new conversation and try again."
 
 
@@ -197,6 +202,8 @@ def _model_error(error: Exception) -> HTTPException:
 
 
 def _agent_error(error: Exception) -> HTTPException:
+    if isinstance(error, GroundingContractError):
+        return HTTPException(503, _GROUNDING_ERROR_DETAIL)
     return HTTPException(
         503,
         safe_model_runtime_message(
@@ -333,7 +340,7 @@ def get_catalog_products(
     category_key: str | None = None,
     brand: str | None = None,
     brands: Annotated[list[str] | None, Query()] = None,
-    attributes: str | None = None,
+    attributes: str | None = Query(default=None, max_length=4096),
     availability: str | None = None,
     in_stock_only: bool = False,
     min_price_cents: int | None = Query(default=None, ge=0),
@@ -361,6 +368,12 @@ def get_catalog_products(
             include_refurbished=include_refurbished,
             include_sponsored=include_sponsored,
         )
+    # json.loads raises RecursionError, not ValueError, on deeply nested
+    # input, and the 4096-character bound above still admits ~2000 levels.
+    except RecursionError as error:
+        raise HTTPException(
+            422, "attributes is nested too deeply to be a catalog attribute filter"
+        ) from error
     except ValueError as error:
         raise HTTPException(422, str(error)) from error
     return list_products(
@@ -627,6 +640,26 @@ async def stream_agent_answer(
                         "code": "conversation_context",
                         "detail": _CONVERSATION_ERROR_DETAIL,
                     },
+                )
+                return
+            # Session-ownership refusals raise HTTPException from inside the
+            # stream; the non-streaming route lets them through as their own
+            # status, so the stream reports the same detail instead of the
+            # generic runtime-failure message.
+            if isinstance(error, HTTPException):
+                yield _sse(
+                    "error",
+                    {
+                        "code": "request_rejected",
+                        "status": error.status_code,
+                        "detail": str(error.detail),
+                    },
+                )
+                return
+            if isinstance(error, GroundingContractError):
+                yield _sse(
+                    "error",
+                    {"code": "supporting_sources", "detail": _GROUNDING_ERROR_DETAIL},
                 )
                 return
             yield _sse(

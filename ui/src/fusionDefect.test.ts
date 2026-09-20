@@ -101,7 +101,8 @@ const POOL: SearchResultEventRecord[] = [
   },
 ];
 
-const RRF_K = 60;
+// This historical receipt was measured with k=60; it must not follow live defaults.
+const measuredFusionConstant = 60;
 
 function signals(overrides: Partial<ResultSignals>): ResultSignals {
   return {
@@ -152,13 +153,13 @@ function product(overrides: Partial<ProductSummary> & { product_id: number }): P
 
 describe("armContribution", () => {
   it("agrees with the broken formula exactly at rank 1 -- the arithmetic the defect turns on", () => {
-    const { expected, broken } = armContribution(1, RRF_K);
+    const { expected, broken } = armContribution(1, measuredFusionConstant);
     expect(expected).toBe(broken);
     expect(expected).toBeCloseTo(1 / 61, 12);
   });
 
   it("diverges from the broken formula for any rank other than 1", () => {
-    const { expected, broken } = armContribution(5, RRF_K);
+    const { expected, broken } = armContribution(5, measuredFusionConstant);
     expect(expected).not.toBe(broken);
     expect(expected).toBeCloseTo(1 / 65, 12);
     expect(broken).toBeCloseTo(1 / 61, 12);
@@ -167,7 +168,7 @@ describe("armContribution", () => {
   });
 
   it("reports both formulas as absent when the search method never found the candidate", () => {
-    expect(armContribution(null, RRF_K)).toEqual({ expected: null, broken: null });
+    expect(armContribution(null, measuredFusionConstant)).toEqual({ expected: null, broken: null });
   });
 });
 
@@ -203,7 +204,7 @@ describe("candidatesFromResults / candidatesFromPersistedPool", () => {
       }),
     ];
 
-    const rows = candidatesFromResults(results, RRF_K);
+    const rows = candidatesFromResults(results, measuredFusionConstant);
     const competitor = rows.find((row) => row.productId === 4)!;
     const target = rows.find((row) => row.productId === 14552)!;
 
@@ -220,7 +221,7 @@ describe("candidatesFromResults / candidatesFromPersistedPool", () => {
   });
 
   it("builds the same shape from the persisted pool as from returned results", () => {
-    const rows = candidatesFromPersistedPool(POOL, RRF_K);
+    const rows = candidatesFromPersistedPool(POOL, measuredFusionConstant);
     expect(rows).toHaveLength(POOL.length);
     const target = rows.find((row) => row.productId === 14552)!;
     const semantic = target.arms.find((arm) => arm.arm === "semantic")!;
@@ -320,7 +321,7 @@ describe("brokenOrder", () => {
       { product_id: 100, result_rank: 1, fts_rank: null, trigram_rank: null, semantic_rank: 5, fused_rank: 1, rerank_rank: null, scores: {}, provenance: {} },
       { product_id: 200, result_rank: 3, fts_rank: null, trigram_rank: null, semantic_rank: 20, fused_rank: 3, rerank_rank: null, scores: {}, provenance: {} },
     ];
-    const rows = candidatesFromPersistedPool(pool, RRF_K);
+    const rows = candidatesFromPersistedPool(pool, measuredFusionConstant);
 
     // Witness: all three genuinely tie on the broken score (same arm count).
     const ranked = brokenOrder(rows);
@@ -342,7 +343,7 @@ describe("brokenOrder", () => {
 
 describe("findTieCollapseExample / invertedPairCount", () => {
   it("reproduces the measured chair-mission pool's tie collapse exactly", () => {
-    const rows = candidatesFromPersistedPool(CHAIR_POOL, RRF_K);
+    const rows = candidatesFromPersistedPool(CHAIR_POOL, measuredFusionConstant);
 
     // Witness, independent of the function's own verdict: the measured
     // arm-count histogram, read directly off the fixture.
@@ -372,7 +373,7 @@ describe("findTieCollapseExample / invertedPairCount", () => {
   });
 
   it("names the same broken-vs-real disagreement invertedPairCount counts directly", () => {
-    const rows = candidatesFromPersistedPool(CHAIR_POOL, RRF_K);
+    const rows = candidatesFromPersistedPool(CHAIR_POOL, measuredFusionConstant);
     const ranked = brokenOrder(rows);
     expect(invertedPairCount(ranked)).toBe(538);
   });
@@ -382,7 +383,7 @@ describe("findTieCollapseExample / invertedPairCount", () => {
       { product_id: 1, result_rank: 1, fts_rank: 1, trigram_rank: 1, semantic_rank: 1, fused_rank: 1, rerank_rank: null, scores: {}, provenance: {} },
       { product_id: 2, result_rank: 2, fts_rank: 2, trigram_rank: null, semantic_rank: null, fused_rank: 2, rerank_rank: null, scores: {}, provenance: {} },
     ];
-    const rows = candidatesFromPersistedPool(distinctArmCounts, RRF_K);
+    const rows = candidatesFromPersistedPool(distinctArmCounts, measuredFusionConstant);
     expect(findTieCollapseExample(rows)).toBeNull();
   });
 });
@@ -398,7 +399,7 @@ describe("findFusionDefectCase", () => {
    * regression shipped, and the function must reject it.
    */
   it("rejects the measured product-4-vs-14552 pair: correct RRF agrees with the broken order", () => {
-    const rows = candidatesFromPersistedPool(POOL, RRF_K);
+    const rows = candidatesFromPersistedPool(POOL, measuredFusionConstant);
 
     // Witness the arithmetic directly, independent of the function's verdict.
     const competitor = rows.find((row) => row.productId === 4)!;
@@ -417,7 +418,7 @@ describe("findFusionDefectCase", () => {
     // longer truly holds rank 1 in its one arm must stop qualifying.
     const corrupted = POOL.map((row) =>
       row.product_id === 14552 ? { ...row, semantic_rank: 2 } : row);
-    const rows = candidatesFromPersistedPool(corrupted, RRF_K);
+    const rows = candidatesFromPersistedPool(corrupted, measuredFusionConstant);
     expect(findFusionDefectCase(rows)).toBeNull();
   });
 
@@ -430,7 +431,7 @@ describe("findFusionDefectCase", () => {
       trigram_rank: null,
       semantic_rank: row.product_id === 14552 ? 1 : row.semantic_rank ?? 9,
     }));
-    const rows = candidatesFromPersistedPool(singleArmOnly, RRF_K);
+    const rows = candidatesFromPersistedPool(singleArmOnly, measuredFusionConstant);
     expect(findFusionDefectCase(rows)).toBeNull();
   });
 
@@ -479,7 +480,7 @@ describe("findFusionDefectCase", () => {
       scores: {},
       provenance: {},
     };
-    const rows = candidatesFromPersistedPool([target, competitorA, competitorB], RRF_K);
+    const rows = candidatesFromPersistedPool([target, competitorA, competitorB], measuredFusionConstant);
 
     const example = findFusionDefectCase(rows);
 

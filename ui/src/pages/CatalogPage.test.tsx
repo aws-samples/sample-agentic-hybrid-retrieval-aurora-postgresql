@@ -1028,12 +1028,12 @@ describe("CatalogPage", () => {
       expect(api.search).toHaveBeenCalledWith(
         "quiet keyboard",
         {},
-        { limit: 12, rerank: true },
+        { limit: undefined, rerank: true },
       );
     });
 
     expect(await screen.findByText("Results for")).toBeTruthy();
-    expect(screen.getByText(/chosen from 18 candidates/)).toBeTruthy();
+    expect(screen.getByText(/chosen from 18 products found by search/)).toBeTruthy();
     expect(screen.queryByText(/fused candidates/)).toBeNull();
     const rankingReceipt = screen
       .getByText("Why these results, in this order")
@@ -1238,7 +1238,7 @@ describe("CatalogPage", () => {
       expect(api.search).toHaveBeenCalledWith(
         suggestions[0].query,
         {},
-        { limit: 12, rerank: true },
+        { limit: undefined, rerank: true },
       );
     });
   });
@@ -1331,7 +1331,7 @@ describe("CatalogPage", () => {
     expect(document.querySelector('.shop-product-grid [data-product-id="2"]')).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: comfort.label }));
     await waitFor(() => expect(api.search).toHaveBeenCalledTimes(2));
-    expect(api.search).toHaveBeenLastCalledWith(comfort.query, comfort.filters, { limit: 12, rerank: true });
+    expect(api.search).toHaveBeenLastCalledWith(comfort.query, comfort.filters, { limit: undefined, rerank: true });
     expect(document.querySelectorAll(".shop-product-grid [data-product-id]")).toHaveLength(0);
     expect(document.querySelector(".shop-ranking-receipt")).toBeNull();
     expect(document.querySelector(".shop-results-heading")?.textContent).toContain("Searching products");
@@ -1590,8 +1590,8 @@ describe("CatalogPage", () => {
     ).toBeNull();
 
     const starters = await within(panel).findByRole("list", { name: "Example questions" });
-    expect(within(starters).getAllByRole("button").map((button) => button.getAttribute("aria-label")))
-      .toEqual(mosaicLabManifest.playground.requests.map((request) => request.query));
+    expect(within(starters).getAllByRole("button").map((button) => button.querySelector(".ask-mosaic-starter-path")?.textContent))
+      .toEqual(mosaicLabManifest.playground.requests.map((request) => request.shop_label));
     expect(within(panel).queryByRole("list", { name: "Tools available to the agent" })).toBeNull();
     expect(within(panel).queryByText("Search with typos in it")).toBeNull();
 
@@ -2001,7 +2001,7 @@ describe("CatalogPage", () => {
     await screen.findByText(catalog.products[0].model);
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
 
-    fireEvent.click(await screen.findByRole("button", { name: mosaicLabManifest.playground.requests[0].query }));
+    fireEvent.click(within(await screen.findByRole("list", { name: "Example questions" })).getAllByRole("button")[0]);
 
     await waitFor(() =>
       expect(api.agentStream).toHaveBeenCalledWith(
@@ -2116,7 +2116,7 @@ describe("CatalogPage", () => {
     const starters = await screen.findByRole("list", { name: "Example questions" });
     const requests = within(starters).getAllByRole("button");
     expect(requests).toHaveLength(1);
-    expect(requests[0].getAttribute("aria-label")).toBe(mosaicLabManifest.playground.requests.find((request) => request.id === "more-screen-space")!.query);
+    expect(requests[0].textContent).toContain(mosaicLabManifest.playground.requests.find((request) => request.id === "more-screen-space")!.shop_label);
     fireEvent.click(requests[0]);
     await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
     expect(vi.mocked(api.agentStream).mock.calls.at(-1)?.[1]).toMatchObject({

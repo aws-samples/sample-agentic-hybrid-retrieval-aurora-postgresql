@@ -9,7 +9,7 @@ rewrite rather than a rename:
 
 - it read `TEST_DATABASE_URL`, a separate database that the Aurora-only policy
   says does not exist (`ARTIFACTS.md`). It now reads `DATABASE_URL` and is
-  strictly read-only;
+  read-only except for the memory retry test, whose transaction is rolled back;
 - its filters used `subcategory` and `max_price`, which `matches_filters` has
   never accepted — the real keys are `category_key` and `max_price_cents`, so
   those filters were silently ignored;
@@ -22,7 +22,6 @@ Skips without a DSN so the suite runs anywhere. `make validate-missions` and
 """
 
 import json
-import os
 
 import pytest
 
@@ -32,8 +31,9 @@ pytest.importorskip("pgvector")
 from pgvector.psycopg import register_vector
 
 from scripts.retrieval_profile import load_profile
+from service.config import get_settings
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = get_settings().database_url
 pytestmark = pytest.mark.skipif(
     not DATABASE_URL,
     reason="DATABASE_URL is required for Aurora integration tests",
@@ -450,3 +450,54 @@ def test_trigram_alone_recovers_the_lab1_anchor(connection, profile):
         f"trigram score {rows[0][2]} does not clear the word_similarity gate "
         f"{threshold}; the anchor is one threshold change from unrecoverable"
     )
+
+
+def test_memory_event_retry_reuses_session_and_provider_payload(monkeypatch):
+    """Real Aurora transaction, fake provider: a retry must not create a new session."""
+    from contextlib import contextmanager
+    from unittest.mock import MagicMock
+    from uuid import uuid4
+
+    from fastapi import HTTPException, Request
+    from psycopg.rows import dict_row
+
+    from service import session_memory as memory
+
+    provider = MagicMock()
+    provider.create_event.return_value = {"event": {"eventId": "test-event"}}
+    monkeypatch.setattr(memory, "memory_client", lambda: provider)
+    monkeypatch.setattr(memory, "_memory_id", lambda: "test-memory")
+    actor = uuid4().hex + uuid4().hex
+    monkeypatch.setattr(memory, "_actor", lambda request: actor)
+    with (
+        psycopg.connect(DATABASE_URL, row_factory=dict_row) as database,
+        database.transaction(force_rollback=True),
+    ):
+
+        @contextmanager
+        def connection():
+            yield database
+
+        monkeypatch.setattr(memory, "connect", connection)
+        event = memory.ConversationEvent(
+            text="Test office preference", request_id=uuid4()
+        )
+        request = Request({"type": "http", "headers": []})
+        first = memory.add_event(event, request)
+        first_payload = provider.create_event.call_args.kwargs
+        second = memory.add_event(event, request)
+        assert first == second
+        assert provider.create_event.call_args.kwargs == first_payload
+        assert (
+            database.execute(
+                "SELECT count(*) AS n FROM mosaic.agent_session WHERE user_context->>'shopper_id' = %s",
+                (actor,),
+            ).fetchone()["n"]
+            == 1
+        )
+        with pytest.raises(HTTPException) as rejected:
+            memory.add_event(
+                event.model_copy(update={"text": "A different message"}), request
+            )
+        assert rejected.value.status_code == 409
+        assert provider.create_event.call_count == 2

@@ -111,7 +111,10 @@ jobs:
 
       - name: Build the UI
         if: ${{ !cancelled() && steps.ui-deps.outcome == 'success' }}
-        run: make ui-build
+        run: |
+          cd ui
+          npx tsc --noEmit
+          npm run build
 
       - name: Audit UI dependencies
         if: ${{ !cancelled() && steps.ui-deps.outcome == 'success' }}
@@ -119,6 +122,7 @@ jobs:
 
   aurora-release:
     name: Non-billed Aurora release contracts
+    environment: mosaic-aurora-billed
     if: >-
       github.event_name == 'workflow_dispatch' ||
       startsWith(github.ref, 'refs/tags/v')
@@ -326,6 +330,23 @@ jobs:
           set -o pipefail
           make test-aurora-invariants 2>&1 \
             | tee "$RELEASE_EVIDENCE_DIR/test-aurora-invariants.log"
+
+      - name: Validate all three labs through the API
+        if: ${{ !cancelled() && steps.model-aws-credentials.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          uv run uvicorn service.main:app --host 127.0.0.1 --port 8017 > "$RELEASE_EVIDENCE_DIR/api.log" 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8017/api/health >/dev/null; then break; fi
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:8017/api/health >/dev/null
+          for lab in 1 2 3; do
+            uv run python scripts/validate_lab.py --lab "$lab" --api-url http://127.0.0.1:8017 2>&1 \
+              | tee "$RELEASE_EVIDENCE_DIR/validate-lab-$lab.log"
+          done
 
       - name: Upload model-backed release evidence
         if: ${{ always() }}

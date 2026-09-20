@@ -226,6 +226,22 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
     )
 
     # A1.2 — the lists are disjoint and cover every mission exactly once.
+    for index, mission in enumerate(timed, 1):
+        required = mission.get("required_supporting_checks", [])
+        found = [
+            item.get("id", "<missing>")
+            for item in supporting
+            if item.get("core") and item.get("placement") == f"lab-{index}"
+        ]
+        report.check(
+            f"A1.1b lab-{index} required controls",
+            bool(required) and sorted(required) == sorted(found),
+            explain(
+                f"declared controls {required!r}, found {found!r}",
+                "restore required_supporting_checks and matching core lab placements",
+            ),
+        )
+
     timed_ids = [m.get("id", "<no id>") for m in timed]
     supporting_ids = [m.get("id", "<no id>") for m in supporting]
     overlap = sorted(set(timed_ids) & set(supporting_ids))

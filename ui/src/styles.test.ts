@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -170,7 +170,10 @@ describe("stylesheet vocabulary", () => {
   });
 
   it("holds the ratchet on font sizes below the 12px floor", async () => {
-    const literals = smallTypeLiterals(await readSheets());
+    const allNames = (await readdir(new URL(".", import.meta.url))).filter(name => name.endsWith(".css"));
+    const allSheets = await Promise.all(allNames.map(async name => ({ name, text: await readFile(new URL(name, import.meta.url), "utf8") })));
+    expect(allSheets.length).toBeGreaterThanOrEqual(14);
+    const literals = smallTypeLiterals(allSheets);
     expect(
       literals.length,
       `sub-12px font sizes rose past ${SMALL_TYPE_CEILING}; the newest look like:\n` +

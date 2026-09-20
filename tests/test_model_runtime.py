@@ -2114,3 +2114,28 @@ def test_retrieval_sql_casts_python_values_to_the_function_contract():
     assert "%(business_weight)s::real" not in source
     assert "ORDER BY h.pre_rerank_score DESC, h.product_id" in source
     assert "'error_type', %s::text" in source
+
+
+@pytest.mark.parametrize("path", ["/api/agent/answer", "/api/agent/answer/stream"])
+def test_missing_sources_reports_the_repair_without_exception_text(
+    monkeypatch, path, caplog
+):
+    class MissingSources:
+        def answer(self, _request):
+            raise GroundingContractError("private source details")
+
+        async def stream(self, _request):
+            if False:
+                yield {}
+            raise GroundingContractError("private source details")
+
+    monkeypatch.setattr(
+        "service.main.get_product_discovery_agent", lambda: MissingSources()
+    )
+    response = TestClient(app).post(
+        path, json={"question": "Compare these products", "filters": {}}
+    )
+    assert response.status_code == (200 if path.endswith("stream") else 503)
+    assert "supporting sources" in response.text
+    assert "evidence-registration block" in response.text
+    assert "private source details" not in response.text + caplog.text

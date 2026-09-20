@@ -33,17 +33,22 @@ import argparse
 import csv
 import json
 import math
+import sys
 from pathlib import Path
 from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO))
+
+from scripts.retrieval_profile import load_profile
+
 MEASURED = REPO / "data" / "benchmarks" / "hnsw_measured.json"
 SCALES = [500_000, 1_000_000, 5_000_000, 10_000_000, 100_000_000]
 
 # The operating point the workshop serves. The projection extrapolates from the
 # measurement taken here rather than from the cheapest point in the sweep, because a
 # capacity plan should price the configuration that actually runs.
-SERVED_EF_SEARCH = 100
+SERVED_EF_SEARCH = load_profile().hnsw_ef_search
 
 
 def measured_baseline(

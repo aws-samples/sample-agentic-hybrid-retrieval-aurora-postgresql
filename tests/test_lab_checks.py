@@ -219,6 +219,21 @@ def test_a_check_may_not_be_constructed_without_a_falsifier():
         LabCheck(name="anything", passed=True, falsifier="  ", detail="fine")
 
 
+@pytest.mark.parametrize("lab", [1, 2, 3])
+def test_missing_required_controls_fail_closed(monkeypatch, tmp_path, lab):
+    import json
+
+    contract = json.loads(lab_checks.MISSION_CONTRACT.read_text())
+    controls = lab_checks.supporting_checks_for_lab(lab)
+    assert controls, "the falsifier must remove a control that actually exists"
+    contract["supporting_checks"].remove(controls[0])
+    path = tmp_path / "missions.json"
+    path.write_text(json.dumps(contract))
+    monkeypatch.setattr(lab_checks, "MISSION_CONTRACT", path)
+    with pytest.raises(ValueError, match="required controls"):
+        lab_checks.supporting_checks_for_lab(lab)
+
+
 @pytest.mark.parametrize(
     "mission",
     [

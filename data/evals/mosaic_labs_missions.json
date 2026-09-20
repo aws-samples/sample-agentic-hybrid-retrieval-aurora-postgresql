@@ -73,7 +73,11 @@
         "trigram_signal_present",
         "hard_filters_hold"
       ],
-      "top_k": 10
+      "top_k": 10,
+      "required_supporting_checks": [
+        "exact-identity",
+        "semantic-eligibility"
+      ]
     },
     {
       "id": "rank-with-evidence",
@@ -130,7 +134,11 @@
         "rerank_score_present",
         "hard_filters_hold"
       ],
-      "top_k": 10
+      "top_k": 10,
+      "required_supporting_checks": [
+        "compare-cheaper-alternative",
+        "ranking-filter-control"
+      ]
     },
     {
       "id": "agentic-research",
@@ -206,7 +214,10 @@
           ]
         }
       ],
-      "top_k": 6
+      "top_k": 6,
+      "required_supporting_checks": [
+        "evidence-grounding"
+      ]
     }
   ],
   "supporting_checks": [
@@ -491,7 +502,10 @@
         "id": "check-sources",
         "label": "Check the sources",
         "query": "For the Sonora WH-C720 headphones, compare the specifications with review evidence about fit. What do the sources support, and what remains uncertain?",
-        "filters": {"domain": "consumer_electronics", "category_key": "over-ear-headphones"},
+        "filters": {
+          "domain": "consumer_electronics",
+          "category_key": "over-ear-headphones"
+        },
         "notice": "Compare the catalog specification with sample review evidence about fit. A general review does not prove every advertised benefit."
       }
     ],
@@ -516,7 +530,7 @@
           "domain": "home_office",
           "category_key": "ergonomic-office-chairs"
         },
-        "notice": "Follow Alex’s need for adjustable support from candidate retrieval through ranking and a comparison grounded in product details."
+        "notice": "Follow Alex\u2019s need for adjustable support from candidate retrieval through ranking and a comparison grounded in product details."
       },
       {
         "id": "more-screen-space",
@@ -531,7 +545,7 @@
       },
       {
         "id": "exact-model",
-        "label": "Exact model · control",
+        "label": "Exact model \u00b7 control",
         "shop_label": "Mosaic Atelier 32",
         "query": "Mosaic Atelier 32",
         "filters": {

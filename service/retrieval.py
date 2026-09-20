@@ -322,7 +322,7 @@ class RetrievalService:
                     self.settings.source_worktree_dirty,
                     self.settings.dataset_manifest_sha256,
                     self._embedder().model_id,
-                    self._reranker().model_id if request.rerank else None,
+                    None,
                     self._strategy(),
                     self.settings.aurora_instance_class,
                     json.dumps(
@@ -531,7 +531,8 @@ class RetrievalService:
                     SET candidate_counts = %s::jsonb,
                         total_latency_ms = %s,
                         diagnostics = %s::jsonb,
-                        retrieval_profile = %s::jsonb
+                        retrieval_profile = %s::jsonb,
+                        rerank_model_id = %s
                     WHERE search_event_id = %s
                     """,
                     (
@@ -548,6 +549,9 @@ class RetrievalService:
                             }
                         ),
                         profile.model_dump_json(),
+                        self._reranker().model_id
+                        if rerank_status == "applied"
+                        else None,
                         search_event_id,
                     ),
                 )
@@ -579,7 +583,9 @@ class RetrievalService:
                 strategy=self._strategy(),
                 embedding_model_id=self._embedder().model_id,
                 embedding_dimensions=self.settings.embedding_dimensions,
-                rerank_model_id=(self._reranker().model_id if request.rerank else None),
+                rerank_model_id=(
+                    self._reranker().model_id if rerank_status == "applied" else None
+                ),
                 rerank_status=rerank_status,
                 ranking_policy=ranking_policy,
                 retrieval_profile=profile,

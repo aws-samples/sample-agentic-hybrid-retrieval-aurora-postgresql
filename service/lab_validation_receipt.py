@@ -11,6 +11,7 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 from uuid import UUID
 
 from service import lab_checks
@@ -51,6 +52,11 @@ def validation_identity(base_url: str, readiness: dict[str, Any]) -> dict[str, A
         raise ValueError(
             "found no DATABASE_URL; fix: load the Mosaic Aurora environment"
         )
+    # The receipt travels with the participant, so it commits to the cluster
+    # identity (host and database name) and never to a digest of the full
+    # DSN, which carries the password.
+    dsn = urlsplit(settings.database_url)
+    database_identity = f"{dsn.hostname or ''}:{dsn.port or ''}{dsn.path or ''}"
     return {
         "api_url": base_url.rstrip("/"),
         "source": {
@@ -60,7 +66,7 @@ def validation_identity(base_url: str, readiness: dict[str, Any]) -> dict[str, A
         "models": readiness["configured_models"],
         "source_sha256": source_digest(),
         "settings_sha256": compute_live_retrieval_settings_sha256(),
-        "database_sha256": hashlib.sha256(settings.database_url.encode()).hexdigest(),
+        "database_sha256": hashlib.sha256(database_identity.encode()).hexdigest(),
     }
 
 

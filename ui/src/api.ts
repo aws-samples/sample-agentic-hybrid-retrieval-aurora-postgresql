@@ -128,13 +128,13 @@ export const api = {
       { signal },
     ),
 
-  catalog: (filters: SearchFilters, offset = 0, limit = 12, sort = "featured", collection: "all" | "workspace" = "all") => {
+  catalog: (filters: SearchFilters, offset = 0, limit?: number, sort = "featured", collection: "all" | "workspace" = "all") => {
     const params = new URLSearchParams({
       offset: String(offset),
-      limit: String(limit),
       sort,
       collection,
     });
+    if (limit !== undefined) params.set("limit", String(limit));
     Object.entries(filters).forEach(([key, value]) => {
       if (value === undefined || value === null) return;
       if (key === "attributes") {
@@ -172,7 +172,7 @@ export const api = {
       body: JSON.stringify({
         query,
         filters,
-        limit: options.limit ?? 12,
+        limit: options.limit,
         include_diagnostics: true,
         rerank: options.rerank ?? true,
       }),
@@ -188,7 +188,6 @@ export const api = {
       body: JSON.stringify({
         question,
         filters,
-        result_limit: 6,
         context,
       }),
     }),
@@ -208,7 +207,6 @@ export const api = {
       body: JSON.stringify({
         question,
         filters,
-        result_limit: 6,
         context,
         use_memory: options.useMemory ?? false,
         session_id: options.sessionId,

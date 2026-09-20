@@ -288,7 +288,7 @@ def test_uv_is_pinned_rather_than_floating(script: str) -> None:
 def _bootstrap_packages(script: str) -> list[str]:
     """Return the AL2023 packages installed before the application bootstrap."""
     package_install = re.search(
-        r"^dnf install -y (?P<packages>.*?\bunzip)$",
+        r"^network_retry dnf install -y (?P<packages>.*?\bunzip)$",
         script,
         re.MULTILINE | re.DOTALL,
     )
@@ -484,3 +484,76 @@ def test_code_editor_opens_a_terminal_and_skips_the_trust_prompt(script: str) ->
     assert ".code-editor-server/data/User" in script, (
         "user settings belong in the server's own user-data directory"
     )
+
+
+@pytest.mark.parametrize("success_at, expected_code", [(3, 0), (9, 7)])
+def test_bootstrap_network_retry_runs_and_propagates_failure(
+    script, tmp_path, success_at, expected_code
+):
+    """Execute the real helper with an intermittent command, without sleeping."""
+    import subprocess
+
+    helper = re.search(
+        r"^network_retry\(\) \{[\s\S]*?^\}", script, re.MULTILINE
+    ).group()
+    program = (
+        helper
+        + f"""
+count=0
+sleep() {{ :; }}
+flaky() {{ count=$((count+1)); (( count >= {success_at} )) && return 0; return 7; }}
+network_retry flaky
+status=$?
+echo "attempts=$count"
+exit "$status"
+"""
+    )
+    result = subprocess.run(
+        ["bash", "-c", program], text=True, capture_output=True, check=False
+    )
+    assert result.returncode == expected_code
+    assert f"attempts={min(success_at, 5)}" in result.stdout
+
+
+def test_bootstrap_verifies_database_hostname_and_ca(script):
+    assert (
+        script.count(
+            "?sslmode=verify-full&sslrootcert=/etc/pki/mosaic/rds-ca-bundle.pem"
+        )
+        == 2
+    )
+    assert "export PGSSLMODE=verify-full" in script
+    assert "export PGSSLROOTCERT=/etc/pki/mosaic/rds-ca-bundle.pem" in script
+    assert (
+        "https://truststore.pki.rds.amazonaws.com/$AWS_REGION/$AWS_REGION-bundle.pem"
+        in script
+    )
+    assert script.index("chmod 644 /etc/pki/mosaic/rds-ca-bundle.pem") < script.index(
+        "DATABASE_URL=$(python3.13"
+    )
+
+
+def test_bootstrap_redacts_before_truncating_and_handles_encoded_passwords(
+    script, tmp_path
+):
+    import os
+    import subprocess
+    from urllib.parse import quote
+
+    secret = "test-only!password/with:symbols"
+    log = tmp_path / "bootstrap.log"
+    log.write_text("x" * 4100 + secret + " " + quote(secret, safe=""))
+    helper = re.search(
+        r"^failure_reason\(\) \{[\s\S]*?^\}", script, re.MULTILINE
+    ).group()
+    helper = helper.replace("/var/log/mosaic-bootstrap.log", str(log))
+    result = subprocess.run(
+        ["bash", "-c", helper + "\nfailure_reason"],
+        env={**os.environ, "DB_PASSWORD": secret},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert secret not in result.stdout and quote(secret, safe="") not in result.stdout
+    assert "[REDACTED]" in result.stdout
+    assert len(result.stdout) <= 900

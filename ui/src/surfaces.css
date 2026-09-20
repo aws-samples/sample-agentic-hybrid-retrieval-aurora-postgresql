@@ -460,10 +460,10 @@
 
 .catalog-suggestions em {
   color: var(--ink-soft);
-  font-size: 9px;
+  font-size: 12px;
   font-style: normal;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -6128,10 +6128,13 @@
   stroke-width: 2;
 }
 
+/* The keyboard focus indicator for a sweep point: a 3px halo on the hit
+   circle, not the hover fill change, which is too faint to pass the 3:1
+   focus-appearance contrast on a small dot. */
 .hnsw-pareto-plot .pareto-point-target:focus-visible .point-hit {
   fill: none;
-  stroke: rgb(255 246 228 / 68%);
-  stroke-width: 1;
+  stroke: var(--gold);
+  stroke-width: 3;
 }
 
 .hnsw-pareto-plot .pareto-point-tooltip {

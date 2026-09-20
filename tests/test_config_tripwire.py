@@ -111,6 +111,8 @@ def test_the_real_repository_is_clean():
         ("service/second_copy.py", "fts_limit = 200\n"),
         ("service/second_copy.py", "rrf_k = 42\n"),
         ("service/second_copy.py", "trigram_limit=99\n"),
+        ("service/second_copy.py", "SERVED_EF_SEARCH = 100\n"),
+        ("service/second_copy.py", "DEFAULT_HNSW_EF_SEARCH = 100\n"),
     ],
 )
 def test_a_second_python_declaration_is_caught(fake_repo, filename, body):

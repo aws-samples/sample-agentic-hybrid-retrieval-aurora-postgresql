@@ -241,7 +241,7 @@ function PipelineInspector() {
     <nav className="inspector-request-choices" aria-label="Alex’s requests">{requestGroups.map((group) => <div key={group.label} role="group" aria-label={group.label}><span className="inspector-request-group-label" aria-hidden="true">{group.label}</span>{group.requests.map((request) => <button key={request.id} type="button" aria-pressed={!params.has("q") && selectedRequest?.id === request.id} onClick={() => setParams(new URLSearchParams({ scene: request.id }))}>{request.label}</button>)}</div>)}</nav>
     <section className="inspector-request" aria-label="Pipeline request">
       <img className="inspector-alex" src="/assets/images/mosaic/alex-headshot-v1.jpg" alt="Alex, Mosaic’s example shopper" width={128} height={128} />
-      <div><h2>{question || "No request is available"}</h2><p>Alex’s workspace{count ? ` · Searching ${count.toLocaleString()} products` : ""}{runFilters.category_key ? ` · Filter: ${runFilters.category_key.replaceAll("-", " ")}` : ""}</p></div>
+      <div><h2>{question || "No request is available"}</h2><p>Alex’s workspace{count ? ` · Catalog: ${count.toLocaleString()} products` : ""}{runFilters.category_key ? ` · Filter: ${runFilters.category_key.replaceAll("-", " ")}` : ""}</p></div>
       <MosaicRunButton type="button" className="inspector-play" label={runLabel} running={pipeline.running} disabled={pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} onClick={() => { setSelectedId(null); setHighlightedId(null); setExpanded({ retrieve: false, rank: false, reason: false }); void pipeline.play(question, runFilters); }} />
     </section>
     <div className="inspector-context-bar">

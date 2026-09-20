@@ -694,7 +694,7 @@ def search_products(
         classified = model_runtime_error(error)
         if classified is not None:
             raise classified from error
-        logger.warning("search_products failed: %s", error)
+        logger.warning("search_products failed: error_type=%s", type(error).__name__)
         _record(
             "search_products",
             arguments,
@@ -824,7 +824,9 @@ def get_product_evidence(product_id: int, evidence_query: str) -> dict[str, Any]
         classified = model_runtime_error(error)
         if classified is not None:
             raise classified from error
-        logger.warning("get_product_evidence failed: %s", error)
+        logger.warning(
+            "get_product_evidence failed: error_type=%s", type(error).__name__
+        )
         _record(
             "get_product_evidence",
             arguments,
@@ -1303,7 +1305,9 @@ def synthesize_cited_answer(
         classified = model_runtime_error(error)
         if classified is not None:
             raise classified from error
-        logger.warning("synthesize_cited_answer failed: %s", error)
+        logger.warning(
+            "synthesize_cited_answer failed: error_type=%s", type(error).__name__
+        )
         _record(
             "synthesize_cited_answer",
             {"question": question, "product_ids": unique_ids},

@@ -353,7 +353,7 @@ export function CommerceDrawer() {
                     <span>
                       {cartSummary.shipping
                         ? `${formatPrice(freeShippingThreshold - cartSummary.subtotal)} away from complimentary shipping`
-                        : "Complimentary standard shipping unlocked"}
+                        : "Standard shipping is included"}
                     </span>
                     <i
                       style={{

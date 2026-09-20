@@ -681,6 +681,7 @@ export interface CompletionProofRequest {
  * roughly 2 GB and terminated the Aurora backend when tried.
  */
 export interface HnswSubstrate {
+  retrieval: { ef_search: number };
   index: {
     name: string;
     definition: string;

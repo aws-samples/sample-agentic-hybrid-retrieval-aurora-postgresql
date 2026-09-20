@@ -81,7 +81,6 @@ import type {
   SearchResponse,
 } from "../types";
 
-const pageSize = 12;
 const priceCeiling = 2000;
 const priceStep = 25;
 const priceCeilingCents = priceCeiling * 100;
@@ -120,6 +119,7 @@ function priceFromCents(value: string | null, fallback: number) {
 function mergeVisibleProducts(
   recommendations: ProductSummary[] | null,
   products: ProductSummary[],
+  limit: number,
 ) {
   if (!recommendations?.length) return products;
   const recommendationIds = new Set(
@@ -128,7 +128,7 @@ function mergeVisibleProducts(
   return [
     ...recommendations,
     ...products.filter((product) => !recommendationIds.has(product.product_id)),
-  ].slice(0, pageSize);
+  ].slice(0, limit);
 }
 
 /**
@@ -476,7 +476,7 @@ export function CatalogPage() {
     setLoading(true);
     setError("");
     api
-      .catalog(filters, offset, pageSize, sort, browseCollection)
+      .catalog(filters, offset, undefined, sort, browseCollection)
       .then((nextPage) => {
         if (version === catalogRequestVersion.current) setPage(nextPage);
       })
@@ -531,7 +531,7 @@ export function CatalogPage() {
     setRetrievalLoading(true);
     const request = retrievalRequest;
     api
-      .search(activeQuery, filters, { limit: requestMission?.top_k ?? pageSize, rerank: true })
+      .search(activeQuery, filters, { limit: requestMission?.top_k, rerank: true })
       .then((response) => {
         if (version !== retrievalRequestVersion.current) return;
         setRetrieval(response);
@@ -942,7 +942,8 @@ export function CatalogPage() {
   const agentProducts = agent?.recommendations.length
     ? agent.recommendations
     : null;
-  const visibleProducts = mergeVisibleProducts(agentProducts, baseProducts);
+  const pageSize = catalogPage?.limit ?? Math.max(1, baseProducts.length);
+  const visibleProducts = mergeVisibleProducts(agentProducts, baseProducts, pageSize);
   // Use the same product photos in Shop and Playground, including agent picks.
   const gridImages = productImageMap(visibleProducts);
   const assistRanks = new Map(
@@ -1234,7 +1235,7 @@ export function CatalogPage() {
               className="shop-filter-button all"
               type="button"
               aria-expanded={filtersOpen}
-              aria-controls="shop-filter-sheet"
+              aria-controls={filtersOpen ? "shop-filter-sheet" : undefined}
               onClick={() => openFilterSection()}
             >
               <SlidersHorizontal size={16} />
@@ -1472,6 +1473,7 @@ export function CatalogPage() {
                 </strong>
                 {agentProducts ? agentQuestion : retrievalError || activeQuery}
               </span>
+              {retrievalError ? <button type="button" onClick={() => setRetrievalNonce(value => value + 1)}>Retry search</button> : null}
               {agentProducts ? (
                 <button type="button" onClick={clearAgentResults}>Clear shortlist</button>
               ) : activeQuery ? (
@@ -1490,7 +1492,7 @@ export function CatalogPage() {
               ) : retrieval ? (
                 <>
                   <strong>{retrieval.results.length}</strong> {retrieval.results.length === 1 ? "best match" : "best matches"}
-                  <small> · chosen from {retrieval.diagnostics?.candidate_counts.fused_pool ?? "-"} candidates</small>
+                  <small> · chosen from {retrieval.diagnostics?.candidate_counts.fused_pool ?? "-"} products found by search</small>
                   {/* The comparison itself stays below the results; this is the
                       acknowledgement a tick needs before the reader scrolls. */}
                   {comparisonScopeId && comparisonIds.length ? (

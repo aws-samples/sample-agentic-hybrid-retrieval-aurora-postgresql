@@ -17,7 +17,7 @@ const scenes = {
     image: "/assets/images/mosaic/alex-workspace-editorial-v3.webp",
     alt: "A home office with a standing desk, two monitors, laptop, headphones and a mesh chair",
     title: "Bring his workspace together.",
-    description: "Choose a quiet mechanical keyboard and a chair for 12-hour days, with sources for each choice.",
+    description: "Compare a monitor and chair, with specifications and reviews for each choice.",
   },
 };
 

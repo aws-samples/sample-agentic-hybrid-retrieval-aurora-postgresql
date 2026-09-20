@@ -51,13 +51,14 @@ const CHARACTER_NOTES: Record<string, { headline: string; detail: string }> = {
 };
 
 type HnswFilterMatrixProps = {
+  resultLimit: number | undefined;
   levels: HnswFilterLevel[];
   /** Whether the artifact these numbers live in describes the connected cluster. */
   attributed: boolean;
   preset: string;
   scan: ScanMode;
   scanMemMb: number;
-  workMemMb: number;
+  workMemMb: number | null;
   onPresetChange: (preset: string) => void;
   onScanChange: (scan: ScanMode) => void;
   onScanMemChange: (scanMemMb: number) => void;
@@ -84,6 +85,7 @@ function findMode(
  * state here is a measured cell, not a model.
  */
 export function HnswFilterMatrix({
+  resultLimit,
   levels,
   attributed,
   preset,
@@ -174,7 +176,7 @@ export function HnswFilterMatrix({
                   <span>
                     {budget} MB
                     <small>
-                      x{Math.round((budget / workMemMb) * 10) / 10}
+                      {workMemMb === null ? "Current work_mem unavailable" : `x${Math.round((budget / workMemMb) * 10) / 10}`}
                     </small>
                   </span>
                 </label>
@@ -234,7 +236,7 @@ export function HnswFilterMatrix({
             </div>
           ) : null}
 
-          <details className="hnsw-cliff-sql">
+          {resultLimit !== undefined ? <details className="hnsw-cliff-sql">
             <summary>The query and the settings behind this cell</summary>
             <pre>
               <code>
@@ -246,10 +248,10 @@ SELECT product_id
 FROM mosaic_search.product_document
 WHERE embedding IS NOT NULL${level.predicate_sql ? `\n  AND ${level.predicate_sql}` : ""}
 ORDER BY embedding <=> $1
-LIMIT 10;`}
+LIMIT ${resultLimit};`}
               </code>
             </pre>
-          </details>
+          </details> : <p>The saved run has no result limit. Refresh the benchmark before copying its SQL.</p>}
         </div>
       ) : null}
     </section>

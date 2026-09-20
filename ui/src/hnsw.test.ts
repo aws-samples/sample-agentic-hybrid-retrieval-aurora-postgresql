@@ -1,3 +1,4 @@
+import { postgresMemoryMb } from "./hnsw";
 import { describe, expect, it } from "vitest";
 import {
   curvePoints,
@@ -257,5 +258,15 @@ describe("speedupFactor", () => {
 
   it("returns 0 rather than Infinity when the ANN time is zero", () => {
     expect(speedupFactor(2345.4, 0)).toBe(0);
+  });
+});
+
+
+describe("PostgreSQL memory units", () => {
+  it.each([["4096kB", 4], ["4MB", 4], ["1GB", 1024], ["1TB", 1048576]])("converts %s without losing its unit", (setting, expected) => {
+    expect(postgresMemoryMb(String(setting))).toBe(expected);
+  });
+  it.each([undefined, "unknown", "0MB", "4"]) ("withholds an unknown setting %s", (setting) => {
+    expect(postgresMemoryMb(setting)).toBeNull();
   });
 });

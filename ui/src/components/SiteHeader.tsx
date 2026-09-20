@@ -120,9 +120,16 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
       menuButtonRef.current?.focus();
     };
     window.addEventListener("keydown", closeOnEscape);
+    const closeOutside = (event: PointerEvent) => {
+      if (!(event.target instanceof Node)) return;
+      if (navigationRef.current?.contains(event.target) || menuButtonRef.current?.contains(event.target)) return;
+      setOpen(false);
+    };
+    window.addEventListener("pointerdown", closeOutside);
     return () => {
       window.cancelAnimationFrame(frame);
       window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("pointerdown", closeOutside);
     };
   }, [open]);
 

@@ -1189,7 +1189,7 @@ function EntryState({ suggestions, onRun }: {
     {suggestions.length ? <div className="ask-mosaic-starters">
       <h4>A place to start</h4>
       <ul aria-label="Example questions">{suggestions.map((suggestion) => <li key={suggestion.id}>
-        <button type="button" aria-label={suggestion.query} onClick={() => onRun(suggestion.query, suggestion.filters)}>
+        <button type="button" onClick={() => onRun(suggestion.query, suggestion.filters)}>
           <span className="ask-mosaic-starter-path">{suggestion.shop_label}</span>
           <ArrowUpRight className="ask-mosaic-starter-go" size={17} aria-hidden="true" />
           {suggestion.query !== suggestion.shop_label ? <span className="ask-mosaic-starter-query">{suggestion.query}</span> : null}

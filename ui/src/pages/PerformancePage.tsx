@@ -17,7 +17,7 @@ import { HnswRepresentations } from "../components/HnswRepresentations";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { ErrorState, LoadingState } from "../components/States";
-import { formatBytes, storageSegments } from "../hnsw";
+import { formatBytes, postgresMemoryMb, storageSegments } from "../hnsw";
 import "../inspector.css";
 import "../instrument.css";
 import type {
@@ -32,7 +32,6 @@ import type {
 } from "../types";
 
 const hnswIndexName = "product_document_embedding_hnsw_cosine_idx";
-const SERVED_EF_SEARCH = 100;
 const compactCount = new Intl.NumberFormat("en-US", {
   notation: "compact",
   maximumFractionDigits: 1,
@@ -125,11 +124,14 @@ export function PerformancePage() {
     ])
       .then(([nextReadiness, nextMeasured, nextSubstrate]) => {
         if (version !== coreRequestVersion.current) return;
+        if (!nextMeasured.ef_sweep.length) {
+          throw new Error("No HNSW search measurements are available. Ask the facilitator to refresh the benchmark, then retry.");
+        }
         setReadiness(nextReadiness);
         setMeasured(nextMeasured);
         setSubstrate(nextSubstrate);
         setEfSearch(
-          nextMeasured.ef_sweep.find((point) => point.ef_search === SERVED_EF_SEARCH)
+          nextMeasured.ef_sweep.find((point) => point.ef_search === nextSubstrate.retrieval.ef_search)
             ?.ef_search ??
             nextMeasured.ef_sweep[0]?.ef_search ??
             null,
@@ -327,7 +329,7 @@ export function PerformancePage() {
     const { database } = readiness;
     const hnswIndexReady = !database.missing_retrieval_indexes?.includes(hnswIndexName);
     const segments = storageSegments(substrate.storage);
-    const workMemMb = Number.parseInt(substrate.settings.work_mem ?? "4", 10) || 4;
+    const workMemMb = postgresMemoryMb(substrate.settings.work_mem);
 
     return (
       <>
@@ -499,6 +501,7 @@ export function PerformancePage() {
 
         {measured.filter_matrix.length > 0 && scanMemMb !== null ? (
           <HnswFilterMatrix
+            resultLimit={measured.provenance.k}
             attributed={measured.attribution.attributed}
             levels={measured.filter_matrix}
             onPresetChange={setPreset}

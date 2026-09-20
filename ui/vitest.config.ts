@@ -1,6 +1,6 @@
 import { defineConfig, mergeConfig } from "vitest/config";
 
-import viteConfig from "./vite.config";
+import viteConfig from "./vite.config.ts";
 
 /**
  * Vitest reads this file in preference to vite.config.ts, so the Vite build

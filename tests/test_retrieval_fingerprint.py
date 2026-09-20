@@ -8,7 +8,7 @@ exactly this reason.
 
 The fake tree mirrors the real manifest's file *paths* with placeholder
 content, so the module's hardcoded `_EXPECTED_CATEGORY_COUNTS` (27 SQL files,
-1 config, 4 service, 3 scripts, 2 eval-data files) hold without needing a
+1 config, 5 service, 3 scripts, 2 eval-data files) hold without needing a
 test-only override parameter on production code.
 """
 
@@ -89,6 +89,7 @@ def _populate(root: Path) -> None:
     _write(root / "service" / "rerank.py", "# rerank fixture\n")
     _write(root / "service" / "embeddings.py", "# embeddings fixture\n")
     _write(root / "service" / "bedrock.py", "# bedrock fixture\n")
+    _write(root / "service" / "coverage.py", "# coverage fixture\n")
     _write(root / "scripts" / "retrieval_profile.py", "# retrieval_profile fixture\n")
     _write(root / "scripts" / "evaluate.py", "# evaluate fixture\n")
     _write(root / "scripts" / "eval_contract.py", "# eval_contract fixture\n")
@@ -154,10 +155,10 @@ def test_the_complete_tree_matches_every_expected_category_count_exactly(fake_re
     assert counts == _EXPECTED_CATEGORY_COUNTS
     assert counts["sql"] == 27
     assert counts["config"] == 1
-    assert counts["service"] == 4
+    assert counts["service"] == 5
     assert counts["scripts"] == 3
     assert counts["eval_data"] == 2
-    assert sum(counts.values()) == 37
+    assert sum(counts.values()) == 38
 
 
 def test_manifest_files_visit_a_representative_of_every_category(fake_repo):
@@ -166,7 +167,7 @@ def test_manifest_files_visit_a_representative_of_every_category(fake_repo):
     files = manifest_files(repo_root=fake_repo)
     relative = {path.relative_to(fake_repo).as_posix() for path in files}
 
-    assert len(files) == 37
+    assert len(files) == 38
     assert "db/sql/09_search_functions.sql" in relative
     assert "db/config/retrieval.yaml" in relative
     assert "service/retrieval.py" in relative
@@ -377,8 +378,8 @@ def test_methodology_manifest_counts_are_asserted_against_literals():
     rather than hash a shorter list under a name that still reads complete.
     Checked against hand-counted literals, never `len()` of the tuple itself.
     """
-    assert len(SCORECARD_METHODOLOGY_FILES) == 3
-    assert len(ABLATION_METHODOLOGY_FILES) == 4
+    assert len(SCORECARD_METHODOLOGY_FILES) == 5
+    assert len(ABLATION_METHODOLOGY_FILES) == 6
     assert set(SCORECARD_METHODOLOGY_FILES) < set(ABLATION_METHODOLOGY_FILES)
 
 
@@ -688,3 +689,31 @@ def test_the_live_settings_hash_follows_an_environment_override(monkeypatch):
     # Witness for the whole mechanism: the file fingerprint really is blind to
     # this, which is why the settings hash has to exist.
     assert compute_retrieval_fingerprint() == fingerprint_before
+
+
+def test_scorecard_import_closure_is_covered_or_explicitly_excluded():
+    import ast
+
+    # Connection/config plumbing is separately recorded in the receipt. These
+    # exclusions are narrow; a newly imported project module must be reviewed.
+    excluded = {"service/config.py", "service/db.py"}
+    covered = {p.relative_to(REPO).as_posix() for p in manifest_files()}
+    covered.update(SCORECARD_METHODOLOGY_FILES)
+    pending, visited = ["scripts/score_evals.py"], set()
+    while pending:
+        relative = pending.pop()
+        if relative in visited:
+            continue
+        visited.add(relative)
+        for node in ast.walk(ast.parse((REPO / relative).read_text())):
+            modules = []
+            if isinstance(node, ast.ImportFrom) and node.module:
+                modules.append(node.module)
+            elif isinstance(node, ast.Import):
+                modules.extend(item.name for item in node.names)
+            for module in modules:
+                path = module.replace(".", "/") + ".py"
+                if (REPO / path).is_file():
+                    pending.append(path)
+    assert len(visited) >= 15, "the import-closure traversal must actually run"
+    assert visited - covered - excluded == set()

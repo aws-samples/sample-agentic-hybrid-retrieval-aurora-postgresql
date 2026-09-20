@@ -74,6 +74,7 @@ const measuredElsewhere = {
 } as unknown as HnswMeasured;
 
 const substrate: HnswSubstrate = {
+  retrieval: { ef_search: measured.ef_sweep[0].ef_search },
   index: {
     name: "mosaic_search.product_document_embedding_hnsw_cosine_idx",
     definition: "CREATE INDEX ... USING hnsw (embedding vector_cosine_ops)",
@@ -357,6 +358,13 @@ describe("PerformancePage", () => {
       screen.getAllByText(new RegExp(`ef_search ${saturation.ef_search}`)).length,
     ).toBeGreaterThan(0);
     expect(screen.getByLabelText(/Recall stops improving at ef_search/)).toBeTruthy();
+  });
+
+  it("shows a recoverable error when measurements are empty", async () => {
+    vi.mocked(api.hnswMeasured).mockResolvedValueOnce({ ...measured, ef_sweep: [] });
+    render(<PerformancePage />);
+    expect(await screen.findByText(/No HNSW search measurements are available/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /retry/i })).toBeTruthy();
   });
 
   it("shows the measured values when an ef_search point is inspected", async () => {

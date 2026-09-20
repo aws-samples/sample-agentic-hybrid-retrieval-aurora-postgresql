@@ -141,11 +141,24 @@ def mission_for_lab(lab_id: int) -> dict[str, Any]:
 def supporting_checks_for_lab(lab_id: int) -> list[dict[str, Any]]:
     """Resolve required controls by placement in the canonical mission contract."""
     contract = json.loads(MISSION_CONTRACT.read_text(encoding="utf-8"))
-    return [
+    controls = [
         item
         for item in contract["supporting_checks"]
         if item.get("core") and item.get("placement") == f"lab-{lab_id}"
     ]
+    mission = next(
+        (item for item in contract["missions"] if item["stage"] == LAB_STAGES[lab_id]),
+        {},
+    )
+    required = mission.get("required_supporting_checks", [])
+    found = [item["id"] for item in controls]
+    if not required or sorted(found) != sorted(required):
+        raise ValueError(
+            f"Lab {lab_id} required controls: found {found!r}, expected {required!r}; "
+            "fix: restore the core supporting checks and their lab placement in "
+            "data/evals/mosaic_labs_missions.json"
+        )
+    return controls
 
 
 def retrieval_control_checks(
@@ -221,8 +234,10 @@ def mission_request_check(
         falsifier="the saved run answered a different question or has no recorded question",
         detail=f"Recorded question matches {mission.get('id')}"
         if expected and actual == expected
+        # The saved run is looked up by id alone, so its recorded question
+        # is not repeated here; only the mission's own request is public.
         else explain(
-            f"recorded question {agent.get('question')!r} differs from {mission.get('query')!r}",
+            f"the saved run's recorded question differs from the {mission.get('id')} request {mission.get('query')!r}",
             "run the canonical Reason mission before requesting completion proof",
         ),
     )
