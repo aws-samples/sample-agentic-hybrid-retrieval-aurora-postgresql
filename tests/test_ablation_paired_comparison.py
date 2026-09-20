@@ -98,9 +98,10 @@ def test_the_committed_measurement_is_reported_honestly():
     for step in steps.values():
         assert step.separable is False
         assert step.wins + step.losses + step.ties == artifact["scored_query_count"]
-    # Reranking leaves most searches untouched and swings a few hard, which is a
-    # far more useful lesson than its average.
-    assert steps[RERANKED].ties > steps[RERANKED].wins + steps[RERANKED].losses
+    # Pin the refreshed catalog measurement, without preserving the older
+    # claim that reranking leaves more than half of these searches unchanged.
+    reranked = steps[RERANKED]
+    assert (reranked.wins, reranked.losses, reranked.ties) == (5, 5, 10)
 
 
 def test_the_caveat_no_longer_asks_for_the_wrong_comparison():

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -112,9 +113,9 @@ def test_unanchored_terms_appear_in_their_query():
 def test_identifier_cases_are_decidable_without_the_floor():
     """Identifier-shaped tokens take no trigram rescue, so their confidence does
     not depend on `coverage.similarity_floor`. At least one such case must
-    exist: the word-shaped half of the calibration is separated by 0.019 of
-    trigram similarity on this corpus, and a set with no floor-free negative
-    would have nothing left if that margin ever closed."""
+    exist: word-shaped controls depend on the current corpus vocabulary, and
+    a set with no floor-free negative would have nothing left if the measured
+    spelling margin ever closed."""
     floor_free = [c for c in _cases() if not c["floor_dependent"]]
     assert floor_free
     unanchored_floor_free = [
@@ -136,7 +137,7 @@ def test_a_case_claiming_verification_carries_the_run_that_verified_it(case):
     a verdict per token -- and that block must agree with what the case expects,
     or the set is asserting two different things at once.
 
-    The whole set was measured on 2026-09-04 against the 500,000-product Aurora
+    Each case records its measurement date against the 500,000-product Aurora
     corpus. `tests/test_coverage.py` replays every one of them.
     """
     measured = case["measured"]
@@ -186,14 +187,14 @@ def test_every_case_was_measured_at_the_floor_the_yaml_declares():
 def test_the_calibration_cases_still_bracket_the_floor():
     """The two tokens the floor sits between, asserted as data rather than prose.
 
-    Measured 2026-09-04: 'enough' (C-105, must be rescued) reaches 0.250 and
-    'Zylthorne' (C-005, must be refused) reaches 0.231. Any floor outside that
-    interval reds one of them. This test states the interval so that a future
-    edit to either case cannot quietly remove the evidence the floor rests on.
+    The corrected catalog contains 'enough' verbatim, so that former spelling
+    control no longer brackets anything. Use the required positive typo case
+    and unknown-brand negative, both replayed against production SQL. This
+    guards their observed separation; it does not claim an optimal threshold.
     """
     by_id = {case["query_id"]: case for case in _cases()}
     rescued = next(
-        t for t in by_id["C-105"]["measured"]["terms"] if t["token"] == "enough"
+        t for t in by_id["C-101"]["measured"]["terms"] if t["token"] == "hedfones"
     )
     refused = next(
         t for t in by_id["C-005"]["measured"]["terms"] if t["token"] == "Zylthorne"
@@ -202,3 +203,16 @@ def test_the_calibration_cases_still_bracket_the_floor():
     assert refused["verdict"] == "unmatched_anchor"
     floor = load_profile().coverage_similarity_floor
     assert refused["similarity"] < floor <= rescued["similarity"]
+
+
+@pytest.mark.parametrize("bad_floor", [0.2, 0.5])
+def test_calibration_rejects_either_side_of_the_observed_interval(
+    monkeypatch, bad_floor
+):
+    monkeypatch.setitem(
+        globals(),
+        "load_profile",
+        lambda: SimpleNamespace(coverage_similarity_floor=bad_floor),
+    )
+    with pytest.raises(AssertionError):
+        test_the_calibration_cases_still_bracket_the_floor()

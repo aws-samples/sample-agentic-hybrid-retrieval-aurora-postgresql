@@ -4,57 +4,57 @@
     "lexical_only": {
       "description": "mosaic_search.search_fts alone: PostgreSQL full-text search over the weighted product document, with no trigram or semantic arm and no fusion.",
       "label": "Lexical only",
-      "mrr": 0.65,
-      "ndcg@10": 0.5944958294870315,
+      "mrr": 0.625,
+      "ndcg@10": 0.5902773970088939,
       "ndcg@10_max": 1.0,
       "ndcg@10_min": 0.0,
       "ndcg@10_query_wins": 10,
-      "ndcg@10_stdev": 0.4554634661281512,
-      "recall@10": 0.575
+      "ndcg@10_stdev": 0.45418649471337363,
+      "recall@10": 0.5833333333333333
     },
     "rrf_fused_no_rerank": {
       "description": "The served fusion function (unweighted reciprocal rank fusion over FTS, trigram, and semantic candidates), with managed reranking disabled so the fused order is returned unchanged.",
       "label": "RRF fused, reranking off",
-      "mrr": 0.915,
-      "ndcg@10": 0.8579807342533361,
+      "mrr": 0.835,
+      "ndcg@10": 0.7818066869007055,
       "ndcg@10_max": 1.0,
-      "ndcg@10_min": 0.2890648263178878,
-      "ndcg@10_query_wins": 14,
-      "ndcg@10_stdev": 0.2228004074168519,
-      "recall@10": 0.9083333333333334
+      "ndcg@10_min": 0.0,
+      "ndcg@10_query_wins": 13,
+      "ndcg@10_stdev": 0.2891217820731259,
+      "recall@10": 0.8291666666666666
     },
     "rrf_fused_reranked": {
       "description": "The production path: the same fused pool as rrf_fused_no_rerank, reordered by managed reranking. Recomputed from data/evals/canonical_ranked_results.csv rather than re-served, so this measurement spends no reranker calls.",
       "label": "RRF fused + managed reranking (served path)",
       "mrr": 0.8916666666666666,
-      "ndcg@10": 0.8509025943737966,
+      "ndcg@10": 0.824052757152384,
       "ndcg@10_max": 1.0,
       "ndcg@10_min": 0.2441638274044765,
       "ndcg@10_query_wins": 14,
-      "ndcg@10_stdev": 0.22806063508863908,
-      "recall@10": 0.8916666666666666
+      "ndcg@10_stdev": 0.24704436735445082,
+      "recall@10": 0.8625
     },
     "semantic_only": {
       "description": "mosaic_search.search_vector alone: dense cosine ranking over the product embedding, with no lexical or trigram arm and no fusion.",
       "label": "Semantic only",
-      "mrr": 0.6849999999999999,
-      "ndcg@10": 0.6387048587493215,
+      "mrr": 0.4958333333333333,
+      "ndcg@10": 0.4597591994877298,
       "ndcg@10_max": 1.0,
       "ndcg@10_min": 0.0,
-      "ndcg@10_query_wins": 11,
-      "ndcg@10_stdev": 0.42081913299369283,
-      "recall@10": 0.6833333333333333
+      "ndcg@10_query_wins": 7,
+      "ndcg@10_stdev": 0.4195661430364172,
+      "recall@10": 0.5
     },
     "trigram_only": {
       "description": "mosaic_search.search_trigram alone: pg_trgm similarity over the product identity text, with no lexical or semantic arm and no fusion.",
       "label": "Trigram only",
-      "mrr": 0.9,
-      "ndcg@10": 0.8022365664238686,
+      "mrr": 0.8,
+      "ndcg@10": 0.7138885447150958,
       "ndcg@10_max": 1.0,
       "ndcg@10_min": 0.0,
-      "ndcg@10_query_wins": 14,
-      "ndcg@10_stdev": 0.31898290181372146,
-      "recall@10": 0.7916666666666667
+      "ndcg@10_query_wins": 13,
+      "ndcg@10_stdev": 0.37942879344526814,
+      "recall@10": 0.6875
     }
   },
   "candidate_recall_ceiling": {
@@ -63,25 +63,25 @@
       "rrf_fused_reranked"
     ],
     "description": "Share of judged-relevant products present anywhere in the fused candidate pool before reranking, averaged over the scored queries. The ceiling reranking could ever reach: reranking only reorders this pool, it never adds a candidate absent from it.",
-    "judged_relevant_never_fetched": 2,
-    "pool_recall_ceiling": 0.95,
+    "judged_relevant_never_fetched": 5,
+    "pool_recall_ceiling": 0.9208333333333334,
     "unbounded_arms": {
       "lexical_only": {
         "note": "Not bounded by this ceiling. This channel returns its own candidate limit and this arm takes its own top-K from those, while the fused pool is capped at fused_limit after RRF scores three channels together, so a judged-relevant product can appear here and still be absent from the fused pool. Recorded for comparison, never asserted against.",
-        "recall@10": 0.575
+        "recall@10": 0.5833333333333333
       },
       "semantic_only": {
         "note": "Not bounded by this ceiling. This channel returns its own candidate limit and this arm takes its own top-K from those, while the fused pool is capped at fused_limit after RRF scores three channels together, so a judged-relevant product can appear here and still be absent from the fused pool. Recorded for comparison, never asserted against.",
-        "recall@10": 0.6833333333333333
+        "recall@10": 0.5
       },
       "trigram_only": {
         "note": "Not bounded by this ceiling. This channel returns its own candidate limit and this arm takes its own top-K from those, while the fused pool is capped at fused_limit after RRF scores three channels together, so a judged-relevant product can appear here and still be absent from the fused pool. Recorded for comparison, never asserted against.",
-        "recall@10": 0.7916666666666667
+        "recall@10": 0.6875
       }
     }
   },
   "k": 10,
-  "measured_at": "2026-09-20T00:51:14.118999+00:00",
+  "measured_at": "2026-09-20T15:16:03.720929+00:00",
   "models": {
     "embedding": "us.cohere.embed-v4:0",
     "rerank": "cohere.rerank-v3-5:0"
@@ -94,7 +94,7 @@
         "lexical_only": 1.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 1.0,
+        "semantic_only": 0.0,
         "trigram_only": 1.0
       },
       "pool_recall": 1.0,
@@ -109,7 +109,7 @@
         "lexical_only": 1.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 1.0,
+        "semantic_only": 0.0,
         "trigram_only": 1.0
       },
       "pool_recall": 1.0,
@@ -119,18 +119,22 @@
     },
     {
       "found_in_pool": 1,
-      "missed_product_ids": [],
+      "missed_product_ids": [
+        3,
+        4,
+        5
+      ],
       "ndcg@10": {
         "lexical_only": 0.0,
-        "rrf_fused_no_rerank": 1.0,
-        "rrf_fused_reranked": 1.0,
+        "rrf_fused_no_rerank": 0.3903800499921017,
+        "rrf_fused_reranked": 0.3903800499921017,
         "semantic_only": 0.0,
-        "trigram_only": 1.0
+        "trigram_only": 0.3903800499921017
       },
-      "pool_recall": 1.0,
+      "pool_recall": 0.25,
       "query_id": "G-003",
       "query_text": "noice cancelng hedfones",
-      "relevant_count": 1
+      "relevant_count": 4
     },
     {
       "found_in_pool": 2,
@@ -164,20 +168,18 @@
     },
     {
       "found_in_pool": 1,
-      "missed_product_ids": [
-        429002
-      ],
+      "missed_product_ids": [],
       "ndcg@10": {
-        "lexical_only": 0.7871546029909718,
-        "rrf_fused_no_rerank": 0.7871546029909718,
-        "rrf_fused_reranked": 0.7871546029909718,
+        "lexical_only": 0.9173194127129571,
+        "rrf_fused_no_rerank": 0.9173194127129571,
+        "rrf_fused_reranked": 0.9173194127129571,
         "semantic_only": 0.0,
-        "trigram_only": 0.7871546029909718
+        "trigram_only": 0.9173194127129571
       },
-      "pool_recall": 0.5,
+      "pool_recall": 1.0,
       "query_id": "G-006",
       "query_text": "quite mechancial keybord under $180 for shared office",
-      "relevant_count": 2
+      "relevant_count": 1
     },
     {
       "found_in_pool": 2,
@@ -196,28 +198,30 @@
     },
     {
       "found_in_pool": 2,
-      "missed_product_ids": [],
+      "missed_product_ids": [
+        370003
+      ],
       "ndcg@10": {
-        "lexical_only": 0.9467676761267002,
-        "rrf_fused_no_rerank": 0.9467676761267002,
-        "rrf_fused_reranked": 0.9467676761267002,
-        "semantic_only": 0.9467676761267002,
-        "trigram_only": 0.9467676761267002
+        "lexical_only": 0.8556691603792903,
+        "rrf_fused_no_rerank": 0.8556691603792903,
+        "rrf_fused_reranked": 0.8556691603792903,
+        "semantic_only": 0.6735439182299785,
+        "trigram_only": 0.8556691603792903
       },
-      "pool_recall": 1.0,
+      "pool_recall": 0.6666666666666666,
       "query_id": "G-008",
       "query_text": "ergonomic mesh chair for long workdays with adjustable lumbar support",
-      "relevant_count": 2
+      "relevant_count": 3
     },
     {
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
         "lexical_only": 1.0,
-        "rrf_fused_no_rerank": 1.0,
+        "rrf_fused_no_rerank": 0.6309297535714575,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 1.0,
-        "trigram_only": 1.0
+        "semantic_only": 0.3562071871080222,
+        "trigram_only": 0.0
       },
       "pool_recall": 1.0,
       "query_id": "G-009",
@@ -229,14 +233,14 @@
       "missed_product_ids": [],
       "ndcg@10": {
         "lexical_only": 0.0,
-        "rrf_fused_no_rerank": 0.2890648263178878,
+        "rrf_fused_no_rerank": 0.0,
         "rrf_fused_reranked": 1.0,
         "semantic_only": 1.0,
         "trigram_only": 0.0
       },
       "pool_recall": 1.0,
       "query_id": "G-010",
-      "query_text": "single-cable 4K monitor for coding and photo editing with at least 90W USB-C power",
+      "query_text": "single-cable 4K monitor for coding and photo editing with 90W USB-C power",
       "relevant_count": 1
     },
     {
@@ -261,7 +265,7 @@
         "lexical_only": 1.0,
         "rrf_fused_no_rerank": 0.9173194127129571,
         "rrf_fused_reranked": 0.3950679673211227,
-        "semantic_only": 0.3548675899387485,
+        "semantic_only": 0.3950679673211227,
         "trigram_only": 0.9173194127129571
       },
       "pool_recall": 1.0,
@@ -291,7 +295,7 @@
       "missed_product_ids": [],
       "ndcg@10": {
         "lexical_only": 0.0,
-        "rrf_fused_no_rerank": 0.5856716025542826,
+        "rrf_fused_no_rerank": 0.4498025437342832,
         "rrf_fused_reranked": 1.0,
         "semantic_only": 0.0,
         "trigram_only": 1.0
@@ -328,7 +332,7 @@
       },
       "pool_recall": 1.0,
       "query_id": "G-016",
-      "query_text": "GPS running watch for marathon training with maps, readiness, and more than 20 days of battery",
+      "query_text": "GPS running watch with onboard maps and training readiness, rated for more than 20 days in smartwatch mode",
       "relevant_count": 1
     },
     {
@@ -343,7 +347,7 @@
       },
       "pool_recall": 1.0,
       "query_id": "G-017",
-      "query_text": "4K conference webcam certified for Zoom, Teams, and Webex with a privacy shutter",
+      "query_text": "4K conference webcam with auto-framing, noise reduction and a privacy shutter",
       "relevant_count": 1
     },
     {
@@ -358,7 +362,7 @@
       },
       "pool_recall": 1.0,
       "query_id": "G-018",
-      "query_text": "portable waterproof speaker with Wi-Fi and Bluetooth for travel",
+      "query_text": "water-resistant portable speaker with Wi-Fi and Bluetooth, rated IP67",
       "relevant_count": 1
     },
     {
@@ -377,35 +381,35 @@
       "relevant_count": 2
     },
     {
-      "found_in_pool": 2,
+      "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
-        "lexical_only": 0.7895959410076381,
-        "rrf_fused_no_rerank": 0.8250841569231713,
-        "rrf_fused_reranked": 0.9049495058460971,
-        "semantic_only": 0.8250841569231713,
-        "trigram_only": 0.31939394323979897
+        "lexical_only": 0.6661609974703122,
+        "rrf_fused_no_rerank": 0.6661609974703122,
+        "rrf_fused_reranked": 0.938506417451168,
+        "semantic_only": 0.12298716509766383,
+        "trigram_only": 0.12298716509766383
       },
       "pool_recall": 1.0,
       "query_id": "G-020",
       "query_text": "ergonomic mesh chair with adjustable lumbar and seat depth for twelve hour workdays",
-      "relevant_count": 2
+      "relevant_count": 1
     }
   ],
   "query_set": "data/evals/canonical_queries.jsonl",
-  "query_set_sha256": "d1ce67635a35559dc04dca229ab22771edfa199ce95be25a7b527a7b5d05468e",
-  "retrieval_fingerprint": "2f895ac490b6902b225900c6a9e5c6fa418395105dbf31654b1b39f54b4f70af",
+  "query_set_sha256": "9809749d79cef151644a4a23850701746fe6ebf64a59cda36a00ce0b611c0f37",
+  "retrieval_fingerprint": "33cfe9d829c6c222ce1157571689ba3f0bf66a4eddcbb066be0c4913143520d9",
   "retrieval_settings_sha256": "3635fb13943e9504b42c530ffcd75317f5f326d1abf569e108078aa55498116e",
   "scored_query_count": 20,
-  "scored_query_set_sha256": "f9d840a4fb5fa58a5a3af798ef1a3eb3b34f6073997125e2d969f755bda3f36e",
+  "scored_query_set_sha256": "56cc1edf1ff0015fdcd4a298716093a22ae3e1a683980e00983b63be9174d7c9",
   "served_scorecard_reference": {
-    "measured_at": "2026-09-20T00:49:32.933118+00:00",
+    "measured_at": "2026-09-20T15:14:47.669021+00:00",
     "path": "data/evals/canonical_scorecard.json",
-    "retrieval_fingerprint": "2f895ac490b6902b225900c6a9e5c6fa418395105dbf31654b1b39f54b4f70af",
-    "source_revision": "dbcd6cc99f47418e59b1c7942105d83925cea6b5"
+    "retrieval_fingerprint": "33cfe9d829c6c222ce1157571689ba3f0bf66a4eddcbb066be0c4913143520d9",
+    "source_revision": "4e97a2813b8c1c1e586dc335c7a4df6518f60ed1"
   },
   "source": {
-    "revision": "285e0535bff6ad41947ddd4092ceb345b65bceb5",
+    "revision": "6abcc45256f0402ec592c9c447e949b3d7ee33fb",
     "worktree_dirty": false
   },
   "spread_note": "20 queries and 74 judgments cannot separate small differences between these paths. Every path answers the same searches, so read each step as the difference on each search rather than as two separate averages: the comparison below reports that difference, the spread of the differences, and how many searches each step won and lost. A step whose average difference is smaller than that spread is one this query set cannot tell apart from no change."

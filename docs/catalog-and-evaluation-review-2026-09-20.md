@@ -53,6 +53,9 @@ performance.
 - Made all 720 generated query descriptions express their actual filter values,
   including false booleans and exact numeric equality. Corrected 15 impossible or
   mismatched targets. Watch battery language now specifies smartwatch mode.
+- Preserved units in product specifications and the Ask Mosaic product drawer:
+  screen size, refresh rate, weight, power, duration and gamut coverage use the
+  same formatter as the summary facts. False attributes display as “No.”
 
 ## Data-change boundary
 
@@ -134,6 +137,45 @@ The 12 vocabulary controls were remeasured against the corrected corpus. Their
 queries, expected decisions and similarity threshold remain unchanged; obsolete
 term counts and nearest-spelling observations were replaced with live results.
 The new measurement command refuses changed expectations or an empty case set.
+The old upper spelling control, “enough,” now matches a catalog word directly.
+Its former similarity interval is no longer claimed as current calibration.
+The interval check uses “hedfones” from the existing required positive case and
+the existing unknown-brand negative. Permanent tests reject thresholds on either
+side of that observed interval; no production threshold was changed.
+
+## Refreshed measurements
+
+The HNSW run measured 30 anchors across three domains, six filter presets and
+three vector representations on the existing Aurora PostgreSQL 18.3
+`db.r8g.2xlarge` instance. The run records pgvector 0.8.1, all query samples,
+index definitions and sizes, plans, source revision and dataset hash. At
+`ef_search = 100`, mean exact-neighbor recall was 0.8533 and warmed server p50
+was 1.914 ms. At 800, the measured values were 0.9867 and 7.824 ms. These are
+sequential existing-instance measurements, not cold-cache or concurrent-load
+claims. The optional scale projection was regenerated from this measurement;
+larger scales remain estimates, not measured capacity.
+
+The 20-query reviewed set was measured again through the production retrieval
+and reranking path. Its required identity, negative-attribute and sibling-order
+controls passed. The stage comparison retains per-query results and the limit
+imposed by products absent from the retrieved set. Broad headphone requests
+remain among the weakest reviewed cases. No judgments were changed to improve
+these measurements, and no claim of complete catalog relevance is made.
+The refreshed reranking comparison improved five searches, worsened five and
+left ten unchanged. The old test claiming that more than half were unchanged
+was replaced with these exact observed counts; the paired-comparison rule was
+not changed.
+
+The current committed files are the authoritative numbers:
+
+- `data/evals/canonical_scorecard.json` and `canonical_ranked_results.csv`;
+- `data/evals/canonical_stage_ablation.json`, including per-search differences;
+- `data/benchmarks/hnsw_measured.json` and its complete samples file; and
+- `data/benchmarks/scale_projection.json`, explicitly labeled as a projection.
+
+The final quality measurement is captured from a clean committed source after
+this report. Only generated scorecard, ranked-result and stage-comparison files
+may follow it; the existing release check enforces that boundary.
 
 ## Acceptance matrix
 
@@ -145,6 +187,7 @@ proof remain separate from these existing-cluster checks.
 | Complete catalog and restore cache | PASS | 500,000 source records and cached vectors agree with Aurora; zero projection mismatches |
 | Generated and graded filter targets | PASS | 720 generated targets and 74 graded judgments use production SQL filters |
 | Catalog diagnostics and packaging | PASS | Source and database packages validate; category repair, cache and identity checks pass |
+| Offline source checks | PASS | Python suite and affected regression checks, Ruff, retrieval configuration/profile checks and package checks; live Aurora lanes are reported separately |
 | Aurora integration | PASS | 51 contract tests and 109 model/integration tests; all three production lab validators pass |
 | Deliberate failure and repair | PASS | Labs 1 and 2 tested in rolled-back production-function transactions; isolated Lab 3 defect rejected, healthy API passes |
 | Search-index recovery | PASS | All three HNSW indexes valid and ready; 180 exact-search reference pairs refreshed |
@@ -152,7 +195,8 @@ proof remain separate from these existing-cluster checks.
 | Images | PASS | All 337 assets inspected; replacements, labels, bindings and checksums checked; shared images are explicitly illustrative |
 | Deck and speaker narrative | PASS | Twelve-slide PowerPoint/PDF and notes synchronized; exported layout and media package checked |
 | Native PowerPoint autoplay | BLOCKED | Native app was being used for another presentation; package timing is verified, native playback is not |
-| Saved quality and performance measurements | BLOCKED | Require fresh measurements from the clean source commit after this catalog repair; earlier numbers do not certify this revision |
+| Saved quality and performance measurements | PASS | Fresh clean-source Aurora runs, all required quality controls, complete HNSW samples and regenerated estimates; limited-query quality and warmed sequential performance only |
+| Local Workshop Studio static checks | PASS | Four CloudFormation templates, shellcheck and 126 guide/bootstrap regression tests; source parity and final pin are checked again after source publication |
 | Published Studio rendering and new-host lifecycle | BLOCKED | Existing release report's publication/access boundary remains; no fresh deployment is claimed |
 | Human fresh-event rehearsal | EXCLUDED | Explicitly outside this pass and still required before event delivery |
 
@@ -168,3 +212,31 @@ The quote is: “I've got the desk and the laptop. Now I need a setup I can actu
 work in, every day.” The monitor need explicitly explains code and documentation
 side by side without constant tab-switching. This changes the introduction, not
 the separate required Lab 3 exercise.
+
+## Release handoff
+
+Publish the source `main` branch with the configured Git identity, independently
+compare its full SHA with `origin/main`, then use Studio's `scripts/repin.py` to
+prepare the local package. Its source pin must be that published SHA; the tool
+also updates the derived infrastructure revision and bootstrap checksum. The
+final identity and local validation receipt are supplied with the delivery.
+
+The exact manual commands and explicit staging list in
+`docs/release-readiness-2026-09-19.md`, under “Maintainer-only release commands,”
+still apply. The essential additional change is the new 51-object embedding
+cache: upload the verified local cache with the four named runtime assets before
+publishing the newly pinned Studio package. The new manifest checksum is shown
+above. The old remote cache cannot bootstrap the corrected source catalog.
+Do not add deletion flags or stage the large cache files in Git.
+
+After the owner's upload and publication, repeat published asset checksums,
+native Studio rendering and automated new-host bootstrap/lifecycle checks.
+The combined delivery gate continues to reject the intentionally uncommitted
+Studio checkout until the owner commits it. Native PowerPoint playback also
+remains unverified; the deck's embedded media and automatic-start timing were
+checked structurally. The video preserves its original Aurora app frames and
+does not claim to be a fresh capture of this catalog revision.
+
+The separate human rehearsal must still cover a timed fresh bootstrap, model
+access, all three broken-to-repaired labs, saved completion, participant recovery,
+presentation playback and teardown. It is excluded here, not waived.
