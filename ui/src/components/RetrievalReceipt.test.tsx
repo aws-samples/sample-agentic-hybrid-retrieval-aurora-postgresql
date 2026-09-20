@@ -29,7 +29,7 @@ describe("RetrievalReceipt", () => {
     // same number.
     expect(
       within(receipt).getByText(
-        "Filters → candidates → combined order → final order → evidence → time",
+        "Filters → products found → combined order → final order → sources → time",
       ),
     ).toBeTruthy();
     expect(

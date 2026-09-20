@@ -276,7 +276,7 @@ export function CatalogSearchComposer({
             : undefined
         }
         aria-autocomplete={supportsSuggestions ? "list" : undefined}
-        aria-controls={supportsSuggestions ? listboxId : undefined}
+        aria-controls={supportsSuggestions && open && showSuggestions ? listboxId : undefined}
         aria-describedby={queryTooShort ? queryHintId : undefined}
         aria-expanded={supportsSuggestions ? open : undefined}
         aria-invalid={queryTooShort || undefined}

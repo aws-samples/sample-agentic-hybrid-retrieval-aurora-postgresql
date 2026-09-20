@@ -100,7 +100,7 @@ export function SearchRetrievalReceipt({
 
   return (
     <ReceiptBand
-      path="Filters → candidates → combined order → final order → evidence → time"
+      path="Filters → products found → combined order → final order → sources → time"
       items={[
         {
           label: "Filters",
@@ -181,7 +181,7 @@ export function AgentRetrievalReceipt({
 
   return (
     <ReceiptBand
-      path="Filters → candidates → combined order → final order → evidence → time"
+      path="Filters → products found → combined order → final order → sources → time"
       items={[
         {
           label: "Filters",
