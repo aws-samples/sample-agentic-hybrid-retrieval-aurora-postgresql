@@ -90,13 +90,13 @@ describe("DiscoverPage", () => {
     renderPage();
     const categories = within(screen.getByRole("navigation", { name: "Workspace categories" }));
     expect(categories.getByRole("link", { name: "Monitors" }).getAttribute("href")).toBe(
-      "/catalog?domain=home_office&category_key=productivity-monitors",
+      "/catalog?domain=consumer_electronics&category_key=monitor",
     );
     expect(categories.getByRole("link", { name: "Chairs" }).getAttribute("href")).toBe(
-      "/catalog?domain=home_office&category_key=ergonomic-office-chairs",
+      "/catalog?domain=home_office&category_key=chair",
     );
     expect(categories.getByRole("link", { name: "Headphones" }).getAttribute("href")).toBe(
-      "/catalog?domain=consumer_electronics&category_key=over-ear-headphones",
+      "/catalog?domain=consumer_electronics&category_key=headphones",
     );
   });
 

@@ -37,19 +37,19 @@ const RANKING_GUIDE = [
   {
     number: "01",
     title: "Find",
-    description: "Each retrieval method makes its own candidate list.",
+    description: "Was it found? Each search method returns its own product list using the same filters.",
     fields: ["Rank in each search method"],
   },
   {
     number: "02",
     title: "Combine",
-    description: "RRF combines positions without comparing unlike raw scores.",
+    description: "Did it reach reranking? RRF adds contributions from search positions, then keeps a limited list.",
     fields: ["RRF contribution", FUSED_LABEL],
   },
   {
     number: "03",
     title: "Reorder",
-    description: "Reranking can only reorder products already in the fused pool.",
+    description: "Does it fit the request? The model reorders only that list. Check the product specifications too.",
     fields: ["Rerank score", FINAL_LABEL],
   },
 ] as const;
@@ -92,6 +92,7 @@ function MatrixRowGroup({
             <strong>{row.product.title}</strong>
             <small>
               {row.product.brand} / {row.product.model}
+              {row.product.source_dataset ? ` · Listing ${row.product.sku}` : null}
               {row.isTarget ? <em> · scenario target</em> : null}
             </small>
           </span>
@@ -217,6 +218,16 @@ export function RetrievalObservatory({
           </li>
         ))}
         </ol>
+        <p>
+          A product missing from the combined list cannot be recovered by reranking.
+          A high score does not prove a feature is present: the Reason step checks
+          the supporting records.
+        </p>
+        <p>
+          Exact terms uses PostgreSQL full-text search with <code>ts_rank_cd</code>.
+          It normalizes words; it is not a literal string match or BM25.
+          RRF combines positions because the three search scores use different scales.
+        </p>
       </details>
 
       {response ? (
@@ -296,12 +307,11 @@ export function RetrievalObservatory({
               </p>
             )}
             <p className="labs-matrix-note">
-              Search method ranks are positions within each retriever's own candidate list, so
-              they run past the twelve rows shown here. <strong>Before / after</strong>
-              {" "}compares positions among these rows only: the left number is the
-              order that would have shipped with reranking off. Raw search method scores, fused
-              scores, and rerank scores are on different scales and are not
-              probabilities.
+              Search method ranks are positions within each retriever's own candidate list;
+              they can exceed the {matrix.rows.length} rows shown. <strong>Before / after</strong>
+              {" "}compares only these displayed products, sorted by their saved combined
+              position on the left and final position on the right. Search, combined and
+              rerank scores use different scales and are not probabilities.
             </p>
           </footer>
         </>

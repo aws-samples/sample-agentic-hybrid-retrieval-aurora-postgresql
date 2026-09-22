@@ -41,6 +41,12 @@ export interface MosaicLabMission {
   query: string;
   filters: SearchFilters;
   target_product_ids: number[];
+  target_display_name?: string;
+  dataset_id?: string;
+  expected_final_rank?: number;
+  expected_final_top_k?: number;
+  expected_target_signals?: Array<"fts" | "trigram" | "semantic">;
+  absent_target_signals?: Array<"fts" | "trigram" | "semantic">;
   expected_techniques: string[];
   checkpoint: MosaicLabCheckpoint;
   participant_edit?: MosaicParticipantEdit;
@@ -76,6 +82,12 @@ interface MosaicLabManifest {
   /** Ungraded requests for inspecting an agent pipeline; labs remain above. */
   playground: {
     default_request: string;
+    shop_examples: Array<{
+      id: string;
+      kind: "Keywords" | "Typo" | "Intent";
+      label: string;
+      reference_id: string;
+    }>;
     guided_requests: Array<{
       id: string;
       label: string;
@@ -96,6 +108,17 @@ export const mosaicLabManifest = missionManifest as MosaicLabManifest;
 export const coreMosaicLabs = mosaicLabManifest.missions;
 export const supportingMosaicChecks = mosaicLabManifest.supporting_checks;
 
+export function resolveShopExamples(manifest: MosaicLabManifest) {
+  const requests = [...manifest.missions, ...manifest.supporting_checks, ...manifest.playground.requests];
+  return manifest.playground.shop_examples.map((example) => {
+    const request = requests.find((item) => item.id === example.reference_id);
+    if (!request) throw new Error(`Unknown Shop example ${example.reference_id}; link an existing request.`);
+    return { ...example, query: request.query, filters: request.filters };
+  });
+}
+
+export const shopSearchExamples = resolveShopExamples(mosaicLabManifest);
+
 /** Resolve graded requests from their mission so the demo cannot fork its query or filters. */
 export function resolvePipelineRequests(manifest: MosaicLabManifest) {
   return [
@@ -112,8 +135,10 @@ export function resolvePipelineRequests(manifest: MosaicLabManifest) {
 export const pipelineRequests = resolvePipelineRequests(mosaicLabManifest);
 
 
-export function workspaceRequests(filters: SearchFilters) {
-  return mosaicLabManifest.playground.requests.filter((request) =>
+export function workspaceRequests(filters: SearchFilters, resolveFilters = (value: SearchFilters) => value) {
+  return mosaicLabManifest.playground.requests.map((request) => ({
+    ...request, filters: resolveFilters(request.filters),
+  })).filter((request) =>
     (!filters.domain || request.filters.domain === filters.domain) &&
     (!filters.category_key || request.filters.category_key === filters.category_key)
   );

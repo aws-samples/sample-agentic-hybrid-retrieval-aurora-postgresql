@@ -1,3 +1,4 @@
+import { ProductSourceNote } from "./ProductSourceNote";
 import { ArrowRight, Check, ShoppingBag, Star, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
@@ -218,7 +219,7 @@ export function ProductDrawer({
                     <strong>
                       {formatPrice(detail.price_cents, detail.currency)}
                     </strong>
-                    {detail.list_price_cents > detail.price_cents ? (
+                    {detail.list_price_cents != null && detail.price_cents != null && detail.list_price_cents > detail.price_cents ? (
                       <s>
                         {formatPrice(detail.list_price_cents, detail.currency)}
                       </s>
@@ -252,12 +253,13 @@ export function ProductDrawer({
                       ))}
                       <strong>{detail.rating.toFixed(1)}</strong>
                       <span>
-                        {detail.review_count.toLocaleString()} reviews
+                        {detail.review_count.toLocaleString()} {detail.source_dataset ? "historical ratings" : "reviews"}
                       </span>
                     </div>
                   ) : null}
 
-                  <p className="product-drawer-description">
+                  <ProductSourceNote product={detail} />
+          <p className="product-drawer-description">
                     {detail.long_description || detail.short_description}
                   </p>
 
@@ -289,6 +291,7 @@ export function ProductDrawer({
             </div>
 
             <footer>
+              {detail?.listing_url ? <a className="product-drawer-add" href={detail.listing_url} target="_blank" rel="noreferrer">View original listing ↗</a> : (
               <button
                 className="product-drawer-add"
                 type="button"
@@ -304,6 +307,7 @@ export function ProductDrawer({
                       ? `Add another (${quantity} in bag)`
                       : "Add to bag"}
               </button>
+              )}
               {productId !== null ? (
                 <Link
                   className="product-drawer-full-link"

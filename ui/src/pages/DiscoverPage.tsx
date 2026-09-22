@@ -1,9 +1,10 @@
-import { Check, Send } from "lucide-react";
+import { useCatalogSource } from "../catalogSource";
+import { ArrowRight, Check } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { alexBrief } from "../alexBrief";
 import { CatalogSearchComposer } from "../components/CatalogSearchComposer";
-import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
+import { WorkspaceWalkthrough } from "../components/WorkspaceWalkthrough";
 import { categoryHref, editorialStories, storyHref } from "../discoverContent";
 import { discoverData } from "../discoverData";
 import { useNavigate } from "../navigation";
@@ -19,6 +20,7 @@ export const intentionCategories = editorialStories.map(story => ({
 }));
 
 export function DiscoverPage() {
+  const { real } = useCatalogSource();
   const navigate = useNavigate();
   const [searchCount, setSearchCount] = useState(
     () => discoverData.scope.peek()?.database.product_count,
@@ -32,6 +34,21 @@ export function DiscoverPage() {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    function focusProfile() {
+      if (window.location.hash !== "#alex-profile") return;
+      const profile = document.getElementById("alex-profile");
+      profile?.focus({ preventScroll: true });
+      profile?.scrollIntoView({ block: "start", behavior: "instant" });
+    }
+    const frame = window.requestAnimationFrame(focusProfile);
+    window.addEventListener("hashchange", focusProfile);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("hashchange", focusProfile);
+    };
+  }, []);
+
   function search(query: string) {
     navigate("/catalog?" + new URLSearchParams({ q: query, view: "results" }));
   }
@@ -41,27 +58,16 @@ export function DiscoverPage() {
       <section className="discover-hero" aria-labelledby="discover-title">
         <header className="discover-heading">
           <h1 id="discover-title" className="commerce-display">
-            A room built around <em>the way you work.</em>
+            A room built around <span>the way <span className="discover-heading-accent">you</span> work.</span>
           </h1>
-          <p>Good choices start with the person using them. Let’s build a home office around the way Alex spends his day.</p>
         </header>
-
         <div className="discover-studio">
-          <figure className="discover-hero-photo">
-            <img
-              src="/assets/images/mosaic/alex-workspace-editorial-v3.webp"
-              alt="A sunlit home office with an oak standing desk, two monitors, laptop, headphones and mesh chair"
-              width={1600}
-              height={1200}
-              fetchPriority="high"
-            />
-            <figcaption>A room to work toward.</figcaption>
-          </figure>
-          <div className="discover-hero-content">
+          <WorkspaceWalkthrough real={real} />
+          <section id="alex-profile" className="discover-hero-content" aria-labelledby="alex-profile-title" tabIndex={-1}>
             <div className="discover-alex-intro">
               <img src="/assets/images/mosaic/alex-shopper-v1.jpg" alt="Alex" width={88} height={88} />
               <div>
-                <h2>Meet Alex.</h2>
+                <h2 id="alex-profile-title">Meet Alex.</h2>
                 <p className="discover-alex-role">{alexBrief.role}</p>
               </div>
             </div>
@@ -80,14 +86,14 @@ export function DiscoverPage() {
                 <dd>
                   <nav className="discover-hero-categories" aria-label="Workspace categories">
                     {editorialStories.map(story => (
-                      <Link key={story.topic} href={categoryHref(story)}>{story.topic}</Link>
+                      <Link key={story.topic} href={categoryHref(story, real)}>{story.topic}</Link>
                     ))}
                   </nav>
                 </dd>
               </div>
             </dl>
             <a className="discover-primary-link" href="#alexs-brief">Explore Alex’s brief</a>
-          </div>
+          </section>
         </div>
 
         <div className="discover-search-row">
@@ -99,13 +105,10 @@ export function DiscoverPage() {
           <div className="discover-search" role="search">
             <CatalogSearchComposer
               inputLabel="Search products"
-              leadingIcon={<GenerativeSearchIcon size={20} />}
               onSubmit={search}
               placeholder="What would make work feel better?"
               showSuggestions={false}
               suggestionsOnType={false}
-              submitIcon={<Send size={16} aria-hidden="true" />}
-              submitIconOnly
             />
           </div>
         </div>
@@ -120,7 +123,7 @@ export function DiscoverPage() {
           <div className="discover-editorial-grid">
             {editorialStories.map(story => (
               <article key={story.topic} className="discover-need">
-                <Link className="discover-category-tile" href={storyHref(story)} aria-label={`Explore ${story.title.toLowerCase()}`}>
+                <Link className="discover-category-tile" href={storyHref(story, real)} aria-label={`Explore ${story.title.toLowerCase()}`}>
                   <img src={story.image} alt={story.imageAlt} width={story.imageWidth} height={story.imageHeight} loading="lazy" decoding="async" />
                   <h3>{story.title}.</h3>
                 </Link>
@@ -129,7 +132,7 @@ export function DiscoverPage() {
                   <h4>What matters</h4>
                   <p>{story.considerations}</p>
                 </div>
-                <Link className="discover-story-link" href={storyHref(story)}>Find {story.topic.toLowerCase()} for Alex</Link>
+                <Link className="discover-story-link" href={storyHref(story, real)}>Find {story.topic.toLowerCase()} for Alex <ArrowRight size={16} aria-hidden="true" /></Link>
               </article>
             ))}
           </div>
@@ -140,7 +143,7 @@ export function DiscoverPage() {
             <h2 id="discover-shop-title">Now, find the pieces that fit.</h2>
             <p>Explore the workspace edit and compare the details that make a difference.</p>
           </div>
-          <Link className="discover-primary-link" href="/catalog">Shop the workspace</Link>
+          <Link className="discover-primary-link" href="/catalog">Shop the workspace <ArrowRight size={16} aria-hidden="true" /></Link>
         </section>
         <p className="discover-image-note">Alex is a fictional shopper. Workspace imagery is AI-generated and illustrative.</p>
       </div>

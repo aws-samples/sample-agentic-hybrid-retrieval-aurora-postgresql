@@ -835,7 +835,7 @@ function ShoppingResultCard({ product, position, imageByProductId, onHighlight, 
   const limit = cartQuantityLimit(product);
   return <ResultProductCard product={product} imageSrc={imageByProductId.get(product.product_id)} rank={position}
     onHighlight={onHighlight} onSelect={onSelectProduct}
-    footer={<button className={inBag ? "ask-mosaic-pick-add in-bag" : "ask-mosaic-pick-add"} type="button" disabled={!limit || inBag >= limit} title={limit ? undefined : "Out of stock"} onClick={() => addItem(product)}><ShoppingBag size={14} aria-hidden="true" />{inBag ? `In bag (${inBag})` : "Add to bag"}</button>} />;
+    footer={product.source_dataset ? (product.listing_url ? <a className="source-listing-link" href={product.listing_url} target="_blank" rel="noreferrer">View original listing <ArrowUpRight size={14} aria-hidden="true" /></a> : null) : <button className={inBag ? "ask-mosaic-pick-add in-bag" : "ask-mosaic-pick-add"} type="button" disabled={!limit || inBag >= limit} title={limit ? undefined : "Out of stock"} onClick={() => addItem(product)}><ShoppingBag size={14} aria-hidden="true" />{inBag ? `In bag (${inBag})` : "Add to bag"}</button>} />;
 }
 
 /**
@@ -1078,7 +1078,7 @@ function Turn({
         <div className="ask-mosaic-error" role="alert">
           <strong>Mosaic could not finish this request.</strong>
           <span>{turn.error}</span>
-          <small>Press Ask again to retry. If it keeps failing, the API session may need refreshing.</small>
+          <small>Press Ask again to retry. If it keeps failing, share this message with your facilitator.</small>
         </div>
       ) : null}
 
@@ -1183,20 +1183,18 @@ function EntryState({ suggestions, onRun }: {
 }) {
   return <section className="ask-mosaic-empty">
     <div className="ask-mosaic-welcome">
-      <h3>Make room for better work.</h3>
-      <p>Tell me about your day, your desk and your budget. I’ll help you find the pieces that fit.</p>
+      <h3>What can I help you find?</h3>
+      <p>{suggestions.length
+        ? "Choose a starting point, or tell me what matters to you."
+        : "Tell me what matters to you. I’ll help you compare the options."}</p>
     </div>
     {suggestions.length ? <div className="ask-mosaic-starters">
-      <h4>A place to start</h4>
       <ul aria-label="Example questions">{suggestions.map((suggestion) => <li key={suggestion.id}>
         <button type="button" onClick={() => onRun(suggestion.query, suggestion.filters)}>
           <span className="ask-mosaic-starter-path">{suggestion.shop_label}</span>
-          <ArrowUpRight className="ask-mosaic-starter-go" size={17} aria-hidden="true" />
-          {suggestion.query !== suggestion.shop_label ? <span className="ask-mosaic-starter-query">{suggestion.query}</span> : null}
         </button>
       </li>)}</ul>
     </div> : null}
-    <p className="ask-mosaic-entry-note">I can compare products, check specifications and explain my picks with sources. You can refine the shortlist as we go.</p>
   </section>;
 }
 
@@ -1415,7 +1413,7 @@ export function AskMosaic({
             <span><Sparkles size={19} /></span>
             <div>
               <h2 id="ask-mosaic-title">Ask Mosaic</h2>
-              <p>Your workspace, considered.</p>
+              <p>A little help choosing.</p>
             </div>
           </div>
           {/* Only once there is something to discard. On the entry state the

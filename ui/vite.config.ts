@@ -1,10 +1,37 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import { readFile } from "node:fs/promises";
 
 const API_TARGET = process.env.CATALOG_API_PROXY ?? "http://127.0.0.1:8000";
 
 /** What `GET /api/health` reports in service/main.py. Nothing else answers this. */
 const MOSAIC_SERVICE = "catalog-hybrid-retrieval";
+
+/** Source datasets stay outside public assets until their release is reviewed. */
+function localCatalogPreview(): Plugin {
+  return {
+    name: "mosaic-local-catalog-preview",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use("/__catalog-preview/data", async (request, response) => {
+        response.setHeader("Cache-Control", "no-store");
+        response.setHeader("Content-Type", "application/json");
+        if (request.method !== "GET" || !process.env.MOSAIC_CATALOG_PREVIEW_FILE) {
+          response.statusCode = 404;
+          response.end(JSON.stringify({ detail: "No local catalog preview is configured." }));
+          return;
+        }
+        try {
+          const data = await readFile(process.env.MOSAIC_CATALOG_PREVIEW_FILE, "utf8");
+          response.end(JSON.stringify(JSON.parse(data)));
+        } catch {
+          response.statusCode = 503;
+          response.end(JSON.stringify({ detail: "The local catalog preview could not be read." }));
+        }
+      });
+    },
+  };
+}
 
 /**
  * Refuse to proxy quietly to something that is not Mosaic.
@@ -106,7 +133,7 @@ function verifyApiTarget(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [react(), verifyApiTarget()],
+  plugins: [react(), verifyApiTarget(), localCatalogPreview()],
   server: {
     host: "127.0.0.1",
     port: 5173,

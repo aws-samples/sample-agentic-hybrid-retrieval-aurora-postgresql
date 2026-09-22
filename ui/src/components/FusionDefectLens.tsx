@@ -2,15 +2,12 @@ import { AlertTriangle } from "lucide-react";
 import { useRef, useState } from "react";
 import { ApiError, api } from "../api";
 import {
-  BROKEN_TIE_MECHANISM,
   candidatesFromPersistedPool,
   candidatesFromResults,
   findFusionDefectCase,
   findTieCollapseExample,
   FUSION_DEFECT_TEACHING_LINE,
   fusedToFinalGap,
-  NO_COMPETITOR_EXAMPLE,
-  NO_TIE_COLLAPSE_EXAMPLE,
   SUSPICIOUS_GAP_CAUTION,
   type FusionDefectCandidate,
   type FusionDefectTieCollapse,
@@ -18,28 +15,10 @@ import {
 import { armLabel, armLanguage, FINAL_LABEL, FUSED_LABEL } from "../retrievalLanguage";
 import type { RetrievalRunResponse, SearchResponse } from "../types";
 import { PlaygroundDisclosure } from "./PlaygroundStage";
+import "../fusion-defect-lens.css";
 
-/**
- * Lab 2, made visible: the same measured rank produces two different numbers,
- * and every arm's own rank stops mattering once the formula is broken.
- *
- * Everything here is arithmetic on `source_rank`, never a second retrieval:
- * `armContribution` in `../fusionDefect` computes `expected` and `broken`
- * from the rank this run actually reported, so the two numbers are directly
- * comparable rather than one being asserted in prose. The headline needs no
- * search over the whole pool: candidates with equal arm counts always tie on
- * `broken`, and `mosaic_search.search_hybrid_rrf` (`db/sql/09_search_functions.sql:515`)
- * resolves that tie by ascending `product_id`, so `findTieCollapseExample`
- * can name a real pair the tiebreak got backwards as soon as one tie group
- * has two members whose product ids disagree with their real order -- which
- * measured pools do in abundance. A genuine fusion-order inversion is a
- * weaker, situational claim -- `findFusionDefectCase` only reports one when
- * correct RRF, not just the broken formula, would also have inverted the
- * pair -- and needs the full fused pool, not just the returned rows, so both
- * are read lazily from the persisted `search_result_event` rows on first
- * open, the same way `PersistedRunDisclosures` reads the rest of the receipt.
- */
-
+// Calculated comparisons share the saved source ranks, so a changed request
+// cannot be mistaken for evidence that the fusion formula was repaired.
 function armCells(candidate: FusionDefectCandidate) {
   return candidate.arms.map((arm) => (
     <td className="mono" key={arm.arm}>
@@ -47,15 +26,32 @@ function armCells(candidate: FusionDefectCandidate) {
         <em>not found</em>
       ) : (
         <>
-          <span>rank #{arm.sourceRank}</span>
-          <b>{arm.expected?.toFixed(6)}</b>
+          <span>Source rank #{arm.sourceRank}</span>
+          <b><span className="labs-fusion-value-label">Correct</span> {arm.expected?.toFixed(6)}</b>
           <em className={arm.sourceRank === 1 ? "" : "labs-rrf-mismatch"}>
-            broken {arm.broken?.toFixed(6)}
+            <span className="labs-fusion-value-label">Collapsed</span> {arm.broken?.toFixed(6)}
           </em>
         </>
       )}
     </td>
   ));
+}
+
+function ArithmeticHead() {
+  return (
+    <thead>
+      <tr className="labs-fusion-column-groups">
+        <th scope="col" rowSpan={2}>Product</th>
+        <th scope="colgroup" colSpan={armLanguage.length}>Calculated contributions</th>
+        <th scope="colgroup" colSpan={2}>Recorded positions</th>
+      </tr>
+      <tr>
+        {armLanguage.map((arm) => <th key={arm.key} scope="col">{arm.label}</th>)}
+        <th scope="col">{FUSED_LABEL}</th>
+        <th scope="col">{FINAL_LABEL}</th>
+      </tr>
+    </thead>
+  );
 }
 
 function CandidateRow({
@@ -82,56 +78,35 @@ function CandidateRow({
   );
 }
 
-/**
- * The headline: two real candidates, tied on the broken score because they
- * share an arm count, where the SQL's own `product_id` tiebreak put the
- * genuinely worse one on top. Every count here comes off `tie` -- nothing is
- * retyped from a prior run.
- */
 function TieCollapseExample({ tie }: { tie: FusionDefectTieCollapse }) {
   return (
     <>
       <p className="labs-contract-note">
-        {tie.tieGroupSize} of this run's {tie.poolSize} pooled candidates were found by the same number of search methods, so they receive the same broken score,{" "}
-        {tie.first.brokenScore.toFixed(6)}. <code>mosaic_search.search_hybrid_rrf</code>{" "}
-        (<code>db/sql/09_search_functions.sql:515</code>) then resolves that tie by
-        ascending <code>product_id</code>, not relevance. Product #
-        {tie.first.candidate.productId} is truly ranked #{tie.first.candidate.fusedRank}
-        {" "}in this run's real measured order, but its smaller product id puts it at
-        broken rank #{tie.first.brokenRank} -- ahead of product #
-        {tie.second.candidate.productId}, which is truly ranked #
-        {tie.second.candidate.fusedRank} yet falls to broken rank #
-        {tie.second.brokenRank} purely because its product id is larger.
+        {tie.tieGroupSize} of this run's {tie.poolSize} pooled candidates were found by
+        the same number of search methods. The collapsed formula gives each a score
+        of <code>{tie.first.brokenScore.toFixed(6)}</code>, then the SQL tie-break
+        orders them by product ID. For this pair, that calculated order differs
+        from the saved order below.
       </p>
       <div className="labs-rrf-scroll" role="region" tabIndex={0} aria-label="Tie-collapse arithmetic">
         <table className="labs-rrf-table">
-          <thead>
-            <tr>
-              <th scope="col">Product</th>
-              {armLanguage.map((arm) => (
-                <th key={arm.key} scope="col">{arm.label}</th>
-              ))}
-              <th scope="col">{FUSED_LABEL}</th>
-              <th scope="col">{FINAL_LABEL}</th>
-            </tr>
-          </thead>
+          <ArithmeticHead />
           <tbody>
             <CandidateRow
               candidate={tie.first.candidate}
-              highlight={`broken rank #${tie.first.brokenRank}`}
+              highlight={`Calculated collapsed rank #${tie.first.brokenRank}`}
             />
             <CandidateRow
               candidate={tie.second.candidate}
-              highlight={`broken rank #${tie.second.brokenRank}`}
+              highlight={`Calculated collapsed rank #${tie.second.brokenRank}`}
             />
           </tbody>
         </table>
       </div>
       <p className="labs-teaching-line">
-        The broken formula ranks {tie.tieGroupSize} of {tie.poolSize} candidates in
-        this run's fused pool by product id, not relevance -- {tie.invertedPairs}{" "}
-        pairs across the pool land in the opposite order from this run's real
-        measured ranking.
+        Across these {tie.poolSize} saved candidates, {tie.invertedPairs} pairs
+        change order under the collapsed calculation. This comparison does not
+        run retrieval again or establish which candidates a fresh run would admit.
       </p>
     </>
   );
@@ -221,29 +196,36 @@ export function FusionDefectLens({ response }: { response: SearchResponse }) {
   const inversion = poolRows ? findFusionDefectCase(poolRows) : null;
 
   return (
-    <>
-      <p className="labs-rrf-formula">
-        <code>expected = 1 / (rrf_k + source_rank)</code>. Lab 2 replaces that with{" "}
-        <code>broken = 1 / (rrf_k + 1)</code> -- every search method treated as though it held
-        rank 1. <code>rrf_k = {rrfK}</code> and this run's combined list is limited to{" "}
-        <code>fused_limit = {fusedLimit}</code>, both read from this run's own
-        retrieval profile, not retyped here.
+    <div className="labs-fusion-defect">
+      <p className="labs-contract-note">
+        Compare two formulas using this run's source ranks. Contributions below
+        are calculated; before-reranking and final positions come from the saved
+        run. This is not a before-and-after pair of requests.
       </p>
-
-      <p className="labs-teaching-line">{BROKEN_TIE_MECHANISM}</p>
+      <dl className="labs-fusion-formulas">
+        <div>
+          <dt>Correct formula</dt>
+          <dd><code>1 / (rrf_k + source_rank)</code><span>Each position contributes different credit.</span></dd>
+        </div>
+        <div>
+          <dt>Collapsed formula</dt>
+          <dd><code>1 / (rrf_k + 1)</code><span>Every position contributes as rank 1.</span></dd>
+        </div>
+      </dl>
+      <p className="labs-fusion-settings">
+        Saved settings: <code>rrf_k = {rrfK}</code>
+        {fusedLimit == null ? null : <><span aria-hidden="true"> · </span><code>fused_limit = {fusedLimit}</code></>}
+      </p>
+      <p className="labs-contract-note">
+        With the collapsed formula, candidates found by the same number of
+        methods tie. SQL breaks those ties by product ID. A correct-looking
+        winner can remain first even while lower positions lose their meaning.
+      </p>
 
       <div className="labs-rrf-scroll" role="region" tabIndex={0} aria-label="Fusion defect arithmetic">
         <table className="labs-rrf-table">
-          <thead>
-            <tr>
-              <th scope="col">Product</th>
-              {armLanguage.map((arm) => (
-                <th key={arm.key} scope="col">{arm.label}</th>
-              ))}
-              <th scope="col">{FUSED_LABEL}</th>
-              <th scope="col">{FINAL_LABEL}</th>
-            </tr>
-          </thead>
+          <caption className="sr-only">Source ranks are recorded. Correct and collapsed contributions are calculated from those same ranks.</caption>
+          <ArithmeticHead />
           <tbody>
             {rows.map((candidate) => (
               <CandidateRow candidate={candidate} key={candidate.productId} />
@@ -251,6 +233,7 @@ export function FusionDefectLens({ response }: { response: SearchResponse }) {
           </tbody>
         </table>
       </div>
+      <p className="labs-fusion-reading-note">Compare the two contributions within a method. Rank 1 receives equal credit under both formulas. Scroll across the table to inspect every method and the recorded positions.</p>
 
       {eventError ? (
         <p className="labs-disclosure-error" role="alert">
@@ -262,48 +245,38 @@ export function FusionDefectLens({ response }: { response: SearchResponse }) {
       <PlaygroundDisclosure
         key={`fusion-pool-${runId}`}
         label="Check this run's full fused pool for the fusion defect"
-        hint="reads this run's persisted search_result_event rows"
+        hint="compare formulas across the saved candidates"
         onOpen={loadEvent}
       >
         {eventError ? null : poolRows === null ? (
-          <p role="status">Reading mosaic.search_result_event.</p>
+          <p role="status">Loading the saved candidate list…</p>
         ) : (
           <>
             {poolTie ? (
               <TieCollapseExample tie={poolTie} />
             ) : (
-              <p className="labs-contract-note">{NO_TIE_COLLAPSE_EXAMPLE}</p>
+              <p className="labs-contract-note">No pair in the largest tied group reverses the saved order. This does not prove the formula is correct; compare the per-method contributions above.</p>
             )}
 
             {inversion === null ? (
-              <p className="labs-contract-note">{NO_COMPETITOR_EXAMPLE}</p>
+              <p className="labs-contract-note">No recorded pair meets the additional check: a product ranked first by one method sitting below a multi-method competitor whose correct contribution sum is lower. A rank flip is not required to prove the arithmetic defect.</p>
             ) : (
               <>
                 <p className="labs-contract-note">
                   Product #{inversion.competitor.productId} sits at fused rank #
                   {inversion.competitor.fusedRank}, ahead of product #{inversion.target.productId}
-                  {" "}at fused rank #{inversion.target.fusedRank} -- and unlike the tie above,
-                  this is a genuine inversion: product #{inversion.target.productId} is rank #1
+                  {" "}at fused rank #{inversion.target.fusedRank}. Product #{inversion.target.productId} is rank #1
                   in {armLabel[inversion.targetArm]}, product #{inversion.competitor.productId}
-                  &apos;s worst position within one search method is only #{inversion.competitorWorstRank} in
-                  {" "}{armLabel[inversion.competitorArm]}, and even correct RRF -- summing
-                  product #{inversion.competitor.productId}&apos;s real contributions across
-                  every search method that found it -- still places it ahead. The broken formula did not
-                  invent this order; it just also produced it, for the wrong reason.
+                  &apos;s worst source position is #{inversion.competitorWorstRank} in
+                  {" "}{armLabel[inversion.competitorArm]}. Summing the correct contributions
+                  puts the target ahead of the competitor, reversing their recorded
+                  fused order. Inspect the installed formula and the actual contributions
+                  before attributing that difference to the Lab 2 defect.
                 </p>
 
                 <div className="labs-rrf-scroll" role="region" tabIndex={0} aria-label="Competitor and target arithmetic">
                   <table className="labs-rrf-table">
-                    <thead>
-                      <tr>
-                        <th scope="col">Product</th>
-                        {armLanguage.map((arm) => (
-                          <th key={arm.key} scope="col">{arm.label}</th>
-                        ))}
-                        <th scope="col">{FUSED_LABEL}</th>
-                        <th scope="col">{FINAL_LABEL}</th>
-                      </tr>
-                    </thead>
+                    <ArithmeticHead />
                     <tbody>
                       <CandidateRow candidate={inversion.competitor} highlight="competitor" />
                       <CandidateRow candidate={inversion.target} highlight="rank-1 target" />
@@ -319,10 +292,9 @@ export function FusionDefectLens({ response }: { response: SearchResponse }) {
                     </p>
                   ) : (
                     <p className="labs-contract-note">
-                      This run&apos;s reranker still placed product #{inversion.competitor.productId}
-                      {" "}at final rank #{inversion.competitor.finalRank}. That is a reasonable
-                      outcome, and it happened despite the fused order&apos;s bias toward
-                      the number of matching search methods, not because that bias was correct.
+                      Product #{inversion.competitor.productId} has recorded final rank
+                      {" "}#{inversion.competitor.finalRank}. That final position alone
+                      does not establish that the earlier fusion arithmetic was correct.
                     </p>
                   )}
               </>
@@ -332,6 +304,6 @@ export function FusionDefectLens({ response }: { response: SearchResponse }) {
           </>
         )}
       </PlaygroundDisclosure>
-    </>
+    </div>
   );
 }

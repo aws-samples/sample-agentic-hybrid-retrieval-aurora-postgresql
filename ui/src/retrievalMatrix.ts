@@ -49,8 +49,8 @@ export interface MatrixRow {
    * Not `pre_rerank_rank`: that is a position in the fused candidate pool, which
    * is wider than the returned set, so comparing it to `final_rank` would
    * overstate every movement. This is the row's position when the shown rows are
-   * ordered by their fused rank, which is the order that would have shipped with
-   * the reranker off.
+   * ordered by their fused rank. Products outside this displayed subset could
+   * appear in an actual search with reranking disabled.
    */
   beforeRank: number;
   /** Positive means the reranker promoted the row. */
@@ -137,7 +137,7 @@ export function trigramSimilarity(left: string, right: string): number {
 function productWords(product: ProductSummary): string[] {
   const tags = product.tags.filter((tag): tag is string => typeof tag === "string");
   return tokenize(
-    [product.title, product.brand, product.model, product.short_description, ...tags]
+    [product.title, product.sku, product.brand, product.model, product.short_description, ...tags]
       .join(" "),
   );
 }
@@ -355,11 +355,14 @@ export function buildRetrievalMatrix(
   targetProductIds: number[] = [],
 ): RetrievalMatrix {
   const query = response.normalized_query || response.query;
+  const searchSchema = response.results.some((product) => product.source_dataset)
+    ? "mosaic_live_search"
+    : "mosaic_search";
+  const sqlFor = (column: ColumnKey) => COLUMN_SQL[column].replaceAll("mosaic_search.", `${searchSchema}.`);
   const scored = response.results.filter((product) => product.signals);
   const rerankApplied = scored.some((product) => product.signals?.rerank_score != null);
 
-  // The order that would have shipped with the reranker off, restricted to the
-  // rows actually shown.
+  // Keep relative movement separate from positions in the full combined pool.
   const beforeOrder = [...scored].sort(
     (left, right) =>
       (left.signals?.pre_rerank_rank ?? 0) - (right.signals?.pre_rerank_rank ?? 0),
@@ -425,7 +428,7 @@ export function buildRetrievalMatrix(
       mechanism: "tsvector + ts_rank_cd",
       measure: `${found("fts")} of ${total}`,
       measureDetail: "rows found",
-      sql: COLUMN_SQL.fts,
+      sql: sqlFor("fts"),
     },
     {
       key: "trigram",
@@ -433,7 +436,7 @@ export function buildRetrievalMatrix(
       mechanism: "pg_trgm word_similarity",
       measure: `${found("trigram")} of ${total}`,
       measureDetail: "rows found",
-      sql: COLUMN_SQL.trigram,
+      sql: sqlFor("trigram"),
     },
     {
       key: "semantic",
@@ -444,7 +447,7 @@ export function buildRetrievalMatrix(
       mechanism: `pgvector HNSW cosine${semanticWidth(response)}`,
       measure: `${found("semantic")} of ${total}`,
       measureDetail: "rows found",
-      sql: COLUMN_SQL.semantic,
+      sql: sqlFor("semantic"),
     },
     {
       key: "fusion",
@@ -457,7 +460,7 @@ export function buildRetrievalMatrix(
         : "reciprocal rank fusion",
       measure: fusedPool ? `${total} of ${fusedPool}` : `${total}`,
       measureDetail: fusedPool ? "fused candidates shown" : "rows ordered",
-      sql: COLUMN_SQL.fusion,
+      sql: sqlFor("fusion"),
     },
     {
       key: "rerank",
@@ -469,7 +472,7 @@ export function buildRetrievalMatrix(
       mechanism: response.diagnostics?.rerank_model_id ?? "cross-encoder rerank",
       measure: rerankApplied ? `${moved.length} of ${total}` : "not applied",
       measureDetail: rerankApplied ? "rows moved" : "order unchanged",
-      sql: COLUMN_SQL.rerank,
+      sql: sqlFor("rerank"),
     },
   ];
 

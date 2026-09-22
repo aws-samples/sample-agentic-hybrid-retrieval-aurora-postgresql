@@ -10,12 +10,12 @@ describe("Alex’s profile", () => {
   it("moves focus into the card and returns it to Alex when dismissed", () => {
     const onOpen = vi.fn();
     render(<AlexProfile onOpen={onOpen} />);
-    const trigger = screen.getByRole("button", { name: "About Alex" });
+    const trigger = screen.getByRole("button", { name: "Alex’s profile" });
 
     fireEvent.click(trigger);
     expect(onOpen).toHaveBeenCalledOnce();
-    expect(screen.getByRole("dialog", { name: "Meet Alex." })).toBeTruthy();
-    expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Meet Alex." }));
+    expect(screen.getByRole("dialog", { name: "Alex" })).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Alex" }));
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
 
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
@@ -31,11 +31,11 @@ describe("Alex’s profile", () => {
 
   it("dismisses when clicking or moving focus outside, without taking focus back", () => {
     render(<><AlexProfile onOpen={vi.fn()} /><button>Continue shopping</button></>);
-    const trigger = screen.getByRole("button", { name: "About Alex" });
+    const trigger = screen.getByRole("button", { name: "Alex’s profile" });
     const outside = screen.getByRole("button", { name: "Continue shopping" });
 
     fireEvent.click(trigger);
-    fireEvent.pointerDown(screen.getByRole("heading", { name: "Meet Alex." }));
+    fireEvent.pointerDown(screen.getByRole("heading", { name: "Alex" }));
     expect(screen.getByRole("dialog")).toBeTruthy();
     fireEvent.pointerDown(outside);
     expect(screen.queryByRole("dialog")).toBeNull();

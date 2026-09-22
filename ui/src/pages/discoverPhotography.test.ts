@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import collection from "../../../data/real-shop-collection.json";
 import { categoryPoolSize } from "../media";
 import { editorialStories, intentionCategories } from "./DiscoverPage";
 import type { Domain } from "../types";
@@ -26,28 +27,21 @@ function tooShallow(
 }
 
 describe("Discover entry points", () => {
-  it("constrains every editorial entry to a category with enough available photos", () => {
-    expect(
-      tooShallow(
-        editorialStories.map((story) => ({
-          label: story.title,
-          category: story.filters.category_key ?? "",
-          domain: story.filters.domain ?? "",
-        })),
-      ),
-    ).toEqual([]);
-  });
-
-  it("points every category tile at a category with enough available photos", () => {
-    expect(
-      tooShallow(
-        intentionCategories.map((category) => ({
-          label: category.label,
-          category: category.categoryKey,
-          domain: category.domain,
-        })),
-      ),
-    ).toEqual([]);
+  it("routes editorial entries and category tiles to the reviewed real-product collection", () => {
+    const categoryGroups: Record<string, string> = { headphones: "headphones", chair: "chairs", monitor: "monitors" };
+    const entries = [
+      ...editorialStories.map((story) => ({ category: story.filters.category_key!, domain: story.filters.domain })),
+      ...intentionCategories.map((category) => ({ category: category.categoryKey, domain: category.domain })),
+    ];
+    expect(entries).toHaveLength(6);
+    for (const entry of entries) {
+      const group = collection.groups.find((item) => item.category === categoryGroups[entry.category]);
+      expect(group, entry.category).toBeDefined();
+      expect(new Set(group!.parent_asins).size).toBe(40);
+      expect(entry.domain).toBe(entry.category === "chair" ? "home_office" : "consumer_electronics");
+    }
+    // Each real listing owns its photo. The legacy shared-photo pool is not used
+    // to invent a product image when an imported listing lacks one.
   });
 
   it("fails for a category that still owns no photography", () => {

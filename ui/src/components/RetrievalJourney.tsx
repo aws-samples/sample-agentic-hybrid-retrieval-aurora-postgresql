@@ -8,14 +8,14 @@ const scenes = {
     description: "Headphones for clearer calls and deep work.",
   },
   rank: {
-    image: "/assets/images/mosaic/alex-comfort-editorial-v3.webp",
-    alt: "An adjustable mesh chair in a bright, modern home office",
-    title: "Make long days comfortable.",
-    description: "Compare chairs around the support Alex needs.",
+    image: "/assets/images/mosaic/alex-screen-space-editorial-v1.webp",
+    alt: "A monitor with room for code and documentation on Alex’s desk",
+    title: "Make room for his work.",
+    description: "Compare screen resolution and USB-C laptop charging.",
   },
   reason: {
-    image: "/assets/images/mosaic/alex-workspace-editorial-v3.webp",
-    alt: "A home office with a standing desk, two monitors, laptop, headphones and a mesh chair",
+    image: "/assets/images/mosaic/alex-workspace-after.jpg",
+    alt: "The vision for Alex’s workspace: the same desk with a mesh chair, two monitors and headphones",
     title: "Bring his workspace together.",
     description: "Compare a monitor and chair, with specifications and reviews for each choice.",
   },
@@ -35,7 +35,7 @@ export function RetrievalJourney() {
                 <span>{stageLabels[mission.stage]}</span>
                 <span className="shop-journey-rule" aria-hidden="true" />
               </div>
-              <img src={scene.image} alt={scene.alt} width={1600} height={1200} decoding="async" />
+              <img src={scene.image} alt={scene.alt} width={1168} height={784} decoding="async" />
               <div className="shop-journey-caption">
                 <h2>{scene.title}</h2>
                 <p>{scene.description}</p>

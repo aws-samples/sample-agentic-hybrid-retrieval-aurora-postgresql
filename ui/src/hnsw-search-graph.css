@@ -16,7 +16,8 @@
 .hnsw-graph-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 8px 20px; border-top: 1px solid var(--line); }
 .hnsw-graph-tools > span { flex: 1 1 180px; color: var(--ink-soft); font-size: 12px; }
 .hnsw-graph-tools button, .hnsw-graph-fallback button { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; padding: 8px; border: 0; background: none; color: var(--maroon-800); font: inherit; font-size: 13px; cursor: pointer; }
-.hnsw-graph-tools button:hover { background: var(--paper); border-radius: 8px; }
+.hnsw-graph-tools button { border-radius: 999px; }
+.hnsw-graph-tools button:hover { background: var(--paper-strong); }
 .hnsw-graph-loading { position: absolute; inset: 40% 0 auto; text-align: center; color: var(--ink-soft); }
 .hnsw-graph-playback { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding-block: 24px 8px; }
 .hnsw-graph-steps { display: flex; flex-wrap: wrap; gap: 8px 24px; }
@@ -24,7 +25,7 @@
 .hnsw-graph-steps button span { margin-right: 3px; font-variant-numeric: tabular-nums; }
 .hnsw-graph-steps button[aria-pressed="true"] { color: var(--maroon-800); border-bottom-color: var(--maroon-800); }
 .hnsw-graph-steps button:hover { color: var(--maroon-800); }
-.hnsw-graph-play { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 188px; min-height: 52px; padding: 12px 18px; border: 0; border-radius: 12px; background: var(--maroon-800); color: var(--paper); font: 500 15px/1.4 var(--sans); cursor: pointer; }
+.hnsw-graph-play { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 188px; min-height: 52px; padding: 12px 18px; border: 0; border-radius: 999px; background: var(--maroon-800); color: var(--paper-strong); font: 500 15px/1.4 var(--sans); cursor: pointer; }
 .hnsw-graph-play:hover:not(:disabled) { background: var(--maroon-900); }
 .hnsw-graph-play:disabled { opacity: .55; cursor: default; }
 .hnsw-graph-explanation { display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); align-items: baseline; gap: 16px 24px; min-height: 94px; padding-block: 20px; }

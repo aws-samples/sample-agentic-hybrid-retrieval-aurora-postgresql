@@ -25,12 +25,14 @@ function formatter(currency: string): Intl.NumberFormat {
 }
 
 /** `34900` -> `"$349.00"`. Division happens once, at the point of display. */
-export function formatPrice(cents: number, currency = "USD"): string {
+export function formatPrice(cents: number | null, currency = "USD"): string {
+  if (cents == null) return "Check original listing";
   return formatter(currency).format(cents / 100);
 }
 
 /** `34900` -> `"$349"`. For dense rows where the cents add noise. */
-export function formatPriceCompact(cents: number, currency = "USD"): string {
+export function formatPriceCompact(cents: number | null, currency = "USD"): string {
+  if (cents == null) return "Check original listing";
   const whole = cents % 100 === 0;
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -48,12 +50,12 @@ const AVAILABILITY_LABELS: Record<Availability, string> = {
   discontinued: "Discontinued",
 };
 
-export function formatAvailability(value: Availability): string {
-  return AVAILABILITY_LABELS[value] ?? value;
+export function formatAvailability(value: Availability | null): string {
+  return value == null ? "Stock not reported" : AVAILABILITY_LABELS[value] ?? value;
 }
 
 /** True when the product can actually be bought right now. */
-export function isPurchasable(value: Availability): boolean {
+export function isPurchasable(value: Availability | null): boolean {
   return value === "in_stock" || value === "low_stock";
 }
 
@@ -64,6 +66,7 @@ export function isPurchasable(value: Availability): boolean {
  * path where one is available; this is the fallback for the key alone.
  */
 export function formatCategoryKey(key: string): string {
+  if (key === "monitor_stand") return "Monitor stands & arms";
   return key
     .split("-")
     .map((part) => (part.length <= 2 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1)))

@@ -33,7 +33,7 @@ export function CoverageNotice({ coverage }: { coverage?: QueryCoverage | null }
       <SearchX size={18} className="coverage-notice__icon" aria-hidden />
       <div className="coverage-notice__body">
         <p className="coverage-notice__lead">
-          Nothing in the catalog matches{" "}
+          No exact catalog match for{" "}
           {terms.map((term, index) => (
             <span key={term}>
               {index > 0 ? (index === terms.length - 1 ? " or " : ", ") : null}
@@ -43,7 +43,7 @@ export function CoverageNotice({ coverage }: { coverage?: QueryCoverage | null }
           .
         </p>
         <p className="coverage-notice__detail">
-          The results below answer the rest of the request.
+          Check the details in the nearby matches before choosing.
         </p>
       </div>
     </aside>

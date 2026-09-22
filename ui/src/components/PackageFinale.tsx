@@ -54,13 +54,12 @@ export function PackageFinale() {
   return (
     <section className="labs-package-finale" aria-labelledby="labs-package-title">
       <header className="labs-package-heading">
-        <h3 id="labs-package-title">Package what you built</h3>
+        <h3 id="labs-package-title">Use what you built in your own agent</h3>
         <p>
-          Reuse the search and evidence tools from these labs in another application.
-          Aurora stores the products, search results and sources.
+          Connect your agent to filtered search, ranking explanations and product evidence.
+          Aurora runs retrieval; your application owns answer synthesis and citation checks.
         </p>
       </header>
-      <p className="labs-package-name">Mosaic Hybrid Retrieval Skill</p>
 
       {skillError ? (
         <p className="labs-disclosure-error" role="alert">
@@ -72,17 +71,18 @@ export function PackageFinale() {
       ) : (
         <>
           <p className="labs-contract-note">
-            The package includes tool inputs and outputs, HTTP endpoints,
-            instructions for combining the tools, and a guide to adapting them.
+            The implementation guide maps the SQL, evaluation harness and citation guard
+            in the full Mosaic checkout. The skill provides calling instructions and
+            API requests for a running Mosaic service.
           </p>
-          <p className="labs-skill-takeaway">
-            <span>Participant takeaway</span>
-            <code>skills/mosaic-hybrid-retrieval/</code>
-            <small>Keep the whole folder together.</small>
-          </p>
-          <a className="secondary-button labs-package-download" href="/api/skill-package" download>
-            <Download size={16} aria-hidden="true" /> Download skill package
-          </a>
+          <div className="labs-package-actions">
+            <a className="secondary-button labs-package-download" href="/api/builder-package" download>
+              <Download size={16} aria-hidden="true" /> Adapt the implementation
+            </a>
+            <a className="secondary-button labs-package-download" href="/api/skill-package" download>
+              <Download size={16} aria-hidden="true" /> Download the skill
+            </a>
+          </div>
           <ul className="labs-contracts labs-skill-capabilities">
             {skill.map((contract) => (
               <li key={contract.name}>

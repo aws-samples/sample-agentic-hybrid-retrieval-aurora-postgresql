@@ -45,6 +45,49 @@ describe("ProductPage", () => {
 
   afterEach(cleanup);
 
+  it("keeps original listing content available without repeating it in the opening view", async () => {
+    const base = showcaseProductDetail(1)!;
+    const title = "Original headphone case compatible with several headphone models, with a hard shell and a storage pocket for accessories — original source title";
+    const product: ProductDetail = {
+      ...base,
+      title,
+      source_dataset: "reviews-2023-500k-v1",
+      image_url: "https://example.com/original-front.jpg",
+      image_source: "original_listing",
+      listing_url: "https://www.amazon.com/dp/SOURCE0001",
+      long_description: "Unchanged original description. ".repeat(25),
+      short_description: "Unchanged original description. ".repeat(25),
+      source_features: ["A case only; headphones are not included."],
+      price_cents: null,
+      availability: null,
+      inventory_count: null,
+      attributes: { Color: "Grey" },
+      media: [
+        { role: "gallery", sort_order: 1, image_url: "https://example.com/original-open.jpg", image_source: "original_listing", image_key: "open", alt_text: "Open case" },
+      ],
+      reviews: [],
+    };
+    vi.mocked(api.product).mockResolvedValue(product);
+    vi.mocked(api.similarProducts).mockResolvedValue([]);
+    const { container } = render(<CommerceProvider><ProductPage /></CommerceProvider>);
+    const heading = await screen.findByRole("heading", { name: title });
+    expect(heading.textContent).toBe(title);
+    expect(heading.className).toBe("source-title-preview");
+    fireEvent.click(screen.getByRole("button", { name: "Show full product name" }));
+    expect(heading.className).toBe("");
+    expect(screen.getByRole("button", { name: "Show less" }).getAttribute("aria-expanded")).toBe("true");
+
+    expect(container.querySelector(".source-detail-summary")?.textContent).not.toContain(product.long_description);
+    expect(screen.getAllByText(product.long_description.trim())).toHaveLength(1);
+    expect(container.querySelector(".source-detail-information details")?.hasAttribute("open")).toBe(false);
+    expect(screen.queryByRole("button", { name: "Add to cart" })).toBeNull();
+    expect(screen.getByRole("link", { name: "View original listing" }).getAttribute("href")).toBe(product.listing_url);
+    expect(screen.getByText(/No review text has been loaded/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "View product image 2" }));
+    expect(container.querySelector(".source-detail-photo > img")?.getAttribute("src")).toBe("https://example.com/original-open.jpg");
+  });
+
   it("labels false attributes accurately and opens the actual source records", async () => {
     const product = showcaseProductDetail(1);
     if (!product) throw new Error("Missing product fixture");

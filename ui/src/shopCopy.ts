@@ -4,6 +4,7 @@ import type { ProductSummary } from "./types";
 
 /** Long-tail search cards use catalog facts instead of repeated filler prose. */
 export function shopDescription(product: ProductSummary): string {
+  if (product.source_dataset) return product.source_features?.[0] || product.short_description;
   const a = product.attributes;
   if (product.category_key.includes("headphones") || product.category_key.includes("earbuds")) {
     const noiseCancellation = a.active_noise_cancellation ?? a.anc;

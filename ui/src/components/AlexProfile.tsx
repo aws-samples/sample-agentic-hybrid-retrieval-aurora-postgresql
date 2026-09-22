@@ -1,4 +1,4 @@
-import { Check, ChevronDown, X } from "lucide-react";
+import { ArrowRight, ChevronDown, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { alexBrief } from "../alexBrief";
 
@@ -45,7 +45,7 @@ export function AlexProfile({ onOpen }: { onOpen: () => void }) {
         ref={buttonRef}
         type="button"
         className="site-shopper"
-        aria-label="About Alex"
+        aria-label="Alex’s profile"
         aria-expanded={open}
         aria-haspopup="dialog"
         aria-controls={open ? id : undefined}
@@ -55,7 +55,7 @@ export function AlexProfile({ onOpen }: { onOpen: () => void }) {
         }}
       >
         <img src="/assets/images/mosaic/alex-shopper-v1.jpg" alt="" width={46} height={46} />
-        <span>Welcome, Alex!</span>
+        <span>Alex</span>
         <ChevronDown className="site-shopper-chevron" size={14} aria-hidden="true" />
       </button>
       {open && (
@@ -66,16 +66,12 @@ export function AlexProfile({ onOpen }: { onOpen: () => void }) {
           <div className="alex-profile-heading">
             <img src="/assets/images/mosaic/alex-shopper-v1.jpg" alt="" width={64} height={64} />
             <div>
-              <h2 id={`${id}-title`} ref={headingRef} tabIndex={-1}>Meet Alex.</h2>
+              <h2 id={`${id}-title`} ref={headingRef} tabIndex={-1}>Alex</h2>
               <p>{alexBrief.role}</p>
             </div>
           </div>
-          <blockquote>“{alexBrief.quote}”</blockquote>
-          <p className="alex-profile-bio">{alexBrief.description}</p>
-          <dl className="alex-profile-details">
-            <div><dt>His kind of space</dt><dd>Warm, uncluttered, easy on the eyes.</dd></div>
-            <div><dt>Already sorted</dt><dd><Check size={15} aria-hidden="true" /> Desk and laptop</dd></div>
-          </dl>
+          <p className="alex-profile-bio">Your workspace: headphones, a chair and a monitor for your home office.</p>
+          <a className="alex-profile-link" href="/discover#alex-profile" onClick={() => setOpen(false)}>View your workspace brief <ArrowRight size={16} aria-hidden="true" /></a>
         </section>
       )}
     </div>

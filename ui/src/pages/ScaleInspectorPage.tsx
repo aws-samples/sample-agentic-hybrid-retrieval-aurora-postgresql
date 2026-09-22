@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "wouter";
 import { api } from "../api";
 import { CodeBlock } from "../components/CodeBlock";
+import { CatalogBuildDrawer } from "../components/CatalogBuildDrawer";
 import { HnswSearchGraph } from "../components/HnswSearchGraph";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
@@ -109,7 +110,7 @@ function ScaleInspector() {
   }, [attempt]);
   return <div className="page pipeline-inspector scale-essentials">
     <MosaicLabsTabs active="hnsw" />
-    <div className="inspector-intro"><MosaicLabsMasthead title={<>A small shortlist.<br />A much larger search.</>} deck="Compare the matches found, database time and index size before choosing a search setting." /></div>
+    <div className="inspector-intro"><MosaicLabsMasthead title={<>A small shortlist.<br /><span className="inspector-title-emphasis">A much larger search.</span></>} deck="Compare the matches found, database time and index size before choosing a search setting." action={<CatalogBuildDrawer />} /></div>
     {substrate ? <p className="scale-catalog-context"><strong>Current index</strong> · {substrate.corpus.vector_count.toLocaleString()} product embeddings · {substrate.corpus.dimensions ?? "Unreported"} dimensions · pgvector {substrate.aurora.vector_extension_version ?? "version not reported"}</p> : null}
     {pending ? <p role="status">Reading the catalog and benchmarks…</p> : null}
     {errors.length ? <div className="inspector-error" role="alert">{errors.join(" ")} <button type="button" className="text-button" onClick={() => setAttempt((value) => value + 1)}>Retry loading</button></div> : null}

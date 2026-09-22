@@ -78,6 +78,8 @@ function WithoutHybrid({ response, ablation }: { response?: SearchResponse; abla
     <h3 id="inspector-without-hybrid-title" className="inspector-preview-title">Why use more than one search method?</h3>
     {returned.length ? <p className="inspector-note">In this run, {oneArmOnly} of the {returned.length} products returned were found by only one search method. Those products depend on the method that found them.</p> : null}
     <details className="inspector-detail"><summary>Compare search methods</summary><div>
+    <p className="inspector-note">Compare word search, meaning search, the combined list, then reranking. Keep the request, filters and settings fixed. Check which suitable products were found, where they appear, and the extra time and model usage.</p>
+    <p className="inspector-note">Include requests that already work well. A hybrid search is not automatically better; keep unchanged results and regressions in the comparison.</p>
     {ablation?.attributed ? <>
       <table className="inspector-arm-table" aria-label="Scores for each search method">
         <thead><tr><th scope="col">Method</th><th scope="col">Ordering <small>nDCG@10</small></th><th scope="col">Found <small>Recall@10</small></th><th scope="col">First match <small>MRR</small></th></tr></thead>

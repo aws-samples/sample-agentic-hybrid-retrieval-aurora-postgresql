@@ -30,9 +30,11 @@ export interface LabOutcome {
 function matchesFilters(product: ProductSummary, filters: SearchFilters) {
   return (
     (!filters.domain || product.domain === filters.domain)
+    && (!filters.category_key || product.category_key === filters.category_key)
+    && (!filters.brand || product.brand === filters.brand)
     && (
       filters.max_price_cents === undefined
-      || product.price_cents <= filters.max_price_cents
+      || (product.price_cents != null && product.price_cents <= filters.max_price_cents)
     )
     && (
       !filters.in_stock_only
@@ -69,13 +71,13 @@ function rrfIsCorrect(product: ProductSummary, rrfK: number) {
  * Whether the run that produced this response asked the scenario's own question.
  *
  * A scenario's assertions are about a request, not just a string: `typo-recovery`
- * expects the close-spelling arm to recover one product *inside* a domain, a price
- * ceiling and a stock gate. A run that carried the same words under different
+ * expects the close-spelling arm to recover one product inside its category.
+ * A run that carried the same words under different
  * gates retrieved a different pool, and grading it against the scenario would
  * report a repair that was never exercised, or a defect that was never present.
  *
  * Attribute constraints travel as JSON and must agree too: dropping a required
- * seat-depth adjustment changes Lab 2's candidate pool even with identical words.
+ * feature changes the search pool even with identical words.
  */
 export function runMatchesMissionGates(
   mission: MosaicLabMission,
@@ -193,7 +195,7 @@ function participantCopy(
           label: "Repair verified",
           title: "Fusion now respects source rank",
           detail:
-            "Each search method contributes 1 / (k + rank), and the expected product leads before reranking.",
+            "Each search method contributes 1 / (k + rank), and reranking puts the expected product first.",
         }
       : {
           label: "Issue reproduced",
@@ -257,7 +259,10 @@ export function retrievalLabOutcome(
     const targetRecovered = targets.some(
       (product) =>
         product.signals?.trigram.rank != null
-        && product.signals?.trigram.rrf_contribution != null,
+        && product.signals?.trigram.rrf_contribution != null
+        && (mission.absent_target_signals ?? []).every((arm) =>
+          product.signals?.[arm].rank == null
+          && (product.signals?.[arm].rrf_contribution ?? 0) === 0),
     );
     const trigramPool =
       response.diagnostics?.candidate_counts.trigram_in_pool ?? 0;
@@ -274,11 +279,14 @@ export function retrievalLabOutcome(
       && response.results.length > 0
       && response.results.every((product) => rrfIsCorrect(product, rrfK))
     );
-    const canonicalOrderCorrect = targets.every(
-      (product) =>
-        product.signals?.pre_rerank_rank === 1
-        && product.signals.final_rank === 1,
-    );
+    const finalBound = mission.expected_final_top_k ?? mission.expected_final_rank ?? 1;
+    const canonicalOrderCorrect = targets.every((product) => {
+      const combinedPosition = product.signals?.pre_rerank_rank ?? 0;
+      const finalPosition = product.signals?.final_rank ?? 0;
+      return Number.isInteger(combinedPosition) && combinedPosition > 0
+        && Number.isInteger(finalPosition) && finalPosition >= 1
+        && Number.isInteger(finalBound) && finalPosition <= finalBound;
+    });
     return participantOutcome(
       mission,
       targetsPresent && arithmeticCorrect && canonicalOrderCorrect && eligible,

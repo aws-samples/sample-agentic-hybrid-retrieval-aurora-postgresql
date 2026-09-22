@@ -14,6 +14,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type AgentStreamEvent } from "../api";
 import { CommerceProvider } from "../commerce";
 import { CommerceDrawer } from "../components/CommerceDrawer";
+import { useCatalogSource } from "../catalogSource";
+import { catalogData } from "../catalogData";
+
+vi.mock("../catalogSource", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../catalogSource")>(),
+  useCatalogSource: vi.fn(() => ({ dataset_id: null, real: false })),
+}));
 
 // Ten assertions in this file await `findByText("Final recommendation")`, which
 // `AskMosaic` renders only once `reveal.done`. `useTypewriterReveal` advances the
@@ -386,10 +393,9 @@ const lab1 = coreMosaicLabs[0];
 /**
  * One eligible result for Lab 1's request.
  *
- * Every field the outcome reads is set deliberately: the domain, the price under
- * the $200 ceiling and the in-stock availability are what `retrievalLabOutcome`
- * checks for eligibility, and the trigram signals are what separate "the target
- * came back" from "the target came back through the repaired arm".
+ * The request has domain/category filters and no price or stock promise.
+ * Its target comes from spelling similarity alone; the other methods must not
+ * manufacture a second explanation for this repair.
  */
 function lab1Result(
   productId: number,
@@ -399,21 +405,24 @@ function lab1Result(
   return {
     ...rankedProduct(catalog.products[0], finalRank),
     product_id: productId,
-    title: productId === 2
-      ? "Sonora WH-C720 Wireless Noise-Cancelling Headphones"
+    title: productId === lab1.target_product_ids[0]
+      ? "Bose QuietComfort 35 II"
       : `Alternative headphones ${productId}`,
     domain: "consumer_electronics",
-    price_cents: 18900,
-    availability: "in_stock",
+    category_key: lab1.filters.category_key!,
+    price_cents: null,
+    availability: null,
     signals: {
       fts: { rank: null, raw_score: null, rrf_contribution: null },
       trigram: fromTrigram
         ? { rank: 1, raw_score: 0.42, rrf_contribution: 0.016 }
         : { rank: null, raw_score: null, rrf_contribution: null },
-      semantic: { rank: finalRank, raw_score: 0.2, rrf_contribution: 0.016 },
-      rrf_score: fromTrigram ? 0.032 : 0.016,
+      semantic: fromTrigram
+        ? { rank: null, raw_score: null, rrf_contribution: null }
+        : { rank: finalRank, raw_score: 0.2, rrf_contribution: 0.016 },
+      rrf_score: 0.016,
       pre_rerank_rank: finalRank,
-      pre_rerank_score: 0.032,
+      pre_rerank_score: 0.016,
       rerank_score: 0.9 - finalRank / 10,
       final_rank: finalRank,
       score_semantics: "rank_fusion_then_bounded_rerank",
@@ -434,13 +443,9 @@ function lab1Search(targetPresent: boolean): SearchResponse {
     search_event_id: SEARCH_EVENT_ID,
     query: lab1.query,
     normalized_query: lab1.query,
-    applied_filters: {
-      domain: "consumer_electronics",
-      max_price_cents: 20000,
-      in_stock_only: true,
-    },
+    applied_filters: { ...lab1.filters },
     results: targetPresent
-      ? [lab1Result(2, 1, true), lab1Result(3, 2, false)]
+      ? [lab1Result(lab1.target_product_ids[0], 1, true), lab1Result(3, 2, false)]
       : [lab1Result(3, 1, false), lab1Result(5, 2, false)],
     diagnostics: {
       ...searchResponse.diagnostics!,
@@ -464,6 +469,7 @@ const productDetail: ProductDetail = {
 
 describe("CatalogPage", () => {
   beforeEach(() => {
+    catalogData.clear();
     vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
       matches: false,
       addEventListener: vi.fn(),
@@ -471,6 +477,7 @@ describe("CatalogPage", () => {
     }));
     vi.stubGlobal("scrollTo", vi.fn());
     window.history.replaceState({}, "", "/catalog");
+    vi.mocked(useCatalogSource).mockReturnValue({ dataset_id: null, real: false });
     vi.mocked(api.catalog).mockReset();
     vi.mocked(api.suggestions).mockReset();
     vi.mocked(api.search).mockReset();
@@ -871,7 +878,7 @@ describe("CatalogPage", () => {
     expect(params.get("q")).toBe(request.query);
     // The gate the shopper was browsing under is gone, and so is the run that
     // was retrieved under it.
-    expect(params.get("domain")).toBe("home_office");
+    expect(params.get("domain")).toBe("consumer_electronics");
     expect(params.get("event")).toBeNull();
     expect(vi.mocked(api.search).mock.calls.at(-1)?.[1]).toMatchObject(
       request.filters,
@@ -973,7 +980,7 @@ describe("CatalogPage", () => {
 
     expect(
       screen.getByText(
-        "Alex’s home office, coming together.",
+        "Search for a product, compare the details, or ask Mosaic to help you choose.",
       ),
     ).toBeTruthy();
     expect(screen.queryByText(/photographed in one light/i)).toBeNull();
@@ -1005,7 +1012,7 @@ describe("CatalogPage", () => {
 
     expect(container.querySelector(".shop-hero")?.className).toBe("shop-hero is-searching");
     expect(container.querySelector(".shop-journey")).toBeNull();
-    // The headline stays: it is the page's one h1, only smaller in CSS.
+    // Search results retain the page's one h1 while the illustrated journey steps aside.
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
       "Find what fits your world.",
     );
@@ -1013,11 +1020,61 @@ describe("CatalogPage", () => {
 
     window.history.replaceState({}, "", "/catalog");
     const opened = renderPage();
-    await screen.findByText(
-      "Alex’s home office, coming together.",
-    );
+    await screen.findByRole("heading", { level: 1, name: "Find what fits your world." });
     expect(opened.container.querySelector(".shop-hero")?.className).toBe("shop-hero");
     expect(opened.container.querySelector(".shop-journey img")).not.toBeNull();
+  });
+
+  it("runs named keyword and typo examples with their complete filters", async () => {
+    vi.mocked(useCatalogSource).mockReturnValue({ dataset_id: "reviews-2023-500k-v1", real: true });
+    window.history.replaceState({}, "", "/catalog?offset=36&brand=Unrelated&category_key=chair");
+    renderPage();
+    const examples = await screen.findByRole("group", { name: "Typo search examples" });
+    fireEvent.click(within(examples).getByRole("button", { name: "A mistyped Bose listing ID" }));
+    await waitFor(() => expect(api.search).toHaveBeenCalledWith("B07G95T3JP",
+      { domain: "consumer_electronics", category_key: "headphones" }, expect.any(Object)));
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get("offset")).toBeNull();
+    expect(params.get("brand")).toBeNull();
+    expect(screen.getByRole("group", { name: "Keywords search examples" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Intent search examples" })).toBeTruthy();
+  });
+
+  it("inspects and reorders the same saved products without another search", async () => {
+    const shifted = { ...searchResponse, results: recommendations.map((product, index) => ({
+      ...product, signals: { ...product.signals!, pre_rerank_rank: index === 0 ? 24 : 2, final_rank: index + 1 },
+    })) };
+    vi.mocked(api.search).mockResolvedValue(shifted);
+    window.history.replaceState({}, "", "/catalog?q=monitor");
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Shop + search details" }));
+    const panel = screen.getByRole("complementary", { name: "Search details for these products" });
+    expect(within(panel).getByText("↑ 23")).toBeTruthy();
+    expect(within(panel).getByText(/Same 2 displayed products from 18/)).toBeTruthy();
+    expect(within(panel).getByRole("link", { name: "Inspect the full search in Playground" }).getAttribute("href")).toContain(SEARCH_EVENT_ID);
+    const titles = () => within(panel).getAllByRole("row").slice(1).map(row => within(row).getByRole("button").textContent);
+    expect(titles()[0]).toBe(recommendations[0].title);
+    fireEvent.click(within(panel).getByRole("button", { name: "Combined order" }));
+    expect(titles()[0]).toBe(recommendations[1].title);
+    fireEvent.click(within(screen.getByRole("group", { name: "Results view" })).getByRole("button", { name: /^Shop$/ }));
+    expect(screen.queryByRole("complementary", { name: "Search details for these products" })).toBeNull();
+    expect(api.search).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not invent positions or model activity when ranking signals are missing", async () => {
+    vi.mocked(api.search).mockResolvedValue({ ...searchResponse,
+      results: [{ ...recommendations[0], signals: null }],
+      diagnostics: { ...searchResponse.diagnostics!, rerank_status: "disabled" },
+    });
+    window.history.replaceState({}, "", "/catalog?q=monitor");
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Shop + search details" }));
+    const panel = screen.getByRole("complementary", { name: "Search details for these products" });
+    expect(within(panel).queryByText("Held")).toBeNull();
+    expect(within(panel).getAllByText("—")).toHaveLength(3);
+    expect(within(panel).getByText(/This request was not reranked/)).toBeTruthy();
+    expect(within(panel).getByText(/in the combined list/)).toBeTruthy();
+    expect(within(panel).queryByText(/sent to reranking/)).toBeNull();
   });
 
   it("runs hybrid retrieval from the Shop query and renders real rank signals", async () => {
@@ -1505,7 +1562,7 @@ describe("CatalogPage", () => {
       "Exact terms",
       "Close spelling",
       "Meaning match",
-      "Only what you can buy",
+      "Applying your filters",
       "Combining the results",
       "Reranking the shortlist",
     ]);
@@ -2043,7 +2100,7 @@ describe("CatalogPage", () => {
     expect(new URLSearchParams(window.location.search).get("mission")).toBe(mission.id);
   });
 
-  it("runs the ranking lab with every guide constraint, including seat depth", async () => {
+  it("runs the ranking lab with every guide constraint, including its category", async () => {
     const mission = coreMosaicLabs.find((item) => item.stage === "rank")!;
     window.history.replaceState({}, "", shopMissionHref(mission));
     vi.mocked(api.search).mockResolvedValue(searchResponse);
@@ -2052,8 +2109,7 @@ describe("CatalogPage", () => {
     expect(vi.mocked(api.search).mock.calls.at(-1)?.[1]).toMatchObject(mission.filters);
     expect(vi.mocked(api.search).mock.calls.at(-1)?.[2]?.limit).toBe(mission.top_k);
     await waitFor(() => expect(new URLSearchParams(window.location.search).get("event")).toBe(SEARCH_EVENT_ID));
-    fireEvent.click(screen.getByRole("button", { name: "Seat Depth Adjustable: Yes" }));
-    await waitFor(() => expect(vi.mocked(api.search).mock.calls.at(-1)?.[1].attributes).toBeUndefined());
+    expect(new URLSearchParams(window.location.search).get("category_key")).toBe("monitor");
   });
 
   it("shows the fusion repair even when the final top product does not change", async () => {
@@ -2067,15 +2123,16 @@ describe("CatalogPage", () => {
         ...searchResponse.diagnostics!,
         retrieval_profile: seedRun.diagnostics!.retrieval_profile,
       },
-      results: [370002, 370001].map((id, index) => {
+      results: [mission.target_product_ids[0], 1208825].map((id, index) => {
         const rank = index + 1;
         const contribution = 1 / (fusionK + (fixed ? rank : 1));
         return {
           ...catalog.products[0],
           product_id: id,
-          brand: id === 370002 ? "PostureWorks" : "Mosaic",
-          model: id === 370002 ? "Pro Mesh" : "Forma Ergonomic",
-          domain: "home_office",
+          domain: mission.filters.domain!,
+          category_key: mission.filters.category_key!,
+          brand: id === mission.target_product_ids[0] ? "PostureWorks" : "Mosaic",
+          model: id === mission.target_product_ids[0] ? "Pro Mesh" : "Forma Ergonomic",
           availability: "in_stock",
           attributes: mission.filters.attributes ?? {},
           signals: {
@@ -2102,14 +2159,14 @@ describe("CatalogPage", () => {
     const target = new URL(link.getAttribute("href")!, "http://localhost");
     expect(target.searchParams.get("event")).toBe(SEARCH_EVENT_ID);
     expect(target.searchParams.get("example")).toBe(mission.id);
-    expect(JSON.parse(target.searchParams.get("attributes")!)).toEqual(mission.filters.attributes);
+    expect(target.searchParams.get("category_key")).toBe(mission.filters.category_key);
     fireEvent.click(within(callout).getByRole("button", { name: "Search again" }));
     await within(callout).findByText("Fusion now respects source rank");
     expect(within(callout).getByRole("row", { name: "PostureWorks Pro Mesh 1 1" })).toBeTruthy();
   });
 
   it("offers the compatible workspace request inside a monitor category", async () => {
-    window.history.replaceState({}, "", "/catalog?domain=home_office&category_key=productivity-monitors");
+    window.history.replaceState({}, "", "/catalog?domain=consumer_electronics&category_key=monitor");
     renderPage();
     await screen.findByText(catalog.products[0].model);
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
@@ -2120,8 +2177,27 @@ describe("CatalogPage", () => {
     fireEvent.click(requests[0]);
     await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
     expect(vi.mocked(api.agentStream).mock.calls.at(-1)?.[1]).toMatchObject({
-      domain: "home_office", category_key: "productivity-monitors",
+      domain: "consumer_electronics", category_key: "monitor",
     });
+  });
+
+  it("uses real categories for saved links and resets pagination for an Ask Mosaic starter", async () => {
+    vi.mocked(useCatalogSource).mockReturnValue({ dataset_id: "reviews-2023-500k-v1", real: true });
+    window.history.replaceState({}, "", "/catalog?offset=36&domain=consumer_electronics&category_key=over-ear-headphones");
+    renderPage();
+    await waitFor(() => expect(api.catalog).toHaveBeenCalledWith(
+      expect.objectContaining({ category_key: "headphones", domain: "consumer_electronics" }),
+      36, undefined, "featured", "all",
+    ));
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    const starters = await screen.findByRole("list", { name: "Example questions" });
+    fireEvent.click(within(starters).getByRole("button", { name: /Clearer calls/ }));
+    await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
+    expect(vi.mocked(api.agentStream).mock.calls.at(-1)?.[1]).toMatchObject({
+      domain: "consumer_electronics", category_key: "headphones",
+    });
+    expect(new URLSearchParams(window.location.search).has("offset")).toBe(false);
+    expect(new URLSearchParams(window.location.search).get("category_key")).toBe("headphones");
   });
 
   it("throws rather than silently mislabeling a row that names no known retrieval arm", () => {
@@ -2293,40 +2369,51 @@ describe("CatalogPage", () => {
   });
 
   it("uses modal semantics, inert background, focus trap, and focus restoration on overlays", async () => {
-    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
-      matches: true,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    }));
-    renderPage();
-    await screen.findByText(catalog.products[0].model);
-    const opener = screen.getByRole("button", { name: "Ask Mosaic" });
-    opener.focus();
-    fireEvent.click(opener);
-
-    const dialog = screen.getByRole("dialog", { name: "Ask Mosaic" });
-    expect(dialog.getAttribute("aria-modal")).toBe("true");
-    expect(document.querySelector(".shop-main")?.hasAttribute("inert")).toBe(true);
-    const close = within(dialog).getByRole("button", { name: "Close Ask Mosaic" });
-    await waitFor(() => expect(document.activeElement).toBe(close));
-
-    const focusable = Array.from(
-      dialog.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
-      ),
+    const nativeFocus = HTMLElement.prototype.focus;
+    // JSDOM does not enforce the browser's inert focus boundary.
+    const focusSpy = vi.spyOn(HTMLElement.prototype, "focus").mockImplementation(
+      function (this: HTMLElement, options?: FocusOptions) {
+        if (!this.closest("[inert]")) nativeFocus.call(this, options);
+      },
     );
-    close.focus();
-    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
-    expect(document.activeElement).toBe(focusable.at(-1));
+    try {
+      vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({
+        matches: true,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      }));
+      renderPage();
+      await screen.findByText(catalog.products[0].model);
+      const opener = screen.getByRole("button", { name: "Ask Mosaic" });
+      opener.focus();
+      fireEvent.click(opener);
 
-    fireEvent.click(close);
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "Ask Mosaic" })).toBeNull()
-    );
-    expect(document.querySelector(".shop-main")?.hasAttribute("inert")).toBe(false);
-    expect(document.activeElement).toBe(
-      screen.getByRole("button", { name: "Ask Mosaic" }),
-    );
+      const dialog = screen.getByRole("dialog", { name: "Ask Mosaic" });
+      expect(dialog.getAttribute("aria-modal")).toBe("true");
+      expect(document.querySelector(".shop-main")?.hasAttribute("inert")).toBe(true);
+      const close = within(dialog).getByRole("button", { name: "Close Ask Mosaic" });
+      await waitFor(() => expect(document.activeElement).toBe(close));
+
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      close.focus();
+      fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
+      expect(document.activeElement).toBe(focusable.at(-1));
+
+      fireEvent.click(close);
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: "Ask Mosaic" })).toBeNull()
+      );
+      expect(document.querySelector(".shop-main")?.hasAttribute("inert")).toBe(false);
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Ask Mosaic" }),
+      );
+    } finally {
+      focusSpy.mockRestore();
+    }
   });
 
   it("names the reproduced Lab 1 fault when the target never comes back", async () => {
@@ -2339,7 +2426,7 @@ describe("CatalogPage", () => {
       {},
       "",
       `/catalog?q=${encodeURIComponent(lab1.query)}`
-        + "&domain=consumer_electronics&max_price_cents=20000&in_stock_only=true"
+        + "&domain=consumer_electronics&category_key=headphones"
         + "&view=results&mission=typo-recovery",
     );
     renderPage();
@@ -2347,7 +2434,7 @@ describe("CatalogPage", () => {
     const callout = await screen.findByRole("region", { name: "Lab 1 outcome" });
     expect(
       within(callout).getByRole("heading", {
-        name: "Issue reproduced: the Sonora WH-C720 is missing",
+        name: "Issue reproduced: the Bose QuietComfort 35 II is missing",
       }),
     ).toBeTruthy();
     expect(callout.textContent).toContain("deliberate");
@@ -2362,7 +2449,7 @@ describe("CatalogPage", () => {
     expect(baselineUrl.searchParams.get("example")).toBe(lab1.id);
     expect(baselineUrl.searchParams.get("event")).toBe(lab1Search(false).search_event_id);
     expect(baselineUrl.searchParams.get("q")).toBe(lab1.query);
-    expect(baselineUrl.searchParams.get("max_price_cents")).toBe("20000");
+    expect(baselineUrl.searchParams.get("category_key")).toBe("headphones");
 
     const codeEditor = within(callout).getByRole("link", { name: "Code Editor" });
     expect(codeEditor.getAttribute("href")).toBe(
@@ -2397,7 +2484,7 @@ describe("CatalogPage", () => {
       {},
       "",
       `/catalog?q=${encodeURIComponent(lab1.query)}`
-        + "&domain=consumer_electronics&max_price_cents=20000&in_stock_only=true"
+        + "&domain=consumer_electronics&category_key=headphones"
         + "&view=results&mission=typo-recovery",
     );
     renderPage();
@@ -2429,7 +2516,7 @@ describe("CatalogPage", () => {
       {},
       "",
       `/catalog?q=${encodeURIComponent(lab1.query)}`
-        + "&domain=consumer_electronics&max_price_cents=20000&in_stock_only=true",
+        + "&domain=consumer_electronics&category_key=headphones",
     );
     renderPage();
 
@@ -2455,7 +2542,7 @@ describe("CatalogPage", () => {
       {},
       "",
       `/catalog?q=${encodeURIComponent(lab1.query)}`
-        + "&domain=consumer_electronics&max_price_cents=20000&in_stock_only=true"
+        + "&domain=consumer_electronics&category_key=headphones"
         + "&view=results&mission=typo-recovery",
     );
     renderPage();
@@ -2470,7 +2557,7 @@ describe("CatalogPage", () => {
       {},
       "",
       `/catalog?q=${encodeURIComponent(lab1.query)}`
-        + "&domain=consumer_electronics&max_price_cents=20000&in_stock_only=true",
+        + "&domain=consumer_electronics&category_key=headphones",
     );
     renderPage();
 
@@ -2484,11 +2571,7 @@ describe("CatalogPage", () => {
 
     await waitFor(() => expect(vi.mocked(api.search)).toHaveBeenCalledTimes(2));
     expect(vi.mocked(api.search).mock.calls[1][0]).toBe(lab1.query);
-    expect(vi.mocked(api.search).mock.calls[1][1]).toMatchObject({
-      domain: "consumer_electronics",
-      max_price_cents: 20000,
-      in_stock_only: true,
-    });
+    expect(vi.mocked(api.search).mock.calls[1][1]).toMatchObject(lab1.filters);
     await screen.findByRole("heading", { name: "Repair verified" });
   });
 
@@ -2498,7 +2581,7 @@ describe("CatalogPage", () => {
       {},
       "",
       `/catalog?q=${encodeURIComponent(lab1.query)}`
-        + "&domain=consumer_electronics&max_price_cents=20000&in_stock_only=true",
+        + "&domain=consumer_electronics&category_key=headphones",
     );
     renderPage();
 
@@ -2549,7 +2632,7 @@ describe("CatalogPage", () => {
       {},
       "",
       `/catalog?q=${encodeURIComponent(lab1.query)}`
-        + "&domain=consumer_electronics&max_price_cents=20000&in_stock_only=true",
+        + "&domain=consumer_electronics&category_key=headphones",
     );
     renderPage();
 

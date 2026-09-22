@@ -820,7 +820,7 @@ describe("ReasonStage declined outcome", () => {
     await runAgent();
 
     const declinedBlock = screen.getByText(
-      "Nothing in the catalog matches part of this request",
+      "Mosaic could not confirm part of this request",
     );
     expect(screen.getByText(response.answer)).toBeTruthy();
     expect(screen.queryByText("The answer and its sources")).toBeNull();
@@ -863,7 +863,7 @@ describe("ReasonStage declined outcome", () => {
     await runAgent();
 
     expect(
-      screen.queryByText("Nothing in the catalog matches part of this request"),
+      screen.queryByText("Mosaic could not confirm part of this request"),
     ).toBeNull();
     expect(screen.getByText("The answer and its sources")).toBeTruthy();
 

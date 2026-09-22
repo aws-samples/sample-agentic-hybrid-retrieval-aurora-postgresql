@@ -36,9 +36,9 @@ describe("local Mosaic showcase", () => {
       showcaseCatalogPage(
         {
           category_key: category,
-          min_price_cents: sample!.price_cents,
+          min_price_cents: sample!.price_cents ?? undefined,
           min_rating: sample!.rating ?? 0,
-          availability: sample!.availability,
+          availability: sample!.availability ?? undefined,
         },
         0,
         120,

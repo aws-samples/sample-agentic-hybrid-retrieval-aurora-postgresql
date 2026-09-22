@@ -118,13 +118,49 @@ function response(result: ProductSummary, rrfK = testFusionK): SearchResponse {
 }
 
 describe("lab outcome diagnostics", () => {
+  it.each([1, 2, 3, 4, 0, 1.5])("grades final position %s against the declared shortlist", (position) => {
+    const mission = coreMosaicLabs.find((item) => item.stage === "rank")!;
+    const row = product(mission.target_product_ids[0], (rank) => 1 / (testFusionK + rank));
+    Object.assign(row, mission.filters);
+    row.signals!.pre_rerank_rank = 24;
+    row.signals!.final_rank = position;
+    expect(retrievalLabOutcome(mission, response(row)).tone)
+      .toBe(Number.isInteger(position) && position >= 1 && position <= 3 ? "fixed" : "broken");
+  });
+
+  it.each(["fts", "semantic"] as const)("rejects an only-spelling claim when %s also found the target", (arm) => {
+    const mission = coreMosaicLabs.find((item) => item.stage === "retrieve")!;
+    const row = product(mission.target_product_ids[0], (rank) => 1 / (testFusionK + rank));
+    Object.assign(row, mission.filters);
+    row.signals!.fts = { rank: null, raw_score: null, rrf_contribution: null };
+    row.signals!.semantic = { rank: null, raw_score: null, rrf_contribution: null };
+    expect(retrievalLabOutcome(mission, response(row)).tone).toBe("fixed");
+    row.signals![arm] = { rank: 1, raw_score: 1, rrf_contribution: 1 / (testFusionK + 1) };
+    expect(retrievalLabOutcome(mission, response(row)).tone).toBe("broken");
+  });
+
   it("distinguishes collapsed and repaired RRF arithmetic", () => {
     const mission = coreMosaicLabs.find((item) => item.stage === "rank")!;
-    const broken = product(370002, () => 1 / (testFusionK + 1));
-    const fixed = product(370002, (rank) => 1 / (testFusionK + rank));
+    const broken = product(mission.target_product_ids[0], () => 1 / (testFusionK + 1));
+    const fixed = product(mission.target_product_ids[0], (rank) => 1 / (testFusionK + rank));
 
+    for (const row of [broken, fixed]) {
+      row.domain = mission.filters.domain!;
+      row.category_key = mission.filters.category_key!;
+    }
+    fixed.signals!.pre_rerank_rank = 24;
     expect(retrievalLabOutcome(mission, response(broken)).tone).toBe("broken");
     expect(retrievalLabOutcome(mission, response(fixed)).tone).toBe("fixed");
+  });
+
+  it.each(["category_key", "brand"] as const)("rejects a returned product outside the required %s", (key) => {
+    const original = coreMosaicLabs.find((item) => item.stage === "rank")!;
+    const mission = { ...original, filters: { domain: "consumer_electronics" as const, category_key: "monitor", brand: "Dell" } };
+    const row = product(mission.target_product_ids[0], (rank) => 1 / (testFusionK + rank));
+    Object.assign(row, mission.filters);
+    expect(retrievalLabOutcome(mission, response(row)).tone).toBe("fixed");
+    row[key] = "different";
+    expect(retrievalLabOutcome(mission, response(row)).tone).toBe("broken");
   });
 
   it("requires agent tool receipts and evidence citations", () => {
@@ -183,6 +219,7 @@ describe("lab outcome diagnostics", () => {
         (rank) => 1 / (testFusionK + rank),
       ),
       domain: mission.filters.domain ?? "home_office",
+      category_key: mission.filters.category_key ?? "chairs",
       price_cents: Math.min(
         69900,
         mission.filters.max_price_cents ?? 69900,
@@ -193,10 +230,9 @@ describe("lab outcome diagnostics", () => {
         ...mission.filters.attributes,
       },
     };
-    const outcome = retrievalLabOutcome(
-      mission,
-      response(eligibleTarget),
-    );
+    eligibleTarget.signals!.fts = { rank: null, raw_score: null, rrf_contribution: null };
+    eligibleTarget.signals!.semantic = { rank: null, raw_score: null, rrf_contribution: null };
+    const outcome = retrievalLabOutcome(mission, response(eligibleTarget));
 
     expect(outcome.label).toBe("Repair verified");
     expect(outcome.title).toBe("Fuzzy retrieval is contributing");
@@ -274,7 +310,7 @@ describe("lab outcome diagnostics", () => {
 
   it("does not grade a wider pool as the ranking mission's own request", () => {
     const mission = coreMosaicLabs.find((item) => item.stage === "rank")!;
-    const ran = response(product(370002, (rank) => 1 / (testFusionK + rank)));
+    const ran = response(product(mission.target_product_ids[0], (rank) => 1 / (testFusionK + rank)));
 
     expect(
       runMatchesMissionGates(mission, {
@@ -383,7 +419,7 @@ describe("lab outcome diagnostics", () => {
 
     const outcome = retrievalLabOutcome(
       mission,
-      response(product(370002, (rank) => 1 / (testFusionK + rank))),
+      response(product(mission.target_product_ids[0], (rank) => 1 / (testFusionK + rank))),
       {
         ...healthyReadiness,
         database: {
@@ -419,7 +455,7 @@ describe("lab outcome diagnostics", () => {
 
   it("keeps an expected lab defect broken while the environment is healthy", () => {
     const mission = coreMosaicLabs.find((item) => item.stage === "rank")!;
-    const broken = product(370002, () => 1 / (testFusionK + 1));
+    const broken = product(mission.target_product_ids[0], () => 1 / (testFusionK + 1));
 
     expect(retrievalLabOutcome(mission, response(broken), healthyReadiness).tone)
       .toBe("broken");

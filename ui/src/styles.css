@@ -1,27 +1,3 @@
-@font-face {
-  font-family: "Schibsted Grotesk";
-  font-style: normal;
-  font-weight: 400 700;
-  font-display: swap;
-  src: url("/fonts/schibsted-grotesk-latin.woff2") format("woff2");
-}
-
-@font-face {
-  font-family: "Newsreader";
-  font-style: normal;
-  font-weight: 400 600;
-  font-display: swap;
-  src: url("/fonts/newsreader-latin.woff2") format("woff2");
-}
-
-@font-face {
-  font-family: "Newsreader";
-  font-style: italic;
-  font-weight: 400 600;
-  font-display: swap;
-  src: url("/fonts/newsreader-latin-italic.woff2") format("woff2");
-}
-
 :root {
   color-scheme: light;
   font-family: var(--sans);
@@ -38,11 +14,17 @@
   --ivory: #fbf8f1;
   --paper: #fffdfa;
   --paper-strong: #ffffff;
+  --canvas: var(--paper-strong);
   --paper-warm: #f3eee5;
+  --surface-muted: #f5f5f7;
   --ink: #171514;
-  --ink-soft: #5f5955;
-  --line: #dfd7cc;
-  --line-strong: #b5a999;
+  --ink-soft: #5b5b63;
+  --footer-surface: #242426;
+  --footer-ink: var(--paper-strong);
+  --footer-muted: #b9b9bf;
+  --footer-line: #48484e;
+  --line: #e2e2e7;
+  --line-strong: #b5b5bd;
   --green: #246a4b;
   --green-soft: #e9f2ed;
   --green-line: #bad5c7;
@@ -61,20 +43,13 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --motion-fast: 160ms;
   --motion-settle: 320ms;
-  /* Type system. Both faces were identified by matching normalized glyph masks
-     against the landing board rather than by eye: Newsreader scored IoU 0.710
-     on "Designed" (next best 0.622) and Schibsted Grotesk correlated 0.766 on
-     the sub-headline (Inter 0.700). Keep them in that order. */
-  --display: Newsreader, Georgia, "Times New Roman", serif;
-  /* The five commerce and Labs mastheads. Same family as --display on purpose:
-     Newsreader's optical axis lands on its display cut at 36-76px, which reads
-     as a different voice from the text sizes. Chosen over eleven candidate
-     faces in a live review; the separate token is the seam those swaps went
-     through, and the one a future swap should use. */
-  --masthead: Newsreader, Georgia, "Times New Roman", serif;
-  --sans: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
-  /* Not self-hosted, unlike the two faces above: no monospace webfont ships
-     with Mosaic, so this resolves per platform. Naming the Linux faces keeps
+  /* One native face keeps shopping and technical inspection in the same voice. */
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --display: var(--sans);
+  --masthead: var(--sans);
+  --page-title-size: clamp(40px, 4.2vw, 60px);
+  /* No monospace webfont ships with Mosaic, so this resolves per platform.
+     Naming the Linux faces keeps
      the workshop Code Editor off whatever generic the browser picks. */
   --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
   /* Mosaic Labs type scale. One scale for Explore, HNSW at scale and Studio.
@@ -115,7 +90,7 @@
 
 html {
   min-width: 320px;
-  background: var(--ivory);
+  background: var(--canvas);
   scroll-behavior: smooth;
 }
 
@@ -123,7 +98,7 @@ body {
   min-width: 320px;
   min-height: 100dvh;
   margin: 0;
-  background: var(--ivory);
+  background: var(--canvas);
   color: var(--ink);
   letter-spacing: 0;
 }
@@ -335,8 +310,8 @@ button:disabled {
   min-height: var(--topbar-height);
   align-items: center;
   padding: 0 max(18px, calc((100% - var(--shell-width)) / 2));
-  border-bottom: 1px solid rgb(92 75 62 / 12%);
-  background: var(--ivory);
+  border-bottom: 1px solid var(--line);
+  background: var(--canvas);
   grid-template-columns: minmax(160px, 1fr) auto minmax(160px, 1fr);
 }
 
@@ -356,14 +331,12 @@ button:disabled {
   color: var(--maroon-900);
 }
 
-/* Title-case serif wordmark beside the block M, matching the concept boards.
-   The tracked uppercase sans version read as a generic tech logotype. */
 .site-brand strong {
   color: var(--maroon-950);
   font-family: var(--display);
   font-size: 26px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
+  font-weight: 600;
+  letter-spacing: -0.025em;
   white-space: nowrap;
 }
 
@@ -379,17 +352,17 @@ button:disabled {
   align-items: center;
   gap: 7px;
   padding: 7px 0;
-  color: #6a655f;
-  font-size: 13.5px;
-  font-weight: 560;
-  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
   white-space: nowrap;
   transition: color 180ms ease;
 }
 
 .site-nav a:hover,
 .site-nav a.active {
-  color: var(--ink);
+  color: var(--maroon-800);
 }
 
 .site-nav a.active::after {
@@ -397,7 +370,7 @@ button:disabled {
   right: 0;
   bottom: 0;
   left: 0;
-  height: 1.5px;
+  height: 2px;
   background: var(--maroon-800);
   content: "";
 }
@@ -415,7 +388,7 @@ button:disabled {
   height: 44px;
   padding: 0;
   place-items: center;
-  border: 1px solid rgb(92 75 62 / 16%);
+  border: 1px solid var(--line);
   border-radius: 50%;
   background: transparent;
   color: var(--ink);
@@ -444,7 +417,7 @@ button:disabled {
 .site-shopper:hover,
 .site-shopper[aria-expanded="true"] {
   border-color: var(--line);
-  background: var(--paper-warm);
+  background: var(--surface-muted);
 }
 
 .site-shopper-chevron {
@@ -511,46 +484,24 @@ button:disabled {
   line-height: 1.5;
 }
 
-.alex-profile-card blockquote {
-  margin: 24px 0 14px;
-  color: var(--maroon-900);
-  font-family: var(--display);
-  font-size: 25px;
-  font-style: italic;
-  line-height: 1.25;
-}
-
 .alex-profile-bio {
-  margin: 0;
+  margin: 20px 0 8px;
   color: var(--ink-soft);
   font-size: 13px;
   line-height: 1.65;
 }
 
-.alex-profile-details {
-  display: grid;
-  gap: 14px;
-  margin: 20px 0 0;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.alex-profile-details dt {
-  margin-bottom: 3px;
-  color: var(--ink-soft);
-}
-
-.alex-profile-details dd {
-  display: flex;
+.alex-profile-link {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  margin: 0;
+  gap: 12px;
+  min-height: 44px;
+  color: var(--maroon-800);
+  font-size: 14px;
 }
-
-.alex-profile-details svg {
-  color: var(--green);
+.alex-profile-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .site-shopper img {
@@ -580,7 +531,7 @@ button:disabled {
   height: 18px;
   padding: 0 4px;
   place-items: center;
-  border: 2px solid var(--ivory);
+  border: 2px solid var(--canvas);
   border-radius: 9px;
   background: var(--maroon-800);
   color: var(--paper-strong);
@@ -676,16 +627,17 @@ button:disabled {
  * with no bottom to the document.
  */
 .site-footer {
+  --focus: var(--footer-ink);
   margin-top: 64px;
-  border-top: 1px solid rgb(92 75 62 / 14%);
-  background: var(--paper-warm);
-  color: var(--ink-soft);
+  border-top: 1px solid var(--footer-line);
+  background: var(--footer-surface);
+  color: var(--footer-muted);
 }
 
 .site-footer-inner {
   width: var(--shell-width);
   margin: 0 auto;
-  padding: 30px 0 32px;
+  padding: 32px 0;
 }
 
 /* Above the columns and hard right, where a storefront puts them. */
@@ -699,11 +651,10 @@ button:disabled {
 }
 
 .site-footer-eyebrow {
-  color: var(--ink-soft);
-  font-size: 10px;
-  font-weight: 780;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
+  color: var(--footer-muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 .site-footer-payment ul {
@@ -723,7 +674,7 @@ button:disabled {
   align-items: center;
   justify-content: center;
   padding: 0 10px;
-  border: 1px solid rgb(92 75 62 / 16%);
+  border: 1px solid var(--paper-strong);
   border-radius: 5px;
   background: var(--paper-strong);
 }
@@ -747,7 +698,7 @@ button:disabled {
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 2fr);
   gap: 44px;
   padding-bottom: 34px;
-  border-top: 1px solid rgb(92 75 62 / 10%);
+  border-top: 1px solid var(--footer-line);
   padding-top: 34px;
 }
 
@@ -763,27 +714,31 @@ button:disabled {
   width: fit-content;
   align-items: center;
   gap: 11px;
-  color: var(--ink);
+  color: var(--footer-ink);
 }
 
 .site-footer-mark svg {
   width: 24px;
   height: 24px;
   flex: 0 0 auto;
-  color: var(--maroon-900);
+  color: var(--footer-ink);
+}
+
+.site-footer-mark svg text {
+  fill: var(--footer-surface);
 }
 
 .site-footer-mark strong {
-  color: var(--maroon-950);
+  color: var(--footer-ink);
   font-family: var(--display);
   font-size: 23px;
-  font-weight: 500;
-  letter-spacing: 0.01em;
+  font-weight: 600;
+  letter-spacing: -0.015em;
 }
 
 .site-footer-brand p {
   margin: 0;
-  color: var(--ink-soft);
+  color: var(--footer-muted);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -793,7 +748,7 @@ button:disabled {
   width: fit-content;
   align-items: center;
   gap: 8px;
-  color: var(--maroon-800);
+  color: var(--footer-ink);
   font-size: 12px;
   font-weight: 700;
 }
@@ -805,7 +760,7 @@ button:disabled {
 
 .site-footer-source img {
   flex: 0 0 auto;
-  opacity: 0.72;
+  filter: brightness(0) invert(1);
 }
 
 .site-footer-columns {
@@ -818,7 +773,7 @@ button:disabled {
    set as plain spans a screen reader met three unlabelled lists. */
 .site-footer-column h2 {
   margin: 0 0 13px;
-  color: var(--ink-soft);
+  color: var(--footer-ink);
   font-family: var(--sans);
   font-size: 14px;
   font-weight: 650;
@@ -833,13 +788,13 @@ button:disabled {
 }
 
 .site-footer-column a {
-  color: var(--ink-soft);
+  color: var(--footer-muted);
   font-size: 14px;
   line-height: 1.4;
 }
 
 .site-footer-column a:hover {
-  color: var(--maroon-900);
+  color: var(--footer-ink);
   text-decoration: underline;
   text-underline-offset: 4px;
 }
@@ -850,14 +805,14 @@ button:disabled {
   justify-content: space-between;
   gap: 32px;
   padding-top: 17px;
-  border-top: 1px solid rgb(92 75 62 / 10%);
+  border-top: 1px solid var(--footer-line);
 }
 
 .site-footer-legal p {
   max-width: 44rem;
   margin: 0;
-  color: var(--ink-soft);
-  font-size: 11.5px;
+  color: var(--footer-muted);
+  font-size: 12px;
   line-height: 1.55;
 }
 
@@ -1041,11 +996,7 @@ button:disabled {
   font-size: 14px;
 }
 
-/* The input suppresses its own outline above so the pill owns the focus
-   treatment, which left the field with no keyboard indicator at all. The form is
-   the pill on every surface except Discover and Shop, where a wrapper is; those
-   two move the ring outward to the wrapper. Scoped to the field so the submit
-   button beside it still rings on its own. */
+/* The form owns the field's focus ring; the submit button rings separately. */
 .search-composer:has(input:focus-visible) {
   outline: 2px solid var(--focus);
   outline-offset: 3px;
@@ -1125,7 +1076,7 @@ button:disabled {
 }
 
 .domain-section {
-  background: var(--ivory);
+  background: var(--canvas);
 }
 
 .domain-grid {
@@ -2449,6 +2400,7 @@ button:disabled {
 .rating-row {
   display: flex;
   align-items: center;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .price-row {
@@ -3415,6 +3367,7 @@ button:disabled {
   align-items: baseline;
   gap: 10px;
   margin: 0;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .product-price {
@@ -3678,7 +3631,7 @@ button:disabled {
   height: 50px;
   place-items: center;
   border-radius: 50%;
-  background: var(--ivory);
+  background: var(--canvas);
   color: var(--ink);
   font-size: 15px;
   font-variant-numeric: tabular-nums;
@@ -3957,7 +3910,7 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
-/* Reviews read as a single editorial column: serif prose between hairlines,
+/* Reviews read as a single editorial column: prose between hairlines,
    the register the Discover voices strip established, rather than 11px
    datasheet quotes behind a left border. */
 .review-list {
@@ -4138,7 +4091,7 @@ button:disabled {
   overflow: hidden;
   border: 1px solid #dcd1c3;
   border-radius: 8px;
-  background: var(--ivory);
+  background: var(--canvas);
 }
 
 .retrieval-run-comparison > header {
@@ -4722,7 +4675,7 @@ button:disabled {
 /* Mosaic storefront refresh */
 
 body {
-  background: var(--ivory);
+  background: var(--canvas);
 }
 
 .mosaic-catalog-page {
@@ -4736,7 +4689,7 @@ body {
   display: grid;
   min-height: calc(100vh - 94px);
   grid-template-columns: 356px minmax(0, 1fr);
-  background: var(--ivory);
+  background: var(--canvas);
 }
 
 .catalog-sidebar {
@@ -5212,7 +5165,7 @@ body {
 
 .mosaic-catalog-layout {
   grid-template-columns: 290px minmax(0, 1fr);
-  background: var(--ivory);
+  background: var(--canvas);
 }
 
 .catalog-sidebar {
@@ -5632,7 +5585,7 @@ body {
     padding: 10px;
     border: 1px solid #e2d3c2;
     border-radius: 10px;
-    background: var(--ivory);
+    background: var(--canvas);
     box-shadow: 0 18px 38px rgb(47 30 20 / 20%);
   }
 
@@ -8279,3 +8232,12 @@ body {
   font-size: 13px;
   line-height: 1.5;
 }
+
+.source-listing-link { color: var(--maroon-800); font-size: .8rem; font-weight: 600; white-space: nowrap; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+.product-source-note { padding: 1rem 1.2rem; border: 1px solid #e8e2de; background: #faf8f5; border-radius: 14px; margin: 1rem 0; }
+.product-source-note a { display: inline-flex; align-items: center; gap: .5rem; color: #651b29; font-weight: 600; }
+.product-source-note p, .product-source-note small { color: #655f64; font-size: .85rem; line-height: 1.55; }
+.source-product-image img { object-fit: contain !important; background: #fff; padding: 2rem; }
+
+.shop-source-caption { font-size: .8rem; color: #716970; margin: 1rem 0 0; }
+[hidden] { display: none !important; }

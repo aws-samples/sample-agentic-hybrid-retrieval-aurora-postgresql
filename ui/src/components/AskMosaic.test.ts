@@ -166,6 +166,19 @@ function renderAskMosaic(response: AgentResponse) {
 }
 
 describe("AskMosaic declined outcome", () => {
+  it("shows empty filtered searches without calling them a runtime or catalog fault", () => {
+    renderAskMosaic({
+      ...DECLINED_RESPONSE,
+      answer: "No products matched this request with the current search filters.",
+      decline_reason: "no_matching_products",
+      trace: [traceStep(1, "search_products", { result_count: 0 })],
+    });
+    expect(screen.getByText("No products matched this search")).toBeTruthy();
+    expect(screen.getByText(/Your filters stayed in place/)).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(/This is a catalog gap/)).toBeNull();
+  });
+
   it("distinguishes missing review evidence from a missing catalog product", () => {
     renderAskMosaic({
       ...DECLINED_RESPONSE,
@@ -175,7 +188,7 @@ describe("AskMosaic declined outcome", () => {
       answer: "The available sources do not provide enough detail to answer this request.",
     });
     expect(screen.getByText("The sources do not answer this yet")).toBeTruthy();
-    expect(screen.queryByText("Nothing in the catalog matches part of this request")).toBeNull();
+    expect(screen.queryByText("Mosaic could not confirm part of this request")).toBeNull();
     expect(screen.queryByText(/drop the term named above/)).toBeNull();
   });
 
@@ -183,13 +196,12 @@ describe("AskMosaic declined outcome", () => {
     renderAskMosaic(DECLINED_RESPONSE);
 
     expect(
-      screen.getByText("Nothing in the catalog matches part of this request"),
+      screen.getByText("Mosaic could not confirm part of this request"),
     ).toBeTruthy();
     expect(screen.getByText(DECLINED_RESPONSE.answer)).toBeTruthy();
     expect(
       screen.getByText(
-        "This is a catalog gap, not a retrieval fault. Try different words or"
-        + " drop the term named above.",
+        "Check the product name or spelling, or inspect the sources before trying again.",
       ),
     ).toBeTruthy();
 
@@ -227,7 +239,7 @@ describe("AskMosaic declined outcome", () => {
     renderAskMosaic(groundedResponse());
 
     expect(
-      screen.queryByText("Nothing in the catalog matches part of this request"),
+      screen.queryByText("Mosaic could not confirm part of this request"),
     ).toBeNull();
     expect(screen.getByText("Final recommendation")).toBeTruthy();
     expect(screen.getByText("Backed by evidence")).toBeTruthy();

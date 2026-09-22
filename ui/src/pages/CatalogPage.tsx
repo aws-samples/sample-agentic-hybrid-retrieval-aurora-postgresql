@@ -1,3 +1,4 @@
+import { sourceFilters, useCatalogSource } from "../catalogSource";
 import {
   ArrowUpRight,
   Check,
@@ -7,7 +8,6 @@ import {
   ChevronUp,
   LoaderCircle,
   Search,
-  Send,
   Sparkles,
   Star,
   SlidersHorizontal,
@@ -29,8 +29,10 @@ import {
 import { flushSync } from "react-dom";
 import { Link } from "wouter";
 import { api } from "../api";
+import { catalogData, type BrowseRequest } from "../catalogData";
 import { AskMosaic } from "../components/AskMosaic";
 import { useAskMosaicMemory } from "../components/AskMosaicMemory";
+import { ShopSearchDetails } from "../components/ShopSearchDetails";
 import { RetrievalJourney } from "../components/RetrievalJourney";
 import { ContinueWorkspace } from "../components/ContinueWorkspace";
 import { ScopedComparison } from "../components/ScopedComparison";
@@ -39,7 +41,6 @@ import {
 } from "../components/CatalogSearchComposer";
 import { CodeEditorLink } from "../components/CodeEditorLink";
 import { CoverageNotice } from "../components/CoverageNotice";
-import { GenerativeSearchIcon } from "../components/GenerativeSearchIcon";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { ProductCard } from "../components/ProductCard";
 import { ProductDrawer } from "../components/ProductDrawer";
@@ -59,6 +60,7 @@ import {
 } from "../labOutcome";
 import {
   coreMosaicLabs,
+  shopSearchExamples,
   mosaicRetrievalExamples,
   mosaicLabManifest,
   type MosaicLabMission,
@@ -71,6 +73,7 @@ import {
   useSearchParams,
 } from "../navigation";
 import { lockBodyScroll } from "../scrollLock";
+import "../shop-editorial.css";
 import type {
   Availability,
   CatalogPage,
@@ -173,20 +176,6 @@ const retrievalLab = coreMosaicLabs.find(
   (mission) => mission.stage === "retrieve" && mission.participant_edit,
 );
 
-/**
- * The one product Lab 1 is about, named rather than looked up.
- *
- * A product that never came back carries no title, so the absent case has no
- * response field to read it from. `mosaic_labs_missions.json` pins the mission
- * to `target_product_ids: [2]`, and this is that product.
- *
- * Re-point the mission and `namesTheTarget` below stops matching, so the heading
- * falls back to the outcome's own title rather than naming a product the run was
- * never about. The name is printed only while the manifest still agrees with it;
- * it is never printed wrongly.
- */
-const RETRIEVAL_LAB_TARGET = { product_id: 2, name: "Sonora WH-C720" } as const;
-
 /** Lab 1, by position in the manifest rather than by a number written twice. */
 const retrievalLabNumber = coreMosaicLabs.findIndex(
   (mission) => mission === retrievalLab,
@@ -241,19 +230,14 @@ function retrievalLabCallout(
   const outcome = retrievalLabOutcome(retrievalLab, response, readiness);
   const targetPresent = retrievalLab.target_product_ids.every((productId) =>
     response.results.some((product) => product.product_id === productId));
-  // Re-point the mission at another product and the name stops being printed
-  // rather than being printed wrongly.
-  const namesTheTarget =
-    retrievalLab.target_product_ids.length === 1
-    && retrievalLab.target_product_ids[0] === RETRIEVAL_LAB_TARGET.product_id;
   return {
     mission: retrievalLab,
     outcome,
     targetPresent,
     repaired: targetPresent && outcome.tone === "fixed",
     blocked: outcome.tone === "unhealthy",
-    missingHeading: namesTheTarget
-      ? `Issue reproduced: the ${RETRIEVAL_LAB_TARGET.name} is missing`
+    missingHeading: retrievalLab.target_display_name
+      ? `Issue reproduced: the ${retrievalLab.target_display_name} is missing`
       : outcome.title,
   };
 }
@@ -284,7 +268,7 @@ const retrievalScope = [
   "Exact terms",
   "Close spelling",
   "Meaning match",
-  "Only what you can buy",
+  "Applying your filters",
   "Combining the results",
   "Reranking the shortlist",
 ];
@@ -320,6 +304,7 @@ function HybridRetrievalTrace() {
 }
 
 export function CatalogPage() {
+  const { real, dataset_id: dataset, loaded: sourceLoaded } = useCatalogSource();
   const [searchParams, setSearchParams] = useSearchParams();
   const [catalogPage, setPage] = useState<CatalogPage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -333,6 +318,7 @@ export function CatalogPage() {
     rating: false,
   });
   const [retrievalResponse, setRetrieval] = useState<SearchResponse | null>(null);
+  const [showSearchDetails, setShowSearchDetails] = useState(false);
   /**
    * Products the participant ticked to compare, in the order they ticked them.
    *
@@ -392,14 +378,16 @@ export function CatalogPage() {
   const restoreAgentFocusOnClose = useRef(false);
   const reduceMotion = useReducedMotion() ?? false;
 
-  const domain = (searchParams.get("domain") || undefined) as Domain | undefined;
+  const { domain, category_key: categoryKey } = sourceFilters({
+    domain: (searchParams.get("domain") || undefined) as Domain | undefined,
+    category_key: searchParams.get("category_key") || undefined,
+  }, real);
   const offset = Number(searchParams.get("offset") ?? 0);
   const sort = searchParams.get("sort") ?? "featured";
   const availability = (searchParams.get("availability") || undefined) as
     | Availability
     | undefined;
   const minRating = searchParams.get("min_rating");
-  const categoryKey = searchParams.get("category_key") || undefined;
   const brand = searchParams.get("brand") || undefined;
   const minPriceCents = searchParams.get("min_price_cents");
   const maxPriceCents = searchParams.get("max_price_cents");
@@ -473,12 +461,20 @@ export function CatalogPage() {
   const load = useCallback(() => {
     const version = catalogRequestVersion.current + 1;
     catalogRequestVersion.current = version;
-    setLoading(true);
+    const request: BrowseRequest = { dataset, filters, offset, sort, collection: browseCollection };
+    const cached = catalogData.peek(request);
+    setPage(cached ?? null);
+    setLoading(!cached);
     setError("");
-    api
-      .catalog(filters, offset, undefined, sort, browseCollection)
+    catalogData
+      .load(request)
       .then((nextPage) => {
-        if (version === catalogRequestVersion.current) setPage(nextPage);
+        if (version !== catalogRequestVersion.current) return;
+        setPage(nextPage);
+        const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+        if (!connection?.saveData && nextPage.offset + nextPage.limit < nextPage.total) {
+          void catalogData.load({ ...request, offset: nextPage.offset + nextPage.limit }).catch(() => {});
+        }
       })
       .catch((cause) => {
         if (version !== catalogRequestVersion.current) return;
@@ -502,6 +498,8 @@ export function CatalogPage() {
     offset,
     sort,
     browseCollection,
+    dataset,
+    attributeParams,
   ]);
 
   useEffect(() => {
@@ -514,8 +512,8 @@ export function CatalogPage() {
       setError("");
       return;
     }
-    load();
-  }, [activeQuery, load]);
+    if (sourceLoaded !== false) load();
+  }, [activeQuery, load, sourceLoaded]);
 
   useEffect(() => {
     const version = retrievalRequestVersion.current + 1;
@@ -776,7 +774,8 @@ export function CatalogPage() {
     };
   }, [filtersOpen]);
 
-  useLayoutEffect(() => {
+  // The overlay removes inert during effect cleanup, before focus can return.
+  useEffect(() => {
     if (agentOpen || !restoreAgentFocusOnClose.current) return;
     restoreAgentFocusOnClose.current = false;
     document.querySelector<HTMLElement>(
@@ -830,12 +829,12 @@ export function CatalogPage() {
   }
 
   // A complete suggested need replaces incompatible browse filters and stale receipts.
-  function searchSuggestion(suggestion: typeof shopSuggestedQueries[number]) {
+  function searchSuggestion(suggestion: { query: string; filters: SearchFilters }) {
     const next = new URLSearchParams();
     if (sort !== "featured") next.set("sort", sort);
     next.set("q", suggestion.query);
     next.set("view", "results");
-    for (const [key, value] of Object.entries(suggestion.filters)) {
+    for (const [key, value] of Object.entries(sourceFilters(suggestion.filters, real))) {
       if (value !== undefined) next.set(key, typeof value === "object" ? JSON.stringify(value) : String(value));
     }
     setSearchParams(next);
@@ -1104,15 +1103,9 @@ export function CatalogPage() {
               <h1 className="commerce-display">
                 Find what fits <em>your world.</em>
               </h1>
-              {activeQuery ? <p className="shop-lede">
-                Search in your own words, browse with intention, or ask Mosaic
-                for help deciding.
-              </p> : <div className="shop-alex-story">
-                <img src="/assets/images/mosaic/alex-shopper-v1.jpg" alt="Alex" width={64} height={64} />
-                <p><strong>Alex’s home office, coming together.</strong>
-                  His desk and laptop are ready. Next: focus, comfort and a setup that fits his day.
-                </p>
-              </div>}
+              <p className="shop-lede">
+                Search for a product, compare the details, or ask Mosaic to help you choose.
+              </p>
             </header>
 
             {!activeQuery && !agentOpen ? <RetrievalJourney /> : null}
@@ -1123,10 +1116,7 @@ export function CatalogPage() {
                   <CatalogSearchComposer
                     initialValue={retrievalQuery}
                     pending={retrievalLoading}
-                    leadingIcon={<GenerativeSearchIcon size={18} />}
                     placeholder="Search a product, model or idea"
-                    submitIcon={<Send size={16} aria-hidden="true" />}
-                    submitIconOnly
                     onSubmit={searchCatalog}
                   />
                 </section>
@@ -1136,29 +1126,36 @@ export function CatalogPage() {
                   </p>
                 ) : null}
 
-                <div className="shop-suggested" aria-label="Suggested searches">
-                  <span>Explore</span>
-                  {shopSuggestedQueries.map((suggestion) => (
-                    <button
-                      type="button"
-                      key={suggestion.id}
-                      onClick={() => searchSuggestion(suggestion)}
-                    >
-                      {suggestion.shop_label}
-                    </button>
-                  ))}
-                </div>
+                {real ? (
+                  <div className="shop-search-examples" aria-label="Suggested searches">
+                    <span>Explore</span>
+                    {(["Keywords", "Typo", "Intent"] as const).map((kind) => (
+                      <div className="shop-example-group" role="group" aria-label={`${kind} search examples`} key={kind}>
+                        <span>{kind}</span>
+                        {shopSearchExamples.filter((example) => example.kind === kind).map((example) => (
+                          <button type="button" key={example.id} title={example.query} onClick={() => searchSuggestion(example)}>{example.label}</button>
+                        ))}
+                      </div>
+                    ))}
+                    <small>Different ways to ask. Every example uses the same search pipeline.</small>
+                  </div>
+                ) : (
+                  <div className="shop-suggested" aria-label="Suggested searches">
+                    <span>Explore</span>
+                    {shopSuggestedQueries.map((suggestion) => (
+                      <button type="button" key={suggestion.id} onClick={() => searchSuggestion(suggestion)}>{suggestion.shop_label}</button>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* The pitch for Ask Mosaic, and only while it is closed. With the
-                  panel open this sat beside a panel headed "Ask Mosaic" making the
-                  same three promises, so the fold carried the invitation twice. */}
+              {/* The open assistant already carries this action's context. */}
               {agentOpen ? null : (
               <aside className="shop-console-note" aria-label="What Ask Mosaic does">
-                <strong>A little help choosing?</strong>
-                <p className="shop-console-note-copy">
-                  Tell Mosaic what matters. Get a considered shortlist, with the details behind each pick.
-                </p>
+                <div className="shop-console-note-intro">
+                  <h2>{agent ? "Keep comparing your options." : "A little help choosing?"}</h2>
+                  <p>Tell Mosaic what matters. Get a considered shortlist, with the details behind each pick.</p>
+                </div>
                 <button
                   className="mosaic-ask-button shop-console-note-action"
                   type="button"
@@ -1172,6 +1169,7 @@ export function CatalogPage() {
               </aside>
               )}
             </div>
+
           </div>
 
           <div className="shop-controls">
@@ -1194,7 +1192,7 @@ export function CatalogPage() {
                     }}
                   >Workspace edit</button>
                 ) : null}
-                {domainOptions.filter(option => activeQuery || browseCollection === "all" || option.value !== "running_fitness").map((option) => (
+                {domainOptions.filter(option => !real || option.value !== "running_fitness").filter(option => activeQuery || browseCollection === "all" || option.value !== "running_fitness").map((option) => (
                   <button
                     type="button"
                     className={domain === option.value && (activeQuery || browseCollection === "all") ? "active" : ""}
@@ -1230,6 +1228,7 @@ export function CatalogPage() {
             </div>
           </div>
 
+          {real ? <p className="shop-source-caption">Original product listings · Amazon Reviews 2023 · Open a listing for current prices and availability.</p> : null}
           <div className="shop-filter-toolbar" aria-label="Product filters">
             <button
               className="shop-filter-button all"
@@ -1250,7 +1249,7 @@ export function CatalogPage() {
               {brand || "Brand"}
               <ChevronDown size={14} aria-hidden="true" />
             </button>
-            <button type="button" onClick={() => openFilterSection("price")}>
+            <button type="button" hidden={real} onClick={() => openFilterSection("price")}>
               {minPriceCents || maxPriceCents ? `$${lowPrice}-$${highPrice}` : "Price"}
               <ChevronDown size={14} aria-hidden="true" />
             </button>
@@ -1259,6 +1258,7 @@ export function CatalogPage() {
               <ChevronDown size={14} aria-hidden="true" />
             </button>
             <button
+              hidden={real}
               className={inStockOnly ? "shop-stock-toggle active" : "shop-stock-toggle"}
               type="button"
               role="switch"
@@ -1274,9 +1274,9 @@ export function CatalogPage() {
                 <select value={sort} onChange={(event) => update("sort", event.target.value)}>
                   <option value="featured">Featured</option>
                   <option value="rating">Highest rated</option>
-                  <option value="price_asc">Price: low to high</option>
-                  <option value="price_desc">Price: high to low</option>
-                  <option value="newest">Newest</option>
+                  {!real ? <option value="price_asc">Price: low to high</option> : null}
+                  {!real ? <option value="price_desc">Price: high to low</option> : null}
+                  {!real ? <option value="newest">Newest</option> : null}
                 </select>
                 <ChevronDown size={15} aria-hidden="true" />
               </label>
@@ -1429,17 +1429,14 @@ export function CatalogPage() {
               aria-label={`Lab ${coreMosaicLabs.indexOf(rankMission) + 1} outcome`}>
               <h2>{rankOutcome.title}</h2>
               <p>{rankOutcome.detail}</p>
-              <p>The guide repairs the order before reranking. The final first result can stay the same.</p>
+              <p>Compare the saved combined order with the final order. Then repeat the same request before and after the lab repair.</p>
               <table className="shop-lab-ranks">
-                <caption>Compare the leading candidates in this run</caption>
+                <caption>Where the first two results came from</caption>
                 <thead><tr><th scope="col">Product</th><th scope="col">Before reranking</th><th scope="col">After reranking</th></tr></thead>
                 <tbody>
-                  {[...retrieval.results]
-                    .sort((left, right) => (left.signals?.pre_rerank_rank ?? Infinity)
-                      - (right.signals?.pre_rerank_rank ?? Infinity))
-                    .slice(0, 2).map((product) => (
+                  {retrieval.results.slice(0, 2).map((product) => (
                       <tr key={product.product_id}>
-                        <th scope="row">{product.brand} {product.model}</th>
+                        <th scope="row">{product.brand} {product.model || product.title}</th>
                         <td>{product.signals?.pre_rerank_rank ?? "Unavailable"}</td>
                         <td>{product.signals?.final_rank ?? "Unavailable"}</td>
                       </tr>
@@ -1506,8 +1503,8 @@ export function CatalogPage() {
                   {page.total ? (
                     <>
                       <strong>
-                        {Math.min(offset + 1, page.total)}-
-                        {Math.min(offset + pageSize, page.total)}
+                        {Math.min(page.offset + 1, page.total)}-
+                        {Math.min(page.offset + pageSize, page.total)}
                       </strong>
                       {" "}of {page.total.toLocaleString()} {browseCollection === "workspace" ? "workspace picks" : "products"}
                     </>
@@ -1521,18 +1518,18 @@ export function CatalogPage() {
                 <nav className="shop-pagination" aria-label="Product pages">
                   <button
                     type="button"
-                    disabled={offset === 0}
+                    disabled={loading || offset === 0}
                     onClick={() => update("offset", String(Math.max(0, offset - pageSize)), false)}
                   >
                     <ChevronLeft size={17} /> Previous
                   </button>
                   <span>
-                    Page {offset / pageSize + 1} of{" "}
+                    Page {page.offset / pageSize + 1} of{" "}
                     {Math.max(1, Math.ceil(page.total / pageSize)).toLocaleString()}
                   </span>
                   <button
                     type="button"
-                    disabled={offset + pageSize >= page.total}
+                    disabled={loading || offset + pageSize >= page.total}
                     onClick={() => update("offset", String(offset + pageSize), false)}
                   >
                     Next <ChevronRight size={17} />
@@ -1545,6 +1542,13 @@ export function CatalogPage() {
               </button>
             ) : null}
           </div>
+
+          {real && page && browseCollection === "workspace" && !activeQuery && !agentProducts ? (
+            <p className="shop-collection-note">
+              Headphones, chairs and monitors, chosen for clear specifications and useful comparisons.
+              {sort === "featured" && !activeFilterCount ? " Featured picks alternate the three. Search covers the full catalog." : " Search covers the full catalog."}
+            </p>
+          ) : null}
 
           {/* Which words of the request the catalog does not carry. This used to
               render only on /search, a route nothing linked to, so coverage was
@@ -1585,26 +1589,28 @@ export function CatalogPage() {
           {retrievalLoading ? <HybridRetrievalTrace /> : null}
           {retrievalLoading && !page && !retrieval ? <CatalogLoadingState /> : null}
           {error ? <ErrorState message={error} onRetry={load} /> : null}
+          {retrieval && !agentProducts && !agentOpen && !retrievalLoading ? (
+            <div className="shop-view-switch" role="group" aria-label="Results view">
+              <button type="button" aria-pressed={!showSearchDetails} onClick={() => setShowSearchDetails(false)}>Shop</button>
+              <button type="button" aria-pressed={showSearchDetails} onClick={() => setShowSearchDetails(true)}>Shop + search details</button>
+            </div>
+          ) : null}
+          <div className={showSearchDetails && retrieval && !agentProducts && !agentOpen && !retrievalLoading ? "shop-results-layout with-inspector" : "shop-results-layout"}>
+            {showSearchDetails && retrieval && !agentProducts && !agentOpen && !retrievalLoading ? (
+              <ShopSearchDetails response={retrieval} onSelect={openProductDrawer} onHighlight={setHighlightedProductId} highlightedId={highlightedProductId} />
+            ) : null}
           {!error && (page || retrieval || agentProducts) ? (
             <div
-              className={retrievalLoading ? "shop-products loading" : "shop-products"}
-              aria-busy={retrievalLoading}
+              className={retrievalLoading || loading ? "shop-products loading" : "shop-products"}
+              aria-busy={retrievalLoading || loading}
             >
               {visibleProducts.length ? (
                 <motion.div
                   className="product-grid shop-product-grid"
                   key={`${retrieval?.search_event_id ?? agent?.agent_run_id ?? page?.offset ?? 0}-${sort}-${categoryKey ?? "all"}-${domain ?? "all"}`}
-                  initial={
-                    reduceMotion
-                      ? { opacity: 0.82 }
-                      : { opacity: 0.62, filter: "blur(2px)" }
-                  }
-                  animate={
-                    reduceMotion
-                      ? { opacity: 1 }
-                      : { opacity: 1, filter: "blur(0px)" }
-                  }
-                  transition={{ duration: reduceMotion ? 0.12 : 0.24, ease: EASE_OUT }}
+                  initial={{ opacity: reduceMotion ? 1 : 0.82 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: reduceMotion ? 0 : 0.16, ease: EASE_OUT }}
                 >
                   {visibleProducts.map((product) => (
                     <ProductCard
@@ -1640,7 +1646,8 @@ export function CatalogPage() {
 
             </div>
           ) : null}
-          {!activeQuery && !agentOpen && !agentProducts && !filterChips.length && browseCollection === "workspace" && offset === 0 && page && !error ? <ContinueWorkspace /> : null}
+          </div>
+          {!real && !activeQuery && !agentOpen && !agentProducts && !filterChips.length && browseCollection === "workspace" && offset === 0 && page && !error ? <ContinueWorkspace /> : null}
         </section>
 
         <AskMosaic
@@ -1662,11 +1669,13 @@ export function CatalogPage() {
             }
             const next = new URLSearchParams(searchParams);
             next.delete("event");
-            for (const [key, value] of Object.entries(suggestedFilters)) {
+            next.delete("offset");
+            const normalizedFilters = sourceFilters(suggestedFilters, real);
+            for (const [key, value] of Object.entries(normalizedFilters)) {
               if (value !== undefined) next.set(key, typeof value === "object" ? JSON.stringify(value) : String(value));
             }
             setSearchParams(next);
-            const requestFilters = { ...filters, ...suggestedFilters };
+            const requestFilters = { ...filters, ...normalizedFilters };
             void askAgent(query, requestFilters, retrievalRequestKey(activeQuery, requestFilters));
           }}
           onHighlight={setHighlightedProductId}
@@ -1814,7 +1823,7 @@ export function CatalogPage() {
                 ) : null}
               </section>
 
-              <section className="shop-filter-section">
+              <section hidden={real} className="shop-filter-section">
                 <button
                   type="button"
                   onClick={() => toggleFilter("price")}
@@ -1864,7 +1873,7 @@ export function CatalogPage() {
                 ) : null}
               </section>
 
-              <section className="shop-filter-section">
+              <section hidden={real} className="shop-filter-section">
                 <button
                   type="button"
                   onClick={() => toggleFilter("availability")}

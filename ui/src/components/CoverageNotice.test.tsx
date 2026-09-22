@@ -26,8 +26,8 @@ describe("CoverageNotice", () => {
   it("names the term the catalog does not carry", () => {
     render(<CoverageNotice coverage={unanchored} />);
 
-    expect(text()).toContain("Nothing in the catalog matches A2342.");
-    expect(text()).toContain("The results below answer the rest of the request.");
+    expect(text()).toContain("No exact catalog match for A2342.");
+    expect(text()).toContain("Check the details in the nearby matches before choosing.");
   });
 
   it("joins several unmatched terms readably", () => {
@@ -37,7 +37,7 @@ describe("CoverageNotice", () => {
       />,
     );
 
-    expect(text()).toContain("Nothing in the catalog matches A2342 or DK-9981X.");
+    expect(text()).toContain("No exact catalog match for A2342 or DK-9981X.");
   });
 
   it("stays silent on a grounded request", () => {

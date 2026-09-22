@@ -4,6 +4,7 @@ import { App } from "./App";
 import { preloadDiscover } from "./discoverData";
 import "./styles.css";
 import "./surfaces.css";
+import "./source-products.css";
 
 if (["/", "/discover"].includes(window.location.pathname)) preloadDiscover();
 

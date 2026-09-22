@@ -1,3 +1,4 @@
+import { useCatalogSource } from "../catalogSource";
 import { Link } from "wouter";
 import { PLAYGROUND_TABS } from "../navigation";
 import { MosaicMark } from "./MosaicMark";
@@ -49,9 +50,9 @@ const footerColumns: Array<{
     links: [
       { label: "Discover", href: "/" },
       { label: "All products", href: "/catalog" },
-      { label: "Monitors", href: "/catalog?domain=home_office&category_key=productivity-monitors" },
-      { label: "Chairs", href: "/catalog?domain=home_office&category_key=ergonomic-office-chairs" },
-      { label: "Headphones", href: "/catalog?domain=consumer_electronics&category_key=over-ear-headphones" },
+      { label: "Monitors", href: "/catalog?category_key=monitor" },
+      { label: "Chairs", href: "/catalog?category_key=chair" },
+      { label: "Headphones", href: "/catalog?category_key=headphones" },
     ],
   },
   {
@@ -94,6 +95,7 @@ const footerColumns: Array<{
  * the page is built to be believed.
  */
 export function SiteFooter({ inert = false }: { inert?: boolean }) {
+  const { real } = useCatalogSource();
   return (
     <footer
       className="site-footer"
@@ -101,7 +103,7 @@ export function SiteFooter({ inert = false }: { inert?: boolean }) {
       aria-hidden={inert || undefined}
     >
       <div className="site-footer-inner">
-        <div className="site-footer-payment">
+        <div hidden={real} className="site-footer-payment">
           <span className="site-footer-eyebrow">Secure demo checkout</span>
           <ul aria-label="Secure demo checkout payment methods">
             {paymentMarks.map((mark) => (
@@ -170,8 +172,7 @@ export function SiteFooter({ inert = false }: { inert?: boolean }) {
 
         <div className="site-footer-legal">
           <p>
-            Nothing here charges a card. Products, prices, reviews and
-            availability are sample data created for this workshop.
+            {real ? "Original product listings and ratings from Amazon Reviews 2023. Current prices and availability may differ. Mosaic does not process purchases." : "Nothing here charges a card. Products, prices, reviews and availability are sample data created for this workshop."}
           </p>
           <p className="site-footer-copyright">
             © Amazon.com, Inc. or its affiliates. Sample code under MIT-0.

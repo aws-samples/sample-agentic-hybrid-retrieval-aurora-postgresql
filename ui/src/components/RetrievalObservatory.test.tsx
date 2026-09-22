@@ -83,15 +83,15 @@ describe("RetrievalObservatory", () => {
     });
     expect(guide.textContent).toContain("Find");
     expect(guide.textContent).toContain(
-      "Each retrieval method makes its own candidate list",
+      "Each search method returns its own product list using the same filters",
     );
     expect(guide.textContent).toContain("Combine");
     expect(guide.textContent).toContain(
-      "RRF combines positions without comparing unlike raw scores",
+      "RRF adds contributions from search positions, then keeps a limited list",
     );
     expect(guide.textContent).toContain("Reorder");
     expect(guide.textContent).toContain(
-      "Reranking can only reorder products already in the fused pool",
+      "The model reorders only that list",
     );
     const steps = [...guide.children];
     expect(steps).toHaveLength(3);
@@ -159,7 +159,7 @@ describe("RetrievalObservatory", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Close spelling/ }));
 
-    expect(screen.getByText("mosaic_search.search_trigram(", { exact: false })).toBeTruthy();
+    expect(screen.getByText("mosaic_live_search.search_trigram(", { exact: false })).toBeTruthy();
     expect(container.querySelectorAll(".labs-matrix-cell.is-focused")).toHaveLength(
       seedRun.results.length,
     );
@@ -214,13 +214,14 @@ describe("RetrievalObservatory", () => {
     renderObservatory({ response: seedRun });
     const note = document.querySelector(".labs-matrix-note")!;
     expect(note.textContent).toContain("positions within each retriever's own candidate list");
-    expect(note.textContent).toContain("order that would have shipped with reranking off");
+    expect(note.textContent).toContain("compares only these displayed products");
+    expect(note.textContent).toContain(`${seedRun.results.length} rows shown`);
     expect(note.textContent).toContain("are not");
   });
 
   it("draws every row the run returned", () => {
     const { container } = renderObservatory({ response: seedRun });
 
-    expect(container.querySelectorAll(".labs-matrix-table tbody")).toHaveLength(12);
+    expect(container.querySelectorAll(".labs-matrix-table tbody")).toHaveLength(10);
   });
 });

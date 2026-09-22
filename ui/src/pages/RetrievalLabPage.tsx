@@ -494,7 +494,7 @@ export function RetrievalLabPage() {
       const nextResponse = await api.search(
         requestedQuery,
         requestedFilters,
-        { limit: 12, rerank: true },
+        { limit: example.top_k, rerank: true },
       );
       if (version === requestVersion.current) {
         setResponse(nextResponse);
@@ -714,6 +714,7 @@ export function RetrievalLabPage() {
             <MosaicRunButton
               type="submit"
               label={loading ? "Running pipeline" : "Run pipeline"}
+              showLabel
               running={loading}
               disabled={!example || !query.trim()}
             />
@@ -775,7 +776,7 @@ export function RetrievalLabPage() {
           the only place on screen carrying it -- the dormant Retrieve stage
           lists the three arm labels with no mechanism beside them. After one,
           `RetrievalChannelMap` prints the same three pairs verbatim and adds the
-          index that served each, the candidates it found, and when it earns its
+          index that served each, the products it found, and when it earns its
           place, so keeping this row too would put a strictly smaller copy of the
           same table one screen above the real one. The paragraph stays either
           way: it is the page's contract, not a glossary. */}
@@ -870,7 +871,7 @@ export function RetrievalLabPage() {
       <PlaygroundStage
         number="01"
         title="Retrieve"
-        summary="Recover missing candidates. What the shopper asked, which products were allowed, and what each search method found."
+        summary="Find the missing product. Check the request, the filters, and what each search method found."
         stale={loading && Boolean(response)}
       >
         {response && counts && profile ? (
@@ -909,7 +910,7 @@ export function RetrievalLabPage() {
 
             <PlaygroundDisclosureShelf>
               <PlaygroundDisclosure
-                label="View candidate rows"
+                label="View retrieved products"
                 hint={`${response.results.length} returned rows, every search method rank`}
               >
                 <CandidateRows products={response.results} />
@@ -948,7 +949,7 @@ export function RetrievalLabPage() {
       <PlaygroundStage
         number="02"
         title="Rank"
-        summary="Repair fusion before reranking hides it. Where each product appeared in each candidate list, how those lists were combined, and what reranking moved."
+        summary="Check what reached reranking. Inspect each search position, the combined order, and the final order—in that sequence."
         stale={loading && Boolean(response)}
       >
         <RetrievalObservatory

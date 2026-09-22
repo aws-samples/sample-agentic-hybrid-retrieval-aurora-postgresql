@@ -636,7 +636,7 @@ export function PerformancePage() {
       <div className="inspector-intro instrument-intro">
       <MosaicLabsMasthead
         deck="Explore the index behind Alex’s search. Compare storage, test recall against exact neighbors, and see how filters change the work."
-        title={<>Look closer.<br />Measure the tradeoffs.</>}
+        title={<>Look closer.<br /><span className="inspector-title-emphasis">Measure the tradeoffs.</span></>}
         action={<Link className="instrument-back" href="/mosaic-labs/hnsw"><ArrowLeft size={16} aria-hidden="true" /> Back to Scale & HNSW</Link>}
       />
       </div>

@@ -64,7 +64,7 @@ describe("participant query contract", () => {
 
   it("carries the ranking mission's full filter set into Shop", () => {
     const rank = coreMosaicLabs.find((lab) => lab.stage === "rank");
-    expect(rank!.filters.attributes).toBeDefined();
+    expect(rank!.filters.category_key).toBe("monitor");
 
     const params = new URLSearchParams(
       shopMissionHref(rank!, { view: "results" }).split("?", 2)[1],
@@ -73,8 +73,8 @@ describe("participant query contract", () => {
     expect(forwardedSearchFilters(params)).toEqual(rank!.filters);
     expect(params.get("mission")).toBe(rank!.id);
     expect(params.get("q")).toBe(rank!.query);
-    expect(params.get("domain")).toBe("home_office");
-    expect(params.get("in_stock_only")).toBe("true");
+    expect(params.get("domain")).toBe("consumer_electronics");
+    expect(params.get("category_key")).toBe("monitor");
     // Only the reasoning lab asks the agent a question.
     expect(params.get("ask")).toBeNull();
   });
@@ -90,4 +90,25 @@ it("resolves the multi-part Pipeline request from the canonical mission and reje
   expect(resolvePipelineRequests(changed).find((item) => item.id === request.id)?.query).toBe("An updated two-part request");
   changed.missions = changed.missions.filter((lab) => lab.id !== mission.id);
   expect(() => resolvePipelineRequests(changed)).toThrow(/Unknown Playground mission/);
+});
+
+
+describe("Shop example references", () => {
+  it("keeps queries and filters tied to their source and covers all three needs", async () => {
+    const { shopSearchExamples, mosaicLabManifest } = await import("./labMissions");
+    const requests = [...mosaicLabManifest.missions, ...mosaicLabManifest.supporting_checks, ...mosaicLabManifest.playground.requests];
+    expect(new Set(shopSearchExamples.map(item => item.kind))).toEqual(new Set(["Keywords", "Typo", "Intent"]));
+    expect(new Set(shopSearchExamples.map(item => item.filters.category_key))).toEqual(new Set(["headphones", "monitor", "chair"]));
+    for (const example of shopSearchExamples) {
+      const request = requests.find(item => item.id === example.reference_id)!;
+      expect(example.query).toBe(request.query);
+      expect(example.filters).toEqual(request.filters);
+    }
+  });
+  it("rejects a sample with no source request", async () => {
+    const { resolveShopExamples, mosaicLabManifest } = await import("./labMissions");
+    const changed = structuredClone(mosaicLabManifest);
+    changed.playground.shop_examples[0].reference_id = "missing";
+    expect(() => resolveShopExamples(changed)).toThrow("Unknown Shop example");
+  });
 });

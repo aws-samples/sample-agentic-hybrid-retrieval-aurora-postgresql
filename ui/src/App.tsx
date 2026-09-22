@@ -8,6 +8,15 @@ import { PLAYGROUND_TABS, RETRIEVAL_SURFACE } from "./navigation";
 const CatalogPage = lazy(() =>
   import("./pages/CatalogPage").then(({ CatalogPage: Page }) => ({ default: Page })),
 );
+const CatalogPreviewPage = import.meta.env.DEV ? lazy(() =>
+  import("./pages/CatalogPreviewPage").then(({ CatalogPreviewPage: Page }) => ({ default: Page })),
+) : null;
+const StudioPrototypePage = import.meta.env.DEV ? lazy(() =>
+  import("./pages/StudioPrototypePage").then(({ StudioPrototypePage: Page }) => ({ default: Page })),
+) : null;
+const TypographyPreview = import.meta.env.DEV ? lazy(() =>
+  import("./components/TypographyPreview").then(({ TypographyPreview: Preview }) => ({ default: Preview })),
+) : null;
 const DiscoverPage = lazy(() =>
   import("./pages/DiscoverPage").then(({ DiscoverPage: Page }) => ({ default: Page })),
 );
@@ -20,6 +29,7 @@ const ProductPage = lazy(() =>
 const RetrievalLabPage = lazy(() =>
   import("./pages/PlaygroundPage").then(({ PlaygroundPage: Page }) => ({ default: Page })),
 );
+const ReviewedExamplesPage = lazy(() => import("./pages/ReviewedExamplesPage").then(({ ReviewedExamplesPage: Page }) => ({ default: Page })));
 const SessionMemoryPage = lazy(() =>
   import("./pages/SessionMemoryPage").then(({ SessionMemoryPage: Page }) => ({ default: Page })),
 );
@@ -27,6 +37,9 @@ const SessionMemoryPage = lazy(() =>
 function titleForPath(pathname: string): string {
   if (pathname === "/" || pathname === "/discover") return "Discover | Mosaic";
   if (pathname === "/catalog") return "Shop | Mosaic";
+  if (import.meta.env.DEV && pathname === "/catalog-preview") return "Catalog preview | Mosaic";
+  if (import.meta.env.DEV && pathname === "/design-studio") return "Precision Studio prototype | Mosaic";
+  if (pathname === "/labs/examples") return "Product comparisons | Mosaic";
   if (pathname.startsWith("/products/")) return "Product details | Mosaic";
   const tab = PLAYGROUND_TABS.find((item) => item.path === pathname);
   if (tab) return `${tab.label} | Mosaic`;
@@ -61,6 +74,8 @@ function RoutedSurface() {
           <Route path="/" component={DiscoverPage} />
           <Route path="/discover" component={DiscoverPage} />
           <Route path="/catalog" component={CatalogPage} />
+          {CatalogPreviewPage ? <Route path="/catalog-preview" component={CatalogPreviewPage} /> : null}
+          {StudioPrototypePage ? <Route path="/design-studio" component={StudioPrototypePage} /> : null}
           {/* Same reason as /playground below: the name in the navigation has to
               be typeable. Two of the three nav labels already were -- /discover
               resolves and /playground redirects -- while /shop fell through to
@@ -83,6 +98,7 @@ function RoutedSurface() {
           </Route>
           <Route path="/products/:productId" component={ProductPage} />
           <Route path="/labs/retrieval" component={RetrievalLabPage} />
+          <Route path="/labs/examples" component={ReviewedExamplesPage} />
           {/* The surface is named Playground in navigation, so the name is
               typeable. The canonical path stays /labs/retrieval, which is what
               the workshop instructions deep-link to. */}
@@ -110,6 +126,7 @@ export function App() {
             leaving the fallback on screen forever. */}
         <RoutedSurface />
       </Shell>
+      {TypographyPreview ? <Suspense fallback={null}><TypographyPreview /></Suspense> : null}
     </CommerceProvider>
   );
 }

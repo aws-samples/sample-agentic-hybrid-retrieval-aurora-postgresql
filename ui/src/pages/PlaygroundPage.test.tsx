@@ -31,6 +31,40 @@ const savedSearch = (id: string, products: ProductSummary[]): SearchResponse => 
 const searchStep = (id: string, sequence: number): ToolTraceStep => ({ sequence, tool: "search_products", detail: "Saved search", retrieval_run_id: id, result_count: 2, arguments: {}, outcome: "success", latency_ms: 10 });
 const productLinks = (region: HTMLElement) => within(region).getAllByRole("link").map((link) => link.getAttribute("href"));
 
+it("opens a saved Shop search in the pipeline layout even when the link carries a lab example", async () => {
+  const response = savedSearch(firstSearchId, [ranked(showcaseCatalogPage({}, 0, 1).products[0], 2, 1)]);
+  window.history.replaceState({}, "", `/labs/retrieval?q=B07G95T3JP&event=${firstSearchId}&example=typo-recovery#labs-stage-rank`);
+  const replay = vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(response);
+  const search = vi.spyOn(api, "search");
+  const stream = vi.spyOn(api, "agentStream");
+  render(<PlaygroundPage />);
+  expect(screen.queryByText("Guide workbench")).toBeNull();
+  await screen.findByRole("heading", { name: response.query });
+  expect(screen.getByRole("button", { name: "Why the order changed" }).getAttribute("aria-expanded")).toBe("true");
+  expect(replay).toHaveBeenCalledWith(firstSearchId);
+  expect(search).not.toHaveBeenCalled();
+  expect(stream).not.toHaveBeenCalled();
+  const details = screen.getByRole("link", { name: "Open lab details" });
+  const params = new URL(details.getAttribute("href")!, "https://mosaic.invalid").searchParams;
+  expect(params.get("view")).toBe("lab");
+  expect(params.get("event")).toBe(firstSearchId);
+  expect(params.get("example")).toBe("typo-recovery");
+  fireEvent.click(details);
+  expect(await screen.findByText("Guide workbench")).toBeTruthy();
+  expect(search).not.toHaveBeenCalled();
+  expect(stream).not.toHaveBeenCalled();
+});
+
+it.each([
+  "example=typo-recovery",
+  `view=lab&event=${firstSearchId}&example=typo-recovery`,
+  `example=agentic-research&run=${agentId}`,
+])("preserves explicit lab and agent-proof links: %s", (query) => {
+  window.history.replaceState({}, "", `/labs/retrieval?${query}`);
+  render(<PlaygroundPage />);
+  expect(screen.getByText("Guide workbench")).toBeTruthy();
+});
+
 it("replays Shop's saved results with the same preview products, then explicitly starts a new run and can return", async () => {
   const products = showcaseCatalogPage({}, 0, 4).products.map((product, index) => ranked(product, [7, 5, 9, 1][index], index + 1));
   const original = savedSearch(firstSearchId, products);

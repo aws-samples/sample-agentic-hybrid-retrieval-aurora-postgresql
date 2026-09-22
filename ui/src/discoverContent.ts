@@ -1,3 +1,4 @@
+import { sourceFilters } from "./catalogSource";
 import { mosaicLabManifest } from "./labMissions";
 import type { SearchFilters } from "./types";
 
@@ -50,16 +51,16 @@ export const editorialStories: EditorialStory[] = mosaicLabManifest.playground.r
   return content ? [{ ...content, title: request.shop_label, query: request.query, filters: request.filters }] : [];
 });
 
-export function categoryHref(story: EditorialStory): string {
+export function categoryHref(story: EditorialStory, real = false): string {
   return "/catalog?" + new URLSearchParams(
-    Object.entries(story.filters).filter((entry): entry is [string, string] =>
+    Object.entries(sourceFilters(story.filters, real)).filter((entry): entry is [string, string] =>
       typeof entry[1] === "string",
     ),
   );
 }
 
-export function storyHref(story: EditorialStory): string {
-  const params = new URLSearchParams(categoryHref(story).split("?")[1]);
+export function storyHref(story: EditorialStory, real = false): string {
+  const params = new URLSearchParams(categoryHref(story, real).split("?")[1]);
   params.set("q", story.query);
   params.set("view", "results");
   return "/catalog?" + params;

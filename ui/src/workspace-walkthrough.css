@@ -1,0 +1,50 @@
+.workspace-walkthrough { display: flex; flex-direction: column; background: var(--canvas); }
+.workspace-walkthrough .workspace-tour-image { flex: 0 0 auto; height: auto; min-height: 0; aspect-ratio: 1168 / 784; overflow: hidden; }
+.workspace-tour-vision { opacity: 0; transition: opacity 700ms cubic-bezier(.22, 1, .36, 1); }
+.workspace-tour-vision[data-visible="true"] { opacity: 1; }
+.workspace-tour-focus { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.workspace-tour-focus g { opacity: 0; transition: opacity 450ms ease; }
+.workspace-tour-focus g[data-active="true"] { opacity: 1; }
+.workspace-tour-focus :is(ellipse, rect) { fill: rgb(255 255 255 / 6%); stroke: #fff; stroke-width: 3; filter: drop-shadow(0 1px 3px rgb(40 20 20 / 24%)); }
+.workspace-tour-pin { fill: var(--maroon-800); stroke: #fff; stroke-width: 2; }
+.workspace-tour-focus text { fill: #fff; font: 600 18px var(--sans); text-anchor: middle; dominant-baseline: middle; }
+.workspace-tour-scene-label { position: absolute; left: 20px; bottom: 18px; padding: 7px 11px; border-radius: 6px; background: rgb(255 255 255 / 94%); color: var(--ink-soft); font-size: 12px; line-height: 1.4; }
+.workspace-walkthrough figcaption { position: static; display: flex; flex: 1; flex-direction: column; max-width: none; padding: 20px 24px 0; border-radius: 0; background: var(--canvas); }
+.workspace-tour-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; color: var(--ink-soft); font-size: 12px; }
+.workspace-tour-count { color: var(--maroon-800); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.workspace-tour-copy { min-height: 88px; padding-top: 10px; }
+.workspace-tour-copy h2 { margin: 0 0 7px; font: 600 clamp(18px, 1.7vw, 23px)/1.25 var(--sans); letter-spacing: -.02em; }
+.workspace-tour-copy p { max-width: 65ch; margin: 0; color: var(--ink-soft); font-size: 13px; line-height: 1.6; }
+.workspace-tour-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px 16px; margin-top: 6px; }
+.workspace-tour-action, .workspace-tour-hint { font-size: 12px; line-height: 1.5; }
+.workspace-tour-action { display: inline-flex; align-items: center; min-height: 44px; color: var(--maroon-800); font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
+.workspace-tour-hint { color: var(--ink-soft); }
+.workspace-tour-controls { display: flex; flex-shrink: 0; align-items: center; gap: 4px; }
+.workspace-tour-controls button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 44px; min-height: 44px; padding: 8px; border: 0; border-radius: 7px; background: transparent; color: var(--ink-soft); font: 500 12px var(--sans); }
+.workspace-tour-controls button:hover { background: var(--surface-muted); color: var(--maroon-800); }
+.workspace-tour-controls .workspace-tour-next { padding-inline: 12px; color: var(--maroon-800); font-weight: 600; }
+.workspace-tour-steps { display: flex; align-items: flex-end; gap: 8px; min-height: 44px; margin-top: auto; }
+.workspace-tour-steps span { flex: 1; min-width: 0; height: 3px; border-radius: 3px; background: var(--line); transition: background-color 200ms ease; }
+.workspace-tour-steps span[data-reached="true"] { background: var(--maroon-800); }
+.workspace-tour-steps span[data-current="true"] { height: 4px; }
+.workspace-walkthrough :is(button, a):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+@media (max-width: 1100px) and (min-width: 761px) {
+  .workspace-walkthrough figcaption { padding: 18px 18px 0; }
+  .workspace-tour-actions { flex-wrap: wrap; }
+  .workspace-tour-controls { margin-left: auto; }
+  .workspace-tour-copy { min-height: 112px; }
+}
+
+@media (max-width: 760px) {
+  .workspace-walkthrough .workspace-tour-image { flex-grow: 0; min-height: 0; max-height: none; }
+  .workspace-walkthrough figcaption { padding: 18px 20px 0; }
+  .workspace-tour-copy { min-height: 112px; }
+  .workspace-tour-actions { flex-wrap: wrap; }
+  .workspace-tour-controls { margin-left: auto; }
+  .workspace-tour-scene-label { left: 14px; bottom: 14px; font-size: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-tour-vision, .workspace-tour-focus g, .workspace-tour-steps span { transition: none; }
+}

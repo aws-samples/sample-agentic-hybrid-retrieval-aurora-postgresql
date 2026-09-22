@@ -12,27 +12,33 @@
    otherwise fits. */
 .landing-main {
   min-height: calc(100vh - var(--topbar-height));
-  background: var(--ivory);
+  background: var(--canvas);
 }
 
-/* Discover, Shop, and the three Labs mastheads share one premium display voice:
-   Newsreader at the display cut its optical axis reaches at these sizes.
-   Weight 500, not 600 - the heavier cut was reviewed live at 54-76px and
-   filled in the counters; the italic drops another step for the same reason. */
+/* Shared type keeps the shopper's request continuous across storefront and labs. */
 .commerce-display {
   font-family: var(--masthead);
+  font-size: var(--page-title-size);
   font-weight: 500;
   letter-spacing: -0.015em;
-  line-height: 0.98;
+  line-height: 1.12;
   text-wrap: balance;
 }
 
 .commerce-display em {
   color: var(--maroon-800);
-  font-style: italic;
-  font-weight: 460;
-  line-height: 1.05;
+  font-style: normal;
+  font-weight: inherit;
+  line-height: inherit;
   padding-bottom: 0.04em;
+}
+
+@media (min-width: 761px) and (max-height: 800px) {
+  :root { --page-title-size: clamp(40px, 4.1vw, 54px); }
+}
+
+@media (max-width: 760px) {
+  :root { --page-title-size: clamp(36px, 8vw, 44px); }
 }
 
 .studio-piece-seat {
@@ -97,7 +103,7 @@
   max-width: none;
   min-height: calc(100vh - var(--topbar-height));
   padding: 0;
-  background: var(--ivory);
+  background: var(--canvas);
 }
 
 .shop-canvas {
@@ -106,7 +112,7 @@
   display: grid;
   min-height: calc(100vh - var(--topbar-height));
   grid-template-columns: minmax(0, 1fr);
-  background: var(--ivory);
+  background: var(--canvas);
   transition: grid-template-columns 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -160,7 +166,7 @@
 .shop-heading h1 {
   grid-column: span 2;
   margin: 0;
-  font-size: clamp(40px, 4.5vw, 64px);
+  font-size: var(--page-title-size);
 }
 
 .shop-heading h1 em {
@@ -181,7 +187,7 @@
 .shop-journey-sequence { display: grid; grid-template-columns: var(--shop-story-columns); gap: var(--shop-story-gap); list-style: none; margin: 0; padding: 0; }
 .shop-journey-sequence:focus-visible { outline: 2px solid var(--focus); outline-offset: 5px; border-radius: 10px; }
 .shop-journey-sequence li { min-width: 0; }
-.shop-journey-sequence img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: contain; border-radius: 16px; }
+.shop-journey-sequence img { display: block; width: 100%; height: auto; aspect-ratio: 1168 / 784; object-fit: cover; border-radius: 16px; }
 .shop-journey-caption { padding: 18px 0 0; }
 .shop-journey-stage { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; color: var(--maroon-800); font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; }
 .shop-journey-number { color: var(--ink-soft); font-family: var(--display); font-size: 16px; letter-spacing: 0; }
@@ -200,327 +206,9 @@
 }
 
 .shop-search {
-  display: grid;
-  width: 100%;
-  min-height: 66px;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid rgb(92 75 62 / 16%);
-  border-radius: 999px;
-  background: var(--paper);
-  box-shadow: 0 10px 30px rgb(48 37 28 / 6%);
-  color: var(--ink);
-  transition: border-color 180ms ease, box-shadow 180ms ease;
-}
-
-.discover-search:focus-within,
-.shop-search:focus-within {
-  border-color: rgb(92 75 62 / 34%);
-  box-shadow: 0 14px 38px rgb(48 37 28 / 11%);
-}
-
-/* The focus-within border above only shifts one brown tint to another, which is
-   not an indicator. Here the pill is this wrapper and the composer form inside
-   it is transparent, so the keyboard ring goes on the wrapper - a ring on the
-   form would be drawn inside the pill. */
-.discover-search:has(input:focus-visible),
-.shop-search:has(input:focus-visible) {
-  outline: 2px solid var(--focus);
-  outline-offset: 3px;
-}
-
-.discover-search .search-composer:has(input:focus-visible),
-.shop-search .search-composer:has(input:focus-visible) {
-  outline: 0;
-}
-
-.shop-search {
-  grid-template-columns: minmax(0, 1fr);
-  padding: 8px 4px;
-}
-
-.discover-search .search-composer,
-.shop-search .search-composer {
-  position: relative;
-  z-index: 4;
-  min-width: 0;
-  min-height: 50px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-}
-
-.discover-search .search-composer input,
-.shop-search .search-composer input {
-  position: relative;
-  z-index: 1;
-  height: 50px;
-  font-size: 15px;
-}
-
-.catalog-idle-suggestion {
-  z-index: 0;
-  min-width: 0;
-  overflow: hidden;
-  padding: 0 14px;
-  color: #9f9a96;
-  font-size: 15px;
-  line-height: 50px;
-  pointer-events: none;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  animation: catalog-idle-suggestion-in 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-.catalog-autocomplete.invalid {
-  margin-bottom: 24px;
-}
-
-.catalog-query-hint {
-  position: absolute;
-  z-index: 2;
-  top: calc(100% + 5px);
-  left: 18px;
-  color: var(--maroon-700);
-  font-size: 11.5px;
-  font-weight: 600;
-  line-height: 1.35;
-}
-
-.catalog-autocomplete input[aria-invalid="true"] {
-  color: #6f261f;
-}
-
-.catalog-autocomplete > input,
-.catalog-idle-suggestion {
-  grid-row: 1;
-  grid-column: 2;
-}
-
-@keyframes catalog-idle-suggestion-in {
-  from {
-    opacity: 0;
-    filter: blur(2px);
-    transform: translateY(3px);
-  }
-
-  to {
-    opacity: 1;
-    filter: blur(0);
-    transform: translateY(0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .catalog-idle-suggestion {
-    animation: none;
-  }
-}
-
-.discover-search .search-composer button,
-.shop-search .search-composer button {
-  min-width: 0;
-  width: auto;
-  height: 46px;
-  padding: 0 18px;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--ink-soft);
-  font-size: 13px;
-  font-weight: 600;
-  transition: color 180ms ease, background 180ms ease;
-}
-
-.discover-search .search-composer button:hover:not(:disabled),
-.shop-search .search-composer button:hover:not(:disabled) {
-  background: var(--paper-warm);
-  color: var(--ink);
-}
-
-.discover-search .catalog-autocomplete > button[type="submit"],
-.shop-search .catalog-autocomplete > button[type="submit"] {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-
-/* Search is Discover's sole hero action. The paper plane reflects the
-   natural-language request while the visible Send label keeps it explicit. */
-.discover-search .catalog-autocomplete > button[type="submit"],
-.shop-search .catalog-autocomplete > button[type="submit"] {
-  width: 46px;
-  justify-content: center;
-  padding: 0;
-  background: var(--maroon-900);
-  box-shadow: 0 7px 18px rgb(69 16 27 / 18%);
-  color: var(--paper);
-  font-weight: 700;
-}
-
-.discover-search .catalog-autocomplete > button[type="submit"]:hover:not(:disabled),
-.shop-search .catalog-autocomplete > button[type="submit"]:hover:not(:disabled) {
-  background: var(--maroon-800);
-  color: var(--paper);
-}
-
-/* 44px on both axes: the disc `MosaicRunButton` reuses on every Playground surface. */
-.discover-search .catalog-autocomplete > button[type="submit"] {
-  width: 44px;
-  height: 44px;
-}
-
-.catalog-suggestions {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 13px);
-  right: 0;
-  left: 4px;
-  max-height: min(430px, calc(100vh - 190px));
-  padding: 8px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  border: 1px solid rgb(92 75 62 / 18%);
-  border-radius: 8px;
-  background: var(--paper);
-  box-shadow: 0 20px 44px rgb(48 37 28 / 18%);
-  color: var(--ink);
-  scrollbar-color: rgb(126 36 49 / 48%) transparent;
-  scrollbar-width: thin;
-}
-
-.catalog-suggestions-label {
-  display: flex;
-  min-height: 32px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 3px 10px 7px;
-  color: var(--ink-soft);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.catalog-suggestions-label > span:last-child {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--maroon-700);
-}
-
-.discover-search .catalog-suggestions > button,
-.shop-search .catalog-suggestions > button {
-  display: grid;
-  width: 100%;
-  height: auto;
-  min-height: 62px;
-  grid-template-columns: 40px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--ink);
-  text-align: left;
-}
-
-.discover-search .catalog-suggestions > button:hover,
-.discover-search .catalog-suggestions > button.active,
-.shop-search .catalog-suggestions > button:hover,
-.shop-search .catalog-suggestions > button.active {
-  background: var(--paper-warm);
-  color: var(--ink);
-}
-
-.catalog-suggestions > button > span:nth-child(2) {
-  display: grid;
-  min-width: 0;
-  gap: 3px;
-}
-
-.catalog-suggestions strong,
-.catalog-suggestions small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.catalog-suggestions strong {
-  color: var(--ink);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.catalog-suggestions small {
-  color: var(--ink-soft);
-  font-size: 11px;
-}
-
-.catalog-suggestions em {
-  color: var(--ink-soft);
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.catalog-suggestion-icon {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--paper-warm);
-  color: var(--maroon-800);
-}
-
-.catalog-suggestion-icon.brand {
-  background: var(--green-soft);
-  color: #355b49;
-}
-
-.catalog-suggestion-icon.category {
-  background: var(--paper-warm);
-  color: #76531c;
-}
-
-.catalog-suggestion-icon.search {
-  background: var(--maroon-900);
-  color: var(--paper);
-}
-
-.catalog-suggestion-thumbnail {
-  display: block;
-  width: 40px;
-  height: 40px;
-  overflow: hidden;
-  border: 1px solid rgb(92 75 62 / 14%);
-  border-radius: 6px;
-  background: var(--paper-warm);
-}
-
-.catalog-suggestion-thumbnail img {
   display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.catalog-suggestions-message {
-  margin: 0;
-  padding: 11px 10px 8px;
-  color: var(--ink-soft);
-  font-size: 12px;
-}
-
-.discover-search .catalog-suggestions > .catalog-search-all,
-.shop-search .catalog-suggestions > .catalog-search-all {
-  margin-top: 5px;
-  border-top: 1px solid rgb(92 75 62 / 12%);
-  border-radius: 0 0 6px 6px;
+  min-width: 0;
 }
 
 .mosaic-ask-button {
@@ -571,6 +259,36 @@
   left: 118%;
 }
 
+@media (prefers-reduced-motion: no-preference) {
+  /* Match the shared action's specificity so its transition does not replace
+     the shadow transition, and keep the press visible while hovered. */
+  .mosaic-ask-button:not(:disabled) {
+    transition: background-color var(--motion-fast) ease,
+      border-color var(--motion-fast) ease,
+      color var(--motion-fast) ease,
+      box-shadow var(--motion-fast) ease,
+      transform var(--motion-fast) var(--ease-out);
+  }
+
+  .mosaic-ask-button:active:not(:disabled) {
+    transform: translateY(-1px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mosaic-ask-button {
+    transition: none;
+  }
+
+  .mosaic-ask-button:hover {
+    transform: none;
+  }
+
+  .mosaic-ask-button::after {
+    display: none;
+  }
+}
+
 /* Autocomplete extends outside the console, so its container must not clip. */
 
 .shop-console {
@@ -585,19 +303,6 @@
   align-content: start;
   min-width: 0;
   gap: 10px;
-}
-
-.shop-console .shop-search {
-  min-height: 0;
-  padding: 9px 10px 9px 8px;
-  border-color: var(--line);
-  border-radius: 999px;
-  background: var(--paper);
-  box-shadow: none;
-}
-
-.shop-console .shop-search:focus-within {
-  border-color: var(--maroon-700);
 }
 
 .shop-suggested {
@@ -799,18 +504,20 @@
 }
 
 .shop-domain-tabs button.active {
-  color: var(--ink);
+  color: var(--maroon-800);
   font-weight: 600;
 }
 
-.shop-domain-indicator {
+.shop-domain-indicator,
+.shop-domain-tabs button.active:not(:has(.shop-domain-indicator))::after {
   position: absolute;
   right: 0;
-  bottom: -16px;
+  bottom: 0;
   left: 0;
   height: 2px;
   background: var(--maroon-800);
   pointer-events: none;
+  content: "";
 }
 
 .shop-domain-next {
@@ -1120,7 +827,7 @@
 }
 
 /* Three across at laptop width. Four gave a 296px card at 1366, which is a
-   thumbnail; three gives the photograph 397px and the title a serif line. */
+   thumbnail; three gives the photograph 397px and the title room to breathe. */
 .shop-product-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1337,8 +1044,7 @@
   -webkit-line-clamp: 2;
 }
 
-/* The product page already names a product in Newsreader; the card now does
-   the same, so the photograph and the name share one voice. */
+/* Product names use the same display role in cards and product details. */
 .shop-product-card h3 {
   margin: 0;
   font-family: var(--display);
@@ -1499,7 +1205,7 @@
   height: 17px;
   padding: 0 3px;
   place-items: center;
-  border: 2px solid var(--ivory);
+  border: 2px solid var(--canvas);
   border-radius: 9px;
   background: var(--maroon-800);
   color: var(--paper-strong);
@@ -1552,6 +1258,7 @@
   margin: 0;
   color: var(--ink-soft);
   font-size: 13px;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .shop-pagination button {
@@ -1794,7 +1501,7 @@
   gap: 10px;
   padding: 15px 22px;
   border-top: 1px solid var(--line);
-  background: var(--ivory);
+  background: var(--canvas);
 }
 
 .shop-filter-sheet > footer button {
@@ -1955,7 +1662,7 @@
   gap: 10px;
   padding: 15px 22px;
   border-top: 1px solid var(--line);
-  background: var(--ivory);
+  background: var(--canvas);
 }
 
 .product-drawer-add {
@@ -2383,26 +2090,17 @@
   font-size: 12px;
 }
 
-/*
- * The entry state, and the first thing anyone sees in this panel.
- *
- * It used to be a centred icon over three invented example questions, so it
- * both looked like a chatbot splash and made a claim the surface could not keep.
- * It now offers one eval-set query per retrieval path and names the typed tools
- * the service registers, which is reading matter, so it is set left like the
- * rest of the page.
- */
 .ask-mosaic-empty {
   display: grid;
   justify-items: start;
-  gap: 16px;
-  padding: 8px 0 0;
+  gap: 24px;
+  padding: clamp(16px, 3vh, 32px) 0 24px;
   text-align: left;
 }
 
 .ask-mosaic-welcome h3 {
   margin: 0 0 10px;
-  color: var(--maroon-950);
+  color: var(--ink);
   font-family: var(--display);
   font-size: clamp(28px, 2.2vw, 34px);
   font-weight: 500;
@@ -2414,7 +2112,7 @@
   max-width: 48ch;
   margin: 0;
   color: var(--ink-soft);
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.6;
 }
 
@@ -2422,67 +2120,36 @@
   width: 100%;
 }
 
-.ask-mosaic-starters h4 {
-  margin: 0 0 10px;
-  color: var(--ink-soft);
-  font-family: var(--sans);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
 .ask-mosaic-starters ul {
-  display: grid;
-  gap: 9px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .ask-mosaic-starters button {
-  display: grid;
-  width: 100%;
-  grid-template-areas: "path go" "query query";
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 7px 12px;
-  padding: 18px 0;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  background: transparent;
-  color: var(--ink);
-  font-family: var(--sans);
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--maroon-800);
+  font: 500 14px/1.4 var(--sans);
   text-align: left;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
 }
 
 .ask-mosaic-starters button:hover {
-  color: var(--maroon-700);
+  border-color: var(--maroon-line);
+  background: var(--maroon-50);
 }
 
 .ask-mosaic-starter-path {
-  grid-area: path;
-  font-size: 17px;
-  font-weight: 500;
-}
-
-.ask-mosaic-starter-go {
-  align-self: center;
-  grid-area: go;
-  color: var(--maroon-700);
-}
-
-.ask-mosaic-starter-query {
-  grid-area: query;
-  color: var(--ink-soft);
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.ask-mosaic-entry-note {
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 14px;
-  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 
 .ask-mosaic-capability {
@@ -3644,7 +3311,7 @@
 .mosaic-studio-briefs button[aria-pressed="true"] {
   border-color: var(--maroon-800);
   background: var(--maroon-800);
-  color: var(--ivory);
+  color: var(--canvas);
   box-shadow: 0 6px 14px rgb(107 34 50 / 16%);
 }
 
@@ -3774,13 +3441,7 @@
   text-align: center;
 }
 
-/* The three Labs mastheads are set in the house sans, not the storefront
-   serif. The Playground is an instrument and every heading under its masthead
-   is already Schibsted Grotesk 700, so this is one voice from the masthead
-   down. Discover and Shop keep Newsreader through --masthead, untouched. This
-   is the only rule for the Labs h1: the five later copies that used to fight
-   over its margin, tracking and leading are gone, so the phone step-down to
-   --labs-h2 in the 640px block below is finally the one that renders. */
+/* One masthead rule lets the mobile type scale control all three Labs views. */
 .labs-intro-copy h1 {
   margin: 0 0 14px;
   color: var(--ink);
@@ -4007,21 +3668,6 @@
   }
   .shop-console-note-copy {
     display: none;
-  }
-
-  .catalog-suggestions {
-    top: calc(100% + 8px);
-    right: -1px;
-    left: -1px;
-    max-height: min(390px, 52vh);
-  }
-
-  .catalog-suggestions em {
-    display: none;
-  }
-
-  .shop-search .catalog-suggestions > button {
-    grid-template-columns: 40px minmax(0, 1fr);
   }
 
   .shop-console-note-action {
@@ -4862,7 +4508,7 @@
 }
 
 .labs-matrix-table tbody.is-target {
-  background: var(--ivory);
+  background: var(--canvas);
 }
 
 .labs-matrix-table tbody th {
@@ -4883,11 +4529,9 @@
 }
 
 .labs-matrix-table tbody.is-target th {
-  background: var(--ivory);
+  background: var(--canvas);
 }
 
-/* 400, not 300: Schibsted Grotesk ships at 400-700 and font-synthesis is off,
-   so a lighter declaration rendered as 400 anyway. */
 .labs-matrix-rank {
   flex-shrink: 0;
   width: 26px;
@@ -6155,7 +5799,7 @@
 }
 
 .hnsw-pareto-plot .pareto-point-tooltip rect {
-  fill: var(--ivory);
+  fill: var(--canvas);
   stroke: var(--gold-bright);
   stroke-width: 1;
 }
@@ -6317,7 +5961,7 @@
 .hnsw-probe-result {
   border: 1px solid var(--gold-line);
   border-radius: 12px;
-  background: var(--ivory);
+  background: var(--canvas);
 }
 
 .hnsw-probe-result > header {
@@ -6402,7 +6046,7 @@
   margin: 0;
   padding: 18px 20px;
   border-right: 1px solid var(--line);
-  background: var(--ivory);
+  background: var(--canvas);
 }
 
 .hnsw-ring-plot > svg {
@@ -6813,7 +6457,7 @@
   padding: 14px 16px;
   border: 1px solid var(--gold-line);
   border-radius: 10px;
-  background: var(--ivory);
+  background: var(--canvas);
 }
 
 .hnsw-cliff-note > svg {
@@ -7081,7 +6725,7 @@
   padding: 14px 16px;
   border: 1px solid var(--gold-line);
   border-radius: 10px;
-  background: var(--ivory);
+  background: var(--canvas);
 }
 
 .hnsw-repr-note > svg {
@@ -7316,7 +6960,7 @@
   margin: 0;
   padding: 16px 28px 20px;
   border-top: 1px solid var(--line);
-  background: var(--ivory);
+  background: var(--canvas);
   color: var(--ink-soft);
   font-size: var(--labs-detail);
   line-height: 1.6;
@@ -7583,8 +7227,8 @@
 
 .ask-mosaic-sidecar {
   width: var(--ask-panel-width);
-  border-left-color: #d8cfc3;
-  background: var(--ivory);
+  border-left-color: var(--line);
+  background: var(--canvas);
   box-shadow: -18px 0 52px rgb(48 37 28 / 9%);
   container: ask-mosaic / inline-size;
 }
@@ -7593,20 +7237,22 @@
   min-height: 78px;
   padding: 14px 22px;
   border-bottom-color: var(--line);
-  background: rgb(252 249 243 / 96%);
+  background: var(--paper-strong);
+  backdrop-filter: none;
 }
 
 .ask-mosaic-header > div > span {
   width: 38px;
   height: 38px;
   background: var(--maroon-900);
-  color: #e6c27e;
+  box-shadow: none;
+  color: var(--paper-strong);
 }
 
 .ask-mosaic-header h2 {
-  color: var(--maroon-950);
+  color: var(--ink);
   font-family: var(--display);
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 500;
   line-height: 1;
 }
@@ -7615,7 +7261,7 @@
   margin-top: 5px;
   color: var(--ink-soft);
   font-size: 12px;
-  font-weight: 450;
+  font-weight: 400;
   letter-spacing: 0;
   text-transform: none;
 }
@@ -8365,11 +8011,7 @@
   text-transform: none;
 }
 
-/*
- * Keep long answers on the operational sans face. Newsreader carries the brand
- * and page titles; forcing it into dense generated prose made product-name
- * emphasis exceed the face's loaded weight range and look distorted.
- */
+/* Long answers retain the body role when a display-face preview is active. */
 .ask-mosaic-prose > p,
 .ask-mosaic-answer li {
   color: var(--ink);
@@ -8457,15 +8099,15 @@
 .ask-mosaic-composer {
   padding: 13px 18px 16px;
   border-top: 1px solid var(--line);
-  background: var(--ivory);
+  background: var(--canvas);
 }
 
 .ask-mosaic-composer .search-composer {
   min-height: 54px;
-  border-color: #cdbfb4;
+  border-color: var(--line-strong);
   border-radius: 27px;
-  background: var(--paper);
-  box-shadow: 0 3px 12px rgb(48 37 28 / 4%);
+  background: var(--paper-strong);
+  box-shadow: none;
 }
 
 .ask-mosaic-composer .search-composer button {
@@ -8943,7 +8585,7 @@
   display: grid;
   gap: 1px;
   margin: 0;
-  background: var(--line);
+  background: transparent;
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
@@ -8952,7 +8594,7 @@
   align-content: start;
   gap: 7px;
   padding: 16px 18px;
-  background: var(--paper);
+  background: transparent;
 }
 
 .labs-bridge dt {
@@ -8980,7 +8622,7 @@
   line-height: 1.6;
 }
 
-/* One numbered stage. The number is a quiet serif in the margin rather than a
+/* One numbered stage. The number is quiet text in the margin rather than a
    filled badge, so three of them down the page read as a sequence and not as
    three notification counts. */
 /* One left edge per stage. The number lives in a fixed gutter and everything else —
@@ -10959,40 +10601,10 @@
   line-height: 1.55;
 }
 
-.labs-package-name {
-  margin: 0 0 4px;
-  color: var(--maroon-800);
-  font-size: var(--labs-body);
-  font-weight: 700;
-}
-
-.labs-skill-takeaway {
-  display: grid;
-  align-items: baseline;
-  gap: 3px 12px;
-  margin: 2px 0;
-  grid-template-columns: auto minmax(0, 1fr);
-}
-
-.labs-skill-takeaway > span {
-  color: var(--ink-soft);
-  font-size: var(--labs-micro);
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.labs-skill-takeaway > code {
-  color: var(--maroon-800);
-  font-family: var(--mono);
-  font-size: var(--labs-mono);
-  overflow-wrap: anywhere;
-}
-
-.labs-skill-takeaway > small {
-  grid-column: 2;
-  color: var(--ink-soft);
-  font-size: var(--labs-detail);
+.labs-package-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .labs-skill-adapters-label {
@@ -11027,13 +10639,14 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .labs-skill-takeaway {
+  .labs-skill-capabilities > li {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .labs-skill-takeaway > small {
-    grid-column: 1;
+  .labs-skill-capabilities > li > b {
+    text-align: left;
   }
+
 }
 
 /* The hand-off, said out loud on its third surface. */
@@ -11398,7 +11011,7 @@
   padding: 14px 16px;
   border: 1px solid var(--gold-line);
   border-radius: 12px;
-  background: var(--ivory);
+  background: var(--canvas);
 }
 
 .hnsw-attribution p {

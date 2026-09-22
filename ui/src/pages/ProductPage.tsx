@@ -1,3 +1,4 @@
+import { ProductSourceNote } from "../components/ProductSourceNote";
 import {
   ArrowLeft,
   ArrowRight,
@@ -26,6 +27,7 @@ import { MosaicMark } from "../components/MosaicMark";
 import { ProductComplements } from "../components/ProductComplements";
 import { catalogReturnPath } from "../navigation";
 import { ProductCard } from "../components/ProductCard";
+import { SourceProductDetail } from "../components/SourceProductDetail";
 import { ErrorState, LoadingState } from "../components/States";
 import { productFacts, formatAttributeLabel, formatAttributeValue, formatAvailability, formatPrice, isPurchasable, leafCategory } from "../format";
 import { productEditorialPoster, productImageMap, productImages, productImageLabel, productImageNote } from "../media";
@@ -155,6 +157,10 @@ export function ProductPage() {
     tabs[next].click();
   }
 
+  if (product.source_dataset) {
+    return <SourceProductDetail key={product.product_id} product={product} catalogReturnHref={catalogReturnHref} related={related} relatedLoading={relatedLoading} relatedError={relatedError} onRetryRelated={() => loadRelated(product)} />;
+  }
+
   return (
     <div className="page product-page">
       <Link
@@ -183,7 +189,7 @@ export function ProductPage() {
               ))}
             </div>
           ) : null}
-          <div className="product-main-image">
+          <div className={`product-main-image${product.source_dataset ? " source-product-image" : ""}`}>
             <img src={selectedImage || gallery[0]} alt={productImageLabel(product) ? `${product.title}: ${productImageLabel(product)}` : product.title} />
             {productImageNote(product) ? <p className="category-image-note">{productImageNote(product)}</p> : null}
           </div>
@@ -202,14 +208,15 @@ export function ProductPage() {
                 <Star key={index} size={16} fill={index < Math.round(product.rating ?? 0) ? "currentColor" : "none"} />
               ))}
               <strong>{product.rating.toFixed(1)}</strong>
-              <span>{product.review_count.toLocaleString()} reviews</span>
+              <span>{product.review_count.toLocaleString()} {product.source_dataset ? "historical ratings" : "reviews"}</span>
             </div>
           ) : null}
 
+          <ProductSourceNote product={product} />
           <div className="product-buy-row">
             <div className="product-price-row">
               <div className="product-price">{formatPrice(product.price_cents, product.currency)}</div>
-              {product.list_price_cents > product.price_cents ? (
+              {product.list_price_cents != null && product.price_cents != null && product.list_price_cents > product.price_cents ? (
                 <span>{formatPrice(product.list_price_cents, product.currency)}</span>
               ) : null}
             </div>
@@ -221,12 +228,13 @@ export function ProductPage() {
               <small>
                 {product.inventory_count === 1
                   ? "1 unit in the loaded catalog"
-                  : `${product.inventory_count.toLocaleString()} units in the loaded catalog`}
+                  : product.inventory_count == null ? "See the original listing for current availability" : `${product.inventory_count.toLocaleString()} units in the loaded catalog`}
               </small>
             </div>
           </div>
 
           <div className="product-cta-stack">
+            {product.listing_url ? <a className="product-cta-primary" href={product.listing_url} target="_blank" rel="noreferrer">View original listing ↗</a> : (
             <button
               className="product-cta-primary"
               type="button"
@@ -242,6 +250,7 @@ export function ProductPage() {
                     ? `Add another (${quantity} in cart)`
                     : "Add to cart"}
             </button>
+            )}
             <Link
               className="product-cta-secondary"
               href={`/catalog?ask=1&q=${encodeURIComponent(`Compare ${product.title} with other ${leafCategory(product.category_path)} options. Keep the current product in the comparison and explain the trade-offs.`)}`}

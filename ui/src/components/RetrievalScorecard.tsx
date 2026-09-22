@@ -197,7 +197,7 @@ function RetrievalQualitySection({
             <strong>{SCORECARD_PENDING_HEADLINE}</strong>
             <p>
               The three search-quality scores are held back until they are
-              measured again on the code that is running now.
+              measured again using the current questions, catalog and code.
             </p>
           </div>
         </div>
@@ -258,7 +258,7 @@ function RetrievalQualitySection({
           </div>
           <div>
             <dt>measurement type</dt>
-            <dd>Maintainers’ saved test results</dd>
+            <dd>{provenance.attributed ? "Maintainers’ saved test results" : "Historical test results"}</dd>
           </div>
         </dl>
       </PlaygroundDisclosure>
@@ -783,8 +783,8 @@ export function RetrievalScorecard({ refreshKey = 0 }: RetrievalScorecardProps) 
   if (!data.provenance.attributed) {
     return (
       <PlaygroundDisclosure
-        label="Maintainers’ saved test results"
-        hint="waiting for measurements of this code version"
+        label="Historical test results"
+        hint="earlier queries and code; current lab checks are above"
       >
         {scorecard}
       </PlaygroundDisclosure>

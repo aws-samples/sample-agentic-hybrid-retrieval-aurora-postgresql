@@ -1,9 +1,9 @@
 import {
-  ArrowRight,
   Building2,
   LoaderCircle,
   Package,
   Search,
+  Send,
   Tags,
 } from "lucide-react";
 import {
@@ -11,13 +11,13 @@ import {
   FormEvent,
   KeyboardEvent,
   Ref,
-  ReactNode,
   useEffect,
   useId,
   useRef,
   useState,
 } from "react";
 import { api } from "../api";
+import "../catalog-search.css";
 import { formatCategoryKey } from "../format";
 import { productBoundImage } from "../media";
 import type { CatalogSuggestion } from "../types";
@@ -28,10 +28,7 @@ interface CatalogSearchComposerProps {
   inputLabel?: string;
   inputRef?: Ref<HTMLInputElement>;
   pending?: boolean;
-  leadingIcon?: ReactNode;
   placeholder?: string;
-  submitIcon?: ReactNode;
-  submitIconOnly?: boolean;
   submitLabel?: string;
   /** Keep editorial surfaces quiet until the shopper asks to inspect matches. */
   suggestionsOnType?: boolean;
@@ -78,10 +75,7 @@ export function CatalogSearchComposer({
   inputLabel = "Product search",
   inputRef,
   pending = false,
-  leadingIcon,
   placeholder = "Search a product, model, or describe what you need",
-  submitIcon,
-  submitIconOnly = false,
   submitLabel = "Search",
   suggestionsOnType = true,
   showSuggestions = true,
@@ -252,14 +246,14 @@ export function CatalogSearchComposer({
     <form
       className={
         queryTooShort
-          ? "search-composer compact catalog-autocomplete invalid"
-          : "search-composer compact catalog-autocomplete"
+          ? "search-composer catalog-autocomplete invalid"
+          : "search-composer catalog-autocomplete"
       }
       onSubmit={handleSubmit}
       onBlur={handleBlur}
       onFocus={() => setFocused(true)}
     >
-      {leadingIcon ?? <Search size={18} aria-hidden="true" />}
+      <Search size={18} aria-hidden="true" />
       {showIdleSuggestion && !trimmed ? (
         <span
           aria-hidden="true"
@@ -310,15 +304,12 @@ export function CatalogSearchComposer({
         type="submit"
         disabled={pending || queryTooShort}
         aria-label={submitLabel}
-        title={submitIconOnly ? submitLabel : undefined}
+        title={submitLabel}
       >
         {pending ? (
           <LoaderCircle className="spin" size={20} aria-hidden="true" />
         ) : (
-          <>
-            {submitIcon ?? <ArrowRight size={16} aria-hidden="true" />}
-            {submitIconOnly ? null : <span>{submitLabel}</span>}
-          </>
+          <Send size={16} aria-hidden="true" />
         )}
       </button>
       {queryTooShort ? (

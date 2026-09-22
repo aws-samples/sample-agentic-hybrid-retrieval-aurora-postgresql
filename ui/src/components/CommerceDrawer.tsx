@@ -330,7 +330,7 @@ export function CommerceDrawer() {
                             </button>
                           </div>
                         </div>
-                        <strong>{formatPrice(product.price_cents * quantity, product.currency)}</strong>
+                        <strong>{formatPrice(product.price_cents == null ? null : product.price_cents * quantity, product.currency)}</strong>
                       </article>
                     );
                   })}
@@ -553,7 +553,7 @@ export function CommerceDrawer() {
                     <div key={product.product_id}>
                       <img src={cartProductImage(product)} alt="" />
                       <span><strong>{product.model}</strong><small>Qty {quantity}</small></span>
-                      <b>{formatPrice(product.price_cents * quantity, product.currency)}</b>
+                      <b>{formatPrice(product.price_cents == null ? null : product.price_cents * quantity, product.currency)}</b>
                     </div>
                   ))}
                 </div>

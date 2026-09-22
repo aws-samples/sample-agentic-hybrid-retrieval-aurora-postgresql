@@ -340,7 +340,7 @@ describe("row verdicts", () => {
 
 describe("the committed capture through the matrix", () => {
   it("produces a matrix whose column measures agree with its own rows", () => {
-    const matrix = buildRetrievalMatrix(seedRun, [2]);
+    const matrix = buildRetrievalMatrix(seedRun, [1277987]);
     expect(matrix.rows).toHaveLength(seedRun.results.length);
 
     const arms = ["fts", "trigram", "semantic"] as const;
@@ -353,7 +353,7 @@ describe("the committed capture through the matrix", () => {
 
     // The scenario target is marked in place rather than pulled into a side panel.
     expect(matrix.rows.filter((row) => row.isTarget).map((row) => row.product.product_id))
-      .toEqual([2]);
+      .toEqual([1277987]);
     // Before/after stays inside the shown set, whatever the fused pool did.
     matrix.rows.forEach((row) => {
       expect(row.beforeRank).toBeGreaterThanOrEqual(1);

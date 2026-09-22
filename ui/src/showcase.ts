@@ -92,8 +92,8 @@ function matchesFilters(item: ShowcaseSeed, filters: SearchFilters) {
   return (
     (!filters.domain || item.domain === filters.domain) &&
     (!filters.category_key || itemCategoryKey === filters.category_key) &&
-    (!filters.min_price_cents || priceCents >= filters.min_price_cents) &&
-    (!filters.max_price_cents || priceCents <= filters.max_price_cents) &&
+    (!filters.min_price_cents || (priceCents != null && priceCents >= filters.min_price_cents)) &&
+    (!filters.max_price_cents || (priceCents != null && priceCents <= filters.max_price_cents)) &&
     (!filters.min_rating || (item.rating ?? 0) >= filters.min_rating) &&
     (!filters.availability || item.availability === filters.availability)
   );
@@ -539,9 +539,9 @@ export function showcaseCatalogPage(
   if (sort === "rating") {
     products.sort((left, right) => (right.rating ?? 0) - (left.rating ?? 0));
   } else if (sort === "price_asc") {
-    products.sort((left, right) => left.price_cents - right.price_cents);
+    products.sort((left, right) => (left.price_cents ?? Infinity) - (right.price_cents ?? Infinity));
   } else if (sort === "price_desc") {
-    products.sort((left, right) => right.price_cents - left.price_cents);
+    products.sort((left, right) => (right.price_cents ?? -Infinity) - (left.price_cents ?? -Infinity));
   } else if (sort === "newest") {
     products.sort((left, right) => right.product_id - left.product_id);
   }

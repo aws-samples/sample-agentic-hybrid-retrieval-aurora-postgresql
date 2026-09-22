@@ -71,13 +71,13 @@ export interface ProductSummary {
   category_path: string;
   brand: string;
   model: string;
-  price_cents: number;
-  list_price_cents: number;
+  price_cents: number | null;
+  list_price_cents: number | null;
   currency: string;
   rating: number | null;
   review_count: number;
-  availability: Availability;
-  inventory_count: number;
+  availability: Availability | null;
+  inventory_count: number | null;
   attributes: Record<string, unknown>;
   tags: unknown[];
   catalog_asset_key: string | null;
@@ -87,6 +87,12 @@ export interface ProductSummary {
   is_retrieval_anchor: boolean;
   image_url: string | null;
   image_source: string | null;
+  source_dataset?: string | null;
+  listing_url?: string | null;
+  historical_price_cents?: number | null;
+  historical_price_min_cents?: number | null;
+  condition?: string | null;
+  source_features?: string[];
   signals: ResultSignals | null;
   sources: SourceAttribution[];
 }

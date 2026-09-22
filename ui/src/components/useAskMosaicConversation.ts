@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
+import { sourceFilters, useCatalogSource } from "../catalogSource";
 import { workspaceRequests } from "../labMissions";
 import type { SearchFilters } from "../types";
 import type { AskMosaicTurn } from "./AskMosaic";
@@ -19,6 +20,7 @@ function lastAnswered(turns: AskMosaicTurn[]): AskMosaicTurn | null {
  * different assistants behind matching controls.
  */
 export function useAskMosaicConversation(filters: SearchFilters, useMemory = false) {
+  const { real } = useCatalogSource();
   const [turns, setTurns] = useState<AskMosaicTurn[]>([]);
   const requestVersion = useRef(0);
   const requestController = useRef<AbortController | null>(null);
@@ -84,7 +86,7 @@ export function useAskMosaicConversation(filters: SearchFilters, useMemory = fal
       ));
     };
     try {
-      await api.agentStream(trimmed, requestFilters, (event) => {
+      await api.agentStream(trimmed, sourceFilters(requestFilters, real), (event) => {
         if (version !== requestVersion.current) return;
         if (event.type === "stage") {
           setTurns((current) => current.map((turn) => (
@@ -147,7 +149,7 @@ export function useAskMosaicConversation(filters: SearchFilters, useMemory = fal
     answeredTurn,
     clear,
     suggestions: filters.brand || Object.keys(filters.attributes ?? {}).length
-      ? [] : workspaceRequests(filters),
+      ? [] : workspaceRequests(sourceFilters(filters, real), (value) => sourceFilters(value, real)),
     pending,
     run,
     turns,

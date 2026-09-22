@@ -33,7 +33,9 @@ export const maxCartQuantity = 9;
 
 export function cartQuantityLimit(product: ProductSummary): number {
   if (
-    !isPurchasable(product.availability)
+    product.price_cents == null
+    || product.inventory_count == null
+    || !isPurchasable(product.availability)
     || !Number.isInteger(product.inventory_count)
     || product.inventory_count < 1
   ) {
@@ -47,7 +49,7 @@ export function calculateOrderSummary(
   deliveryMethod: DeliveryMethod = "standard",
 ): OrderSummary {
   const subtotal = lines.reduce(
-    (sum, line) => sum + line.product.price_cents * line.quantity,
+    (sum, line) => sum + (line.product.price_cents ?? 0) * line.quantity,
     0,
   );
   const shipping =

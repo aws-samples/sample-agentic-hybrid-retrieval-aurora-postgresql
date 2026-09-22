@@ -234,6 +234,7 @@ type CategoryImageProduct = Pick<
  * selected for this exact product.
  */
 function boundImage(product: ProductSummary): string | null {
+  if (product.source_dataset) return product.image_url || null;
   const catalogImage = productBoundImage(product.product_id);
   if (catalogImage) return catalogImage;
   if (product.image_url?.startsWith(GENERATED_PREFIX)) return product.image_url;
@@ -310,10 +311,12 @@ export function categoryProductImageMap(
 
 /** Whether the displayed photo illustrates a category rather than this identity. */
 export function usesCategoryImage(product: ProductSummary): boolean {
+  if (product.source_dataset) return false;
   return boundImage(product) === null;
 }
 
 export function productImage(product: ProductSummary): string {
+  if (product.source_dataset) return product.image_url || "/assets/images/product-unavailable.svg";
   const bound = boundImage(product);
   if (bound) return bound;
   return categoryProductImage(product);
@@ -369,6 +372,7 @@ export function productImageMap(products: ProductSummary[]): Map<number, string>
 }
 
 export function productImages(product: ProductSummary): string[] {
+  if (product.source_dataset) return [productImage(product)];
   const monitorDetail = monitorDetailByProductId.get(product.product_id);
   if (monitorDetail) return [monitorDetail];
   return matchingMosaicImageSet(product) ?? [productImage(product)];

@@ -31,6 +31,11 @@ const requestGroups = [
 type Inspection = "retrieve" | "rank" | "reason";
 type ColumnState = "idle" | "pending" | "active" | "complete" | "failed" | "blocked";
 
+function linkedInspection(): Record<Inspection, boolean> {
+  const stage = /^#(?:labs-stage-|inspect-)(retrieve|rank|reason)$/.exec(window.location.hash)?.[1];
+  return { retrieve: stage === "retrieve", rank: stage === "rank", reason: stage === "reason" };
+}
+
 function PipelineColumn({ stage, state, number, title, description, expanded, onInspect, children, details }: {
   stage: Inspection; number: string; title: string; description: string;
   state: ColumnState;
@@ -64,7 +69,7 @@ function RetrieveDetails({ response, receipts, selectedId, onSelect }: {
   const diagnostics = response?.diagnostics;
   const counts = diagnostics?.candidate_counts;
   const arms = [
-    { name: "Keyword", mechanism: "tsvector · GIN", purpose: "Words and model names that appear in the product text.", key: "fts_in_pool" },
+    { name: "Keyword", mechanism: "tsvector · GIN · ts_rank_cd", purpose: "Matches indexed words and their normalized forms, then ranks the matching records.", key: "fts_in_pool" },
     { name: "Close spelling", mechanism: "pg_trgm · GIN", purpose: "Character overlap recovers misspellings and small variations.", key: "trigram_in_pool" },
     { name: "Meaning", mechanism: "Cohere Embed v4 · pgvector · HNSW", purpose: "Vector similarity finds intent beyond shared words.", key: "semantic_in_pool" },
   ];
@@ -82,7 +87,7 @@ function RetrieveDetails({ response, receipts, selectedId, onSelect }: {
       <div><h3>{arm.name}</h3><p>{arm.purpose}</p><span className="inspector-mechanism">{arm.mechanism}</span></div>
       <strong>{counts?.[arm.key] ?? "—"}</strong>
     </div>)}</div>
-    <p className="inspector-note">A product can match in more than one way, so these counts can overlap.</p>
+    <p className="inspector-note">A product can match in more than one way, so these counts can overlap. Word search uses PostgreSQL’s built-in cover-density ranking, not BM25. Spelling and meaning search cover different ways a request can differ from the product text.</p>
     {response ? <InspectorDetail title="Request, filters & retrieval settings">
       <p>PostgreSQL checks the search filters with <code>mosaic_search.matches_filters</code>.</p>
       <CodeBlock label="Search record" code={JSON.stringify({ query: response.query, applied_filters: response.applied_filters, embedding_model_id: diagnostics?.embedding_model_id, retrieval_profile: diagnostics?.retrieval_profile, candidate_counts: counts }, null, 2)} />
@@ -199,11 +204,11 @@ function PipelineInspector() {
   const filters = (params.has("q") ? forwardedSearchFilters(params) : selectedRequest?.filters ?? {}) as SearchFilters;
   const pipeline = usePipelineRun(`${requestKey}:${initialQuestion}`, carriedEvent);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Record<Inspection, boolean>>({ retrieve: false, rank: false, reason: false });
+  const [expanded, setExpanded] = useState<Record<Inspection, boolean>>(linkedInspection);
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
   const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
   const [ablation, setAblation] = useState<ScorecardStageAblation | null>(null);
-  useEffect(() => { setExpanded({ retrieve: false, rank: false, reason: false }); setSelectedId(null); setHighlightedId(null); }, [requestKey]);
+  useEffect(() => { setExpanded(linkedInspection()); setSelectedId(null); setHighlightedId(null); }, [requestKey]);
   useEffect(() => {
     if (!expanded.rank || highlightedId == null) return;
     const target = document.getElementById(`ranked-product-${highlightedId}`);
@@ -221,6 +226,8 @@ function PipelineInspector() {
   const response = selected?.response;
   const question = pipeline.savedResponse?.query ?? initialQuestion;
   const runFilters = (pipeline.savedResponse?.applied_filters ?? filters) as SearchFilters;
+  const labDetailsParams = new URLSearchParams(params);
+  labDetailsParams.set("view", "lab");
   const inspect = (stage: Inspection) => { setHighlightedId(null); setExpanded((value) => ({ ...value, [stage]: !value[stage] })); };
   const renderSearchLink = (product: ProductSummary) => <ProductSearchLinks product={product} receipts={pipeline.receipts} running={pipeline.running} onSelect={(id, productId) => { setSelectedId(id); setHighlightedId(productId); setExpanded((value) => ({ ...value, rank: true })); }} />;
   const count = readiness?.database.product_count;
@@ -237,15 +244,16 @@ function PipelineInspector() {
   };
   return <div className="page pipeline-inspector pipeline-overview">
     <MosaicLabsTabs active="retrieval" />
-    <div className="inspector-intro"><MosaicLabsMasthead title="Behind a better answer." deck="Find eligible products. Establish their order. Check the sources to help Alex decide." /></div>
+    <div className="inspector-intro"><MosaicLabsMasthead title={<>Behind a <span className="inspector-title-emphasis">better answer.</span></>} deck="Find eligible products. Establish their order. Check the sources to help Alex decide." /></div>
     <nav className="inspector-request-choices" aria-label="Alex’s requests">{requestGroups.map((group) => <div key={group.label} role="group" aria-label={group.label}><span className="inspector-request-group-label" aria-hidden="true">{group.label}</span>{group.requests.map((request) => <button key={request.id} type="button" aria-pressed={!params.has("q") && selectedRequest?.id === request.id} onClick={() => setParams(new URLSearchParams({ scene: request.id }))}>{request.label}</button>)}</div>)}</nav>
     <section className="inspector-request" aria-label="Pipeline request">
       <img className="inspector-alex" src="/assets/images/mosaic/alex-headshot-v1.jpg" alt="Alex, Mosaic’s example shopper" width={128} height={128} />
       <div><h2>{question || "No request is available"}</h2><p>Alex’s workspace{count ? ` · Catalog: ${count.toLocaleString()} products` : ""}{runFilters.category_key ? ` · Filter: ${runFilters.category_key.replaceAll("-", " ")}` : ""}</p></div>
-      <MosaicRunButton type="button" className="inspector-play" label={runLabel} running={pipeline.running} disabled={pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} onClick={() => { setSelectedId(null); setHighlightedId(null); setExpanded({ retrieve: false, rank: false, reason: false }); void pipeline.play(question, runFilters); }} />
+      <MosaicRunButton type="button" className="inspector-play" label={runLabel} showLabel running={pipeline.running} disabled={pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} onClick={() => { setSelectedId(null); setHighlightedId(null); setExpanded({ retrieve: false, rank: false, reason: false }); void pipeline.play(question, runFilters); }} />
     </section>
     <div className="inspector-context-bar">
       <details className="inspector-about-request"><summary>About Alex’s request</summary><p>Alex is a software engineer building a home office for coding, calls and focused work.</p><Link href="/catalog">Choose another request in Shop <ArrowRight size={14} aria-hidden="true" /></Link></details>
+      {carriedEvent && !pipeline.started ? <Link className="inspector-lab-details-link" href={`/labs/retrieval?${labDetailsParams}`}>Open lab details</Link> : null}
       <div className="inspector-run-status" role="status">{pipeline.reading ? "Reading the saved Shop search…" : pipeline.status || (carriedEvent ? "Saved Shop search" : "Ready to follow Alex’s request.")}</div>
     </div>
     {!params.has("q") && !carriedEvent && selectedRequest ? <p className="inspector-request-note">{selectedRequest.notice} Each search passes through Retrieve and Rank; Reason can request more searches before comparing the sources.</p> : null}
@@ -259,12 +267,24 @@ function PipelineInspector() {
       <PipelineColumn stage="rank" state={columnState("rank")} number="02" title="Rank" description="How should we order those products?" expanded={expanded.rank} onInspect={() => inspect("rank")} details={<RankDetails response={response} highlightedId={highlightedId} />}><RankOverview response={response} ablation={ablation} stopped={Boolean(pipeline.error)} /></PipelineColumn>
       <PipelineColumn stage="reason" state={columnState("reason")} number="03" title="Reason" description="What choice can the sources support?" expanded={expanded.reason} onInspect={() => inspect("reason")} details={<><ReasonEvidence answer={pipeline.completed ? pipeline.answer : null} trace={pipeline.trace} failed={Boolean(pipeline.error)} />{pipeline.runId ? <p className="inspector-receipt">Agent record <code>{pipeline.runId}</code></p> : null}</>}><ReasonOverview answer={pipeline.answer} partial={pipeline.partial} streamed={pipeline.streamed} completed={pipeline.completed} running={pipeline.running} active={pipeline.phase === "reason"} hasSearch={Boolean(response)} failed={Boolean(pipeline.error)} renderSearchLink={renderSearchLink} multipleSearches={pipeline.receipts.length > 1} /></PipelineColumn>
     </div>
-    <aside className="inspector-scale-link inspector-takeaway"><div><h2>From a result to a supported choice.</h2><p>Follow one recommendation back to its sources, then to the search and ranks that brought it here. Use the same checks in your own application.</p><nav aria-label="Optional explorations"><span>Optional</span><Link href="/mosaic-labs/hnsw">Explore scale & HNSW</Link><Link href="/mosaic-labs/memory">Explore session & memory</Link></nav></div><a href="/api/skill-package">Download the retrieval skill <ArrowRight size={18} aria-hidden="true" /></a></aside>
+    <aside className="inspector-scale-link inspector-takeaway">
+      <div>
+        <h2>Use what you built in your own agent</h2>
+        <p>Reuse filtered search, ranking explanations and product evidence. The implementation guide maps the code and checks; the skill provides calling instructions for a running Mosaic service.</p>
+      </div>
+      <div className="inspector-takeaway-actions">
+        <a href="/api/builder-package" download>Adapt the implementation <ArrowRight size={18} aria-hidden="true" /></a>
+        <a href="/api/skill-package" download>Download the skill <ArrowRight size={18} aria-hidden="true" /></a>
+      </div>
+      <nav aria-label="Optional explorations"><span>Optional</span><Link href="/labs/examples?case=saved-headphones">Compare product details</Link><Link href="/mosaic-labs/hnsw">Explore scale & HNSW</Link><Link href="/mosaic-labs/memory">Explore session & memory</Link></nav>
+    </aside>
   </div>;
 }
 
-/** Keep existing guide and proof deep links operational while the main surface inspects runs. */
+/** A saved Shop search stays in the pipeline view; lab details are an explicit destination. */
 export function PlaygroundPage() {
   const [params] = useSearchParams();
-  return params.has("example") || params.get("view") === "lab" || params.has("run") ? <RetrievalLabPage /> : <PipelineInspector />;
+  const shopRequest = Boolean(forwardedSearchEvent(params) || params.get("q")?.trim());
+  const labDetails = params.get("view") === "lab" || params.has("run") || (params.has("example") && !shopRequest);
+  return labDetails ? <RetrievalLabPage /> : <PipelineInspector />;
 }

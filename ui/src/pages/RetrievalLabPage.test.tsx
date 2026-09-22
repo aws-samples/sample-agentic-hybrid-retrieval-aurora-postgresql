@@ -16,6 +16,7 @@ import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "../api";
 import { mosaicRetrievalExamples, retrievalExamplesByStage } from "../labMissions";
+import { seedRun } from "../retrievalSeed";
 import { showcaseCatalogPage } from "../showcase";
 import type {
   ProductSummary,
@@ -217,7 +218,7 @@ function productWithSignals(
 ): ProductSummary {
   const product = catalog.products.find((candidate) => candidate.product_id === productId);
   if (!product) throw new Error(`Missing showcase product ${productId}`);
-  return { ...product, signals };
+  return { ...(productId === 2 ? seedRun.results[0] : product), signals };
 }
 
 function responseFor(
@@ -245,12 +246,12 @@ const primaryResponse = responseFor(
   firstExample.query,
   [
     productWithSignals(2, {
-      fts: { rank: 1, raw_score: 1, rrf_contribution: 0.01639 },
+      fts: { rank: null, raw_score: null, rrf_contribution: null },
       trigram: { rank: 1, raw_score: 1, rrf_contribution: 0.01639 },
       semantic: { rank: null, raw_score: null, rrf_contribution: null },
-      rrf_score: 0.03279,
+      rrf_score: 0.01639,
       pre_rerank_rank: 1,
-      pre_rerank_score: 0.03279,
+      pre_rerank_score: 0.01639,
       rerank_score: 0.72,
       final_rank: 1,
       score_semantics: "rank_fusion_then_bounded_rerank",
@@ -471,7 +472,7 @@ function labProofFor(labId: number) {
  * disclosure left to open now that packaging is not a click behind stage 03.
  */
 async function awaitPackageFinale() {
-  await screen.findByText("Package what you built");
+  await screen.findByText("Use what you built in your own agent");
 }
 
 /** All three retrieval indexes present, valid and ready -- nothing broken. */
@@ -538,8 +539,8 @@ const SHOP_EVENT_ID = "9614ed9b-4ceb-4aad-9276-4e69af2231b9";
  */
 const shopResponse: SearchResponse = {
   search_event_id: SHOP_EVENT_ID,
-  query: "noice cancelng hedfones",
-  normalized_query: "noice cancelng hedfones",
+  query: "B07G95T3JP",
+  normalized_query: "B07G95T3JP",
   applied_filters: {},
   results: [
     productWithSignals(2, {
@@ -677,13 +678,10 @@ describe("RetrievalLabPage", () => {
     );
 
     expect(summaries[0]).toBe(
-      "Recover missing candidates. What the shopper asked, which products were"
-      + " allowed, and what each search method found.",
+      "Find the missing product. Check the request, the filters, and what each search method found.",
     );
     expect(summaries[1]).toBe(
-      "Repair fusion before reranking hides it. Where each product appeared in"
-      + " each candidate list, how those lists were combined, and what reranking"
-      + " moved.",
+      "Check what reached reranking. Inspect each search position, the combined order, and the final order—in that sequence.",
     );
     expect(summaries[2]).toBe(
       "Support the agent's answer with sources. Which products and evidence the agent"
@@ -763,7 +761,7 @@ describe("RetrievalLabPage", () => {
     expect(controls[0].tagName).toBe("SELECT");
     expect(controls[1].tagName).toBe("INPUT");
     expect(controls[2].tagName).toBe("BUTTON");
-    expect(controls[2].getAttribute("aria-label")).toBe("Run pipeline");
+    expect(controls[2]).toBe(screen.getByRole("button", { name: "Run pipeline" }));
     // One picker on the page, not one per instrument.
     expect(container.querySelectorAll("select")).toHaveLength(1);
   });
@@ -774,7 +772,7 @@ describe("RetrievalLabPage", () => {
     const query = screen.getByRole("searchbox", { name: "Retrieval query" });
     expect(query.getAttribute("spellcheck")).toBe("false");
     expect(query.getAttribute("autocomplete")).toBe("off");
-    expect((query as HTMLInputElement).value).toContain("hedfones");
+    expect((query as HTMLInputElement).value).toBe(firstExample.query);
   });
 
   it("groups the scenarios the way the session runs them", () => {
@@ -826,7 +824,7 @@ describe("RetrievalLabPage", () => {
       expect(api.search).toHaveBeenCalledWith(
         customQuery,
         firstExample.filters,
-        { limit: 12, rerank: true },
+        { limit: firstExample.top_k, rerank: true },
       );
     });
     expect(await screen.findByText("Live run complete")).toBeTruthy();
@@ -881,7 +879,7 @@ describe("RetrievalLabPage", () => {
       expect(api.search).toHaveBeenCalledWith(
         requested.query,
         requested.filters,
-        { limit: 12, rerank: true },
+        { limit: requested.top_k, rerank: true },
       );
     });
     expect(await screen.findByText("observatory run: retrieval-primary")).toBeTruthy();
@@ -1087,21 +1085,23 @@ describe("RetrievalLabPage", () => {
     expect(api.agentStream).not.toHaveBeenCalled();
   }, 30_000);
 
-  it("promotes Package as the conclusion to the four numbered stages", async () => {
+  it("closes the four numbered stages with reuse and both supporting downloads", async () => {
     mockPackageRegistry();
     const { container } = render(<RetrievalLabPage />);
 
     await awaitPackageFinale();
     const finale = container.querySelector(".labs-package-finale");
-    const heading = screen.getByRole("heading", { name: "Package what you built" });
+    const heading = screen.getByRole("heading", { name: "Use what you built in your own agent" });
     const header = heading.closest(".labs-package-heading");
 
     expect(finale).toBeTruthy();
     expect(header).toBeTruthy();
     expect(header?.firstElementChild).toBe(heading);
     expect(heading.nextElementSibling?.textContent).toBe(
-      "Reuse the search and evidence tools from these labs in another application. Aurora stores the products, search results and sources.",
+      "Connect your agent to filtered search, ranking explanations and product evidence. Aurora runs retrieval; your application owns answer synthesis and citation checks.",
     );
+    expect(screen.getByRole("link", { name: "Adapt the implementation" }).getAttribute("href")).toBe("/api/builder-package");
+    expect(screen.getByRole("link", { name: "Download the skill" }).getAttribute("href")).toBe("/api/skill-package");
   });
 
   it("names every skill capability the registry declares", async () => {
@@ -1179,10 +1179,10 @@ describe("RetrievalLabPage", () => {
     });
 
     expect(
-      await screen.findByText(/Aurora stores the products, search results and sources/i),
+      await screen.findByText(/Aurora runs retrieval; your application owns answer synthesis and citation checks/i),
     ).toBeTruthy();
     expect(
-      await screen.findByText("skills/mosaic-hybrid-retrieval/"),
+      await screen.findByText(/The skill provides calling instructions and API requests for a running Mosaic service/i),
     ).toBeTruthy();
     expect(
       await screen.findByText(/Adapt the schema, copy, models, settings/i),
@@ -1247,7 +1247,7 @@ describe("RetrievalLabPage", () => {
 
     // Removed from stage 03 completely, not merely hidden there.
     expect(reasonStage.querySelector(".labs-package-finale")).toBeNull();
-    expect(within(reasonStage as HTMLElement).queryByText("Package what you built")).toBeNull();
+    expect(within(reasonStage as HTMLElement).queryByText("Use what you built in your own agent")).toBeNull();
   });
 
   it("grades Lab 3 on the run stage 03 produced, and re-reads the baseline after", async () => {
@@ -1294,7 +1294,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
 
@@ -1318,14 +1318,14 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
 
     // Stage 02 receives the served rows, titles and order intact.
     expect(await screen.findByText(`observatory run: ${SHOP_EVENT_ID}`)).toBeTruthy();
     expect(
-      screen.getByText("observatory rows: Mosaic Sonora WH-C720 | Mosaic Northstar Space Q45"),
+      screen.getByText(`observatory rows: ${shopResponse.results.map((product) => product.title).join(" | ")}`),
     ).toBeTruthy();
     // Stage 01 reports the pool the receipt recorded, not a fresh one.
     const figures = screen.getByLabelText("Retrieval figures");
@@ -1357,7 +1357,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />, { wrapper: StrictMode });
 
@@ -1374,7 +1374,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
 
@@ -1391,7 +1391,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
     await screen.findByText(`repair baseline: ${SHOP_EVENT_ID}`);
@@ -1425,7 +1425,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
 
@@ -1443,15 +1443,15 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
 
     await waitFor(() => {
       expect(api.search).toHaveBeenCalledWith(
-        "noice cancelng hedfones",
+        "B07G95T3JP",
         {},
-        { limit: 12, rerank: true },
+        { limit: firstExample.top_k, rerank: true },
       );
     });
     expect(
@@ -1460,14 +1460,14 @@ describe("RetrievalLabPage", () => {
   });
 
   it("still replays a hand-off that carries no event", async () => {
-    window.history.replaceState({}, "", "/labs/retrieval?q=noice+cancelng+hedfones");
+    window.history.replaceState({}, "", "/labs/retrieval?q=B07G95T3JP");
     render(<RetrievalLabPage />);
 
     await waitFor(() => {
       expect(api.search).toHaveBeenCalledWith(
-        "noice cancelng hedfones",
+        "B07G95T3JP",
         {},
-        { limit: 12, rerank: true },
+        { limit: firstExample.top_k, rerank: true },
       );
     });
     expect(api.retrievalEventResponse).not.toHaveBeenCalled();
@@ -1525,7 +1525,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
 
@@ -1549,7 +1549,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
     expect(await screen.findByText("Shop run loaded")).toBeTruthy();
@@ -1583,7 +1583,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
     expect(await screen.findByText("This is the exact run from Shop")).toBeTruthy();
@@ -1607,7 +1607,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
 
@@ -1630,7 +1630,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=noice+cancelng+hedfones&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
 

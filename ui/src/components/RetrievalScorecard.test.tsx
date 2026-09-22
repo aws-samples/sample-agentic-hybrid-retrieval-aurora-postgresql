@@ -717,7 +717,7 @@ describe("RetrievalScorecard stage ablation", () => {
     expect(within(disclosure).getByText("results loaded at")).toBeTruthy();
     expect(within(disclosure).getByText("2026-09-04T09:15:00Z")).toBeTruthy();
     expect(within(disclosure).getByText("measurement type")).toBeTruthy();
-    expect(within(disclosure).getByText("Maintainers’ saved test results")).toBeTruthy();
+    expect(within(disclosure).getByText("Historical test results")).toBeTruthy();
   });
 
   it("says so plainly when the artifact recorded no fingerprint of its own", async () => {

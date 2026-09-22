@@ -22,6 +22,9 @@ export function Shell({ children }: { children: ReactNode }) {
    */
   const isInstrument = pathname.startsWith("/labs/")
     || pathname.startsWith("/mosaic-labs");
+  // The preview supplies its own sources; the storefront footer describes synthetic products.
+  const isCatalogPreview = import.meta.env.DEV && pathname === "/catalog-preview";
+  const isStudioPrototype = import.meta.env.DEV && pathname === "/design-studio";
   const { isCartOpen } = useCommerce();
 
   return (
@@ -34,7 +37,7 @@ export function Shell({ children }: { children: ReactNode }) {
       >
         Skip to main content
       </a>
-      <SiteHeader inert={isCartOpen} />
+      {isStudioPrototype ? null : <SiteHeader inert={isCartOpen} />}
       <main
         id="main-content"
         className={isLanding ? "app-main landing-main" : "app-main"}
@@ -47,7 +50,7 @@ export function Shell({ children }: { children: ReactNode }) {
       {/* Outside `main`, because a site footer is a sibling landmark rather than
           part of the surface's own content. It takes the same inert treatment as
           the header so the cart drawer is the only thing reachable while open. */}
-      {isInstrument ? null : <SiteFooter inert={isCartOpen} />}
+      {isInstrument || isCatalogPreview || isStudioPrototype ? null : <SiteFooter inert={isCartOpen} />}
       <CommerceDrawer />
     </div>
   );

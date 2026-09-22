@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { api } from "../api";
 import type { SessionMemoryResponse, ShopperSession } from "../types";
 import { SessionMemoryPage } from "./SessionMemoryPage";
+import missionManifest from "../../../data/evals/mosaic_labs_missions.json";
 
 const response: SessionMemoryResponse = {
   memory_status: "connected", actor_id: "alex-browser", active_session_id: null, sessions: [],
@@ -17,6 +18,19 @@ beforeEach(() => {
   vi.spyOn(api, "newSession").mockResolvedValue(undefined);
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+
+it("loads the optional lab requests without sending them or changing the memory opt-in", async () => {
+  const stream = vi.spyOn(api, "agentStream");
+  const recall = vi.spyOn(api, "recallMemory");
+  render(<SessionMemoryPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Change Alex’s request" }));
+  expect(screen.getByLabelText("Ask about Alex’s workspace")).toHaveProperty("value", missionManifest.optional_labs.memory.changed_request);
+  expect(screen.getByLabelText("Use AgentCore Memory for this request")).toHaveProperty("checked", true);
+  fireEvent.click(screen.getByRole("button", { name: "Original question" }));
+  expect(screen.getByLabelText("Ask about Alex’s workspace")).toHaveProperty("value", missionManifest.optional_labs.memory.request);
+  expect(stream).not.toHaveBeenCalled();
+  expect(recall).not.toHaveBeenCalled();
+});
 
 it("stops the loading indicator after an initial failure and retries the connection", async () => {
   vi.mocked(api.sessionMemory).mockRejectedValueOnce(new Error("Catalog connection unavailable."));
@@ -70,7 +84,7 @@ it("new sessions keep the actor and can recall real records independently of eve
   await screen.findByText(/New session. Alex keeps the same user ID/);
   fireEvent.click(screen.getByRole("button", { name: "Find relevant memories" }));
   await screen.findByText("Alex shares an office", { selector: "p" });
-  expect(recall).toHaveBeenCalledWith("Which headphones would suit the way I work at home?");
+  expect(recall).toHaveBeenCalledWith("Which monitor would suit the way I work at home?");
 });
 it("starts with a fresh Alex and clears recalled memories without running the agent", async () => {
   vi.spyOn(api, "recallMemory").mockResolvedValue({ records: [{ id: "old-fact", strategy_id: "SEMANTIC", text: "Earlier Alex’s preference", namespaces: ["/mosaic/alex-browser/"], created_at: "2026-09-09T17:45:00Z", score: null }] });

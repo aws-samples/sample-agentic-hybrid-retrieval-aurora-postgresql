@@ -1,3 +1,5 @@
+import { reviewedProductSummary } from "../reviewedExamples";
+import "../reviewed-examples.css";
 import { Check, Heart, ShoppingBag, Star } from "lucide-react";
 import { Link } from "wouter";
 import { cartQuantityLimit, useCommerce } from "../commerce";
@@ -66,6 +68,7 @@ export function ProductCard({
       <article
         className={[
           "shop-product-card",
+          product.source_dataset ? "source-product-card" : "",
           assistRank ? "assist-selected" : "",
           highlighted ? "assist-highlighted" : "",
         ].filter(Boolean).join(" ")}
@@ -112,7 +115,7 @@ export function ProductCard({
         </button>
         <div className="product-card-body">
           <h3>
-            <Link href={productDetailHref(product.product_id)}>{product.model}</Link>
+            <Link href={productDetailHref(product.product_id)}>{product.source_dataset ? product.title : product.model}</Link>
           </h3>
           <p className="shop-card-meta">
             <span>{product.brand}</span>
@@ -121,6 +124,7 @@ export function ProductCard({
           {description ? (
             <p className="shop-card-description" title={description}>{description}</p>
           ) : null}
+          {reviewedProductSummary(product) && <p className="reviewed-card-fact">{reviewedProductSummary(product)}</p>}
           {/* "Why this match", not "Why ranked #3": a shopper deciding between two
               chairs is asking what Mosaic noticed, and the number is inside. Every
               row is one product's own position, never a pool count. */}
@@ -161,14 +165,14 @@ export function ProductCard({
           ) : null}
           <div className="shop-card-footer">
             <span className="shop-card-price">
-              <strong>{formatPrice(product.price_cents, product.currency)}</strong>
+              <strong>{product.source_dataset ? "Original product" : formatPrice(product.price_cents, product.currency)}</strong>
               {product.review_count && product.rating !== null ? (
-                <span className="shop-card-rating">
+                <span className="shop-card-rating" title={product.source_dataset ? `${product.review_count.toLocaleString()} historical ratings` : undefined}>
                   <Star size={13} fill="currentColor" />
                   {product.rating.toFixed(1)}
                 </span>
               ) : null}
-              {isPurchasable(product.availability) ? null : (
+              {product.source_dataset || isPurchasable(product.availability) ? null : (
                 <span className="shop-card-stock unavailable">
                   {formatAvailability(product.availability)}
                 </span>
@@ -192,6 +196,7 @@ export function ProductCard({
                 Compare
               </label>
             ) : null}
+            {product.listing_url ? <a className="source-listing-link" href={product.listing_url} target="_blank" rel="noreferrer" aria-label={`Original listing for ${product.title}`}>Original listing ↗</a> : (
             <button
               className={quantity ? "shop-quick-add added" : "shop-quick-add"}
               type="button"
@@ -215,6 +220,7 @@ export function ProductCard({
               <ShoppingBag size={17} />
               {quantity ? <span>{quantity}</span> : null}
             </button>
+            )}
           </div>
         </div>
       </article>

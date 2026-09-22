@@ -1,4 +1,6 @@
 import { defineConfig, mergeConfig } from "vitest/config";
+import { searchForWorkspaceRoot } from "vite";
+import { fileURLToPath } from "node:url";
 
 import viteConfig from "./vite.config.ts";
 
@@ -9,6 +11,11 @@ import viteConfig from "./vite.config.ts";
 export default mergeConfig(
   viteConfig,
   defineConfig({
+    server: {
+      fs: {
+        allow: [searchForWorkspaceRoot(process.cwd()), fileURLToPath(new URL("../scripts", import.meta.url))],
+      },
+    },
     test: {
       // CatalogPage's paced reveals await several 5 s windows inside one test;
       // vitest's default per-test ceiling is also 5 s, so a loaded runner would

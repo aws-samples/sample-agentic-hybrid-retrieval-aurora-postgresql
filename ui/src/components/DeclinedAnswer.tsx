@@ -1,4 +1,8 @@
 const notices: Record<string, { title: string; help: string }> = {
+  no_matching_products: {
+    title: "No products matched this search",
+    help: "Your filters stayed in place. Adjust one and ask again, or try a different description.",
+  },
   insufficient_evidence: {
     title: "The sources do not answer this yet",
     help: "A product can be in the catalog without sources for every question. Ask about a specific feature or inspect the sources used.",
@@ -24,8 +28,8 @@ export function DeclinedAnswer({ answer, reason, className }: {
 }) {
   // Older coverage responses carry the unmatched term itself as the reason.
   const notice = reason ? notices[reason] ?? {
-    title: "Nothing in the catalog matches part of this request",
-    help: "This is a catalog gap, not a retrieval fault. Try different words or drop the term named above.",
+    title: "Mosaic could not confirm part of this request",
+    help: "Check the product name or spelling, or inspect the sources before trying again.",
   } : notices.no_supported_catalog_answer;
   return <section className={className} aria-label="Declined answer">
     <h3>{notice.title}</h3>

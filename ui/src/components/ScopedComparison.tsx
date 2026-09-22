@@ -43,6 +43,7 @@ function foundBy(product: ProductSummary): string {
 }
 
 function priceDisplay(product: ProductSummary): string {
+  if (product.price_cents == null) return "Check original listing";
   return `$${(product.price_cents / 100).toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -107,67 +108,70 @@ export function ScopedComparison({
       ) : !products ? (
         <p className="shop-comparison-pending">Reading the saved search…</p>
       ) : (
-        <div className="shop-comparison-scroll">
-          <table className="shop-comparison-table">
-            <thead>
-              <tr>
-                <th scope="col">
-                  <span className="sr-only">Field</span>
-                </th>
-                {products.map((product) => (
-                  <th scope="col" key={product.product_id}>
-                    {product.title}
+        <>
+          <p className="shop-comparison-scroll-hint">Scroll across to see every selected product.</p>
+          <div className="shop-comparison-scroll" role="region" aria-label="Selected product details" tabIndex={0}>
+            <table className="shop-comparison-table">
+              <thead>
+                <tr>
+                  <th scope="col">
+                    <span className="sr-only">Field</span>
                   </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th scope="row">Price</th>
-                {products.map((product) => (
-                  <td key={product.product_id}>{priceDisplay(product)}</td>
-                ))}
-              </tr>
-              <tr>
-                <th scope="row">Rating</th>
-                {products.map((product) => (
-                  <td key={product.product_id}>{product.rating ?? "not rated"}</td>
-                ))}
-              </tr>
-              <tr>
-                <th scope="row">Availability</th>
-                {products.map((product) => (
-                  <td key={product.product_id}>{product.availability.replace(/_/g, " ")}</td>
-                ))}
-              </tr>
-              {/* Everything below comes from the retrieval receipt, and is the
-                  reason this panel asks the server rather than filtering the
-                  list the page already had. */}
-              <tr className="shop-comparison-rule">
-                <th scope="row">Found by</th>
-                {products.map((product) => (
-                  <td key={product.product_id}>{foundBy(product)}</td>
-                ))}
-              </tr>
-              <tr>
-                <th scope="row">Rank before reranking</th>
-                {products.map((product) => (
-                  <td key={product.product_id}>
-                    {product.signals ? product.signals.pre_rerank_rank : "not recorded"}
-                  </td>
-                ))}
-              </tr>
-              <tr>
-                <th scope="row">Rank shown to you</th>
-                {products.map((product) => (
-                  <td key={product.product_id}>
-                    {product.signals ? product.signals.final_rank : "not recorded"}
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-        </div>
+                  {products.map((product) => (
+                    <th scope="col" key={product.product_id}>
+                      {product.title}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">Price</th>
+                  {products.map((product) => (
+                    <td key={product.product_id}>{priceDisplay(product)}</td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row">Rating</th>
+                  {products.map((product) => (
+                    <td key={product.product_id}>{product.rating ?? "not rated"}</td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row">Availability</th>
+                  {products.map((product) => (
+                    <td key={product.product_id}>{product.availability?.replace(/_/g, " ") ?? "Not reported"}</td>
+                  ))}
+                </tr>
+                {/* Everything below comes from the retrieval receipt, and is the
+                    reason this panel asks the server rather than filtering the
+                    list the page already had. */}
+                <tr className="shop-comparison-rule">
+                  <th scope="row">Found by</th>
+                  {products.map((product) => (
+                    <td key={product.product_id}>{foundBy(product)}</td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row">Rank before reranking</th>
+                  {products.map((product) => (
+                    <td key={product.product_id}>
+                      {product.signals ? product.signals.pre_rerank_rank : "not recorded"}
+                    </td>
+                  ))}
+                </tr>
+                <tr>
+                  <th scope="row">Rank shown to you</th>
+                  {products.map((product) => (
+                    <td key={product.product_id}>
+                      {product.signals ? product.signals.final_rank : "not recorded"}
+                    </td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </section>
   );
