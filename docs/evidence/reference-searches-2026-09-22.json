@@ -1,0 +1,255 @@
+{
+  "measured_at": "2026-09-22T12:49:04.113649+00:00",
+  "scope": "Three reviewed ESCI queries against the production Amazon catalog. WANDS records are a separate source comparison, not part of this search corpus. Unreviewed results are ungraded; no whole-catalog quality metric is calculated.",
+  "runs": [
+    {
+      "case": "esci-headphones",
+      "category": "headphones",
+      "request": {
+        "query": "usb c headphones s10",
+        "filters": {},
+        "limit": 10,
+        "include_diagnostics": true,
+        "rerank": true
+      },
+      "search_event_id": "8dafc82e-3385-4ee6-a727-7662e8c2d5ef",
+      "reviewed_matches": [
+        {
+          "product_id": 1346637,
+          "asin": "B084H3M52X",
+          "source_label": "E",
+          "in_saved_pool": true,
+          "displayed_rank": 1,
+          "current_source_matches_review": true
+        },
+        {
+          "product_id": 1314337,
+          "asin": "B07SM5MQN8",
+          "source_label": "C",
+          "in_saved_pool": false,
+          "displayed_rank": null,
+          "current_source_matches_review": null
+        }
+      ],
+      "ungraded_displayed_results": 9,
+      "displayed_products": [
+        {
+          "product_id": 1346637,
+          "asin": "B084H3M52X",
+          "title": "ElloGear 2020 Earbuds USB C Headphones for Samsung Galaxy S21, Note 10, Galaxy S10, S9 Plus, S10e - Designed by AKG - Braided Cable with Microphone and Volume Remote Type-C Connector - White"
+        },
+        {
+          "product_id": 1403293,
+          "asin": "B09127X38P",
+          "title": "UrbanX OEM 2021 Stereo Headphones for Samsung Galaxy S10 Lite Braided Cable with Microphone (Black) USB-C Connector (US Version with Warranty)"
+        },
+        {
+          "product_id": 1440493,
+          "asin": "B09P3YW7KW",
+          "title": "Ear Buds for Samsung Galaxy s10 s21 s20 Plus s21+ Note Wired USB c Earphones usbc Headphones USB-c Earbuds Type c audifonos Corded fe 5g with case and Microphone Black"
+        },
+        {
+          "product_id": 1314762,
+          "asin": "B07SR33NY7",
+          "title": "Josi Minea USB 3.1 Type C Male [ USB-C ] to 3.5mm Female Audio Adapter Headset Headphone Extender for Samsung Galaxy S10, S10+, S9, S9+, S8, S8+ Note 9 & 8, LG G6 & G5, New Apple Macbook, Google Pixel"
+        },
+        {
+          "product_id": 1341651,
+          "asin": "B082QZNK3Y",
+          "title": "USB C to 3.5mm Headphone/Earbuds Jack Adapter, USB Type C to 3.5mm Adapter Compatible with Pixel 4 3 2 XL, Samsung S10 S9 Plus Note 10, iPad Pro, Mate 30 20 Pro and More [2 Pack]"
+        },
+        {
+          "product_id": 1464505,
+          "asin": "B0B6C5FB9D",
+          "title": "Headphones for Samsung Galaxy s22 s21 s20 s10 Ultra Note Pixel z flip Earphones usbc Ear Buds USB c Type c audifonos Original"
+        },
+        {
+          "product_id": 1344332,
+          "asin": "B083K5L5D4",
+          "title": "ErnestWoolomd USB C to 3.5mm Headphone / Earbuds Jack Adapter, USB Type C to 3.5mm Adapter Compatible with Pixel 4 3 2 XL, Samsung S10 S9 Plus Note 10, iPad Pro, Mate 30 20 Pro and More [2 Pack]"
+        },
+        {
+          "product_id": 1346666,
+          "asin": "B084HGW2SJ",
+          "title": "USB C Headphones, IPX 5 Water Resistant HiFi Stereo USB C Earbuds W/Mic Noise Isolation Headphone for Google Pixel 4/3/2/XL, Essential Phone, 2018 iPad Pro, One Plus 6T and More"
+        },
+        {
+          "product_id": 1467274,
+          "asin": "B0B8DRKQG7",
+          "title": "UrbanX 2020 Headphones for Samsung Galaxy S10 S10e Plus with Type C Connector | Designed by AKG with Microphone and Volume Buttons (AKG White)"
+        },
+        {
+          "product_id": 1349312,
+          "asin": "B085LG3HQS",
+          "title": "KOOPAO USB C to 3.5mm Female Headphone Adapter, 384kHz/32bit Hi-Res Type C to Aux Audio Dongle Cable Cord Compatible with Samsung S10 S9 Plus Google Pixel 2 3 4XL and HTC Huawei iPad Pro(Grey)"
+        }
+      ]
+    },
+    {
+      "case": "esci-chairs",
+      "category": "chairs",
+      "request": {
+        "query": "office chair not on wheels",
+        "filters": {},
+        "limit": 10,
+        "include_diagnostics": true,
+        "rerank": true
+      },
+      "search_event_id": "7d86e649-10ce-443a-b840-5cc59260d29d",
+      "reviewed_matches": [
+        {
+          "product_id": 1235852,
+          "asin": "B072Y5MZQH",
+          "source_label": "E",
+          "in_saved_pool": false,
+          "displayed_rank": null,
+          "current_source_matches_review": null
+        },
+        {
+          "product_id": 1403838,
+          "asin": "B0919BYPZP",
+          "source_label": "I",
+          "in_saved_pool": false,
+          "displayed_rank": null,
+          "current_source_matches_review": null
+        }
+      ],
+      "ungraded_displayed_results": 10,
+      "displayed_products": [
+        {
+          "product_id": 1308453,
+          "asin": "B07R148794",
+          "title": "CoVibrant Modern Office Chair Without Wheels Waiting Room Chairs with Arms for Reception Desk Conference Area, Set of 2"
+        },
+        {
+          "product_id": 1372314,
+          "asin": "B08GM9ST59",
+          "title": "Office Chair Bell Glides with Felt Pads,Office Chair Caster Replacement,Shockproof and Non Slip,Heavy Duty 550lbs,Protect Floors,Furniture Feet,Desk Chair,Swivel Chair,Task Chair No Wheels,11mm"
+        },
+        {
+          "product_id": 1485300,
+          "asin": "B0BS5H73ZG",
+          "title": "Okeysen Conference Room Chairs, Modern Office Guest Chairs for Waiting Room, Reception Chairs with Mid Back & Sled Base, Leather Office Desk Chair No Wheels."
+        },
+        {
+          "product_id": 1361673,
+          "asin": "B08BCCY6NR",
+          "title": "Leffis 5 Pack Bell Glides for Office Chair without Wheels, Replacement Rolling Chair Swivel Wheels Fixed Stationary Castors, Low Profile Chair Glides"
+        },
+        {
+          "product_id": 1443365,
+          "asin": "B09QLVG9ZD",
+          "title": "MR.FOAM Office Chair Wheel Replacement 3 Inch 1PC Change The Bad One Wheels for Office Chair Caster for"
+        },
+        {
+          "product_id": 1411038,
+          "asin": "B094T2JY41",
+          "title": "Office Chair Wheels Replacement Rubber Chair casters for Hardwood Floors and Carpet, Set of 5, Heavy Duty Rollerblade Wheels for Office Chairs to Replace Office Chair mats - Fits 98%"
+        },
+        {
+          "product_id": 1436954,
+          "asin": "B09MJZRLMK",
+          "title": "Office Chair Wheels Replacement Rubber Chair casters for Hardwood Floors and Carpet, Set of 5, Heavy Duty Office Chair casters for Chairs to Replace Office Chair mats - Fits 98%"
+        },
+        {
+          "product_id": 1205442,
+          "asin": "B01J0K08FM",
+          "title": "Office chair wheels replacement rubber chair casters for hardwood floors and carpet LIFELONG Warranty. 2.5\" desk chair wheels, antique casters kitchen & dinette chairs casters heavy duty Universal fit"
+        },
+        {
+          "product_id": 1205441,
+          "asin": "B01J0JDEHM",
+          "title": "Office Chair Wheels Replacement Rubber Chair casters for Hardwood Floors and Carpet 2.5\" Desk Chair Wheels, Antique casters Kitchen & dinette Chairs casters Heavy Duty Universal fit"
+        },
+        {
+          "product_id": 1439994,
+          "asin": "B09NVNF5V9",
+          "title": "Office Chair Wheels Replacement (Set of 5) 2'' Caster Wheels for Office Chair Smooth Rolling Heavy Duty Casters - Safe for All Floors Including Hardwood - Universal Stem 7/16 Inch, Black"
+        }
+      ]
+    },
+    {
+      "case": "esci-monitors",
+      "category": "monitors",
+      "request": {
+        "query": "ultrawide usb c monitor",
+        "filters": {},
+        "limit": 10,
+        "include_diagnostics": true,
+        "rerank": true
+      },
+      "search_event_id": "1c56c44e-5164-4649-aea8-274f32f27e47",
+      "reviewed_matches": [
+        {
+          "product_id": 1234681,
+          "asin": "B072JRQYRH",
+          "source_label": "E",
+          "in_saved_pool": false,
+          "displayed_rank": null,
+          "current_source_matches_review": null
+        },
+        {
+          "product_id": 1331941,
+          "asin": "B07YRXF62V",
+          "source_label": "S",
+          "in_saved_pool": false,
+          "displayed_rank": null,
+          "current_source_matches_review": null
+        }
+      ],
+      "ungraded_displayed_results": 10,
+      "displayed_products": [
+        {
+          "product_id": 1388724,
+          "asin": "B08PQJB5H8",
+          "title": "PHILIPS 346B1C UltraWide 34\" Curved Monitor, UltraWide QHD 2K, USB-C and Built-in KVM Switch, 119% sRGB, USB-PD 90W, Height Adjustable, PowerSensor, 4Yr Advance Replacement Warranty"
+        },
+        {
+          "product_id": 1226404,
+          "asin": "B06XRWWKBD",
+          "title": "LG 34UC99-W 34-Inch 21:9 Curved UltraWide WQHD IPS Monitor with USB Type-C (2017)"
+        },
+        {
+          "product_id": 1182248,
+          "asin": "B017SAGTMC",
+          "title": "Samsung C34H890WJN - 34 Inch (3440 x 1440) WQHD UltraWide Professional LED Curved Monitor"
+        },
+        {
+          "product_id": 1462410,
+          "asin": "B0B54W7CBH",
+          "title": "Dell UltraSharp 34inch QHD Ultra Wide 1440p Curved 90W USB-C Hub RJ45 Monitor [U3421WE]"
+        },
+        {
+          "product_id": 1422195,
+          "asin": "B09BP1P4BG",
+          "title": "LG 38WP85C-W 38-inch Curved 21:9 UltraWide QHD+ IPS Monitor with USB Type C (90W Power delivery), DCI-P3 95% Color Gamut with HDR 10 and Tilt/Height Adjustable Stand"
+        },
+        {
+          "product_id": 1429934,
+          "asin": "B09HKGD2WY",
+          "title": "LG 34WP85C-B 34-inch Curved 21:9 UltraWide QHD (3440x1440) IPS Display with USB Type C (90W Power delivery), DCI-P3 95% Color Gamut with HDR 10 and Tilt/Height Adjustable Stand"
+        },
+        {
+          "product_id": 1459517,
+          "asin": "B0B35YFPWC",
+          "title": "LG 49WL95C-WE 32:9 UltraWide Monitor 49\" Dual DQHD (5120 x 1440) IPS Display, HDR10, USB Type-C with 85W Power Delivery, Ambient Light Sensor, 2 x 10W Stereo Speaker with Rich Bass - Silver"
+        },
+        {
+          "product_id": 1268917,
+          "asin": "B07D5JCBWQ",
+          "title": "Dell UltraSharp 29 Ultrawide Monitor"
+        },
+        {
+          "product_id": 1480211,
+          "asin": "B0BMQ7Z9QT",
+          "title": "LG 34WP88C-B 34-inch Curved 21:9 UltraWide QHD (3440x1440) IPS Display with Ergo Stand (Extend/Retract/Swivel/Height/Tilt), USB Type C (90W power delivery), DCI-P3 95% Color Gamut with HDR 10"
+        },
+        {
+          "product_id": 1350562,
+          "asin": "B08623SZH9",
+          "title": "SAMSUNG CH890 Series 34-Inch Ultrawide QHD (3440x1440) Computer Monitor, 100Hz, Curved, HDMI, USB-C, Height Adjustable Stand, 3 Yr WRNTY (LC34H890WGNXGO)"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "source_url": "https://www.kaggle.com/datasets/asaniczka/amazon-products-dataset-2023-1-4m-products",
+  "version": 17,
+  "sampling": "Complete archive; no category or row sampling. Exact ASIN join to ESCI US only.",
+  "rows": 1426337,
+  "distinct_asins": 1426337,
+  "duplicate_asin_rows": 0,
+  "blank_asin_rows": 0,
+  "columns": [
+    "asin",
+    "title",
+    "imgUrl",
+    "productURL",
+    "stars",
+    "reviews",
+    "price",
+    "listPrice",
+    "category_id",
+    "isBestSeller",
+    "boughtInLastMonth"
+  ],
+  "nonempty_fields": {
+    "asin": 1426337,
+    "title": 1426337,
+    "imgUrl": 1426337,
+    "productURL": 1426337,
+    "stars": 1426337,
+    "reviews": 1426337,
+    "price": 1426337,
+    "listPrice": 1426337,
+    "category_id": 1426337,
+    "isBestSeller": 1426337,
+    "boughtInLastMonth": 1426337
+  },
+  "https_image_urls": 1426300,
+  "category_count": 248,
+  "focus_category_counts": {
+    "Computer Monitors": 3584,
+    "Headphones & Earbuds": 9242
+  },
+  "esci_us_overlap": {
+    "us_product_ids": 127700,
+    "description_present": 65740,
+    "description_or_bullets_present": 126802,
+    "description_or_bullets_and_image_url_present": 126799
+  },
+  "preview_matches": [
+    "B085RNVJ3P",
+    "B08DQWG3JG",
+    "B086H26XWV",
+    "B06Y3PGPR2"
+  ],
+  "limits": [
+    "Image URL presence does not establish availability, correct variant or redistribution permission.",
+    "No descriptions, structured specifications, review text or relevance judgments are supplied in these columns.",
+    "Price and popularity fields are historical source values, not live prices or inventory."
+  ],
+  "bytes": 104037676,
+  "sha256": "a39067bf0873e185703f726081f4f42f86cd2ed6aa449a2d1f13a0927ba5c62a"
+}

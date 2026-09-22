@@ -1,0 +1,75 @@
+{
+  "source": "Amazon Reviews 2023 product metadata",
+  "source_revision": "2b6d039ed471f2ba5fd2acb718bf33b0a7e5598e",
+  "products": 500000,
+  "catalog_sha256": "149563d3bc6b3b090bd49bb6c3eda583636d03aec5c9126add0df1a57447c9c6",
+  "plan": {
+    "version": 1,
+    "selection_seed": "mosaic-real-products-v1",
+    "minimum_source_text_characters": 160,
+    "maximum_embedding_characters": 32000,
+    "sources": [
+      {
+        "category": "Office_Products",
+        "products": 100000
+      },
+      {
+        "category": "Electronics",
+        "products": 400000
+      }
+    ]
+  },
+  "source_reports": {
+    "Office_Products": {
+      "source_rows": 710503,
+      "eligible_products": 538292,
+      "selected_products": 100000,
+      "excluded_counts": {
+        "insufficient_source_text": 168163,
+        "missing_primary_image": 4002,
+        "missing_title": 35,
+        "over_embedding_text_budget": 11
+      }
+    },
+    "Electronics": {
+      "source_rows": 1610012,
+      "eligible_products": 1172883,
+      "selected_products": 400000,
+      "excluded_counts": {
+        "insufficient_source_text": 435390,
+        "missing_primary_image": 1574,
+        "missing_title": 94,
+        "over_embedding_text_budget": 71
+      }
+    }
+  },
+  "embedding_text_characters": 936909727,
+  "primary_image_fields": {
+    "source_high_resolution": 399163,
+    "source_large": 100837
+  },
+  "ratings_coverage": {
+    "products": 500000,
+    "numeric_average_ratings": 500000,
+    "numeric_rating_counts": 500000,
+    "minimum_average_rating": 1.0,
+    "maximum_average_rating": 5.0,
+    "minimum_rating_count": 1.0,
+    "maximum_rating_count": 1034896.0
+  },
+  "aurora_staging_snapshot": {
+    "dataset_id": "reviews-2023-500k-v1",
+    "expected_products": 500000,
+    "products": 500000,
+    "embeddings": 16606,
+    "incompatible_embeddings": 0,
+    "text_hash_mismatches": 0,
+    "records_complete": true,
+    "embeddings_complete": false,
+    "ready_for_search_validation": false,
+    "live_catalog_promoted": false
+  },
+  "source_text_and_image_check": "Original metadata objects retained; all photo URLs are not visually certified.",
+  "review_text_imported": false,
+  "live_catalog_promoted": false
+}

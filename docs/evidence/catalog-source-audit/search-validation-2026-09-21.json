@@ -1,0 +1,441 @@
+{
+  "summarized_at": "2026-09-21T16:29:18.619499+00:00",
+  "dataset_id": "reviews-2023-500k-v1",
+  "catalog_sha256": "149563d3bc6b3b090bd49bb6c3eda583636d03aec5c9126add0df1a57447c9c6",
+  "local_reports": {
+    "index_preparation": {
+      "path": ".local/real-products/catalog-500k/search-preparation-report.json",
+      "sha256": "3a3887ea935acd97a6bdcc1b7b1cbed0f9a4b7fb46f814b3ca162a1dd60eda79",
+      "file_completed_at": "2026-09-21T16:10:52.129477+00:00"
+    },
+    "initial_search": {
+      "path": ".local/real-products/catalog-500k/search-probe-report.json",
+      "sha256": "b75915e962bc5b10aaeab4b6945c3d04cfda757d5d3e83260ae4e7a9cb523a80",
+      "file_completed_at": "2026-09-21T16:12:18.004047+00:00"
+    },
+    "identity_corrected_search": {
+      "path": ".local/real-products/catalog-500k/identity-search-probe-report.json",
+      "sha256": "c046729bf85bf7944d900ee14e04bbc5928ebe5b77d8d49ac40837a48e0ad2b3",
+      "file_completed_at": "2026-09-21T16:26:11.200209+00:00"
+    }
+  },
+  "index_preparation": {
+    "dataset_id": "reviews-2023-500k-v1",
+    "catalog_sha256": "149563d3bc6b3b090bd49bb6c3eda583636d03aec5c9126add0df1a57447c9c6",
+    "projection_sha256": "f5109f5ca4912c2dbb426970b4a3fa7a9d1f6011584a31996716cd81b607790e",
+    "functions_sha256": "556b5f32240f029152e46692a892fd9a9d0eb0650931df4359386c3340899917",
+    "products": 500000,
+    "source_vector_mismatches": 0,
+    "indexes": [
+      {
+        "name": "product_document_parent_asin_key",
+        "bytes": 15794176,
+        "valid": true
+      },
+      {
+        "name": "product_document_pkey",
+        "bytes": 11255808,
+        "valid": true
+      },
+      {
+        "name": "real_search_fts_idx",
+        "bytes": 336551936,
+        "valid": true
+      },
+      {
+        "name": "real_search_kind_idx",
+        "bytes": 15876096,
+        "valid": true
+      },
+      {
+        "name": "real_search_trigram_idx",
+        "bytes": 199704576,
+        "valid": true
+      },
+      {
+        "name": "real_search_vector_idx",
+        "bytes": 4094025728,
+        "valid": true
+      }
+    ],
+    "index_ensure_seconds": {
+      "real_search_fts_idx": 22.05,
+      "real_search_trigram_idx": 10.2,
+      "real_search_kind_idx": 0.38,
+      "real_search_vector_idx": 431.89
+    },
+    "profile": {
+      "vector_dimension": 1024,
+      "fts_limit": 120,
+      "trigram_limit": 80,
+      "semantic_limit": 150,
+      "trigram_threshold": 0.2,
+      "trigram_similarity_gate": 0.18,
+      "trigram_word_similarity_gate": 0.5,
+      "coverage_similarity_floor": 0.24,
+      "rrf_k": 60,
+      "fused_limit": 50,
+      "weight_lexical": 0.3,
+      "weight_semantic": 0.45,
+      "weight_trigram": 0.1,
+      "display_limit": 12,
+      "hnsw_m": 16,
+      "hnsw_ef_construction": 200,
+      "hnsw_ef_search": 100,
+      "hnsw_max_scan_tuples": 20000,
+      "hnsw_scan_mem_multiplier": 2.0
+    },
+    "live_catalog_promoted": false,
+    "retrieval_quality_validated": false
+  },
+  "query_embedding_model": "us.cohere.embed-v4:0",
+  "rerank_model": "cohere.rerank-v3-5:0",
+  "profile": {
+    "fts_limit": 120,
+    "trigram_limit": 80,
+    "semantic_limit": 150,
+    "fused_limit": 50,
+    "result_limit": 12,
+    "authorized_limit": null,
+    "rrf_k": 60,
+    "trigram_threshold": 0.2,
+    "weight_lexical": 0.3,
+    "weight_semantic": 0.45,
+    "weight_trigram": 0.1,
+    "ef_search": 100,
+    "iterative_scan": "relaxed_order",
+    "max_scan_tuples": 20000,
+    "scan_mem_multiplier": 2.0
+  },
+  "initial_rerank_input": "Unchanged source text; parent ASIN was omitted.",
+  "initial_observations": [
+    {
+      "query": "noice cancelng hedfones",
+      "state": "repaired",
+      "category": "headphones",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 50,
+      "top_three_after_rerank": [
+        "B00931S9GY",
+        "B004TSLV52",
+        "B005DDDISA"
+      ]
+    },
+    {
+      "query": "Bose QuietComfrt 35",
+      "state": "repaired",
+      "category": "headphones",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 50,
+      "top_three_after_rerank": [
+        "B07CJMDSH9",
+        "B07G95TJ3P",
+        "B07NXDPLJ9"
+      ]
+    },
+    {
+      "query": "noise cancelling headphones with a microphone for clear calls",
+      "state": "repaired",
+      "category": "headphones",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 50,
+      "top_three_after_rerank": [
+        "B0B8NYDDW6",
+        "B09PZKCK3Y",
+        "B0B58KZT1C"
+      ]
+    },
+    {
+      "query": "Steelcase Gesture adjustable lumbar support arms",
+      "state": "repaired",
+      "category": "chair",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 50,
+      "top_three_after_rerank": [
+        "B01NAKXH73",
+        "B01F7AZU0M",
+        "B08D9MNCNQ"
+      ]
+    },
+    {
+      "query": "27 inch 4K monitor USB-C 90W laptop charging",
+      "state": "repaired",
+      "category": "monitor",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 50,
+      "top_three_after_rerank": [
+        "B0939N79Y8",
+        "B0BNT11NYH",
+        "B01NARLLE6"
+      ]
+    },
+    {
+      "query": "B0939N79Y8",
+      "state": "repaired",
+      "category": "monitor",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 50,
+      "top_three_after_rerank": [
+        "B0BJJ7BXR6",
+        "B07V4BKDQB",
+        "B09PQMGNBJ"
+      ],
+      "requested_parent_rank": 8
+    },
+    {
+      "query": "Sony WH-1000XM4",
+      "state": "repaired",
+      "category": null,
+      "result_count": 50,
+      "rrf_arithmetic_passed": 50,
+      "top_three_after_rerank": [
+        "B08K989CZR",
+        "B08ZJSVGR2",
+        "B0C37YJ9B4"
+      ]
+    },
+    {
+      "query": "noice cancelng hedfones",
+      "state": "lab1_broken",
+      "category": "headphones",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 50,
+      "top_three_after_rerank": [
+        "B00931S9GY",
+        "B004TSLV52",
+        "B005DDDISA"
+      ]
+    },
+    {
+      "query": "Bose QuietComfrt 35",
+      "state": "lab1_broken",
+      "category": "headphones",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 50,
+      "top_three_after_rerank": [
+        "B07CJMDSH9",
+        "B07G95TJ3P",
+        "B07NXDPLJ9"
+      ]
+    },
+    {
+      "query": "noise cancelling headphones with a microphone for clear calls",
+      "state": "lab1_broken",
+      "category": "headphones",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 50,
+      "top_three_after_rerank": [
+        "B0B8NYDDW6",
+        "B09PZKCK3Y",
+        "B0B58KZT1C"
+      ]
+    },
+    {
+      "query": "Steelcase Gesture adjustable lumbar support arms",
+      "state": "lab1_broken",
+      "category": "chair",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 50,
+      "top_three_after_rerank": [
+        "B01NAKXH73",
+        "B01F7AZU0M",
+        "B08D9MNCNQ"
+      ]
+    },
+    {
+      "query": "27 inch 4K monitor USB-C 90W laptop charging",
+      "state": "lab1_broken",
+      "category": "monitor",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 50,
+      "top_three_after_rerank": [
+        "B0939N79Y8",
+        "B0BNT11NYH",
+        "B01NARLLE6"
+      ]
+    },
+    {
+      "query": "B0939N79Y8",
+      "state": "lab1_broken",
+      "category": "monitor",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 50,
+      "top_three_after_rerank": [
+        "B0BJJ7BXR6",
+        "B07V4BKDQB",
+        "B09PQMGNBJ"
+      ],
+      "requested_parent_rank": 8
+    },
+    {
+      "query": "Sony WH-1000XM4",
+      "state": "lab1_broken",
+      "category": null,
+      "result_count": 50,
+      "rrf_arithmetic_passed": 50,
+      "top_three_after_rerank": [
+        "B08K989CZR",
+        "B08ZJSVGR2",
+        "B0C37YJ9B4"
+      ]
+    },
+    {
+      "query": "noice cancelng hedfones",
+      "state": "lab2_broken",
+      "category": "headphones",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 1,
+      "top_three_after_rerank": [
+        "B00931S9GY",
+        "B004TSLV52",
+        "B0051UV69I"
+      ]
+    },
+    {
+      "query": "Bose QuietComfrt 35",
+      "state": "lab2_broken",
+      "category": "headphones",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 0,
+      "top_three_after_rerank": [
+        "B07CJMDSH9",
+        "B07G95TJ3P",
+        "B07NXDPLJ9"
+      ]
+    },
+    {
+      "query": "noise cancelling headphones with a microphone for clear calls",
+      "state": "lab2_broken",
+      "category": "headphones",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 0,
+      "top_three_after_rerank": [
+        "B0B8NYDDW6",
+        "B09PZKCK3Y",
+        "B0B58KZT1C"
+      ]
+    },
+    {
+      "query": "Steelcase Gesture adjustable lumbar support arms",
+      "state": "lab2_broken",
+      "category": "chair",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 0,
+      "top_three_after_rerank": [
+        "B01NAKXH73",
+        "B01F7AZU0M",
+        "B08D9MNCNQ"
+      ]
+    },
+    {
+      "query": "27 inch 4K monitor USB-C 90W laptop charging",
+      "state": "lab2_broken",
+      "category": "monitor",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 0,
+      "top_three_after_rerank": [
+        "B01NARLLE6",
+        "B01N3YVA0P",
+        "B00ZD8N1HS"
+      ]
+    },
+    {
+      "query": "B0939N79Y8",
+      "state": "lab2_broken",
+      "category": "monitor",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 1,
+      "top_three_after_rerank": [
+        "B00CPZJP7C",
+        "B002VT1GPQ",
+        "B0096BIP8I"
+      ],
+      "requested_parent_rank": 4
+    },
+    {
+      "query": "Sony WH-1000XM4",
+      "state": "lab2_broken",
+      "category": null,
+      "result_count": 50,
+      "rrf_arithmetic_passed": 0,
+      "top_three_after_rerank": [
+        "B08K989CZR",
+        "B08ZJSVGR2",
+        "B0C37YJ9B4"
+      ]
+    }
+  ],
+  "corrected_rerank_input": "Preserved parent ASIN followed by unchanged source text.",
+  "identity_correction_observations": [
+    {
+      "query": "B0939N79Y8",
+      "state": "repaired",
+      "category": "monitor",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 50,
+      "top_three_after_rerank": [
+        "B0939N79Y8",
+        "B09PQMGNBJ",
+        "B09VWNTWX6"
+      ],
+      "requested_parent_rank": 1
+    },
+    {
+      "query": "B0939N79Y8",
+      "state": "lab1_broken",
+      "category": "monitor",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 50,
+      "top_three_after_rerank": [
+        "B0939N79Y8",
+        "B09PQMGNBJ",
+        "B09VWNTWX6"
+      ],
+      "requested_parent_rank": 1
+    },
+    {
+      "query": "B0939N79Y8",
+      "state": "lab2_broken",
+      "category": "monitor",
+      "result_count": 50,
+      "rrf_arithmetic_passed": 1,
+      "top_three_after_rerank": [
+        "B0939N79Y8",
+        "B00CPZJP7C",
+        "B0096BIP8I"
+      ],
+      "requested_parent_rank": 1
+    }
+  ],
+  "findings": [
+    {
+      "status": "PASS",
+      "check": "All 500,000 source records and saved vectors agree with the isolated search projection; indexes valid."
+    },
+    {
+      "status": "PASS",
+      "check": "RRF arithmetic agrees for all 350 repaired rows. The intentional Lab 2 defect fails arithmetic on 348 of 350 rows."
+    },
+    {
+      "status": "NOT_ACCEPTED",
+      "check": "Existing typo and model-name typo each preserve their top three after spelling search is disabled; neither proves the planned Lab 1 repair."
+    },
+    {
+      "status": "NEEDS_REVIEW",
+      "check": "The monitor requirements query changes leading results with the Lab 2 defect, but feature correctness and participant visibility have not been accepted."
+    },
+    {
+      "status": "FIXED_IN_PROBE",
+      "check": "Including the preserved parent ASIN before unchanged source text keeps the exact requested product first in all three tested states; the earlier ranks 8, 8 and 4 remain recorded."
+    }
+  ],
+  "live_catalog_promoted": false,
+  "lab_example_acceptance": false,
+  "scope": "Shipped retrieval SQL over isolated source-faithful projection; does not exercise Shop, agent tools, coverage policy or workshop assertions.",
+  "limits": [
+    "Single-run observations are not latency benchmarks.",
+    "The corrected rerank input has only been rechecked for the exact-ID request.",
+    "No price or availability filters were applied because the source does not establish current offers.",
+    "The main Shop, agent tools, exact-identity policy, feature requirements and workshop assertions have not been validated against this projection."
+  ]
+}

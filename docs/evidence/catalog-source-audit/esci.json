@@ -1,0 +1,35 @@
+{
+  "rows_examined": 1814924,
+  "identity_scopes": {
+    "es": 260011,
+    "jp": 339059,
+    "us": 1215854
+  },
+  "nonempty_fields": {
+    "description": 937118,
+    "features": 1510803,
+    "title": 1814923
+  },
+  "top_product_types": [],
+  "limits": [
+    "Nonempty fields may be inaccurate. Image links are not verified images.",
+    "Title screens identify records to review, not certified product categories.",
+    "Absent features remain unknown; neither false values nor specifications are inferred.",
+    "Parent ASINs and variant ASINs are not interchangeable join keys."
+  ],
+  "source": "esci",
+  "input_sha256": "25124442d064d64b26f74082d6fa09438d679efc0c183cf28d19064a2b65a265",
+  "sampling": "Complete official products Parquet; US pilot means product_locale=us.",
+  "pilot_rows": 1215854,
+  "pilot_nonempty_fields": {
+    "description": 646059,
+    "features": 1037077,
+    "title": 1215853
+  },
+  "pilot_title_screens": {
+    "accessory_title": 12295,
+    "headphone_title_or_type": 5815,
+    "monitor_title_or_type": 4089,
+    "office_chair_title": 1661
+  }
+}

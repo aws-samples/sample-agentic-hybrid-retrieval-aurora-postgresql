@@ -1,80 +1,39 @@
-# Lab golden queries
+# Lab regression checks
 
-`data/evals/mosaic_labs_missions.json` is the authority for each required lab's
-query, filters, target products, participant edit, broken observation, fixed
-observation, and checkpoint question. This page explains how to use that
-contract without creating a second copy of its values.
+`data/evals/mosaic_labs_missions.json` owns the requests, filters, targets, assertions and timing. These exercises use `reviews-2023-500k-v1`: original Amazon Reviews 2023 product records and preserved embeddings. Product facts are not modified to manufacture outcomes.
 
 ## Participant experiments
 
-| Lab | Canonical query | Bad observation | Participant repair | Good observation |
-|---|---|---|---|---|
-| Retrieve | `G-003` / `typo-recovery` | Neither FTS nor the semantic arm can recover product 2; the disconnected pg_trgm arm contributes nothing, so product 2 is absent from the results | Restore the trigram CTE and candidate channel | Product 2 enters through the restored trigram channel alone, reaches the first 10 results, and retains hard filters |
-| Rank | `G-008` / `rank-with-evidence` | Product 370002 wins every arm; collapsed contributions give every position the same credit, so the pool below the leaders is ordered by product ID and reranking masks the defect | Restore `1 / (k + source_rank)` | Product 370002 is fused and final rank 1, with stable, inspectable contributions |
-| Reason | `G-021` / `agentic-research` | Retrieval and evidence calls occur, but synthesis fails closed with HTTP 503 | Attach retrieved evidence IDs to product-owned synthesis state | HTTP 200, grounded comparison, and citations resolve to real evidence records |
+| Stage | Visible before | Repair | Visible after |
+|---|---|---|---|
+| Retrieve / `G-003` | A transposed Bose listing ID returns other headphones; the intended listing is absent from the combined pool | Reconnect the existing close-spelling search | The intended Bose listing returns with its close-spelling contribution |
+| Rank / G-008 | A 27-inch 4K/90W request omits the suitable Dell U2720Q; the HP Z27n title visibly says 1440p | Use actual source positions in RRF | Dell enters the combined list, then rises to first after model reranking |
+| Reason / G-021 | Source records are fetched, but no supported answer can be produced | Register the returned evidence by product | The monitor/chair comparison cites resolvable source records |
 
-These three are not generic example prompts. Workshop Studio runs the same
-request before and after one focused change.
+## Independent controls
 
-Five validator-owned controls protect the adjacent invariants without adding
-participant exercises:
+- **G-001 · Preserve the exact listing:** The correctly spelled ASIN retrieves the intended Bose listing with an Exact terms contribution.
+- **G-012 · Keep the brand requirement:** The model-name search retains the Bose target. Every saved candidate and displayed result stays within the Bose headphones filter; a related product from another brand is ineligible.
+- **G-007 · Compare display specifications:** Retrieve both named Dell monitors. Their records distinguish 3840 x 2160 from 1920 x 1080. Do not infer equivalent USB-C charging, current price or stock.
+- **G-009 · Keep brand filters ahead of scoring:** The same monitor need, restricted to Dell, excludes HP and Lenovo before reranking. Inspect both saved candidates and served results.
+- **G-019 · Separate listening from microphone evidence:** Resolve specification and sampled-review citations for the Bose listing. Listening noise cancellation does not establish microphone call quality; disclose the evidence gap.
 
-| Lab | Canonical query | Production validator proves |
-|---|---|---|
-| Retrieve | `G-001` / `exact-identity` | FTS resolves the exact visible model name and it remains first through fusion and reranking |
-| Retrieve | `G-012` / `semantic-eligibility` | A near-identical refurbished hard negative is excluded inside every arm |
-| Rank | `G-007` / `compare-cheaper-alternative` | Rank movement between a mechanical keyboard and cheaper alternative is inspectable |
-| Rank | `G-009` / `ranking-filter-control` | Price and headrest constraints remain deterministic gates |
-| Reason | `G-019` / `evidence-grounding` | A recommendation cites resolvable evidence supporting the 12-hour claim |
-
-The other fourteen canonical queries broaden offline and release evaluation. They
-are not required participant steps.
+The internal ID `compare-cheaper-alternative` is retained for existing links. G-007 now compares display specifications; no current price claim is made.
 
 ## Release rule
 
-For each lab, capture both states from the same release Aurora cluster and
-source revision:
+Run the same request before and after the marked repair on Aurora. Preserve each response and search/agent run ID. The guide uses `scripts/apply_search_functions.py`, which verifies the selected real-catalog receipt and installs the participant's SQL into the active search schema without automatically solving its gaps. Restart the API after a Python seam changes.
 
-1. `make reset-lab-N`
-2. Run the request shown in Workshop Studio.
-3. Save the HTTP response and relevant retrieval event.
-4. `make solution-lab-N`
-5. `make reset-lab-3` and `make solution-lab-3` restart the Workshop Studio
-   `mosaic-api` service automatically. SQL changes are live immediately for
-   Labs 1 and 2.
-6. Run the identical request again.
-7. Run `make validate-lab-N`.
+Run `scripts/validate_lab.py` for each lab. Lab 2 repeats the same search; Lab 3 also runs G-019 and saves its receipt for completion without extra model calls. The production path must fail on the deliberate defect and pass on the restored code. Source-state labels alone are insufficient. Keep live functions and source byte-identical after an operator proof.
 
-The broken response must fail only the lesson's declared assertion. The fixed
-response must satisfy every declared assertion. A screenshot is presentation
-evidence, not the golden record; retain the response JSON and retrieval event.
+The broader measured alternatives and unchanged/failing controls are in [the worked-example library](real-catalog-exercise-library.md). They are not substituted into required validators.
 
 ## Lab 2 movement: what is guaranteed and what is not
 
-Product 370002 ranks first in FTS, pg_trgm, and semantic retrieval for the
-explicit adjustable-lumbar query. Under the broken `1 / (k + 1)` formula a
-candidate's fused score depends only on how many arms found it, so the
-guaranteed, arithmetic consequence is a collapsed pool: every candidate found
-by the same number of arms shares one score, and the stable product-ID
-tie-breaker orders the single-arm majority of the pool by catalog number
-instead of by rank. Cohere Rerank recovers a plausible order in both states.
-That is the lesson: final output alone is insufficient proof that candidate
-fusion is correct.
+Every contribution must equal `1 / (k + source_rank)` and its sum must equal the recorded fused score. The required product must reach the bounded list and finish first after reranking. It need not be first in every search, or first before reranking.
 
-A fused top-two swap (370001 ahead of 370002 while broken) was recorded in an
-earlier measurement on the release corpus. A later hands-on run on the
-current build observed 370002 first in both states, which is what the
-arithmetic predicts when 370002 is found by three arms and 370001 by two:
-`3 / 61` beats `2 / 61` regardless of rank. The swap therefore depends on
-370001 also entering the trigram arm, which the trigram threshold decides,
-and it must not be promised. The guide and the facilitator table present it
-as unconfirmed; the clean-account rehearsal records which behaviour the
-shipped build shows.
+With the verified catalog and profile, Dell U2720Q entered at combined position 24, then finished first in repeated runs. Preserve the observed source positions, model ID and profile; do not turn position 24 into a universal law. Several chair and headphone control queries keep their winner through both formulas. They prove why visible success alone cannot certify the calculation.
 
-The repair criterion is the contribution invariant, not a mandatory rank flip.
-If a differently configured run already puts 370002 first, inspect the source
-ranks and contributions: `1 / (k + 1)` is still broken when distinct source ranks
-receive equal credit. Restore the canonical query and filters before comparing
-with the table. Reranking is required by default; an unavailable reranker fails
-the request. Fused-order fallback exists only with `RERANK_REQUIRED=false`, and
-its `unavailable` receipt does not pass Lab 2's reranking check.
+## Dataset and publication boundary
+
+The earlier synthetic 20-query scorecard and 720 generated eligibility cases do not certify the imported catalog. Keep historical results labeled as such. These updated worked examples and live lab checks establish a bounded teaching contract; representative relevance evaluation, release publication and fresh-account rehearsal are separate gates.

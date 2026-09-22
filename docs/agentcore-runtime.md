@@ -145,6 +145,7 @@ from the example file and fails if a setting is missing from this table.
 | `RERANK_REQUIRED` | Runtime environment variable | `true`. A silent fallback to unreranked results would make the receipts wrong. |
 | `ALLOW_DEVELOPMENT_EMBEDDINGS` | Runtime environment variable | `false`. Hash vectors never support a relevance claim. |
 | `CORS_ORIGINS` | Runtime environment variable | Origin of the storefront that calls this runtime. The workshop-host default does not apply once the service moves. |
+| `MOSAIC_CATALOG_DATASET` | Runtime environment variable | Set `reviews-2023-500k-v1` after the pinned real-catalog restore. The runtime role needs the same real search and evidence grants as the Code Editor bootstrap; an unset value selects the retained historical catalog. |
 | `MOSAIC_SOURCE_REVISION` | Runtime environment variable, set at build or deploy time | The image has no `.git`, so `service/config.py` cannot derive the revision and reports `unknown`. Set this or the receipts cannot name what produced them. |
 | `AURORA_INSTANCE_CLASS` | Runtime environment variable | Recorded on measured artifacts. Describes the Aurora instance, not the runtime. |
 | `MOSAIC_CODE_EDITOR_URL` | Leave unset | Points participants at a Code Editor the runtime does not have. The service refuses to start if the value carries a `tkn=` token. |

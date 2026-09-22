@@ -1,0 +1,60 @@
+{
+  "observed_at": "2026-09-21T16:10:07.687690+00:00",
+  "source": "Amazon Reviews 2023 product metadata",
+  "source_revision": "2b6d039ed471f2ba5fd2acb718bf33b0a7e5598e",
+  "dataset_id": "reviews-2023-500k-v1",
+  "departments": {
+    "Electronics": 400000,
+    "Office_Products": 100000
+  },
+  "source_identity_check": {
+    "products": 500000,
+    "unique_parent_asins_case_insensitive": 500000,
+    "source_parent_mismatches": 0,
+    "source_title_mismatches": 0,
+    "invalid_parent_ids": 0,
+    "nonuppercase_source_ids_preserved": 1
+  },
+  "embedding_cache_verification": {
+    "complete": true,
+    "verified_products": 500000,
+    "unique_products": 500000,
+    "verified_batches": 9496,
+    "catalog_sha256": "149563d3bc6b3b090bd49bb6c3eda583636d03aec5c9126add0df1a57447c9c6",
+    "model_id": "us.cohere.embed-v4:0",
+    "dimensions": 1024,
+    "input_type": "search_document",
+    "cache_bytes": 1335615439,
+    "unreferenced_cache_files": 0,
+    "started_at": "2026-09-21T15:37:08.321681+00:00",
+    "verified_at": "2026-09-21T15:38:08.355524+00:00",
+    "elapsed_seconds": 60,
+    "checks": [
+      "selected catalog file SHA-256",
+      "original source records and embedding text hashes",
+      "batch product identities and model settings",
+      "vector byte SHA-256",
+      "vector dimensions, finite values and nonzero norms",
+      "complete unique product coverage"
+    ]
+  },
+  "aurora_import_verification": {
+    "dataset_id": "reviews-2023-500k-v1",
+    "expected_products": 500000,
+    "products": 500000,
+    "embeddings": 500000,
+    "incompatible_embeddings": 0,
+    "text_hash_mismatches": 0,
+    "records_complete": true,
+    "embeddings_complete": true,
+    "ready_for_search_validation": true,
+    "live_catalog_promoted": false
+  },
+  "encrypted_connection": true,
+  "extensions": {
+    "vector": "0.8.1",
+    "pg_trgm": "1.6"
+  },
+  "live_catalog_promoted": false,
+  "scope": "Saved cache and Aurora staging integrity. Does not establish search quality, lab acceptance, public redistribution rights or live Shop cutover."
+}

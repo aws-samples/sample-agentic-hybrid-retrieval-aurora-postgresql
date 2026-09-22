@@ -1,0 +1,149 @@
+{
+  "rows_examined": 147702,
+  "identity_scopes": {
+    "amazon.ae": 1181,
+    "amazon.ca": 6720,
+    "amazon.co.jp": 3651,
+    "amazon.co.uk": 5438,
+    "amazon.com": 19616,
+    "amazon.com.au": 2142,
+    "amazon.com.br": 3,
+    "amazon.com.mx": 4831,
+    "amazon.com.tr": 374,
+    "amazon.com/go": 598,
+    "amazon.de": 4749,
+    "amazon.es": 4443,
+    "amazon.fr": 4073,
+    "amazon.in": 76433,
+    "amazon.it": 3861,
+    "amazon.nl": 1688,
+    "amazon.pl": 17,
+    "amazon.sa": 375,
+    "amazon.se": 1024,
+    "amazon.sg": 1341,
+    "amazondistribution.in": 9,
+    "fresh.amazon.com": 2042,
+    "primenow.amazon.ca": 38,
+    "primenow.amazon.co.jp": 76,
+    "primenow.amazon.co.uk": 100,
+    "primenow.amazon.com": 1349,
+    "primenow.amazon.de": 98,
+    "primenow.amazon.es": 80,
+    "primenow.amazon.fr": 81,
+    "primenow.amazon.it": 77,
+    "wholefoodsmarket.com": 1186,
+    "woot.com": 8
+  },
+  "nonempty_fields": {
+    "description": 135,
+    "details": 139060,
+    "features": 23989,
+    "images": 147127,
+    "title": 26424
+  },
+  "top_product_types": [
+    [
+      "CELLULAR_PHONE_CASE",
+      64853
+    ],
+    [
+      "SHOES",
+      12965
+    ],
+    [
+      "GROCERY",
+      6546
+    ],
+    [
+      "HOME",
+      5264
+    ],
+    [
+      "HOME_BED_AND_BATH",
+      3082
+    ],
+    [
+      "HOME_FURNITURE_AND_DECOR",
+      2255
+    ],
+    [
+      "CHAIR",
+      2100
+    ],
+    [
+      "BOOT",
+      2009
+    ],
+    [
+      "SANDAL",
+      1845
+    ],
+    [
+      "FINERING",
+      1540
+    ],
+    [
+      "HEALTH_PERSONAL_CARE",
+      1449
+    ],
+    [
+      "FINENECKLACEBRACELETANKLET",
+      1377
+    ],
+    [
+      "ACCESSORY",
+      1362
+    ],
+    [
+      "SOFA",
+      1199
+    ],
+    [
+      "OFFICE_PRODUCTS",
+      1152
+    ],
+    [
+      "FINEEARRING",
+      1137
+    ],
+    [
+      "PET_SUPPLIES",
+      1064
+    ],
+    [
+      "SPORTING_GOODS",
+      972
+    ],
+    [
+      "TABLE",
+      936
+    ],
+    [
+      "HARDWARE_HANDLE",
+      860
+    ]
+  ],
+  "limits": [
+    "Nonempty fields may be inaccurate. Image links are not verified images.",
+    "Title screens identify records to review, not certified product categories.",
+    "Absent features remain unknown; neither false values nor specifications are inferred.",
+    "Parent ASINs and variant ASINs are not interchangeable join keys."
+  ],
+  "source": "abo",
+  "input_sha256": "b7f7ceacb328fa5ab6e143b88e1f948443a877cfc95b67ff09c8ebabd50644e3",
+  "sampling": "Complete official listings archive; US pilot means domain_name=amazon.com.",
+  "pilot_rows": 19616,
+  "pilot_nonempty_fields": {
+    "description": 67,
+    "details": 18112,
+    "features": 18010,
+    "images": 19542,
+    "title": 19616
+  },
+  "pilot_title_screens": {
+    "accessory_title": 79,
+    "headphone_title_or_type": 13,
+    "monitor_title_or_type": 2,
+    "office_chair_title": 104
+  }
+}

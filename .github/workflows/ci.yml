@@ -137,6 +137,7 @@ jobs:
     env:
       AURORA_INSTANCE_CLASS: db.r8g.2xlarge
       DATABASE_URL: ${{ secrets.MOSAIC_AURORA_DATABASE_URL }}
+      MOSAIC_CATALOG_DATASET: reviews-2023-500k-v1
       MOSAIC_WORKSHOP_REPO: ${{ vars.MOSAIC_WORKSHOP_REPO }}
       RELEASE_SOURCE_SHA: ${{ github.sha }}
       RELEASE_EVIDENCE_DIR: build/release-evidence
@@ -275,6 +276,7 @@ jobs:
       AWS_REGION: us-east-1
       AWS_CI_ROLE_ARN: ${{ secrets.MOSAIC_AURORA_CI_ROLE_ARN }}
       DATABASE_URL: ${{ secrets.MOSAIC_AURORA_DATABASE_URL }}
+      MOSAIC_CATALOG_DATASET: reviews-2023-500k-v1
       RELEASE_SOURCE_SHA: ${{ github.sha }}
       RELEASE_EVIDENCE_DIR: build/model-release-evidence
     steps:
@@ -379,6 +381,7 @@ jobs:
       AWS_REGION: us-east-1
       AWS_CI_ROLE_ARN: ${{ secrets.MOSAIC_AURORA_CI_ROLE_ARN }}
       DATABASE_URL: ${{ secrets.MOSAIC_AURORA_DATABASE_URL }}
+      MOSAIC_CATALOG_DATASET: reviews-2023-500k-v1
       RELEASE_SOURCE_SHA: ${{ github.sha }}
       RELEASE_EVIDENCE_DIR: build/release-evidence
     steps:

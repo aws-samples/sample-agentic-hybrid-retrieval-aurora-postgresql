@@ -1,0 +1,185 @@
+{
+  "measured_at": "2026-09-22T14:14:53.299575+00:00",
+  "dataset_id": "reviews-2023-500k-v1",
+  "boundary": "Local API connected to Aurora; current direct SQL and citation probes. Paired broken/repaired search IDs reuse the recorded September 22 production-path proof. Not EC2 deployment or fresh-account rehearsal.",
+  "direct_searches": {
+    "fts": {
+      "rows": 0,
+      "target_rank": null,
+      "elapsed_ms": 39.75
+    },
+    "trigram": {
+      "rows": 1,
+      "target_rank": 1,
+      "elapsed_ms": 59.99
+    },
+    "semantic": {
+      "rows": 150,
+      "target_rank": null,
+      "elapsed_ms": 327.25
+    }
+  },
+  "filtered_scan": {
+    "filters": {
+      "domain": "consumer_electronics",
+      "category_key": "headphones",
+      "brand": "Bose"
+    },
+    "eligible_products": 44,
+    "runs": [
+      {
+        "scan_mem_multiplier": 1.0,
+        "requested_rows": 150,
+        "returned_rows": 44,
+        "elapsed_ms": 248.18,
+        "plan_nodes": [
+          {
+            "Node Type": "WindowAgg",
+            "Actual Rows": 44.0
+          },
+          {
+            "Node Type": "Incremental Sort",
+            "Actual Rows": 44.0
+          },
+          {
+            "Node Type": "Limit",
+            "Actual Rows": 44.0
+          },
+          {
+            "Node Type": "Sort",
+            "Actual Rows": 44.0
+          },
+          {
+            "Node Type": "Index Scan",
+            "Index Name": "real_search_kind_idx",
+            "Actual Rows": 44.0,
+            "Rows Removed by Filter": 15850
+          }
+        ]
+      },
+      {
+        "scan_mem_multiplier": 2.0,
+        "requested_rows": 150,
+        "returned_rows": 44,
+        "elapsed_ms": 249.8,
+        "plan_nodes": [
+          {
+            "Node Type": "WindowAgg",
+            "Actual Rows": 44.0
+          },
+          {
+            "Node Type": "Incremental Sort",
+            "Actual Rows": 44.0
+          },
+          {
+            "Node Type": "Limit",
+            "Actual Rows": 44.0
+          },
+          {
+            "Node Type": "Sort",
+            "Actual Rows": 44.0
+          },
+          {
+            "Node Type": "Index Scan",
+            "Index Name": "real_search_kind_idx",
+            "Actual Rows": 44.0,
+            "Rows Removed by Filter": 15850
+          }
+        ]
+      }
+    ]
+  },
+  "rank_comparison": {
+    "target": 1408222,
+    "before_in_pool": false,
+    "after_in_pool": true,
+    "combined_position": 24,
+    "final_position": 1,
+    "before_event": "ffc9d6c2-f82d-47f2-b45c-6aa9b7eb3c9d",
+    "after_event": "77142521-746b-435f-8334-bdd655229f2e",
+    "rank_sensitivity": [
+      {
+        "k": 30,
+        "tail_rank": 140,
+        "head": 0.03225806451612903,
+        "tail": 0.0058823529411764705,
+        "head_to_tail_ratio": 5.483870967741935
+      },
+      {
+        "k": 60,
+        "tail_rank": 140,
+        "head": 0.01639344262295082,
+        "tail": 0.005,
+        "head_to_tail_ratio": 3.278688524590164
+      },
+      {
+        "k": 120,
+        "tail_rank": 140,
+        "head": 0.008264462809917356,
+        "tail": 0.0038461538461538464,
+        "head_to_tail_ratio": 2.1487603305785123
+      }
+    ],
+    "interpretation": "This isolates the installed formula. It does not rerank another pool or establish which k is best. Use independently judged requests before changing production settings."
+  },
+  "recorded_rank_stage_timings_ms": {
+    "rerank": 726.476,
+    "coverage": 193.457,
+    "embedding": 0.009,
+    "result_persistence": 117.787,
+    "postgresql_retrieval": 2051.992
+  },
+  "citation_challenges": {
+    "positive_control": "accepted",
+    "negative_controls": {
+      "another_product_record": true,
+      "changed_quote": true,
+      "changed_revision": true,
+      "production_wrong_product_citation": "Synthesized claim naming product 1408222 does not cite evidence for that product"
+    },
+    "scope": "Local checks against freshly resolved source records. No answer or database record was changed. These checks do not prove every possible claim is true."
+  },
+  "fresh_agent_runs": {
+    "G-021": "7b6db9a8-2ac5-44bc-bb0b-ca893e3141b1",
+    "G-019": "930bea8d-40e2-4299-a707-43b7a7b7eadc"
+  },
+  "live_validation_counts": {
+    "1": 10,
+    "2": 15,
+    "3": 19
+  },
+  "validation_files_sha256": {
+    "scripts/investigate_lab.py": "91e9ecd3780d34d29ae829534db401ae38ec195091ba7083cbc0fd6a9ccdcf46",
+    "scripts/validate_lab.py": "5aa61abb63e88e79e9e457128b3bd17dfb5a7cca5db53f0c6045b6066bbd822a",
+    "service/lab_checks.py": "e1db38b8fa4a3c048b309b28e29bf3a1b02d143328491cd3a5f582549934d74b",
+    "data/evals/mosaic_labs_missions.json": "0775606c47b85adae278e18d7f7d96cbcadaf25f01db3cd3e98ca66724015e6b"
+  },
+  "remaining_release_gaps": [
+    "Catalog accessory classification requires correction and affected examples must be remeasured.",
+    "Scorecard attribution requires a clean-source measurement for the current catalog.",
+    "Workshop Studio bootstrap hash and source publication pin are not aligned.",
+    "EC2 deployment proof and timed participant run not performed here.",
+    "Fresh-account rehearsal excluded."
+  ],
+  "validated_at": "2026-09-22T14:33:11.114987+00:00",
+  "paired_search_identity_checks": [
+    "query_text",
+    "filters",
+    "dataset_manifest_sha256",
+    "retrieval_profile",
+    "embedding_model_id",
+    "rerank_model_id",
+    "retrieval_strategy"
+  ],
+  "offline_checks": {
+    "targeted_python_tests": 165,
+    "workshop_studio_tests": 133,
+    "mission_shape_checks": 87,
+    "retrieval_settings_checks": 19,
+    "ui_build": "passed",
+    "full_python_suite": "Last broad run had 1499 pass, 3 failures. The missing Aurora target was fixed and its test passed; two scorecard attribution failures remain. No full-green claim.",
+    "ui_outcome_tests": 32,
+    "ui_regression_tests": 124,
+    "full_ui_suite": "Last broad run had 707 pass and 5 failures. Four stale positive-control fixtures were corrected to match the only-trigram contract; one mobile text size was raised to the existing minimum. All 124 tests in those three affected files then passed. The full suite was not repeated."
+  }
+}

@@ -1,0 +1,1872 @@
+{
+  "dataset_id": "reviews-2023-500k-v1",
+  "measured_date": "2026-09-22",
+  "method": "Actual lab_state reset and solution operations, production HTTP requests, and saved Aurora result lists. Identical request within each before/after pair.",
+  "functions_restored_byte_identical": true,
+  "source_restored_byte_identical": true,
+  "repair_diffs": {
+    "1": "--- before/db/sql/09_search_functions.sql\n+++ after/db/sql/09_search_functions.sql\n@@ -421,7 +421,11 @@\n     SELECT * FROM mosaic_search.search_fts(q, f, fts_limit)\n )\n -- LAB1_TRIGRAM_CTE_START\n-\n+, typo AS (\n+    SELECT * FROM mosaic_search.search_trigram(\n+        q, f, trigram_limit, trigram_threshold\n+    )\n+)\n -- LAB1_TRIGRAM_CTE_END\n , semantic AS (\n     SELECT product_id, semantic_score, semantic_rank\n@@ -434,7 +438,11 @@\n            ) AS contribution\n     FROM fts\n -- LAB1_TRIGRAM_CHANNEL_START\n-\n+    UNION ALL\n+    SELECT product_id, 'trigram', trigram_rank,\n+           trigram_score,\n+           mosaic_search.reciprocal_rank_contribution(trigram_rank, rrf_k)\n+    FROM typo\n -- LAB1_TRIGRAM_CHANNEL_END\n     UNION ALL\n     SELECT product_id, 'vector', semantic_rank,\n",
+    "2": "--- before/db/sql/09_search_functions.sql\n+++ after/db/sql/09_search_functions.sql\n@@ -360,7 +360,7 @@\n     1.0::double precision\n     / (\n         rrf_k::double precision\n-        + 1.0::double precision\n+        + source_rank::double precision\n     )\n -- LAB2_RRF_FORMULA_END\n $$;\n",
+    "3": "--- before/service/agent_tools.py\n+++ after/service/agent_tools.py\n@@ -879,7 +879,11 @@\n             \"choose another retrieved product or state the evidence gap.\",\n         )\n     # LAB3_EVIDENCE_STATE_START\n-    # Evidence is visible to the model but not attached to grounded synthesis.\n+    for item in evidence:\n+        state[\"evidence\"][item.evidence_id] = item\n+        product_evidence = state[\"evidence_by_product\"].setdefault(product_id, [])\n+        if item.evidence_id not in product_evidence:\n+            product_evidence.append(item.evidence_id)\n     # LAB3_EVIDENCE_STATE_END\n     _record(\n         \"get_product_evidence\",\n"
+  },
+  "runs": [
+    {
+      "lab": 1,
+      "state": "broken",
+      "request": {
+        "query": "B07G95T3JP",
+        "filters": {
+          "domain": "consumer_electronics",
+          "category_key": "headphones"
+        },
+        "limit": 10,
+        "include_diagnostics": true,
+        "rerank": true
+      },
+      "http_status": 200,
+      "search_event_id": "7dab1f29-32d9-4982-9ad0-742a98cc0031",
+      "target_product_id": 1277987,
+      "target_in_full_list": false,
+      "target_combined_position": null,
+      "target_final_position": null,
+      "displayed_results": [
+        {
+          "product_id": 1238789,
+          "sku": "B07411X4HB",
+          "title": "2 in 1 Lightning charging Cable to 3.5mm Headphone Jack adapter for iPhone 7/ 7Plus ,Listen to Music with Favorite Headphone and Charge Your iPhone7 At the Same time(black)",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 5,
+              "raw_score": 0.27317992,
+              "rrf_contribution": 0.015384615384615385
+            },
+            "rrf_score": 0.015384615384615385,
+            "pre_rerank_rank": 5,
+            "pre_rerank_score": 0.015384615384615385,
+            "rerank_score": 0.13572417199611664,
+            "rerank_rank": 1,
+            "exact_sku_match": false,
+            "final_rank": 1,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1080212,
+          "sku": "B0079VOD9M",
+          "title": "V7 High Definition Noise Isolating 3.5mm Stereo Comfort-Fit Earbuds for music and video audio streaming on smartphones, portable MP3, DVD, Game systems (HA100-2NP) - Black",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 12,
+              "raw_score": 0.25839984,
+              "rrf_contribution": 0.013888888888888888
+            },
+            "rrf_score": 0.013888888888888888,
+            "pre_rerank_rank": 12,
+            "pre_rerank_score": 0.013888888888888888,
+            "rerank_score": 0.13245868682861328,
+            "rerank_rank": 2,
+            "exact_sku_match": false,
+            "final_rank": 2,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1072267,
+          "sku": "B005KJJKVG",
+          "title": "Bose OE2i Audio Headphones - Black (Discontinued by Manufacturer)",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 39,
+              "raw_score": 0.24444014,
+              "rrf_contribution": 0.010101010101010102
+            },
+            "rrf_score": 0.010101010101010102,
+            "pre_rerank_rank": 39,
+            "pre_rerank_score": 0.010101010101010102,
+            "rerank_score": 0.1278160810470581,
+            "rerank_rank": 3,
+            "exact_sku_match": false,
+            "final_rank": 3,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1243585,
+          "sku": "B075C8ZZWX",
+          "title": "2 in 1 Lightning Adapter Charger iPhone 7 Dual Lightning Adapter & Splitter , Double Lightning Headphone Audio & Charge Converter for iPhone 7/7 Plus (Black)",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 31,
+              "raw_score": 0.24742426,
+              "rrf_contribution": 0.01098901098901099
+            },
+            "rrf_score": 0.01098901098901099,
+            "pre_rerank_rank": 31,
+            "pre_rerank_score": 0.01098901098901099,
+            "rerank_score": 0.12061503529548645,
+            "rerank_rank": 4,
+            "exact_sku_match": false,
+            "final_rank": 4,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1475970,
+          "sku": "B0BJ1SBZXX",
+          "title": "Bose SoundSport in-Ear Headphones for Apple Devices - Wired (Energy Green)",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 14,
+              "raw_score": 0.2561404,
+              "rrf_contribution": 0.013513513513513514
+            },
+            "rrf_score": 0.013513513513513514,
+            "pre_rerank_rank": 14,
+            "pre_rerank_score": 0.013513513513513514,
+            "rerank_score": 0.11531178653240204,
+            "rerank_rank": 5,
+            "exact_sku_match": false,
+            "final_rank": 5,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1022211,
+          "sku": "B000P93MYM",
+          "title": "BOSE(R) (R) In-Ear Stereo Headphones",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 27,
+              "raw_score": 0.24947187,
+              "rrf_contribution": 0.011494252873563218
+            },
+            "rrf_score": 0.011494252873563218,
+            "pre_rerank_rank": 27,
+            "pre_rerank_score": 0.011494252873563218,
+            "rerank_score": 0.11130901426076889,
+            "rerank_rank": 6,
+            "exact_sku_match": false,
+            "final_rank": 6,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1253049,
+          "sku": "B0783Q6G2M",
+          "title": "THYTOB Lightning Jack Audio Headphone Adapter for iPhone 7/7 Plus. Lightning to 3.5 mm Earphone Jack Adaptor for iPhone 6/6 Plus AUX Convenient Cable Accessories White[2Pack] Compatible with iOS 10.2",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 46,
+              "raw_score": 0.24226284,
+              "rrf_contribution": 0.009433962264150943
+            },
+            "rrf_score": 0.009433962264150943,
+            "pre_rerank_rank": 46,
+            "pre_rerank_score": 0.009433962264150943,
+            "rerank_score": 0.10867064446210861,
+            "rerank_rank": 7,
+            "exact_sku_match": false,
+            "final_rank": 7,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1208201,
+          "sku": "B01KV3GPTA",
+          "title": "iPhone 7 Case, G-CASE [Duke] Ultra Slim Vegan Leather Case,Built-in Magnetic Metal Plate,SIM Card and Ejector Pin Slot,Shockproof Protective Cover for iPhone 7-Red(2018)",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 6,
+              "raw_score": 0.2698414,
+              "rrf_contribution": 0.015151515151515152
+            },
+            "rrf_score": 0.015151515151515152,
+            "pre_rerank_rank": 6,
+            "pre_rerank_score": 0.015151515151515152,
+            "rerank_score": 0.10603178292512894,
+            "rerank_rank": 8,
+            "exact_sku_match": false,
+            "final_rank": 8,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1117031,
+          "sku": "B00F6PRSMW",
+          "title": "Bowers & Wilkins P7 Wired Over Ear Headphones, Black",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 30,
+              "raw_score": 0.24817368,
+              "rrf_contribution": 0.011111111111111112
+            },
+            "rrf_score": 0.011111111111111112,
+            "pre_rerank_rank": 30,
+            "pre_rerank_score": 0.011111111111111112,
+            "rerank_score": 0.10388511419296265,
+            "rerank_rank": 9,
+            "exact_sku_match": false,
+            "final_rank": 9,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1191491,
+          "sku": "B01CDMOUAS",
+          "title": "Bose SoundSport in-ear headphones - Apple devices, Frost",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 2,
+              "raw_score": 0.29293972,
+              "rrf_contribution": 0.016129032258064516
+            },
+            "rrf_score": 0.016129032258064516,
+            "pre_rerank_rank": 2,
+            "pre_rerank_score": 0.016129032258064516,
+            "rerank_score": 0.10323238372802734,
+            "rerank_rank": 10,
+            "exact_sku_match": false,
+            "final_rank": 10,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        }
+      ]
+    },
+    {
+      "lab": 1,
+      "state": "repaired",
+      "request": {
+        "query": "B07G95T3JP",
+        "filters": {
+          "domain": "consumer_electronics",
+          "category_key": "headphones"
+        },
+        "limit": 10,
+        "include_diagnostics": true,
+        "rerank": true
+      },
+      "http_status": 200,
+      "search_event_id": "977f2e98-79e0-4e7d-8551-d180f0cb8c34",
+      "target_product_id": 1277987,
+      "target_in_full_list": true,
+      "target_combined_position": 2,
+      "target_final_position": 1,
+      "displayed_results": [
+        {
+          "product_id": 1277987,
+          "sku": "B07G95TJ3P",
+          "title": "Bose QuietComfort 35 (Series II) Wireless Headphones, Noise Cancelling, with Alexa voice control – Limited Edition Triple Midnight",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": 1,
+              "raw_score": 0.6363636,
+              "rrf_contribution": 0.01639344262295082
+            },
+            "semantic": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "rrf_score": 0.01639344262295082,
+            "pre_rerank_rank": 2,
+            "pre_rerank_score": 0.01639344262295082,
+            "rerank_score": 0.38637030124664307,
+            "rerank_rank": 1,
+            "exact_sku_match": false,
+            "final_rank": 1,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1238789,
+          "sku": "B07411X4HB",
+          "title": "2 in 1 Lightning charging Cable to 3.5mm Headphone Jack adapter for iPhone 7/ 7Plus ,Listen to Music with Favorite Headphone and Charge Your iPhone7 At the Same time(black)",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 5,
+              "raw_score": 0.27317992,
+              "rrf_contribution": 0.015384615384615385
+            },
+            "rrf_score": 0.015384615384615385,
+            "pre_rerank_rank": 6,
+            "pre_rerank_score": 0.015384615384615385,
+            "rerank_score": 0.13572417199611664,
+            "rerank_rank": 2,
+            "exact_sku_match": false,
+            "final_rank": 2,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1080212,
+          "sku": "B0079VOD9M",
+          "title": "V7 High Definition Noise Isolating 3.5mm Stereo Comfort-Fit Earbuds for music and video audio streaming on smartphones, portable MP3, DVD, Game systems (HA100-2NP) - Black",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 12,
+              "raw_score": 0.25839984,
+              "rrf_contribution": 0.013888888888888888
+            },
+            "rrf_score": 0.013888888888888888,
+            "pre_rerank_rank": 13,
+            "pre_rerank_score": 0.013888888888888888,
+            "rerank_score": 0.13245868682861328,
+            "rerank_rank": 3,
+            "exact_sku_match": false,
+            "final_rank": 3,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1072267,
+          "sku": "B005KJJKVG",
+          "title": "Bose OE2i Audio Headphones - Black (Discontinued by Manufacturer)",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 39,
+              "raw_score": 0.24444014,
+              "rrf_contribution": 0.010101010101010102
+            },
+            "rrf_score": 0.010101010101010102,
+            "pre_rerank_rank": 40,
+            "pre_rerank_score": 0.010101010101010102,
+            "rerank_score": 0.1278160810470581,
+            "rerank_rank": 4,
+            "exact_sku_match": false,
+            "final_rank": 4,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1243585,
+          "sku": "B075C8ZZWX",
+          "title": "2 in 1 Lightning Adapter Charger iPhone 7 Dual Lightning Adapter & Splitter , Double Lightning Headphone Audio & Charge Converter for iPhone 7/7 Plus (Black)",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 31,
+              "raw_score": 0.24742426,
+              "rrf_contribution": 0.01098901098901099
+            },
+            "rrf_score": 0.01098901098901099,
+            "pre_rerank_rank": 32,
+            "pre_rerank_score": 0.01098901098901099,
+            "rerank_score": 0.12061503529548645,
+            "rerank_rank": 5,
+            "exact_sku_match": false,
+            "final_rank": 5,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1475970,
+          "sku": "B0BJ1SBZXX",
+          "title": "Bose SoundSport in-Ear Headphones for Apple Devices - Wired (Energy Green)",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 14,
+              "raw_score": 0.2561404,
+              "rrf_contribution": 0.013513513513513514
+            },
+            "rrf_score": 0.013513513513513514,
+            "pre_rerank_rank": 15,
+            "pre_rerank_score": 0.013513513513513514,
+            "rerank_score": 0.11531178653240204,
+            "rerank_rank": 6,
+            "exact_sku_match": false,
+            "final_rank": 6,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1022211,
+          "sku": "B000P93MYM",
+          "title": "BOSE(R) (R) In-Ear Stereo Headphones",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 27,
+              "raw_score": 0.24947187,
+              "rrf_contribution": 0.011494252873563218
+            },
+            "rrf_score": 0.011494252873563218,
+            "pre_rerank_rank": 28,
+            "pre_rerank_score": 0.011494252873563218,
+            "rerank_score": 0.11130901426076889,
+            "rerank_rank": 7,
+            "exact_sku_match": false,
+            "final_rank": 7,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1253049,
+          "sku": "B0783Q6G2M",
+          "title": "THYTOB Lightning Jack Audio Headphone Adapter for iPhone 7/7 Plus. Lightning to 3.5 mm Earphone Jack Adaptor for iPhone 6/6 Plus AUX Convenient Cable Accessories White[2Pack] Compatible with iOS 10.2",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 46,
+              "raw_score": 0.24226284,
+              "rrf_contribution": 0.009433962264150943
+            },
+            "rrf_score": 0.009433962264150943,
+            "pre_rerank_rank": 47,
+            "pre_rerank_score": 0.009433962264150943,
+            "rerank_score": 0.10867064446210861,
+            "rerank_rank": 8,
+            "exact_sku_match": false,
+            "final_rank": 8,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1208201,
+          "sku": "B01KV3GPTA",
+          "title": "iPhone 7 Case, G-CASE [Duke] Ultra Slim Vegan Leather Case,Built-in Magnetic Metal Plate,SIM Card and Ejector Pin Slot,Shockproof Protective Cover for iPhone 7-Red(2018)",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 6,
+              "raw_score": 0.2698414,
+              "rrf_contribution": 0.015151515151515152
+            },
+            "rrf_score": 0.015151515151515152,
+            "pre_rerank_rank": 7,
+            "pre_rerank_score": 0.015151515151515152,
+            "rerank_score": 0.10603178292512894,
+            "rerank_rank": 9,
+            "exact_sku_match": false,
+            "final_rank": 9,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1117031,
+          "sku": "B00F6PRSMW",
+          "title": "Bowers & Wilkins P7 Wired Over Ear Headphones, Black",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 30,
+              "raw_score": 0.24817368,
+              "rrf_contribution": 0.011111111111111112
+            },
+            "rrf_score": 0.011111111111111112,
+            "pre_rerank_rank": 31,
+            "pre_rerank_score": 0.011111111111111112,
+            "rerank_score": 0.10388511419296265,
+            "rerank_rank": 10,
+            "exact_sku_match": false,
+            "final_rank": 10,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        }
+      ]
+    },
+    {
+      "lab": 2,
+      "state": "broken",
+      "request": {
+        "query": "27 inch 4K monitor USB-C 90W laptop charging",
+        "filters": {
+          "domain": "consumer_electronics",
+          "category_key": "monitor"
+        },
+        "limit": 10,
+        "include_diagnostics": true,
+        "rerank": true
+      },
+      "http_status": 200,
+      "search_event_id": "ffc9d6c2-f82d-47f2-b45c-6aa9b7eb3c9d",
+      "target_product_id": 1408222,
+      "target_in_full_list": false,
+      "target_combined_position": null,
+      "target_final_position": null,
+      "displayed_results": [
+        {
+          "product_id": 1219465,
+          "sku": "B01N3YVA0P",
+          "title": "HP Envy 27-Inch UHD 4K IPS Monitor with Micro-Edge Bezel and AMD Freesync (Black)",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 25,
+              "raw_score": 0.494632,
+              "rrf_contribution": 0.01639344262295082
+            },
+            "rrf_score": 0.01639344262295082,
+            "pre_rerank_rank": 45,
+            "pre_rerank_score": 0.01639344262295082,
+            "rerank_score": 0.6999322175979614,
+            "rerank_rank": 1,
+            "exact_sku_match": false,
+            "final_rank": 1,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1230309,
+          "sku": "B071DK1TW8",
+          "title": "Lenovo ThinkVision P27h-10 27 LED LCD Monitor - 4 ms, Black (61AFGAR1US)",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 15,
+              "raw_score": 0.50368255,
+              "rrf_contribution": 0.01639344262295082
+            },
+            "rrf_score": 0.01639344262295082,
+            "pre_rerank_rank": 49,
+            "pre_rerank_score": 0.01639344262295082,
+            "rerank_score": 0.5860733985900879,
+            "rerank_rank": 2,
+            "exact_sku_match": false,
+            "final_rank": 2,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1168700,
+          "sku": "B00ZD8N1HS",
+          "title": "HP K7C09A8#ABA Z27n 27'' 1440p Quad HD LED-Backlit LCD Monitor, Black",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 28,
+              "raw_score": 0.49278033,
+              "rrf_contribution": 0.01639344262295082
+            },
+            "rrf_score": 0.01639344262295082,
+            "pre_rerank_rank": 35,
+            "pre_rerank_score": 0.01639344262295082,
+            "rerank_score": 0.5815175771713257,
+            "rerank_rank": 3,
+            "exact_sku_match": false,
+            "final_rank": 3,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1171156,
+          "sku": "B011A8FO4W",
+          "title": "NEC EA275UHD-BK 27\" Screen LCD Monitor",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 133,
+              "raw_score": 0.4532642,
+              "rrf_contribution": 0.01639344262295082
+            },
+            "rrf_score": 0.01639344262295082,
+            "pre_rerank_rank": 36,
+            "pre_rerank_score": 0.01639344262295082,
+            "rerank_score": 0.578377366065979,
+            "rerank_rank": 4,
+            "exact_sku_match": false,
+            "final_rank": 4,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1226083,
+          "sku": "B06XQ39Z7F",
+          "title": "BenQ PD2710QC DesignVue 27 inch QHD 1440p IPS Monitor | USB-C |AQCOLOR Technology for Accurate Reproduction for Professionals",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 10,
+              "raw_score": 0.5159929,
+              "rrf_contribution": 0.01639344262295082
+            },
+            "rrf_score": 0.01639344262295082,
+            "pre_rerank_rank": 46,
+            "pre_rerank_score": 0.01639344262295082,
+            "rerank_score": 0.4290710687637329,
+            "rerank_rank": 5,
+            "exact_sku_match": false,
+            "final_rank": 5,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1134982,
+          "sku": "B00K9NN1VS",
+          "title": "Dell Ultrasharp UZ2715H 27-Inch Screen LED-Lit Monitor",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 64,
+              "raw_score": 0.4756805,
+              "rrf_contribution": 0.01639344262295082
+            },
+            "rrf_score": 0.01639344262295082,
+            "pre_rerank_rank": 28,
+            "pre_rerank_score": 0.01639344262295082,
+            "rerank_score": 0.388038694858551,
+            "rerank_rank": 6,
+            "exact_sku_match": false,
+            "final_rank": 6,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1149173,
+          "sku": "B00P4ZGQI6",
+          "title": "HP Business Class S270c 27\" LED LCD Curved Monitor",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 149,
+              "raw_score": 0.4493208,
+              "rrf_contribution": 0.01639344262295082
+            },
+            "rrf_score": 0.01639344262295082,
+            "pre_rerank_rank": 32,
+            "pre_rerank_score": 0.01639344262295082,
+            "rerank_score": 0.38630086183547974,
+            "rerank_rank": 7,
+            "exact_sku_match": false,
+            "final_rank": 7,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1141337,
+          "sku": "B00M9B3S0W",
+          "title": "Dell S2715H 27-Inch Screen LED-Lit Monitor",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 104,
+              "raw_score": 0.45826325,
+              "rrf_contribution": 0.01639344262295082
+            },
+            "rrf_score": 0.01639344262295082,
+            "pre_rerank_rank": 29,
+            "pre_rerank_score": 0.01639344262295082,
+            "rerank_score": 0.3811049461364746,
+            "rerank_rank": 8,
+            "exact_sku_match": false,
+            "final_rank": 8,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1196386,
+          "sku": "B01EH406YY",
+          "title": "Atron Vision AVQ270S 27\" Screen LED-Lit Monitor",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 87,
+              "raw_score": 0.46494603,
+              "rrf_contribution": 0.01639344262295082
+            },
+            "rrf_score": 0.01639344262295082,
+            "pre_rerank_rank": 42,
+            "pre_rerank_score": 0.01639344262295082,
+            "rerank_score": 0.3657516539096832,
+            "rerank_rank": 9,
+            "exact_sku_match": false,
+            "final_rank": 9,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1234841,
+          "sku": "B072KKVHNR",
+          "title": "Samsung LC27H800FCNXZA 27\" C27H800FCN 1920x1080 Curved LED Monitor with USB-C for Business",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 20,
+              "raw_score": 0.4983276,
+              "rrf_contribution": 0.01639344262295082
+            },
+            "rrf_score": 0.01639344262295082,
+            "pre_rerank_rank": 50,
+            "pre_rerank_score": 0.01639344262295082,
+            "rerank_score": 0.3464091420173645,
+            "rerank_rank": 10,
+            "exact_sku_match": false,
+            "final_rank": 10,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        }
+      ]
+    },
+    {
+      "lab": 2,
+      "state": "repaired",
+      "request": {
+        "query": "27 inch 4K monitor USB-C 90W laptop charging",
+        "filters": {
+          "domain": "consumer_electronics",
+          "category_key": "monitor"
+        },
+        "limit": 10,
+        "include_diagnostics": true,
+        "rerank": true
+      },
+      "http_status": 200,
+      "search_event_id": "77142521-746b-435f-8334-bdd655229f2e",
+      "target_product_id": 1408222,
+      "target_in_full_list": true,
+      "target_combined_position": 24,
+      "target_final_position": 1,
+      "displayed_results": [
+        {
+          "product_id": 1408222,
+          "sku": "B0939N79Y8",
+          "title": "Dell UltraSharp 27\" 4K UHD (3840 x 2160) IPS Anti-Glare Treatment of The Front Polarizer (3H) Hard Coating LED Backlit USB-C Monitor - U2720Q-Black",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 3,
+              "raw_score": 0.5435569,
+              "rrf_contribution": 0.015873015873015872
+            },
+            "rrf_score": 0.015873015873015872,
+            "pre_rerank_rank": 24,
+            "pre_rerank_score": 0.015873015873015872,
+            "rerank_score": 0.8788250088691711,
+            "rerank_rank": 1,
+            "exact_sku_match": false,
+            "final_rank": 1,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1481815,
+          "sku": "B0BNT11NYH",
+          "title": "INNOCN 27 Inch 4K Monitor Computer UHD 3840 x 2160 LCD IPS Display, HDR400, USB Type C DP HDMI PC Monitor, 1.07B+ Colors, Built-in Speakers, Pivot/Height Adjustable Stand, Black",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 1,
+              "raw_score": 0.56753916,
+              "rrf_contribution": 0.01639344262295082
+            },
+            "rrf_score": 0.01639344262295082,
+            "pre_rerank_rank": 20,
+            "pre_rerank_score": 0.01639344262295082,
+            "rerank_score": 0.7686815857887268,
+            "rerank_rank": 2,
+            "exact_sku_match": false,
+            "final_rank": 2,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1473977,
+          "sku": "B0BG8STKVQ",
+          "title": "ASUS ProArt Display PA27UCX-K 27\" 4K HDR Mini LED PC Monitor, 97% DCI-P3 99.5% Adobe RGB 100% sRGB, DeltaE<1, IPS, USB-C HDMI DP, 1000nits, w/X-rite Calibrator, Compatible with Laptop & Mac Monitor",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 5,
+              "raw_score": 0.5314893,
+              "rrf_contribution": 0.015384615384615385
+            },
+            "rrf_score": 0.015384615384615385,
+            "pre_rerank_rank": 30,
+            "pre_rerank_score": 0.015384615384615385,
+            "rerank_score": 0.7471923828125,
+            "rerank_rank": 3,
+            "exact_sku_match": false,
+            "final_rank": 3,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1377160,
+          "sku": "B08JNKKPD4",
+          "title": "Dell P2721Q 27 Inch 4K FHD, IP Ultra-Thin Bezel Monitor, USB-C, HDMI, DisplayPort, VESA Certified, Silver, Gray",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 7,
+              "raw_score": 0.5203337,
+              "rrf_contribution": 0.014925373134328358
+            },
+            "rrf_score": 0.014925373134328358,
+            "pre_rerank_rank": 34,
+            "pre_rerank_score": 0.014925373134328358,
+            "rerank_score": 0.7467494010925293,
+            "rerank_rank": 4,
+            "exact_sku_match": false,
+            "final_rank": 4,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1340380,
+          "sku": "B082BYRMC5",
+          "title": "Asus Designo MX27UCS 27” Monitor 4K (3840 X 2160) IPS Adaptive Sync Eye Care DisplayPort HDMI USB Type-C Frameless,Icicle Gold + Black",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 6,
+              "raw_score": 0.5277858,
+              "rrf_contribution": 0.015151515151515152
+            },
+            "rrf_score": 0.015151515151515152,
+            "pre_rerank_rank": 32,
+            "pre_rerank_score": 0.015151515151515152,
+            "rerank_score": 0.5996497869491577,
+            "rerank_rank": 5,
+            "exact_sku_match": false,
+            "final_rank": 5,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1308538,
+          "sku": "B07R1XT5M6",
+          "title": "Dell 2019 UltraSharp U2718Q 27\" HDR IPS LED 4K UHD Monitor, 3840 x 2160 Resolution, 5ms Response Time, 60Hz Refresh Rate, 1300:1 Contrast Ratio, HDMI, USB 3.0, Black, 2 Year Extended Seller Warranty",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 4,
+              "raw_score": 0.5324407,
+              "rrf_contribution": 0.015625
+            },
+            "rrf_score": 0.015625,
+            "pre_rerank_rank": 27,
+            "pre_rerank_score": 0.015625,
+            "rerank_score": 0.5911810994148254,
+            "rerank_rank": 6,
+            "exact_sku_match": false,
+            "final_rank": 6,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1230309,
+          "sku": "B071DK1TW8",
+          "title": "Lenovo ThinkVision P27h-10 27 LED LCD Monitor - 4 ms, Black (61AFGAR1US)",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 15,
+              "raw_score": 0.50368255,
+              "rrf_contribution": 0.013333333333333334
+            },
+            "rrf_score": 0.013333333333333334,
+            "pre_rerank_rank": 45,
+            "pre_rerank_score": 0.013333333333333334,
+            "rerank_score": 0.5860733985900879,
+            "rerank_rank": 7,
+            "exact_sku_match": false,
+            "final_rank": 7,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1336871,
+          "sku": "B08176NL7B",
+          "title": "HP Z27 27 Inch IPS LED Backlit Monitor 2-Pack, 4K UHD 3840 x 2160 (2TB68A8#ABA)",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 18,
+              "raw_score": 0.5004655,
+              "rrf_contribution": 0.01282051282051282
+            },
+            "rrf_score": 0.01282051282051282,
+            "pre_rerank_rank": 50,
+            "pre_rerank_score": 0.01282051282051282,
+            "rerank_score": 0.58294278383255,
+            "rerank_rank": 8,
+            "exact_sku_match": false,
+            "final_rank": 8,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1310225,
+          "sku": "B07RJNWW3P",
+          "title": "HP 27-inch Monitor with Height Adjust (27f 4K, Natural Silver and Black)",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 16,
+              "raw_score": 0.50211954,
+              "rrf_contribution": 0.013157894736842105
+            },
+            "rrf_score": 0.013157894736842105,
+            "pre_rerank_rank": 47,
+            "pre_rerank_score": 0.013157894736842105,
+            "rerank_score": 0.5700686573982239,
+            "rerank_rank": 9,
+            "exact_sku_match": false,
+            "final_rank": 9,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        },
+        {
+          "product_id": 1269050,
+          "sku": "B07D69CZWW",
+          "title": "HP Business Z27 2TB68A4 27 inches 4K UHD LED LCD (3840 x 2160) Monitor Black Pearl",
+          "signals": {
+            "fts": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "trigram": {
+              "rank": null,
+              "raw_score": null,
+              "rrf_contribution": null
+            },
+            "semantic": {
+              "rank": 2,
+              "raw_score": 0.549584,
+              "rrf_contribution": 0.016129032258064516
+            },
+            "rrf_score": 0.016129032258064516,
+            "pre_rerank_rank": 21,
+            "pre_rerank_score": 0.016129032258064516,
+            "rerank_score": 0.5570990443229675,
+            "rerank_rank": 10,
+            "exact_sku_match": false,
+            "final_rank": 10,
+            "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+          }
+        }
+      ]
+    },
+    {
+      "lab": 3,
+      "state": "broken",
+      "request": {
+        "question": "I am finishing my home office. Check the Dell U2720Q (B0939N79Y8) for a 27-inch 4K screen and USB-C charging up to 90W, and the Steelcase Gesture (B01NAKXH73) for adjustable lumbar support and movable arms. Search each product separately, compare their fit for these needs, and explain what the specifications and available reviews do and do not establish. Cite the supporting records and explain the ranking of one search.",
+        "filters": {},
+        "result_limit": 6
+      },
+      "http_status": 503,
+      "response": {
+        "detail": "Mosaic could not attach the supporting sources needed for this answer. In Lab 3, repair the marked evidence-registration block and restart the lab API, then ask again. Outside the lab, inspect the source checks."
+      },
+      "checks": []
+    },
+    {
+      "lab": 3,
+      "state": "repaired",
+      "request": {
+        "question": "I am finishing my home office. Check the Dell U2720Q (B0939N79Y8) for a 27-inch 4K screen and USB-C charging up to 90W, and the Steelcase Gesture (B01NAKXH73) for adjustable lumbar support and movable arms. Search each product separately, compare their fit for these needs, and explain what the specifications and available reviews do and do not establish. Cite the supporting records and explain the ranking of one search.",
+        "filters": {},
+        "result_limit": 6
+      },
+      "http_status": 200,
+      "response": {
+        "agent_run_id": "df94b319-b511-4a00-beee-92867503c226",
+        "session_id": "5ef109c8-1ba2-4cb4-a13c-0086a364ae0c",
+        "memory": {},
+        "question": "I am finishing my home office. Check the Dell U2720Q (B0939N79Y8) for a 27-inch 4K screen and USB-C charging up to 90W, and the Steelcase Gesture (B01NAKXH73) for adjustable lumbar support and movable arms. Search each product separately, compare their fit for these needs, and explain what the specifications and available reviews do and do not establish. Cite the supporting records and explain the ranking of one search.",
+        "answer": "### What the sources support\n\nThe Dell UltraSharp 27\" 4K UHD... U2720Q-Black listing confirms a 27-inch screen at 3840 x 2160 resolution and USB-C power delivery up to 90W, matching the display and charging requirements [1]. The Steelcase Gesture Task Chair... Adjustable Lumbar Support listing confirms adjustable lumbar support and arms designed to move like a human arm, matching the ergonomic requirement [2]. Both records are catalog product specifications, not customer reviews; no review excerpts were supplied for either product, so no source here speaks to comfort over time, screen color accuracy in use, or chair durability.\n\n### What remains uncertain\n\nBecause no reviews were retrieved, real-world experience with either product is unestablished [1][2]. For the monitor search, the top-ranked result reflects full-text, trigram, and semantic signals fused and then reranked to a high but non-probabilistic reranker score, not an exact SKU match [1].",
+        "plan": [
+          {
+            "query": "Steelcase Gesture office chair adjustable lumbar support movable arms",
+            "filters": {
+              "domain": "home_office",
+              "category_key": "chair",
+              "brand": null,
+              "brands": [],
+              "availability": null,
+              "in_stock_only": false,
+              "min_price_cents": null,
+              "max_price_cents": null,
+              "min_rating": null,
+              "attributes": {},
+              "include_refurbished": false,
+              "include_sponsored": false
+            },
+            "purpose": "Retrieve products for: Steelcase Gesture office chair adjustable lumbar support movable arms"
+          },
+          {
+            "query": "Dell U2720Q 27-inch 4K monitor USB-C 90W",
+            "filters": {
+              "domain": "consumer_electronics",
+              "category_key": "monitor",
+              "brand": null,
+              "brands": [],
+              "availability": null,
+              "in_stock_only": false,
+              "min_price_cents": null,
+              "max_price_cents": null,
+              "min_rating": null,
+              "attributes": {},
+              "include_refurbished": false,
+              "include_sponsored": false
+            },
+            "purpose": "Retrieve products for: Dell U2720Q 27-inch 4K monitor USB-C 90W"
+          }
+        ],
+        "recommendations": [
+          {
+            "product_id": 1408222,
+            "sku": "B0939N79Y8",
+            "title": "Dell UltraSharp 27\" 4K UHD (3840 x 2160) IPS Anti-Glare Treatment of The Front Polarizer (3H) Hard Coating LED Backlit USB-C Monitor - U2720Q-Black",
+            "short_description": "Key Features and Benefits:",
+            "domain": "consumer_electronics",
+            "category_key": "monitor",
+            "category_path": "Electronics > Computers & Accessories > Monitors",
+            "brand": "Dell",
+            "model": "UltraSharp",
+            "price_cents": null,
+            "list_price_cents": null,
+            "currency": "USD",
+            "rating": 5.0,
+            "review_count": 6,
+            "availability": null,
+            "inventory_count": null,
+            "attributes": {
+              "Brand": "Dell",
+              "Resolution": "3840 x 2160 Pixels",
+              "Item Weight": "21.2 pounds",
+              "Screen Size": "27 Inches",
+              "Aspect Ratio": "16:9",
+              "Manufacturer": "Dell Computers",
+              "Refresh Rate": "60 Hz",
+              "Special Feature": "Height Adjustment, Tilt Adjustment",
+              "Image brightness": "350 Candela",
+              "Best Sellers Rank": {
+                "Electronics": 436439,
+                "Computer Monitors": 7862
+              },
+              "Item model number": "UltraSharp",
+              "Product Dimensions": "24.07 x 7.28 x 20.68 inches",
+              "Date First Available": "April 22, 2021",
+              "Display Resolution Maximum": "3840 x 2160 Pixels",
+              "Standing screen display size": "27 Inches"
+            },
+            "tags": [],
+            "catalog_asset_key": null,
+            "canonical_group_id": "B0939N79Y8",
+            "media_tier": null,
+            "is_flagship": false,
+            "is_retrieval_anchor": false,
+            "image_url": "https://m.media-amazon.com/images/I/71j5KiZPuhS._AC_SL1500_.jpg",
+            "image_source": "original_listing",
+            "source_dataset": "reviews-2023-500k-v1",
+            "listing_url": "https://www.amazon.com/dp/B0939N79Y8",
+            "historical_price_cents": null,
+            "historical_price_min_cents": null,
+            "condition": "unspecified",
+            "source_features": [
+              "More room to work: Make the most of your limited desk space with this compact base.",
+              "Improve your efficiency: Work with an uninterrupted view across multiple screens with this virtually borderless design. Brightness: 350 candela per square metre",
+              "Outstanding color depth: With and outstanding color depth of 1.07 billion colors, excellent peak brightness and a high contrast ratio of 1300:1, images are displayed in true-to-life color with clear details even in dark shadows or brightly lit areas.",
+              "Adjust to your comfort: Pivot, tilt, swivel and adjust the height of your monitor for a comfortable setup all day long.",
+              "Color Support: 1.07 billion colors"
+            ],
+            "signals": {
+              "fts": {
+                "rank": 1,
+                "raw_score": 1.0014143,
+                "rrf_contribution": 0.01639344262295082
+              },
+              "trigram": {
+                "rank": 2,
+                "raw_score": 0.5,
+                "rrf_contribution": 0.016129032258064516
+              },
+              "semantic": {
+                "rank": 1,
+                "raw_score": 0.6762467,
+                "rrf_contribution": 0.01639344262295082
+              },
+              "rrf_score": 0.048915917503966164,
+              "pre_rerank_rank": 1,
+              "pre_rerank_score": 0.048915917503966164,
+              "rerank_score": 0.9291903972625732,
+              "rerank_rank": 1,
+              "exact_sku_match": false,
+              "final_rank": 1,
+              "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+            },
+            "sources": [
+              {
+                "source_uri": "https://www.amazon.com/dp/B0939N79Y8",
+                "revision": "8c1f197ea1ce6140666b8716777a0ce59018892d31efeb1166bfd9d6810dfd68",
+                "title": "Dell UltraSharp 27\" 4K UHD (3840 x 2160) IPS Anti-Glare Treatment of The Front Polarizer (3H) Hard Coating LED Backlit USB-C Monitor - U2720Q-Black",
+                "quote": "Key Features and Benefits:"
+              }
+            ]
+          },
+          {
+            "product_id": 1221817,
+            "sku": "B01NAKXH73",
+            "title": "Steelcase Gesture Task Chair: Wrapped Back - Platinum Metallic Frame/Base/Seagull Accent - Adjustable Lumbar Support - Roll Control Hard Floor Casters",
+            "short_description": "The first chair designed to support our interactions with today’s technologies. It was inspired by the movement of the human body and created for the way we work today. More now than ever, our business is conducted through smartphones, tablets, and laptops. The generational spread of the office is increasing too, with decades of professionals working together. With all this change happening around us, Steelcase set out to create a chair that reflects the way we work and live. To address this new workplace landscape, Steelcase photographed 2000 people in 11 countries to study their posture. The culmination of these new finding resulted in the Gesture Chair, inspired by the everyday movement of the human body. Like the human body, Gesture is designed as a system of synchronized interfaces that together provide customized support for any posture.",
+            "domain": "home_office",
+            "category_key": "chair",
+            "category_path": "Office Products > Office Furniture & Lighting > Chairs & Sofas > Managerial & Executive Chairs",
+            "brand": "Steelcase",
+            "model": "Gesture",
+            "price_cents": null,
+            "list_price_cents": null,
+            "currency": "USD",
+            "rating": 4.0,
+            "review_count": 1,
+            "availability": null,
+            "inventory_count": null,
+            "attributes": {
+              "": "Seat Material Type Polyester",
+              "Brand": "Steelcase",
+              "Arm Style": "With arms",
+              "Room Type": "Office",
+              "Unit Count": "1.0 Count",
+              "Item Weight": "78 pounds",
+              "Special Feature": "Adjustable",
+              "Best Sellers Rank": {
+                "Office Products": 1011886,
+                "Managerial Chairs & Executive Chairs": 3054
+              },
+              "Item model number": "Gesture",
+              "Product Dimensions": "24\"D x 35\"W x 45\"H",
+              "Included Components": "Caster",
+              "Date First Available": "August 13, 2019",
+              "Material Alloy Steel": "",
+              "Surface Recommendation": "Hard Floor",
+              "Age Range (Description)": "Teen",
+              "Frame Material Alloy Steel": "",
+              "Recommended Uses For Product": "Office",
+              "Is Discontinued By Manufacturer": "No"
+            },
+            "tags": [],
+            "catalog_asset_key": null,
+            "canonical_group_id": "B01NAKXH73",
+            "media_tier": null,
+            "is_flagship": false,
+            "is_retrieval_anchor": false,
+            "image_url": "https://m.media-amazon.com/images/I/51A9p7xTcLL._AC_SL1024_.jpg",
+            "image_source": "original_listing",
+            "source_dataset": "reviews-2023-500k-v1",
+            "listing_url": "https://www.amazon.com/dp/B01NAKXH73",
+            "historical_price_cents": 145600,
+            "historical_price_min_cents": null,
+            "condition": "unspecified",
+            "source_features": [],
+            "signals": {
+              "fts": {
+                "rank": 1,
+                "raw_score": 0.2024561,
+                "rrf_contribution": 0.01639344262295082
+              },
+              "trigram": {
+                "rank": null,
+                "raw_score": null,
+                "rrf_contribution": null
+              },
+              "semantic": {
+                "rank": 1,
+                "raw_score": 0.6535243,
+                "rrf_contribution": 0.01639344262295082
+              },
+              "rrf_score": 0.03278688524590164,
+              "pre_rerank_rank": 1,
+              "pre_rerank_score": 0.03278688524590164,
+              "rerank_score": 0.9405773878097534,
+              "rerank_rank": 1,
+              "exact_sku_match": false,
+              "final_rank": 1,
+              "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+            },
+            "sources": [
+              {
+                "source_uri": "https://www.amazon.com/dp/B01NAKXH73",
+                "revision": "72ef7f724da1f2c66691f256842cc3fac7db7d1f50b06e4c3efeba000d6e31dc",
+                "title": "Steelcase Gesture Task Chair: Wrapped Back - Platinum Metallic Frame/Base/Seagull Accent - Adjustable Lumbar Support - Roll Control Hard Floor Casters",
+                "quote": "The first chair designed to support our interactions with today’s technologies. It was inspired by the movement of the human body and created for the way we work today. More now than ever, our business is conducted through smartphones, tablets, and laptops. The generational spread of the office is increasing too, with decades of professionals working together. With all this change happening around us, Steelcase set out to create a chair that reflects the way we work and live. To address this new workplace landscape, Steelcase photographed 2000 people in 11 countries to study their posture. The culmination of these new finding resulted in the Gesture Chair, inspired by the everyday movement of the human body. Like the human body, Gesture is designed as a system of synchronized interfaces that together provide customized support for any posture."
+              }
+            ]
+          }
+        ],
+        "citations": [
+          {
+            "number": 1,
+            "evidence_id": 531242,
+            "evidence_type": "product_spec",
+            "product_id": 1408222,
+            "source_uri": "https://huggingface.co/datasets/McAuley-Lab/Amazon-Reviews-2023/blob/2b6d039ed471f2ba5fd2acb718bf33b0a7e5598e/raw/meta_categories/meta_Electronics.jsonl",
+            "revision": "8c1f197ea1ce6140666b8716777a0ce59018892d31efeb1166bfd9d6810dfd68",
+            "title": "Dell UltraSharp 27\" 4K UHD (3840 x 2160) IPS Anti-Glare Treatment of The Front Polarizer (3H) Hard Coating LED Backlit USB-C Monitor - U2720Q-Black",
+            "quote": "Title: Dell UltraSharp 27\" 4K UHD (3840 x 2160) IPS Anti-Glare Treatment of The Front Polarizer (3H) Hard Coating LED Backlit USB-C Monitor - U2720Q-Black\n\nCategories: Electronics > Computers & Accessories > Monitors\n\nDescription:\nKey Features and Benefits:\nColor:\nWide color coverage with 95% DCI-P3, better color gradation, and precision on VESA DisplayHDR 400 Monitor.\nDetails:\n4K UHD (3840 X 2160) resolution with a high pixel density of 163ppi gives you four times more details than Full HD.\nPower:\nUSB-C connectivity, get up to 90W of power delivery\nDisplay Resolution:\n3840 X 2160\nPixel Pitch:\n0.1554 mm x 0.1554 mm\nBrightness:\n350 candela per square metre\nDisplay Manage:\nEasy Arrange feature lets you quickly tile and view your applications side by side across one or more connected screens for multitasking efficiency, Shortcut keys can save you even more time\nProductivity:\nMake the most of your limited desk space with this compact base, with the ability to tilt, swivel, pivot, and adjust the height of your monitor to fit your needs, you can stay comfortable all-day\nPorts & Slots:\n1. AC power port | 2. Security lock slot | 3. HDMI port | 4. DP port | 5. USB-C/DisplayPort | 6. Audio line-out port | 7. USB downstream ports (2) | 8. Stand lock | 9. USB downstream port | 10. USB-C downstream port\nCables Included:\n1. Power cable | 2. Type-C cable (C to C) | 3. USB-C cable (C to A) | 4. DisplayPort cable (DP to DP)\nWeight:\n21.16 Pounds\nColor:\nBlack\n\nListing features:\nMore room to work: Make the most of your limited desk space with this compact base.\nImprove your efficiency: Work with an uninterrupted view across multiple screens with this virtually borderless design. Brightness: 350 candela per square metre\nOutstanding color depth: With and outstanding color depth of 1.07 billion colors, excellent peak brightness and a high contrast ratio of 1300:1, images are displayed in true-to-life color with clear details even in dark shadows or brightly lit areas.\nAdjust to your comfort: Pivot, tilt, swivel and adjust the height of your monitor for a comfortable setup all day long.\nColor Support: 1.07 billion colors\n\nSpecifications:\nAspect Ratio: 16:9\nBest Sellers Rank: {\"Computer Monitors\":7862,\"Electronics\":436439}\nBrand: Dell\nDate First Available: April 22, 2021\nDisplay Resolution Maximum: 3840 x 2160 Pixels\nImage brightness: 350 Candela\nItem Weight: 21.2 pounds\nItem model number: UltraSharp\nManufacturer: Dell Computers\nProduct Dimensions: 24.07 x 7.28 x 20.68 inches\nRefresh Rate: 60 Hz\nResolution: 3840 x 2160 Pixels\nScreen Size: 27 Inches\nSpecial Feature: Height Adjustment, Tilt Adjustment\nStanding screen display size: 27 Inches"
+          },
+          {
+            "number": 2,
+            "evidence_id": 531241,
+            "evidence_type": "product_spec",
+            "product_id": 1221817,
+            "source_uri": "https://huggingface.co/datasets/McAuley-Lab/Amazon-Reviews-2023/blob/2b6d039ed471f2ba5fd2acb718bf33b0a7e5598e/raw/meta_categories/meta_Office_Products.jsonl",
+            "revision": "72ef7f724da1f2c66691f256842cc3fac7db7d1f50b06e4c3efeba000d6e31dc",
+            "title": "Steelcase Gesture Task Chair: Wrapped Back - Platinum Metallic Frame/Base/Seagull Accent - Adjustable Lumbar Support - Roll Control Hard Floor Casters",
+            "quote": "Title: Steelcase Gesture Task Chair: Wrapped Back - Platinum Metallic Frame/Base/Seagull Accent - Adjustable Lumbar Support - Roll Control Hard Floor Casters\n\nCategories: Office Products > Office Furniture & Lighting > Chairs & Sofas > Managerial & Executive Chairs\n\nDescription:\nThe first chair designed to support our interactions with today’s technologies. It was inspired by the movement of the human body and created for the way we work today. More now than ever, our business is conducted through smartphones, tablets, and laptops. The generational spread of the office is increasing too, with decades of professionals working together. With all this change happening around us, Steelcase set out to create a chair that reflects the way we work and live. To address this new workplace landscape, Steelcase photographed 2000 people in 11 countries to study their posture. The culmination of these new finding resulted in the Gesture Chair, inspired by the everyday movement of the human body. Like the human body, Gesture is designed as a system of synchronized interfaces that together provide customized support for any posture.\nFeatures:\nA new sitting experience designed with a back and seat that move as a synchronized system moving with each user to provide continuous and persistent support\nArms move like a human arm which allows users to be supported in any position\nSeat has comfort all the way to the edge with a flexible perimeter to allow users to sit in a range of positions\nArms and shoulders remain supported regardless of device being used\nDesigned to be quickly adjustable and takes into account various body types and sitting preferences\n\nSpecifications:\n: Seat Material Type Polyester\nAge Range (Description): Teen\nArm Style: With arms\nBest Sellers Rank: {\"Managerial Chairs & Executive Chairs\":3054,\"Office Products\":1011886}\nBrand: Steelcase\nDate First Available: August 13, 2019\nFrame Material Alloy Steel: \nIncluded Components: Caster\nIs Discontinued By Manufacturer: No\nItem Weight: 78 pounds\nItem model number: Gesture\nMaterial Alloy Steel: \nProduct Dimensions: 24\"D x 35\"W x 45\"H\nRecommended Uses For Product: Office\nRoom Type: Office\nSpecial Feature: Adjustable\nSurface Recommendation: Hard Floor\nUnit Count: 1.0 Count"
+          }
+        ],
+        "trace": [
+          {
+            "sequence": 1,
+            "tool": "search_products",
+            "detail": "Retrieved 2 ranked products from the bounded rerank window; evidence remains a separate query-grounded step.",
+            "retrieval_run_id": "37a9f9cb-9d33-476a-a364-47485942b2fe",
+            "result_count": 2,
+            "arguments": {
+              "query": "Steelcase Gesture office chair adjustable lumbar support movable arms",
+              "domain": "home_office",
+              "category_key": "chair",
+              "brand": null,
+              "availability": null,
+              "in_stock_only": false,
+              "min_price_cents": null,
+              "max_price_cents": null,
+              "min_rating": null,
+              "attributes": null,
+              "limit": 2,
+              "applied_filters": {
+                "domain": "home_office",
+                "category_key": "chair"
+              }
+            },
+            "outcome": "success",
+            "origin": "model",
+            "latency_ms": 4238.13
+          },
+          {
+            "sequence": 2,
+            "tool": "search_products",
+            "detail": "Retrieved 2 ranked products from the bounded rerank window; evidence remains a separate query-grounded step.",
+            "retrieval_run_id": "9e6f3d0c-1e7a-441c-96d7-0d2141e8d914",
+            "result_count": 2,
+            "arguments": {
+              "query": "Dell U2720Q 27-inch 4K monitor USB-C 90W",
+              "domain": "consumer_electronics",
+              "category_key": "monitor",
+              "brand": null,
+              "availability": null,
+              "in_stock_only": false,
+              "min_price_cents": null,
+              "max_price_cents": null,
+              "min_rating": null,
+              "attributes": null,
+              "limit": 2,
+              "applied_filters": {
+                "domain": "consumer_electronics",
+                "category_key": "monitor"
+              }
+            },
+            "outcome": "success",
+            "origin": "model",
+            "latency_ms": 4939.68
+          },
+          {
+            "sequence": 3,
+            "tool": "compare_products",
+            "detail": "Compared 2 retrieved product sources.",
+            "retrieval_run_id": null,
+            "result_count": 2,
+            "arguments": {
+              "product_ids": [
+                1408222,
+                1221817
+              ]
+            },
+            "outcome": "success",
+            "origin": "model",
+            "latency_ms": 0.01
+          },
+          {
+            "sequence": 4,
+            "tool": "get_product_evidence",
+            "detail": "Retrieved 1 source-addressable evidence record(s) ranked against the supplied evidence query.",
+            "retrieval_run_id": null,
+            "result_count": 1,
+            "arguments": {
+              "product_id": 1408222,
+              "evidence_query": "27-inch 4K resolution and USB-C charging up to 90W"
+            },
+            "outcome": "success",
+            "origin": "model",
+            "latency_ms": 918.85
+          },
+          {
+            "sequence": 5,
+            "tool": "get_product_evidence",
+            "detail": "Retrieved 1 source-addressable evidence record(s) ranked against the supplied evidence query.",
+            "retrieval_run_id": null,
+            "result_count": 1,
+            "arguments": {
+              "product_id": 1221817,
+              "evidence_query": "adjustable lumbar support and movable/adjustable arms"
+            },
+            "outcome": "success",
+            "origin": "model",
+            "latency_ms": 1157.46
+          },
+          {
+            "sequence": 6,
+            "tool": "explain_retrieval",
+            "detail": "Replayed 12 persisted candidate receipts.",
+            "retrieval_run_id": null,
+            "result_count": 12,
+            "arguments": {
+              "search_event_id": "37a9f9cb-9d33-476a-a364-47485942b2fe"
+            },
+            "outcome": "success",
+            "origin": "model",
+            "latency_ms": 172.73
+          },
+          {
+            "sequence": 7,
+            "tool": "synthesize_cited_answer",
+            "detail": "Validated and persisted 2 source citation(s).",
+            "retrieval_run_id": null,
+            "result_count": 2,
+            "arguments": {
+              "question": "Check the Dell U2720Q for a 27-inch 4K screen and USB-C charging up to 90W, and the Steelcase Gesture for adjustable lumbar support and movable arms. Compare their fit for these needs, and explain what the specifications and available reviews do and do not establish.",
+              "product_ids": [
+                1408222,
+                1221817
+              ]
+            },
+            "outcome": "success",
+            "origin": "model",
+            "latency_ms": 16294.92
+          }
+        ],
+        "retrieved_evidence": [
+          {
+            "evidence_id": 531242,
+            "product_id": 1408222,
+            "evidence_type": "product_spec",
+            "source_name": "Amazon Reviews 2023",
+            "source_uri": "https://huggingface.co/datasets/McAuley-Lab/Amazon-Reviews-2023/blob/2b6d039ed471f2ba5fd2acb718bf33b0a7e5598e/raw/meta_categories/meta_Electronics.jsonl",
+            "revision": "8c1f197ea1ce6140666b8716777a0ce59018892d31efeb1166bfd9d6810dfd68",
+            "title": "Dell UltraSharp 27\" 4K UHD (3840 x 2160) IPS Anti-Glare Treatment of The Front Polarizer (3H) Hard Coating LED Backlit USB-C Monitor - U2720Q-Black",
+            "text": "Title: Dell UltraSharp 27\" 4K UHD (3840 x 2160) IPS Anti-Glare Treatment of The Front Polarizer (3H) Hard Coating LED Backlit USB-C Monitor - U2720Q-Black\n\nCategories: Electronics > Computers & Accessories > Monitors\n\nDescription:\nKey Features and Benefits:\nColor:\nWide color coverage with 95% DCI-P3, better color gradation, and precision on VESA DisplayHDR 400 Monitor.\nDetails:\n4K UHD (3840 X 2160) resolution with a high pixel density of 163ppi gives you four times more details than Full HD.\nPower:\nUSB-C connectivity, get up to 90W of power delivery\nDisplay Resolution:\n3840 X 2160\nPixel Pitch:\n0.1554 mm x 0.1554 mm\nBrightness:\n350 candela per square metre\nDisplay Manage:\nEasy Arrange feature lets you quickly tile and view your applications side by side across one or more connected screens for multitasking efficiency, Shortcut keys can save you even more time\nProductivity:\nMake the most of your limited desk space with this compact base, with the ability to tilt, swivel, pivot, and adjust the height of your monitor to fit your needs, you can stay comfortable all-day\nPorts & Slots:\n1. AC power port | 2. Security lock slot | 3. HDMI port | 4. DP port | 5. USB-C/DisplayPort | 6. Audio line-out port | 7. USB downstream ports (2) | 8. Stand lock | 9. USB downstream port | 10. USB-C downstream port\nCables Included:\n1. Power cable | 2. Type-C cable (C to C) | 3. USB-C cable (C to A) | 4. DisplayPort cable (DP to DP)\nWeight:\n21.16 Pounds\nColor:\nBlack\n\nListing features:\nMore room to work: Make the most of your limited desk space with this compact base.\nImprove your efficiency: Work with an uninterrupted view across multiple screens with this virtually borderless design. Brightness: 350 candela per square metre\nOutstanding color depth: With and outstanding color depth of 1.07 billion colors, excellent peak brightness and a high contrast ratio of 1300:1, images are displayed in true-to-life color with clear details even in dark shadows or brightly lit areas.\nAdjust to your comfort: Pivot, tilt, swivel and adjust the height of your monitor for a comfortable setup all day long.\nColor Support: 1.07 billion colors\n\nSpecifications:\nAspect Ratio: 16:9\nBest Sellers Rank: {\"Computer Monitors\":7862,\"Electronics\":436439}\nBrand: Dell\nDate First Available: April 22, 2021\nDisplay Resolution Maximum: 3840 x 2160 Pixels\nImage brightness: 350 Candela\nItem Weight: 21.2 pounds\nItem model number: UltraSharp\nManufacturer: Dell Computers\nProduct Dimensions: 24.07 x 7.28 x 20.68 inches\nRefresh Rate: 60 Hz\nResolution: 3840 x 2160 Pixels\nScreen Size: 27 Inches\nSpecial Feature: Height Adjustment, Tilt Adjustment\nStanding screen display size: 27 Inches",
+            "rating": null,
+            "is_verified": false,
+            "metadata": {
+              "scope": "Historical parent-product listing. Confirm exact variant and current offer separately.",
+              "parent_asin": "B0939N79Y8",
+              "variant_asin": null,
+              "source_revision": "2b6d039ed471f2ba5fd2acb718bf33b0a7e5598e",
+              "source_record_sha256": "8c1f197ea1ce6140666b8716777a0ce59018892d31efeb1166bfd9d6810dfd68"
+            }
+          },
+          {
+            "evidence_id": 531241,
+            "product_id": 1221817,
+            "evidence_type": "product_spec",
+            "source_name": "Amazon Reviews 2023",
+            "source_uri": "https://huggingface.co/datasets/McAuley-Lab/Amazon-Reviews-2023/blob/2b6d039ed471f2ba5fd2acb718bf33b0a7e5598e/raw/meta_categories/meta_Office_Products.jsonl",
+            "revision": "72ef7f724da1f2c66691f256842cc3fac7db7d1f50b06e4c3efeba000d6e31dc",
+            "title": "Steelcase Gesture Task Chair: Wrapped Back - Platinum Metallic Frame/Base/Seagull Accent - Adjustable Lumbar Support - Roll Control Hard Floor Casters",
+            "text": "Title: Steelcase Gesture Task Chair: Wrapped Back - Platinum Metallic Frame/Base/Seagull Accent - Adjustable Lumbar Support - Roll Control Hard Floor Casters\n\nCategories: Office Products > Office Furniture & Lighting > Chairs & Sofas > Managerial & Executive Chairs\n\nDescription:\nThe first chair designed to support our interactions with today’s technologies. It was inspired by the movement of the human body and created for the way we work today. More now than ever, our business is conducted through smartphones, tablets, and laptops. The generational spread of the office is increasing too, with decades of professionals working together. With all this change happening around us, Steelcase set out to create a chair that reflects the way we work and live. To address this new workplace landscape, Steelcase photographed 2000 people in 11 countries to study their posture. The culmination of these new finding resulted in the Gesture Chair, inspired by the everyday movement of the human body. Like the human body, Gesture is designed as a system of synchronized interfaces that together provide customized support for any posture.\nFeatures:\nA new sitting experience designed with a back and seat that move as a synchronized system moving with each user to provide continuous and persistent support\nArms move like a human arm which allows users to be supported in any position\nSeat has comfort all the way to the edge with a flexible perimeter to allow users to sit in a range of positions\nArms and shoulders remain supported regardless of device being used\nDesigned to be quickly adjustable and takes into account various body types and sitting preferences\n\nSpecifications:\n: Seat Material Type Polyester\nAge Range (Description): Teen\nArm Style: With arms\nBest Sellers Rank: {\"Managerial Chairs & Executive Chairs\":3054,\"Office Products\":1011886}\nBrand: Steelcase\nDate First Available: August 13, 2019\nFrame Material Alloy Steel: \nIncluded Components: Caster\nIs Discontinued By Manufacturer: No\nItem Weight: 78 pounds\nItem model number: Gesture\nMaterial Alloy Steel: \nProduct Dimensions: 24\"D x 35\"W x 45\"H\nRecommended Uses For Product: Office\nRoom Type: Office\nSpecial Feature: Adjustable\nSurface Recommendation: Hard Floor\nUnit Count: 1.0 Count",
+            "rating": null,
+            "is_verified": false,
+            "metadata": {
+              "scope": "Historical parent-product listing. Confirm exact variant and current offer separately.",
+              "parent_asin": "B01NAKXH73",
+              "variant_asin": null,
+              "source_revision": "2b6d039ed471f2ba5fd2acb718bf33b0a7e5598e",
+              "source_record_sha256": "72ef7f724da1f2c66691f256842cc3fac7db7d1f50b06e4c3efeba000d6e31dc"
+            }
+          }
+        ],
+        "outcome": "grounded",
+        "decline_reason": null
+      },
+      "checks": [
+        "canonical mission request answered",
+        "structured constraints preserved",
+        "canonical target classes covered",
+        "independent retrieval intents covered",
+        "retrieval and comparison tools invoked",
+        "evidence retrieved for every recommendation",
+        "ranking explanation and EXPLAIN plan replayable",
+        "tool execution origins explicit",
+        "citation IDs resolve exactly",
+        "required claims supported"
+      ]
+    }
+  ],
+  "remaining_limits": [
+    "Lab 1 restores the requested identity to first position; it does not turn an exact lookup into an exclusive result set. Product 1238789, an adapter filed under headphones by its source, remains second after repair. Source category errors are distinct from the missing search channel.",
+    "Lab 2 does not establish that all other monitors are unsuitable. HP Envy 27 has matching size, resolution and USB-C but does not state charging watts in the imported record.",
+    "Lab 3 supplied product specifications for both recommended products; no review excerpts were retrieved in this recorded required run. All-day comfort and usage experience remain unestablished.",
+    "The separate ESCI source comparisons are selected, already reviewed examples. Unreviewed returned products are not graded as irrelevant."
+  ],
+  "validation": {
+    "1": [
+      "expected retrieval anchor present",
+      "trigram provenance present",
+      "hard filters hold",
+      "trigram candidate pool non-empty",
+      "G-001: target_in_top_k",
+      "G-001: fts_signal_present",
+      "G-001: hard_filters_hold",
+      "G-012: target_in_top_k",
+      "G-012: semantic_signal_present",
+      "G-012: hard_filters_hold"
+    ],
+    "2": [
+      "RRF arithmetic correct",
+      "pre-rerank order repeatable",
+      "reranking bounded and applied",
+      "rank provenance present",
+      "required product reaches the final first position",
+      "G-007: target_in_top_k",
+      "G-007: semantic_signal_present",
+      "G-007: rank_provenance_present",
+      "G-007: rerank_score_present",
+      "G-007: hard_filters_hold",
+      "G-009: target_in_top_k",
+      "G-009: semantic_signal_present",
+      "G-009: rank_provenance_present",
+      "G-009: rerank_score_present",
+      "G-009: hard_filters_hold"
+    ],
+    "3": [
+      "G-021: canonical mission request answered",
+      "G-021: structured constraints preserved",
+      "G-021: canonical target classes covered",
+      "G-021: independent retrieval intents covered",
+      "G-021: retrieval and comparison tools invoked",
+      "G-021: evidence retrieved for every recommendation",
+      "G-021: ranking explanation and EXPLAIN plan replayable",
+      "G-021: tool execution origins explicit",
+      "G-021: citation IDs resolve exactly",
+      "G-021: required claims supported",
+      "G-019: canonical mission request answered",
+      "G-019: structured constraints preserved",
+      "G-019: canonical target classes covered",
+      "G-019: retrieval tool invoked",
+      "G-019: evidence retrieved for every recommendation",
+      "G-019: ranking explanation replayable",
+      "G-019: tool execution origins explicit",
+      "G-019: citation IDs resolve exactly",
+      "G-019: required claims supported"
+    ]
+  },
+  "embedding_input_audit": {
+    "products": 500000,
+    "stored_vectors": 500000,
+    "input_hash_matches": 500000,
+    "projection_input_matches": 500000
+  },
+  "category_reconciliation": {
+    "dataset_id": "reviews-2023-500k-v1",
+    "catalog_sha256": "149563d3bc6b3b090bd49bb6c3eda583636d03aec5c9126add0df1a57447c9c6",
+    "previous_projection_sha256": "9ae49e169688cd64882e2874d392070f2dfc0bbf3609df55e4e8f7ab59a5b6c8",
+    "projection_sha256": "05a658e33630944058afe6a6153e8145df240cb1d6701ca5cb5650d3092c2381",
+    "total_products": 500000,
+    "changed_products": 1662,
+    "changes": [
+      {
+        "categories": [
+          "Electronics",
+          "Computers & Accessories",
+          "Computer Accessories & Peripherals",
+          "Monitor Accessories",
+          "Monitor Arms"
+        ],
+        "before": "other",
+        "after": "monitor_stand",
+        "products": 443
+      },
+      {
+        "categories": [
+          "Electronics",
+          "Computers & Accessories",
+          "Computer Accessories & Peripherals",
+          "Monitor Accessories",
+          "Monitor Stands"
+        ],
+        "before": "other",
+        "after": "monitor_stand",
+        "products": 1219
+      }
+    ],
+    "plan_sha256": "c0efe2ff3365aec8805bc9cffd2890395adf3c2a9b6c51e6598816c6cd8737ff",
+    "applied": true,
+    "other_columns_checked": 1662,
+    "other_column_changes": 0,
+    "embeddings_regenerated": 0
+  },
+  "current_product_reviews": {
+    "dataset_id": "reviews-2023-500k-v1",
+    "cases_verified": 7,
+    "products_verified": 12,
+    "quotes_verified": 21,
+    "manifest_sha256": "5e4d83514aca338c75b6e9a9c1eadaa3cce80579fa425329c76a31019564999d",
+    "embedding_inputs_unchanged": true,
+    "scope": "Source facts and input identity only; does not grade search quality."
+  },
+  "reviewed_references_file_sha256": "bb84b30216ab071289d58e02802fd4f217ffc4c5f4c859df7af23ed256dd85e5",
+  "reviewed_products_file_sha256": "e188196469c4b6a45ccf62b6677230d7c4d0b2584294ea304a27176159112cc0"
+}

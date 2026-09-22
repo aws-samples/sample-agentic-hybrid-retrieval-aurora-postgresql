@@ -48,12 +48,11 @@ poster showed a different monitor and is no longer used on the product page.
 The detail photograph is bound to product 420001, so similarly named models
 cannot inherit it.
 
-Discover, Shop and the ungraded Playground example now introduce headphones,
-a chair and a monitor, matching the presentation's introduction. The required
-Lab 3 exercise still compares a keyboard and a chair. Product text, embeddings
-and retrieval settings are unchanged. The example is defined in the mission
-manifest, so its adoption requires a fresh retrieval scorecard and search-method
-comparison before release.
+Discover, Shop and the required Lab 3 now follow headphones, a chair and a
+monitor, matching the presentation. The mission manifest owns the monitor-and-chair
+request and its citation requirements. Product text, embeddings and retrieval
+settings are unchanged by that exercise update. Earlier scorecards are historical;
+release requires fresh measurements against the reviewed questions.
 
 ## Atelier 32 catalog
 

@@ -17,7 +17,33 @@ Use the existing lab mission queries in this order; their single source is
 identical. These are three checks within Alex's task, not a separate exercise in
 benchmark terminology. The broader generated cases stay in release validation.
 
-There are three distinct engineering check sets. None is evidence of general
+The active local catalog is `reviews-2023-500k-v1`. The synthetic-catalog
+scorecard and generated filter fixtures below are historical engineering checks;
+their results do not certify the imported products. Current worked-example
+evidence is recorded in [the hybrid-search review](hybrid-search-design.md).
+
+### Compare methods without changing the question
+
+For a new judged request, inspect word search, close spelling, meaning search,
+the RRF combined list, then model reranking, in that order. Keep the source
+selection, query vector, filters and configured per-method limits fixed.
+
+- **Find:** did each method return any independently reviewed suitable products?
+- **Combine:** which suitable rows survived the combined-list cutoff?
+- **Reorder:** did suitable rows move up, and did unsuitable rows move down?
+- **Decide:** which claims are supported by specifications or reviews?
+
+Keep unchanged winners and regressions. Record request latency and model usage
+beside quality; a single warm timing is not a performance benchmark. Review
+more than the first result, include multiple acceptable products, and separate
+development examples from held-out evaluation requests. Unjudged does not mean
+irrelevant. Do not transfer another engine's benchmark gains to Aurora.
+
+RRF combines **positions**, not normalized raw scores. Its constant and list
+limits still affect the result. PostgreSQL's `ts_rank_cd` is cover-density
+ranking, not BM25; neither BM25 nor SPLADE is added to this workshop.
+
+The following check sets have different purposes. None is evidence of general
 production accuracy or representative customer traffic.
 
 ## Catalog vocabulary controls
@@ -146,13 +172,15 @@ workshop results.
 
 The curated scorecard checks intentionally selected cases and a small set of
 judged products. It is a regression suite, not a blind benchmark of all 500,000
-products. Unjudged products may be suitable, and the catalog and queries share
-synthetic authoring assumptions. A higher score alone does not establish better
+products. Unjudged products may be suitable. The historical catalog and queries
+shared synthetic authoring assumptions; importing real records does not by itself
+make new queries representative. A higher score alone does not establish better
 customer outcomes. Inspect each changed ordering and its source records.
 
-A workshop repair may improve the intended stage while leaving the final answer
-unchanged: Lab 2 deliberately demonstrates this when reranking masks broken
-fusion. Check the intermediate positions, not just the final score.
+A workshop repair may improve the intended stage while leaving the first result
+unchanged. The wheel-free chair controls in the current review demonstrate this.
+The required monitor request instead loses its documented fit before reranking
+when fusion is broken. Inspect the actual intermediate rows in both cases.
 
 For a production adaptation, collect independent user requests, label multiple
 suitable and unsuitable results, hold out cases from tuning, and retain explicit
@@ -164,13 +192,13 @@ Their text names the filter values, including false booleans and exact numeric
 values. They are useful for detecting schema and filter regressions, but do not
 measure natural-language understanding, ranking quality or realistic demand.
 
-## Judgment review for this catalog revision
+## Historical synthetic-catalog judgment review
 
 The reviewed cases distinguish filter eligibility from satisfying the request.
 The broad headphone typo query accepts several ANC models; its lab target is a
 known suitable option used to expose the disconnected spelling-search path.
-A scissor-switch keyboard is only a partial match for a mechanical-keyboard
-request. Ten-hour chair recommendations fall short of an explicit twelve-hour
+A cheaper 4K monitor without USB-C charging is a comparison option, not an
+equivalent match for a request that requires laptop charging. Ten-hour chair recommendations fall short of an explicit twelve-hour
 request. Armrest count and price do not break ties when the request never asks
 for them. Watch battery language names smartwatch mode, and the webcam case no
 longer assumes platform certifications that the description disclaims.

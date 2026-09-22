@@ -8,12 +8,14 @@ the code.
 **Do not create a local database. Do not suggest one.**
 
 The Aurora PostgreSQL cluster in `us-east-1` holds the only live tree
-(`mosaic_*`), 500,000 products with real Cohere Embed v4 vectors. Every `make`
+with the selected `reviews-2023-500k-v1` catalog, 500,000 source products with
+real Cohere Embed v4 vectors. Historical synthetic tables are retained separately. Every `make`
 target reads `DATABASE_URL` and must point at Aurora.
 
 The restore path is `make db-bootstrap-cached` into a **fresh** Aurora cluster,
-loading the verified embedding cache, which is what Workshop Studio provisions
-and what `ARTIFACTS.md` records. `make db-upgrade-snapshot` is an operator-only
+loading the historical base cache, followed by `scripts/real_catalog_cache.py restore`
+for the hash-pinned real-product bundle and `MOSAIC_CATALOG_DATASET` selection.
+Workshop Studio provisions this sequence; `ARTIFACTS.md` records both catalogs. `make db-upgrade-snapshot` is an operator-only
 compatibility path for historical snapshot restores, not the primary route.
 
 Any Makefile target, script, or document assuming a local PostgreSQL is a defect

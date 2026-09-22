@@ -5,6 +5,14 @@ events stored by actor and session, and long-term records produced by strategies
 It keeps Alex's home office as the context while making AgentCore's behavior
 inspectable. There is no budget exercise or manually entered preference form.
 
+Optional Lab 4 asks **Can Mosaic remember Alex’s preferences across
+conversations?** Its question, message, requests and checkpoints live in
+`data/evals/mosaic_labs_missions.json` under `optional_labs.memory`. It is outside
+the required hour; extraction has no guaranteed duration. The page begins with
+Preferences selected and the contract's monitor example in **Alex says**.
+The **Original question** and **Change Alex’s request** actions fill the composer;
+neither sends a model request until **Ask Mosaic** is selected.
+
 Ask Mosaic in Shop uses this same connection through **Use saved memories**,
 which starts off. Each opted-in answer has a **Memories used** section containing
 the records actually read, the number of earlier conversation events read, and
@@ -39,7 +47,7 @@ Switching sessions or adding another event clears the current answer display.
 begins with a separate Alex in this browser and clears the visible conversation,
 records, recalled context and answer. Earlier sessions and memory records remain
 stored; the reset does not delete anything from the shared AgentCore resource.
-Examples only fill the editable message field. They become real events when the
+Examples fill the editable message field and select the matching strategy. They become real events when the
 visitor submits them; the application never fabricates extracted records.
 
 Runs started from the Playground and the lab proofs keep memory off, so their
@@ -113,6 +121,14 @@ record reads are bounded and show when more data exists. No history or memories
 are copied to localStorage. Previous anonymous runs remain unassigned.
 
 ## Verification and references
+
+The 20 September rehearsal verified actual event storage and preference
+extraction, same-actor recall in a new session with zero prior conversation
+events, a fresh Aurora search and cited product specifications, explicit request
+precedence, and a separate actor receiving no records and HTTP 404 for the
+original session. Memory-off requests read zero events and zero records. The
+current catalog supplies these product proofs; this is not acceptance of the
+staged public-catalog replacement. See the [rehearsal evidence](evidence/workshop-rehearsal-2026-09-20.md).
 
 A live check on 9 September stored an Alex workspace message, then read actual
 semantic facts, user preferences and a session summary. A new session recalled

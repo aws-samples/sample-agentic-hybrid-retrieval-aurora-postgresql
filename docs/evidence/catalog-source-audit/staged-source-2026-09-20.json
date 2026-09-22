@@ -1,0 +1,86 @@
+{
+  "source_projection": {
+    "products": 500000,
+    "counts": {
+      "price_not_reported": 288211,
+      "ratings_present": 500000,
+      "brand_reported": 396052,
+      "price_exact": 211711,
+      "brand_missing": 103948,
+      "price_starting_at": 78
+    },
+    "product_kinds": {
+      "other": 487662,
+      "chair": 362,
+      "chair_mat": 12,
+      "headphone_case": 6497,
+      "headphones": 2591,
+      "monitor": 2876
+    },
+    "invalid": [],
+    "elapsed_seconds": 30,
+    "source_catalog_sha256": "149563d3bc6b3b090bd49bb6c3eda583636d03aec5c9126add0df1a57447c9c6"
+  },
+  "review_import": [
+    {
+      "category": "Electronics",
+      "reviews_verified": 24,
+      "products_with_reviews": 5,
+      "variants": 6,
+      "coverage": {
+        "B01L7XV85O": 5,
+        "B06XCDVNK2": 1,
+        "B06XQ39Z7F": 3,
+        "B07G95TJ3P": 6,
+        "B07VVMBLND": 0,
+        "B08VD2NX25": 9,
+        "B0939N79Y8": 0
+      },
+      "scanned_bytes": 1375695946,
+      "complete_source_scan": false,
+      "live_catalog_promoted": false
+    },
+    {
+      "category": "Office_Products",
+      "reviews_verified": 8,
+      "products_with_reviews": 2,
+      "variants": 3,
+      "coverage": {
+        "B01HE0W2WC": 2,
+        "B01NAKXH73": 0,
+        "B08KTS3M9M": 6
+      },
+      "scanned_bytes": 838844529,
+      "complete_source_scan": false,
+      "live_catalog_promoted": false
+    }
+  ],
+  "http_proof": {
+    "example_products": 10,
+    "resolved_evidence_records": 42,
+    "review_records": 32,
+    "review_variants": 9,
+    "unverified_purchase_reviews": 8,
+    "cross_product_citation": "404",
+    "price_placeholder": "unknown",
+    "starting_price": "from_5.99_not_exact",
+    "products_without_imported_reviews": [
+      "B01NAKXH73",
+      "B07VVMBLND",
+      "B0939N79Y8"
+    ],
+    "live_catalog_promoted": false,
+    "review_counts": {
+      "B07G95TJ3P": 6,
+      "B08VD2NX25": 9,
+      "B06XCDVNK2": 1,
+      "B01NAKXH73": 0,
+      "B08KTS3M9M": 6,
+      "B01HE0W2WC": 2,
+      "B01L7XV85O": 5,
+      "B06XQ39Z7F": 3,
+      "B07VVMBLND": 0,
+      "B0939N79Y8": 0
+    }
+  }
+}

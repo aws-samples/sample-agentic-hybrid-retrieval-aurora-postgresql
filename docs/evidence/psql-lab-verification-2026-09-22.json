@@ -1,0 +1,187 @@
+{
+  "verified_at": "2026-09-22T15:22:55.975121+00:00",
+  "scope": "Local application against the real 500,000-record Aurora catalog, using declared isolated faults and the participant reference repairs. This is not a fresh-account Workshop Studio rehearsal or publication receipt.",
+  "labs": [
+    {
+      "lab": 1,
+      "before_run": "868887d2-1345-4505-9997-ea6563cbc857",
+      "after_run": "c4fb2d93-846d-4c76-b292-122720b262c5",
+      "request": {
+        "query": "B07G95T3JP",
+        "filters": {
+          "domain": "consumer_electronics",
+          "category_key": "headphones"
+        },
+        "limit": 10,
+        "rerank": true,
+        "include_diagnostics": true
+      },
+      "catalog_sha256": "149563d3bc6b3b090bd49bb6c3eda583636d03aec5c9126add0df1a57447c9c6",
+      "models": {
+        "embedding": "us.cohere.embed-v4:0",
+        "rerank": "cohere.rerank-v3-5:0",
+        "agent": "global.anthropic.claude-sonnet-5",
+        "synthesis": "global.anthropic.claude-sonnet-5"
+      },
+      "guide_sql_before": "PASS",
+      "guide_sql_after": "PASS",
+      "target_title": "Bose QuietComfort 35 (Series II) Wireless Headphones, Noise Cancelling, with Alexa voice control \u2013 Limited Edition Triple Midnight",
+      "target_absent_from_entire_before_list": true,
+      "after_combined_position": 2,
+      "after_final_position": 1,
+      "paired_search_checks": "PASS"
+    },
+    {
+      "lab": 2,
+      "before_run": "904fd24d-cb9a-4bb3-8a95-ed7213bf02ef",
+      "after_run": "57213a1c-a035-435d-b2ec-f29f7cc3fd35",
+      "request": {
+        "query": "27 inch 4K monitor USB-C 90W laptop charging",
+        "filters": {
+          "domain": "consumer_electronics",
+          "category_key": "monitor"
+        },
+        "limit": 10,
+        "rerank": true,
+        "include_diagnostics": true
+      },
+      "catalog_sha256": "149563d3bc6b3b090bd49bb6c3eda583636d03aec5c9126add0df1a57447c9c6",
+      "models": {
+        "embedding": "us.cohere.embed-v4:0",
+        "rerank": "cohere.rerank-v3-5:0",
+        "agent": "global.anthropic.claude-sonnet-5",
+        "synthesis": "global.anthropic.claude-sonnet-5"
+      },
+      "guide_sql_before": "PASS",
+      "guide_sql_after": "PASS",
+      "target_title": "Dell UltraSharp 27\" 4K UHD (3840 x 2160) IPS Anti-Glare Treatment of The Front Polarizer (3H) Hard Coating LED Backlit USB-C Monitor - U2720Q-Black",
+      "target_absent_from_entire_before_list": true,
+      "after_combined_position": 24,
+      "after_final_position": 1,
+      "paired_search_checks": "PASS"
+    },
+    {
+      "lab": 3,
+      "before_run": "9d07aafd-649d-4ee5-bae9-ecf20ce9b6b7",
+      "after_run": "3678a1dc-0bf6-4149-b148-a155e23c7e87",
+      "request": {
+        "question": "I am finishing my home office. Check the Dell U2720Q (B0939N79Y8) for a 27-inch 4K screen and USB-C charging up to 90W, and the Steelcase Gesture (B01NAKXH73) for adjustable lumbar support and movable arms. Search each product separately, compare their fit for these needs, and explain what the specifications and available reviews do and do not establish. Cite the supporting records and explain the ranking of one search.",
+        "filters": {},
+        "result_limit": 6
+      },
+      "catalog_sha256": "149563d3bc6b3b090bd49bb6c3eda583636d03aec5c9126add0df1a57447c9c6",
+      "models": {
+        "embedding": "us.cohere.embed-v4:0",
+        "rerank": "cohere.rerank-v3-5:0",
+        "agent": "global.anthropic.claude-sonnet-5",
+        "synthesis": "global.anthropic.claude-sonnet-5"
+      },
+      "guide_sql_before": "PASS",
+      "guide_sql_after": "PASS",
+      "before_failure": "GroundingContractError correlated to exactly one persisted turn",
+      "after_citations": 2,
+      "source_id_product_revision_quote_joins": "PASS",
+      "review_text_limit": "No monitor or chair review excerpts were claimed; the answer names the missing review evidence."
+    }
+  ],
+  "sql_context_negative_controls": [
+    {
+      "check": "hostile_text",
+      "psql_exit_code": 0,
+      "passed": true
+    },
+    {
+      "check": "wrong_catalog",
+      "psql_exit_code": 3,
+      "passed": true
+    },
+    {
+      "check": "missing_run",
+      "psql_exit_code": 3,
+      "passed": true
+    }
+  ],
+  "citation_controls": {
+    "positive_control": "accepted",
+    "negative_controls": {
+      "another_product_record": true,
+      "changed_quote": true,
+      "changed_revision": true,
+      "production_wrong_product_citation": "Synthesized claim naming product 1408222 does not cite evidence for that product"
+    },
+    "scope": "Local checks against freshly resolved source records. No answer or database record was changed. These checks do not prove every possible claim is true."
+  },
+  "shop": {
+    "example_types": [
+      "Keywords",
+      "Typo",
+      "Intent"
+    ],
+    "queries_and_filters": "References resolved from the existing mission manifest",
+    "results": "Saved search positions only; displayed subset explicitly identified; full search linked in Playground",
+    "same_search_sort_and_toggle": "PASS - event 7c486030-3f56-4f65-af01-1e844961fdda retained while sorting",
+    "rendered_viewports": [
+      {
+        "width": 1440,
+        "height": 1000,
+        "result": "Cards and search details side by side"
+      },
+      {
+        "width": 390,
+        "height": 844,
+        "result": "Stacked, document width and scroll width both 390"
+      },
+      {
+        "width": 789,
+        "result": "Default viewport restored, document width and scroll width both 789"
+      }
+    ]
+  },
+  "checks": {
+    "python_targeted": "47 passed",
+    "ui_targeted": "76 passed; final three interaction tests rerun and passed",
+    "studio_unit_tests": "137 passed",
+    "participant_payloads": "3 required and 5 independent controls match source",
+    "mission_shape": "87 checks passed, live mission census not rerun in this pass",
+    "config_tripwire": "PASS",
+    "ui_build": "PASS; existing HNSW visualization chunk-size warning remains",
+    "runner_lint": "PASS"
+  },
+  "final_environment": {
+    "source_lab_states": "All three SOLVED",
+    "aurora_lab_1_2_functions": "Verified installed repairs match source",
+    "temporary_fault_server": "Stopped; original source bytes restored",
+    "paid_embedding_rebuild": "Not run"
+  },
+  "release_boundaries": {
+    "source_commit_push": "Not performed in this pass; existing dirty shared work preserved",
+    "studio_publication": "Not performed; user-owned",
+    "studio_full_validation": "FAIL - contentspec bootstrap script hash does not match the checked-in asset",
+    "fresh_account_rehearsal": "EXCLUDED"
+  },
+  "source_file_sha256": {
+    "scripts/lab_terminal.py": "4ed1f47cb04960e140ba848d42cfe171fb8f084f689a34a29b6d205d23ff0c57",
+    "data/evals/mosaic_labs_missions.json": "be76f3f85a8ae99d3550708a44fff9b0291d3c40bfb2145c8e92df145776390f",
+    "ui/src/components/ShopSearchDetails.tsx": "0f052fc0940d0b32f431f225ef5f99bd433a5fb7e4345106650d50da7bccade8",
+    "ui/src/pages/CatalogPage.tsx": "d3a8597fde1b87f955fff72795adac40adc9d7a9f91e825a40c764c389655a54",
+    "ui/src/labMissions.ts": "c4a273d27262e74e31d7cd5b30099f272ed2f1f769b51d502248e42b67179a7a"
+  },
+  "studio_guide_sha256": {
+    "content/10-introduction/index.en.md": {
+      "sha256": "d6d3ded0306fd43c0b6c02c29d698888d1b2a10c10de3481202c67a80319f4cf",
+      "sql_blocks_sha256": "d216d11a0acc5b730619a9534fec226663f9c27aee398f3f8eb471ef2fcb78ef"
+    },
+    "content/20-lab-1-retrieve/index.en.md": {
+      "sha256": "8ef58d0f5ef2539f4b5722477239692900ca89053fed4d6ba92fe76ba03a54ff",
+      "sql_blocks_sha256": "031669710456f2631ffefd0539084895e397b58dcda95650963d4bac2c6fe370"
+    },
+    "content/30-lab-2-rank/index.en.md": {
+      "sha256": "5ab163d37d868a0257f1bab4ea3c839bee52e061b06ab5074eb1225b5aa3aa6a",
+      "sql_blocks_sha256": "31f7897f76aa1b745c39904800b9b305e5f6c3f0dd5dd84b904e22ec0083f64a"
+    },
+    "content/40-lab-3-reason/index.en.md": {
+      "sha256": "001cc76d9cc90334f7c7b93f578deb48980cae8e321f443eae372c56bda3d3b5",
+      "sql_blocks_sha256": "0f031bec3ceb5708c3807977d2b91514cee2802f2c77292f9e7f4f980c0d010c"
+    }
+  }
+}

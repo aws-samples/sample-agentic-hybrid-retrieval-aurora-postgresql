@@ -29,15 +29,22 @@ Aurora only. There is no local database and no `make` target creates one. See
 - validate the expected room concurrency against the account's Bedrock quotas
   and the API pool. Do not discover a quota limit from participant traffic.
 
+Rehearse against `reviews-2023-500k-v1`. The prepared Aurora catalog has
+500,000 imported records and vectors. Read `/api/readiness` and confirm both
+API and terminal select that dataset. Live development checks do not prove
+that the published Workshop Studio bootstrap loads this new dataset. Complete
+the delivery-asset migration and fresh-environment rehearsal before the event.
+The historical synthetic scorecard and 720 filter cases are not its quality gate.
+
 ## 60-minute path
 
 | Clock | Stage | Required outcome |
 |---|---|---|
-| 00:00-00:12 | Introduction / Overview / Presentation | Meet Alex, frame the three lessons and explain the architecture |
-| 00:12-00:22 | Retrieve | Restore one candidate channel and prove recall and eligibility |
-| 00:22-00:32 | Rank | Repair RRF and prove why reranking hid the broken fused order |
-| 00:32-00:52 | Reason | Attach evidence identity to synthesis state, prove citation authorization and run the completion gate |
-| 00:52-01:00 | Flex | Build a retrieval tool by default, with HNSW as the fallback |
+| 00:00-00:10 | Introduction / Overview / Presentation | Meet Alex, frame the three lessons and explain the architecture |
+| 00:10-00:20 | Retrieve | Restore one candidate channel and prove recall and eligibility |
+| 00:20-00:30 | Rank | Repair RRF so the suitable monitor reaches reranking |
+| 00:30-00:50 | Reason | Attach evidence identity to synthesis state, prove citation authorization and run the completion gate |
+| 00:50-01:00 | Flex | Build a retrieval tool by default, with HNSW as the fallback |
 
 ## Eight proof anchors
 
@@ -46,14 +53,14 @@ inside the production validators:
 
 | Stage | Run | Proof |
 |---|---|---|
-| Retrieve | `G-003` | Neither FTS nor semantic search can recover the target; restoring the trigram channel is the only path in |
-| Retrieve | `G-001` | Exact visible model name remains first with a recorded exact-term match |
-| Retrieve | `G-012` | The eligible carbon racer remains and the refurbished sibling is excluded |
+| Retrieve | `G-003` | In this measured request, neither FTS nor the bounded semantic pool contains the target; restoring the trigram channel recovers it |
+| Retrieve | `G-001` | Correct listing ID remains first with an exact-term match |
+| Retrieve | `G-012` | Every saved product satisfies the Bose brand and headphones category |
 | Rank | `G-008` | RRF moves from rank-collapsing arithmetic to `1 / (k + source_rank)` |
-| Rank | `G-007` | Mechanical and cheaper keyboard alternatives retain inspectable rank movement |
-| Rank | `G-009` | Price and headrest constraints remain pre-ranking gates |
+| Rank | `G-007` | Dell U2720Q and SE2717H provide an explicit 4K-versus-1080p comparison |
+| Rank | `G-009` | Dell brand and monitor category remain pre-ranking requirements |
 | Reason | `G-021` | Evidence plumbing moves a fail-closed response to a grounded cited comparison |
-| Reason | `G-019` | The 12-hour chair claim resolves to real evidence records |
+| Reason | `G-019` | Bose specification and sampled review claims resolve to separate source records |
 
 The query text, filters, targets, bad observation, good observation, and
 participant edit are owned by `data/evals/mosaic_labs_missions.json`. Workshop
@@ -66,6 +73,21 @@ Use the role-based opening and expert discussion cues in
 [`workshop.md`](../workshop.md). The participant guide's shape is recorded in
 the [lab exercise design](superpowers/specs/2026-09-19-lab-exercise-design.md);
 the payloads, repairs and validation sequence are unchanged by it.
+
+### Repeatable delivery loop
+
+For each lab, keep the canonical query, filters and runtime profile fixed. Ask
+for a prediction, run the broken request, inspect the recorded mechanism, apply
+the smallest repair, and run that identical request again. Record the request
+and run ID in both states. A changed prompt or an unrelated result that looks
+better cannot establish that the repair worked.
+
+Use the [lab regression release sequence](lab-golden-queries.md) for
+reset, apply, validation and recovery. `make lab-status` inspects source files;
+it does not prove the running API or Aurora has loaded them. The validators
+check the installed SQL and production responses. The browser's Lab 3 proof
+does not run the separate evidence-grounding control; the terminal validator
+remains the completion gate.
 
 ### Opening
 
@@ -83,17 +105,16 @@ FTS is strong when words and identifiers exist. `pg_trgm` recovers nearby
 strings. HNSW expands semantic intent. SQL predicates and JSONB filters decide
 eligibility inside every candidate arm.
 
-Measured on the all-misspelled checkpoint, the semantic arm returns a full
-plausible pool without the target. Do not claim embeddings recovered the typo.
-The checkpoint proves that different retrieval channels solve different failure
-modes and that the Lab 1 objective is candidate recall, not the final winner.
-Ask explicitly: "Why is seeing product 2 not enough to declare retrieval
-healthy?" Have participants run G-012 and inspect the candidate receipt themselves. Keep the HNSW plan check in Go deeper for tables ahead of time.
+The request transposes two adjacent characters in a real listing ID. The
+bounded meaning search returns plausible headphones without that listing.
+Restoring `pg_trgm` admits Bose QuietComfort 35 II. Show both identifiers and
+ask why other listings are wrong for an identity request; do not imply
+that other headphones lack noise cancellation.
 
-Frame G-012 as a transfer check: the same eligibility rule must work beyond
-Alex's office. Return to his shopping brief after checking the running shoes.
-When discussing a recorded plan, distinguish correct SQL filters from enough
-eligible results: an approximate vector scan can still miss qualifying rows.
+The exact-ID control proves FTS still works. G-012 uses a full-word Bose need
+with brand/category filters. Inspect both served rows and the complete saved
+pool. An approximate vector scan can obey every SQL filter and still miss
+qualifying rows; candidate count and eligibility are different checks.
 
 ### Lab 2 - Fuse, rerank, and inspect
 
@@ -105,9 +126,16 @@ Ask attendees to compare per-arm rank, contribution, fused rank, and final rank
 for the top two results. The line to land is: "A correct answer is not proof of
 a correct pipeline." Historical weighted fusion is optional.
 
-Use the served measured comparison to ask whether reranking earns its extra
-time and usage. Include cases that regress; a formula repair does not itself
-remove an inference call or demonstrate savings.
+Before repair, the monitor request drops Dell U2720Q before reranking;
+HP Z27n's visible 1440p specification conflicts with 4K. Inspect a source
+position greater than 1: the broken formula gives it rank-1 credit. After
+repair, the Dell enters the combined list and is reranked first. Its combined
+position was 24 in repeated verification; read the participant's actual value.
+
+Other feature requests retain their first result through the same faulty
+formula. Use those as controls, not as visible repair demonstrations. The
+[example library](real-catalog-exercise-library.md) includes successes,
+unchanged results and an unsuccessful wording variant.
 
 ### Lab 3 - Build the retrieval agent
 
@@ -116,6 +144,13 @@ operation; application code decides whether it executes. Evidence returned to
 the model is not citable until the application registers its identity for the
 retrieved product. The broken HTTP 503 is therefore the correct fail-closed
 outcome, not an outage to work around.
+
+Make the handoff visible: evidence returned by `get_product_evidence` must enter
+both the evidence-ID map and the product's evidence-ID list. After the repair,
+restart the API and start a new run. Read one citation's product, source revision
+and supporting text; a resolved ID establishes identity, while the text must
+still support the claim. Do not bypass authorization or loosen grounding to
+turn the expected refusal into HTTP 200.
 
 Then ask what the cited words actually establish. Compare a specification with
 a review when both are available, and name any unsupported requirement. The
@@ -164,10 +199,22 @@ managed runtime or tool transport without taking over retrieval.
 
 ## Carry the story and reuse the proof
 
-Discover’s third need is more screen space, matching the presentation and Shop's monitor example. Lab 3 extends the brief with a keyboard-and-chair request: carry forward the chair search from Lab 2 and gather separate evidence for the added item. The monitor is also an exact-model control and an optional HNSW example. The required lab missions, repairs and checks are unchanged.
+Discover’s third need is more screen space, matching the presentation and Shop's monitor example. Lab 3 brings the monitor and chair decisions together: carry forward the monitor requirements from Lab 2 and gather separate evidence for each item. The monitor is also an exact-model control and an optional HNSW example. The three repair seams remain unchanged; the mission and evidence checks cover the monitor's size, resolution, USB-C video and charging.
 
-Ask each checkpoint question before repair. Lab 3 should explicitly show the keyboard and chair searches in `plan`, explain that the prompt names their taxonomy, and separate HTTP 503 failure from a successful answer that declines unsupported claims.
+Ask each checkpoint question before repair. Lab 3 should explicitly show the monitor and chair searches in `plan`, explain that the prompt names their taxonomy, and separate HTTP 503 failure from a successful answer that declines unsupported claims.
 
-At the end of Lab 3, use `scripts/validate_lab.py --lab 3 --save-receipt .local/lab-3-validation.json`. The completion gate uses `--reuse-receipt` with that same file: it binds the source and settings, reopens both Aurora agent runs and resolves their evidence again. It saves two model invocations, without accepting a cached verdict or a facilitator’s demonstration as completion.
+At the end of Lab 3, save the validator's receipt:
 
-Default the eight-minute flex block to [Build a retrieval tool](build-retrieval-tool.md). Its four hints preserve the final two-budget proof and agent call. HNSW is the fallback. Use [the delivery map](abstract-delivery-map.md) to distinguish what attendees implement from what they inspect.
+```sh
+uv run python scripts/validate_lab.py --lab 3 \
+  --save-receipt .local/lab-3-validation.json
+```
+
+Pass `--api-url` if the API is not at the script's default endpoint. The
+completion gate can use `--reuse-receipt` with that same file: it binds the
+source and settings, reopens both Aurora agent runs and resolves their evidence
+again. It saves two model invocations without accepting a cached verdict or a
+facilitator's demonstration as completion. A source or settings mismatch
+requires fresh validation.
+
+Default the ten-minute flex block to [Build a retrieval tool](build-retrieval-tool.md). Its four hints preserve the final two-budget proof and agent call. HNSW is the fallback. Use [the delivery map](abstract-delivery-map.md) to distinguish what attendees implement from what they inspect.

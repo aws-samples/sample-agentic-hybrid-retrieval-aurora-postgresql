@@ -198,8 +198,7 @@ lab-status:
 	@$(PYTHON) scripts/lab_state.py status
 
 db-apply-search-functions:
-	@cd $(SCHEMA_PACKAGE)/sql && psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 \
-		-f 09_search_functions.sql
+	@$(PYTHON) scripts/apply_search_functions.py
 	@$(MAKE) db-configure-retrieval
 
 reset-lab-1:
@@ -442,6 +441,7 @@ test-aurora-contracts:
 		tests/test_sql_integration.py \
 		tests/test_bootstrap_contract.py \
 		tests/test_evidence_retirement.py \
+		tests/test_db_pool_recovery.py \
 		tests/test_agent_eligibility.py
 
 # Every `pytest.mark.aurora` test, and until this target existed none of them ran

@@ -7,10 +7,14 @@ Where the live state lives, what can be restored, and what cannot.
 **No local databases exist or will exist.**
 
 - The **Aurora PostgreSQL cluster** in `us-east-1` holds the only live tree
-  (`mosaic`, `mosaic_search`, `mosaic_eval`, `mosaic_bench`),
-  500,000 products with real Cohere Embed v4 vectors at 1024 dimensions.
+  with the served `reviews-2023-500k-v1` catalog in `mosaic_catalog_stage`,
+  `mosaic_catalog_search` and `mosaic_live_search`: 500,000 source products and
+  saved Cohere Embed v4 vectors at 1024 dimensions. The original 500,000-row
+  synthetic catalog remains separately in `mosaic` and `mosaic_search`.
 - The **Workshop Studio attendee path** creates a fresh encrypted cluster, loads
-  the checked-in catalog, and imports the pinned embedding cache.
+  the base schemas and historical cache, then restores the hash-pinned real
+  catalog bundle and selects it for the app. This delivery path still requires
+  a fresh-account rehearsal.
 - The historical cluster snapshot remains an operator recovery artifact, not a
   cross-account attendee dependency.
 - Every `make` bootstrap target points at Aurora via `DATABASE_URL`.
@@ -26,7 +30,8 @@ re-embedding. Local state that nothing can restore is not a convenience.
 
 | Artifact | Location | Restore path |
 |---|---|---|
-| Catalog + embeddings | Aurora `mosaic_*` | `make db-bootstrap-cached` into a fresh Aurora cluster |
+| Active real catalog + vectors | Aurora `mosaic_catalog_stage` / `mosaic_live_search` | `scripts/real_catalog_cache.py restore` after the base bootstrap; pinned by `db/config/real-catalog-cache.json` |
+| Historical catalog + vectors | Aurora `mosaic` / `mosaic_search` | `make db-bootstrap-cached` into a fresh Aurora cluster |
 | Embedding cache | Workshop Studio assets / `build/embedding-cache/` | `make db-fetch-embeddings`, then verified import |
 | Normalized CSV shards | `build/normalized/` | `make db-prepare-mosaic` from `data/full/*.csv.gz` |
 | Premium cohort media | `ui/public/assets/images/mosaic/` | git; 126 files, content-verified |

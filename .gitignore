@@ -2,7 +2,7 @@
 __pycache__/
 *.py[cod]
 *.egg-info/
-.venv/
+.venv
 .env
 .env.*
 !.env.example
@@ -21,7 +21,7 @@ logs/
 .pg-*-test.log
 
 # Node
-node_modules/
+node_modules
 dist/
 .next/
 .vite/
@@ -84,3 +84,6 @@ infra/cdk/cdk.context.json
 .agent-steering-domains.md
 /docs/end-to-end-code-audit.md
 /docs/reinvent-experience-audit.md
+
+# Isolated MCP wheel build output.
+/mcp-server/build/

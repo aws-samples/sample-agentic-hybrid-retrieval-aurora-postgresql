@@ -1,0 +1,31 @@
+{
+  "scope": "Local production API and existing Aurora cluster under the Studio application model. Not a fresh-account or hosted Studio rehearsal.",
+  "identity": {
+    "api_url": "http://127.0.0.1:8011",
+    "source": {
+      "revision": "c6300668ab27b4abb956d64cf2d58f6f84c14654",
+      "dataset_manifest_sha256": "149563d3bc6b3b090bd49bb6c3eda583636d03aec5c9126add0df1a57447c9c6"
+    },
+    "models": {
+      "embedding": "us.cohere.embed-v4:0",
+      "rerank": "cohere.rerank-v3-5:0",
+      "agent": "global.anthropic.claude-sonnet-4-6",
+      "synthesis": "global.anthropic.claude-sonnet-4-6"
+    },
+    "source_sha256": "c5e2b41f0beee76200fc4b752eac1017a920062d979ed38e3d7f6dd25ca877a1",
+    "settings_sha256": "3635fb13943e9504b42c530ffcd75317f5f326d1abf569e108078aa55498116e",
+    "database_sha256": "6cedf819787fa6a3f0ac8e89221aaeb2b1802f68627799a3da4f0cf33d10bc0e"
+  },
+  "runs": {
+    "G-021": "2013ee39-4002-436b-b4ab-9b3e909726f7",
+    "G-019": "db47e2fa-6e18-4a46-86bf-29794c555983"
+  },
+  "lab3": "PASS: monitor/chair request and headphone source comparison, all tools model-origin",
+  "initial_failure": {
+    "run_id": "94f27211-17ec-4af5-8408-a92330336732",
+    "outcome": "declined",
+    "cause": "Citation-check failure followed by a retry that dropped the chair; insufficient evidence for the whole request."
+  },
+  "repair": "Preserve the selected products on a citation repair, allow concise identifiable product names, and raise the bounded orchestration output budget.",
+  "falsifier": "Removing the retry-selection guard makes its regression test fail. The production file was restored byte-identical."
+}

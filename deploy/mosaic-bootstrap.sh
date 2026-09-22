@@ -343,7 +343,7 @@ cat >/etc/profile.d/mosaic-claude.sh <<'EOF'
 export AWS_REGION=us-east-1
 export AWS_DEFAULT_REGION=us-east-1
 export CLAUDE_CODE_USE_BEDROCK=1
-export ANTHROPIC_MODEL=global.anthropic.claude-sonnet-4-6
+export ANTHROPIC_MODEL=global.anthropic.claude-sonnet-5
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 EOF
 chmod 644 /etc/profile.d/mosaic-claude.sh
@@ -364,12 +364,12 @@ for preflight_attempt in 1 2 3; do
       AWS_REGION="$AWS_REGION" \
       AWS_DEFAULT_REGION="$AWS_REGION" \
       CLAUDE_CODE_USE_BEDROCK=1 \
-      ANTHROPIC_MODEL=global.anthropic.claude-sonnet-4-6 \
+      ANTHROPIC_MODEL=global.anthropic.claude-sonnet-5 \
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
       timeout 180 "$CLAUDE_BIN" \
         --bare \
         --tools "" \
-        --model global.anthropic.claude-sonnet-4-6 \
+        --model global.anthropic.claude-sonnet-5 \
         --no-session-persistence \
         --output-format text \
         --print \
@@ -722,6 +722,20 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "cd '$REPO/ui' && npm run build"
 
 EMBEDDING_CACHE_URI=$(printf 's3://%s/%sembedding-cache/' \
   "$ASSETS_BUCKET" "$ASSETS_PREFIX")
+REAL_CATALOG_CACHE_URI=$(printf 's3://%s/%sreal-catalog/real-catalog.tar.gz' \
+  "$ASSETS_BUCKET" "$ASSETS_PREFIX")
+# Verify both immutable inputs before the first database write. A source pin
+# alone cannot make an old catalog restore into the new workshop dataset.
+network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc "
+  set -Eeuo pipefail
+  cd '$REPO'
+  mkdir -p build/real-catalog-cache
+  aws s3 cp '$REAL_CATALOG_CACHE_URI' build/real-catalog-cache/real-catalog.tar.gz --only-show-errors
+"
+sudo -u "$CODE_EDITOR_USER" -H bash -lc "
+  cd '$REPO' && uv run python scripts/real_catalog_cache.py verify \
+    --archive build/real-catalog-cache/real-catalog.tar.gz
+"
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   set -Eeuo pipefail
   cd '$REPO'
@@ -741,6 +755,12 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   test \"\$(sha256sum build/embedding-cache/manifest.json | awk '{print \$1}')\" = \
     '$EMBEDDING_CACHE_MANIFEST_SHA256'
   make db-bootstrap-cached
+  uv run python scripts/real_catalog_cache.py restore \
+    --archive build/real-catalog-cache/real-catalog.tar.gz \
+    --selection build/real-catalog
+  export MOSAIC_CATALOG_DATASET=\$(uv run python -c \
+    'import json; print(json.load(open(\"db/config/real-catalog-cache.json\"))[\"dataset_id\"])')
+  printf '\\nMOSAIC_CATALOG_DATASET=%s\\n' \"\$MOSAIC_CATALOG_DATASET\" >> .env
   cat build/embedding-cache-download-timing.tsv
   cat build/bootstrap-timings.tsv
   MISSION_GATE_REQUIRE_DB=1 DATABASE_URL=\"\$DATABASE_URL\" \
@@ -834,6 +854,13 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA mosaic, mosaic_search
     TO :"app_user";
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA mosaic_search
     TO :"app_user";
+GRANT USAGE ON SCHEMA mosaic_catalog_stage, mosaic_catalog_search, mosaic_live_search
+    TO :"app_user";
+GRANT SELECT ON ALL TABLES IN SCHEMA mosaic_catalog_stage, mosaic_catalog_search, mosaic_live_search
+    TO :"app_user";
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA mosaic_live_search
+    TO :"app_user";
+GRANT INSERT, UPDATE ON mosaic.product_evidence TO :"app_user";
 GRANT INSERT, UPDATE ON TABLE
     mosaic.shopper_profile,
     mosaic.memory_event_request,
@@ -877,8 +904,7 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   source .env
   set +a
   uv run python scripts/lab_state.py reset --lab 1
-  psql \"\$DATABASE_URL\" -X -v ON_ERROR_STOP=1 \
-    -f db/sql/09_search_functions.sql
+  uv run python scripts/apply_search_functions.py
   DATABASE_URL=\"\$DATABASE_URL\" \
     uv run python scripts/configure_retrieval_database.py
   uv run python scripts/lab_state.py status
@@ -905,8 +931,10 @@ set -a
 source "$REPO/.env"
 set +a
 
+SEARCH_SCHEMA=$(cd "$REPO" && uv run python -c \
+  'from service.catalog_runtime import search_schema; print(search_schema())')
 FUNCTION_DEFINITION=$(psql "$DATABASE_URL" -X -Atc \
-  "SELECT pg_get_functiondef('mosaic_search.search_hybrid_rrf(text,vector,jsonb,integer,integer,integer,integer,integer,real)'::regprocedure)")
+  "SELECT pg_get_functiondef('${SEARCH_SCHEMA}.search_hybrid_rrf(text,vector,jsonb,integer,integer,integer,integer,integer,real)'::regprocedure)")
 if grep -q "FROM typo" <<<"$FUNCTION_DEFINITION"; then
   echo "GAP-1 failed: trigram is still wired into unweighted fusion"
   # A bare exit skips the ERR trap, so CloudFormation would roll back with
@@ -989,8 +1017,9 @@ for attempt in $(seq 1 60); do
   sleep 5
 done
 
-jq -e '
+jq -e --arg dataset "$(jq -r '.corpus.dataset_id' "$REPO/data/evals/mosaic_labs_missions.json")" '
   .status == "ready" and
+  .database.dataset_id == $dataset and
   .database.database_name == "mosaic_catalog" and
   .database.product_count == 500000 and
   .database.embedded_product_count == 500000 and
@@ -1000,8 +1029,8 @@ jq -e '
 curl -fsS -X POST http://127.0.0.1:8000/api/search \
   -H 'Content-Type: application/json' \
   --data '{
-    "query": "EchoBud S2",
-    "filters": {"domain": "consumer_electronics"},
+    "query": "B07G95TJ3P",
+    "filters": {"domain": "consumer_electronics", "category_key": "headphones"},
     "limit": 3,
     "include_diagnostics": true,
     "rerank": true
@@ -1014,31 +1043,18 @@ jq -e '
 curl -fsS -X POST http://127.0.0.1:8000/api/search \
   -H 'Content-Type: application/json' \
   --data '{
-    "query": "noice cancelng hedfones",
+    "query": "B07G95T3JP",
     "filters": {
       "domain": "consumer_electronics",
-      "max_price_cents": 20000,
-      "in_stock_only": true
+      "category_key": "headphones"
     },
     "limit": 10,
     "include_diagnostics": true,
     "rerank": true
   }' >/tmp/lab1-broken-proof.json
-# Lab 1's broken state disconnects the pg_trgm arm from candidate fusion. Measured
-# on a live 500,000-row cluster with a real Bedrock query embedding: every token is
-# misspelled, so no query lexeme reaches product 2's tsvector, and because the
-# query names no identity the semantic arm ranks product 2 far outside its
-# 150-candidate budget. With the trigram channel disconnected, product 2 is a
-# candidate in no arm and is absent from the results: Recall@10 fails. That
-# absence, not just an empty trigram channel, is what this checks.
-#
-# The previous anchor, "Sonorra WHC720", could not distinguish broken from fixed.
-# It named the model number, so the semantic arm ranked product 2 first (exact
-# rank 1, cosine 0.492) and returned it even with pg_trgm disconnected. This check
-# therefore failed on every deploy. Retiring it also required removing aliases
-# from feature_text in db/sql/06_retrieval_projection.sql, because aliases carry
-# the target's own misspellings into search_document and let FTS recover any typo
-# this query could use.
+# The identifier transposition is measured on the imported catalog. The intended
+# Bose listing must be absent while close spelling is disconnected; other
+# products must still be returned so an empty search cannot pass this gate.
 # `all` over an empty stream is true, so a deploy that returned no results at
 # all (an unbuilt index, an over-filtering predicate) would pass this gate
 # while breaking Lab 1 in a way the trigram repair cannot fix. Require the
@@ -1047,7 +1063,7 @@ jq -e '
   (.results | length) > 0 and
   (.diagnostics.candidate_counts.fused_pool // 0) > 0 and
   .diagnostics.candidate_counts.trigram_in_pool == 0 and
-  all(.results[]; .product_id != 2)
+  all(.results[]; .product_id != 1277987)
 ' /tmp/lab1-broken-proof.json
 
 printf '\n=== MOSAIC BOOTSTRAP GREEN ===\n'
@@ -1061,7 +1077,7 @@ jq -r '"  agent model         \(.models.agent)
   rerank model        \(.models.rerank)"' /tmp/health.json
 jq -r '"  rerank             \(.diagnostics.rerank_status), \(.results | length) result(s)"' \
   /tmp/model-access-search.json
-jq -r '"  lab 1 broken       trigram_in_pool=\(.diagnostics.candidate_counts.trigram_in_pool), target_absent=\(all(.results[]; .product_id != 2))"' \
+jq -r '"  lab 1 broken       trigram_in_pool=\(.diagnostics.candidate_counts.trigram_in_pool), target_absent=\(all(.results[]; .product_id != 1277987))"' \
   /tmp/lab1-broken-proof.json
 printf '  timings             see build/bootstrap-timings.tsv\n'
 printf '=== every acceptance check passed; signalling CloudFormation ===\n\n'

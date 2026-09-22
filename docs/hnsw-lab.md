@@ -1,96 +1,104 @@
 # HNSW performance lab
 
-## Objective
+## Objective and scope
 
-Turn HNSW from a single `CREATE INDEX` statement into an observable engineering trade-off among latency, recall, memory/index size, build cost, filtering, and concurrency.
+Use the optional `hnsw-performance` checkpoint in
+`data/evals/mosaic_labs_missions.json` to explain a measured recall and latency
+trade-off. The required Retrieve lab proves candidate recovery and eligibility;
+it does not require rebuilding indexes or running a benchmark matrix.
 
-## Scale ladder
+Open **Scale & HNSW** at `/mosaic-labs/hnsw`. Establish whether each value comes
+from the connected Aurora cluster, a recorded measurement, or a projection
+before interpreting it. The graph illustration explains HNSW; its links and
+path are not a recorded Aurora traversal.
 
-| Scale | Treatment |
-|---:|---|
-| 500K | Canonical physical catalog shipped in this package; attendee baseline |
-| 1M | Optional physical expansion or instructor-prebuilt environment |
-| 5M | Instructor benchmark environment or calibrated projection |
-| 10M | Advanced scale profile; preferably measured before presentation |
-| 100M | Architecture/capacity scenario; never imply local UI values are measured |
+## Participant sequence
 
-## Measured experiment matrix
+1. **State the question.** Choose a filter preset and predict whether the
+   approximate search will return enough eligible neighbors. Use the declared
+   checkpoint request when checking its target; do not substitute another query
+   and treat the result as the same proof.
+2. **Read the evidence identity.** Record the catalog/source attribution,
+   instance class, extension version, index definition and size, query sample,
+   filter and runtime settings. A recorded artifact from another catalog is
+   historical evidence even when the current index has the same name.
+3. **Compare approximate results with exact filtered neighbors.** Inspect
+   returned-row count as well as Recall@K. Correct filters can still leave too
+   few results after an approximate scan. A full result window can also omit
+   the exact neighbors, so count alone does not establish recall.
+4. **Change one setting.** Compare search breadth or iterative-scan settings
+   while holding the query sample, filter, representation and memory budget
+   constant. Use the recorded matrix to distinguish those dimensions; do not
+   attribute a change to one setting if another also changed.
+5. **Explain the plan and trade-off.** Name the actual scan node and index,
+   returned rows and available filter statistics. Compare recall with server
+   time and index size. State which operating point meets the workload's needs
+   and what the measurement does not establish.
 
-For each selected scale and hardware profile, capture:
+Ask: "If every returned product is eligible, what evidence could still show
+that this search missed good candidates?" The answer should refer to exact
+filtered ground truth, not a larger-looking result list or a faster timer.
 
-- dimensions: selected embedding-model dimension
-- index configuration: `m`, `ef_construction`
-- runtime: `ef_search`, iterative-scan mode
-- query `k`
-- filter selectivity: 100%, 25%, 10%, 1%, 0.1%
-- p50, p95, p99 latency
-- recall@10 or recall@k versus an exact baseline
-- QPS at controlled concurrency
-- HNSW index size and total relation size
-- build duration and peak resource use
-- plan shape and rows removed by filter
+## Failure and recovery
 
-## Lab sequence
+| Observation | Inspect next | Proof after correction |
+|---|---|---|
+| Filtered search returns too few rows or loses recall | Applied HNSW settings, iterative scan and memory budget, then the actual plan | Repeat the same query and filter; compare both exact-neighbor recall and returned count |
+| Apparent perfect recall comes from a sequential scan | Whether exact-baseline planner settings leaked into the ANN run | The ANN plan uses the intended access path and recall is recomputed |
+| Plan shows only an outer function scan | The served probe's inner plan | Name the underlying index node; the wrapper alone does not prove HNSW ran |
+| Recorded data does not match the connected catalog | Attribution banner and artifact provenance | Label it historical, or collect a fresh measurement before claiming a current result |
+| Probe cannot run because an index or exact-neighbor baseline is absent | Provisioning and bootstrap checks | Restore the required Aurora resources and rerun; do not replace the missing measurement with a projection |
 
-### 1. Establish exact ground truth
+These are diagnosis steps, not promises that increasing a setting always fixes
+recall. Inspect the measured constraint before choosing a repair.
 
-For a sampled query set, turn `enable_indexscan` and `enable_bitmapscan` off as session settings, retrieve exact nearest neighbors, and `RESET` both in a `finally` block. Save the IDs; these become recall ground truth. The runners deliberately avoid `SET LOCAL` here: psycopg degrades a nested transaction block to a savepoint, and `SET LOCAL` survives `RELEASE SAVEPOINT`, so a transaction-local setting would leak into the ANN measurements and report recall 1.0 from sequential scans.
+## Instructor measurement path
 
-### 2. Sweep `ef_search`
+`make benchmark-hnsw` calls `scripts/benchmark_mosaic_scale.py`. From a clean
+worktree with `DATABASE_URL` pointing at Aurora and `AURORA_INSTANCE_CLASS`
+matching the connected instance, it measures the existing fp32, halfvec and
+binary indexes using the production probe SQL and
+`mosaic_search.configure_hnsw`. The Make target owns the experiment matrix;
+retrieval defaults remain in `db/config/retrieval.yaml`.
 
-Run 16, 32, 64, 128, 256, and 512. Plot p95 latency and recall@10. Let attendees select a workload-appropriate operating point instead of declaring one universal optimum.
+The runner writes `data/benchmarks/hnsw_measured.json` and its raw sample file.
+Retain both. It recomputes exact fp32 neighbors for each filter, records source
+and dataset identity, and checks that the unfiltered plans use the expected
+indexes. It does not rebuild indexes or measure build duration. Its
+`build_seconds` values are absent, not zero-duration builds.
 
-### 3. Introduce metadata filters
+Each query runs once for product IDs and again under `EXPLAIN`. Server
+percentiles describe the warmed second execution across the sampled anchors;
+client times are recorded separately. One sequential connection does not
+establish cold-cache performance, throughput, concurrency behavior or an
+end-to-end agent latency claim.
 
-Use domain, category, stock, price, and JSON-attribute filters at different selectivities. Observe how post-index filtering can reduce returned rows and recall.
+The supporting `scripts/benchmark_hnsw.py` runner also persists its runs to
+`mosaic_bench.run` and `mosaic_bench.measurement`. Do not confuse that runner's
+outputs with the current Make target. `scripts/simulate_scale.py` emits
+`simulated_calibrated` projections, not larger physical measurements.
 
-### 4. Enable iterative scans
+### Exact-baseline isolation
 
-Compare:
+The runners disable index and bitmap scans as session settings for exact
+ground truth, then reset both in a `finally` block. They deliberately avoid
+`SET LOCAL` here: a nested psycopg transaction can become a savepoint, and
+releasing it does not restore a transaction-local setting. Leaked settings can
+make the ANN run use a sequential scan and report perfect recall for the wrong
+reason. Confirm both paths from their recorded plans.
 
-```sql
-SET LOCAL hnsw.iterative_scan = off;
-SET LOCAL hnsw.iterative_scan = strict_order;
-SET LOCAL hnsw.iterative_scan = relaxed_order;
-```
+### Further experiments
 
-Strict order preserves exact distance order; relaxed order can trade slight ordering looseness for improved recall/performance in filtered searches. Record behavior rather than asserting a universal winner.
+Index rebuilds, partial indexes, partitioning, larger physical catalogs and
+concurrent load belong in separately provisioned Aurora experiments. Capture
+build duration and resource use there if those claims matter. The current
+existing-index benchmark cannot supply those measurements, and the staged
+real-product replacement must be validated before its results replace the
+current artifact.
 
-### 5. Compare physical strategies
+## Presentation rule
 
-- shared global HNSW index
-- partial index for a stable high-value predicate
-- partitioning by domain or tenant boundary
-- prefilter versus postfilter patterns
-
-### 6. Build-time parameters
-
-Rebuild a smaller lab table with `m` and `ef_construction` variations. Observe build duration, index size, and recall—not just query latency.
-
-## Scripts
-
-- `scripts/benchmark_hnsw.py` emits **measured** JSON results and persists the
-  same run to `mosaic_bench.run` and `mosaic_bench.measurement`.
-- Exact filtered ground truth disables index and bitmap scans as session settings and resets them afterwards; see the note above on why not `SET LOCAL`.
-  ANN sessions call the production `mosaic_search.configure_hnsw` function.
-- Every run records source and dataset identity, Aurora engine and instance
-  identity, pgvector version, index definition and size, filter selectivity,
-  deterministic query-sample identity, runtime settings, recall, latency, and
-  an `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)` plan.
-- `scripts/simulate_scale.py` emits **simulated_calibrated** projections.
-- `db/sql/08_indexes_concurrent.sql` holds the fp32 HNSW index definition;
-  `db/sql/19_indexes_quantized.sql` holds the halfvec and binary ones. The
-  inspection and filter-selectivity exercises that lived in the deleted
-  `sql/06_hnsw_performance_lab.sql` are unported; the `hnsw-performance` check in
-  `data/evals/mosaic_labs_missions.json` is their surviving home under Advanced
-  Labs (Optional).
-
-## UI contract
-
-Every chart must show one of these badges:
-
-- `MEASURED`
-- `PROJECTED FROM 500K BASELINE`
-- `SAMPLE UI DATA`
-
-The badge is not optional. This protects the session from presenting invented performance as Aurora results.
+Keep the artifact's attribution visible. Say **measured** only for the catalog,
+hardware, sample and settings actually recorded. Label scale extrapolations as
+projections and illustrative data as examples. A new embedding count or an
+index definition alone does not refresh a historical performance result.

@@ -25,6 +25,36 @@ discovers as a CloudFormation wait-condition timeout. `tests/test_bootstrap_cont
 compares the script against each source above so that lands as a failing test here
 instead.
 
+### Catalog selection and assets
+
+The script first downloads and verifies the real-catalog archive against
+`db/config/real-catalog-cache.json`. After the original cached bootstrap creates
+the shared schemas, `scripts/real_catalog_cache.py restore` loads the selected
+records, reuses saved vectors, creates the real search projection and imports the
+reviewed excerpts. `MOSAIC_CATALOG_DATASET` is persisted before the API starts.
+Runtime grants and lab SQL application cover `mosaic_live_search`; a repair must
+not silently update only the historical `mosaic_search` schema.
+
+Keep both the original 51-object embedding cache and `real-catalog/real-catalog.tar.gz`
+in the Studio asset working copy. The latter is git-ignored and hash-pinned; no
+embedding generation runs during provisioning. Public dataset redistribution
+clearance and a fresh deployment still need event-owner verification.
+
+### Coding coach in Code Editor
+
+Participants open `CodeEditorURL` and run `claude` in its terminal. The
+bootstrap installs Claude Code 2.1.233, enables Amazon Bedrock, and pins
+`ANTHROPIC_MODEL=global.anthropic.claude-sonnet-5`. It uses the instance role;
+participants do not need a personal Anthropic login. The lab's third hint
+provides a scoped coaching prompt. `~/.claude/CLAUDE.md` requires diagnosis,
+an edit limited to the current marked seam, and production validation.
+
+The bootstrap proves an actual coach invocation before continuing. Workshop
+Studio checks the shell, preflight, IAM resources and `ClaudeCodeModel` output
+agree. The coach model is separate from the application's agent and synthesis
+model settings. Event-account access still needs a fresh-stack rehearsal;
+development-account access alone is insufficient.
+
 ### Delivery, and why the workshop repo keeps a copy
 
 CloudFormation `UserData` runs before any clone exists, so it reads the script from

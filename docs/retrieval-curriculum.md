@@ -26,11 +26,11 @@ inside the broken boundary still works:
 
 | Time | Stage | Required outcome | Stable eval anchors |
 |---:|---|---|---|
-| 0-12 min | Introduction / Overview / Presentation | Meet Alex, frame the three lessons and architecture | `typo-recovery` before repair |
-| 12-22 min | Retrieve | Reconnect one candidate arm and prove candidate recall without weakening eligibility | `typo-recovery`, with control anchors |
-| 22-32 min | Rank | Repair one RRF formula and prove why final rank masked it | `rank-with-evidence`, with control anchors |
-| 32-52 min | Reason | Attach evidence identity to synthesis state, prove citation scope and run the completion gate | `agentic-research`, with one evidence control |
-| 52-60 min | Flex | Use one optional lab, recover, or take questions | n/a |
+| 0-10 min | Introduction / Overview / Presentation | Meet Alex, frame the three lessons and architecture | `typo-recovery` before repair |
+| 10-20 min | Retrieve | Reconnect one candidate arm and prove target recovery without weakening eligibility | `typo-recovery`, with control anchors |
+| 20-30 min | Rank | Repair one RRF formula and keep the suitable monitor inside the reranker input | `rank-with-evidence`, with control anchors |
+| 30-50 min | Reason | Attach evidence identity to synthesis state, prove citation scope and run the completion gate | `agentic-research`, with one evidence control |
+| 50-60 min | Flex | Use one optional lab, recover, or take questions | n/a |
 
 The stable IDs remain evaluation identifiers and starter-gap ownership keys.
 They are checkpoints inside three labs, not participant navigation.
@@ -39,12 +39,15 @@ They are checkpoints inside three labs, not participant navigation.
 
 Goal: construct the right candidate universe before deciding the winner.
 
-1. Run the misspelled request and expose the disconnected `pg_trgm` arm.
-2. Restore trigram participation in unweighted RRF.
-3. Repeat the identical request and prove trigram rank and contribution returned
-   while exact identity and eligibility still hold.
-4. Spend 60-90 seconds reading the production plan: confirm the installed HNSW
-   path and the bounded semantic candidate pool. Do not rebuild an index.
+1. Save the transposed-ID failure and propose a falsifiable cause.
+2. Compare the three installed search methods with the recorded filters and
+   limits in `psql`. Inspect a selective vector scan with `EXPLAIN (ANALYZE,
+   BUFFERS, SETTINGS)` at two transaction-local settings, including the eligible population.
+3. Repair the connection the evidence identifies, then repeat the identical
+   request. Prove that only the declared method recovered this target.
+4. Run exact-ID and eligibility controls. Distinguish target recovery, returned
+   row count and recall against an independently known correct set. Never
+   promise that changing scan memory must change the result.
 
 Required concepts:
 
@@ -54,9 +57,9 @@ Required concepts:
 - relational and metadata predicates;
 - exact identity, eligibility, and candidate provenance.
 
-Do not turn this into a `pg_trgm` lesson. The all-misspelled query is
+Do not turn this into a `pg_trgm` lesson. The transposed listing ID is
 deliberately not presented as an embeddings success. On the measured
-500,000-product corpus, HNSW returns plausible headphones but not the target.
+500,000-product corpus, HNSW returns related listings but not the target.
 The question participants must answer is: **why is seeing the correct product
 not enough to declare retrieval healthy?**
 
@@ -83,11 +86,17 @@ compare:
 - candidate counts and persisted retrieval-run evidence;
 - product source URI, source revision, and attached evidence.
 
-The B-side replays the same candidate set through historical weighted fusion.
-Measured on the live corpus, the weights reorder 243 of 250 candidates for the
-lab anchor while the reranker can absorb the difference. The checkpoint asks
-why result 1 beat result 2 across stages rather than treating the final score as
-an unexplained scalar.
+The 27-inch 4K/90W request gives a visible before/after: Dell U2720Q is
+missing from the broken pool and enters after repair. It then rises from
+combined position 24 to final position 1 in repeated verification. HP Z27n's
+1440p title is a clear contrast. Inspect actual ranks on the participant run;
+position 24 and final position 1 are observations. The mission permits a final
+top-three position; managed-model exact order is not the correctness contract.
+The terminal runner rejects changed queries, filters, settings or datasets and
+checks absence from the full before pool and presence after. In `psql`, builders
+join the saved runs and call the installed contribution function at half, recorded
+and double k. Participants explain head/tail preference and recorded reranking
+time; this arithmetic study does not establish which setting gives best relevance.
 
 This is the centerpiece. The line to retain is: **a correct answer is not proof
 of a correct pipeline.**
@@ -111,7 +120,7 @@ trace, persisted retrieval-run IDs, and resolvable evidence IDs prove which
 tools, candidates, and records inside the answer's citation scope produced the
 recommendation. The completion gate also requires two distinct focused searches:
 one retrieval receipt must cover the chair target and another must cover the
-keyboard target. A single broad search cannot satisfy decomposition.
+monitor target. A single broad search cannot satisfy decomposition.
 
 The implementation is intentionally narrow: one Strands agent, a bounded tool
 budget, one repair attempt after invalid synthesis, and no delegation or
@@ -119,13 +128,21 @@ multi-hop graph traversal. Closed-world follow-ups can reuse a server-validated
 prior shortlist, but every answer still retrieves fresh evidence and passes the
 same citation checks.
 
+The required citation challenge uses freshly resolved records as a positive
+control, then changes the evidence ID, quote and revision in memory. It also
+executes the production named-product citation guard with the other product's
+record. No database record is changed. This checks specific failure modes,
+not general semantic truth. The final brief returns to all three items:
+headphones, the recovered monitor and a wheeled chair, with unknown microphone
+performance, laptop compatibility and personal comfort stated separately.
+
 ## Prove (unnumbered finale)
 
-Prove is the five-minute completion step after Lab 3, not a fourth lab. Run the
-three lab validators, inspect the captured plan for the explained retrieval
-event, and separate three questions: did a golden behavior regress, how good is
-the 20-query product-retrieval population, and did any of the 720 eligibility
-fixtures violate its contract?
+Prove is included inside Lab 3's 20-minute budget, not an additional lab.
+Run the three validators, inspect a saved plan, and resolve citations from the
+monitor/chair answer and the headphone evidence control. The required path
+contains three repairs and five controls. A separate representative evaluation
+is needed to make whole-catalog ranking claims.
 
 ## Shared receipt vocabulary
 
@@ -156,7 +173,7 @@ shows retrieved records even when the answer does not cite them.
 ## Advanced Labs (OPTIONAL)
 
 Optional work does not consume the required 40-minute three-lab path or the
-five-minute Prove finale:
+completion proof inside Lab 3:
 
 1. Tune the HNSW operating point with recall, latency, plans, filter
    selectivity, and iterative scans.
@@ -207,5 +224,9 @@ Close with four ownership rules:
 Then distinguish three evaluation questions in under 90 seconds:
 
 - golden anchors: did critical behavior regress?
-- the 20-query ranking population: how good is retrieval?
-- the 720 filter fixtures: did eligibility violate a contract?
+- an independently judged current-catalog sample: how good is retrieval?
+- current-catalog filter checks: did eligibility violate a contract?
+
+The historical 20-query ranking population and 720 synthetic cases remain archived
+measurements. Neither certifies the imported dataset. See the measured
+[example library](real-catalog-exercise-library.md) for the broader teaching set.

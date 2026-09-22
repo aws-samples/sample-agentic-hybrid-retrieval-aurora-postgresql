@@ -216,6 +216,9 @@ adapter exports only aggregate counts and timings; see
 
 ## Catalog inspection
 
+- `GET /api/catalog/source` reports the selected `dataset_id`, whether it is a
+  real source catalog, and whether current offers are available. Shop uses this
+  to show the matching category vocabulary and omit unsupported offer controls.
 - `GET /api/catalog/summary`
 - `GET /api/catalog/suggestions`
 - `GET /api/catalog/products`
@@ -233,6 +236,18 @@ The product-evidence route requires an `evidence_query` and returns
 source-addressable specification and review records ranked for that question,
 without invoking the agent. The evidence-ID route resolves a persisted
 citation to its exact evidence row.
+
+When `MOSAIC_CATALOG_DATASET` selects the verified real catalog, browsing,
+product detail, suggestions, search and evidence use that selection. Public
+product IDs occupy a separate range from historical synthetic records. Product
+photos, listing links, titles, descriptions, features and ratings remain tied
+to the exact source record. `price_cents`, `inventory_count` and `availability`
+are null; any `historical_price_cents` is a source value, not a current offer.
+Similar products come from the same real category without claiming stock status.
+If a multi-topic evidence query finds no reviews, the same bounded production
+evidence function retries reviews with any query word, keeping the product and
+review type fixed. Those results identify the broader word match in metadata;
+the answer still has to cite text that supports each claim.
 
 Review highlights back the storefront's "what others are saying" strip: at
 most five verified customer-review excerpts from the photographed cohort, one

@@ -12,7 +12,7 @@ The gaps themselves are defined and implemented **in this repository**:
 `scripts/lab_state.py` holds each broken body next to its solved body, the
 marker seams live in `db/sql/09_search_functions.sql` and
 `service/agent_tools.py`, and `make reset-lab-N` performs the injection. The
-Workshop Studio repository narrates the repairs and triggers `make reset-lab-1`
+Workshop Studio repository narrates the repairs and triggers the selected-catalog reset/apply commands
 at provision time; it ships no starter template of its own. This document is
 the authoritative manifest: a gap listed here is a gap `lab_state.py` must
 implement, and a gap not listed here must not exist.
@@ -31,8 +31,7 @@ reaches when every repair succeeds. Disabling code here would make the reference
 unable to demonstrate its own contract, and would make a genuine regression
 indistinguishable from a planted exercise.
 
-Re-verified 2026-08-11 for the three-lab `Retrieve -> Rank -> Reason` path. All
-three repair capabilities are fully wired here.
+The three repaired capabilities form the `Retrieve -> Rank -> Reason` path. The current examples and live checks target `reviews-2023-500k-v1`.
 
 | Lab anchor | Capability | Evidence it is live |
 |---|---|---|
@@ -51,8 +50,8 @@ the later resets.
 ### GAP-1 — typo-recovery arm
 
 - **Lab 1 anchor** `typo-recovery` (`checkpoint: repair`, stage `retrieve`)
-- **Query** `noice cancelng hedfones`
-- **Target** product 2, Sonora WH-C720 Wireless Noise-Cancelling Headphones
+- **Query** `B07G95T3JP` (transposed from listing `B07G95TJ3P`)
+- **Target** product 1277987, Bose QuietComfort 35 II
 - **What to disable** the `typo` CTE in `mosaic_search.search_hybrid_rrf`, so the
   fusion receives only the FTS and vector arms. Leave
   `mosaic_search.search_trigram` itself installed and callable: the lesson is
@@ -67,20 +66,13 @@ the later resets.
 ### GAP-2 — reciprocal-rank contribution
 
 - **Lab 2 anchor** `rank-with-evidence` (`checkpoint: repair`, stage `rank`)
-- **Query** `ergonomic mesh chair for long workdays with adjustable lumbar support`
-- **Target** product 370002, PostureWorks Pro Mesh Ergonomic Chair
+- **Query** `27 inch 4K monitor USB-C 90W laptop charging`
+- **Target** product 1408222, Dell U2720Q
 - **What to disable** replace the marked `1 / (rrf_k + source_rank)` body with
   `1 / (rrf_k + 1)`. Candidate generation remains intact, but every candidate
   from an arm contributes as if it held rank 1, so within-arm order disappears.
 - **Restoring it looks like** restoring the inspectable reciprocal-rank formula.
-- **Guaranteed movement** every candidate found by the same number of arms
-  shares one fused score, so the single-arm majority of the pool is ordered by
-  product ID instead of by rank; the repair separates them. An earlier
-  measurement also recorded 370001 ahead of 370002 in the broken fused order,
-  which a later run on the current build did not reproduce
-  (`docs/lab-golden-queries.md`). Cohere Rerank returns 370002 first in both
-  states, deliberately demonstrating why every ranking layer needs its own
-  validation.
+- **Measured movement** the broken cutoff omits the required Dell. Correct contributions admit it, and the reranker selects it first. On repeated verification it moves from combined position 24 to final position 1. Other control queries keep their winner; arithmetic remains mandatory. See `docs/real-catalog-exercise-library.md` for all tested variants.
 - **Assertions that turn green** `rank_provenance_present`,
   `rerank_score_present`, plus the production validator's arithmetic and
   repeatability checks.
@@ -90,7 +82,7 @@ the later resets.
 
 - **Lab 3 anchor** `agentic-research` (`checkpoint: repair`, stage `reason`)
 - **Query** the canonical compound home-office request in the mission manifest
-- **Targets** products 370001 and 429001
+- **Targets** products 1408222 (Dell U2720Q) and 1221817 (Steelcase Gesture)
 - **What to disable** remove the marked state update that records retrieved
   evidence IDs under their product. All tools remain registered and read-only.
 - **Restoring it looks like** attaching each returned evidence record to

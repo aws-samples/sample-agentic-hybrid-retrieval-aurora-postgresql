@@ -1,0 +1,38 @@
+{
+  "rows_examined": 2841,
+  "identity_scopes": {
+    "parent_asin": 2841
+  },
+  "nonempty_fields": {
+    "description": 1618,
+    "details": 2834,
+    "features": 2242,
+    "images": 2841,
+    "price": 1236,
+    "title": 2841
+  },
+  "top_product_types": [],
+  "limits": [
+    "Nonempty fields may be inaccurate. Image links are not verified images.",
+    "Title screens identify records to review, not certified product categories.",
+    "Absent features remain unknown; neither false values nor specifications are inferred.",
+    "Parent ASINs and variant ASINs are not interchangeable join keys."
+  ],
+  "source": "reviews-2023",
+  "input_sha256": "99bcb977d2df7e96282101517476259d1d63c447c36e8617fcb150b8276fc9e4",
+  "sampling": "First 10 MiB of pinned Electronics metadata, complete lines only. Convenience sample; not representative.",
+  "pilot_rows": 2841,
+  "pilot_nonempty_fields": {
+    "description": 1618,
+    "details": 2834,
+    "features": 2242,
+    "images": 2841,
+    "price": 1236,
+    "title": 2841
+  },
+  "pilot_title_screens": {
+    "accessory_title": 242,
+    "headphone_title_or_type": 138,
+    "monitor_title_or_type": 41
+  }
+}

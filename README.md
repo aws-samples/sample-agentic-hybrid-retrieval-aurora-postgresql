@@ -34,7 +34,7 @@ framing is in [the session abstract](docs/session-abstract.md).
 
 **Jump to:** [Quick start](#quick-start) | [Architecture](#architecture) |
 [Workshop path](#workshop-path) | [Validation](#validation) |
-[Participant takeaway](#participant-takeaway) |
+[Use what you built in your own agent](#use-what-you-built-in-your-own-agent) |
 [Repository map](#repository-map)
 
 ## Quick start
@@ -174,7 +174,7 @@ instructions deep-link to:
   The participant guide in the companion Workshop Studio repository follows
   the [lab exercise design](docs/superpowers/specs/2026-09-19-lab-exercise-design.md):
   every lab page has the same shape and four numbered tasks (observe,
-  diagnose, repair, prove). The keyboard-and-chair Lab 3 contract is settled;
+  diagnose, repair, prove). The monitor-and-chair Lab 3 contract is settled;
   the terminal runs the before and after requests and Shop shows the same
   question as a separate, optional run.
   **Session & Memory** explores AgentCore conversation events, semantic facts,
@@ -212,7 +212,7 @@ A field-format failure permits one fresh review of the same inputs. Both calls'
 token use is counted; a second invalid response stops the answer.
 Lab checks follow each mission's declared requirements. The 12-hour-chair source
 checkpoint accepts one supported chair; the main Lab 3 request still requires
-independent keyboard and chair searches and a compared shortlist.
+independent monitor and chair searches and a compared shortlist.
 Questions about specs and reviews explain the available source facts and any
 missing review excerpts. A rating or review count cannot establish what reviewers
 said. Missing review text is not reported as a missing product.
@@ -222,10 +222,34 @@ answer after writing. The semantic review is an additional model judgment,
 not a proof of every possible natural-language claim; its decision and usage
 are retained with the turn.
 
-For Lab 1, compare the meaning-only, correctly spelled and misspelled requests
-under identical filters. **Pin as baseline** in the retrieval lab preserves
+For Lab 1, compare the saved-ID transposition `B07G95T3JP`, the correct ID
+`B07G95TJ3P`, and the independent descriptive search under their declared filters. **Pin as baseline** in the retrieval lab preserves
 the saved before result across reloads; compare it with the repeated request
 after repair. Candidate counts overlap, so they do not measure unique additions.
+
+The required labs follow Alex's unfinished home office: find his saved headphones,
+keep a suitable monitor in the shortlist, then justify the monitor and wheeled
+chair and revisit the headphones' review evidence. Each guide starts with a
+scenario and architecture, then asks for a prediction, a bounded repair and an
+independent challenge. Builders use `psql` in the Code Terminal to inspect
+installed search functions, query plans, saved rankings and source records.
+`scripts/lab_terminal.py` runs the real application request and prepares its exact
+IDs and parameters; Lab 3 also runs the agent and challenges its citation checks. See
+[the L400 teaching contract](docs/l400-lab-design.md) for scope and proof limits.
+
+Shop's **Explore** examples group keywords, a mistyped listing ID and natural
+requests. They resolve the existing queries and filters from the mission
+manifest; the labels describe ways to ask, not separate search modes.
+After a search, **Shop + search details** keeps the product cards beside their
+source positions, combined RRF positions and final positions. Switching order
+inspects the same saved request without calling retrieval again. The panel
+identifies the displayed subset and links to the full search in Playground.
+Saved searches open in Playground's three-column pipeline overview, including
+links carrying a lab example. **Open lab details** keeps that search available
+in the detailed workbench. Explicit guide and agent-proof links still open their
+lab controls.
+Workshop provisioning still installs the three declared faults. The local
+working environment can remain repaired; view controls never change lab state.
 
 <details>
 <summary>See Shop and Playground</summary>
@@ -289,9 +313,9 @@ See [the architecture reference](docs/architecture.md) and
 
 ## Workshop path
 
-The 60-minute session reserves 12 minutes for an Introduction / Overview /
+The 60-minute session reserves 10 minutes for an Introduction / Overview /
 Presentation, 40 minutes for the three labs (including their proofs and the
-completion gate), and 8 minutes for optional work or recovery:
+completion gate), and 10 minutes for optional work or recovery:
 
 ```text
 RETRIEVE -> RANK -> REASON
@@ -300,7 +324,7 @@ RETRIEVE -> RANK -> REASON
 | Lab | Time | Participant outcome |
 |---|---:|---|
 | **1. Build hybrid retrieval** | 10 min | Prove the right eligible candidates entered the pool, then reconnect one missing candidate arm |
-| **2. Fuse, rerank, and inspect** | 10 min | Repair `1 / (k + rank)` and prove why a correct final answer can hide incorrect fusion |
+| **2. Fuse, rerank, and inspect** | 10 min | Repair `1 / (k + rank)` so a suitable 4K/90W monitor reaches model reranking |
 | **3. Build the retrieval agent** | 20 min | Attach evidence identity to application-owned synthesis state and prove every citation resolves |
 
 The checked-in source is the solved reference implementation. Deliberate
@@ -328,7 +352,38 @@ provisioning-time gap injection, deployment automation, and the clean-account
 rehearsal. Repository checks prove the source contract; they do not replace
 fresh-stack deployment and projector rehearsal.
 
+The current worked examples use the imported `reviews-2023-500k-v1` catalog:
+Bose listing-ID recovery, Dell 4K/90W monitor ranking, and a monitor/chair answer
+checked against sources. [The example library](docs/real-catalog-exercise-library.md)
+records alternative requests and both their successful and unsuccessful outcomes.
+
+## Workshop catalog delivery
+
+The served catalog is `reviews-2023-500k-v1`: 500,000 source product records
+from Amazon Reviews 2023 with verified, saved Cohere Embed v4 vectors. Bootstrap
+verifies the pinned `real-catalog/real-catalog.tar.gz` before database loading,
+restores the records and vectors, and selects that dataset for the app and labs.
+The bundle also contains 32 source-verified review excerpts; these cover a small
+reviewed set, not all products. Missing excerpts are reported as missing.
+
+[`db/config/real-catalog-cache.json`](db/config/real-catalog-cache.json) pins the
+bundle hash and size. `scripts/real_catalog_cache.py` verifies record hashes,
+embedding input hashes, model identity and saved-vector integrity. Loading does
+not generate new embeddings. The original cached bootstrap remains a base for
+shared tables and historical optional benchmarks, so the database retains both
+catalogs; Shop and the required labs serve only the selected real catalog.
+
+The bundle is prepared locally and excluded from Git. Public redistribution
+clearance remains unresolved in the [source assessment](docs/catalog-source-assessment.md).
+Source publication, asset publication, broad catalog-quality measurement and a
+fresh-account rehearsal are separate gates.
+
 ## Release baseline
+
+**Historical baseline:** the measurements below describe the earlier synthetic
+catalog. They are retained for traceability and do not certify the imported
+catalog. Current lab proof, representative evaluation, Workshop Studio asset
+publication and fresh-account rehearsal are separate gates.
 
 The Aurora release contract verifies:
 
@@ -342,6 +397,7 @@ The Aurora release contract verifies:
 | Embedding dimensions | 1,024 |
 | Rerank model | `cohere.rerank-v3-5:0` |
 | Agent and synthesis model | `global.anthropic.claude-sonnet-4-6` |
+| Code Editor coding coach | Claude Code 2.1.233, `global.anthropic.claude-sonnet-5` through Bedrock |
 | Premium visual cohort | 120 products |
 | Photographed Shop edit | 200 products |
 | Product specification coverage | 500,000 products |
@@ -349,8 +405,8 @@ The Aurora release contract verifies:
 | Filter-contract cases | 720 |
 | Canonical scorecard | 20 product retrieval cases plus 1 agent contract case |
 
-The catalog is synthetic and represents no real products, reviews, or customer
-testimony. It spans three domains:
+This historical catalog is synthetic and represents no real products, reviews,
+or customer testimony. It spans three domains:
 
 | Domain | Products | Retrieval emphasis |
 |---|---:|---|
@@ -422,7 +478,7 @@ artifact. The sequence is spelled out in
 
 These assets answer different questions:
 
-- golden lab anchors ask whether critical behavior regressed;
+- lab regression checks ask whether critical behavior regressed;
 - the 20 product-retrieval cases measure retrieval quality;
 - the 720 generated fixtures test whether filters violated their contract.
 
@@ -558,10 +614,12 @@ and removes only its own container. Managed hosts can set
 `MOSAIC_DATABASE_SECRET_ARN` to load the Aurora DSN from Secrets Manager at
 startup, keeping the password out of Runtime environment settings.
 
-## Participant takeaway
+## Use what you built in your own agent
 
-Three artifacts transfer to another catalog without Mosaic, and one wrapper
-describes how an agent calls them. Each lab repairs one of the three.
+Reuse the filtered search, inspectable ranking and evidence operations you
+repaired. Your calling application chooses the requests, composes the answer
+and validates its citations. Adapt the implementation to your own entities
+and verify it with your own evaluation questions.
 
 | Take home | Where it lives | What it proves |
 |---|---|---|
@@ -570,7 +628,13 @@ describes how an agent calls them. Each lab repairs one of the three.
 | **The guard.** Retrieved evidence is registered and authorized by the application before synthesis may cite it, and the claim checks reject what the evidence cannot support. | [`service/agent_tools.py`](service/agent_tools.py), [`service/synthesis.py`](service/synthesis.py) | Lab 3: the model requests tools; the application decides what runs and what is citable. |
 | **The skill.** The four-operation contract a calling agent uses. | [`skills/mosaic-hybrid-retrieval/`](skills/mosaic-hybrid-retrieval/) | A portable declaration and operating guide, not a standalone retrieval runtime: callers still need a deployed service implementing the contract. |
 
-Keep the skill folder together: `SKILL.md` declares the four-operation HTTP
+Start with [Adapt the implementation](docs/use-in-your-app.md), the map into the
+SQL, evaluation harness and citation guard. The app's `/api/builder-package`
+download includes that guide, reference SQL and an optional tool exercise; keep
+the full checkout for runnable code and dependencies.
+
+**Download the skill** from `/api/skill-package` when connecting a calling agent
+to a running Mosaic service. Keep the folder together: `SKILL.md` declares the four-operation HTTP
 skill surface, and its references provide the generated argument-to-HTTP map,
 the exact HTTP/MCP/A2A deployment status, and an adaptation checklist. The
 optional build-a-tool exercise is additional practice in the Workshop Studio
@@ -590,9 +654,9 @@ Validate the package and its live FastAPI bindings with:
 uv run python scripts/tool_contracts.py --check
 ```
 
-Start with [the skill](skills/mosaic-hybrid-retrieval/SKILL.md), then use
-[the adaptation guide](skills/mosaic-hybrid-retrieval/references/adapting.md)
-when mapping it to another domain.
+Read [the calling instructions](skills/mosaic-hybrid-retrieval/SKILL.md) and
+[the adaptation checklist](skills/mosaic-hybrid-retrieval/references/adapting.md)
+alongside the implementation when mapping it to another domain.
 
 ## Sources of truth
 
@@ -622,7 +686,7 @@ docs/         Architecture, curriculum, evaluation, operations, and UI contracts
 mcp-server/   Isolated MCP adapter
 scripts/      Data, embedding, validation, scorecard, and benchmark tooling
 service/      FastAPI, retrieval orchestration, Strands tools, and model clients
-skills/       Participant takeaway skill, checked adapter map, and adaptation guidance
+skills/       Agent calling instructions, checked adapter map, and adaptation guidance
 tests/        Dataset, SQL, API, provenance, and release-contract tests
 ui/           React storefront, Ask Mosaic, and the Playground
 ```

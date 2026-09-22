@@ -22,7 +22,7 @@ Required labs:
 - The agent orchestrates retrieval. It does not replace retrieval.
 - Do not increase required lab count beyond three.
 - Protect the source contract's 40-minute hands-on budget, including completion.
-  The 60-minute session reserves 12 minutes for orientation and 8 for optional
+  The 60-minute session reserves 10 minutes for orientation and 10 for optional
   work, recovery, and questions.
 - Treat measured behavior as authoritative. Never invent benchmark or eval data.
 
