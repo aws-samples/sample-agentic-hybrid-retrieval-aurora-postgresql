@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "selection_seed": "mosaic-real-products-v1",
+  "minimum_source_text_characters": 160,
+  "maximum_embedding_characters": 32000,
+  "sources": [
+    {"category": "Office_Products", "products": 100000},
+    {"category": "Electronics", "products": 400000}
+  ]
+}

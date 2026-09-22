@@ -67,6 +67,7 @@ if str(REPO) not in sys.path:
 from scripts.eval_contract import load_evaluation_queries
 from scripts.evaluate import evaluate, load_judgments
 from scripts.retrieval_profile import explain
+from scripts.run_eval import require_single_served_catalog
 from scripts.score_evals import (
     product_retrieval_queries,
     query_set_sha256,
@@ -674,6 +675,7 @@ def measured_ablation() -> dict[str, Any]:
     _require_clean_source(settings)
 
     canonical_queries = load_evaluation_queries(CANONICAL_QUERIES_PATH)
+    require_single_served_catalog(canonical_queries)
     queries, _excluded = product_retrieval_queries(canonical_queries)
     query_ids = {query["query_id"] for query in queries}
     all_judgments = load_judgments(CANONICAL_QUERIES_PATH)

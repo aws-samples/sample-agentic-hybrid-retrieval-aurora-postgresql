@@ -158,36 +158,20 @@ def test_search_document_is_generated_from_feature_text():
     )
 
 
-def test_lab1_anchor_has_no_correctly_spelled_word():
-    """Every token must miss, or FTS recovers the target on the one that hits.
-
-    Both retired anchors failed a version of this. The first left `canceling`
-    spelled correctly, which stems to the same lexeme as `cancelling`. The second
-    spelled the category word `WHC720` closely enough to be an identity.
-    """
+def test_lab1_anchor_transposes_the_exact_source_identifier():
+    """One adjacent transposition isolates a lexical miss without inventing facts."""
     import json
 
-    missions = json.loads(MISSIONS.read_text(encoding="utf-8"))
-    mission = next(m for m in missions["missions"] if m["id"] == "typo-recovery")
-    tokens = mission["query"].split()
-    assert len(tokens) >= 3, "a one-word anchor cannot demonstrate a lexical miss"
-    catalog_words = {
-        "noise",
-        "cancelling",
-        "canceling",
-        "headphones",
-        "headphone",
-        "wireless",
-        "sonora",
-        "battery",
-        "life",
-        "lightweight",
-        "clear",
-        "calls",
-    }
-    for token in tokens:
-        assert token.lower() not in catalog_words, (
-            f"{token!r} is spelled the way the catalog spells it, so FTS can "
-            "recover the target on that token alone and the broken state stops "
-            "being broken"
-        )
+    contract = json.loads(MISSIONS.read_text(encoding="utf-8"))
+    typo = next(m for m in contract["missions"] if m["id"] == "typo-recovery")
+    exact = next(
+        m for m in contract["supporting_checks"] if m["id"] == "exact-identity"
+    )
+    wrong, correct = typo["query"], exact["query"]
+    assert len(wrong) == len(correct) == 10
+    changed = [i for i, (a, b) in enumerate(zip(wrong, correct, strict=True)) if a != b]
+    assert len(changed) == 2 and changed[1] == changed[0] + 1
+    a, b = changed
+    assert wrong[a] == correct[b] and wrong[b] == correct[a]
+    assert typo["target_product_ids"] == exact["target_product_ids"]
+    assert typo["dataset_id"] == exact["dataset_id"] == "reviews-2023-500k-v1"

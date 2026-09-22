@@ -93,7 +93,7 @@ def test_batched_counts_match_shop_with_empty_and_combined_filters():
         client.get("/api/catalog/products", params={**item, "limit": 1}).json()["total"]
         for item in filters
     ]
-    assert counts[0] > 0
+    assert counts[2] > 0  # Ratings are available even when current prices are not.
     assert counts[3] == 0
 
 

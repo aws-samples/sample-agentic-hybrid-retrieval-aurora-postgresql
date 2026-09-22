@@ -41,7 +41,6 @@ SEED = REPO / "ui" / "src" / "data" / "retrievalSeedRun.json"
 # on screen before anybody presses anything.
 DEFAULT_MISSION = "typo-recovery"
 DEFAULT_API = "http://127.0.0.1:8010"
-RESULT_LIMIT = 12
 
 
 def load_mission(mission_id: str) -> dict[str, Any]:
@@ -83,7 +82,8 @@ def capture(api: str, mission: dict[str, Any]) -> dict[str, Any]:
         {
             "query": mission["query"],
             "filters": mission["filters"],
-            "limit": RESULT_LIMIT,
+            "limit": mission["top_k"],
+            "include_diagnostics": True,
             "rerank": True,
         }
     ).encode()
@@ -170,6 +170,7 @@ def main() -> int:
         "provenance": {
             "captured_at": datetime.now(UTC).strftime("%Y-%m-%d"),
             "mission_id": mission["id"],
+            "dataset_id": mission.get("dataset_id"),
             "producer": "scripts/capture_retrieval_seed.py",
             "search_event_id": response["search_event_id"],
             "note": (

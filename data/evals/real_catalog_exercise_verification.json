@@ -1,0 +1,378 @@
+{
+  "dataset_id": "reviews-2023-500k-v1",
+  "scope": "Worked examples, not a representative catalog quality benchmark. All attempted variants are retained. No product text, image or vector changed.",
+  "functions_restored_byte_identical": true,
+  "cases": [
+    {
+      "id": "identity-1277987",
+      "lab": 1,
+      "target": 1277987,
+      "correct_id": "B07G95TJ3P",
+      "query": "B07G95T3JP",
+      "filters": {
+        "domain": "consumer_electronics",
+        "category_key": "headphones"
+      },
+      "broken": {
+        "search_event_id": "c0a2197a-7e85-4519-98df-4d762a4f13df",
+        "target_in_pool": false,
+        "target_final_position": null,
+        "target_combined_position": null,
+        "first_product_id": 1138035,
+        "first_title": "Bowers & Wilkins P5 Headphones - Black (Wired)"
+      },
+      "repaired": {
+        "search_event_id": "40203ff6-9594-4e02-b15f-f2aa8f1d6dc4",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 1,
+        "first_product_id": 1277987,
+        "first_title": "Bose QuietComfort 35 (Series II) Wireless Headphones, Noise Cancelling, with Alexa voice control \u2013 Limited Edition Triple Midnight"
+      }
+    },
+    {
+      "id": "identity-1221817",
+      "lab": 1,
+      "target": 1221817,
+      "correct_id": "B01NAKXH73",
+      "query": "B01NAKX7H3",
+      "filters": {
+        "domain": "home_office",
+        "category_key": "chair"
+      },
+      "broken": {
+        "search_event_id": "f6576203-c2f0-4deb-b190-0faa347e7ba5",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 35,
+        "first_product_id": 1221817,
+        "first_title": "Steelcase Gesture Task Chair: Wrapped Back - Platinum Metallic Frame/Base/Seagull Accent - Adjustable Lumbar Support - Roll Control Hard Floor Casters"
+      },
+      "repaired": {
+        "search_event_id": "cd8b6f34-e1b2-4943-b9ea-e1b5db143818",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 1,
+        "first_product_id": 1221817,
+        "first_title": "Steelcase Gesture Task Chair: Wrapped Back - Platinum Metallic Frame/Base/Seagull Accent - Adjustable Lumbar Support - Roll Control Hard Floor Casters"
+      }
+    },
+    {
+      "id": "identity-1408222",
+      "lab": 1,
+      "target": 1408222,
+      "correct_id": "B0939N79Y8",
+      "query": "B0939N7Y98",
+      "filters": {
+        "domain": "consumer_electronics",
+        "category_key": "monitor"
+      },
+      "broken": {
+        "search_event_id": "db48625c-aee0-4d29-a648-142aa19a9b80",
+        "target_in_pool": false,
+        "target_final_position": null,
+        "target_combined_position": null,
+        "first_product_id": 1441948,
+        "first_title": "Thinlerain 20\" PC Monitor 16:9 1600x900 Kitchen Monitor, LED Monitor Build in Speaker, 5Ms, 60 Hz, VESA Mountable, with VGA HDMI AV BNC USB, for FireStick, Computer, Laptop"
+      },
+      "repaired": {
+        "search_event_id": "fbc95daf-07f6-4125-af66-912fe9412d51",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 2,
+        "first_product_id": 1408222,
+        "first_title": "Dell UltraSharp 27\" 4K UHD (3840 x 2160) IPS Anti-Glare Treatment of The Front Polarizer (3H) Hard Coating LED Backlit USB-C Monitor - U2720Q-Black"
+      }
+    },
+    {
+      "id": "identity-1379290",
+      "lab": 1,
+      "target": 1379290,
+      "correct_id": "B08KTS3M9M",
+      "query": "B08KTS39MM",
+      "filters": {
+        "domain": "home_office",
+        "category_key": "chair"
+      },
+      "broken": {
+        "search_event_id": "6db2059e-9ead-4e7d-855a-df683232f57a",
+        "target_in_pool": false,
+        "target_final_position": null,
+        "target_combined_position": null,
+        "first_product_id": 1478818,
+        "first_title": "BURENMTO Office Desk Chair,Adjustable Height Task Chairs without Arms,Ergonomic Office Chair with Footrest Ring & Adjustable Lumbar Cushion,Swivel Drafting Chair for Small Space,Office,Home,Grey/Black"
+      },
+      "repaired": {
+        "search_event_id": "63d038d2-b32e-47f8-80bd-088df09267f2",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 2,
+        "first_product_id": 1379290,
+        "first_title": "Amazon Basics Ergonomic Adjustable High-Back Chair with Flip-Up Arms and Headrest, Contoured Mesh Seat - Black, 25.5\"D x 26.25\"W x 49.25\"H"
+      }
+    },
+    {
+      "id": "identity-1490476",
+      "lab": 1,
+      "target": 1490476,
+      "correct_id": "B0BYZ4KH7G",
+      "query": "B0BYZ4K7HG",
+      "filters": {
+        "domain": "home_office",
+        "category_key": "chair"
+      },
+      "broken": {
+        "search_event_id": "efa41cf6-28b8-41a5-af12-642485758b71",
+        "target_in_pool": false,
+        "target_final_position": null,
+        "target_combined_position": null,
+        "first_product_id": 1478818,
+        "first_title": "BURENMTO Office Desk Chair,Adjustable Height Task Chairs without Arms,Ergonomic Office Chair with Footrest Ring & Adjustable Lumbar Cushion,Swivel Drafting Chair for Small Space,Office,Home,Grey/Black"
+      },
+      "repaired": {
+        "search_event_id": "ab2ac45e-f780-4f1f-8349-f0d86def87cb",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 1,
+        "first_product_id": 1490476,
+        "first_title": "Newtral Ergonomic Office Chair with Footrest- High Back Desk Chair with Unique Adjustable Lumbar Support, Seat Depth Adjustment, Tilt Function, 4D Armrest Recliner Chair for Home Office"
+      }
+    },
+    {
+      "id": "identity-1248512",
+      "lab": 1,
+      "target": 1248512,
+      "correct_id": "B076NXZZPD",
+      "query": "B076NXZPZD",
+      "filters": {
+        "domain": "home_office",
+        "category_key": "chair"
+      },
+      "broken": {
+        "search_event_id": "357ad8f0-3884-48ad-9a3e-0dd0457049a6",
+        "target_in_pool": false,
+        "target_final_position": null,
+        "target_combined_position": null,
+        "first_product_id": 1400100,
+        "first_title": "2021 Newest Home Office Desk Chairs, Ergonomic Office Chair with Adjustable Headrest and Lumbar Support, Computer Desk Chair with Thickened Cushion and Flip-up Armrests, Black"
+      },
+      "repaired": {
+        "search_event_id": "99104138-d311-4720-af1d-e2ae72122084",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 1,
+        "first_product_id": 1248512,
+        "first_title": "Staples 2257054 Hyken Technical Mesh Task Chair Red"
+      }
+    },
+    {
+      "id": "identity-1389794",
+      "lab": 1,
+      "target": 1389794,
+      "correct_id": "B08QDNY2GK",
+      "query": "B08QDNYG2K",
+      "filters": {
+        "domain": "home_office",
+        "category_key": "chair"
+      },
+      "broken": {
+        "search_event_id": "ff8d2b12-37b0-479a-86cb-fefff0572025",
+        "target_in_pool": false,
+        "target_final_position": null,
+        "target_combined_position": null,
+        "first_product_id": 1478818,
+        "first_title": "BURENMTO Office Desk Chair,Adjustable Height Task Chairs without Arms,Ergonomic Office Chair with Footrest Ring & Adjustable Lumbar Cushion,Swivel Drafting Chair for Small Space,Office,Home,Grey/Black"
+      },
+      "repaired": {
+        "search_event_id": "4358fd38-e1a9-444a-aafd-9e22f3b84c4b",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 1,
+        "first_product_id": 1389794,
+        "first_title": "Nouhaus Ergo3D Ergonomic Office Chair - Rolling Desk Chair with 3D Adjustable Armrest, 3D Lumbar Support and Blade Wheels - Mesh Computer Chair, Gaming Chairs, Executive Swivel Chair (Black)"
+      }
+    },
+    {
+      "id": "requirements-1",
+      "lab": 2,
+      "query": "27 inch 4K monitor USB-C 90W laptop charging",
+      "filters": {
+        "domain": "consumer_electronics",
+        "category_key": "monitor"
+      },
+      "target": 1408222,
+      "broken": {
+        "search_event_id": "29b78fe5-6fcf-4470-9d04-37deaaa9ae52",
+        "target_in_pool": false,
+        "target_final_position": null,
+        "target_combined_position": null,
+        "first_product_id": 1219465,
+        "first_title": "HP Envy 27-Inch UHD 4K IPS Monitor with Micro-Edge Bezel and AMD Freesync (Black)"
+      },
+      "repaired": {
+        "search_event_id": "33476c36-38a2-4347-b90d-c7faacd2b171",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 24,
+        "first_product_id": 1408222,
+        "first_title": "Dell UltraSharp 27\" 4K UHD (3840 x 2160) IPS Anti-Glare Treatment of The Front Polarizer (3H) Hard Coating LED Backlit USB-C Monitor - U2720Q-Black"
+      }
+    },
+    {
+      "id": "requirements-2",
+      "lab": 2,
+      "query": "27 inch monitor to connect and charge my laptop with one USB-C cable 90W 4K",
+      "filters": {
+        "domain": "consumer_electronics",
+        "category_key": "monitor"
+      },
+      "target": 1408222,
+      "broken": {
+        "search_event_id": "c19c5de2-5828-434f-ad23-14fac46503c7",
+        "target_in_pool": false,
+        "target_final_position": null,
+        "target_combined_position": null,
+        "first_product_id": 1479065,
+        "first_title": "SAMSUNG ViewFinity S8 27-Inch Series 4K UHD High Resolution Monitor, IPS Panel, 60Hz, Thunderbolt 4, HDR 10+, Built-in Speakers, Height Adjustable Stand, (LS27B800TGNXGO), 2022"
+      },
+      "repaired": {
+        "search_event_id": "1af88654-edb7-4b35-b404-0b2f291daeaa",
+        "target_in_pool": false,
+        "target_final_position": null,
+        "target_combined_position": null,
+        "first_product_id": 1479065,
+        "first_title": "SAMSUNG ViewFinity S8 27-Inch Series 4K UHD High Resolution Monitor, IPS Panel, 60Hz, Thunderbolt 4, HDR 10+, Built-in Speakers, Height Adjustable Stand, (LS27B800TGNXGO), 2022"
+      }
+    },
+    {
+      "id": "requirements-3",
+      "lab": 2,
+      "query": "27 inch 4K IPS monitor with USB Type C and a height adjustable pivot stand",
+      "filters": {
+        "domain": "consumer_electronics",
+        "category_key": "monitor"
+      },
+      "target": 1481815,
+      "broken": {
+        "search_event_id": "3fad44f4-70bc-4eb7-b63e-34fd6e580a1d",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 3,
+        "first_product_id": 1481815,
+        "first_title": "INNOCN 27 Inch 4K Monitor Computer UHD 3840 x 2160 LCD IPS Display, HDR400, USB Type C DP HDMI PC Monitor, 1.07B+ Colors, Built-in Speakers, Pivot/Height Adjustable Stand, Black"
+      },
+      "repaired": {
+        "search_event_id": "59b6745b-cf69-4f02-bad0-61c2fab9ce15",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 1,
+        "first_product_id": 1481815,
+        "first_title": "INNOCN 27 Inch 4K Monitor Computer UHD 3840 x 2160 LCD IPS Display, HDR400, USB Type C DP HDMI PC Monitor, 1.07B+ Colors, Built-in Speakers, Pivot/Height Adjustable Stand, Black"
+      }
+    },
+    {
+      "id": "requirements-4",
+      "lab": 2,
+      "query": "office chair with adjustable lumbar support seat depth adjustment and footrest",
+      "filters": {
+        "domain": "home_office",
+        "category_key": "chair"
+      },
+      "target": 1490476,
+      "broken": {
+        "search_event_id": "e9811b1c-8f34-4a17-b5e4-555ff7695fca",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 1,
+        "first_product_id": 1490476,
+        "first_title": "Newtral Ergonomic Office Chair with Footrest- High Back Desk Chair with Unique Adjustable Lumbar Support, Seat Depth Adjustment, Tilt Function, 4D Armrest Recliner Chair for Home Office"
+      },
+      "repaired": {
+        "search_event_id": "f2abaf1f-d93b-4a28-857e-8641f7725d07",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 1,
+        "first_product_id": 1490476,
+        "first_title": "Newtral Ergonomic Office Chair with Footrest- High Back Desk Chair with Unique Adjustable Lumbar Support, Seat Depth Adjustment, Tilt Function, 4D Armrest Recliner Chair for Home Office"
+      }
+    },
+    {
+      "id": "requirements-5",
+      "lab": 2,
+      "query": "mesh office chair with 3D adjustable armrests and 3D lumbar support",
+      "filters": {
+        "domain": "home_office",
+        "category_key": "chair"
+      },
+      "target": 1389794,
+      "broken": {
+        "search_event_id": "f25c8ed9-b9cb-48a7-b7ce-f6a710b0e610",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 1,
+        "first_product_id": 1389794,
+        "first_title": "Nouhaus Ergo3D Ergonomic Office Chair - Rolling Desk Chair with 3D Adjustable Armrest, 3D Lumbar Support and Blade Wheels - Mesh Computer Chair, Gaming Chairs, Executive Swivel Chair (Black)"
+      },
+      "repaired": {
+        "search_event_id": "c304c90d-eafa-4c15-9892-58130069e326",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 2,
+        "first_product_id": 1389794,
+        "first_title": "Nouhaus Ergo3D Ergonomic Office Chair - Rolling Desk Chair with 3D Adjustable Armrest, 3D Lumbar Support and Blade Wheels - Mesh Computer Chair, Gaming Chairs, Executive Swivel Chair (Black)"
+      }
+    },
+    {
+      "id": "requirements-6",
+      "lab": 2,
+      "query": "mesh high back chair with flip up arms and headrest",
+      "filters": {
+        "domain": "home_office",
+        "category_key": "chair"
+      },
+      "target": 1379290,
+      "broken": {
+        "search_event_id": "7d043c03-c0d7-4513-8d38-57d9180ca23c",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 2,
+        "first_product_id": 1379290,
+        "first_title": "Amazon Basics Ergonomic Adjustable High-Back Chair with Flip-Up Arms and Headrest, Contoured Mesh Seat - Black, 25.5\"D x 26.25\"W x 49.25\"H"
+      },
+      "repaired": {
+        "search_event_id": "e843cf50-d146-4f0d-94d3-3754d22b6a9c",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 1,
+        "first_product_id": 1379290,
+        "first_title": "Amazon Basics Ergonomic Adjustable High-Back Chair with Flip-Up Arms and Headrest, Contoured Mesh Seat - Black, 25.5\"D x 26.25\"W x 49.25\"H"
+      }
+    },
+    {
+      "id": "requirements-7",
+      "lab": 2,
+      "query": "wireless noise cancelling headphones with Alexa voice control",
+      "filters": {
+        "domain": "consumer_electronics",
+        "category_key": "headphones"
+      },
+      "target": 1277987,
+      "broken": {
+        "search_event_id": "3ff1aad1-b899-4439-addc-40bbcb135c42",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 1,
+        "first_product_id": 1277987,
+        "first_title": "Bose QuietComfort 35 (Series II) Wireless Headphones, Noise Cancelling, with Alexa voice control \u2013 Limited Edition Triple Midnight"
+      },
+      "repaired": {
+        "search_event_id": "4f5d180e-f444-44fa-938f-3f6e754428ca",
+        "target_in_pool": true,
+        "target_final_position": 1,
+        "target_combined_position": 1,
+        "first_product_id": 1277987,
+        "first_title": "Bose QuietComfort 35 (Series II) Wireless Headphones, Noise Cancelling, with Alexa voice control \u2013 Limited Edition Triple Midnight"
+      }
+    }
+  ]
+}

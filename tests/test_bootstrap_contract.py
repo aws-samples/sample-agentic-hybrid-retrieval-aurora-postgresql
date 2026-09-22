@@ -227,15 +227,49 @@ def test_health_probes_are_routes_the_app_registers(script: str) -> None:
     )
 
 
-def test_vite_proxy_variable_is_the_one_vite_reads(script: str) -> None:
-    config = VITE_CONFIG.read_text(encoding="utf-8")
-    names = set(re.findall(r"process\.env\.([A-Z_][A-Z0-9_]*)", config))
+def assert_vite_proxy_environment(config: str, script: str) -> set[str]:
+    targets = re.findall(r"target:\s*([A-Z_][A-Z0-9_]*)", config)
+    assert targets, (
+        "Vite proxy target rule: no target found; inspect the proxy configuration"
+    )
+    names = set()
+    for target in targets:
+        declaration = re.search(rf"const\s+{re.escape(target)}\s*=([^;]+);", config)
+        assert declaration, (
+            f"Vite proxy target rule: {target} has no declaration; expose its environment setting"
+        )
+        names.update(re.findall(r"process\.env\.([A-Z_][A-Z0-9_]*)", declaration[1]))
     assert names, "vite.config.ts no longer reads a proxy target from the environment"
     for name in names:
         assert f"{name}=" in script, (
             f"vite reads {name} but the bootstrap never sets it, so the UI would "
             "proxy to its built-in default instead of the API on this box"
         )
+    return names
+
+
+def test_vite_proxy_variable_is_the_one_vite_reads(script: str) -> None:
+    config = VITE_CONFIG.read_text(encoding="utf-8")
+    assert assert_vite_proxy_environment(config, script) == {"CATALOG_API_PROXY"}
+
+
+def test_proxy_check_rejects_an_unset_target_but_ignores_unrelated_preview_settings(
+    script: str,
+) -> None:
+    config = VITE_CONFIG.read_text(encoding="utf-8")
+    saved = config.encode()
+    changed = config.replace(
+        "process.env.CATALOG_API_PROXY", "process.env.UNSET_API_PROXY"
+    )
+    with pytest.raises(AssertionError, match="UNSET_API_PROXY.*bootstrap never sets"):
+        assert_vite_proxy_environment(changed, script)
+    assert assert_vite_proxy_environment(saved.decode(), script) == {
+        "CATALOG_API_PROXY"
+    }
+    assert config.encode() == saved
+    assert assert_vite_proxy_environment(
+        config + "\nconst preview = process.env.UNRELATED_PREVIEW_FILE;", script
+    ) == {"CATALOG_API_PROXY"}
 
 
 def test_database_bootstrap_target_exists(script: str) -> None:

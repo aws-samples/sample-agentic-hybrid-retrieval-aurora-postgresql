@@ -1492,7 +1492,10 @@ def test_agent_tool_filters_may_narrow_request_filters():
 
 
 def test_agent_search_tool_enforces_its_two_search_budget():
-    state = {"searches": [{}, {}]}
+    state = {
+        "searches": [{}, {}],
+        "trace": [{"tool": "search_products"}, {"tool": "search_products"}],
+    }
     token = agent_tools._RUN.set(state)
     try:
         result = agent_tools.search_products.__wrapped__("another broad search")
@@ -1782,10 +1785,10 @@ def test_readiness_does_not_expose_credential_exception_text(monkeypatch):
     )
 
 
-def test_readiness_sql_requires_artifacts_in_the_mosaic_search_schema():
+def test_readiness_sql_scopes_indexes_to_the_requested_schema_with_a_legacy_default():
     source = (ROOT / "service/db.py").read_text(encoding="utf-8")
 
-    assert "index_schema.nspname = 'mosaic_search'" in source
+    assert "index_schema.nspname = coalesce(%s::text, 'mosaic_search')" in source
     assert "namespace.nspname = 'mosaic_search'" in source
     assert "WHERE NOT EXISTS (" in source
 

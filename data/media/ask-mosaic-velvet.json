@@ -1,0 +1,14 @@
+{
+  "asset": "ui/public/assets/images/mosaic/ask-mosaic-velvet.webp",
+  "purpose": "Decorative backdrop for the compact Ask Mosaic invitation beside Shop search. Text and button remain live UI elements.",
+  "generator": "Built-in image_gen tool",
+  "reference": "ui/public/assets/images/mosaic/ho-productivity-monitors-atelier-32-catalog-3x2.webp",
+  "reference_role": "Visual style only; no product identity or product imagery is reused in the banner.",
+  "prompt": "Use case: ads-marketing. Create a new premium web UI background asset, landscape 2:1, at least 2048 x 1024. The supplied monitor photo is a STYLE REFERENCE ONLY: translate the flowing champagne, bronze and burgundy curves visible on its display into a close-up photograph of plush velvet drapery. Do not include a monitor, desk, room, objects, text, typography, logos, borders or buttons. Fill the frame with tactile, fine-pile velvet fabric in a few broad, soft, sculptural folds. Quiet luminous champagne/oat velvet covers the LEFT TWO THIRDS with very gentle tonal changes, sufficiently light and uncluttered for a short dark burgundy heading and a button to be overlaid later in code. Deeper burgundy and warm bronze velvet folds sweep across the RIGHT THIRD and curl along the lower-right edge, echoing the monitor wallpaper's elegant wave. Soft afternoon side-light, subtle satin-like sheen on the velvet's rounded folds, deep rich shadows only on the far right, photographic microtexture, luxurious but restrained. This will be a SMALL invitation card around 292 x 132 CSS pixels beside a search input, so use large simple flowing folds and clear left negative space that remain beautiful at small size. Entire image edge-to-edge fabric, no writing of any kind.",
+  "web_export": {
+    "format": "WebP",
+    "width": 960,
+    "height": 480,
+    "quality": 86
+  }
+}

@@ -318,3 +318,42 @@ def test_unrelated_negative_feature_does_not_invalidate_explicit_compatibility()
         "AuriLogic Flight ANC is compatible with model A2342 [1].",
         [evidence("Compatible with model A2342 with no adapter required.")],
     )
+
+
+def test_ellipsized_product_title_keeps_its_citation_in_the_sentence():
+    monitor = product(
+        title="Dell UltraSharp 27-inch USB-C Monitor U2720Q", model="UltraSharp"
+    )
+    validate(
+        "The Dell UltraSharp ... U2720Q has a 27-inch screen [1].",
+        [evidence("Dell UltraSharp U2720Q. Screen size: 27 inches.")],
+        [monitor],
+    )
+    with pytest.raises(SynthesisOutputError, match="does not cite|unsupported numeric"):
+        validate(
+            "The Dell UltraSharp ... U2720Q has a 27-inch screen. It looks good [1].",
+            [evidence("Dell UltraSharp U2720Q. Screen size: 27 inches.")],
+            [monitor],
+        )
+
+
+def test_unique_brand_subject_does_not_inherit_the_previous_products_claims():
+    monitor = product(
+        product_id=2, title="Dell UltraSharp Monitor", model="UltraSharp", brand="Dell"
+    )
+    chair = product(title="Steelcase Gesture Chair", model="Gesture", brand="Steelcase")
+    monitor_record = evidence("Screen size: 27 inches.").model_copy(
+        update={"product_id": 2, "evidence_id": 2}
+    )
+    records = [evidence("Adjustable lumbar support."), monitor_record]
+    validate(
+        "The Steelcase Gesture has lumbar support [1]. The Dell record confirms a 27-inch screen [2].",
+        records,
+        [chair, monitor],
+    )
+    with pytest.raises(SynthesisOutputError):
+        validate(
+            "The Steelcase Gesture has a 27-inch screen [2]. The Dell has lumbar support [1].",
+            records,
+            [chair, monitor],
+        )

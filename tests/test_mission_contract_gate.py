@@ -82,6 +82,20 @@ def test_a_fourth_required_lab_fails(passing):
     assert "A1.1" in rules_failing(passing)
 
 
+@pytest.mark.parametrize("bound", [None, 0, True, 11])
+def test_invalid_final_shortlist_bound_fails(passing, bound):
+    rank = next(m for m in passing["missions"] if m["stage"] == "rank")
+    rank["expected_final_top_k"] = bound
+    assert "A1.1c" in rules_failing(passing)
+
+
+@pytest.mark.parametrize("limit", [None, "10", True])
+def test_invalid_served_limit_produces_a_named_failure(passing, limit):
+    rank = next(m for m in passing["missions"] if m["stage"] == "rank")
+    rank["top_k"] = limit
+    assert "A1.1c" in rules_failing(passing)
+
+
 def test_a_check_in_both_lists_fails(passing):
     passing["supporting_checks"].append(copy.deepcopy(passing["missions"][0]))
     assert "A1.2" in rules_failing(passing)

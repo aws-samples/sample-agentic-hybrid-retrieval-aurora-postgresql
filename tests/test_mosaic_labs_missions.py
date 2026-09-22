@@ -88,8 +88,10 @@ def test_golden_targets_are_curated_products():
     curated = {
         int(product["product_id"])
         for product in json.loads(
-            (ROOT / "data/curated/demo_products.json").read_text(encoding="utf-8")
-        )
+            (ROOT / "data/evals/real_catalog_lab_products.json").read_text(
+                encoding="utf-8"
+            )
+        )["products"]
     }
 
     for check in ALL_CHECKS:

@@ -146,13 +146,13 @@ class ProductSummary(WireModel):
     category_path: str
     brand: str
     model: str
-    price_cents: int
-    list_price_cents: int
+    price_cents: int | None
+    list_price_cents: int | None
     currency: str = "USD"
     rating: float | None = None
     review_count: int
-    availability: Availability
-    inventory_count: int
+    availability: Availability | None
+    inventory_count: int | None
     attributes: dict[str, Any]
     tags: list[Any]
     catalog_asset_key: str | None = None
@@ -162,6 +162,12 @@ class ProductSummary(WireModel):
     is_retrieval_anchor: bool = False
     image_url: str | None = None
     image_source: str | None = None
+    source_dataset: str | None = None
+    listing_url: str | None = None
+    historical_price_cents: int | None = None
+    historical_price_min_cents: int | None = None
+    condition: str | None = None
+    source_features: list[str] = Field(default_factory=list)
     signals: ResultSignals | None = None
     sources: list[SourceAttribution] = Field(default_factory=list)
 

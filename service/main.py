@@ -91,6 +91,7 @@ from service.retrieval_scope import (
 from service.scorecard import retrieval_scorecard
 from service.session_memory import prepare_request
 from service.session_memory import router as session_memory_router
+from service.staged_catalog import router as staged_catalog_router
 from service.telemetry import search_with_telemetry
 from service.telemetry_contract import (
     AgentTelemetryResponse,
@@ -138,6 +139,7 @@ app = FastAPI(
     version="0.2.0",
     lifespan=_lifespan,
 )
+app.include_router(staged_catalog_router)
 # The tool census inspects concrete APIRoutes, including these non-tool routes.
 for memory_route in session_memory_router.routes:
     app.add_api_route(
@@ -286,6 +288,8 @@ def get_readiness() -> dict[str, Any]:
         and not database["missing_retrieval_indexes"]
         and not database["missing_retrieval_functions"]
     )
+    if "catalog_ready" in database:
+        database_ready = bool(database["catalog_ready"])
     bedrock_credentials = bedrock_credentials_status(settings.aws_region)
     return {
         "status": (
@@ -306,8 +310,20 @@ def get_readiness() -> dict[str, Any]:
         "source": {
             "revision": settings.source_revision,
             "worktree_dirty": settings.source_worktree_dirty,
-            "dataset_manifest_sha256": settings.dataset_manifest_sha256,
+            "dataset_manifest_sha256": database.get(
+                "dataset_manifest_sha256", settings.dataset_manifest_sha256
+            ),
         },
+    }
+
+
+@app.get("/api/catalog/source")
+def get_catalog_source() -> dict[str, Any]:
+    from service.catalog_runtime import active_dataset
+
+    return {
+        "dataset_id": active_dataset(),
+        "current_offers_available": not bool(active_dataset()),
     }
 
 
@@ -870,11 +886,18 @@ def compare_scoped_products(
             (search_event_id, unique_ids),
         ).fetchall()
     by_product = {row["product_id"]: dict(row) for row in receipts}
+    try:
+        summaries = get_product_summaries(unique_ids)
+    except KeyError as error:
+        raise HTTPException(
+            409,
+            "These results use a previous catalog. Run a new search before comparing products.",
+        ) from error
     products = [
         product.model_copy(
             update={"signals": signals_from_receipt(by_product[product.product_id])}
         )
-        for product in get_product_summaries(unique_ids)
+        for product in summaries
     ]
     return ProductComparisonResponse(
         retrieval_scope_id=search_event_id,

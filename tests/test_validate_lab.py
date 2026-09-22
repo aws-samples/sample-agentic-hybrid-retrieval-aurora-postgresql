@@ -14,7 +14,7 @@ def _agent_response():
             "availability": "in_stock",
             "attributes": {},
         }
-        for product_id, price in ((370001, 69900), (429001, 16999))
+        for product_id, price in ((370001, 69900), (420001, 54900))
     ]
     return {
         "question": validate_lab._mission("reason")["query"],
@@ -38,9 +38,9 @@ def _agent_response():
                 "tool": "search_products",
                 "outcome": "success",
                 "origin": "model",
-                "retrieval_run_id": "run-keyboard",
+                "retrieval_run_id": "run-monitor",
                 "arguments": {
-                    "query": "quiet mechanical keyboard",
+                    "query": "4K USB-C monitor",
                     "applied_filters": {
                         "domain": "home_office",
                         "max_price_cents": 80000,
@@ -52,7 +52,7 @@ def _agent_response():
                 "tool": "compare_products",
                 "outcome": "success",
                 "origin": "model",
-                "arguments": {"product_ids": [370001, 429001]},
+                "arguments": {"product_ids": [370001, 420001]},
             },
             {
                 "tool": "get_product_evidence",
@@ -66,7 +66,7 @@ def _agent_response():
                 "outcome": "success",
                 "origin": "model",
                 "result_count": 2,
-                "arguments": {"product_id": 429001},
+                "arguments": {"product_id": 420001},
             },
             {
                 "tool": "explain_retrieval",
@@ -90,10 +90,10 @@ def _agent_response():
                 "number": 2,
                 "evidence_id": 9002,
                 "evidence_type": "product_spec",
-                "product_id": 429001,
+                "product_id": 420001,
                 "source_uri": "mosaic://evidence/9002",
                 "revision": "2026-08-11",
-                "quote": "Damped tactile switches reduce typing noise.",
+                "quote": "The 32-inch 4K display supports USB-C video and 90W charging.",
             },
         ],
     }
@@ -106,7 +106,7 @@ def _mission():
             "max_price_cents": 80000,
             "in_stock_only": True,
         },
-        "target_product_ids": [370001, 429001],
+        "target_product_ids": [370001, 420001],
         "requires_independent_target_searches": True,
         "requires_explain_plan": True,
         "required_citation_support": [
@@ -119,11 +119,48 @@ def _mission():
     }
 
 
+@pytest.mark.parametrize("supports_video", [True, False])
+def test_monitor_mission_requires_video_evidence_not_just_charging(
+    monkeypatch, supports_video
+):
+    agent = _agent_response()
+    citation = next(c for c in agent["citations"] if c["product_id"] == 420001)
+    if supports_video:
+        citation["quote"] += " The housing has a matte finish."
+    else:
+        citation["quote"] = "The 32-inch 4K display supports USB-C 90W charging."
+
+    def resolve(base_url, path, payload=None):
+        record = _fake_request(base_url, path, payload)
+        if path == "/api/evidence/9002":
+            record["text"] = citation["quote"]
+        return record
+
+    monkeypatch.setattr(validate_lab, "_request", resolve)
+    mission = _mission()
+    mission["required_citation_support"].append(
+        {
+            "product_id": 420001,
+            "evidence_type": "product_spec",
+            "all_terms": ["usb-c", "video", "90w"],
+        }
+    )
+    if supports_video:
+        assert "required claims supported" in validate_lab.validate_agent_response(
+            "http://example", mission, agent
+        )
+    else:
+        with pytest.raises(
+            validate_lab.LabValidationError, match="required citation support.*video"
+        ):
+            validate_lab.validate_agent_response("http://example", mission, agent)
+
+
 def _fake_request(_base_url, path, _payload=None):
     if path.endswith("/plan"):
         return {"search_event_id": path.split("/")[-2], "plan": PLAN}
     if path.startswith("/api/retrieval/events/"):
-        product_id = 429001 if "run-keyboard" in path else 370001
+        product_id = 420001 if "run-monitor" in path else 370001
         return {
             "run": {"plan_json": PLAN},
             "candidates": [
@@ -232,7 +269,7 @@ def test_lab_3_validator_requires_one_focused_search_per_intent(monkeypatch):
         result = _fake_request(base_url, path, payload)
         if path.startswith("/api/retrieval/events/") and not path.endswith("/plan"):
             result["candidates"] = [
-                {"product_id": product_id} for product_id in (370001, 429001)
+                {"product_id": product_id} for product_id in (370001, 420001)
             ]
         return result
 
@@ -302,7 +339,7 @@ def test_lab_3_validator_requires_every_canonical_target_class(monkeypatch):
             result["candidates"] = [
                 candidate
                 for candidate in result["candidates"]
-                if candidate["product_id"] != 429001
+                if candidate["product_id"] != 420001
             ]
         return result
 
@@ -310,7 +347,7 @@ def test_lab_3_validator_requires_every_canonical_target_class(monkeypatch):
 
     with pytest.raises(
         validate_lab.LabValidationError,
-        match="missed canonical target classes.*429001",
+        match="missed canonical target classes.*420001",
     ):
         validate_lab.validate_agent_response(
             "http://example.test",
@@ -451,11 +488,11 @@ def test_lab_2_validator_proves_the_canonical_fused_and_final_winner(monkeypatch
     )
     checks = validate_lab.validate_lab_2("http://example.test")
 
-    assert "canonical winner is fused and final rank 1" in checks
+    assert "required product reaches the declared final shortlist" in checks
 
 
-def test_lab_2_validator_rejects_a_wrong_fused_winner(monkeypatch):
-    response = _lab_2_response(pre_rerank_rank=2)
+def test_lab_2_validator_rejects_a_wrong_final_winner(monkeypatch):
+    response = _lab_2_response(final_rank=2)
     monkeypatch.setattr(
         validate_lab,
         "_mission",
@@ -463,7 +500,7 @@ def test_lab_2_validator_rejects_a_wrong_fused_winner(monkeypatch):
     )
     monkeypatch.setattr(validate_lab, "_search", lambda _url, _mission: response)
 
-    with pytest.raises(validate_lab.LabValidationError, match="not fused rank 1"):
+    with pytest.raises(validate_lab.LabValidationError, match="final position=2"):
         validate_lab.validate_lab_2("http://example.test")
 
 

@@ -38,4 +38,8 @@ def test_make_targets_configure_database_defaults_and_apply_current_functions():
     ]
     assert "preserve_search_trigram" not in apply_target
     assert "db-configure-retrieval" in apply_target
-    assert "09_search_functions.sql" in apply_target
+    assert "scripts/apply_search_functions.py" in apply_target
+    assert (
+        "09_search_functions.sql"
+        in (ROOT / "scripts/apply_search_functions.py").read_text()
+    )

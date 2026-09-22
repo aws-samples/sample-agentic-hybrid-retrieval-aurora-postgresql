@@ -62,7 +62,10 @@ def test_participant_queries_resolve_from_the_lab_authority():
         for query in RESOLVED_QUERIES
         if query.get("mission_id")
     }
-    assert all(query["query"] and query["filters"] for query in resolved.values())
+    assert all(
+        query["query"] and isinstance(query["filters"], dict)
+        for query in resolved.values()
+    )
 
 
 def test_mission_backed_eval_rejects_a_second_query_copy(tmp_path):
@@ -96,8 +99,17 @@ def test_canonical_products_are_in_the_curated_cohort():
             (ROOT / "data/curated/demo_products.json").read_text(encoding="utf-8")
         )
     }
+    real = {
+        p["product_id"]
+        for p in json.loads(
+            (ROOT / "data/evals/real_catalog_lab_products.json").read_text()
+        )["products"]
+    }
     for query in QUERIES:
-        assert {item["product_id"] for item in query["judgments"]} <= curated
+        expected = (
+            real if query.get("dataset_id") == "reviews-2023-500k-v1" else curated
+        )
+        assert {item["product_id"] for item in query["judgments"]} <= expected
 
 
 def test_canonical_set_covers_the_workshop_failure_modes():
@@ -132,19 +144,19 @@ def test_agent_grounding_claim_requires_product_spec_support():
     }
 
     assert "product_spec" in by_id["G-019"]["expected_evidence_types"]
-    assert reason_cases["G-019"]["required_citation_support"] == [
-        {
-            "product_id": 370001,
-            "evidence_type": "product_spec",
-            "all_terms": ["12", "hour"],
-        }
-    ]
+    requirements = reason_cases["G-019"]["required_citation_support"]
+    assert {x["product_id"] for x in requirements} == {1277987}
+    assert {x["evidence_type"] for x in requirements} == {
+        "product_spec",
+        "customer_review",
+    }
+    assert any("noise" in x["all_terms"] for x in requirements)
 
 
 def test_repaired_fixture_release_checks_are_machine_verifiable():
     by_id = {query["query_id"]: query for query in QUERIES}
     assert by_id["G-001"]["release_checks"] == [
-        {"type": "top_rank", "product_id": 17001}
+        {"type": "top_rank", "product_id": 1277987}
     ]
     assert by_id["G-014"]["release_checks"] == [
         {"type": "top_rank", "product_id": 210001},
@@ -155,11 +167,11 @@ def test_repaired_fixture_release_checks_are_machine_verifiable():
     ]
 
 
-def test_lab_2_judgment_matches_the_explicit_adjustable_lumbar_intent():
+def test_lab_2_judgment_distinguishes_4k_from_1440p():
     query = next(item for item in QUERIES if item["query_id"] == "G-008")
     grades = {
         judgment["product_id"]: judgment["grade"] for judgment in query["judgments"]
     }
 
-    assert grades[370002] == 3
-    assert grades[370001] == 2
+    assert grades[1408222] == 3
+    assert grades[1168700] == 0

@@ -29,8 +29,12 @@ brackets, for example [1]. Never invent products, prices, specifications,
 availability, scores, or sources.
 Every sentence or bullet that names a product must include evidence for that
 same product in that sentence. Do not put product names in headings.
-Keep measured specifications in sentences about one product. Use each product's
-full supplied title when comparing measurements, with citations for both products.
+Keep each sentence containing measured specifications about exactly one product,
+using its supplied brand and model (or title if no model is supplied) and only
+that product's citations. Give the other
+product's measurements in a separate sentence, then explain the trade-off without
+repeating the numbers. Do not mix two products' values in a single comparison
+sentence. Omit measurements unrelated to the shopper's requirements.
 Do not turn a duration in the shopper's request into a product rating unless
 that product's cited specification supports it. Write structured attributes as
 natural-language labels, never raw JSON keys: battery_hours is battery life;
@@ -74,11 +78,14 @@ not use report headings named "Summary" or "Recommendations".
 
 For shopping requests only, start with one direct sentence that names the first supplied product as the
 best fit and explains the decisive user-relevant reason with citations. Refer
-to products by their supplied title, not by a standalone model code. Mention
+to products by their supplied brand and model or a concise identifiable title;
+do not reproduce a long listing title or use a standalone model code. Mention
 only the two or three attributes that matter most to the question; do not
 rewrite the specification sheet.
 
-For shopping requests with alternatives, add the Markdown heading "### Other strong options" on
+For requests covering different product categories, describe each product in its own role. A monitor and a chair are complementary choices, not alternatives; do not put one under Other strong options.
+
+For shopping requests with alternatives in the same category, add the Markdown heading "### Other strong options" on
 its own line, followed by one concise bullet for each remaining product, in
 supplied order, with an allowed citation for that product.
 
@@ -107,27 +114,20 @@ def _validate_product_claim_citations(
     """Require named-product claims to cite evidence for that same product."""
     sentences = [
         sentence.strip()
-        for sentence in re.split(r"(?<=[.!?])\s+|\n+", answer)
+        for sentence in re.split(r"(?<=[.!?])(?<!\.\.)\s+|\n+", answer)
         if sentence.strip()
     ]
-    for product in products:
-        names = {
-            value.casefold()
-            for value in (product.title, product.model)
-            if len(value.strip()) >= 3
-        }
-        evidence_numbers = {
-            index
-            for index, record in enumerate(evidence_records, 1)
-            if record.product_id == product.product_id
-        }
-        for sentence in sentences:
-            if not any(name in sentence.casefold() for name in names):
-                continue
-            cited = {int(value) for value in re.findall(r"\[(\d+)\]", sentence)}
+    for sentence in sentences:
+        cited = {int(value) for value in re.findall(r"\[(\d+)\]", sentence)}
+        for _, _, product_id in _named_product_mentions(sentence, products):
+            evidence_numbers = {
+                index
+                for index, record in enumerate(evidence_records, 1)
+                if record.product_id == product_id
+            }
             if not cited.intersection(evidence_numbers):
                 raise SynthesisOutputError(
-                    f"Synthesized claim naming product {product.product_id} "
+                    f"Synthesized claim naming product {product_id} "
                     "does not cite evidence for that product"
                 )
 
@@ -221,7 +221,7 @@ def _price_settled_claims(
     the record says $392.80.
     """
     prices = [product.price_cents for product in products]
-    if not prices:
+    if not prices or any(price is None for price in prices):
         return set()
     claims = set(claims)
     settled = {
@@ -292,12 +292,24 @@ def _named_product_mentions(
 ) -> list[tuple[int, int, int]]:
     """Locate non-overlapping product names for product-specific claim checks."""
     folded = sentence.casefold()
+    brands = [product.brand.casefold() for product in products if product.brand]
+    names = {
+        product.product_id: _product_names(product)
+        | (
+            {product.brand.casefold()}
+            if product.brand
+            and len(product.brand) >= 3
+            and brands.count(product.brand.casefold()) == 1
+            else set()
+        )
+        for product in products
+    }
     candidates = sorted(
         (
             (match.start(), match.end(), product.product_id)
             for product in products
-            for name in _product_names(product)
-            for match in re.finditer(re.escape(name), folded)
+            for name in names[product.product_id]
+            for match in re.finditer(r"(?<!\w)" + re.escape(name) + r"(?!\w)", folded)
         ),
         key=lambda mention: (mention[0], -(mention[1] - mention[0])),
     )
@@ -595,7 +607,7 @@ def _validate_measurable_claim_support(
     ignored_names = {name for product in products for name in _product_names(product)}
     by_product_id = {product.product_id: product for product in products}
     previous_subjects: set[int] = set()
-    for sentence in re.split(r"(?<=[.!?])\s+|\n+", answer):
+    for sentence in re.split(r"(?<=[.!?])(?<!\.\.)\s+|\n+", answer):
         cited = {int(value) for value in re.findall(r"\[(\d+)\]", sentence)}
         records = (
             [evidence_records[number - 1] for number in cited]
@@ -748,7 +760,7 @@ def _validate_compatibility_claims(
 ) -> None:
     """Require an affirmative source relationship, not a coincidental model ID."""
     previous_subjects = {product.product_id for product in products}
-    for sentence in re.split(r"(?<=[.!?])\s+|\n+", answer):
+    for sentence in re.split(r"(?<=[.!?])(?<!\.\.)\s+|\n+", answer):
         mentions = _named_product_mentions(sentence, products)
         for match in _COMPATIBILITY_CLAIM.finditer(sentence):
             if _NEGATED_COMPATIBILITY_PREFIX.search(sentence[: match.start()]):
@@ -769,7 +781,7 @@ def _validate_compatibility_claims(
                     for number in cited
                     if evidence_records[number - 1].product_id == subject
                     for passage in re.split(
-                        r"(?<=[.!?])\s+|\n+", evidence_records[number - 1].text
+                        r"(?<=[.!?])(?<!\.\.)\s+|\n+", evidence_records[number - 1].text
                     )
                 )
                 for subject in subjects
@@ -856,6 +868,7 @@ def synthesize_cited_answer(
             "text": record.text,
             "rating": record.rating,
             "is_verified": record.is_verified,
+            "source_context": record.metadata,
         }
         for number, record in enumerate(evidence_records, 1)
     ]
@@ -863,6 +876,8 @@ def synthesize_cited_answer(
         {
             "product_id": product.product_id,
             "title": product.title,
+            "brand": product.brand,
+            "model": product.model,
             "ranking_signals": (
                 product.signals.model_dump() if product.signals else None
             ),

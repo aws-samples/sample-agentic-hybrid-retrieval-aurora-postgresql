@@ -14,6 +14,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from scripts.retrieval_profile import explain
+from service.catalog_runtime import search_schema
 
 #: Slack for one reciprocal-rank contribution read back out of PostgreSQL by
 #: calling `mosaic_search.reciprocal_rank_contribution` directly. Not a
@@ -193,18 +194,20 @@ _LAB3_DETAIL = (
 
 
 def _lab_1_database_state(connection: Any) -> LabDatabaseState:
+    schema = search_schema()
+    signature = LAB1_FUNCTION_SIGNATURE.replace("mosaic_search.", schema + ".")
     row = connection.execute(
-        f"SELECT pg_get_functiondef({LAB1_FUNCTION_SIGNATURE}) AS definition"
+        f"SELECT pg_get_functiondef({signature}) AS definition"
     ).fetchone()
     definition = row["definition"]
     applied = "FROM typo" in definition and "search_trigram" in definition
     return LabDatabaseState(
         state="applied" if applied else "stale",
         detail=(
-            "mosaic_search.search_hybrid_rrf reads the trigram CTE"
+            f"{schema}.search_hybrid_rrf reads the trigram CTE"
             if applied
             else explain(
-                "the installed mosaic_search.search_hybrid_rrf body has no "
+                f"the installed {schema}.search_hybrid_rrf body has no "
                 "trigram CTE and no search_trigram call",
                 "run make solution-lab-1, or re-apply the edited file with "
                 "make db-apply-search-functions",
@@ -217,12 +220,13 @@ def _lab_2_database_state(connection: Any) -> LabDatabaseState:
     from scripts.retrieval_profile import load_profile
 
     rrf_k = load_profile().rrf_k
+    schema = search_schema()
     row = connection.execute(
-        """
+        f"""
         SELECT
-            mosaic_search.reciprocal_rank_contribution(1, %s)
+            {schema}.reciprocal_rank_contribution(1, %s)
                 AS first_contribution,
-            mosaic_search.reciprocal_rank_contribution(2, %s)
+            {schema}.reciprocal_rank_contribution(2, %s)
                 AS second_contribution
         """,
         (rrf_k, rrf_k),
@@ -235,7 +239,7 @@ def _lab_2_database_state(connection: Any) -> LabDatabaseState:
     return LabDatabaseState(
         state="applied" if applied else "stale",
         detail=(
-            "mosaic_search.reciprocal_rank_contribution decays with rank"
+            f"{schema}.reciprocal_rank_contribution decays with rank"
             if applied
             else explain(
                 f"reciprocal_rank_contribution(1) = {first} and "
@@ -330,7 +334,7 @@ def assert_reset_database(database_url: str | None) -> None:
     ) as connection:
         identity = connection.execute(
             "SELECT current_database() AS name, aurora_version() AS aurora, "
-            "to_regclass('mosaic_search.product_document')::text AS catalog"
+            f"to_regclass('{search_schema()}.product_document')::text AS catalog"
         ).fetchone()
     if (
         identity["name"] != expected

@@ -18,6 +18,7 @@ from uuid import UUID, uuid4
 
 import numpy as np
 
+from service.catalog_runtime import active_dataset, search_schema
 from service.config import Settings, get_settings
 from service.coverage import assess as assess_coverage
 from service.db import connect
@@ -210,8 +211,8 @@ class RetrievalService:
     @staticmethod
     def _configure_hnsw(connection: Any, profile: RetrievalProfile) -> None:
         connection.execute(
-            """
-            SELECT mosaic_search.configure_hnsw(
+            f"""
+            SELECT {search_schema()}.configure_hnsw(
                 %s::integer, %s::text, %s::integer, %s::real
             )
             """,
@@ -267,7 +268,7 @@ class RetrievalService:
                    d.category_key, d.model_name, d.media_tier,
                    d.is_flagship, d.is_retrieval_anchor, d.rerank_text,
                    d.list_price_cents, d.currency, d.updated_at
-            FROM {_FUSION_FUNCTION[use_weighted]}(
+            FROM {search_schema()}.{_FUSION_FUNCTION[use_weighted].split(".", 1)[1]}(
                 %(query)s,
                 %(embedding)s::vector,
                 %(filters)s::jsonb,
@@ -278,7 +279,7 @@ class RetrievalService:
                 %(fused_limit)s::integer,
                 %(trigram_threshold)s::real{weight_args}
             ) AS h
-            JOIN mosaic_search.product_document d USING (product_id)
+            JOIN {search_schema()}.product_document d USING (product_id)
             ORDER BY h.pre_rerank_score DESC, h.product_id
         """
 
@@ -292,6 +293,14 @@ class RetrievalService:
         warnings: list[str] = []
 
         with self.connection_factory() as connection:
+            dataset_hash = self.settings.dataset_manifest_sha256
+            if active_dataset():
+                from service.live_catalog import _selection
+
+                _selection(connection)
+                dataset_hash = connection.execute(
+                    "SELECT catalog_sha256 FROM mosaic_live_search.receipt WHERE singleton"
+                ).fetchone()["catalog_sha256"]
             connection.execute(
                 """
                 INSERT INTO mosaic.search_event (
@@ -320,7 +329,7 @@ class RetrievalService:
                     profile.model_dump_json(),
                     self.settings.source_revision,
                     self.settings.source_worktree_dirty,
-                    self.settings.dataset_manifest_sha256,
+                    dataset_hash,
                     self._embedder().model_id,
                     None,
                     self._strategy(),
@@ -366,6 +375,17 @@ class RetrievalService:
                     ),
                 ).fetchall()
             candidates = [dict(row) for row in rows]
+            if active_dataset() and candidates:
+                from service.live_catalog import get_product_summaries
+
+                products = get_product_summaries(
+                    [row["product_id"] for row in candidates]
+                )
+                for row, product in zip(candidates, products, strict=True):
+                    row["source_product"] = product
+                    row["review_count"] = product.review_count
+                    row["short_description"] = product.short_description
+                    row["model_name"] = product.model
             stage_timings["postgresql_retrieval"] = round(
                 (time.perf_counter() - sql_started) * 1000, 3
             )
@@ -599,7 +619,7 @@ class RetrievalService:
             query=request.query,
             normalized_query=normalized,
             applied_filters=filters,
-            results=[self._result(row) for row in selected],
+            results=[self._source_result(row) for row in selected],
             diagnostics=diagnostics,
             coverage=coverage,
         )
@@ -610,12 +630,23 @@ class RetrievalService:
             event = connection.execute(
                 """
                 SELECT normalized_query, filters, retrieval_profile,
-                       retrieval_strategy
+                       retrieval_strategy, dataset_manifest_sha256
                 FROM mosaic.search_event
                 WHERE search_event_id = %s
                 """,
                 (search_event_id,),
             ).fetchone()
+            if event is not None and active_dataset():
+                receipt = connection.execute(
+                    "SELECT catalog_sha256 FROM mosaic_live_search.receipt WHERE singleton"
+                ).fetchone()
+                if (
+                    not receipt
+                    or event["dataset_manifest_sha256"] != receipt["catalog_sha256"]
+                ):
+                    raise KeyError(
+                        "This search used a previous catalog. Run a new search before inspecting its plan."
+                    )
         if event is None:
             raise KeyError(f"Retrieval event {search_event_id} was not found")
 
@@ -656,6 +687,14 @@ class RetrievalService:
             )
             connection.commit()
         return RetrievalPlanResponse(search_event_id=search_event_id, plan=plan)
+
+    @classmethod
+    def _source_result(cls, row: dict[str, Any]) -> ProductSummary:
+        result = cls._result(row)
+        source = row.get("source_product")
+        return (
+            source.model_copy(update={"signals": result.signals}) if source else result
+        )
 
     @staticmethod
     def _result(row: dict[str, Any]) -> ProductSummary:

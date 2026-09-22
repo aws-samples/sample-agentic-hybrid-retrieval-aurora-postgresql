@@ -39,13 +39,14 @@ def load_example(path: Path) -> ModuleType:
 
 
 def check_tool(
-    module: ModuleType, budgets: list[int], query: str
+    module: ModuleType, brands: list[str], query: str
 ) -> list[dict[str, Any]]:
     """Run the registered callable and replay the service's own saved responses."""
     require(
-        len(set(budgets)) >= 2,
-        budgets,
-        "provide at least two distinct budgets so the caller's constraint is exercised",
+        all(isinstance(brand, str) and brand.strip() for brand in brands)
+        and len({brand.strip().casefold() for brand in brands}) >= 2,
+        brands,
+        "provide at least two distinct brands so the caller's constraint is exercised",
     )
     registry = ToolRegistry()
     registry.process_tools(module.registered_tools())
@@ -63,11 +64,9 @@ def check_tool(
     )
     reports = []
     endpoint = os.environ.get("MOSAIC_API_URL", "http://127.0.0.1:8000").rstrip("/")
-    for budget in budgets:
+    for brand in brands:
         # The same decorated callable the agent invokes, never a second search implementation.
-        response = SearchResponse.model_validate(
-            registered(query=query, max_price_cents=budget)
-        )
+        response = SearchResponse.model_validate(registered(query=query, brand=brand))
         receipt = httpx.get(
             f"{endpoint}/api/retrieval/events/{response.search_event_id}/response",
             timeout=90,
@@ -79,10 +78,9 @@ def check_tool(
         )
         filters = saved.applied_filters
         for key, expected in {
-            "category_key": "over-ear-headphones",
-            "in_stock_only": True,
-            "max_price_cents": budget,
-            "attributes": {"microphone": True},
+            "domain": "consumer_electronics",
+            "category_key": "headphones",
+            "brand": brand.strip(),
         }.items():
             require(
                 filters.get(key) == expected,
@@ -92,7 +90,7 @@ def check_tool(
         require(
             bool(saved.results),
             len(saved.results),
-            "use the Clearer calls request with a budget that has available products",
+            "use the Clearer calls request with a brand present in the prepared catalog",
         )
         require(
             [p.product_id for p in response.results]
@@ -102,25 +100,24 @@ def check_tool(
         )
         for product in saved.results:
             require(
-                product.category_key == "over-ear-headphones"
-                and product.attributes.get("microphone") is True
-                and product.price_cents <= budget
-                and product.availability in {"in_stock", "low_stock"},
+                product.domain == "consumer_electronics"
+                and product.category_key == "headphones"
+                and (product.brand or "").casefold() == brand.strip().casefold(),
                 product.product_id,
-                "keep category, microphone, availability and budget in the SQL filter request",
+                "keep the domain, headphone category and caller's brand in the SQL filter request",
             )
         reports.append(
             {
-                "budget_cents": budget,
+                "brand": brand.strip(),
                 "products_checked": len(saved.results),
                 "search_event_id": str(saved.search_event_id),
                 "playground": f"/labs/retrieval?event={saved.search_event_id}",
             }
         )
     require(
-        len({item["search_event_id"] for item in reports}) == len(budgets),
+        len({item["search_event_id"] for item in reports}) == len(brands),
         reports,
-        "issue a fresh search for each budget",
+        "issue a fresh search for each brand",
     )
     return reports
 
@@ -129,7 +126,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--module", type=Path, required=True)
     parser.add_argument("--api-url")
-    parser.add_argument("--budgets", nargs="+", type=int, default=[20000, 10000])
+    parser.add_argument("--brands", nargs="+", default=["Bose", "Sony"])
     args = parser.parse_args()
     if args.api_url:
         os.environ["MOSAIC_API_URL"] = args.api_url
@@ -141,7 +138,7 @@ def main() -> None:
         if item["id"] == "clear-calls"
     )
     try:
-        reports = check_tool(load_example(args.module), args.budgets, request["query"])
+        reports = check_tool(load_example(args.module), args.brands, request["query"])
     except (
         BuilderCheckError,
         NotImplementedError,

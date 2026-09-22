@@ -37,10 +37,11 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from scripts.retrieval_profile import explain
+from service.catalog_runtime import search_schema
 
 # Schemas whose functions are part of the retrieval contract. A duplicate here is
 # a correctness problem; elsewhere it may be a deliberate overload.
-SCHEMAS = ("mosaic_search",)
+SCHEMAS = tuple(dict.fromkeys(("mosaic_search", search_schema())))
 
 CENSUS_SQL = """
 SELECT n.nspname AS schema,

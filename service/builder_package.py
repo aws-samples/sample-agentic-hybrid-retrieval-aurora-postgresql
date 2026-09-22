@@ -29,7 +29,8 @@ def build_package(root: Path) -> bytes:
         archive.writestr(
             "mosaic-builder/README.md",
             "# Mosaic builder kit\n\n"
-            "Read docs/build-retrieval-tool.md, then docs/use-in-your-app.md.\n\n"
+            "Start with docs/use-in-your-app.md to adapt the implementation. "
+            "docs/build-retrieval-tool.md is an optional practice exercise.\n\n"
             "Run these examples from the full Mosaic checkout, which supplies "
             "service modules and pinned dependencies:\n"
             "https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql\n\n"

@@ -185,8 +185,8 @@ def _product(product_id: int, signals: ResultSignals, **overrides) -> ProductSum
 def _response(results: list[ProductSummary], *, trigram_in_pool: int) -> SearchResponse:
     return SearchResponse(
         search_event_id=uuid4(),
-        query="noice cancelng hedfones",
-        normalized_query="noice cancelng hedfones",
+        query="B07G95T3JP",
+        normalized_query="B07G95T3JP",
         applied_filters={},
         results=results,
         diagnostics=RetrievalDiagnostics(
@@ -205,16 +205,27 @@ def _response(results: list[ProductSummary], *, trigram_in_pool: int) -> SearchR
 
 def _with_controls(monkeypatch, primary):
     controls = {
-        m["query"]: m
+        (m["query"], tuple(sorted(m["filters"].items()))): m
         for n in (1, 2)
         for m in lab_proof.lab_checks.supporting_checks_for_lab(n)
     }
     receipts = {}
 
     def search(request):
-        if request.query not in controls:
+        mission = next(
+            (
+                m
+                for m in controls.values()
+                if request.query == m["query"]
+                and all(
+                    request.filters.model_dump().get(k) == v
+                    for k, v in m["filters"].items()
+                )
+            ),
+            None,
+        )
+        if mission is None:
             return primary(request)
-        mission = controls[request.query]
         arm = RankSignal(rank=1, rrf_contribution=1 / (RetrievalProfile().rrf_k + 1))
         rows = [
             _product(
@@ -232,7 +243,7 @@ def _with_controls(monkeypatch, primary):
                 **{
                     key: value
                     for key, value in mission["filters"].items()
-                    if key in {"domain", "attributes"}
+                    if key in {"domain", "attributes", "brand", "category_key"}
                 },
             )
             for i, pid in enumerate(mission["target_product_ids"])
@@ -257,7 +268,7 @@ def _with_controls(monkeypatch, primary):
 def _lab_1_search(monkeypatch, *, solved: bool = True) -> None:
     rrf_k = RetrievalProfile().rrf_k
     results = (
-        [_product(2, _signals(rank=1, contribution=1.0 / (rrf_k + 1)))]
+        [_product(1277987, _signals(rank=1, contribution=1.0 / (rrf_k + 1)))]
         if solved
         else []
     )
@@ -283,11 +294,11 @@ def _lab_2_search(monkeypatch) -> None:
         final_rank=1,
     )
     product = _product(
-        370002,
+        1408222,
         signals,
-        domain="home_office",
-        category_key="office_chairs",
-        attributes={"seat_depth_adjustable": True},
+        domain="consumer_electronics",
+        category_key="monitor",
+        attributes={},
     )
     _with_controls(monkeypatch, lambda request: _response([product], trigram_in_pool=9))
 
@@ -296,12 +307,12 @@ def _persisted_turn() -> dict:
     return {
         "agent_turn_id": AGENT_RUN_ID,
         "agent_session_id": SESSION_ID,
-        "user_message": "Compare a keyboard and a chair",
+        "user_message": "Compare a monitor and a chair",
         "assistant_message": "Both clear the budget.",
         "extracted_intent": {
             "selected_products": [
-                {"product_id": 370001},
-                {"product_id": 429001},
+                {"product_id": 1221817},
+                {"product_id": 1408222},
             ]
         },
         "created_at": datetime.now(UTC),
@@ -315,10 +326,15 @@ EVIDENCE_REVISION = "2026-08-11"
 #: row's own text, not only the product id.
 CITED_EVIDENCE: dict[int, tuple[int, str]] = {
     9001: (
-        370001,
-        "Supports 12-hour workdays. Seat depth adjusts across a 60 mm range.",
+        1221817,
+        "Adjustable lumbar support. Arms move with the user.",
     ),
-    9002: (429001, "Damped tactile switches cut typing noise."),
+    9101: (1277987, "Three levels of noise cancellation."),
+    9102: (1277987, "I enjoy listening with these headphones."),
+    9002: (
+        1408222,
+        "The 27-inch 4K display has 3840 x 2160 resolution and USB-C video with up to 90W charging.",
+    ),
 }
 
 
@@ -328,7 +344,7 @@ def _citation(number: int, evidence_id: int) -> dict:
     return {
         "number": number,
         "evidence_id": evidence_id,
-        "evidence_type": "product_spec",
+        "evidence_type": "customer_review" if evidence_id == 9102 else "product_spec",
         "product_id": product_id,
         "source_uri": f"mosaic://evidence/{evidence_id}",
         "revision": EVIDENCE_REVISION,
@@ -343,7 +359,7 @@ def _evidence_row(evidence_id: int, *, product_id: int | None = None) -> dict:
     return {
         "evidence_id": evidence_id,
         "product_id": declared if product_id is None else product_id,
-        "evidence_type": "product_spec",
+        "evidence_type": "customer_review" if evidence_id == 9102 else "product_spec",
         "source_uri": f"mosaic://evidence/{evidence_id}",
         "revision": EVIDENCE_REVISION,
         "title": "Specification",
@@ -363,7 +379,7 @@ def _persisted_tools() -> list[dict]:
             "error_detail": None,
             "occurred_at": datetime.now(UTC),
         }
-        for product_id in (370001, 429001)
+        for product_id in (1221817, 1408222)
     ] + [
         {
             "search_event_id": None,
@@ -374,7 +390,7 @@ def _persisted_tools() -> list[dict]:
                 "result_count": 2,
                 "citations": [
                     _citation(number, evidence_id)
-                    for number, evidence_id in enumerate(CITED_EVIDENCE, 1)
+                    for number, evidence_id in enumerate((9001, 9002), 1)
                 ],
             },
             "duration_ms": 900,
@@ -424,10 +440,10 @@ def _grounded_connection() -> _FakeConnection:
     connection.searches.append(dict(connection.searches[0], search_event_id=uuid4()))
     trace = []
     for index, (search, product_id) in enumerate(
-        zip(connection.searches, (370001, 429001), strict=True)
+        zip(connection.searches, (1221817, 1408222), strict=True)
     ):
         search.update(
-            query_text=("ergonomic chair" if index == 0 else "quiet keyboard"),
+            query_text=("ergonomic chair" if index == 0 else "4K monitor"),
             plan_json=[{"Plan": {"Node Type": "Append"}}],
         )
         connection.candidates.append(
@@ -448,7 +464,7 @@ def _grounded_connection() -> _FakeConnection:
         dict(
             connection.tools[0],
             tool_name="compare_products",
-            input_payload={"product_ids": [370001, 429001]},
+            input_payload={"product_ids": [1221817, 1408222]},
         )
     )
     trace.extend(connection.tools[:-1])
@@ -574,7 +590,7 @@ def test_lab_1_proof_runs_primary_and_controls(monkeypatch) -> None:
 
     proof = lab_proof.completion_proof(1)
 
-    assert len(proof.checks) == 11, [check.name for check in proof.checks]
+    assert len(proof.checks) == 10, [check.name for check in proof.checks]
     assert proof.status == "pass"
     assert len(proof.evidence.search_event_ids) == 3
     assert proof.database_state == "applied"
@@ -586,7 +602,7 @@ def test_lab_2_proof_runs_primary_twice_and_controls(monkeypatch) -> None:
 
     proof = lab_proof.completion_proof(2)
 
-    assert len(proof.checks) == 17, [check.name for check in proof.checks]
+    assert len(proof.checks) == 15, [check.name for check in proof.checks]
     assert proof.status == "pass"
     assert len(proof.evidence.search_event_ids) == 4, (
         "Lab 2 proves pre-rerank repeatability, which needs two persisted runs"
@@ -756,7 +772,7 @@ def test_routes_serve_state_and_proof(monkeypatch) -> None:
     assert [lab["lab_id"] for lab in state.json()["labs"]] == [1, 2, 3]
     assert proof.status_code == 200
     assert proof.json()["lab_id"] == 1
-    assert len(proof.json()["checks"]) == 11
+    assert len(proof.json()["checks"]) == 10
 
 
 def test_an_unrouted_lab_id_is_a_404(monkeypatch) -> None:

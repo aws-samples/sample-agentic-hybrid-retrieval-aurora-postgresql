@@ -1,0 +1,417 @@
+{
+  "version": 1,
+  "status": "Reviewed product contrasts; production retrieval failures and repairs are not yet validated.",
+  "bulk_dataset": "Amazon Reviews 2023",
+  "examples": [
+    {
+      "group": "headphones",
+      "source": "esci_us",
+      "id_kind": "variant_asin",
+      "product_id": "B00NJ2M33I",
+      "model": "Sony MDR-ZX110",
+      "purpose": "Original reviewed feature contrast",
+      "source_record_sha256": "7bc6f99e83551c8c28389c024fba31dce9ff503fbfc3de5c462df0829e6b231a",
+      "bulk_identity_status": "Parent mapping pending",
+      "listing_url": "https://www.amazon.com/dp/B00NJ2M33I",
+      "specification_url": "https://electronics.sony.com/audio/headphones/headband/p/mdrzx110-whi",
+      "selected_in_bulk": false
+    },
+    {
+      "group": "headphones",
+      "source": "esci_us",
+      "id_kind": "variant_asin",
+      "product_id": "B085RNVJ3P",
+      "model": "Sony WH-CH710N",
+      "purpose": "Original reviewed feature contrast",
+      "source_record_sha256": "494ee6a7d62ff38da22eb992d7ecd8d7d9bbef33bcbab94ad49b87b9bc07531b",
+      "bulk_identity_status": "Parent mapping pending",
+      "listing_url": "https://www.amazon.com/dp/B085RNVJ3P",
+      "specification_url": "https://electronics.sony.com/audio/headphones/all-headphones/p/whch710n-b",
+      "selected_in_bulk": false
+    },
+    {
+      "group": "chairs",
+      "source": "esci_us",
+      "id_kind": "variant_asin",
+      "product_id": "B001MS6T8G",
+      "model": "HON Volt",
+      "purpose": "Original reviewed feature contrast",
+      "source_record_sha256": "86f31cd71e6fb4cd91b0ab46f1be47b289c825929a9c36ac4f7519b8dd7410be",
+      "bulk_identity_status": "Parent mapping pending",
+      "listing_url": "https://www.amazon.com/dp/B001MS6T8G",
+      "specification_url": "https://github.com/amazon-science/esci-data/tree/7916cdf6ab75a462e77f20ab40428a10923998d5",
+      "selected_in_bulk": false
+    },
+    {
+      "group": "chairs",
+      "source": "esci_us",
+      "id_kind": "variant_asin",
+      "product_id": "B06Y3PGPR2",
+      "model": "HON Ignition 2.0",
+      "purpose": "Original reviewed feature contrast",
+      "source_record_sha256": "82b3a0bf4e96a5ff27c0139323c4a13df0f762952578051ef2955e77e3a0dca0",
+      "bulk_identity_status": "Parent mapping pending",
+      "listing_url": "https://www.amazon.com/dp/B06Y3PGPR2",
+      "specification_url": "https://github.com/amazon-science/esci-data/tree/7916cdf6ab75a462e77f20ab40428a10923998d5",
+      "selected_in_bulk": false
+    },
+    {
+      "group": "monitors",
+      "source": "esci_us",
+      "id_kind": "variant_asin",
+      "product_id": "B08DQWG3JG",
+      "model": "Dell S2721QS",
+      "purpose": "Original reviewed feature contrast",
+      "source_record_sha256": "4aeed8f72550c33c6167e398acfdcd9595a9566ed9ab9544da834c28f6612a2a",
+      "bulk_identity_status": "Parent mapping pending",
+      "listing_url": "https://www.amazon.com/dp/B08DQWG3JG",
+      "specification_url": "https://dl.dell.com/manuals/all-products/esuprt_electronics_accessories/esuprt_electronics_accessories_monitors/dell-s2721qs-monitor_user%27s-guide_en-us.pdf",
+      "selected_in_bulk": false
+    },
+    {
+      "group": "monitors",
+      "source": "esci_us",
+      "id_kind": "variant_asin",
+      "product_id": "B086H26XWV",
+      "model": "Dell UltraSharp U2720Q",
+      "purpose": "Original reviewed feature contrast",
+      "source_record_sha256": "bc21f97e981b2aeb173e23e2edadc79f9f8a38b150c36aa9e5ad981755dab721",
+      "bulk_identity_status": "Exact parent ID found in full metadata; not yet selected",
+      "listing_url": "https://www.amazon.com/dp/B086H26XWV",
+      "specification_url": "https://dl.dell.com/manuals/all-products/esuprt_electronics_accessories/esuprt_electronics_accessories_monitor/esuprt_monitor_ultrasharp_u_series/dell-u2720q-monitor_user%27s-guide_en-us.pdf",
+      "selected_in_bulk": false
+    },
+    {
+      "group": "headphones",
+      "source": "amazon_reviews_2023",
+      "source_department": "Electronics",
+      "id_kind": "parent_asin",
+      "product_id": "B07G95TJ3P",
+      "model": "Bose QuietComfort 35 II",
+      "purpose": "Another supported option",
+      "source_record_sha256": "64a48d645d07e5f8c5193aff633ae3f640c75ab84add5dc2fb5f4b715f533842",
+      "bulk_identity_status": "Present in selected 500K corpus",
+      "listing_url": "https://www.amazon.com/dp/B07G95TJ3P",
+      "evidence_fields": [
+        "features",
+        "description"
+      ],
+      "facts": [
+        {
+          "label": "Active noise cancellation",
+          "value": "Yes",
+          "meetsNeed": true
+        },
+        {
+          "label": "Built-in microphone",
+          "value": "Yes · dual microphones",
+          "meetsNeed": true
+        },
+        {
+          "label": "Connection",
+          "value": "Bluetooth"
+        }
+      ],
+      "selected_in_bulk": true
+    },
+    {
+      "group": "headphones",
+      "source": "amazon_reviews_2023",
+      "source_department": "Electronics",
+      "id_kind": "parent_asin",
+      "product_id": "B08VD2NX25",
+      "model": "Soundcore Life Q30",
+      "purpose": "Do not confuse microphones for noise sensing with evidence about calls",
+      "source_record_sha256": "56f395d1cc9732803c2848cfcc2bc43d7ea21d0c4b42f5e733953e2c3860f05f",
+      "bulk_identity_status": "Present in selected 500K corpus",
+      "listing_url": "https://www.amazon.com/dp/B08VD2NX25",
+      "evidence_fields": [
+        "title",
+        "features",
+        "details"
+      ],
+      "facts": [
+        {
+          "label": "Active noise cancellation",
+          "value": "Yes",
+          "meetsNeed": true
+        },
+        {
+          "label": "Built-in microphone",
+          "value": "Calls not described"
+        },
+        {
+          "label": "Connection",
+          "value": "Bluetooth"
+        }
+      ],
+      "selected_in_bulk": true
+    },
+    {
+      "group": "headphones",
+      "source": "amazon_reviews_2023",
+      "source_department": "Electronics",
+      "id_kind": "parent_asin",
+      "product_id": "B06XCDVNK2",
+      "model": "GEEKRIA Shield case",
+      "purpose": "Exclude accessories even when compatible headphone names match",
+      "source_record_sha256": "bbe965ad38b7f93e2794a2a0094761d28f196fed79d0c915cb68bfdc594405fa",
+      "bulk_identity_status": "Present in selected 500K corpus",
+      "listing_url": "https://www.amazon.com/dp/B06XCDVNK2",
+      "evidence_fields": [
+        "title",
+        "categories",
+        "details"
+      ],
+      "facts": [
+        {
+          "label": "Active noise cancellation",
+          "value": "Not headphones",
+          "meetsNeed": false
+        },
+        {
+          "label": "Built-in microphone",
+          "value": "Not headphones",
+          "meetsNeed": false
+        },
+        {
+          "label": "Product type",
+          "value": "Protective case"
+        }
+      ],
+      "selected_in_bulk": true
+    },
+    {
+      "group": "chairs",
+      "source": "amazon_reviews_2023",
+      "source_department": "Office_Products",
+      "id_kind": "parent_asin",
+      "product_id": "B01NAKXH73",
+      "model": "Steelcase Gesture",
+      "purpose": "A second option with documented adjustments",
+      "source_record_sha256": "72ef7f724da1f2c66691f256842cc3fac7db7d1f50b06e4c3efeba000d6e31dc",
+      "bulk_identity_status": "Present in selected 500K corpus",
+      "listing_url": "https://www.amazon.com/dp/B01NAKXH73",
+      "evidence_fields": [
+        "title",
+        "description"
+      ],
+      "facts": [
+        {
+          "label": "Adjustable arms",
+          "value": "Yes",
+          "meetsNeed": true
+        },
+        {
+          "label": "Adjustable lower-back support",
+          "value": "Yes",
+          "meetsNeed": true
+        },
+        {
+          "label": "Product type",
+          "value": "Task chair"
+        }
+      ],
+      "selected_in_bulk": true
+    },
+    {
+      "group": "chairs",
+      "source": "amazon_reviews_2023",
+      "source_department": "Office_Products",
+      "id_kind": "parent_asin",
+      "product_id": "B08KTS3M9M",
+      "model": "Amazon Basics Mesh chair",
+      "purpose": "Adjustable does not establish every requested adjustment",
+      "source_record_sha256": "31853e9e739ec31e318ce4bf125a704a7db5278b0bd878c718a3acdcf48cc9ea",
+      "bulk_identity_status": "Present in selected 500K corpus",
+      "listing_url": "https://www.amazon.com/dp/B08KTS3M9M",
+      "evidence_fields": [
+        "features",
+        "details"
+      ],
+      "facts": [
+        {
+          "label": "Adjustable arms",
+          "value": "Flip-up · height not listed"
+        },
+        {
+          "label": "Adjustable lower-back support",
+          "value": "Not listed"
+        },
+        {
+          "label": "Seat height",
+          "value": "Adjustable"
+        }
+      ],
+      "selected_in_bulk": true
+    },
+    {
+      "group": "chairs",
+      "source": "amazon_reviews_2023",
+      "source_department": "Office_Products",
+      "id_kind": "parent_asin",
+      "product_id": "B01HE0W2WC",
+      "model": "Amazon Basics Carpet chair mat",
+      "purpose": "A word match is not necessarily the right product type",
+      "source_record_sha256": "705a6ec33b00df95bc184320603a48f9a376361ad8421b19c3a084762a04aef6",
+      "bulk_identity_status": "Present in selected 500K corpus",
+      "listing_url": "https://www.amazon.com/dp/B01HE0W2WC",
+      "evidence_fields": [
+        "title",
+        "features"
+      ],
+      "facts": [
+        {
+          "label": "Adjustable arms",
+          "value": "Not a chair",
+          "meetsNeed": false
+        },
+        {
+          "label": "Adjustable lower-back support",
+          "value": "Not a chair",
+          "meetsNeed": false
+        },
+        {
+          "label": "Product type",
+          "value": "Chair mat"
+        }
+      ],
+      "selected_in_bulk": true
+    },
+    {
+      "group": "monitors",
+      "source": "amazon_reviews_2023",
+      "source_department": "Electronics",
+      "id_kind": "parent_asin",
+      "product_id": "B01L7XV85O",
+      "model": "Dell SE2717H",
+      "purpose": "Matching screen size does not satisfy the requested resolution",
+      "source_record_sha256": "f183c7ababfb3042819c1e02833888ad4f82fdd1e92ef76da67e7e03c6afe77b",
+      "bulk_identity_status": "Present in selected 500K corpus",
+      "listing_url": "https://www.amazon.com/dp/B01L7XV85O",
+      "evidence_fields": [
+        "title",
+        "details"
+      ],
+      "facts": [
+        {
+          "label": "Screen size",
+          "value": "27 inches",
+          "meetsNeed": true
+        },
+        {
+          "label": "Resolution",
+          "value": "1920 × 1080",
+          "meetsNeed": false
+        },
+        {
+          "label": "USB-C video and charging",
+          "value": "Not listed"
+        }
+      ],
+      "selected_in_bulk": true
+    },
+    {
+      "group": "monitors",
+      "source": "amazon_reviews_2023",
+      "source_department": "Electronics",
+      "id_kind": "parent_asin",
+      "product_id": "B06XQ39Z7F",
+      "model": "BenQ PD2710QC",
+      "purpose": "One-cable charging still does not make a monitor 4K",
+      "source_record_sha256": "4df801bf085ad89a16fe9a90f345b2321fec225697f093211ebc45ef2f624ba3",
+      "bulk_identity_status": "Present in selected 500K corpus",
+      "listing_url": "https://www.amazon.com/dp/B06XQ39Z7F",
+      "evidence_fields": [
+        "features",
+        "details"
+      ],
+      "facts": [
+        {
+          "label": "Screen size",
+          "value": "27 inches",
+          "meetsNeed": true
+        },
+        {
+          "label": "Resolution",
+          "value": "2560 × 1440",
+          "meetsNeed": false
+        },
+        {
+          "label": "USB-C video and charging",
+          "value": "Yes",
+          "meetsNeed": true
+        }
+      ],
+      "selected_in_bulk": true
+    },
+    {
+      "group": "monitors",
+      "source": "amazon_reviews_2023",
+      "source_department": "Electronics",
+      "id_kind": "parent_asin",
+      "product_id": "B07VVMBLND",
+      "model": "LG 27UL850-W · Renewed",
+      "purpose": "A connector name alone does not establish laptop charging",
+      "source_record_sha256": "6319b629196f9b0ba1420f34311b5a854d33fe4ccd3649c6397f86bd752ff704",
+      "bulk_identity_status": "Present in selected 500K corpus",
+      "listing_url": "https://www.amazon.com/dp/B07VVMBLND",
+      "evidence_fields": [
+        "features",
+        "details"
+      ],
+      "facts": [
+        {
+          "label": "Screen size",
+          "value": "27 inches",
+          "meetsNeed": true
+        },
+        {
+          "label": "Resolution",
+          "value": "3840 × 2160",
+          "meetsNeed": true
+        },
+        {
+          "label": "USB-C video and charging",
+          "value": "Charging not listed"
+        }
+      ],
+      "selected_in_bulk": true
+    },
+    {
+      "group": "monitors",
+      "source": "amazon_reviews_2023",
+      "source_department": "Electronics",
+      "id_kind": "parent_asin",
+      "product_id": "B0939N79Y8",
+      "model": "Dell UltraSharp U2720Q-Black",
+      "purpose": "Documented match for screen size, resolution, USB-C video and charging. The listed 90 W is a maximum; laptop and cable compatibility still need checking.",
+      "source_record_sha256": "8c1f197ea1ce6140666b8716777a0ce59018892d31efeb1166bfd9d6810dfd68",
+      "bulk_identity_status": "Present in selected 500K corpus",
+      "listing_url": "https://www.amazon.com/dp/B0939N79Y8",
+      "evidence_fields": [
+        "title",
+        "description",
+        "details"
+      ],
+      "facts": [
+        {
+          "label": "Screen size",
+          "value": "27 inches",
+          "meetsNeed": true
+        },
+        {
+          "label": "Resolution",
+          "value": "3840 × 2160",
+          "meetsNeed": true
+        },
+        {
+          "label": "USB-C video and charging",
+          "value": "Yes · up to 90 W",
+          "meetsNeed": true
+        }
+      ],
+      "selected_in_bulk": true
+    }
+  ]
+}

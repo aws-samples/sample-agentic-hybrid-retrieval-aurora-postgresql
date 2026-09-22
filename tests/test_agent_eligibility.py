@@ -168,7 +168,9 @@ def test_synthesis_rechecks_inherited_products_without_another_search(
         assert str(over_budget.product_id) in result["error"]
         assert over_budget.product_id not in state["products"]
     sql, params = connection.execute.call_args.args
-    assert "mosaic_search.matches_filters" in sql
+    from service.catalog_runtime import search_schema
+
+    assert f"{search_schema()}.matches_filters" in sql
     assert params[0] == [over_budget.product_id]
     import json
 
@@ -182,20 +184,28 @@ def test_inherited_eligibility_uses_auroras_filter_rules(monkeypatch, synthesis_
     from unittest.mock import MagicMock
 
     from service.catalog import get_product_summaries
+    from service.catalog_runtime import active_dataset
     from service.models import SearchFilters
 
-    inherited = get_product_summaries([2])[0]
-    assert inherited.price_cents > 0
+    product_id = 1277987 if active_dataset() else 2
+    inherited = get_product_summaries([product_id])[0]
     state = follow_up_state(inherited)
-    state["base_filters"] = SearchFilters(max_price_cents=inherited.price_cents - 1)
+    if active_dataset():
+        assert inherited.category_key == "headphones"
+        state["base_filters"] = SearchFilters(category_key="monitor")
+    else:
+        assert inherited.price_cents > 0
+        state["base_filters"] = SearchFilters(max_price_cents=inherited.price_cents - 1)
     record = MagicMock()
     monkeypatch.setattr(agent_tools, "_record", record)
     with agent_tools.bind_run(state):
         if synthesis_path == "model":
-            result = agent_tools.synthesize_cited_answer(FOLLOW_UP, [2])
+            result = agent_tools.synthesize_cited_answer(FOLLOW_UP, [product_id])
             assert result["ok"] is False and "current filters" in result["error"]
             record.assert_called_once()
         else:
             with pytest.raises(RuntimeError, match="current filters"):
-                agent_tools.finalize_retrieved_answer(FOLLOW_UP, product_ids=[2])
-    assert 2 not in state["products"]
+                agent_tools.finalize_retrieved_answer(
+                    FOLLOW_UP, product_ids=[product_id]
+                )
+    assert product_id not in state["products"]

@@ -195,7 +195,7 @@ def test_adapter_adds_exactly_the_two_contract_routes():
 
 def test_the_workshop_application_gains_no_platform_route():
     """Importing the adapter must not mutate the app the labs run."""
-    service_paths = {route.path for route in service_app.routes}
-
-    assert "/ping" not in service_paths
-    assert "/invocations" not in service_paths
+    client = TestClient(service_app)
+    assert client.get("/api/health").status_code == 200
+    assert client.get("/ping").status_code == 404
+    assert client.post("/invocations", json={}).status_code == 404

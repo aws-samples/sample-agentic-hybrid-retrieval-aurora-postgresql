@@ -1,0 +1,13 @@
+{
+  "asset": "ui/public/assets/images/mosaic/ask-mosaic-tiles.webp",
+  "purpose": "Decorative Mosaic tile background for the compact Shop assistant invitation. The heading and the original burgundy/gold Ask Mosaic button remain accessible HTML.",
+  "generator": "Built-in image_gen tool",
+  "reference": "User-supplied burgundy and ivory Mosaic tile invitation",
+  "prompt": "Create the final BACKGROUND-ONLY version of the supplied Mosaic tile invitation design. Preserve the reference's recognizable tactile mosaic motif on the RIGHT: interlocking square and quarter-circle tiles in deep burgundy, muted dusty rose and ivory, realistic fine material texture, subtle shallow bevels and soft contact shadows. This geometric tile motif must be unmistakable even at small size. Remove ALL typography, the whole button, its arrow, and all their shadows. Change the empty LEFT 64 percent of the design from dark burgundy to quiet light ivory (#f5eee4) with a very subtle fine paper/material texture, so an existing dark burgundy-and-gold button and dark heading can be overlaid later. Keep the burgundy/rose/ivory tile grouping entirely in the RIGHT 36 percent, with a clean vertical meeting of the light surface and the tiles. Do not scatter motifs over the light area. Use the same square and curved tile geometry as the supplied reference, not waves, ribbons, draped cloth, arches, or a generic gradient. Remove the outside white margin and rounded rectangle boundary; return edge-to-edge material in a landscape 2.4:1 rectangle, roughly 1920 by 800. This is a compact 320 by 132 CSS pixel Shop invitation, so keep the tile composition broad, simple and clear. No text, UI, button, icons, logos, people, or products.",
+  "web_export": {
+    "format": "WebP",
+    "width": 960,
+    "quality": 86,
+    "preserve_aspect_ratio": true
+  }
+}

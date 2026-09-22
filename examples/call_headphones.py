@@ -20,39 +20,34 @@ from service.config import get_settings
 from service.models import SearchFilters, SearchRequest, SearchResponse
 
 
-def call_filters(max_price_cents: int) -> SearchFilters:
-    """Require available over-ear headphones with a microphone, within budget."""
-    if (
-        isinstance(max_price_cents, bool)
-        or not isinstance(max_price_cents, int)
-        or max_price_cents <= 0
-    ):
+def call_filters(brand: str) -> SearchFilters:
+    """Keep headphone searches within the brand chosen by the caller."""
+    if not isinstance(brand, str) or not brand.strip():
         raise ValueError(
-            f"max_price_cents is {max_price_cents!r}; use a positive integer amount in cents"
+            f"brand is {brand!r}; use a nonempty catalog brand, such as Bose or Sony"
         )
     # BUILD_FILTERS_START
     return SearchFilters(
-        category_key="over-ear-headphones",
-        in_stock_only=True,
-        max_price_cents=max_price_cents,
-        attributes={"microphone": True},
+        domain="consumer_electronics",
+        category_key="headphones",
+        brand=brand.strip(),
     )
     # BUILD_FILTERS_END
 
 
 @tool
-def search_call_headphones(query: str, max_price_cents: int) -> dict[str, Any]:
-    """Find available headphones with a microphone within the shopper's budget.
+def search_call_headphones(query: str, brand: str) -> dict[str, Any]:
+    """Find headphones from the requested brand using the real catalog.
 
     Args:
         query: The shopper's request, including preferences to rank by.
-        max_price_cents: The shopper's maximum price, in integer cents.
+        brand: The catalog brand the shopper wants to consider.
 
     Returns:
         Ranked products, applied filters, diagnostics and a saved search ID.
-        A microphone filter proves its presence, not its noise suppression.
+        Product claims still require supporting records; stock is not known.
     """
-    request = SearchRequest(query=query, filters=call_filters(max_price_cents))
+    request = SearchRequest(query=query, filters=call_filters(brand))
     endpoint = os.environ.get("MOSAIC_API_URL", "http://127.0.0.1:8000").rstrip("/")
     response = httpx.post(
         f"{endpoint}/api/search",
@@ -85,10 +80,10 @@ def create_agent() -> Agent:
         ),
         tools=registered_tools(),
         system_prompt=(
-            "Use search_call_headphones once for the user's request and exact budget. "
+            "Use search_call_headphones once for the user's request and chosen brand. "
             "In at most 120 words, report only the first three returned product titles "
-            "and prices, plus the complete search_event_id. Do not list the remaining products. "
-            "Do not invent specifications or claim microphone quality from presence alone. "
+            "plus the complete search_event_id. Do not list the remaining products. "
+            "Do not invent specifications, current prices, stock or microphone quality. "
             "This exercise returns a shortlist; cited answers use Mosaic's evidence tools."
         ),
     )
@@ -122,7 +117,7 @@ def main() -> None:
         help="Write a new participant file; existing files are never overwritten",
     )
     parser.add_argument("--query")
-    parser.add_argument("--max-price-cents", type=int)
+    parser.add_argument("--brand")
     parser.add_argument(
         "--agent",
         action="store_true",
@@ -133,20 +128,13 @@ def main() -> None:
         write_starter(args.starter)
         print(f"Created {args.starter}. Implement call_filters and registered_tools.")
         return
-    if not args.query or args.max_price_cents is None:
-        parser.error("provide --query and --max-price-cents, or use --starter")
-    # Validate before invoking a model so an invalid budget makes no model call.
-    call_filters(args.max_price_cents)
+    if not args.query or args.brand is None:
+        parser.error("provide --query and --brand, or use --starter")
+    call_filters(args.brand)
     if args.agent:
-        create_agent()(
-            f"Request: {args.query}\nMaximum price in cents: {args.max_price_cents}"
-        )
+        create_agent()(f"Request: {args.query}\nRequired brand: {args.brand}")
     else:
-        print(
-            json.dumps(
-                search_call_headphones(args.query, args.max_price_cents), indent=2
-            )
-        )
+        print(json.dumps(search_call_headphones(args.query, args.brand), indent=2))
 
 
 if __name__ == "__main__":

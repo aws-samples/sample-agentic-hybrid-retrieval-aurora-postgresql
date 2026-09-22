@@ -37,7 +37,11 @@ def _plan_steps(state: dict[str, Any]) -> list[AgentPlanStep]:
         AgentPlanStep(
             query=item["query"],
             filters=item["filters"],
-            purpose=item["purpose"],
+            purpose=(
+                item["purpose"]
+                if len(item["purpose"]) <= 300
+                else item["purpose"][:297] + "..."
+            ),
         )
         for item in state["searches"]
     ]
@@ -104,12 +108,10 @@ filters, or needs any product outside the authorized prior shortlist:
 1. Use at most {len(agent_tools.SEARCH_SLOTS)} focused search_products calls.
    When the request has two independent product intents, issue both search calls
    together in one tool-use turn. Prefer one search for one product intent.
-2. Preserve explicit hard constraints as category_key or attributes instead of
-   leaving them only in query text. Mosaic home-office keys include
-   category_key=quiet-keyboards with quiet_typing=true and
-   category_key=ergonomic-office-chairs with seat_depth_adjustable=true.
-   Keep preferences such as switch feel and lumbar style in query text when the
-   user wants alternatives compared.
+2. Preserve explicit hard constraints as category_key or attributes when the
+   active catalog establishes those keys and values. Keep unnormalized feature
+   requirements in the query and check them against the retrieved sources;
+   never invent an attribute key or treat an unreported feature as absent.
 3. Select a shortlist of two to four products total, with no more than two
    products from any focused search.
 4. In the next tool-use turn, call compare_products once and issue one
@@ -190,6 +192,35 @@ _models: dict[tuple[str, str], BedrockModel] = {}
 _models_lock = threading.Lock()
 
 
+def catalog_system_prompt() -> str:
+    """Bind tool planning to the vocabulary and offer limits of the active source."""
+    from service.catalog_runtime import active_dataset
+
+    if not active_dataset():
+        return SYSTEM_PROMPT
+    return (
+        SYSTEM_PROMPT
+        + """
+The active catalog contains original Amazon Reviews 2023 listings. The exact
+category keys for Alex's needs are headphones, chair, and monitor. Headphones
+and monitors use consumer_electronics; chairs use home_office. Other source
+categories are searchable without a category filter. Attribute names are the
+original source keys, not normalized Mosaic fields. Use the search query for
+feature requirements, then inspect the returned specifications before claiming
+a product meets them.
+Current prices, inventory and availability are NOT reported. Do not apply a
+current-price or in-stock filter unless the user explicitly asks to restrict to
+known current offers, which this source cannot establish. Explain that budget
+and availability need checking in the original listing. Historical ratings are
+aggregates, not a complete imported collection of review text. Only retrieved
+review records support claims about customer experiences. Parent-product
+listings can include variants: do not transfer one variant's facts to another.
+Refer to the reviews used for this answer; do not imply that retrieved excerpts
+are all the reviews available for a listing.
+"""
+    )
+
+
 def _bedrock_model(model_id: str, region: str) -> BedrockModel:
     """One Bedrock model per (model, region), built with the shared client config.
 
@@ -209,7 +240,7 @@ def _bedrock_model(model_id: str, region: str) -> BedrockModel:
                 model_id=model_id,
                 region_name=region,
                 boto_client_config=client_config(),
-                max_tokens=1_200,
+                max_tokens=2_400,
             )
             _models[key] = model
     return model
@@ -225,7 +256,7 @@ def build_agent(*, max_tool_calls: int = 10) -> Agent:
     return Agent(
         model=model,
         tools=list(agent_tools.TOOL_FUNCTIONS),
-        system_prompt=SYSTEM_PROMPT,
+        system_prompt=catalog_system_prompt(),
         hooks=[_ToolCallBudget(max_tool_calls)],
         callback_handler=None,
     )
@@ -326,6 +357,7 @@ class ProductDiscoveryAgent:
         if agent_tools.record_declined_answer(state):
             return None
         if not state["products"]:
+            agent_tools.record_no_results_answer(state)
             return None
         try:
             agent_tools.complete_grounded_answer(request.question)

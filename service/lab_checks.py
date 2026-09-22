@@ -249,8 +249,16 @@ def eligible(result: Mapping[str, Any], filters: Mapping[str, Any]) -> bool:
     return (
         (not filters.get("domain") or result.get("domain") == filters["domain"])
         and (
+            not filters.get("category_key")
+            or result.get("category_key") == filters["category_key"]
+        )
+        and (not filters.get("brand") or result.get("brand") == filters["brand"])
+        and (
             filters.get("max_price_cents") is None
-            or result.get("price_cents", 0) <= filters["max_price_cents"]
+            or (
+                result.get("price_cents") is not None
+                and result["price_cents"] <= filters["max_price_cents"]
+            )
         )
         and (
             not filters.get("in_stock_only")
@@ -384,19 +392,28 @@ def _lab_1_provenance(
     trigram = _arm(signals, "trigram")
     rank = trigram.get("rank")
     contribution = trigram.get("rrf_contribution")
+    unexpected = {
+        arm: dict(_arm(signals, arm))
+        for arm in mission.get("absent_target_signals", [])
+        if _arm(signals, arm).get("rank") is not None
+        or _arm(signals, arm).get("rrf_contribution") not in (None, 0)
+    }
+    passed = rank is not None and contribution is not None and not unexpected
     return LabCheck(
         name="trigram provenance present",
-        passed=rank is not None and contribution is not None,
+        passed=passed,
         falsifier=(
             "the target is returned without a pg_trgm rank or without its RRF "
             "contribution, which means it arrived through another arm and the "
-            "trigram repair is unproven by this result."
+            "trigram repair is unproven by this result; or an arm declared absent "
+            "also found it, contradicting the exercise's only-trigram claim."
         ),
         detail=(
             f"trigram rank {rank} contributing {contribution}"
-            if rank is not None and contribution is not None
+            if passed
             else explain(
-                f"signals.trigram rank={rank!r} rrf_contribution={contribution!r}",
+                f"signals.trigram rank={rank!r} rrf_contribution={contribution!r}; "
+                f"unexpected source signals={unexpected}",
                 "restore the trigram candidate channel so the fused row carries "
                 "its source rank and reciprocal-rank contribution",
             )
@@ -515,7 +532,7 @@ def _lab_2_arithmetic(response: Mapping[str, Any]) -> LabCheck:
             for item in results
             if not _contributions_consistent(item, rrf_k)
         ]
-        passed = not wrong
+        passed = bool(results) and not wrong
         detail = (
             f"{len(results)} row(s) contribute 1 / (k + source_rank) at k={rrf_k}"
             if passed
@@ -548,7 +565,7 @@ def _lab_2_repeatable(
     second_order = _pre_rerank_order(_results(second))
     return LabCheck(
         name="pre-rerank order repeatable",
-        passed=first_order == second_order,
+        passed=bool(first_order) and first_order == second_order,
         falsifier=(
             "two identical requests fuse to different pre-rerank orders, which "
             "means the order depends on something other than the candidate "
@@ -595,7 +612,9 @@ def _lab_2_provenance(
     signals = _signals(target)
     missing = [
         arm
-        for arm in ("fts", "trigram", "semantic")
+        for arm in mission.get(
+            "expected_target_signals", ("fts", "trigram", "semantic")
+        )
         if _arm(signals, arm).get("rank") is None
     ]
     rerank_score = signals.get("rerank_score")
@@ -638,47 +657,29 @@ def _lab_2_winner(
     signals = _signals(target)
     pre_rerank_rank = signals.get("pre_rerank_rank")
     final_rank = signals.get("final_rank")
-    arms_first = all(
-        _arm(signals, arm).get("rank") == 1 for arm in ("fts", "trigram", "semantic")
+    final_bound = mission.get(
+        "expected_final_top_k", mission.get("expected_final_rank", 1)
     )
     passed = (
-        target is not None and arms_first and pre_rerank_rank == 1 and final_rank == 1
+        target is not None
+        and type(pre_rerank_rank) is int
+        and pre_rerank_rank > 0
+        and type(final_rank) is int
+        and type(final_bound) is int
+        and 1 <= final_rank <= final_bound
     )
-    if target is None:
-        detail = explain(
-            "no canonical winner in the result window",
-            "run the mission query with its declared filters",
-        )
-    elif passed:
-        detail = (
-            f"product {target['product_id']} is rank 1 in every arm, fused "
-            "rank 1, and final rank 1"
-        )
-    elif pre_rerank_rank != 1:
-        detail = explain(
-            f"product {target['product_id']} at pre_rerank_rank="
-            f"{pre_rerank_rank!r}, not fused rank 1",
-            "restore 1 / (k + source_rank) so a product that wins every arm "
-            "also wins fusion",
-        )
-    else:
-        detail = explain(
-            f"product {target['product_id']} arms_rank_1={arms_first} "
-            f"final_rank={final_rank!r}",
-            "confirm the reranked window preserves the fused winner",
-        )
     return LabCheck(
-        name="canonical winner is fused and final rank 1",
+        name="required product reaches the declared final shortlist",
         passed=passed,
-        falsifier=(
-            "the product that ranks first in all three arms is not fused rank "
-            "1. The lab contract (data/evals/mosaic_labs_missions.json, "
-            "rank-with-evidence, participant_edit.observe_before) records that "
-            "under the collapsed formula product 370001 became fused rank 1 "
-            "while Cohere still promoted 370002 to final rank 1, so a "
-            "correct-looking answer masked broken fusion."
+        falsifier="the required product is absent from the combined list or outside the mission's declared final shortlist",
+        detail=(
+            f"product {target['product_id']} moved from combined position {pre_rerank_rank} to final position {final_rank}"
+            if passed
+            else explain(
+                f"target={None if target is None else target['product_id']}, combined position={pre_rerank_rank}, final position={final_rank}, allowed top={final_bound}",
+                "restore the rank contribution formula and rerank the admitted products; the combined winner need not be the final winner",
+            )
         ),
-        detail=detail,
     )
 
 

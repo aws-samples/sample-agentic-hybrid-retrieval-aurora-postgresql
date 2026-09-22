@@ -1,0 +1,189 @@
+{
+  "version": 1,
+  "use": "Reviewed teaching comparisons only; not a representative benchmark or additional search corpus.",
+  "sources": {
+    "esci": {
+      "name": "Amazon ESCI",
+      "url": "https://github.com/amazon-science/esci-data",
+      "license": "Apache-2.0",
+      "license_file": "licenses/ESCI-LICENSE"
+    },
+    "wands": {
+      "name": "Wayfair WANDS",
+      "url": "https://github.com/wayfair/WANDS",
+      "license": "MIT",
+      "license_file": "licenses/WANDS-LICENSE"
+    }
+  },
+  "cases": [
+    {
+      "id": "esci-headphones",
+      "dataset": "esci",
+      "category": "headphones",
+      "query_id": 107238,
+      "query": "usb c headphones s10",
+      "purpose": "Compare the released relevance labels with current product records. These selected examples do not measure the whole catalog.",
+      "products": [
+        {
+          "source_product_id": "B084H3M52X",
+          "label": "E",
+          "display_name": "ElloGear USB-C earbuds",
+          "reading_note": "Exact in the released query. Check the current device compatibility separately.",
+          "facts": []
+        },
+        {
+          "source_product_id": "B07SM5MQN8",
+          "label": "C",
+          "display_name": "ESR audio adapter",
+          "reading_note": "Complement: connects other headphones; it does not replace the requested headphones.",
+          "facts": []
+        }
+      ]
+    },
+    {
+      "id": "esci-chairs",
+      "dataset": "esci",
+      "category": "chairs",
+      "query_id": 75180,
+      "query": "office chair not on wheels",
+      "purpose": "Compare the released relevance labels with current product records. These selected examples do not measure the whole catalog.",
+      "products": [
+        {
+          "source_product_id": "B072Y5MZQH",
+          "label": "E",
+          "display_name": "Amazon Basics guest chair",
+          "reading_note": "Exact in the released query. Current text does not explicitly say no wheels; inspect the original photo.",
+          "facts": []
+        },
+        {
+          "source_product_id": "B0919BYPZP",
+          "label": "I",
+          "display_name": "KERMS rolling chair",
+          "reading_note": "Irrelevant for this query. The current record explicitly describes rolling casters.",
+          "facts": []
+        }
+      ]
+    },
+    {
+      "id": "esci-monitors",
+      "dataset": "esci",
+      "category": "monitors",
+      "query_id": 106506,
+      "query": "ultrawide usb c monitor",
+      "purpose": "Compare the released relevance labels with current product records. These selected examples do not measure the whole catalog.",
+      "products": [
+        {
+          "source_product_id": "B072JRQYRH",
+          "label": "E",
+          "display_name": "LG 34CB99-W",
+          "reading_note": "Exact in the released query. The current description states USB-C; charging watts remain unspecified.",
+          "facts": []
+        },
+        {
+          "source_product_id": "B07YRXF62V",
+          "label": "S",
+          "display_name": "LG 34WL600-B",
+          "reading_note": "Substitute in the released query. The current record establishes ultrawide but does not establish USB-C.",
+          "facts": []
+        }
+      ]
+    },
+    {
+      "id": "wands-chairs",
+      "dataset": "wands",
+      "category": "chairs",
+      "query_id": 422,
+      "query": "ergonomic chair",
+      "purpose": "Translate a broad comfort request into checkable adjustments. The source label applies to the broad query; adjustable arms are a separate workshop comparison.",
+      "products": [
+        {
+          "source_product_id": "33601",
+          "label": "Exact",
+          "display_name": "Abigail ergonomic chair",
+          "reading_note": "Height-adjustable arms and adjustable lumbar support are explicitly stated. These features do not prove personal comfort.",
+          "facts": [
+            {
+              "label": "Arms",
+              "value": "Adjustable",
+              "source_token": "armresttype : adjustable"
+            },
+            {
+              "label": "Arm height adjusts",
+              "value": "Yes",
+              "source_token": "heightadjustablearmrests : yes"
+            },
+            {
+              "label": "Lumbar support adjusts",
+              "value": "Yes",
+              "source_token": "adjustablelumbarsupport : yes"
+            }
+          ]
+        },
+        {
+          "source_product_id": "29752",
+          "label": "Partial",
+          "display_name": "Albaugh executive chair",
+          "reading_note": "The arms are fixed; the seat height is adjustable. Adjustability must name the part that moves.",
+          "facts": [
+            {
+              "label": "Arms",
+              "value": "Fixed",
+              "source_token": "armresttype : fixed"
+            },
+            {
+              "label": "Seat height adjusts",
+              "value": "Yes",
+              "source_token": "adjustableseatheight : yes"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wands-mounts",
+      "dataset": "wands",
+      "category": "monitors",
+      "query_id": 163,
+      "query": "dual monitor stand",
+      "purpose": "Check the number of screens before compatibility. These are WANDS records, independent of the Amazon mount comparison.",
+      "products": [
+        {
+          "source_product_id": "37389",
+          "label": "Partial",
+          "display_name": "Single-screen desk mount",
+          "reading_note": "One screen stated. A related mount does not satisfy a two-screen requirement.",
+          "facts": [
+            {
+              "label": "Screens",
+              "value": "1",
+              "source_token": "numberofscreens:1"
+            },
+            {
+              "label": "Multiple monitors",
+              "value": "No",
+              "source_token": "multi-monitor : no"
+            }
+          ]
+        },
+        {
+          "source_product_id": "37390",
+          "label": "Exact",
+          "display_name": "Two-screen desk mount",
+          "reading_note": "Two screens stated. Screen count alone does not establish compatibility with Alex’s monitors or desk.",
+          "facts": [
+            {
+              "label": "Screens",
+              "value": "2",
+              "source_token": "numberofscreens:2"
+            },
+            {
+              "label": "Multiple monitors",
+              "value": "Yes",
+              "source_token": "multi-monitor : yes"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

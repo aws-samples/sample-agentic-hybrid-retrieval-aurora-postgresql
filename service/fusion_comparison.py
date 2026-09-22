@@ -29,6 +29,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from scripts.retrieval_profile import load_profile
+from service.catalog_runtime import search_schema
 from service.db import connect
 from service.embeddings import EmbeddingProvider, get_embedding_provider
 from service.models import (
@@ -45,7 +46,7 @@ FULL_POOL_LIMIT = 10_000
 
 _UNWEIGHTED_SQL = """
 SELECT product_id, fts_rank, trigram_rank, semantic_rank, rrf_score, provenance
-FROM mosaic_search.search_hybrid_rrf(
+FROM {schema}.search_hybrid_rrf(
     %(query)s, %(embedding)s::vector, %(filters)s::jsonb, %(rrf_k)s::integer,
     %(fts_limit)s::integer, %(trigram_limit)s::integer,
     %(semantic_limit)s::integer, %(result_limit)s::integer,
@@ -55,7 +56,7 @@ FROM mosaic_search.search_hybrid_rrf(
 
 _WEIGHTED_SQL = """
 SELECT product_id, fts_rank, trigram_rank, semantic_rank, rrf_score, provenance
-FROM mosaic_search.search_hybrid_rrf_weighted(
+FROM {schema}.search_hybrid_rrf_weighted(
     %(query)s, %(embedding)s::vector, %(filters)s::jsonb, %(rrf_k)s::integer,
     %(fts_limit)s::integer, %(trigram_limit)s::integer,
     %(semantic_limit)s::integer, %(result_limit)s::integer,
@@ -179,8 +180,8 @@ class FusionComparisonService:
 
         with self.connection_factory() as connection:
             connection.execute(
-                """
-                SELECT mosaic_search.configure_hnsw(
+                f"""
+                SELECT {search_schema()}.configure_hnsw(
                     %s::integer, %s::text, %s::integer, %s::real
                 )
                 """,
@@ -192,9 +193,9 @@ class FusionComparisonService:
                 ),
             )
             definition_rows = connection.execute(
-                """
+                f"""
                 SELECT pg_get_functiondef(
-                    'mosaic_search.search_hybrid_rrf(text,vector,jsonb,integer,'
+                    '{search_schema()}.search_hybrid_rrf(text,vector,jsonb,integer,'
                     'integer,integer,integer,integer,real)'::regprocedure
                 ) AS definition
                 """
@@ -204,7 +205,7 @@ class FusionComparisonService:
             )
             if "FROM typo" not in unweighted_definition:
                 raise LabStateError(
-                    "found mosaic_search.search_hybrid_rrf without its trigram "
+                    f"found {search_schema()}.search_hybrid_rrf without its trigram "
                     "channel, which is Lab 1's deliberate broken state; fix: "
                     "complete the Lab 1 repair and reapply "
                     "db/sql/09_search_functions.sql before comparing fusion "
@@ -212,10 +213,14 @@ class FusionComparisonService:
                     "arm and the two pools cannot be identical until then"
                 )
             started = time.perf_counter()
-            unweighted = connection.execute(_UNWEIGHTED_SQL, params).fetchall()
+            unweighted = connection.execute(
+                _UNWEIGHTED_SQL.format(schema=search_schema()), params
+            ).fetchall()
             unweighted_ms = round((time.perf_counter() - started) * 1000)
             started = time.perf_counter()
-            weighted = connection.execute(_WEIGHTED_SQL, params).fetchall()
+            weighted = connection.execute(
+                _WEIGHTED_SQL.format(schema=search_schema()), params
+            ).fetchall()
             weighted_ms = round((time.perf_counter() - started) * 1000)
 
         unweighted_ids = [row["product_id"] for row in unweighted]

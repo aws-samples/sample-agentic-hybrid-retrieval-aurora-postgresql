@@ -15,6 +15,7 @@ from pydantic import (
     Field,
     PrivateAttr,
     StringConstraints,
+    ValidationInfo,
     field_validator,
     model_validator,
 )
@@ -22,6 +23,7 @@ from pydantic import (
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.retrieval_profile import load_profile
+from service.catalog_runtime import LEGACY_CATEGORY_FILTERS, active_dataset
 
 
 def _yaml_default(field: str) -> Callable[[], Any]:
@@ -92,6 +94,17 @@ class SearchFilters(BaseModel):
     )
     include_refurbished: bool = False
     include_sponsored: bool = False
+
+    @model_validator(mode="after")
+    def _resolve_saved_category(self, info: ValidationInfo) -> SearchFilters:
+        """Accept saved category links at every entry point, including agent tools."""
+        alias = LEGACY_CATEGORY_FILTERS.get(self.category_key)
+        dataset = (info.context or {}).get("catalog_dataset", active_dataset())
+        if dataset and alias:
+            self.category_key = alias[0]
+            if self.domain is None:
+                self.domain = alias[1]
+        return self
 
     @model_validator(mode="after")
     def _reject_contradictions(self) -> SearchFilters:
@@ -259,13 +272,13 @@ class ProductSummary(BaseModel):
     category_path: str
     brand: str
     model: str
-    price_cents: int
-    list_price_cents: int
+    price_cents: int | None
+    list_price_cents: int | None
     currency: str = "USD"
     rating: float | None = None
     review_count: int
-    availability: Availability
-    inventory_count: int
+    availability: Availability | None
+    inventory_count: int | None
     attributes: dict[str, Any]
     tags: list[Any]
     catalog_asset_key: str | None = None
@@ -275,6 +288,12 @@ class ProductSummary(BaseModel):
     is_retrieval_anchor: bool = False
     image_url: str | None = None
     image_source: str | None = None
+    source_dataset: str | None = None
+    listing_url: str | None = None
+    historical_price_cents: int | None = None
+    historical_price_min_cents: int | None = None
+    condition: str | None = None
+    source_features: list[str] = Field(default_factory=list)
     signals: ResultSignals | None = None
     sources: list[SourceAttribution] = Field(default_factory=list)
 
@@ -684,8 +703,10 @@ class AgentContextProduct(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     product_id: int = Field(gt=0)
-    title: str = Field(min_length=1, max_length=300)
-    model: str = Field(min_length=1, max_length=120)
+    # These identities are compared with the saved answer, not trusted as facts.
+    # Original listings can have long titles or no model name at all.
+    title: str = Field(min_length=1)
+    model: str
 
 
 class AgentConversationContext(BaseModel):

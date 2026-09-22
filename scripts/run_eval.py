@@ -39,6 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.eval_contract import load_evaluation_queries
 from scripts.retrieval_profile import load_profile
+from service.catalog_runtime import active_dataset
 from service.models import SearchFilters
 
 if __package__:
@@ -56,6 +57,44 @@ else:
 
 
 def validate_query_contract(connection: Any, queries: list[dict[str, Any]]) -> None:
+    """Validate each corpus separately; never resolve one catalog's IDs in another."""
+    if not queries:
+        raise ValueError(
+            "Evaluation contract requires at least one query; fix: provide a non-empty query set."
+        )
+    groups: dict[str, list[dict]] = {}
+    seen = set()
+    for query in queries:
+        identity = query.get("query_id")
+        if identity in seen:
+            raise ValueError(f"Duplicate evaluation query_id: {identity}")
+        seen.add(identity)
+        dataset = query.get("dataset_id", "synthetic-legacy")
+        if dataset not in {"synthetic-legacy", "reviews-2023-500k-v1"}:
+            raise ValueError(
+                f"Evaluation dataset rule: unknown {dataset!r}; use a reviewed catalog identity."
+            )
+        groups.setdefault(dataset, []).append(query)
+    for dataset, group in groups.items():
+        schema = (
+            "mosaic_search" if dataset == "synthetic-legacy" else "mosaic_live_search"
+        )
+        _validate_query_group(connection, group, schema)
+
+
+def require_single_served_catalog(queries: list[dict[str, Any]]) -> None:
+    """Refuse paid scoring across incompatible product identities."""
+    expected = active_dataset() or "synthetic-legacy"
+    found = {query.get("dataset_id", "synthetic-legacy") for query in queries}
+    if found != {expected}:
+        raise ValueError(
+            f"Evaluation dataset rule: queries use {sorted(found)}, served catalog is {expected}; select and review one catalog's query set before scoring."
+        )
+
+
+def _validate_query_group(
+    connection: Any, queries: list[dict[str, Any]], schema: str
+) -> None:
     """Fail before model calls when an eval target violates Mosaic filters."""
     if not queries:
         raise ValueError(
@@ -73,7 +112,14 @@ def validate_query_contract(connection: Any, queries: list[dict[str, Any]]) -> N
         query_ids.add(query_id)
         supplied_filters = query.get("filters", {})
         try:
-            filters = SearchFilters.model_validate(supplied_filters).as_sql_json()
+            filters = SearchFilters.model_validate(
+                supplied_filters,
+                context={
+                    "catalog_dataset": None
+                    if schema == "mosaic_search"
+                    else "reviews-2023-500k-v1"
+                },
+            ).as_sql_json()
         except ValidationError as error:
             raise ValueError(
                 f"{query_id} filters violate the Mosaic SearchFilters contract: "
@@ -120,7 +166,7 @@ def validate_query_contract(connection: Any, queries: list[dict[str, Any]]) -> N
             )
 
     failures = connection.execute(
-        """
+        f"""
         WITH cases AS (
             SELECT *
             FROM jsonb_to_recordset(%s::jsonb) AS c(
@@ -137,12 +183,12 @@ def validate_query_contract(connection: Any, queries: list[dict[str, Any]]) -> N
                    ELSE 'positive judgment violates its Mosaic filters'
                END AS reason
         FROM cases c
-        LEFT JOIN mosaic_search.product_document d
+        LEFT JOIN {schema}.product_document d
           ON d.product_id = c.target_product_id
         WHERE d.product_id IS NULL
            OR (
                c.require_filter_match
-               AND NOT mosaic_search.matches_filters(d, c.filters)
+               AND NOT {schema}.matches_filters(d, c.filters)
            )
         ORDER BY c.query_id
         """,
@@ -161,7 +207,7 @@ def validate_query_contract(connection: Any, queries: list[dict[str, Any]]) -> N
         )
     print(
         f"Evaluation contract passed: {len(cases):,} judged targets exist and "
-        "every positive judgment satisfies mosaic_search.matches_filters."
+        f"every positive judgment satisfies {schema}.matches_filters."
     )
 
 
@@ -219,6 +265,7 @@ def main() -> None:
         validate_query_contract(connection, queries)
         if args.validate_only:
             return
+        require_single_served_catalog(queries)
 
         profile = load_profile()
         embed, model_id = embedding_function(
@@ -254,9 +301,9 @@ def main() -> None:
             ):
                 started = time.perf_counter()
                 rows = connection.execute(
-                    """
+                    f"""
                     SELECT product_id
-                    FROM mosaic_search.search_hybrid_rrf(
+                    FROM {("mosaic_live_search" if active_dataset() else "mosaic_search")}.search_hybrid_rrf(
                         %(query)s::text, %(embedding)s::vector, %(filters)s::jsonb,
                         %(rrf_k)s::integer, %(fts_limit)s::integer,
                         %(trigram_limit)s::integer, %(semantic_limit)s::integer,

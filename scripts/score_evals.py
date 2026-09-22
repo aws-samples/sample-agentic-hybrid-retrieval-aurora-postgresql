@@ -24,7 +24,7 @@ if str(REPO) not in sys.path:
 
 from scripts.eval_contract import load_evaluation_queries
 from scripts.evaluate import evaluate, load_judgments
-from scripts.run_eval import validate_query_contract
+from scripts.run_eval import require_single_served_catalog, validate_query_contract
 from service.config import get_settings
 from service.db import connect
 from service.models import SearchFilters, SearchRequest
@@ -618,6 +618,7 @@ def measured_scorecard(
     )
     settings = get_settings()
     _validate_measurement_source(settings)
+    require_single_served_catalog(canonical_queries)
     with connect() as connection:
         validate_query_contract(connection, queries)
         database_environment = dict(

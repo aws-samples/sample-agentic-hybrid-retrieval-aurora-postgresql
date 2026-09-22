@@ -7,6 +7,7 @@ import logging
 from collections.abc import Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
+from threading import Lock
 from time import perf_counter
 from typing import Any, Literal
 from uuid import UUID, uuid4
@@ -15,6 +16,7 @@ from strands import tool
 
 from service.answerability import SynthesisDeclined
 from service.catalog import get_product_evidence_records, get_product_summaries
+from service.catalog_runtime import search_schema
 from service.config import get_settings
 from service.coverage import decline_note, decline_reason
 from service.db import connect
@@ -29,12 +31,13 @@ from service.models import (
 )
 from service.retrieval import get_retrieval_service, signals_from_receipt
 from service.retrieval_fingerprint import explain
-from service.synthesis import recommendations_in_answer_order
+from service.synthesis import SynthesisOutputError, recommendations_in_answer_order
 from service.synthesis import synthesize_cited_answer as synthesize_answer
 from service.telemetry import search_with_telemetry
 
 logger = logging.getLogger(__name__)
 SEARCH_SLOTS = ("primary", "follow_up")
+_SEARCH_SLOT_LOCK = Lock()
 
 
 def _min_length(field_name: str) -> int:
@@ -247,7 +250,12 @@ def _load_conversation_context(
                 "The previous Ask Mosaic product scope has no ranking receipt"
             )
 
-    products = get_product_summaries(selected_ids)
+    try:
+        products = get_product_summaries(selected_ids)
+    except KeyError as error:
+        raise ConversationContextError(
+            "The previous answer uses another catalog. Start a new conversation."
+        ) from error
     try:
         products = [
             product.model_copy(
@@ -413,12 +421,7 @@ def _retrieval_attempted(state: Mapping[str, Any]) -> bool:
 
 
 def _retrieved_product_ids(state: Mapping[str, Any]) -> set[int]:
-    """Every product a *successful* search returned this turn.
-
-    `state["searches"]` gains an entry only on the success path, so this is
-    exactly the set the database returned under this turn's filters. Anything
-    outside it in `state["products"]` was inherited from an earlier turn.
-    """
+    """Products returned this turn; empty searches authorize no identities."""
     return {
         product_id
         for search in state["searches"]
@@ -468,7 +471,14 @@ def _product_for_model(product: ProductSummary) -> dict[str, Any]:
         "brand": product.brand,
         "model": product.model,
         "price_cents": product.price_cents,
-        "price_display": f"${product.price_cents / 100:,.2f}",
+        "price_display": f"${product.price_cents / 100:,.2f}"
+        if product.price_cents is not None
+        else "Current price not reported",
+        "historical_price_cents": product.historical_price_cents,
+        "offer_note": "Historical source listing; current price and stock are unreported."
+        if product.source_dataset
+        else None,
+        "source_features": product.source_features,
         "rating": product.rating,
         "availability": product.availability,
         "description": product.short_description,
@@ -504,6 +514,7 @@ def _evidence_for_model(item: Any) -> dict[str, Any]:
         "text": item.text,
         "rating": item.rating,
         "is_verified": item.is_verified,
+        "source_context": item.metadata,
     }
 
 
@@ -592,7 +603,7 @@ def search_products(
     Args:
         query: Targeted product intent or exact model/SKU text.
         domain: Optional consumer_electronics, running_fitness, or home_office.
-        category_key: Optional exact category key such as over-ear-headphones.
+        category_key: Optional exact category key from the active catalog guidance.
         brand: Optional exact brand name.
         availability: Optional in_stock, low_stock, out_of_stock, preorder, or
             discontinued constraint.
@@ -600,10 +611,9 @@ def search_products(
         min_price_cents: Optional minimum price in integer cents, so $200 is 20000.
         max_price_cents: Optional maximum price in integer cents, so $200 is 20000.
         min_rating: Optional minimum rating from 0 to 5.
-        attributes: Optional exact JSON attribute constraints. For explicit
-            home-office requirements, use quiet_typing=true for
-            quiet-keyboards and seat_depth_adjustable=true for
-            ergonomic-office-chairs.
+        attributes: Optional exact JSON attribute constraints, using only field
+            names and values established by the active catalog. Do not invent
+            normalized attribute keys from the wording of a request.
         limit: Number of products to return, from 1 to 2. The per-search
             response cap keeps the agent's comparison and evidence work
             inspectable within one workshop turn.
@@ -633,11 +643,19 @@ def search_products(
             "retry with a targeted shopping intent or exact product identifier.",
         )
     search_budget = len(SEARCH_SLOTS)
-    if len(state["searches"]) >= search_budget:
+    # Parallel tools reserve before the network call, without serializing I/O.
+    with _SEARCH_SLOT_LOCK:
+        attempted = state.get(
+            "_search_attempts",
+            sum(step["tool"] == "search_products" for step in state["trace"]),
+        )
+        if attempted < search_budget:
+            state["_search_attempts"] = attempted + 1
+    if attempted >= search_budget:
         return _failure(
             (
                 f"search_products allows {search_budget} searches per agent "
-                f"turn; found {len(state['searches'])}"
+                f"turn; found {attempted}"
             ),
             (
                 "use the products already retrieved and call "
@@ -713,21 +731,8 @@ def search_products(
     # came back unanchored, so a grounded search dropped here would be invisible
     # to it and a later unanchored search would decline the whole run.
     state.setdefault("search_coverage", []).append(response.coverage)
-    if not ranked_results:
-        _record(
-            "search_products",
-            arguments,
-            started,
-            search_event_id=response.search_event_id,
-            result_count=0,
-            detail="Retrieval completed, but no eligible product was returned.",
-            outcome="error",
-        )
-        return _failure(
-            "no eligible products were available in the ranked window",
-            "retry with a broader query or fewer filters.",
-        )
-
+    # Empty results still consumed a search and have a receipt. Losing them
+    # caused repeated requests and turned a normal no-match answer into a 503.
     state["search_event_ids"].append(response.search_event_id)
     state["searches"].append(
         {
@@ -737,6 +742,27 @@ def search_products(
             "product_ids": [product.product_id for product in ranked_results],
         }
     )
+    if not ranked_results:
+        _record(
+            "search_products",
+            arguments,
+            started,
+            search_event_id=response.search_event_id,
+            result_count=0,
+            detail="Retrieval completed, but no eligible product was returned.",
+        )
+        return {
+            **_failure(
+                "no eligible products were available in the ranked window",
+                "preserve the shopper's filters. Try one focused follow-up search "
+                "only if a search slot remains; otherwise stop and report no matches.",
+            ),
+            "code": "no_matching_products",
+            "search_event_id": str(response.search_event_id),
+            "coverage": response.coverage.model_dump(exclude={"note"})
+            if response.coverage is not None
+            else None,
+        }
     for product in ranked_results:
         state["products"].setdefault(product.product_id, product)
     _record(
@@ -1095,9 +1121,9 @@ def _excluded_inherited_products(
         return []
     with connect() as connection:
         rows = connection.execute(
-            """SELECT d.product_id FROM mosaic_search.product_document d
+            f"""SELECT d.product_id FROM {search_schema()}.product_document d
                WHERE d.product_id = ANY(%s::bigint[])
-                 AND mosaic_search.matches_filters(d, %s::jsonb)""",
+                 AND {search_schema()}.matches_filters(d, %s::jsonb)""",
             (inherited, json.dumps(state["base_filters"].as_sql_json())),
         ).fetchall()
     eligible = {row["product_id"] for row in rows}
@@ -1139,6 +1165,33 @@ def record_unsupported_answer(
         "outcome": "declined",
         "decline_reason": reason,
     }
+
+
+def record_no_results_answer(state: dict[str, Any]) -> bool:
+    """Explain completed empty searches without hiding dependency failures."""
+    searches = state["searches"]
+    attempts = [step for step in state["trace"] if step["tool"] == "search_products"]
+    if (
+        not searches
+        or state["products"]
+        or len(attempts) != len(searches)
+        or any(step.get("outcome") != "success" for step in attempts)
+        or any(search["product_ids"] for search in searches)
+    ):
+        return False
+    state["answer_of_record"] = {
+        "answer": (
+            "I could not find products matching this request with the current "
+            "search filters. Try changing a filter or describing what you need "
+            "differently."
+        ),
+        "citations": [],
+        "recommendations": [],
+        "usage": {},
+        "outcome": "declined",
+        "decline_reason": "no_matching_products",
+    }
+    return True
 
 
 def _synthesis_question(state: dict[str, Any]) -> str:
@@ -1184,6 +1237,12 @@ def synthesize_cited_answer(
             "answer": record["answer"],
             "citations": [citation.model_dump() for citation in record["citations"]],
         }
+    retry_ids = state.get("synthesis_retry_product_ids")
+    if retry_ids and set(unique_ids) != set(retry_ids):
+        return _failure(
+            "A draft failed citation checks; changing products cannot repair that draft.",
+            f"Retry synthesis with the same product IDs {retry_ids} and correct the cited claims.",
+        )
     if record_declined_answer(state):
         # Checked before the product bounds, because which products the model
         # chose cannot matter: every search this turn named something the
@@ -1315,9 +1374,15 @@ def synthesize_cited_answer(
             detail=f"Synthesis failed with {type(error).__name__}.",
             outcome="error",
         )
+        if isinstance(error, SynthesisOutputError):
+            state["synthesis_retry_product_ids"] = unique_ids
+            return _failure(
+                f"The draft failed evidence checks: {error}",
+                f"Keep the same product IDs {unique_ids}; retry synthesis to repair the cited claims, not the selection.",
+            )
         return _failure(
             f"synthesis failed with {type(error).__name__}",
-            "retry with product IDs from the strongest retrieval result.",
+            "retry with the same product IDs after checking the evidence and model service.",
         )
 
     state["answer_of_record"] = {
@@ -1432,6 +1497,7 @@ def finalize_retrieved_answer(
         return
     selected_ids = (
         product_ids
+        or state.get("synthesis_retry_product_ids")
         or [
             product_id
             for product_id in state["evidence_by_product"]

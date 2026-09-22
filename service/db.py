@@ -20,7 +20,7 @@ _pool_lock = threading.Lock()
 
 
 def _configure(connection: psycopg.Connection) -> None:
-    """Per-connection setup, run once on checkout into the pool, not per query."""
+    """Register vector adapters when a new connection enters the pool."""
     register_vector(connection)
 
 
@@ -49,6 +49,9 @@ def get_pool() -> ConnectionPool:
                 timeout=settings.db_pool_timeout,
                 kwargs={"row_factory": dict_row},
                 configure=_configure,
+                # Idle sockets can expire after a network interruption. Replace
+                # them at checkout, before any request starts its transaction.
+                check=ConnectionPool.check_connection,
                 open=True,
             )
             atexit.register(close_pool)
@@ -134,7 +137,7 @@ LEFT JOIN pg_index AS index_state
       FROM pg_class AS index_relation
       JOIN pg_namespace AS index_schema
         ON index_schema.oid = index_relation.relnamespace
-      WHERE index_schema.nspname = 'mosaic_search'
+      WHERE index_schema.nspname = coalesce(%s::text, 'mosaic_search')
         AND index_relation.relname = required.name
         AND index_relation.relkind = 'i'
   )
@@ -149,19 +152,22 @@ REQUIRED_RETRIEVAL_INDEXES = (
 )
 
 
-def index_states_on(connection: Any, names: Sequence[str]) -> dict[str, str]:
+def index_states_on(
+    connection: Any, names: Sequence[str], *, schema: str | None = None
+) -> dict[str, str]:
     """Catalog state of each named index on an already-open connection.
 
     Args:
         connection: An open connection to the workshop cluster.
-        names: Bare index relation names in `mosaic_search`, without the schema
+        names: Bare index relation names in the selected schema, without the schema
             qualifier. A same-named index in another schema is not this index and
             is reported as `missing`.
+        schema: Schema to inspect. Defaults to the historical `mosaic_search`.
 
     Returns:
         One entry per requested name: `valid`, `invalid`, or `missing`.
     """
-    rows = connection.execute(INDEX_STATE_SQL, ([str(name) for name in names],))
+    rows = connection.execute(INDEX_STATE_SQL, ([str(name) for name in names], schema))
     return {row["name"]: row["state"] for row in rows.fetchall()}
 
 
@@ -172,6 +178,12 @@ def index_states(names: Sequence[str]) -> dict[str, str]:
 
 
 def readiness() -> dict[str, object]:
+    from service.catalog_runtime import active_dataset
+
+    if active_dataset():
+        from service.live_catalog import readiness as source_readiness
+
+        return source_readiness()
     with connect() as connection:
         row = connection.execute(
             """

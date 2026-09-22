@@ -591,7 +591,7 @@ def test_eligibility_fixture_count_comes_from_the_harnesss_own_filter():
 
     fixtures = _eligibility_fixtures(scored)
 
-    assert len(fixtures) == 18
+    assert len(fixtures) == 12
     assert "G-013" not in fixtures  # the one scored query with no hard negatives
     assert "G-021" not in fixtures  # excluded from product_retrieval entirely
 
@@ -719,23 +719,17 @@ def test_stage_ablation_attribution_is_independent_of_the_main_artifacts():
 # --- The API route -----------------------------------------------------
 
 
-def test_api_serves_attributed_scorecard_after_remeasurement():
-    """The real repository, not a fixture: the committed baseline was measured
-    on 2026-09-10 from a clean commit on the running retrieval path, so the
-    route serves it attributed. The next retrieval-code change turns this red
-    again until `make score-evals SCORE_EVAL_ARGS="--restart --write-baseline"`
-    runs from a clean commit; that is the designed state, not a break."""
+def test_api_withholds_the_historical_catalog_scorecard():
+    """A synthetic-catalog measurement must not certify the real-catalog release."""
     payload = TestClient(app).get("/api/scorecard").json()
 
-    assert payload["provenance"]["attributed"] is True
-    assert payload["provenance"]["attribution_note"].startswith(
-        "Measured on the retrieval code running now"
-    )
+    assert payload["provenance"]["attributed"] is False
+    assert payload["provenance"]["attribution_note"].startswith(PENDING_TEXT)
     assert payload["provenance"]["source_revision"]
     assert payload["provenance"]["current_source_revision"]
     assert payload["retrieval_quality"]["sample_size"] == 20
     assert payload["regression_anchors"]["total"] == 6
-    assert payload["eligibility_contracts"]["fixture_count"] == 18
+    assert payload["eligibility_contracts"]["fixture_count"] == 12
     assert len(payload["agent_contracts"]["guarantees"]) == 5
 
 
@@ -1101,24 +1095,14 @@ def test_provenance_carries_both_sides_of_the_settings_comparison():
     assert len(provenance.current_retrieval_settings_sha256) == 64
 
 
-def test_the_committed_artifact_carries_its_settings_hash_and_reads_attributed():
-    """The real repository, not a fixture: the committed baseline records the
-    resolved retrieval settings it was measured under, and the served
-    scorecard attributes it to the running path.
-
-    This pins the state the repository is actually in, the same way
-    `service.retrieval_fingerprint._EXPECTED_CATEGORY_COUNTS` pins its file
-    counts. A retrieval-code change flips `attributed` to False until the next
-    `scripts/score_evals.py --write-baseline` from a clean commit, and
-    `test_api_serves_attributed_scorecard_after_remeasurement` above turns red
-    with it; update both in the same change as that re-measure.
-    """
+def test_historical_measurement_preserves_its_hash_without_claiming_current_results():
+    """Preserve the measurement; changed code and queries require a new run."""
     artifact = json.loads(SCORECARD_ARTIFACT.read_text(encoding="utf-8"))
     assert len(artifact["retrieval_settings_sha256"]) == 64
 
     provenance = retrieval_scorecard().provenance
 
-    assert provenance.attributed is True
+    assert provenance.attributed is False
     assert provenance.retrieval_settings_sha256 == artifact["retrieval_settings_sha256"]
     assert (
         provenance.current_retrieval_settings_sha256

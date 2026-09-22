@@ -475,7 +475,14 @@ def test_the_live_calibration_has_cases_to_assert():
     assert len(VERIFIED_CASES) == len(_cases())
 
 
+@pytest.fixture
+def historical_coverage(monkeypatch):
+    """September calibration belongs to the retained synthetic vocabulary only."""
+    monkeypatch.setattr(coverage, "search_schema", lambda: "mosaic_search")
+
+
 @pytest.mark.aurora
+@pytest.mark.usefixtures("historical_coverage")
 @pytest.mark.parametrize("case", VERIFIED_CASES, ids=lambda c: c["query_id"])
 def test_every_verified_case_classifies_as_recorded(case):
     """Both halves: the expectation the set declares, and the run that verified it."""
@@ -510,6 +517,7 @@ def test_every_verified_case_classifies_as_recorded(case):
 
 
 @pytest.mark.aurora
+@pytest.mark.usefixtures("historical_coverage")
 def test_the_floor_is_what_decides_the_lab_1_anchor():
     """Red-at-birth, kept permanent. The anchor is grounded at the shipped floor
     and refused above its narrowest token, so a green result here is evidence
@@ -525,6 +533,7 @@ def test_the_floor_is_what_decides_the_lab_1_anchor():
 
 
 @pytest.mark.aurora
+@pytest.mark.usefixtures("historical_coverage")
 def test_the_floor_is_what_decides_the_invented_brand():
     """The other end of the calibration. 'Zylthorne' clears 0.231 and nothing
     more, so a floor at 0.2 admits it and the guardrail stops guarding."""
@@ -534,6 +543,7 @@ def test_the_floor_is_what_decides_the_invented_brand():
 
 
 @pytest.mark.aurora
+@pytest.mark.usefixtures("historical_coverage")
 @pytest.mark.parametrize("floor", [0.01, 0.24, 0.99])
 def test_an_absent_model_number_is_refused_at_every_floor(floor):
     """The half of this gate that does not rest on a 0.019 margin. `a2342` is a
@@ -546,8 +556,20 @@ def test_an_absent_model_number_is_refused_at_every_floor(floor):
 
 
 @pytest.mark.aurora
+@pytest.mark.usefixtures("historical_coverage")
 def test_both_vocabularies_are_seeded_on_this_cluster():
     """`assess` reports `unavailable` when either table is empty, which would make
     every assertion above vacuously pass on a half-seeded database."""
     result = coverage.assess("wireless headphones")
     assert result.confidence != "unavailable", result.note
+
+
+@pytest.mark.aurora
+def test_current_catalog_vocabulary_has_positive_and_negative_controls():
+    from service.catalog_runtime import active_dataset
+
+    assert active_dataset(), "Select the mission dataset for the model release lane"
+    assert coverage.assess("wireless headphones").confidence == "grounded"
+    absent = coverage.assess("ZZZMOSAICABSENT987654321")
+    assert absent.confidence == "unanchored"
+    assert absent.unmatched_terms == ["ZZZMOSAICABSENT987654321"]

@@ -115,3 +115,24 @@ def test_reset_checks_identity_before_editing_files(monkeypatch):
     )
     with pytest.raises(SystemExit, match="wrong database"):
         lab_state.main()
+
+
+@pytest.mark.parametrize("lab", [1, 2])
+def test_applied_state_reads_the_catalog_served_by_the_api(monkeypatch, lab):
+    from unittest.mock import MagicMock
+
+    from scripts.lab_state import validate_database
+    from scripts.retrieval_profile import load_profile
+
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-500k-v1")
+    k = load_profile().rrf_k
+    connection = MagicMock()
+    connection.execute.return_value.fetchone.return_value = {
+        "definition": "SELECT * FROM typo JOIN mosaic_live_search.search_trigram()",
+        "first_contribution": 1 / (k + 1),
+        "second_contribution": 1 / (k + 2),
+    }
+    assert validate_database(lab, connection).state == "applied"
+    statement = connection.execute.call_args.args[0]
+    assert "mosaic_live_search." in statement
+    assert "mosaic_search." not in statement

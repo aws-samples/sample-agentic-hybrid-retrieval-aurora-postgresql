@@ -28,7 +28,7 @@ LAB_1_MISSION = {
 }
 
 LAB_3_MISSION = {
-    "target_product_ids": [370001, 429001],
+    "target_product_ids": [370001, 420001],
     "filters": {
         "domain": "home_office",
         "max_price_cents": 80000,
@@ -144,7 +144,7 @@ def _lab_2_response(*, pre_rerank_rank=1, final_rank=1, rerank_status="applied")
 #: compares it against the evidence row's own text, not only the product id.
 _CITED_ROWS = (
     (1, 9001, 370001, "Seat depth adjusts across a 60 mm range."),
-    (2, 9002, 429001, "Damped tactile switches cut typing noise."),
+    (2, 9002, 420001, "The 32-inch 4K display supports USB-C video and 90W charging."),
 )
 _REVISION = "2026-08-11"
 
@@ -179,8 +179,8 @@ def _evidence_row(evidence_id: int, product_id: int, text: str) -> dict:
 def _persisted_run(**overrides) -> PersistedAgentRun:
     defaults = {
         "agent_run_id": "5e0c2b9a-1f2d-4c3b-8a7e-0d1c2b3a4f56",
-        "assistant_message": "The chair and the keyboard both clear the budget.",
-        "selected_products": (370001, 429001),
+        "assistant_message": "The chair and the monitor both clear the budget.",
+        "selected_products": (370001, 420001),
         "synthesis_outcome": "success",
         "citations": tuple(
             _citation(number, evidence_id, product_id, quote)
@@ -192,7 +192,7 @@ def _persisted_run(**overrides) -> PersistedAgentRun:
         },
         "evidence_events": (
             {"product_id": 370001, "outcome": "success", "result_count": 2},
-            {"product_id": 429001, "outcome": "success", "result_count": 3},
+            {"product_id": 420001, "outcome": "success", "result_count": 3},
         ),
         "search_filters": (
             {
@@ -252,6 +252,8 @@ def test_control_assertions_reject_their_declared_violations(mission):
             {
                 "product_id": product_id,
                 "domain": filters.get("domain"),
+                "category_key": filters.get("category_key"),
+                "brand": filters.get("brand"),
                 "price_cents": filters.get("max_price_cents", 10000),
                 "availability": "in_stock",
                 "attributes": filters.get("attributes", {}),
@@ -343,6 +345,38 @@ def test_lab_1_fails_when_a_returned_product_breaks_the_filters():
     assert not _by_name(checks, "hard filters hold").passed
 
 
+@pytest.mark.parametrize("arm", ["fts", "semantic"])
+def test_lab_1_rejects_a_claim_that_only_trigram_found_a_multi_arm_target(arm):
+    response = _lab_1_response()
+    response["results"][0]["signals"][arm] = {"rank": 2, "rrf_contribution": 0.01}
+    mission = {**LAB_1_MISSION, "absent_target_signals": ["fts", "semantic"]}
+    check = _by_name(
+        lab_checks.lab_1_checks(mission, response), "trigram provenance present"
+    )
+    assert not check.passed
+    assert arm in check.detail
+
+
+@pytest.mark.parametrize(
+    "rank,expected",
+    [
+        (1, True),
+        (2, True),
+        (3, True),
+        (4, False),
+        (0, False),
+        (True, False),
+        (None, False),
+    ],
+)
+def test_lab_2_grades_declared_shortlist_instead_of_managed_model_top_one(
+    rank, expected
+):
+    response = _lab_2_response(final_rank=rank)
+    mission = {"target_product_ids": [370002], "expected_final_top_k": 3}
+    assert lab_checks._lab_2_winner(mission, response["results"]).passed is expected
+
+
 def test_lab_2_reports_exactly_five_checks():
     response = _lab_2_response()
 
@@ -356,19 +390,19 @@ def test_lab_2_reports_exactly_five_checks():
     assert all(check.passed for check in checks), _names(
         [check for check in checks if not check.passed]
     )
-    assert "canonical winner is fused and final rank 1" in _names(checks)
+    assert "required product reaches the declared final shortlist" in _names(checks)
 
 
-def test_lab_2_fails_on_a_wrong_fused_winner():
-    response = _lab_2_response(pre_rerank_rank=2)
+def test_lab_2_fails_on_a_wrong_final_winner():
+    response = _lab_2_response(final_rank=2)
 
     checks = lab_checks.lab_2_checks(
         {"target_product_ids": [370002]}, response, response
     )
 
-    failed = _by_name(checks, "canonical winner is fused and final rank 1")
+    failed = _by_name(checks, "required product reaches the declared final shortlist")
     assert not failed.passed
-    assert "not fused rank 1" in failed.detail
+    assert "final position=2" in failed.detail
 
 
 def test_lab_2_fails_when_the_pre_rerank_order_is_not_repeatable():
@@ -450,7 +484,7 @@ def test_lab_3_proof_fails_a_citation_that_resolves_to_another_product():
         _persisted_run(
             resolved_evidence={
                 9001: _evidence_row(9001, 123, _CITED_ROWS[0][3]),
-                9002: _evidence_row(9002, 429001, _CITED_ROWS[1][3]),
+                9002: _evidence_row(9002, 420001, _CITED_ROWS[1][3]),
             }
         ),
     )
@@ -472,7 +506,7 @@ def test_lab_3_proof_fails_a_citation_whose_quote_the_evidence_row_lacks():
         _persisted_run(
             resolved_evidence={
                 9001: _evidence_row(9001, 370001, "Seat depth is fixed."),
-                9002: _evidence_row(9002, 429001, _CITED_ROWS[1][3]),
+                9002: _evidence_row(9002, 420001, _CITED_ROWS[1][3]),
             }
         ),
     )
@@ -527,7 +561,7 @@ def test_lab_3_proof_fails_a_citation_whose_evidence_row_changed_revision():
             resolved_evidence={
                 9001: _evidence_row(9001, 370001, _CITED_ROWS[0][3])
                 | {"revision": "2026-09-01"},
-                9002: _evidence_row(9002, 429001, _CITED_ROWS[1][3]),
+                9002: _evidence_row(9002, 420001, _CITED_ROWS[1][3]),
             }
         ),
     )
@@ -541,7 +575,7 @@ def test_lab_3_proof_fails_when_the_evidence_tool_returned_nothing():
         _persisted_run(
             evidence_events=(
                 {"product_id": 370001, "outcome": "success", "result_count": 0},
-                {"product_id": 429001, "outcome": "success", "result_count": 3},
+                {"product_id": 420001, "outcome": "success", "result_count": 3},
             )
         ),
     )
@@ -665,7 +699,7 @@ def test_agent_response_checks_count_the_declared_lab_3_conditions():
                 "availability": "in_stock",
                 "attributes": {},
             }
-            for product_id in (370001, 429001)
+            for product_id in (370001, 420001)
         ],
         "trace": [
             {
@@ -682,9 +716,9 @@ def test_agent_response_checks_count_the_declared_lab_3_conditions():
                 "tool": "search_products",
                 "outcome": "success",
                 "origin": "model",
-                "retrieval_run_id": "run-keyboard",
+                "retrieval_run_id": "run-monitor",
                 "arguments": {
-                    "query": "quiet mechanical keyboard",
+                    "query": "4K USB-C monitor",
                     "applied_filters": LAB_3_MISSION["filters"],
                 },
             },
@@ -692,7 +726,7 @@ def test_agent_response_checks_count_the_declared_lab_3_conditions():
                 "tool": "compare_products",
                 "outcome": "success",
                 "origin": "model",
-                "arguments": {"product_ids": [370001, 429001]},
+                "arguments": {"product_ids": [370001, 420001]},
             },
             {
                 "tool": "get_product_evidence",
@@ -706,7 +740,7 @@ def test_agent_response_checks_count_the_declared_lab_3_conditions():
                 "outcome": "success",
                 "origin": "model",
                 "result_count": 2,
-                "arguments": {"product_id": 429001},
+                "arguments": {"product_id": 420001},
             },
             {
                 "tool": "explain_retrieval",
@@ -729,19 +763,17 @@ def test_agent_response_checks_count_the_declared_lab_3_conditions():
                 "number": 2,
                 "evidence_id": 9002,
                 "evidence_type": "product_spec",
-                "product_id": 429001,
+                "product_id": 420001,
                 "source_uri": "mosaic://evidence/9002",
                 "revision": "2026-08-11",
-                "quote": "Damped tactile switches reduce typing noise.",
+                "quote": "The 32-inch 4K display supports USB-C video and 90W charging.",
             },
         ],
     }
     evidence = AgentEvidence(
         receipts=(
             RetrievalReceipt("run-chair", "ergonomic chair", frozenset({370001})),
-            RetrievalReceipt(
-                "run-keyboard", "quiet mechanical keyboard", frozenset({429001})
-            ),
+            RetrievalReceipt("run-monitor", "4K USB-C monitor", frozenset({420001})),
         ),
         resolved_evidence={
             citation["evidence_id"]: {
@@ -776,3 +808,40 @@ def test_agent_response_checks_count_the_declared_lab_3_conditions():
         [check for check in checks if not check.passed]
     )
     assert "independent retrieval intents covered" in _names(checks)
+
+
+def test_lab_2_accepts_a_product_promoted_by_reranking():
+    response = _lab_2_response(pre_rerank_rank=24)
+    signals = response["results"][0]["signals"]
+    for arm in ("fts", "trigram"):
+        signals[arm] = {"rank": None, "rrf_contribution": None}
+    signals["rrf_score"] = signals["semantic"]["rrf_contribution"]
+    checks = lab_checks.lab_2_checks(
+        {"target_product_ids": [370002], "expected_target_signals": ["semantic"]},
+        response,
+        response,
+    )
+    assert len(checks) == 5 and all(check.passed for check in checks)
+
+
+def test_empty_ranking_runs_do_not_prove_arithmetic_or_repeatability():
+    response = _lab_2_response()
+    response["results"] = []
+    checks = lab_checks.lab_2_checks(
+        {"target_product_ids": [370002]}, response, response
+    )
+    assert not _by_name(checks, "RRF arithmetic correct").passed
+    assert not _by_name(checks, "pre-rerank order repeatable").passed
+
+
+@pytest.mark.parametrize("field,value", [("category_key", "chair"), ("brand", "wrong")])
+def test_served_control_rows_cannot_escape_brand_or_category(field, value):
+    row = {
+        "domain": "consumer_electronics",
+        "category_key": "headphones",
+        "brand": "Bose",
+    }
+    filters = dict(row)
+    assert lab_checks.eligible(row, filters)
+    row[field] = value
+    assert not lab_checks.eligible(row, filters)

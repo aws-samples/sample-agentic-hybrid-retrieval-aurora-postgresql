@@ -9,12 +9,14 @@ validator delegates to that function rather than carrying a second predicate.
 from __future__ import annotations
 
 import json
+import re
 from itertools import zip_longest
 from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
 
+from service.catalog_runtime import active_dataset, search_schema
 from service.db import connect
 from service.models import (
     CatalogPage,
@@ -172,6 +174,10 @@ def _summary(row: dict[str, Any]) -> ProductSummary:
 
 def count_products(filters: list[SearchFilters]) -> list[int]:
     """Count Shop filter groups in one round trip without products or facets."""
+    if active_dataset():
+        from service import live_catalog
+
+        return live_catalog.count_products(filters)
     with connect() as connection:
         rows = connection.execute(
             """
@@ -201,6 +207,12 @@ def list_products(
     sort: str = "featured",
     collection: str = "all",
 ) -> CatalogPage:
+    if active_dataset():
+        from service import live_catalog
+
+        return live_catalog.list_products(
+            filters, offset=offset, limit=limit, sort=sort, collection=collection
+        )
     if collection not in {"all", "workspace"}:
         raise HTTPException(
             422,
@@ -287,6 +299,10 @@ def list_products(
 
 def get_product_summaries(product_ids: list[int]) -> list[ProductSummary]:
     """Hydrate an ordered, server-authorized product shortlist."""
+    if active_dataset():
+        from service import live_catalog
+
+        return live_catalog.get_product_summaries(product_ids)
     ordered_ids = list(dict.fromkeys(product_ids))
     if not ordered_ids:
         return []
@@ -327,6 +343,10 @@ def catalog_suggestions(query: str) -> CatalogSuggestionsResponse:
     Brand and category tables are small identity dictionaries, so their prefix
     scans do not fan out through the 500,000-row product corpus.
     """
+    if active_dataset():
+        from service import live_catalog
+
+        return live_catalog.catalog_suggestions(query)
     normalized = " ".join(query.split())
     with connect() as connection:
         rows = connection.execute(
@@ -448,6 +468,10 @@ def similar_products(product_id: int) -> list[ProductSummary]:
     workshop's full-catalog HNSW search. Reusing the stored product vector avoids
     embedding a brand name and treating its lexical neighbors as alternatives.
     """
+    if active_dataset():
+        from service import live_catalog
+
+        return live_catalog.similar_products(product_id)
     with connect() as connection:
         if (
             connection.execute(
@@ -494,6 +518,10 @@ def similar_products(product_id: int) -> list[ProductSummary]:
 
 
 def get_product(product_id: int) -> ProductDetail:
+    if active_dataset():
+        from service import live_catalog
+
+        return live_catalog.get_product(product_id)
     with connect() as connection:
         row = connection.execute(
             f"""
@@ -611,12 +639,16 @@ def get_product_evidence_records(
     """Return question-ranked, source-addressable evidence for one product."""
     if not query.strip():
         raise ValueError("Evidence retrieval requires a non-empty evidence query")
+    if active_dataset():
+        from service.live_catalog import ensure_product_evidence
+
+        ensure_product_evidence(product_id)
     profile = RetrievalProfile()
     with connect() as connection:
         ranked_ids = connection.execute(
-            """
-            SELECT evidence_id
-            FROM mosaic_search.search_product_evidence(
+            f"""
+            SELECT evidence_id, evidence_type
+            FROM {search_schema()}.search_product_evidence(
                 %s::bigint,
                 %s::text,
                 %s::vector,
@@ -638,6 +670,37 @@ def get_product_evidence_records(
             ),
         ).fetchall()
         evidence_ids = [row["evidence_id"] for row in ranked_ids]
+        review_fallback_ids: set[int] = set()
+        remaining = max(1, min(limit, profile.result_limit)) - len(evidence_ids)
+        if (
+            active_dataset()
+            and remaining > 0
+            and not any(row["evidence_type"] == "customer_review" for row in ranked_ids)
+        ):
+            # Imported reviews have no vectors. A multi-topic question should
+            # not require every topic to occur in the same review; relax only
+            # that lexical match, retaining the exact product and source type.
+            terms = list(dict.fromkeys(re.findall(r"\w+", query, flags=re.UNICODE)))
+            relaxed_query = " OR ".join(f'"{term}"' for term in terms)
+            if relaxed_query:
+                review_rows = connection.execute(
+                    f"""SELECT evidence_id FROM {search_schema()}.search_product_evidence(
+                        %s::bigint, %s::text, %s::vector,
+                        ARRAY['customer_review']::mosaic.evidence_type[],
+                        %s::integer, %s::integer, %s::integer, %s::integer
+                    )""",
+                    (
+                        product_id,
+                        relaxed_query,
+                        query_embedding,
+                        remaining,
+                        profile.rrf_k,
+                        profile.fts_limit,
+                        profile.semantic_limit,
+                    ),
+                ).fetchall()
+                review_fallback_ids = {row["evidence_id"] for row in review_rows}
+                evidence_ids.extend(row["evidence_id"] for row in review_rows)
         if not evidence_ids:
             return []
         rows = connection.execute(
@@ -651,7 +714,14 @@ def get_product_evidence_records(
             """,
             (evidence_ids,),
         ).fetchall()
-    return [_evidence_record(dict(row)) for row in rows]
+    records = [_evidence_record(dict(row)) for row in rows]
+    for record in records:
+        if record.evidence_id in review_fallback_ids:
+            record.metadata = {
+                **record.metadata,
+                "retrieval_match": "At least one query term matches this review. Check its text for support of each claim.",
+            }
+    return records
 
 
 def get_evidence_record(evidence_id: int) -> EvidenceRecord:
@@ -682,6 +752,7 @@ def _evidence_record(row: dict[str, Any]) -> EvidenceRecord:
         if updated_at
         else "unversioned"
     )
+    revision = (row.get("metadata") or {}).get("source_record_sha256") or revision
     return EvidenceRecord(
         evidence_id=row["evidence_id"],
         product_id=row["product_id"],
@@ -712,6 +783,8 @@ def review_highlights(limit: int = 5) -> ReviewHighlightsResponse:
     never paraphrased. Within one opening the most-helpful verified review of
     four stars or better wins.
     """
+    if active_dataset():
+        return ReviewHighlightsResponse(highlights=[])
     photographed = list(_PHOTOGRAPHED_PRODUCT_IDS)
     with connect() as connection:
         rows = connection.execute(
@@ -770,6 +843,10 @@ def review_highlights(limit: int = 5) -> ReviewHighlightsResponse:
 
 
 def catalog_summary() -> dict[str, Any]:
+    if active_dataset():
+        from service import live_catalog
+
+        return live_catalog.catalog_summary_for(active_dataset())
     with connect() as connection:
         rows = connection.execute(
             """

@@ -473,12 +473,12 @@ def test_search_products_records_the_coverage_of_every_search(monkeypatch):
 def test_the_tool_payload_never_hands_the_model_shops_wording(monkeypatch):
     """`coverage.note` promises results the agent has none of.
 
-    Shop's note ends "The results below answer the rest of the request." A
-    declined turn returns nothing below, so putting that sentence in the tool
+    Shop's note points to nearby matches. A
+    declined turn returns no product list, so putting that sentence in the tool
     payload would be a false statement the model can quote verbatim.
     """
     verdict = unanchored("A2342")
-    assert "results below" in verdict.note, (
+    assert "nearby matches" in verdict.note, (
         "the note stopped carrying Shop's wording, so this test no longer "
         "guards anything; re-derive it from service.coverage.unanchored_note"
     )

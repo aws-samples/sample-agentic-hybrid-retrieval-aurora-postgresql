@@ -1,16 +1,51 @@
 """Saved run IDs must re-enter the live grading path, never cache PASS."""
 
+import json
 from contextlib import contextmanager
 from copy import deepcopy
 from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
-from test_lab_proof import _evidence_row, _grounded_connection
+from test_lab_proof import _citation, _evidence_row, _grounded_connection
 
 from scripts import validate_lab
 from service import lab_checks, lab_proof
 from service import lab_validation_receipt as receipt
+
+
+def test_saved_validation_keeps_actual_answers_for_participant_inspection(
+    monkeypatch, tmp_path
+):
+    def request(base, route, body=None):
+        if route == "/api/readiness":
+            return {}
+        assert route == "/api/agent/answer"
+        return {
+            "agent_run_id": str(uuid4()),
+            "answer": body["question"],
+            "citations": [],
+        }
+
+    monkeypatch.setattr(validate_lab, "_request", request)
+    monkeypatch.setattr(
+        receipt, "validation_identity", lambda *_: {"source": "current"}
+    )
+    monkeypatch.setattr(
+        validate_lab, "validate_agent_response", lambda *args: ["graded"]
+    )
+    path = tmp_path / "lab-3.json"
+    checks = validate_lab.validate_lab_3("http://example.test", save_receipt=path)
+    saved = json.loads(path.read_text())
+    assert len(checks) == 2
+    for mission in (
+        lab_checks.load_mission("reason"),
+        lab_checks.load_case("evidence-grounding"),
+    ):
+        query_id = mission["canonical_query_id"]
+        answer = json.loads(path.with_name(f"lab-3.{query_id}.json").read_text())
+        assert answer["answer"] == mission["query"]
+        assert answer["agent_run_id"] == saved["runs"][query_id]
 
 
 @pytest.fixture
@@ -24,11 +59,32 @@ def saved_runs(monkeypatch):
     for mission in missions:
         run_id = uuid4()
         connection = _grounded_connection()
+        if mission["canonical_query_id"] == "G-019":
+            connection.turn["extracted_intent"]["selected_products"] = [
+                {
+                    "product_id": 1277987,
+                    "domain": "consumer_electronics",
+                    "category_key": "headphones",
+                    "brand": "Bose",
+                    "attributes": {},
+                }
+            ]
+            for candidate in connection.candidates:
+                candidate["product_id"] = 1277987
+            for tool in connection.tools:
+                args = tool["input_payload"]
+                if "product_id" in args:
+                    args["product_id"] = 1277987
+                if "product_ids" in args:
+                    args["product_ids"] = [1277987]
+                if tool["tool_name"] == "synthesize_cited_answer":
+                    tool["output_payload"]["citations"] = [
+                        _citation(1, 9101),
+                        _citation(2, 9102),
+                    ]
         connection.turn["agent_turn_id"] = run_id
         connection.turn["user_message"] = mission["query"]
         connection.turn["extracted_intent"]["outcome"] = "answered"
-        for product in connection.turn["extracted_intent"]["selected_products"]:
-            product["attributes"]["seat_depth_adjustable"] = True
         for search in connection.searches:
             search["filters"].update(deepcopy(mission["filters"]))
         connections[run_id] = connection

@@ -1,0 +1,473 @@
+{
+  "version": 1,
+  "use": "Reviewed teaching comparisons only; not a representative benchmark or additional search corpus.",
+  "sources": {
+    "esci": {
+      "name": "Amazon ESCI",
+      "url": "https://github.com/amazon-science/esci-data",
+      "license": "Apache-2.0",
+      "license_file": "licenses/ESCI-LICENSE"
+    },
+    "wands": {
+      "name": "Wayfair WANDS",
+      "url": "https://github.com/wayfair/WANDS",
+      "license": "MIT",
+      "license_file": "licenses/WANDS-LICENSE"
+    }
+  },
+  "cases": [
+    {
+      "id": "esci-headphones",
+      "dataset": "esci",
+      "category": "headphones",
+      "query_id": 107238,
+      "query": "usb c headphones s10",
+      "purpose": "Compare the released relevance labels with current product records. These selected examples do not measure the whole catalog.",
+      "products": [
+        {
+          "source_product_id": "B084H3M52X",
+          "label": "E",
+          "display_name": "ElloGear USB-C earbuds",
+          "reading_note": "Exact in the released query. Check the current device compatibility separately.",
+          "facts": [],
+          "catalog_product_id": 1346637,
+          "catalog_source_sha256": "0ca94f1426ae9373f1b9fe9735e9ff052437df7ac17ec2472baa735d8df39d80",
+          "title_unchanged": false,
+          "original": {
+            "product_id": "B084H3M52X",
+            "product_title": "ElloGear 2020 Earbuds Stereo Headphones for Samsung Galaxy Note 10, Note 10+, Galaxy S10, S9 Plus, S10e - Designed by AKG - Braided Cable with Microphone and Volume Remote Type-C Connector - White",
+            "product_description": "ElloGear 2020 Earbuds Stereo Headphones for Samsung Galaxy Note 10, Note 10+, S10 Plus, Galaxy S9, S9+ Plus, S10e, S10 - Designed by AKG - Braided Cable with Microphone Type-C USB-C Connector - White",
+            "product_bullet_point": "**New Type-C USB-C Connector** compatible with Samsung Galaxy Note 10, Note 10+, S10 Plus, Galaxy S9, Note 8, S9+ Plus, S10e, S10 (Compatible models limited to the list provided)\nPlease note: Headphones earbuds DO NOT have 3.5mm headphone connector\nEarbuds Stereo Headphones designed by AKG Earphones provide an incredibly clear, authentic-sounding, and balanced output with premium sound quality\nInline microphone keeps you connected to all your conversations while on the go with volume remote\nSamsung AKG Headphones don't need batteries and are plug and play, no complicated setups. Braided cable ensures durability and less prone to tangle.",
+            "product_brand": "ElloGear",
+            "product_color": "White",
+            "product_locale": "us"
+          },
+          "original_sha256": "ea22aff9afd19393b52d17c95715210011963b42ae1362e302c9e20b0015792b",
+          "original_judgments": [
+            {
+              "example_id": 2092839,
+              "query": "usb c headphones s10",
+              "query_id": 107238,
+              "product_id": "B084H3M52X",
+              "product_locale": "us",
+              "esci_label": "E",
+              "small_version": 1,
+              "large_version": 1,
+              "split": "test",
+              "__index_level_0__": 2092839
+            }
+          ]
+        },
+        {
+          "source_product_id": "B07SM5MQN8",
+          "label": "C",
+          "display_name": "ESR audio adapter",
+          "reading_note": "Complement: connects other headphones; it does not replace the requested headphones.",
+          "facts": [],
+          "catalog_product_id": 1314337,
+          "catalog_source_sha256": "daf91d9be0bebf3b1761374aa899fef60f6ff655cc47c59078bb26941d1ee053",
+          "title_unchanged": false,
+          "original": {
+            "product_id": "B07SM5MQN8",
+            "product_title": "ESR USB-C PD Headphone Jack Adapter, 2-in-1 USB-C to 3.5mm Audio Adapter with Fast Charging for Aux, Stereo, Earphones, Compatible with Samsung Galaxy S21/S20/Note20, iPad mini 6, iPad Pro 2021, Black",
+            "product_description": "<p><strong>ESR 2-in-1 USB-C PD Headphone Jack Adapter</strong></p> <p>2-in-1 Audio + Charging: Listen to music with 3.5mm headphones while fast-charging your USB-C device. </p> <p>PD+QC Fast Charging: USB-C port supports both PD 2.0 and QC2.0 fast charging</p> <p>Supports Inline Headphone Controls: Allows you to adjust volume and answer/end calls with your earphones’ inline controls. NOTE: Does not support inline volume control on Apple’s stock 3.5mm EarPods. </p> <p><strong>Compatible Models:</strong></p> <p>- iPad Pro 11/12.9</p> <p>- 13-inch MacBook Pro</p> <p>- Samsung S10/S10+/S10e/Note9*/Note8/S9+/S9/S8+/S8</p> <p>- Google Pixel 3a/3a XL/3/3 XL</p> <p>- NS</p> <p>- Nexus 6P/5X</p> <p>- Huawei MateBook</p> <p>- OnePlus 5/3T/3/2</p> <p>- HTC 10</p> <p>- Lumia 950</p> <p>- LG V30/V20/G5/G6</p> <p>- Xiaomi Mi 5, MIX 2S</p> <p>- And more</p> <p>*As the Note9’s USB-C port does not connect to its microphone, this device does not support inline microphones when used with the Note9.</p> <p><strong>Q&A</strong></p> <p>1.What devices is this adapter compatible with?</p> <p>The 2-in-1 adapter is compatible with almost any device with a USB Type-C port or a 3.5mm connector.</p> <p>2.Can I use the volume buttons/call controls on my earphone cable with this adapter?</p> <p>Yes, the adapter fully supports inline headphone controls. Note: Adapter does not support inline volume control on Apple’s stock 3.5mm EarPods.</p> <p>3.Will listening to music through this adapter affect charging speed?</p> <p>No, the adapter is designed for simultaneous audio streaming and PD/QC fast charging. Listening to music will not affect charging speed.</p>Description",
+            "product_bullet_point": "2-in-1: listen to music and fast charge your phone simultaneously by splitting your USB-C port into a headphone jack and fast-charging compatible USB-C port; the adapter doesn’t support data transfer\nPremium Tech: hi-res DAC chip ensures stable and high-quality audio transmission (96KHz/24bit)\nPD Fast Charging: supports fast charging for mobile devices and up to 60W charging for laptops using a PD charger\nBroadly Compatible: compatible with Samsung Galaxy S21/S21 Plus/S21 Ultra/S20/S10/S9/S8/Note20/Note10, Google Pixel 4a/4/4 XL/3a/3a XL/3/3 XL, iPad mini 6, iPad Pro 2021/2020, MacBook Pro, and most other USB-C devices (See product description for full list of compatible devices)\nPortable and Durable: premium materials and intelligent design keep the adapter small and portable while ensuring durability",
+            "product_brand": "ESR",
+            "product_color": "Black",
+            "product_locale": "us"
+          },
+          "original_sha256": "0593fa6aee4ad386ec6e08b697649ffc88704eb9c5dc48c543135366afe3a242",
+          "original_judgments": [
+            {
+              "example_id": 2092848,
+              "query": "usb c headphones s10",
+              "query_id": 107238,
+              "product_id": "B07SM5MQN8",
+              "product_locale": "us",
+              "esci_label": "C",
+              "small_version": 1,
+              "large_version": 1,
+              "split": "test",
+              "__index_level_0__": 2092848
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "esci-chairs",
+      "dataset": "esci",
+      "category": "chairs",
+      "query_id": 75180,
+      "query": "office chair not on wheels",
+      "purpose": "Compare the released relevance labels with current product records. These selected examples do not measure the whole catalog.",
+      "products": [
+        {
+          "source_product_id": "B072Y5MZQH",
+          "label": "E",
+          "display_name": "Amazon Basics guest chair",
+          "reading_note": "Exact in the released query. Current text does not explicitly say no wheels; inspect the original photo.",
+          "facts": [],
+          "catalog_product_id": 1235852,
+          "catalog_source_sha256": "f9fe2b1c3dcb883e7c94b0b7f5441f46a9e6eade9784aa2052e72f11bc2a4a13",
+          "title_unchanged": false,
+          "original": {
+            "product_id": "B072Y5MZQH",
+            "product_title": "Amazon Basics Classic Faux Leather Office Desk Guest Chair with Metal Frame - Black",
+            "product_description": null,
+            "product_bullet_point": "Sturdy guest chair provides a comfortable place to sit in your office, reception area or lobby\nDurable metal frame for strength and reliable performance\nBlack bonded leather (faux leather) upholstery on back, seat, and padded arm rests\n250-pound weight capacity; sleek contemporary style\nBIFMA Certified",
+            "product_brand": "Amazon Basics",
+            "product_color": "Black",
+            "product_locale": "us"
+          },
+          "original_sha256": "30e3bb8ea827fa1d141360e1906a42a978348e9b5b9034c2757216188e8eea3e",
+          "original_judgments": [
+            {
+              "example_id": 1478411,
+              "query": "office chair not on wheels",
+              "query_id": 75180,
+              "product_id": "B072Y5MZQH",
+              "product_locale": "us",
+              "esci_label": "E",
+              "small_version": 1,
+              "large_version": 1,
+              "split": "train",
+              "__index_level_0__": 1478411
+            }
+          ]
+        },
+        {
+          "source_product_id": "B0919BYPZP",
+          "label": "I",
+          "display_name": "KERMS rolling chair",
+          "reading_note": "Irrelevant for this query. The current record explicitly describes rolling casters.",
+          "facts": [],
+          "catalog_product_id": 1403838,
+          "catalog_source_sha256": "113e2e11a1ccab75ee75a3b61bc4ea0e7e659f2fc9cc57838852509af02338f0",
+          "title_unchanged": true,
+          "original": {
+            "product_id": "B0919BYPZP",
+            "product_title": "KERMS Velvet Office Chair Adjustable Tilt Angle and Flip-up Arms Executive Computer Desk Chair, Thick Padding for Comfort and Ergonomic Design for Lumbar Support (GY)",
+            "product_description": "Breathable and comfortable velvet fabric is easy to clean; high quality sponge padding allows a comfortable seat.",
+            "product_bullet_point": "★👍This modern executive chair is developed having your comfort and health in mind. Forget about back pain caused by sedentary sitting with the well-padded backrest and soft seating surface. The contoured back of the chair helps relieve lumbar and leg pain, at the same time improving your posture.\n★👍The Velvet fabric seating cover and foam filling of the cushion are made of superior quality, while the stitching details add up to the modern design of the chair.\n★👍This office chair designed with human-oriented ergonomic construction for providing comfort sitting experience. The office desk chair has rocked back and forth.\n★👍360-degree swivel, heavy-duty nylon base and nylon smooth-rolling casters for great stability and mobility. BIFMA certification,more reliable and sturdy, maximum capacity up to 280 lbs.\n★👍Warranty: Guaranteed free exchange or full refund for any quality problem within 30 days after purchasing. Free replacements for damage parts and missing parts within 365 days after purchase.",
+            "product_brand": "KERMS",
+            "product_color": "Gy",
+            "product_locale": "us"
+          },
+          "original_sha256": "6d4a3e7ed1292607c5e73fa32ae221a92fe2feabcbc5d9aeebbca3a1efabe0c0",
+          "original_judgments": [
+            {
+              "example_id": 1478396,
+              "query": "office chair not on wheels",
+              "query_id": 75180,
+              "product_id": "B0919BYPZP",
+              "product_locale": "us",
+              "esci_label": "I",
+              "small_version": 1,
+              "large_version": 1,
+              "split": "train",
+              "__index_level_0__": 1478396
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "esci-monitors",
+      "dataset": "esci",
+      "category": "monitors",
+      "query_id": 106506,
+      "query": "ultrawide usb c monitor",
+      "purpose": "Compare the released relevance labels with current product records. These selected examples do not measure the whole catalog.",
+      "products": [
+        {
+          "source_product_id": "B072JRQYRH",
+          "label": "E",
+          "display_name": "LG 34CB99-W",
+          "reading_note": "Exact in the released query. The current description states USB-C; charging watts remain unspecified.",
+          "facts": [],
+          "catalog_product_id": 1234681,
+          "catalog_source_sha256": "fb238285f8e4530aa1c495adc233816d6beefb8ea55b9a45dcff95407d696578",
+          "title_unchanged": true,
+          "original": {
+            "product_id": "B072JRQYRH",
+            "product_title": "LG Ultrawide CB99 34\" LED LCD Monitor 21:9 TAA Compliant Model 34CB99-W, White",
+            "product_description": null,
+            "product_bullet_point": "50/60 hertz",
+            "product_brand": "LG",
+            "product_color": "White",
+            "product_locale": "us"
+          },
+          "original_sha256": "65ee654b8be44b736020a224432ac916cd8a1e45e40f05a85f263202d9ca7af3",
+          "original_judgments": [
+            {
+              "example_id": 2079367,
+              "query": "ultrawide usb c monitor",
+              "query_id": 106506,
+              "product_id": "B072JRQYRH",
+              "product_locale": "us",
+              "esci_label": "E",
+              "small_version": 1,
+              "large_version": 1,
+              "split": "test",
+              "__index_level_0__": 2079367
+            }
+          ]
+        },
+        {
+          "source_product_id": "B07YRXF62V",
+          "label": "S",
+          "display_name": "LG 34WL600-B",
+          "reading_note": "Substitute in the released query. The current record establishes ultrawide but does not establish USB-C.",
+          "facts": [],
+          "catalog_product_id": 1331941,
+          "catalog_source_sha256": "2fc85209e70a5a23cb2468ca8a7d4c6f5b43eab0303f79fcf692272deffccffa",
+          "title_unchanged": true,
+          "original": {
+            "product_id": "B07YRXF62V",
+            "product_title": "LG 34\" UltraWide IPS FreeSync LED Monitor 2560 x 1080 21:9 34WL600-B",
+            "product_description": "- 34 21:9 WFHD (2560 x 1080) IPS Display - sRGB 99% Color Gamut - Radeon FreeSync Technology - 3-Side Virtually Borderless Design - Edge-Arc Design Stand",
+            "product_bullet_point": "34 21:9 WFHD (2560 X 1080) IPS Display\nSRGB 99% Color Gamut\nRadeon FreeSync Technology\n3-Side Virtually Borderless Design",
+            "product_brand": "LG",
+            "product_color": "Black",
+            "product_locale": "us"
+          },
+          "original_sha256": "53d628700982b05a9cfa515e52562cba42960b00614d0242de1e938af653cb90",
+          "original_judgments": [
+            {
+              "example_id": 2079357,
+              "query": "ultrawide usb c monitor",
+              "query_id": 106506,
+              "product_id": "B07YRXF62V",
+              "product_locale": "us",
+              "esci_label": "S",
+              "small_version": 1,
+              "large_version": 1,
+              "split": "test",
+              "__index_level_0__": 2079357
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wands-chairs",
+      "dataset": "wands",
+      "category": "chairs",
+      "query_id": 422,
+      "query": "ergonomic chair",
+      "purpose": "Translate a broad comfort request into checkable adjustments. The source label applies to the broad query; adjustable arms are a separate workshop comparison.",
+      "products": [
+        {
+          "source_product_id": "33601",
+          "label": "Exact",
+          "display_name": "Abigail ergonomic chair",
+          "reading_note": "Height-adjustable arms and adjustable lumbar support are explicitly stated. These features do not prove personal comfort.",
+          "facts": [
+            {
+              "label": "Arms",
+              "value": "Adjustable",
+              "source_token": "armresttype : adjustable"
+            },
+            {
+              "label": "Arm height adjusts",
+              "value": "Yes",
+              "source_token": "heightadjustablearmrests : yes"
+            },
+            {
+              "label": "Lumbar support adjusts",
+              "value": "Yes",
+              "source_token": "adjustablelumbarsupport : yes"
+            }
+          ],
+          "original": {
+            "product_id": "33601",
+            "product_name": "abigail home office high back ergonomic gaming chair",
+            "product_class": "",
+            "category hierarchy": "Furniture / Office Furniture / Office Chairs",
+            "product_description": "this product with adjustable headrest , lumbar support , and 3d armrest from smudges , an exciting growth story in ergonomic furniture experience health and comfort with the advanced technology millions of happy users and counting multifunction headrest . a multi-dimensional free rotating headrest provides the most comfortable position for your head and neck . using this office chair can perfectly solve neck problems as it provides proper support for your neck that eliminates the stress you often experienced when you have to sit for a long period . this ergo office chair has excellent adjustable lumbar support , to provides the best support for all types of people . it can hug your lower back all the time to greatly reduce spine fatigue . besides , the separately movable waist pillow will relax your body and ease any back pain even enhance the natural curve of the spine when you sitting for more than 8 hours . unique 3d multi-function armrest . this armrest can be up and down , left and right , back and forth adjustment . the 3d armrest provides comfortable support for arms with various sitting postures . maximize the satisfaction of various needs , provides the most comfortable sitting position for sedentary people . breathable mesh designed with the air-right structure seat allows airflow that provides you a cool and comfortable sitting position . the high-elastic mesh three-tiered backrest and double mesh pad cushion make this mesh office chair for maximum breathability . this ergonomic mesh chair keeps the air flowing on your back , prevents moisture and body heat build-up , gives you cool and comfortable for long-term sitting . unrivaled quality designed and built using only high-quality material and mechanical structure .",
+            "product_features": "compatibleflooring : low pile carpet|framecolor : black|weightcapacity:300|minimumseatheight-floortoseat:17.7|armresttype : adjustable|overalldepth-fronttoback:28.1|minimumoverallheight-toptobottom:43.9|warrantylength:1 year|weightcapacitybucket:200 lbs - 300 lbs|overallproductweight:37|headrestmaterial : mesh|productcare : wipe clean with a dry cloth|castertype : hard|seatmaterial : mesh|overallwidth-sidetoside:26|supplierintendedandapproveduse : non residential use|backmaterial : mesh|compatibleflooring : hardwood|framematerial : iron|framematerial : plastic|backcolor : gray|armrestsminheight-floortoarmrest:28.6|backcolor : black|headrestmaterial : plastic|framecolor : gray|armrestmaterial : plastic|overallheight-toptobottom:47.6|compatibleflooring : medium pile carpet|compatibleflooring : carpet|armrestadjustmenttype : height|seatwidth-sidetoside:19.58|compatibleflooring : tile|armrestadjustmenttype : front-to-back|framecolor : blue|tiltmechanismtype : synchro tilt|maximumseatheight-floortoseat:21.6|fullorlimitedwarranty : full|chairbackheight-seattotopofback:28.6|producttype : task chair|backconstruction : mesh|framecolor : red|levelofassembly : partial assembly|maximumoverallheight-toptobottom:47.6|armrestsmaxheight-floortoarmrest:35.5|armrestadjustmenttype : pivot|seatdepth-fronttoback:17.7|compatibleflooring : linoleum|backcolor : red|compatibleflooring : high pile carpet|removablearms : no|bifmahcf8.1-healthcarefurnituredesign : no|adjustablechairbackheight : no|nfpacompliant : no|bifmag1ergonomicsguidelineforfurniture : no|laceyactcompliant : no|ansibifmax54loungepublicseating : no|canadaproductrestriction : no|seatdepthadjustment : no|leedprojectappropriate : no| : no|containsflameretardantmaterials : no|waterfallseat : no|warrantylengthofatleast5years : no|anti-microbial : no|flip-uparmrest : no|uniformpackagingandlabelingregulationsuplrcompliant : no|tufted : no|ansibifmax511largeoccupantofficeseating : no|cullisted : no|footrestincluded : no|massage : no|scscertified : no|ansibifmax61educationalseating : no|ullisted : no|wood : no|lockingcasters : no|compositewoodproductcwp : no|taacompliant : no|csacertified : no|gsaapproved : no|energypolicyact1992compliant : no|organic : no|stackable : no|ansibifmax51officeseating : no|upholstered : no|firerated : no|paddedarmrest : no|adjustableseatdepth : no|generalcertificateofconformitygcc : no|cpsc-16cfr1303compliant : no|bhftiupholsteredfurnitureflammabilitycompliant : no|weightcapacityatleast250lbs : yes|casters : yes|adjustableheadrest : yes|removablecasters : yes|seatangleadjustment : yes|headrest : yes|heightadjustablearmrests : yes|headrestincluded : yes|backangleadjustment : yes|tiltmechanism : yes|swivel : yes|adjustablelumbarsupport : yes|tiltlock : yes|productwarranty : yes|lumbarsupport : yes| : yes|adultassemblyrequired : yes|adjustableseatheight : yes|paddedheadrest : yes|seatheightadjustment : yes|commercialwarranty : yes|armed : yes|adjustabletilttension : yes|seatglidemechanism : yes|purposefuldistressingtype : no distressing|supplierintendedandapproveduse : residential use|naturalvariationtype : no natural variation",
+            "rating_count": "912.0",
+            "average_rating": "4.5",
+            "review_count": "620.0"
+          },
+          "original_sha256": "8b7346ceeabe1d644f1a4c1034e6044425cd304dc21d1de8cfcc02487b73f9a9",
+          "original_judgments": [
+            {
+              "id": "44333",
+              "query_id": "422",
+              "product_id": "33601",
+              "label": "Exact"
+            }
+          ]
+        },
+        {
+          "source_product_id": "29752",
+          "label": "Partial",
+          "display_name": "Albaugh executive chair",
+          "reading_note": "The arms are fixed; the seat height is adjustable. Adjustability must name the part that moves.",
+          "facts": [
+            {
+              "label": "Arms",
+              "value": "Fixed",
+              "source_token": "armresttype : fixed"
+            },
+            {
+              "label": "Seat height adjusts",
+              "value": "Yes",
+              "source_token": "adjustableseatheight : yes"
+            }
+          ],
+          "original": {
+            "product_id": "29752",
+            "product_name": "albaugh suede executive chair",
+            "product_class": "Office Chairs",
+            "category hierarchy": "Furniture / Office Furniture / Office Chairs",
+            "product_description": "classic and elegant : the chair has a style fit for royalty . this office chair is upholstered in your choice of color perfectly accented with tufting ,",
+            "product_features": "overallwidth-sidetoside:27.56|seatdepth-fronttoback:19.2|upholsteredelements : back|overalldepth-fronttoback:26.48|seatupholsterymaterial : faux fur|seatupholsteryfillmaterial : foam|castertype : hooded|minimumseatheight-floortoseat:17.32|tiltmechanismtype : center tilt|weightcapacity:265|castertype : double wheel|armresttype : fixed|seatmaterial : upholstered|backconstruction : other|weightcapacitybucket:250 lbs - 299 lbs|framecolor : black|minimumoverallheight-toptobottom:45.67|maximumoverallheight-toptobottom:48.62|seatupholsterymaterialdetails : velvet|upholsterymaterial : suede|framematerial : steel|overallproductweight:41.47|productcare : use a clean dry/wet towel to wipe the surface . the suede fabric is a kind of human-made leather that is water/oil resistant and also stain-resistant so , no special maintenance is needed . keep it away from fire and corrosive liquids.|overallheight-toptobottom:48.62|maximumseatheight-floortoseat:19.69|estimatedtimetosetup:8|chairbackheight-seattotopofback:33.19|seatwidth-sidetoside:20.18|levelofassembly : partial assembly|upholsteryfillmaterial : foam|countryoforigin-additionaldetails : made in usa of imported materials|upholsteredelements : seat|backconstructiondetail : suede fabric|producttype : executive chair|cpsc-16cfr1303compliant : no|containsflameretardantmaterials : no|leedprojectappropriate : no|ansisohos65smallofficehomeoffice : no|headrestincluded : no| : no|ansibifmax54loungepublicseating : no|energypolicyact1992compliant : no|caltb116compliant : no|bifmag1ergonomicsguidelineforfurniture : no|wood : no|canadaproductrestriction : no|csacertified : no|caltb117-2013compliant : no|uniformpackagingandlabelingregulationsuplrcompliant : no|flip-uparmrest : no|gsaapproved : no|scscertified : no|commercialwarranty : no|compositewoodproductcwp : no|ansibifmax511largeoccupantofficeseating : no|customproduct : no|tufted : no|headrest : no|adjustablechairbackheight : no|bhftiupholsteredfurnitureflammabilitycompliant : no|firacertified : no|bifmahcf8.1-healthcarefurnituredesign : no|paddedarmrest : no|anti-microbial : no|hfes100certifiedergonomic : no|nfpacompliant : no|armed : yes|generalcertificateofconformitygcc : yes|adultassemblyrequired : yes|casters : yes|upholsteredseat : yes|upholsteredback : yes|adjustableseatheight : yes|adjustabletilttension : yes|seatheightadjustment : yes|certifications : yes|swivel : yes|backangleadjustment : yes|upholstered : yes|tiltmechanism : yes|tiltlock : yes|lumbarsupport : yes|removablearms : yes|weightcapacityatleast250lbs : yes|countryoforigin : china|armrestmaterial : metal|purposefuldistressingtype : no distressing|supplierintendedandapproveduse : residential use|naturalvariationtype : no natural variation",
+            "rating_count": "1772.0",
+            "average_rating": "4.5",
+            "review_count": "1195.0"
+          },
+          "original_sha256": "a67fb6fde1120027b11fc9aed8fcd1f72bc872da026d8968012b3f85022a0123",
+          "original_judgments": [
+            {
+              "id": "44337",
+              "query_id": "422",
+              "product_id": "29752",
+              "label": "Partial"
+            }
+          ]
+        }
+      ],
+      "original_query": {
+        "query_id": "422",
+        "query": "ergonomic chair",
+        "query_class": "Office Chairs"
+      }
+    },
+    {
+      "id": "wands-mounts",
+      "dataset": "wands",
+      "category": "monitors",
+      "query_id": 163,
+      "query": "dual monitor stand",
+      "purpose": "Check the number of screens before compatibility. These are WANDS records, independent of the Amazon mount comparison.",
+      "products": [
+        {
+          "source_product_id": "37389",
+          "label": "Partial",
+          "display_name": "Single-screen desk mount",
+          "reading_note": "One screen stated. A related mount does not satisfy a two-screen requirement.",
+          "facts": [
+            {
+              "label": "Screens",
+              "value": "1",
+              "source_token": "numberofscreens:1"
+            },
+            {
+              "label": "Multiple monitors",
+              "value": "No",
+              "source_token": "multi-monitor : no"
+            }
+          ],
+          "original": {
+            "product_id": "37389",
+            "product_name": "monitor articulating stand screen universal desk mount",
+            "product_class": "Computer Mounts",
+            "category hierarchy": "School Furniture and Supplies / School Boards & Technology / AV, Mounts & Tech Accessories / Electronic Mounts & Stands / Computer Mounts",
+            "product_description": "",
+            "product_features": "overallheight-toptobottom:21|producttype : desk mount|overallwidth-sidetoside:20|weightcapacity:17.6|color : black|orientation : vertical|overalldepth-fronttoback:5|overallproductweight:7.33|screensize:32|orientation : horizontal|numberofscreens:1|additionalpartsrequired : no|shelfincluded : no| : no|californiaproposition65warningrequired : no|multi-monitor : no|cpuholderincluded : no|adjustableheight : no|rotating : no|swivel : no|fullmotion : no|tilt : no|cablemanagementsystem : yes|articulatingarmincluded : yes|universalmount : yes|adultassemblyrequired : yes|vesacompliant : yes|mountingarmincluded : yes|mountingarm : yes|mountingkitincluded : yes|ergonomic : yes|countryoforigin : china",
+            "rating_count": "4.0",
+            "average_rating": "5.0",
+            "review_count": "2.0"
+          },
+          "original_sha256": "e6d060a2f05f6ea2c5cac9c6d5c433c8001ad60001d52414eea0ab33cdc9e9e3",
+          "original_judgments": [
+            {
+              "id": "24529",
+              "query_id": "163",
+              "product_id": "37389",
+              "label": "Partial"
+            }
+          ]
+        },
+        {
+          "source_product_id": "37390",
+          "label": "Exact",
+          "display_name": "Two-screen desk mount",
+          "reading_note": "Two screens stated. Screen count alone does not establish compatibility with Alex’s monitors or desk.",
+          "facts": [
+            {
+              "label": "Screens",
+              "value": "2",
+              "source_token": "numberofscreens:2"
+            },
+            {
+              "label": "Multiple monitors",
+              "value": "Yes",
+              "source_token": "multi-monitor : yes"
+            }
+          ],
+          "original": {
+            "product_id": "37390",
+            "product_name": "monitor articulating stand universal 2 screen desk mount",
+            "product_class": "Computer Mounts",
+            "category hierarchy": "School Furniture and Supplies / School Boards & Technology / AV, Mounts & Tech Accessories / Electronic Mounts & Stands / Computer Mounts",
+            "product_description": "",
+            "product_features": "color : black|overallwidth-sidetoside:36|producttype : desk mount|overalldepth-fronttoback:5|overallheight-toptobottom:21|weightcapacity:17.6|overallproductweight:9.5|screensize:32|orientation : horizontal|numberofscreens:2|shelfincluded : no|fullmotion : no|tilt : no|adjustableheight : no| : no|additionalpartsrequired : no|swivel : no|cpuholderincluded : no|rotating : no|californiaproposition65warningrequired : no|mountingarmincluded : yes|multi-monitor : yes|ergonomic : yes|vesacompliant : yes|universalmount : yes|mountingarm : yes|mountingkitincluded : yes|articulatingarmincluded : yes|cablemanagementsystem : yes|adultassemblyrequired : yes|countryoforigin : china",
+            "rating_count": "12.0",
+            "average_rating": "4.5",
+            "review_count": "6.0"
+          },
+          "original_sha256": "8c0d8cc74d624e4519704a3fe7d855678f039383301656295c44068e32ed4e89",
+          "original_judgments": [
+            {
+              "id": "24530",
+              "query_id": "163",
+              "product_id": "37390",
+              "label": "Exact"
+            }
+          ]
+        }
+      ],
+      "original_query": {
+        "query_id": "163",
+        "query": "dual monitor stand",
+        "query_class": "Computer Mounts"
+      }
+    }
+  ],
+  "files": [
+    {
+      "file": "esci-products.parquet",
+      "url": "https://github.com/amazon-science/esci-data/blob/main/shopping_queries_dataset/shopping_queries_dataset_products.parquet",
+      "sha256": "25124442d064d64b26f74082d6fa09438d679efc0c183cf28d19064a2b65a265",
+      "bytes": 1108857465
+    },
+    {
+      "file": "shopping_queries_dataset_examples.parquet",
+      "url": "https://github.com/amazon-science/esci-data/blob/main/shopping_queries_dataset/shopping_queries_dataset_examples.parquet",
+      "sha256": "4a735b693b4a424a6fc67f5be6e4c811495c488bbf66d02a602d308b2744263a",
+      "bytes": 51286808
+    },
+    {
+      "file": "product.csv",
+      "url": "https://github.com/wayfair/WANDS/blob/main/dataset/product.csv",
+      "sha256": "d993926254572e6eba96c8fd87cc549a17fb91ad3748308036eee4cf92b10ac6",
+      "bytes": 90621131
+    },
+    {
+      "file": "query.csv",
+      "url": "https://github.com/wayfair/WANDS/blob/main/dataset/query.csv",
+      "sha256": "63b61660560fecc33ec490804c7e2b81402ee3e7c31a9cbb5e03736639f68e95",
+      "bytes": 19942
+    },
+    {
+      "file": "label.csv",
+      "url": "https://github.com/wayfair/WANDS/blob/main/dataset/label.csv",
+      "sha256": "c11fe81ad62f17f56f316b0ec9630ebe8fbe1393578cb0ca4f05c17253a180ef",
+      "bytes": 5736234
+    }
+  ]
+}

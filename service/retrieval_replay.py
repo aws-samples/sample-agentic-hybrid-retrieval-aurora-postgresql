@@ -23,6 +23,7 @@ from typing import Any
 from uuid import UUID
 
 from service.catalog import get_product_summaries
+from service.catalog_runtime import search_schema
 from service.db import connect
 from service.models import (
     ProductSummary,
@@ -56,14 +57,14 @@ def load_candidate_receipts(
     return [
         dict(row)
         for row in connection.execute(
-            """
+            f"""
         SELECT receipt.product_id, receipt.result_rank, receipt.fts_rank,
                receipt.trigram_rank, receipt.semantic_rank, receipt.fused_rank,
                receipt.rerank_rank, receipt.scores, receipt.provenance,
-               coalesce(mosaic_search.matches_filters(document, event.filters), false) AS eligible
+               coalesce({search_schema()}.matches_filters(document, event.filters), false) AS eligible
         FROM mosaic.search_result_event AS receipt
         JOIN mosaic.search_event AS event USING (search_event_id)
-        LEFT JOIN mosaic_search.product_document AS document USING (product_id)
+        LEFT JOIN {search_schema()}.product_document AS document USING (product_id)
         WHERE receipt.search_event_id = %s
         ORDER BY receipt.result_rank
         """,

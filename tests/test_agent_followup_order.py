@@ -97,3 +97,28 @@ def test_followup_rejects_changed_answer_or_scope_before_hydrating(
     with pytest.raises(agent_tools.ConversationContextError):
         agent_tools._load_conversation_context(context)
     hydrate.assert_not_called()
+
+
+def test_followup_keeps_long_source_titles_and_an_unspecified_model(saved_answer):
+    context, row, hydrate = saved_answer
+    identities = [item.model_dump() for item in context.recommendations]
+    identities[0].update(title="Original listing title " * 20, model="")
+    row["extracted_intent"]["selected_products"][0].update(identities[0])
+    context = AgentConversationContext.model_validate(
+        {**context.model_dump(), "recommendations": identities}
+    )
+    hydrate.side_effect = None
+    hydrate.return_value = [product(**identity) for identity in identities]
+
+    _, products, _ = agent_tools._load_conversation_context(context)
+
+    assert products[0].title == identities[0]["title"]
+    assert products[0].model == ""
+
+
+def test_followup_reports_a_catalog_change_without_reusing_an_old_product(saved_answer):
+    context, _, hydrate = saved_answer
+    hydrate.side_effect = KeyError("Product identity is outside the selected catalog")
+
+    with pytest.raises(agent_tools.ConversationContextError, match="another catalog"):
+        agent_tools._load_conversation_context(context)

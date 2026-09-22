@@ -152,6 +152,21 @@ def test_identical_sets_in_different_order_out_is_a_pass():
     assert result.weighted_order == [2, 1, 3]
 
 
+def test_real_catalog_comparison_uses_the_same_selected_corpus_for_both_orders(
+    monkeypatch,
+):
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-500k-v1")
+    comparison = service(IDENTICAL_UNWEIGHTED, IDENTICAL_WEIGHTED)
+    connection = comparison.connection_factory()
+
+    comparison.compare("headphones", SearchFilters(), persist=False)
+
+    queries = "\n".join(connection.executed_sql)
+    assert "mosaic_live_search.search_hybrid_rrf(" in queries
+    assert "mosaic_live_search.search_hybrid_rrf_weighted(" in queries
+    assert "mosaic_search." not in queries
+
+
 @pytest.mark.parametrize(
     ("weighted", "reason"),
     [

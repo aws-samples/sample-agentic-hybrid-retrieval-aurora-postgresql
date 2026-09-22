@@ -92,5 +92,6 @@ FROM unnest(ARRAY[0.60, 0.65, 0.70, 0.80, 0.90, 1.00]::real[]) AS threshold
 ORDER BY threshold;
 
 \echo ''
-\echo 'Lab 1 complete. The lexical arm recovers a pool, trigram recovers the'
-\echo 'misspelled identity, and the access path is index-backed.'
+\echo 'SQL inspection complete. For this misspelled query, compare the empty'
+\echo 'lexical result with trigram recovery, then inspect the index plan above.'
+\echo 'Run make validate-lab-1 after repairing the hybrid candidate channel.'

@@ -23,6 +23,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from scripts.retrieval_profile import load_profile
+from service.catalog_runtime import search_schema
 
 
 class DatabaseConfigurationError(RuntimeError):
@@ -129,11 +130,11 @@ def verify(dsn: str) -> None:
             SELECT p.proconfig
             FROM pg_proc p
             JOIN pg_namespace n ON n.oid = p.pronamespace
-            WHERE n.nspname = 'mosaic_search'
+            WHERE n.nspname = %s
               AND p.proname = 'search_trigram'
               AND pg_get_function_identity_arguments(p.oid) = %s
             """,
-            (TRIGRAM_IDENTITY_ARGUMENTS,),
+            (search_schema(), TRIGRAM_IDENTITY_ARGUMENTS),
         ).fetchone()
 
     failures: list[str] = []
@@ -152,7 +153,7 @@ def verify(dsn: str) -> None:
             )
     if function_row is None:
         failures.append(
-            "mosaic_search.search_trigram(text,jsonb,integer,real) is absent"
+            f"{search_schema()}.search_trigram(text,jsonb,integer,real) is absent"
         )
     elif function_row[0] is not None:
         failures.append(

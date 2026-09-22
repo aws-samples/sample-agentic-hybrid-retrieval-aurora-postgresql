@@ -106,3 +106,40 @@ def test_both_finalizers_store_answer_order_without_rewriting_evidence(
     assert [p.product_id for p in record["recommendations"]] == [2, 1, 3]
     assert record["answer"] == answer
     assert record["citations"] == citations
+
+
+def test_failed_draft_cannot_drop_a_product_intent_on_retry(monkeypatch, picks):
+    from service.synthesis import SynthesisOutputError
+
+    state = run_state(coverage=[], products={pick.product_id: pick for pick in picks})
+    state["trace"] = [
+        {"tool": "compare_products", "arguments": {"product_ids": [1, 2]}}
+    ]
+    state["evidence"] = {
+        i: evidence("Supported specification.").model_copy(
+            update={"product_id": i, "evidence_id": i}
+        )
+        for i in (1, 2)
+    }
+    state["evidence_by_product"] = {1: [1], 2: [2]}
+    synthesis = Mock(
+        side_effect=SynthesisOutputError("A product claim lacks its citation")
+    )
+    monkeypatch.setattr(agent_tools, "synthesize_answer", synthesis)
+    token = agent_tools._RUN.set(state)
+    try:
+        failed = agent_tools.synthesize_cited_answer(state["question"], [1, 2])
+        assert failed["ok"] is False
+        assert "same product IDs [1, 2]" in failed["recovery"]
+        dropped = agent_tools.synthesize_cited_answer(state["question"], [1])
+        assert dropped["ok"] is False
+        assert "same product IDs [1, 2]" in dropped["recovery"]
+        synthesis.assert_called_once()
+        assert state["answer_of_record"] is None
+        synthesis.side_effect = None
+        synthesis.return_value = ("Supported choice [1][2].", [], {})
+        retry = agent_tools.synthesize_cited_answer(state["question"], [1, 2])
+        assert retry["ok"] is True
+        assert [p.product_id for p in synthesis.call_args.args[1]] == [1, 2]
+    finally:
+        agent_tools._RUN.reset(token)

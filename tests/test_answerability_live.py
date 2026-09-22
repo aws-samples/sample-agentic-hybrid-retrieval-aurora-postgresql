@@ -7,15 +7,17 @@ import pytest
 from service.answerability import assess_answerability
 from service.bedrock import get_bedrock_client
 from service.catalog import get_product_evidence_records, get_product_summaries
+from service.catalog_runtime import active_dataset
 from service.config import get_settings
 from service.retrieval import get_retrieval_service
 
 
 @pytest.fixture(scope="module")
 def real_sources():
-    question = "Find noise cancelling headphones under $200"
-    products = get_product_summaries([2, 5])
-    assert {product.product_id for product in products} == {2, 5}
+    question = "Find noise cancelling headphones"
+    ids = [1277987] if active_dataset() else [2, 5]
+    products = get_product_summaries(ids)
+    assert {product.product_id for product in products} == set(ids)
     embedding = get_retrieval_service().embed_query(question)
     evidence = [
         record
@@ -32,8 +34,8 @@ def real_sources():
 @pytest.mark.parametrize(
     "question,supported",
     [
-        ("Find noise cancelling headphones under $200", True),
-        ("Compare the battery life of these headphones", True),
+        ("Find noise cancelling headphones", True),
+        ("What do the specs and reviews say about these headphones?", True),
         ("What is the capital of France?", False),
         ("What is two plus two?", False),
         ("Find me a used Toyota Camry under $15,000 near me", False),
@@ -49,7 +51,7 @@ def test_current_intent_and_evidence_agree_live(real_sources, question, supporte
         json.dumps(
             {
                 "current_request": question,
-                "previous_request_for_reference_resolution_only": "Find noise cancelling headphones under $200",
+                "previous_request_for_reference_resolution_only": "Find noise cancelling headphones",
             }
         ),
         products,
@@ -80,9 +82,16 @@ def test_current_intent_and_evidence_agree_live(real_sources, question, supporte
 def test_missing_reviews_allow_source_limits_not_invented_endorsements(
     question, supported
 ):
-    products = get_product_summaries([11192])
+    product_id = 1408222 if active_dataset() else 11192
+    if active_dataset():
+        question = (
+            question.replace("OH-M349", "Dell U2720Q")
+            .replace("microphone", "USB-C charging")
+            .replace("clear calls in noisy rooms", "reliable laptop charging")
+        )
+    products = get_product_summaries([product_id])
     evidence = get_product_evidence_records(
-        11192, question, get_retrieval_service().embed_query(question)
+        product_id, question, get_retrieval_service().embed_query(question)
     )
     assert evidence and {record.evidence_type for record in evidence} == {
         "product_spec"

@@ -1,0 +1,1571 @@
+{
+  "dataset_id": "reviews-2023-500k-v1",
+  "selection_policy": "Original listings with clear specifications, original photos and recorded rating counts. Opening examples first, then source-topic coverage and brand/model variety. This is a browsing edit, not a search ranking or product endorsement.",
+  "display_order": "One headphone, one chair, one monitor, repeated. Search uses the full catalog and its own ranking.",
+  "review_exclusions": {
+    "B07NXDPLJ9": "Colour variant of the opening QuietComfort 35 II example.",
+    "B08YN3258B": "Near-duplicate COMHOMA 400 lb brown executive chair listing.",
+    "B000TJV9KW": "Legacy 1920 x 1200 display; clearer resolution contrasts are available.",
+    "B002453K5G": "Legacy display with less useful connection coverage than alternatives.",
+    "B0036V76NY": "Legacy professional display; prioritize current home-office connection patterns.",
+    "B00JJVW2AW": "Another colour of the selected Beats Studio wired 2.0 example."
+  },
+  "groups": [
+    {
+      "category": "headphones",
+      "parent_asins": [
+        "B07G95TJ3P",
+        "B08VD2NX25",
+        "B0C5ZC7FWR",
+        "B09WT4TM7P",
+        "B09HJD942J",
+        "B079GPFLT1",
+        "B00GCF2NZ2",
+        "B0B95V4ZBW",
+        "B07QN8HY56",
+        "B0848S9XY2",
+        "B0C3DPTQBX",
+        "B09PYV5BTR",
+        "B07LH21GR2",
+        "B08PFW1S1V",
+        "B09S3MMJPJ",
+        "B09TS8ZL94",
+        "B07G8N2V9V",
+        "B09L7YVTZ9",
+        "B086LLYK4S",
+        "B077YKVLP2",
+        "B09C1GQ3KL",
+        "B08M9KJZ3D",
+        "B092CJJ37Y",
+        "B0BLXTQ1FY",
+        "B0CHVQCW1C",
+        "B08BR4TNVR",
+        "B01M2XPWJF",
+        "B085DKHY5K",
+        "B087CSHCY1",
+        "B0CC57LWTS",
+        "B098869YFR",
+        "B08X7KZTNV",
+        "B0C42R1RBT",
+        "B0BB8W2ZZP",
+        "B0962SN1RF",
+        "B09M6SGF1F",
+        "B08GM5RN3F",
+        "B09CD3QY7G",
+        "B09414PJ6Q",
+        "B0C69XSBZ1"
+      ]
+    },
+    {
+      "category": "chairs",
+      "parent_asins": [
+        "B08QDNY2GK",
+        "B08KTS3M9M",
+        "B0BRSPW81P",
+        "B08XZBQ6RS",
+        "B0BTLDG1LC",
+        "B09QJLSSWZ",
+        "B09YR9F8TZ",
+        "B0BMVW7S73",
+        "B07ZKNF4PW",
+        "B09DC8XC8V",
+        "B075XJMMPQ",
+        "B08L5SVZ5F",
+        "B08FRGH7CT",
+        "B07MXYVK1Z",
+        "B089YK1Z6Z",
+        "B0CHB9H7PH",
+        "B09TB617F9",
+        "B0BCKHRHSW",
+        "B08DFJBDLX",
+        "B07NYKD2T1",
+        "B0BYZ4KH7G",
+        "B0B55M2K1G",
+        "B089GW9GR7",
+        "B07VSMP1M9",
+        "B09D3JRQ4H",
+        "B08W8KGWCD",
+        "B07WZRPY16",
+        "B0BMKMFMB3",
+        "B0BN51R4GG",
+        "B09YPXH3TP",
+        "B076NXZZPD",
+        "B09DSS4SYS",
+        "B084WWQB5B",
+        "B07WGWMSFV",
+        "B0BRNW7V67",
+        "B07TD3MCMC",
+        "B0BN7J5VH8",
+        "B093PQWYFY",
+        "B0C5BWQB2T",
+        "B0BR4VSNX8"
+      ]
+    },
+    {
+      "category": "monitors",
+      "parent_asins": [
+        "B0939N79Y8",
+        "B01L7XV85O",
+        "B06XQ39Z7F",
+        "B0BXDZVPQ5",
+        "B0C785DHMD",
+        "B00PXYRMPE",
+        "B07ZFK6CZR",
+        "B0C68X69SK",
+        "B0C6XGQ51C",
+        "B0BGT2WLTQ",
+        "B0812BG24T",
+        "B09JS158N7",
+        "B01707HMEM",
+        "B0BRQDRVHB",
+        "B07P619NXM",
+        "B0CDNQWV62",
+        "B018MYTF4W",
+        "B0CGLZYGHW",
+        "B07DPQ1N46",
+        "B010N06WIA",
+        "B072JBMNDC",
+        "B09VDK9WZQ",
+        "B09W15YJ4F",
+        "B010OTFF42",
+        "B0BJTWWV3R",
+        "B08CLSQ3XL",
+        "B01NC06PSL",
+        "B087FBK698",
+        "B0BDPH2DS2",
+        "B07R4XT44W",
+        "B09G2ZV5VC",
+        "B0B9HZZB6X",
+        "B09SDZH6JB",
+        "B0C7GZJNR8",
+        "B08FF8H42N",
+        "B07MSB4X9G",
+        "B09D5XD5RQ",
+        "B08GFN64F2",
+        "B0BY865FJJ",
+        "B01HJ3JYMU"
+      ]
+    }
+  ],
+  "records": {
+    "B07G95TJ3P": {
+      "source_record_sha256": "64a48d645d07e5f8c5193aff633ae3f640c75ab84add5dc2fb5f4b715f533842",
+      "embedding_text_sha256": "1cd128157d4acd2cb90742c014a8158db57e4ab88b9c9fb8180badc7ace33370",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": true
+    },
+    "B08VD2NX25": {
+      "source_record_sha256": "56f395d1cc9732803c2848cfcc2bc43d7ea21d0c4b42f5e733953e2c3860f05f",
+      "embedding_text_sha256": "765d2ba5ad2b23e75b31bcc34f73e2e345cae1dd45c086605e3747bb501cfe71",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": true
+    },
+    "B0C5ZC7FWR": {
+      "source_record_sha256": "978f4464d9c2e98d23ed7f2843b920d7742d59efa8c89f37fdfb25a588a85740",
+      "embedding_text_sha256": "a3d6ca4b567257c26b788afe52c82e4aad4dee426889c680e22b31f0872cb95b",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": true
+    },
+    "B09WT4TM7P": {
+      "source_record_sha256": "75855cfc48668944e93034b82b888e8e955cde5c7e874bc28dab998c1afee4b9",
+      "embedding_text_sha256": "9be6fb793fb1f5bbfb4cf7c9b7839fa5d45ba3cb73b280faac1d8bb5eb8a88b9",
+      "topics_to_inspect": [
+        "noise control",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": true
+    },
+    "B09HJD942J": {
+      "source_record_sha256": "5e36791880c291030e4154a3c11c177589bf694902b918051a00484301d111bf",
+      "embedding_text_sha256": "0ba1e52262ad992b42a3bae9836ebd4af04e54f22dfc234fb6781897eebe57d3",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B079GPFLT1": {
+      "source_record_sha256": "5ac74696e25591e9351572d558da0019e7dc4fc3e78ca62aaf5fa6664af97ade",
+      "embedding_text_sha256": "0a0347eef2ca6b687fe8cdf1dd0011382909a504f1c446a49e84dcb8f6f6ffce",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B00GCF2NZ2": {
+      "source_record_sha256": "8b058b7d9312036c45fecea6653a42897333fc50aafa3629b358c3f7ba73a5e2",
+      "embedding_text_sha256": "e253cf8e18265a87f224d0ab2aeaa25a6039781cc4f755f228256ab3075c41bb",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B0B95V4ZBW": {
+      "source_record_sha256": "5e7849795dab51d5671f9d77b5f35f818613b29bda01699cd07a461091a9d885",
+      "embedding_text_sha256": "8ea4ec54d85995dd5ca7381316e519e7689719cd4b5f97e6292da98cabbb8b1c",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B07QN8HY56": {
+      "source_record_sha256": "71b199f567c6f615165025978a6c401b66ec756451c4e5a94a0642d6d390b1b2",
+      "embedding_text_sha256": "f2d4e09f40d9968297ae232fbe7bb88089db1c3421a634c0bac9710db6afb181",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B0848S9XY2": {
+      "source_record_sha256": "1409dbd15daa7924b4ed66acfe69ac442cb92d704271a90b0b74e6fa0bbfacf4",
+      "embedding_text_sha256": "cccdf8b2c14ea9c141c43fb5302488d2673a18b91e68c242a2620a28ddcbd0df",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B0C3DPTQBX": {
+      "source_record_sha256": "587457f31024a6c050aa45d9b8e1e8576f5ec81801da7c7941e4753fc7089529",
+      "embedding_text_sha256": "b7f35927cd4b1b50519e75b9d76244406447650aee60fba114d789e4cdfdcb09",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B09PYV5BTR": {
+      "source_record_sha256": "f9e5f26dac827f5d244549b231f4c5e9868000d1fa79ee1074de0a4a4821c323",
+      "embedding_text_sha256": "f0fd493a55b209ba58c91c250ac82502d8f3a10afab1a0cb25ceacc422d7e31d",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B07LH21GR2": {
+      "source_record_sha256": "028dadf6bc0e4dc5edd4e8de71ed9f66d6cceacdb194ab655105eacdc2b17577",
+      "embedding_text_sha256": "e7ac3d3ca4af6d3c78983310a8a1f486a262ec1f9a72f04f904beb326baa61db",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B08PFW1S1V": {
+      "source_record_sha256": "05d469a5a271f24a05e3241946c4037fca40d822585eecd639eae1872cbe3781",
+      "embedding_text_sha256": "c2ff6ea4ac04762229bd152beb1e9280e00b587d8a87941edf0433bea44702c0",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B09S3MMJPJ": {
+      "source_record_sha256": "3614f6005558f2fd69c2c2fdab1549a078340e7ad6e0ef6ef6d01a6b4a8c70e5",
+      "embedding_text_sha256": "98c23861dcad60df965ba475bf95e9edd49097d11b01112179c8d8f8386efa9a",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B09TS8ZL94": {
+      "source_record_sha256": "5a04a02bca3427374f165bc48853387834a86cf7a5201c626c0212c69a3d8337",
+      "embedding_text_sha256": "795ebd00e1c370ee2fafec7c9a89e249c0ef1f88baf34ade1afef4fdb7546c4e",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B07G8N2V9V": {
+      "source_record_sha256": "753cdef2f82360a8a3a54d1db2a25b5768af9bad0a157799504ce19faad9f258",
+      "embedding_text_sha256": "2ce8bc3e378ec1512f447ddd92aba962810261e8cb630db233790274ddf333cb",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B09L7YVTZ9": {
+      "source_record_sha256": "cbf0788f4f4ce46b5b9fcdaa21fd89a8817045a63d64bd58b3bf444931dfd3ab",
+      "embedding_text_sha256": "3f83cebb852e28cd0f4cd82339a890d3cbe23689f960b80bf47d347e8ad57f4c",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B086LLYK4S": {
+      "source_record_sha256": "c52ebde28103fca847bedbe706eb952d47253042ba33efd3b935d80200099aad",
+      "embedding_text_sha256": "4d5bf7a5f9a04e87f62fb5203f54c673ee4ed3df3fb43d777df5c2c5f3981353",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B077YKVLP2": {
+      "source_record_sha256": "50695e7bbcfe978ed164e1ed36a1f7db1bb90e9a7a10482bf637d0a81449cb02",
+      "embedding_text_sha256": "24c192a027c38a143918ca2126b5d84f550281e2c1206c5e306cbc587e0d9ee6",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B09C1GQ3KL": {
+      "source_record_sha256": "c40df878598144477821ad0d6f021a68bc8b1ed8a750cc8416004dd76e123757",
+      "embedding_text_sha256": "e435c1096e0629bc2a24a3df308f2bdbc8e14f93c135864d4f0e2a79c67ecfc8",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B08M9KJZ3D": {
+      "source_record_sha256": "13e045aaf9900daa4f65ab73903caac401108814a1d00cf02f82e3665917d842",
+      "embedding_text_sha256": "1bb91c2cfe5198b8aaf75e11daf3e72187bd144458209e3996fef34ccefb3ab5",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B092CJJ37Y": {
+      "source_record_sha256": "0dd58e2126c4c9db4e23b6bfcef719d5cfe562e16caa0bbe906e4e23a7df7260",
+      "embedding_text_sha256": "806d298c7ce249288af5cc196d61b5e1583816eb4dd8b73937c6e90804880afd",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B0BLXTQ1FY": {
+      "source_record_sha256": "e5bd33665cd7f3ae325402d0689634188dbc01643925d3a0d710322f267011ec",
+      "embedding_text_sha256": "b35f73c1d5c891b104023321599ea2ef289aef40b2b2f5ab6606011a8d8e6266",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B0CHVQCW1C": {
+      "source_record_sha256": "0d0e35d7cac7d65f3ed926afe033ee427051f63b85a027873f205f46a6586aaa",
+      "embedding_text_sha256": "9f4447d3b9cbf33a6c17977c266e58a77f64f782b53fb13a23ead073a33713b1",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B08BR4TNVR": {
+      "source_record_sha256": "e9d4766e7e464770fe7d33e12d793d2b25da1fc6595bd62885e14ca398bb62b2",
+      "embedding_text_sha256": "576c1e929ddd8ff1940d1d1eb24c003cf3c76f792aea384093507d0b113decf1",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B01M2XPWJF": {
+      "source_record_sha256": "d58b894368c6fcb22c63d9f922c8d2b8bce96f0c6461e2bbe790a3cf973dab3e",
+      "embedding_text_sha256": "08db307fdb500fb5e83b30a788e3a87cef7532bbfb3c051f129bc60bd53faf44",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B085DKHY5K": {
+      "source_record_sha256": "770ba7fe061c838f30bdffb8d4e2ac178210e8590734a74c9863ae66b0ce4aad",
+      "embedding_text_sha256": "309cb4f21ba27e1c7e51ae9810f480ad47a231b6dd502ac8420b84736519775b",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B087CSHCY1": {
+      "source_record_sha256": "f53c3de8c31b48559193478935e0888b8b02729aa1d84ed46d3d51647631e4eb",
+      "embedding_text_sha256": "ed9979c7f745959ede1615f086a087381c43c7438257069580e790bb9f840465",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B0CC57LWTS": {
+      "source_record_sha256": "545d3406b3f8beaf799668aec1a0a29f039b079da912e64e3e7695d4e9ece827",
+      "embedding_text_sha256": "036664d4d6af5df426507db43af0b4e6f8a6a16cd6acce136b1549efb1e6f901",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B098869YFR": {
+      "source_record_sha256": "f4b6a02e063d3878a87fe149768210568b1138411f049e00153479fc9aba1526",
+      "embedding_text_sha256": "f52ca86bf6e8d07acffc32e11c86b3e8f069c73713f43585587f4996a5febe9f",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B08X7KZTNV": {
+      "source_record_sha256": "638e7643585e16728fe379b69e6e06bc1e61c39d6d1a4495f2e1c934ab4079cd",
+      "embedding_text_sha256": "57fca41e6b4300101353b3ee7f48d6536ebc4f55c0510d4a6b4b055fa4f7944f",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B0C42R1RBT": {
+      "source_record_sha256": "89988924ea7ae2a9d0e03d01d334460eedf5ab3b7de006fb75946d1c9904c1c5",
+      "embedding_text_sha256": "a2f10208ae4ea0aa100188372a0632fef0ea30b559564a73742c610ec3823ac0",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B0BB8W2ZZP": {
+      "source_record_sha256": "8bd86fe7bad1cba6d64ff2835770c1d74c3bc0a1f3a8d554bff37d2e3f61c337",
+      "embedding_text_sha256": "7bf47b7fd875ad1ac186b6897893f6dd867e14fd9b4eef597485c901610dad73",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B0962SN1RF": {
+      "source_record_sha256": "f9e0507916935e19158607d3117626b8a59f9cc008b48aa8d1f4dcc1978d40da",
+      "embedding_text_sha256": "880891e97702823169d4142a50ccda21ba6ff086157179fb40c3c5854b9ffdbc",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B09M6SGF1F": {
+      "source_record_sha256": "826f2d3d49f1b81f9541127324a9a18f3dc1c90576572c954a550a78d6af7f8c",
+      "embedding_text_sha256": "bf6377c20e6a2956487c29dbb3c3c0b0631b8cd68fcb8e951ce126c0af68b489",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B08GM5RN3F": {
+      "source_record_sha256": "c913132fdc788bfc1e81f97ce20e71230f58eaaa86516dd297311ab1be1a24ed",
+      "embedding_text_sha256": "552efb513a9aa92581eeaf72c1fb2871c7830e2db3970d0691b255902e45a001",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B09CD3QY7G": {
+      "source_record_sha256": "5fea2efd0db78679ad871f1a2cc70abaca87bcb82bff31085e4cb2d9bebf2cc0",
+      "embedding_text_sha256": "ec2bbf43f8bac7dc5dc2cfd7f97f389a4dcd94022ce5794b06f65cf07026467b",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B09414PJ6Q": {
+      "source_record_sha256": "7f3067cf800b157c827929068bc8195d35be4537496ba81804cce1558a4e0cc4",
+      "embedding_text_sha256": "1271d1e57cd26c67cada2413f81fc911c5beab6d63f498ba15de26df8ee10185",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B0C69XSBZ1": {
+      "source_record_sha256": "b19ab1aec941719e08a4f9d423a676e0152d18337db43c25d3e2014116111fec",
+      "embedding_text_sha256": "f5ad31c04f2bdf7ad119eebf69a13b3171f7d4b6cd72ae7789e583a8efd08b4c",
+      "topics_to_inspect": [
+        "noise control",
+        "microphone or calls",
+        "connection",
+        "battery",
+        "fit"
+      ],
+      "opening_example": false
+    },
+    "B08QDNY2GK": {
+      "source_record_sha256": "cb80f21bd7340c3a1bde234198dbc9e333551339455353c1136e3fc24f1b3b78",
+      "embedding_text_sha256": "04d62e751f07e1bbb1fd12ce6d7ad34afc0a3ff4f68039a327404c90dcdcbc02",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": true
+    },
+    "B08KTS3M9M": {
+      "source_record_sha256": "31853e9e739ec31e318ce4bf125a704a7db5278b0bd878c718a3acdcf48cc9ea",
+      "embedding_text_sha256": "45980ce0ed6341e84ca08924c61890c304c105cae1f9c63a7492c8ca47fa850c",
+      "topics_to_inspect": [
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": true
+    },
+    "B0BRSPW81P": {
+      "source_record_sha256": "4222f3eee3d87e3d9262e90f0feb01759b4c263874182c0e17e4842d9e3440c3",
+      "embedding_text_sha256": "830b35b3847cfd3550c18f2d5a690bdeea63262b2f73382b11dca58fe3f04b72",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": true
+    },
+    "B08XZBQ6RS": {
+      "source_record_sha256": "d0cf37902cee123e908027825dc2fd7ab4bec306469f9ae352490b0e4d68b3f9",
+      "embedding_text_sha256": "8e01184fb6d660293c24b5f47aa2a2fe7a6a1888ecaa7b0f51847e691079a712",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment"
+      ],
+      "opening_example": true
+    },
+    "B0BTLDG1LC": {
+      "source_record_sha256": "c7b76273604320af1e54021e286cb2ba0d1a5b894970450ab5af0196c9ba005d",
+      "embedding_text_sha256": "45418ce1c77040340683b6730119ddcb2e49f40a1913140edc324cc090eda09c",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B09QJLSSWZ": {
+      "source_record_sha256": "59420b25d06789598ab8c21e380d1c50015ed810a0891692cf9819b6d00e365c",
+      "embedding_text_sha256": "d56f596fb6717a56abf4c929cfd773ef4004acd862e6d493d35219199db2381a",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B09YR9F8TZ": {
+      "source_record_sha256": "854e0e425ba4a6be0f37b56bfc4bba5013d85b360cb64ec4f050d8f75749c26e",
+      "embedding_text_sha256": "770b63505a4f7b1d06f58dffc6d2f2f1412db8276e18d05795cdfdf2b0023e4a",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B0BMVW7S73": {
+      "source_record_sha256": "e1592d9d6c15bf5cf443df49bcbc4adacc71547e3949c0d74624ad0c5bdbece8",
+      "embedding_text_sha256": "8da38b8b4fc6c4416034463a35c2a81a702e035826fe6ee30bfe04166c8f176a",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B07ZKNF4PW": {
+      "source_record_sha256": "dcddb961e32d34ec5b766a323611db77237b642fa53a8d8a2ff2f0dd869c20cc",
+      "embedding_text_sha256": "32680d90a39c1b2b0dfa3e4c02285a16bc126a68272d928651c28a5164a7dd00",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B09DC8XC8V": {
+      "source_record_sha256": "25746416fad8bd0606c23992f6cf5ed8148e2d8fbf3a9daa98910987f671c83d",
+      "embedding_text_sha256": "7f302153c5b71937e136c0f31970074adcb29ac090d94d8a87fe83b8e9cc4290",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B075XJMMPQ": {
+      "source_record_sha256": "477bd66b3500d1f30c2158d9e20944afcf626d6f61a73f0a137c5f36211d479a",
+      "embedding_text_sha256": "ed9fae308ed7ff2f4166c4bc51bb65d05660d3f0da3c406bda1c285169e7628a",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B08L5SVZ5F": {
+      "source_record_sha256": "f48ee9fd055071b4b53718ca7e07f8c5d88ce1824e6012b6a12aec455c3d7059",
+      "embedding_text_sha256": "be07d9594a1d31d108e3b7784128fe56b2af0e1098da419c98fff9d213a505b5",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B08FRGH7CT": {
+      "source_record_sha256": "35908ba2a16629c96554efb6e4b4a63a83d49ca67fd0ae1ca4fc56d362f38717",
+      "embedding_text_sha256": "9e3b66c97ba2f7607ea70d22087f5de44ec44f123e55af9a91ab07cd17f83565",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B07MXYVK1Z": {
+      "source_record_sha256": "e9eca326556e385131f21cdf5c7fc3a53ab23dfe9d0ee3a4b1a262e7d8fe09b7",
+      "embedding_text_sha256": "f4b3ad51adade7d1828ebf796583eb80d14666003d3beb430b9f3ab719a0d18f",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B089YK1Z6Z": {
+      "source_record_sha256": "d66f353fd10828c62ae6448d63657efc0b9dbae93d56ecb54d92abea2f34e844",
+      "embedding_text_sha256": "16ccfad1547a3c4fc5d4e4a7b37b273665667ce7824220a89be22ceb10ee1cfc",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B0CHB9H7PH": {
+      "source_record_sha256": "9769659c0a669c6e1cb99ba8c43d0e5a4f192670513728a2f57f34b82375b010",
+      "embedding_text_sha256": "e418e1a97b29249301480502df4e0e155be9ff2ef401cb70044efdb18fb374d4",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B09TB617F9": {
+      "source_record_sha256": "c470c6204ba3cf6a453c1dcaf2f10079c9ea0796b125109c5e08ea486cc5e0d5",
+      "embedding_text_sha256": "ea1260aa79ff174eb7843f64cb269c5e4f7c37d973d37652be5e0d2988a5a6a0",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B0BCKHRHSW": {
+      "source_record_sha256": "8eb91db2f4c137f5de10b2dc4b11275e18a258e8e8d833c57281a1115b79ce2e",
+      "embedding_text_sha256": "2596646e530e1554cf94219cf520f66c70f80f3f8a47288f60dff59fa229fbc3",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B08DFJBDLX": {
+      "source_record_sha256": "01a07d4b16cc13cb05c25440f782a8a433b380d3cbeb5d677c4f07974c3c73f5",
+      "embedding_text_sha256": "fbc6bcd9d020f5c9a7e8b93347b7f27b7685b2a7b38836bad574e32c11f27556",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B07NYKD2T1": {
+      "source_record_sha256": "fa31f4796cca4017a036dafa46d5e9a5c35a144e5a0f30c277de2686eacab2fc",
+      "embedding_text_sha256": "10a30f453c3b45f5644615c4403924f88a3f95f854ef3322fe91ac9636a4ddab",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B0BYZ4KH7G": {
+      "source_record_sha256": "075e98dd93da408e5f5c311330599769113388f890e20bfa6863847434177dd5",
+      "embedding_text_sha256": "6ea251d865b249ebe7091c1272242caf947513345b385d4ee5b48a516c7489d9",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B0B55M2K1G": {
+      "source_record_sha256": "831ee6a9e47c74954e3e81660e7d3490122e55dc730690a977b39fcbd63ce51c",
+      "embedding_text_sha256": "1f2fcf79bd9755fa85b199330fdcba6df3e90183ba91bcf5015f4349b24d9d9c",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B089GW9GR7": {
+      "source_record_sha256": "e3193bf93e29711a981be793996a4d1798c14170644f508d3c8ebae36c76af23",
+      "embedding_text_sha256": "88e4fa38015f89e0815bb837b904fd0b463c0f8a24590a6a8e493f7549e50571",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B07VSMP1M9": {
+      "source_record_sha256": "5f0ea2f9e31c7ad8e84eacf29abdc8afd3b57e036e0c4c82e22aa020526af389",
+      "embedding_text_sha256": "c7165e1b0ac9eaf0fdc4748adb8ec1f692681b74e67d12bc4ac401f5c3e1b5b0",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B09D3JRQ4H": {
+      "source_record_sha256": "cc801585706f4f0d8a3b9ccce7725a8d746c0fb686d82a802cfc037323edc6f7",
+      "embedding_text_sha256": "6abd5782533c0cd92dd01c8af79ab2745f5d5d209c1f434a4ce311bf0cac252d",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B08W8KGWCD": {
+      "source_record_sha256": "ea669cf5b4190002eeed3a8ab2f780bc85c9ab00836807988ff2b082e23dc093",
+      "embedding_text_sha256": "97b58aa87d29b548e40ff45e541ed7b45eb204ec45ad2229634eb55b495140fb",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B07WZRPY16": {
+      "source_record_sha256": "a2aff7cfcd0d60d908763964ef97587f289ff80c17f82b11eaff93e341706be8",
+      "embedding_text_sha256": "f145a0679e89f5650935548db533a81b6f915b3a440222bf78f7e437acbba720",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B0BMKMFMB3": {
+      "source_record_sha256": "4744dfd16dcbeb9a7b1a0f98e495dd431efa9bbb5c66dbba6183224f5aefb64b",
+      "embedding_text_sha256": "253c75f86b595ab7f200b81744907ae8649a98d38dae6b026fdf1dfd20a54b4e",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B0BN51R4GG": {
+      "source_record_sha256": "73cfb6da292896bcc4c178ae26c39e6ef88bddffac150cdb3b9ae5b77f51f0d3",
+      "embedding_text_sha256": "fb0ea5299e6aa1a97a98af95787de3f980e5725073e6402f8e19a35872ebba7e",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B09YPXH3TP": {
+      "source_record_sha256": "de9346090bf021409a71fbe523933b76836cd1dcf21cbb297dec2c738543738c",
+      "embedding_text_sha256": "ebb73e29306362e836ff53bb1d99f3b235fce4dc381a6e80eef46752ea2c5ed1",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B076NXZZPD": {
+      "source_record_sha256": "76c78d4d8a2638fa63d0cd021368ba89acc83f01c82f889ff0e00a5d4f2037c2",
+      "embedding_text_sha256": "237beac8e4ecde10858a39ba99ab37c29155dd213adb2d1570e409cdacf2763e",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B09DSS4SYS": {
+      "source_record_sha256": "3735799fcb32989748961d09fbfd0147beec1f242c7a4d571229d66416bba77a",
+      "embedding_text_sha256": "4e802b47cfcde6c47ddec716dd7ab69830085a210d9cc8dbd40444fc006622d3",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B084WWQB5B": {
+      "source_record_sha256": "80b4f99108847f3c375c8fe1c216781211473e4e643f6344fed58a03c1852096",
+      "embedding_text_sha256": "503f765d6c92b40869e29b4cb9604e553da31c1b65870cc79af9630673b26f46",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "recline"
+      ],
+      "opening_example": false
+    },
+    "B07WGWMSFV": {
+      "source_record_sha256": "21061cc4725336de8311e516a6815835394c6f30d024b7081cc5fda79f480744",
+      "embedding_text_sha256": "5c03292600b87375ffb7d65bc55ac4134f0ce5d741b45dc1cb215d5959c63588",
+      "topics_to_inspect": [
+        "back support",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B0BRNW7V67": {
+      "source_record_sha256": "8f1db59268ec0fea1da1c3995369995da95a3eb56a96ad2d084a6bd905d74f30",
+      "embedding_text_sha256": "2dac8a89ec485832f0e866ee866aedf107636191ba63361d3653e822cf77823f",
+      "topics_to_inspect": [
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B07TD3MCMC": {
+      "source_record_sha256": "7ac89ebcabe105d387b8ba36826a8205267e540dc5716950662cd58e94dd98e2",
+      "embedding_text_sha256": "69034d1934cf2cca25260937c5038279420e10b8403bd35e379e6eaec8099b32",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B0BN7J5VH8": {
+      "source_record_sha256": "2edbfb8331fe7c1e4020d7ed525eaeb150d97986d79fa6dd620b041cddc5f286",
+      "embedding_text_sha256": "09b02d16fc248d188b0a34edb62a78acc5c9e1a4882c5b3552e23a2090cd51af",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B093PQWYFY": {
+      "source_record_sha256": "9dabe312195dcbc49aec1a71adfbb7d62a7150173910c1dc17d36cdeba49cbad",
+      "embedding_text_sha256": "9635a9674231441a95daa00af0048ba23760e35bd0066bf249a9755b5f51b422",
+      "topics_to_inspect": [
+        "back support",
+        "arm adjustment",
+        "seat adjustment",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B0C5BWQB2T": {
+      "source_record_sha256": "2d48d4a0550831c79581f35a65a92e6c0d281c86733de748e0d63006afb506e1",
+      "embedding_text_sha256": "77484c5c9d3182eadf7a032ecc8e2818380106f9aad55f066eed0d1a924f5cd9",
+      "topics_to_inspect": [
+        "back support",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B0BR4VSNX8": {
+      "source_record_sha256": "d153eea2983b4aa385d81fc369ff9f384242d8149f77ed757b4c5af6a3045bf3",
+      "embedding_text_sha256": "6a6fde7830e8a0f1bb31a8f6338eccbb58e6743f5a2cfe0a348ec5de32929175",
+      "topics_to_inspect": [
+        "arm adjustment",
+        "seat adjustment",
+        "recline",
+        "materials"
+      ],
+      "opening_example": false
+    },
+    "B0939N79Y8": {
+      "source_record_sha256": "8c1f197ea1ce6140666b8716777a0ce59018892d31efeb1166bfd9d6810dfd68",
+      "embedding_text_sha256": "68c04854697d81604987b99ff883216018bb9fd606e3f7a8dafa6f9420af7717",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": true
+    },
+    "B01L7XV85O": {
+      "source_record_sha256": "f183c7ababfb3042819c1e02833888ad4f82fdd1e92ef76da67e7e03c6afe77b",
+      "embedding_text_sha256": "7a5b8c30ff59967f3be7694178385b0906707e7218aa7803835ed869adb66798",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution"
+      ],
+      "opening_example": true
+    },
+    "B06XQ39Z7F": {
+      "source_record_sha256": "4df801bf085ad89a16fe9a90f345b2321fec225697f093211ebc45ef2f624ba3",
+      "embedding_text_sha256": "547c8b516d5d39a325df89fbe2a60e17ae2103c79d4d76f5412596627497f8a2",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery"
+      ],
+      "opening_example": true
+    },
+    "B0BXDZVPQ5": {
+      "source_record_sha256": "104554c20df6ab8cbe371d5968623b22e0eefdd593c5f877b037ec5653e0fce4",
+      "embedding_text_sha256": "006b0005c54797baa58c06f6dac392122c0e87500c32549c5db90ea53d35e3fa",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": true
+    },
+    "B0C785DHMD": {
+      "source_record_sha256": "3f38dd2ac489bc088809b5f0b00c4cb9c646a23307fc6d92559a8d030f1d265d",
+      "embedding_text_sha256": "bcc7e67e79ca6093b72b6311afdb883dd800aeaaefa2d1362fe483951e9aa243",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B00PXYRMPE": {
+      "source_record_sha256": "eb1b0ec2dd21febe1fe5627ab3957427aa434d9cbb916f12c97ca84fb5a8f9c5",
+      "embedding_text_sha256": "6bc5f21c40442d0f105f829b8bfce866440fada9ef94c9a89cc6d3cde8f12cc7",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B07ZFK6CZR": {
+      "source_record_sha256": "3f1e3f5d0bb8de8d698170022349f15c37d6a00cc7d072169cfeea8d84f51816",
+      "embedding_text_sha256": "903e6b0b4a730ec7b01fe600bdd3fbb764bedd3e51a74be4b18f9746ee04042a",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B0C68X69SK": {
+      "source_record_sha256": "df7c82bab55020a4e3ea57b7a7fee6251860b5972182435013043ac90fc34452",
+      "embedding_text_sha256": "3fa2115dd9abdab5469f982c4d204a849255ffd72591555000b494c85a25915b",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B0C6XGQ51C": {
+      "source_record_sha256": "f521044693efea2cdcdc738674f3edb8fcff668426f85c0ba4b539cee43ab81b",
+      "embedding_text_sha256": "7f9fb33e8d63f38f2eb2a35fa2ea91442ef2deca562a1a04ac0eeb4dfab8cf37",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B0BGT2WLTQ": {
+      "source_record_sha256": "c2b8cdbdb56aced85beffd0c291eb86021574aab00b5c8c0bc5f85cccbde5926",
+      "embedding_text_sha256": "7508e39b93451d319fe77d2513468844f1d9f339971ddbb58a6117d3fc0bd180",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B0812BG24T": {
+      "source_record_sha256": "08906a349e0e23c9958aa5ec983605e29b11df54472bac92fc8a1861fa671038",
+      "embedding_text_sha256": "42fc979827541043e305ad2775726cb3d472ffe555fdca98cd549be97d1046a5",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B09JS158N7": {
+      "source_record_sha256": "9fed54bb3d0904af343cace3955b8833ecde7156382b70e54bb7b8bd890655dd",
+      "embedding_text_sha256": "bbc9791910fd66192b363903263c8a440035d66de6ee062da004e8eaa416d9b3",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B01707HMEM": {
+      "source_record_sha256": "8d5e35de0ed70648fd5f6f758bd03114b52b4b0b95dcbdb69292ca16107e9de6",
+      "embedding_text_sha256": "a3a78db28014dc1eccb17712c1e7aa0dd956f636eb524dc1c3fc2b805e531e8b",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B0BRQDRVHB": {
+      "source_record_sha256": "4bd250aead001ac688212cd67775c73500405cc3dc68c774c416537e9cc8759e",
+      "embedding_text_sha256": "a602e53a8a8f88c01dbd49dfc1f302df9908295fe721af73a985ca04058e50fb",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B07P619NXM": {
+      "source_record_sha256": "bba559afd5c107daaf673379b84b170218d5d4003bcc796cf3046b57b07e0c28",
+      "embedding_text_sha256": "11b64d7cfcae48c3b2b199234e97dee775edf51ec32284bce8db2d086eabc674",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B0CDNQWV62": {
+      "source_record_sha256": "c33928e6532455746bf99c8b7a668d24ffd21aeeb32bfadbe6b8f82b0dacdae8",
+      "embedding_text_sha256": "a86e66f667994c7e41fb8b2e4d6d8bdeb5f5190b491ee85d58d788d80b01701f",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B018MYTF4W": {
+      "source_record_sha256": "a69623314d4d9555df34b3b1d33b78dd98d091b027e3d245cf66e7a062ef278d",
+      "embedding_text_sha256": "7f7df0f2f9049720627a2c53819b2c9418417a62c4341911d1a81a19bf1837c6",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B0CGLZYGHW": {
+      "source_record_sha256": "7b3c64ce1e44c806c2cdd215356d7b70c52c8304af461fa394c13814811aa0e7",
+      "embedding_text_sha256": "4aae67d79d3ac1fd31d2c77b627d794c7a3a4fb12d8bb2a29661a9d62354f1f8",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B07DPQ1N46": {
+      "source_record_sha256": "ba5c08dfd538b9ebbece3b8a0afce3c85603ce65d1330a6c8638ff58e40d9e42",
+      "embedding_text_sha256": "a04397f76ba4c3153bed89c779cb3e32c4e1a8399cadb7e724f866b5bb44c0de",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B010N06WIA": {
+      "source_record_sha256": "ed64937f8f35eb5490dcbef4a98417513054b666368c96a8f31158337f8009fd",
+      "embedding_text_sha256": "83372c796a18026c9aee4c5bf9d08ec71993f0d3945495ee87624cf88d295824",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B072JBMNDC": {
+      "source_record_sha256": "0864eedb78bd9618fa63827d28417b4985debd1d46f62b392ea1bace4fe8d33e",
+      "embedding_text_sha256": "da507b64e1cfceed7360891371b21403c2a070592d2828cdf3b57c9f18628e39",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B09VDK9WZQ": {
+      "source_record_sha256": "0e830a16bf4bd2f7caaab6a6f830b114fb86a51b4bf5f81d243df789005bd496",
+      "embedding_text_sha256": "08c9521fd5f223df0f0df1e6348c00bbbfaf22505aa34c48b962d93403e29b03",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B09W15YJ4F": {
+      "source_record_sha256": "4e40d7aa09c06c142f249cc0cbcc45a233af3daf5eba04059945da5a9980da97",
+      "embedding_text_sha256": "a35a6043d978cdb9137dc2e936ee06739d0deceba059a78e43083956320eab97",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B010OTFF42": {
+      "source_record_sha256": "4738d64cfd8bf0f2cfa948f1e4fffc217f2d325744390cbd97877c3f774bec9b",
+      "embedding_text_sha256": "4ff118356a8ab84446e809c432f10c826ede06c6bdacd3c502e3c517fdb7a852",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B0BJTWWV3R": {
+      "source_record_sha256": "8d37cba9f9676e3315ceacbf7c76e6c1bb52a1e73e65eaf4739c8b040af3c061",
+      "embedding_text_sha256": "48e08e783f610762a7f845801fac3f56295608a6b37bda717baf38c992c712ae",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B08CLSQ3XL": {
+      "source_record_sha256": "80a941f7a38d5987f5c2518f11fdb97f3c71bd7bb7afc33e7d9a1f6457ad3d33",
+      "embedding_text_sha256": "5bae4616ca7fbd981b76dcfb52581ef31dda64b15fdb91dd03ce4eece206f8c6",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B01NC06PSL": {
+      "source_record_sha256": "07fbc901bd578cf488f3dca6c4c5710b13e10bc0d13f45df1898043ab3386339",
+      "embedding_text_sha256": "691978a95cb6a6b683a8094e5794bce446dafb22b8ee2f6275ae51f85e07dfcd",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B087FBK698": {
+      "source_record_sha256": "d6805194736a5b04e05b5549241322d98fd4d7ee64cf24a54e0fd82fba10a076",
+      "embedding_text_sha256": "e87cc9c060b9763a698abce8bcf3bc59c9de1c93d85261788d85f940aaaf721f",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B0BDPH2DS2": {
+      "source_record_sha256": "b7facb654f4a476632a504ff6eb271c068b48778aac4781ef21b14ce5005d97a",
+      "embedding_text_sha256": "07a4cb4dcc5a361bda3d4d632144fcfd342638f6d6b113e3a28cfac8cb89177d",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B07R4XT44W": {
+      "source_record_sha256": "7682f216789c3918eff7253d7a19c18da6419e5cb72e38b04f2f7fefac5e41f4",
+      "embedding_text_sha256": "21e67d9afbaa56c0f24ed5388128200e1c70ae1b54ca1a510be2874500c00298",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B09G2ZV5VC": {
+      "source_record_sha256": "28a0289970d8d43778129ff520e25e42feea31f36d8a4c32d522340740270a5a",
+      "embedding_text_sha256": "ec3b5d279a706950b879a56aace5be06c8a85597a5c6328513495f9d2de0b56a",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B0B9HZZB6X": {
+      "source_record_sha256": "88939b3ac4f43b626dccca8d22bb36f66627c4df11dd6fdf8d0da60f46ad003c",
+      "embedding_text_sha256": "a2af5e30848c889d8e2392de340528b356f4eb1a6073dd129b24b892f8bea0ba",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B09SDZH6JB": {
+      "source_record_sha256": "6555c4e40bd7876d0721e27b4f93dd76806c8d282fbe330f0dabad57e13aabae",
+      "embedding_text_sha256": "7aba7358d069c009b2e58311a27a5140c3a123307324056989dd0b8e85dfa06c",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B0C7GZJNR8": {
+      "source_record_sha256": "22d0b16e7465e02802047c27d5d7cef1061e6ac663b0a710a7a5415dd5eccd9c",
+      "embedding_text_sha256": "7c73b8660f5515f56e08b4877bd0f847d88474e083e0f8c38506a21556fa66ed",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B08FF8H42N": {
+      "source_record_sha256": "677a9e06454f2a4f8d9766e6a666f77bdf6a5ac03291aa16a850ae9e7fd0901f",
+      "embedding_text_sha256": "2ac646cfc8e0f6df2fd34286932e4904839517ea6f7b37ae652c8b892e8ca52a",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B07MSB4X9G": {
+      "source_record_sha256": "314767def0936fe6ffada36a763c4a2f5ccc52ecbda562dceb2e55e8cbc24319",
+      "embedding_text_sha256": "775dbb790a23d4e3af7626e3d46b0223eee22d782968c7a5782ec9224b3bc57f",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B09D5XD5RQ": {
+      "source_record_sha256": "79fe48c333a38d71b6025e78364a637b269e8ba71d9edbd50a4bbcc34363dd88",
+      "embedding_text_sha256": "aecc7786462250130bfd902fe6b6f395d81603f601460016271f99b68f0de000",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B08GFN64F2": {
+      "source_record_sha256": "46aedb095382047dfb6f0ee4ff36b82bbc7cbee8db14486ad2b84a63d4c3ab4c",
+      "embedding_text_sha256": "25612380cf2c2af981a134ad0dcd942d503de8c96bb950933fc3afbb839cf1d6",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "power delivery",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B0BY865FJJ": {
+      "source_record_sha256": "a2d84c55b4ffa2386b3972a0d937b055b1b05f53f4449f7f3d1e3cd387dfaabf",
+      "embedding_text_sha256": "3f6781e68228b9e2c88600233fd548b9071f5cd821de2ec1087534ecd04c4ab0",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    },
+    "B01HJ3JYMU": {
+      "source_record_sha256": "ffacb6bcf6c288dd8589bfcb0ddb11257fc3159fa7f9726b8aa74786b740e571",
+      "embedding_text_sha256": "7b1cdfa148f024d907946c4d2311e7da21e5cbd39bbc75caae48b8933c54510a",
+      "topics_to_inspect": [
+        "screen size",
+        "resolution",
+        "connection",
+        "stand adjustment"
+      ],
+      "opening_example": false
+    }
+  }
+}

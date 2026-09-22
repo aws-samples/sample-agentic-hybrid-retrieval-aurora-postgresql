@@ -30,6 +30,9 @@ Manifest, and why each entry earns its place
   ``service/bedrock.py``, ``service/coverage.py``: the served retrieval, reranking, and
   model-invocation path ``scripts/score_evals.py`` measures through
   ``service.retrieval.get_retrieval_service``.
+- The selected real-catalog provider, original-source validation and catalog
+  preparation scripts: they determine the identity, text and SQL used by the
+  served path. Switching data sources cannot reuse an old measured result.
 - ``scripts/retrieval_profile.py``: resolves the yaml above into the profile
   the service actually applies.
 - ``scripts/evaluate.py``: computes Recall, MRR, and nDCG. Editing the
@@ -180,8 +183,8 @@ _EXPECTED_CATEGORY_COUNTS: dict[str, int] = {
     # carries a query-coverage step.
     "sql": 27,
     "config": 1,
-    "service": 5,
-    "scripts": 3,
+    "service": 9,
+    "scripts": 7,
     "eval_data": 2,
 }
 
@@ -214,11 +217,19 @@ def _category_files(repo_root: Path) -> dict[str, tuple[Path, ...]]:
             repo_root / "service" / "embeddings.py",
             repo_root / "service" / "bedrock.py",
             repo_root / "service" / "coverage.py",
+            repo_root / "service" / "catalog_runtime.py",
+            repo_root / "service" / "live_catalog.py",
+            repo_root / "service" / "source_catalog.py",
+            repo_root / "service" / "staged_catalog.py",
         ),
         "scripts": (
             repo_root / "scripts" / "retrieval_profile.py",
             repo_root / "scripts" / "evaluate.py",
             repo_root / "scripts" / "eval_contract.py",
+            repo_root / "scripts" / "fetch_catalog_metadata.py",
+            repo_root / "scripts" / "prepare_real_catalog.py",
+            repo_root / "scripts" / "prepare_staged_catalog_search.py",
+            repo_root / "scripts" / "prepare_live_catalog.py",
         ),
         "eval_data": (
             repo_root / "data" / "evals" / "canonical_queries.jsonl",

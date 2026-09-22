@@ -32,9 +32,10 @@ def network(monkeypatch):
             applied_filters=json["filters"],
             results=[
                 product(
-                    category_key="over-ear-headphones",
-                    attributes={"microphone": True},
-                    price_cents=5000,
+                    domain="consumer_electronics",
+                    category_key="headphones",
+                    brand=json["filters"].get("brand"),
+                    price_cents=None,
                 )
             ],
             diagnostics=None,
@@ -52,14 +53,14 @@ def network(monkeypatch):
     return posts, reads, receipts
 
 
-def test_working_tool_uses_each_budget_and_replays_both_saved_searches(network):
+def test_working_tool_uses_each_brand_and_replays_both_saved_searches(network):
     posts, reads, _ = network
-    result = check_tool(call_headphones, [20000, 10000], "Headphones for calls")
+    result = check_tool(call_headphones, ["Bose", "Sony"], "Headphones for calls")
     assert len(posts) == len(reads) == len(result) == 2
-    assert [post["filters"]["max_price_cents"] for post in posts] == [20000, 10000]
+    assert [post["filters"]["brand"] for post in posts] == ["Bose", "Sony"]
     assert all(item["products_checked"] == 1 for item in result)
     # A different preference changes neither the enforced rule nor registration.
-    check_tool(call_headphones, [20000, 10000], "Lightweight headphones")
+    check_tool(call_headphones, ["Bose", "Sony"], "Lightweight headphones")
     assert len(posts) == 4
 
 
@@ -71,42 +72,42 @@ def test_generated_starter_fails_until_both_implementation_points_are_completed(
     call_headphones.write_starter(destination)
     starter = load_example(destination)
     with pytest.raises(BuilderCheckError, match="registered_tools"):
-        check_tool(starter, [20000, 10000], "Calls")
+        check_tool(starter, ["Bose", "Sony"], "Calls")
     starter.registered_tools = lambda: [starter.search_call_headphones]
     with pytest.raises(NotImplementedError, match="Build the SearchFilters"):
-        check_tool(starter, [20000, 10000], "Calls")
+        check_tool(starter, ["Bose", "Sony"], "Calls")
     starter.call_filters = call_headphones.call_filters
-    assert len(check_tool(starter, [20000, 10000], "Calls")) == 2
+    assert len(check_tool(starter, ["Bose", "Sony"], "Calls")) == 2
     assert Path(call_headphones.__file__).read_bytes() == source
     with pytest.raises(FileExistsError):
         call_headphones.write_starter(destination)
 
 
-@pytest.mark.parametrize("fault", ["microphone", "budget"])
-def test_missing_filter_and_hardcoded_budget_fail_with_the_wrong_value(
+@pytest.mark.parametrize("fault", ["category", "brand"])
+def test_missing_filter_and_hardcoded_brand_fail_with_the_wrong_value(
     monkeypatch, network, fault
 ):
     original = call_headphones.call_filters
 
-    def broken(budget):
-        filters = original(budget)
-        if fault == "microphone":
-            filters.attributes = {}
+    def broken(brand):
+        filters = original(brand)
+        if fault == "category":
+            filters.category_key = None
         else:
-            filters.max_price_cents = 20000
+            filters.brand = "Bose"
         return filters
 
     monkeypatch.setattr(call_headphones, "call_filters", broken)
     with pytest.raises(
         BuilderCheckError,
-        match="attributes" if fault == "microphone" else "max_price_cents",
+        match="category_key" if fault == "category" else "brand",
     ):
-        check_tool(call_headphones, [20000, 10000], "Headphones")
+        check_tool(call_headphones, ["Bose", "Sony"], "Headphones")
     assert network[0], "the registered tool must have reached the HTTP boundary"
 
 
-def test_empty_budget_list_cannot_report_a_vacuous_pass(network):
-    with pytest.raises(BuilderCheckError, match="two distinct budgets"):
+def test_empty_brand_list_cannot_report_a_vacuous_pass(network):
+    with pytest.raises(BuilderCheckError, match="two distinct brands"):
         check_tool(call_headphones, [], "Headphones")
     assert network[0] == []
 

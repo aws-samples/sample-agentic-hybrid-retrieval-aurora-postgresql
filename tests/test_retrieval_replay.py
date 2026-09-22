@@ -575,3 +575,20 @@ def test_replay_calls_no_model_and_re_executes_no_retrieval(monkeypatch):
     assert "INSERT" not in statements
     assert "UPDATE" not in statements
     assert "search_hybrid_rrf" not in statements
+
+
+def test_candidate_eligibility_uses_the_active_catalog(monkeypatch):
+    from unittest.mock import MagicMock
+
+    from service import retrieval_replay
+
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-500k-v1")
+    connection = MagicMock()
+    connection.execute.return_value.fetchall.return_value = [
+        {"product_id": 1408222, "eligible": True}
+    ]
+    rows = retrieval_replay.load_candidate_receipts(connection, EVENT_ID)
+    query = connection.execute.call_args.args[0]
+    assert "mosaic_live_search.matches_filters" in query
+    assert "mosaic_live_search.product_document" in query
+    assert rows == [{"product_id": 1408222, "eligible": True}]

@@ -7,10 +7,30 @@
   },
   "session": {
     "total_minutes": 60,
-    "orientation_minutes": 12,
+    "orientation_minutes": 10,
     "core_lab_minutes": 40,
     "scorecard_minutes": 0,
-    "contingency_minutes": 8
+    "contingency_minutes": 10
+  },
+  "optional_labs": {
+    "memory": {
+      "id": "preferences-across-sessions",
+      "core": false,
+      "question": "Can Mosaic remember Alex’s preferences across conversations?",
+      "story": "Alex comes back another day. Recall what matters to him, then check the catalog again before recommending a product.",
+      "placement": "After the required hour; extraction time is asynchronous and has no promised duration.",
+      "opening_message": "I prefer a 27-inch monitor with USB-C laptop charging, so I can run code and read docs side by side with fewer cables.",
+      "request": "Which monitor would suit the way I work at home?",
+      "changed_request": "For this request, I want a 32-inch monitor, not my usual 27-inch preference. USB-C laptop charging is optional today. Compare suitable monitors and cite their screen size and connection specifications.",
+      "checkpoints": [
+        "Save Alex’s message and inspect its event ID. Wait for an actual extracted preference record before continuing.",
+        "Start a new session. Keep the same actor, with no earlier conversation events or copied shortlist.",
+        "Find relevant memories and ask the same question with memory on and off. Inspect record IDs actually read; different wording alone is not proof.",
+        "Follow the new Aurora search and resolve each product citation. Memory supplies preferences, never product facts.",
+        "Submit the changed request. Verify the new size takes priority even when the older preference is recalled.",
+        "Start fresh as another actor. Alex’s records must be unavailable, including when the earlier session ID is supplied."
+      ]
+    }
   },
   "corpus": {
     "catalog_products": 500000,
@@ -23,7 +43,8 @@
       "hnsw"
     ],
     "fusion": "rrf",
-    "reranker": "cohere.rerank-v3-5:0"
+    "reranker": "cohere.rerank-v3-5:0",
+    "dataset_id": "reviews-2023-500k-v1"
   },
   "missions": [
     {
@@ -32,16 +53,15 @@
       "core": true,
       "duration_minutes": 10,
       "title": "Lab 1 - Build hybrid retrieval",
-      "discover_label": "Candidate recall across retrievers",
+      "discover_label": "Recover the intended headphones",
       "canonical_query_id": "G-003",
-      "query": "noice cancelng hedfones",
+      "query": "B07G95T3JP",
       "filters": {
         "domain": "consumer_electronics",
-        "max_price_cents": 20000,
-        "in_stock_only": true
+        "category_key": "headphones"
       },
       "target_product_ids": [
-        2
+        1277987
       ],
       "expected_techniques": [
         "pg_trgm",
@@ -53,21 +73,20 @@
         "file": "db/sql/09_search_functions.sql",
         "approximate_lines": 11,
         "task": "Restore the trigram CTE and its candidate channel in search_hybrid_rrf.",
-        "broken_state": "For this deliberately misspelled category query, FTS finds no matching query lexemes for known suitable product 2, and semantic search does not place it within its bounded result list. Disconnecting the pg_trgm channel therefore removes this product from the combined results. Other eligible ANC headphones remain valid matches.",
-        "fixed_state": "The target enters through the restored trigram channel alone, carrying trigram rank and RRF contribution while hard filters still hold.",
+        "broken_state": "Alex transposes J3 to 3J in listing ID B07G95TJ3P. Exact terms and the bounded meaning-search list miss that listing. Close-spelling search finds it, but its disconnected channel prevents it reaching fusion.",
+        "fixed_state": "The restored close-spelling channel admits Bose QuietComfort 35 II, product 1277987, with trigram rank 1. It was final rank 1 in repeated verification.",
         "observe_before": [
-          "HTTP 200: retrieval still runs through FTS, HNSW, RRF, and reranking.",
-          "Product 2 is absent from the first 10 results; Recall@10 fails.",
-          "diagnostics.candidate_counts.trigram_in_pool equals 0."
+          "HTTP 200 with other headphones; the intended Bose listing 1277987 is absent from the first 10 results.",
+          "The saved combined pool omits 1277987 and reports trigram_in_pool = 0."
         ],
         "observe_after": [
-          "HTTP 200 with product 2 in the first 10 results.",
-          "Product 2 has non-null signals.trigram.rank and signals.trigram.rrf_contribution, and null signals.fts.rank and signals.semantic.rank.",
-          "Every result is consumer electronics, at or below $200, and in stock or low stock."
+          "The identical B07G95T3JP request returns listing B07G95TJ3P (1277987).",
+          "The target has a trigram rank and contribution; its FTS and semantic ranks remain null.",
+          "All products satisfy the headphones category and electronics domain filters."
         ],
-        "checkpoint_question": "Why could neither FTS nor semantic search recover the target, and which restored signal made it recoverable?"
+        "checkpoint_question": "Why can related headphones be wrong for an exact-product request, and why could reranking not recover the missing listing?"
       },
-      "expected_outcome": "Restore the pg_trgm contribution and verify that known suitable product 2 enters the combined results with a trigram rank and contribution while hard filters still hold. This is a controlled missing-path regression, not evidence that typos always defeat semantic search or that other eligible headphones are incorrect.",
+      "expected_outcome": "Recover the exact Bose listing B07G95TJ3P from a transposed identifier, with a close-spelling rank and contribution. Other headphones are wrong identities for this request; no claim is made that they lack noise cancellation.",
       "assertions": [
         "target_in_top_k",
         "trigram_signal_present",
@@ -77,7 +96,16 @@
       "required_supporting_checks": [
         "exact-identity",
         "semantic-eligibility"
-      ]
+      ],
+      "dataset_id": "reviews-2023-500k-v1",
+      "expected_target_signals": [
+        "trigram"
+      ],
+      "absent_target_signals": [
+        "fts",
+        "semantic"
+      ],
+      "target_display_name": "Bose QuietComfort 35 II"
     },
     {
       "id": "rank-with-evidence",
@@ -85,18 +113,15 @@
       "core": true,
       "duration_minutes": 10,
       "title": "Lab 2 - Fuse, rerank, and inspect",
-      "discover_label": "RRF ranking before rerank",
+      "discover_label": "Keep the right monitor in the shortlist",
       "canonical_query_id": "G-008",
-      "query": "ergonomic mesh chair for long workdays with adjustable lumbar support",
+      "query": "27 inch 4K monitor USB-C 90W laptop charging",
       "filters": {
-        "domain": "home_office",
-        "in_stock_only": true,
-        "attributes": {
-          "seat_depth_adjustable": true
-        }
+        "domain": "consumer_electronics",
+        "category_key": "monitor"
       },
       "target_product_ids": [
-        370002
+        1408222
       ],
       "expected_techniques": [
         "fts",
@@ -110,21 +135,21 @@
         "file": "db/sql/09_search_functions.sql",
         "approximate_lines": 6,
         "task": "Restore the reciprocal-rank contribution formula 1 / (k + rank).",
-        "broken_state": "Product 370002 wins every retrieval arm, but collapsed RRF ties the contributions and product 370001 incorrectly becomes fused rank 1.",
-        "fixed_state": "Product 370002 is fused rank 1 and final rank 1; each source position contributes 1 / (k + rank), with deterministic ties only after relevance.",
+        "broken_state": "Collapsed contributions erase positions within each search. On the fixed request, the 50-product cutoff drops the Dell U2720Q before reranking; a 1440p HP Z27n appears among the final results for a 4K request.",
+        "fixed_state": "Correct contributions retain Dell U2720Q (1408222). In repeated verification it moved from combined position 24 to final position 1; its source record states 3840 x 2160 and up to 90W USB-C power delivery.",
         "observe_before": [
-          "HTTP 200: products 370001 and 370002 both remain in the candidate and result evidence.",
-          "Product 370002 is rank 1 in FTS, pg_trgm, and semantic retrieval, yet product 370001 is fused rank 1 because every source position contributes as rank 1.",
-          "Cohere still promotes product 370002 to final rank 1, proving that a correct-looking answer can mask broken fusion."
+          "HTTP 200 with plausible monitors, but Dell U2720Q 1408222 is absent from the combined pool and top 10.",
+          "A source position greater than 1 receives 1 / (k + 1), tying products with different source positions.",
+          "Inspect the HP Z27n title: 1440p does not satisfy the requested 4K resolution."
         ],
         "observe_after": [
-          "Every per-arm contribution equals 1 / (k + source_rank).",
-          "Two identical requests produce the same visible pre-rerank order.",
-          "Product 370002 is fused rank 1 and final rank 1; product 370001 is fused rank 2 and final rank 2."
+          "Each contribution equals 1 / (k + source_rank); at least one inspected source rank is greater than 1.",
+          "Dell U2720Q enters the combined list and reaches the declared final shortlist. Record your own combined and final positions.",
+          "Repeat the identical request and verify the same before-reranking order."
         ],
-        "checkpoint_question": "Why did product 370001 lead the broken fused list even though product 370002 won every arm, and why did final output hide the defect?"
+        "checkpoint_question": "Why could the reranker not select the Dell before the repair, and why need its combined position not be first?"
       },
-      "expected_outcome": "The participant repairs the actual RRF contribution function, reapplies the search functions, and proves that product 370002 moves from broken fused rank 2 to repaired fused rank 1 while remaining final rank 1 after bounded reranking. Historical weighted fusion remains an optional comparison over the identical candidate pool, not the required repair.",
+      "expected_outcome": "Restore 1 / (k + source_rank), keep the Dell U2720Q in the bounded combined list, and let reranking compare its 4K and up-to-90W specifications with Alex’s request.",
       "assertions": [
         "target_in_top_k",
         "fts_signal_present",
@@ -138,7 +163,12 @@
       "required_supporting_checks": [
         "compare-cheaper-alternative",
         "ranking-filter-control"
-      ]
+      ],
+      "dataset_id": "reviews-2023-500k-v1",
+      "expected_target_signals": [
+        "semantic"
+      ],
+      "expected_final_top_k": 3
     },
     {
       "id": "agentic-research",
@@ -148,15 +178,11 @@
       "title": "Lab 3 - Build the retrieval agent",
       "discover_label": "Evidence-backed agent answer",
       "canonical_query_id": "G-021",
-      "query": "Choose a quiet mechanical keyboard and a mesh ergonomic chair for 12-hour workdays with adjustable seat depth and dynamic lumbar support, each under $800. Compare the strongest options and explain why the cheaper alternatives ranked lower.",
-      "filters": {
-        "domain": "home_office",
-        "max_price_cents": 80000,
-        "in_stock_only": true
-      },
+      "query": "I am finishing my home office. Check the Dell U2720Q (B0939N79Y8) for a 27-inch 4K screen and USB-C charging up to 90W, and the Steelcase Gesture (B01NAKXH73) for adjustable lumbar support and movable arms. Search each product separately, compare their fit for these needs, and explain what the specifications and available reviews do and do not establish. Cite the supporting records and explain the ranking of one search.",
+      "filters": {},
       "target_product_ids": [
-        370001,
-        429001
+        1408222,
+        1221817
       ],
       "expected_techniques": [
         "typed_agent_tool",
@@ -181,7 +207,7 @@
         ],
         "observe_after": [
           "POST /api/agent/answer returns HTTP 200 with at least two retrieved recommendations.",
-          "Two focused search_products receipts independently cover the keyboard and chair target classes before comparison and synthesis.",
+          "Two focused search_products receipts independently cover the monitor and chair target classes before comparison and synthesis.",
           "The explained retrieval event persists a non-empty EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON) plan from the production SQL path.",
           "Every citation evidence_id resolves exactly to a real evidence record for a recommended product."
         ],
@@ -206,18 +232,29 @@
       ],
       "required_citation_support": [
         {
-          "product_id": 370001,
+          "product_id": 1408222,
           "evidence_type": "product_spec",
           "all_terms": [
-            "12",
-            "hour"
+            "27",
+            "3840",
+            "2160",
+            "90W"
+          ]
+        },
+        {
+          "product_id": 1221817,
+          "evidence_type": "product_spec",
+          "all_terms": [
+            "lumbar",
+            "Arms"
           ]
         }
       ],
       "top_k": 6,
       "required_supporting_checks": [
         "evidence-grounding"
-      ]
+      ],
+      "dataset_id": "reviews-2023-500k-v1"
     }
   ],
   "supporting_checks": [
@@ -227,27 +264,29 @@
       "core": true,
       "placement": "lab-1",
       "duration_minutes": 2,
-      "title": "Checkpoint - Preserve exact identity",
-      "discover_label": "Exact identity with FTS",
+      "title": "Checkpoint - Preserve the exact listing",
+      "discover_label": "Preserve the exact listing",
       "canonical_query_id": "G-001",
-      "query": "EchoBud S2",
+      "query": "B07G95TJ3P",
       "filters": {
-        "domain": "consumer_electronics"
+        "domain": "consumer_electronics",
+        "category_key": "headphones"
       },
       "target_product_ids": [
-        17001
+        1277987
       ],
       "expected_techniques": [
         "fts"
       ],
       "checkpoint": "baseline",
-      "expected_outcome": "The exact visible model name is returned by the FTS arm with provenance, while the read-only inspection surface shows how the other retrieval channels behave.",
+      "expected_outcome": "The correctly spelled ASIN retrieves the intended Bose listing with an Exact terms contribution.",
       "assertions": [
         "target_in_top_k",
         "fts_signal_present",
         "hard_filters_hold"
       ],
-      "top_k": 3
+      "top_k": 3,
+      "dataset_id": "reviews-2023-500k-v1"
     },
     {
       "id": "semantic-intent-contrast",
@@ -255,20 +294,16 @@
       "core": false,
       "placement": "advanced-labs",
       "duration_minutes": 0,
-      "title": "Contrast - Intent without exact catalog language",
-      "discover_label": "Intent: flight-ready headphones",
+      "title": "Checkpoint - Describe the monitor need",
+      "discover_label": "Describe the monitor need",
       "canonical_query_id": "G-004",
-      "query": "noise cancelling headphones for a long flight under $200 with at least 40 hours of battery",
+      "query": "27 inch 4K monitor USB-C 90W laptop charging",
       "filters": {
         "domain": "consumer_electronics",
-        "max_price_cents": 20000,
-        "in_stock_only": true,
-        "attributes": {
-          "active_noise_cancellation": true
-        }
+        "category_key": "monitor"
       },
       "target_product_ids": [
-        3
+        1408222
       ],
       "expected_techniques": [
         "hnsw",
@@ -276,13 +311,14 @@
         "cohere_rerank"
       ],
       "checkpoint": "baseline",
-      "expected_outcome": "Inspect the measured FTS, vector, and hybrid positions for intent-led language. Every arm receives the same hard filters; hybrid preserves the candidate provenance that explains the final order.",
+      "expected_outcome": "Inspect which methods retrieve the Dell when the request describes screen resolution and laptop charging rather than a model name.",
       "assertions": [
         "target_in_top_k",
         "semantic_signal_present",
         "hard_filters_hold"
       ],
-      "top_k": 10
+      "top_k": 10,
+      "dataset_id": "reviews-2023-500k-v1"
     },
     {
       "id": "semantic-eligibility",
@@ -290,35 +326,32 @@
       "core": true,
       "placement": "lab-1",
       "duration_minutes": 3,
-      "title": "Checkpoint - Apply eligibility constraints",
-      "discover_label": "Intent with hard eligibility filters",
+      "title": "Checkpoint - Keep the brand requirement",
+      "discover_label": "Keep the brand requirement",
       "canonical_query_id": "G-012",
-      "query": "carbon plated marathon shoe under $220 with stable cornering",
+      "query": "Bose QuietComfort 35 series II wireless noise cancelling headphones",
       "filters": {
-        "domain": "running_fitness",
-        "max_price_cents": 22000,
-        "attributes": {
-          "carbon_plate": true
-        }
+        "domain": "consumer_electronics",
+        "category_key": "headphones",
+        "brand": "Bose"
       },
       "target_product_ids": [
-        234002
+        1277987
       ],
       "expected_techniques": [
-        "fts",
         "hnsw",
         "rrf",
         "cohere_rerank"
       ],
       "checkpoint": "baseline",
-      "expected_outcome": "Semantic intent is expanded without admitting products that violate the required price or carbon-plate constraints. Its near-identical refurbished sibling 234001 satisfies the query on every textual and semantic measure and is still never a candidate, because eligibility is applied inside each arm rather than after ranking.",
+      "expected_outcome": "The model-name search retains the Bose target. Every saved candidate and displayed result stays within the Bose headphones filter; a related product from another brand is ineligible.",
       "assertions": [
         "target_in_top_k",
-        "fts_signal_present",
         "semantic_signal_present",
         "hard_filters_hold"
       ],
-      "top_k": 10
+      "top_k": 10,
+      "dataset_id": "reviews-2023-500k-v1"
     },
     {
       "id": "compare-cheaper-alternative",
@@ -326,40 +359,35 @@
       "core": true,
       "placement": "lab-2",
       "duration_minutes": 2,
-      "title": "Checkpoint - Compare the cheaper alternative",
-      "discover_label": "Rerank a quieter keyboard choice",
+      "title": "Checkpoint - Compare display specifications",
+      "discover_label": "Compare display specifications",
       "canonical_query_id": "G-007",
-      "query": "quiet wireless keyboard for a shared office; compare mechanical feel with the cheaper alternative",
+      "query": "Dell U2720Q versus Dell SE2717H monitor resolution USB-C charging",
       "filters": {
-        "domain": "home_office",
-        "max_price_cents": 18000,
-        "in_stock_only": true,
-        "attributes": {
-          "quiet_typing": true,
-          "wireless": true
-        }
+        "domain": "consumer_electronics",
+        "category_key": "monitor",
+        "brand": "Dell"
       },
       "target_product_ids": [
-        429001,
-        429002
+        1408222,
+        1208825
       ],
       "expected_techniques": [
-        "fts",
         "hnsw",
         "rrf",
         "cohere_rerank"
       ],
       "checkpoint": "baseline",
-      "expected_outcome": "Both eligible keyboards remain in the candidate set; the rank movement view shows why the mechanical option and cheaper scissor-switch alternative trade places or retain order.",
+      "expected_outcome": "Retrieve both named Dell monitors. Their records distinguish 3840 x 2160 from 1920 x 1080. Do not infer equivalent USB-C charging, current price or stock.",
       "assertions": [
         "target_in_top_k",
-        "fts_signal_present",
         "semantic_signal_present",
         "rank_provenance_present",
         "rerank_score_present",
         "hard_filters_hold"
       ],
-      "top_k": 10
+      "top_k": 10,
+      "dataset_id": "reviews-2023-500k-v1"
     },
     {
       "id": "ranking-filter-control",
@@ -367,39 +395,34 @@
       "core": true,
       "placement": "lab-2",
       "duration_minutes": 2,
-      "title": "Checkpoint - Keep filters outside model scoring",
-      "discover_label": "Keep chair filters out of scoring",
+      "title": "Checkpoint - Keep brand filters ahead of scoring",
+      "discover_label": "Keep brand filters ahead of scoring",
       "canonical_query_id": "G-009",
-      "query": "mesh office chair with a headrest for 12-hour days under $800",
+      "query": "27 inch 4K monitor USB-C 90W laptop charging",
       "filters": {
-        "domain": "home_office",
-        "max_price_cents": 80000,
-        "in_stock_only": true,
-        "attributes": {
-          "headrest": true,
-          "seat_depth_adjustable": true
-        }
+        "domain": "consumer_electronics",
+        "category_key": "monitor",
+        "brand": "Dell"
       },
       "target_product_ids": [
-        370001
+        1408222
       ],
       "expected_techniques": [
-        "fts",
         "hnsw",
         "rrf",
         "cohere_rerank"
       ],
       "checkpoint": "baseline",
-      "expected_outcome": "Product 370001 remains eligible while the headrest-free and over-budget chair controls never reach fusion or reranking.",
+      "expected_outcome": "The same monitor need, restricted to Dell, excludes HP and Lenovo before reranking. Inspect both saved candidates and served results.",
       "assertions": [
         "target_in_top_k",
-        "fts_signal_present",
         "semantic_signal_present",
         "rank_provenance_present",
         "rerank_score_present",
         "hard_filters_hold"
       ],
-      "top_k": 10
+      "top_k": 10,
+      "dataset_id": "reviews-2023-500k-v1"
     },
     {
       "id": "evidence-grounding",
@@ -407,20 +430,16 @@
       "core": true,
       "placement": "lab-3",
       "duration_minutes": 3,
-      "title": "Checkpoint - Resolve recommendation evidence",
-      "discover_label": "Ground a 12-hour chair recommendation",
+      "title": "Checkpoint - Separate listening from microphone evidence",
+      "discover_label": "Separate listening from microphone evidence",
       "canonical_query_id": "G-019",
-      "query": "Which ergonomic chair best supports 12-hour workdays, and what evidence supports the recommendation?",
+      "query": "For Bose QuietComfort 35 II B07G95TJ3P, what do the specifications and available reviews support about noise cancellation and clear calls? Cite the records, and say when review evidence does not establish microphone performance.",
       "filters": {
-        "domain": "home_office",
-        "max_price_cents": 80000,
-        "in_stock_only": true,
-        "attributes": {
-          "seat_depth_adjustable": true
-        }
+        "domain": "consumer_electronics",
+        "category_key": "headphones"
       },
       "target_product_ids": [
-        370001
+        1277987
       ],
       "expected_techniques": [
         "typed_agent_tool",
@@ -430,7 +449,7 @@
         "source_attribution"
       ],
       "checkpoint": "baseline",
-      "expected_outcome": "The agent retrieves a bounded chair shortlist, reads real evidence records, and cites resolvable support for the 12-hour recommendation.",
+      "expected_outcome": "Resolve specification and sampled-review citations for the Bose listing. Listening noise cancellation does not establish microphone call quality; disclose the evidence gap.",
       "assertions": [
         "target_in_top_k",
         "semantic_signal_present",
@@ -445,15 +464,20 @@
       ],
       "required_citation_support": [
         {
-          "product_id": 370001,
+          "product_id": 1277987,
           "evidence_type": "product_spec",
           "all_terms": [
-            "12",
-            "hour"
+            "noise"
           ]
+        },
+        {
+          "product_id": 1277987,
+          "evidence_type": "customer_review",
+          "all_terms": []
         }
       ],
-      "top_k": 6
+      "top_k": 6,
+      "dataset_id": "reviews-2023-500k-v1"
     },
     {
       "id": "hnsw-performance",
@@ -463,15 +487,13 @@
       "duration_minutes": 8,
       "title": "Tune the HNSW operating point",
       "discover_label": "Tune the HNSW operating point",
-      "query": "single cable 4K monitor for coding and photo editing",
+      "query": "27 inch 4K monitor USB-C 90W laptop charging",
       "filters": {
-        "domain": "home_office",
-        "attributes": {
-          "usb_c_power_w": 90
-        }
+        "domain": "consumer_electronics",
+        "category_key": "monitor"
       },
       "target_product_ids": [
-        420001
+        1408222
       ],
       "expected_techniques": [
         "hnsw",
@@ -486,7 +508,8 @@
         "measurement_configuration_persisted",
         "measurement_kind_declared"
       ],
-      "top_k": 10
+      "top_k": 10,
+      "dataset_id": "reviews-2023-500k-v1"
     }
   ],
   "playground": {
@@ -496,15 +519,15 @@
         "id": "plan-workspace",
         "label": "Plan my workspace",
         "mission_id": "agentic-research",
-        "notice": "One request, two product needs. Follow the separate keyboard and chair searches, their filters, and the evidence behind the final choices."
+        "notice": "One request, two product needs. Follow the separate monitor and chair searches, their filters, and the evidence behind the final choices."
       },
       {
         "id": "check-sources",
         "label": "Check the sources",
-        "query": "For the Sonora WH-C720 headphones, compare the specifications with review evidence about fit. What do the sources support, and what remains uncertain?",
+        "query": "For Bose QuietComfort 35 II B07G95TJ3P, what do the specifications and available reviews support about noise cancellation and clear calls? Cite the records, and say when review evidence does not establish microphone performance.",
         "filters": {
           "domain": "consumer_electronics",
-          "category_key": "over-ear-headphones"
+          "category_key": "headphones"
         },
         "notice": "Compare the catalog specification with sample review evidence about fit. A general review does not prove every advertised benefit."
       }
@@ -517,7 +540,7 @@
         "query": "I take video calls from home and need headphones that keep my voice clear despite background noise.",
         "filters": {
           "domain": "consumer_electronics",
-          "category_key": "over-ear-headphones"
+          "category_key": "headphones"
         },
         "notice": "Alex needs the other person to hear him clearly. Follow microphone performance through retrieval and ranking; listening noise cancellation alone does not prove call clarity."
       },
@@ -528,30 +551,58 @@
         "query": "a chair that keeps me comfortable through long coding sessions, with support I can adjust to fit me",
         "filters": {
           "domain": "home_office",
-          "category_key": "ergonomic-office-chairs"
+          "category_key": "chair"
         },
-        "notice": "Follow Alex\u2019s need for adjustable support from candidate retrieval through ranking and a comparison grounded in product details."
+        "notice": "Follow Alex’s need for adjustable support from finding products through ranking and a comparison grounded in product details."
       },
       {
         "id": "more-screen-space",
         "label": "More screen space",
         "shop_label": "More screen space",
-        "query": "a 4K monitor for coding and photo editing with USB-C video and laptop charging",
+        "query": "a 27 inch 4K desk monitor for code and docs side by side, with USB-C video and 90W laptop charging",
         "filters": {
-          "domain": "home_office",
-          "category_key": "productivity-monitors"
+          "domain": "consumer_electronics",
+          "category_key": "monitor"
         },
         "notice": "Alex wants room for code and reference material, with fewer cables on his desk. Compare screen size, resolution and connections. Check the specifications for USB-C video and charging separately."
+      }
+    ],
+    "shop_examples": [
+      {
+        "id": "keyword-headphones",
+        "kind": "Keywords",
+        "label": "Bose QuietComfort",
+        "reference_id": "semantic-eligibility"
       },
       {
-        "id": "exact-model",
-        "label": "Exact model \u00b7 control",
-        "shop_label": "Mosaic Atelier 32",
-        "query": "Mosaic Atelier 32",
-        "filters": {
-          "domain": "home_office"
-        },
-        "notice": "A known model name is a useful control: agreement across methods can be the right result."
+        "id": "keyword-monitor",
+        "kind": "Keywords",
+        "label": "4K · USB-C · 90W",
+        "reference_id": "rank-with-evidence"
+      },
+      {
+        "id": "typo-headphones",
+        "kind": "Typo",
+        "label": "A mistyped Bose listing ID",
+        "reference_id": "typo-recovery"
+      },
+      {
+        "id": "intent-clear-calls",
+        "kind": "Intent",
+        "label": "Clearer calls",
+        "reference_id": "clear-calls"
+      },
+      {
+        "id": "intent-comfortable-days",
+        "kind": "Intent",
+        "label": "Comfortable days",
+        "reference_id": "comfortable-days"
+      },
+      {
+        "id": "intent-more-screen-space",
+        "kind": "Intent",
+        "label": "More screen space",
+        "reference_id": "more-screen-space"
       }
     ]
   }

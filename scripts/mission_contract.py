@@ -50,6 +50,7 @@ from service.assertions import (
     KNOWN_ASSERTIONS,
     SIGNAL_ASSERTIONS,
 )
+from service.catalog_runtime import search_schema
 
 CONTRACT = REPO / "data" / "evals" / "mosaic_labs_missions.json"
 CANONICAL_EVALS = REPO / "data" / "evals" / "canonical_queries.jsonl"
@@ -186,6 +187,18 @@ def check_shape(contract: dict[str, Any], report: Report) -> None:
         )
 
     all_missions = timed + supporting
+    for mission in timed:
+        if mission.get("stage") == "rank":
+            bound = mission.get("expected_final_top_k")
+            limit = mission.get("top_k")
+            report.check(
+                "A1.1c ranking shortlist bound",
+                type(bound) is int and type(limit) is int and 1 <= bound <= limit,
+                explain(
+                    f"expected_final_top_k={bound!r}, result limit={mission.get('top_k')!r}",
+                    "declare a positive integer within the served result limit; do not rely on an implicit model first place",
+                ),
+            )
     labels = [
         str(mission.get("discover_label", "")).strip() for mission in all_missions
     ]
@@ -491,7 +504,7 @@ def check_live(contract: dict[str, Any], dsn: str, report: Report) -> None:
 
                     # A2.8 — the target exists at all.
                     cursor.execute(
-                        "SELECT 1 FROM mosaic.product WHERE product_id = %s",
+                        f"SELECT 1 FROM {search_schema()}.product_document WHERE product_id = %s",
                         (product_id,),
                     )
                     if cursor.fetchone() is None:
@@ -509,9 +522,9 @@ def check_live(contract: dict[str, Any], dsn: str, report: Report) -> None:
                     # A2.9 — the target satisfies its own filters, judged by the
                     # production function rather than a reimplementation.
                     cursor.execute(
-                        """
-                        SELECT mosaic_search.matches_filters(d, %s::jsonb)
-                        FROM mosaic_search.product_document d
+                        f"""
+                        SELECT {search_schema()}.matches_filters(d, %s::jsonb)
+                        FROM {search_schema()}.product_document d
                         WHERE d.product_id = %s
                         """,
                         (filters, product_id),
@@ -522,7 +535,7 @@ def check_live(contract: dict[str, Any], dsn: str, report: Report) -> None:
                             f"A2.9 {label} satisfies its own filters",
                             explain(
                                 f"product_id {product_id} is absent from "
-                                f"mosaic_search.product_document, so no arm can "
+                                f"{search_schema()}.product_document, so no arm can "
                                 f"return it",
                                 "refresh the retrieval projection, or choose a "
                                 "target that is projected",
@@ -533,7 +546,7 @@ def check_live(contract: dict[str, Any], dsn: str, report: Report) -> None:
                         report.fail(
                             f"A2.9 {label} satisfies its own filters",
                             explain(
-                                f"mosaic_search.matches_filters rejects the "
+                                f"{search_schema()}.matches_filters rejects the "
                                 f"target under this mission's own filters "
                                 f"{filters} — "
                                 f"{_diagnose(cursor, product_id, mission)}",
@@ -549,9 +562,9 @@ def check_live(contract: dict[str, Any], dsn: str, report: Report) -> None:
                     # A2.10 — every attribute key the filter names exists.
                     for key in mission.get("filters", {}).get("attributes") or {}:
                         cursor.execute(
-                            """
+                            f"""
                             SELECT attributes ? %s
-                            FROM mosaic_search.product_document
+                            FROM {search_schema()}.product_document
                             WHERE product_id = %s
                             """,
                             (key, product_id),
@@ -571,10 +584,10 @@ def check_live(contract: dict[str, Any], dsn: str, report: Report) -> None:
 def _diagnose(cursor: Any, product_id: int, mission: dict) -> str:
     """Explain which constraint a rejected target violates."""
     cursor.execute(
-        """
+        f"""
         SELECT domain::text, price_cents, availability::text,
                is_refurbished, is_sponsored
-        FROM mosaic_search.product_document WHERE product_id = %s
+        FROM {search_schema()}.product_document WHERE product_id = %s
         """,
         (product_id,),
     )
@@ -586,7 +599,9 @@ def _diagnose(cursor: Any, product_id: int, mission: dict) -> str:
     reasons = []
     if "domain" in filters and filters["domain"] != domain:
         reasons.append(f"domain is {domain!r}, filter wants {filters['domain']!r}")
-    if "max_price_cents" in filters and price > filters["max_price_cents"]:
+    if "max_price_cents" in filters and (
+        price is None or price > filters["max_price_cents"]
+    ):
         reasons.append(f"price_cents {price} exceeds {filters['max_price_cents']}")
     if filters.get("in_stock_only") and availability not in {"in_stock", "low_stock"}:
         reasons.append(f"availability is {availability!r}")
@@ -606,7 +621,7 @@ def _diagnose(cursor: Any, product_id: int, mission: dict) -> str:
 def _nearest_keys(cursor: Any, product_id: int, key: str) -> str:
     """Suggest the key the author probably meant."""
     cursor.execute(
-        "SELECT jsonb_object_keys(attributes) FROM mosaic_search.product_document "
+        f"SELECT jsonb_object_keys(attributes) FROM {search_schema()}.product_document "
         "WHERE product_id = %s",
         (product_id,),
     )

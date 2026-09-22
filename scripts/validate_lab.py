@@ -234,6 +234,12 @@ def validate_lab_3(
                 "result_limit": mission["top_k"],
             },
         )
+        if save_receipt:
+            save_receipt.parent.mkdir(parents=True, exist_ok=True)
+            response_file = save_receipt.with_name(
+                f"{save_receipt.stem}.{mission['canonical_query_id']}.json"
+            )
+            response_file.write_text(json.dumps(agent, indent=2) + "\n")
         checks.extend(
             f"{mission['canonical_query_id']}: {check}"
             for check in validate_agent_response(base_url, mission, agent)

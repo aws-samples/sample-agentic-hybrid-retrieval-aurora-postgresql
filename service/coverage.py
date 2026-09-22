@@ -28,6 +28,7 @@ from contextlib import AbstractContextManager
 import psycopg
 
 from scripts.retrieval_profile import load_profile
+from service.catalog_runtime import search_schema
 from service.db import connect
 from service.models import QueryCoverage, TermCoverage
 
@@ -55,7 +56,7 @@ def _absence_sentence(unmatched_terms: Sequence[str]) -> str:
     same absence two ways.
     """
     subject = "term" if len(unmatched_terms) == 1 else "terms"
-    return f"Nothing in the catalog matches the {subject} {_quoted(unmatched_terms)}."
+    return f"No exact catalog match was found for the {subject} {_quoted(unmatched_terms)}."
 
 
 #: Shown to a shopper above results. Names the terms rather than the mechanism,
@@ -66,7 +67,7 @@ def unanchored_note(unmatched_terms: Sequence[str]) -> str:
         return ""
     return (
         f"{_absence_sentence(unmatched_terms)} "
-        "The results below answer the rest of the request."
+        "Check the details in the nearby matches before choosing."
     )
 
 
@@ -126,9 +127,9 @@ def _vocabulary_ready(connection) -> bool:
     `unavailable` verdict exists to prevent.
     """
     row = connection.execute(
-        """
-        SELECT EXISTS (SELECT 1 FROM mosaic_search.corpus_lexeme)
-           AND EXISTS (SELECT 1 FROM mosaic_search.corpus_surface_lexeme)
+        f"""
+        SELECT EXISTS (SELECT 1 FROM {search_schema()}.corpus_lexeme)
+           AND EXISTS (SELECT 1 FROM {search_schema()}.corpus_surface_lexeme)
                AS ready
         """
     ).fetchone()
@@ -185,7 +186,7 @@ def assess(
                 else similarity_floor
             )
             rows = connection.execute(
-                "SELECT * FROM mosaic_search.query_term_coverage(%s, %s::real)",
+                f"SELECT * FROM {search_schema()}.query_term_coverage(%s, %s::real)",
                 (query, floor),
             ).fetchall()
     except (psycopg.errors.UndefinedTable, psycopg.errors.UndefinedFunction):

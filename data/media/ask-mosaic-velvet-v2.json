@@ -1,0 +1,13 @@
+{
+  "asset": "ui/public/assets/images/mosaic/ask-mosaic-velvet-v2.webp",
+  "purpose": "Decorative backdrop for the compact Ask Mosaic invitation beside Shop search. Live HTML provides the heading and interactive button.",
+  "generator": "Built-in image_gen tool",
+  "reference": "User-supplied Ask Mosaic cream-and-burgundy velvet concept",
+  "prompt": "Edit the supplied design reference into a clean, reusable fabric background for the same web invitation. Preserve its exact soft champagne/ivory velvet, deep burgundy velvet folds, restrained photographic texture, lighting, and composition: pale quiet fabric across the left and upper middle, burgundy folds confined mainly to the right edge and bottom edge. Remove ALL lettering, the entire Ask Mosaic button, the sparkle symbol, their borders and shadows, filling those areas naturally with uninterrupted pale fabric. Remove the external white margin and rounded rectangle boundary, returning just edge-to-edge cloth in a wide landscape 2.3:1 composition. Do not introduce bronze/orange fabric, more folds, new objects, text, symbols, or interface elements. Keep the left 70 percent light and calm so real HTML text and an interactive button can sit over it. This will display at roughly 310 by 128 CSS pixels; keep folds broad and elegant.",
+  "web_export": {
+    "format": "WebP",
+    "width": 960,
+    "quality": 86,
+    "preserve_aspect_ratio": true
+  }
+}
