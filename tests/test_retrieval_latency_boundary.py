@@ -9,6 +9,7 @@ advanced inside each stage and the total has to move with it.
 
 from __future__ import annotations
 
+import json
 from typing import Any, Self
 
 import pytest
@@ -65,6 +66,7 @@ class _Connection:
     def __init__(self, clock: _Clock) -> None:
         self._clock = clock
         self.statements: list[str] = []
+        self.parameters: list[Any] = []
         self.cursors: list[_Cursor] = []
 
     def __enter__(self) -> Self:
@@ -80,6 +82,7 @@ class _Connection:
 
     def execute(self, sql: str, _parameters: Any = None) -> _Result:
         self.statements.append(sql)
+        self.parameters.append(_parameters)
         return _Result()
 
     def commit(self) -> None:
@@ -155,4 +158,17 @@ def test_the_persisted_total_is_the_one_the_response_reports(measured):
     assert response.diagnostics.total_latency_ms == pytest.approx(
         (COVERAGE_DELAY_SECONDS + PERSISTENCE_DELAY_SECONDS) * 1000,
         abs=1,
+    )
+
+
+def test_receipt_keeps_the_actual_query_vector_for_sql_replay(measured):
+    _, connection = measured
+    updates = [
+        params
+        for sql, params in zip(connection.statements, connection.parameters)
+        if "SET candidate_counts" in sql
+    ]
+    assert len(updates) == 1
+    assert json.loads(updates[0][2])["query_embedding"] == _Embedder().embed_query(
+        "query"
     )

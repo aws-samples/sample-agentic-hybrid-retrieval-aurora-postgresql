@@ -73,9 +73,90 @@ def test_actual_grounding_failure_is_inspectable():
     row = {
         "agent_turn_id": "id",
         "extracted_intent": {"usage": {"error_type": "GroundingContractError"}},
+        "evidence_successes": 2,
+        "evidence_errors": 0,
     }
     conn.execute.return_value.fetchall.return_value = [row]
     assert lab_terminal.failed_turn(conn, "question", "start", "end") == row
+
+
+@pytest.mark.parametrize("successes,errors", [(0, 1), (0, 0), (1, 1)])
+def test_evidence_environment_failure_is_not_the_lab_baseline(successes, errors):
+    conn = Mock()
+    conn.execute.return_value.fetchall.return_value = [
+        {
+            "agent_turn_id": "id",
+            "extracted_intent": {"usage": {"error_type": "GroundingContractError"}},
+            "evidence_successes": successes,
+            "evidence_errors": errors,
+        }
+    ]
+    with pytest.raises(LabValidationError, match="Evidence baseline rule"):
+        lab_terminal.failed_turn(conn, "question", "start", "end")
+
+
+def test_sql_context_uses_the_vector_saved_by_the_search_not_new_inference(
+    monkeypatch, tmp_path
+):
+    from service.models import RetrievalProfile
+
+    mission = lab_checks.load_mission("rank")
+    vector = [0.125] * 1024
+    ready = {
+        "database": {
+            "dataset_id": mission["dataset_id"],
+            "product_count": 500000,
+            "embedded_product_count": 500000,
+        },
+        "source": {"dataset_manifest_sha256": "hash"},
+        "configured_models": {"embed": "model"},
+    }
+    event = {
+        "run": {
+            "search_event_id": "d28e43b7-6557-43bc-b589-11951ca5e5a7",
+            "dataset_manifest_sha256": "hash",
+            "normalized_query": mission["query"],
+            "embedding_model_id": "model",
+            "retrieval_profile": RetrievalProfile().model_dump(),
+            "diagnostics": {"query_embedding": vector},
+        },
+        "candidates": [{"product_id": 1}],
+    }
+    connection = Mock()
+    connection.execute.return_value.fetchone.return_value = {
+        "dataset_id": mission["dataset_id"],
+        "catalog_sha256": "hash",
+    }
+
+    @contextmanager
+    def connect():
+        yield connection
+
+    monkeypatch.setattr("service.db.connect", connect)
+    monkeypatch.setattr(
+        "service.catalog_runtime.active_dataset", lambda: mission["dataset_id"]
+    )
+    monkeypatch.setattr(
+        lab_terminal,
+        "_request",
+        lambda api, route: ready if route == "/api/readiness" else event,
+    )
+    monkeypatch.setattr(
+        lab_terminal,
+        "_search",
+        lambda *args: {
+            "search_event_id": "d28e43b7-6557-43bc-b589-11951ca5e5a7",
+            "diagnostics": {"embedding_dimensions": 1024},
+            "results": [],
+        },
+    )
+    monkeypatch.setattr(
+        "service.retrieval.RetrievalService._embedder",
+        lambda self: pytest.fail("SQL context must not invoke embedding inference"),
+    )
+    lab_terminal.prepare(2, "before", "http://localhost", tmp_path)
+    context = json.loads((tmp_path / "context.json").read_text())
+    assert json.loads(context["lab_vector"]) == vector
 
 
 @pytest.mark.parametrize(

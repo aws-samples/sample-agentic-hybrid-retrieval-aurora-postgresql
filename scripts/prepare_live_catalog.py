@@ -21,7 +21,9 @@ import psycopg
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from scripts.embed_catalog import COHERE_EMBED_V4_MODEL_ID
 from scripts.prepare_staged_catalog_search import require_complete, search_functions
+from scripts.retrieval_profile import load_profile
 from scripts.stage_real_catalog import require_aurora_writer, validate_dsn
 
 PRODUCT_ID_OFFSET = 1_000_000
@@ -70,6 +72,29 @@ def live_search_functions(source: str, *, repair_labs: bool = True) -> str:
     return functions + "\n" + evidence_sql.replace("mosaic_search.", SCHEMA + ".")
 
 
+def register_embedding_model(connection) -> None:
+    """Register the verified cache model before evidence can reference its vectors."""
+    connection.execute(
+        """UPDATE mosaic.embedding_model SET is_active = false
+        WHERE is_active AND model_key <> %s""",
+        (COHERE_EMBED_V4_MODEL_ID,),
+    )
+    connection.execute(
+        """INSERT INTO mosaic.embedding_model
+        (model_key, provider, model_name, dimensions, distance_metric, is_active)
+        VALUES (%s, 'bedrock', %s, %s, 'cosine', true)
+        ON CONFLICT (model_key) DO UPDATE
+        SET provider = EXCLUDED.provider, model_name = EXCLUDED.model_name,
+            dimensions = EXCLUDED.dimensions, distance_metric = EXCLUDED.distance_metric,
+            is_active = EXCLUDED.is_active""",
+        (
+            COHERE_EMBED_V4_MODEL_ID,
+            COHERE_EMBED_V4_MODEL_ID,
+            load_profile().vector_dimension,
+        ),
+    )
+
+
 def prepare(connection, dataset_id: str) -> dict:
     """Prepare identities, source-bound search and vocabulary on encrypted Aurora."""
     started = time.monotonic()
@@ -85,6 +110,7 @@ def prepare(connection, dataset_id: str) -> dict:
         (dataset_id,),
     ).fetchone()[0]
     require_complete(dataset, actual)
+    register_embedding_model(connection)
     projection = connection.execute(
         "SELECT dataset_id,catalog_sha256 FROM mosaic_catalog_search.receipt WHERE singleton"
     ).fetchone()

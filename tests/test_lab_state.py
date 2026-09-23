@@ -28,6 +28,34 @@ def _lab_bytes(repo: Path) -> dict[str, bytes]:
     }
 
 
+@pytest.mark.parametrize("lab", [1, 2, 3])
+def test_source_gate_ignores_layout_but_preserves_the_repair(lab_repo, lab):
+    from scripts.lab_state import _replace_block
+
+    set_lab_state(lab, solved=True, repo=lab_repo)
+    path = lab_repo / LABS[lab][0]
+    original = path.read_bytes()
+    source = original.decode()
+    for start, end, fixed, _ in LABS[lab][1]:
+        formatted = fixed.replace('"', "'") if lab == 3 else " ".join(fixed.split())
+        source = _replace_block(source, start, end, formatted)
+    assert source.encode() != original
+    path.write_text(source)
+    assert lab_is_solved(lab, repo=lab_repo)
+    set_lab_state(lab, solved=False, repo=lab_repo)
+    assert not lab_is_solved(lab, repo=lab_repo)
+    path.write_bytes(original)
+    assert path.read_bytes() == original
+    assert lab_is_solved(lab, repo=lab_repo)
+
+
+def test_source_gate_preserves_string_contents(lab_repo):
+    set_lab_state(1, solved=True, repo=lab_repo)
+    path = lab_repo / LABS[1][0]
+    path.write_text(path.read_text().replace("'trigram'", "'tri gram'"))
+    assert not lab_is_solved(1, repo=lab_repo)
+
+
 @pytest.mark.parametrize("lab", sorted(LABS))
 def test_reset_and_solution_are_idempotent(lab_repo: Path, lab: int) -> None:
     set_isolated_lab_state(lab, repo=lab_repo)

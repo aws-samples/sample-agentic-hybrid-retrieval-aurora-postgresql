@@ -89,8 +89,15 @@ def sql_context(values: dict[str, str]) -> str:
 def failed_turn(connection, question: str, started, ended) -> dict:
     """Correlate a failed HTTP call only when exactly one persisted turn fits."""
     rows = connection.execute(
-        "SELECT agent_turn_id, extracted_intent FROM mosaic.agent_turn "
-        "WHERE user_message=%s AND created_at >= %s AND created_at <= %s",
+        "SELECT t.agent_turn_id, t.extracted_intent, "
+        "(SELECT count(*) FROM mosaic.agent_tool_event e "
+        " WHERE e.agent_turn_id=t.agent_turn_id AND e.tool_name='get_product_evidence' "
+        " AND e.outcome='success' AND (e.output_payload->>'result_count')::int > 0) "
+        " AS evidence_successes, "
+        "(SELECT count(*) FROM mosaic.agent_tool_event e "
+        " WHERE e.agent_turn_id=t.agent_turn_id AND e.tool_name='get_product_evidence' "
+        " AND e.outcome='error') AS evidence_errors FROM mosaic.agent_turn t "
+        "WHERE t.user_message=%s AND t.created_at >= %s AND t.created_at <= %s",
         (question, started, ended),
     ).fetchall()
     _require(
@@ -101,6 +108,13 @@ def failed_turn(connection, question: str, started, ended) -> dict:
         rows[0]["extracted_intent"].get("usage", {}).get("error_type")
         == "GroundingContractError",
         "Failed-turn rule: the persisted error is not the lab's evidence failure; inspect Aurora connectivity and model access.",
+    )
+    _require(
+        rows[0]["evidence_successes"] > 0 and rows[0]["evidence_errors"] == 0,
+        "Evidence baseline rule: found "
+        f"{rows[0]['evidence_successes']} successful and {rows[0]['evidence_errors']} "
+        "failed evidence calls; inspect their saved errors and fix the environment "
+        "before repeating the intentional registration failure.",
     )
     return rows[0]
 
@@ -119,7 +133,6 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
     """Save a production response and a small psql context; never repair a lab."""
     from service.catalog_runtime import active_dataset
     from service.db import connect
-    from service.retrieval import RetrievalService
 
     mission = lab_checks.load_mission({1: "retrieve", 2: "rank", 3: "reason"}[lab])
     _require(
@@ -192,15 +205,14 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
         else:
             require_broken_search(event, mission)
         state["event"] = event
-        if before:
-            vector = before["query_vector"]
-        else:
-            retrieval = RetrievalService()
-            _require(
-                retrieval._embedder().model_id == event["run"]["embedding_model_id"],
-                "Embedding identity rule: terminal and API models differ; load the same model configuration before preparing SQL.",
-            )
-            vector = retrieval.embed_query(event["run"]["normalized_query"])
+        # A second model call can change source ranks even for identical text.
+        vector = event["run"].get("diagnostics", {}).get("query_embedding")
+        _require(
+            isinstance(vector, list)
+            and all(isinstance(v, (int, float)) for v in vector),
+            "Query vector rule: this run has no saved query embedding; update the "
+            "API and repeat the request before preparing SQL.",
+        )
         vector = [float(value) for value in vector]
         _require(
             len(vector) == response["diagnostics"]["embedding_dimensions"]

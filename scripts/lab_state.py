@@ -4,8 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import os
+import re
 import sys
+import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -153,13 +156,30 @@ def set_isolated_lab_state(
     return changed
 
 
+def _same_repair(source: str, fixed: str, *, python: bool) -> bool:
+    """Compare repair structure while retaining identifiers, literals and operators.
+
+    This recognizes formatting changes, not arbitrary equivalent algorithms;
+    production-path validation remains necessary to establish behavior.
+    """
+    if python:
+        try:
+            return ast.dump(ast.parse(textwrap.dedent(source).strip())) == ast.dump(
+                ast.parse(textwrap.dedent(fixed).strip())
+            )
+        except SyntaxError:
+            return False
+    token = r"'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|[A-Za-z_]\w*|\d+(?:\.\d+)?|::|<>|!=|<=|>=|\S"
+    return re.findall(token, source) == re.findall(token, fixed)
+
+
 def lab_is_solved(lab: int, *, repo: Path = REPO) -> bool:
     relative_path, blocks = LABS[lab]
     source = (repo / relative_path).read_text(encoding="utf-8")
     for start_marker, end_marker, fixed, _ in blocks:
         start = source.index(start_marker) + len(start_marker)
         end = source.index(end_marker, start)
-        if source[start:end].strip() != fixed.strip():
+        if not _same_repair(source[start:end], fixed, python=lab == 3):
             return False
     return True
 

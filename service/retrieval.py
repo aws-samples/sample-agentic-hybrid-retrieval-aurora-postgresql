@@ -566,6 +566,7 @@ class RetrievalService:
                                 "ranking_policy": ranking_policy,
                                 "stage_timings_ms": stage_timings,
                                 "warnings": warnings,
+                                "query_embedding": query_embedding,
                             }
                         ),
                         profile.model_dump_json(),
