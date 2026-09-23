@@ -323,17 +323,22 @@ RETRIEVE -> RANK -> REASON
 
 | Lab | Time | Participant outcome |
 |---|---:|---|
-| **1. Build hybrid retrieval** | 10 min | Derive from `pg_trgm` and `tsvector` functions why each method finds or misses a typo'd listing ID, rebuild the close-spelling method from its contract, and write a query that measures filtered HNSW recall against exact results |
-| **2. Fuse, rerank, and inspect** | 10 min | Write RRF in SQL, find that collapsed contributions hand the reranking cutoff to a tie-breaker, repair production to match, and decide between `k`, the cutoff and method limits from a measured sweep |
-| **3. Build the retrieval agent** | 20 min | Specify the evidence contract as tests that reject four faulty variants, repair the handoff, and prove from the agent's saved searches that the Lab 1 and Lab 2 repairs reached the answer |
+| **1. Build hybrid retrieval** | 10 min | Explain from `pg_trgm` and `tsvector` functions why each method finds or misses a typo'd listing ID, rebuild the close-spelling method from its contract, and write a recall query graded under the planner's plan and forced HNSW |
+| **2. Fuse, rerank, and inspect** | 10 min | Write RRF in SQL, find that collapsed contributions hand the reranking cutoff to a tie-breaker, repair production to match, then propose one setting change with a pre-stated rule, judged on 141 ESCI queries |
+| **3. Build the retrieval agent** | 20 min | Specify the evidence contract as tests that reject four faulty variants, repair the handoff, separate cited evidence from available evidence, and prove from the agent's saved searches that the Lab 1 and Lab 2 repairs reached the answer |
 
 Each lab removes one failure from the same final answer for Alex, and asks
 more than the one before: explain a mechanism, write an algorithm, then specify
 a contract as tests. Each has one graded exercise the participant writes, checked
 by `uv run python scripts/lab_exercise.py check --lab N` against independently
-computed answers (Lab 1 `.local/lab-1/recall.sql`, Lab 2 `.local/lab-2/rrf.sql`,
-Lab 3 `labs/lab3/test_evidence_contract.py`). The grader never prints a
-reference answer, and the guides no longer print the reference repairs.
+computed answers (Lab 1 `.local/lab-1/recall.sql`; Lab 2 `.local/lab-2/rrf.sql`
+and `.local/lab-2/proposal.json`; Lab 3 `labs/lab3/test_evidence_contract.py` and
+`.local/lab-3/claims.sql`). The grader never prints a reference answer, the
+guides no longer print the reference repairs, and every graded attempt is saved
+in `mosaic.lab_decision` for the finale, **Bring Alex's office home**, to read
+back. The optional Scale & HNSW exercise is graded by
+`scripts/flex_exercise.py`: a partial HNSW index (full precision, `halfvec` or
+binary quantization) built twice in a rolled-back transaction.
 
 The checked-in source is the solved reference implementation. Deliberate
 starter states are injected by `scripts/lab_state.py`; a failure already present
@@ -371,8 +376,15 @@ The served catalog is `reviews-2023-500k-v1`: 500,000 source product records
 from Amazon Reviews 2023 with verified, saved Cohere Embed v4 vectors. Bootstrap
 verifies the pinned `real-catalog/real-catalog.tar.gz` before database loading,
 restores the records and vectors, and selects that dataset for the app and labs.
-The bundle also contains 32 source-verified review excerpts; these cover a small
-reviewed set, not all products. Missing excerpts are reported as missing.
+The bundle also contains 2,327 source-verified review excerpts covering 476
+products: every product in the saved candidate pools of the lab requests, their
+controls and the Lab 3 agent's searches (`data/lab-review-parents.json`), plus the
+earlier preview samples. `scripts/fetch_catalog_reviews.py` scanned both review
+files end to end and kept up to three of the most helpful reviews per rating group
+(positive, mixed, critical) for each product. That is a selection, not a
+representative sample; each product's source rating count stays available beside
+it. Alex's picks are thinly reviewed in the source itself: the Dell U2720Q listing
+has 6 ratings and 2 excerpts, the Steelcase Gesture listing 1 and 1.
 
 [`db/config/real-catalog-cache.json`](db/config/real-catalog-cache.json) pins the
 bundle hash and size. `scripts/real_catalog_cache.py` verifies record hashes,

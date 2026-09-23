@@ -118,8 +118,8 @@ are packaging guidance, not another topic to teach at the end.
 | 00:00–01:00 | Meet Alex | Show the home-office brief. Alex needs clearer calls, a comfortable chair and more screen space. Ask: what would make a recommendation worth following? | Lead |
 | 01:00–02:30 | A search that misses | Show the headphone control and the transposed listing-ID request with identical filters. The target disappears even though Shop still returns products. Save the broken search. | Lead |
 | 02:30–04:00 | Retrieve: find the options | Show the three search methods and ask which record would locate the missing product. Filters decide eligibility; a reranker cannot add a product it never receives. Let Lab 1 establish the cause. | Technical |
-| 04:00–05:30 | Rank: establish their order | Preview the question, not the next fault: if a monitor finishes first, how do we know fusion worked? Participants will inspect source ranks and `1 / (k + rank)` before reranking. | Technical |
-| 05:30–07:00 | Reason: support a decision | Preview Alex's final request: the recovered 27-inch 4K monitor with up to 90W USB-C charging, and a wheeled chair with adjustable lumbar support and arms. One request needs separate searches and source comparisons. A source link must support the claim. Do not start a long agent run during the opening. | Lead |
+| 04:00–05:30 | Rank: establish their order | Preview the question, not the next fault: if a monitor finishes first, how do we know fusion worked? Participants will write `1 / (k + rank)` fusion themselves, then propose one setting and defend it on 141 real shopper queries. | Technical |
+| 05:30–07:00 | Reason: support a decision | Preview Alex's final request: the recovered 27-inch 4K monitor with up to 90W USB-C charging, and a wheeled chair with adjustable lumbar support and arms. One request needs separate searches and source comparisons. A source link must support the claim, and one reviewer's experience is not Alex's. Do not start a long agent run during the opening. | Lead |
 | 07:00–08:30 | Who owns each decision? | Aurora retrieves, filters and saves records. Bedrock supplies embeddings, reranking and the agent model. The application validates tool calls and citations. Read-only catalog tools still produce audit writes. Show one saved search ID, not a service tour. | Aurora presenter |
 | 08:30–10:00 | Your work and its proof | Explain the provided scaffolding and the three connections participants implement. Open the guide and the two work surfaces. Predict, observe, diagnose, repair, repeat the same request, explain the change. Each lab has one graded piece of work participants write themselves. Required work finishes by minute 50. | Lead |
 
@@ -225,10 +225,10 @@ Welcome Alex profile or the Discover brief already implements.
 ## What participants do
 
 1. Open three browser tabs from the Event Dashboard: Code Editor and Mosaic, plus the guide itself. The introduction shows one healthy meaning-only search and the three names Shop prints for its searches.
-2. Lab 1, Tasks 1a to 1d (explain a mechanism): see Bose QuietComfort 35 II disappear for a transposed listing ID; derive from `websearch_to_tsquery`, `show_trgm` and `word_similarity` why word search cannot match and close spelling can; rebuild the close-spelling method from its contract; then write a recall query for the filtered vector search. The grader runs it with the planner's plan (an exact btree scan) and with HNSW forced, where the obvious "exact" query is itself served by the index.
-3. Lab 2, Tasks 2a to 2d (write an algorithm): write RRF in SQL over the three installed search functions, graded at five values of `k`; find that the saved run has two distinct scores, so the `product_id` tie-breaker decided the reranking cutoff; repair production to agree with your query; use the grader's `k` sweep to decide which setting would keep the Dell in reach.
-4. Lab 3, Tasks 3a to 3d (specify a contract): read the fail-closed HTTP 503; trace evidence to the state that authorizes citations; write tests that must reject four faulty implementations, then repair `register_evidence` and restart; resolve every citation; close the loop with a query showing the agent's own searches used the Lab 1 and Lab 2 repairs.
-5. Run the completion gate inside Lab 3, then use the remaining time for an optional exercise, catch-up or questions.
+2. Lab 1, Tasks 1a to 1d (explain a mechanism): see Bose QuietComfort 35 II disappear for a transposed listing ID; derive from `websearch_to_tsquery`, `show_trgm` and `word_similarity` why word search cannot match and close spelling can; rebuild the close-spelling method from its contract; then write a recall query for the filtered vector search. The grader runs it with the planner's plan (an exact btree scan) and with HNSW forced, where the obvious "exact" query is itself served by the index. Index construction and tuning are the optional Scale & HNSW flex exercise.
+3. Lab 2, Tasks 2a to 2d (write an algorithm): write RRF in SQL over the three installed search functions, graded at five values of `k`; find that the saved run has two distinct scores, so the `product_id` tie-breaker decided the reranking cutoff; repair production to agree with your query; then propose one setting change with a rule stated in advance, have it replayed over 141 ESCI judged queries and four reviewed chair controls, and adopt or reject it as the rule says. On 2026-09-22, a cutoff of 75 admitted 24 more Exact products (18 queries better, 0 worse) in the same billed rerank unit, while `k`=120 admitted 5 more (4 better, 0 worse, p=0.125) and moved one chair control from 3rd to 4th.
+4. Lab 3, Tasks 3a to 3d (specify a contract): read the fail-closed HTTP 503; trace evidence to the state that authorizes citations; write tests that must reject four faulty implementations, then repair `register_evidence` and restart; resolve every citation; write a claims query that separates the evidence the answer cited from reviews merely imported and the source's rating count; close the loop with a query showing the agent's own searches used the Lab 1 and Lab 2 repairs.
+5. Run the completion gate inside Lab 3, then **bring Alex's office home**: one query assembles his room from the participant's three saved runs (the repair behind each item, how it was found, its source rating count, sampled reviews and historical list price). Then use the remaining time for an optional exercise, catch-up or questions.
 
 Each lab has a manual path and an optional coding-agent path (`claude` from the repository root, with guardrails). Both must meet the same contract and pass the same grader and validator. There is no fast track; Hint 4 restores the repair without printing it, and the graded exercise stays on every path.
 
@@ -318,11 +318,11 @@ PASS cannot certify a pending or failed attempt.
 
 ## The three-lab journey
 
-| Lab | What Alex sees before | What is broken | PostgreSQL and model mechanisms | Small repair and good state | What proves it |
+| Lab | What Alex sees before | What is broken | PostgreSQL and model mechanisms | What the participant writes (graded) | What proves it |
 |---|---|---|---|---|---|
-| **Retrieve — 10 min** | The transposed listing ID loses the exact Bose headphones. | Close-spelling results never enter fusion. | PostgreSQL FTS, `pg_trgm`, pgvector/HNSW and SQL filters. | Restore the trigram CTE and union. | The Bose listing returns with a close-spelling contribution; exact identity and eligibility controls pass. |
-| **Rank — 10 min** | The suitable Dell is absent; an explicitly 1440p monitor appears for a 4K request. | Every source position receives rank-1 credit. | RRF combines positions; Cohere Rerank reorders the bounded list. | Restore `1 / (k + rank)`. Dell enters the list and is reranked first. | Inspect a source rank greater than 1, repeat the same request, and pass the comparison/filter controls. |
-| **Reason — 20 min** | Products and sources are found, but a cited answer cannot be produced. | Evidence IDs are not registered in application state. | Typed tools, separate searches, comparisons, Aurora evidence and citation checks. | Restore evidence registration, restart, and make a new request. | A supported monitor/chair answer, resolvable citations, separate saved searches and the evidence control. |
+| **Retrieve — 10 min** | The transposed listing ID loses the exact Bose headphones. | Close-spelling results never enter fusion. | PostgreSQL FTS, `pg_trgm`, pgvector and SQL filters; the planner's choice between an exact scan and HNSW. | The trigram CTE and channel, from a contract; a recall query graded under the planner's plan and forced HNSW, whose obvious "exact" set is itself served by the index. | The Bose listing returns through close spelling; controls pass; the recall instrument passes. |
+| **Rank — 10 min** | The suitable Dell is absent; an explicitly 1440p monitor appears for a 4K request. | Every source position receives rank-1 credit, so the `product_id` tie-break picks the shortlist. | RRF combines positions; Cohere Rerank reorders the bounded list. | RRF in SQL, graded at five values of `k`; then one retrieval change with a pre-stated rule, replayed over 141 ESCI judged queries and four reviewed chair controls. Adopting and rejecting both pass. | Dell enters the list; the saved run agrees with the participant's fusion; the decision follows its own rule. |
+| **Reason — 20 min** | Products and sources are found, but a cited answer cannot be produced. | Evidence IDs are not registered in application state. | Typed tools, separate searches, Aurora evidence and citation checks. | Contract tests that must reject four faulty implementations, then the repair; a claims query separating cited evidence from imported reviews and source rating counts. | Resolvable citations; the loop query shows the Lab 1 and 2 repairs in the agent's own searches. |
 
 **Retrieve:** reranking cannot recover a product outside its input list.
 **Rank:** the formula and the final order answer different questions. Correct
@@ -475,10 +475,16 @@ same action can be repeated after access is restored.
 
 ### The closing minute, within Lab 3
 
-Keep the checked answer on screen after the completion gate. Ask one participant
-for the claim, another for its source, and another for the search and rank that
-brought the product into the answer. Use the existing run; do not start a new
-model call to manufacture a cleaner finale.
+After the completion gate, run **Bring Alex's office home** from the
+Conclusion. One query assembles Alex's room from the participant's own saved
+runs: for each item, where it was before and after the repair, the methods that
+found it, the specifications and reviews the answer cited, the reviews imported
+and the source's rating count. A second query reads back the participant's Lab 2
+decision from `mosaic.lab_decision`. Measured on 2026-09-22: the Bose has 5,341
+source ratings and 18 imported reviews, the Dell 6 and 2, the Steelcase 1 and 1.
+Ask one participant for a claim, another for its source, and another for what
+Alex still needs to check. Use the existing runs; do not start a new model call
+to manufacture a cleaner finale.
 
 > We restored a missing route into search, repaired the calculation behind the
 > order, and made the answer use records the application could check. Alex can
@@ -501,11 +507,16 @@ Memory, Runtime, Gateway and HNSW as four additional labs.
 **Build a retrieval tool is the default flex**, as the participant guide says:
 a six-to-eight-minute command-line exercise that writes one eligibility rule,
 registers one typed tool and proves Aurora applied the caller's budget. It
-needs no Playground page. **Scale & HNSW is the fallback**: read-only,
-deterministic, and it makes no billed call. Start with the dated filter and
-vector-format comparisons: matches found, database time and index size. Current
-index details are separate from those saved measurements. Open the HNSW graph
-only to explain the mechanism; it illustrates a search, not the measured run.
+needs no Playground page. **Scale & HNSW · shrink it is the alternative**:
+participants write a partial HNSW index for headphones (full precision,
+`halfvec` or binary quantization) and the query that uses it;
+`scripts/flex_exercise.py` builds it twice in a rolled-back transaction and
+grades mean recall over five real shopper queries, time against the exact plan,
+and size against a full-precision reference. It makes no billed call. Measured
+on 2026-09-22: `halfvec` kept recall 0.989 at 33% of the reference size; binary
+codes with a 1,000-row re-sort kept 0.945 at 5%; a `halfvec` index with an
+unrewritten query was never used. Open the HNSW graph only to explain the
+mechanism.
 **Session & Memory stays in the app
 as an extension of the core path.** Nothing in the three labs depends on it, Playground runs and lab proofs
 keep memory off, and the tab says so in its own masthead. Offer it only when the
@@ -652,11 +663,12 @@ a measured counterexample and an explanation of what the result does not prove.
 
 Labs 1 and 2 center on `psql` in the Code Terminal. A small runner saves the
 real application response and loads its IDs and parameters for SQL inspection.
-Lab 1 compares installed search methods and transaction-local filtered scans.
-Lab 2 checks full before/after pools, rank decay, parameter sensitivity and
-reranking effort. Lab 3 runs the agent from the terminal, traces its tool activity
-in SQL, challenges citation scope, checks the headphones'
-sampled reviews, and closes Alex's three-product brief with remaining unknowns.
+Lab 1 explains each search method from PostgreSQL's own functions and grades a
+recall instrument under two plans. Lab 2 grades participant-written fusion and a
+one-setting proposal judged on 141 real shopper queries. Lab 3 grades contract
+tests against faulty implementations and a query that separates cited evidence
+from available evidence, then closes Alex's brief from Aurora. Every graded
+attempt is saved in `mosaic.lab_decision`, which the finale reads.
 Keep 10/10/20 minutes for the three labs; use recovery to protect the proof.
 Do not call the session room-tested until a timed human run confirms that pace.
 
@@ -725,7 +737,8 @@ Lab 1 taught us that a healthy component can sit inside a broken pipeline, and t
 Lab 2 taught us that a correct answer is not proof of a correct pipeline, so ranking has to stay inspectable.
 
 Lab 3 taught us that the application controls which evidence may be cited, and
-that the cited text must still support the particular claim.
+that the cited text must still support the particular claim: one reviewer's
+MacBook Pro charging is not Alex's laptop.
 
 The method is:
 
