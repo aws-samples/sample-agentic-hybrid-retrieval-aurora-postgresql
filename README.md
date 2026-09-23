@@ -323,9 +323,17 @@ RETRIEVE -> RANK -> REASON
 
 | Lab | Time | Participant outcome |
 |---|---:|---|
-| **1. Build hybrid retrieval** | 10 min | Prove the right eligible candidates entered the pool, then reconnect one missing candidate arm |
-| **2. Fuse, rerank, and inspect** | 10 min | Repair `1 / (k + rank)` so a suitable 4K/90W monitor reaches model reranking |
-| **3. Build the retrieval agent** | 20 min | Attach evidence identity to application-owned synthesis state and prove every citation resolves |
+| **1. Build hybrid retrieval** | 10 min | Derive from `pg_trgm` and `tsvector` functions why each method finds or misses a typo'd listing ID, rebuild the close-spelling method from its contract, and write a query that measures filtered HNSW recall against exact results |
+| **2. Fuse, rerank, and inspect** | 10 min | Write RRF in SQL, find that collapsed contributions hand the reranking cutoff to a tie-breaker, repair production to match, and decide between `k`, the cutoff and method limits from a measured sweep |
+| **3. Build the retrieval agent** | 20 min | Specify the evidence contract as tests that reject four faulty variants, repair the handoff, and prove from the agent's saved searches that the Lab 1 and Lab 2 repairs reached the answer |
+
+Each lab removes one failure from the same final answer for Alex, and asks
+more than the one before: explain a mechanism, write an algorithm, then specify
+a contract as tests. Each has one graded exercise the participant writes, checked
+by `uv run python scripts/lab_exercise.py check --lab N` against independently
+computed answers (Lab 1 `.local/lab-1/recall.sql`, Lab 2 `.local/lab-2/rrf.sql`,
+Lab 3 `labs/lab3/test_evidence_contract.py`). The grader never prints a
+reference answer, and the guides no longer print the reference repairs.
 
 The checked-in source is the solved reference implementation. Deliberate
 starter states are injected by `scripts/lab_state.py`; a failure already present
@@ -702,6 +710,17 @@ Start with:
 - [House standards](docs/house-standards.md)
 - [Production-readiness checklist](docs/production-readiness.md)
 
+## Data sources and attribution
+
+The served catalog is derived from **Amazon Reviews 2023** (McAuley Lab, UC San
+Diego; Hou et al., 2024, *Bridging Language and Items for Retrieval and
+Recommendation*, arXiv:2403.03952). Five teaching comparisons use labels from the
+**Shopping Queries Dataset (ESCI)** (Apache-2.0; Reddy et al., 2022,
+arXiv:2206.06588) and **WANDS** (MIT; Chen et al., ECIR 2022). Full citations,
+license status and what each dataset is used for are in [NOTICE.md](NOTICE.md).
+Amazon Reviews 2023 publishes no license; public redistribution of the prepared
+catalog bundle is unresolved.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and the
@@ -711,7 +730,8 @@ issue.
 
 ## License
 
-This project is licensed under the [MIT No Attribution License](LICENSE).
+The code is licensed under the [MIT No Attribution License](LICENSE). Third-party
+datasets keep their own terms; see [NOTICE.md](NOTICE.md).
 
 
 ### Supported runtime and security boundary
