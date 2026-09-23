@@ -44,8 +44,16 @@ SELECT d.product_id + {PRODUCT_ID_OFFSET} AS product_id,
        d.title_text, d.identity_text, d.feature_text, d.body_text, d.trigram_text,
        d.embedding_text,
        'Catalog identity: parent ASIN ' || d.parent_asin || E'.\\n' || d.embedding_text AS rerank_text,
-       d.embedding, d.embedding_model_key, d.search_document
+       d.embedding, d.embedding_model_key, d.search_document,
+       -- The listing price the source recorded when it was collected. It is
+       -- not a current offer, so it never feeds price_cents, filters or the
+       -- synthesis price check; it is here for SQL that asks about it by name.
+       CASE WHEN jsonb_typeof(s.original->'price') = 'number'
+            THEN round((s.original->>'price')::numeric * 100)::bigint
+       END AS historical_price_cents
 FROM mosaic_catalog_search.product_document d
+LEFT JOIN mosaic_catalog_stage.product s
+       ON s.dataset_id = d.dataset_id AND s.parent_asin = d.parent_asin
 """
 
 
