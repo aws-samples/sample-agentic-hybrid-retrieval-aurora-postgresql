@@ -4,6 +4,11 @@
 The release contract pins the archive bytes in source control. Only selected
 records, their saved vectors and source-verified review samples enter the bundle;
 operator logs, credentials and intermediate experiments are never included.
+
+Workshop Studio accepts asset objects up to 1,000,000,000 bytes, so the archive is
+published as numbered parts. The contract pins each part's size and hash as well
+as the whole archive's; `join` refuses any part that differs before it rebuilds
+the archive, and the whole-archive check still runs before any database write.
 """
 
 from __future__ import annotations
@@ -29,6 +34,8 @@ from scripts.fetch_catalog_reviews import source_identity, verify_review
 from scripts.prepare_real_catalog import canonical, sha256
 
 CONTRACT = ROOT / "db/config/real-catalog-cache.json"
+PART_BYTES = 900_000_000
+COPY_CHUNK = 8 * 1024 * 1024
 
 
 def digest(path: Path) -> str:
@@ -85,6 +92,55 @@ def export(directory: Path, reviews: list[Path], output: Path, dataset: str) -> 
         "review_samples": review_counts,
         "distribution_status": "Prepared locally; public redistribution clearance remains an event-owner release requirement.",
     }
+
+
+def split_archive(archive: Path, directory: Path) -> list[dict]:
+    """Write numbered parts no larger than PART_BYTES and describe each one."""
+    directory.mkdir(parents=True, exist_ok=True)
+    parts = []
+    with archive.open("rb") as source:
+        index = 0
+        while True:
+            name = f"{archive.name}.part-{index:03d}"
+            remaining, written = PART_BYTES, hashlib.sha256()
+            with (directory / name).open("wb") as target:
+                while remaining and (chunk := source.read(min(COPY_CHUNK, remaining))):
+                    target.write(chunk)
+                    written.update(chunk)
+                    remaining -= len(chunk)
+            size = PART_BYTES - remaining
+            if size == 0:
+                (directory / name).unlink()
+                break
+            parts.append({"name": name, "bytes": size, "sha256": written.hexdigest()})
+            index += 1
+    return parts
+
+
+def join_parts(directory: Path, archive: Path, contract: dict) -> None:
+    """Rebuild the archive from verified parts, deleting each part once appended."""
+    parts = contract.get("parts") or []
+    if not parts:
+        raise ValueError(
+            "Real cache parts rule: the contract lists no parts; publish the split archive."
+        )
+    with archive.open("wb") as target:
+        for part in parts:
+            path = directory / part["name"]
+            if not path.exists():
+                raise ValueError(
+                    f"Real cache parts rule: {part['name']} is missing; download every part."
+                )
+            if path.stat().st_size != part["bytes"] or digest(path) != part["sha256"]:
+                raise ValueError(
+                    f"Real cache parts rule: {part['name']} differs from the contract; "
+                    "download it again from the published assets."
+                )
+            with path.open("rb") as source:
+                while chunk := source.read(COPY_CHUNK):
+                    target.write(chunk)
+            path.unlink()
+    verify_archive(archive, contract)
 
 
 def verify_archive(path: Path, contract: dict) -> None:
@@ -201,7 +257,10 @@ def restore(directory: Path, contract: dict) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("export", "verify", "restore"))
+    parser.add_argument(
+        "action", choices=("export", "split", "join", "verify", "restore")
+    )
+    parser.add_argument("--parts-dir", type=Path)
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--selection", type=Path)
     parser.add_argument("--reviews", type=Path, nargs="*", default=[])
@@ -213,6 +272,16 @@ def main() -> None:
             parser.error("export requires --selection and --dataset-id")
         contract = export(args.selection, args.reviews, args.archive, args.dataset_id)
         args.contract.write_text(json.dumps(contract, indent=2) + "\n")
+    elif args.action == "split":
+        contract = json.loads(args.contract.read_text())
+        verify_archive(args.archive, contract)
+        contract["parts"] = split_archive(
+            args.archive, args.parts_dir or args.archive.parent
+        )
+        args.contract.write_text(json.dumps(contract, indent=2) + "\n")
+    elif args.action == "join":
+        contract = json.loads(args.contract.read_text())
+        join_parts(args.parts_dir or args.archive.parent, args.archive, contract)
     else:
         contract = json.loads(args.contract.read_text())
         verify_archive(args.archive, contract)

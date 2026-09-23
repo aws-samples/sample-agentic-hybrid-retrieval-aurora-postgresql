@@ -5,6 +5,7 @@ import tarfile
 
 import pytest
 
+from scripts import real_catalog_cache
 from scripts.real_catalog_cache import digest, unpack, verify_archive
 
 
@@ -61,7 +62,7 @@ def test_bootstrap_requires_real_cache_before_any_catalog_load():
     script = (Path(__file__).parents[1] / "deploy/mosaic-bootstrap.sh").read_text()
 
     def verify(text):
-        assert text.index("scripts/real_catalog_cache.py verify") < text.index(
+        assert text.index("scripts/real_catalog_cache.py join") < text.index(
             "\n  make db-bootstrap-cached\n"
         )
         assert text.index("scripts/real_catalog_cache.py restore") < text.index(
@@ -110,3 +111,40 @@ def test_eval_validation_checks_each_catalog_in_its_own_schema():
     statements = [call.args[0] for call in connection.execute.call_args_list]
     assert "mosaic_search.product_document" in statements[0]
     assert "mosaic_live_search.product_document" in statements[1]
+
+
+def _split_fixture(tmp_path, monkeypatch):
+    monkeypatch.setattr(real_catalog_cache, "PART_BYTES", 10)
+    archive = tmp_path / "real-catalog.tar.gz"
+    archive.write_bytes(bytes(range(25)))
+    contract = {
+        "bytes": 25,
+        "sha256": real_catalog_cache.digest(archive),
+    }
+    contract["parts"] = real_catalog_cache.split_archive(archive, tmp_path / "parts")
+    return archive, contract
+
+
+def test_split_parts_rejoin_to_the_pinned_archive(tmp_path, monkeypatch):
+    archive, contract = _split_fixture(tmp_path, monkeypatch)
+    rebuilt = tmp_path / "rebuilt.tar.gz"
+
+    assert [part["bytes"] for part in contract["parts"]] == [10, 10, 5]
+    real_catalog_cache.join_parts(tmp_path / "parts", rebuilt, contract)
+
+    assert rebuilt.read_bytes() == archive.read_bytes()
+    assert not any((tmp_path / "parts").iterdir())
+
+
+def test_join_refuses_a_changed_or_missing_part(tmp_path, monkeypatch):
+    _, contract = _split_fixture(tmp_path, monkeypatch)
+    parts = tmp_path / "parts"
+    (parts / contract["parts"][1]["name"]).write_bytes(b"0123456789")
+
+    with pytest.raises(ValueError, match="differs from the contract"):
+        real_catalog_cache.join_parts(parts, tmp_path / "rebuilt", contract)
+
+    (parts / contract["parts"][2]["name"]).unlink()
+    contract["parts"] = contract["parts"][2:]
+    with pytest.raises(ValueError, match="is missing"):
+        real_catalog_cache.join_parts(parts, tmp_path / "rebuilt", contract)

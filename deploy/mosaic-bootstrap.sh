@@ -722,18 +722,21 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "cd '$REPO/ui' && npm run build"
 
 EMBEDDING_CACHE_URI=$(printf 's3://%s/%sembedding-cache/' \
   "$ASSETS_BUCKET" "$ASSETS_PREFIX")
-REAL_CATALOG_CACHE_URI=$(printf 's3://%s/%sreal-catalog/real-catalog.tar.gz' \
+REAL_CATALOG_CACHE_URI=$(printf 's3://%s/%sreal-catalog/' \
   "$ASSETS_BUCKET" "$ASSETS_PREFIX")
 # Verify both immutable inputs before the first database write. A source pin
 # alone cannot make an old catalog restore into the new workshop dataset.
+# Workshop Studio caps asset objects at 1 GB, so the archive arrives in parts;
+# join checks each part, then the whole archive, against the pinned contract.
 network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   set -Eeuo pipefail
   cd '$REPO'
   mkdir -p build/real-catalog-cache
-  aws s3 cp '$REAL_CATALOG_CACHE_URI' build/real-catalog-cache/real-catalog.tar.gz --only-show-errors
+  aws s3 sync '$REAL_CATALOG_CACHE_URI' build/real-catalog-cache \
+    --exclude '*' --include 'real-catalog.tar.gz.part-*' --only-show-errors
 "
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "
-  cd '$REPO' && uv run python scripts/real_catalog_cache.py verify \
+  cd '$REPO' && uv run python scripts/real_catalog_cache.py join \
     --archive build/real-catalog-cache/real-catalog.tar.gz
 "
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "

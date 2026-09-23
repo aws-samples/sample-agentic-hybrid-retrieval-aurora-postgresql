@@ -374,7 +374,8 @@ records alternative requests and both their successful and unsuccessful outcomes
 
 The served catalog is `reviews-2023-500k-v1`: 500,000 source product records
 from Amazon Reviews 2023 with verified, saved Cohere Embed v4 vectors. Bootstrap
-verifies the pinned `real-catalog/real-catalog.tar.gz` before database loading,
+downloads the pinned `real-catalog/real-catalog.tar.gz.part-*` files (Workshop Studio caps
+asset objects at 1 GB), checks each part, joins and verifies the archive before database loading,
 restores the records and vectors, and selects that dataset for the app and labs.
 The bundle also contains 2,327 source-verified review excerpts covering 476
 products: every product in the saved candidate pools of the lab requests, their
