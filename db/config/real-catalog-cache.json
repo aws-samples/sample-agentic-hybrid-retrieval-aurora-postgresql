@@ -2,16 +2,16 @@
   "schema_version": 1,
   "dataset_id": "reviews-2023-500k-v1",
   "archive": "real-catalog.tar.gz",
-  "sha256": "4a1df3ff105d5ba51cf4e0421f037fce323204c3fdebe09a1f8fb5b950bcd508",
-  "bytes": 2081576650,
+  "sha256": "f4cf9542de72cb6c3553dc12cc810aead6056f118001c54ff19ad17a60ff6a11",
+  "bytes": 2083180747,
   "catalog_sha256": "149563d3bc6b3b090bd49bb6c3eda583636d03aec5c9126add0df1a57447c9c6",
   "products": 500000,
   "embedding_model_id": "us.cohere.embed-v4:0",
   "dimensions": 1024,
   "embedding_batches": 9496,
   "review_samples": {
-    "Electronics-reviews.json": 24,
-    "Office_Products-reviews.json": 8
+    "Electronics-reviews.json": 1944,
+    "Office_Products-reviews.json": 383
   },
   "distribution_status": "Prepared locally; public redistribution clearance remains an event-owner release requirement."
 }
