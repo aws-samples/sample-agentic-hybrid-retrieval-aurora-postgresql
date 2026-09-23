@@ -1,0 +1,4664 @@
+{
+ "source": {
+  "name": "Shopping Queries Dataset (ESCI)",
+  "license": "Apache-2.0",
+  "license_file": "data/evals/references/licenses/ESCI-LICENSE",
+  "url": "https://github.com/amazon-science/esci-data/blob/7916cdf6ab75a462e77f20ab40428a10923998d5/shopping_queries_dataset/shopping_queries_dataset_examples.parquet",
+  "sha256": "4a735b693b4a424a6fc67f5be6e4c811495c488bbf66d02a602d308b2744263a"
+ },
+ "dataset_id": "reviews-2023-500k-v1",
+ "selection": "US judgments whose product ASIN is a catalog parent ASIN; per query, the judgments in its most-judged category, kept when that category is one of ['headphones', 'monitor', 'chair'] and has at least 3 judged products. Unjudged products are unknown, not irrelevant.",
+ "cases": 141,
+ "labels": {
+  "C": 4,
+  "E": 369,
+  "I": 8,
+  "S": 158
+ },
+ "queries": [
+  {
+   "query_id": 726,
+   "query": "1 ear wired headphones without mic",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B079RC9338",
+     "product_id": 1258821,
+     "esci_label": "S",
+     "example_id": 20664
+    },
+    {
+     "asin": "B07L1RQDJM",
+     "product_id": 1291433,
+     "esci_label": "S",
+     "example_id": 20661
+    },
+    {
+     "asin": "B092VJVGZX",
+     "product_id": 1407390,
+     "esci_label": "S",
+     "example_id": 20654
+    }
+   ]
+  },
+  {
+   "query_id": 727,
+   "query": "1 earphone with mic that will not fall out",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B0060RBZA6",
+     "product_id": 1075171,
+     "esci_label": "E",
+     "example_id": 20676
+    },
+    {
+     "asin": "B01MA1MJ6H",
+     "product_id": 1214296,
+     "esci_label": "E",
+     "example_id": 20675
+    },
+    {
+     "asin": "B07L1RQDJM",
+     "product_id": 1291433,
+     "esci_label": "E",
+     "example_id": 20673
+    },
+    {
+     "asin": "B07T18H792",
+     "product_id": 1315793,
+     "esci_label": "I",
+     "example_id": 20672
+    },
+    {
+     "asin": "B07XFMHQDP",
+     "product_id": 1328195,
+     "esci_label": "E",
+     "example_id": 20670
+    }
+   ]
+  },
+  {
+   "query_id": 2114,
+   "query": "144hz monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B07R7636MH",
+     "product_id": 1309164,
+     "esci_label": "E",
+     "example_id": 56783
+    },
+    {
+     "asin": "B07YGZL8XF",
+     "product_id": 1331232,
+     "esci_label": "E",
+     "example_id": 56764
+    },
+    {
+     "asin": "B089Q5K7GK",
+     "product_id": 1359914,
+     "esci_label": "E",
+     "example_id": 56766
+    },
+    {
+     "asin": "B08FF6DJNP",
+     "product_id": 1369578,
+     "esci_label": "E",
+     "example_id": 56760
+    }
+   ]
+  },
+  {
+   "query_id": 2831,
+   "query": "200 hz monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B08VM9JN7H",
+     "product_id": 1397253,
+     "esci_label": "S",
+     "example_id": 73616
+    },
+    {
+     "asin": "B094PNSBVR",
+     "product_id": 1410814,
+     "esci_label": "E",
+     "example_id": 73621
+    },
+    {
+     "asin": "B096HVSTLG",
+     "product_id": 1414085,
+     "esci_label": "E",
+     "example_id": 73617
+    }
+   ]
+  },
+  {
+   "query_id": 3034,
+   "query": "240hz monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B073WXQB54",
+     "product_id": 1238388,
+     "esci_label": "E",
+     "example_id": 78268
+    },
+    {
+     "asin": "B07TGMC29J",
+     "product_id": 1317522,
+     "esci_label": "E",
+     "example_id": 78275
+    },
+    {
+     "asin": "B07YQHGC9L",
+     "product_id": 1331868,
+     "esci_label": "E",
+     "example_id": 78243
+    }
+   ]
+  },
+  {
+   "query_id": 3079,
+   "query": "25 inch monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B0098Y77OG",
+     "product_id": 1092370,
+     "esci_label": "S",
+     "example_id": 79175
+    },
+    {
+     "asin": "B01707HMEM",
+     "product_id": 1180642,
+     "esci_label": "E",
+     "example_id": 79178
+    },
+    {
+     "asin": "B075KGLYRL",
+     "product_id": 1244484,
+     "esci_label": "E",
+     "example_id": 79182
+    }
+   ]
+  },
+  {
+   "query_id": 3679,
+   "query": "32 inch monitor 4k",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B079H5Z4S8",
+     "product_id": 1257965,
+     "esci_label": "E",
+     "example_id": 92520
+    },
+    {
+     "asin": "B07HDBD9CM",
+     "product_id": 1282619,
+     "esci_label": "S",
+     "example_id": 92516
+    },
+    {
+     "asin": "B07YGZRQ98",
+     "product_id": 1331233,
+     "esci_label": "S",
+     "example_id": 92511
+    }
+   ]
+  },
+  {
+   "query_id": 3702,
+   "query": "32gk650f-b",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B00W95RR32",
+     "product_id": 1162278,
+     "esci_label": "S",
+     "example_id": 92980
+    },
+    {
+     "asin": "B07GC8X5YN",
+     "product_id": 1278342,
+     "esci_label": "S",
+     "example_id": 92975
+    },
+    {
+     "asin": "B07R7636MH",
+     "product_id": 1309164,
+     "esci_label": "S",
+     "example_id": 92969
+    },
+    {
+     "asin": "B07RJTBVDG",
+     "product_id": 1310250,
+     "esci_label": "E",
+     "example_id": 92968
+    },
+    {
+     "asin": "B07SQP3W2G",
+     "product_id": 1314709,
+     "esci_label": "S",
+     "example_id": 92967
+    },
+    {
+     "asin": "B07YGZL8XF",
+     "product_id": 1331232,
+     "esci_label": "S",
+     "example_id": 92966
+    },
+    {
+     "asin": "B07YGZRQ98",
+     "product_id": 1331233,
+     "esci_label": "S",
+     "example_id": 92973
+    }
+   ]
+  },
+  {
+   "query_id": 3810,
+   "query": "37 inch monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B00PXYRMPE",
+     "product_id": 1151088,
+     "esci_label": "S",
+     "example_id": 95204
+    },
+    {
+     "asin": "B01LW54S4U",
+     "product_id": 1209988,
+     "esci_label": "E",
+     "example_id": 95200
+    },
+    {
+     "asin": "B07H5TK2LD",
+     "product_id": 1281668,
+     "esci_label": "S",
+     "example_id": 95196
+    },
+    {
+     "asin": "B07YGZRQ98",
+     "product_id": 1331233,
+     "esci_label": "S",
+     "example_id": 95193
+    }
+   ]
+  },
+  {
+   "query_id": 3815,
+   "query": "38 gaming monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B082XZKQN6",
+     "product_id": 1342464,
+     "esci_label": "S",
+     "example_id": 95333
+    },
+    {
+     "asin": "B087YZG5YS",
+     "product_id": 1355228,
+     "esci_label": "E",
+     "example_id": 95324
+    },
+    {
+     "asin": "B08LR145ZY",
+     "product_id": 1382127,
+     "esci_label": "E",
+     "example_id": 95319
+    }
+   ]
+  },
+  {
+   "query_id": 4364,
+   "query": "4k monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B079H5Z4S8",
+     "product_id": 1257965,
+     "esci_label": "E",
+     "example_id": 107802
+    },
+    {
+     "asin": "B07JR9FVGK",
+     "product_id": 1286933,
+     "esci_label": "E",
+     "example_id": 107804
+    },
+    {
+     "asin": "B07LD8B37C",
+     "product_id": 1293011,
+     "esci_label": "E",
+     "example_id": 107796
+    },
+    {
+     "asin": "B07YGZRQ98",
+     "product_id": 1331233,
+     "esci_label": "S",
+     "example_id": 107769
+    },
+    {
+     "asin": "B081PSV6CC",
+     "product_id": 1338288,
+     "esci_label": "E",
+     "example_id": 107777
+    },
+    {
+     "asin": "B0828CXGN7",
+     "product_id": 1340118,
+     "esci_label": "E",
+     "example_id": 107780
+    }
+   ]
+  },
+  {
+   "query_id": 6301,
+   "query": "acer curved monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B0742D9CDX",
+     "product_id": 1238988,
+     "esci_label": "S",
+     "example_id": 148413
+    },
+    {
+     "asin": "B07BNPMZKX",
+     "product_id": 1262246,
+     "esci_label": "E",
+     "example_id": 148412
+    },
+    {
+     "asin": "B07PFPZBG2",
+     "product_id": 1301834,
+     "esci_label": "E",
+     "example_id": 148400
+    }
+   ]
+  },
+  {
+   "query_id": 6307,
+   "query": "acer monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B0098Y77OG",
+     "product_id": 1092370,
+     "esci_label": "E",
+     "example_id": 148508
+    },
+    {
+     "asin": "B00KWCD8D2",
+     "product_id": 1137302,
+     "esci_label": "E",
+     "example_id": 148518
+    },
+    {
+     "asin": "B00VZUFB0I",
+     "product_id": 1161786,
+     "esci_label": "E",
+     "example_id": 148517
+    },
+    {
+     "asin": "B00X4090UO",
+     "product_id": 1164340,
+     "esci_label": "E",
+     "example_id": 148516
+    },
+    {
+     "asin": "B0742D9CDX",
+     "product_id": 1238988,
+     "esci_label": "E",
+     "example_id": 148512
+    }
+   ]
+  },
+  {
+   "query_id": 6311,
+   "query": "acer predator gaming x34",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B016GNX4SE",
+     "product_id": 1179586,
+     "esci_label": "E",
+     "example_id": 148570
+    },
+    {
+     "asin": "B073WYJ4XC",
+     "product_id": 1238398,
+     "esci_label": "S",
+     "example_id": 148573
+    },
+    {
+     "asin": "B07BNPMZKX",
+     "product_id": 1262246,
+     "esci_label": "S",
+     "example_id": 148564
+    }
+   ]
+  },
+  {
+   "query_id": 7687,
+   "query": "akg earbuds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B01MA1MJ6H",
+     "product_id": 1214296,
+     "esci_label": "S",
+     "example_id": 174731
+    },
+    {
+     "asin": "B07FDHPPFT",
+     "product_id": 1274515,
+     "esci_label": "E",
+     "example_id": 174728
+    },
+    {
+     "asin": "B07PTXSHWR",
+     "product_id": 1303567,
+     "esci_label": "S",
+     "example_id": 174724
+    },
+    {
+     "asin": "B082QPHYZQ",
+     "product_id": 1341604,
+     "esci_label": "S",
+     "example_id": 174712
+    },
+    {
+     "asin": "B083BDKFND",
+     "product_id": 1343567,
+     "esci_label": "E",
+     "example_id": 174713
+    },
+    {
+     "asin": "B084CS2LVY",
+     "product_id": 1346372,
+     "esci_label": "E",
+     "example_id": 174717
+    }
+   ]
+  },
+  {
+   "query_id": 8023,
+   "query": "alienware monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B07C86W87B",
+     "product_id": 1264567,
+     "esci_label": "E",
+     "example_id": 181083
+    },
+    {
+     "asin": "B07TPZK321",
+     "product_id": 1318300,
+     "esci_label": "S",
+     "example_id": 181070
+    },
+    {
+     "asin": "B07WDLV344",
+     "product_id": 1324689,
+     "esci_label": "S",
+     "example_id": 181071
+    },
+    {
+     "asin": "B07YQHGC9L",
+     "product_id": 1331868,
+     "esci_label": "E",
+     "example_id": 181072
+    }
+   ]
+  },
+  {
+   "query_id": 9690,
+   "query": "apple earbuds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B0795KJZM4",
+     "product_id": 1256848,
+     "esci_label": "E",
+     "example_id": 212837
+    },
+    {
+     "asin": "B07XY5DM5R",
+     "product_id": 1329457,
+     "esci_label": "S",
+     "example_id": 212856
+    },
+    {
+     "asin": "B083LT8Z25",
+     "product_id": 1344502,
+     "esci_label": "E",
+     "example_id": 212804
+    },
+    {
+     "asin": "B08CXHN5HP",
+     "product_id": 1365599,
+     "esci_label": "E",
+     "example_id": 212805
+    }
+   ]
+  },
+  {
+   "query_id": 10839,
+   "query": "asus 165hz monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B082QX6NVR",
+     "product_id": 1341633,
+     "esci_label": "E",
+     "example_id": 235731
+    },
+    {
+     "asin": "B085RWTJVQ",
+     "product_id": 1349764,
+     "esci_label": "E",
+     "example_id": 235738
+    },
+    {
+     "asin": "B08BG8GBJC",
+     "product_id": 1361942,
+     "esci_label": "E",
+     "example_id": 235722
+    }
+   ]
+  },
+  {
+   "query_id": 10847,
+   "query": "asus gaming monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B07WDLV344",
+     "product_id": 1324689,
+     "esci_label": "E",
+     "example_id": 235875
+    },
+    {
+     "asin": "B07WVN6CWT",
+     "product_id": 1326322,
+     "esci_label": "S",
+     "example_id": 235868
+    },
+    {
+     "asin": "B07YGZL8XF",
+     "product_id": 1331232,
+     "esci_label": "S",
+     "example_id": 235853
+    }
+   ]
+  },
+  {
+   "query_id": 10864,
+   "query": "asus predator monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B07WDLV344",
+     "product_id": 1324689,
+     "esci_label": "S",
+     "example_id": 236233
+    },
+    {
+     "asin": "B084F3T553",
+     "product_id": 1346490,
+     "esci_label": "S",
+     "example_id": 236228
+    },
+    {
+     "asin": "B08GL66PK4",
+     "product_id": 1372166,
+     "esci_label": "S",
+     "example_id": 236226
+    }
+   ]
+  },
+  {
+   "query_id": 10880,
+   "query": "asus rog strix xg248q",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B073WXQB54",
+     "product_id": 1238388,
+     "esci_label": "S",
+     "example_id": 236556
+    },
+    {
+     "asin": "B07TGMC29J",
+     "product_id": 1317522,
+     "esci_label": "S",
+     "example_id": 236558
+    },
+    {
+     "asin": "B07YQHGC9L",
+     "product_id": 1331868,
+     "esci_label": "S",
+     "example_id": 236548
+    }
+   ]
+  },
+  {
+   "query_id": 14389,
+   "query": "beats wireless headphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B06X979GGB",
+     "product_id": 1224004,
+     "esci_label": "E",
+     "example_id": 304738
+    },
+    {
+     "asin": "B071YQG5Z4",
+     "product_id": 1232802,
+     "esci_label": "E",
+     "example_id": 304740
+    },
+    {
+     "asin": "B07SN6RKSQ",
+     "product_id": 1314444,
+     "esci_label": "E",
+     "example_id": 304711
+    },
+    {
+     "asin": "B084D5CG5Z",
+     "product_id": 1346414,
+     "esci_label": "E",
+     "example_id": 304722
+    }
+   ]
+  },
+  {
+   "query_id": 14391,
+   "query": "beats x wireless earbuds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B06Y2D5M31",
+     "product_id": 1228065,
+     "esci_label": "E",
+     "example_id": 304781
+    },
+    {
+     "asin": "B07BHHB5RH",
+     "product_id": 1261416,
+     "esci_label": "S",
+     "example_id": 304776
+    },
+    {
+     "asin": "B081P7RNYH",
+     "product_id": 1338224,
+     "esci_label": "E",
+     "example_id": 304769
+    }
+   ]
+  },
+  {
+   "query_id": 17434,
+   "query": "blue parrot bluetooth headset",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B0788V5QLL",
+     "product_id": 1253706,
+     "esci_label": "E",
+     "example_id": 363532
+    },
+    {
+     "asin": "B0788W9CJW",
+     "product_id": 1253715,
+     "esci_label": "E",
+     "example_id": 363538
+    },
+    {
+     "asin": "B07MF5T5S1",
+     "product_id": 1294674,
+     "esci_label": "E",
+     "example_id": 363528
+    }
+   ]
+  },
+  {
+   "query_id": 18639,
+   "query": "bose earbuds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B01HETFQA8",
+     "product_id": 1202577,
+     "esci_label": "S",
+     "example_id": 387605
+    },
+    {
+     "asin": "B06XYPJN4G",
+     "product_id": 1227583,
+     "esci_label": "E",
+     "example_id": 387608
+    },
+    {
+     "asin": "B079P81YLP",
+     "product_id": 1258608,
+     "esci_label": "E",
+     "example_id": 387599
+    },
+    {
+     "asin": "B07GDSPRF4",
+     "product_id": 1278543,
+     "esci_label": "E",
+     "example_id": 387589
+    }
+   ]
+  },
+  {
+   "query_id": 18649,
+   "query": "bose night noise cancelling headphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B079ND3JM1",
+     "product_id": 1258486,
+     "esci_label": "E",
+     "example_id": 387799
+    },
+    {
+     "asin": "B079P7N7DT",
+     "product_id": 1258604,
+     "esci_label": "S",
+     "example_id": 387796
+    },
+    {
+     "asin": "B07NXDPLJ9",
+     "product_id": 1299733,
+     "esci_label": "E",
+     "example_id": 387793
+    },
+    {
+     "asin": "B07V1SY1TW",
+     "product_id": 1319595,
+     "esci_label": "S",
+     "example_id": 387795
+    }
+   ]
+  },
+  {
+   "query_id": 18650,
+   "query": "bose noise cancelling earbuds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B01HETFQA8",
+     "product_id": 1202577,
+     "esci_label": "E",
+     "example_id": 387818
+    },
+    {
+     "asin": "B06XYPJN4G",
+     "product_id": 1227583,
+     "esci_label": "E",
+     "example_id": 387815
+    },
+    {
+     "asin": "B079ND3JM1",
+     "product_id": 1258486,
+     "esci_label": "E",
+     "example_id": 387812
+    },
+    {
+     "asin": "B079P81YLP",
+     "product_id": 1258608,
+     "esci_label": "S",
+     "example_id": 387811
+    },
+    {
+     "asin": "B07WTS69YV",
+     "product_id": 1326219,
+     "esci_label": "E",
+     "example_id": 387808
+    }
+   ]
+  },
+  {
+   "query_id": 18651,
+   "query": "bose noise cancelling headphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B01HETFQA8",
+     "product_id": 1202577,
+     "esci_label": "E",
+     "example_id": 387862
+    },
+    {
+     "asin": "B06XYPJN4G",
+     "product_id": 1227583,
+     "esci_label": "E",
+     "example_id": 387857
+    },
+    {
+     "asin": "B079ND3JM1",
+     "product_id": 1258486,
+     "esci_label": "E",
+     "example_id": 387841
+    }
+   ]
+  },
+  {
+   "query_id": 18658,
+   "query": "bose quietcomfort 35 ii",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B01HETFQA8",
+     "product_id": 1202577,
+     "esci_label": "S",
+     "example_id": 387979
+    },
+    {
+     "asin": "B07G95TJ3P",
+     "product_id": 1277987,
+     "esci_label": "E",
+     "example_id": 387961
+    },
+    {
+     "asin": "B087D88N39",
+     "product_id": 1353910,
+     "esci_label": "S",
+     "example_id": 387968
+    }
+   ]
+  },
+  {
+   "query_id": 18660,
+   "query": "bose sleep earbuds noise cancelling",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B06XYPJN4G",
+     "product_id": 1227583,
+     "esci_label": "E",
+     "example_id": 388010
+    },
+    {
+     "asin": "B07NXDPLJ9",
+     "product_id": 1299733,
+     "esci_label": "S",
+     "example_id": 388006
+    },
+    {
+     "asin": "B07WTS69YV",
+     "product_id": 1326219,
+     "esci_label": "E",
+     "example_id": 388004
+    }
+   ]
+  },
+  {
+   "query_id": 18678,
+   "query": "bose sport wireless headphones bluetooth",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B01HETFQA8",
+     "product_id": 1202577,
+     "esci_label": "E",
+     "example_id": 388326
+    },
+    {
+     "asin": "B07GDSPRF4",
+     "product_id": 1278543,
+     "esci_label": "E",
+     "example_id": 388322
+    },
+    {
+     "asin": "B07NXDPLJ9",
+     "product_id": 1299733,
+     "esci_label": "E",
+     "example_id": 388318
+    }
+   ]
+  },
+  {
+   "query_id": 18681,
+   "query": "bose wireless earbuds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B01HETFQA8",
+     "product_id": 1202577,
+     "esci_label": "E",
+     "example_id": 388391
+    },
+    {
+     "asin": "B06XJFZCD5",
+     "product_id": 1225476,
+     "esci_label": "E",
+     "example_id": 388395
+    },
+    {
+     "asin": "B079P81YLP",
+     "product_id": 1258608,
+     "esci_label": "E",
+     "example_id": 388388
+    },
+    {
+     "asin": "B07NXDPLJ9",
+     "product_id": 1299733,
+     "esci_label": "S",
+     "example_id": 388376
+    }
+   ]
+  },
+  {
+   "query_id": 20487,
+   "query": "bulk headphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B013M3PLUA",
+     "product_id": 1173901,
+     "esci_label": "E",
+     "example_id": 422873
+    },
+    {
+     "asin": "B07CNWNBT3",
+     "product_id": 1266271,
+     "esci_label": "E",
+     "example_id": 422868
+    },
+    {
+     "asin": "B07L4JFR3Q",
+     "product_id": 1291782,
+     "esci_label": "E",
+     "example_id": 422867
+    }
+   ]
+  },
+  {
+   "query_id": 30883,
+   "query": "curved monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B01D3BDXQA",
+     "product_id": 1193136,
+     "esci_label": "E",
+     "example_id": 623293
+    },
+    {
+     "asin": "B07H5TK2LD",
+     "product_id": 1281668,
+     "esci_label": "E",
+     "example_id": 623304
+    },
+    {
+     "asin": "B07KQXM8X6",
+     "product_id": 1290249,
+     "esci_label": "E",
+     "example_id": 623290
+    }
+   ]
+  },
+  {
+   "query_id": 32228,
+   "query": "dell 27 4k",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B01D402Z28",
+     "product_id": 1193187,
+     "esci_label": "S",
+     "example_id": 649459
+    },
+    {
+     "asin": "B071FQ4NLZ",
+     "product_id": 1230534,
+     "esci_label": "S",
+     "example_id": 649457
+    },
+    {
+     "asin": "B07R1XT5M6",
+     "product_id": 1308538,
+     "esci_label": "E",
+     "example_id": 649450
+    },
+    {
+     "asin": "B085LKPWMJ",
+     "product_id": 1349319,
+     "esci_label": "E",
+     "example_id": 649447
+    }
+   ]
+  },
+  {
+   "query_id": 32233,
+   "query": "dell curved monitor 49 inch",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B00PXYRMPE",
+     "product_id": 1151088,
+     "esci_label": "I",
+     "example_id": 649540
+    },
+    {
+     "asin": "B06ZZ25ZZS",
+     "product_id": 1228949,
+     "esci_label": "S",
+     "example_id": 649539
+    },
+    {
+     "asin": "B084LB7RN2",
+     "product_id": 1346884,
+     "esci_label": "S",
+     "example_id": 649530
+    }
+   ]
+  },
+  {
+   "query_id": 32252,
+   "query": "dell monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B00PXYRMPE",
+     "product_id": 1151088,
+     "esci_label": "E",
+     "example_id": 649866
+    },
+    {
+     "asin": "B01D11JUAU",
+     "product_id": 1192966,
+     "esci_label": "E",
+     "example_id": 649869
+    },
+    {
+     "asin": "B07F8Z2WFL",
+     "product_id": 1273995,
+     "esci_label": "E",
+     "example_id": 649859
+    },
+    {
+     "asin": "B0864QKWTG",
+     "product_id": 1350727,
+     "esci_label": "E",
+     "example_id": 649857
+    }
+   ]
+  },
+  {
+   "query_id": 36273,
+   "query": "e-ink monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B07GWGFW1B",
+     "product_id": 1280293,
+     "esci_label": "E",
+     "example_id": 728821
+    },
+    {
+     "asin": "B07SKS6CS7",
+     "product_id": 1314175,
+     "esci_label": "E",
+     "example_id": 728820
+    },
+    {
+     "asin": "B07XVLVD22",
+     "product_id": 1329263,
+     "esci_label": "S",
+     "example_id": 728818
+    },
+    {
+     "asin": "B07YGZL8XF",
+     "product_id": 1331232,
+     "esci_label": "I",
+     "example_id": 728816
+    },
+    {
+     "asin": "B09GP3WRLX",
+     "product_id": 1428576,
+     "esci_label": "E",
+     "example_id": 728808
+    }
+   ]
+  },
+  {
+   "query_id": 36330,
+   "query": "ear buds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07L1RQDJM",
+     "product_id": 1291433,
+     "esci_label": "E",
+     "example_id": 729998
+    },
+    {
+     "asin": "B0821ZVKKZ",
+     "product_id": 1339426,
+     "esci_label": "E",
+     "example_id": 729980
+    },
+    {
+     "asin": "B085W944PN",
+     "product_id": 1350123,
+     "esci_label": "E",
+     "example_id": 729984
+    }
+   ]
+  },
+  {
+   "query_id": 36375,
+   "query": "earbud headphones for laptop kids",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07JCPGFT1",
+     "product_id": 1285316,
+     "esci_label": "E",
+     "example_id": 730854
+    },
+    {
+     "asin": "B07JCQLDL5",
+     "product_id": 1285322,
+     "esci_label": "E",
+     "example_id": 730853
+    },
+    {
+     "asin": "B07KYL4W5P",
+     "product_id": 1291178,
+     "esci_label": "S",
+     "example_id": 730860
+    }
+   ]
+  },
+  {
+   "query_id": 36377,
+   "query": "earbuds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07L1RQDJM",
+     "product_id": 1291433,
+     "esci_label": "E",
+     "example_id": 730925
+    },
+    {
+     "asin": "B0821ZVKKZ",
+     "product_id": 1339426,
+     "esci_label": "E",
+     "example_id": 730887
+    },
+    {
+     "asin": "B085W944PN",
+     "product_id": 1350123,
+     "esci_label": "E",
+     "example_id": 730892
+    }
+   ]
+  },
+  {
+   "query_id": 36385,
+   "query": "earbuds samsung",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B01LOQ3BW2",
+     "product_id": 1209610,
+     "esci_label": "E",
+     "example_id": 731073
+    },
+    {
+     "asin": "B08287GMGJ",
+     "product_id": 1340101,
+     "esci_label": "S",
+     "example_id": 731062
+    },
+    {
+     "asin": "B0839MQ226",
+     "product_id": 1343509,
+     "esci_label": "S",
+     "example_id": 731061
+    }
+   ]
+  },
+  {
+   "query_id": 36391,
+   "query": "earbuds without microphone",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B00S2P0M1C",
+     "product_id": 1154520,
+     "esci_label": "E",
+     "example_id": 731178
+    },
+    {
+     "asin": "B00TJ0PGDS",
+     "product_id": 1157115,
+     "esci_label": "S",
+     "example_id": 731183
+    },
+    {
+     "asin": "B013ZR5KJU",
+     "product_id": 1174551,
+     "esci_label": "E",
+     "example_id": 731177
+    },
+    {
+     "asin": "B0170MYC40",
+     "product_id": 1180667,
+     "esci_label": "E",
+     "example_id": 731176
+    },
+    {
+     "asin": "B018FD9VH6",
+     "product_id": 1183568,
+     "esci_label": "E",
+     "example_id": 731175
+    },
+    {
+     "asin": "B092VJVGZX",
+     "product_id": 1407390,
+     "esci_label": "I",
+     "example_id": 731173
+    }
+   ]
+  },
+  {
+   "query_id": 36409,
+   "query": "earphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B00S2P0M1C",
+     "product_id": 1154520,
+     "esci_label": "E",
+     "example_id": 731559
+    },
+    {
+     "asin": "B01MA1MJ6H",
+     "product_id": 1214296,
+     "esci_label": "E",
+     "example_id": 731563
+    },
+    {
+     "asin": "B07L1RQDJM",
+     "product_id": 1291433,
+     "esci_label": "E",
+     "example_id": 731568
+    },
+    {
+     "asin": "B07TGTSKSH",
+     "product_id": 1317535,
+     "esci_label": "E",
+     "example_id": 731577
+    },
+    {
+     "asin": "B07THRY6F7",
+     "product_id": 1317619,
+     "esci_label": "E",
+     "example_id": 731576
+    },
+    {
+     "asin": "B07XG9JKD4",
+     "product_id": 1328250,
+     "esci_label": "E",
+     "example_id": 731567
+    },
+    {
+     "asin": "B085W944PN",
+     "product_id": 1350123,
+     "esci_label": "E",
+     "example_id": 731533
+    },
+    {
+     "asin": "B08B5F336L",
+     "product_id": 1361201,
+     "esci_label": "E",
+     "example_id": 731544
+    }
+   ]
+  },
+  {
+   "query_id": 36412,
+   "query": "earphones for a computer",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B072JW53Y6",
+     "product_id": 1234707,
+     "esci_label": "E",
+     "example_id": 731629
+    },
+    {
+     "asin": "B07PNKJ7N3",
+     "product_id": 1302837,
+     "esci_label": "E",
+     "example_id": 731622
+    },
+    {
+     "asin": "B07WYX1N5N",
+     "product_id": 1326610,
+     "esci_label": "E",
+     "example_id": 731619
+    }
+   ]
+  },
+  {
+   "query_id": 36415,
+   "query": "earphones for tv listening wireless",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07CKVBWNY",
+     "product_id": 1265709,
+     "esci_label": "E",
+     "example_id": 731685
+    },
+    {
+     "asin": "B07DWWXZQ5",
+     "product_id": 1272543,
+     "esci_label": "E",
+     "example_id": 731684
+    },
+    {
+     "asin": "B07J4TYZ72",
+     "product_id": 1284768,
+     "esci_label": "E",
+     "example_id": 731681
+    },
+    {
+     "asin": "B086YC5HXW",
+     "product_id": 1352613,
+     "esci_label": "E",
+     "example_id": 731673
+    }
+   ]
+  },
+  {
+   "query_id": 40081,
+   "query": "fhd monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B08G5R5LM3",
+     "product_id": 1371166,
+     "esci_label": "E",
+     "example_id": 803601
+    },
+    {
+     "asin": "B08JVG1HMK",
+     "product_id": 1377550,
+     "esci_label": "E",
+     "example_id": 803600
+    },
+    {
+     "asin": "B08X6QYPQ3",
+     "product_id": 1398802,
+     "esci_label": "E",
+     "example_id": 803599
+    }
+   ]
+  },
+  {
+   "query_id": 43765,
+   "query": "g sync tv",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B07R7636MH",
+     "product_id": 1309164,
+     "esci_label": "E",
+     "example_id": 873707
+    },
+    {
+     "asin": "B07WDLV344",
+     "product_id": 1324689,
+     "esci_label": "E",
+     "example_id": 873695
+    },
+    {
+     "asin": "B07YGZRQ98",
+     "product_id": 1331233,
+     "esci_label": "E",
+     "example_id": 873694
+    }
+   ]
+  },
+  {
+   "query_id": 43904,
+   "query": "galax buds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B0869CM495",
+     "product_id": 1351068,
+     "esci_label": "E",
+     "example_id": 876550
+    },
+    {
+     "asin": "B0896TPR9M",
+     "product_id": 1358509,
+     "esci_label": "E",
+     "example_id": 876543
+    },
+    {
+     "asin": "B08HC42Z3Q",
+     "product_id": 1373747,
+     "esci_label": "E",
+     "example_id": 876546
+    }
+   ]
+  },
+  {
+   "query_id": 43932,
+   "query": "galaxy buds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07NLLLXNX",
+     "product_id": 1298595,
+     "esci_label": "E",
+     "example_id": 877049
+    },
+    {
+     "asin": "B07RV42L47",
+     "product_id": 1311492,
+     "esci_label": "E",
+     "example_id": 877054
+    },
+    {
+     "asin": "B07TQS33TM",
+     "product_id": 1318355,
+     "esci_label": "E",
+     "example_id": 877056
+    },
+    {
+     "asin": "B08287GMGJ",
+     "product_id": 1340101,
+     "esci_label": "S",
+     "example_id": 877027
+    },
+    {
+     "asin": "B084TCJ42H",
+     "product_id": 1347396,
+     "esci_label": "E",
+     "example_id": 877021
+    },
+    {
+     "asin": "B0869CM495",
+     "product_id": 1351068,
+     "esci_label": "E",
+     "example_id": 877033
+    }
+   ]
+  },
+  {
+   "query_id": 43951,
+   "query": "galaxy note 10 ear buds wireless",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07WYX1N5N",
+     "product_id": 1326610,
+     "esci_label": "E",
+     "example_id": 877374
+    },
+    {
+     "asin": "B084CS2LVY",
+     "product_id": 1346372,
+     "esci_label": "S",
+     "example_id": 877371
+    },
+    {
+     "asin": "B084H3M52X",
+     "product_id": 1346637,
+     "esci_label": "S",
+     "example_id": 877370
+    }
+   ]
+  },
+  {
+   "query_id": 44275,
+   "query": "gaming monitors",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B07WVN6CWT",
+     "product_id": 1326322,
+     "esci_label": "E",
+     "example_id": 883593
+    },
+    {
+     "asin": "B07YGZL8XF",
+     "product_id": 1331232,
+     "esci_label": "E",
+     "example_id": 883610
+    },
+    {
+     "asin": "B089QFLFMN",
+     "product_id": 1359960,
+     "esci_label": "E",
+     "example_id": 883609
+    }
+   ]
+  },
+  {
+   "query_id": 46744,
+   "query": "google pixel usb-c earbuds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07M7TJBMJ",
+     "product_id": 1293884,
+     "esci_label": "E",
+     "example_id": 930351
+    },
+    {
+     "asin": "B07V6FXJ3Q",
+     "product_id": 1320272,
+     "esci_label": "E",
+     "example_id": 930345
+    },
+    {
+     "asin": "B07ZD3DFFX",
+     "product_id": 1334028,
+     "esci_label": "E",
+     "example_id": 930343
+    },
+    {
+     "asin": "B084HGW2SJ",
+     "product_id": 1346666,
+     "esci_label": "E",
+     "example_id": 930339
+    },
+    {
+     "asin": "B08GP3C9GN",
+     "product_id": 1372375,
+     "esci_label": "E",
+     "example_id": 930337
+    }
+   ]
+  },
+  {
+   "query_id": 49564,
+   "query": "hd800",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07D41MTT7",
+     "product_id": 1268623,
+     "esci_label": "S",
+     "example_id": 984710
+    },
+    {
+     "asin": "B07K59HW9R",
+     "product_id": 1288136,
+     "esci_label": "S",
+     "example_id": 984708
+    },
+    {
+     "asin": "B07X52DHH8",
+     "product_id": 1327254,
+     "esci_label": "S",
+     "example_id": 984707
+    }
+   ]
+  },
+  {
+   "query_id": 49641,
+   "query": "hdr 600",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B07R1XT5M6",
+     "product_id": 1308538,
+     "esci_label": "S",
+     "example_id": 986159
+    },
+    {
+     "asin": "B07WDLV344",
+     "product_id": 1324689,
+     "esci_label": "E",
+     "example_id": 986156
+    },
+    {
+     "asin": "B085K647FM",
+     "product_id": 1349209,
+     "esci_label": "S",
+     "example_id": 986155
+    },
+    {
+     "asin": "B089VVWQ3W",
+     "product_id": 1360376,
+     "esci_label": "S",
+     "example_id": 986153
+    },
+    {
+     "asin": "B08BCRJYRC",
+     "product_id": 1361731,
+     "esci_label": "E",
+     "example_id": 986152
+    },
+    {
+     "asin": "B08GL66PK4",
+     "product_id": 1372166,
+     "esci_label": "E",
+     "example_id": 986151
+    },
+    {
+     "asin": "B08L77J9M8",
+     "product_id": 1380499,
+     "esci_label": "E",
+     "example_id": 986162
+    }
+   ]
+  },
+  {
+   "query_id": 49757,
+   "query": "headphones for tv",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B0001FTVEK",
+     "product_id": 1008787,
+     "esci_label": "E",
+     "example_id": 988357
+    },
+    {
+     "asin": "B07CKVBWNY",
+     "product_id": 1265709,
+     "esci_label": "E",
+     "example_id": 988352
+    },
+    {
+     "asin": "B07J4TYZ72",
+     "product_id": 1284768,
+     "esci_label": "E",
+     "example_id": 988350
+    },
+    {
+     "asin": "B07MKBGH2V",
+     "product_id": 1295233,
+     "esci_label": "E",
+     "example_id": 988349
+    }
+   ]
+  },
+  {
+   "query_id": 51795,
+   "query": "hpcomputer screen",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B01F6V6SSK",
+     "product_id": 1197925,
+     "esci_label": "E",
+     "example_id": 1026406
+    },
+    {
+     "asin": "B077BVNWYS",
+     "product_id": 1250621,
+     "esci_label": "E",
+     "example_id": 1026394
+    },
+    {
+     "asin": "B07JPCZLJ5",
+     "product_id": 1286685,
+     "esci_label": "E",
+     "example_id": 1026398
+    },
+    {
+     "asin": "B07VFC787T",
+     "product_id": 1321142,
+     "esci_label": "E",
+     "example_id": 1026396
+    },
+    {
+     "asin": "B085LQFQ1X",
+     "product_id": 1349334,
+     "esci_label": "E",
+     "example_id": 1026395
+    }
+   ]
+  },
+  {
+   "query_id": 54188,
+   "query": "iphone 6s earbuds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07CZ84PG9",
+     "product_id": 1267792,
+     "esci_label": "E",
+     "example_id": 1072122
+    },
+    {
+     "asin": "B07QL4N462",
+     "product_id": 1306635,
+     "esci_label": "E",
+     "example_id": 1072120
+    },
+    {
+     "asin": "B088CV7WDL",
+     "product_id": 1356061,
+     "esci_label": "E",
+     "example_id": 1072111
+    }
+   ]
+  },
+  {
+   "query_id": 54198,
+   "query": "iphone 6s plus headphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07CZ84PG9",
+     "product_id": 1267792,
+     "esci_label": "E",
+     "example_id": 1072330
+    },
+    {
+     "asin": "B07QL4N462",
+     "product_id": 1306635,
+     "esci_label": "E",
+     "example_id": 1072328
+    },
+    {
+     "asin": "B07YX2BVTN",
+     "product_id": 1332343,
+     "esci_label": "S",
+     "example_id": 1072327
+    }
+   ]
+  },
+  {
+   "query_id": 54826,
+   "query": "ips curved",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B01B9IDL4I",
+     "product_id": 1189101,
+     "esci_label": "E",
+     "example_id": 1084406
+    },
+    {
+     "asin": "B06XFXX5JH",
+     "product_id": 1224981,
+     "esci_label": "S",
+     "example_id": 1084405
+    },
+    {
+     "asin": "B07YGZL8XF",
+     "product_id": 1331232,
+     "esci_label": "S",
+     "example_id": 1084393
+    },
+    {
+     "asin": "B087YZG5YS",
+     "product_id": 1355228,
+     "esci_label": "E",
+     "example_id": 1084397
+    }
+   ]
+  },
+  {
+   "query_id": 55284,
+   "query": "jabra sport",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B077H73WGP",
+     "product_id": 1251049,
+     "esci_label": "E",
+     "example_id": 1093825
+    },
+    {
+     "asin": "B07R9QJS9L",
+     "product_id": 1309472,
+     "esci_label": "E",
+     "example_id": 1093821
+    },
+    {
+     "asin": "B07SYL3JWS",
+     "product_id": 1315533,
+     "esci_label": "E",
+     "example_id": 1093820
+    }
+   ]
+  },
+  {
+   "query_id": 55285,
+   "query": "jabra usb headset",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B006GOG1FC",
+     "product_id": 1076952,
+     "esci_label": "E",
+     "example_id": 1093848
+    },
+    {
+     "asin": "B00ODRSBPW",
+     "product_id": 1147441,
+     "esci_label": "E",
+     "example_id": 1093847
+    },
+    {
+     "asin": "B08HR6KR2R",
+     "product_id": 1375020,
+     "esci_label": "E",
+     "example_id": 1093835
+    },
+    {
+     "asin": "B08JD7M5RK",
+     "product_id": 1376545,
+     "esci_label": "E",
+     "example_id": 1093832
+    }
+   ]
+  },
+  {
+   "query_id": 55385,
+   "query": "jam earbuds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B079PTH8PS",
+     "product_id": 1258654,
+     "esci_label": "E",
+     "example_id": 1095670
+    },
+    {
+     "asin": "B079PTH8PV",
+     "product_id": 1258655,
+     "esci_label": "S",
+     "example_id": 1095669
+    },
+    {
+     "asin": "B07XSKX489",
+     "product_id": 1329128,
+     "esci_label": "E",
+     "example_id": 1095663
+    }
+   ]
+  },
+  {
+   "query_id": 55388,
+   "query": "jam wireless headphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B079PDFH59",
+     "product_id": 1258625,
+     "esci_label": "S",
+     "example_id": 1095709
+    },
+    {
+     "asin": "B079PTH8PS",
+     "product_id": 1258654,
+     "esci_label": "E",
+     "example_id": 1095706
+    },
+    {
+     "asin": "B07WSFW56X",
+     "product_id": 1326060,
+     "esci_label": "E",
+     "example_id": 1095705
+    },
+    {
+     "asin": "B07XSKX489",
+     "product_id": 1329128,
+     "esci_label": "E",
+     "example_id": 1095703
+    }
+   ]
+  },
+  {
+   "query_id": 55586,
+   "query": "jaybird",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B013HSW4SM",
+     "product_id": 1173646,
+     "esci_label": "E",
+     "example_id": 1099354
+    },
+    {
+     "asin": "B07GVCZPSJ",
+     "product_id": 1280131,
+     "esci_label": "E",
+     "example_id": 1099349
+    },
+    {
+     "asin": "B07JLLLG62",
+     "product_id": 1286219,
+     "esci_label": "E",
+     "example_id": 1099339
+    },
+    {
+     "asin": "B07MC1QCHW",
+     "product_id": 1294352,
+     "esci_label": "E",
+     "example_id": 1099340
+    },
+    {
+     "asin": "B07R4CL3YL",
+     "product_id": 1308791,
+     "esci_label": "E",
+     "example_id": 1099348
+    },
+    {
+     "asin": "B07R9QJS9L",
+     "product_id": 1309472,
+     "esci_label": "E",
+     "example_id": 1099344
+    }
+   ]
+  },
+  {
+   "query_id": 55587,
+   "query": "jaybird bluetooth wireless true view",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B077NX23F6",
+     "product_id": 1251617,
+     "esci_label": "E",
+     "example_id": 1099375
+    },
+    {
+     "asin": "B07GVCZPSJ",
+     "product_id": 1280131,
+     "esci_label": "E",
+     "example_id": 1099374
+    },
+    {
+     "asin": "B07MC1QCHW",
+     "product_id": 1294352,
+     "esci_label": "E",
+     "example_id": 1099371
+    },
+    {
+     "asin": "B07R4CL3YL",
+     "product_id": 1308791,
+     "esci_label": "E",
+     "example_id": 1099370
+    }
+   ]
+  },
+  {
+   "query_id": 55588,
+   "query": "jaybird x3",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B013HSW50Y",
+     "product_id": 1173648,
+     "esci_label": "S",
+     "example_id": 1099394
+    },
+    {
+     "asin": "B07GVCZPSJ",
+     "product_id": 1280131,
+     "esci_label": "S",
+     "example_id": 1099380
+    },
+    {
+     "asin": "B07MC1QCHW",
+     "product_id": 1294352,
+     "esci_label": "S",
+     "example_id": 1099384
+    },
+    {
+     "asin": "B07R9QJS9L",
+     "product_id": 1309472,
+     "esci_label": "S",
+     "example_id": 1099382
+    }
+   ]
+  },
+  {
+   "query_id": 55617,
+   "query": "jbl earbuds wired",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B015XA2TQ4",
+     "product_id": 1178382,
+     "esci_label": "E",
+     "example_id": 1099956
+    },
+    {
+     "asin": "B07PDNN68X",
+     "product_id": 1301671,
+     "esci_label": "E",
+     "example_id": 1099950
+    },
+    {
+     "asin": "B07PGR2B1T",
+     "product_id": 1301992,
+     "esci_label": "E",
+     "example_id": 1099957
+    }
+   ]
+  },
+  {
+   "query_id": 55628,
+   "query": "jbl free x truly wireless earbuds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B079YCNF41",
+     "product_id": 1259354,
+     "esci_label": "S",
+     "example_id": 1100127
+    },
+    {
+     "asin": "B07GWWQK76",
+     "product_id": 1280360,
+     "esci_label": "S",
+     "example_id": 1100125
+    },
+    {
+     "asin": "B07R9QJS9L",
+     "product_id": 1309472,
+     "esci_label": "S",
+     "example_id": 1100116
+    }
+   ]
+  },
+  {
+   "query_id": 55638,
+   "query": "jbl true wireless ear buds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B079YCNF41",
+     "product_id": 1259354,
+     "esci_label": "S",
+     "example_id": 1100329
+    },
+    {
+     "asin": "B07R9QJS9L",
+     "product_id": 1309472,
+     "esci_label": "S",
+     "example_id": 1100331
+    },
+    {
+     "asin": "B07TDBH1KJ",
+     "product_id": 1317273,
+     "esci_label": "S",
+     "example_id": 1100324
+    }
+   ]
+  },
+  {
+   "query_id": 55640,
+   "query": "jbl wired earphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B015XA2TQ4",
+     "product_id": 1178382,
+     "esci_label": "E",
+     "example_id": 1100363
+    },
+    {
+     "asin": "B079YCNF41",
+     "product_id": 1259354,
+     "esci_label": "E",
+     "example_id": 1100361
+    },
+    {
+     "asin": "B07PDNN68X",
+     "product_id": 1301671,
+     "esci_label": "E",
+     "example_id": 1100358
+    }
+   ]
+  },
+  {
+   "query_id": 56038,
+   "query": "jlab",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B0783R1TQJ",
+     "product_id": 1253054,
+     "esci_label": "E",
+     "example_id": 1108108
+    },
+    {
+     "asin": "B07BTL786T",
+     "product_id": 1262960,
+     "esci_label": "E",
+     "example_id": 1108106
+    },
+    {
+     "asin": "B07TDBH1KJ",
+     "product_id": 1317273,
+     "esci_label": "E",
+     "example_id": 1108100
+    }
+   ]
+  },
+  {
+   "query_id": 56040,
+   "query": "jlab wireless earbuds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07M5GFPQN",
+     "product_id": 1293509,
+     "esci_label": "S",
+     "example_id": 1108138
+    },
+    {
+     "asin": "B07RQRX7RW",
+     "product_id": 1311048,
+     "esci_label": "S",
+     "example_id": 1108134
+    },
+    {
+     "asin": "B07TDBH1KJ",
+     "product_id": 1317273,
+     "esci_label": "E",
+     "example_id": 1108133
+    }
+   ]
+  },
+  {
+   "query_id": 58772,
+   "query": "klipsch t5",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07R9QJS9L",
+     "product_id": 1309472,
+     "esci_label": "S",
+     "example_id": 1160289
+    },
+    {
+     "asin": "B07ST59L4F",
+     "product_id": 1315020,
+     "esci_label": "E",
+     "example_id": 1160281
+    },
+    {
+     "asin": "B07X3KGWWD",
+     "product_id": 1327077,
+     "esci_label": "S",
+     "example_id": 1160286
+    },
+    {
+     "asin": "B088XXY7ZS",
+     "product_id": 1357703,
+     "esci_label": "E",
+     "example_id": 1160283
+    }
+   ]
+  },
+  {
+   "query_id": 61776,
+   "query": "lg 24gl65b",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B00W95RR32",
+     "product_id": 1162278,
+     "esci_label": "S",
+     "example_id": 1218578
+    },
+    {
+     "asin": "B07BKCRYKM",
+     "product_id": 1261706,
+     "esci_label": "S",
+     "example_id": 1218573
+    },
+    {
+     "asin": "B07R7636MH",
+     "product_id": 1309164,
+     "esci_label": "S",
+     "example_id": 1218571
+    },
+    {
+     "asin": "B07SXXSQ1X",
+     "product_id": 1315431,
+     "esci_label": "E",
+     "example_id": 1218564
+    }
+   ]
+  },
+  {
+   "query_id": 61777,
+   "query": "lg 24mp60vq",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B00W95RR32",
+     "product_id": 1162278,
+     "esci_label": "S",
+     "example_id": 1218595
+    },
+    {
+     "asin": "B07GZ5851Z",
+     "product_id": 1280675,
+     "esci_label": "S",
+     "example_id": 1218580
+    },
+    {
+     "asin": "B07XVLVD22",
+     "product_id": 1329263,
+     "esci_label": "S",
+     "example_id": 1218583
+    },
+    {
+     "asin": "B0859NQH3F",
+     "product_id": 1348596,
+     "esci_label": "S",
+     "example_id": 1218582
+    }
+   ]
+  },
+  {
+   "query_id": 61778,
+   "query": "lg 27 inch monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B07GZ5851Z",
+     "product_id": 1280675,
+     "esci_label": "E",
+     "example_id": 1218611
+    },
+    {
+     "asin": "B07R7636MH",
+     "product_id": 1309164,
+     "esci_label": "E",
+     "example_id": 1218598
+    },
+    {
+     "asin": "B07YGZL8XF",
+     "product_id": 1331232,
+     "esci_label": "E",
+     "example_id": 1218602
+    },
+    {
+     "asin": "B07YGZRQ98",
+     "product_id": 1331233,
+     "esci_label": "S",
+     "example_id": 1218599
+    }
+   ]
+  },
+  {
+   "query_id": 61779,
+   "query": "lg 32gk650f-b",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B078GSH1LV",
+     "product_id": 1254113,
+     "esci_label": "S",
+     "example_id": 1218625
+    },
+    {
+     "asin": "B07GC8X5YN",
+     "product_id": 1278342,
+     "esci_label": "S",
+     "example_id": 1218622
+    },
+    {
+     "asin": "B07R7636MH",
+     "product_id": 1309164,
+     "esci_label": "S",
+     "example_id": 1218618
+    },
+    {
+     "asin": "B07SQP3W2G",
+     "product_id": 1314709,
+     "esci_label": "S",
+     "example_id": 1218616
+    },
+    {
+     "asin": "B07X1LCMLS",
+     "product_id": 1326780,
+     "esci_label": "S",
+     "example_id": 1218614
+    },
+    {
+     "asin": "B07YGZL8XF",
+     "product_id": 1331232,
+     "esci_label": "S",
+     "example_id": 1218613
+    },
+    {
+     "asin": "B07YGZRQ98",
+     "product_id": 1331233,
+     "esci_label": "S",
+     "example_id": 1218612
+    }
+   ]
+  },
+  {
+   "query_id": 61780,
+   "query": "lg 34uc88",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B00PXYRMPE",
+     "product_id": 1151088,
+     "esci_label": "S",
+     "example_id": 1218642
+    },
+    {
+     "asin": "B01B9IDL4I",
+     "product_id": 1189101,
+     "esci_label": "E",
+     "example_id": 1218640
+    },
+    {
+     "asin": "B01LW54S4U",
+     "product_id": 1209988,
+     "esci_label": "S",
+     "example_id": 1218637
+    },
+    {
+     "asin": "B06XFXX5JH",
+     "product_id": 1224981,
+     "esci_label": "S",
+     "example_id": 1218643
+    },
+    {
+     "asin": "B072JRQYRH",
+     "product_id": 1234681,
+     "esci_label": "S",
+     "example_id": 1218635
+    },
+    {
+     "asin": "B078GSH1LV",
+     "product_id": 1254113,
+     "esci_label": "S",
+     "example_id": 1218633
+    },
+    {
+     "asin": "B07YRXF62V",
+     "product_id": 1331941,
+     "esci_label": "S",
+     "example_id": 1218629
+    }
+   ]
+  },
+  {
+   "query_id": 61831,
+   "query": "lg ips curve",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B01LW54S4U",
+     "product_id": 1209988,
+     "esci_label": "E",
+     "example_id": 1219667
+    },
+    {
+     "asin": "B06XFXX5JH",
+     "product_id": 1224981,
+     "esci_label": "S",
+     "example_id": 1219665
+    },
+    {
+     "asin": "B07YGZL8XF",
+     "product_id": 1331232,
+     "esci_label": "S",
+     "example_id": 1219655
+    }
+   ]
+  },
+  {
+   "query_id": 61896,
+   "query": "lg tones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B0779L5S6G",
+     "product_id": 1250445,
+     "esci_label": "E",
+     "example_id": 1220799
+    },
+    {
+     "asin": "B07WDRPXLB",
+     "product_id": 1324721,
+     "esci_label": "E",
+     "example_id": 1220793
+    },
+    {
+     "asin": "B07ZJWFW4L",
+     "product_id": 1334596,
+     "esci_label": "E",
+     "example_id": 1220788
+    }
+   ]
+  },
+  {
+   "query_id": 61901,
+   "query": "lg uk850",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B00PXYRMPE",
+     "product_id": 1151088,
+     "esci_label": "S",
+     "example_id": 1220904
+    },
+    {
+     "asin": "B07WWBMM2B",
+     "product_id": 1326413,
+     "esci_label": "S",
+     "example_id": 1220905
+    },
+    {
+     "asin": "B084LB7RN2",
+     "product_id": 1346884,
+     "esci_label": "S",
+     "example_id": 1220893
+    }
+   ]
+  },
+  {
+   "query_id": 61904,
+   "query": "lg ultragear",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B07R7636MH",
+     "product_id": 1309164,
+     "esci_label": "E",
+     "example_id": 1220949
+    },
+    {
+     "asin": "B07SQP3W2G",
+     "product_id": 1314709,
+     "esci_label": "E",
+     "example_id": 1220942
+    },
+    {
+     "asin": "B07SXXSQ1X",
+     "product_id": 1315431,
+     "esci_label": "E",
+     "example_id": 1220941
+    },
+    {
+     "asin": "B07YGZL8XF",
+     "product_id": 1331232,
+     "esci_label": "E",
+     "example_id": 1220940
+    },
+    {
+     "asin": "B07YGZRQ98",
+     "product_id": 1331233,
+     "esci_label": "S",
+     "example_id": 1220939
+    }
+   ]
+  },
+  {
+   "query_id": 61905,
+   "query": "lg ultrawide",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B072JRQYRH",
+     "product_id": 1234681,
+     "esci_label": "E",
+     "example_id": 1220959
+    },
+    {
+     "asin": "B078GSH1LV",
+     "product_id": 1254113,
+     "esci_label": "E",
+     "example_id": 1220965
+    },
+    {
+     "asin": "B07PZR2YY4",
+     "product_id": 1304233,
+     "esci_label": "S",
+     "example_id": 1220954
+    },
+    {
+     "asin": "B084G7ZDGD",
+     "product_id": 1346544,
+     "esci_label": "E",
+     "example_id": 1220950
+    }
+   ]
+  },
+  {
+   "query_id": 62696,
+   "query": "linsoul tin audio t2 hifi 2dd",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07DL2FPBL",
+     "product_id": 1271037,
+     "esci_label": "E",
+     "example_id": 1236703
+    },
+    {
+     "asin": "B07HQQ9T6D",
+     "product_id": 1283913,
+     "esci_label": "E",
+     "example_id": 1236700
+    },
+    {
+     "asin": "B07NQ8H77N",
+     "product_id": 1298896,
+     "esci_label": "S",
+     "example_id": 1236690
+    }
+   ]
+  },
+  {
+   "query_id": 63179,
+   "query": "lobby chairs without arms",
+   "filters": {
+    "domain": "home_office",
+    "category_key": "chair"
+   },
+   "judgments": [
+    {
+     "asin": "B0032JUOU2",
+     "product_id": 1046422,
+     "esci_label": "E",
+     "example_id": 1245810
+    },
+    {
+     "asin": "B0722P7BFN",
+     "product_id": 1233418,
+     "esci_label": "E",
+     "example_id": 1245782
+    },
+    {
+     "asin": "B072Y5MZQH",
+     "product_id": 1235852,
+     "esci_label": "I",
+     "example_id": 1245780
+    }
+   ]
+  },
+  {
+   "query_id": 65896,
+   "query": "marley earbuds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B00S2P0M1C",
+     "product_id": 1154520,
+     "esci_label": "S",
+     "example_id": 1299236
+    },
+    {
+     "asin": "B01L8EF862",
+     "product_id": 1208840,
+     "esci_label": "E",
+     "example_id": 1299231
+    },
+    {
+     "asin": "B07PYLJ89Z",
+     "product_id": 1304101,
+     "esci_label": "E",
+     "example_id": 1299226
+    }
+   ]
+  },
+  {
+   "query_id": 70363,
+   "query": "moniter pivo",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B010N06WIA",
+     "product_id": 1170324,
+     "esci_label": "E",
+     "example_id": 1385142
+    },
+    {
+     "asin": "B010OTFF42",
+     "product_id": 1170448,
+     "esci_label": "E",
+     "example_id": 1385141
+    },
+    {
+     "asin": "B087ZX8JBC",
+     "product_id": 1355297,
+     "esci_label": "E",
+     "example_id": 1385133
+    }
+   ]
+  },
+  {
+   "query_id": 70367,
+   "query": "monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B01F6V6SSK",
+     "product_id": 1197925,
+     "esci_label": "E",
+     "example_id": 1385253
+    },
+    {
+     "asin": "B0742D9CDX",
+     "product_id": 1238988,
+     "esci_label": "E",
+     "example_id": 1385246
+    },
+    {
+     "asin": "B07YGZL8XF",
+     "product_id": 1331232,
+     "esci_label": "E",
+     "example_id": 1385201
+    },
+    {
+     "asin": "B07YTNYT11",
+     "product_id": 1332105,
+     "esci_label": "E",
+     "example_id": 1385206
+    },
+    {
+     "asin": "B083W8PJPB",
+     "product_id": 1345407,
+     "esci_label": "E",
+     "example_id": 1385236
+    }
+   ]
+  },
+  {
+   "query_id": 70369,
+   "query": "monitor 38",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B00PXYRMPE",
+     "product_id": 1151088,
+     "esci_label": "S",
+     "example_id": 1385317
+    },
+    {
+     "asin": "B078GSH1LV",
+     "product_id": 1254113,
+     "esci_label": "S",
+     "example_id": 1385319
+    },
+    {
+     "asin": "B07QL3VRNN",
+     "product_id": 1306631,
+     "esci_label": "S",
+     "example_id": 1385306
+    }
+   ]
+  },
+  {
+   "query_id": 70372,
+   "query": "monitor acer 27 inch",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B0742D9CDX",
+     "product_id": 1238988,
+     "esci_label": "E",
+     "example_id": 1385360
+    },
+    {
+     "asin": "B075D5NDFZ",
+     "product_id": 1243719,
+     "esci_label": "E",
+     "example_id": 1385358
+    },
+    {
+     "asin": "B07N7ZRKHR",
+     "product_id": 1297753,
+     "esci_label": "E",
+     "example_id": 1385354
+    }
+   ]
+  },
+  {
+   "query_id": 70381,
+   "query": "monitor for day trading",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B06ZZ25ZZS",
+     "product_id": 1228949,
+     "esci_label": "E",
+     "example_id": 1385519
+    },
+    {
+     "asin": "B07XVLVD22",
+     "product_id": 1329263,
+     "esci_label": "E",
+     "example_id": 1385522
+    },
+    {
+     "asin": "B07YRXF62V",
+     "product_id": 1331941,
+     "esci_label": "E",
+     "example_id": 1385512
+    }
+   ]
+  },
+  {
+   "query_id": 70386,
+   "query": "monitor ips 144hz 1ms",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B07WSK5W7V",
+     "product_id": 1326076,
+     "esci_label": "E",
+     "example_id": 1385599
+    },
+    {
+     "asin": "B07WVN6CWT",
+     "product_id": 1326322,
+     "esci_label": "E",
+     "example_id": 1385598
+    },
+    {
+     "asin": "B07YGZL8XF",
+     "product_id": 1331232,
+     "esci_label": "E",
+     "example_id": 1385597
+    },
+    {
+     "asin": "B083K17XLH",
+     "product_id": 1344310,
+     "esci_label": "E",
+     "example_id": 1385594
+    },
+    {
+     "asin": "B08FF8H42N",
+     "product_id": 1369587,
+     "esci_label": "E",
+     "example_id": 1385590
+    },
+    {
+     "asin": "B08ND5PHND",
+     "product_id": 1385294,
+     "esci_label": "E",
+     "example_id": 1385589
+    }
+   ]
+  },
+  {
+   "query_id": 70395,
+   "query": "monitor samsung",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B01D3BDXQA",
+     "product_id": 1193136,
+     "esci_label": "E",
+     "example_id": 1385768
+    },
+    {
+     "asin": "B07H5TK2LD",
+     "product_id": 1281668,
+     "esci_label": "E",
+     "example_id": 1385765
+    },
+    {
+     "asin": "B083W8PJPB",
+     "product_id": 1345407,
+     "esci_label": "E",
+     "example_id": 1385759
+    }
+   ]
+  },
+  {
+   "query_id": 70407,
+   "query": "monitors computer",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B00KWCD8D2",
+     "product_id": 1137302,
+     "esci_label": "E",
+     "example_id": 1385990
+    },
+    {
+     "asin": "B01F6V6SSK",
+     "product_id": 1197925,
+     "esci_label": "E",
+     "example_id": 1385988
+    },
+    {
+     "asin": "B07VFC787T",
+     "product_id": 1321142,
+     "esci_label": "E",
+     "example_id": 1385981
+    },
+    {
+     "asin": "B083W8PJPB",
+     "product_id": 1345407,
+     "esci_label": "E",
+     "example_id": 1385977
+    }
+   ]
+  },
+  {
+   "query_id": 70475,
+   "query": "monoprice headphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B007SP2CO2",
+     "product_id": 1083211,
+     "esci_label": "E",
+     "example_id": 1387292
+    },
+    {
+     "asin": "B01M7Z0VKR",
+     "product_id": 1213958,
+     "esci_label": "E",
+     "example_id": 1387293
+    },
+    {
+     "asin": "B01MTIUQD0",
+     "product_id": 1216581,
+     "esci_label": "E",
+     "example_id": 1387299
+    }
+   ]
+  },
+  {
+   "query_id": 71197,
+   "query": "mpg341cqr",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B07LCX18MW",
+     "product_id": 1292980,
+     "esci_label": "S",
+     "example_id": 1401147
+    },
+    {
+     "asin": "B07QNM7P5Y",
+     "product_id": 1307004,
+     "esci_label": "S",
+     "example_id": 1401146
+    },
+    {
+     "asin": "B07S5GWSZL",
+     "product_id": 1312723,
+     "esci_label": "S",
+     "example_id": 1401144
+    }
+   ]
+  },
+  {
+   "query_id": 71289,
+   "query": "msi 27 inch monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B07GD5XG5G",
+     "product_id": 1278451,
+     "esci_label": "S",
+     "example_id": 1402849
+    },
+    {
+     "asin": "B07RPFZPS9",
+     "product_id": 1310861,
+     "esci_label": "E",
+     "example_id": 1402845
+    },
+    {
+     "asin": "B07S5GWSZL",
+     "product_id": 1312723,
+     "esci_label": "E",
+     "example_id": 1402846
+    },
+    {
+     "asin": "B07TDPBXDW",
+     "product_id": 1317332,
+     "esci_label": "S",
+     "example_id": 1402843
+    },
+    {
+     "asin": "B07TY37YG9",
+     "product_id": 1319246,
+     "esci_label": "S",
+     "example_id": 1402844
+    },
+    {
+     "asin": "B0829976SZ",
+     "product_id": 1340226,
+     "esci_label": "E",
+     "example_id": 1402842
+    }
+   ]
+  },
+  {
+   "query_id": 71310,
+   "query": "msi mag24c",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B07S5GWSZL",
+     "product_id": 1312723,
+     "esci_label": "S",
+     "example_id": 1403279
+    },
+    {
+     "asin": "B07TPZK321",
+     "product_id": 1318300,
+     "esci_label": "S",
+     "example_id": 1403278
+    },
+    {
+     "asin": "B0829976SZ",
+     "product_id": 1340226,
+     "esci_label": "S",
+     "example_id": 1403274
+    },
+    {
+     "asin": "B087YF1JNB",
+     "product_id": 1355195,
+     "esci_label": "S",
+     "example_id": 1403269
+    },
+    {
+     "asin": "B089Q5K7GK",
+     "product_id": 1359914,
+     "esci_label": "E",
+     "example_id": 1403268
+    }
+   ]
+  },
+  {
+   "query_id": 72110,
+   "query": "nakamichi wireless 7.1",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B00BNQ8C78",
+     "product_id": 1103799,
+     "esci_label": "C",
+     "example_id": 1419477
+    },
+    {
+     "asin": "B00FYKSFCG",
+     "product_id": 1119542,
+     "esci_label": "C",
+     "example_id": 1419480
+    },
+    {
+     "asin": "B00QU6AU80",
+     "product_id": 1152581,
+     "esci_label": "C",
+     "example_id": 1419471
+    },
+    {
+     "asin": "B00ULJCC4M",
+     "product_id": 1159005,
+     "esci_label": "C",
+     "example_id": 1419470
+    }
+   ]
+  },
+  {
+   "query_id": 74160,
+   "query": "noise cancelling earbuds samsung",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07NLLLXNX",
+     "product_id": 1298595,
+     "esci_label": "E",
+     "example_id": 1458382
+    },
+    {
+     "asin": "B07V2LFMV8",
+     "product_id": 1319726,
+     "esci_label": "E",
+     "example_id": 1458379
+    },
+    {
+     "asin": "B0851C5KLV",
+     "product_id": 1347855,
+     "esci_label": "E",
+     "example_id": 1458374
+    }
+   ]
+  },
+  {
+   "query_id": 74162,
+   "query": "noise cancelling headphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B079GPFLT1",
+     "product_id": 1257820,
+     "esci_label": "E",
+     "example_id": 1458433
+    },
+    {
+     "asin": "B07V5XS4MV",
+     "product_id": 1320217,
+     "esci_label": "E",
+     "example_id": 1458417
+    },
+    {
+     "asin": "B085DKHY5K",
+     "product_id": 1348826,
+     "esci_label": "E",
+     "example_id": 1458410
+    }
+   ]
+  },
+  {
+   "query_id": 76839,
+   "query": "over the ear headphones charging dock",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B0001FTVEK",
+     "product_id": 1008787,
+     "esci_label": "S",
+     "example_id": 1510190
+    },
+    {
+     "asin": "B07J4TYZ72",
+     "product_id": 1284768,
+     "esci_label": "E",
+     "example_id": 1510184
+    },
+    {
+     "asin": "B0859QS3CL",
+     "product_id": 1348614,
+     "esci_label": "E",
+     "example_id": 1510176
+    }
+   ]
+  },
+  {
+   "query_id": 79612,
+   "query": "phone with headset",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B0032HM6JG",
+     "product_id": 1046392,
+     "esci_label": "S",
+     "example_id": 1563778
+    },
+    {
+     "asin": "B00GY4LKYG",
+     "product_id": 1122878,
+     "esci_label": "E",
+     "example_id": 1563772
+    },
+    {
+     "asin": "B01KFLGL5Q",
+     "product_id": 1207398,
+     "esci_label": "S",
+     "example_id": 1563779
+    },
+    {
+     "asin": "B07NQ8S7MN",
+     "product_id": 1298898,
+     "esci_label": "S",
+     "example_id": 1563768
+    }
+   ]
+  },
+  {
+   "query_id": 82932,
+   "query": "powerbeats",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B06X979GGB",
+     "product_id": 1224004,
+     "esci_label": "E",
+     "example_id": 1627747
+    },
+    {
+     "asin": "B07SKYFVF6",
+     "product_id": 1314195,
+     "esci_label": "E",
+     "example_id": 1627749
+    },
+    {
+     "asin": "B084D5CG5Z",
+     "product_id": 1346414,
+     "esci_label": "E",
+     "example_id": 1627736
+    }
+   ]
+  },
+  {
+   "query_id": 87472,
+   "query": "rf wireless headphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B0001FTVEK",
+     "product_id": 1008787,
+     "esci_label": "E",
+     "example_id": 1715273
+    },
+    {
+     "asin": "B07B81ZMT9",
+     "product_id": 1260337,
+     "esci_label": "E",
+     "example_id": 1715268
+    },
+    {
+     "asin": "B07CKVBWNY",
+     "product_id": 1265709,
+     "esci_label": "S",
+     "example_id": 1715267
+    },
+    {
+     "asin": "B07J4TYZ72",
+     "product_id": 1284768,
+     "esci_label": "S",
+     "example_id": 1715266
+    }
+   ]
+  },
+  {
+   "query_id": 88190,
+   "query": "rog strix xg43uq",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B078GSH1LV",
+     "product_id": 1254113,
+     "esci_label": "S",
+     "example_id": 1729609
+    },
+    {
+     "asin": "B07WDLV344",
+     "product_id": 1324689,
+     "esci_label": "E",
+     "example_id": 1729607
+    },
+    {
+     "asin": "B082XZKQN6",
+     "product_id": 1342464,
+     "esci_label": "E",
+     "example_id": 1729605
+    },
+    {
+     "asin": "B084F3T553",
+     "product_id": 1346490,
+     "esci_label": "S",
+     "example_id": 1729603
+    },
+    {
+     "asin": "B084LB7RN2",
+     "product_id": 1346884,
+     "esci_label": "S",
+     "example_id": 1729610
+    },
+    {
+     "asin": "B089VVWQ3W",
+     "product_id": 1360376,
+     "esci_label": "S",
+     "example_id": 1729600
+    },
+    {
+     "asin": "B08HHD44SY",
+     "product_id": 1374105,
+     "esci_label": "E",
+     "example_id": 1729598
+    }
+   ]
+  },
+  {
+   "query_id": 89920,
+   "query": "samsumg headphone",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B014DYJ67Q",
+     "product_id": 1175356,
+     "esci_label": "E",
+     "example_id": 1763015
+    },
+    {
+     "asin": "B07PTXSHWR",
+     "product_id": 1303567,
+     "esci_label": "E",
+     "example_id": 1763002
+    },
+    {
+     "asin": "B083BDKFND",
+     "product_id": 1343567,
+     "esci_label": "E",
+     "example_id": 1763005
+    }
+   ]
+  },
+  {
+   "query_id": 89930,
+   "query": "samsung 49 inch curved monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B08623SZH9",
+     "product_id": 1350562,
+     "esci_label": "E",
+     "example_id": 1763192
+    },
+    {
+     "asin": "B08KQH5F1K",
+     "product_id": 1379054,
+     "esci_label": "E",
+     "example_id": 1763191
+    },
+    {
+     "asin": "B09G2ZV5VC",
+     "product_id": 1427741,
+     "esci_label": "S",
+     "example_id": 1763188
+    }
+   ]
+  },
+  {
+   "query_id": 89991,
+   "query": "samsung buds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B0768GKLNL",
+     "product_id": 1247071,
+     "esci_label": "E",
+     "example_id": 1764238
+    },
+    {
+     "asin": "B07NLLLXNX",
+     "product_id": 1298595,
+     "esci_label": "E",
+     "example_id": 1764236
+    },
+    {
+     "asin": "B07RV42L47",
+     "product_id": 1311492,
+     "esci_label": "E",
+     "example_id": 1764231
+    },
+    {
+     "asin": "B0869CM495",
+     "product_id": 1351068,
+     "esci_label": "E",
+     "example_id": 1764225
+    }
+   ]
+  },
+  {
+   "query_id": 90009,
+   "query": "samsung ear buds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B014DYJ67Q",
+     "product_id": 1175356,
+     "esci_label": "S",
+     "example_id": 1764537
+    },
+    {
+     "asin": "B07NLLLXNX",
+     "product_id": 1298595,
+     "esci_label": "E",
+     "example_id": 1764534
+    },
+    {
+     "asin": "B082QPHYZQ",
+     "product_id": 1341604,
+     "esci_label": "S",
+     "example_id": 1764528
+    },
+    {
+     "asin": "B0869CM495",
+     "product_id": 1351068,
+     "esci_label": "E",
+     "example_id": 1764524
+    }
+   ]
+  },
+  {
+   "query_id": 90010,
+   "query": "samsung ear pods",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07NLLLXNX",
+     "product_id": 1298595,
+     "esci_label": "E",
+     "example_id": 1764551
+    },
+    {
+     "asin": "B07TQS33TM",
+     "product_id": 1318355,
+     "esci_label": "E",
+     "example_id": 1764553
+    },
+    {
+     "asin": "B086ZGCZQ3",
+     "product_id": 1352706,
+     "esci_label": "S",
+     "example_id": 1764542
+    }
+   ]
+  },
+  {
+   "query_id": 90011,
+   "query": "samsung earbuds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B014DYJ67Q",
+     "product_id": 1175356,
+     "esci_label": "S",
+     "example_id": 1764578
+    },
+    {
+     "asin": "B01LOQ3BW2",
+     "product_id": 1209610,
+     "esci_label": "S",
+     "example_id": 1764580
+    },
+    {
+     "asin": "B07NLLLXNX",
+     "product_id": 1298595,
+     "esci_label": "E",
+     "example_id": 1764585
+    },
+    {
+     "asin": "B082QPHYZQ",
+     "product_id": 1341604,
+     "esci_label": "S",
+     "example_id": 1764560
+    },
+    {
+     "asin": "B0869CM495",
+     "product_id": 1351068,
+     "esci_label": "E",
+     "example_id": 1764565
+    }
+   ]
+  },
+  {
+   "query_id": 90013,
+   "query": "samsung earbuds with microphone",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B014DYJ67Q",
+     "product_id": 1175356,
+     "esci_label": "E",
+     "example_id": 1764618
+    },
+    {
+     "asin": "B01LOQ3BW2",
+     "product_id": 1209610,
+     "esci_label": "S",
+     "example_id": 1764617
+    },
+    {
+     "asin": "B082QPHYZQ",
+     "product_id": 1341604,
+     "esci_label": "E",
+     "example_id": 1764607
+    }
+   ]
+  },
+  {
+   "query_id": 90015,
+   "query": "samsung eg920",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B005J29XT8",
+     "product_id": 1071919,
+     "esci_label": "S",
+     "example_id": 1764650
+    },
+    {
+     "asin": "B014DYJ67Q",
+     "product_id": 1175356,
+     "esci_label": "E",
+     "example_id": 1764642
+    },
+    {
+     "asin": "B01LOQ3BW2",
+     "product_id": 1209610,
+     "esci_label": "E",
+     "example_id": 1764640
+    },
+    {
+     "asin": "B07RM5WB44",
+     "product_id": 1310597,
+     "esci_label": "S",
+     "example_id": 1764643
+    }
+   ]
+  },
+  {
+   "query_id": 90052,
+   "query": "samsung galaxy buds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B00XAF0AIE",
+     "product_id": 1164700,
+     "esci_label": "S",
+     "example_id": 1765258
+    },
+    {
+     "asin": "B07RV42L47",
+     "product_id": 1311492,
+     "esci_label": "E",
+     "example_id": 1765250
+    },
+    {
+     "asin": "B083PTVPPX",
+     "product_id": 1344774,
+     "esci_label": "E",
+     "example_id": 1765244
+    }
+   ]
+  },
+  {
+   "query_id": 90181,
+   "query": "samsung gaming monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B01D3BDXQA",
+     "product_id": 1193136,
+     "esci_label": "E",
+     "example_id": 1767432
+    },
+    {
+     "asin": "B07TGMC29J",
+     "product_id": 1317522,
+     "esci_label": "E",
+     "example_id": 1767427
+    },
+    {
+     "asin": "B07WVN6CWT",
+     "product_id": 1326322,
+     "esci_label": "E",
+     "example_id": 1767426
+    }
+   ]
+  },
+  {
+   "query_id": 90190,
+   "query": "samsung headphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B014DYJ67Q",
+     "product_id": 1175356,
+     "esci_label": "E",
+     "example_id": 1767580
+    },
+    {
+     "asin": "B08287GMGJ",
+     "product_id": 1340101,
+     "esci_label": "E",
+     "example_id": 1767573
+    },
+    {
+     "asin": "B082QPHYZQ",
+     "product_id": 1341604,
+     "esci_label": "E",
+     "example_id": 1767572
+    },
+    {
+     "asin": "B083TD8F4P",
+     "product_id": 1345197,
+     "esci_label": "E",
+     "example_id": 1767575
+    },
+    {
+     "asin": "B086ZGCZQ3",
+     "product_id": 1352706,
+     "esci_label": "E",
+     "example_id": 1767568
+    }
+   ]
+  },
+  {
+   "query_id": 90211,
+   "query": "samsung monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B010N06WIA",
+     "product_id": 1170324,
+     "esci_label": "E",
+     "example_id": 1767915
+    },
+    {
+     "asin": "B01D3BDXQA",
+     "product_id": 1193136,
+     "esci_label": "E",
+     "example_id": 1767919
+    },
+    {
+     "asin": "B06ZZFKZTT",
+     "product_id": 1229045,
+     "esci_label": "E",
+     "example_id": 1767929
+    },
+    {
+     "asin": "B07H5TK2LD",
+     "product_id": 1281668,
+     "esci_label": "E",
+     "example_id": 1767914
+    },
+    {
+     "asin": "B083W8PJPB",
+     "product_id": 1345407,
+     "esci_label": "E",
+     "example_id": 1767903
+    },
+    {
+     "asin": "B08623SZH9",
+     "product_id": 1350562,
+     "esci_label": "E",
+     "example_id": 1767911
+    }
+   ]
+  },
+  {
+   "query_id": 90353,
+   "query": "samsung wireless over ear",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B017KE8N0M",
+     "product_id": 1181693,
+     "esci_label": "E",
+     "example_id": 1770356
+    },
+    {
+     "asin": "B074L6679R",
+     "product_id": 1240846,
+     "esci_label": "S",
+     "example_id": 1770350
+    },
+    {
+     "asin": "B07G8N2V9V",
+     "product_id": 1277907,
+     "esci_label": "E",
+     "example_id": 1770343
+    },
+    {
+     "asin": "B07JFKSP9F",
+     "product_id": 1285500,
+     "esci_label": "E",
+     "example_id": 1770345
+    }
+   ]
+  },
+  {
+   "query_id": 91717,
+   "query": "sennheiser headphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B0001FTVEK",
+     "product_id": 1008787,
+     "esci_label": "S",
+     "example_id": 1796008
+    },
+    {
+     "asin": "B00KK8ZLEC",
+     "product_id": 1136208,
+     "esci_label": "E",
+     "example_id": 1796006
+    },
+    {
+     "asin": "B06X92G8HG",
+     "product_id": 1223972,
+     "esci_label": "E",
+     "example_id": 1796002
+    }
+   ]
+  },
+  {
+   "query_id": 96094,
+   "query": "sony bluetooth headphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B01KOE179Y",
+     "product_id": 1207921,
+     "esci_label": "E",
+     "example_id": 1879866
+    },
+    {
+     "asin": "B07LDCLP11",
+     "product_id": 1293027,
+     "esci_label": "E",
+     "example_id": 1879862
+    },
+    {
+     "asin": "B07MQG3V9M",
+     "product_id": 1295873,
+     "esci_label": "E",
+     "example_id": 1879861
+    }
+   ]
+  },
+  {
+   "query_id": 96135,
+   "query": "sony noise cancelling headphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B079GPFLT1",
+     "product_id": 1257820,
+     "esci_label": "E",
+     "example_id": 1880641
+    },
+    {
+     "asin": "B07CX6HHFK",
+     "product_id": 1267480,
+     "esci_label": "E",
+     "example_id": 1880638
+    },
+    {
+     "asin": "B07LDCLP11",
+     "product_id": 1293027,
+     "esci_label": "E",
+     "example_id": 1880634
+    },
+    {
+     "asin": "B07MQG3V9M",
+     "product_id": 1295873,
+     "esci_label": "E",
+     "example_id": 1880633
+    },
+    {
+     "asin": "B07RF2QP2H",
+     "product_id": 1309815,
+     "esci_label": "E",
+     "example_id": 1880632
+    },
+    {
+     "asin": "B089WJN6C4",
+     "product_id": 1360475,
+     "esci_label": "E",
+     "example_id": 1880624
+    }
+   ]
+  },
+  {
+   "query_id": 96170,
+   "query": "sony wireless headphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07J4TYZ72",
+     "product_id": 1284768,
+     "esci_label": "E",
+     "example_id": 1881344
+    },
+    {
+     "asin": "B07MQG3V9M",
+     "product_id": 1295873,
+     "esci_label": "E",
+     "example_id": 1881337
+    },
+    {
+     "asin": "B087NHX6ZR",
+     "product_id": 1354467,
+     "esci_label": "E",
+     "example_id": 1881333
+    }
+   ]
+  },
+  {
+   "query_id": 96311,
+   "query": "sound peats wireless headphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07WYX1N5N",
+     "product_id": 1326610,
+     "esci_label": "E",
+     "example_id": 1884005
+    },
+    {
+     "asin": "B08548M6FF",
+     "product_id": 1348132,
+     "esci_label": "E",
+     "example_id": 1883999
+    },
+    {
+     "asin": "B0896SS8QZ",
+     "product_id": 1358505,
+     "esci_label": "E",
+     "example_id": 1884001
+    }
+   ]
+  },
+  {
+   "query_id": 96326,
+   "query": "soundpeats",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B081RW5X5M",
+     "product_id": 1338530,
+     "esci_label": "E",
+     "example_id": 1884238
+    },
+    {
+     "asin": "B08548M6FF",
+     "product_id": 1348132,
+     "esci_label": "E",
+     "example_id": 1884234
+    },
+    {
+     "asin": "B0896SS8QZ",
+     "product_id": 1358505,
+     "esci_label": "E",
+     "example_id": 1884232
+    }
+   ]
+  },
+  {
+   "query_id": 96327,
+   "query": "soundpeats q32",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07M5GFPQN",
+     "product_id": 1293509,
+     "esci_label": "E",
+     "example_id": 1884259
+    },
+    {
+     "asin": "B07WYX1N5N",
+     "product_id": 1326610,
+     "esci_label": "E",
+     "example_id": 1884247
+    },
+    {
+     "asin": "B08548M6FF",
+     "product_id": 1348132,
+     "esci_label": "E",
+     "example_id": 1884250
+    }
+   ]
+  },
+  {
+   "query_id": 102971,
+   "query": "thunderbolt portable monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B0837HCS15",
+     "product_id": 1343327,
+     "esci_label": "S",
+     "example_id": 2010351
+    },
+    {
+     "asin": "B086VJP65W",
+     "product_id": 1352306,
+     "esci_label": "S",
+     "example_id": 2010349
+    },
+    {
+     "asin": "B089GZVXCX",
+     "product_id": 1359320,
+     "esci_label": "S",
+     "example_id": 2010340
+    },
+    {
+     "asin": "B08JB1NKN5",
+     "product_id": 1376340,
+     "esci_label": "S",
+     "example_id": 2010344
+    }
+   ]
+  },
+  {
+   "query_id": 106229,
+   "query": "type c earbuds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07M7TJBMJ",
+     "product_id": 1293884,
+     "esci_label": "E",
+     "example_id": 2073903
+    },
+    {
+     "asin": "B07V6FXJ3Q",
+     "product_id": 1320272,
+     "esci_label": "E",
+     "example_id": 2073898
+    },
+    {
+     "asin": "B07ZD3DFFX",
+     "product_id": 1334028,
+     "esci_label": "E",
+     "example_id": 2073889
+    },
+    {
+     "asin": "B082QPHYZQ",
+     "product_id": 1341604,
+     "esci_label": "E",
+     "example_id": 2073892
+    },
+    {
+     "asin": "B084HGW2SJ",
+     "product_id": 1346666,
+     "esci_label": "E",
+     "example_id": 2073891
+    }
+   ]
+  },
+  {
+   "query_id": 106476,
+   "query": "ultra wide monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B06XFXX5JH",
+     "product_id": 1224981,
+     "esci_label": "E",
+     "example_id": 2078830
+    },
+    {
+     "asin": "B078GSH1LV",
+     "product_id": 1254113,
+     "esci_label": "E",
+     "example_id": 2078828
+    },
+    {
+     "asin": "B07YRXF62V",
+     "product_id": 1331941,
+     "esci_label": "E",
+     "example_id": 2078820
+    }
+   ]
+  },
+  {
+   "query_id": 106488,
+   "query": "ultrasharp",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B00PXYRMPE",
+     "product_id": 1151088,
+     "esci_label": "E",
+     "example_id": 2079023
+    },
+    {
+     "asin": "B01D11JUAU",
+     "product_id": 1192966,
+     "esci_label": "E",
+     "example_id": 2079022
+    },
+    {
+     "asin": "B01D402Z28",
+     "product_id": 1193187,
+     "esci_label": "E",
+     "example_id": 2079021
+    },
+    {
+     "asin": "B075KGLYRL",
+     "product_id": 1244484,
+     "esci_label": "E",
+     "example_id": 2079018
+    },
+    {
+     "asin": "B07HDBD9CM",
+     "product_id": 1282619,
+     "esci_label": "E",
+     "example_id": 2079015
+    },
+    {
+     "asin": "B07KC9C2XQ",
+     "product_id": 1288874,
+     "esci_label": "E",
+     "example_id": 2079012
+    }
+   ]
+  },
+  {
+   "query_id": 106503,
+   "query": "ultrawide monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B00PXYRMPE",
+     "product_id": 1151088,
+     "esci_label": "E",
+     "example_id": 2079322
+    },
+    {
+     "asin": "B06XFXX5JH",
+     "product_id": 1224981,
+     "esci_label": "E",
+     "example_id": 2079319
+    },
+    {
+     "asin": "B078GSH1LV",
+     "product_id": 1254113,
+     "esci_label": "E",
+     "example_id": 2079317
+    },
+    {
+     "asin": "B07YRXF62V",
+     "product_id": 1331941,
+     "esci_label": "E",
+     "example_id": 2079310
+    }
+   ]
+  },
+  {
+   "query_id": 106504,
+   "query": "ultrawide monitor 34",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B00PXYRMPE",
+     "product_id": 1151088,
+     "esci_label": "E",
+     "example_id": 2079334
+    },
+    {
+     "asin": "B06XFXX5JH",
+     "product_id": 1224981,
+     "esci_label": "E",
+     "example_id": 2079335
+    },
+    {
+     "asin": "B078GSH1LV",
+     "product_id": 1254113,
+     "esci_label": "E",
+     "example_id": 2079339
+    },
+    {
+     "asin": "B07YRXF62V",
+     "product_id": 1331941,
+     "esci_label": "E",
+     "example_id": 2079329
+    }
+   ]
+  },
+  {
+   "query_id": 106506,
+   "query": "ultrawide usb c monitor",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "monitor"
+   },
+   "judgments": [
+    {
+     "asin": "B00PXYRMPE",
+     "product_id": 1151088,
+     "esci_label": "S",
+     "example_id": 2079370
+    },
+    {
+     "asin": "B06XFXX5JH",
+     "product_id": 1224981,
+     "esci_label": "E",
+     "example_id": 2079368
+    },
+    {
+     "asin": "B072JRQYRH",
+     "product_id": 1234681,
+     "esci_label": "E",
+     "example_id": 2079367
+    },
+    {
+     "asin": "B078GSH1LV",
+     "product_id": 1254113,
+     "esci_label": "S",
+     "example_id": 2079364
+    },
+    {
+     "asin": "B07YRXF62V",
+     "product_id": 1331941,
+     "esci_label": "S",
+     "example_id": 2079357
+    }
+   ]
+  },
+  {
+   "query_id": 107238,
+   "query": "usb c headphones s10",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B082QPHYZQ",
+     "product_id": 1341604,
+     "esci_label": "S",
+     "example_id": 2092843
+    },
+    {
+     "asin": "B084CS2LVY",
+     "product_id": 1346372,
+     "esci_label": "E",
+     "example_id": 2092840
+    },
+    {
+     "asin": "B084H3M52X",
+     "product_id": 1346637,
+     "esci_label": "E",
+     "example_id": 2092839
+    }
+   ]
+  },
+  {
+   "query_id": 112157,
+   "query": "wireless earbuds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07RQRX7RW",
+     "product_id": 1311048,
+     "esci_label": "E",
+     "example_id": 2187013
+    },
+    {
+     "asin": "B07W6S1BDX",
+     "product_id": 1323962,
+     "esci_label": "S",
+     "example_id": 2187055
+    },
+    {
+     "asin": "B07Y9QYCGJ",
+     "product_id": 1330590,
+     "esci_label": "E",
+     "example_id": 2187052
+    },
+    {
+     "asin": "B0821ZVKKZ",
+     "product_id": 1339426,
+     "esci_label": "E",
+     "example_id": 2187051
+    },
+    {
+     "asin": "B08BK7H3J5",
+     "product_id": 1362200,
+     "esci_label": "E",
+     "example_id": 2186984
+    }
+   ]
+  },
+  {
+   "query_id": 112160,
+   "query": "wireless earbuds samsung galaxy buds",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07NLLLXNX",
+     "product_id": 1298595,
+     "esci_label": "E",
+     "example_id": 2187119
+    },
+    {
+     "asin": "B07RV42L47",
+     "product_id": 1311492,
+     "esci_label": "E",
+     "example_id": 2187116
+    },
+    {
+     "asin": "B07TQS33TM",
+     "product_id": 1318355,
+     "esci_label": "E",
+     "example_id": 2187114
+    }
+   ]
+  },
+  {
+   "query_id": 112165,
+   "query": "wireless earphones",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B07GWWQK76",
+     "product_id": 1280360,
+     "esci_label": "E",
+     "example_id": 2187205
+    },
+    {
+     "asin": "B07K84X5W3",
+     "product_id": 1288504,
+     "esci_label": "E",
+     "example_id": 2187213
+    },
+    {
+     "asin": "B07XY5DM5R",
+     "product_id": 1329457,
+     "esci_label": "E",
+     "example_id": 2187197
+    }
+   ]
+  },
+  {
+   "query_id": 114372,
+   "query": "xiaomi airdots",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B075N38GD8",
+     "product_id": 1244859,
+     "esci_label": "S",
+     "example_id": 2228954
+    },
+    {
+     "asin": "B07RQ4C7LR",
+     "product_id": 1310934,
+     "esci_label": "E",
+     "example_id": 2228950
+    },
+    {
+     "asin": "B07TZHNN92",
+     "product_id": 1319468,
+     "esci_label": "E",
+     "example_id": 2228948
+    }
+   ]
+  },
+  {
+   "query_id": 114404,
+   "query": "xiaomi mi airdots",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B075N38GD8",
+     "product_id": 1244859,
+     "esci_label": "S",
+     "example_id": 2229531
+    },
+    {
+     "asin": "B07RQ4C7LR",
+     "product_id": 1310934,
+     "esci_label": "E",
+     "example_id": 2229526
+    },
+    {
+     "asin": "B07TZHNN92",
+     "product_id": 1319468,
+     "esci_label": "E",
+     "example_id": 2229523
+    }
+   ]
+  },
+  {
+   "query_id": 115802,
+   "query": "zk g1",
+   "filters": {
+    "domain": "consumer_electronics",
+    "category_key": "headphones"
+   },
+   "judgments": [
+    {
+     "asin": "B01D6MZ0YO",
+     "product_id": 1193354,
+     "esci_label": "I",
+     "example_id": 2258037
+    },
+    {
+     "asin": "B01N9EX77U",
+     "product_id": 1221396,
+     "esci_label": "I",
+     "example_id": 2258048
+    },
+    {
+     "asin": "B08GB4QM9Q",
+     "product_id": 1371403,
+     "esci_label": "I",
+     "example_id": 2258023
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,4139 @@
+{
+ "measured_at": "2026-09-23T02:08:00.472557+00:00",
+ "dataset_id": "reviews-2023-500k-v1",
+ "embedding_model_id": "us.cohere.embed-v4:0",
+ "stage": "fusion before reranking",
+ "configured_k": 60,
+ "reranking_cutoff": 50,
+ "limits": {
+  "fts": 120,
+  "trigram": 80,
+  "semantic": 150
+ },
+ "queries": 141,
+ "exact_judged": 369,
+ "exact_found_by_any_method": 247,
+ "by_k": {
+  "1": {
+   "exact_in_cutoff": 164,
+   "mean_condensed_ndcg10": 0.7013,
+   "queries_better_than_k60": 1,
+   "queries_worse_than_k60": 4
+  },
+  "10": {
+   "exact_in_cutoff": 164,
+   "mean_condensed_ndcg10": 0.7014,
+   "queries_better_than_k60": 0,
+   "queries_worse_than_k60": 3
+  },
+  "30": {
+   "exact_in_cutoff": 168,
+   "mean_condensed_ndcg10": 0.7037,
+   "queries_better_than_k60": 0,
+   "queries_worse_than_k60": 0
+  },
+  "60": {
+   "exact_in_cutoff": 168,
+   "mean_condensed_ndcg10": 0.7037,
+   "queries_better_than_k60": 0,
+   "queries_worse_than_k60": 0
+  },
+  "120": {
+   "exact_in_cutoff": 173,
+   "mean_condensed_ndcg10": 0.7037,
+   "queries_better_than_k60": 0,
+   "queries_worse_than_k60": 0
+  }
+ },
+ "per_query": [
+  {
+   "query_id": 726,
+   "query": "1 ear wired headphones without mic",
+   "category": "headphones",
+   "exact_judged": 0,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    }
+   }
+  },
+  {
+   "query_id": 727,
+   "query": "1 earphone with mic that will not fall out",
+   "category": "headphones",
+   "exact_judged": 4,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 2114,
+   "query": "144hz monitor",
+   "category": "monitor",
+   "exact_judged": 4,
+   "exact_found_by_any_method": 4,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 2831,
+   "query": "200 hz monitor",
+   "category": "monitor",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 3034,
+   "query": "240hz monitor",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    }
+   }
+  },
+  {
+   "query_id": 3079,
+   "query": "25 inch monitor",
+   "category": "monitor",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.970255
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.970255
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.970255
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.970255
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.970255
+    }
+   }
+  },
+  {
+   "query_id": 3679,
+   "query": "32 inch monitor 4k",
+   "category": "monitor",
+   "exact_judged": 1,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.701585
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 3702,
+   "query": "32gk650f-b",
+   "category": "monitor",
+   "exact_judged": 1,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.168613
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.168613
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.168613
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.168613
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.168613
+    }
+   }
+  },
+  {
+   "query_id": 3810,
+   "query": "37 inch monitor",
+   "category": "monitor",
+   "exact_judged": 1,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 3815,
+   "query": "38 gaming monitor",
+   "category": "monitor",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.632443
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.632443
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.632443
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.632443
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.632443
+    }
+   }
+  },
+  {
+   "query_id": 4364,
+   "query": "4k monitor",
+   "category": "monitor",
+   "exact_judged": 5,
+   "exact_found_by_any_method": 5,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.988063
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.988063
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.988063
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.988063
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.988063
+    }
+   }
+  },
+  {
+   "query_id": 6301,
+   "query": "acer curved monitor",
+   "category": "monitor",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 6307,
+   "query": "acer monitor",
+   "category": "monitor",
+   "exact_judged": 5,
+   "exact_found_by_any_method": 5,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 6311,
+   "query": "acer predator gaming x34",
+   "category": "monitor",
+   "exact_judged": 1,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95508
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95508
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95508
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95508
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95508
+    }
+   }
+  },
+  {
+   "query_id": 7687,
+   "query": "akg earbuds",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.96695
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.96695
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.96695
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.96695
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.96695
+    }
+   }
+  },
+  {
+   "query_id": 8023,
+   "query": "alienware monitor",
+   "category": "monitor",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.580047
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.580047
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.580047
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.580047
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.580047
+    }
+   }
+  },
+  {
+   "query_id": 9690,
+   "query": "apple earbuds",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 10839,
+   "query": "asus 165hz monitor",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 10847,
+   "query": "asus gaming monitor",
+   "category": "monitor",
+   "exact_judged": 1,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95508
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95508
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95508
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95508
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95508
+    }
+   }
+  },
+  {
+   "query_id": 10864,
+   "query": "asus predator monitor",
+   "category": "monitor",
+   "exact_judged": 0,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 10880,
+   "query": "asus rog strix xg248q",
+   "category": "monitor",
+   "exact_judged": 0,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 14389,
+   "query": "beats wireless headphones",
+   "category": "headphones",
+   "exact_judged": 4,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.39038
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.39038
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.39038
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.39038
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.39038
+    }
+   }
+  },
+  {
+   "query_id": 14391,
+   "query": "beats x wireless earbuds",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 17434,
+   "query": "blue parrot bluetooth headset",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 18639,
+   "query": "bose earbuds",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.489004
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.489004
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.489004
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.489004
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.489004
+    }
+   }
+  },
+  {
+   "query_id": 18649,
+   "query": "bose night noise cancelling headphones",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.616644
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.616644
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.616644
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.616644
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.616644
+    }
+   }
+  },
+  {
+   "query_id": 18650,
+   "query": "bose noise cancelling earbuds",
+   "category": "headphones",
+   "exact_judged": 4,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.62721
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.62721
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.62721
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.62721
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.62721
+    }
+   }
+  },
+  {
+   "query_id": 18651,
+   "query": "bose noise cancelling headphones",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    }
+   }
+  },
+  {
+   "query_id": 18658,
+   "query": "bose quietcomfort 35 ii",
+   "category": "headphones",
+   "exact_judged": 1,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95508
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95508
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95508
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95508
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95508
+    }
+   }
+  },
+  {
+   "query_id": 18660,
+   "query": "bose sleep earbuds noise cancelling",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.434837
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.434837
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.434837
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.434837
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.434837
+    }
+   }
+  },
+  {
+   "query_id": 18678,
+   "query": "bose sport wireless headphones bluetooth",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 18681,
+   "query": "bose wireless earbuds",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.773198
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.773198
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.773198
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.773198
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.773198
+    }
+   }
+  },
+  {
+   "query_id": 20487,
+   "query": "bulk headphones",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 30883,
+   "query": "curved monitor",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    }
+   }
+  },
+  {
+   "query_id": 32228,
+   "query": "dell 27 4k",
+   "category": "monitor",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.931649
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.931649
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 32233,
+   "query": "dell curved monitor 49 inch",
+   "category": "monitor",
+   "exact_judged": 0,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.386853
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.386853
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.386853
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.386853
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.386853
+    }
+   }
+  },
+  {
+   "query_id": 32252,
+   "query": "dell monitor",
+   "category": "monitor",
+   "exact_judged": 4,
+   "exact_found_by_any_method": 4,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 36273,
+   "query": "e-ink monitor",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.98019
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.98019
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.98019
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.98019
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.98019
+    }
+   }
+  },
+  {
+   "query_id": 36330,
+   "query": "ear buds",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 36375,
+   "query": "earbud headphones for laptop kids",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.970255
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.970255
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.970255
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.970255
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.970255
+    }
+   }
+  },
+  {
+   "query_id": 36377,
+   "query": "earbuds",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    }
+   }
+  },
+  {
+   "query_id": 36385,
+   "query": "earbuds samsung",
+   "category": "headphones",
+   "exact_judged": 1,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.95508
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.95508
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.95508
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.95508
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.95508
+    }
+   }
+  },
+  {
+   "query_id": 36391,
+   "query": "earbuds without microphone",
+   "category": "headphones",
+   "exact_judged": 4,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 36409,
+   "query": "earphones",
+   "category": "headphones",
+   "exact_judged": 8,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.252943
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.252943
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.252943
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.252943
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.252943
+    }
+   }
+  },
+  {
+   "query_id": 36412,
+   "query": "earphones for a computer",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 36415,
+   "query": "earphones for tv listening wireless",
+   "category": "headphones",
+   "exact_judged": 4,
+   "exact_found_by_any_method": 4,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 40081,
+   "query": "fhd monitor",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    }
+   }
+  },
+  {
+   "query_id": 43765,
+   "query": "g sync tv",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    }
+   }
+  },
+  {
+   "query_id": 43904,
+   "query": "galax buds",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    }
+   }
+  },
+  {
+   "query_id": 43932,
+   "query": "galaxy buds",
+   "category": "headphones",
+   "exact_judged": 5,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 0.714099
+    },
+    "10": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 0.714099
+    },
+    "30": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 0.714099
+    },
+    "60": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 0.714099
+    },
+    "120": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 0.714099
+    }
+   }
+  },
+  {
+   "query_id": 43951,
+   "query": "galaxy note 10 ear buds wireless",
+   "category": "headphones",
+   "exact_judged": 1,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.146522
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.146522
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.146522
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.146522
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.146522
+    }
+   }
+  },
+  {
+   "query_id": 44275,
+   "query": "gaming monitors",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 46744,
+   "query": "google pixel usb-c earbuds",
+   "category": "headphones",
+   "exact_judged": 5,
+   "exact_found_by_any_method": 5,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 49564,
+   "query": "hd800",
+   "category": "headphones",
+   "exact_judged": 0,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    }
+   }
+  },
+  {
+   "query_id": 49641,
+   "query": "hdr 600",
+   "category": "monitor",
+   "exact_judged": 4,
+   "exact_found_by_any_method": 4,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 4,
+     "condensed_ndcg10": 0.987512
+    },
+    "10": {
+     "exact_in_cutoff": 4,
+     "condensed_ndcg10": 0.987512
+    },
+    "30": {
+     "exact_in_cutoff": 4,
+     "condensed_ndcg10": 0.987512
+    },
+    "60": {
+     "exact_in_cutoff": 4,
+     "condensed_ndcg10": 0.987512
+    },
+    "120": {
+     "exact_in_cutoff": 4,
+     "condensed_ndcg10": 0.987512
+    }
+   }
+  },
+  {
+   "query_id": 49757,
+   "query": "headphones for tv",
+   "category": "headphones",
+   "exact_judged": 4,
+   "exact_found_by_any_method": 4,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 51795,
+   "query": "hpcomputer screen",
+   "category": "monitor",
+   "exact_judged": 5,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.722727
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.722727
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.722727
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.722727
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.722727
+    }
+   }
+  },
+  {
+   "query_id": 54188,
+   "query": "iphone 6s earbuds",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 54198,
+   "query": "iphone 6s plus headphones",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.594909
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.594909
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.594909
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.594909
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.594909
+    }
+   }
+  },
+  {
+   "query_id": 54826,
+   "query": "ips curved",
+   "category": "monitor",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.946016
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.946016
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.946016
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.946016
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.946016
+    }
+   }
+  },
+  {
+   "query_id": 55284,
+   "query": "jabra sport",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    }
+   }
+  },
+  {
+   "query_id": 55285,
+   "query": "jabra usb headset",
+   "category": "headphones",
+   "exact_judged": 4,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.831872
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.831872
+    },
+    "30": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 0.831872
+    },
+    "60": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 0.831872
+    },
+    "120": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 0.831872
+    }
+   }
+  },
+  {
+   "query_id": 55385,
+   "query": "jam earbuds",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 55388,
+   "query": "jam wireless headphones",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 55586,
+   "query": "jaybird",
+   "category": "headphones",
+   "exact_judged": 6,
+   "exact_found_by_any_method": 5,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 5,
+     "condensed_ndcg10": 0.892211
+    },
+    "10": {
+     "exact_in_cutoff": 5,
+     "condensed_ndcg10": 0.892211
+    },
+    "30": {
+     "exact_in_cutoff": 5,
+     "condensed_ndcg10": 0.892211
+    },
+    "60": {
+     "exact_in_cutoff": 5,
+     "condensed_ndcg10": 0.892211
+    },
+    "120": {
+     "exact_in_cutoff": 5,
+     "condensed_ndcg10": 0.892211
+    }
+   }
+  },
+  {
+   "query_id": 55587,
+   "query": "jaybird bluetooth wireless true view",
+   "category": "headphones",
+   "exact_judged": 4,
+   "exact_found_by_any_method": 4,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 4,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 4,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 4,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 4,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 4,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 55588,
+   "query": "jaybird x3",
+   "category": "headphones",
+   "exact_judged": 0,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 55617,
+   "query": "jbl earbuds wired",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 55628,
+   "query": "jbl free x truly wireless earbuds",
+   "category": "headphones",
+   "exact_judged": 0,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    }
+   }
+  },
+  {
+   "query_id": 55638,
+   "query": "jbl true wireless ear buds",
+   "category": "headphones",
+   "exact_judged": 0,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    }
+   }
+  },
+  {
+   "query_id": 55640,
+   "query": "jbl wired earphones",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 56038,
+   "query": "jlab",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    }
+   }
+  },
+  {
+   "query_id": 56040,
+   "query": "jlab wireless earbuds",
+   "category": "headphones",
+   "exact_judged": 1,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 58772,
+   "query": "klipsch t5",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.975019
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.975019
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.975019
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.975019
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.975019
+    }
+   }
+  },
+  {
+   "query_id": 61776,
+   "query": "lg 24gl65b",
+   "category": "monitor",
+   "exact_judged": 1,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 61777,
+   "query": "lg 24mp60vq",
+   "category": "monitor",
+   "exact_judged": 0,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.636682
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.636682
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.636682
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.636682
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.636682
+    }
+   }
+  },
+  {
+   "query_id": 61778,
+   "query": "lg 27 inch monitor",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.750199
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.750199
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.750199
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.750199
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.750199
+    }
+   }
+  },
+  {
+   "query_id": 61779,
+   "query": "lg 32gk650f-b",
+   "category": "monitor",
+   "exact_judged": 0,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.908375
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.908375
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.908375
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.908375
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.908375
+    }
+   }
+  },
+  {
+   "query_id": 61780,
+   "query": "lg 34uc88",
+   "category": "monitor",
+   "exact_judged": 1,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.973625
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.973625
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.973625
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.973625
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.973625
+    }
+   }
+  },
+  {
+   "query_id": 61831,
+   "query": "lg ips curve",
+   "category": "monitor",
+   "exact_judged": 1,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 61896,
+   "query": "lg tones",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    }
+   }
+  },
+  {
+   "query_id": 61901,
+   "query": "lg uk850",
+   "category": "monitor",
+   "exact_judged": 0,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    }
+   }
+  },
+  {
+   "query_id": 61904,
+   "query": "lg ultragear",
+   "category": "monitor",
+   "exact_judged": 4,
+   "exact_found_by_any_method": 4,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 4,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 4,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 4,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 4,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 4,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 61905,
+   "query": "lg ultrawide",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.750199
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.750199
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.750199
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.750199
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.750199
+    }
+   }
+  },
+  {
+   "query_id": 62696,
+   "query": "linsoul tin audio t2 hifi 2dd",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 63179,
+   "query": "lobby chairs without arms",
+   "category": "chair",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 65896,
+   "query": "marley earbuds",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.970255
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.970255
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.970255
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.970255
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.970255
+    }
+   }
+  },
+  {
+   "query_id": 70363,
+   "query": "moniter pivo",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 70367,
+   "query": "monitor",
+   "category": "monitor",
+   "exact_judged": 5,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 70369,
+   "query": "monitor 38",
+   "category": "monitor",
+   "exact_judged": 0,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    }
+   }
+  },
+  {
+   "query_id": 70372,
+   "query": "monitor acer 27 inch",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 70381,
+   "query": "monitor for day trading",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 70386,
+   "query": "monitor ips 144hz 1ms",
+   "category": "monitor",
+   "exact_judged": 6,
+   "exact_found_by_any_method": 6,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 6,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 6,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 6,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 6,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 6,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 70395,
+   "query": "monitor samsung",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    }
+   }
+  },
+  {
+   "query_id": 70407,
+   "query": "monitors computer",
+   "category": "monitor",
+   "exact_judged": 4,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.39038
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.39038
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.39038
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.39038
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.39038
+    }
+   }
+  },
+  {
+   "query_id": 70475,
+   "query": "monoprice headphones",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 71197,
+   "query": "mpg341cqr",
+   "category": "monitor",
+   "exact_judged": 0,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 71289,
+   "query": "msi 27 inch monitor",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 71310,
+   "query": "msi mag24c",
+   "category": "monitor",
+   "exact_judged": 1,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.967623
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.967623
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.967623
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.967623
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.967623
+    }
+   }
+  },
+  {
+   "query_id": 72110,
+   "query": "nakamichi wireless 7.1",
+   "category": "headphones",
+   "exact_judged": 0,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 74160,
+   "query": "noise cancelling earbuds samsung",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    }
+   }
+  },
+  {
+   "query_id": 74162,
+   "query": "noise cancelling headphones",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    }
+   }
+  },
+  {
+   "query_id": 76839,
+   "query": "over the ear headphones charging dock",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.970255
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.970255
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.970255
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.970255
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.970255
+    }
+   }
+  },
+  {
+   "query_id": 79612,
+   "query": "phone with headset",
+   "category": "headphones",
+   "exact_judged": 1,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.712701
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.712701
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.712701
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.712701
+    }
+   }
+  },
+  {
+   "query_id": 82932,
+   "query": "powerbeats",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  },
+  {
+   "query_id": 87472,
+   "query": "rf wireless headphones",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 88190,
+   "query": "rog strix xg43uq",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.755597
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.755597
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.755597
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.755597
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.755597
+    }
+   }
+  },
+  {
+   "query_id": 89920,
+   "query": "samsumg headphone",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.765361
+    }
+   }
+  },
+  {
+   "query_id": 89930,
+   "query": "samsung 49 inch curved monitor",
+   "category": "monitor",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.632443
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.632443
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.632443
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.632443
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.632443
+    }
+   }
+  },
+  {
+   "query_id": 89991,
+   "query": "samsung buds",
+   "category": "headphones",
+   "exact_judged": 4,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.831872
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.831872
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.831872
+    },
+    "60": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 0.831872
+    },
+    "120": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 0.831872
+    }
+   }
+  },
+  {
+   "query_id": 90009,
+   "query": "samsung ear buds",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.702789
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.702789
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.895459
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.895459
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.895459
+    }
+   }
+  },
+  {
+   "query_id": 90010,
+   "query": "samsung ear pods",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.594909
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.594909
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.594909
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.594909
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.594909
+    }
+   }
+  },
+  {
+   "query_id": 90011,
+   "query": "samsung earbuds",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.933149
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.933149
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 90013,
+   "query": "samsung earbuds with microphone",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.594909
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.594909
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.594909
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.594909
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.594909
+    }
+   }
+  },
+  {
+   "query_id": 90015,
+   "query": "samsung eg920",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.975019
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.975019
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.975019
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.975019
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.975019
+    }
+   }
+  },
+  {
+   "query_id": 90052,
+   "query": "samsung galaxy buds",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.059491
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.059491
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.059491
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.059491
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.059491
+    }
+   }
+  },
+  {
+   "query_id": 90181,
+   "query": "samsung gaming monitor",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.765361
+    }
+   }
+  },
+  {
+   "query_id": 90190,
+   "query": "samsung headphones",
+   "category": "headphones",
+   "exact_judged": 5,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.722727
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.722727
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.722727
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.722727
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.722727
+    }
+   }
+  },
+  {
+   "query_id": 90211,
+   "query": "samsung monitor",
+   "category": "monitor",
+   "exact_judged": 6,
+   "exact_found_by_any_method": 5,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.892211
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.892211
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.892211
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.892211
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.892211
+    }
+   }
+  },
+  {
+   "query_id": 90353,
+   "query": "samsung wireless over ear",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 91717,
+   "query": "sennheiser headphones",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.929898
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.929898
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.929898
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.929898
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.929898
+    }
+   }
+  },
+  {
+   "query_id": 96094,
+   "query": "sony bluetooth headphones",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    }
+   }
+  },
+  {
+   "query_id": 96135,
+   "query": "sony noise cancelling headphones",
+   "category": "headphones",
+   "exact_judged": 6,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.644824
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.644824
+    },
+    "30": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 0.644824
+    },
+    "60": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 0.644824
+    },
+    "120": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 0.644824
+    }
+   }
+  },
+  {
+   "query_id": 96170,
+   "query": "sony wireless headphones",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
+    }
+   }
+  },
+  {
+   "query_id": 96311,
+   "query": "sound peats wireless headphones",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 96326,
+   "query": "soundpeats",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 96327,
+   "query": "soundpeats q32",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 102971,
+   "query": "thunderbolt portable monitor",
+   "category": "monitor",
+   "exact_judged": 0,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 106229,
+   "query": "type c earbuds",
+   "category": "headphones",
+   "exact_judged": 5,
+   "exact_found_by_any_method": 5,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 106476,
+   "query": "ultra wide monitor",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 3,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 106488,
+   "query": "ultrasharp",
+   "category": "monitor",
+   "exact_judged": 6,
+   "exact_found_by_any_method": 6,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 5,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 5,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 5,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 5,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 5,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 106503,
+   "query": "ultrawide monitor",
+   "category": "monitor",
+   "exact_judged": 4,
+   "exact_found_by_any_method": 4,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 106504,
+   "query": "ultrawide monitor 34",
+   "category": "monitor",
+   "exact_judged": 4,
+   "exact_found_by_any_method": 4,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 3,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 106506,
+   "query": "ultrawide usb c monitor",
+   "category": "monitor",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95362
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95362
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95362
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.95362
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.95362
+    }
+   }
+  },
+  {
+   "query_id": 107238,
+   "query": "usb c headphones s10",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 112157,
+   "query": "wireless earbuds",
+   "category": "headphones",
+   "exact_judged": 4,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.384572
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.384572
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.384572
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.384572
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.384572
+    }
+   }
+  },
+  {
+   "query_id": 112160,
+   "query": "wireless earbuds samsung galaxy buds",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "10": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    }
+   }
+  },
+  {
+   "query_id": 112165,
+   "query": "wireless earphones",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    }
+   }
+  },
+  {
+   "query_id": 114372,
+   "query": "xiaomi airdots",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 114404,
+   "query": "xiaomi mi airdots",
+   "category": "headphones",
+   "exact_judged": 2,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 1.0
+    }
+   }
+  },
+  {
+   "query_id": 115802,
+   "query": "zk g1",
+   "category": "headphones",
+   "exact_judged": 0,
+   "exact_found_by_any_method": 0,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
+    }
+   }
+  }
+ ]
+}
