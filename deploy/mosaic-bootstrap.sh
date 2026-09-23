@@ -168,7 +168,10 @@ CODE_EDITOR_DISTRIBUTION='code-editor-server-v1.101.2-1785233990.076216280-linux
 CODE_EDITOR_SHA256='1965ca15854f1faa8907e6e91c0e87ee887b24d458771b352a71e08fb41d6d60'
 CODE_EDITOR_ROOT="/home/$CODE_EDITOR_USER/.local/lib/code-editor-$CODE_EDITOR_VERSION-linux-arm64"
 CODE_EDITOR_ARCHIVE="/tmp/$CODE_EDITOR_DISTRIBUTION"
+# install only assigns ownership to named paths; root-owned parents block uv's
+# later creation of ~/.local/share/uv/python as the participant.
 install -d -o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" \
+  "/home/$CODE_EDITOR_USER/.local" "/home/$CODE_EDITOR_USER/.local/lib" \
   "$CODE_EDITOR_ROOT" "/home/$CODE_EDITOR_USER/.local/bin"
 curl --retry 4 --retry-all-errors --connect-timeout 15 --max-time 180 -fsSL \
   "https://code-editor.amazonaws.com/content/code-editor-server/dist/$CODE_EDITOR_VERSION/$CODE_EDITOR_DISTRIBUTION" \

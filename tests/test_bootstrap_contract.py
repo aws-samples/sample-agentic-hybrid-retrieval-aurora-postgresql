@@ -549,6 +549,70 @@ exit "$status"
     assert f"attempts={min(success_at, 5)}" in result.stdout
 
 
+def _assert_editor_install_owns_parent_directories(script):
+    """GNU install assigns -o/-g only to named paths, leaving parents root-owned."""
+    import subprocess
+
+    setup = re.search(
+        r"^CODE_EDITOR_VERSION=.*?^curl ", script, re.MULTILINE | re.DOTALL
+    )
+    assert setup, "restore the Code Editor directory setup before its download"
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            "set -eu\nCODE_EDITOR_USER=participant\n"
+            'install() { printf "%s\\n" "$@"; }\n'
+            + setup.group().removesuffix("curl "),
+        ],
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    arguments = result.stdout.splitlines()
+    assert arguments[:5] == ["-d", "-o", "participant", "-g", "participant"]
+    paths = {Path(value) for value in arguments[5:]}
+    home = Path("/home/participant")
+    assert home / ".local/bin" in paths, "the actual editor install must execute"
+    missing = {
+        parent
+        for path in paths
+        for parent in path.parents
+        if parent.is_relative_to(home) and parent != home and parent not in paths
+    }
+    assert not missing, (
+        "bootstrap ownership rule: install -d leaves unnamed parents root-owned; "
+        f"offending paths={sorted(map(str, missing))}; "
+        "fix: name each parent in install -d -o/-g so participant uv sync can "
+        "create ~/.local/share/uv/python"
+    )
+
+
+def test_editor_install_owns_parent_directories(script):
+    _assert_editor_install_owns_parent_directories(script)
+
+
+@pytest.mark.parametrize("parent", [".local", ".local/lib"])
+def test_editor_ownership_check_rejects_unnamed_parents(script, parent):
+    operand = f'"/home/$CODE_EDITOR_USER/{parent}" '
+    assert operand in script
+    broken = script.replace(operand, "", 1)
+    with pytest.raises(AssertionError, match="bootstrap ownership rule"):
+        _assert_editor_install_owns_parent_directories(broken)
+
+
+def test_editor_ownership_check_allows_a_different_editor_version(script):
+    changed = re.sub(
+        r"^CODE_EDITOR_VERSION=.*$",
+        "CODE_EDITOR_VERSION='v9.9.9'",
+        script,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    assert changed != script
+    _assert_editor_install_owns_parent_directories(changed)
+
+
 def test_bootstrap_verifies_database_hostname_and_ca(script):
     assert (
         script.count(
