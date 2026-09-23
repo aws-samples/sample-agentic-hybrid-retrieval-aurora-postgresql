@@ -255,15 +255,24 @@ def main() -> None:
     parser.add_argument(
         "--examples", type=Path, default=ROOT / "data/real-catalog-examples.json"
     )
+    parser.add_argument(
+        "--parents",
+        type=Path,
+        help="JSON object mapping review category to parent ASINs; replaces --examples",
+    )
     parser.add_argument("--scan-mib", type=int, default=256)
     parser.add_argument("--reviews-per-rating-group", type=int, default=3)
     args = parser.parse_args()
-    examples = json.loads(args.examples.read_text())["examples"]
-    parents = {
-        row["product_id"]
-        for row in examples
-        if row.get("selected_in_bulk") and row.get("source_department") == args.category
-    }
+    if args.parents:
+        parents = set(json.loads(args.parents.read_text())[args.category])
+    else:
+        examples = json.loads(args.examples.read_text())["examples"]
+        parents = {
+            row["product_id"]
+            for row in examples
+            if row.get("selected_in_bulk")
+            and row.get("source_department") == args.category
+        }
     fetch(
         args.category,
         args.destination,
