@@ -47,7 +47,8 @@ def open_csv_writer(
     path: Path,
     fieldnames: list[str],
 ) -> Iterator[csv.DictWriter]:
-    with gzip.open(path, "wt", newline="", encoding="utf-8") as handle:
+    # These are temporary load files, so favor compression speed over disk savings.
+    with gzip.open(path, "wt", newline="", encoding="utf-8", compresslevel=1) as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         yield writer
