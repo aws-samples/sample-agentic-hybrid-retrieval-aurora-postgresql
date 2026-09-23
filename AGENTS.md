@@ -12,8 +12,8 @@ with the selected `reviews-2023-500k-v1` catalog, 500,000 source products with
 real Cohere Embed v4 vectors. Historical synthetic tables are retained separately. Every `make`
 target reads `DATABASE_URL` and must point at Aurora.
 
-The restore path is `make db-bootstrap-cached` into a **fresh** Aurora cluster,
-loading the historical base cache, followed by `scripts/real_catalog_cache.py restore`
+The restore path is `make db-bootstrap-base` into a **fresh** Aurora cluster,
+loading the historical synthetic rows without their vectors, followed by `scripts/real_catalog_cache.py restore`
 for the hash-pinned real-product bundle and `MOSAIC_CATALOG_DATASET` selection.
 Workshop Studio provisions this sequence; `ARTIFACTS.md` records both catalogs. `make db-upgrade-snapshot` is an operator-only
 compatibility path for historical snapshot restores, not the primary route.

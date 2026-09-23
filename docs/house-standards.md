@@ -140,8 +140,8 @@ No local databases exist or will exist. The Aurora PostgreSQL cluster in
 `us-east-1` holds the only live tree (`mosaic_*`); every `make` bootstrap target
 points at Aurora.
 
-The restore path is `make db-bootstrap-cached` into a **fresh** Aurora cluster,
-loading the verified embedding cache. That is what Workshop Studio provisions and
+The restore path is `make db-bootstrap-base` into a **fresh** Aurora cluster,
+followed by the verified real-catalog restore. That is what Workshop Studio provisions and
 what `ARTIFACTS.md` records. `make db-upgrade-snapshot` is an operator-only
 compatibility path for historical snapshot restores, not the primary route.
 

@@ -215,10 +215,11 @@ For a fresh Workshop Studio Aurora cluster,
 workshop cache through the same binary-`COPY` and bulk-update pattern, with one
 transaction per shard. That manifest-based cache and the refresh's batch cache
 are different formats and require their corresponding loaders. The
-[`db-bootstrap-cached` target](../Makefile) verifies the pinned cache before
-database mutation, imports embeddings, then creates search indexes and runs
-acceptance. Its timings separate `embedding_import` from `index_creation`;
-report both when comparing complete restore times. Participants receive this
+[`db-bootstrap-base` target](../Makefile) no longer imports the historical
+cache: Workshop Studio's 3 GB total asset cap cannot hold both vector sets, so the
+deployment loads the synthetic rows without vectors and restores the real
+catalog's verified vectors from its split archive. Use the cache loader only for
+local historical work. Participants receive this
 prepared database and do not run a second import during the labs.
 
 Aggregate evidence is in

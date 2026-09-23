@@ -44,7 +44,7 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-cached db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
+.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-base db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
@@ -70,7 +70,7 @@ DSN_TARGETS := test test-aurora-contracts test-aurora-invariants db-install db-i
 	validate-missions validate-evals score-evals ablation-evals validate-functions \
 	lab-01 db-load-mosaic db-index-concurrent db-drop-invalid-indexes db-index-quantized \
 	db-index-recover-and-create db-load-cohort db-load-evidence db-smoke \
-	db-seed-corpus-lexeme db-bootstrap-cached db-verify-bootstrap db-embed db-export-embeddings db-import-embeddings \
+	db-seed-corpus-lexeme db-bootstrap-base db-verify-bootstrap db-embed db-export-embeddings db-import-embeddings \
 	db-configure-retrieval db-apply-search-functions reset-lab-1 validate-lab-1 solution-lab-1 \
 	reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 api-serve
 
@@ -135,7 +135,7 @@ db-install-labs:
 	@cd $(SCHEMA_PACKAGE)/sql && psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f install_labs.sql
 
 # Operator-only compatibility path for historical snapshot restores. Workshop
-# Studio provisions fresh Aurora through db-bootstrap-cached.
+# Studio provisions fresh Aurora through db-bootstrap-base.
 db-upgrade-snapshot:
 	@cd $(SCHEMA_PACKAGE)/sql && psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f upgrade_snapshot.sql
 	@$(MAKE) db-configure-retrieval
@@ -343,19 +343,16 @@ define bootstrap-phase
 		"$(1)" "$$finished" "$$elapsed"
 endef
 
-db-bootstrap-cached:
-	@test -f "$(EMBEDDING_CACHE_MANIFEST)" || { \
-		echo "Embedding cache manifest not found: $(EMBEDDING_CACHE_MANIFEST)"; \
-		exit 2; \
-	}
-	@$(MAKE) verify-embedding-cache
+# The base catalog loads the historical synthetic rows and shared tables without
+# their vectors: the labs and Shop serve the real catalog restored afterwards, and
+# Workshop Studio's 3 GB asset cap cannot hold both vector sets.
+db-bootstrap-base:
 	@mkdir -p "$(dir $(BOOTSTRAP_TIMINGS_FILE))"
 	@: >"$(BOOTSTRAP_TIMINGS_FILE)"
 	$(call bootstrap-phase,schema_install,db-install)
 	$(call bootstrap-phase,lab_schema_install,db-install-labs)
 	$(call bootstrap-phase,catalog_prepare,db-prepare-mosaic)
 	$(call bootstrap-phase,catalog_load,db-load-mosaic)
-	$(call bootstrap-phase,embedding_import,db-import-embeddings)
 	$(call bootstrap-phase,index_creation,db-index-recover-and-create)
 	$(call bootstrap-phase,premium_cohort_load,db-load-cohort)
 	$(call bootstrap-phase,evidence_load,db-load-evidence)
@@ -486,7 +483,7 @@ test-aurora-invariants:
 #   db-load-catalog  db-load-mosaic         db/sql/17_load_normalized_catalog.sql
 #   db-load-media    db-load-cohort         db/sql/15_load_premium_cohort.sql
 #   db-index         db-index-concurrent    db/sql/08_indexes_concurrent.sql
-#   db-load          db-bootstrap-cached    the whole sequence, in order
+#   db-load          db-bootstrap-base    the whole sequence, in order
 #
 # See ARTIFACTS.md for the Aurora-only policy and docs/rewrite-losses.md
 # SUBSTRATE-1 for why the predecessors cannot be run at all.
@@ -517,7 +514,7 @@ db-seed-exact-neighbors:
 # close to nothing). ts_stat scans every product document twice, once stemmed
 # for exact matches and once unstemmed for the misspelling rescue. Measured on
 # the 500,000-product corpus on 2026-09-04: 75 seconds (22 stemmed, 53
-# surface), so it runs as the corpus_lexeme_seed phase of db-bootstrap-cached.
+# surface), so it runs as the corpus_lexeme_seed phase of db-bootstrap-base.
 #
 # Skipping it is safe: service.coverage reports `unavailable` against an empty
 # vocabulary and every surface behaves exactly as it did before coverage existed.

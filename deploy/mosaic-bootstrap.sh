@@ -97,7 +97,6 @@ required_environment=(
   DB_CLUSTER_ENDPOINT
   DB_NAME
   ASSETS_BUCKET
-  EMBEDDING_CACHE_MANIFEST_SHA256
   CODE_EDITOR_PASSWORD
   DB_INSTANCE_CLASS
 )
@@ -109,7 +108,7 @@ for variable in "${required_environment[@]}"; do
 done
 
 # Must be *defined*, but may legitimately be empty. ASSETS_PREFIX is empty when
-# the assets live at the bucket root: `s3://bucket/embedding-cache/` is a valid
+# the assets live at the bucket root: `s3://bucket/real-catalog/` is a valid
 # URI, and hybrid-retrieval-code-editor.yml declares `AssetsBucketPrefix` with
 # `Default: ''`. Requiring it non-empty would reject a supported configuration.
 #
@@ -388,7 +387,7 @@ test -n "$CLAUDE_PREFLIGHT_OK"
 # The Claude Code preflight above only proves the chat model is reachable.
 # Cohere Embed v4 and Cohere Rerank v3.5 (see .env below) are not otherwise
 # exercised until the acceptance search near the end of this script, roughly
-# 24 minutes after `make db-bootstrap-cached` starts. An account missing
+# many minutes after `make db-bootstrap-base` starts. An account missing
 # either entitlement would burn that entire window - and the participant's
 # full 45-minute hands-on budget - before rolling back. Probe both here,
 # immediately after the chat-model preflight and before any of that work
@@ -720,11 +719,9 @@ network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc \
   "cd '$REPO/ui' && npm ci"
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "cd '$REPO/ui' && npm run build"
 
-EMBEDDING_CACHE_URI=$(printf 's3://%s/%sembedding-cache/' \
-  "$ASSETS_BUCKET" "$ASSETS_PREFIX")
 REAL_CATALOG_CACHE_URI=$(printf 's3://%s/%sreal-catalog/' \
   "$ASSETS_BUCKET" "$ASSETS_PREFIX")
-# Verify both immutable inputs before the first database write. A source pin
+# Verify the immutable catalog input before the first database write. A source pin
 # alone cannot make an old catalog restore into the new workshop dataset.
 # Workshop Studio caps asset objects at 1 GB, so the archive arrives in parts;
 # join checks each part, then the whole archive, against the pinned contract.
@@ -745,26 +742,13 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   set -a
   source .env
   set +a
-  cache_started=\$(date +%s)
-  aws s3 sync '$EMBEDDING_CACHE_URI' build/embedding-cache \
-    --only-show-errors
-  uv run python scripts/embedding_cache.py verify \
-    build/embedding-cache/manifest.json \
-    --contract db/config/embedding-cache.json
-  cache_finished=\$(date +%s)
-  printf 'embedding_cache_download\t%s\n' \
-    \"\$((cache_finished - cache_started))\" \
-    >build/embedding-cache-download-timing.tsv
-  test \"\$(sha256sum build/embedding-cache/manifest.json | awk '{print \$1}')\" = \
-    '$EMBEDDING_CACHE_MANIFEST_SHA256'
-  make db-bootstrap-cached
+  make db-bootstrap-base
   uv run python scripts/real_catalog_cache.py restore \
     --archive build/real-catalog-cache/real-catalog.tar.gz \
     --selection build/real-catalog
   export MOSAIC_CATALOG_DATASET=\$(uv run python -c \
     'import json; print(json.load(open(\"db/config/real-catalog-cache.json\"))[\"dataset_id\"])')
   printf '\\nMOSAIC_CATALOG_DATASET=%s\\n' \"\$MOSAIC_CATALOG_DATASET\" >> .env
-  cat build/embedding-cache-download-timing.tsv
   cat build/bootstrap-timings.tsv
   MISSION_GATE_REQUIRE_DB=1 DATABASE_URL=\"\$DATABASE_URL\" \
     uv run python scripts/mission_contract.py

@@ -564,15 +564,20 @@ The portable Workshop Studio path imports the checked-in catalog and a verified
 embedding cache:
 
 ```bash
-make db-fetch-embeddings \
-  EMBEDDING_CACHE_URI=s3://example-workshop-assets/mosaic/embedding-cache/
-
-make db-bootstrap-cached \
-  DATABASE_URL="$DATABASE_URL" \
-  EMBEDDING_CACHE_MANIFEST=build/embedding-cache/manifest.json
+make db-bootstrap-base DATABASE_URL="$DATABASE_URL"
+uv run python scripts/real_catalog_cache.py join \
+  --archive build/real-catalog-cache/real-catalog.tar.gz
+uv run python scripts/real_catalog_cache.py restore \
+  --archive build/real-catalog-cache/real-catalog.tar.gz \
+  --selection build/real-catalog
 ```
 
-The cache contains resumable float32 NPZ shards and a SHA-256 manifest.
+The base bootstrap loads the historical synthetic rows and shared tables without
+vectors; Workshop Studio's 3 GB total asset cap cannot hold both vector sets, and
+the labs serve only the real catalog. The historical synthetic embedding cache
+(`make db-fetch-embeddings`, `scripts/embedding_cache.py`) remains available for
+local historical work but is not part of the workshop deployment. The historical
+cache contains resumable float32 NPZ shards and a SHA-256 manifest.
 Changed, missing, or model-incompatible products fail import instead of silently
 receiving stale vectors. A cluster snapshot remains the fast same-account
 operator recovery path; the cache is the portable cross-account path.

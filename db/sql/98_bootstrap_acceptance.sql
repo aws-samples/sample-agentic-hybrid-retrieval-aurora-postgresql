@@ -1,27 +1,21 @@
 \set ON_ERROR_STOP on
 
+-- Base bootstrap acceptance. The historical synthetic catalog is loaded without
+-- vectors; the served catalog's records and vectors are verified separately by
+-- scripts/real_catalog_cache.py before and after its restore.
+
 DO $$
 DECLARE
     product_count bigint;
     document_count bigint;
-    embedded_count bigint;
     premium_count bigint;
     evidence_count bigint;
     specification_count bigint;
     review_count bigint;
-    vector_dimensions integer[];
-    model_ids text[];
     missing_indexes text[];
 BEGIN
     SELECT count(*) INTO product_count FROM mosaic.product;
     SELECT count(*) INTO document_count FROM mosaic_search.product_document;
-    SELECT count(*) FILTER (WHERE embedding IS NOT NULL),
-           array_agg(DISTINCT vector_dims(embedding))
-               FILTER (WHERE embedding IS NOT NULL),
-           array_agg(DISTINCT embedding_model_key ORDER BY embedding_model_key)
-               FILTER (WHERE embedding_model_key IS NOT NULL)
-    INTO embedded_count, vector_dimensions, model_ids
-    FROM mosaic_search.product_document;
     SELECT count(*) INTO premium_count
     FROM mosaic.merchandising_assignment
     WHERE media_tier IN ('flagship', 'premium');
@@ -63,21 +57,6 @@ BEGIN
             'DAT410 bootstrap requires 500000 products and documents; products=%, documents=%. Reload the pinned catalog.',
             product_count, document_count;
     END IF;
-    IF embedded_count <> 500000 THEN
-        RAISE EXCEPTION
-            'DAT410 bootstrap requires 500000 embeddings; found %. Re-run the verified cache import.',
-            embedded_count;
-    END IF;
-    IF vector_dimensions IS DISTINCT FROM ARRAY[1024] THEN
-        RAISE EXCEPTION
-            'DAT410 bootstrap requires only 1024-dimensional vectors; found %. Load the Cohere Embed v4 cache.',
-            vector_dimensions;
-    END IF;
-    IF model_ids IS DISTINCT FROM ARRAY['us.cohere.embed-v4:0'] THEN
-        RAISE EXCEPTION
-            'DAT410 bootstrap requires only us.cohere.embed-v4:0; found %. Load the pinned cache release.',
-            model_ids;
-    END IF;
     IF missing_indexes IS NOT NULL THEN
         RAISE EXCEPTION
             'DAT410 bootstrap has missing or invalid retrieval indexes: %. Run make db-drop-invalid-indexes then make db-index-concurrent.',
@@ -105,10 +84,6 @@ $$;
 
 SELECT
     (SELECT count(*) FROM mosaic.product) AS products,
-    (SELECT count(*) FROM mosaic_search.product_document
-      WHERE embedding IS NOT NULL) AS embeddings,
     (SELECT count(*) FROM mosaic.merchandising_assignment
       WHERE media_tier IN ('flagship', 'premium')) AS premium_products,
-    (SELECT count(*) FROM mosaic.product_evidence) AS evidence_records,
-    'us.cohere.embed-v4:0'::text AS embedding_model,
-    1024 AS embedding_dimensions;
+    (SELECT count(*) FROM mosaic.product_evidence) AS evidence_records;

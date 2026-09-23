@@ -5,10 +5,9 @@
 Aurora only. There is no local database and no `make` target creates one. See
 `ARTIFACTS.md`, including how to connect from a corporate network.
 
-- confirm the asset-backed bootstrap produced 500,000 products and full
-  embedding coverage with `make db-verify-bootstrap`;
-- save `build/embedding-cache-download-timing.tsv` and
-  `build/bootstrap-timings.tsv`; report the measured `index_creation` and
+- confirm the base bootstrap with `make db-verify-bootstrap`, and the real
+  catalog's 500,000 products and vectors through the restore's verification;
+- save `build/bootstrap-timings.tsv`; report the measured `index_creation` and
   `total` rows rather than estimating them;
 - run `MISSION_GATE_REQUIRE_DB=1 make validate-missions`;
 - run `make validate-evals`;

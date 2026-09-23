@@ -31,7 +31,7 @@ re-embedding. Local state that nothing can restore is not a convenience.
 | Artifact | Location | Restore path |
 |---|---|---|
 | Active real catalog + vectors | Aurora `mosaic_catalog_stage` / `mosaic_live_search` | `scripts/real_catalog_cache.py restore` after the base bootstrap; pinned by `db/config/real-catalog-cache.json` |
-| Historical catalog + vectors | Aurora `mosaic` / `mosaic_search` | `make db-bootstrap-cached` into a fresh Aurora cluster |
+| Historical catalog (rows only in the workshop) | Aurora `mosaic` / `mosaic_search` | `make db-bootstrap-base` into a fresh Aurora cluster; vectors only via the local historical cache |
 | Embedding cache | Workshop Studio assets / `build/embedding-cache/` | `make db-fetch-embeddings`, then verified import |
 | Normalized CSV shards | `build/normalized/` | `make db-prepare-mosaic` from `data/full/*.csv.gz` |
 | Premium cohort media | `ui/public/assets/images/mosaic/` | git; 126 files, content-verified |

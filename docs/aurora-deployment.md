@@ -38,7 +38,7 @@ SELECT extversion FROM pg_extension WHERE extname = 'vector';
 9. `scripts/benchmark_hnsw.py` for the measured harness.
 10. Populate the UI only with measured or labeled projected values.
 
-`make db-bootstrap-cached` runs steps 2 through 7 in order.
+`make db-bootstrap-base` runs the load, index, cohort, evidence, vocabulary and acceptance steps in order, without importing the historical synthetic vectors; the real catalog restore follows it.
 
 ## Operational considerations
 
