@@ -787,19 +787,15 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
 # name all leave the variable unset, and the storefront then hides the link. The
 # lookup runs as an `if` condition so a failed call cannot reach the ERR trap and
 # roll back an otherwise working stack over a convenience link.
+# CloudFront depends on this instance's success signal on first creation, so
+# waiting here cannot discover it. One lookup still finds an existing distribution.
 CODE_EDITOR_DOMAIN=''
 if [[ -n "${WORKSHOP_NAME:-}" ]]; then
-  for domain_attempt in 1 2 3 4 5; do
-    if CODE_EDITOR_DOMAIN=$(aws cloudfront list-distributions \
-        --query "DistributionList.Items[?Comment=='${WORKSHOP_NAME} Code Editor'].DomainName | [0]" \
-        --output text) &&
-      [[ -n "$CODE_EDITOR_DOMAIN" && "$CODE_EDITOR_DOMAIN" != 'None' ]]; then
-      break
-    fi
+  if ! CODE_EDITOR_DOMAIN=$(aws cloudfront list-distributions \
+      --query "DistributionList.Items[?Comment=='${WORKSHOP_NAME} Code Editor'].DomainName | [0]" \
+      --output text) || [[ "$CODE_EDITOR_DOMAIN" == 'None' ]]; then
     CODE_EDITOR_DOMAIN=''
-    echo "Code Editor distribution lookup $domain_attempt found nothing; retrying in 20s"
-    sleep 20
-  done
+  fi
 else
   echo "WORKSHOP_NAME is unset; skipping Code Editor URL discovery"
 fi

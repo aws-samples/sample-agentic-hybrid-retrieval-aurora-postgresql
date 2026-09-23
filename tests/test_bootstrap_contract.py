@@ -549,6 +549,67 @@ exit "$status"
     assert f"attempts={min(success_at, 5)}" in result.stdout
 
 
+@pytest.mark.parametrize("scenario", ["existing", "missing", "denied", "unnamed"])
+def test_editor_url_lookup_never_waits_for_dependent_cloudfront(
+    script, tmp_path, scenario
+):
+    """CloudFront cannot be created until this bootstrap signals success."""
+    import os
+    import subprocess
+
+    start = script.index("CODE_EDITOR_DOMAIN=''\n")
+    end = script.index("APP_DB_USER=", start)
+    calls = tmp_path / "aws-calls"
+    sleeps = tmp_path / "sleeps"
+    program = r"""
+set -euo pipefail
+aws() {
+  printf '%s\n' "$*" >>"$AWS_CALLS"
+  case "$SCENARIO" in
+    existing) printf '%s\n' 'editor.example.test' ;;
+    missing) printf '%s\n' 'None' ;;
+    denied) return 1 ;;
+    *) return 2 ;;
+  esac
+}
+sleep() { printf '%s\n' "$*" >>"$SLEEPS"; }
+""" + script[start:end]
+    result = subprocess.run(
+        ["bash", "-c", program],
+        env={
+            **os.environ,
+            "REPO": str(tmp_path),
+            "HOME_FOLDER": "/workshop",
+            "WORKSHOP_NAME": "" if scenario == "unnamed" else "test-workshop",
+            "AWS_CALLS": str(calls),
+            "SLEEPS": str(sleeps),
+            "SCENARIO": scenario,
+        },
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert not sleeps.exists(), (
+        "Editor discovery rule: bootstrap slept for dependent CloudFront; "
+        "use one optional lookup because the distribution needs bootstrap success"
+    )
+    invocations = calls.read_text().splitlines() if calls.exists() else []
+    assert len(invocations) == (0 if scenario == "unnamed" else 1)
+    assert all(
+        call.startswith("cloudfront list-distributions ") for call in invocations
+    )
+    environment = tmp_path / ".env"
+    if scenario == "existing":
+        assert environment.read_text() == (
+            "MOSAIC_CODE_EDITOR_URL='https://editor.example.test/"
+            "?folder=/workshop/sample-agentic-hybrid-retrieval-aurora-postgresql'\n"
+        )
+    else:
+        assert not environment.exists()
+        assert "storefront hides its editor link" in result.stdout
+
+
 def _assert_editor_install_owns_parent_directories(script):
     """GNU install assigns -o/-g only to named paths, leaving parents root-owned."""
     import subprocess
