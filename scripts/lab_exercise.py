@@ -3,14 +3,19 @@
 
 Every check compares the participant's work with an answer this script computes
 independently, in the same read-only transaction. It never repairs a lab, never
-writes to Aurora, and never shows the reference answer.
+changes catalog data, and never shows the reference answer.
 
 - Lab 1: a recall query for the filtered vector search, graded with the planner's
   own plan and again with the HNSW index forced.
 - Lab 2: reciprocal rank fusion written in SQL over the three installed search
   functions, graded at the configured ``k`` and at four other values.
 - Lab 3: pytest tests for ``register_evidence``, graded against the reference
-  repair and four faulty variants that the tests must reject.
+  repair and four faulty variants that the tests must reject; then a claims query
+  that separates the evidence the answer cited from the evidence merely available.
+
+Every graded attempt is also recorded in ``mosaic.lab_decision`` (created here if
+missing), so the workshop finale can read each participant's decisions back from
+Aurora. That insert is the only write, and it records work, not catalog data.
 """
 
 from __future__ import annotations
@@ -29,7 +34,9 @@ from typing import Any
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from scripts import lab_state
+from psycopg.rows import dict_row
+
+from scripts import lab2_proposal, lab_state
 
 SCORE_TOLERANCE = 1e-9
 LAB2_K_TRIALS = (1, 10, 30, 120)
@@ -41,6 +48,50 @@ DEFAULT_WORK = {
 LAB1_COLUMNS = ("approximate_rows", "exact_rows", "recall")
 LAB2_COLUMNS = ("product_id", "rrf_score", "combined_position")
 LAB3_MINIMUM_TESTS = 3
+LAB3_CLAIMS_WORK = Path(".local/lab-3/claims.sql")
+LAB3_CLAIM_COLUMNS = (
+    "product_id",
+    "cited_spec_records",
+    "cited_review_records",
+    "imported_reviews",
+    "source_ratings",
+)
+DECISION_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS mosaic.lab_decision (
+    decision_id bigserial PRIMARY KEY,
+    lab smallint NOT NULL,
+    exercise text NOT NULL,
+    run_id uuid,
+    work_sha256 text NOT NULL,
+    verdict text NOT NULL CHECK (verdict IN ('PASS', 'FAIL')),
+    decision jsonb NOT NULL DEFAULT '{}'::jsonb,
+    measurement jsonb NOT NULL,
+    graded_at timestamptz NOT NULL DEFAULT now()
+)"""
+CLAIMS_TRUTH_SQL = """
+WITH cited AS (
+    SELECT DISTINCT (c->>'evidence_id')::bigint AS evidence_id,
+                    (c->>'product_id')::bigint AS product_id
+    FROM mosaic.agent_tool_event t
+    CROSS JOIN LATERAL jsonb_array_elements(
+        coalesce(nullif(t.output_payload->'citations', 'null'::jsonb), '[]'::jsonb)) c
+    WHERE t.agent_turn_id = %(turn)s::uuid
+      AND t.tool_name = 'synthesize_cited_answer' AND t.outcome = 'success'
+)
+SELECT c.product_id,
+       count(*) FILTER (WHERE e.evidence_type = 'product_spec') AS cited_spec_records,
+       count(*) FILTER (WHERE e.evidence_type <> 'product_spec') AS cited_review_records,
+       (SELECT count(*) FROM mosaic_catalog_stage.review_evidence v
+        WHERE v.dataset_id = d.dataset_id AND v.parent_asin = d.parent_asin)
+         AS imported_reviews,
+       (s.original->>'rating_number')::int AS source_ratings
+FROM cited c
+JOIN mosaic.product_evidence e USING (evidence_id)
+JOIN mosaic_live_search.product_document d ON d.product_id = c.product_id
+JOIN mosaic_catalog_stage.product s
+  ON s.dataset_id = d.dataset_id AND s.parent_asin = d.parent_asin
+GROUP BY c.product_id, d.dataset_id, d.parent_asin, s.original
+"""
 LAB3_VARIANTS: dict[str, str] = {
     "no registration (the broken seam)": lab_state.LAB3_BROKEN_STATE,
     "records kept, product list never written": """    for item in evidence:
@@ -506,6 +557,61 @@ def grade_lab3(path: Path) -> dict[str, Any]:
     return report
 
 
+def grade_claims(statement: str, values: dict[str, str]) -> dict[str, Any]:
+    """Compare the participant's evidence profile with an independent one."""
+    with _connect() as connection, connection.cursor() as cur:
+        cur.execute("SET TRANSACTION READ ONLY")
+        rows = _participant_rows(cur, statement, LAB3_CLAIM_COLUMNS)
+        cur.execute(CLAIMS_TRUTH_SQL, {"turn": values["lab_agent_id"]})
+        truth = {row["product_id"]: row for row in cur.fetchall()}
+        connection.rollback()
+    mine = {row["product_id"]: row for row in rows}
+    failures = []
+    if set(mine) != set(truth):
+        failures.append(
+            f"claims.sql returns products {sorted(mine)}; the answer cited "
+            f"{sorted(truth)}. One row per cited product."
+        )
+    for product_id in set(mine) & set(truth):
+        for column in LAB3_CLAIM_COLUMNS[1:]:
+            if mine[product_id][column] != truth[product_id][column]:
+                failures.append(
+                    f"product {product_id}: {column} is {mine[product_id][column]}; "
+                    f"the independent count is {truth[product_id][column]}"
+                )
+    return {
+        "claims": [
+            {key: truth[pid][key] for key in LAB3_CLAIM_COLUMNS}
+            for pid in sorted(truth)
+        ],
+        "failures": failures,
+    }
+
+
+def record_decision(lab: int, report: dict[str, Any], values: dict[str, str]) -> None:
+    """Save the graded attempt in Aurora so the finale can read it back."""
+    run_id = values.get("lab_search_id") or values.get("lab_agent_id")
+    with _connect() as connection:
+        connection.execute(DECISION_TABLE_SQL)
+        connection.execute(
+            "INSERT INTO mosaic.lab_decision "
+            "(lab, exercise, run_id, work_sha256, verdict, decision, measurement) "
+            "VALUES (%s, %s, %s, %s, %s, %s::jsonb, %s::jsonb)",
+            (
+                lab,
+                report["exercise"],
+                run_id,
+                report["work_sha256"],
+                report["verdict"],
+                json.dumps(report.get("decision", {})),
+                json.dumps(
+                    {k: v for k, v in report.items() if k not in {"decision"}},
+                    default=str,
+                ),
+            ),
+        )
+
+
 def _print_lab1(report: dict) -> None:
     for condition, result in report["conditions"].items():
         truth = result["independent"]
@@ -524,6 +630,31 @@ def _print_lab2(report: dict) -> None:
             "reaches reranking" if trial["within_cutoff"] else "cut before reranking"
         )
         print(f"k={trial['k']:<4} target combined position {where} ({status})")
+    proposal = report.get("proposal")
+    if proposal:
+        c = proposal["comparison"]
+        print(
+            f"proposal {proposal['change']}: Exact in cutoff "
+            f"{c['exact_in_cutoff']['baseline']} -> {c['exact_in_cutoff']['proposed']}; "
+            f"{c['queries_better']} queries better, {c['queries_worse']} worse "
+            f"(sign test p={c['sign_test_p']}); by category {c['by_category']}"
+        )
+        for before, after in zip(
+            proposal["chair_controls"]["baseline"],
+            proposal["chair_controls"]["proposed"],
+            strict=True,
+        ):
+            print(
+                f"  chair control {before['id']}: position "
+                f"{before['target_position']} -> {after['target_position']}"
+            )
+        work = proposal["work"]
+        print(
+            f"  reranker input {work['products_to_reranker']}; billed search units "
+            f"{work['billed_search_units_per_query']}; retrieval+fusion median "
+            f"{work['retrieval_fusion_ms_median']} (reranking not called)"
+        )
+        print(f"  your criterion says {proposal['expected_decision']}")
     saved = report["saved_run"]
     print(
         f"saved run: {saved['rows']} rows, {saved['distinct_saved_scores']} distinct "
@@ -537,6 +668,12 @@ def _print_lab3(report: dict) -> None:
     for name, verdict in report["variants"].items():
         print(f"  variant '{name}': {verdict}")
     print(f"your service/agent_tools.py: {report['your_code']}")
+    for row in report.get("claims", []):
+        print(
+            f"product {row['product_id']}: cited {row['cited_spec_records']} spec / "
+            f"{row['cited_review_records']} review records; {row['imported_reviews']} "
+            f"reviews imported of {row['source_ratings']} source ratings"
+        )
 
 
 def grade(lab: int, work: Path) -> dict[str, Any]:
@@ -544,14 +681,53 @@ def grade(lab: int, work: Path) -> dict[str, Any]:
     if not work.exists():
         raise ExerciseError(f"{work} does not exist; save your work there first")
     if lab == 3:
-        return grade_lab3(work)
+        report = grade_lab3(work)
+        claims = REPO / LAB3_CLAIMS_WORK
+        if not claims.exists():
+            report["failures"].append(f"write your claims query in {LAB3_CLAIMS_WORK}")
+            return report
+        values = load_context(3)
+        graded = grade_claims(
+            interpolate(claims.read_text(encoding="utf-8"), values), values
+        )
+        report["claims"] = graded["claims"]
+        report["failures"].extend(graded["failures"])
+        return report
     values = load_context(lab)
     template = work.read_text(encoding="utf-8")
     if lab == 1:
         return grade_lab1(interpolate(template, values), values)
-    return grade_lab2(
+    report = grade_lab2(
         lambda k: interpolate(template, {**values, "lab_rrf_k": str(k)}), values
     )
+    proposal_path = REPO / lab2_proposal.PROPOSAL_WORK
+    if not proposal_path.exists():
+        report["failures"].append(
+            f"write your one-setting proposal in {lab2_proposal.PROPOSAL_WORK}"
+        )
+        return report
+    baseline = {
+        key: int(values[f"lab_{key}"])
+        for key in (
+            "rrf_k",
+            "fused_limit",
+            "fts_limit",
+            "trigram_limit",
+            "semantic_limit",
+        )
+    }
+    try:
+        proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+        with _connect() as connection:
+            connection.row_factory = dict_row
+            graded = lab2_proposal.grade(proposal, connection, baseline)
+            connection.rollback()
+    except (json.JSONDecodeError, lab2_proposal.ProposalError) as error:
+        raise ExerciseError(f"proposal.json: {error}") from error
+    report["proposal"] = graded
+    report["decision"] = graded["decision"]
+    report["failures"].extend(graded["failures"])
+    return report
 
 
 def main() -> int:
@@ -577,6 +753,12 @@ def main() -> int:
         graded_at=datetime.now(UTC).isoformat(),
         verdict="FAIL" if report["failures"] else "PASS",
     )
+    report["exercise"] = {1: "recall_instrument", 2: "fusion", 3: "evidence_contract"}[
+        args.lab
+    ]
+    context = REPO / f".local/lab-{args.lab}/context.json"
+    if context.exists():
+        record_decision(args.lab, report, json.loads(context.read_text()))
     receipt = REPO / f".local/lab-{args.lab}/exercise-receipt.json"
     receipt.parent.mkdir(parents=True, exist_ok=True)
     receipt.write_text(json.dumps(report, indent=2, default=str) + "\n")
