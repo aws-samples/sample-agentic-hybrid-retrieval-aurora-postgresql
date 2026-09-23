@@ -75,3 +75,13 @@ docstrings on non-trivial public APIs. No commented-out code.
 
 Prose must match arithmetic. If a table says 11/12/11 and a sentence says
 "nothing lost time", the sentence is wrong, not the table.
+
+## Workshop Studio delivery
+
+For Workshop Studio build or publication work, also read the sibling
+`../build-agentic-hybrid-retrieval-with-amazon-aurora-postgresql/AGENTS.md`.
+Its publication workflow is binding: S3 asset upload, then the Studio
+**Asset static URLs** sync and **In sync** verification, then Git commit/push
+and build verification. Keep the bootstrap source here and the sibling delivery
+copy byte-identical, and use `scripts/repin.py` in that repository for release
+pins.
