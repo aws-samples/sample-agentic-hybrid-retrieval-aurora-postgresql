@@ -1,4 +1,4 @@
-"""Integration checks against the live `mosaic_search` tree on Aurora.
+"""Integration checks against the served and historical catalogs on Aurora.
 
 Retargeted from `catalog.*` in Phase 2 Unit E. **No predecessor comparison
 possible — both `catalog.*` databases dropped 2026-08; DDL survives in git, loaded
@@ -22,6 +22,7 @@ Skips without a DSN so the suite runs anywhere. `make validate-missions` and
 """
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -31,15 +32,19 @@ pytest.importorskip("pgvector")
 from pgvector.psycopg import register_vector
 
 from scripts.retrieval_profile import load_profile
+from service.catalog_runtime import active_dataset, search_schema
 from service.config import get_settings
+from service.models import SearchRequest
+from service.retrieval import RetrievalService
 
 DATABASE_URL = get_settings().database_url
-pytestmark = pytest.mark.skipif(
-    not DATABASE_URL,
-    reason="DATABASE_URL is required for Aurora integration tests",
-)
-
-CONSUMER_ELECTRONICS = json.dumps({"domain": "consumer_electronics"})
+pytestmark = [
+    pytest.mark.aurora,
+    pytest.mark.skipif(
+        not DATABASE_URL,
+        reason="DATABASE_URL is required for Aurora integration tests",
+    ),
+]
 
 
 @pytest.fixture
@@ -55,13 +60,50 @@ def profile():
     return load_profile()
 
 
+@pytest.fixture
+def served_probe(connection):
+    """Vector checks follow the served catalog; historical rows can lack vectors."""
+    if active_dataset():
+        contract = json.loads(
+            (
+                Path(__file__).parents[1] / "data/evals/mosaic_labs_missions.json"
+            ).read_text()
+        )
+        mission = next(
+            check
+            for check in contract["supporting_checks"]
+            if check["id"] == "semantic-eligibility"
+        )
+        product_id = mission["target_product_ids"][0]
+        query, filters = mission["query"], mission["filters"]
+    else:
+        product_id = 2
+        query = "wireless noise cancelling headphones"
+        filters = {"domain": "consumer_electronics"}
+    schema = search_schema()
+    embedding = connection.execute(
+        f"SELECT embedding FROM {schema}.product_document WHERE product_id = %s",
+        (product_id,),
+    ).fetchone()[0]
+    assert embedding is not None, f"served product {product_id} has no saved vector"
+    service = RetrievalService()
+    runtime_profile = service._profile(SearchRequest(query=query, filters=filters))
+    service._configure_hnsw(connection, runtime_profile)
+    return {
+        "schema": schema,
+        "embedding": embedding,
+        "query": query,
+        "filters": json.dumps(filters),
+    }
+
+
 def test_the_projection_is_fully_embedded_in_one_model_space(connection):
     row = connection.execute(
-        """
+        f"""
         SELECT count(*) AS products,
                count(embedding) AS embedded,
                count(*) FILTER (WHERE vector_dims(embedding) = 1024) AS at_1024
-        FROM mosaic_search.product_document
+        FROM {search_schema()}.product_document
         """
     ).fetchone()
     products, embedded, at_1024 = row
@@ -216,16 +258,13 @@ def test_a_typo_query_recovers_its_target_through_the_trigram_arm(connection, pr
     assert rows[0] == (2, 1)
 
 
-def test_hybrid_fusion_preserves_every_arm_signal(connection, profile):
+def test_hybrid_fusion_preserves_every_arm_signal(connection, profile, served_probe):
     """Fusion must not erase provenance: the three arm ranks stay separable."""
-    embedding = connection.execute(
-        "SELECT embedding FROM mosaic_search.product_document WHERE product_id = 2"
-    ).fetchone()[0]
     rows = connection.execute(
-        """
+        f"""
         SELECT product_id, fts_rank, trigram_rank, semantic_rank, rrf_score,
                provenance
-        FROM mosaic_search.search_hybrid_rrf(
+        FROM {served_probe["schema"]}.search_hybrid_rrf(
             %(query)s, %(embedding)s::vector, %(filters)s::jsonb,
             %(rrf_k)s::integer, %(fts_limit)s::integer,
             %(trigram_limit)s::integer, %(semantic_limit)s::integer,
@@ -234,9 +273,9 @@ def test_hybrid_fusion_preserves_every_arm_signal(connection, profile):
         LIMIT 10
         """,
         {
-            "query": "wireless noise cancelling headphones",
-            "embedding": embedding,
-            "filters": CONSUMER_ELECTRONICS,
+            "query": served_probe["query"],
+            "embedding": served_probe["embedding"],
+            "filters": served_probe["filters"],
             "rrf_k": profile.rrf_k,
             "fts_limit": profile.fts_limit,
             "trigram_limit": profile.trigram_limit,
@@ -254,15 +293,12 @@ def test_hybrid_fusion_preserves_every_arm_signal(connection, profile):
         assert "channels" in row[5]
 
 
-def test_pre_rerank_order_is_repeatable(connection, profile):
+def test_pre_rerank_order_is_repeatable(connection, profile, served_probe):
     """Stable tie-breaking makes the visible fused order reproducible."""
-    embedding = connection.execute(
-        "SELECT embedding FROM mosaic_search.product_document WHERE product_id = 2"
-    ).fetchone()[0]
     params = {
-        "query": "wireless noise cancelling headphones",
-        "embedding": embedding,
-        "filters": CONSUMER_ELECTRONICS,
+        "query": served_probe["query"],
+        "embedding": served_probe["embedding"],
+        "filters": served_probe["filters"],
         "rrf_k": profile.rrf_k,
         "fts_limit": profile.fts_limit,
         "trigram_limit": profile.trigram_limit,
@@ -270,9 +306,9 @@ def test_pre_rerank_order_is_repeatable(connection, profile):
         "result_limit": profile.fused_limit,
         "trigram_threshold": profile.trigram_threshold,
     }
-    sql = """
+    sql = f"""
         SELECT product_id, rrf_score
-        FROM mosaic_search.search_hybrid_rrf(
+        FROM {served_probe["schema"]}.search_hybrid_rrf(
             %(query)s, %(embedding)s::vector, %(filters)s::jsonb,
             %(rrf_k)s::integer, %(fts_limit)s::integer,
             %(trigram_limit)s::integer, %(semantic_limit)s::integer,
@@ -285,7 +321,9 @@ def test_pre_rerank_order_is_repeatable(connection, profile):
     assert first == second
 
 
-def test_common_shop_query_stays_inside_the_sql_latency_guard(connection, profile):
+def test_common_shop_query_stays_inside_the_sql_latency_guard(
+    connection, profile, served_probe
+):
     """A broad shopper query must not score six figures of lexical candidates.
 
     The former OR-combined FTS query plus unconditional whole-string trigram
@@ -293,16 +331,13 @@ def test_common_shop_query_stays_inside_the_sql_latency_guard(connection, profil
     deliberately a guardrail rather than a benchmark claim: the query either
     follows the selective GIN/HNSW paths or PostgreSQL cancels it loudly.
     """
-    embedding = connection.execute(
-        "SELECT embedding FROM mosaic_search.product_document WHERE product_id = 429001"
-    ).fetchone()[0]
     with connection.transaction():
         connection.execute("SET LOCAL statement_timeout = '5s'")
         rows = connection.execute(
-            """
+            f"""
             SELECT product_id, fts_rank, trigram_rank, semantic_rank
-            FROM mosaic_search.search_hybrid_rrf(
-                %(query)s, %(embedding)s::vector, '{}'::jsonb,
+            FROM {served_probe["schema"]}.search_hybrid_rrf(
+                %(query)s, %(embedding)s::vector, '{{}}'::jsonb,
                 %(rrf_k)s::integer, %(fts_limit)s::integer,
                 %(trigram_limit)s::integer, %(semantic_limit)s::integer,
                 %(result_limit)s::integer, %(trigram_threshold)s::real
@@ -310,7 +345,7 @@ def test_common_shop_query_stays_inside_the_sql_latency_guard(connection, profil
             """,
             {
                 "query": "quiet wireless keyboard for a shared office",
-                "embedding": embedding,
+                "embedding": served_probe["embedding"],
                 "rrf_k": profile.rrf_k,
                 "fts_limit": profile.fts_limit,
                 "trigram_limit": profile.trigram_limit,

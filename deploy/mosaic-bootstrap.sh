@@ -733,11 +733,16 @@ network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   cd '$REPO'
   mkdir -p build/real-catalog-cache
   aws s3 sync '$REAL_CATALOG_CACHE_URI' build/real-catalog-cache \
-    --exclude '*' --include 'real-catalog.tar.gz.part-*' --only-show-errors
+    --exclude '*' --include 'real-catalog.tar.gz.part-*' \
+    --include 'vocabulary/*.csv.gz' --only-show-errors
 "
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   cd '$REPO' && uv run python scripts/real_catalog_cache.py join \
     --archive build/real-catalog-cache/real-catalog.tar.gz
+"
+sudo -u "$CODE_EDITOR_USER" -H bash -lc "
+  cd '$REPO' && uv run python scripts/corpus_vocabulary.py verify \
+    --directory build/real-catalog-cache/vocabulary
 "
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   set -Eeuo pipefail
@@ -745,6 +750,7 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   set -a
   source .env
   set +a
+  export MOSAIC_VOCABULARY_CACHE_DIR=build/real-catalog-cache/vocabulary
   make db-bootstrap-base
   uv run python scripts/real_catalog_cache.py restore \
     --archive build/real-catalog-cache/real-catalog.tar.gz \

@@ -6,6 +6,18 @@ import pytest
 
 from service.config import get_settings
 
+
+@pytest.fixture(autouse=True)
+def isolate_unit_catalog(request, monkeypatch):
+    """Keep a participant's selected catalog out of historical unit-test doubles.
+
+    Live tests retain the deployment selection. Unit tests that exercise a real
+    catalog set it explicitly in their own fixture or test body.
+    """
+    if request.node.get_closest_marker("aurora") is None:
+        monkeypatch.delenv("MOSAIC_CATALOG_DATASET", raising=False)
+
+
 _SKIP_REASON = (
     "Rule: aurora-marked tests require a live Aurora DSN because they exercise "
     "real retrieval and scope-enforcement SQL, not a stand-in. Value: skipping "

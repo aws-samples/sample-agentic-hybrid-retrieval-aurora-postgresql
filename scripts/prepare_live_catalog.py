@@ -21,6 +21,7 @@ import psycopg
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from scripts.corpus_vocabulary import refresh as refresh_vocabulary
 from scripts.embed_catalog import COHERE_EMBED_V4_MODEL_ID
 from scripts.prepare_staged_catalog_search import require_complete, search_functions
 from scripts.retrieval_profile import load_profile
@@ -190,7 +191,7 @@ def prepare(connection, dataset_id: str) -> dict:
         f"SELECT EXISTS(SELECT 1 FROM {SCHEMA}.corpus_lexeme) AND EXISTS(SELECT 1 FROM {SCHEMA}.corpus_surface_lexeme)"
     ).fetchone()[0]
     if not ready:
-        connection.execute(f"CALL {SCHEMA}.refresh_corpus_lexeme()")
+        refresh_vocabulary(connection, SCHEMA)
     connection.commit()
     checked = connection.execute(f"""SELECT count(*),count(*) FILTER(WHERE p.content_hash=d.source_record_sha256)
         FROM {SCHEMA}.product_document d JOIN mosaic.product p USING(product_id)""").fetchone()

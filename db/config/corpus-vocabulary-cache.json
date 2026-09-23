@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "procedure_sha256": "bf2726337d0db102baba19c683c98da110c19e1309550591b03d59f3e67174a2",
+  "environment": {
+    "server_version_num": "180003",
+    "encoding": "UTF8",
+    "simple_dictionaries": [
+      [
+        1,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        2,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        3,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        4,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        5,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        6,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        7,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        8,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        9,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        10,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        11,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        15,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        16,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        17,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        18,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        19,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        20,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        21,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ],
+      [
+        22,
+        1,
+        "pg_catalog",
+        "simple",
+        null
+      ]
+    ]
+  },
+  "schemas": {
+    "mosaic_search": {
+      "input": {
+        "products": 500000,
+        "sha256": "bf3222e435be206880cb93bd36a7cb52a1782ca953a860f21f2b71b7fe61d7f9"
+      },
+      "tables": {
+        "corpus_lexeme": {
+          "rows": 1023852,
+          "bytes": 3099884,
+          "sha256": "8b1a1bf97ec27d13b2fb53be404544d21c53ebfe35e32a3e82a39d2a54503bfc"
+        },
+        "corpus_surface_lexeme": {
+          "rows": 1024767,
+          "bytes": 3110644,
+          "sha256": "2ef6134941963789ce34e4a7dd0a357062d40e58ab5c2522cd98283dab081dc8"
+        }
+      }
+    },
+    "mosaic_live_search": {
+      "input": {
+        "products": 500000,
+        "sha256": "b5527812d8a00aeb7f6b7b9ad60e47c411bcce8c5da4167f5a99a83ec1f6e3d1"
+      },
+      "tables": {
+        "corpus_lexeme": {
+          "rows": 2049456,
+          "bytes": 10979266,
+          "sha256": "91956507004721e7418665737e8b982f3bde4fcee6a4b2b4447fd32823cd733d"
+        },
+        "corpus_surface_lexeme": {
+          "rows": 2098693,
+          "bytes": 11448522,
+          "sha256": "cb22f78500a1a85dc22c666852374c93832c55b63441052f9f00d827ec700ab5"
+        }
+      }
+    }
+  }
+}

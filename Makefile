@@ -439,6 +439,7 @@ test-aurora-contracts:
 		tests/test_bootstrap_contract.py \
 		tests/test_evidence_retirement.py \
 		tests/test_db_pool_recovery.py \
+		tests/test_corpus_vocabulary.py \
 		tests/test_agent_eligibility.py
 
 # Every `pytest.mark.aurora` test, and until this target existed none of them ran
@@ -509,20 +510,11 @@ simulate:
 db-seed-exact-neighbors:
 	@$(PYTHON) scripts/seed_exact_neighbors.py --k 10
 
-# Builds mosaic_search.corpus_lexeme, the vocabulary query coverage reads to tell
-# a misspelling ("hedfones", close to a real term) from an absence ("A2342",
-# close to nothing). ts_stat scans every product document twice, once stemmed
-# for exact matches and once unstemmed for the misspelling rescue. Measured on
-# the 500,000-product corpus on 2026-09-04: 75 seconds (22 stemmed, 53
-# surface), so it runs as the corpus_lexeme_seed phase of db-bootstrap-base.
-#
-# Skipping it is safe: service.coverage reports `unavailable` against an empty
-# vocabulary and every surface behaves exactly as it did before coverage existed.
-# Nothing abstains on a deployment that has not run this.
+# Workshop bootstrap explicitly supplies a verified vocabulary cache. Ordinary
+# operator runs still rebuild from the production SQL; neither path skips the
+# vocabulary or its acceptance checks.
 db-seed-corpus-lexeme: check-dsn
-	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 \
-		-c "CALL mosaic_search.refresh_corpus_lexeme();" \
-		-c "SELECT count(*) AS corpus_lexemes FROM mosaic_search.corpus_lexeme;"
+	@$(PYTHON) scripts/corpus_vocabulary.py refresh --schema mosaic_search
 
 # Which models this account may actually invoke. An ACTIVE inference profile is
 # not entitlement: a fresh Workshop Studio account answered "anthropic.claude-
