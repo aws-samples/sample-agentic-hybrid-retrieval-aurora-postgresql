@@ -219,6 +219,11 @@ def _lab1_truth(cur: Any, values: dict[str, str]) -> dict[str, Any]:
 
 
 def _lab1_verdict(condition: str, mine: dict, truth: dict) -> str | None:
+    if mine["recall"] is None:
+        return (
+            f"{condition}: recall is NULL, so your exact CTE returned no rows; "
+            "it must return the true nearest :lab_semantic_limit eligible products"
+        )
     same_counts = (
         mine["approximate_rows"] == truth["approximate_rows"]
         and mine["exact_rows"] == truth["exact_rows"]

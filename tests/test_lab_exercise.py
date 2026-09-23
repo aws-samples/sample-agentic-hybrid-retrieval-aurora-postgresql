@@ -108,6 +108,15 @@ def test_recall_grader_explains_an_exact_set_served_by_the_index():
     )
 
 
+def test_recall_grader_explains_the_untouched_skeleton():
+    truth = {"approximate_rows": 150, "exact_rows": 150, "recall": 1.0}
+    mine = {"approximate_rows": 150, "exact_rows": 0, "recall": None}
+
+    assert "returned no rows" in lab_exercise._lab1_verdict(
+        "planner's plan", mine, truth
+    )
+
+
 def _participant_file(tmp_path: Path, body: str) -> Path:
     shutil.copy(ROOT / "labs" / "lab3" / "conftest.py", tmp_path / "conftest.py")
     path = tmp_path / "test_evidence_contract.py"
