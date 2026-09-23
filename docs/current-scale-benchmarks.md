@@ -90,8 +90,8 @@ queries. Candidate depth and search effort are part of each configuration.
   kept separately for its earlier catalog and hardware comparisons.
 
 The measurement source is clean commit
-`ba81904d3e4654bce62046535fc65053d7917bb5` on
-`benchmarks/mosaic-scale-20260908`. The dataset manifest is
+`ba81904d3e4654bce62046535fc65053d7917bb5` on the
+`benchmarks/mosaic-scale-20260908` branch. The dataset manifest is
 `2cbb04b93521a62be0c6512cec13a70149c51e24543f8a3d6e53d335ae7f5774`.
 The summary records the anchor IDs and hashes for both the anchor list and raw
 samples. The API checks the recorded dataset against the connected catalog

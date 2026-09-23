@@ -120,6 +120,7 @@ unchanged. A source release still requires the normal chain:
 1. publish the source commit;
 2. repin Workshop Studio with `scripts/repin.py`;
 3. verify the source bootstrap and Studio asset remain byte-identical;
-4. run `scripts/validate_workshop.py` and the participant-query validator;
+4. run the Workshop Studio repository's `scripts/validate_workshop.py` and its
+   participant-query validator;
 5. perform the clean-account deployment rehearsal before claiming release
    readiness.

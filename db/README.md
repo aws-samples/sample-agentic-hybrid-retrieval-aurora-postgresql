@@ -60,9 +60,9 @@ It also marks:
 
 See:
 
-- `data/premium_cohort_120.csv`
 - `data/premium_cohort_120.json`
-- `data/premium_asset_queue_120.json`
+- `build/normalized/premium_cohort_120.csv` (written by
+  `scripts/export_premium_cohort.py`; `make db-load-cohort` loads it)
 - `docs/media-and-merchandising.md`
 
 ## Package structure

@@ -23,6 +23,8 @@ Recommended bulk load pattern:
 5. Run `CALL mosaic_search.refresh_product_documents();`.
 6. Generate embeddings from `mosaic_search.product_document.embedding_text`.
 7. Build `sql/08_indexes_concurrent.sql`.
-8. Load `data/premium_cohort_120.csv` with `sql/15_load_premium_cohort.sql`.
+8. Export the cohort with `scripts/export_premium_cohort.py`, then load
+   `build/normalized/premium_cohort_120.csv` with `sql/15_load_premium_cohort.sql`
+   (`make db-load-cohort` passes that path as `premium_cohort_path`).
 
 The transformer leaves embeddings empty; embedding generation remains model-specific and should run in the target environment.

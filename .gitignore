@@ -87,3 +87,7 @@ infra/cdk/cdk.context.json
 
 # Isolated MCP wheel build output.
 /mcp-server/build/
+
+# Local design prototypes. Anything in ui/public ships in the build, so these
+# must never be committed.
+/ui/public/_proto-*.html
