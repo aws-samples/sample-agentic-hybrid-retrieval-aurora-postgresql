@@ -121,7 +121,7 @@ are packaging guidance, not another topic to teach at the end.
 | 04:00–05:30 | Rank: establish their order | Preview the question, not the next fault: if a monitor finishes first, how do we know fusion worked? Participants will inspect source ranks and `1 / (k + rank)` before reranking. | Technical |
 | 05:30–07:00 | Reason: support a decision | Preview Alex's final request: the recovered 27-inch 4K monitor with up to 90W USB-C charging, and a wheeled chair with adjustable lumbar support and arms. One request needs separate searches and source comparisons. A source link must support the claim. Do not start a long agent run during the opening. | Lead |
 | 07:00–08:30 | Who owns each decision? | Aurora retrieves, filters and saves records. Bedrock supplies embeddings, reranking and the agent model. The application validates tool calls and citations. Read-only catalog tools still produce audit writes. Show one saved search ID, not a service tour. | Aurora presenter |
-| 08:30–10:00 | Your work and its proof | Explain the provided scaffolding and the three connections participants implement. Open the guide and the two work surfaces. Predict, observe, diagnose, repair, repeat the same request, explain the change. Fast track keeps the same proof. Required work finishes by minute 50. | Lead |
+| 08:30–10:00 | Your work and its proof | Explain the provided scaffolding and the three connections participants implement. Open the guide and the two work surfaces. Predict, observe, diagnose, repair, repeat the same request, explain the change. Each lab has one graded piece of work participants write themselves. Required work finishes by minute 50. | Lead |
 
 The slides introduce a question; each lab answers it with real records. Keep
 SQL, plans, budgets and measured comparisons beside the relevant proof instead
@@ -225,12 +225,12 @@ Welcome Alex profile or the Discover brief already implements.
 ## What participants do
 
 1. Open three browser tabs from the Event Dashboard: Code Editor and Mosaic, plus the guide itself. The introduction shows one healthy meaning-only search and the three names Shop prints for its searches.
-2. Lab 1, Tasks 1a to 1d: compare the correct and transposed listing IDs; see Bose QuietComfort 35 II disappear; probe close-spelling search, reconnect it to fusion, and repeat the same request. Check exact identity and the Bose brand/category control.
-3. Lab 2, Tasks 2a to 2d: inspect the 4K/90W monitor request and the unsuitable 1440p result; find equal contributions for unequal source positions; restore `1 / (k + rank)`; confirm Dell enters the shortlist, inspect its reranking, and run the controls.
-4. Lab 3, Tasks 3a to 3d: read the fail-closed HTTP 503; trace evidence from the tool to the state that authorizes citations; register it in Python and restart; resolve every citation, read the sources, and run the validator.
+2. Lab 1, Tasks 1a to 1d (explain a mechanism): see Bose QuietComfort 35 II disappear for a transposed listing ID; derive from `websearch_to_tsquery`, `show_trgm` and `word_similarity` why word search cannot match and close spelling can; rebuild the close-spelling method from its contract; then write a recall query for the filtered vector search. The grader runs it with the planner's plan (an exact btree scan) and with HNSW forced, where the obvious "exact" query is itself served by the index.
+3. Lab 2, Tasks 2a to 2d (write an algorithm): write RRF in SQL over the three installed search functions, graded at five values of `k`; find that the saved run has two distinct scores, so the `product_id` tie-breaker decided the reranking cutoff; repair production to agree with your query; use the grader's `k` sweep to decide which setting would keep the Dell in reach.
+4. Lab 3, Tasks 3a to 3d (specify a contract): read the fail-closed HTTP 503; trace evidence to the state that authorizes citations; write tests that must reject four faulty implementations, then repair `register_evidence` and restart; resolve every citation; close the loop with a query showing the agent's own searches used the Lab 1 and Lab 2 repairs.
 5. Run the completion gate inside Lab 3, then use the remaining time for an optional exercise, catch-up or questions.
 
-Each lab has a manual path and an optional coding-agent path (`claude` from the repository root, with guardrails). Both produce the same small diff and pass the same validator. Each lab also has a five-minute **Fast track** that compresses the implementation, never the proof.
+Each lab has a manual path and an optional coding-agent path (`claude` from the repository root, with guardrails). Both must meet the same contract and pass the same grader and validator. There is no fast track; Hint 4 restores the repair without printing it, and the graded exercise stays on every path.
 
 ## The participant experience
 
@@ -462,7 +462,7 @@ agent evidence and room support roles before delivery. Use the role table below
 to make each handoff explicit; a presenter joins for the relevant proof and then
 returns control to the lead. Keep the same stage questions at every table.
 
-If a table falls behind, use the guide's Fast track promptly. `make reset-lab-N`
+If a table falls behind on an edit, use the guide's Hint 4 recovery promptly; keep the graded exercise. `make reset-lab-N`
 reinstalls that lab's fault and restores its prerequisites; the corresponding
 `make solution-lab-N` is the recovery route. Apply changed SQL and restart the
 API where the guide requires it, then run the same validator. A rescue is not a
@@ -601,7 +601,7 @@ talk slots; one person can cover more than one role.
 | Lead presenter | Customer story, clock, projected browser and transitions | What changed for Alex, and what record demonstrates it? |
 | SQL presenter | Candidate paths, filtering, fusion arithmetic and plan reading | Does the SQL or plan support the database claim? |
 | Agent presenter | Tool decisions, application checks, source comparison and claim support | Which action did the model request, and what could the application refuse? |
-| Room support | Navigation, syntax recovery, validator outcomes and fast-track pacing | Can the participant explain the repair using their own result? |
+| Room support | Navigation, syntax recovery, grader and validator outcomes, and Hint 4 pacing | Can the participant explain the repair using their own result? |
 | Technical reviewer | Challenge the database, ranking and answer claims during rehearsal | Does the plan support the claim, does the measurement justify the ranking decision, and does the source support the answer? |
 
 ### Lead presenter

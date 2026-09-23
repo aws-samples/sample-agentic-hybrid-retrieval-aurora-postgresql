@@ -20,18 +20,22 @@ Each guide uses the same headings:
 5. Troubleshooting.
 6. Next, carrying Alex's result into the following lab.
 
-The main path asks for a hypothesis before revealing a diagnosis. Exact repair
-code remains in Hint 4. Deeper references and manual control requests are
-collapsed; required measurements are visible. `learning-notes.md` records the
+The main path asks for a hypothesis before revealing a diagnosis. No guide
+prints the reference repair; Hint 4 restores it through `lab_state.py solution`
+without showing it, and `validate_workshop.py` fails if a page prints it. Each lab
+has one graded exercise the participant writes, checked by
+`scripts/lab_exercise.py` against independently computed answers. Deeper
+references and manual control requests are collapsed; required measurements are
+visible. `learning-notes.md` records the
 prediction, observed contradiction, decision, evidence IDs and recovery use.
 
 ## What makes the work deeper
 
-| Lab | Customer outcome | Required engineering judgment | Independent challenge |
+| Lab | Customer outcome | What the participant builds | Graded against |
 |---|---|---|---|
-| Retrieve | Find the saved Bose listing | Separate a missing record, filter exclusion and disconnected search method. Compare the three installed generators and inspect a filtered vector scan. | Correct ID and descriptive-query controls; inspect eligible population before interpreting a short result set. |
-| Rank | Recover a documented 27-inch 4K/90W monitor | Explain how source positions, fusion and a bounded list affect what the reranker can see. | Full-pool before/after comparison, recorded contribution arithmetic, installed-function sensitivity and unchanged controls. |
-| Reason | Support the monitor and wheeled-chair choices; revisit the headphones | Separate retrieved text, permitted citations and supported claims. Identify what neither specifications nor sampled reviews establish. | Positive citation control followed by changed product record, quote and revision; production wrong-product citation rejection. |
+| Retrieve (explain a mechanism) | Find the saved Bose listing | The derivation of each method's behavior from `websearch_to_tsquery`, `show_trgm` and `word_similarity`; the trigram CTE and channel from a contract; a recall query for the filtered vector search | Exact neighbors the grader computes itself, with the planner's plan (btree + sort) and with HNSW forced. Measured 2026-09-22 under the headphones filter: forced HNSW returns 150 rows at recall 0.467, and the obvious `ORDER BY embedding <=> v` ground truth is itself served by HNSW |
+| Rank (write an algorithm) | Recover a documented 27-inch 4K/90W monitor | RRF in SQL over the three installed search functions; the repair that makes production agree with it; a decision among `k`, the cutoff and method limits | An independent fusion at `k` = 1, 10, 30, 60 and 120. Measured: the broken run saves 2 distinct scores across 50 rows; the Dell's combined position is 7, 9, 17, 24 and 24 |
+| Reason (specify a contract) | Support the monitor and wheeled-chair choices; revisit the headphones | Tests for `register_evidence`, then the repair; the reading of the agent's saved searches that closes the loop | The reference repair (must pass) and four faulty variants (each must fail); citation mutations; the loop query's zero formula error |
 
 Labs 1 and 2 run their investigations directly in `psql` against installed
 Aurora functions and saved search tables. `scripts/lab_terminal.py` only runs

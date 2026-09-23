@@ -101,11 +101,18 @@ hnsw:
   # domain='home_office' — up to 72% of the pool lost silently, then fused by RRF
   # as if complete.
   #
-  # The binding limit is `work_mem x scan_mem_multiplier`, which is 4MB on this
-  # cluster. max_scan_tuples is NOT the constraint: measured 0 rows at 20K, 100K,
-  # 500K and 1M alike on the same query. 2 restores 150/150 and costs +0.1ms
-  # unfiltered and on uncorrelated filters, +16ms on the pathological one. 4 and 8
-  # measured no better than 2.
+  # On that retired synthetic catalog the binding limit was `work_mem x
+  # scan_mem_multiplier` (4MB): max_scan_tuples measured 0 rows at 20K to 1M
+  # alike, and 4 and 8 measured no better than 2.
+  #
+  # Re-measured 2026-09-22 on reviews-2023-500k-v1 (500,000 rows): the planner
+  # does not use HNSW for any category-filtered lab request. It picks the
+  # (category_key, product_id) btree and sorts exactly, so these four settings do
+  # not affect those requests. With HNSW forced (enable_sort = off) under the
+  # headphones filter, these settings return a full 150 rows at recall 0.467 against
+  # exact; multiplier 8 changes nothing, and max_scan_tuples 200K raises recall to
+  # 0.780. Here max_scan_tuples is a constraint. Lab 1 measures this live with
+  # scripts/lab_exercise.py.
   scan_mem_multiplier: 2
 media:
   premium_products: 120
