@@ -172,7 +172,15 @@ export function SiteFooter({ inert = false }: { inert?: boolean }) {
 
         <div className="site-footer-legal">
           <p>
-            {real ? "Original product listings and ratings from Amazon Reviews 2023. Current prices and availability may differ. Mosaic does not process purchases." : "Nothing here charges a card. Products, prices, reviews and availability are sample data created for this workshop."}
+            {real ? (
+              <>
+                Original product listings, ratings and reviews from{" "}
+                <a href="https://amazon-reviews-2023.github.io/" target="_blank" rel="noreferrer">
+                  Amazon Reviews 2023
+                </a>{" "}
+                (McAuley Lab, UC San Diego). Current prices and availability may differ. Mosaic does not process purchases.
+              </>
+            ) : "Nothing here charges a card. Products, prices, reviews and availability are sample data created for this workshop."}
           </p>
           <p className="site-footer-copyright">
             © Amazon.com, Inc. or its affiliates. Sample code under MIT-0.

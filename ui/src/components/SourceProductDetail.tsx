@@ -119,9 +119,9 @@ export function SourceProductDetail({
           </div>
         </details>
         <details>
-          <summary><span>Customer reviews <small>{product.reviews.length ? `${product.reviews.length} available` : "Not yet available"}</small></span><ChevronDown size={18} /></summary>
+          <summary><span>Customer reviews <small>{product.reviews.length ? `${product.reviews.length} shown${product.review_count ? ` of ${product.review_count.toLocaleString()} ${product.review_count === 1 ? "rating" : "ratings"}` : ""}` : "None imported"}</small></span><ChevronDown size={18} /></summary>
           <div className="source-detail-content">
-            <p className="source-review-note">{product.reviews.length ? "These are a sample of historical reviews, not all the ratings shown above. Reviews may refer to different variants of the same listing." : "No review text has been loaded for this product. Any rating shown above comes from the original listing."}</p>
+            <p className="source-review-note">{product.reviews.length ? "Selected historical reviews, chosen for helpfulness within positive, mixed and critical ratings. They are not a representative sample of the ratings above, and may refer to different variants of the same listing." : "No review text was imported for this listing. Any rating shown above comes from the original listing."}</p>
             <div className="source-detail-reviews">
               {product.reviews.map((review) => (
                 <article key={review.review_id}>
@@ -146,6 +146,7 @@ export function SourceProductDetail({
               {product.model ? <div><dt>Model</dt><dd>{product.model}</dd></div> : null}
               {product.historical_price_cents != null ? <div><dt>Price in the source</dt><dd>{formatPrice(product.historical_price_cents, product.currency)} · Not a current offer</dd></div> : null}
               {product.historical_price_min_cents != null ? <div><dt>Starting price in the source</dt><dd>{formatPrice(product.historical_price_min_cents, product.currency)} · Not a current offer</dd></div> : null}
+              {product.historical_price_cents == null && product.historical_price_min_cents == null ? <div><dt>Price in the source</dt><dd>Not reported: unknown, not free</dd></div> : null}
               {source?.revision ? <div><dt>Saved version</dt><dd><code>{source.revision}</code></dd></div> : null}
             </dl>
           </div>

@@ -82,10 +82,44 @@ describe("ProductPage", () => {
     expect(container.querySelector(".source-detail-information details")?.hasAttribute("open")).toBe(false);
     expect(screen.queryByRole("button", { name: "Add to cart" })).toBeNull();
     expect(screen.getByRole("link", { name: "View original listing" }).getAttribute("href")).toBe(product.listing_url);
-    expect(screen.getByText(/No review text has been loaded/)).toBeTruthy();
+    expect(screen.getByText(/No review text was imported for this listing/)).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "View product image 2" }));
     expect(container.querySelector(".source-detail-photo > img")?.getAttribute("src")).toBe("https://example.com/original-open.jpg");
+  });
+
+  it("labels imported reviews as a selection beside the source rating count", async () => {
+    const base = showcaseProductDetail(1)!;
+    const product: ProductDetail = {
+      ...base,
+      title: "Original monitor listing",
+      source_dataset: "reviews-2023-500k-v1",
+      listing_url: "https://www.amazon.com/dp/SOURCE0002",
+      rating: 5,
+      review_count: 6,
+      reviews: [
+        {
+          review_id: 9101,
+          rating: 5,
+          title: "Charges my laptop",
+          body: "One USB-C cable carries display and power.",
+          verified_purchase: true,
+          helpful_votes: 3,
+          review_date: "2022-03-01",
+          sentiment_score: null,
+          source_uri: "https://huggingface.co/datasets/McAuley-Lab/Amazon-Reviews-2023",
+          source_name: "Amazon Reviews 2023",
+        },
+      ],
+    };
+    vi.mocked(api.product).mockResolvedValue(product);
+    vi.mocked(api.similarProducts).mockResolvedValue([]);
+    render(<CommerceProvider><ProductPage /></CommerceProvider>);
+
+    await screen.findByRole("heading", { name: "Original monitor listing" });
+    expect(screen.getByText("1 shown of 6 ratings")).toBeTruthy();
+    expect(screen.getByText(/not a representative sample/)).toBeTruthy();
+    expect(screen.getByText("Not reported: unknown, not free")).toBeTruthy();
   });
 
   it("labels false attributes accurately and opens the actual source records", async () => {
