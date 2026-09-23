@@ -1,0 +1,14 @@
+{
+ "measured_at": "2026-09-22",
+ "model": "cohere.rerank-v3-5:0",
+ "from": "a workstation client over the public internet; event-host latency will differ",
+ "query": "27 inch 4K monitor USB-C 90W laptop charging",
+ "documents": "monitor rerank_text records",
+ "runs": 5,
+ "median_ms": {
+  "50": 481,
+  "75": 587,
+  "100": 731
+ },
+ "billing": "Bedrock prices reranking per query; one query covers up to 100 document chunks (docs.aws.amazon.com/bedrock/latest/userguide/rerank-pricing.html)"
+}
