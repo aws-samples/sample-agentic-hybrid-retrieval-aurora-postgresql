@@ -24,6 +24,7 @@ from service.model_runtime import model_runtime_error
 from service.models import (
     AgentContextProduct,
     AgentConversationContext,
+    EvidenceRecord,
     ProductSummary,
     QueryCoverage,
     SearchFilters,
@@ -811,6 +812,25 @@ def search_products(
     }
 
 
+def register_evidence(
+    state: dict[str, Any], product_id: int, evidence: list[EvidenceRecord]
+) -> None:
+    """Authorize retrieved records for cited synthesis, scoped to one product.
+
+    Synthesis may cite a record only when it is in `state["evidence"]` and
+    listed under the product it describes in `state["evidence_by_product"]`.
+    A repeated call for the same product must not duplicate an ID, and a call
+    for another product must not change this product's list.
+    """
+    # LAB3_EVIDENCE_STATE_START
+    for item in evidence:
+        state["evidence"][item.evidence_id] = item
+        product_evidence = state["evidence_by_product"].setdefault(product_id, [])
+        if item.evidence_id not in product_evidence:
+            product_evidence.append(item.evidence_id)
+    # LAB3_EVIDENCE_STATE_END
+
+
 @tool
 def get_product_evidence(product_id: int, evidence_query: str) -> dict[str, Any]:
     """Retrieve fresh question-ranked evidence for one authorized product.
@@ -878,13 +898,7 @@ def get_product_evidence(product_id: int, evidence_query: str) -> dict[str, Any]
             "no evidence records were available for this product",
             "choose another retrieved product or state the evidence gap.",
         )
-    # LAB3_EVIDENCE_STATE_START
-    for item in evidence:
-        state["evidence"][item.evidence_id] = item
-        product_evidence = state["evidence_by_product"].setdefault(product_id, [])
-        if item.evidence_id not in product_evidence:
-            product_evidence.append(item.evidence_id)
-    # LAB3_EVIDENCE_STATE_END
+    register_evidence(state, product_id, evidence)
     _record(
         "get_product_evidence",
         arguments,

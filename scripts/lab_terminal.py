@@ -192,25 +192,24 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
         else:
             require_broken_search(event, mission)
         state["event"] = event
-        if lab == 1:
-            if before:
-                vector = before["query_vector"]
-            else:
-                retrieval = RetrievalService()
-                _require(
-                    retrieval._embedder().model_id
-                    == event["run"]["embedding_model_id"],
-                    "Embedding identity rule: terminal and API models differ; load the same model configuration before preparing SQL.",
-                )
-                vector = retrieval.embed_query(event["run"]["normalized_query"])
-            vector = [float(value) for value in vector]
+        if before:
+            vector = before["query_vector"]
+        else:
+            retrieval = RetrievalService()
             _require(
-                len(vector) == response["diagnostics"]["embedding_dimensions"]
-                and all(math.isfinite(value) for value in vector),
-                "Query vector rule: invalid dimensions or values; check the configured embedding model.",
+                retrieval._embedder().model_id == event["run"]["embedding_model_id"],
+                "Embedding identity rule: terminal and API models differ; load the same model configuration before preparing SQL.",
             )
-            state["query_vector"] = vector
-            values["lab_vector"] = json.dumps(vector)
+            vector = retrieval.embed_query(event["run"]["normalized_query"])
+        vector = [float(value) for value in vector]
+        _require(
+            len(vector) == response["diagnostics"]["embedding_dimensions"]
+            and all(math.isfinite(value) for value in vector),
+            "Query vector rule: invalid dimensions or values; check the configured embedding model.",
+        )
+        state["query_vector"] = vector
+        values["lab_vector"] = json.dumps(vector)
+        if lab == 1:
             values["lab_control_filters"] = json.dumps(
                 lab_checks.load_case("semantic-eligibility")["filters"]
             )
@@ -286,6 +285,9 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
     context = output / "context.psql"
     rendered_context = sql_context(values)
     context.write_text(rendered_context)
+    # The exercise grader reads the same values psql loaded, so a participant's
+    # query is graded against the run they inspected, not a fresh one.
+    (output / "context.json").write_text(json.dumps(values, indent=2) + "\n")
     (output / f"{phase}-context.psql").write_text(rendered_context)
     print(f"Saved the application response. In psql: \\i {context}")
     return context
