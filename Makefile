@@ -44,7 +44,7 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-base db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
+.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-base db-load-historical-catalog db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
@@ -343,25 +343,39 @@ define bootstrap-phase
 		"$(1)" "$$finished" "$$elapsed"
 endef
 
-# The base catalog loads the historical synthetic rows and shared tables without
-# their vectors: the labs and Shop serve the real catalog restored afterwards, and
-# Workshop Studio's 3 GB asset cap cannot hold both vector sets.
+# The workshop bootstrap installs the schema, the retrieval functions and the
+# empty index relations, then scripts/real_catalog_cache.py restores the served
+# real catalog into its own schemas. The historical synthetic catalog is not on
+# this path: nothing a participant touches reads it (Shop, Playground, the agent
+# and the labs all read mosaic_live_search), and loading it cost about seven
+# minutes of every deployment. Measured on 2026-09-24: catalog_prepare 42 s,
+# catalog_load 263 s, evidence_load 99 s, corpus_lexeme_seed 18 s.
 db-bootstrap-base:
 	@mkdir -p "$(dir $(BOOTSTRAP_TIMINGS_FILE))"
 	@: >"$(BOOTSTRAP_TIMINGS_FILE)"
 	$(call bootstrap-phase,schema_install,db-install)
 	$(call bootstrap-phase,lab_schema_install,db-install-labs)
+	$(call bootstrap-phase,index_creation,db-index-recover-and-create)
+	$(call bootstrap-phase,smoke_test,db-smoke)
+	$(call bootstrap-phase,bootstrap_acceptance,db-verify-bootstrap)
+	@awk -F '\t' \
+		'BEGIN { total = 0 } { total += $$2 } END { print "total\t" total }' \
+		"$(BOOTSTRAP_TIMINGS_FILE)" >>"$(BOOTSTRAP_TIMINGS_FILE)"
+	@cat "$(BOOTSTRAP_TIMINGS_FILE)"
+
+# Maintainer-only. The historical synthetic catalog, loaded without its vectors,
+# is what the canonical scorecard and the stage ablation are still measured
+# against (data/evals/canonical_queries.jsonl judges its product IDs), so a
+# measurement cluster loads it here after db-bootstrap-base. A workshop host
+# never runs this target.
+db-load-historical-catalog:
+	@mkdir -p "$(dir $(BOOTSTRAP_TIMINGS_FILE))"
 	$(call bootstrap-phase,catalog_prepare,db-prepare-mosaic)
 	$(call bootstrap-phase,catalog_load,db-load-mosaic)
 	$(call bootstrap-phase,index_creation,db-index-recover-and-create)
 	$(call bootstrap-phase,premium_cohort_load,db-load-cohort)
 	$(call bootstrap-phase,evidence_load,db-load-evidence)
 	$(call bootstrap-phase,corpus_lexeme_seed,db-seed-corpus-lexeme)
-	$(call bootstrap-phase,smoke_test,db-smoke)
-	$(call bootstrap-phase,bootstrap_acceptance,db-verify-bootstrap)
-	@awk -F '\t' \
-		'BEGIN { total = 0 } { total += $$2 } END { print "total\t" total }' \
-		"$(BOOTSTRAP_TIMINGS_FILE)" >>"$(BOOTSTRAP_TIMINGS_FILE)"
 	@cat "$(BOOTSTRAP_TIMINGS_FILE)"
 
 db-verify-bootstrap:

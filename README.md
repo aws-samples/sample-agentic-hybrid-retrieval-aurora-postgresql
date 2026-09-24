@@ -583,12 +583,15 @@ uv run python scripts/real_catalog_cache.py restore \
   --selection build/real-catalog
 ```
 
-The base bootstrap loads the historical synthetic rows and shared tables without
-vectors; Workshop Studio's 3 GB total asset cap cannot hold both vector sets, and
-the labs serve only the real catalog. The historical synthetic embedding cache
+The base bootstrap installs the schema, the retrieval functions and the empty
+index relations; the real catalog restore then loads the only rows a participant
+reads. The historical synthetic catalog is not on the workshop path: nothing a
+participant touches reads it, and loading it cost about seven minutes of every
+deployment (measured 2026-09-24). Maintainers who measure the canonical scorecard
+load it separately with `make db-load-historical-catalog`; its embedding cache
 (`make db-fetch-embeddings`, `scripts/embedding_cache.py`) remains available for
-local historical work but is not part of the workshop deployment. The historical
-cache contains resumable float32 NPZ shards and a SHA-256 manifest.
+that historical work and contains resumable float32 NPZ shards and a SHA-256
+manifest.
 Changed, missing, or model-incompatible products fail import instead of silently
 receiving stale vectors. A cluster snapshot remains the fast same-account
 operator recovery path; the cache is the portable cross-account path.

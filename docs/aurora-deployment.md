@@ -38,7 +38,7 @@ SELECT extversion FROM pg_extension WHERE extname = 'vector';
 9. `scripts/benchmark_hnsw.py` for the measured harness.
 10. Populate the UI only with measured or labeled projected values.
 
-`make db-bootstrap-base` runs the load, index, cohort, evidence, vocabulary and acceptance steps in order, without importing the historical synthetic vectors; the real catalog restore follows it.
+`make db-bootstrap-base` runs the schema, index and acceptance steps in order; the real catalog restore follows it. The historical synthetic catalog (load, cohort, evidence and vocabulary) is a maintainer-only `make db-load-historical-catalog`, kept for the canonical scorecard measurement and never run on a workshop host.
 
 ## Operational considerations
 

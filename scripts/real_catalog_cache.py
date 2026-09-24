@@ -255,10 +255,36 @@ def restore(directory: Path, contract: dict) -> dict:
     return report
 
 
+def unpack_marker(selection: Path) -> Path:
+    """The file `unpack` leaves behind so `restore` can reuse its extraction."""
+    return selection / ".unpacked-archive-sha256"
+
+
+def unpack_once(archive: Path, selection: Path, contract: dict) -> bool:
+    """Extract the archive unless this exact archive was already extracted here.
+
+    The workshop bootstrap extracts while the Aurora writer is still being
+    provisioned, then restores once it answers. The marker records which archive
+    the extraction came from, so a different archive is never trusted through a
+    stale directory. `restore` still verifies every extracted file's hash before
+    it writes anything, so a partial or edited extraction is caught there.
+
+    Returns:
+        True when the archive was extracted now, False when it was reused.
+    """
+    marker = unpack_marker(selection)
+    if marker.is_file() and marker.read_text().strip() == contract["sha256"]:
+        verify_archive(archive, contract)
+        return False
+    unpack(archive, selection, contract)
+    marker.write_text(contract["sha256"] + "\n")
+    return True
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "action", choices=("export", "split", "join", "verify", "restore")
+        "action", choices=("export", "split", "join", "verify", "unpack", "restore")
     )
     parser.add_argument("--parts-dir", type=Path)
     parser.add_argument("--archive", type=Path, required=True)
@@ -285,12 +311,23 @@ def main() -> None:
     else:
         contract = json.loads(args.contract.read_text())
         verify_archive(args.archive, contract)
-        if args.action == "restore":
+        if args.action in {"unpack", "restore"}:
             if not args.selection:
                 parser.error(
-                    "restore requires --selection as an extraction destination"
+                    f"{args.action} requires --selection as an extraction destination"
                 )
-            unpack(args.archive, args.selection, contract)
+            extracted = unpack_once(args.archive, args.selection, contract)
+            print(
+                json.dumps(
+                    {
+                        "action": "unpack",
+                        "extracted": extracted,
+                        "selection": str(args.selection),
+                    }
+                ),
+                flush=True,
+            )
+        if args.action == "restore":
             restore(args.selection, contract)
     print(
         json.dumps(

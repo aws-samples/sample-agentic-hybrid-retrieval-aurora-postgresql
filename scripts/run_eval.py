@@ -56,8 +56,24 @@ else:
     )
 
 
-def validate_query_contract(connection: Any, queries: list[dict[str, Any]]) -> None:
-    """Validate each corpus separately; never resolve one catalog's IDs in another."""
+def validate_query_contract(
+    connection: Any,
+    queries: list[dict[str, Any]],
+    *,
+    served_catalog_only: bool = False,
+) -> None:
+    """Validate each corpus separately; never resolve one catalog's IDs in another.
+
+    Args:
+        connection: Open connection to the cluster holding the catalogs.
+        queries: Evaluation queries, each carrying a `dataset_id` (the historical
+            `synthetic-legacy` catalog when absent).
+        served_catalog_only: Validate only the queries that belong to the catalog
+            this deployment serves and report the rest as skipped. A workshop host
+            restores the real catalog alone, so the historical catalog's targets
+            cannot exist there; validating them would fail for a reason unrelated
+            to the served retrieval path. At least one served query is required.
+    """
     if not queries:
         raise ValueError(
             "Evaluation contract requires at least one query; fix: provide a non-empty query set."
@@ -75,7 +91,20 @@ def validate_query_contract(connection: Any, queries: list[dict[str, Any]]) -> N
                 f"Evaluation dataset rule: unknown {dataset!r}; use a reviewed catalog identity."
             )
         groups.setdefault(dataset, []).append(query)
+    served = active_dataset() or "synthetic-legacy"
+    if served_catalog_only and served not in groups:
+        raise ValueError(
+            f"Evaluation contract requires queries for the served catalog {served!r}; "
+            f"found only {sorted(groups)}. Fix: add judged queries for the served "
+            "catalog before treating this validation as a gate."
+        )
     for dataset, group in groups.items():
+        if served_catalog_only and dataset != served:
+            print(
+                f"Skipped {len(group):,} {dataset} evaluation queries: that catalog "
+                f"is not served here ({served} is)."
+            )
+            continue
         schema = (
             "mosaic_search" if dataset == "synthetic-legacy" else "mosaic_live_search"
         )
@@ -247,6 +276,15 @@ def main() -> None:
         action="store_true",
         help="Validate filter shape and live target eligibility without model calls.",
     )
+    ap.add_argument(
+        "--served-catalog-only",
+        action="store_true",
+        help=(
+            "Validate only the queries of the catalog this deployment serves "
+            "(MOSAIC_CATALOG_DATASET, else the historical catalog) and report the "
+            "others as skipped. For hosts that restore one catalog."
+        ),
+    )
     args = ap.parse_args()
     if not args.database_url:
         raise SystemExit("DATABASE_URL required")
@@ -262,7 +300,9 @@ def main() -> None:
         queries = queries[: args.limit_queries]
     with psycopg.connect(args.database_url) as connection:
         register_vector(connection)
-        validate_query_contract(connection, queries)
+        validate_query_contract(
+            connection, queries, served_catalog_only=args.served_catalog_only
+        )
         if args.validate_only:
             return
         require_single_served_catalog(queries)

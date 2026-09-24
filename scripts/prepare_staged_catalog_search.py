@@ -33,6 +33,12 @@ SEARCH_SCHEMA = "mosaic_catalog_search"
 
 # Missing commerce facts stay null. In particular, a historical listing price
 # cannot become a current price, and an unreported condition cannot mean new.
+#
+# Measured on 2026-09-24 (db.r8g.2xlarge, this exact table): this statement takes
+# about 256 s, and a rewrite that numbers products in a narrow side table first
+# so the scan and tsvector work run under a 7-worker Gather took 253 s. The
+# statement is bound by writing its 6.7 GB result, not by the per-row work, so
+# it stays in its shipped shape.
 PROJECTION_SQL = """
 CREATE TABLE mosaic_catalog_search.product_document AS
 WITH source AS (
@@ -224,6 +230,24 @@ def prepare(conn, dataset_id: str) -> dict:
             f"WITH (m={profile.hnsw_m},ef_construction={profile.hnsw_ef_construction})"
         ),
     }
+    # pgvector builds the HNSW graph with max_parallel_maintenance_workers, and
+    # PostgreSQL 18 builds GIN in parallel too; both default to 2. Measured on
+    # db.r8g.2xlarge (8 vCPU) against this exact table on 2026-09-24: HNSW
+    # 193 s -> 94 s, fts GIN 27.5 s -> 20 s, trigram GIN 10.5 s -> 7 s with 7
+    # workers. Leave one worker for the leader; the cap tracks the instance
+    # class because Aurora sizes max_parallel_workers from it.
+    workers = max(
+        2,
+        int(
+            conn.execute("SELECT current_setting('max_parallel_workers')").fetchone()[0]
+        )
+        - 1,
+    )
+    conn.execute(
+        sql.SQL("SET max_parallel_maintenance_workers = {}").format(
+            sql.Literal(workers)
+        )
+    )
     timings = {}
     for name, definition in indexes.items():
         started = time.monotonic()

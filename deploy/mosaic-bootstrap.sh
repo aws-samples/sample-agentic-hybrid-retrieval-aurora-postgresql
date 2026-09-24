@@ -332,6 +332,27 @@ nginx -t
 systemctl enable nginx code-editor
 systemctl restart nginx code-editor
 
+# CloudFront reaches this host through the internal load balancer the template
+# creates before the instance exists, so both distributions deploy while this
+# bootstrap runs instead of after it. Nothing else can register the host: a
+# target listed in the template would wait for the instance's success signal,
+# which is exactly the wait this design removes. Registering is idempotent, and
+# the target stays unhealthy until nginx answers, which it now does.
+if [[ -n "${ORIGIN_TARGET_GROUP_ARNS:-}" ]]; then
+  IMDS_TOKEN=$(curl -sf -X PUT 'http://169.254.169.254/latest/api/token' \
+    -H 'X-aws-ec2-metadata-token-ttl-seconds: 60')
+  INSTANCE_ID=$(curl -sf -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" \
+    'http://169.254.169.254/latest/meta-data/instance-id')
+  test -n "$INSTANCE_ID"
+  for target_group in ${ORIGIN_TARGET_GROUP_ARNS//,/ }; do
+    network_retry aws elbv2 register-targets --region "$AWS_REGION" \
+      --target-group-arn "$target_group" --targets "Id=$INSTANCE_ID"
+    echo "Registered $INSTANCE_ID in ${target_group##*/}"
+  done
+else
+  echo "ORIGIN_TARGET_GROUP_ARNS is unset; this host registers no CloudFront origin target"
+fi
+
 CLAUDE_CODE_VERSION=2.1.233
 network_retry npm install -g "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
 CLAUDE_BIN=$(command -v claude)
@@ -721,9 +742,11 @@ printf '%s:%s:%s:%s:%s\n' \
   >"/home/$CODE_EDITOR_USER/.pgpass"
 chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "/home/$CODE_EDITOR_USER/.pgpass"
 chmod 600 "/home/$CODE_EDITOR_USER/.pgpass"
-sudo -u "$CODE_EDITOR_USER" -H bash -lc \
-  "psql -X -Atc 'SELECT 1' >/dev/null"
 
+# Everything from here to the Aurora wait below needs no database: dependency
+# installs, the UI build, and the catalog download, verification and extraction.
+# The writer instance is provisioned in parallel with this host, so this work
+# overlaps its creation instead of following it.
 network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc \
   "cd '$REPO' && uv sync --frozen"
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "cd '$REPO' && uv pip check"
@@ -753,6 +776,37 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   cd '$REPO' && uv run python scripts/corpus_vocabulary.py verify \
     --directory build/real-catalog-cache/vocabulary
 "
+# Extract and check the archive now; the restore below reuses this extraction
+# (scripts/real_catalog_cache.py leaves a marker naming the archive it came from)
+# and still verifies every extracted file before its first database write.
+sudo -u "$CODE_EDITOR_USER" -H bash -lc "
+  cd '$REPO' && uv run python scripts/real_catalog_cache.py unpack \
+    --archive build/real-catalog-cache/real-catalog.tar.gz \
+    --selection build/real-catalog
+"
+
+# The cluster endpoint exists minutes before its writer instance answers on it,
+# so wait for a real connection rather than failing on the first refusal. An
+# authentication error is different: that is a wrong secret, and waiting cannot
+# fix it, so it fails at once with the server's own message.
+printf 'waiting for the Aurora writer at %s\n' "$DB_CLUSTER_ENDPOINT"
+DB_WAIT_STARTED=$(date +%s)
+until sudo -u "$CODE_EDITOR_USER" -H bash -lc \
+    "psql -X -Atc 'SELECT 1' >/dev/null" 2>/tmp/mosaic-db-wait.err; do
+  if grep -q 'authentication failed' /tmp/mosaic-db-wait.err; then
+    cat /tmp/mosaic-db-wait.err
+    echo "Aurora rejected the credentials read from $DB_SECRET_ARN"
+    signal_failure 1
+  fi
+  if (( $(date +%s) - DB_WAIT_STARTED > 1800 )); then
+    cat /tmp/mosaic-db-wait.err
+    echo "Aurora writer at $DB_CLUSTER_ENDPOINT accepted no connection within 30 minutes"
+    signal_failure 1
+  fi
+  sleep 10
+done
+printf 'Aurora writer answered after %s seconds\n' "$(( $(date +%s) - DB_WAIT_STARTED ))"
+
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   set -Eeuo pipefail
   cd '$REPO'
@@ -771,10 +825,11 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   MISSION_GATE_REQUIRE_DB=1 DATABASE_URL=\"\$DATABASE_URL\" \
     uv run python scripts/mission_contract.py
   DATABASE_URL=\"\$DATABASE_URL\" \
-    uv run python scripts/run_eval.py --validate-only
+    uv run python scripts/run_eval.py --validate-only --served-catalog-only
   DATABASE_URL=\"\$DATABASE_URL\" \
     uv run python scripts/run_eval.py \
-      --queries data/evals/canonical_queries.jsonl --validate-only
+      --queries data/evals/canonical_queries.jsonl --validate-only \
+      --served-catalog-only
   uv run python scripts/retrieval_profile.py --check
   uv run python scripts/config_tripwire.py
   uv run python scripts/tool_contracts.py --check
@@ -785,10 +840,10 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
 "
 
 # The storefront offers a link back to Code Editor, which needs the editor's
-# CloudFront domain. The template cannot pass it in: both distributions have this
-# instance as their origin, so neither domain exists when this user data renders.
-# Discover it here instead, before /etc/mosaic-api.env is written from $REPO/.env
-# below, which is the file the API unit actually loads.
+# CloudFront domain. The template cannot pass it in: the distributions are
+# created in the same stack as this instance, so neither domain exists when this
+# user data renders. Discover it here instead, before /etc/mosaic-api.env is
+# written from $REPO/.env below, which is the file the API unit actually loads.
 #
 # The URL written is deliberately tokenless. The tkn= token in the CodeEditorURL
 # stack output is a credential for the participant's editor, and anything Mosaic
@@ -802,15 +857,23 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
 # name all leave the variable unset, and the storefront then hides the link. The
 # lookup runs as an `if` condition so a failed call cannot reach the ERR trap and
 # roll back an otherwise working stack over a convenience link.
-# CloudFront depends on this instance's success signal on first creation, so
-# waiting here cannot discover it. One lookup still finds an existing distribution.
+# Both distributions front the internal load balancer rather than this instance,
+# so they are normally deployed well before this point. The bounded retry covers
+# a slow CloudFront rollout without turning a missing link into a failed stack.
 CODE_EDITOR_DOMAIN=''
 if [[ -n "${WORKSHOP_NAME:-}" ]]; then
-  if ! CODE_EDITOR_DOMAIN=$(aws cloudfront list-distributions \
-      --query "DistributionList.Items[?Comment=='${WORKSHOP_NAME} Code Editor'].DomainName | [0]" \
-      --output text) || [[ "$CODE_EDITOR_DOMAIN" == 'None' ]]; then
+  for discovery_attempt in 1 2 3 4 5 6; do
+    if CODE_EDITOR_DOMAIN=$(aws cloudfront list-distributions \
+        --query "DistributionList.Items[?Comment=='${WORKSHOP_NAME} Code Editor'].DomainName | [0]" \
+        --output text) && [[ -n "$CODE_EDITOR_DOMAIN" && "$CODE_EDITOR_DOMAIN" != 'None' ]]; then
+      break
+    fi
     CODE_EDITOR_DOMAIN=''
-  fi
+    if (( discovery_attempt < 6 )); then
+      echo "Code Editor distribution not listed yet (attempt $discovery_attempt/6); retrying in 20s"
+      sleep 20
+    fi
+  done
 else
   echo "WORKSHOP_NAME is unset; skipping Code Editor URL discovery"
 fi

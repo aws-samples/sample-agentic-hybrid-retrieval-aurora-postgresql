@@ -550,10 +550,11 @@ exit "$status"
 
 
 @pytest.mark.parametrize("scenario", ["existing", "missing", "denied", "unnamed"])
-def test_editor_url_lookup_never_waits_for_dependent_cloudfront(
-    script, tmp_path, scenario
-):
-    """CloudFront cannot be created until this bootstrap signals success."""
+def test_editor_url_lookup_is_bounded_and_never_fatal(script, tmp_path, scenario):
+    """The distributions deploy in parallel with this bootstrap, behind the
+    internal load balancer, so a lookup may retry a bounded number of times;
+    it must stop at the first hit, wait nothing after the last miss, and never
+    fail the stack over a convenience link."""
     import os
     import subprocess
 
@@ -590,12 +591,19 @@ sleep() { printf '%s\n' "$*" >>"$SLEEPS"; }
         check=False,
     )
     assert result.returncode == 0, result.stderr
-    assert not sleeps.exists(), (
-        "Editor discovery rule: bootstrap slept for dependent CloudFront; "
-        "use one optional lookup because the distribution needs bootstrap success"
-    )
     invocations = calls.read_text().splitlines() if calls.exists() else []
-    assert len(invocations) == (0 if scenario == "unnamed" else 1)
+    waits = sleeps.read_text().splitlines() if sleeps.exists() else []
+    expected_calls = {"existing": 1, "missing": 6, "denied": 6, "unnamed": 0}
+    assert len(invocations) == expected_calls[scenario]
+    assert len(waits) == max(0, expected_calls[scenario] - 1), (
+        "Editor discovery rule: sleep only between attempts, never after the last"
+    )
+    assert all(wait == "20" for wait in waits)
+    if scenario == "existing":
+        assert (
+            "MOSAIC_CODE_EDITOR_URL='https://editor.example.test/"
+            in (tmp_path / ".env").read_text()
+        )
     assert all(
         call.startswith("cloudfront list-distributions ") for call in invocations
     )

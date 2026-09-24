@@ -1,40 +1,18 @@
 \set ON_ERROR_STOP on
 
--- Base bootstrap acceptance. The historical synthetic catalog is loaded without
--- vectors; the served catalog's records and vectors are verified separately by
--- scripts/real_catalog_cache.py before and after its restore.
+-- Base bootstrap acceptance: the schema, retrieval functions, index relations
+-- and tool contracts that the served catalog is restored into. No row count is
+-- asserted here. The historical synthetic catalog is no longer part of the
+-- workshop path, and the served catalog's records and vectors are verified by
+-- scripts/real_catalog_cache.py before and after its restore, then reported by
+-- /api/readiness, which the bootstrap checks against the pinned 500000.
 
 DO $$
 DECLARE
-    product_count bigint;
-    document_count bigint;
-    premium_count bigint;
-    evidence_count bigint;
-    specification_count bigint;
-    review_count bigint;
     missing_indexes text[];
+    missing_functions text[];
+    tool_count bigint;
 BEGIN
-    SELECT count(*) INTO product_count FROM mosaic.product;
-    SELECT count(*) INTO document_count FROM mosaic_search.product_document;
-    SELECT count(*) INTO premium_count
-    FROM mosaic.merchandising_assignment
-    WHERE media_tier IN ('flagship', 'premium');
-    SELECT count(*),
-           count(*) FILTER (WHERE evidence_type = 'product_spec'),
-           count(*) FILTER (
-               WHERE evidence_type::text IN (
-                   'customer_review',
-                   'verified_review'
-               )
-           )
-    INTO evidence_count, specification_count, review_count
-    FROM mosaic.product_evidence
-    WHERE is_current AND source_name IN (
-        'Mosaic catalog specification',
-        'Mosaic synthetic review corpus',
-        'Mosaic verified review corpus'
-    );
-
     SELECT array_agg(required.name ORDER BY required.name)
     INTO missing_indexes
     FROM (
@@ -52,38 +30,47 @@ BEGIN
        OR NOT index_state.indisvalid
        OR NOT index_state.indisready;
 
-    IF product_count <> 500000 OR document_count <> 500000 THEN
-        RAISE EXCEPTION
-            'DAT410 bootstrap requires 500000 products and documents; products=%, documents=%. Reload the pinned catalog.',
-            product_count, document_count;
-    END IF;
+    SELECT array_agg(required.name ORDER BY required.name)
+    INTO missing_functions
+    FROM (
+        VALUES
+            ('search_hybrid_rrf'),
+            ('search_product_evidence'),
+            ('matches_filters'),
+            ('query_term_coverage')
+    ) AS required(name)
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM pg_proc function_relation
+        JOIN pg_namespace schema_relation
+          ON schema_relation.oid = function_relation.pronamespace
+        WHERE schema_relation.nspname = 'mosaic_search'
+          AND function_relation.proname = required.name
+    );
+
+    SELECT count(*) INTO tool_count
+    FROM mosaic.agent_tool_contract
+    WHERE enabled;
+
     IF missing_indexes IS NOT NULL THEN
         RAISE EXCEPTION
             'DAT410 bootstrap has missing or invalid retrieval indexes: %. Run make db-drop-invalid-indexes then make db-index-concurrent.',
             missing_indexes;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM mosaic_search.corpus_lexeme)
-       OR NOT EXISTS (SELECT 1 FROM mosaic_search.corpus_surface_lexeme) THEN
+    IF missing_functions IS NOT NULL THEN
         RAISE EXCEPTION
-            'DAT410 bootstrap has an empty query-coverage vocabulary, so every request would read unavailable. Run make db-seed-corpus-lexeme.';
+            'DAT410 bootstrap is missing retrieval functions: %. Run make db-install.',
+            missing_functions;
     END IF;
-    IF premium_count <> 120 THEN
+    IF tool_count <> 5 THEN
         RAISE EXCEPTION
-            'DAT410 bootstrap requires 120 premium products; found %. Re-run make db-load-cohort.',
-            premium_count;
-    END IF;
-    IF evidence_count <> 515000
-       OR specification_count <> 500000
-       OR review_count <> 15000 THEN
-        RAISE EXCEPTION
-            'DAT410 bootstrap requires 500000 product specifications and 15000 synthetic customer reviews; specifications=%, reviews=%, total=%. Re-run make db-load-evidence.',
-            specification_count, review_count, evidence_count;
+            'DAT410 bootstrap requires 5 enabled agent tool contracts; found %. Run make db-install.',
+            tool_count;
     END IF;
 END
 $$;
 
 SELECT
     (SELECT count(*) FROM mosaic.product) AS products,
-    (SELECT count(*) FROM mosaic.merchandising_assignment
-      WHERE media_tier IN ('flagship', 'premium')) AS premium_products,
-    (SELECT count(*) FROM mosaic.product_evidence) AS evidence_records;
+    (SELECT count(*) FROM mosaic_search.product_document) AS documents,
+    (SELECT count(*) FROM mosaic.agent_tool_contract WHERE enabled) AS tool_contracts;

@@ -113,6 +113,48 @@ def test_eval_validation_checks_each_catalog_in_its_own_schema():
     assert "mosaic_live_search.product_document" in statements[1]
 
 
+def test_eval_validation_can_skip_the_catalog_a_host_does_not_serve(
+    monkeypatch, capsys
+):
+    """A workshop host restores the real catalog alone, so only its targets exist."""
+    from unittest.mock import MagicMock
+
+    from scripts.run_eval import validate_query_contract
+
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-500k-v1")
+    connection = MagicMock()
+    connection.execute.return_value.fetchall.return_value = []
+    queries = [
+        {"query_id": "old", "target_product_id": 1},
+        {
+            "query_id": "new",
+            "target_product_id": 1000001,
+            "dataset_id": "reviews-2023-500k-v1",
+        },
+    ]
+    validate_query_contract(connection, queries, served_catalog_only=True)
+    statements = [call.args[0] for call in connection.execute.call_args_list]
+    assert all("mosaic_live_search." in statement for statement in statements)
+    assert "Skipped 1 synthetic-legacy" in capsys.readouterr().out
+
+    with pytest.raises(ValueError, match="served catalog"):
+        validate_query_contract(connection, queries[:1], served_catalog_only=True)
+
+
+def test_unpack_is_reused_only_for_the_same_archive(tmp_path):
+    archive, contract = bundle(tmp_path)
+    selection = tmp_path / "out"
+
+    assert real_catalog_cache.unpack_once(archive, selection, contract) is True
+    assert real_catalog_cache.unpack_once(archive, selection, contract) is False
+
+    (tmp_path / "other").mkdir()
+    other, other_contract = bundle(tmp_path / "other", ["reviews/x-reviews.json"])
+    other_contract["review_samples"] = {"x-reviews.json": 0}
+    assert real_catalog_cache.unpack_once(other, selection, other_contract) is True
+    assert (selection / "reviews" / "x-reviews.json").is_file()
+
+
 def _split_fixture(tmp_path, monkeypatch):
     monkeypatch.setattr(real_catalog_cache, "PART_BYTES", 10)
     archive = tmp_path / "real-catalog.tar.gz"
