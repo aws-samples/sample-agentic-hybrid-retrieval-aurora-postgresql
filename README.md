@@ -19,12 +19,13 @@ evidence that reaches an agent but cannot safely support its answer.
 
 Mosaic is a production-shaped product discovery application that pairs
 PostgreSQL full-text search, `pg_trgm`, pgvector HNSW, reciprocal-rank fusion,
-and managed reranking with a React storefront, a typed FastAPI service, a
-Strands agent, and an optional MCP adapter, backed by a 500,000-product
-synthetic catalog and deterministic release gates. The complete session
+and Cohere Rerank through Amazon Bedrock with a React storefront, a typed FastAPI
+service, a Strands agent, and an optional MCP adapter. The workshop searches
+500,000 imported Amazon Reviews 2023 products with saved Cohere Embed v4 vectors;
+the historical synthetic catalog is retained separately. The complete session
 framing is in [the session abstract](docs/session-abstract.md).
 
-![Mosaic Discover page with product discovery and natural-language search](docs/images/mosaic-discover.webp)
+![Mosaic Discover introduces Alex and his home-office needs](docs/images/mosaic-discover.png)
 
 > [!IMPORTANT]
 > **Aurora only.** This project has no local database path. Every database
@@ -117,10 +118,9 @@ the navigation prints for it (`/discover`, `/shop`, `/playground`) as well as at
 its canonical path (`/`, `/catalog`, `/labs/retrieval`), which is what workshop
 instructions deep-link to:
 
-- **Discover** - editorial product discovery, direct search, and excerpts from
-  the synthetic review corpus. Filter links render with the page; counts and
-  reviews are prefetched, with successful editorial reads reused for up to
-  60 seconds when returning to Discover;
+- **Discover** - Alex's home-office brief, an illustrated workspace walkthrough,
+  and search links for headphones, chairs and monitors. Alex is fictional;
+  product search uses the selected imported catalog;
 - **Shop** - hybrid search, filters, sorting, product detail, and Ask Mosaic.
   Browse links preserve product attributes and brand constraints through the API.
   Select two to five results and compare them side by side; the

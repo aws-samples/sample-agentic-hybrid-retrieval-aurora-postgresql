@@ -173,9 +173,101 @@ def _same_repair(source: str, fixed: str, *, python: bool) -> bool:
     return re.findall(token, source) == re.findall(token, fixed)
 
 
+def _sql_tokens(source: str) -> list[str]:
+    pattern = (
+        r"--[^\n]*|/\*.*?\*/|'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|"
+        r"[A-Za-z_]\w*|\d+(?:\.\d+)?|::|<>|!=|<=|>=|\S"
+    )
+    return [
+        token if token.startswith(("'", '"')) else token.lower()
+        for token in re.findall(pattern, source, re.DOTALL)
+        if not token.startswith(("--", "/*"))
+    ]
+
+
+def _projection(tokens: list[str]) -> list[tuple[list[str], str | None]]:
+    expressions: list[list[str]] = [[]]
+    depth = 0
+    for token in tokens:
+        depth += (token == "(") - (token == ")")
+        if depth < 0:
+            return []
+        if token == "," and depth == 0:
+            expressions.append([])
+        else:
+            expressions[-1].append(token)
+    if depth or any(not expression for expression in expressions):
+        return []
+    result = []
+    for expression in expressions:
+        if len(expression) >= 3 and expression[-2] == "as":
+            if not re.fullmatch(r"[a-z_]\w*", expression[-1]):
+                return []
+            result.append((expression[:-2], expression[-1]))
+        else:
+            result.append((expression, None))
+    return result
+
+
+def _lab1_matches_contract(source: str, *, schema: str = "mosaic_search") -> bool:
+    """Check the two bounded SQL blocks by their data flow, not local names.
+
+    The CTE must forward the four production parameters and expose the three
+    result columns; its UNION ALL branch must preserve rank, score, channel and
+    unweighted contribution. Aliases and explicit projections do not change that
+    contract. Production retrieval validation separately proves the behavior.
+    """
+    blocks = []
+    for start, end, _, _ in LABS[1][1]:
+        if source.count(start) != 1 or source.count(end) != 1:
+            return False
+        body = source.split(start, 1)[1]
+        if end not in body:
+            return False
+        blocks.append(_sql_tokens(body.split(end, 1)[0]))
+    cte, channel = blocks
+    if len(cte) < 7 or cte[0] != "," or cte[2:5] != ["as", "(", "select"]:
+        return False
+    name = cte[1]
+    if not re.fullmatch(r"[a-z_]\w*", name) or "from" not in cte[5:]:
+        return False
+    boundary = cte.index("from", 5)
+    expected_call = _sql_tokens(
+        f"{schema}.search_trigram(q, f, trigram_limit, trigram_threshold)"
+    )
+    if cte[boundary + 1 :] != [*expected_call, ")"]:
+        return False
+    columns = cte[5:boundary]
+    if columns != ["*"]:
+        projected = _projection(columns)
+        required = {"product_id", "trigram_rank", "trigram_score"}
+        if len(projected) != len(required) or {
+            tuple(expression) for expression, _ in projected
+        } != {(column,) for column in required}:
+            return False
+        if any(alias not in {None, expression[0]} for expression, alias in projected):
+            return False
+    if channel[:3] != ["union", "all", "select"] or channel[-2:] != ["from", name]:
+        return False
+    outputs = [expression for expression, _ in _projection(channel[3:-2])]
+    if len(outputs) != 5:
+        return False
+    if outputs[1] == ["'trigram'", "::", "text"]:
+        outputs[1] = ["'trigram'"]
+    return outputs == [
+        ["product_id"],
+        ["'trigram'"],
+        ["trigram_rank"],
+        ["trigram_score"],
+        _sql_tokens(f"{schema}.reciprocal_rank_contribution(trigram_rank, rrf_k)"),
+    ]
+
+
 def lab_is_solved(lab: int, *, repo: Path = REPO) -> bool:
     relative_path, blocks = LABS[lab]
     source = (repo / relative_path).read_text(encoding="utf-8")
+    if lab == 1:
+        return _lab1_matches_contract(source)
     for start_marker, end_marker, fixed, _ in blocks:
         start = source.index(start_marker) + len(start_marker)
         end = source.index(end_marker, start)
@@ -220,17 +312,17 @@ def _lab_1_database_state(connection: Any) -> LabDatabaseState:
         f"SELECT pg_get_functiondef({signature}) AS definition"
     ).fetchone()
     definition = row["definition"]
-    applied = "FROM typo" in definition and "search_trigram" in definition
+    applied = _lab1_matches_contract(definition, schema=schema)
     return LabDatabaseState(
         state="applied" if applied else "stale",
         detail=(
             f"{schema}.search_hybrid_rrf reads the trigram CTE"
             if applied
             else explain(
-                f"the installed {schema}.search_hybrid_rrf body has no "
-                "trigram CTE and no search_trigram call",
-                "run make solution-lab-1, or re-apply the edited file with "
-                "make db-apply-search-functions",
+                f"the installed {schema}.search_hybrid_rrf does not connect "
+                "search_trigram(q, f, trigram_limit, trigram_threshold) to the "
+                "trigram channel with its source rank, score and RRF contribution",
+                "repair both Lab 1 blocks and run make db-apply-search-functions",
             )
         ),
     )

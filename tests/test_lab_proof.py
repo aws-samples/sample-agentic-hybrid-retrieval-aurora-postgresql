@@ -45,12 +45,7 @@ INDEPENDENT_FILE = "service/catalog.py"
 AGENT_RUN_ID = UUID("5e0c2b9a-1f2d-4c3b-8a7e-0d1c2b3a4f56")
 SESSION_ID = UUID("11111111-2222-3333-4444-555555555555")
 
-SOLVED_LAB_1_DEFINITION = """
-    CREATE FUNCTION mosaic_search.search_hybrid_rrf(...) AS $$
-    WITH typo AS (SELECT * FROM mosaic_search.search_trigram(q, f, l, t))
-    SELECT product_id FROM typo
-    $$
-"""
+SOLVED_LAB_1_DEFINITION = (REPO / LABS[1][0]).read_text()
 BROKEN_LAB_1_DEFINITION = """
     CREATE FUNCTION mosaic_search.search_hybrid_rrf(...) AS $$
     SELECT product_id FROM fts

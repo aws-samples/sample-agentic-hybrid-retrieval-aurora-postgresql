@@ -11,6 +11,17 @@ from scripts.lab_state import (
     set_lab_state,
 )
 
+PARTICIPANT_CTE = """, trigram AS (
+    SELECT product_id, trigram_score, trigram_rank
+    FROM mosaic_search.search_trigram(q, f, trigram_limit, trigram_threshold)
+)"""
+PARTICIPANT_CHANNEL = """    UNION ALL
+    SELECT product_id, 'trigram'::text AS channel, trigram_rank AS source_rank,
+           trigram_score AS raw_score,
+           mosaic_search.reciprocal_rank_contribution(trigram_rank, rrf_k)
+               AS contribution
+    FROM trigram"""
+
 
 @pytest.fixture
 def lab_repo(tmp_path: Path) -> Path:
@@ -26,6 +37,91 @@ def _lab_bytes(repo: Path) -> dict[str, bytes]:
         relative_path: (repo / relative_path).read_bytes()
         for relative_path in {definition[0] for definition in LABS.values()}
     }
+
+
+def participant_lab1(repo: Path) -> str:
+    from scripts.lab_state import _replace_block
+
+    path = repo / LABS[1][0]
+    source = path.read_text()
+    for (start, end, _, _), replacement in zip(
+        LABS[1][1], (PARTICIPANT_CTE, PARTICIPANT_CHANNEL), strict=True
+    ):
+        source = _replace_block(source, start, end, replacement)
+    path.write_text(source)
+    return source
+
+
+def test_lab1_accepts_the_participant_repair_that_passed_live_retrieval(lab_repo):
+    participant_lab1(lab_repo)
+    assert lab_is_solved(1, repo=lab_repo)
+
+
+def test_applied_lab1_accepts_a_different_cte_name(lab_repo, monkeypatch):
+    from unittest.mock import MagicMock
+
+    from scripts.lab_state import validate_database
+
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-500k-v1")
+    connection = MagicMock()
+    source = participant_lab1(lab_repo)
+    definition = source.split(
+        "CREATE OR REPLACE FUNCTION mosaic_search.search_hybrid_rrf(", 1
+    )[1].split("CREATE OR REPLACE FUNCTION", 1)[0]
+    connection.execute.return_value.fetchone.return_value = {
+        "definition": definition.replace("mosaic_search.", "mosaic_live_search.")
+    }
+    assert validate_database(1, connection).state == "applied"
+
+
+def test_applied_lab1_does_not_accept_disconnected_name_mentions():
+    from unittest.mock import MagicMock
+
+    from scripts.lab_state import validate_database
+
+    connection = MagicMock()
+    connection.execute.return_value.fetchone.return_value = {
+        "definition": "-- search_trigram is missing\nSELECT product_id FROM typo"
+    }
+    assert validate_database(1, connection).state == "stale"
+
+
+@pytest.mark.parametrize(
+    ("old", "new"),
+    [
+        ("(q, f, trigram_limit", "(q, '{}'::jsonb, trigram_limit"),
+        ("trigram_limit, trigram_threshold)", "trigram_limit, 0.0)"),
+        ("UNION ALL", "UNION"),
+        ("'trigram'::text", "'vector'::text"),
+        ("trigram_rank AS source_rank", "1 AS source_rank"),
+        ("trigram_score AS raw_score", "trigram_rank AS raw_score"),
+        ("(trigram_rank, rrf_k)", "(1, rrf_k)"),
+        ("FROM trigram", "FROM semantic"),
+    ],
+)
+def test_lab1_contract_rejects_changed_data_flow_and_restores(lab_repo, old, new):
+    participant_lab1(lab_repo)
+    path = lab_repo / LABS[1][0]
+    original = path.read_bytes()
+    assert old in original.decode()
+    path.write_text(original.decode().replace(old, new))
+    assert not lab_is_solved(1, repo=lab_repo)
+    path.write_bytes(original)
+    assert path.read_bytes() == original
+    assert lab_is_solved(1, repo=lab_repo)
+
+
+def test_lab1_contract_ignores_local_names_comments_and_projection_order(lab_repo):
+    source = participant_lab1(lab_repo)
+    source = source.replace("trigram AS (", "recovered AS (")
+    source = source.replace("FROM trigram", "FROM recovered")
+    source = source.replace(
+        "SELECT product_id, trigram_score, trigram_rank",
+        "select trigram_rank, /* still named */ product_id, trigram_score",
+    )
+    source = source.replace("AS raw_score", "AS ignored_union_alias -- output name\n")
+    (lab_repo / LABS[1][0]).write_text(source)
+    assert lab_is_solved(1, repo=lab_repo)
 
 
 @pytest.mark.parametrize("lab", [1, 2, 3])
@@ -156,7 +252,9 @@ def test_applied_state_reads_the_catalog_served_by_the_api(monkeypatch, lab):
     k = load_profile().rrf_k
     connection = MagicMock()
     connection.execute.return_value.fetchone.return_value = {
-        "definition": "SELECT * FROM typo JOIN mosaic_live_search.search_trigram()",
+        "definition": (REPO / LABS[1][0])
+        .read_text()
+        .replace("mosaic_search.", "mosaic_live_search."),
         "first_contribution": 1 / (k + 1),
         "second_contribution": 1 / (k + 2),
     }
