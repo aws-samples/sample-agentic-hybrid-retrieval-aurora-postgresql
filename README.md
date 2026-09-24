@@ -157,9 +157,8 @@ instructions deep-link to:
   searches for two product needs; Check the sources compares specification and
   sample review records read by the agent. Coding exercises and adaptation guides
   live in the workshop and take-home documentation.
-  Lab 3 refines the earlier chair request to 12-hour use and dynamic lumbar
-  support; it can correctly recommend a different chair. It uses fresh searches
-  with memory off. The [presenter brief](workshop.md) carries the opening,
+  Lab 3 asks the agent to check the Dell U2720Q monitor and the Steelcase
+  Gesture chair against their sources, using fresh searches with memory off. The [presenter brief](workshop.md) carries the opening,
   transitions and final claim-to-source walkthrough.
   The opening explains the provided scaffolding and the three connections
   participants implement. In **Answer and sources**, the recorded activity
@@ -178,7 +177,7 @@ instructions deep-link to:
   Answer checks also keep battery life and recommended use separate: the same
   number of hours in one field cannot support a claim about the other.
   The participant guide in the companion Workshop Studio repository follows
-  the [lab exercise design](docs/superpowers/specs/2026-09-19-lab-exercise-design.md):
+  the [L400 lab design](docs/l400-lab-design.md):
   every lab page has the same shape and four numbered tasks (observe,
   diagnose, repair, prove). The monitor-and-chair Lab 3 contract is settled;
   the terminal runs the before and after requests and Shop shows the same
@@ -216,9 +215,9 @@ validates its fields, product ownership and source IDs before writing; prose,
 missing or duplicate decisions, and interrupted responses cannot authorize an answer.
 A field-format failure permits one fresh review of the same inputs. Both calls'
 token use is counted; a second invalid response stops the answer.
-Lab checks follow each mission's declared requirements. The 12-hour-chair source
-checkpoint accepts one supported chair; the main Lab 3 request still requires
-independent monitor and chair searches and a compared shortlist.
+Lab checks follow each mission's declared requirements. The main Lab 3 request
+requires independent monitor and chair searches, a compared shortlist, and
+citations that resolve exactly to each product's own records.
 Questions about specs and reviews explain the available source facts and any
 missing review excerpts. A rating or review count cannot establish what reviewers
 said. Missing review text is not reported as a missing product.
@@ -335,13 +334,13 @@ RETRIEVE -> RANK -> REASON
 
 | Lab | Time | Participant outcome |
 |---|---:|---|
-| **1. Build hybrid retrieval** | 10 min | Explain from `pg_trgm` and `tsvector` functions why each method finds or misses a typo'd listing ID, rebuild the close-spelling method from its contract, and write a recall query graded under the planner's plan and forced HNSW |
-| **2. Fuse, rerank, and inspect** | 10 min | Write RRF in SQL, find that collapsed contributions hand the reranking cutoff to a tie-breaker, repair production to match, then propose one setting change with a pre-stated rule, judged on 141 ESCI queries |
-| **3. Build the retrieval agent** | 20 min | Specify the evidence contract as tests that reject four faulty variants, repair the handoff, separate cited evidence from available evidence, and prove from the agent's saved searches that the Lab 1 and Lab 2 repairs reached the answer |
+| **1. Build hybrid retrieval** | 10 min | Show from `tsvector` lexemes and `pg_trgm` word similarity why only close spelling recovers a transposed listing ID, reconnect it from its contract, then write a recall query graded under the planner's exact plan and forced HNSW, which in recorded runs was roughly 6–7× faster yet missed half or more of the true neighbours. *A full list is not evidence of good recall.* |
+| **2. Fuse, rerank, and inspect** | 10 min | Write RRF in SQL (graded at five `k` values), find that collapsed contributions left two distinct scores so a `product_id` tie-breaker picked the reranking shortlist, repair production to match, then propose one setting change under a rule stated in advance, judged on 141 ESCI queries. *Fusion only works if positions count; tuning needs a judged set.* |
+| **3. Build the retrieval agent** | 20 min | Specify the evidence contract as tests that reject four faulty variants, repair the handoff, check each citation's product, revision and quote, separate cited evidence from available evidence, and prove from the agent's saved searches that the Lab 1 and Lab 2 repairs reached the answer. *Finding, citing and supporting are three separate checks.* |
 
 Each lab removes one failure from the same final answer for Alex, and asks
 more than the one before: explain a mechanism, write an algorithm, then specify
-a contract as tests. Each has one graded exercise the participant writes, checked
+a contract as tests. Each lab's graded work is the participant's own, checked
 by `uv run python scripts/lab_exercise.py check --lab N` against independently
 computed answers (Lab 1 `.local/lab-1/recall.sql`; Lab 2 `.local/lab-2/rrf.sql`
 and `.local/lab-2/proposal.json`; Lab 3 `labs/lab3/test_evidence_contract.py` and

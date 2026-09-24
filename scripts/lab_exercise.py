@@ -2,7 +2,7 @@
 """Grade the query or test a participant writes in each lab.
 
 Every check compares the participant's work with an answer this script computes
-independently, in the same read-only transaction. It never repairs a lab, never
+independently, in read-only transactions. It never repairs a lab, never
 changes catalog data, and never shows the reference answer.
 
 - Lab 1: a recall query for the filtered vector search, graded with the planner's
@@ -224,8 +224,48 @@ def _participant_rows(cur: Any, statement: str, columns: tuple[str, ...]) -> lis
     return rows
 
 
-def _lab1_truth(cur: Any, values: dict[str, str]) -> dict[str, Any]:
-    """Index-proof exact neighbours against the installed approximate search."""
+def _indexable_filter_sql(filters: dict[str, Any]) -> tuple[str, list[Any]]:
+    """Restate the filter's domain and category as index-servable predicates.
+
+    `matches_filters` takes the whole row, so no index can serve it and a scan
+    guarded by it alone reads all 500,000 products (26 s on the workshop
+    cluster, twice per grade). These predicates narrow the scan to the eligible
+    category; `matches_filters` still decides eligibility.
+    """
+    clauses: list[str] = []
+    params: list[Any] = []
+    if "domain" in filters:
+        clauses.append("d.domain = %s::mosaic.product_domain")
+        params.append(filters["domain"])
+    if "category_key" in filters:
+        clauses.append("d.category_key = %s")
+        params.append(filters["category_key"])
+    return "".join(f" AND {clause}" for clause in clauses), params
+
+
+def _lab1_exact(cur: Any, values: dict[str, str]) -> set[int]:
+    """The true nearest eligible products, by a sort no index can serve."""
+    from service.catalog_runtime import search_schema
+
+    schema = search_schema()
+    narrowing, params = _indexable_filter_sql(json.loads(values["lab_filters"]))
+    cur.execute(
+        f"SELECT d.product_id FROM {schema}.product_document d "
+        f"WHERE d.embedding IS NOT NULL{narrowing} "
+        f"AND {schema}.matches_filters(d, %s::jsonb) "
+        "ORDER BY (d.embedding <=> %s::vector) + 0, d.product_id LIMIT %s",
+        (
+            *params,
+            values["lab_filters"],
+            values["lab_vector"],
+            int(values["lab_semantic_limit"]),
+        ),
+    )
+    return {row["product_id"] for row in cur.fetchall()}
+
+
+def _lab1_truth(cur: Any, values: dict[str, str], exact: set[int]) -> dict[str, Any]:
+    """The installed approximate search, scored against the exact neighbours."""
     from service.catalog_runtime import search_schema
 
     schema = search_schema()
@@ -239,17 +279,6 @@ def _lab1_truth(cur: Any, values: dict[str, str]) -> dict[str, Any]:
         args,
     )
     approximate = {row["product_id"] for row in cur.fetchall()}
-    cur.execute(
-        f"SELECT d.product_id FROM {schema}.product_document d "
-        f"WHERE d.embedding IS NOT NULL AND {schema}.matches_filters(d, %s::jsonb) "
-        "ORDER BY (d.embedding <=> %s::vector) + 0, d.product_id LIMIT %s",
-        (
-            values["lab_filters"],
-            values["lab_vector"],
-            int(values["lab_semantic_limit"]),
-        ),
-    )
-    exact = {row["product_id"] for row in cur.fetchall()}
     cur.execute(
         "EXPLAIN (ANALYZE, COSTS OFF) SELECT * FROM "
         f"{schema}.search_vector(%s::vector, %s::jsonb, %s)",
@@ -311,6 +340,11 @@ def grade_lab1(statement: str, values: dict[str, str]) -> dict[str, Any]:
     """Grade the recall query with the planner's plan and with HNSW forced."""
     report: dict[str, Any] = {"conditions": {}, "failures": []}
     with _connect() as connection:
+        with connection.cursor() as cur:
+            cur.execute("SET TRANSACTION READ ONLY")
+            cur.execute("SET LOCAL statement_timeout = '120s'")
+            exact = _lab1_exact(cur, values)
+        connection.rollback()
         for condition, force in (("planner's plan", False), ("forced HNSW", True)):
             with connection.cursor() as cur:
                 cur.execute("SET TRANSACTION READ ONLY")
@@ -318,7 +352,7 @@ def grade_lab1(statement: str, values: dict[str, str]) -> dict[str, Any]:
                 rows = _participant_rows(cur, statement, LAB1_COLUMNS)
                 if len(rows) != 1:
                     raise ExerciseError(f"expected one result row; found {len(rows)}")
-                truth = _lab1_truth(cur, values)
+                truth = _lab1_truth(cur, values, exact)
             connection.rollback()
             failure = _lab1_verdict(condition, rows[0], truth)
             if failure:
@@ -633,11 +667,12 @@ def _print_lab2(report: dict) -> None:
     proposal = report.get("proposal")
     if proposal:
         c = proposal["comparison"]
+        p_value = "<0.0001" if c["sign_test_p"] == 0 else f"={c['sign_test_p']}"
         print(
             f"proposal {proposal['change']}: Exact in cutoff "
             f"{c['exact_in_cutoff']['baseline']} -> {c['exact_in_cutoff']['proposed']}; "
             f"{c['queries_better']} queries better, {c['queries_worse']} worse "
-            f"(sign test p={c['sign_test_p']}); by category {c['by_category']}"
+            f"(sign test p{p_value}); by category {c['by_category']}"
         )
         for before, after in zip(
             proposal["chair_controls"]["baseline"],

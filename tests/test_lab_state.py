@@ -152,6 +152,70 @@ def test_source_gate_preserves_string_contents(lab_repo):
     assert not lab_is_solved(1, repo=lab_repo)
 
 
+@pytest.mark.parametrize("later_lab", [2, 3])
+def test_a_later_reset_keeps_the_participants_valid_lab1_repair(
+    lab_repo: Path, later_lab: int
+) -> None:
+    participant_lab1(lab_repo)
+
+    set_isolated_lab_state(later_lab, repo=lab_repo)
+
+    source = (lab_repo / LABS[1][0]).read_text()
+    assert PARTICIPANT_CTE in source
+    assert PARTICIPANT_CHANNEL in source
+    assert lab_is_solved(1, repo=lab_repo)
+    assert not lab_is_solved(later_lab, repo=lab_repo)
+
+
+@pytest.mark.parametrize(
+    "formula",
+    [
+        "SELECT 1.0 / (rrf_k + source_rank)",
+        "select 1::float8 / (source_rank + rrf_k);",
+        "SELECT 1 / (rrf_k::double precision + /* keep ranks */ source_rank)",
+    ],
+)
+def test_lab3_reset_preserves_participant_lab2_formula(lab_repo, formula):
+    from scripts.lab_state import _replace_block
+
+    path = lab_repo / LABS[2][0]
+    start, end, _, _ = LABS[2][1][0]
+    path.write_text(_replace_block(path.read_text(), start, end, formula))
+    original = path.read_bytes()
+    assert lab_is_solved(2, repo=lab_repo)
+
+    changed = set_isolated_lab_state(3, repo=lab_repo)
+
+    assert lab_repo / LABS[3][0] in changed
+    assert not lab_is_solved(3, repo=lab_repo)
+    assert path.read_bytes() == original
+    assert lab_is_solved(2, repo=lab_repo)
+
+
+@pytest.mark.parametrize(
+    "formula",
+    [
+        "SELECT 1.0 / (rrf_k + 1)",
+        "SELECT 1.0 / (source_rank + source_rank)",
+        "SELECT 1 / (rrf_k + source_rank)",
+        "SELECT 1.0 / (rrf_k + source_rank) + 1",
+        "SELECT 1.0 / (rrf_k + source_rank); SELECT 1",
+    ],
+)
+def test_lab2_contract_rejects_wrong_formula_and_restores(lab_repo, formula):
+    from scripts.lab_state import _replace_block
+
+    path = lab_repo / LABS[2][0]
+    original = path.read_bytes()
+    assert lab_is_solved(2, repo=lab_repo)
+    start, end, _, _ = LABS[2][1][0]
+    path.write_text(_replace_block(path.read_text(), start, end, formula))
+    assert not lab_is_solved(2, repo=lab_repo)
+    path.write_bytes(original)
+    assert path.read_bytes() == original
+    assert lab_is_solved(2, repo=lab_repo)
+
+
 @pytest.mark.parametrize("lab", sorted(LABS))
 def test_reset_and_solution_are_idempotent(lab_repo: Path, lab: int) -> None:
     set_isolated_lab_state(lab, repo=lab_repo)

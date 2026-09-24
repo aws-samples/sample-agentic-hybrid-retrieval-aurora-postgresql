@@ -217,3 +217,31 @@ def test_real_missing_target_is_a_broken_baseline():
     lab_terminal.require_broken_search(
         {"candidates": [{"product_id": 1}]}, {"target_product_ids": [2]}
     )
+
+
+def test_target_summary_names_the_missing_product_and_the_pool_size():
+    mission = lab_checks.load_mission("retrieve")
+    rows = [{"product_id": 1, "fused_rank": 1, "result_rank": 1}] * 50
+
+    line = lab_terminal.target_summary({"candidates": rows}, mission)
+
+    assert str(mission["target_product_ids"][0]) in line
+    assert "not among the 50 saved candidates" in line
+
+
+def test_target_summary_names_positions_and_only_the_methods_that_found_it():
+    mission = lab_checks.load_mission("retrieve")
+    target = {
+        "product_id": mission["target_product_ids"][0],
+        "fused_rank": 2,
+        "result_rank": 1,
+        "fts_rank": None,
+        "trigram_rank": 1,
+        "semantic_rank": None,
+    }
+
+    line = lab_terminal.target_summary({"candidates": [target]}, mission)
+
+    assert "combined position 2, final position 1" in line
+    assert "found by close spelling rank 1." in line
+    assert "words" not in line and "meaning" not in line

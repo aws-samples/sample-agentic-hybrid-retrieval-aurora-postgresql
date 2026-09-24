@@ -147,19 +147,21 @@ def set_isolated_lab_state(
     *,
     repo: Path = REPO,
 ) -> list[Path]:
-    """Make one lab broken while restoring every independent prerequisite."""
+    """Make one lab broken while restoring every independent prerequisite.
+
+    A prerequisite the participant already repaired keeps their code: the lab
+    guides promise that later labs preserve earlier repairs, and Lab 3's proof
+    reads the participant's own fusion back from the agent's searches. Only a
+    prerequisite that fails its contract is rewritten to the reference.
+    """
     changed: list[Path] = []
     for candidate in LABS:
+        if candidate != lab and lab_is_solved(candidate, repo=repo):
+            continue
         path = set_lab_state(candidate, solved=candidate != lab, repo=repo)
         if path not in changed:
             changed.append(path)
     return changed
-
-
-def _same_sql_repair(source: str, fixed: str) -> bool:
-    """Compare SQL tokens while retaining identifiers, literals and operators."""
-    token = r"'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|[A-Za-z_]\w*|\d+(?:\.\d+)?|::|<>|!=|<=|>=|\S"
-    return re.findall(token, source) == re.findall(token, fixed)
 
 
 def _sql_tokens(source: str) -> list[str]:
@@ -172,6 +174,32 @@ def _sql_tokens(source: str) -> list[str]:
         for token in re.findall(pattern, source, re.DOTALL)
         if not token.startswith(("--", "/*"))
     ]
+
+
+def _lab2_matches_contract(source: str) -> bool:
+    """Recognize floating reciprocal rank without requiring reference casts.
+
+    The bounded formula permits either addition order and lossless numeric
+    casts. Integer division must remain a failure even if the enclosing SQL
+    function converts its truncated result to double precision.
+    """
+    start, end, _, _ = LABS[2][1][0]
+    if source.count(start) != 1 or source.count(end) != 1:
+        return False
+    body = source.split(start, 1)[1].split(end, 1)[0]
+    cast = r" :: (?:double precision|float8|numeric|decimal)"
+    match = re.fullmatch(
+        rf"select (?P<numerator>1(?:\.0+)?)(?P<numerator_cast>{cast})?"
+        rf" / \( (?P<left>rrf_k|source_rank)(?P<left_cast>{cast})?"
+        rf" \+ (?P<right>rrf_k|source_rank)(?P<right_cast>{cast})? \)(?: ;)?",
+        " ".join(_sql_tokens(body)),
+    )
+    if match is None:
+        return False
+    return {match["left"], match["right"]} == {"rrf_k", "source_rank"} and (
+        "." in match["numerator"]
+        or any(match[name] for name in ("numerator_cast", "left_cast", "right_cast"))
+    )
 
 
 def _projection(tokens: list[str]) -> list[tuple[list[str], str | None]]:
@@ -292,18 +320,15 @@ def _lab3_matches_contract(source: str) -> bool:
 
 
 def lab_is_solved(lab: int, *, repo: Path = REPO) -> bool:
-    relative_path, blocks = LABS[lab]
+    relative_path, _ = LABS[lab]
     source = (repo / relative_path).read_text(encoding="utf-8")
     if lab == 1:
         return _lab1_matches_contract(source)
+    if lab == 2:
+        return _lab2_matches_contract(source)
     if lab == 3:
         return _lab3_matches_contract(source)
-    for start_marker, end_marker, fixed, _ in blocks:
-        start = source.index(start_marker) + len(start_marker)
-        end = source.index(end_marker, start)
-        if not _same_sql_repair(source[start:end], fixed):
-            return False
-    return True
+    raise ValueError(f"unknown lab: {lab}")
 
 
 @dataclass(frozen=True)

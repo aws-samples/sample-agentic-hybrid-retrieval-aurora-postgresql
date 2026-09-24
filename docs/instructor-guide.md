@@ -69,9 +69,9 @@ every rendered payload for drift.
 ## Teaching narrative
 
 Use the role-based opening and expert discussion cues in
-[`workshop.md`](../workshop.md). The participant guide's shape is recorded in
-the [lab exercise design](superpowers/specs/2026-09-19-lab-exercise-design.md);
-the payloads, repairs and validation sequence are unchanged by it.
+[`workshop.md`](../workshop.md). The participant guide's shape, graded work and
+pacing are recorded in the [L400 lab design](l400-lab-design.md); the payloads,
+repairs and validation sequence are unchanged by it.
 
 ### Repeatable delivery loop
 

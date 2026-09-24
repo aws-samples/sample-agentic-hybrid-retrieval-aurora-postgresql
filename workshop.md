@@ -12,9 +12,9 @@ repository material; keep the personal staffing roster outside the repo.
 
 Participants are the engineers; Alex is their customer. Alex is setting up a home office for coding, video calls and focused work.
 
-- **A reranker cannot recover a product that never entered the candidate pool.**
-- **A correct-looking result can hide broken ranking.**
-- **A citation must resolve to an allowed record, and its text must support the claim.**
+- **Retrieve: a full result list is not evidence of good recall.** A reranker cannot recover a product no search returned, and an approximate index can return a full list that misses half or more of the true neighbours.
+- **Rank: fusion only works if positions count.** When they collapse, a tie-breaker picks the shortlist; a tuning decision needs judged queries and a rule chosen in advance.
+- **Reason: finding, citing and supporting are three separate checks.** A tool returning a record does not make it citable, and a real citation does not make every sentence true.
 
 
 Mosaic is a shopping catalog of 500,000 products from Electronics and Office Products in Amazon Reviews 2023. A shopper can search with keywords or ask in plain language. Both paths run against one Aurora PostgreSQL database, and both can look right while the retrieval behind them is wrong.
@@ -232,11 +232,13 @@ Welcome Alex profile or the Discover brief already implements.
 
 ## What participants do
 
-1. Open three browser tabs from the Event Dashboard: Code Editor and Mosaic, plus the guide itself. The introduction shows one healthy meaning-only search and the three names Shop prints for its searches.
-2. Lab 1, Tasks 1a to 1d (explain a mechanism): see Bose QuietComfort 35 II disappear for a transposed listing ID; derive from `websearch_to_tsquery`, `show_trgm` and `word_similarity` why word search cannot match and close spelling can; rebuild the close-spelling method from its contract; then write a recall query for the filtered vector search. The grader runs it with the planner's plan (an exact btree scan) and with HNSW forced, where the obvious "exact" query is itself served by the index. Index construction and tuning are the optional Scale & HNSW flex exercise.
-3. Lab 2, Tasks 2a to 2d (write an algorithm): write RRF in SQL over the three installed search functions, graded at five values of `k`; find that the saved run has two distinct scores, so the `product_id` tie-breaker decided the reranking cutoff; repair production to agree with your query; then propose one setting change with a rule stated in advance, have it replayed over 141 ESCI judged queries and four reviewed chair controls, and adopt or reject it as the rule says. On 2026-09-22, a cutoff of 75 admitted 24 more Exact products (18 queries better, 0 worse) in the same billed rerank unit, while `k`=120 admitted 5 more (4 better, 0 worse, p=0.125) and moved one chair control from 3rd to 4th.
-4. Lab 3, Tasks 3a to 3d (specify a contract): read the fail-closed HTTP 503; trace evidence to the state that authorizes citations; write tests that must reject four faulty implementations, then repair `register_evidence` and restart; resolve every citation; write a claims query that separates the evidence the answer cited from reviews merely imported and the source's rating count; close the loop with a query showing the agent's own searches used the Lab 1 and Lab 2 repairs.
-5. Run the completion gate inside Lab 3, then **bring Alex's office home**: one query assembles his room from the participant's three saved runs (the repair behind each item, how it was found, its source rating count, sampled reviews and historical list price). Then use the remaining time for an optional exercise, catch-up or questions.
+1. Open three browser tabs from the Event Dashboard: Code Editor and Mosaic, plus the guide itself. One terminal command confirms the 500,000-product catalog and the starting lab state, and the introduction runs one correctly written Bose search to show the three names Shop prints for its searches.
+2. **Lab 1 — Build hybrid retrieval (explain a mechanism).** A transposed product ID makes Alex's saved Bose QuietComfort 35 II vanish. Participants use PostgreSQL's own functions (`tsvector` lexemes, `pg_trgm` word similarity, pgvector distance) to show why only close spelling can recover it, then reconnect that method from its contract. They then write a recall query for the vector search they did not touch. The grader runs it under the planner's plan, which scans the category with a btree and sorts exactly, and with HNSW forced: in recorded runs the forced plan was roughly 6–7× faster yet missed half or more of the true nearest neighbours, and the obvious "exact" query is itself served by the index. Lesson: a full result list is not evidence of good recall. Reading the raw plans, `show_trgm` and `\sf` is an optional Go deeper expander; index construction and tuning are the optional Scale & HNSW flex exercise.
+3. **Lab 2 — Fuse, rerank, and inspect (write an algorithm).** The Dell U2720Q, which documents 90W USB-C charging, never reaches the reranker. Participants write reciprocal rank fusion in SQL (the three searches and their union are given; the fusion and tie-break are theirs), graded at five values of `k`. It shows the saved run had only two distinct scores, so the `product_id` tie-breaker, not relevance, picked the 50 products sent to Cohere Rerank. After repairing production, they propose one retrieval change under a rule stated in advance; the grader replays it over 141 ESCI judged queries and four reviewed chair controls, and adopting and rejecting both pass when the decision follows the rule. On 2026-09-22, a cutoff of 75 admitted 24 more Exact products (18 queries better, 0 worse) in the same billed rerank unit, while `k`=120 admitted 5 more (4 better, 0 worse, p=0.125) and moved one chair control from 3rd to 4th; the 2026-09-24 test-account run reproduced both. Lesson: fusion only works if positions count, and a tuning decision needs a judged set and a rule chosen before seeing results.
+4. **Lab 3 — Build the retrieval agent (specify a contract).** A Strands agent finds the Dell monitor and the Steelcase Gesture chair and retrieves their evidence, then refuses to answer with HTTP 503: the records were never registered as citable. Participants read the agent's tool sequence in order, write the registration contract as pytest tests that must reject four faulty implementations, then repair `register_evidence` and restart. They check that every citation matches its product, revision and quote; write a claims query (the citation extraction is given) that separates what cited records support from reviews merely imported and the source's rating count; and prove from the agent's own saved searches that the Lab 1 and Lab 2 repairs shaped the answer. Lesson: finding a source, being allowed to cite it, and what it supports are three separate checks; the agent chooses the steps, but tests and application code decide what it may cite.
+5. Run the completion gate inside Lab 3, then **bring Alex's office home**: one query assembles his room from the participant's three saved runs (the repair behind each item, how it was found, its source rating count, sampled reviews and historical list price), and the participant writes Alex's brief, one sentence per item. Then use the remaining time for an optional exercise, catch-up or questions.
+
+Each lab asks for one written prediction and one two-sentence explanation in `learning-notes.md`; other questions are prompts to think. The runner prints where the lab's target sits before and after the repair, so the proof does not need a second `psql` session. Expanders marked **Go deeper** or **Reference** are optional.
 
 Each lab has a manual path and an optional coding-agent path (`claude` from the repository root, with guardrails). Both must meet the same contract and pass the same grader and validator. There is no fast track; Hint 4 restores the repair without printing it, and the graded exercise stays on every path.
 
@@ -491,8 +493,9 @@ Conclusion. One query assembles Alex's room from the participant's own saved
 runs: for each item, where it was before and after the repair, the methods that
 found it, the specifications and reviews the answer cited, the reviews imported
 and the source's rating count. A second query reads back the participant's Lab 2
-decision from `mosaic.lab_decision`. Measured on 2026-09-22: the Bose has 5,341
-source ratings and 18 imported reviews, the Dell 6 and 2, the Steelcase 1 and 1.
+decision from `mosaic.lab_decision`. Measured on 2026-09-24 in a Workshop Studio
+test account (the published bundle): the Bose has 5,341 source ratings and 15
+imported reviews, the Dell 6 and 2, the Steelcase 1 and 1.
 Ask one participant for a claim, another for its source, and another for what
 Alex still needs to check. Use the existing runs; do not start a new model call
 to manufacture a cleaner finale.
@@ -503,7 +506,8 @@ to manufacture a cleaner finale.
 > and requirements, then keep these three questions: did the right options get
 > in, can you explain the order, and what supports the answer?
 
-Close with **Use what you built in your own agent**. Show **Adapt the
+Close with **Take hybrid agentic search into your own agent** (the Playground
+calls the same section **Use what you built in your own agent**). Show **Adapt the
 implementation** for the SQL and the map to evaluations and citation checks,
 and **Download the skill** for calling instructions and API mappings. Keep the
 full checkout for the runnable reference; the skill calls its running service.
@@ -662,7 +666,7 @@ Own the tabs, the Code Editor terminal, syntax recovery and the validators. Help
 - An Ask Mosaic answer marked "No evidence cited", or an HTTP 503 in Lab 3, is the fail-closed state working. It becomes a cited answer after the repair.
 - A question naming something the catalog does not carry is the other case, and it is not a failure. The agent answers with HTTP 200 and an answer of record that declines, naming the terms nothing in the catalog matched. Keep the two apart at the table: a 503 means the pipeline is broken, a decline means the catalog does not hold what was asked for. Nothing needs repairing in the second case.
 - If a validator fails after an edit, look only at the marked seam in the one named file. Help with syntax, then ask the participant to explain the rule they restored.
-- A lab reset restores the other two repairs on purpose, so only the selected fault is in play. Nothing a facilitator shows counts as a participant pass.
+- A lab reset keeps a participant's earlier repair when it still meets its contract and restores the reference only for a seam that fails it, so only the selected fault is in play. Nothing a facilitator shows counts as a participant pass.
 - Never create a local database, switch to fixtures, rebuild an index, or edit retrieval configuration to get past a problem.
 
 ## Required depth and one connected story
@@ -681,7 +685,13 @@ tests against faulty implementations and a query that separates cited evidence
 from available evidence, then closes Alex's brief from Aurora. Every graded
 attempt is saved in `mosaic.lab_decision`, which the finale reads.
 Keep 10/10/20 minutes for the three labs; use recovery to protect the proof.
-Do not call the session room-tested until a timed human run confirms that pace.
+On 2026-09-24 a participant run in a Workshop Studio test account measured the
+machine waits: about 25 s in Lab 1 (after the recall grader dropped from 55 s to
+2-4 s), 30 s in Lab 2, and about 4 minutes in Lab 3, mostly two agent runs
+(49 s and 44 s) and the validator's two agent requests (93 s); the completion
+gate then takes about 40 s. The guides place reading during the agent waits. Human
+reading and writing time is estimated, not measured: do not call the session
+room-tested until a timed human run confirms that pace.
 
 Lab 3 checks registration behavior, not whether a participant copied the
 reference answer's structure. Different local names or a product-list lookup

@@ -117,6 +117,22 @@ def test_recall_grader_explains_the_untouched_skeleton():
     )
 
 
+def test_recall_truth_narrows_by_indexed_columns_for_each_filter_present():
+    narrowing, params = lab_exercise._indexable_filter_sql(
+        {
+            "domain": "consumer_electronics",
+            "category_key": "headphones",
+            "brand": "Bose",
+        }
+    )
+
+    assert narrowing == (
+        " AND d.domain = %s::mosaic.product_domain AND d.category_key = %s"
+    )
+    assert params == ["consumer_electronics", "headphones"]
+    assert lab_exercise._indexable_filter_sql({"brand": "Bose"}) == ("", [])
+
+
 def _participant_file(tmp_path: Path, body: str) -> Path:
     shutil.copy(ROOT / "labs" / "lab3" / "conftest.py", tmp_path / "conftest.py")
     path = tmp_path / "test_evidence_contract.py"

@@ -23,19 +23,20 @@ Each guide uses the same headings:
 The main path asks for a hypothesis before revealing a diagnosis. No guide
 prints the reference repair; Hint 4 restores it through `lab_state.py solution`
 without showing it, and `validate_workshop.py` fails if a page prints it. Each lab
-has one graded exercise the participant writes, checked by
-`scripts/lab_exercise.py` against independently computed answers. Deeper
-references and manual control requests are collapsed; required measurements are
-visible. `learning-notes.md` records the
-prediction, observed contradiction, decision, evidence IDs and recovery use.
+has graded work the participant writes, checked by `scripts/lab_exercise.py`
+against independently computed answers. Required measurements are visible;
+deeper explanation and reference payloads sit in expanders labeled **Go deeper**,
+**Reference** or **Answer**. `learning-notes.md` holds one written prediction and
+one two-sentence explanation per lab, plus Alex's brief in the Conclusion; other
+questions are for discussion.
 
 ## What makes the work deeper
 
 | Lab | Customer outcome | What the participant builds | Graded against |
 |---|---|---|---|
-| Retrieve (explain a mechanism) | Find the saved Bose listing | The derivation of each method's behavior from `websearch_to_tsquery`, `show_trgm` and `word_similarity`; the trigram CTE and channel from a contract; a recall query for the filtered vector search | Exact neighbors the grader computes itself, with the planner's plan (btree + sort) and with HNSW forced. Measured 2026-09-22 under the headphones filter: forced HNSW returns 150 rows at recall 0.467, and the obvious `ORDER BY embedding <=> v` ground truth is itself served by HNSW |
-| Rank (write an algorithm, then decide) | Recover a documented 27-inch 4K/90W monitor | RRF in SQL over the three installed search functions; the repair that makes production agree with it; one setting change with a rule stated in advance | An independent fusion at `k` = 1, 10, 30, 60 and 120 (measured: the broken run saves 2 distinct scores across 50 rows; the Dell's combined position is 7, 9, 17, 24, 24), then the proposal replayed over 141 ESCI judged queries and four reviewed chair controls. Measured: cutoff 75 admits 24 more Exact products (18 better, 0 worse) in one billed rerank unit; `k`=120 admits 5 more (p=0.125) |
-| Reason (specify a contract) | Support the monitor and wheeled-chair choices; revisit the headphones | Tests for `register_evidence`, then the repair; a claims query separating cited evidence from imported reviews and source rating counts; the loop query | The reference repair (must pass) and four faulty variants (each must fail); an independent evidence count; citation mutations; the loop query's zero formula error |
+| Retrieve (explain a mechanism) | Find the saved Bose listing | An account, from one query over the installed search functions, the listing's lexemes and `word_similarity`, of why only close spelling can match (`show_trgm`, `\sf` and the raw plans are optional); the trigram CTE and channel from a contract; a recall query for the filtered vector search | Exact neighbors the grader computes itself, with the planner's plan (btree + sort, about 286 ms) and with HNSW forced (39–47 ms). Forced recall measured 0.287 (2026-09-23), 0.440 and 0.467 (2026-09-24) at a full 150 rows; the obvious `ORDER BY embedding <=> v` ground truth is itself served by HNSW |
+| Rank (write an algorithm, then decide) | Recover a documented 27-inch 4K/90W monitor | RRF in SQL over the three installed search functions (the searches and their union are given; the fusion and tie-break are the participant's); the repair that makes production agree with it; one setting change with a rule stated in advance | An independent fusion at `k` = 1, 10, 30, 60 and 120 (measured: the broken run saves 2 distinct scores across 50 rows; the Dell's combined position is 7, 9, 17, 24, 24), then the proposal replayed over 141 ESCI judged queries and four reviewed chair controls. Measured: cutoff 75 admits 24 more Exact products (18 better, 0 worse) in one billed rerank unit; `k`=120 admits 5 more (p=0.125); both reproduced on 2026-09-24 |
+| Reason (specify a contract) | Support the monitor and wheeled-chair choices; revisit the headphones | Tests for `register_evidence`, then the repair; a claims query (citation extraction given) separating cited evidence from imported reviews and source rating counts; the loop query | The reference repair (must pass) and four faulty variants (each must fail); an independent evidence count; citation mutations; the loop query's zero formula error |
 
 Labs 1 and 2 run their investigations directly in `psql` against installed
 Aurora functions and saved search tables. `scripts/lab_terminal.py` only runs
@@ -54,15 +55,18 @@ or catalog identities. Citation mutations exist only in memory.
   recovery into the list remain essential; an exact managed-model first place
   is not required. The browser and command-line checks enforce the same bound
   and the same only-trigram condition for Lab 1.
-- Monitor and chair evidence is specification-based. No imported review
-  excerpts are promised for those two records. The Bose control provides the
-  sampled-review comparison and is saved beside the Lab 3 completion receipt
-  so participants can read its actual answer.
+- Monitor and chair evidence is thin: the published catalog imports 2 reviews
+  for the Dell (6 source ratings) and 1 for the Steelcase (1 rating), and the
+  Lab 3 answer typically cites one of each. The Bose control (15 imported
+  reviews, 5,341 ratings) provides the sampled-review comparison and is saved
+  beside the Lab 3 completion receipt so participants can read its answer.
 - A citation checker can reject specific bad inputs without proving every
   natural-language statement true. Participants still read the claim and record.
-- A fresh query vector is shared across the direct-method experiment. Stored
-  search events do not contain the original vector; the probe explicitly does
-  not call its result a byte-identical replay.
+- The runner reads the query vector the application saved with the search
+  event and hands it to `psql`, so participants' direct-method queries and the
+  graders reuse the application's vector instead of embedding again. A new
+  before or after run embeds afresh, so recall figures vary slightly between
+  runs and the guides print none.
 - Returned-row count is not recall. Equal counts at two scan settings are
   legitimate; fewer eligible products than the limit is not scan starvation.
 - Rank sensitivity shows the formula's behavior, not an optimal parameter.
@@ -73,9 +77,18 @@ or catalog identities. Citation mutations exist only in memory.
 
 The source mission contract remains 10 minutes of introduction, 10 Retrieve,
 10 Rank, 20 Reason including completion, and 10 flex. The guides redistribute
-time from transcription to diagnosis and proof. A timed participant run is
-still required to confirm that the experience fits the budget; edited time
-tables are not a rehearsal result.
+time from transcription to diagnosis and proof.
+
+A participant run on 2026-09-24 in a Workshop Studio test account measured the
+machine waits and prompted a calibration pass. The recall grader fell from 55 s
+to 2–4 s, required reading fell by a quarter to a third per lab, required code blocks
+from 51 to 36, written prompts from about 36 to 7, and the manual `EXPLAIN`,
+tie-count query and second brief left the required path. Machine waits are now
+about 25 s (Lab 1), 30 s (Lab 2) and 3 minutes (Lab 3), plus 40 s for the
+completion gate. A model of human reading and writing time still puts a typical
+first-time participant over the 40-minute budget and a fast expert near it. A
+timed participant run is still required to confirm that the experience fits the
+budget; edited time tables are not a rehearsal result.
 
 Source checks, locally edited Workshop Studio pages, deployed EC2 proof and
 publication are separate states. The fresh-account rehearsal remains excluded
