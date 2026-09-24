@@ -29,8 +29,8 @@ function healthFixture(codeEditorUrl: string | null): HealthResponse {
     models: {
       embedding: "cohere.embed-v4:0",
       rerank: "cohere.rerank-v3-5:0",
-      agent: "anthropic.claude-sonnet-4-6",
-      synthesis: "anthropic.claude-sonnet-4-6",
+      agent: "anthropic.claude-sonnet-5",
+      synthesis: "anthropic.claude-sonnet-5",
     },
     code_editor_url: codeEditorUrl,
   };

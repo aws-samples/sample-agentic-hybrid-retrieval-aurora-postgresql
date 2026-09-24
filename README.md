@@ -417,7 +417,7 @@ The Aurora release contract verifies:
 | Embedding model | `us.cohere.embed-v4:0` |
 | Embedding dimensions | 1,024 |
 | Rerank model | `cohere.rerank-v3-5:0` |
-| Agent and synthesis model | `global.anthropic.claude-sonnet-4-6` |
+| Agent and synthesis model | `global.anthropic.claude-sonnet-5` |
 | Code Editor coding coach | Claude Code 2.1.233, `global.anthropic.claude-sonnet-5` through Bedrock |
 | Premium visual cohort | 120 products |
 | Photographed Shop edit | 200 products |

@@ -350,8 +350,8 @@ const healthFixture: HealthResponse = {
   models: {
     embedding: "cohere.embed-v4",
     rerank: "cohere.rerank-v3-5",
-    agent: "anthropic.claude-sonnet-4-6",
-    synthesis: "anthropic.claude-sonnet-4-6",
+    agent: "anthropic.claude-sonnet-5",
+    synthesis: "anthropic.claude-sonnet-5",
   },
   code_editor_url: "https://code.mosaic-workshop.example",
 };
@@ -381,8 +381,8 @@ const healthyReadiness: ReadinessResponse = {
   configured_models: {
     embedding: "us.cohere.embed-v4:0",
     rerank: "cohere.rerank-v3-5:0",
-    agent: "anthropic.claude-sonnet-4-6",
-    synthesis: "anthropic.claude-sonnet-4-6",
+    agent: "anthropic.claude-sonnet-5",
+    synthesis: "anthropic.claude-sonnet-5",
   },
   bedrock_credentials: { ready: true },
 };

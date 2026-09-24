@@ -22,8 +22,8 @@ Aurora only. There is no local database and no `make` target creates one. See
   byte-stable when repeated;
 - run one configured-model rehearsal with
   `uv run python scripts/benchmark_ask_mosaic.py --agent-model
-  global.anthropic.claude-sonnet-4-6 --synthesis-model
-  global.anthropic.claude-sonnet-4-6 --runs 1 --full-runs 1`; this warms the
+  global.anthropic.claude-sonnet-5 --synthesis-model
+  global.anthropic.claude-sonnet-5 --runs 1 --full-runs 1`; this warms the
   real retrieval, rerank, agent, and synthesis path;
 - validate the expected room concurrency against the account's Bedrock quotas
   and the API pool. Do not discover a quota limit from participant traffic.

@@ -441,7 +441,7 @@ These stages span multiple transactions. Their persisted receipts connect the
 workflow; avoid describing the complete model-and-database interaction as one
 transaction.
 
-Models pinned for the event: Cohere Embed v4 for embeddings, Cohere Rerank 3.5 for reranking, Claude Sonnet 4.6 for the agent and synthesis.
+Models pinned for the event: Cohere Embed v4 for embeddings, Cohere Rerank 3.5 for reranking, Claude Sonnet 5 for the agent and synthesis.
 
 ## Suggested room flow
 

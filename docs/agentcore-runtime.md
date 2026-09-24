@@ -139,7 +139,7 @@ from the example file and fails if a setting is missing from this table.
 | `BEDROCK_REGION` | Runtime environment variable | Region for embedding, rerank, and chat calls. Falls back to `AWS_REGION`, which AgentCore injects. |
 | `BEDROCK_EMBED_MODEL_ID` | Runtime environment variable | `us.cohere.embed-v4:0` |
 | `BEDROCK_RERANK_MODEL_ID` | Runtime environment variable | `cohere.rerank-v3-5:0` |
-| `BEDROCK_CHAT_MODEL_ID` | Runtime environment variable | `global.anthropic.claude-sonnet-4-6`. `BEDROCK_AGENT_MODEL_ID` and `BEDROCK_SYNTHESIS_MODEL_ID` are optional and split the agent and synthesis routes; omit both to use the chat model for the whole path. |
+| `BEDROCK_CHAT_MODEL_ID` | Runtime environment variable | `global.anthropic.claude-sonnet-5`. `BEDROCK_AGENT_MODEL_ID` and `BEDROCK_SYNTHESIS_MODEL_ID` are optional and split the agent and synthesis routes; omit both to use the chat model for the whole path. |
 | `EMBEDDING_PROVIDER` | Runtime environment variable | `bedrock` |
 | `RERANK_PROVIDER` | Runtime environment variable | `bedrock` |
 | `RERANK_REQUIRED` | Runtime environment variable | `true`. A silent fallback to unreranked results would make the receipts wrong. |
