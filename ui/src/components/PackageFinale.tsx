@@ -54,10 +54,10 @@ export function PackageFinale() {
   return (
     <section className="labs-package-finale" aria-labelledby="labs-package-title">
       <header className="labs-package-heading">
-        <h3 id="labs-package-title">Use what you built in your own agent</h3>
+        <h3 id="labs-package-title">Take hybrid agentic search into your own agent</h3>
         <p>
-          Connect your agent to filtered search, ranking explanations and product evidence.
-          Aurora runs retrieval; your application owns answer synthesis and citation checks.
+          Carry forward tsvector + pg_trgm + pgvector → RRF → Cohere Rerank →
+          evidence-backed answers, with checks for filters, recall, ranking and citations.
         </p>
       </header>
 
@@ -71,9 +71,10 @@ export function PackageFinale() {
       ) : (
         <>
           <p className="labs-contract-note">
-            The implementation guide maps the SQL, evaluation harness and citation guard
-            in the full Mosaic checkout. The skill provides calling instructions and
-            API requests for a running Mosaic service.
+            The implementation guide maps the SQL, evaluation runner and citation checks
+            in the full Mosaic checkout. The agent-independent skill includes the workflow,
+            HTTP requests and quality checks. Aurora runs retrieval. Connect a running Mosaic-compatible
+            service and use its answer endpoint or your application’s citation validator.
           </p>
           <div className="labs-package-actions">
             <a className="secondary-button labs-package-download" href="/api/builder-package" download>

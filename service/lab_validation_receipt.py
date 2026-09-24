@@ -36,6 +36,7 @@ def source_digest(root: Path = ROOT) -> str:
     files = sorted((root / "service").rglob("*.py")) + [
         root / "scripts/validate_lab.py",
         root / "scripts/lab_state.py",
+        root / "scripts/evidence_registration_probe.py",
         root / "uv.lock",
     ]
     digest = hashlib.sha256(compute_retrieval_fingerprint(root).encode())

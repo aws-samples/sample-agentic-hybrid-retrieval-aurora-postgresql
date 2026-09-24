@@ -178,13 +178,23 @@ def _runtime(region: str, service: str = "bedrock-runtime"):
 
 
 def probe_chat(model_id: str, region: str, required: bool) -> Probe:
-    """Converse with a two-token budget: the smallest real invocation there is."""
+    """Probe access with a bounded, short Converse response."""
     probe = Probe("chat", model_id, required)
     try:
+        request_fields = {}
+        if model_id.lower().endswith(
+            ("anthropic.claude-sonnet-5", "anthropic.claude-opus-5")
+        ):
+            # Claude Opus 5 / Sonnet 5 think by default, and the 8-token budget
+            # below would be spent entirely on reasoning instead of "OK".
+            request_fields["additionalModelRequestFields"] = {
+                "thinking": {"type": "disabled"}
+            }
         response = _runtime(region).converse(
             modelId=model_id,
             messages=[{"role": "user", "content": [{"text": "Reply with OK."}]}],
             inferenceConfig={"maxTokens": 8},
+            **request_fields,
         )
         probe.outcome = Outcome.OK
         probe.latency_ms = (

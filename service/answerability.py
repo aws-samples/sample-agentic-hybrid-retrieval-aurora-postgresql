@@ -158,6 +158,13 @@ def assess_answerability(
         "inferenceConfig": {"maxTokens": 4_096},
         "requestMetadata": {"application": "catalog-hybrid-retrieval-workshop"},
     }
+    if model_id.lower().endswith(
+        ("anthropic.claude-sonnet-5", "anthropic.claude-opus-5")
+    ):
+        # Claude Opus 5 / Sonnet 5 think by default. This forced single-decision
+        # tool call ran without thinking on Sonnet 4.6; keep it that way so the
+        # review adds no reasoning latency or cost.
+        request["additionalModelRequestFields"] = {"thinking": {"type": "disabled"}}
     usage: dict[str, Any] = {}
     for attempt in range(2):
         response = client.converse(**request)

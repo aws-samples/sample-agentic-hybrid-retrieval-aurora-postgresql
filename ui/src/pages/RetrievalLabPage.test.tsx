@@ -472,7 +472,7 @@ function labProofFor(labId: number) {
  * disclosure left to open now that packaging is not a click behind stage 03.
  */
 async function awaitPackageFinale() {
-  await screen.findByText("Use what you built in your own agent");
+  await screen.findByText("Take hybrid agentic search into your own agent");
 }
 
 /** All three retrieval indexes present, valid and ready -- nothing broken. */
@@ -1091,14 +1091,14 @@ describe("RetrievalLabPage", () => {
 
     await awaitPackageFinale();
     const finale = container.querySelector(".labs-package-finale");
-    const heading = screen.getByRole("heading", { name: "Use what you built in your own agent" });
+    const heading = screen.getByRole("heading", { name: "Take hybrid agentic search into your own agent" });
     const header = heading.closest(".labs-package-heading");
 
     expect(finale).toBeTruthy();
     expect(header).toBeTruthy();
     expect(header?.firstElementChild).toBe(heading);
     expect(heading.nextElementSibling?.textContent).toBe(
-      "Connect your agent to filtered search, ranking explanations and product evidence. Aurora runs retrieval; your application owns answer synthesis and citation checks.",
+      "Carry forward tsvector + pg_trgm + pgvector → RRF → Cohere Rerank → evidence-backed answers, with checks for filters, recall, ranking and citations.",
     );
     expect(screen.getByRole("link", { name: "Adapt the implementation" }).getAttribute("href")).toBe("/api/builder-package");
     expect(screen.getByRole("link", { name: "Download the skill" }).getAttribute("href")).toBe("/api/skill-package");
@@ -1179,10 +1179,10 @@ describe("RetrievalLabPage", () => {
     });
 
     expect(
-      await screen.findByText(/Aurora runs retrieval; your application owns answer synthesis and citation checks/i),
+      await screen.findByText(/Aurora runs retrieval/i),
     ).toBeTruthy();
     expect(
-      await screen.findByText(/The skill provides calling instructions and API requests for a running Mosaic service/i),
+      await screen.findByText(/Connect a running Mosaic-compatible service and use its answer endpoint or your application’s citation validator/i),
     ).toBeTruthy();
     expect(
       await screen.findByText(/Adapt the schema, copy, models, settings/i),
@@ -1247,7 +1247,7 @@ describe("RetrievalLabPage", () => {
 
     // Removed from stage 03 completely, not merely hidden there.
     expect(reasonStage.querySelector(".labs-package-finale")).toBeNull();
-    expect(within(reasonStage as HTMLElement).queryByText("Use what you built in your own agent")).toBeNull();
+    expect(within(reasonStage as HTMLElement).queryByText("Take hybrid agentic search into your own agent")).toBeNull();
   });
 
   it("grades Lab 3 on the run stage 03 produced, and re-reads the baseline after", async () => {

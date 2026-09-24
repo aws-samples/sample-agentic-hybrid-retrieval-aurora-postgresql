@@ -49,6 +49,14 @@ workbench. Guide links and saved agent-proof links continue to open lab controls
 This view works with either the broken workshop state or the repaired local
 state. Inject faults through the lab setup, never through a display toggle.
 
+### First visit to Code Editor
+
+The editor opens a rendered **Start Here** page and a ready terminal. Point
+participants to the guide's first task, the source map and their learning notes.
+The Explorer keeps `ui`, `service`, `db`, `scripts`, `labs`, `skills` and the
+repository steering files visible. Generated files and instructor answer sheets
+are hidden. The terminal stays available without a busy-task spinner.
+
 ### The spoken opening
 
 > Alex works from home. He needs headphones for clearer calls, a chair for long days,
@@ -672,6 +680,12 @@ attempt is saved in `mosaic.lab_decision`, which the finale reads.
 Keep 10/10/20 minutes for the three labs; use recovery to protect the proof.
 Do not call the session room-tested until a timed human run confirms that pace.
 
+Lab 3 checks registration behavior, not whether a participant copied the
+reference answer's structure. Different local names or a product-list lookup
+outside the loop are valid when the same evidence contract holds. A broken or
+non-terminating function fails the bounded source check; the end-to-end validator
+still checks retrieval, recommendations and citations.
+
 ## What staff should remember
 
 - The copied-ID transposition is a narrow identity-recovery case. Inspect the direct methods: only the restored trigram arm found this target in verification. Do not generalize that result to brand misspellings or all semantic searches.
@@ -746,7 +760,10 @@ The method is:
 
 Finish on the checked answer and trace one claim back to its source, product
 and search. The completion gate rechecks the participant's saved runs; the
-broader scorecard is a separately dated measurement. Close with **Use what you
-built in your own agent**, supported by the implementation guide and the skill's
-calling instructions. Another agent can use the retrieval operations while its
-application retains the synthesis and citation checks.
+broader scorecard is a separately dated measurement. Close with **Take hybrid agentic search into your own agent**. Download the
+skill from the Labs completion panel and carry forward the full workflow:
+`tsvector` + `pg_trgm` + `pgvector` → RRF → Cohere Rerank → answers with sources.
+The package includes checks for filters, recall, ranking and citations. Any agent
+can read the instructions and connect the four declared HTTP operations; its
+application must retain the answer and citation checks. The skill does not host
+the catalog, and the temporary event backend expires with the workshop.

@@ -262,3 +262,82 @@ def test_applied_state_reads_the_catalog_served_by_the_api(monkeypatch, lab):
     statement = connection.execute.call_args.args[0]
     assert "mosaic_live_search." in statement
     assert "mosaic_search." not in statement
+
+
+PARTICIPANT_LAB3 = """    product_ids = state["evidence_by_product"].setdefault(product_id, [])
+    for item in evidence:
+        state["evidence"][item.evidence_id] = item
+        if item.evidence_id not in product_ids:
+            product_ids.append(item.evidence_id)"""
+
+
+def test_lab3_accepts_registration_with_the_product_list_outside_the_loop(lab_repo):
+    from scripts.lab_state import _replace_block
+
+    path = lab_repo / LABS[3][0]
+    start, end, _, _ = LABS[3][1][0]
+    path.write_text(_replace_block(path.read_text(), start, end, PARTICIPANT_LAB3))
+    assert lab_is_solved(3, repo=lab_repo)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "    pass",
+        '    for item in evidence:\n        state["evidence"][item.evidence_id] = item',
+        """    for item in evidence:
+        state["evidence"][item.evidence_id] = item
+        state["evidence_by_product"].setdefault(product_id, []).append(item.evidence_id)""",
+        """    state["evidence_by_product"][product_id] = []
+    for item in evidence:
+        state["evidence"][item.evidence_id] = item
+        state["evidence_by_product"][product_id].append(item.evidence_id)""",
+        PARTICIPANT_LAB3.replace("setdefault(product_id, [])", "setdefault(0, [])"),
+        PARTICIPANT_LAB3.replace("= item", "= None"),
+        "    raise SystemExit(0)",
+    ],
+)
+def test_lab3_rejects_faulty_registration_and_accepts_byte_identical_restore(
+    lab_repo, body
+):
+    from scripts.lab_state import _replace_block
+
+    path = lab_repo / LABS[3][0]
+    original = path.read_bytes()
+    start, end, _, _ = LABS[3][1][0]
+    path.write_text(_replace_block(original.decode(), start, end, body))
+    assert not lab_is_solved(3, repo=lab_repo)
+    path.write_bytes(original)
+    assert path.read_bytes() == original
+    assert lab_is_solved(3, repo=lab_repo)
+
+
+def test_registration_probe_calls_the_production_function_with_nonempty_cases():
+    from scripts.evidence_registration_probe import registration_matches_contract
+    from service.agent_tools import register_evidence
+
+    calls = []
+
+    def observed(state, product_id, evidence):
+        calls.append((product_id, len(evidence)))
+        register_evidence(state, product_id, evidence)
+
+    assert registration_matches_contract(observed)
+    assert calls == [(101, 2), (202, 1), (101, 2), (101, 1), (101, 0)]
+
+
+def test_lab3_probe_does_not_import_module_startup_code(lab_repo):
+    path = lab_repo / LABS[3][0]
+    path.write_text(path.read_text() + '\nraise RuntimeError("unrelated startup")\n')
+    assert lab_is_solved(3, repo=lab_repo)
+
+
+def test_lab3_probe_bounds_a_nonterminating_edit(lab_repo):
+    from scripts.lab_state import _replace_block
+
+    path = lab_repo / LABS[3][0]
+    start, end, _, _ = LABS[3][1][0]
+    path.write_text(
+        _replace_block(path.read_text(), start, end, "    while True:\n        pass")
+    )
+    assert not lab_is_solved(3, repo=lab_repo)

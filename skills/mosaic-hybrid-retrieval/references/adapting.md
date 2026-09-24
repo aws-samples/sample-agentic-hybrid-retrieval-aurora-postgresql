@@ -3,7 +3,7 @@
 Use this package as an architectural contract, not as a promise that Mosaic's
 catalog schema or measured tuning fits another workload.
 
-## Keep these invariants
+## Keep these checks
 
 - Apply hard eligibility in every retrieval arm before its candidate limit.
 - Bound each arm and the fused pool explicitly.
@@ -14,7 +14,7 @@ catalog schema or measured tuning fits another workload.
   needed to replay what happened.
 - Separate the served result window from the downstream evidence grant.
 - Require evidence and comparison calls to stay inside that grant.
-- Keep source attribution attached to the returned evidence.
+- Keep source details attached to the returned evidence.
 - Keep transport adapters thin. They map arguments and envelopes but do not
   reimplement retrieval or scope policy.
 
@@ -29,10 +29,10 @@ catalog schema or measured tuning fits another workload.
 | Embeddings | Cohere Embed v4, 1,024 dimensions, cosine HNSW | Embedding model, dimensions, distance operator, document construction, migration plan, and index parameters |
 | Fusion and reranking | Unweighted RRF plus managed reranking | Candidate depths, fusion constant, rerank model, exact-match policy, latency budget, and fallback behavior |
 | Evidence | Product specifications and reviews | Evidence units, source URI/revision contract, freshness, ranking query, and citation resolver |
-| Response schema | Product summaries and commerce rank signals | The smallest stable entity and provenance shape callers actually need |
+| Response schema | Product summaries and commerce rank signals | The smallest stable entity and source-detail fields callers actually need |
 | Identity | Single-attendee UUID handles | Principal and tenant binding for retrieval events, evidence, comparison, and replay |
 | Receipt storage | Append-only search and result events | Retention, redaction, encryption, write capacity, deletion, and audit requirements |
-| Evaluations | Mosaic missions, target products, and scorecard | Representative queries, judgments, failure cohorts, budgets, and release thresholds for the new domain |
+| Evaluations | Mosaic missions, target products, and scorecard | Representative queries, judgments, groups of failing queries, budgets, and release thresholds for the new domain |
 
 ## Adapt in this order
 

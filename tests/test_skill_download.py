@@ -19,6 +19,7 @@ def test_download_contains_the_complete_canonical_skill():
         "references/http-api.md",
         "references/composition.md",
         "references/adapting.md",
+        "references/quality-checks.md",
     }
     with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
         assert set(archive.namelist()) == {

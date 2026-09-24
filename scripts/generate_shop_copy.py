@@ -114,12 +114,22 @@ def generate_batch(source: list[dict[str, Any]], model_id: str) -> list[dict[str
     """Generate a reviewable batch, retrying only explicit validation feedback."""
     client = get_bedrock_client("bedrock-runtime")
     messages = [{"role": "user", "content": [{"text": json.dumps(source)}]}]
+    request_fields = {}
+    if model_id.lower().endswith(
+        ("anthropic.claude-sonnet-5", "anthropic.claude-opus-5")
+    ):
+        # Single-call, non-tool JSON generation. Claude Opus 5 / Sonnet 5 think
+        # by default; keep this authoring script's prior cost/behavior.
+        request_fields["additionalModelRequestFields"] = {
+            "thinking": {"type": "disabled"}
+        }
     for attempt in range(4):
         response = client.converse(
             modelId=model_id,
             system=[{"text": COPY_PROMPT}],
             messages=messages,
             inferenceConfig={"maxTokens": 10000},
+            **request_fields,
         )
         raw = "".join(
             block.get("text", "") for block in response["output"]["message"]["content"]

@@ -1,8 +1,8 @@
 # Use what you built in your own agent
 
 Reuse the search, ranking and evidence operations you repaired. This guide maps
-the SQL, evaluation harness and citation guard to the files you adapt. The
-[Mosaic Hybrid Retrieval Skill](../skills/mosaic-hybrid-retrieval/SKILL.md)
+the SQL, evaluation runner and citation checks to the files you adapt. The
+[Hybrid Agentic Search skill](../skills/mosaic-hybrid-retrieval/SKILL.md)
 provides a calling agent with instructions and API mappings for a running
 Mosaic service. Your application retains responsibility for orchestration,
 answer synthesis and citation validation.
@@ -41,7 +41,7 @@ A reranker cannot recover an omitted candidate. Keep a test where each retrieval
 
 ## Give the agent an evidence boundary
 
-Mosaic exposes five canonical agent tools:
+Mosaic exposes five agent tools:
 
 1. `search_products` searches within the request's eligibility rules.
 2. `get_product_evidence` retrieves sources for a product the run is allowed to use.

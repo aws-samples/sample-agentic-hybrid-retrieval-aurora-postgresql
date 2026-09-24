@@ -863,7 +863,7 @@ def test_adaptation_guide_separates_invariants_from_mosaic_choices():
     text = ADAPTATION_PATH.read_text(encoding="utf-8")
     lowered = text.lower()
 
-    assert "## Keep these invariants" in text
+    assert "## Keep these checks" in text
     assert "## Replace these Mosaic choices" in text
     assert "before its candidate limit" in text
     assert "transport adapters thin" in lowered

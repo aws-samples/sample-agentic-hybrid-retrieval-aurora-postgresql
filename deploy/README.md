@@ -80,3 +80,9 @@ CloudFormation needs with:
 ```sh
 shasum -a 256 deploy/mosaic-bootstrap.sh
 ```
+
+The first Code Editor terminal opens `START_HERE.md` through the editor's own
+remote CLI with the built-in Markdown preview association, then leaves a login shell ready for the participant. The marker in
+`.local/code-editor-started` prevents later visits from reopening the page over
+a participant's work. The folder-open task runs in background mode so an idle
+shell does not display a busy task spinner.

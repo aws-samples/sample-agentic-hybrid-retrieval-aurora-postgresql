@@ -176,7 +176,12 @@ def test_replay_will_not_accept_a_different_question(saved_runs):
         receipt.replay_receipt(payload, payload["identity"])
 
 
-def test_source_binding_changes_with_agent_code_but_not_readme(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "changed_path", ["service/agent.py", "scripts/evidence_registration_probe.py"]
+)
+def test_source_binding_changes_with_agent_code_but_not_readme(
+    tmp_path, monkeypatch, changed_path
+):
     monkeypatch.setattr(
         receipt, "compute_retrieval_fingerprint", lambda root: "retrieval"
     )
@@ -184,6 +189,7 @@ def test_source_binding_changes_with_agent_code_but_not_readme(tmp_path, monkeyp
         "service/agent.py",
         "scripts/validate_lab.py",
         "scripts/lab_state.py",
+        "scripts/evidence_registration_probe.py",
         "uv.lock",
     ):
         target = tmp_path / path
@@ -192,7 +198,7 @@ def test_source_binding_changes_with_agent_code_but_not_readme(tmp_path, monkeyp
     original = receipt.source_digest(tmp_path)
     (tmp_path / "README.md").write_text("New title")
     assert receipt.source_digest(tmp_path) == original
-    agent = tmp_path / "service/agent.py"
+    agent = tmp_path / changed_path
     before = agent.read_bytes()
     agent.write_text("changed")
     assert receipt.source_digest(tmp_path) != original

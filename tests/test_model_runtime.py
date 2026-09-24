@@ -1396,11 +1396,21 @@ def test_agent_uses_the_dedicated_model_override(monkeypatch):
     assert captured["model_id"] == "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 
-def test_synthesis_uses_the_dedicated_model_override():
+@pytest.mark.parametrize(
+    "model_id,thinking_disabled",
+    [
+        ("global.anthropic.claude-sonnet-5", True),
+        ("global.anthropic.claude-opus-5", True),
+        ("global.anthropic.claude-opus-5-5", False),
+        ("global.anthropic.claude-haiku-4-5-20251001-v1:0", False),
+        ("amazon.nova-pro-v1:0", False),
+    ],
+)
+def test_synthesis_uses_the_dedicated_model_override(model_id, thinking_disabled):
     settings = replace(
         get_settings(),
         chat_model_id="global.anthropic.claude-haiku-4-5-20251001-v1:0",
-        synthesis_model_id="global.anthropic.claude-sonnet-5",
+        synthesis_model_id=model_id,
     )
     client = FakeSynthesisClient(
         "Summary\nChoose this option [1].\n\n"
@@ -1416,7 +1426,15 @@ def test_synthesis_uses_the_dedicated_model_override():
         client=client,
     )
 
-    assert client.request["modelId"] == "global.anthropic.claude-sonnet-5"
+    assert client.request["modelId"] == model_id
+    assert len(client.review_requests) == 1 and len(client.requests) == 1
+    for request in [client.review_requests[0], client.request]:
+        if thinking_disabled:
+            assert request["additionalModelRequestFields"] == {
+                "thinking": {"type": "disabled"}
+            }
+        else:
+            assert "additionalModelRequestFields" not in request
 
 
 def test_agent_tool_filters_cannot_widen_request_filters():

@@ -7,8 +7,8 @@ import argparse
 import ast
 import os
 import re
+import subprocess
 import sys
-import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -156,19 +156,8 @@ def set_isolated_lab_state(
     return changed
 
 
-def _same_repair(source: str, fixed: str, *, python: bool) -> bool:
-    """Compare repair structure while retaining identifiers, literals and operators.
-
-    This recognizes formatting changes, not arbitrary equivalent algorithms;
-    production-path validation remains necessary to establish behavior.
-    """
-    if python:
-        try:
-            return ast.dump(ast.parse(textwrap.dedent(source).strip())) == ast.dump(
-                ast.parse(textwrap.dedent(fixed).strip())
-            )
-        except SyntaxError:
-            return False
+def _same_sql_repair(source: str, fixed: str) -> bool:
+    """Compare SQL tokens while retaining identifiers, literals and operators."""
     token = r"'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|[A-Za-z_]\w*|\d+(?:\.\d+)?|::|<>|!=|<=|>=|\S"
     return re.findall(token, source) == re.findall(token, fixed)
 
@@ -263,15 +252,56 @@ def _lab1_matches_contract(source: str, *, schema: str = "mosaic_search") -> boo
     ]
 
 
+def _lab3_matches_contract(source: str) -> bool:
+    """Run the actual edited function against the evidence-registration checks.
+
+    Local variable names and moving setdefault outside the loop do not change
+    the contract. A separate process bounds bad edits without importing module
+    startup code into the lab-status request.
+    """
+    for start, end, _, _ in LABS[3][1]:
+        if source.count(start) != 1 or source.count(end) != 1:
+            return False
+    try:
+        functions = [
+            node
+            for node in ast.parse(source).body
+            if isinstance(node, ast.FunctionDef) and node.name == "register_evidence"
+        ]
+        if len(functions) != 1 or functions[0].decorator_list:
+            return False
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                str(Path(__file__).with_name("evidence_registration_probe.py")),
+            ],
+            input=ast.unparse(functions[0]),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+            check=False,
+        )
+        return (
+            result.returncode == 0
+            and result.stdout.strip() == "registration checks passed"
+        )
+    except (SyntaxError, OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def lab_is_solved(lab: int, *, repo: Path = REPO) -> bool:
     relative_path, blocks = LABS[lab]
     source = (repo / relative_path).read_text(encoding="utf-8")
     if lab == 1:
         return _lab1_matches_contract(source)
+    if lab == 3:
+        return _lab3_matches_contract(source)
     for start_marker, end_marker, fixed, _ in blocks:
         start = source.index(start_marker) + len(start_marker)
         end = source.index(end_marker, start)
-        if not _same_repair(source[start:end], fixed, python=lab == 3):
+        if not _same_sql_repair(source[start:end], fixed):
             return False
     return True
 

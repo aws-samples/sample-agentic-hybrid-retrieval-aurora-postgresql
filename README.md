@@ -35,12 +35,18 @@ framing is in [the session abstract](docs/session-abstract.md).
 
 **Jump to:** [Quick start](#quick-start) | [Architecture](#architecture) |
 [Workshop path](#workshop-path) | [Validation](#validation) |
-[Use what you built in your own agent](#use-what-you-built-in-your-own-agent) |
+[Take hybrid agentic search into your own agent](#take-hybrid-agentic-search-into-your-own-agent) |
 [Repository map](#repository-map)
 
 ## Quick start
 
-Prerequisites:
+**Workshop Studio participants:** Code Editor opens [Start Here](START_HERE.md)
+as a rendered preview with a ready terminal. Follow the workshop guide; the
+application and Aurora database are already running. The Explorer keeps Mosaic's
+source and `AGENTS.md`, `VOICE.md` and `CLAUDE.md` visible, while hiding generated
+files and instructor answer sheets. Keep observations in `learning-notes.md`.
+
+For your own application environment, use these prerequisites:
 
 - Python `3.13` and [`uv`](https://docs.astral.sh/uv/);
 - Node.js `22` and npm, matching the workshop host, which installs the
@@ -235,7 +241,10 @@ independent challenge. Builders use `psql` in the Code Terminal to inspect
 installed search functions, query plans, saved rankings and source records.
 `scripts/lab_terminal.py` runs the real application request and prepares its exact
 IDs and parameters; Lab 3 also runs the agent and challenges its citation checks. See
-[the L400 teaching contract](docs/l400-lab-design.md) for scope and proof limits.
+[the L400 teaching contract](docs/l400-lab-design.md) for scope and proof limits. The Lab 3 source check runs the edited registration
+function against repeated and later evidence calls; valid local names and moving
+the product-list lookup outside the loop do not require matching the reference
+answer's structure. Production checks still validate the complete answer path.
 
 Shop's **Explore** examples group keywords, a mistyped listing ID and natural
 requests. They resolve the existing queries and filters from the mission
@@ -487,13 +496,13 @@ make score-evals
 `make validate-evals` proves the 720 target/filter contracts through the
 production `mosaic_search.matches_filters` function. `make score-evals` runs
 the served retrieval path over the canonical scorecard and verifies source,
-dataset, retrieval-profile, model, Aurora, ranked-result, and metric provenance.
+dataset, retrieval settings, model, Aurora version, ranked results, and measurement details.
 It is a release gate, not a general benchmark command. After any change to a
 file in the retrieval fingerprint, Prove reports the scorecard as pending and
 two scorecard tests go red until both measurements run again, in order and
 each from a clean commit with `AURORA_INSTANCE_CLASS` exported: `make
 score-evals SCORE_EVAL_ARGS="--restart --write-baseline"`, commit the two
-scorecard artifacts, then `make ablation-evals` and commit the ablation
+scorecard artifacts, then `make ablation-evals` and commit the search-method comparison
 artifact. The sequence is spelled out in
 [`docs/evaluation-plan.md`](docs/evaluation-plan.md).
 
@@ -640,29 +649,40 @@ and removes only its own container. Managed hosts can set
 `MOSAIC_DATABASE_SECRET_ARN` to load the Aurora DSN from Secrets Manager at
 startup, keeping the password out of Runtime environment settings.
 
-## Use what you built in your own agent
+The [Strands Harness evaluation](docs/strands-harness-evaluation.md) covers both
+the retrieval agent and a scoped coding assistant, including model selection
+and the limits of the trial. The shipped runtime remains on its validated SDK.
 
-Reuse the filtered search, inspectable ranking and evidence operations you
-repaired. Your calling application chooses the requests, composes the answer
-and validates its citations. Adapt the implementation to your own entities
-and verify it with your own evaluation questions.
+## Take hybrid agentic search into your own agent
+
+Carry forward **tsvector + pg_trgm + pgvector → RRF → Cohere Rerank →
+evidence-backed answers**, with separate checks for filters, recall, ranking
+and citations. The skill works with any agent that can read its instructions
+and call a compatible backend. Your host application orchestrates the four
+retrieval operations and validates citations, or calls Mosaic’s complete
+answer endpoint. Adapt the implementation to your own entities and evaluation questions.
 
 | Take home | Where it lives | What it proves |
 |---|---|---|
 | **The SQL.** Three candidate arms with eligibility applied inside each, unweighted reciprocal rank fusion over rank positions, and a bounded pool handed to the reranker. | [`db/sql/09_search_functions.sql`](db/sql/09_search_functions.sql), tuned only by [`db/config/retrieval.yaml`](db/config/retrieval.yaml) | Labs 1 and 2: a healthy arm can be disconnected from fusion, and fusion arithmetic can be wrong while the page looks right. |
-| **The eval.** Twenty graded searches scored on Recall@10, MRR and nDCG@10, and a stage ablation that scores each arm alone, all three combined, and combined then reranked. | [`scripts/score_evals.py`](scripts/score_evals.py), [`scripts/ablation_evals.py`](scripts/ablation_evals.py), [`data/evals/`](data/evals/) | Prove, and **Compare search methods** in the Playground's Retrieve column. Copy the harness and replace the query set. |
+| **The eval.** Twenty graded searches scored on Recall@10, MRR and nDCG@10, and a comparison that scores each search method alone, all three combined, and combined then reranked. | [`scripts/score_evals.py`](scripts/score_evals.py), [`scripts/ablation_evals.py`](scripts/ablation_evals.py), [`data/evals/`](data/evals/) | Prove, and **Compare search methods** in the Playground's Retrieve column. Copy the evaluation runner and replace the query set. |
 | **The guard.** Retrieved evidence is registered and authorized by the application before synthesis may cite it, and the claim checks reject what the evidence cannot support. | [`service/agent_tools.py`](service/agent_tools.py), [`service/synthesis.py`](service/synthesis.py) | Lab 3: the model requests tools; the application decides what runs and what is citable. |
-| **The skill.** The four-operation contract a calling agent uses. | [`skills/mosaic-hybrid-retrieval/`](skills/mosaic-hybrid-retrieval/) | A portable declaration and operating guide, not a standalone retrieval runtime: callers still need a deployed service implementing the contract. |
+| **The skill.** The search-to-answer workflow, four retrieval operations and quality checks. | [`skills/mosaic-hybrid-retrieval/`](skills/mosaic-hybrid-retrieval/) | A portable declaration and operating guide, not a standalone retrieval runtime: callers still need a deployed service implementing the contract. |
 
 Start with [Adapt the implementation](docs/use-in-your-app.md), the map into the
-SQL, evaluation harness and citation guard. The app's `/api/builder-package`
+SQL, evaluation runner and citation checks. The app's `/api/builder-package`
 download includes that guide, reference SQL and an optional tool exercise; keep
 the full checkout for runnable code and dependencies.
 
 **Download the skill** from `/api/skill-package` when connecting a calling agent
 to a running Mosaic service. Keep the folder together: `SKILL.md` declares the four-operation HTTP
 skill surface, and its references provide the generated argument-to-HTTP map,
-the exact HTTP/MCP/A2A deployment status, and an adaptation checklist. The
+filter/recall/ranking/citation checks, the exact HTTP/MCP/A2A deployment status,
+and an adaptation checklist. Extract it into your agent’s skill directory, or
+load `SKILL.md` and its references as instructions in another tool-capable host.
+Supply the backend URL and authentication through that host’s configuration.
+The workshop endpoint expires with the event; the download does not include a
+database, credentials or a hosted service. The
 optional build-a-tool exercise is additional practice in the Workshop Studio
 guide.
 
@@ -713,7 +733,7 @@ mcp-server/   Isolated MCP adapter
 scripts/      Data, embedding, validation, scorecard, and benchmark tooling
 service/      FastAPI, retrieval orchestration, Strands tools, and model clients
 skills/       Agent calling instructions, checked adapter map, and adaptation guidance
-tests/        Dataset, SQL, API, provenance, and release-contract tests
+tests/        Dataset, SQL, API, source-detail, and release-contract tests
 ui/           React storefront, Ask Mosaic, and the Playground
 ```
 

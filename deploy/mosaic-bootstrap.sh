@@ -470,12 +470,8 @@ sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" config \
 # sibling Pellier bootstrap established this shape after writing the task to the
 # unopened parent, where it silently never ran.
 #
-# files.exclude leaves the three places the labs actually edit - db/, scripts/,
-# and service/ - and hides the rest of a 700-file repository from the explorer
-# and quick-open. It also removes docs/, which is not only clutter: it holds
-# intentional-gaps.md, instructor-guide.md, and lab-golden-queries.md, so a
-# participant browsing that folder finds the answer to all three labs. This is
-# presentation only, so anything hidden is still readable from the terminal.
+# Keep the application and its steering files discoverable. Hide generated
+# artifacts and instructor answer sheets, not the code participants are learning.
 CODE_EDITOR_SETTINGS="/home/$CODE_EDITOR_USER/.code-editor-server/data/User"
 install -d -o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" "$CODE_EDITOR_SETTINGS"
 cat >"$CODE_EDITOR_SETTINGS/settings.json" <<'EOF'
@@ -499,32 +495,13 @@ cat >"$CODE_EDITOR_SETTINGS/settings.json" <<'EOF'
   "workbench.tips.enabled": false,
   "update.showReleaseNotes": false,
   "extensions.ignoreRecommendations": true,
-  "telemetry.telemetryLevel": "off",
-  "files.exclude": {
-    "**/__pycache__": true,
-    "**/*.egg-info": true,
-    ".github": true,
-    ".pytest_cache": true,
-    ".ruff_cache": true,
-    ".venv": true,
-    "ARTIFACTS.md": true,
-    "AGENTS.md": true,
-    "benchmarks": true,
-    "CODE_OF_CONDUCT.md": true,
-    "config": true,
-    "CONTRIBUTING.md": true,
-    "data": true,
-    "docs": true,
-    "mcp-server": true,
-    "READINESS.md": true,
-    "tests": true,
-    "ui": true,
-    "uv.lock": true
-  }
+  "telemetry.telemetryLevel": "off"
 }
 EOF
 chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$CODE_EDITOR_SETTINGS/settings.json"
 
+# The login shell stays open for the session; background mode prevents Code
+# Editor from presenting it as a busy foreground task.
 install -d -o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" "$REPO/.vscode"
 cat >"$REPO/.vscode/tasks.json" <<'EOF'
 {
@@ -534,7 +511,7 @@ cat >"$REPO/.vscode/tasks.json" <<'EOF'
       "label": "Mosaic terminal",
       "type": "shell",
       "command": "bash",
-      "args": ["-l"],
+      "args": ["-l", "deploy/open-workshop-terminal.sh"],
       "presentation": {
         "echo": false,
         "reveal": "always",
@@ -545,10 +522,42 @@ cat >"$REPO/.vscode/tasks.json" <<'EOF'
         "close": false
       },
       "runOptions": { "runOn": "folderOpen" },
-      "isBackground": false,
+      "isBackground": true,
       "problemMatcher": []
     }
   ]
+}
+EOF
+cat >"$REPO/.vscode/settings.json" <<'EOF'
+{
+  "workbench.editorAssociations": {
+    "**/START_HERE.md": "vscode.markdown.preview.editor"
+  },
+  "markdown.preview.fontSize": 16,
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.egg-info": true,
+    "**/.pytest_cache": true,
+    "**/.ruff_cache": true,
+    "**/.venv": true,
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/.DS_Store": true,
+    ".git": true,
+    ".vscode": true,
+    ".env": true,
+    ".local/model-migration-check": true,
+    ".local/strands-harness-eval": true,
+    ".local/strands-coding-eval": true,
+    ".local/rehearsal": true,
+    ".local/vocabulary-cache": true,
+    "data/full": true,
+    "data/raw": true,
+    "docs/intentional-gaps.md": true,
+    "docs/instructor-guide.md": true,
+    "docs/lab-golden-queries.md": true
+  }
 }
 EOF
 chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO/.vscode"

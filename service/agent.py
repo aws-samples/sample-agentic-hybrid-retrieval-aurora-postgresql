@@ -240,7 +240,9 @@ def _bedrock_model(model_id: str, region: str) -> BedrockModel:
                 model_id=model_id,
                 region_name=region,
                 boto_client_config=client_config(),
-                max_tokens=2_400,
+                # Sonnet 5 uses the output budget for thinking and tool calls.
+                # Leave room for both, while keeping a bounded reservation.
+                max_tokens=16_000,
             )
             _models[key] = model
     return model
