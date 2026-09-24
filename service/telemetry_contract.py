@@ -63,6 +63,23 @@ def _as_dict(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _ordered_tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Recover call order when one transaction gives every event the same time."""
+    payloads = [_as_dict(tool.get("output_payload")) for tool in tools]
+    if not any("sequence" in payload for payload in payloads):
+        # Historical events predate sequence storage; keep their display order.
+        return tools
+    sequences = [payload.get("sequence") for payload in payloads]
+    if not all(type(sequence) is int for sequence in sequences) or sorted(
+        sequences
+    ) != list(range(1, len(tools) + 1)):
+        raise ValueError(
+            f"found invalid tool sequence {sequences!r}; "
+            "fix: rerun the agent request to save every call in order"
+        )
+    return [tool for _, tool in sorted(zip(sequences, tools), key=lambda pair: pair[0])]
+
+
 def _number(value: Any) -> int | float | None:
     return (
         value
@@ -439,5 +456,5 @@ def load_agent_turn_rows(connection: Any, agent_turn_id: Any) -> AgentTurnRows |
         session={"metadata": turn_row.pop("metadata", {})},
         searches=[dict(row) for row in searches],
         candidates=[dict(row) for row in candidates],
-        tools=[dict(row) for row in tools],
+        tools=_ordered_tools([dict(row) for row in tools]),
     )

@@ -1756,6 +1756,7 @@ def persist_completed_run(
                         ),
                         "output_payload": json.dumps(
                             {
+                                "sequence": sequence,
                                 "detail": step["detail"],
                                 "result_count": step.get("result_count"),
                                 "citations": (
@@ -1765,6 +1766,7 @@ def persist_completed_run(
                                     ]
                                     if record
                                     and step["tool"] == "synthesize_cited_answer"
+                                    and step.get("outcome", "success") == "success"
                                     else None
                                 ),
                             },
@@ -1772,7 +1774,7 @@ def persist_completed_run(
                         ),
                         "duration_ms": round(step.get("latency_ms") or 0),
                     }
-                    for step in state["trace"]
+                    for sequence, step in enumerate(state["trace"], start=1)
                 ],
             )
         connection.commit()

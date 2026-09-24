@@ -323,6 +323,9 @@ Retrieve and Rank also run their independent supporting controls. Reason checks
 the persisted question, target searches, tool activity, evidence, citations, and
 retrieval explanation. Starting another run clears the previous proof; a prior
 PASS cannot certify a pending or failed attempt.
+Saved tool calls retain their execution sequence even when Aurora assigns them
+the same transaction timestamp. A rejected synthesis attempt has no citations;
+completion replay checks the successful answer that followed it.
 
 ## The three-lab journey
 

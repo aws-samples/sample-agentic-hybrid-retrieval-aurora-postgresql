@@ -245,6 +245,9 @@ IDs and parameters; Lab 3 also runs the agent and challenges its citation checks
 function against repeated and later evidence calls; valid local names and moving
 the product-list lookup outside the loop do not require matching the reference
 answer's structure. Production checks still validate the complete answer path.
+Saved tool calls retain their execution sequence, so completion replay grades
+the final successful synthesis after a rejected draft. Failed attempts do not
+inherit the final answer's citations.
 
 Shop's **Explore** examples group keywords, a mistyped listing ID and natural
 requests. They resolve the existing queries and filters from the mission
