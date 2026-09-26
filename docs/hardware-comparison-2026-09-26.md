@@ -130,9 +130,10 @@ Optimized Reads participation is observed, not assumed:
 | 16 | r8gd | 2,683 / 2,721 | 44.4 / 44.2 q/s | 74.5 / 74.6 ms | 1.94 / 2.01 s | 3.03 / 3.03 s | 0.620 / 0.622 |
 
 No trial recorded an error on either side. With the working set on storage,
-the r8g writer completed between a tenth and a sixth of the r8gd writer's
-queries at every concurrency level, with a p99 of 12 to 20 seconds against
-1.8 to 3.0 seconds. Recall on the r8g side wobbles (0.60 to 0.69) because
+the r8gd writer delivered 3.7 to 14 times the r8g writer's throughput across
+paired trials. Comparing the mean throughput of the two trials at each
+concurrency gives 5.8 to 12.3 times. Its p99 was 1.8 to 3.0 seconds, against
+12 to 20 seconds on r8g. Recall on the r8g side wobbles (0.60 to 0.69) because
 27 to 461 queries is a small sample of a mixed workload, not because the
 instance returned different rows for the same query. Neither instance is
 CPU-bound here (r8g 3% to 12%, r8gd 1% to 23%); both are waiting on reads,
@@ -152,9 +153,9 @@ Cost per million successful queries in this configuration, same prices:
 
 The two comparisons say different things and are labelled so. When the
 working set fits in memory, the r8gd instance costs 13% more per hour for
-slightly less throughput. When it does not, the r8gd instance delivers six to
-fourteen times the throughput of the r8g instance and costs about a sixth per
-query. Which regime a deployment sits in is a property of its buffer pool
+slightly less throughput. With the deliberately constrained 2 GiB buffer
+pool, r8gd delivered 3.7 to 14 times the throughput across paired trials. At
+16 connections, its cost per query was about a sixth of r8g's. Which regime a deployment sits in is a property of its buffer pool
 against its working set, not of the instance class alone.
 ## Cost
 

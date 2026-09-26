@@ -30,6 +30,32 @@ HNSW bootstrap build ran successfully. Its timings and comparison limits are
 in the evidence record and optimization audit below. These observations do not
 claim a new relevance baseline or a measured full-stack speedup.
 
+## Managed-agent rehearsal — 26 September 2026
+
+The managed architecture was exercised in a private stack against the current
+Aurora catalog. This is a development rehearsal, not a fresh Workshop Studio
+release certification. Native Runtime, Gateway and Memory resources reached
+ready state using the workshop template's execution roles and private network.
+
+- Gateway discovered the three SQL tools and returned a real search plus scoped
+  product evidence. The deployed agent and tools matched the workspace digest.
+- The canonical Alex request returned two recommendations and four citations.
+  Streaming delivered progress, partial results and the complete answer.
+- A 100W follow-up stayed in the same conversation and declined to recommend a
+  product whose sources did not establish that requirement.
+- AgentCore Memory stored the conversation. Its HTTP acceptance passed event
+  persistence, all four strategy read paths, recall and cross-user isolation.
+  These checks do not certify asynchronous extraction quality.
+- Lab 3 completion passed against the saved managed run, without another agent
+  invocation. The live mission and evaluation contracts passed on 553,911 rows.
+- The full offline suite passed 2,002 tests and the UI suite passed 757 tests.
+  Three additional regressions cover stale Runtime code, live endpoint version
+  readiness and the output-only network flag rejected by Runtime updates.
+
+Workshop repinning, asset publication, static URL synchronization and the new
+Studio build are separate delivery steps. The earlier fresh-account record
+above does not certify this managed architecture or its bootstrap duration.
+
 ## Historical remediation record
 
 The following sections preserve the earlier investigation and its test counts.

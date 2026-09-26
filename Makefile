@@ -55,7 +55,8 @@ PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	db-embed simulate db-export-embeddings db-import-embeddings \
 	verify-embedding-cache db-configure-retrieval lab-status validate-lab-3 solution-lab-3 api-serve \
 	mcp-install check-bootstrap-release validate-release-workflow \
-	rehearsal-validate rehearsal-summary load-exercise
+	rehearsal-validate rehearsal-summary load-exercise \
+	deploy-agent verify-agent agent-tools complete-lab-3
 
 $(PYTHON_TARGETS): check-python
 
@@ -231,6 +232,7 @@ reset-lab-1:
 validate-lab-1:
 	@$(PYTHON) scripts/lab_state.py validate --lab 1 --database-url "$$DATABASE_URL"
 	@$(PYTHON) scripts/validate_lab.py --lab 1 --api-url "$(LAB_API_URL)"
+	@echo "Your hybrid search now handles close spelling and keeps the requested filters. Next: open Lab 2 to combine and rank its results."
 
 solution-lab-1:
 	@$(PYTHON) scripts/lab_state.py solution --lab 1
@@ -243,6 +245,7 @@ reset-lab-2:
 validate-lab-2:
 	@$(PYTHON) scripts/lab_state.py validate --lab 2 --database-url "$$DATABASE_URL"
 	@$(PYTHON) scripts/validate_lab.py --lab 2 --api-url "$(LAB_API_URL)"
+	@echo "Your search now combines ranks correctly and sends its shortlist to reranking. Next: open Lab 3 to build and deploy your agent."
 
 solution-lab-2:
 	@$(PYTHON) scripts/lab_state.py solution --lab 2
@@ -252,6 +255,7 @@ reset-lab-3:
 	@$(PYTHON) scripts/lab_state.py reset --lab 3
 	@$(MAKE) db-apply-search-functions
 	@$(MAKE) restart-lab-api
+	@echo "Agent starter ready. Next: open labs/lab3/agent.py in Code Editor and build create_agent, then run make deploy-agent."
 
 validate-lab-3:
 	@$(PYTHON) scripts/lab_state.py validate --lab 3
@@ -259,7 +263,22 @@ validate-lab-3:
 
 solution-lab-3:
 	@$(PYTHON) scripts/lab_state.py solution --lab 3
+	@echo "Agent code restored. Next: run make deploy-agent, then ask Alex's question in Mosaic."
+
+.PHONY: deploy-agent verify-agent agent-tools complete-lab-3
+deploy-agent:
+	@$(PYTHON) scripts/deploy_agentcore.py deploy
 	@$(MAKE) restart-lab-api
+
+verify-agent:
+	@$(PYTHON) scripts/deploy_agentcore.py verify
+
+agent-tools:
+	@$(PYTHON) scripts/deploy_agentcore.py tools
+
+complete-lab-3:
+	@test -n "$(RUN_ID)" || { echo "Copy the agent run ID from Mosaic → Playground → Reason. Next: run make complete-lab-3 RUN_ID=<your-run-id>."; exit 1; }
+	@$(PYTHON) scripts/complete_agent.py --run-id "$(RUN_ID)"
 
 restart-lab-api:
 	@if command -v systemctl >/dev/null 2>&1 \

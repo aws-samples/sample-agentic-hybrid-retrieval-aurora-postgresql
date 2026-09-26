@@ -1495,6 +1495,7 @@ def test_agent_uses_the_dedicated_model_override(monkeypatch):
     class CapturingAgent:
         def __init__(self, **kwargs):
             captured["agent_model"] = kwargs["model"]
+            self.tool_names = [tool.tool_name for tool in kwargs["tools"]]
 
     settings = replace(
         get_settings(),
@@ -1502,7 +1503,7 @@ def test_agent_uses_the_dedicated_model_override(monkeypatch):
     )
     monkeypatch.setattr("service.agent.get_settings", lambda: settings)
     monkeypatch.setattr("service.agent.BedrockModel", CapturingModel)
-    monkeypatch.setattr("service.agent.Agent", CapturingAgent)
+    monkeypatch.setattr("labs.lab3.agent.Agent", CapturingAgent)
 
     build_agent()
 
@@ -2349,5 +2350,6 @@ def test_missing_sources_reports_the_repair_without_exception_text(
     )
     assert response.status_code == (200 if path.endswith("stream") else 503)
     assert "supporting sources" in response.text
-    assert "evidence-registration block" in response.text
+    assert "get_product_evidence" in response.text
+    assert "Next:" in response.text
     assert "private source details" not in response.text + caplog.text

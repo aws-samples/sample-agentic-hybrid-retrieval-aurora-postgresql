@@ -33,12 +33,22 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def source_digest(root: Path = ROOT) -> str:
     """Bind agent code and its validators as well as the retrieval closure."""
-    files = sorted((root / "service").rglob("*.py")) + [
-        root / "scripts/validate_lab.py",
-        root / "scripts/lab_state.py",
-        root / "scripts/evidence_registration_probe.py",
-        root / "uv.lock",
-    ]
+    files = (
+        sorted((root / "service").rglob("*.py"))
+        + sorted((root / "deploy/agentcore").glob("*.py"))
+        + [
+            root / "labs/lab3/agent.py",
+            root / "scripts/validate_lab.py",
+            root / "scripts/lab_state.py",
+            root / "scripts/evidence_registration_probe.py",
+            root / "scripts/agent_assembly_probe.py",
+            root / "scripts/package_agentcore.py",
+            root / "scripts/deploy_agentcore.py",
+            root / "scripts/lab_exercise.py",
+            root / "scripts/complete_agent.py",
+            root / "uv.lock",
+        ]
+    )
     digest = hashlib.sha256(compute_retrieval_fingerprint(root).encode())
     for path in files:
         digest.update(path.relative_to(root).as_posix().encode() + b"\0")

@@ -103,6 +103,9 @@ required_environment=(
   ORIGIN_VERIFY_SECRET
   DB_INSTANCE_CLASS
   MOSAIC_AGENTCORE_MEMORY_ID
+  MOSAIC_RUNTIME_CODE_BUCKET
+  MOSAIC_RUNTIME_DATABASE_SECRET_ARN
+  MOSAIC_EDITOR_STACK
 )
 for variable in "${required_environment[@]}"; do
   if [[ -z "${!variable:-}" ]]; then
@@ -717,6 +720,10 @@ BEDROCK_SYNTHESIS_MODEL_ID=global.anthropic.claude-sonnet-5
 ALLOW_DEVELOPMENT_EMBEDDINGS=false
 BEDROCK_MAX_ATTEMPTS=5
 MOSAIC_SOURCE_REVISION=$SOURCE_REVISION
+SOURCE_REVISION=$SOURCE_REVISION
+MOSAIC_RUNTIME_CODE_BUCKET=$MOSAIC_RUNTIME_CODE_BUCKET
+MOSAIC_RUNTIME_DATABASE_SECRET_ARN=$MOSAIC_RUNTIME_DATABASE_SECRET_ARN
+MOSAIC_EDITOR_STACK=$MOSAIC_EDITOR_STACK
 AURORA_INSTANCE_CLASS=$DB_INSTANCE_CLASS
 DB_SECRET_ARN=$DB_SECRET_ARN
 # The API's caller-trust boundary: the same secret nginx checks above. Carried
@@ -825,6 +832,13 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
     'import json; print(json.load(open(\"db/config/real-catalog-cache.json\"))[\"dataset_id\"])')
   printf '\\nMOSAIC_CATALOG_DATASET=%s\\n' \"\$MOSAIC_CATALOG_DATASET\" >> .env
   make db-verify-bootstrap
+  # The Performance page uses this catalog's exact neighbors and expression
+  # indexes. Saved embeddings are reused; this makes no Bedrock calls.
+  make db-seed-exact-neighbors
+  uv run python scripts/build_quantized_indexes.py \
+    --workers 3 --maintenance-work-mem 2GB \
+    --report build/quantized-index-build.json
+  make check-exact-neighbors
   cat build/bootstrap-timings.tsv
   MISSION_GATE_REQUIRE_DB=1 DATABASE_URL=\"\$DATABASE_URL\" \
     uv run python scripts/mission_contract.py
@@ -918,6 +932,8 @@ GRANT SELECT ON ALL TABLES IN SCHEMA mosaic_catalog_stage, mosaic_catalog_search
     TO :"app_user";
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA mosaic_live_search
     TO :"app_user";
+GRANT USAGE ON SCHEMA mosaic_bench TO :"app_user";
+GRANT SELECT ON ALL TABLES IN SCHEMA mosaic_bench TO :"app_user";
 GRANT INSERT, UPDATE ON mosaic.product_evidence TO :"app_user";
 GRANT INSERT, UPDATE ON TABLE
     mosaic.shopper_profile,
@@ -984,6 +1000,14 @@ ACTUAL_DIFF=$(sudo -u "$CODE_EDITOR_USER" -H \
 EXPECTED_DIFF='db/sql/09_search_functions.sql'
 test "$ACTUAL_DIFF" = "$EXPECTED_DIFF"
 sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" diff --check
+
+# The Runtime resources depend on this instance's staged package. Release that
+# dependency now; the separate wait condition still requires every acceptance
+# check below before the workshop can become ready.
+(cd "$REPO" && MOSAIC_RUNTIME_DATABASE_URL="$APP_DATABASE_URL" \
+  .venv/bin/python scripts/deploy_agentcore.py stage-bootstrap)
+(cd "$REPO" && .venv/bin/python scripts/deploy_agentcore.py connect-bootstrap)
+chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO/.local/agentcore"
 
 set -a
 source "$REPO/.env"

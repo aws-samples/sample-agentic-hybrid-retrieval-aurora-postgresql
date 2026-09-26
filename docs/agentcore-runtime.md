@@ -1,325 +1,107 @@
-# AgentCore Runtime (optional)
+# Managed Strands agent
 
-This document describes packaging the Mosaic retrieval service as an Amazon
-Bedrock AgentCore Runtime container.
+Mosaic runs the Strands agent in Amazon Bedrock AgentCore Runtime. The agent
+calls three SQL capabilities through an IAM-authenticated AgentCore Gateway:
 
-**None of this is required.** The three labs run against the FastAPI service on
-the Code Editor host and never touch AgentCore. Nothing here is deployed by the
-workshop bootstrap, nothing here is deployed by CI, and nothing here has been
-deployed from the machine that wrote these artifacts. Treat it as a
-facilitator-provisioned demonstration for flex time, not as a lab step.
+- `mosaic___search_products`: hybrid search, rank fusion and reranking.
+- `mosaic___get_product_evidence`: source records for a retrieved product.
+- `mosaic___inspect_retrieval_run`: saved search and ranking details.
 
-Pre-provisioning an endpoint in the event account is CloudFormation work in the
-sibling Workshop Studio repository. It is not included here, and this repository
-holds no stack, no role, and no endpoint for it.
+Gateway forwards MCP requests to a separate tools Runtime. Both runtimes use
+private VPC access to Aurora and read their database credential from Secrets
+Manager. The browser reaches Mosaic through CloudFront; the API invokes Runtime
+with IAM credentials. The browser never receives AWS credentials.
 
-## Why this beat exists
+Aurora remains the authority for products, evidence, search runs and citations.
+Strands chooses tools; application code enforces retrieval scope, product
+ownership, the tool budget and citation checks. Amazon Bedrock supplies Cohere
+Embed v4, Cohere Rerank 3.5 and Claude Sonnet 5. AgentCore Memory provides semantic
+facts, preferences, summaries and episodes. See [conversation memory](session-memory.md).
 
-The claim it supports is narrow and worth stating exactly: the process ships to
-AgentCore Runtime unchanged because Aurora is the evidence authority, not the
-harness. What the platform requires is two HTTP routes, and those are added
-around the application by an adapter rather than inside it, so no lab code, no
-tool, and no SQL differs between the two deployments. The agent's tools read
-Aurora. Which rows an answer may cite is decided
-in `service/retrieval_scope.py` and `service/agent_tools.py` against what Aurora
-returns. Moving the process from a uvicorn on an EC2 host into a managed runtime
-changes who starts the process and who routes traffic to it. It changes nothing
-about retrieval, ranking, citation, or the receipts.
+## Workshop deployment
 
-That is the whole point. If moving the harness changed the answers, the evidence
-authority was in the harness.
+The Workshop Studio stack creates the code bucket, two runtimes, Gateway target,
+execution roles, encrypted logs and Memory. Bootstrap restores the real catalog
+with its saved vectors, stages the ARM64 Python package and connects the managed
+resources before declaring the application ready.
 
-## What gets deployed
+Participants build `create_agent` in [labs/lab3/agent.py](../labs/lab3/agent.py).
+The SQL they repaired in Labs 1 and 2 travels with the tools package.
 
-`deploy/agentcore/Dockerfile` builds one image from the repository root as the
-build context. It contains:
+```sh
+make agent-tools
+make deploy-agent
+make verify-agent
+```
 
-- The dependency set resolved from `pyproject.toml` and `uv.lock` with
-  `uv sync --frozen --no-dev`, so the image installs exactly what the repository
-  pins and leaves `pytest` and `ruff` out.
-- `service/`, the FastAPI application and the Strands agent it hosts.
-- `deploy/agentcore/app.py`, the container's entry point and the only file from
-  `deploy/` in the image. It is the adapter described below.
-- `db/` and `scripts/`, because the retrieval
-  fingerprint in `service/retrieval_fingerprint.py` hashes them and refuses to
-  produce a fingerprint over a category that lost its files.
-- `data/evals/` and `data/benchmarks/`, the measured artifacts the scorecard and
-  the HNSW instrument replay, plus `data/media/asset_labels_200.json` and
-  `data/full/manifest.json`.
+Deployment updates both runtimes, waits until the DEFAULT endpoints serve the
+new versions, synchronizes Gateway and exercises real Aurora search and scoped
+evidence. A deployment receipt records the source digest, runtime and search ID.
+The code package is built from the locked dependencies and an explicit list of
+application files; credentials, local caches and symlinks are excluded.
 
-It deliberately does not contain the UI. The storefront build stays on the
-workshop host and talks to this service over HTTP. It also does not contain
-`.env`. The build-context allowlist excludes local credentials and corpus caches
-before they reach the builder. Every `COPY` names an explicit path, so a
-facilitator's real Aurora DSN cannot be swept into a layer by a recursive copy.
-`tests/test_agentcore_artifacts.py` enforces both the explicit-path rule and the
-non-root user.
+## Runtime boundary
 
-## The container contract
+The HTTP runtime entry point is `deploy/agentcore/run.py` on port 8080; the MCP
+tools entry point is `deploy/agentcore/run_tools.py` on port 8000. The HTTP adapter
+supports health, source/readiness status, answers and streamed answers. It uses
+the same agent and citation path as the Mosaic API.
 
-AgentCore Runtime's HTTP protocol contract, as the packaging reference states
-it:
+Each invocation binds the workspace source digest. Stale deployed code is
+rejected with a command to redeploy. A fresh Runtime session is used per
+invocation; Mosaic's Aurora session records retain the conversation. Only the
+opaque browser capability is forwarded for shopper ownership. A supplied actor
+ID or untrusted browser header cannot select another shopper.
 
-| Requirement | Value |
+The adapter closes the upstream stream and releases its admission slot on
+completion, client disconnect or cancellation. AWS invocation failures produce
+an actionable participant message; sensitive SDK details stay out of responses.
+
+## Configuration
+
+Bootstrap supplies these values; participants do not copy credentials:
+
+| Setting | Purpose |
 |---|---|
-| Architecture | ARM64 (Graviton). An x86 image will not start. |
-| Port | 8080, bound to `0.0.0.0` for AgentCore's internal routing |
-| Health check | `GET /ping`, returning `{"status":"Healthy"}` or `{"status":"HealthyBusy"}` |
-| Invocation | `POST /invocations` |
-| Logging | stdout and stderr, routed to CloudWatch |
-| Shutdown | handle SIGTERM |
+| `MOSAIC_AGENTCORE_RUNTIME_ARN` | Agent endpoint invoked by the Mosaic API |
+| `MOSAIC_AGENTCORE_TOOLS_RUNTIME_ARN` | SQL tools runtime updated by deployment |
+| `MOSAIC_AGENTCORE_GATEWAY_URL` | Signed MCP destination |
+| `MOSAIC_AGENTCORE_GATEWAY_ID`, `MOSAIC_AGENTCORE_GATEWAY_TARGET_ID` | Tool synchronization |
+| `MOSAIC_RUNTIME_CODE_BUCKET` | This account's deployment packages |
+| `MOSAIC_EDITOR_STACK` | Native resource discovery |
+| `MOSAIC_DATABASE_SECRET_ARN` | Runtime's least-privilege Aurora credential |
+| `MOSAIC_CATALOG_DATASET` | Selected manifest-backed real catalog |
+| `MOSAIC_AGENTCORE_MEMORY_ID` | Preconfigured conversation memory |
 
-The Dockerfile satisfies architecture, port, host binding, logging, and the
-non-root requirement. `deploy/agentcore/app.py` satisfies the health check and
-the invocation route. Do not publish port 8080 to the internet. AgentCore
-terminates TLS at its load balancer and hands the container plaintext HTTP over
-an internal network, so a directly exposed container is an unauthenticated
-endpoint.
+Retrieval settings remain in `db/config/retrieval.yaml`. The runtime environment
+selects the same model IDs and catalog as the API. Product evidence is read fresh
+from Aurora even when Memory recalls a preference.
 
-## How the contract routes are served
+## Shared service settings
 
-The service exposes `GET /api/health` and `POST /api/agent/answer`, and it goes
-on exposing exactly those. AgentCore checks `GET /ping` and routes to
-`POST /invocations`. `deploy/agentcore/app.py` is the adapter between the two,
-and it is the module the image's `CMD` runs.
+The stack sets the model and catalog values; the database secret supplies the
+connection. These settings also apply to the HTTP service and container path:
 
-It adds two routes and nothing else:
-
-| Route | What it does |
+| Setting | Runtime source and behavior |
 |---|---|
-| `GET /ping` | Returns `{"status":"Healthy"}` once settings load. It reaches neither Aurora nor Bedrock: a health check that failed on a dependency would have AgentCore recycle a working container over an outage that replacing it cannot fix. `GET /api/readiness` is where the database and model answer lives, and it is still reachable. |
-| `POST /invocations` | Takes the `AgentRequest` body, calls `service.main.agent_answer`, and returns the `AgentResponse`. |
+| `DATABASE_URL` | Read from Secrets Manager when `MOSAIC_DATABASE_SECRET_ARN` is set; never put it in the package |
+| `BEDROCK_REGION` | Deployment region; defaults to the AWS region |
+| `BEDROCK_EMBED_MODEL_ID`, `BEDROCK_RERANK_MODEL_ID`, `BEDROCK_CHAT_MODEL_ID` | Pinned stack model IDs; embedding, reranking and agent/answer model respectively |
+| `EMBEDDING_PROVIDER`, `RERANK_PROVIDER`, `RERANK_REQUIRED` | Stack selects Bedrock and requires reranking |
+| `ALLOW_DEVELOPMENT_EMBEDDINGS` | False in the workshop; saved source vectors and Bedrock query vectors are required |
+| `MOSAIC_SOURCE_REVISION`, `AURORA_INSTANCE_CLASS` | Stack revision and database class recorded with results |
+| `MOSAIC_DB_STATEMENT_TIMEOUT_MS`, `MOSAIC_DB_LOCK_TIMEOUT_MS` | Bound Aurora statement and lock waits; defaults come from service configuration |
+| `MOSAIC_AGENT_TURN_DEADLINE_SECONDS` | Bounds the model/tool loop |
+| `MOSAIC_MAX_CONCURRENT_MODEL_RUNS`, `MOSAIC_MODEL_RATE_LIMIT_PER_MINUTE` | API admission limits; Runtime also has managed scaling controls |
+| `CORS_ORIGINS`, `MOSAIC_CODE_EDITOR_URL` | Browser API origin and editor link; not agent tool credentials |
+| `MOSAIC_REQUIRE_ORIGIN_VERIFICATION`, `MOSAIC_ORIGIN_VERIFY_SECRET` | CloudFront/API ingress protection; the Runtime invocation is protected by IAM and does not receive this secret |
+| `MOSAIC_AGENTCORE_OBSERVABILITY`, `MOSAIC_AGENTCORE_CAPTURE_CONTENT` | Disabled unless the operator configures an exporter and explicitly opts into content capture |
 
-Everything else is `service.main.app`, mounted whole at the root. The mount
-carries the application's middleware, its exception handlers, and its
-connection-pool lifespan, which the adapter delegates to explicitly because a
-Starlette mount does not forward lifespan events on its own. uvicorn turns
-SIGTERM into that context's shutdown, which is how the container closes the pool
-rather than leaving Aurora sessions to time out.
+## Release acceptance
 
-`/invocations` calls the application route function rather than reimplementing
-it, so the two cannot drift: a Bedrock `ClientError` or `BotoCoreError` becomes
-the same redacted 503 on both, a `RuntimeError` from the fail-closed pipeline
-becomes the same 503, and a body with an unknown field is refused with the same
-422 by the same model.
-
-The HTTP protocol passes the request body through unchanged, so there is no
-envelope to unpack and none was invented. The payload is the `AgentRequest` the
-service already takes and the response is the `AgentResponse` it already
-returns, which is what keeps a runtime turn and a local turn comparable receipt
-for receipt.
-
-`tests/test_agentcore_adapter.py` holds this from both sides: `/ping` answers
-the documented shape, `/invocations` returns the answer for a fake agent and
-422s a malformed payload, every route the service serves is still served through
-the adapter, and the adapter's own route count is exactly two. It also asserts
-that importing the adapter leaves no platform route on the workshop
-application, because the labs run that application directly and it should not
-grow a `/ping`.
-
-On 17 September 2026 the ARM64 image built and passed its local health check.
-The packaged process also reached the existing Aurora cluster, opened both
-public downloads, and served a grounded invocation that passed all nine
-G-019 production-path checks. It ran as UID 1001 without local credentials or
-workspace files in its layers. This is container proof; managed Runtime
-routing, IAM, and VPC attachment still require a deployed endpoint.
-
-## Environment the runtime needs
-
-Every setting below is one `config/.env.example` assigns a value to, which is
-that file's own marker for a deployment or service setting rather than a
-retrieval tunable. Retrieval numbers live in `db/config/retrieval.yaml` and are
-not passed to the runtime. `tests/test_agentcore_artifacts.py` derives this list
-from the example file and fails if a setting is missing from this table.
-
-| Variable | Where the runtime gets it | Notes |
-|---|---|---|
-| `DATABASE_URL` | Secrets Manager, read by the container at startup | The Aurora DSN, including a password. Never an AgentCore environment variable: `get-agent-runtime` returns those in plaintext to anyone who can call it. |
-| `MOSAIC_DATABASE_SECRET_ARN` | Runtime environment variable | Full ARN of the Secrets Manager secret. Store the Aurora DSN as a `SecretString` or as JSON with a `DATABASE_URL` key. Unset `DATABASE_URL` when using this path. |
-| `BEDROCK_REGION` | Runtime environment variable | Region for embedding, rerank, and chat calls. Falls back to `AWS_REGION`, which AgentCore injects. |
-| `BEDROCK_EMBED_MODEL_ID` | Runtime environment variable | `us.cohere.embed-v4:0` |
-| `BEDROCK_RERANK_MODEL_ID` | Runtime environment variable | `cohere.rerank-v3-5:0` |
-| `BEDROCK_CHAT_MODEL_ID` | Runtime environment variable | `global.anthropic.claude-sonnet-5`. `BEDROCK_AGENT_MODEL_ID` and `BEDROCK_SYNTHESIS_MODEL_ID` are optional and split the agent and synthesis routes; omit both to use the chat model for the whole path. |
-| `EMBEDDING_PROVIDER` | Runtime environment variable | `bedrock` |
-| `RERANK_PROVIDER` | Runtime environment variable | `bedrock` |
-| `RERANK_REQUIRED` | Runtime environment variable | `true`. A silent fallback to unreranked results would make the receipts wrong. |
-| `ALLOW_DEVELOPMENT_EMBEDDINGS` | Runtime environment variable | `false`. Hash vectors never support a relevance claim. |
-| `CORS_ORIGINS` | Runtime environment variable | Origin of the storefront that calls this runtime. The workshop-host default does not apply once the service moves. |
-| `MOSAIC_CATALOG_DATASET` | Runtime environment variable | Set `reviews-2023-v2` after the pinned real-catalog restore. The runtime role needs the same real search and evidence grants as the Code Editor bootstrap; an unset value selects the retained historical catalog. |
-| `MOSAIC_SOURCE_REVISION` | Runtime environment variable, set at build or deploy time | The image has no `.git`, so `service/config.py` cannot derive the revision and reports `unknown`. Set this or the receipts cannot name what produced them. |
-| `AURORA_INSTANCE_CLASS` | Runtime environment variable | Recorded on measured artifacts. Describes the Aurora instance, not the runtime. |
-| `MOSAIC_CODE_EDITOR_URL` | Leave unset | Points participants at a Code Editor the runtime does not have. The service refuses to start if the value carries a `tkn=` token. |
-| `MOSAIC_AGENTCORE_OBSERVABILITY` | Runtime environment variable | `false` unless an OpenTelemetry exporter is actually configured. Aurora stays the canonical ledger either way. See `docs/telemetry-contract.md`. |
-| `MOSAIC_AGENTCORE_CAPTURE_CONTENT` | Runtime environment variable | `false`. Turning it on projects question and answer text off Aurora. |
-| `MOSAIC_AGENTCORE_MEMORY_ID` | Runtime environment variable | Optional Memory resource for conversation events and built-in strategies. The browser Session & Memory endpoints use it; `/invocations` does not accept a browser identity. See [Session & Memory](session-memory.md). |
-| `MOSAIC_REQUIRE_ORIGIN_VERIFICATION` | Runtime environment variable | Governs the mounted `service.main` app -- every route this container serves except `/ping` and `/invocations`, which this adapter's own handlers call directly in-process (see below) and which AgentCore's IAM-authenticated `InvokeAgentRuntime` call already gates before a request reaches this container. Set `true`, with the next setting configured, unless nothing external reaches the mounted `/api/*` surface. |
-| `MOSAIC_ORIGIN_VERIFY_SECRET` | Secrets Manager or runtime environment variable | Required when the setting above is `true`. Nothing in this container generates or forwards `X-Mosaic-Origin-Verify` the way nginx does for the Code Editor host (`deploy/mosaic-bootstrap.sh`); an operator exposing the mounted `/api/*` routes externally must set this and arrange for callers to present it. |
-| `MOSAIC_MAX_CONCURRENT_MODEL_RUNS` | Runtime environment variable | Process-local admission control on the mounted app's model-backed routes (`/api/search`, `/api/agent/answer(/stream)`, and others -- see `docs/api-contract.md`). `/invocations` calls `agent_answer` directly and is not gated by it; AgentCore's own concurrency and scaling controls are the relevant limit for that route. |
-| `MOSAIC_MODEL_RATE_LIMIT_PER_MINUTE` | Runtime environment variable | Same scope as above. |
-| `MOSAIC_DB_STATEMENT_TIMEOUT_MS` | Runtime environment variable | `SET LOCAL statement_timeout` on every `service.db.connect()` checkout, including from `/invocations`. Default `30000`. |
-| `MOSAIC_DB_LOCK_TIMEOUT_MS` | Runtime environment variable | Same, for `lock_timeout`. Default `5000`. |
-| `MOSAIC_AGENT_TURN_DEADLINE_SECONDS` | Runtime environment variable | Bounds one agent turn's model-and-tool loop, including from `/invocations`, which calls the same `agent_answer` function the mounted `/api/agent/answer` route does. Default `90`. |
-
-`/ping` and `/invocations` are this adapter's own routes, added around the
-mounted application rather than reached through it (see "The container
-contract" above), so they are the one place in this repository where the
-shared-origin-secret and admission-control dependencies in
-`service/main.py` do not apply: `invocations()` calls
-`service.main.agent_answer` as a plain Python function, not through FastAPI's
-routing, so its dependency list never runs. Everything reached through
-`app.mount("/", service_app)` -- `/api/health`, `/api/skill-package`, and
-every other route the workshop application serves -- goes through the mounted
-app's own ASGI dispatch and is gated exactly as it is on the Code Editor host.
-
-## IAM the runtime role needs
-
-The role passed as `--role-arn` on `create-agent-runtime` is what the container
-can reach. Scope it to this list and nothing wider.
-
-1. **Bedrock invoke on the three models.** `bedrock:InvokeModel` and
-   `bedrock:InvokeModelWithResponseStream` for the embedding, rerank, and chat
-   model ids above, including the inference profile ARNs the `us.` and `global.`
-   prefixes resolve through. Reranking is the exception: `bedrock:Rerank`
-   requires `Resource: "*"`, because a model-scoped resource on that action
-   evaluates as an implicit deny.
-2. **Secrets Manager read.** `secretsmanager:GetSecretValue` on the single ARN of
-   the secret holding `DATABASE_URL`, plus `kms:Decrypt` on the key that secret
-   uses if it is not the AWS managed key.
-3. **A network path to Aurora.** Aurora is in a VPC, so the runtime needs VPC
-   network mode and the elastic network interface permissions that go with it
-   (`ec2:CreateNetworkInterface`, `ec2:DescribeNetworkInterfaces`,
-   `ec2:DeleteNetworkInterface`). Attach it to subnets that route to the cluster
-   and to a security group the Aurora security group admits on 5432. Adding an
-   inbound rule to the Aurora security group is a deliberate act; the cluster's
-   group is closed by default in this project.
-4. **CloudWatch Logs write** for the runtime's log group.
-
-Two further rules from the AgentCore reference apply and are not optional in a
-shared account: include `aws:SourceArn` and `aws:SourceAccount` conditions in the
-role's trust policy to prevent a confused deputy, and give each runtime its own
-role rather than sharing one.
-
-The exact field shape of `--network-configuration` for VPC mode is not pinned by
-this repository. Take it from the current AgentCore control-plane API reference
-and pass it through `AGENTCORE_NETWORK_CONFIG`. The Makefile default is
-`{"networkMode":"VPC"}`, which is the mode but not a complete VPC attachment.
-
-## Build
-
-```sh
-make agentcore-image
-```
-
-Builds `mosaic-retrieval-agent:local` for `linux/arm64` from the repository root.
-Override the tag with `AGENTCORE_IMAGE_TAG`. This requires a Docker installation
-with `buildx`, and on an x86 host it requires emulation, because the image must
-be ARM64 whatever the builder is.
-
-## Smoke the image before pushing it
-
-```sh
-set -a; . ./.env; set +a
-make agentcore-image-smoke
-```
-
-Runs the image with the port published to `127.0.0.1` only and forwards
-database and AWS settings by name so no credential value is printed. It checks
-the status returned by `GET /ping` and the Mosaic identity at `GET /api/health`,
-then removes only the container created by that run. A name collision fails
-without deleting the existing container. These checks are bounded and do not
-invoke models or claim database readiness.
-
-For managed startup, configure `MOSAIC_DATABASE_SECRET_ARN` instead of
-`DATABASE_URL`. Settings read the secret's `AWSCURRENT` version once, before
-opening the database pool, with bounded connection and retry limits. Restart
-the service after rotating the database credentials. An inaccessible or invalid
-secret fails startup with a redacted error; it cannot silently select another
-database source.
-
-## Deploy
-
-```sh
-make agentcore-deploy
-```
-
-Prints the full command sequence and exits without making a network call. That
-is the default and it is what this repository is for. To execute it, supply the
-target account's values and confirm explicitly:
-
-```sh
-make agentcore-deploy \
-  AGENTCORE_CONFIRM=1 \
-  AGENTCORE_ECR_REPO=<account>.dkr.ecr.<region>.amazonaws.com/mosaic-retrieval-agent \
-  AGENTCORE_ROLE_ARN=arn:aws:iam::<account>:role/<runtime-role> \
-  AGENTCORE_AUTHORIZER_CONFIG='<authorizer-configuration>' \
-  AGENTCORE_NETWORK_CONFIG='<vpc-network-configuration>'
-```
-
-The target refuses to run with an empty `AGENTCORE_AUTHORIZER_CONFIG`. An
-unauthenticated runtime endpoint is not acceptable outside an isolated
-development account.
-
-After `create-agent-runtime` returns an id, create the endpoint and wait for it:
-
-```sh
-aws bedrock-agentcore-control create-agent-runtime-endpoint \
-  --agent-runtime-id <id> --name default --region <region>
-aws bedrock-agentcore-control get-agent-runtime-endpoint \
-  --agent-runtime-id <id> --endpoint-id <endpoint-id> --region <region>
-```
-
-The runtime is not invocable until that endpoint reports `READY`. Roll back by
-deploying the previous image tag, which is why the deploy pushes a version tag
-alongside `latest` in any real account.
-
-## Invoke it once
-
-The contract endpoint is `POST /invocations`, taking an `AgentRequest` and
-returning an `AgentResponse` (`service/models.py`). The application's own
-`POST /api/agent/answer` takes and returns the same two objects and runs the
-same code, so either one works against a local container:
-
-```sh
-curl -fsS http://127.0.0.1:8080/invocations \
-  -H 'content-type: application/json' \
-  -d '{
-        "question": "quiet keyboard for an open-plan office under $150",
-        "result_limit": 6,
-        "filters": {"in_stock_only": true, "max_price_cents": 15000}
-      }'
-```
-
-`question` is required, 4 to 2000 characters. `result_limit` defaults to 6 and is
-bounded to 2 through 12. `filters` is the same `SearchFilters` object the search
-endpoint takes, with prices in integer cents. An optional `context` object
-carries `previous_agent_run_id` and the prior recommendations for a follow-up
-turn. The body rejects unknown fields, so a typo fails with a 422 rather than
-being silently ignored.
-
-Through AgentCore the same body goes to `bedrock-agentcore
-invoke-agent-runtime` with a `runtimeSessionId`, which arrives at the container
-as the `X-Amzn-Bedrock-AgentCore-Runtime-Session-Id` header. The adapter neither
-requires nor reads it: a turn's identity is the `agent_run_id` Aurora issues,
-and a follow-up is carried by the request's own `context` object. The request
-shape does not change.
-
-## What the receipts prove
-
-The response carries `agent_run_id`. That id is the `agent_turn_id` written to
-`mosaic.agent_turn` in Aurora by `service/agent_tools.py`, with each retrieval
-the agent ran linked back to that turn. A run against the AgentCore Runtime lands
-in the same ledger, in the same table, with the same shape as a run against the
-service on the workshop host. Nothing about the receipt records which harness
-produced it, because nothing about the receipt depends on the harness.
-
-That is the check worth doing during a demonstration. Take the `agent_run_id`
-from the runtime's response, query `mosaic.agent_turn` and the retrieval rows
-joined to it, and show that the evidence trail is identical to a local run. The
-answer is reproducible from Aurora, not from the runtime's logs.
-
-## Related
-
-- `docs/telemetry-contract.md` for the Aurora ledger schema and the optional
-  OpenTelemetry projection.
-- `docs/aurora-deployment.md` for the cluster the runtime has to reach.
-- `docs/api-contract.md` for the full request and response contracts.
+Offline contracts are necessary but do not establish a working managed service.
+Before release, deploy the exact source and verify Gateway discovery, Aurora
+search and evidence, an actual cited agent answer, a changed-requirement follow-up,
+streaming, shopper isolation and Memory. A stale workspace must fail before it
+can receive credit for a deployed reference implementation. Record the account,
+source revision, source digest and live run IDs in the release evidence.

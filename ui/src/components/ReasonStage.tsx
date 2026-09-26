@@ -31,13 +31,9 @@ import type {
  * Stage 03, Reason: what the agent was given, what the application registered,
  * what it authorized, and which citations resolve.
  *
- * Lab 3's repair is four lines inside `service/agent_tools.get_product_evidence`,
- * between the `LAB3_EVIDENCE_STATE` markers, that write each retrieved record into
- * `state["evidence"]` and index it under its product in
- * `state["evidence_by_product"]`. Delete them and the tool still succeeds and still
- * hands the model its evidence — `outcome: "success"`, `result_count: 6` — while
- * the application has registered nothing, so `synthesize_cited_answer` refuses and
- * the run fails closed.
+ * Lab 3 builds the Strands agent and deploys it behind Runtime and Gateway.
+ * Tool output, registered evidence and accepted citations remain separate:
+ * receiving a record does not by itself authorize a claim about that record.
  *
  * Four different things, in other words, and a surface that prints one number
  * called "evidence" collapses all of them. Each row below names the field it was
@@ -561,7 +557,8 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
                 className="labs-reason-answer"
                 aria-labelledby="reason-answer-title"
               >
-                <h3 id="reason-answer-title">The answer and its sources</h3>
+                <h3 id="reason-answer-title">Your agent answered with sources</h3>
+                <p>Your hybrid search is now part of an agent. Next: open Ask Mosaic and change one of Alex’s requirements.</p>
                 <div className="labs-reason-prose">
                   <ProductAnswer text={response.answer} products={response.recommendations} citations={citations} />
                 </div>
@@ -861,7 +858,7 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
             "Citations resolved",
             "Answer with sources",
           ]}
-          hint="Run the agent and follow the question through each step. Lab 3 repairs the step that lets the application use returned evidence as a source in the answer."
+          hint="Build your Strands agent in labs/lab3/agent.py, then run make deploy-agent in Code Editor. Next: ask Alex’s question here and follow its tool calls through Gateway to Aurora."
         />
       )}
 

@@ -14,6 +14,8 @@ from uuid import UUID, uuid4
 
 from strands import tool
 
+from service import gateway_tools
+from service.agent_setup import AgentSetupError
 from service.answerability import SynthesisDeclined
 from service.catalog import get_product_evidence_records, get_product_summaries
 from service.catalog_runtime import search_schema
@@ -25,10 +27,12 @@ from service.models import (
     AgentContextProduct,
     AgentConversationContext,
     EvidenceRecord,
+    ProductEvidenceResponse,
     ProductSummary,
     QueryCoverage,
     SearchFilters,
     SearchRequest,
+    SearchResponse,
 )
 from service.retrieval import get_retrieval_service, signals_from_receipt
 from service.retrieval_fingerprint import explain
@@ -710,6 +714,8 @@ def search_products(
             )
         )
     except Exception as error:
+        if isinstance(error, AgentSetupError):
+            raise
         classified = model_runtime_error(error)
         if classified is not None:
             raise classified from error
@@ -822,13 +828,11 @@ def register_evidence(
     A repeated call for the same product must not duplicate an ID, and a call
     for another product must not change this product's list.
     """
-    # LAB3_EVIDENCE_STATE_START
     for item in evidence:
         state["evidence"][item.evidence_id] = item
         product_evidence = state["evidence_by_product"].setdefault(product_id, [])
         if item.evidence_id not in product_evidence:
             product_evidence.append(item.evidence_id)
-    # LAB3_EVIDENCE_STATE_END
 
 
 @tool
@@ -859,14 +863,31 @@ def get_product_evidence(product_id: int, evidence_query: str) -> dict[str, Any]
         )
     arguments = {"product_id": product_id, "evidence_query": evidence_query}
     try:
-        query_embedding = get_retrieval_service().embed_query(evidence_query)
-        evidence = get_product_evidence_records(
-            product_id,
-            evidence_query,
-            query_embedding,
-            limit=len(SEARCH_SLOTS),
-        )
+        if gateway_tools.gateway_url():
+            scope = _gateway_scope(state, product_id)
+            result = gateway_tools.call_tool(
+                "get_product_evidence",
+                {
+                    "product_id": product_id,
+                    "request": {
+                        "retrieval_scope_id": str(scope),
+                        "evidence_query": evidence_query,
+                        "limit": len(SEARCH_SLOTS),
+                    },
+                },
+            )
+            evidence = ProductEvidenceResponse.model_validate(result).evidence
+        else:
+            query_embedding = get_retrieval_service().embed_query(evidence_query)
+            evidence = get_product_evidence_records(
+                product_id,
+                evidence_query,
+                query_embedding,
+                limit=len(SEARCH_SLOTS),
+            )
     except Exception as error:
+        if isinstance(error, AgentSetupError):
+            raise
         classified = model_runtime_error(error)
         if classified is not None:
             raise classified from error
@@ -1001,6 +1022,40 @@ def explain_retrieval(search_event_id: str) -> dict[str, Any]:
             "search_event_id is outside this turn's authorized ranking scope",
             "use an event from the current retrieval or previous grounded answer.",
         )
+    if gateway_tools.gateway_url():
+        replay = gateway_tools.call_tool(
+            "inspect_retrieval_run", {"run_id": str(parsed)}
+        )
+        event = {
+            key: replay["run"][key]
+            for key in (
+                "query_text",
+                "normalized_query",
+                "filters",
+                "retrieval_profile",
+                "candidate_counts",
+                "total_latency_ms",
+                "diagnostics",
+            )
+        }
+        candidates = replay["candidates"][:12]
+    else:
+        event, candidates = _read_ranking_event(parsed)
+    _record(
+        "explain_retrieval",
+        {"search_event_id": search_event_id},
+        started,
+        result_count=len(candidates),
+        detail=f"Replayed {len(candidates)} persisted candidate receipts.",
+    )
+    return {
+        "ok": True,
+        "run": dict(event) if event else None,
+        "candidates": [dict(row) for row in candidates],
+    }
+
+
+def _read_ranking_event(parsed: UUID):
     with connect() as connection:
         event = connection.execute(
             """
@@ -1022,18 +1077,7 @@ def explain_retrieval(search_event_id: str) -> dict[str, Any]:
             """,
             (parsed,),
         ).fetchall()
-    _record(
-        "explain_retrieval",
-        {"search_event_id": search_event_id},
-        started,
-        result_count=len(candidates),
-        detail=f"Replayed {len(candidates)} persisted candidate receipts.",
-    )
-    return {
-        "ok": True,
-        "run": dict(event) if event else None,
-        "candidates": [dict(row) for row in candidates],
-    }
+    return event, candidates
 
 
 def coverage_refusal(state: dict[str, Any]) -> tuple[str, str] | None:
@@ -1375,6 +1419,8 @@ def synthesize_cited_answer(
             "citations": [],
         }
     except Exception as error:
+        if isinstance(error, AgentSetupError):
+            raise
         classified = model_runtime_error(error)
         if classified is not None:
             raise classified from error
@@ -1612,9 +1658,39 @@ def _comparison_covers(state: dict[str, Any], product_ids: list[int]) -> bool:
 
 def _search_with_telemetry(request: SearchRequest):
     """Use the injected retrieval-service seam, then append telemetry."""
+    if gateway_tools.gateway_url():
+        return SearchResponse.model_validate(
+            gateway_tools.call_tool(
+                "search_products",
+                {"request": request.model_dump(mode="json", exclude_none=True)},
+            )
+        )
     return search_with_telemetry(
         request,
         search=get_retrieval_service().search,
+    )
+
+
+def _gateway_scope(state: dict[str, Any], product_id: int) -> UUID:
+    """Resolve a persisted grant already owned by this turn before remote evidence."""
+    from service.retrieval_scope import (
+        ScopeViolation,
+        assert_products_in_retrieval_scope,
+    )
+
+    scopes = (
+        state["search_event_ids"]
+        if state["searches"]
+        else state.get("context_search_event_ids", [])
+    )
+    for scope in scopes:
+        try:
+            assert_products_in_retrieval_scope(scope, [product_id])
+            return scope
+        except ScopeViolation:
+            continue
+    raise RuntimeError(
+        "Gateway evidence rule: no owned retrieval grants this product; run a new search."
     )
 
 

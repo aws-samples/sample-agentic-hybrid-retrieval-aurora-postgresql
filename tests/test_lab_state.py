@@ -133,7 +133,11 @@ def test_source_gate_ignores_layout_but_preserves_the_repair(lab_repo, lab):
     original = path.read_bytes()
     source = original.decode()
     for start, end, fixed, _ in LABS[lab][1]:
-        formatted = fixed.replace('"', "'") if lab == 3 else " ".join(fixed.split())
+        formatted = (
+            fixed.replace("tools=tools,", "tools = tools,")
+            if lab == 3
+            else " ".join(fixed.split())
+        )
         source = _replace_block(source, start, end, formatted)
     assert source.encode() != original
     path.write_text(source)
@@ -328,14 +332,12 @@ def test_applied_state_reads_the_catalog_served_by_the_api(monkeypatch, lab):
     assert "mosaic_search." not in statement
 
 
-PARTICIPANT_LAB3 = """    product_ids = state["evidence_by_product"].setdefault(product_id, [])
-    for item in evidence:
-        state["evidence"][item.evidence_id] = item
-        if item.evidence_id not in product_ids:
-            product_ids.append(item.evidence_id)"""
+PARTICIPANT_LAB3 = """    prompt = instructions + "\\nKeep the answer concise."
+    result = Agent(model=model, tools=tools, system_prompt=prompt, hooks=hooks)
+    return result"""
 
 
-def test_lab3_accepts_registration_with_the_product_list_outside_the_loop(lab_repo):
+def test_lab3_accepts_extra_instructions_and_local_variable_names(lab_repo):
     from scripts.lab_state import _replace_block
 
     path = lab_repo / LABS[3][0]
@@ -348,20 +350,16 @@ def test_lab3_accepts_registration_with_the_product_list_outside_the_loop(lab_re
     "body",
     [
         "    pass",
-        '    for item in evidence:\n        state["evidence"][item.evidence_id] = item',
-        """    for item in evidence:
-        state["evidence"][item.evidence_id] = item
-        state["evidence_by_product"].setdefault(product_id, []).append(item.evidence_id)""",
-        """    state["evidence_by_product"][product_id] = []
-    for item in evidence:
-        state["evidence"][item.evidence_id] = item
-        state["evidence_by_product"][product_id].append(item.evidence_id)""",
-        PARTICIPANT_LAB3.replace("setdefault(product_id, [])", "setdefault(0, [])"),
-        PARTICIPANT_LAB3.replace("= item", "= None"),
+        "    raise NotImplementedError()",
+        "    return {}",
+        "    return Agent(model=model, tools=[], system_prompt=instructions, hooks=hooks)",
+        "    return Agent(model=None, tools=tools, system_prompt=instructions, hooks=hooks)",
+        "    return Agent(model=model, tools=tools, system_prompt='Invent products', hooks=hooks)",
+        "    return Agent(model=model, tools=tools, system_prompt=instructions, hooks=[])",
         "    raise SystemExit(0)",
     ],
 )
-def test_lab3_rejects_faulty_registration_and_accepts_byte_identical_restore(
+def test_lab3_rejects_missing_agent_parts_and_accepts_byte_identical_restore(
     lab_repo, body
 ):
     from scripts.lab_state import _replace_block

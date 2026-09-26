@@ -78,23 +78,25 @@ the later resets.
   repeatability checks.
 - **Board state before repair** `REPAIR PENDING`
 
-### GAP-3 — evidence-to-synthesis state
+### GAP-3 — build the Strands agent
 
-- **Lab 3 anchor** `agentic-research` (`checkpoint: repair`, stage `reason`)
-- **Query** the canonical compound home-office request in the mission manifest
-- **Targets** products 1551237 (ViewSonic VG2756-4K) and 1540761 (Steelcase Gesture, Licorice)
-- **What to disable** remove the marked state update that records retrieved
-  evidence IDs under their product. All tools remain registered and read-only.
-- **Restoring it looks like** attaching each returned evidence record to
-  `state["evidence"]` and `state["evidence_by_product"]`.
-- **Assertions that turn green** evidence tool, grounding, and resolvable
-  citation assertions declared by the mission.
-- **Board state before repair** `REPAIR PENDING`
+- **Lab 3 anchor** `agentic-research` (`checkpoint: repair`, stage `reason`).
+- **Starter** `labs/lab3/agent.py`, between `LAB3_AGENT_START` and `LAB3_AGENT_END`.
+- **Participant work** return a Strands `Agent` using the supplied model, tools,
+  instructions and hooks; add a useful instruction; deploy with `make deploy-agent`.
+- **Before building** the app names the missing agent, the exact file and the
+  deploy command before making a model call.
+- **After deploying** the agent uses the SQL from Labs 1 and 2 through AgentCore
+  Gateway. The participant asks about the ViewSonic VG2756-4K and Steelcase
+  Gesture, opens a citation, and follows up with a changed requirement.
+- **Completion** `make complete-lab-3 RUN_ID=...` checks the participant's actual
+  deployed run and saves its receipt without another model invocation.
+
 
 ## Rules
 
 1. A gap must expose one legible mechanism, never an arbitrary failure. The
-   marked CTE, RRF equation, and evidence-state block are the only seams.
+   marked CTE, RRF equation, and agent-construction block are the only seams.
 2. A gap must map to at least one assertion, so repair is machine-checkable.
 3. Only `checkpoint: "repair"` lab anchors may carry gaps. `baseline`,
    `comparison`, and `advanced` checks must pass on a correct deployment.
@@ -112,7 +114,7 @@ the later resets.
 a planted defect and not a `REPAIR PENDING` state.
 
 It is listed here because it can be mistaken for one. A Lab 3 run that produces
-no product looks like GAP-3, whose whole symptom is an ungrounded answer. The
+no product can be mistaken for the unfinished agent. The
 two are told apart by the response, not by the board:
 
 | Symptom | What it is | Where to look |

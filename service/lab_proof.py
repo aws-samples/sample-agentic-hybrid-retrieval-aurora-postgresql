@@ -37,12 +37,13 @@ from uuid import UUID
 import psycopg
 
 from scripts.lab_state import (
-    REPO as LAB_SOURCE_ROOT,
-)
-from scripts.lab_state import (
+    LABS,
     LabDatabaseState,
     lab_is_solved,
     validate_database,
+)
+from scripts.lab_state import (
+    REPO as LAB_SOURCE_ROOT,
 )
 from service import lab_checks
 from service.catalog import get_evidence_record
@@ -118,11 +119,19 @@ def _state_detail(
     solved: bool,
     database: LabDatabaseState,
 ) -> str:
+    if lab_id == 3:
+        from service.agent_setup import AGENT_STARTER_MESSAGE
+
+        return (
+            "Your agent code is ready. Next: run make deploy-agent, then ask Alex's question in Mosaic."
+            if solved
+            else AGENT_STARTER_MESSAGE
+        )
     if not solved:
-        return explain(
-            f"the lab {lab_id} marker block in its source file still holds the "
-            "broken body",
-            f"repair it, or run make solution-lab-{lab_id} to see the answer",
+        return (
+            f"Lab {lab_id} needs its SQL change. Open {LABS[lab_id][0]} in Code Editor "
+            f"and find the LAB{lab_id}_ markers. Next: complete the marked block, "
+            f"run make db-apply-search-functions, then make validate-lab-{lab_id}."
         )
     if database.state == "stale":
         return database.detail
@@ -461,6 +470,33 @@ def completion_proof(
                 mission, rows, run, str(agent_run_id) if agent_run_id else None
             )
         )
+        from service import agentcore_transport, gateway_tools
+
+        if agentcore_transport.runtime_arn():
+            from service.lab_validation_receipt import source_digest
+
+            deployed = False
+            detail = "Your agent and SQL tools match the code in Code Editor."
+            try:
+                status = agentcore_transport.deployed_status()
+                if rows and rows.searches:
+                    gateway_tools.call_tool(
+                        "inspect_retrieval_run",
+                        {"run_id": str(rows.searches[0]["search_event_id"])},
+                    )
+                    deployed = status.get("source_sha256") == source_digest()
+            except (RuntimeError, ValueError) as error:
+                detail = f"Deployment check failed ({type(error).__name__}). Next: run make deploy-agent in Code Editor, then ask Alex's question again."
+            if not deployed:
+                detail = "Your deployed agent or SQL tools do not match this run. Next: run make deploy-agent in Code Editor, then ask Alex's question again."
+            checks.append(
+                LabCheck(
+                    name="managed_agent_deployed",
+                    passed=deployed,
+                    falsifier="Runtime or Gateway serves code different from the participant workspace, or the run has no Gateway-readable search.",
+                    detail=detail,
+                )
+            )
         # The turn's own receipts, not new ones: this path issues no retrieval,
         # and reporting them is what makes the verdict replayable afterwards.
         search_event_ids: list[UUID] = (
