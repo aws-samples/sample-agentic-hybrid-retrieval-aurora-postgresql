@@ -38,6 +38,8 @@ async def _lifespan(_: FastAPI) -> AsyncIterator[None]:
     try:
         get_pool()
     except RuntimeError:
+        # Keep readiness available to explain missing database configuration;
+        # a restart cannot supply it, and requests retry pool initialization.
         pass
     try:
         yield
