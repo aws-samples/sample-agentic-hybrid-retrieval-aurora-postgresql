@@ -29,8 +29,10 @@ SELECT extversion FROM pg_extension WHERE extname = 'vector';
    `FUNCTION_CENSUS_REQUIRE_DB=1`.
 
 Do not load the historical synthetic products, review corpus, premium cohort or
-vocabulary. The legacy HNSW instrument remains unavailable for this catalog;
-use the real-catalog Lab 1 recall exercise and Scale & HNSW SQL exercise.
+vocabulary. The Scale & HNSW instrument reads the served catalog: run
+`make select-hnsw-anchors` once per catalog (the committed anchor set already
+names `reviews-2023-v2`) and `make db-seed-exact-neighbors` on the cluster so
+the neighbourhood and probe routes have exact ground truth.
 
 ## Operational considerations
 

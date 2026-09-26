@@ -15,15 +15,31 @@ HALFVEC_INDEX = "product_document_embedding_hnsw_halfvec_idx"
 BINARY_INDEX = "product_document_embedding_hnsw_binary_idx"
 
 
-def _stub_index_states(monkeypatch, states: dict[str, str]) -> None:
-    """Answer the representation gate's catalog read without a cluster.
+RUNTIME_MANIFEST = "d5abc2c047f73726926260bb6a5364b50295acc4c6b2a3e9e35d47e93eb5c464"
 
-    Every `measured()` call reaches this gate. Left unstubbed with DATABASE_URL
-    exported, the test opens a real connection to whatever that DSN names and
-    hangs there until the pool times out, which is not what any of these tests
-    are asserting.
+
+def _stub_connected(
+    monkeypatch,
+    *,
+    states: dict[str, str] | None,
+    manifest: str | None = RUNTIME_MANIFEST,
+    detail: str | None = None,
+) -> None:
+    """Answer `measured()`'s one cluster read without a cluster.
+
+    Every `measured()` call reads the corpus identity and the quantized index
+    states together. Left unstubbed with DATABASE_URL exported, the test opens
+    a real connection to whatever that DSN names and hangs there until the
+    pool times out, which is not what any of these tests are asserting.
     """
-    monkeypatch.setattr("service.hnsw.index_states", lambda names: dict(states))
+    monkeypatch.setattr(
+        "service.hnsw._connected_facts",
+        lambda: (manifest, dict(states) if states is not None else None, detail),
+    )
+
+
+def _stub_index_states(monkeypatch, states: dict[str, str]) -> None:
+    _stub_connected(monkeypatch, states=states)
 
 
 def _stub_quantized_indexes_valid(monkeypatch) -> None:
@@ -251,7 +267,8 @@ def test_probe_applies_settings_only_through_the_production_function():
     """A probe that reached set_config would measure a path requests never take."""
     source = (ROOT / "service" / "hnsw.py").read_text(encoding="utf-8")
 
-    assert "mosaic_search.configure_hnsw" in source
+    assert "configure_hnsw(" in source
+    assert "search_schema()" in source
     assert "SELECT set_config" not in source
     assert "PERFORM set_config" not in source
     assert "SET LOCAL statement_timeout" in source
@@ -267,7 +284,7 @@ def test_probe_never_disables_a_scan_method():
 
 @pytest.mark.parametrize("representation", ["fp32", "halfvec", "binary"])
 def test_every_representation_repeats_the_partial_index_predicate(representation):
-    """All three indexes are partial. Dropping the predicate costs 800x on any of them."""
+    """The legacy indexes are partial; on a total index the predicate is a free no-op."""
     from service.hnsw import probe_sql
     from service.hnsw_presets import FILTER_PRESETS
 
@@ -356,7 +373,7 @@ def test_the_measured_artifact_separates_its_claim_classes(monkeypatch):
 
 
 class _FakeSettings:
-    """The three identity fields `measured()` compares against the artifact."""
+    """The identity fields `measured()` reports beside the artifact's."""
 
     def __init__(
         self,
@@ -370,9 +387,6 @@ class _FakeSettings:
         self.source_revision = revision
         self.source_worktree_dirty = dirty
         self.database_url = database_url
-
-
-RUNTIME_MANIFEST = "d5abc2c047f73726926260bb6a5364b50295acc4c6b2a3e9e35d47e93eb5c464"
 
 
 def _stub_settings(monkeypatch, settings) -> None:
@@ -424,6 +438,29 @@ def test_the_attribution_note_is_prose_not_an_error_message(monkeypatch):
     assert note[0].isupper() and note.endswith(".")
 
 
+def _artifact_with_representations(tmp_path, monkeypatch) -> None:
+    """A copy of the committed artifact with a one-row representation block.
+
+    The gate is the server's responsibility whenever an artifact advertises
+    rows, whatever the catalog's own rows say; these tests exercise it against
+    a fixture block so they do not depend on which indexes the served catalog
+    had when the artifact was measured.
+    """
+    payload = json.loads(MEASURED_ARTIFACT.read_text(encoding="utf-8"))
+    payload.pop("representations_unavailable_reason", None)
+    payload["representations"] = {
+        "ef_search": 100,
+        "k": 10,
+        "anchors": 1,
+        "payload_bytes": {"fp32": 4104, "halfvec": 2056, "binary": 136},
+        "note": "fixture",
+        "rows": [{"representation": "halfvec", "recall_at_k": 0.98}],
+    }
+    fixture = tmp_path / "hnsw_measured.json"
+    fixture.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr("service.hnsw.MEASURED_ARTIFACT", fixture)
+
+
 def _clean_artifact(tmp_path, manifest: str):
     payload = json.loads(MEASURED_ARTIFACT.read_text(encoding="utf-8"))
     payload["provenance"] = payload["provenance"] | {
@@ -460,19 +497,20 @@ def test_measured_is_not_attributed_when_the_connected_manifest_is_unresolved(
         "service.hnsw.MEASURED_ARTIFACT", _clean_artifact(tmp_path, "unknown")
     )
     _stub_settings(monkeypatch, _FakeSettings(manifest="unknown"))
-    _stub_quantized_indexes_valid(monkeypatch)
+    _stub_connected(monkeypatch, states=None, manifest=None, detail="StaleGroundTruth")
 
     attribution = measured()["attribution"]
 
     assert attribution["attributed"] is False
-    assert "no verified data version" in attribution["attribution_note"]
+    assert "could not be read" in attribution["attribution_note"]
+    assert "StaleGroundTruth" in attribution["attribution_note"]
 
 
 # --- Representations: advertised only while the indexes behind them exist -----
 
 
 def test_measured_withholds_representations_when_a_quantized_index_is_missing(
-    monkeypatch,
+    tmp_path, monkeypatch
 ):
     """Nothing in the bootstrap builds these two indexes.
 
@@ -480,6 +518,7 @@ def test_measured_withholds_representations_when_a_quantized_index_is_missing(
     phase runs it, so on a freshly bootstrapped cluster the halfvec and binary
     rows describe indexes the reader cannot inspect, EXPLAIN, or reproduce.
     """
+    _artifact_with_representations(tmp_path, monkeypatch)
     _stub_index_states(monkeypatch, {HALFVEC_INDEX: "missing", BINARY_INDEX: "valid"})
     _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
 
@@ -500,9 +539,10 @@ def test_measured_withholds_representations_when_a_quantized_index_is_missing(
 
 
 def test_measured_withholds_representations_when_a_quantized_index_is_invalid(
-    monkeypatch,
+    tmp_path, monkeypatch
 ):
     """An interrupted CREATE INDEX CONCURRENTLY leaves a relation that is not usable."""
+    _artifact_with_representations(tmp_path, monkeypatch)
     _stub_index_states(monkeypatch, {HALFVEC_INDEX: "valid", BINARY_INDEX: "invalid"})
     _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
 
@@ -513,8 +553,9 @@ def test_measured_withholds_representations_when_a_quantized_index_is_invalid(
 
 
 def test_measured_keeps_representations_when_both_quantized_indexes_are_valid(
-    monkeypatch,
+    tmp_path, monkeypatch
 ):
+    _artifact_with_representations(tmp_path, monkeypatch)
     _stub_quantized_indexes_valid(monkeypatch)
     _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
 
@@ -524,19 +565,50 @@ def test_measured_keeps_representations_when_both_quantized_indexes_are_valid(
     assert "representations_unavailable_reason" not in payload
 
 
-def test_measured_names_the_cluster_error_when_index_state_cannot_be_read(monkeypatch):
+def test_measured_names_the_cluster_error_when_index_state_cannot_be_read(
+    tmp_path, monkeypatch
+):
     """No cluster is not the same claim as no index, so the reason says which."""
 
-    def unreachable(names):
-        raise RuntimeError("DATABASE_URL is not configured")
-
-    monkeypatch.setattr("service.hnsw.index_states", unreachable)
+    _artifact_with_representations(tmp_path, monkeypatch)
+    _stub_connected(monkeypatch, states=None, manifest=None, detail="RuntimeError")
     _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
 
     payload = measured()
 
     assert "representations" not in payload
     assert "RuntimeError" in payload["representations_unavailable_reason"]
+
+
+def test_the_runners_not_measured_reason_passes_through_unchanged(
+    tmp_path, monkeypatch
+):
+    """An artifact measured without quantized indexes records why no rows exist.
+
+    The gate has nothing to withhold and must not replace the runner's reason
+    with a cluster-state sentence about indexes it never advertised, even when
+    the connected cluster has both indexes now.
+    """
+    payload = json.loads(MEASURED_ARTIFACT.read_text(encoding="utf-8"))
+    payload.pop("representations", None)
+    payload["representations_unavailable_reason"] = (
+        "No halfvec or binary index exists on the served catalog "
+        "(real_search_vector_halfvec_idx is missing), so the representation "
+        "comparison was not measured rather than borrowed from another catalog."
+    )
+    fixture = tmp_path / "hnsw_measured.json"
+    fixture.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr("service.hnsw.MEASURED_ARTIFACT", fixture)
+    _stub_quantized_indexes_valid(monkeypatch)
+
+    payload = measured()
+
+    assert "representations" not in payload
+    assert "not measured" in payload["representations_unavailable_reason"]
+    assert (
+        "real_search_vector_halfvec_idx"
+        in payload["representations_unavailable_reason"]
+    )
 
 
 def test_index_states_asks_the_catalog_for_validity_and_readiness():
@@ -682,23 +754,27 @@ def test_no_docstring_claims_the_probe_runs_a_single_query():
 
 
 def test_manifest_refuses_an_unresolved_value(monkeypatch):
-    from scripts.seed_exact_neighbors import StaleGroundTruth
-    from service.hnsw import _manifest
+    from service.hnsw_corpus import StaleGroundTruth, corpus_manifest
 
-    _stub_settings(monkeypatch, _FakeSettings(manifest="unknown"))
+    monkeypatch.setattr(
+        "service.hnsw_corpus.get_settings", lambda: _FakeSettings(manifest="unknown")
+    )
 
     with pytest.raises(StaleGroundTruth) as raised:
-        _manifest()
+        corpus_manifest(connection=None)
 
     assert "fix:" in str(raised.value)
 
 
 def test_manifest_returns_a_resolved_value(monkeypatch):
-    from service.hnsw import _manifest
+    from service.hnsw_corpus import corpus_manifest
 
-    _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
+    monkeypatch.setattr(
+        "service.hnsw_corpus.get_settings",
+        lambda: _FakeSettings(manifest=RUNTIME_MANIFEST),
+    )
 
-    assert _manifest() == RUNTIME_MANIFEST
+    assert corpus_manifest(connection=None) == RUNTIME_MANIFEST
 
 
 def test_manifest_does_not_compare_a_value_against_itself():
@@ -712,7 +788,9 @@ def test_manifest_does_not_compare_a_value_against_itself():
     assert "stored=manifest, connected=manifest" not in source
 
 
-def test_the_unreadable_cluster_reason_carries_no_connection_details(monkeypatch):
+def test_the_unreadable_cluster_reason_carries_no_connection_details(
+    tmp_path, monkeypatch
+):
     """A psycopg connection failure names the host and the user.
 
     This string is served to every participant on `/api/hnsw/measured`, so it
@@ -720,16 +798,27 @@ def test_the_unreadable_cluster_reason_carries_no_connection_details(monkeypatch
     never its message.
     """
 
-    def unreachable(names):
-        raise RuntimeError(
+    _artifact_with_representations(tmp_path, monkeypatch)
+    import psycopg
+
+    from service.hnsw import _connected_facts
+
+    def unreachable(**kwargs):
+        raise psycopg.OperationalError(
             "connection to server at db.internal (10.0.0.4), port 5432 failed"
         )
 
-    monkeypatch.setattr("service.hnsw.index_states", unreachable)
+    monkeypatch.setattr("service.hnsw.connect", unreachable)
+    manifest, states, detail = _connected_facts()
+
+    assert (manifest, states) == (None, None)
+    assert detail == "OperationalError"
+    assert "db.internal" not in detail
+    _stub_connected(monkeypatch, states=None, manifest=None, detail=detail)
     _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
 
     reason = measured()["representations_unavailable_reason"]
 
-    assert "RuntimeError" in reason
+    assert "OperationalError" in reason
     assert "db.internal" not in reason
     assert "10.0.0.4" not in reason

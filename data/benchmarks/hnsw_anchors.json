@@ -1,0 +1,672 @@
+{
+  "kind": "hnsw_anchor_set",
+  "dataset_id": "reviews-2023-v2",
+  "catalog_sha256": "c4d5913f89050332f71512baf2a0351331208ab94eac0621be9ac63e653cfa00",
+  "selected_at": "2026-09-26T15:48:32.087423+00:00",
+  "source_revision": "4762b1a2012315a539da65479e2151ae62859da8",
+  "selection": {
+    "algorithm": "lab products from real_catalog_lab_products.json, then per category_key the first N products by md5(seed || ':' || parent_asin) ascending, ties by product_id, excluding lab products; every anchor has a stored embedding",
+    "seed": "mosaic-hnsw-anchors-v1",
+    "lab_products_file": "data/evals/real_catalog_lab_products.json",
+    "lab_product_ids": [
+      1138035,
+      1162128,
+      1168700,
+      1208825,
+      1221817,
+      1248512,
+      1277987,
+      1379290,
+      1389794,
+      1408222,
+      1481815,
+      1490476,
+      1551237,
+      1540761,
+      1545826
+    ],
+    "sample_per_category": {
+      "other": 10,
+      "headphones": 10,
+      "chair": 10,
+      "monitor": 10,
+      "headphone_case": 5,
+      "monitor_stand": 5,
+      "chair_mat": 5
+    },
+    "anchor_count": 70
+  },
+  "anchors": [
+    {
+      "product_id": 1138035,
+      "parent_asin": "B00L3R6TSQ",
+      "category_key": "headphones",
+      "domain": "consumer_electronics",
+      "brand_name": "Bowers & Wilkins",
+      "title": "Bowers & Wilkins P5 Headphones - Black (Wired)",
+      "source": "lab"
+    },
+    {
+      "product_id": 1162128,
+      "parent_asin": "B00W63OG5O",
+      "category_key": "headphones",
+      "domain": "consumer_electronics",
+      "brand_name": "Bose",
+      "title": "Bose QuietComfort 15 Acoustic Noise Cancelling Headphones (Discontinued by Manufacturer)",
+      "source": "lab"
+    },
+    {
+      "product_id": 1168700,
+      "parent_asin": "B00ZD8N1HS",
+      "category_key": "monitor",
+      "domain": "consumer_electronics",
+      "brand_name": "HP",
+      "title": "HP K7C09A8#ABA Z27n 27'' 1440p Quad HD LED-Backlit LCD Monitor, Black",
+      "source": "lab"
+    },
+    {
+      "product_id": 1208825,
+      "parent_asin": "B01L7XV85O",
+      "category_key": "monitor",
+      "domain": "consumer_electronics",
+      "brand_name": "Dell",
+      "title": "Dell SE2717H KYKMD 27\" FHD 1080p Screen LED-Lit Monitor, ,Black with Silver Base and Back",
+      "source": "lab"
+    },
+    {
+      "product_id": 1221817,
+      "parent_asin": "B01NAKXH73",
+      "category_key": "chair",
+      "domain": "home_office",
+      "brand_name": "Steelcase",
+      "title": "Steelcase Gesture Task Chair: Wrapped Back - Platinum Metallic Frame/Base/Seagull Accent - Adjustable Lumbar Support - Roll Control Hard Floor Casters",
+      "source": "lab"
+    },
+    {
+      "product_id": 1248512,
+      "parent_asin": "B076NXZZPD",
+      "category_key": "chair",
+      "domain": "home_office",
+      "brand_name": "STAPLES",
+      "title": "Staples 2257054 Hyken Technical Mesh Task Chair Red",
+      "source": "lab"
+    },
+    {
+      "product_id": 1277987,
+      "parent_asin": "B07G95TJ3P",
+      "category_key": "headphones",
+      "domain": "consumer_electronics",
+      "brand_name": "Bose",
+      "title": "Bose QuietComfort 35 (Series II) Wireless Headphones, Noise Cancelling, with Alexa voice control – Limited Edition Triple Midnight",
+      "source": "lab"
+    },
+    {
+      "product_id": 1379290,
+      "parent_asin": "B08KTS3M9M",
+      "category_key": "chair",
+      "domain": "home_office",
+      "brand_name": "Amazon Basics",
+      "title": "Amazon Basics Ergonomic Adjustable High-Back Chair with Flip-Up Arms and Headrest, Contoured Mesh Seat - Black, 25.5\"D x 26.25\"W x 49.25\"H",
+      "source": "lab"
+    },
+    {
+      "product_id": 1389794,
+      "parent_asin": "B08QDNY2GK",
+      "category_key": "chair",
+      "domain": "home_office",
+      "brand_name": "Nouhaus",
+      "title": "Nouhaus Ergo3D Ergonomic Office Chair - Rolling Desk Chair with 3D Adjustable Armrest, 3D Lumbar Support and Blade Wheels - Mesh Computer Chair, Gaming Chairs, Executive Swivel Chair (Black)",
+      "source": "lab"
+    },
+    {
+      "product_id": 1408222,
+      "parent_asin": "B0939N79Y8",
+      "category_key": "monitor",
+      "domain": "consumer_electronics",
+      "brand_name": "Dell",
+      "title": "Dell UltraSharp 27\" 4K UHD (3840 x 2160) IPS Anti-Glare Treatment of The Front Polarizer (3H) Hard Coating LED Backlit USB-C Monitor - U2720Q-Black",
+      "source": "lab"
+    },
+    {
+      "product_id": 1481815,
+      "parent_asin": "B0BNT11NYH",
+      "category_key": "monitor",
+      "domain": "consumer_electronics",
+      "brand_name": "INNOCN",
+      "title": "INNOCN 27 Inch 4K Monitor Computer UHD 3840 x 2160 LCD IPS Display, HDR400, USB Type C DP HDMI PC Monitor, 1.07B+ Colors, Built-in Speakers, Pivot/Height Adjustable Stand, Black",
+      "source": "lab"
+    },
+    {
+      "product_id": 1490476,
+      "parent_asin": "B0BYZ4KH7G",
+      "category_key": "chair",
+      "domain": "home_office",
+      "brand_name": "Newtral",
+      "title": "Newtral Ergonomic Office Chair with Footrest- High Back Desk Chair with Unique Adjustable Lumbar Support, Seat Depth Adjustment, Tilt Function, 4D Armrest Recliner Chair for Home Office",
+      "source": "lab"
+    },
+    {
+      "product_id": 1551237,
+      "parent_asin": "B0BSHZHKB7",
+      "category_key": "monitor",
+      "domain": "consumer_electronics",
+      "brand_name": "ViewSonic",
+      "title": "ViewSonic VG2756-4K 27 Inch IPS 4K Docking Monitor with Integrated USB 3.2 Type-C RJ45 HDMI Display Port and 40 Degree Tilt Ergonomics for Home and Office",
+      "source": "lab"
+    },
+    {
+      "product_id": 1540761,
+      "parent_asin": "B095V7RS6S",
+      "category_key": "chair",
+      "domain": "home_office",
+      "brand_name": "Steelcase",
+      "title": "Steelcase Gesture Office Chair, Licorice",
+      "source": "lab"
+    },
+    {
+      "product_id": 1545826,
+      "parent_asin": "B09WJZGHQX",
+      "category_key": "chair",
+      "domain": "home_office",
+      "brand_name": "Steelcase",
+      "title": "Steelcase Gesture Office Chair - Cogent: Connect Licorice Fabric, Wrapped Back, Light on Light Frame, Platinum Metallic Base",
+      "source": "lab"
+    },
+    {
+      "product_id": 1275544,
+      "parent_asin": "B07FNG4LF1",
+      "category_key": "other",
+      "domain": "consumer_electronics",
+      "brand_name": "",
+      "title": "DSTE Replacement for 2X NP-FV100 Battery + Rapid Dual Charger with Micro USB Cable Compatible Sony DCR-SR88 SX83 SX85 HDR-CX210 CX220 CX300 CX350V CX360V CX610E NEX-VG10 PJ820E PJ610E",
+      "source": "sample"
+    },
+    {
+      "product_id": 1047183,
+      "parent_asin": "B0035J4356",
+      "category_key": "other",
+      "domain": "consumer_electronics",
+      "brand_name": "",
+      "title": "REPLACEMENT LAMP FOR OEM LAMP",
+      "source": "sample"
+    },
+    {
+      "product_id": 1192982,
+      "parent_asin": "B01D1D0E7Q",
+      "category_key": "other",
+      "domain": "consumer_electronics",
+      "brand_name": "HiLetgo",
+      "title": "HiLetgo 2pcs mp3 Player Mini MP3 Player Audio Voice Module TF Card U Disk Board for DFPlayer Audio Voice Music Module",
+      "source": "sample"
+    },
+    {
+      "product_id": 1188229,
+      "parent_asin": "B01AW40QZW",
+      "category_key": "other",
+      "domain": "consumer_electronics",
+      "brand_name": "UGREEN",
+      "title": "UGREEN USB IDE Adapter USB 3.0 to SATA IDE Hard Drive Cable Adapter Converter for 2.5\" 3.5\" IDE External SATA HDD SSD Hard Drives Disks with 12V 2A Power Adapter and USB 3.0 Cable for Laptop",
+      "source": "sample"
+    },
+    {
+      "product_id": 1409281,
+      "parent_asin": "B093SR8P3D",
+      "category_key": "other",
+      "domain": "consumer_electronics",
+      "brand_name": "",
+      "title": "Deco diary Ultra Thin Webcam Cover Slide for MacBook Pro, iMac, Laptop, PC, iPad Pro, Your Visual Prvacy",
+      "source": "sample"
+    },
+    {
+      "product_id": 1161612,
+      "parent_asin": "B00VWXP6X0",
+      "category_key": "other",
+      "domain": "consumer_electronics",
+      "brand_name": "",
+      "title": "AC Power Cord Cable for Samsung PN43D450A2D 3903-000552, PN50C450B1D - 6ft",
+      "source": "sample"
+    },
+    {
+      "product_id": 1055496,
+      "parent_asin": "B0040HKX0Q",
+      "category_key": "other",
+      "domain": "consumer_electronics",
+      "brand_name": "Bower",
+      "title": "Bower 77-82mm Step-Up Adapter Ring",
+      "source": "sample"
+    },
+    {
+      "product_id": 1197573,
+      "parent_asin": "B01EZB56RQ",
+      "category_key": "other",
+      "domain": "consumer_electronics",
+      "brand_name": "OMNIHIL",
+      "title": "Omnihil 8 Feet AC /DC Power Adapter Compatible with Foscam Indoor/Outdoor IP Cameras",
+      "source": "sample"
+    },
+    {
+      "product_id": 1109868,
+      "parent_asin": "B00D56LKX2",
+      "category_key": "other",
+      "domain": "home_office",
+      "brand_name": "TWIZLER",
+      "title": "TWIZLER 4th Birthday Card Boy Pirate – Age 4 Birthday Card – Boys Birthday Card Age 4 – Happy Birthday Card 4 Year Old Boy - Childrens Birthday Cards – Happy Birthday Card Boy – Card Age 4 Boy",
+      "source": "sample"
+    },
+    {
+      "product_id": 1207593,
+      "parent_asin": "B01KIQNB0G",
+      "category_key": "other",
+      "domain": "consumer_electronics",
+      "brand_name": "HP",
+      "title": "HP 2016 Newest 12\" Spectre X2 Premium High Performance Laptop PC Intel 6th Gen M3 Dual-Core Processor 4GB Memory 128G SSD Webcam 802.11AC WiFi Windows 10 Silver",
+      "source": "sample"
+    },
+    {
+      "product_id": 1526478,
+      "parent_asin": "B07KVF65VW",
+      "category_key": "headphones",
+      "domain": "consumer_electronics",
+      "brand_name": "Hongzan",
+      "title": "[4 Pack] Earbuds/Headphones/Earphones with Microphone,Hongzan 3.5mm Stereo Jack Headphones with Enhanced Bass Stereo Noise Cancelling Volume Control Flat Cord Compatible Samsung/Android/MP3 MP4 Kids",
+      "source": "sample"
+    },
+    {
+      "product_id": 1102886,
+      "parent_asin": "B00BF9TQQY",
+      "category_key": "headphones",
+      "domain": "consumer_electronics",
+      "brand_name": "Klipsch",
+      "title": "Klipsch Image S2m",
+      "source": "sample"
+    },
+    {
+      "product_id": 1524436,
+      "parent_asin": "B07DFY2SWJ",
+      "category_key": "headphones",
+      "domain": "consumer_electronics",
+      "brand_name": "TOPOINT",
+      "title": "Bluetooth Sleep Eye Mask Wireless Headphones, TOPOINT Sleeping Eye Cover Travel Music Headsets with Microphone Handsfree, Sleep Headphones for Side Sleepers Gift for Men Women",
+      "source": "sample"
+    },
+    {
+      "product_id": 1537121,
+      "parent_asin": "B08NX6385W",
+      "category_key": "headphones",
+      "domain": "consumer_electronics",
+      "brand_name": "Digdiy",
+      "title": "Wireless Earbuds ANC Active Noise Cancelling, Transparency Mode, Wireless Charging, USB-C Charge, 40H Playtime, DIGDIY Bluetooth 5.2 TWS Stereo Earphones, Clear Call, Touch-Control, IPX8 Waterproof",
+      "source": "sample"
+    },
+    {
+      "product_id": 1501537,
+      "parent_asin": "B000KA57F8",
+      "category_key": "headphones",
+      "domain": "consumer_electronics",
+      "brand_name": "",
+      "title": "Bluetooth¿ Stereo Headset/Headphones",
+      "source": "sample"
+    },
+    {
+      "product_id": 1538559,
+      "parent_asin": "B08V16QBLY",
+      "category_key": "headphones",
+      "domain": "consumer_electronics",
+      "brand_name": "Belkin",
+      "title": "Belkin SoundForm True Wireless Earbuds (Bluetooth Headphones w/Noise Isolation, Touch Controls) Wireless Headphones, Bluetooth Earbuds (White) (Renewed)",
+      "source": "sample"
+    },
+    {
+      "product_id": 1511251,
+      "parent_asin": "B00I32I7UW",
+      "category_key": "headphones",
+      "domain": "consumer_electronics",
+      "brand_name": "GEARONIC",
+      "title": "Gearonic Adjustable Foldable Rectangular Over-Ear Earphone Headphones for iPod/iPad/iPhone/Android/MP3/MP4/PC Music - Non-Retail Packaging - Red",
+      "source": "sample"
+    },
+    {
+      "product_id": 1541898,
+      "parent_asin": "B09BCKHNS3",
+      "category_key": "headphones",
+      "domain": "consumer_electronics",
+      "brand_name": "Mooky",
+      "title": "Monitoring Stethoscopes, Ceil Blue Tube",
+      "source": "sample"
+    },
+    {
+      "product_id": 1171769,
+      "parent_asin": "B011QJQN40",
+      "category_key": "headphones",
+      "domain": "consumer_electronics",
+      "brand_name": "BlueLark",
+      "title": "Bluelark(TM) Portable 3.5mm Foldable Over-Ear Headphone Headset Wired Pure Musical Audio Headphones Lightweght Cord Earphones Noise Cancelling Stereo Headsets for Phones, PC, MP3/ MP4 Player and More (White)",
+      "source": "sample"
+    },
+    {
+      "product_id": 1510209,
+      "parent_asin": "B00E88PZ2I",
+      "category_key": "headphones",
+      "domain": "consumer_electronics",
+      "brand_name": "Panasonic",
+      "title": "Panasonic RPHX450CA Headphones",
+      "source": "sample"
+    },
+    {
+      "product_id": 1537760,
+      "parent_asin": "B08R1SGPJQ",
+      "category_key": "chair",
+      "domain": "home_office",
+      "brand_name": "Recaceik",
+      "title": "Recaceik Adjustable Swivel Velvet, Modern Upholstered Office Chair Work Stool with Backrest Cushion & Golden Support Wheels for Home, Living Room, Bedroom, Make Up, Facial Spa Center, Orange",
+      "source": "sample"
+    },
+    {
+      "product_id": 1552135,
+      "parent_asin": "B0BYJTQDT3",
+      "category_key": "chair",
+      "domain": "home_office",
+      "brand_name": "JHK",
+      "title": "Desk Chair - Office Chair High Back Mesh Computer Chair with Lumbar Support Adjustable Height Swivel Home Office Chair",
+      "source": "sample"
+    },
+    {
+      "product_id": 1516965,
+      "parent_asin": "B01BJ0LZ2G",
+      "category_key": "chair",
+      "domain": "home_office",
+      "brand_name": "DXRacer",
+      "title": "DXRacer Iron Series DOH/IB166/NE Newedge Edition Racing Bucket Seat Office Chair X Large PC Gaming Chair Computer Chair Executive Chair Ergonomic Rocker with Pillows (Black/Green)",
+      "source": "sample"
+    },
+    {
+      "product_id": 1511434,
+      "parent_asin": "B00INYVIEM",
+      "category_key": "chair",
+      "domain": "home_office",
+      "brand_name": "OFM",
+      "title": "OFM Stature Series Upholstered High Back Executive Chair - Fabric Conference and Office Chair, Teal",
+      "source": "sample"
+    },
+    {
+      "product_id": 1532580,
+      "parent_asin": "B08749QT2S",
+      "category_key": "chair",
+      "domain": "home_office",
+      "brand_name": "Urban Shop",
+      "title": "Urban Shop Faux Leather Saucer Chair, Black",
+      "source": "sample"
+    },
+    {
+      "product_id": 1551312,
+      "parent_asin": "B0BT9W3SGC",
+      "category_key": "chair",
+      "domain": "home_office",
+      "brand_name": "Generic",
+      "title": "Home Office Chair Ergonomic Desk Chair Mesh Computer Chair with Lumbar Support Armrest Executive Rolling Swivel Adjustable Mid Back Task Chair for Women Adults",
+      "source": "sample"
+    },
+    {
+      "product_id": 1531109,
+      "parent_asin": "B0823VZ1SP",
+      "category_key": "chair",
+      "domain": "home_office",
+      "brand_name": "Sihand",
+      "title": "Office Leather Chair Executive Computer Desk Chair with Massage Function Adjust Seat Height, 360 Degree Free Rotation Pulley (Black)",
+      "source": "sample"
+    },
+    {
+      "product_id": 1523445,
+      "parent_asin": "B07B6PDXD5",
+      "category_key": "chair",
+      "domain": "home_office",
+      "brand_name": "Linon",
+      "title": "Linon Amzn0240 Talia Light Blue Office Chair, Gray",
+      "source": "sample"
+    },
+    {
+      "product_id": 1539757,
+      "parent_asin": "B091KDLJG6",
+      "category_key": "chair",
+      "domain": "home_office",
+      "brand_name": "CoVibrant",
+      "title": "CoVibrant Office Chair no Wheels Mid Back Waiting Room Guest Chair Reception Chair with Armrest and Lumbar Support,300lbs Capacity Brown",
+      "source": "sample"
+    },
+    {
+      "product_id": 1505678,
+      "parent_asin": "B004KZQJSI",
+      "category_key": "chair",
+      "domain": "home_office",
+      "brand_name": "BodyBilt",
+      "title": "BodyBilt J2504x Blue Fabric XL High Back Task Ergonomic Chair with Arms, 22\" Length x 21.50\" Width Backrest, 26\" Width Seat, Grade 3 Comfortek",
+      "source": "sample"
+    },
+    {
+      "product_id": 1015447,
+      "parent_asin": "B000E3DS16",
+      "category_key": "monitor",
+      "domain": "consumer_electronics",
+      "brand_name": "ViewSonic",
+      "title": "ViewSonic VP720b 17\" LCD Monitor",
+      "source": "sample"
+    },
+    {
+      "product_id": 1530454,
+      "parent_asin": "B07Z1212CQ",
+      "category_key": "monitor",
+      "domain": "consumer_electronics",
+      "brand_name": "Acer",
+      "title": "Acer Predator CG437K Pbmiiippuzx 43\" 4K UHD, 120Hz(144Hz Overclock), 1ms VRB, G-Sync Compatible Gaming Monitor with VESA Certified DisplayHDR 1000 (2x Display, 3x HDMI & 1 USB Type-C Port)",
+      "source": "sample"
+    },
+    {
+      "product_id": 1540627,
+      "parent_asin": "B095BXSQWV",
+      "category_key": "monitor",
+      "domain": "consumer_electronics",
+      "brand_name": "EVICIV",
+      "title": "Portable Monitor, Eviciv 15.6 Inch IPS Full HD 1920x1080 Screen with Speakers, External Dual Computer Display, USB C & Mini HDMI Travel Monitor for MacBook Laptop PC Phone, Includes Smart Cover",
+      "source": "sample"
+    },
+    {
+      "product_id": 1332105,
+      "parent_asin": "B07YTNYT11",
+      "category_key": "monitor",
+      "domain": "consumer_electronics",
+      "brand_name": "AUZAI",
+      "title": "AUZAI Portable Monitor 15.6\" Ultra Slim Portable Computer Monitor, FHD IPS Panel & USB-C HDMI, 100% sRGB HDR Monitor, Eye Saver & Flicker Free for Desktop Laptop PC Smartphone Xbox 23 PS4",
+      "source": "sample"
+    },
+    {
+      "product_id": 1257965,
+      "parent_asin": "B079H5Z4S8",
+      "category_key": "monitor",
+      "domain": "consumer_electronics",
+      "brand_name": "LG",
+      "title": "LG 32UD60-B 4K Monitor 32\" UHD (3840 x 2160) LED Display, DCI-P3 95% Color Gamut, HDCP 2.2 Campatible, AMD FreeSync, On Screen Control, Height Adjustable Stand - Black",
+      "source": "sample"
+    },
+    {
+      "product_id": 1552477,
+      "parent_asin": "B0C1ZTPY6N",
+      "category_key": "monitor",
+      "domain": "consumer_electronics",
+      "brand_name": "ASUS",
+      "title": "ASUS ProArt Display 24.1” 16:10 Professional Monitor (PA248CNV) - IPS, WUXGA (1920 x 1200), 100% sRGB/Rec.709, Color Accuracy ΔE<2, Calman Verified, RJ45, USB-C, HDMI, Daisy Chain, DisplayPort, 75Hz",
+      "source": "sample"
+    },
+    {
+      "product_id": 1173753,
+      "parent_asin": "B013J9D7O4",
+      "category_key": "monitor",
+      "domain": "consumer_electronics",
+      "brand_name": "Dell",
+      "title": "Dell S S2340L 23-Inch Screen LED-Lit Monitor",
+      "source": "sample"
+    },
+    {
+      "product_id": 1545796,
+      "parent_asin": "B09WDVCPTK",
+      "category_key": "monitor",
+      "domain": "consumer_electronics",
+      "brand_name": "Feihe",
+      "title": "Feihe 17 Inch Full HD 1920x1200 LED Monitor with HDMI VGA Build-in Speakers, 60Hz Refresh Rate, 5ms Response Time, VESA Mounting",
+      "source": "sample"
+    },
+    {
+      "product_id": 1377808,
+      "parent_asin": "B08K2DM7LW",
+      "category_key": "monitor",
+      "domain": "consumer_electronics",
+      "brand_name": "Lasitu",
+      "title": "Lasitu 3K 100% sRGB Portable Monitor 13.3 Inches 3200 x1800 Resolution Full HD USB Type-C Computer Display IPS Eye Care Screen with HDMI Type C Speakers for Laptop/PC/PS4/Xbox/Cellphone",
+      "source": "sample"
+    },
+    {
+      "product_id": 1485062,
+      "parent_asin": "B0BRZ2GXZT",
+      "category_key": "monitor",
+      "domain": "consumer_electronics",
+      "brand_name": "Wisecoco",
+      "title": "wisecoco 12.6 Inch Secondary Screen FHD IPS Touch Second Screen Stretched Bar LCD Display 1920X515 Mini HDMI for Laptop Computer Health Speed Windows Aida64 Sub CPU GPU Display",
+      "source": "sample"
+    },
+    {
+      "product_id": 1207529,
+      "parent_asin": "B01KHK5C32",
+      "category_key": "headphone_case",
+      "domain": "consumer_electronics",
+      "brand_name": "Mykit",
+      "title": "Earbud Case, Tangle Free Earphone Case, Durable EVA Carrying Cases for Small Items (Pack of 5)",
+      "source": "sample"
+    },
+    {
+      "product_id": 1326292,
+      "parent_asin": "B07WVC196D",
+      "category_key": "headphone_case",
+      "domain": "consumer_electronics",
+      "brand_name": "TT TIGER TIDE",
+      "title": "AirPods Case Protective Cover Compatible with AirPods Wireless Charging Case 2 & 1 with Keychain Full Protection Skin Cover Case,Front LED Visible (Red-Lychee Lines)",
+      "source": "sample"
+    },
+    {
+      "product_id": 1341880,
+      "parent_asin": "B082TL2LT4",
+      "category_key": "headphone_case",
+      "domain": "consumer_electronics",
+      "brand_name": "DMMG",
+      "title": "AirPods Pro /3 Case,DMMG Girls Luxury Bling Brilliant Diamond Decoration Hard PC Cover Case Women Fashion Case for AirPods Pro /3 Anti-Fingerprint Strong Protection (Transparent Golden Glitter)",
+      "source": "sample"
+    },
+    {
+      "product_id": 1434953,
+      "parent_asin": "B09LH8H89S",
+      "category_key": "headphone_case",
+      "domain": "consumer_electronics",
+      "brand_name": "SUIHUOJI",
+      "title": "[2Pack]Cute Airpods 3rd Generation(2021) Case,Bubble Gum & Takis Potato Chips Airpods 3 Cover,Soft Silicone 3D Funny Cool Cartoon Food Fashion Airpod 3 Set Skin with Keychain for Kids Teens Boys Girls",
+      "source": "sample"
+    },
+    {
+      "product_id": 1435704,
+      "parent_asin": "B09LY4YPVB",
+      "category_key": "headphone_case",
+      "domain": "consumer_electronics",
+      "brand_name": "",
+      "title": "PureGear TPU AirTag Keychain Holder for Apple AirTag (2021), Protective AirTag Case with Keychain, Scratch Resistance Airtags Tracker Holder for Keys, Backpacks, Luggage, Pets (Clear)",
+      "source": "sample"
+    },
+    {
+      "product_id": 1075534,
+      "parent_asin": "B0063G87I2",
+      "category_key": "monitor_stand",
+      "domain": "consumer_electronics",
+      "brand_name": "",
+      "title": "Ergotron StyleView Sit-Stand Combo with Medium Silver CPU Holder/Worksurface, Aluminum/Black",
+      "source": "sample"
+    },
+    {
+      "product_id": 1051484,
+      "parent_asin": "B003LD8XMA",
+      "category_key": "monitor_stand",
+      "domain": "consumer_electronics",
+      "brand_name": "",
+      "title": "Planar Supports Monitors Between 17\" and 24\" and Weighing Less Than 17.6lbs.",
+      "source": "sample"
+    },
+    {
+      "product_id": 1315654,
+      "parent_asin": "B07SZ9T3VT",
+      "category_key": "monitor_stand",
+      "domain": "consumer_electronics",
+      "brand_name": "",
+      "title": "VIVO VESA Adapter Plate Bracket Designed for Samsung CF591 Series Monitors, Curved 27 inch LC27F591FDNXZA, MOUNT-SG02CF",
+      "source": "sample"
+    },
+    {
+      "product_id": 1369892,
+      "parent_asin": "B08FKX9K6P",
+      "category_key": "monitor_stand",
+      "domain": "consumer_electronics",
+      "brand_name": "Dell",
+      "title": "Dell DELL-MSA20 Single Monitor,MSA20 Mounting Arm, Black",
+      "source": "sample"
+    },
+    {
+      "product_id": 1352078,
+      "parent_asin": "B086RMFY3V",
+      "category_key": "monitor_stand",
+      "domain": "consumer_electronics",
+      "brand_name": "Dell",
+      "title": "Dell Dual Monitor Arm – MDA20-482-BBDH - 8KKRR",
+      "source": "sample"
+    },
+    {
+      "product_id": 1337267,
+      "parent_asin": "B081CS12WP",
+      "category_key": "chair_mat",
+      "domain": "home_office",
+      "brand_name": "SALLOUS",
+      "title": "SALLOUS Chair Mat, Hard-Floor Mat for Office Home, 0.16\" Thick Floor Protector Mat for Desk Chairs, Low-Pile Office Chair Mat for Hardwood Floor (Dark Blue, 55\"x35\")",
+      "source": "sample"
+    },
+    {
+      "product_id": 1441543,
+      "parent_asin": "B09PMKXM91",
+      "category_key": "chair_mat",
+      "domain": "home_office",
+      "brand_name": "Mushyn",
+      "title": "Standing Desk Mat Anti Fatigue Office Chair Mat - Sit Stand Comfort Mat with Foot Massager - Office Mat with Foot Rest Under Desk for Hardwood Floor",
+      "source": "sample"
+    },
+    {
+      "product_id": 1431684,
+      "parent_asin": "B09JNN8X44",
+      "category_key": "chair_mat",
+      "domain": "home_office",
+      "brand_name": "Kuyal",
+      "title": "Kuyal PVC Chair mat for Hardwood Floor 30 x 48 inches Rectangle Floor Mats Wood/Tile Protection Mat for Office & Home, Black",
+      "source": "sample"
+    },
+    {
+      "product_id": 1308381,
+      "parent_asin": "B07QZKJ3H3",
+      "category_key": "chair_mat",
+      "domain": "home_office",
+      "brand_name": "FRUITEAM",
+      "title": "FRUITEAM 36\" x 48\" Office Chair Mat for Hardwood Floor, Transparent Hard Floor Protector, Desk Chair Mat with Lip, Non-Studded Bottom, BPA and Phthalate Free",
+      "source": "sample"
+    },
+    {
+      "product_id": 1333936,
+      "parent_asin": "B07ZC89PKZ",
+      "category_key": "chair_mat",
+      "domain": "home_office",
+      "brand_name": "Pro Space",
+      "title": "Pro Space Office Chair Mat Non Slip Hard Floor Mats for Office Decor and Under Office Desk Protect, 36\"x48\", Wood Grain",
+      "source": "sample"
+    }
+  ],
+  "sha256": "af84d6ab27637600293f5a2061b97b1c572bb5bc830125b6d799cba10ff7e5fd"
+}

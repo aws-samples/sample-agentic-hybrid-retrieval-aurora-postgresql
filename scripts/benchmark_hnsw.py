@@ -25,15 +25,19 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from scripts.retrieval_profile import load_profile
+from service.catalog_runtime import catalog_indexes, product_document, search_schema
 from service.config import get_settings
-from service.hnsw_presets import (
-    ANCHOR_PREDICATE,
-    EXACT_BASELINE_SETTINGS,
-    FILTER_PRESETS,
-)
+from service.hnsw_anchors import require_anchor_set_for_served_catalog
+from service.hnsw_presets import EXACT_BASELINE_SETTINGS, FILTER_PRESETS
 from service.models import RetrievalProfile
 
-INDEX_NAME = "mosaic_search.product_document_embedding_hnsw_cosine_idx"
+
+def index_name() -> str:
+    """The schema-qualified cosine HNSW index of the served catalog."""
+    indexes = catalog_indexes()
+    return indexes.qualified(indexes.fp32)
+
+
 EXACT_BASELINE = (
     "filtered cosine top-k with enable_indexscan=off and enable_bitmapscan=off"
 )
@@ -171,8 +175,8 @@ def _configure_hnsw(
     mode: str,
 ) -> None:
     connection.execute(
-        """
-        SELECT mosaic_search.configure_hnsw(
+        f"""
+        SELECT {search_schema()}.configure_hnsw(
             %s::integer, %s::text, %s::integer, %s::real
         )
         """,
@@ -240,7 +244,7 @@ def _ann_sql(predicate: str) -> str:
     extra = f" AND {predicate}" if predicate else ""
     return f"""
         SELECT product_id
-        FROM mosaic_search.product_document
+        FROM {product_document()}
         WHERE embedding IS NOT NULL{extra}
         ORDER BY embedding <=> %s
         LIMIT %s
@@ -324,8 +328,8 @@ def _measure_point(
     for index, row in enumerate(pool):
         with connection.transaction():
             connection.execute(
-                """
-                SELECT mosaic_search.configure_hnsw(
+                f"""
+                SELECT {search_schema()}.configure_hnsw(
                     %s::integer, %s::text, %s::integer, %s::real
                 )
                 """,
@@ -363,7 +367,7 @@ def _assert_used_the_index(point: dict[str, Any], *, ef_search: int) -> None:
     """
     if (
         "Index Scan" not in point["node"]
-        or point["index_name"] != INDEX_NAME.split(".")[-1]
+        or point["index_name"] != catalog_indexes().fp32
     ):
         raise SystemExit(
             f"benchmark refuses to record ef_search={ef_search}: "
@@ -431,15 +435,15 @@ def _capture_missing_predicate(
     connection: Any, *, anchor: Any, k: int, profile: Any, mode: str
 ) -> dict[str, Any]:
     """The same query without the partial-index predicate: the 929x mistake."""
-    sql = """
+    sql = f"""
         SELECT product_id
-        FROM mosaic_search.product_document
+        FROM {product_document()}
         ORDER BY embedding <=> %s
         LIMIT %s
     """
     with connection.transaction():
         connection.execute(
-            "SELECT mosaic_search.configure_hnsw(%s::integer, %s::text)",
+            f"SELECT {search_schema()}.configure_hnsw(%s::integer, %s::text)",
             (profile.hnsw_ef_search, mode),
         )
         measured = _explain(connection, sql, [anchor["embedding"], k])
@@ -600,9 +604,9 @@ def main() -> None:
                            WHERE embedding IS NOT NULL
                            {where_sql}
                        ) AS filtered_vector_count
-                FROM mosaic_search.product_document
+                FROM {product_document()}
                 """,
-                [INDEX_NAME, INDEX_NAME, *filter_parameters],
+                [index_name(), index_name(), *filter_parameters],
             ).fetchone()
         )
         vector_count = int(environment["vector_count"])
@@ -617,7 +621,7 @@ def main() -> None:
         pool = connection.execute(
             f"""
             SELECT product_id, embedding
-            FROM mosaic_search.product_document
+            FROM {product_document()}
             WHERE embedding IS NOT NULL {where_sql}
             ORDER BY product_id
             LIMIT %s
@@ -733,7 +737,7 @@ def main() -> None:
                 exact = connection.execute(
                     f"""
                     SELECT product_id
-                    FROM mosaic_search.product_document
+                    FROM {product_document()}
                     WHERE embedding IS NOT NULL {where_sql}
                     ORDER BY embedding <=> %s
                     LIMIT %s
@@ -768,7 +772,7 @@ def main() -> None:
                     ann = connection.execute(
                         f"""
                         SELECT product_id
-                        FROM mosaic_search.product_document
+                        FROM {product_document()}
                         WHERE embedding IS NOT NULL {where_sql}
                         ORDER BY embedding <=> %s
                         LIMIT %s
@@ -783,7 +787,7 @@ def main() -> None:
                             f"""
                             EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)
                             SELECT product_id
-                            FROM mosaic_search.product_document
+                            FROM {product_document()}
                             WHERE embedding IS NOT NULL {where_sql}
                             ORDER BY embedding <=> %s
                             LIMIT %s
@@ -826,15 +830,16 @@ def main() -> None:
         filter_matrix: list[dict[str, Any]] = []
         if args.filter_preset_matrix:
             print("capturing the instrument artifact ...", flush=True)
+            anchor_set = require_anchor_set_for_served_catalog()
             anchor_pool = connection.execute(
                 f"""
                 SELECT product_id, embedding
-                FROM mosaic_search.product_document
-                WHERE embedding IS NOT NULL AND {ANCHOR_PREDICATE}
+                FROM {product_document()}
+                WHERE embedding IS NOT NULL AND product_id = ANY(%s)
                 ORDER BY product_id
                 LIMIT %s
                 """,
-                (args.queries,),
+                (list(anchor_set.product_ids), args.queries),
             ).fetchall()
             ef_sweep, artifact_baseline = _capture_ef_sweep(
                 connection,
@@ -895,7 +900,7 @@ def main() -> None:
                 "work_mem_mb": work_mem_mb,
             },
             index={
-                "name": INDEX_NAME,
+                "name": index_name(),
                 "definition": environment["index_definition"],
                 "size_bytes": environment["index_size_bytes"],
                 "vector_count": vector_count,
@@ -937,7 +942,7 @@ def main() -> None:
             "instance_class": args.instance_class,
         },
         "index": {
-            "name": INDEX_NAME,
+            "name": index_name(),
             "size_bytes": environment["index_size_bytes"],
             "definition": environment["index_definition"],
         },

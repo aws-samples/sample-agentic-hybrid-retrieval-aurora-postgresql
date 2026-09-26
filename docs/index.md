@@ -21,7 +21,7 @@ The remaining guides are grouped by the work they support.
 | [Database facts](postgres-18.md) | Engine, extensions and the retrieval path |
 | [Build a retrieval tool](build-retrieval-tool.md) | Filters, typed tools and saved searches |
 | [Typo-tolerance lab](pg-trgm-lab.md) | Real identifier recovery and production SQL inspection |
-| [HNSW experiment design](hnsw-lab.md) | Optional performance exercise; requires compatible catalog measurements |
+| [HNSW experiment design](hnsw-lab.md) | Optional performance exercise on the served catalog; anchors, ground truth and measurement path |
 | [Fusion and reranking](fusion-rerank.md) | Candidate fusion, deterministic filters and reranking |
 | [API contract](api-contract.md) | Search request and response contracts |
 | [Security boundaries](security-boundaries.md) | Workshop access, evidence authority and production adaptation |
@@ -67,7 +67,8 @@ The remaining guides are grouped by the work they support.
 | [Synthetic catalog specification](catalog-spec.md) | Historical taxonomy, attributes and challenge cohorts |
 | [Synthetic data generation](data-generation.md) | Historical fixture regeneration and embedding tools |
 | [Historical query catalog](query-catalog.md) | Original synthetic demonstration requests |
-| [Saved scale benchmarks](current-scale-benchmarks.md) | Historical catalog results, not current-catalog certification |
+| [Saved scale benchmarks](current-scale-benchmarks.md) | Measured on the served catalog on 26 September 2026: recall, filters, exact baseline, index build |
+| [Instance comparison](hardware-comparison-2026-09-26.md) | db.r8g.2xlarge against db.r8gd.2xlarge on restored copies of the catalog, default and small-memory pairs |
 | [Historical image strategy](product-image-strategy.md) | Synthetic cohort media design |
 | [Media regeneration](media-regeneration-batches.md) | Historical cohort media workflow |
 | [Media shot list](media-shot-list.md) | Historical product-image inventory |

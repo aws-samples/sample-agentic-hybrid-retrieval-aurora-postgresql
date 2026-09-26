@@ -46,7 +46,7 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants test-aurora-historical db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-schema db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic rehearsal-validate rehearsal-summary load-exercise api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
+.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants test-aurora-historical db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-schema db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-index-quantized-catalog db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors select-hnsw-anchors check-hnsw-anchors benchmark-hnsw benchmark-index-build benchmark-hardware benchmark-ask-mosaic rehearsal-validate rehearsal-summary load-exercise api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
@@ -327,6 +327,12 @@ db-index-recover-and-create:
 db-index-quantized: check-dsn
 	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/19_indexes_quantized.sql
 
+# The same two representations on the served (prepared) catalog's table,
+# named for the instrument by catalog_indexes(). Plain builds by default;
+# pass QUANTIZED_INDEX_ARGS='--concurrently' on a cluster being written to.
+db-index-quantized-catalog: check-dsn
+	@$(PYTHON) scripts/build_quantized_indexes.py $(QUANTIZED_INDEX_ARGS)
+
 db-load-cohort:
 	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 \
 		-v premium_cohort_path="$(MOSAIC_PREMIUM_COHORT_CSV)" \
@@ -527,7 +533,17 @@ simulate:
 # at 2.4s. Run once per corpus; the HNSW instrument computes recall against these
 # rows rather than re-running the scan per interaction.
 db-seed-exact-neighbors:
-	@$(PYTHON) scripts/seed_exact_neighbors.py --k 10
+	@$(PYTHON) scripts/seed_exact_neighbors.py
+
+# The HNSW instrument's query anchors: the lab products plus a deterministic
+# category-stratified sample of the served catalog, recorded with their
+# selection inputs in data/benchmarks/hnsw_anchors.json. Reselect after a
+# catalog change, then reseed exact neighbours.
+select-hnsw-anchors:
+	@$(PYTHON) scripts/select_hnsw_anchors.py
+
+check-hnsw-anchors:
+	@$(PYTHON) scripts/select_hnsw_anchors.py --check
 
 # Workshop bootstrap explicitly supplies a verified vocabulary cache. Ordinary
 # operator runs still rebuild from the production SQL; neither path skips the
@@ -556,9 +572,23 @@ benchmark-hnsw:
 	@test -n "$(AURORA_INSTANCE_CLASS)" || { echo "Benchmark hardware rule: AURORA_INSTANCE_CLASS is empty; fix: set it to the connected Aurora instance class."; exit 1; }
 	@$(PYTHON) scripts/benchmark_mosaic_scale.py \
 		--output data/benchmarks/hnsw_measured.json --k 10 \
-		--ef-search 10 20 40 80 100 200 400 --binary-depth 10 20 50 100 200 \
+		--ef-search 40 80 100 200 400 --binary-depth 10 20 50 100 200 \
 		--deep-ef-search 800 --deep-binary-depth 1400 3000 \
 		--instance-class "$(AURORA_INSTANCE_CLASS)"
+
+# Times a benchmark-owned HNSW build on the served catalog's table with the
+# production m and ef_construction. The serving index is never dropped. Pass
+# INDEX_BUILD_ARGS='--workers 7 --maintenance-work-mem 8GB --repeat 2'.
+benchmark-index-build:
+	@test -n "$(AURORA_INSTANCE_CLASS)" || { echo "Benchmark hardware rule: AURORA_INSTANCE_CLASS is empty; fix: set it to the connected Aurora instance class."; exit 1; }
+	@$(PYTHON) scripts/benchmark_index_build.py $(INDEX_BUILD_ARGS)
+
+# Compares two instance classes on restored copies of the served catalog from
+# one in-VPC client. Reads CONTROL_DATABASE_URL and TEST_DATABASE_URL from the
+# environment; pass the rest through HARDWARE_ARGS (labels, instance ids,
+# prices, concurrency, durations). See docs/hnsw-lab.md.
+benchmark-hardware:
+	@$(PYTHON) scripts/benchmark_hardware.py $(HARDWARE_ARGS)
 
 benchmark-ask-mosaic:
 	@$(PYTHON) scripts/benchmark_ask_mosaic.py

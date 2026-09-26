@@ -472,15 +472,21 @@ page labels them differently because they are different kinds of claim.
   sha256) and is refused with HTTP 503 if its `kind` is not `measured`, so a
   projection cannot be served under a measured label.
 
-- `GET /api/hnsw/anchors` lists the query anchors the instrument offers: the 30
-  retrieval anchors, which are the products carrying real media.
+- `GET /api/hnsw/anchors` lists the query anchors the instrument offers: the
+  committed anchor set in `data/benchmarks/hnsw_anchors.json`, the lab products
+  plus a deterministic category-stratified sample of the served catalog. Every
+  `/api/hnsw` route first checks that the anchor set was selected from the
+  served catalog and answers HTTP 409 otherwise, before any database access.
 
 - `GET /api/hnsw/neighborhood/{anchor_product_id}`, with optional `preset` and `k`
   query parameters, returns the
   precomputed exact top-k from `mosaic_bench.exact_neighbor` with real cosine
   distances, plus the `band` those neighbours occupy. It runs no vector query.
-  Ground truth is keyed by dataset manifest sha256; a mismatch is HTTP 503 rather
-  than a silent answer from another corpus.
+  Ground truth is keyed by the corpus identity (a prepared catalog's restore
+  receipt hash, or the legacy dataset manifest), the anchor-set hash and each
+  preset's predicate hash; rows that belong to another corpus, anchor set or
+  predicate never join, and a missing neighbourhood is HTTP 503 rather than a
+  silent answer from another question.
 
 - `POST /api/hnsw/probe` runs one real ANN query and reports what the server did.
   It runs the statement twice inside one transaction: once to fetch the actual
@@ -493,7 +499,7 @@ page labels them differently because they are different kinds of claim.
   to the rest of `plan`: node, index name, server-side execution time, buffer
   counts, and planner estimate. Rows returned are compared against rows
   that exist, recall is reported, and missed product ids are named. Every HNSW
-  setting is applied through `mosaic_search.configure_hnsw`, the same
+  setting is applied through the served catalog's `configure_hnsw`, the same
   function served retrieval calls, inside that same transaction, with a
   `statement_timeout`. `filter_preset` is a key into
   `service.hnsw_presets.FILTER_PRESETS`, never a predicate, so no request value

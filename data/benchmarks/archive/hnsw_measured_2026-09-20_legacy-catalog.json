@@ -1,0 +1,1205 @@
+{
+  "kind": "measured",
+  "captured_at": "2026-09-20T15:12:05.857795+00:00",
+  "provenance": {
+    "source_revision": "a57b61f9606467c9fa78c990004384e9e64a4f74",
+    "source_worktree_dirty": false,
+    "dataset_manifest_sha256": "9d2cc3858b702429589f53508313cd2e8a95e7e06c0b67f7280b6fd5625ade8f",
+    "database_instance_id": "agenticretrievalcorestack-aurorapostgresretrievalc-5wdg4dpl2bg2",
+    "database_version": "18.3",
+    "vector_extension_version": "0.8.1",
+    "work_mem": "4MB",
+    "instance_class": "db.r8g.2xlarge",
+    "started_at": "2026-09-20T15:00:55.287768+00:00",
+    "queries": 30,
+    "query_sample_product_ids": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      17001,
+      17002,
+      30001,
+      116001,
+      210001,
+      210002,
+      234001,
+      234002,
+      234003,
+      290001,
+      314404,
+      333903,
+      344665,
+      369311,
+      370001,
+      370002,
+      370003,
+      420001,
+      420002,
+      429001,
+      429002,
+      452001,
+      474001,
+      493562
+    ],
+    "query_sample_sha256": "4ffbac77c262d47e90bdc8d8ffe77f15412f1c875c47db82d80609181095dea1",
+    "query_domains": {
+      "home_office": 10,
+      "running_fitness": 10,
+      "consumer_electronics": 10
+    },
+    "k": 10,
+    "work_mem_mb": 4,
+    "max_scan_tuples": 20000,
+    "scan_mem_multiplier": 2.0,
+    "timing_method": "server_ms is p50 across all anchors, EXPLAIN on a second warmed execution; client times are separate; one sequential connection; no cold-cache or concurrent-load claim",
+    "command": "scripts/benchmark_mosaic_scale.py --output data/benchmarks/hnsw_measured.json --k 10 --ef-search 10 20 40 80 100 200 400 --binary-depth 10 20 50 100 200 --deep-ef-search 800 --deep-binary-depth 1400 3000 --instance-class db.r8g.2xlarge",
+    "samples_file": "hnsw_measured.samples.json",
+    "samples_sha256": "d137f47935fd13a762e49e1410089c015c4a0ca7019c3607338b6376c5d26f6c"
+  },
+  "index": {
+    "name": "mosaic_search.product_document_embedding_hnsw_cosine_idx",
+    "definition": "CREATE INDEX product_document_embedding_hnsw_cosine_idx ON mosaic_search.product_document USING hnsw (embedding vector_cosine_ops) WITH (m='16', ef_construction='200') WHERE (embedding IS NOT NULL)",
+    "size_bytes": 4094238720,
+    "vector_count": 500000,
+    "dimensions": 1024,
+    "m": 16,
+    "ef_construction": 200,
+    "bytes_per_vector": 8188,
+    "fp32_payload_bytes": 4096,
+    "overhead_factor": 2.0
+  },
+  "exact_baseline": {
+    "p50_ms": 2508.383,
+    "p95_ms": 2971.062,
+    "mean_ms": 2560.744,
+    "server_ms": 2356.945,
+    "shared_hit_blocks": 2417410,
+    "node": "Seq Scan",
+    "method": "enable_indexscan = off, enable_bitmapscan = off"
+  },
+  "missing_predicate": {
+    "execution": "second execution of the same statement on this connection; the first returned the rows, so buffers were already warm",
+    "node": "Seq Scan",
+    "index_name": null,
+    "indexes_used": [],
+    "server_ms": 2340.261,
+    "shared_hit_blocks": 2417410,
+    "shared_read_blocks": 0,
+    "estimated_total_cost": 259180.28,
+    "estimated_rows": 10,
+    "compared_at_ef_search": 100,
+    "slowdown_factor": 1222.7
+  },
+  "ef_sweep": [
+    {
+      "ef_search": 10,
+      "iterative_scan": "relaxed_order",
+      "scan_mem_multiplier": 2.0,
+      "server_ms": 0.48,
+      "server_p95_ms": 0.634,
+      "client_p50_ms": 40.328,
+      "client_p95_ms": 52.897,
+      "recall_at_k": 0.6833,
+      "rows_returned": 10,
+      "min_rows_returned": 10,
+      "shared_hit_blocks": 492,
+      "shared_read_blocks": 0,
+      "node": "Index Scan",
+      "indexes_used": [
+        "product_document_embedding_hnsw_cosine_idx"
+      ]
+    },
+    {
+      "ef_search": 20,
+      "iterative_scan": "relaxed_order",
+      "scan_mem_multiplier": 2.0,
+      "server_ms": 0.701,
+      "server_p95_ms": 0.914,
+      "client_p50_ms": 42.269,
+      "client_p95_ms": 67.225,
+      "recall_at_k": 0.7433,
+      "rows_returned": 10,
+      "min_rows_returned": 10,
+      "shared_hit_blocks": 677,
+      "shared_read_blocks": 0,
+      "node": "Index Scan",
+      "indexes_used": [
+        "product_document_embedding_hnsw_cosine_idx"
+      ]
+    },
+    {
+      "ef_search": 40,
+      "iterative_scan": "relaxed_order",
+      "scan_mem_multiplier": 2.0,
+      "server_ms": 1.074,
+      "server_p95_ms": 1.702,
+      "client_p50_ms": 41.812,
+      "client_p95_ms": 52.248,
+      "recall_at_k": 0.81,
+      "rows_returned": 10,
+      "min_rows_returned": 10,
+      "shared_hit_blocks": 1049,
+      "shared_read_blocks": 0,
+      "node": "Index Scan",
+      "indexes_used": [
+        "product_document_embedding_hnsw_cosine_idx"
+      ]
+    },
+    {
+      "ef_search": 80,
+      "iterative_scan": "relaxed_order",
+      "scan_mem_multiplier": 2.0,
+      "server_ms": 1.665,
+      "server_p95_ms": 2.029,
+      "client_p50_ms": 42.206,
+      "client_p95_ms": 70.348,
+      "recall_at_k": 0.85,
+      "rows_returned": 10,
+      "min_rows_returned": 10,
+      "shared_hit_blocks": 1587,
+      "shared_read_blocks": 0,
+      "node": "Index Scan",
+      "indexes_used": [
+        "product_document_embedding_hnsw_cosine_idx"
+      ]
+    },
+    {
+      "ef_search": 100,
+      "iterative_scan": "relaxed_order",
+      "scan_mem_multiplier": 2.0,
+      "server_ms": 1.914,
+      "server_p95_ms": 2.377,
+      "client_p50_ms": 41.655,
+      "client_p95_ms": 56.291,
+      "recall_at_k": 0.8533,
+      "rows_returned": 10,
+      "min_rows_returned": 10,
+      "shared_hit_blocks": 1823,
+      "shared_read_blocks": 0,
+      "node": "Index Scan",
+      "indexes_used": [
+        "product_document_embedding_hnsw_cosine_idx"
+      ]
+    },
+    {
+      "ef_search": 200,
+      "iterative_scan": "relaxed_order",
+      "scan_mem_multiplier": 2.0,
+      "server_ms": 3.098,
+      "server_p95_ms": 4.128,
+      "client_p50_ms": 42.08,
+      "client_p95_ms": 68.034,
+      "recall_at_k": 0.86,
+      "rows_returned": 10,
+      "min_rows_returned": 10,
+      "shared_hit_blocks": 2854,
+      "shared_read_blocks": 0,
+      "node": "Index Scan",
+      "indexes_used": [
+        "product_document_embedding_hnsw_cosine_idx"
+      ]
+    },
+    {
+      "ef_search": 400,
+      "iterative_scan": "relaxed_order",
+      "scan_mem_multiplier": 2.0,
+      "server_ms": 4.577,
+      "server_p95_ms": 6.796,
+      "client_p50_ms": 44.499,
+      "client_p95_ms": 54.396,
+      "recall_at_k": 0.9033,
+      "rows_returned": 10,
+      "min_rows_returned": 10,
+      "shared_hit_blocks": 4556,
+      "shared_read_blocks": 0,
+      "node": "Index Scan",
+      "indexes_used": [
+        "product_document_embedding_hnsw_cosine_idx"
+      ]
+    }
+  ],
+  "filter_matrix": [
+    {
+      "preset": "none",
+      "label": "No filter",
+      "character": "unfiltered",
+      "predicate_sql": "",
+      "matching_rows": 500000,
+      "selectivity": 1.0,
+      "exact_rows_found": 10,
+      "modes": [
+        {
+          "ef_search": 100,
+          "iterative_scan": "off",
+          "scan_mem_multiplier": 1,
+          "server_ms": 1.817,
+          "server_p95_ms": 2.27,
+          "client_p50_ms": 43.67,
+          "client_p95_ms": 58.681,
+          "recall_at_k": 0.8533,
+          "rows_returned": 10,
+          "min_rows_returned": 10,
+          "shared_hit_blocks": 1823,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "off",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 1.837,
+          "server_p95_ms": 2.339,
+          "client_p50_ms": 41.73,
+          "client_p95_ms": 53.314,
+          "recall_at_k": 0.8533,
+          "rows_returned": 10,
+          "min_rows_returned": 10,
+          "shared_hit_blocks": 1823,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 8.0
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "strict_order",
+          "scan_mem_multiplier": 1,
+          "server_ms": 1.896,
+          "server_p95_ms": 2.534,
+          "client_p50_ms": 38.282,
+          "client_p95_ms": 56.459,
+          "recall_at_k": 0.8533,
+          "rows_returned": 10,
+          "min_rows_returned": 10,
+          "shared_hit_blocks": 1823,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "strict_order",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 1.927,
+          "server_p95_ms": 2.368,
+          "client_p50_ms": 39.261,
+          "client_p95_ms": 57.012,
+          "recall_at_k": 0.8533,
+          "rows_returned": 10,
+          "min_rows_returned": 10,
+          "shared_hit_blocks": 1823,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 8.0
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "relaxed_order",
+          "scan_mem_multiplier": 1,
+          "server_ms": 1.975,
+          "server_p95_ms": 2.418,
+          "client_p50_ms": 39.093,
+          "client_p95_ms": 65.403,
+          "recall_at_k": 0.8533,
+          "rows_returned": 10,
+          "min_rows_returned": 10,
+          "shared_hit_blocks": 1823,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "relaxed_order",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 1.942,
+          "server_p95_ms": 2.446,
+          "client_p50_ms": 39.072,
+          "client_p95_ms": 53.508,
+          "recall_at_k": 0.8533,
+          "rows_returned": 10,
+          "min_rows_returned": 10,
+          "shared_hit_blocks": 1823,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 8.0
+        }
+      ]
+    },
+    {
+      "preset": "rating",
+      "label": "Rating 4.8 and above",
+      "character": "uncorrelated",
+      "predicate_sql": "rating >= 4.8",
+      "matching_rows": 85175,
+      "selectivity": 0.17035,
+      "exact_rows_found": 10,
+      "modes": [
+        {
+          "ef_search": 100,
+          "iterative_scan": "off",
+          "scan_mem_multiplier": 1,
+          "server_ms": 1.883,
+          "server_p95_ms": 2.343,
+          "client_p50_ms": 41.62,
+          "client_p95_ms": 63.204,
+          "recall_at_k": 0.8967,
+          "rows_returned": 10,
+          "min_rows_returned": 10,
+          "shared_hit_blocks": 1872,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "off",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 1.892,
+          "server_p95_ms": 2.37,
+          "client_p50_ms": 39.135,
+          "client_p95_ms": 55.384,
+          "recall_at_k": 0.8967,
+          "rows_returned": 10,
+          "min_rows_returned": 10,
+          "shared_hit_blocks": 1872,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 8.0
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "strict_order",
+          "scan_mem_multiplier": 1,
+          "server_ms": 2.027,
+          "server_p95_ms": 2.51,
+          "client_p50_ms": 40.403,
+          "client_p95_ms": 52.274,
+          "recall_at_k": 0.8967,
+          "rows_returned": 10,
+          "min_rows_returned": 10,
+          "shared_hit_blocks": 1872,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "strict_order",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 1.979,
+          "server_p95_ms": 2.468,
+          "client_p50_ms": 42.238,
+          "client_p95_ms": 57.762,
+          "recall_at_k": 0.8967,
+          "rows_returned": 10,
+          "min_rows_returned": 10,
+          "shared_hit_blocks": 1872,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 8.0
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "relaxed_order",
+          "scan_mem_multiplier": 1,
+          "server_ms": 2.048,
+          "server_p95_ms": 2.605,
+          "client_p50_ms": 42.544,
+          "client_p95_ms": 59.443,
+          "recall_at_k": 0.8967,
+          "rows_returned": 10,
+          "min_rows_returned": 10,
+          "shared_hit_blocks": 1872,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "relaxed_order",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 1.984,
+          "server_p95_ms": 2.487,
+          "client_p50_ms": 37.184,
+          "client_p95_ms": 48.832,
+          "recall_at_k": 0.8967,
+          "rows_returned": 10,
+          "min_rows_returned": 10,
+          "shared_hit_blocks": 1872,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 8.0
+        }
+      ]
+    },
+    {
+      "preset": "domain",
+      "label": "Home office only",
+      "character": "anti_correlated",
+      "predicate_sql": "domain = 'home_office'",
+      "matching_rows": 130000,
+      "selectivity": 0.26,
+      "exact_rows_found": 10,
+      "modes": [
+        {
+          "ef_search": 100,
+          "iterative_scan": "off",
+          "scan_mem_multiplier": 1,
+          "server_ms": 1.915,
+          "server_p95_ms": 2.347,
+          "client_p50_ms": 43.942,
+          "client_p95_ms": 57.536,
+          "recall_at_k": 0.3967,
+          "rows_returned": 5.03,
+          "min_rows_returned": 0,
+          "shared_hit_blocks": 1850,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "off",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 1.9,
+          "server_p95_ms": 2.416,
+          "client_p50_ms": 39.236,
+          "client_p95_ms": 54.16,
+          "recall_at_k": 0.3967,
+          "rows_returned": 5.03,
+          "min_rows_returned": 0,
+          "shared_hit_blocks": 1850,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 8.0
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "strict_order",
+          "scan_mem_multiplier": 1,
+          "server_ms": 2.226,
+          "server_p95_ms": 51.918,
+          "client_p50_ms": 48.028,
+          "client_p95_ms": 86.943,
+          "recall_at_k": 0.43,
+          "rows_returned": 7.73,
+          "min_rows_returned": 0,
+          "shared_hit_blocks": 14400,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "strict_order",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 2.326,
+          "server_p95_ms": 55.229,
+          "client_p50_ms": 51.481,
+          "client_p95_ms": 107.612,
+          "recall_at_k": 0.43,
+          "rows_returned": 7.83,
+          "min_rows_returned": 0,
+          "shared_hit_blocks": 18246,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 8.0
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "relaxed_order",
+          "scan_mem_multiplier": 1,
+          "server_ms": 2.203,
+          "server_p95_ms": 51.087,
+          "client_p50_ms": 49.025,
+          "client_p95_ms": 106.283,
+          "recall_at_k": 0.5567,
+          "rows_returned": 7.73,
+          "min_rows_returned": 0,
+          "shared_hit_blocks": 14257,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "relaxed_order",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 2.166,
+          "server_p95_ms": 50.948,
+          "client_p50_ms": 46.653,
+          "client_p95_ms": 103.253,
+          "recall_at_k": 0.5567,
+          "rows_returned": 7.83,
+          "min_rows_returned": 0,
+          "shared_hit_blocks": 18110,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 8.0
+        }
+      ]
+    },
+    {
+      "preset": "brand_stock",
+      "label": "One brand, in stock",
+      "character": "selective_uncorrelated",
+      "predicate_sql": "brand_name = 'HaloBeam' AND availability = 'in_stock'",
+      "matching_rows": 1872,
+      "selectivity": 0.003744,
+      "exact_rows_found": 10,
+      "modes": [
+        {
+          "ef_search": 100,
+          "iterative_scan": "off",
+          "scan_mem_multiplier": 1,
+          "server_ms": 1.829,
+          "server_p95_ms": 2.305,
+          "client_p50_ms": 38.57,
+          "client_p95_ms": 57.135,
+          "recall_at_k": 0.0667,
+          "rows_returned": 0.67,
+          "min_rows_returned": 0,
+          "shared_hit_blocks": 1871,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "off",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 1.847,
+          "server_p95_ms": 2.283,
+          "client_p50_ms": 40.998,
+          "client_p95_ms": 77.208,
+          "recall_at_k": 0.0667,
+          "rows_returned": 0.67,
+          "min_rows_returned": 0,
+          "shared_hit_blocks": 1871,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 8.0
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "strict_order",
+          "scan_mem_multiplier": 1,
+          "server_ms": 26.568,
+          "server_p95_ms": 50.513,
+          "client_p50_ms": 61.53,
+          "client_p95_ms": 87.892,
+          "recall_at_k": 0.53,
+          "rows_returned": 5.7,
+          "min_rows_returned": 0,
+          "shared_hit_blocks": 26194,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "strict_order",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 34.351,
+          "server_p95_ms": 52.534,
+          "client_p50_ms": 74.821,
+          "client_p95_ms": 94.884,
+          "recall_at_k": 0.54,
+          "rows_returned": 5.73,
+          "min_rows_returned": 0,
+          "shared_hit_blocks": 32079,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 8.0
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "relaxed_order",
+          "scan_mem_multiplier": 1,
+          "server_ms": 27.03,
+          "server_p95_ms": 52.007,
+          "client_p50_ms": 67.725,
+          "client_p95_ms": 104.055,
+          "recall_at_k": 0.5433,
+          "rows_returned": 5.7,
+          "min_rows_returned": 0,
+          "shared_hit_blocks": 26367,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "relaxed_order",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 35.747,
+          "server_p95_ms": 53.395,
+          "client_p50_ms": 74.497,
+          "client_p95_ms": 109.609,
+          "recall_at_k": 0.56,
+          "rows_returned": 5.73,
+          "min_rows_returned": 0,
+          "shared_hit_blocks": 32505,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 8.0
+        }
+      ]
+    },
+    {
+      "preset": "refurb_premium",
+      "label": "Refurbished above $800",
+      "character": "selective_correlated",
+      "predicate_sql": "is_refurbished AND price_cents > 80000",
+      "matching_rows": 1427,
+      "selectivity": 0.002854,
+      "exact_rows_found": 10,
+      "modes": [
+        {
+          "ef_search": 100,
+          "iterative_scan": "off",
+          "scan_mem_multiplier": 1,
+          "server_ms": 1.777,
+          "server_p95_ms": 2.339,
+          "client_p50_ms": 39.452,
+          "client_p95_ms": 58.389,
+          "recall_at_k": 0.0067,
+          "rows_returned": 0.07,
+          "min_rows_returned": 0,
+          "shared_hit_blocks": 1870,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "off",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 1.736,
+          "server_p95_ms": 2.228,
+          "client_p50_ms": 41.116,
+          "client_p95_ms": 60.765,
+          "recall_at_k": 0.0067,
+          "rows_returned": 0.07,
+          "min_rows_returned": 0,
+          "shared_hit_blocks": 1870,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 8.0
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "strict_order",
+          "scan_mem_multiplier": 1,
+          "server_ms": 27.71,
+          "server_p95_ms": 56.638,
+          "client_p50_ms": 67.865,
+          "client_p95_ms": 96.736,
+          "recall_at_k": 0.39,
+          "rows_returned": 5.5,
+          "min_rows_returned": 0,
+          "shared_hit_blocks": 28036,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "strict_order",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 43.658,
+          "server_p95_ms": 58.327,
+          "client_p50_ms": 80.72,
+          "client_p95_ms": 98.891,
+          "recall_at_k": 0.42,
+          "rows_returned": 6.33,
+          "min_rows_returned": 1,
+          "shared_hit_blocks": 37569,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 8.0
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "relaxed_order",
+          "scan_mem_multiplier": 1,
+          "server_ms": 28.113,
+          "server_p95_ms": 56.21,
+          "client_p50_ms": 69.426,
+          "client_p95_ms": 98.752,
+          "recall_at_k": 0.41,
+          "rows_returned": 5.5,
+          "min_rows_returned": 0,
+          "shared_hit_blocks": 27988,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "relaxed_order",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 43.894,
+          "server_p95_ms": 55.955,
+          "client_p50_ms": 82.833,
+          "client_p95_ms": 104.894,
+          "recall_at_k": 0.4467,
+          "rows_returned": 6.33,
+          "min_rows_returned": 1,
+          "shared_hit_blocks": 37708,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "scan_mem_mb": 8.0
+        }
+      ]
+    },
+    {
+      "preset": "flagship",
+      "label": "Flagship products",
+      "character": "planner_abandons_hnsw",
+      "predicate_sql": "is_flagship",
+      "matching_rows": 6,
+      "selectivity": 1.2e-05,
+      "exact_rows_found": 6,
+      "modes": [
+        {
+          "ef_search": 100,
+          "iterative_scan": "off",
+          "scan_mem_multiplier": 1,
+          "server_ms": 220.865,
+          "server_p95_ms": 228.602,
+          "client_p50_ms": 259.821,
+          "client_p95_ms": 301.999,
+          "recall_at_k": 1.0,
+          "rows_returned": 6,
+          "min_rows_returned": 6,
+          "shared_hit_blocks": 241949,
+          "shared_read_blocks": 0,
+          "node": "Seq Scan",
+          "indexes_used": [],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "off",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 219.562,
+          "server_p95_ms": 223.11,
+          "client_p50_ms": 258.407,
+          "client_p95_ms": 270.874,
+          "recall_at_k": 1.0,
+          "rows_returned": 6,
+          "min_rows_returned": 6,
+          "shared_hit_blocks": 241949,
+          "shared_read_blocks": 0,
+          "node": "Seq Scan",
+          "indexes_used": [],
+          "scan_mem_mb": 8.0
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "strict_order",
+          "scan_mem_multiplier": 1,
+          "server_ms": 220.394,
+          "server_p95_ms": 223.306,
+          "client_p50_ms": 258.667,
+          "client_p95_ms": 273.549,
+          "recall_at_k": 1.0,
+          "rows_returned": 6,
+          "min_rows_returned": 6,
+          "shared_hit_blocks": 241949,
+          "shared_read_blocks": 0,
+          "node": "Seq Scan",
+          "indexes_used": [],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "strict_order",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 222.966,
+          "server_p95_ms": 228.244,
+          "client_p50_ms": 258.8,
+          "client_p95_ms": 273.363,
+          "recall_at_k": 1.0,
+          "rows_returned": 6,
+          "min_rows_returned": 6,
+          "shared_hit_blocks": 241949,
+          "shared_read_blocks": 0,
+          "node": "Seq Scan",
+          "indexes_used": [],
+          "scan_mem_mb": 8.0
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "relaxed_order",
+          "scan_mem_multiplier": 1,
+          "server_ms": 219.924,
+          "server_p95_ms": 224.103,
+          "client_p50_ms": 259.859,
+          "client_p95_ms": 273.903,
+          "recall_at_k": 1.0,
+          "rows_returned": 6,
+          "min_rows_returned": 6,
+          "shared_hit_blocks": 241949,
+          "shared_read_blocks": 0,
+          "node": "Seq Scan",
+          "indexes_used": [],
+          "scan_mem_mb": 4
+        },
+        {
+          "ef_search": 100,
+          "iterative_scan": "relaxed_order",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 220.455,
+          "server_p95_ms": 224.228,
+          "client_p50_ms": 256.9,
+          "client_p95_ms": 271.0,
+          "recall_at_k": 1.0,
+          "rows_returned": 6,
+          "min_rows_returned": 6,
+          "shared_hit_blocks": 241949,
+          "shared_read_blocks": 0,
+          "node": "Seq Scan",
+          "indexes_used": [],
+          "scan_mem_mb": 8.0
+        }
+      ]
+    }
+  ],
+  "representations": {
+    "ef_search": 100,
+    "k": 10,
+    "anchors": 30,
+    "payload_bytes": {
+      "fp32": 4100,
+      "halfvec": 2056,
+      "binary": 136
+    },
+    "note": "Same current embeddings and exact fp32 ground truth. Existing indexes; build time not measured.",
+    "rows": [
+      {
+        "ef_search": 100,
+        "iterative_scan": "relaxed_order",
+        "scan_mem_multiplier": 2.0,
+        "server_ms": 1.89,
+        "server_p95_ms": 2.333,
+        "client_p50_ms": 37.894,
+        "client_p95_ms": 48.825,
+        "recall_at_k": 0.8533,
+        "rows_returned": 10,
+        "min_rows_returned": 10,
+        "shared_hit_blocks": 1823,
+        "shared_read_blocks": 0,
+        "node": "Index Scan",
+        "indexes_used": [
+          "product_document_embedding_hnsw_cosine_idx"
+        ],
+        "representation": "fp32",
+        "overfetch": null,
+        "index_size_bytes": 4094238720,
+        "bytes_per_vector": 8188,
+        "build_seconds": null
+      },
+      {
+        "ef_search": 100,
+        "iterative_scan": "relaxed_order",
+        "scan_mem_multiplier": 2.0,
+        "server_ms": 2.364,
+        "server_p95_ms": 3.053,
+        "client_p50_ms": 37.663,
+        "client_p95_ms": 53.349,
+        "recall_at_k": 0.8633,
+        "rows_returned": 10,
+        "min_rows_returned": 10,
+        "shared_hit_blocks": 1794,
+        "shared_read_blocks": 0,
+        "node": "Index Scan",
+        "indexes_used": [
+          "product_document_embedding_hnsw_halfvec_idx"
+        ],
+        "representation": "halfvec",
+        "overfetch": null,
+        "index_size_bytes": 1364754432,
+        "bytes_per_vector": 2730,
+        "build_seconds": null
+      },
+      {
+        "ef_search": 100,
+        "iterative_scan": "relaxed_order",
+        "scan_mem_multiplier": 2.0,
+        "server_ms": 1.28,
+        "server_p95_ms": 1.67,
+        "client_p50_ms": 42.963,
+        "client_p95_ms": 57.006,
+        "recall_at_k": 0.3667,
+        "rows_returned": 10,
+        "min_rows_returned": 10,
+        "shared_hit_blocks": 2145,
+        "shared_read_blocks": 0,
+        "node": "Index Scan",
+        "indexes_used": [
+          "product_document_embedding_hnsw_binary_idx"
+        ],
+        "representation": "binary_two_pass",
+        "overfetch": 10,
+        "index_size_bytes": 217112576,
+        "bytes_per_vector": 434,
+        "build_seconds": null
+      },
+      {
+        "ef_search": 100,
+        "iterative_scan": "relaxed_order",
+        "scan_mem_multiplier": 2.0,
+        "server_ms": 1.412,
+        "server_p95_ms": 1.885,
+        "client_p50_ms": 38.995,
+        "client_p95_ms": 55.506,
+        "recall_at_k": 0.5033,
+        "rows_returned": 10,
+        "min_rows_returned": 10,
+        "shared_hit_blocks": 2241,
+        "shared_read_blocks": 0,
+        "node": "Index Scan",
+        "indexes_used": [
+          "product_document_embedding_hnsw_binary_idx"
+        ],
+        "representation": "binary_two_pass",
+        "overfetch": 20,
+        "index_size_bytes": 217112576,
+        "bytes_per_vector": 434,
+        "build_seconds": null
+      },
+      {
+        "ef_search": 100,
+        "iterative_scan": "relaxed_order",
+        "scan_mem_multiplier": 2.0,
+        "server_ms": 1.64,
+        "server_p95_ms": 2.149,
+        "client_p50_ms": 39.889,
+        "client_p95_ms": 57.426,
+        "recall_at_k": 0.64,
+        "rows_returned": 10,
+        "min_rows_returned": 10,
+        "shared_hit_blocks": 2530,
+        "shared_read_blocks": 0,
+        "node": "Index Scan",
+        "indexes_used": [
+          "product_document_embedding_hnsw_binary_idx"
+        ],
+        "representation": "binary_two_pass",
+        "overfetch": 50,
+        "index_size_bytes": 217112576,
+        "bytes_per_vector": 434,
+        "build_seconds": null
+      },
+      {
+        "ef_search": 100,
+        "iterative_scan": "relaxed_order",
+        "scan_mem_multiplier": 2.0,
+        "server_ms": 2.183,
+        "server_p95_ms": 2.482,
+        "client_p50_ms": 41.465,
+        "client_p95_ms": 74.0,
+        "recall_at_k": 0.71,
+        "rows_returned": 10,
+        "min_rows_returned": 10,
+        "shared_hit_blocks": 3010,
+        "shared_read_blocks": 0,
+        "node": "Index Scan",
+        "indexes_used": [
+          "product_document_embedding_hnsw_binary_idx"
+        ],
+        "representation": "binary_two_pass",
+        "overfetch": 100,
+        "index_size_bytes": 217112576,
+        "bytes_per_vector": 434,
+        "build_seconds": null
+      },
+      {
+        "ef_search": 100,
+        "iterative_scan": "relaxed_order",
+        "scan_mem_multiplier": 2.0,
+        "server_ms": 3.825,
+        "server_p95_ms": 4.68,
+        "client_p50_ms": 43.825,
+        "client_p95_ms": 61.148,
+        "recall_at_k": 0.8433,
+        "rows_returned": 10,
+        "min_rows_returned": 10,
+        "shared_hit_blocks": 5298,
+        "shared_read_blocks": 0,
+        "node": "Index Scan",
+        "indexes_used": [
+          "product_document_embedding_hnsw_binary_idx"
+        ],
+        "representation": "binary_two_pass",
+        "overfetch": 200,
+        "index_size_bytes": 217112576,
+        "bytes_per_vector": 434,
+        "build_seconds": null
+      }
+    ],
+    "blog_operating_point": {
+      "anchors": 30,
+      "k": 10,
+      "rows": [
+        {
+          "ef_search": 800,
+          "iterative_scan": "relaxed_order",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 7.824,
+          "server_p95_ms": 12.213,
+          "client_p50_ms": 49.377,
+          "client_p95_ms": 60.73,
+          "recall_at_k": 0.9867,
+          "rows_returned": 10,
+          "min_rows_returned": 10,
+          "shared_hit_blocks": 7525,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_cosine_idx"
+          ],
+          "config": "fp32, ef_search 800"
+        },
+        {
+          "ef_search": 800,
+          "iterative_scan": "relaxed_order",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 19.619,
+          "server_p95_ms": 25.94,
+          "client_p50_ms": 58.996,
+          "client_p95_ms": 73.501,
+          "recall_at_k": 0.99,
+          "rows_returned": 10,
+          "min_rows_returned": 10,
+          "shared_hit_blocks": 25875,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_binary_idx"
+          ],
+          "config": "binary, ef_search 800, rescore 1400"
+        },
+        {
+          "ef_search": 800,
+          "iterative_scan": "relaxed_order",
+          "scan_mem_multiplier": 2.0,
+          "server_ms": 38.152,
+          "server_p95_ms": 45.455,
+          "client_p50_ms": 79.447,
+          "client_p95_ms": 103.654,
+          "recall_at_k": 0.9967,
+          "rows_returned": 10,
+          "min_rows_returned": 10,
+          "shared_hit_blocks": 46748,
+          "shared_read_blocks": 0,
+          "node": "Index Scan",
+          "indexes_used": [
+            "product_document_embedding_hnsw_binary_idx"
+          ],
+          "config": "binary, ef_search 800, rescore 3000"
+        }
+      ],
+      "correction": "Fresh deeper-search comparison on the same anchors.",
+      "reference": "pgvector binary quantization",
+      "reference_url": "https://github.com/pgvector/pgvector#binary-quantization",
+      "tradeoff": "These settings use different search effort. Compare recall with both time and index size."
+    }
+  }
+}

@@ -31,10 +31,30 @@ def test_percentiles_cover_all_anchors_instead_of_the_first_query():
     assert len(result["samples"]) == 3
 
 
-@pytest.mark.parametrize("samples", [[], [{**sample(1, 1, 0), "truth_count": 0}]])
-def test_no_measurement_or_no_truth_cannot_be_published(samples):
+def test_no_measurement_cannot_be_published():
     with pytest.raises(ValueError, match="Benchmark truth rule.*fix"):
-        summarize(samples)
+        summarize([])
+
+
+def test_an_empty_exact_neighbourhood_is_kept_and_counted_not_refused():
+    """A filter that matches nothing near an anchor is a measured fact.
+
+    It is scored zero and counted in `truth_empty`, so a level's recall figure
+    says how much of it is made of empty neighbourhoods rather than hiding
+    them behind a refusal.
+    """
+    result = summarize(
+        [
+            {**sample(1, 0.0, 0), "truth_count": 0, "k": 10},
+            {**sample(2, 1.0, 10), "k": 10},
+            {**sample(3, 1.0, 4), "truth_count": 4, "k": 10},
+        ]
+    )
+
+    assert result["truth_empty"] == 1
+    assert result["truth_below_k"] == 1
+    assert result["recall_at_k"] == round(2 / 3, 4)
+    assert result["min_rows_returned"] == 0
 
 
 def test_binary_depth_reaches_the_production_probe_parameters():

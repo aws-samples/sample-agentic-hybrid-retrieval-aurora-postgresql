@@ -54,18 +54,28 @@ recall. Inspect the measured constraint before choosing a repair.
 
 ## Instructor measurement path
 
+`make select-hnsw-anchors` records the query anchors for the served catalog
+(the lab products plus a category-stratified hash sample) in
+`data/benchmarks/hnsw_anchors.json`; `make check-hnsw-anchors` recomputes the
+selection and refuses drift. `make db-seed-exact-neighbors` then stores the
+exact neighbours of every anchor under every preset, keyed by the catalog,
+anchor-set and predicate identities.
+
 `make benchmark-hnsw` calls `scripts/benchmark_mosaic_scale.py`. From a clean
 worktree with `DATABASE_URL` pointing at Aurora and `AURORA_INSTANCE_CLASS`
-matching the connected instance, it measures the existing fp32, halfvec and
-binary indexes using the production probe SQL and
-`mosaic_search.configure_hnsw`. The Make target owns the experiment matrix;
-retrieval defaults remain in `db/config/retrieval.yaml`.
+matching the connected instance, it measures the served catalog's fp32 index
+(and the halfvec and binary indexes only where they exist) using the production
+probe SQL and the served catalog's `configure_hnsw`, across every
+iterative-scan mode. The Make target owns the experiment matrix; retrieval
+defaults remain in `db/config/retrieval.yaml`.
 
-The runner writes `data/benchmarks/hnsw_measured.json` and its raw sample file.
-Retain both. It recomputes exact fp32 neighbors for each filter, records source
-and dataset identity, and checks that the unfiltered plans use the expected
-indexes. It does not rebuild indexes or measure build duration. Its
-`build_seconds` values are absent, not zero-duration builds.
+The runner writes `data/benchmarks/hnsw_measured.json`, its raw sample file and
+its plan file. Retain all three. It recomputes exact fp32 neighbors for each
+filter, records source, catalog and anchor-set identity, and checks that the
+unfiltered plans use the expected index. It does not rebuild indexes. Build
+duration is a separate measurement: `make benchmark-index-build` times a
+benchmark-owned index on the same table with the production build parameters
+and records the worker and memory settings the server used.
 
 Each query runs once for product IDs and again under `EXPLAIN`. Server
 percentiles describe the warmed second execution across the sampled anchors;
@@ -89,12 +99,12 @@ reason. Confirm both paths from their recorded plans.
 
 ### Further experiments
 
-Index rebuilds, partial indexes, partitioning, larger physical catalogs and
-concurrent load belong in separately provisioned Aurora experiments. Capture
-build duration and resource use there if those claims matter. The current
-existing-index benchmark cannot supply those measurements, and the staged
-real-product replacement must be validated before its results replace the
-current artifact.
+Partial indexes, partitioning and larger physical catalogs belong in
+separately provisioned Aurora experiments. Build duration comes from
+`make benchmark-index-build`, and concurrent load and instance-class
+comparisons from `make benchmark-hardware`, which runs on restored copies of
+the catalog from an in-VPC client and publishes its results apart from the
+served instrument's artifact (see `docs/current-scale-benchmarks.md`).
 
 ## Presentation rule
 
