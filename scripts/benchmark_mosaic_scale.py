@@ -42,7 +42,7 @@ from scripts.benchmark_hnsw import (
     recall_against_truth,
 )
 from scripts.retrieval_profile import explain, load_profile
-from scripts.seed_exact_neighbors import exact_neighbors
+from scripts.seed_exact_neighbors import exact_neighbors, load_ground_truth
 from service.catalog_runtime import (
     active_dataset,
     catalog_indexes,
@@ -131,20 +131,59 @@ def summarize(samples: list[dict]) -> dict:
     }
 
 
-def exact_truth(
-    connection: Any, pool: list[Any], *, preset: FilterPreset, k: int
-) -> tuple[dict[int, list[int]], list[float]]:
-    """Exact top-k per anchor for one preset, and the client time of each scan."""
-    truth: dict[int, list[int]] = {}
-    timings: list[float] = []
-    for anchor in pool:
-        started = time.perf_counter()
-        rows = exact_neighbors(
-            connection, embedding=anchor["embedding"], preset=preset, k=k
+def seeded_truth(
+    connection: Any,
+    pool: list[Any],
+    *,
+    manifest: str,
+    anchor_set_sha256: str,
+    k: int,
+) -> dict[str, dict[int, list[int]]]:
+    """The exact neighbours seeded on this cluster, per preset, refused if incomplete.
+
+    The instrument computes recall against these rows, so the benchmark does
+    too: one seeding run is the exact answer for every probe and every runner,
+    and a benchmark that recomputed it would measure the seeding, not the index.
+    """
+    stored = load_ground_truth(
+        connection, manifest_sha256=manifest, k=k, anchor_set_sha256=anchor_set_sha256
+    )
+    truth: dict[str, dict[int, list[int]]] = {}
+    missing: list[tuple[int, str]] = []
+    for preset in FILTER_PRESETS:
+        truth[preset.key] = {}
+        for anchor in pool:
+            key = (int(anchor["product_id"]), preset.key)
+            if key not in stored:
+                missing.append(key)
+            truth[preset.key][int(anchor["product_id"])] = stored.get(key, [])
+    if missing:
+        raise SystemExit(
+            explain(
+                f"{len(missing)} anchor/preset pair(s) have no seeded exact neighbours "
+                f"(first: {missing[:3]})",
+                "run `make db-seed-exact-neighbors` before `make benchmark-hnsw`",
+            )
         )
+    return truth
+
+
+def exact_scan_timings(
+    connection: Any, pool: list[Any], *, preset: FilterPreset, k: int, sample: int
+) -> tuple[list[float], list[dict[str, Any]]]:
+    """Time the per-anchor exact scan on a sample of anchors, for the baseline row.
+
+    This is the cost a probe would pay if it re-ran the exact query, which is
+    exactly why the instrument never does. The timings are recorded as such;
+    the exact answers themselves come from the seeded rows.
+    """
+    timings: list[float] = []
+    plans: list[dict[str, Any]] = []
+    for anchor in pool[:sample]:
+        started = time.perf_counter()
+        exact_neighbors(connection, embedding=anchor["embedding"], preset=preset, k=k)
         timings.append((time.perf_counter() - started) * 1000)
-        truth[int(anchor["product_id"])] = [product_id for _, product_id, _ in rows]
-    return truth, timings
+    return timings, plans
 
 
 def explain_json(connection: Any, sql: str, parameters: list[Any]) -> dict[str, Any]:
@@ -229,6 +268,12 @@ def main() -> None:
     parser.add_argument("--deep-ef-search", type=int, required=True)
     parser.add_argument("--deep-binary-depth", nargs="+", type=int, required=True)
     parser.add_argument("--instance-class", required=True)
+    parser.add_argument(
+        "--exact-sample",
+        type=int,
+        default=5,
+        help="Anchors whose per-anchor exact scan is timed for the baseline row.",
+    )
     args = parser.parse_args()
     if (
         min(
@@ -316,13 +361,27 @@ def main() -> None:
             f"Measuring {len(pool)} anchors across {len({row['category_key'] for row in pool})} categories, {count} vectors",
             flush=True,
         )
-        print("Exact fp32 ground truth (unfiltered)…", flush=True)
-        truth, exact_times = exact_truth(connection, pool, preset=unfiltered, k=args.k)
+        print("Seeded exact ground truth…", flush=True)
+        seeded = seeded_truth(
+            connection,
+            pool,
+            manifest=manifest,
+            anchor_set_sha256=anchor_set.sha256,
+            k=args.k,
+        )
+        truth = seeded["none"]
+        exact_sample = max(1, min(args.exact_sample, len(pool)))
+        print(
+            f"Timing the per-anchor exact scan on {exact_sample} anchors…", flush=True
+        )
+        exact_times, _ = exact_scan_timings(
+            connection, pool, preset=unfiltered, k=args.k, sample=exact_sample
+        )
         baseline_samples = []
         try:
             for setting in EXACT_BASELINE_SETTINGS:
                 connection.execute(f"SET {setting}")
-            for row in pool:
+            for row in pool[:exact_sample]:
                 baseline_samples.append(
                     _explain_probe(
                         connection,
@@ -334,6 +393,7 @@ def main() -> None:
             for setting in EXACT_BASELINE_SETTINGS:
                 connection.execute(f"RESET {setting.split(' =')[0]}")
         exact_baseline = {
+            "anchors_timed": exact_sample,
             "p50_ms": round(percentile(exact_times, 0.5), 3),
             "p95_ms": round(percentile(exact_times, 0.95), 3),
             "mean_ms": round(statistics.mean(exact_times), 3),
@@ -345,6 +405,7 @@ def main() -> None:
             ),
             "node": baseline_samples[0]["node"],
             "method": ", ".join(EXACT_BASELINE_SETTINGS),
+            "truth_source": "mosaic_bench.exact_neighbor rows seeded for this catalog, anchor set and preset predicates",
         }
         sweep_by_mode: dict[str, list[dict]] = {}
         for mode in SCAN_MODES:
@@ -363,11 +424,7 @@ def main() -> None:
         matrix = []
         for preset in FILTER_PRESETS:
             print(f"Filter {preset.key}…", flush=True)
-            filtered_truth = (
-                truth
-                if preset.key == "none"
-                else exact_truth(connection, pool, preset=preset, k=args.k)[0]
-            )
+            filtered_truth = seeded[preset.key]
             where = f" AND {preset.predicate_sql}" if preset.predicate_sql else ""
             matching = connection.execute(
                 f"SELECT count(*) AS n FROM {product_document()} WHERE embedding IS NOT NULL{where}"

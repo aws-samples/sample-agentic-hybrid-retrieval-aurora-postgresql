@@ -50,6 +50,9 @@ class _Cursor:
     def fetchall(self):
         return self.rows
 
+    def fetchone(self):
+        return self.rows[0] if self.rows else None
+
 
 class _Connection:
     def __init__(self, rows=()):
@@ -134,37 +137,91 @@ def test_the_exact_query_orders_ties_deterministically_and_resets_settings():
     assert statements[-1].startswith("RESET enable_bitmapscan")
 
 
-def test_seeding_writes_the_anchor_set_and_predicate_identity():
+def test_seeding_computes_one_distance_pass_per_batch_and_ranks_every_preset():
     from types import SimpleNamespace
 
-    from scripts.seed_exact_neighbors import seed
+    from scripts.seed_exact_neighbors import ANCHOR_BATCH, seed
     from service.hnsw_presets import FILTER_PRESETS
 
     class _SeedConnection(_Connection):
         def execute(self, sql, parameters=None):
             self.queries.append((sql, parameters))
             if "SELECT product_id, title, embedding" in sql:
-                return _Cursor([{"product_id": 1, "title": "t", "embedding": [0.1]}])
-            if "cosine_distance" in sql:
-                return _Cursor([{"product_id": 1, "cosine_distance": 0.0}])
+                return _Cursor(
+                    [
+                        {"product_id": i, "title": "t", "embedding": [0.1]}
+                        for i in (1, 2)
+                    ]
+                )
+            if "count(*) AS n FROM pg_temp.hnsw_anchor_distance" in sql:
+                return _Cursor([{"n": 4}])
+            if "row_number() OVER" in sql:
+                return _Cursor(
+                    [
+                        {
+                            "anchor_product_id": 1,
+                            "product_id": 1,
+                            "cosine_distance": 0.0,
+                            "rank": 1,
+                        },
+                        {
+                            "anchor_product_id": 2,
+                            "product_id": 2,
+                            "cosine_distance": 0.0,
+                            "rank": 1,
+                        },
+                    ]
+                )
             return _Cursor([])
 
         def commit(self):
             pass
 
     connection = _SeedConnection()
-    anchors = SimpleNamespace(product_ids=(1,), sha256="a" * 64)
+    anchors = SimpleNamespace(product_ids=(1, 2), sha256="a" * 64)
 
     written = seed(
         connection, anchors=anchors, k=50, manifest_sha256="m" * 64, revision="r"
     )
 
+    statements = [sql for sql, _ in connection.queries]
+    passes = [
+        sql for sql in statements if "CREATE TEMP TABLE hnsw_anchor_distance" in sql
+    ]
+    assert len(passes) == 1, "two anchors fit one batch, so one catalog pass"
+    assert ANCHOR_BATCH >= 2
+    assert "CROSS JOIN (VALUES" in passes[0]
+    assert "(d.embedding <=> a.embedding)" in passes[0]
+    ranked = [sql for sql in statements if "row_number() OVER" in sql]
+    assert len(ranked) == len(FILTER_PRESETS)
+    assert "ORDER BY cosine_distance, product_id" in ranked[0]
+    assert "WHERE rating >= 4.5" in ranked[1]
     inserts = [p for sql, p in connection.queries if sql.strip().startswith("INSERT")]
-    assert written == len(FILTER_PRESETS)
+    assert written == 2 * len(FILTER_PRESETS)
     assert {p[8] for p in inserts} == {"a" * 64}
     assert {p[9] for p in inserts} == {
         preset.predicate_sha256 for preset in FILTER_PRESETS
     }
+    assert statements[-1].startswith(
+        "DROP TABLE IF EXISTS pg_temp.hnsw_anchor_distance"
+    )
+
+
+def test_the_batch_pass_keeps_the_filter_columns_the_presets_name():
+    from scripts.seed_exact_neighbors import compute_distances
+
+    class _PassConnection(_Connection):
+        def execute(self, sql, parameters=None):
+            self.queries.append((sql, parameters))
+            return _Cursor([{"n": 3}])
+
+    connection = _PassConnection()
+    rows = compute_distances(connection, [{"product_id": 7, "embedding": [0.2]}])
+
+    assert rows == 3
+    create = next(sql for sql, _ in connection.queries if "CREATE TEMP TABLE" in sql)
+    for column in ("d.domain", "d.category_key", "d.brand_name", "d.rating"):
+        assert column in create
 
 
 def test_seeding_refuses_an_anchor_the_catalog_lacks():

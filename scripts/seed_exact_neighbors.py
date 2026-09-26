@@ -1,12 +1,19 @@
 #!/usr/bin/env python3
 """Precompute exact nearest neighbours for the HNSW instrument's query anchors.
 
-The exact query is a sequential scan over every stored vector. Running it per
-interaction would turn an optional Labs surface into a load generator, so it
-runs once here: every anchor in `data/benchmarks/hnsw_anchors.json` across the
-six filter presets. Every recall figure the instrument reports afterwards is
-computed against these rows, which is what keeps the live probe's cost ceiling
-a filtered HNSW scan.
+The exact answer needs the distance from an anchor to every stored vector.
+Computing it per interaction would turn an optional Labs surface into a load
+generator, so it runs once here for every anchor in
+`data/benchmarks/hnsw_anchors.json` across the six filter presets. Every recall
+figure the instrument reports afterwards is computed against these rows, which
+is what keeps the live probe's cost ceiling a filtered HNSW scan.
+
+One pass over the catalog serves a batch of anchors: the distances from every
+vector to each anchor in the batch land in a session-local table together with
+the filter columns, and each preset's exact top-k per anchor is then a ranked
+read of that table under the preset's own predicate text. This is the same
+answer as one filtered `ORDER BY embedding <=> anchor LIMIT k` scan per pair,
+at a fraction of the detoasting cost on a catalog of half a million vectors.
 
 Idempotent, and refuses to serve or write ground truth that belongs to a
 different corpus, anchor set, or preset predicate than the one connected.
@@ -50,6 +57,10 @@ from service.hnsw_presets import EXACT_BASELINE_SETTINGS, FILTER_PRESETS, Filter
 #: and reads a prefix, so one seeding run serves every request depth.
 SEEDED_K = 50
 
+#: Anchors whose distances one catalog pass computes together. Ten anchors
+#: over 553,911 vectors is about 5.5 million distance rows in the session table.
+ANCHOR_BATCH = 10
+
 #: The service pool applies the interactive request timeout to every checkout.
 #: An exact scan over every stored vector is not an interactive request, so the
 #: seeder asks for its own ceiling instead of inheriting a 30-second cancel.
@@ -89,6 +100,74 @@ def exact_neighbors(
         (rank, int(row["product_id"]), float(row["cosine_distance"]))
         for rank, row in enumerate(rows, start=1)
     ]
+
+
+DISTANCE_TABLE = "pg_temp.hnsw_anchor_distance"
+
+
+def compute_distances(connection: Any, anchors: list[dict[str, Any]]) -> int:
+    """One pass over the catalog: every vector's distance to each anchor in `anchors`.
+
+    The session table keeps the filter columns beside each distance so the
+    preset predicates rank it with the same text the served probe appends to
+    its query. Returns the number of distance rows written.
+    """
+    connection.execute(f"DROP TABLE IF EXISTS {DISTANCE_TABLE}")
+    placeholders = ", ".join("(%s::bigint, %s::vector)" for _ in anchors)
+    parameters: list[Any] = []
+    for anchor in anchors:
+        parameters.extend((int(anchor["product_id"]), anchor["embedding"]))
+    connection.execute(
+        f"""
+        CREATE TEMP TABLE hnsw_anchor_distance AS
+        SELECT a.anchor_product_id,
+               d.product_id,
+               (d.embedding <=> a.embedding) AS cosine_distance,
+               d.domain, d.category_key, d.brand_name, d.rating
+        FROM {product_document()} AS d
+        CROSS JOIN (VALUES {placeholders}) AS a(anchor_product_id, embedding)
+        WHERE d.embedding IS NOT NULL
+        """,
+        parameters,
+    )
+    return int(
+        connection.execute(f"SELECT count(*) AS n FROM {DISTANCE_TABLE}").fetchone()[
+            "n"
+        ]
+    )
+
+
+def ranked_neighbors(
+    connection: Any, *, preset: FilterPreset, k: int
+) -> dict[int, list[tuple[int, int, float]]]:
+    """Exact top-k per anchor under one preset, read from the distance table.
+
+    Ties are ordered by `product_id`, exactly as the per-anchor query does.
+    """
+    predicate = f"WHERE {preset.predicate_sql}" if preset.predicate_sql else ""
+    rows = connection.execute(
+        f"""
+        SELECT anchor_product_id, product_id, cosine_distance, rank
+        FROM (
+            SELECT anchor_product_id, product_id, cosine_distance,
+                   row_number() OVER (
+                       PARTITION BY anchor_product_id
+                       ORDER BY cosine_distance, product_id
+                   ) AS rank
+            FROM {DISTANCE_TABLE}
+            {predicate}
+        ) AS ranked
+        WHERE rank <= %s
+        ORDER BY anchor_product_id, rank
+        """,
+        (k,),
+    ).fetchall()
+    truth: dict[int, list[tuple[int, int, float]]] = {}
+    for row in rows:
+        truth.setdefault(int(row["anchor_product_id"]), []).append(
+            (int(row["rank"]), int(row["product_id"]), float(row["cosine_distance"]))
+        )
+    return truth
 
 
 def _write_neighbors(
@@ -171,27 +250,38 @@ def seed(
 ) -> int:
     """Write exact neighbours for every anchor and preset. Returns rows written."""
     written = 0
-    for anchor in anchor_vectors(connection, anchors):
+    vectors = anchor_vectors(connection, anchors)
+    for start in range(0, len(vectors), ANCHOR_BATCH):
+        batch = vectors[start : start + ANCHOR_BATCH]
+        distances = compute_distances(connection, batch)
+        print(
+            f"  batch {start // ANCHOR_BATCH + 1}: {len(batch)} anchors, "
+            f"{distances} distance rows",
+            flush=True,
+        )
         for preset in FILTER_PRESETS:
-            neighbors = exact_neighbors(
-                connection, embedding=anchor["embedding"], preset=preset, k=k
-            )
-            written += _write_neighbors(
-                connection,
-                anchor_product_id=int(anchor["product_id"]),
-                preset=preset,
-                k=k,
-                manifest_sha256=manifest_sha256,
-                anchor_set_sha256=anchors.sha256,
-                revision=revision,
-                neighbors=neighbors,
-            )
+            truth = ranked_neighbors(connection, preset=preset, k=k)
+            for anchor in batch:
+                neighbors = truth.get(int(anchor["product_id"]), [])
+                written += _write_neighbors(
+                    connection,
+                    anchor_product_id=int(anchor["product_id"]),
+                    preset=preset,
+                    k=k,
+                    manifest_sha256=manifest_sha256,
+                    anchor_set_sha256=anchors.sha256,
+                    revision=revision,
+                    neighbors=neighbors,
+                )
             connection.commit()
             print(
-                f"  {anchor['product_id']:>8} {preset.key:<13} "
-                f"{len(neighbors):>2} neighbours",
+                f"    {preset.key:<13} "
+                f"{sum(len(truth.get(int(a['product_id']), [])) for a in batch):>4} "
+                f"neighbours across the batch",
                 flush=True,
             )
+    connection.execute(f"DROP TABLE IF EXISTS {DISTANCE_TABLE}")
+    connection.commit()
     return written
 
 
