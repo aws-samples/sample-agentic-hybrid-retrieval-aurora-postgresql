@@ -271,6 +271,9 @@ def validate_lab_3(
 
 
 def main() -> int:
+    from dotenv import load_dotenv
+
+    load_dotenv(REPO / ".env")
     parser = argparse.ArgumentParser()
     parser.add_argument("--lab", type=int, required=True, choices=(1, 2, 3))
     parser.add_argument("--api-url", default="http://127.0.0.1:8000")

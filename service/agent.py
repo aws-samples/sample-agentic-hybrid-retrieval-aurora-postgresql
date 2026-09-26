@@ -165,12 +165,22 @@ class ToolCallBudgetExceeded(RuntimeError):
 class AgentTurnDeadlineExceeded(RuntimeError):
     """One turn's model-and-tool loop exceeded its overall wall-clock budget.
 
-    Bounds the whole turn -- however many Bedrock calls and provider retries it
-    makes -- rather than any single call, which already has its own botocore
-    timeout. Unlike `ToolCallBudgetExceeded`, this skips the fallback
-    synthesis attempt entirely (see the `fallback_error` assignments in
-    `answer()` and `stream()`): the turn already spent its time budget, so it
-    reports failure rather than spending one more model call.
+    Bounds when the caller gets a response and when the admission slot is
+    released -- not the underlying work. Strands runs each Bedrock call
+    through `asyncio.to_thread`, so `asyncio.wait_for`/`asyncio.timeout`
+    cancels the *awaiting* task but cannot interrupt a boto3 call already
+    executing in its worker thread: a call in flight when the deadline fires
+    keeps running, unobserved, for up to its own remaining
+    `BEDROCK_MAX_ATTEMPTS * (connect_timeout + read_timeout)` -- 325s at the
+    default `BEDROCK_MAX_ATTEMPTS=5` -- plus whatever additional delay
+    botocore's adaptive-mode retry backoff adds between attempts, which these
+    settings do not bound. Only one Bedrock call is ever in flight per turn,
+    so this is a per-turn ceiling, not a per-call one that accumulates.
+
+    Unlike `ToolCallBudgetExceeded`, this skips the fallback synthesis attempt
+    entirely (see the `fallback_error` assignments in `answer()` and
+    `stream()`): the turn already spent its time budget, so it reports
+    failure rather than spending one more model call.
     """
 
 
@@ -469,10 +479,12 @@ class ProductDiscoveryAgent:
                 # tool executes. The FastAPI route is synchronous, so running the
                 # native async invocation here preserves the request context.
                 #
-                # `wait_for` bounds the whole multi-tool-call loop, not any one
-                # model call: a single Bedrock call already carries its own
-                # botocore timeout, but nothing else caps how many tool-call
-                # round trips, and their retries, one turn can accumulate.
+                # `wait_for` bounds when this call returns to the caller, not
+                # any one model call's own worker-thread work: nothing else
+                # caps how many tool-call round trips, and their retries, one
+                # turn can accumulate. See `AgentTurnDeadlineExceeded`'s
+                # docstring for the worst-case background work this leaves
+                # running after the deadline fires.
                 result = asyncio.run(
                     asyncio.wait_for(
                         build_agent().invoke_async(_agent_prompt(request, state)),
@@ -563,6 +575,61 @@ class ProductDiscoveryAgent:
             # before its request context and telemetry are released.
             await asyncio.shield(task)
 
+    async def _stream_agent_loop(
+        self,
+        request: AgentRequest,
+        state: dict[str, Any],
+        deadline: float,
+    ):
+        """Run one deadline-bounded Strands stream, yielding its lifecycle events.
+
+        Bounds when this generator stops yielding, the same way `answer()`
+        bounds when it returns -- not any in-flight Bedrock call's own
+        worker-thread work; see `AgentTurnDeadlineExceeded`'s docstring for
+        that worst case. `asyncio.timeout` cancels the generator being
+        iterated below even while it is suspended at `yield`, waiting for
+        this generator's own consumer to pull the next event.
+
+        The final Strands result and the exception that ended the loop, if
+        any, are smuggled out as a `loop_outcome` event -- the same
+        sentinel-key idiom `_stream_fallback` already uses for
+        `fallback_error` -- because an async generator's own `return` cannot
+        carry a value back to its caller.
+        """
+        result: Any | None = None
+        error: Exception | None = None
+        # Emit a snapshot only when a tool has actually added something. A
+        # `current_tool_use` arrives on every streamed delta, so keying off the
+        # event alone would re-send the same shortlist dozens of times per tool.
+        produced = (0, 0, 0)
+        try:
+            async with asyncio.timeout(deadline):
+                async for event in build_agent().stream_async(
+                    _agent_prompt(request, state)
+                ):
+                    if "result" in event:
+                        result = event["result"]
+                    yield event
+                    progress = (
+                        len(state["searches"]),
+                        len(state["products"]),
+                        len(state["trace"]),
+                    )
+                    if progress != produced:
+                        produced = progress
+                        yield {"agent_partial": _partial(state)}
+        except TimeoutError:
+            error = AgentTurnDeadlineExceeded(
+                f"The agent run exceeded its {deadline:g}s turn deadline."
+            )
+            logger.warning("Strands streaming agent loop exceeded its turn deadline")
+        except Exception as caught:
+            error = caught
+            logger.warning(
+                "Strands streaming agent loop failed: %s", caught, exc_info=True
+            )
+        yield {"loop_outcome": (result, error)}
+
     async def stream(self, request: AgentRequest):
         """Yield native Strands lifecycle events for one canonical agent run."""
         state = await asyncio.to_thread(
@@ -583,47 +650,16 @@ class ProductDiscoveryAgent:
             await asyncio.to_thread(attach_run, request, state)
             result: Any | None = None
             error: Exception | None = None
-            # Emit a snapshot only when a tool has actually added something. A
-            # `current_tool_use` arrives on every streamed delta, so keying off the
-            # event alone would re-send the same shortlist dozens of times per tool.
-            produced = (0, 0, 0)
             deadline = get_settings().agent_turn_deadline_seconds
             with observe_agent_turn(state, request.question) as observation:
                 state["trace_id"] = observation.correlation.trace_id
                 state["span_id"] = observation.correlation.span_id
-                try:
-                    # Bounds the whole streamed multi-tool-call loop, the same
-                    # way `answer()` bounds its synchronous one. `asyncio.timeout`
-                    # cancels the generator being iterated below even while it is
-                    # suspended at `yield`, waiting for this generator's own
-                    # consumer to pull the next event.
-                    async with asyncio.timeout(deadline):
-                        async for event in build_agent().stream_async(
-                            _agent_prompt(request, state)
-                        ):
-                            if "result" in event:
-                                result = event["result"]
-                            yield event
-                            progress = (
-                                len(state["searches"]),
-                                len(state["products"]),
-                                len(state["trace"]),
-                            )
-                            if progress != produced:
-                                produced = progress
-                                yield {"agent_partial": _partial(state)}
-                except TimeoutError:
-                    error = AgentTurnDeadlineExceeded(
-                        f"The agent run exceeded its {deadline:g}s turn deadline."
-                    )
-                    logger.warning(
-                        "Strands streaming agent loop exceeded its turn deadline"
-                    )
-                except Exception as caught:
-                    error = caught
-                    logger.warning(
-                        "Strands streaming agent loop failed: %s", caught, exc_info=True
-                    )
+                async for event in self._stream_agent_loop(request, state, deadline):
+                    outcome = event.get("loop_outcome")
+                    if outcome is not None:
+                        result, error = outcome
+                    else:
+                        yield event
 
                 # See the matching comment in `answer()`: a deadline skips the
                 # fallback synthesis attempt entirely rather than spending one

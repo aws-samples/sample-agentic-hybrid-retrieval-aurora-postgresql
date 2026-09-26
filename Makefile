@@ -567,6 +567,10 @@ load-exercise:
 	}
 	@$(PYTHON) scripts/load_exercise.py --api-url "$(LAB_API_URL)" $(LOAD_EXERCISE_ARGS)
 
+# Fails closed without a workshop origin secret (MOSAIC_REQUIRE_ORIGIN_
+# VERIFICATION defaults to true; see config/.env.example). For loopback-only
+# local development, set MOSAIC_REQUIRE_ORIGIN_VERIFICATION=false in .env --
+# see deploy/README.md's "Local development" section.
 api-serve:
 	@$(PYTHON) -m uvicorn service.main:app --host 127.0.0.1 --port $(API_PORT)
 

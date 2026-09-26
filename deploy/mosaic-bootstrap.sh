@@ -1043,6 +1043,14 @@ systemctl daemon-reload
 systemctl enable mosaic-api mosaic-ui
 systemctl restart mosaic-api mosaic-ui
 
+# Wraps curl with the shared origin secret header every authorized call below
+# needs, so these acceptance checks cannot drift out of sync with each other
+# on the header name or which variable holds the secret. Never used for the
+# deliberately unauthenticated probe just below the wait loop.
+mosaic_curl() {
+  curl -H "X-Mosaic-Origin-Verify: $ORIGIN_VERIFY_SECRET" "$@"
+}
+
 # Poll quietly. uvicorn has never bound the port by the first attempt, so -S here
 # printed "curl: (7) Failed to connect to 127.0.0.1 port 8000" into the log of
 # every successful run, which reads as a failure in an otherwise clean bootstrap
@@ -1051,16 +1059,10 @@ systemctl restart mosaic-api mosaic-ui
 printf 'waiting for mosaic-api and mosaic-ui to answer\n'
 for attempt in $(seq 1 60); do
   if curl -fs http://127.0.0.1:8000/api/health >/tmp/health.json &&
-     curl -fs \
-       -H "X-Mosaic-Origin-Verify: $ORIGIN_VERIFY_SECRET" \
-       http://127.0.0.1:8000/api/readiness >/tmp/readiness.json &&
+     mosaic_curl -fs http://127.0.0.1:8000/api/readiness >/tmp/readiness.json &&
      curl -fs http://127.0.0.1:5173/ >/dev/null &&
-     curl -fs \
-       -H "X-Mosaic-Origin-Verify: $ORIGIN_VERIFY_SECRET" \
-       http://127.0.0.1:8081/ >/dev/null &&
-     curl -fs \
-       -H "X-Mosaic-Origin-Verify: $ORIGIN_VERIFY_SECRET" \
-       http://127.0.0.1:8081/api/readiness \
+     mosaic_curl -fs http://127.0.0.1:8081/ >/dev/null &&
+     mosaic_curl -fs http://127.0.0.1:8081/api/readiness \
        >/tmp/proxy-readiness.json; then
     printf 'services answered on attempt %s\n' "$attempt"
     break
@@ -1098,9 +1100,8 @@ jq -e --arg dataset "$(jq -r '.corpus.dataset_id' "$REPO/data/evals/mosaic_labs_
   .database.embedding_model_ids == ["us.cohere.embed-v4:0"]
 ' /tmp/readiness.json
 
-curl -fsS -X POST http://127.0.0.1:8000/api/search \
+mosaic_curl -fsS -X POST http://127.0.0.1:8000/api/search \
   -H 'Content-Type: application/json' \
-  -H "X-Mosaic-Origin-Verify: $ORIGIN_VERIFY_SECRET" \
   --data '{
     "query": "B07G95TJ3P",
     "filters": {"domain": "consumer_electronics", "category_key": "headphones"},
@@ -1113,9 +1114,8 @@ jq -e '
   (.results | length) > 0
 ' /tmp/model-access-search.json
 
-curl -fsS -X POST http://127.0.0.1:8000/api/search \
+mosaic_curl -fsS -X POST http://127.0.0.1:8000/api/search \
   -H 'Content-Type: application/json' \
-  -H "X-Mosaic-Origin-Verify: $ORIGIN_VERIFY_SECRET" \
   --data '{
     "query": "B07G95T3JP",
     "filters": {

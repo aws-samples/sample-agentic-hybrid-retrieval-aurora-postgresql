@@ -119,6 +119,19 @@ remote CLI with the built-in Markdown preview association, then leaves a login s
 a participant's work. The folder-open task runs in background mode so an idle
 shell does not display a busy task spinner.
 
+## Local development
+
+`make api-serve` runs `service.main:app` directly, with no nginx and no
+CloudFront in front of it. `MOSAIC_REQUIRE_ORIGIN_VERIFICATION` defaults to
+`true` (fail closed; see `docs/api-contract.md`), so a fresh clone's `.env`
+copied from `config/.env.example` with no further changes cannot boot the API
+at all: it refuses to start serving without a configured
+`MOSAIC_ORIGIN_VERIFY_SECRET`. For loopback-only local development, set
+`MOSAIC_REQUIRE_ORIGIN_VERIFICATION=false` in `.env` -- never in a deployment
+reachable from anywhere but the API process's own machine, and never in
+`deploy/mosaic-bootstrap.sh`, which always sets `true` with a generated
+secret instead.
+
 ## Clean-account rehearsal and load exercise
 
 [`docs/rehearsal-runbook.md`](../docs/rehearsal-runbook.md) is the runbook for

@@ -78,15 +78,25 @@ one HTTP request.
 ### Agent turn deadline
 
 One agent turn's model-and-tool loop is wrapped in an overall
-`MOSAIC_AGENT_TURN_DEADLINE_SECONDS` budget (default 90), covering however
-many Bedrock calls and provider retries the turn makes rather than any single
-call, which already carries its own botocore timeout
-(`connect_timeout=5, read_timeout=60`, retried up to `BEDROCK_MAX_ATTEMPTS`).
-Unlike the existing tool-call budget, exceeding the deadline skips the
-fallback synthesis attempt entirely and reports failure immediately (503 on
-`POST /api/agent/answer`; an `agent_turn_deadline` SSE error on the streaming
-route): the turn already spent its time budget, so it does not spend one more
-model call trying to salvage an answer from it.
+`MOSAIC_AGENT_TURN_DEADLINE_SECONDS` budget (default 90). Exceeding it skips
+the fallback synthesis attempt entirely and reports failure immediately (503
+on `POST /api/agent/answer`; an `agent_turn_deadline` SSE error on the
+streaming route): the turn already spent its time budget, so it does not
+spend one more model call trying to salvage an answer from it.
+
+**What this deadline bounds, precisely.** It caps when the caller gets a
+response and when the admission slot is released. It does not interrupt a
+Bedrock call already executing: Strands runs each call through
+`asyncio.to_thread`, and `asyncio.wait_for`/`asyncio.timeout` can cancel the
+*awaiting* task but not a boto3 call already running in its worker thread. A
+call in flight when the deadline fires keeps running, unobserved by the rest
+of the application, for up to its own remaining
+`BEDROCK_MAX_ATTEMPTS * (connect_timeout=5s + read_timeout=60s)` --
+**325 seconds at the default `BEDROCK_MAX_ATTEMPTS=5`** -- plus whatever
+additional delay botocore's adaptive-mode retry backoff adds between
+attempts, which these settings do not bound. Only one Bedrock call is ever in
+flight per turn (Strands's loop is sequential), so this is a per-turn ceiling
+on background work, not one that accumulates across calls.
 
 ## Session and memory
 

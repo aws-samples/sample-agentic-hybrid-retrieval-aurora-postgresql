@@ -1,6 +1,7 @@
 import pytest
 
 from scripts import validate_lab
+from service.config import get_settings
 
 PLAN = [{"Plan": {"Node Type": "Append"}}]
 
@@ -535,3 +536,80 @@ def test_cli_dispatches_primary_and_every_control(monkeypatch, lab_id, expected)
     getattr(validate_lab, f"validate_lab_{lab_id}")("http://example.test")
     assert executed == expected
     assert checked == expected[-2:]
+
+
+class _FakeResponse:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
+
+    def read(self):
+        return b"{}"
+
+
+def _header(request, name: str) -> str | None:
+    """`Request.get_header` looks up its raw argument, not a normalized form,
+    so it misses a header stored under `add_header`'s own `.capitalize()`d
+    key. Apply the same transform `Request` uses internally to store it."""
+    return dict(request.header_items()).get(name.capitalize())
+
+
+def test_request_sends_the_configured_origin_secret_header(monkeypatch):
+    """A direct call to the deployed API needs the same shared origin secret
+    every other authorized caller presents, or it gets a silent 401 instead
+    of the lab's actual acceptance verdict."""
+    monkeypatch.setenv("MOSAIC_ORIGIN_VERIFY_SECRET", "a-shared-secret")
+    get_settings.cache_clear()
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(request, timeout):
+        captured["request"] = request
+        return _FakeResponse()
+
+    monkeypatch.setattr(validate_lab, "urlopen", fake_urlopen)
+
+    try:
+        validate_lab._request("http://127.0.0.1:8000", "/api/readiness")
+    finally:
+        get_settings.cache_clear()
+
+    assert _header(captured["request"], "X-Mosaic-Origin-Verify") == "a-shared-secret"
+
+
+def test_request_omits_the_header_when_no_secret_is_configured(monkeypatch):
+    monkeypatch.delenv("MOSAIC_ORIGIN_VERIFY_SECRET", raising=False)
+    monkeypatch.setenv("MOSAIC_REQUIRE_ORIGIN_VERIFICATION", "false")
+    get_settings.cache_clear()
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(request, timeout):
+        captured["request"] = request
+        return _FakeResponse()
+
+    monkeypatch.setattr(validate_lab, "urlopen", fake_urlopen)
+
+    try:
+        validate_lab._request("http://127.0.0.1:8000", "/api/readiness")
+    finally:
+        get_settings.cache_clear()
+
+    assert _header(captured["request"], "X-Mosaic-Origin-Verify") is None
+
+
+def test_main_loads_dotenv_before_any_request_is_made(monkeypatch):
+    """Findings 2/3: a non-interactive invocation (no shell to have already
+    sourced .env) must still pick up MOSAIC_ORIGIN_VERIFY_SECRET, the same
+    way scripts/lab_terminal.py's `main()` already loads it for its own peer
+    invocation. Without this, every call from a fresh shell gets a silent 401.
+    """
+    calls: list[object] = []
+    monkeypatch.setattr("dotenv.load_dotenv", lambda path: calls.append(path))
+    monkeypatch.setattr(validate_lab, "validate_lab_1", lambda *_args, **_kw: [])
+    monkeypatch.setattr(
+        "sys.argv", ["validate_lab.py", "--lab", "1", "--api-url", "http://x"]
+    )
+
+    assert validate_lab.main() == 0
+    assert calls == [validate_lab.REPO / ".env"]

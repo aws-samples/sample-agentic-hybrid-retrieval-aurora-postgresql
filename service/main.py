@@ -7,6 +7,7 @@ import io
 import json
 import logging
 import re
+import threading
 import zipfile
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -547,23 +548,53 @@ def agent_answer(request: AgentRequest, http_request: Request = None) -> AgentRe
         raise _agent_error(error) from error
 
 
-@app.post("/api/agent/answer/stream")
-async def stream_agent_answer(
-    request: AgentRequest, http_request: Request = None
-) -> StreamingResponse:
-    """Stream safe retrieval progress and a paced cited-answer delivery.
+def _stream_error_payload(error: Exception) -> dict[str, Any]:
+    """Classify one stream-ending exception into its SSE `error` payload.
 
-    The transport reports application-owned retrieval milestones, not private
-    model reasoning. Agent execution remains bounded by the same typed,
-    read-only tool contract as the completed-response endpoint.
+    Each branch is a distinct, already-established failure surface. Kept as
+    one small pure function rather than inline in `events()` so classifying a
+    new failure type never grows that generator's already-long body.
+    """
+    if isinstance(error, ConversationContextError):
+        return {"code": "conversation_context", "detail": _CONVERSATION_ERROR_DETAIL}
+    # Session-ownership refusals raise HTTPException from inside the stream;
+    # the non-streaming route lets them through as their own status, so the
+    # stream reports the same detail instead of the generic runtime-failure
+    # message.
+    if isinstance(error, HTTPException):
+        return {
+            "code": "request_rejected",
+            "status": error.status_code,
+            "detail": str(error.detail),
+        }
+    if isinstance(error, GroundingContractError):
+        return {"code": "supporting_sources", "detail": _GROUNDING_ERROR_DETAIL}
+    if isinstance(error, AgentTurnDeadlineExceeded):
+        return {"code": "agent_turn_deadline", "detail": str(error)}
+    return {
+        "detail": safe_model_runtime_message(
+            error,
+            fallback=(
+                "Agent response failed. Retry after checking the runtime and "
+                "retrieval service."
+            ),
+        )
+    }
 
-    Admission control is acquired here rather than through a route dependency:
-    a dependency releases its slot as soon as this function returns the
-    `StreamingResponse` object, before the stream itself has sent a single
-    byte. The slot is held instead for the life of the `events()` generator
-    below, which releases it in its own `finally` -- covering a failure before
-    the stream starts, a failure mid-stream, and a client disconnect, which
-    Starlette surfaces as the generator being closed.
+
+async def _admit_and_prepare_stream(
+    request: AgentRequest, http_request: Request
+) -> tuple[AgentRequest, threading.BoundedSemaphore]:
+    """Reserve an admission slot, then prepare the request.
+
+    The slot is released if `prepare_request` fails for any reason before the
+    stream can start, so a rejected or invalid request never leaks one. On
+    success, the caller owns releasing it -- see `stream_agent_answer`.
+
+    Raises:
+        HTTPException: 429 from admission exhaustion, before this does
+            anything else; 409 for an invalid or unowned conversation
+            context; a mapped agent-runtime status for a Bedrock failure.
     """
     slot = acquire_model_admission_slot()
     try:
@@ -576,6 +607,28 @@ async def stream_agent_answer(
     except BaseException:
         release_model_admission_slot(slot)
         raise
+    return request, slot
+
+
+@app.post("/api/agent/answer/stream")
+async def stream_agent_answer(
+    request: AgentRequest, http_request: Request = None
+) -> StreamingResponse:
+    """Stream safe retrieval progress and a paced cited-answer delivery.
+
+    The transport reports application-owned retrieval milestones, not private
+    model reasoning. Agent execution remains bounded by the same typed,
+    read-only tool contract as the completed-response endpoint.
+
+    Admission control is acquired in `_admit_and_prepare_stream` rather than
+    through a route dependency: a dependency releases its slot as soon as
+    this function returns the `StreamingResponse` object, before the stream
+    itself has sent a single byte. The slot is held instead for the life of
+    the `events()` generator below, which releases it in its own `finally` --
+    covering a failure before the stream starts, a failure mid-stream, and a
+    client disconnect, which Starlette surfaces as the generator being closed.
+    """
+    request, slot = await _admit_and_prepare_stream(request, http_request)
 
     async def events():
         try:
@@ -698,53 +751,7 @@ async def stream_agent_answer(
                 type(error).__name__,
                 request.context.previous_agent_run_id if request.context else None,
             )
-            if isinstance(error, ConversationContextError):
-                yield _sse(
-                    "error",
-                    {
-                        "code": "conversation_context",
-                        "detail": _CONVERSATION_ERROR_DETAIL,
-                    },
-                )
-                return
-            # Session-ownership refusals raise HTTPException from inside the
-            # stream; the non-streaming route lets them through as their own
-            # status, so the stream reports the same detail instead of the
-            # generic runtime-failure message.
-            if isinstance(error, HTTPException):
-                yield _sse(
-                    "error",
-                    {
-                        "code": "request_rejected",
-                        "status": error.status_code,
-                        "detail": str(error.detail),
-                    },
-                )
-                return
-            if isinstance(error, GroundingContractError):
-                yield _sse(
-                    "error",
-                    {"code": "supporting_sources", "detail": _GROUNDING_ERROR_DETAIL},
-                )
-                return
-            if isinstance(error, AgentTurnDeadlineExceeded):
-                yield _sse(
-                    "error",
-                    {"code": "agent_turn_deadline", "detail": str(error)},
-                )
-                return
-            yield _sse(
-                "error",
-                {
-                    "detail": safe_model_runtime_message(
-                        error,
-                        fallback=(
-                            "Agent response failed. Retry after checking the "
-                            "runtime and retrieval service."
-                        ),
-                    )
-                },
-            )
+            yield _sse("error", _stream_error_payload(error))
         finally:
             release_model_admission_slot(slot)
 
