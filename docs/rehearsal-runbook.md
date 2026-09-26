@@ -65,9 +65,9 @@ uv run python scripts/rehearsal.py capture-identity \
 ```
 
 This calls `GET /api/health` and `GET /api/readiness` once, records the
-served dataset ID and catalog SHA-256 against the expected
-`reviews-2023-500k-v1`, and marks `deployment_identity` `passed` only if
-`/api/readiness` reports `status: "ready"`. **`--started-at`/`--ended-at` are
+served dataset ID and catalog SHA-256 against `dataset_id` and `catalog_sha256` in the pinned
+`db/config/real-catalog-cache.json`, and marks `deployment_identity` `passed` only if
+`/api/readiness` reports `status: "ready"` and both catalog identity fields match the contract. **`--started-at`/`--ended-at` are
 required for `deployment_seconds` to appear in the timing rollup in step 8**;
 without them `deployment_identity.elapsed_seconds` stays null and
 `overall_status` can never reach `complete`, even after every other stage
