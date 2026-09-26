@@ -29,7 +29,7 @@ flowchart LR
 
 Aurora PostgreSQL holds:
 
-- canonical product and inventory metadata
+- real source-product metadata (without invented current price or stock)
 - weighted FTS document
 - trigram-normalized text
 - structured JSONB attributes
@@ -53,22 +53,28 @@ filters, candidate generation, unweighted RRF, optional weighted comparison,
 reranking provenance, and
 retrieval-run persistence remain behind the API in Aurora PostgreSQL.
 
-## Offline pipeline
+## Catalog restore and measurement
 
 ```mermaid
 flowchart LR
-    G[Synthetic catalog generator] --> C[500K catalog in three CSV.gz shards]
-    C --> LOAD[PostgreSQL COPY loader]
-    LOAD --> P[mosaic.product]
-    P --> E[Embedding batches]
-    E --> V[Vector column]
-    V --> I[HNSW build]
-    P --> X[FTS / trigram / JSONB indexes]
-    Q[Eval queries + judgments] --> RUN[Eval runner]
-    RUN --> M[Recall / MRR / nDCG]
-    I --> B[HNSW benchmark harness]
-    B --> R[Measured JSON results]
+    A[Hash-pinned real-catalog archive] --> VERIFY[Verify parts and archive]
+    SCHEMA[Shared schemas and lab tables] --> RESTORE[Restore source records, evidence and saved vectors]
+    VERIFY --> RESTORE
+    RESTORE --> P[553,911 real products]
+    P --> V[Live search projection]
+    V --> I[FTS / trigram / HNSW indexes]
+    VOCAB[Verified real-catalog vocabulary] --> V
+    Q[Real queries and judgments] --> RUN[Production-path evaluation]
+    I --> RUN
+    RUN --> M[Results with catalog and source provenance]
 ```
+
+Bootstrap restores the saved Cohere vectors; it does not generate products or
+re-embed the catalog. [ARTIFACTS.md](../ARTIFACTS.md) describes the pinned bundle
+and Aurora-only restore. Historical generators and CSV shards remain for
+regression tests and are excluded from fresh workshops. Historical scorecards
+and scale benchmarks cannot certify this catalog; current-catalog measurements
+must carry matching provenance.
 
 ## Separation of responsibilities
 

@@ -59,6 +59,25 @@ PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 
 $(PYTHON_TARGETS): check-python
 
+# Synthetic fixtures remain for regression tests, never fresh workshop restores.
+HISTORICAL_CATALOG_TARGETS := generate prepare media-map reviews db-prepare-mosaic \
+	db-load-mosaic db-load-cohort db-load-evidence db-embed db-fetch-embeddings \
+	db-export-embeddings db-import-embeddings db-seed-corpus-lexeme
+.PHONY: check-historical-catalog
+$(HISTORICAL_CATALOG_TARGETS): check-historical-catalog
+
+check-historical-catalog:
+	@test "$${ALLOW_HISTORICAL_CATALOG:-}" = 1 || { \
+		printf "Historical catalog disabled: ALLOW_HISTORICAL_CATALOG='%s'.\n" "$${ALLOW_HISTORICAL_CATALOG:-}"; \
+		echo "For historical fixture maintenance only, set ALLOW_HISTORICAL_CATALOG=1. See data/full/README.md."; \
+		exit 2; \
+	}
+	@test -z "$${MOSAIC_CATALOG_DATASET:-}" || { \
+		printf "Historical catalog conflicts with MOSAIC_CATALOG_DATASET='%s'.\n" "$$MOSAIC_CATALOG_DATASET"; \
+		echo "Use the real-catalog restore for Mosaic. Historical maintenance requires a separate Aurora database and an unset MOSAIC_CATALOG_DATASET."; \
+		exit 2; \
+	}
+
 # An unset DSN must fail by name, not by handing psql an empty string and letting
 # it try to reach a local socket that does not exist.
 check-dsn:

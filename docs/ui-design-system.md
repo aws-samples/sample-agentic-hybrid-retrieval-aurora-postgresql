@@ -509,7 +509,7 @@ existing Alex portrait and product media; it introduces no shipping raster asset
 
 The default Workspace edit currently selects 71 products from that 200-product
 photographed cohort through `data/media/workspace_collection.json`; the UI reads
-the actual count from Aurora. Keyword search still uses the full 500,000-product
+the actual count from Aurora. Keyword search still uses the full selected real
 catalog. The catalog proposal under `data/curated/proposals/` has not been
 promoted to the live CSV or embedding cache.
 

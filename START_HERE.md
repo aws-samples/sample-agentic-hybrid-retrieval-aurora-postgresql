@@ -41,8 +41,8 @@ The Explorer hides caches and build outputs; the source paths match the guide.
 ## Keep the proof
 
 Each lab asks for one written prediction and one two-sentence explanation in
-[learning-notes.md](learning-notes.md): explain the mechanism, not just the
-winning card.
+`learning-notes.md` in your prepared Code Editor: explain the mechanism, not
+just the winning card. Bootstrap creates this notes file for each participant.
 Complete the guide's validation commands before moving to the next lab.
 
 After completion, download **Hybrid Agentic Search** from Mosaic's Labs

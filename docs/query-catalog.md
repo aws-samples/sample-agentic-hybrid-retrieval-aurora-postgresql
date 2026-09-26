@@ -1,5 +1,10 @@
 # Demonstration query catalog
 
+> Historical synthetic-catalog requests. These include invented price and stock
+> conditions and do not establish current real-catalog behavior. Use the
+> [real-catalog example library](real-catalog-exercise-library.md) for the
+> workshop.
+
 ## Consumer electronics
 
 - `wireless noise-cancelling headphones under $200 with long battery life`

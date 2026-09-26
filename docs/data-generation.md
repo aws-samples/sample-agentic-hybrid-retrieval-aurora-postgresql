@@ -1,6 +1,11 @@
 # Data generation and extension
 
-## Regenerate the canonical catalog
+> Historical synthetic-catalog maintainer reference. Mosaic now serves real
+> source products and saved Cohere vectors. This document does not describe
+> participant provisioning; see [the fixture boundary](../data/full/README.md)
+> and [current restore contract](../ARTIFACTS.md).
+
+## Regenerate historical fixtures
 
 ```bash
 uv run python scripts/generate_catalog.py --scale 1.0 --seed 20260806

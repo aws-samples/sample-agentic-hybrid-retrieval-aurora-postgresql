@@ -1,5 +1,10 @@
 # Mosaic premium cohort — outstanding image shot list
 
+> Historical synthetic-catalog maintainer reference. Mosaic now serves real
+> source products and saved Cohere vectors. This document does not describe
+> participant provisioning; see [the fixture boundary](../data/full/README.md)
+> and [current restore contract](../ARTIFACTS.md).
+
 **0 images to generate** across 0 products. The 120-product cohort is fixed by the schema package; this is the subset whose runtime file is not yet installed.
 
 ## Exact domain count

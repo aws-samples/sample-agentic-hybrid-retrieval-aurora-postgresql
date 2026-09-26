@@ -10,18 +10,19 @@ The historical `data/evals/typo_cases.csv` targets the former synthetic catalog 
 
 ## Indexed text
 
-`trigram_text` combines normalized title, brand, model, SKU, category path, aliases, and tags. The index the API's arm actually uses is:
+`trigram_text` holds normalized source text. The live search projection reads
+the real catalog table, whose trigram index is:
 
 ```sql
-CREATE INDEX product_document_trigram_gin_idx
-ON mosaic_search.product_document USING gin (trigram_text gin_trgm_ops);
+CREATE INDEX real_search_trigram_idx
+ON mosaic_catalog_search.product_document USING gin (trigram_text gin_trgm_ops);
 ```
 
 ## Required repair: reconnect a working arm
 
 Use `G-003` from `data/evals/mosaic_labs_missions.json` with its exact filters
 before and after the edit. The controlled defect is in
-`mosaic_search.search_hybrid_rrf`: the trigram search function exists, but its
+`mosaic_live_search.search_hybrid_rrf`: the trigram search function exists, but its
 CTE and candidate-channel union are disconnected. Creating another index or
 lowering a threshold does not reconnect that path.
 

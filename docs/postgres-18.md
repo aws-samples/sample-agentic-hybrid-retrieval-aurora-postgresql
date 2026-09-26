@@ -11,8 +11,8 @@ nobody has measured.
 |---|---|---|
 | Engine | Aurora PostgreSQL 18.3 | `GET /api/readiness`, `database.server_version` |
 | Vector extension | pgvector 0.8.1 | `GET /api/readiness`, `database.vector_version` |
-| Products | 500,000 | `database.product_count` |
-| Product embeddings | 500,000 | `database.embedded_product_count` |
+| Products | 553,911 | `database.product_count` |
+| Product embeddings | 553,911 | `database.embedded_product_count` |
 | Embedding shape | Cohere Embed v4, 1,024 dimensions | `database.embedding_dimensions`, `database.embedding_model_ids` |
 
 The schema also installs `pg_trgm`, `unaccent`, and `pgcrypto`
@@ -20,15 +20,18 @@ The schema also installs `pg_trgm`, `unaccent`, and `pgcrypto`
 
 ## What the pipeline uses
 
-**Three retrieval arms in one database.** `mosaic_search.search_fts` reads a
+**Three retrieval arms in one database.** `mosaic_live_search.search_fts` reads a
 generated `tsvector` column through a GIN index.
-`mosaic_search.search_trigram` reads `pg_trgm` normalized text through a GIN
-`gin_trgm_ops` index. `mosaic_search.search_vector` reads an HNSW index built
+`mosaic_live_search.search_trigram` reads `pg_trgm` normalized text through a GIN
+`gin_trgm_ops` index. `mosaic_live_search.search_vector` reads an HNSW index built
 with `vector_cosine_ops`, `m = 16`, and `ef_construction = 200`. Each arm
 applies the same eligibility predicates before its own limit, and
-`mosaic_search.search_hybrid_rrf` fuses their positions. The definitions are in
-`db/sql/09_search_functions.sql`, the indexes in `db/sql/07_indexes.sql` and
-`db/sql/08_indexes_concurrent.sql`.
+`mosaic_live_search.search_hybrid_rrf` fuses their positions. The live functions
+are rendered by
+`scripts/prepare_live_catalog.py` from `db/sql/09_search_functions.sql`; the
+real search table and its indexes are installed by
+`scripts/prepare_staged_catalog_search.py`. Historical `mosaic_search` functions
+remain separate from this serving projection.
 
 **Iterative index scans.** pgvector 0.8 added them, and filtered vector
 retrieval here depends on them. `mosaic_search.configure_hnsw` sets
@@ -69,10 +72,11 @@ approximate vector search sit in one transactionally consistent data plane.
 `GET /api/readiness` reads the connected cluster and returns the database name,
 the server version string, the pgvector extension version, product and embedded
 product counts, embedding dimensions and stored embedding model ids, the
-premium cohort and evidence coverage counts, any missing or invalid retrieval
-index among the three named above, any missing retrieval function, and whether
-the exact-neighbour ground truth used by the Scale & HNSW lens has
-been seeded. The endpoint reports `ready` only when the database, the model
+real-catalog receipt and evidence coverage, any missing or invalid retrieval
+index among the three named above, any missing retrieval function, and optional
+exact-neighbour ground truth. Historical benchmark state does not establish
+readiness of the real-catalog performance instrument. The endpoint reports
+`ready` only when the database, the model
 space, and Bedrock credentials all pass; otherwise it reports `blocked` with
 the failing field visible.
 
@@ -82,9 +86,11 @@ No version-to-version performance claim is made here, and none may be added
 until it is measured. Nobody has run this corpus on an earlier PostgreSQL major
 version with the same instance class, the same indexes, and the same retrieval
 profile, so there is no basis for saying this pipeline is faster on 18 than on
-17, and this page will not imply it. The measured claims the workshop does
-stand behind are the retrieval scorecard and the Scale & HNSW
-artifact, each served with its own provenance.
+17, and this page will not imply it. Stored scorecards and HNSW
+measurements retain their original catalog and source provenance; historical
+results do not certify the current real catalog. The
+[fresh-account record](evidence/fresh-account-2026-09-26.md) reports deployment
+measurements with their own scope and limitations.
 
 Release-note features of PostgreSQL 18 that this pipeline does not exercise are
 out of scope for this page on purpose. If you want to demonstrate one, measure
