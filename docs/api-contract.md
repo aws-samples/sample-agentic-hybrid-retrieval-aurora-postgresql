@@ -424,7 +424,7 @@ for introspection; no served surface does.
 `GET /api/catalog/products` browses the 200 installed product IDs in
 `data/media/asset_labels_200.json`. `sort=featured` preserves manifest order;
 facets and other sort modes stay bounded to that photographed edit. Search and
-Ask Mosaic continue to retrieve across all 500,000 products.
+Ask Mosaic continue to retrieve across the full selected real catalog.
 
 Browse filters use the same typed constraints as search. Pass `attributes` as a
 JSON object encoded in the query string and repeat `brands` for each permitted

@@ -5,7 +5,38 @@ pending, in progress, code verified, runtime verified, blocked. Runtime
 verification means a recorded run against Aurora or a deployed environment;
 offline tests never promote a task past code verified.
 
-## Baseline
+## Current status — 26 September 2026
+
+The [fresh-account deployment record](evidence/fresh-account-2026-09-26.md)
+supersedes the runtime blockers in the earlier handoff below. Deployment
+acceptance passed for its recorded source and workshop revisions: all stacks
+completed, 553,911 real products and saved vectors restored, each required lab
+passed two failure/repair cycles, and ingress and bounded concurrency checks
+passed. Historical products, reviews and vocabulary are excluded from fresh
+workshops. The canonical query sets are now separated by catalog.
+
+| Feedback | Current verification | Remaining work |
+|---|---|---|
+| Access and resource limits | Origin rejection, authorized access, saturation and recovery measured | Room-scale traffic is not certified by the bounded exercise |
+| Cancellation and stale responses | Regression tests; browser stop, retry and clear passed | Controlled delayed filter-race browser checks |
+| Required path and UI maintenance | Lab repair cycles, responsive layouts and keyboard navigation checked | Human completion timing, physical projector checks and matched before/after refactor captures |
+| Independent relevance | Real canonical, coverage-probe and held-out contracts validated | Reviewed real-catalog scorecard and measured independent relevance |
+| Fresh deployment and load | Deployment acceptance and bounded single-instance exercise passed | Broader rehearsal and cold-start timing remain incomplete |
+| Hardening review findings | Referenced `docs/hardening-review.md` remains absent | Supply the report before certifying its Medium findings |
+
+The recorder identity fix and HNSW availability explanation have since merged
+(PRs #5 and #6); they are not part of the recorded deployment. The parallel
+HNSW bootstrap build ran successfully. Its timings and comparison limits are
+in the evidence record and optimization audit below. These observations do not
+claim a new relevance baseline or a measured full-stack speedup.
+
+## Historical remediation record
+
+The following sections preserve the earlier investigation and its test counts.
+Their environment names, mixed query set and runtime-blocked states describe
+those earlier runs; use the current status above for outstanding work.
+
+### Baseline
 
 - Source revision at start: `2a37629` on `main`, with an uncommitted dataset
   v2 change set in the maintainer's worktree (catalog scripts, evidence loaders,

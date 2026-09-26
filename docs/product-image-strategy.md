@@ -1,5 +1,10 @@
 # Product image strategy
 
+> Historical synthetic-catalog maintainer reference. Mosaic now serves real
+> source products and saved Cohere vectors. This document does not describe
+> participant provisioning; see [the fixture boundary](../data/full/README.md)
+> and [current restore contract](../ARTIFACTS.md).
+
 ## Do not generate 500,000 unique images
 
 The retrieval corpus needs 500,000 unique product records, not 500,000 original photographs. For a polished workshop UI, use a layered visual strategy:

@@ -88,6 +88,13 @@ writes retrieval receipts. Validate the shared tool contracts with:
 uv run python scripts/tool_contracts.py --check
 ```
 
+## Historical fixtures
+
+The generated files under `data/full/` support offline regression tests. They
+are excluded from the real-catalog restore. Their generation and load commands
+require explicit operator opt-in; see [the fixture boundary](../data/full/README.md).
+Do not use them to provision or repair a participant environment.
+
 ## Publish a workshop update
 
 Follow the [publishing runbook](workshop-studio-publishing.md): publish source,
