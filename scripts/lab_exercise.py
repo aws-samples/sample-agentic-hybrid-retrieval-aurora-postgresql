@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Grade the query or test a participant writes in each lab.
+"""Check the SQL exercises and the deployed participant agent.
 
 Every check compares the participant's work with an answer this script computes
 independently, in read-only transactions. It never repairs a lab, never
@@ -9,9 +9,7 @@ changes catalog data, and never shows the reference answer.
   own plan and again with the HNSW index forced.
 - Lab 2: reciprocal rank fusion written in SQL over the three installed search
   functions, graded at the configured ``k`` and at four other values.
-- Lab 3: pytest tests for ``register_evidence``, graded against the reference
-  repair and four faulty variants that the tests must reject; then a claims query
-  that separates the evidence the answer cited from the evidence merely available.
+- Lab 3: the deployed Strands agent and its saved, source-backed recommendation.
 
 Every graded attempt is also recorded in ``mosaic.lab_decision`` (created here if
 missing), so the workshop finale can read each participant's decisions back from
@@ -25,7 +23,6 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -43,19 +40,10 @@ LAB2_K_TRIALS = (1, 10, 30, 120)
 DEFAULT_WORK = {
     1: Path(".local/lab-1/recall.sql"),
     2: Path(".local/lab-2/rrf.sql"),
-    3: Path("labs/lab3/test_evidence_contract.py"),
+    3: Path("labs/lab3/agent.py"),
 }
 LAB1_COLUMNS = ("approximate_rows", "exact_rows", "recall")
 LAB2_COLUMNS = ("product_id", "rrf_score", "combined_position")
-LAB3_MINIMUM_TESTS = 3
-LAB3_CLAIMS_WORK = Path(".local/lab-3/claims.sql")
-LAB3_CLAIM_COLUMNS = (
-    "product_id",
-    "cited_spec_records",
-    "cited_review_records",
-    "imported_reviews",
-    "source_ratings",
-)
 DECISION_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS mosaic.lab_decision (
     decision_id bigserial PRIMARY KEY,
@@ -68,44 +56,6 @@ CREATE TABLE IF NOT EXISTS mosaic.lab_decision (
     measurement jsonb NOT NULL,
     graded_at timestamptz NOT NULL DEFAULT now()
 )"""
-CLAIMS_TRUTH_SQL = """
-WITH cited AS (
-    SELECT DISTINCT (c->>'evidence_id')::bigint AS evidence_id,
-                    (c->>'product_id')::bigint AS product_id
-    FROM mosaic.agent_tool_event t
-    CROSS JOIN LATERAL jsonb_array_elements(
-        coalesce(nullif(t.output_payload->'citations', 'null'::jsonb), '[]'::jsonb)) c
-    WHERE t.agent_turn_id = %(turn)s::uuid
-      AND t.tool_name = 'synthesize_cited_answer' AND t.outcome = 'success'
-)
-SELECT c.product_id,
-       count(*) FILTER (WHERE e.evidence_type = 'product_spec') AS cited_spec_records,
-       count(*) FILTER (WHERE e.evidence_type <> 'product_spec') AS cited_review_records,
-       (SELECT count(*) FROM mosaic_catalog_stage.review_evidence v
-        WHERE v.dataset_id = d.dataset_id AND v.parent_asin = d.parent_asin)
-         AS imported_reviews,
-       (s.original->>'rating_number')::int AS source_ratings
-FROM cited c
-JOIN mosaic.product_evidence e USING (evidence_id)
-JOIN mosaic_live_search.product_document d ON d.product_id = c.product_id
-JOIN mosaic_catalog_stage.product s
-  ON s.dataset_id = d.dataset_id AND s.parent_asin = d.parent_asin
-GROUP BY c.product_id, d.dataset_id, d.parent_asin, s.original
-"""
-LAB3_VARIANTS: dict[str, str] = {
-    "no registration (the broken seam)": lab_state.LAB3_BROKEN_STATE,
-    "records kept, product list never written": """    for item in evidence:
-        state["evidence"][item.evidence_id] = item""",
-    "duplicate IDs on a repeated call": """    for item in evidence:
-        state["evidence"][item.evidence_id] = item
-        state["evidence_by_product"].setdefault(product_id, []).append(
-            item.evidence_id
-        )""",
-    "a later call replaces earlier IDs": """    state["evidence_by_product"][product_id] = []
-    for item in evidence:
-        state["evidence"][item.evidence_id] = item
-        state["evidence_by_product"][product_id].append(item.evidence_id)""",
-}
 
 
 class ExerciseError(RuntimeError):
@@ -510,116 +460,33 @@ def grade_lab2(statement_for_k: Any, values: dict[str, str]) -> dict[str, Any]:
     return report
 
 
-def variant_source(body: str) -> str:
-    """Return ``register_evidence`` source with its marked block replaced."""
-    import inspect
-
-    from service import agent_tools
-
-    source = inspect.getsource(agent_tools.register_evidence)
-    return lab_state._replace_block(
-        source, "# LAB3_EVIDENCE_STATE_START", "# LAB3_EVIDENCE_STATE_END", body
-    )
-
-
-def variant_function(name: str) -> Any:
-    """Compile the reference repair or one named faulty variant."""
-    from service import agent_tools
-
-    body = lab_state.LAB3_EVIDENCE_STATE if name == "reference" else LAB3_VARIANTS[name]
-    namespace = dict(vars(agent_tools))
-    exec(compile(variant_source(body), "<lab-3-variant>", "exec"), namespace)  # noqa: S102
-    return namespace["register_evidence"]
-
-
-def _run_tests(path: Path, variant: str | None) -> tuple[int, int]:
-    env = {**os.environ, "PYTHONPATH": str(REPO)}
-    env.pop("LAB3_VARIANT", None)
-    if variant:
-        env["LAB3_VARIANT"] = variant
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "-q",
-            "-p",
-            "no:cacheprovider",
-            "--rootdir",
-            str(path.parent),
-            str(path),
-        ],
-        capture_output=True,
-        text=True,
-        cwd=REPO,
-        env=env,
-        check=False,
-    )
-    passed = sum(int(n) for n in re.findall(r"(\d+) passed", result.stdout))
-    failed = sum(int(n) for n in re.findall(r"(\d+) (?:failed|error)", result.stdout))
-    if passed + failed == 0:
-        raise ExerciseError(f"pytest collected no tests:\n{result.stdout[-1500:]}")
-    return passed, failed
-
-
 def grade_lab3(path: Path) -> dict[str, Any]:
-    """Tests must pass the reference, reject every variant, then pass your code."""
-    report: dict[str, Any] = {"variants": {}, "failures": []}
-    passed, failed = _run_tests(path, "reference")
-    report["reference"] = {"passed": passed, "failed": failed}
-    if passed + failed < LAB3_MINIMUM_TESTS:
-        report["failures"].append(
-            f"found {passed + failed} test(s); write at least {LAB3_MINIMUM_TESTS}"
-        )
-    if failed:
-        report["failures"].append(
-            f"{failed} test(s) fail against the reference repair, so they assert "
-            "something the contract does not require"
-        )
-    for name in LAB3_VARIANTS:
-        _, v_failed = _run_tests(path, name)
-        report["variants"][name] = "rejected" if v_failed else "ACCEPTED"
-        if not v_failed:
-            report["failures"].append(f"your tests accept a faulty variant: {name}")
-    passed, failed = _run_tests(path, None)
-    report["your_code"] = {"passed": passed, "failed": failed}
-    if failed:
-        report["failures"].append(
-            "your tests fail against service/agent_tools.py; repair "
-            "register_evidence between the LAB3 markers"
-        )
-    return report
+    """Check the participant's deployed agent and the answer they just produced."""
+    from uuid import UUID
 
+    from service.agentcore_transport import runtime_arn
+    from service.lab_proof import completion_proof
 
-def grade_claims(statement: str, values: dict[str, str]) -> dict[str, Any]:
-    """Compare the participant's evidence profile with an independent one."""
-    with _connect() as connection, connection.cursor() as cur:
-        cur.execute("SET TRANSACTION READ ONLY")
-        rows = _participant_rows(cur, statement, LAB3_CLAIM_COLUMNS)
-        cur.execute(CLAIMS_TRUTH_SQL, {"turn": values["lab_agent_id"]})
-        truth = {row["product_id"]: row for row in cur.fetchall()}
-        connection.rollback()
-    mine = {row["product_id"]: row for row in rows}
-    failures = []
-    if set(mine) != set(truth):
+    if path.resolve() != (REPO / DEFAULT_WORK[3]).resolve():
+        raise ExerciseError(
+            "Lab 3 runs labs/lab3/agent.py; save your agent there, then run make deploy-agent."
+        )
+    if not lab_state.lab_is_solved(3):
+        raise ExerciseError(
+            "Open labs/lab3/agent.py, complete create_agent, then run make deploy-agent."
+        )
+    if not runtime_arn():
+        raise ExerciseError(
+            "AgentCore Runtime is not connected. Ask your facilitator to check this workshop's deployment."
+        )
+    values = load_context(3)
+    proof = completion_proof(3, agent_run_id=UUID(values["lab_agent_id"]))
+    failures = [check.detail for check in proof.checks if not check.passed]
+    if proof.status != "pass" and not failures:
         failures.append(
-            f"claims.sql returns products {sorted(mine)}; the answer cited "
-            f"{sorted(truth)}. One row per cited product."
+            "Your current code does not match the completed labs. Apply Labs 1 and 2, then run make deploy-agent."
         )
-    for product_id in set(mine) & set(truth):
-        for column in LAB3_CLAIM_COLUMNS[1:]:
-            if mine[product_id][column] != truth[product_id][column]:
-                failures.append(
-                    f"product {product_id}: {column} is {mine[product_id][column]}; "
-                    f"the independent count is {truth[product_id][column]}"
-                )
-    return {
-        "claims": [
-            {key: truth[pid][key] for key in LAB3_CLAIM_COLUMNS}
-            for pid in sorted(truth)
-        ],
-        "failures": failures,
-    }
+    return {"agent_run_id": values["lab_agent_id"], "failures": failures}
 
 
 def record_decision(lab: int, report: dict[str, Any], values: dict[str, str]) -> None:
@@ -699,15 +566,10 @@ def _print_lab2(report: dict) -> None:
 
 
 def _print_lab3(report: dict) -> None:
-    print(f"reference repair: {report['reference']}")
-    for name, verdict in report["variants"].items():
-        print(f"  variant '{name}': {verdict}")
-    print(f"your service/agent_tools.py: {report['your_code']}")
-    for row in report.get("claims", []):
+    if not report["failures"]:
+        print("Your agent is live and using your hybrid search to answer with sources.")
         print(
-            f"product {row['product_id']}: cited {row['cited_spec_records']} spec / "
-            f"{row['cited_review_records']} review records; {row['imported_reviews']} "
-            f"reviews imported of {row['source_ratings']} source ratings"
+            "Next: change Alex's requirements in Mosaic and see how its recommendation changes."
         )
 
 
@@ -716,18 +578,7 @@ def grade(lab: int, work: Path) -> dict[str, Any]:
     if not work.exists():
         raise ExerciseError(f"{work} does not exist; save your work there first")
     if lab == 3:
-        report = grade_lab3(work)
-        claims = REPO / LAB3_CLAIMS_WORK
-        if not claims.exists():
-            report["failures"].append(f"write your claims query in {LAB3_CLAIMS_WORK}")
-            return report
-        values = load_context(3)
-        graded = grade_claims(
-            interpolate(claims.read_text(encoding="utf-8"), values), values
-        )
-        report["claims"] = graded["claims"]
-        report["failures"].extend(graded["failures"])
-        return report
+        return grade_lab3(work)
     values = load_context(lab)
     template = work.read_text(encoding="utf-8")
     if lab == 1:
@@ -788,7 +639,7 @@ def main() -> int:
         graded_at=datetime.now(UTC).isoformat(),
         verdict="FAIL" if report["failures"] else "PASS",
     )
-    report["exercise"] = {1: "recall_instrument", 2: "fusion", 3: "evidence_contract"}[
+    report["exercise"] = {1: "recall_instrument", 2: "fusion", 3: "managed_agent"}[
         args.lab
     ]
     context = REPO / f".local/lab-{args.lab}/context.json"

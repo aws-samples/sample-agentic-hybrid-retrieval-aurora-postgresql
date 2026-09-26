@@ -177,7 +177,13 @@ def test_replay_will_not_accept_a_different_question(saved_runs):
 
 
 @pytest.mark.parametrize(
-    "changed_path", ["service/agent.py", "scripts/evidence_registration_probe.py"]
+    "changed_path",
+    [
+        "service/agent.py",
+        "labs/lab3/agent.py",
+        "deploy/agentcore/app.py",
+        "scripts/agent_assembly_probe.py",
+    ],
 )
 def test_source_binding_changes_with_agent_code_but_not_readme(
     tmp_path, monkeypatch, changed_path
@@ -190,10 +196,17 @@ def test_source_binding_changes_with_agent_code_but_not_readme(
         "scripts/validate_lab.py",
         "scripts/lab_state.py",
         "scripts/evidence_registration_probe.py",
+        "labs/lab3/agent.py",
+        "deploy/agentcore/app.py",
+        "scripts/agent_assembly_probe.py",
+        "scripts/package_agentcore.py",
+        "scripts/deploy_agentcore.py",
+        "scripts/lab_exercise.py",
+        "scripts/complete_agent.py",
         "uv.lock",
     ):
         target = tmp_path / path
-        target.parent.mkdir(exist_ok=True)
+        target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("original")
     original = receipt.source_digest(tmp_path)
     (tmp_path / "README.md").write_text("New title")

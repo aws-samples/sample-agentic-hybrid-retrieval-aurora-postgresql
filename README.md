@@ -23,14 +23,15 @@ the workshop. Follow the guide's commands as you move through the labs.
 
 ## What you will build
 
-The workshop follows **Retrieve → Rank → Reason**. In each lab, predict what
-will happen, observe the failure, investigate, make a repair, and check the result.
+The workshop follows **Retrieve → Rank → Build an agent**. Labs 1 and 2 improve
+your SQL search. Lab 3 connects that search to a Strands agent on AgentCore Runtime
+and exposes the SQL tools through AgentCore Gateway.
 
 | Lab | Question to answer | Where you work |
 |---|---|---|
 | **1. Build hybrid retrieval** | Can search find the intended product, even with a typo? | [Search SQL](db/sql/09_search_functions.sql) |
 | **2. Fuse, rerank, and inspect** | How did each search method contribute to the final order? | [Ranking SQL](db/sql/09_search_functions.sql) |
-| **3. Build the retrieval agent** | Do the sources support the agent's recommendation? | [Agent tools](service/agent_tools.py) and [evidence tests](labs/lab3/test_evidence_contract.py) |
+| **3. Build and deploy an agent** | Can your agent use SQL tools and answer with sources? | [Strands agent](labs/lab3/agent.py) |
 
 Use **Discover** to explore Alex's brief, **Shop** to search and compare products,
 and **Playground** to inspect search results, ranking, tool calls, and sources.
@@ -59,7 +60,9 @@ flowchart LR
 Aurora PostgreSQL holds the products, vectors, source records, and saved searches.
 Filters determine which products are eligible before candidate limits apply.
 Amazon Bedrock supplies query embeddings, reranking, and the agent model. The
-application checks the evidence used in the answer.
+application checks the evidence used in the answer. AgentCore Runtime hosts the
+Strands agent, Gateway exposes its SQL tools over MCP, and AgentCore Memory
+provides conversation context for the optional memory exercise.
 
 You can inspect the [search settings](db/config/retrieval.yaml) and follow the
 [architecture guide](docs/architecture.md) when you want more detail.

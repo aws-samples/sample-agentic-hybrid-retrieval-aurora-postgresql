@@ -154,41 +154,31 @@ formula. Use those as controls, not as visible repair demonstrations. The
 [example library](real-catalog-exercise-library.md) includes successes,
 unchanged results and an unsuccessful wording variant.
 
-### Lab 3 - Build the retrieval agent
+### Lab 3 - Build and deploy an agent
 
-The agent receives typed, read-only retrieval tools. The model requests an
-operation; application code decides whether it executes. Evidence returned to
-the model is not citable until the application registers its identity for the
-retrieved product. The broken HTTP 503 is therefore the correct fail-closed
-outcome, not an outage to work around.
+Participants extend their SQL from Labs 1 and 2. They list the Gateway tools,
+complete `create_agent` in `labs/lab3/agent.py`, add one source-aware instruction,
+and run `make deploy-agent`. The managed services and networking are prepared.
 
-Make the handoff visible: evidence returned by `get_product_evidence` must enter
-both the evidence-ID map and the product's evidence-ID list. After the repair,
-restart the API and start a new run. Read one citation's product, source revision
-and supporting text; a resolved ID establishes identity, while the text must
-still support the claim. Do not bypass authorization or loosen grounding to
-turn the expected refusal into HTTP 200.
+Show the deployment message, then ask the ViewSonic monitor and Steelcase Gesture
+question in Playground → Reason. Open a citation and compare the claim with its
+source. Follow up in Ask Mosaic with a 100W laptop-charging requirement; the
+monitor's 90W record must not be presented as meeting 100W.
 
-Then ask what the cited words actually establish. Compare a specification with
-a review when both are available, and name any unsupported requirement. The
-Playground activity log distinguishes model-requested steps from steps started
-by the application; older records may lack that origin. Count only recorded
-actions, and distinguish failed or declined steps from successful ones.
+Participants build and use the agent. They do not write tests or a claims query.
+The completion command `make complete-lab-3 RUN_ID=...` rechecks the actual run,
+its deployed source and its SQL searches without another model invocation.
 
-The implementation is one bounded Strands agent, not a multi-agent or multi-hop
-system. Closed-world follow-ups may inspect a server-authorized prior shortlist,
-but fresh evidence and citation validation are required for every answer.
 
 ### Advanced Labs (OPTIONAL)
 
 HNSW quality is workload-specific. The required path proves candidate inclusion and eligibility. The optional plan inspection reads the existing index. Recall/latency tuning remains optional rather than becoming a
 rushed fourth lab.
 
-After Lab 3, show contract portability in under a minute. No AgentCore resource
-is deployed and no Gateway runtime parity is claimed. State the ownership
-boundary: Aurora owns retrieval truth, Bedrock models provide intelligence, the
-application owns execution and citation authority, and AgentCore can provide a
-managed runtime or tool transport without taking over retrieval.
+After Lab 3, name the deployed boundaries: Aurora runs retrieval and stores
+evidence; Strands chooses tools; AgentCore Runtime hosts the agent and SQL tool
+service; Gateway exposes those tools over MCP; Memory supplies conversation
+context. Product facts still come from Aurora.
 
 ## Failure-safe sequence
 
@@ -216,22 +206,19 @@ managed runtime or tool transport without taking over retrieval.
 
 ## Carry the story and reuse the proof
 
-Discover’s third need is more screen space, matching the presentation and Shop's monitor example. Lab 3 brings the monitor and chair decisions together: carry forward the monitor requirements from Lab 2 and gather separate evidence for each item. The monitor is also an exact-model control and an optional HNSW example. The three repair seams remain unchanged; the mission and evidence checks cover the monitor's size, resolution, USB-C video and charging.
+Discover’s third need is more screen space, matching the presentation and Shop's monitor example. Lab 3 brings the monitor and chair decisions together: carry forward the monitor requirements from Lab 2 and gather separate evidence for each item. The monitor is also an exact-model control and an optional HNSW example. The SQL repairs feed the deployed agent; the mission and evidence checks cover the monitor's size, resolution, USB-C video and charging.
 
-Ask each checkpoint question before repair. Lab 3 should explicitly show the monitor and chair searches in `plan`, explain that the prompt names their taxonomy, and separate HTTP 503 failure from a successful answer that declines unsupported claims.
+Ask each checkpoint question before the SQL repair. In Lab 3, show the monitor
+and chair searches and open one source. Distinguish a deployment failure from a
+working answer that declines an unsupported claim.
 
-At the end of Lab 3, save the validator's receipt:
+At completion, use the participant's run ID:
 
 ```sh
-uv run python scripts/validate_lab.py --lab 3 \
-  --save-receipt .local/lab-3-validation.json
+make complete-lab-3 RUN_ID=<run-id>
 ```
 
-Pass `--api-url` if the API is not at the script's default endpoint. The
-completion gate can use `--reuse-receipt` with that same file: it binds the
-source and settings, reopens both Aurora agent runs and resolves their evidence
-again. It saves two model invocations without accepting a cached verdict or a
-facilitator's demonstration as completion. A source or settings mismatch
-requires fresh validation.
+The receipt binds the deployed code and current settings. It is regraded from
+Aurora; a facilitator demonstration does not complete a participant's exercise.
 
 Default the ten-minute flex block to [Build a retrieval tool](build-retrieval-tool.md). Its four hints preserve the final two-budget proof and agent call. HNSW is the fallback. Use [the delivery map](abstract-delivery-map.md) to distinguish what attendees implement from what they inspect.

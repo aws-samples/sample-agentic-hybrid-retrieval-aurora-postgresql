@@ -117,8 +117,9 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 _GROUNDING_ERROR_DETAIL = (
     "Mosaic could not attach the supporting sources needed for this answer. "
-    "In Lab 3, repair the marked evidence-registration block and restart the "
-    "lab API, then ask again. Outside the lab, inspect the source checks."
+    "Next: open the agent's tool activity and check whether get_product_evidence "
+    "returned records. If it did not, try a more specific product request. "
+    "If it did, share the run ID with your facilitator."
 )
 _CONVERSATION_ERROR_DETAIL = "Mosaic could not reopen the previous answer. Start a new conversation and try again."
 
@@ -228,6 +229,10 @@ def _model_error(error: Exception) -> HTTPException:
 
 
 def _agent_error(error: Exception) -> HTTPException:
+    from service.agent_setup import AgentSetupError
+
+    if isinstance(error, AgentSetupError):
+        return HTTPException(503, str(error))
     if isinstance(error, GroundingContractError):
         return HTTPException(503, _GROUNDING_ERROR_DETAIL)
     if isinstance(error, AgentTurnDeadlineExceeded):
@@ -548,6 +553,10 @@ def fusion_comparison(request: SearchRequest) -> FusionComparisonResponse:
 )
 def agent_answer(request: AgentRequest, http_request: Request = None) -> AgentResponse:
     try:
+        from service import agentcore_transport
+
+        if agentcore_transport.runtime_arn():
+            return agentcore_transport.answer(request, http_request)
         request = prepare_request(request, http_request)
         return get_product_discovery_agent().answer(request)
     except ConversationContextError as error:
@@ -639,6 +648,15 @@ async def stream_agent_answer(
     agent's stream, which Starlette also does on its own if the process gets
     there first.
     """
+    from service import agentcore_transport
+
+    if agentcore_transport.runtime_arn():
+        try:
+            return await asyncio.to_thread(
+                agentcore_transport.stream, request, http_request
+            )
+        except (ClientError, BotoCoreError, RuntimeError) as error:
+            raise _agent_error(error) from error
     request, slot = await _admit_and_prepare_stream(request, http_request)
 
     async def events():

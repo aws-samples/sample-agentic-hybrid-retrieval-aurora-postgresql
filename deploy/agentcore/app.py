@@ -1,50 +1,48 @@
-"""AgentCore Runtime entry point for the Mosaic retrieval service.
+"""Run Mosaic's Strands agent behind AgentCore Runtime's IAM ingress.
 
-AgentCore Runtime's HTTP protocol checks `GET /ping` and delivers invocations to
-`POST /invocations` on port 8080. The workshop service answers `GET /api/health`
-and `POST /api/agent/answer`, and it keeps answering exactly those: this module
-is an adapter, not a second application. It mounts `service.main.app` whole and
-adds the two platform routes around it, so the process AgentCore starts is the
-process the labs run, with the same middleware, the same exception handlers, the
-same connection-pool lifespan, and the same agent code path.
-
-That is the claim this beat supports and the reason the adapter is this thin.
-Retrieval, ranking, citation, and the `mosaic.agent_turn` receipt are decided in
-Aurora by `service/agent_tools.py` and `service/retrieval_scope.py`. If moving
-the harness changed the answers, the evidence authority was in the harness.
-
-Nothing is added beyond the two contract routes. `tests/test_agentcore_adapter.py`
-asserts that count, and asserts that importing this module leaves the workshop
-application without a platform route on it.
+The invocation envelope preserves the browser's opaque session capability and
+requires the deployed source to match Code Editor. Search and evidence tools
+call AgentCore Gateway; citation and ownership checks use the same production
+functions as the workshop API.
 """
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
 
+from service.agentcore_transport import (
+    RuntimeInvocation,
+    require_current_source,
+    runtime_arn,
+)
 from service.config import get_settings
-from service.main import agent_answer
+from service.db import close_pool, get_pool
+from service.main import agent_answer, get_readiness, stream_agent_answer
 from service.main import app as service_app
-from service.models import AgentRequest, AgentResponse
+from service.models import AgentRequest
+from service.session_memory import COOKIE
 
 
 @asynccontextmanager
 async def _lifespan(_: FastAPI) -> AsyncIterator[None]:
-    """Run the mounted service's own startup and shutdown.
+    """Own Aurora connections behind Runtime's IAM-authenticated ingress.
 
-    A Starlette mount routes requests to the sub-application but does not forward
-    lifespan events to it. Without this delegation the pool would never be opened
-    at startup, so the first invocation after a cold start would pay for pool
-    construction, and it would never be closed on SIGTERM, so a scaled-in
-    container would leave Aurora sessions to time out. uvicorn turns SIGTERM into
-    the shutdown half of this context, which is how the container meets the
-    graceful-shutdown requirement.
+    The browser API checks its nginx origin secret. Runtime authenticates its
+    caller with IAM instead; it must not receive that browser ingress secret.
+    Mounted browser routes retain their origin dependency and remain closed.
     """
-    async with service_app.router.lifespan_context(service_app):
+    try:
+        get_pool()
+    except RuntimeError:
+        pass
+    try:
         yield
+    finally:
+        close_pool()
 
 
 app = FastAPI(
@@ -81,24 +79,37 @@ def ping() -> dict[str, str]:
     return {"status": "Healthy"}
 
 
-@app.post("/invocations", response_model=AgentResponse)
-def invocations(request: AgentRequest) -> AgentResponse:
-    """Run one agent turn, on the same code path `POST /api/agent/answer` runs.
-
-    The HTTP protocol carries the request body through unchanged, so the payload
-    is the `AgentRequest` the service already takes and the response is the
-    `AgentResponse` it already returns. There is no wrapper to unpack and none to
-    add; inventing one would put a second request contract in front of the agent
-    and the receipts would stop matching a local run.
-
-    `service.main.agent_answer` is called rather than reimplemented so the
-    exception mapping cannot drift: a Bedrock `ClientError` or `BotoCoreError`
-    becomes the same redacted 503 here as on the application route, a
-    `RuntimeError` from the fail-closed pipeline becomes the same 503, and an
-    unparseable body is refused with a 422 by the same model, which forbids
-    unknown fields.
-    """
-    return agent_answer(request)
+@app.post("/invocations", response_model=None)
+async def invocations(request: RuntimeInvocation | AgentRequest, http_request: Request):
+    """Run the production API with the browser capability passed by its IAM caller."""
+    if runtime_arn():
+        raise HTTPException(
+            503, "Runtime cannot forward to itself; unset MOSAIC_AGENTCORE_RUNTIME_ARN."
+        )
+    if isinstance(request, AgentRequest):
+        return await asyncio.to_thread(agent_answer, request)
+    digest = await asyncio.to_thread(require_current_source, request.source_sha256)
+    if request.operation == "status":
+        return {
+            "source_sha256": digest,
+            "readiness": await asyncio.to_thread(get_readiness),
+        }
+    if request.request is None:
+        raise HTTPException(422, "Runtime invocation requires an agent request.")
+    # The caller has InvokeAgentRuntime permission. Forward the opaque browser
+    # capability, not an actor ID or client-supplied memory context, so the same
+    # Aurora ownership checks execute on the deployed service.
+    headers = (
+        [(b"cookie", f"{COOKIE}={request.shopper_token}".encode())]
+        if request.shopper_token
+        else []
+    )
+    forwarded = Request(
+        {**http_request.scope, "headers": headers}, receive=http_request.receive
+    )
+    if request.operation == "stream":
+        return await stream_agent_answer(request.request, forwarded)
+    return await asyncio.to_thread(agent_answer, request.request, forwarded)
 
 
 # Mounted last and at the root, so the two routes above are matched first and

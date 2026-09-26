@@ -15,6 +15,11 @@ from strands.models import BedrockModel
 
 from service import agent_tools
 from service.access_control import release_model_admission_slot
+from service.agent_setup import (
+    AGENT_STARTER_MESSAGE,
+    AGENT_TOOLS_MESSAGE,
+    AgentSetupError,
+)
 from service.bedrock import client_config
 from service.config import get_settings
 from service.model_runtime import (
@@ -273,19 +278,27 @@ def _bedrock_model(model_id: str, region: str) -> BedrockModel:
 
 
 def build_agent(*, max_tool_calls: int = 10) -> Agent:
+    from labs.lab3.agent import create_agent
+
     settings = get_settings()
     if not settings.agent_model_id:
         raise RuntimeError(
             "BEDROCK_AGENT_MODEL_ID or BEDROCK_CHAT_MODEL_ID is not configured"
         )
     model = _bedrock_model(settings.agent_model_id, settings.aws_region)
-    return Agent(
-        model=model,
-        tools=list(agent_tools.TOOL_FUNCTIONS),
-        system_prompt=catalog_system_prompt(),
-        hooks=[_ToolCallBudget(max_tool_calls)],
-        callback_handler=None,
-    )
+    try:
+        agent = create_agent(
+            model=model,
+            tools=list(agent_tools.TOOL_FUNCTIONS),
+            instructions=catalog_system_prompt(),
+            hooks=[_ToolCallBudget(max_tool_calls)],
+        )
+    except (NotImplementedError, TypeError, NameError) as error:
+        raise AgentSetupError(AGENT_STARTER_MESSAGE) from error
+    required_tools = {tool.tool_name for tool in agent_tools.TOOL_FUNCTIONS}
+    if not required_tools <= set(agent.tool_names):
+        raise AgentSetupError(AGENT_TOOLS_MESSAGE)
+    return agent
 
 
 def _agent_prompt(
@@ -799,7 +812,9 @@ class ProductDiscoveryAgent:
 
                     if error is not None and record is None:
                         yield {"agent_partial": _partial(state)}
-                        if isinstance(error, GroundingContractError):
+                        if isinstance(error, AgentSetupError):
+                            failure_code, failure_detail = "agent_setup", str(error)
+                        elif isinstance(error, GroundingContractError):
                             failure_code, failure_detail = (
                                 "grounding_contract",
                                 str(error),

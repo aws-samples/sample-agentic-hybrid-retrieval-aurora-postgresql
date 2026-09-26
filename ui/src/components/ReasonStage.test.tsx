@@ -662,7 +662,7 @@ describe("ReasonStage grounded answer", () => {
     await runAgent();
 
     // The answer of record, rendered as Markdown rather than printed raw.
-    const answer = screen.getByRole("region", { name: "The answer and its sources" });
+    const answer = screen.getByRole("region", { name: "Your agent answered with sources" });
     expect(answer.textContent).toContain("Pick the Sonora chair");
     expect(within(answer).getByText("Sonora").tagName).toBe("STRONG");
 
@@ -743,7 +743,7 @@ describe("ReasonStage grounded answer", () => {
       filters: {},
     }));
 
-    expect(screen.queryByRole("region", { name: "The answer and its sources" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Your agent answered with sources" })).toBeNull();
     expect(screen.queryByRole("region", { name: "What each claim cites" })).toBeNull();
     expect(screen.queryByText("Filters I searched with")).toBeNull();
     // The dormant shape is still the six states, drawn empty.
@@ -823,7 +823,7 @@ describe("ReasonStage declined outcome", () => {
       "Mosaic could not confirm part of this request",
     );
     expect(screen.getByText(response.answer)).toBeTruthy();
-    expect(screen.queryByText("The answer and its sources")).toBeNull();
+    expect(screen.queryByText("Your agent answered with sources")).toBeNull();
 
     const chain = screen.getByRole("list", { name: "Evidence state chain" });
     // The declined block sits above the chain it explains.
@@ -865,7 +865,7 @@ describe("ReasonStage declined outcome", () => {
     expect(
       screen.queryByText("Mosaic could not confirm part of this request"),
     ).toBeNull();
-    expect(screen.getByText("The answer and its sources")).toBeTruthy();
+    expect(screen.getByText("Your agent answered with sources")).toBeTruthy();
 
     await waitFor(() => {
       expect(

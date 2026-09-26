@@ -249,7 +249,7 @@ Welcome Alex profile or the Discover brief already implements.
 1. Open three browser tabs from the Event Dashboard: Code Editor and Mosaic, plus the guide itself. One terminal command confirms the 553,911-product catalog and the starting lab state, and the introduction runs one correctly written Bose search to show the three names Shop prints for its searches.
 2. **Lab 1 — Build hybrid retrieval (explain a mechanism).** A transposed product ID makes Alex's saved Bose QuietComfort 35 II vanish. Participants use PostgreSQL's own functions (`tsvector` lexemes, `pg_trgm` word similarity, pgvector distance) to show why only close spelling can recover it, then reconnect that method from its contract. They then write a recall query for the vector search they did not touch. The grader runs it under the planner's plan, which scans the category with a btree and sorts exactly, and with HNSW forced: in recorded runs the forced plan was roughly 6–7× faster yet missed half or more of the true nearest neighbours, and the obvious "exact" query is itself served by the index. Lesson: a full result list is not evidence of good recall. Reading the raw plans, `show_trgm` and `\sf` is an optional Go deeper expander; index construction and tuning are the optional Scale & HNSW flex exercise.
 3. **Lab 2 — Fuse, rerank, and inspect (write an algorithm).** The ViewSonic VG2756-4K, which documents 90W USB-C charging over one cable, never reaches the reranker. Participants write reciprocal rank fusion in SQL (the three searches and their union are given; the fusion and tie-break are theirs), graded at five values of `k`. It shows the collapsed contributions tie every single-search candidate, so a `product_id` tie-breaker, not relevance, decides the 50 products sent to Cohere Rerank and keeps the oldest listings, including a Dell U2720Q relisting, in the pool. After repairing production, they propose one retrieval change under a rule stated in advance; the grader replays it over 141 ESCI judged queries and four reviewed chair controls, and adopting and rejecting both pass when the decision follows the rule. On 2026-09-22, a cutoff of 75 admitted 24 more Exact products (18 queries better, 0 worse) in the same billed rerank unit, while `k`=120 admitted 5 more (4 better, 0 worse, p=0.125) and moved one chair control from 3rd to 4th; the 2026-09-24 test-account run reproduced both. Lesson: fusion only works if positions count, and a tuning decision needs a judged set and a rule chosen before seeing results.
-4. **Lab 3 — Build the retrieval agent (specify a contract).** A Strands agent finds the ViewSonic monitor and the Steelcase Gesture chair and retrieves their evidence, then refuses to answer with HTTP 503: the records were never registered as citable. Participants read the agent's tool sequence in order, write the registration contract as pytest tests that must reject four faulty implementations, then repair `register_evidence` and restart. They check that every citation matches its product, revision and quote; write a claims query (the citation extraction is given) that separates what cited records support from reviews merely imported and the source's rating count; and prove from the agent's own saved searches that the Lab 1 and Lab 2 repairs shaped the answer. Lesson: finding a source, being allowed to cite it, and what it supports are three separate checks; the agent chooses the steps, but tests and application code decide what it may cite.
+4. **Lab 3 — Build and deploy an agent.** Participants list the Gateway tools, complete the Strands agent in `labs/lab3/agent.py`, add a useful instruction and run `make deploy-agent`. Their SQL from Labs 1 and 2 is deployed to a tools Runtime and exposed through Gateway. They ask the monitor/chair question, open a citation and follow up with a 100W charging requirement against the ViewSonic's 90W record. Completion rechecks their actual deployed run without another model call. No participant tests or claims query are required.
 5. Run the completion gate inside Lab 3, then **bring Alex's office home**: one query assembles his room from the participant's three saved runs (the repair behind each item, how it was found, its source rating count, sampled reviews and historical list price), and the participant writes Alex's brief, one sentence per item. Then use the remaining time for an optional exercise, catch-up or questions.
 
 Each lab asks for one written prediction and one two-sentence explanation in `learning-notes.md`; other questions are prompts to think. The runner prints where the lab's target sits before and after the repair, so the proof does not need a second `psql` session. Expanders marked **Go deeper** or **Reference** are optional.
@@ -349,7 +349,7 @@ completion replay checks the successful answer that followed it.
 |---|---|---|---|---|---|
 | **Retrieve — 10 min** | The transposed listing ID loses the exact Bose headphones. | Close-spelling results never enter fusion. | PostgreSQL FTS, `pg_trgm`, pgvector and SQL filters; the planner's choice between an exact scan and HNSW. | The trigram CTE and channel, from a contract; a recall query graded under the planner's plan and forced HNSW, whose obvious "exact" set is itself served by the index. | The Bose listing returns through close spelling; controls pass; the recall instrument passes. |
 | **Rank — 10 min** | The suitable ViewSonic is absent; an explicitly 1440p monitor appears for a 4K request. | Every source position receives rank-1 credit, so the `product_id` tie-break picks the shortlist. | RRF combines positions; Cohere Rerank reorders the bounded list. | RRF in SQL, graded at five values of `k`; then one retrieval change with a pre-stated rule, replayed over 141 ESCI judged queries and four reviewed chair controls. Adopting and rejecting both pass. | The ViewSonic enters the list; the saved run agrees with the participant's fusion; the decision follows its own rule. |
-| **Reason — 20 min** | Products and sources are found, but a cited answer cannot be produced. | Evidence IDs are not registered in application state. | Typed tools, separate searches, Aurora evidence and citation checks. | Contract tests that must reject four faulty implementations, then the repair; a claims query separating cited evidence from imported reviews and source rating counts. | Resolvable citations; the loop query shows the Lab 1 and 2 repairs in the agent's own searches. |
+| **Reason — 20 min** | Alex needs a recommendation and a useful follow-up. | The Strands agent constructor is unfinished. | AgentCore Runtime, Gateway MCP tools, Aurora evidence and Bedrock models. | Assemble the agent, add an instruction, deploy and use it. | Actual SQL tool calls, a supported citation and a clear answer to the changed requirement. |
 
 **Retrieve:** reranking cannot recover a product outside its input list.
 **Rank:** the formula and the final order answer different questions. Correct
@@ -696,24 +696,12 @@ Labs 1 and 2 center on `psql` in the Code Terminal. A small runner saves the
 real application response and loads its IDs and parameters for SQL inspection.
 Lab 1 explains each search method from PostgreSQL's own functions and grades a
 recall instrument under two plans. Lab 2 grades participant-written fusion and a
-one-setting proposal judged on 141 real shopper queries. Lab 3 grades contract
-tests against faulty implementations and a query that separates cited evidence
-from available evidence, then closes Alex's brief from Aurora. Every graded
-attempt is saved in `mosaic.lab_decision`, which the finale reads.
-Keep 10/10/20 minutes for the three labs; use recovery to protect the proof.
-On 2026-09-24 a participant run in a Workshop Studio test account measured the
-machine waits: about 25 s in Lab 1 (after the recall grader dropped from 55 s to
-2-4 s), 30 s in Lab 2, and about 4 minutes in Lab 3, mostly two agent runs
-(49 s and 44 s) and the validator's two agent requests (93 s); the completion
-gate then takes about 40 s. The guides place reading during the agent waits. Human
-reading and writing time is estimated, not measured: do not call the session
-room-tested until a timed human run confirms that pace.
+one-setting proposal judged on 141 real shopper queries. Lab 3 connects SQL tools through Gateway, deploys a Strands agent to Runtime and uses it for a sourced answer and follow-up.
 
-Lab 3 checks registration behavior, not whether a participant copied the
-reference answer's structure. Different local names or a product-list lookup
-outside the loop are valid when the same evidence contract holds. A broken or
-non-terminating function fails the bounded source check; the end-to-end validator
-still checks retrieval, recommendations and citations.
+Lab 3 checks the participant's deployed agent and actual conversation. The
+completion command confirms the deployed source matches the workspace and that
+the answer's citations resolve to current product records. It reuses the saved
+run without another model call.
 
 ## What staff should remember
 

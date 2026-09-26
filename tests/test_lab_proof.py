@@ -688,8 +688,8 @@ def test_lab_state_reports_every_lab(monkeypatch) -> None:
     # `not_applicable` says no Aurora object carries the repair. It must also
     # say what does carry it: the API process, which imports the edited file
     # once when it starts.
-    assert "imports once when it starts" in state.labs[2].detail
-    assert "make restart-lab-api" in state.labs[2].detail
+    assert "make deploy-agent" in state.labs[2].detail
+    assert "ask Alex's question" in state.labs[2].detail
 
 
 def test_a_database_error_on_one_lab_leaves_the_next_lab_readable(

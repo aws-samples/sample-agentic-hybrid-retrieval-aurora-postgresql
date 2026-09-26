@@ -52,15 +52,14 @@ LAB2_BROKEN_FORMULA = """SELECT
         + 1.0::double precision
     )"""
 
-LAB3_EVIDENCE_STATE = """    for item in evidence:
-        state["evidence"][item.evidence_id] = item
-        product_evidence = state["evidence_by_product"].setdefault(product_id, [])
-        if item.evidence_id not in product_evidence:
-            product_evidence.append(item.evidence_id)"""
-
-LAB3_BROKEN_STATE = (
-    "    # Evidence is visible to the model but not attached to grounded synthesis."
-)
+LAB3_AGENT = """    return Agent(
+        model=model,
+        tools=tools,
+        system_prompt=instructions,
+        hooks=hooks,
+        callback_handler=None,
+    )"""
+LAB3_STARTER = '    raise NotImplementedError("Build your Strands agent here, then run make deploy-agent.")'
 
 LABS: dict[int, tuple[str, tuple[tuple[str, str, str, str], ...]]] = {
     1: (
@@ -92,13 +91,13 @@ LABS: dict[int, tuple[str, tuple[tuple[str, str, str, str], ...]]] = {
         ),
     ),
     3: (
-        "service/agent_tools.py",
+        "labs/lab3/agent.py",
         (
             (
-                "# LAB3_EVIDENCE_STATE_START",
-                "# LAB3_EVIDENCE_STATE_END",
-                LAB3_EVIDENCE_STATE,
-                LAB3_BROKEN_STATE,
+                "# LAB3_AGENT_START",
+                "# LAB3_AGENT_END",
+                LAB3_AGENT,
+                LAB3_STARTER,
             ),
         ),
     ),
@@ -281,10 +280,10 @@ def _lab1_matches_contract(source: str, *, schema: str = "mosaic_search") -> boo
 
 
 def _lab3_matches_contract(source: str) -> bool:
-    """Run the actual edited function against the evidence-registration checks.
+    """Check that the participant assembles the supplied model, tools and hooks.
 
-    Local variable names and moving setdefault outside the loop do not change
-    the contract. A separate process bounds bad edits without importing module
+    Local variable names and extra instructions do not change the contract.
+    A separate process bounds bad edits without importing module
     startup code into the lab-status request.
     """
     for start, end, _, _ in LABS[3][1]:
@@ -294,7 +293,7 @@ def _lab3_matches_contract(source: str) -> bool:
         functions = [
             node
             for node in ast.parse(source).body
-            if isinstance(node, ast.FunctionDef) and node.name == "register_evidence"
+            if isinstance(node, ast.FunctionDef) and node.name == "create_agent"
         ]
         if len(functions) != 1 or functions[0].decorator_list:
             return False
@@ -302,7 +301,7 @@ def _lab3_matches_contract(source: str) -> bool:
             [
                 sys.executable,
                 "-I",
-                str(Path(__file__).with_name("evidence_registration_probe.py")),
+                str(Path(__file__).with_name("agent_assembly_probe.py")),
             ],
             input=ast.unparse(functions[0]),
             text=True,
@@ -312,8 +311,7 @@ def _lab3_matches_contract(source: str) -> bool:
             check=False,
         )
         return (
-            result.returncode == 0
-            and result.stdout.strip() == "registration checks passed"
+            result.returncode == 0 and result.stdout.strip() == "agent assembly ready"
         )
     except (SyntaxError, OSError, subprocess.TimeoutExpired):
         return False
@@ -354,9 +352,8 @@ LAB1_FUNCTION_SIGNATURE = """
 """
 
 _LAB3_DETAIL = (
-    "Lab 3 edits service/agent_tools.py, which the API process imports once "
-    "when it starts, so an edited file only reaches a run after "
-    "make restart-lab-api; no Aurora object carries its repair"
+    "Lab 3 builds labs/lab3/agent.py. Run make deploy-agent to publish the "
+    "agent and SQL tools; deployed source must match before a run is accepted."
 )
 
 
@@ -469,10 +466,15 @@ def main() -> int:
         print(f"Lab {args.lab}: SOLUTION ({path.relative_to(REPO)})")
         return 0
     if not lab_is_solved(args.lab):
+        if args.lab == 3:
+            from service.agent_setup import AGENT_STARTER_MESSAGE
+
+            raise SystemExit(AGENT_STARTER_MESSAGE)
         raise SystemExit(
-            f"Lab {args.lab}: BROKEN; repair the marked seam, or for full "
-            f"recovery run uv run python scripts/lab_state.py solution "
-            f"--lab {args.lab}"
+            f"Lab {args.lab}: the SQL change is incomplete. Open {LABS[args.lab][0]} "
+            f"in Code Editor and find the LAB{args.lab}_ markers. Next: complete the "
+            f"marked block, run make db-apply-search-functions, then make validate-lab-{args.lab}. "
+            f"For recovery, follow Hint 4 in the Lab {args.lab} guide."
         )
     if args.database_url:
         _validate_applied_state(args.lab, args.database_url)

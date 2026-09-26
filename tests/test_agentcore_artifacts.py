@@ -152,7 +152,10 @@ def test_dockerfile_ships_the_module_its_command_runs():
     entry_point = ADAPTER_MODULE.split(":")[0].replace(".", "/") + ".py"
 
     assert ADAPTER.is_file(), f"missing {ADAPTER.relative_to(ROOT)}"
-    assert entry_point in _copy_sources(dockerfile), (
+    assert any(
+        entry_point == item or (item.endswith("/") and entry_point.startswith(item))
+        for item in _copy_sources(dockerfile)
+    ), (
         f"found no COPY of {entry_point}; fix: copy the entry point, because "
         "the image otherwise has no module for its CMD to import"
     )
@@ -177,7 +180,7 @@ def test_packaged_application_imports_and_serves_downloads(tmp_path):
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(origin, target)
             copied.append(source)
-    assert "service/" in copied and "deploy/agentcore/app.py" in copied
+    assert "service/" in copied and (tmp_path / "deploy/agentcore/app.py").is_file()
     result = subprocess.run(
         [
             sys.executable,

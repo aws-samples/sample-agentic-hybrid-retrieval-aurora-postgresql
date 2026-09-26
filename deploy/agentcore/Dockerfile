@@ -70,7 +70,8 @@ COPY examples/call_headphones.py ./examples/call_headphones.py
 # The container entry point, and the only file from deploy/ that belongs in the
 # image. It is the module named in CMD below, so the image would start into an
 # ImportError without it.
-COPY deploy/agentcore/app.py ./deploy/agentcore/app.py
+COPY deploy/agentcore/ ./deploy/agentcore/
+COPY labs/lab3/ ./labs/lab3/
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH=/app \
