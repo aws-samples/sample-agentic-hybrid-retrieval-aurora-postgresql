@@ -1,7 +1,7 @@
 import { ArrowRight, ChevronDown, Download } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "wouter";
-import { api } from "../api";
+import { api, ApiError } from "../api";
 import { CodeBlock } from "../components/CodeBlock";
 import { CatalogBuildDrawer } from "../components/CatalogBuildDrawer";
 import { HnswSearchGraph } from "../components/HnswSearchGraph";
@@ -91,20 +91,26 @@ function ScaleInspector() {
   const [substrate, setSubstrate] = useState<HnswSubstrate | null>(null);
   const [measured, setMeasured] = useState<HnswMeasured | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
+  const [unavailable, setUnavailable] = useState<string[]>([]);
   const [pending, setPending] = useState(true);
   const [attempt, setAttempt] = useState(0);
   const [illustrationOpen, setIllustrationOpen] = useState(false);
   useEffect(() => {
     let active = true;
-    setPending(true); setErrors([]);
+    setPending(true); setErrors([]); setUnavailable([]);
     void Promise.allSettled([api.hnswSubstrate(), api.hnswMeasured()]).then(([live, record]) => {
       if (!active) return;
       const failures: string[] = [];
+      const conflicts = new Set<string>();
+      const rejected = (reason: unknown, fallback: string) => {
+        if (reason instanceof ApiError && reason.status === 409) conflicts.add(reason.message);
+        else failures.push(fallback);
+      };
       if (live.status === "fulfilled") setSubstrate(live.value);
-      else { setSubstrate(null); failures.push("The current index could not be loaded."); }
+      else { setSubstrate(null); rejected(live.reason, "The current index could not be loaded."); }
       if (record.status === "fulfilled") setMeasured(record.value);
-      else { setMeasured(null); failures.push("The benchmark results could not be loaded."); }
-      setErrors(failures); setPending(false);
+      else { setMeasured(null); rejected(record.reason, "The benchmark results could not be loaded."); }
+      setErrors(failures); setUnavailable([...conflicts]); setPending(false);
     });
     return () => { active = false; };
   }, [attempt]);
@@ -113,6 +119,7 @@ function ScaleInspector() {
     <div className="inspector-intro"><MosaicLabsMasthead title={<>A small shortlist.<br /><span className="inspector-title-emphasis">A much larger search.</span></>} deck="Compare the matches found, database time and index size before choosing a search setting." action={<CatalogBuildDrawer />} /></div>
     {substrate ? <p className="scale-catalog-context"><strong>Current index</strong> · {substrate.corpus.vector_count.toLocaleString()} product embeddings · {substrate.corpus.dimensions ?? "Unreported"} dimensions · pgvector {substrate.aurora.vector_extension_version ?? "version not reported"}</p> : null}
     {pending ? <p role="status">Reading the catalog and benchmarks…</p> : null}
+    {unavailable.length ? <p className="scale-intro-note" role="note">{unavailable.join(" ")}</p> : null}
     {errors.length ? <div className="inspector-error" role="alert">{errors.join(" ")} <button type="button" className="text-button" onClick={() => setAttempt((value) => value + 1)}>Retry loading</button></div> : null}
     <p className="scale-intro-note">The comparisons below are saved measurements, dated in each section.
       They do not rerun when the current index or settings change. Compare recall
