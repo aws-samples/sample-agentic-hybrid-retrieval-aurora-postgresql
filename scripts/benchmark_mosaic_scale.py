@@ -536,7 +536,8 @@ def main() -> None:
                 "No halfvec or binary index exists on the served catalog "
                 f"({', '.join(f'{n} is {s}' for n, s in sorted(missing.items()))}), "
                 "so the representation comparison was not measured rather than "
-                "borrowed from another catalog."
+                "borrowed from another catalog; run `make db-index-quantized-catalog` "
+                "and re-run the benchmark to measure it."
             )
             print(representations_unavailable_reason, flush=True)
         request.representation = "fp32"

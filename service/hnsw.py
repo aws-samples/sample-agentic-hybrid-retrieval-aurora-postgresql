@@ -146,8 +146,8 @@ def representation_recovery(representation: str) -> str:
                 "`scripts/prepare_staged_catalog_search.py`, which creates the index"
             )
         return (
-            "no quantized index is defined for the prepared catalog, so this "
-            "comparison is withheld rather than measured on another catalog"
+            "run `make db-index-quantized-catalog` to build the halfvec and binary "
+            "indexes on the served catalog (a few minutes each)"
         )
     if representation == "fp32":
         return "run `make db-drop-invalid-indexes` then `make db-index-concurrent`"
