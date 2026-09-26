@@ -6,7 +6,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_hnsw_benchmark_uses_the_production_configuration_and_persists_results():
     source = (ROOT / "scripts" / "benchmark_hnsw.py").read_text(encoding="utf-8")
 
-    assert "mosaic_search.configure_hnsw" in source
+    assert "configure_hnsw(" in source
+    assert "search_schema()" in source
     assert "INSERT INTO mosaic_bench.run" in source
     assert "INSERT INTO mosaic_bench.measurement" in source
     assert "dataset_manifest_sha256" in source

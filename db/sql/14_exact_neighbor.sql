@@ -35,3 +35,15 @@ COMMENT ON TABLE mosaic_bench.exact_neighbor IS
 
 CREATE INDEX IF NOT EXISTS exact_neighbor_manifest_idx
     ON mosaic_bench.exact_neighbor (dataset_manifest_sha256, filter_preset);
+
+-- Ground truth is also only valid for the anchor set and the preset predicate
+-- it was computed for. A preset whose predicate changes while its key survives,
+-- or an anchor set reselected for a new catalog, must invalidate stored rows
+-- rather than serve neighbours of a different question. Rows written before
+-- these columns existed carry NULLs and are treated as stale.
+ALTER TABLE mosaic_bench.exact_neighbor
+    ADD COLUMN IF NOT EXISTS anchor_set_sha256 text,
+    ADD COLUMN IF NOT EXISTS predicate_sha256  text;
+
+CREATE INDEX IF NOT EXISTS exact_neighbor_predicate_idx
+    ON mosaic_bench.exact_neighbor (dataset_manifest_sha256, predicate_sha256, k);

@@ -22,7 +22,6 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from psycopg import OperationalError
 from psycopg_pool import PoolTimeout
 
-from scripts.seed_exact_neighbors import StaleGroundTruth
 from scripts.tool_contracts import contracts_for_surface
 from service import hnsw
 from service.access_control import (
@@ -59,6 +58,8 @@ from service.fusion_comparison import (
     get_fusion_comparison_service,
 )
 from service.hnsw import RepresentationUnavailable
+from service.hnsw_anchors import AnchorSetError, load_anchor_set, served_dataset_id
+from service.hnsw_corpus import StaleGroundTruth
 from service.lab_proof import UnknownLab, completion_proof, lab_states
 from service.model_runtime import (
     bedrock_credentials_status,
@@ -1068,16 +1069,25 @@ def builder_package_route() -> Response:
 
 
 def require_hnsw_instrument_catalog() -> None:
-    """Prevent historical anchors and measurements from being served as real-catalog proof."""
-    from service.catalog_runtime import active_dataset
+    """Serve the instrument only for the catalog its anchor set was selected from.
 
-    dataset = active_dataset()
-    if dataset:
+    The committed anchor set names the dataset it was chosen on. Serving it
+    against another catalog would present neighbours and measurements of one
+    corpus as evidence about another, so the routes refuse with the reason
+    rather than answer.
+    """
+    try:
+        anchors = load_anchor_set()
+    except AnchorSetError as error:
+        raise HTTPException(503, str(error)) from error
+    served = served_dataset_id()
+    if anchors.dataset_id != served:
         raise HTTPException(
             409,
-            "The HNSW instrument is not available for Mosaic’s real catalog: its saved anchors "
-            "and exact neighbors belong to the historical catalog. "
-            "Use the live recall exercise in Lab 1 or the Scale & HNSW SQL exercise.",
+            f"The HNSW instrument is not available for the served catalog: its "
+            f"anchor set was selected from {anchors.dataset_id!r}, not "
+            f"{served!r}. Select anchors and seed exact neighbours for the served "
+            f"catalog before opening Scale & HNSW.",
         )
 
 
@@ -1111,6 +1121,8 @@ def hnsw_anchors_route() -> dict[str, Any]:
     """The query anchors the instrument offers: the imaged retrieval anchors."""
     try:
         return {"anchors": hnsw.anchors()}
+    except AnchorSetError as error:
+        raise HTTPException(503, str(error)) from error
     except Exception as error:
         raise HTTPException(
             503, f"HNSW anchors unavailable: {type(error).__name__}"
@@ -1131,7 +1143,7 @@ def hnsw_neighborhood_route(
         return hnsw.neighborhood(anchor_product_id, preset=preset, k=k)
     except KeyError as error:
         raise HTTPException(404, str(error.args[0])) from error
-    except StaleGroundTruth as error:
+    except (StaleGroundTruth, AnchorSetError) as error:
         raise HTTPException(503, str(error)) from error
 
 
@@ -1159,7 +1171,7 @@ def hnsw_probe_route(request: HnswProbeRequest) -> dict[str, Any]:
         raise HTTPException(404, str(error)) from error
     except KeyError as error:
         raise HTTPException(404, str(error.args[0])) from error
-    except StaleGroundTruth as error:
+    except (StaleGroundTruth, AnchorSetError) as error:
         raise HTTPException(503, str(error)) from error
 
 

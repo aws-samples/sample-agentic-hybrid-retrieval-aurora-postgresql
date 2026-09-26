@@ -11,18 +11,45 @@ const SCAN_MODES: Array<[ScanMode, string]> = [
 ];
 
 /**
- * What each preset demonstrates, keyed by the `character` the measurement recorded.
+ * How to read each selectivity band, keyed by the `character` the preset declares.
  *
- * The captions are deliberately about *why*, because the numbers alone read as noise:
- * a 26% filter failing worse than a 17% one looks like a mistake until the neighbourhood
- * correlation is named.
+ * The band says how much of the catalog a filter keeps. It does not say what the
+ * scan will do under it: that is what the measured rows, recall and plan node in
+ * the cell say, and the captions point at those rather than at a predicted outcome.
  */
 const CHARACTER_NOTES: Record<string, { headline: string; detail: string }> = {
   unfiltered: {
-    headline: "No filter, no problem.",
+    headline: "No filter: the baseline.",
     detail:
-      "The baseline. Every later row should be read against this one rather than against an intuition.",
+      "Every later row should be read against this one rather than against an intuition.",
   },
+  broad: {
+    headline: "A broad filter keeps most of the catalog.",
+    detail:
+      "Compare Off with Strict and Relaxed to see whether the first pass already fills the shortlist or a second pass has to recover rows.",
+  },
+  moderate: {
+    headline: "A moderate filter keeps a large share of the catalog.",
+    detail:
+      "How close the matching products are to the query matters as well as how many products pass. Read rows returned beside recall for each scan mode.",
+  },
+  narrow: {
+    headline: "A narrow filter keeps a small share of the catalog.",
+    detail:
+      "The graph can run out of matches before the shortlist fills. Iterative scans can recover more, with extra work; compare rows, recall and time together.",
+  },
+  very_narrow: {
+    headline: "A very narrow filter keeps a few thousand products.",
+    detail:
+      "The measured memory settings show whether extra scan room changed what this query set returned. The plan node says which access path ran.",
+  },
+  extreme: {
+    headline: "An extreme filter keeps under a hundred products.",
+    detail:
+      "PostgreSQL may choose a filtered exact scan over the index here. The plan node shows which path this measurement used; read it before crediting the index.",
+  },
+  // Characters recorded by historical artifacts (the legacy catalog's presets),
+  // kept so an archived measurement still renders the caption it was measured with.
   uncorrelated: {
     headline: "Selective, and uncorrelated with the neighbourhood.",
     detail:

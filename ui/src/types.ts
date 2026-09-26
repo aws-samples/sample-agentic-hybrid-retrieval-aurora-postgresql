@@ -711,6 +711,7 @@ export interface HnswSubstrate {
   corpus: {
     vector_count: number;
     anchor_count: number;
+    anchor_set_sha256?: string | null;
     dimensions: number | null;
   };
   aurora: {
@@ -761,6 +762,9 @@ export interface HnswFilterLevel {
   matching_rows: number;
   selectivity: number;
   exact_rows_found: number;
+  exact_rows_min?: number;
+  anchors_with_empty_truth?: number;
+  anchors_below_k?: number;
   modes: HnswFilterMode[];
 }
 
@@ -810,6 +814,8 @@ export interface HnswMeasured {
   index: {
     name: string;
     definition: string;
+    /** Whether the index carries a WHERE clause; absent in artifacts measured before it was recorded. */
+    partial?: boolean;
     size_bytes: number;
     bytes_per_vector: number;
     fp32_payload_bytes: number;
@@ -835,8 +841,13 @@ export interface HnswMeasured {
     index_name: string | null;
     compared_at_ef_search: number | null;
     slowdown_factor: number | null;
+    /** False when the served index is total and the predicate is not needed to reach it. */
+    applies?: boolean;
+    note?: string;
   };
   ef_sweep: HnswEfPoint[];
+  /** The same sweep under every iterative-scan mode; `ef_sweep` is the served mode's. */
+  ef_sweep_by_mode?: Record<"off" | "strict_order" | "relaxed_order", HnswEfPoint[]>;
   filter_matrix: HnswFilterLevel[];
   /**
    * Withheld by the server when the halfvec or binary index does not exist on

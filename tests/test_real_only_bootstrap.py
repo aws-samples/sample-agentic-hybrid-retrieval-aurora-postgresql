@@ -75,17 +75,30 @@ def test_published_query_files_keep_real_and_synthetic_identities_separate():
 @pytest.mark.parametrize(
     "path", ["substrate", "measured", "anchors", "neighborhood/1", "probe"]
 )
-def test_real_catalog_withholds_legacy_hnsw_before_any_database_access(
+def test_a_catalog_without_its_own_anchors_withholds_hnsw_before_any_database_access(
     monkeypatch, path
 ):
+    """The instrument serves only the catalog its anchor set was selected from.
+
+    A served catalog that differs from the anchor set's dataset is refused at
+    the route, before any connection is opened, so historical anchors and
+    neighbours are never presented as evidence about another catalog.
+    """
+    from types import SimpleNamespace
+
     from fastapi.testclient import TestClient
 
-    from service import hnsw
+    from service import hnsw, main
     from service.main import app
 
-    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-500k-v1")
     monkeypatch.setattr(
-        hnsw, "connect", lambda: pytest.fail("must not read the historical database")
+        main,
+        "load_anchor_set",
+        lambda: SimpleNamespace(dataset_id="reviews-2023-v2", sha256="a" * 64),
+    )
+    monkeypatch.setattr(
+        hnsw, "connect", lambda: pytest.fail("must not read another catalog's database")
     )
     client = TestClient(app)
     response = (
@@ -94,7 +107,9 @@ def test_real_catalog_withholds_legacy_hnsw_before_any_database_access(
         else client.get(f"/api/hnsw/{path}")
     )
     assert response.status_code == 409
-    assert "Lab 1" in response.json()["detail"]
+    detail = response.json()["detail"]
+    assert "reviews-2023-v2" in detail
+    assert "reviews-2023-500k-v1" in detail
 
 
 @pytest.mark.aurora

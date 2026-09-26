@@ -49,15 +49,24 @@ function productionLessons(measured: HnswMeasured, saturationEfSearch: number | 
     (point) => point.ef_search === saturationEfSearch,
   );
   return [
-    {
-      title: "Repeat the partial-index predicate",
-      detail:
-        `The index is partial. Drop embedding IS NOT NULL and the same query becomes a ` +
-        `${measured.missing_predicate.node} over every row at ` +
-        `${measured.missing_predicate.server_ms} ms, which is ` +
-        `${measured.missing_predicate.slowdown_factor}x the served operating point, for ` +
-        `identical output.`,
-    },
+    measured.index.partial === false
+      ? {
+          title: "The index is total, so the predicate is free",
+          detail:
+            `Drop embedding IS NOT NULL and the same query still runs as a ` +
+            `${measured.missing_predicate.node} on the index at ` +
+            `${measured.missing_predicate.server_ms} ms. Keep the predicate anyway: a ` +
+            `partial index elsewhere is unusable without it.`,
+        }
+      : {
+          title: "Repeat the partial-index predicate",
+          detail:
+            `The index is partial. Drop embedding IS NOT NULL and the same query becomes a ` +
+            `${measured.missing_predicate.node} over every row at ` +
+            `${measured.missing_predicate.server_ms} ms, which is ` +
+            `${measured.missing_predicate.slowdown_factor}x the served operating point, for ` +
+            `identical output.`,
+        },
     {
       title:
         saturationEfSearch === null

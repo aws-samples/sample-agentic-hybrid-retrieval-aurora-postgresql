@@ -30,8 +30,8 @@ function MeasurementNote({ measured }: { measured: HnswMeasured }) {
   return <p className="scale-measurement-note"><strong>{measured.attribution.attributed ? "Measured on this catalog" : "Earlier catalog benchmark"}</strong> · {new Date(measured.captured_at).toLocaleDateString("en-GB")} · {measured.provenance.queries ?? "Recorded"} queries. {median ? "Typical database time with data already cached (p50)." : "Database time from a sampled query."}</p>;
 }
 function FilterComparison({ measured }: { measured: HnswMeasured | null }) {
-  const [preset, setPreset] = useState("brand_stock");
-  const available = measured?.filter_matrix.filter((level) => ["brand_stock", "rating", "domain"].includes(level.preset)) ?? [];
+  const [preset, setPreset] = useState("brand");
+  const available = measured?.filter_matrix.filter((level) => ["brand", "rating", "domain"].includes(level.preset)) ?? [];
   const level = available.find((item) => item.preset === preset) ?? available[0];
   const rows = comparableScanModes(level);
   const exact = level?.exact_rows_found ?? 0;
