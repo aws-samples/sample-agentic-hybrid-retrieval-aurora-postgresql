@@ -16,8 +16,12 @@ Aurora only. There is no local database and no `make` target creates one. See
 - execute the eval harness and save a named baseline;
 - run the HNSW matrix on the exact Aurora configuration used in the room;
 - verify the three starter gaps, source revision, and Claude Code model from a
-  fresh Workshop Studio deployment, and keep that rehearsal's command output
-  for reference during delivery;
+  fresh Workshop Studio deployment, and record that rehearsal with
+  `scripts/rehearsal.py` rather than loose command output — see
+  [`docs/rehearsal-runbook.md`](rehearsal-runbook.md) for the full clean-account
+  sequence and its evidence manifest; deployment, transfer, bootstrap, index,
+  reranker, and agent timing belong in that manifest, not in this guide, so a
+  stale number here can never disagree with what was actually measured;
 - run `pytest -q tests/test_lab_state.py` so reset, solution, and isolation are
   byte-stable when repeated;
 - run one configured-model rehearsal with
@@ -26,7 +30,11 @@ Aurora only. There is no local database and no `make` target creates one. See
   global.anthropic.claude-sonnet-5 --runs 1 --full-runs 1`; this warms the
   real retrieval, rerank, agent, and synthesis path;
 - validate the expected room concurrency against the account's Bedrock quotas
-  and the API pool. Do not discover a quota limit from participant traffic.
+  and the API pool with `scripts/load_exercise.py` (see
+  [`docs/rehearsal-runbook.md`](rehearsal-runbook.md#bounded-concurrency-exercise)),
+  run once cold and once warm. Do not discover a quota limit from participant
+  traffic, and do not print a latency or concurrency figure here that the
+  exercise's own recorded report does not carry.
 
 Rehearse against `reviews-2023-500k-v1`. The prepared Aurora catalog has
 500,000 imported records and vectors. Read `/api/readiness` and confirm both

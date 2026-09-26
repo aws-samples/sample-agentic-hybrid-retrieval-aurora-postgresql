@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import re
 from pathlib import Path
 
@@ -68,3 +69,44 @@ def test_api_contract_pins_the_scorecard_pending_prefix():
     contract = (ROOT / "docs" / "api-contract.md").read_text(encoding="utf-8")
     assert f"`{PENDING_TEXT}`" in contract
     assert "source_revision` equals" not in contract
+
+
+def test_instructor_guide_60_minute_table_matches_the_mission_contract():
+    """`data/evals/mosaic_labs_missions.json` owns lab timing (AGENTS.md); a
+    hand-maintained clock table is a second copy the moment it drifts."""
+    missions = json.loads(
+        (ROOT / "data" / "evals" / "mosaic_labs_missions.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    session = missions["session"]
+    duration_by_stage = {
+        mission["stage"]: mission["duration_minutes"]
+        for mission in missions["missions"]
+    }
+
+    guide = (ROOT / "docs" / "instructor-guide.md").read_text(encoding="utf-8")
+    table = guide.split("## 60-minute path", 1)[1].split("\n## ", 1)[0]
+    rows = re.findall(
+        r"\|\s*(\d{2}):(\d{2})-(\d{2}):(\d{2})\s*\|\s*([^|]+?)\s*\|", table
+    )
+    assert rows, "expected a parseable clock table under '## 60-minute path'"
+
+    minutes_by_row = {}
+    for start_h, start_m, end_h, end_m, label in rows:
+        start = int(start_h) * 60 + int(start_m)
+        end = int(end_h) * 60 + int(end_m)
+        minutes_by_row[label.strip()] = end - start
+
+    assert minutes_by_row["Retrieve"] == duration_by_stage["retrieve"]
+    assert minutes_by_row["Rank"] == duration_by_stage["rank"]
+    assert minutes_by_row["Reason"] == duration_by_stage["reason"]
+    assert (
+        minutes_by_row["Introduction / Overview / Presentation"]
+        == session["orientation_minutes"]
+    )
+    assert (
+        minutes_by_row["Flex"]
+        == session["contingency_minutes"] + session["scorecard_minutes"]
+    )
+    assert sum(minutes_by_row.values()) == session["total_minutes"]

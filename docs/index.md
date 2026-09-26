@@ -36,6 +36,7 @@ honest.
 | `mcp-interoperability.md` | Optional interoperability contract and isolated runtime |
 | `skill-composition.md` | Pointer to the self-contained participant skill's composition, HTTP mapping, and adaptation references |
 | `aurora-deployment.md` | Aurora setup and operational sequence |
+| `rehearsal-runbook.md` | Clean-account rehearsal recorder and bounded load exercise, with evidence manifest schema |
 | `production-readiness.md` | Relevance, data, performance, governance, and UX checklist |
 | `product-image-strategy.md` | Scalable realistic-image approach |
 | `image-generation-guide.md` | Image-generation and ingestion workflow |

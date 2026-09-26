@@ -86,3 +86,17 @@ remote CLI with the built-in Markdown preview association, then leaves a login s
 `.local/code-editor-started` prevents later visits from reopening the page over
 a participant's work. The folder-open task runs in background mode so an idle
 shell does not display a busy task spinner.
+
+## Clean-account rehearsal and load exercise
+
+[`docs/rehearsal-runbook.md`](../docs/rehearsal-runbook.md) is the runbook for
+`READINESS.md`'s clean-account acceptance test: `scripts/rehearsal.py` records
+deployment identity, archive transfer, bootstrap timings, catalog restore
+verification, each lab's independent rehearsal, reranker/Ask Mosaic cold and
+warm calls, and a layout walkthrough into one machine-readable evidence
+manifest. `scripts/load_exercise.py` is a separate, opt-in bounded concurrency
+exercise against the deployed HTTP API, meant to check the access-control
+work's admission and timeout behavior once that lands. Neither tool deploys,
+provisions, or resets anything itself; both need an authorized, already-running
+Aurora and API environment that this repository's own offline tests cannot
+provide.

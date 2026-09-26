@@ -28,6 +28,8 @@ RELEASE_SOURCE_SHA ?=
 RELEASE_EVIDENCE_DIR ?= build/release-evidence
 LAB_API_URL ?= http://127.0.0.1:$(API_PORT)
 SCORE_EVAL_ARGS ?=
+REHEARSAL_EVIDENCE_FILE ?= build/rehearsal-evidence.json
+LOAD_EXERCISE_ARGS ?=
 
 # The Mosaic data model is vendored under db/, rendered at 1024 dimensions.
 SCHEMA_PACKAGE ?= db
@@ -44,7 +46,7 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-base db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
+.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-base db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic rehearsal-validate rehearsal-summary load-exercise api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
@@ -543,6 +545,26 @@ benchmark-hnsw:
 
 benchmark-ask-mosaic:
 	@$(PYTHON) scripts/benchmark_ask_mosaic.py
+
+# Schema-checks a recorded rehearsal manifest: every stage in
+# scripts/rehearsal.py's REQUIRED_STAGES present, and no credential-shaped
+# value anywhere in the JSON. Offline; needs no DSN and no live API. See
+# docs/rehearsal-runbook.md.
+rehearsal-validate:
+	@$(PYTHON) scripts/rehearsal.py validate --manifest "$(REHEARSAL_EVIDENCE_FILE)"
+
+rehearsal-summary:
+	@$(PYTHON) scripts/rehearsal.py summary --manifest "$(REHEARSAL_EVIDENCE_FILE)"
+
+# Opt-in and live only: sends a bounded mix of search, fusion-comparison, and
+# agent-answer calls at a running deployment for LOAD_EXERCISE_ARGS's
+# duration. Never part of `make validate` or `make test`; pass
+# LOAD_EXERCISE_ARGS='--condition cold|warm ...'. See docs/rehearsal-runbook.md.
+load-exercise:
+	@test -n "$(findstring --condition,$(LOAD_EXERCISE_ARGS))" || { \
+		echo "load-exercise: LOAD_EXERCISE_ARGS must include --condition cold|warm"; exit 2; \
+	}
+	@$(PYTHON) scripts/load_exercise.py --api-url "$(LAB_API_URL)" $(LOAD_EXERCISE_ARGS)
 
 api-serve:
 	@$(PYTHON) -m uvicorn service.main:app --host 127.0.0.1 --port $(API_PORT)
