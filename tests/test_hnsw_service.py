@@ -439,12 +439,12 @@ def test_the_attribution_note_is_prose_not_an_error_message(monkeypatch):
 
 
 def _artifact_with_representations(tmp_path, monkeypatch) -> None:
-    """The committed artifact carries a representation block, for the gate tests.
+    """A copy of the committed artifact with a one-row representation block.
 
-    On the served catalog no quantized index exists, so the runner records
-    `representations_unavailable_reason` and no rows. The gate is still the
-    server's responsibility whenever an artifact does advertise rows, which is
-    what these tests exercise with a block added to a copy.
+    The gate is the server's responsibility whenever an artifact advertises
+    rows, whatever the catalog's own rows say; these tests exercise it against
+    a fixture block so they do not depend on which indexes the served catalog
+    had when the artifact was measured.
     """
     payload = json.loads(MEASURED_ARTIFACT.read_text(encoding="utf-8"))
     payload.pop("representations_unavailable_reason", None)
@@ -580,12 +580,25 @@ def test_measured_names_the_cluster_error_when_index_state_cannot_be_read(
     assert "RuntimeError" in payload["representations_unavailable_reason"]
 
 
-def test_the_runners_not_measured_reason_passes_through_unchanged(monkeypatch):
-    """The committed artifact records why no quantized rows exist on this catalog.
+def test_the_runners_not_measured_reason_passes_through_unchanged(
+    tmp_path, monkeypatch
+):
+    """An artifact measured without quantized indexes records why no rows exist.
 
     The gate has nothing to withhold and must not replace the runner's reason
-    with a cluster-state sentence about indexes it never advertised.
+    with a cluster-state sentence about indexes it never advertised, even when
+    the connected cluster has both indexes now.
     """
+    payload = json.loads(MEASURED_ARTIFACT.read_text(encoding="utf-8"))
+    payload.pop("representations", None)
+    payload["representations_unavailable_reason"] = (
+        "No halfvec or binary index exists on the served catalog "
+        "(real_search_vector_halfvec_idx is missing), so the representation "
+        "comparison was not measured rather than borrowed from another catalog."
+    )
+    fixture = tmp_path / "hnsw_measured.json"
+    fixture.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr("service.hnsw.MEASURED_ARTIFACT", fixture)
     _stub_quantized_indexes_valid(monkeypatch)
 
     payload = measured()
