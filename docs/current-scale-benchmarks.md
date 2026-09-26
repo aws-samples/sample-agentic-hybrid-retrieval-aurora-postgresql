@@ -101,7 +101,28 @@ The legacy comparison remains in
 
 ## Index build
 
-INDEX_BUILD_SECTION
+Measured separately by `make benchmark-index-build` on the same cluster and
+table right after the retrieval run, each as one plain `CREATE INDEX` of a
+benchmark-owned index with the production `m=16, ef_construction=200`; the
+serving index was never dropped. Settings are the values the server reported
+from `pg_settings` for that session.
+
+| Session settings | Build time | Index size |
+|---|---:|---:|
+| Aurora defaults: `maintenance_work_mem` 1,057,792 kB (about 1 GiB), `max_parallel_maintenance_workers` 2 | 567.4 s | 4,534,632,448 bytes |
+| `maintenance_work_mem` 8 GB, `max_parallel_maintenance_workers` 7 | 98.1 s | 4,534,632,448 bytes |
+
+The memory setting is the lever on this catalog: with 1 GiB the graph no
+longer fits in maintenance memory and pgvector builds it in passes. For
+context only, the catalog's own projection log recorded 552 s for the
+serving index with seven workers and the default memory on 25 September; it
+is an earlier build's log line, not part of this measurement.
+
+Both build records carry `source_worktree_dirty: true` because the retrieval
+artifact written a step earlier sat untracked in the checkout while they ran;
+no source file differed from revision `3f5a379` (first build) or `7bea92f`
+(second build). The artifact is
+[`hnsw_index_build.json`](../data/benchmarks/hnsw_index_build.json).
 
 ## What this measures
 

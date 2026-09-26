@@ -1,0 +1,112 @@
+{
+  "kind": "measured",
+  "measured_at": "2026-09-26T16:24:42.564655+00:00",
+  "label": "workers7-mwm8g",
+  "provenance": {
+    "source_revision": "7bea92fe5bc4c244fb02dc0827606acbe9832ef7",
+    "source_worktree_dirty": true,
+    "dataset_id": "reviews-2023-v2",
+    "dataset_manifest_sha256": "c4d5913f89050332f71512baf2a0351331208ab94eac0621be9ac63e653cfa00",
+    "instance_class": "db.r8g.2xlarge",
+    "database_instance_id": "agenticretrievalcorestack-aurorapostgresretrievalc-5wdg4dpl2bg2",
+    "database_version": "18.3",
+    "vector_extension_version": "0.8.1",
+    "vector_count": 553911,
+    "command": "scripts/benchmark_index_build.py --workers 7 --maintenance-work-mem 8GB --repeat 1 --label workers7-mwm8g",
+    "method": "one plain CREATE INDEX per run on the served catalog's physical table, benchmark-owned name, production m and ef_construction, session settings read back from pg_settings; the serving index is untouched; wall clock measured from the client"
+  },
+  "runs": [
+    {
+      "index": "mosaic_catalog_search.real_search_vector_idx_bench",
+      "statement": "CREATE INDEX \"real_search_vector_idx_bench\" ON \"mosaic_catalog_search\".\"product_document\" USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 200)",
+      "started_at": "2026-09-26T16:23:04.306684+00:00",
+      "seconds": 98.07,
+      "size_bytes": 4534632448,
+      "settings": {
+        "maintenance_work_mem": {
+          "setting": "8388608",
+          "unit": "kB"
+        },
+        "max_parallel_maintenance_workers": {
+          "setting": "7",
+          "unit": null
+        },
+        "max_parallel_workers": {
+          "setting": "8",
+          "unit": null
+        },
+        "max_worker_processes": {
+          "setting": "16",
+          "unit": null
+        },
+        "shared_buffers": {
+          "setting": "5443689",
+          "unit": "8kB"
+        },
+        "work_mem": {
+          "setting": "4096",
+          "unit": "kB"
+        }
+      },
+      "kept": false,
+      "settings_note": "captured as concatenated setting+unit strings and split into pairs afterwards; shared_buffers is in 8 kB pages"
+    }
+  ],
+  "history": [
+    {
+      "kind": "measured",
+      "measured_at": "2026-09-26T16:23:03.928064+00:00",
+      "label": "session-defaults",
+      "provenance": {
+        "source_revision": "3f5a379e6beaa8155ccd872ebb582b4f41d3c636",
+        "source_worktree_dirty": true,
+        "dataset_id": "reviews-2023-v2",
+        "dataset_manifest_sha256": "c4d5913f89050332f71512baf2a0351331208ab94eac0621be9ac63e653cfa00",
+        "instance_class": "db.r8g.2xlarge",
+        "database_instance_id": "agenticretrievalcorestack-aurorapostgresretrievalc-5wdg4dpl2bg2",
+        "database_version": "18.3",
+        "vector_extension_version": "0.8.1",
+        "vector_count": 553911,
+        "command": "scripts/benchmark_index_build.py --repeat 1 --label session-defaults",
+        "method": "one plain CREATE INDEX per run on the served catalog's physical table, benchmark-owned name, production m and ef_construction, session settings read back from pg_settings; the serving index is untouched; wall clock measured from the client"
+      },
+      "runs": [
+        {
+          "index": "mosaic_catalog_search.real_search_vector_idx_bench",
+          "statement": "CREATE INDEX \"real_search_vector_idx_bench\" ON \"mosaic_catalog_search\".\"product_document\" USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 200)",
+          "started_at": "2026-09-26T16:13:36.330161+00:00",
+          "seconds": 567.4,
+          "size_bytes": 4534632448,
+          "settings": {
+            "maintenance_work_mem": {
+              "setting": "1057792",
+              "unit": "kB"
+            },
+            "max_parallel_maintenance_workers": {
+              "setting": "2",
+              "unit": null
+            },
+            "max_parallel_workers": {
+              "setting": "8",
+              "unit": null
+            },
+            "max_worker_processes": {
+              "setting": "16",
+              "unit": null
+            },
+            "shared_buffers": {
+              "setting": "5443689",
+              "unit": "8kB"
+            },
+            "work_mem": {
+              "setting": "4096",
+              "unit": "kB"
+            }
+          },
+          "kept": false,
+          "settings_note": "captured as concatenated setting+unit strings and split into pairs afterwards; shared_buffers is in 8 kB pages"
+        }
+      ]
+    }
+  ]
+}
