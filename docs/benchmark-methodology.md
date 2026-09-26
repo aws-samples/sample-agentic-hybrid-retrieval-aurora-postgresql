@@ -55,4 +55,4 @@ Record:
 
 ## Projection policy
 
-`simulate_scale.py` is a capacity-teaching model. It reads its baseline from `data/benchmarks/hnsw_measured.json` (the measured row at the served ef_search and the measured bytes per vector) and refuses to run without one; every row beyond the measured vector count is labelled projected.
+`simulate_scale.py` is a capacity-teaching model. It reads its baseline from `data/benchmarks/hnsw_measured.json` (the measured row at the served ef_search and the measured bytes per vector) and refuses to run without one; every row beyond the measured vector count is labelled projected. The generated CSV includes `projection_kind=simulated_calibrated` so projected rows cannot be mistaken for measured results.
