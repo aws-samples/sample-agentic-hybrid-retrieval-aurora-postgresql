@@ -1,5 +1,10 @@
 # Focused product photography for HNSW and search
 
+> Historical synthetic-catalog maintainer reference. Mosaic now serves real
+> source products and saved Cohere vectors. This document does not describe
+> participant provisioning; see [the fixture boundary](../data/full/README.md)
+> and [current restore contract](../ARTIFACTS.md).
+
 These prompts cover 80 products outside the workshop's existing 120-product
 photography cohort. The first 49 are the products in the six flagship queries'
 exact top-10 HNSW neighbourhoods that do not already own product-bound

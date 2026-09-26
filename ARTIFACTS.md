@@ -10,11 +10,13 @@ Where the live state lives, what can be restored, and what cannot.
   with the served `reviews-2023-v2` catalog in `mosaic_catalog_stage`,
   `mosaic_catalog_search` and `mosaic_live_search`: 553,911 source products and
   saved Cohere Embed v4 vectors at 1024 dimensions. The original 500,000-row
-  synthetic catalog remains separately in `mosaic` and `mosaic_search`.
+  synthetic catalog survives only in historical operator databases and regression
+  fixtures; fresh workshops do not load it.
 - The **Workshop Studio attendee path** creates a fresh encrypted cluster, loads
   shared schemas without synthetic rows, then restores the hash-pinned real
-  catalog bundle and selects it for the app. This delivery path still requires
-  a fresh-account rehearsal.
+  catalog bundle and selects it for the app. The
+  [fresh-account record](docs/evidence/fresh-account-2026-09-26.md) verifies this
+  delivery path and lists the remaining rehearsal work.
 - The historical cluster snapshot remains an operator recovery artifact, not a
   cross-account attendee dependency.
 - Every `make` bootstrap target points at Aurora via `DATABASE_URL`.
@@ -34,7 +36,7 @@ State that nothing can restore is not a recovery plan.
 | Historical synthetic catalog | Existing operator Aurora databases only | Excluded from fresh workshops; never required by the real-catalog restore |
 | Real-catalog query-coverage vocabulary | Workshop Studio `real-catalog/vocabulary/` assets | `scripts/corpus_vocabulary.py`; files and projection inputs pinned by `db/config/corpus-vocabulary-cache.json` |
 | Historical embedding cache (operator only) | Operator cache / `build/embedding-cache/` | `make db-fetch-embeddings`, then verified import |
-| Normalized CSV shards | `build/normalized/` | `make db-prepare-mosaic` from `data/full/*.csv.gz` |
+| Historical normalized CSV shards | `build/normalized/` | `make db-prepare-mosaic` from `data/full/*.csv.gz` |
 | Premium cohort media | `ui/public/assets/images/mosaic/` | git; 126 files, content-verified |
 | Lab contract | `data/evals/mosaic_labs_missions.json` | git; validated by `make validate-missions` |
 | Retrieval numbers | `db/config/retrieval.yaml` | git; single source, enforced by `scripts/config_tripwire.py` |
@@ -73,9 +75,10 @@ The historical DDL can be recovered from Git; the loaded data cannot.
 Consequently, correctness is stated against live `mosaic_*`, not against a
 reconstructed predecessor. See `docs/rewrite-losses.md`.
 
-The portable cache reconstructs the current `mosaic_*` projection from checked-in
-catalog shards and pre-generated vectors. It does not reconstruct the retired
-`catalog.*` predecessor.
+The pinned real-catalog archive reconstructs the current serving projection
+from source records and saved vectors. The checked-in `data/full/` shards are
+[historical synthetic fixtures](data/full/README.md), not inputs to this restore.
+Neither path reconstructs the retired `catalog.*` predecessor.
 
 ## Connecting from a corporate network
 

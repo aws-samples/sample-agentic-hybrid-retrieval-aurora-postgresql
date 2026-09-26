@@ -8,8 +8,8 @@ test pass into deployment evidence.
 
 - exactly three required labs;
 - `RETRIEVE -> RANK -> REASON`;
-- 500,000 Aurora PostgreSQL product rows and Cohere Embed v4 vectors;
-- a 120-product visual cohort over the same catalog;
+- 553,911 real source products and saved Cohere Embed v4 vectors in Aurora;
+- no historical synthetic products, reviews or vocabulary in fresh workshops;
 - 40 minutes of required hands-on work, including completion, inside a 60-minute session;
 - HNSW tuning remains an optional Advanced Lab.
 
@@ -34,8 +34,8 @@ cd ui && npm test && npm run build && npm audit --audit-level=moderate
 ```
 
 This is the list `.github/workflows/ci.yml` runs on every push and pull
-request; `README.md` prints the same one. The offline pytest run covers the
-whole suite except the files marked `aurora`, which `tests/conftest.py` skips
+request; [the development guide](docs/development.md) explains the common subset.
+The offline pytest run covers the whole suite except the files marked `aurora`, which `tests/conftest.py` skips
 without a `DATABASE_URL`. These gates prove source shape, deterministic
 contracts, package integrity, and offline behavior. They do not prove Aurora
 connectivity, Bedrock entitlement, asset transfer, or live-session timing.
@@ -56,10 +56,11 @@ make validate-lab-2
 make validate-lab-3
 ```
 
-The canonical scorecard is the curated 21-query set. Twenty product-retrieval
-queries produce Recall@10, MRR, nDCG@10, per-query metrics, deterministic
-fixture checks, and a hash of the exact ranked result set. The 720 generated
-cases are filter-contract tests, not retrieval-quality judgments.
+The canonical set contains nine real-catalog requests: eight product-retrieval
+cases for Recall@10, MRR and nDCG@10, plus one agent-contract case checked
+through Lab 3. The twelve historical canonical requests and 720 generated
+filter cases live separately under `data/evals/historical/`. Historical scores
+do not certify the real catalog; a reviewed real-catalog baseline is still owed.
 
 ## Participant completion proof
 
@@ -79,18 +80,13 @@ are covered by the offline suite (`tests/test_lab_checks.py`,
 
 ## Optional Vector index at scale lens
 
-The committed HNSW artifact (`data/benchmarks/hnsw_measured.json`) records a
-clean-source measurement on 9 September 2026 across 30 anchors on the current
-dataset manifest. The lens checks that provenance against the connected corpus
-and displays `MEASURED ELSEWHERE` if it does not match. These are warmed,
-sequential measurements, not cold-start or concurrent-load results.
-`representations` is served only when
-`make db-index-quantized` has built the halfvec and binary indexes on the
-connected cluster. Exact-neighbour ground truth still requires
-`make db-seed-exact-neighbors` after bootstrap; readiness reports whether it is
-seeded. An interrupted concurrent index build is recovered by
-`make db-drop-invalid-indexes`, which the `index_creation` bootstrap phase now
-runs first.
+The committed HNSW measurements describe a historical catalog. They do not
+certify the 553,911-product real catalog. The service withholds the historical
+instrument when the selected catalog is incompatible and explains the reason.
+Semantic retrieval and the required labs still use the real catalog's HNSW
+index. Re-enabling the optional instrument requires compatible real anchors,
+filter presets, exact-neighbour ground truth and fresh measurements; see
+[the benchmark methodology](docs/benchmark-methodology.md).
 
 ## Optional flex-time beats
 
@@ -129,8 +125,8 @@ labs, the completion gate, and the scorecard untouched.
 The committed canonical scorecard and stage ablation record their measurement
 dates and immutable source revisions. The running service checks their retrieval, methodology,
 model, query-set, and configuration identities before attributing them.
-The 17 September audit confirmed the scorecard and HNSW attribution against
-the existing Aurora cluster; neither substitutes for participant proof.
+The 17 September audit concerned the historical catalog. Its scorecard and
+HNSW attribution do not certify the current catalog or participant repairs.
 
 Run `make score-evals` from the clean release candidate to detect live quality
 regressions. If a covered source or configuration change invalidates the
@@ -153,14 +149,19 @@ Release readiness requires one recorded Workshop Studio rehearsal:
    saved vectors, required FTS/trigram/HNSW indexes, real vocabulary and receipts,
    with zero historical products, brands or search documents;
 8. rehearse Labs 1, 2, and 3, including independent reset and solution paths;
-9. rehearse Cohere reranking and Ask Mosaic cold starts;
+9. rehearse Cohere reranking and Ask Mosaic cold starts, recording prior model
+   canaries or requests; warmed probes cannot support a cold-start claim;
 10. record deployment, transfer, bootstrap, index, first-query, reranker, and
    agent timing;
 11. verify laptop, tablet, mobile, and projector layouts.
 
-Until that rehearsal is recorded, these checks are **PENDING RUNTIME
-VERIFICATION**. No latency, throughput, or deployment-time claim may be marked
-passed from repository inspection alone.
+The [26 September fresh-account record](docs/evidence/fresh-account-2026-09-26.md)
+verifies deployment, real-only restore, repeated lab repairs, access controls,
+bounded load and browser checks for its recorded source revision. The broader
+rehearsal remains incomplete: physical projector checks, human completion timing,
+controlled UI race checks, cold-start timings and reviewed relevance measurements
+are still owed.
+Later source revisions need their own acceptance evidence.
 
 ## Release rule
 

@@ -1,10 +1,15 @@
 # Catalog specification
 
+> Historical synthetic-catalog maintainer reference. Mosaic now serves real
+> source products and saved Cohere vectors. This document does not describe
+> participant provisioning; see [the fixture boundary](../data/full/README.md)
+> and [current restore contract](../ARTIFACTS.md).
+
 ## Design objective
 
 The catalog is not random filler. It is a deliberately adversarial retrieval corpus designed to make each workshop technique earn its place. Products vary across wording, metadata completeness, popularity, availability, near-duplicate variants, exact model identifiers, semantic intent, and decisive negative attributes.
 
-## Canonical size and distribution
+## Historical size and distribution
 
 | Domain | Count | Share |
 |---|---:|---:|

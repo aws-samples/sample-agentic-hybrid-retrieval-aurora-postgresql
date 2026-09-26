@@ -50,14 +50,14 @@ def test_repo_abstract_retains_the_submitted_level_400_building_promise():
     assert "working code, schema patterns, ranking templates" in abstract
 
 
-def test_evaluation_docs_count_twenty_product_cases_plus_one_agent_case():
+def test_evaluation_docs_separate_real_cases_from_historical_measurements():
     plan = _read("docs/evaluation-plan.md")
     normalized_plan = " ".join(plan.split())
     curriculum = _read("docs/retrieval-curriculum.md")
 
-    assert "20 single-request product-retrieval cases" in normalized_plan
+    assert "eight single-request product-retrieval cases" in normalized_plan
     assert "one agent-contract case" in normalized_plan
-    assert "all 20 per-query metrics" in normalized_plan
+    assert "historical 20 per-query metrics" in normalized_plan
     assert "20-query ranking population" in curriculum
 
 
@@ -65,7 +65,7 @@ def test_optional_mcp_is_not_labeled_as_a_lab_3_checkpoint():
     index = _read("docs/index.md")
 
     assert "Lab 3 MCP checkpoint" not in index
-    assert "| `mcp-interoperability.md` | Optional" in index
+    assert "| [MCP interoperability](mcp-interoperability.md) | Optional" in index
 
 
 def test_readme_hands_off_the_complete_participant_skill():

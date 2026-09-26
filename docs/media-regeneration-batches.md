@@ -1,5 +1,10 @@
 # Replacement cohort photography
 
+> Historical synthetic-catalog maintainer reference. Mosaic now serves real
+> source products and saved Cohere vectors. This document does not describe
+> participant provisioning; see [the fixture boundary](../data/full/README.md)
+> and [current restore contract](../ARTIFACTS.md).
+
 Runtime files that are installed but show the **wrong product**. Every one came
 from the `chatgpt-2026-08-08` batch, whose manifest recorded only
 `Pixel-verified source` — the bytes were checked, the subject never was. The

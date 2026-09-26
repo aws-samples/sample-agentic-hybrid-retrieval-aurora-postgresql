@@ -1,59 +1,75 @@
 # Documentation map
 
-Mosaic is a product discovery application built around three visible
-surfaces: Discover, Shop, and Playground. Participants work through three
-required labs on top of it: Lab 1 - Build hybrid retrieval, Lab 2 - Fuse,
-rerank, and inspect, and Lab 3 - Build the retrieval agent. The documents
-below cover the dataset, the retrieval and ranking mechanics, the UI and API
-contracts, and the release and evaluation gates that keep the session
-honest.
+Workshop participants should start with [Start Here](../START_HERE.md).
+The remaining guides are grouped by the work they support.
 
-| Document | Purpose |
+## Participants
+
+| Guide | Purpose |
 |---|---|
-| [development.md](development.md) | Application setup, validation, and publishing links for work outside the participant event |
-| `workshop.md` (repo root) | Co-presenter brief: story, three-lab journey, how to read a run |
-| `l400-lab-design.md` | The participant guide's page shape, graded work per lab, acceptance boundaries and measured pacing |
-| `superpowers/specs/2026-09-19-lab-exercise-design.md` | Superseded in part: the 2026-09-19 page-shape reasoning, printed-number policy and validator pins |
-| `architecture.md` | Runtime and offline architecture |
-| `postgres-18.md` | Engine and pgvector version facts, what the pipeline uses, and what is not claimed |
-| `agentcore-runtime.md` | Optional: shipping the FastAPI and Strands process to Amazon Bedrock AgentCore Runtime unchanged, with Aurora as the evidence authority |
-| `catalog-spec.md` | Dataset taxonomy, schema, attributes, and challenge cohorts |
-| `category-plate-prompts.md` | Prompt set for category-plate imagery |
-| `data-generation.md` | Regeneration, reviews, embeddings, and scale extension |
-| `build-retrieval-tool.md` | Hands-on extension: implement filters, register a typed tool and verify saved searches |
-| `use-in-your-app.md` | Take-home implementation map for schema, SQL, ranking and agent tools |
-| `retrieval-curriculum.md` | Builder-session learning flow |
-| `pg-trgm-lab.md` | Typo-tolerance lesson and evaluation |
-| `fusion-rerank.md` | Candidate fusion, deterministic filters, and reranking |
-| `hnsw-lab.md` | Recall/latency/filter/build experiment design |
-| `benchmark-methodology.md` | Reproducible measurement rules |
-| `evaluation-plan.md` | Offline metrics and ablations |
-| `query-catalog.md` | Curated demonstration queries |
-| `lab-golden-queries.md` | Three lab experiments, five proof anchors, and recovery |
-| `ui-design-system.md` | Maroon/ivory product-discovery and retrieval-evidence design language |
-| `ui-screen-spec.md` | UI screen, component, and payload contracts |
-| `api-contract.md` | Search API request/response contract |
-| `telemetry-contract.md` | Aurora telemetry schema, portable timeline, and optional AgentCore projection |
-| `mcp-interoperability.md` | Optional interoperability contract and isolated runtime |
-| `skill-composition.md` | Pointer to the self-contained participant skill's composition, HTTP mapping, and adaptation references |
-| `aurora-deployment.md` | Aurora setup and operational sequence |
-| `rehearsal-runbook.md` | Clean-account rehearsal recorder and bounded load exercise, with evidence manifest schema |
-| `production-readiness.md` | Relevance, data, performance, governance, and UX checklist |
-| `product-image-strategy.md` | Scalable realistic-image approach |
-| `image-generation-guide.md` | Image-generation and ingestion workflow |
-| `image-prompts-category-plates.md` | Art direction for category-plate generation |
-| `media-generation-batches.md` | Generated media batch inventory |
-| `media-regeneration-batches.md` | Controlled media regeneration workflow |
-| `media-shot-list.md` | Manifest-derived outstanding product image work |
-| `instructor-guide.md` | Facilitation narrative and failure-safe plan |
-| `session-abstract.md` | Session title, abstract, and audience framing |
-| `session-memory.md` | AgentCore events, memory strategies, cross-session recall, setup and verification |
-| `mosaic-parking-lot.md` | Remaining product ideas and their current status |
-| `intentional-gaps.md` | Deliberate starter gaps and their recovery contracts |
-| `implementation-status.md` | What is complete versus environment-dependent |
-| `house-standards.md` | Binding assertions, probes, and release-gate standards |
-| [workshop-studio-setup.md](workshop-studio-setup.md) | First-time setup for teammates: credentials, clone both repos, and pull updates |
-| [workshop-studio-publishing.md](workshop-studio-publishing.md) | Instructions for AGENTS.md / CLAUDE.md: repin, validate, sync assets and static URLs, push, and verify the build |
-| `rewrite-losses.md` | Retired predecessor scope and non-recoverable history |
+| [Start Here](../START_HERE.md) | Open your prepared environment and follow the three required labs |
+| [Use the pattern in your app](use-in-your-app.md) | Take-home map for schema, SQL, ranking and agent tools |
+| [Real-catalog examples](real-catalog-exercise-library.md) | Measured examples and evidence limits |
+| [Mosaic skill](skill-composition.md) | Portable workflow, HTTP mapping and adaptation references |
 
-- [Abstract delivery map](abstract-delivery-map.md): what each required lab teaches, what participants implement, and what stays in flex.
+## Developers
+
+| Guide | Purpose |
+|---|---|
+| [Development guide](development.md) | Application setup, validation and publishing links |
+| [Architecture](architecture.md) | Runtime and catalog restore pipeline |
+| [Database facts](postgres-18.md) | Engine, extensions and the retrieval path |
+| [Build a retrieval tool](build-retrieval-tool.md) | Filters, typed tools and saved searches |
+| [Typo-tolerance lab](pg-trgm-lab.md) | Real identifier recovery and production SQL inspection |
+| [HNSW experiment design](hnsw-lab.md) | Optional performance exercise; requires compatible catalog measurements |
+| [Fusion and reranking](fusion-rerank.md) | Candidate fusion, deterministic filters and reranking |
+| [API contract](api-contract.md) | Search request and response contracts |
+| [Security boundaries](security-boundaries.md) | Workshop access, evidence authority and production adaptation |
+| [UI design system](ui-design-system.md) | Visual language and component rules |
+| [UI screen specification](ui-screen-spec.md) | Screen, component and payload contracts |
+| [Telemetry contract](telemetry-contract.md) | Aurora telemetry and optional AgentCore export |
+| [MCP interoperability](mcp-interoperability.md) | Optional interoperability contract and isolated runtime |
+| [AgentCore Runtime](agentcore-runtime.md) | Optional managed deployment of the API and agent process |
+| [Session memory](session-memory.md) | Optional AgentCore events, memory strategies and verification |
+| [House standards](house-standards.md) | Binding rules for assertions, probes and release gates |
+
+## Facilitators and release operators
+
+| Guide | Purpose |
+|---|---|
+| [Workshop brief](../workshop.md) | Story, three-lab journey and how to read a run |
+| [Instructor guide](instructor-guide.md) | Facilitation narrative and recovery plan |
+| [Lab design](l400-lab-design.md) | Participant page shape, graded work and acceptance boundaries |
+| [Retrieval curriculum](retrieval-curriculum.md) | Builder-session learning flow |
+| [Abstract delivery map](abstract-delivery-map.md) | Required work and optional extensions |
+| [Session abstract](session-abstract.md) | Title, abstract and audience |
+| [Lab queries](lab-golden-queries.md) | Required experiments, proof anchors and recovery |
+| [Intentional gaps](intentional-gaps.md) | Starter defects and their recovery contracts |
+| [Artifacts and restore](../ARTIFACTS.md) | Pinned real products, saved vectors and Aurora connection notes |
+| [Aurora deployment](aurora-deployment.md) | Provisioning and operational sequence |
+| [Workshop Studio setup](workshop-studio-setup.md) | First-time setup and cloning both repositories |
+| [Workshop Studio publishing](workshop-studio-publishing.md) | Repin, validate, sync assets, push and verify the build |
+| [Release readiness](../READINESS.md) | Required source and deployment gates |
+| [Rehearsal runbook](rehearsal-runbook.md) | Clean-account recorder and bounded load exercise |
+| [Fresh-account evidence](evidence/fresh-account-2026-09-26.md) | Measured deployment acceptance and remaining rehearsal work |
+| [Remediation status](remediation-status.md) | Completed fixes, verification scope and outstanding feedback |
+| [Implementation status](implementation-status.md) | Implemented behavior and remaining certification |
+| [Evaluation plan](evaluation-plan.md) | Current and historical query sets, metrics and measurement rules |
+| [Benchmark methodology](benchmark-methodology.md) | Reproducible measurement rules |
+| [Production adaptation checklist](production-readiness.md) | Relevance, data, performance, governance and UX |
+| [Parking lot](mosaic-parking-lot.md) | Remaining product ideas |
+
+## Historical fixtures and maintainer references
+
+| Guide | Purpose |
+|---|---|
+| [Historical fixture boundary](../data/full/README.md) | Why synthetic files remain and how their commands are guarded |
+| [Synthetic catalog specification](catalog-spec.md) | Historical taxonomy, attributes and challenge cohorts |
+| [Synthetic data generation](data-generation.md) | Historical fixture regeneration and embedding tools |
+| [Historical query catalog](query-catalog.md) | Original synthetic demonstration requests |
+| [Saved scale benchmarks](current-scale-benchmarks.md) | Historical catalog results, not current-catalog certification |
+| [Historical image strategy](product-image-strategy.md) | Synthetic cohort media design |
+| [Media regeneration](media-regeneration-batches.md) | Historical cohort media workflow |
+| [Media shot list](media-shot-list.md) | Historical product-image inventory |
+| [Focused product prompts](hnsw-focused-product-prompts.md) | Historical synthetic cohort authoring |
+| [Rewrite losses](rewrite-losses.md) | Retired predecessor scope and non-recoverable history |

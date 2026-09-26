@@ -1,7 +1,7 @@
 # Workshop security boundaries
 
-Mosaic is a disposable, single-participant workshop application with a synthetic
-catalog. It is not a shared-tenant storefront or an authentication example.
+Mosaic is a disposable, single-participant workshop application with a real
+source-product catalog. It is not a shared-tenant storefront or an authentication example.
 The Code Editor requires its generated credential. The Mosaic storefront is
 intentionally reachable without a login; its CloudFront origin header and WAF
 protect the origin and limit traffic, not the identity of a shopper. Do not

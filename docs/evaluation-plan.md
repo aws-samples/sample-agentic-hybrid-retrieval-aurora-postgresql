@@ -59,7 +59,8 @@ misspellings. These are maintainer regression checks, not extra participant task
 Vocabulary acceptance does not prove product eligibility or semantic relevance.
 
 After changing catalog text, refresh its vocabulary with
-`make db-seed-corpus-lexeme`, then run:
+`uv run python scripts/corpus_vocabulary.py refresh --schema mosaic_live_search`,
+then run:
 
 ```bash
 python scripts/measure_query_coverage.py --write
@@ -75,10 +76,10 @@ those expectations separately before altering any of them.
 
 `data/evals/canonical_queries.jsonl` is the authoritative curated set:
 
-- 21 workshop cases with documented teaching concepts;
+- nine real-catalog cases with documented teaching concepts;
 - graded judgments from 0 (irrelevant) through 3 (ideal);
 - explicit hard negatives, expected channels, and ranking behavior;
-- 20 single-request product-retrieval cases;
+- eight single-request product-retrieval cases;
 - one agent-contract case, `G-021`, validated through Lab 3 rather than
   mis-scored as one product search.
 
@@ -98,9 +99,11 @@ exact-identity preservation. It measures:
 - deterministic top-rank or top-k checks for repaired fixtures.
 
 The command writes an ignored per-run CSV and compares the measured result with
-`data/evals/canonical_scorecard.json`. The committed scorecard retains all 20
-per-query metrics and a SHA-256 identity of the exact ranked product IDs and
-positions, excluding volatile event IDs and latency. It also records the clean
+`data/evals/canonical_scorecard.json`. The committed artifact still retains the
+historical 20 per-query metrics and is withheld for the real catalog. A new
+real-catalog baseline must contain the eight product cases and a SHA-256 identity
+of the exact ranked product IDs and positions, excluding volatile event IDs and
+latency. It also records the clean
 source revision, dataset-manifest hash, complete retrieval profile, HNSW
 settings, model IDs, Aurora instance identity/class/version, pgvector version,
 and measurement timestamp. It fails if any of those inputs, the ranked result
@@ -164,7 +167,7 @@ typos.
 
 `data/evals/independent_relevance_queries.jsonl` ("IRC") is a third, separately
 named corpus. It exists because neither of the corpora above establishes
-relevance on unfamiliar queries: the canonical 21-query set is a teaching
+relevance on unfamiliar queries: the canonical nine-query set is a teaching
 fixture pinned to lab missions, and the 720-case filter corpus asserts filter
 eligibility, never relevance. Run it with:
 
