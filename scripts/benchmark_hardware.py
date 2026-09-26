@@ -140,6 +140,42 @@ def optimized_reads_cache(connection: Any) -> dict[str, Any] | None:
     }
 
 
+def prewarm(connection: Any) -> dict[str, Any]:
+    """Load the table, its TOAST and the fp32 index into the buffer cache, and say so.
+
+    A restored clone starts with nothing in memory, and the seeder only touches
+    the heap and TOAST. Without this, the first minutes of every trial measure
+    storage reads of index pages on a clone rather than the instance, and the
+    two sides would differ by whichever one happened to run first. The blocks
+    loaded and the time taken are recorded, so a reader can see the working
+    set was in memory on both sides before any counted query.
+    """
+    indexes = catalog_indexes()
+    connection.execute("CREATE EXTENSION IF NOT EXISTS pg_prewarm")
+    toast = connection.execute(
+        "SELECT reltoastrelid::regclass::text AS toast FROM pg_class "
+        "WHERE oid = %s::regclass",
+        (indexes.qualified_table,),
+    ).fetchone()["toast"]
+    loaded: dict[str, Any] = {}
+    started = time.perf_counter()
+    for relation in (indexes.qualified_table, toast, indexes.qualified(indexes.fp32)):
+        if not relation or relation == "-":
+            continue
+        blocks = connection.execute(
+            "SELECT pg_prewarm(%s::regclass) AS blocks", (relation,)
+        ).fetchone()["blocks"]
+        loaded[relation] = int(blocks)
+    return {
+        "method": (
+            "pg_prewarm on the table, its TOAST relation and the fp32 index, "
+            "same order on both sides"
+        ),
+        "blocks": loaded,
+        "seconds": round(time.perf_counter() - started, 2),
+    }
+
+
 def buffer_statistics(connection: Any) -> dict[str, Any]:
     """Cumulative buffer and block counters for the connected database."""
     row = connection.execute(
@@ -459,6 +495,12 @@ def measure_side(
                     "seed exact neighbours on this cluster before comparing hardware",
                 )
             )
+        before_prewarm = buffer_statistics(connection)
+        print(f"[{label}] prewarm …", flush=True)
+        prewarmed = prewarm(connection)
+        print(
+            f"[{label}]   {prewarmed['blocks']} in {prewarmed['seconds']} s", flush=True
+        )
         before_warmup = buffer_statistics(connection)
     workload = Workload(pool)
     print(
@@ -550,7 +592,12 @@ def measure_side(
         "environment": env,
         "corpus_manifest": manifest,
         "workload_sha256": workload.sha256,
-        "buffers": {"before_warmup": before_warmup, "after_warmup": after_warmup},
+        "prewarm": prewarmed,
+        "buffers": {
+            "before_prewarm": before_prewarm,
+            "before_warmup": before_warmup,
+            "after_warmup": after_warmup,
+        },
         "warmup": {
             **summarize_phase(warm, concurrency=concurrency_levels[0]),
             "explain_after": warm_plan,
@@ -731,8 +778,9 @@ def main() -> None:
             "method": (
                 "same query text, parameters and configure_hnsw settings as the served probe; "
                 "client latency is wall clock per query including the in-VPC network; recall is "
-                "scored against exact neighbours seeded in each cluster; warm-up is recorded and "
-                "not counted; cache state is reported from pg_stat_database deltas, "
+                "scored against exact neighbours seeded in each cluster; the table, TOAST "
+                "and index are loaded with pg_prewarm on both sides before a recorded, "
+                "uncounted warm-up; cache state is reported from pg_stat_database deltas, "
                 "aurora_stat_optimized_reads_cache() and EXPLAIN (ANALYZE, BUFFERS) text, never assumed"
             ),
         },

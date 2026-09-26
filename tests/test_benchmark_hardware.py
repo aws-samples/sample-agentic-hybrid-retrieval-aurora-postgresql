@@ -191,3 +191,33 @@ def test_optimized_reads_cache_is_reported_absent_rather_than_assumed():
         "total_size_bytes": 1_000,
         "used_size_bytes": 10,
     }
+
+
+def test_prewarm_loads_table_toast_and_index_in_a_fixed_order(monkeypatch):
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
+
+    class _Prewarm:
+        def __init__(self):
+            self.statements = []
+
+        def execute(self, sql, parameters=None):
+            self.statements.append((sql, parameters))
+            if "reltoastrelid" in sql:
+                return _Cursor([{"toast": "pg_toast.pg_toast_123"}])
+            if "pg_prewarm(" in sql:
+                return _Cursor([{"blocks": 42}])
+            return _Cursor([])
+
+    connection = _Prewarm()
+    record = hardware.prewarm(connection)
+
+    relations = [p[0] for sql, p in connection.statements if "pg_prewarm(" in sql]
+    assert relations == [
+        "mosaic_catalog_search.product_document",
+        "pg_toast.pg_toast_123",
+        "mosaic_catalog_search.real_search_vector_idx",
+    ]
+    assert record["blocks"] == {name: 42 for name in relations}
+    assert connection.statements[0][0].startswith(
+        "CREATE EXTENSION IF NOT EXISTS pg_prewarm"
+    )
