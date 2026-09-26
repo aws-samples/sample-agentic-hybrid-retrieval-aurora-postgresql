@@ -1,0 +1,3039 @@
+/* ---------------------------------------------------------------------------
+   Playground: Retrieve -> Rank -> Reason
+   ---------------------------------------------------------------------------
+   The one place in Mosaic where a customer word and a PostgreSQL feature name
+   appear side by side, and the only place numbered sections are used, because
+   here the sequence is the information.
+
+   Every font-size in this block is a --labs-* token. scripts/labs_type_scale.py
+   fails the build on a literal inside any `.labs-` selector, which is what keeps
+   a fourth Playground panel from inventing an eleventh type step.
+   --------------------------------------------------------------------------- */
+
+.lab-page {
+  --labs-gutter: 4.25rem;
+  --labs-panel-padding: clamp(18px, 2.4vw, 24px);
+  --labs-form-measure: 74ch;
+}
+
+.lab-page .labs-intro {
+  background: transparent;
+  border-bottom: 0;
+}
+
+.lab-page .labs-intro-copy {
+  width: 100%;
+  padding-block: 0;
+}
+
+.lab-page .labs-intro-actions,
+.lab-page .retrieval-run-action {
+  width: 100%;
+}
+
+.lab-page .retrieval-run-action {
+  padding: 18px;
+  border-color: var(--line-strong);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgb(48 37 28 / 3%);
+}
+
+.lab-page .retrieval-run-action .primary-button {
+  min-height: 44px;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.lab-page .labs-rail {
+  border-radius: 8px;
+}
+
+.lab-page .labs-rail.is-stuck {
+  box-shadow: 0 4px 12px rgb(48 37 28 / 5%);
+}
+
+/* Laptop height, not physical screen size, determines how much of a run is
+   visible. Keep the controls and first results together without shrinking
+   the reading text or the diagnostic table. */
+@media (min-width: 901px) and (max-height: 900px) {
+
+  .shop-main {
+    --shop-pad-block: 24px;
+    --shop-pad-inline: 0px;
+  }
+
+  .shop-controls {
+    margin-top: 16px;
+    padding-bottom: 8px;
+  }
+
+  .shop-filter-chips {
+    padding-top: 8px;
+  }
+
+  .shop-query-state {
+    margin-top: 10px;
+  }
+
+  .lab-page.labs-premium {
+    gap: 24px;
+    padding-top: 24px;
+  }
+
+  .lab-page .labs-intro-copy {
+    padding-block: 0;
+  }
+
+  .lab-page .labs-intro-copy h1 {
+    font-size: var(--labs-h2);
+  }
+
+  .lab-page .labs-intro-copy > .labs-intro-deck {
+    max-width: none;
+    font-size: var(--labs-body);
+  }
+
+  .lab-page .labs-bridge {
+    gap: 12px;
+    padding-block: 18px;
+  }
+
+  .lab-page .labs-bridge dl > div {
+    padding: 12px 16px;
+  }
+
+  .lab-page .labs-stage {
+    gap: 20px;
+    padding-top: 24px;
+  }
+}
+
+/* The bridge, above the stages. Two columns of the same table, not a diagram:
+   left is what Shop prints, right is what Aurora ran. */
+.labs-bridge {
+  display: grid;
+  gap: 18px;
+  padding: clamp(22px, 2.4vw, 32px) 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.labs-bridge h3,
+.labs-bridge h2 {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--labs-h3);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.labs-bridge dl {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  background: transparent;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.labs-bridge dl > div {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  padding: 16px 18px;
+  background: transparent;
+}
+
+.labs-bridge dt {
+  color: var(--ink);
+  font-size: var(--labs-lead);
+  font-weight: 600;
+}
+
+.labs-bridge dd {
+  margin: 0;
+}
+
+.labs-bridge dd code,
+.labs-channel-list code {
+  color: var(--maroon-800);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-bridge > p {
+  max-width: 78ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-body);
+  line-height: 1.6;
+}
+
+/* One numbered stage. The number is quiet text in the margin rather than a
+   filled badge, so three of them down the page read as a sequence and not as
+   three notification counts. */
+/* One left edge per stage. The number lives in a fixed gutter and everything else —
+   heading, summary and every panel — starts at the same line, so the three stages
+   read as a single column with a numbered margin rather than as three indents. */
+.labs-stage {
+  --labs-gutter: 4.25rem;
+
+  display: grid;
+  gap: clamp(20px, 2.2vw, 30px);
+  padding-top: clamp(26px, 3vw, 40px);
+  border-top: 1px solid var(--line);
+}
+
+.labs-stage-head {
+  display: grid;
+  align-items: baseline;
+  gap: 6px 0;
+  grid-template-columns: var(--labs-gutter) minmax(0, 1fr) auto;
+}
+
+/* #948c80, not --line-dark: measured 1.75:1 against the page, and 37px large text
+   needs 3:1. The numbers carry the Retrieve -> Rank -> Reason sequence, which is the
+   one thing this surface is organised around, so they are not decoration. */
+.labs-stage-number {
+  color: #948c80;
+  font-family: var(--sans);
+  font-size: var(--labs-h2);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.labs-stage-copy h2 {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--labs-h2);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.04;
+}
+
+.labs-stage-copy p {
+  max-width: 74ch;
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-body);
+  line-height: 1.6;
+}
+
+.labs-stage-status {
+  justify-self: end;
+}
+
+.labs-stage-body {
+  display: grid;
+  gap: clamp(18px, 2vw, 28px);
+  margin-left: var(--labs-gutter);
+}
+
+.labs-stage-awaiting,
+.labs-reason-awaiting {
+  margin: 0;
+  padding: 6px 0 10px;
+  color: var(--ink-soft);
+  font-size: var(--labs-body);
+}
+
+/* Three channels, three states. `contributing` is the only one that prints a
+   count; the other two say what happened in words, because a zero beside two
+   non-zeros invites arithmetic that means nothing. */
+.labs-channels {
+  display: grid;
+  gap: 14px;
+}
+
+.labs-channels h3 {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--labs-h3);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.labs-channel-list {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  background: var(--line);
+  list-style: none;
+}
+
+.labs-channel-list > li {
+  display: grid;
+  align-items: center;
+  gap: 6px 14px;
+  padding: 14px 18px;
+  background: var(--paper);
+  grid-template-columns: auto minmax(0, 12rem) minmax(0, 1fr) auto;
+}
+
+.labs-channel-list > li.is-disconnected {
+  background: var(--maroon-50);
+}
+
+.labs-channel-list > li > strong {
+  color: var(--ink);
+  font-size: var(--labs-lead);
+  font-weight: 600;
+}
+
+.labs-channel-result {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  text-align: right;
+}
+
+.labs-channel-result small,
+.labs-channel-purpose strong {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.labs-channel-result span {
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  font-weight: 600;
+}
+
+/* Mechanism and the Postgres index behind it, stacked so the index reads as a
+   detail under the name rather than a fourth column competing with the count. */
+.labs-channel-mechanism {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.labs-channel-mechanism small {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+  overflow-wrap: anywhere;
+}
+
+/* One line, every arm, every render: what it is for. It starts on the arm name's
+   column and runs to the right edge, so it reads as a caption under the row
+   rather than a fifth column squeezed beside the count. */
+.labs-channel-purpose {
+  display: grid;
+  grid-column: 2 / -1;
+  gap: 3px;
+  margin: 0;
+}
+
+.labs-channel-purpose span {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.labs-channel-mark {
+  color: var(--line-strong);
+}
+
+.labs-channel-mark.is-good {
+  color: var(--green);
+}
+
+.labs-channel-mark.is-warn {
+  color: var(--danger);
+}
+
+/* The Lab 1 split. Two claims, one true and one false, stacked so the
+   contradiction is the thing on screen. */
+.labs-channel-split {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  border-left: 1px solid var(--danger);
+  background: var(--maroon-50);
+}
+
+.labs-channel-split p {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--labs-body);
+  line-height: 1.5;
+}
+
+.labs-channel-split strong {
+  font-weight: 600;
+}
+
+.labs-channel-split b {
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.labs-channel-split b.is-good {
+  color: var(--green);
+}
+
+.labs-channel-split b.is-warn {
+  color: var(--danger);
+}
+
+.labs-channel-split small,
+.labs-channel-split em {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  font-style: normal;
+  line-height: 1.55;
+}
+
+.labs-channel-split-lesson {
+  padding-top: 12px;
+  border-top: 1px solid #e8d5cf;
+  font-family: var(--sans);
+  font-size: var(--labs-lead);
+  font-weight: 600;
+}
+
+/* Measured figures. `is-warn` tints the value, never the whole tile, so a row of
+   them still scans as one set. */
+.labs-figures {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  background: var(--line);
+  grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+}
+
+.labs-figure {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 15px 18px;
+  background: var(--paper);
+}
+
+.labs-figure dt {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* No tabular-nums on a value that is prose with numbers in it. Schibsted Grotesk's
+   `tnum` set substitutes a full-width comma for column alignment, so "4 cited, not
+   checked yet" rendered with a visible gap before the comma. Tabular figures stay on
+   the tables, where columns actually have to line up. */
+.labs-figure dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--labs-h3);
+  font-weight: 600;
+}
+
+.labs-figure.is-good dd {
+  color: var(--green);
+}
+
+.labs-figure.is-warn dd {
+  color: var(--danger);
+}
+
+.labs-figure small {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.labs-query-echo {
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+  overflow-wrap: anywhere;
+}
+
+/* Progressive disclosure. A shelf of rules, not a shelf of cards: the summary is
+   a row with a hairline over it, and opening one adds a body rather than lifting
+   a panel out of the page. */
+.labs-disclosure-shelf {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+
+.labs-disclosure {
+  border-bottom: 1px solid var(--line);
+}
+
+.labs-disclosure > summary {
+  display: grid;
+  align-items: center;
+  gap: 4px 14px;
+  padding: 13px 2px;
+  cursor: pointer;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  list-style: none;
+  transition: color 140ms ease;
+}
+
+.labs-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.labs-disclosure > summary:hover {
+  color: var(--maroon-900);
+}
+
+.labs-disclosure > summary > span {
+  font-size: var(--labs-body);
+  font-weight: 600;
+}
+
+.labs-disclosure > summary > small {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+}
+
+.labs-disclosure > summary > svg {
+  color: var(--ink-soft);
+  transition: transform 160ms ease;
+}
+
+.labs-disclosure[open] > summary > svg {
+  transform: rotate(180deg);
+}
+
+.labs-disclosure-body {
+  display: grid;
+  gap: 14px;
+  padding: 4px 0 20px;
+}
+
+.labs-disclosure-body > p {
+  max-width: 78ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-body);
+  line-height: 1.6;
+}
+
+.labs-disclosure-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--labs-body);
+}
+
+@media (max-width: 640px) {
+  .labs-disclosure > summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .labs-disclosure > summary > small {
+    grid-column: 1;
+  }
+
+  .labs-disclosure > summary > svg {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+.labs-contract-note,
+.labs-rrf-formula {
+  max-width: 78ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-body);
+  line-height: 1.6;
+}
+
+.labs-rrf-formula code,
+.labs-contract-note code {
+  color: var(--maroon-800);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+/* Wide numeric tables. They scroll rather than wrap: a rank column that wraps
+   stops being a column. */
+.labs-rrf-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+}
+
+.labs-rrf-scroll:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.labs-rrf-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--labs-detail);
+}
+
+.labs-rrf-table th,
+.labs-rrf-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.labs-rrf-table thead th {
+  background: var(--paper-warm);
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.labs-rrf-table tbody th {
+  font-weight: 600;
+  white-space: normal;
+}
+
+.labs-rrf-table td {
+  font-variant-numeric: tabular-nums;
+}
+
+/* `.mono` in styles.css carries a 12px literal. Inside these tables the figures
+   sit beside 13px row labels, and a cell one size smaller than its neighbour
+   reads as a different table. */
+.labs-rrf-table .mono {
+  font-size: var(--labs-mono);
+}
+
+.labs-rrf-table td > span {
+  display: block;
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-rrf-table td > b {
+  display: block;
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+  font-weight: 600;
+}
+
+.labs-rrf-table td > em {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-style: normal;
+}
+
+.labs-rrf-mismatch {
+  color: var(--danger);
+}
+
+/* Specific enough to win over `.labs-rrf-table td > em`'s own color: the
+   broken-formula value inside a fusion-defect cell has to actually read as a
+   flag, not fall back to the same muted tone every other `em` in this table
+   uses. */
+.labs-rrf-table td > em.labs-rrf-mismatch {
+  color: var(--danger);
+}
+
+.labs-rrf-mismatch small {
+  display: block;
+  font-size: var(--labs-micro);
+}
+
+/* One shared convention for the workshop's two stated maxims (Lab 2's fusion
+   defect, Lab 3's evidence chain): a short, bolded claim, set apart from the
+   measurements around it rather than folded into another paragraph's prose. */
+.labs-teaching-line {
+  max-width: 74ch;
+  margin: 0;
+  padding: 13px 16px;
+  border-left: 1px solid var(--ink);
+  background: var(--paper-warm);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-body);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* Sits directly under .labs-teaching-line and continues its left rule, so the
+   two read as one block: the claim, then the boundary it is not making. */
+.labs-teaching-aside {
+  max-width: 74ch;
+  margin: 0;
+  padding: 0 16px 13px;
+  border-left: 1px solid var(--ink);
+  background: var(--paper-warm);
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.55;
+}
+
+.labs-profile {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  background: var(--line);
+  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+}
+
+.labs-profile > div {
+  display: grid;
+  gap: 4px;
+  padding: 11px 14px;
+  background: var(--paper);
+}
+
+.labs-profile dt {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.labs-profile dd {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-matrix-sql-title {
+  display: grid;
+  gap: 3px;
+  margin: 0 0 8px;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+}
+
+.labs-matrix-sql-title strong {
+  color: var(--ink);
+  font-size: var(--labs-body);
+}
+
+.labs-matrix-sql-title code {
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+/* Stage 03. The chain is four claims about the same evidence, each with the field
+   it was read from underneath, which is what keeps them from collapsing into one
+   number called "evidence". */
+.labs-reason {
+  display: grid;
+  gap: clamp(16px, 1.8vw, 24px);
+}
+
+.labs-reason-run {
+  display: grid;
+  min-width: 0;
+  gap: 18px;
+  scroll-margin-top: calc(var(--topbar-height) + var(--labs-rail-height, 0px) + 18px);
+}
+
+.labs-reason-run:focus {
+  outline: none;
+}
+
+.labs-reason-run-status {
+  padding: 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.labs-reason-run-heading {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.labs-reason-run-heading > svg {
+  margin-top: 2px;
+  color: var(--maroon-800);
+}
+
+.labs-reason-run-status[data-state="error"] .labs-reason-run-heading > svg {
+  color: var(--danger);
+}
+
+.labs-reason-run-heading h3 {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--labs-h3);
+  line-height: 1.3;
+}
+
+.labs-reason-run-heading p {
+  min-height: 2.8em;
+  max-width: 72ch;
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.4;
+}
+
+.labs-reason-elapsed {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  color: var(--ink);
+  font-size: var(--labs-lead);
+  font-variant-numeric: tabular-nums;
+}
+
+.labs-reason-elapsed small {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+}
+
+.labs-reason-run-meta,
+.labs-reason-run-meta dl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 20px;
+  margin: 0;
+  font-size: var(--labs-detail);
+}
+
+.labs-reason-run-meta {
+  justify-content: space-between;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-soft);
+}
+
+.labs-reason-run-meta dl > div {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.labs-reason-run-meta dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.labs-reason-run-meta code {
+  font-size: var(--labs-mono);
+}
+
+.labs-reason-section {
+  min-width: 0;
+  border-block: 1px solid var(--line);
+}
+
+.labs-reason-section + .labs-reason-section {
+  margin-top: -18px;
+  border-top: 0;
+}
+
+.labs-reason-section > summary {
+  padding: 18px 4px;
+  color: var(--ink);
+  font-size: var(--labs-body);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.labs-reason-section > summary small {
+  display: inline-block;
+  margin-left: 14px;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  font-weight: 400;
+}
+
+.labs-reason-section-body {
+  display: grid;
+  min-width: 0;
+  gap: 20px;
+  padding-block: 0 20px;
+}
+
+.labs-reason-answer-waiting > p {
+  min-height: 5em;
+  max-width: 74ch;
+  margin: 0;
+  padding: 18px;
+  color: var(--ink-soft);
+  font-size: var(--labs-body);
+  line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .labs-reason-run-status {
+    padding: 16px;
+  }
+
+  .labs-reason-section > summary small {
+    display: block;
+    margin: 5px 0 0 18px;
+  }
+}
+
+.labs-reason-composer {
+  display: grid;
+  gap: 10px;
+  padding: 14px var(--labs-panel-padding) 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 4px 14px rgb(55 36 25 / 4%);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.labs-reason-composer:focus-within {
+  border-color: #b59688;
+  box-shadow: 0 0 0 3px rgb(126 36 49 / 8%);
+}
+
+/* Body size, not lead: it is the participant's question, editable, and set a
+   step larger than the answer below it read as a heading. */
+.labs-reason-composer textarea {
+  width: 100%;
+  min-height: 6.5rem;
+  resize: vertical;
+  padding: 2px 0 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-body);
+  font-weight: 400;
+  line-height: 1.55;
+}
+
+.labs-reason-composer textarea::placeholder {
+  color: var(--ink-soft);
+}
+
+.labs-reason-composer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.labs-reason-composer-actions > small {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.4;
+}
+
+/* The same shape as Run pipeline in the masthead: the two runnable things on
+   this page look like the same kind of control. */
+.labs-reason-submit {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 18px;
+  border: 1px solid var(--maroon-800);
+  border-radius: 6px;
+  background: var(--maroon-800);
+  color: var(--paper-strong);
+  font-size: var(--labs-detail);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.labs-reason-submit:hover:not(:disabled) {
+  border-color: var(--maroon-700);
+  background: var(--maroon-700);
+}
+
+.labs-reason-submit:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.labs-reason-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.labs-reason-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 0;
+  padding: 14px 16px;
+  border-left: 1px solid var(--danger);
+  background: var(--maroon-50);
+  color: var(--ink);
+  font-size: var(--labs-body);
+  line-height: 1.55;
+}
+
+/* Where memory lives, set as a footnote rather than a panel: hairline above,
+   detail size, one bold lead-in, and the same measure as every other note. */
+.labs-memory-note {
+  max-width: 78ch;
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.6;
+}
+
+.labs-memory-note strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.labs-reason-products {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.labs-reason-products > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.labs-reason-products h3 {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: var(--labs-h3);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.labs-reason-products > header > small {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+}
+
+.labs-reason-products ul {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  grid-template-columns: minmax(0, 1fr);
+  list-style: none;
+}
+
+.labs-reason-products li {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 80px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.labs-reason-products li:last-child {
+  border-bottom: 0;
+}
+
+.labs-reason-products img {
+  width: 80px;
+  height: 64px;
+  border-radius: 4px;
+  background: var(--paper-warm);
+  object-fit: cover;
+}
+
+.labs-reason-products li > div {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.labs-reason-products li strong {
+  color: var(--ink);
+  font-size: var(--labs-body);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.labs-reason-products li span,
+.labs-reason-products li small {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.4;
+}
+
+.labs-reason-products li small {
+  font-family: var(--mono);
+  font-size: var(--labs-micro);
+}
+
+.labs-citation-boundary {
+  display: grid;
+  gap: 5px;
+  padding: 15px 18px;
+  border: 1px solid var(--maroon-800);
+  border-radius: 6px;
+  background: var(--paper-warm);
+}
+
+.labs-citation-boundary > span {
+  color: var(--maroon-800);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.labs-citation-boundary > strong {
+  color: var(--ink);
+  font-size: var(--labs-body);
+  font-weight: 700;
+}
+
+.labs-citation-boundary > p {
+  max-width: 78ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.55;
+}
+
+.labs-chain {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.labs-chain > li {
+  display: grid;
+  align-items: baseline;
+  gap: 5px 16px;
+  padding: 17px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+}
+
+.labs-chain > li.is-blocked {
+  background: var(--maroon-50);
+}
+
+.labs-chain > li > strong {
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-body);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.labs-chain > li > b {
+  font-size: var(--labs-body);
+  font-weight: 700;
+  text-align: right;
+}
+
+.labs-chain > li.is-pass > b {
+  color: var(--green);
+}
+
+.labs-chain > li.is-blocked > b {
+  color: var(--danger);
+}
+
+.labs-chain > li > small {
+  grid-column: 2 / -1;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.labs-chain-mark {
+  color: var(--line-strong);
+}
+
+.labs-chain-mark.is-good {
+  color: var(--green);
+}
+
+.labs-chain-mark.is-warn {
+  color: var(--danger);
+}
+
+/* Numbered receipt lists: tool calls, evidence records, contracts. One shape for
+   all three, so a reader who has read one can skim the next two. */
+.labs-trace,
+.labs-evidence-records {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  background: var(--line);
+  list-style: none;
+}
+
+.labs-trace > li,
+.labs-evidence-records > li {
+  display: grid;
+  gap: 14px;
+  padding: 13px 16px;
+  background: var(--paper);
+  grid-template-columns: minmax(2.4rem, max-content) minmax(0, 1fr);
+}
+
+.labs-evidence-records > li.has-product-image {
+  grid-template-columns: minmax(2.4rem, max-content) 7rem minmax(0, 1fr);
+}
+
+.labs-evidence-records > li > img {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  border: 1px solid var(--line);
+  background: var(--paper-warm);
+  object-fit: cover;
+}
+
+.labs-trace > li.error {
+  background: var(--maroon-50);
+}
+
+.labs-trace > li > span,
+.labs-evidence-records > li > span {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-trace > li > div,
+.labs-evidence-records > li > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.labs-trace code,
+.labs-evidence-records code {
+  color: var(--maroon-800);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+  overflow-wrap: anywhere;
+}
+
+.labs-trace small,
+.labs-evidence-records small {
+  max-width: 92ch;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.labs-evidence-records strong {
+  font-size: var(--labs-body);
+  font-weight: 700;
+}
+
+.labs-evidence-records p {
+  max-width: 92ch;
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  line-height: 1.6;
+}
+
+.labs-trace p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 0;
+}
+
+.labs-trace p em {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.labs-trace > li.error p em:first-child {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.labs-contracts {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  background: var(--line);
+  list-style: none;
+}
+
+.labs-contracts > li {
+  display: grid;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 11px 16px;
+  background: var(--paper);
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.labs-contracts code,
+.labs-skill-adapters code {
+  color: var(--maroon-800);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+  overflow-wrap: anywhere;
+}
+
+.labs-contracts > li > em {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-style: normal;
+}
+
+.labs-contracts > li > b {
+  color: var(--green);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-align: right;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.labs-contracts > li > small {
+  grid-column: 1 / -1;
+  max-width: 92ch;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.labs-skill-adapters {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Same rows as the tool-contract list next door, minus the version column: the
+   packaged capability is named, marked read-only, and described. The capability
+   key itself is deliberately not a column - three of the four are spelled
+   exactly like their tool name, so the column read as a rendering fault rather
+   than as information. Parity between capability keys is gated in
+   scripts/tool_contracts.py, which is where that invariant belongs. */
+.labs-skill-capabilities > li {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.labs-skill-adapters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+}
+
+.labs-skill-adapters > li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.labs-skill-adapters > li > span {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+}
+
+/* The A2A row is not a measured status, so it must not read like one: no badge
+   treatment, no accent, and plain body text where the others carry a state. */
+.labs-skill-adapter-doc b,
+.labs-skill-adapter-doc span {
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 900px) {
+  .lab-page,
+  .labs-stage {
+    --labs-gutter: 2.6rem;
+  }
+
+  .labs-bridge dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .labs-stage-head {
+    grid-template-columns: var(--labs-gutter) minmax(0, 1fr);
+  }
+
+  .labs-stage-status {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .labs-channel-list > li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .labs-channel-list > li > .labs-channel-mechanism {
+    grid-column: 2;
+  }
+
+  .labs-channel-result {
+    grid-column: 2;
+    justify-items: start;
+    text-align: left;
+  }
+
+  .labs-chain > li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .labs-chain > li > b {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .labs-reason-products > header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .labs-reason-products ul {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .labs-reason-products li {
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .labs-reason-products img {
+    width: 56px;
+    height: 56px;
+  }
+
+  .labs-evidence-records > li.has-product-image {
+    grid-template-columns: minmax(2.4rem, max-content) minmax(0, 1fr);
+  }
+
+  .labs-evidence-records > li.has-product-image > img,
+  .labs-evidence-records > li.has-product-image > div {
+    grid-column: 2;
+  }
+
+  .labs-scorecard-per-query > li.has-product-image {
+    align-items: start;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+  }
+}
+
+/* The scale caveat that used to be crammed into a 150px figure tile. */
+.lab-diagnostics-semantics {
+  max-width: 92ch;
+  margin: 0;
+  padding: 12px 16px 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.55;
+}
+
+/* A dormant stage: the shape of what is coming, with nothing in it.
+   Faint, and deliberately not a shimmering skeleton — a skeleton implies data is
+   already on its way, and nothing arrives here until the participant presses Run.
+   Every step is a word the populated stage also uses, and there is no number,
+   zero or dash anywhere in it that could be read as a measurement. */
+.labs-dormant {
+  display: grid;
+  gap: 14px;
+  padding: 20px 0 6px;
+}
+
+.labs-dormant ol {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labs-dormant li {
+  padding: 7px 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  font-weight: 500;
+}
+
+/* The arrow between steps is the pipeline order, which is the information this
+   block carries. Drawn in CSS so it never lands in an accessible name. */
+.labs-dormant li + li::before {
+  display: inline-block;
+  width: 22px;
+  margin: 0 0 0 -18px;
+  color: var(--line-strong);
+  content: "→";
+  text-align: center;
+  transform: translateX(-14px);
+}
+
+.labs-dormant li + li {
+  margin-left: 22px;
+}
+
+.labs-dormant p {
+  max-width: 72ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-body);
+  line-height: 1.55;
+}
+
+/* Completion proof */
+
+/* The participant's own verdict, above the maintainers' baseline and set apart
+   from it: a panel with its own action, not another scorecard section. The two
+   answer different questions and must never look like one block. */
+.labs-completion-proof {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 20px;
+  padding: 17px 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.labs-proof-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 20px;
+}
+
+.labs-proof-header > h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-h3);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.labs-proof-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.labs-proof-intro {
+  max-width: 78ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.labs-proof-labs {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The lab in front carries a heavier left rule rather than a fill: three rows
+   of tinted panel would read as three verdicts before any of them is run. */
+.labs-proof-lab {
+  display: grid;
+  gap: 7px;
+  padding: 11px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--paper-warm);
+}
+
+.labs-proof-lab[data-active="true"] {
+  border-color: var(--maroon-800);
+}
+
+.labs-proof-lab > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.labs-proof-lab > header > b {
+  flex: 1 1 24ch;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+  font-weight: 700;
+}
+
+.labs-proof-status {
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.labs-proof-status.is-pass {
+  color: var(--green);
+}
+
+.labs-proof-status.is-fail,
+.labs-proof-status.is-blocked {
+  color: var(--danger);
+}
+
+/* Source, database, checks, duration: four facts on one line, because the
+   verdict above is the conjunction of them and reading them apart is what
+   makes a repaired file in front of a stale cluster legible. */
+.labs-proof-states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 16px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-proof-checks,
+.labs-proof-evidence {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labs-proof-checks > li {
+  display: grid;
+  gap: 2px;
+  padding-left: 10px;
+  border-left: 2px solid var(--danger);
+}
+
+.labs-proof-checks > li.is-pass {
+  border-left: 1px solid var(--green);
+}
+
+.labs-proof-inspection {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.55;
+}
+
+.labs-proof-inspection > summary {
+  width: fit-content;
+  padding-block: 10px;
+  color: var(--maroon-800);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.labs-proof-inspection > summary:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.labs-proof-inspection[open] > summary {
+  margin-bottom: 6px;
+}
+
+.labs-proof-inspection > p {
+  max-width: 72ch;
+  margin-block: 8px;
+}
+
+.labs-proof-inspection code {
+  overflow-wrap: anywhere;
+}
+
+.labs-proof-download {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  color: var(--maroon-800);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.labs-proof-question {
+  padding-block: 4px;
+  border-block: 1px solid var(--line);
+}
+
+.labs-package-download {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.labs-proof-checks code {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-proof-checks b {
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  font-weight: 600;
+}
+
+.labs-proof-checks small {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.45;
+}
+
+.labs-proof-evidence > li {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+}
+
+.labs-proof-note {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.45;
+}
+
+.labs-proof-evidence code {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-proof-blocked {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--labs-detail);
+  line-height: 1.45;
+}
+
+/* The Prove step's four sections. Each is its own bordered block so "never
+   conflated" reads visually, not just in the copy: A's metrics, B's PASS/
+   total, C's fixture count, and D's guarantee list never share a border. */
+.labs-scorecard {
+  display: grid;
+  gap: 20px;
+}
+
+.labs-scorecard-section {
+  padding: 17px 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.labs-scorecard-section > .labs-figures {
+  grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+}
+
+.labs-scorecard-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px 20px;
+  margin: 0 0 10px;
+}
+
+.labs-scorecard-heading > h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-h3);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.labs-scorecard-heading > p {
+  flex: 0 0 auto;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.labs-scorecard-sample {
+  max-width: 72ch;
+  margin: 0 0 14px;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.labs-scorecard-sample strong {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.labs-scorecard-intro {
+  max-width: 78ch;
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-size: var(--labs-body);
+  line-height: 1.6;
+}
+
+/* Deliberately its own class rather than a reuse of `.lab-outcome`: that class
+   is owned by the pass/fixed/broken lab-repair verdict, and a withheld-metrics
+   notice is a different kind of claim -- provenance, not repair state. */
+.labs-scorecard-pending {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 13px 16px;
+  border: 1px solid var(--maroon-line);
+  border-radius: 8px;
+  background: var(--maroon-100);
+}
+
+.labs-scorecard-pending > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--maroon-800);
+}
+
+.labs-scorecard-pending strong {
+  display: block;
+  color: var(--ink);
+  font-size: var(--labs-body);
+  font-weight: 600;
+}
+
+.labs-scorecard-pending p {
+  max-width: 68ch;
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.labs-scorecard-metric-explanations {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0 0;
+}
+
+.labs-scorecard-metric-explanations dt {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.labs-scorecard-metric-explanations dd {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.labs-scorecard-exclusion {
+  max-width: 72ch;
+  margin: 14px 0 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  line-height: 1.5;
+}
+
+/* Section A's per-query disclosure: query text is the primary label, the
+   teaching concept is a quiet category, and `G-0NN` is retained -- still
+   needed for audit and the `jq` commands the guide teaches -- but
+   de-emphasised behind the text. Same grid-of-rows shape as `.labs-contracts`
+   next door, kept as its own class because the row content is different
+   (metric values, not a pass/fail badge). */
+.labs-scorecard-per-query {
+  display: grid;
+  gap: 1px;
+  margin: 14px 0 0;
+  padding: 0;
+  background: var(--line);
+  list-style: none;
+}
+
+.labs-scorecard-per-query > li {
+  display: grid;
+  gap: 4px;
+  padding: 11px 16px;
+  background: var(--paper);
+}
+
+.labs-scorecard-per-query > li.has-product-image {
+  align-items: center;
+  gap: 14px;
+  grid-template-columns: 7.5rem minmax(0, 1fr);
+}
+
+.labs-scorecard-per-query > li > img {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  border: 1px solid var(--line);
+  background: var(--paper-warm);
+  object-fit: cover;
+}
+
+.labs-scorecard-per-query > li > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.labs-scorecard-per-query-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.labs-scorecard-per-query-text {
+  color: var(--ink);
+  font-size: var(--labs-body);
+  font-weight: 500;
+}
+
+.labs-scorecard-per-query-concept {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-style: normal;
+}
+
+.labs-scorecard-per-query-id {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+}
+
+.labs-scorecard-per-query > li > small,
+.labs-scorecard-per-query > li > div > small {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.labs-ablation-arms {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labs-ablation-arms > li {
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.labs-ablation-arms header {
+  display: grid;
+  gap: 4px;
+}
+
+.labs-ablation-arms h4 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-lead);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.labs-ablation-arms header code {
+  width: fit-content;
+  color: var(--maroon-800);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-ablation-arms header p,
+.labs-ablation-source,
+.labs-ablation-spread {
+  max-width: 92ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.55;
+}
+
+.labs-ablation-arms > li > dl {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  background: var(--line);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.labs-ablation-arms > li > dl > div {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--paper);
+}
+
+.labs-ablation-arms dt {
+  display: grid;
+  gap: 2px;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.35;
+}
+
+.labs-ablation-arms dt small {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-ablation-arms dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--labs-h3);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.labs-ablation-spread {
+  color: var(--ink);
+}
+
+.labs-ablation-source {
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+}
+
+.labs-ablation-steps {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.labs-ablation-steps > li {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--paper-warm);
+}
+
+.labs-ablation-step-verdict {
+  margin: 0;
+  font-size: var(--labs-detail);
+  color: var(--ink);
+}
+
+.labs-ablation-step-record {
+  margin: 6px 0 0;
+  font-size: var(--labs-detail);
+  color: var(--ink-soft);
+}
+
+.labs-ablation-query-metrics {
+  display: grid;
+  gap: 4px;
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+/* Section B's golden anchors: the same text-primary/concept-quiet/id-de-
+   emphasised treatment, nested inside `.labs-contracts`' first grid column
+   rather than replacing it, so the PASS badge and product/rank detail keep
+   their existing columns untouched. */
+.labs-scorecard-anchor-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.labs-scorecard-anchor-text {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.labs-scorecard-anchor-concept {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-style: normal;
+}
+
+.labs-scorecard-anchor-id {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+}
+
+/* The unnumbered finale after the scorecard, inside stage 04. The accent edge and
+   larger heading make it the conclusion; the missing stage number keeps it out
+   of the four-step curriculum. */
+.labs-package-finale {
+  display: grid;
+  gap: 14px;
+  padding: clamp(22px, 2.8vw, 30px) var(--labs-panel-padding);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--maroon-50);
+}
+
+.labs-package-heading {
+  display: grid;
+  gap: 8px;
+}
+
+.labs-package-heading > h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-h2);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.labs-package-heading > p {
+  max-width: 72ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-body);
+  line-height: 1.55;
+}
+
+.labs-package-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.labs-skill-adapters-label {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.labs-skill-closing {
+  max-width: 72ch;
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+@media (max-width: 560px) {
+  .labs-scorecard-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .labs-ablation-arms > li > dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .labs-scorecard-section > .labs-figures {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .labs-skill-capabilities > li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .labs-skill-capabilities > li > b {
+    text-align: left;
+  }
+
+}
+
+/* The hand-off, said out loud on its third surface. */
+.labs-carried-over {
+  display: grid;
+  align-items: baseline;
+  gap: 3px 11px;
+  margin: 0;
+  padding: 13px 16px;
+  border-left: 1px solid var(--maroon-800);
+  background: var(--maroon-100);
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.labs-carried-over > svg {
+  color: var(--maroon-800);
+}
+
+.labs-carried-over > span {
+  color: var(--ink);
+  font-size: var(--labs-body);
+  font-weight: 600;
+}
+
+.labs-carried-over code {
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.labs-carried-over > small {
+  grid-column: 2;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+}
+
+/* A stage whose figures belong to the previous run while a newer one is in flight.
+   Dimmed rather than blanked: re-running is how the first-run / latest-run
+   comparison is produced, so the numbers have to survive the wait — they just must
+   not read as this run's. */
+.labs-stage.is-stale .labs-stage-body {
+  opacity: 0.45;
+  transition: opacity 160ms ease;
+}
+
+.labs-stage-stale {
+  margin: 0 0 0 var(--labs-gutter);
+  color: var(--gold);
+  font-size: var(--labs-detail);
+  font-weight: 600;
+}
+
+/* Repair evidence: not a numbered stage, so it is a bordered panel set in the
+   same gutter the numbered stages use, and its prose and form share the one
+   left edge everything else in that column has. The tables and figures inside
+   run the full panel width. */
+.labs-repair {
+  margin-left: var(--labs-gutter);
+  padding: clamp(22px, 2.8vw, 30px) var(--labs-panel-padding);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.labs-repair-content {
+  display: grid;
+  gap: 16px;
+}
+
+.labs-repair-content > h3,
+.labs-repair-intro,
+.labs-repair-form,
+.labs-repair-content > .labs-disclosure-error,
+.labs-repair-hint,
+.labs-repair-target,
+.labs-repair-no-before,
+.labs-repair-reassurance,
+.labs-repair-caution {
+  max-width: var(--labs-form-measure);
+}
+
+.labs-repair h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-h3);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.labs-repair-intro {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-body);
+  line-height: 1.6;
+}
+
+.labs-repair-intro code {
+  color: var(--maroon-800);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-repair-form {
+  display: grid;
+  align-items: end;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+}
+
+.labs-repair-form label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.labs-repair-form label > span {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  font-weight: 600;
+}
+
+.labs-repair-form input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-repair-form input:focus-visible {
+  outline: 2px solid var(--maroon-800);
+  outline-offset: 1px;
+}
+
+.labs-repair-form > button {
+  min-height: 44px;
+}
+
+.labs-repair .labs-disclosure-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.labs-repair .labs-disclosure-error > svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+.labs-repair-hint,
+.labs-repair-target,
+.labs-repair-no-before {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-body);
+  line-height: 1.6;
+}
+
+.labs-repair-target code,
+.labs-repair-target {
+  font-weight: 500;
+}
+
+.labs-repair-no-before {
+  padding: 13px 16px;
+  border-left: 1px solid var(--line);
+  background: var(--maroon-100);
+  color: var(--ink);
+}
+
+/* The unchanged-rank reassurance: an explanation, not a success badge. Deliberately
+   not `is-good` styling -- an unmoved rank in this scenario is confirmation the
+   repair worked underneath, not a result to celebrate on its own. */
+.labs-repair-reassurance {
+  margin: 0;
+  padding: 13px 16px;
+  border-left: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: var(--labs-body);
+  line-height: 1.6;
+}
+
+.labs-repair-caution {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 13px 16px;
+  border-left: 1px solid var(--danger);
+  background: var(--paper);
+  color: var(--danger);
+  font-size: var(--labs-body);
+  line-height: 1.6;
+}
+
+.labs-repair-caution > svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+@media (max-width: 720px) {
+  .labs-repair-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .labs-repair-form > button {
+    width: 100%;
+  }
+}
+
+/* Reason stage answer */
+
+/* Shop's plan components carry their own top margin; the stage is a grid with
+   its own gap, so the two would compound. */
+.labs-reason-section-body > .ask-mosaic-criteria,
+.labs-reason-section-body > .ask-mosaic-receipt {
+  margin-top: 0;
+}
+
+.labs-reason-products li strong a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.labs-reason-products li strong a:hover,
+.labs-reason-products li strong a:focus-visible {
+  text-decoration: underline;
+}
+
+.labs-reason-answer,
+.labs-reason-citations {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.labs-reason-answer > h3,
+.labs-reason-citations > h3 {
+  margin: 0;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--sans);
+  font-size: var(--labs-h3);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.labs-reason-citations > small {
+  display: block;
+  padding: 10px 18px 0;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+  line-height: 1.45;
+}
+
+.labs-reason-prose {
+  padding: 16px 18px;
+  color: var(--ink);
+  font-size: var(--labs-body);
+  line-height: 1.65;
+}
+
+.labs-reason-prose > * {
+  max-width: 78ch;
+}
+
+.labs-reason-prose > :first-child {
+  margin-top: 0;
+}
+
+.labs-reason-prose > :last-child {
+  margin-bottom: 0;
+}
+
+.labs-reason-prose p {
+  max-width: 78ch;
+}
+
+.labs-reason-citations ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labs-reason-citations li {
+  display: grid;
+  gap: 4px 14px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.labs-reason-citations li:last-child {
+  border-bottom: 0;
+}
+
+.labs-reason-citations li > span {
+  color: var(--maroon-800);
+  font-family: var(--mono);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+}
+
+.labs-reason-citations li > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.labs-reason-citations li strong {
+  color: var(--ink);
+  font-size: var(--labs-body);
+  font-weight: 600;
+}
+
+.labs-reason-citations blockquote {
+  max-width: 78ch;
+  margin: 0;
+  padding-left: 11px;
+  border-left: 2px solid var(--maroon-800);
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  line-height: 1.55;
+}
+
+.labs-reason-citations li small,
+.labs-reason-citations li code {
+  overflow-wrap: anywhere;
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: var(--labs-micro);
+}
+
+/* Measured-elsewhere disclosure -------------------------------------------- */
+/*
+ * Four panels on the Performance page render one committed artifact. When that
+ * artifact was measured against another corpus or from a dirty worktree, the
+ * badge says so and this block carries the six fields the claim rests on. The
+ * badge must not keep the confident maroon of an attributed measurement: a
+ * qualified claim that looks identical to an unqualified one is not a
+ * disclosure. Appended at the end of the file on purpose, so the rules that
+ * follow the base badge cannot silently outrank it by source order.
+ */
+
+.hnsw-evidence-badge.elsewhere {
+  border-color: #d6bd91;
+  background: var(--paper-warm);
+  color: #76501d;
+}
+
+.hnsw-attribution {
+  margin: 0 22px 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--gold-line);
+  border-radius: 12px;
+  background: var(--canvas);
+}
+
+.hnsw-attribution p {
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  line-height: 1.55;
+}
+
+.hnsw-attribution dl {
+  display: grid;
+  margin: 0;
+  gap: 12px 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.hnsw-attribution dt {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.hnsw-attribution dd {
+  overflow-wrap: anywhere;
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-size: var(--labs-detail);
+}
+
+.hnsw-attribution dd code {
+  font-size: var(--labs-mono);
+}
+
+.hnsw-probe-execution {
+  margin: 0;
+  padding: 12px 14px;
+  border-top: 1px solid var(--gold-line);
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.hnsw-repr-unavailable {
+  overflow: hidden;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 16px 42px rgb(73 43 33 / 7%);
+}
+
+.hnsw-repr-unavailable h2 {
+  margin: 0 0 7px;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-body);
+  font-weight: 700;
+}
+
+.hnsw-repr-unavailable p {
+  overflow-wrap: anywhere;
+  max-width: 92ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .hnsw-attribution dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Playground handoff and baseline */
+.labs-run-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0 0 0 var(--labs-gutter);
+  padding: 10px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+}
+
+.labs-run-summary code {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-run-summary > button {
+  margin-left: auto;
+}
+
+.labs-repair-other {
+  max-width: var(--labs-form-measure);
+}
+
+.labs-repair-other > summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+}
+
+.labs-repair-other[open] > summary {
+  margin-bottom: 14px;
+}
+
+.labs-repair-pair {
+  max-width: var(--labs-form-measure);
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+  line-height: 1.6;
+}
+
+.labs-repair-pair code {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+  overflow-wrap: anywhere;
+}
+
+/* One way into the Code Editor, drawn the same in the header and in the Shop
+   callout so a participant recognises it the second time. */
+.code-editor-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.code-editor-link:hover,
+.code-editor-link:focus-visible {
+  border-color: var(--maroon-800);
+  background: var(--maroon-100);
+  color: var(--maroon-900);
+}
+
+@media (max-width: 620px) {
+  .site-code-editor {
+    display: none;
+  }
+}
+
+/* Shop: the Lab 1 fault, named where it happens.
+
+   A callout rather than a dialog. The results it is about have to stay visible
+   underneath it, because the lesson is that a page of plausible headphones and a
+   missing product are the same screen. */
+.shop-lab-callout {
+  scroll-margin-top: calc(var(--topbar-height) + 24px);
+  display: grid;
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--maroon-800);
+  border-radius: 10px;
+  background: var(--paper);
+}
+
+.shop-lab-callout > h2 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.shop-lab-callout > p {
+  max-width: 68ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.shop-lab-callout.broken {
+  border-color: var(--danger-line);
+  border-left-color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.shop-lab-callout.fixed {
+  border-color: var(--green-line);
+  border-left-color: var(--green);
+  background: var(--green-soft);
+}
+
+/* An environment fault, drawn apart from the seam on purpose and in the same
+   amber `.lab-outcome.unhealthy` uses: red is the code the participant was sent
+   here to fix, amber is the room being wrong. */
+.shop-lab-callout.unhealthy {
+  border-color: var(--gold-line);
+  border-left-color: var(--gold);
+  background: var(--gold-soft);
+}
+
+.shop-lab-callout-edit code {
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.shop-lab-ranks {
+  width: 100%;
+  margin-block: 16px;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.shop-lab-ranks caption {
+  text-align: left;
+  padding-bottom: 8px;
+}
+
+.shop-lab-ranks th,
+.shop-lab-ranks td {
+  padding: 8px;
+  border-bottom: 1px solid var(--line-strong);
+  text-align: left;
+}
+
+.shop-lab-callout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.shop-lab-callout-actions > button {
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.shop-lab-callout-actions > button:hover,
+.shop-lab-callout-actions > button:focus-visible {
+  border-color: var(--maroon-800);
+  background: var(--paper);
+}
+
+.shop-lab-callout-playground {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: var(--green);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.shop-lab-callout-playground:hover,
+.shop-lab-callout-playground:focus-visible {
+  text-decoration: underline;
+}
+
+/* Declined answer -----------------------------------------------------------
+ * A catalog gap, not a retrieval fault: warm, quiet framing rather than the
+ * danger red used for a fail-closed run, so a reader never mistakes one
+ * outcome for the other. Ask Mosaic's version sits inside the already-bordered
+ * `.ask-mosaic-answer` card; the Playground's is its own bordered block, the
+ * way `.labs-reason-answer` is. */
+
+.ask-mosaic-declined {
+  display: grid;
+  gap: 8px;
+}
+
+.ask-mosaic-declined > h3 {
+  margin: 0;
+  color: var(--maroon-900);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.ask-mosaic-declined > p {
+  max-width: 68ch;
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.ask-mosaic-declined > small {
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.labs-declined {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--maroon-100);
+}
+
+.labs-declined > h3 {
+  margin: 0;
+  color: var(--maroon-900);
+  font-family: var(--sans);
+  font-size: var(--labs-h3);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.labs-declined > p {
+  max-width: 78ch;
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--labs-body);
+  line-height: 1.6;
+}
+
+.labs-declined > small {
+  color: var(--maroon-900);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+/* The scoped comparison, beneath the results rather than over them. Everything
+   below the rule row is read back from the retrieval receipt, so the table is
+   allowed to scroll sideways on a narrow laptop; the page never does. */
+.shop-comparison {
+  display: grid;
+  gap: 14px;
+  margin-top: 28px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+}
+
+.shop-comparison-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.shop-comparison-heading h2 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 20px;
+}
+
+.shop-comparison-heading button {
+  border: 0;
+  background: none;
+  color: var(--maroon-800);
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+  font-weight: 600;
+}
+
+.shop-comparison-heading button:hover {
+  text-decoration: underline;
+}
+
+.shop-comparison-pending,
+.shop-comparison-error {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+}
+
+.shop-comparison-error {
+  color: var(--maroon-800);
+}
+
+.shop-comparison-scroll {
+  overflow-x: auto;
+}
+
+.shop-comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+  text-align: left;
+}
+
+.shop-comparison-table th,
+.shop-comparison-table td {
+  padding: 9px 12px 9px 0;
+  vertical-align: top;
+}
+
+.shop-comparison-table thead th {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.shop-comparison-table tbody th {
+  color: var(--ink-soft);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.shop-comparison-table tbody td {
+  color: var(--ink);
+}
+
+/* Where the commerce fields end and the retrieval receipt begins. */
+.shop-comparison-table tr.shop-comparison-rule th,
+.shop-comparison-table tr.shop-comparison-rule td {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.product-save-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 8px 0;
+  margin-top: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--maroon-800);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.product-breadcrumb { color: var(--ink-soft); }
+.product-complements { margin-top: 64px; }
+.product-complements-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.product-complement-image { display: block; overflow: hidden; border-radius: 12px; background: var(--paper); }
+.product-complement-image img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; }
+.product-complements-grid h3 { margin: 20px 0 8px; font-family: var(--display); font-size: 28px; font-weight: 500; }
+.product-complements-grid p { max-width: 46ch; margin: 0 0 16px; color: var(--ink-soft); font-size: 15px; line-height: 1.6; }
+.product-complement-link { display: inline-flex; align-items: center; min-height: 44px; padding: 10px 18px; border: 1px solid var(--line); border-radius: 999px; font-size: 14px; font-weight: 500; }
+.product-complement-link:hover { background: var(--paper); border-color: var(--maroon-800); }
+@media (max-width: 650px) {
+  .product-complements-grid { grid-template-columns: 1fr; gap: 32px; }
+  .product-complements { margin-top: 40px; }
+}

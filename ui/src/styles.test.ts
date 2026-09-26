@@ -12,7 +12,23 @@ import { describe, expect, it } from "vitest";
  * nowhere. None of that is visible in a diff, so the checks live here, as
  * functions over the sheet text with a fixture that proves each one can fail.
  */
-const SHEETS = ["styles.css", "surfaces.css", "discover.css", "playground.css", "inspector.css"] as const;
+const SHEETS = [
+  "styles.css",
+  "ask-mosaic-panel.css",
+  "catalog-cards.css",
+  "shared-states.css",
+  "shop-storefront.css",
+  "labs-agentic.css",
+  "commerce.css",
+  "surfaces.css",
+  "surfaces-ask-mosaic.css",
+  "surfaces-labs-shell.css",
+  "surfaces-hnsw.css",
+  "surfaces-playground.css",
+  "discover.css",
+  "playground.css",
+  "inspector.css",
+] as const;
 
 /** Custom properties components set with inline style; the sheets only read them. */
 const SET_FROM_COMPONENTS = new Set(["--labs-rail-height", "--low", "--high", "--sweep"]);

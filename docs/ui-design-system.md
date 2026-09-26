@@ -1,13 +1,24 @@
 # Mosaic UI design system
 
 What the storefront and the Playground actually look like, why, and what
-enforces it. This is the incumbent design record. Shared tokens come from
-`ui/src/styles.css`; surface behaviour comes from `surfaces.css`,
-`discover.css`, `shop-editorial.css`, `inspector.css`, `instrument.css`, and `reason-products.css`.
-`workspace-continuation.css` styles the supporting Shop collection;
-`session-memory.css` and `result-product-card.css` own the memory inspector and
-shared answer/retrieval cards. Where a number is a measurement, the section
-says how it was measured.
+enforces it. This is the incumbent design record. Shared tokens and base
+chrome come from `ui/src/styles.css`; surface behaviour comes from
+`surfaces.css`, `discover.css`, `shop-editorial.css`, `inspector.css`,
+`instrument.css`, and `reason-products.css`. `workspace-continuation.css`
+styles the supporting Shop collection; `session-memory.css` and
+`result-product-card.css` own the memory inspector and shared answer/retrieval
+cards. Where a number is a measurement, the section says how it was measured.
+
+`styles.css` and `surfaces.css` are each one stylesheet split across several
+files by surface, so no single file holds an unrelated mix of concerns. Import
+order in `ui/src/main.tsx` is the cascade order and reproduces the original
+single-file concatenation exactly: `styles.css`, `ask-mosaic-panel.css`,
+`catalog-cards.css`, `shared-states.css`, `shop-storefront.css`,
+`labs-agentic.css`, `commerce.css`, then `surfaces.css`,
+`surfaces-ask-mosaic.css`, `surfaces-labs-shell.css`, `surfaces-hnsw.css`,
+`surfaces-playground.css`. A new rule belongs in the file already named for its
+surface; splitting further only when a file's concerns are genuinely
+independent, never to hit a line count.
 
 ## Direction
 
@@ -514,14 +525,19 @@ promoted to the live CSV or embedding cache.
 
 ## Enforcement
 
-`ui/src/styles.test.ts` reads `styles.css`, `surfaces.css`, `discover.css`,
+`ui/src/styles.test.ts` reads the full split of `styles.css` and
+`surfaces.css` (`ask-mosaic-panel.css`, `catalog-cards.css`,
+`shared-states.css`, `shop-storefront.css`, `labs-agentic.css`,
+`commerce.css`, `surfaces-ask-mosaic.css`, `surfaces-labs-shell.css`,
+`surfaces-hnsw.css`, `surfaces-playground.css`), plus `discover.css`,
 `playground.css`, and `inspector.css`, and fails when a referenced
 custom property is undefined, when two palette tokens share a value, when a
 hex-valued custom property outside the palette block is not an override of
 a palette token, or when raw hex literals outside the palette block rise
-above the ratchet, currently 252. Each check is proven against a fixture
-that fails it. `npm run build` type-checks both configurations before
-bundling.
+above the ratchet, currently 252. A file added to the split must be added to
+that list, or the check silently stops reading it. Each check is proven
+against a fixture that fails it. `npm run build` type-checks both
+configurations before bundling.
 
 ## Review boundary
 

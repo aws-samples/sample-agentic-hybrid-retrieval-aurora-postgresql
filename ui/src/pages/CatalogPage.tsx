@@ -5,11 +5,9 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
   LoaderCircle,
   Search,
   Sparkles,
-  Star,
   SlidersHorizontal,
   X,
 } from "lucide-react";
@@ -19,7 +17,6 @@ import {
   useReducedMotion,
 } from "motion/react";
 import {
-  CSSProperties,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -36,6 +33,7 @@ import { ShopSearchDetails } from "../components/ShopSearchDetails";
 import { RetrievalJourney } from "../components/RetrievalJourney";
 import { ContinueWorkspace } from "../components/ContinueWorkspace";
 import { ScopedComparison } from "../components/ScopedComparison";
+import { ShopFilterSheet, type FilterSection } from "../components/ShopFilterSheet";
 import {
   CatalogSearchComposer,
 } from "../components/CatalogSearchComposer";
@@ -87,8 +85,7 @@ import type {
 const priceCeiling = 2000;
 const priceStep = 25;
 const priceCeilingCents = priceCeiling * 100;
-const ratingThresholds = [5, 4, 3, 2, 1] as const;
-const EASE_OUT = [0.16, 1, 0.3, 1] as const;
+export const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
 const domainOptions: Array<{ value?: Domain; label: string }> = [
   { label: "All products" },
@@ -102,15 +99,6 @@ const domainLabels: Record<Domain, string> = {
   running_fitness: "Running & fitness",
   home_office: "Workspace",
 };
-
-const availabilityOptions: Array<{ value: Availability | ""; label: string }> = [
-  { value: "", label: "All availability" },
-  { value: "in_stock", label: "In stock" },
-  { value: "low_stock", label: "Low stock" },
-  { value: "preorder", label: "Pre-order" },
-];
-
-type FilterSection = "categories" | "brand" | "price" | "availability" | "rating";
 
 function priceFromCents(value: string | null, fallback: number) {
   if (value === null) return fallback;
@@ -1780,247 +1768,30 @@ export function CatalogPage() {
         </AnimatePresence>
       </div>
 
-      <AnimatePresence initial={false}>
-        {filtersOpen ? (
-          <div className="shop-filter-layer">
-            <motion.button
-              className="shop-filter-backdrop"
-              type="button"
-              aria-label="Close filters"
-              onClick={() => setFiltersOpen(false)}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: reduceMotion ? 0.1 : 0.18 }}
-            />
-            <motion.aside
-              ref={filterSheetRef}
-              className="shop-filter-sheet"
-              id="shop-filter-sheet"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="shop-filter-title"
-              tabIndex={-1}
-              initial={reduceMotion ? { opacity: 0 } : { x: "100%" }}
-              animate={reduceMotion ? { opacity: 1 } : { x: 0 }}
-              exit={reduceMotion ? { opacity: 0 } : { x: "100%" }}
-              transition={{ duration: reduceMotion ? 0.12 : 0.28, ease: EASE_OUT }}
-            >
-            <header>
-              <div>
-                <h2 id="shop-filter-title">Filters</h2>
-                <p>Results update immediately.</p>
-              </div>
-              <button type="button" aria-label="Close filters" onClick={() => setFiltersOpen(false)}>
-                <X size={20} />
-              </button>
-            </header>
-
-            <div className="shop-filter-body">
-              <section className="shop-filter-section">
-                <button
-                  type="button"
-                  onClick={() => toggleFilter("categories")}
-                  aria-expanded={expandedFilters.categories}
-                >
-                  Category
-                  {expandedFilters.categories ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-                {expandedFilters.categories ? (
-                  <div className="shop-filter-options">
-                    <label>
-                      <input
-                        type="radio"
-                        name="category"
-                        checked={!categoryKey}
-                        onChange={() => update("category_key")}
-                      />
-                      <span>All products</span>
-                      {page ? <small>{page.total.toLocaleString()}</small> : null}
-                    </label>
-                    {catalogCategories.slice(0, 8).map((item) => (
-                      <label key={item.value}>
-                        <input
-                          type="radio"
-                          name="category"
-                          checked={categoryKey === item.value}
-                          onChange={() => update("category_key", item.value)}
-                        />
-                        <span>{formatCategoryKey(item.value)}</span>
-                        <small>{item.count.toLocaleString()}</small>
-                      </label>
-                    ))}
-                  </div>
-                ) : null}
-              </section>
-
-              <section className="shop-filter-section">
-                <button
-                  type="button"
-                  onClick={() => toggleFilter("brand")}
-                  aria-expanded={expandedFilters.brand}
-                >
-                  Brand
-                  {expandedFilters.brand ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-                {expandedFilters.brand ? (
-                  <div className="shop-filter-options">
-                    <label>
-                      <input
-                        type="radio"
-                        name="brand"
-                        checked={!brand}
-                        onChange={() => update("brand")}
-                      />
-                      <span>All brands</span>
-                    </label>
-                    {catalogBrands.slice(0, 10).map((item) => (
-                      <label key={item.value}>
-                        <input
-                          type="radio"
-                          name="brand"
-                          checked={brand === item.value}
-                          onChange={() => update("brand", item.value)}
-                        />
-                        <span>{item.value}</span>
-                        <small>{item.count.toLocaleString()}</small>
-                      </label>
-                    ))}
-                  </div>
-                ) : null}
-              </section>
-
-              <section hidden={real} className="shop-filter-section">
-                <button
-                  type="button"
-                  onClick={() => toggleFilter("price")}
-                  aria-expanded={expandedFilters.price}
-                >
-                  Price range
-                  {expandedFilters.price ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-                {expandedFilters.price ? (
-                  <div className="shop-price-range">
-                    <div>
-                      <span>${lowPrice.toLocaleString()}</span>
-                      <span>
-                        ${highPrice.toLocaleString()}
-                        {highPrice >= priceCeiling ? "+" : ""}
-                      </span>
-                    </div>
-                    <div
-                      className="shop-price-track"
-                      style={{
-                        ...({
-                          "--low": `${(lowPrice / priceCeiling) * 100}%`,
-                          "--high": `${(highPrice / priceCeiling) * 100}%`,
-                        } as CSSProperties),
-                      }}
-                    >
-                      <input
-                        type="range"
-                        aria-label="Minimum price"
-                        min={0}
-                        max={priceCeiling}
-                        step={priceStep}
-                        value={lowPrice}
-                        onChange={(event) => draftPrice(Number(event.target.value), highPrice)}
-                        onPointerUp={flushPendingPrice}
-                        onKeyUp={flushPendingPrice}
-                      />
-                      <input
-                        type="range"
-                        aria-label="Maximum price"
-                        min={0}
-                        max={priceCeiling}
-                        step={priceStep}
-                        value={highPrice}
-                        onChange={(event) => draftPrice(lowPrice, Number(event.target.value))}
-                        onPointerUp={flushPendingPrice}
-                        onKeyUp={flushPendingPrice}
-                      />
-                    </div>
-                  </div>
-                ) : null}
-              </section>
-
-              <section hidden={real} className="shop-filter-section">
-                <button
-                  type="button"
-                  onClick={() => toggleFilter("availability")}
-                  aria-expanded={expandedFilters.availability}
-                >
-                  Availability
-                  {expandedFilters.availability ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-                {expandedFilters.availability ? (
-                  <div className="shop-filter-options">
-                    {availabilityOptions.map((option) => (
-                      <label key={option.value || "all"}>
-                        <input
-                          type="radio"
-                          name="availability"
-                          checked={(availability ?? "") === option.value}
-                          onChange={() => update("availability", option.value || undefined)}
-                        />
-                        <span>{option.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                ) : null}
-              </section>
-
-              <section className="shop-filter-section">
-                <button
-                  type="button"
-                  onClick={() => toggleFilter("rating")}
-                  aria-expanded={expandedFilters.rating}
-                >
-                  Customer rating
-                  {expandedFilters.rating ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-                {expandedFilters.rating ? (
-                  <div className="shop-rating-options">
-                    {ratingThresholds.map((threshold) => (
-                      <label key={threshold}>
-                        <input
-                          type="radio"
-                          name="min-rating"
-                          checked={Number(minRating) === threshold}
-                          onChange={() => update("min_rating", String(threshold))}
-                        />
-                        <span aria-hidden="true">
-                          {Array.from({ length: threshold }).map((_, index) => (
-                            <Star key={index} size={13} fill="currentColor" />
-                          ))}
-                        </span>
-                        <small>&amp; up</small>
-                      </label>
-                    ))}
-                    <label>
-                      <input
-                        type="radio"
-                        name="min-rating"
-                        checked={!minRating}
-                        onChange={() => update("min_rating")}
-                      />
-                      <span>Any rating</span>
-                    </label>
-                  </div>
-                ) : null}
-              </section>
-            </div>
-
-            <footer>
-              <button type="button" onClick={clearFilters}>Clear all</button>
-              <button className="primary" type="button" onClick={() => setFiltersOpen(false)}>
-                Done
-              </button>
-            </footer>
-            </motion.aside>
-          </div>
-        ) : null}
-      </AnimatePresence>
+      <ShopFilterSheet
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        sheetRef={filterSheetRef}
+        reduceMotion={reduceMotion}
+        expandedFilters={expandedFilters}
+        onToggleSection={toggleFilter}
+        onUpdate={update}
+        onClearAll={clearFilters}
+        totalProductCount={page?.total}
+        categoryKey={categoryKey}
+        catalogCategories={catalogCategories}
+        brand={brand}
+        catalogBrands={catalogBrands}
+        showPriceAndAvailability={!real}
+        lowPrice={lowPrice}
+        highPrice={highPrice}
+        priceCeiling={priceCeiling}
+        priceStep={priceStep}
+        onPriceChange={draftPrice}
+        onPriceCommit={flushPendingPrice}
+        availability={availability}
+        minRating={minRating}
+      />
     </div>
   );
 }

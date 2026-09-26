@@ -1,0 +1,2504 @@
+/* Mosaic Labs */
+
+/* Width comes from --shell-width on .page, so the Playground ends where Discover
+   and Shop end. The 1520px max-width this replaces was a fourth answer to the
+   same question, and the var(--paper-warm) fill drew a panel edge 2% off the page behind
+   it — a visible seam that bought nothing, since every block inside already
+   carries its own surface. */
+.labs-premium {
+  display: grid;
+  gap: 42px;
+  margin: 0 auto;
+  padding: 42px 0 84px;
+}
+
+.mosaic-labs-tabs {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.mosaic-labs-tabs > div {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+}
+
+.mosaic-labs-tabs a {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  padding: 0 13px;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+
+.mosaic-labs-tabs a:hover {
+  color: #5b1d2b;
+}
+
+.mosaic-labs-tabs a.active {
+  background: var(--maroon-800);
+  box-shadow: 0 5px 12px rgb(94 29 44 / 18%);
+  color: var(--danger-soft);
+}
+
+.mosaic-labs-tabs > small {
+  max-width: 40ch;
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  line-height: 1.35;
+  text-align: right;
+}
+
+/* Lab rail */
+
+/* Sticky under the site header rather than under the lens strip's own offset:
+   the strip scrolls away, the rail does not, so a participant who has scrolled
+   to Stage 03 can still read which lab they are in and what they were asked to
+   edit. */
+.labs-rail {
+  position: sticky;
+  z-index: 4;
+  top: var(--topbar-height);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 22px;
+  padding: 12px 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: rgb(255 254 250 / 96%);
+  backdrop-filter: blur(12px);
+}
+
+/* Condensed once it sticks. The edit line and the next-lab link fold away, the
+   lab name and the stage links share one row, and the state chips keep their
+   place: a participant deep in Stage 03 still reads which lab this is and where
+   it stands, in a strip a third the height. LabRail toggles the class from an
+   IntersectionObserver and holds the flow footprint steady with a positive
+   bottom margin, so nothing under the rail moves when it changes shape. */
+.labs-rail.is-stuck {
+  gap: 6px 18px;
+  padding: 7px 16px;
+}
+
+.labs-rail.is-stuck .labs-rail-lab {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.labs-rail.is-stuck .labs-rail-lab strong {
+  overflow: hidden;
+  font-size: var(--labs-detail);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.labs-rail.is-stuck .labs-rail-edit,
+.labs-rail.is-stuck .labs-rail-next {
+  display: none;
+}
+
+.labs-rail.is-stuck .labs-rail-state li {
+  padding: 2px 9px;
+}
+
+/* Every target the rail's beats link to, held clear of the chrome above it.
+   Both the site header and the rail itself are sticky, so a browser that scrolls
+   an anchor to the top of the viewport parks it underneath them and the click
+   reads as having gone nowhere. `--labs-rail-height` is measured from the rail
+   by RetrievalLabPage, because the rail wraps at narrow widths; the 0px
+   fallback is what applies before that first measurement lands. */
+.labs-stage-copy h2,
+.labs-repair h3 {
+  scroll-margin-top: calc(
+    var(--topbar-height) + var(--labs-rail-height, 0px) + 18px
+  );
+}
+
+.labs-rail-lab {
+  display: grid;
+  gap: 2px;
+}
+
+.labs-rail-kicker {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.labs-rail-lab strong {
+  color: var(--ink);
+  font-size: var(--labs-body);
+  font-weight: 600;
+}
+
+.labs-rail-stages {
+  display: inline-flex;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labs-rail-stages a {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  font-weight: 600;
+}
+
+.labs-rail-stages a:hover {
+  text-decoration: underline;
+}
+
+.labs-rail-stages a[aria-current="location"] {
+  color: var(--ink);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.labs-rail-edit small {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+}
+
+.labs-rail-edit {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.labs-rail-edit code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+}
+
+.labs-rail-state {
+  display: inline-flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labs-rail-state li {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+}
+
+.labs-rail-next {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--maroon-800);
+  font-size: var(--labs-detail);
+  font-weight: 700;
+}
+
+.labs-rail-next:hover {
+  text-decoration: underline;
+}
+
+.mosaic-studio-page {
+  align-content: start;
+  min-height: calc(100dvh - var(--topbar-height));
+}
+
+/* No border-top: the masthead's own bottom rule already closes the space above
+   this, and .labs-premium puts a 40px gap between them, so the two hairlines read
+   as a pair bracketing an empty band on the same ivory. One rule per boundary.
+   The section below is a dark rounded card, whose top edge is its own outline. */
+.mosaic-studio-briefs {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.28fr);
+  gap: 22px;
+  align-items: end;
+  padding: 19px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.mosaic-studio-briefs > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.mosaic-studio-briefs > div:first-child > span {
+  max-width: 360px;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.mosaic-studio-briefs > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.mosaic-studio-briefs button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  font-weight: 700;
+  transition: background 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.mosaic-studio-briefs button:hover {
+  border-color: var(--gold);
+  color: #5b1d2b;
+}
+
+.mosaic-studio-briefs button[aria-pressed="true"] {
+  border-color: var(--maroon-800);
+  background: var(--maroon-800);
+  color: var(--canvas);
+  box-shadow: 0 6px 14px rgb(107 34 50 / 16%);
+}
+
+.mosaic-studio-boundary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.mosaic-studio-boundary > div {
+  display: grid;
+  gap: 4px;
+  padding: 17px 20px 17px 0;
+  border-right: 1px solid var(--line);
+}
+
+.mosaic-studio-boundary > div + div {
+  padding-left: 20px;
+}
+
+.mosaic-studio-boundary span {
+  color: var(--maroon-700);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.mosaic-studio-boundary strong {
+  max-width: 330px;
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.mosaic-studio-boundary > a {
+  display: inline-flex;
+  align-items: center;
+  align-self: stretch;
+  gap: 7px;
+  padding: 0 0 0 21px;
+  color: var(--maroon-800);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+}
+
+.mosaic-studio-boundary > a:hover {
+  color: #3d1520;
+}
+
+.mosaic-studio-queries {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px 22px;
+  padding: 2px 0 4px;
+}
+
+.mosaic-studio-queries > p {
+  max-width: 60ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 600;
+}
+
+.mosaic-studio-queries > ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mosaic-studio-queries > ul > li {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+}
+
+.mosaic-studio-queries > ul > li > small {
+  color: #a48f6f;
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.mosaic-studio-queries > ul > li > code {
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper-warm);
+  color: var(--ink-soft);
+  font-size: var(--labs-mono);
+}
+
+.mosaic-studio-queries > ul > li > span {
+  color: #8b6832;
+  font-family: var(--mono);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+}
+
+.labs-intro {
+  position: relative;
+  display: grid;
+  min-height: 430px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-warm);
+}
+
+.labs-intro-copy {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  width: min(100%, 820px);
+  flex-direction: column;
+  align-items: center;
+  justify-self: center;
+  padding: 26px 24px 0;
+  text-align: center;
+}
+
+/* One masthead rule lets the mobile type scale control all three Labs views. */
+.labs-intro-copy h1 {
+  margin: 0 0 14px;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.04;
+  text-wrap: balance;
+}
+
+.labs-intro-copy > .labs-intro-deck {
+  max-width: 670px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-lead);
+  line-height: 1.55;
+}
+
+.labs-intro-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.labs-intro-actions .primary-button {
+  min-height: 44px;
+  border-radius: 999px;
+  background: #571928;
+  box-shadow: 0 10px 24px rgb(87 25 40 / 18%);
+}
+
+.labs-intro-actions .primary-button:hover {
+  background: #721f31;
+}
+
+.labs-intro-actions > span {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+}
+
+@keyframes labs-product-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes surface-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+}
+
+@media (max-width: 900px) {
+  .mosaic-studio-briefs {
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mosaic-studio-boundary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .mosaic-studio-boundary > div,
+  .mosaic-studio-boundary > div + div {
+    padding: 15px 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .mosaic-studio-boundary > a {
+    min-height: 48px;
+    padding-left: 0;
+  }
+}
+
+/* Responsive composition */
+
+@media (max-width: 1180px) {
+  .shop-canvas.assist-open {
+    grid-template-columns: 1fr;
+  }
+
+  /* Below the two-column width the panel leaves the grid and covers the
+     catalog, but it still starts under the fixed header rather than over it. */
+  .ask-mosaic-layer {
+    position: fixed;
+    z-index: 110;
+    display: block;
+    inset: var(--topbar-height) 0 0;
+    height: calc(100dvh - var(--topbar-height));
+  }
+
+  .ask-mosaic-backdrop {
+    position: absolute;
+    display: block;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: rgb(18 22 20 / 36%);
+    backdrop-filter: blur(2px);
+  }
+
+  .ask-mosaic-sidecar {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: min(560px, calc(100vw - 60px));
+    height: 100%;
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 900px) {
+
+  .shop-product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .labs-premium {
+    gap: 32px;
+    padding: 28px 20px 56px;
+  }
+
+  .labs-intro {
+    min-height: 410px;
+  }
+
+  .labs-intro-copy {
+    width: 100%;
+    padding: 20px 24px 0;
+  }
+}
+
+/* Laptop-height desktops (1366x768 is the room display) have to clear the fold
+   with the headline, lede and search field all inside the hero. The
+   base min(560px, 100vh - 128px) height does not buy that room on its own;
+   tighter block padding does. */
+
+/* Shorter windows still (1024x640 is the tight case) need more.
+   Recompute the height against the shorter window - a 440px ceiling instead of
+   560px, and more chrome subtracted - and fix the block padding, so the hero
+   asks for no more height than its own content needs. */
+
+@media (max-width: 640px) {
+
+  .shop-journey-sequence {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 86%;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  .shop-journey-sequence li { scroll-snap-align: start; }
+  .shop-alex-story { gap: 12px; }
+  .shop-alex-story img { width: 56px; height: 56px; }
+
+  /* The 60px strip of catalog the panel leaves visible at tablet width is worth
+     a third of the shortlist's text column on a phone, and there is nothing to
+     read in it while the panel is open. */
+  .ask-mosaic-sidecar {
+    width: calc(100vw - 22px);
+  }
+
+  .ask-mosaic-header {
+    padding: 13px 15px;
+  }
+
+  .ask-mosaic-body {
+    padding: 0 15px 26px;
+  }
+
+  .labs-intro {
+    min-height: 430px;
+  }
+
+  .labs-intro-copy {
+    padding: 12px 8px 0;
+  }
+
+  .labs-intro-copy h1 {
+    font-size: var(--labs-h2);
+  }
+
+  .labs-intro-copy > .labs-intro-deck {
+    font-size: var(--labs-body);
+  }
+
+  .labs-intro-actions {
+    display: grid;
+    justify-items: start;
+    gap: 10px;
+  }
+
+  .shop-suggested {
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  .shop-suggested > span {
+    display: none;
+  }
+  .shop-suggested > button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+  .shop-console-note-copy {
+    display: none;
+  }
+
+  .shop-console-note-action {
+    justify-content: center;
+    min-height: 48px;
+  }
+
+  .shop-controls {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .shop-domain-tabs {
+    width: 100%;
+  }
+
+  .shop-filter-button,
+  .shop-sort {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .shop-query-state {
+    align-items: flex-start;
+  }
+
+  .shop-query-state > span {
+    font-size: 22px;
+    white-space: normal;
+  }
+
+  .shop-results-heading {
+    min-height: 48px;
+  }
+
+  .shop-results-heading > p small {
+    display: none;
+  }
+
+  .hybrid-retrieval-trace {
+    padding: 16px;
+  }
+
+  .hybrid-retrieval-trace > header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .hybrid-retrieval-trace > header strong {
+    font-size: 19px;
+  }
+
+  .shop-product-grid,
+  .shop-canvas.assist-open .shop-product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .shop-product-card .catalog-favorite-button {
+    top: 8px;
+    right: 8px;
+    width: 44px;
+    height: 44px;
+    opacity: 1;
+    box-shadow: none;
+    backdrop-filter: none;
+    border: 0;
+  }
+
+  .shop-product-card h3 {
+    font-size: 17px;
+    font-family: var(--sans);
+    font-weight: 600;
+    line-height: 1.4;
+    text-wrap: pretty;
+  }
+
+  .shop-product-card .product-card-body {
+    padding-inline: 12px;
+    padding: 16px 2px 4px;
+  }
+
+  .shop-card-meta {
+    flex-wrap: wrap;
+    gap: 2px 6px;
+    white-space: normal;
+    font-size: 12px;
+    line-height: 1.4;
+    margin: 5px 0 0;
+    letter-spacing: 0;
+  }
+
+  .shop-card-price {
+    gap: 3px 8px;
+  }
+
+  .shop-card-footer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px;
+    align-items: center;
+    gap: 4px 8px;
+  }
+
+  .shop-card-footer .shop-quick-add {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .shop-card-footer .compare-control {
+    grid-column: 1 / -1;
+    min-height: 44px;
+  }
+
+  .shop-card-signals span:nth-child(n + 4) {
+    display: none;
+  }
+
+  .shop-card-price strong {
+    font-size: 15px;
+  }
+
+  .assist-rank-badge {
+    top: 8px;
+    left: 8px;
+    width: 30px;
+    height: 30px;
+  }
+
+  .ask-mosaic-layer {
+    inset: var(--topbar-height) 0 0;
+    height: calc(100dvh - var(--topbar-height));
+  }
+
+  .ask-mosaic-backdrop {
+    display: none;
+  }
+
+  .ask-mosaic-sidecar {
+    width: 100%;
+    border-left: 0;
+  }
+
+  .ask-mosaic-body {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .ask-mosaic-shortlist {
+    grid-template-columns: 1fr;
+  }
+
+  .labs-premium {
+    gap: 32px;
+    padding: 22px 14px 46px;
+  }
+
+  .labs-intro-copy {
+    padding: 12px 8px 0;
+  }
+
+  .labs-intro-copy h1 {
+    font-size: var(--labs-h2);
+  }
+
+  .labs-intro-copy > p {
+    font-size: var(--labs-body);
+  }
+
+  .page-header {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 900px) {
+  /* Docked across the bottom rather than floating over the results: a pill at
+     the corner covered the results line and card prices at 500px. */
+  .shop-assist-rail {
+    top: auto;
+    right: 16px;
+    bottom: 12px;
+    left: 16px;
+    width: auto;
+    justify-content: center;
+    min-height: 48px;
+    grid-auto-flow: column;
+    grid-template-columns: auto auto auto;
+    padding: 0 14px;
+    border-right: 1px solid rgb(255 255 255 / 16%);
+    border-radius: 8px;
+    transform: none;
+  }
+
+  .shop-assist-rail:hover,
+  .shop-assist-rail:focus-visible {
+    width: auto;
+  }
+
+  .shop-assist-rail span {
+    writing-mode: horizontal-tb;
+    transform: none;
+  }
+
+  .shop-main {
+    padding-bottom: 88px;
+  }
+
+  /* The footer sits outside .shop-main; without its own reserve the docked
+     rail covered the disclosure line at the very end of the page. */
+  .site-footer {
+    padding-bottom: 76px;
+  }
+
+  /* Keyboard focus that lands in the last row scrolls clear of the docked rail. */
+  html {
+    scroll-padding-bottom: 96px;
+  }
+}
+
+@media (max-width: 359px) {
+  .shop-product-grid,
+  .shop-canvas.assist-open .shop-product-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-canvas,
+  .shop-product-card,
+  .shop-product-card .product-image img,
+  .shop-filter-sheet,
+  .ask-mosaic-sidecar,
+  .ask-mosaic-turn,
+  .ask-mosaic-progress > li.active .ask-mosaic-stage-node,
+  .ask-mosaic-answer.streaming .ask-mosaic-prose > :last-child::after,
+  .ask-mosaic-answer.streaming .ask-mosaic-prose:empty::after {
+    animation: none;
+    scroll-behavior: auto;
+    transition: none;
+  }
+
+  /* The caret still marks where the text stops, it just stops blinking. */
+
+  .shop-product-card:hover {
+    transform: none;
+  }
+}
+
+.studio-piece-seat {
+  --studio-rotation: -4deg;
+  --studio-stack-x: clamp(78px, 12vw, 178px);
+  --studio-stack-y: clamp(46px, 4vw, 66px);
+  --studio-stack-rotation: -11deg;
+}
+
+.studio-piece-display {
+  --studio-rotation: 3deg;
+  --studio-stack-x: clamp(-192px, -14vw, -70px);
+  --studio-stack-y: clamp(2px, 0.5vw, 10px);
+  --studio-stack-rotation: 2deg;
+}
+
+.studio-piece-input {
+  --studio-rotation: -1deg;
+  --studio-stack-x: clamp(30px, 3vw, 46px);
+  --studio-stack-y: clamp(-80px, -5vw, -34px);
+  --studio-stack-rotation: 9deg;
+}
+
+@keyframes studio-piece-tour {
+  from {
+    opacity: 0.18;
+    transform:
+      translate(var(--studio-stack-x), calc(var(--studio-stack-y) + 20px))
+      rotate(var(--studio-stack-rotation))
+      scale(0.88);
+  }
+
+  62% {
+    opacity: 1;
+    transform:
+      translate(var(--studio-stack-x), var(--studio-stack-y))
+      rotate(var(--studio-stack-rotation))
+      scale(1.02);
+  }
+
+  to {
+    opacity: 1;
+    transform: rotate(var(--studio-rotation)) scale(1);
+  }
+}
+
+@media (max-width: 640px) {
+
+  @keyframes studio-piece-tour-compact {
+    from {
+      opacity: 0;
+      transform: translateY(30px) rotate(var(--studio-stack-rotation)) scale(0.84);
+    }
+
+    58% {
+      opacity: 1;
+      transform: translateY(-4px) rotate(var(--studio-stack-rotation)) scale(1.03);
+    }
+
+    to {
+      opacity: 1;
+      transform: rotate(var(--studio-rotation)) scale(1);
+    }
+  }
+}
+
+/*
+ * Mosaic Labs is an editorial inspection surface, not a second exercise
+ * workbench. The dark replay theatre makes the system map the focal object;
+ * the lighter catalog cards let participants keep one foot in the product
+ * experience while they inspect retrieval and ranking evidence.
+ */
+
+.labs-premium {
+  gap: 56px;
+  padding-block: 36px 92px;
+}
+
+.mosaic-labs-page > * {
+  min-width: 0;
+}
+
+.mosaic-labs-tabs {
+  min-height: 44px;
+  padding-bottom: 18px;
+}
+
+.mosaic-labs-tabs > div {
+  gap: 4px;
+  padding: 4px;
+  border-color: #d8cfc2;
+  background: rgb(255 253 248 / 76%);
+  box-shadow: 0 5px 16px rgb(55 36 25 / 4%);
+}
+
+.mosaic-labs-tabs a {
+  min-height: 34px;
+  padding-inline: 16px;
+  font-size: var(--labs-detail);
+  font-weight: 700;
+}
+
+.mosaic-labs-tabs > small {
+  font-size: var(--labs-detail);
+  font-weight: 500;
+}
+
+.mosaic-labs-tabs > small strong {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
+.mosaic-labs-tabs > .mosaic-labs-source {
+  display: inline-flex;
+  min-height: 36px;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid #d2c7b9;
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--maroon-800);
+  font-size: var(--labs-detail);
+  font-weight: 700;
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.mosaic-labs-tabs > .mosaic-labs-source:hover {
+  border-color: #bda99b;
+  background: #efe5da;
+  color: var(--maroon-900);
+}
+
+.mosaic-labs-source img {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.labs-intro {
+  min-height: 456px;
+  border-bottom-color: #d7cec1;
+}
+
+.labs-intro-copy {
+  width: min(100%, 900px);
+  padding-top: 38px;
+}
+
+.labs-intro-copy > .labs-intro-deck {
+  max-width: 720px;
+  color: var(--ink-soft);
+  font-size: var(--labs-h3);
+  font-weight: 400;
+  line-height: 1.52;
+}
+
+.labs-intro-actions {
+  width: 100%;
+  min-width: 0;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.labs-intro-actions .primary-button {
+  min-height: 48px;
+  padding-inline: 21px;
+  font-size: var(--labs-body);
+}
+
+.labs-intro-actions > span {
+  font-size: var(--labs-detail);
+}
+
+/* Retrieval Observatory. Five retrievers across, results down.
+
+   The version this replaces put one retriever behind each of five tabs, so
+   eleven of twelve rows read as an empty column and the difference between
+   "found by exact words" and "found by meaning" never appeared on screen at the
+   same time. Reading it meant clicking through and remembering. As columns the
+   comparison is the layout, and the per-arm counts in the headings are the
+   before and after a participant came here for. */
+
+.labs-matrix {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.labs-matrix-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 22px var(--labs-panel-padding);
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-warm);
+}
+
+.labs-matrix-heading h3 {
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-h3);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.labs-matrix-summary {
+  max-width: 66ch;
+  margin: 9px 0 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-body);
+  line-height: 1.55;
+}
+
+.labs-matrix-provenance {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+}
+
+/* Which live run is on screen. Never rendered without a response behind it. */
+.labs-matrix-badge {
+  padding: 5px 10px;
+  border: 1px solid;
+  border-radius: 2px;
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.labs-matrix-badge.is-live {
+  border-color: #b3d2c1;
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.labs-matrix-provenance dl {
+  display: flex;
+  margin: 0;
+  gap: 18px;
+}
+
+.labs-matrix-provenance dt {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.labs-matrix-provenance dd {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  white-space: nowrap;
+}
+
+.labs-matrix-provenance dd.mono {
+  font-family: var(--mono);
+}
+
+.labs-ranking-guide {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  list-style: none;
+}
+
+.labs-ranking-reading > summary {
+  min-height: 44px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.labs-ranking-reading > summary > span {
+  margin-left: 14px;
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.labs-ranking-guide > li {
+  display: grid;
+  min-width: 0;
+  align-items: start;
+  gap: 12px;
+  padding: 18px var(--labs-panel-padding);
+  border-right: 1px solid var(--line);
+  grid-template-columns: 2rem minmax(0, 1fr);
+}
+
+.labs-ranking-guide > li:last-child {
+  border-right: 0;
+}
+
+.labs-ranking-guide-number {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+  font-weight: 700;
+}
+
+.labs-ranking-guide > li > div {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 5px;
+}
+
+.labs-ranking-guide > li > div > strong {
+  color: var(--ink);
+  font-size: var(--labs-body);
+  font-weight: 700;
+}
+
+.labs-ranking-guide > li > div > span {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.labs-ranking-guide ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 7px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.labs-ranking-guide ul > li {
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  background: var(--paper-warm);
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.labs-matrix-controls {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 14px var(--labs-panel-padding);
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.labs-matrix-controls > span {
+  flex-shrink: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Pick, then run. The picker sits beside Run pipeline in the masthead, because it
+   used to sit below the button that consumed it. */
+.retrieval-scenario-picker {
+  display: grid;
+  min-width: 220px;
+  flex: 0 1 300px;
+  gap: 5px;
+}
+
+.retrieval-query-field {
+  display: grid;
+  min-width: 240px;
+  flex: 1 1 380px;
+  gap: 5px;
+}
+
+.retrieval-scenario-picker > span,
+.retrieval-query-field > span {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.retrieval-scenario-picker select {
+  width: 100%;
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 12px;
+  border: 1px solid #cdbfae;
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+}
+
+.retrieval-scenario-picker select:hover {
+  border-color: var(--gold);
+}
+
+.retrieval-scenario-picker select:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.retrieval-query-field input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid #cdbfae;
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+}
+
+.retrieval-query-field input:hover {
+  border-color: var(--gold);
+}
+
+.retrieval-query-field input:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.labs-matrix-query {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+}
+
+.labs-matrix-query code {
+  font-family: var(--mono);
+}
+
+/* The rows scroll under a sticky header, but the box must never trap the
+   wheel. `overscroll-behavior: contain` on the vertical axis meant a trackpad
+   that reached the last row stopped dead instead of carrying on down the page,
+   and a 62vh box under the sticky chrome left little else on screen to catch.
+   Vertical scrolling chains to the page, and the cap is the viewport below the
+   chrome rather than a fraction of the whole screen. */
+.labs-matrix-scroll {
+  max-height: max(
+    420px,
+    calc(100vh - var(--topbar-height) - var(--labs-rail-height, 0px) - 64px)
+  );
+  overflow: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--line-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.labs-matrix-scroll:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.labs-matrix-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.labs-matrix-scroll::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: var(--line-strong);
+  background-clip: padding-box;
+}
+
+.labs-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.labs-matrix-table thead th {
+  position: sticky;
+  z-index: 3;
+  top: 0;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-warm);
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  vertical-align: bottom;
+}
+
+.labs-matrix-table thead th:first-child {
+  position: sticky;
+  z-index: 5;
+  left: 0;
+  min-width: 300px;
+  background: var(--paper-warm);
+  box-shadow: 8px 0 12px -13px rgb(47 41 36 / 74%);
+}
+
+/* Each heading selects its retriever: the cells below highlight and the query
+   behind them appears in the footer. That replaces the separate stage strip. */
+.labs-matrix-table thead button,
+.labs-matrix-move-head {
+  display: grid;
+  width: 100%;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+
+.labs-matrix-table thead button {
+  cursor: pointer;
+}
+
+.labs-matrix-table thead button > strong,
+.labs-matrix-move-head > strong {
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.labs-matrix-table thead button > small,
+.labs-matrix-move-head > small {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: var(--labs-micro);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.labs-matrix-table thead button > span {
+  color: var(--maroon-700);
+  font-size: var(--labs-micro);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.labs-matrix-table thead button > span > em {
+  color: var(--ink-soft);
+  font-style: normal;
+  font-weight: 400;
+}
+
+.labs-matrix-table thead button:hover > strong,
+.labs-matrix-table thead button.is-focused > strong {
+  color: var(--maroon-700);
+}
+
+.labs-matrix-table thead button.is-focused {
+  box-shadow: 0 2px 0 var(--maroon-700);
+}
+
+.labs-matrix-table thead button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+/* One tbody per result: the ranks on the first row, the reason for them on the
+   second, so the reason cannot drift away from the numbers it explains. */
+.labs-matrix-table tbody {
+  border-bottom: 1px solid #eee6da;
+}
+
+.labs-matrix-table tbody:hover {
+  background: var(--paper);
+}
+
+.labs-matrix-table tbody.is-target {
+  background: var(--canvas);
+}
+
+.labs-matrix-table tbody th {
+  position: sticky;
+  z-index: 2;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px 4px;
+  background: var(--paper);
+  box-shadow: 8px 0 12px -13px rgb(47 41 36 / 74%);
+  font-weight: 400;
+}
+
+.labs-matrix-table tbody:hover th {
+  background: var(--paper);
+}
+
+.labs-matrix-table tbody.is-target th {
+  background: var(--canvas);
+}
+
+.labs-matrix-rank {
+  flex-shrink: 0;
+  width: 26px;
+  color: var(--ink);
+  font-size: var(--labs-h3);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+}
+
+.labs-matrix-table tbody th img {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  object-fit: cover;
+}
+
+.labs-matrix-identity {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.labs-matrix-identity > strong {
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  font-weight: 600;
+}
+
+.labs-matrix-identity > small {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: var(--labs-micro);
+}
+
+.labs-matrix-identity > small > em {
+  color: var(--green);
+  font-family: var(--sans);
+  font-style: normal;
+  font-weight: 700;
+}
+
+.labs-matrix-cell {
+  padding: 13px 14px 4px;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.labs-matrix-cell > strong {
+  display: block;
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.labs-matrix-cell > small {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: var(--labs-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+/* "not found" rather than a dash or a zero. A dash reads as "ranked last"; the
+   distinction the labs turn on is that the retriever never produced the row. */
+.labs-matrix-miss {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-style: italic;
+}
+
+.labs-matrix-cell.is-focused {
+  background: var(--maroon-50);
+  box-shadow: inset 1px 0 0 #e4d3b8, inset -1px 0 0 #e4d3b8;
+}
+
+.labs-matrix-move {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 13px 14px 4px;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.labs-matrix-move > span {
+  color: var(--ink);
+  font-size: var(--labs-detail);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.labs-matrix-arrow {
+  transform: rotate(-90deg);
+  vertical-align: -1px;
+  color: #a89e94;
+}
+
+.labs-matrix-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-size: var(--labs-micro);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.labs-matrix-delta.rose {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.labs-matrix-delta.fell {
+  background: var(--gold-soft);
+  color: #8b6832;
+}
+
+.labs-matrix-delta.held {
+  color: var(--ink-soft);
+}
+
+.labs-matrix-why > td {
+  padding: 0 14px 13px 52px;
+}
+
+.labs-matrix-why p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.labs-matrix-why ul {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 7px 0 0;
+  padding: 0;
+  gap: 6px;
+  list-style: none;
+}
+
+/* Each chip is derived from a value in the response, not written in advance. */
+.labs-matrix-why li {
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+}
+
+.labs-matrix-why li.lexical,
+.labs-matrix-why li.identity {
+  border-color: #b3d2c1;
+  background: var(--green-soft);
+  color: #1f5b40;
+}
+
+.labs-matrix-why li.fuzzy {
+  border-color: #d9c9a8;
+  background: var(--gold-soft);
+  color: #7d5621;
+}
+
+.labs-matrix-why li.semantic {
+  border-color: #d5cabb;
+  background: var(--paper-warm);
+  color: var(--ink-soft);
+}
+
+.labs-matrix-footer {
+  display: grid;
+  gap: 14px;
+  padding: 18px var(--labs-panel-padding) 20px;
+  border-top: 1px solid var(--line);
+  background: var(--paper-warm);
+}
+
+.labs-matrix-sql-hint,
+.labs-matrix-note {
+  max-width: 92ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.6;
+}
+
+.labs-matrix-note strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.labs-matrix-awaiting {
+  margin: 0;
+  padding: 34px var(--labs-panel-padding);
+  color: var(--ink-soft);
+  font-size: var(--labs-body);
+  text-align: center;
+}
+
+.labs-ranking-empty {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px var(--labs-panel-padding);
+  background: var(--paper-warm);
+  color: var(--ink-soft);
+}
+
+.labs-ranking-empty > svg {
+  flex: none;
+  margin-top: 2px;
+  color: #8b7768;
+}
+
+.labs-ranking-empty > div {
+  display: grid;
+  gap: 3px;
+}
+
+.labs-ranking-empty strong {
+  color: var(--ink);
+  font-size: var(--labs-body);
+  font-weight: 700;
+}
+
+.labs-ranking-empty span {
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+@media (max-width: 1180px) {
+  .labs-matrix-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+}
+
+@media (max-width: 900px) {
+  .retrieval-scenario-picker {
+    width: 100%;
+    min-width: 0;
+    flex-basis: 100%;
+  }
+
+  .retrieval-query-field {
+    width: 100%;
+    min-width: 100%;
+    flex-basis: 100%;
+  }
+
+  .labs-matrix-table {
+    min-width: 900px;
+  }
+
+  .labs-ranking-guide {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .labs-ranking-guide > li {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .labs-ranking-guide > li:last-child {
+    border-bottom: 0;
+  }
+}
+
+/* HNSW stays inside the Labs observation shell. Live database facts and the
+   simulated envelope are separate regions so their evidence cannot blur. */
+
+.hnsw-page {
+  align-content: start;
+}
+
+/* The three acts, and the rail that names them.
+ *
+ * Eight sibling sections with no anchors made the only route to the filter cliff
+ * a scroll past everything before it. The rail mirrors `.labs-rail` on the
+ * required Playground -- sticky under the header, hash-driven, quiet -- because
+ * two lenses of one surface should not navigate two different ways. Three
+ * entries, not eight: eight is a table of contents, three is a spine.
+ */
+.hnsw-rail {
+  position: sticky;
+  z-index: 4;
+  top: var(--topbar-height);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 22px;
+  padding: 11px 18px;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: rgb(255 254 250 / 96%);
+  backdrop-filter: blur(12px);
+}
+
+.hnsw-rail-kicker {
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.hnsw-rail-acts {
+  display: inline-flex;
+  gap: 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hnsw-rail-acts a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  font-weight: 600;
+}
+
+.hnsw-rail-acts a:hover {
+  text-decoration: underline;
+}
+
+.hnsw-rail-acts b {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: var(--labs-micro);
+  font-weight: 500;
+}
+
+/* Where the reader currently is. The Playground rail carries two marks here --
+   where you are, and the stage your lab changes -- and this lens has no lab, so
+   it carries only the first and can afford the louder treatment for it. */
+.hnsw-rail-acts a[data-viewing="true"] {
+  color: var(--maroon-800);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.hnsw-rail-acts a[data-viewing="true"] b {
+  color: var(--maroon-800);
+}
+
+.hnsw-act {
+  display: grid;
+  gap: inherit;
+  /* The rail covers the top of whatever it lands on, so an act jumped to starts
+     below it rather than under it. */
+  scroll-margin-top: calc(var(--topbar-height) + 78px);
+}
+
+/* Quieter than the sections it groups. Their headings are the measured
+   assertions a reader quotes; this one is a signpost, and a signpost that
+   outshouts the thing it points at is worse than none. */
+.hnsw-act-head {
+  display: grid;
+  gap: 5px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.hnsw-act-kicker {
+  margin: 0;
+  color: var(--maroon-800);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hnsw-act-head h2 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-body);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.hnsw-act-summary {
+  max-width: 82ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.55;
+}
+
+/* One panel's input is missing, so one panel says so. This replaces the ring in
+   place; it used to be the whole page, because the neighbourhood fetch wrote the
+   page-level error state. */
+.hnsw-neighborhood-unavailable {
+  display: grid;
+  gap: 7px;
+  padding: 20px 22px;
+}
+
+.hnsw-neighborhood-unavailable h2 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-body);
+  font-weight: 700;
+}
+
+.hnsw-neighborhood-unavailable p {
+  max-width: 92ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: var(--labs-detail);
+  line-height: 1.5;
+}
+
+.hnsw-live,
+.hnsw-envelope,
+.hnsw-pareto,
+.hnsw-ring,
+.hnsw-cliff,
+.hnsw-repr,
+.hnsw-neighborhood-unavailable,
+.hnsw-ab {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 16px 42px rgb(73 43 33 / 7%);
+}
+
+.hnsw-live > header,
+.hnsw-envelope > header,
+.hnsw-pareto > header,
+.hnsw-ring > header,
+.hnsw-cliff > header,
+.hnsw-repr > header,
+.hnsw-ab > header,
+.hnsw-production > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 28px;
+}
+
+.hnsw-live > header,
+.hnsw-envelope > header,
+.hnsw-pareto > header,
+.hnsw-ring > header,
+.hnsw-cliff > header,
+.hnsw-repr > header,
+.hnsw-ab > header {
+  padding: 26px 28px;
+  border-bottom: 1px solid var(--line);
+}
+
+.hnsw-live h2,
+.hnsw-envelope h2,
+.hnsw-pareto h2,
+.hnsw-ring h2,
+.hnsw-cliff h2,
+.hnsw-repr h2,
+.hnsw-ab h2,
+.hnsw-production h2 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-h2);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.12;
+}
+
+.hnsw-live > header p,
+.hnsw-envelope > header p,
+.hnsw-pareto > header p,
+.hnsw-ring > header p,
+.hnsw-cliff > header p,
+.hnsw-repr > header p,
+.hnsw-ab > header p,
+.hnsw-production > header p {
+  max-width: 660px;
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-body);
+  line-height: 1.55;
+}
+
+.hnsw-evidence-badge {
+  display: inline-flex;
+  min-height: 30px;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid;
+  border-radius: 5px;
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.hnsw-evidence-badge.live {
+  border-color: #9bb8a8;
+  background: var(--green-soft);
+  color: #285742;
+}
+
+.hnsw-evidence-badge.measured {
+  border-color: #a9848b;
+  background: var(--maroon-100);
+  color: var(--maroon-800);
+}
+
+.hnsw-evidence-badge.projected {
+  border-color: #d6bd91;
+  background: var(--gold-soft);
+  color: #76501d;
+}
+
+.hnsw-live-facts {
+  display: grid;
+  grid-template-columns: 1.05fr 1.05fr 1.2fr 1.1fr 1.3fr;
+}
+
+.hnsw-live-facts > div {
+  display: grid;
+  min-width: 0;
+  min-height: 108px;
+  align-content: center;
+  gap: 6px;
+  padding: 20px 22px;
+  border-right: 1px solid var(--line);
+}
+
+.hnsw-live-facts > div:last-child {
+  border-right: 0;
+}
+
+.hnsw-live-facts strong {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-h3);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* The headline counts carry the panel; the engine and extension versions beside
+   them are metadata and sit one weight lighter. --metadata had no rule at all,
+   so "PostgreSQL 18.3" rendered at the same rank as "500K". */
+.hnsw-live-facts .hnsw-live-value--metric {
+  font-weight: 700;
+}
+
+.hnsw-live-facts .hnsw-live-value--metadata {
+  font-weight: 600;
+}
+
+.hnsw-live-facts .hnsw-live-value--config {
+  font-family: var(--mono);
+  font-size: var(--labs-mono);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.hnsw-live-facts span {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.hnsw-live > footer {
+  display: flex;
+  min-height: 62px;
+  align-items: center;
+  gap: 11px;
+  padding: 13px 24px;
+  border-top: 1px solid var(--line);
+  background: var(--paper-warm);
+}
+
+.hnsw-live > footer > svg {
+  flex: 0 0 auto;
+  color: #0f6b63;
+}
+
+.hnsw-live > footer.blocked > svg,
+.hnsw-live > footer.blocked strong {
+  color: var(--maroon-700);
+}
+
+.hnsw-live > footer > span {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.hnsw-live > footer strong {
+  color: var(--ink);
+  font-size: var(--labs-micro);
+}
+
+.hnsw-live > footer code {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: var(--labs-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hnsw-live > footer small {
+  margin-left: auto;
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+}
+
+.hnsw-envelope > header {
+  align-items: center;
+}
+
+.hnsw-production {
+  padding: 20px 0 0;
+}
+
+.hnsw-production > header {
+  display: grid;
+  justify-content: start;
+}
+
+.hnsw-production > div {
+  display: grid;
+  margin-top: 26px;
+  border-top: 1px solid #d8ccbf;
+}
+
+.hnsw-production article {
+  display: grid;
+  grid-template-columns: 30px minmax(180px, 0.4fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  padding: 19px 2px;
+  border-bottom: 1px solid #d8ccbf;
+}
+
+.hnsw-production article svg {
+  margin-top: 1px;
+  color: var(--maroon-700);
+}
+
+.hnsw-production article strong {
+  color: var(--ink);
+  font-size: var(--labs-detail);
+}
+
+.hnsw-production article p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.55;
+}
+
+.hnsw-next {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding-top: 4px;
+}
+
+.hnsw-next a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  color: var(--maroon-800);
+  font-size: var(--labs-detail);
+  font-weight: 600;
+}
+
+.hnsw-next a:hover {
+  color: var(--maroon-900);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+@media (max-width: 1100px) {
+  .hnsw-live-facts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .hnsw-live-facts > div:nth-child(3) {
+    border-right: 0;
+  }
+
+  .hnsw-live-facts > div:nth-child(-n + 3) {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .hnsw-live-facts > div:nth-child(4) {
+    grid-column: 1 / 2;
+  }
+
+  .hnsw-live-facts > div:nth-child(5) {
+    grid-column: 2 / 4;
+  }
+
+}
+
+@media (max-width: 760px) {
+  .hnsw-live > header,
+  .hnsw-envelope > header,
+  .hnsw-pareto > header,
+  .hnsw-ring > header,
+  .hnsw-cliff > header,
+  .hnsw-repr > header,
+  .hnsw-ab > header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 22px;
+  }
+
+  .hnsw-evidence-badge {
+    justify-self: start;
+  }
+
+  .hnsw-live-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hnsw-live-facts > div,
+  .hnsw-live-facts > div:nth-child(3) {
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .hnsw-live-facts > div:nth-child(even) {
+    border-right: 0;
+  }
+
+  .hnsw-live-facts > div:nth-child(4) {
+    grid-column: auto;
+  }
+
+  .hnsw-live-facts > div:nth-child(5) {
+    grid-column: 1 / -1;
+    border-right: 0;
+    border-bottom: 0;
+  }
+
+  .hnsw-live > footer > span {
+    display: grid;
+    gap: 3px;
+  }
+
+  .hnsw-live > footer small {
+    display: none;
+  }
+
+  .hnsw-production article {
+    grid-template-columns: 26px minmax(0, 1fr);
+  }
+
+  .hnsw-production article p {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 500px) {
+  .hnsw-live-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .hnsw-live-facts > div,
+  .hnsw-live-facts > div:nth-child(even),
+  .hnsw-live-facts > div:nth-child(5) {
+    grid-column: 1;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .hnsw-live-facts > div:last-child {
+    border-bottom: 0;
+  }
+
+  .hnsw-live > footer {
+    align-items: flex-start;
+  }
+
+  .hnsw-live > footer code {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+}
+
+@keyframes labs-engine-replay-ready {
+  0%,
+  100% {
+    box-shadow:
+      0 11px 24px rgb(16 5 8 / 30%),
+      0 0 0 0 rgb(235 197 127 / 0%);
+  }
+
+  50% {
+    box-shadow:
+      0 13px 28px rgb(16 5 8 / 35%),
+      0 0 0 5px rgb(235 197 127 / 12%);
+  }
+}
+
+@keyframes labs-replay-spotlight-focus {
+  from {
+    opacity: 0.42;
+    filter: blur(3px);
+    transform: translateY(10px) scale(0.985);
+  }
+
+  58% {
+    opacity: 1;
+    filter: blur(0);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 900px) {
+  .labs-premium {
+    gap: 42px;
+    padding-block: 28px 64px;
+  }
+
+  .mosaic-labs-tabs {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .mosaic-labs-tabs > div {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
+  .mosaic-labs-tabs > small {
+    text-align: left;
+  }
+
+  .labs-intro {
+    min-height: 430px;
+  }
+}
+
+@media (max-width: 640px) {
+  .labs-premium {
+    padding-inline: 16px;
+  }
+
+  .labs-intro {
+    min-height: 458px;
+  }
+
+  .labs-intro-copy {
+    padding-top: 22px;
+  }
+
+  .labs-intro-copy > .labs-intro-deck {
+    font-size: var(--labs-lead);
+  }
+
+  }
+
+/* Audit refinements preserve the Mosaic palette and particle identity while
+   tightening Labs hierarchy and stabilizing Shop on small screens. */
+.labs-premium {
+  gap: 40px;
+}
+
+.labs-intro {
+  display: block;
+  min-height: 0;
+  overflow: visible;
+  border-bottom-color: #d7cec1;
+}
+
+.labs-intro-copy {
+  width: min(100%, 900px);
+  align-items: flex-start;
+  justify-self: start;
+  padding: 30px 0 34px;
+  text-align: left;
+}
+
+.labs-intro-copy {
+  padding-block: 24px 26px;
+}
+
+.labs-intro-copy > .labs-intro-deck {
+  max-width: 720px;
+}
+
+.labs-intro-actions {
+  justify-content: flex-start;
+}
+
+.mosaic-studio-briefs h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--labs-h2);
+}
+
+/* Tracks .shop-product-grid so the skeleton does not resolve into a different
+   column count than the products that replace it. */
+
+@media (max-width: 900px) {
+  .catalog-skeleton-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .labs-intro {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .shop-domain-scroller {
+    display: grid;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) 44px;
+    gap: 8px;
+  }
+
+  .shop-domain-tabs {
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: inline proximity;
+  }
+
+  .shop-domain-tabs button {
+    scroll-snap-align: start;
+  }
+
+  .shop-domain-next {
+    display: inline-grid;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    place-items: center;
+    border: 1px solid rgb(92 75 62 / 22%);
+    border-radius: 50%;
+    background: var(--paper);
+    color: var(--maroon-900);
+  }
+
+  .labs-intro-copy {
+    padding: 20px 0 26px;
+  }
+
+  .labs-intro-copy {
+    padding-block: 18px 20px;
+  }
+
+  .labs-intro-actions {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 359px) {
+  .catalog-skeleton-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

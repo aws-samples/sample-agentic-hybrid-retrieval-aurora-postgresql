@@ -1,0 +1,1087 @@
+/* One exchange. Successive turns are ruled rather than boxed: the panel is a
+   column of reading matter, and a card per turn nested a shortlist, three
+   receipts, and a chip list inside a second border. */
+.ask-mosaic-turn + .ask-mosaic-turn {
+  margin-top: 26px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line-strong);
+}
+
+.ask-mosaic-turn {
+  animation: ask-mosaic-turn-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes ask-mosaic-turn-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+}
+
+/* What was asked, kept above its answer. Indented from the left so the thread
+   reads as two voices without a second column. */
+.ask-mosaic-ask {
+  margin: 0;
+  padding: 13px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: #ece5dc;
+}
+
+/*
+ * The "YOU ASKED" eyebrow only.
+ *
+ * This was `.ask-mosaic-ask span`, which also matched the icon medallion and the
+ * edit/re-ask control group - both spans, both direct children. At 0,1,1 it beat
+ * `.ask-mosaic-request-icon` (0,1,0), so `display: block` overrode that rule's
+ * `display: grid`, `place-items: center` stopped applying, and the sparkle sat
+ * in the medallion's top-left corner instead of its centre. The control group
+ * lost its `inline-flex` and `gap` the same way.
+ */
+.ask-mosaic-request-copy > span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ask-mosaic-ask p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+/* Opaque, not translucent and blurred. This bar sits under a scrolling column
+   of photographs, mono figures, and quoted evidence, so a backdrop blur smeared
+   all three into moving colour on every wheel event. */
+.ask-mosaic-composer {
+  z-index: 3;
+  padding: 13px 18px 18px;
+  border-top: 0;
+  background: linear-gradient(0deg, var(--paper-warm) 76%, rgb(247 243 236 / 0%));
+  box-shadow: none;
+}
+
+.ask-mosaic-context {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+  margin: 0 4px 10px;
+}
+
+.ask-mosaic-context span {
+  flex: 0 0 auto;
+  color: var(--maroon-800);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ask-mosaic-context strong {
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ask-mosaic-composer .search-composer {
+  min-width: 0;
+  min-height: 54px;
+  border-color: rgb(92 75 62 / 18%);
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow: 0 10px 30px rgb(48 37 28 / 10%);
+}
+
+/* Filled, unlike the ghost "Search" button on the Shop bar: inside the panel
+   this is the primary action rather than one of two. */
+.ask-mosaic-composer .search-composer button {
+  width: auto;
+  height: 40px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: var(--maroon-900);
+  color: var(--paper);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 180ms ease;
+}
+
+.ask-mosaic-composer .search-composer button:hover:not(:disabled) {
+  background: var(--maroon-800);
+}
+
+/* A stage is running and its duration is not known, so this is an
+   indeterminate sweep and never a fraction: the panel does not have a number
+   to fill a bar with. */
+
+.ask-mosaic-error {
+  display: grid;
+  max-width: 68ch;
+  gap: 4px;
+  margin: 16px 0 0;
+  padding: 14px 16px;
+  border: 1px solid var(--maroon-700);
+  border-radius: 8px;
+  background: var(--maroon-100);
+  color: var(--maroon-900);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.ask-mosaic-error strong {
+  font-weight: 700;
+}
+
+.ask-mosaic-error span {
+  overflow-wrap: anywhere;
+}
+
+.ask-mosaic-error small {
+  color: var(--maroon-800);
+  font-size: 12px;
+}
+
+.ask-mosaic-empty {
+  display: grid;
+  justify-items: start;
+  gap: 24px;
+  padding: clamp(16px, 3vh, 32px) 0 24px;
+  text-align: left;
+}
+
+.ask-mosaic-welcome h3 {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: clamp(28px, 2.2vw, 34px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+}
+
+.ask-mosaic-welcome p {
+  max-width: 48ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.ask-mosaic-starters {
+  width: 100%;
+}
+
+.ask-mosaic-starters ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ask-mosaic-starters button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--maroon-800);
+  font: 500 14px/1.4 var(--sans);
+  text-align: left;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.ask-mosaic-starters button:hover {
+  border-color: var(--maroon-line);
+  background: var(--maroon-50);
+}
+
+.ask-mosaic-starter-path {
+  overflow-wrap: anywhere;
+}
+
+.ask-mosaic-capability {
+  width: 100%;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.ask-mosaic-capability > summary {
+  display: flex;
+  min-height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.ask-mosaic-capability > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ask-mosaic-capability > summary > span {
+  display: grid;
+  gap: 2px;
+}
+
+.ask-mosaic-capability > summary strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ask-mosaic-capability > summary small {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.ask-mosaic-capability > summary > svg {
+  flex: 0 0 auto;
+  color: var(--maroon-700);
+  transition: transform 180ms ease;
+}
+
+.ask-mosaic-capability[open] > summary > svg {
+  transform: rotate(180deg);
+}
+
+.ask-mosaic-capability > div {
+  padding-bottom: 12px;
+}
+
+.ask-mosaic-toolset {
+  display: grid;
+  width: 100%;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  counter-reset: mosaic-tool;
+  list-style: none;
+}
+
+/* The panel is between 410px and 520px wide, and "Write the cited
+   recommendation" next to `synthesize_cited_answer` does not fit the narrow end,
+   so the function name wraps under the label instead of being ellipsised away. */
+.ask-mosaic-toolset li {
+  display: flex;
+  min-height: 44px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 12px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+}
+
+.ask-mosaic-toolset li::before {
+  color: var(--line-strong);
+  content: counter(mosaic-tool, decimal-leading-zero);
+  counter-increment: mosaic-tool;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+/* What the tool does reads first; the function it calls stays beside it so the
+   claim is checkable against `service/agent_tools.py`. */
+.ask-mosaic-toolset li > span {
+  flex: 1 1 auto;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.ask-mosaic-toolset code {
+  flex: 0 0 auto;
+  color: var(--maroon-800);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.ask-mosaic-empty small {
+  max-width: 68ch;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ask-mosaic-capability > div > small {
+  display: block;
+  margin-top: 9px;
+}
+
+.ask-mosaic-answer {
+  margin-top: 18px;
+  padding: 18px 4px 2px;
+  border: 0;
+  border-top: 1px solid var(--gold);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ask-mosaic-answer > p:first-child {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 11px;
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ask-mosaic-answer h1,
+.ask-mosaic-answer h2,
+.ask-mosaic-skip-reveal {
+  margin-left: auto;
+  min-height: 32px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--maroon-line);
+  background: transparent;
+  color: var(--maroon-800);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ask-mosaic-skip-reveal:hover {
+  border-bottom-color: var(--maroon-800);
+}
+
+.ask-mosaic-answer h3 {
+  margin: 16px 0 7px;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ask-mosaic-answer p,
+.ask-mosaic-answer li {
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+
+.ask-mosaic-answer strong {
+  color: var(--ink);
+}
+
+.ask-mosaic-answer p:last-child {
+  margin-bottom: 0;
+}
+
+.ask-mosaic-answer ul,
+.ask-mosaic-answer ol {
+  margin: 9px 0;
+  padding-left: 20px;
+}
+
+/*
+ * The write caret, drawn while the typewriter is still writing.
+ *
+ * It rides the last element of the prose wrapper rather than of the section:
+ * the shortlist cards share the section, and a section-level `:last-child`
+ * parked the caret under the cards instead of the line being written. Before
+ * the first chunk the wrapper is empty and the caret stands alone where the
+ * prose will start, which is the honest position: the answer has been
+ * committed to and no words of it exist.
+ */
+.ask-mosaic-answer.streaming .ask-mosaic-prose > :last-child::after,
+.ask-mosaic-answer.streaming .ask-mosaic-prose:empty::after {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  margin-left: 3px;
+  background: var(--maroon-800);
+  content: "";
+  vertical-align: -2px;
+  animation: ask-mosaic-caret 1s steps(1, end) infinite;
+}
+
+@keyframes ask-mosaic-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+.ask-mosaic-section {
+  padding-top: 26px;
+}
+
+.ask-mosaic-section > header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: var(--maroon-800);
+}
+
+.ask-mosaic-section > header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.ask-mosaic-section h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ask-mosaic-section header p {
+  max-width: 68ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+/* The constraints the agent's searches actually carried, at the Interpret
+   position above the answer. Chips rather than a list, because each one is a
+   single field of a SearchFilters the service already ran. */
+
+.ask-mosaic-criteria {
+  margin-top: 18px;
+  padding: 12px 15px 14px;
+  border: 1px solid rgb(92 75 62 / 12%);
+  border-radius: 6px;
+  background: var(--paper);
+}
+
+.ask-mosaic-criteria h3 {
+  margin: 0 0 9px;
+  color: var(--maroon-900);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ask-mosaic-criteria ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ask-mosaic-criteria li {
+  padding: 4px 10px;
+  border: 1px solid rgb(103 24 37 / 16%);
+  border-radius: 999px;
+  background: var(--maroon-100);
+  color: var(--maroon-900);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ask-mosaic-shortlist {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ask-mosaic-shortlist li {
+  min-width: 0;
+}
+
+/*
+ * Photograph, name, price, and the arms that retrieved the row.
+ *
+ * Two rows so the signal chips get the full width of the card rather than the
+ * ~170px left over beside a right-aligned price. The thumbnail and the chevron
+ * span both rows; naming them in each row of `grid-template-areas` is what
+ * makes them span.
+ */
+.ask-mosaic-shortlist button {
+  display: grid;
+  width: 100%;
+  min-height: 94px;
+  grid-template-areas:
+    "media copy     price   chevron"
+    "media signals  signals chevron";
+  grid-template-columns: 80px minmax(0, 1fr) auto 16px;
+  gap: 7px 12px;
+  align-items: start;
+  padding: 11px 12px 11px 11px;
+  border: 1px solid rgb(92 75 62 / 12%);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 9px 26px rgb(48 37 28 / 8%);
+  text-align: left;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.ask-mosaic-shortlist button:hover,
+.ask-mosaic-shortlist button:focus-visible,
+.ask-mosaic-shortlist li.highlighted button {
+  border-color: var(--maroon-700);
+}
+
+.ask-mosaic-shortlist-media {
+  position: relative;
+  display: block;
+  width: 80px;
+  height: 80px;
+  align-self: center;
+  overflow: hidden;
+  grid-area: media;
+  border-radius: 8px;
+  background: var(--paper-warm);
+}
+
+.ask-mosaic-shortlist-media img {
+  width: 100%;
+  height: 100%;
+  padding: 5px;
+  object-fit: contain;
+  image-rendering: auto;
+}
+
+.ask-mosaic-shortlist-media > small {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 2px solid rgb(255 253 248 / 88%);
+  border-radius: 50%;
+  background: var(--maroon-950);
+  box-shadow: 0 4px 14px rgb(43 13 19 / 34%);
+  color: var(--paper-strong);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 22%);
+}
+
+.ask-mosaic-shortlist-copy {
+  display: grid;
+  min-width: 0;
+  align-self: center;
+  gap: 3px;
+  grid-area: copy;
+}
+
+.ask-mosaic-shortlist-copy > small {
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ask-mosaic-shortlist-meta {
+  display: grid;
+  align-self: center;
+  gap: 2px;
+  grid-area: price;
+  justify-items: end;
+  text-align: right;
+}
+
+.ask-mosaic-shortlist-meta > strong {
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ask-mosaic-shortlist-meta > small {
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ask-mosaic-shortlist-copy > strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.28;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ask-mosaic-card-pick {
+  justify-self: start;
+  margin-bottom: 1px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--gold-soft);
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Which arms found the row, and the reranker score. This used to read
+   "RRF #2 · Final #1", which names two internal ranks and answers nothing a
+   shopper asked. One chip per arm, because the arm names are the reason and the
+   number alone is not; they wrap as units rather than mid-phrase. */
+.ask-mosaic-shortlist-signals {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-self: center;
+  gap: 5px;
+  grid-area: signals;
+}
+
+.ask-mosaic-shortlist-signals > span {
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--maroon-50);
+  color: var(--maroon-800);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.ask-mosaic-shortlist button > svg {
+  align-self: center;
+  grid-area: chevron;
+  color: var(--ink-soft);
+}
+
+/*
+ * Side-by-side product records, three columns wide inside a 410-520px sidecar.
+ *
+ * The box scrolls sideways rather than the panel, and the field-name column is
+ * sticky, so a value is never read against the wrong row while it does.
+ */
+.ask-mosaic-compare-scroll {
+  overflow-x: auto;
+  border: 1px solid rgb(92 75 62 / 12%);
+  border-radius: 14px;
+  background: var(--paper);
+}
+
+.ask-mosaic-compare {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.ask-mosaic-compare th,
+.ask-mosaic-compare td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.ask-mosaic-compare tbody tr:last-child th,
+.ask-mosaic-compare tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.ask-mosaic-compare tbody th {
+  position: sticky;
+  left: 0;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ask-mosaic-compare thead th,
+.ask-mosaic-compare thead td {
+  min-width: 106px;
+  background: var(--paper-warm);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.ask-mosaic-compare thead th small {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+.ask-mosaic-compare tbody td {
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Marks the column holding the ranked leader. It says which product finished
+   first, not that any value in the column is the better one. */
+
+/* Olive, the colour this panel already uses for a step that passed. Maroon is
+   the brand accent and reads as a warning next to a table of prices. */
+.ask-mosaic-compare .leader {
+  background: rgb(113 131 75 / 9%);
+  color: var(--ink);
+}
+
+.ask-mosaic-compare thead th.leader {
+  background: rgb(113 131 75 / 15%);
+  box-shadow: inset 0 2px 0 var(--green);
+}
+
+.ask-mosaic-compare thead th.leader small {
+  color: var(--green);
+}
+
+/*
+ * The searches the agent actually ran, from `AgentResponse.plan`.
+ *
+ * The panel fetched this and dropped it, which left the shortlist with no
+ * account of how it was produced. Each row is one search that returned
+ * evidence-backed products, and the chips are the constraints it resolved.
+ */
+.ask-mosaic-searches {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ask-mosaic-search-receipt .ask-mosaic-searches {
+  padding: 0 15px 12px;
+  border-top: 1px solid var(--line);
+}
+
+.ask-mosaic-searches li {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 4px 10px;
+  padding: 12px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+
+.ask-mosaic-searches li > span {
+  color: var(--maroon-700);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ask-mosaic-searches li > div {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.ask-mosaic-searches strong {
+  max-width: 68ch;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.ask-mosaic-searches small {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.ask-mosaic-ranking,
+.ask-mosaic-receipt {
+  margin-top: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--paper);
+}
+
+.ask-mosaic-ranking summary,
+.ask-mosaic-receipt summary {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 15px;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.ask-mosaic-ranking summary::-webkit-details-marker,
+.ask-mosaic-receipt summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The native marker is hidden, so the sections need their own open/closed
+   affordance. Activity receipts ship closed and nothing else does, which is
+   only legible if every summary says which way it goes. */
+.ask-mosaic-ranking > summary::after,
+.ask-mosaic-receipt > summary::after {
+  margin-left: 11px;
+  color: var(--ink-soft);
+  content: "+";
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.ask-mosaic-ranking[open] > summary::after,
+.ask-mosaic-receipt[open] > summary::after {
+  content: "\2212";
+}
+
+.ask-mosaic-ranking summary small {
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ask-mosaic-ranking dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  padding-top: 1px;
+  border-top: 1px solid var(--line);
+  background: var(--line);
+}
+
+/* Six or seven rows on a two-column track: an odd last row spans both columns
+   so the hairline grid never shows an empty half-cell. */
+.ask-mosaic-ranking dl > div:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.ask-mosaic-ranking dl > div {
+  display: grid;
+  gap: 4px;
+  padding: 11px 13px;
+  background: var(--paper);
+}
+
+.ask-mosaic-ranking dt {
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ask-mosaic-ranking dd {
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.ask-mosaic-receipt summary {
+  color: var(--maroon-900);
+}
+
+.ask-mosaic-receipt summary > span {
+  display: grid;
+  min-width: 23px;
+  height: 23px;
+  margin-left: auto;
+  padding: 0 7px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--maroon-100);
+  color: var(--maroon-900);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ask-mosaic-evidence,
+.ask-mosaic-activity {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0 15px 12px;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.ask-mosaic-evidence li,
+.ask-mosaic-activity li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 10px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.ask-mosaic-evidence li:last-child,
+.ask-mosaic-activity li:last-child {
+  border-bottom: 0;
+}
+
+.ask-mosaic-evidence li > span,
+.ask-mosaic-activity li > span {
+  color: var(--maroon-700);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A failed tool call is data the trace already carries in `outcome`, and it was
+   rendering identically to a successful one. */
+.ask-mosaic-activity li.error > span {
+  color: var(--danger);
+}
+
+.ask-mosaic-evidence strong,
+.ask-mosaic-activity strong {
+  display: block;
+  color: var(--ink);
+  font-size: 12.5px;
+}
+
+/* The tool's job in words, with the function it called on the line below. The
+   name alone used to be the heading of every trace row, so the trace read as a
+   list of Python symbols. */
+.ask-mosaic-activity strong {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.ask-mosaic-activity code.ask-mosaic-tool-fn {
+  justify-self: start;
+  padding: 0;
+  background: none;
+  color: var(--maroon-800);
+  font-size: 11px;
+}
+
+.ask-mosaic-evidence p,
+.ask-mosaic-activity small {
+  max-width: 68ch;
+  margin: 5px 0;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+/* The quote is the whole point of a citation, so it is set as one. */
+.ask-mosaic-evidence p {
+  max-width: 68ch;
+  padding-left: 11px;
+  border-left: 2px solid var(--line-strong);
+  font-style: italic;
+}
+
+.ask-mosaic-evidence small {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.ask-mosaic-activity li > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.ask-mosaic-activity code {
+  padding: 8px 10px;
+  overflow-wrap: anywhere;
+  border-radius: 8px;
+  background: var(--paper-warm);
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.ask-mosaic-activity p {
+  display: flex;
+  gap: 12px;
+  margin: 0;
+}
+
+.ask-mosaic-activity em {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.ask-mosaic-followups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 20px;
+}
+
+.ask-mosaic-followups button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: border-color 180ms ease, color 180ms ease;
+}
+
+.ask-mosaic-followups button:hover {
+  border-color: var(--maroon-800);
+  color: var(--maroon-900);
+}
+

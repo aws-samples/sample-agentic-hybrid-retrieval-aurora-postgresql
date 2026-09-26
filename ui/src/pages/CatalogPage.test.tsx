@@ -48,7 +48,7 @@ vi.mock("../catalogSource", async (importOriginal) => ({
 // Vitest isolates test files by default -- there is no vitest config and no
 // `test` block in vite.config.ts -- so this stays scoped to this file.
 configure({ asyncUtilTimeout: 5000 });
-import { stageDwellMs } from "../components/AskMosaic";
+import { stageDwellMs } from "../components/ask-mosaic/StageProgress";
 import { mosaicLabManifest } from "../labMissions";
 import { coreMosaicLabs, shopMissionHref } from "../labMissions";
 import { seedRun } from "../retrievalSeed";

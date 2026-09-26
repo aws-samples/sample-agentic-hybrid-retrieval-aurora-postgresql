@@ -189,10 +189,21 @@ const RAIL_STAGES = ["Retrieve", "Rank", "Reason", "Prove"];
 // Resolved off this file rather than off the working directory, and not with
 // `new URL(..., import.meta.url)`: Vite rewrites that exact pattern into an
 // asset URL, which is not a path anything can read here.
-const SURFACES_CSS = readFileSync(
-  resolve(dirname(fileURLToPath(import.meta.url)), "../surfaces.css"),
+//
+// `surfaces.css` is one stylesheet split into files by surface (see
+// `main.tsx` and `docs/ui-design-system.md`); concatenating them in their
+// import order reconstructs exactly what the previous single file held.
+const SURFACES_SHEETS = [
+  "../surfaces.css",
+  "../surfaces-ask-mosaic.css",
+  "../surfaces-labs-shell.css",
+  "../surfaces-hnsw.css",
+  "../surfaces-playground.css",
+];
+const SURFACES_CSS = SURFACES_SHEETS.map((sheet) => readFileSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), sheet),
   "utf8",
-).replaceAll(/\/\*[\s\S]*?\*\//g, "");
+)).join("\n").replaceAll(/\/\*[\s\S]*?\*\//g, "");
 
 /**
  * Every declaration this stylesheet makes for one exact selector, whitespace

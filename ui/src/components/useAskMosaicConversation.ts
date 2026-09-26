@@ -3,7 +3,7 @@ import { api } from "../api";
 import { sourceFilters, useCatalogSource } from "../catalogSource";
 import { workspaceRequests } from "../labMissions";
 import type { SearchFilters } from "../types";
-import type { AskMosaicTurn } from "./AskMosaic";
+import type { AskMosaicTurn } from "./ask-mosaic/types";
 
 function lastAnswered(turns: AskMosaicTurn[]): AskMosaicTurn | null {
   for (let index = turns.length - 1; index >= 0; index -= 1) {

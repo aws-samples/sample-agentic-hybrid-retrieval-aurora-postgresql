@@ -5,7 +5,8 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, describe, expect, it } from "vitest";
 import { CommerceProvider } from "../commerce";
 import { showcaseCatalogPage } from "../showcase";
-import { AskMosaic, boldRecommendationNames, type AskMosaicTurn } from "./AskMosaic";
+import { AskMosaic, boldRecommendationNames } from "./AskMosaic";
+import type { AskMosaicTurn } from "./ask-mosaic/types";
 import { Searches } from "./agentAnswerParts";
 import type { AgentPlanStep, AgentResponse, ToolTraceStep } from "../types";
 

@@ -1,0 +1,664 @@
+/* Shared states */
+
+.state-panel {
+  display: flex;
+  min-height: 120px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 22px 0;
+  border: 1px dashed var(--line-strong);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 58%);
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.state-panel.error {
+  color: var(--danger);
+}
+
+.spin {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.retrieval-run-action {
+  display: flex;
+  width: min(100%, 980px);
+  min-width: 0;
+  max-width: 100%;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 4px 14px rgb(55 36 25 / 4%);
+}
+
+.retrieval-run-feedback {
+  display: inline-flex;
+  min-height: 44px;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.45;
+}
+
+.retrieval-run-feedback.error {
+  flex: 1 1 460px;
+  padding: 7px 8px 7px 12px;
+  border: 1px solid #d6aaa5;
+  border-radius: 6px;
+  background: var(--maroon-50);
+  color: #8c3037;
+}
+
+.retrieval-run-feedback.error > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.retrieval-run-feedback.error .secondary-button {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding-inline: 10px;
+  border-color: currentColor;
+  color: inherit;
+}
+
+.retrieval-run-comparison {
+  margin-bottom: 24px;
+  overflow: hidden;
+  border: 1px solid #dcd1c3;
+  border-radius: 8px;
+  background: var(--canvas);
+}
+
+.retrieval-run-comparison > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 17px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* h3: this block sits inside the Rank stage, whose h2 is "Rank". The eyebrow
+   above it read "Live run comparison" over a heading saying the same thing. */
+.retrieval-run-comparison > header h3 {
+  margin: 2px 0 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-h3);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  text-transform: none;
+}
+
+.retrieval-run-comparison > header > p {
+  margin: 0;
+  color: #766d65;
+  font-size: var(--labs-micro);
+  line-height: 1.45;
+}
+
+.retrieval-run-comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.retrieval-run-comparison-grid > section {
+  min-width: 0;
+  padding: 17px 20px;
+}
+
+.retrieval-run-comparison-grid > section + section {
+  border-left: 1px solid var(--line);
+}
+
+.retrieval-run-comparison h3 {
+  margin: 0 0 12px;
+  color: var(--ink);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.retrieval-run-comparison dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.retrieval-run-comparison dt {
+  margin-bottom: 4px;
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.retrieval-run-comparison dd {
+  margin: 0;
+  color: #362b27;
+  font-family: var(--mono);
+  font-size: var(--labs-detail);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* Measured band for the current run. Rendered only after a query returns, so
+   there is no zeroed placeholder state a presenter could read as a result.
+
+   One column. The right-hand track held the per-arm candidate bars, which said
+   what the channel map four rows above already says; with them gone a
+   two-column track left the figures at 58% width beside an empty cell. */
+.lab-diagnostics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 24px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  box-shadow: 0 1px 3px rgb(72 48 31 / 5%);
+}
+
+/* Three figures now, not five: "Results shown" and "Requested top-k" repeated the
+   Retrieve stage's own tiles. A fixed repeat(5) track left two empty cells and a
+   hairline hanging in open canvas, so the track follows the content. */
+.lab-diagnostics-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
+  margin: 0;
+}
+
+.lab-diagnostics-figures > div {
+  min-width: 0;
+  padding: 17px 20px;
+  border-right: 1px solid var(--line);
+}
+
+.lab-diagnostics-figures > div:last-child {
+  border-right: 0;
+}
+
+.lab-diagnostics-figures dt {
+  margin-bottom: 5px;
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* The same value role as the `.labs-figure` tiles directly above this strip:
+   one sans face, one weight, one colour, so the two rows of figures read as one
+   set of measurements rather than two panels from two designs. */
+.lab-diagnostics-figures dd {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  margin: 0;
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--labs-h3);
+  font-weight: 600;
+  line-height: 1.05;
+}
+
+.lab-diagnostics-figures dd.mono {
+  font-family: var(--mono);
+  font-size: var(--labs-h3);
+  font-weight: 600;
+}
+
+.lab-diagnostics-figures dd em {
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  font-style: normal;
+  font-weight: 600;
+}
+
+.lab-diagnostics-figures small {
+  display: block;
+  margin-top: 6px;
+  color: var(--ink-soft);
+  font-size: var(--labs-micro);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* The stage list and its caveat share one <small>, so the caveat is a second
+   line inside it rather than a second element: the figure tile keeps its
+   three-row rhythm and the note inherits the tile's own muted colour and size
+   instead of introducing a fainter one that would sit below the contrast floor. */
+.lab-diagnostics-timing-note {
+  display: block;
+  margin-top: 4px;
+}
+
+/* The status word is the value, so it carries the weight of a figure rather
+   than the look of a badge sitting next to one. */
+.lab-diagnostics-status {
+  font-size: var(--labs-h3);
+  text-transform: capitalize;
+}
+
+.lab-diagnostics-status.disabled,
+.lab-diagnostics-status.unavailable {
+  color: #8a5a1f;
+}
+
+@media (max-width: 1180px) {
+  .lab-diagnostics-figures {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .lab-diagnostics-figures > div:nth-child(3n) {
+    border-right: 0;
+  }
+
+  .lab-diagnostics-figures > div:nth-child(-n + 3) {
+    border-bottom: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 640px) {
+  .lab-diagnostics-figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .lab-diagnostics-figures > div {
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .lab-diagnostics-figures > div:nth-child(2n) {
+    border-right: 0;
+  }
+}
+
+.panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+/* Retrieval Observatory only. The literal here was already exactly --labs-h3, so this
+   changes nothing on screen and puts the last heading on that page through the
+   shared scale. `.panel-heading` is not one of the families the type-scale gate
+   inspects, which is why a hardcoded step survived here. */
+.panel-heading h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: var(--labs-h3);
+  font-weight: 500;
+}
+
+.panel-heading > span {
+  color: var(--ink-soft);
+  font-size: 10.5px;
+}
+
+.success-icon {
+  color: var(--green);
+}
+
+.code-block {
+  /* Dark panel, so the maroon ring would be invisible on its toolbar. */
+  --focus: #f6ece7;
+
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--ink-soft);
+  border-radius: 10px;
+  background: #211d1c;
+  color: var(--paper-warm);
+}
+
+.code-toolbar {
+  display: flex;
+  min-height: 39px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 0 13px;
+  border-bottom: 1px solid var(--ink-soft);
+  background: #2c2725;
+  color: #c9bbb5;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.code-toolbar .icon-button {
+  border-color: #5a4e4b;
+  color: var(--paper-warm);
+}
+
+.code-toolbar .icon-button:hover {
+  background: #443b38;
+}
+
+.code-copy-error {
+  margin: 10px 14px 0;
+  color: #ffccc5;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.code-block pre {
+  max-width: 100%;
+  margin: 0;
+  padding: 16px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre;
+}
+
+@media (max-width: 700px) {
+
+  .lab-outcome {
+    grid-template-columns: 1fr;
+    gap: 9px;
+    padding: 12px;
+  }
+
+  .lab-outcome strong {
+    font-size: var(--labs-detail);
+  }
+}
+
+/* Responsive */
+
+@media (max-width: 1240px) {
+  .product-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .search-product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .product-hero {
+    gap: 36px;
+  }
+
+  .product-summary h1 {
+    font-size: 40px;
+  }
+}
+
+@media (max-width: 980px) {
+  .page {
+    padding: 38px 26px 60px;
+  }
+
+  .page-section {
+    padding: 58px 26px;
+  }
+
+  .catalog-header {
+    grid-template-columns: 1fr;
+  }
+
+  .catalog-search-block {
+    margin-top: 24px;
+  }
+
+  .catalog-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-filter-toggle {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: space-between;
+    /* Without the gap the "Filters" and count labels collide once the control
+       is narrow enough for space-between to have no slack to distribute. */
+    gap: 14px;
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--paper);
+    font-size: 11px;
+  }
+
+  .mobile-filter-toggle span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .filter-panel {
+    position: static;
+    display: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 24px;
+    padding: 20px;
+    border: 1px solid var(--line-strong);
+    background: var(--paper);
+  }
+
+  .filter-panel.open {
+    display: grid;
+  }
+
+  .filter-title {
+    grid-column: 1 / -1;
+  }
+
+  .search-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .insights-panel {
+    position: static;
+    padding: 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .product-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .product-campaign {
+    grid-template-columns: minmax(200px, 280px) minmax(0, 1fr);
+  }
+
+  .product-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .product-overview > div,
+  .product-overview > div:first-child,
+  .product-overview > div:last-child {
+    padding: 24px 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .product-overview > div:last-child {
+    border-bottom: 0;
+  }
+}
+
+@media (max-width: 700px) {
+  h1 {
+    font-size: 40px;
+  }
+
+  h2 {
+    font-size: 25px;
+  }
+
+  .page {
+    padding: 30px 18px 52px;
+  }
+
+  .page-section {
+    padding: 48px 18px;
+  }
+
+  .page-header,
+  .section-heading {
+    display: grid;
+    align-items: start;
+    gap: 18px;
+  }
+
+  .page-header h1 {
+    font-size: 40px;
+  }
+
+  .domain-grid,
+  .product-grid,
+  .search-product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .domain-tile,
+  .domain-tile img {
+    min-height: 250px;
+  }
+
+  .trust-band:not(.landing-trust) {
+    grid-template-columns: 1fr;
+  }
+
+  .trust-band:not(.landing-trust) > div {
+    margin: 0 0 18px !important;
+    padding: 0 0 18px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .trust-band:not(.landing-trust) > div:last-child {
+    margin-bottom: 0 !important;
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .catalog-header h1 {
+    font-size: 48px;
+  }
+
+  .filter-panel.open {
+    grid-template-columns: 1fr;
+  }
+
+  .mode-control {
+    justify-self: start;
+  }
+
+  .search-result-heading h1 {
+    font-size: 31px;
+  }
+
+  .follow-up-panel {
+    grid-template-columns: 1fr;
+    padding: 24px 18px;
+  }
+
+  .follow-up-panel .search-composer,
+  .assistant-boundary {
+    grid-column: 1;
+  }
+
+  .product-gallery {
+    grid-template-columns: 1fr;
+  }
+
+  .product-campaign {
+    grid-template-columns: minmax(0, 360px);
+    gap: 26px;
+  }
+
+  .thumbnail-rail {
+    grid-row: 2;
+    grid-template-columns: repeat(5, 58px);
+    overflow-x: auto;
+  }
+
+  .thumbnail-rail button {
+    width: 58px;
+    height: 58px;
+  }
+
+  .product-summary h1 {
+    font-size: 36px;
+  }
+
+  .product-tabs {
+    gap: 22px;
+    overflow-x: auto;
+  }
+
+  .product-tabs button {
+    flex: 0 0 auto;
+  }
+
+}
+
+@media (max-width: 460px) {
+  .domain-grid,
+  .product-grid,
+  .search-product-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .product-image {
+    aspect-ratio: 4 / 3;
+  }
+
+  .results-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .results-toolbar label,
+  .results-toolbar select {
+    width: 100%;
+  }
+
+  .pagination {
+    gap: 8px;
+  }
+
+  .pagination button {
+    padding: 0 10px;
+  }
+
+  /* Narrow screens scroll, so the hero can use more vertical space than the
+     desktop clamp allows before the buy controls are pushed off-screen. */
+  .product-main-image img {
+    max-height: 62vh;
+  }
+
+  .spec-table > div {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+}
+
