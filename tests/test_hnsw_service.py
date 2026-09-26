@@ -438,6 +438,29 @@ def test_the_attribution_note_is_prose_not_an_error_message(monkeypatch):
     assert note[0].isupper() and note.endswith(".")
 
 
+def _artifact_with_representations(tmp_path, monkeypatch) -> None:
+    """The committed artifact carries a representation block, for the gate tests.
+
+    On the served catalog no quantized index exists, so the runner records
+    `representations_unavailable_reason` and no rows. The gate is still the
+    server's responsibility whenever an artifact does advertise rows, which is
+    what these tests exercise with a block added to a copy.
+    """
+    payload = json.loads(MEASURED_ARTIFACT.read_text(encoding="utf-8"))
+    payload.pop("representations_unavailable_reason", None)
+    payload["representations"] = {
+        "ef_search": 100,
+        "k": 10,
+        "anchors": 1,
+        "payload_bytes": {"fp32": 4104, "halfvec": 2056, "binary": 136},
+        "note": "fixture",
+        "rows": [{"representation": "halfvec", "recall_at_k": 0.98}],
+    }
+    fixture = tmp_path / "hnsw_measured.json"
+    fixture.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr("service.hnsw.MEASURED_ARTIFACT", fixture)
+
+
 def _clean_artifact(tmp_path, manifest: str):
     payload = json.loads(MEASURED_ARTIFACT.read_text(encoding="utf-8"))
     payload["provenance"] = payload["provenance"] | {
@@ -487,7 +510,7 @@ def test_measured_is_not_attributed_when_the_connected_manifest_is_unresolved(
 
 
 def test_measured_withholds_representations_when_a_quantized_index_is_missing(
-    monkeypatch,
+    tmp_path, monkeypatch
 ):
     """Nothing in the bootstrap builds these two indexes.
 
@@ -495,6 +518,7 @@ def test_measured_withholds_representations_when_a_quantized_index_is_missing(
     phase runs it, so on a freshly bootstrapped cluster the halfvec and binary
     rows describe indexes the reader cannot inspect, EXPLAIN, or reproduce.
     """
+    _artifact_with_representations(tmp_path, monkeypatch)
     _stub_index_states(monkeypatch, {HALFVEC_INDEX: "missing", BINARY_INDEX: "valid"})
     _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
 
@@ -515,9 +539,10 @@ def test_measured_withholds_representations_when_a_quantized_index_is_missing(
 
 
 def test_measured_withholds_representations_when_a_quantized_index_is_invalid(
-    monkeypatch,
+    tmp_path, monkeypatch
 ):
     """An interrupted CREATE INDEX CONCURRENTLY leaves a relation that is not usable."""
+    _artifact_with_representations(tmp_path, monkeypatch)
     _stub_index_states(monkeypatch, {HALFVEC_INDEX: "valid", BINARY_INDEX: "invalid"})
     _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
 
@@ -528,8 +553,9 @@ def test_measured_withholds_representations_when_a_quantized_index_is_invalid(
 
 
 def test_measured_keeps_representations_when_both_quantized_indexes_are_valid(
-    monkeypatch,
+    tmp_path, monkeypatch
 ):
+    _artifact_with_representations(tmp_path, monkeypatch)
     _stub_quantized_indexes_valid(monkeypatch)
     _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
 
@@ -539,9 +565,12 @@ def test_measured_keeps_representations_when_both_quantized_indexes_are_valid(
     assert "representations_unavailable_reason" not in payload
 
 
-def test_measured_names_the_cluster_error_when_index_state_cannot_be_read(monkeypatch):
+def test_measured_names_the_cluster_error_when_index_state_cannot_be_read(
+    tmp_path, monkeypatch
+):
     """No cluster is not the same claim as no index, so the reason says which."""
 
+    _artifact_with_representations(tmp_path, monkeypatch)
     _stub_connected(monkeypatch, states=None, manifest=None, detail="RuntimeError")
     _stub_settings(monkeypatch, _FakeSettings(manifest=RUNTIME_MANIFEST))
 
@@ -549,6 +578,24 @@ def test_measured_names_the_cluster_error_when_index_state_cannot_be_read(monkey
 
     assert "representations" not in payload
     assert "RuntimeError" in payload["representations_unavailable_reason"]
+
+
+def test_the_runners_not_measured_reason_passes_through_unchanged(monkeypatch):
+    """The committed artifact records why no quantized rows exist on this catalog.
+
+    The gate has nothing to withhold and must not replace the runner's reason
+    with a cluster-state sentence about indexes it never advertised.
+    """
+    _stub_quantized_indexes_valid(monkeypatch)
+
+    payload = measured()
+
+    assert "representations" not in payload
+    assert "not measured" in payload["representations_unavailable_reason"]
+    assert (
+        "real_search_vector_halfvec_idx"
+        in payload["representations_unavailable_reason"]
+    )
 
 
 def test_index_states_asks_the_catalog_for_validity_and_readiness():
@@ -728,7 +775,9 @@ def test_manifest_does_not_compare_a_value_against_itself():
     assert "stored=manifest, connected=manifest" not in source
 
 
-def test_the_unreadable_cluster_reason_carries_no_connection_details(monkeypatch):
+def test_the_unreadable_cluster_reason_carries_no_connection_details(
+    tmp_path, monkeypatch
+):
     """A psycopg connection failure names the host and the user.
 
     This string is served to every participant on `/api/hnsw/measured`, so it
@@ -736,6 +785,7 @@ def test_the_unreadable_cluster_reason_carries_no_connection_details(monkeypatch
     never its message.
     """
 
+    _artifact_with_representations(tmp_path, monkeypatch)
     import psycopg
 
     from service.hnsw import _connected_facts

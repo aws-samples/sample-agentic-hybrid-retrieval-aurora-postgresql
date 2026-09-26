@@ -65,8 +65,14 @@ def test_the_build_targets_a_benchmark_owned_name_and_drops_it(monkeypatch):
     assert not any('"real_search_vector_idx"' in s for s in connection.statements)
     assert record["index"] == "mosaic_catalog_search.real_search_vector_idx_bench"
     assert record["size_bytes"] == 4_536_000_000
-    assert record["settings"]["max_parallel_maintenance_workers"] == "7"
-    assert record["settings"]["maintenance_work_mem"] == "8388608kB"
+    assert record["settings"]["max_parallel_maintenance_workers"] == {
+        "setting": "7",
+        "unit": None,
+    }
+    assert record["settings"]["maintenance_work_mem"] == {
+        "setting": "8388608",
+        "unit": "kB",
+    }
     assert record["seconds"] >= 0
     assert record["kept"] is False
 

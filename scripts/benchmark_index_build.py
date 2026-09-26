@@ -85,7 +85,7 @@ def build_once(
             )
         )
     settings = {
-        row["name"]: row["setting"] + (row["unit"] or "")
+        row["name"]: {"setting": row["setting"], "unit": row["unit"]}
         for row in connection.execute(
             "SELECT name, setting, unit FROM pg_settings WHERE name = ANY(%s)",
             (list(RECORDED_SETTINGS),),

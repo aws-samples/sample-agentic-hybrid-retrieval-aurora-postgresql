@@ -94,7 +94,7 @@ def environment(connection: Any) -> dict[str, Any]:
         ).fetchone()
     )
     row["settings"] = {
-        r["name"]: r["setting"] + (r["unit"] or "")
+        r["name"]: {"setting": r["setting"], "unit": r["unit"]}
         for r in connection.execute(
             "SELECT name, setting, unit FROM pg_settings WHERE name = ANY(%s)",
             (list(SETTINGS_TO_RECORD),),
@@ -694,7 +694,7 @@ def main() -> None:
     )
     sizes = control["environment"]["sizes"]
     working_set = int(sizes["table_total_bytes"])
-    shared_buffers = control["environment"]["settings"].get("shared_buffers", "")
+    shared_buffers = control["environment"]["settings"].get("shared_buffers")
     artifact = {
         "kind": "measured",
         "claim_class": "controlled instance comparison on restored copies of the served catalog, not the workshop cluster",
