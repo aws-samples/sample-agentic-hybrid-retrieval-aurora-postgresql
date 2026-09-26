@@ -196,29 +196,93 @@ second reviewed query per existing cell once Aurora and Bedrock access exist
 inside the authoring environment -- rather than duplicating cells for a larger
 N with no new coverage.
 
+### The judged-item universe overlaps existing anchors, disclosed by product id
+
+`data/evals/real_catalog_lab_products.json` supplies the 12 real-catalog
+products this corpus's judgments are grounded in. Seven of those twelve are
+**already judged** somewhere in `canonical_queries.jsonl`, and four of those
+seven are the actual `target_product_ids` of a live lab mission
+(`data/evals/mosaic_labs_missions.json`):
+
+| Product id | Overlap | Where |
+|---|---|---|
+| 1208825, 1221817, 1277987, 1408222 | `mission` | Live lab mission target |
+| 1138035, 1162128, 1168700 | `canonical` | Judged in `canonical_queries.jsonl`, not a mission target |
+| 1248512, 1379290, 1389794, 1481815, 1490476 | `none` | Outside both |
+
+Every judgment carries `"anchor_overlap"` set to one of these three values,
+validated at load time against a fresh cross-reference of both source files
+(`scripts/independent_relevance_eval.py::compute_anchor_overlap`), so this
+table cannot silently drift out of sync with the data. A query whose only
+relevant judgments sit on `mission`/`canonical` products is not independent
+evidence about this repository's retrieval quality -- those products were
+selected for the canonical set or a lab mission *because* they already rank
+well for a related query, so a corpus resting on them can pass by construction
+rather than by measuring anything new. The `anchor_free` relevance tier (below)
+scores only the `none` subset. This is a fact about the judgments themselves,
+not about any ranking: **the headphones cohort has zero `anchor_free`-eligible
+queries** (pinned by
+`tests/test_independent_relevance_corpus.py::test_headphones_cohort_has_no_anchor_free_coverage`) --
+all three headphones products with review evidence in this checkout (1138035,
+1162128, 1277987) are canonical- or mission-anchored, so every headphones
+query's positive evidence rests on an overlapping product. `monitor`, `chair`, and
+`general` retain partial `anchor_free` coverage because five of the twelve
+products fall outside both anchor sets. Building fresh headphones evidence
+(a 13th product with full review text, outside both anchor sets) is the
+concrete next step to close this specific gap.
+
 ### Judgment status vocabulary, and what a relevance claim requires
 
-Every judgment carries `"status"`, one of:
+Every judgment in this corpus was authored by an automated session, not by a
+human or an independent second party. Calling that "reviewed" would misstate
+its provenance. The vocabulary is:
 
-- `"reviewed"`: the grade is directly traceable to a quoted or paraphrased fact
-  in `data/evals/real_catalog_lab_products.json` (the same file's `source`
-  field names the exact product), independent of any current price, stock, or
-  ranking.
-- `"provisional"`: the grade depends on something this authoring environment
-  cannot verify offline -- current Aurora-served price or stock state, or a
-  brand-tier/price inference rather than a quoted catalog fact. Provisional
-  judgments are real data, not filler; they are simply not yet load-bearing for
-  a certified relevance claim.
+- `"agent_grounded"`: the grade is directly traceable to a quoted or
+  paraphrased fact in `data/evals/real_catalog_lab_products.json` (the same
+  file's `source` field names the exact product). Grounded in evidence, not
+  reviewed by a person.
+- `"agent_inferred"`: the grade depends on something this authoring
+  environment cannot verify offline -- current Aurora-served price or stock
+  state, or a brand-tier/price inference rather than a quoted catalog fact.
+- `"reviewed"`: reserved for a status a human or an independent second party
+  actually sets, recorded with non-empty `"reviewed_by"` and `"reviewed_on"`
+  fields that the loader requires whenever a judgment claims this status. **No
+  judgment in the committed corpus carries it today.**
+- `"esci_human"`: a human-labelled judgment carried over from the licensed
+  ESCI Shopping Queries Dataset (Apache-2.0), for the held-out corpus
+  described below. Distinct from `"reviewed"` because the reviewer is ESCI's
+  original annotation process, not a review of this project's retrieval
+  output.
 
-**A relevance claim requires both a measured Aurora run and reviewed
-judgments.** The runner reports two tiers side by side -- `all_inclusive`
-(every judgment) and `reviewed_only` (status `"reviewed"` only, dropping any
-query left without a grade-2-or-3 reviewed judgment from that tier's own
-denominator) -- and only the `reviewed_only` tier measured against a live
-Aurora cluster supports a claim of the form "the served ranking is relevant on
-this cohort." A `--validate-only` run, an all-inclusive number, or any number
-produced without `DATABASE_URL` and Bedrock access is code completion over
-fixture data, not a relevance measurement, and must be labeled as such.
+**A relevance claim requires both a measured Aurora run and a `certified`
+judgment** (status `"reviewed"` or `"esci_human"`). The runner reports four
+tiers side by side:
+
+- `all_inclusive`: every judgment, any status, any anchor overlap.
+- `agent_grounded_only`: status `"agent_grounded"` only -- the agent's directly
+  quoted claims, excluding its own inferences. Useful as a quality diagnostic,
+  **not** a relevance claim, since it is still agent-authored. On the committed
+  corpus this tier scores **0 of 4 `competing_preferences` queries** and
+  **1 of 4 `selective_filters` queries** -- every `competing_preferences`
+  judgment and three of four `selective_filters` judgments rest on an
+  unverified price, stock, or brand-tier inference (`"agent_inferred"`), so two
+  of the six request shapes have essentially no directly-quoted-fact coverage
+  today.
+- `certified`: status `"reviewed"` or `"esci_human"` only. **Empty for all six
+  request shapes** -- 0 of 24 queries -- because no judgment yet carries either
+  status. This is the only tier a relevance claim may cite.
+- `anchor_free`: every judgment, any status, but truth restricted to
+  `anchor_overlap == "none"` products. See the overlap table above; this is
+  what makes an overlap-heavy cohort like `headphones` visibly, separately
+  weaker instead of blended into one optimistic number.
+
+A `--validate-only` run, an `all_inclusive` number, an `agent_grounded_only`
+number, or any number produced without `DATABASE_URL` and Bedrock access is
+code completion over fixture data, not a relevance measurement, and must be
+labeled as such. A genuine relevance claim needs a `certified`-tier score from
+a measured Aurora run -- which requires either a human reviewing existing
+judgments (setting `"reviewed"`/`reviewed_by`/`reviewed_on`) or the held-out
+ESCI corpus described next.
 
 ### No-relevant-item and incomplete-judgment treatment
 
@@ -242,14 +306,59 @@ counted in `denominator.queries_failed`. The report always prints
 always visible, per the house rule that a check must never hide a failure by
 narrowing what it counts.
 
+### Held-out ESCI corpus (file contract; not generated by this repository)
+
+The `certified` tier can also be populated without waiting on a human
+reviewer: a maintainer who holds the ESCI `examples.parquet` locally, working
+against the `reviews-2023-v2` catalog (which admits more judged queries than
+the 141 already spent on `scripts/evaluate_esci_k.py`'s tuning sweep), can
+build a second corpus this runner is already able to score. This repository
+does not generate that file -- doing so needs the parquet file and Aurora
+access this checkout does not have -- but `scripts/independent_relevance_eval.py`
+is ready for it today:
+
+```bash
+uv run python scripts/independent_relevance_eval.py \
+  --queries data/evals/esci_held_out_queries.jsonl --validate-only
+uv run python scripts/independent_relevance_eval.py \
+  --queries data/evals/esci_held_out_queries.jsonl
+```
+
+File contract for `data/evals/esci_held_out_queries.jsonl`:
+
+- Same record shape as `independent_relevance_queries.jsonl` (see
+  `REQUIRED_QUERY_FIELDS`).
+- Each **record** additionally carries `"esci_query_id"`: the raw integer
+  query id from the ESCI source dataset, distinct from this corpus's own
+  namespaced `"query_id"` (for example `"ESCI-HELDOUT-9001"`).
+- Each judgment: `"status": "esci_human"`, `"grade"` mapped from the ESCI
+  label via `esci_grade()` (`E`=3, `S`=2, `C`=1, `I`=0 -- a grading scale
+  distinct from `scripts.evaluate_esci_k.GAINS`'s continuous nDCG gains, which
+  serve RRF-`k` tuning, not this corpus's grading), `"source": "esci"`,
+  `"license": "Apache-2.0"`, and `"anchor_overlap"` computed the same way as
+  every other judgment (almost always `"none"`, since ESCI-judged products are
+  not drawn from the mission/canonical anchor set named above).
+- Before scoring, run
+  `require_disjoint_from_tuning_sources(records)` (imported from
+  `scripts.independent_relevance_eval`) against the loaded records: it fails
+  loudly if any `esci_query_id` was already spent by `esci_judged_subset.json`'s
+  141 tuning queries, or if any `query_id` collides with the canonical
+  scorecard's `G-*` ids.
+  `tests/test_independent_relevance_eval.py` proves this check, and the
+  `esci_grade` mapping, against small synthetic fixtures -- never against real
+  ESCI data.
+
 ### Licensing and provenance
 
 Every judgment traces to `data/evals/real_catalog_lab_products.json`, which
 itself carries **unmodified source fields** from the served
 `reviews-2023-500k-v1` catalog (Amazon Reviews 2023). No ESCI or WANDS record
-is copied into this corpus; both remain confined to their existing, separately
-licensed uses (`data/evals/references/README.md`,
-`scripts/prepare_esci_judged_subset.py`).
+is copied into `independent_relevance_queries.jsonl`; both remain confined to
+their existing, separately licensed uses
+(`data/evals/references/README.md`, `scripts/prepare_esci_judged_subset.py`)
+until a maintainer builds the held-out ESCI corpus described above, which
+would carry its own `"source": "esci"` / `"license": "Apache-2.0"` tags per
+judgment.
 
 ## Reproducibility record
 

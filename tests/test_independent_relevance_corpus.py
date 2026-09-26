@@ -11,14 +11,29 @@ import json
 from pathlib import Path
 
 from scripts.independent_relevance_eval import (
+    ANCHOR_OVERLAP_VALUES,
     COHORT_INTENTS,
     JUDGMENT_STATUSES,
+    classify_queries,
+    compute_anchor_overlap,
     load_independent_relevance_queries,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
 QUERY_PATH = ROOT / "data" / "evals" / "independent_relevance_queries.jsonl"
+MISSIONS_PATH = ROOT / "data" / "evals" / "mosaic_labs_missions.json"
 QUERIES = load_independent_relevance_queries(QUERY_PATH)
+
+#: Independently recomputed here (not imported from the runner's cached
+#: values) so this test would fail if the runner's own cross-reference logic
+#: silently drifted from the two source files it claims to check.
+_MISSION_CONTRACT = json.loads(MISSIONS_PATH.read_text(encoding="utf-8"))
+_MISSION_IDS = {
+    product_id
+    for item in _MISSION_CONTRACT["missions"]
+    + _MISSION_CONTRACT.get("supporting_checks", [])
+    for product_id in (item.get("target_product_ids") or [])
+}
 
 CANONICAL_QUERIES = [
     json.loads(line)
@@ -80,35 +95,126 @@ def test_query_ids_are_unique_and_namespaced():
     assert all(query_id.startswith("IRC-") for query_id in ids)
 
 
-def test_every_judgment_cites_a_status_and_a_grounded_source():
-    """Every judgment declares reviewed-vs-provisional; reviewed ones cite the
-    real-catalog source file this corpus was built from."""
+def test_every_judgment_cites_a_status_source_and_anchor_overlap():
+    """Every judgment declares agent_grounded-vs-agent_inferred provenance and
+    an anchor_overlap classification; grounded ones cite the real-catalog
+    source file this corpus was built from."""
     for query in QUERIES:
         for judgment in query["judgments"]:
             assert judgment["status"] in JUDGMENT_STATUSES
+            assert judgment["anchor_overlap"] in ANCHOR_OVERLAP_VALUES
             assert judgment["product_id"] in REAL_CATALOG_PRODUCTS
             assert len(judgment["rationale"]) >= 20
-            if judgment["status"] == "reviewed":
+            if judgment["status"] == "agent_grounded":
                 assert judgment["source"].startswith(
                     "data/evals/real_catalog_lab_products.json#"
                 )
 
 
-def test_provisional_judgments_are_a_real_minority_not_the_whole_corpus():
-    """At least some relevance grades are load-bearing on reviewed evidence.
+def test_no_judgment_claims_human_review_today():
+    """Every judgment in the committed corpus was agent-authored.
 
-    A corpus that was entirely provisional would not support any relevance
-    claim at all; docs/evaluation-plan.md requires a reviewed-only measurement
-    for that. This does not require every judgment to be reviewed -- the report
-    is explicit about which tier it is showing.
+    `"reviewed"` and `"esci_human"` are reserved for a human or an independent
+    second party (see the module docstring); asserting none appear today keeps
+    this corpus from silently mislabeling an agent's own claim as a review.
+    """
+    statuses = {
+        judgment["status"] for query in QUERIES for judgment in query["judgments"]
+    }
+    assert statuses == {"agent_grounded", "agent_inferred"}
+
+
+def test_agent_inferred_judgments_are_a_real_minority_not_the_whole_corpus():
+    """Most grades are agent-grounded in a directly quoted catalog fact, not a
+    price/stock/brand-tier inference -- but some inference is expected wherever
+    a query's filter (price, stock) is something this checkout cannot verify
+    offline. See the `selective_filters` and `competing_preferences` design
+    notes in the module docstring.
     """
     statuses = [
         judgment["status"] for query in QUERIES for judgment in query["judgments"]
     ]
-    reviewed = statuses.count("reviewed")
-    provisional = statuses.count("provisional")
-    assert reviewed > provisional
-    assert provisional > 0
+    grounded = statuses.count("agent_grounded")
+    inferred = statuses.count("agent_inferred")
+    assert grounded > inferred
+    assert inferred > 0
+
+
+def test_anchor_overlap_matches_an_independent_cross_reference():
+    """Pin the exact overlap disclosure named in docs/evaluation-plan.md.
+
+    Recomputed here from `real_catalog_lab_products.json`'s own product ids
+    against a locally-recomputed mission-target set and the canonical
+    scorecard's judged products, independent of the runner's cached values, so
+    a drift in either source file is caught even if the runner's own
+    cross-reference logic were broken the same way.
+    """
+    canonical_ids = {
+        judgment["product_id"]
+        for query in CANONICAL_QUERIES
+        for judgment in query.get("judgments", [])
+    }
+    expected = {
+        1138035: "canonical",
+        1162128: "canonical",
+        1168700: "canonical",
+        1208825: "mission",
+        1221817: "mission",
+        1248512: "none",
+        1277987: "mission",
+        1379290: "none",
+        1389794: "none",
+        1408222: "mission",
+        1481815: "none",
+        1490476: "none",
+    }
+    assert _MISSION_IDS == {1208825, 1221817, 1277987, 1408222}
+    for product_id, overlap in expected.items():
+        assert (
+            compute_anchor_overlap(
+                product_id, mission_ids=_MISSION_IDS, canonical_ids=canonical_ids
+            )
+            == overlap
+        )
+    for query in QUERIES:
+        for judgment in query["judgments"]:
+            assert judgment["anchor_overlap"] == expected[judgment["product_id"]]
+
+
+def test_certified_tier_is_empty_across_every_request_shape():
+    """No query anywhere in this corpus has a human-reviewed relevant judgment
+    yet, so the tier a relevance claim may cite is empty for all six request
+    shapes -- stated plainly, not discovered only by reading the report."""
+    classification = classify_queries(QUERIES)
+    assert classification.answerable["certified"] == []
+
+
+def test_agent_grounded_only_coverage_matches_the_documented_gaps():
+    """docs/evaluation-plan.md names these two exact gaps in the
+    agent-grounded-only cut: competing_preferences has none, selective_filters
+    has exactly one of four."""
+    classification = classify_queries(QUERIES)
+    by_intent = {}
+    for query in QUERIES:
+        by_intent.setdefault(query["cohort_intent"], []).append(query["query_id"])
+    grounded_only = set(classification.answerable["agent_grounded_only"])
+    assert grounded_only.isdisjoint(by_intent["competing_preferences"])
+    assert len(grounded_only & set(by_intent["selective_filters"])) == 1
+
+
+def test_headphones_cohort_has_no_anchor_free_coverage():
+    """All three headphones products with review evidence in this checkout
+    (1138035, 1162128, 1277987) are canonical- or mission-anchored, so the
+    anchor_free tier -- scored only on independent evidence -- is empty for
+    the whole headphones cohort. This is exactly the visibly-weaker-cohort
+    disclosure the anchor_free tier exists to surface."""
+    classification = classify_queries(QUERIES)
+    headphones_ids = {
+        query["query_id"]
+        for query in QUERIES
+        if query["cohort_category"] == "headphones"
+    }
+    assert headphones_ids.isdisjoint(classification.answerable["anchor_free"])
 
 
 def test_hard_negatives_are_graded_zero_and_judged():
