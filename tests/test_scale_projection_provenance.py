@@ -1,12 +1,13 @@
-"""The projection's baseline must be the measured 500K row, not a guess.
+"""The projection's baseline must be the measured catalog row, not a guess.
 
 This is the gate that would have caught the shipped state. `scale_projection.json`
-claimed p95 38.0 ms, index 14.2 GB, recall 0.952 and ef_search 128 at 500K, where the
-cluster measures 2.7 ms, 4.09 GB, 0.992 and serves ef_search 100 — all four wrong,
-and the page rendered them as the anchor of a 100M-row extrapolation.
+once claimed p95 38.0 ms, index 14.2 GB, recall 0.952 and ef_search 128 at 500K,
+where the cluster measured 2.7 ms, 4.09 GB, 0.992 and served ef_search 100: all
+four wrong, and the page rendered them as the anchor of a 100M-row extrapolation.
 
-At `scale = 500_000` every growth factor in the model collapses to 1, so the 500K row
-*is* the baseline. That is why pinning it to the measurement is sufficient.
+At the measured vector count every growth factor in the model collapses to 1, so
+the first row *is* the baseline. That is why pinning it to the measurement is
+sufficient.
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ PROJECTION = json.loads(
     (ROOT / "data" / "benchmarks" / "scale_projection.json").read_text(encoding="utf-8")
 )
 SERVED_EF_SEARCH = 100
-BASELINE_SCALE = 500_000
+BASELINE_SCALE = int(MEASURED["index"]["vector_count"])
 
 
 def measured_operating_point() -> dict:

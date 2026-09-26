@@ -1,13 +1,13 @@
 {
-  "warning": "PROJECTED beyond 500K. The 500K row is measured; every larger row is extrapolated from it by the stated growth assumptions. Baseline read from data/benchmarks/hnsw_measured.json.",
+  "warning": "PROJECTED beyond 553,911. The 553,911 row is measured; every larger row is extrapolated from it by the stated growth assumptions. Baseline read from data/benchmarks/hnsw_measured.json.",
   "assumptions": {
     "measured_source": "data/benchmarks/hnsw_measured.json",
-    "measured_captured_at": "2026-09-20T15:12:05.857795+00:00",
-    "measured_source_revision": "a57b61f9606467c9fa78c990004384e9e64a4f74",
+    "measured_captured_at": "2026-09-26T16:13:35.875489+00:00",
+    "measured_source_revision": "3f5a379e6beaa8155ccd872ebb582b4f41d3c636",
     "measured_instance_class": "db.r8g.2xlarge",
-    "baseline_latency_p95_ms": 2.377,
-    "baseline_recall": 0.8533,
-    "bytes_per_vector": 8188,
+    "baseline_latency_p95_ms": 1.636,
+    "baseline_recall": 0.98,
+    "bytes_per_vector": 8187,
     "dimensions": 1024,
     "m": 16,
     "ef_construction": 200,
@@ -19,11 +19,11 @@
   },
   "rows": [
     {
-      "scale": 500000,
+      "scale": 553911,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 2.38,
-      "recall_at_10": 0.8533,
-      "index_size_gb": 4.09,
+      "p95_latency_ms": 1.64,
+      "recall_at_10": 0.98,
+      "index_size_gb": 4.53,
       "dimensions": 1024,
       "m": 16,
       "ef_search": 100
@@ -31,8 +31,8 @@
     {
       "scale": 1000000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 2.54,
-      "recall_at_10": 0.8509,
+      "p95_latency_ms": 1.73,
+      "recall_at_10": 0.9779,
       "index_size_gb": 8.19,
       "dimensions": 1024,
       "m": 16,
@@ -41,8 +41,8 @@
     {
       "scale": 5000000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 2.95,
-      "recall_at_10": 0.8453,
+      "p95_latency_ms": 2.01,
+      "recall_at_10": 0.9724,
       "index_size_gb": 40.94,
       "dimensions": 1024,
       "m": 16,
@@ -51,9 +51,9 @@
     {
       "scale": 10000000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 3.13,
-      "recall_at_10": 0.8429,
-      "index_size_gb": 81.88,
+      "p95_latency_ms": 2.13,
+      "recall_at_10": 0.9699,
+      "index_size_gb": 81.87,
       "dimensions": 1024,
       "m": 16,
       "ef_search": 100
@@ -61,9 +61,9 @@
     {
       "scale": 100000000,
       "projection_kind": "simulated_calibrated",
-      "p95_latency_ms": 3.76,
-      "recall_at_10": 0.8349,
-      "index_size_gb": 818.8,
+      "p95_latency_ms": 2.56,
+      "recall_at_10": 0.9619,
+      "index_size_gb": 818.7,
       "dimensions": 1024,
       "m": 16,
       "ef_search": 100

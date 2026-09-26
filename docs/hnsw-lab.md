@@ -99,12 +99,12 @@ reason. Confirm both paths from their recorded plans.
 
 ### Further experiments
 
-Index rebuilds, partial indexes, partitioning, larger physical catalogs and
-concurrent load belong in separately provisioned Aurora experiments. Capture
-build duration and resource use there if those claims matter. The current
-existing-index benchmark cannot supply those measurements, and the staged
-real-product replacement must be validated before its results replace the
-current artifact.
+Partial indexes, partitioning and larger physical catalogs belong in
+separately provisioned Aurora experiments. Build duration comes from
+`make benchmark-index-build`, and concurrent load and instance-class
+comparisons from `make benchmark-hardware`, which runs on restored copies of
+the catalog from an in-VPC client and publishes its results apart from the
+served instrument's artifact (see `docs/current-scale-benchmarks.md`).
 
 ## Presentation rule
 

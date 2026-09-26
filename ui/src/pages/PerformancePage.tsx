@@ -80,13 +80,38 @@ function productionLessons(measured: HnswMeasured, saturationEfSearch: number | 
             `buffers to reach the same number.`
           : "Sweep it against the exact answers rather than assuming higher is better.",
     },
-    {
-      title: "Raise the memory budget, not the tuple cap",
-      detail:
-        "Under a selective filter, max_scan_tuples measured identically at 20K, 100K, " +
-        "500K and 1M. The limit that binds is work_mem times scan_mem_multiplier.",
-    },
+    filterLesson(measured),
   ];
+}
+
+/**
+ * What the most selective measured filter did under each scan mode, from the
+ * artifact's own rows rather than from a remembered sweep.
+ */
+function filterLesson(measured: HnswMeasured) {
+  const narrowest = [...measured.filter_matrix]
+    .filter((level) => level.preset !== "none")
+    .sort((left, right) => left.selectivity - right.selectivity)[0];
+  if (!narrowest) {
+    return {
+      title: "Measure the filtered case before trusting the unfiltered one",
+      detail: "This artifact records no filtered levels, so nothing here can say what a WHERE clause costs.",
+    };
+  }
+  const off = narrowest.modes.find((mode) => mode.iterative_scan === "off");
+  const best = [...narrowest.modes].sort(
+    (left, right) => right.rows_returned - left.rows_returned || right.recall_at_k - left.recall_at_k,
+  )[0];
+  const label = best.iterative_scan === "strict_order" ? "Strict" : best.iterative_scan === "relaxed_order" ? "Relaxed" : "Off";
+  return {
+    title: `Read rows returned before recall under "${narrowest.label}"`,
+    detail:
+      `${narrowest.matching_rows.toLocaleString()} products pass that filter. Off returned ` +
+      `${off ? off.rows_returned : "?"} of ${narrowest.exact_rows_found} exact rows per query; ` +
+      `${label} at ${best.scan_mem_mb} MB returned ${best.rows_returned} at ` +
+      `${best.server_ms} ms server p50, recall ${(best.recall_at_k * 100).toFixed(1)}%. ` +
+      `A shortlist that never fills is the signal, whatever the recall figure says.`,
+  };
 }
 
 export function PerformancePage() {
