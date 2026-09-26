@@ -1251,7 +1251,7 @@ export interface ScorecardStageAblation {
 /** The Prove step. Five sections, never conflated -- see each interface above. */
 export interface RetrievalScorecardResponse {
   provenance: ScorecardProvenance;
-  retrieval_quality: ScorecardRetrievalQuality;
+  retrieval_quality: ScorecardRetrievalQuality | null;
   regression_anchors: ScorecardRegressionAnchors;
   eligibility_contracts: ScorecardEligibilityContracts;
   agent_contracts: ScorecardAgentContracts;

@@ -8,16 +8,9 @@ MAKEFILE = (ROOT / "Makefile").read_text(encoding="utf-8")
 
 def test_base_bootstrap_times_every_existing_phase() -> None:
     expected = [
-        ("schema_install", "db-install"),
+        ("schema_install", "db-install MOSAIC_CATALOG_DATASET="),
         ("lab_schema_install", "db-install-labs"),
-        ("catalog_prepare", "db-prepare-mosaic"),
-        ("catalog_load", "db-load-mosaic"),
-        ("index_creation", "db-index-recover-and-create"),
-        ("premium_cohort_load", "db-load-cohort"),
-        ("evidence_load", "db-load-evidence"),
-        ("corpus_lexeme_seed", "db-seed-corpus-lexeme"),
         ("smoke_test", "db-smoke"),
-        ("bootstrap_acceptance", "db-verify-bootstrap"),
     ]
     for phase, target in expected:
         assert f"$(call bootstrap-phase,{phase},{target})" in MAKEFILE
@@ -44,7 +37,8 @@ def test_index_creation_drops_invalid_indexes_before_it_creates_any() -> None:
 
     assert drop < create, "recovery must precede creation"
     assert (
-        "$(call bootstrap-phase,index_creation,db-index-recover-and-create)" in MAKEFILE
+        "$(call bootstrap-phase,index_creation,db-index-recover-and-create)"
+        not in MAKEFILE
     )
 
 

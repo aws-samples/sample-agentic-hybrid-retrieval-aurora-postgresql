@@ -54,6 +54,22 @@ from service.scorecard import (
 
 ROOT = Path(__file__).resolve().parents[1]
 
+
+@pytest.fixture(autouse=True)
+def historical_scorecard_population(monkeypatch, tmp_path):
+    """Exercise the retained historical artifact against its complete query population."""
+    real = (ROOT / "data/evals/canonical_queries.jsonl").read_text().splitlines()
+    legacy = (
+        (ROOT / "data/evals/historical/canonical_queries.jsonl")
+        .read_text()
+        .splitlines()
+    )
+    rows = sorted(real + legacy, key=lambda row: json.loads(row)["query_id"])
+    path = tmp_path / "historical-canonical.jsonl"
+    path.write_text("\n".join(rows) + "\n")
+    monkeypatch.setattr("service.scorecard.CANONICAL_QUERIES", path)
+
+
 _MATCHING_FINGERPRINT = "f" * 64
 _MATCHING_QUERY_SET_SHA = "q" * 64
 _MATCHING_SCORED_QUERY_SET_SHA = "s" * 64
@@ -453,8 +469,10 @@ def test_retrieval_quality_rejects_a_population_count_that_drifted_from_the_arti
     original = scorecard._scored_queries
     monkeypatch.setattr(scorecard, "_scored_queries", lambda: original()[:1])
 
-    with pytest.raises(ValueError, match="regenerate"):
-        retrieval_scorecard()
+    response = retrieval_scorecard()
+    assert response.retrieval_quality is None
+    assert response.provenance.attributed is False
+    assert response.regression_anchors.anchors == []
 
 
 def test_retrieval_scorecard_serves_the_committed_population_metrics():

@@ -83,8 +83,11 @@ def fingerprint(connection, schema: str) -> dict:
 def verify_contract(contract: dict) -> None:
     """Check source-to-cache agreement even when ignored assets are absent in CI."""
     actual = hashlib.sha256(procedure_sql().encode()).hexdigest()
-    if contract.get("schema_version") != 1 or set(contract.get("schemas", {})) != set(
-        SCHEMAS
+    schemas = set(contract.get("schemas", {}))
+    if (
+        contract.get("schema_version") != 1
+        or not schemas
+        or not schemas.issubset(SCHEMAS)
     ):
         raise ValueError(
             f"Vocabulary contract rule: found version={contract.get('schema_version')!r}, schemas={sorted(contract.get('schemas', {}))}; regenerate the complete cache."
@@ -93,7 +96,7 @@ def verify_contract(contract: dict) -> None:
         raise ValueError(
             f"Vocabulary SQL rule: found procedure {actual}; regenerate the cache with the current production SQL."
         )
-    for schema in SCHEMAS:
+    for schema in contract["schemas"]:
         tables = contract["schemas"][schema]["tables"]
         if set(tables) != set(TABLES):
             raise ValueError(
@@ -101,13 +104,18 @@ def verify_contract(contract: dict) -> None:
             )
 
 
-def verify_files(directory: Path, contract: dict) -> None:
+def verify_files(directory: Path, contract: dict, *, schema: str | None = None) -> None:
     """Reject missing, changed or stale assets before opening the database."""
     verify_contract(contract)
-    for schema in SCHEMAS:
-        tables = contract["schemas"][schema]["tables"]
+    if schema is not None and schema not in contract["schemas"]:
+        raise ValueError(
+            f"Vocabulary schema rule: {schema!r} is absent from the contract; export that catalog's cache first."
+        )
+    selected_schemas = (schema,) if schema else contract["schemas"]
+    for selected_schema in selected_schemas:
+        tables = contract["schemas"][selected_schema]["tables"]
         for table in TABLES:
-            path = directory / f"{schema}.{table}.csv.gz"
+            path = directory / f"{selected_schema}.{table}.csv.gz"
             expected = tables[table]
             actual = digest(path) if path.is_file() else "missing"
             size = path.stat().st_size if path.is_file() else None
@@ -166,7 +174,7 @@ def restore(
     destination: str | None = None,
 ) -> dict:
     """Verify cache bindings before replacing any rows, with rollback on failure."""
-    verify_files(directory, contract)
+    verify_files(directory, contract, schema=schema)
     if schema not in SCHEMAS:
         raise ValueError(
             f"Vocabulary schema rule: found {schema!r}; use one of {SCHEMAS}."
@@ -221,8 +229,12 @@ def refresh(connection, schema: str) -> dict:
     return report
 
 
-def export(connection, directory: Path) -> dict:
+def export(connection, directory: Path, *, schema: str | None = None) -> dict:
     """Recompute with production SQL and export exact, independently compared rows."""
+    if schema is not None and schema not in SCHEMAS:
+        raise ValueError(
+            f"Vocabulary schema rule: found {schema!r}; use one of {SCHEMAS}."
+        )
     directory.mkdir(parents=True, exist_ok=True)
     contract = {
         "schema_version": 1,
@@ -237,23 +249,26 @@ def export(connection, directory: Path) -> dict:
                 f"CREATE TEMP TABLE {table} (lexeme text PRIMARY KEY, ndoc bigint NOT NULL, nentry bigint NOT NULL) ON COMMIT DROP"
             )
         connection.execute(procedure_sql().replace("mosaic_search.", "pg_temp."))
-        for schema in SCHEMAS:
+        selected_schemas = (schema,) if schema else SCHEMAS
+        for selected_schema in selected_schemas:
             started = time.monotonic()
-            connection.execute(f"LOCK TABLE {schema}.product_document IN SHARE MODE")
-            entry = {"input": fingerprint(connection, schema), "tables": {}}
             connection.execute(
-                f"CREATE OR REPLACE TEMP VIEW product_document AS SELECT {INPUT_COLUMNS} FROM {schema}.product_document"
+                f"LOCK TABLE {selected_schema}.product_document IN SHARE MODE"
+            )
+            entry = {"input": fingerprint(connection, selected_schema), "tables": {}}
+            connection.execute(
+                f"CREATE OR REPLACE TEMP VIEW product_document AS SELECT {INPUT_COLUMNS} FROM {selected_schema}.product_document"
             )
             connection.execute("CALL pg_temp.refresh_corpus_lexeme()")
             for table in TABLES:
                 differences = connection.execute(
-                    f"SELECT count(*) FROM ((TABLE pg_temp.{table} EXCEPT ALL TABLE {schema}.{table}) UNION ALL (TABLE {schema}.{table} EXCEPT ALL TABLE pg_temp.{table})) d"
+                    f"SELECT count(*) FROM ((TABLE pg_temp.{table} EXCEPT ALL TABLE {selected_schema}.{table}) UNION ALL (TABLE {selected_schema}.{table} EXCEPT ALL TABLE pg_temp.{table})) d"
                 ).fetchone()[0]
                 if differences:
                     raise ValueError(
-                        f"Vocabulary export rule: {schema}.{table} differs from production recomputation by {differences} rows; rebuild the source vocabulary before exporting."
+                        f"Vocabulary export rule: {selected_schema}.{table} differs from production recomputation by {differences} rows; rebuild the source vocabulary before exporting."
                     )
-                path = directory / f"{schema}.{table}.csv.gz"
+                path = directory / f"{selected_schema}.{table}.csv.gz"
                 with (
                     connection.cursor().copy(
                         f'COPY (SELECT lexeme, ndoc, nentry FROM pg_temp.{table} ORDER BY lexeme COLLATE "C") TO STDOUT WITH (FORMAT CSV)'
@@ -269,12 +284,12 @@ def export(connection, directory: Path) -> dict:
                     "bytes": path.stat().st_size,
                     "sha256": digest(path),
                 }
-            contract["schemas"][schema] = entry
+            contract["schemas"][selected_schema] = entry
             print(
                 json.dumps(
                     {
                         "phase": "vocabulary_cache_export",
-                        "schema": schema,
+                        "schema": selected_schema,
                         "seconds": round(time.monotonic() - started, 2),
                         "row_differences": 0,
                     }
@@ -294,7 +309,9 @@ def main() -> None:
     if args.action in {"verify", "export"} and not args.directory:
         parser.error(f"{args.action} requires --directory")
     if args.action == "verify":
-        verify_files(args.directory, json.loads(args.contract.read_text()))
+        verify_files(
+            args.directory, json.loads(args.contract.read_text()), schema=args.schema
+        )
         print("Vocabulary cache: every file and production SQL hash verified")
         return
     dsn = os.environ.get("DATABASE_URL", "")
@@ -306,7 +323,7 @@ def main() -> None:
         connection.execute("SET statement_timeout = '30min'")
         connection.execute("SET lock_timeout = '5s'")
         if args.action == "export":
-            result = export(connection, args.directory)
+            result = export(connection, args.directory, schema=args.schema)
             args.contract.write_text(json.dumps(result, indent=2) + "\n")
         else:
             if not args.schema:

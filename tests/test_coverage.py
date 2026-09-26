@@ -482,6 +482,7 @@ def historical_coverage(monkeypatch):
 
 
 @pytest.mark.aurora
+@pytest.mark.historical_catalog
 @pytest.mark.usefixtures("historical_coverage")
 @pytest.mark.parametrize("case", VERIFIED_CASES, ids=lambda c: c["query_id"])
 def test_every_verified_case_classifies_as_recorded(case):
@@ -517,6 +518,7 @@ def test_every_verified_case_classifies_as_recorded(case):
 
 
 @pytest.mark.aurora
+@pytest.mark.historical_catalog
 @pytest.mark.usefixtures("historical_coverage")
 def test_the_floor_is_what_decides_the_lab_1_anchor():
     """Red-at-birth, kept permanent. The anchor is grounded at the shipped floor
@@ -533,6 +535,7 @@ def test_the_floor_is_what_decides_the_lab_1_anchor():
 
 
 @pytest.mark.aurora
+@pytest.mark.historical_catalog
 @pytest.mark.usefixtures("historical_coverage")
 def test_the_floor_is_what_decides_the_invented_brand():
     """The other end of the calibration. 'Zylthorne' clears 0.231 and nothing
@@ -543,6 +546,7 @@ def test_the_floor_is_what_decides_the_invented_brand():
 
 
 @pytest.mark.aurora
+@pytest.mark.historical_catalog
 @pytest.mark.usefixtures("historical_coverage")
 @pytest.mark.parametrize("floor", [0.01, 0.24, 0.99])
 def test_an_absent_model_number_is_refused_at_every_floor(floor):
@@ -556,6 +560,7 @@ def test_an_absent_model_number_is_refused_at_every_floor(floor):
 
 
 @pytest.mark.aurora
+@pytest.mark.historical_catalog
 @pytest.mark.usefixtures("historical_coverage")
 def test_both_vocabularies_are_seeded_on_this_cluster():
     """`assess` reports `unavailable` when either table is empty, which would make

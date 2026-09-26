@@ -141,24 +141,6 @@
     ]
   },
   "schemas": {
-    "mosaic_search": {
-      "input": {
-        "products": 500000,
-        "sha256": "bf3222e435be206880cb93bd36a7cb52a1782ca953a860f21f2b71b7fe61d7f9"
-      },
-      "tables": {
-        "corpus_lexeme": {
-          "rows": 1023852,
-          "bytes": 3099884,
-          "sha256": "6fa5759da3c5caa977d729ac5479570c054f93f15f8d5415435552c6bea23618"
-        },
-        "corpus_surface_lexeme": {
-          "rows": 1024767,
-          "bytes": 3110644,
-          "sha256": "47083311e610e94f5805e8c0dae075c528d06bdf792064b5a41857cf71f986d4"
-        }
-      }
-    },
     "mosaic_live_search": {
       "input": {
         "products": 553911,
@@ -168,12 +150,12 @@
         "corpus_lexeme": {
           "rows": 2200149,
           "bytes": 11744359,
-          "sha256": "7ed4b963db9969f1d51fd6ea698bacd698fe1ccefa033b3afe3c576377f1baa3"
+          "sha256": "6385bfba05f11ecb32dbdda18058513af2999428ee0f6b872ec1f04effdbc227"
         },
         "corpus_surface_lexeme": {
           "rows": 2251580,
           "bytes": 12238073,
-          "sha256": "4d0126d7c00e6fc9d5e4882b6cc021719262e91e1930c1ddaa5f7cfcb3071786"
+          "sha256": "4d5258c0e80774af841e6bb368df0e1465cdb6b58f2a403bf491774e3a639be2"
         }
       }
     }

@@ -692,6 +692,11 @@ def retrieval_scorecard() -> RetrievalScorecardResponse:
         retrieval_settings_sha256=compute_live_retrieval_settings_sha256(),
     )
     attributed, attribution_note = _attribution(artifact, current)
+    population_matches = artifact["product_retrieval_query_count"] == len(scored)
+    if attributed and not population_matches:
+        raise ValueError(
+            "Scorecard population rule: attributed sample size differs; regenerate the scorecard."
+        )
     provenance = ScorecardProvenance(
         artifact_kind=ARTIFACT_KIND,
         served_at=datetime.now(UTC),
@@ -719,8 +724,14 @@ def retrieval_scorecard() -> RetrievalScorecardResponse:
     )
     return RetrievalScorecardResponse(
         provenance=provenance,
-        retrieval_quality=_retrieval_quality(artifact, scored),
-        regression_anchors=_regression_anchors(artifact, scored, attributed=attributed),
+        retrieval_quality=_retrieval_quality(artifact, scored)
+        if population_matches
+        else None,
+        regression_anchors=_regression_anchors(
+            artifact if population_matches else {"deterministic_release_checks": []},
+            scored,
+            attributed=attributed,
+        ),
         eligibility_contracts=_eligibility_contracts(scored, attributed=attributed),
         agent_contracts=_agent_contracts(),
         stage_ablation=_stage_ablation(ablation_artifact, current),

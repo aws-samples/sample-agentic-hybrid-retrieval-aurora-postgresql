@@ -165,6 +165,7 @@ def test_database_level_trigram_gates_match_the_profile(connection, profile):
     assert function_config is None
 
 
+@pytest.mark.historical_catalog
 def test_index_visible_filter_path_matches_the_public_filter_wrapper(connection):
     """The faster scalar path must remain semantically identical to the wrapper."""
     rows = connection.execute(
@@ -208,6 +209,7 @@ def test_index_visible_filter_path_matches_the_public_filter_wrapper(connection)
     )
 
 
+@pytest.mark.historical_catalog
 def test_a_long_natural_language_query_has_lexical_candidates(connection, profile):
     rows = connection.execute(
         """
@@ -229,6 +231,7 @@ def test_a_long_natural_language_query_has_lexical_candidates(connection, profil
     assert rows[0][1] == 1
 
 
+@pytest.mark.historical_catalog
 def test_a_typo_query_recovers_its_target_through_the_trigram_arm(connection, profile):
     """The Lab 1 lesson, asserted: fuzzy matching recovers what FTS cannot."""
     rows = connection.execute(
@@ -402,6 +405,7 @@ LAB1_FILTERS = {
 EXACT_IDENTITY_CONTROL = "Sonora WH-C720"
 
 
+@pytest.mark.historical_catalog
 def test_no_product_carries_its_own_misspellings_in_the_tsvector(connection):
     """Alias-supplied typo lexemes must not exist in `search_document` at all.
 
@@ -423,6 +427,7 @@ def test_no_product_carries_its_own_misspellings_in_the_tsvector(connection):
     )
 
 
+@pytest.mark.historical_catalog
 def test_fts_returns_nothing_for_the_lab1_anchor(connection, profile):
     """The broken state's premise, asserted without a model in the path."""
     rows = connection.execute(
@@ -435,6 +440,7 @@ def test_fts_returns_nothing_for_the_lab1_anchor(connection, profile):
     )
 
 
+@pytest.mark.historical_catalog
 def test_fts_still_recovers_the_target_by_exact_identity(connection, profile):
     """Witness: the arm is not simply broken for every input.
 
@@ -454,6 +460,7 @@ def test_fts_still_recovers_the_target_by_exact_identity(connection, profile):
     )
 
 
+@pytest.mark.historical_catalog
 def test_trigram_alone_recovers_the_lab1_anchor(connection, profile):
     """The repair's payoff, and the margin it clears.
 

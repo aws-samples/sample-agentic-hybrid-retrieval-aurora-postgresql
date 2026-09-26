@@ -60,7 +60,7 @@ uv run --no-project --with PyYAML==6.0.3 python scripts/repin.py --check \
 Use the confirmed asset prefix as `ASSET_ROOT`. Mosaic's prefix is
 `s3://ws-assets-us-east-1/d2acf248-2981-4292-a41c-60a0a0e54ab3`; confirm it in the
 workshop before use. Its complete assets include the bootstrap, three nested
-templates, three real-catalog parts, and four vocabulary files. Follow
+templates, three real-catalog parts, and two real-catalog vocabulary files. Follow
 `assets/README.md` for local verification and distribution requirements.
 
 Review the dry run before executing the upload:

@@ -159,7 +159,9 @@ def main() -> None:
 
     queries = [
         json.loads(line)
-        for line in (ROOT / "data/evals/queries.jsonl").read_text().splitlines()
+        for line in (ROOT / "data/evals/historical/queries.jsonl")
+        .read_text()
+        .splitlines()
         if line.strip()
     ]
     unsupported_filters = {

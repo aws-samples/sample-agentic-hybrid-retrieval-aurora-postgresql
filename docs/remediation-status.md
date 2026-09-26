@@ -93,3 +93,102 @@ a maintainer index.
 | 4. Reduce UI maintenance cost | code verified, merged to `main` (`bf4412a`, `b292ff4`) | same branch (`7521143`) | Ask Mosaic split into types, stage progress, evidence panels and result cards (1,600 to 808 lines); Shop filter sheet extracted (2,026 to 1,797 lines); both global stylesheets split by surface with byte-identical concatenation; ratchet tests scan every sheet; design-system doc updated. Remaining large file: `CatalogPage.tsx`. |
 | 5. Independent relevance evidence | code verified, merged to `main` (`570460a`, `24dc0d3`); corpus re-pointed at `reviews-2023-v2` and its live contract passes; measured run still owed | merged | 24-query coverage probe (4 catalog cohorts x 6 request shapes) with 65 judgments derived from the lab-products file, runner `scripts/independent_relevance_eval.py` over the production retrieval service, 28 tests, `docs/evaluation-plan.md` section. Review round 1: seven of the twelve judged products are already in the canonical scorecard and four are live mission anchors, so item-level independence fails; agent-authored judgments were labelled reviewed. Fixed in `0a0f42d`: per-judgment anchor_overlap (4 mission, 3 canonical, 5 none) cross-checked by a test, vocabulary agent_grounded / agent_inferred / reviewed (human, with reviewer and date) / esci_human, certified tier empty until a human reviews, ranks from final_rank, ESCI held-out file contract with a disjointness check; 1,715 offline tests pass on the branch. Follow-up done on 2026-09-26: `scripts/prepare_esci_held_out.py` built `data/evals/esci_held_out_queries.jsonl` against `reviews-2023-v2` (407 human-judged queries, 2,096 judgments, disjoint from the 141 tuning queries and the canonical set; refurbished and other filter-ineligible judgments dropped with counts); the runner's live contract check passes on it. The measured relevance run is still owed. Measured run blocked on Aurora and Bedrock. |
 | 6. Fresh rehearsal and bounded load evidence | code verified, merged to `main` (`a0417c5`, `4390305`); runtime blocked | merged | `scripts/rehearsal.py` records the eleven acceptance steps into a validated manifest; `scripts/load_exercise.py` runs the opt-in bounded concurrency exercise; `docs/rehearsal-runbook.md`; three Makefile targets; 59 tests including redaction and missing-stage falsifiers. Review round 1: the manifest could never report a completed rehearsal (deployment timing never recorded), the first-query timing named in READINESS.md had no field, and redaction missed security-token and tkn= shapes; fixed in `8934ec9` (deployment timestamps, first-query field, security-token and tkn= redaction, admission context before and after load, recovery probe on any saturation, Makefile wiring; 1,738 offline tests pass on the branch). No rehearsal recorded: needs a fresh authorized environment, S3 credentials, Aurora DSN, Bedrock access. |
+
+
+## Brief recheck and real-only restore (2026-09-26)
+
+Rechecked the supplied Mosaic Remediation Brief and pre-release handoff against
+source `4eb3b24` and the changes below. The six-task assignment is **not yet
+fully runtime verified**. Earlier green offline checks are not a fresh-account
+rehearsal or a relevance measurement.
+
+- Pre-release dependency cleanup is complete in the application manifest and
+  root lockfile. The separate MCP lockfile still contains `httpx2` as a required
+  dependency of the pinned `mcp==2.0.0`, not as an unused application dependency.
+  Its frozen lock check and five adapter tests pass; removing that transitive
+  dependency requires a reviewed SDK change.
+- `ASSETS_PREFIX` fails early when undefined and deliberately permits an empty
+  bucket-root prefix. OS password, editor connection token, and origin secret
+  have separate sources; the companion template supplies the latter two.
+  Authentication, spoof rejection, application admission, nginx limits,
+  cancellation, and stale-response guards have regression coverage.
+- The current session contract and `CLAUDE.md` agree on 40 minutes of required
+  work, with 10 minutes each for orientation and contingency. The earlier
+  conflicting timetable in the handoff predates these sources. Model pins are
+  checked against the current deployment contract; this change does not replace
+  them with the handoff's older Sonnet pin.
+- `docs/hardening-review.md` remains absent. The requested Medium-findings audit
+  cannot be certified from references to a missing report.
+- Required navigation and component/style separation are implemented and tested.
+  The requested rendered keyboard walkthrough, before/after captures at matching
+  narrow/wide viewports, and measured participant timing remain outstanding.
+- The relevance runner and 407-query ESCI held-out contract are present. The
+  smaller 24-query coverage probe discloses anchor overlap and provisional
+  judgments. Neither contract validation nor those agent-authored judgments is
+  a measured general relevance claim. A reviewed real-catalog scorecard and
+  measured independent relevance run remain outstanding.
+- The fresh-account rehearsal and bounded API concurrency exercise remain
+  outstanding. An isolated database restore on the existing Aurora cluster
+  verifies catalog/bootstrap behavior, not CloudFormation, ingress, room-level
+  traffic, Bedrock cold starts, or participant completion time.
+
+The fresh workshop path now installs schemas and lab tables, then restores only
+the pinned 553,911 source products and saved Cohere vectors. Vocabulary assets
+contain only `mosaic_live_search`; acceptance rejects foreign products, synthetic
+brands, historical search documents/vocabulary, missing vectors, and incorrect
+receipts/indexes. The nine real canonical queries are separate from the twelve
+historical canonical queries and 720 generated eligibility cases. Historical
+Aurora assertions have their own explicit `make test-aurora-historical` lane.
+The old HNSW instrument is unavailable for the real catalog; live lab SQL remains
+available. Mismatched historical scorecard metrics are withheld.
+
+### Bootstrap optimization audit
+
+`origin/bootstrap-speedup` contains unmerged commit `a664e05`. Its historical
+loading removal overlaps this correction, but its vocabulary contract still
+assumed the historical catalog. Its larger startup sequence also assumes
+load-balancer target groups and parallel stack provisioning absent from the
+current companion templates. The branch is not safe to cherry-pick wholesale.
+
+Carried forward its Aurora index-build parallelism, bounded by the session's
+parallel-worker capacity. The restore now records individual index times and
+worker count in `build/real-catalog-restore.json`. Rehearsal imports these measured
+times alongside schema timings without double-counting index creation. The
+branch's earlier 193-to-94-second HNSW comparison is prior evidence; it is not a
+new measurement of this catalog or a verified end-to-end deployment speedup.
+
+Verification so far: 1,870 offline tests passed; 39 Aurora tests skipped and
+25 historical assertions explicitly deselected. UI: 752 tests, TypeScript/Vite
+build pass; MCP: 5 tests and frozen lock check pass; npm audit: zero findings.
+Lint, package/database/config validation, retrieval tripwire/profile checks,
+CloudFormation lint, shellcheck, 147 workshop unit tests, and participant-query
+validation pass. The live Aurora pool recovery and timeout/rollback tests both
+pass, including reuse of the same backend with byte-for-byte identical timeout
+settings after cancellation. Fresh restore and publication evidence follows.
+
+
+The isolated Aurora restore passed: 553,911 products and saved vectors; zero
+foreign products, synthetic brands, legacy documents or legacy vocabulary rows.
+Readiness reports `catalog_ready=true`, the expected Cohere model and vector
+dimension, and no missing search indexes/functions. All 111 mission checks,
+15 canonical targets, 65 coverage-probe targets, 2,096 held-out targets and the
+29-function census pass. The SQL contract suite passed 91 checks and exposed one
+evidence-retirement test still calling the historical schema; its corrected
+production-schema rerun passes. Seven historical checks are explicitly deselected.
+The new synthetic-brand falsifier rejected the violation and restored the
+original row and acceptance counts on rollback.
+
+See [measured restore evidence](evidence/real-only-bootstrap-2026-09-26.json).
+The import resumed verified checkpoints, so its final invocation duration is
+not presented as cold end-to-end bootstrap time. The schema install itself took
+11 seconds. Existing operator databases were not reset or purged.
+
+
+The controlled index comparison on the isolated 553,911-product table used the
+same 4 GB maintenance memory and retrieval profile for both builds. Two workers:
+214.444 seconds. Seven workers: 92.532 seconds. Both indexes were valid/ready
+and 4,534,624,256 bytes. Each setting ran once, in that order; cache warming can
+favor the second run. This supports the worker optimization for the measured
+case, without claiming a cold full-stack deployment speedup. Temporary benchmark
+indexes were removed after each run. The workshop parameter group's memory
+floor remains checked by its existing infrastructure gate.

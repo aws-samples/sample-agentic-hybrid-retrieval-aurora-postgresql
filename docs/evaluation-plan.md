@@ -15,12 +15,16 @@ A plausible-looking first result cannot answer that question.
 Use the existing lab mission queries in this order; their single source is
 `data/evals/mosaic_labs_missions.json`. Keep the before/after query and filters
 identical. These are three checks within Alex's task, not a separate exercise in
-benchmark terminology. The broader generated cases stay in release validation.
+benchmark terminology. The historical generated cases remain available as separate engineering fixtures.
 
-The active local catalog is `reviews-2023-v2`. The synthetic-catalog
+Mosaic serves the real source catalog selected by `db/config/real-catalog-cache.json`. The synthetic-catalog
 scorecard and generated filter fixtures below are historical engineering checks;
 their results do not certify the imported products. Current worked-example
 evidence is recorded in [the hybrid-search review](hybrid-search-design.md).
+The canonical query file now contains only the nine real-catalog requests; the
+twelve historical canonical requests and 720 generated eligibility cases live
+under `data/evals/historical/`. Existing mixed-catalog score artifacts are
+withheld pending a reviewed measurement of the real set.
 
 ### Compare methods without changing the question
 
@@ -128,14 +132,18 @@ Use `make score-evals SCORE_EVAL_ARGS=--restart` to discard a stale partial run.
 
 ## Filter-contract corpus
 
-`data/evals/queries.jsonl` contains 720 generated cases. It tests that each
+`data/evals/historical/queries.jsonl` contains 720 historical generated cases. It tests that each
 target exists and satisfies the exact production `SearchFilters` contract,
 including integer-cent price bounds and explicit refurbished or sponsored
 overrides:
 
 ```bash
-make validate-evals
+uv run python scripts/run_eval.py --queries data/evals/historical/queries.jsonl --validate-only
 ```
+
+Run this operator-only command against a database that already retains the
+historical catalog. Fresh-workshop `make validate-evals` validates only real
+canonical, coverage-probe and held-out targets.
 
 This is a broad deterministic filter gate, not curated retrieval-quality ground
 truth. Do not pass its result CSV to `scripts/evaluate.py` with the canonical

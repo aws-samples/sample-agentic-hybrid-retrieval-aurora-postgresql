@@ -146,11 +146,12 @@ Release readiness requires one recorded Workshop Studio rehearsal:
 2. synchronize the three `real-catalog/real-catalog.tar.gz.part-*` objects;
 3. join and verify them with `scripts/real_catalog_cache.py join`;
 4. confirm the joined archive's SHA-256 matches `db/config/real-catalog-cache.json`;
-5. run `make db-bootstrap-base` (historical synthetic rows, no vectors);
-6. save `build/bootstrap-timings.tsv`, which records every load phase,
-   `index_creation`, and the measured total;
-7. restore the real catalog and verify 500,000 real products with vectors, required
-   FTS/trigram/HNSW indexes, evidence rows, and 120 premium products;
+5. run `make db-bootstrap-schema` (shared schemas and lab tables, no synthetic rows);
+6. save `build/bootstrap-timings.tsv` and restore with
+   `--report build/real-catalog-restore.json` to record schema, restore and index times;
+7. run `make db-verify-bootstrap` to verify the pinned 553,911 real products and
+   saved vectors, required FTS/trigram/HNSW indexes, real vocabulary and receipts,
+   with zero historical products, brands or search documents;
 8. rehearse Labs 1, 2, and 3, including independent reset and solution paths;
 9. rehearse Cohere reranking and Ask Mosaic cold starts;
 10. record deployment, transfer, bootstrap, index, first-query, reranker, and

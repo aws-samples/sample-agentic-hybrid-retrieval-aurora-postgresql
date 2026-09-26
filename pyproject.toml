@@ -37,6 +37,7 @@ testpaths = ["tests", "db/tests"]
 addopts = "--strict-markers"
 empty_parameter_set_mark = "fail_at_collect"
 markers = [
+    "historical_catalog: operator-only checks requiring the retained synthetic catalog",
     "aurora: requires the live Aurora cluster and Bedrock model access",
 ]
 

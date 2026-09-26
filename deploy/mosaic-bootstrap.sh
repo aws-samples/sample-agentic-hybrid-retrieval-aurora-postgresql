@@ -437,7 +437,7 @@ test -n "$CLAUDE_PREFLIGHT_OK"
 # The Claude Code preflight above only proves the chat model is reachable.
 # Cohere Embed v4 and Cohere Rerank v3.5 (see .env below) are not otherwise
 # exercised until the acceptance search near the end of this script, roughly
-# many minutes after `make db-bootstrap-base` starts. An account missing
+# many minutes after `make db-bootstrap-schema` starts. An account missing
 # either entitlement would burn that entire window - and the participant's
 # full 45-minute hands-on budget - before rolling back. Probe both here,
 # immediately after the chat-model preflight and before any of that work
@@ -797,7 +797,7 @@ network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   mkdir -p build/real-catalog-cache
   aws s3 sync '$REAL_CATALOG_CACHE_URI' build/real-catalog-cache \
     --exclude '*' --include 'real-catalog.tar.gz.part-*' \
-    --include 'vocabulary/*.csv.gz' --only-show-errors
+    --include 'vocabulary/mosaic_live_search.*.csv.gz' --only-show-errors
 "
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   cd '$REPO' && uv run python scripts/real_catalog_cache.py join \
@@ -805,7 +805,7 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
 "
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   cd '$REPO' && uv run python scripts/corpus_vocabulary.py verify \
-    --directory build/real-catalog-cache/vocabulary
+    --directory build/real-catalog-cache/vocabulary --schema mosaic_live_search
 "
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   set -Eeuo pipefail
@@ -814,21 +814,22 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   source .env
   set +a
   export MOSAIC_VOCABULARY_CACHE_DIR=build/real-catalog-cache/vocabulary
-  make db-bootstrap-base
+  make db-bootstrap-schema
   uv run python scripts/real_catalog_cache.py restore \
     --archive build/real-catalog-cache/real-catalog.tar.gz \
-    --selection build/real-catalog
+    --selection build/real-catalog \
+    --report build/real-catalog-restore.json
   export MOSAIC_CATALOG_DATASET=\$(uv run python -c \
     'import json; print(json.load(open(\"db/config/real-catalog-cache.json\"))[\"dataset_id\"])')
   printf '\\nMOSAIC_CATALOG_DATASET=%s\\n' \"\$MOSAIC_CATALOG_DATASET\" >> .env
+  make db-verify-bootstrap
   cat build/bootstrap-timings.tsv
   MISSION_GATE_REQUIRE_DB=1 DATABASE_URL=\"\$DATABASE_URL\" \
     uv run python scripts/mission_contract.py
   DATABASE_URL=\"\$DATABASE_URL\" \
-    uv run python scripts/run_eval.py --validate-only
-  DATABASE_URL=\"\$DATABASE_URL\" \
     uv run python scripts/run_eval.py \
-      --queries data/evals/canonical_queries.jsonl --validate-only
+      --queries data/evals/canonical_queries.jsonl \
+      --dataset-id \"\$MOSAIC_CATALOG_DATASET\" --validate-only
   uv run python scripts/retrieval_profile.py --check
   uv run python scripts/config_tripwire.py
   uv run python scripts/tool_contracts.py --check

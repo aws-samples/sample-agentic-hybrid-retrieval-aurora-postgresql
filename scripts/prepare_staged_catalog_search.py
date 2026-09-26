@@ -180,6 +180,23 @@ def read_base_ids(path: Path | None) -> list[tuple[str, int]]:
     return rows
 
 
+def configure_index_build_workers(conn) -> int:
+    """Use the Aurora session's parallel capacity, reserving one worker for its leader."""
+    workers = max(
+        0,
+        int(
+            conn.execute("SELECT current_setting('max_parallel_workers')").fetchone()[0]
+        )
+        - 1,
+    )
+    conn.execute(
+        sql.SQL("SET max_parallel_maintenance_workers = {}").format(
+            sql.Literal(workers)
+        )
+    )
+    return workers
+
+
 def prepare(
     conn, dataset_id: str, base_ids: list[tuple[str, int]] | None = None
 ) -> dict:
@@ -282,6 +299,7 @@ def prepare(
             f"WITH (m={profile.hnsw_m},ef_construction={profile.hnsw_ef_construction})"
         ),
     }
+    workers = configure_index_build_workers(conn)
     timings = {}
     for name, definition in indexes.items():
         started = time.monotonic()
@@ -341,6 +359,7 @@ def prepare(
             {"name": name, "bytes": size, "valid": valid} for name, size, valid in sizes
         ],
         "index_ensure_seconds": timings,
+        "index_build_workers": workers,
         "profile": profile.as_dict(),
         "live_catalog_promoted": False,
         "retrieval_quality_validated": False,

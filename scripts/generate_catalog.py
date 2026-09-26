@@ -1684,7 +1684,8 @@ def make_eval_assets(
     out_dir: Path,
 ) -> dict[str, int]:
     rng = random.Random(seed + 991)
-    eval_path = out_dir / "queries.jsonl"
+    (out_dir / "historical").mkdir(parents=True, exist_ok=True)
+    eval_path = out_dir / "historical" / "queries.jsonl"
     demo_path = out_dir / "demo_queries.jsonl"
     judgments_path = out_dir / "judgments.csv.gz"
     typo_path = out_dir / "typo_cases.csv"

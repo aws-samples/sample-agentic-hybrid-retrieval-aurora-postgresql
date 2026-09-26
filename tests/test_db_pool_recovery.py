@@ -41,3 +41,32 @@ def test_pool_replaces_a_server_closed_idle_connection():
             )
     finally:
         db.close_pool()
+
+
+@pytest.mark.aurora
+def test_statement_deadline_rolls_back_and_reused_connection_restores_settings():
+    db.close_pool()
+    try:
+        with db.get_pool().connection() as connection:
+            baseline = connection.execute(
+                "SELECT pg_backend_pid() AS pid, current_setting('statement_timeout') AS statement, "
+                "current_setting('lock_timeout') AS lock"
+            ).fetchone()
+        with (
+            pytest.raises(psycopg.errors.QueryCanceled),
+            db.connect(statement_timeout_ms=50, lock_timeout_ms=40) as connection,
+        ):
+            assert (
+                connection.execute("SELECT pg_backend_pid() AS pid").fetchone()["pid"]
+                == baseline["pid"]
+            )
+            connection.execute("SELECT pg_sleep(0.2)")
+        with db.get_pool().connection() as connection:
+            restored = connection.execute(
+                "SELECT pg_backend_pid() AS pid, current_setting('statement_timeout') AS statement, "
+                "current_setting('lock_timeout') AS lock"
+            ).fetchone()
+            assert restored == baseline
+            assert connection.execute("SELECT 42 AS value").fetchone()["value"] == 42
+    finally:
+        db.close_pool()

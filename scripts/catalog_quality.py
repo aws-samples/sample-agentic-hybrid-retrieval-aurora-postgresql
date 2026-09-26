@@ -41,7 +41,7 @@ def main() -> None:
     paths = [ROOT / relative for relative in manifest["full_datasets"]]
     queries = [
         json.loads(line)
-        for line in (ROOT / "data/evals/queries.jsonl")
+        for line in (ROOT / "data/evals/historical/queries.jsonl")
         .read_text(encoding="utf-8")
         .splitlines()
         if line.strip()

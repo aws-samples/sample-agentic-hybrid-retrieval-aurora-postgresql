@@ -108,6 +108,18 @@ def require_single_served_catalog(queries: list[dict[str, Any]]) -> None:
         )
 
 
+def select_catalog_queries(queries: list[dict[str, Any]], dataset: str) -> list[dict]:
+    """Select an explicit corpus without resolving historical IDs in a fresh catalog."""
+    selected = [
+        q for q in queries if q.get("dataset_id", "synthetic-legacy") == dataset
+    ]
+    if not selected:
+        raise ValueError(
+            f"Evaluation dataset rule: no queries for {dataset!r}; choose a query set containing that catalog."
+        )
+    return selected
+
+
 def _validate_query_group(
     connection: Any, queries: list[dict[str, Any]], schema: str
 ) -> None:
@@ -236,11 +248,14 @@ def _validate_query_group(
 
 def main() -> None:
     ap = argparse.ArgumentParser()
+    ap.add_argument(
+        "--dataset-id", help="Evaluate only this catalog's labeled queries."
+    )
     ap.add_argument("--database-url", default=os.getenv("DATABASE_URL"))
     ap.add_argument(
         "--queries",
         type=Path,
-        default=Path("data/evals/queries.jsonl"),
+        default=Path("data/evals/canonical_queries.jsonl"),
     )
     ap.add_argument(
         "--output",
@@ -281,6 +296,8 @@ def main() -> None:
             "Run `uv sync --frozen` to install evaluation dependencies"
         ) from error
     queries = load_evaluation_queries(args.queries)
+    if args.dataset_id:
+        queries = select_catalog_queries(queries, args.dataset_id)
     if args.limit_queries:
         queries = queries[: args.limit_queries]
     with psycopg.connect(args.database_url) as connection:

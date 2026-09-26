@@ -63,7 +63,7 @@ def test_bootstrap_requires_real_cache_before_any_catalog_load():
 
     def verify(text):
         assert text.index("scripts/real_catalog_cache.py join") < text.index(
-            "\n  make db-bootstrap-base\n"
+            "\n  make db-bootstrap-schema\n"
         )
         assert text.index("scripts/real_catalog_cache.py restore") < text.index(
             "MISSION_GATE_REQUIRE_DB=1"

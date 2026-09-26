@@ -207,14 +207,7 @@ def test_import_bootstrap_timings_passes_on_a_complete_file(tmp_path):
     phases = [
         "schema_install",
         "lab_schema_install",
-        "catalog_prepare",
-        "catalog_load",
-        "index_creation",
-        "premium_cohort_load",
-        "evidence_load",
-        "corpus_lexeme_seed",
         "smoke_test",
-        "bootstrap_acceptance",
     ]
     lines = [f"{name}\t{10 + index}" for index, name in enumerate(phases)]
     total = sum(10 + index for index in range(len(phases)))
@@ -239,7 +232,7 @@ def test_import_bootstrap_timings_fails_on_a_truncated_file(tmp_path):
 
     stage = manifest["stages"]["bootstrap_phases"]
     assert stage["status"] == "failed"
-    assert "index_creation" in stage["detail"]
+    assert "lab_schema_install" in stage["detail"]
 
 
 def test_import_bootstrap_timings_fails_when_the_file_is_missing(tmp_path):
@@ -459,26 +452,31 @@ def _fully_rehearsed_manifest(
     phase_names = [
         "schema_install",
         "lab_schema_install",
-        "catalog_prepare",
-        "catalog_load",
-        "index_creation",
-        "premium_cohort_load",
-        "evidence_load",
-        "corpus_lexeme_seed",
         "smoke_test",
-        "bootstrap_acceptance",
     ]
     lines = [f"{name}\t{10 + index}" for index, name in enumerate(phase_names)]
     lines.append(f"total\t{sum(10 + index for index in range(len(phase_names)))}")
     timings_path = tmp_path / "bootstrap-timings.tsv"
     timings_path.write_text("\n".join(lines) + "\n")
-    import_bootstrap_timings(manifest, timings_path, started_at=None, ended_at=None)
+    report_path = tmp_path / "restore.json"
+    report_path.write_text(
+        json.dumps(
+            {"restore_seconds": 300, "index_ensure_seconds": {"hnsw": 94, "fts": 20}}
+        )
+    )
+    import_bootstrap_timings(
+        manifest,
+        timings_path,
+        started_at=None,
+        ended_at=None,
+        restore_report=report_path,
+    )
 
     upsert_stage(
         manifest,
         "catalog_restore_verification",
         status="passed",
-        detail="500000 products, 500000 vectors, 120 premium, evidence present",
+        detail="553911 real products and saved vectors; zero synthetic rows",
         started_at="2026-01-01T00:10:00+00:00",
         ended_at="2026-01-01T00:15:00+00:00",
     )
@@ -778,3 +776,33 @@ def test_cli_validate_reports_failure_on_a_hand_edited_secret(tmp_path):
     manifest_path.write_text(json.dumps(manifest))
 
     assert main(["validate", "--manifest", str(manifest_path)]) == 1
+
+
+def test_restore_timing_report_rejects_invalid_durations_then_restores(tmp_path):
+    manifest = new_manifest(operator="test")
+    timings = tmp_path / "timings.tsv"
+    timings.write_text(
+        "schema_install\t1\nlab_schema_install\t2\nsmoke_test\t3\ntotal\t6\n"
+    )
+    report = tmp_path / "restore.json"
+    original = json.dumps(
+        {"restore_seconds": 100, "index_ensure_seconds": {"hnsw": 40}}
+    )
+    for bad in (-1, None, float("nan")):
+        report.write_text(
+            json.dumps({"restore_seconds": bad, "index_ensure_seconds": {"hnsw": 40}})
+        )
+        with pytest.raises(RehearsalError, match="invalid restore timings"):
+            import_bootstrap_timings(
+                manifest, timings, started_at=None, ended_at=None, restore_report=report
+            )
+        report.write_text(original)
+        assert report.read_text() == original
+        import_bootstrap_timings(
+            manifest, timings, started_at=None, ended_at=None, restore_report=report
+        )
+        stage = manifest["stages"]["bootstrap_phases"]
+        assert stage["total_elapsed_seconds"] == 106
+        assert {p["name"]: p["elapsed_seconds"] for p in stage["phases"]}[
+            "index_creation"
+        ] == 40

@@ -136,7 +136,7 @@
         "approximate_lines": 6,
         "task": "Restore the reciprocal-rank contribution formula 1 / (k + rank).",
         "broken_state": "Collapsed contributions erase positions within each search, so every single-search candidate ties and the 50-product cutoff is decided by product id: the oldest listings stay, and every recent 27-inch 4K USB-C listing, including the ViewSonic VG2756-4K, never reaches reranking.",
-        "fixed_state": "Correct contributions retain the ViewSonic VG2756-4K (1551237), found by meaning rank 10. In verification on reviews-2023-v2 it moved from absent to combined position 21 and final position 5; its source record states 27-inch 4K IPS, USB-C with 90W charging over one cable, RJ45, HDMI and DisplayPort.",
+        "fixed_state": "Correct contributions retain the ViewSonic VG2756-4K (1551237), found by meaning rank 10. In verification on the Mosaic catalog it moved from absent to combined position 21 and final position 5; its source record states 27-inch 4K IPS, USB-C with 90W charging over one cable, RJ45, HDMI and DisplayPort.",
         "observe_before": [
           "HTTP 200 with plausible 4K monitors, but ViewSonic VG2756-4K 1551237 is absent from the combined list of 50, so reranking never received it.",
           "The saved combined pool holds the lowest product ids among the single-search candidates; a 1440p Lenovo T27hv-20 appears among the final results for a 4K request."

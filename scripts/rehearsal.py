@@ -29,7 +29,7 @@ Usage, in the order a rehearsal actually happens:
         --status passed --detail "3 parts synced, sha256 join verified against
         db/config/real-catalog-cache.json" --started-at ... --ended-at ...
 
-    # after `make db-bootstrap-base`
+    # after `make db-bootstrap-schema`
     uv run python scripts/rehearsal.py import-bootstrap-timings \\
         --manifest build/rehearsal-evidence.json \\
         --timings-file build/bootstrap-timings.tsv
@@ -37,7 +37,7 @@ Usage, in the order a rehearsal actually happens:
     # after `scripts/real_catalog_cache.py restore` and its printed verification
     uv run python scripts/rehearsal.py record-stage \\
         --manifest build/rehearsal-evidence.json --stage catalog_restore_verification \\
-        --status passed --detail "500000 products, 500000 vectors, 120 premium, ..."
+        --status passed --detail "553911 real products, 553911 saved vectors, no synthetic rows"
 
     # after each lab's reset/solution/validate cycle
     uv run python scripts/rehearsal.py record-stage \\
@@ -130,6 +130,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import subprocess
 import sys
@@ -525,7 +526,7 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
 
 
 def parse_bootstrap_timings(text: str) -> list[dict[str, Any]]:
-    """Parse `make db-bootstrap-base`'s `phase\\tseconds` TSV, `total` last."""
+    """Parse `make db-bootstrap-schema`'s `phase\\tseconds` TSV, `total` last."""
     phases = []
     for line in text.splitlines():
         line = line.strip()
@@ -550,20 +551,13 @@ def parse_bootstrap_timings(text: str) -> list[dict[str, Any]]:
     return phases
 
 
-#: The bootstrap-phase order `Makefile`'s `db-bootstrap-base` writes, from
+#: The bootstrap-phase order `Makefile`'s `db-bootstrap-schema` writes, from
 #: `bootstrap-phase` calls plus the awk-computed `total` line. Used only to
 #: decide whether the TSV looks complete, not to re-derive the timings.
 _EXPECTED_BOOTSTRAP_PHASES = (
     "schema_install",
     "lab_schema_install",
-    "catalog_prepare",
-    "catalog_load",
-    "index_creation",
-    "premium_cohort_load",
-    "evidence_load",
-    "corpus_lexeme_seed",
     "smoke_test",
-    "bootstrap_acceptance",
     "total",
 )
 
@@ -574,6 +568,7 @@ def import_bootstrap_timings(
     *,
     started_at: str | None,
     ended_at: str | None,
+    restore_report: Path | None = None,
 ) -> None:
     if not timings_path.is_file():
         upsert_stage(
@@ -581,7 +576,7 @@ def import_bootstrap_timings(
             "bootstrap_phases",
             status="failed",
             detail=explain(
-                f"no timings file at {timings_path}", "run make db-bootstrap-base"
+                f"no timings file at {timings_path}", "run make db-bootstrap-schema"
             ),
         )
         return
@@ -600,8 +595,37 @@ def import_bootstrap_timings(
     if missing:
         detail = explain(
             f"timings missing phase(s) {missing}",
-            "re-run make db-bootstrap-base to completion",
+            "re-run make db-bootstrap-schema to completion",
         )
+    artifacts = [str(timings_path)]
+    if restore_report is not None:
+        report = json.loads(restore_report.read_text(encoding="utf-8"))
+        restore_seconds = report.get("restore_seconds")
+        indexes = report.get("index_ensure_seconds", {})
+        durations = [restore_seconds, *indexes.values()]
+        if not indexes or any(
+            not isinstance(value, (int, float))
+            or isinstance(value, bool)
+            or not math.isfinite(value)
+            or value < 0
+            for value in durations
+        ):
+            raise RehearsalError(
+                explain(
+                    f"invalid restore timings in {restore_report}",
+                    "run real_catalog_cache.py restore --report with the pinned archive",
+                )
+            )
+        phases.extend(
+            [
+                {"name": "catalog_restore", "elapsed_seconds": restore_seconds},
+                {"name": "index_creation", "elapsed_seconds": sum(indexes.values())},
+            ]
+        )
+        if total is not None:
+            total += restore_seconds
+        artifacts.append(str(restore_report))
+        detail += f"; catalog restore {restore_seconds:g}s (includes index creation)"
     upsert_stage(
         manifest,
         "bootstrap_phases",
@@ -609,7 +633,7 @@ def import_bootstrap_timings(
         detail=detail,
         started_at=started_at,
         ended_at=ended_at,
-        artifact_paths=[str(timings_path)],
+        artifact_paths=artifacts,
         extra={"phases": phases, "total_elapsed_seconds": total},
     )
 
@@ -1036,6 +1060,7 @@ def build_parser() -> argparse.ArgumentParser:
     timings_parser.add_argument(
         "--timings-file", type=Path, default=DEFAULT_BOOTSTRAP_TIMINGS
     )
+    timings_parser.add_argument("--restore-report", type=Path)
     timings_parser.add_argument("--started-at")
     timings_parser.add_argument("--ended-at")
 
@@ -1119,6 +1144,7 @@ def main(argv: list[str] | None = None) -> int:
             import_bootstrap_timings(
                 manifest,
                 args.timings_file,
+                restore_report=args.restore_report,
                 started_at=args.started_at,
                 ended_at=args.ended_at,
             )

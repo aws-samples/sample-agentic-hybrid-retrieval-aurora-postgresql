@@ -113,27 +113,32 @@ numbers come from `Makefile`'s own `bootstrap-phase` instrumentation, never
 retyped:
 
 ```sh
-make db-bootstrap-base
+make db-bootstrap-schema
+# Restore the pinned archive with --report build/real-catalog-restore.json.
 uv run python scripts/rehearsal.py import-bootstrap-timings \
   --manifest build/rehearsal-evidence.json \
   --timings-file build/bootstrap-timings.tsv \
+  --restore-report build/real-catalog-restore.json \
   --started-at <bootstrap-start-iso> --ended-at <bootstrap-end-iso>
 ```
 
 `import-bootstrap-timings` fails the stage (`status: "failed"`) if any of the
-ten expected phases or the `total` row is missing from the TSV, which is what
-a bootstrap that died partway through looks like.
+three schema phases or the `total` row is missing from the TSV, which is what
+a bootstrap that died partway through looks like. The restore report supplies
+measured real-catalog index times; its total includes index creation, so that
+subset is not added a second time. Schema-only timings cannot complete the
+rehearsal timing summary.
 
 ## 5. Catalog restore verification
 
-After `scripts/real_catalog_cache.py restore` and its own printed
-verification:
+After `scripts/real_catalog_cache.py restore`, run `make db-verify-bootstrap`
+and record its measured verification:
 
 ```sh
 uv run python scripts/rehearsal.py record-stage \
   --manifest build/rehearsal-evidence.json \
   --stage catalog_restore_verification --status passed \
-  --detail "500000 products, 500000 vectors, 120 premium, evidence rows present, \
+  --detail "553911 real products, 553911 saved vectors, no synthetic rows, \
 FTS/trigram/HNSW indexes valid" \
   --started-at <restore-start-iso> --ended-at <restore-end-iso>
 ```
@@ -333,7 +338,7 @@ rehearsal for real:
    objects and `vocabulary/*.csv.gz`, per `deploy/README.md`'s "Catalog
    selection and assets" section.
 3. **An Aurora `DATABASE_URL`** for the deployed cluster, exported before
-   `make db-bootstrap-base` and the lab `make` targets in steps 4 and 6.
+   `make db-bootstrap-schema` and the lab `make` targets in steps 4 and 6.
 4. **Bedrock model access** for the three pinned model IDs
    (`scripts/check_model_access.py`), needed for steps 6 (Lab 3), 7, and the
    load exercise's agent-kind requests.

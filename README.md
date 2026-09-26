@@ -23,7 +23,7 @@ and Cohere Rerank through Amazon Bedrock with a React storefront, a typed FastAP
 service, a Strands agent, and an optional MCP adapter. The workshop searches
 553,911 imported Amazon Reviews 2023 products spanning Electronics, Office
 Products and Home and Kitchen, with saved Cohere Embed v4 vectors;
-the historical synthetic catalog is retained separately. The complete session
+fresh workshops do not load the historical synthetic catalog. The complete session
 framing is in [the session abstract](docs/session-abstract.md).
 
 ![Mosaic Discover introduces Alex and his home-office needs](docs/images/mosaic-discover.png)
@@ -377,19 +377,20 @@ provisioning-time gap injection, deployment automation, and the clean-account
 rehearsal. Repository checks prove the source contract; they do not replace
 fresh-stack deployment and projector rehearsal.
 
-The current worked examples use the imported `reviews-2023-v2` catalog:
+The current worked examples use the Mosaic catalog:
 Bose listing-ID recovery, ViewSonic 4K/90W monitor ranking, and a monitor/chair answer
 checked against sources. [The example library](docs/real-catalog-exercise-library.md)
 records alternative requests and both their successful and unsuccessful outcomes.
 
 ## Workshop catalog delivery
 
-The served catalog is `reviews-2023-v2`: 553,911 source product records from
+The Mosaic catalog contains 553,911 source product records from
 Amazon Reviews 2023 with verified, saved Cohere Embed v4 vectors. It keeps the
 500,000 products of `reviews-2023-500k-v1` (400,000 Electronics and 100,000
 Office Products) at their existing ids and adds 53,911 products from the
 monitor, headphone and chair leaves of Electronics, Office Products and Home
-and Kitchen (Home and Kitchen was not part of v1). Bootstrap downloads the
+and Kitchen. The internal dataset identifier is recorded in the release contract.
+Bootstrap downloads the
 pinned `real-catalog/real-catalog.tar.gz.part-*` files (Workshop Studio caps
 asset objects at 1 GB), checks each part, joins and verifies the archive before database loading,
 restores the records and vectors, and selects that dataset for the app and labs.
@@ -505,8 +506,8 @@ make test-aurora-invariants
 make score-evals
 ```
 
-`make validate-evals` proves the 720 target/filter contracts through the
-production `mosaic_search.matches_filters` function. `make score-evals` runs
+`make validate-evals` checks real-catalog canonical targets plus the independent
+coverage and held-out ESCI contracts through their production filters. `make score-evals` runs
 the served retrieval path over the canonical scorecard and verifies source,
 dataset, retrieval settings, model, Aurora version, ranked results, and measurement details.
 It is a release gate, not a general benchmark command. After any change to a
@@ -587,27 +588,33 @@ repository. Verify the resulting build succeeds. The companion repository's
 
 ## Aurora bootstrap and recovery
 
-The portable Workshop Studio path imports the checked-in catalog and a verified
-embedding cache:
+The Workshop Studio path verifies the pinned archive, installs shared schemas,
+then restores only the real source catalog and its saved embeddings:
 
 ```bash
-make db-bootstrap-base DATABASE_URL="$DATABASE_URL"
 uv run python scripts/real_catalog_cache.py join \
   --archive build/real-catalog-cache/real-catalog.tar.gz
+make db-bootstrap-schema DATABASE_URL="$DATABASE_URL"
 uv run python scripts/real_catalog_cache.py restore \
   --archive build/real-catalog-cache/real-catalog.tar.gz \
-  --selection build/real-catalog
+  --selection build/real-catalog \
+  --report build/real-catalog-restore.json
+export MOSAIC_CATALOG_DATASET=reviews-2023-v2
+make db-verify-bootstrap
 ```
 
-The base bootstrap loads the historical synthetic rows and shared tables without
-vectors; Workshop Studio's 3 GB total asset cap cannot hold both vector sets, and
-the labs serve only the real catalog. The historical synthetic embedding cache
-(`make db-fetch-embeddings`, `scripts/embedding_cache.py`) remains available for
-local historical work but is not part of the workshop deployment. The historical
-cache contains resumable float32 NPZ shards and a SHA-256 manifest.
-Changed, missing, or model-incompatible products fail import instead of silently
-receiving stale vectors. A cluster snapshot remains the fast same-account
-operator recovery path; the cache is the portable cross-account path.
+Fresh workshops contain 553,911 real products and saved Cohere Embed v4 vectors.
+They do not load historical synthetic products, reviews, premium cohorts or
+vocabulary. The shared schemas support the real product identities, evidence,
+audit records and labs. The real-only acceptance gate checks the catalog receipt,
+counts, vectors, indexes and vocabulary, and rejects legacy rows.
+
+Historical evaluation files live under `data/evals/historical/`; they require an
+operator's historical Aurora catalog and are excluded from `make validate-evals`.
+The canonical set now contains only real-catalog requests. Existing scorecard
+attribution remains withheld until those requests are measured again. The legacy
+HNSW instrument is explicitly unavailable for a real catalog; Lab 1's live recall
+exercise and the Scale & HNSW SQL exercise use the real catalog.
 
 The supplied infrastructure is intentionally workshop-shaped. A production
 deployment must choose its own high-availability, backup, deletion-protection,

@@ -370,7 +370,7 @@ describe("RetrievalScorecard", () => {
     const base = scorecardFixture({ attributed: false });
     vi.mocked(api.scorecard).mockResolvedValue({
       ...base,
-      retrieval_quality: { ...base.retrieval_quality, per_query_metrics: rows },
+      retrieval_quality: { ...base.retrieval_quality!, per_query_metrics: rows },
     });
     render(<RetrievalScorecard />);
 
@@ -403,7 +403,7 @@ describe("RetrievalScorecard", () => {
     const base = scorecardFixture({ attributed: true });
     vi.mocked(api.scorecard).mockResolvedValue({
       ...base,
-      retrieval_quality: { ...base.retrieval_quality, per_query_metrics: rows },
+      retrieval_quality: { ...base.retrieval_quality!, per_query_metrics: rows },
     });
     render(<RetrievalScorecard />);
 
@@ -805,4 +805,14 @@ describe("RetrievalScorecard stage ablation", () => {
     await screen.findByTestId("scorecard-release-baseline-lead");
     expect(api.scorecard).toHaveBeenCalledTimes(2);
   });
+});
+
+
+it("shows pending scores when the historical population has no real-catalog measurement", async () => {
+  const data = scorecardFixture({ attributed: false });
+  data.retrieval_quality = null;
+  vi.mocked(api.scorecard).mockResolvedValue(data);
+  render(<RetrievalScorecard />);
+  expect(await screen.findByText("The real-catalog searches need a new measurement. Historical scores do not describe this catalog.")).toBeTruthy();
+  expect(screen.queryByText(DISTINCTIVE_RECALL)).toBeNull();
 });

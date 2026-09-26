@@ -28,11 +28,14 @@ with the selected `reviews-2023-v2` catalog, 553,911 source products with
 real Cohere Embed v4 vectors. Historical synthetic tables are retained separately. Every `make`
 target reads `DATABASE_URL` and must point at Aurora.
 
-The restore path is `make db-bootstrap-base` into a **fresh** Aurora cluster,
-loading the historical synthetic rows without their vectors, followed by `scripts/real_catalog_cache.py restore`
-for the hash-pinned real-product bundle and `MOSAIC_CATALOG_DATASET` selection.
-Workshop Studio provisions this sequence; `ARTIFACTS.md` records both catalogs. `make db-upgrade-snapshot` is an operator-only
-compatibility path for historical snapshot restores, not the primary route.
+The restore path is `make db-bootstrap-schema` into a **fresh** Aurora cluster,
+followed by `scripts/real_catalog_cache.py restore` for the hash-pinned real-product
+bundle and `MOSAIC_CATALOG_DATASET` selection. Only the 553,911 real source products,
+their saved Cohere embeddings and real source evidence are loaded. Do not load
+historical synthetic products, reviews, premium cohorts or vocabulary. Shared
+`mosaic.*` tables remain because the real catalog and labs use them.
+`make db-verify-bootstrap` rejects legacy rows after restore. `make db-upgrade-snapshot`
+is an operator-only compatibility path for historical snapshots, not provisioning.
 
 Any Makefile target, script, or document assuming a local PostgreSQL is a defect
 to fix, not a fallback to use. Full policy and rationale: `ARTIFACTS.md`.
@@ -73,7 +76,7 @@ including a TypeScript `?? 60` fallback.
 
 ```sh
 make validate-missions      # contract shape + live target checks (needs DSN)
-make validate-evals         # 720 production-filter targets (needs DSN)
+make validate-evals         # real canonical, coverage and held-out contracts (needs DSN)
 python scripts/config_tripwire.py
 python scripts/retrieval_profile.py --check
 make test                  # Python

@@ -47,3 +47,16 @@ def test_function_installation_cannot_replace_served_functions():
 def test_changed_sql_boundary_requires_review_before_installation():
     with pytest.raises(ValueError, match="unique evidence boundary"):
         search_functions("CREATE OR REPLACE FUNCTION mosaic_search.something_new();")
+
+
+@pytest.mark.parametrize(("capacity", "expected"), [(0, 0), (1, 0), (2, 1), (8, 7)])
+def test_index_build_workers_respect_aurora_capacity(capacity, expected):
+    from unittest.mock import MagicMock
+
+    from scripts.prepare_staged_catalog_search import configure_index_build_workers
+
+    connection = MagicMock()
+    connection.execute.return_value.fetchone.return_value = (str(capacity),)
+    assert configure_index_build_workers(connection) == expected
+    statement = connection.execute.call_args.args[0].as_string()
+    assert statement == f"SET max_parallel_maintenance_workers = {expected}"

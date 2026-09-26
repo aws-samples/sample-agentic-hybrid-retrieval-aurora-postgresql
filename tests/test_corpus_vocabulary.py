@@ -14,7 +14,7 @@ from scripts import corpus_vocabulary as vocabulary
 def test_published_contract_agrees_with_production_sql_without_ignored_assets():
     contract = json.loads(vocabulary.CONTRACT.read_text())
     vocabulary.verify_contract(contract)
-    assert set(contract["schemas"]) == {"mosaic_search", "mosaic_live_search"}
+    assert set(contract["schemas"]) == {"mosaic_live_search"}
     assert all(entry["input"]["products"] > 0 for entry in contract["schemas"].values())
 
 
@@ -57,6 +57,23 @@ def test_files_are_verified_and_unrelated_files_do_not_invalidate(cache):
     assert sum(len(entry["tables"]) for entry in contract["schemas"].values()) == 4
 
 
+def test_real_only_cache_needs_no_historical_files_but_rejects_changed_real_bytes(
+    cache,
+):
+    directory, contract = cache
+    for path in directory.glob("mosaic_search.*"):
+        path.unlink()
+    vocabulary.verify_files(directory, contract, schema="mosaic_live_search")
+    path = directory / "mosaic_live_search.corpus_lexeme.csv.gz"
+    before = path.read_bytes()
+    path.write_bytes(before + b"changed")
+    with pytest.raises(ValueError, match="Vocabulary asset rule"):
+        vocabulary.verify_files(directory, contract, schema="mosaic_live_search")
+    path.write_bytes(before)
+    assert path.read_bytes() == before
+    vocabulary.verify_files(directory, contract, schema="mosaic_live_search")
+
+
 @pytest.mark.parametrize(
     "violation", ["changed", "missing", "size", "sql", "table", "schema", "version"]
 )
@@ -78,14 +95,18 @@ def test_each_asset_gate_rejects_its_violation_then_accepts_byte_identical_resto
     elif violation == "sql":
         contract["procedure_sha256"] = "stale-procedure"
     elif violation == "table":
-        del contract["schemas"]["mosaic_live_search"]["tables"]["corpus_surface_lexeme"]
+        contract["schemas"]["unsupported_schema"] = contract["schemas"].pop(
+            "mosaic_live_search"
+        )["tables"]["corpus_surface_lexeme"]
     elif violation == "schema":
-        del contract["schemas"]["mosaic_live_search"]
+        contract["schemas"]["unsupported_schema"] = contract["schemas"].pop(
+            "mosaic_live_search"
+        )
     else:
         contract["schema_version"] = 0
     connection = MagicMock()
     with pytest.raises(ValueError, match="Vocabulary .* rule:"):
-        vocabulary.restore(connection, "mosaic_search", directory, contract)
+        vocabulary.restore(connection, "mosaic_live_search", directory, contract)
     connection.execute.assert_not_called()
     path.write_bytes(before)
     assert path.read_bytes() == before
@@ -146,7 +167,7 @@ def test_operator_rebuild_executes_the_production_procedure(monkeypatch):
 def test_bootstrap_verifies_vocabulary_before_loading_either_catalog():
     script = (vocabulary.ROOT / "deploy/mosaic-bootstrap.sh").read_text()
     assert script.index("scripts/corpus_vocabulary.py verify") < script.index(
-        "\n  make db-bootstrap-base\n"
+        "\n  make db-bootstrap-schema\n"
     )
     assert (
         "export MOSAIC_VOCABULARY_CACHE_DIR=build/real-catalog-cache/vocabulary"

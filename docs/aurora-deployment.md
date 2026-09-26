@@ -16,29 +16,21 @@ SELECT extversion FROM pg_extension WHERE extname = 'vector';
 
 ## Recommended sequence
 
-1. Create the cluster and database. There is no local alternative; see
-   `ARTIFACTS.md`.
-2. `make db-install` — schemas, tables, functions, and non-concurrent indexes
-   (`db/sql/install.sql`).
-3. `make db-prepare-mosaic` then `make db-load-mosaic` — normalize and load the
-   three catalog shards declared in `data/full/manifest.json`.
-4. `make db-embed`, or `make db-import-embeddings` to restore the cached vectors
-   instead of paying for re-embedding.
-5. `make db-index-concurrent` — the HNSW index, which cannot be built inside a
-   transaction block and is pointless before embeddings exist. If a concurrent
-   build was interrupted, run `make db-drop-invalid-indexes` first; the
-   bootstrap's `index_creation` phase does this automatically. The optional
-   halfvec and binary indexes for the Scale & HNSW lens are a separate
-   `make db-index-quantized`.
-6. `make db-load-cohort` — the 120 premium products with real photography.
-7. `make db-smoke` — correctness queries.
-8. `make validate-missions`, `make validate-config`, `make validate-functions` —
-   the three gates. Set `MISSION_GATE_REQUIRE_DB=1` and
-   `FUNCTION_CENSUS_REQUIRE_DB=1` in CI so a missing DSN is loud.
-9. `scripts/benchmark_hnsw.py` for the measured harness.
-10. Populate the UI only with measured or labeled projected values.
+1. Create a fresh Aurora cluster and database; see `ARTIFACTS.md`.
+2. Download and verify the three pinned catalog parts and the two real-catalog
+   vocabulary files before database writes.
+3. Run `make db-bootstrap-schema` to install the shared schemas and lab tables.
+4. Run `scripts/real_catalog_cache.py restore` to load the 553,911 real source
+   products, saved Cohere embeddings and real evidence, and build the search indexes.
+5. Select the dataset from `db/config/real-catalog-cache.json` through
+   `MOSAIC_CATALOG_DATASET`, then run `make db-verify-bootstrap`.
+6. Run `make validate-missions validate-evals validate-config validate-functions`.
+   Require the database in CI with `MISSION_GATE_REQUIRE_DB=1` and
+   `FUNCTION_CENSUS_REQUIRE_DB=1`.
 
-`make db-bootstrap-base` runs the load, index, cohort, evidence, vocabulary and acceptance steps in order, without importing the historical synthetic vectors; the real catalog restore follows it.
+Do not load the historical synthetic products, review corpus, premium cohort or
+vocabulary. The legacy HNSW instrument remains unavailable for this catalog;
+use the real-catalog Lab 1 recall exercise and Scale & HNSW SQL exercise.
 
 ## Operational considerations
 

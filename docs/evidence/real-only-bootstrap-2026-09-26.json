@@ -1,0 +1,117 @@
+{
+  "kind": "measured",
+  "recorded_at": "2026-09-26T09:07:46.061734+00:00",
+  "environment": "isolated disposable database on the existing encrypted Aurora cluster; not a fresh-account deployment",
+  "source_baseline": "4eb3b24b5480772e2a80f1216815ebee9a951383",
+  "source_worktree_dirty": true,
+  "catalog_contract_sha256": "9029570fea95d7356b6c4653eb666ba2ebf6c43af37c0ce6cec912dc1500ea51",
+  "acceptance": {
+    "embedded_products": 553911,
+    "foreign_products": 0,
+    "legacy_documents": 0,
+    "legacy_lexemes": 0,
+    "legacy_surface_lexemes": 0,
+    "products": 553911,
+    "registered_products": 553911,
+    "synthetic_brands": 0
+  },
+  "readiness": {
+    "server_version": "18.3",
+    "vector_version": "0.8.1",
+    "product_count": 553911,
+    "embedded_product_count": 553911,
+    "embedding_dimensions": 1024,
+    "embedding_model_ids": [
+      "us.cohere.embed-v4:0"
+    ],
+    "dataset_id": "reviews-2023-v2",
+    "dataset_manifest_sha256": "c4d5913f89050332f71512baf2a0351331208ab94eac0621be9ac63e653cfa00",
+    "schema_ready": true,
+    "catalog_ready": true,
+    "premium_product_count": 0,
+    "evidence_product_count": 553911,
+    "evidence_note": "Original specification text is available for every product; citation records are registered on first access. Reviews are an explicitly sampled subset.",
+    "missing_retrieval_indexes": null,
+    "missing_retrieval_functions": null,
+    "exact_neighbor_ground_truth": "missing"
+  },
+  "restore": {
+    "dataset_id": "reviews-2023-v2",
+    "expected_products": 553911,
+    "products": 553911,
+    "embeddings": 553911,
+    "incompatible_embeddings": 0,
+    "text_hash_mismatches": 0,
+    "records_complete": true,
+    "embeddings_complete": true,
+    "ready_for_search_validation": true,
+    "index_ensure_seconds": {
+      "real_search_fts_idx": 19.84,
+      "real_search_trigram_idx": 8.1,
+      "real_search_kind_idx": 0.36,
+      "real_search_vector_idx": 223.19
+    },
+    "index_build_workers": 7,
+    "restore_seconds": 1050.854
+  },
+  "timing_limitations": "Restore was resumed from verified record/vector checkpoints. restore_seconds is the last resumed invocation, not a cold end-to-end bootstrap measurement. Index times cover complete new builds with seven workers and 1033MB maintenance_work_mem.",
+  "schema_phase_seconds": {
+    "schema_install": 9,
+    "lab_schema_install": 1,
+    "smoke_test": 1,
+    "total": 11
+  },
+  "gates": {
+    "missions_checks": 111,
+    "canonical_targets": 15,
+    "coverage_probe_queries": 24,
+    "coverage_probe_targets": 65,
+    "held_out_queries": 407,
+    "held_out_targets": 2096,
+    "function_names_checked": 29,
+    "live_contract_suite": "91 passed, one stale historical-schema test failed; that test was retargeted to the production selected schema and its live rerun passed",
+    "pool_timeout_and_recovery_tests": 2,
+    "historical_live_assertions_deselected": 7,
+    "synthetic_brand_falsifier": "Rejected a temporary synthetic flag, rolled back, restored original complete brand row and passing counts"
+  },
+  "remaining": [
+    "Fresh-account CloudFormation, ingress and bootstrap rehearsal",
+    "Live model cold/warm and bounded concurrency exercise",
+    "Rendered keyboard and responsive visual walkthrough with before/after evidence",
+    "Reviewed real-catalog scorecard and measured independent relevance run"
+  ],
+  "index_benchmark": {
+    "kind": "measured",
+    "environment": "isolated database on existing Aurora cluster",
+    "products": 553911,
+    "maintenance_work_mem": "4GB",
+    "hnsw_m": 16,
+    "hnsw_ef_construction": 200,
+    "order": "2 workers then 7 workers",
+    "runs_per_setting": 1,
+    "limitation": "Sequential index builds, not a full workshop deployment or repeated statistical benchmark. Later build can benefit from warmer caches.",
+    "results": [
+      {
+        "workers": 2,
+        "seconds": 214.444,
+        "valid": true,
+        "ready": true,
+        "bytes": 4534624256
+      },
+      {
+        "workers": 7,
+        "seconds": 92.532,
+        "valid": true,
+        "ready": true,
+        "bytes": 4534624256
+      }
+    ]
+  },
+  "source_file_sha256": {
+    "scripts/real_catalog_cache.py": "bc3b80dcd2c6f45a591bbfaf6067002603b6117d46fc9b25e410fc036ec40d47",
+    "scripts/prepare_staged_catalog_search.py": "4592d910b386c6dcafd98e447131d1709984c600a3c3aa280cd2f6305f58a3d0",
+    "scripts/prepare_live_catalog.py": "12605d00d08291aa6f322a21bd87fa0ce65512c65d0bd6d81cd6782888f4b966",
+    "scripts/verify_real_bootstrap.py": "09aabc2f64f9f5a3383f643dca70107add922589e137e6a73163c8e762c019ab",
+    "deploy/mosaic-bootstrap.sh": "44f9cf94f5aefdf455169a427c6aaed96100757e13e1f107082bb5ca64a7a3be"
+  }
+}

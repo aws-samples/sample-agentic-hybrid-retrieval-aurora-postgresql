@@ -48,7 +48,9 @@ def test_manifest_counts_and_github_safe_shards():
 def test_full_catalog_identity_dates_skus_and_filter_targets():
     queries = [
         json.loads(line)
-        for line in (ROOT / "data/evals/queries.jsonl").read_text().splitlines()
+        for line in (ROOT / "data/evals/historical/queries.jsonl")
+        .read_text()
+        .splitlines()
         if line.strip()
     ]
     target_filters: dict[int, list[tuple[str, dict]]] = defaultdict(list)
@@ -85,7 +87,9 @@ def test_full_catalog_identity_dates_skus_and_filter_targets():
 def test_evaluation_filters_match_the_sql_contract():
     queries = [
         json.loads(line)
-        for line in (ROOT / "data/evals/queries.jsonl").read_text().splitlines()
+        for line in (ROOT / "data/evals/historical/queries.jsonl")
+        .read_text()
+        .splitlines()
         if line.strip()
     ]
     assert len(queries) == 720

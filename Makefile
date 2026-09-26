@@ -46,7 +46,7 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-base db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic rehearsal-validate rehearsal-summary load-exercise api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
+.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants test-aurora-historical db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-schema db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors benchmark-hnsw benchmark-ask-mosaic rehearsal-validate rehearsal-summary load-exercise api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
@@ -73,7 +73,7 @@ DSN_TARGETS := test test-aurora-contracts test-aurora-invariants db-install db-i
 	validate-missions validate-evals score-evals ablation-evals validate-functions \
 	lab-01 db-load-mosaic db-index-concurrent db-drop-invalid-indexes db-index-quantized \
 	db-index-recover-and-create db-load-cohort db-load-evidence db-smoke \
-	db-seed-corpus-lexeme db-bootstrap-base db-verify-bootstrap db-embed db-export-embeddings db-import-embeddings \
+	db-seed-corpus-lexeme db-bootstrap-schema db-verify-bootstrap db-embed db-export-embeddings db-import-embeddings \
 	db-configure-retrieval db-apply-search-functions reset-lab-1 validate-lab-1 solution-lab-1 \
 	reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 api-serve
 
@@ -138,7 +138,7 @@ db-install-labs:
 	@cd $(SCHEMA_PACKAGE)/sql && psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f install_labs.sql
 
 # Operator-only compatibility path for historical snapshot restores. Workshop
-# Studio provisions fresh Aurora through db-bootstrap-base.
+# Studio provisions fresh Aurora through db-bootstrap-schema.
 db-upgrade-snapshot:
 	@cd $(SCHEMA_PACKAGE)/sql && psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f upgrade_snapshot.sql
 	@$(MAKE) db-configure-retrieval
@@ -153,22 +153,23 @@ db-configure-retrieval:
 validate-missions:
 	@$(PYTHON) scripts/mission_contract.py
 
-# The 720-case filter-contract corpus and the 20-query canonical scorecard both
-# call matches_filters on Aurora before an eval can spend model calls or
-# publish metrics.
+# The real canonical, coverage-probe and held-out corpora validate their
+# targets through production filters on Aurora before scoring. Historical
+# generated eligibility cases remain under data/evals/historical/.
 validate-evals:
 	@$(PYTHON) scripts/run_eval.py --validate-only
-	@$(PYTHON) scripts/run_eval.py \
-		--queries data/evals/canonical_queries.jsonl --validate-only
+	@$(PYTHON) scripts/independent_relevance_eval.py --validate-only
+	@$(PYTHON) scripts/independent_relevance_eval.py \
+		--queries data/evals/esci_held_out_queries.jsonl --validate-only
 
-# Release-only quality gate. It runs the 20 product-retrieval cases from the
-# curated 21-query set through served FTS + pg_trgm + HNSW + unweighted RRF +
+# Release-only quality gate. It runs the current real-catalog retrieval cases
+# through served FTS + pg_trgm + HNSW + unweighted RRF +
 # managed reranking, then rejects provenance or metric regressions.
 score-evals:
 	@$(PYTHON) scripts/score_evals.py $(SCORE_EVAL_ARGS)
 
 # Lab 2's stage ablation: semantic-only vs RRF-fused (rerank off) vs the
-# served RRF+rerank path, over the same 20 queries. Spends NO Cohere rerank
+# served RRF+rerank path, over the same canonical queries. Spends NO Cohere rerank
 # calls -- the reranked arm is recomputed from the already-persisted
 # benchmarks/results/canonical_served_results.csv, not re-served. Arms 1 and
 # 2 still call Aurora and the embedding model directly (read-only SELECTs, no
@@ -346,30 +347,20 @@ define bootstrap-phase
 		"$(1)" "$$finished" "$$elapsed"
 endef
 
-# The base catalog loads the historical synthetic rows and shared tables without
-# their vectors: the labs and Shop serve the real catalog restored afterwards, and
-# Workshop Studio's 3 GB asset cap cannot hold both vector sets.
-db-bootstrap-base:
+# Fresh workshops install shared schemas, then restore only the pinned real catalog.
+db-bootstrap-schema:
 	@mkdir -p "$(dir $(BOOTSTRAP_TIMINGS_FILE))"
 	@: >"$(BOOTSTRAP_TIMINGS_FILE)"
-	$(call bootstrap-phase,schema_install,db-install)
+	$(call bootstrap-phase,schema_install,db-install MOSAIC_CATALOG_DATASET=)
 	$(call bootstrap-phase,lab_schema_install,db-install-labs)
-	$(call bootstrap-phase,catalog_prepare,db-prepare-mosaic)
-	$(call bootstrap-phase,catalog_load,db-load-mosaic)
-	$(call bootstrap-phase,index_creation,db-index-recover-and-create)
-	$(call bootstrap-phase,premium_cohort_load,db-load-cohort)
-	$(call bootstrap-phase,evidence_load,db-load-evidence)
-	$(call bootstrap-phase,corpus_lexeme_seed,db-seed-corpus-lexeme)
 	$(call bootstrap-phase,smoke_test,db-smoke)
-	$(call bootstrap-phase,bootstrap_acceptance,db-verify-bootstrap)
 	@awk -F '\t' \
 		'BEGIN { total = 0 } { total += $$2 } END { print "total\t" total }' \
 		"$(BOOTSTRAP_TIMINGS_FILE)" >>"$(BOOTSTRAP_TIMINGS_FILE)"
 	@cat "$(BOOTSTRAP_TIMINGS_FILE)"
 
 db-verify-bootstrap:
-	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 \
-		-f $(SCHEMA_PACKAGE)/sql/98_bootstrap_acceptance.sql
+	@$(PYTHON) scripts/verify_real_bootstrap.py
 	@$(PYTHON) \
 		scripts/configure_retrieval_database.py --check
 
@@ -432,18 +423,19 @@ lint:
 	@$(MAKE) --no-print-directory check-bootstrap-sync
 
 test:
-	@$(PYTHON) -m pytest
+	@$(PYTHON) -m pytest -m "not historical_catalog"
 
 # The full offline suite already ran before this release job. This live subset
 # exercises Aurora SQL only and cannot call embedding or reranking models.
 test-aurora-contracts:
-	@$(PYTHON) -m pytest -q \
+	@$(PYTHON) -m pytest -q -m "not historical_catalog" \
 		tests/test_sql_integration.py \
 		tests/test_bootstrap_contract.py \
 		tests/test_evidence_retirement.py \
 		tests/test_db_pool_recovery.py \
 		tests/test_corpus_vocabulary.py \
-		tests/test_agent_eligibility.py
+		tests/test_agent_eligibility.py \
+		tests/test_real_only_bootstrap.py
 
 # Every `pytest.mark.aurora` test, and until this target existed none of them ran
 # anywhere: tests/conftest.py skips the marker whenever DATABASE_URL is unset,
@@ -471,11 +463,16 @@ test-aurora-invariants:
 		echo "report a pass built out of skipped aurora-marked tests."; \
 		exit 2; \
 	}
-	@$(PYTHON) -m pytest -q -rs \
+	@$(PYTHON) -m pytest -q -rs -m "not historical_catalog" \
 		tests/test_coverage.py \
 		tests/test_lab1_anchor_invariants.py \
 		tests/test_answerability_live.py \
 		tests/test_retrieval_scope.py
+
+# Explicit operator lane; never load historical products to satisfy a fresh workshop gate.
+test-aurora-historical: check-dsn
+	@$(PYTHON) -m pytest -q -m historical_catalog \
+		tests/test_sql_integration.py tests/test_coverage.py
 
 # Five targets were DELETED in Phase 2 Unit E. They installed and loaded the
 # `catalog.*` tree, which no longer exists, against whatever DSN they were handed
@@ -487,7 +484,7 @@ test-aurora-invariants:
 #   db-load-catalog  db-load-mosaic         db/sql/17_load_normalized_catalog.sql
 #   db-load-media    db-load-cohort         db/sql/15_load_premium_cohort.sql
 #   db-index         db-index-concurrent    db/sql/08_indexes_concurrent.sql
-#   db-load          db-bootstrap-base    the whole sequence, in order
+#   db-load          db-bootstrap-schema    shared schemas only; restore real cache next
 #
 # See ARTIFACTS.md for the Aurora-only policy and docs/rewrite-losses.md
 # SUBSTRATE-1 for why the predecessors cannot be run at all.

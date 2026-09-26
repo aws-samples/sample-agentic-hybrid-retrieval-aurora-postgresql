@@ -241,17 +241,12 @@ false. This report is `.local/real-products/catalog-500k/aurora-staging-report.j
 its file modification time supplies the observation timestamp, not an import
 duration. No end-to-end ingestion speedup is claimed from that timestamp.
 
-For a fresh Workshop Studio Aurora cluster,
-[`scripts/embedding_cache.py`](../scripts/embedding_cache.py) imports the pinned
-workshop cache through the same binary-`COPY` and bulk-update pattern, with one
-transaction per shard. That manifest-based cache and the refresh's batch cache
-are different formats and require their corresponding loaders. The
-[`db-bootstrap-base` target](../Makefile) no longer imports the historical
-cache: Workshop Studio's 3 GB total asset cap cannot hold both vector sets, so the
-deployment loads the synthetic rows without vectors and restores the real
-catalog's verified vectors from its split archive. Use the cache loader only for
-local historical work. Participants receive this
-prepared database and do not run a second import during the labs.
+A fresh Workshop Studio Aurora cluster installs shared schemas with
+`make db-bootstrap-schema`, then restores the pinned real catalog through
+`scripts/real_catalog_cache.py`. It loads real products, saved Cohere vectors and
+real source evidence only. Historical synthetic products, reviews and vocabulary
+are excluded. Participants receive the prepared database and do not run a second
+import during the labs.
 
 Aggregate evidence is in
 [`reviews-2023-selection.json`](evidence/catalog-source-audit/reviews-2023-selection.json).

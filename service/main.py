@@ -1067,7 +1067,21 @@ def builder_package_route() -> Response:
     )
 
 
-@app.get("/api/hnsw/substrate")
+def require_hnsw_instrument_catalog() -> None:
+    """Prevent historical anchors and measurements from being served as real-catalog proof."""
+    from service.catalog_runtime import active_dataset
+
+    dataset = active_dataset()
+    if dataset:
+        raise HTTPException(
+            409,
+            "The HNSW instrument is not available for Mosaic’s real catalog: its saved anchors "
+            "and exact neighbors belong to the historical catalog. "
+            "Use the live recall exercise in Lab 1 or the Scale & HNSW SQL exercise.",
+        )
+
+
+@app.get("/api/hnsw/substrate", dependencies=[Depends(require_hnsw_instrument_catalog)])
 def hnsw_substrate_route() -> dict[str, Any]:
     """Live HNSW index anatomy and storage split from the connected cluster."""
     try:
@@ -1078,7 +1092,7 @@ def hnsw_substrate_route() -> dict[str, Any]:
         ) from error
 
 
-@app.get("/api/hnsw/measured")
+@app.get("/api/hnsw/measured", dependencies=[Depends(require_hnsw_instrument_catalog)])
 def hnsw_measured_route() -> dict[str, Any]:
     """The committed measured benchmark artifact, with its provenance.
 
@@ -1092,7 +1106,7 @@ def hnsw_measured_route() -> dict[str, Any]:
         raise HTTPException(503, str(error)) from error
 
 
-@app.get("/api/hnsw/anchors")
+@app.get("/api/hnsw/anchors", dependencies=[Depends(require_hnsw_instrument_catalog)])
 def hnsw_anchors_route() -> dict[str, Any]:
     """The query anchors the instrument offers: the imaged retrieval anchors."""
     try:
@@ -1103,7 +1117,10 @@ def hnsw_anchors_route() -> dict[str, Any]:
         ) from error
 
 
-@app.get("/api/hnsw/neighborhood/{anchor_product_id}")
+@app.get(
+    "/api/hnsw/neighborhood/{anchor_product_id}",
+    dependencies=[Depends(require_hnsw_instrument_catalog)],
+)
 def hnsw_neighborhood_route(
     anchor_product_id: int,
     preset: str = Query(default="none"),
@@ -1118,7 +1135,13 @@ def hnsw_neighborhood_route(
         raise HTTPException(503, str(error)) from error
 
 
-@app.post("/api/hnsw/probe", dependencies=[Depends(require_model_admission)])
+@app.post(
+    "/api/hnsw/probe",
+    dependencies=[
+        Depends(require_hnsw_instrument_catalog),
+        Depends(require_model_admission),
+    ],
+)
 def hnsw_probe_route(request: HnswProbeRequest) -> dict[str, Any]:
     """Run the same ANN query twice and report what the server actually did.
 

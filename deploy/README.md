@@ -16,7 +16,7 @@ it is a fact owned by this repository rather than by the workshop:
 | `CATALOG_API_PROXY` | `ui/vite.config.ts` |
 | `service.main:app` | `service/main.py` |
 | `/api/health`, `/api/readiness` | the routes `service.main:app` registers |
-| `make db-bootstrap-base` | `Makefile` |
+| `make db-bootstrap-schema` | `Makefile` |
 | `us.cohere.embed-v4:0` | the default in `service/config.py` |
 | `python3.13`, `$REPO/.venv` | `check-python` and `VENV` in `Makefile` |
 

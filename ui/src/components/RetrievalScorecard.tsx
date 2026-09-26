@@ -136,9 +136,23 @@ function RetrievalQualitySection({
   quality,
   provenance,
 }: {
-  quality: ScorecardRetrievalQuality;
+  quality: ScorecardRetrievalQuality | null;
   provenance: ScorecardProvenance;
 }) {
+  if (!quality) {
+    return (
+      <section className="labs-scorecard-section" aria-labelledby="scorecard-quality-title">
+        <ScorecardSectionHeading id="scorecard-quality-title" index="A"
+          question="Can search find the right products?" technicalName="Maintainers’ test results" />
+        <div className="labs-scorecard-pending" role="status" data-testid="scorecard-metrics-pending">
+          <Clock aria-hidden="true" size={18} />
+          <div><strong>{SCORECARD_PENDING_HEADLINE}</strong>
+            <p>The real-catalog searches need a new measurement. Historical scores do not describe this catalog.</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
   const explanationRows = Object.entries(quality.metric_explanations);
   return (
     <section

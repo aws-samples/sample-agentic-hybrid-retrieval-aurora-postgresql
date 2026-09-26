@@ -12,7 +12,11 @@ QUERIES = [
     for line in QUERY_PATH.read_text(encoding="utf-8").splitlines()
     if line.strip()
 ]
-RESOLVED_QUERIES = load_evaluation_queries(QUERY_PATH)
+LEGACY_PATH = ROOT / "data/evals/historical/canonical_queries.jsonl"
+QUERIES += [json.loads(line) for line in LEGACY_PATH.read_text().splitlines()]
+RESOLVED_QUERIES = load_evaluation_queries(QUERY_PATH) + load_evaluation_queries(
+    LEGACY_PATH
+)
 
 
 def test_canonical_set_is_small_curated_and_unique():

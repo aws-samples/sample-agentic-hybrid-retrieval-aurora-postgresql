@@ -19,6 +19,7 @@ import json
 import os
 import sys
 import tarfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -234,6 +235,7 @@ def restore(directory: Path, contract: dict) -> dict:
         verify,
     )
 
+    started = time.monotonic()
     selection, paths = verify_selection(directory)
     if (selection["products"], selection["catalog_sha256"], len(paths) - 2) != (
         contract["products"],
@@ -279,13 +281,16 @@ def restore(directory: Path, contract: dict) -> dict:
             raise ValueError(
                 f"Real cache restore rule: incomplete import {report}; resume the pinned import."
             )
-        prepare_search(connection, dataset, base_ids)
+        search_report = prepare_search(connection, dataset, base_ids)
         prepare_live(connection, dataset)
         for category, state in samples:
             import_samples(connection, dataset, state, state["reviews"], category)
         if questions is not None:
             load_questions(connection, dataset, questions)
         connection.commit()
+    report["index_ensure_seconds"] = search_report["index_ensure_seconds"]
+    report["index_build_workers"] = search_report["index_build_workers"]
+    report["restore_seconds"] = round(time.monotonic() - started, 3)
     return report
 
 
@@ -301,6 +306,9 @@ def main() -> None:
     parser.add_argument("--questions", type=Path, help="questions.json export (export)")
     parser.add_argument("--contract", type=Path, default=CONTRACT)
     parser.add_argument("--dataset-id")
+    parser.add_argument(
+        "--report", type=Path, help="Write measured restore and index timings"
+    )
     args = parser.parse_args()
     if args.action == "export":
         if not args.selection or not args.dataset_id:
@@ -328,7 +336,10 @@ def main() -> None:
                     "restore requires --selection as an extraction destination"
                 )
             unpack(args.archive, args.selection, contract)
-            restore(args.selection, contract)
+            report = restore(args.selection, contract)
+            if args.report:
+                args.report.parent.mkdir(parents=True, exist_ok=True)
+                args.report.write_text(json.dumps(report, indent=2) + "\n")
     print(
         json.dumps(
             {

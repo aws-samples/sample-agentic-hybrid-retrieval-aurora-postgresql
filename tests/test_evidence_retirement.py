@@ -5,6 +5,7 @@ import uuid
 import numpy as np
 import pytest
 
+from service.catalog_runtime import search_schema
 from service.db import connect
 from service.models import RetrievalProfile
 
@@ -17,24 +18,28 @@ def test_retired_evidence_is_excluded_from_both_search_methods():
     vector = np.ones(1024, dtype=np.float32)
     with connect() as conn:
         try:
+            product_id = conn.execute(
+                "SELECT product_id FROM mosaic.product ORDER BY product_id LIMIT 1"
+            ).fetchone()["product_id"]
             ids = []
             for current in (True, False):
                 row = conn.execute(
                     """INSERT INTO mosaic.product_evidence
                     (product_id,evidence_type,source_name,evidence_title,evidence_text,
                      embedding_text,embedding,is_current)
-                    VALUES (1,'product_qa','Retirement test',%s,%s,%s,%s,%s)
+                    VALUES (%s,'product_qa','Retirement test',%s,%s,%s,%s,%s)
                     RETURNING evidence_id""",
-                    (query, query, query, vector, current),
+                    (product_id, query, query, query, vector, current),
                 ).fetchone()
                 ids.append(row["evidence_id"])
             for embedding in (None, vector):
                 rows = conn.execute(
-                    """SELECT evidence_id,lexical_score,semantic_score
-                    FROM mosaic_search.search_product_evidence(
-                        1,%s,%s::vector,ARRAY['product_qa']::mosaic.evidence_type[],
+                    f"""SELECT evidence_id,lexical_score,semantic_score
+                    FROM {search_schema()}.search_product_evidence(
+                        %s,%s,%s::vector,ARRAY['product_qa']::mosaic.evidence_type[],
                         %s,%s,%s,%s)""",
                     (
+                        product_id,
                         query,
                         embedding,
                         profile.result_limit,

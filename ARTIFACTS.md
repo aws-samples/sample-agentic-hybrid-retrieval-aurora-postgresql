@@ -12,7 +12,7 @@ Where the live state lives, what can be restored, and what cannot.
   saved Cohere Embed v4 vectors at 1024 dimensions. The original 500,000-row
   synthetic catalog remains separately in `mosaic` and `mosaic_search`.
 - The **Workshop Studio attendee path** creates a fresh encrypted cluster, loads
-  the base schemas and historical cache, then restores the hash-pinned real
+  shared schemas without synthetic rows, then restores the hash-pinned real
   catalog bundle and selects it for the app. This delivery path still requires
   a fresh-account rehearsal.
 - The historical cluster snapshot remains an operator recovery artifact, not a
@@ -23,17 +23,17 @@ Where the live state lives, what can be restored, and what cannot.
 
 Rationale is recorded in `docs/house-standards.md` §6. In short: the loaded state
 of the pre-rewrite `catalog.*` tree existed only in two local databases, they
-were dropped, and 553,911 rows of real embeddings cannot be reconstructed without
-re-embedding. Local state that nothing can restore is not a convenience.
+were dropped, and saved vectors cannot be reconstructed without re-embedding.
+State that nothing can restore is not a recovery plan.
 
 ## What is restorable
 
 | Artifact | Location | Restore path |
 |---|---|---|
-| Active real catalog + vectors | Aurora `mosaic_catalog_stage` / `mosaic_live_search` | `scripts/real_catalog_cache.py restore` after the base bootstrap; pinned by `db/config/real-catalog-cache.json` |
-| Historical catalog (rows only in the workshop) | Aurora `mosaic` / `mosaic_search` | `make db-bootstrap-base` into a fresh Aurora cluster; vectors only via the local historical cache |
-| Both query-coverage vocabularies | Workshop Studio `real-catalog/vocabulary/` assets | `scripts/corpus_vocabulary.py`; files and projection inputs pinned by `db/config/corpus-vocabulary-cache.json` |
-| Embedding cache | Workshop Studio assets / `build/embedding-cache/` | `make db-fetch-embeddings`, then verified import |
+| Active real catalog + vectors | Aurora `mosaic_catalog_stage` / `mosaic_live_search` | `scripts/real_catalog_cache.py restore` after `make db-bootstrap-schema`; pinned by `db/config/real-catalog-cache.json` |
+| Historical synthetic catalog | Existing operator Aurora databases only | Excluded from fresh workshops; never required by the real-catalog restore |
+| Real-catalog query-coverage vocabulary | Workshop Studio `real-catalog/vocabulary/` assets | `scripts/corpus_vocabulary.py`; files and projection inputs pinned by `db/config/corpus-vocabulary-cache.json` |
+| Historical embedding cache (operator only) | Operator cache / `build/embedding-cache/` | `make db-fetch-embeddings`, then verified import |
 | Normalized CSV shards | `build/normalized/` | `make db-prepare-mosaic` from `data/full/*.csv.gz` |
 | Premium cohort media | `ui/public/assets/images/mosaic/` | git; 126 files, content-verified |
 | Lab contract | `data/evals/mosaic_labs_missions.json` | git; validated by `make validate-missions` |
@@ -41,33 +41,26 @@ re-embedding. Local state that nothing can restore is not a convenience.
 
 ### Vocabulary restore
 
-Workshop bootstrap verifies the four compressed vocabulary files before loading
-either catalog. It then sets `MOSAIC_VOCABULARY_CACHE_DIR` for the historical and
-real-catalog restore steps. Each restore checks the PostgreSQL parser version,
-`simple` dictionaries, production vocabulary procedure hash, and a SHA-256 over
-every input field the procedure reads, ordered by product ID. A mismatch fails
-before replacing vocabulary rows. Import, row-count checks and index construction
-share one transaction, so a failed import preserves the previous vocabulary.
-Primary keys, the surface trigram index, `ANALYZE` and the existing bootstrap
-acceptance checks remain on the path.
+Workshop bootstrap verifies only the two `mosaic_live_search.*.csv.gz` vocabulary
+files before installing schemas. It sets `MOSAIC_VOCABULARY_CACHE_DIR` for the real
+catalog restore. The import verifies the PostgreSQL parser, dictionaries,
+production SQL and projection fingerprint before replacing rows. Row counts and
+index creation share one transaction.
 
-Ordinary operator runs without `MOSAIC_VOCABULARY_CACHE_DIR` execute
-`refresh_corpus_lexeme()` as before. To publish a new cache after changing the
-projection, vocabulary SQL or PostgreSQL version, use an Aurora connection and:
+To re-export the real vocabulary from Aurora and verify it:
 
 ```bash
 uv run python scripts/corpus_vocabulary.py export \
-  --directory build/corpus-vocabulary-cache \
+  --schema mosaic_live_search --directory build/corpus-vocabulary-cache \
   --contract db/config/corpus-vocabulary-cache.json
 uv run python scripts/corpus_vocabulary.py verify \
-  --directory build/corpus-vocabulary-cache
+  --directory build/corpus-vocabulary-cache --schema mosaic_live_search
 ```
 
-Export runs the actual production procedure against session-local tables and
-compares every row with both existing catalogs before writing the release
-contract. It does not mutate either production vocabulary. Publish all four
-`.csv.gz` files under `assets/real-catalog/vocabulary/` in the Workshop repository;
-the contract belongs in source control, while the data files remain ignored.
+Export recomputes the production vocabulary in session-local tables and compares
+every row before writing files. Publish only the two real-catalog vocabulary
+files in Workshop Studio. Historical vocabulary is an optional operator export,
+not a workshop dependency.
 
 ## What is not restorable
 

@@ -1126,7 +1126,7 @@ class RetrievalScorecardResponse(BaseModel):
     """
 
     provenance: ScorecardProvenance
-    retrieval_quality: ScorecardRetrievalQuality
+    retrieval_quality: ScorecardRetrievalQuality | None
     regression_anchors: ScorecardRegressionAnchors
     eligibility_contracts: ScorecardEligibilityContracts
     agent_contracts: ScorecardAgentContracts
