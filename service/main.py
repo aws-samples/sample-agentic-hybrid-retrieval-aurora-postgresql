@@ -24,7 +24,7 @@ from psycopg_pool import PoolTimeout
 
 from scripts.seed_exact_neighbors import StaleGroundTruth
 from scripts.tool_contracts import contracts_for_surface
-from service import hnsw
+from service import hnsw, session_memory
 from service.access_control import (
     acquire_model_admission_slot,
     assert_bootable,
@@ -316,10 +316,15 @@ def get_readiness() -> dict[str, Any]:
     if "catalog_ready" in database:
         database_ready = bool(database["catalog_ready"])
     bedrock_credentials = bedrock_credentials_status(settings.aws_region)
+    memory_status = session_memory.read_memory_status(Response())
+    memory_ready = memory_status["memory_status"] == "connected"
     return {
         "status": (
             "ready"
-            if database_ready and model_space_ready and bedrock_credentials["ready"]
+            if database_ready
+            and model_space_ready
+            and bedrock_credentials["ready"]
+            and memory_ready
             else "blocked"
         ),
         "database": database,
@@ -329,6 +334,8 @@ def get_readiness() -> dict[str, Any]:
             "agent": settings.agent_model_id,
             "synthesis": settings.synthesis_model_id,
         },
+        "memory_ready": memory_ready,
+        "memory": memory_status,
         "database_ready": database_ready,
         "model_space_ready": model_space_ready,
         "bedrock_credentials": bedrock_credentials,

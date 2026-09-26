@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from service.config import get_settings
 from service.db import connect
+from service.memory_contract import configuration_issues, describe_memory
 from service.models import AgentConversationContext, AgentRequest
 
 COOKIE = "mosaic_shopper"
@@ -38,6 +39,7 @@ class ConversationEvent(BaseModel):
 class MemoryQuery(BaseModel):
     model_config = ConfigDict(extra="forbid")
     query: str = Field(min_length=4, max_length=2000)
+    session_id: UUID | None = None
 
 
 def shopper_id(
@@ -132,32 +134,7 @@ def _own_session(connection, actor: str, session_id: UUID | str):
 
 def _configuration() -> dict:
     memory = control_client().get_memory(memoryId=_memory_id())["memory"]
-    return {
-        "memory_id": memory["id"],
-        "status": memory["status"],
-        "event_expiry_days": memory["eventExpiryDuration"],
-        "strategies": [
-            {
-                "id": item["strategyId"],
-                "name": item["name"],
-                "type": item["type"],
-                "status": item["status"],
-                "namespaces": item.get("namespaceTemplates")
-                or item.get("namespaces", []),
-                "reflection_namespaces": (
-                    item.get("configuration", {})
-                    .get("reflection", {})
-                    .get("episodicReflectionConfiguration", {})
-                    .get("namespaceTemplates")
-                    or item.get("configuration", {})
-                    .get("reflection", {})
-                    .get("episodicReflectionConfiguration", {})
-                    .get("namespaces", [])
-                ),
-            }
-            for item in memory.get("strategies", [])
-        ],
-    }
+    return describe_memory(memory)
 
 
 def scoped_namespaces(strategy: dict, actor: str, session_id: str | None) -> list[str]:
@@ -287,15 +264,23 @@ def read_memory_status(response: Response):
     """Check the shared connection without reading a shopper's saved history."""
     status = "connected" if get_settings().agentcore_memory_id else "not_configured"
     config = None
+    issues = []
     try:
         if status == "connected":
             config = _configuration()
-    except (ClientError, BotoCoreError):
+            issues = configuration_issues(config)
+            if issues:
+                status = "unavailable"
+    except (ClientError, BotoCoreError) as error:
         status = "unavailable"
+        issues = [
+            f"Memory lookup failed ({type(error).__name__}); check the Memory resource, region and application role permissions."
+        ]
     response.headers["Cache-Control"] = "no-store"
     return {
         "memory_status": status,
         "configuration": config,
+        **({"issues": issues} if issues else {}),
     }
 
 
@@ -431,16 +416,22 @@ def read_records(
         raise _memory_error() from error
 
 
-def recall_records(actor: str, query: str) -> list[dict]:
-    """Retrieve actor-scoped facts and preferences; leave product evidence in Aurora."""
-    records = []
+def recall_records(actor: str, query: str, session_id: str | None = None) -> list[dict]:
+    """Recall all four strategies within the owned actor and current session.
+
+    Summaries and episodes are session-scoped; episodic reflections, facts and
+    preferences can inform a new session without reading another session's events.
+    Product evidence always comes from fresh retrieval.
+    """
+    records = {}
     for strategy in _configuration()["strategies"]:
         if (
-            strategy["type"] not in {"SEMANTIC", "USER_PREFERENCE"}
+            strategy["type"]
+            not in {"SEMANTIC", "USER_PREFERENCE", "SUMMARIZATION", "EPISODIC"}
             or strategy["status"] != "ACTIVE"
         ):
             continue
-        for path in scoped_namespaces(strategy, actor, None):
+        for path in scoped_namespaces(strategy, actor, session_id):
             result = memory_client().retrieve_memory_records(
                 memoryId=_memory_id(),
                 namespace=path,
@@ -454,15 +445,26 @@ def recall_records(actor: str, query: str) -> list[dict]:
                 if item.get("memoryStrategyId") == strategy["id"] and path in item.get(
                     "namespaces", []
                 ):
-                    records.append({**_record(item), "strategy_type": strategy["type"]})
-    return records
+                    records[item["memoryRecordId"]] = {
+                        **_record(item),
+                        "strategy_type": strategy["type"],
+                    }
+    return list(records.values())
 
 
 @router.post("/recall")
 def recall_memory(query: MemoryQuery, request: Request, response: Response):
     response.headers["Cache-Control"] = "no-store"
+    actor = _actor(request)
+    if query.session_id:
+        with connect() as connection:
+            _own_session(connection, actor, query.session_id)
     try:
-        return {"records": recall_records(_actor(request), query.query)}
+        return {
+            "records": recall_records(
+                actor, query.query, str(query.session_id) if query.session_id else None
+            )
+        }
     except (ClientError, BotoCoreError) as error:
         raise _memory_error() from error
 
@@ -552,7 +554,12 @@ def prepare_request(
     if request.use_memory and get_settings().agentcore_memory_id:
         try:
             snapshot.update(
-                records=recall_records(actor, request.question), status="connected"
+                records=recall_records(
+                    actor,
+                    request.question,
+                    str(request.session_id) if request.session_id else None,
+                ),
+                status="connected",
             )
             if request.session_id:
                 snapshot["events"] = _events(actor, str(request.session_id))["events"][

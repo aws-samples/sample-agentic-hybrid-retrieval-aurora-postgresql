@@ -18,24 +18,24 @@ which starts off. Each opted-in answer has a **Memories used** section containin
 the records actually read, the number of earlier conversation events read, and
 whether saving the conversation succeeded. **View memories** opens the Playground
 inspector. Clearing chat starts a new session, keeping the same browser actor
-and saved facts and preferences. Follow-ups work from the current shortlist with
+and saved context from all four strategies. Follow-ups work from the current shortlist with
 memory off. Required lab requests keep memory off and do not offer this control.
 
 ## What the page shows
 
 The page uses **Facts**, **Preferences**, **Summaries**, and **Past outcomes**.
 **Save message** writes a conversation event; **Find relevant memories** searches
-saved facts and preferences. Technical configuration stays under **AWS settings
+saved context from all four strategies. Technical configuration stays under **AWS settings
 and documentation**. Structured records show a source-supplied preview when
 available, with the complete original retained under **Record details**.
 The table below maps the interface to the AgentCore API types.
 
-| AgentCore strategy | What it keeps | Mosaic scope |
+| Built-in strategy | What the agent uses it for | Recall scope |
 |---|---|---|
-| Semantic | Facts from conversation, such as Alex sharing an office | Across this actor's sessions |
-| User preference | Choices and preferences extracted from conversation | Across this actor's sessions |
-| Session summary | Topics and decisions within a conversation | One session |
-| Episodic | Completed interactions and outcomes, with reflections across episodes | Episodes per session; reflections per actor |
+| Semantic | Understand facts Alex shared, such as sharing an office | Across this actor's sessions |
+| User preference | Apply Alex's preferences when shaping a new search | Across this actor's sessions |
+| Summary | Maintain continuity using earlier topics and decisions | Current session |
+| Episodic | Learn from completed interactions and avoid repeating unsuccessful approaches | Current session's episodes; reflections across the actor's sessions |
 
 The strategy status and configuration come from GetMemory. Events come from
 ListEvents. The record inspector uses ListMemoryRecords; Recall uses
@@ -60,7 +60,27 @@ finished, and an empty record list is not a failure or a promise of a future
 record. Episodic extraction waits for a completed episode. The UI reports actual
 records and access errors separately, with a refresh action.
 
-## Enable it
+## Workshop provisioning
+
+Workshop Studio creates a dedicated `AWS::BedrockAgentCore::Memory` resource with
+these four built-in strategies. It grants the API role access to that resource and
+passes its ID into `MOSAIC_AGENTCORE_MEMORY_ID` through the bootstrap and systemd
+environment. Participants do not provision or connect Memory.
+
+Readiness requires the resource and all four strategies to be active, with the
+expected actor/session namespaces. Before signalling success, bootstrap runs
+`scripts/verify_session_memory.py` through the application API: save/read an event,
+list each strategy's records, recall context, and refuse another actor's session.
+This proves wiring and access, not asynchronous extraction or answer quality.
+Rehearse those in the participant account before delivery.
+
+The strategy definitions live in `service/memory_contract.py`; the workshop
+validator compares CloudFormation with them. Stack deletion removes its Memory
+resource, including long-term memories. Thirty-day event expiry is not a
+long-term record retention policy.
+
+## Operator setup outside Workshop Studio
+
 
 Apply `db/sql/10_agent_audit.sql` to the existing Aurora database. Fresh installs
 already apply it. The additive `mosaic.shopper_profile` table connects a browser
@@ -89,7 +109,10 @@ optional for the three required retrieval labs.
 
 Same-session Ask requests read recent conversation events and can resume the
 prior Aurora shortlist. A new session starts with no previous events or
-shortlist; facts and preferences remain retrievable under the same actor.
+shortlist; facts, preferences and episodic reflections remain retrievable under the same actor.
+Session summaries and episode records are retrieved only for an owned current session.
+All four strategies feed the agent prompt with their strategy type and record ID;
+the UI and Aurora receipt expose the records actually used.
 The prompt receives bounded memory text as untrusted context, with the current
 message taking priority. Application code does not turn memory into price or
 stock filters. Product eligibility, retrieval and citation validation stay on
