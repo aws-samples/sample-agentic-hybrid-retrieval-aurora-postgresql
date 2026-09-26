@@ -152,6 +152,105 @@ search-method contribution. Other eligible headphones are valid alternatives;
 this controlled example does not establish that semantic search always fails on
 typos.
 
+## Independent relevance corpus
+
+`data/evals/independent_relevance_queries.jsonl` ("IRC") is a third, separately
+named corpus. It exists because neither of the corpora above establishes
+relevance on unfamiliar queries: the canonical 21-query set is a teaching
+fixture pinned to lab missions, and the 720-case filter corpus asserts filter
+eligibility, never relevance. Run it with:
+
+```bash
+uv run python scripts/independent_relevance_eval.py --validate-only   # no model calls
+uv run python scripts/independent_relevance_eval.py                    # measured run
+```
+
+The runner reuses production machinery unchanged: `service.retrieval.get_retrieval_service()`
+for every search (the same entry point `scripts/score_evals.py` measures),
+`scripts.run_eval.validate_query_contract` and `require_single_served_catalog`
+for pre-flight eligibility, `scripts.evaluate.evaluate` for Recall/MRR/nDCG
+arithmetic, and `scripts.score_evals.search_with_db_retry` for transient
+connection retry. It never reimplements retrieval or scoring.
+
+### Split from the canonical set and from the ESCI tuning sweep
+
+`data/evals/esci_judged_subset.json`'s 141 queries are already fully spent:
+`scripts/evaluate_esci_k.py` swept RRF's `k` over every one of them, and
+`db/config/retrieval.yaml`'s `rrf_k: 60` reflects that sweep. Scoring final
+relevance quality on the same queries used to pick a retrieval parameter would
+be optimistic by construction, so this corpus does not reuse them, and does not
+reuse any canonical-scorecard query text or query_id either. `tests/test_independent_relevance_corpus.py::test_corpus_is_disjoint_from_the_canonical_and_esci_query_sets`
+pins this as a permanent check.
+
+### Coverage design: 24 queries, one per cell, and why
+
+The corpus crosses 4 catalog cohorts (`headphones`, `monitor`, `chair`, and
+`general` for genuinely cross-category requests) with 6 request-shape cohorts
+(`semantic_intent`, `ambiguous_language`, `typo_or_exact_identity`,
+`selective_filters`, `competing_preferences`, `unsatisfiable`), one query per
+cell, for 4 x 6 = 24 queries. This is a coverage probe, not a statistically
+powered sample: per-cohort N is 4 or 6 depending on which axis is aggregated,
+far too small for a confidence interval, and the report computes none. Growing
+this corpus should add cells -- a new intent shape, a new catalog cohort, or a
+second reviewed query per existing cell once Aurora and Bedrock access exist
+inside the authoring environment -- rather than duplicating cells for a larger
+N with no new coverage.
+
+### Judgment status vocabulary, and what a relevance claim requires
+
+Every judgment carries `"status"`, one of:
+
+- `"reviewed"`: the grade is directly traceable to a quoted or paraphrased fact
+  in `data/evals/real_catalog_lab_products.json` (the same file's `source`
+  field names the exact product), independent of any current price, stock, or
+  ranking.
+- `"provisional"`: the grade depends on something this authoring environment
+  cannot verify offline -- current Aurora-served price or stock state, or a
+  brand-tier/price inference rather than a quoted catalog fact. Provisional
+  judgments are real data, not filler; they are simply not yet load-bearing for
+  a certified relevance claim.
+
+**A relevance claim requires both a measured Aurora run and reviewed
+judgments.** The runner reports two tiers side by side -- `all_inclusive`
+(every judgment) and `reviewed_only` (status `"reviewed"` only, dropping any
+query left without a grade-2-or-3 reviewed judgment from that tier's own
+denominator) -- and only the `reviewed_only` tier measured against a live
+Aurora cluster supports a claim of the form "the served ranking is relevant on
+this cohort." A `--validate-only` run, an all-inclusive number, or any number
+produced without `DATABASE_URL` and Bedrock access is code completion over
+fixture data, not a relevance measurement, and must be labeled as such.
+
+### No-relevant-item and incomplete-judgment treatment
+
+A query with `"expect_no_relevant_results": true` is `unsatisfiable`: nothing
+in the reviewed evidence satisfies it, so Recall/MRR/nDCG are mathematically
+undefined for it (there is no relevant item to rank) and the runner never
+computes them there. It is instead scored on whether the service's own
+declared hard negatives leaked into the returned window, and on its result
+count, reported under `empty_result_behavior`, separate from the relevance
+metrics.
+
+A query that is *not* unsatisfiable but carries no judgment graded 2 or 3 is a
+`judgment_gap`: the corpus does not yet have enough review to score it. It is
+excluded from every relevance metric, and its `query_id` is printed under
+`denominator.judgment_gap_query_ids` in the report -- never silently absorbed
+into a shrinking "relevant found" count. A query that fails to run (a raised
+exception after retry) is likewise excluded from every metric it would have
+contributed to, listed by name under that tier's `excluded_due_to_failure`, and
+counted in `denominator.queries_failed`. The report always prints
+`queries_attempted` beside every scored count, so a shrunken denominator is
+always visible, per the house rule that a check must never hide a failure by
+narrowing what it counts.
+
+### Licensing and provenance
+
+Every judgment traces to `data/evals/real_catalog_lab_products.json`, which
+itself carries **unmodified source fields** from the served
+`reviews-2023-500k-v1` catalog (Amazon Reviews 2023). No ESCI or WANDS record
+is copied into this corpus; both remain confined to their existing, separately
+licensed uses (`data/evals/references/README.md`,
+`scripts/prepare_esci_judged_subset.py`).
+
 ## Reproducibility record
 
 For every published scorecard, retain:
