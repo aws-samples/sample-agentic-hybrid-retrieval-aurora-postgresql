@@ -641,7 +641,9 @@ async def stream_agent_answer(
         # the fallback synthesis call; see its docstring for what it cannot
         # stop -- a tool call or model round trip already in flight runs to
         # completion regardless, under its own bounded timeout.
-        agent_stream = get_product_discovery_agent().stream(request, admission_slot=slot)
+        agent_stream = get_product_discovery_agent().stream(
+            request, admission_slot=slot
+        )
         try:
             execution_path = (
                 "focused_follow_up" if request.context is not None else "full_retrieval"

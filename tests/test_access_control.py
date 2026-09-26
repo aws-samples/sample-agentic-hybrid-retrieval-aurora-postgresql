@@ -259,8 +259,18 @@ def test_streaming_route_holds_its_admission_slot_until_the_stream_completes(
     )
 
     class FakeStreamingAgent:
-        async def stream(self, _request):
-            yield {"agent_response": response}
+        # `service.main.stream_agent_answer` hands its acquired slot to
+        # whatever `.stream()` implementation `get_product_discovery_agent()`
+        # returns; `ProductDiscoveryAgent.stream` releases it through
+        # `release_run_admission` in its own `finally`, so a stand-in agent
+        # must do the same to keep this test meaningful about the route, not
+        # about the real class's internals.
+        async def stream(self, _request, admission_slot=None, **_kwargs):
+            try:
+                yield {"agent_response": response}
+            finally:
+                if admission_slot is not None:
+                    release_model_admission_slot(admission_slot)
 
     monkeypatch.setattr(
         "service.main.get_product_discovery_agent", lambda: FakeStreamingAgent()

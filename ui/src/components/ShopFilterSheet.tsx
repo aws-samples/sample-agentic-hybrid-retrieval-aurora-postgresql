@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronUp, Star, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import type { CSSProperties, Ref } from "react";
-import { EASE_OUT } from "../pages/CatalogPage";
+import { EASE_OUT } from "../motion";
 import { formatCategoryKey } from "../format";
 import type { Availability } from "../types";
 

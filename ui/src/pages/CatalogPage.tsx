@@ -70,6 +70,7 @@ import {
   playgroundQueryHref,
   useSearchParams,
 } from "../navigation";
+import { EASE_OUT } from "../motion";
 import { lockBodyScroll } from "../scrollLock";
 import "../shop-editorial.css";
 import type {
@@ -85,7 +86,6 @@ import type {
 const priceCeiling = 2000;
 const priceStep = 25;
 const priceCeilingCents = priceCeiling * 100;
-export const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
 const domainOptions: Array<{ value?: Domain; label: string }> = [
   { label: "All products" },

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { api } from "../api";
 import type { AgentStreamEvent, AgentStreamOptions } from "../api";
@@ -115,6 +116,53 @@ it("stop ends the in-flight turn as a normal state, not an error, and unblocks a
   await act(() => result.current.run("Try again"));
   expect(result.current.turns).toHaveLength(2);
   expect(result.current.turns[1].cancelled).toBe(false);
+  expect(result.current.turns[1].completed).toBe(true);
+});
+
+it("stops cleanly under StrictMode's double-invoked mount-time effect", async () => {
+  // The hook's own unmount effect follows the project's `requestVersion`
+  // idiom for exactly this reason (see `react-strictmode-effect-cleanup-trap`):
+  // StrictMode mounts, cleans up, and remounts once more before the test body
+  // runs, and a hook that is not ref-guarded would abort or lose a request
+  // that started only after that phantom cycle.
+  let emitted: ((event: AgentStreamEvent) => void) | undefined;
+  pendingStream((emit) => { emitted = emit; });
+  const { result } = renderHook(() => useAskMosaicConversation({}), {
+    wrapper: StrictMode,
+  });
+
+  act(() => { void result.current.run("Headphones for clearer calls"); });
+  await waitFor(() => expect(result.current.turns).toHaveLength(1));
+  expect(result.current.pending).toBe(true);
+
+  act(() => emitted?.({
+    type: "answer_delta",
+    delta: "The Sonora headphones are quiet enough for",
+  }));
+
+  await act(async () => {
+    result.current.stop();
+    await Promise.resolve();
+  });
+
+  expect(result.current.pending).toBe(false);
+  const [turn] = result.current.turns;
+  expect(turn.loading).toBe(false);
+  expect(turn.cancelled).toBe(true);
+  expect(turn.error).toBe("");
+  expect(turn.streamed).toBe("The Sonora headphones are quiet enough for");
+
+  vi.spyOn(api, "agentStream").mockImplementation(async (question, _filters, emit) => {
+    emit({
+      type: "complete",
+      response: {
+        agent_run_id: "run-2", question, answer: "A sourced answer.",
+        recommendations: [], citations: [], plan: [], trace: [],
+      },
+    });
+  });
+  await act(() => result.current.run("Try again"));
+  expect(result.current.turns).toHaveLength(2);
   expect(result.current.turns[1].completed).toBe(true);
 });
 

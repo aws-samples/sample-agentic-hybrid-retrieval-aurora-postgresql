@@ -48,6 +48,7 @@ from service.models import (
     SourceAttribution,
     TermCoverage,
 )
+from service.telemetry import AgentTurnObservation
 
 QUESTION = "replacement charging brick for model A2342"
 
@@ -998,3 +999,100 @@ def test_closing_the_stream_stops_scheduling_further_tools_and_synthesis(monkeyp
     assert released == [state], (
         "release_run_admission did not run on the cancelled path"
     )
+
+
+def test_closing_the_stream_during_the_fallback_tail_still_persists_and_finishes(
+    monkeypatch,
+):
+    """Rebase-review finding #1: a disconnect during fallback synthesis must
+    not skip persistence.
+
+    `_stream_fallback` forwards tool-trace progress from its worker thread
+    while `complete_grounded_answer` is still running; `stream()` re-yields
+    each one at `yield fallback_event`. Closing the outer stream while it is
+    suspended exactly there raises `GeneratorExit` at that point. Before this
+    fix, that skipped straight past `_persist` and `observation.finish`, so a
+    synthesis call that had already produced (or was about to produce) a
+    grounded answer never reached `mosaic.agent_turn` or the trace -- a
+    completed, billed run that simply vanished. `_stream_fallback`'s own
+    `asyncio.shield` already guarantees the synthesis call itself finishes
+    before its generator can close; this test proves the bookkeeping
+    afterward is no longer skipped.
+    """
+    import threading
+    import time
+
+    state = run_state(coverage=[grounded()])
+    _install_run(monkeypatch, state)
+    monkeypatch.setattr("service.agent.build_agent", _SilentStreamingAgent)
+
+    persisted: list[Any] = []
+    monkeypatch.setattr(
+        agent_tools,
+        "persist_completed_run",
+        lambda persisted_state, **_kw: persisted.append(
+            persisted_state["answer_of_record"]
+        ),
+    )
+    finish_calls: list[dict[str, Any]] = []
+    real_finish = AgentTurnObservation.finish
+
+    def spy_finish(self: AgentTurnObservation, **kwargs: Any) -> None:
+        finish_calls.append(kwargs)
+        real_finish(self, **kwargs)
+
+    monkeypatch.setattr(AgentTurnObservation, "finish", spy_finish)
+
+    entered, release = threading.Event(), threading.Event()
+
+    def fallback(question: str) -> None:
+        entered.set()
+        agent_tools._record(
+            "get_product_evidence",
+            {"product_id": 101},
+            time.perf_counter(),
+            result_count=1,
+            detail="Evidence returned by fallback",
+        )
+        assert release.wait(timeout=2), "event loop could not progress"
+        # Simulates a completed, billed synthesis: by the time the disconnect
+        # closes the stream, the answer of record already exists.
+        state["answer_of_record"] = {
+            "answer": "The Voltiq 65W GaN Charger fits your needs [1].",
+            "recommendations": [],
+            "citations": [],
+            "outcome": "grounded",
+            "decline_reason": None,
+            "usage": {},
+        }
+
+    monkeypatch.setattr(agent_tools, "complete_grounded_answer", fallback)
+
+    async def collect():
+        async def unblock():
+            await asyncio.to_thread(entered.wait, 2)
+            release.set()
+
+        other = asyncio.create_task(unblock())
+        stream = ProductDiscoveryAgent().stream(
+            AgentRequest(question=QUESTION, result_limit=2)
+        )
+        try:
+            # Drains the model loop's own event, then the two progress events
+            # `fallback`'s call to `agent_tools._record` enqueues, landing the
+            # generator at `yield fallback_event` with `fallback` itself
+            # blocked on `release.wait` in its worker thread.
+            await anext(stream)
+            await anext(stream)
+            await anext(stream)
+            await stream.aclose()
+        finally:
+            await other
+
+    asyncio.run(collect())
+
+    assert persisted and persisted[0] is not None, (
+        "the completed synthesis was never persisted after the disconnect"
+    )
+    assert finish_calls, "observation.finish did not run after the disconnect"
+    assert finish_calls[0]["status"] == "completed"

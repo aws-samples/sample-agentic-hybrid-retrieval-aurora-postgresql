@@ -1952,7 +1952,7 @@ def test_agent_stream_forwards_strands_tool_stages_and_validated_answer(monkeypa
     )
 
     class FakeStreamingAgent:
-        async def stream(self, _request):
+        async def stream(self, _request, **_kwargs):
             yield {"current_tool_use": {"name": "search_products"}}
             yield {"current_tool_use": {"name": "compare_products"}}
             yield {"current_tool_use": {"name": "synthesize_cited_answer"}}
@@ -1984,7 +1984,7 @@ def test_failed_stream_exposes_its_persisted_run_and_last_receipts(monkeypatch):
     run_id = str(uuid4())
 
     class FailedAgent:
-        async def stream(self, _request):
+        async def stream(self, _request, **_kwargs):
             yield {
                 "agent_partial": AgentPartial(
                     plan=[],
@@ -2058,7 +2058,7 @@ def test_agent_stream_uses_a_compact_path_for_grounded_followups(monkeypatch):
     )
 
     class FakeStreamingAgent:
-        async def stream(self, _request):
+        async def stream(self, _request, **_kwargs):
             yield {"current_tool_use": {"name": "compare_products"}}
             yield {"current_tool_use": {"name": "get_product_evidence"}}
             yield {"current_tool_use": {"name": "synthesize_cited_answer"}}
@@ -2110,7 +2110,7 @@ def test_agent_stream_returns_to_full_retrieval_when_followup_searches(monkeypat
     )
 
     class FakeStreamingAgent:
-        async def stream(self, _request):
+        async def stream(self, _request, **_kwargs):
             yield {"current_tool_use": {"name": "search_products"}}
             yield {"current_tool_use": {"name": "synthesize_cited_answer"}}
             yield {"agent_response": response}
@@ -2150,7 +2150,7 @@ def test_agent_stream_does_not_expose_exception_text(monkeypatch, caplog):
     sentinel = "SENSITIVE_AGENT_STACK"
 
     class FailingStreamingAgent:
-        async def stream(self, _request):
+        async def stream(self, _request, **_kwargs):
             if False:
                 yield {}
             raise RuntimeError(sentinel)
@@ -2218,7 +2218,7 @@ def test_stream_route_stops_scheduling_after_client_disconnect(monkeypatch):
     closed: list[bool] = []
 
     class DisconnectingAgent:
-        async def stream(self, _request):
+        async def stream(self, _request, **_kwargs):
             try:
                 yield {"current_tool_use": {"name": "search_products"}}
                 yield {"current_tool_use": {"name": "compare_products"}}
@@ -2294,7 +2294,7 @@ def test_invalid_followup_returns_conversation_recovery_in_both_transports(monke
         def answer(self, _request):
             raise agent_tools.ConversationContextError("PRIVATE_CONTEXT_DETAIL")
 
-        async def stream(self, _request):
+        async def stream(self, _request, **_kwargs):
             if False:
                 yield {}
             raise agent_tools.ConversationContextError("PRIVATE_CONTEXT_DETAIL")
@@ -2336,7 +2336,7 @@ def test_missing_sources_reports_the_repair_without_exception_text(
         def answer(self, _request):
             raise GroundingContractError("private source details")
 
-        async def stream(self, _request):
+        async def stream(self, _request, **_kwargs):
             if False:
                 yield {}
             raise GroundingContractError("private source details")
