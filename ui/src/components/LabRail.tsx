@@ -1,7 +1,6 @@
 import { ArrowRight, FileCode2 } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { api } from "../api";
 import { labStateCopy } from "../labStateCopy";
 import {
   coreMosaicLabs,
@@ -11,7 +10,7 @@ import {
   type MosaicLabMission,
   type MosaicLabStage,
 } from "../labMissions";
-import type { LabStateRecord } from "../types";
+import { useLabStates } from "../useLabStates";
 
 /**
  * Where the participant is, what they are here to change, and what the room
@@ -83,7 +82,10 @@ export function LabRail({ missionId, refreshKey = "" }: {
   const lab = activeCoreLab(missionId);
   const labNumber = coreMosaicLabs.indexOf(lab) + 1;
   const nextLab = coreMosaicLabs[labNumber];
-  const [labStates, setLabStates] = useState<LabStateRecord[] | null>(null);
+  // A new run or proof follows an out-of-band repair, so a changed mission or
+  // refresh key starts a new read -- the rail must not keep an old fault
+  // label beside a newly passing proof.
+  const { labStates } = useLabStates(`${missionId ?? ""}:${refreshKey}`);
   const [selectedStage, setSelectedStage] = useState<string | null>(
     () => stageFromHash(typeof window === "undefined" ? "" : window.location.hash),
   );
@@ -105,25 +107,6 @@ export function LabRail({ missionId, refreshKey = "" }: {
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, []);
-
-  /**
-   * A new run or proof follows an out-of-band repair. Refresh on those events
-   * so the rail cannot keep an old fault label beside a newly passing proof.
-   */
-  useEffect(() => {
-    let active = true;
-    api
-      .labsState()
-      .then((value) => {
-        if (active) setLabStates(value.labs);
-      })
-      .catch(() => {
-        if (active) setLabStates(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, [missionId, refreshKey]);
 
   const state = labStates?.find((record) => record.lab_id === labNumber) ?? null;
   const edit = lab.participant_edit;

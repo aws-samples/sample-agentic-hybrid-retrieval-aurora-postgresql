@@ -40,16 +40,18 @@ They are checkpoints inside three labs, not participant navigation.
 Opening the Playground (the header's third link, `/labs/retrieval` with no
 saved Shop search) leads with a "Required workshop path" panel: the three lab
 titles in order, each one's live repair state from `GET /api/labs/state`, and
-one action into the lab that still needs it -- "Start Lab 1" before anything is
-touched, "Continue Lab 2" or "Continue Lab 3" once the labs in front of it are
-repaired, "Review your labs" once all three are. Alex's other requests below it,
-Scale & HNSW, and Session & Memory are named as optional in the same panel; a
-participant can finish the required sequence without opening any of them.
-Inside a lab, `LabRail` keeps the same three facts in view: which lab, which of
-its four stages (Retrieve, Rank, Reason, Prove) is current, and the file the
-repair belongs in. Completion is never inferred from having visited a page --
-only `POST /api/labs/{id}/proof`, run from the Prove stage, can mark a lab
-passed.
+one action into the lab that still needs it. The service reports only whether a
+lab's file and database are currently repaired, not whether anyone has touched
+them yet, so the wording never claims that distinction: "Open Lab 1" while
+nothing in the sequence is repaired, "Continue Lab 2" or "Continue Lab 3" once
+at least one lab is, "Review your labs" once all three are. Alex's other
+requests below it, Scale & HNSW, and Session & Memory are named as optional in
+the same panel; a participant can finish the required sequence without opening
+any of them. Inside a lab, `LabRail` keeps the same three facts in view: which
+lab, which of its four stages (Retrieve, Rank, Reason, Prove) is current, and
+the file the repair belongs in. Completion is never inferred from having
+visited a page -- only `POST /api/labs/{id}/proof`, run from the Prove stage,
+can mark a lab passed.
 
 ## Lab 1 - Build hybrid retrieval
 

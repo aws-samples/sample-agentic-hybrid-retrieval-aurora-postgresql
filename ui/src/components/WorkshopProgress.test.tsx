@@ -23,7 +23,15 @@ function state(
   return { lab_id: labId, source_state: sourceState, database_state: databaseState, detail: "" };
 }
 
-const allBroken: LabStateResponse = {
+/**
+ * The ordinary steady state for a room that has not touched anything yet.
+ *
+ * `source_state: "broken"` is what a never-attempted lab reports *and* what a
+ * mid-repair one reports -- the API carries no fact that tells the two apart
+ * -- so this fixture is deliberately named for what it actually represents:
+ * a settled read, not a loading placeholder.
+ */
+const freshRoom: LabStateResponse = {
   labs: [
     state(1, "broken", "applied"),
     state(2, "broken", "not_applicable"),
@@ -50,8 +58,11 @@ describe("WorkshopProgress", () => {
 
   afterEach(cleanup);
 
-  it("names the three required labs as one sequence, in order", async () => {
-    vi.mocked(api.labsState).mockResolvedValue(allBroken);
+  it("renders every lab as 'Not checked' before the first read settles", () => {
+    // Deliberately synchronous and unresolved: this is the render React commits
+    // before `useLabStates`'s effect has had a turn of the microtask queue to
+    // resolve, not a claim about what the panel says once data has arrived.
+    vi.mocked(api.labsState).mockReturnValue(new Promise(() => {}));
     render(<WorkshopProgress />);
 
     const section = screen.getByRole("region", { name: "Retrieve → Rank → Reason" });
@@ -66,12 +77,22 @@ describe("WorkshopProgress", () => {
     ]);
   });
 
-  it("invites a fresh participant into Lab 1 before any lab state is known", () => {
-    vi.mocked(api.labsState).mockReturnValue(new Promise(() => {}));
+  it("opens 'Open Lab 1', not 'Continue', once a never-touched room's real state has loaded", async () => {
+    // Regression for the bug this test replaced: mocking a promise that never
+    // resolves only exercised the loading flicker, so the real steady state
+    // -- every lab reporting "broken" once `/api/labs/state` actually answers
+    // -- was never asserted. "broken" also flips `workshopLabStatus` to
+    // "needs_repair", not "not_checked", the moment the read settles, and the
+    // CTA has no repaired lab yet to justify "Continue".
+    vi.mocked(api.labsState).mockResolvedValue(freshRoom);
     render(<WorkshopProgress />);
 
-    const cta = screen.getByRole("link", { name: `Start ${labOne.title}` });
+    const cta = await screen.findByRole("link", { name: `Open ${labOne.title}` });
     expect(cta.getAttribute("href")).toBe(retrievalExampleHref(labOne));
+    expect(screen.queryByRole("link", { name: `Start ${labOne.title}` })).toBeNull();
+    expect(screen.queryByRole("link", { name: `Continue ${labOne.title}` })).toBeNull();
+    // Every lab reads "Needs repair", not "Not checked", once the read settles.
+    expect(within(screen.getByRole("region", { name: "Retrieve → Rank → Reason" })).getAllByText("Needs repair")).toHaveLength(3);
   });
 
   it("points the primary action at the first lab that is not yet repaired", async () => {
@@ -95,6 +116,24 @@ describe("WorkshopProgress", () => {
     expect(nextLink.getAttribute("aria-current")).toBe("step");
     const firstLink = screen.getByRole("link", { name: `${labOne.title}Repaired` });
     expect(firstLink.getAttribute("aria-current")).toBeNull();
+  });
+
+  it("says 'Continue', not 'Open', for Lab 2 even when Lab 1 is the one still broken", async () => {
+    // An out-of-order repair (Lab 2's SQL applied while Lab 1's file is still
+    // broken) is an unusual room, not an impossible one. Once *any* lab is
+    // repaired the participant has plainly started, so nothing downstream may
+    // read "Open" -- only the untouched-sequence case may.
+    vi.mocked(api.labsState).mockResolvedValue({
+      labs: [
+        state(1, "broken", "applied"),
+        state(2, "solved", "applied"),
+        state(3, "broken", "not_applicable"),
+      ],
+    });
+    render(<WorkshopProgress />);
+
+    const cta = await screen.findByRole("link", { name: `Continue ${labOne.title}` });
+    expect(cta.getAttribute("href")).toBe(retrievalExampleHref(labOne));
   });
 
   it("routes Lab 3 into Shop, the same way LabRail's next-lab link does", async () => {
@@ -132,15 +171,39 @@ describe("WorkshopProgress", () => {
     render(<WorkshopProgress />);
 
     await waitFor(() => {
-      expect(screen.getByRole("link", { name: `Start ${labOne.title}` })).toBeTruthy();
+      expect(screen.getByRole("link", { name: `Open ${labOne.title}` })).toBeTruthy();
     });
     expect(screen.queryByText("Repaired")).toBeNull();
     expect(screen.queryByText("Needs repair")).toBeNull();
     expect(screen.getAllByText("Not checked")).toHaveLength(3);
   });
 
+  it("shows a distinct, reloadable message when the lab-state read fails, and keeps the entry usable", async () => {
+    vi.mocked(api.labsState).mockRejectedValue(new Error("lab state unavailable"));
+    render(<WorkshopProgress />);
+
+    const status = await screen.findByRole("status");
+    expect(status.textContent).toBe("Lab state unavailable; reload to retry.");
+    // Not the same message a fresh, un-fetched panel would also show while
+    // loading -- a participant deciding whether to reload needs the two told
+    // apart, not both spelled "Not checked".
+    expect(screen.getAllByText("Not checked")).toHaveLength(3);
+    // The panel keeps a real, working action rather than going dead on error.
+    const cta = screen.getByRole("link", { name: `Open ${labOne.title}` });
+    expect(cta.getAttribute("href")).toBe(retrievalExampleHref(labOne));
+  });
+
+  it("shows no failure line while a read is only in flight, or once one has settled", async () => {
+    vi.mocked(api.labsState).mockResolvedValue(freshRoom);
+    render(<WorkshopProgress />);
+
+    expect(screen.queryByText(/Lab state unavailable/)).toBeNull();
+    await screen.findByRole("link", { name: `Open ${labOne.title}` });
+    expect(screen.queryByText(/Lab state unavailable/)).toBeNull();
+  });
+
   it("keeps every lab and the primary action reachable as a plain, focusable link", async () => {
-    vi.mocked(api.labsState).mockResolvedValue(allBroken);
+    vi.mocked(api.labsState).mockResolvedValue(freshRoom);
     render(<WorkshopProgress />);
 
     const links = screen.getAllByRole("link");

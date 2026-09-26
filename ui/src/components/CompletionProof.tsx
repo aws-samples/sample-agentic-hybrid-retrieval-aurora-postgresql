@@ -2,7 +2,7 @@ import { AlertTriangle, Download, LoaderCircle, ShieldCheck } from "lucide-react
 import { useEffect, useRef, useState } from "react";
 import { ApiError, api } from "../api";
 import { coreMosaicLabs } from "../labMissions";
-import { labStateCopy } from "../labStateCopy";
+import { isLabRepaired, labStateCopy } from "../labStateCopy";
 import type { CompletionProofResponse } from "../types";
 import { shortEventId } from "./RunSummary";
 
@@ -113,20 +113,20 @@ function ProofEvidence({ proof }: { proof: CompletionProofResponse }) {
  * `service/lab_proof.py` fails a lab whose source still holds the broken block
  * or whose database is stale *regardless* of the checks, so the taught
  * "repaired the file, never re-applied it" case arrives here as FAIL with
- * every check green and nothing under it to act on.
+ * every check green and nothing under it to act on. `isLabRepaired` is the
+ * same repaired/not-repaired boolean `WorkshopProgress` reads for its status
+ * chip; this only adds which of the two causes to name.
  */
 function failureReason(proof: CompletionProofResponse): string | null {
+  if (isLabRepaired(proof)) return null;
   if (proof.source_state === "broken") {
     // Named before the database: applying an unrepaired file installs the
     // broken function, so the file is the first thing to fix.
     return "The source file still holds the broken block."
       + " Apply the repair in Code Editor.";
   }
-  if (proof.database_state === "stale") {
-    return "The source file is repaired but the database still holds the old"
-      + " function. Run make db-apply-search-functions.";
-  }
-  return null;
+  return "The source file is repaired but the database still holds the old"
+    + " function. Run make db-apply-search-functions.";
 }
 
 function ProofDetail({ proof }: { proof: CompletionProofResponse }) {

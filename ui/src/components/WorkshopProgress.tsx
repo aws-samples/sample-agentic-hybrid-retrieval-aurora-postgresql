@@ -1,26 +1,23 @@
 import { ArrowRight } from "lucide-react";
-import { useEffect, useState } from "react";
 import { Link } from "wouter";
-import { api } from "../api";
+import { isLabRepaired } from "../labStateCopy";
 import { coreMosaicLabs, retrievalExampleHref, type MosaicLabMission } from "../labMissions";
+import { useLabStates } from "../useLabStates";
 import type { LabStateRecord } from "../types";
 
 export type WorkshopLabStatus = "not_checked" | "needs_repair" | "repaired";
 
 /**
- * Whether one lab counts as repaired, collapsed from the same two-part
- * condition `labStateCopy` renders as two separate chips elsewhere: the
- * exercise file holds the fix, and Aurora holds the SQL that backs it.
+ * Collapse one lab's raw state into the three statuses this panel shows.
  *
- * A lab whose file is repaired but whose database still holds the old
- * function is not repaired -- that gap is exactly what a single `solved`
- * flag would hide, and it is a state the workshop actually produces (editing
- * a file without re-applying it to Aurora).
+ * `isLabRepaired` is the single, shared repaired/not-repaired boolean
+ * (`../labStateCopy`); this only adds the third case a bare boolean cannot
+ * express -- no record for this lab has come back yet, which must read as
+ * "not checked" rather than as either a pass or a fault.
  */
 export function workshopLabStatus(record: LabStateRecord | null): WorkshopLabStatus {
   if (!record) return "not_checked";
-  const repaired = record.source_state === "solved" && record.database_state !== "stale";
-  return repaired ? "repaired" : "needs_repair";
+  return isLabRepaired(record) ? "repaired" : "needs_repair";
 }
 
 const STATUS_LABEL: Record<WorkshopLabStatus, string> = {
@@ -38,6 +35,22 @@ function nextLab(
 }
 
 /**
+ * The action label for the lab named by `next`, or the all-done case.
+ *
+ * There is no API fact that tells "never attempted" from "attempted and
+ * still broken" apart -- a fresh account and a mid-repair one both report
+ * `source_state: "broken"` -- so the wording cannot promise to know which one
+ * this is. "Open Lab 1" is the honest word for "the first lab, nothing in the
+ * sequence is repaired yet"; once any lab is repaired the participant has
+ * plainly started, and every later lab reads "Continue".
+ */
+function ctaLabel(next: { lab: MosaicLabMission; index: number } | null, anyRepaired: boolean): string {
+  if (!next) return "Review your labs";
+  if (next.index === 0 && !anyRepaired) return `Open ${next.lab.title}`;
+  return `Continue ${next.lab.title}`;
+}
+
+/**
  * The one place the required sequence is named as a sequence, with a single
  * action into it.
  *
@@ -46,44 +59,26 @@ function nextLab(
  * comparisons); nothing said which three labs are the actual session, in
  * what order, or where to start. This is that entry.
  *
- * It reads `GET /api/labs/state` -- the same cheap, side-effect-free call
- * `LabRail` already polls while a participant works -- rather than
- * `POST /api/labs/{id}/proof`, because a landing page must not spend a live
- * Aurora search just from being opened. Per house standard 3 (probes run the
- * production path) the *lab* pages still grade completion against the proof
- * endpoint; this panel only ever claims what the cheap read supports, and a
- * request that has not returned, or has failed, reports every lab "Not
- * checked" rather than guessing a status.
+ * It reads `GET /api/labs/state` through the shared `useLabStates` hook --
+ * the same cheap, side-effect-free call `LabRail` already polls while a
+ * participant works -- rather than `POST /api/labs/{id}/proof`, because a
+ * landing page must not spend a live Aurora search just from being opened.
+ * Per house standard 3 (probes run the production path) the *lab* pages
+ * still grade completion against the proof endpoint; this panel only ever
+ * claims what the cheap read supports. A request that has not returned yet
+ * reports every lab "Not checked" the same way a failed one does, but a
+ * failed read also says so directly, since the two are not the same thing to
+ * a participant deciding whether to reload.
  */
 export function WorkshopProgress() {
-  const [labStates, setLabStates] = useState<LabStateRecord[] | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    api
-      .labsState()
-      .then((value) => {
-        if (active) setLabStates(value.labs);
-      })
-      .catch(() => {
-        if (active) setLabStates(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+  const { labStates, failed } = useLabStates();
 
   const statuses = coreMosaicLabs.map((lab, index) =>
     workshopLabStatus(labStates?.find((record) => record.lab_id === index + 1) ?? null),
   );
   const next = nextLab(statuses);
-  const started = statuses.some((status) => status !== "not_checked");
+  const anyRepaired = statuses.some((status) => status === "repaired");
   const ctaTarget = next ? next.lab : coreMosaicLabs[0];
-  const ctaLabel = !next
-    ? "Review your labs"
-    : next.index === 0 && !started
-      ? `Start ${next.lab.title}`
-      : `Continue ${next.lab.title}`;
 
   return (
     <section className="workshop-entry" aria-labelledby="workshop-entry-title">
@@ -95,6 +90,11 @@ export function WorkshopProgress() {
           Scale &amp; HNSW, and Session &amp; Memory are all optional and are not
           needed to finish it.
         </p>
+        {failed ? (
+          <p className="workshop-entry-status" role="status">
+            Lab state unavailable; reload to retry.
+          </p>
+        ) : null}
       </div>
       <ol className="workshop-entry-labs">
         {coreMosaicLabs.map((lab, index) => (
@@ -115,7 +115,7 @@ export function WorkshopProgress() {
         ))}
       </ol>
       <Link className="workshop-entry-cta primary-button" href={retrievalExampleHref(ctaTarget)}>
-        {ctaLabel}
+        {ctaLabel(next, anyRepaired)}
         <ArrowRight size={16} aria-hidden="true" />
       </Link>
     </section>

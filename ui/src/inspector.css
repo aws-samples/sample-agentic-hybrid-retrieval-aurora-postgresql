@@ -116,7 +116,7 @@
   display: block;
   margin-bottom: 6px;
   color: var(--maroon-800);
-  font-size: 13px;
+  font-size: var(--labs-micro);
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -124,15 +124,20 @@
 .workshop-entry-copy h2 {
   margin: 0;
   font-family: var(--display);
-  font-size: 19px;
+  font-size: var(--labs-h3);
   font-weight: 500;
 }
 .workshop-entry-copy p {
   max-width: 65ch;
   margin: 8px 0 0;
   color: var(--ink-soft);
-  font-size: 15px;
+  font-size: var(--labs-body);
   line-height: 1.6;
+}
+.workshop-entry-status {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
 }
 .workshop-entry-labs {
   display: flex;
@@ -142,7 +147,10 @@
   margin: 0;
   list-style: none;
 }
-.workshop-entry-labs li { display: contents; }
+/* The <li> stays a real flex item -- not `display: contents` -- so the list
+   semantics some browser and assistive-technology combinations drop under
+   `contents` survive. */
+.workshop-entry-labs li { display: flex; }
 .workshop-entry-labs a {
   display: flex;
   align-items: center;
@@ -165,12 +173,12 @@
   border-radius: 50%;
   background: var(--maroon-900);
   color: var(--paper-strong);
-  font-size: 13px;
+  font-size: var(--labs-detail);
   font-weight: 600;
 }
 .workshop-entry-lab-copy { display: flex; flex-direction: column; }
-.workshop-entry-lab-copy strong { font-size: 15px; font-weight: 500; }
-.workshop-entry-lab-copy small { color: var(--ink-soft); font-size: 13px; }
+.workshop-entry-lab-copy strong { font-size: var(--labs-body); font-weight: 500; }
+.workshop-entry-lab-copy small { color: var(--ink-soft); font-size: var(--labs-detail); }
 .workshop-entry-labs li[data-status="repaired"] .workshop-entry-lab-copy small { color: var(--green); }
 .workshop-entry-cta {
   justify-self: start;

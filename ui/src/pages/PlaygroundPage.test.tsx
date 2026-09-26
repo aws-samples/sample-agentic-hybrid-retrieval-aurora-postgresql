@@ -440,11 +440,11 @@ it("says the measured comparison is waiting when the artifact is not attributed 
   expect(screen.queryByRole("table", { name: "Scores for each search method" })).toBeNull();
 });
 
-it("opens on the default landing with the required workshop path in front of Alex's requests", () => {
+it("opens on the default landing with the required workshop path in front of Alex's requests", async () => {
   render(<PlaygroundPage />);
   const workshop = screen.getByRole("region", { name: "Retrieve → Rank → Reason" });
   expect(within(workshop).getByText("Required workshop path")).toBeTruthy();
-  const cta = within(workshop).getByRole("link", { name: `Start ${coreMosaicLabs[0].title}` });
+  const cta = await within(workshop).findByRole("link", { name: `Open ${coreMosaicLabs[0].title}` });
   expect(cta.getAttribute("href")).toBe(`/labs/retrieval?example=${coreMosaicLabs[0].id}`);
   // It reads above Alex's ungraded requests, not inside or after them.
   const nav = screen.getByRole("navigation", { name: "Alex’s requests" });
