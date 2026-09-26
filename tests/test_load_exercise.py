@@ -358,6 +358,11 @@ def test_run_exercise_reports_recovery_after_the_server_starts_answering_again()
     fail_until = 2
 
     def handler(request: httpx.Request) -> httpx.Response:
+        # run_exercise now reads /api/readiness once before the load starts and
+        # once after; keep those admission-context reads off the load-phase
+        # failure budget below, or the "before" read consumes the first slot.
+        if request.url.path == "/api/readiness":
+            return httpx.Response(200, json={"status": "ready"})
         time.sleep(0.05)
         with lock:
             call_counts["total"] += 1
@@ -387,3 +392,87 @@ def test_run_exercise_reports_recovery_after_the_server_starts_answering_again()
     assert report["error_count"] >= fail_until
     assert report["recovery"]["recovered"] is True
     assert report["recovery"]["recovered_after_seconds"] is not None
+
+
+def test_run_exercise_reads_admission_context_before_and_after_the_load():
+    """Red before the fix (finding 4): admission_context was read exactly once,
+    after the load loop finished, so a reviewer could never tell whether the
+    server's declared limits held steady or changed once traffic hit it."""
+    call_log: list[tuple[str, str]] = []
+    lock = threading.Lock()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        with lock:
+            call_log.append((request.method, request.url.path))
+        if request.url.path == "/api/readiness":
+            return httpx.Response(
+                200, json={"admission": {"max_concurrent_requests": 4}}
+            )
+        return httpx.Response(200, json={"diagnostics": {}, "results": []})
+
+    config = _config(
+        duration_seconds=0.2,
+        concurrency=2,
+        check_interval_seconds=0.02,
+        min_samples_before_abort=10_000,
+        mix_weights={"search": 1.0, "fusion": 0.0, "agent": 0.0},
+    )
+    with _mock_client(handler) as client:
+        report = run_exercise(client, config)
+
+    readiness_indices = [
+        index for index, (_, path) in enumerate(call_log) if path == "/api/readiness"
+    ]
+    assert len(readiness_indices) >= 2, "expected a before read and an after read"
+    assert readiness_indices[0] == 0, "the before read must be the very first call"
+    load_calls_before_last_readiness = [
+        index
+        for index, (_, path) in enumerate(call_log)
+        if path != "/api/readiness" and index < readiness_indices[-1]
+    ]
+    assert load_calls_before_last_readiness, (
+        "expected at least one load request between the before and after reads"
+    )
+    expected_limits = {"source": "served", "limits": {"max_concurrent_requests": 4}}
+    assert report["admission_context"]["before"] == expected_limits
+    assert report["admission_context"]["after"] == expected_limits
+
+
+def test_run_exercise_probes_recovery_after_a_self_clearing_saturation_burst():
+    """Red before the fix (finding 5): recovery only ran when abort_reason was
+    set, so a 429/503 burst that cleared on its own before the error-rate
+    ceiling tripped left `recovery` null despite a nonzero saturation signal."""
+    call_counts = Counter()
+    lock = threading.Lock()
+    fail_until = 2
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/readiness":
+            return httpx.Response(200, json={"status": "ready"})
+        with lock:
+            call_counts["total"] += 1
+            current = call_counts["total"]
+        if current <= fail_until:
+            return httpx.Response(429, json={"detail": "rate limited"})
+        return httpx.Response(200, json={"diagnostics": {}, "results": []})
+
+    config = _config(
+        duration_seconds=0.3,
+        concurrency=2,
+        check_interval_seconds=0.02,
+        error_rate_ceiling=0.99,
+        # High enough that the transient 429 burst never crosses the ceiling
+        # within this short run, so abort_reason stays None on its own.
+        min_samples_before_abort=1_000_000,
+        latency_ceiling_ms=60_000.0,
+        recovery_window_seconds=2.0,
+        recovery_probe_interval_seconds=0.01,
+        mix_weights={"search": 1.0, "fusion": 0.0, "agent": 0.0},
+    )
+    with _mock_client(handler) as client:
+        report = run_exercise(client, config)
+
+    assert report["abort_reason"] is None
+    assert report["saturation_signals"]["429"] >= 1
+    assert report["recovery"] is not None
+    assert report["recovery"]["recovered"] is True

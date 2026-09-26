@@ -54,7 +54,8 @@ PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	test db-render db-prepare-mosaic \
 	db-embed simulate db-export-embeddings db-import-embeddings \
 	verify-embedding-cache db-configure-retrieval lab-status validate-lab-3 solution-lab-3 api-serve \
-	mcp-install check-bootstrap-release validate-release-workflow
+	mcp-install check-bootstrap-release validate-release-workflow \
+	rehearsal-validate rehearsal-summary load-exercise
 
 $(PYTHON_TARGETS): check-python
 

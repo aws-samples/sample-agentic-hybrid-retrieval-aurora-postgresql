@@ -26,18 +26,20 @@ It is opt-in and bounded on purpose:
   rather than needing an operator watching a terminal to Ctrl-C it.
 
 A separate agent on another branch is adding admission control and rate
-limits to the API. This script does not assume that work has landed: at
-startup it reads `GET /api/readiness` and looks for a served admission/rate
-limit block under a handful of plausible keys (`admission`,
-`admission_control`, `rate_limit`, `rate_limiting`). When present, it is
-echoed into the report under `admission_context` with `source: "served"` so a
-reviewer can compare what the server claims against what this run measured.
-When absent, `--expected-max-concurrent-requests` supplies the same slot from
-the command line with `source: "cli_flag"`, and `source: "unknown"` when
-neither is available. Nothing here changes its own concurrency based on the
-discovered value -- the whole point of the exercise is to probe the server's
-admission behavior, which sometimes means running well above its declared
-ceiling on purpose.
+limits to the API. This script does not assume that work has landed: it reads
+`GET /api/readiness` once before the first worker starts and once more after
+the run ends, and looks for a served admission/rate limit block under a
+handful of plausible keys (`admission`, `admission_control`, `rate_limit`,
+`rate_limiting`). Both reads are echoed into the report under
+`admission_context.before` and `admission_context.after`, each independently
+`source: "served"` when found, so a reviewer can see whether the server's
+declared limits changed across the run, not just what they were when it
+finished. When absent, `--expected-max-concurrent-requests` supplies the same
+slot from the command line with `source: "cli_flag"`, and `source: "unknown"`
+when neither is available. Nothing here changes its own concurrency based on
+the discovered value -- the whole point of the exercise is to probe the
+server's admission behavior, which sometimes means running well above its
+declared ceiling on purpose.
 
 "Cold" and "warm" are operator-declared, not inferred. There is no reliable,
 server-observable signal in this codebase for "this is the first request
@@ -146,7 +148,8 @@ class LoadExerciseConfig:
             )
         if sum(self.mix_weights.values()) <= 0:
             raise LoadExerciseError(
-                "found all mix weights at zero; fix: give at least one request kind a positive weight"
+                "found all mix weights at zero; "
+                "fix: give at least one request kind a positive weight"
             )
         if not 0 < self.error_rate_ceiling <= 1:
             raise LoadExerciseError(
@@ -457,6 +460,10 @@ def build_report(
 
 def run_exercise(client: Any, config: LoadExerciseConfig) -> dict[str, Any]:
     """Drive the bounded mix for `config.duration_seconds` or until an abort trips."""
+    # Read before any worker starts, so a reviewer can tell what the server
+    # claimed its admission limits were walking in, separately from whatever
+    # it claims once this run has (possibly) pushed it into saturation.
+    admission_before = admission_context(client, config)
     state = RunState(started_monotonic=time.monotonic())
     stop_event = threading.Event()
     threads = [
@@ -495,17 +502,24 @@ def run_exercise(client: Any, config: LoadExerciseConfig) -> dict[str, Any]:
         agent_calls_issued = state.agent_calls_issued
     wall_clock_seconds = time.monotonic() - state.started_monotonic
 
+    # Trigger on either signal: a burst of 429/503 that self-clears before the
+    # cumulative error-rate ceiling ever trips would otherwise leave recovery
+    # null, even though it is exactly the saturation/recovery behavior this
+    # exercise exists to observe.
+    saturation_hit = any(
+        sample.status_code in SATURATION_STATUS_CODES for sample in final_samples
+    )
     recovery = None
-    if abort_reason and config.recovery_window_seconds > 0:
+    if (abort_reason or saturation_hit) and config.recovery_window_seconds > 0:
         recovery = _probe_recovery(client, config)
 
-    admission = admission_context(client, config)
+    admission_after = admission_context(client, config)
     return build_report(
         config,
         final_samples,
         abort_reason=abort_reason,
         recovery=recovery,
-        admission=admission,
+        admission={"before": admission_before, "after": admission_after},
         wall_clock_seconds=wall_clock_seconds,
         agent_calls_issued=agent_calls_issued,
     )

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import copy
 import json
+from pathlib import Path
 
 import httpx
 import pytest
@@ -27,6 +28,7 @@ from scripts.rehearsal import (
     new_manifest,
     parse_bootstrap_timings,
     record_cold_warm,
+    record_first_query,
     record_layout,
     redact,
     upsert_stage,
@@ -88,6 +90,13 @@ def test_a_manifest_missing_a_required_stage_is_rejected():
         _shaped_like_an_aws_access_key_id(),
         "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9abcdef",
         'password: "hunter2-actually-long-enough"',
+        # An STS session credential, header or query form (deploy/mosaic-bootstrap.sh
+        # forwards these when the Code Editor instance role assumes a role).
+        "X-Amz-Security-Token: FQoGZXIvYXdzFAKEsessiontoken1234567890abcdef",
+        # Workshop Studio's CodeEditorURL carries a bare tkn= token
+        # (deploy/README.md); token= is the generic form of the same shape.
+        "https://codeeditor.example.com/?tkn=abcDEF123456ghijKLM789fake",
+        "https://example.com/callback?token=abcDEF123456ghijKLM789fake",
     ],
 )
 def test_an_unredacted_secret_is_rejected(leak):
@@ -315,6 +324,254 @@ def test_capture_identity_fails_when_the_deployment_reports_blocked():
     finally:
         client.close()
     assert manifest["stages"]["deployment_identity"]["status"] == "failed"
+
+
+def test_capture_identity_records_elapsed_seconds_when_timestamps_are_given():
+    """Red before the fix: capture_identity used to drop --started-at/--ended-at,
+    so deployment_identity.elapsed_seconds stayed null forever and the timing
+    rollup, and therefore overall_status, could never reach "complete"."""
+    manifest = new_manifest()
+    client = _mock_client(
+        {
+            "/api/health": (200, {"status": "ok", "models": {}}),
+            "/api/readiness": (
+                200,
+                {
+                    "status": "ready",
+                    "database": {},
+                    "configured_models": {},
+                    "source": {},
+                },
+            ),
+        }
+    )
+    try:
+        capture_identity(
+            manifest,
+            api_url="http://workshop-host",
+            timeout=5.0,
+            started_at="2026-01-01T00:00:00+00:00",
+            ended_at="2026-01-01T00:05:00+00:00",
+            client=client,
+        )
+    finally:
+        client.close()
+    assert manifest["stages"]["deployment_identity"]["elapsed_seconds"] == 300.0
+
+
+def test_record_first_query_stores_latency_without_disturbing_status_or_detail():
+    manifest = new_manifest()
+    manifest["stages"]["deployment_identity"]["status"] = "passed"
+    manifest["stages"]["deployment_identity"]["detail"] = "already captured"
+    client = _mock_client(
+        {"/api/search": (200, {"diagnostics": {"total_latency_ms": 88}, "results": []})}
+    )
+    try:
+        record_first_query(
+            manifest, api_url="http://workshop-host", timeout=5.0, client=client
+        )
+    finally:
+        client.close()
+    stage = manifest["stages"]["deployment_identity"]
+    assert stage["first_query_ms"] > 0
+    assert stage["status"] == "passed"
+    assert stage["detail"] == "already captured"
+
+
+def test_record_first_query_raises_on_a_server_error_without_recording_a_fake_value():
+    manifest = new_manifest()
+    client = _mock_client({"/api/search": (503, {"detail": "database is not ready"})})
+    try:
+        with pytest.raises(RehearsalError):
+            record_first_query(
+                manifest, api_url="http://workshop-host", timeout=5.0, client=client
+            )
+    finally:
+        client.close()
+    assert "first_query_ms" not in manifest["stages"]["deployment_identity"]
+
+
+def _fully_rehearsed_manifest(
+    tmp_path: Path, *, include_first_query: bool = True
+) -> dict:
+    """Build a manifest as if every clean-account acceptance-test stage ran and passed.
+
+    Used by both the "complete" witness (finding 1) and the missing-first-query
+    regression (finding 2), so the two tests agree on what "everything else
+    passed" means.
+    """
+    manifest = new_manifest(operator="facilitator")
+
+    identity_client = _mock_client(
+        {
+            "/api/health": (200, {"status": "ok", "models": {}}),
+            "/api/readiness": (
+                200,
+                {
+                    "status": "ready",
+                    "database": {"dataset_id": "reviews-2023-500k-v1"},
+                    "configured_models": {"embedding": "us.cohere.embed-v4:0"},
+                    "source": {"dataset_manifest_sha256": "abc123"},
+                },
+            ),
+        }
+    )
+    try:
+        capture_identity(
+            manifest,
+            api_url="http://workshop-host",
+            timeout=5.0,
+            started_at="2026-01-01T00:00:00+00:00",
+            ended_at="2026-01-01T00:05:00+00:00",
+            client=identity_client,
+        )
+    finally:
+        identity_client.close()
+
+    if include_first_query:
+        search_client = _mock_client(
+            {
+                "/api/search": (
+                    200,
+                    {"diagnostics": {"total_latency_ms": 120}, "results": []},
+                )
+            }
+        )
+        try:
+            record_first_query(
+                manifest,
+                api_url="http://workshop-host",
+                timeout=5.0,
+                client=search_client,
+            )
+        finally:
+            search_client.close()
+
+    upsert_stage(
+        manifest,
+        "archive_transfer_and_join",
+        status="passed",
+        detail="3 parts synced and joined; sha256 verified",
+        started_at="2026-01-01T00:05:00+00:00",
+        ended_at="2026-01-01T00:10:00+00:00",
+    )
+
+    phase_names = [
+        "schema_install",
+        "lab_schema_install",
+        "catalog_prepare",
+        "catalog_load",
+        "index_creation",
+        "premium_cohort_load",
+        "evidence_load",
+        "corpus_lexeme_seed",
+        "smoke_test",
+        "bootstrap_acceptance",
+    ]
+    lines = [f"{name}\t{10 + index}" for index, name in enumerate(phase_names)]
+    lines.append(f"total\t{sum(10 + index for index in range(len(phase_names)))}")
+    timings_path = tmp_path / "bootstrap-timings.tsv"
+    timings_path.write_text("\n".join(lines) + "\n")
+    import_bootstrap_timings(manifest, timings_path, started_at=None, ended_at=None)
+
+    upsert_stage(
+        manifest,
+        "catalog_restore_verification",
+        status="passed",
+        detail="500000 products, 500000 vectors, 120 premium, evidence present",
+        started_at="2026-01-01T00:10:00+00:00",
+        ended_at="2026-01-01T00:15:00+00:00",
+    )
+
+    for lab in (1, 2, 3):
+        upsert_stage(
+            manifest,
+            f"lab_{lab}_rehearsal",
+            status="passed",
+            detail=f"lab {lab}: reset isolated, solution applied, validate-lab-{lab} PASS",
+        )
+
+    reranker_client = _mock_client(
+        {
+            "/api/search": (
+                200,
+                {
+                    "diagnostics": {
+                        "rerank_status": "applied",
+                        "rerank_model_id": "cohere.rerank-v3.5",
+                        "stage_timings_ms": {"rerank": 118.0},
+                        "total_latency_ms": 420,
+                    }
+                },
+            )
+        }
+    )
+    try:
+        for condition in ("cold", "warm"):
+            record_cold_warm(
+                manifest,
+                target="reranker",
+                condition=condition,
+                api_url="http://workshop-host",
+                question=None,
+                timeout=5.0,
+                client=reranker_client,
+            )
+    finally:
+        reranker_client.close()
+
+    ask_mosaic_client = _mock_client(
+        {
+            "/api/agent/answer": (
+                200,
+                {
+                    "outcome": "grounded",
+                    "trace": [{"tool": "search_products"}],
+                    "citations": [{"product_id": 1}],
+                    "recommendations": [{"product_id": 1}],
+                },
+            )
+        }
+    )
+    try:
+        for condition in ("cold", "warm"):
+            record_cold_warm(
+                manifest,
+                target="ask_mosaic",
+                condition=condition,
+                api_url="http://workshop-host",
+                question=None,
+                timeout=5.0,
+                client=ask_mosaic_client,
+            )
+    finally:
+        ask_mosaic_client.close()
+
+    for device in ("laptop", "tablet", "mobile", "projector"):
+        record_layout(
+            manifest, device=device, status="ok", detail=f"{device} looked fine"
+        )
+
+    compute_timing_summary(manifest)
+    return manifest
+
+
+def test_a_fully_populated_manifest_reaches_complete_overall_status(tmp_path):
+    """Red before the fix (finding 1): without capture_identity's timestamps,
+    deployment_seconds stayed null, timing_summary never passed, and this
+    manifest's overall_status stuck at "in_progress" after a perfect rehearsal."""
+    manifest = _fully_rehearsed_manifest(tmp_path)
+    assert validate_manifest(manifest) == []
+    assert compute_overall_status(manifest) == "complete"
+
+
+def test_a_manifest_without_first_query_ms_is_not_complete(tmp_path):
+    """Red before the fix (finding 2): first-query had no field anywhere, so a
+    manifest missing it looked identical to one that recorded it."""
+    manifest = _fully_rehearsed_manifest(tmp_path, include_first_query=False)
+    assert manifest["stages"]["timing_summary"]["rollup"]["first_query_ms"] is None
+    assert manifest["stages"]["timing_summary"]["status"] != "passed"
+    assert compute_overall_status(manifest) != "complete"
 
 
 def test_record_cold_warm_needs_both_conditions_before_passing():

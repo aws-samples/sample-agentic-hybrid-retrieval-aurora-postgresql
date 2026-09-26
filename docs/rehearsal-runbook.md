@@ -60,13 +60,33 @@ acceptance test). Once the stack is up and the API answers:
 ```sh
 uv run python scripts/rehearsal.py capture-identity \
   --manifest build/rehearsal-evidence.json \
-  --api-url https://<stack-host>
+  --api-url https://<stack-host> \
+  --started-at <identity-check-start-iso> --ended-at <identity-check-end-iso>
 ```
 
 This calls `GET /api/health` and `GET /api/readiness` once, records the
 served dataset ID and catalog SHA-256 against the expected
 `reviews-2023-500k-v1`, and marks `deployment_identity` `passed` only if
-`/api/readiness` reports `status: "ready"`.
+`/api/readiness` reports `status: "ready"`. **`--started-at`/`--ended-at` are
+required for `deployment_seconds` to appear in the timing rollup in step 8**;
+without them `deployment_identity.elapsed_seconds` stays null and
+`overall_status` can never reach `complete`, even after every other stage
+passes (`tests/test_rehearsal.py`'s
+`test_a_fully_populated_manifest_reaches_complete_overall_status`).
+
+Once identity is confirmed `ready`, record the deployment's first live query
+— READINESS.md item 10's "first-query" timing figure, alongside deployment,
+transfer, bootstrap, index, reranker, and agent timing:
+
+```sh
+uv run python scripts/rehearsal.py record-first-query \
+  --manifest build/rehearsal-evidence.json --api-url https://<stack-host>
+```
+
+This issues one plain, non-reranked `POST /api/search` call and stores its
+latency as `deployment_identity.first_query_ms`, without disturbing that
+stage's `status`/`detail`. It is also required for the timing rollup to pass
+in step 8.
 
 ## 3. Archive transfer and join
 
@@ -208,9 +228,11 @@ make rehearsal-summary      # human-readable status block
 
 `validate` rejects the manifest if any of the eleven required stages is
 missing, or if the serialized JSON contains anything shaped like a DSN
-password, an AWS access key ID, a bearer token, or a `password=`/`secret=`
-assignment (`tests/test_rehearsal.py` keeps both violations as permanent,
-red-at-birth fixtures). `record-stage` and the other recording subcommands
+password, an AWS access key ID, a bearer token, a
+`password`/`secret`/`security-token`-style assignment (including an
+`x-amz-security-token` header or query parameter), or a `tkn=`/`token=` query
+parameter (`tests/test_rehearsal.py` keeps every one of these as a permanent,
+red-at-birth fixture). `record-stage` and the other recording subcommands
 redact free-text `--detail` values against the same patterns automatically,
 but `validate` is the gate a hand-edited manifest still has to pass.
 
@@ -238,7 +260,8 @@ uv run python scripts/load_exercise.py \
   --output build/load-exercise-warm.json
 ```
 
-or via `make load-exercise LOAD_EXERCISE_ARGS='--condition warm --duration-seconds 120 --concurrency 8'`.
+or via
+`make load-exercise LOAD_EXERCISE_ARGS='--condition warm --duration-seconds 120 --concurrency 8'`.
 
 What it does:
 
@@ -254,22 +277,29 @@ What it does:
 - stops itself the moment `--error-rate-ceiling` (default 0.5), `--latency-ceiling-ms`
   (default 5000, checked over the last `--latency-window-size` samples), or
   `--duration-seconds` trips, and reports which one (`abort_reason`);
-- after an error/latency abort, probes recovery for `--recovery-window-seconds`
-  (default 30s, 0 disables it) with single, sequential search requests and
-  reports whether and when a clean response returned;
+- after an error/latency abort, **or** after any run that observed a nonzero
+  `saturation_signals` count even without aborting (a burst that clears on its
+  own before the error-rate ceiling trips is still saturation), probes
+  recovery for `--recovery-window-seconds` (default 30s, 0 disables it) with
+  single, sequential search requests and reports whether and when a clean
+  response returned;
 - reports sample counts, error counts and rate, p50/p95/p99 latency overall
   and per request kind, and `saturation_signals` (429 and 503 counts) —
   everything split out separately, never blended into one number;
-- reads `GET /api/readiness` once at the start and looks for a served
-  admission/rate-limit block under `admission`, `admission_control`,
-  `rate_limit`, or `rate_limiting`. When found it is echoed into the report's
-  `admission_context` with `source: "served"`; when absent,
-  `--expected-max-concurrent-requests` supplies the same slot with
-  `source: "cli_flag"`, and `source: "unknown"` when neither is available.
-  **As of this writing, no branch has shipped that endpoint field**, so every
-  run reports `source: "unknown"` unless `--expected-max-concurrent-requests`
-  is passed. This script does not change its own concurrency based on the
-  discovered value; probing at or above a declared ceiling is the point.
+- reads `GET /api/readiness` twice — once before the first worker starts and
+  once after the run ends — and looks for a served admission/rate-limit block
+  under `admission`, `admission_control`, `rate_limit`, or `rate_limiting`.
+  Each read is reported independently under `admission_context.before` and
+  `admission_context.after`, so a reviewer can see whether the server's
+  declared limits held steady or changed once traffic hit it, not just what
+  they were when the run finished. Each is `source: "served"` when found;
+  when absent, `--expected-max-concurrent-requests` supplies the same slot
+  with `source: "cli_flag"`, and `source: "unknown"` when neither is
+  available. **As of this writing, no branch has shipped that endpoint
+  field**, so every run reports `source: "unknown"` on both reads unless
+  `--expected-max-concurrent-requests` is passed. This script does not change
+  its own concurrency based on the discovered value; probing at or above a
+  declared ceiling is the point.
 
 Its results are meant to check the access-control task's admission and
 timeout behavior once that branch merges: re-run this exercise against the
@@ -320,11 +350,16 @@ rehearsal for real:
 Every function in `scripts/rehearsal.py` and `scripts/load_exercise.py` is
 covered by an offline test (`tests/test_rehearsal.py`,
 `tests/test_load_exercise.py`) using fixture manifests and
-`httpx.MockTransport`, including the two required red-at-birth gates (a
-manifest missing a required stage; a manifest carrying an unredacted secret)
-and one live-shaped end-to-end run of the load exercise against a fake
-server. No DATABASE_URL, Bedrock credential, or deployed environment was
-available in this session, so nothing above has been run against a real
+`httpx.MockTransport`, including several red-at-birth gates per
+`docs/house-standards.md` rule 4: a manifest missing a required stage; a
+manifest carrying any of six unredacted-secret shapes (a DSN password, an AWS
+access key ID, a bearer token, a password/secret/security-token assignment,
+and a `tkn=`/`token=` query parameter); a fully rehearsed manifest that must
+reach `overall_status: "complete"` and cannot without `capture-identity`'s
+timestamps or `record-first-query`'s measurement; the load exercise's
+before/after admission-context ordering; and its saturation-triggered
+recovery probe. No DATABASE_URL, Bedrock credential, or deployed environment
+was available in this session, so nothing above has been run against a real
 Aurora cluster or a real Workshop Studio stack. To close that gap:
 
 ```sh
@@ -332,6 +367,9 @@ Aurora cluster or a real Workshop Studio stack. To close that gap:
 uv run python scripts/rehearsal.py init --output build/rehearsal-evidence.json \
   --operator "<name>" --workshop-studio-stack-id <stack-id> --aws-region us-east-1
 uv run python scripts/rehearsal.py capture-identity \
+  --manifest build/rehearsal-evidence.json --api-url https://<stack-host> \
+  --started-at <start-iso> --ended-at <end-iso>
+uv run python scripts/rehearsal.py record-first-query \
   --manifest build/rehearsal-evidence.json --api-url https://<stack-host>
 # ... steps 3-9 above ...
 make rehearsal-validate

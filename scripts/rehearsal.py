@@ -14,8 +14,13 @@ Usage, in the order a rehearsal actually happens:
     uv run python scripts/rehearsal.py init --output build/rehearsal-evidence.json \\
         --operator "<name>" --workshop-studio-stack-id <stack-id> --aws-region us-east-1
 
-    # after CloudFormation reports CREATE_COMPLETE
+    # after CloudFormation reports CREATE_COMPLETE and readiness reports "ready"
     uv run python scripts/rehearsal.py capture-identity \\
+        --manifest build/rehearsal-evidence.json --api-url https://<stack-host> \\
+        --started-at ... --ended-at ...
+
+    # right after capture-identity, while the deployment is fresh
+    uv run python scripts/rehearsal.py record-first-query \\
         --manifest build/rehearsal-evidence.json --api-url https://<stack-host>
 
     # after `aws s3 sync` + `real_catalog_cache.py join` on the Code Editor host
@@ -54,7 +59,8 @@ Usage, in the order a rehearsal actually happens:
         --detail "readiness strip and lab cards legible at 1080p from the back row"
 
     # once every stage above is recorded
-    uv run python scripts/rehearsal.py compute-timing-summary --manifest build/rehearsal-evidence.json
+    uv run python scripts/rehearsal.py compute-timing-summary \\
+        --manifest build/rehearsal-evidence.json
     uv run python scripts/rehearsal.py validate --manifest build/rehearsal-evidence.json
     uv run python scripts/rehearsal.py summary --manifest build/rehearsal-evidence.json
 
@@ -102,7 +108,8 @@ Manifest schema (schema_version 1, kind "measured" -- see docs/rehearsal-runbook
           "ended_at": str | null,
           "elapsed_seconds": number | null,
           "artifact_paths": [str, ...],
-          ... stage-specific fields (phases, cold, warm, devices) ...
+          ... stage-specific fields (phases, cold, warm, devices,
+          first_query_ms on deployment_identity) ...
         },
         ...
       },
@@ -210,9 +217,22 @@ _SECRET_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
             # `"password: \"hunter2...\""` slip through with zero characters
             # consumed after the colon, because the lone backslash isn't a
             # quote and the mandatory run below excludes the quote itself.
+            # `security[_-]?token` also matches an `x-amz-security-token`
+            # header or query-parameter name, since the match only needs to
+            # find that substring followed by `:`/`=` and a value -- it does
+            # not need to anchor on the `x-amz-` prefix.
             r"(?i)\b(password|passwd|pwd|secret|api[_-]?key|access[_-]?key|"
-            r"auth[_-]?token|session[_-]?token)\b\s*[:=]\s*\\?[\"']?[^\s\"',}]{6,}"
+            r"auth[_-]?token|session[_-]?token|security[_-]?token)\b\s*[:=]\s*"
+            r"\\?[\"']?[^\s\"',}]{6,}"
         ),
+    ),
+    (
+        # Workshop Studio's Code Editor URL carries a bare `tkn=` query
+        # parameter (deploy/README.md); `token=` is the generic form of the
+        # same shape. Neither is a "password/secret/..."-prefixed assignment
+        # above, so it needs its own pattern rather than another keyword.
+        "a tkn= or token= query parameter",
+        re.compile(r"(?i)[?&]?\b(?:tkn|token)\b=[^\s\"'&,}]{6,}"),
     ),
 )
 
@@ -644,9 +664,23 @@ def _http_post_json(
 
 
 def capture_identity(
-    manifest: dict[str, Any], *, api_url: str | None, timeout: float, client: Any = None
+    manifest: dict[str, Any],
+    *,
+    api_url: str | None,
+    timeout: float,
+    started_at: str | None = None,
+    ended_at: str | None = None,
+    client: Any = None,
 ) -> None:
-    """Fold local file facts and, if reachable, one live health+readiness pair."""
+    """Fold local file facts and, if reachable, one live health+readiness pair.
+
+    `started_at`/`ended_at` are required for `deployment_identity.elapsed_seconds`
+    to be non-null, which `compute_timing_summary`'s `deployment_seconds` rollup
+    field reads: without them the timing rollup, and therefore
+    `overall_status: "complete"`, can never be reached even after a perfect
+    rehearsal (see `tests/test_rehearsal.py`'s
+    `test_a_fully_populated_manifest_reaches_complete_overall_status`).
+    """
     from scripts.retrieval_profile import load_profile
 
     manifest["effective_settings"]["retrieval_profile"] = load_profile().as_dict()
@@ -691,7 +725,51 @@ def capture_identity(
         "deployment_identity",
         status=status,
         detail="; ".join(stage_detail_parts),
+        started_at=started_at,
+        ended_at=ended_at,
     )
+
+
+def record_first_query(
+    manifest: dict[str, Any],
+    *,
+    api_url: str,
+    timeout: float,
+    client: Any = None,
+) -> None:
+    """Time one plain, non-reranked `/api/search` call as the deployment's first query.
+
+    READINESS.md's clean-account acceptance test names "first-query" among the
+    seven timing figures a rehearsal must record (item 10), alongside
+    deployment, transfer, bootstrap, index, reranker, and agent timing. This
+    is the only one of those seven with no other natural source: the others
+    come from `capture_identity`, `import_bootstrap_timings`, and
+    `record_cold_warm`. Run it once the deployment reports readiness, right
+    after `capture-identity`. The measurement is stored on `deployment_identity`
+    without touching its `status`/`detail`, which `capture_identity` already owns.
+    """
+    import httpx
+
+    owns_client = client is None
+    client = client or httpx.Client()
+    try:
+        payload = {
+            "query": DEFAULT_RERANK_QUESTION,
+            "filters": {},
+            "limit": 10,
+            "include_diagnostics": True,
+            "rerank": False,
+        }
+        _, _, elapsed_ms = _http_post_json(
+            client, api_url.rstrip("/") + "/api/search", payload, timeout
+        )
+    finally:
+        if owns_client:
+            client.close()
+    stage = manifest.setdefault("stages", {}).setdefault(
+        "deployment_identity", _empty_stage()
+    )
+    stage["first_query_ms"] = round(elapsed_ms, 1)
 
 
 def record_cold_warm(
@@ -827,10 +905,9 @@ def compute_timing_summary(manifest: dict[str, Any]) -> None:
     }
     reranker = stages.get("reranker_cold_warm", {})
     ask_mosaic = stages.get("ask_mosaic_cold_warm", {})
+    deployment_stage = stages.get("deployment_identity", {})
     rollup = {
-        "deployment_seconds": stages.get("deployment_identity", {}).get(
-            "elapsed_seconds"
-        ),
+        "deployment_seconds": deployment_stage.get("elapsed_seconds"),
         "archive_transfer_seconds": stages.get("archive_transfer_and_join", {}).get(
             "elapsed_seconds"
         ),
@@ -839,6 +916,10 @@ def compute_timing_summary(manifest: dict[str, Any]) -> None:
         "catalog_restore_seconds": stages.get("catalog_restore_verification", {}).get(
             "elapsed_seconds"
         ),
+        # READINESS.md item 10's seventh figure alongside deployment, transfer,
+        # bootstrap, index, reranker, and agent timing; recorded by
+        # `record_first_query`, never re-derived here.
+        "first_query_ms": deployment_stage.get("first_query_ms"),
         "reranker_cold_ms": (reranker.get("cold") or {}).get("client_elapsed_ms"),
         "reranker_warm_ms": (reranker.get("warm") or {}).get("client_elapsed_ms"),
         "ask_mosaic_cold_ms": (ask_mosaic.get("cold") or {}).get("client_elapsed_ms"),
@@ -925,6 +1006,16 @@ def build_parser() -> argparse.ArgumentParser:
     _add_manifest_arg(identity_parser)
     identity_parser.add_argument("--api-url")
     identity_parser.add_argument("--timeout", type=float, default=30.0)
+    identity_parser.add_argument("--started-at")
+    identity_parser.add_argument("--ended-at")
+
+    first_query_parser = subparsers.add_parser(
+        "record-first-query",
+        help="Issue one plain, non-reranked /api/search call and record its latency.",
+    )
+    _add_manifest_arg(first_query_parser)
+    first_query_parser.add_argument("--api-url", required=True)
+    first_query_parser.add_argument("--timeout", type=float, default=30.0)
 
     stage_parser = subparsers.add_parser(
         "record-stage", help="Record one stage's outcome."
@@ -1005,7 +1096,15 @@ def main(argv: list[str] | None = None) -> int:
         manifest = load_manifest(args.manifest)
 
         if args.command == "capture-identity":
-            capture_identity(manifest, api_url=args.api_url, timeout=args.timeout)
+            capture_identity(
+                manifest,
+                api_url=args.api_url,
+                timeout=args.timeout,
+                started_at=args.started_at,
+                ended_at=args.ended_at,
+            )
+        elif args.command == "record-first-query":
+            record_first_query(manifest, api_url=args.api_url, timeout=args.timeout)
         elif args.command == "record-stage":
             upsert_stage(
                 manifest,
