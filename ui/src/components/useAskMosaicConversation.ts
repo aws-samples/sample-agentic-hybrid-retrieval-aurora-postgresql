@@ -41,6 +41,31 @@ export function useAskMosaicConversation(filters: SearchFilters, useMemory = fal
     setTurns([]);
   }
 
+  /**
+   * Stop the turn in progress without discarding the conversation around it.
+   *
+   * Bumping the version first is what keeps this a clean stop rather than an
+   * error: `run`'s own `.catch` and `.finally` already no-op once their version
+   * is stale, so aborting after the bump can never overwrite the cancelled
+   * state set here with an "AbortError" message. Whatever text, shortlist, or
+   * trace had already arrived stays on screen; only the turn's own `loading`
+   * and stage end.
+   */
+  function stop() {
+    requestVersion.current += 1;
+    requestController.current?.abort();
+    requestController.current = null;
+    setTurns((current) => {
+      const last = current.length - 1;
+      if (last < 0 || !current[last].loading) return current;
+      return current.map((turn, index) => (
+        index === last
+          ? { ...turn, loading: false, cancelled: true, stage: null, stageDetail: "" }
+          : turn
+      ));
+    });
+  }
+
   async function run(question: string, requestFilters: SearchFilters = filters, contextKey?: string) {
     const trimmed = question.trim();
     if (trimmed.length < 2 || pending) return;
@@ -77,6 +102,7 @@ export function useAskMosaicConversation(filters: SearchFilters, useMemory = fal
         stageDetail:
           "Working out what you need and which catalog constraints that implies.",
         error: "",
+        cancelled: false,
         loading: true,
       },
     ]);
@@ -132,6 +158,14 @@ export function useAskMosaicConversation(filters: SearchFilters, useMemory = fal
       }, context, { signal: controller.signal, useMemory, sessionId: sessionId.current });
     } catch (cause) {
       if (version !== requestVersion.current) return;
+      // Cancellation is a normal terminal state, not a failure: `stop` and
+      // `clear` bump the version before aborting, so this only fires for an
+      // abort neither of them caused. Guarded anyway, so a signal aborted by
+      // some future caller never surfaces as an "AbortError" toast.
+      if (cause instanceof DOMException && cause.name === "AbortError") {
+        patch({ completed: false, cancelled: true, stage: null, stageDetail: "" });
+        return;
+      }
       patch({
         completed: false,
         stageDetail: "This step did not finish. Review the error below and retry.",
@@ -148,6 +182,7 @@ export function useAskMosaicConversation(filters: SearchFilters, useMemory = fal
   return {
     answeredTurn,
     clear,
+    stop,
     suggestions: filters.brand || Object.keys(filters.attributes ?? {}).length
       ? [] : workspaceRequests(sourceFilters(filters, real), (value) => sourceFilters(value, real)),
     pending,

@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleCheck,
+  CircleStop,
   Eraser,
   FileText,
   GitCompareArrows,
@@ -92,6 +93,12 @@ export interface AskMosaicTurn {
   executionPath: AssistExecutionPath;
   stageDetail: string;
   error: string;
+  /**
+   * True once a reader presses Stop, or a follow-up filter change replaces
+   * this turn before it finished. A normal terminal state, not a failure:
+   * whatever text, shortlist, and trace had already arrived stay visible.
+   */
+  cancelled: boolean;
   loading: boolean;
 }
 
@@ -262,6 +269,7 @@ function StageElapsed({ since }: { since: number }) {
 
 function StageRail({
   actualStage,
+  cancelled = false,
   complete,
   executionPath,
   failed,
@@ -272,6 +280,9 @@ function StageRail({
   onPresentationProgress,
 }: {
   actualStage: AssistStage | null;
+  /** A reader-stopped run, not a failure: the step in progress freezes rather
+   * than spinning forever, but is never called "Needs attention". */
+  cancelled?: boolean;
   complete: boolean;
   executionPath: AssistExecutionPath;
   failed: boolean;
@@ -293,6 +304,7 @@ function StageRail({
     0,
     stages.findIndex((item) => item.id === presentedStage),
   );
+  const disrupted = failed || cancelled;
   return (
     <section className="ask-mosaic-timeline" aria-label="Retrieval activity">
       <p className="ask-mosaic-timeline-heading">
@@ -305,7 +317,7 @@ function StageRail({
             ? "complete"
             : index > presentedIndex
               ? "pending"
-              : failed
+              : disrupted
                 ? "failed"
                 : complete || index < actualIndex
                   ? "complete"
@@ -315,7 +327,7 @@ function StageRail({
             : state === "active"
               ? "In progress"
               : state === "failed"
-                ? "Needs attention"
+                ? (cancelled ? "Stopped" : "Needs attention")
               : "Pending";
           const description = (state === "active" || state === "failed")
             && stage.id === actualStage
@@ -333,7 +345,7 @@ function StageRail({
                     : state === "active"
                       ? <LoaderCircle className="spin" size={16} />
                       : state === "failed"
-                        ? <X size={16} />
+                        ? (cancelled ? <CircleStop size={16} /> : <X size={16} />)
                       : index + 1}
                 </span>
               </span>
@@ -1053,15 +1065,31 @@ function Turn({
         ) : null}
       </div>
 
-      {turn.loading || turn.stage || response ? (
-        <details className="ask-mosaic-process" open={!answerVisible || Boolean(turn.error)}>
+      {turn.loading || turn.stage || response || turn.cancelled ? (
+        <details
+          className="ask-mosaic-process"
+          open={!answerVisible || Boolean(turn.error) || turn.cancelled}
+        >
           <summary>
-            <span>{turn.error ? "Request details" : answerVisible ? "Steps and sources" : "Search in progress"}</span>
-            <small>{turn.error ? "Request interrupted" : answerVisible ? "Inspect what Mosaic used" : presentedStageTitle}</small>
+            <span>
+              {turn.error
+                ? "Request details"
+                : turn.cancelled
+                  ? "Stopped"
+                  : answerVisible ? "Steps and sources" : "Search in progress"}
+            </span>
+            <small>
+              {turn.error
+                ? "Request interrupted"
+                : turn.cancelled
+                  ? "Generation stopped before it finished"
+                  : answerVisible ? "Inspect what Mosaic used" : presentedStageTitle}
+            </small>
             <ChevronDown size={16} aria-hidden="true" />
           </summary>
         <StageRail
           actualStage={actualStage}
+          cancelled={turn.cancelled}
           complete={answerSettled}
           executionPath={turn.executionPath}
           failed={Boolean(turn.error)}
@@ -1072,6 +1100,18 @@ function Turn({
           onPresentationProgress={onStageProgress}
         />
         </details>
+      ) : null}
+
+      {turn.cancelled ? (
+        <div className="ask-mosaic-cancelled" role="status">
+          <span className="ask-mosaic-cancelled-heading">
+            <CircleStop size={15} aria-hidden="true" />
+            You stopped this request.
+          </span>
+          {turn.streamed
+            ? <small>The partial answer and steps above are what Mosaic had found so far.</small>
+            : <small>Ask again, or send a new request.</small>}
+        </div>
       ) : null}
 
       {turn.error ? (
@@ -1106,7 +1146,9 @@ function Turn({
               <>
                 <p>
                   <Sparkles size={14} />
-                  {answerSettled ? "Final recommendation" : "Writing the answer"}
+                  {answerSettled
+                    ? "Final recommendation"
+                    : turn.cancelled ? "Partial answer" : "Writing the answer"}
                   {!reveal.done && reveal.text ? (
                     <button type="button" className="ask-mosaic-skip-reveal" onClick={reveal.skip}>
                       Show the full answer
@@ -1215,6 +1257,8 @@ interface AskMosaicProps {
   onClose: () => void;
   /** Discards the conversation and leaves the panel open on the entry state. */
   onClear: () => void;
+  /** Stops the turn in progress; the conversation and its partial results stay. */
+  onStop: () => void;
   onRun: (query: string, filters?: SearchFilters) => void;
   onHighlight: (productId: number | null) => void;
   onSelectProduct: (productId: number) => void;
@@ -1232,6 +1276,7 @@ export function AskMosaic({
   highlightedProductId,
   onClose,
   onClear,
+  onStop,
   onRun,
   onHighlight,
   onSelectProduct,
@@ -1249,6 +1294,13 @@ export function AskMosaic({
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const closeRef = useRef(onClose);
   const followTailRef = useRef(true);
+  /**
+   * Mirrors `followTailRef` for rendering. The ref alone drives the actual
+   * auto-follow decision inside `handleThreadScroll`/`followReveal` because a
+   * ref update must not itself trigger a render on every scroll tick; this
+   * state exists only to show or hide the "Jump to latest" control.
+   */
+  const [nearBottom, setNearBottom] = useState(true);
   const latest = turns.length ? turns[turns.length - 1] : null;
 
   useEffect(() => {
@@ -1363,15 +1415,31 @@ export function AskMosaic({
   const handleThreadScroll = useCallback(() => {
     const thread = threadRef.current;
     if (!thread) return;
-    followTailRef.current = (
+    const atBottom = (
       thread.scrollHeight - thread.scrollTop - thread.clientHeight
     ) <= 48;
+    followTailRef.current = atBottom;
+    setNearBottom(atBottom);
+  }, []);
+
+  /**
+   * Return to the live edge without taking keyboard focus. A reader who
+   * scrolled up to read earlier text presses this deliberately; moving focus
+   * would additionally jump the visible viewport on a narrow screen and
+   * interrupt whatever they were doing with the keyboard.
+   */
+  const jumpToLatest = useCallback(() => {
+    followTailRef.current = true;
+    setNearBottom(true);
+    const thread = threadRef.current;
+    if (thread) thread.scrollTop = thread.scrollHeight;
   }, []);
 
   /** A newly opened conversation or a question the reader just sent owns focus. */
   useEffect(() => {
     if (!open) return;
     followTailRef.current = true;
+    setNearBottom(true);
     const frame = window.requestAnimationFrame(followReveal);
     return () => window.cancelAnimationFrame(frame);
   }, [open, latest?.id, followReveal]);
@@ -1441,33 +1509,49 @@ export function AskMosaic({
           </span>
         </header>
 
-        <div
-          className="ask-mosaic-body"
-          ref={threadRef}
-          onScroll={handleThreadScroll}
-        >
-          {turns.length ? (
-            turns.map((turn, index) => (
-              <Turn
-                key={turn.id}
-                turn={turn}
-                isLatest={index === turns.length - 1}
-                imageByProductId={imageByProductId}
-                highlightedProductId={highlightedProductId}
+        <div className="ask-mosaic-body-wrap">
+          <div
+            className="ask-mosaic-body"
+            ref={threadRef}
+            onScroll={handleThreadScroll}
+          >
+            {turns.length ? (
+              turns.map((turn, index) => (
+                <Turn
+                  key={turn.id}
+                  turn={turn}
+                  isLatest={index === turns.length - 1}
+                  imageByProductId={imageByProductId}
+                  highlightedProductId={highlightedProductId}
+                  onRun={onRun}
+                  onEdit={editRequest}
+                  onHighlight={onHighlight}
+                  onSelectProduct={onSelectProduct}
+                  onStageProgress={index === turns.length - 1 ? followReveal : undefined}
+                  onRevealProgress={index === turns.length - 1 ? followReveal : undefined}
+                />
+              ))
+            ) : (
+              <EntryState
+                suggestions={suggestions}
                 onRun={onRun}
-                onEdit={editRequest}
-                onHighlight={onHighlight}
-                onSelectProduct={onSelectProduct}
-                onStageProgress={index === turns.length - 1 ? followReveal : undefined}
-                onRevealProgress={index === turns.length - 1 ? followReveal : undefined}
               />
-            ))
-          ) : (
-            <EntryState
-              suggestions={suggestions}
-              onRun={onRun}
-            />
-          )}
+            )}
+          </div>
+          {/* Only once a reader has actually scrolled away from the live edge,
+              and only while there is a live edge worth returning to. Auto-follow
+              in `followReveal` already keeps the writing line in view; this is
+              the way back after a reader chose to read something above it. */}
+          {!nearBottom && turns.length ? (
+            <button
+              className="ask-mosaic-jump-latest"
+              type="button"
+              onClick={jumpToLatest}
+            >
+              <ChevronDown size={14} aria-hidden="true" />
+              Jump to latest
+            </button>
+          ) : null}
         </div>
 
         {/* Pinned under the thread, where a conversation puts it. It used to sit
@@ -1482,6 +1566,18 @@ export function AskMosaic({
             >
               <span>Search filters</span>
               <strong>{contextFilters.join(" · ")}</strong>
+            </div>
+          ) : null}
+          {pending ? (
+            <div className="ask-mosaic-generating" role="status">
+              <span>
+                <LoaderCircle className="spin" size={14} aria-hidden="true" />
+                Working on your request
+              </span>
+              <button className="ask-mosaic-stop" type="button" onClick={onStop}>
+                <CircleStop size={15} aria-hidden="true" />
+                Stop generating
+              </button>
             </div>
           ) : null}
           <SearchComposer

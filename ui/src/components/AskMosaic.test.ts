@@ -137,11 +137,15 @@ function settledTurn(response: AgentResponse): AskMosaicTurn {
     executionPath: "full_retrieval",
     stageDetail: "",
     error: "",
+    cancelled: false,
     loading: false,
   };
 }
 
-function renderAskMosaic(response: AgentResponse) {
+function renderAskMosaic(
+  response: AgentResponse,
+  overrides: Partial<Parameters<typeof AskMosaic>[0]> = {},
+) {
   return render(
     createElement(
       CommerceProvider,
@@ -157,9 +161,11 @@ function renderAskMosaic(response: AgentResponse) {
         highlightedProductId: null,
         onClose: () => {},
         onClear: () => {},
+        onStop: () => {},
         onRun: () => {},
         onHighlight: () => {},
         onSelectProduct: () => {},
+        ...overrides,
       }),
     ),
   );
@@ -257,6 +263,45 @@ describe("AskMosaic declined outcome", () => {
     expect(screen.getByText("Started by the application")).toBeTruthy();
     expect(screen.getByText("Step failed")).toBeTruthy();
     expect(screen.queryByText("Step completed")).toBeNull();
+  });
+});
+
+describe("AskMosaic cancellation", () => {
+  it("shows a Stop control while a request is pending and calls onStop when pressed", () => {
+    let stopped = false;
+    const onStop = () => { stopped = true; };
+    renderAskMosaic(groundedResponse(), { pending: true, onStop });
+
+    const stopButton = screen.getByRole("button", { name: "Stop generating" });
+    fireEvent.click(stopButton);
+    expect(stopped).toBe(true);
+  });
+
+  it("does not show a Stop control once nothing is pending", () => {
+    renderAskMosaic(groundedResponse(), { pending: false });
+    expect(screen.queryByRole("button", { name: "Stop generating" })).toBeNull();
+  });
+
+  it("renders a stopped turn as a normal status, never as an alert", () => {
+    const response = groundedResponse();
+    const turn: AskMosaicTurn = {
+      ...settledTurn(response),
+      completed: false,
+      loading: false,
+      cancelled: true,
+      streamed: "The Sonora headphones are quiet enough for",
+      stage: null,
+    };
+    renderAskMosaic(response, { turns: [turn] });
+
+    expect(screen.getByText("You stopped this request.")).toBeTruthy();
+    expect(
+      screen.getByText("The partial answer and steps above are what Mosaic had found so far."),
+    ).toBeTruthy();
+    // `role="alert"` is reserved for `turn.error`; cancellation is not a
+    // failure and must never be announced as one.
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText("Mosaic could not finish this request.")).toBeNull();
   });
 });
 

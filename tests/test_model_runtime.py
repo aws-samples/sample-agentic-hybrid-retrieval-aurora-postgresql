@@ -1,9 +1,11 @@
+import asyncio
 import io
 import json
 from contextlib import contextmanager
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import ClassVar
 from uuid import uuid4
 
 import pytest
@@ -21,7 +23,7 @@ from service.agent import (
 from service.catalog import _detail
 from service.config import get_settings
 from service.embeddings import BedrockEmbeddingProvider, _cohere_request
-from service.main import app
+from service.main import app, stream_agent_answer
 from service.model_runtime import ModelRuntimeError
 from service.models import (
     AgentCitation,
@@ -2172,6 +2174,83 @@ def test_agent_stream_does_not_expose_exception_text(monkeypatch, caplog):
     assert (
         "Agent response failed. Retry after checking the runtime and retrieval service."
     ) in stream.text
+
+
+class _DisconnectingRequest:
+    """A minimal stand-in for Starlette's `Request`.
+
+    `TestClient` always drains a `StreamingResponse` to completion, so it
+    cannot exercise a mid-stream client disconnect; this calls the route
+    function directly instead and drives its `StreamingResponse.body_iterator`
+    by hand. `cookies` is enough for `service.session_memory.prepare_request`'s
+    `shopper_id` lookup to resolve to no browser owner without touching Aurora.
+    """
+
+    cookies: ClassVar[dict[str, str]] = {}
+
+    def __init__(self, disconnect_after: int) -> None:
+        self.checks = 0
+        self._disconnect_after = disconnect_after
+
+    async def is_disconnected(self) -> bool:
+        self.checks += 1
+        return self.checks > self._disconnect_after
+
+
+def test_stream_route_stops_scheduling_after_client_disconnect(monkeypatch):
+    """No new tool starts after cancellation, and the agent's stream closes.
+
+    Mirrors `test_closing_the_stream_stops_scheduling_further_tools_and_synthesis`
+    in `tests/test_agent_coverage_decline.py` one layer up, at the actual SSE
+    route: a client that has gone away must not see its disconnect turned into
+    more retrieval or a billed synthesis call, and the route must not leak the
+    agent's async generator.
+    """
+    response = AgentResponse(
+        agent_run_id=uuid4(),
+        question="What should I buy?",
+        answer="Choose the quiet option [1].",
+        plan=[],
+        recommendations=[],
+        citations=[],
+        trace=[],
+    )
+    closed: list[bool] = []
+
+    class DisconnectingAgent:
+        async def stream(self, _request):
+            try:
+                yield {"current_tool_use": {"name": "search_products"}}
+                yield {"current_tool_use": {"name": "compare_products"}}
+                yield {"current_tool_use": {"name": "synthesize_cited_answer"}}
+                yield {"agent_response": response}
+            finally:
+                closed.append(True)
+
+    monkeypatch.setattr(
+        "service.main.get_product_discovery_agent", lambda: DisconnectingAgent()
+    )
+
+    async def drain() -> str:
+        result = await stream_agent_answer(
+            AgentRequest(
+                question="What should I buy?", filters=SearchFilters(), result_limit=2
+            ),
+            _DisconnectingRequest(disconnect_after=0),
+        )
+        chunks = [chunk async for chunk in result.body_iterator]
+        return "".join(chunks)
+
+    text = asyncio.run(drain())
+
+    assert "event: stage" in text, (
+        "the stage announced before the loop must still be sent"
+    )
+    assert '"id": "retrieve"' not in text, (
+        "a stage for the already-superseded run was sent"
+    )
+    assert "event: complete" not in text
+    assert closed == [True], "the agent's stream generator was not closed"
 
 
 @pytest.mark.parametrize("path", ["/api/agent/answer", "/api/agent/answer/stream"])

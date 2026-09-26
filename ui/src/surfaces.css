@@ -1937,6 +1937,113 @@
   padding-block: 12px;
 }
 
+/* Stop generating, jump to latest, and the cancelled terminal state. Every
+   color below is an existing palette token; cancellation is a normal state,
+   not a failure, so it stays off the maroon/danger tokens `.ask-mosaic-error`
+   uses. */
+
+.ask-mosaic-body-wrap {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.ask-mosaic-body-wrap > .ask-mosaic-body {
+  flex: 1;
+}
+
+.ask-mosaic-jump-latest {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 14px;
+  transform: translateX(-50%);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--paper-strong);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ask-mosaic-jump-latest:hover,
+.ask-mosaic-jump-latest:focus-visible {
+  border-color: var(--maroon-800);
+  color: var(--maroon-900);
+}
+
+.ask-mosaic-generating {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding: 8px 4px;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+}
+
+.ask-mosaic-generating > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ask-mosaic-stop {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--paper-strong);
+  color: var(--maroon-900);
+  font-size: 12.5px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.ask-mosaic-stop:hover,
+.ask-mosaic-stop:focus-visible {
+  border-color: var(--maroon-800);
+  background: var(--maroon-50);
+}
+
+.ask-mosaic-cancelled {
+  display: grid;
+  max-width: 68ch;
+  gap: 4px;
+  margin: 16px 0 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.ask-mosaic-cancelled-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.ask-mosaic-cancelled small {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
 /* One exchange. Successive turns are ruled rather than boxed: the panel is a
    column of reading matter, and a card per turn nested a shortlist, three
    receipts, and a chip list inside a second border. */

@@ -1085,7 +1085,7 @@ describe("CatalogPage", () => {
       expect(api.search).toHaveBeenCalledWith(
         "quiet keyboard",
         {},
-        { limit: undefined, rerank: true },
+        { limit: undefined, rerank: true, signal: expect.any(AbortSignal) },
       );
     });
 
@@ -1295,7 +1295,7 @@ describe("CatalogPage", () => {
       expect(api.search).toHaveBeenCalledWith(
         suggestions[0].query,
         {},
-        { limit: undefined, rerank: true },
+        { limit: undefined, rerank: true, signal: expect.any(AbortSignal) },
       );
     });
   });
@@ -1388,7 +1388,11 @@ describe("CatalogPage", () => {
     expect(document.querySelector('.shop-product-grid [data-product-id="2"]')).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: comfort.label }));
     await waitFor(() => expect(api.search).toHaveBeenCalledTimes(2));
-    expect(api.search).toHaveBeenLastCalledWith(comfort.query, comfort.filters, { limit: undefined, rerank: true });
+    expect(api.search).toHaveBeenLastCalledWith(
+      comfort.query,
+      comfort.filters,
+      { limit: undefined, rerank: true, signal: expect.any(AbortSignal) },
+    );
     expect(document.querySelectorAll(".shop-product-grid [data-product-id]")).toHaveLength(0);
     expect(document.querySelector(".shop-ranking-receipt")).toBeNull();
     expect(document.querySelector(".shop-results-heading")?.textContent).toContain("Searching products");
@@ -1414,8 +1418,15 @@ describe("CatalogPage", () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: calls.label }));
     await waitFor(() => expect(api.search).toHaveBeenCalledTimes(1));
+    const firstSignal = vi.mocked(api.search).mock.calls[0][2]?.signal;
+    expect(firstSignal?.aborted).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: comfort.label }));
     await waitFor(() => expect(api.search).toHaveBeenCalledTimes(2));
+
+    // The abandoned request is not only ignored, its own fetch is stopped: a
+    // superseded filter change must not keep spending an Aurora query for a
+    // result nothing will show.
+    expect(firstSignal?.aborted).toBe(true);
 
     await act(async () => second.resolve({
       ...searchResponse, search_event_id: SECOND_EVENT_ID, query: comfort.query,
@@ -2286,6 +2297,67 @@ describe("CatalogPage", () => {
     expect(document.querySelector(".shop-canvas")?.hasAttribute("inert")).toBe(false);
     expect(document.body.style.overflow).toBe("");
     expect(document.activeElement).toBe(opener);
+  });
+
+  it("debounces the price slider instead of committing every drag tick", async () => {
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Price" }));
+    const dialog = screen.getByRole("dialog", { name: "Filters" });
+    const minInput = within(dialog).getByRole("slider", { name: "Minimum price" }) as HTMLInputElement;
+
+    // Entered only around the drag itself, and left before the test ends:
+    // the initial render above needs real timers for its own async data load,
+    // and faking `requestAnimationFrame` as well would stall Motion's
+    // animation loop until `vi.useRealTimers()` restores it, leaking a queued
+    // animation frame into whichever test runs next.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      fireEvent.change(minInput, { target: { value: "100" } });
+      fireEvent.change(minInput, { target: { value: "200" } });
+      fireEvent.change(minInput, { target: { value: "300" } });
+
+      // The handle tracks the drag immediately...
+      expect(minInput.value).toBe("300");
+      // ...but three drag ticks must not become three committed filters, each
+      // replacing browser history and starting its own catalog search.
+      expect(window.location.search).not.toContain("min_price_cents");
+      expect(api.search).not.toHaveBeenCalled();
+
+      act(() => vi.advanceTimersByTime(300));
+
+      expect(window.location.search).toContain("min_price_cents=30000");
+      expect(minInput.value).toBe("300");
+    } finally {
+      // Unmount while fake timers are still active: `CatalogSearchComposer`'s
+      // own idle-suggestion timer was scheduled against the faked
+      // `setTimeout`, and its effect cleanup calls `clearTimeout` on
+      // unmount. Switching to the real implementation first would hand that
+      // call a fake id instead, which can collide with an unrelated real
+      // timer's id in a later test.
+      cleanup();
+      vi.useRealTimers();
+    }
+  });
+
+  it("flushes the price draft immediately once the handle is released", async () => {
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Price" }));
+    const dialog = screen.getByRole("dialog", { name: "Filters" });
+    const minInput = within(dialog).getByRole("slider", { name: "Minimum price" });
+
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      fireEvent.change(minInput, { target: { value: "150" } });
+      expect(window.location.search).not.toContain("min_price_cents");
+
+      fireEvent.pointerUp(minInput);
+      expect(window.location.search).toContain("min_price_cents=15000");
+    } finally {
+      cleanup();
+      vi.useRealTimers();
+    }
   });
 
   it("closes the sidecar and can restore the underlying Shop results", async () => {

@@ -1,10 +1,36 @@
 // @vitest-environment jsdom
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { api } from "../api";
+import type { AgentStreamEvent, AgentStreamOptions } from "../api";
+import type { AgentConversationContext, SearchFilters } from "../types";
 import { useAskMosaicConversation } from "./useAskMosaicConversation";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+
+/**
+ * A stream that never completes on its own; the promise it returns settles
+ * only when its caller's `AbortSignal` fires, exactly as `fetch` behaves in
+ * `ui/src/api.ts`. Lets a test hold a turn "in flight" and then act on it.
+ */
+function pendingStream(onEmit?: (event: (event: AgentStreamEvent) => void) => void) {
+  return vi.spyOn(api, "agentStream").mockImplementation(
+    (
+      _question: string,
+      _filters: SearchFilters,
+      emit: (event: AgentStreamEvent) => void,
+      _context?: AgentConversationContext,
+      options?: AgentStreamOptions,
+    ) => {
+      onEmit?.(emit);
+      return new Promise((_resolve, reject) => {
+        options?.signal?.addEventListener("abort", () => {
+          reject(new DOMException("The operation was aborted.", "AbortError"));
+        });
+      });
+    },
+  );
+}
 
 it("starts fresh retrieval after a decline without losing the visible conversation", async () => {
   const stream = vi.spyOn(api, "agentStream").mockImplementation(async (question, _filters, emit) => {
@@ -43,4 +69,75 @@ it("honors memory opt-in, keeps a session for follow-ups, and starts a new sessi
   rerender({ enabled: false });
   await act(() => result.current.run("Explain their specifications"));
   expect(stream.mock.calls[3][4]).toMatchObject({ useMemory: false, sessionId: "owned-session" });
+});
+
+it("stop ends the in-flight turn as a normal state, not an error, and unblocks a new request", async () => {
+  let emitted: ((event: AgentStreamEvent) => void) | undefined;
+  const stream = pendingStream((emit) => { emitted = emit; });
+  const { result } = renderHook(() => useAskMosaicConversation({}));
+
+  act(() => { void result.current.run("Headphones for clearer calls"); });
+  await waitFor(() => expect(result.current.turns).toHaveLength(1));
+  expect(result.current.pending).toBe(true);
+
+  // Some progress landed before the reader presses Stop, and that progress
+  // must survive the stop: only the loading state ends, not the content.
+  act(() => emitted?.({
+    type: "answer_delta",
+    delta: "The Sonora headphones are quiet enough for",
+  }));
+
+  await act(async () => {
+    result.current.stop();
+    await Promise.resolve();
+  });
+
+  expect(result.current.pending).toBe(false);
+  const [turn] = result.current.turns;
+  expect(turn.loading).toBe(false);
+  expect(turn.cancelled).toBe(true);
+  expect(turn.error).toBe("");
+  expect(turn.streamed).toBe("The Sonora headphones are quiet enough for");
+
+  const optionsPassedToStream = stream.mock.calls[0][4] as AgentStreamOptions | undefined;
+  expect(optionsPassedToStream?.signal?.aborted).toBe(true);
+
+  // Stopping must not jam the composer: a fresh request has to go through.
+  vi.spyOn(api, "agentStream").mockImplementation(async (question, _filters, emit) => {
+    emit({
+      type: "complete",
+      response: {
+        agent_run_id: "run-2", question, answer: "A sourced answer.",
+        recommendations: [], citations: [], plan: [], trace: [],
+      },
+    });
+  });
+  await act(() => result.current.run("Try again"));
+  expect(result.current.turns).toHaveLength(2);
+  expect(result.current.turns[1].cancelled).toBe(false);
+  expect(result.current.turns[1].completed).toBe(true);
+});
+
+it("unmounting the owner cancels the in-flight request", async () => {
+  let capturedSignal: AbortSignal | undefined;
+  const stream = pendingStream();
+  stream.mockImplementation(
+    (_question, _filters, _emit, _context, options?: AgentStreamOptions) => {
+      capturedSignal = options?.signal;
+      return new Promise((_resolve, reject) => {
+        options?.signal?.addEventListener("abort", () => {
+          reject(new DOMException("The operation was aborted.", "AbortError"));
+        });
+      });
+    },
+  );
+  const { result, unmount } = renderHook(() => useAskMosaicConversation({}));
+
+  act(() => { void result.current.run("Headphones for clearer calls"); });
+  await waitFor(() => expect(result.current.pending).toBe(true));
+
+  unmount();
+  await Promise.resolve();
+
+  expect(capturedSignal?.aborted).toBe(true);
 });

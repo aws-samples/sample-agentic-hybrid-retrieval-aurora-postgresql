@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import threading
+from contextlib import aclosing
 from typing import Any
 
 from strands import Agent
@@ -13,6 +14,7 @@ from strands.hooks import BeforeToolCallEvent, HookRegistry
 from strands.models import BedrockModel
 
 from service import agent_tools
+from service.access_control import release_model_admission_slot
 from service.bedrock import client_config
 from service.config import get_settings
 from service.model_runtime import (
@@ -366,6 +368,31 @@ def _usage(result: Any) -> dict[str, Any]:
     }
 
 
+def release_run_admission(state: dict[str, Any]) -> None:
+    """Release the admission slot this run holds, exactly once per run.
+
+    `service.main.stream_agent_answer` acquires the slot before the stream
+    starts and hands it to `ProductDiscoveryAgent.stream` as `admission_slot`;
+    `stream` stores it on `state["_admission_slot"]` before its `try` opens,
+    then calls this from a `finally` that also runs when the caller cancels
+    the stream (see that method's docstring). That makes this the one place
+    that frees a per-run admission slot on every exit path -- completed,
+    failed, or cancelled -- without re-deriving those exit paths itself.
+    Popping the slot out of `state` before releasing it is what makes a
+    second call here a no-op instead of a double release; the non-streaming
+    `/api/agent/answer` route keeps its own dependency-scoped release
+    (`service.access_control.require_model_admission`) untouched, since it
+    never puts a slot on `state` for this function to find.
+
+    Args:
+        state: The run state `agent_tools.start_run` returned.
+    """
+    slot = state.pop("_admission_slot", None)
+    if slot is None:
+        return
+    release_model_admission_slot(slot)
+
+
 class ProductDiscoveryAgent:
     @staticmethod
     def _finalize_if_needed(
@@ -595,6 +622,13 @@ class ProductDiscoveryAgent:
         sentinel-key idiom `_stream_fallback` already uses for
         `fallback_error` -- because an async generator's own `return` cannot
         carry a value back to its caller.
+
+        `build_agent().stream_async(...)` is wrapped in `aclosing` rather than
+        iterated directly, so a caller closing *this* generator (a deadline,
+        or `stream()`'s own caller disconnecting) explicitly closes the
+        Strands generator too instead of abandoning it for garbage
+        collection -- the same reasoning `stream()`'s own docstring gives for
+        wrapping this method's iteration in turn.
         """
         result: Any | None = None
         error: Exception | None = None
@@ -604,20 +638,21 @@ class ProductDiscoveryAgent:
         produced = (0, 0, 0)
         try:
             async with asyncio.timeout(deadline):
-                async for event in build_agent().stream_async(
-                    _agent_prompt(request, state)
-                ):
-                    if "result" in event:
-                        result = event["result"]
-                    yield event
-                    progress = (
-                        len(state["searches"]),
-                        len(state["products"]),
-                        len(state["trace"]),
-                    )
-                    if progress != produced:
-                        produced = progress
-                        yield {"agent_partial": _partial(state)}
+                async with aclosing(
+                    build_agent().stream_async(_agent_prompt(request, state))
+                ) as model_events:
+                    async for event in model_events:
+                        if "result" in event:
+                            result = event["result"]
+                        yield event
+                        progress = (
+                            len(state["searches"]),
+                            len(state["products"]),
+                            len(state["trace"]),
+                        )
+                        if progress != produced:
+                            produced = progress
+                            yield {"agent_partial": _partial(state)}
         except TimeoutError:
             error = AgentTurnDeadlineExceeded(
                 f"The agent run exceeded its {deadline:g}s turn deadline."
@@ -630,8 +665,40 @@ class ProductDiscoveryAgent:
             )
         yield {"loop_outcome": (result, error)}
 
-    async def stream(self, request: AgentRequest):
-        """Yield native Strands lifecycle events for one canonical agent run."""
+    async def stream(
+        self,
+        request: AgentRequest,
+        admission_slot: threading.BoundedSemaphore | None = None,
+    ):
+        """Yield native Strands lifecycle events for one canonical agent run.
+
+        Cancellation contract: closing this async generator (`aclose()`, or a
+        consumer simply abandoning it because the caller disconnected) stops
+        scheduling further tool calls and the fallback synthesis path. The
+        `GeneratorExit` this raises propagates through `_stream_agent_loop`'s
+        own generator -- wrapped below in `contextlib.aclosing` so it is
+        explicitly closed (and, in turn, closes the Strands generator it
+        itself wraps) rather than left for garbage collection -- and then
+        through `observe_agent_turn` and `agent_tools.bind_run`, both of which
+        restore their state on the way out. `release_run_admission` runs from
+        the `finally` below on every exit path, including this one, so a
+        disconnect during retrieval releases `admission_slot` exactly the same
+        way a normal completion does.
+
+        A disconnect during the *fallback synthesis* tail is a second,
+        narrower case: the model call there already runs in a worker thread
+        behind `_stream_fallback`'s own `asyncio.shield`, so cancelling this
+        generator must not skip recording whatever that call produced. See
+        the `try`/`finally` around the fallback loop below.
+
+        What this cannot do: interrupt a tool call or model round trip that is
+        already in flight. Strands' Bedrock and Aurora calls run to completion
+        under their own bounded timeouts (`service/bedrock.py`,
+        `service/db.py`) even after the generator that consumes their result
+        has been closed; only the *next* one is prevented from starting. That
+        bound is what a caller is exposed to between sending a stop and the
+        stream actually ending.
+        """
         state = await asyncio.to_thread(
             agent_tools.start_run,
             request.question,
@@ -646,81 +713,115 @@ class ProductDiscoveryAgent:
         )
         from service.session_memory import attach_run
 
-        with agent_tools.bind_run(state):
-            await asyncio.to_thread(attach_run, request, state)
-            result: Any | None = None
-            error: Exception | None = None
-            deadline = get_settings().agent_turn_deadline_seconds
-            with observe_agent_turn(state, request.question) as observation:
-                state["trace_id"] = observation.correlation.trace_id
-                state["span_id"] = observation.correlation.span_id
-                async for event in self._stream_agent_loop(request, state, deadline):
-                    outcome = event.get("loop_outcome")
-                    if outcome is not None:
-                        result, error = outcome
-                    else:
-                        yield event
+        # Stored before the `try` opens, per `release_run_admission`'s own
+        # contract: whatever happens next, exactly one call reads and clears
+        # this key.
+        state["_admission_slot"] = admission_slot
+        try:
+            with agent_tools.bind_run(state):
+                await asyncio.to_thread(attach_run, request, state)
+                result: Any | None = None
+                error: Exception | None = None
+                deadline = get_settings().agent_turn_deadline_seconds
+                with observe_agent_turn(state, request.question) as observation:
+                    state["trace_id"] = observation.correlation.trace_id
+                    state["span_id"] = observation.correlation.span_id
+                    async with aclosing(
+                        self._stream_agent_loop(request, state, deadline)
+                    ) as loop_events:
+                        async for event in loop_events:
+                            outcome = event.get("loop_outcome")
+                            if outcome is not None:
+                                result, error = outcome
+                            else:
+                                yield event
 
-                # See the matching comment in `answer()`: a deadline skips the
-                # fallback synthesis attempt entirely rather than spending one
-                # more model call after the turn already blew its budget.
-                fallback_error = (
-                    error
-                    if isinstance(error, AgentTurnDeadlineExceeded)
-                    else model_runtime_error(error)
-                    if error is not None
-                    else None
-                )
-                if (
-                    error is None
-                    and state["answer_of_record"] is None
-                    and not state["products"]
-                    and not state["trace"]
-                ):
-                    agent_tools.record_unsupported_answer(state)
-                if fallback_error is None:
-                    async for fallback_event in self._stream_fallback(request, state):
-                        if "fallback_error" in fallback_event:
-                            fallback_error = fallback_event["fallback_error"]
-                        else:
-                            yield fallback_event
-                if fallback_error is not None:
-                    error = fallback_error
-                strands_usage = _usage(result) if result is not None else {}
-                await asyncio.to_thread(self._persist, state, result, error)
-                record = state["answer_of_record"]
-                observation.finish(
-                    answer=record["answer"] if record else None,
-                    usage={
-                        "strands": strands_usage,
-                        "synthesis": record["usage"] if record else {},
-                    },
-                    error_type=type(error).__name__ if error else None,
-                    status="completed" if record else "failed",
-                    outcome_attributes=agent_outcome_attributes(state),
-                )
-
-                if error is not None and record is None:
-                    yield {"agent_partial": _partial(state)}
-                    if isinstance(error, GroundingContractError):
-                        failure_code, failure_detail = "grounding_contract", str(error)
-                    elif isinstance(error, AgentTurnDeadlineExceeded):
-                        failure_code, failure_detail = "agent_turn_deadline", str(error)
-                    else:
-                        failure_code = "agent_runtime"
-                        failure_detail = safe_model_runtime_message(
-                            error,
-                            fallback="The agent run failed. Inspect its recorded activity and retry.",
+                    # See the matching comment in `answer()`: a deadline skips
+                    # the fallback synthesis attempt entirely rather than
+                    # spending one more model call after the turn already
+                    # blew its budget.
+                    fallback_error = (
+                        error
+                        if isinstance(error, AgentTurnDeadlineExceeded)
+                        else model_runtime_error(error)
+                        if error is not None
+                        else None
+                    )
+                    if (
+                        error is None
+                        and state["answer_of_record"] is None
+                        and not state["products"]
+                        and not state["trace"]
+                    ):
+                        agent_tools.record_unsupported_answer(state)
+                    # A disconnect while this loop is suspended at `yield
+                    # fallback_event` must not skip persisting a synthesis
+                    # that already completed (or is about to, inside
+                    # `_stream_fallback`'s own shielded task): `aclosing` here
+                    # makes closing this generator wait for that task exactly
+                    # as `_stream_fallback`'s docstring describes, and the
+                    # `finally` below runs the bookkeeping regardless of
+                    # whether the loop finished normally or was closed.
+                    try:
+                        if fallback_error is None:
+                            async with aclosing(
+                                self._stream_fallback(request, state)
+                            ) as fallback_events:
+                                async for fallback_event in fallback_events:
+                                    if "fallback_error" in fallback_event:
+                                        fallback_error = fallback_event[
+                                            "fallback_error"
+                                        ]
+                                    else:
+                                        yield fallback_event
+                        if fallback_error is not None:
+                            error = fallback_error
+                    finally:
+                        strands_usage = _usage(result) if result is not None else {}
+                        await asyncio.to_thread(self._persist, state, result, error)
+                        record = state["answer_of_record"]
+                        observation.finish(
+                            answer=record["answer"] if record else None,
+                            usage={
+                                "strands": strands_usage,
+                                "synthesis": record["usage"] if record else {},
+                            },
+                            error_type=type(error).__name__ if error else None,
+                            status="completed" if record else "failed",
+                            outcome_attributes=agent_outcome_attributes(state),
                         )
-                    yield {
-                        "agent_failure": {
-                            "agent_run_id": str(state["agent_run_id"]),
-                            "code": failure_code,
-                            "detail": failure_detail,
+
+                    if error is not None and record is None:
+                        yield {"agent_partial": _partial(state)}
+                        if isinstance(error, GroundingContractError):
+                            failure_code, failure_detail = (
+                                "grounding_contract",
+                                str(error),
+                            )
+                        elif isinstance(error, AgentTurnDeadlineExceeded):
+                            failure_code, failure_detail = (
+                                "agent_turn_deadline",
+                                str(error),
+                            )
+                        else:
+                            failure_code = "agent_runtime"
+                            failure_detail = safe_model_runtime_message(
+                                error,
+                                fallback="The agent run failed. Inspect its recorded activity and retry.",
+                            )
+                        yield {
+                            "agent_failure": {
+                                "agent_run_id": str(state["agent_run_id"]),
+                                "code": failure_code,
+                                "detail": failure_detail,
+                            }
                         }
+                        raise error
+                    yield {
+                        "agent_response": self._response(request, state, result, None)
                     }
-                    raise error
-                yield {"agent_response": self._response(request, state, result, None)}
+        finally:
+            release_run_admission(state)
 
 
 _agent: ProductDiscoveryAgent | None = None

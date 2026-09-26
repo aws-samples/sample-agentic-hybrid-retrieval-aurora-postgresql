@@ -624,13 +624,24 @@ async def stream_agent_answer(
     through a route dependency: a dependency releases its slot as soon as
     this function returns the `StreamingResponse` object, before the stream
     itself has sent a single byte. The slot is held instead for the life of
-    the `events()` generator below, which releases it in its own `finally` --
+    the agent run: it is handed to `ProductDiscoveryAgent.stream` below, which
+    stores it on the run state and releases it from its own `finally` --
     covering a failure before the stream starts, a failure mid-stream, and a
-    client disconnect, which Starlette surfaces as the generator being closed.
+    client disconnect, which `events()` observes and turns into closing the
+    agent's stream, which Starlette also does on its own if the process gets
+    there first.
     """
     request, slot = await _admit_and_prepare_stream(request, http_request)
 
     async def events():
+        # Owned here, not inlined into the `async for` below, so a client
+        # disconnect can close it explicitly in `finally` instead of leaving it
+        # for garbage collection. Closing it is what stops
+        # `ProductDiscoveryAgent.stream` from scheduling another tool call or
+        # the fallback synthesis call; see its docstring for what it cannot
+        # stop -- a tool call or model round trip already in flight runs to
+        # completion regardless, under its own bounded timeout.
+        agent_stream = get_product_discovery_agent().stream(request, admission_slot=slot)
         try:
             execution_path = (
                 "focused_follow_up" if request.context is not None else "full_retrieval"
@@ -653,7 +664,20 @@ async def stream_agent_answer(
                 },
             )
             current_stage = "understand"
-            async for event in get_product_discovery_agent().stream(request):
+            async for event in agent_stream:
+                # A client that stopped listening -- an explicit Stop, a
+                # cleared conversation, navigation, or a closed tab -- must not
+                # cause more tool calls or a billed synthesis call. There is
+                # nobody left to send further SSE frames to either way.
+                # `is_disconnected()` only checks whether the ASGI receive
+                # channel already reported the disconnect; it does not wait
+                # for one, so this costs nothing on the common path.
+                if http_request is not None and await http_request.is_disconnected():
+                    logger.info(
+                        "Ask Mosaic stream stopped scheduling further tools: "
+                        "client disconnected before the run finished"
+                    )
+                    return
                 failure = event.get("agent_failure")
                 if failure is not None:
                     yield _sse(
@@ -753,7 +777,13 @@ async def stream_agent_answer(
             )
             yield _sse("error", _stream_error_payload(error))
         finally:
-            release_model_admission_slot(slot)
+            # Idempotent once the generator has already run to completion, and
+            # the only path that reaches the disconnect `return` above.
+            # Closing `agent_stream` runs `ProductDiscoveryAgent.stream`'s own
+            # `finally`, which releases `slot` through `release_run_admission`
+            # -- so this generator must not also release it here, which would
+            # be a double release of the same admission slot.
+            await agent_stream.aclose()
 
     return StreamingResponse(
         events(),

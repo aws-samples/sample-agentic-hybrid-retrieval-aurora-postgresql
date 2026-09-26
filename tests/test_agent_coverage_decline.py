@@ -942,3 +942,59 @@ def test_stream_startup_yields_and_preserves_tool_context(monkeypatch, blocked_s
 
     asyncio.run(collect())
     assert witnessed == ["model_and_worker"]
+
+
+def test_closing_the_stream_stops_scheduling_further_tools_and_synthesis(monkeypatch):
+    """Task 2's server-side cancellation contract, proven at the unit level.
+
+    A caller that closes `ProductDiscoveryAgent.stream` -- exactly what
+    `service.main.stream_agent_answer` does once it observes a client
+    disconnect -- must not let the Strands loop schedule another tool call,
+    and must not reach the fallback synthesis path either. `release_run_admission`
+    is the documented hook a future access-control task releases capacity from;
+    this proves it runs on the cancelled path, not only on a completed one.
+    """
+    state = run_state(coverage=[grounded()])
+    _install_run(monkeypatch, state)
+
+    class OngoingAgent:
+        def __init__(self) -> None:
+            self.scheduled: list[str] = []
+
+        async def stream_async(self, _prompt: str):
+            self.scheduled.append("search_products")
+            yield {"current_tool_use": {"name": "search_products"}}
+            # Only reached if the caller kept pulling events after closing the
+            # generator, which the cancellation contract must prevent.
+            self.scheduled.append("compare_products")
+            yield {"current_tool_use": {"name": "compare_products"}}
+
+    model = OngoingAgent()
+    monkeypatch.setattr("service.agent.build_agent", lambda: model)
+
+    def refuse(_question: str) -> None:
+        raise AssertionError(
+            "fallback synthesis ran after the stream was closed for cancellation"
+        )
+
+    monkeypatch.setattr(agent_tools, "complete_grounded_answer", refuse)
+    released: list[Any] = []
+    monkeypatch.setattr("service.agent.release_run_admission", released.append)
+
+    async def collect():
+        stream = ProductDiscoveryAgent().stream(
+            AgentRequest(question=QUESTION, result_limit=2)
+        )
+        first = await anext(stream)
+        await stream.aclose()
+        return first
+
+    first_event = asyncio.run(collect())
+
+    assert first_event == {"current_tool_use": {"name": "search_products"}}
+    assert model.scheduled == ["search_products"], (
+        "a tool call was scheduled after the stream was closed"
+    )
+    assert released == [state], (
+        "release_run_admission did not run on the cancelled path"
+    )

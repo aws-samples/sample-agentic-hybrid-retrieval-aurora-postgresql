@@ -357,6 +357,16 @@ export function CatalogPage() {
   const [highlightedProductId, setHighlightedProductId] = useState<number | null>(null);
   const [drawerProductId, setDrawerProductId] = useState<number | null>(null);
   const [domainsAtEnd, setDomainsAtEnd] = useState(false);
+  /**
+   * The price handles while a drag or key press is still moving them, ahead of
+   * the URL. A native range input fires on every pixel of a drag; committing
+   * each one to the URL search-params history spammed a filter-driven search
+   * request per pixel. Null once the URL has caught up to the last draft, so
+   * the drag position and the committed one can never show two different
+   * numbers.
+   */
+  const [priceDraft, setPriceDraft] = useState<{ low: number; high: number } | null>(null);
+  const priceCommitTimer = useRef<number | undefined>(undefined);
   const domainTabsRef = useRef<HTMLElement>(null);
   const filterSheetRef = useRef<HTMLElement>(null);
   const filterPreviouslyFocused = useRef<HTMLElement | null>(null);
@@ -373,6 +383,7 @@ export function CatalogPage() {
   const labCalloutRef = useRef<HTMLElement>(null);
   const catalogRequestVersion = useRef(0);
   const retrievalRequestVersion = useRef(0);
+  const retrievalController = useRef<AbortController | null>(null);
   const handledAskDeepLink = useRef(false);
   const handledResultsView = useRef("");
   const restoreAgentFocusOnClose = useRef(false);
@@ -393,8 +404,12 @@ export function CatalogPage() {
   const maxPriceCents = searchParams.get("max_price_cents");
   const inStockOnly = searchParams.get("in_stock_only") === "true";
   const attributeParams = searchParams.get("attributes");
-  const lowPrice = priceFromCents(minPriceCents, 0);
-  const highPrice = priceFromCents(maxPriceCents, priceCeiling);
+  const committedLowPrice = priceFromCents(minPriceCents, 0);
+  const committedHighPrice = priceFromCents(maxPriceCents, priceCeiling);
+  // The draft wins while the URL has not caught up to it yet, so the track and
+  // labels always agree with the handle the reader is holding.
+  const lowPrice = priceDraft?.low ?? committedLowPrice;
+  const highPrice = priceDraft?.high ?? committedHighPrice;
   const activeQuery = searchParams.get("q")?.trim() ?? "";
   const browseCollection = searchParams.get("collection") === "all" || domain || categoryKey
     ? "all" : "workspace";
@@ -422,6 +437,7 @@ export function CatalogPage() {
   const {
     answeredTurn,
     clear: clearAgentThread,
+    stop: stopAgentThread,
     suggestions: agentSuggestions,
     pending: agentPending,
     run: askAgent,
@@ -502,6 +518,21 @@ export function CatalogPage() {
     attributeParams,
   ]);
 
+  // Drop the draft only once the URL agrees with it, never on a timer of its
+  // own: clearing it first would show the pre-drag price for one render while
+  // `setSearchParams` is still catching up.
+  useEffect(() => {
+    if (
+      priceDraft
+      && priceDraft.low === committedLowPrice
+      && priceDraft.high === committedHighPrice
+    ) {
+      setPriceDraft(null);
+    }
+  }, [priceDraft, committedLowPrice, committedHighPrice]);
+
+  useEffect(() => () => window.clearTimeout(priceCommitTimer.current), []);
+
   useEffect(() => {
     // Hybrid search owns the visible product grid. Loading merchandising rows
     // and four browse facets alongside it does not improve the result and made
@@ -528,23 +559,35 @@ export function CatalogPage() {
 
     setRetrievalLoading(true);
     const request = retrievalRequest;
+    const controller = new AbortController();
+    retrievalController.current = controller;
     api
-      .search(activeQuery, filters, { limit: requestMission?.top_k, rerank: true })
+      .search(activeQuery, filters, {
+        limit: requestMission?.top_k,
+        rerank: true,
+        signal: controller.signal,
+      })
       .then((response) => {
         if (version !== retrievalRequestVersion.current) return;
         setRetrieval(response);
         setServedRequest(request);
       })
       .catch((cause) => {
-        if (version !== retrievalRequestVersion.current) return;
+        if (controller.signal.aborted || version !== retrievalRequestVersion.current) return;
         setRetrieval(null);
         setRetrievalError(
           cause instanceof Error ? cause.message : "Hybrid retrieval is unavailable",
         );
       })
       .finally(() => {
-        if (version === retrievalRequestVersion.current) setRetrievalLoading(false);
+        if (version !== retrievalRequestVersion.current) return;
+        setRetrievalLoading(false);
+        if (retrievalController.current === controller) retrievalController.current = null;
       });
+    // React runs this before the next call to the effect body, so a filter or
+    // query change abandons the request that answers the stale one before
+    // Aurora finishes it, rather than only ignoring its response.
+    return () => controller.abort();
   }, [
     activeQuery,
     domain,
@@ -857,6 +900,8 @@ export function CatalogPage() {
    * gates: the run on screen was retrieved under them, and it is not the run
    * this URL will be asking for once they are gone. */
   function clearFilters() {
+    window.clearTimeout(priceCommitTimer.current);
+    setPriceDraft(null);
     const next = new URLSearchParams();
     if (sort !== "featured") next.set("sort", sort);
     if (activeQuery) next.set("q", activeQuery);
@@ -873,6 +918,27 @@ export function CatalogPage() {
     else next.delete("max_price_cents");
     next.delete("offset");
     setSearchParams(next);
+  }
+
+  /**
+   * Hold the handle position locally and commit it after a short pause in
+   * dragging, rather than on every `input` event a native range fires. Each
+   * commit replaces browser history and starts a new catalog search, so
+   * committing every pixel of a drag was one history entry and one search
+   * request per pixel.
+   */
+  function draftPrice(low: number, high: number) {
+    setPriceDraft({ low, high });
+    window.clearTimeout(priceCommitTimer.current);
+    priceCommitTimer.current = window.setTimeout(() => commitPrice(low, high), 300);
+  }
+
+  /** Commit immediately, so releasing the handle does not wait out the debounce. */
+  function flushPendingPrice() {
+    if (priceCommitTimer.current === undefined) return;
+    window.clearTimeout(priceCommitTimer.current);
+    priceCommitTimer.current = undefined;
+    if (priceDraft) commitPrice(priceDraft.low, priceDraft.high);
   }
 
   /**
@@ -1662,6 +1728,7 @@ export function CatalogPage() {
           highlightedProductId={highlightedProductId}
           onClose={closeAgent}
           onClear={clearAgentConversation}
+          onStop={stopAgentThread}
           onRun={(query, suggestedFilters) => {
             if (!suggestedFilters) {
               void askAgent(query, filters, retrievalRequest);
@@ -1857,7 +1924,9 @@ export function CatalogPage() {
                         max={priceCeiling}
                         step={priceStep}
                         value={lowPrice}
-                        onChange={(event) => commitPrice(Number(event.target.value), highPrice)}
+                        onChange={(event) => draftPrice(Number(event.target.value), highPrice)}
+                        onPointerUp={flushPendingPrice}
+                        onKeyUp={flushPendingPrice}
                       />
                       <input
                         type="range"
@@ -1866,7 +1935,9 @@ export function CatalogPage() {
                         max={priceCeiling}
                         step={priceStep}
                         value={highPrice}
-                        onChange={(event) => commitPrice(lowPrice, Number(event.target.value))}
+                        onChange={(event) => draftPrice(lowPrice, Number(event.target.value))}
+                        onPointerUp={flushPendingPrice}
+                        onKeyUp={flushPendingPrice}
                       />
                     </div>
                   </div>
