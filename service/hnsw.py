@@ -105,8 +105,6 @@ REPRESENTATION_SQL: dict[str, str] = {
     "binary": BINARY_PROBE_SQL,
 }
 
-REPRESENTATIONS: tuple[str, ...] = tuple(REPRESENTATION_SQL)
-
 _PRODUCT_COLUMNS = """
     product_id, title, brand_name, domain::text AS domain, category_key,
     catalog_asset_key, media_tier::text AS media_tier
