@@ -103,6 +103,79 @@
   border-radius: 12px;
 }
 
+.workshop-entry {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding: 24px 28px;
+  background: var(--surface-muted);
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+}
+.workshop-entry-kicker {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--maroon-800);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.workshop-entry-copy h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 19px;
+  font-weight: 500;
+}
+.workshop-entry-copy p {
+  max-width: 65ch;
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.workshop-entry-labs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.workshop-entry-labs li { display: contents; }
+.workshop-entry-labs a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px 16px 8px 8px;
+  background: var(--paper-strong);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink);
+}
+.workshop-entry-labs a:hover { border-color: var(--maroon-800); background: var(--maroon-50); }
+.workshop-entry-labs a[aria-current="step"] { border-color: var(--maroon-800); background: var(--maroon-50); }
+.workshop-entry-lab-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--maroon-900);
+  color: var(--paper-strong);
+  font-size: 13px;
+  font-weight: 600;
+}
+.workshop-entry-lab-copy { display: flex; flex-direction: column; }
+.workshop-entry-lab-copy strong { font-size: 15px; font-weight: 500; }
+.workshop-entry-lab-copy small { color: var(--ink-soft); font-size: 13px; }
+.workshop-entry-labs li[data-status="repaired"] .workshop-entry-lab-copy small { color: var(--green); }
+.workshop-entry-cta {
+  justify-self: start;
+}
+
 .inspector-request-choices { display: grid; gap: 2px 0; margin-bottom: 20px; }
 .inspector-request-choices > div { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .inspector-request-group-label { min-width: 112px; color: var(--ink-soft); font-size: 13px; font-weight: 500; }

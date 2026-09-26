@@ -2,9 +2,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "../api";
-import { mosaicLabManifest } from "../labMissions";
+import { coreMosaicLabs, mosaicLabManifest } from "../labMissions";
 import { showcaseCatalogPage } from "../showcase";
-import type { AgentResponse, ProductSummary, RetrievalScorecardResponse, ScorecardStageArm, SearchResponse, ToolTraceStep } from "../types";
+import type { AgentResponse, LabStateRecord, ProductSummary, RetrievalScorecardResponse, ScorecardStageArm, SearchResponse, ToolTraceStep } from "../types";
 import { PlaygroundPage } from "./PlaygroundPage";
 
 vi.mock("./RetrievalLabPage", () => ({ RetrievalLabPage: () => <p>Guide workbench</p> }));
@@ -17,6 +17,7 @@ beforeEach(() => {
   window.history.replaceState({}, "", "/labs/retrieval");
   vi.spyOn(api, "readiness").mockRejectedValue(new Error("Offline fixture"));
   vi.spyOn(api, "scorecard").mockRejectedValue(new Error("Offline fixture"));
+  vi.spyOn(api, "labsState").mockRejectedValue(new Error("Offline fixture"));
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); Element.prototype.scrollIntoView = originalScrollIntoView; });
 
@@ -437,4 +438,33 @@ it("says the measured comparison is waiting when the artifact is not attributed 
   render(<PlaygroundPage />);
   expect(await screen.findByText("The measured comparison is waiting for a re-measure on this build.")).toBeTruthy();
   expect(screen.queryByRole("table", { name: "Scores for each search method" })).toBeNull();
+});
+
+it("opens on the default landing with the required workshop path in front of Alex's requests", () => {
+  render(<PlaygroundPage />);
+  const workshop = screen.getByRole("region", { name: "Retrieve → Rank → Reason" });
+  expect(within(workshop).getByText("Required workshop path")).toBeTruthy();
+  const cta = within(workshop).getByRole("link", { name: `Start ${coreMosaicLabs[0].title}` });
+  expect(cta.getAttribute("href")).toBe(`/labs/retrieval?example=${coreMosaicLabs[0].id}`);
+  // It reads above Alex's ungraded requests, not inside or after them.
+  const nav = screen.getByRole("navigation", { name: "Alex’s requests" });
+  expect(
+    workshop.compareDocumentPosition(nav) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+});
+
+it("reflects Lab 1's saved repair state on the landing page without spending a search", async () => {
+  const labsState = vi.spyOn(api, "labsState").mockResolvedValue({
+    labs: [
+      { lab_id: 1, source_state: "solved", database_state: "applied", detail: "" },
+      { lab_id: 2, source_state: "broken", database_state: "not_applicable", detail: "" },
+      { lab_id: 3, source_state: "broken", database_state: "not_applicable", detail: "" },
+    ] satisfies LabStateRecord[],
+  });
+  const search = vi.spyOn(api, "search");
+  render(<PlaygroundPage />);
+  const workshop = screen.getByRole("region", { name: "Retrieve → Rank → Reason" });
+  expect(await within(workshop).findByRole("link", { name: `Continue ${coreMosaicLabs[1].title}` })).toBeTruthy();
+  expect(labsState).toHaveBeenCalledTimes(1);
+  expect(search).not.toHaveBeenCalled();
 });

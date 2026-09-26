@@ -95,6 +95,14 @@ implement three critical connections and prove what changed. Retrieve asks
 whether the right eligible candidates entered the pool. Rank asks whether that
 pool was combined correctly. Reason asks which sources support the choice."
 
+Point the room at the Playground before narrating any of it: opening
+`/labs/retrieval` with no saved Shop search leads with a "Required workshop
+path" panel naming the three labs in order, each one's live repair state, and
+one button into whichever lab still needs it. Say once that this panel, not the
+storefront or the Scale & HNSW / Session & Memory links beside it, is the
+session, and move on -- the panel keeps saying so for the rest of the hour, and
+a participant who reopens the tab lands on it again rather than back at Lab 1.
+
 Show the missed product first and collect a prediction. Leave the disconnected
 path and its repair for Lab 1's diagnosis.
 

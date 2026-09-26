@@ -11,6 +11,7 @@ import { SearchTimingDetails } from "../components/RetrievalDiagnosticsStrip";
 import { KeepInMind } from "../components/KeepInMind";
 import { ProductAnswer } from "../components/ProductAnswer";
 import { PipelineOverviewSections, RankOverview, RetrieveOverview } from "../components/PipelineOverview";
+import { WorkshopProgress } from "../components/WorkshopProgress";
 import { formatPriceCompact } from "../format";
 import { mosaicLabManifest, pipelineRequests } from "../labMissions";
 import { SourceComparison } from "../components/SourceComparison";
@@ -245,6 +246,7 @@ function PipelineInspector() {
   return <div className="page pipeline-inspector pipeline-overview">
     <MosaicLabsTabs active="retrieval" />
     <div className="inspector-intro"><MosaicLabsMasthead title={<>Behind a <span className="inspector-title-emphasis">better answer.</span></>} deck="Find eligible products. Establish their order. Check the sources to help Alex decide." /></div>
+    <WorkshopProgress />
     <nav className="inspector-request-choices" aria-label="Alex’s requests">{requestGroups.map((group) => <div key={group.label} role="group" aria-label={group.label}><span className="inspector-request-group-label" aria-hidden="true">{group.label}</span>{group.requests.map((request) => <button key={request.id} type="button" aria-pressed={!params.has("q") && selectedRequest?.id === request.id} onClick={() => setParams(new URLSearchParams({ scene: request.id }))}>{request.label}</button>)}</div>)}</nav>
     <section className="inspector-request" aria-label="Pipeline request">
       <img className="inspector-alex" src="/assets/images/mosaic/alex-headshot-v1.jpg" alt="Alex, Mosaic’s example shopper" width={128} height={128} />
