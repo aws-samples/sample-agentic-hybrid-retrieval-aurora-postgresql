@@ -598,8 +598,9 @@ new extraction will finish during flex.
 **Scale & HNSW** at `/mosaic-labs/hnsw` defaults to a read-only explanation of
 the index, recall versus search effort, and selective filters. It separates
 current Aurora index facts from recorded measurements. The optional halfvec
-and two-pass binary section reuses recorded comparisons; when attribution
-differs from the current catalog or code, present those results as historical.
+and two-pass binary section reuses the recorded comparison measured on the
+served catalog on 26 September 2026; when attribution differs from the current
+catalog or code, present those results as historical.
 This interface change adds no new benchmarks or workshop-capacity evidence.
 
 **Full benchmark workbench** (`?view=bench`) uses the same open reading layout

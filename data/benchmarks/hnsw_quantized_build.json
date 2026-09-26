@@ -1,0 +1,23 @@
+{
+  "built_at": "2026-09-26T17:19:25.831723+00:00",
+  "dataset_id": "reviews-2023-v2",
+  "source_revision": "2efb0be92391eb049bbd20d566d18dd4966a878d",
+  "records": [
+    {
+      "representation": "halfvec",
+      "index": "real_search_vector_halfvec_idx",
+      "state": "built",
+      "seconds": 82.47,
+      "size_bytes": 1511555072,
+      "statement": "CREATE INDEX IF NOT EXISTS \"real_search_vector_halfvec_idx\" ON \"mosaic_catalog_search\".\"product_document\" USING hnsw ((embedding::halfvec(1024)) halfvec_cosine_ops) WITH (m = 16, ef_construction = 200)"
+    },
+    {
+      "representation": "binary",
+      "index": "real_search_vector_binary_idx",
+      "state": "built",
+      "seconds": 37.62,
+      "size_bytes": 240467968,
+      "statement": "CREATE INDEX IF NOT EXISTS \"real_search_vector_binary_idx\" ON \"mosaic_catalog_search\".\"product_document\" USING hnsw ((binary_quantize(embedding)::bit(1024)) bit_hamming_ops) WITH (m = 16, ef_construction = 200)"
+    }
+  ]
+}

@@ -60,6 +60,21 @@ class _Connection:
             )
         if "pg_relation_size" in text:
             return _Cursor([{"bytes": 1_500_000_000}])
+        if "FROM pg_settings" in text:
+            return _Cursor(
+                [
+                    {
+                        "name": "maintenance_work_mem",
+                        "setting": "8388608",
+                        "unit": "kB",
+                    },
+                    {
+                        "name": "max_parallel_maintenance_workers",
+                        "setting": "7",
+                        "unit": None,
+                    },
+                ]
+            )
         return _Cursor([])
 
 
@@ -83,6 +98,10 @@ def test_a_valid_index_is_left_alone_and_an_invalid_one_is_rebuilt(monkeypatch):
     assert records[0]["state"] == "already valid"
     assert records[1]["state"] == "built"
     assert records[1]["size_bytes"] == 1_500_000_000
+    assert records[1]["settings"] == {
+        "maintenance_work_mem": {"setting": "8388608", "unit": "kB"},
+        "max_parallel_maintenance_workers": {"setting": "7", "unit": None},
+    }
     joined = "\n".join(connection.statements)
     assert (
         'DROP INDEX "mosaic_catalog_search"."real_search_vector_binary_idx"' in joined

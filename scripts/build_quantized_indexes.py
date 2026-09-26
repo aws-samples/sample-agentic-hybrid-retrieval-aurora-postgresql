@@ -44,6 +44,18 @@ DEFINITIONS = {
     "halfvec": ("(embedding::halfvec(1024))", "halfvec_cosine_ops"),
     "binary": ("(binary_quantize(embedding)::bit(1024))", "bit_hamming_ops"),
 }
+SETTING_NAMES = ("maintenance_work_mem", "max_parallel_maintenance_workers")
+
+
+def session_settings(connection: Any) -> dict[str, dict[str, str | None]]:
+    """The build settings as the server reports them, so the record states what ran."""
+    rows = connection.execute(
+        "SELECT name, setting, unit FROM pg_settings WHERE name = ANY(%s)",
+        (list(SETTING_NAMES),),
+    ).fetchall()
+    return {
+        row["name"]: {"setting": row["setting"], "unit": row["unit"]} for row in rows
+    }
 
 
 def build_statement(representation: str, *, concurrently: bool) -> sql.Composed:
@@ -90,6 +102,7 @@ def build(
                 sql.Literal(maintenance_work_mem)
             )
         )
+    settings = session_settings(connection)
     records = []
     for representation in representations:
         name = names[representation]
@@ -124,6 +137,7 @@ def build(
                 "seconds": seconds,
                 "size_bytes": int(size),
                 "statement": statement.as_string(None),
+                "settings": settings,
             }
         )
         print(f"{name}: built in {seconds} s, {size} bytes", flush=True)
@@ -164,6 +178,8 @@ def main() -> None:
                     "built_at": datetime.now(UTC).isoformat(),
                     "dataset_id": active_dataset() or "synthetic-legacy",
                     "source_revision": settings.source_revision,
+                    "command": "scripts/build_quantized_indexes.py "
+                    + " ".join(sys.argv[1:]),
                     "records": records,
                 },
                 indent=2,

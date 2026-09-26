@@ -1,6 +1,6 @@
 scale,projection_kind,p95_latency_ms,recall_at_10,index_size_gb,dimensions,m,ef_search
-553911,simulated_calibrated,1.64,0.98,4.53,1024,16,100
-1000000,simulated_calibrated,1.73,0.9779,8.19,1024,16,100
-5000000,simulated_calibrated,2.01,0.9724,40.94,1024,16,100
-10000000,simulated_calibrated,2.13,0.9699,81.87,1024,16,100
-100000000,simulated_calibrated,2.56,0.9619,818.7,1024,16,100
+553911,simulated_calibrated,1.42,0.98,4.53,1024,16,100
+1000000,simulated_calibrated,1.5,0.9779,8.19,1024,16,100
+5000000,simulated_calibrated,1.74,0.9724,40.94,1024,16,100
+10000000,simulated_calibrated,1.85,0.9699,81.87,1024,16,100
+100000000,simulated_calibrated,2.22,0.9619,818.7,1024,16,100
