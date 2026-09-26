@@ -88,6 +88,74 @@ the r8gd writer, 4,534,632,448 bytes each. Nothing about the build touched
 local storage that the Aurora build path would use differently, and the
 result says so.
 
+
+### Small memory, labelled separately: the tiered cache participates
+
+The same two clusters were moved to a cluster parameter group with
+`shared_buffers` 262144 pages (2 GiB) and both writers rebooted; the runner
+confirmed 262144 on each before starting (artifact
+`hardware_comparison_low-memory.json`, revision `c26543b`, 17:14 to 17:46
+UTC). Nothing else changed: same rows, index, ground truth, queries,
+settings, client and schedule. This is the configuration the earlier
+comparison could not reach, where a 13 GB working set no longer fits in
+memory.
+
+Optimized Reads participation is observed, not assumed:
+
+- `aurora_stat_optimized_reads_cache()` on the r8gd writer reported 512 kB
+  used before the prewarm and 9.75 GB after the first trial, 9.82 GB by the
+  last: the pages evicted from the 2 GiB buffer pool landed in the NVMe
+  cache. On the r8g writer the function does not exist.
+- The r8gd writer's `EXPLAIN (ANALYZE, BUFFERS)` after every trial printed
+  `aurora_orcache_hit` in its `Buffers:` line (the warm-up sample reads
+  `shared hit=732 read=2 aurora_orcache_hit=2`); the r8g writer's never did.
+- CloudWatch `AuroraOptimizedReadsCacheHitRatio` on the r8gd writer was 41%
+  in the first counted minute and 89% to 99.99% from then on, while its
+  `ReadIOPS` fell from 11,790 to under 6. The r8g writer's `ReadIOPS` stayed
+  between 1,371 and 7,619 across trials with `BufferCacheHitRatio` 54% to 96%.
+- `pg_stat_database.blks_read` moved on both sides in every trial (86k to
+  514k blocks per trial on r8g, 330k to 2.8M on r8gd, which completed far
+  more queries): PostgreSQL counts a block served by the tiered cache as a
+  read, and the CloudWatch counters say where those reads were served from.
+
+| Concurrency | Instance | Queries in 60 s | Throughput | p50 | p95 | p99 | Recall@10 |
+|---:|---|---:|---:|---:|---:|---:|---:|
+| 1 | r8g | 27 / 42 | 0.43 / 0.68 q/s | 194 / 52 ms | 15.6 / 12.2 s | 19.0 / 14.1 s | 0.626 / 0.691 |
+| 1 | r8gd | 366 / 455 | 6.03 / 7.58 q/s | 51.9 / 49.8 ms | 748 / 619 ms | 2.34 / 1.80 s | 0.611 / 0.623 |
+| 4 | r8g | 75 / 279 | 1.12 / 3.74 q/s | 735 / 65.7 ms | 12.0 / 5.7 s | 13.5 / 12.3 s | 0.659 / 0.602 |
+| 4 | r8gd | 874 / 853 | 14.2 / 14.0 q/s | 59.9 / 63.5 ms | 1.56 / 1.61 s | 2.17 / 2.21 s | 0.625 / 0.623 |
+| 8 | r8g | 135 / 343 | 2.08 / 5.32 q/s | 609 / 68.8 ms | 14.3 / 8.3 s | 19.9 / 18.1 s | 0.662 / 0.611 |
+| 8 | r8gd | 1,595 / 1,394 | 26.3 / 22.6 q/s | 71.1 / 72.7 ms | 1.72 / 1.88 s | 2.35 / 2.63 s | 0.618 / 0.626 |
+| 16 | r8g | 434 / 461 | 6.50 / 6.72 q/s | 95.8 / 166 ms | 13.3 / 12.8 s | 18.8 / 18.6 s | 0.624 / 0.625 |
+| 16 | r8gd | 2,683 / 2,721 | 44.4 / 44.2 q/s | 74.5 / 74.6 ms | 1.94 / 2.01 s | 3.03 / 3.03 s | 0.620 / 0.622 |
+
+No trial recorded an error on either side. With the working set on storage,
+the r8g writer completed between a tenth and a sixth of the r8gd writer's
+queries at every concurrency level, with a p99 of 12 to 20 seconds against
+1.8 to 3.0 seconds. Recall on the r8g side wobbles (0.60 to 0.69) because
+27 to 461 queries is a small sample of a mixed workload, not because the
+instance returned different rows for the same query. Neither instance is
+CPU-bound here (r8g 3% to 12%, r8gd 1% to 23%); both are waiting on reads,
+and the difference is where the reads come from. The index build with the
+same 7 workers and 8 GB `maintenance_work_mem` took 556.3 s on the r8g
+writer and 220.6 s on the r8gd writer under the 2 GiB pool, against 91.3 s
+and 100.2 s with the default pool.
+
+Cost per million successful queries in this configuration, same prices:
+
+| Concurrency | r8g | r8gd |
+|---:|---:|---:|
+| 1 | 587 to 928 USD | 59 to 75 USD |
+| 4 | 107 to 356 USD | 32 USD |
+| 8 | 75 to 192 USD | 17 to 20 USD |
+| 16 | 59 to 61 USD | 10 USD |
+
+The two comparisons say different things and are labelled so. When the
+working set fits in memory, the r8gd instance costs 13% more per hour for
+slightly less throughput. When it does not, the r8gd instance delivers six to
+fourteen times the throughput of the r8g instance and costs about a sixth per
+query. Which regime a deployment sits in is a property of its buffer pool
+against its working set, not of the instance class alone.
 ## Cost
 
 On-demand, us-east-1, Aurora PostgreSQL I/O-Optimized instance hours
@@ -127,12 +195,13 @@ cheaper.
   index reads on the r8g clone (42 queries in a minute, p99 13.4 s at one
   connection). It was discarded and is mentioned only so the prewarm step's
   reason is on record; its log stayed on the client.
-- A separately labelled small-memory pair (both clusters on a
-  `shared_buffers` 2 GB parameter group) is reported below when available; it
-  is the configuration in which the tiered cache can participate.
+- The small-memory pair forces the regime with a parameter group, not with a
+  larger catalog; no product was duplicated or invented to enlarge the data.
+  A 2 GiB pool is far below what these instances ship with, so the pair
+  bounds the effect rather than predicting a specific deployment.
 
 ## Artifacts
 
-- [Summary](../data/benchmarks/hardware_comparison_default-memory.json)
-- [Per-query records and errors](../data/benchmarks/hardware_comparison_default-memory.samples.json)
+- [Default memory summary](../data/benchmarks/hardware_comparison_default-memory.json) and [per-query records](../data/benchmarks/hardware_comparison_default-memory.samples.json)
+- [Small memory summary](../data/benchmarks/hardware_comparison_low-memory.json) and [per-query records](../data/benchmarks/hardware_comparison_low-memory.samples.json)
 - [Runner](../scripts/benchmark_hardware.py)
