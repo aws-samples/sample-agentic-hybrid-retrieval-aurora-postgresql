@@ -57,7 +57,13 @@ with `MISSION_GATE_REQUIRE_DB=1` (111 checks), `make validate-evals`
 (24 queries) and the held-out ESCI contract (407 queries) all pass. Offline:
 1,834 passed / 62 skipped; UI 751 passed; `make lint`, `make validate`,
 `tsc --noEmit` and `git diff --check` clean. The billed canonical scorecard
-and the stage ablation are re-measured after the cutover commit.
+was not re-measured: `data/evals/canonical_queries.jsonl` mixes twelve
+`synthetic-legacy` queries with nine real-catalog queries, and
+`require_single_served_catalog` (added on 2026-09-22) refuses paid scoring
+of a mixed set while a real catalog is served. The committed scorecard
+therefore still stamps revision `47bf847`, and its attribution stays hidden
+until the maintainer splits the query set by catalog and scores the real
+one against `reviews-2023-v2`.
 
 ## Pre-release handoff
 
