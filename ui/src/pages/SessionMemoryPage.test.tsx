@@ -84,7 +84,7 @@ it("new sessions keep the actor and can recall real records independently of eve
   await screen.findByText(/New session. Alex keeps the same user ID/);
   fireEvent.click(screen.getByRole("button", { name: "Find relevant memories" }));
   await screen.findByText("Alex shares an office", { selector: "p" });
-  expect(recall).toHaveBeenCalledWith("Which monitor would suit the way I work at home?");
+  expect(recall).toHaveBeenCalledWith("Which monitor would suit the way I work at home?", null);
 });
 it("starts with a fresh Alex and clears recalled memories without running the agent", async () => {
   vi.spyOn(api, "recallMemory").mockResolvedValue({ records: [{ id: "old-fact", strategy_id: "SEMANTIC", text: "Earlier Alex’s preference", namespaces: ["/mosaic/alex-browser/"], created_at: "2026-09-09T17:45:00Z", score: null }] });
@@ -175,4 +175,13 @@ it("says when a session's runs kept memory off, and names each record's scope", 
   await screen.findByText("Alex shares an office.", { selector: "p" });
   expect(screen.getByText("Kept for Alex across sessions")).toBeTruthy();
   expect(screen.getByText("From this session")).toBeTruthy();
+});
+
+it("passes the selected session into recall so summaries and episodes reach the agent context", async () => {
+  const session: ShopperSession = { agent_session_id: "session-a", started_at: "2026-09-26T12:00:00Z", ended_at: null, label: "Monitor planning", turns: [] };
+  vi.mocked(api.sessionMemory).mockResolvedValue({ ...response, active_session_id: session.agent_session_id, sessions: [session] });
+  const recall = vi.spyOn(api, "recallMemory").mockResolvedValue({ records: [] });
+  render(<SessionMemoryPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Find relevant memories" }));
+  await waitFor(() => expect(recall).toHaveBeenCalledWith(missionManifest.optional_labs.memory.request, "session-a"));
 });

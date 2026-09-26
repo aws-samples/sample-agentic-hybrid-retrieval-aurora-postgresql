@@ -90,10 +90,17 @@ filter presets, exact-neighbour ground truth and fresh measurements; see
 
 ## Optional flex-time beats
 
-None of these sits on the required path, none is proved by the gates above, and
-none deploys an AgentCore resource. Removing any of them leaves the three
+None of these sits on the required participant path. AgentCore Memory is
+provisioned and connected by the workshop stack; its exercise remains optional.
+The other extensions below do not deploy AgentCore resources. Removing any of them leaves the three
 labs, the completion gate, and the scorecard untouched.
 
+- **AgentCore Memory** uses four built-in strategies: semantic facts, user
+  preferences, session summaries and episodes with actor-scoped reflections.
+  All four can supply agent context. Readiness requires the expected active
+  strategies and namespaces. Bootstrap's `scripts/verify_session_memory.py`
+  checks event storage, strategy reads, recall and actor isolation through the
+  runtime API. Extraction and a memory-assisted answer still need a live rehearsal.
 - **The Gateway appendix** in `docs/mcp-interoperability.md` ("The gate is not
   the guard") is documentation. `scripts/tool_contracts.py --check` proves the
   portable boundary that exists locally; no gate here proves a deployed
