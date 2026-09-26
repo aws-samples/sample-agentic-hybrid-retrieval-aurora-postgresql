@@ -7,7 +7,7 @@ provides a calling agent with instructions and API mappings for a running
 Mosaic service. Your application retains responsibility for orchestration,
 answer synthesis and citation validation.
 
-Keep a full checkout of Mosaic as the runnable reference. The downloadable exercise package is a reading and adaptation kit, not a separate deployment. Dependencies are pinned in `pyproject.toml` and `uv.lock`; setup lives in the repository README. Mosaic uses Aurora PostgreSQL, including for local application development.
+Keep a full checkout of Mosaic as the runnable reference. The downloadable exercise package is a reading and adaptation kit, not a separate deployment. Dependencies are pinned in `pyproject.toml` and `uv.lock`; follow the [developer setup guide](development.md) to run the application. Mosaic uses Aurora PostgreSQL, including for local application development.
 
 ## Follow one request through the code
 

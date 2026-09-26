@@ -10,6 +10,7 @@ honest.
 
 | Document | Purpose |
 |---|---|
+| [development.md](development.md) | Application setup, validation, and publishing links for work outside the participant event |
 | `workshop.md` (repo root) | Co-presenter brief: story, three-lab journey, how to read a run |
 | `l400-lab-design.md` | The participant guide's page shape, graded work per lab, acceptance boundaries and measured pacing |
 | `superpowers/specs/2026-09-19-lab-exercise-design.md` | Superseded in part: the 2026-09-19 page-shape reasoning, printed-number policy and validator pins |

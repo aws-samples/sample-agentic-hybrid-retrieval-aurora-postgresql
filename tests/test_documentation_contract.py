@@ -30,7 +30,7 @@ def test_api_contract_documents_every_application_route():
     )
 
 
-def test_readme_derives_the_aurora_integration_test_count():
+def test_development_guide_derives_the_aurora_integration_test_count():
     module = ast.parse(
         (ROOT / "tests" / "test_sql_integration.py").read_text(encoding="utf-8")
     )
@@ -38,9 +38,9 @@ def test_readme_derives_the_aurora_integration_test_count():
         isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
         for node in module.body
     )
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    guide = (ROOT / "docs" / "development.md").read_text(encoding="utf-8")
 
-    assert f"includes {test_count} integration tests against Aurora" in readme
+    assert f"includes {test_count} integration tests against Aurora" in guide
 
 
 def test_readiness_places_the_python_gate_under_aurora():
