@@ -50,6 +50,11 @@ from service.hnsw_presets import EXACT_BASELINE_SETTINGS, FILTER_PRESETS, Filter
 #: and reads a prefix, so one seeding run serves every request depth.
 SEEDED_K = 50
 
+#: The service pool applies the interactive request timeout to every checkout.
+#: An exact scan over every stored vector is not an interactive request, so the
+#: seeder asks for its own ceiling instead of inheriting a 30-second cancel.
+EXACT_SCAN_TIMEOUT_MS = 900_000
+
 
 def exact_neighbors(
     connection: Any, *, embedding: Any, preset: FilterPreset, k: int
@@ -294,7 +299,7 @@ def main() -> None:
         )
     anchors = require_anchor_set_for_served_catalog()
     settings = get_settings()
-    with connect() as connection:
+    with connect(statement_timeout_ms=EXACT_SCAN_TIMEOUT_MS) as connection:
         manifest = corpus_manifest(connection)
         if anchors.catalog_sha256 and anchors.catalog_sha256 != manifest:
             raise SystemExit(

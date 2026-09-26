@@ -187,7 +187,7 @@ def main() -> None:
         )
     sample = parse_sample(arguments.per_category)
     lab_ids = lab_product_ids()
-    with connect() as connection:
+    with connect(statement_timeout_ms=300_000) as connection:
         catalog_sha256 = corpus_manifest(connection)
         anchors = select_anchors(
             connection, seed=arguments.seed, sample=sample, lab_ids=lab_ids

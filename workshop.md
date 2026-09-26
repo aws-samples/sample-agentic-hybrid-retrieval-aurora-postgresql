@@ -24,9 +24,10 @@ Participants are the engineers; Alex is their customer. Alex is setting up a hom
 Mosaic is a shopping catalog of 553,911 products from Electronics, Office Products and Home and Kitchen in Amazon Reviews 2023. A shopper can search with keywords or ask in plain language. Both paths run against one Aurora PostgreSQL database, and both can look right while the retrieval behind them is wrong.
 
 Fresh workshops restore these source products and their saved Cohere embeddings.
-They do not load the historical synthetic catalog. The optional HNSW instrument
-is withheld until its anchors and ground truth are rebuilt for this catalog;
-the required labs retain their live SQL exercises.
+They do not load the historical synthetic catalog. The optional Scale & HNSW
+instrument measures this catalog: its query anchors are seventy Mosaic products
+recorded in `data/benchmarks/hnsw_anchors.json`, and its exact neighbours are
+seeded for that anchor set before the page serves recall.
 
 Participants repair three deliberate faults in that pipeline, one per lab, and prove each repair from evidence the database records:
 

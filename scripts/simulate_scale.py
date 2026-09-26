@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
-"""Extrapolate the HNSW scale envelope from the measured 500K baseline.
+"""Extrapolate the HNSW scale envelope from the measured catalog baseline.
 
 This is a capacity model, not a benchmark. What makes it honest is where its baseline
 comes from: `data/benchmarks/hnsw_measured.json`, written by `make benchmark-hnsw`
 against the live cluster. There is deliberately **no hardcoded fallback** — a default
 here is exactly the fabricated baseline this script used to ship, which claimed
-p95 38.0 ms, index 14.2 GB and recall 0.952 at 500K where the cluster measures
+p95 38.0 ms, index 14.2 GB and recall 0.952 where the cluster measured
 2.7 ms, 4.09 GB and 0.992.
 
-At `scale = 500_000` every growth factor below collapses to 1, so the 500K row is the
-baseline verbatim. That is why fixing the baseline was sufficient and no growth term
-needed to change.
+At the measured vector count every growth factor below collapses to 1, so the
+first row is the baseline verbatim. That is why fixing the baseline was sufficient
+and no growth term needed to change.
 
 Index size is the one extrapolation that is plain arithmetic rather than a model:
 linear in vector count at the measured bytes per vector. Latency and recall use stated
 growth assumptions and are labelled projected.
 
 `build_time_min` is absent on purpose. Its old baseline (22.0 minutes) was unmeasured,
-and unlike the other three it cannot be recovered read-only — it needs a 500,000-row
-HNSW rebuild. `build/bootstrap-timings.tsv` is the designated sink for a real
-`index_creation` timing; when one exists, the column can return as measured.
+and unlike the other three it cannot be recovered read-only: it needs a full HNSW
+rebuild. `scripts/benchmark_index_build.py` records one on a benchmark-owned
+index; when its artifact exists, the column can return as measured.
 
 Usage
 -----
@@ -43,7 +43,7 @@ sys.path.insert(0, str(REPO))
 from scripts.retrieval_profile import load_profile
 
 MEASURED = REPO / "data" / "benchmarks" / "hnsw_measured.json"
-SCALES = [500_000, 1_000_000, 5_000_000, 10_000_000, 100_000_000]
+PROJECTED_SCALES = [1_000_000, 5_000_000, 10_000_000, 100_000_000]
 
 # The operating point the workshop serves. The projection extrapolates from the
 # measurement taken here rather than from the cheapest point in the sweep, because a
@@ -54,7 +54,7 @@ SERVED_EF_SEARCH = load_profile().hnsw_ef_search
 def measured_baseline(
     path: Path = MEASURED, *, ef_search: int = SERVED_EF_SEARCH
 ) -> dict[str, Any]:
-    """Read the 500K operating point the projection extrapolates from.
+    """Read the measured operating point the projection extrapolates from.
 
     Args:
         path: The measured artifact written by `make benchmark-hnsw`.
@@ -93,6 +93,7 @@ def measured_baseline(
             "fix: run `make benchmark-hnsw` to record server percentiles before projecting p95"
         )
     return {
+        "vector_count": int(index["vector_count"]),
         "latency_p95_ms": row["server_p95_ms"],
         "recall": row["recall_at_k"],
         "bytes_per_vector": index["bytes_per_vector"],
@@ -107,11 +108,13 @@ def measured_baseline(
 
 
 def project(baseline: dict[str, Any]) -> list[dict[str, Any]]:
-    """Extrapolate the envelope. Every row is projected except the 500K baseline."""
+    """Extrapolate the envelope. Every row is projected except the measured baseline."""
     rows = []
-    for scale in SCALES:
-        ratio = scale / SCALES[0]
-        log_penalty = math.log2(scale) / math.log2(SCALES[0])
+    baseline_scale = int(baseline["vector_count"])
+    scales = [baseline_scale, *[s for s in PROJECTED_SCALES if s > baseline_scale]]
+    for scale in scales:
+        ratio = scale / baseline_scale
+        log_penalty = math.log2(scale) / math.log2(baseline_scale)
         latency = (
             baseline["latency_p95_ms"]
             * log_penalty
@@ -159,7 +162,8 @@ def main() -> None:
         json.dumps(
             {
                 "warning": (
-                    "PROJECTED beyond 500K. The 500K row is measured; every larger "
+                    f"PROJECTED beyond {baseline['vector_count']:,}. The "
+                    f"{baseline['vector_count']:,} row is measured; every larger "
                     "row is extrapolated from it by the stated growth assumptions. "
                     "Baseline read from data/benchmarks/hnsw_measured.json."
                 ),
@@ -192,7 +196,7 @@ def main() -> None:
         encoding="utf-8",
     )
     print(
-        f"Wrote a projection from the measured {SCALES[0]:,}-row baseline "
+        f"Wrote a projection from the measured {baseline['vector_count']:,}-row baseline "
         f"({baseline['latency_p95_ms']} ms, {baseline['bytes_per_vector']} B/vector) "
         f"to {arguments.output}"
     )
