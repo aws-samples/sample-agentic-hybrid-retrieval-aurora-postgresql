@@ -2,42 +2,20 @@
 
 import argparse
 import json
+import sys
 import time
+from pathlib import Path
 
 import boto3
 from botocore.config import Config
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-def strategy_definitions() -> list[dict]:
-    """Keep every namespace inside a single browser actor's memory."""
-    base = "/mosaic/{actorId}/strategies/{memoryStrategyId}/"
-    return [
-        {
-            "semanticMemoryStrategy": {
-                "name": "WorkspaceFacts",
-                "namespaceTemplates": [base],
-            }
-        },
-        {
-            "userPreferenceMemoryStrategy": {
-                "name": "WorkspacePreferences",
-                "namespaceTemplates": [base],
-            }
-        },
-        {
-            "summaryMemoryStrategy": {
-                "name": "WorkspaceSummaries",
-                "namespaceTemplates": [base + "sessions/{sessionId}/"],
-            }
-        },
-        {
-            "episodicMemoryStrategy": {
-                "name": "WorkspaceEpisodes",
-                "namespaceTemplates": [base + "sessions/{sessionId}/"],
-                "reflectionConfiguration": {"namespaceTemplates": [base]},
-            }
-        },
-    ]
+from service.memory_contract import (
+    configuration_issues,
+    describe_memory,
+    strategy_definitions,
+)
 
 
 def main() -> None:
@@ -101,9 +79,7 @@ def main() -> None:
     while time.monotonic() < deadline:
         memory = client.get_memory(memoryId=memory_id)["memory"]
         strategies = memory.get("strategies", [])
-        if memory["status"] == "ACTIVE" and all(
-            s["status"] == "ACTIVE" for s in strategies
-        ):
+        if not configuration_issues(describe_memory(memory)):
             print(
                 json.dumps(
                     {

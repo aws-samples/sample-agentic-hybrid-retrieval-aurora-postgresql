@@ -196,12 +196,12 @@ export function SessionMemoryPage() {
             </div>
             <label className="memory-check"><input type="checkbox" checked={useMemory} onChange={(event) => setUseMemory(event.target.checked)} disabled={locked} />Use AgentCore Memory for this request</label>
             <div className="memory-recall-actions">
-              <button type="button" className="secondary-button" disabled={locked || !connected || question.length < 4} onClick={() => act(async () => { const result = await api.recallMemory(question); if (mounted.current) setRecalled(result.records); })}>Find relevant memories</button>
+              <button type="button" className="secondary-button" disabled={locked || !connected || question.length < 4} onClick={() => act(async () => { const result = await api.recallMemory(question, selected); if (mounted.current) setRecalled(result.records); })}>Find relevant memories</button>
               <MosaicRunButton type="submit" label={pending ? stage || "Reading the request" : "Ask Mosaic"} showLabel running={pending} disabled={locked || (useMemory && data.memory_status === "unavailable")} />
             </div>
             <p className="memory-empty">{useMemory ? "Reads relevant memories and saves this conversation. Product claims must still cite records from Aurora." : "This request uses Aurora without reading or writing AgentCore Memory."}</p>
           </form>
-          {recalled !== null && <div className="memory-recall-results" aria-live="polite"><h3>{recalled.length} relevant memor{recalled.length === 1 ? "y" : "ies"} returned</h3><Records records={recalled} />{!recalled.length && <p>No saved facts or preferences matched this request.</p>}</div>}
+          {recalled !== null && <div className="memory-recall-results" aria-live="polite"><h3>{recalled.length} relevant memor{recalled.length === 1 ? "y" : "ies"} returned</h3><Records records={recalled} />{!recalled.length && <p>No saved memories matched this request.</p>}</div>}
           {pending && <p className="memory-progress" role="status"><LoaderCircle className="memory-spinner" size={18} aria-hidden="true" />{stage}</p>}{answer && !currentTurn && <div className="memory-answer-copy"><Markdown>{answer}</Markdown></div>}
           {currentTurn && <div className="memory-current-answer"><Turn turn={currentTurn} /></div>}
           {!pending && !answer && !currentTurn && <p className="memory-empty">Your answer will appear here after you ask Mosaic.</p>}

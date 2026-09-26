@@ -102,6 +102,7 @@ required_environment=(
   CODE_EDITOR_CONNECTION_TOKEN
   ORIGIN_VERIFY_SECRET
   DB_INSTANCE_CLASS
+  MOSAIC_AGENTCORE_MEMORY_ID
 )
 for variable in "${required_environment[@]}"; do
   if [[ -z "${!variable:-}" ]]; then
@@ -704,6 +705,7 @@ MOSAIC_WORKSHOP_DATABASE=$DB_NAME
 AWS_REGION=$AWS_REGION
 AWS_DEFAULT_REGION=$AWS_REGION
 BEDROCK_REGION=$AWS_REGION
+MOSAIC_AGENTCORE_MEMORY_ID=$MOSAIC_AGENTCORE_MEMORY_ID
 EMBEDDING_PROVIDER=bedrock
 BEDROCK_EMBED_MODEL_ID=us.cohere.embed-v4:0
 RERANK_PROVIDER=bedrock
@@ -1140,6 +1142,12 @@ jq -e '
   .diagnostics.candidate_counts.trigram_in_pool == 0 and
   all(.results[]; .product_id != 1277987)
 ' /tmp/lab1-broken-proof.json
+
+# Exercise the API under its runtime role, including writes, reads and all four
+# strategy namespaces. A control-plane ACTIVE status alone cannot prove access.
+(cd "$REPO" && MOSAIC_ORIGIN_VERIFY_SECRET="$ORIGIN_VERIFY_SECRET" \
+  .venv/bin/python scripts/verify_session_memory.py \
+    --api http://127.0.0.1:8081 --memory-id "$MOSAIC_AGENTCORE_MEMORY_ID")
 
 printf '\n=== MOSAIC BOOTSTRAP GREEN ===\n'
 jq -r '"  products            \(.database.product_count)
