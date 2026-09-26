@@ -7,8 +7,8 @@ Where the live state lives, what can be restored, and what cannot.
 **No local databases exist or will exist.**
 
 - The **Aurora PostgreSQL cluster** in `us-east-1` holds the only live tree
-  with the served `reviews-2023-500k-v1` catalog in `mosaic_catalog_stage`,
-  `mosaic_catalog_search` and `mosaic_live_search`: 500,000 source products and
+  with the served `reviews-2023-v2` catalog in `mosaic_catalog_stage`,
+  `mosaic_catalog_search` and `mosaic_live_search`: 553,911 source products and
   saved Cohere Embed v4 vectors at 1024 dimensions. The original 500,000-row
   synthetic catalog remains separately in `mosaic` and `mosaic_search`.
 - The **Workshop Studio attendee path** creates a fresh encrypted cluster, loads
@@ -23,7 +23,7 @@ Where the live state lives, what can be restored, and what cannot.
 
 Rationale is recorded in `docs/house-standards.md` §6. In short: the loaded state
 of the pre-rewrite `catalog.*` tree existed only in two local databases, they
-were dropped, and 500,000 rows of real embeddings cannot be reconstructed without
+were dropped, and 553,911 rows of real embeddings cannot be reconstructed without
 re-embedding. Local state that nothing can restore is not a convenience.
 
 ## What is restorable

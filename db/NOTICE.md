@@ -1,6 +1,6 @@
 # Notice
 
-The served workshop catalog (`reviews-2023-500k-v1`) is derived from Amazon
+The served workshop catalog (`reviews-2023-v2`) is derived from Amazon
 Reviews 2023 (McAuley Lab, UC San Diego); ESCI and WANDS labels appear only in
 reviewed teaching comparisons. Sources, citations and license status are in the
 repository [NOTICE](../NOTICE.md). The historical base catalog in this schema is

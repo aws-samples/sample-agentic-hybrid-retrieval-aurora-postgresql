@@ -36,7 +36,7 @@ SEARCH_SCHEMA = "mosaic_catalog_search"
 PROJECTION_SQL = """
 CREATE TABLE mosaic_catalog_search.product_document AS
 WITH source AS (
-    SELECT p.*, k.kind,
+    SELECT p.*, k.kind, i.product_id AS base_product_id,
         nullif(btrim(p.original->'details'->>'Brand'), '') AS brand,
         concat_ws(' ', p.parent_asin, p.original->'details'->>'Brand',
             coalesce(p.original->'details'->>'Model Name',
@@ -55,9 +55,9 @@ WITH source AS (
     LEFT JOIN source_product_ids i ON i.parent_asin=p.parent_asin
     WHERE p.dataset_id=%s
 )
-SELECT coalesce(i.product_id,
+SELECT coalesce(base_product_id,
            (SELECT count(*) FROM source_product_ids)
-           + row_number() OVER (PARTITION BY i.product_id IS NULL ORDER BY parent_asin COLLATE "C")) AS product_id,
+           + row_number() OVER (PARTITION BY base_product_id IS NULL ORDER BY parent_asin COLLATE "C")) AS product_id,
        dataset_id, parent_asin, source_record_sha256, embedding_text_sha256,
        CASE source_department
            WHEN 'Electronics' THEN 'consumer_electronics'

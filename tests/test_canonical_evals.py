@@ -106,9 +106,7 @@ def test_canonical_products_are_in_the_curated_cohort():
         )["products"]
     }
     for query in QUERIES:
-        expected = (
-            real if query.get("dataset_id") == "reviews-2023-500k-v1" else curated
-        )
+        expected = real if query.get("dataset_id") == "reviews-2023-v2" else curated
         assert {item["product_id"] for item in query["judgments"]} <= expected
 
 

@@ -30,9 +30,8 @@ if str(ROOT) not in sys.path:
 from scripts.fetch_catalog_metadata import REVISION, validate_range
 from scripts.prepare_real_catalog import canonical, sha256
 
-# Home and Kitchen carries no pinned full-file hash yet: the file is 31 GB and
-# the scanner records the hash of every range it reads instead. Pin it after
-# the first complete scan reports its digest.
+# Every source carries the digest of its whole pinned file, observed by an
+# ordered pass over the same immutable revision the scans read.
 REVIEW_SOURCES = {
     "Electronics": (
         22616233652,
@@ -42,7 +41,10 @@ REVIEW_SOURCES = {
         5776792834,
         "82cc49670098220a314d398ceff6434599b54c27af5fa00ab9c0b4af9d9d9011",
     ),
-    "Home_and_Kitchen": (31408889188, None),
+    "Home_and_Kitchen": (
+        31408889188,
+        "88f2ed8cda172b18201a9d8577ab461255b9ecec99581c1ee05c5e1b4105262b",
+    ),
 }
 RANGE_BYTES = 16 * 1024 * 1024
 CHECKPOINT_RANGES = 256

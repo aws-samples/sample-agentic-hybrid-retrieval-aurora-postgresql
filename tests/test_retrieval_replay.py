@@ -582,7 +582,7 @@ def test_candidate_eligibility_uses_the_active_catalog(monkeypatch):
 
     from service import retrieval_replay
 
-    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-500k-v1")
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
     connection = MagicMock()
     connection.execute.return_value.fetchall.return_value = [
         {"product_id": 1408222, "eligible": True}

@@ -35,7 +35,7 @@ questions are for discussion.
 | Lab | Customer outcome | What the participant builds | Graded against |
 |---|---|---|---|
 | Retrieve (explain a mechanism) | Find the saved Bose listing | An account, from one query over the installed search functions, the listing's lexemes and `word_similarity`, of why only close spelling can match (`show_trgm`, `\sf` and the raw plans are optional); the trigram CTE and channel from a contract; a recall query for the filtered vector search | Exact neighbors the grader computes itself, with the planner's plan (btree + sort, about 286 ms) and with HNSW forced (39–47 ms). Forced recall measured 0.287 (2026-09-23), 0.440 and 0.467 (2026-09-24) at a full 150 rows; the obvious `ORDER BY embedding <=> v` ground truth is itself served by HNSW |
-| Rank (write an algorithm, then decide) | Recover a documented 27-inch 4K/90W monitor | RRF in SQL over the three installed search functions (the searches and their union are given; the fusion and tie-break are the participant's); the repair that makes production agree with it; one setting change with a rule stated in advance | An independent fusion at `k` = 1, 10, 30, 60 and 120 (measured: the broken run saves 2 distinct scores across 50 rows; the Dell's combined position is 7, 9, 17, 24, 24), then the proposal replayed over 141 ESCI judged queries and four reviewed chair controls. Measured: cutoff 75 admits 24 more Exact products (18 better, 0 worse) in one billed rerank unit; `k`=120 admits 5 more (p=0.125); both reproduced on 2026-09-24 |
+| Rank (write an algorithm, then decide) | Recover a documented 27-inch 4K/90W monitor | RRF in SQL over the three installed search functions (the searches and their union are given; the fusion and tie-break are the participant's); the repair that makes production agree with it; one setting change with a rule stated in advance | An independent fusion at `k` = 1, 10, 30, 60 and 120 (the collapsed run ties every single-search candidate across 50 rows, so the pool is decided by product id; read the ViewSonic's combined position at each `k` from your own run), then the proposal replayed over 141 ESCI judged queries and four reviewed chair controls. Measured: cutoff 75 admits 24 more Exact products (18 better, 0 worse) in one billed rerank unit; `k`=120 admits 5 more (p=0.125); both reproduced on 2026-09-24 |
 | Reason (specify a contract) | Support the monitor and wheeled-chair choices; revisit the headphones | Tests for `register_evidence`, then the repair; a claims query (citation extraction given) separating cited evidence from imported reviews and source rating counts; the loop query | The reference repair (must pass) and four faulty variants (each must fail); an independent evidence count; citation mutations; the loop query's zero formula error |
 
 Labs 1 and 2 run their investigations directly in `psql` against installed
@@ -55,11 +55,12 @@ or catalog identities. Citation mutations exist only in memory.
   recovery into the list remain essential; an exact managed-model first place
   is not required. The browser and command-line checks enforce the same bound
   and the same only-trigram condition for Lab 1.
-- Monitor and chair evidence is thin: the published catalog imports 2 reviews
-  for the Dell (6 source ratings) and 1 for the Steelcase (1 rating), and the
-  Lab 3 answer typically cites one of each. The Bose control (15 imported
-  reviews, 5,341 ratings) provides the sampled-review comparison and is saved
-  beside the Lab 3 completion receipt so participants can read its answer.
+- Monitor and chair evidence varies: the published catalog imports 10 reviews
+  for the ViewSonic (96 source ratings) and 15 for the Steelcase Gesture,
+  Licorice (235 source ratings), and the Lab 3 answer typically cites one of
+  each. The Bose control (15 imported reviews, 5,341 ratings) provides the
+  sampled-review comparison and is saved beside the Lab 3 completion receipt so
+  participants can read its answer.
 - A citation checker can reject specific bad inputs without proving every
   natural-language statement true. Participants still read the claim and record.
 - The runner reads the query vector the application saved with the search

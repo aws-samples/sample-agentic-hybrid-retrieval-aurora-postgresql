@@ -174,4 +174,4 @@ def test_lab1_anchor_transposes_the_exact_source_identifier():
     a, b = changed
     assert wrong[a] == correct[b] and wrong[b] == correct[a]
     assert typo["target_product_ids"] == exact["target_product_ids"]
-    assert typo["dataset_id"] == exact["dataset_id"] == "reviews-2023-500k-v1"
+    assert typo["dataset_id"] == exact["dataset_id"] == "reviews-2023-v2"

@@ -85,11 +85,14 @@ def validate_query_contract(connection: Any, queries: list[dict[str, Any]]) -> N
 
 
 def reviewed_catalogs() -> set[str]:
-    """Catalog identities queries may name: the legacy corpus, the released real catalog, and the served one."""
+    """Catalog identities queries may name: the legacy corpus, the released catalog, the lab contract's catalog, and the served one."""
     identities = {"synthetic-legacy"}
     contract = ROOT / "db" / "config" / "real-catalog-cache.json"
     if contract.exists():
         identities.add(json.loads(contract.read_text())["dataset_id"])
+    missions = ROOT / "data" / "evals" / "mosaic_labs_missions.json"
+    if missions.exists():
+        identities.add(json.loads(missions.read_text())["corpus"]["dataset_id"])
     if active_dataset():
         identities.add(active_dataset())
     return identities
@@ -208,9 +211,16 @@ def _validate_query_group(
         (json.dumps(cases),),
     ).fetchall()
     if failures:
+        # Rows arrive as tuples or, under a dict row factory, as mappings;
+        # iterating a mapping would print its keys instead of the failure.
+        def parts(row):
+            if isinstance(row, dict):
+                return row["query_id"], row["target_product_id"], row["reason"]
+            return row
+
         sample = "; ".join(
             f"{query_id}/{product_id}: {reason}"
-            for query_id, product_id, reason in failures[:10]
+            for query_id, product_id, reason in map(parts, failures[:10])
         )
         suffix = "" if len(failures) <= 10 else f"; plus {len(failures) - 10} more"
         raise ValueError(

@@ -37,6 +37,10 @@ SPLADE architecture are not workshop results or requirements.
 
 ## Current evidence — 22 September 2026
 
+Historical: measured against `reviews-2023-500k-v1`. The workshop now serves
+`reviews-2023-v2`, and the Dell-specific positions below (a 500,000-product
+build) have not been rerun against the larger catalog.
+
 See [the verification record](evidence/hybrid-search-review-2026-09-22.json).
 It identifies the selected catalog, source SQL, models, settings and saved runs.
 

@@ -1,5 +1,5 @@
 {
- "description": "Parent ASINs whose reviews are sampled for the labs: every product in the saved candidate pools of the three required lab requests, their five controls, and the Lab 3 agent's own searches, measured on reviews-2023-500k-v1 on 2026-09-22.",
+ "description": "Parent ASINs whose reviews are sampled for the labs: every product in the saved candidate pools of the three required lab requests, their five controls, and the Lab 3 agent's own searches, measured on reviews-2023-v2 on 2026-09-22.",
  "Electronics": [
   "B00005BQ70",
   "B00005I9QO",

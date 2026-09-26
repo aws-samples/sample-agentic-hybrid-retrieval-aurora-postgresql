@@ -1,6 +1,6 @@
 # Worked examples from the real catalog
 
-These are measured requests against `reviews-2023-500k-v1`, with the normal filtered search, fusion cutoff and Bedrock reranker. They are alternative teaching examples and controls, not a representative quality benchmark. The required three labs and their five controls remain defined in `data/evals/mosaic_labs_missions.json`.
+These are measured requests against `reviews-2023-500k-v1`, the catalog in place when they were run, with the normal filtered search, fusion cutoff and Bedrock reranker. They are alternative teaching examples and controls, not a representative quality benchmark. The required three labs and their five controls remain defined in `data/evals/mosaic_labs_missions.json`. The workshop now serves `reviews-2023-v2`; the required Lab 2 row below is updated to its measured v2 values, but the other secondary examples in this file have not been reverified against the larger catalog and should be treated as historical until they are.
 
 No product descriptions, images, reviews or embeddings were changed to create a result. The deliberate fault is in the code participants repair. Both SQL experiments restored the original live functions byte-for-byte afterwards.
 
@@ -31,7 +31,7 @@ The same collapsed-RRF fault is applied for every request below. A visible winne
 
 | Request | Product being checked | Before: target position | After: target position | Teaching use |
 |---|---|---|---|---|
-| 27 inch 4K monitor USB-C 90W laptop charging | 1408222 | Absent | 1 | Required Lab 2: missing product becomes the first result |
+| 27 inch 4K monitor USB-C 90W laptop charging | 1551237 | Absent | 5 | Required Lab 2: missing product reaches the shortlist |
 | 27 inch monitor to connect and charge my laptop with one USB-C cable 90W 4K | 1408222 | Absent | Absent | Failure retained: wording needs further investigation |
 | 27 inch 4K IPS monitor with USB Type C and a height adjustable pivot stand | 1481815 | 1 | 1 | Control: winner is unchanged; inspect the contributions |
 | office chair with adjustable lumbar support seat depth adjustment and footrest | 1490476 | 1 | 1 | Control: winner is unchanged; inspect the contributions |
@@ -39,7 +39,7 @@ The same collapsed-RRF fault is applied for every request below. A visible winne
 | mesh high back chair with flip up arms and headrest | 1379290 | 1 | 1 | Control: winner is unchanged; inspect the contributions |
 | wireless noise cancelling headphones with Alexa voice control | 1277987 | 1 | 1 | Control: winner is unchanged; inspect the contributions |
 
-For the required monitor request, inspect the Dell U2720Q source for 3840 x 2160 and up to 90W USB-C power delivery. Compare the HP Z27n, whose title says 1440p. Do not label every other returned monitor wrong: check its actual record, and distinguish an undocumented feature from an explicitly absent feature.
+For the required monitor request, inspect the ViewSonic VG2756-4K source for 3840 x 2160 and 90W USB-C charging over one cable. Compare the Lenovo ThinkVision T27hv-20, whose title says 1440p. Do not label every other returned monitor wrong: check its actual record, and distinguish an undocumented feature from an explicitly absent feature.
 
 The alternative chair requests let builders distinguish seat-depth adjustment, lumbar support, movable arms, flip-up arms and a headrest. Those are separate claims. The document must explicitly support the claimed adjustment; the word “ergonomic” alone does not.
 

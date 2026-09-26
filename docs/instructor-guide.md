@@ -6,7 +6,7 @@ Aurora only. There is no local database and no `make` target creates one. See
 `ARTIFACTS.md`, including how to connect from a corporate network.
 
 - confirm the base bootstrap with `make db-verify-bootstrap`, and the real
-  catalog's 500,000 products and vectors through the restore's verification;
+  catalog's 553,911 products and vectors through the restore's verification;
 - save `build/bootstrap-timings.tsv`; report the measured `index_creation` and
   `total` rows rather than estimating them;
 - run `MISSION_GATE_REQUIRE_DB=1 make validate-missions`;
@@ -36,8 +36,8 @@ Aurora only. There is no local database and no `make` target creates one. See
   traffic, and do not print a latency or concurrency figure here that the
   exercise's own recorded report does not carry.
 
-Rehearse against `reviews-2023-500k-v1`. The prepared Aurora catalog has
-500,000 imported records and vectors. Read `/api/readiness` and confirm both
+Rehearse against `reviews-2023-v2`. The prepared Aurora catalog has
+553,911 imported records and vectors. Read `/api/readiness` and confirm both
 API and terminal select that dataset. Live development checks do not prove
 that the published Workshop Studio bootstrap loads this new dataset. Complete
 the delivery-asset migration and fresh-environment rehearsal before the event.
@@ -141,11 +141,13 @@ Ask attendees to compare per-arm rank, contribution, fused rank, and final rank
 for the top two results. The line to land is: "A correct answer is not proof of
 a correct pipeline." Historical weighted fusion is optional.
 
-Before repair, the monitor request drops Dell U2720Q before reranking;
-HP Z27n's visible 1440p specification conflicts with 4K. Inspect a source
-position greater than 1: the broken formula gives it rank-1 credit. After
-repair, the Dell enters the combined list and is reranked first. Its combined
-position was 24 in repeated verification; read the participant's actual value.
+Before repair, the monitor request drops the ViewSonic VG2756-4K before
+reranking; the collapsed formula fills the pool by product id, so a Dell
+U2720Q relisting leads the broken shortlist and a 1440p Lenovo ThinkVision
+T27hv-20 still occupies a slot for a 4K request. Inspect a source position
+greater than 1: the broken formula gives it rank-1 credit. After repair, the
+ViewSonic enters the combined list at position 21 and reaches final position
+5; read the participant's actual value.
 
 Other feature requests retain their first result through the same faulty
 formula. Use those as controls, not as visible repair demonstrations. The

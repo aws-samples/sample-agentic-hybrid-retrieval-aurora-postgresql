@@ -1,5 +1,5 @@
 {
-  "dataset_id": "reviews-2023-500k-v1",
+  "dataset_id": "reviews-2023-v2",
   "purpose": "Unmodified source fields for the measured workshop examples and contrasting products. This is a source-fact snapshot, not a search measurement.",
   "products": [
     {
@@ -157,6 +157,45 @@
       "body_text": "",
       "source_record_sha256": "075e98dd93da408e5f5c311330599769113388f890e20bfa6863847434177dd5",
       "embedding_text_sha256": "6ea251d865b249ebe7091c1272242caf947513345b385d4ee5b48a516c7489d9"
+    },
+    {
+      "product_id": 1551237,
+      "title": "ViewSonic VG2756-4K 27 Inch IPS 4K Docking Monitor with Integrated USB 3.2 Type-C RJ45 HDMI Display Port and 40 Degree Tilt Ergonomics for Home and Office",
+      "sku": "B0BSHZHKB7",
+      "domain": "consumer_electronics",
+      "category_key": "monitor",
+      "brand": "ViewSonic",
+      "model": "B0BSHZHKB7",
+      "feature_text": "VERSATILE MONITOR: 27 Inch 4K (3840x2160p) IPS monitor with thin bezels and 60Hz refresh rate DITCH THE DOCK: Ethernet RJ45 and USB-C connectivity for fast data, audio and video transfer, 90W charging over one cable ERGONOMIC STAND: Advanced ergonomics (40-degree tilt, swivel, rotate and height) for all-day comfort ENHANCED VIEWING COMFORT: Flicker-Free technology and Blue Light Filter for reduced eye fatigue VERSATILE STAND: Easy-to-install quick release stand with carrying handle and client mount FLEXIBLE CONNECTIVITY: The VG2456-4K supports PC, Mac and more with USB-C, RJ45, HDMI, DisplayPort, USB inputs {\"Brand\": \"ViewSonic\", \"Color\": \"Black\", \"Series\": \"VG2756-4K\", \"Item Weight\": \"16.5 pounds\", \"Screen Size\": \"27\", \"Manufacturer\": \"ViewSonic\", \"Power Source\": \"10\", \"Refresh Rate\": \"60 Hz\", \"Special Feature\": \"Height Adjustment, Anti-Glare Coating, Swivel Adjustment, Tilt Adjustment, Built-In Speakers\", \"Best Sellers Rank\": {\"Computer Monitors\": 1263, \"Climate Pledge Friendly\": 14346, \"Climate Pledge Friendly: Computers\": 1608}, \"Item model number\": \"VG2756-4K\", \"Screen Resolution\": \"3840 x 2160\", \"Product Dimensions\": \"16 x 8 x 24.1 inches\", \"Date First Available\": \"September 3, 2020\", \"Max Screen Resolution\": \"3840 x 2160\", \"Item Dimensions  LxWxH\": \"16 x 8 x 24.1 inches\", \"Number of USB 2.0 Ports\": \"1\", \"Number of USB 3.0 Ports\": \"1\", \"Display Resolution Maximum\": \"3840 x 2160\", \"Standing screen display size\": \"27\"}",
+      "body_text": "Designed to boost productivity and maximize output, the ViewSonic VG2756-4K is a 27” 4K Ultra HD docking monitor that transforms your desktop into a streamlined and efficient workspace. Enjoy reliable and flexible network connectivity with the integrated gigabit Ethernet port, while the latest USB Type-C connectivity makes setup a breeze. That’s not all, the integrated USB hub also provides single-cable simplicity for connecting and charging your peripherals and accessories. A best-in-class ergonomic design features 40-degree tilt and bi-directional pivot so your screen and workspace are as comfortable as you need. In addition, the included vDisplay software gives you quick and easy OSD control, as well as customized screen templates for easy multi-tasking. This monitor is also shipped in eco-friendly biodegradable packaging, along with an easy-to-install quick release stand that makes for quick deployment and a lower total cost of ownership.",
+      "source_record_sha256": "fdb89c37616d7786910e76adc6e4ff043629265c4027551359e783338b2f30a0",
+      "embedding_text_sha256": "98fd3b84b96c8463992cc955658661549734f3a79ecde7b30c99dc210dcb3c58"
+    },
+    {
+      "product_id": 1540761,
+      "title": "Steelcase Gesture Office Chair, Licorice",
+      "sku": "B095V7RS6S",
+      "domain": "home_office",
+      "category_key": "chair",
+      "brand": "Steelcase",
+      "model": "B095V7RS6S",
+      "feature_text": "Connect fabric is 100% polyester Wheels for carpet flooring Ergonomic chair – features include adjustable seat depth, fully adjustable arms, adjustable lumbar, pneumatic seat height adjustment, recline tension adjustment, 4 position recline lock, wrapped upholstered back and seat, black/black frame color scheme All day comfort and back support - Gesture’s seat and back move as a synchronized system, following your body as you move throughout the day to ensure long-term support Quality & durability – designed to withstand 24/7 use while providing maximum comfort {\"Brand\": \"Steelcase\", \"Color\": \"Licorice\", \"Shape\": \"L-Shaped\", \"Style\": \"Carpet Casters\", \"Refill\": \"Foam\", \"Pattern\": \"Solid\", \"Material\": \"Textile\", \"Arm Style\": \"With arms\", \"Room Type\": \"Office\", \"Back Style\": \"Solid Back\", \"Model Name\": \"Gesture\", \"Unit Count\": \"1.0 Count\", \"Finish Type\": \"Polyester\", \"Form Factor\": \"Upholstered\", \"Item Weight\": \"70 pounds\", \"Finish types\": \"Polyester\", \"Manufacturer\": \"Steelcase\", \"Frame Material\": \"Alloy Steel\", \"Special Feature\": \"Adjustable Lumbar, Adjustable Height, Ergonomic, Arm Rest, Rolling\", \"Number of pieces\": \"1\", \"Assembly required\": \"No\", \"Best Sellers Rank\": {\"Home & Kitchen\": 229932, \"Home Office Desk Chairs\": 491}, \"Item model number\": \"442A50-B/B-5S26-5S26-4ARM-LUM-HEAD-CC\", \"Batteries required\": \"No\", \"Product Dimensions\": \"32.5\\\"D x 27.5\\\"W x 21.25\\\"H\", \"Seat Material Type\": \"Foam\", \"Included Components\": \"Office Chair\", \"Warranty Description\": \"12 year manufacturer.\", \"Surface Recommendation\": \"Carpet\", \"Age Range (Description)\": \"Adult\", \"Product Care Instructions\": \"Spot Clean\", \"Seat Back Interior Height\": \"24 Inches\", \"Recommended Uses For Product\": \"Office\", \"Maximum Weight Recommendation\": \"400 Pounds\", \"Is Discontinued By Manufacturer\": \"No\"}",
+      "body_text": "The Steelcase Gesture chair is a high performing ergonomic office chair designed to support our interactions with all of today’s technologies: laptops, desktops, mobile devices and more.A new sitting experience, Gesture’s seat and back move as a synchronized system, following your body as you move throughout the day to ensure long-term comfort and support.The seat is flexible on all edges, reducing pressure typically caused by hard plastic or wood edges on other chairs. Made with high density, contoured seat foam designed to withstand the test of time and provide maximum comfort unique to each user.Adjustable arms move similar to the human arm to keep you supported as you transition between postures and devices.This model includes an adjustable headrest, adjustable seat depth, fully adjustable arms, adjustable lumbar, pneumatic seat height adjustment, recline tension adjustment, 4 position recline lock, wrapped upholstered upper back and seat.The chair will arrive fully assembled and is backed by the Steelcase warranty.",
+      "source_record_sha256": "b35c0d009fabd4be14a0d8091c724ec1193842306e64b97992ff127cec5bba83",
+      "embedding_text_sha256": "69510078c63c11458c245de78a08fd4a6d77be3232379e79df106d32ffc6a069"
+    },
+    {
+      "product_id": 1545826,
+      "title": "Steelcase Gesture Office Chair - Cogent: Connect Licorice Fabric, Wrapped Back, Light on Light Frame, Platinum Metallic Base",
+      "sku": "B09WJZGHQX",
+      "domain": "home_office",
+      "category_key": "chair",
+      "brand": "Steelcase",
+      "model": "B09WJZGHQX",
+      "feature_text": "Connect fabric is 100% polyester Wheels for carpet flooring Ergonomic chair – features include adjustable seat depth, fully adjustable arms, pneumatic seat height adjustment, recline tension adjustment, 4 position recline lock, shell back and seat, light/light frame color scheme All day comfort and back support - Gesture’s seat and back move as a synchronized system, following your body as you move throughout the day to ensure long-term support Quality & durability - designed to withstand 24/7 use while providing maximum comfort {\"Size\": \"Low Height Range (14.5\\\" - 18.25\\\") (Pack of 1)\", \"Brand\": \"Steelcase\", \"Color\": \"Licorice Fabric\", \"Shape\": \"L-Shaped\", \"Style\": \"Modern\", \"Weight\": \"78 Pounds\", \"Pattern\": \"Solid\", \"Material\": \"Textile\", \"Arm Style\": \"With arms\", \"Room Type\": \"Office, Study Room\", \"Model Name\": \"Gesture\", \"Unit Count\": \"1.0 Count\", \"Finish Type\": \"Polished\", \"Item Weight\": \"70 pounds\", \"Frame Material\": \"Aluminum\", \"Special Feature\": \"Adjustable Height, Ergonomic, Arm Rest, Rolling\", \"Best Sellers Rank\": {\"Home & Kitchen\": 197126, \"Home Office Desk Chairs\": 435}, \"Country of Origin\": \"Mexico\", \"Item model number\": \"442A40-Light/Light-5S26-5S26-4ARM-CC\", \"Product Dimensions\": \"32.5\\\"D x 27.5\\\"W x 21.25\\\"H\", \"Seat Material Type\": \"Polyester\", \"Included Components\": \"Office Chair\", \"Date First Available\": \"January 1, 2014\", \"Surface Recommendation\": \"Carpet\", \"Age Range (Description)\": \"Adult\", \"Seat Back Interior Height\": \"24 Inches\", \"Recommended Uses For Product\": \"Office\", \"Maximum Weight Recommendation\": \"400 Pounds\", \"Is Discontinued By Manufacturer\": \"No\"}",
+      "body_text": "Our Global Posture Study revealed nine new postures related to technology that were not adequately supported by existing seating solutions. Gesture is the first chair designed to support users’ interactions with today’s technologies. Gesture’s Core, Limb, and Seat interfaces work as a system to provide support and comfort to a wide range of users in a wide range of postures. Gesture is a highly ergonomic chair that will perform in any work environment.",
+      "source_record_sha256": "66a61e82487506cf4d00f39dc1c41e1bc96312875bd87a28065123a8a6db9ebb",
+      "embedding_text_sha256": "4ffff62b183fabe4b1936b11ca2f3d2d9e5be0b67c2967bdfad28452edd2290e"
     }
   ]
 }

@@ -3,12 +3,28 @@
 Read this before editing. It carries the constraints that are not derivable from
 the code.
 
+## Workshop Studio publication
+
+For first-time cloning, follow [the setup guide](docs/workshop-studio-setup.md).
+When asked to publish/update a build, follow
+[the publishing instructions](docs/workshop-studio-publishing.md):
+
+1. Validate and publish the application source.
+2. Update source, bootstrap, and infrastructure pins together with the workshop's tooling.
+3. Validate the workshop; dry-run and upload the complete assets using its scoped authoring credentials and confirmed S3 prefix. Verify uploaded hashes.
+4. Sync **Asset static URLs** in Workshop Studio and wait for **In sync**.
+5. Only then stage, commit, and push the workshop repository.
+6. Verify the resulting build succeeds and report its ID/link. Verify deployment acceptance too when requested.
+
+Carry these authorized steps through without repeated confirmation. Report actual
+blockers and do not widen the requested publication audience.
+
 ## Infrastructure: Aurora only
 
 **Do not create a local database. Do not suggest one.**
 
 The Aurora PostgreSQL cluster in `us-east-1` holds the only live tree
-with the selected `reviews-2023-500k-v1` catalog, 500,000 source products with
+with the selected `reviews-2023-v2` catalog, 553,911 source products with
 real Cohere Embed v4 vectors. Historical synthetic tables are retained separately. Every `make`
 target reads `DATABASE_URL` and must point at Aurora.
 
@@ -22,7 +38,7 @@ Any Makefile target, script, or document assuming a local PostgreSQL is a defect
 to fix, not a fallback to use. Full policy and rationale: `ARTIFACTS.md`.
 
 The reason is concrete. The pre-rewrite `catalog.*` tree's loaded state existed
-only in two local databases; they were dropped in August 2026, and 500,000 rows
+only in two local databases; they were dropped in August 2026, and 553,911 rows
 of real embeddings cannot be reconstructed without re-embedding. That permanently
 removed the ability to diff any ported script against its predecessor.
 

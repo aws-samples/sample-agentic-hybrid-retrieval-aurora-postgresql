@@ -1,5 +1,5 @@
 {
-  "dataset_id": "reviews-2023-500k-v1",
+  "dataset_id": "reviews-2023-v2",
   "scope": "Worked examples, not a representative catalog quality benchmark. All attempted variants are retained. No product text, image or vector changed.",
   "functions_restored_byte_identical": true,
   "cases": [

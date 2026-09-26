@@ -118,14 +118,15 @@ function response(result: ProductSummary, rrfK = testFusionK): SearchResponse {
 }
 
 describe("lab outcome diagnostics", () => {
-  it.each([1, 2, 3, 4, 0, 1.5])("grades final position %s against the declared shortlist", (position) => {
+  it.each([1, 2, 3, 4, 5, 6, 0, 1.5])("grades final position %s against the declared shortlist", (position) => {
     const mission = coreMosaicLabs.find((item) => item.stage === "rank")!;
+    const shortlist = mission.expected_final_top_k ?? mission.expected_final_rank ?? 1;
     const row = product(mission.target_product_ids[0], (rank) => 1 / (testFusionK + rank));
     Object.assign(row, mission.filters);
     row.signals!.pre_rerank_rank = 24;
     row.signals!.final_rank = position;
     expect(retrievalLabOutcome(mission, response(row)).tone)
-      .toBe(Number.isInteger(position) && position >= 1 && position <= 3 ? "fixed" : "broken");
+      .toBe(Number.isInteger(position) && position >= 1 && position <= shortlist ? "fixed" : "broken");
   });
 
   it.each(["fts", "semantic"] as const)("rejects an only-spelling claim when %s also found the target", (arm) => {

@@ -22,11 +22,12 @@ contract), and each is graded against an answer the grader computes itself.
   faster yet missed half or more of the true nearest neighbours. **Lesson: a full
   result list is not evidence of good recall; only a comparison with exact
   results measures it.**
-- **Lab 2 — Fuse, rerank, and inspect · 10 min.** The monitor that documents 90W
-  USB-C charging never reaches the reranker. Participants write reciprocal rank
-  fusion in SQL, graded at five values of `k`. Their version shows the saved run
-  had only two distinct scores, so the product-ID tie-breaker, not relevance,
-  picked the 50 products sent to Cohere Rerank. After repairing production, they
+- **Lab 2 — Fuse, rerank, and inspect · 10 min.** The monitor that documents
+  USB-C charging up to 90W over one cable never reaches the reranker. Participants
+  write reciprocal rank fusion in SQL, graded at five values of `k`. Their version
+  shows the collapsed contributions tie every single-search candidate, so the
+  product-ID tie-breaker, not relevance, decides the 50 products sent to Cohere
+  Rerank and keeps the oldest listings in the pool. After repairing production, they
   propose one retrieval change under a rule they set in advance. The grader
   replays it over 141 judged shopper queries, and adopting and rejecting both
   pass if the decision follows the rule. **Lesson: fusion only works if positions
@@ -74,10 +75,10 @@ The completion gate remains inside Lab 3. Its saved-run option repeats the check
 
 The customer story is **find options → establish their order → support a
 decision**. Keep the stage names Retrieve, Rank and Reason. Lab 1 recovers the
-Bose QuietComfort 35 II Alex saved; Lab 2 keeps the Dell U2720Q, a 27-inch 4K
-monitor documenting USB-C charging up to 90W, in reach of the reranker; Lab 3
-asks the agent to check that monitor and the Steelcase Gesture chair against
-their sources. The finale, **Bring Alex's office home**, reads the participant's three
+Bose QuietComfort 35 II Alex saved; Lab 2 keeps the ViewSonic VG2756-4K, a
+27-inch 4K monitor documenting USB-C charging up to 90W over one cable, in
+reach of the reranker; Lab 3 asks the agent to check that monitor and the
+Steelcase Gesture chair against their sources. The finale, **Bring Alex's office home**, reads the participant's three
 repairs, decisions and citations back from Aurora without
 another model call. The [presenter brief](../workshop.md) owns the spoken
 narrative and transitions.

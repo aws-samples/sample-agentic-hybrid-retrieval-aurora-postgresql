@@ -36,7 +36,7 @@ target products of a live lab mission (`data/evals/mosaic_labs_missions.json`'s
 `target_product_ids`). Every judgment therefore carries `"anchor_overlap"`:
 
 - `"mission"`: the product is a live mission's own `target_product_ids` --
-  1208825, 1221817, 1277987, 1408222.
+  1208825, 1277987, 1408222.
 - `"canonical"`: the product is judged in `canonical_queries.jsonl` but is not
   itself a mission target -- 1138035, 1162128, 1168700.
 - `"none"`: the product is outside both -- 1248512, 1379290, 1389794, 1481815,
@@ -198,7 +198,8 @@ JUDGMENT_STATUSES = {"agent_grounded", "agent_inferred", "reviewed", "esci_human
 #: only products this corpus's evidence is independent of existing anchors on.
 ANCHOR_OVERLAP_VALUES = {"mission", "canonical", "none"}
 VALID_GRADES = {0, 1, 2, 3}
-COHORT_INTENTS = {
+#: The six request shapes the agent-authored coverage probe must span.
+REQUEST_SHAPES = {
     "semantic_intent",
     "ambiguous_language",
     "typo_or_exact_identity",
@@ -206,6 +207,10 @@ COHORT_INTENTS = {
     "competing_preferences",
     "unsatisfiable",
 }
+#: Held-out ESCI shopping queries carry human labels but no request-shape
+#: classification; they are reported as their own cohort, never folded into
+#: the six agent-authored shapes.
+COHORT_INTENTS = REQUEST_SHAPES | {"esci_shopping_query"}
 REQUIRED_QUERY_FIELDS = (
     "query_id",
     "query",

@@ -35,7 +35,7 @@ LAB3_CHAIR_CONTROL = {
     "id": "lab-3-chair-search",
     "query": "Steelcase Gesture adjustable lumbar movable arms ergonomic chair",
     "filters": {"domain": "home_office", "category_key": "chair"},
-    "target": 1221817,
+    "target": 1540761,
 }
 ARM_SQL = {
     "fts": "SELECT product_id, fts_rank AS r FROM {s}.search_fts(%s, %s::jsonb, %s)",

@@ -82,11 +82,11 @@ def test_bootstrap_requires_real_cache_before_any_catalog_load():
 def test_eval_refuses_a_mixed_catalog_before_paid_scoring(monkeypatch):
     from scripts.run_eval import require_single_served_catalog
 
-    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-500k-v1")
-    require_single_served_catalog([{"dataset_id": "reviews-2023-500k-v1"}])
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
+    require_single_served_catalog([{"dataset_id": "reviews-2023-v2"}])
     with pytest.raises(ValueError, match="one catalog"):
         require_single_served_catalog(
-            [{"dataset_id": "reviews-2023-500k-v1"}, {"dataset_id": "synthetic-legacy"}]
+            [{"dataset_id": "reviews-2023-v2"}, {"dataset_id": "synthetic-legacy"}]
         )
 
 
@@ -104,7 +104,7 @@ def test_eval_validation_checks_each_catalog_in_its_own_schema():
             {
                 "query_id": "new",
                 "target_product_id": 1000001,
-                "dataset_id": "reviews-2023-500k-v1",
+                "dataset_id": "reviews-2023-v2",
             },
         ],
     )

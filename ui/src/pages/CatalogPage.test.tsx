@@ -1026,7 +1026,7 @@ describe("CatalogPage", () => {
   });
 
   it("runs named keyword and typo examples with their complete filters", async () => {
-    vi.mocked(useCatalogSource).mockReturnValue({ dataset_id: "reviews-2023-500k-v1", real: true });
+    vi.mocked(useCatalogSource).mockReturnValue({ dataset_id: "reviews-2023-v2", real: true });
     window.history.replaceState({}, "", "/catalog?offset=36&brand=Unrelated&category_key=chair");
     renderPage();
     const examples = await screen.findByRole("group", { name: "Typo search examples" });
@@ -2193,7 +2193,7 @@ describe("CatalogPage", () => {
   });
 
   it("uses real categories for saved links and resets pagination for an Ask Mosaic starter", async () => {
-    vi.mocked(useCatalogSource).mockReturnValue({ dataset_id: "reviews-2023-500k-v1", real: true });
+    vi.mocked(useCatalogSource).mockReturnValue({ dataset_id: "reviews-2023-v2", real: true });
     window.history.replaceState({}, "", "/catalog?offset=36&domain=consumer_electronics&category_key=over-ear-headphones");
     renderPage();
     await waitFor(() => expect(api.catalog).toHaveBeenCalledWith(

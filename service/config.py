@@ -436,8 +436,12 @@ def get_settings() -> Settings:
         model_rate_limit_per_minute=_bounded(
             "MOSAIC_MODEL_RATE_LIMIT_PER_MINUTE", "120", int
         ),
+        # Measured on reviews-2023-v2 on 2026-09-26: a healthy Lab 3 turn spent
+        # 35.7 s in tools (16.8 s of it in one synthesis) and a turn that had
+        # to retry synthesis twice exceeded 90 s. 180 s covers a retrying turn
+        # and still fails a hung one well inside the lab's time box.
         agent_turn_deadline_seconds=_bounded(
-            "MOSAIC_AGENT_TURN_DEADLINE_SECONDS", "90", float
+            "MOSAIC_AGENT_TURN_DEADLINE_SECONDS", "180", float
         ),
         cors_origins=origins,
         source_revision=source_revision,

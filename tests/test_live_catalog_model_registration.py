@@ -27,7 +27,7 @@ def test_verified_preparation_registers_the_evidence_model_before_publication(
 
     monkeypatch.setattr(live, "register_embedding_model", register, raising=False)
     with pytest.raises(RuntimeError, match="registration witness"):
-        live.prepare(connection, "reviews-2023-500k-v1")
+        live.prepare(connection, "reviews-2023-v2")
     assert witnessed == [True]
 
 

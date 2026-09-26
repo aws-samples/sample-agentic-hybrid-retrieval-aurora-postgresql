@@ -61,7 +61,7 @@ def test_real_catalog_accepts_saved_category_filters(
     """An old Shop link must not lock every agent search to a retired key."""
     from service.models import AgentRequest, SearchRequest
 
-    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-500k-v1")
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
     filters = {"category_key": old_category, "brand": "Example", "min_rating": 4}
     for request in (
         AgentRequest(question="Help me choose", filters=filters),
@@ -76,7 +76,7 @@ def test_real_catalog_accepts_saved_category_filters(
 
 
 def test_category_compatibility_preserves_explicit_constraints(monkeypatch):
-    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-500k-v1")
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
     filters = SearchFilters(
         category_key="over-ear-headphones",
         domain="home_office",
@@ -95,7 +95,7 @@ def test_category_compatibility_does_not_rewrite_other_catalogs(monkeypatch):
         SearchFilters(category_key="over-ear-headphones").category_key
         == "over-ear-headphones"
     )
-    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-500k-v1")
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
     assert (
         SearchFilters(category_key="unknown-category").category_key
         == "unknown-category"

@@ -33,7 +33,7 @@
     }
   },
   "corpus": {
-    "catalog_products": 500000,
+    "catalog_products": 553911,
     "premium_visual_anchors": 120,
     "embedding_model_id": "us.cohere.embed-v4:0",
     "embedding_dimensions": 1024,
@@ -44,7 +44,7 @@
     ],
     "fusion": "rrf",
     "reranker": "cohere.rerank-v3-5:0",
-    "dataset_id": "reviews-2023-500k-v1"
+    "dataset_id": "reviews-2023-v2"
   },
   "missions": [
     {
@@ -97,7 +97,7 @@
         "exact-identity",
         "semantic-eligibility"
       ],
-      "dataset_id": "reviews-2023-500k-v1",
+      "dataset_id": "reviews-2023-v2",
       "expected_target_signals": [
         "trigram"
       ],
@@ -121,7 +121,7 @@
         "category_key": "monitor"
       },
       "target_product_ids": [
-        1408222
+        1551237
       ],
       "expected_techniques": [
         "fts",
@@ -135,21 +135,19 @@
         "file": "db/sql/09_search_functions.sql",
         "approximate_lines": 6,
         "task": "Restore the reciprocal-rank contribution formula 1 / (k + rank).",
-        "broken_state": "Collapsed contributions erase positions within each search. On the fixed request, the 50-product cutoff drops the Dell U2720Q before reranking; a 1440p HP Z27n appears among the final results for a 4K request.",
-        "fixed_state": "Correct contributions retain Dell U2720Q (1408222). In repeated verification it moved from combined position 24 to final position 1; its source record states 3840 x 2160 and up to 90W USB-C power delivery.",
+        "broken_state": "Collapsed contributions erase positions within each search, so every single-search candidate ties and the 50-product cutoff is decided by product id: the oldest listings stay, and every recent 27-inch 4K USB-C listing, including the ViewSonic VG2756-4K, never reaches reranking.",
+        "fixed_state": "Correct contributions retain the ViewSonic VG2756-4K (1551237), found by meaning rank 10. In verification on reviews-2023-v2 it moved from absent to combined position 21 and final position 5; its source record states 27-inch 4K IPS, USB-C with 90W charging over one cable, RJ45, HDMI and DisplayPort.",
         "observe_before": [
-          "HTTP 200 with plausible monitors, but Dell U2720Q 1408222 is absent from the combined pool and top 10.",
-          "A source position greater than 1 receives 1 / (k + 1), tying products with different source positions.",
-          "Inspect the HP Z27n title: 1440p does not satisfy the requested 4K resolution."
+          "HTTP 200 with plausible 4K monitors, but ViewSonic VG2756-4K 1551237 is absent from the combined list of 50, so reranking never received it.",
+          "The saved combined pool holds the lowest product ids among the single-search candidates; a 1440p Lenovo T27hv-20 appears among the final results for a 4K request."
         ],
         "observe_after": [
-          "Each contribution equals 1 / (k + source_rank); at least one inspected source rank is greater than 1.",
-          "Dell U2720Q enters the combined list and reaches the declared final shortlist. Record your own combined and final positions.",
-          "Repeat the identical request and verify the same before-reranking order."
+          "The identical request returns ViewSonic VG2756-4K 1551237 at final position 5 from combined position 21, with a meaning rank of 10 and no word or spelling rank.",
+          "The other recent 4K USB-C listings (INNOCN 27, ASUS ProArt PA27UCX-K, HP Z27) enter the combined list for the first time; the shortlist changes from old listings to fits."
         ],
         "checkpoint_question": "Why could the reranker not select the Dell before the repair, and why need its combined position not be first?"
       },
-      "expected_outcome": "Restore 1 / (k + source_rank), keep the Dell U2720Q in the bounded combined list, and let reranking compare its 4K and up-to-90W specifications with Alex’s request.",
+      "expected_outcome": "Restore 1 / (k + source_rank), keep the ViewSonic VG2756-4K in the bounded combined list, and let reranking compare its 4K and 90W USB-C specifications with Alex's request.",
       "assertions": [
         "target_in_top_k",
         "fts_signal_present",
@@ -164,11 +162,11 @@
         "compare-cheaper-alternative",
         "ranking-filter-control"
       ],
-      "dataset_id": "reviews-2023-500k-v1",
+      "dataset_id": "reviews-2023-v2",
       "expected_target_signals": [
         "semantic"
       ],
-      "expected_final_top_k": 3
+      "expected_final_top_k": 5
     },
     {
       "id": "agentic-research",
@@ -178,11 +176,11 @@
       "title": "Lab 3 - Build the retrieval agent",
       "discover_label": "Evidence-backed agent answer",
       "canonical_query_id": "G-021",
-      "query": "I am finishing my home office. Check the Dell U2720Q (B0939N79Y8) for a 27-inch 4K screen and USB-C charging up to 90W, and the Steelcase Gesture (B01NAKXH73) for adjustable lumbar support and movable arms. Search each product separately, compare their fit for these needs, and explain what the specifications and available reviews do and do not establish. Cite the supporting records and explain the ranking of one search.",
+      "query": "I am finishing my home office. Check the ViewSonic VG2756-4K (B0BSHZHKB7) for a 27-inch 4K screen and USB-C charging up to 90W over one cable, and the Steelcase Gesture (B095V7RS6S) for adjustable lumbar support and fully adjustable arms, and whether reviewers say it stays comfortable through a full workday. Search each product separately, compare their fit for these needs, and explain what the specifications and available reviews do and do not establish. Cite the supporting records and explain the ranking of one search.",
       "filters": {},
       "target_product_ids": [
-        1408222,
-        1221817
+        1551237,
+        1540761
       ],
       "expected_techniques": [
         "typed_agent_tool",
@@ -232,7 +230,7 @@
       ],
       "required_citation_support": [
         {
-          "product_id": 1408222,
+          "product_id": 1551237,
           "evidence_type": "product_spec",
           "all_terms": [
             "27",
@@ -242,11 +240,11 @@
           ]
         },
         {
-          "product_id": 1221817,
+          "product_id": 1540761,
           "evidence_type": "product_spec",
           "all_terms": [
             "lumbar",
-            "Arms"
+            "arms"
           ]
         }
       ],
@@ -254,7 +252,7 @@
       "required_supporting_checks": [
         "evidence-grounding"
       ],
-      "dataset_id": "reviews-2023-500k-v1"
+      "dataset_id": "reviews-2023-v2"
     }
   ],
   "supporting_checks": [
@@ -286,7 +284,7 @@
         "hard_filters_hold"
       ],
       "top_k": 3,
-      "dataset_id": "reviews-2023-500k-v1"
+      "dataset_id": "reviews-2023-v2"
     },
     {
       "id": "semantic-intent-contrast",
@@ -318,7 +316,7 @@
         "hard_filters_hold"
       ],
       "top_k": 10,
-      "dataset_id": "reviews-2023-500k-v1"
+      "dataset_id": "reviews-2023-v2"
     },
     {
       "id": "semantic-eligibility",
@@ -351,7 +349,7 @@
         "hard_filters_hold"
       ],
       "top_k": 10,
-      "dataset_id": "reviews-2023-500k-v1"
+      "dataset_id": "reviews-2023-v2"
     },
     {
       "id": "compare-cheaper-alternative",
@@ -387,7 +385,7 @@
         "hard_filters_hold"
       ],
       "top_k": 10,
-      "dataset_id": "reviews-2023-500k-v1"
+      "dataset_id": "reviews-2023-v2"
     },
     {
       "id": "ranking-filter-control",
@@ -422,7 +420,7 @@
         "hard_filters_hold"
       ],
       "top_k": 10,
-      "dataset_id": "reviews-2023-500k-v1"
+      "dataset_id": "reviews-2023-v2"
     },
     {
       "id": "evidence-grounding",
@@ -477,7 +475,7 @@
         }
       ],
       "top_k": 6,
-      "dataset_id": "reviews-2023-500k-v1"
+      "dataset_id": "reviews-2023-v2"
     },
     {
       "id": "hnsw-performance",
@@ -509,7 +507,7 @@
         "measurement_kind_declared"
       ],
       "top_k": 10,
-      "dataset_id": "reviews-2023-500k-v1"
+      "dataset_id": "reviews-2023-v2"
     }
   ],
   "playground": {

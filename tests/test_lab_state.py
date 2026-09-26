@@ -62,7 +62,7 @@ def test_applied_lab1_accepts_a_different_cte_name(lab_repo, monkeypatch):
 
     from scripts.lab_state import validate_database
 
-    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-500k-v1")
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
     connection = MagicMock()
     source = participant_lab1(lab_repo)
     definition = source.split(
@@ -312,7 +312,7 @@ def test_applied_state_reads_the_catalog_served_by_the_api(monkeypatch, lab):
     from scripts.lab_state import validate_database
     from scripts.retrieval_profile import load_profile
 
-    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-500k-v1")
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
     k = load_profile().rrf_k
     connection = MagicMock()
     connection.execute.return_value.fetchone.return_value = {

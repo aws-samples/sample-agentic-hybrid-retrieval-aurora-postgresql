@@ -6,7 +6,7 @@
   "url": "https://github.com/amazon-science/esci-data/blob/7916cdf6ab75a462e77f20ab40428a10923998d5/shopping_queries_dataset/shopping_queries_dataset_examples.parquet",
   "sha256": "4a735b693b4a424a6fc67f5be6e4c811495c488bbf66d02a602d308b2744263a"
  },
- "dataset_id": "reviews-2023-500k-v1",
+ "dataset_id": "reviews-2023-v2",
  "selection": "US judgments whose product ASIN is a catalog parent ASIN; per query, the judgments in its most-judged category, kept when that category is one of ['headphones', 'monitor', 'chair'] and has at least 3 judged products. Unjudged products are unknown, not irrelevant.",
  "cases": 141,
  "labels": {

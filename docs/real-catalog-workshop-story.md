@@ -1,6 +1,6 @@
 # Alex's needs, Mosaic at catalog scale
 
-Status: the local Shop serves `reviews-2023-500k-v1`, with 500,000 imported
+Status: the local Shop serves `reviews-2023-v2`, with 553,911 imported
 records and embeddings. The required requests are defined by the active mission
 contract. The [hybrid-search review](hybrid-search-design.md) records current
 category corrections, SQL comparisons and served searches. Broader quality,

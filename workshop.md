@@ -2,6 +2,10 @@
 
 > Staff brief, written in plain language. It carries no secrets, so it is fine for a participant to find it in Code Editor. Use it to understand the story, divide presenter roles, and answer questions the same way at every table. The operational checklist lives in the Workshop Studio repository's `FACILITATOR_GUIDE.md`; this file does not repeat it.
 
+Use the [setup guide](docs/workshop-studio-setup.md) to clone and pull both repos.
+For source pinning, asset/static URL synchronization, and build verification,
+follow the [publishing instructions](docs/workshop-studio-publishing.md).
+
 The participant guide follows the [lab exercise design](docs/l400-lab-design.md):
 every lab page has the same shape, and its four numbered tasks are the
 Broken, Diagnose, Fix, Prove rhythm. The speaking cues below do not add
@@ -17,7 +21,7 @@ Participants are the engineers; Alex is their customer. Alex is setting up a hom
 - **Reason: finding, citing and supporting are three separate checks.** A tool returning a record does not make it citable, and a real citation does not make every sentence true.
 
 
-Mosaic is a shopping catalog of 500,000 products from Electronics and Office Products in Amazon Reviews 2023. A shopper can search with keywords or ask in plain language. Both paths run against one Aurora PostgreSQL database, and both can look right while the retrieval behind them is wrong.
+Mosaic is a shopping catalog of 553,911 products from Electronics, Office Products and Home and Kitchen in Amazon Reviews 2023. A shopper can search with keywords or ask in plain language. Both paths run against one Aurora PostgreSQL database, and both can look right while the retrieval behind them is wrong.
 
 Participants repair three deliberate faults in that pipeline, one per lab, and prove each repair from evidence the database records:
 
@@ -60,7 +64,7 @@ are hidden. The terminal stays available without a busy-task spinner.
 ### The spoken opening
 
 > Alex works from home. He needs headphones for clearer calls, a chair for long days,
-> and a monitor with room to run code and read docs. We have half a million products
+> and a monitor with room to run code and read docs. We have over half a million products
 > in Aurora PostgreSQL. Can we find suitable options, put them in a defensible
 > order, and explain a choice using the sources? You will repair one failure
 > in each step and prove what changed.
@@ -82,12 +86,16 @@ positions are empty in this measured example. G-012 then checks a full-word
 Bose request under the brand and category filters.
 
 Lab 2 makes the missing option visible through a feature request: a 27-inch
-4K monitor with up to 90W USB-C laptop charging. The collapsed formula drops
-Dell U2720Q before the bounded reranker, while HP Z27n's title explicitly says
-1440p. Repairing the rank contributions lets Dell enter the combined list;
-in repeated verification it moved from combined position 24 to final position
-1. Read the position from the participant's own run. Do not require it to
-lead before reranking or label every other monitor unsuitable.
+4K monitor with up to 90W USB-C laptop charging over one cable. The collapsed
+formula fills the pool by product id, so the oldest listings stay and the
+ViewSonic VG2756-4K, whose listing states exactly that spec, never reaches the
+bounded reranker; a Dell U2720Q relisting leads the broken shortlist, which
+still looks plausible, and a 1440p Lenovo monitor still occupies a slot for a
+4K request. Repairing the rank contributions lets the ViewSonic enter the
+combined list at position 21 and finish at final position 5, while three more
+current monitors take the Lenovo's place. Read the position from the
+participant's own run. Do not require it to lead before reranking or label
+every other monitor unsuitable.
 
 Lab 3 separates authorization, relevance and claim support. Registered evidence
 IDs authorize citation; a separate review checks the current request and its
@@ -172,7 +180,7 @@ launch another agent run or open the full HNSW exercise to fill a speaking cue.
 
 Discover introduces the person and the problem; Shop supplies the choices. The
 photographed workspace selection keeps the first impression focused on Alex.
-Search still reaches 500,000 products. The scale reveal belongs beside search
+Search still reaches 553,911 products. The scale reveal belongs beside search
 and in Playground.
 
 ## Alex’s journey
@@ -198,8 +206,8 @@ runs a real, category-scoped Shop search. The order matches Shop’s Explore pil
 | **More screen space** | Alex needs code and reference material visible together. | Screen size, resolution, and separate confirmation of USB-C video and laptop charging. | Find monitors for Alex → monitor search and comparison. |
 
 Lab 3 carries forward the monitor requirements from Lab 2 and adds an
-adjustable chair. Search each category separately. Inspect Dell U2720Q and
-Steelcase Gesture against the source records, and state what the available
+adjustable chair. Search each category separately. Inspect the ViewSonic
+VG2756-4K and Steelcase Gesture against the source records, and state what the available
 reviews do not establish. No chair specification proves personal comfort
 through a full workday. The evidence-registration repair stays the same.
 
@@ -221,7 +229,7 @@ From there, the customer experience continues:
    and Ask Mosaic, keeping the retrieved result set clear.
 5. **Inspect the system behind the choice.** Participants move to Playground to
    see which products entered the pool, how their ranks changed, and what evidence
-   supports the answer. Scale & HNSW explains the search across 500,000 products.
+   supports the answer. Scale & HNSW explains the search across 553,911 products.
 
 Discover establishes the brief and carries no product inventory grid or lab
 instructions. The guides remain the participant entry point and install each
@@ -232,10 +240,10 @@ Welcome Alex profile or the Discover brief already implements.
 
 ## What participants do
 
-1. Open three browser tabs from the Event Dashboard: Code Editor and Mosaic, plus the guide itself. One terminal command confirms the 500,000-product catalog and the starting lab state, and the introduction runs one correctly written Bose search to show the three names Shop prints for its searches.
+1. Open three browser tabs from the Event Dashboard: Code Editor and Mosaic, plus the guide itself. One terminal command confirms the 553,911-product catalog and the starting lab state, and the introduction runs one correctly written Bose search to show the three names Shop prints for its searches.
 2. **Lab 1 — Build hybrid retrieval (explain a mechanism).** A transposed product ID makes Alex's saved Bose QuietComfort 35 II vanish. Participants use PostgreSQL's own functions (`tsvector` lexemes, `pg_trgm` word similarity, pgvector distance) to show why only close spelling can recover it, then reconnect that method from its contract. They then write a recall query for the vector search they did not touch. The grader runs it under the planner's plan, which scans the category with a btree and sorts exactly, and with HNSW forced: in recorded runs the forced plan was roughly 6–7× faster yet missed half or more of the true nearest neighbours, and the obvious "exact" query is itself served by the index. Lesson: a full result list is not evidence of good recall. Reading the raw plans, `show_trgm` and `\sf` is an optional Go deeper expander; index construction and tuning are the optional Scale & HNSW flex exercise.
-3. **Lab 2 — Fuse, rerank, and inspect (write an algorithm).** The Dell U2720Q, which documents 90W USB-C charging, never reaches the reranker. Participants write reciprocal rank fusion in SQL (the three searches and their union are given; the fusion and tie-break are theirs), graded at five values of `k`. It shows the saved run had only two distinct scores, so the `product_id` tie-breaker, not relevance, picked the 50 products sent to Cohere Rerank. After repairing production, they propose one retrieval change under a rule stated in advance; the grader replays it over 141 ESCI judged queries and four reviewed chair controls, and adopting and rejecting both pass when the decision follows the rule. On 2026-09-22, a cutoff of 75 admitted 24 more Exact products (18 queries better, 0 worse) in the same billed rerank unit, while `k`=120 admitted 5 more (4 better, 0 worse, p=0.125) and moved one chair control from 3rd to 4th; the 2026-09-24 test-account run reproduced both. Lesson: fusion only works if positions count, and a tuning decision needs a judged set and a rule chosen before seeing results.
-4. **Lab 3 — Build the retrieval agent (specify a contract).** A Strands agent finds the Dell monitor and the Steelcase Gesture chair and retrieves their evidence, then refuses to answer with HTTP 503: the records were never registered as citable. Participants read the agent's tool sequence in order, write the registration contract as pytest tests that must reject four faulty implementations, then repair `register_evidence` and restart. They check that every citation matches its product, revision and quote; write a claims query (the citation extraction is given) that separates what cited records support from reviews merely imported and the source's rating count; and prove from the agent's own saved searches that the Lab 1 and Lab 2 repairs shaped the answer. Lesson: finding a source, being allowed to cite it, and what it supports are three separate checks; the agent chooses the steps, but tests and application code decide what it may cite.
+3. **Lab 2 — Fuse, rerank, and inspect (write an algorithm).** The ViewSonic VG2756-4K, which documents 90W USB-C charging over one cable, never reaches the reranker. Participants write reciprocal rank fusion in SQL (the three searches and their union are given; the fusion and tie-break are theirs), graded at five values of `k`. It shows the collapsed contributions tie every single-search candidate, so a `product_id` tie-breaker, not relevance, decides the 50 products sent to Cohere Rerank and keeps the oldest listings, including a Dell U2720Q relisting, in the pool. After repairing production, they propose one retrieval change under a rule stated in advance; the grader replays it over 141 ESCI judged queries and four reviewed chair controls, and adopting and rejecting both pass when the decision follows the rule. On 2026-09-22, a cutoff of 75 admitted 24 more Exact products (18 queries better, 0 worse) in the same billed rerank unit, while `k`=120 admitted 5 more (4 better, 0 worse, p=0.125) and moved one chair control from 3rd to 4th; the 2026-09-24 test-account run reproduced both. Lesson: fusion only works if positions count, and a tuning decision needs a judged set and a rule chosen before seeing results.
+4. **Lab 3 — Build the retrieval agent (specify a contract).** A Strands agent finds the ViewSonic monitor and the Steelcase Gesture chair and retrieves their evidence, then refuses to answer with HTTP 503: the records were never registered as citable. Participants read the agent's tool sequence in order, write the registration contract as pytest tests that must reject four faulty implementations, then repair `register_evidence` and restart. They check that every citation matches its product, revision and quote; write a claims query (the citation extraction is given) that separates what cited records support from reviews merely imported and the source's rating count; and prove from the agent's own saved searches that the Lab 1 and Lab 2 repairs shaped the answer. Lesson: finding a source, being allowed to cite it, and what it supports are three separate checks; the agent chooses the steps, but tests and application code decide what it may cite.
 5. Run the completion gate inside Lab 3, then **bring Alex's office home**: one query assembles his room from the participant's three saved runs (the repair behind each item, how it was found, its source rating count, sampled reviews and historical list price), and the participant writes Alex's brief, one sentence per item. Then use the remaining time for an optional exercise, catch-up or questions.
 
 Each lab asks for one written prediction and one two-sentence explanation in `learning-notes.md`; other questions are prompts to think. The runner prints where the lab's target sits before and after the repair, so the proof does not need a second `psql` session. Expanders marked **Go deeper** or **Reference** are optional.
@@ -264,7 +272,7 @@ and the Playground lab rail carries these exercise states.
 The application has three navigation destinations, with Ask Mosaic inside Shop:
 
 - **Discover.** The home-office brief described above: Alex, his room, three needs, and routes into search or category browsing. The illustrated scenes are inspiration, not a product bundle or a completed purchase.
-- **Shop.** The default Workspace edit shows a curated selection of the imported catalog; keyword search reaches the full 500,000 products. Every result card can open "See how this was retrieved", carrying the query, filters and saved search event into the Playground. Ticking two or more results compares them side by side, and the comparison is worth showing: under the price and the rating it prints which search methods found each product, its rank before reranking, and the rank the shopper was shown. Those three rows come from the run's saved receipt, not from the list on screen, which is why a comparison is only offered once a search has run. If the catalog carries none of a request's words, Shop says which ones above the results rather than returning a confident page of near misses.
+- **Shop.** The default Workspace edit shows a curated selection of the imported catalog; keyword search reaches the full 553,911 products. Every result card can open "See how this was retrieved", carrying the query, filters and saved search event into the Playground. Ticking two or more results compares them side by side, and the comparison is worth showing: under the price and the rating it prints which search methods found each product, its rank before reranking, and the rank the shopper was shown. Those three rows come from the run's saved receipt, not from the list on screen, which is why a comparison is only offered once a search has run. If the catalog carries none of a request's words, Shop says which ones above the results rather than returning a confident page of near misses.
 - **Ask Mosaic.** The agent, in a side panel on Shop or a mobile overlay below the header. The catalog retains its margins at normal laptop zoom, and long questions wrap in full. The panel keeps its title and follow-up box visible, with compact waiting and completed steps. It shows progress while gathering evidence, then leads with the cited answer. **Steps and sources** holds the request interpretation, searches, product comparison, supporting evidence, and tool activity. Follow-ups carry context from the prior grounded run with memory off. **Use saved memories** is a separate, optional control using the Playground's AgentCore Memory connection. **Memories used** shows actual records read and conversation-save status. Clearing chat starts a new conversation and keeps saved preferences. Required lab requests keep memory off. A specs-and-reviews question explains the available specifications and missing review excerpts without implying the product is absent or inventing customer experiences.
 - **Playground.** `/labs/retrieval` defaults to **Hybrid retrieval**, a three-stage inspection of Retrieve, Rank and Reason. Each column ends with a **Keep in mind** line that states the lesson the column proves, and Retrieve's search details add one more beside the search record, on the receipt and the HNSW settings; the stage questions are the ones introduced in the opening. Alex's request choices come from the canonical mission manifest. One send action, the same paper plane Discover uses (its tooltip reads **Run Mosaic**), makes a real agent request; the stages read its records. A saved Shop event opens its original receipt, and Run Mosaic starts a new complete run when an agent answer is needed. **Scale & HNSW** is the adjacent inspection lens.
 
@@ -287,14 +295,14 @@ listings from Amazon Reviews 2023. Product pages retain original listing links,
 source image links, historical rating aggregates and explicit unknown values.
 Neither a relevance label nor a matching model number establishes compatibility.
 
-Workshop Studio restores the selected 500,000 records and saved vectors from the
+Workshop Studio restores the selected 553,911 records and saved vectors from the
 hash-pinned real-catalog bundle, then sets `MOSAIC_CATALOG_DATASET`. The original
 cached catalog remains for shared schema setup and historical optional benchmarks;
-it is not the Shop catalog. The 32 imported review excerpts cover a reviewed
-subset. Lab 3 distinguishes specifications from reviews and admits missing
-excerpts rather than treating a rating count as review text. The bundle is local;
-public redistribution clearance and fresh-account delivery proof remain separate
-release requirements.
+it is not the Shop catalog. The 418,620 imported reviews cover 67,750 products
+in the monitor, headphone and chair leaves. Lab 3 distinguishes specifications
+from reviews and admits missing excerpts rather than treating a rating count as
+review text. The bundle is local; public redistribution clearance and
+fresh-account delivery proof remain separate release requirements.
 
 Shop introduces Alex beside a compact title, then shows three large scenes:
 headphones for focus, a chair for comfort, and the complete workspace. Their
@@ -334,7 +342,7 @@ completion replay checks the successful answer that followed it.
 | Lab | What Alex sees before | What is broken | PostgreSQL and model mechanisms | What the participant writes (graded) | What proves it |
 |---|---|---|---|---|---|
 | **Retrieve — 10 min** | The transposed listing ID loses the exact Bose headphones. | Close-spelling results never enter fusion. | PostgreSQL FTS, `pg_trgm`, pgvector and SQL filters; the planner's choice between an exact scan and HNSW. | The trigram CTE and channel, from a contract; a recall query graded under the planner's plan and forced HNSW, whose obvious "exact" set is itself served by the index. | The Bose listing returns through close spelling; controls pass; the recall instrument passes. |
-| **Rank — 10 min** | The suitable Dell is absent; an explicitly 1440p monitor appears for a 4K request. | Every source position receives rank-1 credit, so the `product_id` tie-break picks the shortlist. | RRF combines positions; Cohere Rerank reorders the bounded list. | RRF in SQL, graded at five values of `k`; then one retrieval change with a pre-stated rule, replayed over 141 ESCI judged queries and four reviewed chair controls. Adopting and rejecting both pass. | Dell enters the list; the saved run agrees with the participant's fusion; the decision follows its own rule. |
+| **Rank — 10 min** | The suitable ViewSonic is absent; an explicitly 1440p monitor appears for a 4K request. | Every source position receives rank-1 credit, so the `product_id` tie-break picks the shortlist. | RRF combines positions; Cohere Rerank reorders the bounded list. | RRF in SQL, graded at five values of `k`; then one retrieval change with a pre-stated rule, replayed over 141 ESCI judged queries and four reviewed chair controls. Adopting and rejecting both pass. | The ViewSonic enters the list; the saved run agrees with the participant's fusion; the decision follows its own rule. |
 | **Reason — 20 min** | Products and sources are found, but a cited answer cannot be produced. | Evidence IDs are not registered in application state. | Typed tools, separate searches, Aurora evidence and citation checks. | Contract tests that must reject four faulty implementations, then the repair; a claims query separating cited evidence from imported reviews and source rating counts. | Resolvable citations; the loop query shows the Lab 1 and 2 repairs in the agent's own searches. |
 
 **Retrieve:** reranking cannot recover a product outside its input list.
@@ -361,9 +369,9 @@ a high model score cannot waive it.
 | Rank → Reason | “The monitor now reaches the shortlist. Let's check its specifications and add a chair. Which facts support each choice, and what remains unknown?” | The monitor requirements and repaired ranking, with fresh searches in both categories |
 | Reason → decision | “Pick one claim. Show the source, the product, and the search that brought it into the answer.” | A choice backed by inspectable records |
 
-Dell's record supports 27 inches, 3840 x 2160 and USB-C power delivery up to
-90W. Steelcase Gesture's record names adjustable lumbar support and movable
-arms. Those facts support a comparison; they do not guarantee compatibility
+The ViewSonic's record supports 27 inches, 3840 x 2160 and USB-C power
+delivery up to 90W over one cable. Steelcase Gesture's record names adjustable
+lumbar support and movable arms. Those facts support a comparison; they do not guarantee compatibility
 with an unspecified laptop or individual comfort. Do not invent current prices,
 stock, review text or a 12-hour comfort rating. Lab 3 does not consume a saved
 Lab 2 selection, and the required path uses no cross-session memory.
@@ -433,7 +441,7 @@ required lab checks validate the repaired examples and five controls.
 The [worked-example library](docs/real-catalog-exercise-library.md) records 14
 paired requests, including unchanged winners and a wording variant that still
 misses the monitor. Six listing-ID errors recover across three categories. This
-is broader teaching coverage, not a random sample of all 500,000 products.
+is broader teaching coverage, not a random sample of all 553,911 products.
 Choose examples for a clear mechanism; preserve failures when discussing quality.
 
 ## Architecture and authority
@@ -462,7 +470,7 @@ Models pinned for the event: Cohere Embed v4 for embeddings, Cohere Rerank 3.5 f
 |---|---|---|
 | 0:00–0:10 | **Introduction / Overview / Presentation** | Alex, the three lessons, architecture and the lab method |
 | 0:10–0:20 | **Lab 1 — Retrieve** | Headphones return through the repaired trigram arm |
-| 0:20–0:30 | **Lab 2 — Rank** | Dell enters the combined list and rises after reranking |
+| 0:20–0:30 | **Lab 2 — Rank** | The ViewSonic enters the combined list and rises after reranking |
 | 0:30–0:50 | **Lab 3 — Reason**, including completion proof and takeaways | Registered evidence becomes a cited answer; all required checks pass |
 | 0:50–1:00 | **Optional / flex** | Build a retrieval tool by default, Scale & HNSW as the fallback; recovery or questions |
 
@@ -493,9 +501,10 @@ Conclusion. One query assembles Alex's room from the participant's own saved
 runs: for each item, where it was before and after the repair, the methods that
 found it, the specifications and reviews the answer cited, the reviews imported
 and the source's rating count. A second query reads back the participant's Lab 2
-decision from `mosaic.lab_decision`. Measured on 2026-09-24 in a Workshop Studio
-test account (the published bundle): the Bose has 5,341 source ratings and 15
-imported reviews, the Dell 6 and 2, the Steelcase 1 and 1.
+decision from `mosaic.lab_decision`. Measured on 2026-09-26 on the
+`reviews-2023-v2` dev cluster: the Bose has 5,341 source ratings and 15
+imported reviews, the ViewSonic 96 and 10, the Steelcase Gesture (Licorice)
+235 and 15.
 Ask one participant for a claim, another for its source, and another for what
 Alex still needs to check. Use the existing runs; do not start a new model call
 to manufacture a cleaner finale.
@@ -745,7 +754,7 @@ a participant could reproduce.
 Follow the event-owner preflight in the Workshop Studio repository's `FACILITATOR_GUIDE.md` end to end in a fresh event account. The steps most often skipped, and most expensive to skip:
 
 - confirm the account can invoke all three pinned models;
-- confirm readiness reports 500,000 products and 500,000 embeddings;
+- confirm readiness reports 553,911 products and 553,911 embeddings;
 - check Shop at 100% browser zoom on a laptop: with Ask Mosaic open, the catalog must retain a gutter on both sides and long search questions must wrap without clipping; waiting steps must remain readable. On mobile, open Ask after scrolling and confirm its title and close action stay below the header and its follow-up box reaches the viewport bottom;
 - confirm Lab 1 reads BROKEN and Labs 2 and 3 read SOLVED; rehearse the spelled control before the typo;
 - seed the HNSW exact ground truth, which the cached bootstrap does not do and which Vector index at scale needs to render at all;

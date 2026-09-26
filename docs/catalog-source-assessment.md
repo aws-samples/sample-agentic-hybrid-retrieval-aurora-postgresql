@@ -13,6 +13,37 @@ to publish it. Source, local lab validation, public asset delivery and fresh-acc
 rehearsal are separate claims. See `docs/evidence/` for dated, model-specific lab
 results; the old synthetic scorecard does not certify this catalog.
 
+## Update: the `reviews-2023-v2` cutover (2026-09-26)
+
+The served catalog is now `reviews-2023-v2`, not `reviews-2023-500k-v1`
+described below. It keeps the 500,000 `reviews-2023-500k-v1` products at their
+existing ids (400,000 Electronics and 100,000 Office Products) and adds 53,911
+products drawn from the monitor, headphone (over-ear, on-ear, earbud,
+open-ear, headsets) and chair leaves of Electronics, Office Products and Home
+and Kitchen — Home and Kitchen was not part of v1. The dataset now holds
+553,911 products and 553,911 Cohere Embed v4 vectors (1,024 dimensions);
+catalog_sha256
+`c4d5913f89050332f71512baf2a0351331208ab94eac0621be9ac63e653cfa00`.
+
+`scripts/fetch_catalog_reviews.py` scanned the whole Electronics, Home and
+Kitchen and Office Products review files end to end and kept up to five of the
+most helpful reviews per rating group (positive 4-5, mixed 3, critical 1-2)
+for each catalog product, up to 15 per product: 351,134 Electronics reviews
+for 55,566 products, 53,464 Home and Kitchen reviews for 9,882 products, and
+14,022 Office Products reviews for 2,302 products, a total of 418,620 reviews
+for 67,750 products in the added leaves. Reviews whose product was not in the
+catalog were dropped and counted (81,726 Electronics, 6,066 Home and Kitchen,
+6,239 Office Products).
+
+Amazon PQA (CDLA-Permissive-1.0; see `NOTICE.md`) supplies 80,111 buyer
+questions with community answers for 12,580 catalog products, at most twelve
+per product, shown as "Questions buyers asked" on the product page and
+offered to the agent as `product_qa` evidence.
+
+The v1 history below (selection, throughput, staging and preview sections)
+describes the original 500,000-product build and is retained for
+traceability; it is not a description of the current catalog.
+
 ## What is available
 
 | Source | Evidence examined | Fit for this workshop |

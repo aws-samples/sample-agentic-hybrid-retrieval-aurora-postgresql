@@ -31,7 +31,7 @@ reaches when every repair succeeds. Disabling code here would make the reference
 unable to demonstrate its own contract, and would make a genuine regression
 indistinguishable from a planted exercise.
 
-The three repaired capabilities form the `Retrieve -> Rank -> Reason` path. The current examples and live checks target `reviews-2023-500k-v1`.
+The three repaired capabilities form the `Retrieve -> Rank -> Reason` path. The current examples and live checks target `reviews-2023-v2`.
 
 | Lab anchor | Capability | Evidence it is live |
 |---|---|---|
@@ -67,12 +67,12 @@ the later resets.
 
 - **Lab 2 anchor** `rank-with-evidence` (`checkpoint: repair`, stage `rank`)
 - **Query** `27 inch 4K monitor USB-C 90W laptop charging`
-- **Target** product 1408222, Dell U2720Q
+- **Target** product 1551237, ViewSonic VG2756-4K
 - **What to disable** replace the marked `1 / (rrf_k + source_rank)` body with
   `1 / (rrf_k + 1)`. Candidate generation remains intact, but every candidate
   from an arm contributes as if it held rank 1, so within-arm order disappears.
 - **Restoring it looks like** restoring the inspectable reciprocal-rank formula.
-- **Measured movement** the broken cutoff omits the required Dell. Correct contributions admit it, and the reranker selects it first. On repeated verification it moves from combined position 24 to final position 1. Other control queries keep their winner; arithmetic remains mandatory. See `docs/real-catalog-exercise-library.md` for all tested variants.
+- **Measured movement** the collapsed contributions tie every single-search candidate, so the broken 50-product cutoff is decided by product id and omits the required ViewSonic; a Dell U2720Q relisting leads the broken shortlist instead. Correct contributions admit the ViewSonic: on repeated verification it moves from absent to combined position 21 and finishes at final position 5. Other control queries keep their winner; arithmetic remains mandatory. See `docs/real-catalog-exercise-library.md` for all tested variants.
 - **Assertions that turn green** `rank_provenance_present`,
   `rerank_score_present`, plus the production validator's arithmetic and
   repeatability checks.
@@ -82,7 +82,7 @@ the later resets.
 
 - **Lab 3 anchor** `agentic-research` (`checkpoint: repair`, stage `reason`)
 - **Query** the canonical compound home-office request in the mission manifest
-- **Targets** products 1408222 (Dell U2720Q) and 1221817 (Steelcase Gesture)
+- **Targets** products 1551237 (ViewSonic VG2756-4K) and 1540761 (Steelcase Gesture, Licorice)
 - **What to disable** remove the marked state update that records retrieved
   evidence IDs under their product. All tools remain registered and read-only.
 - **Restoring it looks like** attaching each returned evidence record to

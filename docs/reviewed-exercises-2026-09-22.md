@@ -1,5 +1,9 @@
 # Reviewed exercises: headphones, chairs and monitors
 
+**Historical:** this record measures `reviews-2023-500k-v1`, before the
+`reviews-2023-v2` catalog cutover. Counts and positions below describe that
+run, not the current catalog.
+
 The required story remains one home office: recover the headphones Alex saved,
 find a monitor whose record meets the stated need, then check that monitor and
 an adjustable chair against their sources. All three actual participant repairs

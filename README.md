@@ -21,7 +21,8 @@ Mosaic is a production-shaped product discovery application that pairs
 PostgreSQL full-text search, `pg_trgm`, pgvector HNSW, reciprocal-rank fusion,
 and Cohere Rerank through Amazon Bedrock with a React storefront, a typed FastAPI
 service, a Strands agent, and an optional MCP adapter. The workshop searches
-500,000 imported Amazon Reviews 2023 products with saved Cohere Embed v4 vectors;
+553,911 imported Amazon Reviews 2023 products spanning Electronics, Office
+Products and Home and Kitchen, with saved Cohere Embed v4 vectors;
 the historical synthetic catalog is retained separately. The complete session
 framing is in [the session abstract](docs/session-abstract.md).
 
@@ -157,8 +158,8 @@ instructions deep-link to:
   searches for two product needs; Check the sources compares specification and
   sample review records read by the agent. Coding exercises and adaptation guides
   live in the workshop and take-home documentation.
-  Lab 3 asks the agent to check the Dell U2720Q monitor and the Steelcase
-  Gesture chair against their sources, using fresh searches with memory off. The [presenter brief](workshop.md) carries the opening,
+  Lab 3 asks the agent to check the ViewSonic VG2756-4K monitor and the
+  Steelcase Gesture chair against their sources, using fresh searches with memory off. The [presenter brief](workshop.md) carries the opening,
   transitions and final claim-to-source walkthrough.
   The opening explains the provided scaffolding and the three connections
   participants implement. In **Answer and sources**, the recorded activity
@@ -376,27 +377,36 @@ provisioning-time gap injection, deployment automation, and the clean-account
 rehearsal. Repository checks prove the source contract; they do not replace
 fresh-stack deployment and projector rehearsal.
 
-The current worked examples use the imported `reviews-2023-500k-v1` catalog:
-Bose listing-ID recovery, Dell 4K/90W monitor ranking, and a monitor/chair answer
+The current worked examples use the imported `reviews-2023-v2` catalog:
+Bose listing-ID recovery, ViewSonic 4K/90W monitor ranking, and a monitor/chair answer
 checked against sources. [The example library](docs/real-catalog-exercise-library.md)
 records alternative requests and both their successful and unsuccessful outcomes.
 
 ## Workshop catalog delivery
 
-The served catalog is `reviews-2023-500k-v1`: 500,000 source product records
-from Amazon Reviews 2023 with verified, saved Cohere Embed v4 vectors. Bootstrap
-downloads the pinned `real-catalog/real-catalog.tar.gz.part-*` files (Workshop Studio caps
+The served catalog is `reviews-2023-v2`: 553,911 source product records from
+Amazon Reviews 2023 with verified, saved Cohere Embed v4 vectors. It keeps the
+500,000 products of `reviews-2023-500k-v1` (400,000 Electronics and 100,000
+Office Products) at their existing ids and adds 53,911 products from the
+monitor, headphone and chair leaves of Electronics, Office Products and Home
+and Kitchen (Home and Kitchen was not part of v1). Bootstrap downloads the
+pinned `real-catalog/real-catalog.tar.gz.part-*` files (Workshop Studio caps
 asset objects at 1 GB), checks each part, joins and verifies the archive before database loading,
 restores the records and vectors, and selects that dataset for the app and labs.
-The bundle also contains 2,327 source-verified review excerpts covering 476
-products: every product in the saved candidate pools of the lab requests, their
-controls and the Lab 3 agent's searches (`data/lab-review-parents.json`), plus the
-earlier preview samples. `scripts/fetch_catalog_reviews.py` scanned both review
-files end to end and kept up to three of the most helpful reviews per rating group
-(positive, mixed, critical) for each product. That is a selection, not a
-representative sample; each product's source rating count stays available beside
-it. Alex's picks are thinly reviewed in the source itself: the Dell U2720Q listing
-has 6 ratings and 2 excerpts, the Steelcase Gesture listing 1 and 1.
+The bundle also contains 418,620 source-verified review excerpts covering
+67,750 products in the added monitor, headphone and chair leaves.
+`scripts/fetch_catalog_reviews.py` scanned both review files end to end and
+kept up to five of the most helpful reviews per rating group (positive, mixed,
+critical) for each product, up to 15 per product. That is a selection, not a
+representative sample; each product's source rating count stays available
+beside it. Coverage still varies by listing: the Bose QuietComfort 35 II has
+15 imported reviews of 5,341 source ratings, the ViewSonic VG2756-4K has 10
+imported reviews of 96 source ratings, and the Steelcase Gesture (Licorice)
+has 15 imported reviews of 235 source ratings.
+The bundle also carries 80,111 Amazon PQA buyer questions with community
+answers covering 12,580 of those products, up to 12 per product, shown as
+"Questions buyers asked" on the product page and offered to the agent as
+`product_qa` evidence.
 
 [`db/config/real-catalog-cache.json`](db/config/real-catalog-cache.json) pins the
 bundle hash and size. `scripts/real_catalog_cache.py` verifies record hashes,
@@ -515,7 +525,8 @@ These assets answer different questions:
 - the 720 generated fixtures test whether filters violated their contract.
 
 The [current scale benchmarks](docs/current-scale-benchmarks.md) cover all 30
-anchor products across the current 500,000-vector Aurora catalog, with exact
+anchor products against the previously measured 500,000-vector Aurora catalog
+(`reviews-2023-500k-v1`, before the `reviews-2023-v2` cutover), with exact
 top-10 comparisons and warm database p50/p95 timings. The report includes the
 rerun command and raw samples. `scripts/benchmark_mosaic_scale.py` refreshes the
 current artifact; `scripts/benchmark_hnsw.py` is the older sweep-only runner.
@@ -552,6 +563,9 @@ auditing is part of the UI gate.
 
 ### Publish source and repin Workshop Studio
 
+For a first checkout, follow the [clone and setup instructions](docs/workshop-studio-setup.md).
+For an existing checkout, [pull both repositories before starting work](docs/workshop-studio-setup.md#next-time-pull-before-editing).
+
 Commit and push the validated application changes before repinning. From the
 companion Workshop Studio checkout, run:
 
@@ -564,10 +578,12 @@ uv run --no-project --with PyYAML==6.0.3 python scripts/repin.py --check \
 
 The repin requires a clean source checkout at published `origin/main`. It
 updates every source-revision consumer, the bootstrap hash, and the derived
-infrastructure revision together. The event owner then publishes the Studio
-assets to S3, verifies the delivered bootstrap, validates the Studio checkout,
-and commits and pushes that repository. The complete procedure belongs to its
-`FACILITATOR_GUIDE.md`.
+infrastructure revision together. Follow the
+[team publishing runbook](docs/workshop-studio-publishing.md): validate the Studio
+checkout, upload and verify its assets, sync **Asset static URLs** in Workshop
+Studio, and wait for **In sync** before staging, committing, and pushing that
+repository. Verify the resulting build succeeds. The companion repository's
+`FACILITATOR_GUIDE.md` defines its validation and fresh-deployment gates.
 
 ## Aurora bootstrap and recovery
 

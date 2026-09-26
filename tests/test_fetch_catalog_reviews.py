@@ -207,7 +207,11 @@ def test_an_unpinned_source_records_its_digest_without_claiming_verification(
 ):
     body = (json.dumps(original()) + "\n").encode()
     monkeypatch.setattr(sampler, "RANGE_BYTES", len(body))
-    source = {**sampler.source_identity("Home_and_Kitchen"), "bytes": len(body)}
+    source = {
+        **sampler.source_identity("Home_and_Kitchen"),
+        "bytes": len(body),
+        "sha256": None,
+    }
     monkeypatch.setattr(sampler, "source_identity", lambda category: source)
     monkeypatch.setattr(
         sampler, "fetch_range", lambda source, start, end: body[start : end + 1]

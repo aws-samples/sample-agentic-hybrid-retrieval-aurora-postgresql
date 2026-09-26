@@ -1,6 +1,6 @@
 {
- "measured_at": "2026-09-23T02:08:00.472557+00:00",
- "dataset_id": "reviews-2023-500k-v1",
+ "measured_at": "2026-09-26T06:55:42.725804+00:00",
+ "dataset_id": "reviews-2023-v2",
  "embedding_model_id": "us.cohere.embed-v4:0",
  "stage": "fusion before reranking",
  "configured_k": 60,
@@ -12,35 +12,35 @@
  },
  "queries": 141,
  "exact_judged": 369,
- "exact_found_by_any_method": 247,
+ "exact_found_by_any_method": 178,
  "by_k": {
   "1": {
-   "exact_in_cutoff": 164,
-   "mean_condensed_ndcg10": 0.7013,
-   "queries_better_than_k60": 1,
-   "queries_worse_than_k60": 4
+   "exact_in_cutoff": 113,
+   "mean_condensed_ndcg10": 0.5188,
+   "queries_better_than_k60": 0,
+   "queries_worse_than_k60": 2
   },
   "10": {
-   "exact_in_cutoff": 164,
-   "mean_condensed_ndcg10": 0.7014,
+   "exact_in_cutoff": 115,
+   "mean_condensed_ndcg10": 0.5188,
    "queries_better_than_k60": 0,
-   "queries_worse_than_k60": 3
+   "queries_worse_than_k60": 2
   },
   "30": {
-   "exact_in_cutoff": 168,
-   "mean_condensed_ndcg10": 0.7037,
+   "exact_in_cutoff": 118,
+   "mean_condensed_ndcg10": 0.5214,
    "queries_better_than_k60": 0,
    "queries_worse_than_k60": 0
   },
   "60": {
-   "exact_in_cutoff": 168,
-   "mean_condensed_ndcg10": 0.7037,
+   "exact_in_cutoff": 117,
+   "mean_condensed_ndcg10": 0.5214,
    "queries_better_than_k60": 0,
    "queries_worse_than_k60": 0
   },
   "120": {
-   "exact_in_cutoff": 173,
-   "mean_condensed_ndcg10": 0.7037,
+   "exact_in_cutoff": 118,
+   "mean_condensed_ndcg10": 0.5214,
    "queries_better_than_k60": 0,
    "queries_worse_than_k60": 0
   }
@@ -55,23 +55,23 @@
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -109,27 +109,27 @@
    "query": "144hz monitor",
    "category": "monitor",
    "exact_judged": 4,
-   "exact_found_by_any_method": 4,
+   "exact_found_by_any_method": 2,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.636682
     },
     "10": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.636682
     },
     "30": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.636682
     },
     "60": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.636682
     },
     "120": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.636682
     }
    }
   },
@@ -174,19 +174,19 @@
      "condensed_ndcg10": 0.765361
     },
     "10": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.765361
     },
     "30": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.765361
     },
     "60": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.765361
     },
     "120": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.765361
     }
    }
@@ -199,23 +199,23 @@
    "exact_found_by_any_method": 2,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.970255
     },
     "10": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.970255
     },
     "30": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.970255
     },
     "60": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.970255
     },
     "120": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.970255
     }
    }
@@ -229,23 +229,23 @@
    "per_k": {
     "1": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.701585
+     "condensed_ndcg10": 0.656665
     },
     "10": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.656665
     },
     "30": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.95508
     },
     "60": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.95508
     },
     "120": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.95508
     }
    }
   },
@@ -341,27 +341,27 @@
    "query": "4k monitor",
    "category": "monitor",
    "exact_judged": 5,
-   "exact_found_by_any_method": 5,
+   "exact_found_by_any_method": 4,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 0.988063
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.858424
     },
     "10": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 0.988063
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.858424
     },
     "30": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 0.988063
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.858424
     },
     "60": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 0.988063
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.858424
     },
     "120": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 0.988063
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.858424
     }
    }
   },
@@ -373,24 +373,24 @@
    "exact_found_by_any_method": 2,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.970255
     },
     "10": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.970255
     },
     "30": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.970255
     },
     "60": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.970255
     },
     "120": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.970255
     }
    }
   },
@@ -399,27 +399,27 @@
    "query": "acer monitor",
    "category": "monitor",
    "exact_judged": 5,
-   "exact_found_by_any_method": 5,
+   "exact_found_by_any_method": 3,
    "per_k": {
     "1": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.722727
     },
     "10": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.722727
     },
     "30": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.722727
     },
     "60": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.722727
     },
     "120": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.722727
     }
    }
   },
@@ -457,27 +457,27 @@
    "query": "akg earbuds",
    "category": "headphones",
    "exact_judged": 3,
-   "exact_found_by_any_method": 3,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.96695
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.96695
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.96695
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.96695
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.96695
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -576,24 +576,24 @@
    "exact_found_by_any_method": 1,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.95508
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.898398
     },
     "10": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.95508
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.898398
     },
     "30": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.95508
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.898398
     },
     "60": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.95508
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.898398
     },
     "120": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.95508
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.898398
     }
    }
   },
@@ -606,23 +606,23 @@
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.469279
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.469279
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.469279
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.469279
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.469279
     }
    }
   },
@@ -663,23 +663,23 @@
    "exact_found_by_any_method": 1,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.39038
     },
     "10": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.39038
     },
     "30": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.39038
     },
     "60": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.39038
     },
     "120": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.39038
     }
    }
@@ -747,27 +747,27 @@
    "query": "bose earbuds",
    "category": "headphones",
    "exact_judged": 3,
-   "exact_found_by_any_method": 1,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.489004
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.045998
     },
     "10": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.489004
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.045998
     },
     "30": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.489004
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.045998
     },
     "60": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.489004
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.045998
     },
     "120": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.489004
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.045998
     }
    }
   },
@@ -776,27 +776,27 @@
    "query": "bose night noise cancelling headphones",
    "category": "headphones",
    "exact_judged": 2,
-   "exact_found_by_any_method": 1,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.616644
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
     },
     "10": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.616644
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
     },
     "30": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.616644
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
     },
     "60": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.616644
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
     },
     "120": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.616644
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -808,23 +808,23 @@
    "exact_found_by_any_method": 2,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.62721
     },
     "10": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.62721
     },
     "30": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.62721
     },
     "60": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.62721
     },
     "120": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.62721
     }
    }
@@ -837,23 +837,23 @@
    "exact_found_by_any_method": 2,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.765361
     },
     "10": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.765361
     },
     "30": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.765361
     },
     "60": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.765361
     },
     "120": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.765361
     }
    }
@@ -892,27 +892,27 @@
    "query": "bose sleep earbuds noise cancelling",
    "category": "headphones",
    "exact_judged": 2,
-   "exact_found_by_any_method": 1,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.434837
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.434837
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.434837
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.434837
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.434837
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -953,23 +953,23 @@
    "exact_found_by_any_method": 2,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.773198
     },
     "10": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.773198
     },
     "30": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.773198
     },
     "60": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.773198
     },
     "120": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.773198
     }
    }
@@ -979,27 +979,27 @@
    "query": "bulk headphones",
    "category": "headphones",
    "exact_judged": 3,
-   "exact_found_by_any_method": 3,
+   "exact_found_by_any_method": 2,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
     },
     "10": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
     },
     "30": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
     },
     "60": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
     },
     "120": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.765361
     }
    }
   },
@@ -1095,27 +1095,27 @@
    "query": "dell monitor",
    "category": "monitor",
    "exact_judged": 4,
-   "exact_found_by_any_method": 4,
+   "exact_found_by_any_method": 3,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.831872
     },
     "10": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.831872
     },
     "30": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.831872
     },
     "60": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.831872
     },
     "120": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.831872
     }
    }
   },
@@ -1182,27 +1182,27 @@
    "query": "earbud headphones for laptop kids",
    "category": "headphones",
    "exact_judged": 2,
-   "exact_found_by_any_method": 2,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.970255
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.970255
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.970255
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.970255
+     "condensed_ndcg10": 0.0
     },
     "120": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 0.970255
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -1214,23 +1214,23 @@
    "exact_found_by_any_method": 1,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.469279
     },
     "10": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.469279
     },
     "30": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.469279
     },
     "60": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.469279
     },
     "120": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.469279
     }
    }
@@ -1240,27 +1240,27 @@
    "query": "earbuds samsung",
    "category": "headphones",
    "exact_judged": 1,
-   "exact_found_by_any_method": 1,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.95508
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.95508
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.95508
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.95508
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.95508
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -1298,27 +1298,27 @@
    "query": "earphones",
    "category": "headphones",
    "exact_judged": 8,
-   "exact_found_by_any_method": 1,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.252943
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.252943
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.252943
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.252943
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.252943
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -1356,33 +1356,62 @@
    "query": "earphones for tv listening wireless",
    "category": "headphones",
    "exact_judged": 4,
-   "exact_found_by_any_method": 4,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     }
    }
   },
   {
    "query_id": 40081,
    "query": "fhd monitor",
+   "category": "monitor",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "30": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "60": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    },
+    "120": {
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.469279
+    }
+   }
+  },
+  {
+   "query_id": 43765,
+   "query": "g sync tv",
    "category": "monitor",
    "exact_judged": 3,
    "exact_found_by_any_method": 1,
@@ -1406,35 +1435,6 @@
     "120": {
      "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.469279
-    }
-   }
-  },
-  {
-   "query_id": 43765,
-   "query": "g sync tv",
-   "category": "monitor",
-   "exact_judged": 3,
-   "exact_found_by_any_method": 2,
-   "per_k": {
-    "1": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.765361
-    },
-    "10": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.765361
-    },
-    "30": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.765361
-    },
-    "60": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.765361
-    },
-    "120": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.765361
     }
    }
   },
@@ -1530,27 +1530,27 @@
    "query": "gaming monitors",
    "category": "monitor",
    "exact_judged": 3,
-   "exact_found_by_any_method": 3,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -1559,27 +1559,27 @@
    "query": "google pixel usb-c earbuds",
    "category": "headphones",
    "exact_judged": 5,
-   "exact_found_by_any_method": 5,
+   "exact_found_by_any_method": 2,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.553146
     },
     "10": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.553146
     },
     "30": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.553146
     },
     "60": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.553146
     },
     "120": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.553146
     }
    }
   },
@@ -1592,23 +1592,23 @@
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.469279
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.469279
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.469279
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.469279
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.469279
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -1621,23 +1621,23 @@
    "per_k": {
     "1": {
      "exact_in_cutoff": 4,
-     "condensed_ndcg10": 0.987512
+     "condensed_ndcg10": 0.974167
     },
     "10": {
      "exact_in_cutoff": 4,
-     "condensed_ndcg10": 0.987512
+     "condensed_ndcg10": 0.974167
     },
     "30": {
      "exact_in_cutoff": 4,
-     "condensed_ndcg10": 0.987512
+     "condensed_ndcg10": 0.974167
     },
     "60": {
      "exact_in_cutoff": 4,
-     "condensed_ndcg10": 0.987512
+     "condensed_ndcg10": 0.974167
     },
     "120": {
      "exact_in_cutoff": 4,
-     "condensed_ndcg10": 0.987512
+     "condensed_ndcg10": 0.974167
     }
    }
   },
@@ -1646,27 +1646,27 @@
    "query": "headphones for tv",
    "category": "headphones",
    "exact_judged": 4,
-   "exact_found_by_any_method": 4,
+   "exact_found_by_any_method": 3,
    "per_k": {
     "1": {
      "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.831872
     },
     "10": {
      "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.831872
     },
     "30": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.831872
     },
     "60": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.831872
     },
     "120": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.831872
     }
    }
   },
@@ -1675,27 +1675,27 @@
    "query": "hpcomputer screen",
    "category": "monitor",
    "exact_judged": 5,
-   "exact_found_by_any_method": 3,
+   "exact_found_by_any_method": 1,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.722727
+     "condensed_ndcg10": 0.33916
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.722727
+     "condensed_ndcg10": 0.33916
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.722727
+     "condensed_ndcg10": 0.33916
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.722727
+     "condensed_ndcg10": 0.33916
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.722727
+     "condensed_ndcg10": 0.33916
     }
    }
   },
@@ -1733,27 +1733,27 @@
    "query": "iphone 6s plus headphones",
    "category": "headphones",
    "exact_judged": 2,
-   "exact_found_by_any_method": 1,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.594909
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.594909
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.594909
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.594909
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.594909
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -1765,23 +1765,23 @@
    "exact_found_by_any_method": 2,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.946016
     },
     "10": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.946016
     },
     "30": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.946016
     },
     "60": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.946016
     },
     "120": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.946016
     }
    }
@@ -1791,27 +1791,27 @@
    "query": "jabra sport",
    "category": "headphones",
    "exact_judged": 3,
-   "exact_found_by_any_method": 1,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.469279
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.469279
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.469279
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.469279
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.469279
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -1823,23 +1823,23 @@
    "exact_found_by_any_method": 3,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.831872
     },
     "10": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.831872
     },
     "30": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 2,
      "condensed_ndcg10": 0.831872
     },
     "60": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 2,
      "condensed_ndcg10": 0.831872
     },
     "120": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 2,
      "condensed_ndcg10": 0.831872
     }
    }
@@ -1910,23 +1910,23 @@
    "exact_found_by_any_method": 5,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 5,
+     "exact_in_cutoff": 3,
      "condensed_ndcg10": 0.892211
     },
     "10": {
-     "exact_in_cutoff": 5,
+     "exact_in_cutoff": 3,
      "condensed_ndcg10": 0.892211
     },
     "30": {
-     "exact_in_cutoff": 5,
+     "exact_in_cutoff": 3,
      "condensed_ndcg10": 0.892211
     },
     "60": {
-     "exact_in_cutoff": 5,
+     "exact_in_cutoff": 4,
      "condensed_ndcg10": 0.892211
     },
     "120": {
-     "exact_in_cutoff": 5,
+     "exact_in_cutoff": 4,
      "condensed_ndcg10": 0.892211
     }
    }
@@ -1939,23 +1939,23 @@
    "exact_found_by_any_method": 4,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 4,
+     "exact_in_cutoff": 3,
      "condensed_ndcg10": 1.0
     },
     "10": {
-     "exact_in_cutoff": 4,
+     "exact_in_cutoff": 3,
      "condensed_ndcg10": 1.0
     },
     "30": {
-     "exact_in_cutoff": 4,
+     "exact_in_cutoff": 3,
      "condensed_ndcg10": 1.0
     },
     "60": {
-     "exact_in_cutoff": 4,
+     "exact_in_cutoff": 3,
      "condensed_ndcg10": 1.0
     },
     "120": {
-     "exact_in_cutoff": 4,
+     "exact_in_cutoff": 3,
      "condensed_ndcg10": 1.0
     }
    }
@@ -2027,23 +2027,23 @@
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -2056,23 +2056,23 @@
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -2081,27 +2081,27 @@
    "query": "jbl wired earphones",
    "category": "headphones",
    "exact_judged": 3,
-   "exact_found_by_any_method": 3,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -2113,19 +2113,19 @@
    "exact_found_by_any_method": 2,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.765361
     },
     "10": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.765361
     },
     "30": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.765361
     },
     "60": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.765361
     },
     "120": {
@@ -2258,7 +2258,7 @@
    "exact_found_by_any_method": 2,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.750199
     },
     "10": {
@@ -2288,23 +2288,23 @@
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.908375
+     "condensed_ndcg10": 0.585742
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.908375
+     "condensed_ndcg10": 0.585742
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.908375
+     "condensed_ndcg10": 0.585742
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.908375
+     "condensed_ndcg10": 0.585742
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.908375
+     "condensed_ndcg10": 0.585742
     }
    }
   },
@@ -2346,23 +2346,23 @@
    "per_k": {
     "1": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.95508
     },
     "10": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.95508
     },
     "30": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.95508
     },
     "60": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.95508
     },
     "120": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.95508
     }
    }
   },
@@ -2374,23 +2374,23 @@
    "exact_found_by_any_method": 1,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.469279
     },
     "10": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.469279
     },
     "30": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.469279
     },
     "60": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.469279
     },
     "120": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.469279
     }
    }
@@ -2404,23 +2404,23 @@
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.469279
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.469279
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.469279
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.469279
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.469279
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -2433,23 +2433,23 @@
    "per_k": {
     "1": {
      "exact_in_cutoff": 4,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.985123
     },
     "10": {
      "exact_in_cutoff": 4,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.985123
     },
     "30": {
      "exact_in_cutoff": 4,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.985123
     },
     "60": {
      "exact_in_cutoff": 4,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.985123
     },
     "120": {
      "exact_in_cutoff": 4,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.985123
     }
    }
   },
@@ -2519,23 +2519,23 @@
    "exact_found_by_any_method": 2,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     },
     "10": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     },
     "30": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     },
     "60": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     },
     "120": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     }
    }
@@ -2664,15 +2664,15 @@
    "exact_found_by_any_method": 3,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     },
     "10": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     },
     "30": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     },
     "60": {
@@ -2722,11 +2722,11 @@
    "exact_found_by_any_method": 6,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 6,
+     "exact_in_cutoff": 5,
      "condensed_ndcg10": 1.0
     },
     "10": {
-     "exact_in_cutoff": 6,
+     "exact_in_cutoff": 5,
      "condensed_ndcg10": 1.0
     },
     "30": {
@@ -2748,27 +2748,27 @@
    "query": "monitor samsung",
    "category": "monitor",
    "exact_judged": 3,
-   "exact_found_by_any_method": 2,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -2867,24 +2867,24 @@
    "exact_found_by_any_method": 3,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.96695
     },
     "10": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.96695
     },
     "30": {
      "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.96695
     },
     "60": {
      "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.96695
     },
     "120": {
      "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.96695
     }
    }
   },
@@ -2926,23 +2926,23 @@
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.636682
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.636682
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.636682
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.636682
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.636682
     }
    }
   },
@@ -2951,27 +2951,27 @@
    "query": "noise cancelling earbuds samsung",
    "category": "headphones",
    "exact_judged": 3,
-   "exact_found_by_any_method": 2,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -2980,27 +2980,27 @@
    "query": "noise cancelling headphones",
    "category": "headphones",
    "exact_judged": 3,
-   "exact_found_by_any_method": 2,
+   "exact_found_by_any_method": 1,
    "per_k": {
     "1": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.469279
     },
     "10": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.469279
     },
     "30": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.469279
     },
     "60": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.469279
     },
     "120": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.469279
     }
    }
   },
@@ -3012,23 +3012,23 @@
    "exact_found_by_any_method": 2,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.970255
     },
     "10": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.970255
     },
     "30": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.970255
     },
     "60": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.970255
     },
     "120": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.970255
     }
    }
@@ -3042,23 +3042,23 @@
    "per_k": {
     "1": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.632204
     },
     "10": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.712701
+     "condensed_ndcg10": 0.632204
     },
     "30": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.712701
+     "condensed_ndcg10": 0.632204
     },
     "60": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.712701
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.632204
     },
     "120": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.712701
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.632204
     }
    }
   },
@@ -3100,23 +3100,23 @@
    "per_k": {
     "1": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.946016
     },
     "10": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.946016
     },
     "30": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.946016
     },
     "60": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.946016
     },
     "120": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.946016
     }
    }
   },
@@ -3154,27 +3154,27 @@
    "query": "samsumg headphone",
    "category": "headphones",
    "exact_judged": 3,
-   "exact_found_by_any_method": 2,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.765361
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -3186,23 +3186,23 @@
    "exact_found_by_any_method": 1,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.632443
     },
     "10": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.632443
     },
     "30": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.632443
     },
     "60": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.632443
     },
     "120": {
-     "exact_in_cutoff": 1,
+     "exact_in_cutoff": 0,
      "condensed_ndcg10": 0.632443
     }
    }
@@ -3215,23 +3215,23 @@
    "exact_found_by_any_method": 3,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.831872
     },
     "10": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.831872
     },
     "30": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.831872
     },
     "60": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.831872
     },
     "120": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 0.831872
     }
    }
@@ -3241,27 +3241,27 @@
    "query": "samsung ear buds",
    "category": "headphones",
    "exact_judged": 2,
-   "exact_found_by_any_method": 2,
+   "exact_found_by_any_method": 1,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.702789
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.423974
     },
     "10": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.702789
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.423974
     },
     "30": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.895459
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.423974
     },
     "60": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.895459
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.423974
     },
     "120": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.895459
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.423974
     }
    }
   },
@@ -3299,27 +3299,27 @@
    "query": "samsung earbuds",
    "category": "headphones",
    "exact_judged": 2,
-   "exact_found_by_any_method": 2,
+   "exact_found_by_any_method": 1,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.933149
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.414669
     },
     "10": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.933149
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.414669
     },
     "30": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.414669
     },
     "60": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.414669
     },
     "120": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.414669
     }
    }
   },
@@ -3328,27 +3328,27 @@
    "query": "samsung earbuds with microphone",
    "category": "headphones",
    "exact_judged": 2,
-   "exact_found_by_any_method": 1,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.594909
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.594909
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.594909
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.594909
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.594909
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -3357,27 +3357,27 @@
    "query": "samsung eg920",
    "category": "headphones",
    "exact_judged": 2,
-   "exact_found_by_any_method": 2,
+   "exact_found_by_any_method": 1,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 0.975019
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.580047
     },
     "10": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 0.975019
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.580047
     },
     "30": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 0.975019
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.580047
     },
     "60": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.975019
+     "condensed_ndcg10": 0.580047
     },
     "120": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.975019
+     "condensed_ndcg10": 0.580047
     }
    }
   },
@@ -3390,23 +3390,23 @@
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.059491
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.059491
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.059491
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.059491
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.059491
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -3444,27 +3444,27 @@
    "query": "samsung headphones",
    "category": "headphones",
    "exact_judged": 5,
-   "exact_found_by_any_method": 3,
+   "exact_found_by_any_method": 1,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.722727
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.33916
     },
     "10": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.722727
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.33916
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.722727
+     "condensed_ndcg10": 0.33916
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.722727
+     "condensed_ndcg10": 0.33916
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.722727
+     "condensed_ndcg10": 0.33916
     }
    }
   },
@@ -3473,27 +3473,27 @@
    "query": "samsung monitor",
    "category": "monitor",
    "exact_judged": 6,
-   "exact_found_by_any_method": 5,
+   "exact_found_by_any_method": 1,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.892211
+     "condensed_ndcg10": 0.302602
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.892211
+     "condensed_ndcg10": 0.302602
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.892211
+     "condensed_ndcg10": 0.302602
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.892211
+     "condensed_ndcg10": 0.302602
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.892211
+     "condensed_ndcg10": 0.302602
     }
    }
   },
@@ -3502,27 +3502,27 @@
    "query": "samsung wireless over ear",
    "category": "headphones",
    "exact_judged": 3,
-   "exact_found_by_any_method": 3,
+   "exact_found_by_any_method": 2,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.773198
     },
     "10": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.773198
     },
     "30": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.773198
     },
     "60": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.773198
     },
     "120": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.773198
     }
    }
   },
@@ -3531,33 +3531,91 @@
    "query": "sennheiser headphones",
    "category": "headphones",
    "exact_judged": 2,
-   "exact_found_by_any_method": 2,
+   "exact_found_by_any_method": 1,
    "per_k": {
     "1": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.929898
+     "condensed_ndcg10": 0.594909
     },
     "10": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.929898
+     "condensed_ndcg10": 0.594909
     },
     "30": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.929898
+     "condensed_ndcg10": 0.594909
     },
     "60": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.929898
+     "condensed_ndcg10": 0.594909
     },
     "120": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.929898
+     "condensed_ndcg10": 0.594909
     }
    }
   },
   {
    "query_id": 96094,
    "query": "sony bluetooth headphones",
+   "category": "headphones",
+   "exact_judged": 3,
+   "exact_found_by_any_method": 1,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "10": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "30": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "60": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    },
+    "120": {
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
+    }
+   }
+  },
+  {
+   "query_id": 96135,
+   "query": "sony noise cancelling headphones",
+   "category": "headphones",
+   "exact_judged": 6,
+   "exact_found_by_any_method": 2,
+   "per_k": {
+    "1": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.493523
+    },
+    "10": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.493523
+    },
+    "30": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.493523
+    },
+    "60": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.493523
+    },
+    "120": {
+     "exact_in_cutoff": 2,
+     "condensed_ndcg10": 0.493523
+    }
+   }
+  },
+  {
+   "query_id": 96170,
+   "query": "sony wireless headphones",
    "category": "headphones",
    "exact_judged": 3,
    "exact_found_by_any_method": 1,
@@ -3585,89 +3643,31 @@
    }
   },
   {
-   "query_id": 96135,
-   "query": "sony noise cancelling headphones",
-   "category": "headphones",
-   "exact_judged": 6,
-   "exact_found_by_any_method": 3,
-   "per_k": {
-    "1": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 0.644824
-    },
-    "10": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 0.644824
-    },
-    "30": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 0.644824
-    },
-    "60": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 0.644824
-    },
-    "120": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 0.644824
-    }
-   }
-  },
-  {
-   "query_id": 96170,
-   "query": "sony wireless headphones",
-   "category": "headphones",
-   "exact_judged": 3,
-   "exact_found_by_any_method": 2,
-   "per_k": {
-    "1": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.765361
-    },
-    "10": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.765361
-    },
-    "30": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.765361
-    },
-    "60": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.765361
-    },
-    "120": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.765361
-    }
-   }
-  },
-  {
    "query_id": 96311,
    "query": "sound peats wireless headphones",
    "category": "headphones",
    "exact_judged": 3,
-   "exact_found_by_any_method": 3,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -3679,23 +3679,23 @@
    "exact_found_by_any_method": 3,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     },
     "10": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     },
     "30": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     },
     "60": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     },
     "120": {
-     "exact_in_cutoff": 2,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     }
    }
@@ -3708,23 +3708,23 @@
    "exact_found_by_any_method": 3,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     },
     "10": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     },
     "30": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     },
     "60": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     },
     "120": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     }
    }
@@ -3763,27 +3763,27 @@
    "query": "type c earbuds",
    "category": "headphones",
    "exact_judged": 5,
-   "exact_found_by_any_method": 5,
+   "exact_found_by_any_method": 1,
    "per_k": {
     "1": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.33916
     },
     "10": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.33916
     },
     "30": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.33916
     },
     "60": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.33916
     },
     "120": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.33916
     }
    }
   },
@@ -3792,27 +3792,27 @@
    "query": "ultra wide monitor",
    "category": "monitor",
    "exact_judged": 3,
-   "exact_found_by_any_method": 3,
+   "exact_found_by_any_method": 1,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
     },
     "10": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
     },
     "30": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
     },
     "60": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
     },
     "120": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.469279
     }
    }
   },
@@ -3824,23 +3824,23 @@
    "exact_found_by_any_method": 6,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 5,
+     "exact_in_cutoff": 3,
      "condensed_ndcg10": 1.0
     },
     "10": {
-     "exact_in_cutoff": 5,
+     "exact_in_cutoff": 3,
      "condensed_ndcg10": 1.0
     },
     "30": {
-     "exact_in_cutoff": 5,
+     "exact_in_cutoff": 3,
      "condensed_ndcg10": 1.0
     },
     "60": {
-     "exact_in_cutoff": 5,
+     "exact_in_cutoff": 2,
      "condensed_ndcg10": 1.0
     },
     "120": {
-     "exact_in_cutoff": 5,
+     "exact_in_cutoff": 2,
      "condensed_ndcg10": 1.0
     }
    }
@@ -3850,27 +3850,27 @@
    "query": "ultrawide monitor",
    "category": "monitor",
    "exact_judged": 4,
-   "exact_found_by_any_method": 4,
+   "exact_found_by_any_method": 2,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.636682
     },
     "10": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.636682
     },
     "30": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.636682
     },
     "60": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.636682
     },
     "120": {
-     "exact_in_cutoff": 3,
-     "condensed_ndcg10": 1.0
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.636682
     }
    }
   },
@@ -3882,23 +3882,23 @@
    "exact_found_by_any_method": 4,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 1,
      "condensed_ndcg10": 1.0
     },
     "10": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 2,
      "condensed_ndcg10": 1.0
     },
     "30": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 2,
      "condensed_ndcg10": 1.0
     },
     "60": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 2,
      "condensed_ndcg10": 1.0
     },
     "120": {
-     "exact_in_cutoff": 3,
+     "exact_in_cutoff": 2,
      "condensed_ndcg10": 1.0
     }
    }
@@ -3911,24 +3911,24 @@
    "exact_found_by_any_method": 2,
    "per_k": {
     "1": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.95362
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.925254
     },
     "10": {
-     "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.95362
+     "exact_in_cutoff": 0,
+     "condensed_ndcg10": 0.925254
     },
     "30": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.95362
+     "condensed_ndcg10": 0.925254
     },
     "60": {
      "exact_in_cutoff": 1,
-     "condensed_ndcg10": 0.95362
+     "condensed_ndcg10": 0.925254
     },
     "120": {
-     "exact_in_cutoff": 2,
-     "condensed_ndcg10": 0.95362
+     "exact_in_cutoff": 1,
+     "condensed_ndcg10": 0.925254
     }
    }
   },
@@ -3966,27 +3966,27 @@
    "query": "wireless earbuds",
    "category": "headphones",
    "exact_judged": 4,
-   "exact_found_by_any_method": 1,
+   "exact_found_by_any_method": 0,
    "per_k": {
     "1": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.384572
+     "condensed_ndcg10": 0.0
     },
     "10": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.384572
+     "condensed_ndcg10": 0.0
     },
     "30": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.384572
+     "condensed_ndcg10": 0.0
     },
     "60": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.384572
+     "condensed_ndcg10": 0.0
     },
     "120": {
      "exact_in_cutoff": 0,
-     "condensed_ndcg10": 0.384572
+     "condensed_ndcg10": 0.0
     }
    }
   },
@@ -4057,23 +4057,23 @@
    "per_k": {
     "1": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.970255
     },
     "10": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.970255
     },
     "30": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.970255
     },
     "60": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.970255
     },
     "120": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.970255
     }
    }
   },
@@ -4086,23 +4086,23 @@
    "per_k": {
     "1": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.970255
     },
     "10": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.970255
     },
     "30": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.970255
     },
     "60": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.970255
     },
     "120": {
      "exact_in_cutoff": 2,
-     "condensed_ndcg10": 1.0
+     "condensed_ndcg10": 0.970255
     }
    }
   },

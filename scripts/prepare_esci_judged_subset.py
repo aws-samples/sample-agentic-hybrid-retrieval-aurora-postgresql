@@ -3,7 +3,7 @@
 
 The Shopping Queries Dataset (ESCI, Apache-2.0) judges query-product pairs as
 Exact, Substitute, Complement or Irrelevant. This keeps the US judgments whose
-product ASIN is a parent ASIN in `reviews-2023-500k-v1`, for queries whose judged
+product ASIN is a parent ASIN in the served catalog, for queries whose judged
 catalog products fall in a lab category. Unjudged catalog products stay unknown;
 they are never counted as irrelevant.
 
@@ -90,6 +90,16 @@ def select_cases(columns: dict, catalog: dict[str, dict]) -> list[dict]:
     return cases
 
 
+def served_dataset() -> str:
+    """The catalog the judgments were joined against, never a literal in this file."""
+    dataset = os.environ.get("MOSAIC_CATALOG_DATASET", "").strip()
+    if not dataset:
+        raise SystemExit(
+            "ESCI subset rule: set MOSAIC_CATALOG_DATASET to the served catalog the subset is joined against."
+        )
+    return dataset
+
+
 def main() -> None:
     import pyarrow.parquet as pq
 
@@ -116,7 +126,7 @@ def main() -> None:
                     "url": SOURCE_URL,
                     "sha256": EXAMPLES_SHA256,
                 },
-                "dataset_id": "reviews-2023-500k-v1",
+                "dataset_id": served_dataset(),
                 "selection": (
                     "US judgments whose product ASIN is a catalog parent ASIN; per "
                     "query, the judgments in its most-judged category, kept when "

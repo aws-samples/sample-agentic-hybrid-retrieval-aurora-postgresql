@@ -274,22 +274,28 @@ def _lab_1_search(monkeypatch, *, solved: bool = True) -> None:
 
 
 def _lab_2_search(monkeypatch) -> None:
+    """The ViewSonic VG2756-4K (1551237): meaning rank 10, combined position 21,
+    final position 5 -- absent from the broken 50-candidate pool by product id
+    tie-break, found only after the RRF formula is restored. Product 1408222
+    (the Dell, from a different mission generation) never appears here.
+    """
     rrf_k = RetrievalProfile().rrf_k
-    contribution = 1.0 / (rrf_k + 1)
-    arm = RankSignal(rank=1, rrf_contribution=contribution)
+    contribution = 1.0 / (rrf_k + 10)
+    semantic = RankSignal(rank=10, rrf_contribution=contribution)
+    empty = RankSignal()
     signals = ResultSignals(
-        fts=arm,
-        trigram=arm,
-        semantic=arm,
-        rrf_score=contribution * 3,
-        pre_rerank_rank=1,
-        pre_rerank_score=contribution * 3,
+        fts=empty,
+        trigram=empty,
+        semantic=semantic,
+        rrf_score=contribution,
+        pre_rerank_rank=21,
+        pre_rerank_score=contribution,
         rerank_score=0.93,
         rerank_rank=1,
-        final_rank=1,
+        final_rank=5,
     )
     product = _product(
-        1408222,
+        1551237,
         signals,
         domain="consumer_electronics",
         category_key="monitor",
@@ -306,8 +312,8 @@ def _persisted_turn() -> dict:
         "assistant_message": "Both clear the budget.",
         "extracted_intent": {
             "selected_products": [
-                {"product_id": 1221817},
-                {"product_id": 1408222},
+                {"product_id": 1540761},
+                {"product_id": 1551237},
             ]
         },
         "created_at": datetime.now(UTC),
@@ -321,13 +327,13 @@ EVIDENCE_REVISION = "2026-08-11"
 #: row's own text, not only the product id.
 CITED_EVIDENCE: dict[int, tuple[int, str]] = {
     9001: (
-        1221817,
+        1540761,
         "Adjustable lumbar support. Arms move with the user.",
     ),
     9101: (1277987, "Three levels of noise cancellation."),
     9102: (1277987, "I enjoy listening with these headphones."),
     9002: (
-        1408222,
+        1551237,
         "The 27-inch 4K display has 3840 x 2160 resolution and USB-C video with up to 90W charging.",
     ),
 }
@@ -374,7 +380,7 @@ def _persisted_tools() -> list[dict]:
             "error_detail": None,
             "occurred_at": datetime.now(UTC),
         }
-        for product_id in (1221817, 1408222)
+        for product_id in (1540761, 1551237)
     ] + [
         {
             "search_event_id": None,
@@ -435,7 +441,7 @@ def _grounded_connection() -> _FakeConnection:
     connection.searches.append(dict(connection.searches[0], search_event_id=uuid4()))
     trace = []
     for index, (search, product_id) in enumerate(
-        zip(connection.searches, (1221817, 1408222), strict=True)
+        zip(connection.searches, (1540761, 1551237), strict=True)
     ):
         search.update(
             query_text=("ergonomic chair" if index == 0 else "4K monitor"),
@@ -459,7 +465,7 @@ def _grounded_connection() -> _FakeConnection:
         dict(
             connection.tools[0],
             tool_name="compare_products",
-            input_payload={"product_ids": [1221817, 1408222]},
+            input_payload={"product_ids": [1540761, 1551237]},
         )
     )
     trace.extend(connection.tools[:-1])

@@ -1,5 +1,5 @@
 {
-  "dataset_id": "reviews-2023-500k-v1",
+  "dataset_id": "reviews-2023-v2",
   "selection_policy": "Original listings with clear specifications, original photos and recorded rating counts. Opening examples first, then source-topic coverage and brand/model variety. This is a browsing edit, not a search ranking or product endorsement.",
   "display_order": "One headphone, one chair, one monitor, repeated. Search uses the full catalog and its own ranking.",
   "review_exclusions": {

@@ -6,13 +6,13 @@ their own terms; the code license does not apply to them.
 
 ## Served catalog: Amazon Reviews 2023
 
-The workshop catalog `reviews-2023-500k-v1` holds 500,000 product records
-selected from the Electronics and Office Products metadata of **Amazon Reviews
-2023**, published by the McAuley Lab at UC San Diego
+The workshop catalog `reviews-2023-v2` holds 553,911 product records selected
+from the Electronics, Office Products and Home and Kitchen metadata of
+**Amazon Reviews 2023**, published by the McAuley Lab at UC San Diego
 (<https://amazon-reviews-2023.github.io/>, Hugging Face dataset
-`McAuley-Lab/Amazon-Reviews-2023`). 2,327 review excerpts for 476 products come
-from the same dataset's review files. Product photos are loaded from the image URLs in
-those records and are not copied into this repository.
+`McAuley-Lab/Amazon-Reviews-2023`). 418,620 review excerpts for 67,750 products
+come from the same dataset's review files. Product photos are loaded from the
+image URLs in those records and are not copied into this repository.
 
 > Yupeng Hou, Jiacheng Li, Zhankui He, An Yan, Xiusi Chen, and Julian McAuley.
 > 2024. *Bridging Language and Items for Retrieval and Recommendation.*

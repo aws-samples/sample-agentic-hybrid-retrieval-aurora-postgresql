@@ -155,7 +155,7 @@ def test_identical_sets_in_different_order_out_is_a_pass():
 def test_real_catalog_comparison_uses_the_same_selected_corpus_for_both_orders(
     monkeypatch,
 ):
-    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-500k-v1")
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
     comparison = service(IDENTICAL_UNWEIGHTED, IDENTICAL_WEIGHTED)
     connection = comparison.connection_factory()
 

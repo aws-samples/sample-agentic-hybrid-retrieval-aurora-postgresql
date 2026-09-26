@@ -51,6 +51,8 @@ honest.
 | `intentional-gaps.md` | Deliberate starter gaps and their recovery contracts |
 | `implementation-status.md` | What is complete versus environment-dependent |
 | `house-standards.md` | Binding assertions, probes, and release-gate standards |
+| [workshop-studio-setup.md](workshop-studio-setup.md) | First-time setup for teammates: credentials, clone both repos, and pull updates |
+| [workshop-studio-publishing.md](workshop-studio-publishing.md) | Instructions for AGENTS.md / CLAUDE.md: repin, validate, sync assets and static URLs, push, and verify the build |
 | `rewrite-losses.md` | Retired predecessor scope and non-recoverable history |
 
 - [Abstract delivery map](abstract-delivery-map.md): what each required lab teaches, what participants implement, and what stays in flex.

@@ -78,7 +78,9 @@ one HTTP request.
 ### Agent turn deadline
 
 One agent turn's model-and-tool loop is wrapped in an overall
-`MOSAIC_AGENT_TURN_DEADLINE_SECONDS` budget (default 90). Exceeding it skips
+`MOSAIC_AGENT_TURN_DEADLINE_SECONDS` budget (default 180, set from a measured
+Lab 3 turn on reviews-2023-v2: 35.7 s of tool time including a 16.8 s
+synthesis, while a turn that retried synthesis twice exceeded 90 s). Exceeding it skips
 the fallback synthesis attempt entirely and reports failure immediately (503
 on `POST /api/agent/answer`; an `agent_turn_deadline` SSE error on the
 streaming route): the turn already spent its time budget, so it does not

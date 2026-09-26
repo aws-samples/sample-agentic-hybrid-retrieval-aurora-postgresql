@@ -1,13 +1,13 @@
 # Lab regression checks
 
-`data/evals/mosaic_labs_missions.json` owns the requests, filters, targets, assertions and timing. These exercises use `reviews-2023-500k-v1`: original Amazon Reviews 2023 product records and preserved embeddings. Product facts are not modified to manufacture outcomes.
+`data/evals/mosaic_labs_missions.json` owns the requests, filters, targets, assertions and timing. These exercises use `reviews-2023-v2`: original Amazon Reviews 2023 product records and preserved embeddings. Product facts are not modified to manufacture outcomes.
 
 ## Participant experiments
 
 | Stage | Visible before | Repair | Visible after |
 |---|---|---|---|
 | Retrieve / `G-003` | A transposed Bose listing ID returns other headphones; the intended listing is absent from the combined pool | Reconnect the existing close-spelling search | The intended Bose listing returns with its close-spelling contribution |
-| Rank / G-008 | A 27-inch 4K/90W request omits the suitable Dell U2720Q; the HP Z27n title visibly says 1440p | Use actual source positions in RRF | Dell enters the combined list, then rises to first after model reranking |
+| Rank / G-008 | A 27-inch 4K/90W request omits the suitable ViewSonic VG2756-4K; a 1440p Lenovo ThinkVision T27hv-20 title visibly says 1440p | Use actual source positions in RRF | The ViewSonic enters the combined list, then reaches final position 5 after model reranking |
 | Reason / G-021 | Source records are fetched, but no supported answer can be produced | Register the returned evidence by product | The monitor/chair comparison cites resolvable source records |
 
 ## Independent controls
@@ -32,7 +32,7 @@ The broader measured alternatives and unchanged/failing controls are in [the wor
 
 Every contribution must equal `1 / (k + source_rank)` and its sum must equal the recorded fused score. The required product must reach the bounded list and finish first after reranking. It need not be first in every search, or first before reranking.
 
-With the verified catalog and profile, Dell U2720Q entered at combined position 24, then finished first in repeated runs. Preserve the observed source positions, model ID and profile; do not turn position 24 into a universal law. Several chair and headphone control queries keep their winner through both formulas. They prove why visible success alone cannot certify the calculation.
+With the verified catalog and profile, the ViewSonic VG2756-4K entered the combined list at position 21 and finished at final position 5 in repeated runs. Preserve the observed source positions, model ID and profile; do not turn position 21 or final position 5 into a universal law. Several chair and headphone control queries keep their winner through both formulas. They prove why visible success alone cannot certify the calculation.
 
 ## Dataset and publication boundary
 

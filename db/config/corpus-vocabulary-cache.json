@@ -150,30 +150,30 @@
         "corpus_lexeme": {
           "rows": 1023852,
           "bytes": 3099884,
-          "sha256": "8b1a1bf97ec27d13b2fb53be404544d21c53ebfe35e32a3e82a39d2a54503bfc"
+          "sha256": "6fa5759da3c5caa977d729ac5479570c054f93f15f8d5415435552c6bea23618"
         },
         "corpus_surface_lexeme": {
           "rows": 1024767,
           "bytes": 3110644,
-          "sha256": "2ef6134941963789ce34e4a7dd0a357062d40e58ab5c2522cd98283dab081dc8"
+          "sha256": "47083311e610e94f5805e8c0dae075c528d06bdf792064b5a41857cf71f986d4"
         }
       }
     },
     "mosaic_live_search": {
       "input": {
-        "products": 500000,
-        "sha256": "b5527812d8a00aeb7f6b7b9ad60e47c411bcce8c5da4167f5a99a83ec1f6e3d1"
+        "products": 553911,
+        "sha256": "76fba634bb4e78131373974dfa6e8a30da9ec1c4872e8fc12a713ae25e9e994e"
       },
       "tables": {
         "corpus_lexeme": {
-          "rows": 2049456,
-          "bytes": 10979266,
-          "sha256": "91956507004721e7418665737e8b982f3bde4fcee6a4b2b4447fd32823cd733d"
+          "rows": 2200149,
+          "bytes": 11744359,
+          "sha256": "7ed4b963db9969f1d51fd6ea698bacd698fe1ccefa033b3afe3c576377f1baa3"
         },
         "corpus_surface_lexeme": {
-          "rows": 2098693,
-          "bytes": 11448522,
-          "sha256": "cb22f78500a1a85dc22c666852374c93832c55b63441052f9f00d827ec700ab5"
+          "rows": 2251580,
+          "bytes": 12238073,
+          "sha256": "4d0126d7c00e6fc9d5e4882b6cc021719262e91e1930c1ddaa5f7cfcb3071786"
         }
       }
     }

@@ -1,5 +1,10 @@
 # Real-catalog lab verification
 
+**Historical (v1):** this record covers verification against
+`reviews-2023-500k-v1` on 2026-09-21, before the `reviews-2023-v2` catalog
+cutover. See "Catalog identity after the v2 cutover" below for what ships now;
+the lab mechanics and rhythm this record verified are unchanged.
+
 Local verification on 2026-09-21. The three exercises work against the prepared
 Aurora catalog. This is not a Workshop Studio publication or a fresh-environment
 rehearsal.
@@ -56,6 +61,15 @@ source seam was also restored after observing its failure.
 | Offline Python suite | PARTIAL | 1,423 passed, 15 skipped, 44 deselected; two scorecard attribution tests fail because the historical baseline does not describe this catalog/code |
 | Configuration gates | PASS | Retrieval settings profile and configuration tripwire |
 | Bootstrap delivery-copy parity | PASS | Local source and Workshop Studio bootstrap files are byte-identical; no publication claim |
+
+### Catalog identity after the v2 cutover
+
+| Check | Result | Scope |
+|---|---|---|
+| Live catalog identity (v2, measured 2026-09-26) | Measured | `reviews-2023-v2`, 553,911 products and embeddings; Cohere Embed v4, 1024 dimensions; catalog_sha256 `c4d5913f89050332f71512baf2a0351331208ab94eac0621be9ac63e653cfa00` |
+
+The lab-by-lab verification above ran against `reviews-2023-500k-v1` and is
+retained as history; it has not been repeated against `reviews-2023-v2`.
 
 Browser inspection confirmed the Bose recovery in Shop and Playground and
 Dell's combined position 24 → final position 1. Playground now requests the

@@ -77,7 +77,7 @@ Required concepts:
 
 Do not turn this into a `pg_trgm` lesson. The transposed listing ID is
 deliberately not presented as an embeddings success. On the measured
-500,000-product corpus, HNSW returns related listings but not the target.
+553,911-product corpus, HNSW returns related listings but not the target.
 The question participants must answer is: **why is seeing the correct product
 not enough to declare retrieval healthy?**
 
@@ -104,12 +104,14 @@ compare:
 - candidate counts and persisted retrieval-run evidence;
 - product source URI, source revision, and attached evidence.
 
-The 27-inch 4K/90W request gives a visible before/after: Dell U2720Q is
-missing from the broken pool and enters after repair. It then rises from
-combined position 24 to final position 1 in repeated verification. HP Z27n's
-1440p title is a clear contrast. Inspect actual ranks on the participant run;
-position 24 and final position 1 are observations. The mission permits a final
-top-three position; managed-model exact order is not the correctness contract.
+The 27-inch 4K/90W request gives a visible before/after: the ViewSonic
+VG2756-4K is missing from the broken pool, where the collapsed formula keeps
+the oldest listings by product id instead, and enters after repair. It then
+moves from combined position 21 to final position 5 in repeated verification.
+A 1440p Lenovo ThinkVision T27hv-20 title is a clear contrast. Inspect actual
+ranks on the participant run; position 21 and final position 5 are
+observations. The mission permits a final top-five position; managed-model
+exact order is not the correctness contract.
 The terminal runner rejects changed queries, filters, settings or datasets and
 checks absence from the full before pool and presence after. In `psql`, builders
 join the saved runs and call the installed contribution function at half, recorded

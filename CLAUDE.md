@@ -12,6 +12,22 @@ Required labs:
 2. Fuse, rerank, and inspect
 3. Build the retrieval agent
 
+## Workshop Studio publication
+
+For first-time cloning, follow [the setup guide](docs/workshop-studio-setup.md).
+When asked to publish/update a build, follow
+[the publishing instructions](docs/workshop-studio-publishing.md):
+
+1. Validate and publish the application source.
+2. Update source, bootstrap, and infrastructure pins together with the workshop's tooling.
+3. Validate the workshop; dry-run and upload the complete assets using its scoped authoring credentials and confirmed S3 prefix. Verify uploaded hashes.
+4. Sync **Asset static URLs** in Workshop Studio and wait for **In sync**.
+5. Only then stage, commit, and push the workshop repository.
+6. Verify the resulting build succeeds and report its ID/link. Verify deployment acceptance too when requested.
+
+Carry these authorized steps through without repeated confirmation. Report actual
+blockers and do not widen the requested publication audience.
+
 ## Design principles
 - Easy to navigate.
 - Easy to execute.

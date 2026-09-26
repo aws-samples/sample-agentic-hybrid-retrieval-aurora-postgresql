@@ -12,8 +12,8 @@ from pathlib import Path
 
 from scripts.independent_relevance_eval import (
     ANCHOR_OVERLAP_VALUES,
-    COHORT_INTENTS,
     JUDGMENT_STATUSES,
+    REQUEST_SHAPES,
     classify_queries,
     compute_anchor_overlap,
     load_independent_relevance_queries,
@@ -83,9 +83,9 @@ def test_coverage_design_is_a_full_four_by_six_grid():
     """
     categories = {"headphones", "monitor", "chair", "general"}
     assert {query["cohort_category"] for query in QUERIES} == categories
-    assert {query["cohort_intent"] for query in QUERIES} == COHORT_INTENTS
+    assert {query["cohort_intent"] for query in QUERIES} == REQUEST_SHAPES
     cells = {(query["cohort_category"], query["cohort_intent"]) for query in QUERIES}
-    assert len(cells) == len(categories) * len(COHORT_INTENTS) == 24
+    assert len(cells) == len(categories) * len(REQUEST_SHAPES) == 24
     assert len(QUERIES) == 24
 
 
@@ -159,7 +159,7 @@ def test_anchor_overlap_matches_an_independent_cross_reference():
         1162128: "canonical",
         1168700: "canonical",
         1208825: "mission",
-        1221817: "mission",
+        1221817: "none",
         1248512: "none",
         1277987: "mission",
         1379290: "none",
@@ -168,7 +168,10 @@ def test_anchor_overlap_matches_an_independent_cross_reference():
         1481815: "none",
         1490476: "none",
     }
-    assert _MISSION_IDS == {1208825, 1221817, 1277987, 1408222}
+    # Lab 2 targets the ViewSonic VG2756-4K and Lab 3 the ViewSonic plus the
+    # Steelcase Gesture listing with review evidence since the reviews-2023-v2
+    # cutover; the old Steelcase listing 1221817 is no longer a mission target.
+    assert _MISSION_IDS == {1208825, 1277987, 1408222, 1540761, 1551237}
     for product_id, overlap in expected.items():
         assert (
             compute_anchor_overlap(
@@ -251,6 +254,6 @@ def test_selective_filters_queries_use_only_verifiable_categorical_fields():
 
 
 def test_dataset_id_is_the_real_catalog_for_every_query():
-    """This corpus is scoped to `reviews-2023-500k-v1`, never a hardcoded
+    """This corpus is scoped to `reviews-2023-v2`, never a hardcoded
     literal inside the runner -- see `require_single_served_catalog` reuse."""
-    assert {query["dataset_id"] for query in QUERIES} == {"reviews-2023-500k-v1"}
+    assert {query["dataset_id"] for query in QUERIES} == {"reviews-2023-v2"}

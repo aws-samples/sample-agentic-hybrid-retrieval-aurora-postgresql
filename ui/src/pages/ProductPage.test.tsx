@@ -51,7 +51,7 @@ describe("ProductPage", () => {
     const product: ProductDetail = {
       ...base,
       title,
-      source_dataset: "reviews-2023-500k-v1",
+      source_dataset: "reviews-2023-v2",
       image_url: "https://example.com/original-front.jpg",
       image_source: "original_listing",
       listing_url: "https://www.amazon.com/dp/SOURCE0001",
@@ -93,7 +93,7 @@ describe("ProductPage", () => {
     const product: ProductDetail = {
       ...base,
       title: "Original monitor listing",
-      source_dataset: "reviews-2023-500k-v1",
+      source_dataset: "reviews-2023-v2",
       listing_url: "https://www.amazon.com/dp/SOURCE0002",
       rating: 5,
       review_count: 6,

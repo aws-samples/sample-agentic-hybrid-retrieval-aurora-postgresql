@@ -11,9 +11,9 @@ SOURCE = Path("db/sql/09_search_functions.sql").read_text()
 
 @pytest.mark.parametrize("lab", [1, 2])
 def test_applying_participant_sql_does_not_silently_solve_the_lab(monkeypatch, lab):
-    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-500k-v1")
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
     connection = MagicMock()
-    connection.execute.return_value.fetchone.return_value = ("reviews-2023-500k-v1",)
+    connection.execute.return_value.fetchone.return_value = ("reviews-2023-v2",)
     broken = SOURCE
     for start, end, _, replacement in LABS[lab][1]:
         broken = _replace_block(broken, start, end, replacement)
@@ -28,7 +28,7 @@ def test_applying_participant_sql_does_not_silently_solve_the_lab(monkeypatch, l
 
 
 def test_catalog_mismatch_prevents_any_function_change(monkeypatch):
-    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-500k-v1")
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
     connection = MagicMock()
     connection.execute.return_value.fetchone.return_value = ("different-dataset",)
     with pytest.raises(ValueError, match="Lab catalog rule"):
