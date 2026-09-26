@@ -17,7 +17,7 @@ from service.synthesis import _price_settled_claims
 
 @pytest.fixture
 def real_product(monkeypatch):
-    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-500k-v1")
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
     return {
         **source_row(price=79.99),
         "product_id": 1000001,
@@ -84,7 +84,7 @@ def clear_browse_statistics():
 def test_pages_share_counts_but_recheck_readiness_and_load_their_own_sources(
     real_product, monkeypatch
 ):
-    receipt = {"dataset_id": "reviews-2023-500k-v1", "prepared_at": "now"}
+    receipt = {"dataset_id": "reviews-2023-v2", "prepared_at": "now"}
     counts = [
         {"facet": "total", "value": None, "count": 24},
         {"facet": "category_key", "value": "monitor", "count": 24},
@@ -123,7 +123,7 @@ def test_pages_share_counts_but_recheck_readiness_and_load_their_own_sources(
         == 2
     )
     assert all(
-        "matches_filters" in query
+        "matches_filter_values" in query
         for query, _ in database.calls
         if "WHERE d.dataset_id" in query and "p.original" not in query
     )
@@ -176,7 +176,7 @@ def test_statistics_failure_is_not_cached():
     [
         None,
         {"dataset_id": "old-source", "prepared_at": "now"},
-        {"dataset_id": "reviews-2023-500k-v1", "prepared_at": None},
+        {"dataset_id": "reviews-2023-v2", "prepared_at": None},
     ],
 )
 def test_missing_or_different_preparation_cannot_silently_serve_another_catalog(

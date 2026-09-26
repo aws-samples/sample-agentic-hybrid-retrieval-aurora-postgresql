@@ -16,7 +16,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from service.catalog_runtime import active_dataset, search_schema
+from service.catalog_runtime import active_dataset, filter_predicate, search_schema
 from service.db import connect
 from service.models import (
     CatalogPage,
@@ -122,14 +122,7 @@ _WORKSPACE_PRODUCT_IDS = _workspace_product_ids()
 
 
 def _where(filters: SearchFilters) -> tuple[str, list[Any]]:
-    return (
-        """mosaic_search.matches_filter_values(
-        d.domain, d.category_key, d.brand_name, d.price_cents,
-        d.availability, d.rating, d.attributes, d.is_refurbished,
-        d.is_sponsored, %s::jsonb
-    )""",
-        [json.dumps(filters.as_sql_json())],
-    )
+    return filter_predicate("%s"), [json.dumps(filters.as_sql_json())]
 
 
 def _summary(row: dict[str, Any]) -> ProductSummary:

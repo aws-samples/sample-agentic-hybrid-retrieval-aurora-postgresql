@@ -13,7 +13,7 @@ from uuid import NAMESPACE_URL, uuid5
 
 from fastapi import HTTPException
 
-from service.catalog_runtime import active_dataset, search_schema
+from service.catalog_runtime import active_dataset, filter_predicate, search_schema
 from service.db import connect, index_states_on
 from service.models import (
     CatalogPage,
@@ -149,11 +149,7 @@ def get_product_summaries(product_ids: list[int]) -> list[ProductSummary]:
 
 
 def _browse_where(filters: dict, collection: str) -> str:
-    where = f"d.dataset_id=%(dataset)s AND {search_schema()}.matches_filters(d,%(filters)s::jsonb)"
-    # The composite SQL function is not inlined by PostgreSQL. This redundant
-    # equality exposes the category index without replacing the production rule.
-    if "category_key" in filters:
-        where += " AND d.category_key=%(category_key)s"
+    where = f"d.dataset_id=%(dataset)s AND {filter_predicate('%(filters)s')}"
     if collection == "workspace":
         where += " AND d.parent_asin=ANY(%(featured)s::text[])"
     return where
@@ -181,7 +177,6 @@ def _browse_statistics(
         "dataset": dataset,
         "filters": filters_json,
         "featured": list(featured),
-        "category_key": filters.get("category_key"),
     }
     where = _browse_where(filters, collection)
     rows = connection.execute(
@@ -255,7 +250,6 @@ def list_products(
             "dataset": dataset,
             "filters": filters_json,
             "featured": list(featured),
-            "category_key": filters.category_key,
             "offset": offset,
             "limit": limit,
         }
@@ -290,7 +284,7 @@ def count_products(filters: list[SearchFilters]) -> list[int]:
         _selection(connection)
         rows = connection.execute(
             f"""SELECT (SELECT count(*) FROM {search_schema()}.product_document d
-            WHERE {search_schema()}.matches_filters(d,requested.filters)) AS count
+            WHERE {filter_predicate("requested.filters")}) AS count
             FROM jsonb_array_elements(%s::jsonb) WITH ORDINALITY AS requested(filters,position)
             ORDER BY requested.position""",
             (json.dumps([item.as_sql_json() for item in filters]),),

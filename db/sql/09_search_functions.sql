@@ -14,7 +14,7 @@ CREATE OR REPLACE FUNCTION mosaic_search.matches_filter_values(
 )
 RETURNS boolean
 LANGUAGE sql
-IMMUTABLE
+STABLE
 PARALLEL SAFE
 AS $$
 SELECT
@@ -54,7 +54,7 @@ CREATE OR REPLACE FUNCTION mosaic_search.matches_filters(
 )
 RETURNS boolean
 LANGUAGE sql
-IMMUTABLE
+STABLE
 PARALLEL SAFE
 AS $$
 SELECT mosaic_search.matches_filter_values(
