@@ -34,6 +34,10 @@ from pathlib import Path
 from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO))
+
+from service.config import get_settings
+
 MISSIONS = REPO / "data" / "evals" / "mosaic_labs_missions.json"
 SEED = REPO / "ui" / "src" / "data" / "retrievalSeedRun.json"
 
@@ -87,10 +91,14 @@ def capture(api: str, mission: dict[str, Any]) -> dict[str, Any]:
             "rerank": True,
         }
     ).encode()
+    headers = {"Content-Type": "application/json"}
+    origin_secret = get_settings().origin_verify_secret
+    if origin_secret:
+        headers["X-Mosaic-Origin-Verify"] = origin_secret
     request = urllib.request.Request(
         f"{api.rstrip('/')}/api/search",
         data=payload,
-        headers={"Content-Type": "application/json"},
+        headers=headers,
     )
     try:
         with urllib.request.urlopen(request, timeout=120) as response:

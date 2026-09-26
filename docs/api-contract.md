@@ -1,5 +1,93 @@
 # Mosaic API contract
 
+## Access and admission control
+
+Every route except `GET /api/health` requires the shared workshop origin
+secret. In the deployed environment, CloudFront fronts nginx on the Code
+Editor host; nginx forwards `X-Mosaic-Origin-Verify` to the API only for
+requests that reached it through CloudFront's configured origin, and it
+already 403s anything else at the nginx layer (`deploy/mosaic-bootstrap.sh`).
+The API verifies the same header independently, with a constant-time
+comparison, so a direct call to the backend port -- bypassing nginx -- or a
+spoofed header performs no protected work even if nginx's own check is ever
+skipped or misconfigured. This is a shared secret, not a participant
+identity: every request that carries it is trusted equally, and this
+deployment has no per-user accounting or tenancy.
+
+`MOSAIC_REQUIRE_ORIGIN_VERIFICATION` (default `true`) and
+`MOSAIC_ORIGIN_VERIFY_SECRET` govern this. Requiring verification with no
+configured secret refuses to start serving traffic -- checked in the ASGI
+lifespan, not merely when `service.config.Settings` is resolved, so a script
+that only imports `service.main` to inspect its routes
+(`scripts/tool_contracts.py`) is not refused for a secret it never uses.
+Setting `MOSAIC_REQUIRE_ORIGIN_VERIFICATION=false` is an explicit,
+loopback-only development bypass: it serves only requests whose peer address
+is the API process's own loopback interface, and refuses every other caller
+regardless of any header. `deploy/mosaic-bootstrap.sh` always sets
+`MOSAIC_REQUIRE_ORIGIN_VERIFICATION=true` with a generated
+`MOSAIC_ORIGIN_VERIFY_SECRET` and never sets the bypass.
+
+The portable MCP adapter (`mcp-server/catalog_mcp/`) runs on the same host as
+a trusted local process, calling the API directly over loopback rather than
+through nginx. It reads the same `MOSAIC_ORIGIN_VERIFY_SECRET` from its
+environment (the generated `.env` a participant's shell already sources) and
+presents it like any other authorized caller; it is not a bypass.
+
+### Admission control
+
+`POST /api/search`, `POST /api/agent/answer` and `.../stream`,
+`POST /api/retrieval/fusion-comparison`,
+`POST /api/products/{product_id}/evidence`,
+`POST /api/retrieval/events/{search_event_id}/plan`, `POST /api/hnsw/probe`,
+and `POST /api/labs/{lab_id}/proof` invoke a model, run an expensive
+diagnostic, or spend a retrieval call. Each carries an admission-control
+dependency (`service/access_control.py`) that checks a per-process rate
+budget (`MOSAIC_MODEL_RATE_LIMIT_PER_MINUTE`, default 120) and then reserves
+one of a bounded number of active-run slots
+(`MOSAIC_MAX_CONCURRENT_MODEL_RUNS`, default 12, sized against
+`DB_POOL_MAX_SIZE=16`) before any database or model call runs. Exceeding
+either returns `429` with a `Retry-After` header and an actionable detail;
+no protected work runs first. The slot is released in every exit path --
+success, an exception, a timeout, or (for the streaming route, which holds
+its slot for the life of the SSE generator rather than a route dependency's
+own teardown) a client disconnect.
+
+Both counters are this **one uvicorn process's own state**. The deployed
+topology runs exactly one `mosaic-api` process per attendee stack with no
+`--workers`, so today that is the whole deployment's quota; it is not
+coordinated across multiple processes or instances, and running this service
+with several workers would need a shared store (Redis or similar) this stack
+does not have. nginx applies its own, independent limits in front of this at
+`location /api/` (`limit_req_zone`/`limit_conn_zone` in
+`deploy/mosaic-bootstrap.sh`): a per-client-IP budget and one aggregate
+budget sized for a full workshop room, both ahead of and in addition to the
+application's own admission control.
+
+### Database deadlines
+
+`service.db.connect()` issues `SET LOCAL statement_timeout` and `SET LOCAL
+lock_timeout` immediately after every pooled-connection checkout
+(`MOSAIC_DB_STATEMENT_TIMEOUT_MS`, default 30000; `MOSAIC_DB_LOCK_TIMEOUT_MS`,
+default 5000). Both are transaction-scoped, so a connection the pool later
+hands to a different caller never inherits this checkout's values -- each
+checkout sets its own, fresh, every time. A caller running a long,
+non-interactive operation (a bootstrap script, a multi-minute measurement
+sweep) passes an explicit override rather than inheriting the bound sized for
+one HTTP request.
+
+### Agent turn deadline
+
+One agent turn's model-and-tool loop is wrapped in an overall
+`MOSAIC_AGENT_TURN_DEADLINE_SECONDS` budget (default 90), covering however
+many Bedrock calls and provider retries the turn makes rather than any single
+call, which already carries its own botocore timeout
+(`connect_timeout=5, read_timeout=60`, retried up to `BEDROCK_MAX_ATTEMPTS`).
+Unlike the existing tool-call budget, exceeding the deadline skips the
+fallback synthesis attempt entirely and reports failure immediately (503 on
+`POST /api/agent/answer`; an `agent_turn_deadline` SSE error on the streaming
+route): the turn already spent its time budget, so it does not spend one more
+model call trying to salvage an answer from it.
+
 ## Session and memory
 
 `GET /api/session-memory/identity` initializes an opaque, HttpOnly browser cookie.

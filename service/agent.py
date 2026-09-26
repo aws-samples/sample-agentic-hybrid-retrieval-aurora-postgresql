@@ -162,6 +162,18 @@ class ToolCallBudgetExceeded(RuntimeError):
     pass
 
 
+class AgentTurnDeadlineExceeded(RuntimeError):
+    """One turn's model-and-tool loop exceeded its overall wall-clock budget.
+
+    Bounds the whole turn -- however many Bedrock calls and provider retries it
+    makes -- rather than any single call, which already has its own botocore
+    timeout. Unlike `ToolCallBudgetExceeded`, this skips the fallback
+    synthesis attempt entirely (see the `fallback_error` assignments in
+    `answer()` and `stream()`): the turn already spent its time budget, so it
+    reports failure rather than spending one more model call.
+    """
+
+
 class GroundingContractError(RuntimeError):
     """The retrieved state cannot support a citation-bounded answer."""
 
@@ -386,7 +398,10 @@ class ProductDiscoveryAgent:
     ) -> AgentResponse:
         record = state["answer_of_record"]
         if record is None:
-            if isinstance(error, (GroundingContractError, ModelRuntimeError)):
+            if isinstance(
+                error,
+                (GroundingContractError, ModelRuntimeError, AgentTurnDeadlineExceeded),
+            ):
                 raise error
             reason = (
                 f"Strands stopped before a citation-bounded answer "
@@ -446,22 +461,50 @@ class ProductDiscoveryAgent:
         with observe_agent_turn(state, request.question) as observation:
             state["trace_id"] = observation.correlation.trace_id
             state["span_id"] = observation.correlation.span_id
+            deadline = get_settings().agent_turn_deadline_seconds
             try:
                 # Agent.__call__ delegates to a worker thread. The tool run is held
                 # in a ContextVar so concurrent requests stay isolated, and moving
                 # the loop to another thread discards that context before the first
                 # tool executes. The FastAPI route is synchronous, so running the
                 # native async invocation here preserves the request context.
+                #
+                # `wait_for` bounds the whole multi-tool-call loop, not any one
+                # model call: a single Bedrock call already carries its own
+                # botocore timeout, but nothing else caps how many tool-call
+                # round trips, and their retries, one turn can accumulate.
                 result = asyncio.run(
-                    build_agent().invoke_async(_agent_prompt(request, state))
+                    asyncio.wait_for(
+                        build_agent().invoke_async(_agent_prompt(request, state)),
+                        timeout=deadline,
+                    )
                 )
+            except TimeoutError:
+                error = AgentTurnDeadlineExceeded(
+                    f"The agent run exceeded its {deadline:g}s turn deadline."
+                )
+                logger.warning("Strands agent loop exceeded its turn deadline")
             except Exception as caught:  # noqa: BLE001 - retain a failed tool run without logging its payload
                 error = caught
                 logger.warning(
                     "Strands agent loop failed: error_type=%s", type(caught).__name__
                 )
 
-            fallback_error = model_runtime_error(error) if error is not None else None
+            # A deadline is a hard stop, not a retriable model failure: skip the
+            # fallback synthesis attempt entirely rather than spending one more
+            # model call after the turn already blew its time budget. This is
+            # what makes `AgentTurnDeadlineExceeded` observable at all -- every
+            # other path through `_finalize_if_needed` ends by either setting
+            # `answer_of_record` or replacing `error` with a classified
+            # `GroundingContractError`/`ModelRuntimeError`, which is exactly
+            # the deliberate behavior `ToolCallBudgetExceeded` still gets.
+            fallback_error = (
+                error
+                if isinstance(error, AgentTurnDeadlineExceeded)
+                else model_runtime_error(error)
+                if error is not None
+                else None
+            )
             if (
                 error is None
                 and state["answer_of_record"] is None
@@ -544,32 +587,53 @@ class ProductDiscoveryAgent:
             # `current_tool_use` arrives on every streamed delta, so keying off the
             # event alone would re-send the same shortlist dozens of times per tool.
             produced = (0, 0, 0)
+            deadline = get_settings().agent_turn_deadline_seconds
             with observe_agent_turn(state, request.question) as observation:
                 state["trace_id"] = observation.correlation.trace_id
                 state["span_id"] = observation.correlation.span_id
                 try:
-                    async for event in build_agent().stream_async(
-                        _agent_prompt(request, state)
-                    ):
-                        if "result" in event:
-                            result = event["result"]
-                        yield event
-                        progress = (
-                            len(state["searches"]),
-                            len(state["products"]),
-                            len(state["trace"]),
-                        )
-                        if progress != produced:
-                            produced = progress
-                            yield {"agent_partial": _partial(state)}
+                    # Bounds the whole streamed multi-tool-call loop, the same
+                    # way `answer()` bounds its synchronous one. `asyncio.timeout`
+                    # cancels the generator being iterated below even while it is
+                    # suspended at `yield`, waiting for this generator's own
+                    # consumer to pull the next event.
+                    async with asyncio.timeout(deadline):
+                        async for event in build_agent().stream_async(
+                            _agent_prompt(request, state)
+                        ):
+                            if "result" in event:
+                                result = event["result"]
+                            yield event
+                            progress = (
+                                len(state["searches"]),
+                                len(state["products"]),
+                                len(state["trace"]),
+                            )
+                            if progress != produced:
+                                produced = progress
+                                yield {"agent_partial": _partial(state)}
+                except TimeoutError:
+                    error = AgentTurnDeadlineExceeded(
+                        f"The agent run exceeded its {deadline:g}s turn deadline."
+                    )
+                    logger.warning(
+                        "Strands streaming agent loop exceeded its turn deadline"
+                    )
                 except Exception as caught:
                     error = caught
                     logger.warning(
                         "Strands streaming agent loop failed: %s", caught, exc_info=True
                     )
 
+                # See the matching comment in `answer()`: a deadline skips the
+                # fallback synthesis attempt entirely rather than spending one
+                # more model call after the turn already blew its budget.
                 fallback_error = (
-                    model_runtime_error(error) if error is not None else None
+                    error
+                    if isinstance(error, AgentTurnDeadlineExceeded)
+                    else model_runtime_error(error)
+                    if error is not None
+                    else None
                 )
                 if (
                     error is None
@@ -602,16 +666,21 @@ class ProductDiscoveryAgent:
 
                 if error is not None and record is None:
                     yield {"agent_partial": _partial(state)}
+                    if isinstance(error, GroundingContractError):
+                        failure_code, failure_detail = "grounding_contract", str(error)
+                    elif isinstance(error, AgentTurnDeadlineExceeded):
+                        failure_code, failure_detail = "agent_turn_deadline", str(error)
+                    else:
+                        failure_code = "agent_runtime"
+                        failure_detail = safe_model_runtime_message(
+                            error,
+                            fallback="The agent run failed. Inspect its recorded activity and retry.",
+                        )
                     yield {
                         "agent_failure": {
                             "agent_run_id": str(state["agent_run_id"]),
-                            "code": "grounding_contract"
-                            if isinstance(error, GroundingContractError)
-                            else "agent_runtime",
-                            "detail": safe_model_runtime_message(
-                                error,
-                                fallback="The agent run failed. Inspect its recorded activity and retry.",
-                            ),
+                            "code": failure_code,
+                            "detail": failure_detail,
                         }
                     }
                     raise error

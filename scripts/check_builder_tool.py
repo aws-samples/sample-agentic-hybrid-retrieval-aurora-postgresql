@@ -13,6 +13,7 @@ from typing import Any
 import httpx
 from strands.tools.registry import ToolRegistry
 
+from service.config import get_settings
 from service.models import SearchResponse
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -67,8 +68,12 @@ def check_tool(
     for brand in brands:
         # The same decorated callable the agent invokes, never a second search implementation.
         response = SearchResponse.model_validate(registered(query=query, brand=brand))
+        origin_secret = get_settings().origin_verify_secret
         receipt = httpx.get(
             f"{endpoint}/api/retrieval/events/{response.search_event_id}/response",
+            headers=(
+                {"X-Mosaic-Origin-Verify": origin_secret} if origin_secret else None
+            ),
             timeout=90,
         )
         receipt.raise_for_status()

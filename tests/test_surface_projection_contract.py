@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import re
 import socket
 import subprocess
@@ -292,10 +293,17 @@ def test_live_tools_endpoint_serves_only_its_own_envelope_per_surface(live_serve
     on `surface=agent` carry `retrieval_scope_id`, which the forbidden-field
     check below catches.
     """
+    # The live subprocess inherits this process's environment, including the
+    # `MOSAIC_ORIGIN_VERIFY_SECRET` `tests/conftest.py` sets, so this is the
+    # same shared secret nginx would forward in a real deployment.
+    origin_header = {
+        "X-Mosaic-Origin-Verify": os.environ["MOSAIC_ORIGIN_VERIFY_SECRET"]
+    }
     for surface in ("agent", "mcp", "skill"):
-        with urllib.request.urlopen(
-            f"{live_server}/api/tools?surface={surface}", timeout=5
-        ) as response:
+        request = urllib.request.Request(
+            f"{live_server}/api/tools?surface={surface}", headers=origin_header
+        )
+        with urllib.request.urlopen(request, timeout=5) as response:
             assert response.status == 200
             payload = json.loads(response.read())
 

@@ -78,6 +78,13 @@ def test_env_example_documents_every_non_retrieval_runtime_setting():
         "MOSAIC_CODE_EDITOR_URL",
         "MOSAIC_AGENTCORE_OBSERVABILITY",
         "MOSAIC_AGENTCORE_CAPTURE_CONTENT",
+        "MOSAIC_REQUIRE_ORIGIN_VERIFICATION",
+        "MOSAIC_ORIGIN_VERIFY_SECRET",
+        "MOSAIC_MAX_CONCURRENT_MODEL_RUNS",
+        "MOSAIC_MODEL_RATE_LIMIT_PER_MINUTE",
+        "MOSAIC_DB_STATEMENT_TIMEOUT_MS",
+        "MOSAIC_DB_LOCK_TIMEOUT_MS",
+        "MOSAIC_AGENT_TURN_DEADLINE_SECONDS",
     ):
         assert f"{name}=" in text, f"{name} is read at runtime but undocumented"
     assert "CATALOG_MANIFEST_PATH" not in text
@@ -117,6 +124,11 @@ def test_split_model_overrides_are_independent(monkeypatch):
         ("HNSW_EF_SEARCH", "0"),
         ("VECTOR_DIM", "0"),
         ("BEDROCK_MAX_ATTEMPTS", "0"),
+        ("MOSAIC_DB_STATEMENT_TIMEOUT_MS", "0"),
+        ("MOSAIC_DB_LOCK_TIMEOUT_MS", "-1"),
+        ("MOSAIC_MAX_CONCURRENT_MODEL_RUNS", "0"),
+        ("MOSAIC_MODEL_RATE_LIMIT_PER_MINUTE", "0"),
+        ("MOSAIC_AGENT_TURN_DEADLINE_SECONDS", "0"),
     ],
 )
 def test_every_bounded_setting_is_enforced(monkeypatch, name, value):
@@ -124,6 +136,45 @@ def test_every_bounded_setting_is_enforced(monkeypatch, name, value):
     with pytest.raises(ConfigurationError) as excinfo:
         get_settings()
     assert name in str(excinfo.value)
+
+
+def test_origin_secret_missing_resolves_without_raising(monkeypatch):
+    """`Settings` resolves the two access settings without judging them.
+
+    A script that only imports `service.main` to inspect its routes
+    (`scripts/tool_contracts.py`) must not be refused for a secret it never
+    uses. The refusal for a genuinely unbootable configuration belongs to
+    `service.access_control.assert_bootable`, called from the ASGI lifespan --
+    see `tests/test_access_control.py`.
+    """
+    monkeypatch.delenv("MOSAIC_ORIGIN_VERIFY_SECRET", raising=False)
+    monkeypatch.setenv("MOSAIC_REQUIRE_ORIGIN_VERIFICATION", "true")
+
+    settings = get_settings()
+
+    assert settings.require_origin_verification is True
+    assert settings.origin_verify_secret is None
+
+
+def test_origin_verification_can_be_explicitly_disabled_without_a_secret(monkeypatch):
+    """The explicit, loopback-only development bypass needs no configured secret."""
+    monkeypatch.delenv("MOSAIC_ORIGIN_VERIFY_SECRET", raising=False)
+    monkeypatch.setenv("MOSAIC_REQUIRE_ORIGIN_VERIFICATION", "false")
+
+    settings = get_settings()
+
+    assert settings.require_origin_verification is False
+    assert settings.origin_verify_secret is None
+
+
+def test_origin_secret_is_read_when_verification_is_required(monkeypatch):
+    monkeypatch.setenv("MOSAIC_REQUIRE_ORIGIN_VERIFICATION", "true")
+    monkeypatch.setenv("MOSAIC_ORIGIN_VERIFY_SECRET", "  a-shared-secret  ")
+
+    settings = get_settings()
+
+    assert settings.require_origin_verification is True
+    assert settings.origin_verify_secret == "a-shared-secret"
 
 
 def test_unrecognized_boolean_spelling_raises_rather_than_disabling(monkeypatch):

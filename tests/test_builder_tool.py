@@ -22,7 +22,7 @@ def network(monkeypatch):
     reads = []
     receipts = {}
 
-    def post(url, *, json, timeout):
+    def post(url, *, json, timeout, headers=None):
         posts.append(json)
         run_id = f"00000000-0000-4000-8000-{len(posts):012d}"
         response = SearchResponse(
@@ -43,7 +43,7 @@ def network(monkeypatch):
         receipts[run_id] = response
         return httpx.Response(200, json=response, request=httpx.Request("POST", url))
 
-    def get(url, *, timeout):
+    def get(url, *, timeout, headers=None):
         reads.append(url)
         response = receipts[url.split("/events/")[1].split("/")[0]]
         return httpx.Response(200, json=response, request=httpx.Request("GET", url))

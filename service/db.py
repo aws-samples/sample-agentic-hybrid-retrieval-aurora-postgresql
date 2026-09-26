@@ -69,15 +69,49 @@ def close_pool() -> None:
 
 
 @contextmanager
-def connect() -> Iterator[psycopg.Connection]:
+def connect(
+    *,
+    statement_timeout_ms: int | None = None,
+    lock_timeout_ms: int | None = None,
+) -> Iterator[psycopg.Connection]:
     """Check a connection out of the pool for the duration of the block.
 
     Same contract as before: the block commits on a clean exit and rolls back on
     an exception. No caller nests one of these inside another, which is what makes
     a bounded pool safe here; if that ever changes, exhaustion raises `PoolTimeout`
     after `DB_POOL_TIMEOUT_SECONDS` rather than hanging.
+
+    Every checkout also sets `SET LOCAL statement_timeout` and `SET LOCAL
+    lock_timeout` before yielding, bounding one request's worst-case SQL time
+    and lock wait. `SET LOCAL` is scoped to the implicit transaction this block
+    opens and is discarded at the commit or rollback above, so a connection the
+    pool later hands to a different caller never inherits this checkout's
+    values -- each checkout sets its own, fresh, every time.
+
+    Args:
+        statement_timeout_ms: Override the configured interactive default.
+            Pass 0 to disable. A caller running a long, non-interactive
+            operation -- a bootstrap script, a multi-minute measurement sweep
+            -- should pass an explicit value sized for that work rather than
+            inheriting the bound sized for one HTTP request.
+        lock_timeout_ms: Same override, for `lock_timeout`.
     """
+    settings = get_settings()
+    resolved_statement_timeout = (
+        settings.db_statement_timeout_ms
+        if statement_timeout_ms is None
+        else statement_timeout_ms
+    )
+    resolved_lock_timeout = (
+        settings.db_lock_timeout_ms if lock_timeout_ms is None else lock_timeout_ms
+    )
     with get_pool().connection() as connection:
+        if resolved_statement_timeout:
+            connection.execute(
+                f"SET LOCAL statement_timeout = {int(resolved_statement_timeout)}"
+            )
+        if resolved_lock_timeout:
+            connection.execute(f"SET LOCAL lock_timeout = {int(resolved_lock_timeout)}")
         yield connection
 
 

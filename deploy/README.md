@@ -25,6 +25,38 @@ discovers as a CloudFormation wait-condition timeout. `tests/test_bootstrap_cont
 compares the script against each source above so that lands as a failing test here
 instead.
 
+### Secrets: one value per use, and what CloudFormation must supply
+
+The script previously reused one `CODE_EDITOR_PASSWORD` for four things: the
+sudo user's OS password, the Code Editor connection token, nginx's
+`X-Mosaic-Origin-Verify` origin check, and the curl commands that proved it.
+Reusing one secret across unrelated purposes means compromising or rotating
+any one of them affects all four, and it is now three separate values:
+
+| Bootstrap variable | Where it is used | Where it comes from |
+| --- | --- | --- |
+| `CODE_EDITOR_OS_PASSWORD` | `chpasswd` for the sudo user only. Vestigial for actual login -- NOPASSWD sudo means nothing ever authenticates with it, and the participant reaches this box exclusively through the Code Editor's own session, never an OS login prompt. | Generated locally in the script, the same way as `APP_DB_PASSWORD` (`secrets.token_urlsafe(32)`). **Not a CFN input**; nothing outside this script ever reads it. |
+| `CODE_EDITOR_CONNECTION_TOKEN` | `code-editor-server --connection-token`, and the token file it reads on start. | **Must remain a CFN-supplied secret.** CloudFormation's `CodeEditorURL` stack output has to embed this same value as its `tkn=` query parameter, so CloudFormation has to know it; the bootstrap cannot generate it locally and report it back. |
+| `ORIGIN_VERIFY_SECRET` | The nginx `X-Mosaic-Origin-Verify` check on both server blocks, and the API's own independent verification of the same header (`MOSAIC_ORIGIN_VERIFY_SECRET` in `.env`; see `docs/api-contract.md`). | **Must remain a CFN-supplied secret.** CloudFront's distribution config sets the custom origin header it forwards to nginx at stack-deploy time, before this script ever runs, so the value has to be known to CloudFormation up front -- the bootstrap cannot generate it locally and hand it to an already-configuring CloudFront distribution. |
+
+The sibling CloudFormation template (out of view from this repository) needs
+updating for the last two rows: rename or replace whatever currently
+generates and passes `CODE_EDITOR_PASSWORD` with two separate generated
+secrets, passed into the EC2 UserData as `CODE_EDITOR_CONNECTION_TOKEN` and
+`ORIGIN_VERIFY_SECRET`, and configure the CloudFront distribution fronting
+this host's port 8081 (and 80, for the editor) to forward
+`ORIGIN_VERIFY_SECRET` as the `X-Mosaic-Origin-Verify` custom origin header.
+Either generator is fine as long as it excludes `"`, `\`, and `$` -- the
+bootstrap asserts `ORIGIN_VERIFY_SECRET` is letters, digits, `-`, and `_`
+only before substituting it into nginx's config, because those three
+characters would break out of nginx's double-quoted string literal or its
+own variable interpolation.
+
+The nginx `/api/` location also carries `limit_req`/`limit_conn` directives
+(`mosaic_api_perip`, `mosaic_api_room`, `mosaic_api_conn`) sized for a full
+workshop room; see `docs/api-contract.md` for the exact numbers and the
+independent application-level admission control behind them.
+
 ### Catalog selection and assets
 
 The script first downloads and verifies the real-catalog archive against

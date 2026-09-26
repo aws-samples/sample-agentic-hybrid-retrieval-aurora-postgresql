@@ -22,7 +22,9 @@ failure_reason() {
   local encoded=''
   if command -v python3 >/dev/null 2>&1; then
     encoded=$(MOSAIC_REDACT_DB="${DB_PASSWORD:-}" \
-      MOSAIC_REDACT_EDITOR="${CODE_EDITOR_PASSWORD:-}" \
+      MOSAIC_REDACT_EDITOR_OS="${CODE_EDITOR_OS_PASSWORD:-}" \
+      MOSAIC_REDACT_EDITOR_TOKEN="${CODE_EDITOR_CONNECTION_TOKEN:-}" \
+      MOSAIC_REDACT_ORIGIN="${ORIGIN_VERIFY_SECRET:-}" \
       MOSAIC_REDACT_APP="${APP_DB_PASSWORD:-}" \
       MOSAIC_REDACT_URL="${DATABASE_URL:-}" python3 -c '
 import json, os, sys
@@ -97,7 +99,8 @@ required_environment=(
   DB_CLUSTER_ENDPOINT
   DB_NAME
   ASSETS_BUCKET
-  CODE_EDITOR_PASSWORD
+  CODE_EDITOR_CONNECTION_TOKEN
+  ORIGIN_VERIFY_SECRET
   DB_INSTANCE_CLASS
 )
 for variable in "${required_environment[@]}"; do
@@ -151,10 +154,19 @@ psql --version | grep -Eq '^psql \(PostgreSQL\) 15\.'
 node --version | grep -Eq '^v22\.'
 npm --version >/dev/null
 
+# Vestigial for actual login: NOPASSWD sudo below means this account never
+# authenticates with it, and the participant reaches this box exclusively
+# through the Code Editor's own connection token, never an OS login prompt.
+# It still has to be *some* value, because a locked account can refuse other
+# things PAM checks (su, some session managers). Generated locally, the same
+# way as APP_DB_PASSWORD below: nothing outside this script ever reads it, so
+# it does not need to be a CFN-supplied secret shared with anything else.
+CODE_EDITOR_OS_PASSWORD=$(python3.13 -c \
+  'import secrets; print(secrets.token_urlsafe(32))')
 if ! id "$CODE_EDITOR_USER" >/dev/null 2>&1; then
   useradd -m -s /bin/bash "$CODE_EDITOR_USER"
 fi
-echo "$CODE_EDITOR_USER:$CODE_EDITOR_PASSWORD" | chpasswd
+echo "$CODE_EDITOR_USER:$CODE_EDITOR_OS_PASSWORD" | chpasswd
 usermod -aG wheel "$CODE_EDITOR_USER"
 printf '%s\n' '%wheel ALL=(ALL) NOPASSWD: ALL' \
   >/etc/sudoers.d/90-workshop
@@ -186,7 +198,7 @@ CODE_EDITOR_CMD="/home/$CODE_EDITOR_USER/.local/bin/code-editor-server"
 test -x "$CODE_EDITOR_CMD"
 sudo -u "$CODE_EDITOR_USER" mkdir -p \
   "/home/$CODE_EDITOR_USER/.code-editor-server/data"
-printf '%s' "$CODE_EDITOR_PASSWORD" \
+printf '%s' "$CODE_EDITOR_CONNECTION_TOKEN" \
   >"/home/$CODE_EDITOR_USER/.code-editor-server/data/token"
 chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" \
   "/home/$CODE_EDITOR_USER/.code-editor-server/data/token"
@@ -205,7 +217,7 @@ Group=$CODE_EDITOR_USER
 WorkingDirectory=$HOME_FOLDER
 Environment=HOME=/home/$CODE_EDITOR_USER
 Environment=PATH=/usr/local/bin:/usr/bin:/bin:/home/$CODE_EDITOR_USER/.local/bin
-ExecStart=$CODE_EDITOR_CMD --accept-server-license-terms --host 127.0.0.1 --port 8080 --default-folder "$REPO" --connection-token "$CODE_EDITOR_PASSWORD"
+ExecStart=$CODE_EDITOR_CMD --accept-server-license-terms --host 127.0.0.1 --port 8080 --default-folder "$REPO" --connection-token "$CODE_EDITOR_CONNECTION_TOKEN"
 Restart=always
 RestartSec=5
 
@@ -238,12 +250,19 @@ map $http_upgrade $connection_upgrade {
     '' close;
 }
 
+# Rate- and connection-limit zones for the /api/ location below. Declared here
+# because `limit_req_zone`/`limit_conn_zone` are only valid in the `http {}`
+# context, which this file is included into, not inside a `server {}` block.
+limit_req_zone $binary_remote_addr zone=mosaic_api_perip:10m rate=5r/s;
+limit_req_zone $server_name zone=mosaic_api_room:10m rate=30r/s;
+limit_conn_zone $binary_remote_addr zone=mosaic_api_conn:10m;
+
 server {
     listen 80;
     listen [::]:80;
     server_name _;
 
-    if ($http_x_mosaic_origin_verify != "__CODE_EDITOR_PASSWORD__") {
+    if ($http_x_mosaic_origin_verify != "__ORIGIN_VERIFY_SECRET__") {
         return 403;
     }
 
@@ -262,11 +281,35 @@ server {
     listen [::]:8081;
     server_name _;
 
-    if ($http_x_mosaic_origin_verify != "__CODE_EDITOR_PASSWORD__") {
+    if ($http_x_mosaic_origin_verify != "__ORIGIN_VERIFY_SECRET__") {
         return 403;
     }
 
     location /api/ {
+        # Two independent budgets, both sized for a full room of attendees
+        # rather than one reader:
+        #
+        # - `mosaic_api_perip` bounds one client IP at 5 req/s (burst 20,
+        #   nodelay) so a single misbehaving script or tab cannot starve
+        #   everyone else. Interactive use -- typing a search, polling lab
+        #   state -- runs at well under 1 req/s.
+        # - `mosaic_api_room` is keyed on the constant `$server_name`, so it is
+        #   one shared bucket for every caller reaching this instance: 30 req/s
+        #   (burst 60, nodelay) covers roughly thirty attendees each issuing
+        #   about a request a second at once, several times the realistic peak
+        #   for a workshop room, while still bounding a runaway flood.
+        # - `mosaic_api_conn` bounds simultaneous open connections per client
+        #   IP at 20, generous for one browser's parallel fetches plus one open
+        #   SSE stream, well short of exhausting nginx's own worker_connections.
+        #
+        # These are this nginx process's own counters -- one per attendee
+        # stack in this deployment, not shared across instances. The
+        # application's own admission control (service/access_control.py)
+        # enforces its process-local budget independently, behind this one.
+        limit_req zone=mosaic_api_perip burst=20 nodelay;
+        limit_req zone=mosaic_api_room burst=60 nodelay;
+        limit_conn mosaic_api_conn 20;
+
         proxy_pass http://127.0.0.1:8000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -297,33 +340,37 @@ NGINX
 # loudly -- nginx would still parse, the origin-verify header would simply never
 # match, and every participant request would 403 with nothing naming why.
 #
-# Safety currently rests on `ExcludePunctuation: true` in the sibling workshop
-# repository at assets/hybrid-retrieval-code-editor.yml:113, which makes this
-# secret 32 alphanumeric characters. That coupling is invisible from here, so it
-# is asserted rather than assumed: if the generator ever changes, this fails by
-# name instead of producing a host that looks healthy and rejects everyone.
-if [[ ! $CODE_EDITOR_PASSWORD =~ ^[A-Za-z0-9]+$ ]]; then
-  echo "Mosaic bootstrap requires an alphanumeric CODE_EDITOR_PASSWORD;" \
-    "the nginx origin-verify substitution and the systemd unit below are only" \
-    "representation-safe for that character set. If the generator changed," \
-    "restore ExcludePunctuation in the workshop template" \
-    "(assets/hybrid-retrieval-code-editor.yml) or add explicit escaping here."
+# `[A-Za-z0-9_-]` covers both a Secrets-Manager-style `ExcludePunctuation: true`
+# generator (pure alphanumeric, the historical case) and `secrets.token_urlsafe`
+# (adds only `-` and `_`, as APP_DB_PASSWORD below uses): neither can produce a
+# `"`, `\`, or `$`, the three characters that would break out of this nginx
+# double-quoted string or its own variable interpolation. That coupling to
+# whatever generates ORIGIN_VERIFY_SECRET is invisible from here, so it is
+# asserted rather than assumed: if the generator ever changes to admit one of
+# those three characters, this fails by name instead of producing a host that
+# looks healthy and rejects everyone.
+if [[ ! $ORIGIN_VERIFY_SECRET =~ ^[A-Za-z0-9_-]+$ ]]; then
+  echo "Mosaic bootstrap requires an ORIGIN_VERIFY_SECRET made only of" \
+    "letters, digits, '-', and '_'; the nginx origin-verify substitution" \
+    "below is only representation-safe for that character set. If the" \
+    "generator changed, exclude punctuation there or add explicit escaping" \
+    "here."
   signal_failure 2
 fi
 # Literal, not pattern-based: python replaces the placeholder as an exact string,
 # so no character in the value is interpreted. Kept alongside the assertion above
-# rather than instead of it, because the systemd unit and the nginx quoted string
-# have their own grammars this substitution cannot fix.
-CODE_EDITOR_PASSWORD="$CODE_EDITOR_PASSWORD" python3.13 - \
+# rather than instead of it, because the nginx quoted string has its own grammar
+# this substitution cannot fix.
+ORIGIN_VERIFY_SECRET="$ORIGIN_VERIFY_SECRET" python3.13 - \
   /etc/nginx/conf.d/mosaic.conf <<'PYTHON'
 import os
 import pathlib
 import sys
 
 path = pathlib.Path(sys.argv[1])
-secret = os.environ["CODE_EDITOR_PASSWORD"]
+secret = os.environ["ORIGIN_VERIFY_SECRET"]
 body = path.read_text(encoding="utf-8")
-placeholder = "__CODE_EDITOR_PASSWORD__"
+placeholder = "__ORIGIN_VERIFY_SECRET__"
 if placeholder not in body:
     raise SystemExit(f"{path} carries no {placeholder} to replace")
 path.write_text(body.replace(placeholder, secret), encoding="utf-8")
@@ -670,6 +717,13 @@ BEDROCK_MAX_ATTEMPTS=5
 MOSAIC_SOURCE_REVISION=$SOURCE_REVISION
 AURORA_INSTANCE_CLASS=$DB_INSTANCE_CLASS
 DB_SECRET_ARN=$DB_SECRET_ARN
+# The API's caller-trust boundary: the same secret nginx checks above. Carried
+# through .env so it reaches /etc/mosaic-api.env below (the file the API unit
+# actually loads) via the same filtered copy every other setting here takes.
+# Never false in a deployed environment; config/.env.example documents the
+# loopback-only development bypass this line deliberately never sets.
+MOSAIC_REQUIRE_ORIGIN_VERIFICATION=true
+MOSAIC_ORIGIN_VERIFY_SECRET=$ORIGIN_VERIFY_SECRET
 EOF
 chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO/.env"
 chmod 600 "$REPO/.env"
@@ -997,13 +1051,15 @@ systemctl restart mosaic-api mosaic-ui
 printf 'waiting for mosaic-api and mosaic-ui to answer\n'
 for attempt in $(seq 1 60); do
   if curl -fs http://127.0.0.1:8000/api/health >/tmp/health.json &&
-     curl -fs http://127.0.0.1:8000/api/readiness >/tmp/readiness.json &&
+     curl -fs \
+       -H "X-Mosaic-Origin-Verify: $ORIGIN_VERIFY_SECRET" \
+       http://127.0.0.1:8000/api/readiness >/tmp/readiness.json &&
      curl -fs http://127.0.0.1:5173/ >/dev/null &&
      curl -fs \
-       -H "X-Mosaic-Origin-Verify: $CODE_EDITOR_PASSWORD" \
+       -H "X-Mosaic-Origin-Verify: $ORIGIN_VERIFY_SECRET" \
        http://127.0.0.1:8081/ >/dev/null &&
      curl -fs \
-       -H "X-Mosaic-Origin-Verify: $CODE_EDITOR_PASSWORD" \
+       -H "X-Mosaic-Origin-Verify: $ORIGIN_VERIFY_SECRET" \
        http://127.0.0.1:8081/api/readiness \
        >/tmp/proxy-readiness.json; then
     printf 'services answered on attempt %s\n' "$attempt"
@@ -1018,6 +1074,19 @@ for attempt in $(seq 1 60); do
   sleep 5
 done
 
+# The API must enforce the origin secret itself, not merely rely on nginx: a
+# direct call to the backend port, with no header at all, must be refused.
+# `-o /dev/null -w '%{http_code}'` rather than `-f`, because a failing curl
+# here (a 401) is the success case for this specific check.
+DIRECT_UNAUTHORIZED_STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+  http://127.0.0.1:8000/api/readiness)
+if [ "$DIRECT_UNAUTHORIZED_STATUS" != "401" ]; then
+  echo "Mosaic bootstrap acceptance: a direct, unauthenticated call to" \
+    "127.0.0.1:8000/api/readiness returned $DIRECT_UNAUTHORIZED_STATUS," \
+    "not 401; the API is not enforcing its own origin secret"
+  signal_failure 1
+fi
+
 jq -e --arg dataset "$(jq -r '.corpus.dataset_id' "$REPO/data/evals/mosaic_labs_missions.json")" \
   --argjson products "$(jq '.products' "$REPO/db/config/real-catalog-cache.json")" '
   .status == "ready" and
@@ -1031,6 +1100,7 @@ jq -e --arg dataset "$(jq -r '.corpus.dataset_id' "$REPO/data/evals/mosaic_labs_
 
 curl -fsS -X POST http://127.0.0.1:8000/api/search \
   -H 'Content-Type: application/json' \
+  -H "X-Mosaic-Origin-Verify: $ORIGIN_VERIFY_SECRET" \
   --data '{
     "query": "B07G95TJ3P",
     "filters": {"domain": "consumer_electronics", "category_key": "headphones"},
@@ -1045,6 +1115,7 @@ jq -e '
 
 curl -fsS -X POST http://127.0.0.1:8000/api/search \
   -H 'Content-Type: application/json' \
+  -H "X-Mosaic-Origin-Verify: $ORIGIN_VERIFY_SECRET" \
   --data '{
     "query": "B07G95T3JP",
     "filters": {

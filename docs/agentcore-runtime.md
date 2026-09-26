@@ -152,6 +152,24 @@ from the example file and fails if a setting is missing from this table.
 | `MOSAIC_AGENTCORE_OBSERVABILITY` | Runtime environment variable | `false` unless an OpenTelemetry exporter is actually configured. Aurora stays the canonical ledger either way. See `docs/telemetry-contract.md`. |
 | `MOSAIC_AGENTCORE_CAPTURE_CONTENT` | Runtime environment variable | `false`. Turning it on projects question and answer text off Aurora. |
 | `MOSAIC_AGENTCORE_MEMORY_ID` | Runtime environment variable | Optional Memory resource for conversation events and built-in strategies. The browser Session & Memory endpoints use it; `/invocations` does not accept a browser identity. See [Session & Memory](session-memory.md). |
+| `MOSAIC_REQUIRE_ORIGIN_VERIFICATION` | Runtime environment variable | Governs the mounted `service.main` app -- every route this container serves except `/ping` and `/invocations`, which this adapter's own handlers call directly in-process (see below) and which AgentCore's IAM-authenticated `InvokeAgentRuntime` call already gates before a request reaches this container. Set `true`, with the next setting configured, unless nothing external reaches the mounted `/api/*` surface. |
+| `MOSAIC_ORIGIN_VERIFY_SECRET` | Secrets Manager or runtime environment variable | Required when the setting above is `true`. Nothing in this container generates or forwards `X-Mosaic-Origin-Verify` the way nginx does for the Code Editor host (`deploy/mosaic-bootstrap.sh`); an operator exposing the mounted `/api/*` routes externally must set this and arrange for callers to present it. |
+| `MOSAIC_MAX_CONCURRENT_MODEL_RUNS` | Runtime environment variable | Process-local admission control on the mounted app's model-backed routes (`/api/search`, `/api/agent/answer(/stream)`, and others -- see `docs/api-contract.md`). `/invocations` calls `agent_answer` directly and is not gated by it; AgentCore's own concurrency and scaling controls are the relevant limit for that route. |
+| `MOSAIC_MODEL_RATE_LIMIT_PER_MINUTE` | Runtime environment variable | Same scope as above. |
+| `MOSAIC_DB_STATEMENT_TIMEOUT_MS` | Runtime environment variable | `SET LOCAL statement_timeout` on every `service.db.connect()` checkout, including from `/invocations`. Default `30000`. |
+| `MOSAIC_DB_LOCK_TIMEOUT_MS` | Runtime environment variable | Same, for `lock_timeout`. Default `5000`. |
+| `MOSAIC_AGENT_TURN_DEADLINE_SECONDS` | Runtime environment variable | Bounds one agent turn's model-and-tool loop, including from `/invocations`, which calls the same `agent_answer` function the mounted `/api/agent/answer` route does. Default `90`. |
+
+`/ping` and `/invocations` are this adapter's own routes, added around the
+mounted application rather than reached through it (see "The container
+contract" above), so they are the one place in this repository where the
+shared-origin-secret and admission-control dependencies in
+`service/main.py` do not apply: `invocations()` calls
+`service.main.agent_answer` as a plain Python function, not through FastAPI's
+routing, so its dependency list never runs. Everything reached through
+`app.mount("/", service_app)` -- `/api/health`, `/api/skill-package`, and
+every other route the workshop application serves -- goes through the mounted
+app's own ASGI dispatch and is gated exactly as it is on the Code Editor host.
 
 ## IAM the runtime role needs
 

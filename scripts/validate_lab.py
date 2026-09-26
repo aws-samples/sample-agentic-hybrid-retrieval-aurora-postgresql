@@ -25,6 +25,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from service import lab_checks
+from service.config import get_settings
 from service.lab_checks import AgentEvidence, LabCheck, RetrievalReceipt
 
 
@@ -43,10 +44,19 @@ def _request(
     payload: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     body = None if payload is None else json.dumps(payload).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    # This CLI calls the API directly over loopback, the same way the MCP
+    # adapter does, so it presents the same shared origin secret rather than
+    # relying on a bypass. Unset only in the explicit, loopback-only
+    # development mode `MOSAIC_REQUIRE_ORIGIN_VERIFICATION=false` already
+    # covers without a header.
+    origin_secret = get_settings().origin_verify_secret
+    if origin_secret:
+        headers["X-Mosaic-Origin-Verify"] = origin_secret
     request = Request(
         f"{base_url.rstrip('/')}{path}",
         data=body,
-        headers={"Content-Type": "application/json"},
+        headers=headers,
         method="GET" if body is None else "POST",
     )
     try:

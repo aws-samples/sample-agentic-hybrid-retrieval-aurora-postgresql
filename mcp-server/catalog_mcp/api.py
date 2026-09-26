@@ -28,6 +28,14 @@ class CatalogApiClient:
             os.getenv("CATALOG_API_TIMEOUT_SECONDS", "30")
         )
         self.transport = transport
+        # The same shared origin secret nginx forwards for a workshop request
+        # (see deploy/mosaic-bootstrap.sh). This adapter runs on the Code
+        # Editor host as a trusted local process with its own filesystem
+        # access to the generated `.env`, so it presents the secret directly
+        # rather than needing a bypass; a deployment without it configured
+        # simply sends no header, matching this client's behavior before the
+        # API required one.
+        self.origin_secret = os.getenv("MOSAIC_ORIGIN_VERIFY_SECRET")
 
     def get(self, path: str) -> dict[str, Any]:
         return self._request("GET", path)
@@ -42,12 +50,15 @@ class CatalogApiClient:
         *,
         payload: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        headers = {"User-Agent": "mosaic-retrieval-mcp/0.2.0"}
+        if self.origin_secret:
+            headers["X-Mosaic-Origin-Verify"] = self.origin_secret
         try:
             with httpx.Client(
                 base_url=self.base_url,
                 timeout=self.timeout_seconds,
                 transport=self.transport,
-                headers={"User-Agent": "mosaic-retrieval-mcp/0.2.0"},
+                headers=headers,
             ) as client:
                 response = client.request(method, path, json=payload)
                 response.raise_for_status()

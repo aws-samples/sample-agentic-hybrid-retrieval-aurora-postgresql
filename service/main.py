@@ -15,7 +15,7 @@ from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from botocore.exceptions import BotoCoreError, ClientError
-from fastapi import Body, FastAPI, HTTPException, Query, Request
+from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from psycopg import OperationalError
@@ -24,7 +24,18 @@ from psycopg_pool import PoolTimeout
 from scripts.seed_exact_neighbors import StaleGroundTruth
 from scripts.tool_contracts import contracts_for_surface
 from service import hnsw
-from service.agent import GroundingContractError, get_product_discovery_agent
+from service.access_control import (
+    acquire_model_admission_slot,
+    assert_bootable,
+    release_model_admission_slot,
+    require_model_admission,
+    verify_origin_access,
+)
+from service.agent import (
+    AgentTurnDeadlineExceeded,
+    GroundingContractError,
+    get_product_discovery_agent,
+)
 from service.agent_tools import ConversationContextError
 from service.builder_package import build_package
 from service.catalog import (
@@ -119,7 +130,13 @@ async def _lifespan(_: FastAPI) -> AsyncIterator[None]:
     sessions to time out. A missing `DATABASE_URL` still has to surface per
     request rather than at boot, because `/api/health` answers without a database
     and the readiness endpoint exists to report exactly that failure.
+
+    The access-control settings are judged differently: a deployment that
+    required the shared origin secret and configured none must fail here,
+    before uvicorn ever accepts a connection, rather than serving every caller
+    a 401 forever while looking like a healthy process.
     """
+    assert_bootable(get_settings())
     try:
         get_pool()
     except RuntimeError:
@@ -138,6 +155,11 @@ app = FastAPI(
     ),
     version="0.2.0",
     lifespan=_lifespan,
+    # One shared access policy for every route on this app, including ones
+    # registered below through `include_router` and the manual session-memory
+    # loop: the workshop's shared origin secret, verified per request. See
+    # service/access_control.py. `/api/health` is the one documented exception.
+    dependencies=[Depends(verify_origin_access)],
 )
 app.include_router(staged_catalog_router)
 # The tool census inspects concrete APIRoutes, including these non-tool routes.
@@ -206,6 +228,8 @@ def _model_error(error: Exception) -> HTTPException:
 def _agent_error(error: Exception) -> HTTPException:
     if isinstance(error, GroundingContractError):
         return HTTPException(503, _GROUNDING_ERROR_DETAIL)
+    if isinstance(error, AgentTurnDeadlineExceeded):
+        return HTTPException(503, str(error))
     return HTTPException(
         503,
         safe_model_runtime_message(
@@ -431,6 +455,7 @@ def get_evidence(evidence_id: int) -> EvidenceRecord:
 @app.post(
     "/api/products/{product_id}/evidence",
     response_model=ProductEvidenceResponse,
+    dependencies=[Depends(require_model_admission)],
 )
 def get_question_ranked_product_evidence(
     product_id: int,
@@ -462,7 +487,11 @@ def get_question_ranked_product_evidence(
         raise HTTPException(503, str(error)) from error
 
 
-@app.post("/api/search", response_model=SearchResponse)
+@app.post(
+    "/api/search",
+    response_model=SearchResponse,
+    dependencies=[Depends(require_model_admission)],
+)
 def search(request: SearchRequest) -> SearchResponse:
     try:
         return search_with_telemetry(request)
@@ -472,7 +501,11 @@ def search(request: SearchRequest) -> SearchResponse:
         raise HTTPException(503, str(error)) from error
 
 
-@app.post("/api/retrieval/fusion-comparison", response_model=FusionComparisonResponse)
+@app.post(
+    "/api/retrieval/fusion-comparison",
+    response_model=FusionComparisonResponse,
+    dependencies=[Depends(require_model_admission)],
+)
 def fusion_comparison(request: SearchRequest) -> FusionComparisonResponse:
     """Fuse one candidate pool with unweighted and weighted RRF.
 
@@ -499,7 +532,11 @@ def fusion_comparison(request: SearchRequest) -> FusionComparisonResponse:
         raise HTTPException(503, str(error)) from error
 
 
-@app.post("/api/agent/answer", response_model=AgentResponse)
+@app.post(
+    "/api/agent/answer",
+    response_model=AgentResponse,
+    dependencies=[Depends(require_model_admission)],
+)
 def agent_answer(request: AgentRequest, http_request: Request = None) -> AgentResponse:
     try:
         request = prepare_request(request, http_request)
@@ -519,14 +556,26 @@ async def stream_agent_answer(
     The transport reports application-owned retrieval milestones, not private
     model reasoning. Agent execution remains bounded by the same typed,
     read-only tool contract as the completed-response endpoint.
-    """
 
+    Admission control is acquired here rather than through a route dependency:
+    a dependency releases its slot as soon as this function returns the
+    `StreamingResponse` object, before the stream itself has sent a single
+    byte. The slot is held instead for the life of the `events()` generator
+    below, which releases it in its own `finally` -- covering a failure before
+    the stream starts, a failure mid-stream, and a client disconnect, which
+    Starlette surfaces as the generator being closed.
+    """
+    slot = acquire_model_admission_slot()
     try:
-        request = await asyncio.to_thread(prepare_request, request, http_request)
-    except ConversationContextError as error:
-        raise HTTPException(409, _CONVERSATION_ERROR_DETAIL) from error
-    except (ClientError, BotoCoreError, RuntimeError) as error:
-        raise _agent_error(error) from error
+        try:
+            request = await asyncio.to_thread(prepare_request, request, http_request)
+        except ConversationContextError as error:
+            raise HTTPException(409, _CONVERSATION_ERROR_DETAIL) from error
+        except (ClientError, BotoCoreError, RuntimeError) as error:
+            raise _agent_error(error) from error
+    except BaseException:
+        release_model_admission_slot(slot)
+        raise
 
     async def events():
         try:
@@ -678,6 +727,12 @@ async def stream_agent_answer(
                     {"code": "supporting_sources", "detail": _GROUNDING_ERROR_DETAIL},
                 )
                 return
+            if isinstance(error, AgentTurnDeadlineExceeded):
+                yield _sse(
+                    "error",
+                    {"code": "agent_turn_deadline", "detail": str(error)},
+                )
+                return
             yield _sse(
                 "error",
                 {
@@ -690,6 +745,8 @@ async def stream_agent_answer(
                     )
                 },
             )
+        finally:
+            release_model_admission_slot(slot)
 
     return StreamingResponse(
         events(),
@@ -908,6 +965,7 @@ def compare_scoped_products(
 @app.post(
     "/api/retrieval/events/{search_event_id}/plan",
     response_model=RetrievalPlanResponse,
+    dependencies=[Depends(require_model_admission)],
 )
 def capture_retrieval_plan(search_event_id: UUID) -> RetrievalPlanResponse:
     """Capture and persist EXPLAIN ANALYZE for the event's production SQL path."""
@@ -1021,7 +1079,7 @@ def hnsw_neighborhood_route(
         raise HTTPException(503, str(error)) from error
 
 
-@app.post("/api/hnsw/probe")
+@app.post("/api/hnsw/probe", dependencies=[Depends(require_model_admission)])
 def hnsw_probe_route(request: HnswProbeRequest) -> dict[str, Any]:
     """Run the same ANN query twice and report what the server actually did.
 
@@ -1073,7 +1131,11 @@ def lab_state() -> LabStateResponse:
         raise HTTPException(503, str(error)) from error
 
 
-@app.post("/api/labs/{lab_id}/proof", response_model=CompletionProofResponse)
+@app.post(
+    "/api/labs/{lab_id}/proof",
+    response_model=CompletionProofResponse,
+    dependencies=[Depends(require_model_admission)],
+)
 def lab_completion_proof(
     lab_id: int,
     request: CompletionProofRequest,

@@ -118,6 +118,25 @@ _NUMERIC_BOUNDS: dict[str, tuple[float, float]] = {
     "BEDROCK_MAX_ATTEMPTS": (1, 20),
     "DB_POOL_MAX_SIZE": (1, 64),
     "DB_POOL_TIMEOUT_SECONDS": (1, 120),
+    # Interactive-request database deadlines. See `service.db.connect`: every
+    # value here is a bare millisecond count, `SET LOCAL` at checkout, so a
+    # reused pooled connection can never inherit a previous request's setting.
+    # 30s covers every single-statement duration measured elsewhere in this
+    # repository (2.3s exact-neighbour scan, 2.4s unfiltered HNSW-bypass scan)
+    # with roughly 10x headroom, while still failing a stuck query well inside
+    # a participant's patience. 5s lock_timeout fails fast on this read-mostly
+    # service's few write paths rather than queuing behind a held lock.
+    "MOSAIC_DB_STATEMENT_TIMEOUT_MS": (100, 300_000),
+    "MOSAIC_DB_LOCK_TIMEOUT_MS": (50, 60_000),
+    # Admission control for model-backed and expensive-diagnostic routes. Both
+    # are process-local counters -- see service/access_control.py for the exact
+    # scope this does and does not bound.
+    "MOSAIC_MAX_CONCURRENT_MODEL_RUNS": (1, 200),
+    "MOSAIC_MODEL_RATE_LIMIT_PER_MINUTE": (1, 6000),
+    # Overall wall-clock budget for one agent turn's model+tool loop, wrapping
+    # however many Bedrock calls and provider retries it makes so the total
+    # cannot exceed this regardless of per-call retry backoff.
+    "MOSAIC_AGENT_TURN_DEADLINE_SECONDS": (5, 600),
 }
 
 
@@ -255,6 +274,26 @@ def _code_editor_url() -> str | None:
     return value
 
 
+def _origin_verification() -> tuple[bool, str | None]:
+    """Resolve the workshop's caller-trust boundary.
+
+    The API's only caller identity is a shared secret nginx forwards for every
+    request that actually reached it through CloudFront's configured origin
+    (see `deploy/mosaic-bootstrap.sh`). It authorizes protected work; it is not
+    a participant identity, and this deployment has no per-user accounting.
+
+    This resolves the two settings without judging them: a script that only
+    imports `service.main` to inspect its routes (`scripts/tool_contracts.py`)
+    must not be refused for a secret it will never use. `assert_bootable` in
+    `service.access_control` is where a deployment that asked for protection
+    and configured none is refused -- at ASGI startup, not at every read of
+    `Settings`.
+    """
+    required = _boolean("MOSAIC_REQUIRE_ORIGIN_VERIFICATION", True)
+    secret = os.getenv("MOSAIC_ORIGIN_VERIFY_SECRET", "").strip() or None
+    return required, secret
+
+
 def _dataset_manifest_sha256() -> str:
     """Identify the checked-in dataset manifest used by this service."""
     override = os.getenv("MOSAIC_DATASET_MANIFEST_SHA256", "").strip()
@@ -287,6 +326,13 @@ class Settings:
     bedrock_max_attempts: int
     db_pool_max_size: int
     db_pool_timeout: float
+    db_statement_timeout_ms: int
+    db_lock_timeout_ms: int
+    require_origin_verification: bool
+    origin_verify_secret: str | None
+    max_concurrent_model_runs: int
+    model_rate_limit_per_minute: int
+    agent_turn_deadline_seconds: float
     cors_origins: tuple[str, ...]
     source_revision: str = "unknown"
     source_worktree_dirty: bool = True
@@ -326,6 +372,7 @@ def get_settings() -> Settings:
         )
     profile = _retrieval_profile()
     source_revision, source_worktree_dirty = _source_identity()
+    require_origin_verification, origin_verify_secret = _origin_verification()
     chat_model_id = os.getenv(
         "BEDROCK_CHAT_MODEL_ID",
         os.getenv("BEDROCK_CHAT_MODEL", "global.anthropic.claude-sonnet-5"),
@@ -369,6 +416,29 @@ def get_settings() -> Settings:
         # exists so exhaustion surfaces as an error instead of a hung request.
         db_pool_max_size=_bounded("DB_POOL_MAX_SIZE", "16", int),
         db_pool_timeout=_bounded("DB_POOL_TIMEOUT_SECONDS", "20", float),
+        db_statement_timeout_ms=_bounded(
+            "MOSAIC_DB_STATEMENT_TIMEOUT_MS", "30000", int
+        ),
+        db_lock_timeout_ms=_bounded("MOSAIC_DB_LOCK_TIMEOUT_MS", "5000", int),
+        require_origin_verification=require_origin_verification,
+        origin_verify_secret=origin_verify_secret,
+        # Sized against DB_POOL_MAX_SIZE=16: a full agent turn holds a pooled
+        # connection only for the duration of each tool's own short `connect()`
+        # block, not for the whole turn, so 12 concurrent model-backed runs
+        # leaves headroom for catalog-browsing requests that hold no admission
+        # slot at all to still get a connection.
+        max_concurrent_model_runs=_bounded(
+            "MOSAIC_MAX_CONCURRENT_MODEL_RUNS", "12", int
+        ),
+        # Generous for interactive workshop use -- 2/s sustained -- while still
+        # bounding a runaway client or script. Process-local; see
+        # service/access_control.py for what that does and does not cover.
+        model_rate_limit_per_minute=_bounded(
+            "MOSAIC_MODEL_RATE_LIMIT_PER_MINUTE", "120", int
+        ),
+        agent_turn_deadline_seconds=_bounded(
+            "MOSAIC_AGENT_TURN_DEADLINE_SECONDS", "90", float
+        ),
         cors_origins=origins,
         source_revision=source_revision,
         source_worktree_dirty=source_worktree_dirty,

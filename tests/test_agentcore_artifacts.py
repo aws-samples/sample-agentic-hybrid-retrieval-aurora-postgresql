@@ -183,12 +183,13 @@ def test_packaged_application_imports_and_serves_downloads(tmp_path):
             sys.executable,
             "-c",
             """
-import io, zipfile
+import io, os, zipfile
 from fastapi.testclient import TestClient
 from deploy.agentcore.app import app
 client = TestClient(app)
+headers = {'X-Mosaic-Origin-Verify': os.environ['MOSAIC_ORIGIN_VERIFY_SECRET']}
 for route in ('/api/skill-package', '/api/builder-package'):
-    response = client.get(route)
+    response = client.get(route, headers=headers)
     assert response.status_code == 200, (route, response.text)
     with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
         assert archive.testzip() is None

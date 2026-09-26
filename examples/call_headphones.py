@@ -49,9 +49,14 @@ def search_call_headphones(query: str, brand: str) -> dict[str, Any]:
     """
     request = SearchRequest(query=query, filters=call_filters(brand))
     endpoint = os.environ.get("MOSAIC_API_URL", "http://127.0.0.1:8000").rstrip("/")
+    # The same shared origin secret nginx forwards for a workshop request (see
+    # deploy/mosaic-bootstrap.sh); this example runs on the same host as a
+    # trusted local process and presents it directly, like the MCP adapter.
+    origin_secret = get_settings().origin_verify_secret
     response = httpx.post(
         f"{endpoint}/api/search",
         json=request.model_dump(mode="json"),
+        headers=({"X-Mosaic-Origin-Verify": origin_secret} if origin_secret else None),
         timeout=90,
     )
     response.raise_for_status()

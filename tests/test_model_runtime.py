@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 
 from service import agent_tools
 from service.agent import (
+    AgentTurnDeadlineExceeded,
     GroundingContractError,
     ProductDiscoveryAgent,
     _agent_prompt,
@@ -1357,6 +1358,116 @@ def test_agent_surfaces_grounding_contract_failure_over_model_loop_error(
         )
 
     assert persisted_errors == ["GroundingContractError"]
+
+
+def test_agent_turn_deadline_stops_the_loop_without_a_fallback_synthesis_call(
+    monkeypatch,
+):
+    """A deadline is a hard stop: no fallback model call after it fires.
+
+    Falsifier: removing the `isinstance(error, AgentTurnDeadlineExceeded)`
+    branch ahead of `_finalize_if_needed` in `service.agent` makes this call
+    `complete_grounded_answer` anyway, and the assertion below catches it.
+    """
+    import asyncio
+
+    state = {
+        "agent_run_id": uuid4(),
+        "products": {101: product()},
+        "answer_of_record": None,
+    }
+    fallback_calls: list[str] = []
+
+    class SlowAgent:
+        async def invoke_async(self, _question):
+            await asyncio.sleep(5)
+
+    monkeypatch.setattr(agent_tools, "start_run", lambda *_args: state)
+    monkeypatch.setattr("service.agent.build_agent", lambda: SlowAgent())
+    monkeypatch.setattr(
+        "service.agent.get_settings",
+        lambda: replace(get_settings(), agent_turn_deadline_seconds=0.05),
+    )
+    monkeypatch.setattr(
+        agent_tools,
+        "complete_grounded_answer",
+        lambda *_args, **_kwargs: fallback_calls.append("called"),
+    )
+    monkeypatch.setattr(
+        agent_tools, "persist_completed_run", lambda *_args, **_kwargs: None
+    )
+
+    with pytest.raises(AgentTurnDeadlineExceeded, match="0.05s turn deadline"):
+        ProductDiscoveryAgent().answer(
+            AgentRequest(question="What should I buy?", result_limit=2)
+        )
+
+    assert fallback_calls == [], "the deadline must skip fallback synthesis entirely"
+
+
+def test_streaming_agent_turn_deadline_reports_a_failure_event_and_no_fallback(
+    monkeypatch,
+):
+    """The streamed loop is bounded the same way as the synchronous one.
+
+    Drives `ProductDiscoveryAgent.stream()` directly, not through the HTTP
+    route: the existing streaming HTTP tests replace `get_product_discovery_agent`
+    with a fake `stream()` implementation, which never executes this method's
+    own deadline handling at all.
+    """
+    import asyncio
+
+    state = {
+        "agent_run_id": uuid4(),
+        "products": {},
+        "searches": [],
+        "trace": [],
+        "answer_of_record": None,
+        "context_search_event_ids": [],
+    }
+    fallback_calls: list[str] = []
+
+    class SlowAgent:
+        async def stream_async(self, _prompt):
+            await asyncio.sleep(5)
+            yield {}
+
+    monkeypatch.setattr(agent_tools, "start_run", lambda *_args, **_kwargs: state)
+    monkeypatch.setattr("service.agent.build_agent", lambda: SlowAgent())
+    monkeypatch.setattr(
+        "service.agent.get_settings",
+        lambda: replace(get_settings(), agent_turn_deadline_seconds=0.05),
+    )
+    monkeypatch.setattr(
+        agent_tools,
+        "complete_grounded_answer",
+        lambda *_args, **_kwargs: fallback_calls.append("called"),
+    )
+    monkeypatch.setattr(
+        agent_tools, "persist_completed_run", lambda *_args, **_kwargs: None
+    )
+    monkeypatch.setattr("service.session_memory.attach_run", lambda *_a, **_k: None)
+    monkeypatch.setattr("service.session_memory.capture_turn", lambda *_a: None)
+
+    async def _drain():
+        collected = []
+        try:
+            async for event in ProductDiscoveryAgent().stream(
+                AgentRequest(question="What should I buy?")
+            ):
+                collected.append(event)
+        except AgentTurnDeadlineExceeded:
+            pass
+        return collected
+
+    events = asyncio.run(_drain())
+
+    failures = [event["agent_failure"] for event in events if "agent_failure" in event]
+    assert len(failures) == 1
+    assert failures[0]["code"] == "agent_turn_deadline"
+    assert "0.05s turn deadline" in failures[0]["detail"]
+    assert not any("agent_response" in event for event in events)
+    assert fallback_calls == [], "the deadline must skip fallback synthesis entirely"
 
 
 def test_strands_registers_the_read_only_product_tools():
