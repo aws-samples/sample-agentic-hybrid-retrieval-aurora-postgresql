@@ -90,7 +90,8 @@ Manifest schema (schema_version 1, kind "measured" -- see docs/rehearsal-runbook
         "served": {"health": {...}, "readiness": {...}} | null
       },
       "dataset_identity": {
-        "expected_dataset_id": "reviews-2023-500k-v1",
+        "expected_dataset_id": "<dataset_id from the pinned catalog contract>",
+        "expected_catalog_sha256": "<catalog_sha256 from the pinned contract>",
         "real_catalog_cache_contract_sha256": "<sha256 of db/config/real-catalog-cache.json>",
         "corpus_vocabulary_contract_sha256": "<sha256 of db/config/corpus-vocabulary-cache.json>",
         "served_dataset_id": str | null,
@@ -348,6 +349,7 @@ def new_manifest(
     api_base_url: str | None = None,
 ) -> dict[str, Any]:
     """Build an empty manifest with every required stage present but unrun."""
+    catalog = json.loads(REAL_CATALOG_CACHE_CONTRACT.read_text(encoding="utf-8"))
     return {
         "schema_version": SCHEMA_VERSION,
         "kind": MANIFEST_KIND,
@@ -363,7 +365,8 @@ def new_manifest(
             "served": None,
         },
         "dataset_identity": {
-            "expected_dataset_id": "reviews-2023-500k-v1",
+            "expected_dataset_id": catalog["dataset_id"],
+            "expected_catalog_sha256": catalog["catalog_sha256"],
             "real_catalog_cache_contract_sha256": _sha256_file(
                 REAL_CATALOG_CACHE_CONTRACT
             ),
@@ -739,6 +742,19 @@ def capture_identity(
         )
         stage_detail_parts.append(f"served status={readiness.get('status')}")
         status = "passed" if readiness.get("status") == "ready" else "failed"
+        identity = manifest["dataset_identity"]
+        for name in ("dataset_id", "catalog_sha256"):
+            expected = identity.get(f"expected_{name}")
+            actual = identity.get(f"served_{name}")
+            if not expected or actual != expected:
+                status = "failed"
+                stage_detail_parts.append(
+                    explain(
+                        f"served {name}={actual!r}, expected {expected!r}",
+                        "initialize evidence from the pinned catalog contract and "
+                        "deploy that catalog before recording a passing identity",
+                    )
+                )
     else:
         stage_detail_parts.append(
             "no --api-url supplied; identity captured from git and config files only"

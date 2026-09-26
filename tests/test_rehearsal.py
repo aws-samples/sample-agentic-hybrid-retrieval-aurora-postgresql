@@ -263,6 +263,80 @@ def test_capture_identity_records_local_facts_without_an_api_url():
     assert manifest["environment"]["served"] is None
 
 
+def test_new_manifest_reads_selected_catalog_contract(tmp_path, monkeypatch):
+    contract = tmp_path / "catalog.json"
+    contract.write_text(
+        json.dumps(
+            {
+                "dataset_id": "selected-source-catalog",
+                "catalog_sha256": "1" * 64,
+            }
+        )
+    )
+    monkeypatch.setattr("scripts.rehearsal.REAL_CATALOG_CACHE_CONTRACT", contract)
+    manifest = new_manifest()
+    assert (
+        manifest["dataset_identity"]["expected_dataset_id"] == "selected-source-catalog"
+    )
+    assert manifest["dataset_identity"]["expected_catalog_sha256"] == "1" * 64
+
+
+@pytest.mark.parametrize("field", ["dataset_id", "dataset_manifest_sha256"])
+@pytest.mark.parametrize("violation", ["wrong", "missing"])
+def test_capture_identity_rejects_ready_but_wrong_catalog_and_accepts_restoration(
+    field,
+    violation,
+):
+    manifest = new_manifest()
+    manifest["dataset_identity"].update(
+        {
+            "expected_dataset_id": "selected-source-catalog",
+            "expected_catalog_sha256": "1" * 64,
+        }
+    )
+    ready = {
+        "status": "ready",
+        "database": {"dataset_id": "selected-source-catalog"},
+        "source": {"dataset_manifest_sha256": "1" * 64},
+    }
+    original = json.dumps(ready, sort_keys=True)
+    broken = copy.deepcopy(ready)
+    section = "database" if field == "dataset_id" else "source"
+    if violation == "missing":
+        del broken[section][field]
+    else:
+        broken[section][field] = "wrong-catalog"
+    for response, expected_status in [(broken, "failed"), (ready, "passed")]:
+        with _mock_client(
+            {
+                "/api/health": (200, {"status": "ok"}),
+                "/api/readiness": (200, response),
+            }
+        ) as client:
+            capture_identity(
+                manifest, api_url="http://workshop-host", timeout=5, client=client
+            )
+        assert manifest["environment"]["served"]["readiness"] == response
+        stage = manifest["stages"]["deployment_identity"]
+        assert stage["status"] == expected_status
+        if expected_status == "failed":
+            offending_value = "None" if violation == "missing" else "wrong-catalog"
+            assert offending_value in stage["detail"] and "fix:" in stage["detail"]
+    assert json.dumps(ready, sort_keys=True) == original
+    unrelated = copy.deepcopy(ready)
+    unrelated["note"] = "extra diagnostic field"
+    with _mock_client(
+        {
+            "/api/health": (200, {"status": "ok"}),
+            "/api/readiness": (200, unrelated),
+        }
+    ) as client:
+        capture_identity(
+            manifest, api_url="http://workshop-host", timeout=5, client=client
+        )
+    assert manifest["stages"]["deployment_identity"]["status"] == "passed"
+
+
 def test_capture_identity_records_a_ready_served_environment():
     manifest = new_manifest()
     client = _mock_client(
@@ -275,9 +349,17 @@ def test_capture_identity_records_a_ready_served_environment():
                 200,
                 {
                     "status": "ready",
-                    "database": {"dataset_id": "reviews-2023-500k-v1"},
+                    "database": {
+                        "dataset_id": manifest["dataset_identity"][
+                            "expected_dataset_id"
+                        ]
+                    },
                     "configured_models": {"embedding": "us.cohere.embed-v4:0"},
-                    "source": {"dataset_manifest_sha256": "abc123"},
+                    "source": {
+                        "dataset_manifest_sha256": manifest["dataset_identity"][
+                            "expected_catalog_sha256"
+                        ]
+                    },
                 },
             ),
         }
@@ -290,8 +372,14 @@ def test_capture_identity_records_a_ready_served_environment():
         client.close()
     stage = manifest["stages"]["deployment_identity"]
     assert stage["status"] == "passed"
-    assert manifest["dataset_identity"]["served_dataset_id"] == "reviews-2023-500k-v1"
-    assert manifest["dataset_identity"]["served_catalog_sha256"] == "abc123"
+    assert (
+        manifest["dataset_identity"]["served_dataset_id"]
+        == manifest["dataset_identity"]["expected_dataset_id"]
+    )
+    assert (
+        manifest["dataset_identity"]["served_catalog_sha256"]
+        == manifest["dataset_identity"]["expected_catalog_sha256"]
+    )
 
 
 def test_capture_identity_fails_when_the_deployment_reports_blocked():
@@ -402,9 +490,17 @@ def _fully_rehearsed_manifest(
                 200,
                 {
                     "status": "ready",
-                    "database": {"dataset_id": "reviews-2023-500k-v1"},
+                    "database": {
+                        "dataset_id": manifest["dataset_identity"][
+                            "expected_dataset_id"
+                        ]
+                    },
                     "configured_models": {"embedding": "us.cohere.embed-v4:0"},
-                    "source": {"dataset_manifest_sha256": "abc123"},
+                    "source": {
+                        "dataset_manifest_sha256": manifest["dataset_identity"][
+                            "expected_catalog_sha256"
+                        ]
+                    },
                 },
             ),
         }
