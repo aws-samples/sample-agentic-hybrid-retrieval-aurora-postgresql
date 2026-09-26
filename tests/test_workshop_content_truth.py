@@ -70,12 +70,16 @@ def test_optional_mcp_is_not_labeled_as_a_lab_3_checkpoint():
 
 def test_readme_hands_off_the_complete_participant_skill():
     readme = " ".join(_read("README.md").split())
+    guide = " ".join(_read("docs/development.md").split())
 
-    assert "four-operation HTTP skill surface" in readme
-    assert "three typed, catalog-read-only" in readme
-    assert "not a standalone retrieval runtime" in readme
+    assert "docs/development.md" in readme
+    assert "skills/mosaic-hybrid-retrieval/SKILL.md" in readme
+    assert "requires a running Mosaic service or compatible backend" in readme
     assert "skills/mosaic-hybrid-retrieval/references/adapting.md" in readme
-    assert "uv run python scripts/tool_contracts.py --check" in readme
+    assert "four-operation HTTP skill surface" in guide
+    assert "three typed, catalog-read-only" in guide
+    assert "not a standalone retrieval runtime" in guide
+    assert "uv run python scripts/tool_contracts.py --check" in guide
 
 
 def test_prove_is_an_unnumbered_finale_not_a_fourth_lab():

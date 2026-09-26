@@ -39,7 +39,7 @@ ones from the same **Credentials** panel. Keep their values out of shared files.
 2. Click **Code** → **HTTPS** → copy the clone URL.
 3. In the parent folder beside the workshop checkout, run `git clone COPIED_URL`,
    replacing `COPIED_URL` with that URL.
-4. Open the source folder and follow its README setup steps.
+4. Open the source folder and follow the [developer setup guide](development.md).
 
 GitHub pushes use your GitHub access. Workshop pushes use the Workshop Studio
 credentials. Use your own configured Git identity.
