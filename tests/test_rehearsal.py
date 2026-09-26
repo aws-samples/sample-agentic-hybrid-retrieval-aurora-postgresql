@@ -282,8 +282,10 @@ def test_new_manifest_reads_selected_catalog_contract(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("field", ["dataset_id", "dataset_manifest_sha256"])
+@pytest.mark.parametrize("violation", ["wrong", "missing"])
 def test_capture_identity_rejects_ready_but_wrong_catalog_and_accepts_restoration(
     field,
+    violation,
 ):
     manifest = new_manifest()
     manifest["dataset_identity"].update(
@@ -300,7 +302,10 @@ def test_capture_identity_rejects_ready_but_wrong_catalog_and_accepts_restoratio
     original = json.dumps(ready, sort_keys=True)
     broken = copy.deepcopy(ready)
     section = "database" if field == "dataset_id" else "source"
-    broken[section][field] = "wrong-catalog"
+    if violation == "missing":
+        del broken[section][field]
+    else:
+        broken[section][field] = "wrong-catalog"
     for response, expected_status in [(broken, "failed"), (ready, "passed")]:
         with _mock_client(
             {
@@ -315,7 +320,8 @@ def test_capture_identity_rejects_ready_but_wrong_catalog_and_accepts_restoratio
         stage = manifest["stages"]["deployment_identity"]
         assert stage["status"] == expected_status
         if expected_status == "failed":
-            assert "wrong-catalog" in stage["detail"] and "fix:" in stage["detail"]
+            offending_value = "None" if violation == "missing" else "wrong-catalog"
+            assert offending_value in stage["detail"] and "fix:" in stage["detail"]
     assert json.dumps(ready, sort_keys=True) == original
     unrelated = copy.deepcopy(ready)
     unrelated["note"] = "extra diagnostic field"
