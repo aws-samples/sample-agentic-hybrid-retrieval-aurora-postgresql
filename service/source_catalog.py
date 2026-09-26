@@ -67,8 +67,13 @@ def product_kind(categories: list[str]) -> str:
     if leaf in {
         "managerial & executive chairs",
         "home office desk chairs",
+        "home office chairs",
+        "desk chairs",
         "task chairs",
         "computer gaming chairs",
+        "video game chairs",
+        "gaming chairs",
+        "kneeling chairs",
         "guest & reception chairs",
         "drafting chairs",
         "stacking chairs",
@@ -186,6 +191,46 @@ def specification_evidence(row: dict) -> dict:
         "verified_purchase": None,
         "rating": None,
         "scope": "Historical parent-product listing. Confirm exact variant and current offer separately.",
+    }
+
+
+def question_evidence(row: dict) -> dict:
+    """Expose a buyer question with its community answers as its own evidence kind.
+
+    Answers are what other customers said, so the record is labelled as an
+    opinion and never carries a rating or a purchase flag.
+    """
+    original = row["original"]
+    if (
+        sha256(canonical(original)) != row["source_record_sha256"]
+        or original["asin"] != row["asin"]
+    ):
+        raise ValueError(
+            f"Question boundary rule: {row['question_id']} has inconsistent source identity; restore its original record."
+        )
+    answers = original["answers"]
+    text = "Question: " + original["question_text"] + "\n\nAnswer: " + answers[0]
+    if len(answers) > 1:
+        text += "\n\nOther answers:\n" + "\n".join(
+            "- " + answer for answer in answers[1:]
+        )
+    return {
+        "evidence_id": row["question_id"],
+        "parent_asin": row["parent_asin"],
+        "variant_asin": row["asin"] if row["asin"] != row["parent_asin"] else None,
+        "evidence_type": "product_qa",
+        "title": original["question_text"],
+        "text": text,
+        "source_name": "Amazon PQA",
+        "source_revision": row.get("source_file_sha256"),
+        "source_record_sha256": row["source_record_sha256"],
+        "source_reference": row["source_reference"],
+        "source_date": None,
+        "verified_purchase": None,
+        "rating": None,
+        "answers": len(answers),
+        "license": row.get("license"),
+        "scope": "A buyer question and the answers other customers gave about the recorded listing; answers are opinions, not specifications.",
     }
 
 

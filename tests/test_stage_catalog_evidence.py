@@ -78,7 +78,13 @@ def test_selected_parent_gate_runs_before_any_database_mutation(tmp_path, monkey
     assert state == saved
     create.assert_called_once_with(conn)
     conn.commit.assert_called_once()
-    assert conn.execute.call_count == 3
+    assert conn.execute.call_count == 2
+    manifest = conn.execute.call_args.args[1][3].obj
+    assert "evidence_ids" not in manifest and "coverage" not in manifest
+    assert manifest["evidence_count"] == 1 and manifest["parents_selected"] == 1
+    batches = conn.cursor.return_value.__enter__.return_value.executemany.call_args_list
+    assert batches[0].args[1][0][-1] == "Electronics"
+    assert batches[1].args[1] == [("dataset", "Electronics", "PARENT0001", 1)]
 
 
 def test_sample_cannot_silently_add_an_unselected_parent(tmp_path, monkeypatch):

@@ -35,6 +35,8 @@ from typing import Any
 
 from pydantic import ValidationError
 
+ROOT = Path(__file__).resolve().parents[1]
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.eval_contract import load_evaluation_queries
@@ -70,9 +72,9 @@ def validate_query_contract(connection: Any, queries: list[dict[str, Any]]) -> N
             raise ValueError(f"Duplicate evaluation query_id: {identity}")
         seen.add(identity)
         dataset = query.get("dataset_id", "synthetic-legacy")
-        if dataset not in {"synthetic-legacy", "reviews-2023-500k-v1"}:
+        if dataset not in reviewed_catalogs():
             raise ValueError(
-                f"Evaluation dataset rule: unknown {dataset!r}; use a reviewed catalog identity."
+                f"Evaluation dataset rule: unknown {dataset!r}; use a reviewed catalog identity ({sorted(reviewed_catalogs())})."
             )
         groups.setdefault(dataset, []).append(query)
     for dataset, group in groups.items():
@@ -80,6 +82,17 @@ def validate_query_contract(connection: Any, queries: list[dict[str, Any]]) -> N
             "mosaic_search" if dataset == "synthetic-legacy" else "mosaic_live_search"
         )
         _validate_query_group(connection, group, schema)
+
+
+def reviewed_catalogs() -> set[str]:
+    """Catalog identities queries may name: the legacy corpus, the released real catalog, and the served one."""
+    identities = {"synthetic-legacy"}
+    contract = ROOT / "db" / "config" / "real-catalog-cache.json"
+    if contract.exists():
+        identities.add(json.loads(contract.read_text())["dataset_id"])
+    if active_dataset():
+        identities.add(active_dataset())
+    return identities
 
 
 def require_single_served_catalog(queries: list[dict[str, Any]]) -> None:
@@ -117,7 +130,7 @@ def _validate_query_group(
                 context={
                     "catalog_dataset": None
                     if schema == "mosaic_search"
-                    else "reviews-2023-500k-v1"
+                    else active_dataset()
                 },
             ).as_sql_json()
         except ValidationError as error:

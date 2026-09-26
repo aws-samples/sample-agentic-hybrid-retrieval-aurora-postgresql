@@ -557,6 +557,21 @@ class ProductComparisonResponse(BaseModel):
     products: list[ProductSummary]
 
 
+class ProductQuestion(BaseModel):
+    """One buyer question with the community answers recorded for the listing.
+
+    Answers are other customers' opinions; the model carries no rating or
+    purchase flag so a page cannot present them as verified facts.
+    """
+
+    question_id: int
+    question: str
+    answer: str
+    other_answers: int = 0
+    source_uri: str
+    source_name: str
+
+
 class ProductDetail(ProductSummary):
     warranty_months: int | None = None
     shipping_days: int | None = None
@@ -566,6 +581,7 @@ class ProductDetail(ProductSummary):
     updated_at: datetime
     media: list[ProductMedia] = Field(default_factory=list)
     reviews: list[ProductReview] = Field(default_factory=list)
+    questions: list[ProductQuestion] = Field(default_factory=list)
 
 
 class CatalogPage(BaseModel):

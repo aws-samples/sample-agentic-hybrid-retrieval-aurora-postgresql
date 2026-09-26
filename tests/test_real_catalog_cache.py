@@ -148,3 +148,16 @@ def test_join_refuses_a_changed_or_missing_part(tmp_path, monkeypatch):
     contract["parts"] = contract["parts"][2:]
     with pytest.raises(ValueError, match="is missing"):
         real_catalog_cache.join_parts(parts, tmp_path / "rebuilt", contract)
+
+
+def test_question_export_is_a_member_only_when_the_contract_counts_it(tmp_path):
+    archive, contract = bundle(tmp_path, ["questions/questions.json"])
+    with pytest.raises(ValueError, match="unexpected 'questions/questions.json'"):
+        unpack(archive, tmp_path / "out", contract)
+    counted = {**contract, "question_samples": 3}
+    unpack(archive, tmp_path / "out", counted)
+    assert (tmp_path / "out" / "questions" / "questions.json").read_bytes() == b"{}"
+    (tmp_path / "plain").mkdir()
+    without, plain = bundle(tmp_path / "plain")
+    with pytest.raises(ValueError, match="found 2, expected 3"):
+        unpack(without, tmp_path / "out2", {**plain, "question_samples": 3})

@@ -171,10 +171,8 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
     database = ready.get("database", {})
     _require(
         database.get("dataset_id") == mission["dataset_id"]
-        and database.get("product_count")
-        == database.get("embedded_product_count")
-        == 500000,
-        "Catalog rule: API must serve all 500,000 prepared source products and vectors; ask the facilitator to correct the environment.",
+        and database.get("catalog_ready") is True,
+        "Catalog rule: API must serve every prepared source product and vector with valid indexes; ask the facilitator to correct the environment.",
     )
     with connect() as connection:
         catalog = connection.execute(

@@ -52,13 +52,17 @@ WITH source AS (
               WITH ORDINALITY AS d(value, ordinal)) AS body
     FROM mosaic_catalog_stage.product p
     JOIN source_product_kinds k ON p.categories=k.categories
+    LEFT JOIN source_product_ids i ON i.parent_asin=p.parent_asin
     WHERE p.dataset_id=%s
 )
-SELECT row_number() OVER (ORDER BY parent_asin COLLATE "C") AS product_id,
+SELECT coalesce(i.product_id,
+           (SELECT count(*) FROM source_product_ids)
+           + row_number() OVER (PARTITION BY i.product_id IS NULL ORDER BY parent_asin COLLATE "C")) AS product_id,
        dataset_id, parent_asin, source_record_sha256, embedding_text_sha256,
        CASE source_department
            WHEN 'Electronics' THEN 'consumer_electronics'
            WHEN 'Office_Products' THEN 'home_office'
+           WHEN 'Home_and_Kitchen' THEN 'home_office'
        END::mosaic.product_domain AS domain,
        kind AS category_key, array_to_string(categories, ' > ') AS category_path,
        brand AS brand_name, title,
@@ -132,12 +136,60 @@ def require_complete(dataset: tuple | None, actual: int) -> None:
         )
 
 
-def prepare(conn, dataset_id: str) -> dict:
+def base_ids_from_selection(selection: dict, plan_dir: Path) -> list[tuple[str, int]]:
+    """Recover the ids a version-2 base keeps: its parents in C-collation order, from 1.
+
+    Version 1 numbered every product by parent ASIN order, so the pinned base
+    parent list reproduces those ids without a separate id file.
+    """
+    plan = selection.get("plan") or {}
+    if plan.get("version") != 2:
+        return []
+    from scripts.prepare_real_catalog import read_base_parents
+
+    parents = sorted(
+        {
+            asin
+            for group in read_base_parents(plan, plan_dir).values()
+            for asin in group
+        },
+        key=lambda asin: asin.encode("ascii"),
+    )
+    return [(asin, index) for index, asin in enumerate(parents, start=1)]
+
+
+def read_base_ids(path: Path | None) -> list[tuple[str, int]]:
+    """Physical ids to preserve for products carried over from an earlier projection.
+
+    The file lists `parent_asin<TAB>product_id`. Ids must be positive, unique
+    and contiguous from 1, because every addition is numbered after them.
+    """
+    if path is None:
+        return []
+    rows = []
+    for line in path.read_text().splitlines():
+        if not line.strip():
+            continue
+        identity, number = line.split("\t")
+        rows.append((identity, int(number)))
+    ids = sorted(number for _, number in rows)
+    if ids != list(range(1, len(ids) + 1)) or len({i for i, _ in rows}) != len(rows):
+        raise ValueError(
+            "Base id rule: preserved ids must be unique and contiguous from 1; rebuild the base id list from the earlier projection."
+        )
+    return rows
+
+
+def prepare(
+    conn, dataset_id: str, base_ids: list[tuple[str, int]] | None = None
+) -> dict:
     """Build a restartable projection and indexes bound to one source selection.
 
     Args:
         conn: Encrypted Aurora connection holding the import's writer lock.
         dataset_id: Identity of the complete staged catalog.
+        base_ids: Physical ids to keep for carried-over products; additions
+            are numbered after the highest one.
 
     Returns:
         Counts, source hashes, index sizes and preparation times; no quality claim.
@@ -199,6 +251,12 @@ def prepare(conn, dataset_id: str) -> dict:
         with conn.cursor().copy("COPY source_product_kinds FROM STDIN") as copy:
             for (path,) in categories:
                 copy.write_row((path, product_kind(path)))
+        conn.execute(
+            "CREATE TEMP TABLE source_product_ids (parent_asin text PRIMARY KEY, product_id bigint NOT NULL UNIQUE) ON COMMIT DROP"
+        )
+        with conn.cursor().copy("COPY source_product_ids FROM STDIN") as copy:
+            for identity, number in base_ids or []:
+                copy.write_row((identity, number))
         conn.execute(PROJECTION_SQL, (dataset_id,))
         conn.execute("""ALTER TABLE mosaic_catalog_search.product_document
             ADD PRIMARY KEY (product_id), ADD UNIQUE (parent_asin),
@@ -293,14 +351,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset-id", required=True)
     parser.add_argument("--report", type=Path, required=True)
+    parser.add_argument(
+        "--base-ids",
+        type=Path,
+        help="TSV of parent_asin and physical product_id to preserve from an earlier projection",
+    )
     args = parser.parse_args()
     dsn = os.getenv("DATABASE_URL", "")
     validate_dsn(dsn)
+    base_ids = read_base_ids(args.base_ids)
     with psycopg.connect(
         dsn, connect_timeout=10, application_name="mosaic-real-catalog-search-prepare"
     ) as conn:
         require_aurora_writer(conn, args.dataset_id)
-        report = prepare(conn, args.dataset_id)
+        report = prepare(conn, args.dataset_id, base_ids)
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report), flush=True)

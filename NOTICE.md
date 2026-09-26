@@ -24,6 +24,21 @@ requirement; see [docs/catalog-source-assessment.md](docs/catalog-source-assessm
 Product names, brands and trademarks belong to their owners. Ratings are
 historical dataset values; the catalog carries no current prices or availability.
 
+## Buyer questions: Amazon PQA
+
+Buyer questions and community answers shown as `product_qa` evidence come from
+**Amazon PQA** (Amazon Product Question Answering), published on the AWS Registry
+of Open Data (<https://registry.opendata.aws/amazon-pqa/>) under the Community
+Data License Agreement, Permissive, Version 1.0 (CDLA-Permissive-1.0). Only
+questions for products in the served catalog are staged, at most twelve per
+product, with the source file's SHA-256 recorded in
+`mosaic_catalog_stage.question_evidence`. Answers are other customers' opinions
+and are labelled as such wherever they appear.
+
+> Ohad Rozen, David Carmel, Avihai Mejer, Vitaly Mirkis, and Yftah Ziser. 2021.
+> *Answering Product-Questions by Utilizing Questions from Other Contextually
+> Similar Products.* In Proceedings of NAACL-HLT 2021.
+
 ## Teaching comparisons: Amazon ESCI and Wayfair WANDS
 
 Five reviewed comparisons in `data/evals/references/` use labels from these

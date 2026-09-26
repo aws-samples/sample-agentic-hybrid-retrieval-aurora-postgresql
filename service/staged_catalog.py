@@ -14,6 +14,7 @@ from service.catalog_runtime import active_dataset
 from service.db import connect
 from service.source_catalog import (
     project_product,
+    question_evidence,
     review_evidence,
     specification_evidence,
 )
@@ -55,6 +56,9 @@ def product_evidence(
     ).fetchone()["present"]
     if not present:
         return evidence, []
+    # A review is served only when a recorded sample imported it: by the
+    # sample it names, or, for samples staged before that column existed, by
+    # the id list inside the sample manifest.
     reviews = connection.execute(
         """
         SELECT e.* FROM mosaic_catalog_stage.review_evidence e
@@ -62,27 +66,50 @@ def product_evidence(
           AND EXISTS (
             SELECT 1 FROM mosaic_catalog_stage.review_sample s
             WHERE s.dataset_id=e.dataset_id
-              AND s.sample_manifest->'evidence_ids' ? e.evidence_id
+              AND (
+                s.category = e.sample_category
+                OR (e.sample_category IS NULL
+                    AND s.sample_manifest->'evidence_ids' ? e.evidence_id)
+              )
           )
         ORDER BY (e.original->>'rating')::numeric, e.evidence_id
     """,
         (dataset, row["parent_asin"]),
     ).fetchall()
     evidence.extend(review_evidence(review) for review in reviews)
+    questions_present = connection.execute(
+        "SELECT to_regclass('mosaic_catalog_stage.question_evidence') IS NOT NULL AS present"
+    ).fetchone()["present"]
+    if questions_present:
+        questions = connection.execute(
+            """
+            SELECT q.* FROM mosaic_catalog_stage.question_evidence q
+            WHERE q.dataset_id=%s AND q.parent_asin=%s
+            ORDER BY q.question_id
+            """,
+            (dataset, row["parent_asin"]),
+        ).fetchall()
+        evidence.extend(question_evidence(question) for question in questions)
     samples = connection.execute(
         """
-        SELECT category, sample_manifest FROM mosaic_catalog_stage.review_sample
-        WHERE dataset_id=%s AND sample_manifest->'parent_asins' ? %s
+        SELECT s.category, s.sample_manifest, p.reviews_selected
+        FROM mosaic_catalog_stage.review_sample s
+        JOIN mosaic_catalog_stage.review_sample_parent p
+          ON p.dataset_id=s.dataset_id AND p.category=s.category
+        WHERE s.dataset_id=%s AND p.parent_asin=%s
+        UNION ALL
+        SELECT s.category, s.sample_manifest,
+               (s.sample_manifest->'coverage'->>%s)::integer
+        FROM mosaic_catalog_stage.review_sample s
+        WHERE s.dataset_id=%s AND s.sample_manifest->'parent_asins' ? %s
         ORDER BY category
     """,
-        (dataset, row["parent_asin"]),
+        (dataset, row["parent_asin"], row["parent_asin"], dataset, row["parent_asin"]),
     ).fetchall()
     coverage = [
         {
             "category": sample["category"],
-            "reviews_selected": sample["sample_manifest"]["coverage"][
-                row["parent_asin"]
-            ],
+            "reviews_selected": sample["reviews_selected"],
             "records_scanned": sample["sample_manifest"]["records_scanned"],
             "complete_source_scan": sample["sample_manifest"]["complete_source_scan"],
             "selection_policy": sample["sample_manifest"]["selection_policy"],

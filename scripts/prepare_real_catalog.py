@@ -150,21 +150,89 @@ def select_ids(
     }
 
 
+def select_targets(
+    records, base_ids: set[str], leaves: set[str], plan: dict, excluded: set[str]
+) -> tuple[set[str], set[str], dict]:
+    """Keep every base product plus every eligible product whose taxonomy leaf is targeted.
+
+    Base products reproduce an earlier selection exactly, so they are matched by
+    identity and must all be present. Target products are chosen by their
+    source taxonomy leaf, never by a hash budget, so a category is complete
+    rather than sampled.
+    """
+    found_base: set[str] = set()
+    targets: set[str] = set()
+    seen: set[str] = set()
+    reasons: Counter[str] = Counter()
+    total = eligible = 0
+    for record in records:
+        total += 1
+        identity = record.get("parent_asin") if isinstance(record, dict) else None
+        if isinstance(identity, str) and identity in seen:
+            raise ValueError(
+                f"Distinct product rule: repeated parent ASIN {identity}; inspect the pinned source."
+            )
+        if isinstance(identity, str):
+            seen.add(identity)
+        reason = rejection_reason(record, plan)
+        if identity in base_ids:
+            if reason:
+                raise ValueError(
+                    f"Base selection rule: {identity} was selected before but is now {reason}; the source changed."
+                )
+            found_base.add(identity)
+            continue
+        if reason:
+            reasons[reason] += 1
+            continue
+        if identity in excluded:
+            reasons["already_selected_from_another_department"] += 1
+            continue
+        eligible += 1
+        leaf = record["categories"][-1] if record["categories"] else ""
+        if leaf in leaves:
+            targets.add(identity)
+    if found_base != base_ids:
+        missing = sorted(base_ids - found_base)[:5]
+        raise ValueError(
+            f"Base selection rule: {len(base_ids - found_base)} base products missing from the source, e.g. {missing}."
+        )
+    return (
+        found_base,
+        targets,
+        {
+            "source_rows": total,
+            "eligible_products": eligible,
+            "base_products": len(found_base),
+            "target_products": len(targets),
+            "target_leaves": sorted(leaves),
+            "excluded_counts": dict(sorted(reasons.items())),
+        },
+    )
+
+
 def write_selection(
-    source_root: Path, temporary: Path, chosen: dict
+    source_root: Path, temporary: Path, chosen: dict | list
 ) -> tuple[set, dict]:
-    """Copy complete selected objects while recording their separate text projection."""
+    """Copy complete selected objects while recording their separate text projection.
+
+    `chosen` is either {category: identities} (one pass per department) or an
+    ordered list of (category, identities) groups; the list form lets a plan
+    write its base products before its additions so embedding batches of
+    unchanged products stay reusable.
+    """
     text_characters = 0
     photo_resolution: Counter[str] = Counter()
     leaf_categories: Counter[str] = Counter()
     written: set[str] = set()
+    groups = list(chosen.items()) if isinstance(chosen, dict) else list(chosen)
     with (
         temporary.open("wb") as raw,
         gzip.GzipFile(
             filename="", fileobj=raw, mode="wb", compresslevel=1, mtime=0
         ) as compressed,
     ):
-        for category, identities in chosen.items():
+        for category, identities in groups:
             for record in iter_records(source_root / category):
                 identity = record.get("parent_asin")
                 if not isinstance(identity, str) or identity not in identities:
@@ -209,7 +277,33 @@ def write_selection(
     }
 
 
-def prepare(source_root: Path, output: Path, plan: dict) -> None:
+def read_base_parents(plan: dict, plan_dir: Path) -> dict[str, set[str]]:
+    """Load the earlier selection's identities, checked against the plan's pinned hash."""
+    base = plan["base"]
+    path = plan_dir / base["parents_file"]
+    data = path.read_bytes()
+    if hashlib.sha256(data).hexdigest() != base["parents_sha256"]:
+        raise ValueError(
+            "Base selection rule: the base parent list differs from its pinned hash; restore the published list."
+        )
+    if path.suffix == ".gz":
+        data = gzip.decompress(data)
+    parents: dict[str, set[str]] = {}
+    for line in data.decode().splitlines():
+        if not line.strip():
+            continue
+        identity, department = line.split("\t")
+        parents.setdefault(department, set()).add(identity)
+    if sum(len(v) for v in parents.values()) != base["products"]:
+        raise ValueError(
+            "Base selection rule: base parent count differs from the plan; restore the published list."
+        )
+    return parents
+
+
+def prepare(
+    source_root: Path, output: Path, plan: dict, plan_dir: Path | None = None
+) -> None:
     """Publish the selection file only after every source passes its full checksum."""
     validate_plan(plan)
     if any(item["category"] not in SOURCES for item in plan["sources"]):
@@ -224,19 +318,39 @@ def prepare(source_root: Path, output: Path, plan: dict) -> None:
         raise ValueError(
             "Selection output rule: catalog already exists; verify and reuse it or choose a new output directory."
         )
-    chosen: dict[str, set[str]] = {}
     reports = {}
     all_ids: set[str] = set()
-    for item in plan["sources"]:
-        category = item["category"]
-        chosen[category], reports[category] = select_ids(
-            iter_records(source_root / category),
-            item["products"],
-            plan,
-            all_ids,
-        )
-        all_ids.update(chosen[category])
-        print(json.dumps({"category": category, **reports[category]}), flush=True)
+    if plan["version"] == 2:
+        base_parents = read_base_parents(plan, plan_dir or output)
+        base_groups: list[tuple[str, set[str]]] = []
+        target_groups: list[tuple[str, set[str]]] = []
+        for item in plan["sources"]:
+            category = item["category"]
+            found, targets, reports[category] = select_targets(
+                iter_records(source_root / category),
+                base_parents.get(category, set()),
+                set(item["leaves"]),
+                plan,
+                all_ids,
+            )
+            all_ids.update(found)
+            all_ids.update(targets)
+            base_groups.append((category, found))
+            target_groups.append((category, targets))
+            print(json.dumps({"category": category, **reports[category]}), flush=True)
+        chosen: dict | list = base_groups + target_groups
+    else:
+        chosen = {}
+        for item in plan["sources"]:
+            category = item["category"]
+            chosen[category], reports[category] = select_ids(
+                iter_records(source_root / category),
+                item["products"],
+                plan,
+                all_ids,
+            )
+            all_ids.update(chosen[category])
+            print(json.dumps({"category": category, **reports[category]}), flush=True)
     temporary = output / "catalog.jsonl.gz.partial"
     written, coverage = write_selection(source_root, temporary, chosen)
     if written != all_ids:
@@ -277,10 +391,13 @@ def prepare(source_root: Path, output: Path, plan: dict) -> None:
 
 def validate_plan(plan: dict) -> None:
     """Reject ambiguous selection plans before reading or publishing records."""
-    if not isinstance(plan, dict) or plan.get("version") != 1:
+    if not isinstance(plan, dict) or plan.get("version") not in (1, 2):
         raise ValueError(
-            "Source plan rule: expected version 1; use data/real-catalog-plan.json."
+            "Source plan rule: expected version 1 or 2; use data/real-catalog-plan.json."
         )
+    if plan["version"] == 2:
+        _validate_plan_v2(plan)
+        return
     for key in ("minimum_source_text_characters", "maximum_embedding_characters"):
         value = plan.get(key)
         if type(value) is not int or value <= 0:
@@ -312,6 +429,49 @@ def validate_plan(plan: dict) -> None:
             )
 
 
+def _validate_plan_v2(plan: dict) -> None:
+    """A version-2 plan keeps an earlier selection whole and adds complete taxonomy leaves."""
+    for key in ("minimum_source_text_characters", "maximum_embedding_characters"):
+        value = plan.get(key)
+        if type(value) is not int or value <= 0:
+            raise ValueError(
+                f"Source plan rule: {key}={value!r}; supply a positive integer."
+            )
+    if not isinstance(plan.get("selection_seed"), str) or not plan["selection_seed"]:
+        raise ValueError(
+            "Source plan rule: missing selection_seed; supply a fixed nonempty seed."
+        )
+    base = plan.get("base")
+    if (
+        not isinstance(base, dict)
+        or not isinstance(base.get("dataset_id"), str)
+        or not isinstance(base.get("parents_file"), str)
+        or not isinstance(base.get("parents_sha256"), str)
+        or type(base.get("products")) is not int
+        or base["products"] < 1
+    ):
+        raise ValueError(
+            "Source plan rule: version 2 needs base.dataset_id, base.parents_file, base.parents_sha256 and base.products."
+        )
+    sources = plan.get("sources")
+    if not isinstance(sources, list) or not sources:
+        raise ValueError(
+            "Source plan rule: no sources; select at least one pinned department."
+        )
+    for source in sources:
+        if not isinstance(source, dict) or not isinstance(source.get("category"), str):
+            raise TypeError(
+                "Source plan rule: invalid department; supply a category and its target leaves."
+            )
+        leaves = source.get("leaves")
+        if not isinstance(leaves, list) or not all(
+            isinstance(leaf, str) and leaf.strip() for leaf in leaves
+        ):
+            raise ValueError(
+                "Source plan rule: leaves must be a list of taxonomy leaf names (empty keeps only base products)."
+            )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-root", type=Path, required=True)
@@ -320,7 +480,12 @@ def main() -> None:
         "--plan", type=Path, default=ROOT / "data/real-catalog-plan.json"
     )
     args = parser.parse_args()
-    prepare(args.source_root, args.output, json.loads(args.plan.read_text()))
+    prepare(
+        args.source_root,
+        args.output,
+        json.loads(args.plan.read_text()),
+        plan_dir=args.plan.resolve().parent,
+    )
 
 
 if __name__ == "__main__":

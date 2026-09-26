@@ -21,6 +21,7 @@ from service.models import (
     CatalogSuggestionsResponse,
     ProductDetail,
     ProductMedia,
+    ProductQuestion,
     ProductReview,
     ProductSummary,
     SearchFilters,
@@ -414,6 +415,20 @@ def get_product(product_id: int) -> ProductDetail:
             )
             for item in records
             if item["evidence_type"] == "customer_review"
+        ],
+        questions=[
+            ProductQuestion(
+                question_id=item["evidence_id"],
+                question=item["title"],
+                answer=item["text"]
+                .split("\n\nAnswer: ", 1)[-1]
+                .split("\n\nOther answers:", 1)[0],
+                other_answers=max(0, int(item.get("answers", 1)) - 1),
+                source_uri=item["source_reference"],
+                source_name=item["source_name"],
+            )
+            for item in records
+            if item["evidence_type"] == "product_qa"
         ],
     )
 

@@ -123,7 +123,8 @@ def test_no_shipped_source_or_doc_requests_the_dead_path():
     }
     offenders = []
     for path in list(ROOT.rglob("*.md")) + list(ROOT.rglob("*.py")):
-        if "node_modules" in path.parts or ".venv" in path.parts:
+        # Agent worktrees and local scratch are not shipped surfaces.
+        if {"node_modules", ".venv", ".claude", ".local"} & set(path.parts):
             continue
         if path in allowed:
             continue

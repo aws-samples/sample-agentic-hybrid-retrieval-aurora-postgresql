@@ -480,6 +480,21 @@ export function ProductPage() {
               </blockquote>
             )) : <p className="muted">No reviews are loaded for this sample product.</p>}
           </div>
+          {product.questions?.length ? (
+            <div className="review-list" aria-label="Questions buyers asked">
+              <p className="eyebrow">Questions buyers asked</p>
+              {product.questions.map((question) => (
+                <blockquote key={question.question_id}>
+                  <strong>{question.question}</strong>
+                  <p>{question.answer}</p>
+                  <cite>
+                    {question.source_name} · another customer&apos;s answer
+                    {question.other_answers > 0 ? ` · ${question.other_answers} more` : ""}
+                  </cite>
+                </blockquote>
+              ))}
+            </div>
+          ) : null}
         </section>
       ) : null}
 

@@ -119,6 +119,16 @@ export interface ProductReview {
   source_name: string;
 }
 
+/** A buyer question with the first community answer; answers are other customers' opinions. */
+export interface ProductQuestion {
+  question_id: number;
+  question: string;
+  answer: string;
+  other_answers: number;
+  source_uri: string;
+  source_name: string;
+}
+
 export interface ProductDetail extends ProductSummary {
   warranty_months?: number | null;
   shipping_days?: number | null;
@@ -128,6 +138,7 @@ export interface ProductDetail extends ProductSummary {
   updated_at: string;
   media: ProductMedia[];
   reviews: ProductReview[];
+  questions?: ProductQuestion[];
 }
 
 /**

@@ -1018,12 +1018,14 @@ for attempt in $(seq 1 60); do
   sleep 5
 done
 
-jq -e --arg dataset "$(jq -r '.corpus.dataset_id' "$REPO/data/evals/mosaic_labs_missions.json")" '
+jq -e --arg dataset "$(jq -r '.corpus.dataset_id' "$REPO/data/evals/mosaic_labs_missions.json")" \
+  --argjson products "$(jq '.products' "$REPO/db/config/real-catalog-cache.json")" '
   .status == "ready" and
   .database.dataset_id == $dataset and
   .database.database_name == "mosaic_catalog" and
-  .database.product_count == 500000 and
-  .database.embedded_product_count == 500000 and
+  .database.product_count == $products and
+  .database.embedded_product_count == $products and
+  .database.catalog_ready == true and
   .database.embedding_model_ids == ["us.cohere.embed-v4:0"]
 ' /tmp/readiness.json
 

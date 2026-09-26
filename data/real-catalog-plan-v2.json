@@ -1,0 +1,57 @@
+{
+  "version": 2,
+  "selection_seed": "mosaic-real-products-v1",
+  "minimum_source_text_characters": 160,
+  "maximum_embedding_characters": 32000,
+  "base": {
+    "dataset_id": "reviews-2023-500k-v1",
+    "catalog_sha256": "149563d3bc6b3b090bd49bb6c3eda583636d03aec5c9126add0df1a57447c9c6",
+    "parents_file": "real-catalog-base-parents-v1.tsv.gz",
+    "parents_sha256": "fe2fdb5d3345bfce87d314b137dcb6c12581554e73082db132703b4179338d3f",
+    "products": 500000
+  },
+  "sources": [
+    {
+      "category": "Office_Products",
+      "leaves": [
+        "Managerial & Executive Chairs",
+        "Task Chairs",
+        "Drafting Chairs",
+        "Guest & Reception Chairs",
+        "Stacking Chairs",
+        "Home Office Desk Chairs"
+      ]
+    },
+    {
+      "category": "Electronics",
+      "leaves": [
+        "Monitors",
+        "Gaming Monitors",
+        "Over-Ear Headphones",
+        "On-Ear Headphones",
+        "Earbud Headphones",
+        "Open-Ear Headphones",
+        "Headphones & Earbuds",
+        "Headphones",
+        "Computer Headsets",
+        "Bluetooth Headsets",
+        "Cell Phone Headsets",
+        "Headsets"
+      ]
+    },
+    {
+      "category": "Home_and_Kitchen",
+      "leaves": [
+        "Home Office Desk Chairs",
+        "Desk Chairs",
+        "Home Office Chairs",
+        "Task Chairs",
+        "Computer Gaming Chairs",
+        "Video Game Chairs",
+        "Gaming Chairs",
+        "Kneeling Chairs"
+      ]
+    }
+  ],
+  "notes": "Version 2 keeps every product of reviews-2023-500k-v1 (by identity, hash-pinned) and adds every eligible product whose taxonomy leaf is listed, so the lab categories are complete rather than sampled. Base products keep their physical ids; additions are numbered after them."
+}

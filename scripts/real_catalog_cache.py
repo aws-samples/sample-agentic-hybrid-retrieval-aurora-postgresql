@@ -61,15 +61,23 @@ def verify_selection(directory: Path) -> tuple[dict, list[Path]]:
     return selection, paths
 
 
-def export(directory: Path, reviews: list[Path], output: Path, dataset: str) -> dict:
+def export(
+    directory: Path,
+    reviews: list[Path],
+    output: Path,
+    dataset: str,
+    questions: Path | None = None,
+) -> dict:
     """Write a bounded allowlist, then bind its bytes to the source contract."""
+    from scripts.fetch_product_questions import verified_export
     from scripts.stage_catalog_evidence import verified_samples
 
     selection, paths = verify_selection(directory)
     review_counts = {}
     for path in reviews:
-        _, rows = verified_samples(path)
+        _, rows = verified_samples(path, refetch=False)
         review_counts[path.name] = len(rows)
+    question_count = len(verified_export(questions)["questions"]) if questions else 0
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".partial")
     with tarfile.open(temporary, "w:gz", compresslevel=1) as archive:
@@ -77,6 +85,8 @@ def export(directory: Path, reviews: list[Path], output: Path, dataset: str) -> 
             archive.add(path, arcname=str(path.relative_to(directory)), recursive=False)
         for path in reviews:
             archive.add(path, arcname="reviews/" + path.name, recursive=False)
+        if questions:
+            archive.add(questions, arcname="questions/questions.json", recursive=False)
     temporary.replace(output)
     return {
         "schema_version": 1,
@@ -90,6 +100,7 @@ def export(directory: Path, reviews: list[Path], output: Path, dataset: str) -> 
         "dimensions": 1024,
         "embedding_batches": len(paths) - 2,
         "review_samples": review_counts,
+        "question_samples": question_count,
         "distribution_status": "Prepared locally; public redistribution clearance remains an event-owner release requirement.",
     }
 
@@ -168,6 +179,10 @@ def unpack(path: Path, output: Path, contract: dict) -> None:
                         name.parts[0] == "reviews"
                         and name.name in contract["review_samples"]
                     )
+                    or (
+                        member.name == "questions/questions.json"
+                        and contract.get("question_samples", 0) > 0
+                    )
                 )
             )
             if (
@@ -182,7 +197,10 @@ def unpack(path: Path, output: Path, contract: dict) -> None:
                 )
             names.add(member.name)
         expected_count = (
-            2 + contract["embedding_batches"] + len(contract["review_samples"])
+            2
+            + contract["embedding_batches"]
+            + len(contract["review_samples"])
+            + (1 if contract.get("question_samples", 0) > 0 else 0)
         )
         if len(names) != expected_count or not {
             "selection.json",
@@ -199,8 +217,14 @@ def restore(directory: Path, contract: dict) -> dict:
     """Load verified records and saved vectors, then build the served projection."""
     import psycopg
 
+    from scripts.fetch_product_questions import load_questions, verified_export
     from scripts.prepare_live_catalog import prepare as prepare_live
-    from scripts.prepare_staged_catalog_search import prepare as prepare_search
+    from scripts.prepare_staged_catalog_search import (
+        base_ids_from_selection,
+    )
+    from scripts.prepare_staged_catalog_search import (
+        prepare as prepare_search,
+    )
     from scripts.stage_catalog_evidence import import_samples
     from scripts.stage_real_catalog import (
         initialize,
@@ -233,6 +257,14 @@ def restore(directory: Path, contract: dict) -> dict:
         for row in state["reviews"]:
             verify_review(row)
         samples.append((category, state))
+    questions = None
+    if contract.get("question_samples", 0) > 0:
+        questions = verified_export(directory / "questions" / "questions.json")
+        if len(questions["questions"]) != contract["question_samples"]:
+            raise ValueError(
+                "Real cache question rule: questions.json changed; restore the pinned export."
+            )
+    base_ids = base_ids_from_selection(selection, ROOT / "data")
     dsn = os.environ.get("DATABASE_URL", "")
     validate_dsn(dsn)
     dataset = contract["dataset_id"]
@@ -247,10 +279,12 @@ def restore(directory: Path, contract: dict) -> dict:
             raise ValueError(
                 f"Real cache restore rule: incomplete import {report}; resume the pinned import."
             )
-        prepare_search(connection, dataset)
+        prepare_search(connection, dataset, base_ids)
         prepare_live(connection, dataset)
         for category, state in samples:
             import_samples(connection, dataset, state, state["reviews"], category)
+        if questions is not None:
+            load_questions(connection, dataset, questions)
         connection.commit()
     return report
 
@@ -264,13 +298,16 @@ def main() -> None:
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--selection", type=Path)
     parser.add_argument("--reviews", type=Path, nargs="*", default=[])
+    parser.add_argument("--questions", type=Path, help="questions.json export (export)")
     parser.add_argument("--contract", type=Path, default=CONTRACT)
     parser.add_argument("--dataset-id")
     args = parser.parse_args()
     if args.action == "export":
         if not args.selection or not args.dataset_id:
             parser.error("export requires --selection and --dataset-id")
-        contract = export(args.selection, args.reviews, args.archive, args.dataset_id)
+        contract = export(
+            args.selection, args.reviews, args.archive, args.dataset_id, args.questions
+        )
         args.contract.write_text(json.dumps(contract, indent=2) + "\n")
     elif args.action == "split":
         contract = json.loads(args.contract.read_text())
