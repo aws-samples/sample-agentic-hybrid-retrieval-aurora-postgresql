@@ -21,8 +21,13 @@ def verify(client: httpx.Client, memory_id: str) -> None:
     def request(method: str, path: str, **kwargs) -> dict:
         response = client.request(method, "/api/session-memory" + path, **kwargs)
         if response.is_error:
+            fix = (
+                "check session initialization, cookie transport and request identity"
+                if response.status_code == 409
+                else "check API logs and the runtime role's Memory permissions"
+            )
             raise RuntimeError(
-                f"Memory acceptance: {method} {path} returned {response.status_code}; check API logs and the runtime role's Memory permissions."
+                f"Memory acceptance: {method} {path} returned {response.status_code}; {fix}."
             )
         return response.json() if response.content else {}
 

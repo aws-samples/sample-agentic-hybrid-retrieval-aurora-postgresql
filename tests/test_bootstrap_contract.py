@@ -724,3 +724,33 @@ def test_bootstrap_prepares_the_participant_image_builder(script: str) -> None:
     assert 'usermod -aG wheel,docker "$CODE_EDITOR_USER"' in script
     assert "MOSAIC_RUNTIME_IMAGE_REPOSITORY" in script
     assert "MOSAIC_RUNTIME_CODE_BUCKET" not in script
+
+
+@pytest.mark.parametrize("curl_status", [0, 22])
+def test_failure_marker_requires_an_acknowledged_signal(script, tmp_path, curl_status):
+    import subprocess
+
+    marker = tmp_path / "failure-signalled"
+    handler = re.search(
+        r"^signal_failure\(\) \{[\s\S]*?^\}", script, re.MULTILINE
+    ).group()
+    handler = handler.replace("/run/mosaic-bootstrap-failure-signalled", str(marker))
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            f"""
+set -Eeuo pipefail
+BOOTSTRAP_WAIT_HANDLE=https://example.invalid
+failure_reason() {{ printf 'Memory acceptance failed'; }}
+curl() {{ return {curl_status}; }}
+{handler}
+signal_failure 17
+""",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 17
+    assert marker.exists() is (curl_status == 0)

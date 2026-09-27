@@ -59,10 +59,13 @@ signal_failure() {
   rc="$1"
   trap - ERR
   if [[ -n "${BOOTSTRAP_WAIT_HANDLE:-}" ]]; then
-    curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
+    if curl --silent --show-error --fail -X PUT -H 'Content-Type:' \
       --data-binary \
       "{\"Status\":\"FAILURE\",\"Reason\":\"$(failure_reason)\",\"UniqueId\":\"userdata\",\"Data\":\"failed\"}" \
-      "$BOOTSTRAP_WAIT_HANDLE" || true
+      "$BOOTSTRAP_WAIT_HANDLE"; then
+      # The UserData trap must not overwrite this redacted cause with its loader fallback.
+      touch /run/mosaic-bootstrap-failure-signalled || true
+    fi
   else
     echo "Mosaic bootstrap cannot signal failure: BOOTSTRAP_WAIT_HANDLE is unset"
   fi
@@ -1175,11 +1178,12 @@ jq -e '
   all(.results[]; .product_id != 1277987)
 ' /tmp/lab1-broken-proof.json
 
-# Exercise the API under its runtime role, including writes, reads and all four
-# strategy namespaces. A control-plane ACTIVE status alone cannot prove access.
+# Use the authenticated loopback API: nginx marks requests as HTTPS for the
+# CloudFront viewer, so its Secure cookie cannot round-trip over loopback HTTP.
+# The proxy's readiness and origin-secret checks above still exercise ingress.
 (cd "$REPO" && MOSAIC_ORIGIN_VERIFY_SECRET="$ORIGIN_VERIFY_SECRET" \
   .venv/bin/python scripts/verify_session_memory.py \
-    --api http://127.0.0.1:8081 --memory-id "$MOSAIC_AGENTCORE_MEMORY_ID")
+    --api http://127.0.0.1:8000 --memory-id "$MOSAIC_AGENTCORE_MEMORY_ID")
 
 printf '\n=== MOSAIC BOOTSTRAP GREEN ===\n'
 jq -r '"  products            \(.database.product_count)
