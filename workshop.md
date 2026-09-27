@@ -67,6 +67,12 @@ The Explorer keeps `ui`, `service`, `db`, `scripts`, `labs`, `skills` and the
 repository steering files visible. Generated files and instructor answer sheets
 are hidden. The terminal stays available without a busy-task spinner.
 
+The source checkout's one-line `CLAUDE.md` imports `AGENTS.md`. That project
+guidance gives the coding coach the participant lab map, apply/deploy and proof
+commands, exercise boundaries and environment troubleshooting. Invite participants
+to share their current lab and saved result and ask for a hint. The coach should
+preserve their diagnosis and written explanation.
+
 ### The spoken opening
 
 > Alex works from home. He needs headphones for clearer calls, a chair for long days,

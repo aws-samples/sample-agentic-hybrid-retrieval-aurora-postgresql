@@ -93,24 +93,24 @@ Mosaic configures no exporter in application code. If the flag is false or no
 recording OpenTelemetry provider is installed, the adapter is a no-op and
 Aurora telemetry continues unchanged.
 
-## AgentCore remains layered and optional
+## Managed deployment and optional tracing
 
-1. **Observability:** supported first. Mosaic stays in its current deployment;
-   the same aggregate spans can appear in CloudWatch GenAI Observability.
-2. **Evaluations:** optional after approved content capture. Mosaic keeps
-   Recall/MRR/nDCG, citation, and authorization assertions deterministic and
-   Aurora-owned.
-3. **Gateway:** optional projection of existing OpenAPI/MCP tools. It does not
-   own retrieval logic or authorization. The boundary is written out in
-   [`mcp-interoperability.md`](mcp-interoperability.md) under "The gate is not
-   the guard".
-4. **Runtime:** optional later. Moving the agent loop does not move the evidence
-   ledger or change the telemetry contract. The container and the contract
-   adapter are in `deploy/agentcore/`; the configuration is documented in
-   [`agentcore-runtime.md`](agentcore-runtime.md).
+Runtime and Gateway are required for the workshop's Lab 3; see
+[the managed agent](agentcore-runtime.md). Aurora remains the evidence ledger.
+The optional telemetry exporter does not replace participant lab proofs.
 
-No AgentCore resource is required or deployed by the workshop. Treat this as
-an “observe anywhere” epilogue, not a fourth lab.
+Gateway tracing requires account-level **CloudWatch Transaction Search** and
+Gateway trace delivery to be configured. The workshop currently configures
+neither. A working Gateway call or an Aurora receipt is not evidence that a
+CloudWatch trace was delivered. Follow the official
+[AgentCore observability setup](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability-configure.html)
+when adding this optional operator capability, and verify actual spans before
+claiming it works. The Runtime execution role's `logs:PutResourcePolicy` grant
+allows its log policy setup; it does not itself enable Transaction Search.
+
+Managed evaluations remain optional and need approved content capture; Mosaic's
+retrieval and citation assertions remain Aurora-owned. Do not enable content
+export merely to complete a required lab.
 
 ## Workshop Studio release guard
 

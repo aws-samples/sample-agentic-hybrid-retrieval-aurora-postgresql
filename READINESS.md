@@ -80,20 +80,18 @@ are covered by the offline suite (`tests/test_lab_checks.py`,
 
 ## Optional Vector index at scale lens
 
-The committed HNSW measurements describe a historical catalog. They do not
-certify the 553,911-product real catalog. The service withholds the historical
-instrument when the selected catalog is incompatible and explains the reason.
-Semantic retrieval and the required labs still use the real catalog's HNSW
-index. Re-enabling the optional instrument requires compatible real anchors,
-filter presets, exact-neighbour ground truth and fresh measurements; see
-[the benchmark methodology](docs/benchmark-methodology.md).
+The committed HNSW anchors and measurements now describe the selected real
+`reviews-2023-v2` catalog. The service checks corpus and artifact compatibility
+before serving the instrument. These measurements cover the recorded anchor set
+and conditions; they do not establish relevance quality or a performance promise
+for another Aurora instance. See [the methodology](docs/benchmark-methodology.md).
 
 ## Optional flex-time beats
 
 None of these sits on the required participant path. AgentCore Memory is
 provisioned and connected by the workshop stack; its exercise remains optional.
-The other extensions below do not deploy AgentCore resources. Removing any of them leaves the three
-labs, the completion gate, and the scorecard untouched.
+Runtime and Gateway are required by Lab 3; observability export and the
+extensions below do not add a required lab.
 
 - **AgentCore Memory** uses four built-in strategies: semantic facts, user
   preferences, session summaries and episodes with actor-scoped reflections.
@@ -101,10 +99,10 @@ labs, the completion gate, and the scorecard untouched.
   strategies and namespaces. Bootstrap's `scripts/verify_session_memory.py`
   checks event storage, strategy reads, recall and actor isolation through the
   runtime API. Extraction and a memory-assisted answer still need a live rehearsal.
-- **The Gateway appendix** in `docs/mcp-interoperability.md` ("The gate is not
-  the guard") is documentation. `scripts/tool_contracts.py --check` proves the
-  portable boundary that exists locally; no gate here proves a deployed
-  Amazon Bedrock AgentCore Gateway, and none claims one.
+- **Gateway documentation** in `docs/mcp-interoperability.md` explains why
+  transport authentication does not replace the application authorization boundary.
+  `scripts/tool_contracts.py --check` checks local contracts;
+  `make verify-agent` exercises the deployed Gateway and Aurora tools.
 - **AgentCore Observability** (`service/telemetry.py`,
   `service/telemetry_contract.py`, `docs/telemetry-contract.md`) is off unless
   an operator installs the optional `agentcore-observability` extra and sets
@@ -112,16 +110,11 @@ labs, the completion gate, and the scorecard untouched.
   covers the projection's shape, its default-off behavior, and its content
   exclusions offline. Whether spans arrive in an operator's own collector or in
   CloudWatch is **PENDING RUNTIME VERIFICATION**.
-- **AgentCore Runtime** (`deploy/agentcore/`, `docs/agentcore-runtime.md`)
-  ships a container and a two-route adapter (`GET /ping`, `POST /invocations`)
-  that mounts the service whole. On 17 September 2026 the ARM64 image built and
-  ran locally against Aurora and Bedrock: health, readiness, public downloads,
-  and a grounded invocation passed. This verifies the packaged process; a
-  managed Runtime endpoint has not been deployed from this repository. A
-  pre-provisioned endpoint in an event account is a facilitator call-out, not a
-  participant step, and no lab depends on it. Managed routing, the execution
-  role, and VPC attachment remain **PENDING RUNTIME VERIFICATION** until an
-  endpoint is deployed and rehearsed.
+- **Managed Runtime and Gateway** are required, provisioned resources for Lab 3,
+  documented in `docs/agentcore-runtime.md`. The 26 September test event restored
+  Aurora successfully but its tools Runtime failed in an unsupported physical AZ.
+  Fresh-account acceptance of the provisioning corrections is still owed; offline
+  contracts do not establish successful VPC attachment, deployed tools or answers.
 - **Postgres 18 facts** (`docs/postgres-18.md`) records the engine and
   extension versions the connected cluster reports and what this pipeline uses.
   It makes no version-to-version performance claim, and none may be added until

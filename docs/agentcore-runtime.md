@@ -18,6 +18,23 @@ ownership, the tool budget and citation checks. Amazon Bedrock supplies Cohere
 Embed v4, Cohere Rerank 3.5 and Claude Sonnet 5. AgentCore Memory provides semantic
 facts, preferences, summaries and episodes. See [conversation memory](session-memory.md).
 
+## Gateway authentication and tracing
+
+`service/gateway_tools.py` sends MCP JSON-RPC calls signed with botocore SigV4
+and refreshed execution-role credentials. The supplied Strands tool adapters
+preserve retrieval scope and validate the deployed source digest. Mosaic does
+not need an additional proxy process to authenticate these calls.
+
+For a generic Strands MCP client, the official
+[Strands IAM transport](https://strandsagents.com/docs/user-guide/concepts/tools/mcp-tools/)
+uses `mcp-proxy-for-aws`. Adopting that transport here would require preserving
+Mosaic's source, evidence and authorization checks; it is not a participant
+installation step or a fix for unsupported VPC zones.
+
+Gateway tracing is a separate operator feature. It requires CloudWatch
+Transaction Search and resource trace delivery; the current workshop proves lab
+behavior through Aurora receipts. See [the telemetry contract](telemetry-contract.md).
+
 ## Workshop deployment
 
 The Workshop Studio stack creates the code bucket, two runtimes, Gateway target,

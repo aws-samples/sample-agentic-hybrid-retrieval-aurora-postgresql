@@ -641,6 +641,8 @@ cat >"/home/$CODE_EDITOR_USER/.claude/CLAUDE.md" <<'EOF'
 
 Help the participant diagnose and repair one controlled retrieval
 defect at a time. Explain the observed mechanism before editing.
+Read AGENTS.md in the project checkout for the current lab map,
+commands and proof boundaries. Follow the Workshop Studio lab guide.
 
 ## Safety boundaries
 
@@ -659,12 +661,16 @@ defect at a time. Explain the observed mechanism before editing.
 - Change only the current marked LAB1, LAB2, or LAB3 seam and make
   the smallest possible diff.
 - Do not edit unrelated files, retrieval limits, weights, thresholds,
-  model IDs, indexes, prompts, or tool schemas.
+  model IDs, indexes, shared prompts, or tool schemas. Lab 3 permits
+  the guide's additional instruction inside the marked agent block;
+  preserve the supplied source rules and execution hooks.
 - Do not run uv run python scripts/lab_state.py solution --lab N
   unless the participant explicitly asks for the full recovery path.
-- After editing, run git diff --check, apply SQL changes directly
-  with psql, repeat the identical request, and run the lab-specific
-  uv production validator shown in the guide.
+- After editing, run git diff --check. In Labs 1 and 2, apply SQL changes directly
+  with psql or make db-apply-search-functions, repeat the identical request,
+  and run the lab-specific uv production validator shown in the guide.
+  In Lab 3, run make deploy-agent and use the participant's saved run
+  with make complete-lab-3 RUN_ID=<your-run-id> as the guide describes.
 - If Aurora, Bedrock, the API, or the storefront is unhealthy, stop
   and identify it as an environment failure rather than changing code
   to work around it.

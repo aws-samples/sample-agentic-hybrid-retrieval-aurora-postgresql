@@ -9,6 +9,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from urllib.parse import quote, quote_plus
 
 import boto3
 from botocore.config import Config
@@ -18,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from scripts.package_agentcore import package
+from scripts.rehearsal import redact
 from service import agentcore_transport, gateway_tools
 from service.lab_validation_receipt import source_digest
 
@@ -119,24 +121,49 @@ def discover() -> dict[str, str]:
         "MosaicGateway": "MOSAIC_AGENTCORE_GATEWAY_ID",
         "MosaicGatewayTarget": "MOSAIC_AGENTCORE_GATEWAY_TARGET_ID",
     }
+    paginator = cfn.get_paginator("list_stack_resources")
     deadline = time.monotonic() + 1200
     while time.monotonic() < deadline:
         values = {}
-        try:
-            for resource, setting in logical.items():
-                row = cfn.describe_stack_resource(
-                    StackName=stack, LogicalResourceId=resource
-                )["StackResourceDetail"]
-                if row.get("ResourceStatus") not in {
-                    "CREATE_COMPLETE",
-                    "UPDATE_COMPLETE",
-                }:
-                    break
-                values[setting] = row["PhysicalResourceId"]
-            if len(values) == len(logical):
-                values["MOSAIC_AGENTCORE_GATEWAY_TARGET_ID"] = values[
-                    "MOSAIC_AGENTCORE_GATEWAY_TARGET_ID"
-                ].split("|")[-1]
+        # Agent creation waits on Gateway and the tools Runtime. Polling the
+        # missing agent first used to conceal a failed tools dependency.
+        for page in paginator.paginate(StackName=stack):
+            for row in page["StackResourceSummaries"]:
+                resource = row["LogicalResourceId"]
+                if resource not in logical:
+                    continue
+                status = row["ResourceStatus"]
+                if (
+                    "FAILED" in status
+                    or "ROLLBACK" in status
+                    or status.startswith("DELETE_")
+                ):
+                    reason = redact(
+                        row.get("ResourceStatusReason", "No reason supplied")
+                    )
+                    for name, value in os.environ.items():
+                        if value and any(
+                            part in name
+                            for part in ("PASSWORD", "SECRET", "TOKEN", "DATABASE_URL")
+                        ):
+                            for variant in (
+                                value,
+                                quote(value, safe=""),
+                                quote_plus(value),
+                            ):
+                                reason = reason.replace(variant, "[REDACTED]")
+                    reason = " ".join(reason.split())[:800]
+                    raise RuntimeError(
+                        f"Managed provisioning rule: {resource} is {status}: {reason}; "
+                        "fix: correct this resource in the workshop template and retry provisioning."
+                    )
+                if status in {"CREATE_COMPLETE", "UPDATE_COMPLETE"}:
+                    values[logical[resource]] = row["PhysicalResourceId"]
+        if len(values) == len(logical):
+            values["MOSAIC_AGENTCORE_GATEWAY_TARGET_ID"] = values[
+                "MOSAIC_AGENTCORE_GATEWAY_TARGET_ID"
+            ].split("|")[-1]
+            try:
                 gateway = control.get_gateway(
                     gatewayIdentifier=values["MOSAIC_AGENTCORE_GATEWAY_ID"]
                 )
@@ -148,15 +175,13 @@ def discover() -> dict[str, str]:
                     runtime = wait_runtime(control, values[name].rsplit("/", 1)[-1])
                     values[name] = runtime["agentRuntimeArn"]
                 return values
-        except ClientError as error:
-            # The EC2 CreationPolicy is already satisfied, so Runtime creation
-            # and the policy attaching its exact ARNs finish asynchronously.
-            if error.response["Error"]["Code"] not in {
-                "ValidationError",
-                "ResourceNotFoundException",
-                "AccessDeniedException",
-            }:
-                raise
+            except (
+                control.exceptions.ResourceNotFoundException,
+                control.exceptions.AccessDeniedException,
+            ):
+                # The policy containing the newly created ARNs attaches
+                # asynchronously. CFN listing itself must already be permitted.
+                pass
         time.sleep(5)
     raise TimeoutError(
         "Managed resources did not finish provisioning; inspect the workshop stack events."
