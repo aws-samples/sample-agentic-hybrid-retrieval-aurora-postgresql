@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, ValidationError
 
 from service.models import EvidenceRecord, ProductSummary
 
@@ -30,6 +30,13 @@ class Answerability(BaseModel):
         "insufficient_evidence",
     ]
     products: list[ProductSupport] = Field(min_length=1)
+    # Short phrases in the shopper's words, such as "90W laptop charging". A
+    # decline names them so the shopper learns what the sources leave open.
+    unmet_requirements: list[
+        Annotated[
+            str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)
+        ]
+    ] = Field(default_factory=list, max_length=3)
 
 
 class AnswerabilityError(ValueError):
@@ -110,6 +117,22 @@ affirming an unproven property. A request to choose a product whose reviews prov
 a specific benefit still requires those reviews. Device compatibility and other
 required relationships still need explicit evidence as described above.
 Ordinary preferences need relevant evidence, not identical wording.
+A yes/no question about whether a named product has a stated capability, such as
+"Does the X charge a laptop at 90W?", is a product-fact question, not a request
+to affirm compatibility. When the identified product's evidence is supplied, set
+request_supported true and reason supported: the permitted answer reports what
+the sources state and says plainly when the asked-for capability is not stated.
+
+The input may list unverifiable_requirements: requirements these sources cannot
+check at all, such as a current price or stock. They are never grounds to
+decline. Judge the rest of the request; the application tells the shopper those
+requirements need checking in the original listing.
+
+When request_supported is false, list in unmet_requirements up to three short
+phrases, in the shopper's words, naming what the evidence does not establish
+(for example "90W laptop charging"). Each phrase names a requirement from the
+request, never a product, brand, review or source. Leave it empty when the
+request is supported.
 
 Return one products entry for every supplied product_id, exactly once. For each
 supported product, cite evidence_ids belonging to that product which establish
@@ -128,6 +151,7 @@ def assess_answerability(
     *,
     client: Any,
     model_id: str,
+    unverifiable: Sequence[str] = (),
 ) -> tuple[Answerability, dict[str, Any]]:
     """Require a complete semantic review and independently verify its scope.
 
@@ -137,6 +161,8 @@ def assess_answerability(
         evidence: Fresh evidence belonging to those products.
         client: Configured Bedrock runtime client.
         model_id: Configured synthesis model used for this separate review.
+        unverifiable: Requirements the active catalog cannot check, such as a
+            current price; the review must not decline because of them.
 
     Returns:
         A validated support decision and the review's token usage.
@@ -157,6 +183,11 @@ def assess_answerability(
                         "text": json.dumps(
                             {
                                 "question": question,
+                                **(
+                                    {"unverifiable_requirements": list(unverifiable)}
+                                    if unverifiable
+                                    else {}
+                                ),
                                 "products": [
                                     p.model_dump(mode="json", exclude={"signals"})
                                     for p in products

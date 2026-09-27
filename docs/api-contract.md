@@ -255,7 +255,20 @@ absence and names the terms, `recommendations` and `citations` are empty, and
 A separate source review can also decline with `unsupported_requirements`,
 `insufficient_evidence`, or `unrelated_request`. A run without a supported product
 answer uses `no_supported_catalog_answer`. The interface explains each reason without
-labeling it a missing catalog term. Informational questions about specs and
+labeling it a missing catalog term. When the review names what the sources do not
+establish (at most three short phrases, such as "90W laptop charging"), the declined
+answer lists them. A yes/no question about a named product's capability is a
+product-fact question: the answer reports what the sources state and says when the
+asked-for capability is not stated.
+
+**Requirements the catalog cannot check.** The original-listing catalog records no
+current price, stock or availability. An agent search that asks for a price range,
+`in_stock_only` or an `availability` value runs without that limit, adds a
+"Not applied" line to `diagnostics.warnings`, and records the requirement in its
+trace arguments as `unverified_limits`. The source review may not decline because
+of it, and every answer of record for the turn, including a declined one, ends with a
+fixed sentence saying the requirement could not be checked and should be confirmed in
+the original listing. On a catalog that records offers, these filters apply as before. Informational questions about specs and
 reviews may explain available facts and missing review excerpts; they must not
 invent reviews or endorse an unproven requirement. Ratings and review counts do
 not stand in for review text. Device compatibility still requires explicit

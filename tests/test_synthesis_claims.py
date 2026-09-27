@@ -11,7 +11,7 @@ from __future__ import annotations
 import pytest
 
 from service.models import EvidenceRecord, ProductSummary
-from service.synthesis import SynthesisOutputError, _validated_output
+from service.synthesis import SynthesisOutputError, _validated_output, reference_name
 
 BATTERY_EVIDENCE = "Battery life 48 hours of playback on a single charge."
 RATING_EVIDENCE = "Weight 68 grams. Water rating IP55."
@@ -357,3 +357,180 @@ def test_unique_brand_subject_does_not_inherit_the_previous_products_claims():
             records,
             [chair, monitor],
         )
+
+
+def _two_listings():
+    first = product(
+        product_id=1,
+        title="Dell UltraSharp U2720Q 27 Inch 4K UHD USB-C Monitor",
+        brand="Dell",
+        model="DELU2720Q",
+    )
+    second = product(
+        product_id=2,
+        title='Dell UltraSharp 27" 4K UHD USB-C Monitor - U2720Q-Black',
+        brand="Dell",
+        model="UltraSharp",
+    )
+    # Specification evidence carries the source listing title, as in production.
+    records = [
+        evidence("USB-C connectivity. 3840 x 2160 resolution.", title=first.title),
+        EvidenceRecord(
+            evidence_id=2,
+            product_id=2,
+            evidence_type="specification",
+            source_name="Dell",
+            source_uri="https://example.invalid/spec-2",
+            revision="r1",
+            title=second.title,
+            text="USB-C with up to 90W of power delivery.",
+        ),
+    ]
+    return [first, second], records
+
+
+def test_a_name_shared_by_two_listings_is_satisfied_by_either_citation():
+    products, records = _two_listings()
+    validate(
+        # "UltraSharp" is one listing's model and a word in the other's title.
+        "The UltraSharp listing specifies USB-C connectivity [1]. "
+        'The Dell UltraSharp 27" states up to 90W of power delivery [2].',
+        records,
+        products,
+    )
+
+
+def test_a_name_unique_to_one_listing_still_needs_that_listings_citation():
+    products, records = _two_listings()
+    with pytest.raises(SynthesisOutputError, match="naming product 2"):
+        validate(
+            'The Dell UltraSharp 27" 4K UHD USB-C Monitor - U2720Q-Black specifies '
+            "USB-C connectivity [1]. The other listing states up to 90W of power "
+            "delivery [2].",
+            records,
+            products,
+        )
+
+
+@pytest.mark.parametrize(
+    "title,brand,model,expected",
+    [
+        (
+            "JK CCH-001 Noise Cancelling Call Center Headset For Cisco IP Phones",
+            "",
+            "",
+            "JK CCH-001",
+        ),
+        (
+            "Bose QuietComfort 35 (Series II) Wireless Headphones",
+            "Bose",
+            "",
+            "Bose QuietComfort 35",
+        ),
+        (
+            "Sony WH-1000XM4 Wireless Premium Noise Canceling Headphones",
+            "Sony",
+            "WH1000XM4",
+            "Sony WH-1000XM4",
+        ),
+        (
+            "Steelcase Gesture Office Chair, Licorice",
+            "Steelcase",
+            "",
+            "Steelcase Gesture Office Chair",
+        ),
+        (
+            "VELKPRO Wireless Headset with Microphone - Noise Canceling Headphones",
+            "VELKPRO",
+            "VPO-NC",
+            "VELKPRO Wireless Headset",
+        ),
+        (
+            "Howtai Ergonomic Office Chair with Lumbar Support Durable Mesh Computer Desk",
+            "Howtai",
+            "",
+            "Howtai Ergonomic Office Chair",
+        ),
+        (
+            "Bang & Olufsen Beoplay Portal Gaming Headset with Microphone",
+            "Bang & Olufsen",
+            "",
+            "Bang & Olufsen Beoplay Portal",
+        ),
+        # No brand and no model code: a shortened generic phrase would match
+        # ordinary prose, so the full title stays the reference.
+        (
+            "Noise Cancelling Headphones, Wireless Bluetooth Over Ear",
+            "",
+            "",
+            "Noise Cancelling Headphones, Wireless Bluetooth Over Ear",
+        ),
+    ],
+)
+def test_each_product_gets_a_short_reference_name_from_its_own_title(
+    title, brand, model, expected
+):
+    assert reference_name(product(title=title, brand=brand, model=model)) == expected
+
+
+def test_a_short_title_name_is_recognized_as_that_product():
+    """Listings without a brand or model were only recognized by their full title.
+
+    A draft that named "JK CCH-001" was scoped to the previous sentence's product
+    and its "001" was checked as a measurement, so every redraft failed.
+    """
+    velkpro = product(
+        product_id=1,
+        title="VELKPRO Wireless Headset with Microphone - Noise Canceling Headphones",
+        brand="VELKPRO",
+        model="VPO-NC",
+    )
+    jk = product(
+        product_id=2,
+        title="JK CCH-001 Noise Cancelling Call Center Headset For Cisco IP Phones",
+        brand="",
+        model="",
+    )
+    records = [
+        evidence(
+            "Wireless headset with a noise canceling microphone.", title=velkpro.title
+        ),
+        EvidenceRecord(
+            evidence_id=2,
+            product_id=2,
+            evidence_type="specification",
+            source_name="JK",
+            source_uri="https://example.invalid/jk",
+            revision="r1",
+            title=jk.title,
+            text="Wired call center headset with a noise cancelling microphone.",
+        ),
+    ]
+    validate(
+        "The VELKPRO Wireless Headset with Microphone has a noise canceling microphone [1].\n"
+        "- JK CCH-001: a wired call center headset with a noise cancelling microphone [2].",
+        records,
+        [velkpro, jk],
+    )
+
+
+def test_an_uncited_product_sentence_is_named_so_the_redraft_can_fix_it():
+    """A redraft only saw "does not cite evidence", so it kept the same sentence."""
+    uncited = "The sources do not state a charging wattage for AuriLogic Flight ANC."
+    with pytest.raises(SynthesisOutputError) as raised:
+        validate(
+            f"{uncited} AuriLogic Flight ANC has 48 hours of battery life [1].",
+            [evidence(BATTERY_EVIDENCE)],
+        )
+    assert uncited in str(raised.value)
+    assert "even when it says a source does not state something" in str(raised.value)
+
+
+def test_a_rejected_number_tells_the_redraft_how_to_state_its_absence():
+    """Redrafts kept writing "no figure such as 90W is given" until synthesis failed."""
+    with pytest.raises(SynthesisOutputError) as raised:
+        validate(
+            "AuriLogic Flight ANC lists no charging figure such as 90W [1].",
+            [evidence(BATTERY_EVIDENCE)],
+        )
+    assert "say so without writing the number" in str(raised.value)

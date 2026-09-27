@@ -239,7 +239,7 @@ def test_both_finalizers_bind_original_intent_and_drop_cards(monkeypatch, fallba
     )
     witnessed = []
 
-    def reviewed(question, products, records):
+    def reviewed(question, products, records, **_):
         witnessed.append(json.loads(question))
         raise SynthesisDeclined(
             Answerability.model_validate(
@@ -422,4 +422,4 @@ def test_json_transport_envelopes_preserve_decision_and_scope(envelope, fault):
             client=client,
             model_id="test",
         )
-        assert review.model_dump() == decision()
+        assert review.model_dump() == {**decision(), "unmet_requirements": []}

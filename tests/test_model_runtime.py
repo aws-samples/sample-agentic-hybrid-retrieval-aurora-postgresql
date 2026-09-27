@@ -779,7 +779,7 @@ def test_agent_finalizes_retrieved_products_when_orchestration_stops(monkeypatch
     monkeypatch.setattr(
         agent_tools,
         "synthesize_answer",
-        lambda *_args: (
+        lambda *_args, **_kwargs: (
             "Choose the quiet option [1].",
             [citation()],
             {"totalTokens": 42},
@@ -1203,7 +1203,7 @@ def test_focused_followup_synthesis_does_not_require_a_ranking_replay(
     monkeypatch.setattr(
         agent_tools,
         "synthesize_answer",
-        lambda *_args: (
+        lambda *_args, **_kwargs: (
             "Choose the lower-priced option [1][2].",
             [
                 citation(),

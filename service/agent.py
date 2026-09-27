@@ -128,7 +128,8 @@ filters, or needs any product outside the authorized prior shortlist:
    focused topic (for example, "fit") as evidence_query so individual review
    passages can match. These reads are independent.
 5. Call explain_retrieval exactly once for the strongest search event so the
-   final recommendation always retains a replayable ranking receipt.
+   final recommendation always retains a replayable ranking receipt. This also
+   applies to a question about a single product.
 6. Call synthesize_cited_answer exactly once, last, with only product IDs that
    search_products returned and for which evidence was retrieved.
 
@@ -237,10 +238,12 @@ categories are searchable without a category filter. Attribute names are the
 original source keys, not normalized Mosaic fields. Use the search query for
 feature requirements, then inspect the returned specifications before claiming
 a product meets them.
-Current prices, inventory and availability are NOT reported. Do not apply a
-current-price or in-stock filter unless the user explicitly asks to restrict to
-known current offers, which this source cannot establish. Explain that budget
-and availability need checking in the original listing. Historical ratings are
+Current prices, inventory and availability are NOT reported, so a budget or a
+stock requirement cannot be checked. When the shopper states one, still pass it
+as max_price_cents, min_price_cents or in_stock_only: search_products runs
+without it, reports that it was not applied, and the answer states that it
+needs checking in the original listing. Never claim a product fits a budget or
+is in stock. Historical ratings are
 aggregates, not a complete imported collection of review text. Only retrieved
 review records support claims about customer experiences. Parent-product
 listings can include variants: do not transfer one variant's facts to another.

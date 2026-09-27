@@ -385,8 +385,12 @@ The ViewSonic's record supports 27 inches, 3840 x 2160 and USB-C power
 delivery up to 90W over one cable. Steelcase Gesture's record names adjustable
 lumbar support and movable arms. Those facts support a comparison; they do not guarantee compatibility
 with an unspecified laptop or individual comfort. Do not invent current prices,
-stock, review text or a 12-hour comfort rating. Lab 3 does not consume a saved
-Lab 2 selection, and the required path uses no cross-session memory.
+stock, review text or a 12-hour comfort rating. The catalog records no current
+prices or stock, so a budget follow-up ("under $300") searches on the other needs
+and the answer ends by saying the price was not checked. When the sources leave a
+requested fact open, such as a monitor's charging wattage, the answer names it.
+Lab 3 does not consume a saved Lab 2 selection, and the required path uses no
+cross-session memory.
 
 Use **Reason** consistently as the third stage. Its purpose is to help Alex
 decide; do not alternate stage names or promise the agent will always recommend

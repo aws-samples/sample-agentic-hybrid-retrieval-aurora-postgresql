@@ -18,7 +18,7 @@ from service import gateway_tools
 from service.agent_setup import AgentSetupError
 from service.answerability import SynthesisDeclined
 from service.catalog import get_product_evidence_records, get_product_summaries
-from service.catalog_runtime import search_schema
+from service.catalog_runtime import active_dataset, search_schema
 from service.config import get_settings
 from service.coverage import decline_note, decline_reason
 from service.db import connect
@@ -36,7 +36,11 @@ from service.models import (
 )
 from service.retrieval import get_retrieval_service, signals_from_receipt
 from service.retrieval_fingerprint import explain
-from service.synthesis import SynthesisOutputError, recommendations_in_answer_order
+from service.synthesis import (
+    SynthesisOutputError,
+    recommendations_in_answer_order,
+    with_unverifiable_note,
+)
 from service.synthesis import synthesize_cited_answer as synthesize_answer
 from service.telemetry import search_with_telemetry
 
@@ -583,6 +587,54 @@ def _merge_search_filters(
     )
 
 
+def _money(cents: int) -> str:
+    return f"${cents / 100:,.2f}"
+
+
+def _unverifiable_limits(filters: SearchFilters) -> tuple[SearchFilters, list[str]]:
+    """Separate limits the active catalog cannot evaluate from the searchable filters.
+
+    The original-listing catalog records no current price, stock or
+    availability. Applying such a limit would return nothing and read as "no
+    product matches"; the search runs without it and the requirement is
+    reported so the answer can say it was not checked.
+    """
+    if not active_dataset():
+        return filters, []
+    requirements = []
+    low, high = filters.min_price_cents, filters.max_price_cents
+    if low is not None and high is not None:
+        requirements.append(f"a price between {_money(low)} and {_money(high)}")
+    elif high is not None:
+        requirements.append(f"a price of at most {_money(high)}")
+    elif low is not None:
+        requirements.append(f"a price of at least {_money(low)}")
+    if filters.in_stock_only or filters.availability is not None:
+        requirements.append("current stock or availability")
+    if not requirements:
+        return filters, []
+    searchable = filters.model_copy(
+        update={
+            "min_price_cents": None,
+            "max_price_cents": None,
+            "in_stock_only": False,
+            "availability": None,
+        }
+    )
+    return searchable, requirements
+
+
+def _note_unverifiable(state: dict[str, Any], requirements: list[str]) -> list[str]:
+    """Record each unverifiable requirement once and return the tool warnings."""
+    known = state.setdefault("unverifiable_requirements", [])
+    known.extend(item for item in requirements if item not in known)
+    return [
+        f"Not applied: {item}. This catalog records no current prices or stock; "
+        "the answer must say this needs checking in the original listing."
+        for item in requirements
+    ]
+
+
 @tool
 def search_products(
     query: str,
@@ -679,7 +731,12 @@ def search_products(
             min_rating=min_rating,
             attributes=attributes or {},
         )
-        filters = _merge_search_filters(state["base_filters"], tool_filters)
+        filters, unverifiable = _unverifiable_limits(
+            _merge_search_filters(state["base_filters"], tool_filters)
+        )
+        warnings = _note_unverifiable(state, unverifiable)
+        if unverifiable:
+            arguments["unverified_limits"] = unverifiable
         arguments["applied_filters"] = filters.as_sql_json()
         requested_limit = max(
             1,
@@ -795,9 +852,11 @@ def search_products(
                 "strategy": response.diagnostics.strategy,
                 "rerank_status": response.diagnostics.rerank_status,
                 "candidate_counts": response.diagnostics.candidate_counts,
-                "warnings": response.diagnostics.warnings,
+                "warnings": [*response.diagnostics.warnings, *warnings],
             }
             if response.diagnostics
+            else {"warnings": warnings}
+            if warnings
             else None
         ),
         # Declared on this tool's payload_schema, so the model reads the same
@@ -1196,6 +1255,7 @@ def record_unsupported_answer(
 ) -> None:
     """Persist a refusal without attaching unrelated recommendation cards."""
     reason = decline.review.reason if decline else "no_supported_catalog_answer"
+    unmet = decline.review.unmet_requirements if decline else []
     note = {
         "unsupported_requirements": (
             "The available product sources do not establish the requirements or "
@@ -1210,8 +1270,15 @@ def record_unsupported_answer(
             "reviews. This request needs information outside those sources."
         ),
     }.get(reason, "I could not answer this request from the available catalog sources.")
+    if unmet and reason in {"unsupported_requirements", "insufficient_evidence"}:
+        gaps = "; ".join(" ".join(item.split()) for item in unmet)
+        note = (
+            f"The retrieved sources do not establish {gaps}. No product is recommended."
+        )
     state["answer_of_record"] = {
-        "answer": note,
+        "answer": with_unverifiable_note(
+            note, state.get("unverifiable_requirements", [])
+        ),
         "citations": [],
         "recommendations": [],
         "usage": {
@@ -1238,10 +1305,11 @@ def record_no_results_answer(state: dict[str, Any]) -> bool:
     ):
         return False
     state["answer_of_record"] = {
-        "answer": (
+        "answer": with_unverifiable_note(
             "I could not find products matching this request with the current "
             "search filters. Try changing a filter or describing what you need "
-            "differently."
+            "differently.",
+            state.get("unverifiable_requirements", []),
         ),
         "citations": [],
         "recommendations": [],
@@ -1360,7 +1428,7 @@ def synthesize_cited_answer(
                 "Grounded synthesis blocked; exactly one ranking explanation "
                 f"is required, found {len(explanations)}."
             ),
-            outcome="error",
+            outcome="denied",
         )
         return _failure(
             "newly retrieved products do not have exactly one ranking explanation",
@@ -1374,7 +1442,7 @@ def synthesize_cited_answer(
             started,
             result_count=0,
             detail="Grounded synthesis blocked; products were not compared.",
-            outcome="error",
+            outcome="denied",
         )
         return _failure(
             "selected products were not compared in this run",
@@ -1393,7 +1461,7 @@ def synthesize_cited_answer(
             started,
             result_count=0,
             detail=f"Grounded synthesis blocked; missing evidence for {missing_evidence}.",
-            outcome="error",
+            outcome="denied",
         )
         return _failure(
             f"products lack retrieved evidence: {missing_evidence}",
@@ -1401,7 +1469,10 @@ def synthesize_cited_answer(
         )
     try:
         answer, citations, usage = synthesize_answer(
-            _synthesis_question(state), products, evidence
+            _synthesis_question(state),
+            products,
+            evidence,
+            unverifiable=state.get("unverifiable_requirements", []),
         )
     except SynthesisDeclined as decline:
         record_unsupported_answer(state, decline)
@@ -1597,7 +1668,10 @@ def finalize_retrieved_answer(
 
     try:
         answer, citations, usage = synthesize_answer(
-            _synthesis_question(state), products, evidence
+            _synthesis_question(state),
+            products,
+            evidence,
+            unverifiable=state.get("unverifiable_requirements", []),
         )
     except SynthesisDeclined as decline:
         record_unsupported_answer(state, decline)

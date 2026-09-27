@@ -28,10 +28,11 @@ Every factual product claim must cite one or more evidence numbers in square
 brackets, for example [1]. Never invent products, prices, specifications,
 availability, scores, or sources.
 Every sentence or bullet that names a product must include evidence for that
-same product in that sentence. Do not put product names in headings.
+same product in that sentence, including a sentence saying its sources do not
+state something. Do not put product names in headings, and never write a
+product_id.
 Keep each sentence containing measured specifications about exactly one product,
-using its supplied brand and model (or title if no model is supplied) and only
-that product's citations. Give the other
+using its supplied reference_name and only that product's citations. Give the other
 product's measurements in a separate sentence, then explain the trade-off without
 repeating the numbers. Do not mix two products' values in a single comparison
 sentence. Omit measurements unrelated to the shopper's requirements.
@@ -52,10 +53,14 @@ and its unit family, and do not introduce a
 threshold of your own, not even as a rule of thumb.
 
 When asked to compare sources, distinguish catalog specifications from review
-experiences. Cite each source you discuss. A general review about reliability
+experiences. Cite each source you discuss. One review is one person's report:
+write that a reviewer reports or describes an experience, never that a review
+confirms, proves or establishes a benefit. A general review about reliability
 or value does not establish fit, call clarity, or another specific benefit.
 State what the available sources do not establish; do not invent agreement,
-conflict, or missing measurements. Listening noise cancellation alone does not
+conflict, or missing measurements. When a requested measurement is not stated,
+say the sources do not state it without writing the requested number: every
+number you write is checked as a claim about the product it describes. Listening noise cancellation alone does not
 prove that a microphone suppresses noise for the person hearing a call.
 When a requested source type is absent from the supplied records, explain the
 available facts and say no excerpts of that source type were available for this
@@ -78,8 +83,8 @@ not use report headings named "Summary" or "Recommendations".
 
 For shopping requests only, start with one direct sentence that names the first supplied product as the
 best fit and explains the decisive user-relevant reason with citations. Refer
-to products by their supplied brand and model or a concise identifiable title;
-do not reproduce a long listing title or use a standalone model code. Mention
+to each product by its supplied reference_name, written exactly as supplied;
+do not shorten, extend or paraphrase it, and do not use a standalone model code. Mention
 only the two or three attributes that matter most to the question; do not
 rewrite the specification sheet.
 
@@ -87,7 +92,8 @@ For requests covering different product categories, describe each product in its
 
 For shopping requests with alternatives in the same category, add the Markdown heading "### Other strong options" on
 its own line, followed by one concise bullet for each remaining product, in
-supplied order, with an allowed citation for that product.
+supplied order, with an allowed citation for that product. When no product
+remains for that section, omit the heading entirely.
 
 For shopping requests, finish with the Markdown heading "### The deciding trade-off" on its own line,
 then one short, plain-language decision rule with citations. Write both headings
@@ -119,16 +125,19 @@ def _validate_product_claim_citations(
     ]
     for sentence in sentences:
         cited = {int(value) for value in re.findall(r"\[(\d+)\]", sentence)}
-        for _, _, product_id in _named_product_mentions(sentence, products):
+        for _, _, named in _mention_subjects(sentence, products):
+            product_id = min(named)
             evidence_numbers = {
                 index
                 for index, record in enumerate(evidence_records, 1)
-                if record.product_id == product_id
+                if record.product_id in named
             }
             if not cited.intersection(evidence_numbers):
                 raise SynthesisOutputError(
                     f"Synthesized claim naming product {product_id} "
-                    "does not cite evidence for that product"
+                    f"does not cite evidence for that product: {sentence} "
+                    "Cite that product's evidence in the same sentence, even when "
+                    "it says a source does not state something."
                 )
 
 
@@ -278,12 +287,73 @@ def _availability_failures(
     return agreed, refuted
 
 
+_NAME_BREAK = re.compile(r"\s+[-–—|]\s+|[,(:;\[]")
+_NAME_JOINERS = frozenset(
+    {"with", "for", "and", "&", "+", "w/", "featuring", "including"}
+)
+
+
+def reference_name(product: ProductSummary) -> str:
+    """Name a product in prose the way its own title leads, and nothing looser.
+
+    Many source listings have no brand or model, so they were recognizable only
+    by a long full title. The short form runs to the first model code ("JK
+    CCH-001", "Sony WH-1000XM4") or is the title's first phrase when it starts
+    with the product's brand, ending before a joining word so the name is not
+    "Howtai Ergonomic Office Chair with". Otherwise the full title stays the
+    reference: a generic phrase such as "Noise Cancelling Headphones" would
+    match ordinary prose about other products.
+    """
+    words = _NAME_BREAK.split(product.title, maxsplit=1)[0].split()
+    for index, word in enumerate(words[1:5], 1):
+        if re.search(r"\d", word):
+            return " ".join(words[: index + 1])
+    brand = product.brand.strip().casefold()
+    if brand and " ".join(words).casefold().startswith(brand):
+        return _brand_phrase(words[:5], len(brand.split()))
+    return product.title
+
+
+def _brand_phrase(lead: list[str], brand_words: int) -> str:
+    """The brand-led words up to a joining word, keeping at least one after the brand."""
+    for index in range(brand_words + 1, len(lead)):
+        if lead[index].casefold() in _NAME_JOINERS:
+            return " ".join(lead[:index])
+    return " ".join(lead)
+
+
 def _product_names(product: ProductSummary) -> set[str]:
     return {
         value.casefold()
-        for value in (product.title, product.model)
+        for value in (product.title, product.model, reference_name(product))
         if len(value.strip()) >= 3
     }
+
+
+def _products_sharing_name(name: str, products: Sequence[ProductSummary]) -> set[int]:
+    """Products whose own name, or whose title as a whole word, matches `name`."""
+    pattern = re.compile(r"(?<!\w)" + re.escape(name) + r"(?!\w)")
+    return {
+        product.product_id
+        for product in products
+        if name in _product_names(product) or pattern.search(product.title.casefold())
+    }
+
+
+def _mention_subjects(
+    sentence: str, products: Sequence[ProductSummary]
+) -> list[tuple[int, int, set[int]]]:
+    """Each product mention with every selected product its name could mean.
+
+    Two listings of one product line can share a name: "UltraSharp" is one Dell
+    listing's model and a word in the other's title. A claim naming it may cite
+    either listing, and its measurements are checked against both.
+    """
+    folded = sentence.casefold()
+    return [
+        (start, end, _products_sharing_name(folded[start:end], products) | {pid})
+        for start, end, pid in _named_product_mentions(sentence, products)
+    ]
 
 
 def _named_product_mentions(
@@ -615,12 +685,14 @@ def _validate_measurable_claim_support(
             else list(evidence_records)
         )
         sentence_subjects = {
-            pid for _, _, pid in _named_product_mentions(sentence, products)
+            pid
+            for _, _, named in _mention_subjects(sentence, products)
+            for pid in named
         }
         for clause in re.split(
             r"\s*(?:;|\bwhile\b|\bwhereas\b)\s*", sentence, flags=re.IGNORECASE
         ):
-            mentions = _named_product_mentions(clause, products)
+            mentions = _mention_subjects(clause, products)
             segments = (
                 [
                     (
@@ -629,9 +701,9 @@ def _validate_measurable_claim_support(
                             if index + 1 < len(mentions)
                             else len(clause)
                         ],
-                        {pid},
+                        named,
                     )
-                    for index, (start, _, pid) in enumerate(mentions)
+                    for index, (start, _, named) in enumerate(mentions)
                 ]
                 if mentions
                 else [(clause, sentence_subjects or previous_subjects)]
@@ -668,7 +740,9 @@ def _validate_measurable_claim_support(
                         raise SynthesisOutputError(
                             "Synthesized sentence contains unsupported numeric claim or "
                             f"availability claim {[claim.value]} for {subject_label}: {sentence}. "
-                            "Use the cited measurement's original meaning, value and unit."
+                            "Use the cited measurement's original meaning, value and unit. "
+                            "If the sources do not state it, say so without writing the "
+                            "number."
                         )
         if sentence_subjects:
             previous_subjects = sentence_subjects
@@ -811,6 +885,49 @@ def _combined_usage(responses: Sequence[dict[str, Any]]) -> dict[str, Any]:
     return usage
 
 
+_ALTERNATIVES_SECTION = re.compile(
+    r"\n*### Other strong options[ \t]*\n(?P<body>.*?)(?=\n### |\Z)", re.DOTALL
+)
+
+
+def _without_empty_alternatives(answer: str) -> str:
+    """Drop an alternatives section that names no cited product."""
+    match = _ALTERNATIVES_SECTION.search(answer)
+    if match is None or re.search(r"\[\d+\]", match.group("body")):
+        return answer
+    return (
+        answer[: match.start()] + "\n\n" + answer[match.end() :].lstrip("\n")
+    ).strip()
+
+
+def _unverifiable_instruction(unverifiable: Sequence[str]) -> str:
+    """Leave unchecked limits to the fixed note instead of a drafted disclaimer.
+
+    A drafted "stock cannot be confirmed" sentence names an availability state
+    the records do not hold, so the availability check rejects it.
+    """
+    if not unverifiable:
+        return ""
+    return (
+        f"Requirements the catalog cannot check: {json.dumps(list(unverifiable))}. "
+        "The application states after your answer that these could not be "
+        "checked. Do not mention them, and do not discuss price, stock or "
+        "availability.\n\n"
+    )
+
+
+def with_unverifiable_note(answer: str, unverifiable: Sequence[str]) -> str:
+    """State, in fixed words, which requested limits the catalog could not check."""
+    if not unverifiable:
+        return answer
+    limits = " and ".join(unverifiable)
+    pronoun = "them" if len(unverifiable) > 1 else "it"
+    return (
+        f"{answer}\n\nThis catalog does not record current prices or stock, so "
+        f"{limits} could not be checked. Confirm {pronoun} in the original listing."
+    )
+
+
 def synthesize_cited_answer(
     question: str,
     products: Sequence[ProductSummary],
@@ -818,6 +935,7 @@ def synthesize_cited_answer(
     *,
     settings: Settings | None = None,
     client: Any | None = None,
+    unverifiable: Sequence[str] = (),
 ) -> tuple[str, list[AgentCitation], dict[str, Any]]:
     """Write the citation-bounded answer of record for one turn.
 
@@ -832,6 +950,9 @@ def synthesize_cited_answer(
         evidence_records: Retrieved evidence, numbered in the order supplied.
         settings: Resolved runtime settings. Defaults to the process settings.
         client: A Bedrock runtime client. Defaults to the shared one.
+        unverifiable: Requirements the catalog cannot check, such as a current
+            price. The review may not decline on them and the answer ends by
+            saying they were not checked.
 
     Returns:
         The answer, its validated citations, and the model usage.
@@ -875,6 +996,7 @@ def synthesize_cited_answer(
     product_context = [
         {
             "product_id": product.product_id,
+            "reference_name": reference_name(product),
             "title": product.title,
             "brand": product.brand,
             "model": product.model,
@@ -906,6 +1028,7 @@ def synthesize_cited_answer(
         evidence_records,
         client=runtime,
         model_id=settings.synthesis_model_id,
+        unverifiable=unverifiable,
     )
     if not review.request_supported:
         raise SynthesisDeclined(review, review_usage)
@@ -916,6 +1039,7 @@ def synthesize_cited_answer(
                 {
                     "text": (
                         f"Question: {question}\n\n"
+                        f"{_unverifiable_instruction(unverifiable)}"
                         f"Retrieved products and ranking context:\n"
                         f"{json.dumps(product_context, default=str)}\n\n"
                         f"Required product citation map:\n"
@@ -980,6 +1104,7 @@ def synthesize_cited_answer(
             )
         )
         answer, citations = _validated_output(responses[-1], products, evidence_records)
+    answer = with_unverifiable_note(_without_empty_alternatives(answer), unverifiable)
     usage = _combined_usage(responses)
     usage["answerability"] = review.model_dump()
     usage["answerability_usage"] = review_usage

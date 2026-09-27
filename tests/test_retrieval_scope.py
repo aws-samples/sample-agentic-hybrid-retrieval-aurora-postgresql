@@ -897,7 +897,8 @@ def test_run_state_still_gates_synthesis_independently(monkeypatch):
         entry for entry in state["trace"] if entry["tool"] == "synthesize_cited_answer"
     ]
     assert len(synthesis_trace) == 1
-    assert synthesis_trace[0]["outcome"] == "error"
+    # The guard refuses ("denied"); only the generic exception path records "error".
+    assert synthesis_trace[0]["outcome"] == "denied"
     assert "missing evidence" in synthesis_trace[0]["detail"]
 
 
