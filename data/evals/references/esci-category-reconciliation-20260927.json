@@ -1,0 +1,200 @@
+{
+  "date": "2026-09-27",
+  "reason": "Reapply the existing served-filter eligibility rule after reviewed category classification; no human relevance labels or query filters changed. Queries with fewer than three eligible judgments are excluded as before.",
+  "previous_sha256": "d9619af82278b1b238f4b70ab91b3f7a136ec09b2f2063f96e3a3dda00d3218f",
+  "current_sha256": "740b19984e88bffad372697002d39ec49a586985a8c02d204700403d8fe1656f",
+  "queries_before": 407,
+  "queries_after": 404,
+  "judgments_before": 2096,
+  "judgments_after": 2081,
+  "judgments_filter_ineligible": 10,
+  "queries_dropped_below_minimum": 3,
+  "excluded": [
+    {
+      "query_id": "ESCI-50284",
+      "query": "herman miller aeron",
+      "filters": {
+        "domain": "home_office",
+        "category_key": "chair"
+      },
+      "judgments": [
+        {
+          "product_id": 1503558,
+          "grade": 3,
+          "status": "esci_human",
+          "anchor_overlap": "none",
+          "source": "esci#998050",
+          "rationale": "ESCI human label E for ASIN B0027UUC5O."
+        },
+        {
+          "product_id": 1522978,
+          "grade": 3,
+          "status": "esci_human",
+          "anchor_overlap": "none",
+          "source": "esci#998043",
+          "rationale": "ESCI human label E for ASIN B078T27NLN."
+        }
+      ],
+      "query_removed": false
+    },
+    {
+      "query_id": "ESCI-55618",
+      "query": "jbl endurance peak",
+      "filters": {
+        "domain": "consumer_electronics",
+        "category_key": "headphones"
+      },
+      "judgments": [
+        {
+          "product_id": 1339616,
+          "grade": 1,
+          "status": "esci_human",
+          "anchor_overlap": "none",
+          "source": "esci#1099963",
+          "rationale": "ESCI human label C for ASIN B0823H1VLK."
+        }
+      ],
+      "query_removed": false
+    },
+    {
+      "query_id": "ESCI-85417",
+      "query": "rainbow earphones",
+      "filters": {
+        "domain": "consumer_electronics",
+        "category_key": "headphones"
+      },
+      "judgments": [
+        {
+          "product_id": 1525072,
+          "grade": 2,
+          "status": "esci_human",
+          "anchor_overlap": "none",
+          "source": "esci#1675947",
+          "rationale": "ESCI human label S for ASIN B07G2FCZ35."
+        },
+        {
+          "product_id": 1340982,
+          "grade": 2,
+          "status": "esci_human",
+          "anchor_overlap": "none",
+          "source": "esci#1675938",
+          "rationale": "ESCI human label S for ASIN B082JVMVM3."
+        },
+        {
+          "product_id": 1531557,
+          "grade": 2,
+          "status": "esci_human",
+          "anchor_overlap": "none",
+          "source": "esci#1675936",
+          "rationale": "ESCI human label S for ASIN B083F9CBMF."
+        }
+      ],
+      "query_removed": true
+    },
+    {
+      "query_id": "ESCI-94216",
+      "query": "skullcandy hesh 2",
+      "filters": {
+        "domain": "consumer_electronics",
+        "category_key": "headphones"
+      },
+      "judgments": [
+        {
+          "product_id": 1518289,
+          "grade": 1,
+          "status": "esci_human",
+          "anchor_overlap": "none",
+          "source": "esci#1843887",
+          "rationale": "ESCI human label C for ASIN B01IZ9ZKSE."
+        }
+      ],
+      "query_removed": false
+    },
+    {
+      "query_id": "ESCI-97898",
+      "query": "steelcase chair parts",
+      "filters": {
+        "domain": "home_office",
+        "category_key": "chair"
+      },
+      "judgments": [
+        {
+          "product_id": 1509695,
+          "grade": 2,
+          "status": "esci_human",
+          "anchor_overlap": "none",
+          "source": "esci#1913479",
+          "rationale": "ESCI human label S for ASIN B00CKR4QT2."
+        },
+        {
+          "product_id": 1188574,
+          "grade": 3,
+          "status": "esci_human",
+          "anchor_overlap": "none",
+          "source": "esci#1913477",
+          "rationale": "ESCI human label E for ASIN B01B1SM9O4."
+        },
+        {
+          "product_id": 1517280,
+          "grade": 2,
+          "status": "esci_human",
+          "anchor_overlap": "none",
+          "source": "esci#1913476",
+          "rationale": "ESCI human label S for ASIN B01D4YBFBQ."
+        },
+        {
+          "product_id": 1521110,
+          "grade": 3,
+          "status": "esci_human",
+          "anchor_overlap": "none",
+          "source": "esci#1913470",
+          "rationale": "ESCI human label E for ASIN B072YFNQSR."
+        },
+        {
+          "product_id": 1529076,
+          "grade": 0,
+          "status": "esci_human",
+          "anchor_overlap": "none",
+          "source": "esci#1913471",
+          "rationale": "ESCI human label I for ASIN B07TT7ZNFD."
+        }
+      ],
+      "query_removed": true
+    },
+    {
+      "query_id": "ESCI-112255",
+      "query": "wireless tv headphones rechargeable",
+      "filters": {
+        "domain": "consumer_electronics",
+        "category_key": "headphones"
+      },
+      "judgments": [
+        {
+          "product_id": 1200649,
+          "grade": 3,
+          "status": "esci_human",
+          "anchor_overlap": "none",
+          "source": "esci#2188941",
+          "rationale": "ESCI human label E for ASIN B01GGN6ZM6."
+        },
+        {
+          "product_id": 1523679,
+          "grade": 1,
+          "status": "esci_human",
+          "anchor_overlap": "none",
+          "source": "esci#2188939",
+          "rationale": "ESCI human label C for ASIN B07BSBY8BQ."
+        },
+        {
+          "product_id": 1529239,
+          "grade": 3,
+          "status": "esci_human",
+          "anchor_overlap": "none",
+          "source": "esci#2188927",
+          "rationale": "ESCI human label E for ASIN B07V6YVZLR."
+        }
+      ],
+      "query_removed": true
+    }
+  ]
+}

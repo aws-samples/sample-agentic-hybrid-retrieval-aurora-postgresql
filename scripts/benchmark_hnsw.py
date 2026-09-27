@@ -470,6 +470,14 @@ def _capture_filter_matrix(
     rows at 20K, 100K, 500K and 1M alike, where doubling
     `work_mem x scan_mem_multiplier` returned all ten.
     """
+    # Preset counts describe the original measurement, not today's catalog.
+    columns = ["count(*) AS total"] + [
+        f"count(*) FILTER (WHERE {preset.predicate_sql or 'TRUE'}) AS {preset.key}"
+        for preset in FILTER_PRESETS
+    ]
+    counts = connection.execute(
+        f"SELECT {', '.join(columns)} FROM {product_document()} WHERE embedding IS NOT NULL"
+    ).fetchone()
     levels = []
     for preset in FILTER_PRESETS:
         print(f"  preset {preset.key} ...", flush=True)
@@ -497,8 +505,8 @@ def _capture_filter_matrix(
                 "label": preset.label,
                 "character": preset.character,
                 "predicate_sql": preset.predicate_sql,
-                "matching_rows": preset.matching_rows,
-                "selectivity": round(preset.matching_rows / 500_000, 6),
+                "matching_rows": counts[preset.key],
+                "selectivity": round(counts[preset.key] / counts["total"], 6),
                 "exact_rows_found": exact_rows,
                 "modes": modes,
             }
@@ -882,6 +890,8 @@ def main() -> None:
         connection.commit()
 
     if args.filter_preset_matrix:
+        # The instrument uses saved anchors, not the general sweep's first rows.
+        instrument_sample_ids = [int(row["product_id"]) for row in anchor_pool]
         artifact = artifact_from_results(
             provenance={
                 "benchmark_run_id": str(benchmark_run_id),
@@ -892,9 +902,9 @@ def main() -> None:
                 "database_version": environment["database_version"],
                 "vector_extension_version": environment["vector_extension_version"],
                 "instance_class": args.instance_class,
-                "query_sample_sha256": query_sample_sha256,
-                "query_sample_product_ids": query_sample_ids,
-                "queries": args.queries,
+                "query_sample_sha256": _sha256_json(instrument_sample_ids),
+                "query_sample_product_ids": instrument_sample_ids,
+                "queries": len(instrument_sample_ids),
                 "k": args.k,
                 "iterative_scan": iterative_scan,
                 "work_mem_mb": work_mem_mb,

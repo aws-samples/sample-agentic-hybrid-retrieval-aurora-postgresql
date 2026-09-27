@@ -3,8 +3,8 @@
 Each preset is a fixed predicate rather than a template: the probe endpoint
 accepts a key, so no request can reach the SQL text. Every predicate uses a
 field the source records support on the served catalog (domain, category,
-brand, rating). Price and availability are not recorded for these products, so
-a preset over them would match nothing.
+brand, rating). Historical source prices cover only part of the catalog;
+availability is unknown. These presets do not filter either field.
 
 `matching_rows` is the count each predicate selected on the 553,911-product
 `reviews-2023-v2` catalog when the presets were chosen (2026-09-26). The

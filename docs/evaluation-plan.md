@@ -332,8 +332,14 @@ query left with fewer than three judgments, and writes
 `data/evals/esci_held_out_queries.jsonl`. Built on 2026-09-26 against
 `reviews-2023-v2`: 592 judged queries on the catalog, 141 tuning queries
 excluded, 222 filter-ineligible judgments dropped, 44 queries dropped below the
-minimum, leaving 407 queries (219 headphones, 101 chair, 87 monitor) with
-2,096 human judgments. The runner's live contract check passes on that file.
+minimum, initially leaving 407 queries with 2,096 human judgments. After the
+reviewed category corrections on 2026-09-27, the same eligibility rule leaves
+404 queries (217 headphones, 100 chair, 87 monitor) and 2,081 judgments. Ten
+judgments are now outside their category filter; three queries fall below the
+existing three-judgment minimum, removing five additional eligible judgments.
+No human labels or query filters changed. The [reconciliation record](../data/evals/references/esci-category-reconciliation-20260927.json)
+preserves excluded judgments and both corpus hashes. Earlier measurements used
+the earlier corpus and must not be presented as results on this revision.
 A relevance number still requires the measured Aurora run below.
 
 ```bash

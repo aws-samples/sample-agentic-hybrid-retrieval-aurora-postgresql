@@ -253,3 +253,38 @@ def test_the_write_path_reports_what_it_preserved():
 
     assert "merge_preserving_unmeasured(artifact, args.artifact)" in source
     assert "carried forward from the previous artifact" in source
+
+
+def test_filter_matrix_records_live_counts_instead_of_historical_preset_counts(
+    monkeypatch,
+):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    from scripts import benchmark_hnsw as benchmark
+
+    preset = SimpleNamespace(
+        key="category",
+        label="Category",
+        character="narrow",
+        predicate_sql="category_key = 'monitor'",
+        matching_rows=999,
+    )
+    monkeypatch.setattr(benchmark, "FILTER_PRESETS", [preset])
+    monkeypatch.setattr(
+        benchmark, "product_document", lambda: "mosaic_catalog_search.product_document"
+    )
+    monkeypatch.setattr(benchmark, "_exact_truth", lambda *a, **kw: ({1: [1]}, None))
+    monkeypatch.setattr(benchmark, "_measure_point", lambda *a, **kw: {})
+    conn = Mock()
+    conn.execute.return_value.fetchone.return_value = {"total": 100, "category": 25}
+    result = benchmark._capture_filter_matrix(
+        conn,
+        pool=[1],
+        k=1,
+        profile=SimpleNamespace(hnsw_ef_search=10, hnsw_scan_mem_multiplier=2),
+        work_mem_mb=4,
+    )
+    assert result[0]["matching_rows"] == 25
+    assert result[0]["selectivity"] == 0.25
+    assert "mosaic_catalog_search.product_document" in conn.execute.call_args.args[0]
