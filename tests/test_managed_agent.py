@@ -352,3 +352,55 @@ def test_runtime_update_removes_response_only_network_flag(monkeypatch):
                 "containerUri": "example.ecr/repo@sha256:" + "a" * 64
             }
         }
+
+
+def test_a_question_after_an_idle_pause_does_not_reuse_a_dropped_connection(
+    monkeypatch, source
+):
+    """A pooled connection outlives the NAT gateway's 350-second idle timeout.
+
+    On a fresh event the first question after a seven-minute pause failed in
+    0.11 s: the shared client reused a connection the NAT had dropped, and the
+    deliberate single attempt turned that reset into a 503 telling the
+    participant to run make verify-agent, which passed.
+    """
+    from botocore.exceptions import ConnectionClosedError
+
+    class PooledClient:
+        def __init__(self):
+            self.used = False
+
+        def invoke_agent_runtime(self, **_):
+            if self.used:
+                raise ConnectionClosedError(endpoint_url="https://bedrock-agentcore")
+            self.used = True
+            return {"response": io.BytesIO(b"{}")}
+
+    monkeypatch.setenv("MOSAIC_AGENTCORE_RUNTIME_ARN", ARN)
+    getattr(transport.runtime_client, "cache_clear", lambda: None)()
+    monkeypatch.setattr(transport.boto3, "client", lambda *_, **__: PooledClient())
+    transport.invoke("answer", AgentRequest(question="A monitor"))
+    transport.invoke("answer", AgentRequest(question="A chair"))
+
+
+def test_a_failed_runtime_call_logs_its_cause_and_is_not_retried(
+    monkeypatch, source, caplog
+):
+    import logging
+
+    from botocore.exceptions import ClientError
+
+    monkeypatch.setenv("MOSAIC_AGENTCORE_RUNTIME_ARN", ARN)
+    client = Mock()
+    client.invoke_agent_runtime.side_effect = ClientError(
+        {"Error": {"Code": "ThrottlingException", "Message": "Rate exceeded"}},
+        "InvokeAgentRuntime",
+    )
+    monkeypatch.setattr(transport, "runtime_client", lambda: client)
+    with (
+        caplog.at_level(logging.WARNING, logger=transport.__name__),
+        pytest.raises(AgentSetupError, match="make verify-agent"),
+    ):
+        transport.invoke("answer", AgentRequest(question="A monitor"))
+    assert client.invoke_agent_runtime.call_count == 1
+    assert "ThrottlingException" in caplog.text

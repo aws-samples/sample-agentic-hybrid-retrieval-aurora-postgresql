@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
-from functools import lru_cache
 from threading import Lock
 from typing import Literal
 from uuid import uuid4
@@ -20,6 +20,8 @@ from starlette.responses import StreamingResponse
 from service.agent_setup import AGENT_STARTER_MESSAGE, AgentSetupError
 from service.config import get_settings
 from service.models import AgentRequest, AgentResponse
+
+logger = logging.getLogger(__name__)
 
 
 class RuntimeInvocation(BaseModel):
@@ -48,8 +50,14 @@ def runtime_arn() -> str | None:
     return value
 
 
-@lru_cache(maxsize=1)
 def runtime_client():
+    """Open a client for one agent turn.
+
+    A shared client would reuse its pooled connection after a participant's
+    pause, and the NAT gateway drops idle connections after 350 seconds. With
+    retries off, that reset became a 503. A new client costs milliseconds
+    against a turn that takes seconds.
+    """
     return boto3.client(
         "bedrock-agentcore",
         region_name=get_settings().aws_region,
@@ -98,6 +106,14 @@ def invoke(
             payload=envelope.model_dump_json().encode(),
         )
     except (BotoCoreError, ClientError) as error:
+        code = (
+            error.response.get("Error", {}).get("Code")
+            if isinstance(error, ClientError)
+            else None
+        )
+        logger.warning(
+            "Deployed agent invocation failed: %s %s", type(error).__name__, code or ""
+        )
         if (
             isinstance(error, ClientError)
             and error.response.get("Error", {}).get("Code") == "RuntimeClientError"
