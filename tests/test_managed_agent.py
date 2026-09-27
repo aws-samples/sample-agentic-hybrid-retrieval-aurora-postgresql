@@ -231,7 +231,7 @@ def test_deployment_preserves_network_without_echoing_legacy_read_field(monkeypa
     monkeypatch.setattr(
         deployment, "wait_runtime", lambda *_: {"agentRuntimeVersion": "2"}
     )
-    deployment.update("code-bucket", "deployment.zip")
+    deployment.update("example.ecr/repo@sha256:" + "a" * 64)
     for call in control.update_agent_runtime.call_args_list:
         assert call.kwargs["networkConfiguration"] == {
             "networkMode": "VPC",
@@ -240,8 +240,10 @@ def test_deployment_preserves_network_without_echoing_legacy_read_field(monkeypa
                 "securityGroups": ["runtime-sg"],
             },
         }
-        assert call.kwargs["agentRuntimeArtifact"]["codeConfiguration"]["code"] == {
-            "s3": {"bucket": "code-bucket", "prefix": "deployment.zip"}
+        assert call.kwargs["agentRuntimeArtifact"] == {
+            "containerConfiguration": {
+                "containerUri": "example.ecr/repo@sha256:" + "a" * 64
+            }
         }
 
 
@@ -337,7 +339,7 @@ def test_runtime_update_removes_response_only_network_flag(monkeypatch):
     monkeypatch.setattr(
         deploy, "wait_runtime", lambda *args: {"agentRuntimeVersion": "4"}
     )
-    deploy.update("workshop-code", "deployments/source.zip")
+    deploy.update("example.ecr/repo@sha256:" + "a" * 64)
     assert control.update_agent_runtime.call_count == 2
     for call in control.update_agent_runtime.call_args_list:
         network = call.kwargs["networkConfiguration"]["networkModeConfig"]
@@ -345,6 +347,8 @@ def test_runtime_update_removes_response_only_network_flag(monkeypatch):
             "subnets": ["subnet-example"],
             "securityGroups": ["sg-example"],
         }
-        assert call.kwargs["agentRuntimeArtifact"]["codeConfiguration"]["code"] == {
-            "s3": {"bucket": "workshop-code", "prefix": "deployments/source.zip"}
+        assert call.kwargs["agentRuntimeArtifact"] == {
+            "containerConfiguration": {
+                "containerUri": "example.ecr/repo@sha256:" + "a" * 64
+            }
         }

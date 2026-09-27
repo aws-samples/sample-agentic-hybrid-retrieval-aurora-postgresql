@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
+import base64
 import json
 import os
+import re
+import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 from urllib.parse import quote, quote_plus
@@ -45,32 +48,125 @@ def required(name: str) -> str:
     return value
 
 
-def stage(*, bootstrap: bool = False) -> tuple[str, str]:
-    """Upload code to this participant account; credentials never enter the ZIP."""
-    archive = ROOT / ".local/agentcore/mosaic.zip"
-    package(ROOT, archive, archive.parent)
-    with archive.open("rb") as source:
-        sha = hashlib.file_digest(source, "sha256").hexdigest()
-    key = (
-        f"bootstrap/{required('SOURCE_REVISION')}.zip"
-        if bootstrap
-        else f"deployments/{sha}.zip"
-    )
-    bucket = required("MOSAIC_RUNTIME_CODE_BUCKET")
-    client("s3").upload_file(
-        str(archive),
-        bucket,
-        key,
-        ExtraArgs={
-            "ContentType": "application/zip",
-            "Metadata": {"sha256": sha},
-        },
+def image_digest(ecr, repository: str, tag: str) -> str | None:
+    """Return an existing immutable image, allowing an interrupted push to resume."""
+    try:
+        rows = ecr.describe_images(
+            repositoryName=repository, imageIds=[{"imageTag": tag}]
+        )["imageDetails"]
+    except ecr.exceptions.ImageNotFoundException:
+        return None
+    digest = rows[0]["imageDigest"]
+    if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+        raise ValueError(
+            "Runtime image rule: ECR returned an invalid digest; inspect the repository."
+        )
+    return digest
+
+
+def publish_image(repository_uri: str, *, bootstrap: bool) -> str:
+    """Build the participant's exact source and publish an immutable ARM64 image."""
+    if not re.fullmatch(
+        r"[0-9]{12}\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com(?:\.cn)?/[a-z0-9][a-z0-9/_-]*",
+        repository_uri,
+    ):
+        raise ValueError(
+            "Runtime image rule: invalid ECR repository URI; load this workshop's .env."
+        )
+    registry, repository = repository_uri.split("/", 1)
+    ecr = client("ecr")
+    with tempfile.TemporaryDirectory(prefix="mosaic-image-") as workspace:
+        context = Path(workspace) / "context"
+        source_sha = package(ROOT, context)
+        revision = required("SOURCE_REVISION") if bootstrap else source_sha
+        if not re.fullmatch(
+            r"[0-9a-f]{40}" if bootstrap else r"[0-9a-f]{64}", revision
+        ):
+            raise ValueError(
+                "Runtime image rule: invalid source revision; use the pinned workshop revision."
+            )
+        tag = ("bootstrap-" if bootstrap else "source-") + revision
+        digest = image_digest(ecr, repository, tag)
+        if digest is None:
+            # Docker's login file is sensitive too. It exists only in this private
+            # temporary directory, never in the participant checkout or ~/.docker.
+            config = Path(workspace) / "docker"
+            config.mkdir(mode=0o700)
+            environment = {**os.environ, "DOCKER_CONFIG": str(config)}
+            token = ecr.get_authorization_token()["authorizationData"][0]
+            if token["proxyEndpoint"] != "https://" + registry:
+                raise ValueError(
+                    "Runtime image rule: ECR login registry differs from the workshop repository."
+                )
+            user, password = (
+                base64.b64decode(token["authorizationToken"]).decode().split(":", 1)
+            )
+            for attempt in range(3):
+                try:
+                    subprocess.run(
+                        [
+                            "docker",
+                            "login",
+                            "--username",
+                            user,
+                            "--password-stdin",
+                            registry,
+                        ],
+                        input=password + "\n",
+                        text=True,
+                        check=True,
+                        env=environment,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=60,
+                    )
+                    break
+                except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                    if attempt == 2:
+                        raise RuntimeError(
+                            "Registry login rule: ECR login failed after three attempts; "
+                            "fix: check the Code Editor's ECR permissions and HTTPS connectivity, then retry make deploy-agent."
+                        ) from None
+                    time.sleep(2**attempt)
+            image = f"{repository_uri}:{tag}"
+            subprocess.run(
+                [
+                    "docker",
+                    "build",
+                    "--platform",
+                    "linux/arm64",
+                    "--tag",
+                    image,
+                    "--file",
+                    str(context / "deploy/agentcore/Dockerfile"),
+                    str(context),
+                ],
+                check=True,
+                env=environment,
+                timeout=1200,
+            )
+            subprocess.run(
+                ["docker", "push", image], check=True, env=environment, timeout=600
+            )
+            digest = image_digest(ecr, repository, tag)
+            if digest is None:
+                raise RuntimeError(
+                    "Runtime image rule: pushed image is absent from ECR; retry deployment."
+                )
+        print(f"Runtime image ready: {tag} ({digest})")
+        return f"{repository_uri}@{digest}"
+
+
+def stage(*, bootstrap: bool = False) -> str:
+    """Publish the image before releasing CloudFormation's runtime dependency."""
+    image_uri = publish_image(
+        required("MOSAIC_RUNTIME_IMAGE_REPOSITORY"), bootstrap=bootstrap
     )
     if bootstrap:
         from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
         # The host's absolute certificate path does not exist in the managed
-        # runtime. Both ZIP entry points start in the package root.
+        # runtime. Both container entry points start in the application root.
         dsn = urlsplit(required("MOSAIC_RUNTIME_DATABASE_URL"))
         query = parse_qs(dsn.query)
         query.update(sslmode=["verify-full"], sslrootcert=["rds-ca-bundle.pem"])
@@ -85,7 +181,7 @@ def stage(*, bootstrap: bool = False) -> tuple[str, str]:
             UniqueId="userdata",
             Status="SUCCESS",
         )
-    return bucket, key
+    return image_uri
 
 
 def wait_runtime(control, runtime_id: str) -> dict:
@@ -188,7 +284,7 @@ def discover() -> dict[str, str]:
     )
 
 
-def update(bucket: str, key: str) -> None:
+def update(image_uri: str) -> None:
     control = client("bedrock-agentcore-control")
     fields = set(
         control.meta.service_model.operation_model(
@@ -207,8 +303,8 @@ def update(bucket: str, key: str) -> None:
             "requireServiceS3Endpoint", None
         )
         payload["agentRuntimeId"] = runtime_id
-        payload["agentRuntimeArtifact"]["codeConfiguration"]["code"] = {
-            "s3": {"bucket": bucket, "prefix": key}
+        payload["agentRuntimeArtifact"] = {
+            "containerConfiguration": {"containerUri": image_uri}
         }
         control.update_agent_runtime(**payload)
         deployed = wait_runtime(control, runtime_id)
@@ -329,7 +425,7 @@ def main() -> int:
                 raise ValueError(
                     "Your agent is not ready to deploy. Open labs/lab3/agent.py, complete create_agent, then run make deploy-agent again."
                 )
-            update(*stage())
+            update(stage())
             verify()
             print(
                 "Your agent is deployed and its SQL tools are connected through Gateway. Next: open Mosaic → Playground → Reason and ask Alex's question."
@@ -344,6 +440,8 @@ def main() -> int:
             verify()
         return 0
     except (
+        OSError,
+        subprocess.SubprocessError,
         BotoCoreError,
         ClientError,
         ValueError,
@@ -355,6 +453,11 @@ def main() -> int:
         if isinstance(error, (BotoCoreError, ClientError)):
             print(
                 f"Deployment failed ({type(error).__name__}); inspect the Runtime/Gateway events and this instance's IAM role.",
+                file=sys.stderr,
+            )
+        elif isinstance(error, (OSError, subprocess.SubprocessError)):
+            print(
+                "Image build/push failed; check Docker is running and this instance can reach ECR, then retry make deploy-agent.",
                 file=sys.stderr,
             )
         else:

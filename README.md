@@ -30,7 +30,10 @@ the workshop. Follow the guide's commands as you move through the labs.
 
 The workshop follows **Retrieve → Rank → Build an agent**. Labs 1 and 2 improve
 your SQL search. Lab 3 connects that search to a Strands agent on AgentCore Runtime
-and exposes the SQL tools through AgentCore Gateway.
+and exposes the SQL tools through AgentCore Gateway. `make deploy-agent` builds
+an ARM64 container from your current source, pushes it to the workshop's ECR
+repository and updates both runtimes. Docker and registry access are prepared
+for you; the command checks deployed source identity and Gateway connectivity.
 
 | Lab | Question to answer | Where you work |
 |---|---|---|

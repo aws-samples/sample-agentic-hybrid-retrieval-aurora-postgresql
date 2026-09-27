@@ -1,4 +1,4 @@
-"""Python ZIP entry point for the preprovisioned workshop agent."""
+"""HTTP entry point for the preprovisioned workshop agent."""
 
 import os
 import sys

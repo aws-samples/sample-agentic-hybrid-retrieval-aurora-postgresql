@@ -699,8 +699,10 @@ AGENTCORE_SMOKE_PORT ?= 8080
 .PHONY: agentcore-image agentcore-image-smoke agentcore-deploy
 
 agentcore-image:
+	@rm -rf .local/agentcore/image-context
+	$(PYTHON) scripts/package_agentcore.py --output .local/agentcore/image-context
 	$(DOCKER) buildx build --platform linux/arm64 --load \
-		-f $(AGENTCORE_DOCKERFILE) -t $(AGENTCORE_IMAGE_TAG) .
+		-f $(AGENTCORE_DOCKERFILE) -t $(AGENTCORE_IMAGE_TAG) .local/agentcore/image-context
 
 # Proves the packaged process starts and answers before anything is pushed. The
 # skill's rule applies: a health check that fails locally fails on AgentCore.

@@ -29,7 +29,10 @@
 !examples/call_headphones.py
 !deploy/
 !deploy/agentcore/
-!deploy/agentcore/app.py
+!deploy/agentcore/**
+!labs/
+!labs/lab3/
+!labs/lab3/**
 **/__pycache__
 **/.env
 **/.env.*

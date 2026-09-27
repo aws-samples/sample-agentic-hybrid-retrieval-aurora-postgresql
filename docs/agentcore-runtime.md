@@ -37,13 +37,13 @@ behavior through Aurora receipts. See [the telemetry contract](telemetry-contrac
 
 ## Workshop deployment
 
-The Workshop Studio stack creates the code bucket, two runtimes, Gateway target,
+The Workshop Studio stack creates an immutable, KMS-encrypted ECR repository, two runtimes, Gateway target,
 execution roles, encrypted logs and Memory. Bootstrap restores the real catalog
-with its saved vectors, stages the ARM64 Python package and connects the managed
+with its saved vectors, builds and pushes the ARM64 container image and connects the managed
 resources before declaring the application ready.
 
 Participants build `create_agent` in [labs/lab3/agent.py](../labs/lab3/agent.py).
-The SQL they repaired in Labs 1 and 2 travels with the tools package.
+The SQL they repaired in Labs 1 and 2 travels with the tools image.
 
 ```sh
 make agent-tools
@@ -54,8 +54,22 @@ make verify-agent
 Deployment updates both runtimes, waits until the DEFAULT endpoints serve the
 new versions, synchronizes Gateway and exercises real Aurora search and scoped
 evidence. A deployment receipt records the source digest, runtime and search ID.
-The code package is built from the locked dependencies and an explicit list of
-application files; credentials, local caches and symlinks are excluded.
+The image is built from the locked dependencies and an explicit list of
+application files; credentials, local caches and symlinks are excluded. Both
+runtimes use the same image, with `MOSAIC_RUNTIME_MODE` selecting HTTP agent or
+MCP tools. Bootstrap publishes `bootstrap-<SourceRevision>` before releasing
+CloudFormation; participant deployments use a content-derived immutable tag and
+update both runtimes by ECR digest. Repeating a completed build reuses its image.
+Docker and registry permissions are prepared on the Code Editor host. Its push
+permissions are scoped to this repository; runtime roles have pull access only.
+Registry login credentials exist only in a private temporary directory and are
+removed after the command. ECR scans images on push. Only untagged images expire;
+tagged images and the repository are retained for explicit event cleanup.
+
+Runtime packaging creates no S3 buckets and requires no access-logging
+suppression. The separately published workshop catalog remains in Studio S3
+assets. Fresh-account acceptance must verify image publication, both protocols,
+Gateway discovery and the participant's deploy command.
 
 ## Runtime boundary
 
@@ -84,7 +98,8 @@ Bootstrap supplies these values; participants do not copy credentials:
 | `MOSAIC_AGENTCORE_TOOLS_RUNTIME_ARN` | SQL tools runtime updated by deployment |
 | `MOSAIC_AGENTCORE_GATEWAY_URL` | Signed MCP destination |
 | `MOSAIC_AGENTCORE_GATEWAY_ID`, `MOSAIC_AGENTCORE_GATEWAY_TARGET_ID` | Tool synchronization |
-| `MOSAIC_RUNTIME_CODE_BUCKET` | This account's deployment packages |
+| `MOSAIC_RUNTIME_IMAGE_REPOSITORY` | This account's ECR repository URI |
+| `MOSAIC_RUNTIME_MODE` | `agent` or `tools`, set by each native Runtime |
 | `MOSAIC_EDITOR_STACK` | Native resource discovery |
 | `MOSAIC_DATABASE_SECRET_ARN` | Runtime's least-privilege Aurora credential |
 | `MOSAIC_CATALOG_DATASET` | Selected manifest-backed real catalog |

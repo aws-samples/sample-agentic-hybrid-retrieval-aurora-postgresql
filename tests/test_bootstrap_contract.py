@@ -716,3 +716,11 @@ def test_bootstrap_redacts_before_truncating_and_handles_encoded_passwords(
     assert secret not in result.stdout and quote(secret, safe="") not in result.stdout
     assert "[REDACTED]" in result.stdout
     assert len(result.stdout) <= 900
+
+
+def test_bootstrap_prepares_the_participant_image_builder(script: str) -> None:
+    assert "docker" in _bootstrap_packages(script)
+    assert "systemctl enable --now docker" in script
+    assert 'usermod -aG wheel,docker "$CODE_EDITOR_USER"' in script
+    assert "MOSAIC_RUNTIME_IMAGE_REPOSITORY" in script
+    assert "MOSAIC_RUNTIME_CODE_BUCKET" not in script

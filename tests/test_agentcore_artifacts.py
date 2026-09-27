@@ -136,14 +136,10 @@ def test_dockerfile_binds_the_agentcore_http_contract():
         "found no linux/arm64 platform; fix: AgentCore Runtime is Graviton and "
         "an x86 image will not start"
     )
-    command = next(line for line in instructions if line.upper().startswith("CMD "))
-    assert ADAPTER_MODULE in command, (
-        f"found a CMD that does not run {ADAPTER_MODULE}; fix: the adapter is "
-        "what serves GET /ping and POST /invocations, and running the workshop "
-        "application directly fails the AgentCore health check"
-    )
-    assert "0.0.0.0" in command
-    assert "8080" in command
+    assert 'ENTRYPOINT ["python", "-m", "deploy.agentcore.entrypoint"]' in instructions
+    assert "EXPOSE 8080 8000" in instructions
+    assert (ROOT / "deploy/agentcore/run.py").is_file()
+    assert (ROOT / "deploy/agentcore/run_tools.py").is_file()
 
 
 def test_dockerfile_ships_the_module_its_command_runs():

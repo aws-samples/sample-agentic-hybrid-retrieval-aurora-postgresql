@@ -1,14 +1,10 @@
-"""Build a locked ARM64 Python ZIP without copying credentials or local caches."""
+"""Stage an allowlisted ARM64 image context without credentials or local caches."""
 
 from __future__ import annotations
 
 import argparse
 import hashlib
-import shutil
-import subprocess
 from pathlib import Path
-from urllib.request import urlopen
-from zipfile import ZIP_DEFLATED, ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
 DIRECTORIES = (
@@ -23,6 +19,7 @@ DIRECTORIES = (
 FILES = (
     "pyproject.toml",
     "uv.lock",
+    "deploy/agentcore/Dockerfile",
     "data/full/manifest.json",
     "data/benchmarks/hnsw_anchors.json",
     "data/benchmarks/hnsw_measured.json",
@@ -37,7 +34,7 @@ SUFFIXES = {".py", ".sql", ".json", ".jsonl", ".yaml", ".yml", ".md", ".csv", ".
 
 
 def application_files(root: Path = ROOT) -> list[Path]:
-    """Use explicit source roots; dotfiles and symlinks never enter the archive."""
+    """Use explicit source roots; dotfiles and symlinks never enter the image context."""
     files = [root / name for name in FILES]
     for directory in DIRECTORIES:
         files.extend(
@@ -59,82 +56,39 @@ def application_files(root: Path = ROOT) -> list[Path]:
     return sorted(set(files))
 
 
-def package(root: Path, output: Path, cache: Path) -> None:
-    """Reuse the dependency ZIP only while the committed lock remains identical."""
-    lock_hash = hashlib.sha256((root / "uv.lock").read_bytes()).hexdigest()
-    cache.mkdir(parents=True, exist_ok=True)
-    dependency_zip = cache / f"dependencies-{lock_hash}.zip"
-    if not dependency_zip.exists():
-        requirements = cache / "requirements.txt"
-        subprocess.run(
-            [
-                "uv",
-                "export",
-                "--frozen",
-                "--no-dev",
-                "--no-emit-project",
-                "--output-file",
-                str(requirements),
-            ],
-            cwd=root,
-            check=True,
+def package(root: Path, output: Path) -> str:
+    """Stage only runtime inputs and return their content hash.
+
+    Args:
+        root: Participant source checkout, including their current lab edits.
+        output: Empty build-context directory, normally a temporary directory.
+
+    Returns:
+        SHA-256 over file names and bytes, independent of local timestamps.
+    """
+    output.mkdir(parents=True, exist_ok=True)
+    if any(output.iterdir()):
+        raise ValueError(
+            "Runtime image rule: build context is not empty; use a fresh temporary directory."
         )
-        dependencies = cache / "dependencies"
-        if dependencies.exists():
-            shutil.rmtree(dependencies)
-        subprocess.run(
-            [
-                "uv",
-                "pip",
-                "install",
-                "--python-platform",
-                "aarch64-manylinux_2_28",
-                "--python-version",
-                "3.13",
-                "--target",
-                str(dependencies),
-                "--only-binary=:all:",
-                "--require-hashes",
-                "-r",
-                str(requirements),
-            ],
-            cwd=root,
-            check=True,
-        )
-        staged = dependency_zip.with_suffix(".tmp")
-        with ZipFile(staged, "w", ZIP_DEFLATED) as archive:
-            for path in sorted(dependencies.rglob("*")):
-                if (
-                    path.is_file()
-                    and "__pycache__" not in path.parts
-                    and path.suffix != ".pyc"
-                ):
-                    archive.write(path, path.relative_to(dependencies))
-        staged.replace(dependency_zip)
-        shutil.rmtree(dependencies)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    certificate = cache / "rds-ca-bundle.pem"
-    if not certificate.exists():
-        with urlopen(
-            "https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem",
-            timeout=30,
-        ) as response:
-            certificate.write_bytes(response.read())
-    shutil.copyfile(dependency_zip, output)
-    with ZipFile(output, "a", ZIP_DEFLATED) as archive:
-        archive.write(certificate, "rds-ca-bundle.pem")
-        for path in application_files(root):
-            archive.write(path, path.relative_to(root))
-    print(f"Runtime package ready: {output.name} ({output.stat().st_size:,} bytes)")
+    digest = hashlib.sha256()
+    for path in application_files(root):
+        relative = path.relative_to(root)
+        content = path.read_bytes()
+        digest.update(relative.as_posix().encode() + b"\0")
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
+        target = output / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+    return digest.hexdigest()
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--output", type=Path, default=ROOT / ".local/agentcore/mosaic.zip"
-    )
+    parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    package(ROOT, args.output, ROOT / ".local/agentcore")
+    print(f"Runtime image context ready: {package(ROOT, args.output)}")
 
 
 if __name__ == "__main__":

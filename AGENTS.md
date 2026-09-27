@@ -133,14 +133,14 @@ commits, provisioning, catalog reloads or release changes during a lab.
   Source SQL ships repaired; bootstrap installs exercise faults, so distinguish
   a clean source checkout from a participant's current lab state.
 - The participant checkout comes from the pinned source Git revision, including
-  root `AGENTS.md` and `CLAUDE.md`. The separate managed-runtime ZIP has an
+  root `AGENTS.md` and `CLAUDE.md`. The separate managed-runtime container image has an
   explicit application-file allowlist; it is not the Code Editor source bundle.
 - Catalog assets are Git-ignored and hash-pinned. A fresh authoring clone alone
   is not a complete asset working copy. Use the delivery contract below.
 - Required gates live in [READINESS.md](READINESS.md). Never describe an offline
   pass, source push or Workshop Studio build as fresh-account acceptance.
 
-## Status recorded 2026-09-26
+## Status recorded 2026-09-27
 
 This table is context, not a live health check; use the current guide and actual
 command output. No future redesign is part of the required participant journey.
@@ -149,7 +149,7 @@ command output. No future redesign is part of the required participant journey.
 |---|---|
 | Required journey | Three labs: retrieval, ranking, managed Strands agent. Exact scope and timings are owned by the mission manifest. |
 | Catalog | Real `reviews-2023-v2` products, saved Cohere embeddings and source evidence; fresh provisioning rejects historical synthetic rows. |
-| Managed deployment | Runtime/Gateway are required for Lab 3. The latest test event exposed unsupported physical-AZ selection and a runtime log-policy permission gap; provisioning fixes require a new-account rehearsal before claiming acceptance. |
+| Managed deployment | Runtime/Gateway are required for Lab 3. Packaging now uses an immutable ECR image shared by agent and tools. The templates provide outbound HTTPS for AWS APIs. Image startup, ECR upload and application tests are verified separately; a new-account rehearsal is required for this deployment path. |
 | Measurements | Real-catalog HNSW artifacts exist under `data/benchmarks/`. Reviewed relevance, controlled cold-start measurements and human session timing remain separate release evidence; see `READINESS.md`. |
 | Coding coach | This root file ships with the pinned participant source; `CLAUDE.md` imports it. Follow the lab guide and preserve the participant's work. |
 

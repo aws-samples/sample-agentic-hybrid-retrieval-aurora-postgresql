@@ -103,7 +103,7 @@ required_environment=(
   ORIGIN_VERIFY_SECRET
   DB_INSTANCE_CLASS
   MOSAIC_AGENTCORE_MEMORY_ID
-  MOSAIC_RUNTIME_CODE_BUCKET
+  MOSAIC_RUNTIME_IMAGE_REPOSITORY
   MOSAIC_RUNTIME_DATABASE_SECRET_ARN
   MOSAIC_EDITOR_STACK
 )
@@ -145,11 +145,13 @@ REPO="$HOME_FOLDER/sample-agentic-hybrid-retrieval-aurora-postgresql"
 # reported EBADENGINE at install time and the tool ran outside its supported
 # engine. Installing one Node family leaves nothing to arbitrate.
 network_retry dnf install -y git jq nginx nodejs22 nodejs22-npm postgresql15 python3.13 \
-  python3.13-pip python3.13-setuptools gcc gcc-c++ make sudo tar gzip unzip
+  python3.13-pip python3.13-setuptools gcc gcc-c++ make sudo tar gzip docker unzip
 command -v aws >/dev/null 2>&1 || \
   (network_retry dnf install -y awscli2 || network_retry dnf install -y awscli)
 network_retry python3.13 -m pip install --no-cache-dir uv==0.11.21
 uv --version
+systemctl enable --now docker
+docker version --format '{{.Server.Version}}'
 
 # The RHEL 9 PGDG client RPM depends on libldap.so.2, which AL2023 does not
 # provide. PostgreSQL 15's packaged psql uses the compatible standard TLS
@@ -171,7 +173,7 @@ if ! id "$CODE_EDITOR_USER" >/dev/null 2>&1; then
   useradd -m -s /bin/bash "$CODE_EDITOR_USER"
 fi
 echo "$CODE_EDITOR_USER:$CODE_EDITOR_OS_PASSWORD" | chpasswd
-usermod -aG wheel "$CODE_EDITOR_USER"
+usermod -aG wheel,docker "$CODE_EDITOR_USER"
 printf '%s\n' '%wheel ALL=(ALL) NOPASSWD: ALL' \
   >/etc/sudoers.d/90-workshop
 chmod 440 /etc/sudoers.d/90-workshop
@@ -727,7 +729,7 @@ ALLOW_DEVELOPMENT_EMBEDDINGS=false
 BEDROCK_MAX_ATTEMPTS=5
 MOSAIC_SOURCE_REVISION=$SOURCE_REVISION
 SOURCE_REVISION=$SOURCE_REVISION
-MOSAIC_RUNTIME_CODE_BUCKET=$MOSAIC_RUNTIME_CODE_BUCKET
+MOSAIC_RUNTIME_IMAGE_REPOSITORY=$MOSAIC_RUNTIME_IMAGE_REPOSITORY
 MOSAIC_RUNTIME_DATABASE_SECRET_ARN=$MOSAIC_RUNTIME_DATABASE_SECRET_ARN
 MOSAIC_EDITOR_STACK=$MOSAIC_EDITOR_STACK
 AURORA_INSTANCE_CLASS=$DB_INSTANCE_CLASS
@@ -1007,7 +1009,7 @@ EXPECTED_DIFF='db/sql/09_search_functions.sql'
 test "$ACTUAL_DIFF" = "$EXPECTED_DIFF"
 sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" diff --check
 
-# The Runtime resources depend on this instance's staged package. Release that
+# The Runtime resources depend on this instance's staged ECR image. Release that
 # dependency now; the separate wait condition still requires every acceptance
 # check below before the workshop can become ready.
 (cd "$REPO" && MOSAIC_RUNTIME_DATABASE_URL="$APP_DATABASE_URL" \
