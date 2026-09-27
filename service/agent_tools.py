@@ -37,9 +37,10 @@ from service.models import (
 from service.retrieval import get_retrieval_service, signals_from_receipt
 from service.retrieval_fingerprint import explain
 from service.synthesis import (
+    ReportedLimits,
     SynthesisOutputError,
     recommendations_in_answer_order,
-    with_unverifiable_note,
+    with_limit_notes,
 )
 from service.synthesis import synthesize_cited_answer as synthesize_answer
 from service.telemetry import search_with_telemetry
@@ -591,48 +592,70 @@ def _money(cents: int) -> str:
     return f"${cents / 100:,.2f}"
 
 
-def _unverifiable_limits(filters: SearchFilters) -> tuple[SearchFilters, list[str]]:
-    """Separate limits the active catalog cannot evaluate from the searchable filters.
-
-    The original-listing catalog records no current price, stock or
-    availability. Applying such a limit would return nothing and read as "no
-    product matches"; the search runs without it and the requirement is
-    reported so the answer can say it was not checked.
-    """
-    if not active_dataset():
-        return filters, []
-    requirements = []
+def _budget(filters: SearchFilters) -> str | None:
     low, high = filters.min_price_cents, filters.max_price_cents
     if low is not None and high is not None:
-        requirements.append(f"a price between {_money(low)} and {_money(high)}")
-    elif high is not None:
-        requirements.append(f"a price of at most {_money(high)}")
-    elif low is not None:
-        requirements.append(f"a price of at least {_money(low)}")
-    if filters.in_stock_only or filters.availability is not None:
-        requirements.append("current stock or availability")
-    if not requirements:
-        return filters, []
+        return f"a price between {_money(low)} and {_money(high)}"
+    if high is not None:
+        return f"a price of at most {_money(high)}"
+    if low is not None:
+        return f"a price of at least {_money(low)}"
+    return None
+
+
+def _split_limits(
+    filters: SearchFilters,
+) -> tuple[SearchFilters, list[str], list[str]]:
+    """Separate what the original-listing catalog can check from what it cannot.
+
+    The catalog records no current offer. A budget is matched against the price
+    each source listing recorded instead; stock is not recorded at all, so
+    applying it would return nothing and read as "no product matches". The
+    search runs without it and the requirement is reported.
+
+    Returns:
+        The searchable filters, the budget matched against source prices, and
+        the requirements that were not applied.
+    """
+    if not active_dataset():
+        return filters, [], []
+    budget = _budget(filters)
+    source_priced = [budget] if budget else []
+    if not (filters.in_stock_only or filters.availability is not None):
+        return filters, source_priced, []
     searchable = filters.model_copy(
-        update={
-            "min_price_cents": None,
-            "max_price_cents": None,
-            "in_stock_only": False,
-            "availability": None,
-        }
+        update={"in_stock_only": False, "availability": None}
     )
-    return searchable, requirements
+    return searchable, source_priced, ["current stock or availability"]
 
 
-def _note_unverifiable(state: dict[str, Any], requirements: list[str]) -> list[str]:
-    """Record each unverifiable requirement once and return the tool warnings."""
-    known = state.setdefault("unverifiable_requirements", [])
-    known.extend(item for item in requirements if item not in known)
+def _note_limits(
+    state: dict[str, Any], source_priced: list[str], unchecked: list[str]
+) -> list[str]:
+    """Record each reported limit once and return the tool warnings."""
+    for key, items in (
+        ("source_price_limits", source_priced),
+        ("unverifiable_requirements", unchecked),
+    ):
+        known = state.setdefault(key, [])
+        known.extend(item for item in items if item not in known)
     return [
-        f"Not applied: {item}. This catalog records no current prices or stock; "
-        "the answer must say this needs checking in the original listing."
-        for item in requirements
+        f"Applied to source prices: {item}. This catalog records the price each "
+        "listing had when it was collected, not a current offer; listings without "
+        "one are excluded."
+        for item in source_priced
+    ] + [
+        f"Not applied: {item}. This catalog records no stock; the answer must say "
+        "this needs checking in the original listing."
+        for item in unchecked
     ]
+
+
+def _reported_limits(state: dict[str, Any]) -> ReportedLimits:
+    return ReportedLimits(
+        source_priced=tuple(state.get("source_price_limits", [])),
+        unchecked=tuple(state.get("unverifiable_requirements", [])),
+    )
 
 
 @tool
@@ -731,12 +754,14 @@ def search_products(
             min_rating=min_rating,
             attributes=attributes or {},
         )
-        filters, unverifiable = _unverifiable_limits(
+        filters, source_priced, unchecked = _split_limits(
             _merge_search_filters(state["base_filters"], tool_filters)
         )
-        warnings = _note_unverifiable(state, unverifiable)
-        if unverifiable:
-            arguments["unverified_limits"] = unverifiable
+        warnings = _note_limits(state, source_priced, unchecked)
+        if source_priced:
+            arguments["source_price_limits"] = source_priced
+        if unchecked:
+            arguments["unverified_limits"] = unchecked
         arguments["applied_filters"] = filters.as_sql_json()
         requested_limit = max(
             1,
@@ -1241,7 +1266,10 @@ def _excluded_inherited_products(
             f"""SELECT d.product_id FROM {search_schema()}.product_document d
                WHERE d.product_id = ANY(%s::bigint[])
                  AND {search_schema()}.matches_filters(d, %s::jsonb)""",
-            (inherited, json.dumps(state["base_filters"].as_sql_json())),
+            (
+                inherited,
+                json.dumps(_split_limits(state["base_filters"])[0].as_sql_json()),
+            ),
         ).fetchall()
     eligible = {row["product_id"] for row in rows}
     excluded = [item for item in inherited if item not in eligible]
@@ -1276,9 +1304,7 @@ def record_unsupported_answer(
             f"The retrieved sources do not establish {gaps}. No product is recommended."
         )
     state["answer_of_record"] = {
-        "answer": with_unverifiable_note(
-            note, state.get("unverifiable_requirements", [])
-        ),
+        "answer": with_limit_notes(note, _reported_limits(state)),
         "citations": [],
         "recommendations": [],
         "usage": {
@@ -1305,11 +1331,11 @@ def record_no_results_answer(state: dict[str, Any]) -> bool:
     ):
         return False
     state["answer_of_record"] = {
-        "answer": with_unverifiable_note(
+        "answer": with_limit_notes(
             "I could not find products matching this request with the current "
             "search filters. Try changing a filter or describing what you need "
             "differently.",
-            state.get("unverifiable_requirements", []),
+            _reported_limits(state),
         ),
         "citations": [],
         "recommendations": [],
@@ -1472,7 +1498,7 @@ def synthesize_cited_answer(
             _synthesis_question(state),
             products,
             evidence,
-            unverifiable=state.get("unverifiable_requirements", []),
+            limits=_reported_limits(state),
         )
     except SynthesisDeclined as decline:
         record_unsupported_answer(state, decline)
@@ -1671,7 +1697,7 @@ def finalize_retrieved_answer(
             _synthesis_question(state),
             products,
             evidence,
-            unverifiable=state.get("unverifiable_requirements", []),
+            limits=_reported_limits(state),
         )
     except SynthesisDeclined as decline:
         record_unsupported_answer(state, decline)

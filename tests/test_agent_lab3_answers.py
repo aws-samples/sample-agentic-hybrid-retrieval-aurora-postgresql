@@ -1,5 +1,6 @@
 """Lab 3 answers stay useful and honest when the catalog cannot check a request."""
 
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -17,9 +18,31 @@ from test_synthesis_claims import product as synthesis_product
 from service import agent_tools
 from service.answerability import Answerability, SynthesisDeclined
 from service.models import SearchFilters
-from service.synthesis import synthesize_cited_answer
+from service.synthesis import ReportedLimits, synthesize_cited_answer
 
 REAL_CATALOG = "reviews-2023-v2"
+
+
+PRICE_NOTE = "matched against the prices recorded in the 2023 source listings"
+STOCK_NOTE = (
+    "does not record stock, so current stock or availability could not be checked"
+)
+
+
+def _searched(monkeypatch, results=None):
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", REAL_CATALOG)
+    searched = []
+
+    def search(request):
+        searched.append(request.filters)
+        return search_response(
+            request.query,
+            coverage=grounded(),
+            results=[product()] if results is None else results,
+        )
+
+    monkeypatch.setattr(agent_tools, "_search_with_telemetry", search)
+    return searched
 
 
 @pytest.mark.parametrize(
@@ -31,49 +54,75 @@ REAL_CATALOG = "reviews-2023-v2"
             {"min_price_cents": 5_000, "max_price_cents": 30_000},
             "a price between $50.00 and $300.00",
         ),
-        ({"in_stock_only": True}, "current stock or availability"),
-        ({"availability": "in_stock"}, "current stock or availability"),
     ],
 )
-def test_price_and_stock_limits_are_reported_when_the_catalog_has_no_offers(
+def test_a_budget_is_applied_to_the_source_listing_price(
     monkeypatch, limits, requirement
 ):
-    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", REAL_CATALOG)
-    searched = []
-
-    def search(request):
-        searched.append(request.filters)
-        return search_response(request.query, coverage=grounded(), results=[product()])
-
-    monkeypatch.setattr(agent_tools, "_search_with_telemetry", search)
+    searched = _searched(monkeypatch)
     state = _empty_run_state()
     with agent_tools.bind_run(state):
         result = agent_tools.search_products("noise cancelling headphones", **limits)
 
     applied = searched[0]
-    assert applied.min_price_cents is None and applied.max_price_cents is None
-    assert applied.in_stock_only is False and applied.availability is None
-    assert state["unverifiable_requirements"] == [requirement]
+    assert applied.min_price_cents == limits.get("min_price_cents")
+    assert applied.max_price_cents == limits.get("max_price_cents")
+    assert state["source_price_limits"] == [requirement]
+    assert not state.get("unverifiable_requirements")
     assert result["ok"] is True
-    assert any(requirement in warning for warning in result["diagnostics"]["warnings"])
-    assert state["trace"][-1]["arguments"]["unverified_limits"] == [requirement]
+    assert any("source" in warning for warning in result["diagnostics"]["warnings"])
+    assert state["trace"][-1]["arguments"]["source_price_limits"] == [requirement]
 
 
-def test_request_level_price_limit_is_reported_once_across_searches(monkeypatch):
-    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", REAL_CATALOG)
-    monkeypatch.setattr(
-        agent_tools,
-        "_search_with_telemetry",
-        lambda request: search_response(
-            request.query, coverage=grounded(), results=[product()]
-        ),
+@pytest.mark.parametrize(
+    "limits", [{"in_stock_only": True}, {"availability": "in_stock"}]
+)
+def test_a_stock_requirement_is_reported_because_the_catalog_has_no_stock(
+    monkeypatch, limits
+):
+    searched = _searched(monkeypatch)
+    state = _empty_run_state()
+    with agent_tools.bind_run(state):
+        result = agent_tools.search_products("office chair", **limits)
+
+    applied = searched[0]
+    assert applied.in_stock_only is False and applied.availability is None
+    assert state["unverifiable_requirements"] == ["current stock or availability"]
+    assert not state.get("source_price_limits")
+    assert any(
+        "Not applied" in warning for warning in result["diagnostics"]["warnings"]
     )
+    assert state["trace"][-1]["arguments"]["unverified_limits"] == [
+        "current stock or availability"
+    ]
+
+
+def test_request_level_budget_is_reported_once_across_searches(monkeypatch):
+    _searched(monkeypatch)
     state = _empty_run_state()
     state["base_filters"] = SearchFilters(max_price_cents=30_000)
     with agent_tools.bind_run(state):
         agent_tools.search_products("noise cancelling headphones")
         agent_tools.search_products("headset for calls")
-    assert state["unverifiable_requirements"] == ["a price of at most $300.00"]
+    assert state["source_price_limits"] == ["a price of at most $300.00"]
+
+
+def test_earlier_products_are_rechecked_with_the_budget_but_not_stock(monkeypatch):
+    """Stock is never applied, so it cannot exclude a product from a follow-up."""
+    from unittest.mock import MagicMock
+
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", REAL_CATALOG)
+    state = run_state(coverage=[grounded()])
+    state["context_product_ids"] = [101]
+    state["base_filters"] = SearchFilters(max_price_cents=30_000, in_stock_only=True)
+    connection = MagicMock()
+    connection.__enter__.return_value = connection
+    connection.execute.return_value.fetchall.return_value = [{"product_id": 101}]
+    monkeypatch.setattr(agent_tools, "connect", lambda: connection)
+    assert agent_tools._excluded_inherited_products(state, [101]) == []
+    rechecked = json.loads(connection.execute.call_args.args[1][1])
+    assert rechecked["max_price_cents"] == 30_000
+    assert not rechecked.get("in_stock_only")
 
 
 def test_price_limits_still_apply_when_the_catalog_records_offers(monkeypatch):
@@ -90,6 +139,7 @@ def test_price_limits_still_apply_when_the_catalog_records_offers(monkeypatch):
         agent_tools.search_products("headphones", max_price_cents=30_000)
     assert searched[0].max_price_cents == 30_000
     assert not state.get("unverifiable_requirements")
+    assert not state.get("source_price_limits")
 
 
 def _declined(unmet: list[str]) -> SynthesisDeclined:
@@ -149,33 +199,50 @@ def _synthesize(client, **kwargs):
     )
 
 
-def test_an_unverifiable_budget_reaches_the_review_and_the_answer():
+def test_a_source_priced_budget_reaches_the_review_and_the_answer():
     client = DraftClient("AuriLogic Flight ANC has active noise cancellation [1].")
-    answer, _, _ = _synthesize(client, unverifiable=["a price of at most $300.00"])
+    answer, _, _ = _synthesize(
+        client, limits=ReportedLimits(source_priced=("a price of at most $300.00",))
+    )
     review_request = client.calls[0]["messages"][0]["content"][0]["text"]
     assert "a price of at most $300.00" in review_request
-    assert "a price of at most $300.00 could not be checked" in answer
-    assert "original listing" in answer
+    assert f"A price of at most $300.00 was {PRICE_NOTE}" in answer
+    assert "confirm today's price in the original listing" in answer
 
 
-def test_the_writer_leaves_unverifiable_limits_to_the_fixed_note():
+def test_a_stock_requirement_ends_the_answer_with_the_stock_note():
+    client = DraftClient("AuriLogic Flight ANC has active noise cancellation [1].")
+    answer, _, _ = _synthesize(
+        client, limits=ReportedLimits(unchecked=("current stock or availability",))
+    )
+    assert STOCK_NOTE in answer
+
+
+def test_the_writer_leaves_reported_limits_to_the_fixed_notes():
     """A drafted "stock cannot be confirmed" sentence fails the availability check.
 
     The writer is told the limits are reported after its answer, so it does not
     spend a validation retry restating them.
     """
     client = DraftClient("AuriLogic Flight ANC has active noise cancellation [1].")
-    _synthesize(client, unverifiable=["current stock or availability"])
+    _synthesize(
+        client,
+        limits=ReportedLimits(
+            source_priced=("a price of at most $300.00",),
+            unchecked=("current stock or availability",),
+        ),
+    )
     writer_request = client.calls[1]["messages"][0]["content"][0]["text"]
+    assert "a price of at most $300.00" in writer_request
     assert "current stock or availability" in writer_request
-    assert "Do not mention them" in writer_request
+    assert "Do not state prices" in writer_request
 
 
-def test_the_writer_gets_no_limit_note_when_every_limit_was_applied():
+def test_the_writer_gets_no_limit_note_when_there_are_no_limits():
     client = DraftClient("AuriLogic Flight ANC has active noise cancellation [1].")
     _synthesize(client)
     assert (
-        "Do not mention them"
+        "Do not state prices"
         not in client.calls[1]["messages"][0]["content"][0]["text"]
     )
 
@@ -191,24 +258,32 @@ def test_an_empty_alternatives_section_is_not_shown():
     assert "### The deciding trade-off" in answer
 
 
-def test_a_declined_budget_question_still_says_the_budget_was_not_checked():
+def test_a_declined_budget_question_still_says_how_the_budget_was_matched():
     state = run_state(coverage=[grounded()])
-    state["unverifiable_requirements"] = ["a price of at most $300.00"]
+    state["source_price_limits"] = ["a price of at most $300.00"]
     agent_tools.record_unsupported_answer(state, _declined(["clear call audio"]))
     answer = state["answer_of_record"]["answer"]
     assert "clear call audio" in answer
-    assert "a price of at most $300.00 could not be checked" in answer
+    assert PRICE_NOTE in answer
 
 
-def test_an_empty_budget_search_still_says_the_budget_was_not_checked(monkeypatch):
-    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", REAL_CATALOG)
-    monkeypatch.setattr(
-        agent_tools,
-        "_search_with_telemetry",
-        lambda request: search_response(request.query, coverage=grounded(), results=[]),
-    )
+def test_an_empty_budget_search_says_listings_without_a_price_were_left_out(
+    monkeypatch,
+):
+    _searched(monkeypatch, results=[])
     state = _empty_run_state()
     with agent_tools.bind_run(state):
-        agent_tools.search_products("headphones", max_price_cents=30_000)
+        agent_tools.search_products("headphones", max_price_cents=500)
     assert agent_tools.record_no_results_answer(state)
-    assert "could not be checked" in state["answer_of_record"]["answer"]
+    answer = state["answer_of_record"]["answer"]
+    assert PRICE_NOTE in answer
+    assert "listings without one were left out" in answer
+
+
+def test_an_empty_stock_search_still_says_stock_was_not_checked(monkeypatch):
+    _searched(monkeypatch, results=[])
+    state = _empty_run_state()
+    with agent_tools.bind_run(state):
+        agent_tools.search_products("chair", in_stock_only=True)
+    assert agent_tools.record_no_results_answer(state)
+    assert STOCK_NOTE in state["answer_of_record"]["answer"]

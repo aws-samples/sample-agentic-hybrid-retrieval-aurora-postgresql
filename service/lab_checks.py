@@ -244,8 +244,15 @@ def mission_request_check(
 
 
 def eligible(result: Mapping[str, Any], filters: Mapping[str, Any]) -> bool:
-    """Whether one returned product satisfies the mission's hard filters."""
+    """Whether one returned product satisfies the mission's hard filters.
+
+    A budget is judged by the price search filtered on: the current price, or
+    on the real catalog the price its source listing recorded.
+    """
     availability = result.get("availability")
+    price = result.get("price_cents")
+    if price is None:
+        price = result.get("historical_price_cents")
     return (
         (not filters.get("domain") or result.get("domain") == filters["domain"])
         and (
@@ -255,10 +262,7 @@ def eligible(result: Mapping[str, Any], filters: Mapping[str, Any]) -> bool:
         and (not filters.get("brand") or result.get("brand") == filters["brand"])
         and (
             filters.get("max_price_cents") is None
-            or (
-                result.get("price_cents") is not None
-                and result["price_cents"] <= filters["max_price_cents"]
-            )
+            or (price is not None and price <= filters["max_price_cents"])
         )
         and (
             not filters.get("in_stock_only")

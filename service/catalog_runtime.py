@@ -32,10 +32,17 @@ def filter_predicate(placeholder: str) -> str:
     that row is built per product, including the TOASTed embedding, and the
     function is not inlined, so a catalog-wide scan detoasts every product.
     Passing the scalar columns lets PostgreSQL inline the rule and evaluate
-    plain predicates, so whole-catalog counts and browse pages stay cheap.
+    plain predicates, so whole-catalog counts and browse pages stay cheap. On
+    the real catalog a budget matches the price each source listing recorded,
+    the same rule the rendered search functions apply.
     """
+    price = (
+        "coalesce(d.price_cents, d.historical_price_cents)"
+        if active_dataset()
+        else "d.price_cents"
+    )
     return f"""{search_schema()}.matches_filter_values(
-        d.domain, d.category_key, d.brand_name, d.price_cents,
+        d.domain, d.category_key, d.brand_name, {price},
         d.availability, d.rating, d.attributes, d.is_refurbished,
         d.is_sponsored, {placeholder}::jsonb
     )"""

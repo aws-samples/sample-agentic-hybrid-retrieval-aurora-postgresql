@@ -261,14 +261,20 @@ answer lists them. A yes/no question about a named product's capability is a
 product-fact question: the answer reports what the sources state and says when the
 asked-for capability is not stated.
 
-**Requirements the catalog cannot check.** The original-listing catalog records no
-current price, stock or availability. An agent search that asks for a price range,
-`in_stock_only` or an `availability` value runs without that limit, adds a
-"Not applied" line to `diagnostics.warnings`, and records the requirement in its
-trace arguments as `unverified_limits`. The source review may not decline because
-of it, and every answer of record for the turn, including a declined one, ends with a
-fixed sentence saying the requirement could not be checked and should be confirmed in
-the original listing. On a catalog that records offers, these filters apply as before. Informational questions about specs and
+**Budgets and stock on the original-listing catalog.** The catalog records no
+current price, stock or availability. A price range is matched against
+`historical_price_cents`, the price each source listing recorded when it was
+collected; listings without one fall outside any budget. The search, the Shop
+filter predicate and the lab checks apply the same rule, and the agent search adds
+an "Applied to source prices" line to `diagnostics.warnings` and records the range
+as `source_price_limits` in its trace arguments. No listing records stock, so
+a direct search with `in_stock_only` or an `availability` value returns no rows;
+the agent search instead runs without them, adds a "Not applied" warning and
+records `unverified_limits`. The source review may not
+decline because of either, and every answer of record for the turn, including a
+declined one, ends with fixed sentences saying the budget was matched against
+source listing prices, which are not current offers, or that stock could not be
+checked. On a catalog that records offers, these filters apply as before. Informational questions about specs and
 reviews may explain available facts and missing review excerpts; they must not
 invent reviews or endorse an unproven requirement. Ratings and review counts do
 not stand in for review text. Device compatibility still requires explicit
@@ -356,6 +362,7 @@ product IDs occupy a separate range from historical synthetic records. Product
 photos, listing links, titles, descriptions, features and ratings remain tied
 to the exact source record. `price_cents`, `inventory_count` and `availability`
 are null; any `historical_price_cents` is a source value, not a current offer.
+A budget filter matches it without ever copying it into `price_cents`.
 Similar products come from the same real category without claiming stock status.
 If a multi-topic evidence query finds no reviews, the same bounded production
 evidence function retries reviews with any query word, keeping the product and

@@ -49,15 +49,40 @@ SELECT d.product_id + {PRODUCT_ID_OFFSET} AS product_id,
        'Catalog identity: parent ASIN ' || d.parent_asin || E'.\\n' || d.embedding_text AS rerank_text,
        d.embedding, d.embedding_model_key, d.search_document,
        -- The listing price the source recorded when it was collected. It is
-       -- not a current offer, so it never feeds price_cents, filters or the
-       -- synthesis price check; it is here for SQL that asks about it by name.
-       CASE WHEN jsonb_typeof(s.original->'price') = 'number'
-            THEN round((s.original->>'price')::numeric * 100)::bigint
-       END AS historical_price_cents
+       -- not a current offer, so it never becomes price_cents; a budget filter
+       -- matches it instead (see live_search_functions).
+       p.price_cents AS historical_price_cents
 FROM mosaic_catalog_search.product_document d
-LEFT JOIN mosaic_catalog_stage.product s
-       ON s.dataset_id = d.dataset_id AND s.parent_asin = d.parent_asin
+LEFT JOIN {SCHEMA}.source_price p ON p.product_id = d.product_id + {PRODUCT_ID_OFFSET}
 """
+
+# Reading each raw source record for its price made a budgeted headphones count
+# take 831 ms; this keyed copy answers it in 143 ms and costs nothing without a
+# budget. Only exact numeric prices qualify: "from 19.99" is not one price.
+SOURCE_PRICE_TABLE_SQL = f"""
+CREATE TABLE IF NOT EXISTS {SCHEMA}.source_price (
+    product_id bigint PRIMARY KEY,
+    price_cents bigint NOT NULL CHECK (price_cents >= 0)
+)
+"""
+
+SOURCE_PRICE_SQL = f"""
+INSERT INTO {SCHEMA}.source_price (product_id, price_cents)
+SELECT d.product_id + {PRODUCT_ID_OFFSET},
+       round((s.original->>'price')::numeric * 100)::bigint
+FROM mosaic_catalog_search.product_document d
+JOIN mosaic_catalog_stage.product s
+  ON s.dataset_id = d.dataset_id AND s.parent_asin = d.parent_asin
+WHERE jsonb_typeof(s.original->'price') = 'number'
+ON CONFLICT (product_id) DO UPDATE SET price_cents = EXCLUDED.price_cents
+"""
+
+_FILTER_PRICE = {
+    "d.brand_name, d.price_cents,": (
+        "d.brand_name, coalesce(d.price_cents, d.historical_price_cents),"
+    ),
+    "(d).price_cents,": "coalesce((d).price_cents, (d).historical_price_cents),",
+}
 
 
 def live_search_functions(source: str, *, repair_labs: bool = True) -> str:
@@ -70,7 +95,30 @@ def live_search_functions(source: str, *, repair_labs: bool = True) -> str:
     ).replace("NOT product_is_sponsored", "product_is_sponsored IS NOT TRUE")
     boundary = "CREATE OR REPLACE FUNCTION mosaic_search.search_product_evidence("
     evidence_sql = boundary + source.split(boundary, 1)[1]
-    return functions + "\n" + evidence_sql.replace("mosaic_search.", SCHEMA + ".")
+    return _filter_on_source_price(
+        functions + "\n" + evidence_sql.replace("mosaic_search.", SCHEMA + ".")
+    )
+
+
+def _filter_on_source_price(functions: str) -> str:
+    """Match every budget against the price each source listing recorded.
+
+    The listings carry no current offer, so a budget over price_cents alone
+    would exclude every product. The rendered SQL keeps a current price first,
+    should one ever exist, and fails if a filter call cannot be rewritten.
+    """
+    calls = functions.count("matches_filter_values(") - 1
+    rewritten = 0
+    for listing_price, source_price in _FILTER_PRICE.items():
+        rewritten += functions.count(listing_price)
+        functions = functions.replace(listing_price, source_price)
+    if rewritten != calls:
+        raise ValueError(
+            f"Source price rule: {rewritten} of {calls} filter calls pass the listing "
+            "price in a recognized form; fix: pass it as `d.brand_name, d.price_cents,` "
+            "or `(d).price_cents,` so the live catalog can filter on source prices."
+        )
+    return functions
 
 
 def register_embedding_model(connection) -> None:
@@ -94,6 +142,22 @@ def register_embedding_model(connection) -> None:
             load_profile().vector_dimension,
         ),
     )
+
+
+def load_source_prices(connection) -> int:
+    """Copy each listing's recorded source price into the keyed budget table."""
+    connection.execute(SOURCE_PRICE_TABLE_SQL)
+    loaded = connection.execute(SOURCE_PRICE_SQL).rowcount
+    stored = connection.execute(
+        f"SELECT count(*) FROM {SCHEMA}.source_price"
+    ).fetchone()[0]
+    if stored != loaded:
+        raise ValueError(
+            f"Source price rule: {stored} stored prices for {loaded} priced listings; "
+            "fix: rebuild the source price table from the selected catalog."
+        )
+    connection.execute(f"ANALYZE {SCHEMA}.source_price")
+    return loaded
 
 
 def prepare(connection, dataset_id: str) -> dict:
@@ -143,6 +207,7 @@ def prepare(connection, dataset_id: str) -> dict:
         raise ValueError(
             f"Live catalog identity rule: existing receipt {existing!r} differs; preserve it and prepare a separately reviewed migration."
         )
+    load_source_prices(connection)
     connection.execute(VIEW_SQL)
     connection.execute(f"""CREATE INDEX IF NOT EXISTS real_search_public_id_idx
         ON mosaic_catalog_search.product_document ((product_id+{PRODUCT_ID_OFFSET}))""")
@@ -203,7 +268,13 @@ def prepare(connection, dataset_id: str) -> dict:
             f"Live identity verification: found {checked}, expected {(actual, actual)}; restore the registered source identities before enabling the app."
         )
     preparation_hash = hashlib.sha256(
-        (VIEW_SQL + functions + coverage_sql).encode()
+        (
+            SOURCE_PRICE_TABLE_SQL
+            + SOURCE_PRICE_SQL
+            + VIEW_SQL
+            + functions
+            + coverage_sql
+        ).encode()
     ).hexdigest()
     connection.execute(
         f"""INSERT INTO {SCHEMA}.receipt VALUES(true,%s,%s,now(),%s,%s)

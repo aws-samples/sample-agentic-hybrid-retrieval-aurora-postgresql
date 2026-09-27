@@ -40,7 +40,9 @@ event, connect an independently deployed compatible service.
 1. **Frame the request.** Separate retrieval intent from hard eligibility. Use
    established taxonomy and attribute keys; keep preferences in the query. Never
    silently relax a hard constraint to produce results. The workshop's historical
-   source does not establish current prices or stock: report unknowns explicitly.
+   source does not establish current prices or stock: a budget matches the price
+   each source listing recorded, which is not a current offer, and stock is
+   unknown. Report both explicitly.
 2. **Retrieve.** Call `search_products` with the intent, supported filters,
    `rerank=true` and `include_diagnostics=true`. PostgreSQL full-text search over
    `tsvector` matches words, `pg_trgm` recovers close spellings, and `pgvector`

@@ -28,13 +28,16 @@ export interface LabOutcome {
 }
 
 function matchesFilters(product: ProductSummary, filters: SearchFilters) {
+  // Search matches a budget against the source listing's price when the catalog
+  // has no current offer; the verdict reads the same price.
+  const price = product.price_cents ?? product.historical_price_cents ?? null;
   return (
     (!filters.domain || product.domain === filters.domain)
     && (!filters.category_key || product.category_key === filters.category_key)
     && (!filters.brand || product.brand === filters.brand)
     && (
       filters.max_price_cents === undefined
-      || (product.price_cents != null && product.price_cents <= filters.max_price_cents)
+      || (price != null && price <= filters.max_price_cents)
     )
     && (
       !filters.in_stock_only

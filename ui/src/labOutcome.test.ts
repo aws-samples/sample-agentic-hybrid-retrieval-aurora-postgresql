@@ -240,6 +240,31 @@ describe("lab outcome diagnostics", () => {
     expect(outcome.label).not.toContain("Canonical query");
   });
 
+  it("judges a budget by the source price when the catalog has no current offer", () => {
+    // Search matches a budget against the price each source listing recorded,
+    // so the lab verdict has to read the same price or it contradicts search.
+    const retrieve = coreMosaicLabs.find((item) => item.stage === "retrieve")!;
+    const mission = { ...retrieve, filters: { ...retrieve.filters, max_price_cents: 30000 } };
+    const target = (sourcePrice: number | null) => {
+      const item = {
+        ...product(mission.target_product_ids[0], (rank) => 1 / (testFusionK + rank)),
+        domain: mission.filters.domain ?? "home_office",
+        category_key: mission.filters.category_key ?? "chairs",
+        price_cents: null,
+        historical_price_cents: sourcePrice,
+        availability: "in_stock" as const,
+        attributes: { seat_depth_adjustable: true, ...mission.filters.attributes },
+      };
+      item.signals!.fts = { rank: null, raw_score: null, rrf_contribution: null };
+      item.signals!.semantic = { rank: null, raw_score: null, rrf_contribution: null };
+      return item;
+    };
+
+    expect(retrievalLabOutcome(mission, response(target(24999))).label).toBe("Repair verified");
+    expect(retrievalLabOutcome(mission, response(target(34999))).label).not.toBe("Repair verified");
+    expect(retrievalLabOutcome(mission, response(target(null))).label).not.toBe("Repair verified");
+  });
+
   it("keeps edited live queries neutral", () => {
     const outcome = liveRetrievalOutcome(
       response(product(2, (rank) => 1 / (testFusionK + rank))),

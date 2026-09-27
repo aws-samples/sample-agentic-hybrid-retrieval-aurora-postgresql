@@ -123,10 +123,10 @@ to affirm compatibility. When the identified product's evidence is supplied, set
 request_supported true and reason supported: the permitted answer reports what
 the sources state and says plainly when the asked-for capability is not stated.
 
-The input may list unverifiable_requirements: requirements these sources cannot
-check at all, such as a current price or stock. They are never grounds to
-decline. Judge the rest of the request; the application tells the shopper those
-requirements need checking in the original listing.
+The input may list reported_limits: shopper limits the application handles and
+reports itself, such as a budget already matched against source listing prices
+or stock the catalog does not record. They are never grounds to decline. Judge
+the rest of the request; the application tells the shopper how each was handled.
 
 When request_supported is false, list in unmet_requirements up to three short
 phrases, in the shopper's words, naming what the evidence does not establish
@@ -151,7 +151,7 @@ def assess_answerability(
     *,
     client: Any,
     model_id: str,
-    unverifiable: Sequence[str] = (),
+    reported_limits: Sequence[str] = (),
 ) -> tuple[Answerability, dict[str, Any]]:
     """Require a complete semantic review and independently verify its scope.
 
@@ -161,8 +161,8 @@ def assess_answerability(
         evidence: Fresh evidence belonging to those products.
         client: Configured Bedrock runtime client.
         model_id: Configured synthesis model used for this separate review.
-        unverifiable: Requirements the active catalog cannot check, such as a
-            current price; the review must not decline because of them.
+        reported_limits: Shopper limits the application handles and reports,
+            such as a source-priced budget or stock; never grounds to decline.
 
     Returns:
         A validated support decision and the review's token usage.
@@ -184,8 +184,8 @@ def assess_answerability(
                             {
                                 "question": question,
                                 **(
-                                    {"unverifiable_requirements": list(unverifiable)}
-                                    if unverifiable
+                                    {"reported_limits": list(reported_limits)}
+                                    if reported_limits
                                     else {}
                                 ),
                                 "products": [

@@ -900,32 +900,66 @@ def _without_empty_alternatives(answer: str) -> str:
     ).strip()
 
 
-def _unverifiable_instruction(unverifiable: Sequence[str]) -> str:
-    """Leave unchecked limits to the fixed note instead of a drafted disclaimer.
+@dataclass(frozen=True)
+class ReportedLimits:
+    """Shopper limits the application reports in fixed words after the answer.
+
+    Attributes:
+        source_priced: Budgets matched against the price each source listing
+            recorded, which is not a current offer.
+        unchecked: Requirements the catalog cannot check at all, such as stock.
+    """
+
+    source_priced: tuple[str, ...] = ()
+    unchecked: tuple[str, ...] = ()
+
+    def phrases(self) -> list[str]:
+        """Each limit as the review and the writer see it."""
+        return [
+            f"{item} (already matched against source listing prices, not current offers)"
+            for item in self.source_priced
+        ] + list(self.unchecked)
+
+
+NO_LIMITS = ReportedLimits()
+
+
+def _limit_instruction(limits: ReportedLimits) -> str:
+    """Leave reported limits to the fixed notes instead of a drafted disclaimer.
 
     A drafted "stock cannot be confirmed" sentence names an availability state
-    the records do not hold, so the availability check rejects it.
+    the records do not hold, and a stated budget is a currency claim no current
+    price supports, so the validators reject both.
     """
-    if not unverifiable:
+    if not limits.phrases():
         return ""
     return (
-        f"Requirements the catalog cannot check: {json.dumps(list(unverifiable))}. "
-        "The application states after your answer that these could not be "
-        "checked. Do not mention them, and do not discuss price, stock or "
-        "availability.\n\n"
+        f"Shopper limits the application reports: {json.dumps(limits.phrases())}. "
+        "The application states after your answer how each was handled. Do not "
+        "state prices or budgets, and do not discuss stock or availability.\n\n"
     )
 
 
-def with_unverifiable_note(answer: str, unverifiable: Sequence[str]) -> str:
-    """State, in fixed words, which requested limits the catalog could not check."""
-    if not unverifiable:
-        return answer
-    limits = " and ".join(unverifiable)
-    pronoun = "them" if len(unverifiable) > 1 else "it"
-    return (
-        f"{answer}\n\nThis catalog does not record current prices or stock, so "
-        f"{limits} could not be checked. Confirm {pronoun} in the original listing."
-    )
+def with_limit_notes(answer: str, limits: ReportedLimits) -> str:
+    """State, in fixed words, how the catalog handled each reported limit."""
+    notes = []
+    if limits.source_priced:
+        budget = " and ".join(limits.source_priced)
+        verb = "were" if len(limits.source_priced) > 1 else "was"
+        notes.append(
+            f"{budget[:1].upper()}{budget[1:]} {verb} matched against the prices "
+            "recorded in the 2023 source listings, and listings without one were "
+            "left out. These are not current offers, so confirm today's price in "
+            "the original listing."
+        )
+    if limits.unchecked:
+        unchecked = " and ".join(limits.unchecked)
+        pronoun = "them" if len(limits.unchecked) > 1 else "it"
+        notes.append(
+            f"This catalog does not record stock, so {unchecked} could not be "
+            f"checked. Confirm {pronoun} in the original listing."
+        )
+    return "\n\n".join([answer, *notes])
 
 
 def synthesize_cited_answer(
@@ -935,7 +969,7 @@ def synthesize_cited_answer(
     *,
     settings: Settings | None = None,
     client: Any | None = None,
-    unverifiable: Sequence[str] = (),
+    limits: ReportedLimits = NO_LIMITS,
 ) -> tuple[str, list[AgentCitation], dict[str, Any]]:
     """Write the citation-bounded answer of record for one turn.
 
@@ -950,9 +984,9 @@ def synthesize_cited_answer(
         evidence_records: Retrieved evidence, numbered in the order supplied.
         settings: Resolved runtime settings. Defaults to the process settings.
         client: A Bedrock runtime client. Defaults to the shared one.
-        unverifiable: Requirements the catalog cannot check, such as a current
-            price. The review may not decline on them and the answer ends by
-            saying they were not checked.
+        limits: Budgets matched against source listing prices and requirements
+            the catalog cannot check. The review may not decline on them, and
+            the answer ends by saying how each was handled.
 
     Returns:
         The answer, its validated citations, and the model usage.
@@ -1028,7 +1062,7 @@ def synthesize_cited_answer(
         evidence_records,
         client=runtime,
         model_id=settings.synthesis_model_id,
-        unverifiable=unverifiable,
+        reported_limits=limits.phrases(),
     )
     if not review.request_supported:
         raise SynthesisDeclined(review, review_usage)
@@ -1039,7 +1073,7 @@ def synthesize_cited_answer(
                 {
                     "text": (
                         f"Question: {question}\n\n"
-                        f"{_unverifiable_instruction(unverifiable)}"
+                        f"{_limit_instruction(limits)}"
                         f"Retrieved products and ranking context:\n"
                         f"{json.dumps(product_context, default=str)}\n\n"
                         f"Required product citation map:\n"
@@ -1104,7 +1138,7 @@ def synthesize_cited_answer(
             )
         )
         answer, citations = _validated_output(responses[-1], products, evidence_records)
-    answer = with_unverifiable_note(_without_empty_alternatives(answer), unverifiable)
+    answer = with_limit_notes(_without_empty_alternatives(answer), limits)
     usage = _combined_usage(responses)
     usage["answerability"] = review.model_dump()
     usage["answerability_usage"] = review_usage

@@ -238,12 +238,14 @@ categories are searchable without a category filter. Attribute names are the
 original source keys, not normalized Mosaic fields. Use the search query for
 feature requirements, then inspect the returned specifications before claiming
 a product meets them.
-Current prices, inventory and availability are NOT reported, so a budget or a
-stock requirement cannot be checked. When the shopper states one, still pass it
-as max_price_cents, min_price_cents or in_stock_only: search_products runs
-without it, reports that it was not applied, and the answer states that it
-needs checking in the original listing. Never claim a product fits a budget or
-is in stock. Historical ratings are
+Current prices, inventory and availability are NOT reported. Each listing may
+carry the price its source recorded when it was collected. When the shopper
+states a budget, pass it as max_price_cents or min_price_cents: search_products
+matches it against that source price and leaves out listings without one. When
+the shopper needs stock, still pass in_stock_only: search_products runs without
+it and reports that it was not applied. The answer ends by saying how each was
+handled. Never present a source price as today's price or claim a product is in
+stock. Historical ratings are
 aggregates, not a complete imported collection of review text. Only retrieved
 review records support claims about customer experiences. Parent-product
 listings can include variants: do not transfer one variant's facts to another.
