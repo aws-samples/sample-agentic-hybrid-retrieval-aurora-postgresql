@@ -226,3 +226,66 @@ def test_readiness_reports_unknown_ground_truth_when_the_query_errors(
     assert result["exact_neighbor_ground_truth_detail"] == "OperationalError"
     assert "permission denied" not in str(result["exact_neighbor_ground_truth_detail"])
     assert result["schema_ready"] is True
+
+
+class _FakeLiveReadinessConnection:
+    """Answers the queries the real catalog's `readiness()` issues on one connection."""
+
+    def __init__(self, *, ground_truth_rows_for: dict[str, int]) -> None:
+        self._ground_truth = _FakeConnection(
+            table_present=True, rows_for=ground_truth_rows_for
+        )
+
+    def execute(self, sql: str, parameters: tuple[Any, ...] | None = None) -> Any:
+        if "prepared_at FROM mosaic_live_search.receipt" in sql:
+            return _FakeCursor({"dataset_id": "reviews-2023-v2", "prepared_at": "now"})
+        if "current_database()" in sql:
+            return _FakeCursor(
+                {
+                    "database_name": "mosaic_catalog",
+                    "server_version": "17.5",
+                    "vector_version": "0.8.0",
+                    "product_count": 553911,
+                    "embedded_product_count": 553911,
+                    "embedding_dimensions": 1024,
+                    "embedding_model_ids": ["us.cohere.embed-v4:0"],
+                }
+            )
+        if "catalog_sha256 FROM mosaic_live_search.receipt" in sql:
+            return _FakeCursor({"catalog_sha256": MANIFEST})
+        if "index_state.indexrelid" in sql:
+            return _FakeRowsCursor(
+                [{"name": name, "state": "valid"} for name in parameters[0]]
+            )
+        if "pg_proc" in sql:
+            return _FakeRowsCursor([])
+        if "expected_products" in sql:
+            return _FakeCursor({"expected_products": 553911})
+        return self._ground_truth.execute(sql, parameters)
+
+
+def _live_readiness(monkeypatch, rows_for: dict[str, int]) -> dict[str, Any]:
+    from service import live_catalog
+
+    @contextmanager
+    def _fake_connect():
+        yield _FakeLiveReadinessConnection(ground_truth_rows_for=rows_for)
+
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
+    monkeypatch.setattr(live_catalog, "connect", _fake_connect)
+    return live_catalog.readiness()
+
+
+def test_real_catalog_readiness_reports_seeded_ground_truth(monkeypatch) -> None:
+    """A fresh event seeded 21,000 rows and readiness still said "missing"."""
+    result = _live_readiness(monkeypatch, {MANIFEST: 21000})
+
+    assert result["exact_neighbor_ground_truth"] == "seeded"
+    assert result["exact_neighbor_ground_truth_detail"] is None
+    assert result["catalog_ready"] is True
+
+
+def test_real_catalog_readiness_reports_missing_ground_truth(monkeypatch) -> None:
+    result = _live_readiness(monkeypatch, {"another-corpus": 21000})
+
+    assert result["exact_neighbor_ground_truth"] == "missing"

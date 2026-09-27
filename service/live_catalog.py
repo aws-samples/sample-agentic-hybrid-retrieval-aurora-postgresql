@@ -14,7 +14,7 @@ from uuid import NAMESPACE_URL, uuid5
 from fastapi import HTTPException
 
 from service.catalog_runtime import active_dataset, filter_predicate, search_schema
-from service.db import connect, index_states_on
+from service.db import connect, ground_truth_status, index_states_on
 from service.models import (
     CatalogPage,
     CatalogSuggestion,
@@ -536,6 +536,9 @@ def readiness() -> dict:
             "SELECT expected_products FROM mosaic_catalog_stage.dataset WHERE dataset_id=%s",
             (dataset,),
         ).fetchone()["expected_products"]
+        ground_truth, ground_truth_detail = ground_truth_status(
+            connection, receipt["catalog_sha256"]
+        )
     return dict(row) | {
         "dataset_id": dataset,
         "dataset_manifest_sha256": receipt["catalog_sha256"],
@@ -550,5 +553,6 @@ def readiness() -> dict:
         "evidence_note": "Original specification text is available for every product; citation records are registered on first access. Reviews are an explicitly sampled subset.",
         "missing_retrieval_indexes": [item["name"] for item in indexes] or None,
         "missing_retrieval_functions": [item["name"] for item in functions] or None,
-        "exact_neighbor_ground_truth": "missing",
+        "exact_neighbor_ground_truth": ground_truth,
+        "exact_neighbor_ground_truth_detail": ground_truth_detail,
     }
