@@ -33,6 +33,7 @@ from service.models import (
     SearchFilters,
     SourceAttribution,
 )
+from service.rerank import get_reranker, validate_rerank_results
 
 _SORTS = {
     "featured": "photographed.ordinality, d.product_id",
@@ -622,6 +623,29 @@ def _review(row: dict[str, Any]) -> ProductReview:
     )
 
 
+def _most_relevant_reviews(
+    query: str, rows: list[dict[str, Any]], count: int
+) -> list[int]:
+    """Choose the reviews that answer the question, not the ones that repeat its words.
+
+    Imported reviews have no vectors, so the relaxed lexical match is their only
+    candidate source, and `ts_rank_cd` scores each OR term on its own: a review
+    that "called support" tied one that says "call quality is ok", and the
+    evidence ID broke the tie. The reranker reads every candidate against the
+    question, as it does for product search.
+    """
+    if not rows:
+        return []
+    top_n = min(count, len(rows))
+    scored = validate_rerank_results(
+        get_reranker().rerank(query, [row["evidence_text"] for row in rows], top_n),
+        document_count=len(rows),
+        expected_count=top_n,
+    )
+    ranked = sorted(scored, key=lambda result: result[1], reverse=True)
+    return [rows[index]["evidence_id"] for index, _ in ranked]
+
+
 def get_product_evidence_records(
     product_id: int,
     query: str,
@@ -677,7 +701,8 @@ def get_product_evidence_records(
             relaxed_query = " OR ".join(f'"{term}"' for term in terms)
             if relaxed_query:
                 review_rows = connection.execute(
-                    f"""SELECT evidence_id FROM {search_schema()}.search_product_evidence(
+                    f"""SELECT evidence_id, evidence_text
+                    FROM {search_schema()}.search_product_evidence(
                         %s::bigint, %s::text, %s::vector,
                         ARRAY['customer_review']::mosaic.evidence_type[],
                         %s::integer, %s::integer, %s::integer, %s::integer
@@ -686,14 +711,15 @@ def get_product_evidence_records(
                         product_id,
                         relaxed_query,
                         query_embedding,
-                        remaining,
+                        profile.fts_limit,
                         profile.rrf_k,
                         profile.fts_limit,
                         profile.semantic_limit,
                     ),
                 ).fetchall()
-                review_fallback_ids = {row["evidence_id"] for row in review_rows}
-                evidence_ids.extend(row["evidence_id"] for row in review_rows)
+                chosen = _most_relevant_reviews(query, review_rows, remaining)
+                review_fallback_ids = set(chosen)
+                evidence_ids.extend(chosen)
         if not evidence_ids:
             return []
         rows = connection.execute(

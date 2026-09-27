@@ -10,7 +10,7 @@ from test_source_catalog import source_row
 
 from service import catalog, live_catalog
 from service.catalog_runtime import search_schema
-from service.models import CatalogFilters
+from service.models import CatalogFilters, RetrievalProfile
 from service.retrieval import RetrievalService
 from service.synthesis import _price_settled_claims
 
@@ -261,16 +261,22 @@ def test_multi_topic_review_fallback_keeps_the_product_type_and_limit(
     database = Connection(
         [
             [{"evidence_id": 101, "evidence_type": "product_spec"}],
-            [{"evidence_id": 102}],
+            [
+                {"evidence_id": 103, "evidence_text": "I called support twice."},
+                {"evidence_id": 102, "evidence_text": rows[1]["evidence_text"]},
+            ],
             rows,
         ]
     )
+    reranker = MagicMock()
+    reranker.rerank.return_value = [(1, 0.8)]
 
     @contextmanager
     def connection():
         yield database
 
     monkeypatch.setattr(catalog, "connect", connection)
+    monkeypatch.setattr(catalog, "get_reranker", lambda: reranker)
     monkeypatch.setattr(live_catalog, "ensure_product_evidence", lambda _id: None)
     records = catalog.get_product_evidence_records(
         1000001, "noise cancellation and phone calls", [0.1], limit=2
@@ -281,7 +287,43 @@ def test_multi_topic_review_fallback_keeps_the_product_type_and_limit(
     assert "ARRAY['customer_review']" in fallback_sql
     assert parameters[0] == 1000001
     assert '"noise" OR "cancellation"' in parameters[1]
-    assert parameters[3] == 1
+    assert parameters[3] == RetrievalProfile().fts_limit
+    reranker.rerank.assert_called_once_with(
+        "noise cancellation and phone calls",
+        ["I called support twice.", rows[1]["evidence_text"]],
+        1,
+    )
+    assert database.calls[2][1] == ([101, 102],)
     assert records[1].metadata["variant_asin"] == "VARIANT001"
     assert "At least one query term" in records[1].metadata["retrieval_match"]
     assert records[1].text == rows[1]["evidence_text"]
+
+
+def test_review_fallback_skips_reranking_when_no_review_matches(
+    real_product, monkeypatch
+):
+    spec = {
+        "evidence_id": 101,
+        "product_id": 1000001,
+        "evidence_type": "product_spec",
+        "source_name": "Original listing",
+        "evidence_text": "Noise cancelling headphones",
+        "metadata": {},
+    }
+    database = Connection(
+        [[{"evidence_id": 101, "evidence_type": "product_spec"}], [], [spec]]
+    )
+    reranker = MagicMock()
+
+    @contextmanager
+    def connection():
+        yield database
+
+    monkeypatch.setattr(catalog, "connect", connection)
+    monkeypatch.setattr(catalog, "get_reranker", lambda: reranker)
+    monkeypatch.setattr(live_catalog, "ensure_product_evidence", lambda _id: None)
+    records = catalog.get_product_evidence_records(
+        1000001, "phone calls", [0.1], limit=2
+    )
+    assert [record.evidence_id for record in records] == [101]
+    reranker.rerank.assert_not_called()
