@@ -82,11 +82,15 @@ def test_current_intent_and_evidence_agree_live(real_sources, question, supporte
 def test_missing_reviews_allow_source_limits_not_invented_endorsements(
     question, supported
 ):
-    # Both fixtures lack reviews; the formerly used Dell now has imported
-    # excerpts and cannot witness this boundary.
-    product_id = 1002072 if active_dataset() else 11192
+    # The v2 catalog imported reviews for the old headphone witness. This chair
+    # has specifications but no current review excerpts, as the assertion proves.
+    product_id = 1517055 if active_dataset() else 11192
     if active_dataset():
-        question = question.replace("OH-M349", "Alphasonik 72887 headphones")
+        question = question.replace("OH-M349", "Steelcase Gesture chair")
+        question = question.replace("microphone", "comfort")
+        question = question.replace(
+            "clear calls in noisy rooms", "comfort through a full workday"
+        )
     products = get_product_summaries([product_id])
     evidence = get_product_evidence_records(
         product_id, question, get_retrieval_service().embed_query(question)

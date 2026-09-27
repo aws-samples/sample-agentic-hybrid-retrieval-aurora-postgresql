@@ -189,7 +189,7 @@ def test_format_retry_is_bounded_and_counts_both_reviews(recovers):
             self.calls.append(kwargs)
             result = decision()
             if not recovers or len(self.calls) == 1:
-                result["products"] = json.dumps({"products": result["products"]})
+                result["products"] = "not a JSON decision"
             return {
                 "stopReason": "tool_use",
                 "output": {
@@ -359,3 +359,67 @@ def test_review_cannot_borrow_another_products_evidence():
             model_id="test",
         )
     assert len(client.calls) == 1
+
+
+@pytest.mark.parametrize("envelope", ["array", "products", "decision"])
+@pytest.mark.parametrize(
+    "fault", [None, "product", "evidence", "boolean", "extra", "conflict", "duplicate"]
+)
+def test_json_transport_envelopes_preserve_decision_and_scope(envelope, fault):
+    """Falsifier: an encoded decision bypasses strict types or evidence scope."""
+    from service.answerability import AnswerabilityError, assess_answerability
+
+    value = decision()
+    if fault == "product":
+        value["products"][0]["product_id"] = 999
+    elif fault == "evidence":
+        value["products"][0]["evidence_ids"] = [999]
+    elif fault == "boolean":
+        value["request_supported"] = "true"
+    elif fault == "extra":
+        value["ignore_scope"] = True
+    if envelope == "decision":
+        encoded = {"products": json.dumps(value)}
+    else:
+        payload = (
+            value["products"]
+            if envelope == "array"
+            else {"products": value["products"]}
+        )
+        encoded = {**value, "products": json.dumps(payload)}
+    if fault == "conflict":
+        encoded = {
+            **value,
+            "products": json.dumps({**value, "request_supported": False}),
+        }
+    elif fault == "duplicate":
+        encoded = {
+            "products": '{"request_supported":false,"request_supported":true,"reason":"supported","products":[]}'
+        }
+    client = Client(encoded)
+    # Preserve the rejected response on retry; Client normally switches to prose.
+    original = client.converse
+
+    def respond(**kwargs):
+        client.calls.clear()
+        return original(**kwargs)
+
+    client.converse = respond
+    if fault:
+        with pytest.raises(AnswerabilityError):
+            assess_answerability(
+                "Find headphones",
+                [product()],
+                [evidence("Noise cancellation")],
+                client=client,
+                model_id="test",
+            )
+    else:
+        review, _ = assess_answerability(
+            "Find headphones",
+            [product()],
+            [evidence("Noise cancellation")],
+            client=client,
+            model_id="test",
+        )
+        assert review.model_dump() == decision()

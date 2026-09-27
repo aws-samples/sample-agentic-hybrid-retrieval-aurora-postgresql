@@ -125,6 +125,11 @@ commits, provisioning, catalog reloads or release changes during a lab.
   invocation may not resolve `service`. A green offline run skips Aurora-marked
   tests and does not certify database or managed-service behavior.
 - `make test` requires the intended Aurora DSN. Do not create a local test DB.
+  Load the development `.env` as described in `docs/development.md`; its
+  `MOSAIC_CATALOG_DATASET` must match the prepared receipt in the database
+  selected by `DATABASE_URL`. An older database on the same cluster is not a
+  substitute. Live probes must select their witnesses from the active catalog,
+  because developer databases can retain historical identities separately.
   Source SQL ships repaired; bootstrap installs exercise faults, so distinguish
   a clean source checkout from a participant's current lab state.
 - The participant checkout comes from the pinned source Git revision, including

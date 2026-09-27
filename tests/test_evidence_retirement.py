@@ -18,9 +18,17 @@ def test_retired_evidence_is_excluded_from_both_search_methods():
     vector = np.ones(1024, dtype=np.float32)
     with connect() as conn:
         try:
-            product_id = conn.execute(
-                "SELECT product_id FROM mosaic.product ORDER BY product_id LIMIT 1"
-            ).fetchone()["product_id"]
+            # Developer Aurora can retain historical identities outside the
+            # selected catalog; they cannot witness its semantic evidence path.
+            product = conn.execute(
+                f"SELECT product_id FROM {search_schema()}.product_document "
+                "ORDER BY product_id LIMIT 1"
+            ).fetchone()
+            assert product is not None, (
+                "Evidence retirement fixture rule: active catalog has no product; "
+                "fix: prepare the selected real catalog before running this probe."
+            )
+            product_id = product["product_id"]
             ids = []
             for current in (True, False):
                 row = conn.execute(

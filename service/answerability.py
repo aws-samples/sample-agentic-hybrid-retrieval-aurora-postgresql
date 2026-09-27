@@ -36,6 +36,33 @@ class AnswerabilityError(ValueError):
     """The review did not supply a complete, evidence-bound decision."""
 
 
+def _decode_decision(value: Any) -> Any:
+    """Decode observed JSON transport wrappers without coercing decision types.
+
+    Some model responses encode the products array, or the whole decision, in
+    the products field. Only those unambiguous envelopes are accepted; the same
+    strict schema and evidence-scope checks still decide whether to proceed.
+    """
+    if not isinstance(value, dict) or not isinstance(value.get("products"), str):
+        return value
+
+    def unique_fields(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, item in pairs:
+            if key in result:
+                raise json.JSONDecodeError(f"duplicate JSON field {key!r}", "", 0)
+            result[key] = item
+        return result
+
+    decoded = json.loads(value["products"], object_pairs_hook=unique_fields)
+    if isinstance(decoded, dict):
+        if set(value) == {"products"}:
+            return decoded
+        if set(decoded) == {"products"}:
+            decoded = decoded["products"]
+    return {**value, "products": decoded}
+
+
 class SynthesisDeclined(ValueError):
     """A valid review found no authority to recommend the selected products."""
 
@@ -185,9 +212,9 @@ def assess_answerability(
                 raise AnswerabilityError(
                     "answerability: expected one record_answerability decision; retry the review"
                 )
-            review = Answerability.model_validate(calls[0]["input"])
+            review = Answerability.model_validate(_decode_decision(calls[0]["input"]))
             break
-        except (KeyError, TypeError, ValidationError) as error:
+        except (KeyError, TypeError, ValidationError, json.JSONDecodeError) as error:
             if attempt:
                 raise AnswerabilityError(
                     "answerability: invalid decision; return the complete review schema"

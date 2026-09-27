@@ -145,7 +145,7 @@
           "The identical request returns ViewSonic VG2756-4K 1551237 at final position 5 from combined position 21, with a meaning rank of 10 and no word or spelling rank.",
           "The other recent 4K USB-C listings (INNOCN 27, ASUS ProArt PA27UCX-K, HP Z27) enter the combined list for the first time; the shortlist changes from old listings to fits."
         ],
-        "checkpoint_question": "Why could the reranker not select the Dell before the repair, and why need its combined position not be first?"
+        "checkpoint_question": "Why could the reranker not select the ViewSonic before the repair, and why need its combined position not be first?"
       },
       "expected_outcome": "Restore 1 / (k + source_rank), keep the ViewSonic VG2756-4K in the bounded combined list, and let reranking compare its 4K and 90W USB-C specifications with Alex's request.",
       "assertions": [
