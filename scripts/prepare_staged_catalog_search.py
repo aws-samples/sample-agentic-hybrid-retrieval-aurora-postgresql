@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import inspect
 import json
 import os
 import sys
@@ -27,7 +26,13 @@ from scripts.embed_real_catalog import COHERE_EMBED_V4_MODEL_ID
 from scripts.lab_state import LABS, _replace_block
 from scripts.retrieval_profile import load_profile
 from scripts.stage_real_catalog import require_aurora_writer, validate_dsn
-from service.source_catalog import product_kind
+from service.source_catalog import (
+    ACCESSORY_KINDS,
+    classification_sha256,
+    classify_product,
+    product_kind,
+    reviewed_decisions,
+)
 
 SEARCH_SCHEMA = "mosaic_catalog_search"
 
@@ -36,7 +41,7 @@ SEARCH_SCHEMA = "mosaic_catalog_search"
 PROJECTION_SQL = """
 CREATE TABLE mosaic_catalog_search.product_document AS
 WITH source AS (
-    SELECT p.*, k.kind, i.product_id AS base_product_id,
+    SELECT p.*, coalesce(l.kind, k.kind) AS kind, i.product_id AS base_product_id,
         nullif(btrim(p.original->'details'->>'Brand'), '') AS brand,
         concat_ws(' ', p.parent_asin, p.original->'details'->>'Brand',
             coalesce(p.original->'details'->>'Model Name',
@@ -52,6 +57,7 @@ WITH source AS (
               WITH ORDINALITY AS d(value, ordinal)) AS body
     FROM mosaic_catalog_stage.product p
     JOIN source_product_kinds k ON p.categories=k.categories
+    LEFT JOIN source_listing_kinds l ON l.parent_asin=p.parent_asin
     LEFT JOIN source_product_ids i ON i.parent_asin=p.parent_asin
     WHERE p.dataset_id=%s
 )
@@ -87,6 +93,74 @@ SELECT coalesce(base_product_id,
        setweight(to_tsvector('english', coalesce(body, '')), 'C') AS search_document
 FROM source
 """
+
+
+CATEGORY_DECISIONS = ROOT / "db/config/catalog-category-decisions.jsonl"
+
+
+def projection_sha256() -> str:
+    """Version the projection SQL, the category rules and the reviewed decisions."""
+    decisions = hashlib.sha256(CATEGORY_DECISIONS.read_bytes()).hexdigest()
+    return hashlib.sha256(
+        (PROJECTION_SQL + classification_sha256() + decisions).encode()
+    ).hexdigest()
+
+
+def load_source_kinds(conn, dataset_id: str) -> None:
+    """Stage each taxonomy path's category, then each lab-category listing's.
+
+    Paths decide every category except the three lab categories, where the
+    listing itself decides what is sold. A reviewed decision then replaces the
+    result for its listing on any path. Both temporary tables drop at commit.
+    """
+    paths = conn.execute(
+        "SELECT DISTINCT categories FROM mosaic_catalog_stage.product WHERE dataset_id=%s",
+        (dataset_id,),
+    ).fetchall()
+    conn.execute(
+        "CREATE TEMP TABLE source_product_kinds (categories text[] PRIMARY KEY, kind text NOT NULL) ON COMMIT DROP"
+    )
+    with conn.cursor().copy("COPY source_product_kinds FROM STDIN") as copy:
+        for (path,) in paths:
+            copy.write_row((path, product_kind(path)))
+    listings = conn.execute(
+        """SELECT p.parent_asin,p.categories,p.title,p.original->'details',
+            concat_ws(' ',p.original->>'features',p.original->>'description')
+        FROM mosaic_catalog_stage.product p
+        JOIN source_product_kinds k ON p.categories=k.categories
+        WHERE p.dataset_id=%s AND k.kind=ANY(%s)""",
+        (dataset_id, list(ACCESSORY_KINDS)),
+    ).fetchall()
+    conn.execute(
+        "CREATE TEMP TABLE source_listing_kinds (parent_asin text PRIMARY KEY, kind text NOT NULL, reason text NOT NULL) ON COMMIT DROP"
+    )
+    kinds = {
+        parent_asin: classify_product(path, title, details, text)
+        for parent_asin, path, title, details, text in listings
+    }
+    reviewed = reviewed_decisions(
+        CATEGORY_DECISIONS.read_text().splitlines(), dataset_id
+    )
+    kinds.update(
+        {
+            asin: (kind, f"reviewed: {reason}")
+            for asin, (kind, reason) in reviewed.items()
+        }
+    )
+    with conn.cursor().copy("COPY source_listing_kinds FROM STDIN") as copy:
+        for parent_asin, (kind, reason) in kinds.items():
+            copy.write_row((parent_asin, kind, reason))
+    unknown = conn.execute(
+        """SELECT count(*) FROM source_listing_kinds l
+        WHERE NOT EXISTS (SELECT 1 FROM mosaic_catalog_stage.product p
+                          WHERE p.dataset_id=%s AND p.parent_asin=l.parent_asin)""",
+        (dataset_id,),
+    ).fetchone()[0]
+    if unknown:
+        raise ValueError(
+            f"Category decision rule: {unknown} reviewed listings are not in {dataset_id}; "
+            "review decisions against this exact selection."
+        )
 
 
 def search_functions(source: str, *, repair_labs: bool = True) -> str:
@@ -214,9 +288,7 @@ def prepare(
     profile = load_profile()
     functions = search_functions((ROOT / "db/sql/09_search_functions.sql").read_text())
     function_hash = hashlib.sha256(functions.encode()).hexdigest()
-    projection_hash = hashlib.sha256(
-        (PROJECTION_SQL + inspect.getsource(product_kind)).encode()
-    ).hexdigest()
+    projection_hash = projection_sha256()
     dataset = conn.execute(
         "SELECT expected_products,records_complete,embeddings_complete,catalog_sha256 "
         "FROM mosaic_catalog_stage.dataset WHERE dataset_id=%s",
@@ -258,16 +330,7 @@ def prepare(
     ).fetchone()[0]
     started = time.monotonic()
     if not present:
-        categories = conn.execute(
-            "SELECT DISTINCT categories FROM mosaic_catalog_stage.product WHERE dataset_id=%s",
-            (dataset_id,),
-        ).fetchall()
-        conn.execute(
-            "CREATE TEMP TABLE source_product_kinds (categories text[] PRIMARY KEY, kind text NOT NULL) ON COMMIT DROP"
-        )
-        with conn.cursor().copy("COPY source_product_kinds FROM STDIN") as copy:
-            for (path,) in categories:
-                copy.write_row((path, product_kind(path)))
+        load_source_kinds(conn, dataset_id)
         conn.execute(
             "CREATE TEMP TABLE source_product_ids (parent_asin text PRIMARY KEY, product_id bigint NOT NULL UNIQUE) ON COMMIT DROP"
         )

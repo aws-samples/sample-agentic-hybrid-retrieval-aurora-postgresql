@@ -150,9 +150,12 @@ def prepare(connection, dataset_id: str) -> dict:
         SELECT DISTINCT 'reviews-2023:'||md5(coalesce(brand_name,'')),
             coalesce(brand_name,''),false FROM mosaic_catalog_search.product_document
         ON CONFLICT(brand_key) DO NOTHING""")
+    # A taxonomy path can hold listings of several derived categories; its
+    # display name is the category most of its listings carry.
     connection.execute("""INSERT INTO mosaic.category(domain,category_key,display_name,category_path,depth)
-        SELECT DISTINCT domain,'reviews-2023:'||md5(domain::text||':'||category_path),
-            category_key,category_path,1 FROM mosaic_catalog_search.product_document
+        SELECT domain,'reviews-2023:'||md5(domain::text||':'||category_path),
+            mode() WITHIN GROUP (ORDER BY category_key),category_path,1
+        FROM mosaic_catalog_search.product_document GROUP BY domain,category_path
         ON CONFLICT(category_key) DO NOTHING""")
     connection.execute(
         f"""INSERT INTO mosaic.product

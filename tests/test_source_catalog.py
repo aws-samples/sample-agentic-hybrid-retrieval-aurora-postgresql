@@ -6,11 +6,14 @@ import pytest
 
 from scripts.prepare_real_catalog import canonical, embedding_text, sha256
 from service.source_catalog import (
+    classification_sha256,
+    classify_product,
     historical_price,
     product_kind,
     project_product,
     rerank_document,
     review_evidence,
+    reviewed_decisions,
     specification_evidence,
 )
 
@@ -225,3 +228,266 @@ def test_review_retains_variant_and_verification_but_does_not_expose_reviewer_id
 @pytest.mark.parametrize("leaf", ["Monitor Arms", "Monitor Stands"])
 def test_monitor_supports_are_distinct_from_display_panels(leaf):
     assert product_kind(["Electronics", "Monitor Accessories", leaf]) == "monitor_stand"
+
+
+HEADPHONES = ["Electronics", "Headphones, Earbuds & Accessories", "Headphones"]
+MONITORS = ["Electronics", "Computers & Accessories", "Monitors"]
+CHAIRS = [
+    "Office Products",
+    "Office Furniture & Lighting",
+    "Chairs & Sofas",
+    "Desk Chairs",
+]
+RANKED = "Best Sellers Rank"
+
+
+# Permanent false-positive guards: complete products whose titles mention a
+# case, casters, a battery or a replacement warranty stay in their category.
+@pytest.mark.parametrize(
+    "path, title, details",
+    [
+        (
+            HEADPHONES,
+            "Koss Porta Pro Classic with Official Hard Carry Case",
+            {
+                RANKED: {"Electronics": 125013, "On-Ear Headphones": 1632},
+                "Form Factor": "Case",
+            },
+        ),
+        (
+            HEADPHONES,
+            "Jabra Elite 75t – True Wireless Earbuds with Charging Case, Titanium Black",
+            {},
+        ),
+        (
+            HEADPHONES,
+            (
+                "Edifier W820BT Bluetooth Headphones - Foldable Wireless Headphone with "
+                "80-Hour Long Battery Life"
+            ),
+            {},
+        ),
+        (HEADPHONES, "Sony MDREX110AP - Black (Renewed)", {"Form Factor": "In Ear"}),
+        (
+            HEADPHONES,
+            "Jabra Evolve2 65 UC Wireless Headset with Link380c, Mono, Black",
+            {},
+        ),
+        (HEADPHONES, "Urbeats, Clear", {RANKED: {"Earbud & In-Ear Headphones": 900}}),
+        (MONITORS, "MSI Optix MAG274QRF-QD", {RANKED: {"Computer Monitors": 9281}}),
+        (MONITORS, "Dell S Series S2415H", {"Refresh Rate": "60 Hz"}),
+        (
+            MONITORS,
+            "LG 32UN500-W 32 inch UHD Monitor with HDR10 AMD FreeSync Bundle with 2X 6FT Cable",
+            {},
+        ),
+        (
+            MONITORS,
+            (
+                'Philips 273V5LHSB 27" Monitor, Full HD 1920x1080, 1ms, VESA, '
+                "4Yr Advance Replacement Warranty"
+            ),
+            {},
+        ),
+        (
+            MONITORS,
+            "Kwumsy Triple Laptop Monitor Extender – 360° Rotation Portable Screen",
+            {},
+        ),
+        (CHAIRS, "Steelcase Gesture Office Chair, Licorice", {}),
+        (
+            CHAIRS,
+            "Amazon Basics Low-Back Armless Office Task Desk Chair with Casters, Black",
+            {},
+        ),
+        (CHAIRS, "Ergonomic Mesh Office Chair Adjustable Lumbar Support Headrest", {}),
+        (
+            CHAIRS,
+            "X Rocker, 5129401, Deluxe Mesh Wireless 2.1 Pedestal Gaming, Black/Purple",
+            {},
+        ),
+        # Found in the 2026-09-27 review of the reviews-2023-v2 plan.
+        (
+            HEADPHONES,
+            "Apple MFI Certified Compatible Lightning Headphone/Earphone/Earbud with Mic",
+            {},
+        ),
+        (
+            HEADPHONES,
+            "Audio Technica ATH-E40 In Ear Monitors w/Extension Cable and Geartree Cloth",
+            {"Form Factor": "In Ear"},
+        ),
+        (
+            HEADPHONES,
+            (
+                "AUGLAMOUR RX-1 Earbuds Stereo Clear Sound Earphones Oxygen-Free Copper "
+                "Earphone Cable for iPhones/Android"
+            ),
+            {},
+        ),
+        (HEADPHONES, "Jabra Evolve 30 II Replacement Headset Stereo 14401-21", {}),
+        (
+            MONITORS,
+            (
+                "2021 Premium HP 27Q Pavilion 27 Inch 2K WQHD 2560x1440 LED VESA Compatible "
+                "Monitor, HDMI"
+            ),
+            {},
+        ),
+        (MONITORS, "Acer 2 Lamp Series B243Hbdr 24-Inch LCD(Black)", {}),
+        (MONITORS, "Samsung S24D300H LED 61CM 24IN Wide", {}),
+        (MONITORS, 'Sony SDM-V72W 17" Flat Panel LCD Black', {}),
+        (
+            CHAIRS,
+            "Hillsdale Warrington Wood Adjustable Swivel Caster, Game Chair, Rich Cherry",
+            {},
+        ),
+        (CHAIRS, "Pulse BT BoomChair by Lumisource", {}),
+    ],
+)
+def test_complete_products_and_bundles_keep_their_category(path, title, details):
+    kind, reason = classify_product(path, title, details)
+    assert kind == product_kind(path), reason
+
+
+@pytest.mark.parametrize(
+    "path, title, details, expected",
+    [
+        (
+            HEADPHONES,
+            (
+                "Sennheiser HD 280 Pro headband pad Genuine HD280 headphones cushion "
+                "replacement padding"
+            ),
+            {RANKED: {"Headphones & Earbuds": 31892}},
+            "headphone_accessory",
+        ),
+        (
+            HEADPHONES,
+            "4 Medium Gray Earbuds Eartips Set Compatible with Plantronics Voyager 5200",
+            {},
+            "headphone_accessory",
+        ),
+        (
+            HEADPHONES,
+            "MightySkins Skin Compatible with Skullcandy Hesh 2 Wireless Headphones",
+            {},
+            "headphone_accessory",
+        ),
+        (
+            CHAIRS,
+            'Apontus 24" Replacement Metal Office Chair Base w/ Casters',
+            {"Back Style": "Solid Back"},
+            "chair_accessory",
+        ),
+        (
+            CHAIRS,
+            "Conversion Chair Base Kit for Aeron Chair to Aeron Stool",
+            {},
+            "chair_accessory",
+        ),
+        (
+            CHAIRS,
+            "HON Headrest, Black",
+            {RANKED: {"Home Office Desk Chairs": 1100}},
+            "chair_accessory",
+        ),
+        (
+            MONITORS,
+            "2Pcs Computer Monitor Memo Board for Frameless Monitors",
+            {},
+            "monitor_accessory",
+        ),
+        (
+            HEADPHONES,
+            "Justfitgear Replacement Protein Leather Ear Pads for Sony MDR-7506 Headphones",
+            {},
+            "headphone_accessory",
+        ),
+        (
+            MONITORS,
+            "Original 12.1 Inch 800600 TFT LCD Panel LQ121S1DG11",
+            {},
+            "monitor_accessory",
+        ),
+        (
+            CHAIRS,
+            "Replacement Mirra 1 Chair Seat Pan - Flex Front",
+            {},
+            "chair_accessory",
+        ),
+        # Misfiled lab products leave the wrong category but are not refiled:
+        # outside their taxonomy path, "monitor" and "seat" name baby monitors
+        # and toilet seats as often as the lab products.
+        (
+            MONITORS,
+            "SimpTronic True Wireless Earbuds Bluetooth 5.0 Headphones in-Ear TWS Mini Headset",
+            {},
+            "other",
+        ),
+        (HEADPHONES, "Safety 1st Crystal Clear Audio 49 Mhz Baby Monitor", {}, "other"),
+        (
+            HEADPHONES,
+            "YOJA Room Darkening Thermal Insulated Window Blackout Curtains",
+            {},
+            "other",
+        ),
+        (HEADPHONES, "LERAMED Posture Corrector for Women Men", {}, "other"),
+        (
+            MONITORS,
+            "Kindle Paperwhite Case, Leafbook Thinnest and Lightest Leather Cover",
+            {"Screen Size": "6 Inches"},
+            "other",
+        ),
+        (
+            MONITORS,
+            "iPhone Xs Max Screen Protector, Clear HD Tempered Glass",
+            {},
+            "other",
+        ),
+        (CHAIRS, 'H.B. Smith Heavy Duty Steel Rake, 30"', {}, "other"),
+    ],
+)
+def test_accessories_and_miscategorized_listings_leave_the_lab_categories(
+    path, title, details, expected
+):
+    kind, reason = classify_product(path, title, details)
+    assert kind == expected, reason
+    assert reason
+
+
+def test_a_model_only_title_is_kept_by_its_own_features_not_by_its_brand():
+    model_only = "Skullcandy Skullcrusher (Discontinued by Manufacturer)"
+    features = '["Over-ear headphones with adjustable bass"]'
+    assert (
+        classify_product(HEADPHONES, model_only, {"Brand": "Skullcandy"}, features)[0]
+        == "headphones"
+    )
+    assert (
+        classify_product(HEADPHONES, model_only, {"Brand": "Skullcandy"})[0] == "other"
+    )
+
+
+def test_non_lab_paths_keep_the_source_taxonomy_and_the_rules_are_versioned():
+    stand = ["Electronics", "Monitor Accessories", "Monitor Arms"]
+    assert classify_product(stand, "Dual Monitor Arm", None) == (
+        "monitor_stand",
+        "source taxonomy",
+    )
+    assert len(classification_sha256()) == 64
+
+
+def test_reviewed_decisions_are_bound_to_one_selection_and_known_categories():
+    header = '{"dataset_id": "reviews-2023-v2", "decided_by": "review"}'
+    good = '{"parent_asin": "B000", "category": "headphone_accessory", "reason": "ear pads"}'
+    assert reviewed_decisions([header, good], "reviews-2023-v2") == {
+        "B000": ("headphone_accessory", "ear pads")
+    }
+    with pytest.raises(ValueError, match="reviewed for"):
+        reviewed_decisions([header, good], "reviews-2023-v3")
+    with pytest.raises(ValueError, match="known category"):
+        reviewed_decisions(
+            [header, good.replace("headphone_accessory", "curtains")], "reviews-2023-v2"
+        )
+    with pytest.raises(ValueError, match="one decision per listing"):
+        reviewed_decisions([header, good, good], "reviews-2023-v2")
