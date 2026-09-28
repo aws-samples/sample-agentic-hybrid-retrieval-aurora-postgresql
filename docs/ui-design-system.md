@@ -394,10 +394,17 @@ invitation is a `--paper-warm` tile with no top rule.
   name, and a position pill in the photo's corner.
 - `ProductAnswer` places each returned recommendation once, after the first
   paragraph naming it; Hybrid retrieval Reason, guided Reason, Ask Mosaic and
-  saved memory turns share this renderer.
-- Ask Mosaic shows the activity trail during retrieval and folds it into
-  “Steps and sources” when the answer arrives. Ask is a desktop sidecar and a
-  fixed overlay at 1180px and below.
+  saved memory turns share this renderer. Ask Mosaic passes
+  `placeCards={false}` because its comparison table already shows the picks.
+- Ask Mosaic (`ask-mosaic-answer.css`, `components/ask-mosaic/`) shows the
+  question as a `--paper-warm` bubble and the run as one live line that settles
+  into a summary; the trace opens from that line. The answer is unboxed: the
+  best pick on a 196px `--plate` with its retrieval path (shown again only when
+  the pick changes), then a comparison table whose cells carry a source icon
+  (`--green` listing, `--ink-soft` title only, `--gold` review, `--danger` short
+  of a stated requirement) and citation numbers, then the `ProductAnswer` prose
+  without inline cards, then a `--paper-warm` sources and “Still unknown” block.
+  Ask is a desktop sidecar and a fixed overlay at 1180px and below.
 - The footer is a `--paper-warm` band with `--footer-line` dividers,
   `--footer-muted` text and `--footer-ink` emphasis; its focus ring is
   `--footer-ink`.

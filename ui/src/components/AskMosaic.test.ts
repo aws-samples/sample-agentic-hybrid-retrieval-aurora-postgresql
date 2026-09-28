@@ -213,9 +213,9 @@ describe("AskMosaic declined outcome", () => {
     ).toBeTruthy();
 
     // The answer leads; the actual searches remain available to inspect.
-    const process = screen.getByText("Steps and sources").closest("details")!;
+    const process = document.querySelector<HTMLDetailsElement>(".ask-mosaic-process")!;
     expect(process.open).toBe(false);
-    fireEvent.click(screen.getByText("Steps and sources"));
+    fireEvent.click(process.querySelector("summary")!);
     expect(process.open).toBe(true);
     // No compare panel exists to open:
     // recommendations are empty by contract on a declined answer, so the
@@ -249,7 +249,8 @@ describe("AskMosaic declined outcome", () => {
       screen.queryByText("Mosaic could not confirm part of this request"),
     ).toBeNull();
     expect(screen.getByText("Final recommendation")).toBeTruthy();
-    expect(screen.getByText("Backed by evidence")).toBeTruthy();
+    // The sources footer replaces the "Backed by evidence" badge.
+    expect(screen.getByText("Still unknown")).toBeTruthy();
 
     openStage("Retrieval");
     expect(screen.getByText("The shortlist")).toBeTruthy();

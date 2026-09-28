@@ -19,6 +19,7 @@ import "./surfaces-hnsw.css";
 import "./surfaces-playground.css";
 import "./source-products.css";
 import "./world.css";
+import "./ask-mosaic-answer.css";
 
 if (["/", "/discover"].includes(window.location.pathname)) preloadDiscover();
 

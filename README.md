@@ -45,7 +45,10 @@ Use **Discover** to explore Alex's brief, **Shop** to search and compare product
 and **Playground** to inspect search results, ranking, tool calls, and sources.
 On Shop, **Why this match** itemizes how each result was found and ranked, and
 product pages show the specifications a listing states beside the listing text
-they came from. Mosaic follows your device's light or dark appearance; the
+they came from. **Ask Mosaic** answers with the best pick's photo, then a
+side-by-side table in which each value shows whether the listing, its title, or a
+review states it, with source numbers, then the cited answer and what its
+sources leave unknown. Mosaic follows your device's light or dark appearance; the
 header button switches it.
 
 Every command in the guides is a `uv run` script in the Code Editor terminal.

@@ -31,14 +31,17 @@ export function productCardPlacement(products: ProductSummary[]) {
   };
 }
 
-export function ProductAnswer({ text, products, citations = [], complete = true, label = "Mosaic’s picks for Alex", renderCard, renderSearchLink }: {
+export function ProductAnswer({ text, products, citations = [], complete = true, label = "Mosaic’s picks for Alex", renderCard, renderSearchLink, placeCards = true }: {
   text: string; products: ProductSummary[]; citations?: AgentCitation[]; complete?: boolean; label?: string;
   renderCard?: (product: ProductSummary, position: number) => ReactNode;
   renderSearchLink?: (product: ProductSummary) => ReactNode;
+  /** False when the surface shows the picks itself, beside the prose rather than inside it. */
+  placeCards?: boolean;
 }) {
   const images = productImageMap(products);
-  return <section className="product-answer" aria-label={complete && products.length ? label : undefined}>
-    <Markdown remarkPlugins={complete ? [productCardPlacement(products)] : []} components={{
+  const withCards = complete && placeCards;
+  return <section className="product-answer" aria-label={withCards && products.length ? label : undefined}>
+    <Markdown remarkPlugins={withCards ? [productCardPlacement(products)] : []} components={{
       div: ({ node, children, ...props }) => {
         const ids = node?.properties["data-product-cards"] ?? node?.properties.dataProductCards;
         if (typeof ids !== "string") return <div {...props}>{children}</div>;

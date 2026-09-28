@@ -35,7 +35,9 @@ import {
   Ranking,
   Shortlist,
 } from "./ask-mosaic/EvidencePanels";
-import { FollowUps, ShoppingResultCard } from "./ask-mosaic/ResultCards";
+import { AnswerSources, BestPick, PickComparison } from "./ask-mosaic/AnswerComparison";
+import { activitySummary } from "./ask-mosaic/comparison";
+import { FollowUps } from "./ask-mosaic/ResultCards";
 import { StageRail, useProgressiveStage } from "./ask-mosaic/StageProgress";
 import {
   focusedFollowUpStages,
@@ -96,6 +98,10 @@ interface TurnProps {
   onEdit: (query: string) => void;
   onHighlight: (productId: number | null) => void;
   onSelectProduct: (productId: number) => void;
+  /** Earlier questions, oldest first: a follow-up's requirements build on them. */
+  priorQuestions: string[];
+  /** The previous answer's best pick; the same pick is not shown twice in a row. */
+  previousBestPickId: number | null;
   /** Keeps each newly presented stage in view inside the scrolling drawer. */
   onStageProgress?: () => void;
   /**
@@ -124,6 +130,8 @@ function Turn({
   onEdit,
   onHighlight,
   onSelectProduct,
+  priorQuestions,
+  previousBestPickId,
   onStageProgress,
   onRevealProgress,
 }: TurnProps) {
@@ -193,6 +201,9 @@ function Turn({
   // timeline and the searches list stay, because they are what was actually
   // tried, and that is what a shopper reading a decline needs to see.
   const declined = response?.outcome === "declined";
+  // Three columns is what the panel holds legibly; the rest stay in the trace.
+  const picks = response && !declined ? response.recommendations.slice(0, 3) : [];
+  const bestPick = picks[0] ?? null;
   const comparison = !declined && candidates.length > 1
     ? (
       <>
@@ -239,13 +250,10 @@ function Turn({
             : `${presentedStageTitle}. In progress.`}
       </p>
       <div className="ask-mosaic-ask">
-        <span className="ask-mosaic-request-icon" aria-hidden="true">
-          <Sparkles size={18} />
-        </span>
-        <div className="ask-mosaic-request-copy">
-          <span>You asked</span>
-          <p>{turn.question}</p>
-        </div>
+        <p className="ask-mosaic-bubble">
+          <span className="sr-only">You asked</span>
+          {turn.question}
+        </p>
         {isLatest && !turn.loading ? (
           <span className="ask-mosaic-request-actions">
             <button
@@ -271,24 +279,27 @@ function Turn({
       {turn.loading || turn.stage || response || turn.cancelled ? (
         <details
           className="ask-mosaic-process"
-          open={!answerVisible || Boolean(turn.error) || turn.cancelled}
+          open={Boolean(turn.error) || turn.cancelled}
         >
-          <summary>
-            <span>
-              {turn.error
-                ? "Request details"
-                : turn.cancelled
-                  ? "Stopped"
-                  : answerVisible ? "Steps and sources" : "Search in progress"}
+          {/* One live line: what the run is doing, then what it did. The full
+              stage rail, searches and tool steps open from it. */}
+          <summary
+            className="ask-mosaic-live"
+            data-state={turn.error ? "error" : turn.cancelled ? "stopped" : answerSettled ? "done" : "working"}
+          >
+            <span className="ask-mosaic-live-mark" aria-hidden="true">
+              {answerSettled && !turn.error ? <CircleCheck size={15} /> : null}
             </span>
-            <small>
+            <span className="ask-mosaic-live-text">
               {turn.error
-                ? "Request interrupted"
+                ? "Request interrupted · open for details"
                 : turn.cancelled
-                  ? "Generation stopped before it finished"
-                  : answerVisible ? "Inspect what Mosaic used" : presentedStageTitle}
-            </small>
-            <ChevronDown size={16} aria-hidden="true" />
+                  ? "Stopped before it finished"
+                  : answerVisible
+                    ? activitySummary(trace) || "Steps and sources"
+                    : `${presentedStageTitle}…`}
+            </span>
+            <ChevronDown size={15} aria-hidden="true" />
           </summary>
         <StageRail
           actualStage={actualStage}
@@ -302,6 +313,15 @@ function Turn({
           panels={stagePanels}
           onPresentationProgress={onStageProgress}
         />
+        {answerSettled && !declined ? (
+          <AgentRetrievalReceipt
+            citations={citations}
+            executionPath={turn.executionPath}
+            plan={plan}
+            products={candidates}
+            trace={trace}
+          />
+        ) : null}
         </details>
       ) : null}
 
@@ -347,36 +367,54 @@ function Turn({
               <DeclinedAnswer answer={reveal.text} reason={response.decline_reason} className="ask-mosaic-declined" />
             ) : (
               <>
-                <p>
-                  <Sparkles size={14} />
-                  {answerSettled
-                    ? "Final recommendation"
-                    : turn.cancelled ? "Partial answer" : "Writing the answer"}
-                  {!reveal.done && reveal.text ? (
-                    <button type="button" className="ask-mosaic-skip-reveal" onClick={reveal.skip}>
-                      Show the full answer
-                    </button>
-                  ) : null}
-                  {response.citations.length ? (
-                    <span className="ask-mosaic-cited-support">
-                      <CircleCheck size={12} aria-hidden="true" />
-                      Backed by evidence
-                    </span>
-                  ) : answerSettled ? (
-                    <span className="ask-mosaic-cited-support is-missing">
-                      No evidence cited
-                    </span>
-                  ) : null}
-                </p>
-                {/* The wrapper bounds the caret: the shortlist below is part of
-                    the same section, and a section-level `:last-child` put the
-                    caret after the product cards instead of the prose being
-                    written. */}
+                {answerSettled ? (
+                  <h3 className="sr-only">Final recommendation</h3>
+                ) : (
+                  <p className="ask-mosaic-writing">
+                    <Sparkles size={14} aria-hidden="true" />
+                    {turn.cancelled ? "Partial answer" : "Writing the answer"}
+                    {!reveal.done && reveal.text ? (
+                      <button type="button" className="ask-mosaic-skip-reveal" onClick={reveal.skip}>
+                        Show the full answer
+                      </button>
+                    ) : null}
+                  </p>
+                )}
+                {/* Image first: the pick a shopper recognises, then every pick
+                    against the same rows, then the answer of record. */}
+                {bestPick && bestPick.product_id !== previousBestPickId ? (
+                  <BestPick
+                    product={bestPick}
+                    imageSrc={imageByProductId.get(bestPick.product_id)}
+                    onSelectProduct={onSelectProduct}
+                  />
+                ) : null}
+                {picks.length ? (
+                  <section aria-label="Recommended products">
+                    <PickComparison
+                      picks={picks}
+                      citations={response.citations}
+                      questions={[...priorQuestions, turn.question]}
+                      answerId={`ask-answer-${turn.id}`}
+                      imageByProductId={imageByProductId}
+                      onSelectProduct={onSelectProduct}
+                    />
+                  </section>
+                ) : null}
+                {/* The wrapper bounds the caret to the prose being written. */}
                 <div className="ask-mosaic-prose">
-                  <ProductAnswer text={boldRecommendationNames(reveal.text, response.recommendations)} products={response.recommendations} citations={response.citations} complete={answerSettled} label="Recommended products" renderCard={(product, position) => <ShoppingResultCard product={product} position={position} imageByProductId={imageByProductId} onHighlight={onHighlight} onSelectProduct={onSelectProduct} />} />
+                  <ProductAnswer text={boldRecommendationNames(reveal.text, response.recommendations)} products={response.recommendations} citations={response.citations} complete={answerSettled} placeCards={false} />
                 </div>
                 {/* A fail-closed run is a fact about this answer, and an absent
                     badge does not state it. */}
+                {answerSettled && response.citations.length ? (
+                  <AnswerSources
+                    picks={picks}
+                    citations={response.citations}
+                    questions={[...priorQuestions, turn.question]}
+                    answerId={`ask-answer-${turn.id}`}
+                  />
+                ) : null}
                 {answerSettled && !response.citations.length ? (
                   <p className="ask-mosaic-uncited-note">
                     No product record backs this answer, so read it as a
@@ -400,14 +438,6 @@ function Turn({
                 ease: [0.23, 1, 0.32, 1],
               }}
             >
-              <AgentRetrievalReceipt
-                citations={citations}
-                executionPath={turn.executionPath}
-                plan={plan}
-                products={candidates}
-                trace={trace}
-              />
-
               {isLatest && !turn.loading ? (
                 <FollowUps response={response} onRun={onRun} />
               ) : null}
@@ -689,7 +719,6 @@ export function AskMosaic({
             <span><Sparkles size={19} /></span>
             <div>
               <h2 id="ask-mosaic-title">Ask Mosaic</h2>
-              <p>A little help choosing.</p>
             </div>
           </div>
           {/* Only once there is something to discard. On the entry state the
@@ -735,6 +764,12 @@ export function AskMosaic({
                   onEdit={editRequest}
                   onHighlight={onHighlight}
                   onSelectProduct={onSelectProduct}
+                  priorQuestions={turns.slice(0, index).map((earlier) => earlier.question)}
+                  previousBestPickId={
+                    turns.slice(0, index).reverse()
+                      .find((earlier) => earlier.response?.recommendations.length)
+                      ?.response?.recommendations[0].product_id ?? null
+                  }
                   onStageProgress={index === turns.length - 1 ? followReveal : undefined}
                   onRevealProgress={index === turns.length - 1 ? followReveal : undefined}
                 />

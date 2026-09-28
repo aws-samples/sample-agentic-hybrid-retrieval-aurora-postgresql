@@ -772,9 +772,9 @@ describe("CatalogPage", () => {
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
     await within(dialog).findByText("Final recommendation");
     await waitFor(() => expect(
-      [...within(dialog).getByLabelText("Recommended products").querySelectorAll(".result-product-name")]
-        .map((name) => name.textContent),
-    ).toEqual(recommendations.map((product) => product.title)));
+      [...within(dialog).getByLabelText("Recommended products").querySelectorAll("thead th[data-product-id]")]
+        .map((column) => Number(column.getAttribute("data-product-id"))),
+    ).toEqual(recommendations.slice(0, 3).map((product) => product.product_id)));
     const picks = within(dialog).getByLabelText("Recommended products");
 
     const add = within(picks).getAllByRole("button", { name: /Add to bag/ })[0];
