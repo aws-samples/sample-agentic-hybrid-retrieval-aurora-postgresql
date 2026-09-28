@@ -41,30 +41,16 @@ lowering a threshold does not reconnect that path.
 If the file is repaired but the result is unchanged, check the installed Aurora
 function before altering the query. See [reset and recovery](lab-golden-queries.md#release-rule).
 
-## Optional SQL inspection
-
-The historical `make lab-01` probe describes the former catalog. It is not a current acceptance test. Inspect the live schema with the guide’s direct query instead. Its original operator demonstration compares:
-
-1. the strict `websearch_to_tsquery` match count for the misspelled query;
-2. `mosaic_search.search_fts`, including its conjunctive backoff;
-3. `mosaic_search.search_trigram` on that query;
-4. the execution plan for the `<%` word-similarity gate;
-5. the script's score-floor sweep.
-
-This is the read-only inspection script `db/sql/lab_01_typo_tolerance.sql`,
-not the required repair or its acceptance gate. Its arm calls use empty
-filters, and its plan and sweep use a single misspelled token. Those observations
-explain the operators but do not prove the filtered mission request. In the
-plan, name the actual index node rather than inferring index use from an outer
-function scan.
+## How the close-spelling gates work
 
 The served arm runs the `<%` word-similarity gate first, governed by
 `pg_trgm.word_similarity_threshold`; the whole-string `%` gate, governed by
 `pg_trgm.similarity_threshold`, runs only as a fallback when the first branch
 returns no rows. The function's `minimum_similarity` argument is a separate
 score floor on top of both gates. Read the configured values from
-`db/config/retrieval.yaml` and the request's served profile. The optional SQL
-sweep changes a score predicate; it does not change either index gate.
+`db/config/retrieval.yaml` and the request's served profile. In a plan, name
+the actual index node rather than inferring index use from an outer function
+scan.
 
 ## Query families
 

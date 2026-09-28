@@ -42,7 +42,6 @@ def _code_files(root: Path) -> list[Path]:
             root / LAB3_AGENT,
             root / "scripts/validate_lab.py",
             root / "scripts/lab_state.py",
-            root / "scripts/evidence_registration_probe.py",
             root / "scripts/agent_assembly_probe.py",
             root / "scripts/package_agentcore.py",
             root / "scripts/deploy_agentcore.py",

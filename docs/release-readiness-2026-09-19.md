@@ -1,5 +1,10 @@
 # DAT410 release-readiness review
 
+**Historical (2026-09-19):** this record describes the synthetic 500,000-product
+catalog the workshop used before the real `reviews-2023-v2` catalog. Its
+measurements and file names are as they were then. See README.md and
+READINESS.md for what ships now.
+
 **Verdict: engineering repairs are validated; publication-dependent checks remain
 blocked or pending. Do not describe this as all pre-publication gates passed.**
 

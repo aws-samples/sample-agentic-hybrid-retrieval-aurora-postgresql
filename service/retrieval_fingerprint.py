@@ -179,10 +179,10 @@ REPO = Path(__file__).resolve().parents[1]
 # another count derived from the same glob (house standards rule 7's
 # independent-witness requirement).
 _EXPECTED_CATEGORY_COUNTS: dict[str, int] = {
-    # 29 files in db/sql/ plus the two lab SQL files Aurora installs with them.
+    # 28 files in db/sql/ plus the two lab SQL files Aurora installs with them.
     # Any change here moves the retrieval fingerprint, so the committed
     # scorecard reads unattributed until the next measured baseline.
-    "sql": 31,
+    "sql": 30,
     "config": 1,
     "service": 9,
     "scripts": 7,

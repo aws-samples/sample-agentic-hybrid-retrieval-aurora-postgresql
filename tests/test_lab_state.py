@@ -375,20 +375,6 @@ def test_lab3_rejects_missing_agent_parts_and_accepts_byte_identical_restore(
     assert lab_is_solved(3, repo=lab_repo)
 
 
-def test_registration_probe_calls_the_production_function_with_nonempty_cases():
-    from scripts.evidence_registration_probe import registration_matches_contract
-    from service.agent_tools import register_evidence
-
-    calls = []
-
-    def observed(state, product_id, evidence):
-        calls.append((product_id, len(evidence)))
-        register_evidence(state, product_id, evidence)
-
-    assert registration_matches_contract(observed)
-    assert calls == [(101, 2), (202, 1), (101, 2), (101, 1), (101, 0)]
-
-
 def test_lab3_probe_does_not_import_module_startup_code(lab_repo):
     path = lab_repo / LABS[3][0]
     path.write_text(path.read_text() + '\nraise RuntimeError("unrelated startup")\n')

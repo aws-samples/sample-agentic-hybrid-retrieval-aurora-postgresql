@@ -1,5 +1,10 @@
 # Catalog and evaluation review
 
+**Historical (2026-09-20):** this record describes the synthetic 500,000-product
+catalog the workshop used before the real `reviews-2023-v2` catalog. Its
+measurements and file names are as they were then. See README.md and
+READINESS.md for what ships now.
+
 This review extends `docs/release-readiness-2026-09-19.md`. Its earlier release
 measurements do not establish the result of this catalog change. The current
 source changes and new measurements must travel together.

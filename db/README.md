@@ -71,8 +71,7 @@ See:
 mosaic-data-models-aurora-v1/
 ├── sql/                         Aurora PostgreSQL DDL, indexes, functions, labs
 ├── models/                      Pydantic, JSON Schema, and DBML contracts
-├── data/                        120-product premium cohort and media queue
-├── sample/                      Small synthetic data and eval examples
+├── data/                        120-product premium cohort
 ├── scripts/                     Render, validate, split/import, and export tools
 ├── config/                      Retrieval and model configuration
 ├── docs/                        Architecture, ERD, retrieval, media, agent, HNSW
