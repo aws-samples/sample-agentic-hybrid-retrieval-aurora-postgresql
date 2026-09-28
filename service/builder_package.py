@@ -17,7 +17,11 @@ BUILDER_FILES = (
     "db/sql/05_evidence.sql",
     "db/sql/06_retrieval_projection.sql",
     "db/sql/07_indexes.sql",
-    "db/sql/09_search_functions.sql",
+    "db/sql/08_search_channels.sql",
+    "labs/lab2_rank/solution/rrf_contribution.sql",
+    "labs/lab1_retrieve/solution/hybrid_search.sql",
+    "db/sql/09_weighted_fusion.sql",
+    "db/sql/10_evidence_search.sql",
     "db/config/retrieval.yaml",
     "db/config/agent_tool_contracts.json",
 )

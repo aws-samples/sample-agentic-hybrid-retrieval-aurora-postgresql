@@ -146,11 +146,12 @@ def _apply(dsn: str | None, repo: Path, say: Say) -> str:
 
     from scripts.apply_search_functions import apply
     from scripts.configure_retrieval_database import configure
-    from service.lab_validation_receipt import PARTICIPANT_SQL, participant_sql_digest
+    from service.lab_validation_receipt import participant_sql_digest
+    from service.search_sql import search_sql
 
     digest = participant_sql_digest(repo)
     with psycopg.connect(dsn, connect_timeout=15) as connection:
-        apply(connection, (repo / PARTICIPANT_SQL).read_text(), digest)
+        apply(connection, search_sql(repo), digest)
     configure(dsn)
     say("Applied it to Aurora.")
     return digest

@@ -7,9 +7,9 @@
 \echo ''
 \echo 'Install this when capturing Recall@10, latency, QPS, or HNSW build time.'
 
-\ir 11_evaluation.sql
-\ir 13_benchmark.sql
-\ir 14_exact_neighbor.sql
+\ir 20_evaluation.sql
+\ir 21_benchmark.sql
+\ir 22_exact_neighbor.sql
 
 \echo ''
 \echo 'Evaluation and benchmark schemas installed (mosaic_eval, mosaic_bench).'

@@ -14,7 +14,7 @@ real rows.
 
 ## 1. `install.sql` aborted: jsonb operator precedence
 
-**File:** `sql/09_search_functions.sql`, `mosaic_search.matches_filters`
+**File:** `sql/08_search_channels.sql`, `mosaic_search.matches_filters`
 
 ```sql
 -- was: fails to parse
@@ -35,7 +35,7 @@ installed at all**. Severity: blocking.
 
 ## 2. The typo-recovery arm could not recover typos
 
-**File:** `sql/09_search_functions.sql`, `mosaic_search.search_trigram`
+**File:** `sql/08_search_channels.sql`, `mosaic_search.search_trigram`
 
 ```sql
 -- was: whole-string gate only
@@ -99,11 +99,11 @@ places holding one fact is how they come to disagree:
 | `mosaic.interaction_event` | Click/impression telemetry with no producer anywhere in the application |
 
 Also dropped: their four indexes, the `rerank_event` → `search_event` foreign key
-in `12_telemetry.sql`, and `10_agent_and_rerank.sql` is renamed
-`10_agent_audit.sql` since it no longer models reranking.
+in `13_telemetry.sql`, and `10_agent_and_rerank.sql` is renamed
+`12_agent_audit.sql` since it no longer models reranking.
 
 **Split, not deleted.** `mosaic_eval.*` (5 tables) and `mosaic_bench.*` (4) move
-to `install_labs.sql`. They are how Recall@10, latency, and HNSW build time get
+to `install_measurement.sql`. They are how Recall@10, latency, and HNSW build time get
 measured, so removing them would mean rebuilding them later — but they start
 empty and nobody needs them open during the session.
 

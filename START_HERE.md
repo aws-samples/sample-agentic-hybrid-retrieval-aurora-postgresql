@@ -16,9 +16,9 @@ connection settings loaded. You do not need to start a database or server.
 
 | Step | Question to investigate | File you will edit |
 |---|---|---|
-| Retrieve | Where did the missing product leave the candidate path? | [Search functions](db/sql/09_search_functions.sql) |
-| Rank | Did the combined order preserve each search method's positions? | [Search functions](db/sql/09_search_functions.sql) |
-| Build an agent | Can your Strands agent use SQL tools and answer with sources? | [Agent factory](labs/lab3/agent.py) |
+| Retrieve | Where did the missing product leave the candidate path? | [Hybrid search](labs/lab1_retrieve/hybrid_search.sql) |
+| Rank | Did the combined order preserve each search method's positions? | [Rank contribution](labs/lab2_rank/rrf_contribution.sql) |
+| Build an agent | Can your Strands agent use SQL tools and answer with sources? | [Agent factory](labs/lab3_reason/agent.py) |
 
 Read the guide's task before editing. Labs 1 and 2 each have one SQL repair.
 In Lab 3, complete the Strands agent, deploy it with

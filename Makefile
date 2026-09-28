@@ -155,7 +155,7 @@ db-install:
 # Evaluation and benchmark schemas. Separate so the session's `\dt mosaic.*`
 # shows the 12 tables the application reads, not 21.
 db-install-labs:
-	@cd $(SCHEMA_PACKAGE)/sql && psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f install_labs.sql
+	@cd $(SCHEMA_PACKAGE)/sql && psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f install_measurement.sql
 
 # Operator-only compatibility path for historical snapshot restores. Workshop
 # Studio provisions fresh Aurora through db-bootstrap-schema.
@@ -263,12 +263,12 @@ solution-lab-2:
 start-lab-3:
 	@$(PYTHON) scripts/lab_state.py start --lab 3 --api-url "$(LAB_API_URL)"
 	@$(MAKE) restart-lab-api
-	@echo "Agent starter ready. Next: run make agent-tools, then build create_agent in labs/lab3/agent.py."
+	@echo "Agent starter ready. Next: run make agent-tools, then build create_agent in labs/lab3_reason/agent.py."
 
 reset-lab-3:
 	@$(PYTHON) scripts/lab_state.py reset --lab 3 --api-url "$(LAB_API_URL)"
 	@$(MAKE) restart-lab-api
-	@echo "Agent starter restored. Next: build create_agent in labs/lab3/agent.py, then run make deploy-agent."
+	@echo "Agent starter restored. Next: build create_agent in labs/lab3_reason/agent.py, then run make deploy-agent."
 
 validate-lab-3:
 	@$(PYTHON) scripts/lab_state.py validate --lab 3
@@ -311,7 +311,7 @@ restart-lab-api:
 # Re-render the vendored SQL at a different embedding width.
 db-render:
 	$(PYTHON) $(SCHEMA_PACKAGE)/scripts/render_dimension.py \
-		--dimension $(VECTOR_DIM) --output $(SCHEMA_PACKAGE)/sql
+		--dimension $(VECTOR_DIM) --output $(CURDIR)
 
 db-prepare-mosaic:
 	$(PYTHON) $(SCHEMA_PACKAGE)/scripts/transform_legacy_catalog.py \
@@ -329,12 +329,12 @@ db-load-mosaic:
 
 # Run after embeddings are populated.
 db-index-concurrent:
-	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/08_indexes_concurrent.sql
+	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/15_indexes_concurrent.sql
 
 # CREATE INDEX CONCURRENTLY that is interrupted -- a cancelled bootstrap, a
 # dropped connection, a failed build -- leaves the index relation behind with
 # indisvalid = false. The planner will not use it, and `IF NOT EXISTS` in
-# 08_indexes_concurrent.sql and 19_indexes_quantized.sql sees the name and skips
+# 15_indexes_concurrent.sql and 16_indexes_quantized.sql sees the name and skips
 # the rebuild, so re-running the create target is a no-op forever. That made the
 # acceptance script's "re-run make db-index-concurrent" advice unfollowable.
 # Dropping an invalid index needs no CONCURRENTLY: nothing is reading it.
@@ -357,7 +357,7 @@ db-index-recover-and-create:
 # bootstrap phase: they exist for the optional representation comparison on the
 # Performance page, which withholds those rows until this has been run.
 db-index-quantized: check-dsn
-	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/19_indexes_quantized.sql
+	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/16_indexes_quantized.sql
 
 # The same two representations on the served (prepared) catalog's table,
 # named for the instrument by catalog_indexes(). Plain builds by default;
@@ -368,7 +368,7 @@ db-index-quantized-catalog: check-dsn
 db-load-cohort:
 	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 \
 		-v premium_cohort_path="$(MOSAIC_PREMIUM_COHORT_CSV)" \
-		-f $(SCHEMA_PACKAGE)/sql/15_load_premium_cohort.sql
+		-f $(SCHEMA_PACKAGE)/sql/19_load_premium_cohort.sql
 
 db-load-evidence:
 	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 \
@@ -539,8 +539,8 @@ test-aurora-historical: check-dsn
 #   ---------------- ---------------------- ----------------------------------
 #   db-init          db-install             db/sql/install.sql
 #   db-load-catalog  db-load-mosaic         db/sql/17_load_normalized_catalog.sql
-#   db-load-media    db-load-cohort         db/sql/15_load_premium_cohort.sql
-#   db-index         db-index-concurrent    db/sql/08_indexes_concurrent.sql
+#   db-load-media    db-load-cohort         db/sql/19_load_premium_cohort.sql
+#   db-index         db-index-concurrent    db/sql/15_indexes_concurrent.sql
 #   db-load          db-bootstrap-schema    shared schemas only; restore real cache next
 #
 # See ARTIFACTS.md for the Aurora-only policy and docs/rewrite-losses.md

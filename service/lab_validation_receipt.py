@@ -17,6 +17,7 @@ from uuid import UUID
 from service import lab_checks
 from service.config import get_settings
 from service.db import connect
+from service.lab_files import LAB3_AGENT
 from service.lab_proof import (
     _persisted_mission_checks,
     _persisted_run,
@@ -27,14 +28,10 @@ from service.retrieval_fingerprint import (
     compute_retrieval_fingerprint,
     manifest_files,
 )
+from service.search_sql import search_sql
 from service.telemetry_contract import load_agent_turn_rows
 
 ROOT = Path(__file__).resolve().parents[1]
-
-
-#: The one SQL file participants edit and `scripts/apply_search_functions.py`
-#: installs. It runs in Aurora, not in the deployed image.
-PARTICIPANT_SQL = Path("db/sql/09_search_functions.sql")
 
 
 def _code_files(root: Path) -> list[Path]:
@@ -42,7 +39,7 @@ def _code_files(root: Path) -> list[Path]:
         sorted((root / "service").rglob("*.py"))
         + sorted((root / "deploy/agentcore").glob("*.py"))
         + [
-            root / "labs/lab3/agent.py",
+            root / LAB3_AGENT,
             root / "scripts/validate_lab.py",
             root / "scripts/lab_state.py",
             root / "scripts/evidence_registration_probe.py",
@@ -81,17 +78,17 @@ def application_digest(root: Path = ROOT) -> str:
     what Aurora must run, not what Runtime must run; `participant_sql_digest`
     and the applied-SQL record in Aurora carry that identity instead.
     """
-    configuration = [
-        path
-        for path in manifest_files(root)
-        if not path.relative_to(root).as_posix().startswith("db/sql/")
-    ]
+    configuration = [path for path in manifest_files(root) if path.suffix != ".sql"]
     return _digest("application", root, configuration + _code_files(root))
 
 
 def participant_sql_digest(root: Path = ROOT) -> str:
-    """Identity of the SQL a participant edits, as it stands in the workspace."""
-    return hashlib.sha256((root / PARTICIPANT_SQL).read_bytes()).hexdigest()
+    """Identity of the search SQL, with the participant's lab files, as it stands.
+
+    `scripts/apply_search_functions.py` installs exactly this text, so the
+    digest it records in Aurora can be compared with the workspace.
+    """
+    return hashlib.sha256(search_sql(root).encode("utf-8")).hexdigest()
 
 
 def validation_identity(base_url: str, readiness: dict[str, Any]) -> dict[str, Any]:

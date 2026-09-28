@@ -38,10 +38,10 @@ def test_schema_bootstrap_dry_run_never_loads_synthetic_data():
         "transform_legacy_catalog.py",
         "export_premium_cohort.py",
         "17_load_normalized_catalog.sql",
-        "15_load_premium_cohort.sql",
+        "19_load_premium_cohort.sql",
         "18_load_evidence.sql",
         "corpus_vocabulary.py refresh",
-        "08_indexes_concurrent.sql",
+        "15_indexes_concurrent.sql",
     ):
         assert forbidden not in result.stdout
 

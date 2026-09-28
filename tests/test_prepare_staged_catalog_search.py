@@ -9,6 +9,7 @@ from scripts.prepare_staged_catalog_search import (
     require_complete,
     search_functions,
 )
+from service.search_sql import search_sql
 
 
 @pytest.mark.parametrize(
@@ -31,7 +32,7 @@ def test_complete_verified_source_can_enter_search():
 
 
 def test_function_installation_cannot_replace_served_functions():
-    source = (ROOT / "db/sql/09_search_functions.sql").read_text()
+    source = search_sql(ROOT)
     scoped = search_functions(source)
     targets = re.findall(
         r"(?:FUNCTION|TABLE|PROCEDURE)\s+(?:IF EXISTS\s+)?([\w.]+)\(", scoped

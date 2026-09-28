@@ -2,7 +2,7 @@
 --
 -- mosaic_search.search_fts already computes this signal and discards it. Its
 -- salient-term selection keeps only lexemes satisfying an EXISTS against
--- product_document (09_search_functions.sql), so a term matching nothing is
+-- product_document (08_search_channels.sql), so a term matching nothing is
 -- dropped before the backoff loop runs. The request then proceeds on whatever
 -- terms survived, and reciprocal rank fusion -- which weights by position, not
 -- by score -- carries no memory that the dropped term was the one holding the

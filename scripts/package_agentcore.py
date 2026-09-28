@@ -14,7 +14,7 @@ DIRECTORIES = (
     "data/evals",
     "skills/mosaic-hybrid-retrieval",
     "deploy/agentcore",
-    "labs/lab3",
+    "labs",
 )
 FILES = (
     "pyproject.toml",

@@ -55,7 +55,7 @@ assets. The storefront resolves reviewed product photographs from
 `data/media/asset_labels_200.json` and category photographs from
 `data/media/category_plates.json`. This also works when the API returns no media
 rows. `db/sql/04_media.sql` defines the media tables;
-`db/sql/15_load_premium_cohort.sql` loads merchandising assignments, not physical
+`db/sql/19_load_premium_cohort.sql` loads merchandising assignments, not physical
 media records. The former `scripts/load_media.py` targeted the retired
 `catalog.product_media` table and is no longer used.
 

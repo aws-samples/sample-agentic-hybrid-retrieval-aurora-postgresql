@@ -608,7 +608,7 @@ def completion_proof(
                     )
                     deployed = code_deployed and sql_applied
                     if code_deployed and not sql_applied:
-                        failure = f"Aurora runs SQL different from db/sql/09_search_functions.sql in Code Editor. Next: apply it with {APPLY_SQL}, then ask Alex's question again."
+                        failure = f"Aurora runs search SQL different from your lab files in Code Editor. Next: apply it with {APPLY_SQL}, then ask Alex's question again."
             except (RuntimeError, ValueError) as error:
                 failure = f"Deployment check failed ({type(error).__name__}). Next: deploy with {DEPLOY_AGENT} in Code Editor, then ask Alex's question again."
             if not deployed:

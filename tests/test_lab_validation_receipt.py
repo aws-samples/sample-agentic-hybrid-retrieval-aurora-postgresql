@@ -12,6 +12,8 @@ from test_lab_proof import _citation, _evidence_row, _grounded_connection
 from scripts import validate_lab
 from service import lab_checks, lab_proof
 from service import lab_validation_receipt as receipt
+from service.lab_files import LAB1_SQL
+from service.search_sql import SEARCH_SQL_FILES
 
 
 def test_saved_validation_keeps_actual_answers_for_participant_inspection(
@@ -180,7 +182,7 @@ def test_replay_will_not_accept_a_different_question(saved_runs):
     "changed_path",
     [
         "service/agent.py",
-        "labs/lab3/agent.py",
+        "labs/lab3_reason/agent.py",
         "deploy/agentcore/app.py",
         "scripts/agent_assembly_probe.py",
     ],
@@ -196,7 +198,7 @@ def test_source_binding_changes_with_agent_code_but_not_readme(
         "scripts/validate_lab.py",
         "scripts/lab_state.py",
         "scripts/evidence_registration_probe.py",
-        "labs/lab3/agent.py",
+        "labs/lab3_reason/agent.py",
         "deploy/agentcore/app.py",
         "scripts/agent_assembly_probe.py",
         "scripts/package_agentcore.py",
@@ -243,7 +245,7 @@ def test_cli_reuse_never_invokes_the_agent(saved_runs, monkeypatch, tmp_path):
 def _identity_tree(tmp_path, monkeypatch):
     code = [
         "service/agent.py",
-        "labs/lab3/agent.py",
+        "labs/lab3_reason/agent.py",
         "deploy/agentcore/app.py",
         "scripts/validate_lab.py",
         "scripts/lab_state.py",
@@ -255,7 +257,10 @@ def _identity_tree(tmp_path, monkeypatch):
         "scripts/complete_agent.py",
         "uv.lock",
     ]
-    manifest = ["db/sql/09_search_functions.sql", "db/config/retrieval.yaml"]
+    manifest = [
+        *(path.as_posix() for path in SEARCH_SQL_FILES),
+        "db/config/retrieval.yaml",
+    ]
     for path in code + manifest:
         target = tmp_path / path
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -276,14 +281,15 @@ def test_a_participant_sql_edit_needs_applying_not_redeploying(tmp_path, monkeyp
     application = receipt.application_digest(tmp_path)
     sql = receipt.participant_sql_digest(tmp_path)
 
-    (tmp_path / "db/sql/09_search_functions.sql").write_text("repaired")
+    (tmp_path / LAB1_SQL).write_text("repaired")
 
     assert receipt.application_digest(tmp_path) == application
     assert receipt.participant_sql_digest(tmp_path) != sql
 
 
 @pytest.mark.parametrize(
-    "changed", ["labs/lab3/agent.py", "service/agent.py", "db/config/retrieval.yaml"]
+    "changed",
+    ["labs/lab3_reason/agent.py", "service/agent.py", "db/config/retrieval.yaml"],
 )
 def test_agent_code_and_retrieval_settings_still_need_redeploying(
     tmp_path, monkeypatch, changed

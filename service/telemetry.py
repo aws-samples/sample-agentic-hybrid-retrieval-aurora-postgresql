@@ -156,8 +156,8 @@ def agent_outcome_attributes(state: dict[str, Any]) -> dict[str, Any]:
 def _current_retrieval_fingerprint() -> str:
     """Hash the measured retrieval closure without adding telemetry to it.
 
-    Computed per receipt, not cached for the process: a participant repairs
-    `db/sql/09_search_functions.sql` and reapplies it with `psql` without
+    Computed per receipt, not cached for the process: a participant repairs a
+    lab's SQL file and reapplies it without
     restarting the API, and the next receipt must record the code that
     produced it, not the code the process started with. The manifest is a few
     dozen small files; hashing them is cheap beside the Aurora round trip.

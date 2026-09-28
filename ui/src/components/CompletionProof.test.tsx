@@ -355,7 +355,7 @@ describe("CompletionProof", () => {
     await waitFor(() => expect(labBlock(1).textContent).toContain("FAIL"));
     const block = labBlock(1);
     expect(within(block).getByText(
-      "db/sql/09_search_functions.sql still has Lab 1's fault. Next: repair the LAB1 block, apply it with uv run python scripts/apply_search_functions.py, then prove this lab again.",
+      "labs/lab1_retrieve/hybrid_search.sql still has Lab 1's fault. Next: repair the LAB1 block, apply it with uv run python scripts/apply_search_functions.py, then prove this lab again.",
     )).toBeTruthy();
     expect(block.textContent).toContain("Aurora runs the unrepaired SQL");
     expect(block.textContent).not.toContain("SQL repair applied");

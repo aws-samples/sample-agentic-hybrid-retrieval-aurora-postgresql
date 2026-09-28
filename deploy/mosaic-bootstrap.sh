@@ -1013,7 +1013,7 @@ grep -Fxq 'Lab 3: NOT STARTED' \
 
 ACTUAL_DIFF=$(sudo -u "$CODE_EDITOR_USER" -H \
   git -C "$REPO" diff --name-only | sort)
-EXPECTED_DIFF='db/sql/09_search_functions.sql'
+EXPECTED_DIFF='labs/lab1_retrieve/hybrid_search.sql'
 test "$ACTUAL_DIFF" = "$EXPECTED_DIFF"
 sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" diff --check
 

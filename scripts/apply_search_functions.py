@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install participant SQL edits in the catalog selected by the Mosaic API."""
+"""Install the search SQL, with the participant's Lab 1 and Lab 2 files, in Aurora."""
 
 from __future__ import annotations
 
@@ -13,7 +13,8 @@ sys.path.insert(0, str(ROOT))
 from scripts.lab_state import assert_reset_database
 from scripts.prepare_live_catalog import live_search_functions
 from service.catalog_runtime import active_dataset, search_schema
-from service.lab_validation_receipt import PARTICIPANT_SQL, participant_sql_digest
+from service.lab_validation_receipt import participant_sql_digest
+from service.search_sql import search_sql
 
 #: The fused search function carries the record of which participant SQL Aurora
 #: runs. Its applier already owns it, so the record needs no new privilege and
@@ -55,7 +56,7 @@ def apply(connection, source: str, source_sha256: str | None = None) -> None:
                 f"Lab catalog rule: prepared dataset {row!r} differs from {dataset!r}; "
                 "fix: select the prepared dataset used by the API before applying SQL."
             )
-        statement = live_search_functions(source, repair_labs=False)
+        statement = live_search_functions(source)
     else:
         statement = "\n".join(
             line for line in source.splitlines() if not line.startswith("\\")
@@ -81,7 +82,7 @@ def main() -> None:
     with psycopg.connect(dsn, connect_timeout=15) as connection:
         apply(
             connection,
-            (ROOT / PARTICIPANT_SQL).read_text(),
+            search_sql(ROOT),
             participant_sql_digest(ROOT),
         )
     print(f"Applied participant SQL to {search_schema()}; source lab state preserved.")

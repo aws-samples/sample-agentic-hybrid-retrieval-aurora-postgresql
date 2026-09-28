@@ -78,7 +78,7 @@ COPY examples/call_headphones.py ./examples/call_headphones.py
 
 # Both native protocols share this image; the stack selects their entry point.
 COPY deploy/agentcore/ ./deploy/agentcore/
-COPY labs/lab3/ ./labs/lab3/
+COPY labs/ ./labs/
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH=/app \

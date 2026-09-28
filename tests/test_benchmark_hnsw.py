@@ -15,7 +15,7 @@ def test_hnsw_benchmark_uses_the_production_configuration_and_persists_results()
 
 
 def test_hnsw_benchmark_schema_records_reproducibility_inputs():
-    schema = (ROOT / "db" / "sql" / "13_benchmark.sql").read_text(encoding="utf-8")
+    schema = (ROOT / "db" / "sql" / "21_benchmark.sql").read_text(encoding="utf-8")
 
     for column in (
         "database_instance_id",

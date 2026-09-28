@@ -398,7 +398,7 @@ The [AWS binary quantization walkthrough](https://aws.amazon.com/blogs/database/
 provides a useful measurement method: compare full, half and binary indexes
 against exact nearest neighbors on the same vectors, then measure recall and
 latency including any full-precision rescore. Mosaic already has these index
-forms in `db/sql/19_indexes_quantized.sql`. Deriving them does not require a
+forms in `db/sql/16_indexes_quantized.sql`. Deriving them does not require a
 new embedding run.
 
 Full-precision vector rescoring is different from the model-based reranking in

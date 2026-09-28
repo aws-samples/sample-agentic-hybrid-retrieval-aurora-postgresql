@@ -15,7 +15,7 @@ caveat than by an empty page. What the label changes is authority: an
 unanchored request may not produce a cited answer of record.
 
 The verdicts come from `mosaic_search.query_term_coverage`; see
-`db/sql/20_query_coverage.sql` for how a misspelling is separated from an
+`db/sql/11_query_coverage.sql` for how a misspelling is separated from an
 absence, and `coverage.similarity_floor` in `db/config/retrieval.yaml` for the
 measured number that separates them.
 """
@@ -190,7 +190,7 @@ def assess(
                 (query, floor),
             ).fetchall()
     except (psycopg.errors.UndefinedTable, psycopg.errors.UndefinedFunction):
-        # A cluster provisioned before db/sql/20_query_coverage.sql existed has
+        # A cluster provisioned before db/sql/11_query_coverage.sql existed has
         # neither the vocabulary table nor the function. Coverage is an
         # enhancement to search, never a dependency of it: an unmigrated
         # database must keep serving, not 500 on every request.

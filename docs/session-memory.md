@@ -82,7 +82,7 @@ long-term record retention policy.
 ## Operator setup outside Workshop Studio
 
 
-Apply `db/sql/10_agent_audit.sql` to the existing Aurora database. Fresh installs
+Apply `db/sql/12_agent_audit.sql` to the existing Aurora database. Fresh installs
 already apply it. The additive `mosaic.shopper_profile` table connects a browser
 actor to its active Aurora session.
 

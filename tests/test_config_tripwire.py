@@ -80,17 +80,18 @@ def fake_repo(tmp_path: Path) -> Path:
     """A minimal tree with the real yaml and a clean SQL file."""
     (tmp_path / "service").mkdir()
     (tmp_path / "db" / "sql").mkdir(parents=True)
+    (tmp_path / "labs" / "lab1_retrieve").mkdir(parents=True)
     (tmp_path / "db" / "config").mkdir(parents=True)
     (tmp_path / "db" / "config" / "retrieval.yaml").write_text(
         RETRIEVAL_YAML.read_text(encoding="utf-8"), encoding="utf-8"
     )
-    (tmp_path / "db" / "sql" / "09_search_functions.sql").write_text(
+    (tmp_path / "labs" / "lab1_retrieve" / "hybrid_search.sql").write_text(
         SIGNATURE.format(rrf_k=60, fts_limit=120), encoding="utf-8"
     )
-    (tmp_path / "db" / "sql" / "08_indexes_concurrent.sql").write_text(
+    (tmp_path / "db" / "sql" / "15_indexes_concurrent.sql").write_text(
         INDEX_DDL.format(ef_construction=200), encoding="utf-8"
     )
-    (tmp_path / "db" / "sql" / "20_query_coverage.sql").write_text(
+    (tmp_path / "db" / "sql" / "11_query_coverage.sql").write_text(
         COVERAGE_SIGNATURE.format(similarity_floor=0.24), encoding="utf-8"
     )
     return tmp_path
@@ -231,7 +232,7 @@ def test_the_yaml_itself_is_never_a_violation(fake_repo):
 @pytest.mark.parametrize("drifted", [90, 121, 0])
 def test_a_drifted_sql_default_is_caught(fake_repo, drifted):
     """The exemption is a monitored seam: exempt from declaring, never from agreeing."""
-    (fake_repo / "db" / "sql" / "09_search_functions.sql").write_text(
+    (fake_repo / "labs" / "lab1_retrieve" / "hybrid_search.sql").write_text(
         SIGNATURE.format(rrf_k=60, fts_limit=drifted), encoding="utf-8"
     )
     report = Report()
@@ -241,7 +242,7 @@ def test_a_drifted_sql_default_is_caught(fake_repo, drifted):
 
 def test_a_drifted_index_parameter_is_caught(fake_repo):
     """An index built off-profile makes measured recall untraceable to config."""
-    (fake_repo / "db" / "sql" / "08_indexes_concurrent.sql").write_text(
+    (fake_repo / "db" / "sql" / "15_indexes_concurrent.sql").write_text(
         INDEX_DDL.format(ef_construction=400), encoding="utf-8"
     )
     report = Report()
@@ -259,7 +260,7 @@ def test_a_drifted_coverage_floor_is_caught(fake_repo, drifted):
     another way in the query a participant runs to inspect it. 0.25 is in the
     parametrize list on purpose: it is only 0.01 away and still wrong.
     """
-    (fake_repo / "db" / "sql" / "20_query_coverage.sql").write_text(
+    (fake_repo / "db" / "sql" / "11_query_coverage.sql").write_text(
         COVERAGE_SIGNATURE.format(similarity_floor=drifted), encoding="utf-8"
     )
     report = Report()
@@ -271,7 +272,7 @@ def test_a_drifted_coverage_floor_is_caught(fake_repo, drifted):
 
 def test_an_unpinned_coverage_floor_is_caught(fake_repo):
     """Exhaustiveness, rule C1c, for the name this change added to NUMBER_NAMES."""
-    (fake_repo / "db" / "sql" / "20_query_coverage.sql").write_text(
+    (fake_repo / "db" / "sql" / "11_query_coverage.sql").write_text(
         COVERAGE_SIGNATURE.replace("query_term_coverage", "invented_coverage").format(
             similarity_floor=0.24
         ),
@@ -284,7 +285,7 @@ def test_an_unpinned_coverage_floor_is_caught(fake_repo):
 
 def test_a_stale_exemption_entry_is_caught(fake_repo):
     """A removed default must not read as agreement."""
-    (fake_repo / "db" / "sql" / "09_search_functions.sql").write_text(
+    (fake_repo / "labs" / "lab1_retrieve" / "hybrid_search.sql").write_text(
         "CREATE OR REPLACE FUNCTION mosaic_search.search_hybrid_rrf(q text)\n"
         "RETURNS TABLE (product_id bigint) LANGUAGE sql AS $$ SELECT 1 $$;\n",
         encoding="utf-8",
@@ -301,7 +302,7 @@ def test_an_unpinned_sql_default_is_caught(fake_repo):
     stayed green with none of them pinned. A monitored seam that only monitors
     what someone remembered to list is not monitored.
     """
-    (fake_repo / "db" / "sql" / "09_search_functions.sql").write_text(
+    (fake_repo / "labs" / "lab1_retrieve" / "hybrid_search.sql").write_text(
         "CREATE OR REPLACE FUNCTION mosaic_search.invented(\n"
         "    q text,\n"
         "    weight_lexical real DEFAULT 0.30\n"
@@ -340,7 +341,7 @@ def test_every_failure_message_names_the_value_and_a_fix(fake_repo):
     (fake_repo / "service" / "second_copy.py").write_text(
         "fts_limit = 200\n", encoding="utf-8"
     )
-    (fake_repo / "db" / "sql" / "09_search_functions.sql").write_text(
+    (fake_repo / "labs" / "lab1_retrieve" / "hybrid_search.sql").write_text(
         SIGNATURE.format(rrf_k=7, fts_limit=90), encoding="utf-8"
     )
     report = Report()

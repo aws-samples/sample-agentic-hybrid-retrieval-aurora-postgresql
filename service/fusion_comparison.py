@@ -207,8 +207,9 @@ class FusionComparisonService:
                 raise LabStateError(
                     f"found {search_schema()}.search_hybrid_rrf without its trigram "
                     "channel, which is Lab 1's deliberate broken state; fix: "
-                    "complete the Lab 1 repair and reapply "
-                    "db/sql/09_search_functions.sql before comparing fusion "
+                    "complete the Lab 1 repair in "
+                    "labs/lab1_retrieve/hybrid_search.sql and apply it before "
+                    "comparing fusion "
                     "methods, because the weighted function still carries the "
                     "arm and the two pools cannot be identical until then"
                 )

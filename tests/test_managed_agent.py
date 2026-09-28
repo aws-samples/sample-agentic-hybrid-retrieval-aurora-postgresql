@@ -58,7 +58,7 @@ def test_unbuilt_agent_names_file_and_command_before_any_aws_call(monkeypatch, s
     client = Mock()
     monkeypatch.setattr(transport, "runtime_client", lambda: client)
     with pytest.raises(
-        AgentSetupError, match="labs/lab3/agent.py.*" + re.escape(DEPLOY_AGENT)
+        AgentSetupError, match="labs/lab3_reason/agent.py.*" + re.escape(DEPLOY_AGENT)
     ):
         transport.invoke("answer", AgentRequest(question="A monitor"))
     client.invoke_agent_runtime.assert_not_called()

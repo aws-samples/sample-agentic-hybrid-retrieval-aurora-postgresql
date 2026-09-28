@@ -122,7 +122,10 @@ def test_download_contains_exact_reference_files_and_no_local_state():
             *(f"mosaic-builder/{path}" for path in BUILDER_FILES),
         }
         assert "examples/call_headphones.py" in BUILDER_FILES
-        assert "db/sql/09_search_functions.sql" in BUILDER_FILES
+        # The kit is reference material, so it carries each lab's answer
+        # rather than whatever state a participant's workspace copy is in.
+        assert "labs/lab1_retrieve/solution/hybrid_search.sql" in BUILDER_FILES
+        assert "labs/lab1_retrieve/hybrid_search.sql" not in BUILDER_FILES
         for path in BUILDER_FILES:
             assert (
                 archive.read(f"mosaic-builder/{path}")

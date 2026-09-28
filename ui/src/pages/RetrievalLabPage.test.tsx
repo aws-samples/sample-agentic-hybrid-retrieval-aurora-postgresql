@@ -1641,7 +1641,7 @@ describe("RetrievalLabPage", () => {
     // The verdict names what is missing, why, and the one next step.
     expect(screen.getByText("The Bose QuietComfort 35 II is missing")).toBeTruthy();
     expect(screen.getByText(/Close spelling is the only method that can match a mistyped ID, and it returned no candidates/)).toBeTruthy();
-    expect(screen.getByText(/^Next: in Code Editor, repair the LAB1 block in db\/sql\/09_search_functions\.sql, apply it with uv run python scripts\/apply_search_functions\.py/)).toBeTruthy();
+    expect(screen.getByText(/^Next: in Code Editor, repair the LAB1 block in labs\/lab1_retrieve\/hybrid_search\.sql, apply it with uv run python scripts\/apply_search_functions\.py/)).toBeTruthy();
     expect(screen.queryByText("Shop run loaded")).toBeNull();
   });
 

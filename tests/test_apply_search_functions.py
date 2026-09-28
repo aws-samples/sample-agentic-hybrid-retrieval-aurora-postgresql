@@ -1,12 +1,12 @@
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 
 from scripts.apply_search_functions import APPLIED_SQL_LABEL, applied_sql_digest, apply
 from scripts.lab_state import LABS, _replace_block
+from service.search_sql import search_sql
 
-SOURCE = Path("db/sql/09_search_functions.sql").read_text()
+SOURCE = search_sql()
 
 
 @pytest.mark.parametrize("lab", [1, 2])
@@ -28,7 +28,8 @@ def test_applying_participant_sql_does_not_silently_solve_the_lab(monkeypatch, l
     )
     assert "CREATE OR REPLACE FUNCTION mosaic_search." not in statement
     for start, end, _, replacement in LABS[lab][1]:
-        assert statement.split(start)[1].split(end)[0].strip() == replacement.strip()
+        rendered = replacement.replace("mosaic_search.", "mosaic_live_search.")
+        assert statement.split(start)[1].split(end)[0].strip() == rendered.strip()
 
 
 def test_catalog_mismatch_prevents_any_function_change(monkeypatch):

@@ -26,6 +26,7 @@ from scripts.embed_catalog import COHERE_EMBED_V4_MODEL_ID
 from scripts.prepare_staged_catalog_search import require_complete, search_functions
 from scripts.retrieval_profile import load_profile
 from scripts.stage_real_catalog import require_aurora_writer, validate_dsn
+from service.search_sql import search_sql
 
 PRODUCT_ID_OFFSET = 1_000_000
 SCHEMA = "mosaic_live_search"
@@ -85,11 +86,9 @@ _FILTER_PRICE = {
 }
 
 
-def live_search_functions(source: str, *, repair_labs: bool = True) -> str:
+def live_search_functions(source: str) -> str:
     """Render the same retrieval SQL for source records with unknown commerce facts."""
-    functions = search_functions(source, repair_labs=repair_labs).replace(
-        "mosaic_catalog_search.", SCHEMA + "."
-    )
+    functions = search_functions(source).replace("mosaic_catalog_search.", SCHEMA + ".")
     functions = functions.replace(
         "NOT product_is_refurbished", "product_is_refurbished IS NOT TRUE"
     ).replace("NOT product_is_sponsored", "product_is_sponsored IS NOT TRUE")
@@ -245,12 +244,11 @@ def prepare(connection, dataset_id: str) -> dict:
         flush=True,
     )
 
-    source = (ROOT / "db/sql/09_search_functions.sql").read_text()
-    functions = live_search_functions(source)
+    functions = live_search_functions(search_sql(ROOT, solutions=True))
     connection.execute(functions)
     coverage_sql = "\n".join(
         line
-        for line in (ROOT / "db/sql/20_query_coverage.sql").read_text().splitlines()
+        for line in (ROOT / "db/sql/11_query_coverage.sql").read_text().splitlines()
         if not line.startswith("\\")
     )
     connection.execute(coverage_sql.replace("mosaic_search.", SCHEMA + "."))

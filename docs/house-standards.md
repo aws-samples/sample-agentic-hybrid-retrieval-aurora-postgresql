@@ -236,7 +236,7 @@ surface-specific artifact.
 
 Measured: declaring a `skill` envelope of `retrieval_scope_id` on
 `compare_products` propagated through `render_database_sql()` into
-`db/sql/16_seed_tool_contracts.sql`, so `mosaic.agent_tool_contract` — the table
+`db/sql/14_seed_tool_contracts.sql`, so `mosaic.agent_tool_contract` — the table
 whose whole job is auditing what the **agent** surface emits — recorded
 `{ok, products, retrieval_scope_id}` for a tool that returns `{ok, products}`.
 Adding a surface silently corrupted the fidelity of a different surface's audit

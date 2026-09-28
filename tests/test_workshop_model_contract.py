@@ -9,6 +9,7 @@ from scripts.embed_catalog import (
     DEVELOPMENT_HASH_MODEL_ID,
     embedding_function,
 )
+from service.search_sql import search_sql
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -18,7 +19,7 @@ def test_workshop_model_space_is_cohere_embed_v4():
     assert COHERE_EMBED_V4_DIMENSIONS == 1024
     # Retargeted from the deleted `sql/` tree in Phase 2 Unit E.
     assert "vector(1024)" in (ROOT / "db/sql/06_retrieval_projection.sql").read_text()
-    assert "vector(1024)" in (ROOT / "db/sql/09_search_functions.sql").read_text()
+    assert "vector(1024)" in search_sql(ROOT)
     assert (
         "BEDROCK_EMBED_MODEL_ID=us.cohere.embed-v4:0"
         in (ROOT / "config/.env.example").read_text()

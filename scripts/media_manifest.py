@@ -11,7 +11,7 @@ Deleting them with the loader would have lost that coverage
 (`tests/test_media_assets.py` asserts 500,007 records and their digests), so they
 are preserved here as a pure enumeration over the checked-in files. The storefront
 uses the product and category manifests directly. `db/sql/04_media.sql` defines
-the media tables; `db/sql/15_load_premium_cohort.sql` loads merchandising
+the media tables; `db/sql/19_load_premium_cohort.sql` loads merchandising
 assignments, not physical media records. Neither publishes these file bindings.
 
 Nothing here connects to a database.

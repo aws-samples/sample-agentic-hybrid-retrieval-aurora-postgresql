@@ -33,6 +33,7 @@ from scripts.stage_real_catalog import require_aurora_writer, validate_dsn
 from service.embeddings import get_embedding_provider
 from service.models import RetrievalProfile
 from service.rerank import get_reranker
+from service.search_sql import search_sql
 from service.source_catalog import rerank_document
 
 
@@ -47,7 +48,7 @@ def probe(conn, requests: list[dict], output: Path) -> dict:
     Returns:
         Search observations with original product identities and source hashes.
     """
-    functions = search_functions((ROOT / "db/sql/09_search_functions.sql").read_text())
+    functions = search_functions(search_sql(ROOT, solutions=True))
     register_vector(conn)
     receipt = conn.execute("SELECT * FROM mosaic_catalog_search.receipt").fetchone()
     if (

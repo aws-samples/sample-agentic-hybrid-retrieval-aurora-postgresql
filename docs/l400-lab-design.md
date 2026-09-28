@@ -14,7 +14,7 @@ and saved vectors; they do not generate product data or rebuild embeddings.
 
 Labs 1 and 2 use direct `psql` investigations and production search checks. Lab 3
 is a practical agent build. Participants complete `create_agent` in
-`labs/lab3/agent.py`, add a useful instruction and run `uv run python scripts/deploy_agentcore.py deploy`.
+`labs/lab3_reason/agent.py`, add a useful instruction and run `uv run python scripts/deploy_agentcore.py deploy`.
 They do not write tests or a claims query in Lab 3.
 
 ## Architecture

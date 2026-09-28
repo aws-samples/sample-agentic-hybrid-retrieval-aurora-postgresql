@@ -10,6 +10,7 @@ from strands import Agent
 
 def create_agent(*, model, tools, instructions: str, hooks) -> Agent:
     """Build an agent that can choose tools and return a supported recommendation."""
+    # Lab 3 edit: assemble the agent. See README.md beside this file.
     # LAB3_AGENT_START
     return Agent(
         model=model,

@@ -14,7 +14,8 @@ Two rules, because "one source" needs both halves:
    and neither are bound constants, which are ranges rather than values.
 
 2. **SQL defaults must AGREE.** A PostgreSQL function signature cannot read a
-   file, so `db/sql/*.sql` parameter defaults are exempt from rule 1. They are
+   file, so `db/sql/*.sql` and `labs/**/*.sql` parameter defaults are exempt
+   from rule 1. They are
    **not** exempt from agreeing: every exempted default is asserted equal to its
    yaml counterpart. The exemption is a monitored seam, not a blind spot — an
    unmonitored exemption is how a "single source" acquires a second copy that
@@ -64,6 +65,7 @@ SCAN_ROOTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("scripts", (".py",)),
     ("config", (".json", ".txt")),
     ("db/sql", (".sql",)),
+    ("labs", (".sql", ".py")),
     ("db/config", (".yaml", ".yml", ".json")),
     ("db/models/python", (".py",)),
     ("db/models/json-schema", (".json",)),
@@ -184,7 +186,7 @@ class IndexParameter:
 
 INDEX_PARAMETERS: tuple[IndexParameter, ...] = (
     IndexParameter(
-        "08_indexes_concurrent.sql",
+        "db/sql/15_indexes_concurrent.sql",
         "product_document_embedding_hnsw_cosine_idx",
         "ef_construction",
         "hnsw_ef_construction",
@@ -193,13 +195,13 @@ INDEX_PARAMETERS: tuple[IndexParameter, ...] = (
     # index on purpose: if m or ef_construction differed, a size or recall comparison
     # between representations would be measuring two changes at once.
     IndexParameter(
-        "19_indexes_quantized.sql",
+        "db/sql/16_indexes_quantized.sql",
         "product_document_embedding_hnsw_halfvec_idx",
         "ef_construction",
         "hnsw_ef_construction",
     ),
     IndexParameter(
-        "19_indexes_quantized.sql",
+        "db/sql/16_indexes_quantized.sql",
         "product_document_embedding_hnsw_binary_idx",
         "ef_construction",
         "hnsw_ef_construction",
@@ -208,37 +210,56 @@ INDEX_PARAMETERS: tuple[IndexParameter, ...] = (
 
 
 SQL_DEFAULTS: tuple[SqlDefault, ...] = (
-    SqlDefault("09_search_functions.sql", "search_fts", "candidate_limit", "fts_limit"),
     SqlDefault(
-        "09_search_functions.sql", "search_trigram", "candidate_limit", "trigram_limit"
+        "db/sql/08_search_channels.sql", "search_fts", "candidate_limit", "fts_limit"
     ),
     SqlDefault(
-        "09_search_functions.sql",
+        "db/sql/08_search_channels.sql",
+        "search_trigram",
+        "candidate_limit",
+        "trigram_limit",
+    ),
+    SqlDefault(
+        "db/sql/08_search_channels.sql",
         "search_trigram",
         "minimum_similarity",
         "trigram_threshold",
     ),
     SqlDefault(
-        "09_search_functions.sql", "search_vector", "candidate_limit", "semantic_limit"
-    ),
-    SqlDefault("09_search_functions.sql", "search_hybrid_rrf", "rrf_k", "rrf_k"),
-    SqlDefault(
-        "09_search_functions.sql", "search_hybrid_rrf", "fts_limit", "fts_limit"
-    ),
-    SqlDefault(
-        "09_search_functions.sql", "search_hybrid_rrf", "trigram_limit", "trigram_limit"
+        "db/sql/08_search_channels.sql",
+        "search_vector",
+        "candidate_limit",
+        "semantic_limit",
     ),
     SqlDefault(
-        "09_search_functions.sql",
+        "labs/lab1_retrieve/hybrid_search.sql", "search_hybrid_rrf", "rrf_k", "rrf_k"
+    ),
+    SqlDefault(
+        "labs/lab1_retrieve/hybrid_search.sql",
+        "search_hybrid_rrf",
+        "fts_limit",
+        "fts_limit",
+    ),
+    SqlDefault(
+        "labs/lab1_retrieve/hybrid_search.sql",
+        "search_hybrid_rrf",
+        "trigram_limit",
+        "trigram_limit",
+    ),
+    SqlDefault(
+        "labs/lab1_retrieve/hybrid_search.sql",
         "search_hybrid_rrf",
         "semantic_limit",
         "semantic_limit",
     ),
     SqlDefault(
-        "09_search_functions.sql", "search_hybrid_rrf", "result_limit", "fused_limit"
+        "labs/lab1_retrieve/hybrid_search.sql",
+        "search_hybrid_rrf",
+        "result_limit",
+        "fused_limit",
     ),
     SqlDefault(
-        "09_search_functions.sql",
+        "labs/lab1_retrieve/hybrid_search.sql",
         "search_hybrid_rrf",
         "trigram_threshold",
         "trigram_threshold",
@@ -248,70 +269,73 @@ SQL_DEFAULTS: tuple[SqlDefault, ...] = (
     # "identical candidate lists" checkable at the config layer rather than only
     # at request time.
     SqlDefault(
-        "09_search_functions.sql", "search_hybrid_rrf_weighted", "rrf_k", "rrf_k"
+        "db/sql/09_weighted_fusion.sql", "search_hybrid_rrf_weighted", "rrf_k", "rrf_k"
     ),
     # The pool size is a fusion input too: the comparison endpoint requires
     # both functions to fuse the same untruncated pool, and a drifted default
     # here would truncate one side first.
     SqlDefault(
-        "09_search_functions.sql",
+        "db/sql/09_weighted_fusion.sql",
         "search_hybrid_rrf_weighted",
         "result_limit",
         "fused_limit",
     ),
     SqlDefault(
-        "09_search_functions.sql",
+        "db/sql/09_weighted_fusion.sql",
         "search_hybrid_rrf_weighted",
         "fts_limit",
         "fts_limit",
     ),
     SqlDefault(
-        "09_search_functions.sql",
+        "db/sql/09_weighted_fusion.sql",
         "search_hybrid_rrf_weighted",
         "trigram_limit",
         "trigram_limit",
     ),
     SqlDefault(
-        "09_search_functions.sql",
+        "db/sql/09_weighted_fusion.sql",
         "search_hybrid_rrf_weighted",
         "semantic_limit",
         "semantic_limit",
     ),
     SqlDefault(
-        "09_search_functions.sql",
+        "db/sql/09_weighted_fusion.sql",
         "search_hybrid_rrf_weighted",
         "trigram_threshold",
         "trigram_threshold",
     ),
     SqlDefault(
-        "09_search_functions.sql",
+        "db/sql/09_weighted_fusion.sql",
         "search_hybrid_rrf_weighted",
         "weight_lexical",
         "weight_lexical",
     ),
     SqlDefault(
-        "09_search_functions.sql",
+        "db/sql/09_weighted_fusion.sql",
         "search_hybrid_rrf_weighted",
         "weight_semantic",
         "weight_semantic",
     ),
     SqlDefault(
-        "09_search_functions.sql",
+        "db/sql/09_weighted_fusion.sql",
         "search_hybrid_rrf_weighted",
         "weight_trigram",
         "weight_trigram",
     ),
     SqlDefault(
-        "09_search_functions.sql", "configure_hnsw", "p_ef_search", "hnsw_ef_search"
+        "db/sql/08_search_channels.sql",
+        "configure_hnsw",
+        "p_ef_search",
+        "hnsw_ef_search",
     ),
     SqlDefault(
-        "09_search_functions.sql",
+        "db/sql/08_search_channels.sql",
         "configure_hnsw",
         "p_max_scan_tuples",
         "hnsw_max_scan_tuples",
     ),
     SqlDefault(
-        "09_search_functions.sql",
+        "db/sql/08_search_channels.sql",
         "configure_hnsw",
         "p_scan_mem_multiplier",
         "hnsw_scan_mem_multiplier",
@@ -322,7 +346,7 @@ SQL_DEFAULTS: tuple[SqlDefault, ...] = (
     # value, so a disagreement would mean the Lab 1 anchor is classified by one
     # number in psql and another through the API.
     SqlDefault(
-        "20_query_coverage.sql",
+        "db/sql/11_query_coverage.sql",
         "query_term_coverage",
         "similarity_floor",
         "coverage_similarity_floor",
@@ -415,6 +439,13 @@ class Report:
         self.failures.append(f"{rule}: {detail}")
 
 
+def _sql_sources(repo: Path) -> list[Path]:
+    """Every SQL file whose function defaults ship: `db/sql/` and the lab files."""
+    return sorted((repo / "db" / "sql").glob("*.sql")) + sorted(
+        (repo / "labs").rglob("*.sql")
+    )
+
+
 def check_exemptions_complete(report: Report, *, repo: Path = REPO) -> None:
     """Rule 3 — every SQL parameter default with a retrieval name is enumerated.
 
@@ -433,7 +464,7 @@ def check_exemptions_complete(report: Report, *, repo: Path = REPO) -> None:
         r"(?:\s*\(\d+\))?\s+DEFAULT\s+(?P<value>-?\d+(?:\.\d+)?)",
         re.IGNORECASE,
     )
-    for path in sorted((repo / "db" / "sql").glob("*.sql")):
+    for path in _sql_sources(repo):
         source = path.read_text(encoding="utf-8")
         for signature in re.finditer(
             r"FUNCTION\s+[\w.]*?(?P<function>\w+)\s*\((?P<body>.*?)\)\s*RETURNS",
@@ -450,7 +481,7 @@ def check_exemptions_complete(report: Report, *, repo: Path = REPO) -> None:
                     explain(
                         f"SQL parameter default {name}={found.group('value')} that "
                         f"no SQL_DEFAULTS entry pins",
-                        f"add SqlDefault({path.name!r}, {function!r}, {name!r}, "
+                        f"add SqlDefault({path.relative_to(repo).as_posix()!r}, {function!r}, {name!r}, "
                         f"<profile_field>) to scripts/config_tripwire.py so the "
                         f"default is asserted equal to the yaml, or pass None with "
                         f"a written reason if it has no yaml counterpart",
@@ -552,7 +583,7 @@ def check_sql_agreement(report: Report, *, repo: Path = REPO) -> None:
     """Rule 2 — every exempted SQL default equals its yaml value."""
     profile = load_profile()
     for entry in SQL_DEFAULTS:
-        path = repo / "db" / "sql" / entry.file
+        path = repo / entry.file
         if not path.exists():
             report.fail(
                 "C1b missing file",
@@ -702,7 +733,7 @@ def check_index_agreement(report: Report, *, repo: Path = REPO) -> None:
     """Rule 2, second half — every exempted index build parameter agrees."""
     profile = load_profile()
     for entry in INDEX_PARAMETERS:
-        path = repo / "db" / "sql" / entry.file
+        path = repo / entry.file
         if not path.exists():
             report.fail(
                 "C1b missing file",

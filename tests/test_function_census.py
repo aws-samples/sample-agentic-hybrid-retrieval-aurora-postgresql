@@ -16,6 +16,7 @@ from typing import Any, Self
 import pytest
 
 import scripts.function_census as census
+from service.search_sql import search_sql
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -102,9 +103,7 @@ def test_a_missing_dsn_is_a_warning_locally(monkeypatch, capsys):
 
 def test_the_sql_file_drops_the_superseded_signature():
     """The cluster fix is not enough; a re-run of the schema must not recreate it."""
-    source = (REPO / "db" / "sql" / "09_search_functions.sql").read_text(
-        encoding="utf-8"
-    )
+    source = search_sql(REPO)
     assert "DROP FUNCTION IF EXISTS mosaic_search.search_hybrid_rrf(" in source
     drop_at = source.index("DROP FUNCTION IF EXISTS mosaic_search.search_hybrid_rrf(")
     create_at = source.index(

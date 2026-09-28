@@ -156,7 +156,7 @@ unchanged results and an unsuccessful wording variant.
 ### Lab 3 - Build and deploy an agent
 
 Participants extend their SQL from Labs 1 and 2. They list the Gateway tools,
-complete `create_agent` in `labs/lab3/agent.py`, add one source-aware instruction,
+complete `create_agent` in `labs/lab3_reason/agent.py`, add one source-aware instruction,
 and run `uv run python scripts/deploy_agentcore.py deploy`. The managed services and networking are prepared.
 
 Show the deployment message, then ask the ViewSonic monitor and Steelcase Gesture

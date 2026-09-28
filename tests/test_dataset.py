@@ -13,6 +13,7 @@ from scripts.catalog_contract import (
 )
 from scripts.generate_catalog import ProductContext, specialized_attributes
 from service.models import SearchFilters
+from service.search_sql import search_sql
 
 ROOT = Path(__file__).resolve().parents[1]
 SKU_PATTERN = re.compile(r"^[A-Z]{2}-[A-Z0-9]{1,5}-[0-9]{7}$")
@@ -100,7 +101,7 @@ def test_evaluation_filters_match_the_sql_contract():
     for query in queries:
         SearchFilters.model_validate(query["filters"])
 
-    sql = (ROOT / "db/sql/09_search_functions.sql").read_text(encoding="utf-8")
+    sql = search_sql(ROOT)
     assert SUPPORTED_FILTER_KEYS == set(SearchFilters.model_fields)
     for key in SUPPORTED_FILTER_KEYS:
         assert f"'{key}'" in sql, (

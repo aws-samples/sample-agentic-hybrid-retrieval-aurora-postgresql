@@ -37,7 +37,7 @@ from service.coverage import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-COVERAGE_SQL = ROOT / "db" / "sql" / "20_query_coverage.sql"
+COVERAGE_SQL = ROOT / "db" / "sql" / "11_query_coverage.sql"
 COVERAGE_QUERIES = ROOT / "data" / "evals" / "coverage_queries.jsonl"
 
 #: Token kinds `mosaic_search.is_identifier_token` refuses to rescue. Written
@@ -326,7 +326,8 @@ def test_the_yaml_floor_equals_the_sql_default():
     entry = next(
         d
         for d in SQL_DEFAULTS
-        if d.file == "20_query_coverage.sql" and d.parameter == "similarity_floor"
+        if d.file == "db/sql/11_query_coverage.sql"
+        and d.parameter == "similarity_floor"
     )
     assert entry.profile_field == "coverage_similarity_floor"
     declared = _sql_default(COVERAGE_SQL.read_text(encoding="utf-8"), entry)
@@ -403,7 +404,7 @@ def test_default_coverage_is_grounded_and_serializable():
 
 
 class _UnmigratedConnection:
-    """A cluster provisioned before db/sql/20_query_coverage.sql existed."""
+    """A cluster provisioned before the query coverage SQL existed."""
 
     def __init__(self, error: type[Exception]):
         self._error = error

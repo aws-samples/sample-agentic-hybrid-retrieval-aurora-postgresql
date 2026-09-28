@@ -9,6 +9,7 @@ from scripts.catalog_contract import (
     validate_filter_shape,
 )
 from service.models import SearchFilters
+from service.search_sql import search_sql
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -58,7 +59,7 @@ def test_predecessor_and_unknown_filter_keys_fail_closed(key):
 
 
 def test_filter_vocabulary_matches_the_typed_and_sql_contracts():
-    sql = (ROOT / "db/sql/09_search_functions.sql").read_text(encoding="utf-8")
+    sql = search_sql(ROOT)
     assert SUPPORTED_FILTER_KEYS == set(SearchFilters.model_fields)
     for key in SUPPORTED_FILTER_KEYS:
         assert f"'{key}'" in sql, (
@@ -92,7 +93,7 @@ def test_sql_attribute_filter_uses_explicit_json_operator_precedence():
     "operator does not exist: boolean -> unknown". Retargeted from the deleted
     `sql/04_search_functions.sql` to the live tree in Phase 2 Unit E.
     """
-    sql = (ROOT / "db/sql/09_search_functions.sql").read_text(encoding="utf-8")
+    sql = search_sql(ROOT)
 
     assert "product_attributes @> (f->'attributes')" in sql
     assert "d.attributes @> (f->'attributes')" in sql

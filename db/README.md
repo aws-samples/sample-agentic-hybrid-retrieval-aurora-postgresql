@@ -88,8 +88,12 @@ catalog. To use another embedding model and dimension, render a separate SQL
 tree and regenerate the embeddings; never relabel vectors from another space.
 
 ```bash
-uv run python scripts/render_dimension.py --dimension 1536 --output build/sql
+uv run python scripts/render_dimension.py --dimension 1536 --output build/render
+psql "$DATABASE_URL" -f build/render/db/sql/install.sql
 ```
+
+The output keeps the repository layout, `db/sql/` and `labs/`, because
+`install.sql` includes the two lab SQL files from `labs/`.
 
 For the included 1024-dimensional version:
 
@@ -100,7 +104,7 @@ psql "$DATABASE_URL" -f sql/install.sql
 After products are loaded and embeddings are populated, build the HNSW indexes separately:
 
 ```bash
-psql "$DATABASE_URL" -f sql/08_indexes_concurrent.sql
+psql "$DATABASE_URL" -f sql/15_indexes_concurrent.sql
 ```
 
 `CREATE INDEX CONCURRENTLY` is intentionally outside `install.sql` because it cannot run inside a transaction block.

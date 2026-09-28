@@ -11,13 +11,14 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from scripts.retrieval_profile import explain
 from service.catalog_runtime import search_schema
+from service.lab_files import LAB1_SQL, LAB2_SQL, LAB3_AGENT, solution_path
 from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, solution, validate
 
 #: Slack for one reciprocal-rank contribution read back out of PostgreSQL by
@@ -28,80 +29,80 @@ from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, solution, vali
 #: has been through JSON on the way out of a search response.
 FUNCTION_CONTRIBUTION_TOLERANCE = 1e-12
 
-LAB1_CTE = """, typo AS (
-    SELECT * FROM mosaic_search.search_trigram(
-        q, f, trigram_limit, trigram_threshold
-    )
-)"""
-
-LAB1_CHANNEL = """    UNION ALL
-    SELECT product_id, 'trigram', trigram_rank,
-           trigram_score,
-           mosaic_search.reciprocal_rank_contribution(trigram_rank, rrf_k)
-    FROM typo"""
-
-LAB2_FORMULA = """SELECT
-    1.0::double precision
-    / (
-        rrf_k::double precision
-        + source_rank::double precision
-    )"""
-LAB2_BROKEN_FORMULA = """SELECT
+#: What a participant finds in each marked block when a lab starts. The TODO
+#: lines repeat the lab guide's contract for the edit, not its answer.
+LAB1_CTE_STARTER = """-- TODO(Lab 1): add a CTE that calls mosaic_search.search_trigram with this
+-- function's own q, f, trigram_limit and trigram_threshold."""
+LAB1_CHANNEL_STARTER = """-- TODO(Lab 1): add a channels branch with the five columns every other
+-- branch supplies: product ID, the channel name 'trigram', its rank, its raw
+-- score, and a contribution from mosaic_search.reciprocal_rank_contribution."""
+LAB2_STARTER = """-- TODO(Lab 2): return the per-method contribution your graded query uses.
+-- Keep the signature, the double precision result and the configured rrf_k.
+SELECT
     1.0::double precision
     / (
         rrf_k::double precision
         + 1.0::double precision
     )"""
+LAB3_STARTER = f"""    # TODO(Lab 3): return a Strands Agent built from the supplied model, tools,
+    # instructions (as system_prompt) and hooks, with callback_handler=None.
+    raise NotImplementedError("Build your Strands agent here, then deploy with {DEPLOY_AGENT}.")"""
 
-LAB3_AGENT = """    return Agent(
-        model=model,
-        tools=tools,
-        system_prompt=instructions,
-        hooks=hooks,
-        callback_handler=None,
-    )"""
-LAB3_STARTER = f'    raise NotImplementedError("Build your Strands agent here, then deploy with {DEPLOY_AGENT}.")'
 
-LABS: dict[int, tuple[str, tuple[tuple[str, str, str, str], ...]]] = {
-    1: (
-        "db/sql/09_search_functions.sql",
+class Block(NamedTuple):
+    """One marked block: its markers, the reference answer and the starter."""
+
+    start: str
+    end: str
+    fixed: str
+    broken: str
+
+
+class LabSeam(NamedTuple):
+    """The file a lab edits and the marked blocks inside it."""
+
+    exercise: str
+    blocks: tuple[Block, ...]
+
+
+def _block_text(source: str, start: str, end: str, *, path: Path) -> str:
+    if source.count(start) != 1 or source.count(end) != 1:
+        raise ValueError(
+            f"Lab solution rule: {path} must hold one {start!r} and one {end!r}; "
+            "fix: restore the marked block in the solution file."
+        )
+    body = source.split(start, 1)[1].split(end, 1)[0]
+    return body.strip("\n").rstrip()
+
+
+def _seam(exercise: Path, *blocks: tuple[str, str, str]) -> LabSeam:
+    """Read each block's reference answer from the lab's solution file."""
+    solution = REPO / solution_path(exercise)
+    source = solution.read_text(encoding="utf-8")
+    return LabSeam(
+        exercise.as_posix(),
+        tuple(
+            Block(start, end, _block_text(source, start, end, path=solution), broken)
+            for start, end, broken in blocks
+        ),
+    )
+
+
+LABS: dict[int, LabSeam] = {
+    1: _seam(
+        LAB1_SQL,
+        ("-- LAB1_TRIGRAM_CTE_START", "-- LAB1_TRIGRAM_CTE_END", LAB1_CTE_STARTER),
         (
-            (
-                "-- LAB1_TRIGRAM_CTE_START",
-                "-- LAB1_TRIGRAM_CTE_END",
-                LAB1_CTE,
-                "",
-            ),
-            (
-                "-- LAB1_TRIGRAM_CHANNEL_START",
-                "-- LAB1_TRIGRAM_CHANNEL_END",
-                LAB1_CHANNEL,
-                "",
-            ),
+            "-- LAB1_TRIGRAM_CHANNEL_START",
+            "-- LAB1_TRIGRAM_CHANNEL_END",
+            LAB1_CHANNEL_STARTER,
         ),
     ),
-    2: (
-        "db/sql/09_search_functions.sql",
-        (
-            (
-                "-- LAB2_RRF_FORMULA_START",
-                "-- LAB2_RRF_FORMULA_END",
-                LAB2_FORMULA,
-                LAB2_BROKEN_FORMULA,
-            ),
-        ),
+    2: _seam(
+        LAB2_SQL,
+        ("-- LAB2_RRF_FORMULA_START", "-- LAB2_RRF_FORMULA_END", LAB2_STARTER),
     ),
-    3: (
-        "labs/lab3/agent.py",
-        (
-            (
-                "# LAB3_AGENT_START",
-                "# LAB3_AGENT_END",
-                LAB3_AGENT,
-                LAB3_STARTER,
-            ),
-        ),
-    ),
+    3: _seam(LAB3_AGENT, ("# LAB3_AGENT_START", "# LAB3_AGENT_END", LAB3_STARTER)),
 }
 
 
@@ -331,7 +332,7 @@ LAB1_FUNCTION_SIGNATURE = """
 """
 
 _LAB3_DETAIL = (
-    f"Lab 3 builds labs/lab3/agent.py. Deploy with {DEPLOY_AGENT} to publish the "
+    f"Lab 3 builds {LAB3_AGENT}. Deploy with {DEPLOY_AGENT} to publish the "
     "agent and SQL tools; deployed source must match before a run is accepted."
 )
 

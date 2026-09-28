@@ -42,7 +42,7 @@ execution roles, encrypted logs and Memory. Bootstrap restores the real catalog
 with its saved vectors, builds and pushes the ARM64 container image and connects the managed
 resources before declaring the application ready.
 
-Participants build `create_agent` in [labs/lab3/agent.py](../labs/lab3/agent.py).
+Participants build `create_agent` in [labs/lab3_reason/agent.py](../labs/lab3_reason/agent.py).
 The SQL they repaired in Labs 1 and 2 travels with the tools image.
 
 ```sh

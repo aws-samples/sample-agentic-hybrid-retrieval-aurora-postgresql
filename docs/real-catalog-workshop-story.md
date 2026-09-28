@@ -80,7 +80,7 @@ when the contract is updated, rather than silently lengthening the session.
 
 Do not regenerate embeddings for these representation changes. Keep embedding
 model, source text and dimension constant. Existing implementation references
-are `db/sql/19_indexes_quantized.sql`, `scripts/benchmark_mosaic_scale.py` and
+are `db/sql/16_indexes_quantized.sql`, `scripts/benchmark_mosaic_scale.py` and
 `docs/benchmark-methodology.md`; check which production paths each measurement
 exercises when implementing the checkpoint.
 

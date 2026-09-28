@@ -35,7 +35,7 @@ INPUT_COLUMNS = (
 
 def procedure_sql() -> str:
     """Read the production procedure rather than duplicate its tokenization."""
-    source = (ROOT / "db/sql/20_query_coverage.sql").read_text()
+    source = (ROOT / "db/sql/11_query_coverage.sql").read_text()
     start = source.index(
         "CREATE OR REPLACE PROCEDURE mosaic_search.refresh_corpus_lexeme()"
     )

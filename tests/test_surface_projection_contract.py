@@ -5,7 +5,7 @@ capability as a shared `payload_schema` plus per-surface `envelope_fields`, and
 `output_schema` is the union of the payload and every envelope. That union is
 correct for the canonical record. It became a lie the moment it was projected
 verbatim into a surface-specific artifact: `render_database_sql()` copied the
-full union into `db/sql/16_seed_tool_contracts.sql`, so the agent audit table
+full union into `db/sql/14_seed_tool_contracts.sql`, so the agent audit table
 recorded a skill-only field (`retrieval_scope_id`) for `compare_products`, and
 `contracts_for_surface()` served the same union to every surface over
 `/api/tools`.

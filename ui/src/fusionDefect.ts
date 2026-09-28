@@ -22,7 +22,7 @@ import type { ProductSummary, SearchResultEventRecord } from "./types";
  * broken formula, however differently they ranked. Measured pools run mostly
  * single-arm, so the broken formula collapses most of the pool to one shared
  * score -- and that tie is not left undefined. `mosaic_search.search_hybrid_rrf`
- * (`db/sql/09_search_functions.sql:515`) ends `ORDER BY e.rrf_score DESC,
+ * (`labs/lab1_retrieve/hybrid_search.sql:160`) ends `ORDER BY e.rrf_score DESC,
  * e.product_id`, so the broken formula resolves every tie by ascending
  * `product_id`, not by relevance. `brokenOrder` reproduces that exact order
  * client-side from the same measured arm ranks, and `findTieCollapseExample`
@@ -184,7 +184,7 @@ export interface FusionDefectBrokenRank {
 /**
  * The broken formula's own order, computed the way the SQL computes it.
  *
- * `mosaic_search.search_hybrid_rrf` (`db/sql/09_search_functions.sql:515`)
+ * `mosaic_search.search_hybrid_rrf` (`labs/lab1_retrieve/hybrid_search.sql:160`)
  * ends `ORDER BY e.rrf_score DESC, e.product_id`. Swap in the broken
  * per-arm constant for `e.rrf_score` and that `ORDER BY` is exactly this
  * sort: broken score descending, ties broken by ascending `product_id`.

@@ -2,13 +2,14 @@
 
 from pathlib import Path
 
+from service.search_sql import search_sql
+
 ROOT = Path(__file__).resolve().parents[1]
-SEARCH_SQL = ROOT / "db" / "sql" / "09_search_functions.sql"
 UPGRADE_SQL = ROOT / "db" / "sql" / "upgrade_snapshot.sql"
 
 
 def test_search_trigram_has_no_function_local_guc_or_preservation_branch():
-    source = SEARCH_SQL.read_text(encoding="utf-8")
+    source = search_sql(ROOT)
     assert "CREATE OR REPLACE FUNCTION mosaic_search.search_trigram" in source
     assert "preserve_search_trigram" not in source
     assert "SET pg_trgm.similarity_threshold" not in source
@@ -40,10 +41,6 @@ def test_make_targets_configure_database_defaults_and_apply_current_functions():
     # The participant's one apply command re-proves the stored pg_trgm gates.
     assert "configure(dsn)" in (ROOT / "scripts/apply_search_functions.py").read_text()
     assert "scripts/apply_search_functions.py" in apply_target
-    from service.lab_validation_receipt import PARTICIPANT_SQL
-
-    assert PARTICIPANT_SQL.as_posix() == "db/sql/09_search_functions.sql"
     assert (
-        "(ROOT / PARTICIPANT_SQL).read_text()"
-        in (ROOT / "scripts/apply_search_functions.py").read_text()
+        "search_sql(ROOT)" in (ROOT / "scripts/apply_search_functions.py").read_text()
     )

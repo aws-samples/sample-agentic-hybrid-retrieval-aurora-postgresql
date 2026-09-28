@@ -20,6 +20,10 @@ observed result. Explain the mechanism and offer a hint before supplying an
 answer. Preserve unrelated edits and the participant's own `learning-notes.md`.
 Do not silently solve later labs or write their explanation for them.
 
+Each lab's folder under `labs/` holds the file to edit, its README and a
+`solution/` copy of the reference answer. Do not read from or copy `solution/`
+unless the participant asks for the reference answer.
+
 Change only the current marked `LAB1`, `LAB2`, or `LAB3` seam. Never drop,
 rebuild, disable or replace catalog indexes. Do not change retrieval limits,
 weights, thresholds, models or tool schemas to make a lab pass. In Lab 3 the
@@ -44,9 +48,9 @@ question needs exact values; do not invent or maintain a second copy here.
 
 | Lab and customer need | Mechanism and wrong answer | Recovery and proof | Files |
 |---|---|---|---|
-| 1: recover Alex's intended headphones from a transposed listing ID | Full-text, close-spelling and vector candidates feed fusion. A disconnected close-spelling channel returns plausible headphones but omits the requested identity. Reranking cannot recover a missing candidate. | Reconnect the marked retrieval seam. Repeat the identical request and filters; inspect candidate membership, close-spelling rank/contribution and the ineligible controls. | `db/sql/09_search_functions.sql`; `scripts/lab_state.py`; the `retrieve` mission |
-| 2: find a monitor for coding, a 4K screen and USB-C charging | RRF combines positions from the retrieval channels before bounded reranking. Collapsed contributions make a tie-breaker select the shortlist; a plausible winner does not prove fusion works. | Repair the marked rank calculation. Inspect unequal source positions and contributions, combined versus final order, and the target's membership. Use the guide's judged-query exercise before claiming a tuning improvement. | The same SQL file; `service/lab_checks.py`; the `rank` mission |
-| 3: compare a monitor and chair with defensible sources | A Strands agent on Runtime calls SQL tools through Gateway. The starter cannot assemble the agent. Even a running agent can make unsupported compatibility or comfort claims. | Assemble the supplied agent components and the guide's additional instruction, deploy, then inspect separate searches, comparison, citations and ranking explanation in the participant's own run. Changed requirements must be checked against the actual records. | `labs/lab3/agent.py`; `service/gateway_tools.py`; `scripts/deploy_agentcore.py`; the `reason` mission |
+| 1: recover Alex's intended headphones from a transposed listing ID | Full-text, close-spelling and vector candidates feed fusion. A disconnected close-spelling channel returns plausible headphones but omits the requested identity. Reranking cannot recover a missing candidate. | Reconnect the marked retrieval seam. Repeat the identical request and filters; inspect candidate membership, close-spelling rank/contribution and the ineligible controls. | `labs/lab1_retrieve/`; `scripts/lab_state.py`; the `retrieve` mission |
+| 2: find a monitor for coding, a 4K screen and USB-C charging | RRF combines positions from the retrieval channels before bounded reranking. Collapsed contributions make a tie-breaker select the shortlist; a plausible winner does not prove fusion works. | Repair the marked rank calculation. Inspect unequal source positions and contributions, combined versus final order, and the target's membership. Use the guide's judged-query exercise before claiming a tuning improvement. | `labs/lab2_rank/`; `service/lab_checks.py`; the `rank` mission |
+| 3: compare a monitor and chair with defensible sources | A Strands agent on Runtime calls SQL tools through Gateway. The starter cannot assemble the agent. Even a running agent can make unsupported compatibility or comfort claims. | Assemble the supplied agent components and the guide's additional instruction, deploy, then inspect separate searches, comparison, citations and ranking explanation in the participant's own run. Changed requirements must be checked against the actual records. | `labs/lab3_reason/`; `service/gateway_tools.py`; `scripts/deploy_agentcore.py`; the `reason` mission |
 
 ## Participant CLI
 
@@ -71,8 +75,8 @@ The Makefile wraps them for maintainers only.
 A SQL file edit alone does not update Aurora; an agent edit alone does not
 update Runtime. Proof must use the newly applied/deployed state. The deploy
 `verify` action checks the two separately: the deployed application against Code
-Editor's code, and the SQL Aurora last applied against
-`db/sql/09_search_functions.sql`. Labs 2 and 3 ship repaired and cannot pass
+Editor's code, and the SQL Aurora last applied against the search SQL in
+Code Editor, including the two lab SQL files. Labs 2 and 3 ship repaired and cannot pass
 before their start command; a rerun of a start keeps the participant's edits. Preserve
 before/after records in `.local/lab-N/` and the participant's written prediction
 and explanation in `learning-notes.md`. Never invent a run ID or a passing result.

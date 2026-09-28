@@ -28,7 +28,8 @@ with `vector_cosine_ops`, `m = 16`, and `ef_construction = 200`. Each arm
 applies the same eligibility predicates before its own limit, and
 `mosaic_live_search.search_hybrid_rrf` fuses their positions. The live functions
 are rendered by
-`scripts/prepare_live_catalog.py` from `db/sql/09_search_functions.sql`; the
+`scripts/prepare_live_catalog.py` from the search SQL that `service/search_sql.py`
+lists, with each lab's reference answer; the
 real search table and its indexes are installed by
 `scripts/prepare_staged_catalog_search.py`. Historical `mosaic_search` functions
 remain separate from this serving projection.

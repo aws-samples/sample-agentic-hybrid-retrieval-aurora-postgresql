@@ -41,7 +41,7 @@ LAB2_K_TRIALS = (1, 10, 30, 120)
 DEFAULT_WORK = {
     1: Path(".local/lab-1/recall.sql"),
     2: Path(".local/lab-2/rrf.sql"),
-    3: Path("labs/lab3/agent.py"),
+    3: Path("labs/lab3_reason/agent.py"),
 }
 LAB1_COLUMNS = ("approximate_rows", "exact_rows", "recall")
 LAB2_COLUMNS = ("product_id", "rrf_score", "combined_position")
@@ -470,11 +470,11 @@ def grade_lab3(path: Path) -> dict[str, Any]:
 
     if path.resolve() != (REPO / DEFAULT_WORK[3]).resolve():
         raise ExerciseError(
-            f"Lab 3 runs labs/lab3/agent.py; save your agent there, then deploy with {DEPLOY_AGENT}."
+            f"Lab 3 runs labs/lab3_reason/agent.py; save your agent there, then deploy with {DEPLOY_AGENT}."
         )
     if not lab_state.lab_is_solved(3):
         raise ExerciseError(
-            f"Open labs/lab3/agent.py, complete create_agent, then deploy with {DEPLOY_AGENT}."
+            f"Open labs/lab3_reason/agent.py, complete create_agent, then deploy with {DEPLOY_AGENT}."
         )
     if not runtime_arn():
         raise ExerciseError(

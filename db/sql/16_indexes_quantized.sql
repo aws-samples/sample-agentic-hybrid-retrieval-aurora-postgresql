@@ -6,7 +6,7 @@
 -- `embedding` by cast, so no re-embedding and no extra heap storage is involved. A query
 -- must repeat the same expression to use the index.
 --
--- Run after embeddings exist, alongside 08_indexes_concurrent.sql. These statements must
+-- Run after embeddings exist, alongside 15_indexes_concurrent.sql. These statements must
 -- not run inside a transaction block.
 --
 -- Compare representations against an exact scan over the same vectors and filters.

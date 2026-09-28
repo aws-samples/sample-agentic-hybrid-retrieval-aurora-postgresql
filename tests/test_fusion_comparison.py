@@ -26,6 +26,7 @@ from service.fusion_comparison import (
 )
 from service.models import SearchFilters
 from service.retrieval import RetrievalService
+from service.search_sql import search_sql
 
 
 def row(product_id: int, score: float) -> dict[str, Any]:
@@ -366,11 +367,8 @@ def test_persistence_keeps_full_orders_when_the_response_is_truncated():
 
 def test_the_weighted_sql_declares_no_literal_coefficients():
     """Weights arrive as parameters; a literal in the body would be a fourth copy."""
-    from pathlib import Path
 
-    source = (
-        Path(__file__).resolve().parents[1] / "db" / "sql" / "09_search_functions.sql"
-    ).read_text(encoding="utf-8")
+    source = search_sql()
     body = source.split("search_hybrid_rrf_weighted", 1)[1]
     body = body.split("$$;", 1)[0]
     for coefficient in ("0.30", "0.45", "0.10"):
@@ -386,7 +384,7 @@ def test_the_schema_carries_everything_phase_4_recompute_needs():
     from pathlib import Path
 
     schema = (
-        Path(__file__).resolve().parents[1] / "db" / "sql" / "12_telemetry.sql"
+        Path(__file__).resolve().parents[1] / "db" / "sql" / "13_telemetry.sql"
     ).read_text(encoding="utf-8")
     table = schema.split("mosaic.fusion_comparison_candidate", 1)[1]
     for column in (

@@ -57,5 +57,5 @@ def test_the_optional_quantized_indexes_have_a_target_and_stay_out_of_bootstrap(
 ):
     """9 minutes of index builds for one optional panel must not be a phase."""
     assert "db-index-quantized:" in MAKEFILE
-    assert "19_indexes_quantized.sql" in MAKEFILE
+    assert "16_indexes_quantized.sql" in MAKEFILE
     assert "bootstrap-phase,index_quantized" not in MAKEFILE

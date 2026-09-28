@@ -110,5 +110,5 @@ def test_schema_bootstrap_does_not_require_historical_opt_in(run_make):
     result, commands = run_make("db-bootstrap-schema", dataset="real-fixture")
     assert result.returncode == 0, result.stderr
     assert "install.sql" in commands
-    assert "install_labs.sql" in commands
+    assert "install_measurement.sql" in commands
     assert "17_load_normalized_catalog.sql" not in commands

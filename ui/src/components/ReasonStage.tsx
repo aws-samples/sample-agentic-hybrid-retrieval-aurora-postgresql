@@ -858,7 +858,7 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
             "Citations resolved",
             "Answer with sources",
           ]}
-          hint="Build your Strands agent in labs/lab3/agent.py, then deploy it in Code Editor with uv run python scripts/deploy_agentcore.py deploy. Next: ask Alex’s question here and follow its tool calls through Gateway to Aurora."
+          hint="Build your Strands agent in labs/lab3_reason/agent.py, then deploy it in Code Editor with uv run python scripts/deploy_agentcore.py deploy. Next: ask Alex’s question here and follow its tool calls through Gateway to Aurora."
         />
       )}
 

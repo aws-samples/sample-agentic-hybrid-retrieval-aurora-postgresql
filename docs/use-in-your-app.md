@@ -15,13 +15,13 @@ Keep a full checkout of Mosaic as the runnable reference. The downloadable exerc
 - **Versioned source records.** `db/sql/05_evidence.sql`. Adapt: Source identity, ownership, revisions and evidence text.
 - **Searchable projection.** `db/sql/06_retrieval_projection.sql`. Adapt: Weighted FTS text, stable embedding text, and reranker text.
 - **Search indexes.** `db/sql/07_indexes.sql`. Adapt: GIN indexes and the vector index for your dimensions and workload.
-- **FTS, fuzzy matching, vector search and filters.** `db/sql/09_search_functions.sql`. Adapt: Search language and eligibility predicates inside each candidate path.
-- **Fusion arithmetic and candidate bounds.** `db/config/retrieval.yaml`, `mosaic_search.reciprocal_rank_contribution`. Adapt: Tune against your evaluation queries; retain per-arm ranks.
+- **FTS, fuzzy matching, vector search and filters.** `db/sql/08_search_channels.sql`, with fusion in `labs/lab1_retrieve/solution/hybrid_search.sql`. Adapt: Search language and eligibility predicates inside each candidate path.
+- **Fusion arithmetic and candidate bounds.** `db/config/retrieval.yaml`, `mosaic_search.reciprocal_rank_contribution` in `labs/lab2_rank/solution/rrf_contribution.sql`. Adapt: Tune against your evaluation queries; retain per-arm ranks.
 - **Embedding and reranking calls.** `service/embeddings.py`, `service/rerank.py`, `service/retrieval.py`. Adapt: Model identities, document text, error handling and latency budgets.
 - **Tool inputs and outputs.** `db/config/agent_tool_contracts.json`, `service/models.py`. Adapt: Typed parameters, source ownership and bounded responses.
 - **Tool implementation and registration.** `service/agent_tools.py`, `service/agent.py`. Adapt: `TOOL_FUNCTIONS`, focused searches, fresh evidence and application-owned state.
 - **Validated cited answer.** `service/synthesis.py`. Adapt: Claim checks for your domain; allowed products, sources and revisions.
-- **Saved searches and agent turns.** `db/sql/10_agent_audit.sql`, `db/sql/12_telemetry.sql`. Adapt: Correlation, retention and replay of what actually happened.
+- **Saved searches and agent turns.** `db/sql/12_agent_audit.sql`, `db/sql/13_telemetry.sql`. Adapt: Correlation, retention and replay of what actually happened.
 
 Keep volatile price and inventory fields out of embedding text. Apply them as SQL filters and include current facts in the reranker and evidence records. Re-embedding should follow a meaningful change to the text or model space, not every inventory update.
 

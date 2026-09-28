@@ -7,17 +7,15 @@ would disagree about which products are within budget.
 """
 
 import re
-from pathlib import Path
 
 import pytest
 
 from scripts.prepare_live_catalog import VIEW_SQL, live_search_functions
 from service.catalog_runtime import filter_predicate
 from service.lab_checks import eligible
+from service.search_sql import search_sql
 
-SOURCE = (
-    Path(__file__).resolve().parents[1] / "db/sql/09_search_functions.sql"
-).read_text()
+SOURCE = search_sql()
 FILTER_PRICE = "coalesce(d.price_cents, d.historical_price_cents)"
 
 

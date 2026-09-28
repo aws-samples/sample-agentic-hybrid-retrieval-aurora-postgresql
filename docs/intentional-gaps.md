@@ -8,10 +8,11 @@ repair.
 Every defect found in the committed tree is a real defect. There is no
 protected failure. If a lab check fails here, fix it.
 
-The gaps themselves are defined and implemented **in this repository**:
-`scripts/lab_state.py` holds each broken body next to its solved body, the
-marker seams live in `db/sql/09_search_functions.sql` and
-`labs/lab3/agent.py`. Provisioning injects Lab 1's gap; `uv run python scripts/lab_state.py start --lab 2` and
+The gaps themselves are defined and implemented **in this repository**. Each
+lab has a folder under `labs/`: the exercise file with its marker seams
+(`labs/lab1_retrieve/hybrid_search.sql`, `labs/lab2_rank/rrf_contribution.sql`,
+`labs/lab3_reason/agent.py`) and a `solution/` copy holding the solved body.
+`scripts/lab_state.py` holds each starter body. Provisioning injects Lab 1's gap; `uv run python scripts/lab_state.py start --lab 2` and
 `uv run python scripts/lab_state.py start --lab 3` inject the later gaps once, when the participant enters each
 lab, and `uv run python scripts/lab_state.py reset --lab N` re-injects one lab's gap on request. The
 Workshop Studio repository narrates the repairs and triggers the selected-catalog reset/apply commands
@@ -37,7 +38,7 @@ The three repaired capabilities form the `Retrieve -> Rank -> Reason` path. The 
 
 | Lab anchor | Capability | Evidence it is live |
 |---|---|---|
-| `typo-recovery` | pg_trgm candidate arm | `db/sql/09_search_functions.sql:423-429` fuses `typo AS (SELECT * FROM mosaic_search.search_trigram(...))` between the `LAB1_TRIGRAM_CTE` markers |
+| `typo-recovery` | pg_trgm candidate arm | `labs/lab1_retrieve/hybrid_search.sql:67-73` fuses `typo AS (SELECT * FROM mosaic_search.search_trigram(...))` between the `LAB1_TRIGRAM_CTE` markers |
 | `rank-with-evidence` | reciprocal-rank contribution | `mosaic_search.reciprocal_rank_contribution` computes `1 / (k + rank)` |
 | `agentic-research` | evidence-to-synthesis state | `service/agent_tools.get_product_evidence` records evidence IDs by product |
 
@@ -61,8 +62,8 @@ later ones.
   that a working arm is not contributing, not that a function is missing.
 - **Restoring it looks like** adding the `typo` CTE back to the `channels` union
   with its `mosaic_search.reciprocal_rank_contribution(trigram_rank, rrf_k)`
-  contribution — the exact seam text in `scripts/lab_state.py`, which the
-  validator compares literally.
+  contribution, as in `labs/lab1_retrieve/solution/hybrid_search.sql`. The
+  validator checks the blocks' data flow, not their literal text.
 - **Assertion that turns green** `trigram_signal_present`
 - **Board state before repair** `REPAIR PENDING`, never `FAIL`
 
@@ -84,7 +85,7 @@ later ones.
 ### GAP-3 — build the Strands agent
 
 - **Lab 3 anchor** `agentic-research` (`checkpoint: repair`, stage `reason`).
-- **Starter** `labs/lab3/agent.py`, between `LAB3_AGENT_START` and `LAB3_AGENT_END`.
+- **Starter** `labs/lab3_reason/agent.py`, between `LAB3_AGENT_START` and `LAB3_AGENT_END`.
 - **Participant work** return a Strands `Agent` using the supplied model, tools,
   instructions and hooks; add a useful instruction; deploy with `uv run python scripts/deploy_agentcore.py deploy`.
 - **Before building** the app names the missing agent, the exact file and the
@@ -105,8 +106,9 @@ later ones.
    `comparison`, and `advanced` checks must pass on a correct deployment.
 4. The lab board renders a listed, unrepaired gap as `REPAIR PENDING`. Any
    failure not listed here renders `FAIL` and is a real regression.
-5. Adding a gap requires listing it here and implementing its seam markers and
-   broken body in `scripts/lab_state.py` first. The sibling only narrates and
+5. Adding a gap requires listing it here and implementing it first: seam
+   markers in the lab's exercise file, the solved body in its `solution/` copy,
+   and the starter body in `scripts/lab_state.py`. The sibling only narrates and
    triggers gaps; it never defines one.
 
 ## Not a gap: the declined agent answer

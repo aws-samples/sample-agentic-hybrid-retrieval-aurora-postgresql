@@ -42,8 +42,8 @@ REPO = Path(__file__).resolve().parents[1]
 ROOT = REPO
 
 # The real db/sql/ filenames, so the fake tree's "sql" category naturally
-# matches the real category's expected count (27) rather than needing a
-# second, test-only literal.
+# matches the real category's expected count (31, with the two lab SQL files)
+# rather than needing a second, test-only literal.
 _SQL_FILENAMES = (
     "00_extensions.sql",
     "01_schemas_and_types.sql",
@@ -53,23 +53,25 @@ _SQL_FILENAMES = (
     "05_evidence.sql",
     "06_retrieval_projection.sql",
     "07_indexes.sql",
-    "08_indexes_concurrent.sql",
-    "09_search_functions.sql",
-    "10_agent_audit.sql",
-    "11_evaluation.sql",
-    "12_telemetry.sql",
-    "13_benchmark.sql",
-    "14_exact_neighbor.sql",
-    "15_load_premium_cohort.sql",
-    "16_seed_tool_contracts.sql",
+    "15_indexes_concurrent.sql",
+    "08_search_channels.sql",
+    "09_weighted_fusion.sql",
+    "10_evidence_search.sql",
+    "12_agent_audit.sql",
+    "20_evaluation.sql",
+    "13_telemetry.sql",
+    "21_benchmark.sql",
+    "22_exact_neighbor.sql",
+    "19_load_premium_cohort.sql",
+    "14_seed_tool_contracts.sql",
     "17_load_normalized_catalog.sql",
     "18_load_evidence.sql",
-    "19_indexes_quantized.sql",
-    "20_query_coverage.sql",
+    "16_indexes_quantized.sql",
+    "11_query_coverage.sql",
     "98_bootstrap_acceptance.sql",
     "99_smoke_test.sql",
     "install.sql",
-    "install_labs.sql",
+    "install_measurement.sql",
     "lab_01_typo_tolerance.sql",
     "upgrade_snapshot.sql",
 )
@@ -84,6 +86,8 @@ def _populate(root: Path) -> None:
     """Write exactly the manifest's files, at their real relative paths."""
     for index, name in enumerate(_SQL_FILENAMES):
         _write(root / "db" / "sql" / name, f"-- sql fixture {index}\n")
+    _write(root / "labs" / "lab1_retrieve" / "hybrid_search.sql", "-- lab 1 fixture\n")
+    _write(root / "labs" / "lab2_rank" / "rrf_contribution.sql", "-- lab 2 fixture\n")
     _write(root / "db" / "config" / "retrieval.yaml", "fusion:\n  rrf_k: 60\n")
     _write(root / "service" / "retrieval.py", "# retrieval fixture\n")
     _write(root / "service" / "rerank.py", "# rerank fixture\n")
@@ -128,7 +132,7 @@ def test_an_empty_sql_glob_is_refused_rather_than_silently_hashed(fake_repo):
     for path in (fake_repo / "db" / "sql").glob("*.sql"):
         path.unlink()
 
-    with pytest.raises(RetrievalFingerprintError, match="category 'sql' has 0"):
+    with pytest.raises(RetrievalFingerprintError, match="category 'sql' has 2"):
         compute_retrieval_fingerprint(repo_root=fake_repo)
 
 
@@ -136,7 +140,7 @@ def test_a_short_sql_glob_is_also_refused(fake_repo):
     """Not just empty -- one file short of the literal must fail too."""
     (fake_repo / "db" / "sql" / "00_extensions.sql").unlink()
 
-    with pytest.raises(RetrievalFingerprintError, match="category 'sql' has 26"):
+    with pytest.raises(RetrievalFingerprintError, match="category 'sql' has 30"):
         compute_retrieval_fingerprint(repo_root=fake_repo)
 
 
@@ -162,12 +166,12 @@ def test_the_complete_tree_matches_every_expected_category_count_exactly(fake_re
     counts = category_counts(repo_root=fake_repo)
 
     assert counts == _EXPECTED_CATEGORY_COUNTS
-    assert counts["sql"] == 27
+    assert counts["sql"] == 31
     assert counts["config"] == 1
     assert counts["service"] == 9
     assert counts["scripts"] == 7
     assert counts["eval_data"] == 2
-    assert sum(counts.values()) == 46
+    assert sum(counts.values()) == 50
 
 
 def test_manifest_files_visit_a_representative_of_every_category(fake_repo):
@@ -176,8 +180,8 @@ def test_manifest_files_visit_a_representative_of_every_category(fake_repo):
     files = manifest_files(repo_root=fake_repo)
     relative = {path.relative_to(fake_repo).as_posix() for path in files}
 
-    assert len(files) == 46
-    assert "db/sql/09_search_functions.sql" in relative
+    assert len(files) == 50
+    assert "labs/lab1_retrieve/hybrid_search.sql" in relative
     assert "db/config/retrieval.yaml" in relative
     assert "service/retrieval.py" in relative
     assert "scripts/evaluate.py" in relative
@@ -320,7 +324,7 @@ def methodology_tree(tmp_path):
     quietly hash a shorter list.
     """
     root = tmp_path / "repo"
-    for relative in ("scripts", "service", "db/sql", "db/config", "data/evals"):
+    for relative in ("scripts", "service", "db/sql", "labs", "db/config", "data/evals"):
         _copy_tree(ROOT / relative, root / relative)
     return root
 
@@ -706,8 +710,15 @@ def test_scorecard_import_closure_is_covered_or_explicitly_excluded():
     # Connection/config plumbing is separately recorded in the receipt. These
     # exclusions are narrow; a newly imported project module must be reviewed.
     # Listing specs are read-time display facts parsed from the pinned source
-    # record; no retrieval arm, fusion step or scorer reads them.
-    excluded = {"service/config.py", "service/db.py", "service/product_specs.py"}
+    # record; no retrieval arm, fusion step or scorer reads them. Lab file
+    # paths only say which files the manifest hashes, and moving one already
+    # changes the fingerprint through the hashed paths.
+    excluded = {
+        "service/config.py",
+        "service/db.py",
+        "service/product_specs.py",
+        "service/lab_files.py",
+    }
     covered = {p.relative_to(REPO).as_posix() for p in manifest_files()}
     covered.update(SCORECARD_METHODOLOGY_FILES)
     pending, visited = ["scripts/score_evals.py"], set()

@@ -1209,8 +1209,8 @@ class LabStateRecord(BaseModel):
 
     `source_state` reads the marker block the participant edits.
     `database_state` reads the object Aurora currently holds, which is a
-    different question: editing `db/sql/09_search_functions.sql` without
-    re-applying it leaves a repaired file in front of an unrepaired cluster.
+    different question: editing a lab's SQL file without re-applying it leaves
+    a repaired file in front of an unrepaired cluster.
     """
 
     lab_id: int

@@ -37,9 +37,9 @@ for you; the command checks deployed source identity and Gateway connectivity.
 
 | Lab | Question to answer | Where you work |
 |---|---|---|
-| **1. Build hybrid retrieval** | Can search find the intended product, even with a typo? | [Search SQL](db/sql/09_search_functions.sql) |
-| **2. Fuse, rerank, and inspect** | How did each search method contribute to the final order? | [Ranking SQL](db/sql/09_search_functions.sql) |
-| **3. Build and deploy an agent** | Can your agent use SQL tools and answer with sources? | [Strands agent](labs/lab3/agent.py) |
+| **1. Build hybrid retrieval** | Can search find the intended product, even with a typo? | [`labs/lab1_retrieve/`](labs/lab1_retrieve/) |
+| **2. Fuse, rerank, and inspect** | How did each search method contribute to the final order? | [`labs/lab2_rank/`](labs/lab2_rank/) |
+| **3. Build and deploy an agent** | Can your agent use SQL tools and answer with sources? | [`labs/lab3_reason/`](labs/lab3_reason/) |
 
 Use **Discover** to explore Alex's brief, **Shop** to search and compare products,
 and **Playground** to inspect search results, ranking, tool calls, and sources.

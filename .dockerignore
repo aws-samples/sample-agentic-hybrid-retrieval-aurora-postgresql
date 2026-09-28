@@ -31,8 +31,7 @@
 !deploy/agentcore/
 !deploy/agentcore/**
 !labs/
-!labs/lab3/
-!labs/lab3/**
+!labs/**
 **/__pycache__
 **/.env
 **/.env.*

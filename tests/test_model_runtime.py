@@ -1503,7 +1503,7 @@ def test_agent_uses_the_dedicated_model_override(monkeypatch):
     )
     monkeypatch.setattr("service.agent.get_settings", lambda: settings)
     monkeypatch.setattr("service.agent.BedrockModel", CapturingModel)
-    monkeypatch.setattr("labs.lab3.agent.Agent", CapturingAgent)
+    monkeypatch.setattr("labs.lab3_reason.agent.Agent", CapturingAgent)
 
     build_agent()
 

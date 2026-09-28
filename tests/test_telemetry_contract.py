@@ -418,8 +418,8 @@ def test_timeline_maps_retrieve_rank_reason_without_losing_exact_rrf_receipts():
 def test_correlation_uses_existing_json_receipts_not_a_bootstrap_schema_change():
     agent_source = (ROOT / "service" / "agent_tools.py").read_text()
     telemetry_source = (ROOT / "service" / "telemetry.py").read_text()
-    agent_sql = (ROOT / "db" / "sql" / "10_agent_audit.sql").read_text()
-    retrieval_sql = (ROOT / "db" / "sql" / "12_telemetry.sql").read_text()
+    agent_sql = (ROOT / "db" / "sql" / "12_agent_audit.sql").read_text()
+    retrieval_sql = (ROOT / "db" / "sql" / "13_telemetry.sql").read_text()
 
     assert '"telemetry": state.get("telemetry", {})' in agent_source
     assert "'{telemetry}'" in telemetry_source

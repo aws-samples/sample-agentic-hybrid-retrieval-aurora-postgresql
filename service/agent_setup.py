@@ -8,13 +8,13 @@ class AgentSetupError(RuntimeError):
 
 
 AGENT_STARTER_MESSAGE = (
-    "Your agent is not built yet. Open labs/lab3/agent.py in Code Editor and "
+    "Your agent is not built yet. Open labs/lab3_reason/agent.py in Code Editor and "
     "complete create_agent with the supplied model, tools, instructions and hooks. "
     f"Next: deploy with {DEPLOY_AGENT}, then ask your question again."
 )
 
 AGENT_TOOLS_MESSAGE = (
-    "Your agent is missing its Mosaic tools. Open labs/lab3/agent.py in Code "
+    "Your agent is missing its Mosaic tools. Open labs/lab3_reason/agent.py in Code "
     "Editor and pass the supplied tools to Agent. "
     f"Next: deploy with {DEPLOY_AGENT}, then ask your question again."
 )

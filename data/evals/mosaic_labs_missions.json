@@ -70,7 +70,7 @@
       ],
       "checkpoint": "repair",
       "participant_edit": {
-        "file": "db/sql/09_search_functions.sql",
+        "file": "labs/lab1_retrieve/hybrid_search.sql",
         "approximate_lines": 11,
         "task": "Restore the trigram CTE and its candidate channel in search_hybrid_rrf.",
         "broken_state": "Alex transposes J3 to 3J in listing ID B07G95TJ3P. Exact terms and the bounded meaning-search list miss that listing. Close-spelling search finds it, but its disconnected channel prevents it reaching fusion.",
@@ -132,7 +132,7 @@
       ],
       "checkpoint": "repair",
       "participant_edit": {
-        "file": "db/sql/09_search_functions.sql",
+        "file": "labs/lab2_rank/rrf_contribution.sql",
         "approximate_lines": 6,
         "task": "Restore the reciprocal-rank contribution formula 1 / (k + rank).",
         "broken_state": "Collapsed contributions erase positions within each search, so every single-search candidate ties and the 50-product cutoff is decided by product id: the oldest listings stay, and every recent 27-inch 4K USB-C listing, including the ViewSonic VG2756-4K, never reaches reranking.",
@@ -193,14 +193,14 @@
       "requires_explain_plan": true,
       "checkpoint": "repair",
       "participant_edit": {
-        "file": "labs/lab3/agent.py",
+        "file": "labs/lab3_reason/agent.py",
         "approximate_lines": 8,
         "task": "Build a Strands agent with the supplied model, SQL tool adapters, instructions and execution hooks, then deploy it to AgentCore Runtime.",
         "broken_state": "The agent starter is incomplete. Mosaic names the file to edit and the deployment command.",
         "fixed_state": "The deployed Strands agent calls Aurora tools through AgentCore Gateway and answers with product sources.",
         "observe_before": [
           "Mosaic explains that the agent is not built yet.",
-          "The message points to labs/lab3/agent.py and the deploy command."
+          "The message points to labs/lab3_reason/agent.py and the deploy command."
         ],
         "observe_after": [
           "Your agent runs in AgentCore Runtime and calls the SQL tools through Gateway.",

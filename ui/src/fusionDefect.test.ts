@@ -246,7 +246,7 @@ describe("candidatesFromResults / candidatesFromPersistedPool", () => {
  * (all `semantic_rank`, spanning source rank 3 to 50). That is exactly 3
  * distinct broken scores across the whole pool, and the 48-member tie group
  * is where `mosaic_search.search_hybrid_rrf`'s own `ORDER BY e.rrf_score
- * DESC, e.product_id` (`db/sql/09_search_functions.sql:515`) resolves the
+ * DESC, e.product_id` (`labs/lab1_retrieve/hybrid_search.sql:160`) resolves the
  * broken formula's identical scores by ascending product_id -- not by any
  * of those 48 candidates' real measured ranks. Verified: product 372781
  * (truly ranked #48) sits at broken rank #4, ahead of product 374621 (truly
@@ -311,7 +311,7 @@ describe("brokenOrder", () => {
    * The required proof, isolated from the 50-row measured pool below: three
    * single-arm candidates, same arm count, deliberately arranged so ascending
    * `product_id` is *not* the real measured order. `mosaic_search.search_hybrid_rrf`
-   * (`db/sql/09_search_functions.sql:515`) breaks a broken-score tie by
+   * (`labs/lab1_retrieve/hybrid_search.sql:160`) breaks a broken-score tie by
    * ascending `product_id`; this proves this function reproduces exactly
    * that, rather than leaving the tie in input order or some other rule.
    */

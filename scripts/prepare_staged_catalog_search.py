@@ -23,9 +23,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from scripts.embed_real_catalog import COHERE_EMBED_V4_MODEL_ID
-from scripts.lab_state import LABS, _replace_block
 from scripts.retrieval_profile import load_profile
 from scripts.stage_real_catalog import require_aurora_writer, validate_dsn
+from service.search_sql import search_sql
 from service.source_catalog import (
     ACCESSORY_KINDS,
     classification_sha256,
@@ -163,13 +163,13 @@ def load_source_kinds(conn, dataset_id: str) -> None:
         )
 
 
-def search_functions(source: str, *, repair_labs: bool = True) -> str:
-    """Scope the shipped retrieval functions to the new corpus, with labs repaired.
+def search_functions(source: str) -> str:
+    """Scope the retrieval functions to the new corpus.
 
     Args:
-        source: The repository's complete search-function SQL.
-        repair_labs: Restore the reference implementation during initial loading;
-            false preserves participant edits when applying a lab repair.
+        source: The complete search SQL from `service.search_sql.search_sql`,
+            with the lab files the caller chose: reference answers when loading,
+            the workspace when applying a participant's repair.
 
     Returns:
         SQL for the isolated schema, excluding legacy product-evidence tables.
@@ -180,10 +180,6 @@ def search_functions(source: str, *, repair_labs: bool = True) -> str:
             "Search source rule: missing unique evidence boundary; inspect the production SQL before preparing the catalog."
         )
     scoped = source.split(boundary)[0]
-    if repair_labs:
-        for lab in (1, 2):
-            for start, end, fixed, _ in LABS[lab][1]:
-                scoped = _replace_block(scoped, start, end, fixed)
     scoped = "\n".join(
         line for line in scoped.splitlines() if not line.startswith("\\")
     )
@@ -286,7 +282,7 @@ def prepare(
         Counts, source hashes, index sizes and preparation times; no quality claim.
     """
     profile = load_profile()
-    functions = search_functions((ROOT / "db/sql/09_search_functions.sql").read_text())
+    functions = search_functions(search_sql(ROOT, solutions=True))
     function_hash = hashlib.sha256(functions.encode()).hexdigest()
     projection_hash = projection_sha256()
     dataset = conn.execute(

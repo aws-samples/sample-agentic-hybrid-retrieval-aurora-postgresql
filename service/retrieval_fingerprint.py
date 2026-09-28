@@ -21,9 +21,10 @@ measured," which is the only claim the fingerprint needs to make.
 
 Manifest, and why each entry earns its place
 ----------------------------------------------
-- ``db/sql/*.sql`` (every file, recursive): the fusion, indexing, and
-  eligibility SQL the retrieval arms call --
-  ``mosaic_search.search_hybrid_rrf`` and ``configure_hnsw`` live here.
+- ``db/sql/*.sql`` (every file, recursive) and the two lab SQL files Aurora
+  installs with them: the fusion, indexing, and eligibility SQL the retrieval
+  arms call -- ``configure_hnsw`` lives in ``db/sql/``, and
+  ``mosaic_search.search_hybrid_rrf`` in ``labs/lab1_retrieve/``.
 - ``db/config/retrieval.yaml``: the single source for candidate limits,
   fusion k, weights, and HNSW tuning (``scripts.retrieval_profile``).
 - ``service/retrieval.py``, ``service/rerank.py``, ``service/embeddings.py``,
@@ -166,6 +167,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from service.lab_files import LAB1_SQL, LAB2_SQL
 from service.models import RetrievalProfile
 
 REPO = Path(__file__).resolve().parents[1]
@@ -177,11 +179,10 @@ REPO = Path(__file__).resolve().parents[1]
 # another count derived from the same glob (house standards rule 7's
 # independent-witness requirement).
 _EXPECTED_CATEGORY_COUNTS: dict[str, int] = {
-    # 27 since db/sql/20_query_coverage.sql. Adding it moves the retrieval
-    # fingerprint, so the committed scorecard reads unattributed until the next
-    # measured baseline. That is the correct reading: the served path now
-    # carries a query-coverage step.
-    "sql": 27,
+    # 29 files in db/sql/ plus the two lab SQL files Aurora installs with them.
+    # Any change here moves the retrieval fingerprint, so the committed
+    # scorecard reads unattributed until the next measured baseline.
+    "sql": 31,
     "config": 1,
     "service": 9,
     "scripts": 7,
@@ -209,7 +210,11 @@ def _category_files(repo_root: Path) -> dict[str, tuple[Path, ...]]:
     """Every file in each manifest category. Order within a group is not
     significant; `manifest_files` re-sorts everything by path."""
     return {
-        "sql": tuple(sorted((repo_root / "db" / "sql").rglob("*.sql"))),
+        "sql": (
+            *sorted((repo_root / "db" / "sql").rglob("*.sql")),
+            repo_root / LAB1_SQL,
+            repo_root / LAB2_SQL,
+        ),
         "config": (repo_root / "db" / "config" / "retrieval.yaml",),
         "service": (
             repo_root / "service" / "retrieval.py",

@@ -50,7 +50,11 @@ def participant_surfaces(root: Path = ROOT) -> list[Path]:
     return [
         *sorted((root / "service").glob("*.py")),
         *(root / "scripts" / name for name in PARTICIPANT_SCRIPTS),
-        root / "labs" / "lab3" / "agent.py",
+        *sorted(
+            path
+            for path in (root / "labs").rglob("*")
+            if path.suffix in {".py", ".sql", ".md"} and "__pycache__" not in path.parts
+        ),
         *(root / name for name in PARTICIPANT_DOCS),
         *sorted(ui),
     ]
@@ -147,5 +151,7 @@ def test_the_ui_prints_the_same_commands_as_the_service() -> None:
 
 
 def test_the_ui_command_gate_sees_a_drifted_command() -> None:
-    drifted = UI_COMMANDS.read_text().replace("apply_search_functions.py", "apply_sql.py")
+    drifted = UI_COMMANDS.read_text().replace(
+        "apply_search_functions.py", "apply_sql.py"
+    )
     assert ui_commands(drifted)["APPLY_SQL"] != commands.APPLY_SQL

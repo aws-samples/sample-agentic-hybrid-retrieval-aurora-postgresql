@@ -105,7 +105,7 @@ BOUNDS: tuple[Bound, ...] = (
         float,
     ),
     # Coverage's trigram rescue floor. No env override: it is calibrated against
-    # a specific corpus (db/sql/20_query_coverage.sql records the measurement),
+    # a specific corpus (db/sql/11_query_coverage.sql records the measurement),
     # and a per-deployment override would let a room silently run an
     # uncalibrated guardrail on the workshop's headline query.
     Bound("coverage.similarity_floor", None, 0.01, 1.0, float),

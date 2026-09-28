@@ -448,7 +448,7 @@ def main() -> int:
 
             if not lab_is_solved(3):
                 raise ValueError(
-                    f"Your agent is not ready to deploy. Open labs/lab3/agent.py, complete create_agent, then deploy with {DEPLOY_AGENT} again."
+                    f"Your agent is not ready to deploy. Open labs/lab3_reason/agent.py, complete create_agent, then deploy with {DEPLOY_AGENT} again."
                 )
             update(stage())
             verify()
@@ -459,7 +459,7 @@ def main() -> int:
             for tool in gateway_tools.rpc("tools/list", {}).get("tools", []):
                 print(f"{tool['name']}: {tool.get('description', '')}")
             print(
-                "Next: open labs/lab3/agent.py and connect these SQL tools to your Strands agent."
+                "Next: open labs/lab3_reason/agent.py and connect these SQL tools to your Strands agent."
             )
         else:
             verify()

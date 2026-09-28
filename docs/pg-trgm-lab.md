@@ -29,7 +29,7 @@ lowering a threshold does not reconnect that path.
 1. Observe the successful request with the target missing. Inspect
    `diagnostics.candidate_counts.trigram_in_pool`; while broken it is zero.
 2. Locate `LAB1_TRIGRAM_CTE` and `LAB1_TRIGRAM_CHANNEL` in
-   `db/sql/09_search_functions.sql`. Follow the arm's product ID, rank and score
+   `labs/lab1_retrieve/hybrid_search.sql`. Follow the arm's product ID, rank and score
    into fusion, and restore both seams.
 3. Run `uv run python scripts/apply_search_functions.py`, then repeat the same request. Inspect
    the target's `signals.trigram.rank` and `rrf_contribution`. For this anchor,

@@ -12,11 +12,17 @@
 \ir 05_evidence.sql
 \ir 06_retrieval_projection.sql
 \ir 07_indexes.sql
-\ir 09_search_functions.sql
-\ir 20_query_coverage.sql
-\ir 10_agent_audit.sql
-\ir 12_telemetry.sql
-\ir 16_seed_tool_contracts.sql
+\ir 08_search_channels.sql
+-- The two lab exercise files. Lab 2's contribution comes first because Lab 1's
+-- hybrid search, the weighted fusion and the evidence search all call it.
+\ir ../../labs/lab2_rank/rrf_contribution.sql
+\ir ../../labs/lab1_retrieve/hybrid_search.sql
+\ir 09_weighted_fusion.sql
+\ir 10_evidence_search.sql
+\ir 11_query_coverage.sql
+\ir 12_agent_audit.sql
+\ir 13_telemetry.sql
+\ir 14_seed_tool_contracts.sql
 
 \echo ''
 \echo 'Core installed. `\dt mosaic.*` now lists only tables the application reads.'

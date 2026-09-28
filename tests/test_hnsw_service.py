@@ -514,7 +514,7 @@ def test_measured_withholds_representations_when_a_quantized_index_is_missing(
 ):
     """Nothing in the bootstrap builds these two indexes.
 
-    `db/sql/19_indexes_quantized.sql` is the only file that creates them and no
+    `db/sql/16_indexes_quantized.sql` is the only file that creates them and no
     phase runs it, so on a freshly bootstrapped cluster the halfvec and binary
     rows describe indexes the reader cannot inspect, EXPLAIN, or reproduce.
     """

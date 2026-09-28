@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 CONTRACT_PATH = ROOT / "db" / "config" / "agent_tool_contracts.json"
-SQL_PATH = ROOT / "db" / "sql" / "16_seed_tool_contracts.sql"
+SQL_PATH = ROOT / "db" / "sql" / "14_seed_tool_contracts.sql"
 SKILL_PATH = ROOT / "skills" / "mosaic-hybrid-retrieval" / "SKILL.md"
 SKILL_HTTP_REFERENCE_PATH = (
     ROOT / "skills" / "mosaic-hybrid-retrieval" / "references" / "http-api.md"

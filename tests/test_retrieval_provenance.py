@@ -85,7 +85,7 @@ def test_plan_capture_replays_the_persisted_production_path():
 
 def test_search_receipt_schema_names_every_reproducibility_input():
     telemetry = (
-        Path(__file__).resolve().parents[1] / "db" / "sql" / "12_telemetry.sql"
+        Path(__file__).resolve().parents[1] / "db" / "sql" / "13_telemetry.sql"
     ).read_text(encoding="utf-8")
 
     for column in (

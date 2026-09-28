@@ -130,7 +130,7 @@ function failureSummary(proof: CompletionProofResponse, failedChecks: number): s
     // Named before the database: applying an unrepaired file installs the
     // broken function, so the file is the first thing to fix.
     return lab === 3
-      ? `Your agent in ${file ?? "labs/lab3/agent.py"} is still the starter. Next: assemble it, deploy with ${DEPLOY_AGENT}, run the agent in 03, then prove this lab again.`
+      ? `Your agent in ${file ?? "labs/lab3_reason/agent.py"} is still the starter. Next: assemble it, deploy with ${DEPLOY_AGENT}, run the agent in 03, then prove this lab again.`
       : `${file ?? "The source file"} still has Lab ${lab}'s fault. Next: repair the LAB${lab} block, apply it with ${APPLY_SQL}, then prove this lab again.`;
   }
   if (!isLabRepaired(proof)) {

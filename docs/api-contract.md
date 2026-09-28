@@ -546,8 +546,8 @@ page labels them differently because they are different kinds of claim.
 - `POST /api/labs/{lab_id}/proof`
 
 State reports both places a lab can be broken, per lab: `source_state`
-(`solved` or `broken`) reads the marker block in `db/sql/09_search_functions.sql`
-or `service/agent_tools.py` that the participant edits, and `database_state`
+(`solved` or `broken`) reads the marker blocks the participant edits in the
+lab's file under `labs/`, and `database_state`
 (`applied`, `stale`, or `not_applicable`) reads what Aurora currently holds.
 The two are separate questions. Editing the SQL file without re-applying it
 leaves a repaired file in front of an unrepaired cluster, which reads as

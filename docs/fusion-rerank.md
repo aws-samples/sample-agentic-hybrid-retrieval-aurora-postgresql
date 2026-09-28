@@ -32,7 +32,7 @@ Use the canonical `G-008` request and filters from
    arm contributes `1 / (k + 1)`. A candidate's broken score depends on its
    number of contributing arms, with product ID breaking equal-score ties.
 2. Restore `source_rank` in `mosaic_search.reciprocal_rank_contribution` at the
-   `LAB2_RRF_FORMULA` seam in `db/sql/09_search_functions.sql` and run
+   `LAB2_RRF_FORMULA` seam in `labs/lab2_rank/rrf_contribution.sql` and run
    `uv run python scripts/apply_search_functions.py`.
 3. Repeat the request. Check that each contribution equals `1 / (k + rank)`
    and their sum equals `signals.rrf_score`. Compare `pre_rerank_rank`,

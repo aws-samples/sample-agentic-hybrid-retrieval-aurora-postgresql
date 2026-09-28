@@ -52,7 +52,7 @@ def test_ground_truth_is_missing_when_the_table_was_never_installed() -> None:
 
 
 def test_ground_truth_is_missing_when_the_table_is_empty() -> None:
-    """The table ships with `install_labs.sql`; the rows do not ship at all."""
+    """The table ships with `install_measurement.sql`; the rows do not ship at all."""
     connection = _FakeConnection(table_present=True, rows_for={})
 
     assert exact_neighbor_ground_truth(connection, MANIFEST) == "missing"

@@ -283,7 +283,7 @@ def _bedrock_model(model_id: str, region: str) -> BedrockModel:
 
 
 def build_agent(*, max_tool_calls: int = 10) -> Agent:
-    from labs.lab3.agent import create_agent
+    from labs.lab3_reason.agent import create_agent
 
     settings = get_settings()
     if not settings.agent_model_id:

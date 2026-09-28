@@ -13,4 +13,4 @@ test: validate
 	python -m unittest discover -s tests -v
 
 render-1024:
-	python scripts/render_dimension.py --dimension 1024 --output build/sql-1024
+	python scripts/render_dimension.py --dimension 1024 --output build/render-1024

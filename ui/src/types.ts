@@ -604,8 +604,8 @@ export type LabSourceState = "solved" | "broken";
 /**
  * What Aurora currently holds for that lab, which is a different question.
  *
- * Editing `db/sql/09_search_functions.sql` without re-applying it leaves a
- * repaired file in front of an unrepaired cluster: `solved` plus `stale`.
+ * Editing a lab's SQL file without re-applying it leaves a repaired file in
+ * front of an unrepaired cluster: `solved` plus `stale`.
  * Lab 3's seam lives in the API process, so it is `not_applicable`.
  */
 export type LabDatabaseState = "applied" | "stale" | "not_applicable";
