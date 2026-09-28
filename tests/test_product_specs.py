@@ -117,21 +117,12 @@ def listing(**fields) -> dict:
             ),
             "usb_c_power_w",
         ),
-        # Dell U2720Q (1531801): the details field contradicts the title's 27".
+        # A details size that contradicts the title with no evidence either way.
         (
             "monitor",
             listing(
                 title='Dell UltraSharp U2720Q 27" LCD LED Monitor - 3840 x 2160 4K',
                 details={"Screen Size": "14 Inches"},
-            ),
-            "size_in",
-        ),
-        # AOC E2260SD (1102432): centimetres labelled as inches.
-        (
-            "monitor",
-            listing(
-                title='AOC E2260SD 22" LED LCD Monitor - 5 ms',
-                details={"Screen Size": "55.8 Inches"},
             ),
             "size_in",
         ),
@@ -211,3 +202,44 @@ def test_explicit_statements_are_read(category, original, key, value):
 
 def test_other_categories_have_no_typed_specs():
     assert listing_specs("monitor_stand", LISTINGS["B0BSHZHKB7"]["original"]) == {}
+
+
+@pytest.mark.parametrize(
+    ("original", "size"),
+    [
+        # AOC E2260SD (1102432): the details carry 22" in centimetres as "Inches".
+        (
+            listing(
+                title='AOC E2260SD 22" LED LCD Monitor - 5 ms',
+                details={"Screen Size": "55.8 Inches"},
+            ),
+            22.0,
+        ),
+        # Dell U2720Q (1531801): the details block describes a laptop.
+        (
+            listing(
+                title='Dell UltraSharp U2720Q 27" LCD LED Monitor - 3840 x 2160 4K',
+                details={
+                    "Screen Size": "14 Inches",
+                    "Ram Memory Installed Size": "32 GB",
+                    "Flash Memory Size": "1 TB",
+                },
+            ),
+            27.0,
+        ),
+    ],
+)
+def test_a_disagreement_with_evidence_resolves_to_the_title(original, size):
+    original.setdefault("description", [])
+    spec = listing_specs("monitor", original)["size_in"]
+    assert (spec.value, spec.source) == (size, "title")
+    assert quote_is_verbatim(original, spec)
+
+
+def test_computer_details_do_not_pick_between_several_title_sizes():
+    original = listing(
+        title='Screen Extender for 13-16" laptops, 14" 1080P',
+        details={"Screen Size": "11.6 Inches", "CPU Model": "Unknown"},
+    )
+    original.setdefault("description", [])
+    assert "size_in" not in listing_specs("monitor", original)

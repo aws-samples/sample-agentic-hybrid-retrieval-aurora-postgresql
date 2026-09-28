@@ -173,12 +173,31 @@ def _usb_c_power(sentence: str) -> int | None:
     return None
 
 
+# Fields only a computer listing carries. A monitor whose details block has them
+# was given another product's details, so its details size describes that product.
+_COMPUTER_DETAILS = frozenset(
+    {
+        "CPU Model",
+        "CPU Speed",
+        "Ram Memory Installed Size",
+        "Flash Memory Size",
+        "Hard Disk Size",
+        "Memory Storage Capacity",
+        "Computer Memory Size",
+    }
+)
+_CM_PER_INCH = 2.54
+
+
 def _screen_size(original: dict[str, Any]) -> ProductSpec | None:
     """The diagonal in inches, unless the details field and the title disagree.
 
-    Details carry centimetres labelled as inches ("55.8 Inches" on a 22" AOC)
-    and plain errors ("14 Inches" on a 27" Dell). Neither statement can be
-    preferred without guessing, so a contradiction leaves the size unknown.
+    Two disagreements are evidence rather than a contradiction, and both
+    resolve to the title's own words: a details value that is the title's size
+    in centimetres labelled as inches ("55.8 Inches" on a 22" AOC), and a
+    details block that describes a computer ("14 Inches" beside RAM, flash and
+    CPU fields on a 27" Dell). Any other disagreement cannot be settled without
+    guessing, so the size stays unknown.
     """
     detail = _from_details(
         original,
@@ -189,15 +208,29 @@ def _screen_size(original: dict[str, Any]) -> ProductSpec | None:
         return _from_sentences(original, _size(_INCHES_TEXT))
     parse = _size(_INCHES_TEXT)
     title_sizes = [
-        size
+        (size, sentence.strip())
         for sentence in _SENTENCE.findall(original.get("title") or "")
         if (size := parse(sentence)) is not None
     ]
-    if title_sizes and all(
-        abs(size - detail.value) > _SIZE_TOLERANCE_IN for size in title_sizes
+    if not title_sizes or any(
+        abs(size - detail.value) <= _SIZE_TOLERANCE_IN for size, _ in title_sizes
     ):
-        return None
-    return detail
+        return detail
+    in_centimetres = [
+        (size, sentence)
+        for size, sentence in title_sizes
+        if abs(detail.value - size * _CM_PER_INCH) <= _SIZE_TOLERANCE_IN * _CM_PER_INCH
+    ]
+    foreign = _COMPUTER_DETAILS & set(_details(original))
+    stated = {
+        float(match.group(1))
+        for match in _INCHES_TEXT.finditer(original.get("title") or "")
+        if 10 <= float(match.group(1)) <= 65
+    }
+    if in_centimetres or (foreign and len(stated) == 1):
+        size, sentence = (in_centimetres or title_sizes)[0]
+        return _spec(size, "title", sentence)
+    return None
 
 
 def monitor_specs(original: dict[str, Any]) -> dict[str, ProductSpec]:
