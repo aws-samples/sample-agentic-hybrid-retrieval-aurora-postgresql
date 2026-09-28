@@ -294,64 +294,96 @@ def count_products(filters: list[SearchFilters]) -> list[int]:
     return [row["count"] for row in rows]
 
 
+_EVIDENCE_METADATA_KEYS = (
+    "parent_asin",
+    "variant_asin",
+    "source_revision",
+    "source_record_sha256",
+    "scope",
+    "helpful_votes",
+    "source_location",
+)
+
+
 def _ensure_evidence(connection, row: dict) -> list[dict]:
-    """Register exact sources once so citations keep their existing FK checks."""
-    records, _ = product_evidence(connection, active_dataset(), row)
-    persisted = []
-    for record in records:
-        identity = uuid5(
-            NAMESPACE_URL,
-            f"{active_dataset()}:{row['parent_asin']}:{record['evidence_id']}",
-        )
-        metadata = {
-            key: record[key]
-            for key in (
-                "parent_asin",
-                "variant_asin",
-                "source_revision",
-                "source_record_sha256",
-                "scope",
-                "helpful_votes",
-                "source_location",
+    """Register exact sources once so citations keep their existing FK checks.
+
+    One insert and one lookup cover every record of the product. Registering
+    record by record cost two round trips per review or question: 150 statements
+    for a product with 60 reviews, which is seconds from outside the VPC.
+    """
+    dataset = active_dataset()
+    records, _ = product_evidence(connection, dataset, row)
+    if not records:
+        return []
+    identities = [
+        str(
+            uuid5(
+                NAMESPACE_URL, f"{dataset}:{row['parent_asin']}:{record['evidence_id']}"
             )
-            if key in record
+        )
+        for record in records
+    ]
+    batch = [
+        {
+            "position": position,
+            "evidence_uid": identity,
+            "evidence_type": record["evidence_type"],
+            "source_name": record["source_name"],
+            "source_reference": record["source_reference"],
+            "evidence_title": record["title"],
+            "evidence_text": record["text"],
+            "source_date": record["source_date"],
+            "rating": record["rating"],
+            "is_verified": bool(record["verified_purchase"]),
+            "metadata": {
+                key: record[key] for key in _EVIDENCE_METADATA_KEYS if key in record
+            },
         }
-        result = connection.execute(
-            """INSERT INTO mosaic.product_evidence
-            (evidence_uid,product_id,evidence_type,source_name,source_reference,evidence_title,
-             evidence_text,source_date,rating,is_verified,metadata,embedding_text,embedding,embedding_model_key)
-            VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb,%s,
-                CASE WHEN %s THEN (SELECT embedding FROM mosaic_catalog_stage.product WHERE dataset_id=%s AND parent_asin=%s) END,
-                CASE WHEN %s THEN %s END)
-            ON CONFLICT(evidence_uid) DO NOTHING
-            RETURNING evidence_id""",
-            (
-                identity,
-                row["product_id"],
-                record["evidence_type"],
-                record["source_name"],
-                record["source_reference"],
-                record["title"],
-                record["text"],
-                record["source_date"],
-                record["rating"],
-                bool(record["verified_purchase"]),
-                json.dumps(metadata),
-                record["text"],
-                record["evidence_type"] == "product_spec",
-                active_dataset(),
-                row["parent_asin"],
-                record["evidence_type"] == "product_spec",
-                row["embedding_model_key"],
-            ),
-        ).fetchone()
-        if result is None:
-            result = connection.execute(
-                "SELECT evidence_id FROM mosaic.product_evidence WHERE evidence_uid=%s",
-                (identity,),
-            ).fetchone()
-        persisted.append({**record, "evidence_id": result["evidence_id"]})
-    return persisted
+        for position, (identity, record) in enumerate(
+            zip(identities, records, strict=True)
+        )
+    ]
+    # ORDER BY keeps identity values ascending in record order, as the
+    # one-at-a-time inserts assigned them.
+    connection.execute(
+        """INSERT INTO mosaic.product_evidence
+        (evidence_uid,product_id,evidence_type,source_name,source_reference,evidence_title,
+         evidence_text,source_date,rating,is_verified,metadata,embedding_text,embedding,
+         embedding_model_key)
+        SELECT r.evidence_uid, %s, r.evidence_type::mosaic.evidence_type, r.source_name,
+               r.source_reference, r.evidence_title, r.evidence_text, r.source_date, r.rating,
+               r.is_verified, r.metadata, r.evidence_text,
+               CASE WHEN r.evidence_type = 'product_spec' THEN (
+                   SELECT embedding FROM mosaic_catalog_stage.product
+                   WHERE dataset_id=%s AND parent_asin=%s) END,
+               CASE WHEN r.evidence_type = 'product_spec' THEN %s END
+        FROM jsonb_to_recordset(%s::jsonb) AS r(
+            position integer, evidence_uid uuid, evidence_type text, source_name text,
+            source_reference text, evidence_title text, evidence_text text, source_date date,
+            rating numeric, is_verified boolean, metadata jsonb)
+        ORDER BY r.position
+        ON CONFLICT(evidence_uid) DO NOTHING""",
+        (
+            row["product_id"],
+            dataset,
+            row["parent_asin"],
+            row["embedding_model_key"],
+            json.dumps(batch, default=str),
+        ),
+    )
+    registered = {
+        str(found["evidence_uid"]): found["evidence_id"]
+        for found in connection.execute(
+            "SELECT evidence_uid, evidence_id FROM mosaic.product_evidence "
+            "WHERE evidence_uid = ANY(%s::uuid[])",
+            (identities,),
+        ).fetchall()
+    }
+    return [
+        {**record, "evidence_id": registered[identity]}
+        for identity, record in zip(identities, records, strict=True)
+    ]
 
 
 def ensure_product_evidence(product_id: int) -> None:

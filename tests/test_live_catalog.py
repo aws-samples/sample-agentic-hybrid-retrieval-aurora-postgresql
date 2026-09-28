@@ -1,5 +1,6 @@
 """The real storefront must preserve source facts and stay within its selection."""
 
+import json
 from contextlib import contextmanager
 from unittest.mock import MagicMock
 from uuid import uuid4
@@ -327,3 +328,57 @@ def test_review_fallback_skips_reranking_when_no_review_matches(
     )
     assert [record.evidence_id for record in records] == [101]
     reranker.rerank.assert_not_called()
+
+
+class RegistrationConnection(Connection):
+    """Answers the evidence lookup in reverse order, as a database may."""
+
+    def __init__(self):
+        super().__init__([])
+
+    def execute(self, sql, params=None):
+        self.calls.append((sql, params))
+        identities = params[0] if "ANY(" in sql else []
+        self.current = [
+            {"evidence_uid": identity, "evidence_id": 5000 + identities.index(identity)}
+            for identity in reversed(identities)
+        ]
+        return self
+
+
+@pytest.mark.parametrize("reviews", [0, 60])
+def test_evidence_registration_takes_two_statements_for_any_number_of_reviews(
+    real_product, monkeypatch, reviews
+):
+    # Registering record by record cost two round trips per review: 150
+    # statements for the Bose on the development cluster, 6 s from a laptop.
+    records = [
+        {
+            "evidence_id": f"source:{index}",
+            "evidence_type": "product_spec" if index == 0 else "customer_review",
+            "source_name": "Amazon Reviews 2023",
+            "source_reference": f"https://example.test/{index}",
+            "title": f"Record {index}",
+            "text": f"Text {index}",
+            "source_date": None,
+            "rating": None if index == 0 else 4,
+            "verified_purchase": index > 0,
+            "parent_asin": real_product["parent_asin"],
+        }
+        for index in range(reviews + 1)
+    ]
+    monkeypatch.setattr(live_catalog, "product_evidence", lambda *_: (records, []))
+    database = RegistrationConnection()
+
+    persisted = live_catalog._ensure_evidence(
+        database, {**real_product, "embedding_model_key": "model"}
+    )
+
+    assert len(database.calls) == 2
+    batch = json.loads(database.calls[0][1][-1])
+    assert [item["position"] for item in batch] == list(range(len(records)))
+    assert [item["evidence_text"] for item in batch] == [r["text"] for r in records]
+    # Ids are matched by identity, not by the order the lookup returns them.
+    assert [record["evidence_id"] for record in persisted] == [
+        5000 + index for index in range(len(records))
+    ]
