@@ -86,7 +86,7 @@ def test_every_step_reports_its_own_wins_losses_and_ties():
 def test_the_committed_measurement_is_reported_honestly():
     """The shipped numbers, read the right way.
 
-    Neither step clears the bar on 20 queries -- including the combined-search
+    Neither step clears the bar on 9 queries -- including the combined-search
     step, which is the one the session teaches. That is the finding, and it is
     the reason this comparison is served rather than left to the reader to do
     by subtracting two averages.
@@ -101,7 +101,7 @@ def test_the_committed_measurement_is_reported_honestly():
     # Pin the refreshed catalog measurement, without preserving the older
     # claim that reranking leaves more than half of these searches unchanged.
     reranked = steps[RERANKED]
-    assert (reranked.wins, reranked.losses, reranked.ties) == (5, 5, 10)
+    assert (reranked.wins, reranked.losses, reranked.ties) == (5, 0, 4)
 
 
 def test_the_caveat_no_longer_asks_for_the_wrong_comparison():

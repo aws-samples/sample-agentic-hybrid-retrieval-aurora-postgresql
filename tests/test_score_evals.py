@@ -116,8 +116,16 @@ def test_committed_scorecard_keeps_per_query_and_ranked_result_provenance():
         len(baseline["per_query_metrics"]) == baseline["product_retrieval_query_count"]
     )
     assert {row["query_id"] for row in baseline["per_query_metrics"]} == {
-        f"G-{number:03d}" for number in range(1, 22)
-    } - {"G-021"}
+        "G-001",
+        "G-003",
+        "G-004",
+        "G-007",
+        "G-008",
+        "G-009",
+        "G-012",
+        "G-019",
+        "G-022",
+    }
     assert len(baseline["ranked_result_sha256"]) == 64
     assert len(baseline["dataset_manifest_sha256"]) == 64
     assert baseline["source"]["revision"]

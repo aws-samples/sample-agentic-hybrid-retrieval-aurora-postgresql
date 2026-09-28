@@ -832,8 +832,8 @@ def test_api_serves_the_stage_ablation_section_alongside_the_other_four():
         "rrf_fused_no_rerank",
         "rrf_fused_reranked",
     }
-    assert ablation["scored_query_count"] == 21
-    assert len(ablation["per_query"]) == 21
+    assert ablation["scored_query_count"] == 9
+    assert len(ablation["per_query"]) == 9
     ceiling_contract = ablation["candidate_recall_ceiling"]
     assert set(ceiling_contract["bounds_arms"]) == {
         "rrf_fused_no_rerank",

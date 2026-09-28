@@ -1,60 +1,60 @@
 {
-  "ablation_methodology_sha256": "edeb129b39618fc401d37901b1da014e3068659b619e751ee4bb41af5adb0dc2",
+  "ablation_methodology_sha256": "1158ce823796bdd432c2545a65d39cb7cdd6ec173e91be88dd9539c349312ebc",
   "arms": {
     "lexical_only": {
-      "description": "mosaic_search.search_fts alone: PostgreSQL full-text search over the weighted product document, with no trigram or semantic arm and no fusion.",
+      "description": "search_fts alone: PostgreSQL full-text search over the weighted product document, with no trigram or semantic arm and no fusion.",
       "label": "Lexical only",
-      "mrr": 0.625,
-      "ndcg@10": 0.5902773970088939,
+      "mrr": 0.3888888888888889,
+      "ndcg@10": 0.36045299403743514,
       "ndcg@10_max": 1.0,
       "ndcg@10_min": 0.0,
-      "ndcg@10_query_wins": 10,
-      "ndcg@10_stdev": 0.45418649471337363,
-      "recall@10": 0.5833333333333333
+      "ndcg@10_query_wins": 2,
+      "ndcg@10_stdev": 0.4478678077489692,
+      "recall@10": 0.3888888888888889
     },
     "rrf_fused_no_rerank": {
       "description": "The served fusion function (unweighted reciprocal rank fusion over FTS, trigram, and semantic candidates), with managed reranking disabled so the fused order is returned unchanged.",
       "label": "RRF fused, reranking off",
-      "mrr": 0.835,
-      "ndcg@10": 0.7818066869007055,
+      "mrr": 0.5555555555555556,
+      "ndcg@10": 0.5881900596735787,
       "ndcg@10_max": 1.0,
       "ndcg@10_min": 0.0,
-      "ndcg@10_query_wins": 13,
-      "ndcg@10_stdev": 0.2891217820731259,
-      "recall@10": 0.8291666666666666
+      "ndcg@10_query_wins": 4,
+      "ndcg@10_stdev": 0.4337677038748558,
+      "recall@10": 0.7222222222222222
     },
     "rrf_fused_reranked": {
       "description": "The production path: the same fused pool as rrf_fused_no_rerank, reordered by managed reranking. Recomputed from data/evals/canonical_ranked_results.csv rather than re-served, so this measurement spends no reranker calls.",
       "label": "RRF fused + managed reranking (served path)",
-      "mrr": 0.8916666666666666,
-      "ndcg@10": 0.824052757152384,
+      "mrr": 0.7592592592592592,
+      "ndcg@10": 0.8032961425511451,
       "ndcg@10_max": 1.0,
-      "ndcg@10_min": 0.2441638274044765,
-      "ndcg@10_query_wins": 14,
-      "ndcg@10_stdev": 0.24704436735445082,
-      "recall@10": 0.8625
+      "ndcg@10_min": 0.43067655807339306,
+      "ndcg@10_query_wins": 9,
+      "ndcg@10_stdev": 0.25385756590090613,
+      "recall@10": 1.0
     },
     "semantic_only": {
-      "description": "mosaic_search.search_vector alone: dense cosine ranking over the product embedding, with no lexical or trigram arm and no fusion.",
+      "description": "search_vector alone: dense cosine ranking over the product embedding, with no lexical or trigram arm and no fusion.",
       "label": "Semantic only",
-      "mrr": 0.49333333333333335,
-      "ndcg@10": 0.4577491806186112,
-      "ndcg@10_max": 1.0,
+      "mrr": 0.08888888888888889,
+      "ndcg@10": 0.14175445730001446,
+      "ndcg@10_max": 0.43067655807339306,
       "ndcg@10_min": 0.0,
-      "ndcg@10_query_wins": 7,
-      "ndcg@10_stdev": 0.4199884528477889,
-      "recall@10": 0.5
+      "ndcg@10_query_wins": 0,
+      "ndcg@10_stdev": 0.18634382857730972,
+      "recall@10": 0.3333333333333333
     },
     "trigram_only": {
-      "description": "mosaic_search.search_trigram alone: pg_trgm similarity over the product identity text, with no lexical or semantic arm and no fusion.",
+      "description": "search_trigram alone: pg_trgm similarity over the product identity text, with no lexical or semantic arm and no fusion.",
       "label": "Trigram only",
-      "mrr": 0.8,
-      "ndcg@10": 0.7138885447150958,
+      "mrr": 0.5555555555555556,
+      "ndcg@10": 0.5555555555555556,
       "ndcg@10_max": 1.0,
       "ndcg@10_min": 0.0,
-      "ndcg@10_query_wins": 13,
-      "ndcg@10_stdev": 0.37942879344526814,
-      "recall@10": 0.6875
+      "ndcg@10_query_wins": 5,
+      "ndcg@10_stdev": 0.5270462766947299,
+      "recall@10": 0.5555555555555556
     }
   },
   "candidate_recall_ceiling": {
@@ -63,25 +63,25 @@
       "rrf_fused_reranked"
     ],
     "description": "Share of judged-relevant products present anywhere in the fused candidate pool before reranking, averaged over the scored queries. The ceiling reranking could ever reach: reranking only reorders this pool, it never adds a candidate absent from it.",
-    "judged_relevant_never_fetched": 5,
-    "pool_recall_ceiling": 0.9208333333333334,
+    "judged_relevant_never_fetched": 0,
+    "pool_recall_ceiling": 1.0,
     "unbounded_arms": {
       "lexical_only": {
         "note": "Not bounded by this ceiling. This channel returns its own candidate limit and this arm takes its own top-K from those, while the fused pool is capped at fused_limit after RRF scores three channels together, so a judged-relevant product can appear here and still be absent from the fused pool. Recorded for comparison, never asserted against.",
-        "recall@10": 0.5833333333333333
+        "recall@10": 0.3888888888888889
       },
       "semantic_only": {
         "note": "Not bounded by this ceiling. This channel returns its own candidate limit and this arm takes its own top-K from those, while the fused pool is capped at fused_limit after RRF scores three channels together, so a judged-relevant product can appear here and still be absent from the fused pool. Recorded for comparison, never asserted against.",
-        "recall@10": 0.5
+        "recall@10": 0.3333333333333333
       },
       "trigram_only": {
         "note": "Not bounded by this ceiling. This channel returns its own candidate limit and this arm takes its own top-K from those, while the fused pool is capped at fused_limit after RRF scores three channels together, so a judged-relevant product can appear here and still be absent from the fused pool. Recorded for comparison, never asserted against.",
-        "recall@10": 0.6875
+        "recall@10": 0.5555555555555556
       }
     }
   },
   "k": 10,
-  "measured_at": "2026-09-20T15:22:11.662990+00:00",
+  "measured_at": "2026-09-28T13:46:57.717888+00:00",
   "models": {
     "embedding": "us.cohere.embed-v4:0",
     "rerank": "cohere.rerank-v3-5:0"
@@ -99,133 +99,22 @@
       },
       "pool_recall": 1.0,
       "query_id": "G-001",
-      "query_text": "EchoBud S2",
+      "query_text": "B07G95TJ3P",
       "relevant_count": 1
     },
     {
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
-        "lexical_only": 1.0,
+        "lexical_only": 0.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
         "semantic_only": 0.0,
         "trigram_only": 1.0
       },
       "pool_recall": 1.0,
-      "query_id": "G-002",
-      "query_text": "Sonora WH-C720",
-      "relevant_count": 1
-    },
-    {
-      "found_in_pool": 1,
-      "missed_product_ids": [
-        3,
-        4,
-        5
-      ],
-      "ndcg@10": {
-        "lexical_only": 0.0,
-        "rrf_fused_no_rerank": 0.3903800499921017,
-        "rrf_fused_reranked": 0.3903800499921017,
-        "semantic_only": 0.0,
-        "trigram_only": 0.3903800499921017
-      },
-      "pool_recall": 0.25,
       "query_id": "G-003",
-      "query_text": "noice cancelng hedfones",
-      "relevant_count": 4
-    },
-    {
-      "found_in_pool": 2,
-      "missed_product_ids": [],
-      "ndcg@10": {
-        "lexical_only": 0.0,
-        "rrf_fused_no_rerank": 0.3003089125797725,
-        "rrf_fused_reranked": 0.2441638274044765,
-        "semantic_only": 0.8267447024279065,
-        "trigram_only": 0.08099012151509755
-      },
-      "pool_recall": 1.0,
-      "query_id": "G-004",
-      "query_text": "noise cancelling headphones for a long flight under $200 with at least 40 hours of battery",
-      "relevant_count": 2
-    },
-    {
-      "found_in_pool": 3,
-      "missed_product_ids": [],
-      "ndcg@10": {
-        "lexical_only": 0.0,
-        "rrf_fused_no_rerank": 0.8556691603792903,
-        "rrf_fused_reranked": 0.6735439182299785,
-        "semantic_only": 0.5787412556559733,
-        "trigram_only": 0.6735439182299785
-      },
-      "pool_recall": 1.0,
-      "query_id": "G-005",
-      "query_text": "premium comfortable ANC headphones under $180 for all-day calls",
-      "relevant_count": 3
-    },
-    {
-      "found_in_pool": 1,
-      "missed_product_ids": [],
-      "ndcg@10": {
-        "lexical_only": 0.9173194127129571,
-        "rrf_fused_no_rerank": 0.9173194127129571,
-        "rrf_fused_reranked": 0.9173194127129571,
-        "semantic_only": 0.0,
-        "trigram_only": 0.9173194127129571
-      },
-      "pool_recall": 1.0,
-      "query_id": "G-006",
-      "query_text": "quite mechancial keybord under $180 for shared office",
-      "relevant_count": 1
-    },
-    {
-      "found_in_pool": 2,
-      "missed_product_ids": [],
-      "ndcg@10": {
-        "lexical_only": 0.7871546029909718,
-        "rrf_fused_no_rerank": 0.9073218002554915,
-        "rrf_fused_reranked": 0.9324441894571632,
-        "semantic_only": 0.4966392596877323,
-        "trigram_only": 1.0
-      },
-      "pool_recall": 1.0,
-      "query_id": "G-007",
-      "query_text": "quiet wireless keyboard for a shared office; compare mechanical feel with the cheaper alternative",
-      "relevant_count": 2
-    },
-    {
-      "found_in_pool": 2,
-      "missed_product_ids": [
-        370003
-      ],
-      "ndcg@10": {
-        "lexical_only": 0.8556691603792903,
-        "rrf_fused_no_rerank": 0.8556691603792903,
-        "rrf_fused_reranked": 0.8556691603792903,
-        "semantic_only": 0.6735439182299785,
-        "trigram_only": 0.8556691603792903
-      },
-      "pool_recall": 0.6666666666666666,
-      "query_id": "G-008",
-      "query_text": "ergonomic mesh chair for long workdays with adjustable lumbar support",
-      "relevant_count": 3
-    },
-    {
-      "found_in_pool": 1,
-      "missed_product_ids": [],
-      "ndcg@10": {
-        "lexical_only": 1.0,
-        "rrf_fused_no_rerank": 0.6309297535714575,
-        "rrf_fused_reranked": 1.0,
-        "semantic_only": 0.3562071871080222,
-        "trigram_only": 0.0
-      },
-      "pool_recall": 1.0,
-      "query_id": "G-009",
-      "query_text": "mesh office chair with a headrest for 12-hour days under $800",
+      "query_text": "B07G95T3JP",
       "relevant_count": 1
     },
     {
@@ -234,90 +123,73 @@
       "ndcg@10": {
         "lexical_only": 0.0,
         "rrf_fused_no_rerank": 0.0,
-        "rrf_fused_reranked": 1.0,
-        "semantic_only": 1.0,
+        "rrf_fused_reranked": 0.43067655807339306,
+        "semantic_only": 0.0,
         "trigram_only": 0.0
       },
       "pool_recall": 1.0,
-      "query_id": "G-010",
-      "query_text": "single-cable 4K monitor for coding and photo editing with 90W USB-C power",
+      "query_id": "G-004",
+      "query_text": "27 inch 4K monitor USB-C 90W laptop charging",
       "relevant_count": 1
     },
     {
-      "found_in_pool": 1,
+      "found_in_pool": 2,
       "missed_product_ids": [],
       "ndcg@10": {
-        "lexical_only": 1.0,
-        "rrf_fused_no_rerank": 1.0,
-        "rrf_fused_reranked": 1.0,
-        "semantic_only": 1.0,
-        "trigram_only": 1.0
+        "lexical_only": 0.6131471927654584,
+        "rrf_fused_no_rerank": 0.3065735963827292,
+        "rrf_fused_reranked": 0.7977228895450266,
+        "semantic_only": 0.23719771276929622,
+        "trigram_only": 0.0
       },
       "pool_recall": 1.0,
-      "query_id": "G-011",
-      "query_text": "adjustable aluminum laptop stand with a phone shelf and cable management under $100",
+      "query_id": "G-007",
+      "query_text": "Dell U2720Q versus Dell SE2717H monitor resolution USB-C charging",
+      "relevant_count": 2
+    },
+    {
+      "found_in_pool": 2,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "lexical_only": 0.0,
+        "rrf_fused_no_rerank": 0.0,
+        "rrf_fused_reranked": 0.5012658353418871,
+        "semantic_only": 0.17723928678404774,
+        "trigram_only": 0.0
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-008",
+      "query_text": "27 inch 4K monitor USB-C 90W laptop charging",
+      "relevant_count": 2
+    },
+    {
+      "found_in_pool": 1,
+      "missed_product_ids": [],
+      "ndcg@10": {
+        "lexical_only": 0.0,
+        "rrf_fused_no_rerank": 0.3562071871080222,
+        "rrf_fused_reranked": 0.5,
+        "semantic_only": 0.43067655807339306,
+        "trigram_only": 0.0
+      },
+      "pool_recall": 1.0,
+      "query_id": "G-009",
+      "query_text": "27 inch 4K monitor USB-C 90W laptop charging",
       "relevant_count": 1
     },
     {
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
-        "lexical_only": 1.0,
-        "rrf_fused_no_rerank": 0.9173194127129571,
-        "rrf_fused_reranked": 0.3950679673211227,
-        "semantic_only": 0.3548675899387485,
-        "trigram_only": 0.9173194127129571
+        "lexical_only": 0.6309297535714575,
+        "rrf_fused_no_rerank": 1.0,
+        "rrf_fused_reranked": 1.0,
+        "semantic_only": 0.43067655807339306,
+        "trigram_only": 1.0
       },
       "pool_recall": 1.0,
       "query_id": "G-012",
-      "query_text": "carbon plated marathon shoe under $220 with stable cornering",
-      "relevant_count": 1
-    },
-    {
-      "found_in_pool": 1,
-      "missed_product_ids": [
-        234002
-      ],
-      "ndcg@10": {
-        "lexical_only": 0.7452525342261976,
-        "rrf_fused_no_rerank": 0.7452525342261976,
-        "rrf_fused_reranked": 0.7452525342261976,
-        "semantic_only": 0.7452525342261976,
-        "trigram_only": 0.7452525342261976
-      },
-      "pool_recall": 0.5,
-      "query_id": "G-013",
-      "query_text": "carbon plated marthon shoe AeroStride racer",
-      "relevant_count": 2
-    },
-    {
-      "found_in_pool": 2,
-      "missed_product_ids": [],
-      "ndcg@10": {
-        "lexical_only": 0.0,
-        "rrf_fused_no_rerank": 0.4498025437342832,
-        "rrf_fused_reranked": 1.0,
-        "semantic_only": 0.0,
-        "trigram_only": 1.0
-      },
-      "pool_recall": 1.0,
-      "query_id": "G-014",
-      "query_text": "durable daily road running shoe without a carbon plate for high-mileage training",
-      "relevant_count": 2
-    },
-    {
-      "found_in_pool": 1,
-      "missed_product_ids": [],
-      "ndcg@10": {
-        "lexical_only": 0.0,
-        "rrf_fused_no_rerank": 1.0,
-        "rrf_fused_reranked": 0.5,
-        "semantic_only": 0.0,
-        "trigram_only": 1.0
-      },
-      "pool_recall": 1.0,
-      "query_id": "G-015",
-      "query_text": "fitness watch under $300 with GPS, sleep tracking, and training readiness",
+      "query_text": "Bose QuietComfort 35 series II wireless noise cancelling headphones",
       "relevant_count": 1
     },
     {
@@ -327,90 +199,45 @@
         "lexical_only": 1.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 1.0,
-        "trigram_only": 1.0
-      },
-      "pool_recall": 1.0,
-      "query_id": "G-016",
-      "query_text": "GPS running watch with onboard maps and training readiness, rated for more than 20 days in smartwatch mode",
-      "relevant_count": 1
-    },
-    {
-      "found_in_pool": 1,
-      "missed_product_ids": [],
-      "ndcg@10": {
-        "lexical_only": 1.0,
-        "rrf_fused_no_rerank": 1.0,
-        "rrf_fused_reranked": 1.0,
-        "semantic_only": 1.0,
-        "trigram_only": 1.0
-      },
-      "pool_recall": 1.0,
-      "query_id": "G-017",
-      "query_text": "4K conference webcam with auto-framing, noise reduction and a privacy shutter",
-      "relevant_count": 1
-    },
-    {
-      "found_in_pool": 1,
-      "missed_product_ids": [],
-      "ndcg@10": {
-        "lexical_only": 0.0,
-        "rrf_fused_no_rerank": 1.0,
-        "rrf_fused_reranked": 1.0,
-        "semantic_only": 1.0,
-        "trigram_only": 1.0
-      },
-      "pool_recall": 1.0,
-      "query_id": "G-018",
-      "query_text": "water-resistant portable speaker with Wi-Fi and Bluetooth, rated IP67",
-      "relevant_count": 1
-    },
-    {
-      "found_in_pool": 2,
-      "missed_product_ids": [],
-      "ndcg@10": {
-        "lexical_only": 0.8339912323981488,
-        "rrf_fused_no_rerank": 1.0,
-        "rrf_fused_reranked": 0.888707665873224,
         "semantic_only": 0.0,
-        "trigram_only": 0.5743091194356716
+        "trigram_only": 1.0
       },
       "pool_recall": 1.0,
       "query_id": "G-019",
-      "query_text": "Which ergonomic chair best supports 12-hour workdays, and what evidence supports the recommendation?",
-      "relevant_count": 2
+      "query_text": "For Bose QuietComfort 35 II B07G95TJ3P, what do the specifications and available reviews support about noise cancellation and clear calls? Cite the records, and say when review evidence does not establish microphone performance.",
+      "relevant_count": 1
     },
     {
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
-        "lexical_only": 0.6661609974703122,
-        "rrf_fused_no_rerank": 0.6661609974703122,
-        "rrf_fused_reranked": 0.938506417451168,
-        "semantic_only": 0.12298716509766383,
-        "trigram_only": 0.12298716509766383
+        "lexical_only": 0.0,
+        "rrf_fused_no_rerank": 0.6309297535714575,
+        "rrf_fused_reranked": 1.0,
+        "semantic_only": 0.0,
+        "trigram_only": 1.0
       },
       "pool_recall": 1.0,
-      "query_id": "G-020",
-      "query_text": "ergonomic mesh chair with adjustable lumbar and seat depth for twelve hour workdays",
+      "query_id": "G-022",
+      "query_text": "Limmited Editon Triple Midnigth",
       "relevant_count": 1
     }
   ],
   "query_set": "data/evals/canonical_queries.jsonl",
-  "query_set_sha256": "9809749d79cef151644a4a23850701746fe6ebf64a59cda36a00ce0b611c0f37",
-  "retrieval_fingerprint": "33cfe9d829c6c222ce1157571689ba3f0bf66a4eddcbb066be0c4913143520d9",
+  "query_set_sha256": "38ce9a44eed146a8c657208dc8704398cfb5a27ec057a6101a2a80195038e40c",
+  "retrieval_fingerprint": "eeeecbf4237bf6940a8415519c716b543df442a0e62a5ae931d5eb2bc0de58c6",
   "retrieval_settings_sha256": "3635fb13943e9504b42c530ffcd75317f5f326d1abf569e108078aa55498116e",
-  "scored_query_count": 20,
-  "scored_query_set_sha256": "56cc1edf1ff0015fdcd4a298716093a22ae3e1a683980e00983b63be9174d7c9",
+  "scored_query_count": 9,
+  "scored_query_set_sha256": "05a1f0bae367d39e5d2769f746f4773de2639ea2a41209904a533e30e63b8c6e",
   "served_scorecard_reference": {
-    "measured_at": "2026-09-20T15:21:01.955798+00:00",
+    "measured_at": "2026-09-28T13:37:23.026825+00:00",
     "path": "data/evals/canonical_scorecard.json",
-    "retrieval_fingerprint": "33cfe9d829c6c222ce1157571689ba3f0bf66a4eddcbb066be0c4913143520d9",
-    "source_revision": "47bf847d381733afa6a5bc32c85dac6633699768"
+    "retrieval_fingerprint": "eeeecbf4237bf6940a8415519c716b543df442a0e62a5ae931d5eb2bc0de58c6",
+    "source_revision": "0e7b4573b7202e0e5df902197f324ab9c44df9c0"
   },
   "source": {
-    "revision": "45512e0cc5338df576d9d2303f73366cf0fa4866",
+    "revision": "dd79ca695977b99d50519083dd61d42adc035f0e",
     "worktree_dirty": false
   },
-  "spread_note": "20 queries and 74 judgments cannot separate small differences between these paths. Every path answers the same searches, so read each step as the difference on each search rather than as two separate averages: the comparison below reports that difference, the spread of the differences, and how many searches each step won and lost. A step whose average difference is smaller than that spread is one this query set cannot tell apart from no change."
+  "spread_note": "9 queries and 14 judgments cannot separate small differences between these paths. Every path answers the same searches, so read each step as the difference on each search rather than as two separate averages: the comparison below reports that difference, the spread of the differences, and how many searches each step won and lost. A step whose average difference is smaller than that spread is one this query set cannot tell apart from no change."
 }

@@ -215,10 +215,13 @@ def test_acceptance_rejects_each_violation_then_accepts_identical_restoration(
     assert verify(connection_for(counts, receipt, [], True), contract) == counts
 
 
-def test_real_only_scorecard_population_is_pending_without_breaking_lab_proof():
-    from service.scorecard import retrieval_scorecard
+def test_real_only_scorecard_serves_the_real_catalog_population():
+    from service.scorecard import _scored_queries, retrieval_scorecard
 
     response = retrieval_scorecard()
-    assert response.provenance.attributed is False
-    assert response.retrieval_quality is None
-    assert response.regression_anchors.anchors == []
+    assert response.retrieval_quality is not None
+    assert response.retrieval_quality.sample_size == len(_scored_queries())
+    assert {anchor.query_id for anchor in response.regression_anchors.anchors} == {
+        "G-001",
+        "G-022",
+    }
