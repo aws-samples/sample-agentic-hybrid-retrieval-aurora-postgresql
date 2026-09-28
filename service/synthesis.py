@@ -668,12 +668,110 @@ def _claim_supported(
     )
 
 
+def _figure(value: str) -> float:
+    return float(re.search(r"\d[\d,]*(?:\.\d+)?", value).group().replace(",", ""))
+
+
+def _question_figures(question: str) -> set[tuple[float, str]]:
+    """Measurements the shopper stated, by value and unit family."""
+    return {
+        (_figure(claim.value), claim.unit)
+        for claim in _measurable_claims(question)
+        if claim.unit and claim.unit != "resolution"
+    }
+
+
+_BOUND_OWNER = r"(?:(?:your|the|a|an)\s+)?(?:[\w-]+['’]s\s+)?"
+_FALLS_SHORT_BEFORE = re.compile(
+    rf"\b(?:below|under|less than|lower than|short of)\s+{_BOUND_OWNER}$",
+    re.IGNORECASE,
+)
+_EXCEEDS_BEFORE = re.compile(
+    rf"\b(?:above|over|more than|at least|exceeds?|exceeding|beyond)\s+{_BOUND_OWNER}$",
+    re.IGNORECASE,
+)
+# A figure placed as the object of these is stated as the product's own value.
+_PROVIDES_BEFORE = re.compile(
+    r"\b(?:suppl(?:y|ies|ied|ying)|deliver\w*|provid\w*|offer\w*|output\w*|"
+    r"support(?:s|ed|ing)?|rated(?:\s+at)?|reach\w*|has|have|with|at)\s+"
+    r"(?:up to\s+|a full\s+|a\s+|an\s+|full\s+)?$",
+    re.IGNORECASE,
+)
+_SATISFIES = re.compile(
+    r"\b(?:meets?|meeting|satisf\w*|covers?|enough|sufficient)\b", re.IGNORECASE
+)
+_NEGATION = re.compile(
+    r"\b(?:not|no|neither|nor|never|without|doesn['’]t|does not|don['’]t|do not|"
+    r"cannot|can['’]t|won['’]t|isn['’]t|aren['’]t|fails? to)\b",
+    re.IGNORECASE,
+)
+_CLAUSE_BREAK = re.compile(
+    r"[;:,()]|—|\b(?:but|while|whereas|so|since|because|although|though)\b",
+    re.IGNORECASE,
+)
+
+
+def _clause_at(text: str, position: int) -> tuple[int, int]:
+    breaks = [m for m in _CLAUSE_BREAK.finditer(text)]
+    start = max((m.end() for m in breaks if m.end() <= position), default=0)
+    end = min((m.start() for m in breaks if m.start() >= position), default=len(text))
+    return start, end
+
+
+def _requirement_bound(
+    claim: MeasurableClaim,
+    segment: str,
+    question_figures: set[tuple[float, str]],
+    products: Sequence[ProductSummary],
+    records: Sequence[EvidenceRecord],
+) -> bool:
+    """Whether a figure is the shopper's own requirement rather than a product claim.
+
+    "90W, below your 100W requirement" names the product's value and the
+    shopper's bound. The bound is not a claim about the product, so it need
+    not appear in the evidence; treating it as one rejected every honest
+    answer to a changed requirement. A figure the shopper stated is their
+    requirement unless the sentence asserts a product has it: as the object
+    of an unnegated "delivers" or "supports", as a satisfied requirement
+    ("meets", "above") without a cited value that reaches it, or as a
+    shortfall ("below") that a cited value contradicts.
+    """
+    if not claim.unit or claim.unit == "resolution":
+        return False
+    bound = _figure(claim.value)
+    if (bound, claim.unit) not in question_figures:
+        return False
+    clause_start, clause_end = _clause_at(segment, claim.start)
+    lead = segment[clause_start : claim.start]
+    clause = segment[clause_start:clause_end]
+    negated = bool(_NEGATION.search(lead))
+    if _PROVIDES_BEFORE.search(lead) and not negated:
+        return False
+    stated = [
+        _figure(other.value)
+        for other in _measurable_claims(segment)
+        if other.unit == claim.unit
+        and _figure(other.value) != bound
+        and _claim_supported(other, segment, products, records)
+    ]
+    exceeds = bool(_EXCEEDS_BEFORE.search(lead)) or (
+        bool(_SATISFIES.search(clause)) and not _NEGATION.search(clause)
+    )
+    if exceeds:
+        return bool(stated) and all(value >= bound for value in stated)
+    if _FALLS_SHORT_BEFORE.search(lead):
+        return all(value < bound for value in stated)
+    return True
+
+
 def _validate_measurable_claim_support(
     answer: str,
     products: Sequence[ProductSummary],
     evidence_records: Sequence[EvidenceRecord],
+    question: str = "",
 ) -> None:
     """Validate every claim occurrence against its product and cited sources."""
+    question_figures = _question_figures(question)
     ignored_names = {name for product in products for name in _product_names(product)}
     by_product_id = {product.product_id: product for product in products}
     previous_subjects: set[int] = set()
@@ -731,6 +829,12 @@ def _validate_measurable_claim_support(
                         continue
                     if not _claim_supported(
                         claim, segment, scoped_products, scoped_records
+                    ) and not _requirement_bound(
+                        claim,
+                        segment,
+                        question_figures,
+                        scoped_products,
+                        scoped_records,
                     ):
                         subject_label = (
                             f"product {next(iter(subjects))}"
@@ -752,6 +856,7 @@ def _validated_output(
     response: dict[str, Any],
     products: Sequence[ProductSummary],
     evidence_records: Sequence[EvidenceRecord],
+    question: str = "",
 ) -> tuple[str, list[AgentCitation]]:
     """Validate one model draft and resolve only citations in the supplied set."""
     stop_reason = response.get("stopReason")
@@ -782,7 +887,7 @@ def _validated_output(
             f"{sorted(selected_product_ids - cited_product_ids)}"
         )
     _validate_product_claim_citations(answer, products, evidence_records)
-    _validate_measurable_claim_support(answer, products, evidence_records)
+    _validate_measurable_claim_support(answer, products, evidence_records, question)
     _validate_compatibility_claims(answer, products, evidence_records)
     citations = [
         AgentCitation(
@@ -1105,7 +1210,9 @@ def synthesize_cited_answer(
         )
     ]
     try:
-        answer, citations = _validated_output(responses[-1], products, evidence_records)
+        answer, citations = _validated_output(
+            responses[-1], products, evidence_records, question
+        )
     except SynthesisOutputError as error:
         draft = _text(responses[-1])
         responses.append(
@@ -1137,7 +1244,9 @@ def synthesize_cited_answer(
                 ],
             )
         )
-        answer, citations = _validated_output(responses[-1], products, evidence_records)
+        answer, citations = _validated_output(
+            responses[-1], products, evidence_records, question
+        )
     answer = with_limit_notes(_without_empty_alternatives(answer), limits)
     usage = _combined_usage(responses)
     usage["answerability"] = review.model_dump()

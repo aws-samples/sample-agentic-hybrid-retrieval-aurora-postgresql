@@ -52,7 +52,7 @@ def evidence(text: str, title: str = "Specification sheet") -> EvidenceRecord:
     )
 
 
-def validate(answer: str, records, products=None) -> None:
+def validate(answer: str, records, products=None, question: str = "") -> None:
     _validated_output(
         {
             "stopReason": "end_turn",
@@ -60,6 +60,7 @@ def validate(answer: str, records, products=None) -> None:
         },
         products if products is not None else [product()],
         records,
+        question,
     )
 
 
@@ -534,3 +535,74 @@ def test_a_rejected_number_tells_the_redraft_how_to_state_its_absence():
             [evidence(BATTERY_EVIDENCE)],
         )
     assert "say so without writing the number" in str(raised.value)
+
+
+# The Lab 3 follow-up: a monitor whose listing states 90W, and a shopper who now
+# needs 100W. Every honest answer names both figures; the 100W is the shopper's
+# bound, not a claim about the monitor.
+FOLLOW_UP = "My laptop actually needs 100W. Does that change your pick?"
+USB_C_90W = "USB-C connectivity, get up to 90W of power delivery"
+
+
+def _monitor():
+    return product(title='Dell UltraSharp 27" 4K UHD Monitor', model="UltraSharp")
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        # Drafts the validator rejected on 2026-09-28, verbatim apart from names.
+        "Dell UltraSharp 27\" delivers up to 90W of USB-C power delivery [1], which is below your laptop's 100W requirement.",
+        'Dell UltraSharp 27" provides up to 90W of USB-C power delivery [1], which is below the 100W your laptop needs.',
+        'Dell UltraSharp 27" is specified at up to 90W of USB-C power delivery [1], not 100W, so its cited specification does not meet a 100W laptop requirement.',
+        'Dell UltraSharp 27" delivers only up to 90W of USB-C power delivery [1], so its cited specification does not meet a 100W laptop requirement.',
+        'Reviewers describe charging a MacBook Pro on Dell UltraSharp 27" [1], but that does not establish that it can supply 100W.',
+        'Dell UltraSharp 27" is specified at up to 90W of USB-C power delivery [1], the same shortfall against a 100W need.',
+        'If your laptop strictly requires 100W while in use, Dell UltraSharp 27" does not meet that figure [1].',
+        'A reviewer of Dell UltraSharp 27" reports charging a MacBook Pro [1], not a guarantee your 100W device will charge at full speed.',
+        'Dell UltraSharp 27" records do not state a 100W charging capability [1].',
+        'A reviewer charged a MacBook Pro on Dell UltraSharp 27" [1], with no mention of 100W.',
+        'Since its record caps out at 90W [1], Dell UltraSharp 27" is not confirmed to meet a 100W charging need.',
+    ],
+)
+def test_the_shoppers_stated_requirement_is_a_bound_not_a_product_claim(sentence):
+    validate(sentence, [evidence(USB_C_90W)], [_monitor()], FOLLOW_UP)
+
+
+@pytest.mark.parametrize(
+    ("sentence", "question"),
+    [
+        # The requirement asserted as the product's own value.
+        (
+            'Dell UltraSharp 27" delivers up to 100W of USB-C power delivery [1].',
+            FOLLOW_UP,
+        ),
+        # Satisfaction claimed against a smaller cited value.
+        (
+            'Dell UltraSharp 27" meets your 100W requirement with 90W of USB-C power delivery [1].',
+            FOLLOW_UP,
+        ),
+        (
+            'Dell UltraSharp 27" delivers 90W of USB-C power delivery [1], above your 100W requirement.',
+            FOLLOW_UP,
+        ),
+        # Satisfaction claimed with no cited value to decide it.
+        ('Dell UltraSharp 27" meets your 100W requirement [1].', FOLLOW_UP),
+        # The requirement stated as the product's value after a negated clause.
+        ('Dell UltraSharp 27" is not limited to 90W; it delivers 100W [1].', FOLLOW_UP),
+        ('Dell UltraSharp 27" supports 100W charging [1].', FOLLOW_UP),
+        # A shortfall a cited value contradicts: 120W is not below 100W.
+        (
+            'Dell UltraSharp 27" delivers up to 120W [1], below your 100W requirement.',
+            FOLLOW_UP,
+        ),
+        # A bound the shopper never stated.
+        (
+            'Dell UltraSharp 27" delivers up to 90W [1], which is below your 100W requirement.',
+            "Does it charge my laptop?",
+        ),
+    ],
+)
+def test_a_requirement_frame_cannot_carry_a_false_comparison(sentence, question):
+    with pytest.raises(SynthesisOutputError, match="unsupported numeric claim"):
+        validate(sentence, [evidence(USB_C_90W)], [_monitor()], question)
