@@ -4,42 +4,53 @@
   font-synthesis: none;
   font-optical-sizing: auto;
   text-rendering: optimizeLegibility;
-  --maroon-950: #2b0d13;
-  --maroon-900: #45101b;
-  --maroon-800: #671825;
-  --maroon-700: #7e2431;
-  --maroon-100: #f4e9e9;
-  --maroon-50: #fdf4f1;
-  --maroon-line: #d7b7bd;
-  --ivory: #fbf8f1;
-  --paper: #fffdfa;
+  --maroon-950: #000000;
+  --maroon-900: #0f0f10;
+  --maroon-800: var(--ink);
+  --maroon-700: #3a3a3c;
+  --maroon-100: #e8e8ed;
+  --maroon-50: #f0f0f3;
+  --maroon-line: #c7c7cc;
+  --ivory: var(--canvas);
+  --paper: var(--paper-strong);
   --paper-strong: #ffffff;
-  --canvas: var(--paper-strong);
-  --paper-warm: #f3eee5;
-  --surface-muted: #f5f5f7;
-  --ink: #171514;
-  --ink-soft: #5b5b63;
-  --footer-surface: #242426;
-  --footer-ink: var(--paper-strong);
-  --footer-muted: #b9b9bf;
-  --footer-line: #48484e;
-  --line: #e2e2e7;
-  --line-strong: #b5b5bd;
-  --green: #246a4b;
-  --green-soft: #e9f2ed;
-  --green-line: #bad5c7;
-  --gold: #9a5d20;
-  --gold-deep: #6a4a18;
-  --gold-bright: #e0a94a;
-  --gold-soft: #f6ead9;
-  --gold-line: #e6d2ae;
-  --danger: #a33c43;
-  --danger-soft: #fff8f6;
-  --danger-line: #e5bdb7;
+  --canvas: #fbfbfd;
+  --paper-warm: #f5f5f7;
+  --surface-muted: var(--paper-warm);
+  --ink: #1d1d1f;
+  --ink-soft: #6e6e73;
+  --footer-surface: var(--paper-warm);
+  --footer-ink: #424245;
+  --footer-muted: var(--ink-soft);
+  --footer-line: var(--line);
+  --line: #d2d2d7;
+  --line-strong: #aeaeb2;
+  --green: #1a7f45;
+  --green-soft: #e9f7ee;
+  --green-line: #b9e3c8;
+  --gold: #b45309;
+  --gold-deep: #8a3c06;
+  --gold-bright: #ff7a28;
+  --gold-soft: #fff3e8;
+  --gold-line: #f6d2b0;
+  --danger: #c62828;
+  --danger-soft: #fff4f4;
+  --danger-line: #f2c4c4;
   /* Keyboard focus ring. Dark surfaces re-point this token locally, since a
      maroon ring on a maroon panel is not a ring. */
-  --focus: var(--maroon-800);
-  --shadow: 0 16px 36px rgb(43 13 19 / 8%);
+  --focus: var(--link);
+  /* Colour means retrieval: Retrieve violet (also links and focus), Rank orange, Reason green. */
+  --retrieve: #6b3fd4;
+  --link: var(--retrieve);
+  --rank: var(--gold-bright);
+  --reason: var(--green);
+  --action: var(--ink);
+  --action-ink: var(--paper-strong);
+  --nav-glass: rgb(251 251 253 / 80%);
+  --tile-radius: 18px;
+  /* Listing photos have white grounds; they multiply onto this plate so the white disappears. */
+  --plate: var(--paper-warm);
+  --shadow: 0 18px 40px rgb(0 0 0 / 10%), 0 2px 6px rgb(0 0 0 / 5%);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --motion-fast: 160ms;
   --motion-settle: 320ms;
@@ -74,7 +85,7 @@
   --labs-detail: 13px;
   --labs-micro: 12px;
   --labs-mono: 13px;
-  --topbar-height: 70px;
+  --topbar-height: 56px;
   --page-width: 1480px;
   /* One application width for all three surfaces. Discover's body was capped at
      1320px and Shop's column at 1400px, so a 1728px display drew 408px of empty
@@ -82,6 +93,42 @@
      where the page ended. 92vw keeps a margin at every width; the 1480px cap is
      what stops the product grid from running to 5in-wide cards on an ultrawide. */
   --shell-width: min(92vw, var(--page-width));
+}
+
+/* Dark mode flips every role together: surfaces with their ink, the action pill
+   with the text on it, hairlines with tiles. Components never branch on the theme. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --maroon-950: #ffffff;
+  --maroon-900: #f0f0f2;
+  --maroon-700: #d1d1d6;
+  --maroon-100: #2c2c2e;
+  --maroon-50: #1f1f21;
+  --maroon-line: #48484a;
+  --paper-strong: #1c1c1e;
+  --canvas: #000000;
+  --paper-warm: #161617;
+  --ink: #f5f5f7;
+  --ink-soft: #a1a1a6;
+  --footer-ink: #d1d1d6;
+  --footer-muted: #86868b;
+  --line: #38383a;
+  --line-strong: #636366;
+  --green: #4cd07d;
+  --green-soft: #0e2818;
+  --green-line: #1d4d30;
+  --gold: #ffa24d;
+  --gold-deep: #ffc28a;
+  --gold-bright: #ff8a3d;
+  --gold-soft: #2b1a0c;
+  --gold-line: #5c3514;
+  --danger: #ff6b6b;
+  --danger-soft: #2b1111;
+  --danger-line: #5c1f1f;
+  --retrieve: #a78bfa;
+  --nav-glass: rgb(22 22 23 / 72%);
+  --plate: #e8e8ed;
+  --shadow: 0 18px 44px rgb(0 0 0 / 60%), 0 2px 6px rgb(0 0 0 / 40%);
 }
 
 * {
@@ -100,7 +147,9 @@ body {
   margin: 0;
   background: var(--canvas);
   color: var(--ink);
-  letter-spacing: 0;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  scrollbar-color: var(--line-strong) transparent;
 }
 
 button,
@@ -148,12 +197,13 @@ h3 {
 h1,
 h2 {
   font-family: var(--display);
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: -0.024em;
   text-wrap: balance;
 }
 
 h1 {
-  font-size: 58px;
+  font-size: 56px;
 }
 
 h2 {
@@ -175,7 +225,7 @@ button:disabled {
 }
 
 :focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 3px solid color-mix(in srgb, var(--focus) 65%, transparent);
   outline-offset: 3px;
 }
 
@@ -200,18 +250,18 @@ button:disabled {
   font-size: 12px;
 }
 
+/* A quiet label, not a tracked uppercase kicker: the heading carries the weight. */
 .eyebrow {
-  margin-bottom: 8px;
-  color: var(--maroon-700);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  margin-bottom: 6px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 ::selection {
-  background: var(--maroon-800);
-  color: var(--paper);
+  background: color-mix(in srgb, var(--retrieve) 28%, transparent);
+  color: inherit;
 }
 
 .app-shell {
@@ -310,8 +360,11 @@ button:disabled {
   min-height: var(--topbar-height);
   align-items: center;
   padding: 0 max(18px, calc((100% - var(--shell-width)) / 2));
-  border-bottom: 1px solid var(--line);
-  background: var(--canvas);
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+  /* The one place translucency is the effect itself: content scrolls under the bar. */
+  background: var(--nav-glass);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
   grid-template-columns: minmax(160px, 1fr) auto minmax(160px, 1fr);
 }
 
@@ -328,13 +381,13 @@ button:disabled {
   width: 27px;
   height: 27px;
   flex: 0 0 auto;
-  color: var(--maroon-900);
+  color: var(--ink);
 }
 
 .site-brand strong {
-  color: var(--maroon-950);
+  color: var(--ink);
   font-family: var(--display);
-  font-size: 26px;
+  font-size: 21px;
   font-weight: 600;
   letter-spacing: -0.025em;
   white-space: nowrap;
@@ -353,7 +406,7 @@ button:disabled {
   gap: 7px;
   padding: 7px 0;
   color: var(--ink-soft);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   letter-spacing: 0;
   white-space: nowrap;
@@ -362,7 +415,7 @@ button:disabled {
 
 .site-nav a:hover,
 .site-nav a.active {
-  color: var(--maroon-800);
+  color: var(--ink);
 }
 
 .site-nav a.active::after {
@@ -371,7 +424,8 @@ button:disabled {
   bottom: 0;
   left: 0;
   height: 2px;
-  background: var(--maroon-800);
+  border-radius: 1px;
+  background: var(--ink);
   content: "";
 }
 
@@ -441,7 +495,7 @@ button:disabled {
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--paper);
-  box-shadow: 0 16px 44px rgb(43 13 19 / 14%);
+  box-shadow: 0 16px 44px rgb(0 0 0 / 14%);
   color: var(--ink);
 }
 
@@ -514,8 +568,8 @@ button:disabled {
 }
 
 .site-icon:hover {
-  border-color: rgb(92 75 62 / 34%);
-  background: rgb(255 255 255 / 60%);
+  border-color: var(--line-strong);
+  background: color-mix(in srgb, var(--paper-strong) 60%, transparent);
 }
 
 .site-bag {
@@ -566,8 +620,8 @@ button:disabled {
     padding: 8px;
     border: 1px solid var(--line);
     border-radius: 10px;
-    background: rgb(255 254 250 / 98%);
-    box-shadow: 0 20px 50px rgb(48 37 28 / 18%);
+    background: color-mix(in srgb, var(--paper-strong) 98%, transparent);
+    box-shadow: 0 20px 50px rgb(0 0 0 / 18%);
   }
 
   .site-nav.open {
@@ -865,8 +919,8 @@ button:disabled {
   height: 34px;
   padding: 0;
   place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 4px;
+  border: 0;
+  border-radius: 50%;
   background: transparent;
 }
 
@@ -923,40 +977,43 @@ button:disabled {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 0 18px;
-  border: 1px solid var(--maroon-800);
-  border-radius: 5px;
-  font-size: 13px;
-  font-weight: 800;
+  padding: 0 22px;
+  border: 1px solid var(--action);
+  border-radius: 980px;
+  font-size: 15px;
+  font-weight: 500;
+  transition: background var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
 }
 
 .primary-button {
-  background: var(--maroon-800);
-  color: var(--paper-strong);
+  background: var(--action);
+  color: var(--action-ink);
 }
 
 .primary-button:hover {
-  background: var(--maroon-700);
+  border-color: color-mix(in srgb, var(--action) 82%, var(--canvas));
+  background: color-mix(in srgb, var(--action) 82%, var(--canvas));
 }
 
 .secondary-button,
 .pagination button {
+  border-color: var(--line-strong);
   background: transparent;
-  color: var(--maroon-800);
+  color: var(--ink);
 }
 
 .secondary-button:hover,
 .secondary-button.active {
-  background: var(--maroon-100);
+  background: var(--paper-warm);
 }
 
 .text-link {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: var(--maroon-700);
-  font-size: 13px;
-  font-weight: 800;
+  color: var(--link);
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .text-link:hover {
@@ -977,10 +1034,11 @@ button:disabled {
      3px on a hardcoded track. */
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  padding: 0 6px 0 18px;
-  border: 1px solid var(--maroon-700);
+  padding: 0 7px 0 20px;
+  border: 0;
   border-radius: 999px;
   background: var(--paper-strong);
+  box-shadow: 0 0 0 1px var(--line), 0 8px 24px rgb(0 0 0 / 6%);
   color: var(--ink-soft);
 }
 
@@ -993,7 +1051,7 @@ button:disabled {
   outline: 0;
   background: transparent;
   color: var(--ink);
-  font-size: 14px;
+  font-size: 17px;
 }
 
 /* The form owns the field's focus ring; the submit button rings separately. */
@@ -1094,8 +1152,8 @@ button:disabled {
   border-radius: 16px;
   background: var(--paper-warm);
   box-shadow:
-    0 0 0 1px rgb(43 13 19 / 8%),
-    0 12px 26px -14px rgb(43 13 19 / 32%);
+    0 0 0 1px rgb(0 0 0 / 8%),
+    0 12px 26px -14px rgb(0 0 0 / 32%);
   text-align: left;
   transition:
     transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -1104,8 +1162,8 @@ button:disabled {
 
 .domain-tile:hover {
   box-shadow:
-    0 0 0 1px rgb(43 13 19 / 12%),
-    0 22px 42px -16px rgb(43 13 19 / 44%);
+    0 0 0 1px rgb(0 0 0 / 12%),
+    0 22px 42px -16px rgb(0 0 0 / 44%);
   transform: translateY(-4px);
 }
 
@@ -1132,10 +1190,10 @@ button:disabled {
   padding: 84px 24px 22px;
   background: linear-gradient(
     180deg,
-    rgb(38 11 16 / 0%) 0%,
-    rgb(38 11 16 / 34%) 30%,
-    rgb(38 11 16 / 72%) 62%,
-    rgb(38 11 16 / 93%) 100%
+    color-mix(in srgb, var(--maroon-950) 0%, transparent) 0%,
+    color-mix(in srgb, var(--maroon-950) 34%, transparent) 30%,
+    color-mix(in srgb, var(--maroon-950) 72%, transparent) 62%,
+    color-mix(in srgb, var(--maroon-950) 93%, transparent) 100%
   );
   color: var(--paper-strong);
 }
@@ -1145,15 +1203,15 @@ button:disabled {
   font-family: var(--display);
   font-size: 25px;
   font-weight: 500;
-  text-shadow: 0 1px 12px rgb(43 13 19 / 45%);
+  text-shadow: 0 1px 12px rgb(0 0 0 / 45%);
 }
 
 .domain-overlay small {
-  color: rgb(255 255 255 / 82%);
+  color: color-mix(in srgb, var(--paper-strong) 82%, transparent);
   font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  text-shadow: 0 1px 10px rgb(43 13 19 / 45%);
+  text-shadow: 0 1px 10px rgb(0 0 0 / 45%);
 }
 
 @media (prefers-reduced-motion: reduce) {

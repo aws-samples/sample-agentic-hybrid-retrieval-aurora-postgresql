@@ -1,4 +1,4 @@
-import type { Availability } from "./types";
+import type { Availability, ProductSpec } from "./types";
 
 /**
  * Display formatting for values the API carries in their storage form.
@@ -87,8 +87,8 @@ export function formatAttributeValue(value: unknown, key = ""): string {
   if (Array.isArray(value)) return value.map((item) => formatAttributeValue(item, key)).join(", ");
   if (typeof value === "object") return JSON.stringify(value);
   if (typeof value === "number") {
-    const suffix = key.match(/_(in|hz|w|hours|kg|g|pct)$/)?.[1];
-    const unit = suffix && { in: "″", hz: " Hz", w: " W", hours: " hours", kg: " kg", g: " g", pct: "%" }[suffix];
+    const suffix = key.match(/_(in|hz|w|hours|kg|g|pct|lb)$/)?.[1];
+    const unit = suffix && { in: "″", hz: " Hz", w: " W", hours: " hours", kg: " kg", g: " g", pct: "%", lb: " lb" }[suffix];
     if (unit) return `${value}${unit}`;
   }
   return String(value);
@@ -104,6 +104,7 @@ const ATTRIBUTE_LABELS: Record<string, string> = {
   active_noise_cancellation: "Noise cancellation", multipoint: "Multi-device pairing",
   mic: "Microphone", microphone: "Microphone", weight_kg: "Weight", weight_g: "Weight",
   best_for: "Suggested uses", color_gamut_pct: "Gamut coverage",
+  wireless: "Wireless", form_factor: "Fit", headrest: "Headrest", max_weight_lb: "Weight capacity",
 };
 
 export function formatAttributeLabel(key: string): string {
@@ -121,4 +122,28 @@ export function productFacts(attributes: Record<string, unknown>, count = 4) {
       label: formatAttributeLabel(key),
       value: formatAttributeValue(value, key),
     }));
+}
+
+const SPEC_ORDER = [
+  "size_in", "resolution", "usb_c_power_w", "refresh_hz", "anc", "microphone", "wireless", "form_factor",
+  "lumbar_support", "armrests", "headrest", "max_weight_lb",
+];
+
+function formatSpecValue(key: string, value: ProductSpec["value"]): string {
+  if (key === "resolution" && typeof value === "string") return value.replace("x", " × ");
+  if (typeof value === "string") return value.charAt(0).toUpperCase() + value.slice(1);
+  return formatAttributeValue(value, key);
+}
+
+/**
+ * Typed specs the listing states, in decision order. Each keeps its verbatim
+ * quote so a reader can see the words a value was read from.
+ */
+export function specFacts(specs: Record<string, ProductSpec> | undefined, count = SPEC_ORDER.length) {
+  return SPEC_ORDER.filter((key) => specs?.[key])
+    .slice(0, count)
+    .map((key) => {
+      const spec = (specs as Record<string, ProductSpec>)[key];
+      return { key, label: formatAttributeLabel(key), value: formatSpecValue(key, spec.value), quote: spec.quote };
+    });
 }

@@ -61,6 +61,9 @@ infra/cdk/cdk.context.json
 # Studio release rule rejects any dirty source worktree, so one stray report
 # here blocks a repin.
 /.impeccable/
+/ui/.impeccable/
+/ui/PRODUCT.md
+/ui/DESIGN.md
 /docs/superpowers/
 
 # Media-generation prompt drafts. The machine-readable inputs the scripts

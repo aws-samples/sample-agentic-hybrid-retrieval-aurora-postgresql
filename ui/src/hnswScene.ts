@@ -32,7 +32,8 @@ export function mountHnswScene(host: HTMLElement, onLost: () => void, onInteract
   const cream = color("--paper");
   const warm = color("--paper-warm");
   const line = color("--line-strong");
-  scene.add(new THREE.HemisphereLight(cream, line, 2.1));
+  const hemisphere = new THREE.HemisphereLight(cream, line, 2.1);
+  scene.add(hemisphere);
   const light = new THREE.DirectionalLight(cream, 3.5);
   light.position.set(-6, 14, 9);
   light.castShadow = true;
@@ -47,6 +48,12 @@ export function mountHnswScene(host: HTMLElement, onLost: () => void, onInteract
 
   const geometries: THREE.BufferGeometry[] = [];
   const materials: THREE.Material[] = [];
+  // Tracked by palette role so a theme change can recolour every material already
+  // built from it. A material's constructor copies a THREE.Color's value once, so
+  // mutating `maroon`/`cream`/`warm`/`line` later does not reach it on its own.
+  const maroonMaterials: { color: THREE.Color }[] = [];
+  const warmMaterials: { color: THREE.Color }[] = [];
+  const lineMaterials: { color: THREE.Color }[] = [];
   const nodes: { mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>; layer: number; id: string; reached: number }[] = [];
   const paths: { mesh: THREE.Mesh; from: THREE.Vector3; to: THREE.Vector3; length: number; start: number; end: number }[] = [];
   const textLabels: { element: HTMLSpanElement; position: THREE.Vector3; layer: number; reached: number; id?: string; width: number; x: number; y: number; visible: boolean }[] = [];
@@ -78,7 +85,7 @@ export function mountHnswScene(host: HTMLElement, onLost: () => void, onInteract
     const mesh = new THREE.Mesh(geometry, material);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize());
     mesh.castShadow = true;
-    geometries.push(geometry); materials.push(material); scene.add(mesh);
+    geometries.push(geometry); materials.push(material); maroonMaterials.push(material); scene.add(mesh);
     paths.push({ mesh, from, to, length: from.distanceTo(to), start, end });
   }
   function surface(y: number) {
@@ -100,13 +107,14 @@ export function mountHnswScene(host: HTMLElement, onLost: () => void, onInteract
     const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
     edges.position.copy(mesh.position); scene.add(edges);
     geometries.push(geometry, edgeGeometry); materials.push(material, edgeMaterial);
+    warmMaterials.push(material); lineMaterials.push(edgeMaterial);
   }
 
   const groundGeometry = new THREE.PlaneGeometry(40, 40);
   const groundMaterial = new THREE.ShadowMaterial({ color: line, opacity: 0.16 });
   const ground = new THREE.Mesh(groundGeometry, groundMaterial);
   ground.rotation.x = -Math.PI / 2; ground.position.y = -0.5; ground.receiveShadow = true;
-  scene.add(ground); geometries.push(groundGeometry); materials.push(groundMaterial);
+  scene.add(ground); geometries.push(groundGeometry); materials.push(groundMaterial); lineMaterials.push(groundMaterial);
 
   graphLayers.forEach((layer, index) => {
     surface(layer.y);
@@ -140,7 +148,35 @@ export function mountHnswScene(host: HTMLElement, onLost: () => void, onInteract
   const markerMaterial = new THREE.MeshBasicMaterial({ color: maroon });
   const marker = new THREE.Mesh(markerGeometry, markerMaterial);
   marker.rotation.x = Math.PI / 2;
-  geometries.push(markerGeometry); materials.push(markerMaterial); scene.add(marker);
+  geometries.push(markerGeometry); materials.push(markerMaterial); maroonMaterials.push(markerMaterial); scene.add(marker);
+
+  /**
+   * Re-reads the four palette roles from the host's (live) computed style and
+   * pushes them into every material and light built from them, then asks
+   * `setProgress` to recolour the nodes it manages by `reached` state.
+   *
+   * A toggled `data-theme` flips these custom properties instantly, but nothing
+   * here otherwise revisits a material once built, so without this the sculpture
+   * kept rendering the theme it was mounted under after the rest of the page
+   * had switched.
+   */
+  function applyPalette() {
+    maroon.copy(color("--maroon-800"));
+    cream.copy(color("--paper"));
+    warm.copy(color("--paper-warm"));
+    line.copy(color("--line-strong"));
+    hemisphere.color.copy(cream);
+    hemisphere.groundColor.copy(line);
+    light.color.copy(cream);
+    fill.color.copy(cream);
+    for (const material of maroonMaterials) material.color.copy(maroon);
+    for (const material of warmMaterials) material.color.copy(warm);
+    for (const material of lineMaterials) material.color.copy(line);
+    for (const edge of baseEdges) edge.material.color.copy(line);
+    setProgress(progress);
+  }
+  const themeObserver = new MutationObserver(applyPalette);
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
   function render() {
     frame = 0;
@@ -231,7 +267,7 @@ export function mountHnswScene(host: HTMLElement, onLost: () => void, onInteract
   setProgress(0);
   return { setProgress, setStep(step: number) { setProgress(step + 1); activeStep = step; schedule(); }, highlight, reset, rotate, zoom, dispose() {
     if (disposed) return;
-    disposed = true; cancelAnimationFrame(frame); observer.disconnect();
+    disposed = true; cancelAnimationFrame(frame); observer.disconnect(); themeObserver.disconnect();
     canvas.removeEventListener("keydown", keydown); canvas.removeEventListener("webglcontextlost", lost);
     controls.removeEventListener("start", onInteract); controls.removeEventListener("change", schedule);
     controls.dispose(); geometries.forEach((item) => item.dispose()); materials.forEach((item) => item.dispose());

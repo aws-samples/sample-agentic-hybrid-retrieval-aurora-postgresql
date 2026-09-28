@@ -40,7 +40,6 @@
   gap: 16px;
   align-content: start;
   align-self: start;
-  padding: 0;
 }
 
 .shop-console-note-intro h2 {
@@ -104,21 +103,10 @@
 
 .mosaic-catalog-page .shop-journey-stage {
   grid-column: 1 / -1;
-  margin: 0;
-  font-size: 12px;
-  letter-spacing: 0.06em;
-}
-
-.mosaic-catalog-page .shop-journey-number {
-  font-size: 20px;
 }
 
 .mosaic-catalog-page .shop-journey-sequence img {
   border-radius: 16px;
-}
-
-.mosaic-catalog-page .shop-journey-caption {
-  padding: 0;
 }
 
 .mosaic-catalog-page .shop-journey h2 {
@@ -267,10 +255,6 @@
   }
   .mosaic-catalog-page .shop-heading h1 { max-width: none; }
   .mosaic-catalog-page .shop-heading h1 em { white-space: normal; }
-  .mosaic-catalog-page .shop-console-note {
-    padding-top: 20px;
-    border-top: 1px solid var(--line);
-  }
   .mosaic-catalog-page .shop-suggested { column-gap: 20px; }
   .mosaic-catalog-page .shop-journey { padding: 0; }
   .mosaic-catalog-page .shop-journey-sequence {

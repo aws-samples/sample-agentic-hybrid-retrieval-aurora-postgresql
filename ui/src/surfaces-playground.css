@@ -34,22 +34,22 @@
 .lab-page .retrieval-run-action {
   padding: 18px;
   border-color: var(--line-strong);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgb(48 37 28 / 3%);
+  border-radius: var(--tile-radius);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 3%);
 }
 
 .lab-page .retrieval-run-action .primary-button {
   min-height: 44px;
-  border-radius: 6px;
+  border-radius: 999px;
   box-shadow: none;
 }
 
 .lab-page .labs-rail {
-  border-radius: 8px;
+  border-radius: var(--tile-radius);
 }
 
 .lab-page .labs-rail.is-stuck {
-  box-shadow: 0 4px 12px rgb(48 37 28 / 5%);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 5%);
 }
 
 /* Laptop height, not physical screen size, determines how much of a run is
@@ -190,17 +190,47 @@
   grid-template-columns: var(--labs-gutter) minmax(0, 1fr) auto;
 }
 
-/* #948c80, not --line-dark: measured 1.75:1 against the page, and 37px large text
-   needs 3:1. The numbers carry the Retrieve -> Rank -> Reason sequence, which is the
-   one thing this surface is organised around, so they are not decoration. */
+/* Pinned rather than left to auto-placement: "Prove" carries no `number`, and
+   an auto-placed `.labs-stage-copy` then fills the empty gutter track instead
+   of the content one, wrapping its heading and summary to ~4rem, one word per
+   line. Fixed columns keep every stage's copy in the content track whether or
+   not its neighbours render. */
 .labs-stage-number {
-  color: #948c80;
+  grid-column: 1;
+}
+
+.labs-stage-copy {
+  grid-column: 2;
+  min-width: 0;
+}
+
+
+/* Neutral default for a stage this sequence does not name (Prove). Retrieve,
+   Rank and Reason get the retrieval palette below instead: measured against
+   the page, each carries at least 3:1 at this large a size, the floor for
+   text rather than decoration. `--gold`, not `--rank` (`--gold-bright`): the
+   bright value measures 2.5:1 here and would be the one stage that reads
+   fainter than its neighbours. */
+.labs-stage-number {
+  color: var(--ink-soft);
   font-family: var(--sans);
   font-size: var(--labs-h2);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
   line-height: 1;
+}
+
+.labs-stage[data-stage="retrieve"] .labs-stage-number {
+  color: var(--retrieve);
+}
+
+.labs-stage[data-stage="rank"] .labs-stage-number {
+  color: var(--gold);
+}
+
+.labs-stage[data-stage="reason"] .labs-stage-number {
+  color: var(--reason);
 }
 
 .labs-stage-copy h2 {
@@ -221,6 +251,7 @@
 }
 
 .labs-stage-status {
+  grid-column: 3;
   justify-self: end;
 }
 
@@ -395,7 +426,7 @@
 
 .labs-channel-split-lesson {
   padding-top: 12px;
-  border-top: 1px solid #e8d5cf;
+  border-top: 1px solid var(--line);
   font-family: var(--sans);
   font-size: var(--labs-lead);
   font-weight: 600;
@@ -749,7 +780,7 @@
 .labs-reason-run-status {
   padding: 20px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: var(--tile-radius);
   background: var(--paper);
 }
 
@@ -893,15 +924,15 @@
   gap: 10px;
   padding: 14px var(--labs-panel-padding) 12px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: var(--tile-radius);
   background: var(--paper);
-  box-shadow: 0 4px 14px rgb(55 36 25 / 4%);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 4%);
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .labs-reason-composer:focus-within {
-  border-color: #b59688;
-  box-shadow: 0 0 0 3px rgb(126 36 49 / 8%);
+  border-color: var(--line-strong);
+  box-shadow: 0 0 0 3px rgb(0 0 0 / 8%);
 }
 
 /* Body size, not lead: it is the participant's question, editable, and set a
@@ -950,7 +981,7 @@
   gap: 8px;
   padding: 0 18px;
   border: 1px solid var(--maroon-800);
-  border-radius: 6px;
+  border-radius: 999px;
   background: var(--maroon-800);
   color: var(--paper-strong);
   font-size: var(--labs-detail);
@@ -1008,7 +1039,7 @@
 .labs-reason-products {
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--tile-radius);
   background: var(--paper);
 }
 
@@ -1095,7 +1126,7 @@
   gap: 5px;
   padding: 15px 18px;
   border: 1px solid var(--maroon-800);
-  border-radius: 6px;
+  border-radius: 12px;
   background: var(--paper-warm);
 }
 
@@ -1529,7 +1560,7 @@
   margin: 0 0 20px;
   padding: 17px 20px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: var(--tile-radius);
   background: var(--paper);
 }
 
@@ -1580,7 +1611,7 @@
   gap: 7px;
   padding: 11px 14px;
   border: 1px solid var(--line-strong);
-  border-radius: 6px;
+  border-radius: 12px;
   background: var(--paper-warm);
 }
 
@@ -1765,7 +1796,7 @@
 .labs-scorecard-section {
   padding: 17px 20px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: var(--tile-radius);
   background: var(--paper);
 }
 
@@ -1830,7 +1861,7 @@
   align-items: flex-start;
   padding: 13px 16px;
   border: 1px solid var(--maroon-line);
-  border-radius: 8px;
+  border-radius: var(--tile-radius);
   background: var(--maroon-100);
 }
 
@@ -2121,7 +2152,7 @@
   gap: 14px;
   padding: clamp(22px, 2.8vw, 30px) var(--labs-panel-padding);
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: var(--tile-radius);
   background: var(--maroon-50);
 }
 
@@ -2254,7 +2285,7 @@
   margin-left: var(--labs-gutter);
   padding: clamp(22px, 2.8vw, 30px) var(--labs-panel-padding);
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: var(--tile-radius);
   background: var(--paper);
 }
 
@@ -2319,9 +2350,9 @@
 .labs-repair-form input {
   width: 100%;
   min-height: 44px;
-  padding: 10px 12px;
+  padding: 10px 18px;
   border: 1px solid var(--line-strong);
-  border-radius: 6px;
+  border-radius: 999px;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--mono);
@@ -2433,7 +2464,7 @@
 .labs-reason-citations {
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--tile-radius);
   background: var(--paper);
 }
 
@@ -2547,16 +2578,16 @@
  */
 
 .hnsw-evidence-badge.elsewhere {
-  border-color: #d6bd91;
+  border-color: var(--danger-line);
   background: var(--paper-warm);
-  color: #76501d;
+  color: var(--gold-deep);
 }
 
 .hnsw-attribution {
   margin: 0 22px 18px;
   padding: 14px 16px;
   border: 1px solid var(--gold-line);
-  border-radius: 12px;
+  border-radius: var(--tile-radius);
   background: var(--canvas);
 }
 
@@ -2605,9 +2636,9 @@
   overflow: hidden;
   padding: 20px 22px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--tile-radius);
   background: var(--paper);
-  box-shadow: 0 16px 42px rgb(73 43 33 / 7%);
+  box-shadow: 0 16px 42px rgb(0 0 0 / 7%);
 }
 
 .hnsw-repr-unavailable h2 {
@@ -2643,7 +2674,7 @@
   margin: 0 0 0 var(--labs-gutter);
   padding: 10px 14px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: var(--tile-radius);
   background: var(--paper);
   color: var(--ink-soft);
   font-family: var(--sans);
@@ -2735,7 +2766,7 @@
   margin: 0 0 18px;
   padding: 16px 18px;
   border: 1px solid var(--maroon-800);
-  border-radius: 10px;
+  border-radius: var(--tile-radius);
   background: var(--paper);
 }
 
@@ -2890,7 +2921,7 @@
   gap: 8px;
   padding: 16px 18px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: var(--tile-radius);
   background: var(--maroon-100);
 }
 

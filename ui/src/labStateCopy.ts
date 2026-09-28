@@ -35,11 +35,9 @@ const databaseCopy: Record<LabDatabaseState, StateCopy> = {
  * Whether a lab counts as repaired: the exercise file holds the fix, and
  * Aurora holds the SQL that backs it.
  *
- * The one place this two-part condition is decided. `WorkshopProgress` and
- * `CompletionProof` each need the plain boolean -- the first to choose a
- * status chip, the second to decide whether a failing check still has a
- * source- or database-side cause to explain -- and both used to derive it
- * separately. A lab whose file is repaired but whose database still holds
+ * The one place this two-part condition is decided. `CompletionProof` needs
+ * the plain boolean to decide whether a failing check still has a source- or
+ * database-side cause to explain. A lab whose file is repaired but whose database still holds
  * the old function is not repaired; that gap is exactly what a bare
  * `source_state === "solved"` check would hide, and it is a state the
  * workshop actually produces (editing a file without re-applying it).

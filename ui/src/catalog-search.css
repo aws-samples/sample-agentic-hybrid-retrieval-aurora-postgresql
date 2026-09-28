@@ -8,16 +8,16 @@
   grid-template-columns: 18px minmax(0, 1fr) 46px;
   align-items: center;
   gap: 12px;
-  padding: 8px 8px 8px 18px;
+  padding: 8px 8px 8px 22px;
   border: 1px solid var(--line-strong);
-  border-radius: 12px;
+  border-radius: 999px;
   background: var(--canvas);
   color: var(--ink-soft);
   transition: border-color 180ms ease;
 }
 
 .search-composer.catalog-autocomplete:focus-within {
-  border-color: var(--maroon-800);
+  border-color: var(--action);
 }
 
 .search-composer.catalog-autocomplete > input {
@@ -34,9 +34,9 @@
   height: 46px;
   padding: 0;
   border-radius: 50%;
-  background: var(--maroon-900);
-  box-shadow: 0 7px 18px color-mix(in srgb, var(--maroon-900) 18%, transparent);
-  color: var(--paper);
+  background: var(--action);
+  box-shadow: none;
+  color: var(--action-ink);
   transition: background 180ms ease;
 }
 
@@ -49,7 +49,7 @@
   min-width: 0;
   overflow: hidden;
   padding: 0;
-  color: #9f9a96;
+  color: var(--ink-soft);
   font-size: 15px;
   line-height: 46px;
   pointer-events: none;
@@ -74,7 +74,7 @@
 }
 
 .catalog-autocomplete input[aria-invalid="true"] {
-  color: #6f261f;
+  color: var(--maroon-800);
 }
 
 .catalog-autocomplete > input,
@@ -113,12 +113,12 @@
   padding: 8px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  border: 1px solid rgb(92 75 62 / 18%);
-  border-radius: 8px;
-  background: var(--paper);
-  box-shadow: 0 20px 44px rgb(48 37 28 / 18%);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper-strong);
+  box-shadow: 0 20px 44px rgb(0 0 0 / 18%);
   color: var(--ink);
-  scrollbar-color: rgb(126 36 49 / 48%) transparent;
+  scrollbar-color: color-mix(in srgb, var(--maroon-700) 48%, transparent) transparent;
   scrollbar-width: thin;
 }
 
@@ -211,12 +211,12 @@
 
 .catalog-suggestion-icon.brand {
   background: var(--green-soft);
-  color: #355b49;
+  color: var(--green);
 }
 
 .catalog-suggestion-icon.category {
   background: var(--paper-warm);
-  color: #76531c;
+  color: var(--ink-soft);
 }
 
 .catalog-suggestion-icon.search {
@@ -229,8 +229,8 @@
   width: 40px;
   height: 40px;
   overflow: hidden;
-  border: 1px solid rgb(92 75 62 / 14%);
-  border-radius: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
   background: var(--paper-warm);
 }
 
@@ -250,8 +250,8 @@
 
 .catalog-autocomplete .catalog-suggestions > .catalog-search-all {
   margin-top: 5px;
-  border-top: 1px solid rgb(92 75 62 / 12%);
-  border-radius: 0 0 6px 6px;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 12px 12px;
 }
 
 @media (max-width: 640px) {

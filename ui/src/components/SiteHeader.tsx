@@ -13,6 +13,7 @@ import {
 import { CodeEditorLink } from "./CodeEditorLink";
 import { AlexProfile } from "./AlexProfile";
 import { MosaicMark } from "./MosaicMark";
+import { ThemeToggle } from "./ThemeToggle";
 
 /**
  * The one storefront header.
@@ -166,6 +167,7 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
       <div className="site-actions">
         <CodeEditorLink href={codeEditorUrl} className="site-code-editor" />
         <AlexProfile key={`${pathname}:${inert}`} onOpen={close} />
+        <ThemeToggle />
         <button
           className="site-icon site-bag"
           type="button"

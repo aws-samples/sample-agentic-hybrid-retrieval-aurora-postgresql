@@ -46,6 +46,7 @@ export function PlaygroundStage({
     <section
       className={stale ? "labs-stage is-stale" : "labs-stage"}
       aria-labelledby={`labs-stage-${slug}`}
+      data-stage={slug}
     >
       <header className="labs-stage-head">
         {number ? <span className="labs-stage-number" aria-hidden="true">{number}</span> : null}

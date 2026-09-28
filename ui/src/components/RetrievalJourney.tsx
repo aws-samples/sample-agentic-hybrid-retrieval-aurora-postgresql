@@ -25,15 +25,13 @@ export function RetrievalJourney() {
   return (
     <section className="shop-journey" aria-label="Alex’s workspace: an illustrated Retrieve, Rank, Reason journey">
       <ol className="shop-journey-sequence" aria-label="Retrieve, Rank and Reason: Alex’s workspace story" tabIndex={0}>
-        {coreMosaicLabs.map((mission, index) => {
+        {coreMosaicLabs.map((mission) => {
           const scene = scenes[mission.stage as keyof typeof scenes];
           if (!scene) return null;
           return (
             <li key={mission.id}>
               <div className="shop-journey-stage">
-                <span className="shop-journey-number">{String(index + 1).padStart(2, "0")}</span>
                 <span>{stageLabels[mission.stage]}</span>
-                <span className="shop-journey-rule" aria-hidden="true" />
               </div>
               <img src={scene.image} alt={scene.alt} width={1168} height={784} decoding="async" />
               <div className="shop-journey-caption">

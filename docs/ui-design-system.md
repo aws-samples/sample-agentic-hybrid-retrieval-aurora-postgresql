@@ -1,571 +1,526 @@
 # Mosaic UI design system
 
 What the storefront and the Playground actually look like, why, and what
-enforces it. This is the incumbent design record. Shared tokens and base
-chrome come from `ui/src/styles.css`; surface behaviour comes from
-`surfaces.css`, `discover.css`, `shop-editorial.css`, `inspector.css`,
-`instrument.css`, and `reason-products.css`. `workspace-continuation.css`
-styles the supporting Shop collection; `session-memory.css` and
-`result-product-card.css` own the memory inspector and shared answer/retrieval
-cards. Where a number is a measurement, the section says how it was measured.
+enforces it. This is the incumbent design record, derived from the shipped
+stylesheets. Shared tokens and base chrome come from `ui/src/styles.css`;
+surface behaviour comes from `surfaces.css`, `discover.css`,
+`shop-editorial.css`, `inspector.css`, `instrument.css`, and
+`reason-products.css`; the cross-surface world layer is `world.css`.
+`workspace-continuation.css` styles the supporting Shop collection;
+`session-memory.css` and `result-product-card.css` own the memory inspector and
+shared answer/retrieval cards; `source-products.css` owns the product page.
+Where a number is a measurement, the section says how it was measured.
 
 `styles.css` and `surfaces.css` are each one stylesheet split across several
 files by surface, so no single file holds an unrelated mix of concerns. Import
-order in `ui/src/main.tsx` is the cascade order and reproduces the original
-single-file concatenation exactly: `styles.css`, `ask-mosaic-panel.css`,
-`catalog-cards.css`, `shared-states.css`, `shop-storefront.css`,
-`labs-agentic.css`, `commerce.css`, then `surfaces.css`,
+order in `ui/src/main.tsx` is the cascade order: `styles.css`,
+`ask-mosaic-panel.css`, `catalog-cards.css`, `shared-states.css`,
+`shop-storefront.css`, `labs-agentic.css`, `commerce.css`, then `surfaces.css`,
 `surfaces-ask-mosaic.css`, `surfaces-labs-shell.css`, `surfaces-hnsw.css`,
-`surfaces-playground.css`. A new rule belongs in the file already named for its
-surface; splitting further only when a file's concerns are genuinely
-independent, never to hit a line count.
+`surfaces-playground.css`, then `source-products.css` and, last, `world.css`.
+A new rule belongs in the file already named for its surface; splitting further
+only when a file's concerns are genuinely independent, never to hit a line
+count.
+
+Load order has one caveat. Page and component stylesheets imported by lazily
+loaded routes and components (for example `shop-editorial.css` from
+`CatalogPage`, `shop-search-details.css` from `ShopSearchDetails`,
+`catalog-search.css` from `CatalogSearchComposer`) arrive after `world.css`, so
+a rule there with equal or higher specificity wins over the world layer. Owners
+of those sheets must not restate a property `world.css` sets for the same
+element; remove the local declaration instead of out-specifying the world.
 
 ## Direction
 
-Mosaic is a premium product catalog that is also an L400 inspection tool.
-Product photography and open editorial composition carry the shopping context.
-A native sans serif unifies headings, product names and the interface;
-monospaced type carries SQL, identifiers,
-run ids, and measurements, and nothing else. The canvas is white, the accent
-is maroon, and the two never trade places: maroon is for actions, the active
-state, and flagged boundaries, not for large fills.
+Mosaic is a product catalog that is also an L400 inspection tool. Product
+photography and open composition carry the shopping context. One native sans
+serif unifies headings, product names and the interface; monospaced type
+carries SQL, identifiers, run ids, and measurements, and nothing else.
+
+Colour means retrieval. Retrieve is violet, Rank is orange, Reason is green,
+and those three roles are the only chromatic colours in the interface. Every
+other surface, line and action is neutral: near-white canvas and grey tiles in
+light mode, black canvas and charcoal tiles in dark mode. There is one action
+colour, `--action`, a near-black pill in light mode and a white pill in dark
+mode. Violet also marks links and the keyboard focus ring.
 
 Alex, a software engineer building a home office for coding, calls and focused
 work, connects the shopping and inspection surfaces. Monitor, chair and
 headphones imagery establishes that context without changing the lab missions.
-The interface is not patterned after a named retailer. The main canvas stays
-plain; Shop's opening Ask action uses a quiet maroon outline and sparkle icon.
+
+## Themes
+
+Light and dark are one palette with two value sets. `ui/src/theme.ts` reads the
+`mosaic-theme` key from `localStorage`; when it holds neither `light` nor
+`dark` the theme follows `prefers-color-scheme` and keeps following it while
+no choice is stored. The result is written to `data-theme` on the root element.
+An inline script in `ui/index.html` applies the same rule before first paint,
+so the page never flashes the other theme, and the document declares
+`color-scheme: light dark`. `ThemeToggle` in the site header (a sun or moon
+icon, labelled "Switch to dark mode" or "Switch to light mode") stores the
+viewer's choice; if storage is refused the switch still works for the visit.
+
+`:root[data-theme="dark"]` in `styles.css` redefines the base values, and every
+role token follows because it is an alias. Components never branch on the
+theme. The one theme-specific rule outside the palette is in `world.css`: the
+GitHub mark ships as a black SVG image, so dark mode inverts it.
 
 ## Palette
 
-The palette block owns shared color roles. Aliases point at their source with
-`var()` rather than repeating a value, so no two palette roles share a hex.
-Remaining surface literals are bounded by the stylesheet test's ratchet.
+The palette block, the first `:root` of `styles.css`, owns shared colour roles.
+Aliases point at their source with `var()` rather than repeating a value, so no
+two palette roles share a hex. Values below are light / dark; a single value
+means the token is an alias that follows its source in both themes.
 
-| Token | Value | Role |
-|---|---|---|
-| `--canvas` | `var(--paper-strong)` | white page canvas, `html` and `body` |
-| `--ivory` | `#fbf8f1` | retained warm palette color |
-| `--paper` | `#fffdfa` | cards, panels, fields |
-| `--paper-strong` | `#ffffff` | the brightest surface; text on maroon |
-| `--paper-warm` | `#f3eee5` | tinted surfaces inside paper: table heads, quotes, secondary panels |
-| `--surface-muted` | `#f5f5f7` | neutral grey for interface hover states, waiting panels and memory code disclosures |
-| `--ink` | `#171514` | primary text |
-| `--ink-soft` | `#5b5b63` | neutral charcoal for supporting text, labels, chips |
-| `--footer-surface` | `#242426` | charcoal background for the shared storefront footer |
-| `--footer-ink` | `var(--paper-strong)` | footer brand, headings, emphasized links and focus rings |
-| `--footer-muted` | `#b9b9bf` | footer supporting text and navigation |
-| `--footer-line` | `#48484e` | dividers within the footer |
-| `--line` | `#e2e2e7` | neutral grey dividers inside a panel: table rules, list separators |
-| `--line-strong` | `#b5b5bd` | the boundary of a card, panel, or field |
-| `--maroon-950` … `--maroon-700` | `#2b0d13` `#45101b` `#671825` `#7e2431` | dark surfaces, primary actions, emphasis text |
-| `--maroon-100`, `--maroon-50` | `#f4e9e9`, `#fdf4f1` | maroon tints for the finale and Ask Mosaic surfaces |
-| `--maroon-line` | `#d7b7bd` | border of a maroon-tinted chip |
-| `--green`, `--green-soft`, `--green-line` | `#246a4b` `#e9f2ed` `#bad5c7` | pass, ready, in stock |
-| `--gold`, `--gold-deep`, `--gold-bright` | `#9a5d20` `#6a4a18` `#e0a94a` | rating, caution, the vector lens's own accents and chart fills |
-| `--gold-soft`, `--gold-line` | `#f6ead9` `#e6d2ae` | gold chip fill and border |
-| `--danger`, `--danger-soft`, `--danger-line` | `#a33c43` `#fff8f6` `#e5bdb7` | failed requests and failed checks |
-| `--focus` | `var(--maroon-800)` | every focus ring |
-| `--shadow` | `0 16px 36px rgb(43 13 19 / 8%)` | shared elevation |
+Surfaces and ink:
 
-Text tokens against the three light surfaces, measured with the WCAG
-relative-luminance formula:
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| `--canvas` | `#fbfbfd` | `#000000` | page canvas, `html` and `body` |
+| `--paper-strong` | `#ffffff` | `#1c1c1e` | the raised surface: cards, receipts, popovers; the ink on the action pill |
+| `--paper` | `var(--paper-strong)` | | cards, panels, fields |
+| `--paper-warm` | `#f5f5f7` | `#161617` | tiles: journey tiles, spec highlights, the Ask invitation, the footer |
+| `--surface-muted` | `var(--paper-warm)` | | subtle interface panels |
+| `--ivory` | `var(--canvas)` | | retained name; now the canvas |
+| `--ink` | `#1d1d1f` | `#f5f5f7` | primary text |
+| `--ink-soft` | `#6e6e73` | `#a1a1a6` | supporting text, labels, captions |
+| `--line` | `#d2d2d7` | `#38383a` | internal dividers and hairlines |
+| `--line-strong` | `#aeaeb2` | `#636366` | the boundary of a card or field; dotted receipt leaders |
 
-| Token | on ivory | on paper-warm | on maroon-50 |
-|---|---:|---:|---:|
-| `--ink` | 17.2:1 | 15.8:1 | 16.8:1 |
-| `--ink-soft` | 6.3:1 | 5.8:1 | 6.2:1 |
-| `--maroon-800` | 11.4:1 | 10.5:1 | 11.2:1 |
-| `--maroon-700` | 9.1:1 | 8.3:1 | 8.9:1 |
-| `--gold` | 5.0:1 | 4.6:1 | 4.9:1 |
-| `--gold-deep` | 7.6:1 | 7.0:1 | 7.4:1 |
-| `--danger` | 6.0:1 | 5.5:1 | 5.9:1 |
-| `--green` | 6.1:1 | 5.6:1 | 6.0:1 |
+Retrieval roles and action:
 
-`--gold-bright` is a chart fill and never text.
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| `--retrieve` | `#6b3fd4` | `#a78bfa` | the Retrieve stage (violet) |
+| `--link` | `var(--retrieve)` | | text links |
+| `--focus` | `var(--link)` | | every focus ring, unless a dark panel re-points it locally |
+| `--rank` | `var(--gold-bright)` | | the Rank stage as a fill: dots, bars |
+| `--reason` | `var(--green)` | | the Reason stage |
+| `--action` | `var(--ink)` | | the one action colour: primary buttons, the search submit disc, selected pills |
+| `--action-ink` | `var(--paper-strong)` | | text and icons on `--action` |
 
-The user chose white on 2026-09-20 after comparing the Editorial design with
-the real-product sample. White lets product photographs sit naturally on the
-page; warm paper remains a secondary panel treatment. Boundaries continue to
-use `--line-strong`, with the lighter `--line` reserved for internal dividers.
-The contrast table above records the earlier warm surfaces; the text colors
-also meet their contrast requirements against the lighter white canvas.
+Status and legacy names:
 
-The shared storefront footer uses charcoal instead of cream. Its white text
-measures 15.49:1 against the background, and its supporting text measures
-7.94:1. The page canvas and secondary warm surfaces retain their own roles.
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| `--green`, `--green-soft`, `--green-line` | `#1a7f45` `#e9f7ee` `#b9e3c8` | `#4cd07d` `#0e2818` `#1d4d30` | pass, ready, in stock; `--green` is also Reason |
+| `--gold` | `#b45309` | `#ffa24d` | Rank-coloured text; rating and caution text |
+| `--gold-deep` | `#8a3c06` | `#ffc28a` | darker caution text |
+| `--gold-bright` | `#ff7a28` | `#ff8a3d` | the Rank fill; never text on the light canvas |
+| `--gold-soft`, `--gold-line` | `#fff3e8` `#f6d2b0` | `#2b1a0c` `#5c3514` | caution chip fill and border |
+| `--danger`, `--danger-soft`, `--danger-line` | `#c62828` `#fff4f4` `#f2c4c4` | `#ff6b6b` `#2b1111` `#5c1f1f` | failed requests and failed checks |
+| `--maroon-950` | `#000000` | `#ffffff` | legacy name; the extreme ink, end of the Ask button gradient |
+| `--maroon-900` | `#0f0f10` | `#f0f0f2` | legacy name; the Playground run disc |
+| `--maroon-800` | `var(--ink)` | | legacy name; emphasis and active text, hover of action controls |
+| `--maroon-700` | `#3a3a3c` | `#d1d1d6` | legacy name; secondary dark ink |
+| `--maroon-100`, `--maroon-50` | `#e8e8ed` `#f0f0f3` | `#2c2c2e` `#1f1f21` | legacy names; neutral hover and tint fills |
+| `--maroon-line` | `#c7c7cc` | `#48484a` | legacy name; neutral chip border |
 
-Shared dividers and supporting text use neutral greys to connect the white
-canvas with the charcoal footer. Subtle interface panels use `--surface-muted`;
-product photography retains its warm framing. Supporting text measures 6.73:1
-on white and 6.18:1 on the neutral panel surface.
+No maroon, burgundy, cream or ivory colour remains. The `--maroon-*` and
+`--gold*` names survive because many rules reference them; read them by the
+value they resolve to, not by the name.
 
-Local variables are allowed when a shared rule reads a per-variant value,
-as the storage bar's `--segment` does, but the value must be a palette
-token.
+World tokens:
+
+| Token | Light | Dark | Role |
+|---|---|---|---|
+| `--plate` | `var(--paper-warm)` | `#e8e8ed` | the ground under every listing photo |
+| `--nav-glass` | `rgb(251 251 253 / 80%)` | `rgb(22 22 23 / 72%)` | the translucent sticky header, with `saturate(180%) blur(20px)` |
+| `--tile-radius` | `18px` | | panel and tile corners |
+| `--shadow` | `0 18px 40px rgb(0 0 0 / 10%), 0 2px 6px rgb(0 0 0 / 5%)` | `0 18px 44px rgb(0 0 0 / 60%), 0 2px 6px rgb(0 0 0 / 40%)` | shared elevation |
+| `--footer-surface` | `var(--paper-warm)` | | footer background |
+| `--footer-ink` | `#424245` | `#d1d1d6` | footer brand, headings, emphasized links, and the footer's focus ring |
+| `--footer-muted` | `var(--ink-soft)` | `#86868b` | footer supporting text and navigation |
+| `--footer-line` | `var(--line)` | | footer dividers |
+| `--ease-out`, `--motion-fast`, `--motion-settle` | `cubic-bezier(0.16, 1, 0.3, 1)`, `160ms`, `320ms` | | shared easing and durations |
+
+Local variables are allowed when a shared rule reads a per-variant value, as
+the storage bar's `--segment` and the receipt's `--line` step do, but a colour
+value must be a palette token.
+
+### Contrast
+
+Text tokens against the surfaces they are used on, computed on 2026-09-28 from
+the token values above with the WCAG 2 relative-luminance formula. Canvas is
+`--canvas`, card is `--paper-strong`, tile is `--paper-warm`.
+
+| Token | Light canvas | Light card | Light tile | Dark canvas | Dark card | Dark tile |
+|---|---:|---:|---:|---:|---:|---:|
+| `--ink` | 16.28:1 | 16.83:1 | 15.46:1 | 19.29:1 | 15.63:1 | 16.61:1 |
+| `--ink-soft` | 4.91:1 | 5.07:1 | 4.66:1 | 8.16:1 | 6.61:1 | 7.03:1 |
+| `--retrieve` / `--link` | 6.18:1 | 6.39:1 | 5.87:1 | 7.72:1 | 6.25:1 | 6.65:1 |
+| `--gold` | 4.86:1 | 5.02:1 | 4.61:1 | 10.53:1 | 8.53:1 | 9.07:1 |
+| `--gold-deep` | 7.44:1 | 7.69:1 | 7.07:1 | 13.34:1 | 10.80:1 | 11.48:1 |
+| `--green` / `--reason` | 4.88:1 | 5.04:1 | 4.63:1 | 10.63:1 | 8.61:1 | 9.15:1 |
+| `--danger` | 5.44:1 | 5.62:1 | 5.16:1 | 7.57:1 | 6.13:1 | 6.52:1 |
+| `--gold-bright` / `--rank` | 2.52:1 | 2.60:1 | 2.39:1 | 8.95:1 | 7.26:1 | 7.71:1 |
+| `--line-strong` | 2.14:1 | 2.21:1 | 2.03:1 | 3.51:1 | 2.84:1 | 3.02:1 |
+
+Paired roles, same method:
+
+| Pair | Light | Dark |
+|---|---:|---:|
+| `--action-ink` on `--action` | 16.83:1 | 15.63:1 |
+| `--footer-ink` on `--footer-surface` | 9.20:1 | 11.89:1 |
+| `--footer-muted` on `--footer-surface` | 4.66:1 | 4.99:1 |
+| `--paper` on `--maroon-900` (run disc) | 19.16:1 | 14.95:1 |
+| `--ink` on `--maroon-100` (hover fill) | 13.78:1 | 12.80:1 |
+| `--paper-warm` on `--ink` (code block) | 15.46:1 | 16.61:1 |
+
+**The Rank text rule.** Rank-coloured text uses `--gold`, never `--rank`.
+`--gold-bright` measures 2.52:1 on the light canvas, below the 3:1 floor even
+for large text, so the Playground stage numbers (`surfaces-playground.css`) and
+the active Rank column heading and top edge (`inspector.css`) use `--gold`.
+`--rank` stays a fill: the receipt's Rank dots and the Shop journey's Rank dot.
+In dark mode both clear 7:1.
+
+`--line-strong` is a boundary colour. At 2.14:1 on the light canvas it is not a
+text colour; the places that currently use it as text are listed under
+Enforcement as drift.
 
 ## Typography
 
 The user approved a native sans serif across the application on 2026-09-20,
 including the Mosaic wordmark and its M badge. The shared `--sans` stack is
 `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-sans-serif`; `--display` and `--masthead` alias it. Apple platforms use their
-native system face, with the listed installed-font fallbacks on other platforms.
-The default does not download Newsreader or Schibsted Grotesk. Font metrics can
-differ across platforms, so headings and controls must wrap without clipping.
+sans-serif`; `--display` and `--masthead` alias it. `--mono` is
+`"SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace`; no webfont
+ships. Font metrics differ across platforms, so headings and controls must wrap
+without clipping.
 
-- Display and masthead: native sans serif for Discover, Shop, Playground,
+- Display and masthead: the native sans serif for Discover, Shop, Playground,
   product names and prices, section titles and benchmark figures. Size, weight
-  and spacing establish hierarchy within the shared family.
-- Interface: the same native sans serif for navigation, controls, cards,
-  answers and lab details. The Mosaic wordmark uses weight 600; the M badge is
-  a text glyph using `--sans`, rather than a separately drawn letterform.
-- Technical: the platform monospace stack for SQL, source references, run ids,
-  scores and settings values. This role remains distinct from prose.
+  and spacing establish hierarchy within the one family.
+- Interface: the same sans serif for navigation, controls, cards, answers and
+  lab details.
+- Technical: `--mono` for SQL, source references, run ids, scores and settings
+  values. `.mono` is 12px.
 
-Discover section headings, Shop product and comparison headings, and the
-Retrieve / Rank / Reason headings use weight 500 for a consistent middle step
-between body copy and page titles. Prices, ratings, comparison tables and page
-counts use tabular figures so numbers stay aligned. Header navigation is 14px
-with natural letter spacing; active navigation and category tabs use burgundy
-text and a 2px underline within the control's bounds.
+Base headings in `styles.css`: `h1` 56px, `h2` 30px, both weight 600 with
+−0.024em tracking and balanced wrapping; `h3` 17px; heading line height 1.08.
+The body carries −0.01em tracking; controls reset to 0.
 
-Discover, Shop and the default Playground share the page-title role:
-`--page-title-size`, upright `--masthead`, weight 500, line height 1.12 and
-letter spacing −0.015em. The size is `clamp(40px, 4.2vw, 60px)` by default,
-`clamp(40px, 4.1vw, 54px)` above 760px wide when the viewport is at most 800px
-high, and `clamp(36px, 8vw, 44px)` at 760px wide and below. These are the same
-rules on all three pages. Discover's two-line headline, “A room built around
-the way you work.”, is charcoal with “you” in burgundy. Shop's burgundy emphasis
-is upright and inherits the headline's weight and line height. “Meet Alex.” is
-an h2 at `clamp(32px, 3vw, 42px)` in the shared display family, beside his portrait.
+Discover, Shop and the Playground share `--page-title-size`:
+`clamp(40px, 4.2vw, 60px)` by default, `clamp(40px, 4.1vw, 54px)` and
+`clamp(36px, 8vw, 44px)` under the two `surfaces.css` media queries.
+`.commerce-display` (the Discover and Shop headlines) uses it in `--masthead`;
+`world.css` sets its weight to 600, tracking −0.028em and line height 1.07, and
+makes its `em` inherit the headline colour. Headlines carry weight and size,
+not a coloured word. The Shop landing headline, while no query is active, is
+`clamp(40px, 4.2vw, 56px)`.
 
-A development-only comparison remains available with `?type=editorial`:
-Newsreader for display and mastheads, Schibsted Grotesk for the interface,
-and italic commerce emphasis. These Latin variable `woff2` faces are loaded
-only by the development preview stylesheet. `?type=system` selects the adopted
-modern typography. The choice follows navigation within that browser tab;
-closing the preview restores modern typography. The switcher, editorial font
-rules and stylesheet are excluded from the production bundle.
+**The quiet label rule.** Labels sit beside or after what they name, never as
+a tracked uppercase kicker above a heading. `.eyebrow` is 14px, weight 600, in
+`--ink-soft`. The Shop journey's stage name follows its caption rather than
+heading it.
 
-The guided lab shares `--page-title-size` with the other Playground views; stage
-headings `clamp(30px, 2.6vw, 40px)`, section headings 19px, lead 17px, body
-15px, detail 13px, micro 12px, and monospace 13px. Uppercase labels sit at
-micro size with 0.05em tracking. Session & Memory, Hybrid retrieval, Scale & HNSW,
-and the benchmark workbench share rounded action controls, native sans serif
-headings, white fields, and open sections divided by hairlines. Selections retain
-their native select behavior; roundness does not replace accessible labels.
+Header navigation is 13px, weight 500, `--ink-soft`; hover and the active entry
+turn `--ink`, and the active entry draws a 2px `--ink` underline within the
+control's bounds. Prices, ratings, comparison tables, receipt figures and page
+counts use tabular figures.
 
-Session & Memory leads with the optional lab's question, read from
-`optional_labs.memory` in the mission contract. The saved message and actual
-extracted records are the primary content; strategy mechanics stay in disclosures.
-New session and Start fresh retain their distinct identity behavior. A green
-connection dot appears only for an active Memory connection, pulses gently, and
-stays static under `prefers-reduced-motion: reduce`.
+The guided lab and the Labs views use the `--labs-*` scale: display
+`clamp(36px, 3.6vw, 54px)`, h2 `clamp(30px, 2.6vw, 40px)`, h3 19px, lead 17px,
+body 15px, detail 13px, micro 12px, and mono 13px.
 
-12px is the floor for new text. It already holds for the sitewide
-`.eyebrow`, Shop's per-card retrieval breakdown and its Compare label, the
-search-progress steps, code blocks and the site footer; some older chrome
-still sits below it. The stylesheet test holds a ratchet on `font-size`
-literals under 12px: 204 legacy declarations remained on 2026-09-09, and
-the count may only fall.
-Long-form copy on the Build view and the Scale page is capped at 70ch.
+A development-only comparison remains available with `?type=editorial`
+(`TypographyPreview`, `typography-preview.css`), loaded only when
+`import.meta.env.DEV`; production builds exclude it.
 
-Hybrid retrieval, Scale & HNSW and Session & Memory use the shared page-title
-role through `.inspector-intro h1`, followed by inspection content in the
-same family. Alex's
-circular Hybrid retrieval portrait is 72px on desktop and 56px under 760px;
-the request uses the shared display token and the Run Mosaic action remains labelled on mobile.
+12px is the floor for new text. The stylesheet test holds a ratchet on
+`font-size` literals under 12px across every sheet in `ui/src`: the ceiling is
+204, and 174 such declarations remained across 35 sheets on 2026-09-28. The
+count may only fall.
 
 ## Geometry
 
-- Site header 70px, 66px at 900px and below, 62px at 460px and below, sticky
-  at the top.
+**The tile and pill rule.** Panels and tiles take `--tile-radius` (18px):
+the Shop journey tiles, the Ask Mosaic invitation, the product page's photo
+stage, the lab rail, run summary, completion proof, scorecard and repair
+panels, and the Labs matrix. Single-line controls are pills at 999px: the
+catalog search composer, lab selects and query inputs, the Playground tabs,
+lab rail state chips, submit buttons and evidence badges. Circular controls
+(the search submit disc, the run disc, the save button) use 50%.
+
+Other radii in use: the itemized receipt card 16px; result and answer cards
+16px; journey and product-card images 12px (the Shop landing's journey images
+render at 16px, see Enforcement); spec highlight tiles on the product page
+14px; thumbnails 12px; the shared `.primary-button` / `.secondary-button` and
+the Shop landing example buttons 980px, which renders identically to 999px.
+
+- Hairlines are 1px, `--line` inside a panel and `--line-strong` at the
+  boundary of a card or field. The header's bottom edge is `--line` at 70%.
+- The site header is `--topbar-height` (56px) high, sticky, on `--nav-glass`
+  with a backdrop blur: the one place translucency is the effect.
 - Page width 1480px; the shell is `min(92vw, 1480px)`.
-- Shop product imagery has square corners; the three story photographs and
-  Discover's joined photo-and-brief frame use 16px corners.
-  Discover and Shop share the catalog search
-  geometry described below; Ask Mosaic retains its pill shape. Shared
-  answer/retrieval cards use 16px, inner details 6px, inspector callouts and
-  memory records 12px, and chips and other pill actions 999px.
-- Boundaries are 1px. Maroon on a boundary means active or flagged. The
-  2px left rule on a blockquote, a failed check, or the gold coverage notice
-  signals a quotation or caution. The selected memory strategy uses a 2px
-  maroon underline.
-- The shared shadow is offset and blurred. Shop's paper-plane Search button,
-  filled Ask action and sidecar retain their established elevation. Hybrid retrieval and Scale use rules and warm fills.
-  Code blocks carry a 1px ink-soft boundary and no shadow of their own.
+- Elevation is `--shadow`: the receipt card, the Ask Mosaic button and
+  sidecar. The run disc carries its own `0 7px 18px rgb(0 0 0 / 18%)`. The
+  search submit disc has no shadow. Code blocks carry a 1px `--ink-soft`
+  boundary and no shadow.
+
+## The world layer
+
+`world.css` is imported last in `main.tsx` and holds the rules that cut across
+every surface.
+
+**The plate rule.** Listing photos keep their original white grounds. Every
+product image container (Shop cards, the product page stage and thumbnails,
+result and Reason cards, reviewed examples, the Ask shortlist and drawer,
+suggestion thumbnails, complements) sits on `--plate`, and the image itself is
+transparent with `mix-blend-mode: multiply`, so the white ground disappears
+into the plate in light mode and reads as a lit plate in dark mode. These
+declarations use `!important` so no surface sheet can reintroduce a white box.
+
+**The itemized receipt.** `ProductReceipt.tsx` renders one product's receipt
+from the search that returned it, inside Shop's "Why this match" disclosure on
+`ProductCard`. The card is `--paper-strong`, 16px corners, `--shadow`, 14px
+sans. In order:
+
+1. One line per retrieval method from `armLanguage`, with a Retrieve dot, the
+   product's position in that method and its fusion contribution to four
+   decimals. A method that did not find the product (`missed`) shows a hollow
+   violet dot, `--ink-soft` text, no position and "no match". A position there
+   would be one Mosaic invented.
+2. Before reranking (`FUSED_LABEL`): the combined position and fused score,
+   with a Rank dot and a `--line` rule above.
+3. Reranked: the reranker's score to three decimals, only when one was
+   recorded.
+4. Final position (`FINAL_LABEL`): 22px weight 600 over a 2px `--ink` rule.
+5. "What the listing states": up to four typed specs, each value with its
+   verbatim listing quote in 12px `--ink-soft`, under a 12px `--reason`
+   heading.
+
+Each label runs to its figure along a 1.5px dotted `--line-strong` leader.
+When the disclosure opens, lines settle in order (520ms, 80ms apart, using
+`--ease-out`) and the total lands last; `prefers-reduced-motion: reduce`
+removes the animation. The card is an inline-size container named `receipt`;
+at 300px or narrower each line stacks its label over the position and value,
+leaders drop, and the total shrinks to 18px.
+
+**The Shop landing.** With no active query, the Shop heading centres: the
+headline, then a lede at most 44ch wide at `clamp(17px, 1.5vw, 21px)`. The pill
+search follows as the primary action, then the three journey tiles on
+`--paper-warm` in manifest order. Each tile reads image, caption (title and
+description), then the stage name at 14px weight 600 in `--ink`, preceded by an
+8px dot in its stage colour: `--retrieve`, `--rank`, `--reason`. The Ask Mosaic
+invitation is a `--paper-warm` tile with no top rule.
 
 ## Chrome behaviour
 
-- Discover opens with “A room built around the way you work.” in native sans
-  serif, without a top eyebrow. Below it, a joined, rounded frame places a large room photograph on the
-  left and the full “Meet Alex.” brief on a neutral grey surface at its right.
-  The photograph has a five-step introduction: starting point, headphones,
-  chair, monitors, then the complete-room vision. Each need highlights its
-  place in the room and gives a short explanation with a scoped Shop link.
-  It advances every eight seconds while both the picture and explanation are
-  visible, then stops at “Start with clearer calls.” Next, Previous, direct
-  step selection and Replay pause automatic playback. Pause/Play is explicit;
-  hover, keyboard interaction and hidden tabs also hold the current step.
-  Reduced-motion viewers use the manual controls without image transitions.
-  The caption counts introduction steps, never purchases or lab completion.
-  Green checks identify the
-  desk and laptop already in place; white category pills identify the headphones,
-  chair and monitor still to choose. “Explore Alex’s brief” is a burgundy pill
-  without an arrow icon. Content determines the panel height, so
-  larger text remains readable. The studio stacks at 760px and below. The
-  focusable brief at `#alex-profile` clears the sticky header.
-- Three illustrated needs follow in manifest order: Clearer calls, Comfortable
-  days and Room to code. Each gives Alex's situation, “What matters” and a text
-  link carrying the same scoped query as Shop. Category links carry only the
-  category filters. One general search field uses the shared readiness API
-  count; `discoverData` fetches no catalog products. Discover ends with a Shop
-  invitation, without an inventory grid, completion tracking or lab instructions.
-  Its disclosure identifies Alex as fictional and the imagery as illustrative.
-- Discover and Shop use one `CatalogSearchComposer` visual standard, owned by
-  the component's shared styles: a 64px-tall white field with a 12px radius,
-  an 18px plain Search icon, and a 46px round burgundy submit button with a
-  16px Send icon. The submit button retains its accessible action name, tooltip,
-  soft shadow, maroon-900 fill and maroon-800 hover state. Keyboard focus in the
-  input draws a 2px maroon ring around the form with a 3px offset; the submit
-  button keeps its own focus indicator. Page styles control placement and
-  available width, while field geometry, icons and focus treatment stay shared.
-- Shop results run three across at laptop width on clean 3:2 image plates.
-  The product name uses native sans serif at 26px, one voice with
-  the product page; brand and category are one sans line; the specification
-  is clamped to one line; “Why this match” and the price row sit on hairline
-  rules, not in boxes. The filter row is text with the navigation's underline
-  for the open sheet and the active stock switch, so it does not compete with
-  the photography beneath it. The results line sets the shopper's own words
-  in italic native sans serif at 26px under a 12px uppercase label.
+- Discover opens with “A room built around the way you work.” in the shared
+  headline style, without a top eyebrow. “you” carries its own class, but its
+  colour, `--maroon-800`, now resolves to `--ink`, so the headline is one
+  colour. Below it, a joined frame places the room walkthrough on the left and
+  the “Meet Alex.” brief on the right. The walkthrough has a five-step
+  introduction (headphones, chair, monitors, then the complete room) ending at
+  “Start with clearer calls”, with Next, Replay and explicit Pause/Play
+  controls and a step count. Green checks identify the desk and laptop already
+  in place; category links identify the pieces still to choose. “Explore
+  Alex’s brief” is an ink pill. The brief at `#alex-profile` clears the sticky
+  header.
+- Discover's search row, “Start with what matters to you.”, uses the shared
+  composer and the readiness API's product count. Three needs follow in
+  manifest order under “Three needs. One working day.”, each with Alex's
+  situation, “What matters” and a scoped Shop link. Discover ends with
+  “Now, find the pieces that fit.” and a note that Alex is fictional and the
+  imagery AI-generated and illustrative.
+- Discover and Shop share `CatalogSearchComposer`, styled by
+  `catalog-search.css`: a pill (999px) at least 64px tall on `--canvas` with a
+  1px `--line-strong` border that turns `--action` on focus within, an 18px
+  search icon, a 15px input, and a 46px circular submit in `--action` with
+  `--action-ink`. Page styles control placement and width; field geometry,
+  icons and focus treatment stay shared.
+- Shop's landing is described under the world layer. Beneath the search,
+  Explore offers Keywords, Typo and Intent example groups (pills) and states
+  that every example uses the same search pipeline. “A little help choosing?”
+  and the Ask Mosaic button sit in the invitation tile. The Ask button is a
+  999px pill with a gradient from `--maroon-800` to `--maroon-950` (ink to the
+  extreme ink of the theme), `--paper` text, a sheen that sweeps on hover, and
+  a 1px lift; reduced motion disables the sheen and movement. An active query
+  or open Ask panel removes the journey.
+- Shop result cards for the real catalog (`source-product-card`) show the
+  listing photo contained in a bounded frame `clamp(200px, 21vw, 280px)` high,
+  a two-line 17px product name at weight 550, and a two-line description.
+  “Why this match” opens the itemized receipt.
 - Under 900px the Try Ask Mosaic rail docks across the bottom of Shop and the
-  page reserves 88px beneath its results, so the rail never covers a result
-  line or a card price. The Ask Mosaic answer offers "Show the full answer"
-  while it is still being written, which ends the paced reveal for the turn.
+  page reserves space beneath its results so the rail never covers a result.
 - The site header contains navigation, Code Editor when configured, Alex's
-  portrait labelled “Alex”, and the bag. His profile popover is headed “Alex” and gives a short
-  introduction and links to the full Discover brief at `#alex-profile`, rather
-  than repeating the quotation, biography and requirements. Repair status belongs to the
-  guided Playground rail and completion proof. Its labels
-  distinguish “Code repaired” from “SQL repair applied”; neither substitutes
-  for passing behavioral checks. The rail refreshes after a new run or proof.
-- The guided lab's rail is sticky under the header. Once it sticks it condenses:
-  the edit line and the next-lab link fold away and the lab name, stage
-  links, and state chips share one row. `LabRail` reads the stuck state from
-  an `IntersectionObserver` against a root shrunk by the header, and holds
-  its flow footprint constant with a matching positive bottom margin so
-  nothing under it moves. It measures its own height into
+  portrait, the theme toggle, and the bag. Repair status belongs to the guided
+  Playground rail and completion proof, whose labels distinguish “Code
+  repaired” from “SQL repair applied”.
+- The guided lab's rail is sticky under the header and condenses once it
+  sticks. `LabRail` reads the stuck state from an `IntersectionObserver`,
+  holds its flow footprint constant, and measures its height into
   `--labs-rail-height`, which the stage anchors add to their scroll margin.
-- The rank comparison box chains vertical scrolling to the page and caps its
-  height at the viewport below the sticky chrome, never a fraction of the
-  screen.
-- Shop opens with “Find what fits your world.” and one short lede:
-  “Search for a product, compare the details, or ask Mosaic to help you choose.”
-  Alex's full brief remains on Discover. Three large 4:3 photographs establish
-  the story: headphones for focus, a chair for comfort, and the complete workspace.
-  Each has a 20px step number, a stage label and fine rule above, then its caption
-  below. Search spans the first two story columns underneath; “A little help
-  choosing?” and Ask Mosaic align with the third. The invitation has no enclosing
-  banner. The button retains its burgundy gradient, gold sparkles, inset highlight
-  and metallic hover sheen. Shadow changes ease with hover, and pressing adds a
-  small scale change. Reduced motion disables the sheen and movement. Example
-  links use quiet underlines. On mobile, the search and invitation stack.
-  Retrieve, Rank and Reason names and order come from the core mission manifest.
-  Captions remain editorial.
-  React/Vite and Aurora-backed data remain the application foundation.
-  On mobile, the focusable image sequence scrolls horizontally using native
-  scrolling. An active query or open Ask panel removes the image sequence.
-- “Continue the workspace” adds a desk light, dock and laptop stand after
-  Shop's first default Workspace browse page. It appears only without a query,
-  open Ask panel, agent results, active filters or browse error. The product
-  IDs come from `supporting_product_ids` in
-  `data/media/workspace_collection.json`; cached API reads verify each returned
-  identity before rendering ordinary catalog cards. Partial failure preserves
-  loaded products and offers retry. Three desktop columns become one at 540px
-  and below. This is a browse collection, with no compatibility guarantee or
-  change to search ranking.
-- Explore and Ask suggestions share the Hybrid retrieval request manifest: Clearer
-  calls, Comfortable days, then More screen space. The retired synthetic exact-model
-  shortcut has been removed from this shared list, including Hybrid retrieval.
-  Ask shows the requests compatible with the current filters. The
-  Hybrid retrieval's default is `clear-calls`; the chair request is a scoped
-  shopping intent, not a replacement lab mission.
-- The default Hybrid retrieval opens with canonical scene choices, Alex's portrait and
-  request, and one labelled paper-plane send (Run Mosaic). It makes a real agent request; the three
-  stages inspect saved records. A carried Shop event is read without rerunning
-  it. If the agent searched several times, Retrieve and Rank share one selected
-  search receipt. SQL, settings, citations and tool traces use disclosures.
-- Every send on the Playground uses `MosaicRunButton`, sharing the catalog
-  search's paper-plane motif. It is a 44px maroon-900 disc with a soft shadow, maroon-800
-  under the pointer, a 16px plane, and a spinner while the request is in flight.
-  The guided lab's query field uses it alone, named by its tooltip. Hybrid
-  retrieval prints the current action beside the disc. Session & Memory prints the
-  label beside the disc because the guide tells participants to choose
-  **Ask Mosaic** and a second button sits next to it. No arrow, no stage marks;
-  the status line under the card and the column states carry progress.
+- Retrieve, Rank and Reason keep their stage colours on the Playground: stage
+  numbers and step numbers in `--retrieve`, `--gold` and `--reason`, and the
+  active inspector column's heading, state and top edge in the same colour.
+  A stage the sequence does not name (Prove) uses the neutral `--line-strong`.
+- Every Playground send uses `MosaicRunButton`: a 44px `--maroon-900` disc with
+  a `--paper` plane icon, `--maroon-800` under the pointer, and a spinner while
+  the request is in flight; reduced motion stops the spinner. Hybrid retrieval
+  and Session & Memory print a label beside the disc.
 - Desktop retrieval columns share grid rows for headers, content, disclosure
-  buttons and panels. Search details, Why the order changed and Answer and
-  sources stay aligned, with each panel contained in its column. Open gutters
-  and fine top rules separate Retrieve, Rank and Reason; no enclosing frame or
-  vertical dividers surround the sequence. Waiting states and the closing
-  invitation use the white canvas rather than nested tinted boxes.
-- Hybrid retrieval Retrieve and Rank use `ResultProductCard` for the same set of up to
-  three returned products: Retrieve orders them by recorded pre-rerank positions; Rank
-  shows final order with before/final positions in the footer. Photography fills
-  the card width in a 3:2 frame, with the image contained inside it. Category,
-  native-sans product name, actual rating and review count, price and stock status
-  sit below the image. These cards retain the shared maroon/cream tokens.
-- `ProductAnswer` places each returned recommendation once, immediately after
-  the first paragraph naming its title or model; unmatched recommendations
-  append after the prose. Cards appear only when the answer prose is complete.
-  Hybrid retrieval Reason, guided Reason, Ask Mosaic and saved memory turns share this
-  renderer. Hybrid retrieval cards include distinct cited-source counts and links to
-  the recorded search and rank; their main link opens product detail. Ask uses
-  horizontal photo/copy cards, retaining product-drawer selection, catalog
-  highlighting and the existing stock-aware Add to bag action.
-- Hybrid retrieval displays streamed answer prose; Ask Mosaic uses `useTypewriterReveal`
-  for paced prose, with completed answers mounted afresh shown immediately and
-  reduced motion removing the pacing. An interrupted Hybrid retrieval run clears its
-  answer and streamed prose while retaining partial candidates and tool receipts
-  for diagnosis.
-- Session & Memory introduces events, strategies and recall, then shows Alex's
-  connection status and session controls. The desktop inspector puts conversation
-  entry and stored events on the left, with a wider strategy/records column on
-  the right. At 760px and below it stacks in the same DOM order: conversation,
-  strategies, then recall. Collapsed events show a two-line message preview;
-  opening the native disclosure reveals all messages, roles and the event ID.
-- New session keeps the browser’s Alex and his memories. Start fresh rotates
-  the private browser cookie, clears displayed sessions, records and answers,
-  and begins a separate Alex. Earlier records remain stored; no shared Memory
-  resource or other browser’s records are deleted.
-- Four built-in memory choices—Facts, Preferences, Summaries and
-  Past outcomes—show actual connection status, scope and processing steps, followed
-  by returned records. Record details disclose IDs, namespaces and original
-  content; strategy configuration and AWS references remain expandable. Empty
-  records explain background processing separately from read errors. Examples
-  fill the editable event field; only submission stores an event. Recall and
-  Ask sit below the inspector with an explicit memory toggle, relevant records
-  and a cited answer only after the visitor submits a request. Saved turns live
-  in the collapsed “Earlier answers” disclosure; switching sessions or adding an
-  event clears the current answer display. This surface teaches memory through conversation,
-  without budget controls or a manual preference form.
-- The footer’s Playground column and the tab strip share `PLAYGROUND_TABS` in
-  `navigation.ts`: Hybrid retrieval, Scale & HNSW, Session & Memory. Browser
-  titles use those same names. Catalog Studio is no longer linked or served.
-  Discover, Shop and product pages share the charcoal footer, white Mosaic
-  mark, subdued navigation and light keyboard-focus rings. Official payment
-  artwork keeps its colors on compact white plates. Footer text is at least
-  12px, including the demo disclosure and copyright.
-- Bottom-of-page links follow the Playground tabs: Hybrid retrieval leads to Scale &
-  HNSW, which leads to Session & Memory using the same heading, copy and arrow link.
-- How it finds neighbors names HNSW beside a cream 3D sculpture: three floating
-  layers, connected product types and a restrained maroon search path. Watch the
-  search guides the visitor through the layers; pause, resume, replay, drag,
-  keyboard and zoom controls remain available. Candidate cards appear at the
-  end and identify illustrated product types. The caption states that this is
-  not a recorded Aurora traversal. Hidden views pause; reduced motion uses
-  fixed-camera steps; WebGL failure offers a flat graph and retry.
-- The advanced instrument shares Hybrid retrieval's open layout: Index & storage,
-  Recall & filters, and Scale experiments use section rules, light charts and
-  progressive detail. Live probe controls remain available. Historical
-  provenance starts collapsed while its warning remains visible. Mobile
-  tables scroll within their regions and long index names wrap.
-- The guided Playground opens with its title and query controls, then the
-  sticky lab rail. The rank table's reading guide collapses when a recorded
-  response is available. Run provenance names Aurora and the event ID; replay
-  does not claim the request ran just now in this browser.
-- Ask Mosaic shows the activity trail during retrieval. When the answer
-  becomes available, the trail folds into “Steps and sources” so the answer
-  leads while the searches, comparisons, evidence, and tool activity remain
-  inspectable. Waiting and collapsed completed steps use compact rows; disabled
-  disclosure buttons retain full text contrast. Nested product rows have no
-  additional drop shadow and reflow against the panel width, not the viewport.
-- Ask Mosaic's entry uses a short welcome and wrapping 44px starting pills.
-  Each shows only its shared request label; selecting it submits the complete
-  manifest query and filters. The white header, charcoal title, burgundy mark
-  and plain white composer match the storefront. Full questions appear in the
-  conversation after submission, alongside their actual results and sources.
-- Ask is a desktop sidecar and becomes a fixed overlay at 1180px and below.
-  The desktop grid and panel share `--ask-panel-width` (480–600px, with 35vw
-  between). The catalog retains its 24–40px inline gutter at every open-panel
-  width, and search questions wrap instead of being clipped to a single line.
-  The overlay starts below the site header and reaches the viewport bottom;
-  its title and close action remain visible after scrolling Shop. The `.page`
-  entry animation uses `backwards` fill so its completed transform cannot
-  become the containing block for fixed overlays.
+  buttons and panels, separated by open gutters and fine top rules, without an
+  enclosing frame.
+- `ResultProductCard` shows up to three returned products with a 1px
+  `--line-strong` border, 16px corners, the photo on the plate, a two-line 16px
+  name, and a position pill in the photo's corner.
+- `ProductAnswer` places each returned recommendation once, after the first
+  paragraph naming it; Hybrid retrieval Reason, guided Reason, Ask Mosaic and
+  saved memory turns share this renderer.
+- Ask Mosaic shows the activity trail during retrieval and folds it into
+  “Steps and sources” when the answer arrives. Ask is a desktop sidecar and a
+  fixed overlay at 1180px and below.
+- The footer is a `--paper-warm` band with `--footer-line` dividers,
+  `--footer-muted` text and `--footer-ink` emphasis; its focus ring is
+  `--footer-ink`.
+- How it finds neighbors renders its HNSW scene from `--paper`,
+  `--paper-warm` and `--line-strong` read from the computed style, and re-reads
+  them, so the scene follows the theme. Hidden views pause; reduced motion
+  uses fixed-camera steps; WebGL failure offers a flat graph and retry.
 - Navigation preserves the header, resets scroll and keyboard focus for a new
   page, and leaves the current page mounted for query changes.
-- The guided Playground's agent run moves focus to one results area when submitted.
-  Subsequent stream updates do not move focus or scroll the page. The service's
-  latest stage and client elapsed time sit above a stable answer area. Retrieval
-  details contain compact product rows; evidence and citations form a separate
-  disclosure that opens after an error. Partial receipts never appear above
-  the answer and push it down as they arrive.
-- The guided lab's unnumbered Prove section reads verdict, then the maintainers' release baseline,
-  then the package finale. While the baseline is held for an unmeasured
-  revision it collapses to one disclosure line; opened, the full record and
-  its provenance are there.
 - Disclosures are native `<details>`, each with a hint of what is inside.
-- Completion proof keeps failed checks visible and passing checks expandable.
-  Both outcomes retain their receipts and can download the exact measured
-  JSON. The final skill download packages the canonical skill folder and its
-  relative references.
+- Completion proof keeps failed checks visible and passing checks expandable,
+  and can download the exact measured JSON.
+
+## Product page
+
+`SourceProductDetail.tsx` with `source-products.css`. The photo stage is
+`clamp(340px, 38vw, 540px)` high (300px under 760px) with 44px padding,
+`--tile-radius` corners and `--plate`; the photo is contained. A 40px round save
+button sits in its corner. Thumbnails are 64px plate tiles with 12px corners;
+the selected one draws a 2px `--ink` ring. A 12px caption reads “Original
+listing photos” and the view count.
+
+The summary gives brand and category (14px, weight 600, `--ink-soft`), the
+title at `clamp(28px, 2.6vw, 40px)` weight 600 (25px under 760px), clamped to
+three lines with an expand control in `--link`, the historical rating, and up
+to three feature lines. Typed spec highlights follow as a two-column grid of
+`--paper-warm` tiles with 14px corners: the value above at
+`clamp(20px, 1.8vw, 26px)` weight 600 with tabular figures, the label beneath
+at 13px `--ink-soft`, and the listing's words in the tile's title as “From the
+listing: …”. The typed specs come from `service/product_specs.py`.
+
+Below, Description, Specifications and Reviews are native disclosures divided
+by `--line`. Under Specifications, the key specs list each value with its
+verbatim listing quote in 13px `--ink-soft` inside curly quotes, then “All
+listing details” lists the remaining attributes. “Similar options” closes the
+page with a four-column grid (two under 760px).
 
 ## Route architecture
 
-The development-only `/catalog-preview` compares real-product samples without
-replacing Shop or claiming a live search. Gallery keeps original photographs
-and source disclosures in the editorial grid; Compare features aligns the same
-requirements across products in a native table. Small screens scroll the table
-within its labelled region, retaining row labels. Both layouts share the same
-facts, filters and source text. Both layouts put photographs directly on clean
-white without simulated lighting. In Compare, native-sans product names and
-horizontal hairlines organize the columns without an enclosing frame, vertical
-grid or tinted label column.
-
-Documented fit, requirement mismatch and needs verification have distinct text
-and icons as well as colors. Unknown evidence never becomes a negative feature
-claim. Catalog membership comes from `data/real-catalog-examples.json`, with
-reference samples identified separately. Filters narrow displayed specifications;
-they do not reproduce production search or ranking. Historical rating aggregates
-remain labelled as dataset values. The preview keeps its source payload outside
-public assets and is excluded from the production route bundle.
-
-The development-only `/design-studio` is an inspectable Precision Studio
-alternative, not the storefront's adopted design. Its scoped paper/graphite
-palette and sans-serif workspace contain local Discover, Shop and Playground
-views. Requirement controls, sample filtering, shortlists, comparisons and an
-optional source pane work with the reviewed public-catalog sample. The page
-labels itself a prototype and the Playground a walkthrough; neither invokes
-retrieval, reranking or an agent. Its own navigation replaces storefront chrome
-only on this route, and production builds exclude it. Editorial Mosaic remains
-the identity of the real application.
-
-White is the adopted default across Discover, Shop, Playground and the product
-sample preview. The temporary per-tab canvas switch has been removed.
+The development-only `/catalog-preview` and `/design-studio` routes are
+registered only when `import.meta.env.DEV`; production builds exclude them.
+`/catalog-preview` compares real-product samples without claiming a live
+search. `/design-studio` is a prototype with its own scoped `--studio-*`
+palette in `studio-prototype.css`; it is not the storefront's design.
 
 | Path | Surface |
 |---|---|
-| `/`, `/discover` | Discover: Alex's room brief, three illustrated shopping needs, general search and category browsing; product inventories live in Shop |
-| `/catalog` | Shop: faceted browsing, hybrid search, product cards, Ask Mosaic as a sidecar |
-| `/products/:productId` | Product detail: media, catalog copy, price and availability, attributes, evidence excerpts |
-| `/labs/retrieval` | Hybrid retrieval: read-only inspection of 01 Retrieve, 02 Rank, 03 Reason; one paper-plane send (Run Mosaic) starts a real run, and `scene` selects a canonical request |
-| `/labs/retrieval?view=lab` | Guided Playground: Retrieve, Rank, Reason, Prove, lab rail and completion proof; URLs containing `example` or `run` also select this surface |
-| `/mosaic-labs/hnsw` | Scale & HNSW: read-only index explanation, current Aurora substrate and attributed recorded measurements, including optional halfvec/binary comparisons |
-| `/mosaic-labs/memory` | Session & Memory: AgentCore events, four built-in strategies and actual records; conversation and strategy columns lead to recall and Aurora-backed cited answers |
-| `/mosaic-labs/hnsw?view=bench` | Full benchmark workbench: Index & storage, Recall & filters, Scale experiments; live probes, recorded experiments and projections carry distinct labels |
+| `/`, `/discover` | Discover: Alex's room brief, three illustrated shopping needs, general search |
+| `/catalog` | Shop: faceted browsing, hybrid search, product cards with itemized receipts, Ask Mosaic as a sidecar |
+| `/products/:productId` | Product detail: plate photo stage, typed spec highlights, listing details, reviews |
+| `/labs/retrieval` | Hybrid retrieval: read-only inspection of Retrieve, Rank, Reason; one run button starts a real run, and `scene` selects a canonical request |
+| `/labs/retrieval?view=lab` | Guided Playground: Retrieve, Rank, Reason, Prove, lab rail and completion proof |
+| `/labs/examples` | Reviewed examples: “Look beyond the first match.” |
+| `/mosaic-labs/hnsw` | Scale & HNSW |
+| `/mosaic-labs/hnsw?view=bench` | Full benchmark workbench |
+| `/mosaic-labs/memory` | Session & Memory |
 | `/mosaic-labs/studio` | Retired composition page; redirects to Hybrid retrieval |
 
 `/playground`, `/mosaic-labs` and `/inspiration` redirect to Hybrid retrieval;
 `/shop` redirects to Shop and `/labs/performance` redirects to Scale & HNSW.
-Aliases preserve query parameters and section anchors, including filters, saved
-search IDs and advanced-view choices. Existing guide and proof links keep the three stages and unnumbered Prove
-section reachable without making it the default inspection surface.
 
 ## Interaction principles
 
 - Search, agent, and lab results come from the typed API. There are no
   content constants or offline fallbacks in the renderer.
 - PostgreSQL owns filtering, retrieval, and rank fusion; the interface shows
-  what it did and never recomputes it.
-- Per-arm ranks, fused rank, rerank, and final rank stay visually distinct.
+  what it did and never recomputes it. The receipt prints recorded positions
+  and scores only.
+- Per-method ranks, fused rank, rerank, and final rank stay visually distinct.
 - Citations and source revisions are inspectable from the answer.
 - Technical detail discloses progressively without blocking the task.
 - Controls keep stable dimensions while content loads.
-- Ask follow-ups carry context from the prior grounded agent run. AgentCore
-  facts and preferences are extracted from conversation under this browser's
-  actor; starting a new session keeps that actor and its long-term memories.
-  Memory supplies context; Aurora supplies product facts and citation evidence.
-  The welcome portrait itself makes no claim about stored preferences.
-- Scale distinguishes current index facts from recorded experiments. When
-  attribution does not match the current catalog or code, the comparison stays
-  historical. The new presentation does not establish new benchmark results,
-  end-to-end latency or concurrent workshop capacity.
-- Instrument size ratios compare representations within the same recorded
-  artifact; they do not mix historical fp32 sizes with the live index. Build
-  parameters are labelled recorded. Half precision is a choice to measure,
-  not an unconditional recommendation. Live probe timing names its second,
-  warm execution separately from the returned-neighbor measurement.
+- Memory supplies context; Aurora supplies product facts and citation evidence.
+- Scale distinguishes current index facts from recorded experiments.
 
 ## Image boundary
 
 `data/media/asset_labels_200.json` is the product-to-media contract for the
 exact-photography set. Product media never serves as evidence for an
-attribute.
-
-Shop's workspace scenes are editorial, not catalog SKU portraits.
-`data/media/alex-shop-story-v3.json` records the user-provided Grok reference
-JPEGs, their WebP conversions and hashes. No crop or generative changes were
-applied; the imagery establishes no product specifications.
-
-Discover shares the room and headphone scenes from that source. Its additional
-long-day chair and screen-space illustrations are recorded in
-`data/media/alex-discover-studio-v1.json`, also converted from the user-provided
-Grok reference. The room remains uncropped; need-card imagery fills 4:3 frames.
-Shop's continuation instead uses the live products' catalog photography.
-The Session & Memory and shared answer/retrieval-card extension reuses the
-existing Alex portrait and product media; it introduces no shipping raster assets.
-
-The default Workspace edit currently selects 71 products from that 200-product
-photographed cohort through `data/media/workspace_collection.json`; the UI reads
-the actual count from Aurora. Keyword search still uses the full selected real
-catalog. The catalog proposal under `data/curated/proposals/` has not been
-promoted to the live CSV or embedding cache.
+attribute. Shop's and Discover's workspace scenes are editorial illustrations
+recorded in `data/media/alex-shop-story-v3.json` and
+`data/media/alex-discover-studio-v1.json`; they establish no product
+specifications. Listing photos are shown uncropped and contained on the plate.
 
 ## Accessibility
 
-- Focus uses the maroon palette, through `--focus` or the inspector's matching
-  maroon rule.
-- Reduced-motion rules cover entrance effects and smooth scrolling.
-- Semantic headings, labelled regions, native forms and tables, and a
-  screen-reader-only caption on the rank comparison.
-- Status is never carried by color alone; a chip or badge also says its
-  state in words.
+- Focus uses `:focus-visible` with a 3px outline of `--focus` at 65% and a 3px
+  offset; `--focus` is violet. The footer re-points it to `--footer-ink`, and
+  `.code-block`, whose panel is `--ink`, re-points it to `--canvas` so the ring
+  contrasts with the panel in both themes.
+- Reduced-motion rules cover the receipt settle, the Ask button sheen, the run
+  spinner, entrance effects and smooth scrolling.
+- Semantic headings, labelled regions, native forms, tables and disclosures.
+- Status is never carried by colour alone: a receipt line that missed says
+  “no match”, and chips and badges say their state in words.
 
 ## Enforcement
 
-`ui/src/styles.test.ts` reads the full split of `styles.css` and
-`surfaces.css` (`ask-mosaic-panel.css`, `catalog-cards.css`,
-`shared-states.css`, `shop-storefront.css`, `labs-agentic.css`,
-`commerce.css`, `surfaces-ask-mosaic.css`, `surfaces-labs-shell.css`,
-`surfaces-hnsw.css`, `surfaces-playground.css`), plus `discover.css`,
-`playground.css`, and `inspector.css`, and fails when a referenced
-custom property is undefined, when two palette tokens share a value, when a
-hex-valued custom property outside the palette block is not an override of
-a palette token, or when raw hex literals outside the palette block rise
-above the ratchet, currently 252. A file added to the split must be added to
-that list, or the check silently stops reading it. Each check is proven
-against a fixture that fails it. `npm run build` type-checks both
-configurations before bundling.
+`ui/src/styles.test.ts` reads the sheets in its `SHEETS` list: `styles.css`,
+`ask-mosaic-panel.css`, `catalog-cards.css`, `shared-states.css`,
+`shop-storefront.css`, `labs-agentic.css`, `commerce.css`, `surfaces.css`,
+`surfaces-ask-mosaic.css`, `surfaces-labs-shell.css`, `surfaces-hnsw.css`,
+`surfaces-playground.css`, `discover.css`, `playground.css`, `inspector.css`,
+and `world.css`. Over those sheets it fails when:
+
+- a referenced custom property is defined nowhere (except `--labs-rail-height`,
+  `--low`, `--high` and `--sweep`, which components set inline);
+- two hex values in the palette block, the first `:root` of `styles.css`, are
+  equal (the dark block is not part of this check);
+- a hex-valued custom property outside the palette block is not an override
+  of a palette token;
+- a raw hex literal appears outside a token definition, a mask or a `url()`.
+  The ceiling is 0.
+
+The sub-12px `font-size` ratchet (ceiling 204) reads every `.css` file in
+`ui/src`, not only the list. Each check is proven against a fixture that fails
+it. A sheet missing from `SHEETS` is not read by the hex, palette and
+undefined-variable checks; `catalog-search.css`, `source-products.css`,
+`mosaic-run-button.css` and the other component sheets are currently outside
+it. A grep on 2026-09-28 found no hex literal in those sheets other than the
+development-only `studio-prototype.css` palette.
+
+`scripts/labs_type_scale.py` fails when a rule whose selector names a Labs
+family (`.labs-`, `.lab-`, `.hnsw-`, `.mosaic-studio-`, `.mosaic-labs-`,
+`.retrieval-`) sets a `font-size` other than a `var(--labs-*)` token or a
+`font-family` other than `--display`, `--masthead`, `--sans`, `--mono` or
+`inherit`. It scans `styles.css` and `surfaces.css` only.
+
+`npm run build` type-checks both configurations before bundling.
+
+Known drift, recorded rather than canonized:
+
+- The search submit and run disc hover to `--maroon-800`, which equals the
+  `--action` rest colour of the search submit, so that hover changes nothing.
+  The run disc rests on `--maroon-900`, not `--action`.
+- On the Shop landing, `shop-editorial.css` loads after `world.css` with
+  higher specificity for the journey tiles (grid instead of flex, 16px image
+  corners, heading weight 500) and for the fallback suggestion buttons
+  (underlined text instead of pills); `shop-search-details.css` loads after it
+  with equal specificity for the example buttons (1px `--line` border on
+  `--canvas`). What renders is the later rule.
+- Applying `labs_type_scale.py`'s rule to every sheet reports off-scale Labs
+  declarations in `hnsw-search-graph.css` (15), `playground.css` (4),
+  `inspector.css` (3), `retrieval-readout.css` (2) and `session-memory.css`
+  (1); the gate does not read those files.
 
 ## Review boundary
 
-The Grok-reference Shop update received a **ship** review of its desktop and
-mobile captures, with no fixes requested. This is the reviewer's verdict, not
-separate user approval of the rendered result. The advanced instrument's fresh
-finish review was **ship**, with no material fixes requested.
-The Session & Memory and shared product-card extension received a fresh review
-of six desktop/mobile captures for memory, Hybrid retrieval and Ask Mosaic. Its final
-verdict was **ship**, scoring both requested memory fixes resolved: collapsed
-event previews with disclosure markers and removal of the redundant recall
-eyebrow. The verdict pass covered those
-fixes; it does not imply user approval. Current evidence lives in
-`.impeccable/review/{memory,pipeline,ask}-{desktop,mobile}.png`.
-The Discover studio, its three needs and the Shop continuation received a
-scoped **ship** review with no must-fix findings across desktop, mobile and
-the user's 2048px viewport. The studio detector reported no findings.
-
-
-### Product detail and recommendations
-
-Product names, editorial headings, facts and controls share the native sans serif,
-with their hierarchy expressed through size and weight. Product pages expose Save and the catalog warranty and shipping
-values. The back link carries a validated Shop return path through successive
-product visits. It never assumes the previous browser entry was Shop.
-
-“Similar monitors” is a vector-ranked merchandising selection within the installed
-photography. “Complete your setup” uses three category cards with capsule links,
-explicit mounting/connection requirements and no compatibility guarantee. Product
-cards keep short descriptions to two lines. Long-tail search cards use concrete
-attribute summaries in place of repeated generated filler copy.
+Earlier ship reviews of the Shop story, the advanced instrument, Session &
+Memory and Discover were given against the maroon, gold and ivory palette.
+They do not cover the light and dark palette, the world layer, the itemized
+receipt or the product page described here.

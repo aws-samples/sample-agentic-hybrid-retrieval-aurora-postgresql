@@ -61,6 +61,13 @@ export interface SourceAttribution {
   quote: string;
 }
 
+/** One typed value a listing states, with the field and verbatim text it came from. */
+export interface ProductSpec {
+  value: string | number | boolean;
+  source: string;
+  quote: string;
+}
+
 export interface ProductSummary {
   product_id: number;
   sku: string;
@@ -79,6 +86,7 @@ export interface ProductSummary {
   availability: Availability | null;
   inventory_count: number | null;
   attributes: Record<string, unknown>;
+  specs?: Record<string, ProductSpec>;
   tags: unknown[];
   catalog_asset_key: string | null;
   canonical_group_id: string | null;

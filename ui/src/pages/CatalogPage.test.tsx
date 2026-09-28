@@ -1103,10 +1103,11 @@ describe("CatalogPage", () => {
       .closest("details");
     expect(productReceipt?.open).toBe(false);
     fireEvent.click(within(productReceipt!).getByText("Why this match"));
-    // Only the arms that found this row appear: a "Close spelling" row on a
-    // product the trigram arm never returned would be a rank Mosaic invented.
+    // An arm that never returned this row says so without a position: a rank
+    // there would be one Mosaic invented.
     expect(within(productReceipt!).getByText("Exact terms")).toBeTruthy();
-    expect(within(productReceipt!).queryByText("Close spelling")).toBeNull();
+    const missedArm = within(productReceipt!).getByText("Close spelling").closest("li")!;
+    expect(missedArm.textContent).toBe("Close spellingno match");
     expect(within(productReceipt!).getByText("Before reranking")).toBeTruthy();
     expect(within(productReceipt!).getByText("Final position")).toBeTruthy();
     expect(within(productReceipt!).getAllByText("#1").length).toBeGreaterThan(0);

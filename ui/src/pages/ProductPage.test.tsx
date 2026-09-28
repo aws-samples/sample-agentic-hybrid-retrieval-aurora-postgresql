@@ -130,7 +130,7 @@ describe("ProductPage", () => {
     const { container } = render(<CommerceProvider><ProductPage /></CommerceProvider>);
     await screen.findByRole("heading", { name: product.title });
     const facts = container.querySelector(".product-key-facts")!;
-    expect(facts.querySelector("dt")?.textContent).toBe("wireless");
+    expect(facts.querySelector("dt")?.textContent).toBe("Wireless");
     expect(facts.querySelector("dd")?.textContent).toBe("No");
     expect(facts.textContent).toContain("connectionUSB-C");
 

@@ -141,7 +141,7 @@
 .catalog-preview-card-heading h2 { font: 400 27px/1.15 var(--display); margin: 0 0 7px; overflow-wrap: anywhere; text-wrap: balance; }
 .catalog-preview-card-heading p { color: var(--ink-soft); font-size: 15px; line-height: 1.45; margin-bottom: 0; }
 .catalog-preview .catalog-preview-rating { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0 0; font: 400 12px/1.5 var(--sans); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-.catalog-preview-rating svg { color: var(--gold); fill: currentColor; }
+.catalog-preview-rating svg { color: var(--ink); fill: currentColor; }
 .catalog-preview-rating small { color: var(--ink-soft); font-size: 12px; }
 .catalog-preview-origin { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 14px; margin: 12px 0 16px; }
 .catalog-preview-origin a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--maroon-800); font: 600 14px/1.4 var(--sans); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; }

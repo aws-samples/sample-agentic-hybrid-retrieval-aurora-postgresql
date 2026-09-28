@@ -45,13 +45,13 @@
 }
 
 .mosaic-labs-tabs a:hover {
-  color: #5b1d2b;
+  color: var(--maroon-800);
 }
 
 .mosaic-labs-tabs a.active {
-  background: var(--maroon-800);
-  box-shadow: 0 5px 12px rgb(94 29 44 / 18%);
-  color: var(--danger-soft);
+  background: var(--action);
+  box-shadow: 0 5px 12px rgb(0 0 0 / 18%);
+  color: var(--action-ink);
 }
 
 .mosaic-labs-tabs > small {
@@ -79,7 +79,7 @@
   padding: 12px 18px;
   border: 1px solid var(--line-strong);
   border-radius: 14px;
-  background: rgb(255 254 250 / 96%);
+  background: color-mix(in srgb, var(--paper-strong) 96%, transparent);
   backdrop-filter: blur(12px);
 }
 
@@ -135,12 +135,15 @@
   gap: 2px;
 }
 
+/* A quiet label, not a tracked eyebrow: this sits directly above the lab
+   title, and an uppercase kicker there reads as a section header's marketing
+   voice rather than plain "Lab 1 of 3" orientation copy. */
 .labs-rail-kicker {
   color: var(--ink-soft);
   font-size: var(--labs-micro);
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 .labs-rail-lab strong {
@@ -172,6 +175,23 @@
   font-weight: 700;
   text-decoration: underline;
   text-underline-offset: 4px;
+}
+
+/* Retrieve, Rank and Reason keep their retrieval colour whether or not they are
+   the current stage; "Prove" carries no stage token and stays neutral. `--gold`,
+   not `--rank`, for the same reason `.labs-stage-number` does: it is the reading
+   value at this weight and size. Declared after `[aria-current]` so the active
+   stage still reads in its own colour instead of resetting to ink. */
+.labs-rail-stages a[data-stage="retrieve"] {
+  color: var(--retrieve);
+}
+
+.labs-rail-stages a[data-stage="rank"] {
+  color: var(--gold);
+}
+
+.labs-rail-stages a[data-stage="reason"] {
+  color: var(--reason);
 }
 
 .labs-rail-edit small {
@@ -279,14 +299,14 @@
 
 .mosaic-studio-briefs button:hover {
   border-color: var(--gold);
-  color: #5b1d2b;
+  color: var(--maroon-800);
 }
 
 .mosaic-studio-briefs button[aria-pressed="true"] {
   border-color: var(--maroon-800);
   background: var(--maroon-800);
   color: var(--canvas);
-  box-shadow: 0 6px 14px rgb(107 34 50 / 16%);
+  box-shadow: 0 6px 14px rgb(0 0 0 / 16%);
 }
 
 .mosaic-studio-boundary {
@@ -336,7 +356,7 @@
 }
 
 .mosaic-studio-boundary > a:hover {
-  color: #3d1520;
+  color: var(--maroon-900);
 }
 
 .mosaic-studio-queries {
@@ -371,7 +391,7 @@
 }
 
 .mosaic-studio-queries > ul > li > small {
-  color: #a48f6f;
+  color: var(--gold-bright);
   font-size: var(--labs-micro);
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -388,7 +408,7 @@
 }
 
 .mosaic-studio-queries > ul > li > span {
-  color: #8b6832;
+  color: var(--gold);
   font-family: var(--mono);
   font-size: var(--labs-micro);
   font-weight: 700;
@@ -447,12 +467,12 @@
 .labs-intro-actions .primary-button {
   min-height: 44px;
   border-radius: 999px;
-  background: #571928;
-  box-shadow: 0 10px 24px rgb(87 25 40 / 18%);
+  background: var(--action);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 18%);
 }
 
 .labs-intro-actions .primary-button:hover {
-  background: #721f31;
+  background: color-mix(in srgb, var(--action) 82%, var(--canvas));
 }
 
 .labs-intro-actions > span {
@@ -527,7 +547,7 @@
     height: 100%;
     padding: 0;
     border: 0;
-    background: rgb(18 22 20 / 36%);
+    background: color-mix(in srgb, var(--ink) 36%, transparent);
     backdrop-filter: blur(2px);
   }
 
@@ -756,10 +776,6 @@
     min-height: 44px;
   }
 
-  .shop-card-signals span:nth-child(n + 4) {
-    display: none;
-  }
-
   .shop-card-price strong {
     font-size: 15px;
   }
@@ -830,7 +846,7 @@
     grid-auto-flow: column;
     grid-template-columns: auto auto auto;
     padding: 0 14px;
-    border-right: 1px solid rgb(255 255 255 / 16%);
+    border-right: 1px solid color-mix(in srgb, var(--paper-strong) 16%, transparent);
     border-radius: 8px;
     transform: none;
   }
@@ -978,9 +994,9 @@
 .mosaic-labs-tabs > div {
   gap: 4px;
   padding: 4px;
-  border-color: #d8cfc2;
-  background: rgb(255 253 248 / 76%);
-  box-shadow: 0 5px 16px rgb(55 36 25 / 4%);
+  border-color: var(--gold-line);
+  background: color-mix(in srgb, var(--danger-soft) 76%, transparent);
+  box-shadow: 0 5px 16px rgb(0 0 0 / 4%);
 }
 
 .mosaic-labs-tabs a {
@@ -1007,7 +1023,7 @@
   align-items: center;
   gap: 7px;
   padding: 0 12px;
-  border: 1px solid #d2c7b9;
+  border: 1px solid var(--maroon-line);
   border-radius: 6px;
   background: var(--paper);
   color: var(--maroon-800);
@@ -1017,8 +1033,8 @@
 }
 
 .mosaic-labs-tabs > .mosaic-labs-source:hover {
-  border-color: #bda99b;
-  background: #efe5da;
+  border-color: var(--line-strong);
+  background: var(--gold-soft);
   color: var(--maroon-900);
 }
 
@@ -1030,7 +1046,7 @@
 
 .labs-intro {
   min-height: 456px;
-  border-bottom-color: #d7cec1;
+  border-bottom-color: var(--gold-line);
 }
 
 .labs-intro-copy {
@@ -1076,7 +1092,7 @@
   display: grid;
   overflow: hidden;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
+  border-radius: var(--tile-radius);
   background: var(--paper);
 }
 
@@ -1128,7 +1144,7 @@
 }
 
 .labs-matrix-badge.is-live {
-  border-color: #b3d2c1;
+  border-color: var(--green-line);
   background: var(--green-soft);
   color: var(--green);
 }
@@ -1182,6 +1198,19 @@
   margin-left: 14px;
   color: var(--ink-soft);
   font-weight: 400;
+}
+
+.labs-ranking-reading > p {
+  max-width: 75ch;
+  margin: 12px 0 0;
+  padding: 0 var(--labs-panel-padding);
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  line-height: 1.6;
+}
+
+.labs-ranking-reading > p:last-child {
+  padding-bottom: 18px;
 }
 
 .labs-ranking-guide > li {
@@ -1290,9 +1319,9 @@
   width: 100%;
   min-height: 44px;
   min-width: 0;
-  padding: 0 12px;
-  border: 1px solid #cdbfae;
-  border-radius: 6px;
+  padding: 0 18px;
+  border: 1px solid var(--maroon-line);
+  border-radius: 999px;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--sans);
@@ -1311,9 +1340,9 @@
 .retrieval-query-field input {
   width: 100%;
   min-height: 44px;
-  padding: 0 12px;
-  border: 1px solid #cdbfae;
-  border-radius: 6px;
+  padding: 0 18px;
+  border: 1px solid var(--maroon-line);
+  border-radius: 999px;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--sans);
@@ -1403,7 +1432,7 @@
   left: 0;
   min-width: 300px;
   background: var(--paper-warm);
-  box-shadow: 8px 0 12px -13px rgb(47 41 36 / 74%);
+  box-shadow: 8px 0 12px -13px rgb(0 0 0 / 74%);
 }
 
 /* Each heading selects its retriever: the cells below highlight and the query
@@ -1474,7 +1503,7 @@
 /* One tbody per result: the ranks on the first row, the reason for them on the
    second, so the reason cannot drift away from the numbers it explains. */
 .labs-matrix-table tbody {
-  border-bottom: 1px solid #eee6da;
+  border-bottom: 1px solid var(--gold-soft);
 }
 
 .labs-matrix-table tbody:hover {
@@ -1494,7 +1523,7 @@
   gap: 12px;
   padding: 13px 14px 4px;
   background: var(--paper);
-  box-shadow: 8px 0 12px -13px rgb(47 41 36 / 74%);
+  box-shadow: 8px 0 12px -13px rgb(0 0 0 / 74%);
   font-weight: 400;
 }
 
@@ -1583,7 +1612,7 @@
 
 .labs-matrix-cell.is-focused {
   background: var(--maroon-50);
-  box-shadow: inset 1px 0 0 #e4d3b8, inset -1px 0 0 #e4d3b8;
+  box-shadow: inset 1px 0 0 rgb(0 0 0 / 14%), inset -1px 0 0 rgb(0 0 0 / 14%);
 }
 
 .labs-matrix-move {
@@ -1605,7 +1634,7 @@
 .labs-matrix-arrow {
   transform: rotate(-90deg);
   vertical-align: -1px;
-  color: #a89e94;
+  color: var(--line-strong);
 }
 
 .labs-matrix-delta {
@@ -1626,7 +1655,7 @@
 
 .labs-matrix-delta.fell {
   background: var(--gold-soft);
-  color: #8b6832;
+  color: var(--gold);
 }
 
 .labs-matrix-delta.held {
@@ -1665,19 +1694,19 @@
 
 .labs-matrix-why li.lexical,
 .labs-matrix-why li.identity {
-  border-color: #b3d2c1;
+  border-color: var(--green-line);
   background: var(--green-soft);
-  color: #1f5b40;
+  color: var(--green);
 }
 
 .labs-matrix-why li.fuzzy {
-  border-color: #d9c9a8;
+  border-color: var(--gold-line);
   background: var(--gold-soft);
-  color: #7d5621;
+  color: var(--gold-deep);
 }
 
 .labs-matrix-why li.semantic {
-  border-color: #d5cabb;
+  border-color: var(--gold-line);
   background: var(--paper-warm);
   color: var(--ink-soft);
 }
@@ -1724,7 +1753,7 @@
 .labs-ranking-empty > svg {
   flex: none;
   margin-top: 2px;
-  color: #8b7768;
+  color: var(--ink-soft);
 }
 
 .labs-ranking-empty > div {
@@ -1808,7 +1837,7 @@
   padding: 11px 18px;
   border: 1px solid var(--line-strong);
   border-radius: 14px;
-  background: rgb(255 254 250 / 96%);
+  background: color-mix(in srgb, var(--paper-strong) 96%, transparent);
   backdrop-filter: blur(12px);
 }
 
@@ -1943,9 +1972,9 @@
 .hnsw-ab {
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--tile-radius);
   background: var(--paper);
-  box-shadow: 0 16px 42px rgb(73 43 33 / 7%);
+  box-shadow: 0 16px 42px rgb(0 0 0 / 7%);
 }
 
 .hnsw-live > header,
@@ -2012,7 +2041,7 @@
   align-items: center;
   padding: 0 10px;
   border: 1px solid;
-  border-radius: 5px;
+  border-radius: 999px;
   font-size: var(--labs-micro);
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -2021,21 +2050,21 @@
 }
 
 .hnsw-evidence-badge.live {
-  border-color: #9bb8a8;
+  border-color: var(--line-strong);
   background: var(--green-soft);
-  color: #285742;
+  color: var(--green);
 }
 
 .hnsw-evidence-badge.measured {
-  border-color: #a9848b;
+  border-color: var(--line-strong);
   background: var(--maroon-100);
   color: var(--maroon-800);
 }
 
 .hnsw-evidence-badge.projected {
-  border-color: #d6bd91;
+  border-color: var(--danger-line);
   background: var(--gold-soft);
-  color: #76501d;
+  color: var(--gold-deep);
 }
 
 .hnsw-live-facts {
@@ -2104,7 +2133,7 @@
 
 .hnsw-live > footer > svg {
   flex: 0 0 auto;
-  color: #0f6b63;
+  color: var(--green);
 }
 
 .hnsw-live > footer.blocked > svg,
@@ -2155,7 +2184,7 @@
 .hnsw-production > div {
   display: grid;
   margin-top: 26px;
-  border-top: 1px solid #d8ccbf;
+  border-top: 1px solid var(--gold-line);
 }
 
 .hnsw-production article {
@@ -2164,7 +2193,7 @@
   gap: 18px;
   align-items: start;
   padding: 19px 2px;
-  border-bottom: 1px solid #d8ccbf;
+  border-bottom: 1px solid var(--gold-line);
 }
 
 .hnsw-production article svg {
@@ -2324,14 +2353,14 @@
   0%,
   100% {
     box-shadow:
-      0 11px 24px rgb(16 5 8 / 30%),
-      0 0 0 0 rgb(235 197 127 / 0%);
+      0 11px 24px rgb(0 0 0 / 30%),
+      0 0 0 0 rgb(0 0 0 / 0%);
   }
 
   50% {
     box-shadow:
-      0 13px 28px rgb(16 5 8 / 35%),
-      0 0 0 5px rgb(235 197 127 / 12%);
+      0 13px 28px rgb(0 0 0 / 35%),
+      0 0 0 5px rgb(0 0 0 / 12%);
   }
 }
 
@@ -2410,7 +2439,7 @@
   display: block;
   min-height: 0;
   overflow: visible;
-  border-bottom-color: #d7cec1;
+  border-bottom-color: var(--gold-line);
 }
 
 .labs-intro-copy {
@@ -2475,7 +2504,7 @@
     height: 44px;
     padding: 0;
     place-items: center;
-    border: 1px solid rgb(92 75 62 / 22%);
+    border: 1px solid var(--line);
     border-radius: 50%;
     background: var(--paper);
     color: var(--maroon-900);

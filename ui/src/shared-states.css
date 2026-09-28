@@ -9,7 +9,7 @@
   margin: 22px 0;
   border: 1px dashed var(--line-strong);
   border-radius: 14px;
-  background: rgb(255 255 255 / 58%);
+  background: color-mix(in srgb, var(--paper-strong) 58%, transparent);
   color: var(--ink-soft);
   font-size: 12px;
 }
@@ -40,7 +40,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
-  box-shadow: 0 4px 14px rgb(55 36 25 / 4%);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 4%);
 }
 
 .retrieval-run-feedback {
@@ -57,10 +57,10 @@
 .retrieval-run-feedback.error {
   flex: 1 1 460px;
   padding: 7px 8px 7px 12px;
-  border: 1px solid #d6aaa5;
+  border: 1px solid var(--maroon-line);
   border-radius: 6px;
   background: var(--maroon-50);
-  color: #8c3037;
+  color: var(--maroon-700);
 }
 
 .retrieval-run-feedback.error > span {
@@ -79,7 +79,7 @@
 .retrieval-run-comparison {
   margin-bottom: 24px;
   overflow: hidden;
-  border: 1px solid #dcd1c3;
+  border: 1px solid var(--gold-line);
   border-radius: 8px;
   background: var(--canvas);
 }
@@ -107,7 +107,7 @@
 
 .retrieval-run-comparison > header > p {
   margin: 0;
-  color: #766d65;
+  color: var(--ink-soft);
   font-size: var(--labs-micro);
   line-height: 1.45;
 }
@@ -154,7 +154,7 @@
 
 .retrieval-run-comparison dd {
   margin: 0;
-  color: #362b27;
+  color: var(--maroon-900);
   font-family: var(--mono);
   font-size: var(--labs-detail);
   font-weight: 600;
@@ -175,7 +175,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--paper);
-  box-shadow: 0 1px 3px rgb(72 48 31 / 5%);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 5%);
 }
 
 /* Three figures now, not five: "Results shown" and "Requested top-k" repeated the
@@ -261,7 +261,7 @@
 
 .lab-diagnostics-status.disabled,
 .lab-diagnostics-status.unavailable {
-  color: #8a5a1f;
+  color: var(--gold);
 }
 
 @media (max-width: 1180px) {
@@ -323,14 +323,14 @@
 }
 
 .code-block {
-  /* Dark panel, so the maroon ring would be invisible on its toolbar. */
-  --focus: #f6ece7;
+  /* The panel is --ink, so the ring takes the page canvas to stay visible in both themes. */
+  --focus: var(--canvas);
 
   max-width: 100%;
   overflow: hidden;
   border: 1px solid var(--ink-soft);
   border-radius: 10px;
-  background: #211d1c;
+  background: var(--ink);
   color: var(--paper-warm);
 }
 
@@ -341,25 +341,25 @@
   justify-content: space-between;
   padding: 0 8px 0 13px;
   border-bottom: 1px solid var(--ink-soft);
-  background: #2c2725;
-  color: #c9bbb5;
+  background: var(--ink);
+  color: var(--maroon-line);
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.04em;
 }
 
 .code-toolbar .icon-button {
-  border-color: #5a4e4b;
+  border-color: var(--ink-soft);
   color: var(--paper-warm);
 }
 
 .code-toolbar .icon-button:hover {
-  background: #443b38;
+  background: var(--gold-deep);
 }
 
 .code-copy-error {
   margin: 10px 14px 0;
-  color: #ffccc5;
+  color: var(--gold-line);
   font-size: 11px;
   line-height: 1.45;
 }

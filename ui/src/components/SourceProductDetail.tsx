@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowRight, ChevronDown, ExternalLink, Heart, Sparkles, Star
 import { useState } from "react";
 import { Link } from "wouter";
 import { useCommerce } from "../commerce";
-import { formatAttributeLabel, formatAttributeValue, formatPrice, leafCategory } from "../format";
+import { formatAttributeLabel, formatAttributeValue, formatPrice, leafCategory, specFacts } from "../format";
 import { productImage } from "../media";
 import type { ProductDetail, ProductSummary } from "../types";
 import { ProductCard } from "./ProductCard";
@@ -43,10 +43,16 @@ export function SourceProductDetail({
   const [fullTitle, setFullTitle] = useState(false);
   const saved = isFavorite(product.product_id);
   const attributes = Object.entries(product.attributes);
-  const facts = attributes.filter(([key, value]) => (
-    !["brand", "manufacturer", "best sellers rank", "date first available"].includes(key.toLowerCase())
-    && value != null && typeof value !== "object" && String(value).length < 100
-  )).slice(0, 4);
+  const specs = specFacts(product.specs);
+  // Typed specs lead when the listing states them; otherwise the first short raw details stand in.
+  const facts = specs.length
+    ? specs.slice(0, 4).map(({ key, label, value, quote }) => ({ key, label, value, quote }))
+    : attributes.filter(([key, value]) => (
+      !["brand", "manufacturer", "best sellers rank", "date first available"].includes(key.toLowerCase())
+      && value != null && typeof value !== "object" && String(value).length < 100
+    )).slice(0, 4).map(([key, value]) => ({
+      key, label: formatAttributeLabel(key), value: formatAttributeValue(value, key), quote: undefined as string | undefined,
+    }));
   const features = product.source_features ?? [];
   const source = product.sources[0];
   const category = leafCategory(product.category_path);
@@ -92,7 +98,7 @@ export function SourceProductDetail({
           ) : null}
           {facts.length ? (
             <dl className="source-detail-facts">
-              {facts.map(([key, value]) => <div key={key}><dt>{formatAttributeLabel(key)}</dt><dd>{formatAttributeValue(value, key)}</dd></div>)}
+              {facts.map((fact) => <div key={fact.key} title={fact.quote ? `From the listing: ${fact.quote}` : undefined}><dt>{fact.label}</dt><dd>{fact.value}</dd></div>)}
             </dl>
           ) : null}
           <div className="source-detail-actions">
@@ -115,7 +121,19 @@ export function SourceProductDetail({
         <details>
           <summary><span>Specifications</span><ChevronDown size={18} /></summary>
           <div className="source-detail-content">
-            {attributes.length ? <dl className="source-specifications">{attributes.map(([key, value]) => <div key={key}><dt>{formatAttributeLabel(key)}</dt><dd>{formatAttributeValue(value, key)}</dd></div>)}</dl> : <p>No specifications were included in this listing.</p>}
+            {specs.length ? (
+              <dl className="source-specifications source-key-specs" aria-label="Key specifications">
+                {specs.map((spec) => (
+                  <div key={spec.key}>
+                    <dt>{spec.label}</dt>
+                    <dd>{spec.value}<q className="source-spec-quote">{spec.quote}</q></dd>
+                  </div>
+                ))}
+              </dl>
+            ) : null}
+            {specs.length && attributes.length ? <h3 className="source-specifications-heading">All listing details</h3> : null}
+            {attributes.length ? <dl className="source-specifications">{attributes.map(([key, value]) => <div key={key}><dt>{formatAttributeLabel(key)}</dt><dd>{formatAttributeValue(value, key)}</dd></div>)}</dl> : null}
+            {!attributes.length && !specs.length ? <p>No specifications were included in this listing.</p> : null}
           </div>
         </details>
         <details>

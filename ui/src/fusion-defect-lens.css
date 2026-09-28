@@ -64,18 +64,43 @@
   font-size: var(--labs-micro);
 }
 
+/* A receipt line, not a table cell: label, a dotted leader, then the figure it
+   prices out. The leader is the row's own ::after rather than a third DOM node,
+   ordered between the label and the value so no element has to report a rank
+   or a contribution twice. */
 .labs-fusion-defect .labs-rrf-table td > b,
 .labs-fusion-defect .labs-rrf-table td > em {
   display: flex;
-  gap: 10px;
-  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
   line-height: 1.7;
 }
 
+/* Only a row with an actual figure gets a leader; a plain "not found" em has
+   no `--fusion-value` to point at and stays a single line with nothing to lead
+   toward. */
+.labs-fusion-defect .labs-rrf-table td > b:has(.labs-fusion-value)::after,
+.labs-fusion-defect .labs-rrf-table td > em:has(.labs-fusion-value)::after {
+  content: "";
+  order: 2;
+  flex: 1 1 auto;
+  min-width: 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px dotted var(--line-strong);
+}
+
 .labs-fusion-defect .labs-fusion-value-label {
+  order: 1;
+  flex: 0 0 auto;
   font-family: var(--sans);
   font-size: var(--labs-micro);
   font-weight: 400;
+}
+
+.labs-fusion-defect .labs-fusion-value {
+  order: 3;
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
 }
 
 .labs-fusion-defect .labs-fusion-column-groups th {

@@ -6,8 +6,7 @@ export interface LabStatesResult {
   /**
    * Null before the first read settles, and again once a new one has started.
    *
-   * `LabRail` and `WorkshopProgress` both render this as "not checked" rather
-   * than guessing a verdict, which is why a failed read (see `failed` below)
+   * `LabRail` renders this as "not checked" rather than guessing a verdict, which is why a failed read (see `failed` below)
    * also clears it instead of leaving a stale value on screen.
    */
   labStates: LabStateRecord[] | null;
@@ -28,10 +27,9 @@ export interface LabStatesResult {
  *
  * Cheap and side-effect free on the service side too: it reads marker blocks
  * off disk and asks Aurora what two functions currently contain, spending no
- * retrieval. `LabRail` re-reads it after a new run or a completion proof, and
- * `WorkshopProgress` reads it once on mount; `refreshKey` is what tells the two
- * apart. Changing it starts a new read the same way a changed `missionId` used
- * to before this was shared -- callers that need both fold them into one key.
+ * retrieval. `LabRail` re-reads it after a new run or a completion proof by
+ * changing `refreshKey`, which starts a new read the same way a changed
+ * `missionId` does -- callers that need both fold them into one key.
  *
  * The `active` flag, not a request-version counter, is what guards against a
  * StrictMode double-invoke or an unmount racing a slow read: this hook only

@@ -79,7 +79,7 @@
 .mosaic-lab-mission-body code {
   display: block;
   overflow: hidden;
-  color: #78675d;
+  color: var(--ink-soft);
   font-family: var(--sans);
   font-size: 10px;
   line-height: 1.45;
@@ -232,7 +232,7 @@
   flex: 0 0 auto;
   border-radius: 50%;
   background: var(--maroon-700);
-  box-shadow: 0 0 0 0 rgb(115 39 53 / 40%);
+  box-shadow: 0 0 0 0 rgb(0 0 0 / 40%);
   animation: agent-pulse 1.6s ease-out infinite;
 }
 
@@ -280,7 +280,7 @@
 .agent-progress-surface li.active > span {
   border-color: var(--maroon-700);
   background: var(--maroon-700);
-  box-shadow: 0 0 0 4px rgb(115 39 53 / 10%);
+  box-shadow: 0 0 0 4px rgb(0 0 0 / 10%);
 }
 
 .agent-progress-surface li.complete > span {
@@ -341,11 +341,11 @@
 
 @keyframes agent-pulse {
   70% {
-    box-shadow: 0 0 0 8px rgb(115 39 53 / 0%);
+    box-shadow: 0 0 0 8px rgb(0 0 0 / 0%);
   }
 
   100% {
-    box-shadow: 0 0 0 0 rgb(115 39 53 / 0%);
+    box-shadow: 0 0 0 0 rgb(0 0 0 / 0%);
   }
 }
 

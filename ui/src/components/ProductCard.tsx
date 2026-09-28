@@ -3,10 +3,11 @@ import "../reviewed-examples.css";
 import { Check, Heart, ShoppingBag, Star } from "lucide-react";
 import { Link } from "wouter";
 import { cartQuantityLimit, useCommerce } from "../commerce";
-import { formatAvailability, formatPrice, isPurchasable, leafCategory } from "../format";
+import { formatAvailability, formatPrice, isPurchasable, leafCategory, specFacts } from "../format";
 import { shopDescription } from "../shopCopy";
 import { productDetailHref } from "../navigation";
 import { productImage, productImageLabel } from "../media";
+import { ProductReceiptBody } from "./ProductReceipt";
 import { FINAL_LABEL, FUSED_LABEL, armLabel } from "../retrievalLanguage";
 import type { ProductSummary } from "../types";
 
@@ -133,34 +134,7 @@ export function ProductCard({
               <summary aria-label={`Why ${product.model} is a match`}>
                 Why this match
               </summary>
-              <dl>
-                {signals.fts.rank ? (
-                  <div>
-                    <dt>{armLabel.fts}</dt>
-                    <dd>#{signals.fts.rank}</dd>
-                  </div>
-                ) : null}
-                {signals.trigram.rank ? (
-                  <div>
-                    <dt>{armLabel.trigram}</dt>
-                    <dd>#{signals.trigram.rank}</dd>
-                  </div>
-                ) : null}
-                {signals.semantic.rank ? (
-                  <div>
-                    <dt>{armLabel.semantic}</dt>
-                    <dd>#{signals.semantic.rank}</dd>
-                  </div>
-                ) : null}
-                <div>
-                  <dt>{FUSED_LABEL}</dt>
-                  <dd>#{signals.pre_rerank_rank}</dd>
-                </div>
-                <div>
-                  <dt>{FINAL_LABEL}</dt>
-                  <dd>#{signals.final_rank}</dd>
-                </div>
-              </dl>
+              <ProductReceiptBody product={product} />
             </details>
           ) : null}
           <div className="shop-card-footer">
@@ -278,7 +252,10 @@ export function ProductCard({
           </div>
         ) : null}
         <dl className="attribute-list">
-          {topAttributes(product.attributes).map((attribute) => (
+          {(product.specs && Object.keys(product.specs).length
+            ? specFacts(product.specs, 2)
+            : topAttributes(product.attributes)
+          ).map((attribute) => (
             <div key={attribute.label}>
               <dt>{attribute.label}</dt>
               <dd>{attribute.value}</dd>

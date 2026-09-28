@@ -113,9 +113,8 @@ function ProofEvidence({ proof }: { proof: CompletionProofResponse }) {
  * `service/lab_proof.py` fails a lab whose source still holds the broken block
  * or whose database is stale *regardless* of the checks, so the taught
  * "repaired the file, never re-applied it" case arrives here as FAIL with
- * every check green and nothing under it to act on. `isLabRepaired` is the
- * same repaired/not-repaired boolean `WorkshopProgress` reads for its status
- * chip; this only adds which of the two causes to name.
+ * every check green and nothing under it to act on. `isLabRepaired` decides
+ * repaired or not; this only adds which of the two causes to name.
  */
 function failureReason(proof: CompletionProofResponse): string | null {
   if (isLabRepaired(proof)) return null;

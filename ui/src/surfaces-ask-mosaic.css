@@ -25,7 +25,7 @@
   padding: 13px 16px;
   border: 0;
   border-radius: 8px;
-  background: #ece5dc;
+  background: var(--surface-muted);
 }
 
 /*
@@ -41,7 +41,7 @@
 .ask-mosaic-request-copy > span {
   display: block;
   margin-bottom: 4px;
-  color: var(--gold);
+  color: var(--maroon-800);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -63,7 +63,7 @@
   z-index: 3;
   padding: 13px 18px 18px;
   border-top: 0;
-  background: linear-gradient(0deg, var(--paper-warm) 76%, rgb(247 243 236 / 0%));
+  background: linear-gradient(0deg, var(--paper-warm) 76%, color-mix(in srgb, var(--maroon-50) 0%, transparent));
   box-shadow: none;
 }
 
@@ -96,10 +96,10 @@
 .ask-mosaic-composer .search-composer {
   min-width: 0;
   min-height: 54px;
-  border-color: rgb(92 75 62 / 18%);
+  border-color: var(--line-strong);
   border-radius: 999px;
   background: var(--paper);
-  box-shadow: 0 10px 30px rgb(48 37 28 / 10%);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 10%);
 }
 
 /* Filled, unlike the ghost "Search" button on the Shop bar: inside the panel
@@ -327,11 +327,14 @@
   margin-top: 9px;
 }
 
+/* The written recommendation is the reasoning stage's own deliverable, so its
+   rule and eyebrow carry that stage's colour, like the retrieve/rank dots on
+   the ranking receipt below. */
 .ask-mosaic-answer {
   margin-top: 18px;
   padding: 18px 4px 2px;
   border: 0;
-  border-top: 1px solid var(--gold);
+  border-top: 1px solid var(--reason);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
@@ -342,7 +345,7 @@
   align-items: center;
   gap: 7px;
   margin: 0 0 11px;
-  color: var(--gold);
+  color: var(--reason);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -464,7 +467,7 @@
 .ask-mosaic-criteria {
   margin-top: 18px;
   padding: 12px 15px 14px;
-  border: 1px solid rgb(92 75 62 / 12%);
+  border: 1px solid var(--line-strong);
   border-radius: 6px;
   background: var(--paper);
 }
@@ -490,7 +493,7 @@
 
 .ask-mosaic-criteria li {
   padding: 4px 10px;
-  border: 1px solid rgb(103 24 37 / 16%);
+  border: 1px solid color-mix(in srgb, var(--maroon-800) 16%, transparent);
   border-radius: 999px;
   background: var(--maroon-100);
   color: var(--maroon-900);
@@ -529,10 +532,10 @@
   gap: 7px 12px;
   align-items: start;
   padding: 11px 12px 11px 11px;
-  border: 1px solid rgb(92 75 62 / 12%);
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
   background: var(--paper);
-  box-shadow: 0 9px 26px rgb(48 37 28 / 8%);
+  box-shadow: 0 9px 26px rgb(0 0 0 / 8%);
   text-align: left;
   transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
@@ -543,6 +546,9 @@
   border-color: var(--maroon-700);
 }
 
+/* The plate itself (a light ground behind the cut-out photo) is world.css's
+   sitewide `.ask-mosaic-shortlist-media` rule, `!important` and shared with
+   every other product photo in the app; this only sizes the frame. */
 .ask-mosaic-shortlist-media {
   position: relative;
   display: block;
@@ -552,7 +558,6 @@
   overflow: hidden;
   grid-area: media;
   border-radius: 8px;
-  background: var(--paper-warm);
 }
 
 .ask-mosaic-shortlist-media img {
@@ -571,10 +576,10 @@
   width: 26px;
   height: 26px;
   place-items: center;
-  border: 2px solid rgb(255 253 248 / 88%);
+  border: 2px solid color-mix(in srgb, var(--paper-strong) 88%, transparent);
   border-radius: 50%;
   background: var(--maroon-950);
-  box-shadow: 0 4px 14px rgb(43 13 19 / 34%);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 34%);
   color: var(--paper-strong);
   font-family: var(--sans);
   font-size: 11px;
@@ -642,8 +647,8 @@
   margin-bottom: 1px;
   padding: 3px 8px;
   border-radius: 999px;
-  background: var(--gold-soft);
-  color: var(--gold);
+  background: var(--maroon-100);
+  color: var(--maroon-900);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -692,7 +697,7 @@
  */
 .ask-mosaic-compare-scroll {
   overflow-x: auto;
-  border: 1px solid rgb(92 75 62 / 12%);
+  border: 1px solid var(--line-strong);
   border-radius: 14px;
   background: var(--paper);
 }
@@ -742,7 +747,7 @@
 .ask-mosaic-compare thead th small {
   display: block;
   margin-bottom: 3px;
-  color: var(--gold);
+  color: var(--maroon-800);
   font-size: 11px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -760,12 +765,12 @@
 /* Olive, the colour this panel already uses for a step that passed. Maroon is
    the brand accent and reads as a warning next to a table of prices. */
 .ask-mosaic-compare .leader {
-  background: rgb(113 131 75 / 9%);
+  background: color-mix(in srgb, var(--ink-soft) 9%, transparent);
   color: var(--ink);
 }
 
 .ask-mosaic-compare thead th.leader {
-  background: rgb(113 131 75 / 15%);
+  background: color-mix(in srgb, var(--ink-soft) 15%, transparent);
   box-shadow: inset 0 2px 0 var(--green);
 }
 
@@ -887,44 +892,80 @@
   white-space: nowrap;
 }
 
+/*
+ * A receipt, not a stat grid: one line per signal, a dotted leader running
+ * from its label to its value, exactly like the per-product receipt card
+ * (world.css `.product-receipt-card`). The first three rows are what the three
+ * retrieve arms found; everything from the fused position on is what ranking
+ * did with it, so each row's dot names its stage the same way that card's does.
+ */
 .ask-mosaic-ranking dl {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1px;
   margin: 0;
-  padding-top: 1px;
+  padding: 2px 0;
   border-top: 1px solid var(--line);
-  background: var(--line);
-}
-
-/* Six or seven rows on a two-column track: an odd last row spans both columns
-   so the hairline grid never shows an empty half-cell. */
-.ask-mosaic-ranking dl > div:last-child:nth-child(odd) {
-  grid-column: 1 / -1;
-}
-
-.ask-mosaic-ranking dl > div {
-  display: grid;
-  gap: 4px;
-  padding: 11px 13px;
   background: var(--paper);
 }
 
+.ask-mosaic-ranking dl > div {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 9px 14px 9px 26px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ask-mosaic-ranking dl > div:last-child {
+  border-bottom: 0;
+}
+
+.ask-mosaic-ranking dl > div::before {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  width: 6px;
+  height: 6px;
+  margin-top: -3px;
+  border-radius: 50%;
+  background: var(--retrieve);
+  content: "";
+}
+
+.ask-mosaic-ranking dl > div:nth-child(n + 4)::before {
+  background: var(--rank);
+}
+
 .ask-mosaic-ranking dt {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: baseline;
+  gap: 8px;
   color: var(--ink-soft);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
+.ask-mosaic-ranking dt::after {
+  flex: 1 1 auto;
+  min-width: 10px;
+  border-bottom: 1.5px dotted var(--line-strong);
+  content: "";
+  transform: translateY(-3px);
+}
+
 .ask-mosaic-ranking dd {
+  flex: 0 0 auto;
   margin: 0;
   color: var(--ink);
   font-family: var(--mono);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .ask-mosaic-receipt summary {
@@ -969,10 +1010,27 @@
   border-bottom: 0;
 }
 
-.ask-mosaic-evidence li > span,
 .ask-mosaic-activity li > span {
   color: var(--maroon-700);
   font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The prose points back to these with the same `[n]`, so the marker reads as a
+   reference into the evidence record rather than a plain step count: a small
+   chip in the link colour, the way any other reference to a specific record
+   would read. */
+.ask-mosaic-evidence li > span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--link) 14%, var(--paper));
+  color: var(--link);
+  font-family: var(--sans);
   font-size: 12px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;

@@ -28,18 +28,20 @@ const SHEETS = [
   "discover.css",
   "playground.css",
   "inspector.css",
+  "world.css",
 ] as const;
 
 /** Custom properties components set with inline style; the sheets only read them. */
 const SET_FROM_COMPONENTS = new Set(["--labs-rail-height", "--low", "--high", "--sweep"]);
 
 /**
- * Raw hex literals still standing outside the palette block, after the pass
- * mapped 437 onto tokens. A ratchet: lower it when a pass retires more, never
- * raise it. A new literal fails with the line it landed on, and the fix is a
- * token from `:root`, or a new role there when none fits.
+ * Raw hex literals standing outside the palette and theme blocks. The
+ * 2026-09-28 light and dark pass mapped the last 242 onto tokens, because a
+ * literal cannot follow the theme. A ratchet at zero: a new literal fails with
+ * the line it landed on, and the fix is a token from `:root`, or a new role
+ * there (with its dark value) when none fits.
  */
-const HEX_LITERAL_CEILING = 252;
+const HEX_LITERAL_CEILING = 0;
 
 const HEX = /#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b/g;
 const TOKEN_DEFINITION = /^\s*(--[a-z0-9-]+):\s*(.+?);/;

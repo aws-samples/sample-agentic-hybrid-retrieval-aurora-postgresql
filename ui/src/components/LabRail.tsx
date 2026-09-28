@@ -195,6 +195,7 @@ export function LabRail({ missionId, refreshKey = "" }: {
           <li key={entry.stage}>
             <a
               aria-current={entry.stage === currentStage ? "location" : undefined}
+              data-stage={entry.stage}
               href={`#labs-stage-${entry.stage}`}
             >
               {entry.label}

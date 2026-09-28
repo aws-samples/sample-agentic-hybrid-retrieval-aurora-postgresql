@@ -11,7 +11,6 @@ import { SearchTimingDetails } from "../components/RetrievalDiagnosticsStrip";
 import { KeepInMind } from "../components/KeepInMind";
 import { ProductAnswer } from "../components/ProductAnswer";
 import { PipelineOverviewSections, RankOverview, RetrieveOverview } from "../components/PipelineOverview";
-import { WorkshopProgress } from "../components/WorkshopProgress";
 import { formatPriceCompact } from "../format";
 import { mosaicLabManifest, pipelineRequests } from "../labMissions";
 import { SourceComparison } from "../components/SourceComparison";
@@ -42,7 +41,7 @@ function PipelineColumn({ stage, state, number, title, description, expanded, on
   state: ColumnState;
   expanded: boolean; onInspect: () => void; children: ReactNode; details: ReactNode;
 }) {
-  return <section className="inspector-column" data-state={state} id={`inspect-${stage}`} aria-current={state === "active" ? "step" : undefined} aria-labelledby={`inspect-${stage}-title`}>
+  return <section className="inspector-column" data-stage={stage} data-state={state} id={`inspect-${stage}`} aria-current={state === "active" ? "step" : undefined} aria-labelledby={`inspect-${stage}-title`}>
     <header><span className="inspector-step-number">{number}</span><h2 id={`inspect-${stage}-title`}>{title}</h2>{state !== "idle" ? <span className="inspector-stage-state" role="status" aria-label={`${title}: ${state === "active" ? "working" : state === "complete" ? "done" : state === "failed" ? "stopped" : state === "blocked" ? "not reached" : "waiting"}`}>{state === "active" ? <LoaderCircle className="spin" size={15} aria-hidden="true" /> : state === "complete" ? <Check size={15} aria-hidden="true" /> : null}{state === "active" ? "Working" : state === "complete" ? "Done" : state === "failed" ? "Stopped" : state === "blocked" ? "Not reached" : "Waiting"}</span> : null}<p>{description}</p></header>
     <div className="inspector-column-body">{children}</div>
     <button id={`inspect-${stage}-button`} type="button" className="inspector-inspect-button" aria-expanded={expanded} aria-controls={`inspect-${stage}-details`} onClick={onInspect}>{stage === "retrieve" ? "Search details" : stage === "rank" ? "Why the order changed" : "Answer and sources"}<ChevronDown size={16} aria-hidden="true" /></button>
@@ -246,7 +245,6 @@ function PipelineInspector() {
   return <div className="page pipeline-inspector pipeline-overview">
     <MosaicLabsTabs active="retrieval" />
     <div className="inspector-intro"><MosaicLabsMasthead title={<>Behind a <span className="inspector-title-emphasis">better answer.</span></>} deck="Find eligible products. Establish their order. Check the sources to help Alex decide." /></div>
-    <WorkshopProgress />
     <nav className="inspector-request-choices" aria-label="Alex’s requests">{requestGroups.map((group) => <div key={group.label} role="group" aria-label={group.label}><span className="inspector-request-group-label" aria-hidden="true">{group.label}</span>{group.requests.map((request) => <button key={request.id} type="button" aria-pressed={!params.has("q") && selectedRequest?.id === request.id} onClick={() => setParams(new URLSearchParams({ scene: request.id }))}>{request.label}</button>)}</div>)}</nav>
     <section className="inspector-request" aria-label="Pipeline request">
       <img className="inspector-alex" src="/assets/images/mosaic/alex-headshot-v1.jpg" alt="Alex, Mosaic’s example shopper" width={128} height={128} />

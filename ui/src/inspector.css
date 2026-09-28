@@ -100,88 +100,7 @@
   align-items: center;
   padding: 28px 32px;
   background: var(--surface-muted);
-  border-radius: 12px;
-}
-
-.workshop-entry {
-  display: grid;
-  gap: 16px;
-  margin-bottom: 28px;
-  padding: 24px 28px;
-  background: var(--surface-muted);
-  border: 1px solid var(--line-strong);
-  border-radius: 12px;
-}
-.workshop-entry-kicker {
-  display: block;
-  margin-bottom: 6px;
-  color: var(--maroon-800);
-  font-size: var(--labs-micro);
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-.workshop-entry-copy h2 {
-  margin: 0;
-  font-family: var(--display);
-  font-size: var(--labs-h3);
-  font-weight: 500;
-}
-.workshop-entry-copy p {
-  max-width: 65ch;
-  margin: 8px 0 0;
-  color: var(--ink-soft);
-  font-size: var(--labs-body);
-  line-height: 1.6;
-}
-.workshop-entry-status {
-  margin: 8px 0 0;
-  color: var(--ink-soft);
-  font-size: var(--labs-detail);
-}
-.workshop-entry-labs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-/* The <li> stays a real flex item -- not `display: contents` -- so the list
-   semantics some browser and assistive-technology combinations drop under
-   `contents` survive. */
-.workshop-entry-labs li { display: flex; }
-.workshop-entry-labs a {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 48px;
-  padding: 8px 16px 8px 8px;
-  background: var(--paper-strong);
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
-  color: var(--ink);
-}
-.workshop-entry-labs a:hover { border-color: var(--maroon-800); background: var(--maroon-50); }
-.workshop-entry-labs a[aria-current="step"] { border-color: var(--maroon-800); background: var(--maroon-50); }
-.workshop-entry-lab-number {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--maroon-900);
-  color: var(--paper-strong);
-  font-size: var(--labs-detail);
-  font-weight: 600;
-}
-.workshop-entry-lab-copy { display: flex; flex-direction: column; }
-.workshop-entry-lab-copy strong { font-size: var(--labs-body); font-weight: 500; }
-.workshop-entry-lab-copy small { color: var(--ink-soft); font-size: var(--labs-detail); }
-.workshop-entry-labs li[data-status="repaired"] .workshop-entry-lab-copy small { color: var(--green); }
-.workshop-entry-cta {
-  justify-self: start;
+  border-radius: var(--tile-radius);
 }
 
 .inspector-request-choices { display: grid; gap: 2px 0; margin-bottom: 20px; }
@@ -201,7 +120,7 @@
 .inspector-request a:hover { text-decoration: underline; text-underline-offset: 4px; }
 
 .inspector-run-status { min-height: 48px; padding: 12px 0; color: var(--ink-soft); font-size: 14px; }
-.inspector-error { padding: 16px 20px; border: 1px solid var(--maroon-800); border-radius: 8px; color: var(--maroon-800); overflow-wrap: anywhere; }
+.inspector-error { padding: 16px 20px; border: 1px solid var(--maroon-800); border-radius: var(--tile-radius); color: var(--maroon-800); overflow-wrap: anywhere; }
 
 .inspector-section {
   display: grid;
@@ -212,6 +131,15 @@
   scroll-margin-top: 120px;
 }
 .inspector-step-number { color: var(--ink-soft); font-size: 15px; }
+
+/* The pipeline's three columns keep their stage colour on the step number
+   regardless of state, so Retrieve/Rank/Reason read as one fixed sequence
+   rather than only lighting up while a run is active. `InspectorSection`'s
+   own numbered steps are a different, unstaged sequence and keep the neutral
+   rule above. */
+.inspector-column[data-stage="retrieve"] .inspector-step-number { color: var(--retrieve); }
+.inspector-column[data-stage="rank"] .inspector-step-number { color: var(--gold); }
+.inspector-column[data-stage="reason"] .inspector-step-number { color: var(--reason); }
 .inspector-section h2 { margin: 8px 0 12px; font-family: var(--display); font-size: 40px; font-weight: 400; line-height: 1.1; letter-spacing: -0.02em; }
 .inspector-section > header p { margin: 0; max-width: 32ch; color: var(--ink-soft); }
 .inspector-section-body { min-width: 0; }
@@ -225,11 +153,11 @@
 .inspector-mechanism { color: var(--maroon-800); font-size: 13px; }
 .inspector-note { color: var(--ink-soft); font-size: 14px; }
 .inspector-keep { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; align-items: baseline; margin: 18px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
-.inspector-keep-label { color: var(--maroon-800); font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+.inspector-keep-label { color: var(--ink); font-size: 14px; font-weight: 600; white-space: nowrap; }
 .inspector-keep p { margin: 0; max-width: 60ch; color: var(--ink); font-size: 14px; line-height: 1.55; }
 .inspector-keep code { font-family: var(--mono); font-size: 13px; }
 @media (max-width: 640px) { .inspector-keep { grid-template-columns: 1fr; } }
-.inspector-waiting { padding: 20px 24px; border-radius: 8px; background: var(--surface-muted); color: var(--ink-soft); font-size: 15px; }
+.inspector-waiting { padding: 20px 24px; border-radius: var(--tile-radius); background: var(--surface-muted); color: var(--ink-soft); font-size: 15px; }
 .inspector-reason-status { display: flex; align-items: center; gap: 12px; }
 .inspector-reason-status svg { flex-shrink: 0; color: var(--maroon-800); }
 @media (prefers-reduced-motion: reduce) {
@@ -327,6 +255,22 @@
 .inspector-column[data-state="active"] h2 { color: var(--maroon-800); }
 .inspector-stage-state { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-soft); font-size: 12px; font-weight: 400; white-space: nowrap; }
 .inspector-column[data-state="active"] .inspector-stage-state { color: var(--maroon-800); }
+
+/* Retrieve, Rank and Reason keep the retrieval palette: the active column's
+   top edge and heading pick up its own stage colour instead of plain ink.
+   `--gold`, not `--rank` (`--gold-bright`): the bright value measures under
+   3:1 against this canvas in light mode, `--gold` clears it. Declared after
+   the `[data-state="active"]` rules above so a working column still reads in
+   its stage colour rather than resetting to ink. */
+.inspector-column[data-stage="retrieve"][data-state="active"]::before { background: var(--retrieve); }
+.inspector-column[data-stage="retrieve"][data-state="active"] h2,
+.inspector-column[data-stage="retrieve"][data-state="active"] .inspector-stage-state { color: var(--retrieve); }
+.inspector-column[data-stage="rank"][data-state="active"]::before { background: var(--gold); }
+.inspector-column[data-stage="rank"][data-state="active"] h2,
+.inspector-column[data-stage="rank"][data-state="active"] .inspector-stage-state { color: var(--gold); }
+.inspector-column[data-stage="reason"][data-state="active"]::before { background: var(--reason); }
+.inspector-column[data-stage="reason"][data-state="active"] h2,
+.inspector-column[data-stage="reason"][data-state="active"] .inspector-stage-state { color: var(--reason); }
 .inspector-column > header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px 12px; align-items: baseline; margin-bottom: 24px; }
 .inspector-column h2 { margin: 0; font-family: var(--display); font-size: 36px; font-weight: 500; line-height: 1.2; letter-spacing: -0.015em; }
 .inspector-column > header p { grid-column: 1 / -1; min-height: 3.2em; margin: 0; font-size: 14px; line-height: 1.6; color: var(--ink-soft); }

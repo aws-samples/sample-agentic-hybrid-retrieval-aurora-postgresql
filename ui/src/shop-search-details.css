@@ -6,7 +6,7 @@
   border-radius: 999px; background: var(--canvas); color: var(--ink-soft); font-size: 13px;
 }
 .shop-view-switch button[aria-pressed="true"], .shop-details-order button[aria-pressed="true"] {
-  border-color: var(--maroon-800); background: var(--maroon-800); color: white;
+  border-color: var(--action); background: var(--action); color: var(--action-ink);
 }
 .shop-search-details {
   min-width: 0; align-self: start; padding: 24px; border: 1px solid var(--line);

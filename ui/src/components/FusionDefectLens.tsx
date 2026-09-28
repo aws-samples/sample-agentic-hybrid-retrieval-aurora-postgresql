@@ -27,9 +27,13 @@ function armCells(candidate: FusionDefectCandidate) {
       ) : (
         <>
           <span>Source rank #{arm.sourceRank}</span>
-          <b><span className="labs-fusion-value-label">Correct</span> {arm.expected?.toFixed(6)}</b>
+          <b>
+            <span className="labs-fusion-value-label">Correct</span>
+            <span className="labs-fusion-value">{arm.expected?.toFixed(6)}</span>
+          </b>
           <em className={arm.sourceRank === 1 ? "" : "labs-rrf-mismatch"}>
-            <span className="labs-fusion-value-label">Collapsed</span> {arm.broken?.toFixed(6)}
+            <span className="labs-fusion-value-label">Collapsed</span>
+            <span className="labs-fusion-value">{arm.broken?.toFixed(6)}</span>
           </em>
         </>
       )}

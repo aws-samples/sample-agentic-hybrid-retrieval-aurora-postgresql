@@ -37,17 +37,10 @@ They are checkpoints inside three labs, not participant navigation.
 
 ### Where the required path lives in the shipped app
 
-Opening the Playground (the header's third link, `/labs/retrieval` with no
-saved Shop search) leads with a "Required workshop path" panel: the three lab
-titles in order, each one's live repair state from `GET /api/labs/state`, and
-one action into the lab that still needs it. The service reports only whether a
-lab's file and database are currently repaired, not whether anyone has touched
-them yet, so the wording never claims that distinction: "Open Lab 1" while
-nothing in the sequence is repaired, "Continue Lab 2" or "Continue Lab 3" once
-at least one lab is, "Review your labs" once all three are. Alex's other
-requests below it, Scale & HNSW, and Session & Memory are named as optional in
-the same panel; a participant can finish the required sequence without opening
-any of them. Inside a lab, `LabRail` keeps the same three facts in view: which
+The Workshop Studio guide names the three required labs and the order to take
+them; the Playground landing (`/labs/retrieval` with no saved Shop search) opens
+on Alex's requests. Scale & HNSW and Session & Memory stay optional; a
+participant can finish the required sequence without opening either. Inside a lab, `LabRail` keeps the same three facts in view: which
 lab, which of its four stages (Retrieve, Rank, Reason, Prove) is current, and
 the file the repair belongs in. Completion is never inferred from having
 visited a page -- only `POST /api/labs/{id}/proof`, run from the Prove stage,

@@ -1162,8 +1162,6 @@ export function CatalogPage() {
               </p>
             </header>
 
-            {!activeQuery && !agentOpen ? <RetrievalJourney /> : null}
-
             <div className="shop-console">
               <div className="shop-console-search">
                 <section className="shop-search" aria-label="Mosaic product search">
@@ -1224,6 +1222,8 @@ export function CatalogPage() {
               )}
             </div>
 
+            {/* The search is the primary action, so it comes before the story. */}
+            {!activeQuery && !agentOpen ? <RetrievalJourney /> : null}
           </div>
 
           <div className="shop-controls">
