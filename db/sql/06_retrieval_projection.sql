@@ -220,7 +220,7 @@ BEGIN
         -- Invalidate the vector when the text it was computed from changes.
         -- Without this the projection carries an embedding of the OLD text: a
         -- silently stale vector, which is worse than a missing one because
-        -- `scripts/embed_catalog.py` only selects rows where `embedding IS NULL`
+        -- `scripts/catalog/embed_catalog.py` only selects rows where `embedding IS NULL`
         -- or the model key differs, so nothing would ever recompute it. The
         -- deleted `sql/02_upsert_from_stage.sql` did this and the port dropped
         -- it; restored in Phase 2 Unit E.

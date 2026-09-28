@@ -4,8 +4,8 @@ import copy
 
 import pytest
 
-from scripts.prepare_real_catalog import canonical, sha256
-from scripts.verify_reviewed_examples import verify_product
+from scripts.catalog.prepare_real_catalog import canonical, sha256
+from scripts.evals.verify_reviewed_examples import verify_product
 
 
 def records():

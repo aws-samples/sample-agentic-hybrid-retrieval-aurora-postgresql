@@ -325,7 +325,7 @@ def test_rank_delta_sign_means_moved_up():
 
 def test_weights_come_from_the_yaml_not_from_literals():
     """No coefficient may be invented in code; the tripwire enforces the rest."""
-    from scripts.retrieval_profile import load_profile
+    from scripts.checks.retrieval_profile import load_profile
 
     profile = load_profile()
     result = service(IDENTICAL_UNWEIGHTED, IDENTICAL_WEIGHTED).compare(
@@ -453,7 +453,7 @@ def test_fusion_mode_is_not_an_environment_setting(monkeypatch):
 
 def test_the_profile_carries_the_weights_and_threshold_for_both_functions():
     """Both fusion calls must read one profile, or an arm's pool can diverge."""
-    from scripts.retrieval_profile import load_profile
+    from scripts.checks.retrieval_profile import load_profile
     from service.models import RetrievalProfile
 
     profile, yaml_profile = RetrievalProfile(), load_profile()

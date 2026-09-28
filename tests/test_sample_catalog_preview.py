@@ -7,8 +7,8 @@ import json
 
 import pytest
 
-from scripts.prepare_real_catalog import canonical, embedding_text, sha256
-from scripts.sample_catalog_preview import (
+from scripts.catalog.prepare_real_catalog import canonical, embedding_text, sha256
+from scripts.catalog.sample_catalog_preview import (
     build_preview,
     category,
     diverse_sample,

@@ -26,7 +26,7 @@ async function labsSurfaces(): Promise<Array<[string, string]>> {
 
 describe("Mosaic Labs surfaces", () => {
   it("all render the shared masthead", async () => {
-    // The Labs type scale is enforced by scripts/labs_type_scale.py, which finds
+    // The Labs type scale is enforced by scripts/checks/labs_type_scale.py, which finds
     // rules by selector prefix (`labs-`, `lab-`, `hnsw-`, `mosaic-studio-`,
     // `mosaic-labs-`). A page that draws its own header with a generic class is
     // invisible to it: RetrievalLabPage used `.page-header`, whose h1 is 52px at

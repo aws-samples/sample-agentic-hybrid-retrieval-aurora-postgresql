@@ -181,7 +181,7 @@ DROP FUNCTION IF EXISTS mosaic_search.query_term_coverage(text, real);
 -- similarity_floor is MEASURED, on the live 500,000-product cluster on
 -- 2026-09-04, against the 12 cases in data/evals/coverage_queries.jsonl. The
 -- default here must equal coverage.similarity_floor in db/config/retrieval.yaml;
--- scripts/config_tripwire.py fails the build if it does not.
+-- scripts/checks/config_tripwire.py fails the build if it does not.
 --
 -- Every floor in (0.231, 0.250] classifies all 12 cases as the set expects.
 -- 0.24 is the midpoint, which is the value that maximises the smaller of the two

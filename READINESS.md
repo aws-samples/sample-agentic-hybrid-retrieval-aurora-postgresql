@@ -27,7 +27,7 @@ make validate
 make validate-db
 make validate-config
 make validate-release-workflow
-uv run python scripts/mission_contract.py --shape-only
+uv run python scripts/checks/mission_contract.py --shape-only
 PYTHONPATH=. uv run pytest -q
 make mcp-install && make mcp-test && make mcp-wheel-smoke
 cd ui && npm test && npm run build && npm audit --audit-level=moderate
@@ -99,12 +99,12 @@ extensions below do not add a required lab.
 - **AgentCore Memory** uses four built-in strategies: semantic facts, user
   preferences, session summaries and episodes with actor-scoped reflections.
   All four can supply agent context. Readiness requires the expected active
-  strategies and namespaces. Bootstrap's `scripts/verify_session_memory.py`
+  strategies and namespaces. Bootstrap's `scripts/checks/verify_session_memory.py`
   checks event storage, strategy reads, recall and actor isolation through the
   runtime API. Extraction and a memory-assisted answer still need a live rehearsal.
 - **Gateway documentation** in `docs/mcp-interoperability.md` explains why
   transport authentication does not replace the application authorization boundary.
-  `scripts/tool_contracts.py --check` checks local contracts;
+  `scripts/checks/tool_contracts.py --check` checks local contracts;
   `make verify-agent` exercises the deployed Gateway and Aurora tools.
 - **AgentCore Observability** (`service/telemetry.py`,
   `service/telemetry_contract.py`, `docs/telemetry-contract.md`) is off unless
@@ -143,7 +143,7 @@ Release readiness requires one recorded Workshop Studio rehearsal:
 
 1. deploy the nested templates in a clean environment;
 2. synchronize the three `real-catalog/real-catalog.tar.gz.part-*` objects;
-3. join and verify them with `scripts/real_catalog_cache.py join`;
+3. join and verify them with `scripts/catalog/real_catalog_cache.py join`;
 4. confirm the joined archive's SHA-256 matches `db/config/real-catalog-cache.json`;
 5. run `make db-bootstrap-schema` (shared schemas and lab tables, no synthetic rows);
 6. save `build/bootstrap-timings.tsv` and restore with

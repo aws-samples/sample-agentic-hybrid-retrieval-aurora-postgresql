@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from scripts import prepare_real_catalog as catalog
+from scripts.catalog import prepare_real_catalog as catalog
 
 
 @pytest.fixture

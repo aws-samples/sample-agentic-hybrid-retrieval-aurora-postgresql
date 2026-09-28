@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from scripts import benchmark_hardware as hardware
+from scripts.bench import benchmark_hardware as hardware
 from service.hnsw_presets import FILTER_PRESETS
 
 

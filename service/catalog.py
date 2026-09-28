@@ -70,7 +70,7 @@ def _load_photographed_product_ids() -> tuple[int, ...]:
         raise RuntimeError(
             "Product media rule failed: data/media/asset_labels_200.json must "
             "declare a non-empty products list. Rebuild it with "
-            "scripts/build_asset_labels.py."
+            "scripts/media/build_asset_labels.py."
         )
     unavailable = [
         row.get("product_id") for row in products if not row.get("catalog_installed")

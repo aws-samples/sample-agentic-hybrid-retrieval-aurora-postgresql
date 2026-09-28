@@ -213,7 +213,7 @@ no source file differed from revision `3f5a379` (first build) or `7bea92f`
 - [Full plans, one per operating point](../data/benchmarks/hnsw_measured.plans.json)
 - [Anchor set](../data/benchmarks/hnsw_anchors.json)
 - [Quantized index build report](../data/benchmarks/hnsw_quantized_build.json)
-- [Runner](../scripts/benchmark_mosaic_scale.py), [seeder](../scripts/seed_exact_neighbors.py), [anchor selection](../scripts/select_hnsw_anchors.py), [quantized index builder](../scripts/build_quantized_indexes.py)
+- [Runner](../scripts/bench/benchmark_mosaic_scale.py), [seeder](../scripts/bench/seed_exact_neighbors.py), [anchor selection](../scripts/bench/select_hnsw_anchors.py), [quantized index builder](../scripts/bench/build_quantized_indexes.py)
 - [Legacy catalog artifact, 20 September 2026](../data/benchmarks/archive/hnsw_measured_2026-09-20_legacy-catalog.json)
   and [17 August 2026](../data/benchmarks/archive/hnsw_measured_2026-08-17.json),
   kept for their earlier catalog, representation and hardware comparisons.

@@ -100,7 +100,7 @@ served at `GET /api/tools?surface=skill`. The table below is generated from it.
 
 ## Operations
 
-<!-- BEGIN GENERATED CONTRACT: scripts/tool_contracts.py -->
+<!-- BEGIN GENERATED CONTRACT: scripts/checks/tool_contracts.py -->
 
 | Operation | Capability | Route | Required arguments | Read-only |
 |---|---|---|---|---|

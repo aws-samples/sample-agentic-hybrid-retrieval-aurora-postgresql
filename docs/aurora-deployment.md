@@ -20,7 +20,7 @@ SELECT extversion FROM pg_extension WHERE extname = 'vector';
 2. Download and verify the three pinned catalog parts and the two real-catalog
    vocabulary files before database writes.
 3. Run `make db-bootstrap-schema` to install the shared schemas and lab tables.
-4. Run `scripts/real_catalog_cache.py restore` to load the 553,911 real source
+4. Run `scripts/catalog/real_catalog_cache.py restore` to load the 553,911 real source
    products, saved Cohere embeddings and real evidence, and build the search indexes.
 5. Select the dataset from `db/config/real-catalog-cache.json` through
    `MOSAIC_CATALOG_DATASET`, then run `make db-verify-bootstrap`.

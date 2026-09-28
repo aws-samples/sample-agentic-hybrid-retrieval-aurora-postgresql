@@ -1,6 +1,6 @@
 """The coverage set must stay separable from the frozen canonical scorecard.
 
-`scripts.score_evals.query_set_sha256` hashes the whole of
+`scripts.evals.score_evals.query_set_sha256` hashes the whole of
 `canonical_queries.jsonl`, and `canonical_scorecard.json` validates that hash.
 Adding abstention cases there would red the release gate with no way to regreen
 it short of a live re-measurement, so this set lives in its own file and these
@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from scripts.retrieval_profile import load_profile
+from scripts.checks.retrieval_profile import load_profile
 
 ROOT = Path(__file__).resolve().parents[1]
 COVERAGE_QUERIES = ROOT / "data" / "evals" / "coverage_queries.jsonl"

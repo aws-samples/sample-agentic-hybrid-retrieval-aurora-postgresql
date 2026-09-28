@@ -1,6 +1,6 @@
 """Contract-level invariants that hold across labs and supporting checks.
 
-Shape and budget rules live in `scripts/mission_contract.py` (the gate) so there
+Shape and budget rules live in `scripts/checks/mission_contract.py` (the gate) so there
 is one implementation; these checks cover what the gate deliberately does not —
 that all entries resolve against the curated demo products the UI and eval
 harness read, and that the lists together still cover every stage the

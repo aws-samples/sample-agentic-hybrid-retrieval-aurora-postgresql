@@ -1,6 +1,6 @@
 import pytest
 
-from scripts.run_eval import validate_query_contract
+from scripts.evals.run_eval import validate_query_contract
 
 
 class _NoDatabaseCall:

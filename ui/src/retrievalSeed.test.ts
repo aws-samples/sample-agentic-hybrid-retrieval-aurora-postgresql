@@ -42,7 +42,7 @@ function contributionsAgree(signals: ResultSignals, rrfK: number): true | string
 
 describe("committed retrieval seed run", () => {
   it("names the producer that wrote it, and that producer exists", () => {
-    expect(seedProvenance.producer).toBe("scripts/capture_retrieval_seed.py");
+    expect(seedProvenance.producer).toBe("scripts/evals/capture_retrieval_seed.py");
     expect(existsSync(repo + seedProvenance.producer)).toBe(true);
     expect(seedProvenance.captured_at).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(seedProvenance.search_event_id).toBe(seedRun.search_event_id);

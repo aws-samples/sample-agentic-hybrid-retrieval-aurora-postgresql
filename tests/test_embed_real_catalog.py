@@ -13,8 +13,8 @@ import numpy as np
 import pytest
 from botocore.exceptions import ClientError
 
-from scripts import embed_real_catalog as embed
-from scripts.prepare_real_catalog import canonical, embedding_text, sha256
+from scripts.catalog import embed_real_catalog as embed
+from scripts.catalog.prepare_real_catalog import canonical, embedding_text, sha256
 
 
 def record(identity="A"):

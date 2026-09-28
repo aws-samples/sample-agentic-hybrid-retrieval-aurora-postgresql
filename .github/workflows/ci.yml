@@ -77,7 +77,7 @@ jobs:
         # The live target checks need Aurora and run fail-closed in the
         # aurora-release job; without --shape-only this step would print a
         # CANNOT VERIFY warning to stderr and still exit 0.
-        run: uv run python scripts/mission_contract.py --shape-only
+        run: uv run python scripts/checks/mission_contract.py --shape-only
 
       - name: Run the Python test suite
         if: ${{ !cancelled() && steps.python-deps.outcome == 'success' }}

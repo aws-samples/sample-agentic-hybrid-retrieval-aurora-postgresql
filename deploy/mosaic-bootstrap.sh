@@ -465,7 +465,7 @@ for canary_attempt in 1 2 3; do
   sleep 30
 done
 if [ -z "$EMBED_CANARY_OK" ]; then
-  echo "Cohere Embed v4 (us.cohere.embed-v4:0) is not invocable in this account; enable the model or run scripts/check_model_access.py"
+  echo "Cohere Embed v4 (us.cohere.embed-v4:0) is not invocable in this account; enable the model or run scripts/checks/check_model_access.py"
 fi
 test -n "$EMBED_CANARY_OK"
 
@@ -486,7 +486,7 @@ for canary_attempt in 1 2 3; do
   sleep 30
 done
 if [ -z "$RERANK_CANARY_OK" ]; then
-  echo "Cohere Rerank v3.5 (cohere.rerank-v3-5:0) is not invocable in this account; enable the model or run scripts/check_model_access.py"
+  echo "Cohere Rerank v3.5 (cohere.rerank-v3-5:0) is not invocable in this account; enable the model or run scripts/checks/check_model_access.py"
 fi
 test -n "$RERANK_CANARY_OK"
 
@@ -825,11 +825,11 @@ network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc "
     --include 'vocabulary/mosaic_live_search.*.csv.gz' --only-show-errors
 "
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "
-  cd '$REPO' && uv run python scripts/real_catalog_cache.py join \
+  cd '$REPO' && uv run python scripts/catalog/real_catalog_cache.py join \
     --archive build/real-catalog-cache/real-catalog.tar.gz
 "
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "
-  cd '$REPO' && uv run python scripts/corpus_vocabulary.py verify \
+  cd '$REPO' && uv run python scripts/catalog/corpus_vocabulary.py verify \
     --directory build/real-catalog-cache/vocabulary --schema mosaic_live_search
 "
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "
@@ -840,7 +840,7 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   set +a
   export MOSAIC_VOCABULARY_CACHE_DIR=build/real-catalog-cache/vocabulary
   make db-bootstrap-schema
-  uv run python scripts/real_catalog_cache.py restore \
+  uv run python scripts/catalog/real_catalog_cache.py restore \
     --archive build/real-catalog-cache/real-catalog.tar.gz \
     --selection build/real-catalog \
     --report build/real-catalog-restore.json
@@ -851,22 +851,22 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   # The Performance page uses this catalog's exact neighbors and expression
   # indexes. Saved embeddings are reused; this makes no Bedrock calls.
   make db-seed-exact-neighbors
-  uv run python scripts/build_quantized_indexes.py \
+  uv run python scripts/bench/build_quantized_indexes.py \
     --workers 3 --maintenance-work-mem 2GB \
     --report build/quantized-index-build.json
   make check-exact-neighbors
   cat build/bootstrap-timings.tsv
   MISSION_GATE_REQUIRE_DB=1 DATABASE_URL=\"\$DATABASE_URL\" \
-    uv run python scripts/mission_contract.py
+    uv run python scripts/checks/mission_contract.py
   DATABASE_URL=\"\$DATABASE_URL\" \
-    uv run python scripts/run_eval.py \
+    uv run python scripts/evals/run_eval.py \
       --queries data/evals/canonical_queries.jsonl \
       --dataset-id \"\$MOSAIC_CATALOG_DATASET\" --validate-only
-  uv run python scripts/retrieval_profile.py --check
-  uv run python scripts/config_tripwire.py
-  uv run python scripts/tool_contracts.py --check
+  uv run python scripts/checks/retrieval_profile.py --check
+  uv run python scripts/checks/config_tripwire.py
+  uv run python scripts/checks/tool_contracts.py --check
   FUNCTION_CENSUS_REQUIRE_DB=1 DATABASE_URL=\"\$DATABASE_URL\" \
-    uv run python scripts/function_census.py
+    uv run python scripts/checks/function_census.py
   psql \"\$DATABASE_URL\" -X -v ON_ERROR_STOP=1 \
     -f db/sql/99_smoke_test.sql
 "
@@ -1191,7 +1191,7 @@ jq -e '
 # CloudFront viewer, so its Secure cookie cannot round-trip over loopback HTTP.
 # The proxy's readiness and origin-secret checks above still exercise ingress.
 (cd "$REPO" && MOSAIC_ORIGIN_VERIFY_SECRET="$ORIGIN_VERIFY_SECRET" \
-  .venv/bin/python scripts/verify_session_memory.py \
+  .venv/bin/python scripts/checks/verify_session_memory.py \
     --api http://127.0.0.1:8000 --memory-id "$MOSAIC_AGENTCORE_MEMORY_ID")
 
 printf '\n=== MOSAIC BOOTSTRAP GREEN ===\n'

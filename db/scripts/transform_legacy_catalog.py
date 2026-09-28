@@ -24,7 +24,7 @@ REPO = Path(__file__).resolve().parents[2]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-from scripts.catalog_overrides import apply_curated_override
+from scripts.catalog.catalog_overrides import apply_curated_override
 
 DOMAIN_MAP = {
     "consumer_electronics": "consumer_electronics",

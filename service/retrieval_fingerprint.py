@@ -1,7 +1,7 @@
 """Fingerprint the files that can move the canonical scorecard's numbers.
 
 `service/scorecard.py` used to gate on `artifact_revision == current_revision`.
-That equality can never hold: `scripts/score_evals.py` records
+That equality can never hold: `scripts/evals/score_evals.py` records
 `service.config._source_identity()`'s revision *before* the artifact it writes
 is committed, so committing the artifact always advances HEAD one commit past
 what was measured (proven in git history: the artifact recorded `0869073`, and
@@ -14,7 +14,7 @@ host is a shallow clone with no history to walk.
 
 What *is* available on a shallow clone is the files themselves, present even
 without history. This module hashes a frozen manifest of exactly the files
-that can change what `scripts/score_evals.py` measures, computed once at
+that can change what `scripts/evals/score_evals.py` measures, computed once at
 measurement time and again at serve time; a mismatch means "the served
 retrieval path or the scoring definition changed since this artifact was
 measured," which is the only claim the fingerprint needs to make.
@@ -26,19 +26,19 @@ Manifest, and why each entry earns its place
   arms call -- ``configure_hnsw`` lives in ``db/sql/``, and
   ``mosaic_search.search_hybrid_rrf`` in ``labs/lab1_retrieve/``.
 - ``db/config/retrieval.yaml``: the single source for candidate limits,
-  fusion k, weights, and HNSW tuning (``scripts.retrieval_profile``).
+  fusion k, weights, and HNSW tuning (``scripts.checks.retrieval_profile``).
 - ``service/retrieval.py``, ``service/rerank.py``, ``service/embeddings.py``,
   ``service/bedrock.py``, ``service/coverage.py``: the served retrieval, reranking, and
-  model-invocation path ``scripts/score_evals.py`` measures through
+  model-invocation path ``scripts/evals/score_evals.py`` measures through
   ``service.retrieval.get_retrieval_service``.
 - The selected real-catalog provider, original-source validation and catalog
   preparation scripts: they determine the identity, text and SQL used by the
   served path. Switching data sources cannot reuse an old measured result.
-- ``scripts/retrieval_profile.py``: resolves the yaml above into the profile
+- ``scripts/checks/retrieval_profile.py``: resolves the yaml above into the profile
   the service actually applies.
-- ``scripts/evaluate.py``: computes Recall, MRR, and nDCG. Editing the
+- ``scripts/evals/evaluate.py``: computes Recall, MRR, and nDCG. Editing the
   formula moves every number with no retrieval change at all.
-- ``scripts/eval_contract.py``: resolves mission-backed query text and
+- ``scripts/evals/eval_contract.py``: resolves mission-backed query text and
   filters into the scored query population (see the added file below).
 - ``data/evals/canonical_queries.jsonl``: carries the relevance judgments
   inline (a ``judgments`` key per row), covering both the query population
@@ -46,7 +46,7 @@ Manifest, and why each entry earns its place
 
 Added to the manifest specified by the request, and why
 ---------------------------------------------------------
-- ``data/evals/mosaic_labs_missions.json``: ``scripts/eval_contract.py``'s
+- ``data/evals/mosaic_labs_missions.json``: ``scripts/evals/eval_contract.py``'s
   ``load_evaluation_queries`` substitutes *this* file's ``query`` and
   ``filters`` into every mission-backed canonical query before scoring --
   measured at 8 of the 19 currently-scored ``product_retrieval`` queries
@@ -70,7 +70,7 @@ Deliberately excluded, and why
 - ``data/evals/canonical_scorecard.json``: emphatically excluded. Including
   it would recreate the exact off-by-one this module exists to kill -- the
   artifact would be hashing itself.
-- ``scripts/score_evals.py``: the measurement harness itself. Including it here
+- ``scripts/evals/score_evals.py``: the measurement harness itself. Including it here
   would move the fingerprint on harness refactors that touch no retrieval
   behavior, and worse, invalidate a paid measurement over a console-output
   change. It is **not uncovered** either: it is in both methodology manifests
@@ -79,7 +79,7 @@ Deliberately excluded, and why
 Methodology hashes: the same problem, one layer up
 ---------------------------------------------------
 Excluding the harness from the retrieval fingerprint left a real gap an audit
-found: ``scripts/score_evals.py`` assembles the artifact and selects the scored
+found: ``scripts/evals/score_evals.py`` assembles the artifact and selects the scored
 population, ``service/models.py`` defines the shape it is served in, and this
 module decides what counts as provenance at all. Editing any of them can change
 a published number while ``retrieval_fingerprint`` sits perfectly still.
@@ -90,10 +90,10 @@ tweak invalidates a billed run. Instead there are two narrower hashes, and
 retrieval quality never depends on ablation code:
 
 - ``scorecard_methodology_sha256`` covers ``service/models.py``,
-  ``scripts/score_evals.py``, ``scripts/run_eval.py``,
-  ``scripts/embed_catalog.py`` (the shared embedding helpers), and this file.
+  ``scripts/evals/score_evals.py``, ``scripts/evals/run_eval.py``,
+  ``scripts/catalog/embed_catalog.py`` (the shared embedding helpers), and this file.
 - ``ablation_methodology_sha256`` covers those five plus
-  ``scripts/ablation_evals.py``.
+  ``scripts/evals/ablation_evals.py``.
 
 So an ablation-only edit marks the ablation section pending and leaves canonical
 retrieval metrics attributed, while a change to the shared methodology marks both.
@@ -118,7 +118,7 @@ changes.
 
 The settings hash: what no file manifest can see
 -------------------------------------------------
-Every hash above is over *files*. `scripts/retrieval_profile._resolve` reads
+Every hash above is over *files*. `scripts/checks/retrieval_profile._resolve` reads
 the environment before the yaml -- ``RRF_K``, ``FTS_CANDIDATE_LIMIT``,
 ``TRIGRAM_CANDIDATE_LIMIT``, ``SEMANTIC_CANDIDATE_LIMIT``,
 ``RERANK_CANDIDATE_LIMIT`` and ``HNSW_EF_SEARCH`` all beat
@@ -135,7 +135,7 @@ the files that supply its defaults. Both sides of the gate call
 because a hash computed from two differently-constructed profiles would read
 "pending" forever.
 
-Two more of `scripts/retrieval_profile.BOUNDS`'s env-overridable settings are
+Two more of `scripts/checks/retrieval_profile.BOUNDS`'s env-overridable settings are
 outside this hash's domain entirely, because `RetrievalProfile` does not carry
 them as fields. ``VECTOR_DIM`` reaches Cohere as `output_dimension`
 (`service/embeddings.py`) and does not serve different results under an
@@ -152,7 +152,7 @@ and `authorized_limit` with the request's grant; both are properties of one
 call, not of the configuration. Hashing them would compare a request against a
 configuration and could never match. They stay covered: the artifact records
 the served profile verbatim under `retrieval_profile`, and
-`scripts.score_evals.verify_scorecard` pins that block field-for-field.
+`scripts.evals.score_evals.verify_scorecard` pins that block field-for-field.
 
 This module imports `service.models` for `RetrievalProfile`. That direction is
 load-bearing and must not reverse: `service.models` must never import
@@ -194,7 +194,7 @@ class RetrievalFingerprintError(RuntimeError):
     """The retrieval fingerprint cannot be computed as specified.
 
     Same class of failure as `service.config.ConfigurationError` and
-    `scripts.retrieval_profile.ProfileError`: refusing to produce a
+    `scripts.checks.retrieval_profile.ProfileError`: refusing to produce a
     fingerprint is the difference between a loud, legible failure and a
     fingerprint that silently omits a whole category of retrieval-defining
     files while still looking like a valid hash.
@@ -228,13 +228,13 @@ def _category_files(repo_root: Path) -> dict[str, tuple[Path, ...]]:
             repo_root / "service" / "staged_catalog.py",
         ),
         "scripts": (
-            repo_root / "scripts" / "retrieval_profile.py",
-            repo_root / "scripts" / "evaluate.py",
-            repo_root / "scripts" / "eval_contract.py",
-            repo_root / "scripts" / "fetch_catalog_metadata.py",
-            repo_root / "scripts" / "prepare_real_catalog.py",
-            repo_root / "scripts" / "prepare_staged_catalog_search.py",
-            repo_root / "scripts" / "prepare_live_catalog.py",
+            repo_root / "scripts" / "checks" / "retrieval_profile.py",
+            repo_root / "scripts" / "evals" / "evaluate.py",
+            repo_root / "scripts" / "evals" / "eval_contract.py",
+            repo_root / "scripts" / "catalog" / "fetch_catalog_metadata.py",
+            repo_root / "scripts" / "catalog" / "prepare_real_catalog.py",
+            repo_root / "scripts" / "catalog" / "prepare_staged_catalog_search.py",
+            repo_root / "scripts" / "catalog" / "prepare_live_catalog.py",
         ),
         "eval_data": (
             repo_root / "data" / "evals" / "canonical_queries.jsonl",
@@ -298,11 +298,11 @@ def manifest_files(repo_root: Path | None = None) -> list[Path]:
 #: opposed to what retrieval does. Repo-relative POSIX paths so the hash is
 #: independent of where the tree was cloned.
 SCORECARD_METHODOLOGY_FILES: tuple[str, ...] = (
-    "scripts/score_evals.py",
+    "scripts/evals/score_evals.py",
     "service/models.py",
     "service/retrieval_fingerprint.py",
-    "scripts/run_eval.py",
-    "scripts/embed_catalog.py",
+    "scripts/evals/run_eval.py",
+    "scripts/catalog/embed_catalog.py",
 )
 
 #: The ablation reuses every scorecard methodology input and adds its own
@@ -310,7 +310,7 @@ SCORECARD_METHODOLOGY_FILES: tuple[str, ...] = (
 #: superset relationship is asserted below so the two hashes cannot drift apart.
 ABLATION_METHODOLOGY_FILES: tuple[str, ...] = (
     *SCORECARD_METHODOLOGY_FILES,
-    "scripts/ablation_evals.py",
+    "scripts/evals/ablation_evals.py",
 )
 
 #: Independent witnesses, per house standards rule 7: literals, never
@@ -459,7 +459,7 @@ def compute_retrieval_settings_sha256(profile: Mapping[str, Any]) -> str:
 def compute_live_retrieval_settings_sha256() -> str:
     """The settings this process resolves right now, from the yaml and the env.
 
-    The one construction both sides of the gate use: `scripts/score_evals.py`
+    The one construction both sides of the gate use: `scripts/evals/score_evals.py`
     records it into the artifact at measurement time and `service/scorecard.py`
     recomputes it at serve time. Two call sites building the profile
     independently is exactly how this gate would come to read "pending"

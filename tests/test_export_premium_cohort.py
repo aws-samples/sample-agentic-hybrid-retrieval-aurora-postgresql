@@ -2,7 +2,7 @@ import csv
 import json
 from pathlib import Path
 
-from scripts.export_premium_cohort import export_cohort
+from scripts.catalog.export_premium_cohort import export_cohort
 
 
 def test_export_premium_cohort_renders_load_contract(tmp_path: Path):

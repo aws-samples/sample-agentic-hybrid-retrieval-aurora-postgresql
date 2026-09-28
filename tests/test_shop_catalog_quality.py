@@ -1,4 +1,4 @@
-from scripts.shop_catalog_quality import copy_violations
+from scripts.catalog.shop_catalog_quality import copy_violations
 
 
 def test_repeated_summary_names_both_products_and_the_fix():

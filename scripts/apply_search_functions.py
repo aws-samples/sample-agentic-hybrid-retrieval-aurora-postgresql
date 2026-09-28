@@ -10,8 +10,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from scripts.catalog.prepare_live_catalog import live_search_functions
 from scripts.lab_state import assert_reset_database
-from scripts.prepare_live_catalog import live_search_functions
 from service.catalog_runtime import active_dataset, search_schema
 from service.lab_validation_receipt import participant_sql_digest
 from service.search_sql import search_sql

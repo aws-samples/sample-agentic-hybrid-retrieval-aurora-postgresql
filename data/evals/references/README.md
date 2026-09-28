@@ -29,13 +29,13 @@ run against copies of the upstream files. File hashes and upstream URLs are
 saved inside the generated bundle.
 
 ```bash
-uv run --no-project --with pyarrow python scripts/prepare_reference_examples.py \
+uv run --no-project --with pyarrow python scripts/evals/prepare_reference_examples.py \
   --esci-products /path/to/shopping_queries_dataset_products.parquet \
   --esci-judgments /path/to/shopping_queries_dataset_examples.parquet \
   --wands-dir /path/to/WANDS/dataset
 
-uv run python scripts/verify_reviewed_examples.py --report .local/reviewed-products.json
-uv run python scripts/probe_reference_examples.py \
+uv run python scripts/evals/verify_reviewed_examples.py --report .local/reviewed-products.json
+uv run python scripts/evals/probe_reference_examples.py \
   --base-url http://127.0.0.1:8000 --report .local/reference-searches.json
 ```
 

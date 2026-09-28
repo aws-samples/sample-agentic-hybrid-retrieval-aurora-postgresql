@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from pgvector import Vector
 
-from scripts.embedding_cache import (
+from scripts.catalog.embedding_cache import (
     file_sha256,
     load_contract,
     load_manifest,
@@ -126,7 +126,7 @@ def _write_cache_fixture(tmp_path: Path) -> tuple[Path, Path]:
         content_hashes=content_hashes,
         embeddings=np.ones((2, 1024), dtype=np.float32),
     )
-    from scripts.embedding_cache import catalog_records
+    from scripts.catalog.embedding_cache import catalog_records
 
     catalog_digest = hashlib.sha256(
         catalog_records(product_ids, content_hashes)

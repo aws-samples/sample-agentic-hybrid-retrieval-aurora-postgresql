@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 from test_source_catalog import source_row
 
-from scripts.curate_shop_collection import eligible, select_group
-from scripts.prepare_real_catalog import source_image
+from scripts.catalog.curate_shop_collection import eligible, select_group
+from scripts.catalog.prepare_real_catalog import source_image
 
 
 def record(**changes):

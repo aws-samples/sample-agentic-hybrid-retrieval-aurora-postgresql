@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS mosaic_bench.exact_neighbor (
 
 COMMENT ON TABLE mosaic_bench.exact_neighbor IS
     'Precomputed exact top-k neighbours per anchor and filter preset. Written by '
-    'scripts/seed_exact_neighbors.py; read by the /api/hnsw instrument to compute '
+    'scripts/bench/seed_exact_neighbors.py; read by the /api/hnsw instrument to compute '
     'recall without re-running a 2.4-second sequential scan.';
 
 CREATE INDEX IF NOT EXISTS exact_neighbor_manifest_idx

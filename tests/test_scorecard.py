@@ -10,7 +10,7 @@ methodology hash matches the one this process resolves now, and the resolved
 retrieval settings the artifact recorded are the ones this process resolves
 now (environment variables beat `db/config/retrieval.yaml`, so no file hash
 can see them move). A strict revision equality is
-deliberately not part of this: `scripts/score_evals.py` records the source
+deliberately not part of this: `scripts/evals/score_evals.py` records the source
 revision *before* the artifact it writes is committed, so the artifact's
 revision is always one commit behind the revision that carries it, and that
 gate would read "pending" forever. Each clause gets its own red-at-birth
@@ -66,7 +66,7 @@ _MATCHING_METHODOLOGY = "m" * 64
 _MATCHING_ABLATION_METHODOLOGY = "n" * 64
 #: The resolved retrieval settings, which no file hash can see: environment
 #: overrides beat `db/config/retrieval.yaml` inside
-#: `scripts.retrieval_profile._resolve`. Distinct from every other fixture hash
+#: `scripts.checks.retrieval_profile._resolve`. Distinct from every other fixture hash
 #: so a clause reading the wrong field fails rather than matching by accident.
 _MATCHING_SETTINGS = "t" * 64
 
@@ -594,7 +594,7 @@ def test_golden_anchor_defaults_labels_to_none_when_the_artifact_lacks_them():
 
 def test_eligibility_fixture_count_comes_from_the_harnesss_own_filter():
     """Not a number retyped in this module: computed via the same
-    `hard_negative_ids` filter `scripts.score_evals.product_retrieval_queries`
+    `hard_negative_ids` filter `scripts.evals.score_evals.product_retrieval_queries`
     feeds into `validate_hard_negatives`."""
     scored = _scored_queries()
 
@@ -936,7 +936,7 @@ def test_no_pending_reason_offers_to_replay_historical_output():
 def test_ablation_methodology_mismatch_leaves_section_a_attributed():
     """Requirement 2, the whole reason there are two hashes.
 
-    Editing scripts/ablation_evals.py moves only the ablation hash. Section E
+    Editing scripts/evals/ablation_evals.py moves only the ablation hash. Section E
     must go pending while canonical retrieval metrics stay attributed -- an
     ablation harness edit is not a reason to unattribute a paid measurement.
     """
@@ -968,7 +968,7 @@ def test_shared_methodology_input_marks_both_sections_pending():
 
 # --- The live retrieval settings hash: the clause no file hash can carry ----
 #
-# `scripts.retrieval_profile._resolve` reads the environment before the yaml,
+# `scripts.checks.retrieval_profile._resolve` reads the environment before the yaml,
 # so `RRF_K=1` changes every served result while every fingerprinted file stays
 # byte-identical. Before this clause existed, that configuration could serve an
 # attributed scorecard.

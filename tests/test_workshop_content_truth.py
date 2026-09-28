@@ -79,7 +79,7 @@ def test_readme_hands_off_the_complete_participant_skill():
     assert "four-operation HTTP skill surface" in guide
     assert "three typed, catalog-read-only" in guide
     assert "not a standalone retrieval runtime" in guide
-    assert "uv run python scripts/tool_contracts.py --check" in guide
+    assert "uv run python scripts/checks/tool_contracts.py --check" in guide
 
 
 def test_prove_is_an_unnumbered_finale_not_a_fourth_lab():

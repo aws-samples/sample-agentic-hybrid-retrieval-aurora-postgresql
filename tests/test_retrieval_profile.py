@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.retrieval_profile import (
+from scripts.checks.retrieval_profile import (
     BOUNDS,
     RETRIEVAL_YAML,
     ProfileError,

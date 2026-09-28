@@ -15,7 +15,7 @@ import type { HnswEfPoint, HnswNeighbor, HnswProduct } from "./types";
 // Three measured points from data/benchmarks/hnsw_measured.json, as
 // [ef_search, server_ms, shared_hit_blocks, recall_at_k, estimated_total_cost].
 // Tuples rather than object literals because `ef_search: 10` reads as a declaration of
-// a retrieval number to scripts/config_tripwire.py, which cannot distinguish a fixture
+// a retrieval number to scripts/checks/config_tripwire.py, which cannot distinguish a fixture
 // from a served default and should not have to.
 const MEASURED_POINTS: Array<[number, number, number, number, number]> = [
   [10, 0.563, 514, 0.844, 1317.49],

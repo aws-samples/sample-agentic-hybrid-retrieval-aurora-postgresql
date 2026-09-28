@@ -62,7 +62,7 @@ See:
 
 - `data/premium_cohort_120.json`
 - `build/normalized/premium_cohort_120.csv` (written by
-  `scripts/export_premium_cohort.py`; `make db-load-cohort` loads it)
+  `scripts/catalog/export_premium_cohort.py`; `make db-load-cohort` loads it)
 - `docs/media-and-merchandising.md`
 
 ## Package structure
@@ -81,6 +81,23 @@ mosaic-data-models-aurora-v1/
 ```
 
 ## Installation order
+
+File numbers follow install order. `sql/install.sql` runs:
+
+| Files | What they create |
+|---|---|
+| `00`–`07` | Extensions, schemas and types, reference data, catalog, media, evidence, the retrieval projection and its indexes |
+| `08_search_channels.sql` | Shared filters, HNSW settings, and full-text, close-spelling and vector search |
+| `../../labs/lab2_rank/rrf_contribution.sql` | Lab 2's exercise: each channel's reciprocal rank fusion contribution |
+| `../../labs/lab1_retrieve/hybrid_search.sql` | Lab 1's exercise: hybrid search over the three channels |
+| `09_weighted_fusion.sql`, `10_evidence_search.sql` | Weighted fusion for comparison, and evidence search for citations |
+| `11`–`14` | Query coverage, agent audit, telemetry and the tool contract registry |
+
+Later steps run separately, in number order: `15` and `16` build the HNSW
+indexes once embeddings exist, `17` and `18` load a normalized catalog and its
+evidence, `19` loads the historical premium cohort, and `install_measurement.sql`
+adds the evaluation and benchmark tables in `20`–`22`. `98` and `99` are the
+bootstrap acceptance and smoke checks.
 
 The checked-in schema uses `vector(1024)` for the pinned Cohere Embed v4
 catalog. To use another embedding model and dimension, render a separate SQL
@@ -155,7 +172,7 @@ Do not overload one field for every retrieval stage.
 ## Validate the package
 
 ```bash
-python scripts/validate_package.py
+python scripts/checks/validate_package.py
 python -m unittest discover -s tests -v
 ```
 

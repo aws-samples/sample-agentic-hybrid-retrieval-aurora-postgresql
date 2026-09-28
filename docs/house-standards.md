@@ -27,8 +27,8 @@ run returned a full pool of 50 candidates and simply never contained its own
 target. A failure that says only "assertion failed" leaves the reader to
 reconstruct the author's intent.
 
-**How.** `explain(found, fix)` in `scripts/mission_contract.py` and
-`scripts/retrieval_profile.py`. Tests assert every message contains both halves,
+**How.** `explain(found, fix)` in `scripts/checks/mission_contract.py` and
+`scripts/checks/retrieval_profile.py`. Tests assert every message contains both halves,
 so the style cannot decay silently.
 
 ## 2. Every assertion declares a falsifier
@@ -56,7 +56,7 @@ calls, with the same setup. Never a reimplementation, and never a shortcut.
 
 **Two exemplars, both learned the hard way.**
 
-`mosaic_search.matches_filters` — `scripts/catalog_contract.py` reimplemented
+`mosaic_search.matches_filters` — `scripts/catalog/catalog_contract.py` reimplemented
 filter logic by hand and did not know about `max_price_cents`, `in_stock_only`,
 or the refurbished and sponsored exclusions the real SQL applies. Two missions
 shipped that could not pass, and the gate that existed to catch them was

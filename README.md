@@ -41,6 +41,10 @@ for you; the command checks deployed source identity and Gateway connectivity.
 | **2. Fuse, rerank, and inspect** | How did each search method contribute to the final order? | [`labs/lab2_rank/`](labs/lab2_rank/) |
 | **3. Build and deploy an agent** | Can your agent use SQL tools and answer with sources? | [`labs/lab3_reason/`](labs/lab3_reason/) |
 
+Each lab folder holds the one file you edit, a README with the task and
+commands, and `solution/` with the reference answer. When a lab starts, its
+marked blocks hold a `TODO(Lab n)` note that repeats the guide's contract.
+
 Use **Discover** to explore Alex's brief, **Shop** to search and compare products,
 and **Playground** to inspect search results, ranking, tool calls, and sources.
 Playground follows one request down the page: the first result on its own

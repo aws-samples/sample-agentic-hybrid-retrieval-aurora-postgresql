@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from scripts import benchmark_index_build as build
+from scripts.bench import benchmark_index_build as build
 
 
 class _Cursor:

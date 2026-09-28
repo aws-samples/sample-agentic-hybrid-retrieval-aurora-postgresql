@@ -22,7 +22,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from scripts.retrieval_profile import load_profile
+from scripts.checks.retrieval_profile import load_profile
 from service.catalog_runtime import search_schema
 from service.participant_commands import APPLY_SQL
 

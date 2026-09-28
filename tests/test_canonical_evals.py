@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.eval_contract import load_evaluation_queries
+from scripts.evals.eval_contract import load_evaluation_queries
 
 ROOT = Path(__file__).resolve().parents[1]
 QUERY_PATH = ROOT / "data/evals/canonical_queries.jsonl"

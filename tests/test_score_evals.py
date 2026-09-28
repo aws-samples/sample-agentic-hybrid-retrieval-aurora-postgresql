@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import psycopg
 import pytest
 
-from scripts.score_evals import (
+from scripts.evals.score_evals import (
     _read_results,
     _scorecard_only_revision_delta,
     _write_ranked_results,
@@ -233,14 +233,14 @@ def test_scorecard_rejects_invalid_source_before_aurora_work(
     message,
 ):
     monkeypatch.setattr(
-        "scripts.score_evals.get_settings",
+        "scripts.evals.score_evals.get_settings",
         lambda: SimpleNamespace(
             source_revision=revision,
             source_worktree_dirty=dirty,
         ),
     )
     monkeypatch.setattr(
-        "scripts.score_evals.connect",
+        "scripts.evals.score_evals.connect",
         lambda: pytest.fail("Aurora should not be queried before source validation"),
     )
 
@@ -258,7 +258,7 @@ def test_scorecard_requires_instance_class_before_aurora_work(
     tmp_path,
 ):
     monkeypatch.setattr(
-        "scripts.score_evals.get_settings",
+        "scripts.evals.score_evals.get_settings",
         lambda: SimpleNamespace(
             source_revision="a" * 40,
             source_worktree_dirty=False,
@@ -266,7 +266,7 @@ def test_scorecard_requires_instance_class_before_aurora_work(
         ),
     )
     monkeypatch.setattr(
-        "scripts.score_evals.connect",
+        "scripts.evals.score_evals.connect",
         lambda: pytest.fail(
             "Aurora should not be queried before provenance validation"
         ),
@@ -341,7 +341,7 @@ def test_scorecard_accepts_only_generated_release_artifacts_after_measurement(
         cwd=tmp_path,
         text=True,
     ).strip()
-    monkeypatch.setattr("scripts.score_evals.REPO", tmp_path)
+    monkeypatch.setattr("scripts.evals.score_evals.REPO", tmp_path)
 
     assert _scorecard_only_revision_delta(baseline_revision, measured_revision)
 
@@ -366,7 +366,7 @@ def test_scorecard_refuses_a_baseline_with_intervening_code_changes(monkeypatch)
     measured = scorecard()
     measured["source"]["revision"] = "c" * 40
     monkeypatch.setattr(
-        "scripts.score_evals._scorecard_only_revision_delta",
+        "scripts.evals.score_evals._scorecard_only_revision_delta",
         lambda baseline_revision, measured_revision: False,
     )
 
@@ -379,7 +379,7 @@ def test_scorecard_accepts_the_commit_that_only_records_the_baseline(monkeypatch
     measured = scorecard()
     measured["source"]["revision"] = "c" * 40
     monkeypatch.setattr(
-        "scripts.score_evals._scorecard_only_revision_delta",
+        "scripts.evals.score_evals._scorecard_only_revision_delta",
         lambda baseline_revision, measured_revision: True,
     )
 

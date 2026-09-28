@@ -4,7 +4,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_hnsw_benchmark_uses_the_production_configuration_and_persists_results():
-    source = (ROOT / "scripts" / "benchmark_hnsw.py").read_text(encoding="utf-8")
+    source = (ROOT / "scripts" / "bench" / "benchmark_hnsw.py").read_text(
+        encoding="utf-8"
+    )
 
     assert "configure_hnsw(" in source
     assert "search_schema()" in source
@@ -28,7 +30,7 @@ def test_hnsw_benchmark_schema_records_reproducibility_inputs():
 
 
 def test_recall_counts_only_ground_truth_overlap():
-    from scripts.benchmark_hnsw import recall_against_truth
+    from scripts.bench.benchmark_hnsw import recall_against_truth
 
     truth = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
 
@@ -43,20 +45,20 @@ def test_recall_divides_by_ground_truth_size_not_k():
     Dividing by k would report 0.6 and make the planner's correct decision to
     abandon HNSW at extreme selectivity look like a retrieval failure.
     """
-    from scripts.benchmark_hnsw import recall_against_truth
+    from scripts.bench.benchmark_hnsw import recall_against_truth
 
     assert recall_against_truth([1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6], k=10) == 1.0
 
 
 def test_recall_of_empty_ground_truth_is_zero_not_one():
     """No exact neighbours means nothing was found, not everything."""
-    from scripts.benchmark_hnsw import recall_against_truth
+    from scripts.bench.benchmark_hnsw import recall_against_truth
 
     assert recall_against_truth([], [], k=10) == 0.0
 
 
 def test_artifact_carries_provenance_and_derived_index_arithmetic():
-    from scripts.benchmark_hnsw import artifact_from_results
+    from scripts.bench.benchmark_hnsw import artifact_from_results
 
     artifact = artifact_from_results(
         provenance={"source_revision": "abc", "queries": 25, "k": 10},
@@ -88,7 +90,7 @@ def test_artifact_slowdown_factor_is_none_without_the_served_ef_point():
     Falling back to the fastest point would price the index at a recall nobody
     runs: 3,875x at the cheapest sweep point where the served point gives 805x.
     """
-    from scripts.benchmark_hnsw import artifact_from_results
+    from scripts.bench.benchmark_hnsw import artifact_from_results
 
     artifact = artifact_from_results(
         provenance={},
@@ -112,7 +114,9 @@ def test_the_exact_baseline_resets_its_planner_settings():
     which reports recall 1.0 — the best possible number — with latency 1,000x wrong.
     That shape was captured twice before this assertion existed.
     """
-    source = (ROOT / "scripts" / "benchmark_hnsw.py").read_text(encoding="utf-8")
+    source = (ROOT / "scripts" / "bench" / "benchmark_hnsw.py").read_text(
+        encoding="utf-8"
+    )
 
     assert "SET LOCAL enable_indexscan" not in source
     assert "SET LOCAL enable_bitmapscan" not in source
@@ -124,7 +128,9 @@ def test_the_seed_script_also_resets_its_planner_settings():
     """Harmless here — this script only ever wants exact scans — but relying on that
     is how the benchmark silently recorded sequential scans as ANN measurements.
     """
-    source = (ROOT / "scripts" / "seed_exact_neighbors.py").read_text(encoding="utf-8")
+    source = (ROOT / "scripts" / "bench" / "seed_exact_neighbors.py").read_text(
+        encoding="utf-8"
+    )
 
     assert 'connection.execute(f"SET LOCAL' not in source
     assert 'connection.execute(f"RESET {setting' in source
@@ -134,7 +140,7 @@ def test_an_ann_measurement_that_missed_the_index_is_refused():
     """A sequential scan wearing an ANN label must fail loudly, not be recorded."""
     import pytest
 
-    from scripts.benchmark_hnsw import _assert_used_the_index
+    from scripts.bench.benchmark_hnsw import _assert_used_the_index
 
     with pytest.raises(SystemExit) as raised:
         _assert_used_the_index(
@@ -147,7 +153,7 @@ def test_an_ann_measurement_that_missed_the_index_is_refused():
 
 
 def test_an_ann_measurement_on_the_hnsw_index_is_accepted():
-    from scripts.benchmark_hnsw import _assert_used_the_index
+    from scripts.bench.benchmark_hnsw import _assert_used_the_index
 
     _assert_used_the_index(
         {
@@ -163,7 +169,7 @@ def test_an_ann_measurement_on_the_wrong_index_is_refused():
     """Using *an* index is not the same as using the HNSW index."""
     import pytest
 
-    from scripts.benchmark_hnsw import _assert_used_the_index
+    from scripts.bench.benchmark_hnsw import _assert_used_the_index
 
     with pytest.raises(SystemExit):
         _assert_used_the_index(
@@ -178,7 +184,7 @@ def test_an_ann_measurement_on_the_wrong_index_is_refused():
 
 def test_slowdown_is_measured_against_the_served_ef_not_the_fastest():
     """3,875x at the cheapest sweep point flatters the index; 805x served is real."""
-    from scripts.benchmark_hnsw import artifact_from_results
+    from scripts.bench.benchmark_hnsw import artifact_from_results
 
     artifact = artifact_from_results(
         provenance={},
@@ -211,7 +217,7 @@ def test_a_re_measure_does_not_delete_sections_it_did_not_measure(tmp_path):
     """
     import json
 
-    from scripts.benchmark_hnsw import merge_preserving_unmeasured
+    from scripts.bench.benchmark_hnsw import merge_preserving_unmeasured
 
     existing = tmp_path / "hnsw_measured.json"
     existing.write_text(
@@ -237,7 +243,7 @@ def test_a_re_measure_does_not_delete_sections_it_did_not_measure(tmp_path):
 
 
 def test_a_first_run_carries_nothing_forward(tmp_path):
-    from scripts.benchmark_hnsw import merge_preserving_unmeasured
+    from scripts.bench.benchmark_hnsw import merge_preserving_unmeasured
 
     merged, carried = merge_preserving_unmeasured(
         {"kind": "measured"}, tmp_path / "absent.json"
@@ -249,7 +255,9 @@ def test_a_first_run_carries_nothing_forward(tmp_path):
 
 def test_the_write_path_reports_what_it_preserved():
     """Preserving silently is the same failure as deleting silently."""
-    source = (ROOT / "scripts" / "benchmark_hnsw.py").read_text(encoding="utf-8")
+    source = (ROOT / "scripts" / "bench" / "benchmark_hnsw.py").read_text(
+        encoding="utf-8"
+    )
 
     assert "merge_preserving_unmeasured(artifact, args.artifact)" in source
     assert "carried forward from the previous artifact" in source
@@ -261,7 +269,7 @@ def test_filter_matrix_records_live_counts_instead_of_historical_preset_counts(
     from types import SimpleNamespace
     from unittest.mock import Mock
 
-    from scripts import benchmark_hnsw as benchmark
+    from scripts.bench import benchmark_hnsw as benchmark
 
     preset = SimpleNamespace(
         key="category",

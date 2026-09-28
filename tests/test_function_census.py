@@ -15,7 +15,7 @@ from typing import Any, Self
 
 import pytest
 
-import scripts.function_census as census
+import scripts.checks.function_census as census
 from service.search_sql import search_sql
 
 REPO = Path(__file__).resolve().parents[1]

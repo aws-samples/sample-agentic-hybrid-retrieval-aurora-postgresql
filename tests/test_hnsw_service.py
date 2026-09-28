@@ -126,7 +126,7 @@ def test_band_of_no_neighbours_is_none():
 
 
 def test_missing_probe_ground_truth_is_refused_instead_of_reporting_zero_recall():
-    from scripts.seed_exact_neighbors import StaleGroundTruth
+    from scripts.bench.seed_exact_neighbors import StaleGroundTruth
     from service.hnsw import require_probe_ground_truth
 
     with pytest.raises(StaleGroundTruth) as raised:
@@ -335,7 +335,7 @@ def test_probe_defaults_resolve_from_the_yaml_not_from_literals():
     config_tripwire caught exactly that: PerformancePage hardcoded scan_mem_multiplier
     and max_scan_tuples while the yaml was the declared single source.
     """
-    from scripts.retrieval_profile import load_profile
+    from scripts.checks.retrieval_profile import load_profile
     from service.models import HnswProbeRequest
 
     profile = load_profile()

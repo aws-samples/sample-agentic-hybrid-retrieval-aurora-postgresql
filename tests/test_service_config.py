@@ -142,7 +142,7 @@ def test_origin_secret_missing_resolves_without_raising(monkeypatch):
     """`Settings` resolves the two access settings without judging them.
 
     A script that only imports `service.main` to inspect its routes
-    (`scripts/tool_contracts.py`) must not be refused for a secret it never
+    (`scripts/checks/tool_contracts.py`) must not be refused for a secret it never
     uses. The refusal for a genuinely unbootable configuration belongs to
     `service.access_control.assert_bootable`, called from the ASGI lifespan --
     see `tests/test_access_control.py`.

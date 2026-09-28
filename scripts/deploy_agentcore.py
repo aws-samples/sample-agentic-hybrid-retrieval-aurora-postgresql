@@ -21,8 +21,8 @@ from botocore.exceptions import BotoCoreError, ClientError
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from scripts.checks.rehearsal import redact
 from scripts.package_agentcore import package
-from scripts.rehearsal import redact
 from service import agentcore_transport, gateway_tools
 from service.lab_validation_receipt import application_digest, participant_sql_digest
 from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, VERIFY_AGENT

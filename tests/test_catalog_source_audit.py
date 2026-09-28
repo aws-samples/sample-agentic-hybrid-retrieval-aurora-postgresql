@@ -8,7 +8,7 @@ from dataclasses import replace
 
 import pytest
 
-from scripts.catalog_source_audit import (
+from scripts.catalog.catalog_source_audit import (
     Listing,
     abo_listing,
     esci_listing,

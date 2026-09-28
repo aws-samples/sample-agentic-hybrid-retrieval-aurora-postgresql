@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from scripts.benchmark_mosaic_scale import summarize
+from scripts.bench.benchmark_mosaic_scale import summarize
 from service.hnsw import probe_parameters
 
 
@@ -93,5 +93,5 @@ def test_make_benchmark_requires_hardware_before_starting_a_query():
         text=True,
         check=True,
     )
-    assert "scripts/benchmark_mosaic_scale.py" in preview.stdout
+    assert "scripts/bench/benchmark_mosaic_scale.py" in preview.stdout
     assert '--instance-class "db.r8g.2xlarge"' in preview.stdout

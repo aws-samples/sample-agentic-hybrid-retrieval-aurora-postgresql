@@ -83,7 +83,7 @@ def search_identity(connection) -> dict[str, str]:
 
 def search_lists(connection, query: str, filters: dict, vector: str) -> dict:
     """Run the three installed searches at the cache limits; rows are [id, rank]."""
-    from scripts.retrieval_profile import load_profile
+    from scripts.checks.retrieval_profile import load_profile
     from service.catalog_runtime import search_schema
 
     schema = search_schema()
@@ -128,7 +128,7 @@ def main() -> None:
     import psycopg
     from psycopg.rows import dict_row
 
-    from scripts.retrieval_profile import load_profile
+    from scripts.checks.retrieval_profile import load_profile
     from service.retrieval import RetrievalService
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])

@@ -4,7 +4,7 @@ import copy
 
 import pytest
 
-from scripts.prepare_real_catalog import canonical, embedding_text, sha256
+from scripts.catalog.prepare_real_catalog import canonical, embedding_text, sha256
 from service.source_catalog import (
     classification_sha256,
     classify_product,

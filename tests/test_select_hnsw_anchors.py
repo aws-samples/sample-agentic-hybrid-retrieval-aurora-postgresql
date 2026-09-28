@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from scripts import select_hnsw_anchors as selector
+from scripts.bench import select_hnsw_anchors as selector
 from service.hnsw_anchors import anchor_ids_sha256
 
 

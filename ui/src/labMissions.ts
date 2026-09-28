@@ -169,7 +169,7 @@ export const stageLabels: Record<MosaicLabStage, string> = {
  * optimize, and the canonical query ids jump 003, 008, 010, 001, 004, 013.
  * Grouping by stage and sorting by canonical id inside each group gives one
  * reading order without renaming anything: those ids are bound by
- * scripts/mission_contract.py to a graded query in
+ * scripts/checks/mission_contract.py to a graded query in
  * data/evals/canonical_queries.jsonl, so they are not ours to renumber.
  */
 export function retrievalExamplesByStage(): Array<{

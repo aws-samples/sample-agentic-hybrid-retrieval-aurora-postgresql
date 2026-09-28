@@ -110,8 +110,13 @@ case counts come from the manifests and validators, not a parallel prose list.
 
 - `ui/`: Discover, Shop and Playground, including saved results and lab proof.
 - `service/`: API, retrieval, tools, evidence and citation checks.
-- `db/`: SQL, indexes, retrieval settings and hash-pinned catalog contracts.
-- `scripts/`: application commands, lab state, validators and evaluations.
+- `labs/`: one folder per lab with the exercise file, README and `solution/`.
+- `db/`: the remaining SQL (numbered in install order), indexes, retrieval
+  settings and hash-pinned catalog contracts. `db/sql/install.sql` includes the
+  two lab SQL files; `service/search_sql.py` lists the search files in that order.
+- `scripts/`: participant commands and their helpers at the top level;
+  maintainer tooling in `catalog/`, `evals/`, `bench/`, `checks/` and `media/`
+  (see `scripts/README.md`).
 - `deploy/agentcore/`: managed entry points; `deploy/mosaic-bootstrap.sh`: host setup.
 - `skills/mosaic-hybrid-retrieval/`: portable retrieval skill and adaptation notes.
 
@@ -194,7 +199,7 @@ real Cohere Embed v4 vectors. Historical synthetic tables are retained separatel
 target reads `DATABASE_URL` and must point at Aurora.
 
 The restore path is `make db-bootstrap-schema` into a **fresh** Aurora cluster,
-followed by `scripts/real_catalog_cache.py restore` for the hash-pinned real-product
+followed by `scripts/catalog/real_catalog_cache.py restore` for the hash-pinned real-product
 bundle and `MOSAIC_CATALOG_DATASET` selection. Only the 553,911 real source products,
 their saved Cohere embeddings and real source evidence are loaded. Do not load
 historical synthetic products, reviews, premium cohorts or vocabulary. Shared
@@ -216,8 +221,8 @@ Do not add a second copy of any of these. Each has a check that fails the build.
 
 | Fact | Single source | Enforced by |
 |---|---|---|
-| Candidate limits, fusion `k`, weights, trigram threshold | `db/config/retrieval.yaml` | `scripts/config_tripwire.py` |
-| Labs, checkpoints, timings, assertions | `data/evals/mosaic_labs_missions.json` | `scripts/mission_contract.py` |
+| Candidate limits, fusion `k`, weights, trigram threshold | `db/config/retrieval.yaml` | `scripts/checks/config_tripwire.py` |
+| Labs, checkpoints, timings, assertions | `data/evals/mosaic_labs_missions.json` | `scripts/checks/mission_contract.py` |
 | Assertion vocabulary + falsifiers | `service/assertions.py` | `A1.6`, `A1.8` |
 
 Environment variables override the yaml; that is the documented path. A numeric
@@ -242,8 +247,8 @@ including a TypeScript `?? 60` fallback.
 ```sh
 make validate-missions      # contract shape + live target checks (needs DSN)
 make validate-evals         # real canonical, coverage and held-out contracts (needs DSN)
-python scripts/config_tripwire.py
-python scripts/retrieval_profile.py --check
+python scripts/checks/config_tripwire.py
+python scripts/checks/retrieval_profile.py --check
 make test                  # Python
 cd ui && npm test && npm run build
 ```

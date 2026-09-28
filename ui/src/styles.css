@@ -69,7 +69,7 @@
      and inconsistent between views for the same class of label, so .hnsw-* read
      smaller than .labs-*. Eight steps rather than six: collapsing 16-17px deck
      copy into 15px body, or 18-20px panel headings into one step, flattens
-     hierarchy the layouts depend on. scripts/labs_type_scale.py fails the build
+     hierarchy the layouts depend on. scripts/checks/labs_type_scale.py fails the build
      on any literal added back inside a Labs selector family. */
   /* 54px cap, not 72px. The three dead .labs-intro-copy h1 rules carried
      clamp(48/4.6vw/66), clamp(52/5vw/72) and clamp(44/4.4vw/62); the last one won, so

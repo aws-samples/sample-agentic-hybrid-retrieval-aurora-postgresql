@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from scripts import tool_contracts
-from scripts.tool_contracts import (
+from scripts.checks import tool_contracts
+from scripts.checks.tool_contracts import (
     CONTRACT_PATH,
     SKILL_HTTP_REFERENCE_PATH,
     SKILL_PATH,
@@ -44,7 +44,7 @@ def test_every_contract_declares_a_capability(tmp_path, monkeypatch):
 
     dropped = tmp_path / "missing-capability.json"
     dropped.write_text(json.dumps(payload), encoding="utf-8")
-    monkeypatch.setattr("scripts.tool_contracts.CONTRACT_PATH", dropped)
+    monkeypatch.setattr("scripts.checks.tool_contracts.CONTRACT_PATH", dropped)
 
     with pytest.raises(ToolContractError, match="capability"):
         load_contracts()
@@ -124,7 +124,7 @@ def test_union_rule_rejects_an_undeclared_output_field(tmp_path, monkeypatch):
     """Permanent falsifier for the envelope-union rule, failure direction one.
 
     Deleting the union loop in `capability_parity_receipt`
-    (scripts/tool_contracts.py) would not fail a single other test in this
+    (scripts/checks/tool_contracts.py) would not fail a single other test in this
     suite: the baseline test above calls the real function but never mutates
     anything that would make a deleted loop visible, and
     `test_payload_drift_between_surfaces_is_caught` below mutates a field the
@@ -142,7 +142,7 @@ def test_union_rule_rejects_an_undeclared_output_field(tmp_path, monkeypatch):
 
     drifted = tmp_path / "union-extra-field.json"
     drifted.write_text(json.dumps(payload), encoding="utf-8")
-    monkeypatch.setattr("scripts.tool_contracts.CONTRACT_PATH", drifted)
+    monkeypatch.setattr("scripts.checks.tool_contracts.CONTRACT_PATH", drifted)
 
     with pytest.raises(ToolContractError, match="declares output properties"):
         capability_parity_receipt()
@@ -164,7 +164,7 @@ def test_union_rule_rejects_a_missing_required_payload_field(tmp_path, monkeypat
 
     drifted = tmp_path / "union-missing-field.json"
     drifted.write_text(json.dumps(payload), encoding="utf-8")
-    monkeypatch.setattr("scripts.tool_contracts.CONTRACT_PATH", drifted)
+    monkeypatch.setattr("scripts.checks.tool_contracts.CONTRACT_PATH", drifted)
 
     with pytest.raises(ToolContractError, match="declares output properties"):
         capability_parity_receipt()
@@ -188,7 +188,7 @@ def test_union_rule_accepts_a_permitted_envelope_only_change(tmp_path, monkeypat
 
     changed = tmp_path / "union-envelope-only.json"
     changed.write_text(json.dumps(payload), encoding="utf-8")
-    monkeypatch.setattr("scripts.tool_contracts.CONTRACT_PATH", changed)
+    monkeypatch.setattr("scripts.checks.tool_contracts.CONTRACT_PATH", changed)
 
     receipt = capability_parity_receipt()
 
@@ -218,7 +218,7 @@ def test_payload_drift_between_surfaces_is_caught(tmp_path, monkeypatch):
 
     drifted = tmp_path / "drifted.json"
     drifted.write_text(json.dumps(payload), encoding="utf-8")
-    monkeypatch.setattr("scripts.tool_contracts.CONTRACT_PATH", drifted)
+    monkeypatch.setattr("scripts.checks.tool_contracts.CONTRACT_PATH", drifted)
 
     with pytest.raises(ToolContractError, match="disagrees with itself"):
         capability_parity_receipt()
@@ -266,7 +266,7 @@ def test_explain_retrieval_envelope_change_is_independent_across_its_two_contrac
 
     changed = tmp_path / "explain-envelope-independent.json"
     changed.write_text(json.dumps(payload), encoding="utf-8")
-    monkeypatch.setattr("scripts.tool_contracts.CONTRACT_PATH", changed)
+    monkeypatch.setattr("scripts.checks.tool_contracts.CONTRACT_PATH", changed)
 
     capability_parity_receipt()
 
@@ -471,7 +471,7 @@ def test_skill_routes_key_set_matches_the_skill_surface_exactly():
     assert set(tool_contracts.SKILL_ROUTES) == skill_names, (
         f"SKILL_ROUTES keys are {sorted(tool_contracts.SKILL_ROUTES)} but the "
         f"skill surface exposes {sorted(skill_names)}; fix: add or remove "
-        "SKILL_ROUTES entries in scripts/tool_contracts.py until the two sets "
+        "SKILL_ROUTES entries in scripts/checks/tool_contracts.py until the two sets "
         "match exactly"
     )
 
@@ -669,7 +669,7 @@ def test_every_gated_capability_is_actually_covered():
 
 
 def test_skill_doc_contract_block_matches_the_registry():
-    from scripts.tool_contracts import (
+    from scripts.checks.tool_contracts import (
         SKILL_BEGIN,
         SKILL_END,
         SKILL_PATH,
@@ -683,7 +683,7 @@ def test_skill_doc_contract_block_matches_the_registry():
     assert text[start:end] == render_skill_contract(), (
         "SKILL.md's generated block drifted from "
         "db/config/agent_tool_contracts.json; run "
-        "python scripts/tool_contracts.py --write"
+        "python scripts/checks/tool_contracts.py --write"
     )
 
 
@@ -697,7 +697,7 @@ def test_skill_doc_names_every_skill_operation_and_no_others():
     perfectly good prose. Scoping to the generated block is what keeps the
     check from being brittle against ordinary Markdown elsewhere in the file.
     """
-    from scripts.tool_contracts import SKILL_BEGIN, SKILL_END, SKILL_PATH
+    from scripts.checks.tool_contracts import SKILL_BEGIN, SKILL_END, SKILL_PATH
 
     text = SKILL_PATH.read_text(encoding="utf-8")
     start = text.index(SKILL_BEGIN) + len(SKILL_BEGIN)
@@ -722,7 +722,7 @@ def test_skill_doc_names_every_skill_operation_and_no_others():
     assert named == expected, (
         f"the generated operations table names {sorted(named)} but the skill "
         f"surface is exactly {sorted(expected)}; fix: run "
-        "python scripts/tool_contracts.py --write, or update the expected set "
+        "python scripts/checks/tool_contracts.py --write, or update the expected set "
         "here if the skill surface itself changed"
     )
     assert "synthesize_cited_answer" in text, (
@@ -732,7 +732,7 @@ def test_skill_doc_names_every_skill_operation_and_no_others():
 
 def test_skill_doc_carries_the_two_rank_spaces():
     """Conflating the pool space with the granted space invents rank movement."""
-    from scripts.tool_contracts import SKILL_PATH
+    from scripts.checks.tool_contracts import SKILL_PATH
 
     text = SKILL_PATH.read_text(encoding="utf-8")
 
@@ -746,7 +746,7 @@ def test_skill_doc_holds_no_protocol_details():
 
     Falsifier: paste the Agent Card contract into SKILL.md and this fails.
     """
-    from scripts.tool_contracts import SKILL_PATH
+    from scripts.checks.tool_contracts import SKILL_PATH
 
     text = SKILL_PATH.read_text(encoding="utf-8").lower()
 
@@ -759,7 +759,7 @@ def test_skill_doc_holds_no_protocol_details():
 
 def test_skill_doc_uses_real_wire_field_names():
     """No aspirational names. `/api/search` returns `search_event_id`."""
-    from scripts.tool_contracts import SKILL_PATH
+    from scripts.checks.tool_contracts import SKILL_PATH
 
     text = SKILL_PATH.read_text(encoding="utf-8")
 

@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.simulate_scale import measured_baseline
+from scripts.bench.simulate_scale import measured_baseline
 
 ROOT = Path(__file__).resolve().parents[1]
 MEASURED = json.loads(

@@ -28,7 +28,7 @@ from collections.abc import Callable
 from typing import Any
 from uuid import UUID, uuid4
 
-from scripts.retrieval_profile import load_profile
+from scripts.checks.retrieval_profile import load_profile
 from service.catalog_runtime import search_schema
 from service.db import connect
 from service.embeddings import EmbeddingProvider, get_embedding_provider

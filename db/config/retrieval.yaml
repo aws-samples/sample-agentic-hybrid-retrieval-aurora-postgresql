@@ -1,8 +1,8 @@
 # The single source for retrieval numbers.
 #
-# Read by scripts/retrieval_profile.py, which supplies defaults to
+# Read by scripts/checks/retrieval_profile.py, which supplies defaults to
 # service/config.py and service/models.py. Environment variables override these
-# values; nothing else may declare them. scripts/config_tripwire.py fails the
+# values; nothing else may declare them. scripts/checks/config_tripwire.py fails the
 # build if another file does.
 #
 # Editing a number here changes the served profile with no code edit. That is
@@ -21,7 +21,7 @@ candidate_generation:
   semantic_limit: 150
   # pg_trgm similarity floor for the fuzzy arm. This is the live value, asserted
   # equal to the SQL literal in mosaic_search.search_hybrid_rrf by
-  # scripts/config_tripwire.py. config/workshop.json recorded 0.24; that value
+  # scripts/checks/config_tripwire.py. config/workshop.json recorded 0.24; that value
   # was stale and is not ported.
   trigram_threshold: 0.20
   # Index gates used by pg_trgm's `%` and `<%` operators. They are database
@@ -52,7 +52,7 @@ coverage:
   #
   # Asserted equal to the SQL default in
   # db/sql/11_query_coverage.sql:query_term_coverage by
-  # scripts/config_tripwire.py.
+  # scripts/checks/config_tripwire.py.
   similarity_floor: 0.24
 fusion:
   method: reciprocal_rank_fusion

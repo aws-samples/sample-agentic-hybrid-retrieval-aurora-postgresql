@@ -3,7 +3,7 @@
   "captured_at": "2026-09-26",
   "mission_id": "typo-recovery",
   "dataset_id": "reviews-2023-v2",
-  "producer": "scripts/capture_retrieval_seed.py",
+  "producer": "scripts/evals/capture_retrieval_seed.py",
   "search_event_id": "a72fdb66-ba29-43e4-9f4c-8c4d64c8ef95",
   "note": "One real Aurora retrieval run, captured through /api/search so the Observatory opens on measured ranks. Run pipeline replaces it."
  },

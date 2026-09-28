@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.retrieval_profile import _FIELD_FOR_PATH, BOUNDS
+from scripts.checks.retrieval_profile import _FIELD_FOR_PATH, BOUNDS
 from service.models import RetrievalProfile
 from service.retrieval_fingerprint import (
     _EXPECTED_CATEGORY_COUNTS,
@@ -95,16 +95,19 @@ def _populate(root: Path) -> None:
     _write(root / "service" / "coverage.py", "# coverage fixture\n")
     for name in ("catalog_runtime", "live_catalog", "source_catalog", "staged_catalog"):
         _write(root / "service" / f"{name}.py", f"# {name} fixture\n")
-    _write(root / "scripts" / "retrieval_profile.py", "# retrieval_profile fixture\n")
-    _write(root / "scripts" / "evaluate.py", "# evaluate fixture\n")
-    _write(root / "scripts" / "eval_contract.py", "# eval_contract fixture\n")
+    _write(
+        root / "scripts" / "checks" / "retrieval_profile.py",
+        "# retrieval_profile fixture\n",
+    )
+    _write(root / "scripts" / "evals" / "evaluate.py", "# evaluate fixture\n")
+    _write(root / "scripts" / "evals" / "eval_contract.py", "# eval_contract fixture\n")
     for name in (
         "fetch_catalog_metadata",
         "prepare_real_catalog",
         "prepare_staged_catalog_search",
         "prepare_live_catalog",
     ):
-        _write(root / "scripts" / f"{name}.py", f"# {name} fixture\n")
+        _write(root / "scripts" / "catalog" / f"{name}.py", f"# {name} fixture\n")
     _write(
         root / "data" / "evals" / "canonical_queries.jsonl",
         '{"query_id": "G-001", "judgments": [{"product_id": 1, "grade": 0}]}\n',
@@ -183,7 +186,7 @@ def test_manifest_files_visit_a_representative_of_every_category(fake_repo):
     assert "labs/lab1_retrieve/hybrid_search.sql" in relative
     assert "db/config/retrieval.yaml" in relative
     assert "service/retrieval.py" in relative
-    assert "scripts/evaluate.py" in relative
+    assert "scripts/evals/evaluate.py" in relative
     assert "data/evals/canonical_queries.jsonl" in relative
     assert "data/evals/mosaic_labs_missions.json" in relative
 
@@ -259,7 +262,7 @@ def test_proof_4a_editing_canonical_queries_moves_the_fingerprint(fake_repo):
 def test_proof_4b_editing_mission_backed_filters_moves_the_fingerprint(fake_repo):
     """Proof 4, the gap this module was widened to close: mission-backed
     query text and filters live in `mosaic_labs_missions.json`, substituted
-    into the scored population by `scripts/eval_contract.py`, not in
+    into the scored population by `scripts/evals/eval_contract.py`, not in
     `canonical_queries.jsonl` itself. A fingerprint that only watched the
     latter would miss a filter edit that changes candidate eligibility for
     every mission-backed query."""
@@ -331,11 +334,11 @@ def methodology_tree(tmp_path):
 @pytest.mark.parametrize(
     ("relpath", "moves_scorecard"),
     [
-        ("scripts/score_evals.py", True),
+        ("scripts/evals/score_evals.py", True),
         ("service/models.py", True),
         ("service/retrieval_fingerprint.py", True),
         # Requirement 2: the ablation harness is in the ablation manifest only.
-        ("scripts/ablation_evals.py", False),
+        ("scripts/evals/ablation_evals.py", False),
     ],
 )
 def test_editing_an_owned_file_moves_the_right_methodology_hash(
@@ -374,10 +377,10 @@ def test_retrieval_fingerprint_ignores_every_methodology_only_file(
     before = compute_retrieval_fingerprint(methodology_tree)
 
     for relpath in (
-        "scripts/score_evals.py",
+        "scripts/evals/score_evals.py",
         "service/models.py",
         "service/retrieval_fingerprint.py",
-        "scripts/ablation_evals.py",
+        "scripts/evals/ablation_evals.py",
     ):
         target = methodology_tree / relpath
         target.write_bytes(target.read_bytes() + b"\n# methodology edit\n")
@@ -404,11 +407,11 @@ def test_methodology_hash_refuses_a_missing_manifest_entry(tmp_path):
 
 # --- The live retrieval settings hash ---------------------------------------
 #
-# The fingerprint above hashes *files*. Six of `scripts/retrieval_profile`'s
+# The fingerprint above hashes *files*. Six of `scripts/checks/retrieval_profile`'s
 # nine env-overridable settings (`RRF_K`, `FTS_CANDIDATE_LIMIT`,
 # `TRIGRAM_CANDIDATE_LIMIT`, `SEMANTIC_CANDIDATE_LIMIT`,
 # `RERANK_CANDIDATE_LIMIT`, `HNSW_EF_SEARCH`) beat the yaml in
-# `scripts/retrieval_profile._resolve`, so they change every served result
+# `scripts/checks/retrieval_profile._resolve`, so they change every served result
 # without moving one byte of any manifest file. `RRF_K=1` could therefore serve
 # an attributed scorecard. These tests pin the second hash that closes that
 # hole for those six: one over the resolved `RetrievalProfile` itself. The
@@ -468,7 +471,7 @@ def _env_overridable_retrieval_profile_fields() -> set[str]:
 
 #: The six settings an environment variable can override behind the
 #: fingerprint's back that also live on `RetrievalProfile`, per
-#: `scripts/retrieval_profile.BOUNDS`. Each must move the hash on its own;
+#: `scripts/checks/retrieval_profile.BOUNDS`. Each must move the hash on its own;
 #: asserted one at a time so a hash that only reacted to `rrf_k` cannot hide
 #: behind the others.
 _ENV_OVERRIDABLE_SETTINGS = (
@@ -677,7 +680,7 @@ def test_the_float_rendering_still_discriminates_between_different_floats():
 def test_the_live_settings_hash_is_the_hash_of_the_resolved_profile():
     """The single seam both sides of the gate must use.
 
-    `scripts/score_evals.py` records this at measurement time and
+    `scripts/evals/score_evals.py` records this at measurement time and
     `service/scorecard.py` recomputes it at serve time. If the two ever
     computed it from differently-constructed profiles the gate would read
     pending forever, so both call this one function and this test pins what it
@@ -720,7 +723,7 @@ def test_scorecard_import_closure_is_covered_or_explicitly_excluded():
     }
     covered = {p.relative_to(REPO).as_posix() for p in manifest_files()}
     covered.update(SCORECARD_METHODOLOGY_FILES)
-    pending, visited = ["scripts/score_evals.py"], set()
+    pending, visited = ["scripts/evals/score_evals.py"], set()
     while pending:
         relative = pending.pop()
         if relative in visited:

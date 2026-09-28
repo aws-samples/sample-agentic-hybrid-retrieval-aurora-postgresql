@@ -69,7 +69,7 @@ environment. Participants do not provision or connect Memory.
 
 Readiness requires the resource and all four strategies to be active, with the
 expected actor/session namespaces. Before signalling success, bootstrap runs
-`scripts/verify_session_memory.py` through the application API: save/read an event,
+`scripts/checks/verify_session_memory.py` through the application API: save/read an event,
 list each strategy's records, recall context, and refuse another actor's session.
 This proves wiring and access, not asynchronous extraction or answer quality.
 Rehearse those in the participant account before delivery.
@@ -87,7 +87,7 @@ already apply it. The additive `mosaic.shopper_profile` table connects a browser
 actor to its active Aurora session.
 
 ```bash
-uv run python scripts/setup_session_memory.py --region us-east-1 --create --configure-strategies
+uv run python scripts/checks/setup_session_memory.py --region us-east-1 --create --configure-strategies
 ```
 
 The script creates a dedicated resource or adds missing Mosaic strategies to the

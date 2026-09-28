@@ -5,7 +5,7 @@ import type { SearchResponse } from "./types";
  * A committed Aurora capture for deterministic matrix and arithmetic tests.
  *
  * The participant surface deliberately starts empty and accepts only a live run.
- * Written by `scripts/capture_retrieval_seed.py`, never by hand.
+ * Written by `scripts/evals/capture_retrieval_seed.py`, never by hand.
  */
 export interface SeedProvenance {
   captured_at: string;

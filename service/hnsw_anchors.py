@@ -1,7 +1,7 @@
 """The query anchors the HNSW instrument measures, as a committed contract.
 
 Anchors are real catalog products whose stored vectors serve as query vectors.
-They are chosen once by `scripts/select_hnsw_anchors.py`, which records the
+They are chosen once by `scripts/bench/select_hnsw_anchors.py`, which records the
 selection algorithm, seed, sample sizes and the resulting ids in
 `data/benchmarks/hnsw_anchors.json`, and are never marked on the product rows
 themselves: the catalog records stay exactly what the source published.
@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from scripts.retrieval_profile import explain
+from scripts.checks.retrieval_profile import explain
 from service.catalog_runtime import SYNTHETIC_DATASET_ID, active_dataset
 
 ROOT = Path(__file__).resolve().parents[1]

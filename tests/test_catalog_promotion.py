@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from scripts.promote_catalog_corrections import validate_vectors
+from scripts.catalog.promote_catalog_corrections import validate_vectors
 
 
 def test_vector_bundle_requires_exact_identity_text_and_nonzero_values():

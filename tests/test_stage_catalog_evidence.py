@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from scripts import stage_catalog_evidence as staging
-from scripts.fetch_catalog_reviews import review_record, source_identity
+from scripts.catalog import stage_catalog_evidence as staging
+from scripts.catalog.fetch_catalog_reviews import review_record, source_identity
 
 
 def sample_file(tmp_path):

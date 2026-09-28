@@ -56,7 +56,7 @@ make lint
 make validate
 make validate-db
 make validate-config
-uv run python scripts/mission_contract.py --shape-only
+uv run python scripts/checks/mission_contract.py --shape-only
 PYTHONPATH=. uv run pytest -q
 make ui-test
 make ui-build
@@ -85,7 +85,7 @@ exposes three typed, catalog-read-only tools over the same API. Search still
 writes retrieval receipts. Validate the shared tool contracts with:
 
 ```bash
-uv run python scripts/tool_contracts.py --check
+uv run python scripts/checks/tool_contracts.py --check
 ```
 
 ## Historical fixtures

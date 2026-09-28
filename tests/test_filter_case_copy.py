@@ -1,4 +1,4 @@
-from scripts.filter_case_copy import describe_filter_case
+from scripts.catalog.filter_case_copy import describe_filter_case
 
 
 def test_false_requirement_is_not_described_as_present():

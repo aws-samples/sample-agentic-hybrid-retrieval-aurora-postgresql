@@ -8,7 +8,7 @@ Both hold the same 553,911 products, saved Cohere Embed v4 vectors, indexes
 and exact ground truth (catalog `c4d5913f8905…`, anchor set `af84d6ab2763…`,
 presets hash recorded in the artifact). The client was one EC2 instance
 (c7g.xlarge) in the same VPC and availability zone, running
-`scripts/benchmark_hardware.py` at source revision `296c7b4` with a clean
+`scripts/bench/benchmark_hardware.py` at source revision `296c7b4` with a clean
 worktree. This is a different claim class from the served instrument's
 artifact: it describes restored copies under a synthetic load, not the
 workshop cluster under participants.
@@ -205,4 +205,4 @@ cheaper.
 
 - [Default memory summary](../data/benchmarks/hardware_comparison_default-memory.json) and [per-query records](../data/benchmarks/hardware_comparison_default-memory.samples.json)
 - [Small memory summary](../data/benchmarks/hardware_comparison_low-memory.json) and [per-query records](../data/benchmarks/hardware_comparison_low-memory.samples.json)
-- [Runner](../scripts/benchmark_hardware.py)
+- [Runner](../scripts/bench/benchmark_hardware.py)

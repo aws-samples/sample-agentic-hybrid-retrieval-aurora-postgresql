@@ -61,7 +61,7 @@ independent application-level admission control behind them.
 
 The script first downloads and verifies the real-catalog archive against
 `db/config/real-catalog-cache.json`. After the original cached bootstrap creates
-the shared schemas, `scripts/real_catalog_cache.py restore` loads the selected
+the shared schemas, `scripts/catalog/real_catalog_cache.py restore` loads the selected
 records, reuses saved vectors, creates the real search projection and imports the
 reviewed excerpts. `MOSAIC_CATALOG_DATASET` is persisted before the API starts.
 Runtime grants and lab SQL application cover `mosaic_live_search`; a repair must
@@ -135,11 +135,11 @@ secret instead.
 ## Clean-account rehearsal and load exercise
 
 [`docs/rehearsal-runbook.md`](../docs/rehearsal-runbook.md) is the runbook for
-`READINESS.md`'s clean-account acceptance test: `scripts/rehearsal.py` records
+`READINESS.md`'s clean-account acceptance test: `scripts/checks/rehearsal.py` records
 deployment identity, archive transfer, bootstrap timings, catalog restore
 verification, each lab's independent rehearsal, reranker/Ask Mosaic cold and
 warm calls, and a layout walkthrough into one machine-readable evidence
-manifest. `scripts/load_exercise.py` is a separate, opt-in bounded concurrency
+manifest. `scripts/bench/load_exercise.py` is a separate, opt-in bounded concurrency
 exercise against the deployed HTTP API, meant to check the access-control
 work's admission and timeout behavior once that lands. Neither tool deploys,
 provisions, or resets anything itself; both need an authorized, already-running

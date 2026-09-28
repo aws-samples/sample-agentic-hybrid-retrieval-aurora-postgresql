@@ -106,7 +106,7 @@ def test_the_committed_measurement_is_reported_honestly():
 
 def test_the_caveat_no_longer_asks_for_the_wrong_comparison():
     harness = (
-        Path(__file__).resolve().parents[1] / "scripts" / "ablation_evals.py"
+        Path(__file__).resolve().parents[1] / "scripts" / "evals" / "ablation_evals.py"
     ).read_text(encoding="utf-8")
 
     assert "spread of the differences" in harness

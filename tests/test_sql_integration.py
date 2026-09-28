@@ -31,7 +31,7 @@ pytest.importorskip("pgvector")
 
 from pgvector.psycopg import register_vector
 
-from scripts.retrieval_profile import load_profile
+from scripts.checks.retrieval_profile import load_profile
 from service.catalog_runtime import active_dataset, search_schema
 from service.config import get_settings
 from service.models import SearchRequest

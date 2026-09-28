@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.embed_catalog import (
+from scripts.catalog.embed_catalog import (
     COHERE_EMBED_V4_DIMENSIONS,
     COHERE_EMBED_V4_MODEL_ID,
     DEVELOPMENT_HASH_MODEL_ID,
@@ -76,7 +76,7 @@ def test_projection_upsert_invalidates_a_changed_embedding_text():
 
     Retargeted from the deleted `sql/02_upsert_from_stage.sql` in Phase 2 Unit E —
     and the port had dropped the behavior, so this restored it. A stale embedding is
-    worse than a missing one: `scripts/embed_catalog.py` selects only rows where
+    worse than a missing one: `scripts/catalog/embed_catalog.py` selects only rows where
     `embedding IS NULL` or the model key differs, so nothing would ever recompute it.
     """
     sql = (ROOT / "db/sql/06_retrieval_projection.sql").read_text()
@@ -113,7 +113,7 @@ def test_live_legacy_review_evidence_remains_readable_and_counted():
 
 
 def test_embedding_loader_uses_typed_binary_copy():
-    source = (ROOT / "scripts/embed_catalog.py").read_text()
+    source = (ROOT / "scripts/catalog/embed_catalog.py").read_text()
 
     assert "FROM STDIN (FORMAT BINARY)" in source
     # Two columns, not three: mosaic_search.product_document has no
@@ -122,7 +122,7 @@ def test_embedding_loader_uses_typed_binary_copy():
 
 
 def test_embedding_loader_uses_bounded_parallel_batches():
-    source = (ROOT / "scripts/embed_catalog.py").read_text()
+    source = (ROOT / "scripts/catalog/embed_catalog.py").read_text()
 
     assert "ThreadPoolExecutor(max_workers=args.workers)" in source
     assert "--workers must be between 1 and 50" in source
@@ -133,7 +133,7 @@ def test_embedding_loader_uses_bounded_parallel_batches():
 
 
 def test_embedding_loader_registers_the_model_before_writing_vectors():
-    source = (ROOT / "scripts/embed_catalog.py").read_text()
+    source = (ROOT / "scripts/catalog/embed_catalog.py").read_text()
 
     # product_document.embedding_model_key is a foreign key to
     # mosaic.embedding_model, so an unregistered model fails at the first UPDATE.

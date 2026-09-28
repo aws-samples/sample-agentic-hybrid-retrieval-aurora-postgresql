@@ -5,7 +5,7 @@
    appear side by side, and the only place numbered sections are used, because
    here the sequence is the information.
 
-   Every font-size in this block is a --labs-* token. scripts/labs_type_scale.py
+   Every font-size in this block is a --labs-* token. scripts/checks/labs_type_scale.py
    fails the build on a literal inside any `.labs-` selector, which is what keeps
    a fourth Playground panel from inventing an eleventh type step.
    --------------------------------------------------------------------------- */
@@ -1376,7 +1376,7 @@
    key itself is deliberately not a column - three of the four are spelled
    exactly like their tool name, so the column read as a rendering fault rather
    than as information. Parity between capability keys is gated in
-   scripts/tool_contracts.py, which is where that invariant belongs. */
+   scripts/checks/tool_contracts.py, which is where that invariant belongs. */
 .labs-skill-capabilities > li {
   grid-template-columns: minmax(0, 1fr) auto;
 }

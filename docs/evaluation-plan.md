@@ -59,11 +59,11 @@ misspellings. These are maintainer regression checks, not extra participant task
 Vocabulary acceptance does not prove product eligibility or semantic relevance.
 
 After changing catalog text, refresh its vocabulary with
-`uv run python scripts/corpus_vocabulary.py refresh --schema mosaic_live_search`,
+`uv run python scripts/catalog/corpus_vocabulary.py refresh --schema mosaic_live_search`,
 then run:
 
 ```bash
-python scripts/measure_query_coverage.py --write
+python scripts/evals/measure_query_coverage.py --write
 make test-aurora-invariants
 ```
 
@@ -141,7 +141,7 @@ including integer-cent price bounds and explicit refurbished or sponsored
 overrides:
 
 ```bash
-uv run python scripts/run_eval.py --queries data/evals/historical/queries.jsonl --validate-only
+uv run python scripts/evals/run_eval.py --queries data/evals/historical/queries.jsonl --validate-only
 ```
 
 Run this operator-only command against a database that already retains the
@@ -149,7 +149,7 @@ historical catalog. Fresh-workshop `make validate-evals` validates only real
 canonical, coverage-probe and held-out targets.
 
 This is a broad deterministic filter gate, not curated retrieval-quality ground
-truth. Do not pass its result CSV to `scripts/evaluate.py` with the canonical
+truth. Do not pass its result CSV to `scripts/evals/evaluate.py` with the canonical
 judgments. The evaluator rejects missing or unexpected query IDs so such a
 cross-corpus score cannot silently produce zero-valued metrics.
 
@@ -172,21 +172,21 @@ fixture pinned to lab missions, and the 720-case filter corpus asserts filter
 eligibility, never relevance. Run it with:
 
 ```bash
-uv run python scripts/independent_relevance_eval.py --validate-only   # no model calls
-uv run python scripts/independent_relevance_eval.py                    # measured run
+uv run python scripts/evals/independent_relevance_eval.py --validate-only   # no model calls
+uv run python scripts/evals/independent_relevance_eval.py                    # measured run
 ```
 
 The runner reuses production machinery unchanged: `service.retrieval.get_retrieval_service()`
-for every search (the same entry point `scripts/score_evals.py` measures),
-`scripts.run_eval.validate_query_contract` and `require_single_served_catalog`
-for pre-flight eligibility, `scripts.evaluate.evaluate` for Recall/MRR/nDCG
-arithmetic, and `scripts.score_evals.search_with_db_retry` for transient
+for every search (the same entry point `scripts/evals/score_evals.py` measures),
+`scripts.evals.run_eval.validate_query_contract` and `require_single_served_catalog`
+for pre-flight eligibility, `scripts.evals.evaluate.evaluate` for Recall/MRR/nDCG
+arithmetic, and `scripts.evals.score_evals.search_with_db_retry` for transient
 connection retry. It never reimplements retrieval or scoring.
 
 ### Split from the canonical set and from the ESCI tuning sweep
 
 `data/evals/esci_judged_subset.json`'s 141 queries are already fully spent:
-`scripts/evaluate_esci_k.py` swept RRF's `k` over every one of them, and
+`scripts/evals/evaluate_esci_k.py` swept RRF's `k` over every one of them, and
 `db/config/retrieval.yaml`'s `rrf_k: 60` reflects that sweep. Scoring final
 relevance quality on the same queries used to pick a retrieval parameter would
 be optimistic by construction, so this corpus does not reuse them, and does not
@@ -225,7 +225,7 @@ the Steelcase Gesture listing that carries review evidence):
 
 Every judgment carries `"anchor_overlap"` set to one of these three values,
 validated at load time against a fresh cross-reference of both source files
-(`scripts/independent_relevance_eval.py::compute_anchor_overlap`), so this
+(`scripts/evals/independent_relevance_eval.py::compute_anchor_overlap`), so this
 table cannot silently drift out of sync with the data. A query whose only
 relevant judgments sit on `mission`/`canonical` products is not independent
 evidence about this repository's retrieval quality -- those products were
@@ -322,11 +322,11 @@ narrowing what it counts.
 ### Held-out ESCI corpus
 
 The `certified` tier is populated by human labels from ESCI, not by this
-project's own judgments. `scripts/prepare_esci_held_out.py` reads the ESCI
+project's own judgments. `scripts/evals/prepare_esci_held_out.py` reads the ESCI
 `examples.parquet` (not vendored) against the served catalog, keeps every US
 query whose judged products are catalog parents in one lab category with at
 least three judgments, drops the 141 query ids already spent on
-`scripts/evaluate_esci_k.py`'s tuning sweep, drops judgments the served
+`scripts/evals/evaluate_esci_k.py`'s tuning sweep, drops judgments the served
 filters can never return (refurbished listings, for example) and then any
 query left with fewer than three judgments, and writes
 `data/evals/esci_held_out_queries.jsonl`. Built on 2026-09-26 against
@@ -343,14 +343,14 @@ the earlier corpus and must not be presented as results on this revision.
 A relevance number still requires the measured Aurora run below.
 
 ```bash
-MOSAIC_CATALOG_DATASET=reviews-2023-v2 uv run python scripts/prepare_esci_held_out.py \
+MOSAIC_CATALOG_DATASET=reviews-2023-v2 uv run python scripts/evals/prepare_esci_held_out.py \
   --examples .local/esci/examples.parquet
 ```
 
 ```bash
-uv run python scripts/independent_relevance_eval.py \
+uv run python scripts/evals/independent_relevance_eval.py \
   --queries data/evals/esci_held_out_queries.jsonl --validate-only
-uv run python scripts/independent_relevance_eval.py \
+uv run python scripts/evals/independent_relevance_eval.py \
   --queries data/evals/esci_held_out_queries.jsonl
 ```
 
@@ -363,14 +363,14 @@ File contract for `data/evals/esci_held_out_queries.jsonl`:
   namespaced `"query_id"` (for example `"ESCI-HELDOUT-9001"`).
 - Each judgment: `"status": "esci_human"`, `"grade"` mapped from the ESCI
   label via `esci_grade()` (`E`=3, `S`=2, `C`=1, `I`=0 -- a grading scale
-  distinct from `scripts.evaluate_esci_k.GAINS`'s continuous nDCG gains, which
+  distinct from `scripts.evals.evaluate_esci_k.GAINS`'s continuous nDCG gains, which
   serve RRF-`k` tuning, not this corpus's grading), `"source": "esci#<example_id>"`,
   `"license": "Apache-2.0"`, and `"anchor_overlap"` computed the same way as
   every other judgment (almost always `"none"`, since ESCI-judged products are
   not drawn from the mission/canonical anchor set named above).
 - Before scoring, run
   `require_disjoint_from_tuning_sources(records)` (imported from
-  `scripts.independent_relevance_eval`) against the loaded records: it fails
+  `scripts.evals.independent_relevance_eval`) against the loaded records: it fails
   loudly if any `esci_query_id` was already spent by `esci_judged_subset.json`'s
   141 tuning queries, or if any `query_id` collides with the canonical
   scorecard's `G-*` ids.
@@ -385,7 +385,7 @@ itself carries **unmodified source fields** from the served
 `reviews-2023-v2` catalog (Amazon Reviews 2023). No ESCI or WANDS record
 is copied into `independent_relevance_queries.jsonl`; both remain confined to
 their existing, separately licensed uses
-(`data/evals/references/README.md`, `scripts/prepare_esci_judged_subset.py`)
+(`data/evals/references/README.md`, `scripts/evals/prepare_esci_judged_subset.py`)
 until a maintainer builds the held-out ESCI corpus described above, which
 carries a record-level `source` object naming ESCI, its Apache-2.0 license and the parquet digest, and `"source": "esci#<example_id>"` per
 judgment.

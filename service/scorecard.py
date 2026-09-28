@@ -21,7 +21,7 @@ they must not claim present-tense verification, because both derive from an
 artifact measured at one revision:
 
   * B's `passed` can only equal the number of checks the artifact recorded.
-    `scripts.score_evals.validate_release_checks` raises on the first failure
+    `scripts.evals.score_evals.validate_release_checks` raises on the first failure
     and never writes a failing entry, so a written artifact always reads N/N.
     `verified_for_running_revision` carries whether that N/N describes the
     running code.
@@ -43,14 +43,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from scripts.eval_contract import load_evaluation_queries
-from scripts.retrieval_profile import explain
-from scripts.score_evals import (
+from scripts.checks.retrieval_profile import explain
+from scripts.checks.tool_contracts import contracts_for_surface
+from scripts.evals.eval_contract import load_evaluation_queries
+from scripts.evals.score_evals import (
     product_retrieval_queries,
     query_set_sha256,
     scored_query_set_sha256,
 )
-from scripts.tool_contracts import contracts_for_surface
 from service.assertions import ASSERTIONS
 from service.config import get_settings
 from service.models import (
@@ -172,7 +172,7 @@ def _load_artifact() -> dict[str, Any]:
         raise FileNotFoundError(
             explain(
                 f"no canonical scorecard at {SCORECARD_ARTIFACT}",
-                "run `.venv/bin/python scripts/score_evals.py --write-baseline` "
+                "run `.venv/bin/python scripts/evals/score_evals.py --write-baseline` "
                 "against Aurora after reviewing measured ranks",
             )
         )
@@ -184,14 +184,14 @@ def _load_stage_ablation_artifact() -> dict[str, Any]:
 
     A separate file from `SCORECARD_ARTIFACT`: section E decomposes the same
     served-path quality section A reports into semantic-only, RRF-fused, and
-    RRF-fused-plus-reranked, and that measurement (`scripts/ablation_evals.py`)
+    RRF-fused-plus-reranked, and that measurement (`scripts/evals/ablation_evals.py`)
     is its own run against Aurora, not a re-label of section A's numbers.
     """
     if not STAGE_ABLATION_ARTIFACT.exists():
         raise FileNotFoundError(
             explain(
                 f"no stage ablation artifact at {STAGE_ABLATION_ARTIFACT}",
-                "run `.venv/bin/python scripts/ablation_evals.py` against "
+                "run `.venv/bin/python scripts/evals/ablation_evals.py` against "
                 "Aurora after reviewing measured ranks",
             )
         )
@@ -263,7 +263,7 @@ def _attribution(
     """Decide whether the artifact's metrics describe the running system.
 
     A strict revision equality (`artifact_revision == current_revision`) can
-    never hold: `scripts/score_evals.py` records the source revision *before*
+    never hold: `scripts/evals/score_evals.py` records the source revision *before*
     the artifact it writes is committed, so committing the artifact always
     advances HEAD one commit past what was measured. That gate would read
     "pending" forever. See `service.retrieval_fingerprint` for the full
@@ -286,7 +286,7 @@ def _attribution(
             -> withhold them, with `PENDING_TEXT`
 
     The settings clause is not redundant with the fingerprint.
-    `scripts/retrieval_profile._resolve` reads the environment ahead of
+    `scripts/checks/retrieval_profile._resolve` reads the environment ahead of
     `db/config/retrieval.yaml`, so `RRF_K=1` changes every served result while
     every fingerprinted file stays byte-identical. Without this clause that
     configuration serves an attributed scorecard measured under different
@@ -319,7 +319,7 @@ def _attribution(
     )
     inputs_match = models_match and query_set_matches
     # Section A reads the scorecard methodology; section E reads its own, which
-    # is a superset. That split is the point: editing scripts/ablation_evals.py
+    # is a superset. That split is the point: editing scripts/evals/ablation_evals.py
     # must not unattribute canonical retrieval metrics.
     expected_methodology = (
         methodology_expected
@@ -396,7 +396,7 @@ def _attribution(
     # reproducible. The ablation's re-measure spends no reranker calls, so only
     # the scorecard's costs anything.
     remedy = (
-        "Rerun scripts/score_evals.py --write-baseline once the change is "
+        "Rerun scripts/evals/score_evals.py --write-baseline once the change is "
         "reviewed, then save the new measurement files in Git."
     )
     return False, f"{PENDING_TEXT}: " + "; ".join(reasons) + f". {remedy}"
@@ -416,7 +416,7 @@ def _retrieval_quality(
                 f"product_retrieval queries but the committed artifact recorded "
                 f"{sample_size}",
                 "regenerate data/evals/canonical_scorecard.json with "
-                "scripts/score_evals.py --write-baseline before trusting this "
+                "scripts/evals/score_evals.py --write-baseline before trusting this "
                 "artifact's population metrics",
             )
         )
@@ -495,7 +495,7 @@ def _eligibility_contracts(
     fixtures = _eligibility_fixtures(scored)
     return ScorecardEligibilityContracts(
         fixture_count=len(fixtures),
-        # Not a literal. `scripts.score_evals.validate_hard_negatives` raises
+        # Not a literal. `scripts.evals.score_evals.validate_hard_negatives` raises
         # when a graded-0 product reaches the result window, so an artifact
         # cannot exist for a run that violated a contract -- which is what
         # justifies True. That justification covers the revision measured, not

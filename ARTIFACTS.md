@@ -32,14 +32,14 @@ State that nothing can restore is not a recovery plan.
 
 | Artifact | Location | Restore path |
 |---|---|---|
-| Active real catalog + vectors | Aurora `mosaic_catalog_stage` / `mosaic_live_search` | `scripts/real_catalog_cache.py restore` after `make db-bootstrap-schema`; pinned by `db/config/real-catalog-cache.json` |
+| Active real catalog + vectors | Aurora `mosaic_catalog_stage` / `mosaic_live_search` | `scripts/catalog/real_catalog_cache.py restore` after `make db-bootstrap-schema`; pinned by `db/config/real-catalog-cache.json` |
 | Historical synthetic catalog | Existing operator Aurora databases only | Excluded from fresh workshops; never required by the real-catalog restore |
-| Real-catalog query-coverage vocabulary | Workshop Studio `real-catalog/vocabulary/` assets | `scripts/corpus_vocabulary.py`; files and projection inputs pinned by `db/config/corpus-vocabulary-cache.json` |
+| Real-catalog query-coverage vocabulary | Workshop Studio `real-catalog/vocabulary/` assets | `scripts/catalog/corpus_vocabulary.py`; files and projection inputs pinned by `db/config/corpus-vocabulary-cache.json` |
 | Historical embedding cache (operator only) | Operator cache / `build/embedding-cache/` | `make db-fetch-embeddings`, then verified import |
 | Historical normalized CSV shards | `build/normalized/` | `make db-prepare-mosaic` from `data/full/*.csv.gz` |
 | Premium cohort media | `ui/public/assets/images/mosaic/` | git; 126 files, content-verified |
 | Lab contract | `data/evals/mosaic_labs_missions.json` | git; validated by `make validate-missions` |
-| Retrieval numbers | `db/config/retrieval.yaml` | git; single source, enforced by `scripts/config_tripwire.py` |
+| Retrieval numbers | `db/config/retrieval.yaml` | git; single source, enforced by `scripts/checks/config_tripwire.py` |
 
 ### Vocabulary restore
 
@@ -52,10 +52,10 @@ index creation share one transaction.
 To re-export the real vocabulary from Aurora and verify it:
 
 ```bash
-uv run python scripts/corpus_vocabulary.py export \
+uv run python scripts/catalog/corpus_vocabulary.py export \
   --schema mosaic_live_search --directory build/corpus-vocabulary-cache \
   --contract db/config/corpus-vocabulary-cache.json
-uv run python scripts/corpus_vocabulary.py verify \
+uv run python scripts/catalog/corpus_vocabulary.py verify \
   --directory build/corpus-vocabulary-cache --schema mosaic_live_search
 ```
 

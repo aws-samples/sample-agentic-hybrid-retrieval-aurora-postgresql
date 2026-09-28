@@ -8,7 +8,7 @@
 ## Regenerate historical fixtures
 
 ```bash
-uv run python scripts/generate_catalog.py --scale 1.0 --seed 20260806
+uv run python scripts/catalog/generate_catalog.py --scale 1.0 --seed 20260806
 ```
 
 The generator streams directly to gzip and uses only the Python standard library. The same seed produces stable IDs and deterministic product attributes.
@@ -16,7 +16,7 @@ The generator streams directly to gzip and uses only the Python standard library
 ## Smaller development catalog
 
 ```bash
-uv run python scripts/generate_catalog.py \
+uv run python scripts/catalog/generate_catalog.py \
   --scale 0.02 \
   --output-root /tmp/catalog-10k
 ```
@@ -29,7 +29,7 @@ Generation always writes one shard per domain and records the ordered paths in
 The shipped review evidence covers the 5K sample:
 
 ```bash
-uv run python scripts/generate_reviews.py
+uv run python scripts/catalog/generate_reviews.py
 ```
 
 To create a larger evidence corpus, point the generator at the full catalog and choose a review density. A million-plus review rows can be generated without changing product IDs.
@@ -40,7 +40,7 @@ The product file contains `embedding_text`, not model-specific vectors. This kee
 
 ```bash
 # Workshop path: Cohere Embed v4 through Amazon Bedrock
-uv run python scripts/embed_catalog.py \
+uv run python scripts/catalog/embed_catalog.py \
   --provider bedrock \
   --bedrock-model-id us.cohere.embed-v4:0 \
   --dimensions 1024
@@ -52,7 +52,7 @@ re-embeds a product only when the model or `embedding_text` changes.
 For local pipeline and HNSW mechanics only:
 
 ```bash
-uv run python scripts/embed_catalog.py \
+uv run python scripts/catalog/embed_catalog.py \
   --provider hash \
   --dimensions 1024 \
   --allow-development-embeddings

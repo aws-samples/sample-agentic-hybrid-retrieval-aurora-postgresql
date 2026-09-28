@@ -6,7 +6,7 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from scripts.media_manifest import iter_media_records, normalize_asset_url
+from scripts.media.media_manifest import iter_media_records, normalize_asset_url
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "ui" / "public"

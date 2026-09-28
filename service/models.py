@@ -22,7 +22,7 @@ from pydantic import (
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.retrieval_profile import load_profile
+from scripts.checks.retrieval_profile import load_profile
 from service.catalog_runtime import LEGACY_CATEGORY_FILTERS, active_dataset
 
 
@@ -312,7 +312,7 @@ class RetrievalProfile(BaseModel):
 
     Bounds are declared here and enforced per request. **Defaults are not
     declared here**: they resolve from `db/config/retrieval.yaml` through
-    `scripts.retrieval_profile`, because a literal in this file would be a second
+    `scripts.checks.retrieval_profile`, because a literal in this file would be a second
     copy of every number and the copies are what drifted. `default_factory` runs
     per construction rather than at import, so editing the yaml takes effect
     without restarting an interpreter that has already imported this module.
@@ -951,7 +951,7 @@ class ScorecardRegressionAnchors(BaseModel):
     anchors: list[ScorecardGoldenAnchor]
     #: False when the artifact these anchors came from no longer describes the
     #: running revision. `passed` can only ever equal the number of checks the
-    #: artifact recorded, because `scripts.score_evals.validate_release_checks`
+    #: artifact recorded, because `scripts.evals.score_evals.validate_release_checks`
     #: raises on the first failure and never writes a failing entry -- so a
     #: written artifact always reads N/N. Without this flag the section presents
     #: a historical N/N as present-tense verification.
@@ -963,12 +963,12 @@ class ScorecardEligibilityContracts(BaseModel):
 
     Not a relevance judgment: no Recall, MRR, or nDCG is computed over these.
     `fixture_count` is read from the harness's own query-population filter
-    (`scripts.score_evals.product_retrieval_queries`), not a number retyped
+    (`scripts.evals.score_evals.product_retrieval_queries`), not a number retyped
     for this surface.
 
     `held` is **not** a constant. It is `True` only while the measurement is
     attributed to the running revision, and `None` -- unknown -- otherwise. The
-    justification for `True` is that `scripts.score_evals.validate_hard_negatives`
+    justification for `True` is that `scripts.evals.score_evals.validate_hard_negatives`
     raises when any graded-0 product reaches the result window, so an artifact
     cannot exist for a run that violated a contract. That reasoning holds only
     for the revision actually measured, which is why a provenance mismatch makes
@@ -1158,7 +1158,7 @@ class HnswProbeRequest(BaseModel):
 
     anchor_product_id: int = Field(ge=1)
     # Bounds are declared here; defaults are not. They resolve from
-    # db/config/retrieval.yaml through scripts.retrieval_profile, exactly as
+    # db/config/retrieval.yaml through scripts.checks.retrieval_profile, exactly as
     # RetrievalProfile does, because a literal here would be a second copy of a served
     # number — and config_tripwire caught precisely that when these were hardcoded.
     ef_search: int = Field(

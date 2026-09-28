@@ -1,10 +1,10 @@
 import { BookOpen, Download, ExternalLink, X } from "lucide-react";
 import { useRef } from "react";
 import { createPortal } from "react-dom";
-import embedScript from "../../../scripts/embed_real_catalog.py?url";
-import loadScript from "../../../scripts/stage_real_catalog.py?url";
-import indexScript from "../../../scripts/prepare_staged_catalog_search.py?url";
-import probeScript from "../../../scripts/probe_staged_catalog_search.py?url";
+import embedScript from "../../../scripts/catalog/embed_real_catalog.py?url";
+import loadScript from "../../../scripts/catalog/stage_real_catalog.py?url";
+import indexScript from "../../../scripts/catalog/prepare_staged_catalog_search.py?url";
+import probeScript from "../../../scripts/catalog/probe_staged_catalog_search.py?url";
 
 const steps = [
   {

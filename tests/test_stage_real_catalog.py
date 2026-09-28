@@ -6,9 +6,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from scripts import stage_real_catalog as stage
-from scripts.prepare_real_catalog import canonical, embedding_text, sha256
-from scripts.stage_real_catalog import iter_record_pages, validate_dsn
+from scripts.catalog import stage_real_catalog as stage
+from scripts.catalog.prepare_real_catalog import canonical, embedding_text, sha256
+from scripts.catalog.stage_real_catalog import iter_record_pages, validate_dsn
 
 
 @pytest.mark.parametrize(

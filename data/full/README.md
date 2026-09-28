@@ -14,7 +14,7 @@ synthetic loader or embedding job to prepare a participant environment.
 
 ## Why these files remain
 
-`scripts/validate_package.py`, `tests/test_dataset.py` and catalog-semantics
+`scripts/checks/validate_package.py`, `tests/test_dataset.py` and catalog-semantics
 tests still validate these fixtures and their hashes. Removing the shards
 requires retiring those dependencies and their historical contracts together.
 Moving or deleting them alone would break offline validation.

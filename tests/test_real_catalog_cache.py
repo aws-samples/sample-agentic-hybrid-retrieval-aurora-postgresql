@@ -5,8 +5,8 @@ import tarfile
 
 import pytest
 
-from scripts import real_catalog_cache
-from scripts.real_catalog_cache import digest, unpack, verify_archive
+from scripts.catalog import real_catalog_cache
+from scripts.catalog.real_catalog_cache import digest, unpack, verify_archive
 
 
 def bundle(tmp_path, extra=None):
@@ -62,10 +62,10 @@ def test_bootstrap_requires_real_cache_before_any_catalog_load():
     script = (Path(__file__).parents[1] / "deploy/mosaic-bootstrap.sh").read_text()
 
     def verify(text):
-        assert text.index("scripts/real_catalog_cache.py join") < text.index(
+        assert text.index("scripts/catalog/real_catalog_cache.py join") < text.index(
             "\n  make db-bootstrap-schema\n"
         )
-        assert text.index("scripts/real_catalog_cache.py restore") < text.index(
+        assert text.index("scripts/catalog/real_catalog_cache.py restore") < text.index(
             "MISSION_GATE_REQUIRE_DB=1"
         )
         assert "printf '\\nMOSAIC_CATALOG_DATASET=%s\\n'" in text.replace("\\\\", "\\")
@@ -74,13 +74,14 @@ def test_bootstrap_requires_real_cache_before_any_catalog_load():
     with pytest.raises((AssertionError, ValueError)):
         verify(
             script.replace(
-                "scripts/real_catalog_cache.py restore", "echo missing-catalog-restore"
+                "scripts/catalog/real_catalog_cache.py restore",
+                "echo missing-catalog-restore",
             )
         )
 
 
 def test_eval_refuses_a_mixed_catalog_before_paid_scoring(monkeypatch):
-    from scripts.run_eval import require_single_served_catalog
+    from scripts.evals.run_eval import require_single_served_catalog
 
     monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
     require_single_served_catalog([{"dataset_id": "reviews-2023-v2"}])
@@ -93,7 +94,7 @@ def test_eval_refuses_a_mixed_catalog_before_paid_scoring(monkeypatch):
 def test_eval_validation_checks_each_catalog_in_its_own_schema():
     from unittest.mock import MagicMock
 
-    from scripts.run_eval import validate_query_contract
+    from scripts.evals.run_eval import validate_query_contract
 
     connection = MagicMock()
     connection.execute.return_value.fetchall.return_value = []

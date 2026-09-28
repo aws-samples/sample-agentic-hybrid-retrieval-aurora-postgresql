@@ -24,7 +24,7 @@ function rerankRelevanceLabel(modelId: string | null | undefined): string {
  * invented; that absence is what Lab 1 asks a participant to notice.
  *
  * `diagnostics` supplies the arithmetic's k and the reranking pool size, read
- * from the same search response rather than a literal: `scripts/config_tripwire.py`
+ * from the same search response rather than a literal: `scripts/checks/config_tripwire.py`
  * fails the build on a second copy of `rrf_k` or the candidate pool size. When a
  * response carries no diagnostics (a replay, or a call that asked for none), the
  * sub-lines that need them are omitted rather than invented; the base position

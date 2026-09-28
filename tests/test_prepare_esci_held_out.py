@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from scripts import prepare_esci_held_out as held_out
+from scripts.evals import prepare_esci_held_out as held_out
 
 
 def case(query_id: int, labels: dict[int, str]) -> dict:

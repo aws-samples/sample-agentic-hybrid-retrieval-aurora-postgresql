@@ -314,8 +314,8 @@ def test_reset_checks_identity_before_editing_files(monkeypatch):
 def test_applied_state_reads_the_catalog_served_by_the_api(monkeypatch, lab):
     from unittest.mock import MagicMock
 
+    from scripts.checks.retrieval_profile import load_profile
     from scripts.lab_state import validate_database
-    from scripts.retrieval_profile import load_profile
 
     monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
     k = load_profile().rrf_k

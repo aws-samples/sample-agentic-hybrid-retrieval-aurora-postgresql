@@ -1,7 +1,7 @@
 """The gate must fail on the defects it exists to catch.
 
 A gate that cannot fail is worse than no gate, because it reads as evidence.
-These checks drive `scripts/mission_contract.py` against deliberately broken
+These checks drive `scripts/checks/mission_contract.py` against deliberately broken
 contracts and assert the specific rule fires. Shape checks only — no database —
 so this suite runs anywhere; the live checks are exercised by
 `make validate-missions` against Aurora.
@@ -14,7 +14,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from scripts.mission_contract import (
+from scripts.checks.mission_contract import (
     REQUIRED_SUPPORTING_FIELDS,
     Report,
     check_shape,
@@ -105,7 +105,7 @@ def test_a_check_in_both_lists_fails(passing):
 
 def test_an_orphan_stage_in_the_union_fails(passing, monkeypatch):
     """A union member no mission uses is drift, and drift is how stages rot."""
-    import scripts.mission_contract as gate
+    import scripts.checks.mission_contract as gate
 
     monkeypatch.setattr(gate, "stage_union", lambda: stage_union() | {"invented"})
     assert "A1.3" in rules_failing(passing)
@@ -218,7 +218,7 @@ def test_an_assertion_without_a_falsifier_is_refused(monkeypatch):
     The dataclass refuses to build such an assertion, so the gate's own check is
     exercised with a stand-in rather than a real one.
     """
-    import scripts.mission_contract as gate
+    import scripts.checks.mission_contract as gate
 
     hollow = SimpleNamespace(name="target_in_top_k", arm=None, falsifier="   ")
     monkeypatch.setattr(

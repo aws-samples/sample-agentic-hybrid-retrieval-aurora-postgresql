@@ -61,7 +61,7 @@ selection and refuses drift. `make db-seed-exact-neighbors` then stores the
 exact neighbours of every anchor under every preset, keyed by the catalog,
 anchor-set and predicate identities.
 
-`make benchmark-hnsw` calls `scripts/benchmark_mosaic_scale.py`. From a clean
+`make benchmark-hnsw` calls `scripts/bench/benchmark_mosaic_scale.py`. From a clean
 worktree with `DATABASE_URL` pointing at Aurora and `AURORA_INSTANCE_CLASS`
 matching the connected instance, it measures the served catalog's fp32 index
 (and the halfvec and binary indexes only where they exist) using the production
@@ -83,9 +83,9 @@ client times are recorded separately. One sequential connection does not
 establish cold-cache performance, throughput, concurrency behavior or an
 end-to-end agent latency claim.
 
-The supporting `scripts/benchmark_hnsw.py` runner also persists its runs to
+The supporting `scripts/bench/benchmark_hnsw.py` runner also persists its runs to
 `mosaic_bench.run` and `mosaic_bench.measurement`. Do not confuse that runner's
-outputs with the current Make target. `scripts/simulate_scale.py` emits
+outputs with the current Make target. `scripts/bench/simulate_scale.py` emits
 `simulated_calibrated` projections, not larger physical measurements.
 
 ### Exact-baseline isolation

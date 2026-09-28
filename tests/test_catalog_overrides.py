@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_curated_taxonomy_correction_preserves_product_identity():
-    from scripts.catalog_overrides import apply_curated_override
+    from scripts.catalog.catalog_overrides import apply_curated_override
 
     row = {
         "product_id": "420001",
@@ -160,7 +160,7 @@ def test_transform_applies_curated_aliases_before_bootstrap_normalization(
 
 
 def test_copy_edit_preserves_existing_commerce_signals():
-    from scripts.catalog_overrides import apply_curated_override
+    from scripts.catalog.catalog_overrides import apply_curated_override
 
     row = {
         "title": "Chair",

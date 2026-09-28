@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from scripts import build_quantized_indexes as builder
+from scripts.bench import build_quantized_indexes as builder
 
 
 def test_statements_name_the_served_catalog_indexes(monkeypatch):

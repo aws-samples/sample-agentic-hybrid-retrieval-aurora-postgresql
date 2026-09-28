@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from scripts.retrieval_profile import explain
+from scripts.checks.retrieval_profile import explain
 from service.catalog_runtime import active_dataset
 from service.config import get_settings
 

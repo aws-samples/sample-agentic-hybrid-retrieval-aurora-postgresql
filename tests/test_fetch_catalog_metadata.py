@@ -6,8 +6,12 @@ import json
 
 import pytest
 
-from scripts import fetch_catalog_metadata as source
-from scripts.fetch_catalog_metadata import iter_records, read_chunk, validate_range
+from scripts.catalog import fetch_catalog_metadata as source
+from scripts.catalog.fetch_catalog_metadata import (
+    iter_records,
+    read_chunk,
+    validate_range,
+)
 
 
 def test_range_rejects_full_response_or_cached_wrong_segment():

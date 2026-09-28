@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from scripts.tool_contracts import (
+from scripts.checks.tool_contracts import (
     SQL_PATH,
     capability_parity_receipt,
     contracts_for_surface,

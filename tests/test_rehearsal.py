@@ -16,7 +16,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from scripts.rehearsal import (
+from scripts.checks.rehearsal import (
     REQUIRED_STAGES,
     RehearsalError,
     capture_identity,
@@ -48,7 +48,7 @@ def _shaped_like_an_aws_access_key_id() -> str:
     A literal `AKIA` immediately followed by 16 uppercase/digit characters
     trips the repository's own pre-commit secret scanner, which cannot tell
     this fixture from a real key. Assembling it from parts at import time
-    keeps the *value* AKIA-shaped for `scripts.rehearsal`'s own regex to
+    keeps the *value* AKIA-shaped for `scripts.checks.rehearsal`'s own regex to
     catch, while the source text of this file never contains the shape a
     line-based scanner looks for.
     """
@@ -273,7 +273,9 @@ def test_new_manifest_reads_selected_catalog_contract(tmp_path, monkeypatch):
             }
         )
     )
-    monkeypatch.setattr("scripts.rehearsal.REAL_CATALOG_CACHE_CONTRACT", contract)
+    monkeypatch.setattr(
+        "scripts.checks.rehearsal.REAL_CATALOG_CACHE_CONTRACT", contract
+    )
     manifest = new_manifest()
     assert (
         manifest["dataset_identity"]["expected_dataset_id"] == "selected-source-catalog"

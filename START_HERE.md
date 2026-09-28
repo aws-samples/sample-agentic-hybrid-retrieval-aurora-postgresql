@@ -20,7 +20,9 @@ connection settings loaded. You do not need to start a database or server.
 | Rank | Did the combined order preserve each search method's positions? | [Rank contribution](labs/lab2_rank/rrf_contribution.sql) |
 | Build an agent | Can your Strands agent use SQL tools and answer with sources? | [Agent factory](labs/lab3_reason/agent.py) |
 
-Read the guide's task before editing. Labs 1 and 2 each have one SQL repair.
+Read the guide's task before editing. Each lab's folder has a README with the
+task and commands; when a lab starts, its marked blocks hold a `TODO(Lab n)`
+note. Labs 1 and 2 each have one SQL repair.
 In Lab 3, complete the Strands agent, deploy it with
 `uv run python scripts/deploy_agentcore.py deploy`, then ask a product
 question and follow up. The guide provides hints and a recovery command.
@@ -29,9 +31,12 @@ question and follow up. The guide provides hints and a recovery command.
 
 - **`ui/`** — the Mosaic storefront and lab workbench.
 - **`service/`** — the API, agent tools, retrieval and citation checks.
-- **`db/`** — SQL, indexes and retrieval configuration.
-- **`scripts/`** — lab commands, validators and evaluation utilities.
-- **`labs/`** — the Strands agent you build.
+- **`labs/`** — one folder per lab: the file you edit, its task and a
+  `solution/` copy of the reference answer.
+- **`db/`** — the rest of the SQL, numbered in install order, and retrieval
+  configuration.
+- **`scripts/`** — the lab commands at the top; maintainer tooling in
+  `catalog/`, `evals/`, `bench/`, `checks/` and `media/`.
 - **`.local/lab-1`, `lab-2`, `lab-3`** — your queries and saved experiment records.
 - **`skills/`** — the portable hybrid agentic search skill.
 

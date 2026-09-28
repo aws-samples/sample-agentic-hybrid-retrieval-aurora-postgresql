@@ -27,7 +27,7 @@ from contextlib import AbstractContextManager
 
 import psycopg
 
-from scripts.retrieval_profile import load_profile
+from scripts.checks.retrieval_profile import load_profile
 from service.catalog_runtime import search_schema
 from service.db import connect
 from service.models import QueryCoverage, TermCoverage
@@ -160,7 +160,7 @@ def assess(
             from an absence for word-shaped tokens. Defaults to
             `coverage.similarity_floor` in `db/config/retrieval.yaml`, which is
             always passed explicitly rather than left to the SQL default: the
-            two agree today, and `scripts/config_tripwire.py` keeps them
+            two agree today, and `scripts/checks/config_tripwire.py` keeps them
             agreeing, but a request that reads the number the yaml declares
             cannot be told apart from one that reads a stale copy on the
             cluster unless it sends the value.

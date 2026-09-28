@@ -6,8 +6,8 @@ import json
 
 import pytest
 
-from scripts import fetch_catalog_reviews as sampler
-from scripts.fetch_catalog_reviews import (
+from scripts.catalog import fetch_catalog_reviews as sampler
+from scripts.catalog.fetch_catalog_reviews import (
     consume_range,
     review_record,
     select_reviews,

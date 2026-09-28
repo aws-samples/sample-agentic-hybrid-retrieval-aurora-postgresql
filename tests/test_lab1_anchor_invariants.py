@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.retrieval_profile import load_profile
+from scripts.checks.retrieval_profile import load_profile
 from service.catalog_runtime import active_dataset, search_schema
 from service.db import connect
 from service.models import SearchFilters, SearchRequest

@@ -8,8 +8,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from scripts.run_eval import select_catalog_queries
-from scripts.verify_real_bootstrap import verify
+from scripts.checks.verify_real_bootstrap import verify
+from scripts.evals.run_eval import select_catalog_queries
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -55,7 +55,7 @@ def test_real_query_selection_excludes_legacy_and_rejects_an_empty_selection():
 
 
 def test_published_query_files_keep_real_and_synthetic_identities_separate():
-    from scripts.eval_contract import load_evaluation_queries
+    from scripts.evals.eval_contract import load_evaluation_queries
 
     real = load_evaluation_queries(ROOT / "data/evals/canonical_queries.jsonl")
     legacy = load_evaluation_queries(

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from scripts.seed_exact_neighbors import StaleGroundTruth, assert_manifest_matches
+from scripts.bench.seed_exact_neighbors import StaleGroundTruth, assert_manifest_matches
 
 
 def test_matching_manifest_is_accepted():
@@ -65,7 +65,7 @@ class _Connection:
 
 
 def test_ground_truth_is_joined_on_the_current_predicates_and_anchor_set():
-    from scripts.seed_exact_neighbors import SEEDED_K, load_ground_truth
+    from scripts.bench.seed_exact_neighbors import SEEDED_K, load_ground_truth
     from service.hnsw_presets import FILTER_PRESETS
 
     connection = _Connection(
@@ -89,7 +89,7 @@ def test_ground_truth_is_joined_on_the_current_predicates_and_anchor_set():
 
 
 def test_a_request_deeper_than_the_seeded_depth_is_refused():
-    from scripts.seed_exact_neighbors import SEEDED_K, load_ground_truth
+    from scripts.bench.seed_exact_neighbors import SEEDED_K, load_ground_truth
 
     with pytest.raises(StaleGroundTruth, match=str(SEEDED_K)):
         load_ground_truth(
@@ -101,7 +101,7 @@ def test_a_changed_predicate_makes_stored_rows_invisible():
     """The stale-truth gate: rows carrying another predicate hash never join."""
     from dataclasses import replace
 
-    from scripts.seed_exact_neighbors import load_ground_truth
+    from scripts.bench.seed_exact_neighbors import load_ground_truth
     from service.hnsw_presets import PRESETS_BY_KEY
 
     changed = replace(PRESETS_BY_KEY["rating"], predicate_sql="rating >= 4.9")
@@ -120,7 +120,7 @@ def test_a_changed_predicate_makes_stored_rows_invisible():
 
 
 def test_the_exact_query_orders_ties_deterministically_and_resets_settings():
-    from scripts.seed_exact_neighbors import exact_neighbors
+    from scripts.bench.seed_exact_neighbors import exact_neighbors
     from service.hnsw_presets import PRESETS_BY_KEY
 
     connection = _Connection([{"product_id": 5, "cosine_distance": 0.0}])
@@ -140,7 +140,7 @@ def test_the_exact_query_orders_ties_deterministically_and_resets_settings():
 def test_seeding_computes_one_distance_pass_per_batch_and_ranks_every_preset():
     from types import SimpleNamespace
 
-    from scripts.seed_exact_neighbors import ANCHOR_BATCH, seed
+    from scripts.bench.seed_exact_neighbors import ANCHOR_BATCH, seed
     from service.hnsw_presets import FILTER_PRESETS
 
     class _SeedConnection(_Connection):
@@ -208,7 +208,7 @@ def test_seeding_computes_one_distance_pass_per_batch_and_ranks_every_preset():
 
 
 def test_the_batch_pass_keeps_the_filter_columns_the_presets_name():
-    from scripts.seed_exact_neighbors import compute_distances
+    from scripts.bench.seed_exact_neighbors import compute_distances
 
     class _PassConnection(_Connection):
         def execute(self, sql, parameters=None):
@@ -227,7 +227,7 @@ def test_the_batch_pass_keeps_the_filter_columns_the_presets_name():
 def test_seeding_refuses_an_anchor_the_catalog_lacks():
     from types import SimpleNamespace
 
-    from scripts.seed_exact_neighbors import anchor_vectors
+    from scripts.bench.seed_exact_neighbors import anchor_vectors
 
     with pytest.raises(StaleGroundTruth, match="select-hnsw-anchors"):
         anchor_vectors(_Connection(), SimpleNamespace(product_ids=(1, 2), sha256="a"))

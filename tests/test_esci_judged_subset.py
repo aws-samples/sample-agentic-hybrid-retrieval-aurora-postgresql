@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts import evaluate_esci_k, prepare_esci_judged_subset
+from scripts.evals import evaluate_esci_k, prepare_esci_judged_subset
 
 ROOT = Path(__file__).resolve().parents[1]
 SUBSET = json.loads((ROOT / "data/evals/esci_judged_subset.json").read_text())

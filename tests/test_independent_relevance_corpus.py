@@ -10,7 +10,7 @@ regress into an unreviewed or a duplicated fixture.
 import json
 from pathlib import Path
 
-from scripts.independent_relevance_eval import (
+from scripts.evals.independent_relevance_eval import (
     ANCHOR_OVERLAP_VALUES,
     JUDGMENT_STATUSES,
     REQUEST_SHAPES,
@@ -78,7 +78,7 @@ def test_coverage_design_is_a_full_four_by_six_grid():
     """One query per (cohort_category x cohort_intent) cell, no more, no fewer.
 
     This is a coverage probe, not a statistically powered sample: see the
-    module docstring in `scripts/independent_relevance_eval.py` for why 24 is
+    module docstring in `scripts/evals/independent_relevance_eval.py` for why 24 is
     the deliberate size rather than a convenient one.
     """
     categories = {"headphones", "monitor", "chair", "general"}

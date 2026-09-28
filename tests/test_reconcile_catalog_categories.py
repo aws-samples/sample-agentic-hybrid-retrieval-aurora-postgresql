@@ -2,7 +2,7 @@
 
 import pytest
 
-from scripts.reconcile_catalog_categories import require_preserved
+from scripts.catalog.reconcile_catalog_categories import require_preserved
 
 
 @pytest.mark.parametrize("present,changed", [(0, 0), (2, 0), (3, 1)])

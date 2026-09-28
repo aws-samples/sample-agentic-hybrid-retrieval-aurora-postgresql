@@ -6,12 +6,12 @@ import re
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from scripts.catalog_contract import (
+from scripts.catalog.catalog_contract import (
     SUPPORTED_FILTER_KEYS,
     product_matches_filters,
     unsupported_filter_keys,
 )
-from scripts.generate_catalog import ProductContext, specialized_attributes
+from scripts.catalog.generate_catalog import ProductContext, specialized_attributes
 from service.models import SearchFilters
 from service.search_sql import search_sql
 
@@ -172,7 +172,9 @@ def test_review_sample_matches_the_quick_start_catalog():
 
 def test_catalog_generator_does_not_emit_a_ui_fixture():
     """The storefront must obtain products from the API, not generated static data."""
-    generator = (ROOT / "scripts/generate_catalog.py").read_text(encoding="utf-8")
+    generator = (ROOT / "scripts/catalog/generate_catalog.py").read_text(
+        encoding="utf-8"
+    )
 
     assert not (ROOT / "ui/data/products.json").exists()
     assert 'out_root / "ui"' not in generator

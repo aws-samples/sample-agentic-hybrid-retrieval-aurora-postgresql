@@ -8,10 +8,10 @@ import json
 
 import pytest
 
-from scripts import fetch_catalog_metadata as metadata
-from scripts import fetch_product_questions as questions
-from scripts import prepare_real_catalog as selection
-from scripts import prepare_staged_catalog_search as projection
+from scripts.catalog import fetch_catalog_metadata as metadata
+from scripts.catalog import fetch_product_questions as questions
+from scripts.catalog import prepare_real_catalog as selection
+from scripts.catalog import prepare_staged_catalog_search as projection
 
 
 def record(asin: str, leaf: str, text: str = "x" * 200) -> dict:

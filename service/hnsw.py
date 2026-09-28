@@ -25,8 +25,8 @@ from typing import Any
 
 import psycopg
 
-from scripts.retrieval_profile import explain
-from scripts.seed_exact_neighbors import load_ground_truth
+from scripts.bench.seed_exact_neighbors import load_ground_truth
+from scripts.checks.retrieval_profile import explain
 from service.catalog_runtime import (
     CatalogIndexes,
     active_dataset,
@@ -141,7 +141,7 @@ def representation_recovery(representation: str) -> str:
         if representation == "fp32":
             return (
                 "rebuild the catalog projection with "
-                "`scripts/prepare_staged_catalog_search.py`, which creates the index"
+                "`scripts/catalog/prepare_staged_catalog_search.py`, which creates the index"
             )
         return (
             "run `make db-index-quantized-catalog` to build the halfvec and binary "

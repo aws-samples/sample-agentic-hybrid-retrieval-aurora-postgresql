@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from scripts import fetch_product_questions as questions
+from scripts.catalog import fetch_product_questions as questions
 
 
 def raw(asin="B000000001", text="Does it charge a MacBook?"):

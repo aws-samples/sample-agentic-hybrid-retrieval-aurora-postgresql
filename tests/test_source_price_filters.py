@@ -10,7 +10,7 @@ import re
 
 import pytest
 
-from scripts.prepare_live_catalog import VIEW_SQL, live_search_functions
+from scripts.catalog.prepare_live_catalog import VIEW_SQL, live_search_functions
 from service.catalog_runtime import filter_predicate
 from service.lab_checks import eligible
 from service.search_sql import search_sql

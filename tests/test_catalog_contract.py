@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.catalog_contract import (
+from scripts.catalog.catalog_contract import (
     SUPPORTED_FILTER_KEYS,
     product_matches_filters,
     validate_filter_shape,

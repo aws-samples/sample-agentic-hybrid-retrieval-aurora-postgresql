@@ -26,8 +26,8 @@ from pathlib import Path
 import psycopg
 import pytest
 
-from scripts.config_tripwire import SQL_DEFAULTS, _sql_default
-from scripts.retrieval_profile import load_profile
+from scripts.checks.config_tripwire import SQL_DEFAULTS, _sql_default
+from scripts.checks.retrieval_profile import load_profile
 from service import coverage
 from service.coverage import (
     QueryCoverage,
@@ -303,7 +303,7 @@ def test_the_default_floor_is_the_yaml_value_and_is_always_sent(fake_connect):
     """The floor reaches the database on every call, never by omission.
 
     Leaving it out would hand the verdict to whatever default the cluster
-    happens to hold. They agree today and `scripts/config_tripwire.py` keeps
+    happens to hold. They agree today and `scripts/checks/config_tripwire.py` keeps
     them agreeing, but "the number the yaml declares" and "the number this
     cluster was last installed with" are different claims, and only one of them
     is checkable from here.
@@ -318,7 +318,7 @@ def test_the_default_floor_is_the_yaml_value_and_is_always_sent(fake_connect):
 def test_the_yaml_floor_equals_the_sql_default():
     """Rule 5: exempt from declaring, never from agreeing.
 
-    Read through `scripts.config_tripwire._sql_default`, the parser the gate
+    Read through `scripts.checks.config_tripwire._sql_default`, the parser the gate
     itself uses, rather than a second regex written here -- a test that
     re-derives production logic stops discriminating the moment production
     changes shape.

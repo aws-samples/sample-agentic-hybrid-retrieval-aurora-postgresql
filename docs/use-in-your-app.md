@@ -57,6 +57,6 @@ Specifications and reviews can answer different questions. Retain their source t
 
 Use the same request before and after a change. Keep the applied filters, candidates by method, fused and final ranks, model identities, timings, evidence records and citations. Add a counterexample that must fail, such as an over-budget product or an unsupported measurement.
 
-The existing three lab validators exercise the production path. Use `scripts/validate_lab.py` and the mission manifest for the commands and required controls. For broader quality, adapt `data/evals/canonical_queries.jsonl` and `scripts/evaluate.py` to your own query population.
+The existing three lab validators exercise the production path. Use `scripts/validate_lab.py` and the mission manifest for the commands and required controls. For broader quality, adapt `data/evals/canonical_queries.jsonl` and `scripts/evals/evaluate.py` to your own query population.
 
 Aurora continues to hold catalog facts, evidence and run records when you change the agent host. AgentCore Runtime, Gateway and persistent preference memory are separate extensions; they are not prerequisites for the retrieval pattern above.

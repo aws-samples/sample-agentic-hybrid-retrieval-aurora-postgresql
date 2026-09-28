@@ -4,7 +4,7 @@ import re
 
 import pytest
 
-from scripts.prepare_staged_catalog_search import (
+from scripts.catalog.prepare_staged_catalog_search import (
     ROOT,
     require_complete,
     search_functions,
@@ -54,7 +54,9 @@ def test_changed_sql_boundary_requires_review_before_installation():
 def test_index_build_workers_respect_aurora_capacity(capacity, expected):
     from unittest.mock import MagicMock
 
-    from scripts.prepare_staged_catalog_search import configure_index_build_workers
+    from scripts.catalog.prepare_staged_catalog_search import (
+        configure_index_build_workers,
+    )
 
     connection = MagicMock()
     connection.execute.return_value.fetchone.return_value = (str(capacity),)

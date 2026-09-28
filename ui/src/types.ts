@@ -1134,7 +1134,7 @@ export interface ScorecardRetrievalQuality {
 /**
  * `query_text` and `concept_label` are only present once the canonical
  * scorecard was measured after labels were added to
- * `scripts/score_evals.py`; the artifact committed today carries neither, so
+ * `scripts/evals/score_evals.py`; the artifact committed today carries neither, so
  * both are optional and the UI must degrade to `query_id` alone.
  */
 export interface ScorecardGoldenAnchor {

@@ -25,7 +25,7 @@ and Kitchen — Home and Kitchen was not part of v1. The dataset now holds
 catalog_sha256
 `c4d5913f89050332f71512baf2a0351331208ab94eac0621be9ac63e653cfa00`.
 
-`scripts/fetch_catalog_reviews.py` scanned the whole Electronics, Home and
+`scripts/catalog/fetch_catalog_reviews.py` scanned the whole Electronics, Home and
 Kitchen and Office Products review files end to end and kept up to five of the
 most helpful reviews per rating group (positive 4-5, mixed 3, critical 1-2)
 for each catalog product, up to 15 per product: 351,134 Electronics reviews
@@ -36,12 +36,12 @@ catalog were dropped and counted (81,726 Electronics, 6,066 Home and Kitchen,
 6,239 Office Products).
 
 On 2026-09-28 a deeper sample was staged on the development cluster only.
-`scripts/scan_catalog_reviews.py` rescanned the same three pinned review files
+`scripts/catalog/scan_catalog_reviews.py` rescanned the same three pinned review files
 in six line-aligned parts per file, keeping up to 20 of the most helpful reviews
 per rating group (up to 60 per product), with a separate whole-file SHA-256 pass
-against each pin. `scripts/filter_catalog_reviews.py` dropped 142,356
+against each pin. `scripts/catalog/filter_catalog_reviews.py` dropped 142,356
 Electronics reviews whose 19,789 parents are outside the catalog, and
-`scripts/stage_catalog_evidence.py --skip-refetch` staged 902,760 reviews for
+`scripts/catalog/stage_catalog_evidence.py --skip-refetch` staged 902,760 reviews for
 the same 67,750 products: 770,783 Electronics, 103,504 Home and Kitchen and
 28,473 Office Products. The lab anchors gain depth: the Lab 1 Bose headphones
 has 60 imported reviews, the ViewSonic VG2756-4K 14 and the Steelcase Gesture
@@ -50,12 +50,12 @@ has 60 imported reviews, the ViewSonic VG2756-4K 14 and the Steelcase Gesture
 above until it is rebuilt and republished.
 
 ```sh
-.venv/bin/python scripts/scan_catalog_reviews.py Electronics \
+.venv/bin/python scripts/catalog/scan_catalog_reviews.py Electronics \
   --parents parents.json --work scan-work --destination release \
   --parts 6 --reviews-per-rating-group 20 --release-per-rating-group 20
-.venv/bin/python scripts/filter_catalog_reviews.py --dataset-id reviews-2023-v2 \
+.venv/bin/python scripts/catalog/filter_catalog_reviews.py --dataset-id reviews-2023-v2 \
   --samples release/Electronics-reviews.json
-.venv/bin/python scripts/stage_catalog_evidence.py --dataset-id reviews-2023-v2 \
+.venv/bin/python scripts/catalog/stage_catalog_evidence.py --dataset-id reviews-2023-v2 \
   --skip-refetch --report stage-report.json --samples release/*-reviews.json
 ```
 
@@ -138,13 +138,13 @@ The operator sequence uses the existing Python environment and Aurora
 `DATABASE_URL`; it never starts a local database:
 
 ```sh
-python scripts/fetch_catalog_metadata.py Electronics --destination .local/real-products/reviews-2023/full
-python scripts/fetch_catalog_metadata.py Office_Products --destination .local/real-products/reviews-2023/full
-python scripts/prepare_real_catalog.py --source-root .local/real-products/reviews-2023/full --output .local/real-products/catalog-500k
-python scripts/embed_real_catalog.py --selection .local/real-products/catalog-500k --workers 4
-python scripts/stage_real_catalog.py --selection .local/real-products/catalog-500k --dataset-id reviews-2023-500k-v1 --phase records
-python scripts/stage_real_catalog.py --selection .local/real-products/catalog-500k --dataset-id reviews-2023-500k-v1 --phase embeddings
-python scripts/stage_real_catalog.py --selection .local/real-products/catalog-500k --dataset-id reviews-2023-500k-v1 --phase verify --require-complete
+python scripts/catalog/fetch_catalog_metadata.py Electronics --destination .local/real-products/reviews-2023/full
+python scripts/catalog/fetch_catalog_metadata.py Office_Products --destination .local/real-products/reviews-2023/full
+python scripts/catalog/prepare_real_catalog.py --source-root .local/real-products/reviews-2023/full --output .local/real-products/catalog-500k
+python scripts/catalog/embed_real_catalog.py --selection .local/real-products/catalog-500k --workers 4
+python scripts/catalog/stage_real_catalog.py --selection .local/real-products/catalog-500k --dataset-id reviews-2023-500k-v1 --phase records
+python scripts/catalog/stage_real_catalog.py --selection .local/real-products/catalog-500k --dataset-id reviews-2023-500k-v1 --phase embeddings
+python scripts/catalog/stage_real_catalog.py --selection .local/real-products/catalog-500k --dataset-id reviews-2023-500k-v1 --phase verify --require-complete
 ```
 
 ### Generating embeddings efficiently
@@ -168,7 +168,7 @@ from three source Regions, subject to the account's permissions and applied
 quotas in each Region:
 
 ```sh
-python scripts/embed_real_catalog.py --selection .local/real-products/catalog-500k --workers 12 --regions us-east-1 us-east-2 us-west-2
+python scripts/catalog/embed_real_catalog.py --selection .local/real-products/catalog-500k --workers 12 --regions us-east-1 us-east-2 us-west-2
 ```
 
 [Bedrock's geographic inference quotas are per model, per source Region](https://docs.aws.amazon.com/bedrock/latest/userguide/quotas-runtime.html).
@@ -234,7 +234,7 @@ change retrieval behavior.
 
 ### Loading into Aurora
 
-[`scripts/stage_real_catalog.py`](../scripts/stage_real_catalog.py) is the
+[`scripts/catalog/stage_real_catalog.py`](../scripts/catalog/stage_real_catalog.py) is the
 public-catalog loader used by the operator commands above. It streams product
 records with `COPY`. For vectors, it verifies each saved cache batch and uses
 binary `COPY` into an Aurora temporary table, followed by a set-based
@@ -267,7 +267,7 @@ duration. No end-to-end ingestion speedup is claimed from that timestamp.
 
 A fresh Workshop Studio Aurora cluster installs shared schemas with
 `make db-bootstrap-schema`, then restores the pinned real catalog through
-`scripts/real_catalog_cache.py`. It loads real products, saved Cohere vectors and
+`scripts/catalog/real_catalog_cache.py`. It loads real products, saved Cohere vectors and
 real source evidence only. Historical synthetic products, reviews and vocabulary
 are excluded. Participants receive the prepared database and do not run a second
 import during the labs.
@@ -283,7 +283,7 @@ included in the source commit.
 
 ### Search preparation and first comparisons
 
-[`prepare_staged_catalog_search.py`](../scripts/prepare_staged_catalog_search.py)
+[`prepare_staged_catalog_search.py`](../scripts/catalog/prepare_staged_catalog_search.py)
 builds a separate `mosaic_catalog_search` projection from the verified import.
 All 500,000 rows retain their original parent IDs, text hashes and vectors.
 The full comparison found zero source or vector mismatches, and every index is
@@ -292,7 +292,7 @@ valid. The full-text, trigram and full-precision HNSW indexes occupy approximate
 sizes of the replacement indexes, not a comparison with `halfvec` or binary
 representations. Those comparisons remain outstanding.
 
-[`probe_staged_catalog_search.py`](../scripts/probe_staged_catalog_search.py)
+[`probe_staged_catalog_search.py`](../scripts/catalog/probe_staged_catalog_search.py)
 runs the shipped SQL, fixed query embeddings and the configured reranker in the
 isolated schema. Each broken lab state runs in a transaction that is rolled
 back; the served search functions are not changed. Seven requests produced 21
@@ -465,7 +465,7 @@ It filters the visible specifications, not Aurora search results.
 
 Aggregate source reports and input hashes are in
 [`docs/evidence/catalog-source-audit/`](evidence/catalog-source-audit/).
-`scripts/catalog_source_audit.py` reproduces the ESCI, ABO and Reviews 2023
+`scripts/catalog/catalog_source_audit.py` reproduces the ESCI, ABO and Reviews 2023
 coverage checks without a database or model call. Its optional Parquet reader
 uses PyArrow. The additional Kaggle report records the complete archive hash,
 all product columns, identity counts and exact ESCI US overlap. Full ESCI revision:

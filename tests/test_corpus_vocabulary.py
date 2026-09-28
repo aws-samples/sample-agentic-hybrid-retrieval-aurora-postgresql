@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from scripts import corpus_vocabulary as vocabulary
+from scripts.catalog import corpus_vocabulary as vocabulary
 
 
 def test_published_contract_agrees_with_production_sql_without_ignored_assets():
@@ -166,7 +166,7 @@ def test_operator_rebuild_executes_the_production_procedure(monkeypatch):
 
 def test_bootstrap_verifies_vocabulary_before_loading_either_catalog():
     script = (vocabulary.ROOT / "deploy/mosaic-bootstrap.sh").read_text()
-    assert script.index("scripts/corpus_vocabulary.py verify") < script.index(
+    assert script.index("scripts/catalog/corpus_vocabulary.py verify") < script.index(
         "\n  make db-bootstrap-schema\n"
     )
     assert (

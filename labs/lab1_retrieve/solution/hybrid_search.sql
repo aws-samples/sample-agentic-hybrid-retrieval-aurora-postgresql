@@ -30,7 +30,7 @@ CREATE OR REPLACE FUNCTION mosaic_search.search_hybrid_rrf(
     semantic_limit integer DEFAULT 150,
     result_limit integer DEFAULT 50,
     -- Threaded through rather than hardcoded at the call site below. A
-    -- positional literal there was invisible to scripts/config_tripwire.py,
+    -- positional literal there was invisible to scripts/checks/config_tripwire.py,
     -- whose rule 1 only sees assignment-shaped declarations; as a named
     -- parameter it is an exempted default that the tripwire pins to
     -- candidate_generation.trigram_threshold and asserts equal.

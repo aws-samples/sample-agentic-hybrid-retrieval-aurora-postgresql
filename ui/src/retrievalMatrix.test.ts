@@ -63,7 +63,7 @@ function product(
 }
 
 // Restating the retrieval profile here would put a second copy of rrf_k and the
-// arm limits in source, which scripts/config_tripwire.py forbids for good reason:
+// arm limits in source, which scripts/checks/config_tripwire.py forbids for good reason:
 // db/config/retrieval.yaml is the one place those values are set. The committed
 // capture already carries the profile its run used, so the fixtures borrow it.
 const profile = seedRun.diagnostics!.retrieval_profile;

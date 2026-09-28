@@ -11,7 +11,7 @@ governs while the gate reported green.
 
 from __future__ import annotations
 
-from scripts.labs_type_scale import (
+from scripts.checks.labs_type_scale import (
     STYLESHEETS,
     scan_labs_type,
 )

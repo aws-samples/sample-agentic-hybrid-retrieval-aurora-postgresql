@@ -15,7 +15,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from scripts.independent_relevance_eval import (
+from scripts.evals.independent_relevance_eval import (
     ESCI_LABEL_TO_GRADE,
     QueryOutcome,
     _canonical_judged_product_ids,
@@ -319,7 +319,10 @@ def test_bad_ranking_produces_bad_metrics_not_a_silent_pass():
             latency_ms=50.0,
         )
     }
-    from scripts.independent_relevance_eval import TIER_PREDICATES, _relevance_tier
+    from scripts.evals.independent_relevance_eval import (
+        TIER_PREDICATES,
+        _relevance_tier,
+    )
 
     result = _relevance_tier(
         queries_by_id,
@@ -367,7 +370,7 @@ def test_empty_relevance_case_is_excluded_from_relevance_metrics():
 
 
 def test_empty_relevance_case_with_clean_response_is_reported_correct():
-    from scripts.independent_relevance_eval import _empty_result_behavior
+    from scripts.evals.independent_relevance_eval import _empty_result_behavior
 
     query = make_query(
         "Q-EMPTY",
@@ -388,7 +391,7 @@ def test_empty_relevance_case_with_clean_response_is_reported_correct():
 
 
 def test_empty_relevance_case_leaking_a_hard_negative_is_flagged():
-    from scripts.independent_relevance_eval import _empty_result_behavior
+    from scripts.evals.independent_relevance_eval import _empty_result_behavior
 
     query = make_query(
         "Q-EMPTY",
@@ -414,7 +417,7 @@ def test_empty_relevance_case_leaking_a_hard_negative_is_flagged():
 
 
 def test_hard_negative_violation_reports_its_final_rank():
-    from scripts.independent_relevance_eval import _hard_negative_violations
+    from scripts.evals.independent_relevance_eval import _hard_negative_violations
 
     query = make_query(
         "Q-1",
@@ -432,7 +435,7 @@ def test_hard_negative_violation_reports_its_final_rank():
 def test_hard_negative_violation_uses_final_rank_not_list_position():
     """A permuted final_rank must be honoured: product 2 is returned FIRST in
     the raw list but its own final_rank says it is actually rank 5."""
-    from scripts.independent_relevance_eval import _hard_negative_violations
+    from scripts.evals.independent_relevance_eval import _hard_negative_violations
 
     query = make_query(
         "Q-1",
@@ -451,7 +454,7 @@ def test_hard_negative_violation_uses_final_rank_not_list_position():
 
 
 def test_no_violation_when_hard_negative_is_absent():
-    from scripts.independent_relevance_eval import _hard_negative_violations
+    from scripts.evals.independent_relevance_eval import _hard_negative_violations
 
     query = make_query(
         "Q-1",
@@ -518,7 +521,7 @@ def test_run_queries_records_a_failure_without_aborting_the_batch():
 def test_run_queries_reads_rank_from_final_rank_not_list_position():
     """The service can return results in an order that does not match
     final_rank once downstream filtering runs; the runner must read the
-    authoritative field, exactly as scripts/score_evals.py does."""
+    authoritative field, exactly as scripts/evals/score_evals.py does."""
     query = make_query("Q-1", judgments=[make_judgment(1, 3), make_judgment(2, 2)])
     # Listed as [2, 1] but product 2's own final_rank is 2, product 1's is 1.
     retrieval = FakeRetrieval([fake_response([(2, 2), (1, 1)])])

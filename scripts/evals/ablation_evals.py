@@ -1,0 +1,882 @@
+#!/usr/bin/env python3
+"""Measure what each retrieval stage contributes, without spending rerank calls.
+
+Lab 2 teaches Retrieve -> Rank -> Reason. `data/evals/canonical_scorecard.json`
+proves the served path (RRF fusion + managed reranking) meets a quality floor,
+but a single number cannot show a participant *why*: how much of that quality
+came from fusing three retrievers versus from reranking the fused pool.
+
+Five arms, over the same scored canonical queries and the same judgments
+`scripts/evals/score_evals.py` already uses:
+
+    1. lexical_only        -- `search_fts`, no fusion, no rerank
+    2. trigram_only        -- `search_trigram`, no fusion, no rerank
+    3. semantic_only       -- `search_vector`, no fusion, no rerank
+
+Each single arm calls its function in the served search schema
+(`service.catalog_runtime.search_schema`), the one the served path fuses from.
+Querying the historical `mosaic_search` tree against real-catalog judgments
+once scored every single arm zero.
+    4. rrf_fused_no_rerank -- the served fusion function, reranking off
+    5. rrf_fused_reranked  -- the current production path
+
+The three single arms are what a participant would ship without hybrid
+retrieval; together with the fused arm they answer "what did combining buy".
+Arm 5 is never re-served. Managed reranking costs money per call, and
+`data/evals/canonical_ranked_results.csv` already carries the exact ranked
+output of the last reviewed production run, committed and reduced to
+`query_id,product_id,rank` so a clean clone can reproduce it. This script
+loads that CSV,
+recomputes its metrics with the same `scripts.evals.evaluate.evaluate`, and asserts
+the result equals `data/evals/canonical_scorecard.json.metrics` to full float
+precision. A mismatch means the CSV or the committed scorecard no longer
+describes the same measurement, and this script stops rather than publish a
+number it cannot back.
+
+Arms 1 to 4 call Aurora directly through the per-channel search functions
+and the same fusion SQL `service.retrieval.RetrievalService` serves, bypassing
+`RetrievalService.search()` so no `mosaic.search_event` row is written --
+this script only ever issues `SELECT`s. The two text arms need no embedding;
+each query is embedded once (cached by `RetrievalService._embed_query`) and
+shared between arms 3 and 4.
+
+`candidate_recall_ceiling` answers a different question than any arm's
+Recall@10: of the judged-relevant products, how many did the *fused* pool
+(arm 2's full candidate list, before it is cut to the top 10 shown to a
+participant) contain at all? Reranking only ever reorders that pool -- it
+never adds a candidate -- so this is the ceiling reranking could reach. Both
+arm 2 and arm 3's top-10 are drawn from this same pool, so the ceiling bounds
+their Recall@10 by construction. It does not bound the three single arms,
+which retrieve independently of fusion; the assembled artifact records where
+each of them sits against the ceiling rather than assuming the relationship.
+"""
+
+from __future__ import annotations
+
+import csv
+import json
+import re
+import statistics
+import sys
+from collections import defaultdict
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+REPO = Path(__file__).resolve().parents[2]
+if str(REPO) not in sys.path:
+    sys.path.insert(0, str(REPO))
+
+from scripts.checks.retrieval_profile import explain
+from scripts.evals.eval_contract import load_evaluation_queries
+from scripts.evals.evaluate import evaluate, load_judgments
+from scripts.evals.run_eval import require_single_served_catalog
+from scripts.evals.score_evals import (
+    QUERY_VECTORS_PATH,
+    load_query_vectors,
+    pin_query_vectors,
+    product_retrieval_queries,
+    query_set_sha256,
+    query_vectors_sha256,
+    ranked_result_sha256,
+    scored_query_set_sha256,
+)
+from service.catalog_runtime import search_schema
+from service.config import get_settings
+from service.models import SearchFilters, SearchRequest
+from service.retrieval import RetrievalService, get_retrieval_service, normalize_query
+from service.retrieval_fingerprint import (
+    compute_ablation_methodology_sha256,
+    compute_live_retrieval_settings_sha256,
+    compute_retrieval_fingerprint,
+)
+
+K = 10
+CANONICAL_QUERIES_PATH = REPO / "data" / "evals" / "canonical_queries.jsonl"
+#: The committed ranking, reduced to query_id/product_id/rank by
+#: `scripts.evals.score_evals._write_ranked_results`. `benchmarks/results/` is
+#: git-ignored because per-run artifacts carry live identifiers, which left
+#: this script unrunnable from a clean clone.
+SERVED_RESULTS_PATH = REPO / "data" / "evals" / "canonical_ranked_results.csv"
+CANONICAL_SCORECARD_PATH = REPO / "data" / "evals" / "canonical_scorecard.json"
+ABLATION_PATH = REPO / "data" / "evals" / "canonical_stage_ablation.json"
+
+ARM_LEXICAL_ONLY = "lexical_only"
+ARM_TRIGRAM_ONLY = "trigram_only"
+ARM_SEMANTIC_ONLY = "semantic_only"
+ARM_RRF_FUSED = "rrf_fused_no_rerank"
+ARM_RRF_RERANKED = "rrf_fused_reranked"
+
+#: The three arms a participant could ship on their own, in the order the
+#: Playground names them. None is bounded by the fused-pool ceiling.
+SINGLE_ARMS = (ARM_LEXICAL_ONLY, ARM_TRIGRAM_ONLY, ARM_SEMANTIC_ONLY)
+
+ARM_LABELS: dict[str, str] = {
+    ARM_LEXICAL_ONLY: "Lexical only",
+    ARM_TRIGRAM_ONLY: "Trigram only",
+    ARM_SEMANTIC_ONLY: "Semantic only",
+    ARM_RRF_FUSED: "RRF fused, reranking off",
+    ARM_RRF_RERANKED: "RRF fused + managed reranking (served path)",
+}
+
+ARM_DESCRIPTIONS: dict[str, str] = {
+    ARM_LEXICAL_ONLY: (
+        "search_fts alone: PostgreSQL full-text search over the "
+        "weighted product document, with no trigram or semantic arm and no "
+        "fusion."
+    ),
+    ARM_TRIGRAM_ONLY: (
+        "search_trigram alone: pg_trgm similarity over the "
+        "product identity text, with no lexical or semantic arm and no fusion."
+    ),
+    ARM_SEMANTIC_ONLY: (
+        "search_vector alone: dense cosine ranking over the "
+        "product embedding, with no lexical or trigram arm and no fusion."
+    ),
+    ARM_RRF_FUSED: (
+        "The served fusion function (unweighted reciprocal rank fusion over "
+        "FTS, trigram, and semantic candidates), with managed reranking "
+        "disabled so the fused order is returned unchanged."
+    ),
+    ARM_RRF_RERANKED: (
+        "The production path: the same fused pool as rrf_fused_no_rerank, "
+        "reordered by managed reranking. Recomputed from "
+        "data/evals/canonical_ranked_results.csv rather than re-served, so "
+        "this measurement spends no reranker calls."
+    ),
+}
+
+FULL_GIT_SHA = re.compile(r"[0-9a-f]{40}")
+
+
+# Owner-specified honesty framing for the UI. Carried on the artifact itself,
+# not typed fresh into the UI, so the caveat travels with the numbers it
+# qualifies rather than living only in a component that could drift from the
+# measurement it describes.
+#
+# It used to tell the reader to compare a mean *difference* against each arm's
+# own per-query standard deviation. That is not a test: the arms answer the
+# same searches, so they are paired, and each arm's own spread is dominated by
+# how much query difficulty varies rather than by which arm won. The right
+# spread is the spread of the per-search differences, which
+# `service.scorecard._paired_comparisons` computes and serves.
+def spread_note(queries: list[dict[str, Any]]) -> str:
+    """The small-sample caveat, counted from the population it qualifies."""
+    judgments = sum(len(query["judgments"]) for query in queries)
+    return (
+        f"{len(queries)} queries and {judgments} judgments cannot separate small "
+        "differences between these paths. Every path answers the same searches, so "
+        "read each step as the difference on each search rather than as two "
+        "separate averages: the comparison below reports that difference, the "
+        "spread of the differences, and how many searches each step won and lost. "
+        "A step whose average difference is smaller than that spread is one this "
+        "query set cannot tell apart from no change."
+    )
+
+
+class AblationMeasurementError(RuntimeError):
+    """Refuses to publish an ablation artifact that cannot be trusted."""
+
+
+def _require_clean_source(settings: Any) -> None:
+    """Fail before any Aurora or model work when source provenance is not
+    immutable. Deliberately duplicated from
+    `scripts.evals.score_evals._validate_measurement_source` rather than imported:
+    that name is private to its module, and this measurement's provenance
+    contract should not depend on that module's internals staying stable."""
+    if settings.source_worktree_dirty:
+        raise AblationMeasurementError(
+            explain(
+                "the worktree is dirty",
+                "commit or remove the current worktree changes before "
+                "measuring the stage ablation",
+            )
+        )
+    if not FULL_GIT_SHA.fullmatch(settings.source_revision):
+        raise AblationMeasurementError(
+            explain(
+                f"source revision {settings.source_revision!r} is not a full "
+                "40-character Git SHA",
+                "set MOSAIC_SOURCE_REVISION or run from a Git checkout",
+            )
+        )
+
+
+def relevant_ids(judgments: dict[int, int]) -> set[int]:
+    """Judged-relevant product ids for one query, grade >= 2, matching the
+    threshold `scripts.evals.evaluate.evaluate` uses for Recall."""
+    return {product_id for product_id, grade in judgments.items() if grade >= 2}
+
+
+def load_served_arm(
+    path: Path,
+    query_ids: set[str],
+) -> dict[str, list[tuple[int, int]]]:
+    """Rebuild the production arm's ranked results from the persisted CSV.
+
+    No Cohere rerank call: this is the exact ranked output of the last
+    reviewed `scripts/evals/score_evals.py` run, filtered to the scored
+    product_retrieval population.
+    """
+    ranked: dict[str, list[tuple[int, int]]] = defaultdict(list)
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        for row in csv.DictReader(handle):
+            if row["query_id"] not in query_ids:
+                continue
+            ranked[row["query_id"]].append((int(row["rank"]), int(row["product_id"])))
+    missing = query_ids - set(ranked)
+    if missing:
+        raise AblationMeasurementError(
+            explain(
+                f"{path} has no served rows for {sorted(missing)}",
+                "rerun scripts/evals/score_evals.py --write-baseline so the served "
+                "results cover every currently scored query before measuring "
+                "the ablation",
+            )
+        )
+    return dict(ranked)
+
+
+def _text_channel_arm(
+    retrieval: RetrievalService,
+    queries: list[dict[str, Any]],
+    *,
+    sql: str,
+    rank_column: str,
+    parameters: dict[str, Any],
+) -> dict[str, list[tuple[int, int]]]:
+    """Rank every candidate one text channel finds on its own.
+
+    No embedding is made: the lexical and trigram channels read the query
+    text, so this is the exact SQL the served fusion function calls for that
+    channel, run alone and never fused. The full ranked list is kept because
+    `evaluate()` trims to the top K itself.
+    """
+    ranked: dict[str, list[tuple[int, int]]] = {}
+    for query in queries:
+        normalized = normalize_query(query["query"])
+        filters = SearchFilters.model_validate(query.get("filters") or {}).as_sql_json()
+        with retrieval.connection_factory() as connection:
+            rows = connection.execute(
+                sql,
+                {"query": normalized, "filters": json.dumps(filters), **parameters},
+            ).fetchall()
+        ranked[query["query_id"]] = [
+            (int(row[rank_column]), int(row["product_id"])) for row in rows
+        ]
+    return ranked
+
+
+def lexical_only_arm(
+    retrieval: RetrievalService,
+    queries: list[dict[str, Any]],
+) -> dict[str, list[tuple[int, int]]]:
+    """`search_fts` alone in the served schema, at the served `fts_limit`."""
+    profile = retrieval._profile(SearchRequest(query="ablation profile", limit=K))
+    return _text_channel_arm(
+        retrieval,
+        queries,
+        sql=f"""
+            SELECT product_id, fts_rank
+            FROM {search_schema()}.search_fts(
+                %(query)s::text, %(filters)s::jsonb, %(limit)s::integer
+            )
+            ORDER BY fts_rank
+            """,
+        rank_column="fts_rank",
+        parameters={"limit": profile.fts_limit},
+    )
+
+
+def trigram_only_arm(
+    retrieval: RetrievalService,
+    queries: list[dict[str, Any]],
+) -> dict[str, list[tuple[int, int]]]:
+    """`search_trigram` alone in the served schema, at the served limit and threshold."""
+    profile = retrieval._profile(SearchRequest(query="ablation profile", limit=K))
+    return _text_channel_arm(
+        retrieval,
+        queries,
+        sql=f"""
+            SELECT product_id, trigram_rank
+            FROM {search_schema()}.search_trigram(
+                %(query)s::text, %(filters)s::jsonb, %(limit)s::integer,
+                %(threshold)s::real
+            )
+            ORDER BY trigram_rank
+            """,
+        rank_column="trigram_rank",
+        parameters={
+            "limit": profile.trigram_limit,
+            "threshold": profile.trigram_threshold,
+        },
+    )
+
+
+def semantic_only_arm(
+    retrieval: RetrievalService,
+    queries: list[dict[str, Any]],
+) -> dict[str, list[tuple[int, int]]]:
+    """Rank every candidate `search_vector` alone can find in the served schema.
+
+    Uses the same `semantic_limit` as the served semantic channel, so this is
+    the identical dense ranking fusion draws from -- just never fused, never
+    reranked. `evaluate()` trims to the top K itself, so the full ranked list
+    is kept rather than pre-truncated.
+    """
+    profile = retrieval._profile(SearchRequest(query="ablation profile", limit=K))
+    ranked: dict[str, list[tuple[int, int]]] = {}
+    for query in queries:
+        normalized = normalize_query(query["query"])
+        embedding = retrieval._embed_query(normalized)
+        filters = SearchFilters.model_validate(query.get("filters") or {}).as_sql_json()
+        with retrieval.connection_factory() as connection:
+            retrieval._configure_hnsw(connection, profile)
+            rows = connection.execute(
+                f"""
+                SELECT product_id, semantic_rank
+                FROM {search_schema()}.search_vector(
+                    %(embedding)s::vector, %(filters)s::jsonb, %(limit)s::integer
+                )
+                ORDER BY semantic_rank
+                """,
+                {
+                    "embedding": np.asarray(embedding, dtype=np.float32),
+                    "filters": json.dumps(filters),
+                    "limit": profile.semantic_limit,
+                },
+            ).fetchall()
+        ranked[query["query_id"]] = [
+            (int(row["semantic_rank"]), int(row["product_id"])) for row in rows
+        ]
+    return ranked
+
+
+def rrf_fused_arm(
+    retrieval: RetrievalService,
+    queries: list[dict[str, Any]],
+) -> tuple[dict[str, list[tuple[int, int]]], dict[str, list[int]]]:
+    """Rank the served fusion function's full candidate pool, reranking off.
+
+    Returns the top-K ranked mapping `evaluate()` expects, plus every
+    query's full fused pool (<= `fusion.fused_limit` product ids, in the
+    fused order) for the candidate-recall ceiling. Calls the exact SQL
+    `service.retrieval.RetrievalService.search` runs before reranking --
+    `_fusion_sql`/`_fusion_parameters` -- against a bare connection, so no
+    `mosaic.search_event` row is written and no reranker call happens.
+    """
+    profile = retrieval._profile(SearchRequest(query="ablation profile", limit=K))
+    ranked: dict[str, list[tuple[int, int]]] = {}
+    pools: dict[str, list[int]] = {}
+    for query in queries:
+        normalized = normalize_query(query["query"])
+        embedding = retrieval._embed_query(normalized)
+        filters = SearchFilters.model_validate(query.get("filters") or {}).as_sql_json()
+        with retrieval.connection_factory() as connection:
+            retrieval._configure_hnsw(connection, profile)
+            rows = connection.execute(
+                retrieval._fusion_sql(),
+                retrieval._fusion_parameters(normalized, embedding, filters, profile),
+            ).fetchall()
+        pool_ids = [int(row["product_id"]) for row in rows]
+        pools[query["query_id"]] = pool_ids
+        ranked[query["query_id"]] = list(enumerate(pool_ids, 1))
+    return ranked, pools
+
+
+def candidate_recall_ceiling(
+    pools: dict[str, list[int]],
+    truth: dict[str, dict[int, int]],
+) -> dict[str, Any]:
+    """How many judged-relevant products the fused pool contained at all.
+
+    The ceiling reranking could ever reach: reranking only reorders the fused
+    pool, it never adds a candidate absent from it.
+    """
+    per_query: list[dict[str, Any]] = []
+    for query_id, judgments in truth.items():
+        relevant = relevant_ids(judgments)
+        pool = set(pools.get(query_id, []))
+        found = relevant & pool
+        missed = sorted(relevant - pool)
+        per_query.append(
+            {
+                "query_id": query_id,
+                "relevant_count": len(relevant),
+                "found_in_pool": len(found),
+                "missed_product_ids": missed,
+                "pool_recall": len(found) / max(1, len(relevant)),
+            }
+        )
+    if not per_query:
+        raise AblationMeasurementError(
+            explain("no queries were scored for the ceiling", "check the query set")
+        )
+    return {
+        "pool_recall_ceiling": (
+            sum(row["pool_recall"] for row in per_query) / len(per_query)
+        ),
+        "judged_relevant_never_fetched": sum(
+            len(row["missed_product_ids"]) for row in per_query
+        ),
+        "per_query": per_query,
+    }
+
+
+def _spread(values: list[float]) -> dict[str, float]:
+    """Min, max, and **sample** standard deviation (n-1) across the 20 queries.
+
+    Sample, not population: the 20 canonical queries are themselves a small
+    sample drawn to exercise teaching concepts, not the full space of queries
+    a participant might type, so the spread of *this* sample is reported with
+    the usual n-1 correction rather than treated as the whole population.
+    """
+    return {
+        "min": min(values),
+        "max": max(values),
+        "stdev": statistics.stdev(values) if len(values) > 1 else 0.0,
+    }
+
+
+def _win_counts(
+    per_query_ndcg: dict[str, dict[str, float]],
+    query_ids: list[str],
+) -> dict[str, int]:
+    """How many of the 20 queries each arm wins on nDCG@10, ties counted for
+    every arm that reaches the query's maximum."""
+    wins = {arm: 0 for arm in ARM_LABELS}
+    for query_id in query_ids:
+        values = per_query_ndcg[query_id]
+        best = max(values.values())
+        for arm, value in values.items():
+            if value == best:
+                wins[arm] += 1
+    return wins
+
+
+def assert_reproduces_committed_metrics(
+    measured: dict[str, float],
+    committed: dict[str, float],
+    *,
+    measured_ranked: dict[str, list[tuple[int, int]]] | None = None,
+    committed_ranked_sha256: str | None = None,
+    measured_per_query: dict[str, float] | None = None,
+    committed_per_query: list[dict[str, Any]] | None = None,
+    served_results_path: Path = SERVED_RESULTS_PATH,
+    scorecard_path: Path = CANONICAL_SCORECARD_PATH,
+) -> None:
+    """Stop rather than publish an arm 3 that disagrees with what shipped.
+
+    `committed` is `data/evals/canonical_scorecard.json["metrics"]`; `measured`
+    is the same three keys recomputed from
+    `data/evals/canonical_ranked_results.csv` by the identical
+    `scripts.evals.evaluate.evaluate`. Equality must be exact float-for-float: both
+    sides run the same pure function over what should be the same inputs, so
+    anything short of equality means the CSV and the committed scorecard no
+    longer describe the same measurement.
+
+    **Aggregate equality alone is not sufficient identity.** Recall, MRR and
+    nDCG are means over queries, so swapping two queries' result orderings can
+    leave all three means untouched while every per-query row changes. Two
+    stronger checks run when their inputs are supplied, and the caller always
+    supplies them:
+
+    - `ranked_result_sha256` over the recomputed ordering, against the
+      committed hash. This is exact per-query ordering identity, so no
+      permutation survives it.
+    - per-query nDCG row by row, against the committed `per_query_metrics`,
+      which localizes a disagreement to a query id instead of a global mean.
+    """
+    if measured_ranked is not None and committed_ranked_sha256 is not None:
+        measured_sha = ranked_result_sha256(measured_ranked)
+        if measured_sha != committed_ranked_sha256:
+            raise AblationMeasurementError(
+                explain(
+                    f"arm 3 ranked-result hash recomputed from "
+                    f"{served_results_path} as {measured_sha}",
+                    f"expected {scorecard_path}'s committed "
+                    f"{committed_ranked_sha256}; the aggregate metrics can "
+                    "match while per-query ordering differs, so this hash -- "
+                    "not the means -- is what proves the same result set",
+                )
+            )
+    if measured_per_query is not None and committed_per_query is not None:
+        committed_rows = {
+            row["query_id"]: row[f"ndcg@{K}"] for row in committed_per_query
+        }
+        drifted = {
+            query_id: (value, committed_rows.get(query_id))
+            for query_id, value in sorted(measured_per_query.items())
+            if committed_rows.get(query_id) != value
+        }
+        missing = sorted(set(committed_rows) ^ set(measured_per_query))
+        if drifted or missing:
+            raise AblationMeasurementError(
+                explain(
+                    f"arm 3 per-query nDCG@{K} disagrees with {scorecard_path} "
+                    f"for {drifted or missing}",
+                    "each row is the same pure function over what should be "
+                    "the same ranking; a per-query difference under matching "
+                    "means indicates reordered results, not a new measurement",
+                )
+            )
+    if measured != committed:
+        raise AblationMeasurementError(
+            explain(
+                f"arm 3 recomputed from {served_results_path} as {measured}",
+                f"expected an exact match to {scorecard_path}'s {committed}; "
+                "this means the served-results CSV or the committed "
+                "scorecard no longer describes the same measurement -- stop "
+                "and inspect before trusting any arm in this artifact",
+            )
+        )
+
+
+def assert_served_arm_shares_current_identity(
+    committed_scorecard: dict[str, Any],
+    *,
+    settings: Any,
+    scorecard_path: Path = CANONICAL_SCORECARD_PATH,
+) -> None:
+    """Refuse to publish three arms that were not measured as one comparison.
+
+    Arms 1 and 2 are queried live, against the retrieval code running now.
+    Arm 3 is not measured here at all: `load_served_arm` replays the ranking
+    `scripts/evals/score_evals.py` already paid for, and
+    `assert_reproduces_committed_metrics` proves that CSV still describes the
+    committed scorecard. That proves the CSV and the scorecard agree with
+    *each other*; it says nothing about whether either agrees with the code
+    the other two arms just ran through.
+
+    The artifact then stamps one `retrieval_fingerprint` and one `models`
+    block over all three arms. Whenever retrieval changed after the scorecard
+    was measured, that stamp is a claim arm 3 did not earn -- and it is the
+    claim `service.scorecard._attribution` reads, so the stale arm arrives
+    labelled "Measured on the retrieval code running now".
+
+    Replaying arm 3 rather than paying for its rerank again is a deliberate
+    relaxation, which makes this `docs/house-standards.md` rule 5: the exempted
+    thing is pinned to the value it must agree with, and the agreement is
+    checked. Arm 3 is exempt from being *measured* here, never from *agreeing*
+    with what the artifact says about it.
+
+    Both dimensions are satisfiable by construction, unlike the revision
+    equality `service.retrieval_fingerprint` exists to replace: the fingerprint
+    manifest deliberately excludes `data/evals/canonical_scorecard.json` and
+    `scripts/evals/score_evals.py`, so measuring the scorecard and committing it does
+    not move the fingerprint the ablation then compares against. Measure the
+    scorecard and the ablation from the same tree and this passes.
+
+    `source.revision` is deliberately *not* compared. It always differs by at
+    least the commit that adds the scorecard, which is the exact off-by-one
+    that made the old revision gate unsatisfiable.
+    """
+    current_fingerprint = compute_retrieval_fingerprint()
+    committed_fingerprint = committed_scorecard.get("retrieval_fingerprint") or None
+    if committed_fingerprint != current_fingerprint:
+        raise AblationMeasurementError(
+            explain(
+                f"the served arm replayed from {scorecard_path} was measured "
+                f"on retrieval fingerprint {committed_fingerprint}, but arms 1 "
+                f"and 2 would be measured on {current_fingerprint}",
+                "re-run scripts/evals/score_evals.py --write-baseline and commit the "
+                "scorecard and ranked results before measuring the ablation, "
+                "so all three arms describe one retrieval path",
+            )
+        )
+
+    committed_models = committed_scorecard.get("models") or {}
+    current_models = {
+        "embedding": settings.embedding_model_id,
+        "rerank": settings.rerank_model_id,
+    }
+    if committed_models != current_models:
+        raise AblationMeasurementError(
+            explain(
+                f"the served arm replayed from {scorecard_path} was measured "
+                f"with models {committed_models or None}, but this run would "
+                f"stamp the artifact with {current_models}",
+                "re-measure the scorecard with the models configured now, or "
+                "restore the models the committed scorecard was measured with, "
+                "before measuring the ablation",
+            )
+        )
+
+
+#: Arms whose top-K is drawn from the fused pool the ceiling is computed over.
+#: The single arms are deliberately absent -- see below.
+CEILING_BOUNDED_ARMS = (ARM_RRF_FUSED, ARM_RRF_RERANKED)
+
+
+def assert_ceiling_bounds_fusion_arms(
+    ceiling_recall: float,
+    arm_recalls: dict[str, float],
+) -> None:
+    """A pool-recall ceiling below a *fusion* arm's Recall@10 is a bug.
+
+    `rrf_fused_no_rerank` and `rrf_fused_reranked` both cut their top-K from
+    the fused pool this ceiling is computed over, so a ceiling strictly below
+    either one is arithmetically impossible and signals the pool accounting --
+    not the retrieval quality -- is wrong.
+
+    `semantic_only` is **not** bounded by this ceiling and is excluded. It
+    retrieves independently: `search_vector` returns `semantic_limit` (150)
+    candidates and arm 1 takes its own top-K from those, while the fused pool
+    is capped at `fused_limit` (50) after RRF scores three channels together.
+    A judged-relevant product at semantic rank 3 can therefore sit in arm 1's
+    top-10 and still be pushed out of the fused top-50 by better-scoring
+    candidates from the lexical channels, which makes
+    `semantic_only.recall@K > ceiling` a legitimate measurement rather than a
+    fault. Asserting over it would raise a false failure and block a release on
+    correct data. The artifact records where arm 1 sits against the ceiling
+    instead of assuming a relationship that does not hold.
+    """
+    unbounded = set(arm_recalls) - set(CEILING_BOUNDED_ARMS)
+    if unbounded:
+        raise AblationMeasurementError(
+            explain(
+                f"assert_ceiling_bounds_fusion_arms received {sorted(unbounded)}, "
+                f"which the fused-pool ceiling does not bound",
+                f"pass only {list(CEILING_BOUNDED_ARMS)}; an arm that retrieves "
+                "independently of fusion may legitimately exceed this ceiling",
+            )
+        )
+    violations = {
+        arm: recall for arm, recall in arm_recalls.items() if recall > ceiling_recall
+    }
+    if violations:
+        raise AblationMeasurementError(
+            explain(
+                f"candidate-recall ceiling {ceiling_recall} is below Recall@{K} "
+                f"for {violations}",
+                "the ceiling must be computed over a superset of every fusion "
+                "arm's candidate pool; fix the pool accounting rather than the "
+                "measured recall",
+            )
+        )
+
+
+def _display_path(path: Path) -> str:
+    """Repo-relative path when possible, so the artifact stays portable
+    across checkouts; falls back to the absolute path for a test fixture
+    living outside the repository tree."""
+    try:
+        return str(path.relative_to(REPO))
+    except ValueError:
+        return str(path)
+
+
+def _arm_metrics(
+    ranked: dict[str, list[tuple[int, int]]],
+    truth: dict[str, dict[int, int]],
+) -> dict[str, Any]:
+    metrics = evaluate(truth, ranked, K)
+    ndcg_values = [row[f"ndcg@{K}"] for row in metrics["per_query"]]
+    return {
+        "metrics": metrics,
+        "ndcg_spread": _spread(ndcg_values),
+        "per_query_ndcg": {
+            row["query_id"]: row[f"ndcg@{K}"] for row in metrics["per_query"]
+        },
+    }
+
+
+def measured_ablation() -> dict[str, Any]:
+    """Measure all five arms and assemble the ablation artifact."""
+    settings = get_settings()
+    _require_clean_source(settings)
+
+    canonical_queries = load_evaluation_queries(CANONICAL_QUERIES_PATH)
+    require_single_served_catalog(canonical_queries)
+    queries, _excluded = product_retrieval_queries(canonical_queries)
+    query_ids = {query["query_id"] for query in queries}
+    all_judgments = load_judgments(CANONICAL_QUERIES_PATH)
+    truth = {
+        query_id: all_judgments[query_id]
+        for query_id in (q["query_id"] for q in queries)
+    }
+
+    committed_scorecard = json.loads(
+        CANONICAL_SCORECARD_PATH.read_text(encoding="utf-8")
+    )
+    # Before any Aurora or Bedrock work: the replayed arm has to describe the
+    # same retrieval path the two live arms are about to be measured on, or
+    # the single fingerprint this artifact stamps is a claim one arm did not
+    # earn. `served_scorecard_reference` below records where that arm came
+    # from; this is what makes that record load-bearing rather than decorative.
+    assert_served_arm_shares_current_identity(
+        committed_scorecard,
+        settings=settings,
+        scorecard_path=CANONICAL_SCORECARD_PATH,
+    )
+    served_ranked = load_served_arm(SERVED_RESULTS_PATH, query_ids)
+    served_result = _arm_metrics(served_ranked, truth)
+    committed_metrics = committed_scorecard["metrics"]
+    measured_metrics = {
+        f"recall@{K}": served_result["metrics"][f"recall@{K}"],
+        "mrr": served_result["metrics"]["mrr"],
+        f"ndcg@{K}": served_result["metrics"][f"ndcg@{K}"],
+    }
+    assert_reproduces_committed_metrics(
+        measured_metrics,
+        committed_metrics,
+        measured_ranked=served_ranked,
+        committed_ranked_sha256=committed_scorecard["ranked_result_sha256"],
+        measured_per_query=served_result["per_query_ndcg"],
+        committed_per_query=committed_scorecard["per_query_metrics"],
+    )
+
+    retrieval = get_retrieval_service()
+    query_vectors = load_query_vectors(QUERY_VECTORS_PATH)
+    if query_vectors_sha256(query_vectors) != committed_scorecard.get(
+        "query_vectors_sha256"
+    ):
+        raise ValueError(
+            "Ablation vector rule: the committed query vectors are not the ones "
+            "the scorecard was measured with; fix: re-measure the scorecard with "
+            "--write-baseline, then rerun the ablation."
+        )
+    pin_query_vectors(retrieval, queries, query_vectors, settings)
+    lexical_result = _arm_metrics(lexical_only_arm(retrieval, queries), truth)
+    trigram_result = _arm_metrics(trigram_only_arm(retrieval, queries), truth)
+    semantic_ranked = semantic_only_arm(retrieval, queries)
+    semantic_result = _arm_metrics(semantic_ranked, truth)
+    fused_ranked, fused_pools = rrf_fused_arm(retrieval, queries)
+    fused_result = _arm_metrics(fused_ranked, truth)
+    ceiling = candidate_recall_ceiling(fused_pools, truth)
+
+    arm_results = {
+        ARM_LEXICAL_ONLY: lexical_result,
+        ARM_TRIGRAM_ONLY: trigram_result,
+        ARM_SEMANTIC_ONLY: semantic_result,
+        ARM_RRF_FUSED: fused_result,
+        ARM_RRF_RERANKED: served_result,
+    }
+    assert_ceiling_bounds_fusion_arms(
+        ceiling["pool_recall_ceiling"],
+        {
+            arm: arm_results[arm]["metrics"][f"recall@{K}"]
+            for arm in CEILING_BOUNDED_ARMS
+        },
+    )
+    per_query_ndcg = {
+        query_id: {
+            arm: result["per_query_ndcg"][query_id]
+            for arm, result in arm_results.items()
+        }
+        for query_id in query_ids
+    }
+    wins = _win_counts(per_query_ndcg, sorted(query_ids))
+
+    arms_payload = {
+        arm: {
+            "label": ARM_LABELS[arm],
+            "description": ARM_DESCRIPTIONS[arm],
+            f"recall@{K}": result["metrics"][f"recall@{K}"],
+            "mrr": result["metrics"]["mrr"],
+            f"ndcg@{K}": result["metrics"][f"ndcg@{K}"],
+            f"ndcg@{K}_min": result["ndcg_spread"]["min"],
+            f"ndcg@{K}_max": result["ndcg_spread"]["max"],
+            f"ndcg@{K}_stdev": result["ndcg_spread"]["stdev"],
+            f"ndcg@{K}_query_wins": wins[arm],
+        }
+        for arm, result in arm_results.items()
+    }
+
+    per_query_payload = []
+    by_query_id = {query["query_id"]: query for query in canonical_queries}
+    for query_id in sorted(query_ids):
+        query = by_query_id[query_id]
+        ceiling_row = next(
+            row for row in ceiling["per_query"] if row["query_id"] == query_id
+        )
+        per_query_payload.append(
+            {
+                "query_id": query_id,
+                "query_text": query["query"],
+                f"ndcg@{K}": {arm: per_query_ndcg[query_id][arm] for arm in ARM_LABELS},
+                "pool_recall": ceiling_row["pool_recall"],
+                "relevant_count": ceiling_row["relevant_count"],
+                "found_in_pool": ceiling_row["found_in_pool"],
+                "missed_product_ids": ceiling_row["missed_product_ids"],
+            }
+        )
+
+    return {
+        "measured_at": datetime.now(UTC).isoformat(),
+        "retrieval_fingerprint": compute_retrieval_fingerprint(),
+        # The scorecard methodology inputs plus this harness. Separate from
+        # `scorecard_methodology_sha256` so an ablation-only edit marks this
+        # section pending without touching canonical retrieval attribution.
+        "ablation_methodology_sha256": compute_ablation_methodology_sha256(),
+        # The resolved retrieval settings. Section E is quality measurement
+        # too, so `service.scorecard._attribution` judges it against the same
+        # settings section A is judged against; without this key the ablation
+        # would read pending forever after a re-measure.
+        "retrieval_settings_sha256": compute_live_retrieval_settings_sha256(),
+        "source": {
+            "revision": settings.source_revision,
+            "worktree_dirty": settings.source_worktree_dirty,
+        },
+        "models": {
+            "embedding": settings.embedding_model_id,
+            "rerank": settings.rerank_model_id,
+        },
+        "k": K,
+        "query_set": _display_path(CANONICAL_QUERIES_PATH),
+        "query_set_sha256": query_set_sha256(CANONICAL_QUERIES_PATH),
+        "scored_query_set_sha256": scored_query_set_sha256(queries),
+        "scored_query_count": len(queries),
+        "served_scorecard_reference": {
+            "path": _display_path(CANONICAL_SCORECARD_PATH),
+            "measured_at": committed_scorecard["measured_at"],
+            "source_revision": committed_scorecard["source"]["revision"],
+            "retrieval_fingerprint": committed_scorecard["retrieval_fingerprint"],
+        },
+        "spread_note": spread_note(queries),
+        "arms": arms_payload,
+        "candidate_recall_ceiling": {
+            "pool_recall_ceiling": ceiling["pool_recall_ceiling"],
+            "judged_relevant_never_fetched": ceiling["judged_relevant_never_fetched"],
+            "description": (
+                "Share of judged-relevant products present anywhere in the "
+                "fused candidate pool before reranking, averaged over the "
+                "scored queries. The ceiling reranking could ever reach: "
+                "reranking only reorders this pool, it never adds a "
+                "candidate absent from it."
+            ),
+            "bounds_arms": list(CEILING_BOUNDED_ARMS),
+            "unbounded_arms": {
+                arm: {
+                    f"recall@{K}": arm_results[arm]["metrics"][f"recall@{K}"],
+                    "note": (
+                        "Not bounded by this ceiling. This channel returns its "
+                        "own candidate limit and this arm takes its own top-K "
+                        "from those, while the fused pool is capped at "
+                        "fused_limit after RRF scores three channels together, "
+                        "so a judged-relevant product can appear here and still "
+                        "be absent from the fused pool. Recorded for "
+                        "comparison, never asserted against."
+                    ),
+                }
+                for arm in SINGLE_ARMS
+            },
+        },
+        "per_query": per_query_payload,
+    }
+
+
+def main() -> None:
+    measured = measured_ablation()
+    ABLATION_PATH.write_text(
+        json.dumps(measured, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    print(f"Wrote {ABLATION_PATH}")
+    print(json.dumps(measured, indent=2, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()

@@ -13,8 +13,8 @@
 -- diagnostics endpoint rather than trusted.
 --
 -- Weights arrive as parameters from `fusion.weights` in the yaml via
--- scripts/retrieval_profile.py. Their DEFAULTs are the ported historical values
--- (LOSS-3) and are pinned by scripts/config_tripwire.py, so a coefficient
+-- scripts/checks/retrieval_profile.py. Their DEFAULTs are the ported historical values
+-- (LOSS-3) and are pinned by scripts/checks/config_tripwire.py, so a coefficient
 -- cannot be invented here or drift from the yaml.
 --
 -- Substrate: this is a `LANGUAGE sql` function over the same three `LANGUAGE

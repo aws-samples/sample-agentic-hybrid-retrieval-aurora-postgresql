@@ -1,9 +1,9 @@
 """Runtime configuration for the catalog retrieval service.
 
 Retrieval numbers come from `db/config/retrieval.yaml` via
-`scripts.retrieval_profile`, which resolves environment overrides and enforces
+`scripts.checks.retrieval_profile`, which resolves environment overrides and enforces
 bounds. This module does not restate those numbers: a default written here would
-be the fourth copy that `scripts/config_tripwire.py` exists to prevent.
+be the fourth copy that `scripts/checks/config_tripwire.py` exists to prevent.
 
 Non-retrieval settings (model IDs, region, CORS) are read here, because they are
 deployment identity rather than retrieval tuning and the yaml is not their home.
@@ -24,7 +24,7 @@ from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.retrieval_profile import (
+from scripts.checks.retrieval_profile import (
     ProfileError,
     RetrievalProfileConfig,
     explain,
@@ -113,7 +113,7 @@ def _database_url() -> str | None:
 
 
 # Bounds for settings that are NOT retrieval tuning. Retrieval bounds live in
-# `scripts.retrieval_profile.BOUNDS`, next to the yaml path they guard.
+# `scripts.checks.retrieval_profile.BOUNDS`, next to the yaml path they guard.
 _NUMERIC_BOUNDS: dict[str, tuple[float, float]] = {
     "BEDROCK_MAX_ATTEMPTS": (1, 20),
     "DB_POOL_MAX_SIZE": (1, 64),
@@ -283,7 +283,7 @@ def _origin_verification() -> tuple[bool, str | None]:
     a participant identity, and this deployment has no per-user accounting.
 
     This resolves the two settings without judging them: a script that only
-    imports `service.main` to inspect its routes (`scripts/tool_contracts.py`)
+    imports `service.main` to inspect its routes (`scripts/checks/tool_contracts.py`)
     must not be refused for a secret it will never use. `assert_bootable` in
     `service.access_control` is where a deployment that asked for protection
     and configured none is refused -- at ASGI startup, not at every read of
@@ -400,7 +400,7 @@ def get_settings() -> Settings:
             False,
         ),
         # Every retrieval number below comes from db/config/retrieval.yaml, with
-        # environment overrides already applied by scripts.retrieval_profile.
+        # environment overrides already applied by scripts.checks.retrieval_profile.
         # None is restated here; that is what made three copies possible.
         lexical_candidate_limit=profile.fts_limit,
         trigram_candidate_limit=profile.trigram_limit,

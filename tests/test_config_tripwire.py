@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.config_tripwire import (
+from scripts.checks.config_tripwire import (
     ALLOWED_LINE,
     DECLARATION,
     FIELD_DEFAULT,
@@ -30,7 +30,7 @@ from scripts.config_tripwire import (
     check_sql_agreement,
     scan_declarations,
 )
-from scripts.retrieval_profile import RETRIEVAL_YAML
+from scripts.checks.retrieval_profile import RETRIEVAL_YAML
 
 REPO = Path(__file__).resolve().parents[1]
 

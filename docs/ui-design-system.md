@@ -545,7 +545,7 @@ undefined-variable checks; `catalog-search.css`, `source-products.css`,
 it. A grep on 2026-09-28 found no hex literal in those sheets other than the
 development-only `studio-prototype.css` palette.
 
-`scripts/labs_type_scale.py` fails when a rule whose selector names a Labs
+`scripts/checks/labs_type_scale.py` fails when a rule whose selector names a Labs
 family (`.labs-`, `.lab-`, `.hnsw-`, `.mosaic-studio-`, `.mosaic-labs-`,
 `.retrieval-`) sets a `font-size` other than a `var(--labs-*)` token or a
 `font-family` other than `--display`, `--masthead`, `--sans`, `--mono` or

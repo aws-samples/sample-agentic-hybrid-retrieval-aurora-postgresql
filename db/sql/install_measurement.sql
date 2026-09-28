@@ -13,6 +13,6 @@
 
 \echo ''
 \echo 'Evaluation and benchmark schemas installed (mosaic_eval, mosaic_bench).'
-\echo 'These start empty. scripts/benchmark_hnsw.py writes measured HNSW runs and'
-\echo 'scripts/seed_exact_neighbors.py fills mosaic_bench.exact_neighbor;'
+\echo 'These start empty. scripts/bench/benchmark_hnsw.py writes measured HNSW runs and'
+\echo 'scripts/bench/seed_exact_neighbors.py fills mosaic_bench.exact_neighbor;'
 \echo 'any number they hold must still be measured on the real cluster before use.'

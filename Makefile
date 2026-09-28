@@ -117,32 +117,32 @@ check-mcp-python:
 	@"$(MCP_PYTHON)" -c 'import sys; expected = (3, 13); actual = sys.version_info[:2]; print(f"MCP Python {sys.version.split()[0]} ({sys.executable})"); raise SystemExit(0 if actual == expected else "Mosaic MCP requires Python 3.13")'
 
 generate:
-	$(PYTHON) scripts/generate_catalog.py
-	$(PYTHON) scripts/prepare_catalog.py
-	$(PYTHON) scripts/materialize_image_urls.py
-	$(PYTHON) scripts/catalog_quality.py
+	$(PYTHON) scripts/catalog/generate_catalog.py
+	$(PYTHON) scripts/catalog/prepare_catalog.py
+	$(PYTHON) scripts/media/materialize_image_urls.py
+	$(PYTHON) scripts/catalog/catalog_quality.py
 
 prepare:
-	$(PYTHON) scripts/prepare_catalog.py
-	$(PYTHON) scripts/materialize_image_urls.py
-	$(PYTHON) scripts/catalog_quality.py
+	$(PYTHON) scripts/catalog/prepare_catalog.py
+	$(PYTHON) scripts/media/materialize_image_urls.py
+	$(PYTHON) scripts/catalog/catalog_quality.py
 
 media-map:
-	$(PYTHON) scripts/materialize_image_urls.py
+	$(PYTHON) scripts/media/materialize_image_urls.py
 
 # Product-bound photography: the fixed premium 120 plus the focused 80.
 media-labels:
-	$(PYTHON) scripts/build_asset_labels.py
+	$(PYTHON) scripts/media/build_asset_labels.py
 
 media-shot-list: media-labels
-	$(PYTHON) scripts/build_shot_list.py
+	$(PYTHON) scripts/media/build_shot_list.py
 
 media-install-flagships:
-	$(PYTHON) scripts/install_cohort_assets.py
+	$(PYTHON) scripts/media/install_cohort_assets.py
 
 # SOURCE=~/Downloads/batch make media-import
 media-import:
-	$(PYTHON) scripts/import_generated_images.py --source "$(SOURCE)"
+	$(PYTHON) scripts/media/import_generated_images.py --source "$(SOURCE)"
 
 # --- Mosaic data model (db/) ----------------------------------------------
 # Installs schemas, tables, functions, and non-concurrent indexes. HNSW indexes
@@ -171,22 +171,22 @@ db-configure-retrieval:
 # reimplementing filter logic. Set MISSION_GATE_REQUIRE_DB=1 in CI so a missing
 # DSN is a loud failure instead of a silent skip.
 validate-missions:
-	@$(PYTHON) scripts/mission_contract.py
+	@$(PYTHON) scripts/checks/mission_contract.py
 
 # The real canonical, coverage-probe and held-out corpora validate their
 # targets through production filters on Aurora before scoring. Historical
 # generated eligibility cases remain under data/evals/historical/.
 validate-evals:
-	@$(PYTHON) scripts/run_eval.py --validate-only
-	@$(PYTHON) scripts/independent_relevance_eval.py --validate-only
-	@$(PYTHON) scripts/independent_relevance_eval.py \
+	@$(PYTHON) scripts/evals/run_eval.py --validate-only
+	@$(PYTHON) scripts/evals/independent_relevance_eval.py --validate-only
+	@$(PYTHON) scripts/evals/independent_relevance_eval.py \
 		--queries data/evals/esci_held_out_queries.jsonl --validate-only
 
 # Release-only quality gate. It runs the current real-catalog retrieval cases
 # through served FTS + pg_trgm + HNSW + unweighted RRF +
 # managed reranking, then rejects provenance or metric regressions.
 score-evals:
-	@$(PYTHON) scripts/score_evals.py $(SCORE_EVAL_ARGS)
+	@$(PYTHON) scripts/evals/score_evals.py $(SCORE_EVAL_ARGS)
 
 # Lab 2's stage ablation: semantic-only vs RRF-fused (rerank off) vs the
 # served RRF+rerank path, over the same canonical queries. Spends NO Cohere rerank
@@ -195,23 +195,23 @@ score-evals:
 # 2 still call Aurora and the embedding model directly (read-only SELECTs, no
 # mosaic.search_event rows written).
 ablation-evals:
-	@$(PYTHON) scripts/ablation_evals.py
+	@$(PYTHON) scripts/evals/ablation_evals.py
 
 # db/config/retrieval.yaml is the single source for candidate limits, fusion k,
 # weights, and the trigram threshold. This fails if any other file declares one,
 # and asserts every exempted SQL default and index parameter equals its yaml
 # value. No database needed.
 validate-config:
-	$(PYTHON) scripts/retrieval_profile.py --check
-	$(PYTHON) scripts/config_tripwire.py
-	$(PYTHON) scripts/tool_contracts.py --check
+	$(PYTHON) scripts/checks/retrieval_profile.py --check
+	$(PYTHON) scripts/checks/config_tripwire.py
+	$(PYTHON) scripts/checks/tool_contracts.py --check
 
 # Exactly one live signature per retrieval function. CREATE OR REPLACE cannot
 # change a signature, so a parameter change leaves the old body callable by any
 # caller passing the old argument count. Needs a DSN; set
 # FUNCTION_CENSUS_REQUIRE_DB=1 in CI so a missing DSN is a loud failure.
 validate-functions:
-	@$(PYTHON) scripts/function_census.py
+	@$(PYTHON) scripts/checks/function_census.py
 
 lab-status:
 	@$(PYTHON) scripts/lab_state.py status
@@ -311,7 +311,7 @@ db-render:
 db-prepare-mosaic:
 	$(PYTHON) $(SCHEMA_PACKAGE)/scripts/transform_legacy_catalog.py \
 		$(MOSAIC_CATALOG_SHARDS) "$(MOSAIC_NORMALIZED_DIR)"
-	$(PYTHON) scripts/export_premium_cohort.py \
+	$(PYTHON) scripts/catalog/export_premium_cohort.py \
 		--output "$(MOSAIC_PREMIUM_COHORT_CSV)"
 
 db-load-mosaic:
@@ -358,7 +358,7 @@ db-index-quantized: check-dsn
 # named for the instrument by catalog_indexes(). Plain builds by default;
 # pass QUANTIZED_INDEX_ARGS='--concurrently' on a cluster being written to.
 db-index-quantized-catalog: check-dsn
-	@$(PYTHON) scripts/build_quantized_indexes.py $(QUANTIZED_INDEX_ARGS)
+	@$(PYTHON) scripts/bench/build_quantized_indexes.py $(QUANTIZED_INDEX_ARGS)
 
 db-load-cohort:
 	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 \
@@ -374,7 +374,7 @@ db-smoke:
 	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/99_smoke_test.sql
 
 verify-embedding-cache:
-	@$(PYTHON) scripts/embedding_cache.py verify \
+	@$(PYTHON) scripts/catalog/embedding_cache.py verify \
 		"$(EMBEDDING_CACHE_MANIFEST)" \
 		--contract "$(EMBEDDING_CACHE_CONTRACT)"
 
@@ -412,21 +412,21 @@ db-bootstrap-schema:
 	@cat "$(BOOTSTRAP_TIMINGS_FILE)"
 
 db-verify-bootstrap:
-	@$(PYTHON) scripts/verify_real_bootstrap.py
+	@$(PYTHON) scripts/checks/verify_real_bootstrap.py
 	@$(PYTHON) \
 		scripts/configure_retrieval_database.py --check
 
 validate-db:
-	"$(PYTHON)" "$(SCHEMA_PACKAGE)/scripts/validate_package.py"
+	"$(PYTHON)" "$(SCHEMA_PACKAGE)/scripts/checks/validate_package.py"
 
 quality:
-	$(PYTHON) scripts/catalog_quality.py
+	$(PYTHON) scripts/catalog/catalog_quality.py
 
 reviews:
-	$(PYTHON) scripts/generate_reviews.py
+	$(PYTHON) scripts/catalog/generate_reviews.py
 
 validate:
-	$(PYTHON) scripts/validate_package.py
+	$(PYTHON) scripts/checks/validate_package.py
 
 # The workshop repository's copy is a delivery artifact, not a second source. Edit
 # deploy/mosaic-bootstrap.sh, run this, and commit both.
@@ -542,41 +542,41 @@ test-aurora-historical: check-dsn
 # SUBSTRATE-1 for why the predecessors cannot be run at all.
 
 db-embed:
-	@$(PYTHON) scripts/embed_catalog.py
+	@$(PYTHON) scripts/catalog/embed_catalog.py
 
 db-export-embeddings:
-	@$(PYTHON) scripts/embedding_cache.py \
+	@$(PYTHON) scripts/catalog/embedding_cache.py \
 		export --output "$(EMBEDDING_CACHE_DIR)"
 
 db-import-embeddings:
-	@$(PYTHON) scripts/embedding_cache.py \
+	@$(PYTHON) scripts/catalog/embedding_cache.py \
 		import "$(EMBEDDING_CACHE_MANIFEST)"
 
 simulate:
-	$(PYTHON) scripts/simulate_scale.py
+	$(PYTHON) scripts/bench/simulate_scale.py
 
 # Precomputes exact top-k neighbours for the 30 retrieval anchors across the six
 # filter presets. Roughly 7 minutes: each exact query is a sequential scan, measured
 # at 2.4s. Run once per corpus; the HNSW instrument computes recall against these
 # rows rather than re-running the scan per interaction.
 db-seed-exact-neighbors:
-	@$(PYTHON) scripts/seed_exact_neighbors.py
+	@$(PYTHON) scripts/bench/seed_exact_neighbors.py
 
 # The HNSW instrument's query anchors: the lab products plus a deterministic
 # category-stratified sample of the served catalog, recorded with their
 # selection inputs in data/benchmarks/hnsw_anchors.json. Reselect after a
 # catalog change, then reseed exact neighbours.
 select-hnsw-anchors:
-	@$(PYTHON) scripts/select_hnsw_anchors.py
+	@$(PYTHON) scripts/bench/select_hnsw_anchors.py
 
 check-hnsw-anchors:
-	@$(PYTHON) scripts/select_hnsw_anchors.py --check
+	@$(PYTHON) scripts/bench/select_hnsw_anchors.py --check
 
 # Workshop bootstrap explicitly supplies a verified vocabulary cache. Ordinary
 # operator runs still rebuild from the production SQL; neither path skips the
 # vocabulary or its acceptance checks.
 db-seed-corpus-lexeme: check-dsn
-	@$(PYTHON) scripts/corpus_vocabulary.py refresh --schema mosaic_search
+	@$(PYTHON) scripts/catalog/corpus_vocabulary.py refresh --schema mosaic_search
 
 # Which models this account may actually invoke. An ACTIVE inference profile is
 # not entitlement: a fresh Workshop Studio account answered "anthropic.claude-
@@ -584,20 +584,20 @@ db-seed-corpus-lexeme: check-dsn
 # Claude Code preflight failed three times as a result. The model ids come from
 # service.config so this cannot drift from what the application asks for.
 check-model-access:
-	@$(PYTHON) scripts/check_model_access.py \
+	@$(PYTHON) scripts/checks/check_model_access.py \
 	  --chat "$$($(PYTHON) -c 'from service.config import get_settings as g; print(g().agent_model_id)')" \
 	  --embed "$$($(PYTHON) -c 'from service.config import get_settings as g; print(g().embedding_model_id)')" \
 	  --rerank "$$($(PYTHON) -c 'from service.config import get_settings as g; print(g().rerank_model_id)')"
 
 check-exact-neighbors:
-	@$(PYTHON) scripts/seed_exact_neighbors.py --check
+	@$(PYTHON) scripts/bench/seed_exact_neighbors.py --check
 
 # Captures data/benchmarks/hnsw_measured.json, the artifact the HNSW instrument
 # replays, plus raw per-query samples. Uses all current anchors and existing indexes.
 # Read-only against Aurora. Run from a clean worktree with AURORA_INSTANCE_CLASS set.
 benchmark-hnsw:
 	@test -n "$(AURORA_INSTANCE_CLASS)" || { echo "Benchmark hardware rule: AURORA_INSTANCE_CLASS is empty; fix: set it to the connected Aurora instance class."; exit 1; }
-	@$(PYTHON) scripts/benchmark_mosaic_scale.py \
+	@$(PYTHON) scripts/bench/benchmark_mosaic_scale.py \
 		--output data/benchmarks/hnsw_measured.json --k 10 \
 		--ef-search 40 80 100 200 400 --binary-depth 10 20 50 100 200 \
 		--deep-ef-search 800 --deep-binary-depth 1400 3000 \
@@ -608,27 +608,27 @@ benchmark-hnsw:
 # INDEX_BUILD_ARGS='--workers 7 --maintenance-work-mem 8GB --repeat 2'.
 benchmark-index-build:
 	@test -n "$(AURORA_INSTANCE_CLASS)" || { echo "Benchmark hardware rule: AURORA_INSTANCE_CLASS is empty; fix: set it to the connected Aurora instance class."; exit 1; }
-	@$(PYTHON) scripts/benchmark_index_build.py $(INDEX_BUILD_ARGS)
+	@$(PYTHON) scripts/bench/benchmark_index_build.py $(INDEX_BUILD_ARGS)
 
 # Compares two instance classes on restored copies of the served catalog from
 # one in-VPC client. Reads CONTROL_DATABASE_URL and TEST_DATABASE_URL from the
 # environment; pass the rest through HARDWARE_ARGS (labels, instance ids,
 # prices, concurrency, durations). See docs/hnsw-lab.md.
 benchmark-hardware:
-	@$(PYTHON) scripts/benchmark_hardware.py $(HARDWARE_ARGS)
+	@$(PYTHON) scripts/bench/benchmark_hardware.py $(HARDWARE_ARGS)
 
 benchmark-ask-mosaic:
-	@$(PYTHON) scripts/benchmark_ask_mosaic.py
+	@$(PYTHON) scripts/bench/benchmark_ask_mosaic.py
 
 # Schema-checks a recorded rehearsal manifest: every stage in
-# scripts/rehearsal.py's REQUIRED_STAGES present, and no credential-shaped
+# scripts/checks/rehearsal.py's REQUIRED_STAGES present, and no credential-shaped
 # value anywhere in the JSON. Offline; needs no DSN and no live API. See
 # docs/rehearsal-runbook.md.
 rehearsal-validate:
-	@$(PYTHON) scripts/rehearsal.py validate --manifest "$(REHEARSAL_EVIDENCE_FILE)"
+	@$(PYTHON) scripts/checks/rehearsal.py validate --manifest "$(REHEARSAL_EVIDENCE_FILE)"
 
 rehearsal-summary:
-	@$(PYTHON) scripts/rehearsal.py summary --manifest "$(REHEARSAL_EVIDENCE_FILE)"
+	@$(PYTHON) scripts/checks/rehearsal.py summary --manifest "$(REHEARSAL_EVIDENCE_FILE)"
 
 # Opt-in and live only: sends a bounded mix of search, fusion-comparison, and
 # agent-answer calls at a running deployment for LOAD_EXERCISE_ARGS's
@@ -638,7 +638,7 @@ load-exercise:
 	@test -n "$(findstring --condition,$(LOAD_EXERCISE_ARGS))" || { \
 		echo "load-exercise: LOAD_EXERCISE_ARGS must include --condition cold|warm"; exit 2; \
 	}
-	@$(PYTHON) scripts/load_exercise.py --api-url "$(LAB_API_URL)" $(LOAD_EXERCISE_ARGS)
+	@$(PYTHON) scripts/bench/load_exercise.py --api-url "$(LAB_API_URL)" $(LOAD_EXERCISE_ARGS)
 
 # Fails closed without a workshop origin secret (MOSAIC_REQUIRE_ORIGIN_
 # VERIFICATION defaults to true; see config/.env.example). For loopback-only

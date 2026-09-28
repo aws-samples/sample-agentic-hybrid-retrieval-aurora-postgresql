@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from scripts.measure_query_coverage import measure_cases
+from scripts.evals.measure_query_coverage import measure_cases
 
 
 def test_measurement_preserves_requests_and_rejects_changed_expectations():

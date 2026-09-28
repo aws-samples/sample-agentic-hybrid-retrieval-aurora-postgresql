@@ -19,7 +19,7 @@ deployment has no per-user accounting or tenancy.
 configured secret refuses to start serving traffic -- checked in the ASGI
 lifespan, not merely when `service.config.Settings` is resolved, so a script
 that only imports `service.main` to inspect its routes
-(`scripts/tool_contracts.py`) is not refused for a secret it never uses.
+(`scripts/checks/tool_contracts.py`) is not refused for a secret it never uses.
 Setting `MOSAIC_REQUIRE_ORIGIN_VERIFICATION=false` is an explicit,
 loopback-only development bypass: it serves only requests whose peer address
 is the API process's own loopback interface, and refuses every other caller
@@ -411,7 +411,7 @@ Aurora, pgvector, and HNSW identity. Plan capture replays that event's exact
 fusion call after applying `mosaic_search.configure_hnsw`, then persists
 `EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)`. It is explicit and
 on-demand because `ANALYZE` executes the query. Benchmark projections remain
-labeled simulated; `scripts/benchmark_hnsw.py` persists measured Aurora runs to
+labeled simulated; `scripts/bench/benchmark_hnsw.py` persists measured Aurora runs to
 `mosaic_bench`.
 
 The `/response` route serves one persisted run in the `SearchResponse` shape

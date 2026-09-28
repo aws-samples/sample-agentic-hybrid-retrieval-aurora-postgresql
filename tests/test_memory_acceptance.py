@@ -7,7 +7,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-from scripts.verify_session_memory import verify
+from scripts.checks.verify_session_memory import verify
 
 
 def test_bootstrap_memory_cookie_round_trips_without_weakening_https():
@@ -68,7 +68,9 @@ def test_bootstrap_memory_cookie_round_trips_without_weakening_https():
     ],
 )
 def test_probe_checks_storage_permissions_and_actor_boundary(monkeypatch, fault):
-    monkeypatch.setattr("scripts.verify_session_memory.time.sleep", lambda _: None)
+    monkeypatch.setattr(
+        "scripts.checks.verify_session_memory.time.sleep", lambda _: None
+    )
     state = {"reset": False, "message": None, "strategy_reads": []}
 
     def handle(request):

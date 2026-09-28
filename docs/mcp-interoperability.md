@@ -18,7 +18,7 @@ MCP-compatible host ---+
 The adapters do not reimplement filters, retrieval arms, RRF, reranking, or
 ranking diagnostics.
 
-`scripts/tool_contracts.py --check` proves the portable boundary that exists in
+`scripts/checks/tool_contracts.py --check` proves the portable boundary that exists in
 this repository: the two shared agent/MCP tools retain their version, output
 schema, and read-only policy, while each transport keeps its own input shape and
 trace. It does not claim a deployed Amazon Bedrock AgentCore Gateway or

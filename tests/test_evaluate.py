@@ -1,6 +1,6 @@
 import pytest
 
-from scripts.evaluate import evaluate
+from scripts.evals.evaluate import evaluate
 
 
 def test_graded_metrics_use_relevance_threshold_and_gain():

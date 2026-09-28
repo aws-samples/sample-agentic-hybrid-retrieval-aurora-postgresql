@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from scripts.build_showcase_commerce_facts import project_commerce_facts
+from scripts.catalog.build_showcase_commerce_facts import project_commerce_facts
 
 ROOT = Path(__file__).resolve().parents[1]
 

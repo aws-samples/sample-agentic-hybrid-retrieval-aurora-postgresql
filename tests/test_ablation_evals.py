@@ -1,6 +1,6 @@
 """Lab 2's stage ablation: semantic-only vs RRF-fused vs RRF-fused+reranked.
 
-`scripts/ablation_evals.py` never re-serves the reranked arm -- reranking costs
+`scripts/evals/ablation_evals.py` never re-serves the reranked arm -- reranking costs
 money per call -- so its most safety-critical behavior is refusing to publish
 a result when the persisted served CSV no longer agrees with the committed
 scorecard, and refusing to publish a candidate-recall ceiling that is
@@ -22,7 +22,7 @@ from typing import Any, Self
 
 import pytest
 
-from scripts.ablation_evals import (
+from scripts.evals.ablation_evals import (
     ARM_LEXICAL_ONLY,
     ARM_RRF_FUSED,
     ARM_RRF_RERANKED,
@@ -42,8 +42,8 @@ from scripts.ablation_evals import (
     spread_note,
     trigram_only_arm,
 )
-from scripts.evaluate import evaluate
-from scripts.score_evals import (
+from scripts.evals.evaluate import evaluate
+from scripts.evals.score_evals import (
     query_vectors_sha256,
     ranked_result_sha256,
     record_query_vectors,
@@ -53,7 +53,7 @@ from service.retrieval import RetrievalService
 ROOT = Path(__file__).resolve().parents[1]
 
 
-# --- relevant_ids: the same grade >= 2 threshold scripts.evaluate uses ------
+# --- relevant_ids: the same grade >= 2 threshold scripts.evals.evaluate uses ------
 
 
 def test_relevant_ids_excludes_grade_below_two():
@@ -127,7 +127,7 @@ def test_candidate_recall_ceiling_averages_pool_membership_across_queries():
 
 def test_candidate_recall_ceiling_handles_a_query_with_no_relevant_judgment():
     """Independence: a query with zero graded-relevant products must not
-    divide by zero. Matches `scripts.evaluate.evaluate`'s own convention for
+    divide by zero. Matches `scripts.evals.evaluate.evaluate`'s own convention for
     this same edge case -- `max(1, len(relevant))` in the denominator -- so a
     relevant-free query scores 0.0, not a phantom perfect score."""
     pools = {"G-001": [999]}
@@ -501,7 +501,7 @@ def ablation_environment(tmp_path, monkeypatch):
     """A complete, hand-computed fixture: two queries, one graded product
     each, and a served CSV promoting G-Q1's product from fused rank 2 to
     served rank 1. Every arm's numbers below are derived independently by
-    calling the real `scripts.evaluate.evaluate`, not typed as decimals that
+    calling the real `scripts.evals.evaluate.evaluate`, not typed as decimals that
     could silently drift from what the code actually computes.
     """
     queries_path = tmp_path / "queries.jsonl"
@@ -585,18 +585,20 @@ def ablation_environment(tmp_path, monkeypatch):
         embedding_provider=CountingEmbedder(), connection_factory=lambda: connection
     )
 
-    monkeypatch.setattr("scripts.ablation_evals.CANONICAL_QUERIES_PATH", queries_path)
-    monkeypatch.setattr("scripts.ablation_evals.SERVED_RESULTS_PATH", served_path)
     monkeypatch.setattr(
-        "scripts.ablation_evals.CANONICAL_SCORECARD_PATH", scorecard_path
+        "scripts.evals.ablation_evals.CANONICAL_QUERIES_PATH", queries_path
     )
-    monkeypatch.setattr("scripts.ablation_evals.QUERY_VECTORS_PATH", vectors_path)
-    monkeypatch.setattr("scripts.ablation_evals.get_settings", lambda: settings)
+    monkeypatch.setattr("scripts.evals.ablation_evals.SERVED_RESULTS_PATH", served_path)
     monkeypatch.setattr(
-        "scripts.ablation_evals.get_retrieval_service", lambda: retrieval
+        "scripts.evals.ablation_evals.CANONICAL_SCORECARD_PATH", scorecard_path
+    )
+    monkeypatch.setattr("scripts.evals.ablation_evals.QUERY_VECTORS_PATH", vectors_path)
+    monkeypatch.setattr("scripts.evals.ablation_evals.get_settings", lambda: settings)
+    monkeypatch.setattr(
+        "scripts.evals.ablation_evals.get_retrieval_service", lambda: retrieval
     )
     monkeypatch.setattr(
-        "scripts.ablation_evals.compute_retrieval_fingerprint", lambda: "b" * 64
+        "scripts.evals.ablation_evals.compute_retrieval_fingerprint", lambda: "b" * 64
     )
     return {
         "truth": truth,
@@ -660,7 +662,7 @@ def test_measured_ablation_refuses_a_dirty_worktree(ablation_environment, monkey
     """Red-at-birth for the source-cleanliness guard: everything else in the
     fixture is valid, only worktree_dirty flips."""
     monkeypatch.setattr(
-        "scripts.ablation_evals.get_settings",
+        "scripts.evals.ablation_evals.get_settings",
         lambda: type(
             "FakeSettings",
             (),
@@ -691,7 +693,7 @@ def test_measured_ablation_refuses_a_served_arm_from_different_retrieval_code(
     now.
     """
     monkeypatch.setattr(
-        "scripts.ablation_evals.compute_retrieval_fingerprint", lambda: "e" * 64
+        "scripts.evals.ablation_evals.compute_retrieval_fingerprint", lambda: "e" * 64
     )
 
     with pytest.raises(AblationMeasurementError, match="was measured on retrieval"):
@@ -705,7 +707,7 @@ def test_measured_ablation_refuses_a_served_arm_from_a_different_reranker(
     stamps one `models` block over all three arms, so a served arm ranked by a
     previous reranker must not be published beside two arms measured now."""
     monkeypatch.setattr(
-        "scripts.ablation_evals.get_settings",
+        "scripts.evals.ablation_evals.get_settings",
         lambda: type(
             "FakeSettings",
             (),

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.prepare_reference_examples import validate_bundle
+from scripts.evals.prepare_reference_examples import validate_bundle
 
 ROOT = Path(__file__).resolve().parents[1]
 

@@ -36,8 +36,8 @@ from pathlib import Path
 
 import pytest
 
-from scripts import tool_contracts
-from scripts.tool_contracts import (
+from scripts.checks import tool_contracts
+from scripts.checks.tool_contracts import (
     CONTRACT_PATH,
     SQL_PATH,
     contracts_for_surface,

@@ -4,7 +4,7 @@
 maintainer must run and record on a fresh Aurora deployment before a release
 is ready. This is the runbook for that list: which real commands to run, in
 which order, and how to fold their results into one machine-readable evidence
-manifest with `scripts/rehearsal.py`. A separate, opt-in `scripts/load_exercise.py`
+manifest with `scripts/checks/rehearsal.py`. A separate, opt-in `scripts/bench/load_exercise.py`
 covers the bounded concurrency exercise this task adds on top of it.
 
 Both tools are offline-testable and covered by `tests/test_rehearsal.py` and
@@ -37,7 +37,7 @@ A maintainer with:
 ## 1. Initialize the manifest
 
 ```sh
-uv run python scripts/rehearsal.py init \
+uv run python scripts/checks/rehearsal.py init \
   --output build/rehearsal-evidence.json \
   --operator "<your name or handle>" \
   --workshop-studio-stack-id <stack-id-or-name> \
@@ -58,7 +58,7 @@ Workshop Studio repository's own process (step 1 of `READINESS.md`'s
 acceptance test). Once the stack is up and the API answers:
 
 ```sh
-uv run python scripts/rehearsal.py capture-identity \
+uv run python scripts/checks/rehearsal.py capture-identity \
   --manifest build/rehearsal-evidence.json \
   --api-url https://<stack-host> \
   --started-at <identity-check-start-iso> --ended-at <identity-check-end-iso>
@@ -81,7 +81,7 @@ Once identity is confirmed `ready`, record the deployment's first live query
 transfer, bootstrap, index, reranker, and agent timing:
 
 ```sh
-uv run python scripts/rehearsal.py record-first-query \
+uv run python scripts/checks/rehearsal.py record-first-query \
   --manifest build/rehearsal-evidence.json --api-url https://<stack-host>
 ```
 
@@ -93,10 +93,10 @@ in step 8.
 ## 3. Archive transfer and join
 
 On the Code Editor host (or wherever the bootstrap's `aws s3 sync` and
-`scripts/real_catalog_cache.py join` ran):
+`scripts/catalog/real_catalog_cache.py join` ran):
 
 ```sh
-uv run python scripts/rehearsal.py record-stage \
+uv run python scripts/checks/rehearsal.py record-stage \
   --manifest build/rehearsal-evidence.json \
   --stage archive_transfer_and_join --status passed \
   --detail "3 parts synced from s3://<bucket>/<prefix>real-catalog/; \
@@ -117,7 +117,7 @@ retyped:
 ```sh
 make db-bootstrap-schema
 # Restore the pinned archive with --report build/real-catalog-restore.json.
-uv run python scripts/rehearsal.py import-bootstrap-timings \
+uv run python scripts/checks/rehearsal.py import-bootstrap-timings \
   --manifest build/rehearsal-evidence.json \
   --timings-file build/bootstrap-timings.tsv \
   --restore-report build/real-catalog-restore.json \
@@ -133,11 +133,11 @@ rehearsal timing summary.
 
 ## 5. Catalog restore verification
 
-After `scripts/real_catalog_cache.py restore`, run `make db-verify-bootstrap`
+After `scripts/catalog/real_catalog_cache.py restore`, run `make db-verify-bootstrap`
 and record its measured verification:
 
 ```sh
-uv run python scripts/rehearsal.py record-stage \
+uv run python scripts/checks/rehearsal.py record-stage \
   --manifest build/rehearsal-evidence.json \
   --stage catalog_restore_verification --status passed \
   --detail "553911 real products, 553911 saved vectors, no synthetic rows, \
@@ -155,7 +155,7 @@ make reset-lab-1 > .local/lab-1-rehearsal.log 2>&1
 make solution-lab-1 >> .local/lab-1-rehearsal.log 2>&1
 DATABASE_URL="$DATABASE_URL" make validate-lab-1 >> .local/lab-1-rehearsal.log 2>&1
 
-uv run python scripts/rehearsal.py record-stage \
+uv run python scripts/checks/rehearsal.py record-stage \
   --manifest build/rehearsal-evidence.json \
   --stage lab_1_rehearsal --status passed \
   --detail "reset lab 1 only; solution applied; validate-lab-1 PASS (see artifact)" \
@@ -173,19 +173,19 @@ tooling error, and belongs in the manifest exactly as it happened.
 Cold means "run this immediately, e.g. right after the API first starts
 serving or right after deploying"; warm means "run this again once the
 service has already served traffic." The tool does not infer which is which
-(see `scripts/load_exercise.py`'s docstring for why) — declare it explicitly:
+(see `scripts/bench/load_exercise.py`'s docstring for why) — declare it explicitly:
 
 ```sh
-uv run python scripts/rehearsal.py record-cold-warm \
+uv run python scripts/checks/rehearsal.py record-cold-warm \
   --manifest build/rehearsal-evidence.json \
   --target reranker --condition cold --api-url https://<stack-host>
-uv run python scripts/rehearsal.py record-cold-warm \
+uv run python scripts/checks/rehearsal.py record-cold-warm \
   --manifest build/rehearsal-evidence.json \
   --target reranker --condition warm --api-url https://<stack-host>
-uv run python scripts/rehearsal.py record-cold-warm \
+uv run python scripts/checks/rehearsal.py record-cold-warm \
   --manifest build/rehearsal-evidence.json \
   --target ask_mosaic --condition cold --api-url https://<stack-host>
-uv run python scripts/rehearsal.py record-cold-warm \
+uv run python scripts/checks/rehearsal.py record-cold-warm \
   --manifest build/rehearsal-evidence.json \
   --target ask_mosaic --condition warm --api-url https://<stack-host>
 ```
@@ -203,7 +203,7 @@ Once bootstrap, restore, and cold/warm are recorded, derive the rollup —
 never retype a number that is already sitting in another stage:
 
 ```sh
-uv run python scripts/rehearsal.py compute-timing-summary \
+uv run python scripts/checks/rehearsal.py compute-timing-summary \
   --manifest build/rehearsal-evidence.json
 ```
 
@@ -213,16 +213,16 @@ Visually confirm the Playground/readiness strip/lab cards on each device
 shape, then record each one:
 
 ```sh
-uv run python scripts/rehearsal.py record-layout \
+uv run python scripts/checks/rehearsal.py record-layout \
   --manifest build/rehearsal-evidence.json \
   --device laptop --status ok --detail "1440x900, no overflow"
-uv run python scripts/rehearsal.py record-layout \
+uv run python scripts/checks/rehearsal.py record-layout \
   --manifest build/rehearsal-evidence.json \
   --device tablet --status ok --detail "iPad portrait, cards stack cleanly"
-uv run python scripts/rehearsal.py record-layout \
+uv run python scripts/checks/rehearsal.py record-layout \
   --manifest build/rehearsal-evidence.json \
   --device mobile --status ok --detail "375px width, no horizontal scroll"
-uv run python scripts/rehearsal.py record-layout \
+uv run python scripts/checks/rehearsal.py record-layout \
   --manifest build/rehearsal-evidence.json \
   --device projector --status ok --detail "1080p from the back row, legible"
 ```
@@ -230,7 +230,7 @@ uv run python scripts/rehearsal.py record-layout \
 ## 10. Validate and summarize
 
 ```sh
-make rehearsal-validate     # or: uv run python scripts/rehearsal.py validate --manifest ...
+make rehearsal-validate     # or: uv run python scripts/checks/rehearsal.py validate --manifest ...
 make rehearsal-summary      # human-readable status block
 ```
 
@@ -257,12 +257,12 @@ report format is intentionally distinct — see "Simulated versus measured"
 below):
 
 ```sh
-uv run python scripts/load_exercise.py \
+uv run python scripts/bench/load_exercise.py \
   --api-url https://<stack-host> --condition cold \
   --duration-seconds 120 --concurrency 8 \
   --output build/load-exercise-cold.json
 
-uv run python scripts/load_exercise.py \
+uv run python scripts/bench/load_exercise.py \
   --api-url https://<stack-host> --condition warm \
   --duration-seconds 120 --concurrency 8 \
   --output build/load-exercise-warm.json
@@ -318,9 +318,9 @@ of unbounded queuing or crashed connections, and that `recovery.recovered` is
 
 ### Simulated versus measured
 
-Every report `scripts/load_exercise.py` and `scripts/rehearsal.py` write
+Every report `scripts/bench/load_exercise.py` and `scripts/checks/rehearsal.py` write
 carries `"kind": "measured"` — the same discriminator
-`data/benchmarks/hnsw_measured.json` uses. `scripts/simulate_scale.py`'s CSV
+`data/benchmarks/hnsw_measured.json` uses. `scripts/bench/simulate_scale.py`'s CSV
 rows carry `projection_kind: "simulated_calibrated"` instead. The two must
 never be merged into one artifact or cited as if they were the same kind of
 claim; see `docs/benchmark-methodology.md`'s "Projection policy".
@@ -343,10 +343,10 @@ rehearsal for real:
 3. **An Aurora `DATABASE_URL`** for the deployed cluster, exported before
    `make db-bootstrap-schema` and the lab `make` targets in steps 4 and 6.
 4. **Bedrock model access** for the three pinned model IDs
-   (`scripts/check_model_access.py`), needed for steps 6 (Lab 3), 7, and the
+   (`scripts/checks/check_model_access.py`), needed for steps 6 (Lab 3), 7, and the
    load exercise's agent-kind requests.
 5. **A reachable API base URL** for `capture-identity`, `record-cold-warm`,
-   and `scripts/load_exercise.py` — either the deployed stack's public host or
+   and `scripts/bench/load_exercise.py` — either the deployed stack's public host or
    `http://127.0.0.1:8000` when rehearsing from the Code Editor instance
    itself.
 6. **The access-control branch**, once merged, for the load exercise's
@@ -355,7 +355,7 @@ rehearsal for real:
 
 ## What this session verified, and what it could not
 
-Every function in `scripts/rehearsal.py` and `scripts/load_exercise.py` is
+Every function in `scripts/checks/rehearsal.py` and `scripts/bench/load_exercise.py` is
 covered by an offline test (`tests/test_rehearsal.py`,
 `tests/test_load_exercise.py`) using fixture manifests and
 `httpx.MockTransport`, including several red-at-birth gates per
@@ -372,20 +372,20 @@ Aurora cluster or a real Workshop Studio stack. To close that gap:
 
 ```sh
 # from an authorized shell with AWS credentials, a deployed stack, and DATABASE_URL:
-uv run python scripts/rehearsal.py init --output build/rehearsal-evidence.json \
+uv run python scripts/checks/rehearsal.py init --output build/rehearsal-evidence.json \
   --operator "<name>" --workshop-studio-stack-id <stack-id> --aws-region us-east-1
-uv run python scripts/rehearsal.py capture-identity \
+uv run python scripts/checks/rehearsal.py capture-identity \
   --manifest build/rehearsal-evidence.json --api-url https://<stack-host> \
   --started-at <start-iso> --ended-at <end-iso>
-uv run python scripts/rehearsal.py record-first-query \
+uv run python scripts/checks/rehearsal.py record-first-query \
   --manifest build/rehearsal-evidence.json --api-url https://<stack-host>
 # ... steps 3-9 above ...
 make rehearsal-validate
 make rehearsal-summary
-uv run python scripts/load_exercise.py --api-url https://<stack-host> \
+uv run python scripts/bench/load_exercise.py --api-url https://<stack-host> \
   --condition cold --duration-seconds 120 --concurrency 8 \
   --output build/load-exercise-cold.json
-uv run python scripts/load_exercise.py --api-url https://<stack-host> \
+uv run python scripts/bench/load_exercise.py --api-url https://<stack-host> \
   --condition warm --duration-seconds 120 --concurrency 8 \
   --output build/load-exercise-warm.json
 ```

@@ -11,8 +11,13 @@ from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from scripts.fetch_catalog_metadata import REVISION
-from scripts.prepare_real_catalog import canonical, embedding_text, sha256, source_image
+from scripts.catalog.fetch_catalog_metadata import REVISION
+from scripts.catalog.prepare_real_catalog import (
+    canonical,
+    embedding_text,
+    sha256,
+    source_image,
+)
 
 SOURCE_NAME = "Amazon Reviews 2023"
 

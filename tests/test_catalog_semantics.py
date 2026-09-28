@@ -6,7 +6,7 @@ import random
 
 import pytest
 
-from scripts.generate_catalog import ProductContext, specialized_attributes
+from scripts.catalog.generate_catalog import ProductContext, specialized_attributes
 
 
 @pytest.mark.parametrize(
@@ -44,7 +44,7 @@ def test_category_name_selects_appropriate_specifications(
 
 
 def test_repair_preserves_identity_and_ignores_valid_lamp_memory_setting():
-    from scripts.catalog_semantics import misplaced_fields
+    from scripts.catalog.catalog_semantics import misplaced_fields
 
     assert not misplaced_fields(
         "Desk Lamps", {"brightness_lm": 400, "memory_presets": 0}
@@ -55,7 +55,7 @@ def test_repair_preserves_identity_and_ignores_valid_lamp_memory_setting():
 
 
 def test_warranty_only_repair_does_not_change_embedding_input():
-    from scripts.catalog_semantics import repair_catalog_row
+    from scripts.catalog.catalog_semantics import repair_catalog_row
 
     row = {
         "product_id": "900001",
@@ -80,7 +80,7 @@ def test_warranty_only_repair_does_not_change_embedding_input():
 def test_disclaimed_certification_is_not_left_in_searchable_attributes():
     import json
 
-    from scripts.catalog_semantics import repair_catalog_row
+    from scripts.catalog.catalog_semantics import repair_catalog_row
 
     row = {
         "product_id": "900003",

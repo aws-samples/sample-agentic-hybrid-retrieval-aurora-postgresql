@@ -17,7 +17,7 @@ from collections import Counter
 import httpx
 import pytest
 
-from scripts.load_exercise import (
+from scripts.bench.load_exercise import (
     LoadExerciseConfig,
     LoadExerciseError,
     Sample,

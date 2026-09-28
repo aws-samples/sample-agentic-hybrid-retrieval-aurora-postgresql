@@ -2,7 +2,7 @@
 
 -- Base bootstrap acceptance. The historical synthetic catalog is loaded without
 -- vectors; the served catalog's records and vectors are verified separately by
--- scripts/real_catalog_cache.py before and after its restore.
+-- scripts/catalog/real_catalog_cache.py before and after its restore.
 
 DO $$
 DECLARE

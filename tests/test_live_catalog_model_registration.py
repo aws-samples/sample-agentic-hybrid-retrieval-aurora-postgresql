@@ -4,9 +4,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from scripts import prepare_live_catalog as live
-from scripts.embed_catalog import COHERE_EMBED_V4_MODEL_ID
-from scripts.retrieval_profile import load_profile
+from scripts.catalog import prepare_live_catalog as live
+from scripts.catalog.embed_catalog import COHERE_EMBED_V4_MODEL_ID
+from scripts.checks.retrieval_profile import load_profile
 
 
 def test_verified_preparation_registers_the_evidence_model_before_publication(

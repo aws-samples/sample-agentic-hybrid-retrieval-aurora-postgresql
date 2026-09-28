@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from psycopg import OperationalError
 from psycopg_pool import PoolTimeout
 
-from scripts.tool_contracts import contracts_for_surface
+from scripts.checks.tool_contracts import contracts_for_surface
 from service import hnsw, session_memory
 from service.access_control import (
     acquire_model_admission_slot,

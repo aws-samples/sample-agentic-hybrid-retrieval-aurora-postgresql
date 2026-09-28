@@ -16,7 +16,7 @@ from typing import Any, Literal, NamedTuple
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from scripts.retrieval_profile import explain
+from scripts.checks.retrieval_profile import explain
 from service.catalog_runtime import search_schema
 from service.lab_files import LAB1_SQL, LAB2_SQL, LAB3_AGENT, solution_path
 from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, solution, validate
@@ -361,7 +361,7 @@ def _lab_1_database_state(connection: Any) -> LabDatabaseState:
 
 
 def _lab_2_database_state(connection: Any) -> LabDatabaseState:
-    from scripts.retrieval_profile import load_profile
+    from scripts.checks.retrieval_profile import load_profile
 
     rrf_k = load_profile().rrf_k
     schema = search_schema()
