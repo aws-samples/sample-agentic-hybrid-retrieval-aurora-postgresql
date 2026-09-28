@@ -77,14 +77,15 @@ it("replays Shop's saved results with the same preview products, then explicitly
   await screen.findByRole("heading", { name: original.query });
   expect(stream).not.toHaveBeenCalled();
   expect(search).not.toHaveBeenCalled();
+  const finalSources = new Map(within(screen.getByRole("list", { name: "Final ranking preview" })).getAllByRole("link").map((link) => [link.getAttribute("href"), link.querySelector("img")?.getAttribute("src")]));
+  expect([...finalSources.keys()]).toEqual(products.map((product) => `/products/${product.product_id}`));
+  fireEvent.click(screen.getByRole("button", { name: "Before reranking" }));
   const retrieve = screen.getByRole("list", { name: "Retrieved product preview" });
-  const rank = screen.getByRole("list", { name: "Final ranking preview" });
-  expect(productLinks(retrieve)).toEqual([products[1], products[0], products[2]].map((product) => `/products/${product.product_id}`));
-  expect(productLinks(rank)).toEqual(products.slice(0, 3).map((product) => `/products/${product.product_id}`));
+  expect(productLinks(retrieve)).toEqual([products[3], products[1], products[0], products[2]].map((product) => `/products/${product.product_id}`));
   for (const link of within(retrieve).getAllByRole("link")) {
-    const matching = within(rank).getAllByRole("link").find((item) => item.getAttribute("href") === link.getAttribute("href"));
-    expect(link.querySelector("img")?.getAttribute("src")).toBe(matching?.querySelector("img")?.getAttribute("src"));
+    expect(link.querySelector("img")?.getAttribute("src")).toBe(finalSources.get(link.getAttribute("href")));
   }
+  fireEvent.click(screen.getByRole("button", { name: "Final order" }));
   expect(screen.getByLabelText("#7 before rerank, #1 in the final order")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Why the order changed" }));
   expect(within(screen.getByRole("region", { name: "Product ranking details" })).getAllByRole("listitem")).toHaveLength(4);
@@ -96,7 +97,7 @@ it("replays Shop's saved results with the same preview products, then explicitly
   const back = screen.getByRole("button", { name: "Back to saved Shop results" });
   await waitFor(() => expect((back as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(back);
-  await waitFor(() => expect(productLinks(screen.getByRole("list", { name: "Final ranking preview" }))).toEqual(products.slice(0, 3).map((product) => `/products/${product.product_id}`)));
+  await waitFor(() => expect(productLinks(screen.getByRole("list", { name: "Final ranking preview" }))).toEqual(products.map((product) => `/products/${product.product_id}`)));
   expect(screen.queryByRole("region", { name: "Mosaic’s picks for Alex" })).toBeNull();
   expect(stream).toHaveBeenCalledTimes(1);
   expect(replay.mock.calls.map(([id]) => id)).toEqual([firstSearchId, secondSearchId, firstSearchId]);
@@ -164,7 +165,7 @@ it("does not start from URL filters when a saved Shop record cannot be loaded", 
   expect(stream).not.toHaveBeenCalled();
 });
 
-it("streams the full answer, then groups every pick and keeps the complete explanation expandable", async () => {
+it("streams the full answer, then keeps all of it in view above every pick", async () => {
   const products = showcaseCatalogPage({}, 0, 3).products;
   let emit!: Parameters<typeof api.agentStream>[2];
   let finish!: () => void;
@@ -180,7 +181,7 @@ it("streams the full answer, then groups every pick and keeps the complete expla
   expect(screen.queryByRole("region", { name: "Mosaic’s picks for Alex" })).toBeNull();
   act(() => emit({ type: "stage", id: "answer", path: "full_retrieval", title: "Answer", detail: "Synthesis" }));
   expect(within(reason).getByText(/Comparing 3 products/)).toBeTruthy();
-  expect(reason.querySelector(".inspector-reason-status svg.spin")).toBeTruthy();
+  expect(reason.querySelector(".pg-reason-status svg.spin")).toBeTruthy();
   const response: AgentResponse = { agent_run_id: agentId, question: defaultRequest.query, answer: `${products[1].title} is the best fit. ${"Full supporting explanation. ".repeat(30)}The final sentence.`, plan: [], recommendations: [products[1], products[0]], citations: [], trace: [] };
   act(() => emit({ type: "answer_start", response: { ...response, answer: "" } }));
   act(() => emit({ type: "answer_delta", delta: `${products[1].title} is the best fit.` }));
@@ -191,12 +192,8 @@ it("streams the full answer, then groups every pick and keeps the complete expla
   const picks = screen.getByRole("region", { name: "Mosaic’s picks for Alex" });
   expect(productLinks(picks)).toEqual([products[1], products[0]].map((product) => `/products/${product.product_id}`));
   const prose = reason.querySelector(".inspector-answer")!;
-  const fullAnswer = within(reason).getByText("Read Mosaic’s full answer").closest("details")!;
-  expect(fullAnswer.open).toBe(false);
-  expect(fullAnswer.textContent).toContain(response.answer);
-  fireEvent.click(within(reason).getByText("Read Mosaic’s full answer"));
-  expect(fullAnswer.open).toBe(true);
-  expect(fullAnswer.textContent).toContain("The final sentence.");
+  expect(prose.textContent).toContain("The final sentence.");
+  expect(prose.closest("details")).toBeNull();
   expect(prose.compareDocumentPosition(picks) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(prose.getAttribute("aria-busy")).toBe("false");
   fireEvent.click(screen.getByRole("button", { name: "More screen space" }));
@@ -223,14 +220,14 @@ it("follows the live stages left to right and returns to Retrieve for a second s
   for (const [id, expected] of [["rank", ["complete", "active", "pending"]], ["answer", ["complete", "complete", "active"]], ["retrieve", ["active", "pending", "pending"]]] as const) {
     act(() => emit({ type: "stage", id, path: "full_retrieval", title: id, detail: id }));
     expect(states()).toEqual(expected);
-    expect(document.querySelectorAll('.inspector-column[aria-current="step"]')).toHaveLength(1);
+    expect(document.querySelectorAll('.pg-section[aria-current="step"]')).toHaveLength(1);
   }
   await act(async () => {
     emit({ type: "complete", response: { agent_run_id: agentId, question: defaultRequest.query, answer: "Finished.", plan: [], recommendations: [], citations: [], trace: [] } });
     finish();
   });
   expect(states()).toEqual(["complete", "complete", "complete"]);
-  expect(document.querySelectorAll('.inspector-column[aria-current="step"]')).toHaveLength(0);
+  expect(document.querySelectorAll('.pg-section[aria-current="step"]')).toHaveLength(0);
 });
 
 it.each([
@@ -264,7 +261,7 @@ it("keeps each detail panel inside its column and lets all three stay open", asy
   render(<PlaygroundPage />);
   fireEvent.click(screen.getByRole("button", { name: "Run Mosaic" }));
   await screen.findByRole("list", { name: "Final ranking preview" });
-  for (const [column, label] of [["Retrieve", "Search details"], ["Rank", "Why the order changed"], ["Reason", "Answer and sources"]]) {
+  for (const [column, label] of [["Retrieve", "Search details"], ["Rank", "Why the order changed"], ["Reason", "Steps and sources"]]) {
     const region = screen.getByRole("region", { name: column });
     fireEvent.click(within(region).getByRole("button", { name: label }));
     expect(region.contains(screen.getByRole("region", { name: label }))).toBe(true);
@@ -273,7 +270,7 @@ it("keeps each detail panel inside its column and lets all three stay open", asy
   fireEvent.click(screen.getByRole("button", { name: "Why the order changed" }));
   expect(screen.queryByRole("region", { name: "Why the order changed" })).toBeNull();
   expect(screen.getByRole("region", { name: "Search details" })).toBeTruthy();
-  expect(screen.getByRole("region", { name: "Answer and sources" })).toBeTruthy();
+  expect(screen.getByRole("region", { name: "Steps and sources" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: `${products[0].title}: show Search 1, rank 1` }));
   expect(screen.getAllByRole("button", { expanded: true })).toHaveLength(3);
   expect(document.activeElement?.id).toBe(`ranked-product-${products[0].product_id}`);
@@ -307,12 +304,13 @@ it("shows the actual rank movement from the agent receipt, then clears it when r
   expect(await screen.findByLabelText("#27 before rerank, #1 in the final order")).toBeTruthy();
   expect(screen.queryByRole("region", { name: "Product ranking details" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Why the order changed" }));
-  expect(await screen.findByText(/#27 before rerank/)).toBeTruthy();
-  expect(screen.getByRole("region", { name: "Product ranking details" })).toBeTruthy();
+  expect(await screen.findByRole("region", { name: "Product ranking details" })).toBeTruthy();
+  expect(screen.getAllByLabelText("#27 before rerank, #1 in the final order")).toHaveLength(1);
   expect(screen.getByRole("button", { name: "Why the order changed" }).getAttribute("aria-expanded")).toBe("true");
   expect(screen.getByText("The recorded answer.")).toBeTruthy();
+  expect(screen.getByText("One of the agent’s picks.")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "More screen space" }));
-  expect(screen.queryByText(/#27 before rerank/)).toBeNull();
+  expect(screen.queryByLabelText("#27 before rerank, #1 in the final order")).toBeNull();
   expect(screen.queryByRole("region", { name: "Product ranking details" })).toBeNull();
   expect(screen.queryByText("The recorded answer.")).toBeNull();
 });
@@ -354,7 +352,7 @@ it("keeps the first search counts when a later search supplies the leading recom
   fireEvent.click(screen.getByRole("button", { name: "Run Mosaic" }));
   const answer: AgentResponse = { agent_run_id: agentId, question: defaultRequest.query, answer: "Completed.", plan: [], recommendations: [products[0]], citations: [], trace: [searchStep(firstSearchId, 1)] };
   await act(async () => emit({ type: "answer_start", response: answer }));
-  const visibleCounts = () => [...document.querySelectorAll(".inspector-arm-counts dd")].map((node) => node.textContent);
+  const visibleCounts = () => [...document.querySelectorAll(".pg-flow-arms dd")].map((node) => node.textContent);
   expect(visibleCounts()).toEqual(["4", "4", "46"]);
   await act(async () => { emit({ type: "complete", response: { ...answer, recommendations: [products[1]], trace: [...answer.trace, searchStep(secondSearchId, 2)] } }); finish(); });
   expect(visibleCounts()).toEqual(["4", "4", "46"]);
@@ -385,7 +383,7 @@ it("separates recorded model requests, application steps and missing origins wit
   render(<PlaygroundPage />);
   fireEvent.click(screen.getByRole("button", { name: "Run Mosaic" }));
   await screen.findByText(/^No recommendation:/);
-  fireEvent.click(screen.getByRole("button", { name: "Answer and sources" }));
+  fireEvent.click(screen.getByRole("button", { name: "Steps and sources" }));
   const summary = screen.getByLabelText("Who requested the recorded steps");
   expect(summary.textContent).toContain("Requested by the model: 1.");
   expect(summary.textContent).toContain("Started by the application: 1.");
@@ -438,4 +436,23 @@ it("says the measured comparison is waiting when the artifact is not attributed 
   render(<PlaygroundPage />);
   expect(await screen.findByText("The measured comparison is waiting for a re-measure on this build.")).toBeTruthy();
   expect(screen.queryByRole("table", { name: "Scores for each search method" })).toBeNull();
+});
+
+// The search's first result is not the agent's recommendation. On a declined
+// run the plate used to read "Final #1" with nothing saying the agent chose
+// nothing, and a replayed search showed no Exact terms at all.
+it("says when the agent declined the search's first result, and reads the search's own words", async () => {
+  const product = { ...showcaseCatalogPage({}, 0, 1).products[0], signals: undefined } as unknown as ProductSummary;
+  const response = savedSearch(firstSearchId, [product]);
+  vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(response);
+  vi.spyOn(api, "agentStream").mockImplementation(async (_question, _filters, emit) => emit({ type: "complete", response: { agent_run_id: agentId, question: defaultRequest.query, answer: "The sources do not support a choice.", outcome: "declined", plan: [], recommendations: [], citations: [], trace: [searchStep(firstSearchId, 1)] } }));
+  render(<PlaygroundPage />);
+  fireEvent.click(screen.getByRole("button", { name: "Run Mosaic" }));
+  const lead = await screen.findByRole("region", { name: "First search result" });
+  expect(within(lead).getByText("Not recommended: the agent’s sources did not support a choice.")).toBeTruthy();
+  expect(within(lead).getByText("Search result")).toBeTruthy();
+  expect(lead.textContent).not.toMatch(/#1|#null/);
+  const reads = screen.getByRole("list", { name: "Search 1 reads it as" });
+  expect(within(reads).getByText("words not in the saved record")).toBeTruthy();
+  expect(within(screen.getByRole("region", { name: "Alex’s request" })).queryByRole("list", { name: /reads it as/ })).toBeNull();
 });

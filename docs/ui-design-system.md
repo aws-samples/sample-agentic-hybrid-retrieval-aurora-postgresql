@@ -378,17 +378,25 @@ invitation is a `--paper-warm` tile with no top rule.
   sticks. `LabRail` reads the stuck state from an `IntersectionObserver`,
   holds its flow footprint constant, and measures its height into
   `--labs-rail-height`, which the stage anchors add to their scroll margin.
-- Retrieve, Rank and Reason keep their stage colours on the Playground: stage
-  numbers and step numbers in `--retrieve`, `--gold` and `--reason`, and the
-  active inspector column's heading, state and top edge in the same colour.
+- Retrieve, Rank and Reason keep their stage colours on the Playground: the
+  pipeline page's stage chips carry a `--retrieve`, `--rank` or `--reason` dot,
+  and the guided lab's step numbers use `--retrieve`, `--gold` and `--reason`.
   A stage the sequence does not name (Prove) uses the neutral `--line-strong`.
 - Every Playground send uses `MosaicRunButton`: a 44px `--maroon-900` disc with
   a `--paper` plane icon, `--maroon-800` under the pointer, and a spinner while
   the request is in flight; reduced motion stops the spinner. Hybrid retrieval
   and Session & Memory print a label beside the disc.
-- Desktop retrieval columns share grid rows for headers, content, disclosure
-  buttons and panels, separated by open gutters and fine top rules, without an
-  enclosing frame.
+- The pipeline page (`PlaygroundPage.tsx`, `components/playground/`,
+  `playground-page.css` scoped to `.pg-a`) is a product page with receipts: a
+  centred stage (request segmented control, the shared Labs masthead centred,
+  Alex's request in a 26px-radius `--paper-strong` card), the selected search's
+  record with its method-read chips, the search's first result on a 460×320
+  `--plate` with whether the agent picked it, then Retrieve, Rank and Reason as
+  full-width sections with 34px sentence headings and a stage chip. Retrieve's
+  flow is five `--paper-warm` cells joined by 2px gaps; Rank pairs the shipped
+  `ProductReceiptBody` with how the order was set, then four-across tiles with a
+  Final order / Before reranking switch; Reason sets the answer beside a
+  numbered source list and the picks below it.
 - `ResultProductCard` shows up to three returned products with a 1px
   `--line-strong` border, 16px corners, the photo on the plate, a two-line 16px
   name, and a position pill in the photo's corner.
@@ -508,7 +516,8 @@ specifications. Listing photos are shown uncropped and contained on the plate.
 `shop-storefront.css`, `labs-agentic.css`, `commerce.css`, `surfaces.css`,
 `surfaces-ask-mosaic.css`, `surfaces-labs-shell.css`, `surfaces-hnsw.css`,
 `surfaces-playground.css`, `discover.css`, `playground.css`, `inspector.css`,
-and `world.css`. Over those sheets it fails when:
+`playground-page.css`, `world.css` and `ask-mosaic-answer.css`. Over those
+sheets it fails when:
 
 - a referenced custom property is defined nowhere (except `--labs-rail-height`,
   `--low`, `--high` and `--sweep`, which components set inline);

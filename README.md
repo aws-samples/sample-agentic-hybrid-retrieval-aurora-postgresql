@@ -43,6 +43,9 @@ for you; the command checks deployed source identity and Gateway connectivity.
 
 Use **Discover** to explore Alex's brief, **Shop** to search and compare products,
 and **Playground** to inspect search results, ranking, tool calls, and sources.
+Playground follows one request down the page: the first result on its own
+plate, how each method found candidates, an itemized receipt for any product,
+and the agent's cited answer beside its sources.
 On Shop, **Why this match** itemizes how each result was found and ranked, and
 product pages show the specifications a listing states beside the listing text
 they came from. **Ask Mosaic** answers with the best pick's photo, then a

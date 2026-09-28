@@ -28,6 +28,7 @@ const SHEETS = [
   "discover.css",
   "playground.css",
   "inspector.css",
+  "playground-page.css",
   "world.css",
   "ask-mosaic-answer.css",
 ] as const;
