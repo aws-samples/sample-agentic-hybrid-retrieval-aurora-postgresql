@@ -57,6 +57,7 @@ def test_participant_queries_resolve_from_the_lab_authority():
         if query["mission_id"] not in core_mission_ids
     } == {
         ("G-004", "semantic-intent-contrast"),
+        ("G-022", "phrase-typo-recovery"),
     }
     assert all(
         "query" not in query and "filters" not in query for query in mission_backed

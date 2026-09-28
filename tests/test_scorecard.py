@@ -452,7 +452,7 @@ def test_scored_queries_excludes_the_agent_contract_case():
     scored = _scored_queries()
 
     assert {query["query_id"] for query in scored} == {
-        f"G-{number:03d}" for number in range(1, 22)
+        f"G-{number:03d}" for number in range(1, 23)
     } - {"G-021"}
 
 
@@ -479,7 +479,7 @@ def test_retrieval_scorecard_serves_the_committed_population_metrics():
     response = retrieval_scorecard()
 
     artifact = json.loads(SCORECARD_ARTIFACT.read_text(encoding="utf-8"))
-    assert response.retrieval_quality.sample_size == 20
+    assert response.retrieval_quality.sample_size == 21
     assert response.retrieval_quality.recall_at_10 == artifact["metrics"]["recall@10"]
     assert response.retrieval_quality.mrr == artifact["metrics"]["mrr"]
     assert response.retrieval_quality.ndcg_at_10 == artifact["metrics"]["ndcg@10"]
@@ -487,7 +487,7 @@ def test_retrieval_scorecard_serves_the_committed_population_metrics():
     # Labels come from the measured artifact. The representative product comes
     # from the canonical relevance judgments, so the UI can show an exact,
     # product-bound image without treating a ranked result as ground truth.
-    assert len(response.retrieval_quality.per_query_metrics) == 20
+    assert len(response.retrieval_quality.per_query_metrics) == 21
     for row in response.retrieval_quality.per_query_metrics:
         assert row["query_text"]
         assert row["concept_label"]
@@ -550,19 +550,20 @@ def test_regression_anchors_total_is_read_from_the_query_set_not_retyped():
     """
     scored = _scored_queries()
 
-    assert _release_check_total(scored) == 6
+    assert _release_check_total(scored) == 7
 
 
 def test_regression_anchors_pass_and_total_agree_on_the_committed_artifact():
     response = retrieval_scorecard()
 
-    assert response.regression_anchors.passed == 6
-    assert response.regression_anchors.total == 6
+    assert response.regression_anchors.passed == 7
+    assert response.regression_anchors.total == 7
     assert {anchor.query_id for anchor in response.regression_anchors.anchors} == {
         "G-001",
         "G-014",
         "G-018",
         "G-020",
+        "G-022",
     }
     # The committed artifact now carries labels, so every anchor must expose
     # both. The absent case stays covered against a synthetic artifact by
@@ -745,8 +746,8 @@ def test_api_withholds_the_historical_catalog_scorecard():
     assert payload["provenance"]["attribution_note"].startswith(PENDING_TEXT)
     assert payload["provenance"]["source_revision"]
     assert payload["provenance"]["current_source_revision"]
-    assert payload["retrieval_quality"]["sample_size"] == 20
-    assert payload["regression_anchors"]["total"] == 6
+    assert payload["retrieval_quality"]["sample_size"] == 21
+    assert payload["regression_anchors"]["total"] == 7
     assert payload["eligibility_contracts"]["fixture_count"] == 12
     assert len(payload["agent_contracts"]["guarantees"]) == 5
 
@@ -836,8 +837,8 @@ def test_api_serves_the_stage_ablation_section_alongside_the_other_four():
         "rrf_fused_no_rerank",
         "rrf_fused_reranked",
     }
-    assert ablation["scored_query_count"] == 20
-    assert len(ablation["per_query"]) == 20
+    assert ablation["scored_query_count"] == 21
+    assert len(ablation["per_query"]) == 21
     ceiling_contract = ablation["candidate_recall_ceiling"]
     assert set(ceiling_contract["bounds_arms"]) == {
         "rrf_fused_no_rerank",

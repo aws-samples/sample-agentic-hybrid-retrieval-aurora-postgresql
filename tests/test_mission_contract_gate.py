@@ -59,6 +59,8 @@ def test_the_shipped_contract_has_three_labs_and_supporting_checks(passing):
     ]
     assert [m["id"] for m in supporting] == [
         "exact-identity",
+        "typo-meaning-control",
+        "phrase-typo-recovery",
         "semantic-intent-contrast",
         "semantic-eligibility",
         "compare-cheaper-alternative",
@@ -147,10 +149,12 @@ def test_the_gate_reads_the_supporting_checks_list_when_present(passing):
     assert "supporting_checks" in passing
     labs, supporting = split_missions(passing)
     assert len(labs) == 3
-    assert len(supporting) == 7
+    assert len(supporting) == 9
     assert all(m["core"] for m in labs)
     assert [m["core"] for m in supporting] == [
         True,
+        False,
+        False,
         False,
         True,
         True,

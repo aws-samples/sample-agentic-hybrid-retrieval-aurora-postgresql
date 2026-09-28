@@ -21,7 +21,7 @@ Mosaic serves the real source catalog selected by `db/config/real-catalog-cache.
 scorecard and generated filter fixtures below are historical engineering checks;
 their results do not certify the imported products. Current worked-example
 evidence is recorded in [the hybrid-search review](hybrid-search-design.md).
-The canonical query file now contains only the nine real-catalog requests; the
+The canonical query file now contains only the ten real-catalog requests; the
 twelve historical canonical requests and 720 generated eligibility cases live
 under `data/evals/historical/`. Existing mixed-catalog score artifacts are
 withheld pending a reviewed measurement of the real set.
@@ -76,7 +76,7 @@ those expectations separately before altering any of them.
 
 `data/evals/canonical_queries.jsonl` is the authoritative curated set:
 
-- nine real-catalog cases with documented teaching concepts;
+- ten real-catalog cases with documented teaching concepts;
 - graded judgments from 0 (irrelevant) through 3 (ideal);
 - explicit hard negatives, expected channels, and ranking behavior;
 - eight single-request product-retrieval cases;

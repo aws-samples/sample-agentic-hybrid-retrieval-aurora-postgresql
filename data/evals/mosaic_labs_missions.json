@@ -286,6 +286,76 @@
       "dataset_id": "reviews-2023-v2"
     },
     {
+      "id": "typo-meaning-control",
+      "stage": "retrieve",
+      "core": false,
+      "placement": "lab-1",
+      "duration_minutes": 0,
+      "title": "Control - A misspelled famous name",
+      "discover_label": "A misspelled Bose name",
+      "query": "Boze QuietComfrot 35",
+      "filters": {
+        "domain": "consumer_electronics",
+        "category_key": "headphones"
+      },
+      "target_product_ids": [
+        1277987
+      ],
+      "expected_techniques": [
+        "hnsw",
+        "rrf",
+        "cohere_rerank"
+      ],
+      "checkpoint": "baseline",
+      "expected_outcome": "Inside Headphones, meaning search still finds the Series II while close spelling is disconnected (meaning rank 22 to 23 on the 2026-09-28 dev and fresh-account runs), and reranking puts it first. There is no before-and-after contrast: not every typo needs close spelling.",
+      "assertions": [
+        "target_in_top_k",
+        "semantic_signal_present",
+        "hard_filters_hold"
+      ],
+      "top_k": 10,
+      "dataset_id": "reviews-2023-v2"
+    },
+    {
+      "id": "phrase-typo-recovery",
+      "stage": "retrieve",
+      "core": false,
+      "placement": "lab-1",
+      "duration_minutes": 0,
+      "title": "Checkpoint - Recover a misspelled edition",
+      "discover_label": "A misspelled Bose edition",
+      "canonical_query_id": "G-022",
+      "query": "Limmited Editon Triple Midnigth",
+      "filters": {
+        "domain": "consumer_electronics",
+        "category_key": "headphones"
+      },
+      "target_product_ids": [
+        1277987
+      ],
+      "expected_techniques": [
+        "pg_trgm",
+        "rrf",
+        "cohere_rerank"
+      ],
+      "checkpoint": "repair",
+      "expected_outcome": "Alex recalls the exact unit he saved, the Limited Edition Triple Midnight Series II, and misspells three words. Exact terms and meaning search miss it; the restored close-spelling channel finds it at trigram rank 1 and it finishes first.",
+      "assertions": [
+        "target_in_top_k",
+        "trigram_signal_present",
+        "hard_filters_hold"
+      ],
+      "top_k": 10,
+      "expected_target_signals": [
+        "trigram"
+      ],
+      "absent_target_signals": [
+        "fts",
+        "semantic"
+      ],
+      "dataset_id": "reviews-2023-v2"
+    },
+    {
       "id": "semantic-intent-contrast",
       "stage": "retrieve",
       "core": false,
@@ -576,6 +646,18 @@
         "kind": "Keywords",
         "label": "4K · USB-C · 90W",
         "reference_id": "rank-with-evidence"
+      },
+      {
+        "id": "typo-name-headphones",
+        "kind": "Typo",
+        "label": "A misspelled Bose name",
+        "reference_id": "typo-meaning-control"
+      },
+      {
+        "id": "typo-edition-headphones",
+        "kind": "Typo",
+        "label": "A misspelled Bose edition",
+        "reference_id": "phrase-typo-recovery"
       },
       {
         "id": "typo-headphones",

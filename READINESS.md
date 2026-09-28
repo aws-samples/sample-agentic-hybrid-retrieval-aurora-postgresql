@@ -56,7 +56,7 @@ make validate-lab-2
 make validate-lab-3
 ```
 
-The canonical set contains nine real-catalog requests: eight product-retrieval
+The canonical set contains ten real-catalog requests: nine product-retrieval
 cases for Recall@10, MRR and nDCG@10, plus one agent-contract case checked
 through Lab 3. The twelve historical canonical requests and 720 generated
 filter cases live separately under `data/evals/historical/`. Historical scores
