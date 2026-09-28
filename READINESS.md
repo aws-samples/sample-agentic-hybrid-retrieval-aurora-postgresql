@@ -60,10 +60,13 @@ The canonical set contains ten real-catalog requests: nine product-retrieval
 cases for Recall@10, MRR and nDCG@10, plus one agent-contract case checked
 through Lab 3. The twelve historical canonical requests and 720 generated
 filter cases live separately under `data/evals/historical/`. Historical scores
-do not certify the real catalog. The committed real-catalog baseline was measured
-on 2026-09-28 at source `0e7b457` over the nine product-retrieval cases:
-Recall@10 1.0, MRR 0.759, nDCG@10 0.803, both release checks passed and both
-eligibility fixtures held.
+do not certify the real catalog. The committed real-catalog baseline, measured
+on 2026-09-28 over the nine product-retrieval cases, reads Recall@10 1.0,
+MRR 0.759 and nDCG@10 0.803; both release checks passed and both eligibility
+fixtures held. `data/evals/canonical_scorecard.json` records the source revision
+it was measured at. The baseline and every later check search with the query
+vectors recorded in `data/evals/canonical_query_vectors.json`, because Bedrock
+returns a slightly different vector for the same query on each call.
 
 ## Participant completion proof
 

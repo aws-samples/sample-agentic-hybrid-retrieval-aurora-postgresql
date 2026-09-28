@@ -110,10 +110,18 @@ and measurement timestamp. It fails if any of those inputs, the ranked result
 identity, deterministic checks, or metrics drift. Baseline writes refuse a dirty
 worktree. Validation requires the measured revision to equal the baseline
 revision, except for later commits containing only the generated scorecard, ranked
-results and stage-comparison files; that narrow allowance avoids a
+results, query vectors and stage-comparison files; that narrow allowance avoids a
 self-referential commit while still rejecting intervening code changes. Use `--write-baseline` only after
 committing the reviewed source, reviewing the Aurora ranks, and intentionally
 accepting a new measured baseline.
+
+A baseline write embeds each scored query once and records the vectors in
+`data/evals/canonical_query_vectors.json`; every later check and the stage
+ablation search with those vectors. Bedrock returns a slightly different vector
+for the same query on each call (four calls for `B07G95T3JP` agreed only to
+cosine 0.995 on 2026-09-28), which moved products at the edge of the fused pool
+between runs and made the ranked-result identity unrepeatable. A check never
+rewrites the committed ranking; only a baseline write does.
 
 The release sequence is therefore:
 
@@ -121,9 +129,10 @@ The release sequence is therefore:
 2. Export the live writer class, for example
    `export AURORA_INSTANCE_CLASS=db.r8g.2xlarge`.
 3. Run `make score-evals SCORE_EVAL_ARGS="--restart --write-baseline"`.
-4. Review the ranks and commit both
-   `data/evals/canonical_scorecard.json` and
-   `data/evals/canonical_ranked_results.csv`.
+4. Review the ranks and commit
+   `data/evals/canonical_scorecard.json`,
+   `data/evals/canonical_ranked_results.csv` and
+   `data/evals/canonical_query_vectors.json`.
 5. From that clean commit, run `make ablation-evals`, review the result, and
    commit `data/evals/canonical_stage_ablation.json`.
 
