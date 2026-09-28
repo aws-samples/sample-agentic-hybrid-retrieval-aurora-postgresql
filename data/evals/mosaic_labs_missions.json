@@ -200,7 +200,7 @@
         "fixed_state": "The deployed Strands agent calls Aurora tools through AgentCore Gateway and answers with product sources.",
         "observe_before": [
           "Mosaic explains that the agent is not built yet.",
-          "The message points to labs/lab3/agent.py and make deploy-agent."
+          "The message points to labs/lab3/agent.py and the deploy command."
         ],
         "observe_after": [
           "Your agent runs in AgentCore Runtime and calls the SQL tools through Gateway.",

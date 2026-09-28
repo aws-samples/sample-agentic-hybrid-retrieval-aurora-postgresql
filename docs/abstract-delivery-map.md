@@ -16,8 +16,9 @@ contract), and each is graded against an answer the grader computes itself.
 - **Lab 1 — Build hybrid retrieval · 10 min.** A transposed product ID makes
   Alex's saved headphones vanish. Participants use PostgreSQL's own functions
   (`tsvector` lexemes, `pg_trgm` word similarity, pgvector distance) to show why
-  only one search method can recover it, then reconnect that method. They then
-  write a recall query for the vector search they didn't touch. The grader runs
+  only one search method can recover it, then reconnect that method. An optional
+  Go deeper step has them write a recall query for the vector search they didn't
+  touch. The grader runs
   it under the planner's plan and with HNSW forced: in recorded runs the forced plan was roughly 6–7×
   faster yet missed half or more of the true nearest neighbours. **Lesson: a full
   result list is not evidence of good recall; only a comparison with exact
@@ -52,7 +53,7 @@ re-embedded on each run, so the guides print no fixed number.
 |---|---|---|
 | Aurora as search and context engine | All three labs | Inspect saved searches, agent activity and evidence in Aurora |
 | Full-text search | Retrieve | Compare the query's and the listing's lexemes to show why word search cannot match a transposed ID |
-| pgvector semantic similarity | Retrieve; Scale & HNSW | Write an index-proof recall query graded under the planner's plan and forced HNSW; optionally build and shrink a partial HNSW index |
+| pgvector semantic similarity | Retrieve (optional); Scale & HNSW | Optionally write an index-proof recall query graded under the planner's plan and forced HNSW; optionally build and shrink a partial HNSW index |
 | SQL and metadata filters | Retrieve; Rank | The validator proves every saved candidate respects the Bose/headphones and Dell/monitor filters before reranking |
 | Fuzzy matching | Retrieve | Read `word_similarity` against whole-string similarity, then reconnect the close-spelling channel from its contract |
 | Reciprocal rank fusion | Rank | Write RRF in SQL (graded at five `k` values) and make production's `1 / (k + source_rank)` agree with it |
