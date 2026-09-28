@@ -236,10 +236,14 @@ count may only fall.
 
 **The tile and pill rule.** Panels and tiles take `--tile-radius` (18px):
 the Shop journey tiles, the Ask Mosaic invitation, the product page's photo
-stage, the lab rail, run summary, completion proof, scorecard and repair
-panels, and the Labs matrix. Single-line controls are pills at 999px: the
-catalog search composer, lab selects and query inputs, the Playground tabs,
-lab rail state chips, submit buttons and evidence badges. Circular controls
+stage, and the Scale & HNSW and Session & Memory panels. The guided lab
+(`playground.css`, scoped `.lab-page`) keeps one card level: its run form is a
+26px request card, its completion proof and agent composer are 22px cards, its
+figure grids are `--paper-warm` cells with 2px gaps inside a 22px shape, and
+its rail, run summary, scorecard, repair evidence and matrix sit flat on the
+page. Single-line controls are pills at 999px: the catalog search composer,
+lab selects and query inputs, the Playground tabs, the lab rail's stage
+control and state chips, submit buttons and evidence badges. Circular controls
 (the search submit disc, the run disc, the save button) use 50%.
 
 Other radii in use: the itemized receipt card 16px; result and answer cards
@@ -375,7 +379,8 @@ invitation is a `--paper-warm` tile with no top rule.
   Playground rail and completion proof, whose labels distinguish “Code
   repaired” from “SQL repair applied”.
 - The guided lab's rail is sticky under the header and condenses once it
-  sticks. `LabRail` reads the stuck state from an `IntersectionObserver`,
+  sticks. Its four stages are a segmented control with a stage-coloured dot
+  each; the current stage is the raised segment. `LabRail` reads the stuck state from an `IntersectionObserver`,
   holds its flow footprint constant, and measures its height into
   `--labs-rail-height`, which the stage anchors add to their scroll margin.
 - Retrieve, Rank and Reason keep their stage colours on the Playground: the

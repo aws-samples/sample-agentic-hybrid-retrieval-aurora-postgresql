@@ -1,8 +1,16 @@
+/* The guided lab view in the pipeline page's language: a product page with
+   receipts. The request sits on a centred stage, the lab rail is a segmented
+   control, grids are paper cells with 2px gaps rather than hairline tables,
+   one card is the deepest a panel goes, and labels are sentence case. Scoped
+   to `.lab-page`: the Scale & HNSW and Session & Memory tabs share the
+   `labs-*` families and keep their own look. */
+
 .lab-page.labs-premium {
   gap: 28px;
   padding-top: 24px;
 }
 
+/* The Playground tabs. */
 .lab-page .mosaic-labs-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -52,79 +60,193 @@
   font-size: 14px;
 }
 
+/* The stage: the shared masthead centred, then the run as one request card. */
 .lab-page .labs-intro {
+  min-height: 0;
   padding: 20px 0 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+}
+
+.lab-page .labs-intro-copy {
+  width: 100%;
+  max-width: none;
+  align-items: center;
+  justify-self: stretch;
+  padding: 16px 0 0;
+  text-align: center;
 }
 
 .lab-page .labs-intro-copy h1 {
   margin: 0;
   font-family: var(--masthead);
   font-size: var(--page-title-size);
-  font-weight: 500;
-  line-height: 1.12;
-  letter-spacing: -0.015em;
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
   text-wrap: balance;
 }
 
 .lab-page .labs-intro-copy > .labs-intro-deck {
-  max-width: 68ch;
-  margin-top: 14px;
+  max-width: 56ch;
+  margin: 12px auto 0;
   font-size: var(--labs-lead);
-  line-height: 1.65;
+  line-height: 1.5;
 }
 
 .lab-page .labs-intro-actions {
-  margin-top: 28px;
+  width: 100%;
+  margin-top: 30px;
 }
 
 .lab-page .retrieval-run-action {
-  gap: 16px;
-  padding: 0;
+  display: grid;
+  width: min(100%, 980px);
+  grid-template-columns: minmax(200px, 280px) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px 14px;
+  margin: 0 auto;
+  padding: 14px 14px 14px 18px;
   border: 0;
-  background: transparent;
-  box-shadow: none;
+  border-radius: 26px;
+  background: var(--paper-strong);
+  box-shadow: 0 0 0 1px var(--line), 0 10px 28px rgb(0 0 0 / 6%);
+  text-align: left;
 }
 
-.lab-page .retrieval-run-action label > span {
+.lab-page .retrieval-scenario-picker,
+.lab-page .retrieval-query-field {
+  width: auto;
+  min-width: 0;
+  flex: none;
+  gap: 4px;
+}
+
+.lab-page .retrieval-scenario-picker > span,
+.lab-page .retrieval-query-field > span {
+  padding-left: 14px;
   color: var(--ink-soft);
-  font-size: var(--labs-detail);
+  font-size: var(--labs-micro);
   font-weight: 500;
   letter-spacing: normal;
   text-transform: none;
 }
 
-.lab-page .retrieval-run-action input,
-.lab-page .retrieval-run-action select {
-  min-height: 48px;
+.lab-page .retrieval-scenario-picker select,
+.lab-page .retrieval-query-field input {
+  min-height: 46px;
+  border: 0;
   border-radius: 999px;
+  background-color: var(--paper-warm);
   font-size: var(--labs-body);
 }
 
+.lab-page .retrieval-query-field input {
+  font-family: var(--mono);
+  font-size: var(--labs-lead);
+}
+
+.lab-page .retrieval-scenario-picker select:hover,
+.lab-page .retrieval-query-field input:hover {
+  border-color: transparent;
+  background-color: color-mix(in srgb, var(--paper-warm) 70%, var(--line));
+}
+
+.lab-page .retrieval-run-action .mosaic-run-button {
+  align-self: center;
+}
+
+.lab-page .retrieval-run-feedback {
+  grid-column: 1 / -1;
+}
+
+/* The lab rail: which lab, its four stages as a segmented control, its state. */
 .lab-page .labs-rail {
-  padding: 16px 0;
+  gap: 10px 20px;
+  padding: 12px 0;
   border: 0;
-  border-block: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   border-radius: 0;
-  background: color-mix(in srgb, var(--paper-strong) 97%, transparent);
+  background: color-mix(in srgb, var(--canvas) 96%, transparent);
   box-shadow: none;
 }
 
-.lab-page .labs-rail-stages a {
+.lab-page .labs-rail.is-stuck {
+  padding: 8px 0;
+  box-shadow: 0 10px 24px -18px rgb(0 0 0 / 30%);
+}
+
+.lab-page .labs-rail-stages {
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--paper-warm);
+}
+
+.lab-page .labs-rail-stages a,
+.lab-page .labs-rail-stages a[data-stage] {
   display: inline-flex;
-  min-height: 44px;
+  min-height: 32px;
   align-items: center;
-  padding: 0 8px;
+  gap: 7px;
+  padding: 0 13px;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 160ms var(--ease-out), color 160ms var(--ease-out);
+}
+
+.lab-page .labs-rail-stages a::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line-strong);
+  content: "";
+}
+
+.lab-page .labs-rail-stages a[data-stage="retrieve"]::before { background: var(--retrieve); }
+.lab-page .labs-rail-stages a[data-stage="rank"]::before { background: var(--gold); }
+.lab-page .labs-rail-stages a[data-stage="reason"]::before { background: var(--reason); }
+
+.lab-page .labs-rail-stages a:hover {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.lab-page .labs-rail-stages a[aria-current="location"] {
+  background: var(--paper-strong);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
 }
 
 .lab-page .labs-rail-edit small {
   line-height: 1.6;
 }
 
-.lab-page .labs-bridge dl > div + div {
-  padding-left: 24px;
-  border-left: 1px solid var(--line);
+.lab-page .labs-rail-state li {
+  padding: 4px 11px;
+  border: 0;
+  background: var(--paper-warm);
+  color: var(--ink);
+  font-weight: 500;
 }
 
+.lab-page .labs-rail-state li.is-record {
+  border: 1px dashed var(--line-strong);
+  background: transparent;
+}
+
+.lab-page .labs-rail-next {
+  color: var(--link);
+  font-weight: 500;
+}
+
+/* What changes with this repair: a quiet disclosure, then two cells. */
 .playground-repair-brief {
   margin-top: -12px;
   border-bottom: 1px solid var(--line);
@@ -132,15 +254,34 @@
 }
 
 .playground-repair-brief > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-height: 52px;
-  padding: 16px 0;
+  padding: 14px 0;
   cursor: pointer;
   font-size: var(--labs-body);
   font-weight: 500;
+  list-style: none;
+}
+
+.playground-repair-brief > summary::-webkit-details-marker {
+  display: none;
+}
+
+.playground-repair-brief > summary::after {
+  order: -1;
+  color: var(--ink-soft);
+  content: "›";
+  transition: transform 200ms var(--ease-out);
+}
+
+.playground-repair-brief[open] > summary::after {
+  transform: rotate(90deg);
 }
 
 .playground-repair-brief > summary small {
-  float: right;
+  margin-left: auto;
   color: var(--ink-soft);
   font-size: var(--labs-detail);
   font-weight: 400;
@@ -149,20 +290,20 @@
 .playground-repair-comparison {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  border-top: 1px solid var(--line);
+  gap: 2px;
+  overflow: hidden;
+  border-radius: 22px;
 }
 
-.playground-repair-comparison > section {
-  padding: 24px 32px 24px 0;
-}
-
+.playground-repair-comparison > section,
 .playground-repair-comparison > section + section {
-  border-left: 1px solid var(--line);
-  padding-inline: 32px 0;
+  padding: 22px 24px;
+  border: 0;
+  background: var(--paper-warm);
 }
 
 .playground-repair-comparison h2 {
-  margin: 0 0 12px;
+  margin: 0 0 10px;
   font-size: var(--labs-h3);
   font-weight: 600;
 }
@@ -172,7 +313,7 @@
   margin: 0;
   color: var(--ink-soft);
   font-size: var(--labs-body);
-  line-height: 1.7;
+  line-height: 1.65;
 }
 
 .playground-repair-footer {
@@ -182,7 +323,6 @@
   justify-content: space-between;
   gap: 12px 24px;
   padding: 16px 0;
-  border-top: 1px solid var(--line);
   font-size: var(--labs-detail);
 }
 
@@ -195,40 +335,286 @@
   display: inline-flex;
   min-height: 44px;
   align-items: center;
-  color: var(--maroon-800);
-  text-decoration: underline;
-  text-underline-offset: 4px;
+  color: var(--link);
+  text-decoration: none;
 }
 
+.playground-repair-footer a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* What Shop calls it, and what Aurora runs: three cells before a run. */
 .lab-page .labs-bridge {
-  gap: 16px;
-  padding: 8px 0 24px;
+  gap: 14px;
+  padding: 8px 0 12px;
   border-top: 0;
 }
 
-.lab-page .labs-bridge dl > div {
-  padding: 0 24px 0 0;
-  background: transparent;
+.lab-page .labs-bridge h2 {
+  font-size: var(--labs-h3);
+  font-weight: 600;
 }
 
+.lab-page .labs-bridge dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2px;
+  overflow: hidden;
+  border-radius: 22px;
+}
+
+.lab-page .labs-bridge dl > div,
+.lab-page .labs-bridge dl > div + div {
+  padding: 16px 18px;
+  border: 0;
+  background: var(--paper-warm);
+}
+
+.lab-page .labs-bridge p {
+  max-width: 68ch;
+  color: var(--ink-soft);
+}
+
+/* Run bookkeeping reads as a note under the stage, not a panel. */
+.lab-page .labs-run-summary {
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-soft);
+}
+
+.lab-page .labs-run-summary > button {
+  margin-left: 0;
+}
+
+.lab-page .labs-carried-over {
+  justify-content: center;
+  margin-left: 0;
+  text-align: center;
+}
+
+.lab-page .lab-outcome {
+  padding: 16px 20px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--paper-warm);
+}
+
+/* Stages: numbered, because the order is the pipeline's; separated by space. */
 .lab-page .labs-stage {
   gap: 24px;
-  padding-top: 32px;
+  padding-top: 64px;
+  border-top: 0;
 }
 
 .lab-page .labs-stage-copy h2 {
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: -0.025em;
 }
 
 .lab-page .labs-stage-copy p {
-  max-width: 70ch;
-  line-height: 1.65;
+  max-width: 64ch;
+  font-size: var(--labs-lead);
+  line-height: 1.5;
 }
 
 .lab-page .labs-stage-number {
+  font-weight: 500;
+}
+
+/* Grids of figures: paper cells with 2px gaps inside one rounded shape. */
+.lab-page .labs-figures,
+.lab-page .labs-channel-list,
+.lab-page .labs-contracts,
+.lab-page .labs-profile,
+.lab-page .labs-scorecard-per-query,
+.lab-page .lab-diagnostics-figures {
+  gap: 2px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 22px;
+  background: transparent;
+}
+
+.lab-page .labs-figure,
+.lab-page .labs-channel-list > li,
+.lab-page .labs-contracts > li,
+.lab-page .labs-profile > div,
+.lab-page .labs-scorecard-per-query > li,
+.lab-page .lab-diagnostics-figures > div {
+  border: 0;
+  background: var(--paper-warm);
+}
+
+.lab-page .retrieval-receipt {
+  border: 0;
+}
+
+.lab-page .retrieval-receipt dl {
+  gap: 2px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 22px;
+}
+
+.lab-page .retrieval-receipt dl > div,
+.lab-page .retrieval-receipt dl > div:nth-child(n) {
+  border: 0;
+  background: var(--paper-warm);
+}
+
+.lab-page .lab-diagnostics {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* One card is the deepest a panel goes. */
+.lab-page .labs-completion-proof,
+.lab-page .labs-reason-composer {
+  border: 0;
+  border-radius: 22px;
+  background: var(--paper-strong);
+  box-shadow: 0 0 0 1px var(--line), 0 10px 28px rgb(0 0 0 / 5%);
+}
+
+.lab-page .labs-completion-proof {
+  padding: 22px 24px;
+}
+
+.lab-page .labs-proof-lab {
+  border: 0;
+  border-radius: 16px;
+  background: var(--paper-warm);
+}
+
+/* A check's verdict is a dot and its name's colour, not a side stripe. */
+.lab-page .labs-proof-checks > li,
+.lab-page .labs-proof-checks > li.is-pass {
+  position: relative;
+  padding-left: 18px;
+  border-left: 0;
+}
+
+.lab-page .labs-proof-checks > li::before {
+  position: absolute;
+  top: 0.55em;
+  left: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  content: "";
+}
+
+.lab-page .labs-proof-checks > li.is-pass::before {
+  background: var(--green);
+}
+
+.lab-page .labs-proof-checks > li:not(.is-pass) > code:first-child {
+  color: var(--danger);
+}
+
+.lab-page .labs-proof-record {
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--paper-strong);
+}
+
+.lab-page .labs-scorecard-section {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.lab-page .labs-scorecard-section + .labs-scorecard-section {
+  margin-top: 16px;
+  padding-top: 32px;
+  border-top: 1px solid var(--line);
+}
+
+.lab-page .labs-ablation-arms > *,
+.lab-page .labs-ablation-steps > * {
+  border: 0;
+  border-radius: 18px;
+  background: var(--paper-warm);
+}
+
+.lab-page .labs-matrix {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.lab-page .labs-matrix-heading,
+.lab-page .labs-matrix-footer {
+  padding-inline: 0;
+  background: transparent;
+}
+
+.lab-page .labs-ranking-guide {
+  background: transparent;
+}
+
+.lab-page .labs-rrf-scroll {
+  border: 0;
+  border-radius: 16px;
+  background: var(--paper-warm);
+}
+
+.lab-page .labs-repair {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.lab-page .labs-package-finale {
+  border: 0;
+  border-radius: 28px;
+  background: var(--paper-warm);
+}
+
+/* Labels in sentence case: the value leads, its name follows quietly. */
+.lab-page .labs-matrix-provenance dt,
+.lab-page .labs-matrix-controls > span,
+.lab-page .labs-matrix-table thead th,
+.lab-page .labs-channel-result small,
+.lab-page .labs-channel-purpose strong,
+.lab-page .labs-figure dt,
+.lab-page .labs-rrf-table thead th,
+.lab-page .labs-profile dt,
+.lab-page .labs-citation-boundary > span,
+.lab-page .labs-contracts > li > b,
+.lab-page .labs-proof-status,
+.lab-page .labs-scorecard-heading > p,
+.lab-page .labs-scorecard-metric-explanations dt,
+.lab-page .labs-skill-adapters-label,
+.lab-page .retrieval-run-comparison h3,
+.lab-page .retrieval-run-comparison dt,
+.lab-page .lab-diagnostics-figures dt,
+.lab-page .retrieval-receipt dt,
+.lab-page .lab-outcome-status > span:last-child {
   color: var(--ink-soft);
-  font-weight: 400;
+  font-size: var(--labs-detail);
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.lab-page .labs-matrix-badge {
+  font-size: var(--labs-micro);
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 @media (max-width: 760px) {
@@ -269,7 +655,8 @@
 
   .lab-page .retrieval-run-action {
     grid-template-columns: minmax(0, 1fr);
-    gap: 14px;
+    gap: 12px;
+    padding: 14px;
   }
 
   .lab-page .retrieval-run-action .mosaic-run-button {
@@ -277,35 +664,25 @@
   }
 
   .lab-page .labs-rail {
-    padding: 14px 0;
+    padding: 12px 0;
   }
 
   .lab-page .labs-rail-stages {
-    gap: 4px;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .lab-page .labs-stage {
+    padding-top: 48px;
   }
 
   .playground-repair-brief > summary small {
     display: none;
   }
 
-  .playground-repair-comparison {
+  .playground-repair-comparison,
+  .lab-page .labs-bridge dl {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .playground-repair-comparison > section + section {
-    border-top: 1px solid var(--line);
-    border-left: 0;
-  }
-
-  .playground-repair-comparison > section,
-  .playground-repair-comparison > section + section,
-  .playground-repair-footer {
-    padding: 20px 0;
-  }
-
-  .lab-page .labs-bridge dl > div,
-  .lab-page .labs-bridge dl > div + div {
-    padding: 12px 0;
-    border: 0;
   }
 }
