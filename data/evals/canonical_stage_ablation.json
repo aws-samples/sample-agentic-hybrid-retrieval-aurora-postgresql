@@ -1,5 +1,5 @@
 {
-  "ablation_methodology_sha256": "1158ce823796bdd432c2545a65d39cb7cdd6ec173e91be88dd9539c349312ebc",
+  "ablation_methodology_sha256": "c4144f2d00f74e57cc67966cbabf5ab287a9f46cda6a245df93660f47283084c",
   "arms": {
     "lexical_only": {
       "description": "search_fts alone: PostgreSQL full-text search over the weighted product document, with no trigram or semantic arm and no fusion.",
@@ -81,7 +81,7 @@
     }
   },
   "k": 10,
-  "measured_at": "2026-09-28T13:46:57.717888+00:00",
+  "measured_at": "2026-09-28T17:04:16.095304+00:00",
   "models": {
     "embedding": "us.cohere.embed-v4:0",
     "rerank": "cohere.rerank-v3-5:0"
@@ -225,18 +225,18 @@
   ],
   "query_set": "data/evals/canonical_queries.jsonl",
   "query_set_sha256": "38ce9a44eed146a8c657208dc8704398cfb5a27ec057a6101a2a80195038e40c",
-  "retrieval_fingerprint": "eeeecbf4237bf6940a8415519c716b543df442a0e62a5ae931d5eb2bc0de58c6",
+  "retrieval_fingerprint": "3df31f7124d1073130f11fcc85b2e97e2d3312a811879ffc64c8c5db512cb936",
   "retrieval_settings_sha256": "3635fb13943e9504b42c530ffcd75317f5f326d1abf569e108078aa55498116e",
   "scored_query_count": 9,
   "scored_query_set_sha256": "05a1f0bae367d39e5d2769f746f4773de2639ea2a41209904a533e30e63b8c6e",
   "served_scorecard_reference": {
-    "measured_at": "2026-09-28T13:37:23.026825+00:00",
+    "measured_at": "2026-09-28T17:03:26.727268+00:00",
     "path": "data/evals/canonical_scorecard.json",
-    "retrieval_fingerprint": "eeeecbf4237bf6940a8415519c716b543df442a0e62a5ae931d5eb2bc0de58c6",
-    "source_revision": "0e7b4573b7202e0e5df902197f324ab9c44df9c0"
+    "retrieval_fingerprint": "3df31f7124d1073130f11fcc85b2e97e2d3312a811879ffc64c8c5db512cb936",
+    "source_revision": "29ddebef0391a5761dae428d54b054fae4c19b10"
   },
   "source": {
-    "revision": "dd79ca695977b99d50519083dd61d42adc035f0e",
+    "revision": "4de7d203f72b20432aa51d2070abe6ac4222e488",
     "worktree_dirty": false
   },
   "spread_note": "9 queries and 14 judgments cannot separate small differences between these paths. Every path answers the same searches, so read each step as the difference on each search rather than as two separate averages: the comparison below reports that difference, the spread of the differences, and how many searches each step won and lost. A step whose average difference is smaller than that spread is one this query set cannot tell apart from no change."
