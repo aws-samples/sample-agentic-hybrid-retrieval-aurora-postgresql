@@ -29,6 +29,7 @@ const SHEETS = [
   "playground.css",
   "inspector.css",
   "world.css",
+  "ask-mosaic-answer.css",
 ] as const;
 
 /** Custom properties components set with inline style; the sheets only read them. */
