@@ -158,12 +158,13 @@ DATABASE_URL="$DATABASE_URL" make validate-lab-1 >> .local/lab-1-rehearsal.log 2
 uv run python scripts/rehearsal.py record-stage \
   --manifest build/rehearsal-evidence.json \
   --stage lab_1_rehearsal --status passed \
-  --detail "reset isolated; solution applied; validate-lab-1 PASS (see artifact)" \
+  --detail "reset lab 1 only; solution applied; validate-lab-1 PASS (see artifact)" \
   --artifact .local/lab-1-rehearsal.log
 ```
 
 Repeat for `lab_2_rehearsal` and `lab_3_rehearsal` with `reset-lab-2`/`reset-lab-3`
-etc. A lab that fails its validate step is recorded `--status failed` with the
+etc., in order: each later reset refuses to run until the earlier labs are
+repaired and applied, and Lab 3 also needs `make deploy-agent` after its solution. A lab that fails its validate step is recorded `--status failed` with the
 validator's own failure message in `--detail`; that is a real finding, not a
 tooling error, and belongs in the manifest exactly as it happened.
 

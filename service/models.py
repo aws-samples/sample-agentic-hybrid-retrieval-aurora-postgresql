@@ -1217,6 +1217,14 @@ class LabStateRecord(BaseModel):
     source_state: Literal["solved", "broken"]
     database_state: Literal["applied", "stale", "not_applicable"]
     detail: str
+    #: Labs 2 and 3 start working and install their fault when entered;
+    #: `None` for Lab 1, whose fault is installed when the workshop opens.
+    entry_state: Literal["not_started", "incomplete", "started"] | None = None
+    #: When this lab's live validation last passed, from its saved record. A
+    #: record of an earlier run, never a verdict on the current state.
+    completed_at: datetime | None = None
+    #: The one command that moves this lab forward, when there is one.
+    next_step: str | None = None
 
 
 class LabStateResponse(BaseModel):
@@ -1293,3 +1301,12 @@ class CompletionProofResponse(BaseModel):
     evidence: CompletionProofEvidence
     identity: CompletionProofIdentity
     release_baseline: ReleaseBaselineReference
+    #: As on `LabStateRecord`: a lab that has not started is graded against
+    #: the repaired reference the checkout ships, so it cannot pass.
+    entry_state: Literal["not_started", "incomplete", "started"] | None = None
+    #: Why a later lab's installed fault changes this lab's live result, when
+    #: it does. Explains a failure; never turns one into a pass.
+    interference: str | None = None
+    #: When this lab's live validation last passed, shown beside the current
+    #: verdict and never counted toward it.
+    saved_completion_at: datetime | None = None

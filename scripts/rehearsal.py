@@ -42,7 +42,7 @@ Usage, in the order a rehearsal actually happens:
     # after each lab's reset/solution/validate cycle
     uv run python scripts/rehearsal.py record-stage \\
         --manifest build/rehearsal-evidence.json --stage lab_1_rehearsal \\
-        --status passed --detail "reset isolated; solution applied; validate-lab-1 PASS" \\
+        --status passed --detail "reset lab 1 only; solution applied; validate-lab-1 PASS" \\
         --artifact .local/lab-1-validation.log
 
     # live cold/warm calls against the running deployment

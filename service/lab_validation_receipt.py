@@ -25,15 +25,20 @@ from service.lab_proof import (
 from service.retrieval_fingerprint import (
     compute_live_retrieval_settings_sha256,
     compute_retrieval_fingerprint,
+    manifest_files,
 )
 from service.telemetry_contract import load_agent_turn_rows
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def source_digest(root: Path = ROOT) -> str:
-    """Bind agent code and its validators as well as the retrieval closure."""
-    files = (
+#: The one SQL file participants edit and `make db-apply-search-functions`
+#: installs. It runs in Aurora, not in the deployed image.
+PARTICIPANT_SQL = Path("db/sql/09_search_functions.sql")
+
+
+def _code_files(root: Path) -> list[Path]:
+    return (
         sorted((root / "service").rglob("*.py"))
         + sorted((root / "deploy/agentcore").glob("*.py"))
         + [
@@ -49,11 +54,44 @@ def source_digest(root: Path = ROOT) -> str:
             root / "uv.lock",
         ]
     )
-    digest = hashlib.sha256(compute_retrieval_fingerprint(root).encode())
+
+
+def _digest(seed: str, root: Path, files: list[Path]) -> str:
+    digest = hashlib.sha256(seed.encode())
     for path in files:
         digest.update(path.relative_to(root).as_posix().encode() + b"\0")
         digest.update(path.read_bytes() + b"\0")
     return digest.hexdigest()
+
+
+def source_digest(root: Path = ROOT) -> str:
+    """Bind agent code and its validators as well as the retrieval closure.
+
+    The combined identity a saved Lab 3 validation commits to: code, retrieval
+    configuration and the participant's SQL together.
+    """
+    return _digest(compute_retrieval_fingerprint(root), root, _code_files(root))
+
+
+def application_digest(root: Path = ROOT) -> str:
+    """Identity of the code the deployed Runtime and SQL tools execute.
+
+    SQL is left out on purpose. The tools call the functions Aurora holds, which
+    `make db-apply-search-functions` installs, so a Lab 1 or Lab 2 edit changes
+    what Aurora must run, not what Runtime must run; `participant_sql_digest`
+    and the applied-SQL record in Aurora carry that identity instead.
+    """
+    configuration = [
+        path
+        for path in manifest_files(root)
+        if not path.relative_to(root).as_posix().startswith("db/sql/")
+    ]
+    return _digest("application", root, configuration + _code_files(root))
+
+
+def participant_sql_digest(root: Path = ROOT) -> str:
+    """Identity of the SQL a participant edits, as it stands in the workspace."""
+    return hashlib.sha256((root / PARTICIPANT_SQL).read_bytes()).hexdigest()
 
 
 def validation_identity(base_url: str, readiness: dict[str, Any]) -> dict[str, Any]:

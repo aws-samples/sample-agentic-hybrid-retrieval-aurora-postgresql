@@ -22,18 +22,27 @@ const labsState: LabStateResponse = {
       source_state: "broken",
       database_state: "applied",
       detail: "The trigram CTE is absent from the applied function.",
+      entry_state: null,
+      completed_at: null,
+      next_step: null,
     },
     {
       lab_id: 2,
       source_state: "solved",
       database_state: "stale",
       detail: "The file is repaired; Aurora still holds the old body.",
+      entry_state: "started",
+      completed_at: null,
+      next_step: null,
     },
     {
       lab_id: 3,
       source_state: "broken",
       database_state: "not_applicable",
       detail: "Lab 3's seam lives in the API process.",
+      entry_state: "started",
+      completed_at: null,
+      next_step: null,
     },
   ],
 };
@@ -282,5 +291,40 @@ describe("LabRail", () => {
       heights.mockRestore();
       vi.unstubAllGlobals();
     }
+  });
+
+  it("offers the start command, not a repaired-code chip, before a lab starts", async () => {
+    vi.mocked(api.labsState).mockResolvedValue({
+      labs: labsState.labs.map((record) =>
+        record.lab_id === 2
+          ? {
+            ...record,
+            source_state: "solved",
+            database_state: "applied",
+            entry_state: "not_started",
+            next_step: "uv run python scripts/lab_state.py start --lab 2",
+          }
+          : record),
+    });
+    render(<LabRail missionId={labTwo.id} />);
+
+    const rail = screen.getByRole("navigation", { name: "Lab rail" });
+    await within(rail).findByText("Not started");
+    expect(within(rail).queryByText("Code repaired")).toBeNull();
+    expect(within(rail).getByText("uv run python scripts/lab_state.py start --lab 2")).toBeTruthy();
+    expect(within(rail).getByRole("button", { name: "Copy uv run python scripts/lab_state.py start --lab 2" })).toBeTruthy();
+    expect(within(rail).queryByText(labTwo.participant_edit?.file ?? "")).toBeNull();
+  });
+
+  it("shows an earlier terminal pass as a record beside the live state", async () => {
+    vi.mocked(api.labsState).mockResolvedValue({
+      labs: labsState.labs.map((record) =>
+        record.lab_id === 1 ? { ...record, completed_at: "2026-09-28T09:30:00Z" } : record),
+    });
+    render(<LabRail missionId={labOne.id} />);
+
+    const record = await screen.findByText(/^Validated /);
+    expect(record.getAttribute("title")).toContain("make validate-lab-1");
+    expect(screen.getByText("Code needs repair")).toBeTruthy();
   });
 });

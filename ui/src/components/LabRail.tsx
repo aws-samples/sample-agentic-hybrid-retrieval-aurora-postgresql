@@ -1,4 +1,4 @@
-import { ArrowRight, FileCode2 } from "lucide-react";
+import { ArrowRight, Check, Copy, FileCode2, SquareTerminal } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { labStateCopy } from "../labStateCopy";
@@ -73,6 +73,46 @@ export function activeCoreLab(missionId: string | null): MosaicLabMission {
   const placed = /^lab-([123])$/.exec(placement);
   if (placed) return coreMosaicLabs[Number(placed[1]) - 1] ?? coreMosaicLabs[0];
   return coreMosaicLabs[0];
+}
+
+/**
+ * The start command, copyable. Before a start there is nothing to edit yet, so
+ * this takes the edit line's place and stays visible while the rail is stuck.
+ */
+function StartCommand({ command }: { command: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(command);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // The command stays on screen to select by hand.
+      setCopied(false);
+    }
+  }
+
+  return (
+    <p className="labs-rail-start">
+      <SquareTerminal aria-hidden="true" size={15} />
+      <small>In Code Editor, run</small>
+      <code>{command}</code>
+      <button
+        aria-label={`Copy ${command}`}
+        className="icon-button"
+        onClick={() => void copy()}
+        title="Copy command"
+        type="button"
+      >
+        {copied ? <Check aria-hidden="true" size={14} /> : <Copy aria-hidden="true" size={14} />}
+      </button>
+    </p>
+  );
+}
+
+function clockTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 export function LabRail({ missionId, refreshKey = "" }: {
@@ -204,7 +244,9 @@ export function LabRail({ missionId, refreshKey = "" }: {
         ))}
       </ol>
 
-      {edit ? (
+      {state?.next_step ? (
+        <StartCommand command={state.next_step} />
+      ) : edit ? (
         <p className="labs-rail-edit">
           <FileCode2 aria-hidden="true" size={15} />
           <code>{edit.file}</code>
@@ -219,6 +261,16 @@ export function LabRail({ missionId, refreshKey = "" }: {
         {labStateCopy(state ?? null).map(({ label, description }) => (
           <li key={label} title={description}>{label}</li>
         ))}
+        {/* A record of an earlier terminal check, beside the live state and
+            never in place of it: Lab 2's fault can fail a fresh Lab 1 check. */}
+        {state?.completed_at ? (
+          <li
+            className="is-record"
+            title={`Your last passing make validate-lab-${labNumber}. Run completion proof for a current verdict.`}
+          >
+            Validated {clockTime(state.completed_at)}
+          </li>
+        ) : null}
       </ul>
 
       {nextLab ? (

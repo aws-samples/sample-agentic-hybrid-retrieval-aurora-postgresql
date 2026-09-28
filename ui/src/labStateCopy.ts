@@ -1,4 +1,4 @@
-import type { LabDatabaseState, LabSourceState, LabStateRecord } from "./types";
+import type { LabDatabaseState, LabEntryState, LabSourceState, LabStateRecord } from "./types";
 
 interface StateCopy {
   label: string;
@@ -32,6 +32,29 @@ const databaseCopy: Record<LabDatabaseState, StateCopy> = {
 };
 
 /**
+ * A lab that has not started has no participant state to report. Labs 2 and 3
+ * ship repaired, so "Code repaired" there would credit work nobody did.
+ */
+const entryCopy: Record<Exclude<LabEntryState, "started">, StateCopy> = {
+  not_started: {
+    label: "Not started",
+    description: "This lab's code is still the repaired reference the workshop ships. Run its start command in Code Editor to install the fault you will repair.",
+  },
+  incomplete: {
+    label: "Start interrupted",
+    description: "This lab's start stopped before it finished. Run its start command again; it finishes the missing step and keeps your edits.",
+  },
+};
+
+type LabStateFacts = Pick<LabStateRecord, "source_state" | "database_state" | "entry_state">;
+
+function unentered(state: LabStateFacts): Exclude<LabEntryState, "started"> | null {
+  return state.entry_state === "not_started" || state.entry_state === "incomplete"
+    ? state.entry_state
+    : null;
+}
+
+/**
  * Whether a lab counts as repaired: the exercise file holds the fix, and
  * Aurora holds the SQL that backs it.
  *
@@ -42,17 +65,15 @@ const databaseCopy: Record<LabDatabaseState, StateCopy> = {
  * `source_state === "solved"` check would hide, and it is a state the
  * workshop actually produces (editing a file without re-applying it).
  */
-export function isLabRepaired(
-  state: Pick<LabStateRecord, "source_state" | "database_state"> | null,
-): boolean {
-  if (!state) return false;
+export function isLabRepaired(state: LabStateFacts | null): boolean {
+  if (!state || unentered(state)) return false;
   return state.source_state === "solved" && state.database_state !== "stale";
 }
 
 /** A file repair, its installed SQL, and a behavioral proof are separate facts. */
-export function labStateCopy(
-  state: Pick<LabStateRecord, "source_state" | "database_state"> | null,
-): StateCopy[] {
+export function labStateCopy(state: LabStateFacts | null): StateCopy[] {
+  const entry = state ? unentered(state) : null;
+  if (entry) return [entryCopy[entry]];
   return [
     state ? codeCopy[state.source_state] : {
       label: "Code not checked",

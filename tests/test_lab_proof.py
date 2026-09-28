@@ -1,6 +1,6 @@
 """Lab state and completion proof: the three proofs house rule 7 requires.
 
-1. Red at birth -- `set_isolated_lab_state` on a copy of the two seam files
+1. Red at birth -- `set_lab_state(solved=False)` on a copy of the two seam files
    makes the proof report `source_state == "broken"`.
 2. Independence -- editing an unrelated service file in that same copy leaves
    `source_state` alone.
@@ -15,6 +15,7 @@ canned `SearchResponse` rather than reimplemented.
 
 from __future__ import annotations
 
+import json
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -24,11 +25,12 @@ from uuid import UUID, uuid4
 import psycopg
 import pytest
 
+from scripts.lab_entry import START_COMMAND
 from scripts.lab_state import (
     LABS,
     REPO,
     lab_is_solved,
-    set_isolated_lab_state,
+    set_lab_state,
 )
 from service import lab_proof
 from service.models import (
@@ -53,6 +55,21 @@ BROKEN_LAB_1_DEFINITION = """
 """
 
 
+def _entered(
+    repo: Path,
+    lab: int,
+    *,
+    completed: bool = True,
+    at: str = "2026-09-28T10:00:00+00:00",
+) -> None:
+    record = {"version": 1, "lab": lab, "steps": {"fault": {"state": "done"}}}
+    if completed:
+        record["completed_at"] = at
+    path = repo / ".local" / f"lab-{lab}" / "start.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(record))
+
+
 @pytest.fixture
 def lab_repo(tmp_path: Path) -> Path:
     """A copy of both lab seam files plus one file no lab owns."""
@@ -62,6 +79,23 @@ def lab_repo(tmp_path: Path) -> Path:
         destination.parent.mkdir(parents=True, exist_ok=True)
         copy2(REPO / relative_path, destination)
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def entered_checkout(tmp_path_factory, monkeypatch) -> Path:
+    """The running checkout, as a participant has it after starting Labs 2 and 3.
+
+    Tests that grade entry itself pass their own `repo`.
+    """
+    root = tmp_path_factory.mktemp("entered")
+    for relative_path in {definition[0] for definition in LABS.values()}:
+        destination = root / relative_path
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        copy2(REPO / relative_path, destination)
+    for lab in (2, 3):
+        _entered(root, lab, at="2000-01-01T00:00:00+00:00")
+    monkeypatch.setattr(lab_proof, "LAB_SOURCE_ROOT", root)
+    return root
 
 
 class _FakeCursor:
@@ -505,7 +539,7 @@ def _resolve_evidence(monkeypatch, *, product_ids: dict[int, int] | None = None)
 
 
 def test_a_reset_lab_reports_broken_source_state(monkeypatch, lab_repo: Path) -> None:
-    set_isolated_lab_state(1, repo=lab_repo)
+    set_lab_state(1, solved=False, repo=lab_repo)
     _use(monkeypatch, _FakeConnection())
     _lab_1_search(monkeypatch, solved=False)
 
@@ -537,13 +571,117 @@ def test_a_collapsed_fusion_formula_is_reported_as_stale(monkeypatch) -> None:
     assert proof.status == "fail"
 
 
+def test_lab_1_under_lab_2s_fault_explains_the_failure_and_keeps_it_a_failure(
+    monkeypatch, lab_repo: Path
+) -> None:
+    """A fresh Lab 1 check under the collapsed formula fails for Lab 2's reason.
+
+    The saved completion is shown beside it, never counted as this check.
+    """
+    set_lab_state(2, solved=False, repo=lab_repo)
+    completion = lab_repo / ".local" / "lab-1" / "completion.json"
+    completion.parent.mkdir(parents=True)
+    completion.write_text(
+        json.dumps({"lab": 1, "passed_at": "2026-09-28T09:30:00+00:00"})
+    )
+    _use(monkeypatch, _FakeConnection(rrf_correct=False))
+    _lab_1_search(monkeypatch, solved=False)
+
+    proof = lab_proof.completion_proof(1, repo=lab_repo)
+
+    assert proof.status == "fail"
+    assert proof.interference == lab_proof.LAB1_UNDER_RANKING_FAULT
+    assert proof.saved_completion_at == datetime(2026, 9, 28, 9, 30, tzinfo=UTC)
+
+
+def test_lab_1_failing_with_ranking_repaired_carries_no_interference_note(
+    monkeypatch, lab_repo: Path
+) -> None:
+    _use(monkeypatch, _FakeConnection())
+    _lab_1_search(monkeypatch, solved=False)
+
+    proof = lab_proof.completion_proof(1, repo=lab_repo)
+
+    assert proof.status == "fail"
+    assert proof.interference is None
+    assert proof.saved_completion_at is None
+
+
+def test_an_unrepaired_lab_1_under_lab_2s_fault_gets_no_note(
+    monkeypatch, lab_repo: Path
+) -> None:
+    """The note says Lab 1's repair is intact; without one it would mislead."""
+    set_lab_state(1, solved=False, repo=lab_repo)
+    set_lab_state(2, solved=False, repo=lab_repo)
+    _use(
+        monkeypatch,
+        _FakeConnection(lab_1_definition=BROKEN_LAB_1_DEFINITION, rrf_correct=False),
+    )
+    _lab_1_search(monkeypatch, solved=False)
+
+    proof = lab_proof.completion_proof(1, repo=lab_repo)
+
+    assert proof.status == "fail"
+    assert proof.interference is None
+
+
+def test_lab_1_passing_under_lab_2s_fault_is_a_plain_pass(
+    monkeypatch, lab_repo: Path
+) -> None:
+    set_lab_state(2, solved=False, repo=lab_repo)
+    _use(monkeypatch, _FakeConnection(rrf_correct=False))
+    _lab_1_search(monkeypatch)
+
+    proof = lab_proof.completion_proof(1, repo=lab_repo)
+
+    assert proof.status == "pass"
+    assert proof.interference is None
+
+
+@pytest.mark.parametrize("lab", [2, 3])
+def test_an_unentered_lab_cannot_pass_on_the_reference_it_ships(
+    monkeypatch, lab_repo: Path, lab: int
+) -> None:
+    """Red at birth: the shipped seams are repaired, so only entry stops a pass."""
+    _use(monkeypatch, _grounded_connection() if lab == 3 else _FakeConnection())
+    _resolve_evidence(monkeypatch)
+    _lab_2_search(monkeypatch)
+
+    proof = lab_proof.completion_proof(
+        lab, agent_run_id=AGENT_RUN_ID if lab == 3 else None, repo=lab_repo
+    )
+
+    started = next(check for check in proof.checks if check.name == "lab_started")
+    assert not started.passed
+    assert START_COMMAND[lab] in started.detail
+    assert proof.entry_state == "not_started"
+    assert proof.status == "fail"
+
+
+def test_a_lab_3_run_made_before_the_start_is_not_credited(
+    monkeypatch, lab_repo: Path
+) -> None:
+    """The reference agent answers before Lab 3 starts; its run proves nothing."""
+    _entered(lab_repo, 3, at="2999-01-01T00:00:00+00:00")
+    _use(monkeypatch, _grounded_connection())
+    _resolve_evidence(monkeypatch)
+
+    proof = lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID, repo=lab_repo)
+
+    started = next(check for check in proof.checks if check.name == "lab_started")
+    assert not started.passed
+    assert "before Lab 3 started" in started.detail
+    assert proof.status == "fail"
+
+
 def test_a_reset_lab_3_reports_broken_source_state(monkeypatch, lab_repo: Path) -> None:
     """Red at birth for Lab 3, whose seam Aurora cannot see.
 
     The persisted turn grades green on its own receipts. It was produced before
     `service/agent_tools.py` was re-broken, and the verdict has to say so.
     """
-    set_isolated_lab_state(3, repo=lab_repo)
+    set_lab_state(3, solved=False, repo=lab_repo)
+    _entered(lab_repo, 3, at="2000-01-01T00:00:00+00:00")
     _use(monkeypatch, _grounded_connection())
     _resolve_evidence(monkeypatch)
 
@@ -603,20 +741,22 @@ def test_lab_2_proof_runs_primary_twice_and_controls(monkeypatch) -> None:
 
     proof = lab_proof.completion_proof(2)
 
-    assert len(proof.checks) == 15, [check.name for check in proof.checks]
+    assert len(proof.checks) == 16, [check.name for check in proof.checks]
+    assert proof.checks[-1].name == "lab_started"
     assert proof.status == "pass"
     assert len(proof.evidence.search_event_ids) == 4, (
         "Lab 2 proves pre-rerank repeatability, which needs two persisted runs"
     )
 
 
-def test_lab_3_proof_runs_sixteen_checks_over_persisted_rows(monkeypatch) -> None:
+def test_lab_3_proof_runs_seventeen_checks_over_persisted_rows(monkeypatch) -> None:
     _use(monkeypatch, _grounded_connection())
     _resolve_evidence(monkeypatch)
 
     proof = lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID)
 
-    assert len(proof.checks) == 16, [check.name for check in proof.checks]
+    assert len(proof.checks) == 17, [check.name for check in proof.checks]
+    assert proof.checks[-1].name == "lab_started"
     assert proof.status == "pass"
     assert proof.database_state == "not_applicable"
     assert proof.evidence.agent_run_id == AGENT_RUN_ID
@@ -633,14 +773,15 @@ def test_lab_3_without_a_run_id_fails_naming_stage_03(monkeypatch) -> None:
 
     proof = lab_proof.completion_proof(3)
 
+    run_checks = [check for check in proof.checks if check.name != "lab_started"]
     assert proof.status == "fail"
-    assert len(proof.checks) == 16
-    assert all("Stage 03" in check.detail for check in proof.checks)
+    assert len(run_checks) == 16
+    assert all("Stage 03" in check.detail for check in run_checks)
     # Lab 3's runtime is the uvicorn process, which imports service/agent_tools.py
     # once at startup. A participant who edited the file and re-ran Stage 03
     # without restarting graded the code the process still holds, so the fix has
     # to name the restart before it names the re-run.
-    assert all("make restart-lab-api" in check.detail for check in proof.checks)
+    assert all("make restart-lab-api" in check.detail for check in run_checks)
     assert proof.evidence.agent_run_id is None
 
 
@@ -650,7 +791,11 @@ def test_lab_3_with_an_unknown_run_id_fails_naming_stage_03(monkeypatch) -> None
     proof = lab_proof.completion_proof(3, agent_run_id=uuid4())
 
     assert proof.status == "fail"
-    assert all("Stage 03" in check.detail for check in proof.checks)
+    assert all(
+        "Stage 03" in check.detail
+        for check in proof.checks
+        if check.name != "lab_started"
+    )
 
 
 def test_lab_3_spends_no_agent_turn(monkeypatch) -> None:
@@ -677,12 +822,15 @@ def test_an_unknown_lab_is_refused(monkeypatch) -> None:
         lab_proof.completion_proof(4)
 
 
-def test_lab_state_reports_every_lab(monkeypatch) -> None:
+def test_lab_state_reports_every_lab(monkeypatch, lab_repo: Path) -> None:
     _use(monkeypatch, _FakeConnection())
+    _entered(lab_repo, 2)
+    _entered(lab_repo, 3)
 
-    state = lab_proof.lab_states()
+    state = lab_proof.lab_states(repo=lab_repo)
 
     assert [record.lab_id for record in state.labs] == [1, 2, 3]
+    assert [record.entry_state for record in state.labs] == [None, "started", "started"]
     assert state.labs[2].database_state == "not_applicable"
     assert all(record.detail for record in state.labs)
     # `not_applicable` says no Aurora object carries the repair. It must also
@@ -690,6 +838,41 @@ def test_lab_state_reports_every_lab(monkeypatch) -> None:
     # once when it starts.
     assert "make deploy-agent" in state.labs[2].detail
     assert "ask Alex's question" in state.labs[2].detail
+
+
+def test_an_unentered_lab_says_how_to_start_not_that_it_is_solved(
+    monkeypatch, lab_repo: Path
+) -> None:
+    """The shipped source is repaired, so an unentered lab's seam reads solved.
+
+    Showing that as the participant's state would claim work nobody did.
+    """
+    _use(monkeypatch, _FakeConnection())
+    _entered(lab_repo, 3, completed=False)
+
+    labs = lab_proof.lab_states(repo=lab_repo).labs
+
+    assert labs[1].source_state == "solved"
+    assert labs[1].entry_state == "not_started"
+    assert labs[1].next_step == START_COMMAND[2]
+    assert "has not started" in labs[1].detail
+    assert labs[2].entry_state == "incomplete"
+    assert labs[2].next_step == "make start-lab-3"
+    assert "keeps your edits" in labs[2].detail
+
+
+def test_a_saved_completion_is_reported_beside_the_state(
+    monkeypatch, lab_repo: Path
+) -> None:
+    _use(monkeypatch, _FakeConnection())
+    path = lab_repo / ".local" / "lab-1" / "completion.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({"lab": 1, "passed_at": "2026-09-28T09:30:00+00:00"}))
+
+    labs = lab_proof.lab_states(repo=lab_repo).labs
+
+    assert labs[0].completed_at == datetime(2026, 9, 28, 9, 30, tzinfo=UTC)
+    assert labs[1].completed_at is None
 
 
 def test_a_database_error_on_one_lab_leaves_the_next_lab_readable(

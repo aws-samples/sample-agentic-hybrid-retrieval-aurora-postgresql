@@ -661,8 +661,9 @@ commands and proof boundaries. Follow the Workshop Studio lab guide.
 
 ## Exercise boundaries
 
-- Run uv run python scripts/lab_state.py status and inspect the saved
-  response and git diff before proposing a repair.
+- Run make lab-status and inspect the saved response and git diff
+  before proposing a repair. Each lab starts with make start-lab-N;
+  never reset a lab unless the participant asks to restart it.
 - Change only the current marked LAB1, LAB2, or LAB3 seam and make
   the smallest possible diff.
 - Do not edit unrelated files, retrieval limits, weights, thresholds,
@@ -988,7 +989,7 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   set -a
   source .env
   set +a
-  uv run python scripts/lab_state.py reset --lab 1
+  uv run python scripts/lab_state.py reset --lab 1 --source-only
   uv run python scripts/apply_search_functions.py
   DATABASE_URL=\"\$DATABASE_URL\" \
     uv run python scripts/configure_retrieval_database.py
@@ -1001,9 +1002,9 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
 chmod 444 /opt/mosaic-workshop/initial-lab-state.txt
 grep -Fxq 'Lab 1: BROKEN' \
   /opt/mosaic-workshop/initial-lab-state.txt
-grep -Fxq 'Lab 2: SOLVED' \
+grep -Fxq 'Lab 2: NOT STARTED' \
   /opt/mosaic-workshop/initial-lab-state.txt
-grep -Fxq 'Lab 3: SOLVED' \
+grep -Fxq 'Lab 3: NOT STARTED' \
   /opt/mosaic-workshop/initial-lab-state.txt
 
 ACTUAL_DIFF=$(sudo -u "$CODE_EDITOR_USER" -H \

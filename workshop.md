@@ -269,14 +269,37 @@ Each lab has a manual path and an optional coding-agent path (`claude` from the 
 A browser VS Code with a terminal already connected to the participant's own Aurora cluster, so `psql` needs no connection string. Participants edit two files across the three labs:
 
 - `db/sql/09_search_functions.sql` for Labs 1 and 2;
-- `service/agent_tools.py` for Lab 3.
+- `labs/lab3/agent.py` for Lab 3.
 
-`uv run python scripts/lab_state.py status` reports each lab as BROKEN or SOLVED. At the start, Lab 1 is BROKEN and Labs 2 and 3 read SOLVED; each later lab resets only its own fault and keeps the repairs already made.
+Each lab begins with its start command, `uv run python scripts/lab_state.py
+start --lab N` in the Lab 1 and 2 guides and `make start-lab-3` in Lab 3 (which
+also restarts the API). Lab 1's fault is installed when the
+account is provisioned, so its start only saves the failing request. Labs 2 and 3
+ship repaired, because Lab 2's collapsed fusion would push Lab 1's graded
+headphones out of the reranking pool and Lab 3's starter would refuse every agent
+request. Their start installs only that lab's fault, applies it, and saves the
+starting evidence, once. Each step is recorded in `.local/lab-N/start.json`, so a
+start interrupted by a closed terminal or a dropped connection is finished by
+running it again, and a fault is never reinstalled over the participant's edits.
+A start checks its prerequisites (Lab 1 repaired and applied for Lab 2, both SQL
+repairs for Lab 3) and never installs a reference solution to meet them.
 
-The guided Playground uses **Code needs repair** or **Code repaired** for the file and
-**SQL repair not applied** or **SQL repair applied** for Aurora. Lab 3 says
-**No SQL update required**. These describe the repair's installation; only the
-completion proof verifies its behavior. The storefront header carries navigation,
+`make lab-status` reports Lab 1 as BROKEN or SOLVED, and Labs 2 and 3 as
+NOT STARTED until their start finishes, then BROKEN or SOLVED. Three different
+actions change a lab's code: **start** (once, keeps work), **reset** (discards only
+that lab's edits and restores its starter) and **solution** (overwrites that lab
+with the reference repair). A solution is recovery; completion is the lab's own
+check passing.
+
+The guided Playground shows **Not started** or **Start interrupted**, with the
+command to run, until a lab has started. After that it uses **Code needs repair**
+or **Code repaired** for the file and **SQL repair not applied** or **SQL repair
+applied** for Aurora. Lab 3 says **No SQL update required**. These describe the
+repair's installation; only the completion proof verifies its behavior, and a
+Lab 2 or 3 proof fails until that lab has started. An earlier passing
+`make validate-lab-N` appears beside the state as a dated record, never as the
+verdict. While Lab 2's fault is installed, a fresh Lab 1 check can fail even
+though Lab 1 is repaired; the proof says so and shows the earlier pass separately. The storefront header carries navigation,
 and the Playground lab rail carries these exercise states.
 
 ### Mosaic
@@ -512,8 +535,8 @@ to make each handoff explicit; a presenter joins for the relevant proof and then
 returns control to the lead. Keep the same stage questions at every table.
 
 If a table falls behind on an edit, use the guide's Hint 4 recovery promptly; keep the graded exercise. `make reset-lab-N`
-reinstalls that lab's fault and restores its prerequisites; the corresponding
-`make solution-lab-N` is the recovery route. Apply changed SQL and restart the
+discards only that lab's edits and reinstalls its fault; it never touches another
+lab. The corresponding `make solution-lab-N` is the recovery route. Apply changed SQL and restart the
 API where the guide requires it, then run the same validator. A rescue is not a
 pass until its production check runs.
 
@@ -775,7 +798,7 @@ Follow the event-owner preflight in the Workshop Studio repository's `FACILITATO
 - confirm the account can invoke all three pinned models;
 - confirm readiness reports 553,911 products and 553,911 embeddings;
 - check Shop at 100% browser zoom on a laptop: with Ask Mosaic open, the catalog must retain a gutter on both sides and long search questions must wrap without clipping; waiting steps must remain readable. On mobile, open Ask after scrolling and confirm its title and close action stay below the header and its follow-up box reaches the viewport bottom;
-- confirm Lab 1 reads BROKEN and Labs 2 and 3 read SOLVED; rehearse the spelled control before the typo;
+- confirm Lab 1 reads BROKEN and Labs 2 and 3 read NOT STARTED; rehearse the spelled control before the typo;
 - seed the HNSW exact ground truth, which the cached bootstrap does not do and which Vector index at scale needs to render at all;
 - run all three labs and the completion gate yourself from the rendered guide.
 

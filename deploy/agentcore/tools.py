@@ -4,7 +4,7 @@ from uuid import UUID
 
 from mcp.server.fastmcp import FastMCP
 
-from service.lab_validation_receipt import source_digest
+from service.lab_validation_receipt import application_digest
 from service.main import get_question_ranked_product_evidence, retrieval_event, search
 from service.models import ProductEvidenceRequest, SearchRequest
 
@@ -18,7 +18,10 @@ mcp = FastMCP(
 
 
 def _result(value) -> dict:
-    return {"source_sha256": source_digest(), "data": value.model_dump(mode="json")}
+    return {
+        "application_sha256": application_digest(),
+        "data": value.model_dump(mode="json"),
+    }
 
 
 @mcp.tool()

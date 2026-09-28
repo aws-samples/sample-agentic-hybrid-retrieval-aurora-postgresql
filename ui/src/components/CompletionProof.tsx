@@ -118,6 +118,10 @@ function ProofEvidence({ proof }: { proof: CompletionProofResponse }) {
  */
 function failureReason(proof: CompletionProofResponse): string | null {
   if (isLabRepaired(proof)) return null;
+  if (proof.entry_state === "not_started" || proof.entry_state === "incomplete") {
+    return "This lab has not started. Run its start command in Code Editor, repair the"
+      + " fault it installs, then prove this lab again.";
+  }
   if (proof.source_state === "broken") {
     // Named before the database: applying an unrepaired file installs the
     // broken function, so the file is the first thing to fix.
@@ -149,6 +153,16 @@ function ProofDetail({ proof }: { proof: CompletionProofResponse }) {
         <span>{proof.duration_ms} ms</span>
       </p>
       {reason ? <p className="labs-proof-note">{reason}</p> : null}
+      {proof.interference ? <p className="labs-proof-note">{proof.interference}</p> : null}
+      {/* The earlier pass is a record, set apart from this verdict and never
+          counted in it: it is what the terminal saw before a later lab's
+          fault changed what a fresh search returns. */}
+      {proof.status === "fail" && proof.saved_completion_at ? (
+        <p className="labs-proof-note labs-proof-record">
+          Earlier record, not this check: <code>make validate-lab-{proof.lab_id}</code>{" "}
+          passed at {new Date(proof.saved_completion_at).toLocaleString()}.
+        </p>
+      ) : null}
       {failed.length ? (
         <ul className="labs-proof-checks">
           {failed.map((check) => (

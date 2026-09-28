@@ -11,7 +11,9 @@ protected failure. If a lab check fails here, fix it.
 The gaps themselves are defined and implemented **in this repository**:
 `scripts/lab_state.py` holds each broken body next to its solved body, the
 marker seams live in `db/sql/09_search_functions.sql` and
-`service/agent_tools.py`, and `make reset-lab-N` performs the injection. The
+`labs/lab3/agent.py`. Provisioning injects Lab 1's gap; `make start-lab-2` and
+`make start-lab-3` inject the later gaps once, when the participant enters each
+lab, and `make reset-lab-N` re-injects one lab's gap on request. The
 Workshop Studio repository narrates the repairs and triggers the selected-catalog reset/apply commands
 at provision time; it ships no starter template of its own. This document is
 the authoritative manifest: a gap listed here is a gap `lab_state.py` must
@@ -42,10 +44,11 @@ The three repaired capabilities form the `Retrieve -> Rank -> Reason` path. The 
 ## Gap contract
 
 Three lab anchors carry `checkpoint: "repair"`. Their narrative promises the
-participant something to fix, so `make reset-lab-N` (backed by
-`scripts/lab_state.py`) must remove exactly these capabilities and nothing
-else. Workshop Studio invokes `make reset-lab-1` at provision time and narrates
-the later resets.
+participant something to fix, so a start or reset (backed by
+`scripts/lab_entry.py` and `scripts/lab_state.py`) must remove exactly these
+capabilities and nothing else. Workshop Studio installs Lab 1's gap at provision
+time; the participant's `make start-lab-2` and `make start-lab-3` install the
+later ones.
 
 ### GAP-1 — typo-recovery arm
 

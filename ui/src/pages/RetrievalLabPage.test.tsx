@@ -474,6 +474,9 @@ function labProofFor(labId: number) {
       retrieval_fingerprint: "d".repeat(64),
       attributed: false,
     },
+    entry_state: labId === 1 ? null : ("started" as const),
+    interference: null,
+    saved_completion_at: null,
   };
 }
 
@@ -615,6 +618,9 @@ describe("RetrievalLabPage", () => {
           source_state: "broken",
           database_state: "applied",
           detail: "The trigram CTE is absent from the applied function.",
+      entry_state: null,
+      completed_at: null,
+      next_step: null,
         },
       ],
     });

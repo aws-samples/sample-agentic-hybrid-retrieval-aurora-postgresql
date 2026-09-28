@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { isLabRepaired } from "./labStateCopy";
+import { isLabRepaired, labStateCopy } from "./labStateCopy";
 import type { LabStateRecord } from "./types";
 
 function state(
   sourceState: LabStateRecord["source_state"],
   databaseState: LabStateRecord["database_state"],
-): Pick<LabStateRecord, "source_state" | "database_state"> {
-  return { source_state: sourceState, database_state: databaseState };
+  entryState: LabStateRecord["entry_state"] = "started",
+): Pick<LabStateRecord, "source_state" | "database_state" | "entry_state"> {
+  return { source_state: sourceState, database_state: databaseState, entry_state: entryState };
 }
 
 describe("isLabRepaired", () => {
@@ -29,5 +30,24 @@ describe("isLabRepaired", () => {
 
   it("never guesses when no state has been read", () => {
     expect(isLabRepaired(null)).toBe(false);
+  });
+});
+
+describe("a lab that has not started", () => {
+  // Labs 2 and 3 ship repaired and applied. Before their start that is the
+  // workshop's reference, not the participant's repair.
+  it("is not repaired, however its shipped code reads", () => {
+    expect(isLabRepaired(state("solved", "applied", "not_started"))).toBe(false);
+    expect(isLabRepaired(state("solved", "applied", "incomplete"))).toBe(false);
+    expect(isLabRepaired(state("solved", "applied", null))).toBe(true);
+  });
+
+  it("reports one entry fact instead of the shipped code and SQL state", () => {
+    expect(labStateCopy(state("solved", "applied", "not_started")).map((copy) => copy.label))
+      .toEqual(["Not started"]);
+    expect(labStateCopy(state("solved", "applied", "incomplete")).map((copy) => copy.label))
+      .toEqual(["Start interrupted"]);
+    expect(labStateCopy(state("solved", "applied")).map((copy) => copy.label))
+      .toEqual(["Code repaired", "SQL repair applied"]);
   });
 });

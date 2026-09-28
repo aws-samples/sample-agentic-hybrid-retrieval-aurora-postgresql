@@ -27,6 +27,7 @@ grade green on its own receipts.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
@@ -36,6 +37,12 @@ from uuid import UUID
 
 import psycopg
 
+from scripts.lab_entry import (
+    FAULT_AT_ENTRY,
+    START_COMMAND,
+    completion_path,
+    load_record,
+)
 from scripts.lab_state import (
     LABS,
     LabDatabaseState,
@@ -177,14 +184,114 @@ def contained_database_state(lab_id: int, connection: Any) -> LabDatabaseState:
         )
 
 
+#: Said beside a failing Lab 1 proof while Lab 2's fault is installed, so the
+#: participant is not sent to repair a lab that is already repaired.
+LAB1_UNDER_RANKING_FAULT = (
+    "Lab 2's ranking fault is installed. It gives every search method's candidates "
+    "the same 1/(k + 1) credit, so the swapped-ID listing ties with other headphones "
+    "and can fall outside the candidates sent to reranking. Your Lab 1 repair is "
+    "still in the file and in Aurora; this check runs normally once Lab 2 is repaired."
+)
+
+
+def ranking_fault_masks_lab_1(connection: Any, repo: Path) -> bool:
+    """Whether a repaired Lab 1 is being graded through Lab 2's installed fault.
+
+    Only then does a failing Lab 1 check say nothing about Lab 1's own repair.
+    """
+    lab_1_repaired = (
+        lab_is_solved(1, repo=repo)
+        and contained_database_state(1, connection).state == "applied"
+    )
+    return lab_1_repaired and (
+        not lab_is_solved(2, repo=repo)
+        or contained_database_state(2, connection).state == "stale"
+    )
+
+
+def _saved_completion_at(lab_id: int, repo: Path) -> datetime | None:
+    path = completion_path(lab_id, repo)
+    if not path.exists():
+        return None
+    return datetime.fromisoformat(json.loads(path.read_text())["passed_at"])
+
+
+def _entry(lab_id: int, repo: Path) -> tuple[str | None, str | None]:
+    """Where an entered lab's one-time preparation stands, and what runs it."""
+    if lab_id not in FAULT_AT_ENTRY:
+        return None, None
+    record = load_record(lab_id, repo)
+    if record is None:
+        return "not_started", START_COMMAND[lab_id]
+    if not record.get("completed_at"):
+        return "incomplete", START_COMMAND[lab_id]
+    return "started", None
+
+
+def entry_check(
+    lab_id: int, repo: Path, *, run_created_at: datetime | None = None
+) -> LabCheck:
+    """Refuse to credit an entered lab's shipped reference as the participant's repair.
+
+    The checkout ships Labs 2 and 3 repaired, so before a start their checks
+    grade code nobody wrote. A Lab 3 run made before the start graded that
+    same reference agent.
+    """
+    record = load_record(lab_id, repo)
+    started = record.get("completed_at") if record else None
+    started_at = datetime.fromisoformat(started) if started else None
+    if started_at is None:
+        passed = False
+        detail = (
+            f"Lab {lab_id} has not started, so these checks would grade the "
+            f"reference the workshop ships. Next: run {START_COMMAND[lab_id]}, "
+            "repair the fault it installs, then prove the lab again."
+        )
+    elif run_created_at is not None and run_created_at < started_at:
+        passed = False
+        detail = (
+            f"This run was made before Lab {lab_id} started, by the reference "
+            "agent. Next: after make deploy-agent, ask Alex's question again and "
+            "use that run's ID."
+        )
+    else:
+        passed = True
+        detail = f"Lab {lab_id} started at {started_at:%H:%M:%S} UTC."
+    return LabCheck(
+        name="lab_started",
+        passed=passed,
+        falsifier=(
+            "The lab's start has not finished, or the graded run predates it, so "
+            "the shipped reference would be credited as the participant's repair."
+        ),
+        detail=detail,
+    )
+
+
 def _lab_state(lab_id: int, connection: Any, repo: Path | None) -> LabStateRecord:
-    solved = lab_is_solved(lab_id, repo=repo or LAB_SOURCE_ROOT)
+    root = repo or LAB_SOURCE_ROOT
+    solved = lab_is_solved(lab_id, repo=root)
     database = contained_database_state(lab_id, connection)
+    entry_state, next_step = _entry(lab_id, root)
+    detail = _state_detail(lab_id, solved=solved, database=database)
+    if entry_state == "not_started":
+        detail = (
+            f"Lab {lab_id} has not started. Next: run {next_step} in Code Editor; "
+            "it installs this lab's fault once and keeps your earlier repairs."
+        )
+    elif entry_state == "incomplete":
+        detail = (
+            f"Lab {lab_id}'s start was interrupted. Next: run {next_step} again; "
+            "it finishes the missing step and keeps your edits."
+        )
     return LabStateRecord(
         lab_id=lab_id,
         source_state="solved" if solved else "broken",
         database_state=database.state,
-        detail=_state_detail(lab_id, solved=solved, database=database),
+        detail=detail,
+        entry_state=entry_state,
+        completed_at=_saved_completion_at(lab_id, root),
+        next_step=next_step,
     )
 
 
@@ -449,9 +556,11 @@ def completion_proof(
     started_at = datetime.now(UTC)
     started = perf_counter()
 
-    solved = lab_is_solved(lab_id, repo=repo or LAB_SOURCE_ROOT)
+    root = repo or LAB_SOURCE_ROOT
+    solved = lab_is_solved(lab_id, repo=root)
     with connect() as connection:
         database = contained_database_state(lab_id, connection)
+        ranking_fault = lab_id == 1 and ranking_fault_masks_lab_1(connection, root)
         rows = (
             load_agent_turn_rows(connection, agent_run_id)
             if lab_id == 3 and agent_run_id is not None
@@ -473,10 +582,15 @@ def completion_proof(
         from service import agentcore_transport, gateway_tools
 
         if agentcore_transport.runtime_arn():
-            from service.lab_validation_receipt import source_digest
+            from scripts.apply_search_functions import applied_sql_digest
+            from service.lab_validation_receipt import (
+                application_digest,
+                participant_sql_digest,
+            )
 
             deployed = False
-            detail = "Your agent and SQL tools match the code in Code Editor."
+            detail = "Your agent and SQL tools match the code in Code Editor, and Aurora runs your SQL."
+            failure = "Your deployed agent or SQL tools do not match this run. Next: run make deploy-agent in Code Editor, then ask Alex's question again."
             try:
                 status = agentcore_transport.deployed_status()
                 if rows and rows.searches:
@@ -484,11 +598,20 @@ def completion_proof(
                         "inspect_retrieval_run",
                         {"run_id": str(rows.searches[0]["search_event_id"])},
                     )
-                    deployed = status.get("source_sha256") == source_digest()
+                    with connect() as connection:
+                        sql_applied = (
+                            applied_sql_digest(connection) == participant_sql_digest()
+                        )
+                    code_deployed = (
+                        status.get("application_sha256") == application_digest()
+                    )
+                    deployed = code_deployed and sql_applied
+                    if code_deployed and not sql_applied:
+                        failure = "Aurora runs SQL different from db/sql/09_search_functions.sql in Code Editor. Next: run make db-apply-search-functions, then ask Alex's question again."
             except (RuntimeError, ValueError) as error:
-                detail = f"Deployment check failed ({type(error).__name__}). Next: run make deploy-agent in Code Editor, then ask Alex's question again."
+                failure = f"Deployment check failed ({type(error).__name__}). Next: run make deploy-agent in Code Editor, then ask Alex's question again."
             if not deployed:
-                detail = "Your deployed agent or SQL tools do not match this run. Next: run make deploy-agent in Code Editor, then ask Alex's question again."
+                detail = failure
             checks.append(
                 LabCheck(
                     name="managed_agent_deployed",
@@ -506,16 +629,21 @@ def completion_proof(
     else:
         checks, search_event_ids = _retrieval_checks(lab_id, mission)
         evidence_ids = []
+    if lab_id in FAULT_AT_ENTRY:
+        checks.append(
+            entry_check(
+                lab_id,
+                root,
+                run_created_at=rows.turn["created_at"] if rows else None,
+            )
+        )
 
     finished_at = datetime.now(UTC)
+    live_pass = all(check.passed for check in checks)
     return CompletionProofResponse(
         lab_id=lab_id,
         status=(
-            "pass"
-            if all(check.passed for check in checks)
-            and solved
-            and database.state != "stale"
-            else "fail"
+            "pass" if live_pass and solved and database.state != "stale" else "fail"
         ),
         started_at=started_at,
         finished_at=finished_at,
@@ -530,4 +658,11 @@ def completion_proof(
         ),
         identity=_identity(),
         release_baseline=_release_baseline(),
+        entry_state=_entry(lab_id, root)[0],
+        interference=LAB1_UNDER_RANKING_FAULT
+        if ranking_fault and not live_pass
+        else None,
+        saved_completion_at=(
+            _saved_completion_at(lab_id, root) if lab_id in {1, 2} else None
+        ),
     )

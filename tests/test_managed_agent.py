@@ -22,7 +22,9 @@ SHA = "a" * 64
 
 @pytest.fixture
 def source(monkeypatch):
-    monkeypatch.setattr("service.lab_validation_receipt.source_digest", lambda: SHA)
+    monkeypatch.setattr(
+        "service.lab_validation_receipt.application_digest", lambda: SHA
+    )
     monkeypatch.setattr("scripts.lab_state.lab_is_solved", lambda lab: True)
 
 
@@ -38,7 +40,7 @@ def test_runtime_invocation_binds_source_and_browser_capability(monkeypatch, sou
     transport.invoke("answer", AgentRequest(question="A monitor"), http)
     first = client.invoke_agent_runtime.call_args.kwargs
     envelope = json.loads(first["payload"])
-    assert envelope["source_sha256"] == SHA
+    assert envelope["application_sha256"] == SHA
     assert envelope["shopper_token"] == "b" * 64
     assert envelope["request"]["question"] == "A monitor"
     transport.invoke("status")
@@ -79,7 +81,7 @@ def test_adapter_forwards_only_the_opaque_browser_capability(monkeypatch, source
         "/invocations",
         json={
             "operation": "answer",
-            "source_sha256": SHA,
+            "application_sha256": SHA,
             "shopper_token": "b" * 64,
             "request": {"question": "A monitor"},
         },
@@ -97,7 +99,7 @@ def test_adapter_source_mismatch_never_runs_agent(monkeypatch, source):
         "/invocations",
         json={
             "operation": "answer",
-            "source_sha256": "0" * 64,
+            "application_sha256": "0" * 64,
             "request": {"question": "A monitor"},
         },
     )
@@ -109,7 +111,7 @@ def test_adapter_source_mismatch_never_runs_agent(monkeypatch, source):
 def test_gateway_requires_matching_code_and_actual_tool_data(
     monkeypatch, source, structured
 ):
-    envelope = {"source_sha256": SHA, "data": {"results": [1]}}
+    envelope = {"application_sha256": SHA, "data": {"results": [1]}}
     calls = []
 
     def rpc(method, params):
@@ -128,10 +130,10 @@ def test_gateway_requires_matching_code_and_actual_tool_data(
             {"name": "mosaic___search_products", "arguments": {"request": {}}},
         )
     ]
-    envelope["source_sha256"] = "0" * 64
+    envelope["application_sha256"] = "0" * 64
     with pytest.raises(AgentSetupError, match="make deploy-agent"):
         gateway_tools.call_tool("search_products", {})
-    envelope["source_sha256"] = SHA
+    envelope["application_sha256"] = SHA
     envelope["extra_description"] = "An unrelated tool field"
     assert gateway_tools.call_tool("search_products", {}) == {"results": [1]}
 
@@ -142,7 +144,7 @@ def test_gateway_does_not_promote_an_mcp_error_to_tool_data(monkeypatch, source)
         "rpc",
         lambda *_: {
             "isError": True,
-            "structuredContent": {"source_sha256": SHA, "data": {"results": [1]}},
+            "structuredContent": {"application_sha256": SHA, "data": {"results": [1]}},
         },
     )
     with pytest.raises(AgentSetupError, match="refused"):
@@ -174,7 +176,7 @@ def test_runtime_package_excludes_secrets_caches_and_symlinks(tmp_path):
     "result",
     [
         {"structuredContent": []},
-        {"structuredContent": {"source_sha256": SHA}},
+        {"structuredContent": {"application_sha256": SHA}},
         {"content": [{"type": "text", "text": "not JSON"}]},
     ],
 )

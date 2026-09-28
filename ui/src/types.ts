@@ -610,11 +610,23 @@ export type LabSourceState = "solved" | "broken";
  */
 export type LabDatabaseState = "applied" | "stale" | "not_applicable";
 
+/**
+ * Whether a lab's one-time start has run. Labs 2 and 3 ship repaired and get
+ * their fault when started, so before that their code reads as solved for work
+ * nobody did. `null` for Lab 1, whose fault is installed when the workshop opens.
+ */
+export type LabEntryState = "not_started" | "incomplete" | "started";
+
 export interface LabStateRecord {
   lab_id: number;
   source_state: LabSourceState;
   database_state: LabDatabaseState;
   detail: string;
+  entry_state: LabEntryState | null;
+  /** When this lab's live validation last passed: a record, never a verdict. */
+  completed_at: string | null;
+  /** The one command that moves this lab forward, when there is one. */
+  next_step: string | null;
 }
 
 export interface LabStateResponse {
@@ -690,6 +702,11 @@ export interface CompletionProofResponse {
   evidence: CompletionProofEvidence;
   identity: CompletionProofIdentity;
   release_baseline: ReleaseBaselineReference;
+  entry_state: LabEntryState | null;
+  /** Why a later lab's installed fault changes this result. Never a pass. */
+  interference: string | null;
+  /** When this lab last passed, shown beside the verdict, never counted in it. */
+  saved_completion_at: string | null;
 }
 
 /** What a proof needs from the caller, which for labs 1 and 2 is nothing. */

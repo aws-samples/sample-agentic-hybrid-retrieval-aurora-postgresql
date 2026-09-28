@@ -46,7 +46,7 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants test-aurora-historical db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status reset-lab-1 validate-lab-1 solution-lab-1 reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-schema db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-index-quantized-catalog db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors select-hnsw-anchors check-hnsw-anchors benchmark-hnsw benchmark-index-build benchmark-hardware benchmark-ask-mosaic rehearsal-validate rehearsal-summary load-exercise api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
+.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants test-aurora-historical db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-01 lab-status start-lab-1 reset-lab-1 validate-lab-1 solution-lab-1 start-lab-2 reset-lab-2 validate-lab-2 solution-lab-2 start-lab-3 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-schema db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-index-quantized-catalog db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors select-hnsw-anchors check-hnsw-anchors benchmark-hnsw benchmark-index-build benchmark-hardware benchmark-ask-mosaic rehearsal-validate rehearsal-summary load-exercise api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
@@ -94,8 +94,8 @@ DSN_TARGETS := test test-aurora-contracts test-aurora-invariants db-install db-i
 	lab-01 db-load-mosaic db-index-concurrent db-drop-invalid-indexes db-index-quantized \
 	db-index-recover-and-create db-load-cohort db-load-evidence db-smoke \
 	db-seed-corpus-lexeme db-bootstrap-schema db-verify-bootstrap db-embed db-export-embeddings db-import-embeddings \
-	db-configure-retrieval db-apply-search-functions reset-lab-1 validate-lab-1 solution-lab-1 \
-	reset-lab-2 validate-lab-2 solution-lab-2 reset-lab-3 api-serve
+	db-configure-retrieval db-apply-search-functions start-lab-1 reset-lab-1 validate-lab-1 solution-lab-1 \
+	start-lab-2 reset-lab-2 validate-lab-2 solution-lab-2 start-lab-3 reset-lab-3 api-serve
 
 $(DSN_TARGETS): check-dsn
 
@@ -225,37 +225,51 @@ db-apply-search-functions:
 	@$(PYTHON) scripts/apply_search_functions.py
 	@$(MAKE) db-configure-retrieval
 
+# Starting a lab saves its failing request. Labs 2 and 3 also install their
+# fault, once: running a start again finishes an interrupted start and never
+# reinstalls the fault over your edits.
+start-lab-1:
+	@$(PYTHON) scripts/lab_state.py start --lab 1 --api-url "$(LAB_API_URL)"
+
+# Resetting discards only this lab's edits, restores its starter and saves a
+# fresh failing request.
 reset-lab-1:
-	@$(PYTHON) scripts/lab_state.py reset --lab 1
-	@$(MAKE) db-apply-search-functions
+	@$(PYTHON) scripts/lab_state.py reset --lab 1 --api-url "$(LAB_API_URL)"
 
 validate-lab-1:
 	@$(PYTHON) scripts/lab_state.py validate --lab 1 --database-url "$$DATABASE_URL"
 	@$(PYTHON) scripts/validate_lab.py --lab 1 --api-url "$(LAB_API_URL)"
-	@echo "Your hybrid search now handles close spelling and keeps the requested filters. Next: open Lab 2 to combine and rank its results."
+	@echo "Your hybrid search now handles close spelling and keeps the requested filters."
 
 solution-lab-1:
 	@$(PYTHON) scripts/lab_state.py solution --lab 1
 	@$(MAKE) db-apply-search-functions
 
+start-lab-2:
+	@$(PYTHON) scripts/lab_state.py start --lab 2 --api-url "$(LAB_API_URL)"
+	@echo "Lab 2 ready. Next: diagnose the saved request (Task 2b in the guide)."
+
 reset-lab-2:
-	@$(PYTHON) scripts/lab_state.py reset --lab 2
-	@$(MAKE) db-apply-search-functions
+	@$(PYTHON) scripts/lab_state.py reset --lab 2 --api-url "$(LAB_API_URL)"
 
 validate-lab-2:
 	@$(PYTHON) scripts/lab_state.py validate --lab 2 --database-url "$$DATABASE_URL"
 	@$(PYTHON) scripts/validate_lab.py --lab 2 --api-url "$(LAB_API_URL)"
-	@echo "Your search now combines ranks correctly and sends its shortlist to reranking. Next: open Lab 3 to build and deploy your agent."
+	@echo "Your search now combines ranks correctly and sends its shortlist to reranking."
 
 solution-lab-2:
 	@$(PYTHON) scripts/lab_state.py solution --lab 2
 	@$(MAKE) db-apply-search-functions
 
-reset-lab-3:
-	@$(PYTHON) scripts/lab_state.py reset --lab 3
-	@$(MAKE) db-apply-search-functions
+start-lab-3:
+	@$(PYTHON) scripts/lab_state.py start --lab 3 --api-url "$(LAB_API_URL)"
 	@$(MAKE) restart-lab-api
-	@echo "Agent starter ready. Next: open labs/lab3/agent.py in Code Editor and build create_agent, then run make deploy-agent."
+	@echo "Agent starter ready. Next: run make agent-tools, then build create_agent in labs/lab3/agent.py."
+
+reset-lab-3:
+	@$(PYTHON) scripts/lab_state.py reset --lab 3 --api-url "$(LAB_API_URL)"
+	@$(MAKE) restart-lab-api
+	@echo "Agent starter restored. Next: build create_agent in labs/lab3/agent.py, then run make deploy-agent."
 
 validate-lab-3:
 	@$(PYTHON) scripts/lab_state.py validate --lab 3

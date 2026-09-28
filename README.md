@@ -48,6 +48,21 @@ product pages show the specifications a listing states beside the listing text
 they came from. Mosaic follows your device's light or dark appearance; the
 header button switches it.
 
+Begin each lab with the start command in its guide, in the Code Editor
+terminal (`make start-lab-N` runs the same step). It saves the lab's failing
+request; for Labs 2 and 3 it also installs that lab's fault,
+once, and keeps your earlier repairs. Run it again after an interruption and it
+finishes the missing step without reinstalling the fault over your edits. Until
+you start them, Labs 2 and 3 read **Not started**: the checkout ships them
+repaired, so their code is the workshop's reference, not your work. Lab 2 needs
+your Lab 1 repair applied, and Lab 3 needs both; a start that finds one missing
+says how to finish it and changes nothing.
+
+`uv run python scripts/lab_state.py reset --lab N` (`make reset-lab-N`)
+discards only that lab's edits and restores its starter.
+`make solution-lab-N` overwrites that lab with the reference repair; it is a
+recovery route, not a completion. A lab is complete when its own check passes.
+
 Keep your predictions and explanations in Code Editor's `learning-notes.md`.
 Save the before-and-after searches, and complete each lab's checks before moving
 on. A plausible product or answer alone does not show that the repair worked.

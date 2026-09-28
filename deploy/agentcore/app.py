@@ -90,10 +90,10 @@ async def invocations(request: RuntimeInvocation | AgentRequest, http_request: R
         )
     if isinstance(request, AgentRequest):
         return await asyncio.to_thread(agent_answer, request)
-    digest = await asyncio.to_thread(require_current_source, request.source_sha256)
+    digest = await asyncio.to_thread(require_current_source, request.application_sha256)
     if request.operation == "status":
         return {
-            "source_sha256": digest,
+            "application_sha256": digest,
             "readiness": await asyncio.to_thread(get_readiness),
         }
     if request.request is None:

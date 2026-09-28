@@ -39,7 +39,10 @@ def test_make_targets_configure_database_defaults_and_apply_current_functions():
     assert "preserve_search_trigram" not in apply_target
     assert "db-configure-retrieval" in apply_target
     assert "scripts/apply_search_functions.py" in apply_target
+    from service.lab_validation_receipt import PARTICIPANT_SQL
+
+    assert PARTICIPANT_SQL.as_posix() == "db/sql/09_search_functions.sql"
     assert (
-        "09_search_functions.sql"
+        "(ROOT / PARTICIPANT_SQL).read_text()"
         in (ROOT / "scripts/apply_search_functions.py").read_text()
     )

@@ -90,6 +90,9 @@ function proofFixture(
       retrieval_fingerprint: "d".repeat(64),
       attributed: false,
     },
+    entry_state: labId === 1 ? null : ("started" as const),
+    interference: null,
+    saved_completion_at: null,
     ...overrides,
   };
 }
@@ -326,6 +329,62 @@ describe("CompletionProof", () => {
     expect(within(block).getByText("aa11bb22").closest("details")?.open).toBe(false);
     // Paired positive: lab 2 passed on the same press and keeps its receipt.
     expect(within(labBlock(2)).getByText("aa11bb22")).toBeTruthy();
+  });
+
+  it("explains a Lab 1 failure under Lab 2's fault and keeps the earlier pass apart", async () => {
+    const interference = "Lab 2's ranking fault is installed. Your Lab 1 repair is still in the file and in Aurora.";
+    vi.mocked(api.labProof).mockResolvedValue(
+      proofFixture(1, {
+        status: "fail",
+        interference,
+        saved_completion_at: "2026-09-28T09:30:00Z",
+        checks: [
+          {
+            name: "target reaches reranking",
+            passed: false,
+            falsifier: "the swapped-ID listing is absent from the reranked pool",
+            detail: "not among the 50 candidates",
+          },
+        ],
+      }),
+    );
+    render(<CompletionProof activeLab={1} agentRunId={null} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof for Lab 1" }));
+
+    await waitFor(() => expect(labBlock(1).textContent).toContain("FAIL"));
+    const block = labBlock(1);
+    expect(block.textContent).toContain(interference);
+    const record = block.querySelector(".labs-proof-record");
+    expect(record?.textContent).toContain("Earlier record, not this check");
+    expect(record?.textContent).toContain("make validate-lab-1");
+    expect(within(block).getByText("FAIL")).toBeTruthy();
+  });
+
+  it("does not print an earlier record beside a pass", async () => {
+    vi.mocked(api.labProof).mockResolvedValue(
+      proofFixture(1, { saved_completion_at: "2026-09-28T09:30:00Z" }),
+    );
+    render(<CompletionProof activeLab={1} agentRunId={null} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof for Lab 1" }));
+
+    await waitFor(() => expect(labBlock(1).textContent).toContain("PASS"));
+    expect(labBlock(1).querySelector(".labs-proof-record")).toBeNull();
+  });
+
+  it("says how to start a lab the service graded before its start", async () => {
+    vi.mocked(api.labProof).mockResolvedValue(
+      proofFixture(2, { status: "fail", entry_state: "not_started" }),
+    );
+    render(<CompletionProof activeLab={2} agentRunId={null} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof for Lab 2" }));
+
+    await waitFor(() => expect(labBlock(2).textContent).toContain("FAIL"));
+    expect(labBlock(2).textContent).toContain("Not started");
+    expect(labBlock(2).textContent).not.toContain("Code repaired");
+    expect(labBlock(2).textContent).toContain("This lab has not started. Run its start command");
   });
 
   it("names a build whose API has no proof route, without calling the lab failed", async () => {

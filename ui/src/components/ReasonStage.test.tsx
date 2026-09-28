@@ -899,6 +899,7 @@ it("invalidates a completion pass while the next run is pending or failed", asyn
     evidence: { agent_run_id: request.agent_run_id ?? null, search_event_ids: [], evidence_ids: [] },
     identity: { source_revision: "revision", retrieval_fingerprint: "fingerprint", retrieval_settings_sha256: "settings", embedding_model_id: "embed", rerank_model_id: "rerank", dataset_manifest_sha256: "manifest" },
     release_baseline: { measured_at: "2026-09-06T00:00:00Z", retrieval_fingerprint: "test", attributed: false },
+    entry_state: "started", interference: null, saved_completion_at: null,
   }));
   function Harness() {
     const [runId, setRunId] = useState<string | null>(null);

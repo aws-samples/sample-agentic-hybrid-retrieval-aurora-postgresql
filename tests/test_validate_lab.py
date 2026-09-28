@@ -1,9 +1,19 @@
+import re
+
 import pytest
 
 from scripts import validate_lab
+from scripts.lab_entry import START_COMMAND
 from service.config import get_settings
 
 PLAN = [{"Plan": {"Node Type": "Append"}}]
+
+
+@pytest.fixture(autouse=True)
+def isolated_repo(monkeypatch, tmp_path):
+    """A passing `main()` records completion; it must never write the checkout."""
+    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+    return tmp_path
 
 
 def _agent_response():
@@ -613,3 +623,120 @@ def test_main_loads_dotenv_before_any_request_is_made(monkeypatch):
 
     assert validate_lab.main() == 0
     assert calls == [validate_lab.REPO / ".env"]
+
+
+class _NoConnection:
+    def __enter__(self):
+        return object()
+
+    def __exit__(self, *_):
+        return False
+
+
+def _failing_lab_1(monkeypatch, *, masked: bool) -> None:
+    monkeypatch.setattr(
+        validate_lab,
+        "_search",
+        lambda *_: {"search_event_id": "fresh-run", "results": []},
+    )
+    monkeypatch.setattr(
+        validate_lab.lab_checks,
+        "lab_1_checks",
+        lambda *_: [
+            validate_lab.LabCheck(
+                name="target",
+                passed=False,
+                falsifier="the target is absent",
+                detail="target missing; fix: restore the trigram CTE.",
+            )
+        ],
+    )
+    monkeypatch.setattr("service.db.connect", lambda: _NoConnection())
+    monkeypatch.setattr(
+        "service.lab_proof.ranking_fault_masks_lab_1", lambda *_: masked
+    )
+
+
+def _saved_lab_1(repo) -> None:
+    validate_lab.record_completion(1, ["target"], ["earlier-run"], repo=repo)
+
+
+def test_lab_1_under_lab_2s_fault_explains_and_keeps_old_evidence_separate(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+    _saved_lab_1(tmp_path)
+    _failing_lab_1(monkeypatch, masked=True)
+
+    with pytest.raises(validate_lab.LabValidationError) as failure:
+        validate_lab.validate_lab_1("http://api")
+
+    message = str(failure.value)
+    assert message.startswith("Lab 1 live check failed: target missing. Lab 2's")
+    assert "restore the trigram CTE" not in message
+    assert "Lab 2's ranking fault is installed" in message
+    assert "from an earlier run and not this check" in message
+    assert "earlier-run" in message
+    assert "Next: finish Lab 2" in message
+
+
+def test_lab_1_failing_on_its_own_says_only_its_own_reason(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+    _saved_lab_1(tmp_path)
+    _failing_lab_1(monkeypatch, masked=False)
+
+    with pytest.raises(
+        validate_lab.LabValidationError,
+        match="^target missing; fix: restore the trigram CTE.$",
+    ):
+        validate_lab.validate_lab_1("http://api")
+
+
+def test_a_saved_completion_never_turns_a_failing_check_into_a_pass(
+    monkeypatch, tmp_path
+) -> None:
+    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+    _saved_lab_1(tmp_path)
+    saved = (tmp_path / ".local/lab-1/completion.json").read_bytes()
+    _failing_lab_1(monkeypatch, masked=True)
+    monkeypatch.setattr("sys.argv", ["validate_lab.py", "--lab", "1"])
+
+    with pytest.raises(SystemExit, match="^Lab 1: FAIL"):
+        validate_lab.main()
+
+    assert (tmp_path / ".local/lab-1/completion.json").read_bytes() == saved
+
+
+@pytest.mark.parametrize("lab", [2, 3])
+def test_an_unentered_lab_is_not_validated(monkeypatch, tmp_path, lab) -> None:
+    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+    monkeypatch.setattr(
+        validate_lab,
+        {2: "validate_lab_2", 3: "validate_lab_3"}[lab],
+        lambda *_, **__: pytest.fail("validated a lab that never started"),
+    )
+    monkeypatch.setattr("sys.argv", ["validate_lab.py", "--lab", str(lab)])
+
+    with pytest.raises(SystemExit, match=re.escape(START_COMMAND[lab])):
+        validate_lab.main()
+
+
+def test_a_passing_check_records_its_own_fresh_evidence(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+
+    def passing(_url, events):
+        events.append("fresh-run")
+        return ["target"]
+
+    monkeypatch.setattr(validate_lab, "validate_lab_1", passing)
+    monkeypatch.setattr("sys.argv", ["validate_lab.py", "--lab", "1"])
+
+    assert validate_lab.main() == 0
+
+    import json
+
+    saved = json.loads((tmp_path / ".local/lab-1/completion.json").read_text())
+    assert saved["search_event_ids"] == ["fresh-run"]
+    assert saved["checks"] == ["target"]

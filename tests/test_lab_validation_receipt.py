@@ -238,3 +238,59 @@ def test_cli_reuse_never_invokes_the_agent(saved_runs, monkeypatch, tmp_path):
     assert len(checks) >= 30
     assert requests == ["/api/readiness"]
     assert len(reads) == 2
+
+
+def _identity_tree(tmp_path, monkeypatch):
+    code = [
+        "service/agent.py",
+        "labs/lab3/agent.py",
+        "deploy/agentcore/app.py",
+        "scripts/validate_lab.py",
+        "scripts/lab_state.py",
+        "scripts/evidence_registration_probe.py",
+        "scripts/agent_assembly_probe.py",
+        "scripts/package_agentcore.py",
+        "scripts/deploy_agentcore.py",
+        "scripts/lab_exercise.py",
+        "scripts/complete_agent.py",
+        "uv.lock",
+    ]
+    manifest = ["db/sql/09_search_functions.sql", "db/config/retrieval.yaml"]
+    for path in code + manifest:
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("original")
+    monkeypatch.setattr(
+        receipt, "manifest_files", lambda root: [root / path for path in manifest]
+    )
+    monkeypatch.setattr(
+        receipt, "compute_retrieval_fingerprint", lambda root: "retrieval"
+    )
+
+
+def test_a_participant_sql_edit_needs_applying_not_redeploying(tmp_path, monkeypatch):
+    # The deployed image never runs this file: the tools call what Aurora holds.
+    # Folding it into the Runtime identity refused every agent request after a
+    # Lab 1 or Lab 2 edit until the participant redeployed.
+    _identity_tree(tmp_path, monkeypatch)
+    application = receipt.application_digest(tmp_path)
+    sql = receipt.participant_sql_digest(tmp_path)
+
+    (tmp_path / "db/sql/09_search_functions.sql").write_text("repaired")
+
+    assert receipt.application_digest(tmp_path) == application
+    assert receipt.participant_sql_digest(tmp_path) != sql
+
+
+@pytest.mark.parametrize(
+    "changed", ["labs/lab3/agent.py", "service/agent.py", "db/config/retrieval.yaml"]
+)
+def test_agent_code_and_retrieval_settings_still_need_redeploying(
+    tmp_path, monkeypatch, changed
+):
+    _identity_tree(tmp_path, monkeypatch)
+    application = receipt.application_digest(tmp_path)
+
+    (tmp_path / changed).write_text("changed")
+
+    assert receipt.application_digest(tmp_path) != application

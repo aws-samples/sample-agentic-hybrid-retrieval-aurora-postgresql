@@ -53,6 +53,8 @@ Run commands from the prepared repository terminal and follow the guide's order.
 | Purpose | Command |
 |---|---|
 | Inspect the current source/applied lab state | `make lab-status` |
+| Enter a lab: save its failing request; Labs 2 and 3 also install their fault once | `make start-lab-N` |
+| Discard one lab's edits and restore its starter, only when asked to restart | `make reset-lab-N` |
 | Apply the participant's SQL repair in Labs 1 or 2 | `make db-apply-search-functions` |
 | Prove the Lab 1 or Lab 2 repair after repeating the request | `make validate-lab-1` or `make validate-lab-2` |
 | List managed SQL tools | `make agent-tools` |
@@ -62,7 +64,11 @@ Run commands from the prepared repository terminal and follow the guide's order.
 | Inspect the diff for whitespace errors | `git diff --check` |
 
 A SQL file edit alone does not update Aurora; an agent edit alone does not
-update Runtime. Proof must use the newly applied/deployed state. Preserve
+update Runtime. Proof must use the newly applied/deployed state. `make
+verify-agent` checks the two separately: the deployed application against Code
+Editor's code, and the SQL Aurora last applied against
+`db/sql/09_search_functions.sql`. Labs 2 and 3 ship repaired and cannot pass
+before `make start-lab-N`; a rerun of a start keeps the participant's edits. Preserve
 before/after records in `.local/lab-N/` and the participant's written prediction
 and explanation in `learning-notes.md`. Never invent a run ID or a passing result.
 `make verify-agent` proves deployment connectivity, not participant completion.

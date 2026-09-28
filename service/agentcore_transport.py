@@ -30,7 +30,7 @@ class RuntimeInvocation(BaseModel):
     model_config = ConfigDict(extra="forbid")
     operation: Literal["answer", "stream", "status"]
     request: AgentRequest | None = None
-    source_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    application_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     shopper_token: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
@@ -77,7 +77,7 @@ def invoke(
 ):
     """Open a fresh execution session and bind it to the participant's code."""
     from scripts.lab_state import lab_is_solved
-    from service.lab_validation_receipt import source_digest
+    from service.lab_validation_receipt import application_digest
     from service.session_memory import COOKIE
 
     destination = runtime_arn()
@@ -91,7 +91,7 @@ def invoke(
     envelope = RuntimeInvocation(
         operation=operation,
         request=request,
-        source_sha256=source_digest(),
+        application_sha256=application_digest(),
         shopper_token=token,
     )
     # Conversation identity lives in Aurora and Memory. Reusing a Runtime
@@ -186,10 +186,15 @@ def stream(request: AgentRequest, http_request: Request | None) -> StreamingResp
 
 
 def require_current_source(expected: str) -> str:
-    """Refuse to grade a deployed reference when a participant has edited it."""
-    from service.lab_validation_receipt import source_digest
+    """Refuse to run deployed code that differs from the participant's workspace.
 
-    actual = source_digest()
+    Compares the application identity only. The participant's SQL runs in
+    Aurora, so a Lab 1 or Lab 2 edit needs `make db-apply-search-functions`,
+    not a redeploy; the applied-SQL record is checked where Lab 3 is proven.
+    """
+    from service.lab_validation_receipt import application_digest
+
+    actual = application_digest()
     if expected != actual:
         raise HTTPException(
             409,

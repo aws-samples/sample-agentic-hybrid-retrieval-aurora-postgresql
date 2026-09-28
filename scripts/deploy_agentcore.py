@@ -24,7 +24,7 @@ sys.path.insert(0, str(ROOT))
 from scripts.package_agentcore import package
 from scripts.rehearsal import redact
 from service import agentcore_transport, gateway_tools
-from service.lab_validation_receipt import source_digest
+from service.lab_validation_receipt import application_digest, participant_sql_digest
 
 
 def client(service: str):
@@ -331,15 +331,38 @@ def update(image_uri: str) -> None:
     )
 
 
+def require_applied_sql() -> str:
+    """Refuse a deployment whose tools would call SQL other than the workspace's.
+
+    The Runtime check covers the code the image runs; this covers the SQL the
+    tools call, which lives in Aurora and changes only when it is applied.
+    """
+    from scripts.apply_search_functions import applied_sql_digest
+    from service.db import connect
+
+    workspace = participant_sql_digest()
+    with connect() as connection:
+        applied = applied_sql_digest(connection)
+    if applied != workspace:
+        raise RuntimeError(
+            "Aurora SQL rule: Aurora runs participant SQL "
+            f"{(applied or 'with no recorded identity')[:12]}, not your workspace's "
+            f"{workspace[:12]}; fix: run make db-apply-search-functions, then "
+            "make verify-agent."
+        )
+    return workspace
+
+
 def verify() -> dict:
     """Exercise deployed source, Gateway discovery, search and evidence on Aurora."""
     status = agentcore_transport.deployed_status()
-    if status.get("source_sha256") != source_digest() or not status.get(
+    if status.get("application_sha256") != application_digest() or not status.get(
         "readiness", {}
     ).get("database", {}).get("catalog_ready"):
         raise RuntimeError(
             "Runtime acceptance rule: stale code or catalog not ready; redeploy and check Aurora readiness."
         )
+    require_applied_sql()
     tools = gateway_tools.rpc("tools/list", {})
     names = {tool["name"] for tool in tools.get("tools", [])}
     expected = {
@@ -385,7 +408,8 @@ def verify() -> dict:
             "Gateway evidence rule: no source record returned; inspect the evidence grant."
         )
     receipt = {
-        "source_sha256": source_digest(),
+        "application_sha256": application_digest(),
+        "participant_sql_sha256": participant_sql_digest(),
         "runtime_arn": required("MOSAIC_AGENTCORE_RUNTIME_ARN"),
         "gateway_url": required("MOSAIC_AGENTCORE_GATEWAY_URL"),
         "search_event_id": response["search_event_id"],

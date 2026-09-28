@@ -24,6 +24,12 @@ from urllib.request import Request, urlopen
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
+from scripts.lab_entry import (
+    FAULT_AT_ENTRY,
+    START_COMMAND,
+    completion_path,
+    load_record,
+)
 from service import lab_checks
 from service.config import get_settings
 from service.lab_checks import AgentEvidence, LabCheck, RetrievalReceipt
@@ -103,18 +109,75 @@ def _graded(checks: list[LabCheck]) -> list[str]:
     return [check.name for check in checks]
 
 
-def validate_lab_1(base_url: str) -> list[str]:
+def validate_lab_1(base_url: str, events: list[str] | None = None) -> list[str]:
     mission = _mission("retrieve")
-    checks = _graded(lab_checks.lab_1_checks(mission, _search(base_url, mission)))
-    return checks + _validate_controls(base_url, 1)
+    response = _search(base_url, mission)
+    if events is not None:
+        events.append(response["search_event_id"])
+    try:
+        checks = _graded(lab_checks.lab_1_checks(mission, response))
+        return checks + _validate_controls(base_url, 1)
+    except LabValidationError as error:
+        from service.db import connect
+        from service.lab_proof import ranking_fault_masks_lab_1
+
+        with connect() as connection:
+            if not ranking_fault_masks_lab_1(connection, REPO):
+                raise
+        raise LabValidationError(_under_ranking_fault(str(error), REPO)) from error
 
 
-def validate_lab_2(base_url: str) -> list[str]:
+def validate_lab_2(base_url: str, events: list[str] | None = None) -> list[str]:
     mission = _mission("rank")
     first = _search(base_url, mission)
     second = _search(base_url, mission)
+    if events is not None:
+        events.extend([first["search_event_id"], second["search_event_id"]])
     checks = _graded(lab_checks.lab_2_checks(mission, first, second))
     return checks + _validate_controls(base_url, 2)
+
+
+def _under_ranking_fault(failure: str, repo: Path) -> str:
+    """Say why a Lab 1 check fails during Lab 2, without passing on old evidence."""
+    from service.lab_proof import LAB1_UNDER_RANKING_FAULT
+
+    path = completion_path(1, repo)
+    saved = json.loads(path.read_text()) if path.exists() else None
+    history = (
+        f"Saved completion, from an earlier run and not this check: Lab 1 passed "
+        f"at {saved['passed_at']} (search {saved['search_event_ids'][0]})."
+        if saved
+        else "No saved Lab 1 completion was found."
+    )
+    # The check's own fix names Lab 1's seam, which is already repaired here.
+    observed = failure.split("; fix:", 1)[0].rstrip(".")
+    return (
+        f"Lab 1 live check failed: {observed}. {LAB1_UNDER_RANKING_FAULT} "
+        f"{history} Next: finish Lab 2, then run this check again."
+    )
+
+
+def record_completion(
+    lab: int, checks: list[str], events: list[str], repo: Path
+) -> Path:
+    """Keep the evidence of a passing live check for the Playground and later labs."""
+    from datetime import UTC, datetime
+
+    path = completion_path(lab, repo)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "lab": lab,
+                "passed_at": datetime.now(UTC).isoformat(timespec="seconds"),
+                "checks": checks,
+                "search_event_ids": events,
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+    return path
 
 
 def _validate_controls(base_url: str, lab_id: int) -> list[str]:
@@ -288,18 +351,34 @@ def main() -> int:
         2: validate_lab_2,
         3: validate_lab_3,
     }[args.lab]
-    checks = (
-        validator(
-            args.api_url,
-            save_receipt=args.save_receipt,
-            reuse_receipt=args.reuse_receipt,
+    # A receipt is maintainer evidence about the reference agent, not a
+    # participant's completion, so only a participant check needs the start.
+    if args.lab in FAULT_AT_ENTRY and not (args.save_receipt or args.reuse_receipt):
+        from service.lab_proof import entry_check
+
+        entered = entry_check(args.lab, REPO)
+        if not entered.passed:
+            raise SystemExit(f"Lab {args.lab}: FAIL. {entered.detail}")
+    events: list[str] = []
+    try:
+        checks = (
+            validator(
+                args.api_url,
+                save_receipt=args.save_receipt,
+                reuse_receipt=args.reuse_receipt,
+            )
+            if args.lab == 3
+            else validator(args.api_url, events)
         )
-        if args.lab == 3
-        else validator(args.api_url)
-    )
+    except LabValidationError as error:
+        raise SystemExit(f"Lab {args.lab}: FAIL. {error}") from error
     for check in checks:
         print(f"PASS: {check}")
+    if args.lab in {1, 2}:
+        record_completion(args.lab, checks, events, REPO)
     print(f"Lab {args.lab}: production-path validation passed")
+    if args.lab in {1, 2} and load_record(args.lab + 1, REPO) is None:
+        print(f"Next: begin Lab {args.lab + 1} with {START_COMMAND[args.lab + 1]}")
     return 0
 
 

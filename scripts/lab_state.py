@@ -141,28 +141,6 @@ def set_lab_state(
     return path
 
 
-def set_isolated_lab_state(
-    lab: int,
-    *,
-    repo: Path = REPO,
-) -> list[Path]:
-    """Make one lab broken while restoring every independent prerequisite.
-
-    A prerequisite the participant already repaired keeps their code: the lab
-    guides promise that later labs preserve earlier repairs, and Lab 3's proof
-    reads the participant's own fusion back from the agent's searches. Only a
-    prerequisite that fails its contract is rewritten to the reference.
-    """
-    changed: list[Path] = []
-    for candidate in LABS:
-        if candidate != lab and lab_is_solved(candidate, repo=repo):
-            continue
-        path = set_lab_state(candidate, solved=candidate != lab, repo=repo)
-        if path not in changed:
-            changed.append(path)
-    return changed
-
-
 def _sql_tokens(source: str) -> list[str]:
     pattern = (
         r"--[^\n]*|/\*.*?\*/|'(?:''|[^'])*'|\"(?:\"\"|[^\"])*\"|"
@@ -438,11 +416,49 @@ def validate_database(lab: int, connection: Any) -> LabDatabaseState:
     return _lab_2_database_state(connection)
 
 
+def status_line(lab: int, *, repo: Path = REPO) -> str:
+    """One lab's state as the participant has it, not as the checkout ships it.
+
+    The shipped seams for Labs 2 and 3 are repaired, so before a start they
+    would read SOLVED for work nobody has done.
+    """
+    from scripts.lab_entry import FAULT_AT_ENTRY, START_COMMAND, load_record
+
+    record = load_record(lab, repo)
+    if record is None and lab in FAULT_AT_ENTRY:
+        return f"Lab {lab}: NOT STARTED"
+    if record is not None and not record.get("completed_at"):
+        return (
+            f"Lab {lab}: START INTERRUPTED. Next: run {START_COMMAND[lab]} "
+            "again; it finishes the missing step and keeps your edits."
+        )
+    return f"Lab {lab}: {'SOLVED' if lab_is_solved(lab, repo=repo) else 'BROKEN'}"
+
+
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("reset", "solution", "validate", "status"))
+    parser = argparse.ArgumentParser(
+        description=(
+            "start enters a lab once and keeps your edits on a rerun; reset "
+            "discards one lab's edits and restores its starter; solution "
+            "overwrites one lab with the reference repair."
+        )
+    )
+    parser.add_argument(
+        "action", choices=("start", "reset", "solution", "validate", "status")
+    )
+    parser.add_argument(
+        "--source-only",
+        action="store_true",
+        help=(
+            "reset only the lab's marked source, for provisioning: no apply, "
+            "no saved request, no start record"
+        ),
+    )
     parser.add_argument("--lab", type=int, choices=LABS)
     parser.add_argument("--database-url", default=os.getenv("DATABASE_URL"))
+    parser.add_argument(
+        "--api-url", default=os.getenv("LAB_API_URL", "http://127.0.0.1:8000")
+    )
     return parser
 
 
@@ -452,14 +468,23 @@ def main() -> int:
         raise SystemExit("--lab is required")
     if args.action == "status":
         for lab in LABS:
-            state = "SOLVED" if lab_is_solved(lab) else "BROKEN"
-            print(f"Lab {lab}: {state}")
+            print(status_line(lab))
         return 0
-    if args.action == "reset":
+    if args.action == "reset" and args.source_only:
+        # Provisioning installs Lab 1's fault before the API exists, then
+        # applies it itself. Only the named lab's seam changes.
         assert_reset_database(args.database_url)
-        paths = set_isolated_lab_state(args.lab)
-        rendered = ", ".join(str(path.relative_to(REPO)) for path in paths)
-        print(f"Lab {args.lab}: RESET ISOLATED ({rendered})")
+        path = set_lab_state(args.lab, solved=False)
+        print(f"Lab {args.lab}: RESET ({path.relative_to(REPO)})")
+        return 0
+    if args.action in {"start", "reset"}:
+        from scripts.lab_entry import LabEntryError, restart, start
+
+        action = start if args.action == "start" else restart
+        try:
+            action(args.lab, api_url=args.api_url, dsn=args.database_url)
+        except LabEntryError as error:
+            raise SystemExit(str(error)) from error
         return 0
     if args.action == "solution":
         path = set_lab_state(args.lab, solved=True)

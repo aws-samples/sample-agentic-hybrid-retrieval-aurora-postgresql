@@ -7,7 +7,6 @@ from scripts.lab_state import (
     LABS,
     REPO,
     lab_is_solved,
-    set_isolated_lab_state,
     set_lab_state,
 )
 
@@ -162,7 +161,7 @@ def test_a_later_reset_keeps_the_participants_valid_lab1_repair(
 ) -> None:
     participant_lab1(lab_repo)
 
-    set_isolated_lab_state(later_lab, repo=lab_repo)
+    set_lab_state(later_lab, solved=False, repo=lab_repo)
 
     source = (lab_repo / LABS[1][0]).read_text()
     assert PARTICIPANT_CTE in source
@@ -188,9 +187,9 @@ def test_lab3_reset_preserves_participant_lab2_formula(lab_repo, formula):
     original = path.read_bytes()
     assert lab_is_solved(2, repo=lab_repo)
 
-    changed = set_isolated_lab_state(3, repo=lab_repo)
+    changed = set_lab_state(3, solved=False, repo=lab_repo)
 
-    assert lab_repo / LABS[3][0] in changed
+    assert changed == lab_repo / LABS[3][0]
     assert not lab_is_solved(3, repo=lab_repo)
     assert path.read_bytes() == original
     assert lab_is_solved(2, repo=lab_repo)
@@ -222,9 +221,9 @@ def test_lab2_contract_rejects_wrong_formula_and_restores(lab_repo, formula):
 
 @pytest.mark.parametrize("lab", sorted(LABS))
 def test_reset_and_solution_are_idempotent(lab_repo: Path, lab: int) -> None:
-    set_isolated_lab_state(lab, repo=lab_repo)
+    set_lab_state(lab, solved=False, repo=lab_repo)
     first_reset = _lab_bytes(lab_repo)
-    set_isolated_lab_state(lab, repo=lab_repo)
+    set_lab_state(lab, solved=False, repo=lab_repo)
 
     assert _lab_bytes(lab_repo) == first_reset
     assert not lab_is_solved(lab, repo=lab_repo)
@@ -294,7 +293,9 @@ def test_reset_guard_accepts_named_aurora_and_rejects_missing_dsn(monkeypatch):
 def test_reset_checks_identity_before_editing_files(monkeypatch):
     from scripts import lab_state
 
-    monkeypatch.setattr("sys.argv", ["lab_state.py", "reset", "--lab", "1"])
+    monkeypatch.setattr(
+        "sys.argv", ["lab_state.py", "reset", "--lab", "1", "--source-only"]
+    )
 
     def refuse(_):
         raise SystemExit("wrong database")
@@ -302,8 +303,8 @@ def test_reset_checks_identity_before_editing_files(monkeypatch):
     monkeypatch.setattr(lab_state, "assert_reset_database", refuse)
     monkeypatch.setattr(
         lab_state,
-        "set_isolated_lab_state",
-        lambda *_: pytest.fail("edited before identity check"),
+        "set_lab_state",
+        lambda *_, **__: pytest.fail("edited before identity check"),
     )
     with pytest.raises(SystemExit, match="wrong database"):
         lab_state.main()
@@ -403,3 +404,26 @@ def test_lab3_probe_bounds_a_nonterminating_edit(lab_repo):
         _replace_block(path.read_text(), start, end, "    while True:\n        pass")
     )
     assert not lab_is_solved(3, repo=lab_repo)
+
+
+def test_status_reports_the_participants_lab_not_the_shipped_seam(lab_repo) -> None:
+    """Labs 2 and 3 ship repaired; before a start that is nobody's work."""
+    import json
+
+    from scripts.lab_entry import START_COMMAND
+    from scripts.lab_state import status_line
+
+    assert status_line(1, repo=lab_repo) == "Lab 1: SOLVED"
+    assert status_line(2, repo=lab_repo) == "Lab 2: NOT STARTED"
+    record = lab_repo / ".local" / "lab-2" / "start.json"
+    record.parent.mkdir(parents=True)
+    record.write_text(json.dumps({"version": 1, "lab": 2, "steps": {}}))
+    assert status_line(2, repo=lab_repo) == (
+        f"Lab 2: START INTERRUPTED. Next: run {START_COMMAND[2]} again; it "
+        "finishes the missing step and keeps your edits."
+    )
+    set_lab_state(2, solved=False, repo=lab_repo)
+    record.write_text(
+        json.dumps({"version": 1, "lab": 2, "steps": {}, "completed_at": "now"})
+    )
+    assert status_line(2, repo=lab_repo) == "Lab 2: BROKEN"

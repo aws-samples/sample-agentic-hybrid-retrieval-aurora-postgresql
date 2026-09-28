@@ -112,7 +112,7 @@ def rpc(method: str, params: dict) -> dict:
 
 def call_tool(name: str, arguments: dict) -> dict:
     """Validate both the MCP result and the code version that produced it."""
-    from service.lab_validation_receipt import source_digest
+    from service.lab_validation_receipt import application_digest
 
     if name not in TOOL_NAMES:
         raise ValueError(f"Unknown Mosaic SQL tool: {name}")
@@ -139,7 +139,7 @@ def call_tool(name: str, arguments: dict) -> dict:
         raise AgentSetupError(
             "Gateway returned incomplete tool data. Next: run make verify-agent in Code Editor and share the message with your facilitator."
         ) from error
-    if envelope.get("source_sha256") != source_digest():
+    if envelope.get("application_sha256") != application_digest():
         raise AgentSetupError(
             "The deployed SQL tools differ from your workspace. Next: run make deploy-agent in Code Editor, then ask your question again."
         )
