@@ -754,3 +754,19 @@ signal_failure 17
     )
     assert result.returncode == 17
     assert marker.exists() is (curl_status == 0)
+
+
+def test_participant_owns_the_lab_record_directory(script: str) -> None:
+    """Root-run deployment steps create .local; the participant must own it.
+
+    Every lab start writes .local/lab-N as the participant. Chowning only
+    .local/agentcore left .local itself root-owned, and the first lab stopped
+    with a PermissionError on a fresh account.
+    """
+    last_root_step = script.rindex("scripts/deploy_agentcore.py connect-bootstrap")
+    chown = script.find(
+        'chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO/.local"\n'
+    )
+    check = script.find('sudo -u "$CODE_EDITOR_USER" -H test -w "$REPO/.local"')
+    assert last_root_step < chown < check
+    assert "deploy_agentcore.py" not in script[check:].split("\nchown", 1)[0]

@@ -1019,7 +1019,11 @@ sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" diff --check
 (cd "$REPO" && MOSAIC_RUNTIME_DATABASE_URL="$APP_DATABASE_URL" \
   .venv/bin/python scripts/deploy_agentcore.py stage-bootstrap)
 (cd "$REPO" && .venv/bin/python scripts/deploy_agentcore.py connect-bootstrap)
-chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO/.local/agentcore"
+# Those two steps run as root and create .local itself, not only its agentcore
+# record. Every lab start writes .local/lab-N as the participant, so a
+# root-owned .local stops the first lab with a PermissionError.
+chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO/.local"
+sudo -u "$CODE_EDITOR_USER" -H test -w "$REPO/.local"
 
 set -a
 source "$REPO/.env"
