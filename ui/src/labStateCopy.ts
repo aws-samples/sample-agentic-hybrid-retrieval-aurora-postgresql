@@ -70,6 +70,29 @@ export function isLabRepaired(state: LabStateFacts | null): boolean {
   return state.source_state === "solved" && state.database_state !== "stale";
 }
 
+/**
+ * What Aurora holds, said against the file it was applied from.
+ *
+ * `applied` only means Aurora runs the file's current SQL. With the fault still
+ * in the file that is the broken function, and "SQL repair applied" beside
+ * "Code needs repair" read as though the participant's fix were already in.
+ */
+const unrepairedDatabaseCopy: Partial<Record<LabDatabaseState, StateCopy>> = {
+  applied: {
+    label: "Aurora runs the unrepaired SQL",
+    description: "Aurora runs this lab's SQL as it is in your file, which still has the fault. Repair the marked block, then apply it.",
+  },
+  stale: {
+    label: "Aurora differs from your file",
+    description: "Aurora holds SQL that is not in your file. Repair the marked block, then apply your file.",
+  },
+};
+
+function databaseStateCopy(state: LabStateFacts): StateCopy {
+  const unrepaired = state.source_state === "broken" ? unrepairedDatabaseCopy[state.database_state] : undefined;
+  return unrepaired ?? databaseCopy[state.database_state];
+}
+
 /** A file repair, its installed SQL, and a behavioral proof are separate facts. */
 export function labStateCopy(state: LabStateFacts | null): StateCopy[] {
   const entry = state ? unentered(state) : null;
@@ -79,7 +102,7 @@ export function labStateCopy(state: LabStateFacts | null): StateCopy[] {
       label: "Code not checked",
       description: "The exercise-file status is unavailable. No repair verdict has been established.",
     },
-    state ? databaseCopy[state.database_state] : {
+    state ? databaseStateCopy(state) : {
       label: "Aurora not checked",
       description: "The installed-SQL status is unavailable. No database verdict has been established.",
     },

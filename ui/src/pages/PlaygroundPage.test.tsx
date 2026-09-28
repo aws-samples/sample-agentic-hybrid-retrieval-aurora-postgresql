@@ -456,3 +456,30 @@ it("says when the agent declined the search's first result, and reads the search
   expect(within(reads).getByText("words not in the saved record")).toBeTruthy();
   expect(within(screen.getByRole("region", { name: "Alex’s request" })).queryByRole("list", { name: /reads it as/ })).toBeNull();
 });
+
+// Shop's Lab 1 callout links here with the lab named. The page used to show a
+// plausible other headphone as its first result with no word that the listing
+// Alex meant was missing: the trap the lab teaches, sprung by the page itself.
+it("names Lab 1's missing target, its cause and the next step on a saved broken run", async () => {
+  const mission = mosaicLabManifest.missions.find((item) => item.id === "typo-recovery")!;
+  const absent = { rank: null, raw_score: null, rrf_contribution: null };
+  const other = {
+    ...showcaseCatalogPage({}, 0, 1).products[0],
+    ...mission.filters,
+    signals: { fts: absent, trigram: absent, semantic: { rank: 8, raw_score: 0.3, rrf_contribution: 0.0147 }, rrf_score: 0.0147, pre_rerank_rank: 8, pre_rerank_score: 0.0147, rerank_score: 0.4, rerank_rank: 1, final_rank: 1, score_semantics: "fixture" },
+  } as ProductSummary;
+  const broken: SearchResponse = {
+    search_event_id: firstSearchId, query: mission.query, normalized_query: mission.query,
+    applied_filters: { ...mission.filters }, results: [other],
+    diagnostics: { retrieval_profile: {}, candidate_counts: { fused_pool: 50, fts_in_pool: 0, trigram_in_pool: 0, semantic_in_pool: 50 } } as unknown as SearchResponse["diagnostics"],
+  };
+  vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(broken);
+  window.history.replaceState({}, "", `/labs/retrieval?q=${mission.query}&event=${firstSearchId}&example=typo-recovery`);
+  render(<PlaygroundPage />);
+  const verdict = await screen.findByRole("region", { name: "Workshop experiment state" });
+  expect(within(verdict).getByText(`The ${mission.target_display_name} is missing`)).toBeTruthy();
+  expect(verdict.textContent).toContain("returned no candidates");
+  expect(verdict.textContent).toContain("Next: in Code Editor, repair the LAB1 block");
+  const lead = screen.getByRole("region", { name: "First search result" });
+  expect(within(lead).getByText(`Not the listing Alex meant. Lab 1 is looking for the ${mission.target_display_name}.`)).toBeTruthy();
+});

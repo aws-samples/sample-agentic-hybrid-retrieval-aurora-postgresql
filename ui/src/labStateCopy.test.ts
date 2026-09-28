@@ -51,3 +51,16 @@ describe("a lab that has not started", () => {
       .toEqual(["Code repaired", "SQL repair applied"]);
   });
 });
+
+describe("a lab whose file still has the fault", () => {
+  // "SQL repair applied" beside "Code needs repair" read as though the fix
+  // were already in Aurora; it is the fault that is applied.
+  it("says Aurora runs the unrepaired SQL, never that a repair is applied", () => {
+    expect(labStateCopy(state("broken", "applied")).map((copy) => copy.label))
+      .toEqual(["Code needs repair", "Aurora runs the unrepaired SQL"]);
+    expect(labStateCopy(state("broken", "stale")).map((copy) => copy.label))
+      .toEqual(["Code needs repair", "Aurora differs from your file"]);
+    expect(labStateCopy(state("solved", "stale")).map((copy) => copy.label))
+      .toEqual(["Code repaired", "SQL repair not applied"]);
+  });
+});

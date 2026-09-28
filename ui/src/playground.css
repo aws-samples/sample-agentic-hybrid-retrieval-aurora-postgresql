@@ -521,6 +521,17 @@
   color: var(--danger);
 }
 
+.lab-page .labs-proof-next {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.lab-page .labs-proof-fix {
+  display: block;
+  color: var(--ink);
+  font-size: var(--labs-detail);
+}
+
 .lab-page .labs-proof-record {
   padding: 10px 12px;
   border: 0;

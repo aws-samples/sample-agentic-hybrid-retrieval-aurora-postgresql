@@ -29,10 +29,12 @@ const rank = (value: number | null | undefined) => (value == null ? null : `#${v
  * with how it got there in one line and the receipt one tap away. The search's
  * order is not the agent's recommendation, so the plate says which it is.
  */
-export function LeadResult({ product, imageSrc, verdict, onWhy }: {
+export function LeadResult({ product, imageSrc, verdict, missionNote, onWhy }: {
   product: ProductSummary;
   imageSrc?: string;
   verdict: AgentVerdict;
+  /** When a lab names its target: whether this is it. */
+  missionNote?: { text: string; missing: boolean };
   onWhy: () => void;
 }) {
   const signals = product.signals;
@@ -50,6 +52,7 @@ export function LeadResult({ product, imageSrc, verdict, onWhy }: {
       <span className="pg-lead-badge">{rank(signals?.final_rank) ? `Search result ${rank(signals?.final_rank)}` : "Search result"}</span>
       <h2>{pickName(product)}</h2>
       {path ? <p className="pg-lead-path">{path}</p> : null}
+      {missionNote ? <p className="pg-lead-verdict" data-verdict={missionNote.missing ? "declined" : "picked"}>{missionNote.text}</p> : null}
       {verdict ? <p className="pg-lead-verdict" data-verdict={verdict}>{VERDICT[verdict]}</p> : null}
       <p className="pg-lead-links">
         <button type="button" onClick={onWhy}>Why this position</button>

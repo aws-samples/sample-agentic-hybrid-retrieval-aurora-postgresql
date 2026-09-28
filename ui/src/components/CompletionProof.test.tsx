@@ -248,7 +248,7 @@ describe("CompletionProof", () => {
     expect(block.textContent).toContain("0 of 12 candidates entered through pg_trgm");
     // Only the checks that failed are expanded. A wall of green rows with
     // their falsifiers buries the one line the participant has to read.
-    expect(within(block).getByText("product 2 returned at rank 4").closest("details")?.open)
+    expect(within(block).getByText("Product 2 returned at rank 4").closest("details")?.open)
       .toBe(false);
     // Paired positive: lab 2 still passed, so a failure in one lab is not
     // reported as a failure of the block.
@@ -323,12 +323,44 @@ describe("CompletionProof", () => {
     const block = labBlock(1);
     expect(block.textContent).toContain(
       "The source file is repaired but the database still holds the old function."
-      + " Run uv run python scripts/apply_search_functions.py.",
+      + " Next: apply it with uv run python scripts/apply_search_functions.py, then prove this lab again.",
     );
     // Failure receipts remain inspectable without competing with the repair.
     expect(within(block).getByText("aa11bb22").closest("details")?.open).toBe(false);
     // Paired positive: lab 2 passed on the same press and keeps its receipt.
     expect(within(labBlock(2)).getByText("aa11bb22")).toBeTruthy();
+  });
+
+  // Lab 1's own fault, as the real checker reports it on a broken run. The
+  // chips used to read "SQL repair applied" beside "Code needs repair", with
+  // no line saying what to do.
+  it("tells a broken Lab 1 what is wrong and what to do next, then what each check found", async () => {
+    vi.mocked(api.labProof).mockImplementation(async (labId) =>
+      proofFixture(labId, labId === 1 ? {
+        status: "fail",
+        source_state: "broken",
+        database_state: "applied",
+        entry_state: "started",
+        checks: [{
+          name: "trigram candidate pool non-empty",
+          passed: false,
+          falsifier: "diagnostics.candidate_counts.trigram_in_pool is 0",
+          detail: "found diagnostics.candidate_counts.trigram_in_pool = 0; fix: restore the trigram CTE so mosaic_search.search_trigram contributes candidates",
+        }],
+      } : {}));
+    render(<CompletionProof activeLab={1} agentRunId={null} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof for Lab 1" }));
+
+    await waitFor(() => expect(labBlock(1).textContent).toContain("FAIL"));
+    const block = labBlock(1);
+    expect(within(block).getByText(
+      "db/sql/09_search_functions.sql still has Lab 1's fault. Next: repair the LAB1 block, apply it with uv run python scripts/apply_search_functions.py, then prove this lab again.",
+    )).toBeTruthy();
+    expect(block.textContent).toContain("Aurora runs the unrepaired SQL");
+    expect(block.textContent).not.toContain("SQL repair applied");
+    expect(within(block).getByText("Found diagnostics.candidate_counts.trigram_in_pool = 0")).toBeTruthy();
+    expect(within(block).getByText("Fix: restore the trigram CTE so mosaic_search.search_trigram contributes candidates")).toBeTruthy();
   });
 
   it("explains a Lab 1 failure under Lab 2's fault and keeps the earlier pass apart", async () => {

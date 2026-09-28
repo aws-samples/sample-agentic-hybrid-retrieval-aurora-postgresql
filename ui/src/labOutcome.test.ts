@@ -487,3 +487,47 @@ describe("lab outcome diagnostics", () => {
       .toBe("broken");
   });
 });
+
+// A participant reads the verdict before anything else, so it names the fact
+// that failed and the one next step, rather than one sentence for every cause.
+describe("Lab 1's broken verdict names its cause", () => {
+  const mission = coreMosaicLabs.find((item) => item.stage === "retrieve")!;
+  const other = (id: number) => {
+    const row = product(id, (rank) => 1 / (testFusionK + rank));
+    Object.assign(row, mission.filters);
+    row.signals!.trigram = { rank: null, raw_score: null, rrf_contribution: null };
+    return row;
+  };
+  const withPool = (result: ProductSummary, trigramPool: number) => {
+    const run = response(result);
+    run.diagnostics!.candidate_counts = { trigram_in_pool: trigramPool } as RetrievalDiagnostics["candidate_counts"];
+    return run;
+  };
+
+  it("says the target never reached the results when close spelling returned nothing", () => {
+    const outcome = retrievalLabOutcome(mission, withPool(other(2), 0));
+    expect(outcome.title).toBe(`The ${mission.target_display_name} is missing`);
+    expect(outcome.detail).toContain(`Alex typed ${mission.query}`);
+    expect(outcome.detail).toContain("returned no candidates");
+    expect(outcome.next).toBe(
+      `Next: in Code Editor, repair the LAB1 block in ${mission.participant_edit!.file}, apply it with uv run python scripts/apply_search_functions.py, then run this request again.`,
+    );
+  });
+
+  it("says close spelling ran but missed the target", () => {
+    const outcome = retrievalLabOutcome(mission, withPool(other(2), 3));
+    expect(outcome.title).toBe(`The ${mission.target_display_name} is missing`);
+    expect(outcome.detail).toBe(`Close spelling returned candidates, but the ${mission.target_display_name} is not among the results.`);
+  });
+
+  it("says the repair has not landed when the target arrives without a close-spelling rank", () => {
+    const outcome = retrievalLabOutcome(mission, withPool(other(mission.target_product_ids[0]), 3));
+    expect(outcome.title).toBe("The repair has not landed yet");
+  });
+
+  it("puts a filter breach ahead of the missing target", () => {
+    const row = other(2);
+    row.category_key = "chairs";
+    expect(retrievalLabOutcome(mission, withPool(row, 0)).title).toBe("A result breaks the request's filters");
+  });
+});

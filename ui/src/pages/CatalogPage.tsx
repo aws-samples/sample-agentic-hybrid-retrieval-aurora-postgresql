@@ -83,6 +83,7 @@ import type {
   SearchFilters,
   SearchResponse,
 } from "../types";
+import { APPLY_SQL } from "../participantCommands";
 
 const priceCeiling = 2000;
 const priceStep = 25;
@@ -1464,7 +1465,8 @@ export function CatalogPage() {
                   <p className="shop-lab-callout-edit">
                     Edit <code>{labCallout.mission.participant_edit!.file}</code>:
                     {" "}
-                    {labCallout.mission.participant_edit!.task}
+                    {labCallout.mission.participant_edit!.task} Then apply it with{" "}
+                    <code>{APPLY_SQL}</code> and search again.
                   </p>
                   <div className="shop-lab-callout-actions">
                     <CodeEditorLink href={codeEditorUrl} />

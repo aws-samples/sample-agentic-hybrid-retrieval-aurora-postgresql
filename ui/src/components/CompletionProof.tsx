@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { ApiError, api } from "../api";
 import { coreMosaicLabs } from "../labMissions";
 import { isLabRepaired, labStateCopy } from "../labStateCopy";
+import { APPLY_SQL, DEPLOY_AGENT } from "../participantCommands";
 import type { CompletionProofResponse } from "../types";
 import { shortEventId } from "./RunSummary";
 
@@ -108,16 +109,19 @@ function ProofEvidence({ proof }: { proof: CompletionProofResponse }) {
 }
 
 /**
- * Why a lab failed when none of its checks did, as the next thing to do.
+ * What is wrong with a failing lab and the next thing to do, in one line.
  *
  * `service/lab_proof.py` fails a lab whose source still holds the broken block
  * or whose database is stale *regardless* of the checks, so the taught
  * "repaired the file, never re-applied it" case arrives here as FAIL with
- * every check green and nothing under it to act on. `isLabRepaired` decides
- * repaired or not; this only adds which of the two causes to name.
+ * every check green. When checks did fail, the line points at the first of
+ * them, which says what it found and how to fix it. An interference note
+ * already explains itself, so it is not restated.
  */
-function failureReason(proof: CompletionProofResponse): string | null {
-  if (isLabRepaired(proof)) return null;
+function failureSummary(proof: CompletionProofResponse, failedChecks: number): string | null {
+  if (proof.status !== "fail" || proof.interference) return null;
+  const lab = proof.lab_id;
+  const file = coreMosaicLabs[lab - 1]?.participant_edit?.file;
   if (proof.entry_state === "not_started" || proof.entry_state === "incomplete") {
     return "This lab has not started. Run its start command in Code Editor, repair the"
       + " fault it installs, then prove this lab again.";
@@ -125,19 +129,36 @@ function failureReason(proof: CompletionProofResponse): string | null {
   if (proof.source_state === "broken") {
     // Named before the database: applying an unrepaired file installs the
     // broken function, so the file is the first thing to fix.
-    return "The source file still holds the broken block."
-      + " Apply the repair in Code Editor.";
+    return lab === 3
+      ? `Your agent in ${file ?? "labs/lab3/agent.py"} is still the starter. Next: assemble it, deploy with ${DEPLOY_AGENT}, run the agent in 03, then prove this lab again.`
+      : `${file ?? "The source file"} still has Lab ${lab}'s fault. Next: repair the LAB${lab} block, apply it with ${APPLY_SQL}, then prove this lab again.`;
   }
-  return "The source file is repaired but the database still holds the old"
-    + " function. Run uv run python scripts/apply_search_functions.py.";
+  if (!isLabRepaired(proof)) {
+    return "The source file is repaired but the database still holds the old function."
+      + ` Next: apply it with ${APPLY_SQL}, then prove this lab again.`;
+  }
+  if (failedChecks) {
+    return `Your repair is in place, but ${failedChecks} ${failedChecks === 1 ? "check still fails" : "checks still fail"}.`
+      + " Start with the first one below: it says what it found and how to fix it.";
+  }
+  return null;
+}
+
+/** A check's "found …; fix: …" detail as what it saw, then the remedy. */
+function CheckDetail({ detail }: { detail: string }) {
+  const [found, fix] = detail.split("; fix: ");
+  return (
+    <>
+      <b>{found.charAt(0).toUpperCase() + found.slice(1)}</b>
+      {fix ? <span className="labs-proof-fix">Fix: {fix}</span> : null}
+    </>
+  );
 }
 
 function ProofDetail({ proof }: { proof: CompletionProofResponse }) {
   const failed = proof.checks.filter((check) => !check.passed);
   const passed = proof.checks.filter((check) => check.passed);
-  const reason = proof.status === "fail" && !failed.length
-    ? failureReason(proof)
-    : null;
+  const reason = failureSummary(proof, failed.length);
   return (
     <>
       {/* Three facts, never one: the checks held, the file is repaired, and
@@ -152,7 +173,7 @@ function ProofDetail({ proof }: { proof: CompletionProofResponse }) {
         </span>
         <span>{proof.duration_ms} ms</span>
       </p>
-      {reason ? <p className="labs-proof-note">{reason}</p> : null}
+      {reason ? <p className="labs-proof-note labs-proof-next">{reason}</p> : null}
       {proof.interference ? <p className="labs-proof-note">{proof.interference}</p> : null}
       {/* The earlier pass is a record, set apart from this verdict and never
           counted in it: it is what the terminal saw before a later lab's
@@ -169,8 +190,8 @@ function ProofDetail({ proof }: { proof: CompletionProofResponse }) {
           {failed.map((check) => (
             <li key={check.name}>
               <code>{check.name}</code>
-              <b>{check.detail}</b>
-              <small>fails when: {check.falsifier}</small>
+              <CheckDetail detail={check.detail} />
+              <small>This check fails when {check.falsifier}</small>
             </li>
           ))}
         </ul>
@@ -182,8 +203,8 @@ function ProofDetail({ proof }: { proof: CompletionProofResponse }) {
             {passed.map((check) => (
               <li className="is-pass" key={check.name}>
                 <code>{check.name}</code>
-                <b>{check.detail}</b>
-                <small>fails when: {check.falsifier}</small>
+                <CheckDetail detail={check.detail} />
+                <small>This check fails when {check.falsifier}</small>
               </li>
             ))}
           </ul>

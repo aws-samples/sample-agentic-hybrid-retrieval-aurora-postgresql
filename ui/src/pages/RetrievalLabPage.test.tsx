@@ -1617,9 +1617,16 @@ describe("RetrievalLabPage", () => {
   });
 
   it("judges the scenario when the carried run used the scenario's own gates", async () => {
+    // Eligible headphones, as a real broken Lab 1 run returns: only the
+    // close-spelling channel is missing, so the verdict names that fault.
     vi.mocked(api.retrievalEventResponse).mockResolvedValue({
       ...shopResponse,
       applied_filters: { ...firstExample.filters },
+      results: shopResponse.results.map((product) => ({
+        ...product,
+        domain: firstExample.filters.domain as ProductSummary["domain"],
+        category_key: firstExample.filters.category_key as ProductSummary["category_key"],
+      })),
     });
     window.history.replaceState(
       {},
@@ -1631,7 +1638,10 @@ describe("RetrievalLabPage", () => {
     // The Shop run carries no trigram rank on the target, which is the defect
     // Lab 1 exists to show, so the verdict is the scenario's own.
     expect(await screen.findByText("Issue reproduced")).toBeTruthy();
-    expect(screen.getByText("Close-spelling search is still disconnected")).toBeTruthy();
+    // The verdict names what is missing, why, and the one next step.
+    expect(screen.getByText("The Bose QuietComfort 35 II is missing")).toBeTruthy();
+    expect(screen.getByText(/Close spelling is the only method that can match a mistyped ID, and it returned no candidates/)).toBeTruthy();
+    expect(screen.getByText(/^Next: in Code Editor, repair the LAB1 block in db\/sql\/09_search_functions\.sql, apply it with uv run python scripts\/apply_search_functions\.py/)).toBeTruthy();
     expect(screen.queryByText("Shop run loaded")).toBeNull();
   });
 

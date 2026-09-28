@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { api } from "../api";
 import { CodeBlock } from "../components/CodeBlock";
 import { KeepInMind } from "../components/KeepInMind";
+import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { MosaicRunButton } from "../components/MosaicRunButton";
@@ -18,7 +19,8 @@ import { MethodReads } from "../components/playground/MethodReads";
 import { ReturnedProducts } from "../components/playground/ReturnedProducts";
 import { MethodComparison, RetrievalPath, modelName, rerankStep, signedScore } from "../components/playground/RetrievalPath";
 import { formatPriceCompact } from "../format";
-import { mosaicLabManifest, pipelineRequests } from "../labMissions";
+import { coreMosaicLabs, mosaicLabManifest, pipelineRequests, type MosaicLabMission } from "../labMissions";
+import { retrievalLabOutcome, runMatchesMissionGates, type LabOutcome } from "../labOutcome";
 import { productImageMap } from "../media";
 import { forwardedSearchEvent, forwardedSearchFilters, useSearchParams } from "../navigation";
 import type { AgentCitation, AgentPartial, AgentResponse, ProductSummary, ReadinessResponse, ScorecardStageAblation, SearchFilters, SearchResponse, ToolTraceStep } from "../types";
@@ -276,12 +278,37 @@ function RequestStage({ selectedId, carried, question, context, notice, runButto
   </section>;
 }
 
+/**
+ * The lab's verdict on this run, when the link names a lab and the run is that
+ * lab's own request under its own gates. Shop's lab callouts link here, and a
+ * page of plausible results with no verdict was the trap the lab teaches.
+ */
+function missionOutcome(
+  mission: MosaicLabMission | undefined,
+  response: SearchResponse | undefined,
+  readiness: ReadinessResponse | null,
+): LabOutcome | null {
+  if (!mission || !response || (mission.stage !== "retrieve" && mission.stage !== "rank")) return null;
+  if (response.query !== mission.query || !runMatchesMissionGates(mission, response)) return null;
+  return retrievalLabOutcome(mission, response, readiness);
+}
+
+/** Whether the first result is the listing the lab is looking for. */
+function missionNote(mission: MosaicLabMission | undefined, first: ProductSummary) {
+  if (!mission?.target_display_name || !mission.target_product_ids.length) return undefined;
+  return mission.target_product_ids.includes(first.product_id)
+    ? { text: `This is the listing Alex meant: the ${mission.target_display_name}.`, missing: false }
+    : { text: `Not the listing Alex meant. Lab ${coreMosaicLabs.indexOf(mission) + 1} is looking for the ${mission.target_display_name}.`, missing: true };
+}
+
 /** Between the request and the result: a saved search's status, a stopped run, and which search is shown. */
-function RunNotes({ carried, started, running, error, receipts, selected, onRestore, onSelectSearch, labDetailsHref }: {
+function RunNotes({ carried, started, running, error, receipts, selected, onRestore, onSelectSearch, labDetailsHref, labOutcome }: {
   carried: boolean; started: boolean; running: boolean; error: string; receipts: PipelineReceipt[];
   selected?: PipelineReceipt; onRestore: () => void; onSelectSearch: (id: string) => void; labDetailsHref: string;
+  labOutcome: LabOutcome | null;
 }) {
   return <div className="pg-run-notes">
+    {labOutcome ? <LabOutcomeBanner outcome={labOutcome} /> : null}
     {carried ? <div className="inspector-saved-search pg-saved">
       <p>{started ? "This is a new run. Mosaic can change the search wording and choose different products." : "You’re viewing the saved Shop search. Starting a new run lets Mosaic search again; its picks may change."}</p>
       {started ? <button type="button" disabled={running} onClick={onRestore}>Back to saved Shop results <ArrowRight size={14} aria-hidden="true" /></button> : <Link className="inspector-lab-details-link" href={labDetailsHref}>Open lab details</Link>}
@@ -304,7 +331,7 @@ function useInspectorData() {
     void api.scorecard().then((value) => { if (active) setAblation(value.stage_ablation); }).catch(() => {});
     return () => { active = false; };
   }, []);
-  return { catalogCount: readiness?.database.product_count, ablation };
+  return { readiness, catalogCount: readiness?.database.product_count, ablation };
 }
 
 function PipelineInspector() {
@@ -315,7 +342,8 @@ function PipelineInspector() {
   const initialQuestion = params.get("q") || selectedRequest?.query || "";
   const filters = (params.has("q") ? forwardedSearchFilters(params) : selectedRequest?.filters ?? {}) as SearchFilters;
   const pipeline = usePipelineRun(`${requestKey}:${initialQuestion}`, carriedEvent);
-  const { catalogCount, ablation } = useInspectorData();
+  const { readiness, catalogCount, ablation } = useInspectorData();
+  const mission = coreMosaicLabs.find((item) => item.id === params.get("example"));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<Inspection, boolean>>(linkedInspection);
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
@@ -332,6 +360,7 @@ function PipelineInspector() {
   const products = response?.results ?? [];
   const images = productImageMap(products);
   const receiptProduct = products.find((product) => product.product_id === receiptId) ?? products[0];
+  const labOutcome = missionOutcome(mission, response, readiness);
   const verdict: AgentVerdict = !pipeline.completed || !pipeline.answer || !products[0] ? null
     : pipeline.answer.outcome === "declined" ? "declined"
       : pipeline.answer.recommendations.some((pick) => pick.product_id === products[0].product_id) ? "picked" : "not-picked";
@@ -361,8 +390,8 @@ function PipelineInspector() {
     <MosaicLabsTabs active="retrieval" />
     <RequestStage selectedId={selectedRequest?.id} carried={params.has("q") || Boolean(carriedEvent)} question={question} context={context} notice={!params.has("q") && !carriedEvent ? selectedRequest?.notice : undefined} runButton={runButton} onChoose={(id) => setParams(new URLSearchParams({ scene: id }))} />
     <p className="pg-run-status" role="status">{pipeline.reading ? "Reading the saved Shop search…" : pipeline.status || (carriedEvent ? "Saved Shop search" : "Ready to follow Alex’s request.")}</p>
-    <RunNotes carried={Boolean(carriedEvent)} started={pipeline.started} running={pipeline.running} error={pipeline.error} receipts={pipeline.receipts} selected={selected} onRestore={() => { reset(); setExpanded({ retrieve: false, rank: false, reason: false }); pipeline.restoreSavedSearch(); }} onSelectSearch={(id) => { setSelectedId(id); setHighlightedId(null); setReceiptId(null); }} labDetailsHref={`/labs/retrieval?${labDetailsParams}`} />
-    {products[0] ? <LeadResult product={products[0]} imageSrc={images.get(products[0].product_id)} verdict={verdict} onWhy={() => showReceipt(products[0].product_id)} /> : null}
+    <RunNotes carried={Boolean(carriedEvent)} started={pipeline.started} running={pipeline.running} error={pipeline.error} receipts={pipeline.receipts} selected={selected} onRestore={() => { reset(); setExpanded({ retrieve: false, rank: false, reason: false }); pipeline.restoreSavedSearch(); }} onSelectSearch={(id) => { setSelectedId(id); setHighlightedId(null); setReceiptId(null); }} labDetailsHref={`/labs/retrieval?${labDetailsParams}`} labOutcome={labOutcome} />
+    {products[0] ? <LeadResult product={products[0]} imageSrc={images.get(products[0].product_id)} verdict={verdict} missionNote={missionNote(mission, products[0])} onWhy={() => showReceipt(products[0].product_id)} /> : null}
     <StageSection stage="retrieve" state={columnState("retrieve")} title="Retrieve" heading="How it got here." lede="Filters decide what is eligible. Three methods find candidates, and fusion combines their positions." expanded={expanded.retrieve} onInspect={() => inspect("retrieve")} detailsLabel="Search details" details={<RetrieveDetails response={response} receipts={pipeline.receipts} selectedId={selected?.id} onSelect={(id) => { setSelectedId(id); setHighlightedId(null); setReceiptId(null); }} />}>
       <RetrievalPath response={response} catalogCount={catalogCount} eligible={eligible} />
       {!response && pipeline.error ? <p className="inspector-waiting">No search results are available from this run.</p> : null}

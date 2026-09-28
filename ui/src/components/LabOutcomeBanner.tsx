@@ -31,6 +31,7 @@ export function LabOutcomeBanner({ outcome }: { outcome: LabOutcome }) {
       <div className="lab-outcome-copy">
         <strong>{outcome.title}</strong>
         <p>{outcome.detail}</p>
+        {outcome.next ? <p className="lab-outcome-next">{outcome.next}</p> : null}
       </div>
     </section>
   );

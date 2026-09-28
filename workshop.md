@@ -294,10 +294,20 @@ check passing.
 
 The guided Playground shows **Not started** or **Start interrupted**, with the
 command to run, until a lab has started. After that it uses **Code needs repair**
-or **Code repaired** for the file and **SQL repair not applied** or **SQL repair
-applied** for Aurora. Lab 3 says **No SQL update required**. These describe the
-repair's installation; only the completion proof verifies its behavior, and a
-Lab 2 or 3 proof fails until that lab has started. An earlier passing terminal
+or **Code repaired** for the file. For Aurora it says **SQL repair applied** or
+**SQL repair not applied** once the file is repaired. While the file still has
+the fault it says **Aurora runs the unrepaired SQL** (or **Aurora differs from
+your file**), never that a repair is applied. Lab 3 says **No SQL update
+required**. These describe the repair's installation; only the completion proof
+verifies its behavior, and a Lab 2 or 3 proof fails until that lab has started.
+
+Every failure says what is wrong and what to do next. Lab 1's verdict names the
+missing Bose QuietComfort 35 II, why it is missing (for example, close spelling
+returned no candidates), and one step: repair the LAB1 block, apply it with
+`uv run python scripts/apply_search_functions.py`, and run the request again.
+Shop's callout, the Playground page it links to, the guided lab and the
+completion proof all say this. A failing proof leads with one plain line and
+shows each failed check as what it found, then its fix. An earlier passing terminal
 validation appears beside the state as a dated record, never as the verdict.
 While Lab 2's fault is installed, a fresh Lab 1 check fails even
 though Lab 1 is repaired; the proof says so and shows the earlier pass separately. The storefront header carries navigation,

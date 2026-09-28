@@ -120,3 +120,32 @@ def test_each_command_names_a_script_and_an_action_that_exist(command: str) -> N
                 assert word in usage.stdout, f"{command}: {word} is not an option"
             continue
         assert word in usage.stdout, f"{command}: {word} is not an action"
+
+
+UI_COMMANDS = ROOT / "ui" / "src" / "participantCommands.ts"
+
+
+def ui_commands(text: str) -> dict[str, str]:
+    """The UI's copies, read from its constants and its validate template."""
+    found = dict(re.findall(r'export const (\w+) = "([^"]+)";', text))
+    template = re.search(r"return `([^`]+)\$\{lab\}`;", text)
+    if template:
+        found["validate"] = template.group(1) + "{lab}"
+    return found
+
+
+def test_the_ui_prints_the_same_commands_as_the_service() -> None:
+    ui = ui_commands(UI_COMMANDS.read_text())
+    assert ui == {
+        "APPLY_SQL": commands.APPLY_SQL,
+        "DEPLOY_AGENT": commands.DEPLOY_AGENT,
+        "validate": commands.validate(1).removesuffix("1") + "{lab}",
+    }, (
+        f"Participant command rule: {UI_COMMANDS.relative_to(ROOT)} holds {ui}; "
+        "fix: copy the strings from service/participant_commands.py exactly."
+    )
+
+
+def test_the_ui_command_gate_sees_a_drifted_command() -> None:
+    drifted = UI_COMMANDS.read_text().replace("apply_search_functions.py", "apply_sql.py")
+    assert ui_commands(drifted)["APPLY_SQL"] != commands.APPLY_SQL

@@ -219,6 +219,28 @@
   text-align: center;
 }
 
+.pg-run-notes .lab-outcome {
+  margin: 0 0 18px;
+  padding: 18px 22px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--paper-warm);
+  text-align: left;
+}
+
+.pg-run-notes .lab-outcome-status > span:last-child {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.pg-run-notes .lab-outcome-next {
+  color: var(--ink);
+  font-weight: 500;
+}
+
 .pg-run-notes .inspector-error {
   border-color: var(--danger-line);
   background: var(--danger-soft);

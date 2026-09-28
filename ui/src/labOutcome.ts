@@ -1,4 +1,5 @@
-import type { MosaicLabMission } from "./labMissions";
+import { coreMosaicLabs, type MosaicLabMission } from "./labMissions";
+import { APPLY_SQL } from "./participantCommands";
 import { FORWARDABLE_FILTER_KEYS } from "./navigation";
 import { armIndexName, requiredArms } from "./retrievalLanguage";
 import type {
@@ -25,6 +26,8 @@ export interface LabOutcome {
   label: string;
   title: string;
   detail: string;
+  /** The one thing to do next, for a fault the participant repairs. */
+  next?: string;
 }
 
 function matchesFilters(product: ProductSummary, filters: SearchFilters) {
@@ -173,10 +176,56 @@ function readyOutcome(mission: MosaicLabMission): LabOutcome {
   };
 }
 
+/** What a Lab 1 run showed, so its verdict can name the fact that failed. */
+export interface RetrieveFacts {
+  targetsPresent: boolean;
+  targetRecovered: boolean;
+  trigramPool: number;
+  eligible: boolean;
+}
+
+/** "Next: …", naming the lab's own block, its file, and the apply command. */
+export function labRepairStep(mission: MosaicLabMission, rerun: string): string | undefined {
+  const edit = mission.participant_edit;
+  if (!edit) return undefined;
+  const lab = coreMosaicLabs.indexOf(mission) + 1;
+  return `Next: in Code Editor, repair the LAB${lab} block in ${edit.file}, apply it with ${APPLY_SQL}, then ${rerun}.`;
+}
+
+function retrieveFaultCopy(
+  mission: MosaicLabMission,
+  facts: RetrieveFacts,
+): Pick<LabOutcome, "title" | "detail"> {
+  const target = mission.target_display_name ?? "intended product";
+  if (!facts.eligible) {
+    return {
+      title: "A result breaks the request's filters",
+      detail: "At least one returned product is outside the request's filters, so this run cannot show that the repair works.",
+    };
+  }
+  if (facts.trigramPool === 0) {
+    return {
+      title: `The ${target} is missing`,
+      detail: `Alex typed ${mission.query}. Close spelling is the only method that can match a mistyped ID, and it returned no candidates, so the ${target} never reached the results. Reranking cannot bring back a product that was never retrieved.`,
+    };
+  }
+  if (!facts.targetsPresent) {
+    return {
+      title: `The ${target} is missing`,
+      detail: `Close spelling returned candidates, but the ${target} is not among the results.`,
+    };
+  }
+  return {
+    title: "The repair has not landed yet",
+    detail: `The ${target} came back without a close-spelling rank, so this run does not show that close spelling found it.`,
+  };
+}
+
 function participantCopy(
   mission: MosaicLabMission,
   fixed: boolean,
-): Pick<LabOutcome, "label" | "title" | "detail"> {
+  facts?: RetrieveFacts,
+): Pick<LabOutcome, "label" | "title" | "detail" | "next"> {
   if (mission.stage === "retrieve") {
     return fixed
       ? {
@@ -187,9 +236,13 @@ function participantCopy(
         }
       : {
           label: "Issue reproduced",
-          title: "Close-spelling search is still disconnected",
-          detail:
-            "The request completed, but the target has no trigram contribution in the fused pool.",
+          ...(facts
+            ? retrieveFaultCopy(mission, facts)
+            : {
+                title: "Close-spelling search is still disconnected",
+                detail: "The request completed, but the target has no trigram contribution in the fused pool.",
+              }),
+          next: labRepairStep(mission, "run this request again"),
         };
   }
   if (mission.stage === "rank") {
@@ -205,6 +258,7 @@ function participantCopy(
           title: "Combining scores ignores each search position",
           detail:
             "The final order looks plausible, but the combined order ignores the positions from each search method.",
+          next: labRepairStep(mission, "run this request again"),
         };
   }
   if (mission.stage === "reason") {
@@ -234,10 +288,11 @@ function participantCopy(
 function participantOutcome(
   mission: MosaicLabMission,
   fixed: boolean,
+  facts?: RetrieveFacts,
 ): LabOutcome {
   return {
     tone: fixed ? "fixed" : "broken",
-    ...participantCopy(mission, fixed),
+    ...participantCopy(mission, fixed, facts),
   };
 }
 
@@ -272,6 +327,7 @@ export function retrievalLabOutcome(
     return participantOutcome(
       mission,
       targetsPresent && targetRecovered && trigramPool > 0 && eligible,
+      { targetsPresent, targetRecovered, trigramPool, eligible },
     );
   }
 

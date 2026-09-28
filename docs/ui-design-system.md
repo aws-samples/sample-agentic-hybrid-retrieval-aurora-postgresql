@@ -377,7 +377,11 @@ invitation is a `--paper-warm` tile with no top rule.
 - The site header contains navigation, Code Editor when configured, Alex's
   portrait, the theme toggle, and the bag. Repair status belongs to the guided
   Playground rail and completion proof, whose labels distinguish “Code
-  repaired” from “SQL repair applied”.
+  repaired” from “SQL repair applied”. While the file still has the fault the
+  Aurora label reads “Aurora runs the unrepaired SQL”
+  (`labStateCopy.ts`), because “applied” there is the fault. Lab outcomes
+  carry a `next` step, and UI command strings come from `participantCommands.ts`,
+  which `tests/test_participant_commands.py` holds to the service's copies.
 - The guided lab's rail is sticky under the header and condenses once it
   sticks. Its four stages are a segmented control with a stage-coloured dot
   each; the current stage is the raised segment. `LabRail` reads the stuck state from an `IntersectionObserver`,
