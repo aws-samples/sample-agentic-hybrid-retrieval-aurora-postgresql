@@ -74,8 +74,12 @@ from scripts.evaluate import evaluate, load_judgments
 from scripts.retrieval_profile import explain
 from scripts.run_eval import require_single_served_catalog
 from scripts.score_evals import (
+    QUERY_VECTORS_PATH,
+    load_query_vectors,
+    pin_query_vectors,
     product_retrieval_queries,
     query_set_sha256,
+    query_vectors_sha256,
     ranked_result_sha256,
     scored_query_set_sha256,
 )
@@ -725,6 +729,16 @@ def measured_ablation() -> dict[str, Any]:
     )
 
     retrieval = get_retrieval_service()
+    query_vectors = load_query_vectors(QUERY_VECTORS_PATH)
+    if query_vectors_sha256(query_vectors) != committed_scorecard.get(
+        "query_vectors_sha256"
+    ):
+        raise ValueError(
+            "Ablation vector rule: the committed query vectors are not the ones "
+            "the scorecard was measured with; fix: re-measure the scorecard with "
+            "--write-baseline, then rerun the ablation."
+        )
+    pin_query_vectors(retrieval, queries, query_vectors, settings)
     lexical_result = _arm_metrics(lexical_only_arm(retrieval, queries), truth)
     trigram_result = _arm_metrics(trigram_only_arm(retrieval, queries), truth)
     semantic_ranked = semantic_only_arm(retrieval, queries)

@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import csv
 import hashlib
 import json
 import re
+import struct
 import subprocess
 import sys
 import time
@@ -28,7 +30,7 @@ from scripts.run_eval import require_single_served_catalog, validate_query_contr
 from service.config import get_settings
 from service.db import connect
 from service.models import SearchFilters, SearchRequest
-from service.retrieval import get_retrieval_service
+from service.retrieval import get_retrieval_service, normalize_query
 from service.retrieval_fingerprint import (
     compute_live_retrieval_settings_sha256,
     compute_retrieval_fingerprint,
@@ -41,11 +43,15 @@ SCORECARD_DB_RETRY_DELAYS = (1.0, 2.0)
 CANONICAL_SCORECARD_PATH = "data/evals/canonical_scorecard.json"
 CANONICAL_RANKED_RESULTS_PATH = "data/evals/canonical_ranked_results.csv"
 CANONICAL_STAGE_ABLATION_PATH = "data/evals/canonical_stage_ablation.json"
+CANONICAL_QUERY_VECTORS_PATH = "data/evals/canonical_query_vectors.json"
 POST_MEASUREMENT_ARTIFACT_PATHS = {
     CANONICAL_SCORECARD_PATH,
     CANONICAL_RANKED_RESULTS_PATH,
     CANONICAL_STAGE_ABLATION_PATH,
+    CANONICAL_QUERY_VECTORS_PATH,
 }
+QUERY_VECTOR_ENCODING = "base64 little-endian float32"
+QUERY_VECTORS_PATH = REPO / CANONICAL_QUERY_VECTORS_PATH
 RESULT_FIELDNAMES = (
     "query_id",
     "product_id",
@@ -169,6 +175,107 @@ def ranked_result_sha256(ranked: dict[str, list[tuple[int, int]]]) -> str:
     }
     payload = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def encode_query_vector(vector: Sequence[float]) -> str:
+    """Pack one vector the way `esci_query_vectors.json` stores its vectors."""
+    return base64.b64encode(struct.pack(f"<{len(vector)}f", *vector)).decode("ascii")
+
+
+def decode_query_vector(encoded: str, dimensions: int) -> tuple[float, ...]:
+    """Unpack one recorded vector, refusing one of the wrong length."""
+    raw = base64.b64decode(encoded)
+    if len(raw) != 4 * dimensions:
+        raise ValueError(
+            f"Pinned query vector rule: a recorded vector holds {len(raw) // 4} "
+            f"dimensions, expected {dimensions}; fix: re-measure the baseline "
+            "with --write-baseline."
+        )
+    return struct.unpack(f"<{dimensions}f", raw)
+
+
+def record_query_vectors(
+    retrieval: Any,
+    queries: list[dict[str, Any]],
+    settings: Any,
+) -> dict[str, Any]:
+    """Embed each scored query once, for a new baseline to be measured with.
+
+    Bedrock returns a slightly different vector for the same text on each call:
+    four calls for `B07G95T3JP` agreed only to cosine 0.995 on 2026-09-28. That
+    moved products at the edge of the fused pool between runs, so a baseline and
+    every later check search with one recorded vector per query.
+    """
+    normalized = {
+        query["query_id"]: normalize_query(query["query"]) for query in queries
+    }
+    return {
+        "embedding_model_id": settings.embedding_model_id,
+        "dimensions": settings.embedding_dimensions,
+        "encoding": QUERY_VECTOR_ENCODING,
+        "normalized_queries": normalized,
+        "vectors": {
+            query_id: encode_query_vector(retrieval.embed_query(text))
+            for query_id, text in normalized.items()
+        },
+    }
+
+
+def load_query_vectors(path: Path = QUERY_VECTORS_PATH) -> dict[str, Any]:
+    """Read the vectors the committed baseline was measured with."""
+    if not path.exists():
+        raise ValueError(
+            f"Pinned query vector rule: {path} is missing; fix: re-measure the "
+            "baseline with --write-baseline, which records it."
+        )
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def query_vectors_sha256(pinned: dict[str, Any]) -> str:
+    """Identify the recorded vectors a scorecard was measured with."""
+    payload = json.dumps(pinned, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def pin_query_vectors(
+    retrieval: Any,
+    queries: list[dict[str, Any]],
+    pinned: dict[str, Any],
+    settings: Any,
+) -> None:
+    """Serve every scored query with its recorded vector."""
+    recorded = (
+        pinned.get("embedding_model_id"),
+        pinned.get("dimensions"),
+        pinned.get("encoding"),
+    )
+    served = (
+        settings.embedding_model_id,
+        settings.embedding_dimensions,
+        QUERY_VECTOR_ENCODING,
+    )
+    if recorded != served:
+        raise ValueError(
+            f"Pinned query vector rule: vectors were recorded as {recorded!r} but "
+            f"the service embeds as {served!r}; fix: re-measure the baseline with "
+            "--write-baseline."
+        )
+    for query in queries:
+        query_id = query["query_id"]
+        text = normalize_query(query["query"])
+        encoded = pinned.get("vectors", {}).get(query_id)
+        if (
+            encoded is None
+            or pinned.get("normalized_queries", {}).get(query_id) != text
+        ):
+            raise ValueError(
+                f"Pinned query vector rule: {query_id} has no recorded vector for "
+                f"{text!r}; fix: review the query change, then re-measure the "
+                "baseline with --write-baseline."
+            )
+        retrieval.prime_query_embedding(
+            text, decode_query_vector(encoded, settings.embedding_dimensions)
+        )
 
 
 def validate_hard_negatives(
@@ -507,7 +614,17 @@ def _write_results(
         writer.writeheader()
         for query in queries:
             writer.writerows(rows[query["query_id"]])
-    _write_ranked_results(RANKED_RESULTS_PATH, queries, rows)
+
+
+def _read_results(
+    path: Path,
+) -> tuple[list[dict[str, Any]], dict[str, list[dict[str, Any]]]]:
+    """Read one run's full results back, in the order they were written."""
+    rows: dict[str, list[dict[str, Any]]] = {}
+    with path.open(newline="", encoding="utf-8") as source:
+        for row in csv.DictReader(source):
+            rows.setdefault(row["query_id"], []).append(row)
+    return [{"query_id": query_id} for query_id in rows], rows
 
 
 def _write_ranked_results(
@@ -610,8 +727,20 @@ def measured_scorecard(
     results_path: Path,
     *,
     k: int,
-) -> dict[str, Any]:
-    """Run the production retrieval and reranking service for every query."""
+    query_vectors: dict[str, Any] | None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Run the production retrieval and reranking service for every query.
+
+    Args:
+        queries_path: The canonical query set.
+        results_path: Where this run's full served results are written.
+        k: The evaluation window.
+        query_vectors: The recorded vectors to search with; None embeds each
+            query afresh, which only a new baseline may do.
+
+    Returns:
+        The measured scorecard and the query vectors it was measured with.
+    """
     canonical_queries = load_evaluation_queries(queries_path)
     queries, excluded_agent_contract_queries = product_retrieval_queries(
         canonical_queries
@@ -636,6 +765,9 @@ def measured_scorecard(
         )
 
     retrieval = get_retrieval_service()
+    if query_vectors is None:
+        query_vectors = record_query_vectors(retrieval, queries, settings)
+    pin_query_vectors(retrieval, queries, query_vectors, settings)
     profile = retrieval._profile(SearchRequest(query="scorecard provenance", limit=k))
     strategy = retrieval._strategy()
     checkpoint_identity = _checkpoint_identity(
@@ -665,7 +797,7 @@ def measured_scorecard(
         k,
     )
     per_query_metrics = label_per_query_metrics(metrics["per_query"], canonical_queries)
-    return {
+    measured = {
         "query_set": str(queries_path),
         "query_set_sha256": query_set_sha256(queries_path),
         "scored_query_set_sha256": scored_query_set_sha256(queries),
@@ -680,6 +812,7 @@ def measured_scorecard(
         "excluded_agent_contract_queries": excluded_agent_contract_queries,
         "deterministic_release_checks": release_checks,
         "ranked_result_sha256": ranked_result_sha256(ranked),
+        "query_vectors_sha256": query_vectors_sha256(query_vectors),
         "per_query_metrics": per_query_metrics,
         "k": k,
         "models": {
@@ -729,6 +862,7 @@ def measured_scorecard(
             f"ndcg@{k}": metrics[f"ndcg@{k}"],
         },
     }
+    return measured, query_vectors
 
 
 def verify_scorecard(measured: dict[str, Any], baseline: dict[str, Any]) -> None:
@@ -742,6 +876,7 @@ def verify_scorecard(measured: dict[str, Any], baseline: dict[str, Any]) -> None
         "excluded_agent_contract_queries",
         "deterministic_release_checks",
         "ranked_result_sha256",
+        "query_vectors_sha256",
         "k",
         "models",
         "dataset_manifest_sha256",
@@ -836,7 +971,12 @@ def main() -> None:
     checkpoint_path = scorecard_checkpoint_path(args.results)
     if args.restart:
         checkpoint_path.unlink(missing_ok=True)
-    measured = measured_scorecard(args.queries, args.results, k=args.k)
+    measured, query_vectors = measured_scorecard(
+        args.queries,
+        args.results,
+        k=args.k,
+        query_vectors=None if args.write_baseline else load_query_vectors(),
+    )
     if args.write_baseline:
         if measured["source"]["worktree_dirty"]:
             raise SystemExit(
@@ -848,6 +988,11 @@ def main() -> None:
             json.dumps(measured, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+        QUERY_VECTORS_PATH.write_text(
+            json.dumps(query_vectors, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        _write_ranked_results(RANKED_RESULTS_PATH, *_read_results(args.results))
         print(f"Wrote measured baseline {args.scorecard}")
         checkpoint_path.unlink(missing_ok=True)
         return

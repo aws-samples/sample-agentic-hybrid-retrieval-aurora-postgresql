@@ -195,6 +195,17 @@ class RetrievalService:
         """Embed one normalized query through the production retrieval provider."""
         return list(self._embed_query(normalize_query(query)))
 
+    def prime_query_embedding(self, query: str, vector: tuple[float, ...]) -> None:
+        """Serve `query` with a recorded vector instead of a fresh embedding.
+
+        A release measurement and its later checks must search with the same
+        vector, or a product at the edge of the fused pool can move between
+        runs while every retrieval input stays the same.
+        """
+        normalized = normalize_query(query)
+        self._query_embedding_cache[normalized] = vector
+        self._query_embedding_cache.move_to_end(normalized)
+
     def _profile(self, request: SearchRequest) -> RetrievalProfile:
         settings = self.settings
         return RetrievalProfile(

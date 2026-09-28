@@ -7,14 +7,20 @@ import psycopg
 import pytest
 
 from scripts.score_evals import (
+    _read_results,
     _scorecard_only_revision_delta,
     _write_ranked_results,
+    _write_results,
     concept_label,
+    decode_query_vector,
+    encode_query_vector,
     label_per_query_metrics,
     measured_scorecard,
+    pin_query_vectors,
     product_retrieval_queries,
     query_set_sha256,
     ranked_result_sha256,
+    record_query_vectors,
     run_scored_queries,
     search_with_db_retry,
     validate_hard_negatives,
@@ -22,6 +28,7 @@ from scripts.score_evals import (
     verify_scorecard,
 )
 from service.models import SearchRequest
+from service.retrieval import RetrievalService
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -68,6 +75,7 @@ def scorecard(*, recall=0.8, mrr=0.7, ndcg=0.75):
         "excluded_agent_contract_queries": ["G-021"],
         "deterministic_release_checks": [],
         "ranked_result_sha256": "ranked-result-set",
+        "query_vectors_sha256": "query-vectors",
         "k": 10,
         "models": {
             "embedding": "us.cohere.embed-v4:0",
@@ -153,6 +161,9 @@ def test_committed_scorecard_keeps_per_query_and_ranked_result_provenance():
         ("database_instance_id", "different-writer"),
         ("strategy", "weighted_rrf_fusion+rerank+exact_sku_preservation"),
         ("ranked_result_sha256", "changed"),
+        # A fresh embedding moves products at the fused pool's edge, so a
+        # check searching with other vectors is not comparable to the baseline.
+        ("query_vectors_sha256", "changed"),
     ],
 )
 def test_scorecard_refuses_unreviewed_provenance_drift(field, value):
@@ -238,6 +249,7 @@ def test_scorecard_rejects_invalid_source_before_aurora_work(
             ROOT / "data" / "evals" / "canonical_queries.jsonl",
             tmp_path / "results.csv",
             k=10,
+            query_vectors=None,
         )
 
 
@@ -265,6 +277,7 @@ def test_scorecard_requires_instance_class_before_aurora_work(
             ROOT / "data" / "evals" / "canonical_queries.jsonl",
             tmp_path / "results.csv",
             k=10,
+            query_vectors=None,
         )
 
 
@@ -663,3 +676,73 @@ def test_hard_negative_gate_ignores_a_query_that_declares_none():
     validate_hard_negatives(
         [{"query_id": "G-999", "hard_negative_ids": []}], {"G-999": [(1, 1)]}
     )
+
+
+class _RecordingEmbedder:
+    def __init__(self, vector: list[float]) -> None:
+        self.vector = vector
+        self.calls: list[str] = []
+
+    def embed_query(self, text: str) -> list[float]:
+        self.calls.append(text)
+        return self.vector
+
+
+_PIN_SETTINGS = SimpleNamespace(embedding_model_id="test-embed", embedding_dimensions=2)
+_PIN_QUERIES = [{"query_id": "G-1", "query": "Boze  QuietComfrot"}]
+
+
+def test_pinned_vectors_replace_a_fresh_embedding_with_the_recorded_one():
+    recorded = record_query_vectors(
+        RetrievalService(embedding_provider=_RecordingEmbedder([0.5, 0.25])),
+        _PIN_QUERIES,
+        _PIN_SETTINGS,
+    )
+    later = _RecordingEmbedder([0.9, 0.1])
+    retrieval = RetrievalService(embedding_provider=later)
+
+    pin_query_vectors(retrieval, _PIN_QUERIES, recorded, _PIN_SETTINGS)
+
+    assert retrieval.embed_query("Boze  QuietComfrot") == [0.5, 0.25]
+    assert later.calls == []
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("embedding_model_id", "another-embed", "recorded as"),
+        ("dimensions", 3, "recorded as"),
+        ("normalized_queries", {"G-1": "a different request"}, "no recorded vector"),
+        ("vectors", {}, "no recorded vector"),
+    ],
+)
+def test_pinned_vectors_refuse_a_recording_that_does_not_match(field, value, message):
+    recorded = record_query_vectors(
+        RetrievalService(embedding_provider=_RecordingEmbedder([0.5, 0.25])),
+        _PIN_QUERIES,
+        _PIN_SETTINGS,
+    )
+    recorded[field] = value
+    retrieval = RetrievalService(embedding_provider=_RecordingEmbedder([0.9, 0.1]))
+
+    with pytest.raises(ValueError, match=message):
+        pin_query_vectors(retrieval, _PIN_QUERIES, recorded, _PIN_SETTINGS)
+
+
+def test_a_recorded_vector_of_the_wrong_length_is_refused():
+    with pytest.raises(ValueError, match="holds 3 dimensions, expected 2"):
+        decode_query_vector(encode_query_vector([0.1, 0.2, 0.3]), 2)
+
+
+def test_full_results_read_back_in_written_order(tmp_path):
+    path = tmp_path / "results.csv"
+    rows = {
+        "G-2": [{"query_id": "G-2", "product_id": 9, "rank": 1}],
+        "G-1": [{"query_id": "G-1", "product_id": 7, "rank": 1}],
+    }
+    _write_results(path, [{"query_id": "G-2"}, {"query_id": "G-1"}], rows)
+    ranked = tmp_path / "ranked.csv"
+
+    _write_ranked_results(ranked, *_read_results(path))
+
+    assert ranked.read_text() == "query_id,product_id,rank\nG-2,9,1\nG-1,7,1\n"

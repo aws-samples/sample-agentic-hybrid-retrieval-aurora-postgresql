@@ -17,6 +17,7 @@ import csv
 import json
 import re
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Self
 
 import pytest
@@ -42,7 +43,11 @@ from scripts.ablation_evals import (
     trigram_only_arm,
 )
 from scripts.evaluate import evaluate
-from scripts.score_evals import ranked_result_sha256
+from scripts.score_evals import (
+    query_vectors_sha256,
+    ranked_result_sha256,
+    record_query_vectors,
+)
 from service.retrieval import RetrievalService
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -507,6 +512,18 @@ def ablation_environment(tmp_path, monkeypatch):
 
     truth = {"G-Q1": {101: 3}, "G-Q2": {201: 2}}
     served_ranked = {"G-Q1": [(1, 101)], "G-Q2": [(1, 201)]}
+    settings = SimpleNamespace(
+        source_worktree_dirty=False,
+        source_revision="c" * 40,
+        embedding_model_id="test-embed",
+        embedding_dimensions=4,
+        rerank_model_id="test-rerank",
+    )
+    query_vectors = record_query_vectors(
+        RetrievalService(embedding_provider=CountingEmbedder()), _QUERIES, settings
+    )
+    vectors_path = tmp_path / "query_vectors.json"
+    vectors_path.write_text(json.dumps(query_vectors), encoding="utf-8")
     committed_metrics = evaluate(truth, served_ranked, 10)
     scorecard_path = tmp_path / "scorecard.json"
     scorecard_path.write_text(
@@ -531,6 +548,7 @@ def ablation_environment(tmp_path, monkeypatch):
                 # scorecard missing either must raise, not silently skip the
                 # strongest check the assertion has.
                 "ranked_result_sha256": ranked_result_sha256(served_ranked),
+                "query_vectors_sha256": query_vectors_sha256(query_vectors),
                 "per_query_metrics": [
                     {"query_id": row["query_id"], "ndcg@10": row["ndcg@10"]}
                     for row in committed_metrics["per_query"]
@@ -572,26 +590,20 @@ def ablation_environment(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "scripts.ablation_evals.CANONICAL_SCORECARD_PATH", scorecard_path
     )
-    monkeypatch.setattr(
-        "scripts.ablation_evals.get_settings",
-        lambda: type(
-            "FakeSettings",
-            (),
-            {
-                "source_worktree_dirty": False,
-                "source_revision": "c" * 40,
-                "embedding_model_id": "test-embed",
-                "rerank_model_id": "test-rerank",
-            },
-        )(),
-    )
+    monkeypatch.setattr("scripts.ablation_evals.QUERY_VECTORS_PATH", vectors_path)
+    monkeypatch.setattr("scripts.ablation_evals.get_settings", lambda: settings)
     monkeypatch.setattr(
         "scripts.ablation_evals.get_retrieval_service", lambda: retrieval
     )
     monkeypatch.setattr(
         "scripts.ablation_evals.compute_retrieval_fingerprint", lambda: "b" * 64
     )
-    return {"truth": truth, "scorecard_path": scorecard_path}
+    return {
+        "truth": truth,
+        "scorecard_path": scorecard_path,
+        "vectors_path": vectors_path,
+        "embedder": retrieval.embedding_provider,
+    }
 
 
 def test_measured_ablation_assembles_all_five_arms_and_the_ceiling(
@@ -779,3 +791,23 @@ def test_single_arms_read_the_served_search_schema(monkeypatch):
     semantic_only_arm(retrieval, _QUERIES)
 
     assert connection.schemas == {"mosaic_live_search"}
+
+
+def test_measured_ablation_searches_with_the_scorecards_vectors(ablation_environment):
+    embedder = ablation_environment["embedder"]
+
+    measured_ablation()
+
+    assert embedder.calls == []
+
+
+def test_measured_ablation_refuses_vectors_the_scorecard_was_not_measured_with(
+    ablation_environment,
+):
+    vectors_path = ablation_environment["vectors_path"]
+    vectors = json.loads(vectors_path.read_text(encoding="utf-8"))
+    vectors["embedding_model_id"] = "another-embed"
+    vectors_path.write_text(json.dumps(vectors), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Ablation vector rule"):
+        measured_ablation()
