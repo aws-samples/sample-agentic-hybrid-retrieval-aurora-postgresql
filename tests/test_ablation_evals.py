@@ -37,6 +37,7 @@ from scripts.ablation_evals import (
     relevant_ids,
     rrf_fused_arm,
     semantic_only_arm,
+    spread_note,
     trigram_only_arm,
 )
 from scripts.evaluate import evaluate
@@ -746,3 +747,11 @@ def test_committed_stage_ablation_reproduces_the_scorecard_and_the_fingerprint()
         artifact["candidate_recall_ceiling"]["pool_recall_ceiling"],
         {arm: artifact["arms"][arm]["recall@10"] for arm in CEILING_BOUNDED_ARMS},
     )
+
+
+def test_spread_note_counts_the_population_it_qualifies():
+    # A literal "20 queries and 74 judgments" outlived the population it
+    # described once the scored set changed.
+    queries = [{"judgments": [{}, {}, {}]}, {"judgments": [{}]}]
+
+    assert spread_note(queries).startswith("2 queries and 4 judgments cannot separate")

@@ -140,26 +140,30 @@ ARM_DESCRIPTIONS: dict[str, str] = {
 
 FULL_GIT_SHA = re.compile(r"[0-9a-f]{40}")
 
-#: Owner-specified honesty framing for the UI. Carried on the artifact itself,
-#: not typed fresh into the UI, so the caveat travels with the numbers it
-#: qualifies rather than living only in a component that could drift from the
-#: measurement it describes.
-#:
-#: It used to tell the reader to compare a mean *difference* against each arm's
-#: own per-query standard deviation. That is not a test: the arms answer the
-#: same searches, so they are paired, and each arm's own spread is dominated by
-#: how much query difficulty varies rather than by which arm won. The right
-#: spread is the spread of the per-search differences, which
-#: `service.scorecard._paired_comparisons` computes and serves.
-SPREAD_NOTE = (
-    "20 queries and 74 judgments cannot separate small differences between "
-    "these paths. Every path answers the same searches, so read each step as "
-    "the difference on each search rather than as two separate averages: the "
-    "comparison below reports that difference, the spread of the differences, "
-    "and how many searches each step won and lost. A step whose average "
-    "difference is smaller than that spread is one this query set cannot tell "
-    "apart from no change."
-)
+
+# Owner-specified honesty framing for the UI. Carried on the artifact itself,
+# not typed fresh into the UI, so the caveat travels with the numbers it
+# qualifies rather than living only in a component that could drift from the
+# measurement it describes.
+#
+# It used to tell the reader to compare a mean *difference* against each arm's
+# own per-query standard deviation. That is not a test: the arms answer the
+# same searches, so they are paired, and each arm's own spread is dominated by
+# how much query difficulty varies rather than by which arm won. The right
+# spread is the spread of the per-search differences, which
+# `service.scorecard._paired_comparisons` computes and serves.
+def spread_note(queries: list[dict[str, Any]]) -> str:
+    """The small-sample caveat, counted from the population it qualifies."""
+    judgments = sum(len(query["judgments"]) for query in queries)
+    return (
+        f"{len(queries)} queries and {judgments} judgments cannot separate small "
+        "differences between these paths. Every path answers the same searches, so "
+        "read each step as the difference on each search rather than as two "
+        "separate averages: the comparison below reports that difference, the "
+        "spread of the differences, and how many searches each step won and lost. "
+        "A step whose average difference is smaller than that spread is one this "
+        "query set cannot tell apart from no change."
+    )
 
 
 class AblationMeasurementError(RuntimeError):
@@ -811,7 +815,7 @@ def measured_ablation() -> dict[str, Any]:
             "source_revision": committed_scorecard["source"]["revision"],
             "retrieval_fingerprint": committed_scorecard["retrieval_fingerprint"],
         },
-        "spread_note": SPREAD_NOTE,
+        "spread_note": spread_note(queries),
         "arms": arms_payload,
         "candidate_recall_ceiling": {
             "pool_recall_ceiling": ceiling["pool_recall_ceiling"],
