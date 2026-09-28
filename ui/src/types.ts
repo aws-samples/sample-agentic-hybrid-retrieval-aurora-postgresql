@@ -1181,7 +1181,7 @@ export interface ScorecardAgentContracts {
  * One retrieval-stage arm in Lab 2's ablation (section E).
  *
  * `ndcg_at_10_min`/`_max`/`_stdev` are the per-query spread across the same
- * 21 scored queries `recall_at_10`/`mrr`/`ndcg_at_10` are averaged over --
+ * 9 scored queries `recall_at_10`/`mrr`/`ndcg_at_10` are averaged over --
  * every mean here travels with the spread that qualifies it. See
  * `ScorecardStageAblation.spread_note`.
  */

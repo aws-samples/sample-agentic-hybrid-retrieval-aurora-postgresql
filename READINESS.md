@@ -60,7 +60,10 @@ The canonical set contains ten real-catalog requests: nine product-retrieval
 cases for Recall@10, MRR and nDCG@10, plus one agent-contract case checked
 through Lab 3. The twelve historical canonical requests and 720 generated
 filter cases live separately under `data/evals/historical/`. Historical scores
-do not certify the real catalog; a reviewed real-catalog baseline is still owed.
+do not certify the real catalog. The committed real-catalog baseline was measured
+on 2026-09-28 at source `0e7b457` over the nine product-retrieval cases:
+Recall@10 1.0, MRR 0.759, nDCG@10 0.803, both release checks passed and both
+eligibility fixtures held.
 
 ## Participant completion proof
 

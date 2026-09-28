@@ -5,53 +5,23 @@
     "instance_class": "db.r8g.2xlarge",
     "vector_extension_version": "0.8.1"
   },
-  "canonical_query_count": 21,
+  "canonical_query_count": 10,
   "database_instance_id": "agenticretrievalcorestack-aurorapostgresretrievalc-5wdg4dpl2bg2",
   "dataset_manifest_sha256": "9d2cc3858b702429589f53508313cd2e8a95e7e06c0b67f7280b6fd5625ade8f",
   "deterministic_release_checks": [
     {
       "concept_label": "Exact identity",
-      "product_id": 17001,
+      "product_id": 1277987,
       "query_id": "G-001",
-      "query_text": "EchoBud S2",
+      "query_text": "B07G95TJ3P",
       "type": "top_rank"
     },
     {
-      "concept_label": "Hard negative attribute",
-      "product_id": 210001,
-      "query_id": "G-014",
-      "query_text": "durable daily road running shoe without a carbon plate for high-mileage training",
+      "concept_label": "Typo recovery",
+      "product_id": 1277987,
+      "query_id": "G-022",
+      "query_text": "Limmited Editon Triple Midnigth",
       "type": "top_rank"
-    },
-    {
-      "concept_label": "Hard negative attribute",
-      "k": 3,
-      "product_id": 210002,
-      "query_id": "G-014",
-      "query_text": "durable daily road running shoe without a carbon plate for high-mileage training",
-      "type": "present_top_k"
-    },
-    {
-      "concept_label": "Subcategory and attributes",
-      "product_id": 30001,
-      "query_id": "G-018",
-      "query_text": "water-resistant portable speaker with Wi-Fi and Bluetooth, rated IP67",
-      "type": "top_rank"
-    },
-    {
-      "concept_label": "Graded sibling ordering",
-      "product_id": 370001,
-      "query_id": "G-020",
-      "query_text": "ergonomic mesh chair with adjustable lumbar and seat depth for twelve hour workdays",
-      "type": "top_rank"
-    },
-    {
-      "concept_label": "Graded sibling ordering",
-      "k": 3,
-      "product_id": 370002,
-      "query_id": "G-020",
-      "query_text": "ergonomic mesh chair with adjustable lumbar and seat depth for twelve hour workdays",
-      "type": "present_top_k"
     }
   ],
   "excluded_agent_contract_queries": [
@@ -64,11 +34,11 @@
     "scan_mem_multiplier": 2.0
   },
   "k": 10,
-  "measured_at": "2026-09-20T15:21:01.955798+00:00",
+  "measured_at": "2026-09-28T13:37:23.026825+00:00",
   "metrics": {
-    "mrr": 0.8916666666666666,
-    "ndcg@10": 0.824052757152384,
-    "recall@10": 0.8625
+    "mrr": 0.7592592592592592,
+    "ndcg@10": 0.8032961425511451,
+    "recall@10": 1.0
   },
   "models": {
     "embedding": "us.cohere.embed-v4:0",
@@ -79,168 +49,80 @@
       "concept_label": "Exact identity",
       "ndcg@10": 1.0,
       "query_id": "G-001",
-      "query_text": "EchoBud S2",
-      "recall@10": 1.0,
-      "reciprocal_rank": 1.0
-    },
-    {
-      "concept_label": "Exact model alias",
-      "ndcg@10": 1.0,
-      "query_id": "G-002",
-      "query_text": "Sonora WH-C720",
+      "query_text": "B07G95TJ3P",
       "recall@10": 1.0,
       "reciprocal_rank": 1.0
     },
     {
       "concept_label": "Typo recovery",
-      "ndcg@10": 0.3903800499921017,
-      "query_id": "G-003",
-      "query_text": "noice cancelng hedfones",
-      "recall@10": 0.25,
-      "reciprocal_rank": 1.0
-    },
-    {
-      "concept_label": "Semantic intent and filters",
-      "ndcg@10": 0.2441638274044765,
-      "query_id": "G-004",
-      "query_text": "noise cancelling headphones for a long flight under $200 with at least 40 hours of battery",
-      "recall@10": 0.5,
-      "reciprocal_rank": 0.25
-    },
-    {
-      "concept_label": "Hard price negative",
-      "ndcg@10": 0.6735439182299785,
-      "query_id": "G-005",
-      "query_text": "premium comfortable ANC headphones under $180 for all-day calls",
-      "recall@10": 0.3333333333333333,
-      "reciprocal_rank": 1.0
-    },
-    {
-      "concept_label": "Typo recovery and alias",
-      "ndcg@10": 0.9173194127129571,
-      "query_id": "G-006",
-      "query_text": "quite mechancial keybord under $180 for shared office",
+      "ndcg@10": 1.0,
+      "query_id": "G-022",
+      "query_text": "Limmited Editon Triple Midnigth",
       "recall@10": 1.0,
       "reciprocal_rank": 1.0
     },
     {
+      "concept_label": "Typo recovery",
+      "ndcg@10": 1.0,
+      "query_id": "G-003",
+      "query_text": "B07G95T3JP",
+      "recall@10": 1.0,
+      "reciprocal_rank": 1.0
+    },
+    {
+      "concept_label": "Semantic intent and filters",
+      "ndcg@10": 0.43067655807339306,
+      "query_id": "G-004",
+      "query_text": "27 inch 4K monitor USB-C 90W laptop charging",
+      "recall@10": 1.0,
+      "reciprocal_rank": 0.25
+    },
+    {
       "concept_label": "Comparison and reranking",
-      "ndcg@10": 0.9324441894571632,
+      "ndcg@10": 0.7977228895450266,
       "query_id": "G-007",
-      "query_text": "quiet wireless keyboard for a shared office; compare mechanical feel with the cheaper alternative",
+      "query_text": "Dell U2720Q versus Dell SE2717H monitor resolution USB-C charging",
       "recall@10": 1.0,
       "reciprocal_rank": 1.0
     },
     {
       "concept_label": "RRF and reranking",
-      "ndcg@10": 0.8556691603792903,
+      "ndcg@10": 0.5012658353418871,
       "query_id": "G-008",
-      "query_text": "ergonomic mesh chair for long workdays with adjustable lumbar support",
-      "recall@10": 0.6666666666666666,
-      "reciprocal_rank": 1.0
-    },
-    {
-      "concept_label": "JSONB and price filters",
-      "ndcg@10": 1.0,
-      "query_id": "G-009",
-      "query_text": "mesh office chair with a headrest for 12-hour days under $800",
-      "recall@10": 1.0,
-      "reciprocal_rank": 1.0
-    },
-    {
-      "concept_label": "Semantic and attribute filter",
-      "ndcg@10": 1.0,
-      "query_id": "G-010",
-      "query_text": "single-cable 4K monitor for coding and photo editing with 90W USB-C power",
-      "recall@10": 1.0,
-      "reciprocal_rank": 1.0
-    },
-    {
-      "concept_label": "Multi attribute filter",
-      "ndcg@10": 1.0,
-      "query_id": "G-011",
-      "query_text": "adjustable aluminum laptop stand with a phone shelf and cable management under $100",
-      "recall@10": 1.0,
-      "reciprocal_rank": 1.0
-    },
-    {
-      "concept_label": "Eligibility before ANN",
-      "ndcg@10": 0.3950679673211227,
-      "query_id": "G-012",
-      "query_text": "carbon plated marathon shoe under $220 with stable cornering",
+      "query_text": "27 inch 4K monitor USB-C 90W laptop charging",
       "recall@10": 1.0,
       "reciprocal_rank": 0.25
     },
     {
-      "concept_label": "Typo alias with refurbished override",
-      "ndcg@10": 0.7452525342261976,
-      "query_id": "G-013",
-      "query_text": "carbon plated marthon shoe AeroStride racer",
-      "recall@10": 0.5,
-      "reciprocal_rank": 1.0
-    },
-    {
-      "concept_label": "Hard negative attribute",
-      "ndcg@10": 1.0,
-      "query_id": "G-014",
-      "query_text": "durable daily road running shoe without a carbon plate for high-mileage training",
-      "recall@10": 1.0,
-      "reciprocal_rank": 1.0
-    },
-    {
-      "concept_label": "Structured watch filter",
+      "concept_label": "JSONB and price filters",
       "ndcg@10": 0.5,
-      "query_id": "G-015",
-      "query_text": "fitness watch under $300 with GPS, sleep tracking, and training readiness",
+      "query_id": "G-009",
+      "query_text": "27 inch 4K monitor USB-C 90W laptop charging",
       "recall@10": 1.0,
       "reciprocal_rank": 0.3333333333333333
     },
     {
-      "concept_label": "Semantic running watch",
+      "concept_label": "Eligibility before ANN",
       "ndcg@10": 1.0,
-      "query_id": "G-016",
-      "query_text": "GPS running watch with onboard maps and training readiness, rated for more than 20 days in smartwatch mode",
-      "recall@10": 1.0,
-      "reciprocal_rank": 1.0
-    },
-    {
-      "concept_label": "Multi attribute filter",
-      "ndcg@10": 1.0,
-      "query_id": "G-017",
-      "query_text": "4K conference webcam with auto-framing, noise reduction and a privacy shutter",
-      "recall@10": 1.0,
-      "reciprocal_rank": 1.0
-    },
-    {
-      "concept_label": "Subcategory and attributes",
-      "ndcg@10": 1.0,
-      "query_id": "G-018",
-      "query_text": "water-resistant portable speaker with Wi-Fi and Bluetooth, rated IP67",
+      "query_id": "G-012",
+      "query_text": "Bose QuietComfort 35 series II wireless noise cancelling headphones",
       "recall@10": 1.0,
       "reciprocal_rank": 1.0
     },
     {
       "concept_label": "Evidence retrieval and citation",
-      "ndcg@10": 0.888707665873224,
+      "ndcg@10": 1.0,
       "query_id": "G-019",
-      "query_text": "Which ergonomic chair best supports 12-hour workdays, and what evidence supports the recommendation?",
-      "recall@10": 1.0,
-      "reciprocal_rank": 1.0
-    },
-    {
-      "concept_label": "Graded sibling ordering",
-      "ndcg@10": 0.938506417451168,
-      "query_id": "G-020",
-      "query_text": "ergonomic mesh chair with adjustable lumbar and seat depth for twelve hour workdays",
+      "query_text": "For Bose QuietComfort 35 II B07G95TJ3P, what do the specifications and available reviews support about noise cancellation and clear calls? Cite the records, and say when review evidence does not establish microphone performance.",
       "recall@10": 1.0,
       "reciprocal_rank": 1.0
     }
   ],
-  "product_retrieval_query_count": 20,
+  "product_retrieval_query_count": 9,
   "query_set": "data/evals/canonical_queries.jsonl",
-  "query_set_sha256": "9809749d79cef151644a4a23850701746fe6ebf64a59cda36a00ce0b611c0f37",
-  "ranked_result_sha256": "195d27dc1e11f148281b6fa834c5b9522c12e5363a3566e4e6e8f1ed582afa37",
-  "retrieval_fingerprint": "33cfe9d829c6c222ce1157571689ba3f0bf66a4eddcbb066be0c4913143520d9",
+  "query_set_sha256": "38ce9a44eed146a8c657208dc8704398cfb5a27ec057a6101a2a80195038e40c",
+  "ranked_result_sha256": "3207ca1ff02e80ab2f1c7f792915340283310eaf653d82027652685b9c759814",
+  "retrieval_fingerprint": "eeeecbf4237bf6940a8415519c716b543df442a0e62a5ae931d5eb2bc0de58c6",
   "retrieval_profile": {
     "authorized_limit": 10,
     "ef_search": 100,
@@ -259,10 +141,10 @@
     "weight_trigram": 0.1
   },
   "retrieval_settings_sha256": "3635fb13943e9504b42c530ffcd75317f5f326d1abf569e108078aa55498116e",
-  "scorecard_methodology_sha256": "49f7fd20a9d1cc4322e2b4999e1b4118c93814191df093779ee89373e154350a",
-  "scored_query_set_sha256": "56cc1edf1ff0015fdcd4a298716093a22ae3e1a683980e00983b63be9174d7c9",
+  "scorecard_methodology_sha256": "9f812fdd4c7105c6ec737bfdf23efb92d51feaba5bc8d73ba62e26c0a3c6c401",
+  "scored_query_set_sha256": "05a1f0bae367d39e5d2769f746f4773de2639ea2a41209904a533e30e63b8c6e",
   "source": {
-    "revision": "47bf847d381733afa6a5bc32c85dac6633699768",
+    "revision": "0e7b4573b7202e0e5df902197f324ab9c44df9c0",
     "worktree_dirty": false
   },
   "strategy": "rrf_fusion+rerank+exact_sku_preservation"

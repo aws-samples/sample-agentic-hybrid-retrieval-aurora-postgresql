@@ -55,21 +55,6 @@ from service.scorecard import (
 ROOT = Path(__file__).resolve().parents[1]
 
 
-@pytest.fixture(autouse=True)
-def historical_scorecard_population(monkeypatch, tmp_path):
-    """Exercise the retained historical artifact against its complete query population."""
-    real = (ROOT / "data/evals/canonical_queries.jsonl").read_text().splitlines()
-    legacy = (
-        (ROOT / "data/evals/historical/canonical_queries.jsonl")
-        .read_text()
-        .splitlines()
-    )
-    rows = sorted(real + legacy, key=lambda row: json.loads(row)["query_id"])
-    path = tmp_path / "historical-canonical.jsonl"
-    path.write_text("\n".join(rows) + "\n")
-    monkeypatch.setattr("service.scorecard.CANONICAL_QUERIES", path)
-
-
 _MATCHING_FINGERPRINT = "f" * 64
 _MATCHING_QUERY_SET_SHA = "q" * 64
 _MATCHING_SCORED_QUERY_SET_SHA = "s" * 64
@@ -452,8 +437,16 @@ def test_scored_queries_excludes_the_agent_contract_case():
     scored = _scored_queries()
 
     assert {query["query_id"] for query in scored} == {
-        f"G-{number:03d}" for number in range(1, 23)
-    } - {"G-021"}
+        "G-001",
+        "G-003",
+        "G-004",
+        "G-007",
+        "G-008",
+        "G-009",
+        "G-012",
+        "G-019",
+        "G-022",
+    }
 
 
 def test_retrieval_quality_rejects_a_population_count_that_drifted_from_the_artifact(
@@ -479,7 +472,7 @@ def test_retrieval_scorecard_serves_the_committed_population_metrics():
     response = retrieval_scorecard()
 
     artifact = json.loads(SCORECARD_ARTIFACT.read_text(encoding="utf-8"))
-    assert response.retrieval_quality.sample_size == 21
+    assert response.retrieval_quality.sample_size == 9
     assert response.retrieval_quality.recall_at_10 == artifact["metrics"]["recall@10"]
     assert response.retrieval_quality.mrr == artifact["metrics"]["mrr"]
     assert response.retrieval_quality.ndcg_at_10 == artifact["metrics"]["ndcg@10"]
@@ -487,7 +480,7 @@ def test_retrieval_scorecard_serves_the_committed_population_metrics():
     # Labels come from the measured artifact. The representative product comes
     # from the canonical relevance judgments, so the UI can show an exact,
     # product-bound image without treating a ranked result as ground truth.
-    assert len(response.retrieval_quality.per_query_metrics) == 21
+    assert len(response.retrieval_quality.per_query_metrics) == 9
     for row in response.retrieval_quality.per_query_metrics:
         assert row["query_text"]
         assert row["concept_label"]
@@ -550,19 +543,16 @@ def test_regression_anchors_total_is_read_from_the_query_set_not_retyped():
     """
     scored = _scored_queries()
 
-    assert _release_check_total(scored) == 7
+    assert _release_check_total(scored) == 2
 
 
 def test_regression_anchors_pass_and_total_agree_on_the_committed_artifact():
     response = retrieval_scorecard()
 
-    assert response.regression_anchors.passed == 7
-    assert response.regression_anchors.total == 7
+    assert response.regression_anchors.passed == 2
+    assert response.regression_anchors.total == 2
     assert {anchor.query_id for anchor in response.regression_anchors.anchors} == {
         "G-001",
-        "G-014",
-        "G-018",
-        "G-020",
         "G-022",
     }
     # The committed artifact now carries labels, so every anchor must expose
@@ -610,8 +600,8 @@ def test_eligibility_fixture_count_comes_from_the_harnesss_own_filter():
 
     fixtures = _eligibility_fixtures(scored)
 
-    assert len(fixtures) == 12
-    assert "G-013" not in fixtures  # the one scored query with no hard negatives
+    assert fixtures == ["G-003", "G-008"]
+    assert "G-022" not in fixtures  # a scored query with no hard negatives
     assert "G-021" not in fixtures  # excluded from product_retrieval entirely
 
 
@@ -738,17 +728,22 @@ def test_stage_ablation_attribution_is_independent_of_the_main_artifacts():
 # --- The API route -----------------------------------------------------
 
 
-def test_api_withholds_the_historical_catalog_scorecard():
-    """A synthetic-catalog measurement must not certify the real-catalog release."""
+def test_api_serves_the_real_catalog_population_from_the_committed_artifact():
+    """The committed baseline scores the real canonical set, never a historical one.
+
+    Attribution follows the retrieval fingerprint, so it is not pinned here: a
+    later retrieval change turns it pending until someone re-measures, and a
+    pending scorecard must say so.
+    """
     payload = TestClient(app).get("/api/scorecard").json()
 
-    assert payload["provenance"]["attributed"] is False
-    assert payload["provenance"]["attribution_note"].startswith(PENDING_TEXT)
+    if not payload["provenance"]["attributed"]:
+        assert payload["provenance"]["attribution_note"].startswith(PENDING_TEXT)
     assert payload["provenance"]["source_revision"]
     assert payload["provenance"]["current_source_revision"]
-    assert payload["retrieval_quality"]["sample_size"] == 21
-    assert payload["regression_anchors"]["total"] == 7
-    assert payload["eligibility_contracts"]["fixture_count"] == 12
+    assert payload["retrieval_quality"]["sample_size"] == 9
+    assert payload["regression_anchors"]["total"] == 2
+    assert payload["eligibility_contracts"]["fixture_count"] == 2
     assert len(payload["agent_contracts"]["guarantees"]) == 5
 
 
@@ -1114,14 +1109,13 @@ def test_provenance_carries_both_sides_of_the_settings_comparison():
     assert len(provenance.current_retrieval_settings_sha256) == 64
 
 
-def test_historical_measurement_preserves_its_hash_without_claiming_current_results():
-    """Preserve the measurement; changed code and queries require a new run."""
+def test_measurement_preserves_its_settings_hash():
+    """The served provenance repeats the recorded settings hash, not a recomputed one."""
     artifact = json.loads(SCORECARD_ARTIFACT.read_text(encoding="utf-8"))
     assert len(artifact["retrieval_settings_sha256"]) == 64
 
     provenance = retrieval_scorecard().provenance
 
-    assert provenance.attributed is False
     assert provenance.retrieval_settings_sha256 == artifact["retrieval_settings_sha256"]
     assert (
         provenance.current_retrieval_settings_sha256
