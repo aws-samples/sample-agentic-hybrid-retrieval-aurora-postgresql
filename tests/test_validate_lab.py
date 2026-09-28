@@ -3,8 +3,8 @@ import re
 import pytest
 
 from scripts import validate_lab
-from scripts.lab_entry import START_COMMAND
 from service.config import get_settings
+from service.participant_commands import start as start_command
 
 PLAN = [{"Plan": {"Node Type": "Append"}}]
 
@@ -719,7 +719,7 @@ def test_an_unentered_lab_is_not_validated(monkeypatch, tmp_path, lab) -> None:
     )
     monkeypatch.setattr("sys.argv", ["validate_lab.py", "--lab", str(lab)])
 
-    with pytest.raises(SystemExit, match=re.escape(START_COMMAND[lab])):
+    with pytest.raises(SystemExit, match=re.escape(start_command(lab))):
         validate_lab.main()
 
 

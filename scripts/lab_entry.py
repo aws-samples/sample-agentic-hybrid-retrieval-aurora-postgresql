@@ -29,18 +29,12 @@ from scripts.lab_state import (
     set_lab_state,
     validate_database,
 )
+from service.participant_commands import APPLY_SQL, reset
 
 #: Each lab and the earlier repairs it needs before it starts.
 PREREQUISITES: dict[int, tuple[int, ...]] = {1: (), 2: (1,), 3: (1, 2)}
 #: The labs whose fault is installed when they start rather than at boot.
 FAULT_AT_ENTRY = frozenset({2, 3})
-#: The command each lab's guide shows. Lab 3's also restarts the API, which
-#: imports the agent module once; the SQL labs use the script directly.
-START_COMMAND = {
-    1: "uv run python scripts/lab_state.py start --lab 1",
-    2: "uv run python scripts/lab_state.py start --lab 2",
-    3: "make start-lab-3",
-}
 RECORD_VERSION = 1
 
 Say = Callable[[str], None]
@@ -66,7 +60,7 @@ def load_record(lab: int, repo: Path = REPO) -> dict[str, Any] | None:
     if record.get("version") != RECORD_VERSION or record.get("lab") != lab:
         raise LabEntryError(
             f"Lab entry rule: {path} is not a Lab {lab} start record; fix: reset "
-            f"the lab with uv run python scripts/lab_state.py reset --lab {lab}."
+            f"the lab with {reset(lab)}."
         )
     return record
 
@@ -118,9 +112,7 @@ def unmet_prerequisites(lab: int, connection: Any, repo: Path = REPO) -> list[st
         elif validate_database(earlier, connection).state == "stale":
             problems.append(
                 f"Lab {earlier}'s repair is in {LABS[earlier][0]} but not in Aurora. "
-                "Next: uv run python scripts/apply_search_functions.py && uv run "
-                "python scripts/configure_retrieval_database.py; then start this "
-                "lab again."
+                f"Next: apply it with {APPLY_SQL}, then start this lab again."
             )
     return problems
 

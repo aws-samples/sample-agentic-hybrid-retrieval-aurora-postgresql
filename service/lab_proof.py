@@ -39,7 +39,6 @@ import psycopg
 
 from scripts.lab_entry import (
     FAULT_AT_ENTRY,
-    START_COMMAND,
     completion_path,
     load_record,
 )
@@ -74,6 +73,8 @@ from service.models import (
     SearchRequest,
     SearchResponse,
 )
+from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, solution, validate
+from service.participant_commands import start as start_command
 from service.retrieval import get_retrieval_service
 from service.retrieval_fingerprint import (
     compute_live_retrieval_settings_sha256,
@@ -130,7 +131,7 @@ def _state_detail(
         from service.agent_setup import AGENT_STARTER_MESSAGE
 
         return (
-            "Your agent code is ready. Next: run make deploy-agent, then ask Alex's question in Mosaic."
+            f"Your agent code is ready. Next: deploy with {DEPLOY_AGENT}, then ask Alex's question in Mosaic."
             if solved
             else AGENT_STARTER_MESSAGE
         )
@@ -138,7 +139,7 @@ def _state_detail(
         return (
             f"Lab {lab_id} needs its SQL change. Open {LABS[lab_id][0]} in Code Editor "
             f"and find the LAB{lab_id}_ markers. Next: complete the marked block, "
-            f"run make db-apply-search-functions, then make validate-lab-{lab_id}."
+            f"apply it with {APPLY_SQL}, then prove it with {validate(lab_id)}."
         )
     if database.state == "stale":
         return database.detail
@@ -178,8 +179,8 @@ def contained_database_state(lab_id: int, connection: Any) -> LabDatabaseState:
             detail=explain(
                 f"reading the Lab {lab_id} state from Aurora raised "
                 f"{type(error).__name__}",
-                f"run make solution-lab-{lab_id}, or re-apply the edited file "
-                "with make db-apply-search-functions",
+                f"re-apply the edited file with {APPLY_SQL}, or restore the "
+                f"reference repair with {solution(lab_id)} and then apply it",
             ),
         )
 
@@ -222,9 +223,9 @@ def _entry(lab_id: int, repo: Path) -> tuple[str | None, str | None]:
         return None, None
     record = load_record(lab_id, repo)
     if record is None:
-        return "not_started", START_COMMAND[lab_id]
+        return "not_started", start_command(lab_id)
     if not record.get("completed_at"):
-        return "incomplete", START_COMMAND[lab_id]
+        return "incomplete", start_command(lab_id)
     return "started", None
 
 
@@ -244,14 +245,14 @@ def entry_check(
         passed = False
         detail = (
             f"Lab {lab_id} has not started, so these checks would grade the "
-            f"reference the workshop ships. Next: run {START_COMMAND[lab_id]}, "
+            f"reference the workshop ships. Next: run {start_command(lab_id)}, "
             "repair the fault it installs, then prove the lab again."
         )
     elif run_created_at is not None and run_created_at < started_at:
         passed = False
         detail = (
             f"This run was made before Lab {lab_id} started, by the reference "
-            "agent. Next: after make deploy-agent, ask Alex's question again and "
+            f"agent. Next: after deploying with {DEPLOY_AGENT}, ask Alex's question again and "
             "use that run's ID."
         )
     else:
@@ -590,7 +591,7 @@ def completion_proof(
 
             deployed = False
             detail = "Your agent and SQL tools match the code in Code Editor, and Aurora runs your SQL."
-            failure = "Your deployed agent or SQL tools do not match this run. Next: run make deploy-agent in Code Editor, then ask Alex's question again."
+            failure = f"Your deployed agent or SQL tools do not match this run. Next: deploy with {DEPLOY_AGENT} in Code Editor, then ask Alex's question again."
             try:
                 status = agentcore_transport.deployed_status()
                 if rows and rows.searches:
@@ -607,9 +608,9 @@ def completion_proof(
                     )
                     deployed = code_deployed and sql_applied
                     if code_deployed and not sql_applied:
-                        failure = "Aurora runs SQL different from db/sql/09_search_functions.sql in Code Editor. Next: run make db-apply-search-functions, then ask Alex's question again."
+                        failure = f"Aurora runs SQL different from db/sql/09_search_functions.sql in Code Editor. Next: apply it with {APPLY_SQL}, then ask Alex's question again."
             except (RuntimeError, ValueError) as error:
-                failure = f"Deployment check failed ({type(error).__name__}). Next: run make deploy-agent in Code Editor, then ask Alex's question again."
+                failure = f"Deployment check failed ({type(error).__name__}). Next: deploy with {DEPLOY_AGENT} in Code Editor, then ask Alex's question again."
             if not deployed:
                 detail = failure
             checks.append(

@@ -661,9 +661,11 @@ commands and proof boundaries. Follow the Workshop Studio lab guide.
 
 ## Exercise boundaries
 
-- Run make lab-status and inspect the saved response and git diff
-  before proposing a repair. Each lab starts with make start-lab-N;
-  never reset a lab unless the participant asks to restart it.
+- Run uv run python scripts/lab_state.py status and inspect the saved
+  response and git diff before proposing a repair. Each lab starts with
+  uv run python scripts/lab_state.py start --lab N; never reset a lab
+  unless the participant asks to restart it. Use the guide's uv run
+  commands, never Make targets.
 - Change only the current marked LAB1, LAB2, or LAB3 seam and make
   the smallest possible diff.
 - Do not edit unrelated files, retrieval limits, weights, thresholds,
@@ -673,10 +675,12 @@ commands and proof boundaries. Follow the Workshop Studio lab guide.
 - Do not run uv run python scripts/lab_state.py solution --lab N
   unless the participant explicitly asks for the full recovery path.
 - After editing, run git diff --check. In Labs 1 and 2, apply SQL changes directly
-  with psql or make db-apply-search-functions, repeat the identical request,
+  with psql or uv run python scripts/apply_search_functions.py, repeat the
+  identical request,
   and run the lab-specific uv production validator shown in the guide.
-  In Lab 3, run make deploy-agent and use the participant's saved run
-  with make complete-lab-3 RUN_ID=<your-run-id> as the guide describes.
+  In Lab 3, run uv run python scripts/deploy_agentcore.py deploy and check
+  the participant's saved run with uv run python scripts/complete_agent.py
+  --run-id <your-run-id> as the guide describes.
 - If Aurora, Bedrock, the API, or the storefront is unhealthy, stop
   and identify it as an environment failure rather than changing code
   to work around it.

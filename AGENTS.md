@@ -13,7 +13,8 @@ them, then build an agent that supports recommendations with source evidence.
 Each lab follows **Broken → Diagnose → Fix → Prove**. The prepared account has
 deliberate exercise faults; a wrong answer alone does not mean provisioning failed.
 
-Before editing, run `make lab-status`, inspect `git diff`, and read the current
+Before editing, run `uv run python scripts/lab_state.py status`, inspect
+`git diff`, and read the current
 lab's saved search or agent run. Start from the participant's prediction and
 observed result. Explain the mechanism and offer a hint before supplying an
 answer. Preserve unrelated edits and the participant's own `learning-notes.md`.
@@ -24,8 +25,9 @@ rebuild, disable or replace catalog indexes. Do not change retrieval limits,
 weights, thresholds, models or tool schemas to make a lab pass. In Lab 3 the
 guide invites one additional agent instruction inside the marked block; preserve
 the supplied source rules, tools and execution hooks. Use a reset only when the
-participant asks to restart a lab. Use `make solution-lab-N` only when they
-explicitly request the full recovery path; it overwrites the exercise seam.
+participant asks to restart a lab. Use `uv run python scripts/lab_state.py
+solution --lab N` only when they explicitly request the full recovery path; it
+overwrites the exercise seam.
 
 The terminal already loads this event's settings. Aurora, dependencies, API and
 UI are prepared: do not install a replacement stack or start duplicate servers.
@@ -49,29 +51,32 @@ question needs exact values; do not invent or maintain a second copy here.
 ## Participant CLI
 
 Run commands from the prepared repository terminal and follow the guide's order.
+Participants use the `uv run` scripts below, exactly as the guides show them;
+`service/participant_commands.py` holds the same strings for every message.
+The Makefile wraps them for maintainers only.
 
 | Purpose | Command |
 |---|---|
-| Inspect the current source/applied lab state | `make lab-status` |
-| Enter a lab: save its failing request; Labs 2 and 3 also install their fault once | `make start-lab-N` |
-| Discard one lab's edits and restore its starter, only when asked to restart | `make reset-lab-N` |
-| Apply the participant's SQL repair in Labs 1 or 2 | `make db-apply-search-functions` |
-| Prove the Lab 1 or Lab 2 repair after repeating the request | `make validate-lab-1` or `make validate-lab-2` |
-| List managed SQL tools | `make agent-tools` |
-| Deploy edited Lab 3 code and check managed connectivity | `make deploy-agent` |
-| Recheck deployed code, Gateway tools and Aurora evidence | `make verify-agent` |
-| Check the participant's saved original agent run | `make complete-lab-3 RUN_ID=<your-run-id>` |
+| Inspect the current source/applied lab state | `uv run python scripts/lab_state.py status` |
+| Enter a lab: save its failing request; Labs 2 and 3 also install their fault once | `uv run python scripts/lab_state.py start --lab N` |
+| Discard one lab's edits and restore its starter, only when asked to restart | `uv run python scripts/lab_state.py reset --lab N` |
+| Apply the participant's SQL repair in Labs 1 or 2 | `uv run python scripts/apply_search_functions.py` |
+| Prove the Lab 1 or Lab 2 repair after repeating the request | `uv run python scripts/validate_lab.py --lab N` |
+| List managed SQL tools | `uv run python scripts/deploy_agentcore.py tools` |
+| Deploy edited Lab 3 code and check managed connectivity | `uv run python scripts/deploy_agentcore.py deploy` |
+| Recheck deployed code, Gateway tools and Aurora evidence | `uv run python scripts/deploy_agentcore.py verify` |
+| Check the participant's saved original agent run | `uv run python scripts/complete_agent.py --run-id <your-run-id>` |
 | Inspect the diff for whitespace errors | `git diff --check` |
 
 A SQL file edit alone does not update Aurora; an agent edit alone does not
-update Runtime. Proof must use the newly applied/deployed state. `make
-verify-agent` checks the two separately: the deployed application against Code
+update Runtime. Proof must use the newly applied/deployed state. The deploy
+`verify` action checks the two separately: the deployed application against Code
 Editor's code, and the SQL Aurora last applied against
 `db/sql/09_search_functions.sql`. Labs 2 and 3 ship repaired and cannot pass
-before `make start-lab-N`; a rerun of a start keeps the participant's edits. Preserve
+before their start command; a rerun of a start keeps the participant's edits. Preserve
 before/after records in `.local/lab-N/` and the participant's written prediction
 and explanation in `learning-notes.md`. Never invent a run ID or a passing result.
-`make verify-agent` proves deployment connectivity, not participant completion.
+The deploy `verify` action proves deployment connectivity, not participant completion.
 The guide's final Lab 3 command evaluates the saved run without generating a
 replacement answer. Optional memory and HNSW exercises follow required completion.
 

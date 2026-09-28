@@ -63,7 +63,7 @@ the evidence tool reranks lexical matches against the evidence question before
 returning a bounded selection. Citation checks still need to establish that
 each selected record supports the claim.
 
-Bootstrap and `make deploy-agent` publish an ARM64 image to the event's
+Bootstrap and `uv run python scripts/deploy_agentcore.py deploy` publish an ARM64 image to the event's
 immutable ECR repository. Both runtimes use that image, with distinct agent and
 MCP entry points. The hash-pinned catalog is a separate Workshop Studio S3 asset;
 runtime packaging creates no S3 buckets. See [managed deployment](agentcore-runtime.md).

@@ -323,7 +323,7 @@ describe("CompletionProof", () => {
     const block = labBlock(1);
     expect(block.textContent).toContain(
       "The source file is repaired but the database still holds the old function."
-      + " Run make db-apply-search-functions.",
+      + " Run uv run python scripts/apply_search_functions.py.",
     );
     // Failure receipts remain inspectable without competing with the repair.
     expect(within(block).getByText("aa11bb22").closest("details")?.open).toBe(false);
@@ -357,7 +357,7 @@ describe("CompletionProof", () => {
     expect(block.textContent).toContain(interference);
     const record = block.querySelector(".labs-proof-record");
     expect(record?.textContent).toContain("Earlier record, not this check");
-    expect(record?.textContent).toContain("make validate-lab-1");
+    expect(record?.textContent).toContain("scripts/validate_lab.py --lab 1");
     expect(within(block).getByText("FAIL")).toBeTruthy();
   });
 

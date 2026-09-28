@@ -2,6 +2,7 @@
 
 import io
 import json
+import re
 from unittest.mock import Mock
 
 import pytest
@@ -14,6 +15,7 @@ from service import agentcore_transport as transport
 from service import gateway_tools
 from service.agent_setup import AgentSetupError
 from service.models import AgentRequest
+from service.participant_commands import DEPLOY_AGENT, VERIFY_AGENT
 from service.session_memory import COOKIE
 
 ARN = "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/MosaicAgent_example"
@@ -55,7 +57,9 @@ def test_unbuilt_agent_names_file_and_command_before_any_aws_call(monkeypatch, s
     monkeypatch.setattr("scripts.lab_state.lab_is_solved", lambda lab: False)
     client = Mock()
     monkeypatch.setattr(transport, "runtime_client", lambda: client)
-    with pytest.raises(AgentSetupError, match="labs/lab3/agent.py.*make deploy-agent"):
+    with pytest.raises(
+        AgentSetupError, match="labs/lab3/agent.py.*" + re.escape(DEPLOY_AGENT)
+    ):
         transport.invoke("answer", AgentRequest(question="A monitor"))
     client.invoke_agent_runtime.assert_not_called()
 
@@ -64,7 +68,7 @@ def test_runtime_rejects_stale_code_and_accepts_restored_source(source):
     with pytest.raises(HTTPException) as raised:
         transport.require_current_source("0" * 64)
     assert raised.value.status_code == 409
-    assert "make deploy-agent" in raised.value.detail
+    assert DEPLOY_AGENT in raised.value.detail
     assert transport.require_current_source(SHA) == SHA
 
 
@@ -131,7 +135,7 @@ def test_gateway_requires_matching_code_and_actual_tool_data(
         )
     ]
     envelope["application_sha256"] = "0" * 64
-    with pytest.raises(AgentSetupError, match="make deploy-agent"):
+    with pytest.raises(AgentSetupError, match=re.escape(DEPLOY_AGENT)):
         gateway_tools.call_tool("search_products", {})
     envelope["application_sha256"] = SHA
     envelope["extra_description"] = "An unrelated tool field"
@@ -182,7 +186,7 @@ def test_runtime_package_excludes_secrets_caches_and_symlinks(tmp_path):
 )
 def test_malformed_gateway_data_names_recovery(monkeypatch, source, result):
     monkeypatch.setattr(gateway_tools, "rpc", lambda *_: result)
-    with pytest.raises(AgentSetupError, match="make verify-agent"):
+    with pytest.raises(AgentSetupError, match=re.escape(VERIFY_AGENT)):
         gateway_tools.call_tool("search_products", {})
 
 
@@ -289,7 +293,7 @@ def test_stale_runtime_reply_names_redeployment(monkeypatch, source):
     )
     monkeypatch.setattr(transport, "runtime_client", lambda: client)
     with pytest.raises(
-        AgentSetupError, match="differs from your workspace.*make deploy-agent"
+        AgentSetupError, match="differs from your workspace.*" + re.escape(DEPLOY_AGENT)
     ):
         transport.invoke("answer", AgentRequest(question="A monitor"))
 
@@ -364,7 +368,7 @@ def test_a_question_after_an_idle_pause_does_not_reuse_a_dropped_connection(
     On a fresh event the first question after a seven-minute pause failed in
     0.11 s: the shared client reused a connection the NAT had dropped, and the
     deliberate single attempt turned that reset into a 503 telling the
-    participant to run make verify-agent, which passed.
+    participant to check the deployment, which passed.
     """
     from botocore.exceptions import ConnectionClosedError
 
@@ -401,7 +405,7 @@ def test_a_failed_runtime_call_logs_its_cause_and_is_not_retried(
     monkeypatch.setattr(transport, "runtime_client", lambda: client)
     with (
         caplog.at_level(logging.WARNING, logger=transport.__name__),
-        pytest.raises(AgentSetupError, match="make verify-agent"),
+        pytest.raises(AgentSetupError, match=re.escape(VERIFY_AGENT)),
     ):
         transport.invoke("answer", AgentRequest(question="A monitor"))
     assert client.invoke_agent_runtime.call_count == 1

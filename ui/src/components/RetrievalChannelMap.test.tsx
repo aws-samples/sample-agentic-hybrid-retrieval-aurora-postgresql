@@ -15,7 +15,7 @@ import type {
  * Lab 1's whole lesson is that a component can be healthy while the composition
  * using it is broken, and these tests hold the two facts apart.
  *
- * `make reset-lab-1` deletes the `typo` CTE from
+ * `lab_state.py reset --lab 1` deletes the `typo` CTE from
  * `mosaic_search.search_hybrid_rrf` and deliberately leaves
  * `mosaic_search.search_trigram` installed and callable, so the trigram GIN index
  * is present and valid in both states while `trigram_in_pool` flips from non-zero

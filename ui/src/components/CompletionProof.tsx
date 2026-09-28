@@ -129,7 +129,7 @@ function failureReason(proof: CompletionProofResponse): string | null {
       + " Apply the repair in Code Editor.";
   }
   return "The source file is repaired but the database still holds the old"
-    + " function. Run make db-apply-search-functions.";
+    + " function. Run uv run python scripts/apply_search_functions.py.";
 }
 
 function ProofDetail({ proof }: { proof: CompletionProofResponse }) {
@@ -159,8 +159,9 @@ function ProofDetail({ proof }: { proof: CompletionProofResponse }) {
           fault changed what a fresh search returns. */}
       {proof.status === "fail" && proof.saved_completion_at ? (
         <p className="labs-proof-note labs-proof-record">
-          Earlier record, not this check: <code>make validate-lab-{proof.lab_id}</code>{" "}
-          passed at {new Date(proof.saved_completion_at).toLocaleString()}.
+          Earlier record, not this check: the terminal validation{" "}
+          (<code>scripts/validate_lab.py --lab {proof.lab_id}</code>) passed at{" "}
+          {new Date(proof.saved_completion_at).toLocaleString()}.
         </p>
       ) : null}
       {failed.length ? (

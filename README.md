@@ -30,8 +30,8 @@ the workshop. Follow the guide's commands as you move through the labs.
 
 The workshop follows **Retrieve → Rank → Build an agent**. Labs 1 and 2 improve
 your SQL search. Lab 3 connects that search to a Strands agent on AgentCore Runtime
-and exposes the SQL tools through AgentCore Gateway. `make deploy-agent` builds
-an ARM64 container from your current source, pushes it to the workshop's ECR
+and exposes the SQL tools through AgentCore Gateway.
+`uv run python scripts/deploy_agentcore.py deploy` builds an ARM64 container from your current source, pushes it to the workshop's ECR
 repository and updates both runtimes. Docker and registry access are prepared
 for you; the command checks deployed source identity and Gateway connectivity.
 
@@ -48,9 +48,9 @@ product pages show the specifications a listing states beside the listing text
 they came from. Mosaic follows your device's light or dark appearance; the
 header button switches it.
 
-Begin each lab with the start command in its guide, in the Code Editor
-terminal (`make start-lab-N` runs the same step). It saves the lab's failing
-request; for Labs 2 and 3 it also installs that lab's fault,
+Every command in the guides is a `uv run` script in the Code Editor terminal.
+Begin each lab with `uv run python scripts/lab_state.py start --lab N`. It saves
+the lab's failing request; for Labs 2 and 3 it also installs that lab's fault,
 once, and keeps your earlier repairs. Run it again after an interruption and it
 finishes the missing step without reinstalling the fault over your edits. Until
 you start them, Labs 2 and 3 read **Not started**: the checkout ships them
@@ -58,10 +58,10 @@ repaired, so their code is the workshop's reference, not your work. Lab 2 needs
 your Lab 1 repair applied, and Lab 3 needs both; a start that finds one missing
 says how to finish it and changes nothing.
 
-`uv run python scripts/lab_state.py reset --lab N` (`make reset-lab-N`)
-discards only that lab's edits and restores its starter.
-`make solution-lab-N` overwrites that lab with the reference repair; it is a
-recovery route, not a completion. A lab is complete when its own check passes.
+`uv run python scripts/lab_state.py reset --lab N` discards only that lab's
+edits and restores its starter. `uv run python scripts/lab_state.py solution
+--lab N` overwrites that lab with the reference repair; it is a recovery route,
+not a completion. A lab is complete when its own check passes.
 
 Keep your predictions and explanations in Code Editor's `learning-notes.md`.
 Save the before-and-after searches, and complete each lab's checks before moving

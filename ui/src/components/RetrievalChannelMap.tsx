@@ -13,7 +13,7 @@ import type { ReadinessResponse, SearchResponse } from "../types";
  * Lab 1's distinction is drawn.
  *
  * Lab 1's whole lesson is that a component can be healthy while the composition
- * that uses it is broken. `make reset-lab-1` deletes the `typo` CTE from
+ * that uses it is broken. `lab_state.py reset --lab 1` deletes the `typo` CTE from
  * `mosaic_search.search_hybrid_rrf` and deliberately leaves
  * `mosaic_search.search_trigram` installed and callable, so a surface that only
  * reports "pg_trgm: 0 candidates" teaches the wrong thing — a participant reads it

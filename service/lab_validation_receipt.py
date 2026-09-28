@@ -32,7 +32,7 @@ from service.telemetry_contract import load_agent_turn_rows
 ROOT = Path(__file__).resolve().parents[1]
 
 
-#: The one SQL file participants edit and `make db-apply-search-functions`
+#: The one SQL file participants edit and `scripts/apply_search_functions.py`
 #: installs. It runs in Aurora, not in the deployed image.
 PARTICIPANT_SQL = Path("db/sql/09_search_functions.sql")
 
@@ -77,7 +77,7 @@ def application_digest(root: Path = ROOT) -> str:
     """Identity of the code the deployed Runtime and SQL tools execute.
 
     SQL is left out on purpose. The tools call the functions Aurora holds, which
-    `make db-apply-search-functions` installs, so a Lab 1 or Lab 2 edit changes
+    `scripts/apply_search_functions.py` installs, so a Lab 1 or Lab 2 edit changes
     what Aurora must run, not what Runtime must run; `participant_sql_digest`
     and the applied-SQL record in Aurora carry that identity instead.
     """

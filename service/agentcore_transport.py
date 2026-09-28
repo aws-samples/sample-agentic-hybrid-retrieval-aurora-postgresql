@@ -20,6 +20,7 @@ from starlette.responses import StreamingResponse
 from service.agent_setup import AGENT_STARTER_MESSAGE, AgentSetupError
 from service.config import get_settings
 from service.models import AgentRequest, AgentResponse
+from service.participant_commands import DEPLOY_AGENT, VERIFY_AGENT
 
 logger = logging.getLogger(__name__)
 
@@ -121,11 +122,12 @@ def invoke(
         ):
             raise AgentSetupError(
                 "The deployed agent differs from your workspace. In Code Editor, "
-                "run make deploy-agent. Next: retry Alex's question after deployment succeeds."
+                f"deploy with {DEPLOY_AGENT}. Next: retry Alex's question after deployment succeeds."
             ) from error
         raise AgentSetupError(
-            "Mosaic could not run the deployed agent. In Code Editor, run make "
-            "verify-agent. If you changed code, run make deploy-agent first. "
+            "Mosaic could not run the deployed agent. In Code Editor, check the "
+            f"deployment with {VERIFY_AGENT}. If you changed code, deploy with "
+            f"{DEPLOY_AGENT} first. "
             "Next: retry your question; if deployment fails, share the terminal message with your facilitator."
         ) from error
     return response["response"]
@@ -189,7 +191,7 @@ def require_current_source(expected: str) -> str:
     """Refuse to run deployed code that differs from the participant's workspace.
 
     Compares the application identity only. The participant's SQL runs in
-    Aurora, so a Lab 1 or Lab 2 edit needs `make db-apply-search-functions`,
+    Aurora, so a Lab 1 or Lab 2 edit needs `scripts/apply_search_functions.py`,
     not a redeploy; the applied-SQL record is checked where Lab 3 is proven.
     """
     from service.lab_validation_receipt import application_digest
@@ -199,6 +201,6 @@ def require_current_source(expected: str) -> str:
         raise HTTPException(
             409,
             "Runtime code rule: deployed code differs from your workspace; "
-            "fix: run `make deploy-agent`, then repeat the check.",
+            f"fix: run `{DEPLOY_AGENT}`, then repeat the check.",
         )
     return actual

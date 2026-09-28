@@ -255,7 +255,7 @@ Welcome Alex profile or the Discover brief already implements.
 1. Open three browser tabs from the Event Dashboard: Code Editor and Mosaic, plus the guide itself. One terminal command confirms the 553,911-product catalog and the starting lab state, and the introduction runs one correctly written Bose search to show the three names Shop prints for its searches.
 2. **Lab 1 — Build hybrid retrieval (explain a mechanism).** Alex copied his Bose QuietComfort 35 II listing reference with two characters swapped. In Shop, with Headphones selected, participants click three **Explore → Typo** examples: the misspelled model name `Boze QuietComfrot 35` as a control (meaning search still finds it), the misspelled edition `Limmited Editon Triple Midnigth` and the swapped listing ID `B07G95T3JP` (nothing finds either while close spelling is disconnected). The swapped ID is the graded case; after the repair both typos return the Series II first through close spelling alone, as measured on the development cluster and on a fresh Workshop Studio account on 2026-09-28. Clearing the category for the misspelled name is optional exploration after the lab: whether meaning search keeps it depends on the cluster's approximate vector index. Participants use PostgreSQL's own functions (`tsvector` lexemes, `pg_trgm` word similarity, pgvector distance) to show why only close spelling can recover it, then reconnect that method from its contract. They then write a recall query for the vector search they did not touch. The grader runs it under the planner's plan, which scans the category with a btree and sorts exactly, and with HNSW forced: in recorded runs the forced plan was roughly 6–7× faster yet missed half or more of the true nearest neighbours, and the obvious "exact" query is itself served by the index. Lesson: a full result list is not evidence of good recall. Reading the raw plans, `show_trgm` and `\sf` is an optional Go deeper expander; index construction and tuning are the optional Scale & HNSW flex exercise.
 3. **Lab 2 — Fuse, rerank, and inspect (write an algorithm).** The ViewSonic VG2756-4K, which documents 90W USB-C charging over one cable, never reaches the reranker. Participants write reciprocal rank fusion in SQL (the three searches and their union are given; the fusion and tie-break are theirs), graded at five values of `k`. It shows the collapsed contributions tie every single-search candidate, so a `product_id` tie-breaker, not relevance, decides the 50 products sent to Cohere Rerank and keeps the oldest listings, including a Dell U2720Q relisting, in the pool. After repairing production, they propose one retrieval change under a rule stated in advance; the grader replays it over 141 ESCI judged queries and four reviewed chair controls, and adopting and rejecting both pass when the decision follows the rule. On 2026-09-22, a cutoff of 75 admitted 24 more Exact products (18 queries better, 0 worse) in the same billed rerank unit, while `k`=120 admitted 5 more (4 better, 0 worse, p=0.125) and moved one chair control from 3rd to 4th; the 2026-09-24 test-account run reproduced both. Lesson: fusion only works if positions count, and a tuning decision needs a judged set and a rule chosen before seeing results.
-4. **Lab 3 — Build and deploy an agent.** Participants list the Gateway tools, complete the Strands agent in `labs/lab3/agent.py`, add a useful instruction and run `make deploy-agent`. The command publishes their current source as an immutable ARM64 ECR image and updates the agent and tools runtimes. Their SQL from Labs 1 and 2 is exposed through Gateway. They ask the monitor/chair question, open a citation, follow up with a 100W charging requirement against the ViewSonic's 90W record, then ask whether teammates will hear Alex on the Lab 1 Bose: the specification claims clearer calls and the cited review calls call quality "ok but not great". Completion rechecks their actual deployed run without another model call. No participant tests or claims query are required.
+4. **Lab 3 — Build and deploy an agent.** Participants list the Gateway tools, complete the Strands agent in `labs/lab3/agent.py`, add a useful instruction and run `uv run python scripts/deploy_agentcore.py deploy`. The command publishes their current source as an immutable ARM64 ECR image and updates the agent and tools runtimes. Their SQL from Labs 1 and 2 is exposed through Gateway. They ask the monitor/chair question, open a citation, follow up with a 100W charging requirement against the ViewSonic's 90W record, then ask whether teammates will hear Alex on the Lab 1 Bose: the specification claims clearer calls and the cited review calls call quality "ok but not great". Completion rechecks their actual deployed run without another model call. No participant tests or claims query are required.
 5. Run the completion gate inside Lab 3, then **bring Alex's office home**: a table names each pick, the need it meets and the source behind it, and the participant adds what Alex still has to check. Prices are 2023 listing prices and stock is unknown. Then use the remaining time for an optional exercise, catch-up or questions.
 
 Each lab asks for one written prediction and one two-sentence explanation in `learning-notes.md`; other questions are prompts to think. The runner prints where the lab's target sits before and after the repair, so the proof does not need a second `psql` session. Expanders marked **Go deeper** or **Reference** are optional.
@@ -271,9 +271,10 @@ A browser VS Code with a terminal already connected to the participant's own Aur
 - `db/sql/09_search_functions.sql` for Labs 1 and 2;
 - `labs/lab3/agent.py` for Lab 3.
 
-Each lab begins with its start command, `uv run python scripts/lab_state.py
-start --lab N` in the Lab 1 and 2 guides and `make start-lab-3` in Lab 3 (which
-also restarts the API). Lab 1's fault is installed when the
+Every participant command is a `uv run` script, the same in the guides, the
+terminal's messages and the Playground (`service/participant_commands.py`). Each
+lab begins with `uv run python scripts/lab_state.py start --lab N`. Lab 1's fault
+is installed when the
 account is provisioned, so its start only saves the failing request. Labs 2 and 3
 ship repaired, because Lab 2's collapsed fusion would push Lab 1's graded
 headphones out of the reranking pool and Lab 3's starter would refuse every agent
@@ -284,7 +285,7 @@ running it again, and a fault is never reinstalled over the participant's edits.
 A start checks its prerequisites (Lab 1 repaired and applied for Lab 2, both SQL
 repairs for Lab 3) and never installs a reference solution to meet them.
 
-`make lab-status` reports Lab 1 as BROKEN or SOLVED, and Labs 2 and 3 as
+`uv run python scripts/lab_state.py status` reports Lab 1 as BROKEN or SOLVED, and Labs 2 and 3 as
 NOT STARTED until their start finishes, then BROKEN or SOLVED. Three different
 actions change a lab's code: **start** (once, keeps work), **reset** (discards only
 that lab's edits and restores its starter) and **solution** (overwrites that lab
@@ -296,9 +297,9 @@ command to run, until a lab has started. After that it uses **Code needs repair*
 or **Code repaired** for the file and **SQL repair not applied** or **SQL repair
 applied** for Aurora. Lab 3 says **No SQL update required**. These describe the
 repair's installation; only the completion proof verifies its behavior, and a
-Lab 2 or 3 proof fails until that lab has started. An earlier passing
-`make validate-lab-N` appears beside the state as a dated record, never as the
-verdict. While Lab 2's fault is installed, a fresh Lab 1 check can fail even
+Lab 2 or 3 proof fails until that lab has started. An earlier passing terminal
+validation appears beside the state as a dated record, never as the verdict.
+While Lab 2's fault is installed, a fresh Lab 1 check fails even
 though Lab 1 is repaired; the proof says so and shows the earlier pass separately. The storefront header carries navigation,
 and the Playground lab rail carries these exercise states.
 
@@ -534,10 +535,11 @@ agent evidence and room support roles before delivery. Use the role table below
 to make each handoff explicit; a presenter joins for the relevant proof and then
 returns control to the lead. Keep the same stage questions at every table.
 
-If a table falls behind on an edit, use the guide's Hint 4 recovery promptly; keep the graded exercise. `make reset-lab-N`
+If a table falls behind on an edit, use the guide's Hint 4 recovery promptly; keep the graded exercise. `uv run python scripts/lab_state.py reset --lab N`
 discards only that lab's edits and reinstalls its fault; it never touches another
-lab. The corresponding `make solution-lab-N` is the recovery route. Apply changed SQL and restart the
-API where the guide requires it, then run the same validator. A rescue is not a
+lab. The corresponding `solution --lab N` action is the recovery route. Apply
+changed SQL, or deploy a changed agent, as the guide's Hint 4 does, then run the
+same validator. A rescue is not a
 pass until its production check runs.
 
 A catalog connection timeout is an availability problem, not a lab verdict.

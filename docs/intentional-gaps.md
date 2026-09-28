@@ -11,9 +11,9 @@ protected failure. If a lab check fails here, fix it.
 The gaps themselves are defined and implemented **in this repository**:
 `scripts/lab_state.py` holds each broken body next to its solved body, the
 marker seams live in `db/sql/09_search_functions.sql` and
-`labs/lab3/agent.py`. Provisioning injects Lab 1's gap; `make start-lab-2` and
-`make start-lab-3` inject the later gaps once, when the participant enters each
-lab, and `make reset-lab-N` re-injects one lab's gap on request. The
+`labs/lab3/agent.py`. Provisioning injects Lab 1's gap; `uv run python scripts/lab_state.py start --lab 2` and
+`uv run python scripts/lab_state.py start --lab 3` inject the later gaps once, when the participant enters each
+lab, and `uv run python scripts/lab_state.py reset --lab N` re-injects one lab's gap on request. The
 Workshop Studio repository narrates the repairs and triggers the selected-catalog reset/apply commands
 at provision time; it ships no starter template of its own. This document is
 the authoritative manifest: a gap listed here is a gap `lab_state.py` must
@@ -47,7 +47,7 @@ Three lab anchors carry `checkpoint: "repair"`. Their narrative promises the
 participant something to fix, so a start or reset (backed by
 `scripts/lab_entry.py` and `scripts/lab_state.py`) must remove exactly these
 capabilities and nothing else. Workshop Studio installs Lab 1's gap at provision
-time; the participant's `make start-lab-2` and `make start-lab-3` install the
+time; the participant's `uv run python scripts/lab_state.py start --lab 2` and `uv run python scripts/lab_state.py start --lab 3` install the
 later ones.
 
 ### GAP-1 — typo-recovery arm
@@ -86,13 +86,13 @@ later ones.
 - **Lab 3 anchor** `agentic-research` (`checkpoint: repair`, stage `reason`).
 - **Starter** `labs/lab3/agent.py`, between `LAB3_AGENT_START` and `LAB3_AGENT_END`.
 - **Participant work** return a Strands `Agent` using the supplied model, tools,
-  instructions and hooks; add a useful instruction; deploy with `make deploy-agent`.
+  instructions and hooks; add a useful instruction; deploy with `uv run python scripts/deploy_agentcore.py deploy`.
 - **Before building** the app names the missing agent, the exact file and the
   deploy command before making a model call.
 - **After deploying** the agent uses the SQL from Labs 1 and 2 through AgentCore
   Gateway. The participant asks about the ViewSonic VG2756-4K and Steelcase
   Gesture, opens a citation, and follows up with a changed requirement.
-- **Completion** `make complete-lab-3 RUN_ID=...` checks the participant's actual
+- **Completion** `uv run python scripts/complete_agent.py --run-id ...` checks the participant's actual
   deployed run and saves its receipt without another model invocation.
 
 

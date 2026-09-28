@@ -37,7 +37,8 @@ def test_make_targets_configure_database_defaults_and_apply_current_functions():
         0
     ]
     assert "preserve_search_trigram" not in apply_target
-    assert "db-configure-retrieval" in apply_target
+    # The participant's one apply command re-proves the stored pg_trgm gates.
+    assert "configure(dsn)" in (ROOT / "scripts/apply_search_functions.py").read_text()
     assert "scripts/apply_search_functions.py" in apply_target
     from service.lab_validation_receipt import PARTICIPANT_SQL
 

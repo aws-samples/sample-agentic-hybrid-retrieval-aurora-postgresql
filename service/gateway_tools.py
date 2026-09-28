@@ -14,6 +14,7 @@ from botocore.awsrequest import AWSRequest
 
 from service.agent_setup import AgentSetupError
 from service.config import get_settings
+from service.participant_commands import DEPLOY_AGENT, VERIFY_AGENT
 
 TARGET_NAME = "mosaic"
 TOOL_NAMES = ("search_products", "get_product_evidence", "inspect_retrieval_run")
@@ -74,7 +75,7 @@ def rpc(method: str, params: dict) -> dict:
     except httpx.HTTPError as error:
         raise AgentSetupError(
             "The agent could not reach its SQL tools through Gateway. In Code Editor, "
-            "run make verify-agent. Next: share a failed deployment check with your facilitator, "
+            f"check the deployment with {VERIFY_AGENT}. Next: share a failed deployment check with your facilitator, "
             "or retry your question if the check passes."
         ) from error
     try:
@@ -96,7 +97,7 @@ def rpc(method: str, params: dict) -> dict:
             payload = response.json()
     except (ValueError, KeyError, TypeError) as error:
         raise AgentSetupError(
-            "Gateway returned an unreadable tool response. Next: run make verify-agent in Code Editor and share the message with your facilitator."
+            f"Gateway returned an unreadable tool response. Next: check the deployment with {VERIFY_AGENT} in Code Editor and share the message with your facilitator."
         ) from error
     if (
         not isinstance(payload, dict)
@@ -105,7 +106,7 @@ def rpc(method: str, params: dict) -> dict:
         or not isinstance(payload.get("result"), dict)
     ):
         raise AgentSetupError(
-            "Gateway could not complete the tool request. Next: run make verify-agent in Code Editor; ask your facilitator to inspect the Gateway target if it fails."
+            f"Gateway could not complete the tool request. Next: check the deployment with {VERIFY_AGENT} in Code Editor; ask your facilitator to inspect the Gateway target if it fails."
         )
     return payload["result"]
 
@@ -137,10 +138,10 @@ def call_tool(name: str, arguments: dict) -> dict:
             raise TypeError("Missing tool data")
     except (ValueError, TypeError) as error:
         raise AgentSetupError(
-            "Gateway returned incomplete tool data. Next: run make verify-agent in Code Editor and share the message with your facilitator."
+            f"Gateway returned incomplete tool data. Next: check the deployment with {VERIFY_AGENT} in Code Editor and share the message with your facilitator."
         ) from error
     if envelope.get("application_sha256") != application_digest():
         raise AgentSetupError(
-            "The deployed SQL tools differ from your workspace. Next: run make deploy-agent in Code Editor, then ask your question again."
+            f"The deployed SQL tools differ from your workspace. Next: deploy with {DEPLOY_AGENT} in Code Editor, then ask your question again."
         )
     return envelope["data"]

@@ -31,11 +31,11 @@ lowering a threshold does not reconnect that path.
 2. Locate `LAB1_TRIGRAM_CTE` and `LAB1_TRIGRAM_CHANNEL` in
    `db/sql/09_search_functions.sql`. Follow the arm's product ID, rank and score
    into fusion, and restore both seams.
-3. Run `make db-apply-search-functions`, then repeat the same request. Inspect
+3. Run `uv run python scripts/apply_search_functions.py`, then repeat the same request. Inspect
    the target's `signals.trigram.rank` and `rrf_contribution`. For this anchor,
    its FTS and semantic ranks remain null: the recovered product identifies
    which path changed.
-4. Run `make validate-lab-1`. The exact-identity and eligibility controls must
+4. Run `uv run python scripts/validate_lab.py --lab 1`. The exact-identity and eligibility controls must
    also pass. Finding the target alone does not establish that filters survived.
 
 If the file is repaired but the result is unchanged, check the installed Aurora

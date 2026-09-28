@@ -25,6 +25,7 @@ from scripts.package_agentcore import package
 from scripts.rehearsal import redact
 from service import agentcore_transport, gateway_tools
 from service.lab_validation_receipt import application_digest, participant_sql_digest
+from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, VERIFY_AGENT
 
 
 def client(service: str):
@@ -125,7 +126,7 @@ def publish_image(repository_uri: str, *, bootstrap: bool) -> str:
                     if attempt == 2:
                         raise RuntimeError(
                             "Registry login rule: ECR login failed after three attempts; "
-                            "fix: check the Code Editor's ECR permissions and HTTPS connectivity, then retry make deploy-agent."
+                            f"fix: check the Code Editor's ECR permissions and HTTPS connectivity, then retry {DEPLOY_AGENT}."
                         ) from None
                     time.sleep(2**attempt)
             image = f"{repository_uri}:{tag}"
@@ -347,8 +348,8 @@ def require_applied_sql() -> str:
         raise RuntimeError(
             "Aurora SQL rule: Aurora runs participant SQL "
             f"{(applied or 'with no recorded identity')[:12]}, not your workspace's "
-            f"{workspace[:12]}; fix: run make db-apply-search-functions, then "
-            "make verify-agent."
+            f"{workspace[:12]}; fix: apply the file with {APPLY_SQL}, then "
+            f"recheck with {VERIFY_AGENT}."
         )
     return workspace
 
@@ -447,7 +448,7 @@ def main() -> int:
 
             if not lab_is_solved(3):
                 raise ValueError(
-                    "Your agent is not ready to deploy. Open labs/lab3/agent.py, complete create_agent, then run make deploy-agent again."
+                    f"Your agent is not ready to deploy. Open labs/lab3/agent.py, complete create_agent, then deploy with {DEPLOY_AGENT} again."
                 )
             update(stage())
             verify()
@@ -481,7 +482,7 @@ def main() -> int:
             )
         elif isinstance(error, (OSError, subprocess.SubprocessError)):
             print(
-                "Image build/push failed; check Docker is running and this instance can reach ECR, then retry make deploy-agent.",
+                f"Image build/push failed; check Docker is running and this instance can reach ECR, then retry {DEPLOY_AGENT}.",
                 file=sys.stderr,
             )
         else:

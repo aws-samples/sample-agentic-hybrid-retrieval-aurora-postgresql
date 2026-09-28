@@ -21,7 +21,8 @@ connection settings loaded. You do not need to start a database or server.
 | Build an agent | Can your Strands agent use SQL tools and answer with sources? | [Agent factory](labs/lab3/agent.py) |
 
 Read the guide's task before editing. Labs 1 and 2 each have one SQL repair.
-In Lab 3, complete the Strands agent, run `make deploy-agent`, then ask a product
+In Lab 3, complete the Strands agent, deploy it with
+`uv run python scripts/deploy_agentcore.py deploy`, then ask a product
 question and follow up. The guide provides hints and a recovery command.
 
 ## Explore Mosaic's source

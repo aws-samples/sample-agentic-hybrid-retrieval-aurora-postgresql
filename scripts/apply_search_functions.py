@@ -85,6 +85,11 @@ def main() -> None:
             participant_sql_digest(ROOT),
         )
     print(f"Applied participant SQL to {search_schema()}; source lab state preserved.")
+    # One participant command: the applied functions must also satisfy the
+    # stored pg_trgm gates, which is what this re-proves.
+    from scripts.configure_retrieval_database import configure
+
+    configure(dsn)
 
 
 if __name__ == "__main__":

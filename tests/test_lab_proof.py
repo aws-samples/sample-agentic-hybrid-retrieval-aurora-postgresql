@@ -25,7 +25,6 @@ from uuid import UUID, uuid4
 import psycopg
 import pytest
 
-from scripts.lab_entry import START_COMMAND
 from scripts.lab_state import (
     LABS,
     REPO,
@@ -41,6 +40,8 @@ from service.models import (
     RetrievalProfile,
     SearchResponse,
 )
+from service.participant_commands import APPLY_SQL, DEPLOY_AGENT
+from service.participant_commands import start as start_command
 from service.scorecard import retrieval_scorecard
 
 INDEPENDENT_FILE = "service/catalog.py"
@@ -653,7 +654,7 @@ def test_an_unentered_lab_cannot_pass_on_the_reference_it_ships(
 
     started = next(check for check in proof.checks if check.name == "lab_started")
     assert not started.passed
-    assert START_COMMAND[lab] in started.detail
+    assert start_command(lab) in started.detail
     assert proof.entry_state == "not_started"
     assert proof.status == "fail"
 
@@ -777,11 +778,10 @@ def test_lab_3_without_a_run_id_fails_naming_stage_03(monkeypatch) -> None:
     assert proof.status == "fail"
     assert len(run_checks) == 16
     assert all("Stage 03" in check.detail for check in run_checks)
-    # Lab 3's runtime is the uvicorn process, which imports service/agent_tools.py
-    # once at startup. A participant who edited the file and re-ran Stage 03
-    # without restarting graded the code the process still holds, so the fix has
-    # to name the restart before it names the re-run.
-    assert all("make restart-lab-api" in check.detail for check in run_checks)
+    # Mosaic runs the deployed agent, not the file in Code Editor. A participant
+    # who edited the agent and re-ran Stage 03 without deploying graded the old
+    # copy, so the fix has to name the deploy before it names the re-run.
+    assert all(DEPLOY_AGENT in check.detail for check in run_checks)
     assert proof.evidence.agent_run_id is None
 
 
@@ -836,7 +836,7 @@ def test_lab_state_reports_every_lab(monkeypatch, lab_repo: Path) -> None:
     # `not_applicable` says no Aurora object carries the repair. It must also
     # say what does carry it: the API process, which imports the edited file
     # once when it starts.
-    assert "make deploy-agent" in state.labs[2].detail
+    assert DEPLOY_AGENT in state.labs[2].detail
     assert "ask Alex's question" in state.labs[2].detail
 
 
@@ -854,10 +854,10 @@ def test_an_unentered_lab_says_how_to_start_not_that_it_is_solved(
 
     assert labs[1].source_state == "solved"
     assert labs[1].entry_state == "not_started"
-    assert labs[1].next_step == START_COMMAND[2]
+    assert labs[1].next_step == start_command(2)
     assert "has not started" in labs[1].detail
     assert labs[2].entry_state == "incomplete"
-    assert labs[2].next_step == "make start-lab-3"
+    assert labs[2].next_step == start_command(3)
     assert "keeps your edits" in labs[2].detail
 
 
@@ -893,7 +893,7 @@ def test_a_database_error_on_one_lab_leaves_the_next_lab_readable(
 
     assert state.labs[0].database_state == "stale"
     assert "UndefinedFunction" in state.labs[0].detail
-    assert "db-apply-search-functions" in state.labs[0].detail
+    assert APPLY_SQL in state.labs[0].detail
     assert state.labs[1].database_state == "applied"
     assert state.labs[2].database_state == "not_applicable"
     assert connection.transactions == len(lab_proof.LAB_IDS), (

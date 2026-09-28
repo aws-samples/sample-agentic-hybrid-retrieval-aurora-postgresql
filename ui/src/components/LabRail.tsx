@@ -266,7 +266,7 @@ export function LabRail({ missionId, refreshKey = "" }: {
         {state?.completed_at ? (
           <li
             className="is-record"
-            title={`Your last passing make validate-lab-${labNumber}. Run completion proof for a current verdict.`}
+            title={`Your last passing terminal validation (scripts/validate_lab.py --lab ${labNumber}). Run completion proof for a current verdict.`}
           >
             Validated {clockTime(state.completed_at)}
           </li>

@@ -24,6 +24,7 @@ sys.path.insert(0, str(REPO))
 
 from scripts.retrieval_profile import load_profile
 from service.catalog_runtime import search_schema
+from service.participant_commands import APPLY_SQL
 
 
 class DatabaseConfigurationError(RuntimeError):
@@ -164,7 +165,7 @@ def verify(dsn: str) -> None:
         joined = "; ".join(failures)
         raise DatabaseConfigurationError(
             f"D3 deterministic pg_trgm contract failed; found {joined}; "
-            "fix: run make db-apply-search-functions"
+            f"fix: re-apply the search functions with {APPLY_SQL}"
         )
 
     rendered = ", ".join(f"{setting}={value:g}" for setting, value in expected.items())

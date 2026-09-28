@@ -324,7 +324,7 @@ describe("LabRail", () => {
     render(<LabRail missionId={labOne.id} />);
 
     const record = await screen.findByText(/^Validated /);
-    expect(record.getAttribute("title")).toContain("make validate-lab-1");
+    expect(record.getAttribute("title")).toContain("scripts/validate_lab.py --lab 1");
     expect(screen.getByText("Code needs repair")).toBeTruthy();
   });
 });

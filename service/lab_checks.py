@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import Any
 
 from service.assertions import evaluate_signal_assertions, falsifier_for
+from service.participant_commands import DEPLOY_AGENT
 from service.retrieval_fingerprint import explain
 
 REPO = Path(__file__).resolve().parents[1]
@@ -1270,9 +1271,9 @@ def agent_response_checks(
 # ---------------------------------------------------------------------------
 
 STAGE_03_FIX = (
-    "if you edited service/agent_tools.py, run make restart-lab-api first, "
-    "because the API process imports that file once when it starts; then run "
-    "Stage 03 (Reason) on the Playground and submit the agent_run_id it returns"
+    f"deploy your agent with {DEPLOY_AGENT}, because Mosaic runs the deployed "
+    "copy, not the file in Code Editor; then run Stage 03 (Reason) on the "
+    "Playground and submit the agent_run_id it returns"
 )
 
 

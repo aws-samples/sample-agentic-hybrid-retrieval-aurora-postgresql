@@ -26,13 +26,13 @@ sys.path.insert(0, str(REPO))
 
 from scripts.lab_entry import (
     FAULT_AT_ENTRY,
-    START_COMMAND,
     completion_path,
     load_record,
 )
 from service import lab_checks
 from service.config import get_settings
 from service.lab_checks import AgentEvidence, LabCheck, RetrievalReceipt
+from service.participant_commands import start as start_command
 
 
 class LabValidationError(RuntimeError):
@@ -378,7 +378,7 @@ def main() -> int:
         record_completion(args.lab, checks, events, REPO)
     print(f"Lab {args.lab}: production-path validation passed")
     if args.lab in {1, 2} and load_record(args.lab + 1, REPO) is None:
-        print(f"Next: begin Lab {args.lab + 1} with {START_COMMAND[args.lab + 1]}")
+        print(f"Next: begin Lab {args.lab + 1} with {start_command(args.lab + 1)}")
     return 0
 
 

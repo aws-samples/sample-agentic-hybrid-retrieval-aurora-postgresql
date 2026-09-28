@@ -18,6 +18,7 @@ sys.path.insert(0, str(REPO))
 
 from scripts.retrieval_profile import explain
 from service.catalog_runtime import search_schema
+from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, solution, validate
 
 #: Slack for one reciprocal-rank contribution read back out of PostgreSQL by
 #: calling `mosaic_search.reciprocal_rank_contribution` directly. Not a
@@ -59,7 +60,7 @@ LAB3_AGENT = """    return Agent(
         hooks=hooks,
         callback_handler=None,
     )"""
-LAB3_STARTER = '    raise NotImplementedError("Build your Strands agent here, then run make deploy-agent.")'
+LAB3_STARTER = f'    raise NotImplementedError("Build your Strands agent here, then deploy with {DEPLOY_AGENT}.")'
 
 LABS: dict[int, tuple[str, tuple[tuple[str, str, str, str], ...]]] = {
     1: (
@@ -330,7 +331,7 @@ LAB1_FUNCTION_SIGNATURE = """
 """
 
 _LAB3_DETAIL = (
-    "Lab 3 builds labs/lab3/agent.py. Run make deploy-agent to publish the "
+    f"Lab 3 builds labs/lab3/agent.py. Deploy with {DEPLOY_AGENT} to publish the "
     "agent and SQL tools; deployed source must match before a run is accepted."
 )
 
@@ -352,7 +353,7 @@ def _lab_1_database_state(connection: Any) -> LabDatabaseState:
                 f"the installed {schema}.search_hybrid_rrf does not connect "
                 "search_trigram(q, f, trigram_limit, trigram_threshold) to the "
                 "trigram channel with its source rank, score and RRF contribution",
-                "repair both Lab 1 blocks and run make db-apply-search-functions",
+                f"repair both Lab 1 blocks and apply it with {APPLY_SQL}",
             )
         ),
     )
@@ -386,8 +387,8 @@ def _lab_2_database_state(connection: Any) -> LabDatabaseState:
             else explain(
                 f"reciprocal_rank_contribution(1) = {first} and "
                 f"reciprocal_rank_contribution(2) = {second} at k={rrf_k}",
-                "run make solution-lab-2, or re-apply the edited file with "
-                "make db-apply-search-functions",
+                f"re-apply the edited file with {APPLY_SQL}, or restore the "
+                f"reference repair with {solution(2)} and then apply it",
             )
         ),
     )
@@ -422,14 +423,15 @@ def status_line(lab: int, *, repo: Path = REPO) -> str:
     The shipped seams for Labs 2 and 3 are repaired, so before a start they
     would read SOLVED for work nobody has done.
     """
-    from scripts.lab_entry import FAULT_AT_ENTRY, START_COMMAND, load_record
+    from scripts.lab_entry import FAULT_AT_ENTRY, load_record
+    from service.participant_commands import start as start_command
 
     record = load_record(lab, repo)
     if record is None and lab in FAULT_AT_ENTRY:
         return f"Lab {lab}: NOT STARTED"
     if record is not None and not record.get("completed_at"):
         return (
-            f"Lab {lab}: START INTERRUPTED. Next: run {START_COMMAND[lab]} "
+            f"Lab {lab}: START INTERRUPTED. Next: run {start_command(lab)} "
             "again; it finishes the missing step and keeps your edits."
         )
     return f"Lab {lab}: {'SOLVED' if lab_is_solved(lab, repo=repo) else 'BROKEN'}"
@@ -498,7 +500,7 @@ def main() -> int:
         raise SystemExit(
             f"Lab {args.lab}: the SQL change is incomplete. Open {LABS[args.lab][0]} "
             f"in Code Editor and find the LAB{args.lab}_ markers. Next: complete the "
-            f"marked block, run make db-apply-search-functions, then make validate-lab-{args.lab}. "
+            f"marked block, apply it with {APPLY_SQL}, then prove it with {validate(args.lab)}. "
             f"For recovery, follow Hint 4 in the Lab {args.lab} guide."
         )
     if args.database_url:

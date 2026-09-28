@@ -14,7 +14,7 @@ and saved vectors; they do not generate product data or rebuild embeddings.
 
 Labs 1 and 2 use direct `psql` investigations and production search checks. Lab 3
 is a practical agent build. Participants complete `create_agent` in
-`labs/lab3/agent.py`, add a useful instruction and run `make deploy-agent`.
+`labs/lab3/agent.py`, add a useful instruction and run `uv run python scripts/deploy_agentcore.py deploy`.
 They do not write tests or a claims query in Lab 3.
 
 ## Architecture
@@ -53,7 +53,7 @@ asks whether a 90W monitor meets a new 100W laptop requirement. The response mus
 explain the mismatch. A source ID establishes identity; the cited text must
 still support the claim.
 
-`make complete-lab-3 RUN_ID=...` checks that actual managed run, current code,
+`uv run python scripts/complete_agent.py --run-id ...` checks that actual managed run, current code,
 Gateway searches and source records. It saves a receipt without another model
 call. Application and release tests remain developer responsibilities; they
 are not participant exercises.

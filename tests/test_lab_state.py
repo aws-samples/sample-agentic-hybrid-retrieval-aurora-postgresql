@@ -410,8 +410,8 @@ def test_status_reports_the_participants_lab_not_the_shipped_seam(lab_repo) -> N
     """Labs 2 and 3 ship repaired; before a start that is nobody's work."""
     import json
 
-    from scripts.lab_entry import START_COMMAND
     from scripts.lab_state import status_line
+    from service.participant_commands import start as start_command
 
     assert status_line(1, repo=lab_repo) == "Lab 1: SOLVED"
     assert status_line(2, repo=lab_repo) == "Lab 2: NOT STARTED"
@@ -419,7 +419,7 @@ def test_status_reports_the_participants_lab_not_the_shipped_seam(lab_repo) -> N
     record.parent.mkdir(parents=True)
     record.write_text(json.dumps({"version": 1, "lab": 2, "steps": {}}))
     assert status_line(2, repo=lab_repo) == (
-        f"Lab 2: START INTERRUPTED. Next: run {START_COMMAND[2]} again; it "
+        f"Lab 2: START INTERRUPTED. Next: run {start_command(2)} again; it "
         "finishes the missing step and keeps your edits."
     )
     set_lab_state(2, solved=False, repo=lab_repo)

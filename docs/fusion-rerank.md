@@ -33,11 +33,11 @@ Use the canonical `G-008` request and filters from
    number of contributing arms, with product ID breaking equal-score ties.
 2. Restore `source_rank` in `mosaic_search.reciprocal_rank_contribution` at the
    `LAB2_RRF_FORMULA` seam in `db/sql/09_search_functions.sql` and run
-   `make db-apply-search-functions`.
+   `uv run python scripts/apply_search_functions.py`.
 3. Repeat the request. Check that each contribution equals `1 / (k + rank)`
    and their sum equals `signals.rrf_score`. Compare `pre_rerank_rank`,
    `rerank_rank` and `final_rank` without treating their scores as probabilities.
-4. Run `make validate-lab-2`. It checks arithmetic, repeatable fused order,
+4. Run `uv run python scripts/validate_lab.py --lab 2`. It checks arithmetic, repeatable fused order,
    applied reranking and provenance, then the display-specification and brand-filter controls.
 
 The required real-catalog example also changes the visible result: the suitable Dell U2720Q is absent before repair and first after repair. It is not first in every input list. RRF admits it to the bounded rerank pool; model reranking selects it from that pool. Preserve this distinction in the guide and validators. Other worked examples retain their winner and serve as controls; see [the complete measurements](real-catalog-exercise-library.md).

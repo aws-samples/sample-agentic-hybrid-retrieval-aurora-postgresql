@@ -46,9 +46,9 @@ Participants build `create_agent` in [labs/lab3/agent.py](../labs/lab3/agent.py)
 The SQL they repaired in Labs 1 and 2 travels with the tools image.
 
 ```sh
-make agent-tools
-make deploy-agent
-make verify-agent
+uv run python scripts/deploy_agentcore.py tools
+uv run python scripts/deploy_agentcore.py deploy
+uv run python scripts/deploy_agentcore.py verify
 ```
 
 Deployment updates both runtimes, waits until the DEFAULT endpoints serve the

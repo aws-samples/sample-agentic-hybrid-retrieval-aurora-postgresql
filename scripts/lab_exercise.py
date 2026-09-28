@@ -34,6 +34,7 @@ sys.path.insert(0, str(REPO))
 from psycopg.rows import dict_row
 
 from scripts import lab2_proposal, lab_state
+from service.participant_commands import DEPLOY_AGENT
 
 SCORE_TOLERANCE = 1e-9
 LAB2_K_TRIALS = (1, 10, 30, 120)
@@ -469,11 +470,11 @@ def grade_lab3(path: Path) -> dict[str, Any]:
 
     if path.resolve() != (REPO / DEFAULT_WORK[3]).resolve():
         raise ExerciseError(
-            "Lab 3 runs labs/lab3/agent.py; save your agent there, then run make deploy-agent."
+            f"Lab 3 runs labs/lab3/agent.py; save your agent there, then deploy with {DEPLOY_AGENT}."
         )
     if not lab_state.lab_is_solved(3):
         raise ExerciseError(
-            "Open labs/lab3/agent.py, complete create_agent, then run make deploy-agent."
+            f"Open labs/lab3/agent.py, complete create_agent, then deploy with {DEPLOY_AGENT}."
         )
     if not runtime_arn():
         raise ExerciseError(
@@ -484,7 +485,7 @@ def grade_lab3(path: Path) -> dict[str, Any]:
     failures = [check.detail for check in proof.checks if not check.passed]
     if proof.status != "pass" and not failures:
         failures.append(
-            "Your current code does not match the completed labs. Apply Labs 1 and 2, then run make deploy-agent."
+            f"Your current code does not match the completed labs. Apply Labs 1 and 2, then deploy with {DEPLOY_AGENT}."
         )
     return {"agent_run_id": values["lab_agent_id"], "failures": failures}
 

@@ -43,7 +43,7 @@ afterEach(() => {
  * Lab 3's six states are six different things, and this is where they are held
  * apart.
  *
- * `make reset-lab-3` removes the four lines between the `LAB3_EVIDENCE_STATE`
+ * `lab_state.py reset --lab 3` removes the four lines between the `LAB3_EVIDENCE_STATE`
  * markers in `service/agent_tools.get_product_evidence`. The tool still succeeds
  * and still hands the model its records — `outcome: "success"`, `result_count: 6` —
  * while the application registers nothing, so `synthesize_cited_answer` refuses

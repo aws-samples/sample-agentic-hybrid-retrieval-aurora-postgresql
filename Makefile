@@ -223,7 +223,6 @@ lab-status:
 
 db-apply-search-functions:
 	@$(PYTHON) scripts/apply_search_functions.py
-	@$(MAKE) db-configure-retrieval
 
 # Starting a lab saves its failing request. Labs 2 and 3 also install their
 # fault, once: running a start again finishes an interrupted start and never

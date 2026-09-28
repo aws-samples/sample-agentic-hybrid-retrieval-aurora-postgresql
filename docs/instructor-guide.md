@@ -90,7 +90,7 @@ and run ID in both states. A changed prompt or an unrelated result that looks
 better cannot establish that the repair worked.
 
 Use the [lab regression release sequence](lab-golden-queries.md) for
-reset, apply, validation and recovery. `make lab-status` inspects source files;
+reset, apply, validation and recovery. `uv run python scripts/lab_state.py status` inspects source files;
 it does not prove the running API or Aurora has loaded them. The validators
 check the installed SQL and production responses. The browser's Lab 3 proof
 does not run the separate evidence-grounding control; the terminal validator
@@ -157,7 +157,7 @@ unchanged results and an unsuccessful wording variant.
 
 Participants extend their SQL from Labs 1 and 2. They list the Gateway tools,
 complete `create_agent` in `labs/lab3/agent.py`, add one source-aware instruction,
-and run `make deploy-agent`. The managed services and networking are prepared.
+and run `uv run python scripts/deploy_agentcore.py deploy`. The managed services and networking are prepared.
 
 Show the deployment message, then ask the ViewSonic monitor and Steelcase Gesture
 question in Playground → Reason. Open a citation and compare the claim with its
@@ -165,7 +165,7 @@ source. Follow up in Ask Mosaic with a 100W laptop-charging requirement; the
 monitor's 90W record must not be presented as meeting 100W.
 
 Participants build and use the agent. They do not write tests or a claims query.
-The completion command `make complete-lab-3 RUN_ID=...` rechecks the actual run,
+The completion command `uv run python scripts/complete_agent.py --run-id ...` rechecks the actual run,
 its deployed source and its SQL searches without another model invocation.
 
 
@@ -214,7 +214,7 @@ working answer that declines an unsupported claim.
 At completion, use the participant's run ID:
 
 ```sh
-make complete-lab-3 RUN_ID=<run-id>
+uv run python scripts/complete_agent.py --run-id <run-id>
 ```
 
 The receipt binds the deployed code and current settings. It is regraded from
