@@ -139,7 +139,12 @@ export function ShopFilterSheet({
                       <span>All products</span>
                       {totalProductCount !== undefined ? <small>{totalProductCount.toLocaleString()}</small> : null}
                     </label>
-                    {catalogCategories.slice(0, 8).map((item) => (
+                    {/* "Other" is the catch-all and usually the largest, so it
+                        goes last rather than taking the first of eight places. */}
+                    {[...catalogCategories]
+                      .sort((a, b) => Number(a.value === "other") - Number(b.value === "other"))
+                      .slice(0, 8)
+                      .map((item) => (
                       <label key={item.value}>
                         <input
                           type="radio"

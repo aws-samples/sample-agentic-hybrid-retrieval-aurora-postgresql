@@ -67,11 +67,12 @@ export function isPurchasable(value: Availability | null): boolean {
  */
 export function formatCategoryKey(key: string): string {
   if (key === "monitor_stand") return "Monitor stands & arms";
+  // The real catalog's keys use underscores ("headphone_case"), the
+  // historical ones hyphens; both read as spaced words.
   return key
-    .split("-")
+    .split(/[-_]/)
     .map((part) => (part.length <= 2 ? part.toUpperCase() : part[0].toUpperCase() + part.slice(1)))
-    .join("-")
-    .replace(/-/g, " ");
+    .join(" ");
 }
 
 /** `"Audio > Over-Ear Headphones"` -> `"Over-Ear Headphones"`. */

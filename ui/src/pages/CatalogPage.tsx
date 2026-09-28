@@ -1,4 +1,5 @@
 import { sourceFilters, useCatalogSource } from "../catalogSource";
+import { useFacetOptions } from "../useFacetOptions";
 import {
   ArrowUpRight,
   Check,
@@ -989,8 +990,18 @@ export function CatalogPage() {
     setDrawerProductId(null);
   }
 
-  const catalogCategories = catalogPage?.facets.category_key ?? [];
-  const catalogBrands = catalogPage?.facets.brand ?? [];
+  const catalogCategories = useFacetOptions("category_key", {
+    dataset,
+    filters,
+    pageOptions: page ? page.facets.category_key ?? [] : null,
+    open: filtersOpen,
+  });
+  const catalogBrands = useFacetOptions("brand", {
+    dataset,
+    filters,
+    pageOptions: page ? page.facets.brand ?? [] : null,
+    open: filtersOpen,
+  });
   const baseProducts = retrieval?.results ?? page?.products ?? [];
   const agentProducts = agent?.recommendations.length
     ? agent.recommendations

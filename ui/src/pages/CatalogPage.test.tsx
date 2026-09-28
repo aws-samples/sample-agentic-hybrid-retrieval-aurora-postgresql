@@ -2260,6 +2260,60 @@ describe("CatalogPage", () => {
     expect(within(context).getByText("In stock")).toBeTruthy();
   });
 
+  it("lists every category in the filter sheet during a search", async () => {
+    // A search loads no browse page, and the menus used to read the browse
+    // page's facets, so after a search Category offered only "All products".
+    window.history.replaceState({}, "", "/catalog?q=Boze+QuietComfrot+35&category_key=headphones");
+    vi.mocked(api.catalog).mockResolvedValue({
+      ...catalog,
+      facets: {
+        ...catalog.facets,
+        category_key: [
+          { value: "headphones", count: 900 },
+          { value: "monitor", count: 400 },
+        ],
+      },
+    });
+    renderPage();
+    await waitFor(() => expect(api.search).toHaveBeenCalled());
+    expect(api.catalog).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /^All filters/ }));
+    const dialog = screen.getByRole("dialog", { name: "Filters" });
+
+    expect(await within(dialog).findByRole("radio", { name: /Monitor/ })).toBeTruthy();
+    // The category menu is counted without its own choice, so the others stay.
+    const [filters, offset, limit, , collection] = vi.mocked(api.catalog).mock.calls[0];
+    expect(filters.category_key).toBeUndefined();
+    expect([offset, limit, collection]).toEqual([0, 1, "all"]);
+    fireEvent.click(within(dialog).getByRole("radio", { name: /Monitor/ }));
+    expect(window.location.search).toContain("category_key=monitor");
+    expect(window.location.search).toContain("q=Boze");
+  });
+
+  it("keeps the other categories on offer once one is chosen", async () => {
+    window.history.replaceState({}, "", "/catalog?category_key=headphones");
+    vi.mocked(api.catalog).mockImplementation(async (filters) => ({
+      ...catalog,
+      facets: {
+        ...catalog.facets,
+        category_key: filters.category_key
+          ? [{ value: "headphones", count: 900 }]
+          : [
+            { value: "headphones", count: 900 },
+            { value: "monitor", count: 400 },
+          ],
+      },
+    }));
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+
+    fireEvent.click(screen.getByRole("button", { name: /^All filters/ }));
+    const dialog = screen.getByRole("dialog", { name: "Filters" });
+
+    expect(await within(dialog).findByRole("radio", { name: /Monitor/ })).toBeTruthy();
+  });
+
   it("contains filter focus, makes the background inert, and restores its trigger", async () => {
     renderPage();
     await screen.findByText(catalog.products[0].model);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { specFacts } from "./format";
+import { formatCategoryKey, specFacts } from "./format";
 
 describe("specFacts", () => {
   const monitor = {
@@ -29,5 +29,14 @@ describe("specFacts", () => {
       "Noise cancellation: Yes", "Lumbar support: Adjustable", "Weight capacity: 400 lb",
     ]);
     expect(specFacts(undefined)).toEqual([]);
+  });
+});
+
+describe("formatCategoryKey", () => {
+  it("reads the real catalog's underscore keys as words", () => {
+    expect(formatCategoryKey("headphone_case")).toBe("Headphone Case");
+    expect(formatCategoryKey("monitor_accessory")).toBe("Monitor Accessory");
+    expect(formatCategoryKey("noise-cancelling")).toBe("Noise Cancelling");
+    expect(formatCategoryKey("monitor_stand")).toBe("Monitor stands & arms");
   });
 });
