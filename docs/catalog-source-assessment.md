@@ -35,6 +35,30 @@ for 67,750 products in the added leaves. Reviews whose product was not in the
 catalog were dropped and counted (81,726 Electronics, 6,066 Home and Kitchen,
 6,239 Office Products).
 
+On 2026-09-28 a deeper sample was staged on the development cluster only.
+`scripts/scan_catalog_reviews.py` rescanned the same three pinned review files
+in six line-aligned parts per file, keeping up to 20 of the most helpful reviews
+per rating group (up to 60 per product), with a separate whole-file SHA-256 pass
+against each pin. `scripts/filter_catalog_reviews.py` dropped 142,356
+Electronics reviews whose 19,789 parents are outside the catalog, and
+`scripts/stage_catalog_evidence.py --skip-refetch` staged 902,760 reviews for
+the same 67,750 products: 770,783 Electronics, 103,504 Home and Kitchen and
+28,473 Office Products. The lab anchors gain depth: the Lab 1 Bose headphones
+has 60 imported reviews, the ViewSonic VG2756-4K 14 and the Steelcase Gesture
+(Licorice) 39. The hash-pinned Workshop Studio bundle
+(`db/config/real-catalog-cache.json`) still carries the 418,620-review release
+above until it is rebuilt and republished.
+
+```sh
+.venv/bin/python scripts/scan_catalog_reviews.py Electronics \
+  --parents parents.json --work scan-work --destination release \
+  --parts 6 --reviews-per-rating-group 20 --release-per-rating-group 20
+.venv/bin/python scripts/filter_catalog_reviews.py --dataset-id reviews-2023-v2 \
+  --samples release/Electronics-reviews.json
+.venv/bin/python scripts/stage_catalog_evidence.py --dataset-id reviews-2023-v2 \
+  --skip-refetch --report stage-report.json --samples release/*-reviews.json
+```
+
 Amazon PQA (CDLA-Permissive-1.0; see `NOTICE.md`) supplies 80,111 buyer
 questions with community answers for 12,580 catalog products, at most twelve
 per product, shown as "Questions buyers asked" on the product page and
