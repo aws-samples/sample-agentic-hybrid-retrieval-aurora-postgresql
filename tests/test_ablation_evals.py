@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 from pathlib import Path
 from typing import Any, Self
 
@@ -293,19 +294,23 @@ class ScriptedConnection:
         self.fusion_calls: list[str] = []
         self.fts_calls: list[str] = []
         self.trigram_calls: list[str] = []
+        self.schemas: set[str] = set()
         self._pending: list[dict[str, Any]] = []
 
     def execute(self, sql: str, params: Any = None) -> ScriptedConnection:
         # `configure_hnsw` binds a positional tuple, not the named dict every
         # arm query uses; it never matches any branch below.
         marker = params.get("filters", "") if isinstance(params, dict) else ""
-        if "mosaic_search.search_vector(" in sql:
+        channel = re.search(r"(\w+)\.search_(?:vector|fts|trigram)\(", sql)
+        if channel:
+            self.schemas.add(channel.group(1))
+        if ".search_vector(" in sql:
             self.semantic_calls.append(marker)
             self._pending = self.semantic_rows[marker]
-        elif "mosaic_search.search_fts(" in sql:
+        elif ".search_fts(" in sql:
             self.fts_calls.append(marker)
             self._pending = self.fts_rows.get(marker, [])
-        elif "mosaic_search.search_trigram(" in sql:
+        elif ".search_trigram(" in sql:
             self.trigram_calls.append(marker)
             self._pending = self.trigram_rows.get(marker, [])
         elif "search_hybrid_rrf(" in sql:
@@ -755,3 +760,22 @@ def test_spread_note_counts_the_population_it_qualifies():
     queries = [{"judgments": [{}, {}, {}]}, {"judgments": [{}]}]
 
     assert spread_note(queries).startswith("2 queries and 4 judgments cannot separate")
+
+
+def test_single_arms_read_the_served_search_schema(monkeypatch):
+    # Querying the historical `mosaic_search` tree against real-catalog
+    # judgments scored every single arm zero; the arms must read the schema the
+    # served path fuses from.
+    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
+    connection = ScriptedConnection(
+        semantic_rows={_Q1_MARKER: [], _Q2_MARKER: []}, fusion_rows={}
+    )
+    retrieval = RetrievalService(
+        embedding_provider=CountingEmbedder(), connection_factory=lambda: connection
+    )
+
+    lexical_only_arm(retrieval, _QUERIES)
+    trigram_only_arm(retrieval, _QUERIES)
+    semantic_only_arm(retrieval, _QUERIES)
+
+    assert connection.schemas == {"mosaic_live_search"}

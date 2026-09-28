@@ -6,12 +6,17 @@ proves the served path (RRF fusion + managed reranking) meets a quality floor,
 but a single number cannot show a participant *why*: how much of that quality
 came from fusing three retrievers versus from reranking the fused pool.
 
-Five arms, over the same 20 scored canonical queries and the same judgments
+Five arms, over the same scored canonical queries and the same judgments
 `scripts/score_evals.py` already uses:
 
-    1. lexical_only        -- `mosaic_search.search_fts`, no fusion, no rerank
-    2. trigram_only        -- `mosaic_search.search_trigram`, no fusion, no rerank
-    3. semantic_only       -- `mosaic_search.search_vector`, no fusion, no rerank
+    1. lexical_only        -- `search_fts`, no fusion, no rerank
+    2. trigram_only        -- `search_trigram`, no fusion, no rerank
+    3. semantic_only       -- `search_vector`, no fusion, no rerank
+
+Each single arm calls its function in the served search schema
+(`service.catalog_runtime.search_schema`), the one the served path fuses from.
+Querying the historical `mosaic_search` tree against real-catalog judgments
+once scored every single arm zero.
     4. rrf_fused_no_rerank -- the served fusion function, reranking off
     5. rrf_fused_reranked  -- the current production path
 
@@ -74,6 +79,7 @@ from scripts.score_evals import (
     ranked_result_sha256,
     scored_query_set_sha256,
 )
+from service.catalog_runtime import search_schema
 from service.config import get_settings
 from service.models import SearchFilters, SearchRequest
 from service.retrieval import RetrievalService, get_retrieval_service, normalize_query
@@ -113,16 +119,16 @@ ARM_LABELS: dict[str, str] = {
 
 ARM_DESCRIPTIONS: dict[str, str] = {
     ARM_LEXICAL_ONLY: (
-        "mosaic_search.search_fts alone: PostgreSQL full-text search over the "
+        "search_fts alone: PostgreSQL full-text search over the "
         "weighted product document, with no trigram or semantic arm and no "
         "fusion."
     ),
     ARM_TRIGRAM_ONLY: (
-        "mosaic_search.search_trigram alone: pg_trgm similarity over the "
+        "search_trigram alone: pg_trgm similarity over the "
         "product identity text, with no lexical or semantic arm and no fusion."
     ),
     ARM_SEMANTIC_ONLY: (
-        "mosaic_search.search_vector alone: dense cosine ranking over the "
+        "search_vector alone: dense cosine ranking over the "
         "product embedding, with no lexical or trigram arm and no fusion."
     ),
     ARM_RRF_FUSED: (
@@ -263,14 +269,14 @@ def lexical_only_arm(
     retrieval: RetrievalService,
     queries: list[dict[str, Any]],
 ) -> dict[str, list[tuple[int, int]]]:
-    """`mosaic_search.search_fts` alone, at the served `fts_limit`."""
+    """`search_fts` alone in the served schema, at the served `fts_limit`."""
     profile = retrieval._profile(SearchRequest(query="ablation profile", limit=K))
     return _text_channel_arm(
         retrieval,
         queries,
-        sql="""
+        sql=f"""
             SELECT product_id, fts_rank
-            FROM mosaic_search.search_fts(
+            FROM {search_schema()}.search_fts(
                 %(query)s::text, %(filters)s::jsonb, %(limit)s::integer
             )
             ORDER BY fts_rank
@@ -284,14 +290,14 @@ def trigram_only_arm(
     retrieval: RetrievalService,
     queries: list[dict[str, Any]],
 ) -> dict[str, list[tuple[int, int]]]:
-    """`mosaic_search.search_trigram` alone, at the served limit and threshold."""
+    """`search_trigram` alone in the served schema, at the served limit and threshold."""
     profile = retrieval._profile(SearchRequest(query="ablation profile", limit=K))
     return _text_channel_arm(
         retrieval,
         queries,
-        sql="""
+        sql=f"""
             SELECT product_id, trigram_rank
-            FROM mosaic_search.search_trigram(
+            FROM {search_schema()}.search_trigram(
                 %(query)s::text, %(filters)s::jsonb, %(limit)s::integer,
                 %(threshold)s::real
             )
@@ -309,7 +315,7 @@ def semantic_only_arm(
     retrieval: RetrievalService,
     queries: list[dict[str, Any]],
 ) -> dict[str, list[tuple[int, int]]]:
-    """Rank every candidate `mosaic_search.search_vector` alone can find.
+    """Rank every candidate `search_vector` alone can find in the served schema.
 
     Uses the same `semantic_limit` as the served semantic channel, so this is
     the identical dense ranking fusion draws from -- just never fused, never
@@ -325,9 +331,9 @@ def semantic_only_arm(
         with retrieval.connection_factory() as connection:
             retrieval._configure_hnsw(connection, profile)
             rows = connection.execute(
-                """
+                f"""
                 SELECT product_id, semantic_rank
-                FROM mosaic_search.search_vector(
+                FROM {search_schema()}.search_vector(
                     %(embedding)s::vector, %(filters)s::jsonb, %(limit)s::integer
                 )
                 ORDER BY semantic_rank
