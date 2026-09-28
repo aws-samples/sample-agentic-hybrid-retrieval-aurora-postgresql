@@ -25,6 +25,13 @@ function sseResponse(frames: string[]) {
   );
 }
 
+/** Answers the identity request, then serves `stream` for the ask itself. */
+function streamFetch(stream: Response) {
+  return vi.fn((url: string) => Promise.resolve(
+    url === "/api/session-memory/identity" ? new Response(JSON.stringify({ ready: true })) : stream,
+  ));
+}
+
 describe("catalog filters", () => {
   afterEach(() => vi.unstubAllGlobals());
 
@@ -50,7 +57,7 @@ describe("agentStream", () => {
   });
 
   it("keeps the persisted failed run id on a terminal error", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(sseResponse([
+    vi.stubGlobal("fetch", streamFetch(sseResponse([
       'event: error\ndata: {"detail":"Grounding refused","agent_run_id":"failed-run","code":"grounding_contract"}\n\n',
     ])));
     await expect(api.agentStream("question", {}, () => {})).rejects.toMatchObject({
@@ -61,7 +68,7 @@ describe("agentStream", () => {
   it("rejects a clean EOF that arrives before the complete event", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
+      streamFetch(
         sseResponse([
           `event: answer_start\ndata: ${JSON.stringify({ response })}\n\n`,
           `event: answer_delta\ndata: ${JSON.stringify({ delta: "partial" })}\n\n`,
@@ -88,7 +95,7 @@ describe("agentStream", () => {
   it("accepts a stream only after dispatching its complete event", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
+      streamFetch(
         sseResponse([
           `event: complete\ndata: ${JSON.stringify({ response })}\n\n`,
         ]),
@@ -104,7 +111,7 @@ describe("agentStream", () => {
   it("ignores frames after the terminal complete event", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
+      streamFetch(
         sseResponse([
           `event: complete\ndata: ${JSON.stringify({ response })}\n\n`
           + `event: answer_delta\ndata: ${JSON.stringify({ delta: "late" })}\n\n`,
@@ -118,9 +125,29 @@ describe("agentStream", () => {
     expect(events).toEqual([{ type: "complete", response }]);
   });
 
+  // A follow-up carries the first turn's session, and the server continues a
+  // session only for the browser that owns it. With memory off the first turn
+  // used to run with no owner, so every follow-up in a new browser was a 404.
+  it("establishes the browser identity before every ask, memory on or off", async () => {
+    const fetchMock = vi.fn((url: string) => streamFetch(
+      sseResponse([`event: complete\ndata: ${JSON.stringify({ response })}\n\n`]),
+    )(url));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.agentStream("question", {}, () => {});
+    await api.agentStream("follow-up", {}, () => {}, undefined, { sessionId: "session-1" });
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "/api/session-memory/identity",
+      "/api/agent/answer/stream",
+      "/api/session-memory/identity",
+      "/api/agent/answer/stream",
+    ]);
+  });
+
   it("passes the backwards-compatible final options signal to fetch", async () => {
     const controller = new AbortController();
-    const fetchMock = vi.fn().mockResolvedValue(
+    const fetchMock = streamFetch(
       sseResponse([
         `event: complete\ndata: ${JSON.stringify({ response })}\n\n`,
       ]),

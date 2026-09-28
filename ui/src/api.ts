@@ -199,7 +199,9 @@ export const api = {
     context?: AgentConversationContext,
     options: AgentStreamOptions = {},
   ) => {
-    if (options.useMemory) await request("/api/session-memory/identity", { signal: options.signal });
+    // The server continues a session only for the browser that owns it, so the
+    // first turn must already carry this browser's identity, memory or not.
+    await request("/api/session-memory/identity", { signal: options.signal });
     const response = await fetch("/api/agent/answer/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
