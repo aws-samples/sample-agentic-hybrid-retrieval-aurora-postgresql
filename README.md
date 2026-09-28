@@ -43,6 +43,10 @@ for you; the command checks deployed source identity and Gateway connectivity.
 
 Use **Discover** to explore Alex's brief, **Shop** to search and compare products,
 and **Playground** to inspect search results, ranking, tool calls, and sources.
+On Shop, **Why this match** itemizes how each result was found and ranked, and
+product pages show the specifications a listing states beside the listing text
+they came from. Mosaic follows your device's light or dark appearance; the
+header button switches it.
 
 Keep your predictions and explanations in Code Editor's `learning-notes.md`.
 Save the before-and-after searches, and complete each lab's checks before moving

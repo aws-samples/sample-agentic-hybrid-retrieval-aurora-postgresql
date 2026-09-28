@@ -281,10 +281,10 @@ and the Playground lab rail carries these exercise states.
 
 ### Mosaic
 
-The application has three navigation destinations, with Ask Mosaic inside Shop:
+The application has three navigation destinations, with Ask Mosaic inside Shop. It follows the device's light or dark appearance; the header's sun or moon button switches it and the browser remembers the choice. Product photos sit on neutral plates so white-background listing images read the same in both themes.
 
 - **Discover.** The home-office brief described above: Alex, his room, three needs, and routes into search or category browsing. The illustrated scenes are inspiration, not a product bundle or a completed purchase.
-- **Shop.** The default Workspace edit shows a curated selection of the imported catalog; keyword search reaches the full 553,911 products. Every result card can open "See how this was retrieved", carrying the query, filters and saved search event into the Playground. Ticking two or more results compares them side by side, and the comparison is worth showing: under the price and the rating it prints which search methods found each product, its rank before reranking, and the rank the shopper was shown. Those three rows come from the run's saved receipt, not from the list on screen, which is why a comparison is only offered once a search has run. If the catalog carries none of a request's words, Shop says which ones above the results rather than returning a confident page of near misses.
+- **Shop.** The default Workspace edit shows a curated selection of the imported catalog; keyword search reaches the full 553,911 products. Every result card can open "See how this was retrieved", carrying the query, filters and saved search event into the Playground. **Why this match** on a result card unfolds its itemized receipt from the saved search: each method that found the product with its position and fusion contribution (a method that missed gets no line), the combined score before reranking, the reranker's score and the final position, then what the listing states, each fact beside the listing text it came from. Ticking two or more results compares them side by side, and the comparison is worth showing: under the price and the rating it prints which search methods found each product, its rank before reranking, and the rank the shopper was shown. Those three rows come from the run's saved receipt, not from the list on screen, which is why a comparison is only offered once a search has run. If the catalog carries none of a request's words, Shop says which ones above the results rather than returning a confident page of near misses.
 - **Ask Mosaic.** The agent, in a side panel on Shop or a mobile overlay below the header. The catalog retains its margins at normal laptop zoom, and long questions wrap in full. The panel keeps its title and follow-up box visible, with compact waiting and completed steps. It shows progress while gathering evidence, then leads with the cited answer. **Steps and sources** holds the request interpretation, searches, product comparison, supporting evidence, and tool activity. Follow-ups carry context from the prior grounded run with memory off. **Use saved memories** is a separate, optional control using the Playground's AgentCore Memory connection. **Memories used** shows actual records read and conversation-save status. Clearing chat starts a new conversation and keeps saved preferences. Required lab requests keep memory off. A specs-and-reviews question explains the available specifications and missing review excerpts without implying the product is absent or inventing customer experiences.
 - **Playground.** `/labs/retrieval` defaults to **Hybrid retrieval**, a three-stage inspection of Retrieve, Rank and Reason. Each column ends with a **Keep in mind** line that states the lesson the column proves, and Retrieve's search details add one more beside the search record, on the receipt and the HNSW settings; the stage questions are the ones introduced in the opening. Alex's request choices come from the canonical mission manifest. One send action, the same paper plane Discover uses (its tooltip reads **Run Mosaic**), makes a real agent request; the stages read its records. A saved Shop event opens its original receipt, and Run Mosaic starts a new complete run when an agent answer is needed. **Scale & HNSW** is the adjacent inspection lens.
 
@@ -305,13 +305,24 @@ links carry their saved search event into the three-stage Playground, preserving
 the request and both ranking orders. The current catalog serves unchanged source
 listings from Amazon Reviews 2023. Product pages retain original listing links,
 source image links, historical rating aggregates and explicit unknown values.
-Neither a relevance label nor a matching model number establishes compatibility.
+For monitors, headphones and chairs the page leads its specifications with the
+typed facts the listing states (screen size, resolution, refresh rate, USB-C
+power; noise cancelling, microphone, wireless, fit; lumbar support, armrests,
+headrest, weight capacity), each shown with its verbatim listing text.
+`service/product_specs.py` derives them at read time from the pinned source
+record, so they need no bundle change, and the agent's product tools return the
+same facts with their quotes. A fact the listing does not state is left out,
+never inferred. Neither a relevance label nor a matching model number
+establishes compatibility.
 
 Workshop Studio restores the selected 553,911 records and saved vectors from the
 hash-pinned real-catalog bundle, then sets `MOSAIC_CATALOG_DATASET`. The original
 cached catalog remains for shared schema setup and historical optional benchmarks;
 it is not the Shop catalog. The 418,620 imported reviews cover 67,750 products
-in the monitor, headphone and chair leaves. Lab 3 distinguishes specifications
+in the monitor, headphone and chair leaves; a deeper sample of up to 60 per
+product (902,760 reviews) is staged on the development cluster and reaches
+Workshop Studio only when the bundle is rebuilt and republished (see
+[the catalog source assessment](docs/catalog-source-assessment.md)). Lab 3 distinguishes specifications
 from reviews and admits missing excerpts rather than treating a rating count as
 review text. The bundle is local; public redistribution clearance and
 fresh-account delivery proof remain separate release requirements.
@@ -521,7 +532,9 @@ and the source's rating count. A second query reads back the participant's Lab 2
 decision from `mosaic.lab_decision`. Measured on 2026-09-26 on the
 `reviews-2023-v2` dev cluster: the Bose has 5,341 source ratings and 15
 imported reviews, the ViewSonic 96 and 10, the Steelcase Gesture (Licorice)
-235 and 15.
+235 and 15. After the deeper sample was staged on 2026-09-28 the same cluster
+holds 60, 14 and 39 imported reviews for those three products; a fresh
+Workshop Studio account holds the bundle's counts until it is republished.
 Ask one participant for a claim, another for its source, and another for what
 Alex still needs to check. Use the existing runs; do not start a new model call
 to manufacture a cleaner finale.
