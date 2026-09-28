@@ -255,6 +255,14 @@ class SourceAttribution(BaseModel):
     quote: str
 
 
+class ProductSpec(BaseModel):
+    """One typed value the listing states, with the field and verbatim text it came from."""
+
+    value: str | int | float | bool
+    source: str
+    quote: str
+
+
 class ProductSummary(BaseModel):
     """One product as returned by search and catalog browsing.
 
@@ -280,6 +288,7 @@ class ProductSummary(BaseModel):
     availability: Availability | None
     inventory_count: int | None
     attributes: dict[str, Any]
+    specs: dict[str, ProductSpec] = Field(default_factory=dict)
     tags: list[Any]
     catalog_asset_key: str | None = None
     canonical_group_id: str | None = None

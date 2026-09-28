@@ -27,6 +27,7 @@ from service.models import (
     SearchFilters,
     SourceAttribution,
 )
+from service.product_specs import listing_specs
 from service.source_catalog import project_product
 from service.staged_catalog import product_evidence
 
@@ -97,6 +98,7 @@ def summary_from_source(row: dict) -> ProductSummary:
         availability=None,
         inventory_count=None,
         attributes=source["specifications"],
+        specs=listing_specs(row["category_key"], row["original"]),
         tags=[],
         canonical_group_id=source["parent_asin"],
         image_url=source["image_url"],

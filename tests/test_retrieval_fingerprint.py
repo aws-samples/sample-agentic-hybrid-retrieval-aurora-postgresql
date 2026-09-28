@@ -705,7 +705,9 @@ def test_scorecard_import_closure_is_covered_or_explicitly_excluded():
 
     # Connection/config plumbing is separately recorded in the receipt. These
     # exclusions are narrow; a newly imported project module must be reviewed.
-    excluded = {"service/config.py", "service/db.py"}
+    # Listing specs are read-time display facts parsed from the pinned source
+    # record; no retrieval arm, fusion step or scorer reads them.
+    excluded = {"service/config.py", "service/db.py", "service/product_specs.py"}
     covered = {p.relative_to(REPO).as_posix() for p in manifest_files()}
     covered.update(SCORECARD_METHODOLOGY_FILES)
     pending, visited = ["scripts/score_evals.py"], set()

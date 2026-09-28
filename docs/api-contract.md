@@ -364,6 +364,16 @@ to the exact source record. `price_cents`, `inventory_count` and `availability`
 are null; any `historical_price_cents` is a source value, not a current offer.
 A budget filter matches it without ever copying it into `price_cents`.
 Similar products come from the same real category without claiming stock status.
+Monitors, headphones and chairs also carry `specs`: typed values the listing
+itself states (screen size, resolution, refresh rate and USB-C charging watts;
+noise cancellation, microphone, wireless and fit; lumbar support, armrests,
+headrest and weight capacity). Each spec names its source field
+(`details.<key>`, `title`, `features[i]` or `description[i]`) and quotes the
+exact text. `service/product_specs.py` derives them on read from the pinned
+source record, so they never change the embedded text. A value the listing does
+not state, or states two ways (a details screen size that contradicts the title
+by more than an inch), is absent rather than guessed. The agent's product and
+comparison tools return them.
 If a multi-topic evidence query finds no reviews, the same bounded production
 evidence function retries reviews with any query word, keeping the product and
 review type fixed. Those results identify the broader word match in metadata;

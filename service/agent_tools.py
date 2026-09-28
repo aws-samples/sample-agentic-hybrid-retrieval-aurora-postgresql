@@ -493,6 +493,10 @@ def _product_for_model(product: ProductSummary) -> dict[str, Any]:
         "availability": product.availability,
         "description": product.short_description,
         "attributes": product.attributes,
+        "specs": {
+            key: {"value": spec.value, "quote": spec.quote, "source": spec.source}
+            for key, spec in product.specs.items()
+        },
         "source_uri": product.sources[0].source_uri,
         "source_revision": product.sources[0].revision,
         "ranking": (
@@ -541,6 +545,7 @@ def _comparison_for_model(product: ProductSummary) -> dict[str, Any]:
             "rating",
             "availability",
             "attributes",
+            "specs",
             "ranking",
         )
     }
