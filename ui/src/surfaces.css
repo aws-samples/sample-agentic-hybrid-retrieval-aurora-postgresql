@@ -820,12 +820,14 @@
   opacity: 0.5;
 }
 
-/* Three across at laptop width. Four gave a 296px card at 1366, which is a
-   thumbnail; three gives the photograph 397px and the title room to breathe. */
+/* Four across at laptop width and above, matching the approved product-page
+   tile: the photo is contained on its plate rather than cropped to fill a
+   wide frame, so a narrower column still shows the whole listing photo. Below
+   900px this yields to two across, then one below 359px. */
 .shop-product-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(32px, 3vw, 48px) var(--shop-column-gap);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(24px, 2.4vw, 40px) var(--shop-column-gap);
 }
 
 .catalog-skeleton {
@@ -919,6 +921,12 @@
 .shop-product-card:hover,
 .shop-product-card:focus-within {
   border-color: var(--line-strong);
+}
+
+/* Wraps the photo link and the favorite button so the button can sit in the
+   photo's own corner without nesting a button inside the link's anchor. */
+.shop-card-photo {
+  position: relative;
 }
 
 .shop-product-card .product-image {
@@ -1027,15 +1035,31 @@
   content: "/";
 }
 
-.shop-card-description {
-  display: -webkit-box;
-  overflow: hidden;
-  margin: 10px 0 0;
+/* The tile's own recorded position in a ranked search, quiet and above the
+   photo rather than a badge on top of it -- the assist-rank badge already
+   owns that corner for Ask Mosaic's own pick order. */
+.shop-card-position {
+  display: block;
+  margin: 0 0 8px;
+  color: var(--ink-soft);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The typed spec facts, one quiet line beneath the meta row. */
+.shop-card-facts {
+  margin: 8px 0 0;
   color: var(--ink-soft);
   font-size: 13px;
-  line-height: 1.55;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  line-height: 1.5;
+}
+
+.shop-card-price-caption {
+  color: var(--ink-soft);
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 /* Product names use the same display role in cards and product details. */
@@ -1079,12 +1103,17 @@
   display: inline-flex;
   min-height: 44px;
   align-items: center;
-  color: var(--maroon-800);
+  gap: 2px;
+  color: var(--link);
   cursor: pointer;
   font-size: 12px;
   font-weight: 700;
-  list-style-position: inside;
+  list-style: none;
   text-underline-offset: 3px;
+}
+
+.shop-card-signals > summary::-webkit-details-marker {
+  display: none;
 }
 
 .shop-card-signals > summary:hover {
@@ -1099,6 +1128,13 @@
   margin-top: auto;
   padding-top: 12px;
   border-top: 1px solid var(--line);
+}
+
+/* A footer left with only the listing link or the bag button (no Compare
+   control offered) reads as left-aligned leftover space otherwise: `space-
+   between` centers nothing when there is only one child to place. */
+.shop-card-footer:has(> :only-child) {
+  justify-content: flex-end;
 }
 
 .shop-card-price {

@@ -1,16 +1,26 @@
-/* Original listing photos vary in shape; a bounded frame keeps every item whole. */
+/* The product page + itemized receipts tile: the tile itself is the plate.
+   The photo carries no border or inner box of its own -- it sits directly on
+   the tile surface, contained rather than cropped, so original listing
+   photos of any shape show whole. The photo's own background stays the
+   `--plate` token world.css forces on every `.product-image`, which is why
+   none is set again here. */
+:is(.mosaic-catalog-page, .source-product-page) .shop-product-card.source-product-card {
+  padding: 18px 18px 22px;
+  border-radius: var(--tile-radius);
+  background: var(--paper-warm);
+  text-align: center;
+}
+
 :is(.mosaic-catalog-page, .source-product-page) .shop-product-card.source-product-card .product-image {
   height: clamp(200px, 21vw, 280px);
   aspect-ratio: auto;
-  border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--paper-strong);
 }
 
 :is(.mosaic-catalog-page, .source-product-page) .shop-product-card.source-product-card .product-image img {
   width: 100%;
   height: 100%;
-  padding: clamp(24px, 3vw, 40px);
+  padding: clamp(8px, 1.5vw, 16px);
   object-fit: contain;
   object-position: center;
 }
@@ -18,22 +28,20 @@
 :is(.mosaic-catalog-page, .source-product-page) .shop-product-card.source-product-card h3 {
   display: -webkit-box;
   overflow: hidden;
-  min-height: 2.8em;
+  min-height: 2.5em;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-  font: 550 17px/1.4 var(--sans);
+  font: 600 17px/1.24 var(--display);
   letter-spacing: -.015em;
 }
 
-.source-product-card .shop-card-description {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.source-product-card .shop-card-meta,
+.source-product-card .shop-card-price {
+  justify-content: center;
 }
 
-.source-product-card .shop-card-price > strong { font-size: 12px; font-weight: 500; color: var(--ink-soft); }
-.shop-product-card.source-product-card .shop-card-footer { display: flex; flex-wrap: wrap; gap: 10px 16px; }
+.source-product-card .shop-card-price > strong { font-size: 18px; font-weight: 600; color: var(--ink); }
+.shop-product-card.source-product-card .shop-card-footer { display: flex; flex-wrap: wrap; gap: 10px 16px; text-align: left; }
 .shop-product-card.source-product-card .source-listing-link { min-height: 36px; display: inline-flex; align-items: center; }
 
 .source-product-page { max-width: 1360px; padding-top: 28px; }
@@ -93,7 +101,7 @@
 .source-related-products .product-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
 .source-product-page .source-related-products .shop-product-card.source-product-card .product-image { height: 200px; }
 .source-product-page .source-related-products .shop-product-card.source-product-card h3 { font-size: 15px; }
-.source-related-products .shop-card-description { display: none; }
+.source-related-products .shop-card-facts { display: none; }
 .source-related-products .shop-card-footer { flex-wrap: wrap; gap: 8px; padding-block: 14px; }
 
 @media (max-width: 760px) {

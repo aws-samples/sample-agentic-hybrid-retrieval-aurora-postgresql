@@ -126,6 +126,39 @@ details[open] > .product-receipt-card .receipt-states {
   color: var(--ink-soft);
 }
 
+/* The arithmetic behind a line: how a position became a contribution, why a
+   method missed, the reranking pool a position sits inside, or which model
+   scored it. Spans the row's full width and starts a new grid line beneath
+   the position and value it explains. */
+.receipt-how {
+  grid-column: 1 / -1;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+/* A slim track showing where "before reranking" sits inside the full pool
+   sent to the reranker: the point of the number beside it, drawn rather than
+   only stated. The dot's offset is written inline per product, from the
+   response's own recorded position and pool size. */
+.receipt-pool-bar {
+  position: relative;
+  grid-column: 1 / -1;
+  height: 4px;
+  margin-top: 4px;
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.receipt-pool-bar i {
+  position: absolute;
+  top: -3px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--rank);
+  transform: translateX(-50%);
+}
+
 .product-receipt-card li.subtotal {
   margin-top: 4px;
   border-top: 1px solid var(--line);

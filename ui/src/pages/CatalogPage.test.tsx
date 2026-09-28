@@ -1107,7 +1107,7 @@ describe("CatalogPage", () => {
     // there would be one Mosaic invented.
     expect(within(productReceipt!).getByText("Exact terms")).toBeTruthy();
     const missedArm = within(productReceipt!).getByText("Close spelling").closest("li")!;
-    expect(missedArm.textContent).toBe("Close spellingno match");
+    expect(missedArm.textContent).toBe("Close spellingno matchno match for this request");
     expect(within(productReceipt!).getByText("Before reranking")).toBeTruthy();
     expect(within(productReceipt!).getByText("Final position")).toBeTruthy();
     expect(within(productReceipt!).getAllByText("#1").length).toBeGreaterThan(0);

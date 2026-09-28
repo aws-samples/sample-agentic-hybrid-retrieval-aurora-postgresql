@@ -1,15 +1,24 @@
-import { reviewedProductSummary } from "../reviewedExamples";
-import "../reviewed-examples.css";
-import { Check, Heart, ShoppingBag, Star } from "lucide-react";
+import { Check, ChevronRight, Heart, ShoppingBag, Star } from "lucide-react";
 import { Link } from "wouter";
 import { cartQuantityLimit, useCommerce } from "../commerce";
 import { formatAvailability, formatPrice, isPurchasable, leafCategory, specFacts } from "../format";
-import { shopDescription } from "../shopCopy";
 import { productDetailHref } from "../navigation";
 import { productImage, productImageLabel } from "../media";
 import { ProductReceiptBody } from "./ProductReceipt";
 import { FINAL_LABEL, FUSED_LABEL, armLabel } from "../retrievalLanguage";
-import type { ProductSummary } from "../types";
+import type { ProductSummary, RetrievalDiagnostics } from "../types";
+
+/**
+ * The typed spec facts as one quiet line, e.g. "Screen size 27″ · Resolution
+ * 3840 × 2160 · USB-C power 90W". The same `specFacts` the receipt and the
+ * product page read, so a fact printed on the tile is a fact the listing
+ * itself states, not free-text copy.
+ */
+function specFactsLine(product: ProductSummary, count = 3): string {
+  return specFacts(product.specs, count)
+    .map((fact) => `${fact.label} ${fact.value}`)
+    .join(" · ");
+}
 
 function topAttributes(attributes: Record<string, unknown>, count = 2) {
   return Object.entries(attributes)
@@ -34,6 +43,7 @@ export function ProductCard({
   assistRank,
   highlighted = false,
   onAssistFocus,
+  diagnostics,
 }: {
   product: ProductSummary;
   showSignals?: boolean;
@@ -48,6 +58,8 @@ export function ProductCard({
   assistRank?: number;
   highlighted?: boolean;
   onAssistFocus?: (productId: number | null) => void;
+  /** The search's diagnostics, for the receipt's k and reranking-pool figures. */
+  diagnostics?: RetrievalDiagnostics | null;
 }) {
   const {
     addItem,
@@ -60,11 +72,18 @@ export function ProductCard({
   const quantityLimit = cartQuantityLimit(product);
   const quantityAtLimit = quantity > 0 && quantity >= quantityLimit;
   const signals = product.signals;
-  const description = shopDescription(product);
   const productTags = product.tags.filter((tag): tag is string => typeof tag === "string");
   const tags = Array.from(new Set([...collectionLabels, ...productTags])).slice(0, 3);
 
   if (variant === "catalog") {
+    // Only a ranked search or an agent shortlist recorded a final position; a
+    // browsed page has no order of its own to show one for.
+    const position = showSignals ? signals?.final_rank : undefined;
+    const facts = specFactsLine(product);
+    // A real listing's only price is its historical one; a missing one stays missing.
+    const shownPriceCents = product.source_dataset
+      ? (product.historical_price_cents ?? product.price_cents)
+      : product.price_cents;
     return (
       <article
         className={[
@@ -92,28 +111,33 @@ export function ProductCard({
           }
         }}
       >
-        <Link className="product-image" href={productDetailHref(product.product_id)}>
-          <img
-            src={imageSrc ?? productImage(product)}
-            alt={productImageLabel(product) ? `${product.title}: ${productImageLabel(product)}` : product.title}
-            width={1200}
-            height={800}
-            loading="lazy"
-            decoding="async"
-          />
-          {productImageLabel(product) ? <span className="category-image-label">{productImageLabel(product)}</span> : null}
-          {assistRank ? <span className="assist-rank-badge">{String(assistRank).padStart(2, "0")}</span> : null}
-        </Link>
-        <button
-          className={saved ? "catalog-favorite-button active" : "catalog-favorite-button"}
-          type="button"
-          aria-label={saved ? `Remove ${product.title} from saved products` : `Save ${product.title}`}
-          title={saved ? "Remove saved product" : "Save product"}
-          aria-pressed={saved}
-          onClick={() => toggleFavorite(product.product_id)}
-        >
-          <Heart size={18} fill={saved ? "currentColor" : "none"} />
-        </button>
+        {position ? (
+          <span className="shop-card-position">{`#${position}`}</span>
+        ) : null}
+        <div className="shop-card-photo">
+          <Link className="product-image" href={productDetailHref(product.product_id)}>
+            <img
+              src={imageSrc ?? productImage(product)}
+              alt={productImageLabel(product) ? `${product.title}: ${productImageLabel(product)}` : product.title}
+              width={1200}
+              height={800}
+              loading="lazy"
+              decoding="async"
+            />
+            {productImageLabel(product) ? <span className="category-image-label">{productImageLabel(product)}</span> : null}
+            {assistRank ? <span className="assist-rank-badge">{String(assistRank).padStart(2, "0")}</span> : null}
+          </Link>
+          <button
+            className={saved ? "catalog-favorite-button active" : "catalog-favorite-button"}
+            type="button"
+            aria-label={saved ? `Remove ${product.title} from saved products` : `Save ${product.title}`}
+            title={saved ? "Remove saved product" : "Save product"}
+            aria-pressed={saved}
+            onClick={() => toggleFavorite(product.product_id)}
+          >
+            <Heart size={18} fill={saved ? "currentColor" : "none"} />
+          </button>
+        </div>
         <div className="product-card-body">
           <h3>
             <Link href={productDetailHref(product.product_id)}>{product.source_dataset ? product.title : product.model}</Link>
@@ -122,10 +146,27 @@ export function ProductCard({
             <span>{product.brand}</span>
             {leafCategory(product.category_path)}
           </p>
-          {description ? (
-            <p className="shop-card-description" title={description}>{description}</p>
-          ) : null}
-          {reviewedProductSummary(product) && <p className="reviewed-card-fact">{reviewedProductSummary(product)}</p>}
+          {facts ? <p className="shop-card-facts">{facts}</p> : null}
+          <div className="shop-card-price">
+            {shownPriceCents == null && product.source_dataset ? (
+              <span className="shop-card-price-caption">Price not recorded</span>
+            ) : (
+              <strong>{formatPrice(shownPriceCents, product.currency)}</strong>
+            )}
+            {product.review_count && product.rating !== null ? (
+              <span className="shop-card-rating" title={product.source_dataset ? `${product.review_count.toLocaleString()} historical ratings` : undefined}>
+                <Star size={13} fill="currentColor" />
+                {product.rating.toFixed(1)}
+              </span>
+            ) : null}
+            {product.source_dataset && shownPriceCents != null ? (
+              <span className="shop-card-price-caption">Historical listing price</span>
+            ) : !product.source_dataset && !isPurchasable(product.availability) ? (
+              <span className="shop-card-stock unavailable">
+                {formatAvailability(product.availability)}
+              </span>
+            ) : null}
+          </div>
           {/* "Why this match", not "Why ranked #3": a shopper deciding between two
               chairs is asking what Mosaic noticed, and the number is inside. Every
               row is one product's own position, never a pool count. */}
@@ -133,25 +174,12 @@ export function ProductCard({
             <details className="shop-card-signals">
               <summary aria-label={`Why ${product.model} is a match`}>
                 Why this match
+                <ChevronRight size={14} aria-hidden="true" />
               </summary>
-              <ProductReceiptBody product={product} />
+              <ProductReceiptBody product={product} diagnostics={diagnostics} />
             </details>
           ) : null}
           <div className="shop-card-footer">
-            <span className="shop-card-price">
-              <strong>{product.source_dataset ? "Original product" : formatPrice(product.price_cents, product.currency)}</strong>
-              {product.review_count && product.rating !== null ? (
-                <span className="shop-card-rating" title={product.source_dataset ? `${product.review_count.toLocaleString()} historical ratings` : undefined}>
-                  <Star size={13} fill="currentColor" />
-                  {product.rating.toFixed(1)}
-                </span>
-              ) : null}
-              {product.source_dataset || isPurchasable(product.availability) ? null : (
-                <span className="shop-card-stock unavailable">
-                  {formatAvailability(product.availability)}
-                </span>
-              )}
-            </span>
             {/* Same control and same class as the default variant below, so the
                 two surfaces cannot drift into two compare affordances. It is
                 rendered only where a retrieval has granted a scope to compare

@@ -280,11 +280,23 @@ sans. In order:
    product's position in that method and its fusion contribution to four
    decimals. A method that did not find the product (`missed`) shows a hollow
    violet dot, `--ink-soft` text, no position and "no match". A position there
-   would be one Mosaic invented.
+   would be one Mosaic invented. Beneath a found line, a 12px `--ink-soft`
+   sub-line (`.receipt-how`) spells out the arithmetic -- "position 3 · 1 ÷
+   (60 + 3)" -- reading `k` from the response's own
+   `diagnostics.retrieval_profile.rrf_k`; beneath a missed line it reads "no
+   match for this request". Neither line renders a `k` Mosaic did not
+   receive: without diagnostics, the arithmetic sub-line is omitted and only
+   the missed line's plain statement remains.
 2. Before reranking (`FUSED_LABEL`): the combined position and fused score,
-   with a Rank dot and a `--line` rule above.
+   with a Rank dot and a `--line` rule above. When the response carries
+   `diagnostics.candidate_counts.fused_pool`, a slim `--line` track
+   (`.receipt-pool-bar`) with a `--rank` dot marks the product's share of that
+   pool, and a sub-line reads "position 21 of the 50 sent to reranking". Both
+   are omitted when the pool size is unknown.
 3. Reranked: the reranker's score to three decimals, only when one was
-   recorded.
+   recorded, with a sub-line reading "Cohere Rerank relevance score" when
+   `diagnostics.rerank_model_id` names a Cohere model, or "relevance score"
+   otherwise -- never a version number the model id does not spell out.
 4. Final position (`FINAL_LABEL`): 22px weight 600 over a 2px `--ink` rule.
 5. "What the listing states": up to four typed specs, each value with its
    verbatim listing quote in 12px `--ink-soft`, under a 12px `--reason`
@@ -295,7 +307,8 @@ When the disclosure opens, lines settle in order (520ms, 80ms apart, using
 `--ease-out`) and the total lands last; `prefers-reduced-motion: reduce`
 removes the animation. The card is an inline-size container named `receipt`;
 at 300px or narrower each line stacks its label over the position and value,
-leaders drop, and the total shrinks to 18px.
+leaders drop, and the total shrinks to 18px. The `.receipt-how` sub-lines and
+the pool-position track always span the row's full width, in both layouts.
 
 **The Shop landing.** With no active query, the Shop heading centres: the
 headline, then a lede at most 44ch wide at `clamp(17px, 1.5vw, 21px)`. The pill
@@ -338,10 +351,23 @@ invitation is a `--paper-warm` tile with no top rule.
   extreme ink of the theme), `--paper` text, a sheen that sweeps on hover, and
   a 1px lift; reduced motion disables the sheen and movement. An active query
   or open Ask panel removes the journey.
-- Shop result cards for the real catalog (`source-product-card`) show the
-  listing photo contained in a bounded frame `clamp(200px, 21vw, 280px)` high,
-  a two-line 17px product name at weight 550, and a two-line description.
-  “Why this match” opens the itemized receipt.
+- Shop result cards for the real catalog (`source-product-card`) are the
+  product-page tile: the whole card is a `--paper-warm` tile
+  (`--tile-radius`), and the listing photo, `clamp(200px, 21vw, 280px)` high,
+  sits directly on its plate with no border or inner box, contained rather
+  than cropped. A ranked search prints the product's own recorded final
+  position, quiet 12px `--ink-soft` text above the photo (`.shop-card-
+  position`); the assist-rank badge keeps the photo's own corner for Ask
+  Mosaic's separate pick order. Centred beneath the photo: a two-line 17px
+  `--display` product name at weight 600, the brand/category meta, a typed
+  spec-facts line (`specFacts`, up to three facts as "label value" pairs), and
+  the price -- the recorded historical listing price with its rating and a
+  “Historical listing price” caption for the real catalog, current price and
+  stock for the legacy catalog. “Why this match ›”, in `--link` with a
+  trailing chevron, opens the itemized receipt; Compare and the Original
+  listing link stay in a left/right footer row below it, not centred. Four
+  cards across at 1440px (`.shop-product-grid`), two under 900px, one under
+  360px.
 - Under 900px the Try Ask Mosaic rail docks across the bottom of Shop and the
   page reserves space beneath its results so the rail never covers a result.
 - The site header contains navigation, Code Editor when configured, Alex's

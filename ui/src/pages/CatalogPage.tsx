@@ -1673,6 +1673,7 @@ export function CatalogPage() {
                       imageSrc={gridImages.get(product.product_id)}
                       variant="catalog"
                       showSignals={Boolean(retrieval || agentProducts)}
+                      diagnostics={retrieval?.diagnostics}
                       {...comparisonProps(product.product_id)}
                       assistRank={assistRanks.get(product.product_id)}
                       highlighted={highlightedProductId === product.product_id}
