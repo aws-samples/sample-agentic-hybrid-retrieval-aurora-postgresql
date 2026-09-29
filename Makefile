@@ -23,7 +23,7 @@ UI_PORT ?= 5173
 # clone exists. See deploy/README.md.
 BOOTSTRAP_SCRIPT ?= deploy/mosaic-bootstrap.sh
 WORKSHOP_REPO ?= ../build-agentic-hybrid-retrieval-with-amazon-aurora-postgresql
-WORKSHOP_BOOTSTRAP ?= $(WORKSHOP_REPO)/assets/mosaic-bootstrap.sh
+WORKSHOP_BOOTSTRAP ?= $(WORKSHOP_REPO)/infrastructure/mosaic-bootstrap.sh
 RELEASE_SOURCE_SHA ?=
 RELEASE_EVIDENCE_DIR ?= build/release-evidence
 LAB_API_URL ?= http://127.0.0.1:$(API_PORT)

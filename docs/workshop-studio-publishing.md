@@ -25,7 +25,9 @@ instructions and required validation gates first. Report any actual blocker.
    target workshop and repository. Use that workshop's scoped authoring
    credentials, never participant credentials or another workshop's credentials.
    Confirm all required Git-ignored assets are present, review a dry run, then
-   sync with `--delete`. Verify uploaded hashes against the release contracts.
+   sync with `--delete`. A dry run may add new release files; it must not update
+   or delete any asset a published build still loads. Verify uploaded hashes
+   against the release contracts.
 5. **Sync static URLs.** In Workshop Studio → **Asset static URLs**, select changed
    or out-of-sync assets → **Sync static URLs** → review changes → start sync.
    Wait for **In sync**, with no pending or failed syncs. S3 upload alone does
@@ -59,20 +61,27 @@ uv run --no-project --with PyYAML==6.0.3 python scripts/repin.py --check \
 
 Use the confirmed asset prefix as `ASSET_ROOT`. Mosaic's prefix is
 `s3://ws-assets-us-east-1/d2acf248-2981-4292-a41c-60a0a0e54ab3`; confirm it in the
-workshop before use. Its complete assets include the bootstrap, three nested
-templates, three real-catalog parts, and two real-catalog vocabulary files. Follow
-`assets/README.md` for local verification and distribution requirements.
+workshop before use. Its complete assets include one folder per release under
+`assets/releases/<InfrastructureRevision>/` (three nested templates, the bootstrap
+and `RELEASE.json`), the frozen root templates and bootstrap that builds pinned to
+source a41628b and earlier still load, three real-catalog parts, and two
+real-catalog vocabulary files. `scripts/repin.py` writes the new release folder;
+never edit or delete an existing one or a root file. Follow `assets/README.md`
+for local verification and distribution requirements.
 
-Review the dry run before executing the upload:
+Review the dry run before executing the upload. It may add this release's
+folder; any update or delete of a root file or an earlier release folder is a
+blocker:
 
 ```bash
+REVISION=$(python3 -c 'import re; print(re.search(r"InfrastructureRevision\n\s+defaultValue: \"(\w+)\"", open("contentspec.yaml").read()).group(1))')
 aws s3 sync ./assets "$ASSET_ROOT" --delete --dryrun
 ```
 
 ```bash
 aws s3 sync ./assets "$ASSET_ROOT" --delete
 python3 scripts/verify_published_bootstrap.py \
-  --s3-uri "$ASSET_ROOT/mosaic-bootstrap.sh"
+  --s3-uri "$ASSET_ROOT/releases/$REVISION/mosaic-bootstrap.sh"
 python3 scripts/verify_published_catalog.py \
   --s3-uri "$ASSET_ROOT/real-catalog/" --source-repo "$SOURCE_REPO"
 ```
