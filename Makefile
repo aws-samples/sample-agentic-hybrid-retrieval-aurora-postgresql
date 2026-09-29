@@ -417,7 +417,7 @@ db-verify-bootstrap:
 		scripts/configure_retrieval_database.py --check
 
 validate-db:
-	"$(PYTHON)" "$(SCHEMA_PACKAGE)/scripts/checks/validate_package.py"
+	"$(PYTHON)" "$(SCHEMA_PACKAGE)/scripts/validate_package.py"
 
 quality:
 	$(PYTHON) scripts/catalog/catalog_quality.py

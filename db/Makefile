@@ -1,7 +1,7 @@
 .PHONY: validate test schemas checksums render-1024
 
 validate:
-	python scripts/checks/validate_package.py
+	python scripts/validate_package.py
 
 schemas:
 	python scripts/export_json_schemas.py

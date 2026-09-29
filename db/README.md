@@ -172,7 +172,7 @@ Do not overload one field for every retrieval stage.
 ## Validate the package
 
 ```bash
-python scripts/checks/validate_package.py
+python scripts/validate_package.py
 python -m unittest discover -s tests -v
 ```
 
