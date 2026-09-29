@@ -21,6 +21,7 @@ from scripts.evals.score_evals import (
     query_set_sha256,
     ranked_result_sha256,
     record_query_vectors,
+    run_pinned_queries,
     run_scored_queries,
     search_with_db_retry,
     validate_hard_negatives,
@@ -746,3 +747,86 @@ def test_full_results_read_back_in_written_order(tmp_path):
     _write_ranked_results(ranked, *_read_results(path))
 
     assert ranked.read_text() == "query_id,product_id,rank\nG-2,9,1\nG-1,7,1\n"
+
+
+class _VectorRecordingRetrieval(FakeRetrieval):
+    """Embeds every query as one fixed vector and records what each search used."""
+
+    def __init__(self, vector: list[float], outcomes):
+        super().__init__(outcomes)
+        self.vector = vector
+        self.embedded: list[str] = []
+        self.primed: dict[str, tuple[float, ...]] = {}
+        self.searched_with: dict[str, tuple[float, ...] | None] = {}
+
+    def embed_query(self, text: str) -> list[float]:
+        self.embedded.append(text)
+        return self.vector
+
+    def prime_query_embedding(self, query: str, vector: tuple[float, ...]) -> None:
+        self.primed[query] = vector
+
+    def search(self, request):
+        self.searched_with[request.query] = self.primed.get(request.query)
+        return super().search(request)
+
+
+_RESUME_QUERIES = [
+    {"query_id": "G-1", "query": "travel headphones"},
+    {"query_id": "G-2", "query": "office headphones"},
+]
+
+
+def _run_baseline(retrieval, checkpoint, query_vectors=None):
+    return run_pinned_queries(
+        _RESUME_QUERIES,
+        retrieval,
+        _PIN_SETTINGS,
+        k=10,
+        checkpoint_path=checkpoint,
+        checkpoint_identity={"source": {"revision": "a" * 40}},
+        query_vectors=query_vectors,
+        retry_delays=(),
+        sleep=lambda _: None,
+    )
+
+
+def test_an_interrupted_baseline_resumes_with_the_vectors_it_started_with(tmp_path):
+    checkpoint = tmp_path / "scorecard.checkpoint.json"
+    first = _VectorRecordingRetrieval(
+        [0.5, 0.25], [search_response(101), RuntimeError("model service unavailable")]
+    )
+    with pytest.raises(RuntimeError, match="model service unavailable"):
+        _run_baseline(first, checkpoint)
+
+    resumed = _VectorRecordingRetrieval([0.75, 0.125], [search_response(102)])
+    ranked, _rows, published = _run_baseline(resumed, checkpoint)
+
+    assert resumed.embedded == []
+    assert resumed.searched_with == {"office headphones": (0.5, 0.25)}
+    assert ranked == {"G-1": [(1, 101)], "G-2": [(1, 102)]}
+    assert {
+        query_id: decode_query_vector(encoded, 2)
+        for query_id, encoded in published["vectors"].items()
+    } == {"G-1": (0.5, 0.25), "G-2": (0.5, 0.25)}
+
+
+def test_a_checkpoint_made_with_other_vectors_is_refused(tmp_path):
+    checkpoint = tmp_path / "scorecard.checkpoint.json"
+    first = _VectorRecordingRetrieval(
+        [0.5, 0.25], [search_response(101), RuntimeError("model service unavailable")]
+    )
+    with pytest.raises(RuntimeError, match="model service unavailable"):
+        _run_baseline(first, checkpoint)
+    other_vectors = record_query_vectors(
+        RetrievalService(embedding_provider=_RecordingEmbedder([0.75, 0.125])),
+        _RESUME_QUERIES,
+        _PIN_SETTINGS,
+    )
+
+    with pytest.raises(ValueError, match="checkpoint provenance drifted"):
+        _run_baseline(
+            _VectorRecordingRetrieval([0.75, 0.125], [search_response(102)]),
+            checkpoint,
+            query_vectors=other_vectors,
+        )

@@ -479,10 +479,12 @@ def _write_checkpoint(
     completed: set[str],
     ranked: dict[str, list[tuple[int, int]]],
     rows: dict[str, list[dict[str, Any]]],
+    query_vectors: dict[str, Any] | None,
 ) -> None:
     payload = {
         "version": 1,
         "identity": identity,
+        "query_vectors": query_vectors,
         "completed_query_ids": sorted(completed),
         "ranked": {
             query_id: [[rank, product_id] for rank, product_id in results]
@@ -501,6 +503,68 @@ def _write_checkpoint(
         encoding="utf-8",
     )
     temporary.replace(path)
+
+
+def _checkpointed_query_vectors(path: Path) -> dict[str, Any] | None:
+    """The vectors an interrupted measurement was searching with, if it left any."""
+    if not path.exists():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(
+            f"Scorecard checkpoint {path} is unreadable: {error}. "
+            "Rerun with --restart to discard it."
+        ) from error
+    return payload.get("query_vectors")
+
+
+def run_pinned_queries(
+    queries: list[dict[str, Any]],
+    retrieval: Any,
+    settings: Any,
+    *,
+    k: int,
+    checkpoint_path: Path,
+    checkpoint_identity: dict[str, Any],
+    query_vectors: dict[str, Any] | None,
+    retry_delays: Sequence[float] = SCORECARD_DB_RETRY_DELAYS,
+    sleep: Callable[[float], None] = time.sleep,
+) -> tuple[
+    dict[str, list[tuple[int, int]]],
+    dict[str, list[dict[str, Any]]],
+    dict[str, Any],
+]:
+    """Search every query with one set of vectors, resuming an interrupted run.
+
+    A new baseline records fresh vectors, but an interrupted one resumes with the
+    vectors its checkpoint holds; otherwise the completed queries would keep
+    results from one set of vectors while the baseline published another. The
+    vectors' digest is part of the checkpoint identity, so a checkpoint made with
+    any other vectors is refused rather than mixed in.
+
+    Returns:
+        The ranked results, the full result rows and the vectors they used.
+    """
+    if query_vectors is None:
+        query_vectors = _checkpointed_query_vectors(
+            checkpoint_path
+        ) or record_query_vectors(retrieval, queries, settings)
+    pin_query_vectors(retrieval, queries, query_vectors, settings)
+    ranked, rows = run_scored_queries(
+        queries,
+        retrieval,
+        k=k,
+        checkpoint_path=checkpoint_path,
+        checkpoint_identity={
+            **checkpoint_identity,
+            "query_vectors_sha256": query_vectors_sha256(query_vectors),
+        },
+        query_vectors=query_vectors,
+        retry_delays=retry_delays,
+        sleep=sleep,
+    )
+    return ranked, rows, query_vectors
 
 
 def search_with_db_retry(
@@ -536,6 +600,7 @@ def run_scored_queries(
     k: int,
     checkpoint_path: Path,
     checkpoint_identity: dict[str, Any],
+    query_vectors: dict[str, Any] | None = None,
     retry_delays: Sequence[float] = SCORECARD_DB_RETRY_DELAYS,
     sleep: Callable[[float], None] = time.sleep,
 ) -> tuple[dict[str, list[tuple[int, int]]], dict[str, list[dict[str, Any]]]]:
@@ -602,6 +667,7 @@ def run_scored_queries(
             completed=completed,
             ranked=ranked,
             rows=rows,
+            query_vectors=query_vectors,
         )
         print(f"{index}/{len(queries)} {query_id}")
     return ranked, rows
@@ -738,8 +804,9 @@ def measured_scorecard(
         queries_path: The canonical query set.
         results_path: Where this run's full served results are written.
         k: The evaluation window.
-        query_vectors: The recorded vectors to search with; None embeds each
-            query afresh, which only a new baseline may do.
+        query_vectors: The recorded vectors to search with; None means a new
+            baseline, which embeds each query afresh or resumes an interrupted
+            baseline with the vectors it started with.
 
     Returns:
         The measured scorecard and the query vectors it was measured with.
@@ -768,9 +835,6 @@ def measured_scorecard(
         )
 
     retrieval = get_retrieval_service()
-    if query_vectors is None:
-        query_vectors = record_query_vectors(retrieval, queries, settings)
-    pin_query_vectors(retrieval, queries, query_vectors, settings)
     profile = retrieval._profile(SearchRequest(query="scorecard provenance", limit=k))
     strategy = retrieval._strategy()
     checkpoint_identity = _checkpoint_identity(
@@ -782,12 +846,14 @@ def measured_scorecard(
         database_environment=database_environment,
         strategy=strategy,
     )
-    ranked, rows = run_scored_queries(
+    ranked, rows, query_vectors = run_pinned_queries(
         queries,
         retrieval,
+        settings,
         k=k,
         checkpoint_path=scorecard_checkpoint_path(results_path),
         checkpoint_identity=checkpoint_identity,
+        query_vectors=query_vectors,
     )
     _write_results(results_path, queries, rows)
 

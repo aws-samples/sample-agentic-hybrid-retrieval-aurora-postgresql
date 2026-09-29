@@ -138,8 +138,11 @@ The release sequence is therefore:
 
 The runner retries only transient psycopg connection failures for the affected
 query. After each completed query it atomically writes an ignored checkpoint
-next to the result CSV. A later invocation resumes only when the query set,
-source, models, retrieval profile, and Aurora environment still match exactly.
+next to the result CSV, together with the query vectors the run searches with.
+A later invocation resumes only when the query set, source, models, retrieval
+profile, Aurora environment and query vectors still match exactly. A resumed
+baseline reuses the vectors its checkpoint recorded instead of embedding again,
+so every query in the baseline was searched with the vectors it publishes.
 Use `make score-evals SCORE_EVAL_ARGS=--restart` to discard a stale partial run.
 
 ## Filter-contract corpus
