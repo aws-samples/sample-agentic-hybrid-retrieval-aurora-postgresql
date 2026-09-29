@@ -21,7 +21,10 @@ holds the same strings for every message the app prints.
 
 The guides also use `lab_exercise.py`, `lab_terminal.py`, `flex_exercise.py`
 and `python -m scripts.check_builder_tool` for optional exercises. The other
-files at this level are helpers those commands import.
+files at this level are helpers those commands import, except
+`prepare_real_catalog.py` and `embed_real_catalog.py`: guides published before
+the scripts moved into `catalog/` link those paths, so each is a one-line
+pointer to its new location.
 
 ## Maintainer tooling
 
