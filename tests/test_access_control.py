@@ -34,7 +34,9 @@ SECRET = "offline-test-suite-secret"
 
 
 @pytest.fixture(autouse=True)
-def _clear_settings_cache():
+def _clear_settings_cache(monkeypatch):
+    # Exercise the real gate with this suite's caller, even on a prepared host.
+    monkeypatch.setenv("MOSAIC_ORIGIN_VERIFY_SECRET", SECRET)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

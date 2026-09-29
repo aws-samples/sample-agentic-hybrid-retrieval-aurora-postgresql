@@ -20,6 +20,14 @@ Participants are the engineers; Alex is their customer. Alex is setting up a hom
 - **Rank: fusion only works if positions count.** When they collapse, a tie-breaker picks the shortlist; a tuning decision needs judged queries and a rule chosen in advance.
 - **Reason: finding, citing and supporting are three separate checks.** A tool returning a record does not make it citable, and a real citation does not make every sentence true.
 
+Bootstrap prepares Lab 2's judged-query cache on each workshop's own Aurora
+indexes with the production HNSW configuration. Its source, function and settings
+identities must match; grading repeats live search lists. If a cache is stale,
+the facilitator runs `uv run python scripts/cache_lab2_arms.py --for-workshop`
+against that database before delivery, preserving the participant's proposal
+and rule. The prepared cache lives under ignored `build/`; the published cache
+is reference evidence from the release rehearsal.
+
 
 Mosaic is a shopping catalog of 553,911 products from Electronics, Office Products and Home and Kitchen in Amazon Reviews 2023. A shopper can search with keywords or ask in plain language. Both paths run against one Aurora PostgreSQL database, and both can look right while the retrieval behind them is wrong.
 

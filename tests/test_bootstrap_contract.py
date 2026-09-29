@@ -83,6 +83,13 @@ def test_the_source_of_truth_is_here(script: str) -> None:
     assert "mosaic-ui" in script
 
 
+def test_bootstrap_prepares_lab2_cache_on_its_own_catalog(script: str) -> None:
+    command = "uv run python scripts/cache_lab2_arms.py --for-workshop"
+    assert command in script
+    assert script.index("make check-exact-neighbors") < script.index(command)
+    assert script.index(command) < script.index("MOSAIC_BOOTSTRAP_COMPLETE")
+
+
 @pytest.mark.aurora
 @pytest.mark.parametrize("omit_profile_grant", [True, False])
 def test_runtime_role_can_attach_a_browser_conversation(

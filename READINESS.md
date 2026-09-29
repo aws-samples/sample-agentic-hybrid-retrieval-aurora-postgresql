@@ -60,11 +60,11 @@ The canonical set contains ten real-catalog requests: nine product-retrieval
 cases for Recall@10, MRR and nDCG@10, plus one agent-contract case checked
 through Lab 3. The twelve historical canonical requests and 720 generated
 filter cases live separately under `data/evals/historical/`. Historical scores
-do not certify the real catalog. The committed real-catalog baseline, measured
-on 2026-09-28 over the nine product-retrieval cases, reads Recall@10 1.0,
+do not certify the real catalog. The committed real-catalog baseline over the
+nine product-retrieval cases reads Recall@10 1.0,
 MRR 0.759 and nDCG@10 0.803; both release checks passed and both eligibility
-fixtures held. `data/evals/canonical_scorecard.json` records the source revision
-it was measured at. The baseline and every later check search with the query
+fixtures held. `data/evals/canonical_scorecard.json` records its measurement date
+and source revision. The baseline and every later check search with the query
 vectors recorded in `data/evals/canonical_query_vectors.json`, because Bedrock
 returns a slightly different vector for the same query on each call.
 
@@ -104,7 +104,9 @@ extensions below do not add a required lab.
   All four can supply agent context. Readiness requires the expected active
   strategies and namespaces. Bootstrap's `scripts/checks/verify_session_memory.py`
   checks event storage, strategy reads, recall and actor isolation through the
-  runtime API. Extraction and a memory-assisted answer still need a live rehearsal.
+  runtime API. The [29 September rehearsal](docs/evidence/fresh-account-2026-09-29.md)
+  verified extraction and a cited answer in a new session, with an earlier
+  grounding refusal retained in the evidence.
 - **Gateway documentation** in `docs/mcp-interoperability.md` explains why
   transport authentication does not replace the application authorization boundary.
   `scripts/checks/tool_contracts.py --check` checks local contracts;
@@ -119,8 +121,9 @@ extensions below do not add a required lab.
 - **Managed Runtime and Gateway** are required, provisioned resources for Lab 3,
   documented in `docs/agentcore-runtime.md`. The 26 September test event restored
   Aurora successfully but its tools Runtime failed in an unsupported physical AZ.
-  Fresh-account acceptance of the provisioning corrections is still owed; offline
-  contracts do not establish successful VPC attachment, deployed tools or answers.
+  The [29 September deployment](docs/evidence/fresh-account-2026-09-29.md) passed
+  provisioning and managed-agent rehearsal. Its subsequent cache/bootstrap
+  correction still needs pristine provisioning under its new release pin.
 - **Postgres 18 facts** (`docs/postgres-18.md`) records the engine and
   extension versions the connected cluster reports and what this pipeline uses.
   It makes no version-to-version performance claim, and none may be added until

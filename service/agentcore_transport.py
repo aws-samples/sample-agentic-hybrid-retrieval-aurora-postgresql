@@ -120,9 +120,13 @@ def invoke(
             and error.response.get("Error", {}).get("Code") == "RuntimeClientError"
             and "(409)" in error.response["Error"].get("Message", "")
         ):
+            # AgentCore exposes the HTTP conflict without its application body.
+            # Both stale code and rejected conversation context can return 409.
             raise AgentSetupError(
-                "The deployed agent differs from your workspace. In Code Editor, "
-                f"deploy with {DEPLOY_AGENT}. Next: retry Alex's question after deployment succeeds."
+                "The deployed agent rejected this request. For a follow-up, "
+                "clear chat and retry with a new question. Otherwise, check the "
+                f"deployment with {VERIFY_AGENT} in Code Editor; if it reports "
+                f"changed code, deploy with {DEPLOY_AGENT}."
             ) from error
         raise AgentSetupError(
             "Mosaic could not run the deployed agent. In Code Editor, check the "

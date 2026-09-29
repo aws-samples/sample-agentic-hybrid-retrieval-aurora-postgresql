@@ -6,8 +6,8 @@ chair controls. Running the three installed search functions live for all of
 them takes minutes, so this saves each query's lists once, at limits at least as
 large as any proposal may request. A proposal with smaller limits reads a prefix
 of each list: every search function orders by its own rank before applying its
-limit. The cache records the catalog hash and a hash of the installed function
-definitions, and the grader refuses it when either has changed.
+limit. The cache records the catalog, rendered reference SQL and installed
+function hashes, and the grader refuses it when any has changed.
 """
 
 from __future__ import annotations
@@ -25,6 +25,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
+REFERENCE_CACHE = Path("data/evals/lab2_search_cache.json")
+WORKSHOP_CACHE = Path("build/lab2-search-cache.json")
 MAX_LIMITS = {"fts": 240, "trigram": 160, "vector": 300}
 CHAIR_CONTROLS = (
     ("requirements-4", 1490476),
@@ -60,6 +62,41 @@ def encode_vector(values: list[float]) -> str:
     return base64.b64encode(struct.pack(f"<{len(values)}f", *values)).decode()
 
 
+def cache_source_sha256(repo: Path = REPO) -> str:
+    """Fingerprint the rendered reference SQL, including real-catalog filters.
+
+    Reference lab files keep this identity stable while participants edit their
+    exercise seams. Rendering matters: the live catalog's price and unknown-value
+    rules are applied outside the SQL files themselves.
+    """
+    from scripts.catalog.prepare_live_catalog import live_search_functions
+    from service.search_sql import search_sql
+
+    rendered = live_search_functions(search_sql(repo, solutions=True))
+    return hashlib.sha256(rendered.encode()).hexdigest()
+
+
+def cache_path(repo: Path = REPO) -> Path:
+    """Use the cache prepared on this workshop's own catalog and indexes."""
+    prepared = repo / WORKSHOP_CACHE
+    return prepared if prepared.is_file() else repo / REFERENCE_CACHE
+
+
+def hnsw_identity() -> str:
+    """Bind cached candidates to the settings used by production vector search."""
+    from service.models import RetrievalProfile
+
+    settings = RetrievalProfile().model_dump(
+        include={
+            "ef_search",
+            "iterative_scan",
+            "max_scan_tuples",
+            "scan_mem_multiplier",
+        }
+    )
+    return hashlib.sha256(json.dumps(settings, sort_keys=True).encode()).hexdigest()
+
+
 def search_identity(connection) -> dict[str, str]:
     """The catalog and function definitions these lists depend on."""
     from service.catalog_runtime import search_schema
@@ -78,6 +115,7 @@ def search_identity(connection) -> dict[str, str]:
     return {
         "catalog_sha256": catalog,
         "functions_sha256": hashlib.sha256(definitions.encode()).hexdigest(),
+        "hnsw_sha256": hnsw_identity(),
     }
 
 
@@ -85,7 +123,10 @@ def search_lists(connection, query: str, filters: dict, vector: str) -> dict:
     """Run the three installed searches at the cache limits; rows are [id, rank]."""
     from scripts.checks.retrieval_profile import load_profile
     from service.catalog_runtime import search_schema
+    from service.models import RetrievalProfile
+    from service.retrieval import RetrievalService
 
+    RetrievalService._configure_hnsw(connection, RetrievalProfile())
     schema = search_schema()
     encoded = json.dumps(filters)
     threshold = load_profile().trigram_threshold
@@ -132,10 +173,17 @@ def main() -> None:
     from service.retrieval import RetrievalService
 
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument(
-        "--output", type=Path, default=REPO / "data/evals/lab2_search_cache.json"
+    destination = parser.add_mutually_exclusive_group()
+    destination.add_argument("--output", type=Path)
+    destination.add_argument(
+        "--for-workshop",
+        action="store_true",
+        help="Prepare the ignored per-workshop cache",
     )
     args = parser.parse_args()
+    output = args.output or REPO / (
+        WORKSHOP_CACHE if args.for_workshop else REFERENCE_CACHE
+    )
     subset = json.loads((REPO / "data/evals/esci_judged_subset.json").read_text())
     vectors = json.loads((REPO / "data/evals/esci_query_vectors.json").read_text())
     service = RetrievalService()
@@ -161,10 +209,13 @@ def main() -> None:
                 decode_vector(control["vector"]),
             )
         conn.rollback()
-    args.output.write_text(
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output.with_suffix(output.suffix + ".tmp")
+    temporary.write_text(
         json.dumps(
             {
                 **identity,
+                "source_sha256": cache_source_sha256(),
                 "dataset_id": subset["dataset_id"],
                 "embedding_model_id": vectors["embedding_model_id"],
                 "limits": MAX_LIMITS,
@@ -176,9 +227,10 @@ def main() -> None:
         )
         + "\n"
     )
+    temporary.replace(output)
     print(
         f"{len(queries)} queries and {len(chair)} chair controls cached in "
-        f"{time.perf_counter() - started:.0f}s -> {args.output}"
+        f"{time.perf_counter() - started:.0f}s -> {output}"
     )
 
 

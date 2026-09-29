@@ -55,14 +55,17 @@ def _bypass_origin_verification():
 
 
 @pytest.fixture(autouse=True)
-def isolate_unit_catalog(request, monkeypatch):
-    """Keep a participant's selected catalog out of historical unit-test doubles.
+def isolate_unit_environment(request, monkeypatch):
+    """Keep workshop routing and catalog settings out of local test doubles.
 
-    Live tests retain the deployment selection. Unit tests that exercise a real
-    catalog set it explicitly in their own fixture or test body.
+    A configured Runtime or Gateway would bypass the mocked local agent or SQL
+    boundary and invoke managed services. Live tests retain deployment settings;
+    unit tests select any managed path or real catalog explicitly.
     """
     if request.node.get_closest_marker("aurora") is None:
         monkeypatch.delenv("MOSAIC_CATALOG_DATASET", raising=False)
+        monkeypatch.delenv("MOSAIC_AGENTCORE_RUNTIME_ARN", raising=False)
+        monkeypatch.delenv("MOSAIC_AGENTCORE_GATEWAY_URL", raising=False)
 
 
 _SKIP_REASON = (

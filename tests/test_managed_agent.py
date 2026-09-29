@@ -22,6 +22,28 @@ ARN = "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/MosaicAgent_exam
 SHA = "a" * 64
 
 
+@pytest.mark.parametrize("live", [False, True])
+def test_unit_environment_cannot_route_local_doubles_to_managed_services(
+    monkeypatch, live
+):
+    from inspect import unwrap
+    from types import SimpleNamespace
+
+    from conftest import isolate_unit_environment
+
+    gateway = "https://example.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp"
+    monkeypatch.setenv("MOSAIC_AGENTCORE_RUNTIME_ARN", ARN)
+    monkeypatch.setenv("MOSAIC_AGENTCORE_GATEWAY_URL", gateway)
+    request = SimpleNamespace(
+        node=SimpleNamespace(
+            get_closest_marker=lambda _name: object() if live else None
+        )
+    )
+    unwrap(isolate_unit_environment)(request, monkeypatch)
+    assert transport.runtime_arn() == (ARN if live else None)
+    assert gateway_tools.gateway_url() == (gateway if live else None)
+
+
 @pytest.fixture
 def source(monkeypatch):
     monkeypatch.setattr(
@@ -282,7 +304,7 @@ def test_stream_releases_admission_if_client_disconnects_before_iteration(monkey
     release.assert_called_once_with("slot")
 
 
-def test_stale_runtime_reply_names_redeployment(monkeypatch, source):
+def test_runtime_conflict_does_not_claim_unproven_source_drift(monkeypatch, source):
     from botocore.exceptions import ClientError
 
     monkeypatch.setenv("MOSAIC_AGENTCORE_RUNTIME_ARN", ARN)
@@ -292,10 +314,13 @@ def test_stale_runtime_reply_names_redeployment(monkeypatch, source):
         "InvokeAgentRuntime",
     )
     monkeypatch.setattr(transport, "runtime_client", lambda: client)
-    with pytest.raises(
-        AgentSetupError, match="differs from your workspace.*" + re.escape(DEPLOY_AGENT)
-    ):
+    with pytest.raises(AgentSetupError) as raised:
         transport.invoke("answer", AgentRequest(question="A monitor"))
+    message = str(raised.value)
+    assert "rejected this request" in message
+    assert "follow-up" in message and "clear chat" in message
+    assert VERIFY_AGENT in message
+    assert "differs from your workspace" not in message
 
 
 def test_runtime_ready_waits_for_live_endpoint_version(monkeypatch):

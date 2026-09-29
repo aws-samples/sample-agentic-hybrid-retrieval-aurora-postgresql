@@ -830,6 +830,7 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
     --workers 3 --maintenance-work-mem 2GB \
     --report build/quantized-index-build.json
   make check-exact-neighbors
+  uv run python scripts/cache_lab2_arms.py --for-workshop
   cat build/bootstrap-timings.tsv
   MISSION_GATE_REQUIRE_DB=1 DATABASE_URL=\"\$DATABASE_URL\" \
     uv run python scripts/checks/mission_contract.py

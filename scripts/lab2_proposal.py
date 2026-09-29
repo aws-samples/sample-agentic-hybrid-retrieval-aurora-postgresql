@@ -7,9 +7,10 @@ reviewed chair controls reported separately, then checks that the decision
 follows from the participant's own criterion. Adopting and rejecting are both
 passable; a decision that contradicts its own stated rule is not.
 
-The search lists come from `data/evals/lab2_search_cache.json`. Before using it,
-the grader checks the cache against the live catalog and search functions, and
-reruns three queries live, timing them at the baseline and proposed limits. The
+The search lists come from the cache bootstrap prepared on this workshop's own
+Aurora indexes, or the published reference cache outside a workshop. Before
+using it, the grader checks the source, catalog, functions and HNSW settings,
+then reruns three queries live, timing them at the baseline and proposed limits. The
 reranking model is not called, so latency here is retrieval and fusion latency,
 not end-to-end latency.
 """
@@ -25,13 +26,14 @@ from typing import Any
 
 from scripts.cache_lab2_arms import (
     MAX_LIMITS,
+    cache_path,
+    cache_source_sha256,
     decode_vector,
     search_identity,
     search_lists,
 )
 
 REPO = Path(__file__).resolve().parents[1]
-CACHE = REPO / "data/evals/lab2_search_cache.json"
 SUBSET = REPO / "data/evals/esci_judged_subset.json"
 VECTORS = REPO / "data/evals/esci_query_vectors.json"
 RERANK_LATENCY = REPO / "data/evals/rerank_latency.json"
@@ -183,12 +185,21 @@ def verify_cache(
     connection, cache: dict, subset: dict, limits: dict, base_limits: dict
 ) -> dict:
     """Refuse a stale cache; rerun a few queries live and time both settings."""
+    expected_source = cache_source_sha256()
+    if cache.get("source_sha256") != expected_source:
+        raise ProposalError(
+            f"cached source_sha256={cache.get('source_sha256')!r}, expected "
+            f"{expected_source}; the bundled search cache is out of date. "
+            "Ask the facilitator to rebuild it with scripts/cache_lab2_arms.py --for-workshop "
+            "against this release's Aurora database."
+        )
     identity = search_identity(connection)
     for key, live in identity.items():
-        if cache[key] != live:
+        if cache.get(key) != live:
             raise ProposalError(
-                f"cached search lists were built for {key} {cache[key][:12]}, but "
-                f"Aurora has {live[:12]}; rebuild with scripts/cache_lab2_arms.py"
+                f"cached search lists have {key}={cache.get(key)!r}, but "
+                f"Aurora expects {live}; ask the facilitator to rebuild with "
+                "scripts/cache_lab2_arms.py --for-workshop"
             )
     vectors = json.loads(VECTORS.read_text())["vectors"]
     for case in subset["queries"][:SPOT_CHECKS]:
@@ -197,7 +208,8 @@ def verify_cache(
         if live != cache["queries"][str(case["query_id"])]:
             raise ProposalError(
                 f"live search lists for query {case['query_id']} differ from the "
-                "cache; rebuild it with scripts/cache_lab2_arms.py"
+                "cache; ask the facilitator to rebuild it with "
+                "scripts/cache_lab2_arms.py --for-workshop"
             )
     if limits == base_limits:
         return {
@@ -261,7 +273,7 @@ def expected_decision(comparison: dict, criterion: dict) -> str:
 def grade(proposal: dict[str, Any], connection, baseline: dict[str, int]) -> dict:
     """Measure the proposal and check the decision against its own criterion."""
     setting, value = validate(proposal)
-    cache = json.loads(CACHE.read_text())
+    cache = json.loads(cache_path(REPO).read_text())
     subset = json.loads(SUBSET.read_text())
     base_settings, base_limits = settings_for(baseline, None, None)
     chosen, limits = settings_for(baseline, setting, value)

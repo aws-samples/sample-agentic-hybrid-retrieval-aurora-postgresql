@@ -11,12 +11,13 @@ Both tools are offline-testable and covered by `tests/test_rehearsal.py` and
 `tests/test_load_exercise.py`. Neither tool deploys, provisions, resets a lab,
 or touches a database directly; they record facts about commands the operator
 already ran, plus a small number of read-only HTTP calls against an
-already-running deployment. **No rehearsal has been recorded from this
-repository as of this writing.** Every deployment-time, latency, and
-throughput claim below is a description of the runbook, not a result; running
-it requires an authorized Aurora cluster, a deployed Workshop Studio stack or
-an equivalent Aurora + API environment, and Bedrock model access, none of
-which are available in an offline development session.
+already-running deployment. Dated results live in the
+[26 September record](evidence/fresh-account-2026-09-26.md) and
+[29 September record](evidence/fresh-account-2026-09-29.md), each with its own
+source identity and limitations. The commands below describe the runbook,
+not measured results. Running them requires an authorized Aurora cluster,
+a deployed Workshop Studio stack or equivalent Aurora + API environment,
+and Bedrock model access.
 
 ## Who can run this
 

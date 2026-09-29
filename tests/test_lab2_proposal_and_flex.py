@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts import flex_exercise, lab2_proposal
+from scripts import cache_lab2_arms, flex_exercise, lab2_proposal
 from scripts.lab_exercise import ExerciseError
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -94,6 +94,71 @@ def test_cache_covers_every_judged_query_at_the_largest_allowed_limits():
     for setting, arm in lab2_proposal.ARM_OF.items():
         assert lab2_proposal.SETTINGS[setting][1] <= cache["limits"][arm]
     assert len(cache["chair_controls"]) == 4
+
+
+def test_bundled_cache_matches_the_rendered_reference_search():
+    cache = json.loads((ROOT / "data/evals/lab2_search_cache.json").read_text())
+    assert cache.get("source_sha256") == cache_lab2_arms.cache_source_sha256(), (
+        "Lab 2 cache source drift: rebuild scripts/cache_lab2_arms.py against "
+        "the release's Aurora database before publishing"
+    )
+
+
+def test_cache_source_identity_includes_live_price_filtering(monkeypatch):
+    from scripts.catalog import prepare_live_catalog
+
+    current = cache_lab2_arms.cache_source_sha256()
+    monkeypatch.setattr(
+        prepare_live_catalog,
+        "_FILTER_PRICE",
+        {key: key for key in prepare_live_catalog._FILTER_PRICE},
+    )
+    assert cache_lab2_arms.cache_source_sha256() != current
+    with pytest.raises(lab2_proposal.ProposalError, match="cached source_sha256"):
+        lab2_proposal.verify_cache(None, {"source_sha256": current}, {}, {}, {})
+
+
+def test_proposal_refuses_a_cache_from_another_source_before_querying_aurora():
+    with pytest.raises(lab2_proposal.ProposalError, match="cached source_sha256"):
+        lab2_proposal.verify_cache(None, {"source_sha256": "old"}, {}, {}, {})
+
+
+def test_cached_search_lists_use_the_production_hnsw_configuration():
+    from service.models import RetrievalProfile
+
+    class Connection:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, sql, args):
+            self.calls.append((sql, args))
+            return self
+
+        def fetchall(self):
+            return []
+
+    connection = Connection()
+    cache_lab2_arms.search_lists(connection, "headphones", {}, "[]")
+    sql, args = connection.calls[0]
+    profile = RetrievalProfile()
+    assert ".configure_hnsw(" in sql
+    assert args == (
+        profile.ef_search,
+        profile.iterative_scan,
+        profile.max_scan_tuples,
+        profile.scan_mem_multiplier,
+    )
+
+
+def test_grading_prefers_the_workshop_database_cache(tmp_path):
+    reference = tmp_path / cache_lab2_arms.REFERENCE_CACHE
+    reference.parent.mkdir(parents=True)
+    reference.write_text("{}")
+    assert cache_lab2_arms.cache_path(tmp_path) == reference
+    prepared = tmp_path / cache_lab2_arms.WORKSHOP_CACHE
+    prepared.parent.mkdir(parents=True)
+    prepared.write_text("{}")
+    assert cache_lab2_arms.cache_path(tmp_path) == prepared
 
 
 HALFVEC_INDEX = (
