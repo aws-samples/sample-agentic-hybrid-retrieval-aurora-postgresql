@@ -2561,10 +2561,23 @@ describe("CatalogPage", () => {
     const callout = await screen.findByRole("region", { name: "Lab 1 outcome" });
     expect(
       within(callout).getByRole("heading", {
-        name: "Issue reproduced: the Bose QuietComfort 35 II is missing",
+        name: "The Bose QuietComfort 35 II is missing from these results",
       }),
     ).toBeTruthy();
+    expect(callout.textContent).toContain("Issue reproduced");
     expect(callout.textContent).toContain("deliberate");
+    expect(within(callout).getByText("Not in these results")).toBeTruthy();
+    // The way back, in order: open the file, repair it, apply it, search again.
+    const steps = within(within(callout).getByRole("list", { name: "Next steps" }))
+      .getAllByRole("listitem")
+      .map((step) => step.querySelector("strong")?.textContent);
+    expect(steps).toEqual([
+      "Open the lab file",
+      "Repair the marked blocks",
+      "Apply it to Aurora",
+      "Search again",
+    ]);
+    expect(within(callout).getByRole("button", { name: /^Copy uv run python scripts\/apply_search_functions\.py$/ })).toBeTruthy();
     // The file and the task come from the mission manifest, so the callout and
     // the lab guide cannot drift apart.
     expect(callout.textContent).toContain(lab1.participant_edit!.file);

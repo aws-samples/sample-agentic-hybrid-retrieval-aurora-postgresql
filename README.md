@@ -50,7 +50,8 @@ and **Playground** to inspect search results, ranking, tool calls, and sources.
 Playground follows one request down the page: the first result on its own
 plate, how each method found candidates, an itemized receipt for any product,
 and the agent's cited answer beside its sources. When a lab's request fails,
-every surface says what is missing, why, and the one command to run next.
+every surface says what is missing, why, and the one command to run next. On Shop,
+Lab 1's failure is a card for the missing product with numbered steps back to it.
 On Shop, **Why this match** itemizes how each result was found and ranked, and
 product pages show the specifications a listing states beside the listing text
 they came from. **Ask Mosaic** answers with the best pick's photo, then a

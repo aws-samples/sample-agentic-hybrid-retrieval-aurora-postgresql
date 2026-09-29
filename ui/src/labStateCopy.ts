@@ -71,20 +71,22 @@ export function isLabRepaired(state: LabStateFacts | null): boolean {
 }
 
 /**
- * What Aurora holds, said against the file it was applied from.
+ * What Aurora holds, said against a file that still has the fault.
  *
- * `applied` only means Aurora runs the file's current SQL. With the fault still
- * in the file that is the broken function, and "SQL repair applied" beside
- * "Code needs repair" read as though the participant's fix were already in.
+ * The service reports `applied` when Aurora's function contains the repair and
+ * `stale` when it does not. With the fault in the file, `stale` is the ordinary
+ * state (a fresh account, or a start): Aurora runs the same unrepaired SQL.
+ * `applied` then means Aurora kept a repair the file no longer has, as after a
+ * reset that was not applied.
  */
 const unrepairedDatabaseCopy: Partial<Record<LabDatabaseState, StateCopy>> = {
-  applied: {
-    label: "Aurora runs the unrepaired SQL",
-    description: "Aurora runs this lab's SQL as it is in your file, which still has the fault. Repair the marked block, then apply it.",
-  },
   stale: {
+    label: "Aurora runs the unrepaired SQL",
+    description: "Aurora runs this lab's SQL with the fault still in, as your file has it. Repair the marked block, then apply it.",
+  },
+  applied: {
     label: "Aurora differs from your file",
-    description: "Aurora holds SQL that is not in your file. Repair the marked block, then apply your file.",
+    description: "Aurora still holds a repair your file no longer has. Repair the marked block, then apply your file.",
   },
 };
 

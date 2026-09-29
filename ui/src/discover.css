@@ -1,3 +1,17 @@
+/* Discover sits on Apple's soft store grey. The page lifts its panels and
+   photography plates to white so they read as objects on the ground, and the
+   glass bar tints to the same grey. Light mode only: dark already sits on black. */
+:root[data-canvas="grey"]:not([data-theme="dark"]) {
+  --canvas: var(--paper-warm);
+  --surface-muted: var(--paper-strong);
+  --plate: var(--paper-strong);
+  --nav-glass: color-mix(in srgb, var(--paper-warm) 80%, transparent);
+}
+
+:root[data-canvas="grey"]:not([data-theme="dark"]) .workspace-tour-controls button:hover {
+  background: var(--paper-warm);
+}
+
 .discover-experience {
   background: var(--canvas);
   color: var(--ink);

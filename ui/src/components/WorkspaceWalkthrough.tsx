@@ -4,7 +4,9 @@ import { Link } from "wouter";
 import { editorialStories, storyHref } from "../discoverContent";
 import "../workspace-walkthrough.css";
 
-const STEP_DURATION_MS = 4_000;
+/** The empty room holds briefly; each piece then stays long enough to read. */
+export const OPENING_DWELL_MS = 2_000;
+export const STEP_DURATION_MS = 3_000;
 const beforeImage = "/assets/images/mosaic/alex-workspace-before.jpg";
 const visionImage = "/assets/images/mosaic/alex-workspace-after.jpg";
 
@@ -104,7 +106,7 @@ export function WorkspaceWalkthrough({ real }: { real: boolean }) {
     const timer = window.setTimeout(() => {
       setStep(step + 1);
       if (step + 1 === lastStep) setPlaying(false);
-    }, STEP_DURATION_MS);
+    }, step === 0 ? OPENING_DWELL_MS : STEP_DURATION_MS);
     return () => window.clearTimeout(timer);
   }, [advancing, lastStep, step]);
 

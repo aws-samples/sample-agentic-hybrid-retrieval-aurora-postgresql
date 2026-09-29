@@ -3,7 +3,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { editorialStories } from "../discoverContent";
-import { WorkspaceWalkthrough } from "./WorkspaceWalkthrough";
+import { OPENING_DWELL_MS, STEP_DURATION_MS, WorkspaceWalkthrough } from "./WorkspaceWalkthrough";
 
 let showCaption: (visible: boolean) => void;
 let showImage: (visible: boolean) => void;
@@ -65,15 +65,17 @@ describe("WorkspaceWalkthrough", () => {
     advance(30_000);
     expect(screen.getByLabelText("Step 1 of 5")).toBeTruthy();
     act(() => showImage(true));
-    advance(3_999);
+    advance(OPENING_DWELL_MS - 1);
     expect(screen.getByRole("heading", { name: "Desk. Laptop. A place to start." })).toBeTruthy();
     advance(1);
     expect(screen.getByRole("heading", { name: "Help him be heard." })).toBeTruthy();
-    advance(4_000);
+    advance(STEP_DURATION_MS - 1);
+    expect(screen.getByRole("heading", { name: "Help him be heard." })).toBeTruthy();
+    advance(1);
     expect(screen.getByRole("heading", { name: "Make long days comfortable." })).toBeTruthy();
-    advance(4_000);
+    advance(STEP_DURATION_MS);
     expect(screen.getByRole("heading", { name: "Put code and docs side by side." })).toBeTruthy();
-    advance(4_000);
+    advance(STEP_DURATION_MS);
     expect(screen.getByRole("link", { name: "Start with clearer calls" })).toBeTruthy();
     advance(60_000);
     expect(screen.getByLabelText("Step 5 of 5")).toBeTruthy();
@@ -98,7 +100,7 @@ describe("WorkspaceWalkthrough", () => {
     expect(screen.getAllByRole("button")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Replay" }));
     expect(screen.getByLabelText("Step 1 of 5")).toBeTruthy();
-    advance(4_000);
+    advance(OPENING_DWELL_MS);
     expect(screen.getByLabelText("Step 2 of 5")).toBeTruthy();
   });
 
@@ -111,7 +113,7 @@ describe("WorkspaceWalkthrough", () => {
     advance(30_000);
     expect(screen.getByLabelText("Step 1 of 5")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Play walkthrough" }));
-    advance(4_000);
+    advance(OPENING_DWELL_MS);
     expect(screen.getByLabelText("Step 2 of 5")).toBeTruthy();
   });
 
@@ -120,7 +122,7 @@ describe("WorkspaceWalkthrough", () => {
     ready();
     const walkthrough = screen.getByRole("figure", { name: "Alex’s workspace walkthrough" });
     fireEvent.pointerEnter(walkthrough);
-    advance(4_000);
+    advance(OPENING_DWELL_MS);
     expect(screen.getByLabelText("Step 2 of 5")).toBeTruthy();
     act(() => showCaption(false));
     advance(30_000);
@@ -132,7 +134,7 @@ describe("WorkspaceWalkthrough", () => {
     expect(screen.getByLabelText("Step 2 of 5")).toBeTruthy();
     vi.spyOn(document, "hidden", "get").mockReturnValue(false);
     fireEvent(document, new Event("visibilitychange"));
-    advance(4_000);
+    advance(STEP_DURATION_MS);
     expect(screen.getByLabelText("Step 3 of 5")).toBeTruthy();
   });
 

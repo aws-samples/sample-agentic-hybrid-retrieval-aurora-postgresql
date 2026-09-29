@@ -61,7 +61,10 @@ icon, labelled "Switch to dark mode" or "Switch to light mode") stores the
 viewer's choice; if storage is refused the switch still works for the visit.
 
 `:root[data-theme="dark"]` in `styles.css` redefines the base values, and every
-role token follows because it is an alias. Components never branch on the
+role token follows because it is an alias. Discover sets `data-canvas="grey"` on
+the root while it is open: in light mode the page ground becomes `--paper-warm`
+and its panels and photography plates lift to white (`discover.css`), the
+Apple-store arrangement. Dark mode is unchanged. Components never branch on the
 theme. The one theme-specific rule outside the palette is in `world.css`: the
 GitHub mark ships as a black SVG image, so dark mode inverts it.
 

@@ -27,6 +27,13 @@ describe("DiscoverPage", () => {
   });
   afterEach(cleanup);
 
+  it("sets its grey ground while open and leaves the other pages on theirs", () => {
+    const { unmount } = renderPage();
+    expect(document.documentElement.dataset.canvas).toBe("grey");
+    unmount();
+    expect(document.documentElement.dataset.canvas).toBeUndefined();
+  });
+
   it("routes a typed product need into Shop retrieval without imposing Alex’s categories", () => {
     renderPage();
     const input = screen.getByRole("searchbox", { name: "Search products" });

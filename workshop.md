@@ -197,7 +197,7 @@ and in Playground.
 
 ## Alex’s journey
 
-**Discover opens with “A room built around the way you work.”** A large photograph shows the
+**Discover opens with “A room built around the way you work.”** on a soft grey ground. A large photograph shows the
 workspace Alex is working toward. Beside it, **Meet Alex** makes the brief
 specific: a software engineer whose day moves between coding, team calls and
 focused work. His desk and laptop are already in place. His headphones, chair
@@ -309,7 +309,11 @@ missing Bose QuietComfort 35 II, why it is missing (for example, close spelling
 returned no candidates), and one step: repair the LAB1 block, apply it with
 `uv run python scripts/apply_search_functions.py`, and run the request again.
 Shop's callout, the Playground page it links to, the guided lab and the
-completion proof all say this. A failing proof leads with one plain line and
+completion proof all say this. On Shop the callout is a card for the product Alex
+meant: its photograph, dimmed while it is missing, the ID Alex typed beside the
+listing's own with the two swapped characters marked, and four numbered steps
+(open the file, repair the marked blocks, apply, search again). When the repair
+lands, the same card turns green and shows where the product came back. A failing proof leads with one plain line and
 shows each failed check as what it found, then its fix. An earlier passing terminal
 validation appears beside the state as a dated record, never as the verdict.
 While Lab 2's fault is installed, a fresh Lab 1 check fails even

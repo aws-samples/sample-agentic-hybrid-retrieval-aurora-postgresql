@@ -56,9 +56,12 @@ describe("a lab whose file still has the fault", () => {
   // "SQL repair applied" beside "Code needs repair" read as though the fix
   // were already in Aurora; it is the fault that is applied.
   it("says Aurora runs the unrepaired SQL, never that a repair is applied", () => {
-    expect(labStateCopy(state("broken", "applied")).map((copy) => copy.label))
-      .toEqual(["Code needs repair", "Aurora runs the unrepaired SQL"]);
+    // A fresh account: the file and Aurora both hold the fault, which the
+    // service reports as `stale` (no repair found in Aurora).
     expect(labStateCopy(state("broken", "stale")).map((copy) => copy.label))
+      .toEqual(["Code needs repair", "Aurora runs the unrepaired SQL"]);
+    // A reset that was not applied: Aurora kept the repair the file lost.
+    expect(labStateCopy(state("broken", "applied")).map((copy) => copy.label))
       .toEqual(["Code needs repair", "Aurora differs from your file"]);
     expect(labStateCopy(state("solved", "stale")).map((copy) => copy.label))
       .toEqual(["Code repaired", "SQL repair not applied"]);

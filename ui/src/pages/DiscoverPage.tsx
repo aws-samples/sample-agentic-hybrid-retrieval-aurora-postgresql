@@ -26,6 +26,14 @@ export function DiscoverPage() {
     () => discoverData.scope.peek()?.database.product_count,
   );
 
+  // Discover's grey ground is a page choice, so it leaves with the page.
+  useEffect(() => {
+    document.documentElement.dataset.canvas = "grey";
+    return () => {
+      delete document.documentElement.dataset.canvas;
+    };
+  }, []);
+
   useEffect(() => {
     let active = true;
     void discoverData.scope.load().then(scope => {

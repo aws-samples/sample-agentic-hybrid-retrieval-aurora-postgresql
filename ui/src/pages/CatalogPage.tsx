@@ -39,6 +39,7 @@ import {
   CatalogSearchComposer,
 } from "../components/CatalogSearchComposer";
 import { CodeEditorLink } from "../components/CodeEditorLink";
+import { LabFaultCard } from "../components/LabFaultCard";
 import { CoverageNotice } from "../components/CoverageNotice";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { ProductCard } from "../components/ProductCard";
@@ -83,7 +84,6 @@ import type {
   SearchFilters,
   SearchResponse,
 } from "../types";
-import { APPLY_SQL } from "../participantCommands";
 
 const priceCeiling = 2000;
 const priceStep = 25;
@@ -184,8 +184,6 @@ interface RetrievalLabCallout {
    * participant to edit SQL that was never the problem costs them the lab.
    */
   blocked: boolean;
-  /** The heading for the absent case, which names a product the response cannot. */
-  missingHeading: string;
 }
 
 /**
@@ -226,22 +224,7 @@ function retrievalLabCallout(
     targetPresent,
     repaired: targetPresent && outcome.tone === "fixed",
     blocked: outcome.tone === "unhealthy",
-    missingHeading: retrievalLab.target_display_name
-      ? `Issue reproduced: the ${retrievalLab.target_display_name} is missing`
-      : outcome.title,
   };
-}
-
-/**
- * Which of the three callouts is on screen, as a class.
- *
- * Amber for an environment fault and red for the seam, drawn apart on purpose
- * and the same way `.lab-outcome` draws them: "the room is wrong" and "the code
- * you were sent here to fix is wrong" ask for different work.
- */
-function calloutTone(callout: RetrievalLabCallout): string {
-  if (callout.blocked) return "unhealthy";
-  return callout.repaired ? "fixed" : "broken";
 }
 
 /**
@@ -1406,89 +1389,53 @@ export function CatalogPage() {
           {/* A callout, not a modal. The results it is about stay on screen
               underneath it: the point is that a page of plausible headphones and
               a missing product are the same screen. */}
-          {labCallout ? (
+          {labCallout?.blocked ? (
             <section
               ref={labCalloutRef}
-              className={`shop-lab-callout ${calloutTone(labCallout)}`}
+              className="shop-lab-callout unhealthy"
               aria-label={`Lab ${retrievalLabNumber} outcome`}
             >
-              {labCallout.blocked ? (
-                <>
-                  {/* No file, no task, and no claim about the participant's
-                      work. Readiness says an index this scenario needs is not
-                      there, and the same empty trigram channel that an
-                      unrepaired CTE produces is what they would be sent to fix.
-                      "Search again" stays: re-applying the schema happens in
-                      another window, exactly as a repair does. */}
-                  <h2>{labCallout.outcome.title}</h2>
-                  <p>{labCallout.outcome.detail}</p>
-                  <div className="shop-lab-callout-actions">
-                    <CodeEditorLink href={codeEditorUrl} />
-                    <button
-                      type="button"
-                      onClick={() => setRetrievalNonce((run) => run + 1)}
-                    >
-                      Search again
-                    </button>
-                  </div>
-                </>
-              ) : labCallout.repaired ? (
-                <>
-                  <h2>Repair verified</h2>
-                  <p>{labCallout.outcome.detail}</p>
-                  {/* Promoted out of the collapsed disclosure below, and rendered
-                      only here, so the participant is offered one way through to
-                      the evidence rather than the same link twice. */}
-                  <Link
-                    className="shop-lab-callout-playground"
-                    href={`${playgroundQueryHref(
-                      retrieval!.query,
-                      retrieval!.applied_filters,
-                      retrieval!.search_event_id,
-                    )}&example=${encodeURIComponent(labCallout.mission.id)}#labs-stage-retrieve`}
-                  >
-                    See how this was retrieved in the {RETRIEVAL_SURFACE.label}
-                    <ArrowUpRight size={14} aria-hidden="true" />
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <h2>
-                    {labCallout.targetPresent
-                      ? labCallout.outcome.title
-                      : labCallout.missingHeading}
-                  </h2>
-                  <p>
-                    This is Lab {retrievalLabNumber}'s deliberate fault, not a gap
-                    in the catalog. {labCallout.outcome.detail}
-                  </p>
-                  <p className="shop-lab-callout-edit">
-                    Edit <code>{labCallout.mission.participant_edit!.file}</code>:
-                    {" "}
-                    {labCallout.mission.participant_edit!.task} Then apply it with{" "}
-                    <code>{APPLY_SQL}</code> and search again.
-                  </p>
-                  <div className="shop-lab-callout-actions">
-                    <CodeEditorLink href={codeEditorUrl} />
-                    <Link
-                      className="shop-lab-callout-playground"
-                      href={`${playgroundQueryHref(
-                        retrieval!.query, retrieval!.applied_filters, retrieval!.search_event_id,
-                      )}&example=${encodeURIComponent(labCallout.mission.id)}#labs-stage-retrieve`}
-                    >
-                      Inspect this run in the {RETRIEVAL_SURFACE.label}
-                      <ArrowUpRight size={14} aria-hidden="true" />
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => setRetrievalNonce((run) => run + 1)}
-                    >
-                      Search again
-                    </button>
-                  </div>
-                </>
-              )}
+              {/* No file, no task, and no claim about the participant's
+                  work. Readiness says an index this scenario needs is not
+                  there, and the same empty trigram channel that an
+                  unrepaired CTE produces is what they would be sent to fix.
+                  "Search again" stays: re-applying the schema happens in
+                  another window, exactly as a repair does. */}
+              <h2>{labCallout.outcome.title}</h2>
+              <p>{labCallout.outcome.detail}</p>
+              <div className="shop-lab-callout-actions">
+                <CodeEditorLink href={codeEditorUrl} />
+                <button
+                  type="button"
+                  onClick={() => setRetrievalNonce((run) => run + 1)}
+                >
+                  Search again
+                </button>
+              </div>
             </section>
+          ) : labCallout ? (
+            // A callout, not a modal. The results it is about stay on screen
+            // underneath it: the point is that a page of plausible headphones
+            // and a missing product are the same screen.
+            <LabFaultCard
+              ref={labCalloutRef}
+              mission={labCallout.mission}
+              labNumber={retrievalLabNumber}
+              state={labCallout.repaired ? "fixed" : "broken"}
+              targetPresent={labCallout.targetPresent}
+              title={labCallout.outcome.title}
+              detail={labCallout.outcome.detail}
+              finalRank={
+                retrieval!.results.find((product) =>
+                  labCallout.mission.target_product_ids.includes(product.product_id),
+                )?.signals?.final_rank ?? null
+              }
+              codeEditorUrl={codeEditorUrl}
+              playgroundHref={`${playgroundQueryHref(
+                retrieval!.query, retrieval!.applied_filters, retrieval!.search_event_id,
+              )}&example=${encodeURIComponent(labCallout.mission.id)}#labs-stage-retrieve`}
+              onSearchAgain={() => setRetrievalNonce((run) => run + 1)}
+            />
           ) : null}
 
           {rankOutcome && rankMission && retrieval ? (

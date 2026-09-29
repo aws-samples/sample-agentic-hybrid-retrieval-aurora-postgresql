@@ -339,7 +339,7 @@ describe("CompletionProof", () => {
       proofFixture(labId, labId === 1 ? {
         status: "fail",
         source_state: "broken",
-        database_state: "applied",
+        database_state: "stale",  // a fresh account: Aurora holds no repair
         entry_state: "started",
         checks: [{
           name: "trigram candidate pool non-empty",
