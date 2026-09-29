@@ -30,7 +30,9 @@ export function CoverageNotice({ coverage }: { coverage?: QueryCoverage | null }
 
   return (
     <aside className="coverage-notice" role="status" data-testid="coverage-notice">
-      <SearchX size={18} className="coverage-notice__icon" aria-hidden />
+      <span className="coverage-notice__badge">
+        <SearchX size={16} aria-hidden />
+      </span>
       <div className="coverage-notice__body">
         <p className="coverage-notice__lead">
           No exact catalog match for{" "}

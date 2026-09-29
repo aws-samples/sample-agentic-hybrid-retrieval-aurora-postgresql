@@ -1,62 +1,65 @@
-/* Scoped to this component rather than appended to styles.css or surfaces.css.
-   Those two are the house convention, but both carry uncommitted work; a
-   component-local sheet keeps this change separable. Tokens come from the
-   :root block in styles.css, so the palette stays shared. */
+/* A quiet line above the results rather than an alert: the results below are
+   still the measured answer, and the notice only says that none of them carries
+   the exact words asked for. Tokens come from the :root block in styles.css. */
 
 .coverage-notice {
   display: flex;
   gap: 12px;
-  align-items: flex-start;
-  margin: 0 0 18px;
-  padding: 14px 16px;
-  border: 1px solid var(--line-dark);
-  border-left: 2px solid var(--gold);
-  border-radius: 6px;
-  background: var(--gold-soft);
+  align-items: center;
+  margin: 0 0 20px;
+  padding: 10px 16px 10px 10px;
+  border: 1px solid color-mix(in srgb, var(--gold) 24%, var(--line));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--gold-soft) 72%, var(--paper));
   color: var(--ink);
   font-family: var(--sans);
-  font-size: var(--labs-body);
+  font-size: 13.5px;
   line-height: 1.5;
 }
 
-.coverage-notice__icon {
+.coverage-notice__badge {
+  display: grid;
   flex: none;
-  margin-top: 1px;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--paper);
   color: var(--gold);
 }
 
 .coverage-notice__body {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
   min-width: 0;
 }
 
 .coverage-notice__lead {
   margin: 0;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* The unmatched term is the whole point of the notice, so it reads as a value
    rather than as prose. Monospace because it is a literal the shopper typed. */
 .coverage-notice__term {
-  padding: 1px 6px;
-  border: 1px solid var(--line-dark);
-  border-radius: 4px;
-  background: var(--paper-strong);
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--paper);
   font-family: var(--mono);
-  font-size: var(--labs-detail);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .coverage-notice__detail {
   margin: 0;
   color: var(--ink-soft);
-  font-size: var(--labs-detail);
 }
 
 @media (width <= 640px) {
   .coverage-notice {
-    padding: 12px;
-    font-size: var(--labs-detail);
+    align-items: flex-start;
+    font-size: 13px;
   }
 }

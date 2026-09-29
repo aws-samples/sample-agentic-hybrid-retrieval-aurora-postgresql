@@ -2898,12 +2898,12 @@
 .shop-fault-card {
   scroll-margin-top: calc(var(--topbar-height) + 24px);
   display: grid;
-  grid-template-columns: minmax(200px, 280px) minmax(0, 1fr);
-  gap: clamp(20px, 3vw, 40px);
-  margin: 0 0 28px;
-  padding: clamp(16px, 2vw, 24px);
+  grid-template-columns: minmax(160px, 208px) minmax(0, 1fr);
+  gap: clamp(16px, 2.4vw, 32px);
+  margin: 0 0 20px;
+  padding: clamp(14px, 1.6vw, 20px);
   border: 1px solid var(--danger-line);
-  border-radius: 28px;
+  border-radius: 24px;
   background: var(--paper);
   box-shadow:
     0 1px 2px rgb(0 0 0 / 4%),
@@ -2921,7 +2921,7 @@
 .shop-fault-plate {
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 10px;
   margin: 0;
 }
 
@@ -2929,7 +2929,7 @@
   position: relative;
   aspect-ratio: 4 / 3;
   overflow: hidden;
-  border-radius: 22px;
+  border-radius: 18px;
   background: var(--plate);
 }
 
@@ -2937,7 +2937,7 @@
   display: block;
   width: 100%;
   height: 100%;
-  padding: 17% 12% 7%;
+  padding: 19% 13% 6%;
   object-fit: contain;
   mix-blend-mode: multiply;
   transition: filter 700ms var(--ease-out), opacity 700ms var(--ease-out);
@@ -2951,14 +2951,14 @@
 .shop-fault-status {
   position: absolute;
   z-index: 1;
-  top: 12px;
-  left: 12px;
+  top: 10px;
+  left: 10px;
   display: inline-flex;
-  height: 26px;
+  height: 24px;
   align-items: center;
-  gap: 6px;
-  padding: 0 11px;
-  border-radius: 13px;
+  gap: 5px;
+  padding: 0 10px;
+  border-radius: 12px;
   background: var(--danger);
   color: var(--paper-strong);
   font-size: 12px;
@@ -2977,21 +2977,21 @@
 
 .shop-fault-plate figcaption {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .shop-fault-name {
   color: var(--ink);
-  font: 600 15px/1.3 var(--display);
+  font: 600 14px/1.3 var(--display);
   letter-spacing: -0.01em;
 }
 
 .shop-fault-ids {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 4px 14px;
+  gap: 3px 12px;
   margin: 0;
-  font-size: 12.5px;
+  font-size: 12px;
 }
 
 .shop-fault-ids dt {
@@ -3016,15 +3016,15 @@
 .shop-fault-body {
   display: grid;
   align-content: start;
-  gap: 10px;
+  gap: 6px;
   min-width: 0;
 }
 
 .shop-fault-body h2 {
-  max-width: 30ch;
+  max-width: 44ch;
   margin: 0;
   color: var(--ink);
-  font: 600 clamp(21px, 2.2vw, 27px)/1.16 var(--display);
+  font: 600 clamp(19px, 1.7vw, 23px)/1.18 var(--display);
   letter-spacing: -0.022em;
   text-wrap: balance;
 }
@@ -3032,7 +3032,7 @@
 .shop-fault-verdict {
   margin: 0;
   color: var(--danger);
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
 }
 
@@ -3041,36 +3041,40 @@
 }
 
 .shop-fault-detail {
-  max-width: 68ch;
+  max-width: 88ch;
   margin: 0;
   color: var(--ink-soft);
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 13.5px;
+  line-height: 1.5;
 }
 
+/* Two columns on a laptop screen, so the four steps take two rows of height
+   and the results start inside the first screen; one column on a phone. */
 .shop-fault-steps {
   display: grid;
-  margin: 10px 0 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 28px;
+  margin: 6px 0 2px;
   padding: 0;
-  border-top: 1px solid var(--line);
   list-style: none;
   counter-reset: fault-step;
 }
 
 .shop-fault-steps li {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr);
-  gap: 3px 14px;
-  padding: 13px 0;
-  border-bottom: 1px solid var(--line);
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-content: start;
+  gap: 2px 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
   counter-increment: fault-step;
 }
 
 .shop-fault-steps li::before {
   content: counter(fault-step);
   display: grid;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   grid-row: span 2;
   place-items: center;
   border-radius: 50%;
@@ -3083,16 +3087,16 @@
 
 .shop-fault-steps strong {
   color: var(--ink);
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 600;
-  line-height: 24px;
+  line-height: 22px;
 }
 
 .shop-fault-steps p {
   margin: 0;
   color: var(--ink-soft);
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 12.5px;
+  line-height: 1.55;
 }
 
 .shop-fault-steps .shop-fault-row {
@@ -3134,10 +3138,10 @@
 }
 
 .shop-fault-search {
-  min-height: 34px;
-  padding: 0 16px;
+  min-height: 30px;
+  padding: 0 14px;
   border: 0;
-  border-radius: 17px;
+  border-radius: 15px;
   background: var(--ink);
   color: var(--canvas);
   font-family: var(--sans);
@@ -3160,7 +3164,7 @@
   width: fit-content;
   align-items: center;
   gap: 4px;
-  margin-top: 4px;
+  margin-top: 2px;
   color: var(--link);
   font-size: 13.5px;
   font-weight: 500;
@@ -3170,6 +3174,12 @@
 .shop-fault-inspect:focus-visible {
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+@media (max-width: 1000px) {
+  .shop-fault-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 @media (max-width: 720px) {
