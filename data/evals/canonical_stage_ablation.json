@@ -1,5 +1,5 @@
 {
-  "ablation_methodology_sha256": "b8d065897cd764d21bebac55af1f797e542a92c17d32f68373269688bc74e802",
+  "ablation_methodology_sha256": "841e05f940134f3899cbb153f861c92b33aa2ac41a4edb2bb7cdd36b27c8dd70",
   "arms": {
     "lexical_only": {
       "description": "search_fts alone: PostgreSQL full-text search over the weighted product document, with no trigram or semantic arm and no fusion.",
@@ -81,7 +81,7 @@
     }
   },
   "k": 10,
-  "measured_at": "2026-09-28T20:52:20.207943+00:00",
+  "measured_at": "2026-09-29T13:38:20.202198+00:00",
   "models": {
     "embedding": "us.cohere.embed-v4:0",
     "rerank": "cohere.rerank-v3-5:0"
@@ -230,13 +230,13 @@
   "scored_query_count": 9,
   "scored_query_set_sha256": "05a1f0bae367d39e5d2769f746f4773de2639ea2a41209904a533e30e63b8c6e",
   "served_scorecard_reference": {
-    "measured_at": "2026-09-28T20:51:41.964550+00:00",
+    "measured_at": "2026-09-29T13:36:57.896232+00:00",
     "path": "data/evals/canonical_scorecard.json",
     "retrieval_fingerprint": "ac73e2b0af48779d6e4abf5267180b7bc5c9587ad85189b2be50c600c6590c96",
-    "source_revision": "7b1dd586db128ff35e5929db99d61b2e19ed78dc"
+    "source_revision": "016cd681800b8755e396a93bb44ea97ad2880690"
   },
   "source": {
-    "revision": "2ef5ec8bbb33a57d972c92178ead907b42a9da97",
+    "revision": "e12cead83978b826bdccc4a7b420325401326ded",
     "worktree_dirty": false
   },
   "spread_note": "9 queries and 14 judgments cannot separate small differences between these paths. Every path answers the same searches, so read each step as the difference on each search rather than as two separate averages: the comparison below reports that difference, the spread of the differences, and how many searches each step won and lost. A step whose average difference is smaller than that spread is one this query set cannot tell apart from no change."
