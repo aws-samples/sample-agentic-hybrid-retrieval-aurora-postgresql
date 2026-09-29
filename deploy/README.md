@@ -119,7 +119,9 @@ server's `--default-workspace` and the workshop's `CodeEditorURL` must name this
 file; an explicit `?folder=` URL would override the default. Older folder links
 still work and can open the workspace with File → Open Workspace from File.
 
-The workspace owns the shared Explorer exclusions and terminal working directory.
+The workspace owns the shared Explorer exclusions, terminal working directory,
+and **Dark Modern** starting theme. Automatic OS color-scheme switching is off
+so a browser on a light-mode device still opens the workshop with a dark background.
 Bootstrap reuses those settings for the repository-folder view. A single
 folder-open task lives in the repository's `.vscode/` and explicitly runs from
 that root; the terminal launcher also resolves its own repository before

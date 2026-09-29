@@ -43,6 +43,8 @@ for you; the command checks deployed source identity and Gateway connectivity.
 
 The participant workspace, [Mosaic.code-workspace](Mosaic.code-workspace),
 groups the existing files as **01 — Retrieve**, **02 — Rank**, and **03 — Reason**.
+Code Editor starts with the **Dark Modern** theme, independent of the device's
+light or dark appearance. Participants can change the theme in Code Editor.
 **Explore Mosaic source** keeps the complete repository accessible; prepared
 terminals run commands from its root. Each lab README follows **Broken →
 Diagnose → Fix → Prove**, with a collapsed recovery section linking the

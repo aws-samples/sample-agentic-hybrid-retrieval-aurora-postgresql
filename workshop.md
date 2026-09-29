@@ -12,6 +12,10 @@ Broken, Diagnose, Fix, Prove rhythm. The speaking cues below do not add
 required exercises or change the mission contract. Use role labels in
 repository material; keep the personal staffing roster outside the repo.
 
+Code Editor starts in **Dark Modern** on both light and dark devices. The
+participant workspace supplies this default; participants can change the theme
+in Code Editor to suit their needs.
+
 ## The workshop in one minute
 
 Participants are the engineers; Alex is their customer. Alex is setting up a home office for coding, video calls and focused work.

@@ -18,6 +18,8 @@
     }
   ],
   "settings": {
+    "workbench.colorTheme": "Default Dark Modern",
+    "window.autoDetectColorScheme": false,
     "workbench.editorAssociations": {
       "**/START_HERE.md": "vscode.markdown.preview.editor"
     },
