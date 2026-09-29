@@ -16,7 +16,7 @@ function lastAnswered(turns: AskMosaicTurn[]): AskMosaicTurn | null {
  * Owns the conversation shared by every Ask Mosaic drawer.
  *
  * The drawer is presentational. Keeping streaming events, follow-up
- * context, and cancellation here prevents Discover and Shop from drifting into
+ * context, and cancellation here prevents drawers from drifting into
  * different assistants behind matching controls.
  */
 export function useAskMosaicConversation(filters: SearchFilters, useMemory = false) {

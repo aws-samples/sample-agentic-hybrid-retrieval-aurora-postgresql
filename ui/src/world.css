@@ -300,8 +300,8 @@ details[open] > .product-receipt-card .receipt-states {
   color: inherit;
 }
 
-/* Shop landing: a centred stage headline, the search beneath it as the primary
-   action, then Alex's three needs as tiles in stage colour. */
+/* Shop landing: a centred stage headline with the search beneath it as the
+   primary action. The editorial bands below it live in shop-editorial.css. */
 .shop-hero:not(.is-searching) .shop-heading {
   grid-template-columns: minmax(0, 1fr);
   justify-items: center;
@@ -319,62 +319,6 @@ details[open] > .product-receipt-card .receipt-states {
   max-width: 44ch;
   font-size: clamp(17px, 1.5vw, 21px);
   line-height: 1.4;
-}
-
-.shop-journey-sequence > li {
-  display: flex;
-  flex-direction: column;
-  padding: 16px 16px 22px;
-  border-radius: var(--tile-radius);
-  background: var(--paper-warm);
-}
-
-.shop-journey-sequence img {
-  order: 1;
-  border-radius: 12px;
-}
-
-/* The stage names the tile's place in the story after its headline, never as an
-   eyebrow above it. */
-.shop-journey-stage {
-  order: 4;
-  margin: 14px 0 0;
-  color: var(--ink);
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  text-transform: none;
-}
-
-.shop-journey-caption {
-  order: 3;
-  margin-top: 18px;
-  padding: 0;
-}
-
-/* Colour names the stage, as it does everywhere else. */
-.shop-journey-stage::before {
-  width: 8px;
-  height: 8px;
-  flex: 0 0 auto;
-  order: -1;
-  border-radius: 50%;
-  background: var(--retrieve);
-  content: "";
-}
-
-.shop-journey-sequence > li:nth-child(2) .shop-journey-stage::before {
-  background: var(--rank);
-}
-
-.shop-journey-sequence > li:nth-child(3) .shop-journey-stage::before {
-  background: var(--reason);
-}
-
-.shop-journey h2 {
-  font-family: var(--display);
-  font-weight: 600;
-  letter-spacing: -0.02em;
 }
 
 .shop-example-group button,

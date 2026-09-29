@@ -1,7 +1,7 @@
 import { ArrowRight, Pause, Play, RotateCcw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { editorialStories, storyHref } from "../discoverContent";
+import { editorialStories, storyHref } from "../shopStories";
 import "../workspace-walkthrough.css";
 
 /** The empty room holds briefly; each piece then stays long enough to read. */
@@ -118,13 +118,13 @@ export function WorkspaceWalkthrough({ real }: { real: boolean }) {
 
   return (
     <figure
-      className="discover-hero-photo workspace-walkthrough"
+      className="workspace-walkthrough"
       aria-label="Alex’s workspace walkthrough"
       onFocusCapture={event => {
         if (!(event.target as HTMLElement).closest("[data-playback-control]")) setPlaying(false);
       }}
     >
-      <div ref={imageRef} id="alex-workspace-image" className="discover-hero-image workspace-tour-image">
+      <div ref={imageRef} id="alex-workspace-image" className="workspace-tour-image">
         <img
           src={beforeImage}
           alt="Alex’s starting point: a laptop on an oak standing desk, ready for a chair, monitor and headphones"

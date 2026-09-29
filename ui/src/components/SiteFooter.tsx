@@ -48,7 +48,6 @@ const footerColumns: Array<{
     id: "shop",
     heading: "Shop",
     links: [
-      { label: "Discover", href: "/" },
       { label: "All products", href: "/catalog" },
       { label: "Monitors", href: "/catalog?category_key=monitor" },
       { label: "Chairs", href: "/catalog?category_key=chair" },

@@ -46,7 +46,7 @@ export class RouteErrorBoundary extends Component<
         <h1>This surface did not load.</h1>
         <p>{this.state.message}</p>
         <p className="route-error-hint">
-          Reload this surface. If the problem persists, return to Discover and
+          Reload this surface. If the problem persists, return to Shop and
           retry the task.
         </p>
         <button type="button" onClick={() => window.location.reload()}>

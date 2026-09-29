@@ -205,7 +205,7 @@ context. Product facts still come from Aurora.
 
 ## Carry the story and reuse the proof
 
-Discover’s third need is more screen space, matching the presentation and Shop's monitor example. Lab 3 brings the monitor and chair decisions together: carry forward the monitor requirements from Lab 2 and gather separate evidence for each item. The monitor is also an exact-model control and an optional HNSW example. The SQL repairs feed the deployed agent; the mission and evidence checks cover the monitor's size, resolution, USB-C video and charging.
+Alex's need for more screen space has its own band on the Shop landing, matching the presentation and Shop's monitor example. Lab 3 brings the monitor and chair decisions together: carry forward the monitor requirements from Lab 2 and gather separate evidence for each item. The monitor is also an exact-model control and an optional HNSW example. The SQL repairs feed the deployed agent; the mission and evidence checks cover the monitor's size, resolution, USB-C video and charging.
 
 Ask each checkpoint question before the SQL repair. In Lab 3, show the monitor
 and chair searches and open one source. Distinguish a deployment failure from a

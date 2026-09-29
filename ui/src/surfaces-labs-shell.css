@@ -1,7 +1,7 @@
 /* Mosaic Labs */
 
-/* Width comes from --shell-width on .page, so the Playground ends where Discover
-   and Shop end. The 1520px max-width this replaces was a fourth answer to the
+/* Width comes from --shell-width on .page, so the Playground ends where Shop
+   ends. The 1520px max-width this replaces was a fourth answer to the
    same question, and the var(--paper-warm) fill drew a panel edge 2% off the page behind
    it — a visible seam that bought nothing, since every block inside already
    carries its own surface. */
@@ -624,20 +624,6 @@
    asks for no more height than its own content needs. */
 
 @media (max-width: 640px) {
-
-  .shop-journey-sequence {
-    grid-template-columns: none;
-    grid-auto-flow: column;
-    grid-auto-columns: 86%;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    padding-bottom: 12px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--line-strong) transparent;
-  }
-  .shop-journey-sequence li { scroll-snap-align: start; }
-  .shop-alex-story { gap: 12px; }
-  .shop-alex-story img { width: 56px; height: 56px; }
 
   /* The 60px strip of catalog the panel leaves visible at tablet width is worth
      a third of the shortlist's text column on a phone, and there is nothing to

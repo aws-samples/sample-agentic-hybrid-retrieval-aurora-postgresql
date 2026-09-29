@@ -25,7 +25,8 @@ const SHEETS = [
   "surfaces-labs-shell.css",
   "surfaces-hnsw.css",
   "surfaces-playground.css",
-  "discover.css",
+  "shop-editorial.css",
+  "workspace-walkthrough.css",
   "playground.css",
   "inspector.css",
   "playground-page.css",
@@ -144,14 +145,15 @@ export function smallTypeLiterals(sheets: Sheet[]): string[] {
  * `.discover-hero-prompts` inside it is a wrapping flex row whose max-content is
  * all three lab queries on one unwrapped line, which sized the track to 1494px.
  * Every sibling declaring `width: 100%` inherited it, so the Discover search
- * pill rendered at 1494px and ran across the hero photograph.
+ * pill rendered at 1494px and ran across the hero photograph. Alex's profile
+ * now sits in Shop's landing as `.shop-alex-profile`, and the pin moved with it.
  *
  * A general "grid plus width needs a track" rule was tried and rejected: it
  * flags 46 blocks, nearly all fixed-size icons and buttons where an implicit
  * track is harmless. This is a pin on the containers that actually hold a
  * full-width child, not a lint.
  */
-const PINNED_GRID_TRACKS = [".discover-hero-content"] as const;
+const PINNED_GRID_TRACKS = [".shop-alex-profile"] as const;
 
 /** Pinned containers that have lost their explicit `grid-template-columns`. */
 export function unpinnedGridTracks(sheets: Sheet[]): string[] {
@@ -245,7 +247,7 @@ describe("stylesheet vocabulary", () => {
       {
         name: "surfaces.css",
         text: [
-          ".discover-hero-content {",
+          ".shop-alex-profile {",
           "  display: grid;",
           "  width: min(100%, max(46%, 560px));",
           "  justify-items: start;",
@@ -253,8 +255,8 @@ describe("stylesheet vocabulary", () => {
         ].join("\n"),
       },
     ];
-    expect(unpinnedGridTracks(unpinned)).toEqual([".discover-hero-content"]);
-    expect(unpinnedGridTracks([{ name: "discover.css", text: ".discover-hero-content {\n  display: block;\n}" }])).toEqual([]);
-    expect(unpinnedGridTracks([{ name: "unrelated.css", text: ".other { display: block; }" }])).toEqual([".discover-hero-content"]);
+    expect(unpinnedGridTracks(unpinned)).toEqual([".shop-alex-profile"]);
+    expect(unpinnedGridTracks([{ name: "shop-editorial.css", text: ".shop-alex-profile {\n  display: block;\n}" }])).toEqual([]);
+    expect(unpinnedGridTracks([{ name: "unrelated.css", text: ".other { display: block; }" }])).toEqual([".shop-alex-profile"]);
   });
 });

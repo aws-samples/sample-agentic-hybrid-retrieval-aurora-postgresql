@@ -2,7 +2,7 @@
 
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { editorialStories } from "../discoverContent";
+import { editorialStories } from "../shopStories";
 import { OPENING_DWELL_MS, STEP_DURATION_MS, WorkspaceWalkthrough } from "./WorkspaceWalkthrough";
 
 let showCaption: (visible: boolean) => void;

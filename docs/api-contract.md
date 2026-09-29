@@ -466,9 +466,8 @@ and returns a count array in the same order, including zero results. It reads
 the same photographed cohort with production `matches_filters`. Like Shop,
 browsing includes refurbished and sponsored products unless excluded explicitly.
 The batch runs in one Aurora
-round trip, without hydrating products or computing unused facets. Discover
-uses it for its filter links. Its recent editorial reads are reused in browser
-memory for up to 60 seconds; search, agent, and proof requests remain uncached.
+round trip, without hydrating products or computing unused facets. No page
+calls it at present.
 
 ## Runtime status
 

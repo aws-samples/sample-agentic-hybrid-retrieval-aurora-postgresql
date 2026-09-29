@@ -1,5 +1,6 @@
-.workspace-walkthrough { display: flex; flex-direction: column; background: var(--canvas); }
-.workspace-walkthrough .workspace-tour-image { flex: 0 0 auto; height: auto; min-height: 0; aspect-ratio: 1168 / 784; overflow: hidden; }
+.workspace-walkthrough { position: relative; display: flex; min-width: 0; flex-direction: column; margin: 0; background: var(--canvas); }
+.workspace-walkthrough .workspace-tour-image { position: relative; width: 100%; flex: 0 0 auto; height: auto; min-height: 0; aspect-ratio: 1168 / 784; overflow: hidden; }
+.workspace-tour-image > img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; }
 .workspace-tour-vision { opacity: 0; transition: opacity 700ms cubic-bezier(.22, 1, .36, 1); }
 .workspace-tour-vision[data-visible="true"] { opacity: 1; }
 .workspace-tour-focus { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }

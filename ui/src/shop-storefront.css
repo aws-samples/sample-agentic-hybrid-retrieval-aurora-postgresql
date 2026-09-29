@@ -721,11 +721,6 @@ body {
   background: var(--maroon-800);
 }
 
-.landing-main {
-  min-height: 100vh;
-  background: var(--ink-soft);
-}
-
 .landing-nav {
   position: relative;
   z-index: 4;

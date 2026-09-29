@@ -24,20 +24,19 @@ import { ThemeToggle } from "./ThemeToggle";
  * all three panels, so there is one component and one rule block.
  */
 /**
- * Discover, Shop, Playground. Desire, decide, understand.
+ * Shop and Playground: decide, then understand. Alex's brief opens Shop's
+ * landing, so it needs no entry of its own.
  *
- * Three entries and nothing else: the third used to print "Observatory" with an
- * "Optional" badge clipped to it, which spent the only spare line in the header
- * telling participants the surface did not matter.
+ * Two entries and nothing else: the Playground's used to print "Observatory"
+ * with an "Optional" badge clipped to it, which spent the only spare line in the
+ * header telling participants the surface did not matter.
  */
 const navLinks = [
-  { to: "/", label: "Discover" },
   { to: "/catalog", label: "Shop" },
   { to: RETRIEVAL_SURFACE.path, label: RETRIEVAL_SURFACE.label },
 ];
 
 function isActive(pathname: string, to: string) {
-  if (to === "/") return pathname === "/" || pathname === "/discover";
   if (to === "/catalog") {
     return pathname.startsWith("/catalog") || pathname.startsWith("/products/");
   }

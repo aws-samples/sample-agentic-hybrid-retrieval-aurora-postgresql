@@ -2,29 +2,37 @@
 
 ## Shared shell
 
-Participant-facing navigation exposes exactly Discover, Shop, and Playground.
+Participant-facing navigation exposes exactly Shop and Playground.
 Product detail, retrieval inspection, and HNSW tuning are contextual deep
 routes, not competing destinations. Mobile navigation collapses behind one menu
 button.
 
-## `/` - Discover
+## `/` and `/discover`
 
-Purpose: establish the catalog scenario and launch a domain-scoped or natural
-language query.
-
-Components:
-
-- Mosaic product and workshop identity;
-- full-bleed product image;
-- search composer and four real sample queries;
-- compact `Retrieve -> Rank -> Reason` workshop rail.
-
-Every search and preset leaves Discover and enters Shop. Discover never becomes
-a second results surface.
+`/` opens Shop at `/catalog`. `/discover`, the address of the retired Discover
+page, redirects to `/catalog#alex-profile`, Alex's brief on the Shop landing.
 
 ## `/catalog` - Shop
 
-Purpose: use Mosaic as one integrated product-discovery experience.
+Purpose: establish Alex's scenario and use Mosaic as one integrated
+product-discovery experience.
+
+Landing, before a query or an Ask Mosaic shortlist:
+
+- centred headline, search composer, catalog scope line, and one line of
+  example searches grouped as Keywords, Typo, and Intent;
+- Meet Alex: the five-step workspace walkthrough beside Alex's profile
+  (`#alex-profile`), with links to his three categories;
+- three full-width bands, one per need, each linking to its category and to
+  its category-scoped search from the mission manifest;
+- the Ask Mosaic invitation as the closing band, then the note that Alex is
+  fictional and the workspace imagery is AI-generated;
+- the workspace edit grid below the story.
+
+With a query the story is not rendered. The headline stays the page's h1 for
+assistive technology only, and `Results for ...` is the display line. Ranked
+results read as an editorial list: the first in the final order as a feature,
+the rest as rows with their position at the end. Browsing keeps the grid.
 
 Components:
 

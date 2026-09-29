@@ -1,19 +1,9 @@
 /*
  * Canonical composition layer for the three participant-facing Mosaic surfaces.
- * Base controls and deep technical workbenches remain in styles.css; Discover,
- * Shop, Ask Mosaic, and the Mosaic Labs landing are owned here.
+ * Base controls and deep technical workbenches remain in styles.css; Shop,
+ * Ask Mosaic, and the Mosaic Labs landing are owned here.
  */
 
-
-/* Discover */
-
-/* The header is chrome above this element now, not the first thing inside it,
-   so a plain 100vh floor would add a header's worth of scroll to a page that
-   otherwise fits. */
-.landing-main {
-  min-height: calc(100vh - var(--topbar-height));
-  background: var(--canvas);
-}
 
 /* Shared type keeps the shopper's request continuous across storefront and labs. */
 .commerce-display {
@@ -174,24 +164,8 @@
   white-space: nowrap;
 }
 
-.shop-journey {
-  min-width: 0;
-  margin: 0;
-}
-.shop-alex-story { display: flex; align-items: center; gap: 16px; padding: 22px; background: var(--paper-warm); border-radius: 16px; }
-.shop-alex-story img { width: 64px; height: 64px; flex-shrink: 0; border-radius: 50%; }
-.shop-alex-story p { margin: 0; color: var(--ink-soft); font-size: 14px; line-height: 1.6; }
-.shop-alex-story strong { display: block; margin-bottom: 4px; color: var(--ink); font-size: 15px; font-weight: 550; }
 .shop-hero.is-searching .shop-heading { grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .shop-hero.is-searching .shop-heading h1 { grid-column: 1; }
-.shop-journey-sequence { display: grid; grid-template-columns: var(--shop-story-columns); gap: var(--shop-story-gap); list-style: none; margin: 0; padding: 0; }
-.shop-journey-sequence:focus-visible { outline: 2px solid var(--focus); outline-offset: 5px; border-radius: 10px; }
-.shop-journey-sequence li { min-width: 0; }
-.shop-journey-sequence img { display: block; width: 100%; height: auto; aspect-ratio: 1168 / 784; object-fit: cover; border-radius: 16px; }
-.shop-journey-caption { padding: 18px 0 0; }
-.shop-journey-stage { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; color: var(--maroon-800); font-size: 12px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; }
-.shop-journey h2 { margin: 0; color: var(--ink); font-family: var(--masthead); font-size: clamp(22px, 2vw, 28px); font-weight: 500; line-height: 1.15; }
-.shop-journey-caption p { margin: 8px 0 0; color: var(--ink-soft); font-size: 14px; line-height: 1.6; }
 
 .shop-hero > .shop-console {
   grid-column: 1 / -1;
@@ -386,7 +360,6 @@
     gap: 20px;
   }
   .shop-heading h1 { grid-column: 1; }
-  .shop-journey-sequence { gap: 14px; }
   .shop-console-note {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;

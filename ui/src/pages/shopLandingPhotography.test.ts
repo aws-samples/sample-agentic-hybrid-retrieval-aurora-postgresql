@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import collection from "../../../data/real-shop-collection.json";
 import { categoryPoolSize } from "../media";
-import { editorialStories, intentionCategories } from "./DiscoverPage";
+import { editorialStories } from "../shopStories";
 import type { Domain } from "../types";
 
 /**
- * Discover must link to categories with a range of available photos. Stable
+ * Shop's landing must link to categories with a range of available photos. Stable
  * per-product choices can repeat within a page; avoiding those repeats must not
  * change a product's photo when it moves from Shop to Playground.
  *
@@ -26,14 +26,13 @@ function tooShallow(
     .filter((entry) => entry.available < MIN_AVAILABLE);
 }
 
-describe("Discover entry points", () => {
+describe("Shop landing entry points", () => {
   it("routes editorial entries and category tiles to the reviewed real-product collection", () => {
     const categoryGroups: Record<string, string> = { headphones: "headphones", chair: "chairs", monitor: "monitors" };
-    const entries = [
-      ...editorialStories.map((story) => ({ category: story.filters.category_key!, domain: story.filters.domain })),
-      ...intentionCategories.map((category) => ({ category: category.categoryKey, domain: category.domain })),
-    ];
-    expect(entries).toHaveLength(6);
+    const entries = editorialStories.map((story) => ({
+      category: story.filters.category_key!, domain: story.filters.domain,
+    }));
+    expect(entries).toHaveLength(3);
     for (const entry of entries) {
       const group = collection.groups.find((item) => item.category === categoryGroups[entry.category]);
       expect(group, entry.category).toBeDefined();

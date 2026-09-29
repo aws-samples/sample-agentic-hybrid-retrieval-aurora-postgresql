@@ -10,7 +10,6 @@ vi.mock("./components/Shell", () => ({
     <main id="main-content" tabIndex={-1}>{children}</main>
   ),
 }));
-vi.mock("./pages/DiscoverPage", () => ({ DiscoverPage: () => <p>Discover route</p> }));
 vi.mock("./pages/CatalogPage", () => ({
   CatalogPage: () => <><p>Catalog route</p><input aria-label="Draft search" /></>,
 }));
@@ -79,8 +78,8 @@ describe("App Labs routes", () => {
     expect(input.value).toBe("quiet keyboard");
     expect(window.scrollTo).not.toHaveBeenCalled();
 
-    await act(async () => window.history.pushState({}, "", "/"));
-    expect(await screen.findByText("Discover route")).toBeTruthy();
+    await act(async () => window.history.pushState({}, "", "/labs/retrieval"));
+    expect(await screen.findByText("Retrieval route")).toBeTruthy();
     expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: "instant" });
     expect(document.activeElement).toBe(document.getElementById("main-content"));
   });
@@ -121,8 +120,8 @@ describe("App Labs routes", () => {
   });
 
   // Every name the navigation prints has to be typeable, or the catch-all sends
-  // a participant to Discover with no explanation. /shop used to do exactly that
-  // while /discover resolved and /playground redirected.
+  // a participant to Shop with no explanation. /shop used to do exactly that
+  // while /playground redirected.
   it.each([
     ["/shop", "/catalog", "Catalog route"],
     ["/playground", "/labs/retrieval", "Retrieval route"],
@@ -134,11 +133,33 @@ describe("App Labs routes", () => {
     expect(await screen.findByText(marker)).toBeTruthy();
   });
 
-  it("sends an unroutable path to Discover", async () => {
+  it("sends an unroutable path to Shop", async () => {
     window.history.replaceState({}, "", "/not-a-surface");
     render(<App />);
 
-    await waitFor(() => expect(window.location.pathname).toBe("/"));
-    expect(await screen.findByText("Discover route")).toBeTruthy();
+    await waitFor(() => expect(window.location.pathname).toBe("/catalog"));
+    expect(await screen.findByText("Catalog route")).toBeTruthy();
+  });
+
+  // Discover folded into Shop's landing. The front door and every bookmark of
+  // the retired page have to arrive somewhere that says what Discover said.
+  it("opens Shop at the front door, keeping a saved request", async () => {
+    window.history.replaceState({}, "", "/?q=clearer+calls#details");
+    render(<App />);
+
+    await waitFor(() => expect(window.location.pathname).toBe("/catalog"));
+    expect(window.location.search).toBe("?q=clearer+calls");
+    expect(window.location.hash).toBe("#details");
+    expect(await screen.findByText("Catalog route")).toBeTruthy();
+    await waitFor(() => expect(document.title).toBe("Shop | Mosaic"));
+  });
+
+  it("takes an old Discover bookmark to Alex's brief on Shop", async () => {
+    window.history.replaceState({}, "", "/discover");
+    render(<App />);
+
+    await waitFor(() => expect(window.location.pathname).toBe("/catalog"));
+    expect(window.location.hash).toBe("#alex-profile");
+    expect(await screen.findByText("Catalog route")).toBeTruthy();
   });
 });

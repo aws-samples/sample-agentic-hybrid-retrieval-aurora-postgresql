@@ -47,6 +47,12 @@
   --action: var(--ink);
   --action-ink: var(--paper-strong);
   --nav-glass: rgb(251 251 253 / 80%);
+  /* Shop's dark editorial band: black on the light page, a lifted grey on the
+     black dark-mode canvas, so it still reads as a band in both. */
+  --stage: var(--maroon-950);
+  --stage-ink: var(--paper-warm);
+  --stage-soft: #a1a1a6;
+  --stage-link: #a78bfa;
   --tile-radius: 18px;
   /* Listing photos have white grounds; they multiply onto this plate so the white disappears. */
   --plate: var(--paper-warm);
@@ -87,7 +93,7 @@
   --labs-mono: 13px;
   --topbar-height: 56px;
   --page-width: 1480px;
-  /* One application width for all three surfaces. Discover's body was capped at
+  /* One application width for every surface. Discover's body was capped at
      1320px and Shop's column at 1400px, so a 1728px display drew 408px of empty
      canvas on Discover and 328px on Shop, and the two surfaces did not agree on
      where the page ended. 92vw keeps a margin at every width; the 1480px cap is
@@ -127,6 +133,10 @@
   --danger-line: #5c1f1f;
   --retrieve: #a78bfa;
   --nav-glass: rgb(22 22 23 / 72%);
+  --stage: var(--paper-warm);
+  --stage-ink: var(--ink);
+  --stage-soft: var(--ink-soft);
+  --stage-link: var(--retrieve);
   --plate: #e8e8ed;
   --shadow: 0 18px 44px rgb(0 0 0 / 60%), 0 2px 6px rgb(0 0 0 / 40%);
 }

@@ -45,8 +45,11 @@ Each lab folder holds the one file you edit, a README with the task and
 commands, and `solution/` with the reference answer. When a lab starts, its
 marked blocks hold a `TODO(Lab n)` note that repeats the guide's contract.
 
-Use **Discover** to explore Alex's brief, **Shop** to search and compare products,
-and **Playground** to inspect search results, ranking, tool calls, and sources.
+Use **Shop** to meet Alex and to search and compare products, and **Playground**
+to inspect search results, ranking, tool calls, and sources. Shop opens on its
+search, then Alex's brief and one band for each of his three needs. A search
+replaces the story with ranked results: the first as a feature, the rest as rows
+with their positions.
 Playground follows one request down the page: the first result on its own
 plate, how each method found candidates, an itemized receipt for any product,
 and the agent's cited answer beside its sources. When a lab's request fails,

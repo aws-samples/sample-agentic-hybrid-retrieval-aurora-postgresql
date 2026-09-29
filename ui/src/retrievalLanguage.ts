@@ -9,7 +9,7 @@
  * n", and the Playground matrix said "Exact words". A shopper met four names for
  * one retriever and an engineer could not tell which of them was the mechanism.
  *
- * Shop and Discover print `label`. The Playground prints `label` and `mechanism`
+ * Shop prints `label`. The Playground prints `label` and `mechanism`
  * together, which is the whole bridge it exists to make. Nothing else invents a
  * third form.
  */

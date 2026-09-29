@@ -17,9 +17,6 @@ const StudioPrototypePage = import.meta.env.DEV ? lazy(() =>
 const TypographyPreview = import.meta.env.DEV ? lazy(() =>
   import("./components/TypographyPreview").then(({ TypographyPreview: Preview }) => ({ default: Preview })),
 ) : null;
-const DiscoverPage = lazy(() =>
-  import("./pages/DiscoverPage").then(({ DiscoverPage: Page }) => ({ default: Page })),
-);
 const PerformancePage = lazy(() =>
   import("./pages/ScaleInspectorPage").then(({ ScaleInspectorPage: Page }) => ({ default: Page })),
 );
@@ -35,7 +32,6 @@ const SessionMemoryPage = lazy(() =>
 );
 
 function titleForPath(pathname: string): string {
-  if (pathname === "/" || pathname === "/discover") return "Discover | Mosaic";
   if (pathname === "/catalog") return "Shop | Mosaic";
   if (import.meta.env.DEV && pathname === "/catalog-preview") return "Catalog preview | Mosaic";
   if (import.meta.env.DEV && pathname === "/design-studio") return "Precision Studio prototype | Mosaic";
@@ -71,17 +67,21 @@ function RoutedSurface() {
         fallback={<p className="route-loading" role="status">Loading Mosaic...</p>}
       >
         <Switch>
-          <Route path="/" component={DiscoverPage} />
-          <Route path="/discover" component={DiscoverPage} />
+          {/* Shop is the storefront's front door. Discover's brief of Alex now
+              opens Shop's landing, so its old address lands on that section. */}
+          <Route path="/">
+            <RouteAlias to="/catalog" />
+          </Route>
+          <Route path="/discover">
+            <Redirect to="/catalog#alex-profile" replace />
+          </Route>
           <Route path="/catalog" component={CatalogPage} />
           {CatalogPreviewPage ? <Route path="/catalog-preview" component={CatalogPreviewPage} /> : null}
           {StudioPrototypePage ? <Route path="/design-studio" component={StudioPrototypePage} /> : null}
           {/* Same reason as /playground below: the name in the navigation has to
-              be typeable. Two of the three nav labels already were -- /discover
-              resolves and /playground redirects -- while /shop fell through to
-              the catch-all and dropped the participant on Discover with nothing
-              said. The canonical path stays /catalog, which is what the workshop
-              instructions deep-link to. */}
+              be typeable. /shop used to fall through to the catch-all with
+              nothing said. The canonical path stays /catalog, which is what the
+              workshop instructions deep-link to. */}
           <Route path="/shop">
             <RouteAlias to="/catalog" />
           </Route>
@@ -109,7 +109,7 @@ function RoutedSurface() {
             <RouteAlias to="/mosaic-labs/hnsw" />
           </Route>
           <Route>
-            <Redirect to="/" replace />
+            <Redirect to="/catalog" replace />
           </Route>
         </Switch>
       </Suspense>

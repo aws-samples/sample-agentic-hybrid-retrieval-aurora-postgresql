@@ -18,7 +18,7 @@ type NavigationOptions = {
  *
  * One name now, and it is a participant-facing one. "Observatory" described the
  * instrument; "Playground" describes what a participant does here, and it is the
- * third and last entry in `Discover | Shop | Playground`. `label` is what
+ * second and last entry in `Shop | Playground`. `label` is what
  * navigation prints, `title` is what the surface's own masthead prints, and
  * `headline` is the promise underneath it.
  */

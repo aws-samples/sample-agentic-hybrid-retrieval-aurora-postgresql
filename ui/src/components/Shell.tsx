@@ -13,12 +13,11 @@ import { SiteHeader } from "./SiteHeader";
 export function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const pathname = location.split("?")[0];
-  const isLanding = pathname === "/" || pathname === "/discover";
   /**
    * The Playground and the HNSW instrument carry their own chrome and end in a
    * measurement, not an invitation to buy. A payment-methods band under a query
    * plan would be the one incoherent thing on those surfaces, so the storefront
-   * footer belongs to the storefront: Discover, Shop, search, product pages.
+   * footer belongs to the storefront: Shop, search, product pages.
    */
   const isInstrument = pathname.startsWith("/labs/")
     || pathname.startsWith("/mosaic-labs");
@@ -28,7 +27,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const { isCartOpen } = useCommerce();
 
   return (
-    <div className={isLanding ? "app-shell landing-shell" : "app-shell"}>
+    <div className="app-shell">
       <a
         className="skip-link"
         href="#main-content"
@@ -40,7 +39,7 @@ export function Shell({ children }: { children: ReactNode }) {
       {isStudioPrototype ? null : <SiteHeader inert={isCartOpen} />}
       <main
         id="main-content"
-        className={isLanding ? "app-main landing-main" : "app-main"}
+        className="app-main"
         tabIndex={-1}
         inert={isCartOpen || undefined}
         aria-hidden={isCartOpen || undefined}

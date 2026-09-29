@@ -31,7 +31,7 @@ import { catalogData, type BrowseRequest } from "../catalogData";
 import { AskMosaic } from "../components/AskMosaic";
 import { useAskMosaicMemory } from "../components/AskMosaicMemory";
 import { ShopSearchDetails } from "../components/ShopSearchDetails";
-import { RetrievalJourney } from "../components/RetrievalJourney";
+import { AskMosaicInvite, ShopLanding } from "../components/ShopLanding";
 import { ContinueWorkspace } from "../components/ContinueWorkspace";
 import { ScopedComparison } from "../components/ScopedComparison";
 import { ShopFilterSheet, type FilterSection } from "../components/ShopFilterSheet";
@@ -990,6 +990,10 @@ export function CatalogPage() {
   const agentProducts = agent?.recommendations.length
     ? agent.recommendations
     : null;
+  const landing = !activeQuery && !agentOpen && !agentProducts;
+  // The open assistant already carries this action's context.
+  const askInvite = !agentOpen && !landing;
+  const ranked = Boolean(retrieval || agentProducts);
   const pageSize = catalogPage?.limit ?? Math.max(1, baseProducts.length);
   const visibleProducts = mergeVisibleProducts(agentProducts, baseProducts, pageSize);
   // Use the same product photos in Shop and Playground, including agent picks.
@@ -1147,8 +1151,10 @@ export function CatalogPage() {
         <section className="shop-main">
           <div className={activeQuery ? "shop-hero is-searching" : "shop-hero"}>
             {/* No "SHOP" label above the headline: the header's active nav entry
-                already says where the participant is. */}
-            <header className="shop-heading">
+                already says where the participant is. With a query, "Results
+                for ..." is the display line, so the headline stays the page's
+                h1 for assistive technology only. */}
+            <header className={activeQuery ? "shop-heading sr-only" : "shop-heading"}>
               <h1 className="commerce-display">
                 Find what fits <em>your world.</em>
               </h1>
@@ -1157,7 +1163,7 @@ export function CatalogPage() {
               </p>
             </header>
 
-            <div className="shop-console">
+            <div className={askInvite ? "shop-console has-note" : "shop-console"}>
               <div className="shop-console-search">
                 <section className="shop-search" aria-label="Mosaic product search">
                   <CatalogSearchComposer
@@ -1175,7 +1181,6 @@ export function CatalogPage() {
 
                 {real ? (
                   <div className="shop-search-examples" aria-label="Suggested searches">
-                    <span>Explore</span>
                     {(["Keywords", "Typo", "Intent"] as const).map((kind) => (
                       <div className="shop-example-group" role="group" aria-label={`${kind} search examples`} key={kind}>
                         <span>{kind}</span>
@@ -1196,29 +1201,12 @@ export function CatalogPage() {
                 )}
               </div>
 
-              {/* The open assistant already carries this action's context. */}
-              {agentOpen ? null : (
-              <aside className="shop-console-note" aria-label="What Ask Mosaic does">
-                <div className="shop-console-note-intro">
-                  <h2>{agent ? "Keep comparing your options." : "A little help choosing?"}</h2>
-                  <p>Tell Mosaic what matters. Get a considered shortlist, with the details behind each pick.</p>
-                </div>
-                <button
-                  className="mosaic-ask-button shop-console-note-action"
-                  type="button"
-                  aria-label="Ask Mosaic"
-                  aria-expanded={agentOpen}
-                  onClick={openAgent}
-                >
-                  <Sparkles size={15} aria-hidden="true" />
-                  {agent ? "Return to Ask Mosaic" : "Ask Mosaic"}
-                </button>
-              </aside>
-              )}
+              {askInvite ? <AskMosaicInvite compact returning={Boolean(agent)} onOpen={openAgent} /> : null}
             </div>
 
-            {/* The search is the primary action, so it comes before the story. */}
-            {!activeQuery && !agentOpen ? <RetrievalJourney /> : null}
+            {/* The search is the primary action, so it comes before the story. A
+                query or a shortlist replaces the story with results. */}
+            {landing ? <ShopLanding real={real} returning={Boolean(agent)} onAsk={openAgent} /> : null}
           </div>
 
           <div className="shop-controls">
@@ -1620,7 +1608,7 @@ export function CatalogPage() {
             >
               {visibleProducts.length ? (
                 <motion.div
-                  className="product-grid shop-product-grid"
+                  className={ranked ? "product-grid shop-product-grid is-ranked" : "product-grid shop-product-grid"}
                   key={`${retrieval?.search_event_id ?? agent?.agent_run_id ?? page?.offset ?? 0}-${sort}-${categoryKey ?? "all"}-${domain ?? "all"}`}
                   initial={{ opacity: reduceMotion ? 1 : 0.82 }}
                   animate={{ opacity: 1 }}
@@ -1632,7 +1620,7 @@ export function CatalogPage() {
                       product={product}
                       imageSrc={gridImages.get(product.product_id)}
                       variant="catalog"
-                      showSignals={Boolean(retrieval || agentProducts)}
+                      showSignals={ranked}
                       diagnostics={retrieval?.diagnostics}
                       {...comparisonProps(product.product_id)}
                       assistRank={assistRanks.get(product.product_id)}

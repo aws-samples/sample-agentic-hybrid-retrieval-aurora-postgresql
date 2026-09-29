@@ -23,11 +23,11 @@ describe("RouteErrorBoundary", () => {
   it("renders children when nothing throws", () => {
     render(
       <RouteErrorBoundary>
-        <p>Discover</p>
+        <p>Shop</p>
       </RouteErrorBoundary>,
     );
 
-    expect(screen.getByText("Discover")).toBeTruthy();
+    expect(screen.getByText("Shop")).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 

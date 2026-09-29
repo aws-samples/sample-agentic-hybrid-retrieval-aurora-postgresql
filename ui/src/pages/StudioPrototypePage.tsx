@@ -188,7 +188,7 @@ export function StudioPrototypePage() {
   ] : [];
 
   return <div className="studio-prototype">
-    <div className="studio-concept-notice"><span><strong>Design prototype</strong> — sample data</span><a href="/discover"><ArrowLeft size={14} aria-hidden="true" />Back to Mosaic</a></div>
+    <div className="studio-concept-notice"><span><strong>Design prototype</strong> — sample data</span><a href="/catalog"><ArrowLeft size={14} aria-hidden="true" />Back to Mosaic</a></div>
     <header className="studio-header">
       <button type="button" className="studio-wordmark" onClick={() => navigate("discover")} aria-label="Mosaic Precision Studio home"><span>M</span>Mosaic <small>Precision Studio</small></button>
       <nav className="studio-navigation" aria-label="Prototype views">{(Object.keys(viewLabels) as View[]).map((name) => <button key={name} type="button" aria-current={view === name ? "page" : undefined} onClick={() => navigate(name)}>{viewLabels[name]}</button>)}</nav>

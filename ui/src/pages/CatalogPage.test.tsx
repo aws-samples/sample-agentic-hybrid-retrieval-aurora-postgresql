@@ -1013,14 +1013,17 @@ describe("CatalogPage", () => {
     expect(container.querySelector(".shop-hero")?.className).toBe("shop-hero is-searching");
     expect(container.querySelector(".shop-journey")).toBeNull();
     // Search results retain the page's one h1 while the illustrated journey steps aside.
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
-      "Find what fits your world.",
-    );
+    // "Results for ..." is the display line, so the headline is for assistive
+    // technology only.
+    const searchingHeading = screen.getByRole("heading", { level: 1 });
+    expect(searchingHeading.textContent).toBe("Find what fits your world.");
+    expect(searchingHeading.closest(".sr-only")).not.toBeNull();
     unmount();
 
     window.history.replaceState({}, "", "/catalog");
     const opened = renderPage();
-    await screen.findByRole("heading", { level: 1, name: "Find what fits your world." });
+    const landingHeading = await screen.findByRole("heading", { level: 1, name: "Find what fits your world." });
+    expect(landingHeading.closest(".sr-only")).toBeNull();
     expect(opened.container.querySelector(".shop-hero")?.className).toBe("shop-hero");
     expect(opened.container.querySelector(".shop-journey img")).not.toBeNull();
   });
@@ -1219,7 +1222,7 @@ describe("CatalogPage", () => {
     });
   });
 
-  it("scrolls a Discover handoff to results and offers Ask Mosaic beside them", async () => {
+  it("scrolls a story handoff to results and offers Ask Mosaic beside them", async () => {
     const scrollIntoView = vi.fn();
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
       configurable: true,

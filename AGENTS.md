@@ -108,7 +108,7 @@ case counts come from the manifests and validators, not a parallel prose list.
 
 ## Source map and troubleshooting
 
-- `ui/`: Discover, Shop and Playground, including saved results and lab proof.
+- `ui/`: Shop (with Alex's brief) and Playground, including saved results and lab proof.
 - `service/`: API, retrieval, tools, evidence and citation checks.
 - `labs/`: one folder per lab with the exercise file, README and `solution/`.
 - `db/`: the remaining SQL (numbered in install order), indexes, retrieval

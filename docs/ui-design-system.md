@@ -3,8 +3,9 @@
 What the storefront and the Playground actually look like, why, and what
 enforces it. This is the incumbent design record, derived from the shipped
 stylesheets. Shared tokens and base chrome come from `ui/src/styles.css`;
-surface behaviour comes from `surfaces.css`, `discover.css`,
-`shop-editorial.css`, `inspector.css`, `instrument.css`, and
+surface behaviour comes from `surfaces.css`, `shop-editorial.css` (with
+`workspace-walkthrough.css` for Alex's walkthrough), `inspector.css`,
+`instrument.css`, and
 `reason-products.css`; the cross-surface world layer is `world.css`.
 `workspace-continuation.css` styles the supporting Shop collection;
 `session-memory.css` and `result-product-card.css` own the memory inspector and
@@ -61,11 +62,13 @@ icon, labelled "Switch to dark mode" or "Switch to light mode") stores the
 viewer's choice; if storage is refused the switch still works for the visit.
 
 `:root[data-theme="dark"]` in `styles.css` redefines the base values, and every
-role token follows because it is an alias. Discover sets `data-canvas="grey"` on
-the root while it is open: in light mode the page ground becomes `--paper-warm`
-and its panels and photography plates lift to white (`discover.css`), the
-Apple-store arrangement. Dark mode is unchanged. Components never branch on the
-theme. The one theme-specific rule outside the palette is in `world.css`: the
+role token follows because it is an alias. Shop's landing alternates grounds
+band by band rather than switching the page canvas: `--canvas` for the hero and
+light bands, `--paper-warm` for grey bands, and `--stage` for the dark band.
+`--stage`, `--stage-ink`, `--stage-soft` and `--stage-link` are black,
+near-white, grey and violet in light mode. In dark mode the band lifts to
+`--paper-warm` on the black canvas, so it still reads as a band. Components
+never branch on the theme. The one theme-specific rule outside the palette is in `world.css`: the
 GitHub mark ships as a black SVG image, so dark mode inverts it.
 
 ## Palette
@@ -82,13 +85,17 @@ Surfaces and ink:
 | `--canvas` | `#fbfbfd` | `#000000` | page canvas, `html` and `body` |
 | `--paper-strong` | `#ffffff` | `#1c1c1e` | the raised surface: cards, receipts, popovers; the ink on the action pill |
 | `--paper` | `var(--paper-strong)` | | cards, panels, fields |
-| `--paper-warm` | `#f5f5f7` | `#161617` | tiles: journey tiles, spec highlights, the Ask invitation, the footer |
+| `--paper-warm` | `#f5f5f7` | `#161617` | Shop's grey bands, spec highlights, the Ask invitation, the footer |
 | `--surface-muted` | `var(--paper-warm)` | | subtle interface panels |
 | `--ivory` | `var(--canvas)` | | retained name; now the canvas |
 | `--ink` | `#1d1d1f` | `#f5f5f7` | primary text |
 | `--ink-soft` | `#6e6e73` | `#a1a1a6` | supporting text, labels, captions |
 | `--line` | `#d2d2d7` | `#38383a` | internal dividers and hairlines |
 | `--line-strong` | `#aeaeb2` | `#636366` | the boundary of a card or field; dotted receipt leaders |
+| `--stage` | `var(--maroon-950)`: `#000000` | `var(--paper-warm)`: `#161617` | Shop's dark band |
+| `--stage-ink` | `var(--paper-warm)`: `#f5f5f7` | `var(--ink)`: `#f5f5f7` | headlines and emphasis on the dark band |
+| `--stage-soft` | `#a1a1a6` | `var(--ink-soft)`: `#a1a1a6` | supporting text on the dark band |
+| `--stage-link` | `#a78bfa` | `var(--retrieve)`: `#a78bfa` | links and focus on the dark band |
 
 Retrieval roles and action:
 
@@ -169,12 +176,15 @@ Paired roles, same method:
 | `--paper` on `--maroon-900` (run disc) | 19.16:1 | 14.95:1 |
 | `--ink` on `--maroon-100` (hover fill) | 13.78:1 | 12.80:1 |
 | `--paper-warm` on `--ink` (code block) | 15.46:1 | 16.61:1 |
+| `--stage-ink` on `--stage` (dark band) | 19.29:1 | 16.61:1 |
+| `--stage-soft` on `--stage` | 8.16:1 | 7.03:1 |
+| `--stage-link` on `--stage` | 7.72:1 | 6.65:1 |
 
 **The Rank text rule.** Rank-coloured text uses `--gold`, never `--rank`.
 `--gold-bright` measures 2.52:1 on the light canvas, below the 3:1 floor even
 for large text, so the Playground stage numbers (`surfaces-playground.css`) and
 the active Rank column heading and top edge (`inspector.css`) use `--gold`.
-`--rank` stays a fill: the receipt's Rank dots and the Shop journey's Rank dot.
+`--rank` stays a fill: the receipt's Rank dots.
 In dark mode both clear 7:1.
 
 `--line-strong` is a boundary colour. At 2.14:1 on the light canvas it is not a
@@ -191,7 +201,7 @@ sans-serif`; `--display` and `--masthead` alias it. `--mono` is
 ships. Font metrics differ across platforms, so headings and controls must wrap
 without clipping.
 
-- Display and masthead: the native sans serif for Discover, Shop, Playground,
+- Display and masthead: the native sans serif for Shop, Playground,
   product names and prices, section titles and benchmark figures. Size, weight
   and spacing establish hierarchy within the one family.
 - Interface: the same sans serif for navigation, controls, cards, answers and
@@ -203,19 +213,21 @@ Base headings in `styles.css`: `h1` 56px, `h2` 30px, both weight 600 with
 −0.024em tracking and balanced wrapping; `h3` 17px; heading line height 1.08.
 The body carries −0.01em tracking; controls reset to 0.
 
-Discover, Shop and the Playground share `--page-title-size`:
+Shop and the Playground share `--page-title-size`:
 `clamp(40px, 4.2vw, 60px)` by default, `clamp(40px, 4.1vw, 54px)` and
 `clamp(36px, 8vw, 44px)` under the two `surfaces.css` media queries.
-`.commerce-display` (the Discover and Shop headlines) uses it in `--masthead`;
+`.commerce-display` (the Shop headline) uses it in `--masthead`;
 `world.css` sets its weight to 600, tracking −0.028em and line height 1.07, and
 makes its `em` inherit the headline colour. Headlines carry weight and size,
 not a coloured word. The Shop landing headline, while no query is active, is
-`clamp(40px, 4.2vw, 56px)`.
+`clamp(44px, 5.4vw, 76px)` at line height 1.04 and −0.04em tracking, at most
+9.5em wide so it balances over two lines. With a query it is visually hidden
+but stays the page's h1, and `Results for …` is the display line.
 
 **The quiet label rule.** Labels sit beside or after what they name, never as
 a tracked uppercase kicker above a heading. `.eyebrow` is 14px, weight 600, in
-`--ink-soft`. The Shop journey's stage name follows its caption rather than
-heading it.
+`--ink-soft`. Shop's editorial bands open on their headline, with nothing
+above it.
 
 Header navigation is 13px, weight 500, `--ink-soft`; hover and the active entry
 turn `--ink`, and the active entry draws a 2px `--ink` underline within the
@@ -238,8 +250,10 @@ count may only fall.
 ## Geometry
 
 **The tile and pill rule.** Panels and tiles take `--tile-radius` (18px):
-the Shop journey tiles, the Ask Mosaic invitation, the product page's photo
-stage, and the Scale & HNSW and Session & Memory panels. The guided lab
+the Ask Mosaic note beside results, the product page's photo stage, and the
+Scale & HNSW and Session & Memory panels. Shop's editorial photographs, the
+Meet Alex frame and the top result's feature plate take 28px, and 20px below
+820px. The guided lab
 (`playground.css`, scoped `.lab-page`) keeps one card level: its run form is a
 26px request card, its completion proof and agent composer are 22px cards, its
 figure grids are `--paper-warm` cells with 2px gaps inside a 22px shape, and
@@ -250,10 +264,10 @@ control and state chips, submit buttons and evidence badges. Circular controls
 (the search submit disc, the run disc, the save button) use 50%.
 
 Other radii in use: the itemized receipt card 16px; result and answer cards
-16px; journey and product-card images 12px (the Shop landing's journey images
-render at 16px, see Enforcement); spec highlight tiles on the product page
-14px; thumbnails 12px; the shared `.primary-button` / `.secondary-button` and
-the Shop landing example buttons 980px, which renders identically to 999px.
+16px; product-card images 12px; ranked result plates 16px and the top
+result's photograph 20px; spec highlight tiles on the product page
+14px; thumbnails 12px; the shared `.primary-button` / `.secondary-button`
+980px, which renders identically to 999px.
 
 - Hairlines are 1px, `--line` inside a panel and `--line-strong` at the
   boundary of a card or field. The header's bottom edge is `--line` at 70%.
@@ -318,46 +332,63 @@ leaders drop, and the total shrinks to 18px. The `.receipt-how` sub-lines and
 the pool-position track always span the row's full width, in both layouts.
 
 **The Shop landing.** With no active query, the Shop heading centres: the
-headline, then a lede at most 44ch wide at `clamp(17px, 1.5vw, 21px)`. The pill
-search follows as the primary action, then the three journey tiles on
-`--paper-warm` in manifest order. Each tile reads image, caption (title and
-description), then the stage name at 14px weight 600 in `--ink`, preceded by an
-8px dot in its stage colour: `--retrieve`, `--rank`, `--reason`. The Ask Mosaic
-invitation is a `--paper-warm` tile with no top rule.
+headline, then a lede at most 40ch wide at `clamp(19px, 2vw, 24px)`, 20px
+below it. The pill search follows as the primary action, at most 680px wide,
+with its scope line and one centred line of example links. Full-width bands
+follow in `shop-editorial.css`, each spanning the window with
+`clamp(56px, 7vw, 96px)` of vertical padding:
+
+1. Meet Alex on `--paper-warm`: the walkthrough and brief form one
+   `--paper-strong` object with a 28px radius.
+2. Headphones on `--stage`: centred copy above a full-measure 16:9 photograph,
+   with Alex's situation and “What matters” in two columns beneath.
+3. Monitors on `--paper-warm` and chairs on `--canvas`: splits that alternate
+   image and copy, with 4:3 photographs at a 28px radius.
+4. Ask Mosaic as a centred `--paper-warm` band.
+
+Band headlines are `clamp(40px, 5.2vw, 64px)`, or `clamp(34px, 4.2vw, 52px)` in
+the splits. Band links are 17px in `--link`, or `--stage-link` on the dark band.
+Below 820px the splits stack copy, image, then notes.
+
+**Ranked results.** A search or an Ask Mosaic shortlist replaces the story.
+Ranked results read as an editorial list. The first in the final order is a
+feature on a `--paper-warm` plate with a 28px radius, photograph and facts side
+by side. The rest are rows: a 112px plate, the product details, and the
+position at the end, separated by 1px `--line` rules. Browsing has no order, so
+it keeps the product grid.
 
 ## Chrome behaviour
 
-- Discover opens with “A room built around the way you work.” in the shared
-  headline style, without a top eyebrow. “you” carries its own class, but its
-  colour, `--maroon-800`, now resolves to `--ink`, so the headline is one
-  colour. Below it, a joined frame places the room walkthrough on the left and
-  the “Meet Alex.” brief on the right. The walkthrough has a five-step
-  introduction (headphones, chair, monitors, then the complete room) ending at
-  “Start with clearer calls”, with Next, Replay and explicit Pause/Play
+- Shop's Meet Alex band joins the room walkthrough on the left and the “Meet
+  Alex.” brief on the right. The walkthrough has a five-step introduction (the
+  starting point, headphones, chair, monitors, then the complete room) ending
+  at “Start with clearer calls”, with Next, Replay and explicit Pause/Play
   controls and a step count. Green checks identify the desk and laptop already
   in place; category links identify the pieces still to choose. “Explore
-  Alex’s brief” is an ink pill. The brief at `#alex-profile` clears the sticky
-  header.
-- Discover's search row, “Start with what matters to you.”, uses the shared
-  composer and the readiness API's product count. Three needs follow in
-  manifest order under “Three needs. One working day.”, each with Alex's
-  situation, “What matters” and a scoped Shop link. Discover ends with
-  “Now, find the pieces that fit.” and a note that Alex is fictional and the
-  imagery AI-generated and illustrative.
-- Discover and Shop share `CatalogSearchComposer`, styled by
+  Alex’s brief” is an ink pill that moves to the bands. The brief at
+  `#alex-profile` clears the sticky header and takes focus when the address
+  carries that hash; the retired `/discover` address lands there.
+- Three bands follow, for headphones, monitors and chairs. Each carries Alex's
+  situation, “What matters”, a link to the category and a link to the scoped
+  search from the mission manifest. The landing ends with the Ask Mosaic band
+  and a note that Alex is fictional and the imagery AI-generated and
+  illustrative.
+- Shop's search uses `CatalogSearchComposer`, styled by
   `catalog-search.css`: a pill (999px) at least 64px tall on `--canvas` with a
   1px `--line-strong` border that turns `--action` on focus within, an 18px
   search icon, a 15px input, and a 46px circular submit in `--action` with
   `--action-ink`. Page styles control placement and width; field geometry,
   icons and focus treatment stay shared.
 - Shop's landing is described under the world layer. Beneath the search,
-  Explore offers Keywords, Typo and Intent example groups (pills) and states
-  that every example uses the same search pipeline. “A little help choosing?”
-  and the Ask Mosaic button sit in the invitation tile. The Ask button is a
+  Keywords, Typo and Intent example groups are one line of text links in
+  `--link`, then a note that every example uses the same search pipeline.
+  Beside results they align with the field's left edge. “A little help
+  choosing?” and the Ask Mosaic button form the landing's closing band, and a
+  compact note beside the search once there are results. The Ask button is a
   999px pill with a gradient from `--maroon-800` to `--maroon-950` (ink to the
   extreme ink of the theme), `--paper` text, a sheen that sweeps on hover, and
-  a 1px lift; reduced motion disables the sheen and movement. An active query
-  or open Ask panel removes the journey.
+  a 1px lift; reduced motion disables the sheen and movement. An active query,
+  a shortlist or an open Ask panel removes the story bands.
 - Shop result cards for the real catalog (`source-product-card`) are the
   product-page tile: the whole card is a `--paper-warm` tile
   (`--tile-radius`), and the listing photo, `clamp(200px, 21vw, 280px)` high,
@@ -472,8 +503,9 @@ palette in `studio-prototype.css`; it is not the storefront's design.
 
 | Path | Surface |
 |---|---|
-| `/`, `/discover` | Discover: Alex's room brief, three illustrated shopping needs, general search |
-| `/catalog` | Shop: faceted browsing, hybrid search, product cards with itemized receipts, Ask Mosaic as a sidecar |
+| `/` | Redirects to `/catalog` |
+| `/discover` | Redirects to `/catalog#alex-profile`, Alex's brief on Shop |
+| `/catalog` | Shop: Alex's brief and three needs before a query, faceted browsing, hybrid search, ranked results as an editorial list, product cards with itemized receipts, Ask Mosaic as a sidecar |
 | `/products/:productId` | Product detail: plate photo stage, typed spec highlights, listing details, reviews |
 | `/labs/retrieval` | Hybrid retrieval: read-only inspection of Retrieve, Rank, Reason; one run button starts a real run, and `scene` selects a canonical request |
 | `/labs/retrieval?view=lab` | Guided Playground: Retrieve, Rank, Reason, Prove, lab rail and completion proof |
@@ -504,7 +536,7 @@ palette in `studio-prototype.css`; it is not the storefront's design.
 
 `data/media/asset_labels_200.json` is the product-to-media contract for the
 exact-photography set. Product media never serves as evidence for an
-attribute. Shop's and Discover's workspace scenes are editorial illustrations
+attribute. Shop's workspace scenes, in its walkthrough and bands, are editorial illustrations
 recorded in `data/media/alex-shop-story-v3.json` and
 `data/media/alex-discover-studio-v1.json`; they establish no product
 specifications. Listing photos are shown uncropped and contained on the plate.
@@ -527,7 +559,8 @@ specifications. Listing photos are shown uncropped and contained on the plate.
 `ask-mosaic-panel.css`, `catalog-cards.css`, `shared-states.css`,
 `shop-storefront.css`, `labs-agentic.css`, `commerce.css`, `surfaces.css`,
 `surfaces-ask-mosaic.css`, `surfaces-labs-shell.css`, `surfaces-hnsw.css`,
-`surfaces-playground.css`, `discover.css`, `playground.css`, `inspector.css`,
+`surfaces-playground.css`, `shop-editorial.css`, `workspace-walkthrough.css`,
+`playground.css`, `inspector.css`,
 `playground-page.css`, `world.css` and `ask-mosaic-answer.css`. Over those
 sheets it fails when:
 
@@ -561,12 +594,10 @@ Known drift, recorded rather than canonized:
 - The search submit and run disc hover to `--maroon-800`, which equals the
   `--action` rest colour of the search submit, so that hover changes nothing.
   The run disc rests on `--maroon-900`, not `--action`.
-- On the Shop landing, `shop-editorial.css` loads after `world.css` with
-  higher specificity for the journey tiles (grid instead of flex, 16px image
-  corners, heading weight 500) and for the fallback suggestion buttons
-  (underlined text instead of pills); `shop-search-details.css` loads after it
-  with equal specificity for the example buttons (1px `--line` border on
-  `--canvas`). What renders is the later rule.
+- On the Shop landing, `shop-editorial.css` overrides `world.css` with higher
+  specificity for the fallback suggestion buttons (underlined text instead of
+  pills), and `shop-search-details.css` for the example buttons (text links
+  instead of bordered pills). What renders is the more specific rule.
 - Applying `labs_type_scale.py`'s rule to every sheet reports off-scale Labs
   declarations in `hnsw-search-graph.css` (15), `playground.css` (4),
   `inspector.css` (3), `retrieval-readout.css` (2) and `session-memory.css`

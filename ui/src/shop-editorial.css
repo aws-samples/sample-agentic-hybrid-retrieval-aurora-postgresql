@@ -86,40 +86,6 @@
   text-decoration-color: currentColor;
 }
 
-.mosaic-catalog-page .shop-journey {
-  padding: 0;
-}
-
-.mosaic-catalog-page .shop-journey-sequence {
-  gap: var(--shop-story-gap);
-}
-
-.mosaic-catalog-page .shop-journey-sequence li {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-content: start;
-  gap: 16px;
-}
-
-.mosaic-catalog-page .shop-journey-stage {
-  grid-column: 1 / -1;
-}
-
-.mosaic-catalog-page .shop-journey-sequence img {
-  border-radius: 16px;
-}
-
-.mosaic-catalog-page .shop-journey h2 {
-  font-size: clamp(24px, 2vw, 30px);
-  font-weight: 500;
-  letter-spacing: -0.015em;
-  line-height: 1.12;
-}
-
-.mosaic-catalog-page .shop-journey-caption p {
-  font-size: 14px;
-}
-
 .mosaic-catalog-page .shop-controls {
   margin-top: 28px;
 }
@@ -241,7 +207,6 @@
 
 @media (max-width: 1000px) {
   .mosaic-catalog-page .shop-hero { --shop-story-gap: 24px; }
-  .mosaic-catalog-page .shop-journey-sequence li { gap: 12px; }
 }
 
 @media (max-width: 760px) {
@@ -256,22 +221,6 @@
   .mosaic-catalog-page .shop-heading h1 { max-width: none; }
   .mosaic-catalog-page .shop-heading h1 em { white-space: normal; }
   .mosaic-catalog-page .shop-suggested { column-gap: 20px; }
-  .mosaic-catalog-page .shop-journey { padding: 0; }
-  .mosaic-catalog-page .shop-journey-sequence {
-    grid-template-columns: none;
-    grid-auto-flow: column;
-    grid-auto-columns: 88%;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    padding-bottom: 12px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--line-strong) transparent;
-  }
-  .mosaic-catalog-page .shop-journey-sequence li {
-    gap: 16px;
-    scroll-snap-align: start;
-  }
-  .mosaic-catalog-page .shop-journey h2 { font-size: 24px; }
   .mosaic-catalog-page .shop-product-grid { row-gap: 32px; }
   .mosaic-catalog-page .shop-product-card h3 { font-size: 23px; font-family: var(--display); line-height: 1.2; }
   .mosaic-catalog-page .shop-product-card .product-card-body { padding-top: 16px; }
@@ -281,4 +230,664 @@
   .mosaic-catalog-page .shop-comparison-table th,
   .mosaic-catalog-page .shop-comparison-table td { min-width: 156px; padding: 16px 20px 16px 0; }
   .mosaic-catalog-page .shop-comparison-table thead th:not(:first-child) { font-size: 24px; }
+}
+
+/* Editorial landing. The hero keeps the page's canvas; each band below spans
+   the window, so Alex's story reads as one scroll of alternating grounds, the
+   apple.com product-page rhythm. The bands leave with the first query. */
+.mosaic-catalog-page {
+  overflow-x: clip;
+}
+
+.mosaic-catalog-page .shop-hero:not(.is-searching) .shop-heading {
+  display: grid;
+  gap: 20px;
+  padding: clamp(24px, 4vw, 48px) 0 4px;
+}
+
+/* Balanced over two lines, the break falls before "your world.". A nowrap
+   phrase would also remove the break at its own edge, leaving only "Find what". */
+.mosaic-catalog-page .shop-hero:not(.is-searching) .shop-heading h1 {
+  max-width: 9.5em;
+  font: 600 clamp(44px, 5.4vw, 76px)/1.04 var(--display);
+  letter-spacing: -0.04em;
+}
+
+.mosaic-catalog-page .shop-hero:not(.is-searching) .shop-heading h1 em {
+  white-space: normal;
+}
+
+.mosaic-catalog-page .shop-hero:not(.is-searching) .shop-lede {
+  max-width: 40ch;
+  margin: 0;
+  font-size: clamp(19px, 2vw, 24px);
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+}
+
+.mosaic-catalog-page .shop-canvas:not(.assist-open) .shop-console:not(.has-note) {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+}
+
+.mosaic-catalog-page .shop-canvas:not(.assist-open) .shop-console:not(.has-note) .shop-console-search {
+  width: min(680px, 100%);
+  grid-column: auto;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.mosaic-catalog-page .shop-console:not(.has-note) .shop-search {
+  width: 100%;
+  text-align: left;
+}
+
+.mosaic-catalog-page .shop-console:not(.has-note) .shop-search-scope {
+  font-size: 17px;
+}
+
+/* Ways to ask, as one quiet line of links under the field rather than a
+   second row of buttons competing with it. Beside results they follow the
+   field's left edge. */
+.mosaic-catalog-page .shop-search-examples {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 22px;
+  margin-top: 0;
+}
+
+.mosaic-catalog-page .shop-console.has-note .shop-search-examples {
+  justify-content: flex-start;
+  margin-inline: 4px;
+}
+
+.mosaic-catalog-page .shop-example-group {
+  gap: 4px 12px;
+}
+
+.mosaic-catalog-page .shop-example-group > span {
+  width: auto;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.mosaic-catalog-page .shop-example-group button {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--link);
+  font-size: 14px;
+}
+
+.mosaic-catalog-page .shop-example-group button:hover {
+  background: transparent;
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.mosaic-catalog-page .shop-search-examples > small {
+  flex-basis: 100%;
+  font-size: 12px;
+}
+
+.mosaic-catalog-page .shop-console:not(.has-note) .shop-suggested {
+  justify-content: center;
+}
+
+.shop-landing {
+  display: grid;
+  margin-top: 16px;
+}
+
+.shop-band {
+  width: 100vw;
+  margin-inline: calc(50% - 50vw);
+  padding-block: clamp(56px, 7vw, 96px);
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+.shop-band[data-tone="grey"] {
+  background: var(--paper-warm);
+}
+
+.shop-band[data-tone="dark"] {
+  --focus: var(--stage-link);
+  background: var(--stage);
+  color: var(--stage-ink);
+}
+
+.shop-band-inner {
+  width: min(var(--shell-width), 1120px);
+  margin-inline: auto;
+}
+
+.shop-bands {
+  display: grid;
+}
+
+.shop-band-copy h2 {
+  margin: 0;
+  font: 600 clamp(40px, 5.2vw, 64px)/1.05 var(--display);
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.shop-band-copy {
+  display: grid;
+  align-content: center;
+  gap: 12px;
+}
+
+.shop-band-sub {
+  max-width: 34ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: clamp(19px, 2vw, 24px);
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+  text-wrap: pretty;
+}
+
+.shop-band-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 32px;
+  margin: 4px 0 0;
+  font-size: 17px;
+}
+
+.shop-band-links a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 2px;
+  color: var(--link);
+}
+
+.shop-band-links a:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.shop-band-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  border-radius: 28px;
+  object-fit: cover;
+}
+
+.shop-band-notes {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  max-width: 52ch;
+}
+
+.shop-band-notes p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.shop-band-notes strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* The dark band leads with its photograph at full measure, the copy centred
+   above it and Alex's situation beneath, two columns across. */
+.shop-band[data-layout="hero"] .shop-band-inner {
+  display: grid;
+  gap: 44px;
+}
+
+.shop-band[data-layout="hero"] .shop-band-copy {
+  justify-items: center;
+  text-align: center;
+}
+
+.shop-band[data-layout="hero"] .shop-band-links {
+  justify-content: center;
+}
+
+.shop-band[data-layout="hero"] .shop-band-image {
+  aspect-ratio: 16 / 9;
+}
+
+.shop-band[data-layout="hero"] .shop-band-notes {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+  justify-self: center;
+  max-width: 880px;
+}
+
+.shop-band[data-tone="dark"] .shop-band-copy h2 {
+  color: var(--stage-ink);
+}
+
+.shop-band[data-tone="dark"] :is(.shop-band-sub, .shop-band-notes p) {
+  color: var(--stage-soft);
+}
+
+.shop-band[data-tone="dark"] .shop-band-notes strong {
+  color: var(--stage-ink);
+}
+
+.shop-band[data-tone="dark"] .shop-band-links a {
+  color: var(--stage-link);
+}
+
+.shop-band:is([data-layout="split"], [data-layout="split-flip"]) .shop-band-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-areas:
+    "image copy"
+    "image notes";
+  align-items: end;
+  gap: 24px clamp(28px, 5vw, 72px);
+}
+
+.shop-band[data-layout="split-flip"] .shop-band-inner {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  grid-template-areas:
+    "copy image"
+    "notes image";
+}
+
+.shop-band:is([data-layout="split"], [data-layout="split-flip"]) .shop-band-copy { grid-area: copy; }
+.shop-band:is([data-layout="split"], [data-layout="split-flip"]) .shop-band-image { grid-area: image; align-self: center; }
+.shop-band:is([data-layout="split"], [data-layout="split-flip"]) .shop-band-notes { grid-area: notes; align-self: start; }
+
+.shop-band:is([data-layout="split"], [data-layout="split-flip"]) .shop-band-copy h2 {
+  font-size: clamp(34px, 4.2vw, 52px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .shop-band[data-layout="hero"] .shop-band-image {
+    animation: shop-band-settle 1400ms var(--ease-out) both;
+  }
+}
+
+@keyframes shop-band-settle {
+  from { transform: scale(1.03); }
+  to { transform: none; }
+}
+
+/* Meet Alex: the walkthrough and his brief as one white object on the grey
+   ground, the same studio Discover opened with. */
+.shop-alex-studio {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  overflow: hidden;
+  border-radius: 28px;
+  background: var(--paper-strong);
+}
+
+.shop-alex-studio .workspace-walkthrough,
+.shop-alex-studio .workspace-walkthrough figcaption {
+  background: var(--paper-strong);
+}
+
+.shop-alex-studio .workspace-tour-controls button:hover {
+  background: var(--paper-warm);
+}
+
+.shop-alex-profile {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: start;
+  align-content: start;
+  padding: clamp(28px, 3vw, 44px);
+  scroll-margin-top: calc(var(--topbar-height) + 24px);
+}
+
+.shop-alex-profile:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -4px;
+}
+
+.shop-alex-intro {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.shop-alex-intro img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+}
+
+.shop-alex-intro h2 {
+  margin: 0;
+  font: 600 clamp(32px, 3vw, 42px)/1.1 var(--display);
+  letter-spacing: -0.03em;
+}
+
+.shop-alex-role {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.shop-alex-quote {
+  margin: 24px 0 0;
+  font: 500 24px/1.3 var(--display);
+  letter-spacing: -0.015em;
+  text-wrap: pretty;
+}
+
+.shop-alex-bio {
+  margin: 20px 0 24px;
+  color: var(--ink-soft);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.shop-alex-brief {
+  display: grid;
+  width: 100%;
+  gap: 18px;
+  margin: 0 0 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.shop-alex-brief > div {
+  display: grid;
+  gap: 8px;
+}
+
+.shop-alex-brief dt {
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.shop-alex-brief dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.shop-alex-ready,
+.shop-alex-ready span {
+  display: flex;
+  align-items: center;
+}
+
+.shop-alex-ready {
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  font-size: 14px;
+}
+
+.shop-alex-ready span {
+  gap: 6px;
+}
+
+.shop-alex-ready svg {
+  color: var(--green);
+}
+
+.shop-alex-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shop-alex-categories a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--paper-warm);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.shop-alex-categories a:hover {
+  background: var(--maroon-100);
+}
+
+.shop-alex-brief-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: var(--action);
+  color: var(--action-ink);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.shop-alex-brief-link:hover {
+  background: var(--maroon-700);
+}
+
+/* Ask Mosaic closes the landing as its own centred band. */
+.mosaic-catalog-page .shop-ask-band {
+  display: grid;
+  justify-items: center;
+  gap: 22px;
+  padding-block: clamp(72px, 8vw, 104px);
+  border-radius: 0;
+  text-align: center;
+}
+
+.shop-ask-band .shop-console-note-intro h2 {
+  font: 600 clamp(34px, 4.2vw, 48px)/1.08 var(--display);
+  letter-spacing: -0.03em;
+}
+
+.shop-ask-band .shop-console-note-intro p {
+  max-width: 44ch;
+  margin: 12px auto 0;
+  font-size: 19px;
+  line-height: 1.45;
+}
+
+.mosaic-catalog-page .shop-ask-band .shop-console-note-action {
+  justify-self: center;
+  min-height: 48px;
+  padding: 0 24px;
+  font-size: 15px;
+}
+
+.shop-image-note {
+  margin: 20px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* Beside results the invitation shrinks to a note, and the query becomes the
+   page's display line. */
+.mosaic-catalog-page .shop-console-note.is-compact {
+  gap: 12px;
+  padding: 18px 20px;
+}
+
+.mosaic-catalog-page .shop-query-state:not(.error) > span {
+  font-size: clamp(30px, 3.4vw, 44px);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+/* Ranked results read as an editorial list: the first in the final order as a
+   feature on the grey plate, the rest as rows with their position at the end.
+   A browsed page has no order, so it keeps the grid. */
+.mosaic-catalog-page .shop-results-layout .shop-products .shop-product-grid.is-ranked {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card.source-product-card,
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) auto;
+  grid-template-areas: "photo body position";
+  align-items: start;
+  column-gap: 24px;
+  height: auto;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-photo { grid-area: photo; }
+.mosaic-catalog-page .shop-product-grid.is-ranked .product-card-body { grid-area: body; padding: 0; }
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-position {
+  grid-area: position;
+  margin: 2px 0 0;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card .product-image {
+  width: 112px;
+  height: 112px;
+  aspect-ratio: 1;
+  border-radius: 16px;
+  background: var(--plate);
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card .product-image img {
+  padding: 12%;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card .catalog-favorite-button {
+  display: none;
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card h3 {
+  min-height: 0;
+  font: 600 17px/1.3 var(--sans);
+  letter-spacing: -0.012em;
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked :is(.shop-card-meta, .shop-card-price) {
+  justify-content: flex-start;
+}
+
+/* The row rule already separates products, so the footer drops its own. */
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-footer {
+  justify-content: flex-start;
+  padding-top: 4px;
+  border-top: 0;
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:first-child {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "photo position"
+    "photo body";
+  grid-template-rows: auto 1fr;
+  align-items: center;
+  column-gap: clamp(20px, 4vw, 56px);
+  margin: 28px 0;
+  padding: clamp(18px, 3vw, 32px);
+  border-bottom: 0;
+  border-radius: 28px;
+  background: var(--paper-warm);
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:first-child .shop-card-position {
+  align-self: end;
+  margin: 0 0 8px;
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:first-child .product-card-body {
+  align-self: start;
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:first-child .product-image {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  border-radius: 20px;
+  background: var(--paper-strong);
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:first-child .product-image img {
+  padding: 10%;
+  mix-blend-mode: normal;
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:first-child h3 {
+  font: 600 clamp(21px, 2.2vw, 28px)/1.18 var(--display);
+  letter-spacing: -0.02em;
+  -webkit-line-clamp: 3;
+}
+
+@media (max-width: 820px) {
+  .shop-band:is([data-layout="split"], [data-layout="split-flip"]) .shop-band-inner,
+  .shop-band[data-layout="split-flip"] .shop-band-inner {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "copy"
+      "image"
+      "notes";
+    align-items: start;
+  }
+
+  .shop-band[data-layout="hero"] .shop-band-notes {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .shop-band[data-layout="hero"] .shop-band-inner { gap: 32px; }
+  .shop-band-image { border-radius: 20px; }
+  .shop-alex-studio { grid-template-columns: minmax(0, 1fr); border-radius: 20px; }
+  .shop-alex-profile { padding: 28px 24px; }
+  .shop-alex-intro { gap: 16px; }
+  .shop-alex-intro img { width: 64px; height: 64px; }
+
+  .mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card.source-product-card,
+  .mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card {
+    grid-template-columns: 80px minmax(0, 1fr) auto;
+    column-gap: 16px;
+  }
+
+  .mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card .product-image {
+    width: 80px;
+    height: 80px;
+  }
+
+  .mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:first-child {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "photo photo"
+      "body position";
+    row-gap: 18px;
+    border-radius: 20px;
+  }
+
+  .mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:first-child .shop-card-position {
+    align-self: start;
+    margin: 2px 0 0;
+  }
 }

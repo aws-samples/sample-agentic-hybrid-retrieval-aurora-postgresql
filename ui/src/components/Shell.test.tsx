@@ -58,20 +58,20 @@ describe("Shell navigation", () => {
     );
 
     // By name: the footer carries a second navigation landmark, and this test is
-    // about the header's three destinations.
+    // about the header's two destinations.
     const navigation = screen.getByRole("navigation", { name: "Storefront" });
     expect(
       within(navigation)
         .getAllByRole("link")
         .map((link) => link.getAttribute("href")),
-    ).toEqual(["/", "/catalog", "/labs/retrieval"]);
+    ).toEqual(["/catalog", "/labs/retrieval"]);
     // No query on Shop, so nothing is carried and the Playground link is plain.
-    // Discover | Shop | Playground, and nothing else. The third entry printed
-    // "Observatory" with an "Optional" badge welded to it, which is a fourth name
+    // Shop | Playground, and nothing else. The Playground's entry once printed
+    // "Observatory" with an "Optional" badge welded to it, which is another name
     // for the surface and an instruction to skip it.
     expect(
       within(navigation).getAllByRole("link").map((link) => link.textContent),
-    ).toEqual(["Discover", "Shop", "Playground"]);
+    ).toEqual(["Shop", "Playground"]);
     expect(navigation.textContent).not.toMatch(/Observatory|Optional|Mosaic Labs/);
     expect(
       within(navigation).getByRole("link", { name: "Shop" }).getAttribute(
@@ -79,7 +79,7 @@ describe("Shell navigation", () => {
       ),
     ).toBe("page");
     expect(
-      within(navigation).getByRole("link", { name: "Discover" }).hasAttribute(
+      within(navigation).getByRole("link", { name: "Playground" }).hasAttribute(
         "aria-current",
       ),
     ).toBe(false);
@@ -121,7 +121,7 @@ describe("Shell navigation", () => {
 
     await waitFor(() => {
       expect(document.activeElement).toBe(
-        within(navigation).getByRole("link", { name: "Discover" }),
+        within(navigation).getByRole("link", { name: "Shop" }),
       );
     });
     expect(menu.getAttribute("aria-expanded")).toBe("true");
@@ -276,7 +276,7 @@ describe("Shell navigation", () => {
       within(screen.getByRole("navigation", { name: "Storefront" }))
         .getAllByRole("link")
         .map((entry) => entry.textContent),
-    ).toEqual(["Discover", "Shop", "Playground"]);
+    ).toEqual(["Shop", "Playground"]);
   });
 
   it("closes the storefront with official marks inside the demo contract", () => {

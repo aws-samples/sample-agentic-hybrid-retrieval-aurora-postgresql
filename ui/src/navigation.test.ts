@@ -9,12 +9,12 @@ import {
 } from "./navigation";
 
 /**
- * One request travelling through Discover, Shop and the Playground.
+ * One request travelling from Shop to the Playground.
  *
- * The workshop's typo lesson depends on it. A shopper types `noice cancelng hedfones` on
- * Discover, Shop answers it usefully, and the Playground has to report that the
- * close-spelling arm is what carried the target — for that same request. Three
- * surfaces reasoning about three different candidate pools would make the lesson
+ * The workshop's typo lesson depends on it. A shopper types `noice cancelng hedfones`
+ * on Shop, Shop answers it usefully, and the Playground has to report that the
+ * close-spelling arm is what carried the target — for that same request. Two
+ * surfaces reasoning about two different candidate pools would make the lesson
  * unprovable.
  *
  * The round trip is the contract: whatever Shop puts on the link, the Playground has

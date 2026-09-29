@@ -1,7 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import { preloadDiscover } from "./discoverData";
 // This sequence is one stylesheet, split into files by surface for
 // maintainability. Import order is the cascade order: it must match the
 // original concatenation exactly. See docs/ui-design-system.md.
@@ -20,8 +19,6 @@ import "./surfaces-playground.css";
 import "./source-products.css";
 import "./world.css";
 import "./ask-mosaic-answer.css";
-
-if (["/", "/discover"].includes(window.location.pathname)) preloadDiscover();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

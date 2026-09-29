@@ -13,7 +13,7 @@ type MosaicRunButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 /**
  * The paper plane that sends a request to Mosaic.
  *
- * It is the disc Discover and Shop submit a search with, so every surface
+ * It is the disc Shop submits a search with, so every surface
  * starts a run the same way. A request in flight swaps the plane for a
  * spinner and keeps the button busy until the run reports back.
  */

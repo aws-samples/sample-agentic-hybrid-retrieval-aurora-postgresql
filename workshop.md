@@ -190,16 +190,17 @@ launch another agent run or open the full HNSW exercise to fill a speaking cue.
 | Method comparisons | Retrieve's **Compare search methods**; guided **Prove** | Compare all five measured methods on the same graded searches, including cases that get worse |
 | HNSW tuning, tool extension, AgentCore Memory | Optional work after completion | Memory can retain preferences; fresh catalog evidence still supports product claims |
 
-Discover introduces the person and the problem; Shop supplies the choices. The
-photographed workspace selection keeps the first impression focused on Alex.
-Search still reaches 553,911 products. The scale reveal belongs beside search
+Shop introduces the person and the problem, then supplies the choices. Its
+landing leads with search, then Alex and his three needs; the photographed
+workspace selection follows below them. Search still reaches 553,911 products. The scale reveal belongs beside search
 and in Playground.
 
 ## Alex’s journey
 
-**Discover opens with “A room built around the way you work.”** on a soft grey ground. A large photograph shows the
-workspace Alex is working toward. Beside it, **Meet Alex** makes the brief
-specific: a software engineer whose day moves between coding, team calls and
+**Shop opens with “Find what fits your world.”** above the search field and one
+line of example searches grouped as Keywords, Typo and Intent. Below it, on a
+soft grey ground, a five-step walkthrough of Alex's room sits beside **Meet
+Alex**, which makes the brief specific: a software engineer whose day moves between coding, team calls and
 focused work. His desk and laptop are already in place. His headphones, chair
 and monitor are still to choose. The portrait and brief establish the customer;
 there is no shopper login exercise or invented “2 of 7” completion counter.
@@ -207,9 +208,14 @@ there is no shopper login exercise or invented “2 of 7” completion counter.
 The slide-ready [Meet Alex bio and full-resolution headshot](docs/presentation-assets/meet-alex.md)
 use the same persona.
 
-The next section is **Three needs. One working day.** Each illustrated story
-explains the situation, names the details that matter, and offers a pill that
-runs a real, category-scoped Shop search. The order matches Shop’s Explore pills:
+Three full-width bands follow, one per need: **Find his focus.** for headphones
+on a dark ground, **Make room for his work.** for monitors, and **Bring his
+workspace together.** for chairs, which also introduces Lab 3's monitor-and-chair
+comparison. Each band explains the situation, names the details that matter, and
+links to its Shop category and to a real, category-scoped search for Alex's need.
+The landing closes with an invitation to Ask Mosaic and a note that Alex is
+fictional and the workspace imagery is AI-generated. The walkthrough, the bands
+and Shop's Intent examples send the same three requests:
 
 | Alex’s need | The customer problem | What the choice must establish | Where the story goes |
 |---|---|---|---|
@@ -226,9 +232,12 @@ through a full workday. The evidence-registration repair stays the same.
 From there, the customer experience continues:
 
 1. **Shop the choices.** Browse the workspace edit or search the full catalog.
-   Discover’s story actions and Shop’s matching Explore pills use the same
-   queries and filters from the mission manifest. A visitor can also describe a
-   different need in the general search box.
+   The band links and Shop's Intent examples use the same queries and filters
+   from the mission manifest. A visitor can also describe a different need in the
+   general search box. A search replaces the story with its results: **Results
+   for …** becomes the display line, the first result in the final order appears
+   as a feature on a grey plate, and the rest follow as rows with their position
+   at the end. Browsing without a query keeps the product grid.
 2. **Look closely.** Open a product for its complete description, specifications
    and reviews. Similar monitors are alternatives; monitor arms, docks and cable
    management are supporting categories whose compatibility still needs checking.
@@ -243,12 +252,12 @@ From there, the customer experience continues:
    see which products entered the pool, how their ranks changed, and what evidence
    supports the answer. Scale & HNSW explains the search across 553,911 products.
 
-Discover establishes the brief and carries no product inventory grid or lab
-instructions. The guides remain the participant entry point and install each
+Shop's landing establishes the brief and carries no lab instructions; its
+product grid starts below the story. The guides remain the participant entry point and install each
 lab’s deliberate fault. The customer journey above gives those repairs context;
 the core lab contracts and the transition into Reason are specified below.
 Cross-conversation preference memory is an optional extension, not something the
-Welcome Alex profile or the Discover brief already implements.
+Welcome Alex profile or Shop's brief already implements.
 
 ## What participants do
 
@@ -322,12 +331,11 @@ and the Playground lab rail carries these exercise states.
 
 ### Mosaic
 
-The application has three navigation destinations, with Ask Mosaic inside Shop. It follows the device's light or dark appearance; the header's sun or moon button switches it and the browser remembers the choice. Product photos sit on neutral plates so white-background listing images read the same in both themes.
+The application has two navigation destinations, Shop and Playground, with Ask Mosaic inside Shop. It follows the device's light or dark appearance; the header's sun or moon button switches it and the browser remembers the choice. Product photos sit on neutral plates so white-background listing images read the same in both themes.
 
-- **Discover.** The home-office brief described above: Alex, his room, three needs, and routes into search or category browsing. The illustrated scenes are inspiration, not a product bundle or a completed purchase.
-- **Shop.** The default Workspace edit shows a curated selection of the imported catalog; keyword search reaches the full 553,911 products. Every result card can open "See how this was retrieved", carrying the query, filters and saved search event into the Playground. Result tiles show the final position, the typed facts the listing states and, for real listings, the historical listing price labelled as such (or "Price not recorded"). **Why this match** on a tile unfolds its itemized receipt from the saved search: each method that found the product with its position, fusion contribution and the arithmetic behind it, "no match" with no position for a method that missed, the combined score before reranking with the product's place among the candidates sent to reranking, the reranker's score and the final position, then what the listing states, each fact beside the listing text it came from. The fusion constant and the candidate count come from the search response, never from the page. Ticking two or more results compares them side by side, and the comparison is worth showing: under the price and the rating it prints which search methods found each product, its rank before reranking, and the rank the shopper was shown. Those three rows come from the run's saved receipt, not from the list on screen, which is why a comparison is only offered once a search has run. If the catalog carries none of a request's words, Shop says which ones above the results rather than returning a confident page of near misses.
+- **Shop.** The landing is the home-office brief described above: Alex, his room, three needs, and routes into search or category browsing. The illustrated scenes are inspiration, not a product bundle or a completed purchase. `/` opens Shop, and the old `/discover` address lands on Alex's brief. The default Workspace edit shows a curated selection of the imported catalog; keyword search reaches the full 553,911 products. Every result card can open "See how this was retrieved", carrying the query, filters and saved search event into the Playground. Result tiles show the final position, the typed facts the listing states and, for real listings, the historical listing price labelled as such (or "Price not recorded"). **Why this match** on a tile unfolds its itemized receipt from the saved search: each method that found the product with its position, fusion contribution and the arithmetic behind it, "no match" with no position for a method that missed, the combined score before reranking with the product's place among the candidates sent to reranking, the reranker's score and the final position, then what the listing states, each fact beside the listing text it came from. The fusion constant and the candidate count come from the search response, never from the page. Ticking two or more results compares them side by side, and the comparison is worth showing: under the price and the rating it prints which search methods found each product, its rank before reranking, and the rank the shopper was shown. Those three rows come from the run's saved receipt, not from the list on screen, which is why a comparison is only offered once a search has run. If the catalog carries none of a request's words, Shop says which ones above the results rather than returning a confident page of near misses.
 - **Ask Mosaic.** The agent, in a side panel on Shop or a mobile overlay below the header. The catalog retains its margins at normal laptop zoom, and long questions wrap in full. The panel keeps its title and follow-up box visible, with compact waiting and completed steps. It shows one progress line while gathering evidence, and that line then summarizes the run, for example "Searched monitors, kept 2 · read evidence for 2 · 18 s". Tap it for the request interpretation, searches, product comparison, supporting evidence, and tool activity. The answer leads with the best pick's photo and its path through search (for example "Meaning match #7 → Combined #10 → Reranked to #1"). A side-by-side table follows. Each value shows whether the listing states it, only its title does, or a review does, with its source numbers. A follow-up that adds a requirement, such as 100 W charging, highlights that row and marks a stated value that falls short. The cited answer comes next, then a count of the sources and what they leave unknown. Follow-ups carry context from the prior grounded run with memory off. **Use saved memories** is a separate, optional control using the Playground's AgentCore Memory connection. **Memories used** shows actual records read and conversation-save status. Clearing chat starts a new conversation and keeps saved preferences. Required lab requests keep memory off. A specs-and-reviews question explains the available specifications and missing review excerpts without implying the product is absent or inventing customer experiences.
-- **Playground.** `/labs/retrieval` defaults to **Hybrid retrieval**, one request followed down the page. Alex's request choices come from the canonical mission manifest; his words sit in a search-style card with one send action, the same paper plane Discover uses (its tooltip reads **Run Mosaic**), which makes a real agent request. Under each search's record, chips show how each method read that search's words: its full-text lexemes, its trigrams and its vector. The search's first result follows on its own plate, saying whether the agent picked it. Then come three sections, each named for its stage. **Retrieve** runs from the catalog through the filters to what each method found and what fusion kept, with the stage timings and the measured method comparison. **Rank** shows the itemized receipt for any returned product beside how the order was set, then every returned product in final order or before reranking. **Reason** shows the agent's tool calls, its full cited answer beside a numbered source list, its picks linked to their searches, and its run ID. Each section ends with a **Keep in mind** line and opens its details on request (**Search details**, **Why the order changed**, **Steps and sources**); Retrieve's search details add one more beside the search record, on the receipt and the HNSW settings. A saved Shop event opens its original receipt, and Run Mosaic starts a new complete run when an agent answer is needed. **Scale & HNSW** is the adjacent inspection lens.
+- **Playground.** `/labs/retrieval` defaults to **Hybrid retrieval**, one request followed down the page. Alex's request choices come from the canonical mission manifest; his words sit in a search-style card with one send action, the same paper plane Shop's search uses (its tooltip reads **Run Mosaic**), which makes a real agent request. Under each search's record, chips show how each method read that search's words: its full-text lexemes, its trigrams and its vector. The search's first result follows on its own plate, saying whether the agent picked it. Then come three sections, each named for its stage. **Retrieve** runs from the catalog through the filters to what each method found and what fusion kept, with the stage timings and the measured method comparison. **Rank** shows the itemized receipt for any returned product beside how the order was set, then every returned product in final order or before reranking. **Reason** shows the agent's tool calls, its full cited answer beside a numbered source list, its picks linked to their searches, and its run ID. Each section ends with a **Keep in mind** line and opens its details on request (**Search details**, **Why the order changed**, **Steps and sources**); Retrieve's search details add one more beside the search record, on the receipt and the HNSW settings. A saved Shop event opens its original receipt, and Run Mosaic starts a new complete run when an agent answer is needed. **Scale & HNSW** is the adjacent inspection lens.
 
 Hybrid retrieval also offers **Plan my workspace**, which resolves its question and
 filters from Lab 3, and **Check the sources**, which compares a specification

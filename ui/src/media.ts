@@ -246,7 +246,7 @@ function boundImage(product: ProductSummary): string | null {
  *
  * Categories need a range of photos even though each product's stable choice can
  * repeat within a page. A category with no pool falls back to a single neutral
- * plate. Discover's category entries are checked against this floor.
+ * plate. Shop's landing category entries are checked against this floor.
  */
 export function categoryPoolSize(
   categoryKey: string,

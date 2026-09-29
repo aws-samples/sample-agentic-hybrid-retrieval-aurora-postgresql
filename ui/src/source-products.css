@@ -35,9 +35,11 @@
   letter-spacing: -.015em;
 }
 
+/* Safe: a brand and category wider than the tile clip at the end, never
+   through the brand. */
 .source-product-card .shop-card-meta,
 .source-product-card .shop-card-price {
-  justify-content: center;
+  justify-content: safe center;
 }
 
 .source-product-card .shop-card-price > strong { font-size: 18px; font-weight: 600; color: var(--ink); }
