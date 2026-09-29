@@ -2937,7 +2937,7 @@
   display: block;
   width: 100%;
   height: 100%;
-  padding: 12% 14%;
+  padding: 17% 12% 7%;
   object-fit: contain;
   mix-blend-mode: multiply;
   transition: filter 700ms var(--ease-out), opacity 700ms var(--ease-out);
@@ -3089,20 +3089,25 @@
 }
 
 .shop-fault-steps p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.shop-fault-steps .shop-fault-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px 10px;
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 13px;
-  line-height: 1.5;
 }
 
+/* An ink tint rather than --plate: the photo plate stays light in dark mode,
+   and a command must read in both themes. */
 .shop-fault-steps code {
   padding: 2px 8px;
   border-radius: 7px;
-  background: var(--plate);
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
   color: var(--ink);
   font-family: var(--mono);
   font-size: 12px;

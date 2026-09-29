@@ -8,6 +8,11 @@
   --nav-glass: color-mix(in srgb, var(--paper-warm) 80%, transparent);
 }
 
+:root[data-canvas="grey"]:not([data-theme="dark"]) .workspace-walkthrough,
+:root[data-canvas="grey"]:not([data-theme="dark"]) .workspace-walkthrough figcaption {
+  background: var(--paper-strong);
+}
+
 :root[data-canvas="grey"]:not([data-theme="dark"]) .workspace-tour-controls button:hover {
   background: var(--paper-warm);
 }

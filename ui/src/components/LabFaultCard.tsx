@@ -146,7 +146,7 @@ export const LabFaultCard = forwardRef<HTMLElement, {
           <ol className="shop-fault-steps" aria-label="Next steps">
             <li>
               <strong>Open the lab file</strong>
-              <p>
+              <p className="shop-fault-row">
                 <code>{edit.file}</code>
                 <CodeEditorLink href={codeEditorUrl} className="shop-fault-editor" />
               </p>
@@ -157,14 +157,14 @@ export const LabFaultCard = forwardRef<HTMLElement, {
             </li>
             <li>
               <strong>Apply it to Aurora</strong>
-              <p>
+              <p className="shop-fault-row">
                 <code>{APPLY_SQL}</code>
                 <CopyCommand command={APPLY_SQL} />
               </p>
             </li>
             <li>
               <strong>Search again</strong>
-              <p>
+              <p className="shop-fault-row">
                 <button type="button" className="shop-fault-search" onClick={onSearchAgain}>
                   Search again
                 </button>
