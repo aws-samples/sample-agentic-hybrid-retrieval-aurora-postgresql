@@ -1355,13 +1355,14 @@ def _synthesis_question(state: dict[str, Any]) -> str:
     """Keep the current request authoritative even if a tool rewrites it."""
     question = state["question"]
     previous = state.get("previous_question")
-    if previous:
-        return json.dumps(
-            {
-                "current_request": question,
-                "previous_request_for_reference_resolution_only": previous,
-            }
-        )
+    memory = state.get("_memory_prompt_context")
+    if previous or memory:
+        context = {"current_request": question}
+        if previous:
+            context["previous_request_for_reference_resolution_only"] = previous
+        if memory:
+            context["memory_context_for_preferences_only"] = memory
+        return json.dumps(context)
     return question
 
 

@@ -503,7 +503,7 @@
 }
 
 .labs-intro-actions .primary-button:hover {
-  background: color-mix(in srgb, var(--action) 82%, var(--canvas));
+  background: var(--action-hover);
 }
 
 .labs-intro-actions > span {

@@ -109,15 +109,15 @@
   height: 40px;
   padding: 0 18px;
   border-radius: 999px;
-  background: var(--maroon-900);
-  color: var(--paper);
+  background: var(--action);
+  color: var(--action-ink);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
   transition: background 180ms ease;
 }
 
 .ask-mosaic-composer .search-composer button:hover:not(:disabled) {
-  background: var(--maroon-800);
+  background: var(--action-hover);
 }
 
 /* A stage is running and its duration is not known, so this is an

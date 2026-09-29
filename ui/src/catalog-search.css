@@ -41,7 +41,7 @@
 }
 
 .search-composer.catalog-autocomplete > button[type="submit"]:hover:not(:disabled) {
-  background: var(--maroon-800);
+  background: var(--action-hover);
 }
 
 .catalog-idle-suggestion {

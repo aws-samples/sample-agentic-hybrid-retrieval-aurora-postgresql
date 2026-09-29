@@ -13,18 +13,19 @@
   --maroon-line: #c7c7cc;
   --ivory: var(--canvas);
   --paper: var(--paper-strong);
-  --paper-strong: #ffffff;
-  --canvas: #fbfbfd;
-  --paper-warm: #f5f5f7;
+  --white: #ffffff;
+  --paper-strong: var(--white);
+  --canvas: #fafbfd;
+  --paper-warm: #eef0f4;
   --surface-muted: var(--paper-warm);
-  --ink: #1d1d1f;
-  --ink-soft: #6e6e73;
+  --ink: #20242b;
+  --ink-soft: #58616e;
   --footer-surface: var(--paper-warm);
   --footer-ink: #424245;
   --footer-muted: var(--ink-soft);
   --footer-line: var(--line);
-  --line: #d2d2d7;
-  --line-strong: #aeaeb2;
+  --line: #d9dde3;
+  --line-strong: #9ba2ad;
   --green: #1a7f45;
   --green-soft: #e9f7ee;
   --green-line: #b9e3c8;
@@ -36,23 +37,22 @@
   --danger: #c62828;
   --danger-soft: #fff4f4;
   --danger-line: #f2c4c4;
-  /* Keyboard focus ring. Dark surfaces re-point this token locally, since a
-     maroon ring on a maroon panel is not a ring. */
+  /* Dark bands use their brighter link token to keep keyboard focus visible. */
   --focus: var(--link);
-  /* Colour means retrieval: Retrieve violet (also links and focus), Rank orange, Reason green. */
+  /* Technical stage colors retain their meaning independently of navigation. */
   --retrieve: #6b3fd4;
-  --link: var(--retrieve);
+  --link: #005eb8;
   --rank: var(--gold-bright);
   --reason: var(--green);
-  --action: var(--ink);
-  --action-ink: var(--paper-strong);
-  --nav-glass: rgb(251 251 253 / 80%);
-  /* Shop's dark editorial band: black on the light page, a lifted grey on the
-     black dark-mode canvas, so it still reads as a band in both. */
-  --stage: var(--maroon-950);
+  --action: #0668d7;
+  --action-hover: #005bbd;
+  --action-ink: var(--white);
+  --nav-glass: rgb(250 251 253 / 88%);
+  /* Graphite on the light page, raised graphite on the dark canvas. */
+  --stage: #141820;
   --stage-ink: var(--paper-warm);
   --stage-soft: #a1a1a6;
-  --stage-link: #a78bfa;
+  --stage-link: #8fc5ff;
   --tile-radius: 18px;
   /* Listing photos have white grounds; they multiply onto this plate so the white disappears. */
   --plate: var(--paper-warm);
@@ -101,25 +101,24 @@
   --shell-width: min(92vw, var(--page-width));
 }
 
-/* Dark mode flips every role together: surfaces with their ink, the action pill
-   with the text on it, hairlines with tiles. Components never branch on the theme. */
+/* Surface and text roles move together; cobalt actions retain white ink in both themes. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --maroon-950: #ffffff;
+  --maroon-950: var(--white);
   --maroon-900: #f0f0f2;
   --maroon-700: #d1d1d6;
   --maroon-100: #2c2c2e;
   --maroon-50: #1f1f21;
   --maroon-line: #48484a;
-  --paper-strong: #1c1c1e;
+  --paper-strong: #2b2b30;
   --canvas: #000000;
-  --paper-warm: #161617;
+  --paper-warm: #1c1c1e;
   --ink: #f5f5f7;
-  --ink-soft: #a1a1a6;
+  --ink-soft: #b9bdc6;
   --footer-ink: #d1d1d6;
-  --footer-muted: #86868b;
-  --line: #38383a;
-  --line-strong: #636366;
+  --footer-muted: var(--ink-soft);
+  --line: #414148;
+  --line-strong: #8d939f;
   --green: #4cd07d;
   --green-soft: #0e2818;
   --green-line: #1d4d30;
@@ -132,11 +131,12 @@
   --danger-soft: #2b1111;
   --danger-line: #5c1f1f;
   --retrieve: #a78bfa;
-  --nav-glass: rgb(22 22 23 / 72%);
+  --link: #80bdff;
+  --nav-glass: rgb(28 28 30 / 92%);
   --stage: var(--paper-warm);
   --stage-ink: var(--ink);
   --stage-soft: var(--ink-soft);
-  --stage-link: var(--retrieve);
+  --stage-link: var(--link);
   --plate: #e8e8ed;
   --shadow: 0 18px 44px rgb(0 0 0 / 60%), 0 2px 6px rgb(0 0 0 / 40%);
 }
@@ -1001,8 +1001,8 @@ button:disabled {
 }
 
 .primary-button:hover {
-  border-color: color-mix(in srgb, var(--action) 82%, var(--canvas));
-  background: color-mix(in srgb, var(--action) 82%, var(--canvas));
+  border-color: var(--action-hover);
+  background: var(--action-hover);
 }
 
 .secondary-button,
@@ -1104,12 +1104,12 @@ button:disabled {
   place-items: center;
   border: 0;
   border-radius: 50%;
-  background: var(--maroon-800);
-  color: var(--paper-strong);
+  background: var(--action);
+  color: var(--action-ink);
 }
 
 .search-composer button:hover {
-  background: var(--maroon-700);
+  background: var(--action-hover);
 }
 
 .search-composer.compact {

@@ -557,6 +557,7 @@ describe("CatalogPage", () => {
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
     const timeline = within(dialog).getByLabelText("Retrieval activity");
+    expect(timeline.closest("details")?.open).toBe(true);
     await waitFor(() =>
       expect(within(dialog).queryByText("The shortlist")).not.toBeNull());
 
@@ -579,6 +580,7 @@ describe("CatalogPage", () => {
     // kept Interpret open for 2.2 seconds after Retrieve opened, so the next
     // stages were pushed below the drawer while two large panels overlapped.
     expect(running[0].getAttribute("aria-expanded")).toBe("false");
+    expect(running[0].textContent).toContain(agentResponse.plan[0].query);
     // The outgoing content remains mounted for its 240ms exit. Keying the whole
     // disclosure by state used to destroy it immediately, bypassing that exit.
     expect(within(dialog).getByText("Filters I searched with")).toBeTruthy();
@@ -1026,6 +1028,13 @@ describe("CatalogPage", () => {
     expect(landingHeading.closest(".sr-only")).toBeNull();
     expect(opened.container.querySelector(".shop-hero")?.className).toBe("shop-hero");
     expect(opened.container.querySelector(".shop-journey img")).not.toBeNull();
+    const shelf = await screen.findByRole("region", { name: "Workspace products" });
+    expect(within(shelf).getByText(catalog.products[0].model)).toBeTruthy();
+    const story = screen.getByRole("heading", { name: "Meet Alex." });
+    expect(shelf.compareDocumentPosition(story) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    fireEvent.click(screen.getByRole("link", { name: "Browse all products" }));
+    expect(await screen.findByRole("button", { name: /^All filters/ })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Meet Alex." })).toBeNull();
   });
 
   it("runs named keyword and typo examples with their complete filters", async () => {
@@ -1341,6 +1350,7 @@ describe("CatalogPage", () => {
   });
 
   it("keeps the newest catalog page when an older request resolves last", async () => {
+    window.history.replaceState({}, "", "/catalog?collection=all");
     const pending: Array<(value: CatalogPageResponse) => void> = [];
     vi.mocked(api.catalog).mockImplementation(
       () => new Promise<CatalogPageResponse>((resolve) => pending.push(resolve)),
@@ -1475,6 +1485,7 @@ describe("CatalogPage", () => {
   });
 
   it("renders zero-result catalog arithmetic without an impossible range", async () => {
+    window.history.replaceState({}, "", "/catalog?collection=all");
     vi.mocked(api.catalog).mockResolvedValue({
       ...catalog,
       products: [],
@@ -1490,6 +1501,7 @@ describe("CatalogPage", () => {
   });
 
   it("reserves the product grid while the initial catalog request is pending", async () => {
+    window.history.replaceState({}, "", "/catalog?collection=all");
     let releaseCatalog: (value: CatalogPageResponse) => void = () => {};
     vi.mocked(api.catalog).mockImplementation(
       () =>
@@ -1511,6 +1523,7 @@ describe("CatalogPage", () => {
   });
 
   it("synchronizes the domain control after a manual horizontal scroll", () => {
+    window.history.replaceState({}, "", "/catalog?collection=all");
     renderPage();
 
     const domains = screen.getByRole("navigation", { name: "Product domains" });
@@ -1740,7 +1753,7 @@ describe("CatalogPage", () => {
     // The searches behind the shortlist, from AgentResponse.plan, which the
     // panel used to fetch and never render.
     expect(within(dialog).getByText("Searches behind this answer")).toBeTruthy();
-    expect(within(dialog).getByText(agentResponse.plan[0].query)).toBeTruthy();
+    expect(within(dialog.querySelector(".ask-mosaic-searches")!).getByText(agentResponse.plan[0].query)).toBeTruthy();
     expect(within(dialog).getByText("Searches behind this answer").closest("details")?.open).toBe(false);
 
     fireEvent.click(stageButtons[2]);
@@ -2233,6 +2246,7 @@ describe("CatalogPage", () => {
   });
 
   it("opens contextual filters and keeps active constraints visible", async () => {
+    window.history.replaceState({}, "", "/catalog?collection=all");
     renderPage();
     await screen.findByText(catalog.products[0].model);
 
@@ -2318,6 +2332,7 @@ describe("CatalogPage", () => {
   });
 
   it("contains filter focus, makes the background inert, and restores its trigger", async () => {
+    window.history.replaceState({}, "", "/catalog?collection=all");
     renderPage();
     await screen.findByText(catalog.products[0].model);
     const opener = screen.getByRole("button", { name: "Brand" });
@@ -2358,6 +2373,7 @@ describe("CatalogPage", () => {
   });
 
   it("debounces the price slider instead of committing every drag tick", async () => {
+    window.history.replaceState({}, "", "/catalog?collection=all");
     renderPage();
     await screen.findByText(catalog.products[0].model);
     fireEvent.click(screen.getByRole("button", { name: "Price" }));
@@ -2399,6 +2415,7 @@ describe("CatalogPage", () => {
   });
 
   it("flushes the price draft immediately once the handle is released", async () => {
+    window.history.replaceState({}, "", "/catalog?collection=all");
     renderPage();
     await screen.findByText(catalog.products[0].model);
     fireEvent.click(screen.getByRole("button", { name: "Price" }));
@@ -2438,7 +2455,7 @@ describe("CatalogPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Clear shortlist" }));
     expect(screen.queryByText("Ask Mosaic shortlist")).toBeNull();
-    expect(screen.getByText(/of 200 workspace picks/)).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Workspace products" })).toBeTruthy();
   });
 
   it("reopens a settled answer without replaying its presentation queue", async () => {

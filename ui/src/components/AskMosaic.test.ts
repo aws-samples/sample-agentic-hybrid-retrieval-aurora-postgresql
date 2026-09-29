@@ -214,6 +214,8 @@ describe("AskMosaic declined outcome", () => {
 
     // The answer leads; the actual searches remain available to inspect.
     const process = document.querySelector<HTMLDetailsElement>(".ask-mosaic-process")!;
+    expect(process.open).toBe(true);
+    fireEvent.click(process.querySelector("summary")!);
     expect(process.open).toBe(false);
     fireEvent.click(process.querySelector("summary")!);
     expect(process.open).toBe(true);

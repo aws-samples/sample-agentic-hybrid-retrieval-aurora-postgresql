@@ -239,17 +239,24 @@
   overflow-x: clip;
 }
 
-.mosaic-catalog-page .shop-hero:not(.is-searching) .shop-heading {
-  display: grid;
-  gap: 20px;
-  padding: clamp(24px, 4vw, 48px) 0 4px;
+.mosaic-catalog-page .shop-main.is-editorial {
+  --shop-pad-block: clamp(20px, 2vw, 32px);
 }
 
-/* Balanced over two lines, the break falls before "your world.". A nowrap
-   phrase would also remove the break at its own edge, leaving only "Find what". */
+.mosaic-catalog-page .is-editorial .shop-hero {
+  gap: 20px;
+}
+
+.mosaic-catalog-page .shop-hero:not(.is-searching) .shop-heading {
+  display: grid;
+  gap: 14px;
+  padding: 8px 0 4px;
+}
+
+/* The opening leaves room for products while the story bands keep display scale. */
 .mosaic-catalog-page .shop-hero:not(.is-searching) .shop-heading h1 {
-  max-width: 9.5em;
-  font: 600 clamp(44px, 5.4vw, 76px)/1.04 var(--display);
+  max-width: 18em;
+  font: 600 clamp(36px, 4vw, 56px)/1.1 var(--display);
   letter-spacing: -0.04em;
 }
 
@@ -258,10 +265,10 @@
 }
 
 .mosaic-catalog-page .shop-hero:not(.is-searching) .shop-lede {
-  max-width: 40ch;
+  max-width: 64ch;
   margin: 0;
-  font-size: clamp(19px, 2vw, 24px);
-  line-height: 1.3;
+  font-size: 17px;
+  line-height: 1.5;
   letter-spacing: -0.015em;
 }
 
@@ -271,7 +278,7 @@
 }
 
 .mosaic-catalog-page .shop-canvas:not(.assist-open) .shop-console:not(.has-note) .shop-console-search {
-  width: min(680px, 100%);
+  width: 100%;
   grid-column: auto;
   justify-items: center;
   gap: 12px;
@@ -279,12 +286,12 @@
 }
 
 .mosaic-catalog-page .shop-console:not(.has-note) .shop-search {
-  width: 100%;
+  width: min(680px, 100%);
   text-align: left;
 }
 
 .mosaic-catalog-page .shop-console:not(.has-note) .shop-search-scope {
-  font-size: 17px;
+  font-size: 13px;
 }
 
 /* Ways to ask, as one quiet line of links under the field rather than a
@@ -342,7 +349,139 @@
 
 .shop-landing {
   display: grid;
-  margin-top: 16px;
+  margin-top: 56px;
+}
+
+.shop-shelf {
+  margin-top: 28px;
+  min-width: 0;
+}
+
+.shop-shelf-heading,
+.shop-shelf-links,
+.shop-shelf-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+
+.shop-shelf-heading h2 {
+  margin: 0;
+  font: 600 clamp(26px, 3vw, 38px)/1.15 var(--display);
+  letter-spacing: -0.035em;
+}
+
+.shop-shelf a.shop-shelf-all,
+.shop-shelf-links > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  color: var(--link);
+  font-size: 14px;
+}
+
+.shop-shelf-links {
+  margin: 6px 0 18px;
+}
+
+.shop-shelf-links nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+}
+
+.shop-shelf-links nav a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+
+.shop-shelf-links a:hover,
+.shop-shelf-all:hover {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.shop-shelf-products {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: clamp(260px, 25vw, 340px);
+  gap: 20px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+  padding: 4px 4px 20px;
+  margin-inline: -4px;
+}
+
+.shop-shelf-products > article {
+  scroll-snap-align: start;
+}
+
+.shop-shelf-products:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 4px;
+  border-radius: var(--tile-radius);
+}
+
+.mosaic-catalog-page .shop-shelf-products .shop-product-card {
+  border-radius: 24px;
+  background: var(--paper-warm);
+}
+
+.mosaic-catalog-page .shop-shelf-products .shop-product-card .product-image {
+  height: 240px;
+  border-radius: 14px;
+}
+
+.shop-shelf-footer {
+  margin-top: 12px;
+}
+
+.shop-shelf-footer p,
+.shop-shelf-empty {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.shop-shelf-arrows {
+  display: flex;
+  gap: 8px;
+}
+
+.shop-shelf-arrows button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--paper-warm);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.shop-shelf-arrows button:hover:not(:disabled) { background: var(--maroon-100); }
+.shop-shelf-arrows button:disabled { opacity: 0.35; cursor: default; }
+
+@media (max-width: 600px) {
+  .shop-shelf { margin-top: 32px; }
+  .shop-shelf-heading { gap: 4px 24px; }
+  .shop-shelf-links { gap: 0 16px; margin-bottom: 12px; }
+  .shop-shelf-links nav { gap: 4px 18px; }
+  .shop-shelf-products { grid-auto-columns: 82%; gap: 16px; }
+  .shop-shelf-footer p { flex: 1; }
+  .shop-landing { margin-top: 40px; }
 }
 
 .shop-band {
@@ -678,7 +817,7 @@
 }
 
 .shop-alex-brief-link:hover {
-  background: var(--maroon-700);
+  background: var(--action-hover);
 }
 
 /* Ask Mosaic closes the landing as its own centred band. */

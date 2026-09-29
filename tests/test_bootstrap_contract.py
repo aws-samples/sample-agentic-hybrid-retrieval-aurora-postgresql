@@ -498,7 +498,7 @@ def test_code_editor_opens_a_terminal_and_skips_the_trust_prompt(script: str) ->
     """First open should land in a terminal with no dialogs in the way.
 
     A folderOpen task only fires from the .vscode of the folder Code Editor
-    actually opens, which is `$REPO` per --default-folder, not its parent. And
+    actually includes: `$REPO` under Explore Mosaic source, not its parent. And
     without task.allowAutomaticTasks the editor prompts instead of running it, so
     both halves have to be present for the terminal to appear by itself.
     """
@@ -603,7 +603,7 @@ sleep() { printf '%s\n' "$*" >>"$SLEEPS"; }
     if scenario == "existing":
         assert environment.read_text() == (
             "MOSAIC_CODE_EDITOR_URL='https://editor.example.test/"
-            "?folder=/workshop/sample-agentic-hybrid-retrieval-aurora-postgresql'\n"
+            "?workspace=/workshop/sample-agentic-hybrid-retrieval-aurora-postgresql/Mosaic.code-workspace'\n"
         )
     else:
         assert not environment.exists()

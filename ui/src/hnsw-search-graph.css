@@ -25,8 +25,8 @@
 .hnsw-graph-steps button span { margin-right: 3px; font-variant-numeric: tabular-nums; }
 .hnsw-graph-steps button[aria-pressed="true"] { color: var(--maroon-800); border-bottom-color: var(--maroon-800); }
 .hnsw-graph-steps button:hover { color: var(--maroon-800); }
-.hnsw-graph-play { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 188px; min-height: 52px; padding: 12px 18px; border: 0; border-radius: 999px; background: var(--maroon-800); color: var(--paper-strong); font: 500 15px/1.4 var(--sans); cursor: pointer; }
-.hnsw-graph-play:hover:not(:disabled) { background: var(--maroon-900); }
+.hnsw-graph-play { display: inline-flex; align-items: center; justify-content: center; gap: 10px; width: 188px; min-height: 52px; padding: 12px 18px; border: 0; border-radius: 999px; background: var(--action); color: var(--action-ink); font: 500 15px/1.4 var(--sans); cursor: pointer; }
+.hnsw-graph-play:hover:not(:disabled) { background: var(--action-hover); }
 .hnsw-graph-play:disabled { opacity: .55; cursor: default; }
 .hnsw-graph-explanation { display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); align-items: baseline; gap: 16px 24px; min-height: 94px; padding-block: 20px; }
 .hnsw-graph-explanation h3 { margin: 0; font: 400 32px/1.15 var(--display); letter-spacing: -.02em; }
@@ -47,9 +47,9 @@
 .hnsw-graph-candidates button[aria-pressed="true"] .hnsw-candidate-dot { background: var(--maroon-800); }
 .hnsw-candidates-note { margin: 16px 0 0; color: var(--ink-soft); font-size: 14px; line-height: 1.6; }
 .hnsw-flat-graph { display: block; width: 100%; height: auto; margin-block: 52px 16px; }
-.hnsw-flat-graph line { stroke: var(--line-strong); }
-.hnsw-flat-graph circle { fill: var(--paper); stroke: var(--ink-soft); }
-.hnsw-flat-graph circle[data-active="true"] { fill: var(--maroon-800); }
+.hnsw-flat-graph line { stroke: var(--ink-soft); }
+.hnsw-flat-graph circle { fill: var(--ink-soft); stroke: var(--ink-soft); }
+.hnsw-flat-graph circle[data-active="true"] { fill: var(--link); stroke: var(--link); }
 .hnsw-flat-graph text { fill: var(--ink-soft); font: 14px var(--sans); }
 .hnsw-graph-fallback { margin: 0; padding: 12px 20px; color: var(--ink-soft); font-size: 13px; }
 .hnsw-search-graph button:focus-visible, .hnsw-graph-canvas canvas:focus-visible { outline: 2px solid var(--maroon-800); outline-offset: 4px; }

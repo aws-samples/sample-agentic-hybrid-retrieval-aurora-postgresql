@@ -113,6 +113,18 @@ CloudFormation needs with:
 shasum -a 256 deploy/mosaic-bootstrap.sh
 ```
 
+Code Editor opens `Mosaic.code-workspace`, whose numbered roots are the existing
+lab directories plus **Explore Mosaic source** at the repository root. Both the
+server's `--default-workspace` and the workshop's `CodeEditorURL` must name this
+file; an explicit `?folder=` URL would override the default. Older folder links
+still work and can open the workspace with File → Open Workspace from File.
+
+The workspace owns the shared Explorer exclusions and terminal working directory.
+Bootstrap reuses those settings for the repository-folder view. A single
+folder-open task lives in the repository's `.vscode/` and explicitly runs from
+that root; the terminal launcher also resolves its own repository before
+opening a shell. Reference solutions remain accessible through the lab READMEs.
+
 The first Code Editor terminal opens `START_HERE.md` through the editor's own
 remote CLI with the built-in Markdown preview association, then leaves a login shell ready for the participant. The marker in
 `.local/code-editor-started` prevents later visits from reopening the page over

@@ -1,7 +1,7 @@
 """Mosaic links to the Code Editor without ever carrying its token.
 
 The `CodeEditorURL` stack output is
-`https://EDITOR-DOMAIN/?folder=HOME/sample-agentic-hybrid-retrieval-aurora-postgresql&tkn=TOKEN`,
+`https://EDITOR-DOMAIN/?workspace=HOME/sample-agentic-hybrid-retrieval-aurora-postgresql/Mosaic.code-workspace&tkn=TOKEN`,
 and that token is a credential for the participant's editor. `/api/health`
 publishes this value to every browser that loads the storefront, so the two
 properties worth holding are that the tokenless form travels intact and that a
@@ -17,8 +17,8 @@ from service.config import ConfigurationError, get_settings
 from service.main import app
 
 TOKENLESS = (
-    "https://d111111abcdef8.cloudfront.net/?folder=/home/participant/"
-    "sample-agentic-hybrid-retrieval-aurora-postgresql"
+    "https://d111111abcdef8.cloudfront.net/?workspace=/home/participant/"
+    "sample-agentic-hybrid-retrieval-aurora-postgresql/Mosaic.code-workspace"
 )
 
 

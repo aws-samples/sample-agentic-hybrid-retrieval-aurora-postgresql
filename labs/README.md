@@ -1,5 +1,10 @@
 # Labs
 
+Open [Mosaic.code-workspace](../Mosaic.code-workspace) for the numbered Explorer
+groups **01 — Retrieve**, **02 — Rank**, and **03 — Reason**. They point to the
+existing folders below. **Explore Mosaic source** contains the repository root,
+where every prepared terminal starts.
+
 Each lab has its own folder. The folder holds the file you edit, a README with
 the task, and `solution/` with the reference answer. Your Workshop Studio guide
 leads every step; these files are where the fix happens.
@@ -10,7 +15,9 @@ leads every step; these files are where the fix happens.
 | 2. Rank | [`lab2_rank/`](lab2_rank/) | `rrf_contribution.sql`, one marked block | `uv run python scripts/apply_search_functions.py` |
 | 3. Reason | [`lab3_reason/`](lab3_reason/) | `agent.py`, one marked block | `uv run python scripts/deploy_agentcore.py deploy` |
 
-Every lab runs Broken, Diagnose, Fix, Prove. The marked blocks sit between
+Every lab README follows **Broken → Diagnose → Fix → Prove**. Its collapsed
+recovery section links the reference answer; `solution/` folders are hidden from
+the default Explorer view. The marked blocks sit between
 `LABn_..._START` and `LABn_..._END` comments. When a lab starts, each block holds
 a `TODO(Lab n)` note that repeats the guide's contract for the edit.
 

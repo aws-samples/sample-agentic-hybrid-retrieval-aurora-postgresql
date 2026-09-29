@@ -980,20 +980,20 @@
   align-items: center;
   gap: 8px;
   padding: 0 18px;
-  border: 1px solid var(--maroon-800);
+  border: 1px solid var(--action);
   border-radius: 999px;
-  background: var(--maroon-800);
-  color: var(--paper-strong);
+  background: var(--action);
+  color: var(--action-ink);
   font-size: var(--labs-detail);
-  font-weight: 700;
+  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
   transition: background 160ms ease, border-color 160ms ease;
 }
 
 .labs-reason-submit:hover:not(:disabled) {
-  border-color: var(--maroon-700);
-  background: var(--maroon-700);
+  border-color: var(--action-hover);
+  background: var(--action-hover);
 }
 
 .labs-reason-submit:focus-visible {

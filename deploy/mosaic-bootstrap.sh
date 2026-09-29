@@ -226,7 +226,7 @@ Group=$CODE_EDITOR_USER
 WorkingDirectory=$HOME_FOLDER
 Environment=HOME=/home/$CODE_EDITOR_USER
 Environment=PATH=/usr/local/bin:/usr/bin:/bin:/home/$CODE_EDITOR_USER/.local/bin
-ExecStart=$CODE_EDITOR_CMD --accept-server-license-terms --host 127.0.0.1 --port 8080 --default-folder "$REPO" --connection-token "$CODE_EDITOR_CONNECTION_TOKEN"
+ExecStart=$CODE_EDITOR_CMD --accept-server-license-terms --host 127.0.0.1 --port 8080 --default-workspace "$REPO/Mosaic.code-workspace" --connection-token "$CODE_EDITOR_CONNECTION_TOKEN"
 Restart=always
 RestartSec=5
 
@@ -518,16 +518,10 @@ chmod 0755 /opt/mosaic-workshop/git-hooks/pre-commit
 sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" config \
   core.hooksPath /opt/mosaic-workshop/git-hooks
 
-# Code Editor opens $REPO (see --default-folder in its unit), and a folderOpen
-# task only fires from the .vscode/ of the folder that is actually opened, so both
-# files go there rather than in the parent. task.allowAutomaticTasks must be "on"
-# or Code Editor prompts instead of running the task, and the workspace-trust keys
-# are what suppress the "do you trust the authors" dialog on first open. The
-# sibling Pellier bootstrap established this shape after writing the task to the
-# unopened parent, where it silently never ran.
-#
-# Keep the application and its steering files discoverable. Hide generated
-# artifacts and instructor answer sheets, not the code participants are learning.
+# The named workspace roots point to the real exercise directories. The one
+# folderOpen task belongs to the repository root included as Explore Mosaic
+# source, so it also works when an older link opens the repository as a folder.
+# Keep automatic-task and trust settings in the prepared user's configuration.
 CODE_EDITOR_SETTINGS="/home/$CODE_EDITOR_USER/.code-editor-server/data/User"
 install -d -o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" "$CODE_EDITOR_SETTINGS"
 cat >"$CODE_EDITOR_SETTINGS/settings.json" <<'EOF'
@@ -567,7 +561,8 @@ cat >"$REPO/.vscode/tasks.json" <<'EOF'
       "label": "Mosaic terminal",
       "type": "shell",
       "command": "bash",
-      "args": ["-l", "deploy/open-workshop-terminal.sh"],
+      "args": ["-l", "${workspaceFolder}/deploy/open-workshop-terminal.sh"],
+      "options": { "cwd": "${workspaceFolder}" },
       "presentation": {
         "echo": false,
         "reveal": "always",
@@ -584,38 +579,18 @@ cat >"$REPO/.vscode/tasks.json" <<'EOF'
   ]
 }
 EOF
-cat >"$REPO/.vscode/settings.json" <<'EOF'
-{
-  "workbench.editorAssociations": {
-    "**/START_HERE.md": "vscode.markdown.preview.editor"
-  },
-  "markdown.preview.fontSize": 16,
-  "files.exclude": {
-    "**/__pycache__": true,
-    "**/*.egg-info": true,
-    "**/.pytest_cache": true,
-    "**/.ruff_cache": true,
-    "**/.venv": true,
-    "**/node_modules": true,
-    "**/dist": true,
-    "**/build": true,
-    "**/.DS_Store": true,
-    ".git": true,
-    ".vscode": true,
-    ".env": true,
-    ".local/model-migration-check": true,
-    ".local/strands-harness-eval": true,
-    ".local/strands-coding-eval": true,
-    ".local/rehearsal": true,
-    ".local/vocabulary-cache": true,
-    "data/full": true,
-    "data/raw": true,
-    "docs/intentional-gaps.md": true,
-    "docs/instructor-guide.md": true,
-    "docs/lab-golden-queries.md": true
-  }
-}
-EOF
+# Reuse the workspace settings for older folder links. The folder-scoped
+# variable still resolves to the repository root in either editor view.
+python3.13 - "$REPO" <<'EDITOR_SETTINGS'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+settings = json.loads((root / "Mosaic.code-workspace").read_text())["settings"]
+settings["terminal.integrated.cwd"] = "${workspaceFolder}"
+(root / ".vscode/settings.json").write_text(json.dumps(settings, indent=2) + "\n")
+EDITOR_SETTINGS
 chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO/.vscode"
 
 # Claude Code asks every participant to choose a text style on first run. The
@@ -902,7 +877,7 @@ else
   echo "WORKSHOP_NAME is unset; skipping Code Editor URL discovery"
 fi
 if [[ -n "$CODE_EDITOR_DOMAIN" ]]; then
-  printf "MOSAIC_CODE_EDITOR_URL='https://%s/?folder=%s/%s'\n" \
+  printf "MOSAIC_CODE_EDITOR_URL='https://%s/?workspace=%s/%s/Mosaic.code-workspace'\n" \
     "$CODE_EDITOR_DOMAIN" "$HOME_FOLDER" \
     'sample-agentic-hybrid-retrieval-aurora-postgresql' \
     >>"$REPO/.env"

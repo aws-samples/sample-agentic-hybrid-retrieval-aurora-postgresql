@@ -7,18 +7,28 @@ with evidence. Your Aurora database and application are already running.
 
 Keep **Workshop Studio → Lab 1** beside this editor. Follow **Observe the
 failure**, capture the result, then investigate before changing code.
-Use **Mosaic → Labs** to inspect the search and keep its saved search record.
+Use **Mosaic → Playground** to inspect the search and keep its saved search record.
 
 The terminal below is ready. It opens in this checkout with the workshop
 connection settings loaded. You do not need to start a database or server.
 
 ## Your route through the code
 
+The Explorer groups your work as **01 — Retrieve**, **02 — Rank**, and
+**03 — Reason**. Each group opens the real lab directory: its README and the
+file you edit. **Explore Mosaic source** contains the complete repository and
+[learning-notes.md](learning-notes.md). Every prepared terminal starts at the
+repository root, including when a lab file is selected.
+
+If an older editor link shows only the repository folder, choose **File → Open
+Workspace from File…** and open `Mosaic.code-workspace` in this checkout. The
+same files and saved work appear in the numbered view.
+
 | Step | Question to investigate | File you will edit |
 |---|---|---|
-| Retrieve | Where did the missing product leave the candidate path? | [Hybrid search](labs/lab1_retrieve/hybrid_search.sql) |
-| Rank | Did the combined order preserve each search method's positions? | [Rank contribution](labs/lab2_rank/rrf_contribution.sql) |
-| Build an agent | Can your Strands agent use SQL tools and answer with sources? | [Agent factory](labs/lab3_reason/agent.py) |
+| 01 — Retrieve | Where did the missing product leave the candidate path? | [Hybrid search](labs/lab1_retrieve/hybrid_search.sql) |
+| 02 — Rank | Did the combined order preserve each search method's positions? | [Rank contribution](labs/lab2_rank/rrf_contribution.sql) |
+| 03 — Reason | Can your Strands agent use SQL tools and answer with sources? | [Agent factory](labs/lab3_reason/agent.py) |
 
 Read the guide's task before editing. Each lab's folder has a README with the
 task and commands; when a lab starts, its marked blocks hold a `TODO(Lab n)`
@@ -32,7 +42,8 @@ question and follow up. The guide provides hints and a recovery command.
 - **`ui/`** — the Mosaic storefront and lab workbench.
 - **`service/`** — the API, agent tools, retrieval and citation checks.
 - **`labs/`** — one folder per lab: the file you edit, its task and a
-  `solution/` copy of the reference answer.
+  `solution/` copy of the reference answer, linked from the README’s recovery
+  section and hidden from the default Explorer view.
 - **`db/`** — the rest of the SQL, numbered in install order, and retrieval
   configuration.
 - **`scripts/`** — the lab commands at the top; maintainer tooling in
@@ -42,7 +53,8 @@ question and follow up. The guide provides hints and a recovery command.
 
 Read [AGENTS.md](AGENTS.md) for repository rules, [VOICE.md](VOICE.md) for the
 application's writing style, and [CLAUDE.md](CLAUDE.md) for coding-agent guidance.
-The Explorer hides caches and build outputs; the source paths match the guide.
+The Explorer hides caches, build outputs and solution folders; the source paths
+match the guide. Opening a numbered group does not create another copy of a file.
 
 ## Keep the proof
 
@@ -51,5 +63,5 @@ Labs 1 and 2 ask for one written prediction and one two-sentence explanation in
 just the winning card. Bootstrap creates this notes file for each participant.
 Complete the guide's validation commands before moving to the next lab.
 
-After completion, download **Hybrid Agentic Search** from Mosaic's Labs
+After completion, download **Hybrid Agentic Search** from Mosaic's Playground
 page to carry the workflow and its quality checks into your own agent.

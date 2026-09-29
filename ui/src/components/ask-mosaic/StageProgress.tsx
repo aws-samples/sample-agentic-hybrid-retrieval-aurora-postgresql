@@ -48,6 +48,7 @@ export function StageRail({
   stageDetail,
   stageStartedAt,
   panels,
+  summaries = {},
   onPresentationProgress,
 }: {
   actualStage: AssistStage | null;
@@ -61,6 +62,7 @@ export function StageRail({
   stageDetail: string;
   stageStartedAt: number;
   panels: Partial<Record<AssistStage, ReactNode>>;
+  summaries?: Partial<Record<AssistStage, string>>;
   onPresentationProgress?: () => void;
 }) {
   const stages = executionPath === "focused_follow_up"
@@ -104,7 +106,7 @@ export function StageRail({
             && stage.id === actualStage
             && stageDetail
             ? stageDetail
-            : stage.description;
+            : state === "complete" ? summaries[stage.id] ?? stage.description : stage.description;
           return (
             <li className={state} key={stage.id}>
               {/* Keeping labels inside the card preserves space for their text

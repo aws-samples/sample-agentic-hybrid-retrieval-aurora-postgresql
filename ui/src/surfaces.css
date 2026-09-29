@@ -193,27 +193,17 @@
   padding: 0 24px;
   border: 1px solid color-mix(in srgb, var(--paper-strong) 12%, transparent);
   border-radius: 999px;
-  background: linear-gradient(135deg, var(--maroon-800), var(--maroon-950));
-  box-shadow:
-    inset 0 1px 0 rgb(0 0 0 / 14%),
-    0 9px 22px rgb(0 0 0 / 20%);
-  color: var(--paper);
+  background: var(--action);
+  box-shadow: none;
+  color: var(--action-ink);
   font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-weight: 500;
+  letter-spacing: 0;
   transition: box-shadow 180ms ease, transform 180ms ease;
 }
 
 .mosaic-ask-button::after {
-  position: absolute;
-  top: 0;
-  left: -46%;
-  width: 34%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--paper-strong) 22%, transparent), transparent);
-  content: "";
-  transform: skewX(-20deg);
-  transition: left 420ms ease;
+  content: none;
 }
 
 .mosaic-ask-button svg {
@@ -221,10 +211,7 @@
 }
 
 .mosaic-ask-button:hover {
-  box-shadow:
-    inset 0 1px 0 rgb(0 0 0 / 16%),
-    0 12px 28px rgb(0 0 0 / 27%);
-  transform: translateY(-1px);
+  background: var(--action-hover);
 }
 
 .mosaic-ask-button:hover::after {
@@ -1099,8 +1086,8 @@
   justify-content: space-between;
   gap: 12px;
   margin-top: auto;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  border-top: 0;
 }
 
 /* A footer left with only the listing link or the bag button (no Compare
@@ -1483,9 +1470,9 @@
 }
 
 .shop-filter-sheet > footer button.primary {
-  border-color: var(--maroon-900);
-  background: var(--maroon-900);
-  color: var(--paper);
+  border-color: var(--action);
+  background: var(--action);
+  color: var(--action-ink);
 }
 
 /* Product drawer: the full catalog row for an Ask Mosaic pick, slid in
@@ -1640,12 +1627,12 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 1px solid var(--maroon-900);
+  border: 1px solid var(--action);
   border-radius: 6px;
-  background: var(--maroon-900);
-  color: var(--paper);
+  background: var(--action);
+  color: var(--action-ink);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .product-drawer-add:disabled {

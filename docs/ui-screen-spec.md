@@ -21,13 +21,17 @@ Landing, before a query or an Ask Mosaic shortlist:
 
 - centred headline, search composer, catalog scope line, and one line of
   example searches grouped as Keywords, Typo, and Intent;
+- a horizontal workspace product shelf, category links, **Browse all products**
+  and a shortcut to Meet Alex;
 - Meet Alex: the five-step workspace walkthrough beside Alex's profile
   (`#alex-profile`), with links to his three categories;
 - three full-width bands, one per need, each linking to its category and to
   its category-scoped search from the mission manifest;
 - the Ask Mosaic invitation as the closing band, then the note that Alex is
   fictional and the workspace imagery is AI-generated;
-- the workspace edit grid below the story.
+The shelf supports touch, keyboard scrolling and previous/next controls. Category
+links and **Browse all products** replace the story with the full browse grid,
+its existing tabs, filters and pagination.
 
 With a query the story is not rendered. The headline stays the page's h1 for
 assistive technology only, and `Results for ...` is the display line. Ranked
@@ -42,6 +46,8 @@ Components:
 - an Ask Mosaic sidecar that is the only agent composer, opened from the Shop
   header, with starter questions drawn from the eval set;
 - stable product cards with complete 3:2 premium catalog photography;
+- an activity trail that stays open by default while each stage unfolds; completed
+  stages retain summaries from the actual plan, shortlist, comparisons and citations;
 - agent shortlist cards labelled by the arms that retrieved them, the searches
   and constraints behind the shortlist, evidence citations, rank explanation,
   and tool receipts;
@@ -94,24 +100,29 @@ Components:
 
 API: `GET /api/products/{product_id}`.
 
-## `/labs/retrieval` - Playground
+## `/labs/retrieval` - Hybrid retrieval
 
-Purpose: preserve one query while inspecting how each retrieval stage changes
-candidate order.
+Purpose: follow an agent request across its searches, distinguish each search's
+ranking from the final answer, and inspect the supporting records.
 
-Stages:
+The canonical example selector and **Run Mosaic** start the production agent.
+The completed summary links each final choice to its recorded search. **Trace
+all returned products** lists the actual search positions, successful comparisons,
+registered evidence counts, and final inclusion; listing IDs distinguish similar
+titles. Missing records remain visibly unavailable, and omission alone is not
+presented as a rejection explanation.
 
-1. PostgreSQL full-text search;
-2. `pg_trgm`;
-3. pgvector semantic search;
-4. reciprocal rank fusion;
-5. Cohere Rerank.
+Retrieve and Rank follow the selected search. Its first result is a compact row
+labelled with its search number, position, and whether it appears in the answer.
+**Search record and interpretation** expands technical identifiers and method
+readings. Retrieve exposes full-text, close-spelling and semantic candidates;
+Rank shows fusion and reranking receipts; Reason presents the full cited answer,
+product links, sources, and the expandable activity log.
 
-The page shows stage rank, raw stage score, candidate-arm agreement, hard
-eligibility, run ID, the shared compact receipt, diagnostics, and directly
-copyable canonical SQL.
+`?view=lab` retains the guided lab workbench and proof controls.
 
-API: `GET /api/retrieval/examples` and `POST /api/search`.
+API: `POST /api/agent/answer/stream`,
+`GET /api/retrieval/events/{search_event_id}/response`, and linked evidence records.
 
 ## `/mosaic-labs/hnsw` - Scale & HNSW
 

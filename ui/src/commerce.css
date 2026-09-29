@@ -174,12 +174,12 @@
   justify-content: center;
   gap: 7px;
   padding: 0 12px;
-  border: 1px solid var(--maroon-900);
+  border: 1px solid var(--action);
   border-radius: 6px;
-  background: var(--maroon-900);
-  color: var(--paper-strong);
+  background: var(--action);
+  color: var(--action-ink);
   font-size: 11px;
-  font-weight: 750;
+  font-weight: 500;
   transition:
     background 160ms ease,
     border-color 160ms ease,
@@ -187,8 +187,8 @@
 }
 
 .catalog-cart-button:hover {
-  border-color: var(--maroon-800);
-  background: var(--maroon-800);
+  border-color: var(--action-hover);
+  background: var(--action-hover);
   transform: translateY(-1px);
 }
 
@@ -634,17 +634,17 @@
   justify-content: center;
   gap: 8px;
   padding: 0 18px;
-  border: 1px solid var(--maroon-900);
+  border: 1px solid var(--action);
   border-radius: 6px;
-  background: var(--maroon-900);
-  color: var(--paper-strong);
+  background: var(--action);
+  color: var(--action-ink);
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 500;
 }
 
 .commerce-primary-button:hover {
-  border-color: var(--maroon-800);
-  background: var(--maroon-800);
+  border-color: var(--action-hover);
+  background: var(--action-hover);
 }
 
 .commerce-assurance-row {

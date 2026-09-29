@@ -28,7 +28,7 @@ the workshop. Follow the guide's commands as you move through the labs.
 
 ## What you will build
 
-The workshop follows **Retrieve → Rank → Build an agent**. Labs 1 and 2 improve
+The workshop follows **Retrieve → Rank → Reason**. Labs 1 and 2 improve
 your SQL search. Lab 3 connects that search to a Strands agent on AgentCore Runtime
 and exposes the SQL tools through AgentCore Gateway.
 `uv run python scripts/deploy_agentcore.py deploy` builds an ARM64 container from your current source, pushes it to the workshop's ECR
@@ -41,23 +41,37 @@ for you; the command checks deployed source identity and Gateway connectivity.
 | **2. Fuse, rerank, and inspect** | How did each search method contribute to the final order? | [`labs/lab2_rank/`](labs/lab2_rank/) |
 | **3. Build and deploy an agent** | Can your agent use SQL tools and answer with sources? | [`labs/lab3_reason/`](labs/lab3_reason/) |
 
-Each lab folder holds the one file you edit, a README with the task and
-commands, and `solution/` with the reference answer. When a lab starts, its
+The participant workspace, [Mosaic.code-workspace](Mosaic.code-workspace),
+groups the existing files as **01 — Retrieve**, **02 — Rank**, and **03 — Reason**.
+**Explore Mosaic source** keeps the complete repository accessible; prepared
+terminals run commands from its root. Each lab README follows **Broken →
+Diagnose → Fix → Prove**, with a collapsed recovery section linking the
+reference answer in `solution/`. Solution folders are hidden from the default
+Explorer view. When a lab starts, its
 marked blocks hold a `TODO(Lab n)` note that repeats the guide's contract.
 
 Use **Shop** to meet Alex and to search and compare products, and **Playground**
 to inspect search results, ranking, tool calls, and sources. Shop opens on its
-search, then Alex's brief and one band for each of his three needs. A search
+search and a browsable workspace shelf, with category links and **Browse all
+products** above Alex's brief and the three editorial bands. A search
 replaces the story with ranked results: the first as a feature, the rest as rows
 with their positions.
-Playground follows one request down the page: the first result on its own
-plate, how each method found candidates, an itemized receipt for any product,
-and the agent's cited answer beside its sources. When a lab's request fails,
+Playground follows one request across the agent's searches. A compact summary
+links each final choice to its search; **Trace all returned products** shows
+search positions, comparisons, evidence read, and inclusion in the answer.
+Retrieve and Rank inspect one selected search, whose first result is explicitly
+labelled by search and position. The agent's cited answer appears beside its
+sources; search records and interpretation expand when needed. When a lab's request fails,
 every surface says what is missing, why, and the one command to run next. On Shop,
 Lab 1's failure is a card for the missing product with numbered steps back to it.
 On Shop, **Why this match** itemizes how each result was found and ranked, and
 product pages show the specifications a listing states beside the listing text
-they came from. **Ask Mosaic** answers with the best pick's photo, then a
+they came from. In **Session & Memory**, follow the linked steps to save a
+preference, inspect its extraction, and ask in a new session. Recalled preferences
+inform both retrieval and the final answer check; product claims still require
+fresh evidence. Request failures appear beside the question; completed answers
+stay visible while history refreshes. **Ask Mosaic** shows its search, comparison and source activity as it runs, with
+compact summaries and expandable evidence. Its answer leads with the best pick's photo, then a
 side-by-side table in which each value shows whether the listing, its title, or a
 review states it, with source numbers, then the cited answer and what its
 sources leave unknown. Mosaic follows your device's light or dark appearance; the
@@ -87,7 +101,10 @@ on. A plausible product or answer alone does not show that the repair worked.
 Mosaic combines three ways to find products: PostgreSQL full-text search for
 words, `pg_trgm` for close spellings, and pgvector HNSW for meaning.
 Reciprocal-rank fusion (RRF) combines their ranked lists, then Cohere Rerank
-reorders the shortlist for the request.
+reorders the shortlist for the request. The default RRF gives each channel the
+same rank-based contribution. The Rank guide offers an optional weighted-RRF
+comparison after required completion, using the same candidate lists; it does
+not change the default search.
 
 ```mermaid
 flowchart LR

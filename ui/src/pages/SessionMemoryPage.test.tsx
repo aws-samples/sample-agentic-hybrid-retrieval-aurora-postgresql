@@ -100,7 +100,7 @@ it("starts with a fresh Alex and clears recalled memories without running the ag
   expect(screen.getByText("fresh-alex")).toBeTruthy();
   expect(screen.queryByText("Earlier Alex’s preference")).toBeNull();
   expect(screen.getByLabelText("Session")).toHaveProperty("value", "");
-  expect(screen.getByText("Your answer will appear here after you ask Mosaic.")).toBeTruthy();
+  expect(screen.getByText(/Choose Ask Mosaic to run the question above/)).toBeTruthy();
   expect(reset).toHaveBeenCalledOnce();
   expect(api.newSession).not.toHaveBeenCalled();
   expect(stream).not.toHaveBeenCalled();
@@ -144,7 +144,7 @@ it("keeps saved answers collapsed and shows only a newly requested answer inline
   expect(previousAnswer.closest("details")?.open).toBe(false);
   expect(view.container.querySelector(".memory-current-answer")).toBeNull();
   expect(stream).not.toHaveBeenCalled();
-  expect(screen.getByText("Your answer will appear here after you ask Mosaic.")).toBeTruthy();
+  expect(screen.getByText(/Choose Ask Mosaic to run the question above/)).toBeTruthy();
 
   fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
   await waitFor(() => expect(view.container.querySelector(".memory-current-answer")?.textContent).toContain("Answer from this request."));
@@ -184,4 +184,32 @@ it("passes the selected session into recall so summaries and episodes reach the 
   render(<SessionMemoryPage />);
   fireEvent.click(await screen.findByRole("button", { name: "Find relevant memories" }));
   await waitFor(() => expect(recall).toHaveBeenCalledWith(missionManifest.optional_labs.memory.request, "session-a"));
+});
+
+
+it("reports an agent failure beside the question instead of showing the idle answer prompt", async () => {
+  vi.spyOn(api, "agentStream").mockRejectedValue(new Error("The deployed agent differs from your workspace. Deploy, then retry."));
+  const view = render(<SessionMemoryPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Ask Mosaic" }));
+  await screen.findByText(/The deployed agent differs/);
+  expect(view.container.querySelector(".memory-recall [role='alert']")?.textContent).toContain("The deployed agent differs");
+  expect(screen.queryByText("Your answer will appear here after you ask Mosaic.")).toBeNull();
+  expect(screen.getByRole("button", { name: "Ask Mosaic" })).toHaveProperty("disabled", false);
+});
+
+it.each(["stale", "failed"])("keeps the completed answer when the history refresh is %s", async (history) => {
+  vi.spyOn(api, "agentStream").mockImplementation(async (question, _filters, onEvent) => {
+    if (history === "failed") vi.mocked(api.sessionMemory).mockRejectedValueOnce(new Error("History unavailable"));
+    onEvent({ type: "complete", response: {
+      agent_run_id: "completed-run", session_id: "new-session", question,
+      answer: "The monitor listing states USB-C charging.",
+      recommendations: [], citations: [], plan: [], trace: [],
+    } });
+  });
+  render(<SessionMemoryPage />);
+  fireEvent.click(await screen.findByRole("button", { name: "Ask Mosaic" }));
+  await waitFor(() => expect(api.sessionMemory).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Ask Mosaic" })).toHaveProperty("disabled", false));
+  expect(screen.getByText("The monitor listing states USB-C charging.")).toBeTruthy();
+  expect(screen.queryByText("Your answer will appear here after you ask Mosaic.")).toBeNull();
 });

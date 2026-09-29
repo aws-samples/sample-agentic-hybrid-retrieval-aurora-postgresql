@@ -1,5 +1,5 @@
-/* Ask Mosaic, image first: the question as a bubble, one live line for the
-   run, the best pick on its own plate, every pick against the same rows, the
+/* Ask Mosaic, image first: the question as a bubble, an open activity trail for
+   the run, the best pick on its own plate, every pick against the same rows, the
    answer of record, and what its sources leave open. Loaded after world.css so
    these rules decide the panel without raising specificity. */
 
@@ -28,7 +28,8 @@
 }
 
 .ask-mosaic-header h2 {
-  font-size: 19px;
+  font-size: 18px;
+  font-weight: 500;
   letter-spacing: -0.02em;
 }
 
@@ -63,7 +64,7 @@
   color: var(--ink);
   font-size: 15px;
   font-weight: 400;
-  line-height: 1.42;
+  line-height: 1.6;
   letter-spacing: -0.012em;
 }
 
@@ -80,16 +81,20 @@
   background: transparent;
   color: var(--ink-soft);
   font-size: 12px;
+  font-weight: 400;
 }
+
+.ask-mosaic-header .ask-mosaic-clear-chat { font-weight: 400; letter-spacing: 0; }
 
 .ask-mosaic-request-actions button:hover {
   background: var(--paper-warm);
   color: var(--ink);
 }
 
-/* One live line: what the run is doing, then what it did. */
+/* Keep the execution visible; each step still owns its deeper evidence. */
 .ask-mosaic-process {
-  margin: 14px 0 0;
+  margin: 16px 0 0;
+  padding: 0;
   border: 0;
   background: transparent;
 }
@@ -98,8 +103,9 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  margin: 0 -10px;
-  padding: 8px 10px;
+  min-height: 44px;
+  margin: -6px -6px 0;
+  padding: 8px 6px;
   border: 0;
   border-radius: 12px;
   background: transparent;
@@ -112,13 +118,55 @@
 }
 
 .ask-mosaic-process > summary.ask-mosaic-live:hover {
-  background: var(--paper-warm);
+  background: var(--paper-strong);
 }
+
+.ask-mosaic-process .ask-mosaic-timeline { margin-top: 12px; }
+.ask-mosaic-process .ask-mosaic-timeline-heading { display: none; }
+.ask-mosaic-process .ask-mosaic-stage-panel { border-color: transparent; border-radius: 14px; background: transparent; }
+.ask-mosaic-process .ask-mosaic-stage-panel:has([aria-expanded="true"]) { background: var(--paper-warm); }
+.ask-mosaic-process .ask-mosaic-progress > li.active .ask-mosaic-stage-panel { border-color: transparent; background: var(--paper-warm); box-shadow: none; }
+.ask-mosaic-process .ask-mosaic-progress > li.failed .ask-mosaic-stage-panel { border-color: var(--danger-line); background: var(--danger-soft); }
+.ask-mosaic-process .ask-mosaic-progress > li { grid-template-columns: 24px minmax(0, 1fr); gap: 10px; padding-bottom: 8px; }
+.ask-mosaic-process .ask-mosaic-progress > li:last-child { padding-bottom: 0; }
+.ask-mosaic-process .ask-mosaic-progress > li:not(:last-child)::after { top: 24px; left: 12px; height: calc(100% - 12px); background: var(--line); }
+.ask-mosaic-process .ask-mosaic-stage-rail { padding-top: 10px; }
+.ask-mosaic-process .ask-mosaic-stage-node { width: 24px; height: 24px; border-width: 1px; background: var(--canvas); font-weight: 400; font-size: 11px; }
+.ask-mosaic-process .ask-mosaic-stage-node svg { width: 13px; height: 13px; }
+.ask-mosaic-process .ask-mosaic-stage-summary { padding: 12px; }
+.ask-mosaic-process .ask-mosaic-stage-summary:focus-visible { outline-color: var(--link); }
+.ask-mosaic-process .ask-mosaic-stage-label { font-size: 14px; font-weight: 500; line-height: 1.5; }
+.ask-mosaic-process .ask-mosaic-stage-state { font-weight: 400; letter-spacing: 0; text-transform: none; }
+.ask-mosaic-process .ask-mosaic-stage-copy > strong { display: none; }
+.ask-mosaic-process .ask-mosaic-progress > li.complete .ask-mosaic-stage-summary[aria-expanded="false"] .ask-mosaic-stage-detail { display: -webkit-box; }
+.ask-mosaic-process .ask-mosaic-stage-detail { font-size: 13px; line-height: 1.5; }
+
+@media (max-width: 600px) {
+  .ask-mosaic-process .ask-mosaic-stage-summary { padding: 10px; }
+}
+
+.ask-mosaic-process .ask-mosaic-stage-content { border-top: 0; padding-inline: 12px; }
+.ask-mosaic-process .ask-mosaic-stage-content :is(.ask-mosaic-criteria h3, .ask-mosaic-section h3) { font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.ask-mosaic-process .ask-mosaic-stage-content :is(.ask-mosaic-criteria li, .ask-mosaic-shortlist-signals > span) { border-color: transparent; background: var(--canvas); color: var(--ink-soft); font-size: 12px; font-weight: 400; }
+.ask-mosaic-process .ask-mosaic-stage-content .ask-mosaic-shortlist button { border-color: var(--line); border-radius: 12px; background: var(--canvas); }
+.ask-mosaic-process .ask-mosaic-stage-content :is(.ask-mosaic-shortlist-copy > strong, .ask-mosaic-shortlist-meta > strong) { font-size: 13px; font-weight: 500; line-height: 1.5; }
+.ask-mosaic-process :is(.ask-mosaic-card-pick, .ask-mosaic-compare th, .ask-mosaic-compare thead th small) { font-weight: 500; letter-spacing: 0; text-transform: none; }
+.ask-mosaic-process .ask-mosaic-card-pick { padding: 0; background: transparent; color: var(--ink-soft); }
+.ask-mosaic-process :is(.ask-mosaic-ranking, .ask-mosaic-receipt) { border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
+.ask-mosaic-process :is(.ask-mosaic-ranking, .ask-mosaic-receipt) summary { padding-inline: 0; font-size: 13px; font-weight: 500; }
+.ask-mosaic-process :is(.ask-mosaic-activity strong, .ask-mosaic-evidence strong, .ask-mosaic-searches strong) { font-weight: 500; }
+.ask-mosaic-sidecar .ask-mosaic-context span { color: var(--ink-soft); font-size: 12px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.ask-mosaic-sidecar .ask-mosaic-memory-control label { font-weight: 400; }
+.ask-mosaic-sidecar .ask-mosaic-error { border-color: var(--danger-line); border-radius: 16px; background: var(--danger-soft); color: var(--ink); line-height: 1.65; }
+.ask-mosaic-sidecar .ask-mosaic-error strong { font-weight: 500; }
+.ask-mosaic-sidecar .ask-mosaic-error small { color: var(--ink-soft); }
 
 .ask-mosaic-live-text {
   flex: 1;
   min-width: 0;
 }
+
+.ask-mosaic-process > summary > .ask-mosaic-live-text { font-weight: 400; }
 
 .ask-mosaic-live-mark {
   position: relative;
@@ -195,22 +243,25 @@
 .ask-mosaic-prose .product-answer li {
   max-width: 62ch;
   color: var(--ink);
-  font-size: 14.5px;
-  line-height: 1.6;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.7;
 }
 
 .ask-mosaic-prose .product-answer > :is(h2, h3, h4) {
   margin: 20px 0 6px;
   color: var(--ink);
   font-family: var(--sans);
-  font-size: 14.5px;
-  font-weight: 600;
+  font-size: 16px;
+  font-weight: 500;
   letter-spacing: -0.01em;
 }
 
 .ask-mosaic-prose .product-answer > :first-child {
   margin-top: 0;
 }
+
+.ask-mosaic-prose .product-answer strong { font-weight: 500; }
 
 /* The best pick: the photograph a shopper recognises, then the name. */
 .ask-best-pick {
@@ -263,7 +314,7 @@
   background: var(--ink);
   color: var(--canvas);
   font-size: 11.5px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .ask-best-pick h4 {

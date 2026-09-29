@@ -43,8 +43,10 @@
 }
 
 .source-product-card .shop-card-price > strong { font-size: 18px; font-weight: 600; color: var(--ink); }
+.source-product-card .shop-card-price { row-gap: 4px; }
+.source-product-card .shop-card-price-caption { flex-basis: 100%; font-size: 12px; line-height: 1.5; }
 .shop-product-card.source-product-card .shop-card-footer { display: flex; flex-wrap: wrap; gap: 10px 16px; text-align: left; }
-.shop-product-card.source-product-card .source-listing-link { min-height: 36px; display: inline-flex; align-items: center; }
+.shop-product-card.source-product-card .source-listing-link { min-height: 36px; display: inline-flex; align-items: center; font-weight: 500; }
 
 .source-product-page { max-width: 1360px; padding-top: 28px; }
 .source-detail-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: clamp(28px, 5vw, 72px); align-items: start; }

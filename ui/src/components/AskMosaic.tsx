@@ -195,6 +195,19 @@ function Turn({
     response?.recommendations ?? turn.partial?.candidates ?? [];
   const trace: ToolTraceStep[] = response?.trace ?? turn.partial?.trace ?? [];
   const citations: AgentCitation[] = response?.citations ?? [];
+  const comparisons = trace.filter((step) => step.tool === "compare_products" && step.outcome === "success").length;
+  const stageSummaries: Partial<Record<AssistStage, string>> = {
+    understand: plan.length ? plan.map((step) => step.query).join(" · ") : undefined,
+    retrieve: candidates.length
+      ? `${candidates.length} products in the shortlist`
+      : response ? "No eligible products in the final shortlist" : undefined,
+    rank: comparisons
+      ? `${comparisons} product comparison${comparisons === 1 ? "" : "s"} recorded`
+      : response ? "No product comparison recorded" : undefined,
+    answer: citations.length
+      ? `${citations.length} source records cited · ${trace.length} recorded steps`
+      : response ? `${trace.length} recorded steps · no sources cited` : undefined,
+  };
   // A declined answer names an absence rather than a recommendation:
   // `recommendations` and `citations` are empty by contract, so the shortlist
   // and the compare/cite panels below have nothing real to show. The steps
@@ -279,10 +292,8 @@ function Turn({
       {turn.loading || turn.stage || response || turn.cancelled ? (
         <details
           className="ask-mosaic-process"
-          open={Boolean(turn.error) || turn.cancelled}
+          open
         >
-          {/* One live line: what the run is doing, then what it did. The full
-              stage rail, searches and tool steps open from it. */}
           <summary
             className="ask-mosaic-live"
             data-state={turn.error ? "error" : turn.cancelled ? "stopped" : answerSettled ? "done" : "working"}
@@ -292,7 +303,7 @@ function Turn({
             </span>
             <span className="ask-mosaic-live-text">
               {turn.error
-                ? "Request interrupted · open for details"
+                ? "Request interrupted"
                 : turn.cancelled
                   ? "Stopped before it finished"
                   : answerVisible
@@ -311,6 +322,7 @@ function Turn({
           stageDetail={turn.stageDetail}
           stageStartedAt={turn.stageStartedAt}
           panels={stagePanels}
+          summaries={stageSummaries}
           onPresentationProgress={onStageProgress}
         />
         {answerSettled && !declined ? (

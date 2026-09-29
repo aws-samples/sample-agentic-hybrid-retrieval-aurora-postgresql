@@ -136,6 +136,14 @@ class SourceAttribution(WireModel):
     quote: str
 
 
+class ProductSpec(WireModel):
+    """A listing value and its source text, preserved across the MCP boundary."""
+
+    value: str | int | float | bool
+    source: str
+    quote: str
+
+
 class ProductSummary(WireModel):
     product_id: int
     sku: str
@@ -154,6 +162,7 @@ class ProductSummary(WireModel):
     availability: Availability | None
     inventory_count: int | None
     attributes: dict[str, Any]
+    specs: dict[str, ProductSpec] = Field(default_factory=dict)
     tags: list[Any]
     catalog_asset_key: str | None = None
     canonical_group_id: str | None = None

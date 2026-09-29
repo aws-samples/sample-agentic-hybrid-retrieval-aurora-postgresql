@@ -28,13 +28,14 @@ export function mountHnswScene(host: HTMLElement, onLost: () => void, onInteract
   controls.maxPolarAngle = 1.45;
   const style = getComputedStyle(host);
   const color = (name: string) => new THREE.Color(style.getPropertyValue(name).trim());
-  const maroon = color("--maroon-800");
-  const cream = color("--paper");
-  const warm = color("--paper-warm");
-  const line = color("--line-strong");
-  const hemisphere = new THREE.HemisphereLight(cream, line, 2.1);
+  const accent = color("--link");
+  const nodeColor = color("--ink-soft");
+  const surfaceColor = color("--paper-strong");
+  const line = color("--ink-soft");
+  // Dark UI surfaces are paint, not light: keep illumination neutral in both themes.
+  const hemisphere = new THREE.HemisphereLight(0xffffff, 0x778899, 2.1);
   scene.add(hemisphere);
-  const light = new THREE.DirectionalLight(cream, 3.5);
+  const light = new THREE.DirectionalLight(0xffffff, 3.5);
   light.position.set(-6, 14, 9);
   light.castShadow = true;
   light.shadow.mapSize.set(1024, 1024);
@@ -43,16 +44,16 @@ export function mountHnswScene(host: HTMLElement, onLost: () => void, onInteract
   light.shadow.normalBias = 0.04;
   light.shadow.radius = 4;
   scene.add(light);
-  const fill = new THREE.DirectionalLight(cream, 1.5);
+  const fill = new THREE.DirectionalLight(0xffffff, 1.5);
   fill.position.set(8, 5, -7); scene.add(fill);
 
   const geometries: THREE.BufferGeometry[] = [];
   const materials: THREE.Material[] = [];
   // Tracked by palette role so a theme change can recolour every material already
   // built from it. A material's constructor copies a THREE.Color's value once, so
-  // mutating `maroon`/`cream`/`warm`/`line` later does not reach it on its own.
-  const maroonMaterials: { color: THREE.Color }[] = [];
-  const warmMaterials: { color: THREE.Color }[] = [];
+  // mutating the palette colors later does not reach it on its own.
+  const accentMaterials: { color: THREE.Color }[] = [];
+  const surfaceMaterials: { color: THREE.Color }[] = [];
   const lineMaterials: { color: THREE.Color }[] = [];
   const nodes: { mesh: THREE.Mesh<THREE.SphereGeometry, THREE.MeshStandardMaterial>; layer: number; id: string; reached: number }[] = [];
   const paths: { mesh: THREE.Mesh; from: THREE.Vector3; to: THREE.Vector3; length: number; start: number; end: number }[] = [];
@@ -80,12 +81,12 @@ export function mountHnswScene(host: HTMLElement, onLost: () => void, onInteract
     return new THREE.Vector3(product.x, graphLayers[layer].y + 0.2, product.z);
   }
   function tube(from: THREE.Vector3, to: THREE.Vector3, start: number, end: number) {
-    const geometry = new THREE.CylinderGeometry(0.035, 0.035, 1, 10);
-    const material = new THREE.MeshStandardMaterial({ color: maroon, roughness: 0.45 });
+    const geometry = new THREE.CylinderGeometry(0.05, 0.05, 1, 10);
+    const material = new THREE.MeshStandardMaterial({ color: accent, roughness: 0.45 });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), to.clone().sub(from).normalize());
     mesh.castShadow = true;
-    geometries.push(geometry); materials.push(material); maroonMaterials.push(material); scene.add(mesh);
+    geometries.push(geometry); materials.push(material); accentMaterials.push(material); scene.add(mesh);
     paths.push({ mesh, from, to, length: from.distanceTo(to), start, end });
   }
   function surface(y: number) {
@@ -98,23 +99,23 @@ export function mountHnswScene(host: HTMLElement, onLost: () => void, onInteract
     shape.lineTo(left, back + radius); shape.quadraticCurveTo(left, back, left + radius, back);
     const geometry = new THREE.ExtrudeGeometry(shape, { depth: 0.06, bevelEnabled: true, bevelSegments: 2, steps: 1, bevelSize: 0.035, bevelThickness: 0.025, curveSegments: 12 });
     geometry.rotateX(-Math.PI / 2);
-    const material = new THREE.MeshStandardMaterial({ color: warm, roughness: 0.8, transparent: true, opacity: 0.38, depthWrite: false });
+    const material = new THREE.MeshStandardMaterial({ color: surfaceColor, roughness: 0.8, transparent: true, opacity: 0.5, depthWrite: false });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.y = y - 0.15;
     mesh.receiveShadow = true; scene.add(mesh);
     const edgeGeometry = new THREE.EdgesGeometry(geometry, 30);
-    const edgeMaterial = new THREE.LineBasicMaterial({ color: line, transparent: true, opacity: 0.6 });
+    const edgeMaterial = new THREE.LineBasicMaterial({ color: line, transparent: true, opacity: 0.85 });
     const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
     edges.position.copy(mesh.position); scene.add(edges);
     geometries.push(geometry, edgeGeometry); materials.push(material, edgeMaterial);
-    warmMaterials.push(material); lineMaterials.push(edgeMaterial);
+    surfaceMaterials.push(material); lineMaterials.push(edgeMaterial);
   }
 
   const groundGeometry = new THREE.PlaneGeometry(40, 40);
-  const groundMaterial = new THREE.ShadowMaterial({ color: line, opacity: 0.16 });
+  const groundMaterial = new THREE.ShadowMaterial({ color: 0x000000, opacity: 0.16 });
   const ground = new THREE.Mesh(groundGeometry, groundMaterial);
   ground.rotation.x = -Math.PI / 2; ground.position.y = -0.5; ground.receiveShadow = true;
-  scene.add(ground); geometries.push(groundGeometry); materials.push(groundMaterial); lineMaterials.push(groundMaterial);
+  scene.add(ground); geometries.push(groundGeometry); materials.push(groundMaterial);
 
   graphLayers.forEach((layer, index) => {
     surface(layer.y);
@@ -134,7 +135,7 @@ export function mountHnswScene(host: HTMLElement, onLost: () => void, onInteract
     }
     for (const id of layer.ids) {
       const geometry = new THREE.SphereGeometry(0.155, 24, 16);
-      const material = new THREE.MeshStandardMaterial({ color: cream, roughness: 0.3, metalness: 0.03 });
+      const material = new THREE.MeshStandardMaterial({ color: nodeColor, roughness: 0.3, metalness: 0.03 });
       const mesh = new THREE.Mesh(geometry, material);
       mesh.position.copy(point(id, index)); mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh);
       const pathIndex = layer.path.indexOf(id);
@@ -145,32 +146,18 @@ export function mountHnswScene(host: HTMLElement, onLost: () => void, onInteract
   });
 
   const markerGeometry = new THREE.TorusGeometry(0.27, 0.025, 8, 48);
-  const markerMaterial = new THREE.MeshBasicMaterial({ color: maroon });
+  const markerMaterial = new THREE.MeshBasicMaterial({ color: accent });
   const marker = new THREE.Mesh(markerGeometry, markerMaterial);
   marker.rotation.x = Math.PI / 2;
-  geometries.push(markerGeometry); materials.push(markerMaterial); maroonMaterials.push(markerMaterial); scene.add(marker);
+  geometries.push(markerGeometry); materials.push(markerMaterial); accentMaterials.push(markerMaterial); scene.add(marker);
 
-  /**
-   * Re-reads the four palette roles from the host's (live) computed style and
-   * pushes them into every material and light built from them, then asks
-   * `setProgress` to recolour the nodes it manages by `reached` state.
-   *
-   * A toggled `data-theme` flips these custom properties instantly, but nothing
-   * here otherwise revisits a material once built, so without this the sculpture
-   * kept rendering the theme it was mounted under after the rest of the page
-   * had switched.
-   */
   function applyPalette() {
-    maroon.copy(color("--maroon-800"));
-    cream.copy(color("--paper"));
-    warm.copy(color("--paper-warm"));
-    line.copy(color("--line-strong"));
-    hemisphere.color.copy(cream);
-    hemisphere.groundColor.copy(line);
-    light.color.copy(cream);
-    fill.color.copy(cream);
-    for (const material of maroonMaterials) material.color.copy(maroon);
-    for (const material of warmMaterials) material.color.copy(warm);
+    accent.copy(color("--link"));
+    nodeColor.copy(color("--ink-soft"));
+    surfaceColor.copy(color("--paper-strong"));
+    line.copy(color("--ink-soft"));
+    for (const material of accentMaterials) material.color.copy(accent);
+    for (const material of surfaceMaterials) material.color.copy(surfaceColor);
     for (const material of lineMaterials) material.color.copy(line);
     for (const edge of baseEdges) edge.material.color.copy(line);
     setProgress(progress);
@@ -249,12 +236,12 @@ export function mountHnswScene(host: HTMLElement, onLost: () => void, onInteract
     for (const node of nodes) {
       const reached = progress >= node.reached;
       const highlighted = node.layer === 2 && node.id === selected;
-      node.mesh.material.color.copy(reached ? maroon : cream);
+      node.mesh.material.color.copy(reached ? accent : nodeColor);
       node.mesh.scale.setScalar(highlighted ? 1.9 : reached ? 1.3 : 1);
       if (highlighted) marker.position.copy(node.mesh.position);
     }
     marker.position.y += 0.02;
-    for (const edge of baseEdges) edge.material.opacity = edge.layer === activeStep ? 0.8 : 0.45;
+    for (const edge of baseEdges) edge.material.opacity = edge.layer === activeStep ? 1 : 0.8;
     if (followCamera) {
       const amount = (1 - Math.cos(progress / 3 * Math.PI)) / 2;
       camera.position.lerpVectors(defaultCamera, closeCamera, amount);

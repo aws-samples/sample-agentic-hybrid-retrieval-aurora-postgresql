@@ -578,6 +578,35 @@ def prepare_request(
     return prepared
 
 
+def prompt_context(snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Share bounded memory context across orchestration and answer review.
+
+    Args:
+        snapshot: The server-prepared, actor-scoped memory snapshot.
+
+    Returns:
+        Relevant memories and messages, without actor or session capabilities.
+        These remain untrusted preference context, never product evidence.
+    """
+    if not snapshot.get("records") and not snapshot.get("events"):
+        return {}
+    return {
+        "memories": [
+            {
+                "id": item["id"],
+                "strategy_type": item.get("strategy_type"),
+                "text": item["text"][:2000],
+            }
+            for item in snapshot.get("records", [])
+        ],
+        "recent_messages": [
+            {"role": message["role"], "text": message["text"][:1500]}
+            for event in snapshot.get("events", [])
+            for message in event["messages"]
+        ],
+    }
+
+
 def attach_run(request: AgentRequest, state: dict[str, Any]) -> None:
     """Attach history without adding a product or citation to the allowed scope."""
     if not request._memory_context:
@@ -592,6 +621,7 @@ def attach_run(request: AgentRequest, state: dict[str, Any]) -> None:
         e["id"] for e in request._memory_context["events"]
     ]
     state["_memory_actor"] = actor
+    state["_memory_prompt_context"] = prompt_context(request._memory_context)
     with connect() as connection:
         row = connection.execute(
             "SELECT user_context FROM mosaic.agent_session WHERE agent_session_id = %s FOR UPDATE",

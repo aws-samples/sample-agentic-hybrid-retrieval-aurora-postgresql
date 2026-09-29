@@ -14,6 +14,7 @@ import type { HnswMeasured, HnswSubstrate } from "../types";
 import { PerformancePage } from "./PerformancePage";
 import "../inspector.css";
 import "../scale-essentials.css";
+import "../inspection-editorial.css";
 
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
 const amount = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 2 });
@@ -84,7 +85,7 @@ function AdvancedBenchmarks({ measured }: { measured: HnswMeasured }) {
     <h3>Strict and relaxed ordering</h3>
     <CodeBlock label="Iterative scan examples" code={`BEGIN;\nSET LOCAL hnsw.iterative_scan = 'strict_order';\n-- Run the filtered nearest-neighbor query.\nCOMMIT;\n\nBEGIN;\nSET LOCAL hnsw.iterative_scan = 'relaxed_order';\nWITH matches AS MATERIALIZED (\n  SELECT product_id, embedding <=> $1 AS distance\n  FROM mosaic_search.product_document\n  WHERE embedding IS NOT NULL AND category_key = $2\n  ORDER BY distance\n  LIMIT $3\n)\nSELECT * FROM matches ORDER BY distance + 0;\nCOMMIT;`} />
     <p>Strict keeps the returned rows in distance order; it is still approximate search. Relaxed can improve recall, then the outer sort restores order. The <code>+ 0</code> is needed on PostgreSQL 17+.</p>
-    <div className="scale-reference-links"><a href="https://github.com/pgvector/pgvector#iterative-index-scans" target="_blank" rel="noreferrer">pgvector scan modes <ArrowRight size={14} /></a><a href="https://aws.amazon.com/blogs/database/scale-pgvector-with-binary-quantization-on-amazon-aurora-postgresql/" target="_blank" rel="noreferrer">AWS guide to smaller vector indexes <ArrowRight size={14} /></a><button type="button" onClick={() => downloadMeasurements(measured)}><Download size={14} />Download measurements</button><Link href="/mosaic-labs/hnsw?view=bench">Full benchmark workbench <ArrowRight size={14} /></Link></div>
+    <div className="scale-reference-links"><a href="https://github.com/pgvector/pgvector#iterative-index-scans" target="_blank" rel="noreferrer">pgvector scan modes <ArrowRight size={14} /></a><a href="https://aws.amazon.com/blogs/database/scale-pgvector-with-binary-quantization-on-amazon-aurora-postgresql/" target="_blank" rel="noreferrer">AWS guide to smaller vector indexes <ArrowRight size={14} /></a><button type="button" onClick={() => downloadMeasurements(measured)}><Download size={14} />Download measurements</button><Link href="/mosaic-labs/hnsw?view=bench">Full benchmark workbench</Link></div>
   </div></details>;
 }
 function ScaleInspector() {
@@ -131,7 +132,7 @@ function ScaleInspector() {
       <summary>How HNSW finds neighbors <span>Illustration, not a measured search</span><ChevronDown size={20} aria-hidden="true" /></summary>
       <div>{illustrationOpen ? <HnswSearchGraph /> : null}</div>
     </details>
-    <aside className="inspector-scale-link"><div><h2>And when Alex comes back?</h2><p>See how AgentCore keeps conversation details and recalls what matters for the next request.</p></div><Link href="/mosaic-labs/memory">Explore session & memory <ArrowRight size={18} aria-hidden="true" /></Link></aside>
+    <aside className="inspector-scale-link"><div><h2>And when Alex comes back?</h2><p>See how AgentCore keeps conversation details and recalls what matters for the next request.</p></div><Link href="/mosaic-labs/memory">Explore session & memory</Link></aside>
   </div>;
 }
 export function ScaleInspectorPage() {

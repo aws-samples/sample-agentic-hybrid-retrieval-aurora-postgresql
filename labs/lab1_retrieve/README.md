@@ -1,38 +1,56 @@
 # Lab 1: Retrieve
 
-Alex types listing ID `B07G95T3JP`, with two characters swapped, and the
-intended Bose headphones are missing from the results. Full-text search and
-meaning search cannot match a mistyped ID. Close spelling (`pg_trgm`) can, but
-its candidates never reach fusion, and reranking can only reorder products that
-retrieval returned.
+Follow **Workshop Studio → Lab 1** beside this folder. In the participant
+workspace, this is **01 — Retrieve**. The file you edit is
+[hybrid_search.sql](hybrid_search.sql).
 
-## What you edit
+## Broken
 
-`hybrid_search.sql`, function `mosaic_search.search_hybrid_rrf`, in two marked
-blocks:
+Run the guide's start command and repeat its exact request and filters. Keep the
+saved result: a plausible headphone can appear while Alex's intended listing
+is missing. Record your prediction in `learning-notes.md` at the repository root.
 
-- between `LAB1_TRIGRAM_CTE_START` and `LAB1_TRIGRAM_CTE_END`: add a CTE that
-  calls `mosaic_search.search_trigram` with the function's own `q`, `f`,
-  `trigram_limit` and `trigram_threshold`;
-- between `LAB1_TRIGRAM_CHANNEL_START` and `LAB1_TRIGRAM_CHANNEL_END`: add a
-  `channels` branch with the five columns every other branch supplies: product
-  ID, the channel name `'trigram'`, its rank, its raw score, and a contribution
-  from `mosaic_search.reciprocal_rank_contribution`.
+## Diagnose
 
-Change nothing else. The `fts` CTE and the `vector` branch of `channels` show
-the shape to copy.
+Follow the candidate path in the saved search. Did close spelling find the
+intended listing, and did that candidate reach fusion? Reranking can only reorder
+products retrieval returned. The guide supplies the request, checkpoints and
+hints; keep those beside the code.
 
-## Apply and prove
+## Fix
+
+Edit only `mosaic_search.search_hybrid_rrf` in the two marked blocks:
+
+- `LAB1_TRIGRAM_CTE_START` to `LAB1_TRIGRAM_CTE_END`: connect the close-spelling
+  candidates using the function's query, filters and retrieval settings.
+- `LAB1_TRIGRAM_CHANNEL_START` to `LAB1_TRIGRAM_CHANNEL_END`: carry their product
+  IDs, channel name, positions, scores and contributions into fusion.
+
+The existing full-text and vector branches show the surrounding contract.
+
+## Prove
+
+Apply the SQL, repeat the identical request, then validate:
 
 ```bash
 uv run python scripts/apply_search_functions.py
+```
+
+After repeating the request with the same filters:
+
+```bash
 uv run python scripts/validate_lab.py --lab 1
 ```
 
-Repeat the same request with the same filters before you validate, so the proof
-reads a search that ran on your repaired SQL.
+Finish the guide's checks and write your own explanation in `learning-notes.md`.
+Editing the file alone does not change Aurora.
 
-## Reference answer
+<details>
+<summary>Recovery and reference answer</summary>
 
-[`solution/hybrid_search.sql`](solution/hybrid_search.sql). To install it,
-`uv run python scripts/lab_state.py solution --lab 1` overwrites your edit.
+The [reference answer](solution/hybrid_search.sql) is available when you want
+full recovery. `uv run python scripts/lab_state.py solution --lab 1`
+overwrites the exercise with that answer. Follow the guide to apply and prove it;
+recovery alone is not completion.
+
+</details>

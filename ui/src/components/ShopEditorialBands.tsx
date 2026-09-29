@@ -1,4 +1,3 @@
-import { ChevronRight } from "lucide-react";
 import { Link } from "wouter";
 import { categoryHref, editorialStories, storyHref } from "../shopStories";
 
@@ -66,11 +65,9 @@ export function ShopEditorialBands({ real }: { real: boolean }) {
                   <p className="shop-band-links">
                     <Link href={categoryHref(story, real)}>
                       Shop {band.topic.toLowerCase()}
-                      <ChevronRight size={16} aria-hidden="true" />
                     </Link>
                     <Link href={storyHref(story, real)}>
                       Find {band.topic.toLowerCase()} for Alex
-                      <ChevronRight size={16} aria-hidden="true" />
                     </Link>
                   </p>
                 ) : null}

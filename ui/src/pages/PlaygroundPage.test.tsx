@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { coreMosaicLabs, mosaicLabManifest } from "../labMissions";
 import { showcaseCatalogPage } from "../showcase";
-import type { AgentResponse, LabStateRecord, ProductSummary, RetrievalScorecardResponse, ScorecardStageArm, SearchResponse, ToolTraceStep } from "../types";
+import type { AgentResponse, EvidenceRecord, LabStateRecord, ProductSummary, RetrievalScorecardResponse, ScorecardStageArm, SearchResponse, ToolTraceStep } from "../types";
 import { PlaygroundPage } from "./PlaygroundPage";
 
 vi.mock("./RetrievalLabPage", () => ({ RetrievalLabPage: () => <p>Guide workbench</p> }));
@@ -450,8 +450,9 @@ it("says when the agent declined the search's first result, and reads the search
   fireEvent.click(screen.getByRole("button", { name: "Run Mosaic" }));
   const lead = await screen.findByRole("region", { name: "First search result" });
   expect(within(lead).getByText("Not recommended: the agent’s sources did not support a choice.")).toBeTruthy();
-  expect(within(lead).getByText("Search result")).toBeTruthy();
+  expect(within(lead).getByText("Search 1 · First returned result")).toBeTruthy();
   expect(lead.textContent).not.toMatch(/#1|#null/);
+  fireEvent.click(screen.getByText("Search record and interpretation"));
   const reads = screen.getByRole("list", { name: "Search 1 reads it as" });
   expect(within(reads).getByText("words not in the saved record")).toBeTruthy();
   expect(within(screen.getByRole("region", { name: "Alex’s request" })).queryByRole("list", { name: /reads it as/ })).toBeNull();
@@ -482,4 +483,34 @@ it("names Lab 1's missing target, its cause and the next step on a saved broken 
   expect(verdict.textContent).toContain("Next: in Code Editor, repair the LAB1 block");
   const lead = screen.getByRole("region", { name: "First search result" });
   expect(within(lead).getByText(`Not the listing Alex meant. Lab 1 is looking for the ${mission.target_display_name}.`)).toBeTruthy();
+});
+
+
+it("traces an omitted first result separately from a final choice in another search", async () => {
+  const base = showcaseCatalogPage({}, 0, 2).products;
+  const omitted = ranked({ ...base[0], title: "BURENMTO Office Chair" }, 46, 1);
+  const chosen = ranked({ ...base[1], title: "Novelland Ergonomic Office Chair" }, 10, 1);
+  const record: EvidenceRecord = { evidence_id: 7, product_id: chosen.product_id, evidence_type: "product_spec", source_name: "Fixture", source_uri: "https://example.com/spec", revision: "fixture", title: "Adjustments", text: "Adjustable lumbar support", rating: null, is_verified: false, metadata: {} };
+  const answer: AgentResponse = {
+    agent_run_id: agentId, question: defaultRequest.query, answer: "Novelland is supported by the sources [1].", outcome: "grounded", plan: [], recommendations: [chosen],
+    citations: [{ number: 1, evidence_id: record.evidence_id, evidence_type: record.evidence_type, product_id: chosen.product_id, source_uri: record.source_uri, revision: record.revision, title: record.title, quote: record.text }],
+    retrieved_evidence: [record, record],
+    trace: [searchStep(firstSearchId, 1), searchStep(secondSearchId, 2), { sequence: 3, tool: "compare_products", arguments: { product_ids: [chosen.product_id] }, outcome: "success", detail: "Compared", retrieval_run_id: null, result_count: 1, latency_ms: 10 }],
+  };
+  vi.spyOn(api, "retrievalEventResponse").mockImplementation(async (id) => savedSearch(id, [id === firstSearchId ? omitted : chosen]));
+  vi.spyOn(api, "agentStream").mockImplementation(async (_question, _filters, emit) => emit({ type: "complete", response: answer }));
+  render(<PlaygroundPage />);
+  fireEvent.click(screen.getByRole("button", { name: "Run Mosaic" }));
+  const summary = await screen.findByRole("region", { name: "Mosaic’s final answer" });
+  expect(summary.textContent).toContain("2 searches · 1 product in the answer · 1 cited source");
+  expect(within(screen.getByRole("region", { name: "First search result" })).getByText("Not among the agent’s picks.")).toBeTruthy();
+  fireEvent.click(within(summary).getByText("Trace all returned products"));
+  const rows = within(summary).getAllByRole("row").slice(1);
+  expect(within(rows[0]).getAllByRole("cell").map((cell) => cell.textContent)).toEqual(["Search 1 · #1", "No", "None", "Not included"]);
+  expect(within(rows[1]).getAllByRole("cell").map((cell) => cell.textContent)).toEqual(["Search 2 · #1", "Yes", "1 record", "Pick 1 · 1 source"]);
+  expect(rows[0].textContent).toContain(`Listing ${omitted.sku}`);
+  expect(summary.textContent).toContain("Omission alone does not explain why a product was left out.");
+  fireEvent.click(within(summary).getByRole("button", { name: `Trace ${chosen.title}` }));
+  expect((screen.getByRole("combobox", { name: "Search shown in Retrieve and Rank" }) as HTMLSelectElement).value).toBe(secondSearchId);
+  expect(document.activeElement?.id).toBe(`ranked-product-${chosen.product_id}`);
 });

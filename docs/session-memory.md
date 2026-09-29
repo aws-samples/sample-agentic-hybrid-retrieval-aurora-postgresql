@@ -13,6 +13,22 @@ Preferences selected and the contract's monitor example in **Alex says**.
 The **Original question** and **Change Alex’s request** actions fill the composer;
 neither sends a model request until **Ask Mosaic** is selected.
 
+Follow the three linked steps at the top of the page:
+
+1. **Save a preference.** Read or edit **Alex says**, then choose **Save message**.
+   Inspect the saved conversation event. This action does not generate an answer.
+2. **Check what was remembered.** Select **Preferences** and choose **Refresh
+   memories** until an actual extracted record is visible. There is no promised
+   extraction time, and saving an event alone does not prove this step complete.
+3. **Ask in a new session.** Use **Start a new session for this question** beside
+   the question area. **Find relevant memories** previews records; **Ask Mosaic**
+   runs the agent with the selected memory setting and fresh product retrieval.
+
+A failed request shows its recovery message beside the question, replacing the
+idle prompt. A completed streamed answer stays visible even if loading the saved
+conversation is delayed or fails. The record of the run takes its place when
+available; refreshing history does not send the question again.
+
 Ask Mosaic in Shop uses this same connection through **Use saved memories**,
 which starts off. Each opted-in answer has a **Memories used** section containing
 the records actually read, the number of earlier conversation events read, and
@@ -113,8 +129,11 @@ shortlist; facts, preferences and episodic reflections remain retrievable under 
 Session summaries and episode records are retrieved only for an owned current session.
 All four strategies feed the agent prompt with their strategy type and record ID;
 the UI and Aurora receipt expose the records actually used.
-The prompt receives bounded memory text as untrusted context, with the current
-message taking priority. Application code does not turn memory into price or
+The agent, answerability review and cited-answer synthesis receive the same
+bounded memory context, with the current message taking priority. Remembered
+preferences explain the shopper's needs; retrieved sources must establish a
+product's ability to meet them. Memory stays untrusted and cannot authorize a
+product or citation. Application code does not turn memory into price or
 stock filters. Product eligibility, retrieval and citation validation stay on
 their normal production paths.
 

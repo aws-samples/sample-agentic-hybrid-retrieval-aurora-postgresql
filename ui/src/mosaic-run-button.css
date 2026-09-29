@@ -1,6 +1,4 @@
-/* The same disc Shop's search field submits with: 44px, maroon-900, a soft
-   shadow, maroon-800 under the pointer. Kept identical on purpose, so a
-   participant who has sent one request recognises every other send. */
+/* Match Shop’s submit control so running a request is recognizable across surfaces. */
 .mosaic-run-button {
   display: inline-flex;
   align-items: center;
@@ -20,12 +18,12 @@
   height: 44px;
   place-items: center;
   border-radius: 50%;
-  background: var(--maroon-900);
+  background: var(--action);
   box-shadow: 0 7px 18px rgb(0 0 0 / 18%);
-  color: var(--paper);
+  color: var(--action-ink);
   transition: background-color 180ms ease;
 }
-.mosaic-run-button:hover:not(:disabled) .mosaic-run-disc { background: var(--maroon-800); }
+.mosaic-run-button:hover:not(:disabled) .mosaic-run-disc { background: var(--action-hover); }
 .mosaic-run-button:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
 .mosaic-run-button:disabled { opacity: .55; cursor: default; }
 .mosaic-run-button[aria-busy="true"]:disabled { opacity: 1; cursor: progress; }

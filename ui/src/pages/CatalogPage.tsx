@@ -32,6 +32,7 @@ import { AskMosaic } from "../components/AskMosaic";
 import { useAskMosaicMemory } from "../components/AskMosaicMemory";
 import { ShopSearchDetails } from "../components/ShopSearchDetails";
 import { AskMosaicInvite, ShopLanding } from "../components/ShopLanding";
+import { ShopProductShelf } from "../components/ShopProductShelf";
 import { ContinueWorkspace } from "../components/ContinueWorkspace";
 import { ScopedComparison } from "../components/ScopedComparison";
 import { ShopFilterSheet, type FilterSection } from "../components/ShopFilterSheet";
@@ -921,6 +922,8 @@ export function CatalogPage() {
    */
   function openAgent() {
     restoreAgentFocusOnClose.current = true;
+    // The editorial invitation can be several screens below the sidecar.
+    if (landing) window.scrollTo({ top: 0, behavior: "instant" });
     setAssistOpen(true);
   }
 
@@ -990,7 +993,8 @@ export function CatalogPage() {
   const agentProducts = agent?.recommendations.length
     ? agent.recommendations
     : null;
-  const landing = !activeQuery && !agentOpen && !agentProducts;
+  const landing = !activeQuery && !agentOpen && !agentProducts
+    && browseCollection === "workspace" && !activeFilterCount && offset === 0 && sort === "featured";
   // The open assistant already carries this action's context.
   const askInvite = !agentOpen && !landing;
   const ranked = Boolean(retrieval || agentProducts);
@@ -1148,7 +1152,7 @@ export function CatalogPage() {
   return (
     <div className={agentOpen ? "page mosaic-catalog-page assist-open" : "page mosaic-catalog-page"}>
       <div className={agentOpen ? "shop-canvas assist-open" : "shop-canvas"}>
-        <section className="shop-main">
+        <section className={landing ? "shop-main is-editorial" : "shop-main"}>
           <div className={activeQuery ? "shop-hero is-searching" : "shop-hero"}>
             {/* No "SHOP" label above the headline: the header's active nav entry
                 already says where the participant is. With a query, "Results
@@ -1204,11 +1208,23 @@ export function CatalogPage() {
               {askInvite ? <AskMosaicInvite compact returning={Boolean(agent)} onOpen={openAgent} /> : null}
             </div>
 
-            {/* The search is the primary action, so it comes before the story. A
-                query or a shortlist replaces the story with results. */}
-            {landing ? <ShopLanding real={real} returning={Boolean(agent)} onAsk={openAgent} /> : null}
           </div>
 
+          {landing ? (
+            <>
+              <ShopProductShelf
+                products={visibleProducts}
+                images={gridImages}
+                real={real}
+                pending={loading}
+                error={error}
+                onRetry={load}
+              />
+              <ShopLanding real={real} returning={Boolean(agent)} onAsk={openAgent} />
+              {!real && page && !error ? <ContinueWorkspace /> : null}
+            </>
+          ) : (
+            <>
           <div className="shop-controls">
             <div className="shop-domain-scroller">
               <nav
@@ -1650,7 +1666,8 @@ export function CatalogPage() {
             </div>
           ) : null}
           </div>
-          {!real && !activeQuery && !agentOpen && !agentProducts && !filterChips.length && browseCollection === "workspace" && offset === 0 && page && !error ? <ContinueWorkspace /> : null}
+            </>
+          )}
         </section>
 
         <AskMosaic

@@ -244,6 +244,7 @@ def test_packaged_response_fields_track_the_application_contract() -> None:
         "RankSignal",
         "ResultSignals",
         "SourceAttribution",
+        "ProductSpec",
         "ProductSummary",
         "RetrievalProfile",
         "RetrievalDiagnostics",

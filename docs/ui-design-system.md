@@ -38,12 +38,12 @@ photography and open composition carry the shopping context. One native sans
 serif unifies headings, product names and the interface; monospaced type
 carries SQL, identifiers, run ids, and measurements, and nothing else.
 
-Colour means retrieval. Retrieve is violet, Rank is orange, Reason is green,
-and those three roles are the only chromatic colours in the interface. Every
-other surface, line and action is neutral: near-white canvas and grey tiles in
-light mode, black canvas and charcoal tiles in dark mode. There is one action
-colour, `--action`, a near-black pill in light mode and a white pill in dark
-mode. Violet also marks links and the keyboard focus ring.
+Retrieval stages retain their semantic colors: Retrieve is violet, Rank is
+orange, and Reason is green. Cobalt marks primary actions, with white labels
+in both themes and a darker blue hover state. Links use a separate blue that
+stays readable on their surface. Porcelain and cool grey define light mode;
+black, graphite, and pale silver define dark mode. Surface contrast, spacing,
+and typography separate sections without adding nested card frames.
 
 Alex, a software engineer building a home office for coding, calls and focused
 work, connects the shopping and inspection surfaces. Monitor, chair and
@@ -82,32 +82,34 @@ Surfaces and ink:
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
-| `--canvas` | `#fbfbfd` | `#000000` | page canvas, `html` and `body` |
-| `--paper-strong` | `#ffffff` | `#1c1c1e` | the raised surface: cards, receipts, popovers; the ink on the action pill |
+| `--canvas` | `#fafbfd` | `#000000` | page canvas, `html` and `body` |
+| `--white` | `#ffffff` | | invariant white for action labels |
+| `--paper-strong` | `var(--white)` | `#2b2b30` | raised cards, receipts, popovers |
 | `--paper` | `var(--paper-strong)` | | cards, panels, fields |
-| `--paper-warm` | `#f5f5f7` | `#161617` | Shop's grey bands, spec highlights, the Ask invitation, the footer |
+| `--paper-warm` | `#eef0f4` | `#1c1c1e` | Shop's grey bands, spec highlights, the Ask invitation, the footer |
 | `--surface-muted` | `var(--paper-warm)` | | subtle interface panels |
 | `--ivory` | `var(--canvas)` | | retained name; now the canvas |
-| `--ink` | `#1d1d1f` | `#f5f5f7` | primary text |
-| `--ink-soft` | `#6e6e73` | `#a1a1a6` | supporting text, labels, captions |
-| `--line` | `#d2d2d7` | `#38383a` | internal dividers and hairlines |
-| `--line-strong` | `#aeaeb2` | `#636366` | the boundary of a card or field; dotted receipt leaders |
-| `--stage` | `var(--maroon-950)`: `#000000` | `var(--paper-warm)`: `#161617` | Shop's dark band |
-| `--stage-ink` | `var(--paper-warm)`: `#f5f5f7` | `var(--ink)`: `#f5f5f7` | headlines and emphasis on the dark band |
-| `--stage-soft` | `#a1a1a6` | `var(--ink-soft)`: `#a1a1a6` | supporting text on the dark band |
-| `--stage-link` | `#a78bfa` | `var(--retrieve)`: `#a78bfa` | links and focus on the dark band |
+| `--ink` | `#20242b` | `#f5f5f7` | primary text |
+| `--ink-soft` | `#58616e` | `#b9bdc6` | supporting text, labels, captions |
+| `--line` | `#d9dde3` | `#414148` | internal dividers and hairlines |
+| `--line-strong` | `#9ba2ad` | `#8d939f` | the boundary of a card or field; dotted receipt leaders |
+| `--stage` | `#141820` | `#1c1c1e` | Shop's dark band |
+| `--stage-ink` | `var(--paper-warm)`: `#eef0f4` | `var(--ink)`: `#f5f5f7` | headlines and emphasis on the dark band |
+| `--stage-soft` | `#a1a1a6` | `var(--ink-soft)`: `#b9bdc6` | supporting text on the dark band |
+| `--stage-link` | `#8fc5ff` | `var(--link)`: `#80bdff` | links and focus on the dark band |
 
 Retrieval roles and action:
 
 | Token | Light | Dark | Role |
 |---|---|---|---|
 | `--retrieve` | `#6b3fd4` | `#a78bfa` | the Retrieve stage (violet) |
-| `--link` | `var(--retrieve)` | | text links |
+| `--link` | `#005eb8` | `#80bdff` | text links |
 | `--focus` | `var(--link)` | | every focus ring, unless a dark panel re-points it locally |
 | `--rank` | `var(--gold-bright)` | | the Rank stage as a fill: dots, bars |
 | `--reason` | `var(--green)` | | the Reason stage |
-| `--action` | `var(--ink)` | | the one action colour: primary buttons, the search submit disc, selected pills |
-| `--action-ink` | `var(--paper-strong)` | | text and icons on `--action` |
+| `--action` | `#0668d7` | | the one action colour: primary buttons, the search submit disc, selected pills |
+| `--action-hover` | `#005bbd` | | primary action hover |
+| `--action-ink` | `var(--white)` | | text and icons on `--action` |
 
 Status and legacy names:
 
@@ -119,9 +121,9 @@ Status and legacy names:
 | `--gold-bright` | `#ff7a28` | `#ff8a3d` | the Rank fill; never text on the light canvas |
 | `--gold-soft`, `--gold-line` | `#fff3e8` `#f6d2b0` | `#2b1a0c` `#5c3514` | caution chip fill and border |
 | `--danger`, `--danger-soft`, `--danger-line` | `#c62828` `#fff4f4` `#f2c4c4` | `#ff6b6b` `#2b1111` `#5c1f1f` | failed requests and failed checks |
-| `--maroon-950` | `#000000` | `#ffffff` | legacy name; the extreme ink, end of the Ask button gradient |
-| `--maroon-900` | `#0f0f10` | `#f0f0f2` | legacy name; the Playground run disc |
-| `--maroon-800` | `var(--ink)` | | legacy name; emphasis and active text, hover of action controls |
+| `--maroon-950` | `#000000` | `#ffffff` | legacy name; the extreme ink |
+| `--maroon-900` | `#0f0f10` | `#f0f0f2` | legacy name; high-contrast neutral ink |
+| `--maroon-800` | `var(--ink)` | | legacy name; emphasis and active text |
 | `--maroon-700` | `#3a3a3c` | `#d1d1d6` | legacy name; secondary dark ink |
 | `--maroon-100`, `--maroon-50` | `#e8e8ed` `#f0f0f3` | `#2c2c2e` `#1f1f21` | legacy names; neutral hover and tint fills |
 | `--maroon-line` | `#c7c7cc` | `#48484a` | legacy name; neutral chip border |
@@ -135,12 +137,12 @@ World tokens:
 | Token | Light | Dark | Role |
 |---|---|---|---|
 | `--plate` | `var(--paper-warm)` | `#e8e8ed` | the ground under every listing photo |
-| `--nav-glass` | `rgb(251 251 253 / 80%)` | `rgb(22 22 23 / 72%)` | the translucent sticky header, with `saturate(180%) blur(20px)` |
+| `--nav-glass` | `rgb(250 251 253 / 88%)` | `rgb(28 28 30 / 92%)` | the translucent sticky header, with `saturate(180%) blur(20px)` |
 | `--tile-radius` | `18px` | | panel and tile corners |
 | `--shadow` | `0 18px 40px rgb(0 0 0 / 10%), 0 2px 6px rgb(0 0 0 / 5%)` | `0 18px 44px rgb(0 0 0 / 60%), 0 2px 6px rgb(0 0 0 / 40%)` | shared elevation |
 | `--footer-surface` | `var(--paper-warm)` | | footer background |
 | `--footer-ink` | `#424245` | `#d1d1d6` | footer brand, headings, emphasized links, and the footer's focus ring |
-| `--footer-muted` | `var(--ink-soft)` | `#86868b` | footer supporting text and navigation |
+| `--footer-muted` | `var(--ink-soft)` | | footer supporting text and navigation |
 | `--footer-line` | `var(--line)` | | footer dividers |
 | `--ease-out`, `--motion-fast`, `--motion-settle` | `cubic-bezier(0.16, 1, 0.3, 1)`, `160ms`, `320ms` | | shared easing and durations |
 
@@ -150,38 +152,39 @@ value must be a palette token.
 
 ### Contrast
 
-Text tokens against the surfaces they are used on, computed on 2026-09-28 from
+Text tokens against the surfaces they are used on, computed on 2026-09-29 from
 the token values above with the WCAG 2 relative-luminance formula. Canvas is
 `--canvas`, card is `--paper-strong`, tile is `--paper-warm`.
 
 | Token | Light canvas | Light card | Light tile | Dark canvas | Dark card | Dark tile |
 |---|---:|---:|---:|---:|---:|---:|
-| `--ink` | 16.28:1 | 16.83:1 | 15.46:1 | 19.29:1 | 15.63:1 | 16.61:1 |
-| `--ink-soft` | 4.91:1 | 5.07:1 | 4.66:1 | 8.16:1 | 6.61:1 | 7.03:1 |
-| `--retrieve` / `--link` | 6.18:1 | 6.39:1 | 5.87:1 | 7.72:1 | 6.25:1 | 6.65:1 |
-| `--gold` | 4.86:1 | 5.02:1 | 4.61:1 | 10.53:1 | 8.53:1 | 9.07:1 |
-| `--gold-deep` | 7.44:1 | 7.69:1 | 7.07:1 | 13.34:1 | 10.80:1 | 11.48:1 |
-| `--green` / `--reason` | 4.88:1 | 5.04:1 | 4.63:1 | 10.63:1 | 8.61:1 | 9.15:1 |
-| `--danger` | 5.44:1 | 5.62:1 | 5.16:1 | 7.57:1 | 6.13:1 | 6.52:1 |
-| `--gold-bright` / `--rank` | 2.52:1 | 2.60:1 | 2.39:1 | 8.95:1 | 7.26:1 | 7.71:1 |
-| `--line-strong` | 2.14:1 | 2.21:1 | 2.03:1 | 3.51:1 | 2.84:1 | 3.02:1 |
+| `--ink` | 15.04:1 | 15.57:1 | 13.65:1 | 19.29:1 | 12.94:1 | 15.63:1 |
+| `--ink-soft` | 6.05:1 | 6.27:1 | 5.49:1 | 11.16:1 | 7.48:1 | 9.04:1 |
+| `--retrieve` | 6.17:1 | 6.39:1 | 5.60:1 | 7.72:1 | 5.18:1 | 6.25:1 |
+| `--link` | 6.16:1 | 6.38:1 | 5.59:1 | 10.64:1 | 7.14:1 | 8.62:1 |
+| `--gold` | 4.85:1 | 5.02:1 | 4.40:1 | 10.53:1 | 7.06:1 | 8.53:1 |
+| `--gold-deep` | 7.43:1 | 7.69:1 | 6.74:1 | 13.34:1 | 8.94:1 | 10.80:1 |
+| `--green` / `--reason` | 4.87:1 | 5.04:1 | 4.42:1 | 10.63:1 | 7.13:1 | 8.61:1 |
+| `--danger` | 5.43:1 | 5.62:1 | 4.93:1 | 7.57:1 | 5.08:1 | 6.13:1 |
+| `--gold-bright` / `--rank` | 2.51:1 | 2.60:1 | 2.28:1 | 8.95:1 | 6.01:1 | 7.26:1 |
+| `--line-strong` | 2.48:1 | 2.57:1 | 2.25:1 | 6.81:1 | 4.57:1 | 5.51:1 |
 
 Paired roles, same method:
 
 | Pair | Light | Dark |
 |---|---:|---:|
-| `--action-ink` on `--action` | 16.83:1 | 15.63:1 |
-| `--footer-ink` on `--footer-surface` | 9.20:1 | 11.89:1 |
-| `--footer-muted` on `--footer-surface` | 4.66:1 | 4.99:1 |
-| `--paper` on `--maroon-900` (run disc) | 19.16:1 | 14.95:1 |
-| `--ink` on `--maroon-100` (hover fill) | 13.78:1 | 12.80:1 |
-| `--paper-warm` on `--ink` (code block) | 15.46:1 | 16.61:1 |
-| `--stage-ink` on `--stage` (dark band) | 19.29:1 | 16.61:1 |
-| `--stage-soft` on `--stage` | 8.16:1 | 7.03:1 |
-| `--stage-link` on `--stage` | 7.72:1 | 6.65:1 |
+| `--action-ink` on `--action` | 5.29:1 | 5.29:1 |
+| `--action-ink` on `--action-hover` (hover) | 6.50:1 | 6.50:1 |
+| `--footer-ink` on `--footer-surface` | 8.78:1 | 11.18:1 |
+| `--footer-muted` on `--footer-surface` | 5.49:1 | 9.04:1 |
+| `--ink` on `--maroon-100` (hover fill) | 12.75:1 | 12.80:1 |
+| `--paper-warm` on `--ink` (code block) | 13.65:1 | 15.63:1 |
+| `--stage-ink` on `--stage` (dark band) | 15.58:1 | 15.63:1 |
+| `--stage-soft` on `--stage` | 6.91:1 | 9.04:1 |
+| `--stage-link` on `--stage` | 9.82:1 | 8.62:1 |
 
 **The Rank text rule.** Rank-coloured text uses `--gold`, never `--rank`.
-`--gold-bright` measures 2.52:1 on the light canvas, below the 3:1 floor even
+`--gold-bright` measures 2.51:1 on the light canvas, below the 3:1 floor even
 for large text, so the Playground stage numbers (`surfaces-playground.css`) and
 the active Rank column heading and top edge (`inspector.css`) use `--gold`.
 `--rank` stays a fill: the receipt's Rank dots.
@@ -220,8 +223,8 @@ Shop and the Playground share `--page-title-size`:
 `world.css` sets its weight to 600, tracking −0.028em and line height 1.07, and
 makes its `em` inherit the headline colour. Headlines carry weight and size,
 not a coloured word. The Shop landing headline, while no query is active, is
-`clamp(44px, 5.4vw, 76px)` at line height 1.04 and −0.04em tracking, at most
-9.5em wide so it balances over two lines. With a query it is visually hidden
+`clamp(36px, 4vw, 56px)` at line height 1.1 and −0.04em tracking, at most
+18em wide, wrapping only when the viewport requires it. With a query it is visually hidden
 but stays the page's h1, and `Results for …` is the display line.
 
 **The quiet label rule.** Labels sit beside or after what they name, never as
@@ -332,10 +335,11 @@ leaders drop, and the total shrinks to 18px. The `.receipt-how` sub-lines and
 the pool-position track always span the row's full width, in both layouts.
 
 **The Shop landing.** With no active query, the Shop heading centres: the
-headline, then a lede at most 40ch wide at `clamp(19px, 2vw, 24px)`, 20px
-below it. The pill search follows as the primary action, at most 680px wide,
-with its scope line and one centred line of example links. Full-width bands
-follow in `shop-editorial.css`, each spanning the window with
+headline at `clamp(36px, 4vw, 56px)`, then a 17px lede at most 64ch wide. The pill search follows as the primary action, at most 680px wide,
+with its scope line and centred example links. The workspace shelf comes next:
+real product cards in a horizontal scroll region, category links and a full
+catalog shortcut. Cards snap into view with touch, keyboard or arrow controls.
+The editorial bands follow in `shop-editorial.css`, each spanning the window with
 `clamp(56px, 7vw, 96px)` of vertical padding:
 
 1. Meet Alex on `--paper-warm`: the walkthrough and brief form one
@@ -432,9 +436,12 @@ it keeps the product grid.
 - The pipeline page (`PlaygroundPage.tsx`, `components/playground/`,
   `playground-page.css` scoped to `.pg-a`) is a product page with receipts: a
   centred stage (request segmented control, the shared Labs masthead centred,
-  Alex's request in a 26px-radius `--paper-strong` card), the selected search's
-  record with its method-read chips, the search's first result on a 460×320
-  `--plate` with whether the agent picked it, then Retrieve, Rank and Reason as
+  Alex's request in a 26px-radius `--paper-strong` card), a compact final-choice
+  summary and an expandable trace of every returned product. The trace names
+  listing IDs, search positions, successful comparisons, registered evidence
+  counts and final inclusion. The selected search's record and method-read chips
+  expand on demand. Its first result uses a 144×152 photo beside its search number,
+  position and agent-selection status, then Retrieve, Rank and Reason follow as
   full-width sections with 34px sentence headings and a stage chip. Retrieve's
   flow is five `--paper-warm` cells joined by 2px gaps; Rank pairs the shipped
   `ProductReceiptBody` with how the order was set, then four-across tiles with a
@@ -448,8 +455,9 @@ it keeps the product grid.
   saved memory turns share this renderer. Ask Mosaic passes
   `placeCards={false}` because its comparison table already shows the picks.
 - Ask Mosaic (`ask-mosaic-answer.css`, `components/ask-mosaic/`) shows the
-  question as a `--paper-warm` bubble and the run as one live line that settles
-  into a summary; the trace opens from that line. The answer is unboxed: the
+  question as a `--paper-warm` bubble and the run as a visible activity trail.
+  The active step expands; completed steps keep concrete summaries and can
+  reopen their evidence. The answer is unboxed: the
   best pick on a 196px `--plate` with its retrieval path (shown again only when
   the pick changes), then a comparison table whose cells carry a source icon
   (`--green` listing, `--ink-soft` title only, `--gold` review, `--danger` short
@@ -591,9 +599,6 @@ family (`.labs-`, `.lab-`, `.hnsw-`, `.mosaic-studio-`, `.mosaic-labs-`,
 
 Known drift, recorded rather than canonized:
 
-- The search submit and run disc hover to `--maroon-800`, which equals the
-  `--action` rest colour of the search submit, so that hover changes nothing.
-  The run disc rests on `--maroon-900`, not `--action`.
 - On the Shop landing, `shop-editorial.css` overrides `world.css` with higher
   specificity for the fallback suggestion buttons (underlined text instead of
   pills), and `shop-search-details.css` for the example buttons (text links
@@ -609,3 +614,33 @@ Earlier ship reviews of the Shop story, the advanced instrument, Session &
 Memory and Discover were given against the maroon, gold and ivory palette.
 They do not cover the light and dark palette, the world layer, the itemized
 receipt or the product page described here.
+
+### Chat activity and optional inspection pages
+
+Ask Mosaic's activity trail is open by default. One active stage unfolds while
+completed stages retain compact, factual summaries from the response. Regular
+15px answer text, 14px medium-weight stage labels and sentence-case statuses
+keep the trail part of the conversation. Only the active or expanded stage gets
+a quiet surface; evidence and raw tool activity remain individually expandable.
+A stopped or failed request preserves its actual progress.
+
+Memory and Scale use the same centered introduction, display scale and rounded
+neutral surfaces as Hybrid retrieval. Tables keep their own horizontal scroll
+regions, and multi-column sections stack on narrow screens. All surfaces use
+shared theme tokens; semantic retrieval and proof colors retain their meaning.
+
+Product tiles separate price and the listing action with space. The historical
+price caption occupies its own line; no divider touches the price row.
+
+Primary actions use cobalt with white text in both themes; hover uses the darker
+`--action-hover` token. Text actions omit decorative arrows. Native search/send,
+carousel controls, disclosures and external-source indicators keep their functional icons.
+
+The HNSW illustration uses neutral white lighting independent of UI surface
+colors. Unvisited nodes follow the secondary-text role, the active route follows
+the blue link role, and layer outlines remain visible in either theme. Theme
+changes recolor the geometry without dimming its lighting.
+
+Session & Memory starts with three linked action steps. Agent errors sit beside
+the question and replace the idle answer prompt. A completed answer remains
+visible while session history loads, including when that refresh fails.

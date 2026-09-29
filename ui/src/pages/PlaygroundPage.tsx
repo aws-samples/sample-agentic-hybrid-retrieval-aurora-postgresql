@@ -17,6 +17,7 @@ import { pickName } from "../components/ask-mosaic/comparison";
 import { LeadResult, type AgentVerdict } from "../components/playground/LeadResult";
 import { MethodReads } from "../components/playground/MethodReads";
 import { ReturnedProducts } from "../components/playground/ReturnedProducts";
+import { RunSummary } from "../components/playground/RunSummary";
 import { MethodComparison, RetrievalPath, modelName, rerankStep, signedScore } from "../components/playground/RetrievalPath";
 import { formatPriceCompact } from "../format";
 import { coreMosaicLabs, mosaicLabManifest, pipelineRequests, type MosaicLabMission } from "../labMissions";
@@ -198,16 +199,9 @@ function AnswerSources({ citations }: { citations: AgentCitation[] }) {
   </aside>;
 }
 
-function AgentSteps({ trace }: { trace: ToolTraceStep[] }) {
-  if (!trace.length) return null;
-  return <ol className="pg-steps" aria-label="Tool calls">{trace.map((step) => <li key={step.sequence} data-outcome={step.outcome}>
-    <code>{step.tool}</code>{step.latency_ms == null ? null : <span>{step.latency_ms >= 1000 ? `${(step.latency_ms / 1000).toFixed(1)} s` : `${Math.round(step.latency_ms)} ms`}</span>}
-  </li>)}</ol>;
-}
-
-function ReasonBody({ answer, partial, streamed, completed, running, active, hasSearch, failed, trace, renderSearchLink, multipleSearches }: {
+function ReasonBody({ answer, partial, streamed, completed, running, active, hasSearch, failed, renderSearchLink, multipleSearches }: {
   answer: AgentResponse | null; partial: AgentPartial | null; streamed: string; completed: boolean;
-  running: boolean; active: boolean; hasSearch: boolean; failed: boolean; trace: ToolTraceStep[];
+  running: boolean; active: boolean; hasSearch: boolean; failed: boolean;
   renderSearchLink: (product: ProductSummary) => ReactNode; multipleSearches: boolean;
 }) {
   const working = running && !completed && !failed;
@@ -220,7 +214,6 @@ function ReasonBody({ answer, partial, streamed, completed, running, active, has
         : "Writing Mosaic’s answer…";
   return <>
     {status ? <p className="pg-reason-summary" role="status">{status}</p> : null}
-    <AgentSteps trace={trace} />
     {answer ? <>
       <div className="pg-answer-grid">
         <div className="inspector-answer pg-answer" aria-busy={!completed}>
@@ -274,7 +267,7 @@ function RequestStage({ selectedId, carried, question, context, notice, runButto
       <div><h2>{question || "No request is available"}</h2><p>{context}</p></div>
       {runButton}
     </div>
-    {notice ? <p className="pg-notice">{notice} Each search passes through Retrieve and Rank; Reason can request more searches before comparing the sources.</p> : null}
+    {notice ? <details className="pg-request-guide"><summary>What to look for</summary><p className="pg-notice">{notice} Each search passes through Retrieve and Rank; Reason can request more searches before comparing the sources.</p></details> : null}
   </section>;
 }
 
@@ -315,8 +308,7 @@ function RunNotes({ carried, started, running, error, receipts, selected, onRest
     </div> : null}
     {error ? <p className="inspector-error" role="alert">{error}</p> : null}
     {receipts.length > 1 ? <div className="inspector-search-selector pg-search-selector"><label htmlFor="inspector-search">Search shown in Retrieve and Rank</label><select id="inspector-search" value={selected?.id} onChange={(event) => onSelectSearch(event.target.value)}>{receipts.map((item, index) => <option key={item.id} value={item.id}>{index + 1}. {item.response?.query ?? "Reading search…"}</option>)}</select><p>Counts and ranks stay on the selected search. Choose another search here or follow a pick in Reason.</p></div> : null}
-    {selected ? <p className="inspector-receipt pg-record">Search {receipts.indexOf(selected) + 1}{selected.response ? ` · ${selected.response.query}` : selected.error ? " · Could not load" : " · Reading…"}<span>Search record <code>{selected.id}</code></span></p> : null}
-    {selected?.response ? <MethodReads response={selected.response} label={`Search ${receipts.indexOf(selected) + 1} reads it as`} /> : null}
+    {selected ? <details className="pg-search-record"><summary>Search record and interpretation</summary><p className="inspector-receipt pg-record">Search {receipts.indexOf(selected) + 1}{selected.response ? ` · ${selected.response.query}` : selected.error ? " · Could not load" : " · Reading…"}<span>Search record <code>{selected.id}</code></span></p>{selected.response ? <MethodReads response={selected.response} label={`Search ${receipts.indexOf(selected) + 1} reads it as`} /> : null}</details> : null}
     {selected?.error ? <p className="inspector-error" role="alert">This record could not be read: {selected.error} {carried && !started ? "Reload this page to retry the saved Shop search." : "Start a new run to try again."}</p> : null}
   </div>;
 }
@@ -372,7 +364,8 @@ function PipelineInspector() {
   const reset = () => { setSelectedId(null); setHighlightedId(null); setReceiptId(null); };
   const inspect = (stage: Inspection) => { setHighlightedId(null); setExpanded((value) => ({ ...value, [stage]: !value[stage] })); };
   const showReceipt = (productId: number) => { setReceiptId(productId); document.getElementById("inspect-rank")?.scrollIntoView({ behavior: "smooth", block: "start" }); };
-  const renderSearchLink = (product: ProductSummary) => <ProductSearchLinks product={product} receipts={pipeline.receipts} running={pipeline.running} onSelect={(id, productId) => { setSelectedId(id); setHighlightedId(productId); setReceiptId(productId); setExpanded((value) => ({ ...value, rank: true })); }} />;
+  const inspectProduct = (id: string, productId: number) => { setSelectedId(id); setHighlightedId(productId); setReceiptId(productId); setExpanded((value) => ({ ...value, rank: true })); };
+  const renderSearchLink = (product: ProductSummary) => <ProductSearchLinks product={product} receipts={pipeline.receipts} running={pipeline.running} onSelect={inspectProduct} />;
   const runLabel = pipeline.running
     ? pipeline.completed ? "Finishing up" : ({ retrieve: "Finding products", rank: "Comparing matches", reason: "Preparing the answer" })[pipeline.phase ?? "retrieve"]
     : pipeline.reading ? "Reading saved search" : pipeline.error ? "Try again" : pipeline.completed ? "Run again" : carriedEvent ? "Start a new run" : "Run Mosaic";
@@ -390,8 +383,9 @@ function PipelineInspector() {
     <MosaicLabsTabs active="retrieval" />
     <RequestStage selectedId={selectedRequest?.id} carried={params.has("q") || Boolean(carriedEvent)} question={question} context={context} notice={!params.has("q") && !carriedEvent ? selectedRequest?.notice : undefined} runButton={runButton} onChoose={(id) => setParams(new URLSearchParams({ scene: id }))} />
     <p className="pg-run-status" role="status">{pipeline.reading ? "Reading the saved Shop search…" : pipeline.status || (carriedEvent ? "Saved Shop search" : "Ready to follow Alex’s request.")}</p>
+    {pipeline.completed && pipeline.answer ? <RunSummary answer={pipeline.answer} receipts={pipeline.receipts} onInspect={inspectProduct} /> : null}
     <RunNotes carried={Boolean(carriedEvent)} started={pipeline.started} running={pipeline.running} error={pipeline.error} receipts={pipeline.receipts} selected={selected} onRestore={() => { reset(); setExpanded({ retrieve: false, rank: false, reason: false }); pipeline.restoreSavedSearch(); }} onSelectSearch={(id) => { setSelectedId(id); setHighlightedId(null); setReceiptId(null); }} labDetailsHref={`/labs/retrieval?${labDetailsParams}`} labOutcome={labOutcome} />
-    {products[0] ? <LeadResult product={products[0]} imageSrc={images.get(products[0].product_id)} verdict={verdict} missionNote={missionNote(mission, products[0])} onWhy={() => showReceipt(products[0].product_id)} /> : null}
+    {products[0] ? <LeadResult product={products[0]} imageSrc={images.get(products[0].product_id)} searchNumber={selected ? pipeline.receipts.indexOf(selected) + 1 : 1} verdict={verdict} missionNote={missionNote(mission, products[0])} onWhy={() => showReceipt(products[0].product_id)} /> : null}
     <StageSection stage="retrieve" state={columnState("retrieve")} title="Retrieve" heading="How it got here." lede="Filters decide what is eligible. Three methods find candidates, and fusion combines their positions." expanded={expanded.retrieve} onInspect={() => inspect("retrieve")} detailsLabel="Search details" details={<RetrieveDetails response={response} receipts={pipeline.receipts} selectedId={selected?.id} onSelect={(id) => { setSelectedId(id); setHighlightedId(null); setReceiptId(null); }} />}>
       <RetrievalPath response={response} catalogCount={catalogCount} eligible={eligible} />
       {!response && pipeline.error ? <p className="inspector-waiting">No search results are available from this run.</p> : null}
@@ -401,7 +395,7 @@ function PipelineInspector() {
       <RankBody response={response} receiptProduct={receiptProduct} ablation={ablation} stopped={Boolean(pipeline.error)} images={images} onSelect={showReceipt} />
     </StageSection>
     <StageSection stage="reason" state={columnState("reason")} title="Reason" heading="Then the agent compares and cites." lede="A Strands agent calls the same search as a tool, reads each pick’s evidence, and answers only from sources the application registered." expanded={expanded.reason} onInspect={() => inspect("reason")} detailsLabel="Steps and sources" details={<ReasonEvidence answer={pipeline.completed ? pipeline.answer : null} trace={pipeline.trace} failed={Boolean(pipeline.error)} />}>
-      <ReasonBody answer={pipeline.answer} partial={pipeline.partial} streamed={pipeline.streamed} completed={pipeline.completed} running={pipeline.running} active={pipeline.phase === "reason"} hasSearch={Boolean(response)} failed={Boolean(pipeline.error)} trace={pipeline.completed ? pipeline.trace : []} renderSearchLink={renderSearchLink} multipleSearches={pipeline.receipts.length > 1} />
+      <ReasonBody answer={pipeline.answer} partial={pipeline.partial} streamed={pipeline.streamed} completed={pipeline.completed} running={pipeline.running} active={pipeline.phase === "reason"} hasSearch={Boolean(response)} failed={Boolean(pipeline.error)} renderSearchLink={renderSearchLink} multipleSearches={pipeline.receipts.length > 1} />
       {pipeline.runId ? <p className="pg-run-id">Agent record <code>{pipeline.runId}</code></p> : null}
     </StageSection>
     <aside className="inspector-scale-link inspector-takeaway pg-takeaway">

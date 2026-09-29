@@ -88,11 +88,50 @@ stage timings for comparison. `diagnostics.rerank_status` must be `applied` for
 the lab proof. If required model access is unavailable, address that failure;
 an unavailable fallback receipt cannot establish that reranking ran.
 
-## Optional comparisons
+## Optional: standard vs weighted RRF
 
-Historical weighted fusion is a separate experiment. Before comparing its
-ordering with unweighted RRF, compare the full candidate unions: truncated
-served windows can contain different IDs solely because their ordering differs.
+The default search uses equal-weight RRF. The optional Rank guide expander calls
+`POST /api/retrieval/fusion-comparison` with the canonical lab request after
+required completion. It does not switch `POST /api/search` to weighted fusion.
+
+```text
+Standard: score(d) = sum(1 / (k + rank_method(d)))
+Weighted: score(d) = sum(weight_method / (k + rank_method(d)))
+```
+
+Only methods that returned the product contribute. Both formulas combine
+positions, not raw lexical, spelling or vector scores. A channel weight changes
+that channel's relative influence; `k` controls how much positions within a
+channel differ. Neither produces a calibrated probability. Equal unit weights
+recover standard RRF; multiplying all weights by the same positive constant
+rescales totals without changing their order.
+
+The comparison reads its `k`, candidate bounds and historical example weights
+from `db/config/retrieval.yaml`. Read the returned `rrf_k` and `weights` to know
+what the comparison actually used. These weights are not a tuned recommendation,
+and the presence of weights in a retrieval profile does not mean ordinary search
+uses them.
+
+The service embeds the query once, uses the same query, filters and candidate
+settings for both SQL calls, and checks the full candidate union and each
+product's source ranks and non-fusion provenance before returning. Comparing
+truncated top lists alone cannot prove identical inputs: different fused orders
+can put different products above a cutoff. An input mismatch stops the comparison.
+
+The response records both orders, source positions, fused scores, `rank_delta`
+(weighted position minus standard position), and a `fusion_comparison_id`.
+Negative deltas move up. `moved_count` and `orders_differ` cover the full pool.
+The two order lists are truncated to the requested limit; detailed candidate
+rows cover the weighted top list, with each product's position in both full orders. This path calls the embedding model and writes an
+Aurora comparison record; it does not call the reranker or modify the catalog,
+functions, configuration or participant repairs.
+
+Read the result in three layers: which channel explains a move, whether that move
+changes admission to the reranker, and whether judged relevance improves across
+multiple queries. The comparison itself proves only the first layer. Its SQL
+timings are sequential observations, not a controlled latency benchmark. Use
+held-out judgments and a rule stated before measuring to justify adopting weights;
+one appealing winner is insufficient.
 
 Search results carry `canonical_group_id`, but the required search path does
 not apply a diversity cap. Do not attribute a displayed order to variant
