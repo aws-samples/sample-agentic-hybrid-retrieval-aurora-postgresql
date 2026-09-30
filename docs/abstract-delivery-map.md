@@ -13,7 +13,7 @@ Behind Alex's shopping goals, participants complete three technical labs. Each
 asks more than the last (explain a mechanism, write an algorithm, specify a
 contract), and each is graded against an answer the grader computes itself.
 
-- **Lab 1 — Build hybrid retrieval · 10 min.** A transposed product ID makes
+- **Lab 1 — Fix broken retrieval · 10 min.** A transposed product ID makes
   Alex's saved headphones vanish. Participants use PostgreSQL's own functions
   (`tsvector` lexemes, `pg_trgm` word similarity, pgvector distance) to show why
   only one search method can recover it, then reconnect that method. An optional
@@ -23,7 +23,7 @@ contract), and each is graded against an answer the grader computes itself.
   faster yet missed half or more of the true nearest neighbours. **Lesson: a full
   result list is not evidence of good recall; only a comparison with exact
   results measures it.**
-- **Lab 2 — Fuse, rerank, and inspect · 10 min.** The monitor that documents
+- **Lab 2 — Fix broken ranking · 10 min.** The monitor that documents
   USB-C charging up to 90W over one cable never reaches the reranker. Participants
   write reciprocal rank fusion in SQL, graded at five values of `k`. Their version
   shows the collapsed contributions tie every single-search candidate, so the
@@ -34,7 +34,7 @@ contract), and each is graded against an answer the grader computes itself.
   pass if the decision follows the rule. **Lesson: fusion only works if positions
   count, and a tuning decision needs a judged set and a rule chosen before seeing
   results.**
-- **Lab 3 — Build and deploy an agent · 20 min.** Participants connect the
+- **Lab 3 — Build and deploy the agent · 20 min.** Participants connect the
   Gateway SQL tools, complete the Strands agent constructor, add an instruction
   and deploy it to AgentCore Runtime. They ask Alex's monitor/chair question,
   open a citation and change a requirement in a follow-up. The actual managed

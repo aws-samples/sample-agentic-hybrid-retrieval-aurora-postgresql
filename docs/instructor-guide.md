@@ -113,7 +113,7 @@ HNSW / Session & Memory tabs beside them, are the session, and move on.
 Show the missed product first and collect a prediction. Leave the disconnected
 path and its repair for Lab 1's diagnosis.
 
-### Lab 1 - Build hybrid retrieval
+### Lab 1 - Fix broken retrieval
 
 FTS is strong when words and identifiers exist. `pg_trgm` recovers nearby
 strings. HNSW expands semantic intent. SQL predicates and JSONB filters decide
@@ -130,7 +130,7 @@ with brand/category filters. Inspect both served rows and the complete saved
 pool. An approximate vector scan can obey every SQL filter and still miss
 qualifying rows; candidate count and eligibility are different checks.
 
-### Lab 2 - Fuse, rerank, and inspect
+### Lab 2 - Fix broken ranking
 
 RRF combines independent rank positions without pretending raw FTS, trigram,
 and vector scores share a scale. Cohere Rerank operates on the bounded fused
@@ -153,7 +153,7 @@ formula. Use those as controls, not as visible repair demonstrations. The
 [example library](real-catalog-exercise-library.md) includes successes,
 unchanged results and an unsuccessful wording variant.
 
-### Lab 3 - Build and deploy an agent
+### Lab 3 - Build and deploy the agent
 
 Participants extend their SQL from Labs 1 and 2. They list the Gateway tools,
 complete `create_agent` in `labs/lab3_reason/agent.py`, add one source-aware instruction,

@@ -37,9 +37,9 @@ for you; the command checks deployed source identity and Gateway connectivity.
 
 | Lab | Question to answer | Where you work |
 |---|---|---|
-| **1. Build hybrid retrieval** | Can search find the intended product, even with a typo? | [`labs/lab1_retrieve/`](labs/lab1_retrieve/) |
-| **2. Fuse, rerank, and inspect** | How did each search method contribute to the final order? | [`labs/lab2_rank/`](labs/lab2_rank/) |
-| **3. Build and deploy an agent** | Can your agent use SQL tools and answer with sources? | [`labs/lab3_reason/`](labs/lab3_reason/) |
+| **1. Fix broken retrieval** | Can search find the intended product, even with a typo? | [`labs/lab1_retrieve/`](labs/lab1_retrieve/) |
+| **2. Fix broken ranking** | How did each search method contribute to the final order? | [`labs/lab2_rank/`](labs/lab2_rank/) |
+| **3. Build and deploy the agent** | Can your agent use SQL tools and answer with sources? | [`labs/lab3_reason/`](labs/lab3_reason/) |
 
 The participant workspace, [Mosaic.code-workspace](Mosaic.code-workspace),
 groups the existing files as **01 — Retrieve**, **02 — Rank**, and **03 — Reason**.
