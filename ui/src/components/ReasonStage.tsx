@@ -28,7 +28,7 @@ import type {
 } from "../types";
 
 /**
- * Stage 03, Reason: what the agent was given, what the application registered,
+ * Phase 04, Reason: what the agent was given, what the application registered,
  * what it authorized, and which citations resolve.
  *
  * Lab 3 builds the Strands agent and deploys it behind Runtime and Gateway.

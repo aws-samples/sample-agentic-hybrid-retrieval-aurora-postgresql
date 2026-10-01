@@ -2,7 +2,7 @@ import { Headphones, Minus, Pause, Play, Plus, RotateCcw, RotateCw } from "lucid
 import { useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { graphCandidates, graphLayers, graphLinks, graphProducts, graphSteps, graphTourDuration } from "../hnswGraph";
-import { mosaicLabManifest } from "../labMissions";
+import { pipelineRequests } from "../labMissions";
 import type { mountHnswScene } from "../hnswScene";
 import "../hnsw-search-graph.css";
 
@@ -101,7 +101,7 @@ export function HnswSearchGraph() {
     action();
   }
   function highlight(id: string) { setSelected(id); scene.current?.highlight(id); }
-  const request = mosaicLabManifest.playground.requests.find((item) => item.id === "clear-calls");
+  const request = pipelineRequests.find((item) => item.id === "focus-at-home");
   const finished = playback === "complete";
   const actionLabel = playback === "playing" ? "Pause search" : finished ? "Watch again" : playback === "paused" ? "Continue search" : "Watch the search";
 

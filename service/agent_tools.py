@@ -46,7 +46,9 @@ from service.synthesis import synthesize_cited_answer as synthesize_answer
 from service.telemetry import search_with_telemetry
 
 logger = logging.getLogger(__name__)
-SEARCH_SLOTS = ("primary", "follow_up")
+SEARCH_SLOTS = ("primary", "second", "third")
+PRODUCTS_PER_SEARCH = 2
+EVIDENCE_RECORDS_PER_PRODUCT = 2
 _SEARCH_SLOT_LOCK = Lock()
 
 
@@ -679,8 +681,7 @@ def search_products(
 ) -> dict[str, Any]:
     """Search products with PostgreSQL hybrid retrieval and managed reranking.
 
-    Use this for one focused part of a shopping question. Run a primary search
-    and, only when needed, one follow-up search. PostgreSQL
+    Use one focused search per product intent, up to three per turn. PostgreSQL
     applies hard filters inside full-text, trigram, and semantic retrieval,
     fuses arm positions with reciprocal rank fusion, and persists candidate
     signals before the reranker orders the bounded candidate pool.
@@ -770,7 +771,7 @@ def search_products(
         arguments["applied_filters"] = filters.as_sql_json()
         requested_limit = max(
             1,
-            min(int(limit), state["result_limit"], len(SEARCH_SLOTS)),
+            min(int(limit), state["result_limit"], PRODUCTS_PER_SEARCH),
         )
         # A new retrieval path starts here, and inherited eligibility ends here
         # with it -- before the call, not after a successful one.
@@ -961,7 +962,7 @@ def get_product_evidence(product_id: int, evidence_query: str) -> dict[str, Any]
                     "request": {
                         "retrieval_scope_id": str(scope),
                         "evidence_query": evidence_query,
-                        "limit": len(SEARCH_SLOTS),
+                        "limit": EVIDENCE_RECORDS_PER_PRODUCT,
                     },
                 },
             )
@@ -972,7 +973,7 @@ def get_product_evidence(product_id: int, evidence_query: str) -> dict[str, Any]
                 product_id,
                 evidence_query,
                 query_embedding,
-                limit=len(SEARCH_SLOTS),
+                limit=EVIDENCE_RECORDS_PER_PRODUCT,
             )
     except Exception as error:
         if isinstance(error, AgentSetupError):

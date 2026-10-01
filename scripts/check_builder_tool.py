@@ -140,7 +140,7 @@ def main() -> None:
         for item in json.loads(
             (ROOT / "data/evals/mosaic_labs_missions.json").read_text()
         )["playground"]["requests"]
-        if item["id"] == "clear-calls"
+        if item["id"] == "focus-at-home"
     )
     try:
         reports = check_tool(load_example(args.module), args.brands, request["query"])

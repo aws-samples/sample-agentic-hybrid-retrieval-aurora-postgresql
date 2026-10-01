@@ -49,7 +49,7 @@ The alternative chair requests let builders distinguish seat-depth adjustment, l
 - **Filtering before ranking:** repeat the monitor request with `brand: "Dell"`; inspect every saved candidate with the production eligibility check. A high model score cannot override a brand or category requirement.
 - **Compare near-matches:** G-007 retrieves Dell U2720Q and SE2717H. Both are 27-inch monitors; their source records distinguish 4K from 1080p. An item’s absence from the request’s first page is different from proof that it lacks a feature.
 - **Separate specification and experience:** G-019 compares Bose listing text with a sampled customer review. A review discussing listening does not establish call-microphone performance.
-- **Scope an answer to its sources:** Lab 3 checks a monitor and a chair using separate searches, a typed comparison, and resolvable citations for each. The deliberate missing evidence registration must fail before repair.
+- **Scope an answer to its sources:** Lab 3 assembles and deploys the Strands agent, then checks headphones, monitor and chair with separate searches, a comparison of all three and resolvable citations for each. The starter cannot assemble the agent before repair.
 
 ## Reproduce and inspect
 

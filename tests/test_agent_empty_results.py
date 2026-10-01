@@ -108,8 +108,8 @@ def test_both_agent_transports_finish_an_empty_search(monkeypatch, streaming):
 
     class Model:
         async def invoke_async(self, _prompt):
-            agent_tools.search_products(QUESTION)
-            agent_tools.search_products(QUESTION)
+            for _ in agent_tools.SEARCH_SLOTS:
+                agent_tools.search_products(QUESTION)
 
         async def stream_async(self, prompt):
             await self.invoke_async(prompt)
@@ -163,3 +163,22 @@ def test_parallel_searches_reserve_their_slots_before_retrieval(monkeypatch):
             release.set()
         for future in pending:
             future.result(timeout=5)
+
+
+def test_complete_room_allows_three_searches_without_widening_each_grant(monkeypatch):
+    state = _empty_run_state()
+    requests = []
+
+    def search(request):
+        requests.append(request)
+        return search_response(request.query, coverage=grounded(), results=[])
+
+    monkeypatch.setattr(agent_tools, "_search_with_telemetry", search)
+    with agent_tools.bind_run(state):
+        for query in ("Bose headphones", "ViewSonic monitor", "Steelcase chair"):
+            agent_tools.search_products(query, limit=6)
+        denied = agent_tools.search_products("unnecessary fourth search")
+    assert len(requests) == 3
+    assert [request.authorized_limit for request in requests] == [2, 2, 2]
+    assert denied["ok"] is False
+    assert "allows 3 searches" in denied["error"]

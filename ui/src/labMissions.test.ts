@@ -96,7 +96,7 @@ it("resolves the multi-part Pipeline request from the canonical mission and reje
 describe("Shop example references", () => {
   it("keeps queries and filters tied to their source and covers all three needs", async () => {
     const { shopSearchExamples, mosaicLabManifest } = await import("./labMissions");
-    const requests = [...mosaicLabManifest.missions, ...mosaicLabManifest.supporting_checks, ...mosaicLabManifest.playground.requests];
+    const requests = [...mosaicLabManifest.missions, ...mosaicLabManifest.supporting_checks, ...pipelineRequests];
     expect(new Set(shopSearchExamples.map(item => item.kind))).toEqual(new Set(["Keywords", "Typo", "Intent"]));
     expect(new Set(shopSearchExamples.map(item => item.filters.category_key))).toEqual(new Set(["headphones", "monitor", "chair"]));
     for (const example of shopSearchExamples) {

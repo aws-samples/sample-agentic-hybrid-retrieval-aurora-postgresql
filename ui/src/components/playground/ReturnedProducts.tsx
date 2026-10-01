@@ -32,7 +32,7 @@ export function ReturnedProducts({ products, images, selectedId, onSelect }: {
       <div className="pg-returned-head">
         <div className="pg-seg" role="group" aria-label="Order">
           <button type="button" aria-pressed={order === "final"} onClick={() => setOrder("final")}>Final order</button>
-          <button type="button" aria-pressed={order === "combined"} onClick={() => setOrder("combined")}>Before reranking</button>
+          <button type="button" aria-pressed={order === "combined"} onClick={() => setOrder("combined")}>Before reranking (displayed products)</button>
         </div>
         <p className="pg-returned-key" aria-hidden="true">
           {armLanguage.map((arm) => <span key={arm.key} data-arm={arm.key}><i />{arm.label}</span>)}

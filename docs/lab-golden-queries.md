@@ -8,7 +8,7 @@
 |---|---|---|---|
 | Retrieve / `G-003` | A transposed Bose listing ID returns other headphones; the intended listing is absent from the combined pool | Reconnect the existing close-spelling search | The intended Bose listing returns with its close-spelling contribution |
 | Rank / G-008 | A 27-inch 4K/90W request omits the suitable ViewSonic VG2756-4K; a 1440p Lenovo ThinkVision T27hv-20 title visibly says 1440p | Use actual source positions in RRF | The ViewSonic enters the combined list, then reaches final position 5 after model reranking |
-| Reason / G-021 | Source records are fetched, but no supported answer can be produced | Register the returned evidence by product | The monitor/chair comparison cites resolvable source records |
+| Reason / G-021 | The starter cannot assemble the agent | Build the supplied Strands agent and deploy it to Runtime | Separate headphone, monitor and chair searches support a complete-room comparison with citations |
 
 ## Independent controls
 
@@ -22,7 +22,7 @@ The internal ID `compare-cheaper-alternative` is retained for existing links. G-
 
 ## Release rule
 
-Run the same request before and after the marked repair on Aurora. Preserve each response and search/agent run ID. The guide uses `scripts/apply_search_functions.py`, which verifies the selected real-catalog receipt and installs the participant's SQL into the active search schema without automatically solving its gaps. Restart the API after a Python seam changes.
+Run the same request before and after the marked repair on Aurora. Preserve each response and search/agent run ID. The guide uses `scripts/apply_search_functions.py`, which verifies the selected real-catalog receipt and installs the participant's SQL into the active search schema without automatically solving its gaps. Deploy the edited Lab 3 agent to AgentCore Runtime; a file edit alone does not update it.
 
 Run `scripts/validate_lab.py` for each lab. Lab 2 repeats the same search; Lab 3 also runs G-019 and saves its receipt for completion without extra model calls. The production path must fail on the deliberate defect and pass on the restored code. Source-state labels alone are insufficient. Keep live functions and source byte-identical after an operator proof.
 
@@ -30,7 +30,7 @@ The broader measured alternatives and unchanged/failing controls are in [the wor
 
 ## Lab 2 movement: what is guaranteed and what is not
 
-Every contribution must equal `1 / (k + source_rank)` and its sum must equal the recorded fused score. The required product must reach the bounded list and finish first after reranking. It need not be first in every search, or first before reranking.
+Every contribution must equal `1 / (k + source_rank)` and its sum must equal the recorded fused score. The required product must reach the bounded list and finish inside the mission’s declared final top-k after reranking. It need not be first in every search, or first before reranking.
 
 With the verified catalog and profile, the ViewSonic VG2756-4K entered the combined list at position 21 and finished at final position 5 in repeated runs. Preserve the observed source positions, model ID and profile; do not turn position 21 or final position 5 into a universal law. Several chair and headphone control queries keep their winner through both formulas. They prove why visible success alone cannot certify the calculation.
 

@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { pipelineRequests } from "../labMissions";
 
 import {
   act,
@@ -860,7 +861,7 @@ describe("CatalogPage", () => {
   });
 
   it("runs a suggested search on its own terms, not inside the browsed category", async () => {
-    const request = mosaicLabManifest.playground.requests.find((item) => item.id === "more-screen-space")!;
+    const request = pipelineRequests.find((item) => item.id === "more-screen-space")!;
     // Reproduced against the running app: Running & fitness selected, then the
     // keyboard suggestion taken, returned twelve rowing machines. The retrieval
     // was right -- `domain` is an eligibility gate applied before ranking and it
@@ -991,7 +992,7 @@ describe("CatalogPage", () => {
     const searchSubmit = within(search).getByRole("button", { name: "Search" });
     expect(searchSubmit.textContent).toBe("");
     expect(searchSubmit.querySelector("svg")).toBeTruthy();
-    expect(document.querySelectorAll(".shop-suggested > button")).toHaveLength(mosaicLabManifest.playground.requests.length);
+    expect(document.querySelectorAll(".shop-suggested > button")).toHaveLength(pipelineRequests.length);
     expect(
       screen.getByRole("complementary", { name: "What Ask Mosaic does" })
         .contains(screen.getByRole("button", { name: "Ask Mosaic" })),
@@ -1380,8 +1381,8 @@ describe("CatalogPage", () => {
   });
 
   it("replaces browse products and headphones with loading until the chair search answers", async () => {
-    const calls = mosaicLabManifest.playground.requests.find((request) => request.id === "clear-calls")!;
-    const comfort = mosaicLabManifest.playground.requests.find((request) => request.id === "comfortable-days")!;
+    const calls = pipelineRequests.find((request) => request.id === "focus-at-home")!;
+    const comfort = pipelineRequests.find((request) => request.id === "comfortable-days")!;
     const headphones = { ...recommendations[0], product_id: 2, model: "WH-C720" };
     const chair = { ...recommendations[0], product_id: 370002, model: "Pro Mesh" };
     const first = deferredSearch<SearchResponse>();
@@ -1424,8 +1425,8 @@ describe("CatalogPage", () => {
   });
 
   it("keeps chair results when an abandoned headphones search finishes later", async () => {
-    const calls = mosaicLabManifest.playground.requests.find((request) => request.id === "clear-calls")!;
-    const comfort = mosaicLabManifest.playground.requests.find((request) => request.id === "comfortable-days")!;
+    const calls = pipelineRequests.find((request) => request.id === "focus-at-home")!;
+    const comfort = pipelineRequests.find((request) => request.id === "comfortable-days")!;
     const first = deferredSearch<SearchResponse>();
     const second = deferredSearch<SearchResponse>();
     vi.mocked(api.search).mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
@@ -1466,7 +1467,7 @@ describe("CatalogPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
     await screen.findByText("Ask Mosaic shortlist");
-    const comfort = mosaicLabManifest.playground.requests.find((request) => request.id === "comfortable-days")!;
+    const comfort = pipelineRequests.find((request) => request.id === "comfortable-days")!;
     const next = deferredSearch<SearchResponse>();
     vi.mocked(api.search).mockReturnValueOnce(next.promise);
     fireEvent.click(screen.getByRole("button", { name: comfort.label }));
@@ -1676,7 +1677,7 @@ describe("CatalogPage", () => {
 
     const starters = await within(panel).findByRole("list", { name: "Example questions" });
     expect(within(starters).getAllByRole("button").map((button) => button.querySelector(".ask-mosaic-starter-path")?.textContent))
-      .toEqual(mosaicLabManifest.playground.requests.map((request) => request.shop_label));
+      .toEqual(pipelineRequests.map((request) => request.shop_label));
     expect(within(panel).queryByRole("list", { name: "Tools available to the agent" })).toBeNull();
     expect(within(panel).queryByText("Search with typos in it")).toBeNull();
 
@@ -2090,8 +2091,8 @@ describe("CatalogPage", () => {
 
     await waitFor(() =>
       expect(api.agentStream).toHaveBeenCalledWith(
-        mosaicLabManifest.playground.requests[0].query,
-        expect.objectContaining(mosaicLabManifest.playground.requests[0].filters),
+        pipelineRequests[0].query,
+        expect.objectContaining(pipelineRequests[0].filters),
         expect.any(Function),
         undefined,
         { signal: expect.any(AbortSignal), useMemory: false, sessionId: undefined },
@@ -2201,7 +2202,7 @@ describe("CatalogPage", () => {
     const starters = await screen.findByRole("list", { name: "Example questions" });
     const requests = within(starters).getAllByRole("button");
     expect(requests).toHaveLength(1);
-    expect(requests[0].textContent).toContain(mosaicLabManifest.playground.requests.find((request) => request.id === "more-screen-space")!.shop_label);
+    expect(requests[0].textContent).toContain(pipelineRequests.find((request) => request.id === "more-screen-space")!.shop_label);
     fireEvent.click(requests[0]);
     await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
     expect(vi.mocked(api.agentStream).mock.calls.at(-1)?.[1]).toMatchObject({
@@ -2219,7 +2220,7 @@ describe("CatalogPage", () => {
     ));
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
     const starters = await screen.findByRole("list", { name: "Example questions" });
-    fireEvent.click(within(starters).getByRole("button", { name: /Clearer calls/ }));
+    fireEvent.click(within(starters).getByRole("button", { name: /Focus at home/ }));
     await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
     expect(vi.mocked(api.agentStream).mock.calls.at(-1)?.[1]).toMatchObject({
       domain: "consumer_electronics", category_key: "headphones",

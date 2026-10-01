@@ -172,7 +172,7 @@
    filled badge, so three of them down the page read as a sequence and not as
    three notification counts. */
 /* One left edge per stage. The number lives in a fixed gutter and everything else —
-   heading, summary and every panel — starts at the same line, so the three stages
+   heading, summary and every panel — starts at the same line, so the four phases
    read as a single column with a numbered margin rather than as three indents. */
 .labs-stage {
   --labs-gutter: 4.25rem;
@@ -758,7 +758,7 @@
   font-size: var(--labs-mono);
 }
 
-/* Stage 03. The chain is four claims about the same evidence, each with the field
+/* Phase 04. The chain is four claims about the same evidence, each with the field
    it was read from underneath, which is what keeps them from collapsing into one
    number called "evidence". */
 .labs-reason {

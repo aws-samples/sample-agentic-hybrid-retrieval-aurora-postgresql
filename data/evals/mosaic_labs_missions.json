@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "name": "Mosaic Retrieve Rank Reason Lab Contract",
+  "name": "Mosaic Retrieve Rank Re-rank Reason Lab Contract",
   "ownership": {
     "source_repository": "Lab timing, retrieval examples, application surfaces, evaluation assertions, and the gap seams with their broken bodies (scripts/lab_state.py).",
     "workshop_studio": "Participant instructions, provisioning-time gap injection, and code-editor exercises."
@@ -174,11 +174,12 @@
       "core": true,
       "duration_minutes": 20,
       "title": "Lab 3 - Build and deploy the agent",
-      "discover_label": "Build and deploy your agent",
+      "discover_label": "Complete Alex’s room with your agent",
       "canonical_query_id": "G-021",
-      "query": "I am finishing my home office. Check the ViewSonic VG2756-4K (B0BSHZHKB7) for a 27-inch 4K screen and USB-C charging up to 90W over one cable, and the Steelcase Gesture (B095V7RS6S) for adjustable lumbar support and fully adjustable arms, and whether reviewers say it stays comfortable through a full workday. Search each product separately, compare their fit for these needs, and explain what the specifications and available reviews do and do not establish. Cite the supporting records and explain the ranking of one search.",
+      "query": "I am finishing my home office. Check the Bose QuietComfort 35 II (B07G95TJ3P) for noise cancellation that helps me focus and what the available reviews establish about clear calls; the ViewSonic VG2756-4K (B0BSHZHKB7) for a 27-inch 4K screen and USB-C charging up to 90W over one cable; and the Steelcase Gesture (B095V7RS6S) for adjustable lumbar support and fully adjustable arms, and whether reviewers say it stays comfortable through a full workday. Search each product separately, compare all three as parts of my room, and explain what the specifications and available reviews do and do not establish. Cite supporting records for each product and explain the ranking of one search.",
       "filters": {},
       "target_product_ids": [
+        1277987,
         1551237,
         1540761
       ],
@@ -204,13 +205,13 @@
         ],
         "observe_after": [
           "Your agent runs in AgentCore Runtime and calls the SQL tools through Gateway.",
-          "Separate searches find the monitor and chair using your Labs 1 and 2 SQL.",
+          "Separate searches find the headphones, monitor and chair using your Labs 1 and 2 SQL.",
           "Recommendations cite retrieved product records and explain what those records leave uncertain.",
           "A follow-up request changes the recommendation while preserving source checks."
         ],
         "checkpoint_question": "Which tools did your agent choose, and how did its answer change when Alex changed a requirement?"
       },
-      "expected_outcome": "A bounded, read-only agent runs focused searches for both requested product classes, uses typed comparison, ranking, evidence, and synthesis tools within application-owned citation scope, and produces citations that resolve to real evidence records.",
+      "expected_outcome": "A bounded, read-only agent runs a focused search for each of the three requested products, compares headphones, monitor and chair as parts of Alex’s room, explains a search ranking, and cites real source records within application-owned citation scope while keeping microphone quality, laptop compatibility and all-day comfort uncertain when the evidence does not establish them.",
       "assertions": [
         "structured_constraints_extracted",
         "retrieval_tool_called",
@@ -228,6 +229,13 @@
         "hard_filters_hold"
       ],
       "required_citation_support": [
+        {
+          "product_id": 1277987,
+          "evidence_type": "product_spec",
+          "all_terms": [
+            "noise"
+          ]
+        },
         {
           "product_id": 1551237,
           "evidence_type": "product_spec",
@@ -580,36 +588,49 @@
     }
   ],
   "playground": {
-    "default_request": "clear-calls",
+    "default_request": "focus-at-home",
     "guided_requests": [
       {
         "id": "plan-workspace",
-        "label": "Plan my workspace",
+        "label": "Complete my room",
         "mission_id": "agentic-research",
-        "notice": "One request, two product needs. Follow the separate monitor and chair searches, their filters, and the evidence behind the final choices."
+        "notice": "Bring Lab 1’s Bose headphones and Lab 2’s ViewSonic monitor together with the Steelcase chair. Follow three focused searches, a comparison of all three, and the sources behind the complete room."
+      },
+      {
+        "id": "check-focus-picks",
+        "label": "Check the focus picks",
+        "query": "For Logitech Zone 900 (B0C2WWCFQB) and 3M Quiet Space (B09LK7TRYV), will my teammates hear me clearly on calls? Search each product separately, compare its specifications and available reviews, and cite the supporting records. Distinguish listening noise cancellation, playback sound and outgoing microphone quality. Say what the records leave unknown and explain the ranking of one search.",
+        "filters": {
+          "domain": "consumer_electronics",
+          "category_key": "headphones"
+        },
+        "notice": "The deck’s evidence question about Logitech and 3M. The agent creates fresh search and source records; the deck’s authored comparison is an illustration, not a saved agent answer."
       },
       {
         "id": "check-sources",
         "label": "Check the sources",
-        "query": "For Bose QuietComfort 35 II B07G95TJ3P, what do the specifications and available reviews support about noise cancellation and clear calls? Cite the records, and say when review evidence does not establish microphone performance.",
-        "filters": {
-          "domain": "consumer_electronics",
-          "category_key": "headphones"
-        },
-        "notice": "Compare the catalog specification with sample review evidence about fit. A general review does not prove every advertised benefit."
+        "notice": "Return to Alex’s Bose headphones. Separate listening noise cancellation from microphone quality; a general review cannot establish how teammates hear him.",
+        "mission_id": "evidence-grounding"
       }
     ],
     "requests": [
       {
-        "id": "clear-calls",
-        "label": "Clearer calls",
-        "shop_label": "Clearer calls",
-        "query": "I take video calls from home and need headphones that keep my voice clear despite background noise.",
+        "id": "focus-at-home",
+        "label": "Focus at home",
+        "shop_label": "Focus at home",
+        "query": "headphones that help me focus when working from home",
         "filters": {
           "domain": "consumer_electronics",
           "category_key": "headphones"
         },
-        "notice": "Alex needs the other person to hear him clearly. Follow microphone performance through retrieval and ranking; listening noise cancellation alone does not prove call clarity."
+        "notice": "The deck’s worked search: follow the same headphones through Retrieve, Rank and Re-rank. Then ask the agent what their sources support. Live positions can differ from the deck’s saved run."
+      },
+      {
+        "id": "recover-headphones",
+        "label": "Recover my headphones",
+        "shop_label": "Recover my headphones",
+        "mission_id": "typo-recovery",
+        "notice": "Lab 1: recover the Bose listing Alex saved from its transposed identifier. Keep the same request and filters before and after your repair."
       },
       {
         "id": "comfortable-days",
@@ -626,12 +647,8 @@
         "id": "more-screen-space",
         "label": "More screen space",
         "shop_label": "More screen space",
-        "query": "a 27 inch 4K desk monitor for code and docs side by side, with USB-C video and 90W laptop charging",
-        "filters": {
-          "domain": "consumer_electronics",
-          "category_key": "monitor"
-        },
-        "notice": "Alex wants room for code and reference material, with fewer cables on his desk. Compare screen size, resolution and connections. Check the specifications for USB-C video and charging separately."
+        "notice": "Alex wants room for code and reference material, with fewer cables on his desk. Compare screen size, resolution and connections. Check the specifications for USB-C video and charging separately.",
+        "mission_id": "rank-with-evidence"
       }
     ],
     "shop_examples": [
@@ -666,10 +683,10 @@
         "reference_id": "typo-recovery"
       },
       {
-        "id": "intent-clear-calls",
+        "id": "intent-focus-at-home",
         "kind": "Intent",
-        "label": "Clearer calls",
-        "reference_id": "clear-calls"
+        "label": "Focus at home",
+        "reference_id": "focus-at-home"
       },
       {
         "id": "intent-comfortable-days",

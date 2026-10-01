@@ -39,7 +39,7 @@ const bands = [
     height: 1200,
     alt: "Alex’s finished workspace: a mesh chair at an oak standing desk with two monitors and headphones",
     title: "Bring his workspace together.",
-    description: "Compare a monitor and chair, with specifications and reviews for each choice.",
+    description: "Complete the room with headphones, a monitor and a chair, and sources for every choice.",
   },
 ] as const;
 

@@ -21,7 +21,7 @@ def test_the_session_budget_is_internally_consistent():
     session = CONTRACT["session"]
     timed = CONTRACT["missions"]
 
-    assert CONTRACT["name"] == "Mosaic Retrieve Rank Reason Lab Contract"
+    assert CONTRACT["name"] == "Mosaic Retrieve Rank Re-rank Reason Lab Contract"
     assert sum(m["duration_minutes"] for m in timed) == session["core_lab_minutes"]
     assert (
         session["orientation_minutes"]

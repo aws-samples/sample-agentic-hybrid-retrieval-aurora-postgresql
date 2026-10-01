@@ -5,6 +5,7 @@ import type { AgentPartial, AgentResponse, SearchFilters, SearchResponse, ToolTr
 export interface PipelineReceipt {
   id: string;
   response?: SearchResponse;
+  origin?: "reference";
   error?: string;
 }
 
@@ -53,7 +54,7 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
       setReceipts([{ id: carriedEvent }]);
       void api.retrievalEventResponse(carriedEvent).then((response) => {
         if (current === version.current) {
-          setReceipts([{ id: carriedEvent, response }]);
+          setReceipts([{ id: carriedEvent, response, origin: "reference" }]);
           setSavedResponse(response);
         }
       }).catch((cause: unknown) => {
@@ -87,7 +88,7 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
     setStreamed("");
     setCompleted(false);
     setTrace([]);
-    setReceipts([]);
+    setReceipts(savedResponse ? [{ id: savedResponse.search_event_id, response: savedResponse, origin: "reference" }] : []);
     setRunId(null);
     setStatus("Starting Alex’s request…");
     setPhase("retrieve");
@@ -115,9 +116,10 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
       await api.agentStream(question, filters, (event) => {
         if (current !== version.current) return;
         if (event.type === "stage") {
-          const next = event.id === "answer" ? "reason" : event.id === "rank" ? "rank" : "retrieve";
+          // Agent comparison/evidence activity happens after each search has already ranked.
+          const next = event.id === "retrieve" ? "retrieve" : "reason";
           setPhase(next);
-          setStatus(next === "retrieve" ? "Finding matching products…" : next === "rank" ? "Checking the ranked matches…" : "Preparing Mosaic’s recommendation…");
+          setStatus(next === "retrieve" ? "Finding matching products…" : "Preparing Mosaic’s recommendation…");
         }
         if (event.type === "partial") {
           setPartial(event.partial);
@@ -158,9 +160,50 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
     }
   }
 
+  async function search(query: string, filters: SearchFilters) {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    const current = ++version.current;
+    controller.current?.abort();
+    const abort = new AbortController();
+    controller.current = abort;
+    setRunning(true);
+    setReading(false);
+    setStarted(false);
+    setError("");
+    setAnswer(null);
+    setPartial(null);
+    setStreamed("");
+    setCompleted(false);
+    setTrace([]);
+    setReceipts([]);
+    setSavedResponse(null);
+    setRunId(null);
+    setPhase("retrieve");
+    setStatus("Running the exact request through Retrieve, Rank and Re-rank…");
+    try {
+      const response = await api.search(query, filters, { signal: abort.signal });
+      if (current !== version.current) return;
+      setReceipts([{ id: response.search_event_id, response, origin: "reference" }]);
+      setSavedResponse(response);
+      setPhase(null);
+      setStatus("Search saved. Inspect its three retrieval phases, then ask the agent about the same need in Reason.");
+    } catch (cause: unknown) {
+      if (current === version.current) {
+        setError(cause instanceof Error ? cause.message : "The search could not finish.");
+        setStatus("Search stopped.");
+      }
+    } finally {
+      if (current === version.current) {
+        setRunning(false);
+        inFlight.current = false;
+      }
+    }
+  }
+
   function restoreSavedSearch() {
     if (carriedEvent && !inFlight.current) setReplay((value) => value + 1);
   }
 
-  return { receipts, trace, answer, partial, streamed, completed, running, reading, status, phase, error, runId, savedResponse, started, play, restoreSavedSearch };
+  return { receipts, trace, answer, partial, streamed, completed, running, reading, status, phase, error, runId, savedResponse, started, play, search, restoreSavedSearch };
 }

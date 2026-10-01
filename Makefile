@@ -241,7 +241,7 @@ solution-lab-1:
 
 start-lab-2:
 	@$(PYTHON) scripts/lab_state.py start --lab 2 --api-url "$(LAB_API_URL)"
-	@echo "Lab 2 ready. Next: diagnose the saved request (Task 2b in the guide)."
+	@echo "Lab 2 ready. Next: diagnose the saved request (Lab 2a in the guide)."
 
 reset-lab-2:
 	@$(PYTHON) scripts/lab_state.py reset --lab 2 --api-url "$(LAB_API_URL)"

@@ -16,7 +16,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { lockBodyScroll } from "../scrollLock";
 import { useTypewriterReveal } from "../useTypewriterReveal";
-import type { mosaicLabManifest } from "../labMissions";
+import type { workspaceRequests } from "../labMissions";
 import type {
   AgentCitation,
   AgentPlanStep,
@@ -462,7 +462,7 @@ function Turn({
   );
 }
 
-type WorkspaceRequest = typeof mosaicLabManifest.playground.requests[number];
+type WorkspaceRequest = ReturnType<typeof workspaceRequests>[number];
 
 function EntryState({ suggestions, onRun }: {
   suggestions: WorkspaceRequest[];

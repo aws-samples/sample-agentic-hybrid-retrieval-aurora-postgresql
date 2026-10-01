@@ -14,7 +14,7 @@ connection settings loaded. You do not need to start a database or server.
 
 ## Your route through the code
 
-The Explorer groups your work as **01 — Retrieve**, **02 — Rank**, and
+The Explorer groups your work as **01 — Retrieve**, **02 — Rank & Re-rank**, and
 **03 — Reason**. Each group opens the real lab directory: its README and the
 file you edit. **Explore Mosaic source** contains the complete repository and
 [learning-notes.md](learning-notes.md). Every prepared terminal starts at the
@@ -27,7 +27,7 @@ same files and saved work appear in the numbered view.
 | Step | Question to investigate | File you will edit |
 |---|---|---|
 | 01 — Retrieve | Where did the missing product leave the candidate path? | [Hybrid search](labs/lab1_retrieve/hybrid_search.sql) |
-| 02 — Rank | Did the combined order preserve each search method's positions? | [Rank contribution](labs/lab2_rank/rrf_contribution.sql) |
+| 02 — Rank & Re-rank | Did the combined order preserve each search method's positions? | [Rank contribution](labs/lab2_rank/rrf_contribution.sql) |
 | 03 — Reason | Can your Strands agent use SQL tools and answer with sources? | [Agent factory](labs/lab3_reason/agent.py) |
 
 Read the guide's task before editing. Each lab's folder has a README with the
@@ -65,3 +65,5 @@ Complete the guide's validation commands before moving to the next lab.
 
 After completion, download **Hybrid Agentic Search** from Mosaic's Playground
 page to carry the workflow and its quality checks into your own agent.
+
+The Playground has four phases across the three labs: **Retrieve → Rank → Re-rank → Reason**. Lab 2a repairs Rank; Lab 2b inspects Re-rank and judges the proposal within the same ten-minute lab. Lab 3 brings the headphones, monitor and chair together in **Complete my room**. Save that original three-product run for completion.

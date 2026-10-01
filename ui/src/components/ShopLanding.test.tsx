@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { pipelineRequests } from "../labMissions";
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -47,7 +48,7 @@ describe("ShopLanding", () => {
       "Find his focus.", "Make room for his work.", "Bring his workspace together.",
     ]);
     const requestIds = {
-      headphones: ["headphones", "clear-calls"],
+      headphones: ["headphones", "focus-at-home"],
       monitors: ["monitor", "more-screen-space"],
       chairs: ["chair", "comfortable-days"],
     };
@@ -56,7 +57,7 @@ describe("ShopLanding", () => {
       const [category, search] = within(band).getAllByRole("link");
       const topic = category.textContent!.replace("Shop ", "");
       const [key, requestId] = requestIds[topic as keyof typeof requestIds];
-      const request = mosaicLabManifest.playground.requests
+      const request = pipelineRequests
         .find((candidate) => candidate.id === requestId)!;
 
       const categoryUrl = new URL(category.getAttribute("href")!, "http://localhost");

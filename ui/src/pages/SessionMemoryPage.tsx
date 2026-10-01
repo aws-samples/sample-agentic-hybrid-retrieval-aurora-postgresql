@@ -173,7 +173,7 @@ export function SessionMemoryPage() {
   const locked = busy || pending;
   return <div className="page pipeline-inspector session-memory">
     <MosaicLabsTabs active="memory" />
-    <div className="inspector-intro"><MosaicLabsMasthead title={<>{questionBeforeAlex}<span className="memory-title-emphasis">Alex’s preferences</span>{questionAfterAlex}</>} deck={memoryLab.story} supportingText="Optional Lab 4 · AgentCore Memory. The three required labs run with memory off." /></div>
+    <div className="inspector-intro"><MosaicLabsMasthead title={<>{questionBeforeAlex}<span className="memory-title-emphasis">Alex’s preferences</span>{questionAfterAlex}</>} deck={memoryLab.story} supportingText="Optional exercise · AgentCore Memory. The three required labs run with memory off." /></div>
     <ol className="memory-flow" aria-label="Follow the memory exercise">
       <li><a href="#memory-events-heading"><strong>1. Save a preference</strong></a><p>Read Alex’s example below, then choose <b>Save message</b>. This stores a message; it does not ask Mosaic.</p></li>
       <li><a href="#memory-strategies-heading"><strong>2. Check what was remembered</strong></a><p>Choose <b>Preferences</b>, then <b>Refresh memories</b> until a saved preference appears. Extraction happens in the background.</p></li>

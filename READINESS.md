@@ -7,7 +7,7 @@ test pass into deployment evidence.
 ## Fixed session contract
 
 - exactly three required labs;
-- `RETRIEVE -> RANK -> REASON`;
+- `RETRIEVE -> RANK -> RE-RANK -> REASON`;
 - 553,911 real source products and saved Cohere Embed v4 vectors in Aurora;
 - no historical synthetic products, reviews or vocabulary in fresh workshops;
 - 40 minutes of required hands-on work, including completion, inside a 60-minute session;

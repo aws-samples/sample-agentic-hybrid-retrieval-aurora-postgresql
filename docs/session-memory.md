@@ -5,7 +5,7 @@ events stored by actor and session, and long-term records produced by strategies
 It keeps Alex's home office as the context while making AgentCore's behavior
 inspectable. There is no budget exercise or manually entered preference form.
 
-Optional Lab 4 asks **Can Mosaic remember Alex’s preferences across
+The optional Memory exercise asks **Can Mosaic remember Alex’s preferences across
 conversations?** Its question, message, requests and checkpoints live in
 `data/evals/mosaic_labs_missions.json` under `optional_labs.memory`. It is outside
 the required hour; extraction has no guaranteed duration. The page begins with

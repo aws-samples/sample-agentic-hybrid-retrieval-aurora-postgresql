@@ -1,3 +1,4 @@
+import { CandidatePoolOrder } from "../components/playground/CandidatePoolOrder";
 import { AlertTriangle, ArrowRightLeft } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
@@ -401,10 +402,10 @@ export function RetrievalLabPage() {
       response ? readChannels(response, requiredTechniques, readiness) : [],
     [readiness, requiredTechniques, response],
   );
-  const reasonScenario = useMemo(
-    () => mosaicRetrievalExamples.find((candidate) => candidate.stage === "reason"),
-    [],
-  );
+  const [poolOpen, setPoolOpen] = useState(false);
+  const reasonScenario = example?.stage === "reason" ? example : null;
+  const reasonQuestion = reasonScenario?.query ?? response?.query ?? query;
+  const reasonFilters = (reasonScenario?.filters ?? response?.applied_filters ?? (carriedOver ? forwardedFilters : example?.filters ?? {})) as SearchFilters;
   /**
    * Which of the three labs the participant is in, resolved the same way the
    * rail resolves it: a supporting check is placed under its parent lab rather
@@ -768,7 +769,7 @@ export function RetrievalLabPage() {
         </details>
       ) : null}
 
-      {/* The bridge, above the three stages: the words Shop uses on the left, the
+      {/* The bridge, above the four stages: the words Shop uses on the left, the
           PostgreSQL feature that produced them on the right. It is the whole
           reason this surface exists, so it is not behind a disclosure.
 
@@ -949,15 +950,9 @@ export function RetrievalLabPage() {
       <PlaygroundStage
         number="02"
         title="Rank"
-        summary="Check what reached reranking. Inspect each search position, the combined order, and the final order—in that sequence."
+        summary="Lab 2a: repair the source-position contributions and inspect which candidates survived fusion."
         stale={loading && Boolean(response)}
       >
-        <RetrievalObservatory
-          example={example}
-          loading={loading}
-          response={response}
-        />
-
         {response ? (
           <>
             <SearchRetrievalReceipt response={response} />
@@ -979,6 +974,13 @@ export function RetrievalLabPage() {
           </>
         ) : null}
 
+      </PlaygroundStage>
+
+      <PlaygroundStage number="03" title="Re-rank" summary="Lab 2b: compare the same pool before and after reranking. Judge a tuning proposal across labeled queries before adopting it." stale={loading && Boolean(response)}>
+        <RetrievalObservatory example={example} loading={loading} response={response} />
+        <PlaygroundDisclosure label="View the complete candidate pool" hint="includes candidates outside the displayed results" onOpen={() => setPoolOpen(true)}>
+          {poolOpen ? <CandidatePoolOrder response={response ?? undefined} /> : null}
+        </PlaygroundDisclosure>
         {/* Anchored on the pinned baseline rather than on whichever run happened
             to land first: those were two different events after an arrival that
             carried a Shop run, and the screen then reported both as "before". */}
@@ -1014,24 +1016,19 @@ export function RetrievalLabPage() {
 
       {/* Not a numbered stage: this reads two persisted events Stage 01/02 already
           produced rather than running its own retrieval, so it sits between them
-          and Reason as a lens over that evidence, not a fourth pipeline step. */}
+          and Reason as a lens over that evidence, not a fifth pipeline step. */}
       <RepairEvidence
         baselineSearchEventId={baselineSearchEventId}
         latestSearchEventId={latestSearchEventId}
       />
 
       <PlaygroundStage
-        number="03"
+        number="04"
         title="Reason"
         summary="Support the agent's answer with sources. Which products and evidence the agent received, what the application allowed into the answer, and whether every citation resolves."
       >
-        {reasonScenario ? (
-          <ReasonStage
-            question={reasonScenario.query}
-            filters={reasonScenario.filters as SearchFilters}
-            onAgentRun={setAgentRunId}
-          />
-        ) : null}
+        <p>{reasonScenario ? "Complete Alex’s room: headphones, monitor and chair. Save this original run for Lab 3 completion." : "Explore this same request with the agent. For graded Lab 3 completion, select Complete Alex’s room from the lab examples."}</p>
+        <ReasonStage key={`${reasonQuestion}:${JSON.stringify(reasonFilters)}`} question={reasonQuestion} filters={reasonFilters} onAgentRun={setAgentRunId} />
       </PlaygroundStage>
 
       <PlaygroundStage

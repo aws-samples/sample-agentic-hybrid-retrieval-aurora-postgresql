@@ -44,13 +44,14 @@ import { useLabStates } from "../useLabStates";
  * for a hash that belongs to something else on the page.
  */
 export function stageFromHash(hash: string): string | null {
-  const match = /^#labs-stage-([a-z]+)$/.exec(hash);
+  const match = /^#labs-stage-([a-z-]+)$/.exec(hash);
   return match ? match[1] : null;
 }
 
-const RAIL_STAGES: Array<{ stage: MosaicLabStage | "prove"; label: string }> = [
+const RAIL_STAGES: Array<{ stage: MosaicLabStage | "re-rank" | "prove"; label: string }> = [
   { stage: "retrieve", label: stageLabels.retrieve },
-  { stage: "rank", label: stageLabels.rank },
+  { stage: "rank", label: "Rank" },
+  { stage: "re-rank", label: "Re-rank" },
   { stage: "reason", label: stageLabels.reason },
   { stage: "prove", label: "Prove" },
 ];

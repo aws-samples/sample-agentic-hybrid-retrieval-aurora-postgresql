@@ -129,7 +129,7 @@ two are told apart by the response, not by the board:
 | HTTP 503 | the fail-closed pipeline signal Lab 3 teaches | retrieval or grounded synthesis never produced an answer of record |
 
 The Lab 3 mission question is anchored: every term it uses exists in the
-catalog, so a decline on Stage 03 is a real failure and the completion proof
+catalog, so a decline in Reason is a real failure and the completion proof
 must grade it as one.
 
 ## Non-gaps

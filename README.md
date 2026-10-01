@@ -28,7 +28,7 @@ the workshop. Follow the guide's commands as you move through the labs.
 
 ## What you will build
 
-The workshop follows **Retrieve → Rank → Reason**. Labs 1 and 2 improve
+The workshop follows **Retrieve → Rank → Re-rank → Reason**. Labs 1 and 2 improve
 your SQL search. Lab 3 connects that search to a Strands agent on AgentCore Runtime
 and exposes the SQL tools through AgentCore Gateway.
 `uv run python scripts/deploy_agentcore.py deploy` builds an ARM64 container from your current source, pushes it to the workshop's ECR
@@ -38,11 +38,11 @@ for you; the command checks deployed source identity and Gateway connectivity.
 | Lab | Question to answer | Where you work |
 |---|---|---|
 | **1. Fix broken retrieval** | Can search find the intended product, even with a typo? | [`labs/lab1_retrieve/`](labs/lab1_retrieve/) |
-| **2. Fix broken ranking** | How did each search method contribute to the final order? | [`labs/lab2_rank/`](labs/lab2_rank/) |
-| **3. Build and deploy the agent** | Can your agent use SQL tools and answer with sources? | [`labs/lab3_reason/`](labs/lab3_reason/) |
+| **2. Fix broken ranking** | **2a Rank:** which candidates survive fusion? **2b Re-rank:** how does their order change? | [`labs/lab2_rank/`](labs/lab2_rank/) |
+| **3. Build and deploy the agent** | Can your agent complete Alex’s room with headphones, monitor and chair, citing each product’s sources? | [`labs/lab3_reason/`](labs/lab3_reason/) |
 
 The participant workspace, [Mosaic.code-workspace](Mosaic.code-workspace),
-groups the existing files as **01 — Retrieve**, **02 — Rank**, and **03 — Reason**.
+groups the existing files as **01 — Retrieve**, **02 — Rank & Re-rank**, and **03 — Reason**.
 Code Editor starts with the **Dark Modern** theme, independent of the device's
 light or dark appearance. Participants can change the theme in Code Editor.
 **Explore Mosaic source** keeps the complete repository accessible; prepared
@@ -58,11 +58,11 @@ search and a browsable workspace shelf, with category links and **Browse all
 products** above Alex's brief and the three editorial bands. A search
 replaces the story with ranked results: the first as a feature, the rest as rows
 with their positions.
-Playground follows one request across the agent's searches. A compact summary
+Playground exposes four phases across three labs. **Focus at home** runs the deck’s exact headphone query. The retrieval pills run exact requests; **Reason** asks about the same need and preserves the original search alongside the agent’s focused searches. **Complete my room** uses Lab 3’s canonical three-product request. A compact summary
 links each final choice to its search; **Trace all returned products** shows
 search positions, comparisons, evidence read, and inclusion in the answer.
-Retrieve and Rank inspect one selected search, whose first result is explicitly
-labelled by search and position. The agent's cited answer appears beside its
+Retrieve, Rank and Re-rank inspect one selected search, whose first result is explicitly
+labelled by search and position. Re-rank can inspect the complete saved candidate pool, including products outside the displayed result window. The agent's cited answer appears beside its
 sources; search records and interpretation expand when needed. When a lab's request fails,
 every surface says what is missing, why, and the one command to run next. On Shop,
 Lab 1's failure is a card for the missing product with numbered steps back to it.

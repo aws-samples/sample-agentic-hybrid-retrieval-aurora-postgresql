@@ -1145,3 +1145,7 @@ p.pg-reason-status {
     transition: none;
   }
 }
+
+.pg-pool-scroll { max-height: 28rem; overflow: auto; margin-block: 1rem; }
+.pg-candidate-pool { margin-block: 1rem 2rem; }
+.pg-stage-chip[data-stage="rerank"] { --pg-stage: var(--rank); }

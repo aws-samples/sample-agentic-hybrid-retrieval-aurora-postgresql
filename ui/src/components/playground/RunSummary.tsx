@@ -17,25 +17,27 @@ export function RunSummary({ answer, receipts, onInspect }: {
     for (const product of receipt.response?.results ?? []) products.set(product.product_id, product);
   }
   const positions = (productId: number) => receipts.flatMap((receipt, index) => {
+    if (receipt.origin === "reference") return [];
     const product = receipt.response?.results.find((item) => item.product_id === productId);
     return product ? [{ id: receipt.id, search: index + 1, rank: product.signals?.final_rank }] : [];
   });
   const compared = new Set(answer.trace.filter((step) => step.tool === "compare_products" && step.outcome === "success")
     .flatMap((step) => Array.isArray(step.arguments?.product_ids) ? step.arguments.product_ids : []));
+  const agentSearches = receipts.filter((receipt) => receipt.origin !== "reference");
   const unavailable = receipts.some((receipt) => !receipt.response);
   return <section className="pg-summary" aria-labelledby="pg-summary-title">
     <header>
       <h2 id="pg-summary-title">{answer.outcome === "declined" ? "No supported recommendation" : "Mosaic’s final answer"}</h2>
       <a href="#inspect-reason">Read the answer</a>
     </header>
-    <p>{receipts.length} {receipts.length === 1 ? "search" : "searches"} · {answer.recommendations.length} {answer.recommendations.length === 1 ? "product" : "products"} in the answer · {answer.citations.length} cited {answer.citations.length === 1 ? "source" : "sources"}</p>
+    <p>{agentSearches.length} {agentSearches.length === 1 ? "search" : "searches"} · {answer.recommendations.length} {answer.recommendations.length === 1 ? "product" : "products"} in the answer · {answer.citations.length} cited {answer.citations.length === 1 ? "source" : "sources"}</p>
     {answer.recommendations.length ? <ul className="pg-summary-picks" aria-label="Products in the final answer">{answer.recommendations.map((product) => {
       const match = positions(product.product_id)[0];
       return <li key={product.product_id}>{match
         ? <button type="button" aria-label={`Trace ${product.title}`} onClick={() => onInspect(match.id, product.product_id)}>{traceName(product)}<span>Search {match.search}{match.rank == null ? "" : ` · #${match.rank}`}</span></button>
         : <span>{traceName(product)}<small>{unavailable ? "Search details unavailable" : "Not in the recorded search results"}</small></span>}</li>;
     })}</ul> : null}
-    <p className="pg-summary-note">Retrieve and Rank inspect one search at a time. The final answer can draw on all searches.</p>
+    <p className="pg-summary-note">Retrieve, Rank and Re-rank inspect one search at a time. The final answer links to the agent’s searches; an original reference search stays separately labeled.</p>
     {products.size ? <details className="pg-product-trace">
       <summary>Trace all returned products</summary>
       <div className="pg-trace-scroll" role="region" aria-label="Product trace across searches" tabIndex={0}>

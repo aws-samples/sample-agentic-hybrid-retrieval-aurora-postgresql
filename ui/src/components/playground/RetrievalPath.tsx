@@ -84,8 +84,8 @@ export function RetrievalPath({ response, catalogCount, eligible }: {
     <ol className="pg-flow" aria-label="From catalog to final order">
       <li><h3>Catalog</h3><p className="pg-flow-n">{catalogCount ? catalogCount.toLocaleString() : "—"}</p><small>Source listings with saved embeddings</small></li>
       <li><h3>Eligible</h3><p className="pg-flow-n">{eligible}</p><small>Filters checked in PostgreSQL before any limit</small></li>
-      <li className="pg-flow-arms"><h3>Found by</h3>
-        <dl aria-label="Matches found by each search">
+      <li className="pg-flow-arms"><h3>In the combined pool</h3>
+        <dl aria-label="Candidates surviving fusion from each search">
           {armLanguage.map((arm) => {
             const count = counts?.[COUNT_KEY[arm.key]];
             return <div key={arm.key} data-arm={arm.key} data-empty={count === 0 || undefined}>
@@ -97,12 +97,12 @@ export function RetrievalPath({ response, catalogCount, eligible }: {
         </dl>
       </li>
       <li><h3>Combined</h3><p className="pg-flow-n">{counts?.fused_pool ?? "—"}</p><small>{profile ? `Reciprocal rank fusion, k = ${profile.rrf_k}` : "Reciprocal rank fusion"}</small></li>
-      <li><h3>Reranked</h3><p className="pg-flow-n">{response ? `Top ${response.results.length}` : "—"}</p><small>{modelName(diagnostics?.rerank_model_id) ?? "Cohere Rerank"}</small></li>
+      <li><h3>Re-rank</h3><p className="pg-flow-n">{diagnostics?.rerank_status === "applied" ? counts?.fused_pool ?? "—" : diagnostics?.rerank_status ?? "—"}</p><small>{modelName(diagnostics?.rerank_model_id) ?? "Reranker not recorded"}{response ? ` · ${response.results.length} displayed` : ""}</small></li>
     </ol>
     {diagnostics ? <p className="pg-timings">
       {TIMINGS.filter(([key]) => typeof timings[key] === "number").map(([key, label]) => <span key={key}><b>{label}</b> {seconds(timings[key])}</span>)}
       <span><b>Total</b> {seconds(diagnostics.total_latency_ms)}</span>
-    </p> : <p className="pg-timings">{response ? "This saved search carries no timing record." : "A product can match in more than one way, so these counts can overlap."}</p>}
+    </p> : <p className="pg-timings">{response ? "This saved search carries no timing record." : "Counts describe candidates surviving fusion, not each search’s full list. They can overlap."}</p>}
   </>;
 }
 

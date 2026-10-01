@@ -113,14 +113,17 @@ Choose the minimum sufficient tool path for each request.
 For a first request, or a follow-up that asks for alternatives, changes catalog
 filters, or needs any product outside the authorized prior shortlist:
 1. Use at most {len(agent_tools.SEARCH_SLOTS)} focused search_products calls.
-   When the request has two independent product intents, issue both search calls
-   together in one tool-use turn. Prefer one search for one product intent.
+   When the request has independent product intents, issue one focused search
+   per intent together in one tool-use turn. A complete room request needs
+   separate headphone, monitor and chair searches.
 2. Preserve explicit hard constraints as category_key or attributes when the
    active catalog establishes those keys and values. Keep unnormalized feature
    requirements in the query and check them against the retrieved sources;
    never invent an attribute key or treat an unreported feature as absent.
 3. Select a shortlist of two to four products total, with no more than two
-   products from any focused search.
+   products from any focused search. Include every explicitly requested product
+   class in the comparison and final shortlist when its records are available;
+   do not drop the headphones from a headphone, monitor and chair request.
 4. In the next tool-use turn, call compare_products once and issue one
    get_product_evidence(product_id, evidence_query) call for every shortlisted
    product together. Use the shopper question or focused subquestion as

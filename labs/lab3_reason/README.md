@@ -6,7 +6,7 @@ this is **03 — Reason**. The file you edit is [agent.py](agent.py).
 
 ## Broken
 
-Start the lab after completing Retrieve and Rank. The starter cannot assemble
+Start the lab after completing Retrieve, Rank and Re-rank. The starter cannot assemble
 the agent. The workshop already supplies the Bedrock model, SQL tools behind
 AgentCore Gateway, source rules and execution hooks.
 
@@ -41,7 +41,7 @@ Deploy the edited agent:
 uv run python scripts/deploy_agentcore.py deploy
 ```
 
-Ask the guide's question in Mosaic, inspect its searches and cited sources, and
+Ask **Complete my room** in Mosaic: bring back Alex’s Bose headphones and ViewSonic monitor, then add the Steelcase chair. Inspect a focused search for each, all three in the comparison and final shortlist, and their cited sources. Then
 save your run ID. Complete the changed-requirement follow-up, then check the
 original saved run with the guide's completion command:
 

@@ -1624,10 +1624,10 @@ def test_agent_tool_filters_may_narrow_request_filters():
     )
 
 
-def test_agent_search_tool_enforces_its_two_search_budget():
+def test_agent_search_tool_enforces_its_three_search_budget():
     state = {
-        "searches": [{}, {}],
-        "trace": [{"tool": "search_products"}, {"tool": "search_products"}],
+        "searches": [{}, {}, {}],
+        "trace": [{"tool": "search_products"} for _ in range(3)],
     }
     token = agent_tools._RUN.set(state)
     try:
@@ -1637,7 +1637,7 @@ def test_agent_search_tool_enforces_its_two_search_budget():
 
     assert result == {
         "ok": False,
-        "error": "search_products allows 2 searches per agent turn; found 2",
+        "error": "search_products allows 3 searches per agent turn; found 3",
         "recovery": (
             "use the products already retrieved and call "
             "synthesize_cited_answer, or state the evidence gap."
@@ -1740,7 +1740,7 @@ def test_evidence_tool_forwards_question_and_embedding_to_catalog(monkeypatch):
         "product_id": 101,
         "query": "Which fact supports long-flight comfort?",
         "embedding": expected_embedding,
-        "limit": len(agent_tools.SEARCH_SLOTS),
+        "limit": agent_tools.EVIDENCE_RECORDS_PER_PRODUCT,
     }
     assert state["evidence_by_product"] == {101: [9001]}
 

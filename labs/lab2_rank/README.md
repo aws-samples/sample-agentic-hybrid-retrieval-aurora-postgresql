@@ -1,8 +1,10 @@
-# Lab 2: Rank
+# Lab 2: Rank and Re-rank
 
 Follow **Workshop Studio → Lab 2** beside this folder. In the participant
-workspace, this is **02 — Rank**. The file you edit is
+workspace, this is **02 — Rank & Re-rank**. The file you edit is
 [rrf_contribution.sql](rrf_contribution.sql).
+
+**2a — Rank:** observe, diagnose and repair fusion. **2b — Re-rank:** inspect the same pool’s combined and final positions, then complete the guide’s judged-query proposal and proof. Both parts fit the existing ten-minute lab; there is one repair.
 
 ## Broken
 

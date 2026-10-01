@@ -63,7 +63,7 @@ import {
   coreMosaicLabs,
   shopSearchExamples,
   mosaicRetrievalExamples,
-  mosaicLabManifest,
+  pipelineRequests,
   type MosaicLabMission,
 } from "../labMissions";
 import {
@@ -247,7 +247,7 @@ const retrievalScope = [
   "Reranking the shortlist",
 ];
 
-const shopSuggestedQueries = mosaicLabManifest.playground.requests;
+const shopSuggestedQueries = pipelineRequests;
 
 function HybridRetrievalTrace() {
   return (

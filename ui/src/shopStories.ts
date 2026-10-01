@@ -1,5 +1,5 @@
 import { sourceFilters } from "./catalogSource";
-import { mosaicLabManifest } from "./labMissions";
+import { pipelineRequests } from "./labMissions";
 import type { SearchFilters } from "./types";
 
 export type EditorialStory = {
@@ -12,10 +12,10 @@ export type EditorialStory = {
 };
 
 const storyContent = {
-  "clear-calls": {
+  "focus-at-home": {
     topic: "Headphones",
-    situation: "Home isn’t always quiet. Alex needs his teammates to hear his voice, even when there’s noise in the background.",
-    considerations: "Start with microphone clarity. Then compare listening comfort and noise cancellation for focused work between calls.",
+    situation: "Home isn’t always quiet. Alex wants headphones that help him focus while he works.",
+    considerations: "Start with noise cancellation and listening comfort. Check microphone evidence separately before promising clearer calls.",
   },
   "comfortable-days": {
     topic: "Chairs",
@@ -30,7 +30,7 @@ const storyContent = {
 };
 
 // Shop's walkthrough, bands and examples must send one customer need to one photographed category.
-export const editorialStories: EditorialStory[] = mosaicLabManifest.playground.requests.flatMap(request => {
+export const editorialStories: EditorialStory[] = pipelineRequests.flatMap(request => {
   const content = storyContent[request.id as keyof typeof storyContent];
   return content ? [{ ...content, title: request.shop_label, query: request.query, filters: request.filters }] : [];
 });

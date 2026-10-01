@@ -603,7 +603,7 @@ eligibility under the recorded filters as `candidates[].eligible`; it is not a
 historical availability snapshot.
 
 Lab 3 grades the persisted turn named by `agent_run_id` and spends no
-agent turn: a missing or ungrounded run fails with a falsifier naming Stage 03,
+agent turn: a missing or ungrounded run fails with a falsifier naming Reason,
 the Reason stage that produces one. The two missing-run cases read differently,
 because they have different next steps: submitting no `agent_run_id` at all,
 and submitting one no turn was persisted under. An unknown `lab_id` is a 404.

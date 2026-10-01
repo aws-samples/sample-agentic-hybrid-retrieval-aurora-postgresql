@@ -466,6 +466,13 @@ def _grounded_connection() -> _FakeConnection:
     )
     mission = lab_proof.lab_checks.mission_for_lab(3)
     connection.turn["user_message"] = mission["query"]
+    connection.turn["extracted_intent"]["selected_products"].append(
+        {"product_id": 1277987}
+    )
+    connection.tools[-1]["output_payload"]["citations"].append(_citation(3, 9101))
+    connection.tools.insert(
+        0, dict(connection.tools[0], input_payload={"product_id": 1277987})
+    )
     for product in connection.turn["extracted_intent"]["selected_products"]:
         product.update(
             domain="home_office",
@@ -473,13 +480,15 @@ def _grounded_connection() -> _FakeConnection:
             availability="in_stock",
             attributes={},
         )
-    connection.searches.append(dict(connection.searches[0], search_event_id=uuid4()))
+    connection.searches.extend(
+        dict(connection.searches[0], search_event_id=uuid4()) for _ in range(2)
+    )
     trace = []
     for index, (search, product_id) in enumerate(
-        zip(connection.searches, (1540761, 1551237), strict=True)
+        zip(connection.searches, (1540761, 1551237, 1277987), strict=True)
     ):
         search.update(
-            query_text=("ergonomic chair" if index == 0 else "4K monitor"),
+            query_text=("ergonomic chair", "4K monitor", "Bose headphones")[index],
             plan_json=[{"Plan": {"Node Type": "Append"}}],
         )
         connection.candidates.append(
@@ -500,7 +509,7 @@ def _grounded_connection() -> _FakeConnection:
         dict(
             connection.tools[0],
             tool_name="compare_products",
-            input_payload={"product_ids": [1540761, 1551237]},
+            input_payload={"product_ids": [1540761, 1551237, 1277987]},
         )
     )
     trace.extend(connection.tools[:-1])
@@ -761,7 +770,7 @@ def test_lab_3_proof_runs_seventeen_checks_over_persisted_rows(monkeypatch) -> N
     assert proof.status == "pass"
     assert proof.database_state == "not_applicable"
     assert proof.evidence.agent_run_id == AGENT_RUN_ID
-    assert proof.evidence.evidence_ids == [9001, 9002]
+    assert proof.evidence.evidence_ids == [9001, 9002, 9101]
 
 
 # ---------------------------------------------------------------------------
@@ -777,9 +786,9 @@ def test_lab_3_without_a_run_id_fails_naming_stage_03(monkeypatch) -> None:
     run_checks = [check for check in proof.checks if check.name != "lab_started"]
     assert proof.status == "fail"
     assert len(run_checks) == 16
-    assert all("Stage 03" in check.detail for check in run_checks)
+    assert all("Reason" in check.detail for check in run_checks)
     # Mosaic runs the deployed agent, not the file in Code Editor. A participant
-    # who edited the agent and re-ran Stage 03 without deploying graded the old
+    # who edited the agent and re-ran Reason without deploying graded the old
     # copy, so the fix has to name the deploy before it names the re-run.
     assert all(DEPLOY_AGENT in check.detail for check in run_checks)
     assert proof.evidence.agent_run_id is None
@@ -792,7 +801,7 @@ def test_lab_3_with_an_unknown_run_id_fails_naming_stage_03(monkeypatch) -> None
 
     assert proof.status == "fail"
     assert all(
-        "Stage 03" in check.detail
+        "Reason" in check.detail
         for check in proof.checks
         if check.name != "lab_started"
     )
@@ -810,7 +819,7 @@ def test_lab_3_spends_no_agent_turn(monkeypatch) -> None:
 
     proof = lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID)
 
-    assert len(proof.evidence.search_event_ids) == 2, (
+    assert len(proof.evidence.search_event_ids) == 3, (
         "the persisted turn's own receipts, not a receipt this proof created"
     )
 

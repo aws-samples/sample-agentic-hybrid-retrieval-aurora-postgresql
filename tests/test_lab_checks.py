@@ -442,8 +442,8 @@ def test_lab_3_proof_without_a_persisted_run_names_stage_03():
 
     assert len(checks) == 6
     assert not any(check.passed for check in checks)
-    assert all("Stage 03" in check.detail for check in checks), [
-        check.detail for check in checks if "Stage 03" not in check.detail
+    assert all("Reason" in check.detail for check in checks), [
+        check.detail for check in checks if "Reason" not in check.detail
     ]
 
 
@@ -457,7 +457,7 @@ def test_lab_3_proof_names_the_submitted_id_or_says_none_was_submitted():
     assert "no agent_run_id was submitted" in absent[0].detail
     assert "5e0c2b9a-1f2d-4c3b-8a7e-0d1c2b3a4f56" in unknown[0].detail
     assert "was submitted" not in unknown[0].detail
-    assert all("Stage 03" in check.detail for check in absent + unknown)
+    assert all("Reason" in check.detail for check in absent + unknown)
 
 
 def test_lab_3_proof_fails_an_ungrounded_run():
@@ -475,7 +475,7 @@ def test_lab_3_proof_fails_an_ungrounded_run():
     assert not _by_name(checks, "answer of record present").passed
     assert not _by_name(checks, "grounded synthesis produced a product scope").passed
     assert not _by_name(checks, "citation evidence resolves").passed
-    assert "Stage 03" in _by_name(checks, "answer of record present").falsifier
+    assert "Reason" in _by_name(checks, "answer of record present").falsifier
 
 
 def test_lab_3_proof_fails_a_citation_that_resolves_to_another_product():
@@ -845,3 +845,44 @@ def test_served_control_rows_cannot_escape_brand_or_category(field, value):
     assert lab_checks.eligible(row, filters)
     row[field] = value
     assert not lab_checks.eligible(row, filters)
+
+
+@pytest.mark.parametrize("omission", ["comparison", "recommendation", None])
+def test_room_completion_requires_all_three_targets_in_the_final_comparison(omission):
+    """Finding headphones must not let a monitor-and-chair answer pass Lab 3."""
+    targets = [101, 202, 303]
+    mission = {
+        "target_product_ids": targets,
+        "requires_independent_target_searches": True,
+        "assertions": ["comparison_tool_called"],
+    }
+    agent = {
+        "recommendations": [
+            {"product_id": product_id}
+            for product_id in (targets[1:] if omission == "recommendation" else targets)
+        ],
+        "trace": [
+            {"tool": "search_products", "outcome": "success"},
+            {
+                "tool": "compare_products",
+                "outcome": "success",
+                "arguments": {
+                    "product_ids": targets[1:] if omission == "comparison" else targets
+                },
+            },
+        ],
+    }
+    evidence = AgentEvidence(
+        receipts=tuple(
+            RetrievalReceipt(
+                str(product_id), f"product {product_id}", frozenset({product_id})
+            )
+            for product_id in targets
+        ),
+        resolved_evidence={},
+    )
+    check = _by_name(
+        lab_checks.agent_response_checks(mission, agent, evidence),
+        "retrieval and comparison tools invoked",
+    )
+    assert check.passed is (omission is None), check.detail

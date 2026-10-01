@@ -104,7 +104,7 @@ whether the right eligible candidates entered the pool. Rank asks whether that
 pool was combined correctly. Reason asks which sources support the choice."
 
 Point the room at the Playground before narrating any of it: `/labs/retrieval`
-opens on **Hybrid retrieval**, the three-stage Retrieve, Rank and Reason
+opens on **Hybrid retrieval**, the four-phase Retrieve, Rank, Re-rank and Reason
 inspection, and each guide link adds `view=lab` to open that lab's exercise
 with its rail: the three labs in order, each one's live repair state, and the
 next lab to open. Say once that the labs, not the storefront or the Scale &
@@ -205,7 +205,7 @@ context. Product facts still come from Aurora.
 
 ## Carry the story and reuse the proof
 
-Alex's need for more screen space has its own band on the Shop landing, matching the presentation and Shop's monitor example. Lab 3 brings the monitor and chair decisions together: carry forward the monitor requirements from Lab 2 and gather separate evidence for each item. The monitor is also an exact-model control and an optional HNSW example. The SQL repairs feed the deployed agent; the mission and evidence checks cover the monitor's size, resolution, USB-C video and charging.
+Alex's need for more screen space has its own band on the Shop landing, matching the presentation and Shop's monitor example. Lab 3 brings the headphone, monitor and chair decisions together: carry forward the monitor requirements from Lab 2 and gather separate evidence for each item. The monitor is also an exact-model control and an optional HNSW example. The SQL repairs feed the deployed agent; the mission and evidence checks cover the monitor's size, resolution, USB-C video and charging.
 
 Ask each checkpoint question before the SQL repair. In Lab 3, show the monitor
 and chair searches and open one source. Distinguish a deployment failure from a

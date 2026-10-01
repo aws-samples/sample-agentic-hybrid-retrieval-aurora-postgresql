@@ -143,3 +143,21 @@ describe("one pipeline run", () => {
     expect(result.current.running).toBe(false);
   });
 });
+
+it("runs the exact search and keeps it distinct from the agent's later receipts", async () => {
+  const original = receipt(firstId);
+  const search = vi.spyOn(api, "search").mockResolvedValue(original);
+  const stream = vi.spyOn(api, "agentStream").mockImplementation(async (_q, _f, emit) => {
+    emit({ type: "complete", response: answer([step(secondId, 1)]) });
+  });
+  vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(receipt(secondId));
+  const { result } = renderHook(() => usePipelineRun("focus", null));
+  const filters = { domain: "consumer_electronics", category_key: "headphones" } as const;
+  await act(() => result.current.search("the exact deck query", filters));
+  expect(search.mock.calls[0].slice(0, 2)).toEqual(["the exact deck query", filters]);
+  expect(stream).not.toHaveBeenCalled();
+  expect(result.current.savedResponse).toEqual(original);
+  await act(() => result.current.play("the exact deck query", filters));
+  expect(result.current.receipts.map(({ id, origin }) => [id, origin])).toEqual([[firstId, "reference"], [secondId, undefined]]);
+  expect(result.current.savedResponse).toEqual(original);
+});

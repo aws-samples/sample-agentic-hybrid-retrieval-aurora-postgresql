@@ -16,6 +16,7 @@ import { SourceComparison } from "../components/SourceComparison";
 import { pickName } from "../components/ask-mosaic/comparison";
 import { LeadResult, type AgentVerdict } from "../components/playground/LeadResult";
 import { MethodReads } from "../components/playground/MethodReads";
+import { CandidatePoolOrder } from "../components/playground/CandidatePoolOrder";
 import { ReturnedProducts } from "../components/playground/ReturnedProducts";
 import { RunSummary } from "../components/playground/RunSummary";
 import { MethodComparison, RetrievalPath, modelName, rerankStep, signedScore } from "../components/playground/RetrievalPath";
@@ -37,12 +38,13 @@ const requestGroups = [
   { label: "Alex’s needs", requests: requests.filter((request) => primaryRequestIds.has(request.id)) },
   { label: "Agent examples", requests: requests.filter((request) => !primaryRequestIds.has(request.id)) },
 ].filter((group) => group.requests.length);
-type Inspection = "retrieve" | "rank" | "reason";
+type Inspection = "retrieve" | "rank" | "rerank" | "reason";
 type ColumnState = "idle" | "pending" | "active" | "complete" | "failed" | "blocked";
 
 const LESSONS: Record<Inspection, string> = {
   retrieve: "A reranker can only reorder what entered this pool. Each search method applies the filters before limiting its results. A filtered vector scan can still return too few matches; eligible products may be missed. Check both which products qualify and how many the search found.",
   rank: "Each search method scores matches differently. RRF combines them using 1 / (k + rank) for each position. A correct final winner can hide broken fusion. Compare the order before reranking, then weigh any measured improvement against the extra time and model usage.",
+  rerank: "Re-rank compares the request with every candidate in the bounded pool. It can change their order, but cannot recover a product that Rank excluded. Compare the same saved search before and after reranking.",
   reason: "Evidence the model has read is not citable until the application registers it. A valid source link still needs to support the claim. Read the source for the specific requirement; missing support should remain an open question.",
 };
 const STATE_LABEL: Record<ColumnState, string> = { idle: "", pending: "Waiting", active: "Working", complete: "Done", failed: "Stopped", blocked: "Not reached" };
@@ -50,8 +52,8 @@ const STATE_SPOKEN: Record<ColumnState, string> = { idle: "", pending: "waiting"
 const rank = (value: number | null | undefined) => (value == null ? "—" : `#${value}`);
 
 function linkedInspection(): Record<Inspection, boolean> {
-  const stage = /^#(?:labs-stage-|inspect-)(retrieve|rank|reason)$/.exec(window.location.hash)?.[1];
-  return { retrieve: stage === "retrieve", rank: stage === "rank", reason: stage === "reason" };
+  const stage = /^#(?:labs-stage-|inspect-)(retrieve|rank|re-rank|rerank|reason)$/.exec(window.location.hash)?.[1];
+  return { retrieve: stage === "retrieve", rank: stage === "rank", rerank: stage === "rerank" || stage === "re-rank", reason: stage === "reason" };
 }
 
 /**
@@ -93,7 +95,7 @@ function RetrieveDetails({ response, receipts, selectedId, onSelect }: {
   return <>
     {receipts.length ? <div className="inspector-search-plan">
       <h3>Searches Mosaic made</h3>
-      <p>Each search can focus on a different need. Select one to follow its products through Retrieve and Rank.</p>
+      <p>Each search can focus on a different need. Select one to follow its products through Retrieve, Rank and Re-rank.</p>
       <ol>{receipts.map((receipt, index) => <li key={receipt.id}>
         <button type="button" aria-pressed={receipt.id === selectedId} onClick={() => onSelect(receipt.id)}>Search {index + 1}: {receipt.response?.query ?? (receipt.error ? "Details unavailable" : "Loading…")}</button>
         {receipt.response ? <p className="inspector-note">{receipt.response.applied_filters.category_key ? String(receipt.response.applied_filters.category_key).replaceAll("-", " ") : "Across the catalog"}{typeof receipt.response.applied_filters.max_price_cents === "number" ? ` · Up to ${formatPriceCompact(receipt.response.applied_filters.max_price_cents)}` : ""}</p> : null}
@@ -135,12 +137,12 @@ function RankBody({ response, receiptProduct, ablation, stopped, images, onSelec
   stopped: boolean; images: Map<number, string>; onSelect: (productId: number) => void;
 }) {
   const products = response?.results ?? [];
-  const leading = products[0]?.signals;
+  const leading = receiptProduct?.signals;
   const step = rerankStep(ablation);
   if (!response || !products.length) {
     return <>
       <p className="inspector-waiting">{!response ? (stopped ? "No ranking is available from this run." : "See how the order changes as Mosaic compares the products.") : "No products were returned, so no ranking is available."}</p>
-      <KeepInMind>{LESSONS.rank}</KeepInMind>
+      <KeepInMind>{LESSONS.rerank}</KeepInMind>
     </>;
   }
   return <>
@@ -155,11 +157,11 @@ function RankBody({ response, receiptProduct, ablation, stopped, images, onSelec
         <p className="pg-order-flow"><span>Combined score</span><ArrowRight size={14} aria-hidden="true" /><span>{modelName(response.diagnostics?.rerank_model_id) ?? "Cohere Rerank"}</span><ArrowRight size={14} aria-hidden="true" /><span>Final order</span></p>
         {leading ? <p className="pg-rank-move" aria-label={`${rank(leading.pre_rerank_rank)} before rerank, ${rank(leading.final_rank)} in the final order`}>
           <b>{rank(leading.pre_rerank_rank)}</b><ArrowRight size={20} aria-hidden="true" /><b>{rank(leading.final_rank)}</b>
-          <span>The first result’s position before and after reranking.</span>
+          <span>The selected product’s position before and after reranking.</span>
         </p> : null}
         <p>Reranking: <strong>{response.diagnostics?.rerank_status ?? "not reported"}</strong>. #1 is the highest rank. Combined and reranker scores use different scales; a higher score is better within each step.</p>
         {step ? <p>Measured on {ablation?.scored_query_count} graded searches: reranking moved the ordering score by {signedScore(step.mean_difference)} on average, {step.separable ? "more than" : "inside"} the spread of the per-search differences.</p> : null}
-        <KeepInMind>{LESSONS.rank}</KeepInMind>
+        <KeepInMind>{LESSONS.rerank}</KeepInMind>
       </div>
     </div>
     <h3 className="pg-subhead">Everything it returned.</h3>
@@ -172,6 +174,7 @@ function ProductSearchLinks({ product, receipts, running, onSelect }: {
   onSelect: (searchId: string, productId: number) => void;
 }) {
   const matches = receipts.flatMap((receipt, index) => {
+    if (receipt.origin === "reference") return [];
     const result = receipt.response?.results.find((item) => item.product_id === product.product_id);
     return result ? [{ receipt, index, rank: result.signals?.final_rank }] : [];
   });
@@ -267,7 +270,7 @@ function RequestStage({ selectedId, carried, question, context, notice, runButto
       <div><h2>{question || "No request is available"}</h2><p>{context}</p></div>
       {runButton}
     </div>
-    {notice ? <details className="pg-request-guide"><summary>What to look for</summary><p className="pg-notice">{notice} Each search passes through Retrieve and Rank; Reason can request more searches before comparing the sources.</p></details> : null}
+    {notice ? <details className="pg-request-guide"><summary>What to look for</summary><p className="pg-notice">{notice} Each search passes through Retrieve, Rank and Re-rank; Reason can request more searches before comparing the sources.</p></details> : null}
   </section>;
 }
 
@@ -307,7 +310,7 @@ function RunNotes({ carried, started, running, error, receipts, selected, onRest
       {started ? <button type="button" disabled={running} onClick={onRestore}>Back to saved Shop results <ArrowRight size={14} aria-hidden="true" /></button> : <Link className="inspector-lab-details-link" href={labDetailsHref}>Open lab details</Link>}
     </div> : null}
     {error ? <p className="inspector-error" role="alert">{error}</p> : null}
-    {receipts.length > 1 ? <div className="inspector-search-selector pg-search-selector"><label htmlFor="inspector-search">Search shown in Retrieve and Rank</label><select id="inspector-search" value={selected?.id} onChange={(event) => onSelectSearch(event.target.value)}>{receipts.map((item, index) => <option key={item.id} value={item.id}>{index + 1}. {item.response?.query ?? "Reading search…"}</option>)}</select><p>Counts and ranks stay on the selected search. Choose another search here or follow a pick in Reason.</p></div> : null}
+    {receipts.length > 1 ? <div className="inspector-search-selector pg-search-selector"><label htmlFor="inspector-search">Search shown in Retrieve, Rank and Re-rank</label><select id="inspector-search" value={selected?.id} onChange={(event) => onSelectSearch(event.target.value)}>{receipts.map((item, index) => <option key={item.id} value={item.id}>{index + 1}. {item.origin === "reference" ? "Original search · " : ""}{item.response?.query ?? "Reading search…"}</option>)}</select><p>Counts and ranks stay on the selected search. Choose another search here or follow a pick in Reason.</p></div> : null}
     {selected ? <details className="pg-search-record"><summary>Search record and interpretation</summary><p className="inspector-receipt pg-record">Search {receipts.indexOf(selected) + 1}{selected.response ? ` · ${selected.response.query}` : selected.error ? " · Could not load" : " · Reading…"}<span>Search record <code>{selected.id}</code></span></p>{selected.response ? <MethodReads response={selected.response} label={`Search ${receipts.indexOf(selected) + 1} reads it as`} /> : null}</details> : null}
     {selected?.error ? <p className="inspector-error" role="alert">This record could not be read: {selected.error} {carried && !started ? "Reload this page to retry the saved Shop search." : "Start a new run to try again."}</p> : null}
   </div>;
@@ -342,11 +345,11 @@ function PipelineInspector() {
   const [receiptId, setReceiptId] = useState<number | null>(null);
   useEffect(() => { setExpanded(linkedInspection()); setSelectedId(null); setHighlightedId(null); setReceiptId(null); }, [requestKey]);
   useEffect(() => {
-    if (!expanded.rank || highlightedId == null) return;
+    if (!expanded.rerank || highlightedId == null) return;
     const target = document.getElementById(`ranked-product-${highlightedId}`);
     target?.scrollIntoView({ block: "nearest" });
     target?.focus({ preventScroll: true });
-  }, [expanded.rank, highlightedId, selectedId, pipeline.receipts]);
+  }, [expanded.rerank, highlightedId, selectedId, pipeline.receipts]);
   const selected = pipeline.receipts.find((item) => item.id === selectedId) ?? pipeline.receipts[0];
   const response = selected?.response;
   const products = response?.results ?? [];
@@ -363,38 +366,52 @@ function PipelineInspector() {
   const eligible = runFilters.category_key ? runFilters.category_key.replaceAll("-", " ") : "Whole catalog";
   const reset = () => { setSelectedId(null); setHighlightedId(null); setReceiptId(null); };
   const inspect = (stage: Inspection) => { setHighlightedId(null); setExpanded((value) => ({ ...value, [stage]: !value[stage] })); };
-  const showReceipt = (productId: number) => { setReceiptId(productId); document.getElementById("inspect-rank")?.scrollIntoView({ behavior: "smooth", block: "start" }); };
-  const inspectProduct = (id: string, productId: number) => { setSelectedId(id); setHighlightedId(productId); setReceiptId(productId); setExpanded((value) => ({ ...value, rank: true })); };
+  const showReceipt = (productId: number) => { setReceiptId(productId); document.getElementById("inspect-rerank")?.scrollIntoView({ behavior: "smooth", block: "start" }); };
+  const inspectProduct = (id: string, productId: number) => { setSelectedId(id); setHighlightedId(productId); setReceiptId(productId); setExpanded((value) => ({ ...value, rerank: true })); };
   const renderSearchLink = (product: ProductSummary) => <ProductSearchLinks product={product} receipts={pipeline.receipts} running={pipeline.running} onSelect={inspectProduct} />;
+  const agentRequest = Boolean(selectedRequest && !primaryRequestIds.has(selectedRequest.id) && !params.has("q") && !carriedEvent);
   const runLabel = pipeline.running
     ? pipeline.completed ? "Finishing up" : ({ retrieve: "Finding products", rank: "Comparing matches", reason: "Preparing the answer" })[pipeline.phase ?? "retrieve"]
-    : pipeline.reading ? "Reading saved search" : pipeline.error ? "Try again" : pipeline.completed ? "Run again" : carriedEvent ? "Start a new run" : "Run Mosaic";
+    : pipeline.reading ? "Reading saved search" : pipeline.error ? "Try again" : pipeline.completed ? "Run again" : agentRequest ? "Run Mosaic" : "Run search";
   const columnState = (stage: Inspection): ColumnState => {
-    if (!pipeline.started) return "idle";
-    if (pipeline.completed) return "complete";
-    if (stage === pipeline.phase) return pipeline.error ? "failed" : pipeline.running ? "active" : "pending";
-    const order: Inspection[] = ["retrieve", "rank", "reason"];
-    if (pipeline.phase && order.indexOf(stage) < order.indexOf(pipeline.phase)) return "complete";
-    return pipeline.error ? "blocked" : "pending";
+    if (stage === "reason") {
+      if (!pipeline.started) return "idle";
+      if (pipeline.completed) return "complete";
+      return pipeline.error ? "failed" : pipeline.running ? "active" : "idle";
+    }
+    if (response?.diagnostics) {
+      if (stage === "rerank" && response.diagnostics.rerank_status !== "applied") return "blocked";
+      return "complete";
+    }
+    if (response) return "idle";
+    return pipeline.error ? "blocked" : pipeline.running ? "pending" : "idle";
   };
   const context = `Alex’s workspace${catalogCount ? ` · Catalog: ${catalogCount.toLocaleString()} products` : ""}${runFilters.category_key ? ` · Filter: ${runFilters.category_key.replaceAll("-", " ")}` : ""}`;
-  const runButton = <MosaicRunButton type="button" className="inspector-play" label={runLabel} showLabel running={pipeline.running} disabled={pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} onClick={() => { reset(); setExpanded({ retrieve: false, rank: false, reason: false }); void pipeline.play(question, runFilters); }} />;
+  const runButton = <MosaicRunButton type="button" className="inspector-play" label={runLabel} showLabel running={pipeline.running} disabled={pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} onClick={() => { reset(); setExpanded({ retrieve: false, rank: false, rerank: false, reason: false }); void (agentRequest ? pipeline.play(question, runFilters) : pipeline.search(question, runFilters)); }} />;
   return <div className="page pg-a pipeline-inspector">
     <MosaicLabsTabs active="retrieval" />
     <RequestStage selectedId={selectedRequest?.id} carried={params.has("q") || Boolean(carriedEvent)} question={question} context={context} notice={!params.has("q") && !carriedEvent ? selectedRequest?.notice : undefined} runButton={runButton} onChoose={(id) => setParams(new URLSearchParams({ scene: id }))} />
     <p className="pg-run-status" role="status">{pipeline.reading ? "Reading the saved Shop search…" : pipeline.status || (carriedEvent ? "Saved Shop search" : "Ready to follow Alex’s request.")}</p>
     {pipeline.completed && pipeline.answer ? <RunSummary answer={pipeline.answer} receipts={pipeline.receipts} onInspect={inspectProduct} /> : null}
-    <RunNotes carried={Boolean(carriedEvent)} started={pipeline.started} running={pipeline.running} error={pipeline.error} receipts={pipeline.receipts} selected={selected} onRestore={() => { reset(); setExpanded({ retrieve: false, rank: false, reason: false }); pipeline.restoreSavedSearch(); }} onSelectSearch={(id) => { setSelectedId(id); setHighlightedId(null); setReceiptId(null); }} labDetailsHref={`/labs/retrieval?${labDetailsParams}`} labOutcome={labOutcome} />
+    <RunNotes carried={Boolean(carriedEvent)} started={pipeline.started} running={pipeline.running} error={pipeline.error} receipts={pipeline.receipts} selected={selected} onRestore={() => { reset(); setExpanded({ retrieve: false, rank: false, rerank: false, reason: false }); pipeline.restoreSavedSearch(); }} onSelectSearch={(id) => { setSelectedId(id); setHighlightedId(null); setReceiptId(null); }} labDetailsHref={`/labs/retrieval?${labDetailsParams}`} labOutcome={labOutcome} />
     {products[0] ? <LeadResult product={products[0]} imageSrc={images.get(products[0].product_id)} searchNumber={selected ? pipeline.receipts.indexOf(selected) + 1 : 1} verdict={verdict} missionNote={missionNote(mission, products[0])} onWhy={() => showReceipt(products[0].product_id)} /> : null}
-    <StageSection stage="retrieve" state={columnState("retrieve")} title="Retrieve" heading="How it got here." lede="Filters decide what is eligible. Three methods find candidates, and fusion combines their positions." expanded={expanded.retrieve} onInspect={() => inspect("retrieve")} detailsLabel="Search details" details={<RetrieveDetails response={response} receipts={pipeline.receipts} selectedId={selected?.id} onSelect={(id) => { setSelectedId(id); setHighlightedId(null); setReceiptId(null); }} />}>
+    <StageSection stage="retrieve" state={columnState("retrieve")} title="Retrieve" heading="How it got here." lede="Filters decide what is eligible. Three methods find candidates within those filters. Rank combines their positions; Re-rank evaluates the resulting pool." expanded={expanded.retrieve} onInspect={() => inspect("retrieve")} detailsLabel="Search details" details={<RetrieveDetails response={response} receipts={pipeline.receipts} selectedId={selected?.id} onSelect={(id) => { setSelectedId(id); setHighlightedId(null); setReceiptId(null); }} />}>
       <RetrievalPath response={response} catalogCount={catalogCount} eligible={eligible} />
       {!response && pipeline.error ? <p className="inspector-waiting">No search results are available from this run.</p> : null}
       <div className="pg-retrieve-notes"><KeepInMind>{LESSONS.retrieve}</KeepInMind><MethodComparison response={response} ablation={ablation} /></div>
     </StageSection>
-    <StageSection stage="rank" state={columnState("rank")} title="Rank" heading="Why this position." lede="One line for each method that found the product, then the combined score and the reranker. Choose Receipt on any result to read its lines." expanded={expanded.rank} onInspect={() => inspect("rank")} detailsLabel="Why the order changed" details={<RankDetails response={response} images={images} highlightedId={highlightedId} />}>
+    <StageSection stage="rank" state={columnState("rank")} title="Rank" heading="Which candidates made the cut?" lede="RRF combines the three source positions and keeps a bounded pool. Lab 2a repairs these contributions before any product reaches the reranker." expanded={expanded.rank} onInspect={() => inspect("rank")} detailsLabel="Fusion details" details={response ? <PersistedRunDisclosures response={response} /> : <p>Run a search to inspect its fusion record.</p>}>
+      {response?.diagnostics?.retrieval_profile ? <RrfMath response={response} /> : <p className="inspector-waiting">Each source position contributes to the combined order.</p>}
+      <KeepInMind>{LESSONS.rank}</KeepInMind>
+    </StageSection>
+    <StageSection stage="rerank" state={columnState("rerank")} title="Re-rank" heading="Why this position." lede="The reranker evaluates the same candidate pool against the same request. Lab 2b compares combined and final positions, then checks whether a tuning proposal improves judged queries." expanded={expanded.rerank} onInspect={() => inspect("rerank")} detailsLabel="Why the order changed" details={<><CandidatePoolOrder response={response} /><RankDetails response={response} images={images} highlightedId={highlightedId} /></>}>
       <RankBody response={response} receiptProduct={receiptProduct} ablation={ablation} stopped={Boolean(pipeline.error)} images={images} onSelect={showReceipt} />
     </StageSection>
     <StageSection stage="reason" state={columnState("reason")} title="Reason" heading="Then the agent compares and cites." lede="A Strands agent calls the same search as a tool, reads each pick’s evidence, and answers only from sources the application registered." expanded={expanded.reason} onInspect={() => inspect("reason")} detailsLabel="Steps and sources" details={<ReasonEvidence answer={pipeline.completed ? pipeline.answer : null} trace={pipeline.trace} failed={Boolean(pipeline.error)} />}>
+      {!agentRequest ? <div className="pg-reason-start">
+        <p>Ask the agent about this same need and filters. Its focused searches get their own records; the original search stays available in the selector above.</p>
+        <MosaicRunButton type="button" label={pipeline.completed ? "Ask again" : "Ask about this need"} showLabel running={pipeline.running && pipeline.started} disabled={pipeline.running || pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} onClick={() => { void pipeline.play(question, runFilters); }} />
+      </div> : null}
       <ReasonBody answer={pipeline.answer} partial={pipeline.partial} streamed={pipeline.streamed} completed={pipeline.completed} running={pipeline.running} active={pipeline.phase === "reason"} hasSearch={Boolean(response)} failed={Boolean(pipeline.error)} renderSearchLink={renderSearchLink} multipleSearches={pipeline.receipts.length > 1} />
       {pipeline.runId ? <p className="pg-run-id">Agent record <code>{pipeline.runId}</code></p> : null}
     </StageSection>

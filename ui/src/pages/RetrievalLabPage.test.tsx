@@ -184,7 +184,7 @@ vi.mock("../components/RepairEvidence", () => ({
 const SCROLL_MARGIN_SELECTORS = [".labs-stage-copy h2", ".labs-repair h3"];
 
 /** Every stage link the rail carries, in the order it carries them. */
-const RAIL_STAGES = ["Retrieve", "Rank", "Reason", "Prove"];
+const RAIL_STAGES = ["Retrieve", "Rank", "Re-rank", "Reason", "Prove"];
 
 // Resolved off this file rather than off the working directory, and not with
 // `new URL(..., import.meta.url)`: Vite rewrites that exact pattern into an
@@ -676,12 +676,12 @@ describe("RetrievalLabPage", () => {
       [...container.querySelectorAll(".labs-stage-number")].map(
         (node) => node.textContent,
       ),
-    ).toEqual(["01", "02", "03"]);
+    ).toEqual(["01", "02", "03", "04"]);
     expect(
       [...container.querySelectorAll(".labs-stage-copy h2")].map(
         (node) => node.textContent,
       ),
-    ).toEqual(["Retrieve", "Rank", "Reason", "Prove"]);
+    ).toEqual(["Retrieve", "Rank", "Re-rank", "Reason", "Prove"]);
   });
 
   it("opens each stage summary with the outcome that stage produces", () => {
@@ -698,9 +698,9 @@ describe("RetrievalLabPage", () => {
       "Find the missing product. Check the request, the filters, and what each search method found.",
     );
     expect(summaries[1]).toBe(
-      "Check what reached reranking. Inspect each search position, the combined order, and the final order—in that sequence.",
+      "Lab 2a: repair the source-position contributions and inspect which candidates survived fusion.",
     );
-    expect(summaries[2]).toBe(
+    expect(summaries[3]).toBe(
       "Support the agent's answer with sources. Which products and evidence the agent"
       + " received, what the application allowed into the answer, and whether"
       + " every citation resolves.",
@@ -802,7 +802,7 @@ describe("RetrievalLabPage", () => {
       group.getAttribute("label"),
     );
 
-    expect(groups).toEqual(["Retrieve", "Rank", "Reason", "Advanced"]);
+    expect(groups).toEqual(["Retrieve", "Rank & Re-rank", "Reason", "Advanced"]);
     expect(
       [...select.querySelectorAll("option")].map((option) => option.textContent),
     ).toEqual(

@@ -2,10 +2,10 @@
 
 ## Session promise
 
-Attendees repair one retrieval system in three stages:
+Attendees repair one retrieval system across four phases in three labs:
 
 ```text
-RETRIEVE -> RANK -> REASON
+RETRIEVE -> RANK -> RE-RANK -> REASON
 ```
 
 The thesis is **retrieval correctness is a pipeline property, not a top-1
@@ -16,6 +16,7 @@ inside the broken boundary still works:
 
 - **Retrieve:** did the right eligible candidates enter the pool?
 - **Rank:** was that pool combined correctly before reranking?
+- **Re-rank:** how does product text change the order within that same pool?
 - **Reason:** can synthesis cite only evidence attached to the answer's citation
   scope?
 
@@ -26,10 +27,10 @@ inside the broken boundary still works:
 
 | Time | Stage | Required outcome | Stable eval anchors |
 |---:|---|---|---|
-| 0-10 min | Introduction / Overview / Presentation | Meet Alex, frame the three lessons and architecture | `typo-recovery` before repair |
+| 0-10 min | Introduction / Overview / Presentation | Meet Alex, frame the four phases and architecture | `typo-recovery` before repair |
 | 10-20 min | Retrieve | Reconnect one candidate arm and prove target recovery without weakening eligibility | `typo-recovery`, with control anchors |
-| 20-30 min | Rank | Repair one RRF formula and keep the suitable monitor inside the reranker input | `rank-with-evidence`, with control anchors |
-| 30-50 min | Reason | Attach evidence identity to synthesis state, prove citation scope and run the completion gate | `agentic-research`, with one evidence control |
+| 20-30 min | Rank (2a) and Re-rank (2b) | Repair one RRF formula and keep the suitable monitor inside the reranker input | `rank-with-evidence`, with control anchors |
+| 30-50 min | Reason | Assemble and deploy the agent, complete the room with cited evidence, and run the completion gate | `agentic-research`, with one evidence control |
 | 50-60 min | Flex | Use one optional lab, recover, or take questions | n/a |
 
 The stable IDs remain evaluation identifiers and starter-gap ownership keys.
@@ -41,7 +42,7 @@ The Workshop Studio guide names the three required labs and the order to take
 them; the Playground landing (`/labs/retrieval` with no saved Shop search) opens
 on Alex's requests. Scale & HNSW and Session & Memory stay optional; a
 participant can finish the required sequence without opening either. Inside a lab, `LabRail` keeps the same three facts in view: which
-lab, which of its four stages (Retrieve, Rank, Reason, Prove) is current, and
+lab, which phase (Retrieve, Rank, Re-rank, Reason) or Prove is current, and
 the file the repair belongs in. Completion is never inferred from having
 visited a page -- only `POST /api/labs/{id}/proof`, run from the Prove stage,
 can mark a lab passed.
@@ -126,14 +127,14 @@ The working contracts remain:
 - `explain_retrieval`;
 - `synthesize_cited_answer`.
 
-The participant restores the five-line evidence-state boundary. The model can
+The participant assembles the supplied Strands agent and deploys it to AgentCore Runtime. The model can
 request a tool, but the application decides whether it executes. The model can
 read returned evidence, but that alone does not make the evidence citable. The
 trace, persisted retrieval-run IDs, and resolvable evidence IDs prove which
 tools, candidates, and records inside the answer's citation scope produced the
-recommendation. The completion gate also requires two distinct focused searches:
-one retrieval receipt must cover the chair target and another must cover the
-monitor target. A single broad search cannot satisfy decomposition.
+recommendation. The completion gate also requires three distinct focused searches:
+one retrieval receipt for each headphone, monitor and chair target, with all
+three in the comparison and final shortlist. A single broad search cannot satisfy decomposition.
 
 The implementation is intentionally narrow: one Strands agent, a bounded tool
 budget, one repair attempt after invalid synthesis, and no delegation or
@@ -146,14 +147,14 @@ control, then changes the evidence ID, quote and revision in memory. It also
 executes the production named-product citation guard with the other product's
 record. No database record is changed. This checks specific failure modes,
 not general semantic truth. The final brief returns to all three items:
-headphones, the recovered monitor and a wheeled chair, with unknown microphone
+headphones, the recovered monitor and the adjustable chair, with unknown microphone
 performance, laptop compatibility and personal comfort stated separately.
 
 ## Prove (unnumbered finale)
 
 Prove is included inside Lab 3's 20-minute budget, not an additional lab.
 Run the three validators, inspect a saved plan, and resolve citations from the
-monitor/chair answer and the headphone evidence control. The required path
+complete-room answer and the headphone evidence control. The required path
 contains three repairs and five controls. A separate representative evaluation
 is needed to make whole-catalog ranking claims.
 

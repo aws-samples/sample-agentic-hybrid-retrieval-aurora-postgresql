@@ -49,7 +49,7 @@ The detail photograph is bound to product 420001, so similarly named models
 cannot inherit it.
 
 Discover, Shop and the required Lab 3 now follow headphones, a chair and a
-monitor, matching the presentation. The mission manifest owns the monitor-and-chair
+monitor, matching the presentation. The mission manifest owns the headphones, monitor and chair
 request and its citation requirements. Product text, embeddings and retrieval
 settings are unchanged by that exercise update. Earlier scorecards are historical;
 release requires fresh measurements against the reviewed questions.

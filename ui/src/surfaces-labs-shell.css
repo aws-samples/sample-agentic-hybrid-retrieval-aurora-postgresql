@@ -66,7 +66,7 @@
 
 /* Sticky under the site header rather than under the lens strip's own offset:
    the strip scrolls away, the rail does not, so a participant who has scrolled
-   to Stage 03 can still read which lab they are in and what they were asked to
+   to Reason can still read which lab they are in and what they were asked to
    edit. */
 .labs-rail {
   position: sticky;
@@ -85,7 +85,7 @@
 
 /* Condensed once it sticks. The edit line and the next-lab link fold away, the
    lab name and the stage links share one row, and the state chips keep their
-   place: a participant deep in Stage 03 still reads which lab this is and where
+   place: a participant deep in Reason still reads which lab this is and where
    it stands, in a strip a third the height. LabRail toggles the class from an
    IntersectionObserver and holds the flow footprint steady with a positive
    bottom margin, so nothing under the rail moves when it changes shape. */

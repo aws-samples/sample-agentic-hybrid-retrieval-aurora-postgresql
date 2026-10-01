@@ -888,6 +888,7 @@ def _check_tools_invoked(
     evidence: AgentEvidence,
     *,
     require_comparison: bool = True,
+    required_targets: frozenset[int] = frozenset(),
 ) -> LabCheck:
     searches = successful_steps(agent, "search_products")
     comparisons = successful_steps(agent, "compare_products")
@@ -909,6 +910,11 @@ def _check_tools_invoked(
         problems.append("Lab 3 did not return a comparison shortlist")
     elif require_comparison and len(compared & recommended) < 2:
         problems.append("Lab 3 comparison does not cover the recommendation shortlist")
+    missing_targets = sorted(required_targets - (recommended & compared))
+    if require_comparison and missing_targets:
+        problems.append(
+            f"Lab 3 final comparison omits required product(s) {missing_targets}"
+        )
     if ungrounded:
         problems.append(
             f"Lab 3 recommended product(s) {ungrounded} absent from persisted "
@@ -924,7 +930,8 @@ def _check_tools_invoked(
         falsifier=(
             "the answer has no supported product, omits successful retrieval or "
             "a comparison required by its mission, or names a product no receipt granted -- the "
-            "shape of an answer the model wrote rather than retrieved."
+            "shape of an answer the model wrote rather than retrieved. A required "
+            "room product missing from the comparison or final shortlist also fails."
         ),
         detail=(
             f"{len(searches)} search(es) and {len(comparisons)} comparison(s) "
@@ -1088,7 +1095,7 @@ def _check_execution_origins(agent: Mapping[str, Any]) -> LabCheck:
                 f"execution origin for step(s) {unattributed}"
                 if unattributed
                 else "an empty tool trace",
-                "run Stage 03 again so the agent calls at least one tool",
+                "run Reason again so the agent calls at least one tool",
             )
         ),
     )
@@ -1255,6 +1262,9 @@ def agent_response_checks(
                 evidence,
                 require_comparison="comparison_tool_called"
                 in mission.get("assertions", ["comparison_tool_called"]),
+                required_targets=frozenset(mission.get("target_product_ids") or [])
+                if mission.get("requires_independent_target_searches")
+                else frozenset(),
             ),
             _check_evidence_retrieved(agent),
             _check_ranking_explanation(mission, agent, evidence),
@@ -1270,9 +1280,9 @@ def agent_response_checks(
 # Lab 3 -- the retrieval agent, graded over persisted rows
 # ---------------------------------------------------------------------------
 
-STAGE_03_FIX = (
+REASON_FIX = (
     f"deploy your agent with {DEPLOY_AGENT}, because Mosaic runs the deployed "
-    "copy, not the file in Code Editor; then run Stage 03 (Reason) on the "
+    "copy, not the file in Code Editor; then run Reason on the "
     "Playground and submit the agent_run_id it returns"
 )
 
@@ -1286,13 +1296,13 @@ def missing_run_detail(requested_run_id: str | None) -> str:
     """
     if requested_run_id is None:
         return explain(
-            "no agent_run_id was submitted, so no Stage 03 turn was named to grade",
-            STAGE_03_FIX,
+            "no agent_run_id was submitted, so no Reason turn was named to grade",
+            REASON_FIX,
         )
     return explain(
         f"no persisted agent turn under agent_run_id {requested_run_id}, so "
-        "Stage 03 produced no receipts to grade",
-        STAGE_03_FIX,
+        "Reason produced no receipts to grade",
+        REASON_FIX,
     )
 
 
@@ -1320,7 +1330,7 @@ def _proof_answer(run: PersistedAgentRun | None, missing_detail: str) -> LabChec
         "answer of record present",
         passed=bool(message.strip()),
         falsifier=(
-            "mosaic.agent_turn.assistant_message is null: Stage 03 never wrote "
+            "mosaic.agent_turn.assistant_message is null: Reason never wrote "
             "an answer of record, which is what an ungrounded run looks like "
             "once the evidence state is detached from synthesis."
         ),
@@ -1329,7 +1339,7 @@ def _proof_answer(run: PersistedAgentRun | None, missing_detail: str) -> LabChec
             if message.strip()
             else explain(
                 "mosaic.agent_turn.assistant_message is empty",
-                STAGE_03_FIX,
+                REASON_FIX,
             )
         ),
         run=run,
@@ -1358,7 +1368,7 @@ def _proof_outcome(run: PersistedAgentRun | None, missing_detail: str) -> LabChe
         detail=(
             explain(
                 "the persisted answer of record declined the Lab 3 question",
-                STAGE_03_FIX,
+                REASON_FIX,
             )
             if declined
             else f"outcome {outcome or 'grounded'}: synthesis was attempted"
@@ -1387,7 +1397,7 @@ def _proof_synthesis(run: PersistedAgentRun | None, missing_detail: str) -> LabC
                 f"synthesize_cited_answer outcome={outcome!r} over "
                 f"{len(scope)} selected product(s)",
                 "attach retrieved evidence IDs to agent state by product "
-                "before synthesis, then re-run Stage 03",
+                "before synthesis, then re-run Reason",
             )
         ),
         run=run,
@@ -1474,7 +1484,7 @@ def _proof_evidence(run: PersistedAgentRun | None, missing_detail: str) -> LabCh
                 f"{len(successful)} successful evidence event(s), empty for "
                 f"{empty}, missing for {missing}",
                 "retrieve evidence for every selected product before "
-                "synthesis, then re-run Stage 03",
+                "synthesis, then re-run Reason",
             )
         ),
         run=run,
@@ -1529,7 +1539,7 @@ def lab_3_proof_checks(
 
     `run` is `None` in two different cases, and `requested_run_id` separates
     them: nothing was submitted, or the submitted id names no persisted turn.
-    Every check is still returned, failed, naming Stage 03 -- so the count
+    Every check is still returned, failed, naming Reason -- so the count
     stays a stable witness and the participant is told where to produce a run
     rather than reading an empty list as a pass.
 

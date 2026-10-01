@@ -55,10 +55,11 @@ describe("LabRail", () => {
 
   afterEach(cleanup);
 
-  const STAGE_LABELS = ["Retrieve", "Rank", "Reason", "Prove"];
+  const STAGE_LABELS = ["Retrieve", "Rank", "Re-rank", "Reason", "Prove"];
   const STAGE_HREFS = [
     "#labs-stage-retrieve",
     "#labs-stage-rank",
+    "#labs-stage-re-rank",
     "#labs-stage-reason",
     "#labs-stage-prove",
   ];
@@ -72,7 +73,7 @@ describe("LabRail", () => {
       within(rail)
         .getAllByRole("link")
         .map((link) => link.getAttribute("href"))
-        .slice(0, 4),
+        .slice(0, 5),
     ).toEqual(STAGE_HREFS);
     // Four links in the list, not four among more: the rail used to carry a
     // three-beat vocabulary of its own for the same sections the page already
@@ -111,7 +112,7 @@ describe("LabRail", () => {
       expect(
         within(rail)
           .getAllByRole("link")
-          .slice(0, 4)
+          .slice(0, 5)
           .map((link) => link.getAttribute("href")),
       ).toEqual(STAGE_HREFS);
       expect(

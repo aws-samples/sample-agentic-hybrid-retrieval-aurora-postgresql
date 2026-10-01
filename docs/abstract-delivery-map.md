@@ -36,7 +36,7 @@ contract), and each is graded against an answer the grader computes itself.
   results.**
 - **Lab 3 — Build and deploy the agent · 20 min.** Participants connect the
   Gateway SQL tools, complete the Strands agent constructor, add an instruction
-  and deploy it to AgentCore Runtime. They ask Alex's monitor/chair question,
+  and deploy it to AgentCore Runtime. They ask Alex's three-product room question,
   open a citation and change a requirement in a follow-up. The actual managed
   run is checked at completion without another model call. **Lesson: the SQL
   from Labs 1 and 2 becomes a managed agent capability, with product claims
@@ -61,7 +61,7 @@ re-embedded on each run, so the guides print no fixed number.
 | Source attribution | Reason | Build the agent, ask a product question and open its citations |
 | Retrieval diagnostics | All three labs | Read filters, candidate positions, fused rank, reranked rank, evidence IDs and the agent's ordered tool sequence |
 | Wire retrieval into agent tools | Reason; build-a-tool flex | Connect the SQL tools through Gateway and deploy the Strands agent to Runtime |
-| Decompose questions | Reason; Plan my workspace | Read the agent's separate monitor and chair searches and their filters |
+| Decompose questions | Reason; Complete my room | Read the agent's separate headphone, monitor and chair searches and their filters |
 | Gather targeted evidence | Reason | Inspect the evidence tool and the product records it returned |
 | Compare sources | Reason; Check the sources | Count cited specifications and reviews against imported reviews and source rating counts |
 | Explain ranking signals | Rank; agent activity | Inspect source positions, fusion contributions and the explanation tool |

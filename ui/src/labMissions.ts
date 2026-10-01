@@ -95,10 +95,8 @@ interface MosaicLabManifest {
       id: string;
       label: string;
       shop_label: string;
-      query: string;
-      filters: SearchFilters;
       notice: string;
-    }>;
+    } & ({ mission_id: string } | { query: string; filters: SearchFilters })>;
   };
 }
 
@@ -107,7 +105,7 @@ export const coreMosaicLabs = mosaicLabManifest.missions;
 export const supportingMosaicChecks = mosaicLabManifest.supporting_checks;
 
 export function resolveShopExamples(manifest: MosaicLabManifest) {
-  const requests = [...manifest.missions, ...manifest.supporting_checks, ...manifest.playground.requests];
+  const requests = [...manifest.missions, ...manifest.supporting_checks, ...resolvePipelineRequests(manifest)];
   return manifest.playground.shop_examples.map((example) => {
     const request = requests.find((item) => item.id === example.reference_id);
     if (!request) throw new Error(`Unknown Shop example ${example.reference_id}; link an existing request.`);
@@ -117,24 +115,22 @@ export function resolveShopExamples(manifest: MosaicLabManifest) {
 
 export const shopSearchExamples = resolveShopExamples(mosaicLabManifest);
 
-/** Resolve graded requests from their mission so the demo cannot fork its query or filters. */
-export function resolvePipelineRequests(manifest: MosaicLabManifest) {
-  return [
-    ...manifest.playground.requests,
-    ...manifest.playground.guided_requests.map((request) => {
-      if (!("mission_id" in request)) return request;
-      const mission = manifest.missions.find((item) => item.id === request.mission_id);
-      if (!mission) throw new Error(`Unknown Playground mission ${request.mission_id}; use an id from missions.`);
-      return { ...request, query: mission.query, filters: mission.filters };
-    }),
-  ];
+/** Keep every pill's lab request tied to the mission that owns it. */
+export function resolvePipelineRequests(manifest: MosaicLabManifest): Array<{ id: string; label: string; shop_label: string; notice: string; query: string; filters: SearchFilters; mission_id?: string }> {
+  const missions = [...manifest.missions, ...manifest.supporting_checks];
+  return [...manifest.playground.requests, ...manifest.playground.guided_requests].map((request) => {
+    if (!("mission_id" in request)) return { ...request, shop_label: "shop_label" in request ? String(request.shop_label) : request.label };
+    const mission = missions.find((item) => item.id === request.mission_id);
+    if (!mission) throw new Error(`Unknown Playground mission ${request.mission_id}; use an id from missions or supporting_checks.`);
+    return { ...request, shop_label: "shop_label" in request ? String(request.shop_label) : request.label, query: mission.query, filters: mission.filters };
+  });
 }
 
 export const pipelineRequests = resolvePipelineRequests(mosaicLabManifest);
 
 
 export function workspaceRequests(filters: SearchFilters, resolveFilters = (value: SearchFilters) => value) {
-  return mosaicLabManifest.playground.requests.map((request) => ({
+  return pipelineRequests.map((request) => ({
     ...request, filters: resolveFilters(request.filters),
   })).filter((request) =>
     (!filters.domain || request.filters.domain === filters.domain) &&
@@ -153,7 +149,7 @@ const STAGE_ORDER: MosaicLabStage[] = ["retrieve", "rank", "reason", "optimize"]
 
 export const stageLabels: Record<MosaicLabStage, string> = {
   retrieve: "Retrieve",
-  rank: "Rank",
+  rank: "Rank & Re-rank",
   reason: "Reason",
   optimize: "Advanced",
 };
