@@ -206,7 +206,7 @@ export function SessionMemoryPage() {
           <button type="button" className="secondary-button" onClick={startNew} disabled={locked}>Start a new session for this question</button>
           <p><strong>Find relevant memories</strong> only previews saved records. <strong>Ask Mosaic</strong> runs the agent and writes an answer.</p>
           <details className="memory-lab-checkpoints">
-            <summary>Walk through the Lab 4 checks</summary>
+            <summary>Walk through the memory checks</summary>
             <ol className="memory-rehearsal">{memoryLab.checkpoints.map((checkpoint) => <li key={checkpoint}>{checkpoint}</li>)}</ol>
             <p className="memory-empty">{memoryLab.placement}</p>
           </details>
