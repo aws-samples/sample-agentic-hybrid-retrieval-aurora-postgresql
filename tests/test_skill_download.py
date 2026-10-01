@@ -17,6 +17,7 @@ def test_download_contains_the_complete_canonical_skill():
     expected = {
         "SKILL.md",
         "references/http-api.md",
+        "references/mcp.md",
         "references/composition.md",
         "references/adapting.md",
         "references/quality-checks.md",

@@ -4,7 +4,7 @@
 
 This is a reveal, not a lab. It occupies 2 to 3 minutes of the 5-minute scorecard
 segment. It adds no required exercise, no provisioning, and no fourth lab. The
-required path remains Retrieve, Rank, Reason. The subject of this document is
+required path remains Retrieve, Rank, Re-rank, Reason across three labs. The subject of this document is
 composability — what a capability lets another agent consume, and what it keeps
 hidden — not a tutorial on any particular transport protocol.
 
@@ -40,10 +40,12 @@ event, but this workshop does not bind event replay to a principal. The
 strategy ran, what was fused, what was granted, and to what `authorized_limit`.
 
 Do not infer transport parity from the shared capability registry. The HTTP
-skill surface has four operations. MCP has three: `search_products`,
-`get_product_evidence`, and the transport-specific `inspect_retrieval_run`; it
-does not expose `compare_products`. Shared capabilities preserve their semantic
-payload, while wire names, accepted inputs, and envelopes may differ by adapter.
+skill surface has four operations. MCP has four: `search_products`,
+`get_product_evidence`, `compare_products`, and the transport-specific
+`inspect_retrieval_run`. The latter accepts `run_id`, while the HTTP skill calls
+ranking inspection `explain_retrieval` with `retrieval_scope_id`. Shared
+capabilities preserve their semantic payload, while wire names, accepted inputs,
+and envelopes may differ by adapter. See [the MCP mapping](mcp.md).
 
 A parent agent composing several capabilities sees only this:
 
@@ -147,13 +149,13 @@ the mechanics, not about who is permitted to see them.
       |                   |                   |
    HTTP / API            MCP                 A2A
       |                   |                   |
-  4 operations        3 operations      documentation profile
+  4 operations        4 operations      documentation profile
   implemented         implemented          not deployed
 ```
 
-HTTP and MCP are real, running surfaces. `GET /api/tools?surface=skill` serves
+HTTP and MCP are implemented adapters; a registry entry does not prove a particular endpoint is deployed or reachable. `GET /api/tools?surface=skill` serves
 the four-operation HTTP skill contract, while `GET /api/tools?surface=mcp`
-describes the three-operation MCP projection and `make mcp-test` exercises that
+describes the four-operation MCP projection and `make mcp-test` exercises that
 adapter. The MCP inspection wire name is `inspect_retrieval_run`, and it accepts
 the search event as `run_id`; it is not a second `explain_retrieval` declaration.
 **A2A is neither.** No A2A endpoint is deployed for this workshop, and none is

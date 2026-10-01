@@ -1,3 +1,4 @@
+import { RETRIEVAL_CONNECTION_GUIDE, RetrievalTakeawayLinks } from "../components/RetrievalTakeawayLinks";
 import { ArrowRight, ArrowUpRight, Check, ChevronDown, LoaderCircle } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "wouter";
@@ -417,13 +418,15 @@ function PipelineInspector() {
     </StageSection>
     <aside className="inspector-scale-link inspector-takeaway pg-takeaway">
       <div>
-        <h2>Use what you built in your own agent</h2>
-        <p>Reuse filtered search, ranking explanations and product evidence. The implementation guide maps the code and checks; the skill provides calling instructions for a running Mosaic service.</p>
+        <h2>Take this retrieval into your own agent</h2>
+        <p>Connect retrieval tools through MCP or HTTP, then add the skill to guide the workflow. The service and database permissions control access. Catalog records stay unchanged; searches save audit records.</p>
       </div>
       <div className="inspector-takeaway-actions">
+        <a href={RETRIEVAL_CONNECTION_GUIDE} target="_blank" rel="noreferrer">Connect retrieval tools <ArrowRight size={18} aria-hidden="true" /></a>
         <a href="/api/builder-package" download>Adapt the implementation <ArrowRight size={18} aria-hidden="true" /></a>
         <a href="/api/skill-package" download>Download the skill <ArrowRight size={18} aria-hidden="true" /></a>
       </div>
+      <RetrievalTakeawayLinks />
       <nav aria-label="Optional explorations"><span>Optional</span><Link href="/labs/examples?case=saved-headphones">Compare product details</Link><Link href="/mosaic-labs/hnsw">Explore scale & HNSW</Link><Link href="/mosaic-labs/memory">Explore session & memory</Link></nav>
     </aside>
   </div>;

@@ -1,4 +1,4 @@
-# Use what you built in your own agent
+# Take this retrieval into your own agent
 
 Reuse the search, ranking and evidence operations you repaired. This guide maps
 the SQL, evaluation runner and citation checks to the files you adapt. The
@@ -8,6 +8,33 @@ Mosaic service. Your application retains responsibility for orchestration,
 answer synthesis and citation validation.
 
 Keep a full checkout of Mosaic as the runnable reference. The downloadable exercise package is a reading and adaptation kit, not a separate deployment. Dependencies are pinned in `pyproject.toml` and `uv.lock`; follow the [developer setup guide](development.md) to run the application. Mosaic uses Aurora PostgreSQL, including for local application development.
+
+## Connect tools, then add the skill
+
+1. Connect a running Mosaic service using the [MCP adapter](mcp-interoperability.md)
+   or the [HTTP contracts](../skills/mosaic-hybrid-retrieval/references/http-api.md).
+   Use the endpoint and authentication your deployment supplies. The workshop's
+   managed Lab 3 tools use IAM through Gateway; the portable adapter is a separate
+   process for another host, not a publicly deployed workshop endpoint.
+2. Download `/api/skill-package` and keep its folder intact in your agent's skill
+   directory. It guides search, comparison, ranking inspection and source checks
+   through the tools you connected. Both adapters expose those four capabilities;
+   their wire names and input shapes are documented separately.
+3. Ask for results and supporting records together. Use Mosaic's answer endpoint
+   or your host's citation validator before describing an answer as validated.
+
+Catalog-read-only means these operations do not change product records. Search
+still saves audit records. MCP annotations and skill instructions are guidance;
+service authorization and database privileges enforce access. A skill does not
+supply backend credentials, and the agent does not need an administrator DSN to
+call these tools. See [security boundaries](security-boundaries.md) before
+adapting this single-participant workshop for shared use.
+
+### Read more
+
+- [MCP: Tool Annotations as Risk Vocabulary](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations/) explains why read-only hints are not enforcement.
+- [MCP: Server Instructions](https://blog.modelcontextprotocol.io/posts/2025-11-03-using-server-instructions/) explains workflow guidance and its limits.
+- [Agent Skills overview](https://agentskills.io/home) and [format specification](https://agentskills.io/specification) describe the portable instruction package.
 
 ## Follow one request through the code
 

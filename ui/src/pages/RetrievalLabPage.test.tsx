@@ -380,9 +380,9 @@ const skillToolContracts: ToolContract[] = [
 ];
 
 /**
- * Shaped like the real MCP projection: search, evidence, and inspection.
+ * Shaped like the real MCP projection: search, evidence, comparison and inspection.
  * Inspection shares the `explain_retrieval` capability with the skill
- * surface's own `explain_retrieval` wire name; MCP does not expose comparison.
+ * surface's own `explain_retrieval` wire name; both adapters expose comparison.
  */
 const mcpToolContracts: ToolContract[] = [
   {
@@ -408,6 +408,15 @@ const mcpToolContracts: ToolContract[] = [
     capability: "explain_retrieval",
     tool_version: "1.0",
     description: "Replay a persisted retrieval event through the stateless MCP adapter.",
+    input_schema: {},
+    output_schema: {},
+    read_only: true,
+  },
+  {
+    name: "compare_products",
+    capability: "compare_products",
+    tool_version: "1.0",
+    description: "Compare products granted by a saved retrieval.",
     input_schema: {},
     output_schema: {},
     read_only: true,
@@ -486,7 +495,7 @@ function labProofFor(labId: number) {
  * disclosure left to open now that packaging is not a click behind stage 03.
  */
 async function awaitPackageFinale() {
-  await screen.findByText("Take hybrid agentic search into your own agent");
+  await screen.findByText("Take this retrieval into your own agent");
 }
 
 /** All three retrieval indexes present, valid and ready -- nothing broken. */
@@ -1108,7 +1117,7 @@ describe("RetrievalLabPage", () => {
 
     await awaitPackageFinale();
     const finale = container.querySelector(".labs-package-finale");
-    const heading = screen.getByRole("heading", { name: "Take hybrid agentic search into your own agent" });
+    const heading = screen.getByRole("heading", { name: "Take this retrieval into your own agent" });
     const header = heading.closest(".labs-package-heading");
 
     expect(finale).toBeTruthy();
@@ -1146,7 +1155,7 @@ describe("RetrievalLabPage", () => {
       "compare_products",
       "explain_retrieval",
     ]) {
-      expect(await screen.findByText(name)).toBeTruthy();
+      expect(await screen.findByText(name, { selector: ".labs-skill-capabilities code" })).toBeTruthy();
     }
 
     // Each row also carries what the operation does, which is the part another
@@ -1217,7 +1226,7 @@ describe("RetrievalLabPage", () => {
     expect(http.textContent).toMatch(/implemented/i);
     expect(http.textContent).toMatch(/4 operations/i);
     expect(mcp.textContent).toMatch(/implemented/i);
-    expect(mcp.textContent).toMatch(/3 operations/i);
+    expect(mcp.textContent).toMatch(/4 operations/i);
   });
 
   it("proves, then baselines, then packages, in that order inside the Prove section", async () => {
@@ -1264,7 +1273,7 @@ describe("RetrievalLabPage", () => {
 
     // Removed from stage 03 completely, not merely hidden there.
     expect(reasonStage.querySelector(".labs-package-finale")).toBeNull();
-    expect(within(reasonStage as HTMLElement).queryByText("Take hybrid agentic search into your own agent")).toBeNull();
+    expect(within(reasonStage as HTMLElement).queryByText("Take this retrieval into your own agent")).toBeNull();
   });
 
   it("grades Lab 3 on the run stage 03 produced, and re-reads the baseline after", async () => {

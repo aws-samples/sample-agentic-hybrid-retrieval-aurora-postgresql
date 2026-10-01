@@ -11,6 +11,8 @@ from pathlib import Path
 BUILDER_FILES = (
     "docs/build-retrieval-tool.md",
     "docs/use-in-your-app.md",
+    "docs/mcp-interoperability.md",
+    "docs/security-boundaries.md",
     "examples/call_headphones.py",
     "scripts/check_builder_tool.py",
     "db/sql/03_catalog.sql",

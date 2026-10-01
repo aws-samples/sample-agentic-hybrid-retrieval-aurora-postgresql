@@ -179,13 +179,28 @@
       "tool_version": "1.0",
       "description": "Compare two to five products authorized by the current retrieval or previous grounded answer.",
       "read_only": true,
-      "surfaces": ["agent", "skill"],
+      "surfaces": ["agent", "mcp", "skill"],
       "input_schemas": {
         "agent": {
           "type": "object",
           "additionalProperties": false,
           "required": ["product_ids"],
           "properties": {
+            "product_ids": {
+              "type": "array",
+              "items": {"type": "integer", "minimum": 1},
+              "minItems": 2,
+              "maxItems": 5,
+              "uniqueItems": true
+            }
+          }
+        },
+        "mcp": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["retrieval_scope_id", "product_ids"],
+          "properties": {
+            "retrieval_scope_id": {"type": "string", "format": "uuid"},
             "product_ids": {
               "type": "array",
               "items": {"type": "integer", "minimum": 1},
@@ -212,7 +227,7 @@
         }
       },
       "capability": "compare_products",
-      "envelope_fields": {"agent": ["ok"], "skill": ["retrieval_scope_id"]},
+      "envelope_fields": {"agent": ["ok"], "mcp": ["retrieval_scope_id"], "skill": ["retrieval_scope_id"]},
       "payload_schema": {
         "type": "object",
         "required": ["products"],

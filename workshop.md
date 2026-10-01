@@ -624,11 +624,15 @@ to manufacture a cleaner finale.
 > and requirements, then keep these three questions: did the right options get
 > in, can you explain the order, and what supports the answer?
 
-Close with **Take hybrid agentic search into your own agent** (the Playground
-calls the same section **Use what you built in your own agent**). Show **Adapt the
-implementation** for the SQL and the map to evaluations and citation checks,
-and **Download the skill** for calling instructions and API mappings. Keep the
-full checkout for the runnable reference; the skill calls its running service.
+Close with **Take this retrieval into your own agent** in the deck, Labs and
+Playground. First show **Connect retrieval tools**: MCP or HTTP connects another
+host to the running service. Then show **Download the skill**: it adds workflow
+and evidence-checking guidance for those tools. **Adapt the implementation**
+contains the SQL and the map to evaluations and citation checks. Keep the full
+checkout for the runnable reference. The tools read catalog records and save
+audit records. MCP hints and skill instructions do not enforce permissions;
+the service and database role do. Link the official MCP articles and Agent
+Skills overview/specification from the takeaway; they explain this distinction.
 Then introduce an optional extension. Memory answers “what do we remember about
 Alex?”; it does not answer “which product fact is true?”
 
@@ -734,7 +738,7 @@ The same FastAPI and Strands process participants are running is packaged for Am
 
 ### The gate is not the guard
 
-For "could a managed gateway do the authorization for us", the appendix at the end of `docs/mcp-interoperability.md` is the answer to read out. An AgentCore Gateway would authenticate callers and publish the three MCP tools, and it would still not decide which evidence an answer may cite. That decision is the one participants just built in Lab 3.
+For "could a managed gateway do the authorization for us", the appendix at the end of `docs/mcp-interoperability.md` is the answer to read out. The workshop already uses AgentCore Gateway to authenticate its managed tool calls; Mosaic still decides which evidence an answer may cite. That decision is the one participants just built in Lab 3.
 
 ## Speaker roles
 
@@ -814,9 +818,11 @@ run without another model call.
 - The reranker receives a bounded pool. It does not replace retrieval.
 - The core agent is one bounded Strands agent with five typed, read-only tools. Cross-visit preferences are an optional Memory extension; no graph traversal is claimed.
 - Aurora persists every run, candidate, evidence record and citation with an id. Ask follow-ups use prior grounded-run context. The optional Memory extension is not yet a verified event exercise. “Welcome, Alex!” alone does not establish cross-visit memory.
-- An MCP-capable agent can use the three typed catalog-read-only tools on that
-  surface. The downloadable HTTP skill exposes four operations. Read each
-  surface's declared contract rather than assuming identical tool sets.
+- The portable MCP adapter and HTTP skill surface each expose search, evidence,
+  comparison and ranking inspection. MCP calls the last tool
+  `inspect_retrieval_run(run_id)`; HTTP guidance calls it
+  `explain_retrieval(retrieval_scope_id)`. Read each adapter's inputs. The skill
+  guides tool use; access is enforced by the service and database permissions.
 
 ## Words to use
 
@@ -880,7 +886,7 @@ The method is:
 
 Finish on the checked answer and trace one claim back to its source, product
 and search. The completion gate rechecks the participant's saved runs; the
-broader scorecard is a separately dated measurement. Close with **Take hybrid agentic search into your own agent**. Download the
+broader scorecard is a separately dated measurement. Close with **Take this retrieval into your own agent**. Download the
 skill from the Labs completion panel and carry forward the full workflow:
 `tsvector` + `pg_trgm` + `pgvector` → RRF → Cohere Rerank → answers with sources.
 The package includes checks for filters, recall, ranking and citations. Any agent

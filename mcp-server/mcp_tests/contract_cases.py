@@ -82,6 +82,7 @@ async def test_mcp_negotiates_2026_protocol_and_calls_canonical_api(
         assert set(tools) == {
             "search_products",
             "get_product_evidence",
+            "compare_products",
             "inspect_retrieval_run",
         }
         assert all(tool.annotations.read_only_hint for tool in tools.values())
@@ -127,6 +128,81 @@ async def test_mcp_negotiates_2026_protocol_and_calls_canonical_api(
             },
         )
     ]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("denied", [False, True])
+async def test_comparison_preserves_scope_and_upstream_refusal(monkeypatch, denied):
+    """A changed route, dropped scope or swallowed denial must fail this check."""
+    scope = str(uuid4())
+    requests = []
+
+    def handler(request):
+        import json
+
+        requests.append((request.method, request.url.path, json.loads(request.content)))
+        if denied:
+            return httpx.Response(404, json={"detail": "Retrieval scope denied"})
+        products = [
+            {
+                "product_id": ident,
+                "sku": str(ident),
+                "title": f"Product {ident}",
+                "short_description": "Fixture",
+                "domain": "home_office",
+                "category_key": "chairs",
+                "category_path": "Office/Chairs",
+                "brand": "Fixture",
+                "model": str(ident),
+                "price_cents": None,
+                "list_price_cents": None,
+                "review_count": 0,
+                "availability": None,
+                "inventory_count": None,
+                "attributes": {},
+                "tags": [],
+            }
+            for ident in (101, 102)
+        ]
+        return httpx.Response(
+            200, json={"retrieval_scope_id": scope, "products": products}
+        )
+
+    api = CatalogApiClient(
+        base_url="http://catalog.test/api", transport=httpx.MockTransport(handler)
+    )
+    monkeypatch.setattr(server, "get_api_client", lambda: api)
+    async with Client(server.mcp, mode="auto") as client:
+        result = await client.call_tool(
+            "compare_products",
+            {"retrieval_scope_id": scope, "product_ids": [101, 102]},
+        )
+    assert requests == [
+        ("POST", f"/api/retrieval/events/{scope}/compare", {"product_ids": [101, 102]})
+    ]
+    assert result.is_error is denied
+    if not denied:
+        assert result.structured_content["retrieval_scope_id"] == scope
+        assert [p["product_id"] for p in result.structured_content["products"]] == [
+            101,
+            102,
+        ]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("products", [[101], [101, 101], [101, -1], [1, 2, 3, 4, 5, 6]])
+async def test_comparison_rejects_invalid_product_sets_before_calling_api(
+    monkeypatch, products
+):
+    api = FakeCatalogApi()
+    monkeypatch.setattr(server, "get_api_client", lambda: api)
+    async with Client(server.mcp, mode="auto") as client:
+        result = await client.call_tool(
+            "compare_products",
+            {"retrieval_scope_id": str(uuid4()), "product_ids": products},
+        )
+    assert result.is_error is True
+    assert api.calls == []
 
 
 @pytest.mark.anyio
@@ -251,6 +327,7 @@ def test_packaged_response_fields_track_the_application_contract() -> None:
         "SearchResponse",
         "EvidenceRecord",
         "ProductEvidenceResponse",
+        "ProductComparisonResponse",
         "SearchEventRecord",
         "SearchResultEventRecord",
         "RetrievalRunResponse",

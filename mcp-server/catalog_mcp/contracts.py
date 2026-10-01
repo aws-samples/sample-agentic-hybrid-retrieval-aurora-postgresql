@@ -262,6 +262,11 @@ class ProductEvidenceResponse(WireModel):
     evidence: list[EvidenceRecord]
 
 
+class ProductComparisonResponse(WireModel):
+    retrieval_scope_id: UUID
+    products: list[ProductSummary]
+
+
 class SearchEventRecord(WireModel):
     search_event_id: UUID
     occurred_at: datetime

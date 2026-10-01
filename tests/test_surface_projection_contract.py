@@ -70,7 +70,7 @@ def _seeded_schemas(sql_text: str, tool_name: str) -> tuple[dict, dict]:
 
 def test_agent_sql_registry_projects_only_the_agent_envelope():
     """`compare_products` in the seeded SQL is `{ok, products}`, never
-    `retrieval_scope_id` -- that field belongs only to the skill envelope.
+    `retrieval_scope_id` -- that field belongs to the HTTP and MCP envelopes.
 
     Asserts against `SQL_PATH.read_text()`, the actual generated file on disk
     that `mosaic.agent_tool_contract` is seeded from, not against
@@ -82,7 +82,7 @@ def test_agent_sql_registry_projects_only_the_agent_envelope():
 
     assert set(output_schema["properties"]) == {"ok", "products"}
     assert "retrieval_scope_id" not in output_schema["properties"], (
-        "retrieval_scope_id is a skill-only envelope field; it must not reach "
+        "retrieval_scope_id is an HTTP/MCP envelope field; it must not reach "
         "the agent registry that mosaic.agent_tool_contract audits"
     )
 
@@ -168,12 +168,12 @@ def test_required_projection_matches_properties_projection_per_surface():
 
     # Independent witness (house-standards.md rule 7): a literal counted by
     # hand from db/config/agent_tool_contracts.json's "surfaces" lists --
-    # search_products (3) + get_product_evidence (3) + compare_products (2)
+    # search_products (3) + get_product_evidence (3) + compare_products (3)
     # + explain_retrieval (2) + synthesize_cited_answer (1) +
-    # inspect_retrieval_run (1) = 12 -- never derived from the same
+    # inspect_retrieval_run (1) = 13 -- never derived from the same
     # surface-membership predicate the loop above uses.
-    assert examined == 12, (
-        f"expected exactly 12 (contract, surface) projections, examined "
+    assert examined == 13, (
+        f"expected exactly 13 (contract, surface) projections, examined "
         f"{examined}; fix: update this count if a contract's surfaces "
         "changed"
     )
@@ -271,12 +271,13 @@ FORBIDDEN_ENVELOPE_FIELDS = {
     # A field that belongs only to a different surface's envelope must never
     # appear in this surface's live output_schema.
     "agent": {"retrieval_scope_id"},
-    "mcp": {"ok", "retrieval_scope_id"},
+    "mcp": {"ok"},
     "skill": {"ok"},
 }
 
 EXPECTED_COMPARE_PRODUCTS_PROPERTIES = {
     "agent": {"ok", "products"},
+    "mcp": {"products", "retrieval_scope_id"},
     "skill": {"products", "retrieval_scope_id"},
 }
 

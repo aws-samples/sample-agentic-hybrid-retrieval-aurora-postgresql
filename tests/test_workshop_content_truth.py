@@ -77,7 +77,7 @@ def test_readme_hands_off_the_complete_participant_skill():
     assert "requires a running Mosaic service or compatible backend" in readme
     assert "skills/mosaic-hybrid-retrieval/references/adapting.md" in readme
     assert "four-operation HTTP skill surface" in guide
-    assert "three typed, catalog-read-only" in guide
+    assert "four typed, catalog-read-only" in guide
     assert "not a standalone retrieval runtime" in guide
     assert "uv run python scripts/checks/tool_contracts.py --check" in guide
 

@@ -136,8 +136,15 @@ You can inspect the [search settings](db/config/retrieval.yaml) and follow the
 
 ## Take it into your own project
 
-After the labs, use **Adapt the implementation** and **Download the skill** in
-Mosaic's Playground to take the workflow into your own agent.
+Connect your agent to the retrieval tools, then add the skill to guide the
+workflow. **Connect retrieval tools** in Mosaic links to the MCP setup and HTTP
+contracts. **Download the skill** adds search, comparison and source-checking
+instructions; **Adapt the implementation** supplies reference code.
+
+The tools are catalog-read-only; searches still append audit records. MCP tool
+annotations and skill instructions do not grant or restrict database access.
+The service checks requests and the database role enforces its privileges.
+See [the access boundary and official references](docs/mcp-interoperability.md#permissions-and-workflow-guidance).
 
 - [Adapt the implementation](docs/use-in-your-app.md) maps the schema, retrieval
   SQL, ranking, evaluations, and citation checks to the files you change.

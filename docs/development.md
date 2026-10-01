@@ -81,7 +81,7 @@ catalog; they do not certify the current real catalog.
 The [Mosaic skill](../skills/mosaic-hybrid-retrieval/SKILL.md) declares a
 four-operation HTTP skill surface. It is not a standalone retrieval runtime;
 callers need a compatible backend. The [MCP adapter](mcp-interoperability.md)
-exposes three typed, catalog-read-only tools over the same API. Search still
+exposes four typed, catalog-read-only tools over the same API. Search still
 writes retrieval receipts. Validate the shared tool contracts with:
 
 ```bash

@@ -550,6 +550,7 @@ SURFACE_MODELS = {
     ("explain_retrieval", "mcp"): "RetrievalRunResponse",
     ("explain_retrieval", "skill"): "RetrievalRunResponse",
     ("compare_products", "skill"): "ProductComparisonResponse",
+    ("compare_products", "mcp"): "ProductComparisonResponse",
 }
 
 
@@ -638,13 +639,13 @@ def test_returned_payload_matches_the_declared_contract():
     # Independent witness, per house-standards rule 7: a literal, not a count
     # re-derived from the same predicate this loop filters on.
     #
-    # 11 = search_products 3 (agent, mcp, skill) + get_product_evidence 3
-    #    + compare_products 2 (agent, skill) + explain_retrieval 2 (agent, skill)
+    # 12 = search_products 3 (agent, mcp, skill) + get_product_evidence 3
+    #    + compare_products 3 (agent, mcp, skill) + explain_retrieval 2 (agent, skill)
     #    + inspect_retrieval_run 1 (mcp). That last one is easy to miss: its
     #    capability is `explain_retrieval`, so it IS gated even though its wire
     #    name differs. Recount from the JSON if a surface is added or removed.
-    assert checked == 11, (
-        f"expected 11 gated capability/surface pairs, checked {checked}; "
+    assert checked == 12, (
+        f"expected 12 gated capability/surface pairs, checked {checked}; "
         "fix: recount agent/mcp/skill declarations across the four gated "
         "capabilities, remembering inspect_retrieval_run carries the "
         "explain_retrieval capability, then update this literal"
@@ -777,13 +778,15 @@ def test_composition_doc_states_no_a2a_endpoint_is_deployed():
     assert "documentation profile" in text.lower()
 
 
-def test_composition_doc_reports_adapter_asymmetry():
-    """Shared capabilities do not imply every transport exposes four tools."""
+def test_composition_doc_reports_adapter_wire_mapping():
+    """Shared capabilities still require each transport’s actual wire mapping."""
     text = COMPOSITION_PATH.read_text(encoding="utf-8").lower()
 
     assert re.search(r"http\s+skill surface (?:exposes|has) four operations", text)
-    assert re.search(r"mcp\s+has three", text)
-    assert re.search(r"does\s+not expose `compare_products`", text)
+    assert re.search(r"mcp\s+has four", text)
+    assert "`compare_products`" in text
+    assert "`inspect_retrieval_run`" in text
+    assert "`run_id`" in text
     assert "regardless of which transport" not in text
     assert "same four capabilities" not in text
 

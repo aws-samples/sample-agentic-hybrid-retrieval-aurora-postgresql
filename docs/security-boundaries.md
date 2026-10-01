@@ -37,3 +37,22 @@ A production adaptation needs authenticated identities, owner-scoped receipt
 and memory access, application-level quotas, an explicit data-retention policy,
 and authorization tests for its actual tenant model. Those capabilities are not
 claimed by this workshop release.
+
+## MCP and skills
+
+MCP is the tool interface; a skill provides workflow instructions and references.
+Neither inherently permits nor prevents writes. The Mosaic adapters expose
+bounded retrieval operations rather than arbitrary SQL. The runtime database
+role has catalog SELECT and explicit diagnostic/session write privileges; the
+agent host needs tool access, not that database credential. Keep those grants
+separate from the administration identity used to install or repair the workshop.
+
+`readOnlyHint` is descriptive metadata. It does not enforce the service's
+catalog-read-only behavior or constrain other tools and credentials available to
+a coding agent. Likewise, loading the skill does not install authorization or a
+citation validator. Search records are still written. Shared deployments must
+supply identity and owner authorization as described above.
+
+- [MCP: Tool Annotations as Risk Vocabulary](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations/) explains why read-only hints are not enforcement.
+- [MCP: Server Instructions](https://blog.modelcontextprotocol.io/posts/2025-11-03-using-server-instructions/) explains workflow guidance and its limits.
+- [Agent Skills overview](https://agentskills.io/home) and [format specification](https://agentskills.io/specification) describe the portable instruction package.

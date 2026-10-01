@@ -21,13 +21,23 @@ The backend is catalog-read-only; searches still save records of what happened.
 
 ## Connect once
 
-Obtain the authorized backend base URL and its authentication mechanism from the
-user or host configuration. Do not embed credentials in this folder. Read
-[`references/http-api.md`](references/http-api.md) for the exact HTTP mapping,
-then inspect `GET /api/tools?surface=skill` to confirm the four supported
-operations. Do not guess routes or translate an HTTP operation into an unavailable
-MCP tool. Transport differences are in
+Connect the authorized running service using MCP or HTTP, then use this skill
+as workflow guidance. For MCP, read [`references/mcp.md`](references/mcp.md),
+list the connected tools, and use their actual names and inputs. For HTTP,
+obtain the authorized base URL and authentication from the user or host
+configuration, read [`references/http-api.md`](references/http-api.md), and
+inspect `GET /api/tools?surface=skill`. Do not embed credentials in this folder.
+
+Both adapters expose search, evidence, comparison and ranking inspection. The
+workflow below uses logical operation names; MCP maps `explain_retrieval` to
+`inspect_retrieval_run` with `run_id`. Use only the operations actually listed by
+the connected server. Transport details are in
 [`references/composition.md`](references/composition.md).
+
+MCP annotations and these instructions do not enforce permissions. The service
+checks requests and the database role enforces privileges. This package grants
+no database access; use the connected tools rather than an administrator DSN.
+Other tools or credentials available to the host retain their own permissions.
 
 Keep this folder intact in the host's skill directory. A host without skill
 loading can read this file as tool instructions and load linked references as
@@ -217,10 +227,11 @@ principal as well.
 This folder is the portable declaration and operating guidance, not a vendored
 retrieval runtime. Keep the folder intact when taking it away:
 
+- [`references/mcp.md`](references/mcp.md) maps the workflow to the portable MCP tools.
 - [`references/http-api.md`](references/http-api.md) maps every logical argument
   to this deployment's HTTP path or body.
 - [`references/composition.md`](references/composition.md) states the exact HTTP,
-  MCP, A2A, and optional AgentCore status without implying parity that is not
+  MCP, A2A, and managed AgentCore status without implying parity that is not
   implemented.
 - [`references/quality-checks.md`](references/quality-checks.md) explains filter,
   recall, ranking and citation checks, including the end-to-end answer option.
@@ -230,3 +241,9 @@ retrieval runtime. Keep the folder intact when taking it away:
 
 The calling agent owns orchestration. Carry forward the workflow and its
 checks while keeping runtime enforcement in the backend and host application.
+
+## Official references
+
+- [MCP: Tool Annotations as Risk Vocabulary](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations/) explains why read-only hints are not enforcement.
+- [MCP: Server Instructions](https://blog.modelcontextprotocol.io/posts/2025-11-03-using-server-instructions/) explains workflow guidance and its limits.
+- [Agent Skills overview](https://agentskills.io/home) and [format specification](https://agentskills.io/specification) describe the portable instruction package.

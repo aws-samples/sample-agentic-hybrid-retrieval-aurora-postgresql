@@ -73,7 +73,7 @@ COPY data/full/manifest.json ./data/full/manifest.json
 
 # Public downloads are part of the API, including when Runtime hosts it.
 COPY skills/mosaic-hybrid-retrieval/ ./skills/mosaic-hybrid-retrieval/
-COPY docs/build-retrieval-tool.md docs/use-in-your-app.md ./docs/
+COPY docs/build-retrieval-tool.md docs/use-in-your-app.md docs/mcp-interoperability.md docs/security-boundaries.md ./docs/
 COPY examples/call_headphones.py ./examples/call_headphones.py
 
 # Both native protocols share this image; the stack selects their entry point.

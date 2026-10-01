@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Annotated, Any
 from uuid import UUID
 
 from mcp.server import MCPServer
 from mcp_types import ToolAnnotations
+from pydantic import Field
 
 from catalog_mcp.api import get_api_client
 from catalog_mcp.contracts import (
     Availability,
     Domain,
+    ProductComparisonResponse,
     ProductEvidenceResponse,
     RetrievalRunResponse,
     SearchFilters,
@@ -56,8 +58,11 @@ mcp = MCPServer(
         "Use search_products to create a source-attributed candidate set. Pass "
         "the search_event_id it returns as retrieval_scope_id to "
         "get_product_evidence, which serves evidence only for products that "
-        "retrieval granted. Pass the same value as run_id to "
-        "inspect_retrieval_run to explain ranking."
+        "retrieval granted. Use compare_products with that same scope and "
+        "two to five returned product IDs. Pass the search ID as run_id to "
+        "inspect_retrieval_run to explain ranking. These tools read catalog "
+        "records; search also saves audit records. Tool annotations and "
+        "instructions do not grant access or enforce permissions."
     ),
     version="0.2.0",
 )
@@ -153,6 +158,44 @@ def get_product_evidence(
         },
     )
     return ProductEvidenceResponse.model_validate(payload)
+
+
+@mcp.tool(
+    title="Compare retrieved products",
+    description="Compare two to five products granted by one saved retrieval.",
+    annotations=READ_ONLY_LOOKUP,
+    structured_output=True,
+)
+def compare_products(
+    retrieval_scope_id: UUID,
+    product_ids: Annotated[
+        list[Annotated[int, Field(gt=0)]],
+        Field(min_length=2, max_length=5, json_schema_extra={"uniqueItems": True}),
+    ],
+) -> ProductComparisonResponse:
+    """Forward comparison to the API that enforces the saved retrieval's grant.
+
+    Args:
+        retrieval_scope_id: The search_event_id returned by search_products.
+        product_ids: Distinct products returned by that search.
+
+    Returns:
+        Catalog attributes and saved ranking signals for the requested products.
+
+    Raises:
+        ValueError: If product IDs repeat.
+        CatalogApiError: If the API refuses the retrieval scope or is unavailable.
+    """
+    if len(set(product_ids)) != len(product_ids):
+        raise ValueError(
+            f"comparison product_ids contains duplicates: {product_ids}; "
+            "fix: pass two to five distinct returned product IDs"
+        )
+    payload = get_api_client().post(
+        f"/retrieval/events/{retrieval_scope_id}/compare",
+        {"product_ids": product_ids},
+    )
+    return ProductComparisonResponse.model_validate(payload)
 
 
 @mcp.tool(

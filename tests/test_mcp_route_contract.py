@@ -60,13 +60,14 @@ def test_mcp_adapter_holds_no_scope_policy():
 
     The absence checks below would pass just as readily on an empty or
     gutted `server.py`, so they are preceded by positive assertions that the
-    adapter still defines its three tools and that `get_product_evidence`
+    adapter still defines its four tools and that `get_product_evidence`
     still forwards `retrieval_scope_id` -- the same shape of check
     `test_mcp_evidence_tool_forwards_the_retrieval_scope` uses above.
     """
     for tool_name in (
         "search_products",
         "get_product_evidence",
+        "compare_products",
         "inspect_retrieval_run",
     ):
         assert re.search(rf"\bdef {tool_name}\(", SERVER_SOURCE), (
