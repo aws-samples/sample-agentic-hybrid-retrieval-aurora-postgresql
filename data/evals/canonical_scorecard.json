@@ -6,7 +6,7 @@
     "vector_extension_version": "0.8.1"
   },
   "canonical_query_count": 10,
-  "database_instance_id": "hybrid-retrieval-main-databasesta-dbinstancewriter-ek0dvtyv215f",
+  "database_instance_id": "agenticretrievalcorestack-aurorapostgresretrievalc-5wdg4dpl2bg2",
   "dataset_manifest_sha256": "9d2cc3858b702429589f53508313cd2e8a95e7e06c0b67f7280b6fd5625ade8f",
   "deterministic_release_checks": [
     {
@@ -34,7 +34,7 @@
     "scan_mem_multiplier": 2.0
   },
   "k": 10,
-  "measured_at": "2026-09-29T19:05:46.500356+00:00",
+  "measured_at": "2026-10-01T15:14:15.118647+00:00",
   "metrics": {
     "mrr": 0.7592592592592592,
     "ndcg@10": 0.8032961425511451,
@@ -120,10 +120,10 @@
   ],
   "product_retrieval_query_count": 9,
   "query_set": "data/evals/canonical_queries.jsonl",
-  "query_set_sha256": "38ce9a44eed146a8c657208dc8704398cfb5a27ec057a6101a2a80195038e40c",
+  "query_set_sha256": "a5257f850937eb698f4b126c1532cb4acab3f4d1dc60106fba0d11255423f0d0",
   "query_vectors_sha256": "c628848762f098bd62bb256f44ed6a4cebe0af25f197e12c24e82fb4ee7be2e6",
-  "ranked_result_sha256": "d1ce36cb13d81a124916d5ce43d00ceb582528e6618c4d2a622a7e19aa66383f",
-  "retrieval_fingerprint": "ac73e2b0af48779d6e4abf5267180b7bc5c9587ad85189b2be50c600c6590c96",
+  "ranked_result_sha256": "38f2c8dad6578496d03ca70d79ce8e9091f17682bc169a4337add13b961006d8",
+  "retrieval_fingerprint": "a9dd35c3d1c4c7f418a616582874dfccbaf95d6d2da770c8089a833670d04118",
   "retrieval_profile": {
     "authorized_limit": 10,
     "ef_search": 100,
@@ -145,7 +145,7 @@
   "scorecard_methodology_sha256": "f4a785761ce224e54385660ec8c353f0f88f3c72bb8ef384fe988e852de2389d",
   "scored_query_set_sha256": "05a1f0bae367d39e5d2769f746f4773de2639ea2a41209904a533e30e63b8c6e",
   "source": {
-    "revision": "d52fc1524c97d027e2aa1b84f989ad4269ba9442",
+    "revision": "2f07c3efce4a31fd59fcccb0593a4771d3f52422",
     "worktree_dirty": false
   },
   "strategy": "rrf_fusion+rerank+exact_sku_preservation"
