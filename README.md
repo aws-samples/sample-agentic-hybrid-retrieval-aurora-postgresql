@@ -71,7 +71,10 @@ product pages show the specifications a listing states beside the listing text
 they came from. In **Session & Memory**, follow the linked steps to save a
 preference, inspect its extraction, and ask in a new session. Recalled preferences
 inform both retrieval and the final answer check; product claims still require
-fresh evidence. Request failures appear beside the question; completed answers
+fresh evidence. On **Scale & HNSW**, **How HNSW finds neighbors** builds a real HNSW
+index in the browser over a small product map: choose a request, the search effort
+(`ef_search`) and links per product (`m`), then watch the descent through the layers,
+the distance checks and the recall against an exact search. Request failures appear beside the question; completed answers
 stay visible while history refreshes. **Ask Mosaic** shows its search, comparison and source activity as it runs, with
 compact summaries and expandable evidence. Its answer leads with the best pick's photo, then a
 side-by-side table in which each value shows whether the listing, its title, or a

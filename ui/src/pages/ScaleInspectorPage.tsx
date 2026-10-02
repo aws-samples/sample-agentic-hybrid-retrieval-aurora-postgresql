@@ -129,8 +129,8 @@ function ScaleInspector() {
     <RepresentationComparison measured={measured} />
     {measured ? <AdvancedBenchmarks measured={measured} /> : null}
     <details className="scale-advanced" id="scale-mechanism" onToggle={(event) => setIllustrationOpen(event.currentTarget.open)}>
-      <summary>How HNSW finds neighbors <span>Illustration, not a measured search</span><ChevronDown size={20} aria-hidden="true" /></summary>
-      <div>{illustrationOpen ? <HnswSearchGraph /> : null}</div>
+      <summary>How HNSW finds neighbors <span>A real search on a small map you can tune</span><ChevronDown size={20} aria-hidden="true" /></summary>
+      <div>{illustrationOpen ? <HnswSearchGraph served={substrate ? { efSearch: substrate.retrieval.ef_search, vectors: substrate.corpus.vector_count, dimensions: substrate.corpus.dimensions, definition: substrate.index.definition } : null} /> : null}</div>
     </details>
     <aside className="inspector-scale-link"><div><h2>And when Alex comes back?</h2><p>See how AgentCore keeps conversation details and recalls what matters for the next request.</p></div><Link href="/mosaic-labs/memory">Explore session & memory</Link></aside>
   </div>;
