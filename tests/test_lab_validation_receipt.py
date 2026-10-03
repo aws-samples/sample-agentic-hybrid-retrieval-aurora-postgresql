@@ -64,21 +64,21 @@ def saved_runs(monkeypatch):
         if mission["canonical_query_id"] == "G-019":
             connection.turn["extracted_intent"]["selected_products"] = [
                 {
-                    "product_id": 1277987,
+                    "product_id": 1492978,
                     "domain": "consumer_electronics",
                     "category_key": "headphones",
-                    "brand": "Bose",
+                    "brand": "Logitech",
                     "attributes": {},
                 }
             ]
             for candidate in connection.candidates:
-                candidate["product_id"] = 1277987
+                candidate["product_id"] = 1492978
             for tool in connection.tools:
                 args = tool["input_payload"]
                 if "product_id" in args:
-                    args["product_id"] = 1277987
+                    args["product_id"] = 1492978
                 if "product_ids" in args:
-                    args["product_ids"] = [1277987]
+                    args["product_ids"] = [1492978]
                 if tool["tool_name"] == "synthesize_cited_answer":
                     tool["output_payload"]["citations"] = [
                         _citation(1, 9101),

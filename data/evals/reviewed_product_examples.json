@@ -13,41 +13,41 @@
       "id": "saved-headphones",
       "label": "Find the listing",
       "title": "Recover the headphones Alex saved.",
-      "need": "Alex has saved a Bose listing for calls and focused work. A transposed listing ID should not replace that specific product with a related item.",
+      "need": "Alex has saved a Logitech listing for calls and focused work. A transposed listing ID should not replace that specific product with a related item.",
       "requirements": [
-        "The same listing: B07G95TJ3P"
+        "The same listing: B0C2WWCFQB"
       ],
       "mission_id": "typo-recovery",
       "exercise_kind": "required",
       "products": [
         {
-          "product_id": 1277987,
-          "parent_asin": "B07G95TJ3P",
-          "display_name": "Bose QuietComfort 35 II",
-          "source_record_sha256": "64a48d645d07e5f8c5193aff633ae3f640c75ab84add5dc2fb5f4b715f533842",
-          "embedding_text_sha256": "1cd128157d4acd2cb90742c014a8158db57e4ab88b9c9fb8180badc7ace33370",
+          "product_id": 1492978,
+          "parent_asin": "B0C2WWCFQB",
+          "display_name": "Logitech Zone 900",
+          "source_record_sha256": "93ad8b244e2158151283ce337ba24f9496d1c1d97132cd33f615c722862402b7",
+          "embedding_text_sha256": "b3f60a30e04c79f871b968a8d9c157b9780b902ec0af5077521ce1f172551c32",
           "source_label": null,
           "facts": [
             {
               "label": "Listening",
               "path": [
                 "features",
-                0
+                1
               ],
-              "quote": "Limited Edition, QC35 Series II, Noise Cancelling, Over Ear Headphones in Triple Midnight"
+              "quote": "Active noise cancelation reduces surrounding ambient sound delivering clear, crisp audio for calls and music so you can stay focused in home office"
             },
             {
               "label": "Microphone",
               "path": [
                 "features",
-                3
+                0
               ],
-              "quote": "Noise-rejecting dual-microphone system for clear sound and voice pick-up"
+              "quote": "The noise-canceling mic isolates your voice from any other noise around you, so you sound natural and clear while working from home on video conferences"
             }
           ],
-          "assessment": "The listing describes noise cancellation and a noise-rejecting microphone. The Lab 1 repair recovers this identity.",
+          "assessment": "The listing describes active noise cancellation and a noise-canceling microphone. The Lab 1 repair recovers this identity.",
           "still_unknown": "Advertised microphone features do not establish call quality in Alex’s room.",
-          "card_summary": "Listing B07G95TJ3P · Bose QuietComfort 35 II"
+          "card_summary": "Listing B0C2WWCFQB · Logitech Zone 900"
         }
       ],
       "category": "headphones",

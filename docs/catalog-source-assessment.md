@@ -43,9 +43,8 @@ against each pin. `scripts/catalog/filter_catalog_reviews.py` dropped 142,356
 Electronics reviews whose 19,789 parents are outside the catalog, and
 `scripts/catalog/stage_catalog_evidence.py --skip-refetch` staged 902,760 reviews for
 the same 67,750 products: 770,783 Electronics, 103,504 Home and Kitchen and
-28,473 Office Products. The lab anchors gain depth: the Lab 1 Bose headphones
-has 60 imported reviews, the ViewSonic VG2756-4K 14 and the Steelcase Gesture
-(Licorice) 39. The hash-pinned Workshop Studio bundle
+28,473 Office Products. The lab anchors gain depth: the ViewSonic VG2756-4K has 14
+imported reviews and the Steelcase Gesture (Licorice) 39. The hash-pinned Workshop Studio bundle
 (`db/config/real-catalog-cache.json`) still carries the 418,620-review release
 above until it is rebuilt and republished.
 

@@ -155,23 +155,24 @@ def test_anchor_overlap_matches_an_independent_cross_reference():
         for judgment in query.get("judgments", [])
     }
     expected = {
-        1138035: "canonical",
-        1162128: "canonical",
+        1138035: "none",
+        1162128: "none",
         1168700: "canonical",
         1208825: "mission",
         1221817: "none",
         1248512: "none",
-        1277987: "mission",
+        1277987: "none",
         1379290: "none",
         1389794: "none",
         1408222: "mission",
         1481815: "none",
         1490476: "none",
     }
-    # Lab 2 targets the ViewSonic VG2756-4K and Lab 3 the ViewSonic plus the
-    # Steelcase Gesture listing with review evidence since the reviews-2023-v2
-    # cutover; the old Steelcase listing 1221817 is no longer a mission target.
-    assert _MISSION_IDS == {1208825, 1277987, 1408222, 1540761, 1551237}
+    # Lab 1 targets the Logitech Zone 900, Lab 2 the ViewSonic VG2756-4K and
+    # Lab 3 all three room products including the Steelcase Gesture listing with
+    # review evidence; the Bose QC35 II and the old Steelcase listing 1221817 are
+    # no longer mission targets.
+    assert _MISSION_IDS == {1208825, 1408222, 1492978, 1540761, 1551237}
     for product_id, overlap in expected.items():
         assert (
             compute_anchor_overlap(
@@ -205,19 +206,24 @@ def test_agent_grounded_only_coverage_matches_the_documented_gaps():
     assert len(grounded_only & set(by_intent["selective_filters"])) == 1
 
 
-def test_headphones_cohort_has_no_anchor_free_coverage():
-    """All three headphones products with review evidence in this checkout
-    (1138035, 1162128, 1277987) are canonical- or mission-anchored, so the
-    anchor_free tier -- scored only on independent evidence -- is empty for
-    the whole headphones cohort. This is exactly the visibly-weaker-cohort
-    disclosure the anchor_free tier exists to surface."""
+def test_headphones_cohort_is_anchor_free_since_the_labs_moved_to_logitech():
+    """The headphones cohort judges 1138035, 1162128 and 1277987. Since Labs 1
+    and 3 moved to the Logitech Zone 900, none of them is a mission target or a
+    canonical judgment, so every answerable headphones query is scored on
+    independent evidence. IRC-HP-06 has no relevant judgment and stays out."""
     classification = classify_queries(QUERIES)
     headphones_ids = {
         query["query_id"]
         for query in QUERIES
         if query["cohort_category"] == "headphones"
     }
-    assert headphones_ids.isdisjoint(classification.answerable["anchor_free"])
+    assert headphones_ids & set(classification.answerable["anchor_free"]) == {
+        "IRC-HP-01",
+        "IRC-HP-02",
+        "IRC-HP-03",
+        "IRC-HP-04",
+        "IRC-HP-05",
+    }
 
 
 def test_hard_negatives_are_graded_zero_and_judged():

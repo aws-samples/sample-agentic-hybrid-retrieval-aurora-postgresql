@@ -35,7 +35,7 @@ const productLinks = (region: HTMLElement) => within(region).getAllByRole("link"
 
 it("opens a saved Shop search in the pipeline layout even when the link carries a lab example", async () => {
   const response = savedSearch(firstSearchId, [ranked(showcaseCatalogPage({}, 0, 1).products[0], 2, 1)]);
-  window.history.replaceState({}, "", `/labs/retrieval?q=B07G95T3JP&event=${firstSearchId}&example=typo-recovery#labs-stage-re-rank`);
+  window.history.replaceState({}, "", `/labs/retrieval?q=B0C2WWFCQB&event=${firstSearchId}&example=typo-recovery#labs-stage-re-rank`);
   const replay = vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(response);
   const search = vi.spyOn(api, "search");
   const stream = vi.spyOn(api, "agentStream");

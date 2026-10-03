@@ -8,7 +8,7 @@ and saved vectors; they do not generate product data or rebuild embeddings.
 
 | Lab | Build | Use it to |
 |---|---|---|
-| 1 · Retrieve | Restore the close-spelling SQL path (a vector recall query is optional) | Recover Alex's saved Bose listing and compare exact and approximate neighbors |
+| 1 · Retrieve | Restore the close-spelling SQL path (a vector recall query is optional) | Recover Alex's saved Logitech listing and compare exact and approximate neighbors |
 | 2 · Rank | Implement reciprocal-rank fusion in SQL and evaluate one setting change | Keep the ViewSonic monitor in the shortlist sent to reranking |
 | 3 · Build an agent | Assemble a Strands agent, connect its Gateway tools and deploy to Runtime | Compare headphones, monitor and chair, cite each product’s sources and respond to a changed requirement |
 

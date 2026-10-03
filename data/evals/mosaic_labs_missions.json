@@ -55,13 +55,13 @@
       "title": "Lab 1 - Debug hybrid search",
       "discover_label": "Recover the intended headphones",
       "canonical_query_id": "G-003",
-      "query": "B07G95T3JP",
+      "query": "B0C2WWFCQB",
       "filters": {
         "domain": "consumer_electronics",
         "category_key": "headphones"
       },
       "target_product_ids": [
-        1277987
+        1492978
       ],
       "expected_techniques": [
         "pg_trgm",
@@ -73,20 +73,20 @@
         "file": "labs/lab1_retrieve/hybrid_search.sql",
         "approximate_lines": 5,
         "task": "Find the search whose candidates never reach fusion, then add its channels branch in search_hybrid_rrf.",
-        "broken_state": "Alex transposes J3 to 3J in listing ID B07G95TJ3P. Exact terms and the bounded meaning-search list miss that listing. Close-spelling search finds it, but search_hybrid_rrf never reads its CTE, so it never reaches fusion.",
-        "fixed_state": "The restored close-spelling channel admits Bose QuietComfort 35 II, product 1277987, with trigram rank 1. It was final rank 1 in repeated verification.",
+        "broken_state": "Alex transposes CF to FC in listing ID B0C2WWCFQB. Exact terms and the bounded meaning-search list miss that listing. Close-spelling search finds it, but search_hybrid_rrf never reads its CTE, so it never reaches fusion.",
+        "fixed_state": "The restored close-spelling channel admits Logitech Zone 900, product 1492978, with trigram rank 1. It was final rank 1 in repeated verification.",
         "observe_before": [
-          "HTTP 200 with other headphones; the intended Bose listing 1277987 is absent from the first 10 results.",
-          "The saved combined pool omits 1277987 and reports trigram_in_pool = 0."
+          "HTTP 200 with other headphones; the intended Logitech listing 1492978 is absent from the first 10 results.",
+          "The saved combined pool omits 1492978 and reports trigram_in_pool = 0."
         ],
         "observe_after": [
-          "The identical B07G95T3JP request returns listing B07G95TJ3P (1277987).",
+          "The identical B0C2WWFCQB request returns listing B0C2WWCFQB (1492978).",
           "The target has a trigram rank and contribution; its FTS and semantic ranks remain null.",
           "All products satisfy the headphones category and electronics domain filters."
         ],
         "checkpoint_question": "Why can related headphones be wrong for an exact-product request, and why could reranking not recover the missing listing?"
       },
-      "expected_outcome": "Recover the exact Bose listing B07G95TJ3P from a transposed identifier, with a close-spelling rank and contribution. Other headphones are wrong identities for this request; no claim is made that they lack noise cancellation.",
+      "expected_outcome": "Recover the exact Logitech listing B0C2WWCFQB from a transposed identifier, with a close-spelling rank and contribution. Other headphones are wrong identities for this request; no claim is made that they lack noise cancellation.",
       "assertions": [
         "target_in_top_k",
         "trigram_signal_present",
@@ -105,7 +105,7 @@
         "fts",
         "semantic"
       ],
-      "target_display_name": "Bose QuietComfort 35 II"
+      "target_display_name": "Logitech Zone 900"
     },
     {
       "id": "rank-with-evidence",
@@ -176,10 +176,10 @@
       "title": "Lab 3 - Build and deploy the agent",
       "discover_label": "Complete Alex’s room with your agent",
       "canonical_query_id": "G-021",
-      "query": "I am finishing my home office. Check the Bose QuietComfort 35 II (B07G95TJ3P) for noise cancellation that helps me focus and what the available reviews establish about clear calls; the ViewSonic VG2756-4K (B0BSHZHKB7) for a 27-inch 4K screen and USB-C charging up to 90W over one cable; and the Steelcase Gesture (B095V7RS6S) for adjustable lumbar support and fully adjustable arms, and whether reviewers say it stays comfortable through a full workday. Search each product separately, compare all three as parts of my room, and explain what the specifications and available reviews do and do not establish. Cite supporting records for each product and explain the ranking of one search.",
+      "query": "I am finishing my home office. Check the Logitech Zone 900 (B0C2WWCFQB) for noise cancellation that helps me focus and what the available reviews establish about clear calls; the ViewSonic VG2756-4K (B0BSHZHKB7) for a 27-inch 4K screen and USB-C charging up to 90W over one cable; and the Steelcase Gesture (B095V7RS6S) for adjustable lumbar support and fully adjustable arms, and whether reviewers say it stays comfortable through a full workday. Search each product separately, compare all three as parts of my room, and explain what the specifications and available reviews do and do not establish. Cite supporting records for each product and explain the ranking of one search.",
       "filters": {},
       "target_product_ids": [
-        1277987,
+        1492978,
         1551237,
         1540761
       ],
@@ -230,7 +230,7 @@
       ],
       "required_citation_support": [
         {
-          "product_id": 1277987,
+          "product_id": 1492978,
           "evidence_type": "product_spec",
           "all_terms": [
             "noise"
@@ -272,19 +272,19 @@
       "title": "Checkpoint - Preserve the exact listing",
       "discover_label": "Preserve the exact listing",
       "canonical_query_id": "G-001",
-      "query": "B07G95TJ3P",
+      "query": "B0C2WWCFQB",
       "filters": {
         "domain": "consumer_electronics",
         "category_key": "headphones"
       },
       "target_product_ids": [
-        1277987
+        1492978
       ],
       "expected_techniques": [
         "fts"
       ],
       "checkpoint": "baseline",
-      "expected_outcome": "The correctly spelled ASIN retrieves the intended Bose listing with an Exact terms contribution.",
+      "expected_outcome": "The correctly spelled ASIN retrieves the intended Logitech listing with an Exact terms contribution.",
       "assertions": [
         "target_in_top_k",
         "fts_signal_present",
@@ -300,14 +300,14 @@
       "placement": "lab-1",
       "duration_minutes": 0,
       "title": "Control - A misspelled famous name",
-      "discover_label": "A misspelled Bose name",
-      "query": "Boze QuietComfrot 35",
+      "discover_label": "A misspelled Logitech name",
+      "query": "Logitec Zone 900",
       "filters": {
         "domain": "consumer_electronics",
         "category_key": "headphones"
       },
       "target_product_ids": [
-        1277987
+        1492978
       ],
       "expected_techniques": [
         "hnsw",
@@ -315,7 +315,7 @@
         "cohere_rerank"
       ],
       "checkpoint": "baseline",
-      "expected_outcome": "Inside Headphones, meaning search still finds the Series II while close spelling is disconnected (meaning rank 22 to 23 on the 2026-09-28 dev and fresh-account runs), and reranking puts it first. There is no before-and-after contrast: not every typo needs close spelling.",
+      "expected_outcome": "Inside Headphones, meaning search still finds the Zone 900 while close spelling is disconnected (meaning rank 2 on the 2026-10-03 dev run), and reranking puts it first. There is no before-and-after contrast: not every typo needs close spelling.",
       "assertions": [
         "target_in_top_k",
         "semantic_signal_present",
@@ -331,15 +331,15 @@
       "placement": "lab-1",
       "duration_minutes": 0,
       "title": "Checkpoint - Recover a misspelled edition",
-      "discover_label": "A misspelled Bose edition",
+      "discover_label": "A misspelled Logitech feature",
       "canonical_query_id": "G-022",
-      "query": "Limmited Editon Triple Midnigth",
+      "query": "Quick Acess to ANC and Bluetoth",
       "filters": {
         "domain": "consumer_electronics",
         "category_key": "headphones"
       },
       "target_product_ids": [
-        1277987
+        1492978
       ],
       "expected_techniques": [
         "pg_trgm",
@@ -347,7 +347,7 @@
         "cohere_rerank"
       ],
       "checkpoint": "repair",
-      "expected_outcome": "Alex recalls the exact unit he saved, the Limited Edition Triple Midnight Series II, and misspells three words. Exact terms and meaning search miss it; the restored close-spelling channel finds it at trigram rank 1 and it finishes first.",
+      "expected_outcome": "Alex recalls a feature from the listing he saved, quick access to ANC and Bluetooth, and misspells two words. Exact terms and meaning search miss it; the restored close-spelling channel finds it at trigram rank 1 and reranking puts it first.",
       "assertions": [
         "target_in_top_k",
         "trigram_signal_present",
@@ -404,14 +404,14 @@
       "title": "Checkpoint - Keep the brand requirement",
       "discover_label": "Keep the brand requirement",
       "canonical_query_id": "G-012",
-      "query": "Bose QuietComfort 35 series II wireless noise cancelling headphones",
+      "query": "Logitech Zone 900 on-ear wireless headset with noise-canceling microphone",
       "filters": {
         "domain": "consumer_electronics",
         "category_key": "headphones",
-        "brand": "Bose"
+        "brand": "Logitech"
       },
       "target_product_ids": [
-        1277987
+        1492978
       ],
       "expected_techniques": [
         "hnsw",
@@ -419,7 +419,7 @@
         "cohere_rerank"
       ],
       "checkpoint": "baseline",
-      "expected_outcome": "The model-name search retains the Bose target. Every saved candidate and displayed result stays within the Bose headphones filter; a related product from another brand is ineligible.",
+      "expected_outcome": "The model-name search retains the Logitech target. Every saved candidate and displayed result stays within the Logitech headphones filter; a related product from another brand is ineligible.",
       "assertions": [
         "target_in_top_k",
         "semantic_signal_present",
@@ -508,13 +508,13 @@
       "title": "Checkpoint - Separate listening from microphone evidence",
       "discover_label": "Separate listening from microphone evidence",
       "canonical_query_id": "G-019",
-      "query": "For Bose QuietComfort 35 II B07G95TJ3P, what do the specifications and available reviews support about noise cancellation and clear calls? Cite the records, and say when review evidence does not establish microphone performance.",
+      "query": "For Logitech Zone 900 B0C2WWCFQB, what do the specifications and available reviews support about noise cancellation and clear calls? Cite the records, and say where review evidence does not establish microphone performance.",
       "filters": {
         "domain": "consumer_electronics",
         "category_key": "headphones"
       },
       "target_product_ids": [
-        1277987
+        1492978
       ],
       "expected_techniques": [
         "typed_agent_tool",
@@ -524,7 +524,7 @@
         "source_attribution"
       ],
       "checkpoint": "baseline",
-      "expected_outcome": "Resolve specification and sampled-review citations for the Bose listing. Listening noise cancellation does not establish microphone call quality; disclose the evidence gap.",
+      "expected_outcome": "Resolve specification and sampled-review citations for the Logitech listing. A listed noise-canceling microphone and one reviewer’s experience do not establish call quality for Alex, and other reviews of this listing disagree; present the review as one experience and disclose the gap.",
       "assertions": [
         "target_in_top_k",
         "semantic_signal_present",
@@ -539,14 +539,14 @@
       ],
       "required_citation_support": [
         {
-          "product_id": 1277987,
+          "product_id": 1492978,
           "evidence_type": "product_spec",
           "all_terms": [
             "noise"
           ]
         },
         {
-          "product_id": 1277987,
+          "product_id": 1492978,
           "evidence_type": "customer_review",
           "all_terms": []
         }
@@ -594,7 +594,7 @@
         "id": "plan-workspace",
         "label": "Complete my room",
         "mission_id": "agentic-research",
-        "notice": "Bring Lab 1’s Bose headphones and Lab 2’s ViewSonic monitor together with the Steelcase chair. Follow three focused searches, a comparison of all three, and the sources behind the complete room."
+        "notice": "Bring Lab 1’s Logitech headphones and Lab 2’s ViewSonic monitor together with the Steelcase chair. Follow three focused searches, a comparison of all three, and the sources behind the complete room."
       },
       {
         "id": "check-focus-picks",
@@ -609,7 +609,7 @@
       {
         "id": "check-sources",
         "label": "Check the sources",
-        "notice": "Return to Alex’s Bose headphones. Separate listening noise cancellation from microphone quality; a general review cannot establish how teammates hear him.",
+        "notice": "Return to Alex’s Logitech headphones. Separate listening noise cancellation from microphone quality; its reviews disagree about how teammates hear him.",
         "mission_id": "evidence-grounding"
       }
     ],
@@ -630,7 +630,7 @@
         "label": "Recover my headphones",
         "shop_label": "Recover my headphones",
         "mission_id": "typo-recovery",
-        "notice": "Lab 1: recover the Bose listing Alex saved from its transposed identifier. Keep the same request and filters before and after your repair."
+        "notice": "Lab 1: recover the Logitech listing Alex saved from its transposed identifier. Keep the same request and filters before and after your repair."
       },
       {
         "id": "comfortable-days",
@@ -655,7 +655,7 @@
       {
         "id": "keyword-headphones",
         "kind": "Keywords",
-        "label": "Bose QuietComfort",
+        "label": "Logitech Zone 900",
         "reference_id": "semantic-eligibility"
       },
       {
@@ -667,19 +667,19 @@
       {
         "id": "typo-name-headphones",
         "kind": "Typo",
-        "label": "A misspelled Bose name",
+        "label": "A misspelled Logitech name",
         "reference_id": "typo-meaning-control"
       },
       {
         "id": "typo-edition-headphones",
         "kind": "Typo",
-        "label": "A misspelled Bose edition",
+        "label": "A misspelled Logitech feature",
         "reference_id": "phrase-typo-recovery"
       },
       {
         "id": "typo-headphones",
         "kind": "Typo",
-        "label": "A mistyped Bose listing ID",
+        "label": "A mistyped Logitech listing ID",
         "reference_id": "typo-recovery"
       },
       {

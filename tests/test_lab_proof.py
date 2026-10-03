@@ -215,8 +215,8 @@ def _product(product_id: int, signals: ResultSignals, **overrides) -> ProductSum
 def _response(results: list[ProductSummary], *, trigram_in_pool: int) -> SearchResponse:
     return SearchResponse(
         search_event_id=uuid4(),
-        query="B07G95T3JP",
-        normalized_query="B07G95T3JP",
+        query="B0C2WWFCQB",
+        normalized_query="B0C2WWFCQB",
         applied_filters={},
         results=results,
         diagnostics=RetrievalDiagnostics(
@@ -298,7 +298,7 @@ def _with_controls(monkeypatch, primary):
 def _lab_1_search(monkeypatch, *, solved: bool = True) -> None:
     rrf_k = RetrievalProfile().rrf_k
     results = (
-        [_product(1277987, _signals(rank=1, contribution=1.0 / (rrf_k + 1)))]
+        [_product(1492978, _signals(rank=1, contribution=1.0 / (rrf_k + 1)))]
         if solved
         else []
     )
@@ -365,8 +365,8 @@ CITED_EVIDENCE: dict[int, tuple[int, str]] = {
         1540761,
         "Adjustable lumbar support. Arms move with the user.",
     ),
-    9101: (1277987, "Three levels of noise cancellation."),
-    9102: (1277987, "I enjoy listening with these headphones."),
+    9101: (1492978, "Active noise cancelation reduces surrounding ambient sound."),
+    9102: (1492978, "The microphone works well."),
     9002: (
         1551237,
         "The 27-inch 4K display has 3840 x 2160 resolution and USB-C video with up to 90W charging.",
@@ -467,11 +467,11 @@ def _grounded_connection() -> _FakeConnection:
     mission = lab_proof.lab_checks.mission_for_lab(3)
     connection.turn["user_message"] = mission["query"]
     connection.turn["extracted_intent"]["selected_products"].append(
-        {"product_id": 1277987}
+        {"product_id": 1492978}
     )
     connection.tools[-1]["output_payload"]["citations"].append(_citation(3, 9101))
     connection.tools.insert(
-        0, dict(connection.tools[0], input_payload={"product_id": 1277987})
+        0, dict(connection.tools[0], input_payload={"product_id": 1492978})
     )
     for product in connection.turn["extracted_intent"]["selected_products"]:
         product.update(
@@ -485,10 +485,10 @@ def _grounded_connection() -> _FakeConnection:
     )
     trace = []
     for index, (search, product_id) in enumerate(
-        zip(connection.searches, (1540761, 1551237, 1277987), strict=True)
+        zip(connection.searches, (1540761, 1551237, 1492978), strict=True)
     ):
         search.update(
-            query_text=("ergonomic chair", "4K monitor", "Bose headphones")[index],
+            query_text=("ergonomic chair", "4K monitor", "Logitech headphones")[index],
             plan_json=[{"Plan": {"Node Type": "Append"}}],
         )
         connection.candidates.append(
@@ -509,7 +509,7 @@ def _grounded_connection() -> _FakeConnection:
         dict(
             connection.tools[0],
             tool_name="compare_products",
-            input_payload={"product_ids": [1540761, 1551237, 1277987]},
+            input_payload={"product_ids": [1540761, 1551237, 1492978]},
         )
     )
     trace.extend(connection.tools[:-1])

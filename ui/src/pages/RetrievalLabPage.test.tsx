@@ -562,8 +562,8 @@ const SHOP_EVENT_ID = "9614ed9b-4ceb-4aad-9276-4e69af2231b9";
  */
 const shopResponse: SearchResponse = {
   search_event_id: SHOP_EVENT_ID,
-  query: "B07G95T3JP",
-  normalized_query: "B07G95T3JP",
+  query: "B0C2WWFCQB",
+  normalized_query: "B0C2WWFCQB",
   applied_filters: {},
   results: [
     productWithSignals(2, {
@@ -1320,7 +1320,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B0C2WWFCQB&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
 
@@ -1344,7 +1344,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B0C2WWFCQB&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
 
@@ -1383,7 +1383,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B0C2WWFCQB&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />, { wrapper: StrictMode });
 
@@ -1400,7 +1400,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B0C2WWFCQB&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
 
@@ -1417,7 +1417,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B0C2WWFCQB&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
     await screen.findByText(`repair baseline: ${SHOP_EVENT_ID}`);
@@ -1451,7 +1451,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B0C2WWFCQB&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
 
@@ -1469,13 +1469,13 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B0C2WWFCQB&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
 
     await waitFor(() => {
       expect(api.search).toHaveBeenCalledWith(
-        "B07G95T3JP",
+        "B0C2WWFCQB",
         {},
         { limit: firstExample.top_k, rerank: true },
       );
@@ -1486,12 +1486,12 @@ describe("RetrievalLabPage", () => {
   });
 
   it("still replays a hand-off that carries no event", async () => {
-    window.history.replaceState({}, "", "/labs/retrieval?q=B07G95T3JP");
+    window.history.replaceState({}, "", "/labs/retrieval?q=B0C2WWFCQB");
     render(<RetrievalLabPage />);
 
     await waitFor(() => {
       expect(api.search).toHaveBeenCalledWith(
-        "B07G95T3JP",
+        "B0C2WWFCQB",
         {},
         { limit: firstExample.top_k, rerank: true },
       );
@@ -1551,7 +1551,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B0C2WWFCQB&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
 
@@ -1575,7 +1575,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B0C2WWFCQB&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
     expect(await screen.findByText("Shop run loaded")).toBeTruthy();
@@ -1609,7 +1609,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B0C2WWFCQB&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
     expect(await screen.findByText("This is the exact run from Shop")).toBeTruthy();
@@ -1640,7 +1640,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B0C2WWFCQB&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
 
@@ -1648,7 +1648,7 @@ describe("RetrievalLabPage", () => {
     // Lab 1 exists to show, so the verdict is the scenario's own.
     expect(await screen.findByText("Issue reproduced")).toBeTruthy();
     // The verdict names what is missing, why, and the one next step.
-    expect(screen.getByText("The Bose QuietComfort 35 II is missing")).toBeTruthy();
+    expect(screen.getByText("The Logitech Zone 900 is missing")).toBeTruthy();
     expect(screen.getByText(/Close spelling is the only method that can match a mistyped ID, and it returned no candidates/)).toBeTruthy();
     expect(screen.getByText(/^Next: in Code Editor, repair the LAB1 block in labs\/lab1_retrieve\/hybrid_search\.sql, apply it with uv run python scripts\/apply_search_functions\.py/)).toBeTruthy();
     expect(screen.queryByText("Shop run loaded")).toBeNull();
@@ -1666,7 +1666,7 @@ describe("RetrievalLabPage", () => {
     window.history.replaceState(
       {},
       "",
-      `/labs/retrieval?q=B07G95T3JP&event=${SHOP_EVENT_ID}`,
+      `/labs/retrieval?q=B0C2WWFCQB&event=${SHOP_EVENT_ID}`,
     );
     render(<RetrievalLabPage />);
 

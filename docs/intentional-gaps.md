@@ -54,8 +54,8 @@ later ones.
 ### GAP-1 — typo-recovery arm
 
 - **Lab 1 anchor** `typo-recovery` (`checkpoint: repair`, stage `retrieve`)
-- **Query** `B07G95T3JP` (transposed from listing `B07G95TJ3P`)
-- **Target** product 1277987, Bose QuietComfort 35 II
+- **Query** `B0C2WWFCQB` (transposed from listing `B0C2WWCFQB`)
+- **Target** product 1492978, Logitech Zone 900
 - **What to disable** the `typo` CTE in `mosaic_search.search_hybrid_rrf`, so the
   fusion receives only the FTS and vector arms. Leave
   `mosaic_search.search_trigram` itself installed and callable: the lesson is

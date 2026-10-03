@@ -1,78 +1,102 @@
 {
  "provenance": {
-  "captured_at": "2026-09-26",
+  "captured_at": "2026-10-03",
   "mission_id": "typo-recovery",
   "dataset_id": "reviews-2023-v2",
   "producer": "scripts/evals/capture_retrieval_seed.py",
-  "search_event_id": "a72fdb66-ba29-43e4-9f4c-8c4d64c8ef95",
+  "search_event_id": "edf1639c-58e3-45f3-be9c-ce72bf213dc5",
   "note": "One real Aurora retrieval run, captured through /api/search so the Observatory opens on measured ranks. Run pipeline replaces it."
  },
  "response": {
-  "search_event_id": "a72fdb66-ba29-43e4-9f4c-8c4d64c8ef95",
-  "query": "B07G95T3JP",
-  "normalized_query": "B07G95T3JP",
+  "search_event_id": "edf1639c-58e3-45f3-be9c-ce72bf213dc5",
+  "query": "B0C2WWFCQB",
+  "normalized_query": "B0C2WWFCQB",
   "applied_filters": {
    "domain": "consumer_electronics",
    "category_key": "headphones"
   },
   "results": [
    {
-    "product_id": 1277987,
-    "sku": "B07G95TJ3P",
-    "title": "Bose QuietComfort 35 (Series II) Wireless Headphones, Noise Cancelling, with Alexa voice control \u2013 Limited Edition Triple Midnight",
-    "short_description": "What happens when you clear away the noisy distractions of the world? Concentration goes to the next level. You get deeper into your music, your work, or whatever you want to focus on. That\u2019s the power of Bose QuietComfort 35 wireless headphones II, the most powerful Bose noise cancelling headphones yet. Put them on and get closer to what you\u2019re most passionate about. They\u2019re Alexa-enabled, so you can enjoy entertainment, get information, and manage your day \u2014 all without looking at your phone. Adjust your level of noise cancelling between three settings using the Action button or the Bose Connect app. Volume-optimized EQ gives you balanced audio performance at any volume, and a noise-rejecting dual-microphone system provides clearer calls, even in noisy environments. And with easy Bluetooth pairing, 20 hours of battery life, and a durable, comfortable fit \u2014 you can keep the music or the quiet going all day long. Available in Black, Silver, or new, limited-edition Triple Midnight. Included: QuietComfort 35 II, carrying case, charging cable, audio cable for enjoying music without battery power.",
+    "product_id": 1492978,
+    "sku": "B0C2WWCFQB",
+    "title": "Logitech Zone 900 On-Ear Wireless Bluetooth Headset with Advanced Noise-canceling Microphone, Connect up to 6 Wireless Devices with one Receiver, Quick Access to ANC and Bluetooth",
+    "short_description": "Take control of your acoustic experience with Logitech Zone 900, the wireless headset specifically designed to enhance focus and productivity at home. Connect to your smartphone and computer and seamlessly switch between them to experience great audio\u2014perfect for conference calls and immersive music. Active noise cancellation blocks out the noise around you. With comfort, simple controls, and wireless Qi charging, Zone 900 helps you define your workplace soundscape and stay in your zone.",
     "domain": "consumer_electronics",
     "category_key": "headphones",
-    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds > Over-Ear Headphones",
-    "brand": "Bose",
-    "model": "Quietcomfort 35 II",
+    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds > On-Ear Headphones",
+    "brand": "Logitech",
+    "model": "981-001228",
     "price_cents": null,
     "list_price_cents": null,
     "currency": "USD",
-    "rating": 4.7,
-    "review_count": 5341,
+    "rating": 4.3,
+    "review_count": 35,
     "availability": null,
     "inventory_count": null,
     "attributes": {
-     "Brand": "Bose",
-     "Color": "Triple Midnight",
-     "Units": "1.0 Count",
-     "Batteries": "1 Lithium Ion batteries required.",
-     "Model Name": "Quietcomfort 35 II",
-     "Form Factor": "Over Ear",
-     "Item Weight": "0.23 Kilograms",
-     "Manufacturer": "BOSBM - pallet ordering",
-     "Number Of Items": "1",
+     "Brand": "Logitech",
+     "Color": "Graphite",
+     "Series": "Zone 900",
+     "Batteries": "1 Lithium Polymer batteries required. (included)",
+     "Form Factor": "On Ear",
+     "Item Weight": "6.4 ounces",
+     "Manufacturer": "Logitech",
+     "Power Source": "Battery-Powered",
      "Best Sellers Rank": {
-      "Electronics": 73873,
-      "Over-Ear Headphones": 2026
+      "Computer Headsets": 112,
+      "On-Ear Headphones": 375,
+      "Climate Pledge Friendly": 8409,
+      "Climate Pledge Friendly: Computers": 684
      },
-     "Item model number": "789564-0030",
-     "Product Dimensions": "3.2 x 6.7 x 7.1 inches",
-     "Date First Available": "September 20, 2018",
-     "Connectivity Technology": "Bluetooth",
-     "Is Discontinued By Manufacturer": "No"
+     "Country of Origin": "China",
+     "Hardware Platform": "PC, Tablet, Smartphone",
+     "Item model number": "981-001228",
+     "Product Dimensions": "2.78 x 6.96 x 6.88 inches",
+     "Date First Available": "August 25, 2022",
+     "Item Dimensions  LxWxH": "2.78 x 6.96 x 6.88 inches",
+     "Connectivity Technology": "Wireless"
+    },
+    "specs": {
+     "anc": {
+      "value": true,
+      "source": "title",
+      "quote": "Logitech Zone 900 On-Ear Wireless Bluetooth Headset with Advanced Noise-canceling Microphone, Connect up to 6 Wireless Devices with one Receiver, Quick Access to ANC and Bluetooth"
+     },
+     "microphone": {
+      "value": true,
+      "source": "title",
+      "quote": "Logitech Zone 900 On-Ear Wireless Bluetooth Headset with Advanced Noise-canceling Microphone, Connect up to 6 Wireless Devices with one Receiver, Quick Access to ANC and Bluetooth"
+     },
+     "wireless": {
+      "value": true,
+      "source": "details.Connectivity Technology",
+      "quote": "Wireless"
+     },
+     "form_factor": {
+      "value": "on-ear",
+      "source": "details.Form Factor",
+      "quote": "On Ear"
+     }
     },
     "tags": [],
     "catalog_asset_key": null,
-    "canonical_group_id": "B07G95TJ3P",
+    "canonical_group_id": "B0C2WWCFQB",
     "media_tier": null,
     "is_flagship": false,
     "is_retrieval_anchor": false,
-    "image_url": "https://m.media-amazon.com/images/I/71Aclgd057L._AC_SL1500_.jpg",
+    "image_url": "https://m.media-amazon.com/images/I/61JimNrFfYL._AC_SL1500_.jpg",
     "image_source": "original_listing",
     "source_dataset": "reviews-2023-v2",
-    "listing_url": "https://www.amazon.com/dp/B07G95TJ3P",
-    "historical_price_cents": 27993,
+    "listing_url": "https://www.amazon.com/dp/B0C2WWCFQB",
+    "historical_price_cents": 23999,
     "historical_price_min_cents": null,
     "condition": "unspecified",
     "source_features": [
-     "Limited Edition, QC35 Series II, Noise Cancelling, Over Ear Headphones in Triple Midnight",
-     "Three levels of world-class noise cancellation for better listening experience in any environment",
-     "Alexa-enabled for voice access to music, information, and more",
-     "Noise-rejecting dual-microphone system for clear sound and voice pick-up",
-     "Balanced audio performance at any volume",
-     "Hassle-free Bluetooth pairing, personalized settings, access to future updates, and more through the Bose Connect app"
+     "The noise-canceling mic isolates your voice from any other noise around you, so you sound natural and clear while working from home on video conferences",
+     "Active noise cancelation reduces surrounding ambient sound delivering clear, crisp audio for calls and music so you can stay focused in home office",
+     "Up to 14 hours* of battery life from one full charge, and get 1 hour of playback with a 5-minute charge with Qi charging** enabled",
+     "Connect up to 6 Logi wireless peripherals*** to 1 receiver in one USB port, and stay connected within 100ft wireless range",
+     "Use Bluetooth or the Unifying receiver to connect to your computer, tablet or smartphone, and seamlessly alternate between them"
     ],
     "signals": {
      "fts": {
@@ -82,7 +106,7 @@
      },
      "trigram": {
       "rank": 1,
-      "raw_score": 0.6363636,
+      "raw_score": 0.54545456,
       "rrf_contribution": 0.01639344262295082
      },
      "semantic": {
@@ -93,7 +117,7 @@
      "rrf_score": 0.01639344262295082,
      "pre_rerank_rank": 1,
      "pre_rerank_score": 0.01639344262295082,
-     "rerank_score": 0.38637030124664307,
+     "rerank_score": 0.7413936853408813,
      "rerank_rank": 1,
      "exact_sku_match": false,
      "final_rank": 1,
@@ -101,718 +125,92 @@
     },
     "sources": [
      {
-      "source_uri": "https://www.amazon.com/dp/B07G95TJ3P",
-      "revision": "64a48d645d07e5f8c5193aff633ae3f640c75ab84add5dc2fb5f4b715f533842",
-      "title": "Bose QuietComfort 35 (Series II) Wireless Headphones, Noise Cancelling, with Alexa voice control \u2013 Limited Edition Triple Midnight",
-      "quote": "What happens when you clear away the noisy distractions of the world? Concentration goes to the next level. You get deeper into your music, your work, or whatever you want to focus on. That\u2019s the power of Bose QuietComfort 35 wireless headphones II, the most powerful Bose noise cancelling headphones yet. Put them on and get closer to what you\u2019re most passionate about. They\u2019re Alexa-enabled, so you can enjoy entertainment, get information, and manage your day \u2014 all without looking at your phone. Adjust your level of noise cancelling between three settings using the Action button or the Bose Connect app. Volume-optimized EQ gives you balanced audio performance at any volume, and a noise-rejecting dual-microphone system provides clearer calls, even in noisy environments. And with easy Bluetooth pairing, 20 hours of battery life, and a durable, comfortable fit \u2014 you can keep the music or the quiet going all day long. Available in Black, Silver, or new, limited-edition Triple Midnight. Included: QuietComfort 35 II, carrying case, charging cable, audio cable for enjoying music without battery power."
+      "source_uri": "https://www.amazon.com/dp/B0C2WWCFQB",
+      "revision": "93ad8b244e2158151283ce337ba24f9496d1c1d97132cd33f615c722862402b7",
+      "title": "Logitech Zone 900 On-Ear Wireless Bluetooth Headset with Advanced Noise-canceling Microphone, Connect up to 6 Wireless Devices with one Receiver, Quick Access to ANC and Bluetooth",
+      "quote": "Take control of your acoustic experience with Logitech Zone 900, the wireless headset specifically designed to enhance focus and productivity at home. Connect to your smartphone and computer and seamlessly switch between them to experience great audio\u2014perfect for conference calls and immersive music. Active noise cancellation blocks out the noise around you. With comfort, simple controls, and wireless Qi charging, Zone 900 helps you define your workplace soundscape and stay in your zone."
      }
     ]
    },
    {
-    "product_id": 1238789,
-    "sku": "B07411X4HB",
-    "title": "2 in 1 Lightning charging Cable to 3.5mm Headphone Jack adapter for iPhone 7/ 7Plus ,Listen to Music with Favorite Headphone and Charge Your iPhone7 At the Same time(black)",
-    "short_description": "2 in 1 Lightning Cable to 3.5mm Headphone Jack and Charging Adapter iPhone 7 /7 Plus Tired of your Apple lightning cable breaking apart at the connectors? Our 2 in 1 Lightning Adapters actually meet your requirement. Use it with your Apple iPhone, iPad or iPod and enjoy the freedom of being able to use your device on the bed or couch while it's plugged in. Thanks to built-in strain relief reinforcements, you can move around easily without worrying about the cable disconnecting from the lightning or USB connector.",
+    "product_id": 1553378,
+    "sku": "B0C93YLWXJ",
+    "title": "Bowers & Wilkins Px7 S2 Over-Ear Headphones (2022 Model) - All-New Advanced Noise Cancellation, Works with B&W Android/iOS Music App, Slim & Lightweight, 7-Hour Playback on 15-Min Quick Charge, Black",
+    "short_description": "A premium upgrade to the acoustically acclaimed Px7, the Bowers & Wilkins Px7 S2 Over-Ear Wireless Headphones, with a completely redesigned and optimized acoustic system, an all-new angled drive unit design, and a more powerful motor system, offers class-leading audio performance with incredible clarity. Featuring and improved microphone arrangement with 2 external adjustable mics, the Bluetooth headphones ensure exceptional call quality with better voice clarity. Its proprietary, all-new active noise cancellation is designed to block out unwanted external noise, ensuring clear, crisp playback of your favorite tracks. The Bowers & Wilkins Music App, compatible with iOS/Android, allows for easy setup up and pairing and enables you to control he sound and noise cancellation, activate voice control, and more \u2013 right from your phone. Offers 30 hours battery life from a 2-hour charge, plus quick charge support delivering 7 hours playback from a 15-minute charge, making it an ideal headset for on-the-go use. Comes with all round improvements to headband that ensure comfort across differing head-shapes, coupled with lightweight aluminum and fine leathers for a superior fit and finish.",
     "domain": "consumer_electronics",
     "category_key": "headphones",
-    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds",
-    "brand": "lightsred",
-    "model": "",
+    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds > Over-Ear Headphones",
+    "brand": "Bowers & Wilkins",
+    "model": "Px7 S2 Black",
     "price_cents": null,
     "list_price_cents": null,
     "currency": "USD",
-    "rating": 1.5,
-    "review_count": 22,
+    "rating": 4.3,
+    "review_count": 1671,
     "availability": null,
     "inventory_count": null,
     "attributes": {
-     "Brand": "lightsred",
+     "Brand": "Bowers & Wilkins",
      "Color": "Black",
-     "Item Weight": "0.634 ounces",
-     "Manufacturer": "lightsred",
-     "Headphones Jack": "3.5 mm Jack",
-     "Special Feature": "USB connectivity",
-     "Package Dimensions": "5 x 3.58 x 0.2 inches",
-     "Date First Available": "July 17, 2017",
-     "Connectivity Technology": "Wired",
-     "Is Discontinued By Manufacturer": "No"
-    },
-    "tags": [],
-    "catalog_asset_key": null,
-    "canonical_group_id": "B07411X4HB",
-    "media_tier": null,
-    "is_flagship": false,
-    "is_retrieval_anchor": false,
-    "image_url": "https://m.media-amazon.com/images/I/51vfNOSA+FL._AC_SL1000_.jpg",
-    "image_source": "original_listing",
-    "source_dataset": "reviews-2023-v2",
-    "listing_url": "https://www.amazon.com/dp/B07411X4HB",
-    "historical_price_cents": null,
-    "historical_price_min_cents": null,
-    "condition": "unspecified",
-    "source_features": [
-     "Charge iPhone 7 / 7 Plus and listen to music simultaneously.",
-     "2-in-1 Adapter: 3.5mm for audio listening and Lightning connector for charging iPhone and iPad.",
-     "High-quality material to ensure charging speed: Using high-tech materials imported from Japan to make sure long lasting using and fast charging.",
-     "Durable metal shell design:High quality Aluminum alloy oxidation shell is more wear-resisting and corrosion resistance, enhancing the anti-interference ability. You can put it into a backpack or handbag relievedly if you often go out.",
-     "Please note: using adapter disables audio/music control buttons on headphones/earbuds."
-    ],
-    "signals": {
-     "fts": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "trigram": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "semantic": {
-      "rank": 8,
-      "raw_score": 0.27317992,
-      "rrf_contribution": 0.014705882352941176
-     },
-     "rrf_score": 0.014705882352941176,
-     "pre_rerank_rank": 9,
-     "pre_rerank_score": 0.014705882352941176,
-     "rerank_score": 0.13572417199611664,
-     "rerank_rank": 2,
-     "exact_sku_match": false,
-     "final_rank": 2,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
-    },
-    "sources": [
-     {
-      "source_uri": "https://www.amazon.com/dp/B07411X4HB",
-      "revision": "7c1be1727b8dd34076b7dfea88fd5bdfef5808c6c2c9f9d21b235c418ed7e39e",
-      "title": "2 in 1 Lightning charging Cable to 3.5mm Headphone Jack adapter for iPhone 7/ 7Plus ,Listen to Music with Favorite Headphone and Charge Your iPhone7 At the Same time(black)",
-      "quote": "2 in 1 Lightning Cable to 3.5mm Headphone Jack and Charging Adapter iPhone 7 /7 Plus Tired of your Apple lightning cable breaking apart at the connectors? Our 2 in 1 Lightning Adapters actually meet your requirement. Use it with your Apple iPhone, iPad or iPod and enjoy the freedom of being able to use your device on the bed or couch while it's plugged in. Thanks to built-in strain relief reinforcements, you can move around easily without worrying about the cable disconnecting from the lightning or USB connector."
-     }
-    ]
-   },
-   {
-    "product_id": 1080212,
-    "sku": "B0079VOD9M",
-    "title": "V7 High Definition Noise Isolating 3.5mm Stereo Comfort-Fit Earbuds for music and video audio streaming on smartphones, portable MP3, DVD, Game systems (HA100-2NP) - Black",
-    "short_description": "Product Description",
-    "domain": "consumer_electronics",
-    "category_key": "headphones",
-    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds > Earbud Headphones",
-    "brand": "V7",
-    "model": "HA100-2NP",
-    "price_cents": null,
-    "list_price_cents": null,
-    "currency": "USD",
-    "rating": 3.7,
-    "review_count": 384,
-    "availability": null,
-    "inventory_count": null,
-    "attributes": {
-     "Brand": "V7",
-     "Color": "Black",
-     "Model Name": "HA100-2NP",
-     "Form Factor": "In Ear",
-     "Item Weight": "0.03 Pounds",
-     "Manufacturer": "V7",
+     "Units": "1.0 Count",
+     "Batteries": "1 Lithium Ion batteries required. (included)",
+     "Model Name": "Px7 S2 Black",
+     "Form Factor": "Over Ear",
+     "Item Weight": "2.44 pounds",
+     "Manufacturer": "Bowers & Wilkins",
      "Number Of Items": "1",
      "Best Sellers Rank": {
-      "Electronics": 245587,
-      "Earbud & In-Ear Headphones": 12520
+      "Electronics": 37848,
+      "Over-Ear Headphones": 1460
      },
-     "Item model number": "HA100-2NP",
-     "Product Dimensions": "0.94 x 0.4 x 0.83 inches",
-     "Date First Available": "February 14, 2012",
-     "Connectivity Technology": "Wired",
+     "Country of Origin": "China",
+     "Item model number": "FP42927",
+     "Product Dimensions": "7.45 x 9.2 x 2.5 inches",
+     "Date First Available": "June 29, 2022",
+     "Connectivity Technology": "USB",
      "Is Discontinued By Manufacturer": "No"
+    },
+    "specs": {
+     "anc": {
+      "value": true,
+      "source": "title",
+      "quote": "Bowers & Wilkins Px7 S2 Over-Ear Headphones (2022 Model) - All-New Advanced Noise Cancellation, Works with B&W Android/iOS Music App, Slim & Lightweight, 7-Hour Playback on 15-Min Quick Charge, Black"
+     },
+     "microphone": {
+      "value": true,
+      "source": "features[1]",
+      "quote": "NOISE CANCELLING HEADPHONES WITH MIC - The all-new active noise cancellation is designed to block unwanted noise and ensure superior musicality;"
+     },
+     "wireless": {
+      "value": false,
+      "source": "details.Connectivity Technology",
+      "quote": "USB"
+     },
+     "form_factor": {
+      "value": "over-ear",
+      "source": "details.Form Factor",
+      "quote": "Over Ear"
+     }
     },
     "tags": [],
     "catalog_asset_key": null,
-    "canonical_group_id": "B0079VOD9M",
+    "canonical_group_id": "B0C93YLWXJ",
     "media_tier": null,
     "is_flagship": false,
     "is_retrieval_anchor": false,
-    "image_url": "https://m.media-amazon.com/images/I/41WxWBLMhwL._AC_SL1000_.jpg",
+    "image_url": "https://m.media-amazon.com/images/I/41tE76+cIKL._AC_SL1000_.jpg",
     "image_source": "original_listing",
     "source_dataset": "reviews-2023-v2",
-    "listing_url": "https://www.amazon.com/dp/B0079VOD9M",
-    "historical_price_cents": null,
+    "listing_url": "https://www.amazon.com/dp/B0C93YLWXJ",
+    "historical_price_cents": 39900,
     "historical_price_min_cents": null,
     "condition": "unspecified",
     "source_features": [
-     "Connectivity Technology: Wired",
-     "Digital studio sound quality from 10 mm drivers that deliver frequency response of 20Hz - 20KHz.",
-     "Higher quality cabling and heavy-duty flexible joints built to withstand rigorous daily use.",
-     "Ideal for use with all MP3 CD, DVD, Mini Disc players, portable game systems, iPads and iPhones as well as any electronic device that supports a 3.5mm audio jack.",
-     "Lightweight smooth shape with soft ear cushions to ensure a perfect fit and seal inside your ear providing sound isolation from exterior noises."
-    ],
-    "signals": {
-     "fts": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "trigram": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "semantic": {
-      "rank": 45,
-      "raw_score": 0.25839984,
-      "rrf_contribution": 0.009523809523809525
-     },
-     "rrf_score": 0.009523809523809525,
-     "pre_rerank_rank": 46,
-     "pre_rerank_score": 0.009523809523809525,
-     "rerank_score": 0.13245868682861328,
-     "rerank_rank": 3,
-     "exact_sku_match": false,
-     "final_rank": 3,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
-    },
-    "sources": [
-     {
-      "source_uri": "https://www.amazon.com/dp/B0079VOD9M",
-      "revision": "2efcf0272e3a6e10652996c7f9900e4049a0b6020063661d72d440957334f993",
-      "title": "V7 High Definition Noise Isolating 3.5mm Stereo Comfort-Fit Earbuds for music and video audio streaming on smartphones, portable MP3, DVD, Game systems (HA100-2NP) - Black",
-      "quote": "Product Description"
-     }
-    ]
-   },
-   {
-    "product_id": 1521324,
-    "sku": "B073XKVMMQ",
-    "title": "Lightning to 3.5mm Audio Adapter for iPhone 7 and iPhone7 Plus (with Lightning Port Charging + 3.5 mm Port),Listen to Music with Favorite Headphone and Charge Your iPhone7 At the Same time(Silver)",
-    "short_description": "2 in 1 Lightning Cable to 3.5mm Headphone Jack and Charging Adapter iPhone 7 /7 Plus",
-    "domain": "consumer_electronics",
-    "category_key": "headphones",
-    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds",
-    "brand": "KT Shops",
-    "model": "",
-    "price_cents": null,
-    "list_price_cents": null,
-    "currency": "USD",
-    "rating": 1.8,
-    "review_count": 156,
-    "availability": null,
-    "inventory_count": null,
-    "attributes": {
-     "Brand": "KT Shops",
-     "Color": "Silver",
-     "Item Weight": "0.317 ounces",
-     "Manufacturer": "KT Shops",
-     "Connector Type": "Auxiliary, Lightning",
-     "Compatible Devices": "MP3 Player, Headphone, Cellular Phones",
-     "Product Dimensions": "7.7 x 0.8 x 5.5 inches",
-     "Date First Available": "July 14, 2017",
-     "Item Dimensions LxWxH": "7.7 x 0.8 x 5.5 inches",
-     "Other display features": "Wireless",
-     "Is Discontinued By Manufacturer": "No"
-    },
-    "tags": [],
-    "catalog_asset_key": null,
-    "canonical_group_id": "B073XKVMMQ",
-    "media_tier": null,
-    "is_flagship": false,
-    "is_retrieval_anchor": false,
-    "image_url": "https://m.media-amazon.com/images/I/31PiU9fbhGL._AC_.jpg",
-    "image_source": "original_listing",
-    "source_dataset": "reviews-2023-v2",
-    "listing_url": "https://www.amazon.com/dp/B073XKVMMQ",
-    "historical_price_cents": null,
-    "historical_price_min_cents": null,
-    "condition": "unspecified",
-    "source_features": [
-     "Charge iPhone 7 / 7 Plus and listen to music simultaneously.",
-     "2-in-1 Adapter: 3.5mm for audio listening and Lightning connector for charging iPhone and iPad.",
-     "High-quality material to ensure charging speed: Using high-tech materials imported from Japan to make sure long lasting using and fast charging.",
-     "Durable metal shell design:High quality Aluminum alloy oxidation shell is more wear-resisting and corrosion resistance, enhancing the anti-interference ability. You can put it into a backpack or handbag relievedly if you often go out.",
-     "Please note: using adapter disables audio/music control buttons on headphones/earbuds."
-    ],
-    "signals": {
-     "fts": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "trigram": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "semantic": {
-      "rank": 32,
-      "raw_score": 0.2530501,
-      "rrf_contribution": 0.010869565217391304
-     },
-     "rrf_score": 0.010869565217391304,
-     "pre_rerank_rank": 33,
-     "pre_rerank_score": 0.010869565217391304,
-     "rerank_score": 0.12363014370203018,
-     "rerank_rank": 4,
-     "exact_sku_match": false,
-     "final_rank": 4,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
-    },
-    "sources": [
-     {
-      "source_uri": "https://www.amazon.com/dp/B073XKVMMQ",
-      "revision": "e35eaea55cdf7ed0d0934779386d82b4d70eddd4d1825eb778252a4228405ea6",
-      "title": "Lightning to 3.5mm Audio Adapter for iPhone 7 and iPhone7 Plus (with Lightning Port Charging + 3.5 mm Port),Listen to Music with Favorite Headphone and Charge Your iPhone7 At the Same time(Silver)",
-      "quote": "2 in 1 Lightning Cable to 3.5mm Headphone Jack and Charging Adapter iPhone 7 /7 Plus"
-     }
-    ]
-   },
-   {
-    "product_id": 1518510,
-    "sku": "B01KV3GL26",
-    "title": "iPhone 7 Leather Case, G-CASE [Duke] Ultra Slim Premium Leather Wallet Case with Slot for Nano SIM Card and Ejector Pin Protective Cover Case for iPhone 7 4.7 inch - Black(2016)",
-    "short_description": "G-Case [Duck] Case for Apple iPhone 7 2016",
-    "domain": "consumer_electronics",
-    "category_key": "headphones",
-    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds > Earbud Headphones",
-    "brand": "",
-    "model": "4326803644",
-    "price_cents": null,
-    "list_price_cents": null,
-    "currency": "USD",
-    "rating": 4.2,
-    "review_count": 22,
-    "availability": null,
-    "inventory_count": null,
-    "attributes": {
-     "Color": "Natural10",
-     "Item Weight": "0.96 ounces",
-     "Manufacturer": "IPHUNGO",
-     "Special features": "Luxury PU leather material Magnetic metal plate Built in slot for SIM card and Ejector Pin Slim fit",
-     "Item model number": "4326803644",
-     "Product Dimensions": "5.31 x 2.56 x 0.2 inches",
-     "Date First Available": "August 23, 2016",
-     "Other display features": "Wireless",
-     "Is Discontinued By Manufacturer": "No"
-    },
-    "tags": [],
-    "catalog_asset_key": null,
-    "canonical_group_id": "B01KV3GL26",
-    "media_tier": null,
-    "is_flagship": false,
-    "is_retrieval_anchor": false,
-    "image_url": "https://m.media-amazon.com/images/I/71z61QAN6wL._AC_SL1100_.jpg",
-    "image_source": "original_listing",
-    "source_dataset": "reviews-2023-v2",
-    "listing_url": "https://www.amazon.com/dp/B01KV3GL26",
-    "historical_price_cents": null,
-    "historical_price_min_cents": null,
-    "condition": "unspecified",
-    "source_features": [
-     "[PREMIUM MATERIAL] Skin-friendly PU Leather back cover protects your cellphone against scratches, dirt and daily wear and tear.Environmental soft TPU edge offers easy way to take on/off the device, comfortable grab feeling and no signal reduce.",
-     "[ULTRA THIN & LIGHT] Super-thin slim fit without bulky feel in the palm of your hand, easy to carry in your pocket, fits your iPhone 7 perfectly, a sleek and luxury business-style look.",
-     "[METAL PLATE] Exclusive invisible built-in magnetic metal plate easily attach to the magnetic car mount directly. No need to place extra meal plate between the case and phone holder.",
-     "[CONVENIENT] Designed with Nano SIM card slot and Ejector Pin slot, not only protects your phone,but also allows you carry your SIM card and Ejector Pin to everywhere, won't be lost.",
-     "[PRECISE CUTS] Precisely cut is easy to install and complete access to all buttons, camera, speakers and ports."
-    ],
-    "signals": {
-     "fts": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "trigram": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "semantic": {
-      "rank": 4,
-      "raw_score": 0.2835866,
-      "rrf_contribution": 0.015625
-     },
-     "rrf_score": 0.015625,
-     "pre_rerank_rank": 5,
-     "pre_rerank_score": 0.015625,
-     "rerank_score": 0.11845669150352478,
-     "rerank_rank": 5,
-     "exact_sku_match": false,
-     "final_rank": 5,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
-    },
-    "sources": [
-     {
-      "source_uri": "https://www.amazon.com/dp/B01KV3GL26",
-      "revision": "98b008d05194e1e185b43a09691b512403dfa6c3d974d3c655741e4d06b2ace0",
-      "title": "iPhone 7 Leather Case, G-CASE [Duke] Ultra Slim Premium Leather Wallet Case with Slot for Nano SIM Card and Ejector Pin Protective Cover Case for iPhone 7 4.7 inch - Black(2016)",
-      "quote": "G-Case [Duck] Case for Apple iPhone 7 2016"
-     }
-    ]
-   },
-   {
-    "product_id": 1511745,
-    "sku": "B00JOLS6PC",
-    "title": "DURAGADGET Hard EVA Storage Case For Headphones/Earbuds, With Compartment (Black) For B&W P5, P7",
-    "short_description": "Introducing our brand new, high quality protective storage case for your valuable headphones, finished in an executive matte black. Crafted from intensely tough and sustainable EVA, this case provides the ultimate anti-shock, anti-scratch protection. This case has been ergonomically designed with a contoured shape and provides a super-snug and secure fit to your headphones. Lightweight and ultra-portable, this case is ideal for protecting your earphones whilst out and about or travelling.With an interior netted compartment, you can also store spare earbuds.",
-    "domain": "consumer_electronics",
-    "category_key": "headphones",
-    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds",
-    "brand": "DURAGADGET",
-    "model": "1120",
-    "price_cents": null,
-    "list_price_cents": null,
-    "currency": "USD",
-    "rating": 4.6,
-    "review_count": 19,
-    "availability": null,
-    "inventory_count": null,
-    "attributes": {
-     "Brand": "DURAGADGET",
-     "Color": "Black",
-     "Material": "eva",
-     "Item Weight": "9.8 ounces",
-     "Manufacturer": "DURAGADGET",
-     "Special Feature": "Lightweight",
-     "Item model number": "1120",
-     "Package Dimensions": "10.24 x 9.61 x 3.66 inches",
-     "Date First Available": "April 15, 2014",
-     "Is Discontinued By Manufacturer": "No"
-    },
-    "tags": [],
-    "catalog_asset_key": null,
-    "canonical_group_id": "B00JOLS6PC",
-    "media_tier": null,
-    "is_flagship": false,
-    "is_retrieval_anchor": false,
-    "image_url": "https://m.media-amazon.com/images/I/81kH4xNINaL._AC_SL1500_.jpg",
-    "image_source": "original_listing",
-    "source_dataset": "reviews-2023-v2",
-    "listing_url": "https://www.amazon.com/dp/B00JOLS6PC",
-    "historical_price_cents": null,
-    "historical_price_min_cents": null,
-    "condition": "unspecified",
-    "source_features": [
-     "Small storage case for protecting your valuable headphones, finished in an executive matte black",
-     "Crafted from intensely tough and durable EVA for shock and impact-resistant protection",
-     "Ergonomically-designed with a contoured shape provides a super-snug and secure fit",
-     "Lightweight and ultra-portable with a wrap-around zip for additional security",
-     "Internal Dimensions: 200 x 190 x 60mm - Please note; Any devices shown are for display purposes ONLY and are NOT included in this purchase."
-    ],
-    "signals": {
-     "fts": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "trigram": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "semantic": {
-      "rank": 5,
-      "raw_score": 0.28338146,
-      "rrf_contribution": 0.015384615384615385
-     },
-     "rrf_score": 0.015384615384615385,
-     "pre_rerank_rank": 6,
-     "pre_rerank_score": 0.015384615384615385,
-     "rerank_score": 0.11748121678829193,
-     "rerank_rank": 6,
-     "exact_sku_match": false,
-     "final_rank": 6,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
-    },
-    "sources": [
-     {
-      "source_uri": "https://www.amazon.com/dp/B00JOLS6PC",
-      "revision": "a593c77e0d640c5d5e104e1e2f7cdebd68baea813f96429dbb9bf3cf7c2a0755",
-      "title": "DURAGADGET Hard EVA Storage Case For Headphones/Earbuds, With Compartment (Black) For B&W P5, P7",
-      "quote": "Introducing our brand new, high quality protective storage case for your valuable headphones, finished in an executive matte black. Crafted from intensely tough and sustainable EVA, this case provides the ultimate anti-shock, anti-scratch protection. This case has been ergonomically designed with a contoured shape and provides a super-snug and secure fit to your headphones. Lightweight and ultra-portable, this case is ideal for protecting your earphones whilst out and about or travelling.With an interior netted compartment, you can also store spare earbuds."
-     }
-    ]
-   },
-   {
-    "product_id": 1475970,
-    "sku": "B0BJ1SBZXX",
-    "title": "Bose SoundSport in-Ear Headphones for Apple Devices - Wired (Energy Green)",
-    "short_description": "Deep, clear sound enhanced by exclusive TriPort technology for crisp highs and natural sounding lows.Connectivity Technology: Wired Proprietary Stay Hear tips, in three sizes, conform to your ear's shape to stay comfortably in place all day Sweat and weather resistant; engineered and tested for lasting quality and durability;Case:8.4 cm Height x 8.4 centimeter Width x 2.8 centimeter Inline microphone and remote for easy switching between calls and music with select iPhone models Matching protective carrying case included. Stay Hear tips:2.5 centimeter H x 1.9 centimeter Width x 0.95 centimeter Depth. Sound Sport in ear headphones:1.06 meter (17.86 gram)",
-    "domain": "consumer_electronics",
-    "category_key": "headphones",
-    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds > Earbud Headphones",
-    "brand": "Bose",
-    "model": "SoundSport",
-    "price_cents": null,
-    "list_price_cents": null,
-    "currency": "USD",
-    "rating": 4.4,
-    "review_count": 1032,
-    "availability": null,
-    "inventory_count": null,
-    "attributes": {
-     "Brand": "Bose",
-     "Color": "Energy Green",
-     "Units": "1 Count",
-     "Batteries": "1 Lithium Ion batteries required.",
-     "Model Name": "SoundSport",
-     "Form Factor": "In Ear",
-     "Item Weight": "0.04 Pounds",
-     "Manufacturer": "BOSE",
-     "Number Of Items": "1",
-     "Item model number": "SoundSport IE IP EGR",
-     "Product Dimensions": "1.97 x 1.18 x 3.94 inches",
-     "Date First Available": "September 11, 2015",
-     "Connectivity Technology": "Wired",
-     "Is Discontinued By Manufacturer": "No"
-    },
-    "tags": [],
-    "catalog_asset_key": null,
-    "canonical_group_id": "B0BJ1SBZXX",
-    "media_tier": null,
-    "is_flagship": false,
-    "is_retrieval_anchor": false,
-    "image_url": "https://m.media-amazon.com/images/I/31RHbFK4rVL._AC_.jpg",
-    "image_source": "original_listing",
-    "source_dataset": "reviews-2023-v2",
-    "listing_url": "https://www.amazon.com/dp/B0BJ1SBZXX",
-    "historical_price_cents": 31599,
-    "historical_price_min_cents": null,
-    "condition": "unspecified",
-    "source_features": [],
-    "signals": {
-     "fts": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "trigram": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "semantic": {
-      "rank": 49,
-      "raw_score": 0.2561404,
-      "rrf_contribution": 0.009174311926605505
-     },
-     "rrf_score": 0.009174311926605505,
-     "pre_rerank_rank": 50,
-     "pre_rerank_score": 0.009174311926605505,
-     "rerank_score": 0.11531178653240204,
-     "rerank_rank": 7,
-     "exact_sku_match": false,
-     "final_rank": 7,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
-    },
-    "sources": [
-     {
-      "source_uri": "https://www.amazon.com/dp/B0BJ1SBZXX",
-      "revision": "0492ccfe0e956b1546b20608888c817c46a6751a053cadfcbab3b3b4c67ab96c",
-      "title": "Bose SoundSport in-Ear Headphones for Apple Devices - Wired (Energy Green)",
-      "quote": "Deep, clear sound enhanced by exclusive TriPort technology for crisp highs and natural sounding lows.Connectivity Technology: Wired Proprietary Stay Hear tips, in three sizes, conform to your ear's shape to stay comfortably in place all day Sweat and weather resistant; engineered and tested for lasting quality and durability;Case:8.4 cm Height x 8.4 centimeter Width x 2.8 centimeter Inline microphone and remote for easy switching between calls and music with select iPhone models Matching protective carrying case included. Stay Hear tips:2.5 centimeter H x 1.9 centimeter Width x 0.95 centimeter Depth. Sound Sport in ear headphones:1.06 meter (17.86 gram)"
-     }
-    ]
-   },
-   {
-    "product_id": 1503445,
-    "sku": "B001W4C1SW",
-    "title": "Blackberry Storm 9500 9530/ Storm 2/ 9630 9030 Tour Niagara /Curve 8900 / Curve 8520/ Pearl Flip 8220 / Bold 9000 / Pearl 8110 / Curve 8330 / Pearl 8120 / Curve 8320 / Pearl 8130 / Curve 8310 / Curve 8300 Ear-Loop Design Hands Free Headset W/ Boom Microphone",
-    "short_description": "Compatible with Blackberry Storm 9500 9530/ Storm 2/ 9630 9030 Tour Niagara /Curve 8900 / Pearl Flip 8220 / Bold 9000 / Pearl 8110 / Curve 8330 / Pearl 8120 / Curve 8320 / Pearl 8130 / Curve 8310 / Curve 8300",
-    "domain": "consumer_electronics",
-    "category_key": "headphones",
-    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds",
-    "brand": "",
-    "model": "",
-    "price_cents": null,
-    "list_price_cents": null,
-    "currency": "USD",
-    "rating": 1.0,
-    "review_count": 2,
-    "availability": null,
-    "inventory_count": null,
-    "attributes": {
-     "Manufacturer": "X",
-     "Date First Available": "March 17, 2009"
-    },
-    "tags": [],
-    "catalog_asset_key": null,
-    "canonical_group_id": "B001W4C1SW",
-    "media_tier": null,
-    "is_flagship": false,
-    "is_retrieval_anchor": false,
-    "image_url": "https://m.media-amazon.com/images/I/31e7+s0PxfL._AC_.jpg",
-    "image_source": "original_listing",
-    "source_dataset": "reviews-2023-v2",
-    "listing_url": "https://www.amazon.com/dp/B001W4C1SW",
-    "historical_price_cents": null,
-    "historical_price_min_cents": null,
-    "condition": "unspecified",
-    "source_features": [
-     "This 3.5mm Mono Headset has a single over the ear loop designed to fit either your left or right ear",
-     "Equipped with an on/off mic allowing you to talk freely with this headset.",
-     "Headset cord is approx 3 ft. long and comes with a collar clip.",
-     "Headset features superior sound quality."
-    ],
-    "signals": {
-     "fts": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "trigram": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "semantic": {
-      "rank": 11,
-      "raw_score": 0.26726755,
-      "rrf_contribution": 0.014084507042253521
-     },
-     "rrf_score": 0.014084507042253521,
-     "pre_rerank_rank": 12,
-     "pre_rerank_score": 0.014084507042253521,
-     "rerank_score": 0.11078844964504242,
-     "rerank_rank": 8,
-     "exact_sku_match": false,
-     "final_rank": 8,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
-    },
-    "sources": [
-     {
-      "source_uri": "https://www.amazon.com/dp/B001W4C1SW",
-      "revision": "7fc0e5655643da0d0382d464b1070608cf1057badf2988b0bfadfec623a22e88",
-      "title": "Blackberry Storm 9500 9530/ Storm 2/ 9630 9030 Tour Niagara /Curve 8900 / Curve 8520/ Pearl Flip 8220 / Bold 9000 / Pearl 8110 / Curve 8330 / Pearl 8120 / Curve 8320 / Pearl 8130 / Curve 8310 / Curve 8300 Ear-Loop Design Hands Free Headset W/ Boom Microphone",
-      "quote": "Compatible with Blackberry Storm 9500 9530/ Storm 2/ 9630 9030 Tour Niagara /Curve 8900 / Pearl Flip 8220 / Bold 9000 / Pearl 8110 / Curve 8330 / Pearl 8120 / Curve 8320 / Pearl 8130 / Curve 8310 / Curve 8300"
-     }
-    ]
-   },
-   {
-    "product_id": 1208201,
-    "sku": "B01KV3GPTA",
-    "title": "iPhone 7 Case, G-CASE [Duke] Ultra Slim Vegan Leather Case,Built-in Magnetic Metal Plate,SIM Card and Ejector Pin Slot,Shockproof Protective Cover for iPhone 7-Red(2018)",
-    "short_description": "G-Case [Duck] Leather Case for Apple iPhone 7 2018",
-    "domain": "consumer_electronics",
-    "category_key": "headphones",
-    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds > Earbud Headphones",
-    "brand": "",
-    "model": "4334991600",
-    "price_cents": null,
-    "list_price_cents": null,
-    "currency": "USD",
-    "rating": 4.0,
-    "review_count": 3,
-    "availability": null,
-    "inventory_count": null,
-    "attributes": {
-     "Color": "Red",
-     "Item Weight": "0.96 ounces",
-     "Manufacturer": "Anyfashion",
-     "Special features": "Chic Glam Smooth and Shine Reliable Protection Polycarbonate exterior & Shock-absorbing TPU interior Rugged Shock-absorbing and Anti-Scratch Protection Minimalist Design Dual-Layer Protective Electroplated Buttons & Responsive Design FUNCTIONAL RAISED LIP PROTECTION, Luxury PU leather material Magnetic metal plate Built in slot for SIM card and Ejector Pin Slim fit",
-     "Item model number": "4334991600",
-     "Product Dimensions": "5.31 x 2.56 x 0.2 inches",
-     "Date First Available": "August 23, 2016",
-     "Other display features": "Wireless",
-     "Is Discontinued By Manufacturer": "No"
-    },
-    "tags": [],
-    "catalog_asset_key": null,
-    "canonical_group_id": "B01KV3GPTA",
-    "media_tier": null,
-    "is_flagship": false,
-    "is_retrieval_anchor": false,
-    "image_url": "https://m.media-amazon.com/images/I/71oKYTF43vL._AC_SL1100_.jpg",
-    "image_source": "original_listing",
-    "source_dataset": "reviews-2023-v2",
-    "listing_url": "https://www.amazon.com/dp/B01KV3GPTA",
-    "historical_price_cents": null,
-    "historical_price_min_cents": null,
-    "condition": "unspecified",
-    "source_features": [
-     "[PREMIUM MATERIAL] Skin-friendly PU Leather back cover protects your cellphone against scratches, dirt and daily wear and tear.Environmental soft TPU edge offers easy way to take on/off the device, comfortable grab feeling and no signal reduce.",
-     "[ULTRA THIN & LIGHT] Super-thin slim fit without bulky feel in the palm of your hand, easy to carry in your pocket, fits your iPhone 7 perfectly, a sleek and luxury business-style look.",
-     "[METAL PLATE] Exclusive invisible built-in magnetic metal plate easily attach to the magnetic car mount directly. No need to place extra meal plate between the case and phone holder.",
-     "[CONVENIENT] Designed with Nano SIM card slot and Ejector Pin slot, not only protects your phone,but also allows you carry your SIM card and Ejector Pin to everywhere, won't be lost.",
-     "[PRECISE CUTS] Precisely cut is easy to install and complete access to all buttons, camera, speakers and ports."
-    ],
-    "signals": {
-     "fts": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "trigram": {
-      "rank": null,
-      "raw_score": null,
-      "rrf_contribution": null
-     },
-     "semantic": {
-      "rank": 10,
-      "raw_score": 0.2698414,
-      "rrf_contribution": 0.014285714285714285
-     },
-     "rrf_score": 0.014285714285714285,
-     "pre_rerank_rank": 11,
-     "pre_rerank_score": 0.014285714285714285,
-     "rerank_score": 0.10603178292512894,
-     "rerank_rank": 9,
-     "exact_sku_match": false,
-     "final_rank": 9,
-     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
-    },
-    "sources": [
-     {
-      "source_uri": "https://www.amazon.com/dp/B01KV3GPTA",
-      "revision": "05ef6d59b2ebb148f85d7b108c78178aa37025069d529f857079d8ea62a3e386",
-      "title": "iPhone 7 Case, G-CASE [Duke] Ultra Slim Vegan Leather Case,Built-in Magnetic Metal Plate,SIM Card and Ejector Pin Slot,Shockproof Protective Cover for iPhone 7-Red(2018)",
-      "quote": "G-Case [Duck] Leather Case for Apple iPhone 7 2018"
-     }
-    ]
-   },
-   {
-    "product_id": 1501416,
-    "sku": "B000HWP6SC",
-    "title": "Bose (R in-Ear Stereo Headphones",
-    "short_description": "Now enjoy high-quality, stable in-ear headphones engineered and developed by the most respected name in sound. Bose in-ear headphones are the only in-ear headphones with the rich audio and comfortable design you've come to expect from Bose. Only Bose headphones feature TriPort acoustic headphone structure, for example. This exclusive technology developed after years of Bose research helps deliver the full range of audible frequencies in small, lightweight headphones. You hear the deep lows of your music, the warm mid tones and shimmering highs. Whatever your musical tastes, Bose in-ear headphones faithfully reproduce the subtle nuances and powerful choruses, across the spectrum of human hearing, and are engineered specifically for portable audio devices like MP3 players, and CD and DVD players.",
-    "domain": "consumer_electronics",
-    "category_key": "headphones",
-    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds > Earbud Headphones",
-    "brand": "Bose",
-    "model": "",
-    "price_cents": null,
-    "list_price_cents": null,
-    "currency": "USD",
-    "rating": 3.4,
-    "review_count": 321,
-    "availability": null,
-    "inventory_count": null,
-    "attributes": {
-     "Brand": "Bose",
-     "Color": "Black",
-     "Form Factor": "In Ear",
-     "Item Weight": "0.04 Pounds",
-     "Manufacturer": "BOSE",
-     "Special Feature": "Lightweight",
-     "Package Dimensions": "7.5 x 3.7 x 1.1 inches",
-     "Date First Available": "January 9, 2007",
-     "Connectivity Technology": "Wired",
-     "Is Discontinued By Manufacturer": "No"
-    },
-    "tags": [],
-    "catalog_asset_key": null,
-    "canonical_group_id": "B000HWP6SC",
-    "media_tier": null,
-    "is_flagship": false,
-    "is_retrieval_anchor": false,
-    "image_url": "https://m.media-amazon.com/images/I/31SpWqo0pML._AC_.jpg",
-    "image_source": "original_listing",
-    "source_dataset": "reviews-2023-v2",
-    "listing_url": "https://www.amazon.com/dp/B000HWP6SC",
-    "historical_price_cents": null,
-    "historical_price_min_cents": null,
-    "condition": "unspecified",
-    "source_features": [
-     "S, M and L removable silicone tips / Color-coded tips in three sizes help assure a more accurate fit that's comfortable and stable",
-     "Ear cushion outside dimensions - 1.3 H x 1 W (3.3 cm x 2.6 cm) / One side - Medium tip",
-     "Weight with cables -. 64 oz (18.1 g) / Two sides - Medium tips",
-     "What's In the Box - 1 pair of in-ear headphones with 49 (1.24 m) audio cable / 1 pair each of small, medium and large silicone tips / Carrying case"
+     "AN UPGRADE TO THE AWARD-WINNING PX7 - With a redesigned and optimized acoustic system an all-new angled drive unit design and a more powerful motor system the B&W Px7 S2 over-ear headphones deliver class-leading audio performance with increased clarity",
+     "NOISE CANCELLING HEADPHONES WITH MIC - The all-new active noise cancellation is designed to block unwanted noise and ensure superior musicality; Features (2) adjustable external microphones that enhance voice clarity significantly improving call quality",
+     "PREMIUM DESIGN FOR A COMFORTABLE FIT - With contemporary technical fabrics and lightweight polymer arms and all-round improvements to ear cushion fit these wireless headphones ensure optimum comfort across differing head-shapes even after extended use",
+     "EASY OUT-OF-THE-BOX SETUP - The iOS/Android compatible B&W Music App allows you to adjust EQ settings enable voice control switch between ANC modes and more; Use the multi-function button on the ear cup to select from a range of different functions",
+     "PERFECT FOR AN ON-THE-GO LIFESTYLE - With 30 hours battery life from a 2-hour charge plus quick charge support delivering 7 hours playback from a 15-minute charge these B&W Bluetooth headphones are ideal for commuting working in an office or travelling"
     ],
     "signals": {
      "fts": {
@@ -827,13 +225,883 @@
      },
      "semantic": {
       "rank": 40,
-      "raw_score": 0.26807645,
+      "raw_score": 0.25850248,
       "rrf_contribution": 0.01
      },
      "rrf_score": 0.01,
      "pre_rerank_rank": 41,
      "pre_rerank_score": 0.01,
-     "rerank_score": 0.10531191527843475,
+     "rerank_score": 0.12142530828714371,
+     "rerank_rank": 2,
+     "exact_sku_match": false,
+     "final_rank": 2,
+     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+    },
+    "sources": [
+     {
+      "source_uri": "https://www.amazon.com/dp/B0C93YLWXJ",
+      "revision": "7528ea4da8473b16ce717d5007dd927f48f88cd3a99bd0567106478eb2fae19c",
+      "title": "Bowers & Wilkins Px7 S2 Over-Ear Headphones (2022 Model) - All-New Advanced Noise Cancellation, Works with B&W Android/iOS Music App, Slim & Lightweight, 7-Hour Playback on 15-Min Quick Charge, Black",
+      "quote": "A premium upgrade to the acoustically acclaimed Px7, the Bowers & Wilkins Px7 S2 Over-Ear Wireless Headphones, with a completely redesigned and optimized acoustic system, an all-new angled drive unit design, and a more powerful motor system, offers class-leading audio performance with incredible clarity. Featuring and improved microphone arrangement with 2 external adjustable mics, the Bluetooth headphones ensure exceptional call quality with better voice clarity. Its proprietary, all-new active noise cancellation is designed to block out unwanted external noise, ensuring clear, crisp playback of your favorite tracks. The Bowers & Wilkins Music App, compatible with iOS/Android, allows for easy setup up and pairing and enables you to control he sound and noise cancellation, activate voice control, and more \u2013 right from your phone. Offers 30 hours battery life from a 2-hour charge, plus quick charge support delivering 7 hours playback from a 15-minute charge, making it an ideal headset for on-the-go use. Comes with all round improvements to headband that ensure comfort across differing head-shapes, coupled with lightweight aluminum and fine leathers for a superior fit and finish."
+     }
+    ]
+   },
+   {
+    "product_id": 1549056,
+    "sku": "B0BFW3RLZ7",
+    "title": "Bose QuietComfort Earbuds II, Wireless, Bluetooth, World\u2019s Best Noise Cancelling In-Ear Headphones with Personalized Noise Cancellation & Sound, Midnight Blue - Limited Edition",
+    "short_description": "Bose QuietComfort Earbuds II are a sleek, versatile musical companion designed to fit you and everything you do. Engineered with pioneering CustomTune sound calibration technology, these wireless earbuds intelligently personalize the noise cancellation and sound performance to fit your ears, so you get the world\u2019s best noise cancellation and deep, immersive sound with powerful base whether you\u2019re at home or on the go. To ensure all-day comfort and a secure fit, the earbuds come with the Bose Fit Kit that includes 3 different soft, silicone ear tips and 3 different stability bands to max and match to find your best fit. With a compact, lightweight design, you will almost forget you\u2019re wearing them. Easily control your music or adjust your preferred level of noise cancellation with the earbud\u2019s simple touch controls. Phone calls sound crystal clear. Listen for up to 6 hours on a single charge. The charging case holds 3 additional 6-hour charges for a total of up to 24 hours of listening time. IPX4 rating for sweat and water resistance. Advance Bluetooth 5.3 capability. In-App EQ control.",
+    "domain": "consumer_electronics",
+    "category_key": "headphones",
+    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds > Earbud Headphones",
+    "brand": "Bose",
+    "model": "QuietComfort Earbuds II",
+    "price_cents": null,
+    "list_price_cents": null,
+    "currency": "USD",
+    "rating": 4.2,
+    "review_count": 5190,
+    "availability": null,
+    "inventory_count": null,
+    "attributes": {
+     "Brand": "Bose",
+     "Color": "Midnight Blue",
+     "Language": "English",
+     "Batteries": "3 Lithium Ion batteries required.",
+     "Model Name": "QuietComfort Earbuds II",
+     "Form Factor": "In Ear",
+     "Item Weight": "9 Grams",
+     "Manufacturer": "Bose",
+     "Number Of Items": "1",
+     "Best Sellers Rank": {
+      "Electronics": 740,
+      "Earbud & In-Ear Headphones": 125
+     },
+     "Item model number": "870730-0030",
+     "Product Dimensions": "2.34 x 1.05 x 2.61 inches",
+     "Date First Available": "March 3, 2023",
+     "Connectivity Technology": "Wireless, Bluetooth"
+    },
+    "specs": {
+     "anc": {
+      "value": true,
+      "source": "title",
+      "quote": "Bose QuietComfort Earbuds II, Wireless, Bluetooth, World\u2019s Best Noise Cancelling In-Ear Headphones with Personalized Noise Cancellation & Sound, Midnight Blue - Limited Edition"
+     },
+     "wireless": {
+      "value": true,
+      "source": "details.Connectivity Technology",
+      "quote": "Wireless, Bluetooth"
+     },
+     "form_factor": {
+      "value": "in-ear",
+      "source": "details.Form Factor",
+      "quote": "In Ear"
+     }
+    },
+    "tags": [],
+    "catalog_asset_key": null,
+    "canonical_group_id": "B0BFW3RLZ7",
+    "media_tier": null,
+    "is_flagship": false,
+    "is_retrieval_anchor": false,
+    "image_url": "https://m.media-amazon.com/images/I/61OjFJ2p1nL._AC_SL1500_.jpg",
+    "image_source": "original_listing",
+    "source_dataset": "reviews-2023-v2",
+    "listing_url": "https://www.amazon.com/dp/B0BFW3RLZ7",
+    "historical_price_cents": 24900,
+    "historical_price_min_cents": null,
+    "condition": "unspecified",
+    "source_features": [
+     "INTRODUCING QUIETCOMFORT EARBUDS II: These new wireless, bluetooth, noise cancelling earbuds from Bose weren\u2019t designed with a one-size-fits-all approach. These next-generation wireless earbuds are engineered to fit you. They intelligently personalize the noise cancellation and sound performance to uninterrupted, immersive listening wherever you are. To ensure all-day comfort and a secure fit, they come with three pairs of ear tips and three pairs of custom stability bands, so you can find the best fit for your ears. Own your uniqueness with sound and fit shaped to you.",
+     "BOSE World\u2019s Best NOISE CANCELLING EARBUDS: QuietComfort Earbuds II intelligently personalize the noise cancellation and sound performance to your ears, so you can enjoy deep, immersive sound and the world\u2019s best noise cancellation. August 2022. Conclusions derived by Bose Corp., based on ANC measurements made by Michael & Assoc., Inc. per ANSI/ASA S12.42-2010",
+     "BOSE COMFORTABILITY: To ensure your wireless earbuds feel comfortable and stay put no matter what you\u2019re doing, QC Earbuds II come with a Bose Fit Kit. The convenient Fit Kit includes three pairs of ear tips and three pairs of stability bands are made from soft silicone for all-day comfort and a secure fit.",
+     "KEEP LISTENING: With just one bud. Want to listen to your music or take a phone call with just one earbud? With the single earbud listening feature, take out the left or right earbud and the other will keep on playing.",
+     "LONG LASTING BATTERY: Stay absorbed in the music you love for up to 6 hours. When not in use, store your Bose QuietComfort Earbuds II in the portable charging case -- it\u2019s small enough to fit in your pocket. If the battery gets low, voice prompts let you know. Out of power and don\u2019t have enough time to fully charge? The quick-charge option provides up to 2 hours of battery life from a 20-minute charge.",
+     "WIRELESS & EASY TO USE: Use the simple touch interface on the wireless earbuds to control everything. This convenient interface frees your hands so you can stay focused on whatever you\u2019re doing. With simple swipes and taps, play or pause music, the noise cancellation level, all without ever touching your phone..Note:If you face issue in Bluetooth connectivity please turn off the Bluetooth function for a couple of minutes, then turn it back on"
+    ],
+    "signals": {
+     "fts": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "trigram": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "semantic": {
+      "rank": 7,
+      "raw_score": 0.27597195,
+      "rrf_contribution": 0.014925373134328358
+     },
+     "rrf_score": 0.014925373134328358,
+     "pre_rerank_rank": 8,
+     "pre_rerank_score": 0.014925373134328358,
+     "rerank_score": 0.11241506040096283,
+     "rerank_rank": 3,
+     "exact_sku_match": false,
+     "final_rank": 3,
+     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+    },
+    "sources": [
+     {
+      "source_uri": "https://www.amazon.com/dp/B0BFW3RLZ7",
+      "revision": "24256c089e0ac408df3b3be81a7251468f5de3538fdbff12efda918421597f3e",
+      "title": "Bose QuietComfort Earbuds II, Wireless, Bluetooth, World\u2019s Best Noise Cancelling In-Ear Headphones with Personalized Noise Cancellation & Sound, Midnight Blue - Limited Edition",
+      "quote": "Bose QuietComfort Earbuds II are a sleek, versatile musical companion designed to fit you and everything you do. Engineered with pioneering CustomTune sound calibration technology, these wireless earbuds intelligently personalize the noise cancellation and sound performance to fit your ears, so you get the world\u2019s best noise cancellation and deep, immersive sound with powerful base whether you\u2019re at home or on the go. To ensure all-day comfort and a secure fit, the earbuds come with the Bose Fit Kit that includes 3 different soft, silicone ear tips and 3 different stability bands to max and match to find your best fit. With a compact, lightweight design, you will almost forget you\u2019re wearing them. Easily control your music or adjust your preferred level of noise cancellation with the earbud\u2019s simple touch controls. Phone calls sound crystal clear. Listen for up to 6 hours on a single charge. The charging case holds 3 additional 6-hour charges for a total of up to 24 hours of listening time. IPX4 rating for sweat and water resistance. Advance Bluetooth 5.3 capability. In-App EQ control."
+     }
+    ]
+   },
+   {
+    "product_id": 1549956,
+    "sku": "B0BLGPHXKK",
+    "title": "DMGLRCY Wireless Earbuds, Bluetooth Earbuds 60H Playtime Deep Bass Noise Cancelling, Wireless Ear Buds Waterproof Touch Control with Charging Case, in-Ear Headphones Built-in Mic Earphone for Sports",
+    "short_description": "Clear Calls & HiFi Stereo Sound: This wireless ear buds has\u00a0Hi-Fi stereo sound,\u00a0deep bass\u00a0and\u00a0clear treble, high fidelity sound quality bring you an\u00a0immersive real music experience, feel like you are listening the concert on the scene. A dedicated internal microphone and two external microphones can pick up your voice, making your voice\u00a0loud\u00a0and\u00a0clear, let your callers hear your voice as clearly as face-to-face communication no matter where they are",
+    "domain": "consumer_electronics",
+    "category_key": "headphones",
+    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds > Earbud Headphones",
+    "brand": "DMGLRCY",
+    "model": "F9",
+    "price_cents": null,
+    "list_price_cents": null,
+    "currency": "USD",
+    "rating": 3.8,
+    "review_count": 659,
+    "availability": null,
+    "inventory_count": null,
+    "attributes": {
+     "Brand": "DMGLRCY",
+     "Color": "Black",
+     "Model Name": "F9",
+     "Form Factor": "In Ear",
+     "Item Weight": "1.92 ounces",
+     "Manufacturer": "DMGLRCY",
+     "Number Of Items": "1",
+     "Best Sellers Rank": {
+      "Electronics": 100201,
+      "Earbud & In-Ear Headphones": 5944
+     },
+     "Country of Origin": "China",
+     "Item model number": "F9",
+     "Package Dimensions": "4.3 x 3.1 x 1.9 inches",
+     "Date First Available": "July 26, 2022",
+     "Connectivity Technology": "Wireless"
+    },
+    "specs": {
+     "anc": {
+      "value": true,
+      "source": "title",
+      "quote": "DMGLRCY Wireless Earbuds, Bluetooth Earbuds 60H Playtime Deep Bass Noise Cancelling, Wireless Ear Buds Waterproof Touch Control with Charging Case, in-Ear Headphones Built-in Mic Earphone for Sports"
+     },
+     "microphone": {
+      "value": true,
+      "source": "title",
+      "quote": "DMGLRCY Wireless Earbuds, Bluetooth Earbuds 60H Playtime Deep Bass Noise Cancelling, Wireless Ear Buds Waterproof Touch Control with Charging Case, in-Ear Headphones Built-in Mic Earphone for Sports"
+     },
+     "wireless": {
+      "value": true,
+      "source": "details.Connectivity Technology",
+      "quote": "Wireless"
+     },
+     "form_factor": {
+      "value": "in-ear",
+      "source": "details.Form Factor",
+      "quote": "In Ear"
+     }
+    },
+    "tags": [],
+    "catalog_asset_key": null,
+    "canonical_group_id": "B0BLGPHXKK",
+    "media_tier": null,
+    "is_flagship": false,
+    "is_retrieval_anchor": false,
+    "image_url": "https://m.media-amazon.com/images/I/61DDhMqsxTL._AC_SL1500_.jpg",
+    "image_source": "original_listing",
+    "source_dataset": "reviews-2023-v2",
+    "listing_url": "https://www.amazon.com/dp/B0BLGPHXKK",
+    "historical_price_cents": 899,
+    "historical_price_min_cents": null,
+    "condition": "unspecified",
+    "source_features": [
+     "Clear Calls & HiFi Stereo Sound: This wireless ear buds has\u00a0Hi-Fi stereo sound,\u00a0deep bass\u00a0and\u00a0clear treble, high fidelity sound quality bring you an\u00a0immersive real music experience, feel like you are listening the concert on the scene. A dedicated internal microphone and two external microphones can pick up your voice, making your voice\u00a0loud\u00a0and\u00a0clear, let your callers hear your voice as clearly as face-to-face communication no matter where they are",
+     "All Day Playtime with Rechargeable Case: Every single ear buds can be used together or individually for\u00a05 hrs\u00a0of playing music, and with the charging box, it up to\u00a060 hrs\u00a0playtime,so you have enough power for your commuting or exercising.The\u00a0LED display\u00a0can display the remaining power of the charging box in real time.The charging case with a built-in\u00a02000mAh\u00a0battery can not only charge the wireless ear buds, but also can be used as a power bank for mobile phones in an emergency",
+     "Bluetooth 5.2 and Widely Compatibility: Universal bluetooth compatibility makes this bluetooth earphones can pair with Bluetooth-enabled devices on\u00a0Android,\u00a0iOS, and\u00a0Windows system\u00a0freely, such as\u00a0smart Phone,\u00a0Laptop\u00a0and\u00a0TV,and also this bluetooth ear buds supports access to\u00a0Siri\u00a0and\u00a0Google Assistant. The advanced Bluetooth 5.2 technology ensures a stabler connectivity, higher transmission speed, lower power consumption and ultra-lower latency listening experience",
+     "Waterproof & Perfect for Sports: IPX6 waterproof can protect the noise cancelling earbuds from liquids like\u00a0accidents splashes, intense sweat(it is not for swimming).\u00a0Your wireless headphones can keep the beat going even with a little rain,it\u2019s a perfect choice for sports.we included\u00a03\u00a0size of ear tips,comfortable fits even you have small ear cannal. the design of this android earbuds wireless combine ergonomics and bionic, It won't feel uncomfortable even if you wear it for a long time",
+     "Smart Touch Control & One Step Pairing: First time paring, just need to turn on bluetooth settings in your phone, take out two bluetooth ear buds or any single earbud from charging case, select\u00a0\"F9\"\u00a0and wait for the connection to success.When using the earphone for the second time, pick up tws wireless earbuds from the charging case and they\u2019ll automatically connect to the last paired device.Smart touch keeps you focused, perfect for working out, home office, running and more"
+    ],
+    "signals": {
+     "fts": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "trigram": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "semantic": {
+      "rank": 29,
+      "raw_score": 0.26206288,
+      "rrf_contribution": 0.011235955056179775
+     },
+     "rrf_score": 0.011235955056179775,
+     "pre_rerank_rank": 30,
+     "pre_rerank_score": 0.011235955056179775,
+     "rerank_score": 0.08568648993968964,
+     "rerank_rank": 4,
+     "exact_sku_match": false,
+     "final_rank": 4,
+     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+    },
+    "sources": [
+     {
+      "source_uri": "https://www.amazon.com/dp/B0BLGPHXKK",
+      "revision": "f6e5f447f54957eabe8e479a591ac9398e46422d44777961ce7342c1cd078774",
+      "title": "DMGLRCY Wireless Earbuds, Bluetooth Earbuds 60H Playtime Deep Bass Noise Cancelling, Wireless Ear Buds Waterproof Touch Control with Charging Case, in-Ear Headphones Built-in Mic Earphone for Sports",
+      "quote": "Clear Calls & HiFi Stereo Sound: This wireless ear buds has\u00a0Hi-Fi stereo sound,\u00a0deep bass\u00a0and\u00a0clear treble, high fidelity sound quality bring you an\u00a0immersive real music experience, feel like you are listening the concert on the scene. A dedicated internal microphone and two external microphones can pick up your voice, making your voice\u00a0loud\u00a0and\u00a0clear, let your callers hear your voice as clearly as face-to-face communication no matter where they are"
+     }
+    ]
+   },
+   {
+    "product_id": 1549654,
+    "sku": "B0BJVVFD69",
+    "title": "Bose QuietComfort Earbuds II, Triple Black with Alternate Sizing Kit",
+    "short_description": "Bose QuietComfort Earbuds II are engineered with pioneering CustomTune sound calibration technology that personalizes the audio to your ears, so you can enjoy world-leading noise cancellation and deep, immersive sound wherever you're listening to music.Engineered with pioneering Bose CustomTune technology, QC Earbuds II personalize the audio to fit your ears. When noise cancellation and sound performance are tailored to you, your music is more engaging, allowing you to feel a deeper connection to whatever you're listening to.Bose QuietComfort Earbuds II are a sleek, versatile musical companion designed to fit you and everything you do. Engineered with pioneering CustomTune sound calibration technology, these wireless earbuds personalize the noise cancellation and sound performance to fit your ears, so you get the world's best noise cancellation and deep, immersive sound with powerful bass whether you're at home or on the go.To ensure all-day comfort and a secure fit, the earbuds come with the Bose Fit Kit that includes 3 different soft, silicone ear tips and 3 different stability bands to mix and match to find your best fit. With a compact, lightweight design, you will almost forget you're wearing them. Easily control your music or adjust your preferred level of noise cancellation with the earbud's simple touch controls. Phone calls sound crystal clear. Listen for up to 6 hours on a single charge. The charging case holds 3 additional 6-hour charges for",
+    "domain": "consumer_electronics",
+    "category_key": "headphones",
+    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds > Earbud Headphones",
+    "brand": "Bose",
+    "model": "QuietComfort Earbuds II",
+    "price_cents": null,
+    "list_price_cents": null,
+    "currency": "USD",
+    "rating": 4.2,
+    "review_count": 32,
+    "availability": null,
+    "inventory_count": null,
+    "attributes": {
+     "Brand": "Bose",
+     "Units": "1 Count",
+     "Form Factor": "In Ear",
+     "Item Weight": "0.5 Pounds",
+     "Manufacturer": "Bose",
+     "Charging Time": "1 Hour",
+     "Number Of Items": "1",
+     "Special Feature": "Noise Cancellation, Lightweight",
+     "Best Sellers Rank": {
+      "Electronics": 17292,
+      "Earbud & In-Ear Headphones": 1601
+     },
+     "Item model number": "QuietComfort Earbuds II",
+     "Product Dimensions": "4.45 x 3.5 x 2.09 inches",
+     "Date First Available": "October 20, 2022",
+     "Age Range (Description)": "Adult",
+     "Connectivity Technology": "Wireless"
+    },
+    "specs": {
+     "anc": {
+      "value": true,
+      "source": "features[2]",
+      "quote": "The world's best noise cancellation"
+     },
+     "wireless": {
+      "value": true,
+      "source": "details.Connectivity Technology",
+      "quote": "Wireless"
+     },
+     "form_factor": {
+      "value": "in-ear",
+      "source": "details.Form Factor",
+      "quote": "In Ear"
+     }
+    },
+    "tags": [],
+    "catalog_asset_key": null,
+    "canonical_group_id": "B0BJVVFD69",
+    "media_tier": null,
+    "is_flagship": false,
+    "is_retrieval_anchor": false,
+    "image_url": "https://m.media-amazon.com/images/I/51qbjo+xqLL._AC_SL1200_.jpg",
+    "image_source": "original_listing",
+    "source_dataset": "reviews-2023-v2",
+    "listing_url": "https://www.amazon.com/dp/B0BJVVFD69",
+    "historical_price_cents": 30900,
+    "historical_price_min_cents": null,
+    "condition": "unspecified",
+    "source_features": [
+     "Bose QuietComfort Earbuds II (Triple Black) - Alternate Sizing Kit for QuietComfort Earbuds II - 3x Ear Tips (Small/Medium/Large) - 3x Pairs of Stability Bands (Small/Medium/Large) - Charging Case - 12\" USB Cable - Quick Start Guide - Safety Sheet - Bose 1 Year Limited Warranty",
+     "CustomTune technology shapes the audio to your ears",
+     "The world's best noise cancellation",
+     "Lifelike, balanced sound with nuance, clarity, and depth",
+     "Comfortable & secure fit"
+    ],
+    "signals": {
+     "fts": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "trigram": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "semantic": {
+      "rank": 13,
+      "raw_score": 0.2685636,
+      "rrf_contribution": 0.0136986301369863
+     },
+     "rrf_score": 0.0136986301369863,
+     "pre_rerank_rank": 14,
+     "pre_rerank_score": 0.0136986301369863,
+     "rerank_score": 0.08076994121074677,
+     "rerank_rank": 5,
+     "exact_sku_match": false,
+     "final_rank": 5,
+     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+    },
+    "sources": [
+     {
+      "source_uri": "https://www.amazon.com/dp/B0BJVVFD69",
+      "revision": "b21ed0a4dc65309e4809bf7f9c48bd4d9fedd0e0c955dbdb44cd1845b7903458",
+      "title": "Bose QuietComfort Earbuds II, Triple Black with Alternate Sizing Kit",
+      "quote": "Bose QuietComfort Earbuds II are engineered with pioneering CustomTune sound calibration technology that personalizes the audio to your ears, so you can enjoy world-leading noise cancellation and deep, immersive sound wherever you're listening to music.Engineered with pioneering Bose CustomTune technology, QC Earbuds II personalize the audio to fit your ears. When noise cancellation and sound performance are tailored to you, your music is more engaging, allowing you to feel a deeper connection to whatever you're listening to.Bose QuietComfort Earbuds II are a sleek, versatile musical companion designed to fit you and everything you do. Engineered with pioneering CustomTune sound calibration technology, these wireless earbuds personalize the noise cancellation and sound performance to fit your ears, so you get the world's best noise cancellation and deep, immersive sound with powerful bass whether you're at home or on the go.To ensure all-day comfort and a secure fit, the earbuds come with the Bose Fit Kit that includes 3 different soft, silicone ear tips and 3 different stability bands to mix and match to find your best fit. With a compact, lightweight design, you will almost forget you're wearing them. Easily control your music or adjust your preferred level of noise cancellation with the earbud's simple touch controls. Phone calls sound crystal clear. Listen for up to 6 hours on a single charge. The charging case holds 3 additional 6-hour charges for"
+     }
+    ]
+   },
+   {
+    "product_id": 1542255,
+    "sku": "B09CSY8617",
+    "title": "Wireless Earbud, Sport Bluetooth 5.1 Headphones Wireless Earphones in Ear Noise Cancelling Bluetooth Earbud with Mic, IP7 Waterproof 40H Deep Bass Sports Earhooks Headset for Running Gym[2022 New]",
+    "short_description": "Bluetooth 5.1 and One Step Pairing: With the latest Bluetooth 5.1 chip and compact designed antenna, true wireless earbud has faster transmission rate, lower power consumption, providing fast and stable connection with no signal loss. No distortion and latency to make your music and phone calls worry free. When taken out from the charging case, bluetooth headphones will pair automatically and reconnect the most recently connected bluetooth device, allowing you to use them with no hassle.",
+    "domain": "consumer_electronics",
+    "category_key": "headphones",
+    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds > Earbud Headphones",
+    "brand": "",
+    "model": "Power Q20 Pro",
+    "price_cents": null,
+    "list_price_cents": null,
+    "currency": "USD",
+    "rating": 4.1,
+    "review_count": 4486,
+    "availability": null,
+    "inventory_count": null,
+    "attributes": {
+     "Units": "1 Count",
+     "Batteries": "2 Lithium Polymer batteries required. (included)",
+     "Item Weight": "4 Grams",
+     "Manufacturer": "Bowost",
+     "Number Of Items": "1",
+     "Best Sellers Rank": {
+      "Electronics": 393844,
+      "Over-Ear Headphones": 7837,
+      "Earbud & In-Ear Headphones": 19680
+     },
+     "Item model number": "Power Q20 Pro",
+     "Product Dimensions": "1.57 x 1.18 x 0.79 inches",
+     "Date First Available": "August 17, 2021",
+     "Is Discontinued By Manufacturer": "No"
+    },
+    "specs": {
+     "microphone": {
+      "value": true,
+      "source": "title",
+      "quote": "Wireless Earbud, Sport Bluetooth 5.1 Headphones Wireless Earphones in Ear Noise Cancelling Bluetooth Earbud with Mic, IP7 Waterproof 40H Deep Bass Sports Earhooks Headset for Running Gym[2022 New]"
+     }
+    },
+    "tags": [],
+    "catalog_asset_key": null,
+    "canonical_group_id": "B09CSY8617",
+    "media_tier": null,
+    "is_flagship": false,
+    "is_retrieval_anchor": false,
+    "image_url": "https://m.media-amazon.com/images/I/71Ep59Zb48L._AC_SL1500_.jpg",
+    "image_source": "original_listing",
+    "source_dataset": "reviews-2023-v2",
+    "listing_url": "https://www.amazon.com/dp/B09CSY8617",
+    "historical_price_cents": null,
+    "historical_price_min_cents": null,
+    "condition": "unspecified",
+    "source_features": [
+     "Bluetooth 5.1 and One Step Pairing: With the latest Bluetooth 5.1 chip and compact designed antenna, true wireless earbud has faster transmission rate, lower power consumption, providing fast and stable connection with no signal loss. No distortion and latency to make your music and phone calls worry free. When taken out from the charging case, bluetooth headphones will pair automatically and reconnect the most recently connected bluetooth device, allowing you to use them with no hassle.",
+     "Hi-Fi Stereo Deep Bass and Crystal Clear Calls: Sport wireless headphones adopt DSR lossless HD rendering technology and cvc 8.0 noise cancelling technology, which produces incredible stereo sound quality with crystal crisp treble. The built-in high-quality noice cancellation microphone of the bluetooth earbud can provide you with clear call experience. When you\u2019re on a call, your voice comes through richly and confidently, even in noisy locations.",
+     "Earhook Design for Sports, Soft and Comfortable: Unlike ordinary bluetooth earphones, earbud wireless headphones are designed with soft, flexible and secure fit earhooks aimed at fully fitting your ears without falling out even for intense workouts. Ear hooks are made of TPE material (with elastic rebound) to maximize your wearing comfort and safety. Comeing with 3 different sizes for a comfortable and secure fit, better seal, better sound.",
+     "IP-X7 Waterproof Earbud and Smart Touch Control: IP-X7 waterproof technology can protect your sport earbud from sweat and rain during intense sports or daily use. With the high-tech touch screen, you can answer calls,hang up, play/pause music, adjust volume, switch songs and activate siri with just a touch of your sports headphones. You can easily control it without operating the phone. Ideal for cycling, running, fitness, skiing, travelling, hiking, water sports, etc.",
+     "40 Hours Playtime and Individual LED Power Display: Ear buds wireless earbud uses low power design, these bluetooth headphones wireless can enjoy up to 10 hours music time on one charging. With the Charging Case, you will get all-day power of more than 40 hours continuous using time. With the individual LED display on the case can help check the power of the earbud wireless headphones and charging case at any time. Q20 Bluetooth earbud wireless is ideal for everyday sport, workout, travel, etc."
+    ],
+    "signals": {
+     "fts": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "trigram": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "semantic": {
+      "rank": 26,
+      "raw_score": 0.26284733,
+      "rrf_contribution": 0.011627906976744186
+     },
+     "rrf_score": 0.011627906976744186,
+     "pre_rerank_rank": 27,
+     "pre_rerank_score": 0.011627906976744186,
+     "rerank_score": 0.07619448006153107,
+     "rerank_rank": 6,
+     "exact_sku_match": false,
+     "final_rank": 6,
+     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+    },
+    "sources": [
+     {
+      "source_uri": "https://www.amazon.com/dp/B09CSY8617",
+      "revision": "0dc3b55694b133c35db1e0449a48c21b57324c67a22d4d4a9a7596a87773f569",
+      "title": "Wireless Earbud, Sport Bluetooth 5.1 Headphones Wireless Earphones in Ear Noise Cancelling Bluetooth Earbud with Mic, IP7 Waterproof 40H Deep Bass Sports Earhooks Headset for Running Gym[2022 New]",
+      "quote": "Bluetooth 5.1 and One Step Pairing: With the latest Bluetooth 5.1 chip and compact designed antenna, true wireless earbud has faster transmission rate, lower power consumption, providing fast and stable connection with no signal loss. No distortion and latency to make your music and phone calls worry free. When taken out from the charging case, bluetooth headphones will pair automatically and reconnect the most recently connected bluetooth device, allowing you to use them with no hassle."
+     }
+    ]
+   },
+   {
+    "product_id": 1550875,
+    "sku": "B0BQQSS27F",
+    "title": "bakibo Wireless Earbuds, Bluetooth 5.3 in-Ear Earphones Built-in 4 Mic ENC Waterproof Headphones Bass Stereo Ear Buds Touch Control, 32H Play Time with USB C Light Weight Charging Case, Pink",
+    "short_description": "Easily Pairing and High Compatibility: True wireless earbuds Auto Pairing and connect with your device when open the charing case after first Connection. The Bluetooth earbuds Compatible with Apple/Andriod/Windows, iphone13/12/11/X/9/8/7/6, ipad, imac, Fire TV, laptop and all others devices with bluetooth.",
+    "domain": "consumer_electronics",
+    "category_key": "headphones",
+    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds > Earbud Headphones",
+    "brand": "bakibo",
+    "model": "F18",
+    "price_cents": null,
+    "list_price_cents": null,
+    "currency": "USD",
+    "rating": 4.1,
+    "review_count": 6,
+    "availability": null,
+    "inventory_count": null,
+    "attributes": {
+     "Brand": "bakibo",
+     "Color": "Pink",
+     "Batteries": "2 Lithium Ion batteries required. (included)",
+     "Model Name": "F18",
+     "Form Factor": "In Ear",
+     "Item Weight": "3.52 ounces",
+     "Manufacturer": "bakibo",
+     "Number Of Items": "1",
+     "Best Sellers Rank": {
+      "Electronics": 447676,
+      "Earbud & In-Ear Headphones": 22092
+     },
+     "Item model number": "F18",
+     "Package Dimensions": "3.82 x 3.74 x 1.54 inches",
+     "Date First Available": "December 21, 2022",
+     "Connectivity Technology": "Wireless"
+    },
+    "specs": {
+     "anc": {
+      "value": true,
+      "source": "features[1]",
+      "quote": "(Kindly Note: Not Active Noise Cancelling Earbuds!"
+     },
+     "microphone": {
+      "value": true,
+      "source": "title",
+      "quote": "bakibo Wireless Earbuds, Bluetooth 5.3 in-Ear Earphones Built-in 4 Mic ENC Waterproof Headphones Bass Stereo Ear Buds Touch Control, 32H Play Time with USB C Light Weight Charging Case, Pink"
+     },
+     "wireless": {
+      "value": true,
+      "source": "details.Connectivity Technology",
+      "quote": "Wireless"
+     },
+     "form_factor": {
+      "value": "in-ear",
+      "source": "details.Form Factor",
+      "quote": "In Ear"
+     }
+    },
+    "tags": [],
+    "catalog_asset_key": null,
+    "canonical_group_id": "B0BQQSS27F",
+    "media_tier": null,
+    "is_flagship": false,
+    "is_retrieval_anchor": false,
+    "image_url": "https://m.media-amazon.com/images/I/61ZuG+g8+5L._AC_SL1500_.jpg",
+    "image_source": "original_listing",
+    "source_dataset": "reviews-2023-v2",
+    "listing_url": "https://www.amazon.com/dp/B0BQQSS27F",
+    "historical_price_cents": null,
+    "historical_price_min_cents": null,
+    "condition": "unspecified",
+    "source_features": [
+     "Easily Pairing and High Compatibility: True wireless earbuds Auto Pairing and connect with your device when open the charing case after first Connection. The Bluetooth earbuds Compatible with Apple/Andriod/Windows, iphone13/12/11/X/9/8/7/6, ipad, imac, Fire TV, laptop and all others devices with bluetooth.",
+     "More Clear for Phone Calls: Premium ENC technology reduce of 80% Call Noise, Upgraded Earbuds with 4 microphone provide an excellent phone call experience with pure and incredibly clear sound.(Kindly Note: Not Active Noise Cancelling Earbuds!)",
+     "Power Sound and All Day Comfort: bakibo Wireless earphones custom 2*10mm speaker deliver powerful, balanced sound, brings your own a surround and higher-quality sound experience. The earbuds for Android with three sizes of soft silicone tips are included for a stable and comfortable fit, ensuring an optimal seal and keep the earbuds secure.",
+     "Designed for Fit and Convenience: Ergonomically shaped bluetooth earphones in ear with only 4g weight that flex to fit your ear. Touch control the ear buds to play, pause, skip through songs, calls and voice assistant without having to pick up your phone. The earbuds for iphone support simply say \u201cHey Siri\u201d to voice control.",
+     "Fast Charge Function: Upgrade the new charging function, earbuds wireless headphones supply Around 1.5 hours listening time on only 10 minutes of charging. Only takes 1.5 hours to fully charge the charging case with Type C. UP to 8 hours of listening time with one charge, More than 32 hours of listening time with the case."
+    ],
+    "signals": {
+     "fts": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "trigram": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "semantic": {
+      "rank": 39,
+      "raw_score": 0.25908515,
+      "rrf_contribution": 0.010101010101010102
+     },
+     "rrf_score": 0.010101010101010102,
+     "pre_rerank_rank": 40,
+     "pre_rerank_score": 0.010101010101010102,
+     "rerank_score": 0.07488511502742767,
+     "rerank_rank": 7,
+     "exact_sku_match": false,
+     "final_rank": 7,
+     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+    },
+    "sources": [
+     {
+      "source_uri": "https://www.amazon.com/dp/B0BQQSS27F",
+      "revision": "0df88f803c82e9eea648ff85f38778298a3e968600c63f3674b8cd11b780dd84",
+      "title": "bakibo Wireless Earbuds, Bluetooth 5.3 in-Ear Earphones Built-in 4 Mic ENC Waterproof Headphones Bass Stereo Ear Buds Touch Control, 32H Play Time with USB C Light Weight Charging Case, Pink",
+      "quote": "Easily Pairing and High Compatibility: True wireless earbuds Auto Pairing and connect with your device when open the charing case after first Connection. The Bluetooth earbuds Compatible with Apple/Andriod/Windows, iphone13/12/11/X/9/8/7/6, ipad, imac, Fire TV, laptop and all others devices with bluetooth."
+     }
+    ]
+   },
+   {
+    "product_id": 1552954,
+    "sku": "B0C5MS74JR",
+    "title": "BLAST! Wireless Earbuds, 60H Playback Bluetooth 5.3 Headphones,Noise Cancelling Wireless Headphones with LED Battery Display, 4 Mics Clear Call, IPX7 Waterproof Bluetooth Earbuds for Workout Sports",
+    "short_description": "\u30104 Mics & Stereo Sound Quality\u3011Each wireless earbud has built-in 2 microphones, 4 dedicated microphones can achieve precise voice pick-up and isolate external environmental noise through algorithms, make sure other people hear your voice clearly. Get clear calls anywhere you go, giving you an immersive listening experience.",
+    "domain": "consumer_electronics",
+    "category_key": "headphones",
+    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds > Earbud Headphones",
+    "brand": "BLAST!",
+    "model": "BLAST! Wireless Earbuds, 60H Playback Bluetooth 5.3 Headphones,Noise Cancelling Wireless Headphones with LED Battery Display, 4 Mics Clear Call, IPX7 Waterproof Bluetooth Earbuds for Workout Sports",
+    "price_cents": null,
+    "list_price_cents": null,
+    "currency": "USD",
+    "rating": 4.7,
+    "review_count": 728,
+    "availability": null,
+    "inventory_count": null,
+    "attributes": {
+     "Brand": "BLAST!",
+     "Color": "Black-1",
+     "Batteries": "1 Lithium Ion batteries required. (included)",
+     "Model Name": "BLAST! Wireless Earbuds, 60H Playback Bluetooth 5.3 Headphones,Noise Cancelling Wireless Headphones with LED Battery Display, 4 Mics Clear Call, IPX7 Waterproof Bluetooth Earbuds for Workout Sports",
+     "Form Factor": "Over Ear",
+     "Item Weight": "4.2 ounces",
+     "Control Type": "Voice Control",
+     "Manufacturer": "BLAST!",
+     "Cable Feature": "Without Cable",
+     "Ear Placement": "Over Ear",
+     "Number Of Items": "1",
+     "Special Feature": "Microphone Included",
+     "Best Sellers Rank": {
+      "Electronics": 456,
+      "Earbud & In-Ear Headphones": 76
+     },
+     "Country of Origin": "China",
+     "Item model number": "Q32",
+     "Package Dimensions": "4.02 x 3.86 x 1.97 inches",
+     "Included Components": "Wireless Charging Case",
+     "Date First Available": "May 18, 2023",
+     "Microphone Form Factor": "Built-In",
+     "Age Range (Description)": "Adult",
+     "Connectivity Technology": "Wireless",
+     "Wireless Communication Technology": "Bluetooth"
+    },
+    "specs": {
+     "anc": {
+      "value": true,
+      "source": "title",
+      "quote": "Wireless Earbuds, 60H Playback Bluetooth 5.3 Headphones,Noise Cancelling Wireless Headphones with LED Battery Display, 4 Mics Clear Call, IPX7 Waterproof Bluetooth Earbuds for Workout Sports"
+     },
+     "microphone": {
+      "value": true,
+      "source": "details.Special Feature",
+      "quote": "Microphone Included"
+     },
+     "wireless": {
+      "value": true,
+      "source": "details.Connectivity Technology",
+      "quote": "Wireless"
+     },
+     "form_factor": {
+      "value": "over-ear",
+      "source": "details.Form Factor",
+      "quote": "Over Ear"
+     }
+    },
+    "tags": [],
+    "catalog_asset_key": null,
+    "canonical_group_id": "B0C5MS74JR",
+    "media_tier": null,
+    "is_flagship": false,
+    "is_retrieval_anchor": false,
+    "image_url": "https://m.media-amazon.com/images/I/61FXp+pV-jL._AC_SL1500_.jpg",
+    "image_source": "original_listing",
+    "source_dataset": "reviews-2023-v2",
+    "listing_url": "https://www.amazon.com/dp/B0C5MS74JR",
+    "historical_price_cents": 1999,
+    "historical_price_min_cents": null,
+    "condition": "unspecified",
+    "source_features": [
+     "\u30104 Mics & Stereo Sound Quality\u3011Each wireless earbud has built-in 2 microphones, 4 dedicated microphones can achieve precise voice pick-up and isolate external environmental noise through algorithms, make sure other people hear your voice clearly. Get clear calls anywhere you go, giving you an immersive listening experience.",
+     "\u301060 Hours Playtime & Stereo and Mono Mode\u3011The impressive 8 hours of listening time on a single charge, Q32 bluetooth headphones get a total of 60 hours of uninterrupted music playback. The wireless headphones can switch seamlessly between stereo and mono mode. Both earbuds can work together or be used separately. Built-in dual LED power display make it more clear to show the battery power of the case and wireless headphones.",
+     "\u3010Comfortable Design & IPX 7 WaterProof\u3011These sport wireless earphones are ergonomically designed to provide a snug fit while ensuring fatigue-free and long-lasting comfort. The flexible earhooks snugly fit your ears without falling out even for intense workouts. There are eartips in 3 sizes(S/M/L) for your choice to get the most suitable fit. The IPX7 waterproof design protects your wireless headset from sweat and splashes, which is ideal for sports, gym, workout, hiking,etc.",
+     "\u3010Bluetooth 5.3 & Auto Pairing\u3011The Bluetooth 5.3 chip ensure that the bluetooth headphones connects quickly and stably within 15 meters, pictures and wireless earphones' sound are synchronized to take you better using experience. After pairing the devices for the first time, the headphones will automatically connect when you take them out of the charging case.",
+     "\u301030 Days Money Back & Free Replacement\u3011Your purchase includes extended 30 days no-hassle money back and a 12-month warranty. Customer satisfaction is our top priority, so if you have any questions, please don't hesitate to contact our 24-hour online customer care service."
+    ],
+    "signals": {
+     "fts": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "trigram": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "semantic": {
+      "rank": 37,
+      "raw_score": 0.26564473,
+      "rrf_contribution": 0.010309278350515464
+     },
+     "rrf_score": 0.010309278350515464,
+     "pre_rerank_rank": 38,
+     "pre_rerank_score": 0.010309278350515464,
+     "rerank_score": 0.07423823326826096,
+     "rerank_rank": 8,
+     "exact_sku_match": false,
+     "final_rank": 8,
+     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+    },
+    "sources": [
+     {
+      "source_uri": "https://www.amazon.com/dp/B0C5MS74JR",
+      "revision": "7794312dd0db8416d3fe2fbe7ef36855df63d2dded3b171b7f24be2539dcd082",
+      "title": "BLAST! Wireless Earbuds, 60H Playback Bluetooth 5.3 Headphones,Noise Cancelling Wireless Headphones with LED Battery Display, 4 Mics Clear Call, IPX7 Waterproof Bluetooth Earbuds for Workout Sports",
+      "quote": "\u30104 Mics & Stereo Sound Quality\u3011Each wireless earbud has built-in 2 microphones, 4 dedicated microphones can achieve precise voice pick-up and isolate external environmental noise through algorithms, make sure other people hear your voice clearly. Get clear calls anywhere you go, giving you an immersive listening experience."
+     }
+    ]
+   },
+   {
+    "product_id": 1551350,
+    "sku": "B0BTHKBWWT",
+    "title": "Bowers & Wilkins Pi5 S2 True Wireless Earphones, In-Ear Bluetooth Earbuds with Mic, Active Noise Cancellation, 16-Hr Battery, Android/iOS, Powerful Sound, Extreme Comfort, Cloud Grey (2023 Model)",
+    "short_description": "Level up your listening experience with the Bowers and Wilkins Pi5 S2 True Wireless Earphones. Featuring TWS+ and Qualcomm aptX Adaptive Technology for stable wireless connectivity, these wireless earbuds deliver hi-res, pristine audio quality for your movies, music, and phone calls. With advanced, active noise cancellation, the wireless Bluetooth earbuds block out sound interruptions and easily adjust to the level of cancellation required for the environment you're in. An upgrade to the predecessor Pi5, the Pi5 S2 showcases improvements like the all-new end-cap construction with a revised antenna design for extending its connectivity range to up to 25m while keeping the wireless connection stable. With 5 hours of playback on a single charge, and 24 hours of battery life (including the battery life of the wireless charging case), these wireless earbuds for Android and iOS offer high-fidelity, vibration-free sound all day. These Bluetooth earbuds allow direct streaming from the Bowers and Wilkins Music App (available on IOS and Android devices) - a unified platform to experience high-quality music streaming from Deezer, NTS Radio, Qobuz, SoundCloud, TIDAL, and TuneIn. The Bowers and Wilkins earbuds are compact and specially designed to maximize convenience for those with busy lives.",
+    "domain": "consumer_electronics",
+    "category_key": "headphones",
+    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds > Earbud Headphones",
+    "brand": "Bowers & Wilkins",
+    "model": "Pi5 S2 Cloud Grey",
+    "price_cents": null,
+    "list_price_cents": null,
+    "currency": "USD",
+    "rating": 3.7,
+    "review_count": 27,
+    "availability": null,
+    "inventory_count": null,
+    "attributes": {
+     "Brand": "Bowers & Wilkins",
+     "Color": "Cloud Grey",
+     "Batteries": "3 Lithium Ion batteries required. (included)",
+     "Model Name": "Pi5 S2 Cloud Grey",
+     "Form Factor": "In Ear",
+     "Item Weight": "9.9 ounces",
+     "Manufacturer": "Bowers & Wilkins",
+     "Number Of Items": "1",
+     "Best Sellers Rank": {
+      "Electronics": 244084,
+      "Earbud & In-Ear Headphones": 12749
+     },
+     "Item model number": "FP43842",
+     "Product Dimensions": "1.1 x 2.4 x 2.2 inches",
+     "Date First Available": "January 25, 2023",
+     "Connectivity Technology": "Wireless"
+    },
+    "specs": {
+     "anc": {
+      "value": true,
+      "source": "title",
+      "quote": "Bowers & Wilkins Pi5 S2 True Wireless Earphones, In-Ear Bluetooth Earbuds with Mic, Active Noise Cancellation, 16-Hr Battery, Android/iOS, Powerful Sound, Extreme Comfort, Cloud Grey (2023 Model)"
+     },
+     "microphone": {
+      "value": true,
+      "source": "title",
+      "quote": "Bowers & Wilkins Pi5 S2 True Wireless Earphones, In-Ear Bluetooth Earbuds with Mic, Active Noise Cancellation, 16-Hr Battery, Android/iOS, Powerful Sound, Extreme Comfort, Cloud Grey (2023 Model)"
+     },
+     "wireless": {
+      "value": true,
+      "source": "details.Connectivity Technology",
+      "quote": "Wireless"
+     },
+     "form_factor": {
+      "value": "in-ear",
+      "source": "details.Form Factor",
+      "quote": "In Ear"
+     }
+    },
+    "tags": [],
+    "catalog_asset_key": null,
+    "canonical_group_id": "B0BTHKBWWT",
+    "media_tier": null,
+    "is_flagship": false,
+    "is_retrieval_anchor": false,
+    "image_url": "https://m.media-amazon.com/images/I/511LwAnNhqL._AC_SL1500_.jpg",
+    "image_source": "original_listing",
+    "source_dataset": "reviews-2023-v2",
+    "listing_url": "https://www.amazon.com/dp/B0BTHKBWWT",
+    "historical_price_cents": 23900,
+    "historical_price_min_cents": null,
+    "condition": "unspecified",
+    "source_features": [
+     "AN IMPROVED UPGRADE FOR THE DESIGN-CONSCIOUS - Continuing with the success of Bowers and Wilkins Pi5 True Wireless Headphones, the Pi5 S2 has been introduced with significant improvements in performance, battery life, user experience, and color options",
+     "BEST-IN-CLASS TECHNOLOGY - Featuring TWS+ and Qualcomm aptX Adaptive Technology with a revised antenna design, the Bowers & Wilkins Pi5 S2 wireless earphones provide improved, stable wireless connectivity up to 25m, while delivering hi-resolution audio",
+     "ADVANCED NOISE CANCELLING EARBUDS - With active noise cancellation, these earbuds adjust to the level of cancellation according to the environment with a touch of a button. These true wireless earbuds are equipped with call clarity enhancing microphones",
+     "DIRECT MUSIC STREAMING - With the iOS/Android compatible Bowers and Wilkins Music App, you can stream music from Deezer, NTS Radio, Qobuz, SoundCloud, TIDAL, and TuneIn. Just search for your favorite song, artist, or album, and find all available options",
+     "INDUCTIVE CHARGING - Like the Pi5, the Pi5 S2 Bluetooth earphones come in a smart, quick wireless charging case with a battery life of 16 hours. With a 25 percent increase in battery life, these wireless earbuds add 4 to 5 more hours to playback time",
+     "INTUITIVE CONTROLS - The noise cancelling earphones feature wear detection sensors that put them on standby when removed, reconnect them to the last connected Bluetooth device when put back on, and pause/resume music when removed or replaced respectively",
+     "USE THEM THE WAY YOU WANT - Block the world out & immerse yourself in the activity you enjoy the most, be it running, workout, or any sport. These noise canceling ear plugs are ideal for work & play. Available in the choicest of colors"
+    ],
+    "signals": {
+     "fts": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "trigram": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "semantic": {
+      "rank": 21,
+      "raw_score": 0.2655915,
+      "rrf_contribution": 0.012345679012345678
+     },
+     "rrf_score": 0.012345679012345678,
+     "pre_rerank_rank": 22,
+     "pre_rerank_score": 0.012345679012345678,
+     "rerank_score": 0.0738365426659584,
+     "rerank_rank": 9,
+     "exact_sku_match": false,
+     "final_rank": 9,
+     "score_semantics": "Raw arm, reciprocal-rank fusion, and reranker scores use different scales and are not probabilities. An exact catalog SKU remains ahead of model reranking."
+    },
+    "sources": [
+     {
+      "source_uri": "https://www.amazon.com/dp/B0BTHKBWWT",
+      "revision": "24eb7346e129aafb8cfd4351ea915006eef22f2ffb23f72b57d5b0973afbfe01",
+      "title": "Bowers & Wilkins Pi5 S2 True Wireless Earphones, In-Ear Bluetooth Earbuds with Mic, Active Noise Cancellation, 16-Hr Battery, Android/iOS, Powerful Sound, Extreme Comfort, Cloud Grey (2023 Model)",
+      "quote": "Level up your listening experience with the Bowers and Wilkins Pi5 S2 True Wireless Earphones. Featuring TWS+ and Qualcomm aptX Adaptive Technology for stable wireless connectivity, these wireless earbuds deliver hi-res, pristine audio quality for your movies, music, and phone calls. With advanced, active noise cancellation, the wireless Bluetooth earbuds block out sound interruptions and easily adjust to the level of cancellation required for the environment you're in. An upgrade to the predecessor Pi5, the Pi5 S2 showcases improvements like the all-new end-cap construction with a revised antenna design for extending its connectivity range to up to 25m while keeping the wireless connection stable. With 5 hours of playback on a single charge, and 24 hours of battery life (including the battery life of the wireless charging case), these wireless earbuds for Android and iOS offer high-fidelity, vibration-free sound all day. These Bluetooth earbuds allow direct streaming from the Bowers and Wilkins Music App (available on IOS and Android devices) - a unified platform to experience high-quality music streaming from Deezer, NTS Radio, Qobuz, SoundCloud, TIDAL, and TuneIn. The Bowers and Wilkins earbuds are compact and specially designed to maximize convenience for those with busy lives."
+     }
+    ]
+   },
+   {
+    "product_id": 1547522,
+    "sku": "B0B5N9HXTS",
+    "title": "Bluetooth Headphones Bluetooth 5.2 Earbuds 90H Playtime LED Power Display Wireless Earphones 4 Mic Call Noise Cancelling Wireless Headphones Waterproof in-Ear Earbuds for Smart Phone Laptop Sports",
+    "short_description": "\u3010Qualcomm Bluetooth 5.2 Earbuds\u3011Boytond wireless earphones featuring Qualcomm Bluetooth 5.2 & 12mm Graphene acoustic unit built-in and advanced audio coding technology to deliver extraordinary Hi-fi sound with low latency.Wirelesss headphones built-in 4 microphones, reproducing your call vividly. Wireless earbuds built-in 4 microphones,reproducing your call vividly.",
+    "domain": "consumer_electronics",
+    "category_key": "headphones",
+    "category_path": "Electronics > Headphones, Earbuds & Accessories > Headphones & Earbuds > Earbud Headphones",
+    "brand": "Boytond",
+    "model": "m20",
+    "price_cents": null,
+    "list_price_cents": null,
+    "currency": "USD",
+    "rating": 4.3,
+    "review_count": 433,
+    "availability": null,
+    "inventory_count": null,
+    "attributes": {
+     "Brand": "Boytond",
+     "Color": "Black",
+     "Batteries": "2 Lithium Polymer batteries required. (included)",
+     "Model Name": "m20",
+     "Form Factor": "In Ear",
+     "Item Weight": "4.6 ounces",
+     "Manufacturer": "Boytond",
+     "Number Of Items": "1",
+     "Best Sellers Rank": {
+      "Electronics": 40595,
+      "Earbud & In-Ear Headphones": 2850
+     },
+     "Item model number": "76W",
+     "Product Dimensions": "1.38 x 2.76 x 1.3 inches",
+     "Date First Available": "July 1, 2022",
+     "Connectivity Technology": "Wireless"
+    },
+    "specs": {
+     "microphone": {
+      "value": true,
+      "source": "title",
+      "quote": "Bluetooth Headphones Bluetooth 5.2 Earbuds 90H Playtime LED Power Display Wireless Earphones 4 Mic Call Noise Cancelling Wireless Headphones Waterproof in-Ear Earbuds for Smart Phone Laptop Sports"
+     },
+     "wireless": {
+      "value": true,
+      "source": "details.Connectivity Technology",
+      "quote": "Wireless"
+     },
+     "form_factor": {
+      "value": "in-ear",
+      "source": "details.Form Factor",
+      "quote": "In Ear"
+     }
+    },
+    "tags": [],
+    "catalog_asset_key": null,
+    "canonical_group_id": "B0B5N9HXTS",
+    "media_tier": null,
+    "is_flagship": false,
+    "is_retrieval_anchor": false,
+    "image_url": "https://m.media-amazon.com/images/I/61B0UDNgJLL._AC_SL1500_.jpg",
+    "image_source": "original_listing",
+    "source_dataset": "reviews-2023-v2",
+    "listing_url": "https://www.amazon.com/dp/B0B5N9HXTS",
+    "historical_price_cents": 1699,
+    "historical_price_min_cents": null,
+    "condition": "unspecified",
+    "source_features": [
+     "\u3010Qualcomm Bluetooth 5.2 Earbuds\u3011Boytond wireless earphones featuring Qualcomm Bluetooth 5.2 & 12mm Graphene acoustic unit built-in and advanced audio coding technology to deliver extraordinary Hi-fi sound with low latency.Wirelesss headphones built-in 4 microphones, reproducing your call vividly. Wireless earbuds built-in 4 microphones,reproducing your call vividly.",
+     "\u3010USB-C Changing & LED Power Display\u3011Upgrade to a new USB-C interface charging method, faster transmission speed and more convenient use experience. Dual digital LED power display outside of the case is to show the power level for charging case and earbuds. When charging for the case, the LED will start to flash from 1 to 100. You can enjoy 100H music time in total via using in turn.",
+     "\u3010One-step Pairing\u3011Pick up the two headphones from the charging case, and they will be paired automatically. Then simply enable bluetooth connection on your mobile phone to pair the device with your earbuds.",
+     "\u3010Easy Touch Control & Widely Compatible\u3011 Bluetooth earbuds are designed with touch control sensors, you can freely switch songs, answer/reject a call, adjust volume and Siri. Different from other headset on the market, Both headphones are designed as masters, they can be used separately and independently. So Just Sharing! Earbud in-ear headphones compatible with all iOS,Android smart phones and Bluetooth-enabled device.",
+     "\u3010Leather Lanyard Changing Case Design & Comfortable Fit\u3011Two finger-sized charging case does not take up any space to carry, and you will not have any pressure on wearing the 4g ultra-light ear buds. in-ear shaped wireless earbuds bluetooth with skin-friendly support long-time wearing without any discomfort. Waterproof earbud headphones can fend off sweat and it's an ideal companion while sports or working. With a premium leather lanyard changing case and better functions, our bluetooth headphones are your better choice for a gift."
+    ],
+    "signals": {
+     "fts": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "trigram": {
+      "rank": null,
+      "raw_score": null,
+      "rrf_contribution": null
+     },
+     "semantic": {
+      "rank": 33,
+      "raw_score": 0.2978416,
+      "rrf_contribution": 0.010752688172043012
+     },
+     "rrf_score": 0.010752688172043012,
+     "pre_rerank_rank": 34,
+     "pre_rerank_score": 0.010752688172043012,
+     "rerank_score": 0.07375644892454147,
      "rerank_rank": 10,
      "exact_sku_match": false,
      "final_rank": 10,
@@ -841,10 +1109,10 @@
     },
     "sources": [
      {
-      "source_uri": "https://www.amazon.com/dp/B000HWP6SC",
-      "revision": "e7c927035b0f70daeb13df187a49c4b806b702a21c23fb363c0436801cf6a333",
-      "title": "Bose (R in-Ear Stereo Headphones",
-      "quote": "Now enjoy high-quality, stable in-ear headphones engineered and developed by the most respected name in sound. Bose in-ear headphones are the only in-ear headphones with the rich audio and comfortable design you've come to expect from Bose. Only Bose headphones feature TriPort acoustic headphone structure, for example. This exclusive technology developed after years of Bose research helps deliver the full range of audible frequencies in small, lightweight headphones. You hear the deep lows of your music, the warm mid tones and shimmering highs. Whatever your musical tastes, Bose in-ear headphones faithfully reproduce the subtle nuances and powerful choruses, across the spectrum of human hearing, and are engineered specifically for portable audio devices like MP3 players, and CD and DVD players."
+      "source_uri": "https://www.amazon.com/dp/B0B5N9HXTS",
+      "revision": "2f7ea8b1241d3fbc68a703bfd5750fedddcb02e3fa184032423c428b1adc6b74",
+      "title": "Bluetooth Headphones Bluetooth 5.2 Earbuds 90H Playtime LED Power Display Wireless Earphones 4 Mic Call Noise Cancelling Wireless Headphones Waterproof in-Ear Earbuds for Smart Phone Laptop Sports",
+      "quote": "\u3010Qualcomm Bluetooth 5.2 Earbuds\u3011Boytond wireless earphones featuring Qualcomm Bluetooth 5.2 & 12mm Graphene acoustic unit built-in and advanced audio coding technology to deliver extraordinary Hi-fi sound with low latency.Wirelesss headphones built-in 4 microphones, reproducing your call vividly. Wireless earbuds built-in 4 microphones,reproducing your call vividly."
      }
     ]
    }
@@ -884,33 +1152,33 @@
     "semantic_in_pool": 49
    },
    "stage_timings_ms": {
-    "embedding": 303.568,
-    "postgresql_retrieval": 3126.71,
-    "rerank": 882.813,
-    "coverage": 211.212,
-    "result_persistence": 206.216
+    "embedding": 1511.359,
+    "postgresql_retrieval": 846.875,
+    "rerank": 929.077,
+    "coverage": 218.564,
+    "result_persistence": 188.056
    },
-   "total_latency_ms": 5064,
+   "total_latency_ms": 5065,
    "warnings": []
   },
   "coverage": {
    "confidence": "unanchored",
    "unmatched_terms": [
-    "B07G95T3JP"
+    "B0C2WWFCQB"
    ],
    "terms": [
     {
      "ordinal": 1,
-     "token": "B07G95T3JP",
+     "token": "B0C2WWFCQB",
      "token_kind": "numword",
-     "lexeme": "b07g95t3jp",
+     "lexeme": "b0c2wwfcqb",
      "ndoc": 0,
      "closest_lexeme": null,
      "closest_similarity": null,
      "verdict": "unmatched_anchor"
     }
    ],
-   "note": "No exact catalog match was found for the term 'B07G95T3JP'. Check the details in the nearby matches before choosing."
+   "note": "No exact catalog match was found for the term 'B0C2WWFCQB'. Check the details in the nearby matches before choosing."
   }
  }
 }

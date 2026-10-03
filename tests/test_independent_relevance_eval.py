@@ -218,10 +218,10 @@ def test_loader_accepts_reviewed_status_with_review_provenance(tmp_path):
 def test_loader_rejects_anchor_overlap_that_disagrees_with_the_cross_reference(
     tmp_path,
 ):
-    """1277987 is a live mission target (data/evals/mosaic_labs_missions.json);
+    """1492978 is a live mission target (data/evals/mosaic_labs_missions.json);
     claiming it has no anchor overlap must fail against the real cross-reference
     files, not just accept whatever the record asserts."""
-    bad = make_query(judgments=[make_judgment(1277987, 3, anchor_overlap="none")])
+    bad = make_query(judgments=[make_judgment(1492978, 3, anchor_overlap="none")])
     path = write_jsonl(tmp_path, [bad])
 
     with pytest.raises(ValueError, match="anchor_overlap"):

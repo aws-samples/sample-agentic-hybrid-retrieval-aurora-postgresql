@@ -53,7 +53,7 @@ re-embedded on each run, so the guides print no fixed number.
 | Aurora as search and context engine | All three labs | Inspect saved searches, agent activity and evidence in Aurora |
 | Full-text search | Retrieve | Compare the query's and the listing's lexemes to show why word search cannot match a transposed ID |
 | pgvector semantic similarity | Retrieve (optional); Scale & HNSW | Optionally write an index-proof recall query graded under the planner's plan and forced HNSW; optionally build and shrink a partial HNSW index |
-| SQL and metadata filters | Retrieve; Rank | The validator proves every saved candidate respects the Bose/headphones and Dell/monitor filters before reranking |
+| SQL and metadata filters | Retrieve; Rank | The validator proves every saved candidate respects the Logitech/headphones and Dell/monitor filters before reranking |
 | Fuzzy matching | Retrieve | Read `word_similarity` against whole-string similarity, then add the close-spelling branch that fusion never reads |
 | Reciprocal rank fusion | Rank | Fix production's `1 / (k + source_rank)`, graded at five `k` values |
 | Model-based reranking | Rank | Compare combined and final positions; judge three measured settings on 141 judged queries within one billed rerank unit |
@@ -71,9 +71,9 @@ The completion gate remains inside Lab 3. Its saved-run option repeats the check
 
 The customer story is **find options → establish their order → support a
 decision**. Keep the stage names Retrieve, Rank and Reason. Lab 1 recovers the
-Bose QuietComfort 35 II Alex saved; Lab 2 keeps the ViewSonic VG2756-4K, a
+Logitech Zone 900 Alex saved; Lab 2 keeps the ViewSonic VG2756-4K, a
 27-inch 4K monitor documenting USB-C charging up to 90W over one cable, in
-reach of the reranker; Lab 3 asks the agent to check that monitor and the
+reach of the reranker; Lab 3 asks the agent to check those headphones, that monitor and the
 Steelcase Gesture chair against their sources. The finale, **Bring Alex's office home**, reads the participant's three
 repairs, decisions and citations back from Aurora without
 another model call. The [presenter brief](../workshop.md) owns the spoken

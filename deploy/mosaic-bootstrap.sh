@@ -1126,7 +1126,7 @@ jq -e --arg dataset "$(jq -r '.corpus.dataset_id' "$REPO/data/evals/mosaic_labs_
 mosaic_curl -fsS -X POST http://127.0.0.1:8000/api/search \
   -H 'Content-Type: application/json' \
   --data '{
-    "query": "B07G95TJ3P",
+    "query": "B0C2WWCFQB",
     "filters": {"domain": "consumer_electronics", "category_key": "headphones"},
     "limit": 3,
     "include_diagnostics": true,
@@ -1140,7 +1140,7 @@ jq -e '
 mosaic_curl -fsS -X POST http://127.0.0.1:8000/api/search \
   -H 'Content-Type: application/json' \
   --data '{
-    "query": "B07G95T3JP",
+    "query": "B0C2WWFCQB",
     "filters": {
       "domain": "consumer_electronics",
       "category_key": "headphones"
@@ -1150,7 +1150,7 @@ mosaic_curl -fsS -X POST http://127.0.0.1:8000/api/search \
     "rerank": true
   }' >/tmp/lab1-broken-proof.json
 # The identifier transposition is measured on the imported catalog. The intended
-# Bose listing must be absent while close spelling is disconnected; other
+# Logitech listing must be absent while close spelling is disconnected; other
 # products must still be returned so an empty search cannot pass this gate.
 # `all` over an empty stream is true, so a deploy that returned no results at
 # all (an unbuilt index, an over-filtering predicate) would pass this gate
@@ -1160,7 +1160,7 @@ jq -e '
   (.results | length) > 0 and
   (.diagnostics.candidate_counts.fused_pool // 0) > 0 and
   .diagnostics.candidate_counts.trigram_in_pool == 0 and
-  all(.results[]; .product_id != 1277987)
+  all(.results[]; .product_id != 1492978)
 ' /tmp/lab1-broken-proof.json
 
 # Use the authenticated loopback API: nginx marks requests as HTTPS for the
@@ -1181,7 +1181,7 @@ jq -r '"  agent model         \(.models.agent)
   rerank model        \(.models.rerank)"' /tmp/health.json
 jq -r '"  rerank             \(.diagnostics.rerank_status), \(.results | length) result(s)"' \
   /tmp/model-access-search.json
-jq -r '"  lab 1 broken       trigram_in_pool=\(.diagnostics.candidate_counts.trigram_in_pool), target_absent=\(all(.results[]; .product_id != 1277987))"' \
+jq -r '"  lab 1 broken       trigram_in_pool=\(.diagnostics.candidate_counts.trigram_in_pool), target_absent=\(all(.results[]; .product_id != 1492978))"' \
   /tmp/lab1-broken-proof.json
 printf '  timings             see build/bootstrap-timings.tsv\n'
 printf '=== every acceptance check passed; signalling CloudFormation ===\n\n'

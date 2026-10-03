@@ -37,7 +37,7 @@ for you; the command checks deployed source identity and Gateway connectivity.
 
 | Lab | Question to answer | Where you work |
 |---|---|---|
-| **1. Debug hybrid search** | Can search find the intended product, even with a typo? | [`labs/lab1_retrieve/`](labs/lab1_retrieve/) |
+| **1. Debug hybrid search** | Can search find Alex's Logitech Zone 900 headphones from a mistyped listing ID? | [`labs/lab1_retrieve/`](labs/lab1_retrieve/) |
 | **2. Tune rank fusion and reranking** | **2a Rank:** which candidates survive fusion? **2b Re-rank:** how does their order change? | [`labs/lab2_rank/`](labs/lab2_rank/) |
 | **3. Build and deploy the agent** | Can your agent help Alex complete his home office, bring the three choices together, and respond when his requirements change? | [`labs/lab3_reason/`](labs/lab3_reason/) |
 
@@ -58,7 +58,7 @@ search and a browsable workspace shelf, with category links and **Browse all
 products** above Alex's brief and the three editorial bands. A search
 replaces the story with ranked results: the first as a feature, the rest as rows
 with their positions.
-Playground exposes four phases across three labs. **Focus at home** runs the deck’s exact headphone query. The retrieval pills run exact requests; **Reason** asks about the same need and preserves the original search alongside the agent’s focused searches. **Complete my room** uses Lab 3’s canonical three-product request. A compact summary
+Playground exposes four phases across three labs. **Focus at home** runs the deck’s exact headphone query and follows the same Logitech Zone 900 headphones that Labs 1 and 3 use. The retrieval pills run exact requests; **Reason** asks about the same need and preserves the original search alongside the agent’s focused searches. **Complete my room** uses Lab 3’s canonical three-product request. A compact summary
 links each final choice to its search; **Trace all returned products** shows
 search positions, comparisons, evidence read, and inclusion in the answer.
 Retrieve, Rank and Re-rank inspect one selected search, whose first result is explicitly

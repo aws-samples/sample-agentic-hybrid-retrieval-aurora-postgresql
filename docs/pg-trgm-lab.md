@@ -4,7 +4,7 @@
 
 Product search is unusually sensitive to misspelled brands, compressed model numbers, transposed characters, missing spaces, and category spelling errors. Semantic embeddings can sometimes mask these problems, but they should not be the only recovery mechanism for exact commercial entities.
 
-The required example transposes `B07G95TJ3P` to `B07G95T3JP` for the Bose QuietComfort 35 II listing. Six measured identifier cases across headphones, chairs and monitors recover the intended product after repair. A seventh already works through meaning search and is retained as a control. See [all worked examples](real-catalog-exercise-library.md).
+The required example transposes `B0C2WWCFQB` to `B0C2WWFCQB` for the Logitech Zone 900 listing. The two IDs share 7 of their 15 distinct trigrams (similarity 0.467). Two other Zone 900 listings share the model name but not the listing ID, and the request must not return them. Six measured identifier cases across headphones, chairs and monitors recover the intended product after repair. A seventh already works through meaning search and is retained as a control. See [all worked examples](real-catalog-exercise-library.md).
 
 The historical `data/evals/typo_cases.csv` targets the former synthetic catalog and is not evidence for this imported dataset.
 

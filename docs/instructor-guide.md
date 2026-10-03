@@ -62,12 +62,12 @@ inside the production validators:
 |---|---|---|
 | Retrieve | `G-003` | In this measured request, neither FTS nor the bounded semantic pool contains the target; restoring the trigram channel recovers it |
 | Retrieve | `G-001` | Correct listing ID remains first with an exact-term match |
-| Retrieve | `G-012` | Every saved product satisfies the Bose brand and headphones category |
+| Retrieve | `G-012` | Every saved product satisfies the Logitech brand and headphones category |
 | Rank | `G-008` | RRF moves from rank-collapsing arithmetic to `1 / (k + source_rank)` |
 | Rank | `G-007` | Dell U2720Q and SE2717H provide an explicit 4K-versus-1080p comparison |
 | Rank | `G-009` | Dell brand and monitor category remain pre-ranking requirements |
 | Reason | `G-021` | Evidence plumbing moves a fail-closed response to a grounded cited comparison |
-| Reason | `G-019` | Bose specification and sampled review claims resolve to separate source records |
+| Reason | `G-019` | Logitech specification and sampled review claims resolve to separate source records; one review is one experience, and other reviews of the listing disagree |
 
 The query text, filters, targets, bad observation, good observation, and
 participant edit are owned by `data/evals/mosaic_labs_missions.json`. Workshop
@@ -121,11 +121,12 @@ eligibility inside every candidate arm.
 
 The request transposes two adjacent characters in a real listing ID. The
 bounded meaning search returns plausible headphones without that listing.
-Restoring `pg_trgm` admits Bose QuietComfort 35 II. Show both identifiers and
+Restoring `pg_trgm` admits Logitech Zone 900. Two other Zone 900 listings share the model
+name but not the listing identity, so they are wrong too. Show both identifiers and
 ask why other listings are wrong for an identity request; do not imply
 that other headphones lack noise cancellation.
 
-The exact-ID control proves FTS still works. G-012 uses a full-word Bose need
+The exact-ID control proves FTS still works. G-012 uses a full-word Logitech need
 with brand/category filters. Inspect both served rows and the complete saved
 pool. An approximate vector scan can obey every SQL filter and still miss
 qualifying rows; candidate count and eligibility are different checks.
@@ -160,7 +161,7 @@ complete `create_agent` in `labs/lab3_reason/agent.py`, add one source-aware ins
 and run `uv run python scripts/deploy_agentcore.py deploy`. The managed services and networking are prepared.
 
 Show the deployment message, then ask **Complete my room** in Playground → Reason.
-The agent searches for Alex's missing chair and brings it together with his Bose
+The agent searches for Alex's missing chair and brings it together with his Logitech
 headphones and ViewSonic monitor. Open a citation and compare the recommendation
 with its source. Follow up in Ask Mosaic with a 100W laptop-charging requirement; the
 monitor's 90W record must not be presented as meeting 100W.

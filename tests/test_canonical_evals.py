@@ -148,7 +148,7 @@ def test_agent_grounding_claim_requires_product_spec_support():
 
     assert "product_spec" in by_id["G-019"]["expected_evidence_types"]
     requirements = reason_cases["G-019"]["required_citation_support"]
-    assert {x["product_id"] for x in requirements} == {1277987}
+    assert {x["product_id"] for x in requirements} == {1492978}
     assert {x["evidence_type"] for x in requirements} == {
         "product_spec",
         "customer_review",
@@ -159,7 +159,7 @@ def test_agent_grounding_claim_requires_product_spec_support():
 def test_repaired_fixture_release_checks_are_machine_verifiable():
     by_id = {query["query_id"]: query for query in QUERIES}
     assert by_id["G-001"]["release_checks"] == [
-        {"type": "top_rank", "product_id": 1277987}
+        {"type": "top_rank", "product_id": 1492978}
     ]
     assert by_id["G-014"]["release_checks"] == [
         {"type": "top_rank", "product_id": 210001},

@@ -407,7 +407,7 @@ function lab1Result(
     ...rankedProduct(catalog.products[0], finalRank),
     product_id: productId,
     title: productId === lab1.target_product_ids[0]
-      ? "Bose QuietComfort 35 II"
+      ? "Logitech Zone 900"
       : `Alternative headphones ${productId}`,
     domain: "consumer_electronics",
     category_key: lab1.filters.category_key!,
@@ -1043,8 +1043,8 @@ describe("CatalogPage", () => {
     window.history.replaceState({}, "", "/catalog?offset=36&brand=Unrelated&category_key=chair");
     renderPage();
     const examples = await screen.findByRole("group", { name: "Typo search examples" });
-    fireEvent.click(within(examples).getByRole("button", { name: "A mistyped Bose listing ID" }));
-    await waitFor(() => expect(api.search).toHaveBeenCalledWith("B07G95T3JP",
+    fireEvent.click(within(examples).getByRole("button", { name: "A mistyped Logitech listing ID" }));
+    await waitFor(() => expect(api.search).toHaveBeenCalledWith("B0C2WWFCQB",
       { domain: "consumer_electronics", category_key: "headphones" }, expect.any(Object)));
     const params = new URLSearchParams(window.location.search);
     expect(params.get("offset")).toBeNull();
@@ -2281,7 +2281,7 @@ describe("CatalogPage", () => {
   it("lists every category in the filter sheet during a search", async () => {
     // A search loads no browse page, and the menus used to read the browse
     // page's facets, so after a search Category offered only "All products".
-    window.history.replaceState({}, "", "/catalog?q=Boze+QuietComfrot+35&category_key=headphones");
+    window.history.replaceState({}, "", "/catalog?q=Logitec+Zone+900&category_key=headphones");
     vi.mocked(api.catalog).mockResolvedValue({
       ...catalog,
       facets: {
@@ -2306,7 +2306,7 @@ describe("CatalogPage", () => {
     expect([offset, limit, collection]).toEqual([0, 1, "all"]);
     fireEvent.click(within(dialog).getByRole("radio", { name: /Monitor/ }));
     expect(window.location.search).toContain("category_key=monitor");
-    expect(window.location.search).toContain("q=Boze");
+    expect(window.location.search).toContain("q=Logitec");
   });
 
   it("keeps the other categories on offer once one is chosen", async () => {
@@ -2582,7 +2582,7 @@ describe("CatalogPage", () => {
     const callout = await screen.findByRole("region", { name: "Lab 1 outcome" });
     expect(
       within(callout).getByRole("heading", {
-        name: "The Bose QuietComfort 35 II is missing from these results",
+        name: "The Logitech Zone 900 is missing from these results",
       }),
     ).toBeTruthy();
     expect(callout.textContent).toContain("Issue reproduced");

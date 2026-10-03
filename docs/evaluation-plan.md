@@ -118,7 +118,7 @@ accepting a new measured baseline.
 A baseline write embeds each scored query once and records the vectors in
 `data/evals/canonical_query_vectors.json`; every later check and the stage
 ablation search with those vectors. Bedrock returns a slightly different vector
-for the same query on each call (four calls for `B07G95T3JP` agreed only to
+for the same query on each call (four calls for `B07G95T3JP`, the earlier Bose-listing request, agreed only to
 cosine 0.995 on 2026-09-28), which moved products at the edge of the fused pool
 between runs and made the ranked-result identity unrepeatable. A check never
 rewrites the committed ranking; only a baseline write does.
@@ -222,18 +222,20 @@ N with no new coverage.
 ### The judged-item universe overlaps existing anchors, disclosed by product id
 
 `data/evals/real_catalog_lab_products.json` supplies the 12 real-catalog
-products this corpus's judgments are grounded in. Six of those twelve are
-**already judged** somewhere in `canonical_queries.jsonl`, and three of those
-six are `target_product_ids` of a live lab mission or its supporting checks
-(`data/evals/mosaic_labs_missions.json`, as of the reviews-2023-v2 cutover,
-which moved Lab 2 to the ViewSonic VG2756-4K and Lab 3 to the ViewSonic plus
-the Steelcase Gesture listing that carries review evidence):
+products this corpus's judgments are grounded in, and also lists the Logitech
+Zone 900 lab target and its two same-model listings, which no judgment in this
+corpus uses. Three of the twelve are **already judged** somewhere in
+`canonical_queries.jsonl`, and two of those three are `target_product_ids` of a
+live lab mission or its supporting checks (`data/evals/mosaic_labs_missions.json`,
+as of the move of Labs 1 and 3 from the Bose QuietComfort 35 II to the Logitech
+Zone 900; Lab 2 targets the ViewSonic VG2756-4K and Lab 3 the Logitech, the
+ViewSonic and the Steelcase Gesture listing that carries review evidence):
 
 | Product id | Overlap | Where |
 |---|---|---|
-| 1208825, 1277987, 1408222 | `mission` | Live lab mission or supporting-check target |
-| 1138035, 1162128, 1168700 | `canonical` | Judged in `canonical_queries.jsonl`, not a mission target |
-| 1221817, 1248512, 1379290, 1389794, 1481815, 1490476 | `none` | Outside both |
+| 1208825, 1408222 | `mission` | Live lab mission or supporting-check target |
+| 1168700 | `canonical` | Judged in `canonical_queries.jsonl`, not a mission target |
+| 1138035, 1162128, 1221817, 1248512, 1277987, 1379290, 1389794, 1481815, 1490476 | `none` | Outside both |
 
 Every judgment carries `"anchor_overlap"` set to one of these three values,
 validated at load time against a fresh cross-reference of both source files
@@ -245,16 +247,16 @@ selected for the canonical set or a lab mission *because* they already rank
 well for a related query, so a corpus resting on them can pass by construction
 rather than by measuring anything new. The `anchor_free` relevance tier (below)
 scores only the `none` subset. This is a fact about the judgments themselves,
-not about any ranking: **the headphones cohort has zero `anchor_free`-eligible
-queries** (pinned by
-`tests/test_independent_relevance_corpus.py::test_headphones_cohort_has_no_anchor_free_coverage`) --
-all three headphones products with review evidence in this checkout (1138035,
-1162128, 1277987) are canonical- or mission-anchored, so every headphones
-query's positive evidence rests on an overlapping product. `monitor`, `chair`, and
-`general` retain partial `anchor_free` coverage because five of the twelve
-products fall outside both anchor sets. Building fresh headphones evidence
-(a 13th product with full review text, outside both anchor sets) is the
-concrete next step to close this specific gap.
+not about any ranking: **the headphones cohort is anchor-free for
+`IRC-HP-01` to `IRC-HP-05`** (pinned by
+`tests/test_independent_relevance_corpus.py::test_headphones_cohort_is_anchor_free_since_the_labs_moved_to_logitech`).
+The three headphones products with review evidence in this checkout (1138035,
+1162128, 1277987) were canonical- or mission-anchored while the labs targeted the
+Bose QuietComfort 35 II (1277987); the Bose, the Bowers & Wilkins P5 and the Bose
+QC15 are no longer mission or canonical anchors, so those five queries rest on
+independent evidence. `IRC-HP-06` has no relevant judgment and stays outside the
+tier. Nine of the twelve products fall outside both anchor sets, so `monitor`,
+`chair` and `general` also keep anchor-free coverage.
 
 ### Judgment status vocabulary, and what a relevance claim requires
 

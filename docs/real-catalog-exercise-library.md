@@ -15,7 +15,7 @@ A related product is wrong when the request identifies one specific listing. For
 
 | Product | Category | Correct listing ID | Mistyped request | Before: target position | After: target position |
 |---|---|---|---|---|---|
-| Bose QuietComfort 35 II (1277987) | headphones | `B07G95TJ3P` | `B07G95T3JP` | Absent | 1 |
+| Logitech Zone 900 (1492978) | headphones | `B0C2WWCFQB` | `B0C2WWFCQB` | Absent | 1 |
 | Steelcase Gesture (1221817) | chair | `B01NAKXH73` | `B01NAKX7H3` | 1 | 1 |
 | Dell U2720Q (1408222) | monitor | `B0939N79Y8` | `B0939N7Y98` | Absent | 1 |
 | Amazon Basics mesh chair (1379290) | chair | `B08KTS3M9M` | `B08KTS39MM` | Absent | 1 |
@@ -23,7 +23,7 @@ A related product is wrong when the request identifies one specific listing. For
 | Staples Hyken (1248512) | chair | `B076NXZZPD` | `B076NXZPZD` | Absent | 1 |
 | Nouhaus Ergo3D (1389794) | chair | `B08QDNY2GK` | `B08QDNYG2K` | Absent | 1 |
 
-Six targets were absent from the combined pool before repair and became final position 1 afterwards. The Steelcase request already worked through meaning search. Keep that unchanged result as a control: not every typo needs the spelling path.
+Two other Logitech Zone 900 listings (1542245 and 1431428) share the model name but not the listing ID; they are hard negatives for the Logitech request. Six targets were absent from the combined pool before repair and became final position 1 afterwards. The Steelcase request already worked through meaning search. Keep that unchanged result as a control: not every typo needs the spelling path.
 
 ## Compare requirements with product text
 
@@ -48,7 +48,7 @@ The alternative chair requests let builders distinguish seat-depth adjustment, l
 - **Exact words and meaning:** use the correctly spelled ID as an exact lookup, then use the full need from the table. Compare which search lists contain the result. Do not infer a universal semantic advantage from a single query.
 - **Filtering before ranking:** repeat the monitor request with `brand: "Dell"`; inspect every saved candidate with the production eligibility check. A high model score cannot override a brand or category requirement.
 - **Compare near-matches:** G-007 retrieves Dell U2720Q and SE2717H. Both are 27-inch monitors; their source records distinguish 4K from 1080p. An item’s absence from the request’s first page is different from proof that it lacks a feature.
-- **Separate specification and experience:** G-019 compares Bose listing text with a sampled customer review. A review discussing listening does not establish call-microphone performance.
+- **Separate specification and experience:** G-019 compares the Logitech listing's description of its noise-canceling microphone with the review the agent samples (two evidence records per product): a verified 5-star review reports no audio complaints. Another verified review of the same listing, rated 3 stars, says the microphone did not do well, so one review cannot settle call quality.
 - **Scope an answer to its sources:** Lab 3 assembles and deploys the Strands agent, then checks headphones, monitor and chair with separate searches, a comparison of all three and resolvable citations for each. The starter cannot assemble the agent before repair.
 
 ## Reproduce and inspect

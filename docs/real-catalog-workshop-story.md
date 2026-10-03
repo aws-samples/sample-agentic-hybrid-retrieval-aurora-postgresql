@@ -138,7 +138,9 @@ microphone variant.
 The selected samples now support three concrete comparisons before retrieval
 testing is complete:
 
-- Headphones: the Bose listing documents cancellation and call microphones;
+- Headphones: the Logitech Zone 900 listing, the Lab 1 and Lab 3 target, documents
+  active noise cancellation and a noise-canceling microphone, while its
+  reviews disagree about the microphone; the Bose listing documents cancellation and call microphones;
   the Soundcore listing leaves call support unestablished; GEEKRIA is an
   accessory even though its title names compatible headphones.
 - Chairs: Steelcase documents movable arms and adjustable lumbar support;
