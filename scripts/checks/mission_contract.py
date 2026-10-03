@@ -80,7 +80,7 @@ REQUIRED_PARTICIPANT_EDIT_FIELDS = (
 # turns green.
 #
 # `scripts/evals/run_eval.py` is deliberately not cited here: it consumes
-# `data/evals/historical/queries.jsonl`, not this contract.
+# the retired synthetic fixtures, not this contract.
 REQUIRED_SUPPORTING_FIELDS = (
     "id",
     "stage",

@@ -12,15 +12,11 @@ QUERIES = [
     for line in QUERY_PATH.read_text(encoding="utf-8").splitlines()
     if line.strip()
 ]
-LEGACY_PATH = ROOT / "data/evals/historical/canonical_queries.jsonl"
-QUERIES += [json.loads(line) for line in LEGACY_PATH.read_text().splitlines()]
-RESOLVED_QUERIES = load_evaluation_queries(QUERY_PATH) + load_evaluation_queries(
-    LEGACY_PATH
-)
+RESOLVED_QUERIES = load_evaluation_queries(QUERY_PATH)
 
 
 def test_canonical_set_is_small_curated_and_unique():
-    assert 20 <= len(QUERIES) <= 30
+    assert QUERIES
     assert len({query["query_id"] for query in QUERIES}) == len(QUERIES)
     assert all(query["query_id"].startswith("G-") for query in QUERIES)
 
@@ -97,13 +93,7 @@ def test_canonical_judgments_are_graded_and_explained():
         assert all(grades[product_id] == 0 for product_id in query["hard_negative_ids"])
 
 
-def test_canonical_products_are_in_the_curated_cohort():
-    curated = {
-        product["product_id"]
-        for product in json.loads(
-            (ROOT / "data/curated/demo_products.json").read_text(encoding="utf-8")
-        )
-    }
+def test_canonical_products_are_in_the_reviewed_real_catalog():
     real = {
         p["product_id"]
         for p in json.loads(
@@ -111,8 +101,7 @@ def test_canonical_products_are_in_the_curated_cohort():
         )["products"]
     }
     for query in QUERIES:
-        expected = real if query.get("dataset_id") == "reviews-2023-v2" else curated
-        assert {item["product_id"] for item in query["judgments"]} <= expected
+        assert {item["product_id"] for item in query["judgments"]} <= real
 
 
 def test_canonical_set_covers_the_workshop_failure_modes():
@@ -121,7 +110,7 @@ def test_canonical_set_covers_the_workshop_failure_modes():
         "exact_identity",
         "typo_recovery",
         "semantic_intent_and_filters",
-        "hard_price_negative",
+        "eligibility_before_ann",
         "rrf_and_reranking",
         "agent_orchestration",
         "evidence_retrieval_and_citation",
@@ -160,13 +149,6 @@ def test_repaired_fixture_release_checks_are_machine_verifiable():
     by_id = {query["query_id"]: query for query in QUERIES}
     assert by_id["G-001"]["release_checks"] == [
         {"type": "top_rank", "product_id": 1492978}
-    ]
-    assert by_id["G-014"]["release_checks"] == [
-        {"type": "top_rank", "product_id": 210001},
-        {"type": "present_top_k", "product_id": 210002, "k": 3},
-    ]
-    assert by_id["G-018"]["release_checks"] == [
-        {"type": "top_rank", "product_id": 30001}
     ]
 
 

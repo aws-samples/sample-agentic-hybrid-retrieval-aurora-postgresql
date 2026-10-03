@@ -709,7 +709,7 @@ def main() -> None:
                 environment["database_version"],
                 environment["vector_extension_version"],
                 args.instance_class,
-                "data/full/manifest.json",
+                "db/config/real-catalog-cache.json",
                 settings.source_revision,
                 settings.source_worktree_dirty,
                 settings.dataset_manifest_sha256,

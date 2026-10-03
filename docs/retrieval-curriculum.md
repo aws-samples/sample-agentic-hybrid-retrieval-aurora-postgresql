@@ -241,6 +241,6 @@ Then distinguish three evaluation questions in under 90 seconds:
 - an independently judged current-catalog sample: how good is retrieval?
 - current-catalog filter checks: did eligibility violate a contract?
 
-The historical 20-query ranking population and 720 synthetic cases remain archived
-measurements. Neither certifies the imported dataset. See the measured
+The historical 20-query ranking population and 720 synthetic cases have been retired.
+Their saved measurements remain dated records. Neither certifies the imported dataset. See the measured
 [example library](real-catalog-exercise-library.md) for the broader teaching set.

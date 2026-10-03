@@ -58,18 +58,11 @@ def test_published_query_files_keep_real_and_synthetic_identities_separate():
     from scripts.evals.eval_contract import load_evaluation_queries
 
     real = load_evaluation_queries(ROOT / "data/evals/canonical_queries.jsonl")
-    legacy = load_evaluation_queries(
-        ROOT / "data/evals/historical/canonical_queries.jsonl"
-    )
     dataset = json.loads((ROOT / "db/config/real-catalog-cache.json").read_text())[
         "dataset_id"
     ]
-    assert real and legacy
+    assert real
     assert {query.get("dataset_id") for query in real} == {dataset}
-    assert {query.get("dataset_id", "synthetic-legacy") for query in legacy} == {
-        "synthetic-legacy"
-    }
-    assert not {q["query_id"] for q in real} & {q["query_id"] for q in legacy}
 
 
 @pytest.mark.parametrize(

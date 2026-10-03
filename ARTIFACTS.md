@@ -9,9 +9,8 @@ Where the live state lives, what can be restored, and what cannot.
 - The **Aurora PostgreSQL cluster** in `us-east-1` holds the only live tree
   with the served `reviews-2023-v2` catalog in `mosaic_catalog_stage`,
   `mosaic_catalog_search` and `mosaic_live_search`: 553,911 source products and
-  saved Cohere Embed v4 vectors at 1024 dimensions. The original 500,000-row
-  synthetic catalog survives only in historical operator databases and regression
-  fixtures; fresh workshops do not load it.
+  saved Cohere Embed v4 vectors at 1024 dimensions. The synthetic catalog,
+  its development rows, regression fixtures and loaders have been retired.
 - The **Workshop Studio attendee path** creates a fresh encrypted cluster, loads
   shared schemas without synthetic rows, then restores the hash-pinned real
   catalog bundle and selects it for the app. The
@@ -33,10 +32,7 @@ State that nothing can restore is not a recovery plan.
 | Artifact | Location | Restore path |
 |---|---|---|
 | Active real catalog + vectors | Aurora `mosaic_catalog_stage` / `mosaic_live_search` | `scripts/catalog/real_catalog_cache.py restore` after `make db-bootstrap-schema`; pinned by `db/config/real-catalog-cache.json` |
-| Historical synthetic catalog | Existing operator Aurora databases only | Excluded from fresh workshops; never required by the real-catalog restore |
 | Real-catalog query-coverage vocabulary | Workshop Studio `real-catalog/vocabulary/` assets | `scripts/catalog/corpus_vocabulary.py`; files and projection inputs pinned by `db/config/corpus-vocabulary-cache.json` |
-| Historical embedding cache (operator only) | Operator cache / `build/embedding-cache/` | `make db-fetch-embeddings`, then verified import |
-| Historical normalized CSV shards | `build/normalized/` | `make db-prepare-mosaic` from `data/full/*.csv.gz` |
 | Premium cohort media | `ui/public/assets/images/mosaic/` | git; 126 files, content-verified |
 | Lab contract | `data/evals/mosaic_labs_missions.json` | git; validated by `make validate-missions` |
 | Retrieval numbers | `db/config/retrieval.yaml` | git; single source, enforced by `scripts/checks/config_tripwire.py` |
@@ -61,8 +57,7 @@ uv run python scripts/catalog/corpus_vocabulary.py verify \
 
 Export recomputes the production vocabulary in session-local tables and compares
 every row before writing files. Publish only the two real-catalog vocabulary
-files in Workshop Studio. Historical vocabulary is an optional operator export,
-not a workshop dependency.
+files in Workshop Studio. The retired synthetic vocabulary is not a restore input.
 
 ## What is not restorable
 
@@ -76,9 +71,9 @@ Consequently, correctness is stated against live `mosaic_*`, not against a
 reconstructed predecessor. See `docs/rewrite-losses.md`.
 
 The pinned real-catalog archive reconstructs the current serving projection
-from source records and saved vectors. The checked-in `data/full/` shards are
-[historical synthetic fixtures](data/full/README.md), not inputs to this restore.
-Neither path reconstructs the retired `catalog.*` predecessor.
+from source records and saved vectors. Retired synthetic fixtures are recoverable
+from Git history only; there is no supported synthetic-catalog load path.
+See [the retirement record](docs/evidence/catalog-retirement-2026-10-03.md).
 
 ## Connecting from a corporate network
 

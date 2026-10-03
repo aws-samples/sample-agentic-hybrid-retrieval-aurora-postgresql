@@ -17,7 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "../api";
 import { mosaicRetrievalExamples, retrievalExamplesByStage } from "../labMissions";
 import { seedRun } from "../retrievalSeed";
-import { showcaseCatalogPage } from "../showcase";
+import { fixtureCatalogPage } from "../testProducts";
 import type {
   ProductSummary,
   ReadinessResponse,
@@ -221,7 +221,7 @@ function surfacesDeclarationsFor(selector: string): string {
   return blocks.join(" ").replaceAll(/\s+/g, " ").trim();
 }
 
-const catalog = showcaseCatalogPage({}, 0, 120);
+const catalog = fixtureCatalogPage({}, 0, 120);
 
 function productWithSignals(
   productId: number,

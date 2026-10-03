@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { CommerceProvider } from "../commerce";
-import { showcaseCatalogPage } from "../showcase";
+import { fixtureCatalogPage } from "../testProducts";
 import { AskMosaic, boldRecommendationNames } from "./AskMosaic";
 import type { AskMosaicTurn } from "./ask-mosaic/types";
 import { Searches } from "./agentAnswerParts";
@@ -14,7 +14,7 @@ afterEach(() => {
   cleanup();
 });
 
-const [first, second] = showcaseCatalogPage({}, 0, 2).products;
+const [first, second] = fixtureCatalogPage({}, 0, 2).products;
 
 describe("boldRecommendationNames", () => {
   it("bolds grounded product titles and brand-model references", () => {

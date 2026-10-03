@@ -34,51 +34,15 @@ LOAD_EXERCISE_ARGS ?=
 # The Mosaic data model is vendored under db/, rendered at 1024 dimensions.
 SCHEMA_PACKAGE ?= db
 VECTOR_DIM ?= 1024
-EMBEDDING_CACHE_DIR ?= build/embedding-cache
-EMBEDDING_CACHE_MANIFEST ?= $(EMBEDDING_CACHE_DIR)/manifest.json
-EMBEDDING_CACHE_CONTRACT ?= db/config/embedding-cache.json
-EMBEDDING_CACHE_URI ?=
 BOOTSTRAP_TIMINGS_FILE ?= build/bootstrap-timings.tsv
-MOSAIC_NORMALIZED_DIR ?= build/normalized
-MOSAIC_PREMIUM_COHORT_CSV ?= $(MOSAIC_NORMALIZED_DIR)/premium_cohort_120.csv
-MOSAIC_CATALOG_SHARDS := \
-	data/full/products_consumer_electronics.csv.gz \
-	data/full/products_running_fitness.csv.gz \
-	data/full/products_home_office.csv.gz
+.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python validate validate-db lint test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-status start-lab-1 reset-lab-1 validate-lab-1 solution-lab-1 start-lab-2 reset-lab-2 validate-lab-2 solution-lab-2 start-lab-3 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-bootstrap-schema db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-index-quantized-catalog simulate db-seed-exact-neighbors check-exact-neighbors select-hnsw-anchors check-hnsw-anchors curate-shop-collection check-shop-collection benchmark-hnsw benchmark-index-build benchmark-hardware benchmark-ask-mosaic rehearsal-validate rehearsal-summary load-exercise api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
 
-.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants test-aurora-historical db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-status start-lab-1 reset-lab-1 validate-lab-1 solution-lab-1 start-lab-2 reset-lab-2 validate-lab-2 solution-lab-2 start-lab-3 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-schema db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-index-quantized-catalog db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors select-hnsw-anchors check-hnsw-anchors curate-shop-collection check-shop-collection benchmark-hnsw benchmark-index-build benchmark-hardware benchmark-ask-mosaic rehearsal-validate rehearsal-summary load-exercise api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
-
-PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
-	media-install-flagships media-import quality reviews validate validate-db \
-	validate-missions validate-evals score-evals ablation-evals validate-config validate-functions \
-	test db-render db-prepare-mosaic \
-	db-embed simulate db-export-embeddings db-import-embeddings \
-	verify-embedding-cache db-configure-retrieval lab-status validate-lab-3 solution-lab-3 api-serve \
-	mcp-install check-bootstrap-release validate-release-workflow \
-	rehearsal-validate rehearsal-summary load-exercise \
-	deploy-agent verify-agent agent-tools complete-lab-3 \
-	curate-shop-collection check-shop-collection
+PYTHON_TARGETS := validate validate-db validate-missions validate-evals score-evals ablation-evals validate-config validate-functions \
+	test db-render simulate db-configure-retrieval lab-status validate-lab-3 solution-lab-3 api-serve \
+	mcp-install check-bootstrap-release validate-release-workflow rehearsal-validate rehearsal-summary load-exercise deploy-agent verify-agent \
+	agent-tools complete-lab-3 curate-shop-collection check-shop-collection
 
 $(PYTHON_TARGETS): check-python
-
-# Synthetic fixtures remain for regression tests, never fresh workshop restores.
-HISTORICAL_CATALOG_TARGETS := generate prepare media-map reviews db-prepare-mosaic \
-	db-load-mosaic db-load-cohort db-load-evidence db-embed db-fetch-embeddings \
-	db-export-embeddings db-import-embeddings db-seed-corpus-lexeme
-.PHONY: check-historical-catalog
-$(HISTORICAL_CATALOG_TARGETS): check-historical-catalog
-
-check-historical-catalog:
-	@test "$${ALLOW_HISTORICAL_CATALOG:-}" = 1 || { \
-		printf "Historical catalog disabled: ALLOW_HISTORICAL_CATALOG='%s'.\n" "$${ALLOW_HISTORICAL_CATALOG:-}"; \
-		echo "For historical fixture maintenance only, set ALLOW_HISTORICAL_CATALOG=1. See data/full/README.md."; \
-		exit 2; \
-	}
-	@test -z "$${MOSAIC_CATALOG_DATASET:-}" || { \
-		printf "Historical catalog conflicts with MOSAIC_CATALOG_DATASET='%s'.\n" "$$MOSAIC_CATALOG_DATASET"; \
-		echo "Use the real-catalog restore for Mosaic. Historical maintenance requires a separate Aurora database and an unset MOSAIC_CATALOG_DATASET."; \
-		exit 2; \
-	}
 
 # An unset DSN must fail by name, not by handing psql an empty string and letting
 # it try to reach a local socket that does not exist.
@@ -90,14 +54,10 @@ check-dsn:
 		exit 2; \
 	}
 
-DSN_TARGETS := test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-upgrade-snapshot \
-	validate-missions validate-evals score-evals ablation-evals validate-functions \
-	db-load-mosaic db-index-concurrent db-drop-invalid-indexes db-index-quantized \
-	db-index-recover-and-create db-load-cohort db-load-evidence db-smoke \
-	db-seed-corpus-lexeme db-bootstrap-schema db-verify-bootstrap db-embed db-export-embeddings db-import-embeddings \
-	db-configure-retrieval db-apply-search-functions start-lab-1 reset-lab-1 validate-lab-1 solution-lab-1 \
-	start-lab-2 reset-lab-2 validate-lab-2 solution-lab-2 start-lab-3 reset-lab-3 api-serve \
-	curate-shop-collection check-shop-collection
+DSN_TARGETS := test test-aurora-contracts test-aurora-invariants db-install db-install-labs validate-missions validate-evals score-evals \
+	ablation-evals validate-functions db-index-concurrent db-drop-invalid-indexes db-index-quantized db-index-recover-and-create db-smoke db-bootstrap-schema \
+	db-verify-bootstrap db-configure-retrieval db-apply-search-functions start-lab-1 reset-lab-1 validate-lab-1 solution-lab-1 start-lab-2 \
+	reset-lab-2 validate-lab-2 solution-lab-2 start-lab-3 reset-lab-3 api-serve curate-shop-collection check-shop-collection
 
 $(DSN_TARGETS): check-dsn
 
@@ -118,34 +78,6 @@ check-mcp-python:
 	@test -x "$(MCP_PYTHON)" || { echo "MCP environment is missing. Run 'make mcp-install'."; exit 1; }
 	@"$(MCP_PYTHON)" -c 'import sys; expected = (3, 13); actual = sys.version_info[:2]; print(f"MCP Python {sys.version.split()[0]} ({sys.executable})"); raise SystemExit(0 if actual == expected else "Mosaic MCP requires Python 3.13")'
 
-generate:
-	$(PYTHON) scripts/catalog/generate_catalog.py
-	$(PYTHON) scripts/catalog/prepare_catalog.py
-	$(PYTHON) scripts/media/materialize_image_urls.py
-	$(PYTHON) scripts/catalog/catalog_quality.py
-
-prepare:
-	$(PYTHON) scripts/catalog/prepare_catalog.py
-	$(PYTHON) scripts/media/materialize_image_urls.py
-	$(PYTHON) scripts/catalog/catalog_quality.py
-
-media-map:
-	$(PYTHON) scripts/media/materialize_image_urls.py
-
-# Product-bound photography: the fixed premium 120 plus the focused 80.
-media-labels:
-	$(PYTHON) scripts/media/build_asset_labels.py
-
-media-shot-list: media-labels
-	$(PYTHON) scripts/media/build_shot_list.py
-
-media-install-flagships:
-	$(PYTHON) scripts/media/install_cohort_assets.py
-
-# SOURCE=~/Downloads/batch make media-import
-media-import:
-	$(PYTHON) scripts/media/import_generated_images.py --source "$(SOURCE)"
-
 # --- Mosaic data model (db/) ----------------------------------------------
 # Installs schemas, tables, functions, and non-concurrent indexes. HNSW indexes
 # are deliberately excluded: CREATE INDEX CONCURRENTLY cannot run inside a
@@ -159,12 +91,6 @@ db-install:
 db-install-labs:
 	@cd $(SCHEMA_PACKAGE)/sql && psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f install_measurement.sql
 
-# Operator-only compatibility path for historical snapshot restores. Workshop
-# Studio provisions fresh Aurora through db-bootstrap-schema.
-db-upgrade-snapshot:
-	@cd $(SCHEMA_PACKAGE)/sql && psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f upgrade_snapshot.sql
-	@$(MAKE) db-configure-retrieval
-
 db-configure-retrieval:
 	@$(PYTHON) scripts/configure_retrieval_database.py
 
@@ -177,7 +103,7 @@ validate-missions:
 
 # The real canonical, coverage-probe and held-out corpora validate their
 # targets through production filters on Aurora before scoring. Historical
-# generated eligibility cases remain under data/evals/historical/.
+# generated eligibility cases have been retired.
 validate-evals:
 	@$(PYTHON) scripts/evals/run_eval.py --validate-only
 	@$(PYTHON) scripts/evals/independent_relevance_eval.py --validate-only
@@ -310,20 +236,6 @@ db-render:
 	$(PYTHON) $(SCHEMA_PACKAGE)/scripts/render_dimension.py \
 		--dimension $(VECTOR_DIM) --output $(CURDIR)
 
-db-prepare-mosaic:
-	$(PYTHON) $(SCHEMA_PACKAGE)/scripts/transform_legacy_catalog.py \
-		$(MOSAIC_CATALOG_SHARDS) "$(MOSAIC_NORMALIZED_DIR)"
-	$(PYTHON) scripts/catalog/export_premium_cohort.py \
-		--output "$(MOSAIC_PREMIUM_COHORT_CSV)"
-
-db-load-mosaic:
-	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 \
-		-v brands_path="$(MOSAIC_NORMALIZED_DIR)/brands.csv.gz" \
-		-v categories_path="$(MOSAIC_NORMALIZED_DIR)/categories.csv.gz" \
-		-v products_path="$(MOSAIC_NORMALIZED_DIR)/products.csv.gz" \
-		-v offers_path="$(MOSAIC_NORMALIZED_DIR)/offers.csv.gz" \
-		-f $(SCHEMA_PACKAGE)/sql/17_load_normalized_catalog.sql
-
 # Run after embeddings are populated.
 db-index-concurrent:
 	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/15_indexes_concurrent.sql
@@ -362,31 +274,8 @@ db-index-quantized: check-dsn
 db-index-quantized-catalog: check-dsn
 	@$(PYTHON) scripts/bench/build_quantized_indexes.py $(QUANTIZED_INDEX_ARGS)
 
-db-load-cohort:
-	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 \
-		-v premium_cohort_path="$(MOSAIC_PREMIUM_COHORT_CSV)" \
-		-f $(SCHEMA_PACKAGE)/sql/19_load_premium_cohort.sql
-
-db-load-evidence:
-	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 \
-		-v review_evidence_path='data/sample/reviews_15000.csv.gz' \
-		-f $(SCHEMA_PACKAGE)/sql/18_load_evidence.sql
-
 db-smoke:
 	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/99_smoke_test.sql
-
-verify-embedding-cache:
-	@$(PYTHON) scripts/catalog/embedding_cache.py verify \
-		"$(EMBEDDING_CACHE_MANIFEST)" \
-		--contract "$(EMBEDDING_CACHE_CONTRACT)"
-
-db-fetch-embeddings:
-	@test -n "$(EMBEDDING_CACHE_URI)" || { \
-		echo "EMBEDDING_CACHE_URI must be an s3:// prefix"; exit 2; \
-	}
-	aws s3 sync "$(EMBEDDING_CACHE_URI)" "$(EMBEDDING_CACHE_DIR)" \
-		--only-show-errors
-	@$(MAKE) verify-embedding-cache
 
 define bootstrap-phase
 	@set -e; database_url="$$DATABASE_URL"; \
@@ -420,12 +309,6 @@ db-verify-bootstrap:
 
 validate-db:
 	"$(PYTHON)" "$(SCHEMA_PACKAGE)/scripts/validate_package.py"
-
-quality:
-	$(PYTHON) scripts/catalog/catalog_quality.py
-
-reviews:
-	$(PYTHON) scripts/catalog/generate_reviews.py
 
 validate:
 	$(PYTHON) scripts/checks/validate_package.py
@@ -477,12 +360,12 @@ lint:
 	@$(MAKE) --no-print-directory check-bootstrap-sync
 
 test:
-	@$(PYTHON) -m pytest -m "not historical_catalog"
+	@$(PYTHON) -m pytest
 
 # The full offline suite already ran before this release job. This live subset
 # exercises Aurora SQL only and cannot call embedding or reranking models.
 test-aurora-contracts:
-	@$(PYTHON) -m pytest -q -m "not historical_catalog" \
+	@$(PYTHON) -m pytest -q \
 		tests/test_sql_integration.py \
 		tests/test_bootstrap_contract.py \
 		tests/test_evidence_retirement.py \
@@ -517,42 +400,11 @@ test-aurora-invariants:
 		echo "report a pass built out of skipped aurora-marked tests."; \
 		exit 2; \
 	}
-	@$(PYTHON) -m pytest -q -rs -m "not historical_catalog" \
+	@$(PYTHON) -m pytest -q -rs \
 		tests/test_coverage.py \
 		tests/test_lab1_anchor_invariants.py \
 		tests/test_answerability_live.py \
 		tests/test_retrieval_scope.py
-
-# Explicit operator lane; never load historical products to satisfy a fresh workshop gate.
-test-aurora-historical: check-dsn
-	@$(PYTHON) -m pytest -q -m historical_catalog \
-		tests/test_sql_integration.py tests/test_coverage.py
-
-# Five targets were DELETED in Phase 2 Unit E. They installed and loaded the
-# `catalog.*` tree, which no longer exists, against whatever DSN they were handed
-# — including the live Aurora cluster. Their replacements target `mosaic_*`:
-#
-#   old target       new target             SQL
-#   ---------------- ---------------------- ----------------------------------
-#   db-init          db-install             db/sql/install.sql
-#   db-load-catalog  db-load-mosaic         db/sql/17_load_normalized_catalog.sql
-#   db-load-media    db-load-cohort         db/sql/19_load_premium_cohort.sql
-#   db-index         db-index-concurrent    db/sql/15_indexes_concurrent.sql
-#   db-load          db-bootstrap-schema    shared schemas only; restore real cache next
-#
-# See ARTIFACTS.md for the Aurora-only policy and docs/rewrite-losses.md
-# SUBSTRATE-1 for why the predecessors cannot be run at all.
-
-db-embed:
-	@$(PYTHON) scripts/catalog/embed_catalog.py
-
-db-export-embeddings:
-	@$(PYTHON) scripts/catalog/embedding_cache.py \
-		export --output "$(EMBEDDING_CACHE_DIR)"
-
-db-import-embeddings:
-	@$(PYTHON) scripts/catalog/embedding_cache.py \
-		import "$(EMBEDDING_CACHE_MANIFEST)"
 
 simulate:
 	$(PYTHON) scripts/bench/simulate_scale.py
@@ -585,9 +437,6 @@ check-shop-collection:
 # Workshop bootstrap explicitly supplies a verified vocabulary cache. Ordinary
 # operator runs still rebuild from the production SQL; neither path skips the
 # vocabulary or its acceptance checks.
-db-seed-corpus-lexeme: check-dsn
-	@$(PYTHON) scripts/catalog/corpus_vocabulary.py refresh --schema mosaic_search
-
 # Which models this account may actually invoke. An ACTIVE inference profile is
 # not entitlement: a fresh Workshop Studio account answered "anthropic.claude-
 # sonnet-5 is not available for this account" for the pinned agent model, and the

@@ -31,8 +31,12 @@ def test_package_validator_failure_is_explicit_and_actionable() -> None:
     """A failed catalog package rule must survive optimized Python execution."""
     validator = _validator_module()
 
-    with pytest.raises(SystemExit, match="PACKAGE VALIDATION FAILED: PKG-001"):
+    with pytest.raises(
+        ValueError, match="Catalog parts rule: found 0; fix: restore the contract"
+    ):
         validator.require(
             False,
-            "PKG-001 manifest product count is 499999; expected 500000. Regenerate it.",
+            "Catalog parts rule",
+            0,
+            "restore the contract",
         )

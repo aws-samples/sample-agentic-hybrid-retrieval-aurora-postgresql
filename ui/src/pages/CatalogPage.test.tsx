@@ -53,7 +53,7 @@ import { stageDwellMs } from "../components/ask-mosaic/StageProgress";
 import { mosaicLabManifest } from "../labMissions";
 import { coreMosaicLabs, shopMissionHref } from "../labMissions";
 import { seedRun } from "../retrievalSeed";
-import { showcaseCatalogPage } from "../showcase";
+import { fixtureCatalogPage } from "../testProducts";
 import { starterPath } from "../starters";
 import type {
   AgentResponse,
@@ -181,7 +181,7 @@ const examples: RetrievalExample[] = [
 ];
 
 const catalog = {
-  ...showcaseCatalogPage({}, 0, 12),
+  ...fixtureCatalogPage({}, 0, 12),
   total: 200,
 };
 const suggestions: CatalogSuggestion[] = [

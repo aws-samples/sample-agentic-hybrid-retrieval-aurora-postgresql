@@ -1,12 +1,10 @@
-import math
 from pathlib import Path
 
 import pytest
 
-from scripts.catalog.embed_catalog import (
+from scripts.catalog.embedding_model import (
     COHERE_EMBED_V4_DIMENSIONS,
     COHERE_EMBED_V4_MODEL_ID,
-    DEVELOPMENT_HASH_MODEL_ID,
     embedding_function,
 )
 from service.search_sql import search_sql
@@ -33,7 +31,6 @@ def test_workshop_embedding_loader_rejects_another_bedrock_model():
             model_id="amazon.titan-embed-text-v2:0",
             dimensions=1024,
             region="us-east-1",
-            allow_development_embeddings=False,
         )
 
 
@@ -44,31 +41,7 @@ def test_workshop_embedding_loader_rejects_another_dimension():
             model_id=COHERE_EMBED_V4_MODEL_ID,
             dimensions=512,
             region="us-east-1",
-            allow_development_embeddings=False,
         )
-
-
-def test_hash_embeddings_require_explicit_development_opt_in():
-    with pytest.raises(SystemExit, match="development-only"):
-        embedding_function(
-            "hash",
-            model_id=COHERE_EMBED_V4_MODEL_ID,
-            dimensions=1024,
-            region="us-east-1",
-            allow_development_embeddings=False,
-        )
-
-    embed, model_id = embedding_function(
-        "hash",
-        model_id=COHERE_EMBED_V4_MODEL_ID,
-        dimensions=1024,
-        region="us-east-1",
-        allow_development_embeddings=True,
-    )
-    vector = embed(["local mechanics only"])[0]
-    assert model_id == DEVELOPMENT_HASH_MODEL_ID
-    assert len(vector) == 1024
-    assert math.isclose(sum(value * value for value in vector), 1.0)
 
 
 def test_projection_upsert_invalidates_a_changed_embedding_text():
@@ -76,8 +49,7 @@ def test_projection_upsert_invalidates_a_changed_embedding_text():
 
     Retargeted from the deleted `sql/02_upsert_from_stage.sql` in Phase 2 Unit E —
     and the port had dropped the behavior, so this restored it. A stale embedding is
-    worse than a missing one: `scripts/catalog/embed_catalog.py` selects only rows where
-    `embedding IS NULL` or the model key differs, so nothing would ever recompute it.
+    worse than a missing one; clearing it forces the importer to supply a matching vector.
     """
     sql = (ROOT / "db/sql/06_retrieval_projection.sql").read_text()
 
@@ -87,56 +59,3 @@ def test_projection_upsert_invalidates_a_changed_embedding_text():
     # embedded by a model that never saw this text.
     assert sql.count("IS DISTINCT FROM EXCLUDED.embedding_text") >= 2
     assert "THEN NULL" in sql
-
-
-def test_generated_reviews_are_honest_customer_review_evidence():
-    types = (ROOT / "db/sql/01_schemas_and_types.sql").read_text()
-    loader = (ROOT / "db/sql/18_load_evidence.sql").read_text()
-
-    assert "'customer_review'" in types
-    assert "'verified_review'" in types  # Legacy rows remain readable.
-    assert "'customer_review'::mosaic.evidence_type" in loader
-    assert "'Mosaic synthetic review corpus'" in loader
-    assert "'Mosaic verified review corpus'" not in loader
-
-
-def test_live_legacy_review_evidence_remains_readable_and_counted():
-    acceptance = (ROOT / "db/sql/98_bootstrap_acceptance.sql").read_text()
-    catalog = (ROOT / "service/catalog.py").read_text()
-
-    for source in (acceptance, catalog):
-        assert "evidence_type::text" in source
-        assert "'customer_review'" in source
-        assert "'verified_review'" in source
-    assert "'Mosaic synthetic review corpus'" in acceptance
-    assert "'Mosaic verified review corpus'" in acceptance
-
-
-def test_embedding_loader_uses_typed_binary_copy():
-    source = (ROOT / "scripts/catalog/embed_catalog.py").read_text()
-
-    assert "FROM STDIN (FORMAT BINARY)" in source
-    # Two columns, not three: mosaic_search.product_document has no
-    # embedding_content_hash, so re-embedding is gated on the model key instead.
-    assert 'copy.set_types(["int8", "vector"])' in source
-
-
-def test_embedding_loader_uses_bounded_parallel_batches():
-    source = (ROOT / "scripts/catalog/embed_catalog.py").read_text()
-
-    assert "ThreadPoolExecutor(max_workers=args.workers)" in source
-    assert "--workers must be between 1 and 50" in source
-    assert "--min-product-id" in source
-    assert "--max-product-id" in source
-    assert "executor.map(embed, text_batches)" in source
-    assert "embedder.client.exceptions.ThrottlingException" in source
-
-
-def test_embedding_loader_registers_the_model_before_writing_vectors():
-    source = (ROOT / "scripts/catalog/embed_catalog.py").read_text()
-
-    # product_document.embedding_model_key is a foreign key to
-    # mosaic.embedding_model, so an unregistered model fails at the first UPDATE.
-    assert "INSERT INTO mosaic.embedding_model" in source
-    assert "is_active = EXCLUDED.is_active" in source
-    assert "mosaic_search.product_document" in source

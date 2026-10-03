@@ -9,16 +9,12 @@ cannot tell those apart destroys the workshop.
 So the falsifier is permanent and it is first: an all-misspelled request must
 stay `grounded`.
 
-Everything above `test_the_yaml_floor_equals_the_sql_default` runs without a
-database. The `aurora`-marked tests below it run every case in
-`data/evals/coverage_queries.jsonl` against the live cluster, which is the only
-place the floor can actually be falsified: the pure functions here classify
-verdicts they are handed, and the verdict is what the SQL decides.
+Pure tests classify supplied verdicts. The Aurora test checks positive and
+negative controls against the selected real catalog.
 """
 
 from __future__ import annotations
 
-import json
 import re
 from contextlib import contextmanager
 from pathlib import Path
@@ -38,7 +34,6 @@ from service.coverage import (
 
 ROOT = Path(__file__).resolve().parents[1]
 COVERAGE_SQL = ROOT / "db" / "sql" / "11_query_coverage.sql"
-COVERAGE_QUERIES = ROOT / "data" / "evals" / "coverage_queries.jsonl"
 
 #: Token kinds `mosaic_search.is_identifier_token` refuses to rescue. Written
 #: out rather than read from the SQL, so a branch deleted there fails here.
@@ -56,14 +51,6 @@ IDENTIFIER_KINDS = (
     "host",
     "email",
 )
-
-
-def _cases() -> list[dict]:
-    return [
-        json.loads(line)
-        for line in COVERAGE_QUERIES.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
 
 
 def _term(
@@ -453,121 +440,6 @@ def test_assess_uses_an_injected_connection_factory():
 
     coverage.assess("anything", connection_factory=factory)
     assert any("query_term_coverage" in sql for sql in connection.executed)
-
-
-# --- Live calibration ---------------------------------------------------
-#
-# The floor is a number about a corpus. Nothing offline can falsify it: every
-# test above is handed verdicts, and the verdict is what the floor decides. So
-# the calibration is asserted where it was measured, against the 500,000-product
-# cluster, and the recorded `measured` block in the eval file is asserted term by
-# term rather than only in summary -- a case whose confidence is right for the
-# wrong reason is the failure this set exists to catch.
-
-VERIFIED_CASES = [case for case in _cases() if case["verified_against_catalog"]]
-
-
-def test_the_live_calibration_has_cases_to_assert():
-    """Witness. A parametrize over an empty list passes while proving nothing,
-    which is exactly how eight gates in this repository were green on broken."""
-    assert VERIFIED_CASES, (
-        "no case claims live verification; the aurora tests are inert"
-    )
-    assert len(VERIFIED_CASES) == len(_cases())
-
-
-@pytest.fixture
-def historical_coverage(monkeypatch):
-    """September calibration belongs to the retained synthetic vocabulary only."""
-    monkeypatch.setattr(coverage, "search_schema", lambda: "mosaic_search")
-
-
-@pytest.mark.aurora
-@pytest.mark.historical_catalog
-@pytest.mark.usefixtures("historical_coverage")
-@pytest.mark.parametrize("case", VERIFIED_CASES, ids=lambda c: c["query_id"])
-def test_every_verified_case_classifies_as_recorded(case):
-    """Both halves: the expectation the set declares, and the run that verified it."""
-    measured = case["measured"]
-    assert measured["similarity_floor"] == load_profile().coverage_similarity_floor, (
-        f"{case['query_id']} was measured at {measured['similarity_floor']} but the "
-        f"yaml now declares {load_profile().coverage_similarity_floor}; fix: re-measure "
-        f"the set against the live cluster before changing the floor"
-    )
-    result = coverage.assess(case["query"])
-    assert result.confidence == case["expected_confidence"]
-    assert result.confidence == measured["confidence"]
-    assert result.unmatched_terms == measured["unmatched_terms"]
-    if case["expected_unmatched_terms"]:
-        assert result.unmatched_terms == case["expected_unmatched_terms"]
-    if case["expected_confidence"] == "grounded":
-        assert result.unmatched_terms == []
-
-    assert result.terms, f"{case['query_id']} produced no terms to inspect"
-    assert len(result.terms) == len(measured["terms"])
-    for term, recorded in zip(result.terms, measured["terms"], strict=True):
-        assert term.token == recorded["token"]
-        assert term.token_kind == recorded["kind"]
-        assert term.verdict == recorded["verdict"], (
-            f"{case['query_id']} token {term.token!r} is now {term.verdict!r}, "
-            f"recorded as {recorded['verdict']!r} on {measured['measured_on']}"
-        )
-        assert term.ndoc == recorded["ndoc"]
-        if "closest" in recorded:
-            assert term.closest_lexeme == recorded["closest"]
-            assert round(float(term.closest_similarity), 3) == recorded["similarity"]
-
-
-@pytest.mark.aurora
-@pytest.mark.historical_catalog
-@pytest.mark.usefixtures("historical_coverage")
-def test_the_floor_is_what_decides_the_lab_1_anchor():
-    """Red-at-birth, kept permanent. The anchor is grounded at the shipped floor
-    and refused above its narrowest token, so a green result here is evidence
-    that the floor is load-bearing rather than that nothing was tested.
-
-    Measured 2026-09-04: 'hedfones' reaches 'hedphones' at 0.462.
-    """
-    anchor = "noice cancelng hedfones"
-    assert coverage.assess(anchor).confidence == "grounded"
-    refused = coverage.assess(anchor, similarity_floor=0.5)
-    assert refused.confidence == "unanchored"
-    assert refused.unmatched_terms == ["hedfones"]
-
-
-@pytest.mark.aurora
-@pytest.mark.historical_catalog
-@pytest.mark.usefixtures("historical_coverage")
-def test_the_floor_is_what_decides_the_invented_brand():
-    """The other end of the calibration. 'Zylthorne' clears 0.231 and nothing
-    more, so a floor at 0.2 admits it and the guardrail stops guarding."""
-    query = "Zylthorne over-ear headphones"
-    assert coverage.assess(query).unmatched_terms == ["Zylthorne"]
-    assert coverage.assess(query, similarity_floor=0.2).confidence == "grounded"
-
-
-@pytest.mark.aurora
-@pytest.mark.historical_catalog
-@pytest.mark.usefixtures("historical_coverage")
-@pytest.mark.parametrize("floor", [0.01, 0.24, 0.99])
-def test_an_absent_model_number_is_refused_at_every_floor(floor):
-    """The half of this gate that does not rest on a 0.019 margin. `a2342` is a
-    numword, so the neighbour lookup never runs for it."""
-    result = coverage.assess(
-        "I need a replacement charging brick for model A2342", similarity_floor=floor
-    )
-    assert result.confidence == "unanchored"
-    assert "A2342" in result.unmatched_terms
-
-
-@pytest.mark.aurora
-@pytest.mark.historical_catalog
-@pytest.mark.usefixtures("historical_coverage")
-def test_both_vocabularies_are_seeded_on_this_cluster():
-    """`assess` reports `unavailable` when either table is empty, which would make
-    every assertion above vacuously pass on a half-seeded database."""
-    result = coverage.assess("wireless headphones")
-    assert result.confidence != "unavailable", result.note
 
 
 @pytest.mark.aurora

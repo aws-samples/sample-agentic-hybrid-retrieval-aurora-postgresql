@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from scripts.catalog.corpus_vocabulary import refresh as refresh_vocabulary
-from scripts.catalog.embed_catalog import COHERE_EMBED_V4_MODEL_ID
+from scripts.catalog.embedding_model import COHERE_EMBED_V4_MODEL_ID
 from scripts.catalog.prepare_staged_catalog_search import (
     require_complete,
     search_functions,

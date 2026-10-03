@@ -299,7 +299,12 @@ def _dataset_manifest_sha256() -> str:
     override = os.getenv("MOSAIC_DATASET_MANIFEST_SHA256", "").strip()
     if override:
         return override
-    path = Path(__file__).resolve().parents[1] / "data" / "full" / "manifest.json"
+    path = (
+        Path(__file__).resolve().parents[1]
+        / "db"
+        / "config"
+        / "real-catalog-cache.json"
+    )
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 

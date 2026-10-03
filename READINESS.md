@@ -67,9 +67,8 @@ regenerated with `make curate-shop-collection`, `make select-hnsw-anchors` and
 
 The canonical set contains ten real-catalog requests: nine product-retrieval
 cases for Recall@10, MRR and nDCG@10, plus one agent-contract case checked
-through Lab 3. The twelve historical canonical requests and 720 generated
-filter cases live separately under `data/evals/historical/`. Historical scores
-do not certify the real catalog. The committed real-catalog baseline over the
+through Lab 3. Historical synthetic fixtures and their operator tooling have been retired.
+Historical scores do not certify the real catalog. The committed real-catalog baseline over the
 nine product-retrieval cases reads Recall@10 1.0,
 MRR 0.759 and nDCG@10 0.803; both release checks passed and both eligibility
 fixtures held. `data/evals/canonical_scorecard.json` records its measurement date

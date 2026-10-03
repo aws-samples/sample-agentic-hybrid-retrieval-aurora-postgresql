@@ -42,7 +42,6 @@
       ".local/strands-coding-eval": true,
       ".local/rehearsal": true,
       ".local/vocabulary-cache": true,
-      "data/full": true,
       "data/raw": true,
       "docs/intentional-gaps.md": true,
       "docs/instructor-guide.md": true,

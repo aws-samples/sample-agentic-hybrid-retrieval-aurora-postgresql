@@ -91,7 +91,7 @@ retrieval quality never depends on ablation code:
 
 - ``scorecard_methodology_sha256`` covers ``service/models.py``,
   ``scripts/evals/score_evals.py``, ``scripts/evals/run_eval.py``,
-  ``scripts/catalog/embed_catalog.py`` (the shared embedding helpers), and this file.
+  ``scripts/catalog/embedding_model.py`` (the shared embedding helpers), and this file.
 - ``ablation_methodology_sha256`` covers those five plus
   ``scripts/evals/ablation_evals.py``.
 
@@ -182,7 +182,7 @@ _EXPECTED_CATEGORY_COUNTS: dict[str, int] = {
     # 28 files in db/sql/ plus the two lab SQL files Aurora installs with them.
     # Any change here moves the retrieval fingerprint, so the committed
     # scorecard reads unattributed until the next measured baseline.
-    "sql": 30,
+    "sql": 26,
     "config": 1,
     "service": 9,
     "scripts": 7,
@@ -302,7 +302,7 @@ SCORECARD_METHODOLOGY_FILES: tuple[str, ...] = (
     "service/models.py",
     "service/retrieval_fingerprint.py",
     "scripts/evals/run_eval.py",
-    "scripts/catalog/embed_catalog.py",
+    "scripts/catalog/embedding_model.py",
 )
 
 #: The ablation reuses every scorecard methodology input and adds its own

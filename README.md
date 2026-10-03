@@ -5,7 +5,9 @@ home office. You will build and inspect the search, ranking, and agent steps
 behind **Mosaic**, a product discovery application.
 
 The catalog contains **553,911 real source products from Amazon Reviews 2023**.
-The product records and saved Cohere embeddings are provided. Alex is a fictional
+The product records and saved Cohere embeddings are provided. Maintainer restore
+and validation commands use this real catalog; synthetic fixtures and loaders
+have been retired. Alex is a fictional
 shopper; your searches and answers use the source products and their evidence.
 
 ## Start the workshop

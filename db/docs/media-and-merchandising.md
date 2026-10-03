@@ -9,7 +9,9 @@
 | Family | long tail | category/form-factor/material/color family image |
 | Generic | rare fallback | neutral domain placeholder |
 
-The 120-product premium cohort is a merchandising surface, not a separate search corpus. Search continues to run against all 500K products.
+The real Shop selection is defined in `data/real-shop-collection.json`. Search
+uses the complete selected real catalog. Synthetic cohort assignments and their
+loader have been retired.
 
 ## Shop pagination
 

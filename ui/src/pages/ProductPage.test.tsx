@@ -11,7 +11,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { CommerceProvider } from "../commerce";
-import { showcaseCatalogPage, showcaseProductDetail } from "../showcase";
+import { fixtureCatalogPage, fixtureProductDetail } from "../testProducts";
 import type { ProductDetail } from "../types";
 import { ProductPage } from "./ProductPage";
 
@@ -40,13 +40,13 @@ describe("ProductPage", () => {
     window.history.replaceState({}, "", "/products/1");
     vi.mocked(api.product).mockReset();
     vi.mocked(api.similarProducts).mockReset();
-    vi.mocked(api.similarProducts).mockResolvedValue(showcaseCatalogPage({}, 0, 5).products);
+    vi.mocked(api.similarProducts).mockResolvedValue(fixtureCatalogPage({}, 0, 5).products);
   });
 
   afterEach(cleanup);
 
   it("keeps original listing content available without repeating it in the opening view", async () => {
-    const base = showcaseProductDetail(1)!;
+    const base = fixtureProductDetail(1)!;
     const title = "Original headphone case compatible with several headphone models, with a hard shell and a storage pocket for accessories — original source title";
     const product: ProductDetail = {
       ...base,
@@ -89,7 +89,7 @@ describe("ProductPage", () => {
   });
 
   it("labels imported reviews as a selection beside the source rating count", async () => {
-    const base = showcaseProductDetail(1)!;
+    const base = fixtureProductDetail(1)!;
     const product: ProductDetail = {
       ...base,
       title: "Original monitor listing",
@@ -123,7 +123,7 @@ describe("ProductPage", () => {
   });
 
   it("labels false attributes accurately and opens the actual source records", async () => {
-    const product = showcaseProductDetail(1);
+    const product = fixtureProductDetail(1);
     if (!product) throw new Error("Missing product fixture");
     vi.mocked(api.product).mockResolvedValue({ ...product, attributes: { wireless: false, connection: "USB-C" } });
     const scroll = vi.fn();
@@ -163,8 +163,8 @@ describe("ProductPage", () => {
     window.dispatchEvent(new PopStateEvent("popstate"));
     await waitFor(() => expect(api.product).toHaveBeenCalledWith(17001));
 
-    const echoBud = showcaseProductDetail(17001);
-    const auraluxe = showcaseProductDetail(1);
+    const echoBud = fixtureProductDetail(17001);
+    const auraluxe = fixtureProductDetail(1);
     if (!echoBud || !auraluxe) throw new Error("Missing product race fixtures");
 
     await act(async () => {
@@ -172,7 +172,7 @@ describe("ProductPage", () => {
       await second.promise;
     });
     expect(
-      await screen.findByRole("heading", { name: "Mosaic EchoBud S2" }),
+      await screen.findByRole("heading", { name: "Test earbuds 17001" }),
     ).toBeTruthy();
 
     await act(async () => {
@@ -180,15 +180,15 @@ describe("ProductPage", () => {
       await first.promise;
     });
     expect(
-      screen.getByRole("heading", { name: "Mosaic EchoBud S2" }),
+      screen.getByRole("heading", { name: "Test earbuds 17001" }),
     ).toBeTruthy();
     expect(
-      screen.queryByRole("heading", { name: "Mosaic Auraluxe H9" }),
+      screen.queryByRole("heading", { name: "Test headphones 1" }),
     ).toBeNull();
   });
 
   it("renders nullable review evidence without an empty date separator", async () => {
-    const base = showcaseProductDetail(17001);
+    const base = fixtureProductDetail(17001);
     if (!base) throw new Error("Missing product review fixture");
     const product = {
       ...base,
@@ -215,7 +215,7 @@ describe("ProductPage", () => {
       </CommerceProvider>,
     );
 
-    await screen.findByRole("heading", { name: "Mosaic EchoBud S2" });
+    await screen.findByRole("heading", { name: "Test earbuds 17001" });
     fireEvent.click(screen.getByRole("tab", { name: "Reviews (1)" }));
 
     expect(document.querySelector(".review-list cite")?.textContent).toBe(
@@ -225,7 +225,7 @@ describe("ProductPage", () => {
   });
 
   it("renders primary detail without waiting for related products", async () => {
-    const product = showcaseProductDetail(1);
+    const product = fixtureProductDetail(1);
     if (!product) throw new Error("Missing primary product fixture");
     vi.mocked(api.product).mockResolvedValue(product);
     vi.mocked(api.similarProducts).mockReturnValue(new Promise(() => {}));
@@ -244,9 +244,9 @@ describe("ProductPage", () => {
   });
 
   it("retries related products without replacing primary detail", async () => {
-    const product = showcaseProductDetail(1);
+    const product = fixtureProductDetail(1);
     if (!product) throw new Error("Missing primary product fixture");
-    const relatedPage = showcaseCatalogPage({}, 0, 5);
+    const relatedPage = fixtureCatalogPage({}, 0, 5);
     vi.mocked(api.product).mockResolvedValue(product);
     vi.mocked(api.similarProducts)
       .mockRejectedValueOnce(new Error("related catalog unavailable"))
@@ -270,7 +270,7 @@ describe("ProductPage", () => {
   });
 
   it("returns to the carried catalog context even after another product page", async () => {
-    const product = showcaseProductDetail(1);
+    const product = fixtureProductDetail(1);
     if (!product) throw new Error("Missing product return fixture");
     vi.mocked(api.product).mockResolvedValue(product);
     window.history.replaceState(
@@ -299,7 +299,7 @@ describe("ProductPage", () => {
   });
 
   it("saves the current product and only displays its actual warranty", async () => {
-    const product = showcaseProductDetail(1)!;
+    const product = fixtureProductDetail(1)!;
     vi.mocked(api.product).mockResolvedValue({ ...product, warranty_months: 18 });
     render(<CommerceProvider><ProductPage /></CommerceProvider>);
     await screen.findByRole("heading", { name: product.title });
@@ -314,7 +314,7 @@ describe("ProductPage", () => {
   });
 
   it("exposes selected image and tab state and supports tab keyboard navigation", async () => {
-    const base = showcaseProductDetail(1);
+    const base = fixtureProductDetail(1);
     if (!base) throw new Error("Missing selected-control fixture");
     const product: ProductDetail = {
       ...base,

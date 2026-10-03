@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from scripts.catalog import prepare_live_catalog as live
-from scripts.catalog.embed_catalog import COHERE_EMBED_V4_MODEL_ID
+from scripts.catalog.embedding_model import COHERE_EMBED_V4_MODEL_ID
 from scripts.checks.retrieval_profile import load_profile
 
 

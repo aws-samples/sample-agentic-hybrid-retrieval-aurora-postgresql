@@ -52,17 +52,6 @@ def test_readiness_places_the_python_gate_under_aurora():
     assert "make test" in aurora_gates
 
 
-def test_media_docs_close_the_completed_replacement_work():
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    regeneration = (ROOT / "docs" / "media-regeneration-batches.md").read_text(
-        encoding="utf-8"
-    )
-
-    assert "four still outstanding" not in readme
-    assert "OUTSTANDING" not in regeneration
-    assert "All 13 wrong-subject images" in regeneration
-
-
 def test_api_contract_pins_the_scorecard_pending_prefix():
     from service.scorecard import PENDING_TEXT
 

@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { coreMosaicLabs, mosaicLabManifest } from "../labMissions";
-import { showcaseCatalogPage } from "../showcase";
+import { fixtureCatalogPage } from "../testProducts";
 import type { AgentResponse, EvidenceRecord, LabStateRecord, ProductSummary, RetrievalScorecardResponse, ScorecardStageArm, SearchResponse, ToolTraceStep } from "../types";
 import { PlaygroundPage } from "./PlaygroundPage";
 
@@ -34,7 +34,7 @@ const searchStep = (id: string, sequence: number): ToolTraceStep => ({ sequence,
 const productLinks = (region: HTMLElement) => within(region).getAllByRole("link").map((link) => link.getAttribute("href"));
 
 it("opens a saved Shop search in the pipeline layout even when the link carries a lab example", async () => {
-  const response = savedSearch(firstSearchId, [ranked(showcaseCatalogPage({}, 0, 1).products[0], 2, 1)]);
+  const response = savedSearch(firstSearchId, [ranked(fixtureCatalogPage({}, 0, 1).products[0], 2, 1)]);
   window.history.replaceState({}, "", `/labs/retrieval?q=B0C2WWFCQB&event=${firstSearchId}&example=typo-recovery#labs-stage-re-rank`);
   const replay = vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(response);
   const search = vi.spyOn(api, "search");
@@ -68,7 +68,7 @@ it.each([
 });
 
 it("replays Shop's saved results with the same preview products, then explicitly starts a new run and can return", async () => {
-  const products = showcaseCatalogPage({}, 0, 4).products.map((product, index) => ranked(product, [7, 5, 9, 1][index], index + 1));
+  const products = fixtureCatalogPage({}, 0, 4).products.map((product, index) => ranked(product, [7, 5, 9, 1][index], index + 1));
   const original = savedSearch(firstSearchId, products);
   window.history.replaceState({}, "", `/labs/retrieval?event=${firstSearchId}&q=Different+URL+words&category=quiet-keyboards`);
   const replay = vi.spyOn(api, "retrievalEventResponse").mockImplementation(async (id) => id === firstSearchId ? original : savedSearch(secondSearchId, [products[3]]));
@@ -105,7 +105,7 @@ it("replays Shop's saved results with the same preview products, then explicitly
 });
 
 it("shows every recommendation, follows its recorded search, and preserves a chosen search as the answer finishes", async () => {
-  const products = showcaseCatalogPage({}, 0, 4).products;
+  const products = fixtureCatalogPage({}, 0, 4).products;
   const first = savedSearch(firstSearchId, [ranked(products[0], 3, 1), ranked(products[1], 45, 2)]);
   const second = savedSearch(secondSearchId, [ranked(products[2], 43, 1), ranked(products[3], 16, 2), ranked(products[1], 5, 3)]);
   const answer: AgentResponse = { agent_run_id: agentId, question: defaultRequest.query, answer: "Picks across two searches.", plan: [], recommendations: [products[2], products[3], products[0], products[1]], citations: [], trace: [searchStep(firstSearchId, 1), searchStep(secondSearchId, 2)] };
@@ -139,7 +139,7 @@ it("shows every recommendation, follows its recorded search, and preserves a cho
 });
 
 it("keeps a recommendation visible when its search is delayed or unavailable without inventing a source", async () => {
-  const product = showcaseCatalogPage({}, 0, 1).products[0];
+  const product = fixtureCatalogPage({}, 0, 1).products[0];
   let reject!: (cause: Error) => void;
   vi.spyOn(api, "retrievalEventResponse").mockReturnValue(new Promise((_resolve, fail) => { reject = fail; }));
   vi.spyOn(api, "agentStream").mockImplementation(async (_question, _filters, emit) => emit({ type: "complete", response: { agent_run_id: agentId, question: defaultRequest.query, answer: "An answer whose search is unavailable.", plan: [], recommendations: [product], citations: [], trace: [searchStep(firstSearchId, 1)] } }));
@@ -167,7 +167,7 @@ it("does not start from URL filters when a saved Shop record cannot be loaded", 
 });
 
 it("streams the full answer, then keeps all of it in view above every pick", async () => {
-  const products = showcaseCatalogPage({}, 0, 3).products;
+  const products = fixtureCatalogPage({}, 0, 3).products;
   let emit!: Parameters<typeof api.agentStream>[2];
   let finish!: () => void;
   vi.spyOn(api, "agentStream").mockImplementation(async (_question, _filters, callback) => {
@@ -250,7 +250,7 @@ it.each([
 });
 
 it("keeps each detail panel inside its column and lets all three stay open", async () => {
-  const products = showcaseCatalogPage({}, 0, 2).products.map((product, index) => ranked(product, index + 4, index + 1));
+  const products = fixtureCatalogPage({}, 0, 2).products.map((product, index) => ranked(product, index + 4, index + 1));
   vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(savedSearch(firstSearchId, products));
   vi.spyOn(api, "agentStream").mockImplementation(async (_question, _filters, emit) => emit({ type: "complete", response: { agent_run_id: agentId, question: defaultRequest.query, answer: "The recorded answer.", plan: [], recommendations: products, citations: [], trace: [searchStep(firstSearchId, 1)] } }));
   render(<PlaygroundPage />);
@@ -289,7 +289,7 @@ it("opens on Clearer calls, offers one Play action, and keeps guide links workin
 it("shows the actual rank movement from the agent receipt, then clears it when requests change", async () => {
   const id = "11111111-1111-4111-8111-111111111111";
   const absent = { rank: null, raw_score: null, rrf_contribution: null };
-  const product = { ...showcaseCatalogPage({}, 0, 1).products[0], signals: { fts: absent, trigram: absent, semantic: { ...absent, rank: 27 }, rrf_score: 0.02, pre_rerank_rank: 27, pre_rerank_score: 0.02, rerank_score: 0.9, rerank_rank: 1, final_rank: 1, score_semantics: "fixture" } };
+  const product = { ...fixtureCatalogPage({}, 0, 1).products[0], signals: { fts: absent, trigram: absent, semantic: { ...absent, rank: 27 }, rrf_score: 0.02, pre_rerank_rank: 27, pre_rerank_score: 0.02, rerank_score: 0.9, rerank_rank: 1, final_rank: 1, score_semantics: "fixture" } };
   const response: SearchResponse = { search_event_id: id, query: "agent-selected query", normalized_query: "agent-selected query", applied_filters: {}, results: [product], diagnostics: null };
   const answer: AgentResponse = { agent_run_id: "22222222-2222-4222-8222-222222222222", question: defaultRequest.query, answer: "The recorded answer.", plan: [], recommendations: [product], citations: [], trace: [{ sequence: 1, tool: "search_products", detail: "Actual search", retrieval_run_id: id, result_count: 1, arguments: {}, outcome: "success", latency_ms: 10 }] };
   vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(response);
@@ -332,7 +332,7 @@ it("keeps old coding-guide URLs on the participant Playground without starting a
 });
 
 it("keeps the first search counts when a later search supplies the leading recommendation", async () => {
-  const products = showcaseCatalogPage({}, 0, 2).products;
+  const products = fixtureCatalogPage({}, 0, 2).products;
   const withCounts = (id: string, product: ProductSummary, counts: number[]) => ({
     ...savedSearch(id, [product]),
     diagnostics: { candidate_counts: { fts_in_pool: counts[0], trigram_in_pool: counts[1], semantic_in_pool: counts[2] } } as unknown as SearchResponse["diagnostics"],
@@ -410,7 +410,7 @@ function foundBy(product: ProductSummary, ranks: { fts?: number; trigram?: numbe
 
 it("prints what each arm alone scores from the measured artifact and counts this run's one-arm products", async () => {
   vi.spyOn(api, "scorecard").mockResolvedValue({ stage_ablation: measuredAblation } as unknown as RetrievalScorecardResponse);
-  const base = showcaseCatalogPage({}, 0, 4).products;
+  const base = fixtureCatalogPage({}, 0, 4).products;
   const products = [foundBy(base[0], { fts: 1 }, 1), foundBy(base[1], { fts: 2, trigram: 1, semantic: 3 }, 2), foundBy(base[2], { semantic: 1 }, 3), foundBy(base[3], { trigram: 2, semantic: 5 }, 4)];
   window.history.replaceState({}, "", `/labs/retrieval?event=${firstSearchId}`);
   vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(savedSearch(firstSearchId, products));
@@ -438,7 +438,7 @@ it("says the measured comparison is waiting when the artifact is not attributed 
 // run the plate used to read "Final #1" with nothing saying the agent chose
 // nothing, and a replayed search showed no Exact terms at all.
 it("says when the agent declined the search's first result, and reads the search's own words", async () => {
-  const product = { ...showcaseCatalogPage({}, 0, 1).products[0], signals: undefined } as unknown as ProductSummary;
+  const product = { ...fixtureCatalogPage({}, 0, 1).products[0], signals: undefined } as unknown as ProductSummary;
   const response = savedSearch(firstSearchId, [product]);
   vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(response);
   vi.spyOn(api, "agentStream").mockImplementation(async (_question, _filters, emit) => emit({ type: "complete", response: { agent_run_id: agentId, question: defaultRequest.query, answer: "The sources do not support a choice.", outcome: "declined", plan: [], recommendations: [], citations: [], trace: [searchStep(firstSearchId, 1)] } }));
@@ -461,7 +461,7 @@ it("names Lab 1's missing target, its cause and the next step on a saved broken 
   const mission = mosaicLabManifest.missions.find((item) => item.id === "typo-recovery")!;
   const absent = { rank: null, raw_score: null, rrf_contribution: null };
   const other = {
-    ...showcaseCatalogPage({}, 0, 1).products[0],
+    ...fixtureCatalogPage({}, 0, 1).products[0],
     ...mission.filters,
     signals: { fts: absent, trigram: absent, semantic: { rank: 8, raw_score: 0.3, rrf_contribution: 0.0147 }, rrf_score: 0.0147, pre_rerank_rank: 8, pre_rerank_score: 0.0147, rerank_score: 0.4, rerank_rank: 1, final_rank: 1, score_semantics: "fixture" },
   } as ProductSummary;
@@ -483,7 +483,7 @@ it("names Lab 1's missing target, its cause and the next step on a saved broken 
 
 
 it("traces an omitted first result separately from a final choice in another search", async () => {
-  const base = showcaseCatalogPage({}, 0, 2).products;
+  const base = fixtureCatalogPage({}, 0, 2).products;
   const omitted = ranked({ ...base[0], title: "BURENMTO Office Chair" }, 46, 1);
   const chosen = ranked({ ...base[1], title: "Novelland Ergonomic Office Chair" }, 10, 1);
   const record: EvidenceRecord = { evidence_id: 7, product_id: chosen.product_id, evidence_type: "product_spec", source_name: "Fixture", source_uri: "https://example.com/spec", revision: "fixture", title: "Adjustments", text: "Adjustable lumbar support", rating: null, is_verified: false, metadata: {} };

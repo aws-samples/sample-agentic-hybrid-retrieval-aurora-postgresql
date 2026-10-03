@@ -31,7 +31,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from scripts.catalog.embed_catalog import (
+from scripts.catalog.embedding_model import (
     COHERE_EMBED_V4_DIMENSIONS,
     COHERE_EMBED_V4_MODEL_ID,
 )

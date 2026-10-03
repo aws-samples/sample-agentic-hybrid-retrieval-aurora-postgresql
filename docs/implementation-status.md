@@ -53,7 +53,7 @@ exercise, not whether semantic retrieval exists.
 Fresh-account deployment acceptance and its remaining human rehearsal checks
 are recorded in [the deployment evidence](evidence/fresh-account-2026-09-26.md).
 Historical synthetic media and generation plans are indexed separately in
-[the documentation map](index.md#historical-fixtures-and-maintainer-references).
+[the documentation map](index.md#maintainer-references).
 
 Hash embeddings are development-only and cannot support workshop relevance
 claims. Simulated scale output is not Aurora benchmark evidence.

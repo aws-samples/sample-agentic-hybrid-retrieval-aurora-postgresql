@@ -7,7 +7,6 @@ import importlib.util
 import json
 import re
 import sys
-from collections import Counter
 from pathlib import Path
 
 from jsonschema.validators import validator_for
@@ -17,49 +16,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def fail(message: str) -> None:
     raise SystemExit(f"VALIDATION FAILED: {message}")
-
-
-def validate_cohort() -> dict[str, object]:
-    path = ROOT / "data" / "premium_cohort_120.json"
-    cohort = json.loads(path.read_text(encoding="utf-8"))
-    if len(cohort) != 120:
-        fail(f"premium cohort has {len(cohort)} rows, expected 120")
-    ids = [row["product_id"] for row in cohort]
-    if len(ids) != len(set(ids)):
-        fail("premium cohort product IDs are not unique")
-    distribution = Counter(row["domain"] for row in cohort)
-    expected = Counter(
-        {"consumer_electronics": 48, "running_fitness": 36, "home_office": 36}
-    )
-    if distribution != expected:
-        fail(f"premium distribution {distribution} != {expected}")
-    flagships = [row for row in cohort if row["is_flagship"]]
-    if len(flagships) != 6:
-        fail(f"flagship count {len(flagships)} != 6")
-    anchors = [row for row in cohort if row["is_retrieval_anchor"]]
-    if len(anchors) != 30:
-        fail(f"anchor count {len(anchors)} != 30")
-    anchor_distribution = Counter(row["domain"] for row in anchors)
-    if anchor_distribution != Counter(
-        {"consumer_electronics": 10, "running_fitness": 10, "home_office": 10}
-    ):
-        fail(f"anchor distribution is {anchor_distribution}")
-    pages = Counter(row["shop_page"] for row in cohort)
-    if pages != Counter({page: 12 for page in range(1, 11)}):
-        fail(f"Shop page distribution is {pages}")
-    positions = [(row["shop_page"], row["shop_position"]) for row in cohort]
-    if len(positions) != len(set(positions)):
-        fail("duplicate Shop page/position assignment")
-    for row in flagships:
-        if not row["detail_asset_key"]:
-            fail(f"flagship {row['product_id']} is missing detail_asset_key")
-    return {
-        "products": len(cohort),
-        "distribution": dict(distribution),
-        "flagships": len(flagships),
-        "anchors": len(anchors),
-        "pages": len(pages),
-    }
 
 
 def validate_json_schemas() -> int:
@@ -105,14 +61,10 @@ def validate_sql() -> dict[str, int]:
         "20_evaluation.sql",
         "13_telemetry.sql",
         "21_benchmark.sql",
-        "19_load_premium_cohort.sql",
-        "17_load_normalized_catalog.sql",
-        "18_load_evidence.sql",
         "install.sql",
         # Evaluation and benchmark schemas install separately so a session's
         # `\dt mosaic.*` shows only the tables the application reads.
         "install_measurement.sql",
-        "upgrade_snapshot.sql",
     }
     missing = required - {path.name for path in files}
     if missing:
@@ -161,7 +113,6 @@ def validate_package_branding() -> None:
 
 def main() -> None:
     summary = {
-        "cohort": validate_cohort(),
         "json_schemas": validate_json_schemas(),
         **validate_sql(),
     }

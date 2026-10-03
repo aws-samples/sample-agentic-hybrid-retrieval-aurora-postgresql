@@ -59,8 +59,8 @@ COPY --from=builder /app/rds-ca-bundle.pem /app/rds-ca-bundle.pem
 # The service reads more than its own package. db/ backs the retrieval
 # fingerprint and the retrieval config; the named scripts are hashed into the
 # same fingerprint; data/evals and data/benchmarks are the measured artifacts the
-# scorecard and HNSW instrument replay; data/media and data/full carry the asset
-# labels and the dataset manifest. The UI is deliberately absent: the storefront
+# scorecard and HNSW instrument replay; data/media carries the category illustration
+# labels. The UI is deliberately absent: the storefront
 # stays on the workshop host and talks to this service over HTTP.
 COPY service/ ./service/
 COPY db/ ./db/
@@ -69,7 +69,6 @@ COPY data/benchmarks/ ./data/benchmarks/
 COPY data/evals/ ./data/evals/
 COPY data/media/asset_labels_200.json ./data/media/asset_labels_200.json
 COPY data/media/workspace_collection.json ./data/media/workspace_collection.json
-COPY data/full/manifest.json ./data/full/manifest.json
 
 # Public downloads are part of the API, including when Runtime hosts it.
 COPY skills/mosaic-hybrid-retrieval/ ./skills/mosaic-hybrid-retrieval/

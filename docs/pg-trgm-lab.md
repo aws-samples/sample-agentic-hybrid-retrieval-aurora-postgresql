@@ -6,7 +6,7 @@ Product search is unusually sensitive to misspelled brands, compressed model num
 
 The required example transposes `B0C2WWCFQB` to `B0C2WWFCQB` for the Logitech Zone 900 listing. The two IDs share 7 of their 15 distinct trigrams (similarity 0.467). Two other Zone 900 listings share the model name but not the listing ID, and the request must not return them. Six measured identifier cases across headphones, chairs and monitors recover the intended product after repair. A seventh already works through meaning search and is retained as a control. See [all worked examples](real-catalog-exercise-library.md).
 
-The historical `data/evals/typo_cases.csv` targets the former synthetic catalog and is not evidence for this imported dataset.
+The synthetic typo corpus has been retired; current proofs use the real-catalog mission cases.
 
 ## Indexed text
 

@@ -20,7 +20,6 @@ FILES = (
     "pyproject.toml",
     "uv.lock",
     "deploy/agentcore/Dockerfile",
-    "data/full/manifest.json",
     "data/benchmarks/hnsw_anchors.json",
     "data/benchmarks/hnsw_measured.json",
     "data/benchmarks/scale_projection.json",

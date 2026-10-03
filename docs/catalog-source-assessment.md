@@ -3,7 +3,7 @@
 Status, September 22, 2026: the local app and required labs serve the selected
 500,000 Amazon Reviews 2023 products through `reviews-2023-500k-v1`. Source text
 and saved Cohere Embed v4 input hashes agree; the vectors were reused. The old
-synthetic catalog remains separately for historical checks and optional benchmarks.
+synthetic catalog has been retired, including its development rows and tooling.
 The earlier staging-only status below has been superseded by this activation.
 
 The local delivery bundle pins all selected records, 9,496 saved embedding

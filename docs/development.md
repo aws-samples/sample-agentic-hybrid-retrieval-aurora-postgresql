@@ -73,7 +73,7 @@ make check-shop-collection
 make check-hnsw-anchors
 ```
 
-The full Python gate includes 15 integration tests against Aurora. See
+The full Python gate includes 8 integration tests against Aurora. See
 [READINESS.md](../READINESS.md) for the complete release gates and
 [the evaluation plan](evaluation-plan.md) before running model-backed scoring.
 Source CI does not certify a fresh deployment or a new relevance scorecard.
@@ -90,13 +90,6 @@ writes retrieval receipts. Validate the shared tool contracts with:
 ```bash
 uv run python scripts/checks/tool_contracts.py --check
 ```
-
-## Historical fixtures
-
-The generated files under `data/full/` support offline regression tests. They
-are excluded from the real-catalog restore. Their generation and load commands
-require explicit operator opt-in; see [the fixture boundary](../data/full/README.md).
-Do not use them to provision or repair a participant environment.
 
 ## Publish a workshop update
 

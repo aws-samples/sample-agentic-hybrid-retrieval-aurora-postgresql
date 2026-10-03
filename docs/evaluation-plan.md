@@ -15,16 +15,10 @@ A plausible-looking first result cannot answer that question.
 Use the existing lab mission queries in this order; their single source is
 `data/evals/mosaic_labs_missions.json`. Keep the before/after query and filters
 identical. These are three checks within Alex's task, not a separate exercise in
-benchmark terminology. The historical generated cases remain available as separate engineering fixtures.
+benchmark terminology. Historical synthetic fixtures and their generators have been retired.
 
-Mosaic serves the real source catalog selected by `db/config/real-catalog-cache.json`. The synthetic-catalog
-scorecard and generated filter fixtures below are historical engineering checks;
-their results do not certify the imported products. Current worked-example
-evidence is recorded in [the hybrid-search review](hybrid-search-design.md).
-The canonical query file now contains only the ten real-catalog requests; the
-twelve historical canonical requests and 720 generated eligibility cases live
-under `data/evals/historical/`. Existing mixed-catalog score artifacts are
-withheld pending a reviewed measurement of the real set.
+Mosaic serves the real source catalog selected by `db/config/real-catalog-cache.json`. Current worked-example evidence is recorded in [the hybrid-search review](hybrid-search-design.md).
+The canonical query file contains the ten real-catalog requests.
 
 ### Compare methods without changing the question
 
@@ -52,25 +46,11 @@ production accuracy or representative customer traffic.
 
 ## Catalog vocabulary controls
 
-The 12 cases in `data/evals/coverage_queries.jsonl` test a separate decision:
-should a request remain searchable, or does it name an absent catalog term?
-They pair unknown models and SKUs with existing identifiers and recoverable
-misspellings. These are maintainer regression checks, not extra participant tasks.
-Vocabulary acceptance does not prove product eligibility or semantic relevance.
-
-After changing catalog text, refresh its vocabulary with
-`uv run python scripts/catalog/corpus_vocabulary.py refresh --schema mosaic_live_search`,
-then run:
-
-```bash
-python scripts/evals/measure_query_coverage.py --write
-make test-aurora-invariants
-```
-
-The measurement command calls production coverage, records current term counts
-and close-spelling matches, and refuses to overwrite a changed expected decision.
-Queries, expected decisions and the configured threshold remain unchanged. Review
-those expectations separately before altering any of them.
+The Aurora coverage regression test uses positive and negative controls selected
+for the real catalog. Vocabulary acceptance does not prove product eligibility
+or semantic relevance. Refresh after changing catalog text with
+`uv run python scripts/catalog/corpus_vocabulary.py refresh --schema mosaic_live_search`
+and run `make test-aurora-invariants`.
 
 ## Canonical retrieval-quality scorecard
 
@@ -79,7 +59,7 @@ those expectations separately before altering any of them.
 - ten real-catalog cases with documented teaching concepts;
 - graded judgments from 0 (irrelevant) through 3 (ideal);
 - explicit hard negatives, expected channels, and ranking behavior;
-- eight single-request product-retrieval cases;
+- nine single-request product-retrieval cases;
 - one agent-contract case, `G-021`, validated through Lab 3 rather than
   mis-scored as one product search.
 
@@ -99,9 +79,7 @@ exact-identity preservation. It measures:
 - deterministic top-rank or top-k checks for repaired fixtures.
 
 The command writes an ignored per-run CSV and compares the measured result with
-`data/evals/canonical_scorecard.json`. The committed artifact still retains the
-historical 20 per-query metrics and is withheld for the real catalog. A new
-real-catalog baseline must contain the eight product cases and a SHA-256 identity
+`data/evals/canonical_scorecard.json`. A real-catalog baseline contains the product cases and a SHA-256 identity
 of the exact ranked product IDs and positions, excluding volatile event IDs and
 latency. It also records the clean
 source revision, dataset-manifest hash, complete retrieval profile, HNSW
@@ -145,43 +123,12 @@ baseline reuses the vectors its checkpoint recorded instead of embedding again,
 so every query in the baseline was searched with the vectors it publishes.
 Use `make score-evals SCORE_EVAL_ARGS=--restart` to discard a stale partial run.
 
-## Filter-contract corpus
-
-`data/evals/historical/queries.jsonl` contains 720 historical generated cases. It tests that each
-target exists and satisfies the exact production `SearchFilters` contract,
-including integer-cent price bounds and explicit refurbished or sponsored
-overrides:
-
-```bash
-uv run python scripts/evals/run_eval.py --queries data/evals/historical/queries.jsonl --validate-only
-```
-
-Run this operator-only command against a database that already retains the
-historical catalog. Fresh-workshop `make validate-evals` validates only real
-canonical, coverage-probe and held-out targets.
-
-This is a broad deterministic filter gate, not curated retrieval-quality ground
-truth. Do not pass its result CSV to `scripts/evals/evaluate.py` with the canonical
-judgments. The evaluator rejects missing or unexpected query IDs so such a
-cross-corpus score cannot silently produce zero-valued metrics.
-
-## Typo corpus
-
-`data/evals/typo_cases.csv` contains 5,000 deterministic transformations for
-focused fuzzy-retrieval experiments. The required workshop claim remains
-narrower: the canonical typo fixture proves that strict FTS misses the
-misspelled terms and `pg_trgm` recovers a known suitable product with a visible
-search-method contribution. Other eligible headphones are valid alternatives;
-this controlled example does not establish that semantic search always fails on
-typos.
-
 ## Independent relevance corpus
 
 `data/evals/independent_relevance_queries.jsonl` ("IRC") is a third, separately
 named corpus. It exists because neither of the corpora above establishes
-relevance on unfamiliar queries: the canonical nine-query set is a teaching
-fixture pinned to lab missions, and the 720-case filter corpus asserts filter
-eligibility, never relevance. Run it with:
+relevance on unfamiliar queries: the canonical query set teaches the lab missions, while deterministic filter
+checks assert eligibility rather than relevance. Run it with:
 
 ```bash
 uv run python scripts/evals/independent_relevance_eval.py --validate-only   # no model calls
@@ -423,7 +370,7 @@ workshop results.
 ## Limits of the current judgments
 
 The curated scorecard checks intentionally selected cases and a small set of
-judged products. It is a regression suite, not a blind benchmark of all 500,000
+judged products. It is a regression suite, not a blind benchmark of all 553,911
 products. Unjudged products may be suitable. The historical catalog and queries
 shared synthetic authoring assumptions; importing real records does not by itself
 make new queries representative. A higher score alone does not establish better
@@ -438,26 +385,6 @@ For a production adaptation, collect independent user requests, label multiple
 suitable and unsuitable results, hold out cases from tuning, and retain explicit
 checks for empty results, unsupported claims and filter violations. Agent answer
 quality needs separate claim/evidence checks; a retrieval score cannot certify it.
-
-The 720 generated fixtures assert product existence and exact filter eligibility.
-Their text names the filter values, including false booleans and exact numeric
-values. They are useful for detecting schema and filter regressions, but do not
-measure natural-language understanding, ranking quality or realistic demand.
-
-## Historical synthetic-catalog judgment review
-
-The reviewed cases distinguish filter eligibility from satisfying the request.
-The broad headphone typo query accepts several ANC models; its lab target is a
-known suitable option used to expose the disconnected spelling-search path.
-A cheaper 4K monitor without USB-C charging is a comparison option, not an
-equivalent match for a request that requires laptop charging. Ten-hour chair recommendations fall short of an explicit twelve-hour
-request. Armrest count and price do not break ties when the request never asks
-for them. Watch battery language names smartwatch mode, and the webcam case no
-longer assumes platform certifications that the description disclaims.
-
-These judgment and query changes require a new measured baseline. Scores from
-before and after this revision are not a controlled comparison of the retrieval
-algorithm: both the catalog and the definitions of relevance changed.
 
 A hard requirement needs an explicit supported SQL predicate. A preference in
 free text can influence ordering without becoming an eligibility guarantee.

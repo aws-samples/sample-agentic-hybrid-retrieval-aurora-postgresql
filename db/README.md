@@ -3,7 +3,7 @@
 Version: **1.0.0**
 Prepared for: **Mosaic — agentic product discovery with Aurora PostgreSQL**
 
-This is the standalone schema and contract package for the Mosaic re:Invent builders' session. It is intentionally separate from the 500K catalog archive and the premium image bundles.
+This is the standalone schema and contract package for the Mosaic re:Invent builders' session. The real products and saved vectors ship separately in the hash-pinned catalog bundle.
 
 ## What this package models
 
@@ -41,37 +41,12 @@ authoritative product-spec row, so the agent can separately answer:
 - Which products match the shopper's intent?
 - What evidence supports the recommendation?
 
-## Premium merchandising cohort
-
-The package includes a concrete mapping for **120 premium products** selected from the physical 500K Mosaic catalog:
-
-| Domain | Premium products |
-|---|---:|
-| Consumer electronics | 48 |
-| Running and fitness | 36 |
-| Home office and workspace | 36 |
-| **Total** | **120** |
-
-It also marks:
-
-- **6 flagship products** with catalog and square detail assets
-- **30 retrieval anchors** used by polished workshop queries and relevance judgments
-- **10 Shop pages × 12 products** for a consistent laptop, tablet, and mobile merchandising model
-
-See:
-
-- `data/premium_cohort_120.json`
-- `build/normalized/premium_cohort_120.csv` (written by
-  `scripts/catalog/export_premium_cohort.py`; `make db-load-cohort` loads it)
-- `docs/media-and-merchandising.md`
-
 ## Package structure
 
 ```text
 mosaic-data-models-aurora-v1/
 ├── sql/                         Aurora PostgreSQL DDL, indexes, functions, labs
 ├── models/                      Pydantic, JSON Schema, and DBML contracts
-├── data/                        120-product premium cohort
 ├── scripts/                     Render, validate, split/import, and export tools
 ├── config/                      Retrieval and model configuration
 ├── docs/                        Architecture, ERD, retrieval, media, agent, HNSW
@@ -94,8 +69,7 @@ File numbers follow install order. `sql/install.sql` runs:
 | `11`–`14` | Query coverage, agent audit, telemetry and the tool contract registry |
 
 Later steps run separately, in number order: `15` and `16` build the HNSW
-indexes once embeddings exist, `17` and `18` load a normalized catalog and its
-evidence, `19` loads the historical premium cohort, and `install_measurement.sql`
+indexes once embeddings exist, and `install_measurement.sql`
 adds the evaluation and benchmark tables in `20`–`22`. `98` and `99` are the
 bootstrap acceptance and smoke checks.
 
@@ -125,20 +99,13 @@ psql "$DATABASE_URL" -f sql/15_indexes_concurrent.sql
 
 `CREATE INDEX CONCURRENTLY` is intentionally outside `install.sql` because it cannot run inside a transaction block.
 
-## Recommended load sequence
+## Real-catalog restore
 
-```text
-1. Install extensions and schema
-2. Load brands and taxonomy
-3. Load products and current commerce state
-4. Refresh mosaic_search.product_document
-5. Generate product embeddings
-6. Generate evidence embeddings
-7. Build HNSW indexes
-8. Load premium merchandising assignments/media mappings
-9. Load eval queries and judgments
-10. Capture the measured 500K benchmark baseline
-```
+Run `make db-bootstrap-schema` from the source root against a fresh Aurora
+cluster, then restore using `scripts/catalog/real_catalog_cache.py` and select
+`MOSAIC_CATALOG_DATASET`. The archive includes saved embeddings; no synthetic
+products or generated reviews are loaded. Run `make db-verify-bootstrap` to
+verify the real-only population. See [ARTIFACTS.md](../ARTIFACTS.md).
 
 ## Core tables
 
@@ -176,8 +143,9 @@ python scripts/validate_package.py
 python -m unittest discover -s tests -v
 ```
 
-The validator checks the 120-product distribution, 6 flagships, 30 retrieval anchors, 10 complete Shop pages, JSON contracts, SQL ordering, and unresolved placeholders.
+The validator checks JSON contracts, SQL ordering and unresolved placeholders.
 
 ## Scope boundary
 
-This package contains the **data model and retrieval contracts**, not the 500K physical catalog or the premium image binaries. It is designed to plug into the previously generated Mosaic catalog bundle and the separate image asset folders.
+The shared schema contracts support the real catalog and the workshop labs.
+Synthetic catalog fixtures and their loading tools have been retired.

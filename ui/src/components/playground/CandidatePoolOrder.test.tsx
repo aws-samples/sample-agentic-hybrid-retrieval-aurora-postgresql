@@ -2,14 +2,14 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { api } from "../../api";
-import { showcaseCatalogPage } from "../../showcase";
+import { fixtureCatalogPage } from "../../testProducts";
 import type { RetrievalRunResponse, SearchResponse } from "../../types";
 import { CandidatePoolOrder } from "./CandidatePoolOrder";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 it("shows a combined runner-up outside the displayed results without granting its product content", async () => {
-  const product = showcaseCatalogPage({}, 0, 1).products[0];
+  const product = fixtureCatalogPage({}, 0, 1).products[0];
   const response = { search_event_id: "saved-search", results: [product], diagnostics: { rerank_status: "applied" } } as SearchResponse;
   vi.spyOn(api, "retrievalEvent").mockResolvedValue({ candidates: [
     { product_id: product.product_id, fused_rank: 4, result_rank: 1 },

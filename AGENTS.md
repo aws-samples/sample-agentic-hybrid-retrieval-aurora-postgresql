@@ -149,7 +149,7 @@ commits, provisioning, catalog reloads or release changes during a lab.
   `MOSAIC_CATALOG_DATASET` must match the prepared receipt in the database
   selected by `DATABASE_URL`. An older database on the same cluster is not a
   substitute. Live probes must select their witnesses from the active catalog,
-  because developer databases can retain historical identities separately.
+  because catalog identities and classifications can change.
   Source SQL ships repaired; bootstrap installs exercise faults, so distinguish
   a clean source checkout from a participant's current lab state.
 - The participant checkout comes from the pinned source Git revision, including
@@ -195,7 +195,7 @@ blockers and do not widen the requested publication audience.
 
 The Aurora PostgreSQL cluster in `us-east-1` holds the only live tree
 with the selected `reviews-2023-v2` catalog, 553,911 source products with
-real Cohere Embed v4 vectors. Historical synthetic tables are retained separately. Every `make`
+real Cohere Embed v4 vectors. Synthetic development rows and fixtures have been retired. Every `make`
 target reads `DATABASE_URL` and must point at Aurora.
 
 The restore path is `make db-bootstrap-schema` into a **fresh** Aurora cluster,
@@ -204,8 +204,7 @@ bundle and `MOSAIC_CATALOG_DATASET` selection. Only the 553,911 real source prod
 their saved Cohere embeddings and real source evidence are loaded. Do not load
 historical synthetic products, reviews, premium cohorts or vocabulary. Shared
 `mosaic.*` tables remain because the real catalog and labs use them.
-`make db-verify-bootstrap` rejects legacy rows after restore. `make db-upgrade-snapshot`
-is an operator-only compatibility path for historical snapshots, not provisioning.
+`make db-verify-bootstrap` rejects legacy rows after restore. Retired synthetic loaders and snapshot-upgrade tooling are available only in Git history.
 
 Any Makefile target, script, or document assuming a local PostgreSQL is a defect
 to fix, not a fallback to use. Full policy and rationale: `ARTIFACTS.md`.

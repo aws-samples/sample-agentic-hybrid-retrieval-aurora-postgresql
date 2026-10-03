@@ -2,11 +2,11 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
 import type { AgentResponse, EvidenceRecord } from "../types";
-import { showcaseCatalogPage } from "../showcase";
+import { fixtureCatalogPage } from "../testProducts";
 import { SourceComparison } from "./SourceComparison";
 
 afterEach(cleanup);
-const product = showcaseCatalogPage({}, 0, 1).products[0];
+const product = fixtureCatalogPage({}, 0, 1).products[0];
 const record = (fields: Partial<EvidenceRecord>): EvidenceRecord => ({ evidence_id: 11, product_id: product.product_id, evidence_type: "product_spec", source_name: "Sample catalog", source_uri: "mosaic://evidence/11", revision: "r1", title: "Specification", text: "Has a microphone.", rating: null, is_verified: false, metadata: {}, ...fields });
 const answer: AgentResponse = { agent_run_id: "run", question: "Does it fit?", answer: "A microphone is present [1].", recommendations: [product], plan: [], trace: [], citations: [{ number: 1, evidence_id: 11, product_id: product.product_id, evidence_type: "product_spec", source_uri: "mosaic://evidence/11", revision: "r1", title: "Specification", quote: "Has a microphone." }] };
 

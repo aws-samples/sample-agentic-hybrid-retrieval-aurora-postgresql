@@ -34,7 +34,6 @@ pointer to its new location.
 | [`evals/`](evals/) | The canonical scorecard, the stage ablation and held-out relevance judgments |
 | [`bench/`](bench/) | HNSW and scale benchmarks against the served catalog |
 | [`checks/`](checks/) | Release gates: retrieval configuration, tool contracts, the lab contract, model access |
-| [`media/`](media/) | Product photography manifests and image installation |
 
 Run them from the repository root, for example
 `uv run python scripts/checks/config_tripwire.py`. The root `Makefile` wraps the

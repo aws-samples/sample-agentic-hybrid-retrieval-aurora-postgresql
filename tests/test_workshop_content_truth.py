@@ -55,9 +55,9 @@ def test_evaluation_docs_separate_real_cases_from_historical_measurements():
     normalized_plan = " ".join(plan.split())
     curriculum = _read("docs/retrieval-curriculum.md")
 
-    assert "eight single-request product-retrieval cases" in normalized_plan
+    assert "nine single-request product-retrieval cases" in normalized_plan
     assert "one agent-contract case" in normalized_plan
-    assert "historical 20 per-query metrics" in normalized_plan
+    assert "Historical synthetic fixtures and their generators have been retired" in normalized_plan
     assert "20-query ranking population" in curriculum
 
 

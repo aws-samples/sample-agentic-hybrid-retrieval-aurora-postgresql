@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
-import { showcaseCatalogPage } from "../showcase";
+import { fixtureCatalogPage } from "../testProducts";
 import { ProductAnswer } from "./ProductAnswer";
 import { ResultProductCard } from "./ResultProductCard";
 
 afterEach(cleanup);
-const products = showcaseCatalogPage({}, 0, 2).products;
+const products = fixtureCatalogPage({}, 0, 2).products;
 it("places each actual recommendation after its first named paragraph, once", () => {
   const text = `${products[0].title} suits the first need.\n\nThen consider **${products[1].model}** for the second need.\n\n${products[0].title} remains the first choice.`;
   const { container } = render(<ProductAnswer text={text} products={products} />);

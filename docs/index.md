@@ -59,18 +59,10 @@ The remaining guides are grouped by the work they support.
 | [Production adaptation checklist](production-readiness.md) | Relevance, data, performance, governance and UX |
 | [Parking lot](mosaic-parking-lot.md) | Remaining product ideas |
 
-## Historical fixtures and maintainer references
+## Maintainer references
 
 | Guide | Purpose |
 |---|---|
-| [Historical fixture boundary](../data/full/README.md) | Why synthetic files remain and how their commands are guarded |
-| [Synthetic catalog specification](catalog-spec.md) | Historical taxonomy, attributes and challenge cohorts |
-| [Synthetic data generation](data-generation.md) | Historical fixture regeneration and embedding tools |
-| [Historical query catalog](query-catalog.md) | Original synthetic demonstration requests |
 | [Saved scale benchmarks](current-scale-benchmarks.md) | Measured on the served catalog on 26 September 2026: recall, filters, exact baseline, index build |
 | [Instance comparison](hardware-comparison-2026-09-26.md) | db.r8g.2xlarge against db.r8gd.2xlarge on restored copies of the catalog, default and small-memory pairs |
-| [Historical image strategy](product-image-strategy.md) | Synthetic cohort media design |
-| [Media regeneration](media-regeneration-batches.md) | Historical cohort media workflow |
-| [Media shot list](media-shot-list.md) | Historical product-image inventory |
-| [Focused product prompts](hnsw-focused-product-prompts.md) | Historical synthetic cohort authoring |
 | [Rewrite losses](rewrite-losses.md) | Retired predecessor scope and non-recoverable history |

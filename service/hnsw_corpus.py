@@ -39,7 +39,7 @@ def assert_manifest_matches(*, stored: str, connected: str) -> None:
         raise StaleGroundTruth(
             explain(
                 f"the connected corpus reports dataset manifest {connected!r}",
-                "set DATASET_MANIFEST_SHA256, or restore data/full/manifest.json; "
+                "set DATASET_MANIFEST_SHA256, or restore db/config/real-catalog-cache.json; "
                 "ground truth pinned to an unresolved manifest matches any corpus",
             )
         )

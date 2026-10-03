@@ -39,7 +39,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from scripts.catalog.embed_catalog import (
+from scripts.catalog.embedding_model import (
     COHERE_EMBED_V4_DIMENSIONS,
     COHERE_EMBED_V4_MODEL_ID,
     embedding_function,
@@ -256,7 +256,7 @@ def main() -> None:
     )
     ap.add_argument(
         "--provider",
-        choices=["bedrock", "bedrock-cohere-v4", "hash"],
+        choices=["bedrock", "bedrock-cohere-v4"],
         default=os.getenv("EMBEDDING_PROVIDER", "bedrock"),
     )
     ap.add_argument(
@@ -269,7 +269,6 @@ def main() -> None:
         default=int(os.getenv("VECTOR_DIM", str(COHERE_EMBED_V4_DIMENSIONS))),
     )
     ap.add_argument("--region", default=os.getenv("BEDROCK_REGION", "us-east-1"))
-    ap.add_argument("--allow-development-embeddings", action="store_true")
     ap.add_argument("--limit-queries", type=int)
     ap.add_argument("--k", type=int, default=10)
     ap.add_argument(
@@ -305,7 +304,6 @@ def main() -> None:
             model_id=args.model_id,
             dimensions=args.dimensions,
             region=args.region,
-            allow_development_embeddings=args.allow_development_embeddings,
         )
         query_vectors: list[list[float]] = []
         for offset in range(0, len(queries), 64):

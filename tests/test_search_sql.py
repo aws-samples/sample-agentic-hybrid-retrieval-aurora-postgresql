@@ -51,7 +51,7 @@ def test_each_lab_ships_its_reference_answer():
 
 def test_every_install_include_resolves_to_a_file():
     """psql resolves `\\ir` against the including file's directory."""
-    for script in ("install.sql", "install_measurement.sql", "upgrade_snapshot.sql"):
+    for script in ("install.sql", "install_measurement.sql"):
         for line in (ROOT / "db" / "sql" / script).read_text().splitlines():
             if line.startswith("\\ir "):
                 target = (ROOT / "db" / "sql" / line.split(maxsplit=1)[1]).resolve()

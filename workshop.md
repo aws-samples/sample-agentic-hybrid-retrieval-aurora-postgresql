@@ -398,9 +398,8 @@ because USB may describe charging. Neither a relevance label nor a matching mode
 establishes compatibility.
 
 Workshop Studio restores the selected 553,911 records and saved vectors from the
-hash-pinned real-catalog bundle, then sets `MOSAIC_CATALOG_DATASET`. The original
-cached catalog remains for shared schema setup and historical optional benchmarks;
-it is not the Shop catalog. The 418,620 imported reviews cover 67,750 products
+hash-pinned real-catalog bundle, then sets `MOSAIC_CATALOG_DATASET`. Shared schema definitions remain for retrieval and the labs. Synthetic catalog
+rows, fixtures, generators and loaders have been retired. The 418,620 imported reviews cover 67,750 products
 in the monitor, headphone and chair leaves; a deeper sample of up to 60 per
 product (902,760 reviews) is staged on the development cluster and reaches
 Workshop Studio only when the bundle is rebuilt and republished (see
