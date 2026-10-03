@@ -143,8 +143,8 @@ export function SessionMemoryPage() {
       if (!mounted.current) return;
       setData(null); setSelected(null); setAnswer(""); setCurrentRunId(null); setCompletedResponse(null); setAskError(""); setAnswerNotice(""); setRecalled(null);
       setEvents([]); setRecords([]); setReadError(""); setHasMore(false); setEventsMore(false);
-      setType("SEMANTIC"); setText(strategies[0].example);
-      setQuestion("Which headphones would suit the way I work at home?"); setUseMemory(true);
+      setType("USER_PREFERENCE"); setText(memoryLab.opening_message);
+      setQuestion(memoryLab.request); setUseMemory(true);
       await refresh(true);
       if (mounted.current) setNotice("A fresh start for Alex. Add a message, then check what AgentCore remembers. Earlier records have not been deleted.");
     });

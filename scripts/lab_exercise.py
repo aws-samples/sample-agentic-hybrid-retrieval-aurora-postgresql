@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import sys
@@ -373,9 +374,10 @@ def _lab2_contribution_mismatch(
     )
     for row in cur.fetchall():
         expected = 1.0 / (k + row["r"])
-        if abs(float(row["c"]) - expected) > SCORE_TOLERANCE:
+        actual = float(row["c"]) if row["c"] is not None else float("nan")
+        if not math.isfinite(actual) or abs(actual - expected) > SCORE_TOLERANCE:
             return (
-                f"k={k}: position {row['r']} earns {float(row['c']):.12f}; expected "
+                f"k={k}: position {row['r']} earns {actual:.12f}; expected "
                 f"1 / ({k} + {row['r']}) = {expected:.12f}. Each source position needs "
                 "its own contribution; apply your edit with "
                 "`uv run python scripts/apply_search_functions.py`."
@@ -398,7 +400,7 @@ def _saved_run(cur: Any, values: dict[str, str]) -> dict[int, float]:
     ):
         raise ExerciseError(
             f"saved run {search_id} is not this lab's request; rerun "
-            "`uv run python scripts/lab_terminal.py run --lab 2 --phase before`"
+            "`uv run python scripts/lab_terminal.py run --lab 2 --phase after`"
         )
     cur.execute(
         "SELECT product_id, (SELECT sum((c.value->>'rrf_contribution')::float8) "
@@ -447,11 +449,33 @@ def grade_lab2(values: dict[str, str]) -> dict[str, Any]:
         "rows_disagreeing_with_correct_fusion": sum(
             1
             for pid, score in saved.items()
-            if abs(score - truth.get(pid, float("nan"))) > SCORE_TOLERANCE
+            if pid not in truth
+            or score is None
+            or not math.isfinite(score)
+            or abs(score - truth[pid]) > SCORE_TOLERANCE
         ),
-        "distinct_saved_scores": len({round(score, 12) for score in saved.values()}),
+        "distinct_saved_scores": len(
+            {
+                round(score, 12)
+                for score in saved.values()
+                if score is not None and math.isfinite(score)
+            }
+        ),
         "target_saved": target in saved,
     }
+    rerun = "rerun `uv run python scripts/lab_terminal.py run --lab 2 --phase after`, then check again"
+    if not saved:
+        report["failures"].append(f"no saved rows prove the fusion repair; {rerun}")
+    else:
+        mismatches = report["saved_run"]["rows_disagreeing_with_correct_fusion"]
+        if mismatches:
+            report["failures"].append(
+                f"{mismatches} saved rows disagree with correct fusion; {rerun}"
+            )
+        if target not in saved:
+            report["failures"].append(
+                f"target {target} is absent from the saved results; {rerun}"
+            )
     report["cutoff"] = cutoff
     return report
 

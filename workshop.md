@@ -876,11 +876,15 @@ Beyond the guide, keep at least one replacement event account available. A broke
 
 Lab 1 taught us that a healthy component can sit inside a broken pipeline, and that recall comes before ranking.
 
-Lab 2 taught us that a correct answer is not proof of a correct pipeline, so ranking has to stay inspectable.
+Lab 2 taught us that a correct answer is not proof of a correct pipeline, so ranking has to stay inspectable. Its exercise check requires the repaired contribution function and saved fusion scores that agree with it, with the target present. A stale saved run must be repeated before the check can pass.
 
 Lab 3 taught us that the application controls which evidence may be cited, and
 that the cited text must still support the particular claim: one reviewer's
 MacBook Pro charging is not Alex's laptop.
+Device compatibility and charging require separate, explicit support in the
+cited product record; a USB-C port alone establishes neither. In the optional
+memory exercise, **Start fresh** restores the same monitor preference and
+question as the initial page, under a new Alex identity.
 
 The method is:
 

@@ -44,7 +44,7 @@ Deploy the edited agent:
 uv run python scripts/deploy_agentcore.py deploy
 ```
 
-Ask **Complete my room** in Mosaic: bring back Alex’s Bose headphones and ViewSonic monitor, then add the Steelcase chair. Inspect a focused search for each, all three in the comparison and final shortlist, and their cited sources. Then
+Ask **Complete my room** in Mosaic: bring back Alex’s Bose headphones and ViewSonic monitor, then add the Steelcase chair. Inspect a focused search for each, all three in the comparison and final shortlist, and their cited sources. For the chair, distinguish the adjustable features in its listing from the comfort a reviewer reports. Then
 save your run ID. Complete the changed-requirement follow-up, then check the
 original saved run with the guide's completion command:
 

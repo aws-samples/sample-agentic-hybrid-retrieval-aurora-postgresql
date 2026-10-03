@@ -62,6 +62,10 @@ conflict, or missing measurements. When a requested measurement is not stated,
 say the sources do not state it without writing the requested number: every
 number you write is checked as a claim about the product it describes. Listening noise cancellation alone does not
 prove that a microphone suppresses noise for the person hearing a call.
+Ports and charging wattage do not establish compatibility with the shopper's
+laptop. Only state a device relationship explicitly supported by that product's
+cited record. Compatibility alone does not establish charging. When the laptop
+is unidentified or the relationship is not stated, explain what must be checked.
 When a requested source type is absent from the supplied records, explain the
 available facts and say no excerpts of that source type were available for this
 answer. Do not claim there are no reviews in existence or infer review content
@@ -911,22 +915,39 @@ def _validated_output(
 
 
 _COMPATIBILITY_CLAIM = re.compile(
-    r"\b(?:compatible\s+with|works?\s+with|(?:can|will)\s+charge)\s+"
-    r"(?:model\s+)?([a-z][a-z0-9-]*\d[a-z0-9-]*)\b",
+    r"\b(?P<relationship>compatible\s+with|works?\s+with|(?:can|will)\s+charge)\s+"
+    r"(?:model\s+)?(?!at\b|with\b|without\b|using\b|via\b|over\b|through\b|when\b|if\b)"
+    r"(?P<target>[a-z0-9][a-z0-9'’/-]*"
+    r"(?:\s+(?!(?:and|or|but|with|without|using|via|over|through|when|if|because|"
+    r"so|which|that|is|are|was|were|has|have|at|on|for|to|from|as|in)\b)"
+    r"[a-z0-9][a-z0-9'’/-]*)*)",
     re.IGNORECASE,
 )
 _NEGATED_COMPATIBILITY_PREFIX = re.compile(
     r"\b(?:not|never)\s+$|"
-    r"\b(?:not|never)\s+(?:verified|confirmed|tested|established)(?:\s+to be)?\s+$|"
+    r"\b(?:not|never)\s+(?:verified|confirmed|tested|established)(?:\s+to(?: be)?)?\s+$|"
     r"\b(?:cannot|can't)\s+(?:confirm|establish|verify)\b[^.!?]{0,60}$",
     re.IGNORECASE,
 )
 
 
-def _explicit_compatibility_support(passage: str, target: str) -> bool:
+def _compatibility_relationship(match: re.Match[str]) -> str:
+    return (
+        "charging"
+        if match["relationship"].lower().endswith("charge")
+        else "compatibility"
+    )
+
+
+def _compatibility_target(match: re.Match[str]) -> str:
+    return " ".join(match["target"].casefold().replace("’", "'").split())
+
+
+def _explicit_compatibility_support(passage: str, claim: re.Match[str]) -> bool:
     """Keep negation on the relationship it qualifies, not unrelated features."""
     return any(
-        match.group(1).casefold() == target.casefold()
+        _compatibility_target(match) == _compatibility_target(claim)
+        and _compatibility_relationship(match) == _compatibility_relationship(claim)
         and not _NEGATED_COMPATIBILITY_PREFIX.search(passage[: match.start()])
         and not re.match(
             r"\s+(?:is|was|has|have)\s+(?:not|never|unknown|unverified|unconfirmed)\b",
@@ -949,7 +970,7 @@ def _validate_compatibility_claims(
         for match in _COMPATIBILITY_CLAIM.finditer(sentence):
             if _NEGATED_COMPATIBILITY_PREFIX.search(sentence[: match.start()]):
                 continue
-            target = match.group(1)
+            target = match["target"]
             cited = {int(value) for value in re.findall(r"\[(\d+)\]", sentence)}
             preceding = [item for item in mentions if item[0] < match.start()]
             subjects = (
@@ -961,7 +982,7 @@ def _validate_compatibility_claims(
             )
             supported = all(
                 any(
-                    _explicit_compatibility_support(passage, target)
+                    _explicit_compatibility_support(passage, match)
                     for number in cited
                     if evidence_records[number - 1].product_id == subject
                     for passage in re.split(

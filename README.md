@@ -71,7 +71,8 @@ product pages show the specifications a listing states beside the listing text
 they came from. In **Session & Memory**, follow the linked steps to save a
 preference, inspect its extraction, and ask in a new session. Recalled preferences
 inform both retrieval and the final answer check; product claims still require
-fresh evidence. On **Scale & HNSW**, **How HNSW finds neighbors** builds a real HNSW
+fresh evidence. **Start fresh** creates a new Alex and restores the lab's monitor
+preference and original question. On **Scale & HNSW**, **How HNSW finds neighbors** builds a real HNSW
 index in the browser over a small product map: choose a request, the search effort
 (`ef_search`) and links per product (`m`), then watch the descent through the layers,
 the distance checks and the recall against an exact search. Request failures appear beside the question; completed answers
@@ -91,6 +92,12 @@ you start them, Labs 2 and 3 read **Not started**: the checkout ships them
 repaired, so their code is the workshop's reference, not your work. Lab 2 needs
 your Lab 1 repair applied, and Lab 3 needs both; a start that finds one missing
 says how to finish it and changes nothing.
+
+Lab 2's exercise check requires both the repaired contribution function and a
+saved search whose fusion scores agree with it and include the target. If the
+saved run is stale, repeat the guide's after request before checking again.
+Agent answers require cited support for device compatibility; a USB-C port or
+power figure alone cannot establish that a monitor will charge Alex's laptop.
 
 `uv run python scripts/lab_state.py reset --lab N` discards only that lab's
 edits and restores its starter. `uv run python scripts/lab_state.py solution

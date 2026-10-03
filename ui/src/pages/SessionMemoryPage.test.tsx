@@ -98,6 +98,9 @@ it("starts with a fresh Alex and clears recalled memories without running the ag
   fireEvent.click(screen.getByRole("button", { name: "Start fresh" }));
   await screen.findByText(/A fresh start for Alex/);
   expect(screen.getByText("fresh-alex")).toBeTruthy();
+  expect(screen.getByLabelText("Ask about Alex’s workspace")).toHaveProperty("value", missionManifest.optional_labs.memory.request);
+  expect(screen.getByLabelText("Alex says")).toHaveProperty("value", missionManifest.optional_labs.memory.opening_message);
+  expect(screen.getByRole("button", { name: /Preferences.*Likes and dislikes/ }).getAttribute("aria-pressed")).toBe("true");
   expect(screen.queryByText("Earlier Alex’s preference")).toBeNull();
   expect(screen.getByLabelText("Session")).toHaveProperty("value", "");
   expect(screen.getByText(/Choose Ask Mosaic to run the question above/)).toBeTruthy();

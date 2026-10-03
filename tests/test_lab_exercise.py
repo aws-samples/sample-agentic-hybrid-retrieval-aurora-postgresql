@@ -6,6 +6,7 @@ reference and its diagnostics, the Lab 1 index trap message, and the managed age
 """
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -83,6 +84,57 @@ def test_contribution_grader_accepts_reciprocal_rank_at_every_k():
     correct = _ContributionCursor(lambda rank, k: 1.0 / (k + rank))
     for k in (1, 10, 30, 60, 120):
         assert lab_exercise._lab2_contribution_mismatch(correct, "s", k, 150) is None
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), None])
+def test_contribution_grader_rejects_missing_or_nonfinite_values(value):
+    cursor = _ContributionCursor(lambda rank, k: value)
+    assert lab_exercise._lab2_contribution_mismatch(cursor, "s", 60, 150)
+
+
+@pytest.mark.parametrize(
+    ("saved", "failure"),
+    [
+        ({1: 0.123, 2: 1 / 62}, "disagree"),
+        ({}, "no saved rows"),
+        ({1: 1 / 61}, "target 2"),
+        ({1: 1 / 61, 2: 1 / 62, 999: 0.123}, "disagree"),
+        ({1: float("nan"), 2: 1 / 62}, "disagree"),
+        ({1: float("inf"), 2: 1 / 62}, "disagree"),
+        ({1: None, 2: 1 / 62}, "disagree"),
+    ],
+)
+def test_lab2_grader_fails_saved_results_that_do_not_prove_the_repair(
+    monkeypatch, saved, failure
+):
+    report = _grade_lab2_saved_run(monkeypatch, saved)
+    assert any(failure in message for message in report["failures"])
+    assert all("--phase after" in message for message in report["failures"])
+
+
+def test_lab2_grader_accepts_matching_saved_results(monkeypatch):
+    report = _grade_lab2_saved_run(monkeypatch, {1: 1 / 61, 2: 1 / 62})
+    assert report["failures"] == []
+    assert report["saved_run"]["rows_disagreeing_with_correct_fusion"] == 0
+    assert report["saved_run"]["target_saved"]
+
+
+def _grade_lab2_saved_run(monkeypatch, saved):
+    connection = MagicMock()
+    cursor = (
+        connection.__enter__.return_value.cursor.return_value.__enter__.return_value
+    )
+    cursor.fetchall.side_effect = lambda: [
+        {"r": rank, "c": 1 / (cursor.execute.call_args.args[1][0] + rank)}
+        for rank in range(1, lab_exercise.LAB2_RANKS_CHECKED + 1)
+    ]
+    monkeypatch.setattr(lab_exercise, "_connect", lambda: connection)
+    monkeypatch.setattr(lab_exercise, "_configure", lambda *a, **kw: None)
+    monkeypatch.setattr(lab_exercise, "_lab2_arms", lambda *a: {"fts": {1: 1, 2: 2}})
+    monkeypatch.setattr(lab_exercise, "_saved_run", lambda *a: saved)
+    return lab_exercise.grade_lab2(
+        {"lab_rrf_k": "60", "lab_target": "2", "lab_fused_limit": "2"}
+    )
 
 
 def test_recall_grader_explains_an_exact_set_served_by_the_index():

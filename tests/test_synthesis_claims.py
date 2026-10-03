@@ -289,6 +289,68 @@ def test_explicit_supported_compatibility_can_be_stated():
     )
 
 
+@pytest.mark.parametrize(
+    "claim",
+    [
+        "will charge Alex’s laptop",
+        "works with your laptop",
+        "is compatible with MacBook Pro",
+        "will charge a Dell XPS laptop",
+    ],
+)
+def test_ports_alone_do_not_establish_laptop_compatibility(claim):
+    with pytest.raises(SynthesisOutputError, match="unsupported compatibility claim"):
+        validate(
+            f"AuriLogic Flight ANC {claim} [1].",
+            [evidence("Connections: USB-C. USB-C power delivery: 65 W.")],
+        )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "MacBook Pro is mentioned in a shopper question.",
+        "Not compatible with MacBook Pro.",
+        "Compatible with MacBook Air.",
+    ],
+)
+def test_named_laptop_needs_its_own_affirmative_relationship(source):
+    with pytest.raises(SynthesisOutputError, match="unsupported compatibility claim"):
+        validate(
+            "AuriLogic Flight ANC is compatible with MacBook Pro [1].",
+            [evidence(source)],
+        )
+
+
+def test_explicit_named_laptop_compatibility_can_be_stated():
+    validate(
+        "AuriLogic Flight ANC is compatible with MacBook Pro [1].",
+        [evidence("Compatible with MacBook Pro with no adapter required.")],
+    )
+
+
+def test_compatibility_does_not_establish_charging():
+    with pytest.raises(SynthesisOutputError, match="unsupported compatibility claim"):
+        validate(
+            "AuriLogic Flight ANC will charge MacBook Pro [1].",
+            [evidence("Compatible with MacBook Pro.")],
+        )
+
+
+def test_explicit_named_laptop_charging_can_be_stated():
+    validate(
+        "AuriLogic Flight ANC will charge MacBook Pro [1].",
+        [evidence("Can charge MacBook Pro.")],
+    )
+
+
+def test_laptop_uncertainty_can_be_stated():
+    validate(
+        "AuriLogic Flight ANC is not confirmed to work with your laptop [1].",
+        [evidence("Connections: USB-C.")],
+    )
+
+
 def test_compatibility_cannot_borrow_a_cited_siblings_positive_relationship():
     first = product()
     second = product(product_id=2, title="AuriLogic Office ANC", model="Office ANC")
