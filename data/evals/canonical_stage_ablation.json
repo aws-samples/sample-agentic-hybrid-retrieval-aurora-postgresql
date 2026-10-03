@@ -4,23 +4,23 @@
     "lexical_only": {
       "description": "search_fts alone: PostgreSQL full-text search over the weighted product document, with no trigram or semantic arm and no fusion.",
       "label": "Lexical only",
-      "mrr": 0.3888888888888889,
-      "ndcg@10": 0.36045299403743514,
+      "mrr": 0.4444444444444444,
+      "ndcg@10": 0.40146079919616207,
       "ndcg@10_max": 1.0,
       "ndcg@10_min": 0.0,
-      "ndcg@10_query_wins": 2,
-      "ndcg@10_stdev": 0.4478678077489692,
+      "ndcg@10_query_wins": 3,
+      "ndcg@10_stdev": 0.4905879789058192,
       "recall@10": 0.3888888888888889
     },
     "rrf_fused_no_rerank": {
       "description": "The served fusion function (unweighted reciprocal rank fusion over FTS, trigram, and semantic candidates), with managed reranking disabled so the fused order is returned unchanged.",
       "label": "RRF fused, reranking off",
-      "mrr": 0.5555555555555556,
-      "ndcg@10": 0.5881900596735787,
+      "mrr": 0.537037037037037,
+      "ndcg@10": 0.5736423092767501,
       "ndcg@10_max": 1.0,
       "ndcg@10_min": 0.0,
       "ndcg@10_query_wins": 4,
-      "ndcg@10_stdev": 0.4337677038748558,
+      "ndcg@10_stdev": 0.4343502963069074,
       "recall@10": 0.7222222222222222
     },
     "rrf_fused_reranked": {
@@ -37,13 +37,13 @@
     "semantic_only": {
       "description": "search_vector alone: dense cosine ranking over the product embedding, with no lexical or trigram arm and no fusion.",
       "label": "Semantic only",
-      "mrr": 0.08888888888888889,
-      "ndcg@10": 0.14175445730001446,
-      "ndcg@10_max": 0.43067655807339306,
+      "mrr": 0.22777777777777775,
+      "ndcg@10": 0.2751159234664661,
+      "ndcg@10_max": 1.0,
       "ndcg@10_min": 0.0,
-      "ndcg@10_query_wins": 0,
-      "ndcg@10_stdev": 0.18634382857730972,
-      "recall@10": 0.3333333333333333
+      "ndcg@10_query_wins": 1,
+      "ndcg@10_stdev": 0.3517869080201697,
+      "recall@10": 0.4444444444444444
     },
     "trigram_only": {
       "description": "search_trigram alone: pg_trgm similarity over the product identity text, with no lexical or semantic arm and no fusion.",
@@ -72,7 +72,7 @@
       },
       "semantic_only": {
         "note": "Not bounded by this ceiling. This channel returns its own candidate limit and this arm takes its own top-K from those, while the fused pool is capped at fused_limit after RRF scores three channels together, so a judged-relevant product can appear here and still be absent from the fused pool. Recorded for comparison, never asserted against.",
-        "recall@10": 0.3333333333333333
+        "recall@10": 0.4444444444444444
       },
       "trigram_only": {
         "note": "Not bounded by this ceiling. This channel returns its own candidate limit and this arm takes its own top-K from those, while the fused pool is capped at fused_limit after RRF scores three channels together, so a judged-relevant product can appear here and still be absent from the fused pool. Recorded for comparison, never asserted against.",
@@ -81,7 +81,7 @@
     }
   },
   "k": 10,
-  "measured_at": "2026-10-03T11:48:07.208233+00:00",
+  "measured_at": "2026-10-03T16:52:49.036836+00:00",
   "models": {
     "embedding": "us.cohere.embed-v4:0",
     "rerank": "cohere.rerank-v3-5:0"
@@ -99,7 +99,7 @@
       },
       "pool_recall": 1.0,
       "query_id": "G-001",
-      "query_text": "B07G95TJ3P",
+      "query_text": "B0C2WWCFQB",
       "relevant_count": 1
     },
     {
@@ -114,7 +114,7 @@
       },
       "pool_recall": 1.0,
       "query_id": "G-003",
-      "query_text": "B07G95T3JP",
+      "query_text": "B0C2WWFCQB",
       "relevant_count": 1
     },
     {
@@ -181,15 +181,15 @@
       "found_in_pool": 1,
       "missed_product_ids": [],
       "ndcg@10": {
-        "lexical_only": 0.6309297535714575,
+        "lexical_only": 1.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 0.43067655807339306,
+        "semantic_only": 1.0,
         "trigram_only": 1.0
       },
       "pool_recall": 1.0,
       "query_id": "G-012",
-      "query_text": "Bose QuietComfort 35 series II wireless noise cancelling headphones",
+      "query_text": "Logitech Zone 900 on-ear wireless headset with noise-canceling microphone",
       "relevant_count": 1
     },
     {
@@ -199,12 +199,12 @@
         "lexical_only": 1.0,
         "rrf_fused_no_rerank": 1.0,
         "rrf_fused_reranked": 1.0,
-        "semantic_only": 0.0,
+        "semantic_only": 0.6309297535714575,
         "trigram_only": 1.0
       },
       "pool_recall": 1.0,
       "query_id": "G-019",
-      "query_text": "For Bose QuietComfort 35 II B07G95TJ3P, what do the specifications and available reviews support about noise cancellation and clear calls? Cite the records, and say when review evidence does not establish microphone performance.",
+      "query_text": "For Logitech Zone 900 B0C2WWCFQB, what do the specifications and available reviews support about noise cancellation and clear calls? Cite the records, and say where review evidence does not establish microphone performance.",
       "relevant_count": 1
     },
     {
@@ -212,31 +212,31 @@
       "missed_product_ids": [],
       "ndcg@10": {
         "lexical_only": 0.0,
-        "rrf_fused_no_rerank": 0.6309297535714575,
+        "rrf_fused_no_rerank": 0.5,
         "rrf_fused_reranked": 1.0,
         "semantic_only": 0.0,
         "trigram_only": 1.0
       },
       "pool_recall": 1.0,
       "query_id": "G-022",
-      "query_text": "Limmited Editon Triple Midnigth",
+      "query_text": "Quick Acess to ANC and Bluetoth",
       "relevant_count": 1
     }
   ],
   "query_set": "data/evals/canonical_queries.jsonl",
-  "query_set_sha256": "a5257f850937eb698f4b126c1532cb4acab3f4d1dc60106fba0d11255423f0d0",
-  "retrieval_fingerprint": "0d61d079ba823b9497cd9d18cd416f6fd90fb4f9a8aadfafe365f83f009be894",
+  "query_set_sha256": "4021645d63dd57a2cb34d4591172ba48dd2293be9b64caee0579dac7a4ef3b58",
+  "retrieval_fingerprint": "c671984d5b53fdafcacb55711d1f88cf7bf0d8b9f4c7276a288b3a9270de82d5",
   "retrieval_settings_sha256": "3635fb13943e9504b42c530ffcd75317f5f326d1abf569e108078aa55498116e",
   "scored_query_count": 9,
-  "scored_query_set_sha256": "05a1f0bae367d39e5d2769f746f4773de2639ea2a41209904a533e30e63b8c6e",
+  "scored_query_set_sha256": "fc0703965e00eef4f262affbb92d9fd9fd22b6c842976b4f2e8387f7e622ef47",
   "served_scorecard_reference": {
-    "measured_at": "2026-10-03T11:46:58.187555+00:00",
+    "measured_at": "2026-10-03T16:51:46.025963+00:00",
     "path": "data/evals/canonical_scorecard.json",
-    "retrieval_fingerprint": "0d61d079ba823b9497cd9d18cd416f6fd90fb4f9a8aadfafe365f83f009be894",
-    "source_revision": "9517527826bdc83f344670333ac85c0cf590ec68"
+    "retrieval_fingerprint": "c671984d5b53fdafcacb55711d1f88cf7bf0d8b9f4c7276a288b3a9270de82d5",
+    "source_revision": "2f9f2a0cc0492f63ee08698a75d2f8b1b0955fdc"
   },
   "source": {
-    "revision": "3cb84313488e8e37e84be2109476bcb88ec10132",
+    "revision": "21d7c832889414f4009bb582a2b01aa8dfafbe7b",
     "worktree_dirty": false
   },
   "spread_note": "9 queries and 14 judgments cannot separate small differences between these paths. Every path answers the same searches, so read each step as the difference on each search rather than as two separate averages: the comparison below reports that difference, the spread of the differences, and how many searches each step won and lost. A step whose average difference is smaller than that spread is one this query set cannot tell apart from no change."
