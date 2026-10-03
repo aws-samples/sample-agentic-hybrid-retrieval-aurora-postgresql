@@ -29,18 +29,17 @@ Why a new corpus, and why it is not the ESCI subset or a fresh catalog crawl
 Judged-item universe overlaps with existing anchors, disclosed, not hidden
 ----------------------------------------------------------------------------
 `data/evals/real_catalog_lab_products.json` carries **unmodified source fields**
-for 12 real `reviews-2023-500k-v1` products, and this corpus's judgments are
-built from that file. Seven of those twelve products are already judged
-somewhere in `canonical_queries.jsonl`, and four of those seven are the actual
-target products of a live lab mission (`data/evals/mosaic_labs_missions.json`'s
+for the real `reviews-2023-v2` products this corpus judges (12 of them).
+Some are judged in `canonical_queries.jsonl` and some are the actual target
+products of a live lab mission (`data/evals/mosaic_labs_missions.json`'s
 `target_product_ids`). Every judgment therefore carries `"anchor_overlap"`:
 
 - `"mission"`: the product is a live mission's own `target_product_ids` --
-  1208825, 1277987, 1408222.
+  1208825, 1408222.
 - `"canonical"`: the product is judged in `canonical_queries.jsonl` but is not
-  itself a mission target -- 1138035, 1162128, 1168700.
-- `"none"`: the product is outside both -- 1248512, 1379290, 1389794, 1481815,
-  1490476.
+  itself a mission target -- 1168700.
+- `"none"`: the product is outside both -- 1138035, 1162128, 1221817, 1248512, 1277987,
+  1379290, 1389794, 1481815, 1490476.
 
 A query whose only relevant judgments sit on `"mission"`/`"canonical"`
 products is not independent evidence about this repository's retrieval

@@ -23,13 +23,15 @@ from service.source_catalog import product_kind, verify_source_product
 GROUPS = {"headphones": "headphones", "chairs": "chair", "monitors": "monitor"}
 # The opening rows make a supported match, a feature contrast, and an unknown
 # easy to compare. These are identities, not boosts in the retrieval pipeline.
+# The first headphone is the Logitech Zone 900 that the deck and Labs 1 and 3
+# follow, so Alex meets it on the shelf before he searches for it.
 OPENING = {
-    "headphones": ("B07G95TJ3P", "B08VD2NX25", "B0C5ZC7FWR", "B09WT4TM7P"),
+    "headphones": ("B0C2WWCFQB", "B08VD2NX25", "B0C5ZC7FWR", "B09WT4TM7P"),
     "chairs": ("B08QDNY2GK", "B08KTS3M9M", "B0BRSPW81P", "B08XZBQ6RS"),
     "monitors": ("B0939N79Y8", "B01L7XV85O", "B06XQ39Z7F", "B0BXDZVPQ5"),
 }
 REVIEW_EXCLUSIONS = {
-    "B07NXDPLJ9": "Colour variant of the opening QuietComfort 35 II example.",
+    "B07NXDPLJ9": "Colour variant of the QuietComfort 35 II listing B07G95TJ3P.",
     "B08YN3258B": "Near-duplicate COMHOMA 400 lb brown executive chair listing.",
     "B000TJV9KW": "Legacy 1920 x 1200 display; clearer resolution contrasts are available.",
     "B002453K5G": "Legacy display with less useful connection coverage than alternatives.",
@@ -89,9 +91,13 @@ def eligible(row: dict, group: str) -> bool:
         and (group != "monitors" or introduced is None or int(introduced[0]) >= 2014)
         and row["parent_asin"] not in REVIEW_EXCLUSIONS
         and not re.search(
-            EXCLUDE[group] + r"|renewed|refurbished|discontinued|\b2 pack\b",
-            title,
-            re.IGNORECASE,
+            r"renewed|refurbished|discontinued|\b2 pack\b", title, re.IGNORECASE
+        )
+        # Opening identities are chosen by hand; the form-factor and accessory
+        # patterns only keep the automatic fill on story (the Zone 900 is on-ear).
+        and (
+            row["parent_asin"] in OPENING[group]
+            or not re.search(EXCLUDE[group], title, re.IGNORECASE)
         )
         and row["image_url"] == source_image(original)
         and row["image_url"].startswith("https://m.media-amazon.com/")

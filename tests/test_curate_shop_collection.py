@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from test_source_catalog import source_row
 
+from scripts.catalog import curate_shop_collection as curate
 from scripts.catalog.curate_shop_collection import eligible, select_group
 from scripts.catalog.prepare_real_catalog import source_image
 
@@ -75,3 +76,25 @@ def test_committed_edit_is_balanced_distinct_and_bound_to_original_records():
         )
         assert len(row["topics_to_inspect"]) >= 2
     assert not set(ids) & {"B06XCDVNK2", "B01HE0W2WC", "B09C87JBHV", "B01NAKXH73"}
+
+
+def test_opening_identities_skip_form_factor_patterns_but_not_condition(monkeypatch):
+    row = record(title="Portable 27-inch monitor")
+    assert not eligible(row, "monitors")
+    monkeypatch.setitem(
+        curate.OPENING, "monitors", (row["parent_asin"], *curate.OPENING["monitors"])
+    )
+    assert eligible(row, "monitors")
+    assert not eligible(record(title="Renewed portable 27-inch monitor"), "monitors")
+
+
+def test_committed_edit_opens_with_the_scripted_opening_identities():
+    manifest = json.loads(
+        (Path(__file__).parents[1] / "data/real-shop-collection.json").read_text()
+    )
+    for group in manifest["groups"]:
+        name = group["category"]
+        opening = curate.OPENING[name]
+        assert tuple(group["parent_asins"][: len(opening)]) == opening
+        assert all(manifest["records"][asin]["opening_example"] for asin in opening)
+    assert manifest["review_exclusions"] == curate.REVIEW_EXCLUSIONS

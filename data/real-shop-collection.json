@@ -3,7 +3,7 @@
   "selection_policy": "Original listings with clear specifications, original photos and recorded rating counts. Opening examples first, then source-topic coverage and brand/model variety. This is a browsing edit, not a search ranking or product endorsement.",
   "display_order": "One headphone, one chair, one monitor, repeated. Search uses the full catalog and its own ranking.",
   "review_exclusions": {
-    "B07NXDPLJ9": "Colour variant of the opening QuietComfort 35 II example.",
+    "B07NXDPLJ9": "Colour variant of the QuietComfort 35 II listing B07G95TJ3P.",
     "B08YN3258B": "Near-duplicate COMHOMA 400 lb brown executive chair listing.",
     "B000TJV9KW": "Legacy 1920 x 1200 display; clearer resolution contrasts are available.",
     "B002453K5G": "Legacy display with less useful connection coverage than alternatives.",
@@ -14,7 +14,7 @@
     {
       "category": "headphones",
       "parent_asins": [
-        "B07G95TJ3P",
+        "B0C2WWCFQB",
         "B08VD2NX25",
         "B0C5ZC7FWR",
         "B09WT4TM7P",
@@ -148,9 +148,9 @@
     }
   ],
   "records": {
-    "B07G95TJ3P": {
-      "source_record_sha256": "64a48d645d07e5f8c5193aff633ae3f640c75ab84add5dc2fb5f4b715f533842",
-      "embedding_text_sha256": "1cd128157d4acd2cb90742c014a8158db57e4ab88b9c9fb8180badc7ace33370",
+    "B0C2WWCFQB": {
+      "source_record_sha256": "93ad8b244e2158151283ce337ba24f9496d1c1d97132cd33f615c722862402b7",
+      "embedding_text_sha256": "b3f60a30e04c79f871b968a8d9c157b9780b902ec0af5077521ce1f172551c32",
       "topics_to_inspect": [
         "noise control",
         "microphone or calls",

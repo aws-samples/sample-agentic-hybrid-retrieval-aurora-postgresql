@@ -604,7 +604,7 @@
           "domain": "consumer_electronics",
           "category_key": "headphones"
         },
-        "notice": "The deck’s evidence question about Logitech and 3M. The agent creates fresh search and source records; the deck’s authored comparison is an illustration, not a saved agent answer."
+        "notice": "Takes the deck’s two highest-reranked focus headphones, the Logitech and the 3M, to the agent: will Alex’s teammates hear him clearly? The agent creates fresh search and source records."
       },
       {
         "id": "check-sources",
@@ -641,7 +641,7 @@
           "domain": "home_office",
           "category_key": "chair"
         },
-        "notice": "Follow Alex’s need for adjustable support from finding products through ranking and a comparison grounded in product details."
+        "notice": "Follow Alex’s need for adjustable support from finding products through ranking and a comparison grounded in product details. Lab 3’s agent looks up the Steelcase Gesture he named; a broad request like this one can rank other chairs first."
       },
       {
         "id": "more-screen-space",
