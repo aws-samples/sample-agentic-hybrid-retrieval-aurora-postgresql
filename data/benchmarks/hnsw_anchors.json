@@ -2,8 +2,8 @@
   "kind": "hnsw_anchor_set",
   "dataset_id": "reviews-2023-v2",
   "catalog_sha256": "c4d5913f89050332f71512baf2a0351331208ab94eac0621be9ac63e653cfa00",
-  "selected_at": "2026-09-26T15:48:32.087423+00:00",
-  "source_revision": "4762b1a2012315a539da65479e2151ae62859da8",
+  "selected_at": "2026-10-03T17:24:08.208111+00:00",
+  "source_revision": "66ff23a84d7823aee03c03171433fe5f4c92911b",
   "selection": {
     "algorithm": "lab products from real_catalog_lab_products.json, then per category_key the first N products by md5(seed || ':' || parent_asin) ascending, ties by product_id, excluding lab products; every anchor has a stored embedding",
     "seed": "mosaic-hnsw-anchors-v1",
@@ -19,11 +19,14 @@
       1379290,
       1389794,
       1408222,
+      1431428,
       1481815,
       1490476,
+      1492978,
       1551237,
       1540761,
-      1545826
+      1545826,
+      1542245
     ],
     "sample_per_category": {
       "other": 10,
@@ -34,7 +37,7 @@
       "monitor_stand": 5,
       "chair_mat": 5
     },
-    "anchor_count": 70
+    "anchor_count": 73
   },
   "anchors": [
     {
@@ -128,6 +131,15 @@
       "source": "lab"
     },
     {
+      "product_id": 1431428,
+      "parent_asin": "B09JJ1RKMZ",
+      "category_key": "headphones",
+      "domain": "consumer_electronics",
+      "brand_name": "Logitech",
+      "title": "Logitech Zone 900 Wireless Bluetooth Noise Canceling Mic Over-Ear Stereo Headset, Flip to Mute, Multi-Device Connectivity Headset - 981-001100 (Renewed)",
+      "source": "lab"
+    },
+    {
       "product_id": 1481815,
       "parent_asin": "B0BNT11NYH",
       "category_key": "monitor",
@@ -143,6 +155,15 @@
       "domain": "home_office",
       "brand_name": "Newtral",
       "title": "Newtral Ergonomic Office Chair with Footrest- High Back Desk Chair with Unique Adjustable Lumbar Support, Seat Depth Adjustment, Tilt Function, 4D Armrest Recliner Chair for Home Office",
+      "source": "lab"
+    },
+    {
+      "product_id": 1492978,
+      "parent_asin": "B0C2WWCFQB",
+      "category_key": "headphones",
+      "domain": "consumer_electronics",
+      "brand_name": "Logitech",
+      "title": "Logitech Zone 900 On-Ear Wireless Bluetooth Headset with Advanced Noise-canceling Microphone, Connect up to 6 Wireless Devices with one Receiver, Quick Access to ANC and Bluetooth",
       "source": "lab"
     },
     {
@@ -170,6 +191,15 @@
       "domain": "home_office",
       "brand_name": "Steelcase",
       "title": "Steelcase Gesture Office Chair - Cogent: Connect Licorice Fabric, Wrapped Back, Light on Light Frame, Platinum Metallic Base",
+      "source": "lab"
+    },
+    {
+      "product_id": 1542245,
+      "parent_asin": "B09CQ9DH7N",
+      "category_key": "headphones",
+      "domain": "consumer_electronics",
+      "brand_name": "Logitech",
+      "title": "Logitech Zone 900 Headset",
       "source": "lab"
     },
     {
@@ -326,15 +356,6 @@
       "source": "sample"
     },
     {
-      "product_id": 1541898,
-      "parent_asin": "B09BCKHNS3",
-      "category_key": "headphones",
-      "domain": "consumer_electronics",
-      "brand_name": "Mooky",
-      "title": "Monitoring Stethoscopes, Ceil Blue Tube",
-      "source": "sample"
-    },
-    {
       "product_id": 1171769,
       "parent_asin": "B011QJQN40",
       "category_key": "headphones",
@@ -350,6 +371,15 @@
       "domain": "consumer_electronics",
       "brand_name": "Panasonic",
       "title": "Panasonic RPHX450CA Headphones",
+      "source": "sample"
+    },
+    {
+      "product_id": 1041915,
+      "parent_asin": "B002LFVPQA",
+      "category_key": "headphones",
+      "domain": "consumer_electronics",
+      "brand_name": "",
+      "title": "Aliph Jawbone Prime Bluetooth Headset (Silver) - Non-Retail Packaging",
       "source": "sample"
     },
     {
@@ -497,6 +527,15 @@
       "source": "sample"
     },
     {
+      "product_id": 1528298,
+      "parent_asin": "B07RBFKCTX",
+      "category_key": "monitor",
+      "domain": "consumer_electronics",
+      "brand_name": "LG",
+      "title": "LG 32GK850G-B 32\" QHD Gaming Monitor with 144Hz Refresh Rate and NVIDIA G-Sync,Black",
+      "source": "sample"
+    },
+    {
       "product_id": 1173753,
       "parent_asin": "B013J9D7O4",
       "category_key": "monitor",
@@ -521,15 +560,6 @@
       "domain": "consumer_electronics",
       "brand_name": "Lasitu",
       "title": "Lasitu 3K 100% sRGB Portable Monitor 13.3 Inches 3200 x1800 Resolution Full HD USB Type-C Computer Display IPS Eye Care Screen with HDMI Type C Speakers for Laptop/PC/PS4/Xbox/Cellphone",
-      "source": "sample"
-    },
-    {
-      "product_id": 1485062,
-      "parent_asin": "B0BRZ2GXZT",
-      "category_key": "monitor",
-      "domain": "consumer_electronics",
-      "brand_name": "Wisecoco",
-      "title": "wisecoco 12.6 Inch Secondary Screen FHD IPS Touch Second Screen Stretched Bar LCD Display 1920X515 Mini HDMI for Laptop Computer Health Speed Windows Aida64 Sub CPU GPU Display",
       "source": "sample"
     },
     {
@@ -659,14 +689,14 @@
       "source": "sample"
     },
     {
-      "product_id": 1333936,
-      "parent_asin": "B07ZC89PKZ",
+      "product_id": 1545869,
+      "parent_asin": "B09WMYCYRW",
       "category_key": "chair_mat",
       "domain": "home_office",
-      "brand_name": "Pro Space",
-      "title": "Pro Space Office Chair Mat Non Slip Hard Floor Mats for Office Decor and Under Office Desk Protect, 36\"x48\", Wood Grain",
+      "brand_name": "Anidaroel",
+      "title": "Anidaroel Gaming Chair Mat for Hardwood Floors, 39 Inch Round Floor Protector Rugs, Computer Desk Chair Mat for Gaming Room Home Office",
       "source": "sample"
     }
   ],
-  "sha256": "af84d6ab27637600293f5a2061b97b1c572bb5bc830125b6d799cba10ff7e5fd"
+  "sha256": "99e31e05b23950f3de9fc4f38f712ce69a21db5a2a44e6896397d7010129a664"
 }

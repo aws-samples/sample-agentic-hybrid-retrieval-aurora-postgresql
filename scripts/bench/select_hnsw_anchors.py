@@ -43,7 +43,7 @@ from service.hnsw_corpus import corpus_manifest
 LAB_PRODUCTS_FILE = REPO / "data" / "evals" / "real_catalog_lab_products.json"
 DEFAULT_SEED = "mosaic-hnsw-anchors-v1"
 # Ten from each category a lab teaches and from the long tail, five from each
-# small accessory category. 70 anchors with the fifteen lab products.
+# small accessory category: 55 sampled anchors, plus every lab product.
 DEFAULT_SAMPLE = {
     "other": 10,
     "headphones": 10,
