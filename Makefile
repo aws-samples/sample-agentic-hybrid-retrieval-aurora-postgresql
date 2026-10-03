@@ -557,10 +557,10 @@ db-import-embeddings:
 simulate:
 	$(PYTHON) scripts/bench/simulate_scale.py
 
-# Precomputes exact top-k neighbours for the 30 retrieval anchors across the six
-# filter presets. Roughly 7 minutes: each exact query is a sequential scan, measured
-# at 2.4s. Run once per corpus; the HNSW instrument computes recall against these
-# rows rather than re-running the scan per interaction.
+# Precomputes exact top-k neighbours for every anchor in hnsw_anchors.json across the
+# six filter presets, one sequential scan per batch of ten anchors; the 73-anchor set
+# took 22 minutes on 3 October 2026. Run once per corpus and anchor set; the HNSW
+# instrument computes recall against these rows rather than re-running the scan.
 db-seed-exact-neighbors:
 	@$(PYTHON) scripts/bench/seed_exact_neighbors.py
 

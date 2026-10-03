@@ -1,10 +1,10 @@
-"""Readiness must show the one thing bootstrap deliberately does not build.
+"""Readiness must show whether the optional HNSW ground truth exists.
 
-`mosaic_bench.exact_neighbor` is filled by `make db-seed-exact-neighbors`, which
-takes roughly 7 minutes and is not a bootstrap phase. Nothing in the three
-required labs needs it, so that stays out; what did not exist was any way to see
-the gap before the HNSW neighbourhood and probe endpoints answered 503 on a fresh
-account. This reports it, and must never gate `database_ready`.
+`mosaic_bench.exact_neighbor` is filled by `make db-seed-exact-neighbors`, a
+bootstrap step that a restored or reloaded cluster can lack. Nothing in the three
+required labs needs it; what did not exist was any way to see the gap before the
+HNSW neighbourhood and probe endpoints answered 503. This reports it, and must
+never gate `database_ready`.
 """
 
 from __future__ import annotations

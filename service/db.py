@@ -118,14 +118,14 @@ def connect(
 def exact_neighbor_ground_truth(connection: psycopg.Connection, manifest: str) -> str:
     """Whether HNSW ground truth exists for the corpus this service is connected to.
 
-    Seeding is deliberately outside the bootstrap: `make db-seed-exact-neighbors`
-    runs 30 anchors across 6 presets as exact sequential scans, roughly 7 minutes,
-    for one optional Labs surface. That decision stands, and this reports the
-    resulting gap instead of leaving a fresh account to discover it as a 503 from
-    the neighbourhood and probe endpoints.
+    The workshop bootstrap seeds it with `make db-seed-exact-neighbors`, exact
+    sequential scans for every anchor across 6 presets, for one optional Labs
+    surface. A cluster restored without that step has none, and this reports the
+    gap instead of leaving it to surface as a 503 from the neighbourhood and
+    probe endpoints.
 
-    It never gates `database_ready`, for the same reason: nothing required by the
-    three labs depends on it.
+    It never gates `database_ready`: nothing required by the three labs depends
+    on it.
 
     Args:
         connection: An open connection to the workshop cluster.

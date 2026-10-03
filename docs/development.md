@@ -77,8 +77,9 @@ The full Python gate includes 15 integration tests against Aurora. See
 [READINESS.md](../READINESS.md) for the complete release gates and
 [the evaluation plan](evaluation-plan.md) before running model-backed scoring.
 Source CI does not certify a fresh deployment or a new relevance scorecard.
-Saved [scale benchmarks](current-scale-benchmarks.md) describe a historical
-catalog; they do not certify the current real catalog.
+Saved [scale benchmarks](current-scale-benchmarks.md) describe the served
+catalog under their recorded anchors and conditions; they do not certify
+relevance or performance on another instance.
 
 The [Mosaic skill](../skills/mosaic-hybrid-retrieval/SKILL.md) declares a
 four-operation HTTP skill surface. It is not a standalone retrieval runtime;

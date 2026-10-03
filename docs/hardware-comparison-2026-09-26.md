@@ -1,5 +1,11 @@
 # Instance comparison: db.r8g.2xlarge against db.r8gd.2xlarge
 
+> **2026-10-03:** the served instrument's anchor set was reselected (73 anchors,
+> `99e31e05b239…`) after Labs 1 and 3 moved to the Logitech Zone 900. This study
+> was not repeated and keeps the 70-anchor set `af84d6ab2763…` it measured; 67
+> anchors are common to both sets. Its conclusions rest on the 13.0 GB working
+> set of table, TOAST and index, which the anchor choice does not change.
+
 Measured on 26 September 2026 on two clusters restored from Mosaic's
 development cluster by copy-on-write clone, both on Aurora I/O-Optimized
 storage, each with one writer in `us-east-1b`: `mosaic-hw-r8g-w`
