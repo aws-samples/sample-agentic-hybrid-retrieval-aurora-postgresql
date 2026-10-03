@@ -98,6 +98,8 @@ saved search whose fusion scores agree with it and include the target. If the
 saved run is stale, repeat the guide's after request before checking again.
 Agent answers require cited support for device compatibility; a USB-C port or
 power figure alone cannot establish that a monitor will charge Alex's laptop.
+Headphone connectivity that lists only USB leaves wireless status unknown;
+USB can describe charging as well as an audio connection.
 
 `uv run python scripts/lab_state.py reset --lab N` discards only that lab's
 edits and restores its starter. `uv run python scripts/lab_state.py solution

@@ -393,7 +393,8 @@ headrest, weight capacity), each shown with its verbatim listing text.
 `service/product_specs.py` derives them at read time from the pinned source
 record, so they need no bundle change, and the agent's product tools return the
 same facts with their quotes. A fact the listing does not state is left out,
-never inferred. Neither a relevance label nor a matching model number
+never inferred. A USB-only headphone connection leaves wireless status unknown,
+because USB may describe charging. Neither a relevance label nor a matching model number
 establishes compatibility.
 
 Workshop Studio restores the selected 553,911 records and saved vectors from the

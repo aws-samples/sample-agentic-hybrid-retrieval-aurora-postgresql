@@ -308,7 +308,7 @@ def headphone_specs(original: dict[str, Any]) -> dict[str, ProductSpec]:
                 True
                 if re.search(r"wireless|bluetooth", v, re.IGNORECASE)
                 else False
-                if re.search(r"wired|3\.5|usb|lightning|aux", v, re.IGNORECASE)
+                if re.search(r"wired|3\.5|lightning|aux", v, re.IGNORECASE)
                 else None
             ),
         ),

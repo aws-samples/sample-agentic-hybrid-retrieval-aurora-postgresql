@@ -73,6 +73,37 @@ def listing(**fields) -> dict:
 
 
 @pytest.mark.parametrize(
+    "field", ["Connectivity Technology", "Connectivity technologies"]
+)
+@pytest.mark.parametrize(
+    "title", ["USB headset", "Sony WH-CH710N Wireless Bluetooth Headphones"]
+)
+@pytest.mark.parametrize("connection", ["USB", "USB-C"])
+def test_usb_connection_alone_does_not_establish_wired_headphones(
+    field, title, connection
+):
+    original = listing(
+        title=title, details={field: connection, "Form Factor": "Over Ear"}
+    )
+    specs = listing_specs("headphones", original)
+    assert "wireless" not in specs
+    assert specs["form_factor"].value == "over-ear"
+
+
+@pytest.mark.parametrize(
+    ("connection", "wireless"),
+    [("Wired, USB", False), ("Bluetooth, USB", True), ("Wireless", True)],
+)
+def test_explicit_headphone_connection_keeps_its_evidence(connection, wireless):
+    original = listing(details={"Connectivity Technology": connection})
+    spec = listing_specs("headphones", original)["wireless"]
+    assert spec.value is wireless
+    assert spec.source == "details.Connectivity Technology"
+    assert spec.quote == connection
+    assert quote_is_verbatim(original, spec)
+
+
+@pytest.mark.parametrize(
     ("category", "original", "key"),
     [
         (
