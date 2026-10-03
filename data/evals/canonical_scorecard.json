@@ -11,16 +11,16 @@
   "deterministic_release_checks": [
     {
       "concept_label": "Exact identity",
-      "product_id": 1277987,
+      "product_id": 1492978,
       "query_id": "G-001",
-      "query_text": "B07G95TJ3P",
+      "query_text": "B0C2WWCFQB",
       "type": "top_rank"
     },
     {
       "concept_label": "Typo recovery",
-      "product_id": 1277987,
+      "product_id": 1492978,
       "query_id": "G-022",
-      "query_text": "Limmited Editon Triple Midnigth",
+      "query_text": "Quick Acess to ANC and Bluetoth",
       "type": "top_rank"
     }
   ],
@@ -34,7 +34,7 @@
     "scan_mem_multiplier": 2.0
   },
   "k": 10,
-  "measured_at": "2026-10-03T11:46:58.187555+00:00",
+  "measured_at": "2026-10-03T16:51:46.025963+00:00",
   "metrics": {
     "mrr": 0.7592592592592592,
     "ndcg@10": 0.8032961425511451,
@@ -49,7 +49,7 @@
       "concept_label": "Exact identity",
       "ndcg@10": 1.0,
       "query_id": "G-001",
-      "query_text": "B07G95TJ3P",
+      "query_text": "B0C2WWCFQB",
       "recall@10": 1.0,
       "reciprocal_rank": 1.0
     },
@@ -57,7 +57,7 @@
       "concept_label": "Typo recovery",
       "ndcg@10": 1.0,
       "query_id": "G-022",
-      "query_text": "Limmited Editon Triple Midnigth",
+      "query_text": "Quick Acess to ANC and Bluetoth",
       "recall@10": 1.0,
       "reciprocal_rank": 1.0
     },
@@ -65,7 +65,7 @@
       "concept_label": "Typo recovery",
       "ndcg@10": 1.0,
       "query_id": "G-003",
-      "query_text": "B07G95T3JP",
+      "query_text": "B0C2WWFCQB",
       "recall@10": 1.0,
       "reciprocal_rank": 1.0
     },
@@ -105,7 +105,7 @@
       "concept_label": "Eligibility before ANN",
       "ndcg@10": 1.0,
       "query_id": "G-012",
-      "query_text": "Bose QuietComfort 35 series II wireless noise cancelling headphones",
+      "query_text": "Logitech Zone 900 on-ear wireless headset with noise-canceling microphone",
       "recall@10": 1.0,
       "reciprocal_rank": 1.0
     },
@@ -113,17 +113,17 @@
       "concept_label": "Evidence retrieval and citation",
       "ndcg@10": 1.0,
       "query_id": "G-019",
-      "query_text": "For Bose QuietComfort 35 II B07G95TJ3P, what do the specifications and available reviews support about noise cancellation and clear calls? Cite the records, and say when review evidence does not establish microphone performance.",
+      "query_text": "For Logitech Zone 900 B0C2WWCFQB, what do the specifications and available reviews support about noise cancellation and clear calls? Cite the records, and say where review evidence does not establish microphone performance.",
       "recall@10": 1.0,
       "reciprocal_rank": 1.0
     }
   ],
   "product_retrieval_query_count": 9,
   "query_set": "data/evals/canonical_queries.jsonl",
-  "query_set_sha256": "a5257f850937eb698f4b126c1532cb4acab3f4d1dc60106fba0d11255423f0d0",
-  "query_vectors_sha256": "c628848762f098bd62bb256f44ed6a4cebe0af25f197e12c24e82fb4ee7be2e6",
-  "ranked_result_sha256": "38f2c8dad6578496d03ca70d79ce8e9091f17682bc169a4337add13b961006d8",
-  "retrieval_fingerprint": "0d61d079ba823b9497cd9d18cd416f6fd90fb4f9a8aadfafe365f83f009be894",
+  "query_set_sha256": "4021645d63dd57a2cb34d4591172ba48dd2293be9b64caee0579dac7a4ef3b58",
+  "query_vectors_sha256": "27f91a652ed06b9ccdc1fdd1b70e372dff581c651f78c870c04261d5e6a8a01f",
+  "ranked_result_sha256": "d00eba34193d205c01eb78ff4022e6681a18ee1078702c9726c8ac0eaca9c49d",
+  "retrieval_fingerprint": "c671984d5b53fdafcacb55711d1f88cf7bf0d8b9f4c7276a288b3a9270de82d5",
   "retrieval_profile": {
     "authorized_limit": 10,
     "ef_search": 100,
@@ -143,9 +143,9 @@
   },
   "retrieval_settings_sha256": "3635fb13943e9504b42c530ffcd75317f5f326d1abf569e108078aa55498116e",
   "scorecard_methodology_sha256": "f4a785761ce224e54385660ec8c353f0f88f3c72bb8ef384fe988e852de2389d",
-  "scored_query_set_sha256": "05a1f0bae367d39e5d2769f746f4773de2639ea2a41209904a533e30e63b8c6e",
+  "scored_query_set_sha256": "fc0703965e00eef4f262affbb92d9fd9fd22b6c842976b4f2e8387f7e622ef47",
   "source": {
-    "revision": "9517527826bdc83f344670333ac85c0cf590ec68",
+    "revision": "2f9f2a0cc0492f63ee08698a75d2f8b1b0955fdc",
     "worktree_dirty": false
   },
   "strategy": "rrf_fusion+rerank+exact_sku_preservation"
