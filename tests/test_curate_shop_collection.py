@@ -39,6 +39,7 @@ def record(**changes):
     [
         "Replacement monitor stand only",
         "Portable laptop monitor",
+        "14-inch USB-C mobile monitor with touch screen",
         "Renewed 27-inch monitor",
         "27-inch monitor (Discontinued)",
     ],
@@ -98,3 +99,53 @@ def test_committed_edit_opens_with_the_scripted_opening_identities():
         assert tuple(group["parent_asins"][: len(opening)]) == opening
         assert all(manifest["records"][asin]["opening_example"] for asin in opening)
     assert manifest["review_exclusions"] == curate.REVIEW_EXCLUSIONS
+
+
+def headphone(leaf, title="Wireless over-ear noise cancelling headphones"):
+    row = source_row(
+        title=title,
+        categories=["Electronics", "Headphones & Earbuds", leaf],
+        features=[
+            "Active noise cancelling with a microphone for calls.",
+            "Bluetooth wireless with 30 hours of battery.",
+        ],
+        details={"Brand": "Source", "Form Factor": "Over Ear", "Model Name": "S1"},
+        images=[
+            {
+                "variant": "MAIN",
+                "hi_res": "https://m.media-amazon.com/images/I/source.jpg",
+            }
+        ],
+    )
+    row["image_url"] = source_image(row["original"])
+    return row
+
+
+def test_the_fill_stays_on_the_home_office_source_shelves(monkeypatch):
+    assert eligible(headphone("Over-Ear Headphones"), "headphones")
+    trucker = headphone(
+        "Over-Ear Headphones", "Bluetooth trucker headset with boom mic"
+    )
+    assert not eligible(trucker, "headphones")
+    earbuds = headphone("Earbud Headphones")
+    assert not eligible(earbuds, "headphones")
+    monkeypatch.setitem(
+        curate.OPENING,
+        "headphones",
+        (earbuds["parent_asin"], *curate.OPENING["headphones"]),
+    )
+    assert eligible(earbuds, "headphones")
+
+
+def test_a_changed_selection_names_the_products_it_adds_and_drops():
+    committed = {"groups": [{"category": "monitors", "parent_asins": ["A", "B"]}]}
+    regenerated = {"groups": [{"category": "monitors", "parent_asins": ["A", "C"]}]}
+    assert curate.drift(committed, regenerated) == "monitors adds ['C'], drops ['B']"
+    assert "same products" in curate.drift(committed, committed)
+
+
+def test_curation_refuses_to_guess_the_served_catalog(monkeypatch):
+    monkeypatch.delenv("MOSAIC_CATALOG_DATASET", raising=False)
+    monkeypatch.setattr("sys.argv", ["curate_shop_collection.py", "--check"])
+    with pytest.raises(ValueError, match="Shop dataset rule: MOSAIC_CATALOG_DATASET"):
+        curate.main()

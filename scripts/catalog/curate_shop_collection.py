@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Build a balanced Shop edit from verified source records, without re-embedding."""
+"""Build the Shop's balanced edit from the served catalog's verified source records."""
 
 from __future__ import annotations
 
 import argparse
-import gzip
 import json
 import math
 import re
@@ -18,6 +17,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.catalog.prepare_real_catalog import source_image
+from service.catalog_runtime import active_dataset, search_schema
+from service.db import connect
 from service.source_catalog import product_kind, verify_source_product
 
 GROUPS = {"headphones": "headphones", "chairs": "chair", "monitors": "monitor"}
@@ -37,11 +38,21 @@ REVIEW_EXCLUSIONS = {
     "B002453K5G": "Legacy display with less useful connection coverage than alternatives.",
     "B0036V76NY": "Legacy professional display; prioritize current home-office connection patterns.",
     "B00JJVW2AW": "Another colour of the selected Beats Studio wired 2.0 example.",
+    "B07X5F81JS": "Soapstone colour of the selected Bose Headphones 700 listing B0BN534JBB.",
+    "B0042X8XJ6": "Mono Bluetooth earpiece listed under over-ear headphones.",
+    "B09KQC7Z4S": "Black listing of the QuietComfort 35 II; the lab uses listing B07G95TJ3P.",
+}
+# `product_kind` also names earbuds, vehicle headsets and gaming chairs as headphones
+# and chairs, so the automatic fill stays on the source shelves of Alex's home office.
+FILL_LEAVES = {
+    "headphones": {"Over-Ear Headphones"},
+    "chairs": {"Home Office Desk Chairs", "Managerial & Executive Chairs"},
+    "monitors": {"Monitors"},
 }
 EXCLUDE = {
-    "headphones": r"replacement|ear\s?pads?|ear\s?cushions?|\bcase\b|\bkids?\b|children|toddler|sleep|headband|cat ear|cosplay|cartoon|earbuds|bone conduction|hearing protection|FM radio|\bon.ear\b",
+    "headphones": r"replacement|ear\s?pads?|ear\s?cushions?|\bcase\b|\bkids?\b|children|toddler|sleep|headband|cat ear|cosplay|cartoon|earbuds|bone conduction|hearing protection|FM radio|trucker|\bon.ear\b",
     "chairs": r"replacement|\bmat\b|headrest only|headrest attachment|mechanism|massage|racing|kneeling|stool|guest chair|visitor chair|dining|kids|children|flag chair|american flag",
-    "monitors": r"replacement|\bstand only\b|\bmount\b|\briser\b|\bprivacy\b|\bprotector\b|\blaptop\b|\bportable\b|baby monitor|camera monitor|\bCRT\b",
+    "monitors": r"replacement|\bstand only\b|\bmount\b|\briser\b|\bprivacy\b|\bprotector\b|\blaptop\b|\bportable\b|\bmobile\b|baby monitor|camera monitor|\bCRT\b",
 }
 SIGNALS = {
     "headphones": {
@@ -87,17 +98,20 @@ def eligible(row: dict, group: str) -> bool:
     )
     return bool(
         product_kind(original["categories"]) == GROUPS[group]
-        and original["categories"][-1] != "Computer Gaming Chairs"
         and (group != "monitors" or introduced is None or int(introduced[0]) >= 2014)
         and row["parent_asin"] not in REVIEW_EXCLUSIONS
         and not re.search(
             r"renewed|refurbished|discontinued|\b2 pack\b", title, re.IGNORECASE
         )
-        # Opening identities are chosen by hand; the form-factor and accessory
-        # patterns only keep the automatic fill on story (the Zone 900 is on-ear).
+        # Opening identities are chosen by hand; the source shelf and the form-factor
+        # and accessory patterns only keep the automatic fill on story (the Zone 900
+        # is on-ear).
         and (
             row["parent_asin"] in OPENING[group]
-            or not re.search(EXCLUDE[group], title, re.IGNORECASE)
+            or (
+                original["categories"][-1] in FILL_LEAVES[group]
+                and not re.search(EXCLUDE[group], title, re.IGNORECASE)
+            )
         )
         and row["image_url"] == source_image(original)
         and row["image_url"].startswith("https://m.media-amazon.com/")
@@ -215,12 +229,50 @@ def build_collection(rows: list[dict], dataset: str, amount: int = 40) -> dict:
     }
 
 
+# The same served-row join the Shop reads through `live_catalog`. Every shelf kind's
+# source leaf names headphones, headsets, chairs or monitors, so this prefilter keeps
+# each row `product_kind` could place on the shelf.
+SHELF_ROWS_SQL = """
+    SELECT p.dataset_id, p.parent_asin, p.original, p.source_record_sha256,
+           p.image_url, p.embedding_text, p.embedding_text_sha256
+    FROM {schema}.product_document d
+    JOIN mosaic_catalog_stage.product p
+      ON p.dataset_id = d.dataset_id AND p.parent_asin = d.parent_asin
+    WHERE d.dataset_id = %(dataset)s
+      AND lower(p.original -> 'categories' ->> -1) LIKE ANY (
+          ARRAY['%%headphone%%', '%%headset%%', '%%chair%%', '%%monitor%%'])
+"""
+
+
+def database_rows(dataset: str) -> list[dict]:
+    """Read the shelf's candidate source rows from the served catalog in Aurora."""
+    kinds = set(GROUPS.values())
+    with connect(statement_timeout_ms=600_000) as connection:
+        cursor = connection.execute(
+            SHELF_ROWS_SQL.format(schema=search_schema()), {"dataset": dataset}
+        )
+        return [
+            dict(row)
+            for row in cursor
+            if product_kind(row["original"]["categories"]) in kinds
+        ]
+
+
+def drift(committed: dict, manifest: dict) -> str:
+    """Name the products a regeneration would add to or drop from each shelf."""
+    before = {group["category"]: group["parent_asins"] for group in committed["groups"]}
+    changes = []
+    for group in manifest["groups"]:
+        old, new = before.get(group["category"], []), group["parent_asins"]
+        added = [asin for asin in new if asin not in old]
+        dropped = [asin for asin in old if asin not in new]
+        if added or dropped:
+            changes.append(f"{group['category']} adds {added}, drops {dropped}")
+    return "; ".join(changes) or "same products; order, policy text or source hashes"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "pool", type=Path, help="Verified prepared source rows, JSONL or JSONL.gz"
-    )
-    parser.add_argument("--dataset", required=True)
     parser.add_argument(
         "--output", type=Path, default=ROOT / "data/real-shop-collection.json"
     )
@@ -230,18 +282,17 @@ def main() -> None:
         help="Fail on a changed selection instead of writing it",
     )
     args = parser.parse_args()
-    opener = gzip.open if args.pool.suffix == ".gz" else open
-    with opener(args.pool, "rt") as handle:
-        rows = [json.loads(line) for line in handle]
-    if any(row.get("dataset_id") != args.dataset for row in rows):
+    dataset = active_dataset()
+    if dataset is None:
         raise ValueError(
-            "Shop dataset rule: source rows belong to a different dataset; export the selected catalog's source rows."
+            "Shop dataset rule: MOSAIC_CATALOG_DATASET is unset; load the development .env that selects the served catalog."
         )
-    manifest = build_collection(rows, args.dataset)
+    manifest = build_collection(database_rows(dataset), dataset)
     if args.check:
-        if json.loads(args.output.read_text()) != manifest:
+        committed = json.loads(args.output.read_text())
+        if committed != manifest:
             raise ValueError(
-                f"Shop selection rule: {args.output} differs from the verified selection; regenerate and review the product changes."
+                f"Shop selection rule: {args.output} differs from the served catalog's selection ({drift(committed, manifest)}); run `make curate-shop-collection` and review the product changes."
             )
     else:
         args.output.write_text(json.dumps(manifest, indent=2) + "\n")

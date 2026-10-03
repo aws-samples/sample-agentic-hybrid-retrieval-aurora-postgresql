@@ -69,6 +69,8 @@ MISSION_GATE_REQUIRE_DB=1 make validate-missions
 make validate-evals
 make db-verify-bootstrap
 make test
+make check-shop-collection
+make check-hnsw-anchors
 ```
 
 The full Python gate includes 15 integration tests against Aurora. See

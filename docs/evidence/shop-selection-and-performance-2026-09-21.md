@@ -1,5 +1,12 @@
 # Shop selection and browsing performance
 
+> **2026-10-03:** this page records the 2026-09-21 selection. The shelf is now
+> regenerated from the served catalog with `make curate-shop-collection` and
+> checked by `make check-shop-collection`. After the 2026-09-27 reclassification
+> widened each product kind, its automatic fill draws only from the Over-Ear
+> Headphones, Home Office Desk Chairs, Managerial & Executive Chairs and Monitors
+> source shelves. The first headphone is now the Logitech Zone 900 the labs use.
+
 ## Scope and result
 
 The local storefront uses `reviews-2023-500k-v1` in Aurora. The Workspace edit

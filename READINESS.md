@@ -54,7 +54,16 @@ make score-evals
 make validate-lab-1
 make validate-lab-2
 make validate-lab-3
+make check-shop-collection
+make check-hnsw-anchors
+make check-exact-neighbors
 ```
+
+The last three compare committed selections with the served catalog: the Shop
+shelf, the HNSW anchor set and that set's exact-neighbour ground truth. A
+classification, catalog or lab-product change fails them until the selection is
+regenerated with `make curate-shop-collection`, `make select-hnsw-anchors` and
+`make db-seed-exact-neighbors`, and reviewed.
 
 The canonical set contains ten real-catalog requests: nine product-retrieval
 cases for Recall@10, MRR and nDCG@10, plus one agent-contract case checked

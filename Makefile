@@ -46,7 +46,7 @@ MOSAIC_CATALOG_SHARDS := \
 	data/full/products_running_fitness.csv.gz \
 	data/full/products_home_office.csv.gz
 
-.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants test-aurora-historical db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-status start-lab-1 reset-lab-1 validate-lab-1 solution-lab-1 start-lab-2 reset-lab-2 validate-lab-2 solution-lab-2 start-lab-3 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-schema db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-index-quantized-catalog db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors select-hnsw-anchors check-hnsw-anchors benchmark-hnsw benchmark-index-build benchmark-hardware benchmark-ask-mosaic rehearsal-validate rehearsal-summary load-exercise api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
+.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python generate prepare media-map media-labels media-shot-list media-install-flagships media-import quality reviews validate validate-db lint test test-aurora-contracts test-aurora-invariants test-aurora-historical db-install db-install-labs db-upgrade-snapshot db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-status start-lab-1 reset-lab-1 validate-lab-1 solution-lab-1 start-lab-2 reset-lab-2 validate-lab-2 solution-lab-2 start-lab-3 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-prepare-mosaic db-load-mosaic db-bootstrap-schema db-fetch-embeddings verify-embedding-cache db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-index-quantized-catalog db-load-cohort db-load-evidence db-embed db-export-embeddings db-import-embeddings simulate db-seed-exact-neighbors db-seed-corpus-lexeme check-exact-neighbors select-hnsw-anchors check-hnsw-anchors curate-shop-collection check-shop-collection benchmark-hnsw benchmark-index-build benchmark-hardware benchmark-ask-mosaic rehearsal-validate rehearsal-summary load-exercise api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
 
 PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	media-install-flagships media-import quality reviews validate validate-db \
@@ -56,7 +56,8 @@ PYTHON_TARGETS := generate prepare media-map media-labels media-shot-list \
 	verify-embedding-cache db-configure-retrieval lab-status validate-lab-3 solution-lab-3 api-serve \
 	mcp-install check-bootstrap-release validate-release-workflow \
 	rehearsal-validate rehearsal-summary load-exercise \
-	deploy-agent verify-agent agent-tools complete-lab-3
+	deploy-agent verify-agent agent-tools complete-lab-3 \
+	curate-shop-collection check-shop-collection
 
 $(PYTHON_TARGETS): check-python
 
@@ -95,7 +96,8 @@ DSN_TARGETS := test test-aurora-contracts test-aurora-invariants db-install db-i
 	db-index-recover-and-create db-load-cohort db-load-evidence db-smoke \
 	db-seed-corpus-lexeme db-bootstrap-schema db-verify-bootstrap db-embed db-export-embeddings db-import-embeddings \
 	db-configure-retrieval db-apply-search-functions start-lab-1 reset-lab-1 validate-lab-1 solution-lab-1 \
-	start-lab-2 reset-lab-2 validate-lab-2 solution-lab-2 start-lab-3 reset-lab-3 api-serve
+	start-lab-2 reset-lab-2 validate-lab-2 solution-lab-2 start-lab-3 reset-lab-3 api-serve \
+	curate-shop-collection check-shop-collection
 
 $(DSN_TARGETS): check-dsn
 
@@ -571,6 +573,14 @@ select-hnsw-anchors:
 
 check-hnsw-anchors:
 	@$(PYTHON) scripts/bench/select_hnsw_anchors.py --check
+
+# The Shop shelf: opening identities, then a source-quality fill, read from the
+# served catalog in Aurora. Regenerate after a classification or catalog change.
+curate-shop-collection:
+	@$(PYTHON) scripts/catalog/curate_shop_collection.py
+
+check-shop-collection:
+	@$(PYTHON) scripts/catalog/curate_shop_collection.py --check
 
 # Workshop bootstrap explicitly supplies a verified vocabulary cache. Ordinary
 # operator runs still rebuild from the production SQL; neither path skips the
