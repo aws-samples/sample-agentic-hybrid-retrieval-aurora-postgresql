@@ -34,7 +34,7 @@
     "scan_mem_multiplier": 2.0
   },
   "k": 10,
-  "measured_at": "2026-10-01T15:14:15.118647+00:00",
+  "measured_at": "2026-10-03T11:46:58.187555+00:00",
   "metrics": {
     "mrr": 0.7592592592592592,
     "ndcg@10": 0.8032961425511451,
@@ -123,7 +123,7 @@
   "query_set_sha256": "a5257f850937eb698f4b126c1532cb4acab3f4d1dc60106fba0d11255423f0d0",
   "query_vectors_sha256": "c628848762f098bd62bb256f44ed6a4cebe0af25f197e12c24e82fb4ee7be2e6",
   "ranked_result_sha256": "38f2c8dad6578496d03ca70d79ce8e9091f17682bc169a4337add13b961006d8",
-  "retrieval_fingerprint": "a9dd35c3d1c4c7f418a616582874dfccbaf95d6d2da770c8089a833670d04118",
+  "retrieval_fingerprint": "0d61d079ba823b9497cd9d18cd416f6fd90fb4f9a8aadfafe365f83f009be894",
   "retrieval_profile": {
     "authorized_limit": 10,
     "ef_search": 100,
@@ -145,7 +145,7 @@
   "scorecard_methodology_sha256": "f4a785761ce224e54385660ec8c353f0f88f3c72bb8ef384fe988e852de2389d",
   "scored_query_set_sha256": "05a1f0bae367d39e5d2769f746f4773de2639ea2a41209904a533e30e63b8c6e",
   "source": {
-    "revision": "2f07c3efce4a31fd59fcccb0593a4771d3f52422",
+    "revision": "9517527826bdc83f344670333ac85c0cf590ec68",
     "worktree_dirty": false
   },
   "strategy": "rrf_fusion+rerank+exact_sku_preservation"
