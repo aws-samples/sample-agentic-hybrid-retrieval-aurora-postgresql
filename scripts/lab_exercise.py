@@ -7,8 +7,9 @@ changes catalog data, and never shows the reference answer.
 
 - Lab 1: a recall query for the filtered vector search, graded with the planner's
   own plan and again with the HNSW index forced.
-- Lab 2: reciprocal rank fusion written in SQL over the three installed search
-  functions, graded at the configured ``k`` and at four other values.
+- Lab 2: the applied reciprocal-rank contribution, graded against 1 / (k + rank)
+  at the configured ``k`` and at four other values. ``compare --lab 2`` prints what
+  three retrieval changes would do on the judged shopper queries.
 - Lab 3: the deployed Strands agent and its saved, source-backed recommendation.
 
 Every graded attempt is also recorded in ``mosaic.lab_decision`` (created here if
@@ -33,18 +34,19 @@ sys.path.insert(0, str(REPO))
 
 from psycopg.rows import dict_row
 
-from scripts import lab2_proposal, lab_state
+from scripts import lab2_tuning, lab_state
+from service.lab_files import LAB2_SQL
 from service.participant_commands import DEPLOY_AGENT
 
 SCORE_TOLERANCE = 1e-9
 LAB2_K_TRIALS = (1, 10, 30, 120)
 DEFAULT_WORK = {
     1: Path(".local/lab-1/recall.sql"),
-    2: Path(".local/lab-2/rrf.sql"),
+    2: LAB2_SQL,
     3: Path("labs/lab3_reason/agent.py"),
 }
 LAB1_COLUMNS = ("approximate_rows", "exact_rows", "recall")
-LAB2_COLUMNS = ("product_id", "rrf_score", "combined_position")
+LAB2_RANKS_CHECKED = 150
 DECISION_TABLE_SQL = """
 CREATE TABLE IF NOT EXISTS mosaic.lab_decision (
     decision_id bigserial PRIMARY KEY,
@@ -360,33 +362,23 @@ def _lab2_arms(cur: Any, values: dict[str, str]) -> dict[str, dict[int, int]]:
     return arms
 
 
-def _lab2_mismatch(
-    rows: list[dict], truth: list[tuple[int, float]], k: int
+def _lab2_contribution_mismatch(
+    cur: Any, schema: str, k: int, ranks: int
 ) -> str | None:
-    expected = {
-        pid: (score, position) for position, (pid, score) in enumerate(truth, 1)
-    }
-    mine = {row["product_id"]: row for row in rows}
-    if set(mine) != set(expected):
-        missing, extra = set(expected) - set(mine), set(mine) - set(expected)
-        return (
-            f"k={k}: you returned {len(mine)} products; the three searches admit "
-            f"{len(expected)}. Missing e.g. {sorted(missing)[:3]}, extra e.g. "
-            f"{sorted(extra)[:3]}. Every product found by any search must appear once."
-        )
-    for product_id, (score, position) in expected.items():
-        row = mine[product_id]
-        if abs(float(row["rrf_score"]) - score) > SCORE_TOLERANCE:
+    """The applied function must give each position 1 / (k + rank), not a shared value."""
+    cur.execute(
+        f"SELECT r, {schema}.reciprocal_rank_contribution(r, %s) AS c "
+        "FROM generate_series(1, %s) AS r ORDER BY r",
+        (k, ranks),
+    )
+    for row in cur.fetchall():
+        expected = 1.0 / (k + row["r"])
+        if abs(float(row["c"]) - expected) > SCORE_TOLERANCE:
             return (
-                f"k={k}: product {product_id} scores {float(row['rrf_score']):.12f}; "
-                f"expected {score:.12f}. Check each contribution against its own "
-                "source position, and that k comes from :lab_rrf_k."
-            )
-        if int(row["combined_position"]) != position:
-            return (
-                f"k={k}: product {product_id} is at combined position "
-                f"{row['combined_position']}; expected {position}. Break score ties "
-                "by product_id, as production does."
+                f"k={k}: position {row['r']} earns {float(row['c']):.12f}; expected "
+                f"1 / ({k} + {row['r']}) = {expected:.12f}. Each source position needs "
+                "its own contribution; apply your edit with "
+                "`uv run python scripts/apply_search_functions.py`."
             )
     return None
 
@@ -417,8 +409,11 @@ def _saved_run(cur: Any, values: dict[str, str]) -> dict[int, float]:
     return {row["product_id"]: row["score"] for row in cur.fetchall()}
 
 
-def grade_lab2(statement_for_k: Any, values: dict[str, str]) -> dict[str, Any]:
-    """Grade participant fusion at the configured k and four other values."""
+def grade_lab2(values: dict[str, str]) -> dict[str, Any]:
+    """Grade the applied contribution at the configured k and four other values."""
+    from service.catalog_runtime import search_schema
+
+    schema = search_schema()
     configured = int(values["lab_rrf_k"])
     target = int(values["lab_target"])
     cutoff = int(values["lab_fused_limit"])
@@ -428,17 +423,17 @@ def grade_lab2(statement_for_k: Any, values: dict[str, str]) -> dict[str, Any]:
         _configure(cur, values, force_hnsw=False)
         arms = _lab2_arms(cur, values)
         for k in sorted({configured, *LAB2_K_TRIALS}):
-            rows = _participant_rows(cur, statement_for_k(k), LAB2_COLUMNS)
-            truth = _fuse(arms, k)
-            failure = _lab2_mismatch(rows, truth, k)
+            failure = _lab2_contribution_mismatch(cur, schema, k, LAB2_RANKS_CHECKED)
             if failure:
                 report["failures"].append(failure)
+            truth = _fuse(arms, k)
             position = next(
                 (i for i, (pid, _) in enumerate(truth, 1) if pid == target), None
             )
             report["k_trials"].append(
                 {
                     "k": k,
+                    "contribution_correct": failure is None,
                     "target_position": position,
                     "within_cutoff": position is not None and position <= cutoff,
                 }
@@ -449,7 +444,7 @@ def grade_lab2(statement_for_k: Any, values: dict[str, str]) -> dict[str, Any]:
     report["arms"] = {name: len(ranks) for name, ranks in arms.items()}
     report["saved_run"] = {
         "rows": len(saved),
-        "rows_disagreeing_with_your_fusion": sum(
+        "rows_disagreeing_with_correct_fusion": sum(
             1
             for pid, score in saved.items()
             if abs(score - truth.get(pid, float("nan"))) > SCORE_TOLERANCE
@@ -531,38 +526,42 @@ def _print_lab2(report: dict) -> None:
         status = (
             "reaches reranking" if trial["within_cutoff"] else "cut before reranking"
         )
-        print(f"k={trial['k']:<4} target combined position {where} ({status})")
-    proposal = report.get("proposal")
-    if proposal:
-        c = proposal["comparison"]
-        p_value = "<0.0001" if c["sign_test_p"] == 0 else f"={c['sign_test_p']}"
+        verdict = "correct" if trial["contribution_correct"] else "WRONG"
         print(
-            f"proposal {proposal['change']}: Exact in cutoff "
-            f"{c['exact_in_cutoff']['baseline']} -> {c['exact_in_cutoff']['proposed']}; "
-            f"{c['queries_better']} queries better, {c['queries_worse']} worse "
-            f"(sign test p{p_value}); by category {c['by_category']}"
+            f"k={trial['k']:<4} contribution {verdict}; target combined position "
+            f"{where} ({status})"
         )
-        for before, after in zip(
-            proposal["chair_controls"]["baseline"],
-            proposal["chair_controls"]["proposed"],
-            strict=True,
-        ):
-            print(
-                f"  chair control {before['id']}: position "
-                f"{before['target_position']} -> {after['target_position']}"
-            )
-        work = proposal["work"]
-        print(
-            f"  reranker input {work['products_to_reranker']}; billed search units "
-            f"{work['billed_search_units_per_query']}; retrieval+fusion median "
-            f"{work['retrieval_fusion_ms_median']} (reranking not called)"
-        )
-        print(f"  your criterion says {proposal['expected_decision']}")
     saved = report["saved_run"]
     print(
         f"saved run: {saved['rows']} rows, {saved['distinct_saved_scores']} distinct "
-        f"scores, {saved['rows_disagreeing_with_your_fusion']} disagree with your "
-        f"fusion; target present: {saved['target_saved']}"
+        f"scores, {saved['rows_disagreeing_with_correct_fusion']} disagree with "
+        f"correct fusion; target present: {saved['target_saved']}"
+    )
+
+
+def print_comparison(table: dict) -> None:
+    """Print the measured effect of each derived change, for the participant to judge."""
+    base = table["baseline"]
+    print(
+        f"Served profile: {base['exact_in_cutoff']} exact matches reach reranking "
+        f"across the judged queries; {base['billed_search_units_per_query']} billed "
+        "rerank unit per query."
+    )
+    print(
+        f"{'Change':<18}{'Exact found':>12}{'Better':>8}{'Worse':>7}{'Sign test p':>13}{'Rerank units':>14}"
+    )
+    for row in table["rows"]:
+        p_value = "<0.0001" if row["sign_test_p"] == 0 else row["sign_test_p"]
+        print(
+            f"{row['label']:<18}{row['exact_gain']:>+12}{row['queries_better']:>8}"
+            f"{row['queries_worse']:>7}{p_value:>13}"
+            f"{row['billed_search_units_per_query']:>14}"
+        )
+        for moved in row["chair_controls_moved"]:
+            print(f"  chair control {moved['id']}: {moved['from']} -> {moved['to']}")
+    print(table["scope"])
+    print(
+        "In learning-notes.md, write one sentence: which change would you ship, and why?"
     )
 
 
@@ -581,18 +580,16 @@ def grade(lab: int, work: Path) -> dict[str, Any]:
     if lab == 3:
         return grade_lab3(work)
     values = load_context(lab)
-    template = work.read_text(encoding="utf-8")
-    if lab == 1:
-        return grade_lab1(interpolate(template, values), values)
-    report = grade_lab2(
-        lambda k: interpolate(template, {**values, "lab_rrf_k": str(k)}), values
-    )
-    proposal_path = REPO / lab2_proposal.PROPOSAL_WORK
-    if not proposal_path.exists():
-        report["failures"].append(
-            f"write your one-setting proposal in {lab2_proposal.PROPOSAL_WORK}"
-        )
-        return report
+    if lab == 2:
+        return grade_lab2(values)
+    return grade_lab1(interpolate(work.read_text(encoding="utf-8"), values), values)
+
+
+def compare(lab: int) -> dict[str, Any]:
+    """Measure the derived retrieval changes for Lab 2's decision."""
+    if lab != 2:
+        raise ExerciseError("compare is Lab 2's decision step; use --lab 2")
+    values = load_context(2)
     baseline = {
         key: int(values[f"lab_{key}"])
         for key in (
@@ -604,17 +601,13 @@ def grade(lab: int, work: Path) -> dict[str, Any]:
         )
     }
     try:
-        proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
         with _connect() as connection:
             connection.row_factory = dict_row
-            graded = lab2_proposal.grade(proposal, connection, baseline)
+            table = lab2_tuning.comparison_table(connection, baseline)
             connection.rollback()
-    except (json.JSONDecodeError, lab2_proposal.ProposalError) as error:
-        raise ExerciseError(f"proposal.json: {error}") from error
-    report["proposal"] = graded
-    report["decision"] = graded["decision"]
-    report["failures"].extend(graded["failures"])
-    return report
+    except lab2_tuning.TuningError as error:
+        raise ExerciseError(str(error)) from error
+    return table
 
 
 def main() -> int:
@@ -622,10 +615,17 @@ def main() -> int:
 
     load_dotenv(REPO / ".env")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("action", choices=("check",))
+    parser.add_argument("action", choices=("check", "compare"))
     parser.add_argument("--lab", type=int, choices=(1, 2, 3), required=True)
     parser.add_argument("--work", type=Path)
     args = parser.parse_args()
+    if args.action == "compare":
+        try:
+            print_comparison(compare(args.lab))
+        except ExerciseError as error:
+            print(f"Lab {args.lab} comparison: CANNOT MEASURE - {error}")
+            return 2
+        return 0
     work = args.work or DEFAULT_WORK[args.lab]
     try:
         report = grade(args.lab, work)

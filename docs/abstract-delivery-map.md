@@ -10,30 +10,29 @@ connections. The guide's page shape, graded work and pacing are recorded in the
 ## The three labs
 
 Behind Alex's shopping goals, participants complete three technical labs. Each
-asks more than the last (explain a mechanism, write an algorithm, specify a
-contract), and each is graded against an answer the grader computes itself.
+asks more than the last (find a lost candidate, fix a formula and judge a change,
+build and deploy an agent), and each is graded against an answer the grader computes itself.
 
-- **Lab 1 — Fix broken retrieval · 10 min.** A transposed product ID makes
+- **Lab 1 — Debug hybrid search · 10 min.** A transposed product ID makes
   Alex's saved headphones vanish. Participants use PostgreSQL's own functions
   (`tsvector` lexemes, `pg_trgm` word similarity, pgvector distance) to show why
-  only one search method can recover it, then reconnect that method. An optional
+  only one search method recovers it, then find why its candidates never reach
+  fusion and add the missing branch. An optional
   Go deeper step has them write a recall query for the vector search they didn't
   touch. The grader runs
   it under the planner's plan and with HNSW forced: in recorded runs the forced plan was roughly 6–7×
   faster yet missed half or more of the true nearest neighbours. **Lesson: a full
   result list is not evidence of good recall; only a comparison with exact
   results measures it.**
-- **Lab 2 — Fix broken ranking · 10 min.** The monitor that documents
-  USB-C charging up to 90W over one cable never reaches the reranker. Participants
-  write reciprocal rank fusion in SQL, graded at five values of `k`. Their version
-  shows the collapsed contributions tie every single-search candidate, so the
+- **Lab 2 — Tune rank fusion and reranking · 10 min.** The monitor that documents
+  USB-C charging up to 90W over one cable never reaches the reranker. A provided
+  query shows the collapsed contributions tie every single-search candidate, so the
   product-ID tie-breaker, not relevance, decides the 50 products sent to Cohere
-  Rerank and keeps the oldest listings in the pool. After repairing production, they
-  propose one retrieval change under a rule they set in advance. The grader
-  replays it over 141 judged shopper queries, and adopting and rejecting both
-  pass if the decision follows the rule. **Lesson: fusion only works if positions
-  count, and a tuning decision needs a judged set and a rule chosen before seeing
-  results.**
+  Rerank and keeps the oldest listings in the pool. Participants fix one line, graded
+  at five values of `k`, then read the measured effect of three settings derived from
+  the served profile over 141 judged shopper queries and write what they would ship.
+  **Lesson: fusion only works if positions count, and a tuning claim needs a judged
+  set.**
 - **Lab 3 — Build and deploy the agent · 20 min.** Participants connect the
   Gateway SQL tools, complete the Strands agent constructor, add an instruction
   and deploy it to AgentCore Runtime. They ask Alex's three-product room question,
@@ -55,9 +54,9 @@ re-embedded on each run, so the guides print no fixed number.
 | Full-text search | Retrieve | Compare the query's and the listing's lexemes to show why word search cannot match a transposed ID |
 | pgvector semantic similarity | Retrieve (optional); Scale & HNSW | Optionally write an index-proof recall query graded under the planner's plan and forced HNSW; optionally build and shrink a partial HNSW index |
 | SQL and metadata filters | Retrieve; Rank | The validator proves every saved candidate respects the Bose/headphones and Dell/monitor filters before reranking |
-| Fuzzy matching | Retrieve | Read `word_similarity` against whole-string similarity, then reconnect the close-spelling channel from its contract |
-| Reciprocal rank fusion | Rank | Write RRF in SQL (graded at five `k` values) and make production's `1 / (k + source_rank)` agree with it |
-| Model-based reranking | Rank | Compare combined and final positions; decide one retrieval setting on 141 judged queries within one billed rerank unit |
+| Fuzzy matching | Retrieve | Read `word_similarity` against whole-string similarity, then add the close-spelling branch that fusion never reads |
+| Reciprocal rank fusion | Rank | Fix production's `1 / (k + source_rank)`, graded at five `k` values |
+| Model-based reranking | Rank | Compare combined and final positions; judge three measured settings on 141 judged queries within one billed rerank unit |
 | Source attribution | Reason | Build the agent, ask a product question and open its citations |
 | Retrieval diagnostics | All three labs | Read filters, candidate positions, fused rank, reranked rank, evidence IDs and the agent's ordered tool sequence |
 | Wire retrieval into agent tools | Reason; build-a-tool flex | Connect the SQL tools through Gateway and deploy the Strands agent to Runtime |

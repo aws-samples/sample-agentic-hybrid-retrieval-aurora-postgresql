@@ -37,9 +37,9 @@ for you; the command checks deployed source identity and Gateway connectivity.
 
 | Lab | Question to answer | Where you work |
 |---|---|---|
-| **1. Fix broken retrieval** | Can search find the intended product, even with a typo? | [`labs/lab1_retrieve/`](labs/lab1_retrieve/) |
-| **2. Fix broken ranking** | **2a Rank:** which candidates survive fusion? **2b Re-rank:** how does their order change? | [`labs/lab2_rank/`](labs/lab2_rank/) |
-| **3. Build and deploy the agent** | Can your agent complete Alex’s room with headphones, monitor and chair, citing each product’s sources? | [`labs/lab3_reason/`](labs/lab3_reason/) |
+| **1. Debug hybrid search** | Can search find the intended product, even with a typo? | [`labs/lab1_retrieve/`](labs/lab1_retrieve/) |
+| **2. Tune rank fusion and reranking** | **2a Rank:** which candidates survive fusion? **2b Re-rank:** how does their order change? | [`labs/lab2_rank/`](labs/lab2_rank/) |
+| **3. Build and deploy the agent** | Can your agent help Alex complete his home office, bring the three choices together, and respond when his requirements change? | [`labs/lab3_reason/`](labs/lab3_reason/) |
 
 The participant workspace, [Mosaic.code-workspace](Mosaic.code-workspace),
 groups the existing files as **01 — Retrieve**, **02 — Rank & Re-rank**, and **03 — Reason**.

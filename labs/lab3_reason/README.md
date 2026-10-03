@@ -1,6 +1,9 @@
 # Lab 3: Reason
 
-Build and deploy an agent that explains its choices with sources. Follow
+Build and deploy an agent that helps Alex complete his home office. Labs 1 and 2
+found his headphones and monitor; here your agent finds his chair with the same
+SQL, brings the three choices together and responds when his requirements change.
+Its recommendations must be supported by the product records. Follow
 **Workshop Studio → Lab 3** beside this folder. In the participant workspace,
 this is **03 — Reason**. The file you edit is [agent.py](agent.py).
 

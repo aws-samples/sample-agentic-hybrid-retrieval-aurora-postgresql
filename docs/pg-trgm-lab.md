@@ -22,15 +22,17 @@ ON mosaic_catalog_search.product_document USING gin (trigram_text gin_trgm_ops);
 
 Use `G-003` from `data/evals/mosaic_labs_missions.json` with its exact filters
 before and after the edit. The controlled defect is in
-`mosaic_live_search.search_hybrid_rrf`: the trigram search function exists, but its
-CTE and candidate-channel union are disconnected. Creating another index or
-lowering a threshold does not reconnect that path.
+`mosaic_live_search.search_hybrid_rrf`: the `typo` CTE still calls the trigram
+search function, but no `channels` branch reads it, and PostgreSQL never runs an
+unreferenced CTE. Creating another index or lowering a threshold does not reconnect
+that path.
 
 1. Observe the successful request with the target missing. Inspect
    `diagnostics.candidate_counts.trigram_in_pool`; while broken it is zero.
-2. Locate `LAB1_TRIGRAM_CTE` and `LAB1_TRIGRAM_CHANNEL` in
-   `labs/lab1_retrieve/hybrid_search.sql`. Follow the arm's product ID, rank and score
-   into fusion, and restore both seams.
+2. Run `search_trigram` directly with the saved query and filters: it returns the
+   target at rank 1. Then read `search_hybrid_rrf` in
+   `labs/lab1_retrieve/hybrid_search.sql` to find where those rows are lost, and add the
+   missing `channels` branch between the `LAB1_CHANNEL` markers.
 3. Run `uv run python scripts/apply_search_functions.py`, then repeat the same request. Inspect
    the target's `signals.trigram.rank` and `rrf_contribution`. For this anchor,
    its FTS and semantic ranks remain null: the recovered product identifies

@@ -12,21 +12,19 @@ is missing. Record your prediction in `learning-notes.md` at the repository root
 
 ## Diagnose
 
-Follow the candidate path in the saved search. Did close spelling find the
-intended listing, and did that candidate reach fusion? Reranking can only reorder
-products retrieval returned. The guide supplies the request, checkpoints and
-hints; keep those beside the code.
+Follow the candidate path in the saved search. Run each of the three searches on
+its own: which one finds the intended listing, and do its candidates reach fusion?
+Reranking can only reorder products retrieval returned. The guide supplies the
+request, checkpoints and hints; keep those beside the code.
 
 ## Fix
 
-Edit only `mosaic_search.search_hybrid_rrf` in the two marked blocks:
-
-- `LAB1_TRIGRAM_CTE_START` to `LAB1_TRIGRAM_CTE_END`: connect the close-spelling
-  candidates using the function's query, filters and retrieval settings.
-- `LAB1_TRIGRAM_CHANNEL_START` to `LAB1_TRIGRAM_CHANNEL_END`: carry their product
-  IDs, channel name, positions, scores and contributions into fusion.
-
-The existing full-text and vector branches show the surrounding contract.
+Edit only `mosaic_search.search_hybrid_rrf`, between `LAB1_CHANNEL_START` and
+`LAB1_CHANNEL_END`. Add the `channels` branch for the search whose candidates never
+reach fusion, with the five columns every other branch supplies: product ID, the
+channel name the receipt uses, its position, its raw score and its contribution
+from `mosaic_search.reciprocal_rank_contribution`. The full-text and vector
+branches show the shape.
 
 ## Prove
 

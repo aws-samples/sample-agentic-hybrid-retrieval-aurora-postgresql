@@ -56,21 +56,33 @@ def test_reference_fusion_decays_with_rank_and_breaks_ties_by_product_id():
     assert fused[1][1] == pytest.approx(1 / 61)
 
 
-def test_fusion_grader_names_the_first_wrong_score_and_position():
-    truth = lab_exercise._fuse({"fts": {5: 1, 3: 2}}, 60)
-    rows = [
-        {"product_id": 5, "rrf_score": 1 / 61, "combined_position": 1},
-        {"product_id": 3, "rrf_score": 1 / 61, "combined_position": 2},
-    ]
-    assert "product 3 scores" in lab_exercise._lab2_mismatch(rows, truth, 60)
+class _ContributionCursor:
+    """Answers the grader's generate_series query with a chosen contribution formula."""
 
-    rows[1]["rrf_score"] = 1 / 62
-    rows[0]["combined_position"], rows[1]["combined_position"] = 2, 1
-    assert "combined position" in lab_exercise._lab2_mismatch(rows, truth, 60)
+    def __init__(self, formula):
+        self.formula = formula
+        self.rows = []
 
-    rows[0]["combined_position"], rows[1]["combined_position"] = 1, 2
-    assert lab_exercise._lab2_mismatch(rows, truth, 60) is None
-    assert "must appear once" in lab_exercise._lab2_mismatch(rows[:1], truth, 60)
+    def execute(self, sql, args):
+        k, ranks = args
+        self.rows = [{"r": r, "c": self.formula(r, k)} for r in range(1, ranks + 1)]
+
+    def fetchall(self):
+        return self.rows
+
+
+def test_contribution_grader_names_the_first_position_that_shares_a_value():
+    collapsed = _ContributionCursor(lambda rank, k: 1.0 / (k + 1))
+    failure = lab_exercise._lab2_contribution_mismatch(collapsed, "s", 60, 150)
+    assert failure is not None
+    assert failure.startswith("k=60: position 2 earns")
+    assert "1 / (60 + 2)" in failure
+
+
+def test_contribution_grader_accepts_reciprocal_rank_at_every_k():
+    correct = _ContributionCursor(lambda rank, k: 1.0 / (k + rank))
+    for k in (1, 10, 30, 60, 120):
+        assert lab_exercise._lab2_contribution_mismatch(correct, "s", k, 150) is None
 
 
 def test_recall_grader_explains_an_exact_set_served_by_the_index():

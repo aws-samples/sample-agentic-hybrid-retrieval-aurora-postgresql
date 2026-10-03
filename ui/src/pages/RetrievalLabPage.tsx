@@ -976,7 +976,7 @@ export function RetrievalLabPage() {
 
       </PlaygroundStage>
 
-      <PlaygroundStage number="03" title="Re-rank" summary="Lab 2b: compare the same pool before and after reranking. Judge a tuning proposal across labeled queries before adopting it." stale={loading && Boolean(response)}>
+      <PlaygroundStage number="03" title="Re-rank" summary="Lab 2b: compare the same pool before and after reranking. Judge three measured settings on labeled queries before changing one." stale={loading && Boolean(response)}>
         <RetrievalObservatory example={example} loading={loading} response={response} />
         <PlaygroundDisclosure label="View the complete candidate pool" hint="includes candidates outside the displayed results" onOpen={() => setPoolOpen(true)}>
           {poolOpen ? <CandidatePoolOrder response={response ?? undefined} /> : null}

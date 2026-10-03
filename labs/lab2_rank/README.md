@@ -4,7 +4,7 @@ Follow **Workshop Studio → Lab 2** beside this folder. In the participant
 workspace, this is **02 — Rank & Re-rank**. The file you edit is
 [rrf_contribution.sql](rrf_contribution.sql).
 
-**2a — Rank:** observe, diagnose and repair fusion. **2b — Re-rank:** inspect the same pool’s combined and final positions, then complete the guide’s judged-query proposal and proof. Both parts fit the existing ten-minute lab; there is one repair.
+**2a — Rank:** observe, diagnose and repair fusion. **2b — Re-rank:** inspect the same pool’s combined and final positions, then compare three measured settings on the judged queries and prove the repair. Both parts fit the existing ten-minute lab; there is one repair.
 
 ## Broken
 
@@ -30,13 +30,15 @@ default search. Keep the required repair's settings fixed.
 ## Fix
 
 Edit only the body of `mosaic_search.reciprocal_rank_contribution`, between
-`LAB2_RRF_FORMULA_START` and `LAB2_RRF_FORMULA_END`. Make it agree with the
-rank-dependent contribution in your graded query. Preserve its signature,
-`double precision` return type and supplied `rrf_k`.
+`LAB2_RRF_FORMULA_START` and `LAB2_RRF_FORMULA_END`, so that each source position
+earns its own contribution. Preserve its signature, `double precision` return type
+and supplied `rrf_k`. `uv run python scripts/lab_exercise.py check --lab 2` grades
+the applied function at the configured `k` and four other values.
 
 Lab 1's hybrid search calls this function once for each method that found a
-product. Follow the guide's judged-query exercise before deciding whether a
-retrieval setting improves the result.
+product. Before deciding whether a retrieval setting improves the result, run
+`uv run python scripts/lab_exercise.py compare --lab 2` and read its measured effect
+on the judged queries.
 
 ## Prove
 
@@ -52,7 +54,7 @@ After repeating the request and completing the guide's graded work:
 uv run python scripts/validate_lab.py --lab 2
 ```
 
-Keep your own explanation and proposal decision in `learning-notes.md`.
+Keep your own explanation and your one-sentence decision in `learning-notes.md`.
 
 <details>
 <summary>Optional after required completion: standard vs weighted RRF</summary>

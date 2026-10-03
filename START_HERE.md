@@ -66,4 +66,4 @@ Complete the guide's validation commands before moving to the next lab.
 After completion, download **Hybrid Agentic Search** from Mosaic's Playground
 page to carry the workflow and its quality checks into your own agent.
 
-The Playground has four phases across the three labs: **Retrieve → Rank → Re-rank → Reason**. Lab 2a repairs Rank; Lab 2b inspects Re-rank and judges the proposal within the same ten-minute lab. Lab 3 brings the headphones, monitor and chair together in **Complete my room**. Save that original three-product run for completion.
+The Playground has four phases across the three labs: **Retrieve → Rank → Re-rank → Reason**. Lab 2a repairs Rank; Lab 2b inspects Re-rank and compares three measured settings on judged queries within the same ten-minute lab. Lab 3 brings the headphones, monitor and chair together in **Complete my room**. Save that original three-product run for completion.

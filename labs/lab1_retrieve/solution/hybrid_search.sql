@@ -5,8 +5,8 @@
 -- search (pgvector HNSW). It fuses their ranks with the contribution Lab 2's
 -- file defines, then returns the pool the service reranks. Reranking can only
 -- reorder that pool, so a channel left out here is a product no later stage can
--- recover. The two marked blocks are Lab 1's edit; README.md beside this file
--- has the task, the commands and the reference answer.
+-- recover. The marked block in `channels` is Lab 1's edit; README.md beside this
+-- file has the task, the commands and the reference answer.
 
 -- Unit D added the `trigram_threshold` parameter. `CREATE OR REPLACE` cannot
 -- change a signature, so on an already-deployed cluster it creates an OVERLOAD
@@ -63,14 +63,11 @@ AS $$
 WITH fts AS (
     SELECT * FROM mosaic_search.search_fts(q, f, fts_limit)
 )
--- Lab 1 edit, 1 of 2: close-spelling candidates. See README.md beside this file.
--- LAB1_TRIGRAM_CTE_START
 , typo AS (
     SELECT * FROM mosaic_search.search_trigram(
         q, f, trigram_limit, trigram_threshold
     )
 )
--- LAB1_TRIGRAM_CTE_END
 , semantic AS (
     SELECT product_id, semantic_score, semantic_rank
     FROM mosaic_search.search_vector(query_embedding, f, semantic_limit)
@@ -81,14 +78,14 @@ WITH fts AS (
                fts_rank, rrf_k
            ) AS contribution
     FROM fts
--- Lab 1 edit, 2 of 2: the close-spelling channel.
--- LAB1_TRIGRAM_CHANNEL_START
+-- Lab 1 edit. See README.md beside this file.
+-- LAB1_CHANNEL_START
     UNION ALL
     SELECT product_id, 'trigram', trigram_rank,
            trigram_score,
            mosaic_search.reciprocal_rank_contribution(trigram_rank, rrf_k)
     FROM typo
--- LAB1_TRIGRAM_CHANNEL_END
+-- LAB1_CHANNEL_END
     UNION ALL
     SELECT product_id, 'vector', semantic_rank,
            semantic_score,

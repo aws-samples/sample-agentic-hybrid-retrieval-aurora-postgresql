@@ -38,7 +38,7 @@ The three repaired capabilities form the `Retrieve -> Rank -> Reason` path. The 
 
 | Lab anchor | Capability | Evidence it is live |
 |---|---|---|
-| `typo-recovery` | pg_trgm candidate arm | `labs/lab1_retrieve/hybrid_search.sql:67-73` fuses `typo AS (SELECT * FROM mosaic_search.search_trigram(...))` between the `LAB1_TRIGRAM_CTE` markers |
+| `typo-recovery` | pg_trgm candidate arm | `labs/lab1_retrieve/hybrid_search.sql` reads the `typo AS (SELECT * FROM mosaic_search.search_trigram(...))` CTE in the `channels` branch between the `LAB1_CHANNEL` markers |
 | `rank-with-evidence` | reciprocal-rank contribution | `mosaic_search.reciprocal_rank_contribution` computes `1 / (k + rank)` |
 | `agentic-research` | evidence-to-synthesis state | `service/agent_tools.get_product_evidence` records evidence IDs by product |
 

@@ -29,14 +29,12 @@ from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, solution, vali
 #: has been through JSON on the way out of a search response.
 FUNCTION_CONTRIBUTION_TOLERANCE = 1e-12
 
-#: What a participant finds in each marked block when a lab starts. The TODO
-#: lines repeat the lab guide's contract for the edit, not its answer.
-LAB1_CTE_STARTER = """-- TODO(Lab 1): add a CTE that calls mosaic_search.search_trigram with this
--- function's own q, f, trigram_limit and trigram_threshold."""
-LAB1_CHANNEL_STARTER = """-- TODO(Lab 1): add a channels branch with the five columns every other
--- branch supplies: product ID, the channel name 'trigram', its rank, its raw
--- score, and a contribution from mosaic_search.reciprocal_rank_contribution."""
-LAB2_STARTER = """-- TODO(Lab 2): return the per-method contribution your graded query uses.
+#: What a participant finds in each marked block when a lab starts. Lab 1's TODO
+#: names the symptom so that finding the lost search stays the participant's work;
+#: the others repeat the lab guide's contract for the edit, not its answer.
+LAB1_CHANNEL_STARTER = """-- TODO(Lab 1): one search's candidates never reach `channels`. Find which,
+-- then add its branch here with the same five columns as the others."""
+LAB2_STARTER = """-- TODO(Lab 2): return one source position's reciprocal-rank contribution.
 -- Keep the signature, the double precision result and the configured rrf_k.
 SELECT
     1.0::double precision
@@ -91,10 +89,9 @@ def _seam(exercise: Path, *blocks: tuple[str, str, str]) -> LabSeam:
 LABS: dict[int, LabSeam] = {
     1: _seam(
         LAB1_SQL,
-        ("-- LAB1_TRIGRAM_CTE_START", "-- LAB1_TRIGRAM_CTE_END", LAB1_CTE_STARTER),
         (
-            "-- LAB1_TRIGRAM_CHANNEL_START",
-            "-- LAB1_TRIGRAM_CHANNEL_END",
+            "-- LAB1_CHANNEL_START",
+            "-- LAB1_CHANNEL_END",
             LAB1_CHANNEL_STARTER,
         ),
     ),
@@ -205,44 +202,63 @@ def _projection(tokens: list[str]) -> list[tuple[list[str], str | None]]:
     return result
 
 
-def _lab1_matches_contract(source: str, *, schema: str = "mosaic_search") -> bool:
-    """Check the two bounded SQL blocks by their data flow, not local names.
+def _trigram_cte(tokens: list[str], schema: str) -> str | None:
+    """Name of the CTE that forwards the four production parameters to search_trigram.
 
-    The CTE must forward the four production parameters and expose the three
-    result columns; its UNION ALL branch must preserve rank, score, channel and
-    unweighted contribution. Aliases and explicit projections do not change that
-    contract. Production retrieval validation separately proves the behavior.
+    The CTE is shipped code, not the participant's edit, so it is found by its call
+    rather than by markers; it must still expose the three result columns.
     """
-    blocks = []
-    for start, end, _, _ in LABS[1][1]:
-        if source.count(start) != 1 or source.count(end) != 1:
-            return False
-        body = source.split(start, 1)[1]
-        if end not in body:
-            return False
-        blocks.append(_sql_tokens(body.split(end, 1)[0]))
-    cte, channel = blocks
-    if len(cte) < 7 or cte[0] != "," or cte[2:5] != ["as", "(", "select"]:
-        return False
-    name = cte[1]
-    if not re.fullmatch(r"[a-z_]\w*", name) or "from" not in cte[5:]:
-        return False
-    boundary = cte.index("from", 5)
-    expected_call = _sql_tokens(
-        f"{schema}.search_trigram(q, f, trigram_limit, trigram_threshold)"
-    )
-    if cte[boundary + 1 :] != [*expected_call, ")"]:
-        return False
-    columns = cte[5:boundary]
+    call = [
+        *_sql_tokens(
+            f"{schema}.search_trigram(q, f, trigram_limit, trigram_threshold)"
+        ),
+        ")",
+    ]
+    starts = [i for i in range(len(tokens)) if tokens[i : i + len(call)] == call]
+    if len(starts) != 1 or starts[0] < 1 or tokens[starts[0] - 1] != "from":
+        return None
+    boundary = starts[0] - 1
+    heads = [
+        i for i in range(2, boundary) if tokens[i : i + 3] == ["as", "(", "select"]
+    ]
+    if not heads or tokens[heads[-1] - 2] != ",":
+        return None
+    head = heads[-1]
+    name = tokens[head - 1]
+    if not re.fullmatch(r"[a-z_]\w*", name):
+        return None
+    columns = tokens[head + 3 : boundary]
     if columns != ["*"]:
         projected = _projection(columns)
         required = {"product_id", "trigram_rank", "trigram_score"}
         if len(projected) != len(required) or {
             tuple(expression) for expression, _ in projected
         } != {(column,) for column in required}:
-            return False
+            return None
         if any(alias not in {None, expression[0]} for expression, alias in projected):
-            return False
+            return None
+    return name
+
+
+def _lab1_matches_contract(source: str, *, schema: str = "mosaic_search") -> bool:
+    """Check the close-spelling path by its data flow, not local names.
+
+    The shipped CTE must forward the four production parameters and expose the
+    three result columns; the participant's UNION ALL branch must read it and
+    preserve rank, score, channel and unweighted contribution. Aliases and explicit
+    projections do not change that contract. Production retrieval validation
+    separately proves the behavior.
+    """
+    ((start, end, _, _),) = LABS[1][1]
+    if source.count(start) != 1 or source.count(end) != 1:
+        return False
+    body = source.split(start, 1)[1]
+    if end not in body:
+        return False
+    channel = _sql_tokens(body.split(end, 1)[0])
+    name = _trigram_cte(_sql_tokens(source), schema)
+    if name is None:
+        return False
     if channel[:3] != ["union", "all", "select"] or channel[-2:] != ["from", name]:
         return False
     outputs = [expression for expression, _ in _projection(channel[3:-2])]
@@ -354,7 +370,7 @@ def _lab_1_database_state(connection: Any) -> LabDatabaseState:
                 f"the installed {schema}.search_hybrid_rrf does not connect "
                 "search_trigram(q, f, trigram_limit, trigram_threshold) to the "
                 "trigram channel with its source rank, score and RRF contribution",
-                f"repair both Lab 1 blocks and apply it with {APPLY_SQL}",
+                f"complete the Lab 1 block and apply it with {APPLY_SQL}",
             )
         ),
     )

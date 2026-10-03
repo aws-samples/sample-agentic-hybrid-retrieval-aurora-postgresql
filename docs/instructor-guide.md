@@ -113,7 +113,7 @@ HNSW / Session & Memory tabs beside them, are the session, and move on.
 Show the missed product first and collect a prediction. Leave the disconnected
 path and its repair for Lab 1's diagnosis.
 
-### Lab 1 - Fix broken retrieval
+### Lab 1 - Debug hybrid search
 
 FTS is strong when words and identifiers exist. `pg_trgm` recovers nearby
 strings. HNSW expands semantic intent. SQL predicates and JSONB filters decide
@@ -130,7 +130,7 @@ with brand/category filters. Inspect both served rows and the complete saved
 pool. An approximate vector scan can obey every SQL filter and still miss
 qualifying rows; candidate count and eligibility are different checks.
 
-### Lab 2 - Fix broken ranking
+### Lab 2 - Tune rank fusion and reranking
 
 RRF combines independent rank positions without pretending raw FTS, trigram,
 and vector scores share a scale. Cohere Rerank operates on the bounded fused
@@ -159,9 +159,10 @@ Participants extend their SQL from Labs 1 and 2. They list the Gateway tools,
 complete `create_agent` in `labs/lab3_reason/agent.py`, add one source-aware instruction,
 and run `uv run python scripts/deploy_agentcore.py deploy`. The managed services and networking are prepared.
 
-Show the deployment message, then ask the ViewSonic monitor and Steelcase Gesture
-question in Playground → Reason. Open a citation and compare the claim with its
-source. Follow up in Ask Mosaic with a 100W laptop-charging requirement; the
+Show the deployment message, then ask **Complete my room** in Playground → Reason.
+The agent searches for Alex's missing chair and brings it together with his Bose
+headphones and ViewSonic monitor. Open a citation and compare the recommendation
+with its source. Follow up in Ask Mosaic with a 100W laptop-charging requirement; the
 monitor's 90W record must not be presented as meeting 100W.
 
 Participants build and use the agent. They do not write tests or a claims query.

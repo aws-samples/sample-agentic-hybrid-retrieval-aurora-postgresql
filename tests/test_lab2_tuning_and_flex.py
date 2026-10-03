@@ -1,8 +1,8 @@
-"""Proposal and flex grading must judge decisions, not reward cheap passes.
+"""Lab 2's tuning comparison and the flex grader must measure, not reward cheap passes.
 
-These run without Aurora: they pin the proposal budget and decision rule, the
-arithmetic the proposal grader uses, the committed cache's coverage, and the
-flex grader's statement checks and tiers.
+These run without Aurora: they pin the derived comparison and its budget, the
+arithmetic it uses, the committed cache's coverage, and the flex grader's statement
+checks and tiers.
 """
 
 import json
@@ -10,89 +10,87 @@ from pathlib import Path
 
 import pytest
 
-from scripts import cache_lab2_arms, flex_exercise, lab2_proposal
+from scripts import cache_lab2_arms, flex_exercise, lab2_tuning
 from scripts.lab_exercise import ExerciseError
+from service.models import RetrievalProfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VALID = {
-    "change": {"fused_limit": 75},
-    "criterion": {"min_exact_gain": 10, "max_queries_worse": 0},
-    "decision": "adopt",
-    "reason": "More Exact products reach the reranker within one billed unit.",
-}
 
 
-@pytest.mark.parametrize(
-    ("change", "message"),
-    [
-        ({"fused_limit": 75, "rrf_k": 120}, "exactly one setting"),
-        ({"fused_limit": 150}, "outside the budget"),
-        ({"semantic_limit": 1000}, "outside the budget"),
-        ({"weight_lexical": 2}, "change one of"),
-        ({"rrf_k": "120"}, "change one of"),
-    ],
-)
-def test_a_proposal_changes_one_setting_within_budget(change, message):
-    with pytest.raises(lab2_proposal.ProposalError, match=message):
-        lab2_proposal.validate({**VALID, "change": change})
-
-
-@pytest.mark.parametrize(
-    ("field", "value", "message"),
-    [
-        ("criterion", {"min_exact_gain": 1}, "criterion must state"),
-        ("decision", "maybe", "adopt"),
-        ("reason", " ", "reason"),
-    ],
-)
-def test_a_proposal_states_its_rule_decision_and_reason(field, value, message):
-    with pytest.raises(lab2_proposal.ProposalError, match=message):
-        lab2_proposal.validate({**VALID, field: value})
-
-
-def test_the_budget_is_one_billed_rerank_unit():
-    assert lab2_proposal.SETTINGS["fused_limit"][1] == 100
-    assert lab2_proposal.PRODUCTS_PER_SEARCH_UNIT == 100
-
-
-def comparison(baseline: int, proposed: int, worse: int) -> dict:
+def served_baseline() -> dict[str, int]:
+    profile = RetrievalProfile()
     return {
-        "exact_in_cutoff": {"baseline": baseline, "proposed": proposed},
-        "queries_worse": worse,
+        key: getattr(profile, key)
+        for key in (
+            "rrf_k",
+            "fused_limit",
+            "fts_limit",
+            "trigram_limit",
+            "semantic_limit",
+        )
     }
 
 
-def test_the_decision_follows_the_stated_rule_in_both_directions():
-    rule = {"min_exact_gain": 10, "max_queries_worse": 0}
+def test_comparison_changes_are_derived_from_the_served_profile():
+    baseline = served_baseline()
+    changes = {
+        (setting, value) for _, setting, value in lab2_tuning.candidates(baseline)
+    }
 
-    assert lab2_proposal.expected_decision(comparison(168, 192, 0), rule) == "adopt"
-    assert lab2_proposal.expected_decision(comparison(168, 173, 0), rule) == "reject"
-    assert lab2_proposal.expected_decision(comparison(168, 192, 1), rule) == "reject"
+    assert ("rrf_k", baseline["rrf_k"] * 2) in changes
+    assert ("rrf_k", baseline["rrf_k"] // 2) in changes
+    longer = round(baseline["fused_limit"] * 3 / 2)
+    assert ("fused_limit", min(longer, lab2_tuning.MAX_RERANK_PRODUCTS)) in changes
+
+
+def test_the_longer_shortlist_stays_within_one_billed_rerank_unit():
+    assert lab2_tuning.MAX_RERANK_PRODUCTS == 100
+    assert lab2_tuning.PRODUCTS_PER_SEARCH_UNIT == 100
+    for _, setting, value in lab2_tuning.candidates(served_baseline()):
+        if setting == "fused_limit":
+            assert value <= lab2_tuning.MAX_RERANK_PRODUCTS
 
 
 def test_fusion_reads_only_the_prefix_a_smaller_limit_allows():
     lists = {"fts": [[5, 1], [3, 2]], "trigram": [], "vector": [[3, 1], [9, 2]]}
 
-    full = lab2_proposal.fuse(lists, 60, {"fts": 2, "trigram": 1, "vector": 2})
-    trimmed = lab2_proposal.fuse(lists, 60, {"fts": 1, "trigram": 1, "vector": 1})
+    full = lab2_tuning.fuse(lists, 60, {"fts": 2, "trigram": 1, "vector": 2})
+    trimmed = lab2_tuning.fuse(lists, 60, {"fts": 1, "trigram": 1, "vector": 1})
 
     assert full == [3, 5, 9]
     assert trimmed == [3, 5]
 
 
 def test_sign_test_is_two_sided_and_capped():
-    assert lab2_proposal.sign_test(0, 0) == 1.0
-    assert lab2_proposal.sign_test(4, 0) == pytest.approx(0.125)
-    assert lab2_proposal.sign_test(3, 3) == 1.0
+    assert lab2_tuning.sign_test(0, 0) == 1.0
+    assert lab2_tuning.sign_test(4, 0) == pytest.approx(0.125)
+    assert lab2_tuning.sign_test(3, 3) == 1.0
 
 
-def test_cache_covers_every_judged_query_at_the_largest_allowed_limits():
+def test_comparison_measures_every_change_on_the_judged_queries(monkeypatch):
+    monkeypatch.setattr(lab2_tuning, "verify_cache", lambda *_: {"live_spot_checks": 0})
+    table = lab2_tuning.comparison_table(None, served_baseline())
+
+    assert [row["label"] for row in table["rows"]] == [
+        label for label, _, _ in lab2_tuning.candidates(served_baseline())
+    ]
+    shortlist = next(row for row in table["rows"] if "fused_limit" in row["change"])
+    # A longer cutoff over the same fused order can only add exact matches.
+    assert shortlist["exact_gain"] >= 0
+    assert shortlist["queries_worse"] == 0
+    for row in table["rows"]:
+        assert row["billed_search_units_per_query"] == 1
+        assert 0 <= row["sign_test_p"] <= 1
+
+
+def test_cache_covers_every_judged_query_at_the_served_limits():
     cache = json.loads((ROOT / "data/evals/lab2_search_cache.json").read_text())
     subset = json.loads((ROOT / "data/evals/esci_judged_subset.json").read_text())
+    baseline = served_baseline()
 
     assert set(cache["queries"]) == {str(q["query_id"]) for q in subset["queries"]}
-    for setting, arm in lab2_proposal.ARM_OF.items():
-        assert lab2_proposal.SETTINGS[setting][1] <= cache["limits"][arm]
+    for setting, arm in lab2_tuning.ARM_OF.items():
+        assert baseline[setting] <= cache["limits"][arm]
     assert len(cache["chair_controls"]) == 4
 
 
@@ -114,13 +112,13 @@ def test_cache_source_identity_includes_live_price_filtering(monkeypatch):
         {key: key for key in prepare_live_catalog._FILTER_PRICE},
     )
     assert cache_lab2_arms.cache_source_sha256() != current
-    with pytest.raises(lab2_proposal.ProposalError, match="cached source_sha256"):
-        lab2_proposal.verify_cache(None, {"source_sha256": current}, {}, {}, {})
+    with pytest.raises(lab2_tuning.TuningError, match="cached source_sha256"):
+        lab2_tuning.verify_cache(None, {"source_sha256": current}, {})
 
 
-def test_proposal_refuses_a_cache_from_another_source_before_querying_aurora():
-    with pytest.raises(lab2_proposal.ProposalError, match="cached source_sha256"):
-        lab2_proposal.verify_cache(None, {"source_sha256": "old"}, {}, {}, {})
+def test_comparison_refuses_a_cache_from_another_source_before_querying_aurora():
+    with pytest.raises(lab2_tuning.TuningError, match="cached source_sha256"):
+        lab2_tuning.verify_cache(None, {"source_sha256": "old"}, {})
 
 
 def test_cached_search_lists_use_the_production_hnsw_configuration():

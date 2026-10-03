@@ -47,7 +47,7 @@ the file the repair belongs in. Completion is never inferred from having
 visited a page -- only `POST /api/labs/{id}/proof`, run from the Prove stage,
 can mark a lab passed.
 
-## Lab 1 - Fix broken retrieval
+## Lab 1 - Debug hybrid search
 
 Goal: construct the right candidate universe before deciding the winner.
 
@@ -75,7 +75,7 @@ deliberately not presented as an embeddings success. On the measured
 The question participants must answer is: **why is seeing the correct product
 not enough to declare retrieval healthy?**
 
-## Lab 2 - Fix broken ranking
+## Lab 2 - Tune rank fusion and reranking
 
 Goal: put the right candidates in the right order without hiding the ranking
 decisions.
