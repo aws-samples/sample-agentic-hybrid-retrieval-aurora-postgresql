@@ -157,6 +157,8 @@ class RetrievalService:
         # Default False: the served path is unweighted until an explicit ruling.
         self.use_weighted_fusion = use_weighted_fusion
         self._query_embedding_cache: OrderedDict[str, tuple[float, ...]] = OrderedDict()
+        # Sync routes run on a thread pool; the cache's get/move/evict is not atomic.
+        self._query_embedding_lock = threading.Lock()
 
     def _embedder(self) -> EmbeddingProvider:
         if self.embedding_provider is None:
@@ -184,15 +186,22 @@ class RetrievalService:
         otherwise identical calls. Reusing the first vector keeps workshop
         ranking fixtures repeatable without changing SQL ranking semantics.
         """
-        cached = self._query_embedding_cache.get(normalized_query)
-        if cached is not None:
-            self._query_embedding_cache.move_to_end(normalized_query)
-            return cached
+        with self._query_embedding_lock:
+            cached = self._query_embedding_cache.get(normalized_query)
+            if cached is not None:
+                self._query_embedding_cache.move_to_end(normalized_query)
+                return cached
 
         embedded = tuple(self._embedder().embed_query(normalized_query))
-        self._query_embedding_cache[normalized_query] = embedded
-        if len(self._query_embedding_cache) > 256:
-            self._query_embedding_cache.popitem(last=False)
+        with self._query_embedding_lock:
+            # A concurrent caller may have embedded the same query; the first
+            # vector wins so repeated requests stay identical.
+            embedded = self._query_embedding_cache.setdefault(
+                normalized_query, embedded
+            )
+            self._query_embedding_cache.move_to_end(normalized_query)
+            if len(self._query_embedding_cache) > 256:
+                self._query_embedding_cache.popitem(last=False)
         return embedded
 
     def embed_query(self, query: str) -> list[float]:
@@ -207,8 +216,9 @@ class RetrievalService:
         runs while every retrieval input stays the same.
         """
         normalized = normalize_query(query)
-        self._query_embedding_cache[normalized] = vector
-        self._query_embedding_cache.move_to_end(normalized)
+        with self._query_embedding_lock:
+            self._query_embedding_cache[normalized] = vector
+            self._query_embedding_cache.move_to_end(normalized)
 
     def _profile(self, request: SearchRequest) -> RetrievalProfile:
         settings = self.settings

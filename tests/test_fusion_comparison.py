@@ -507,3 +507,38 @@ def test_an_unrepaired_lab_1_is_named_rather_than_blamed_on_drift():
     assert not any(
         "FROM mosaic_search.search_hybrid_rrf" in sql for sql in connection.executed_sql
     ), "the comparison must stop before fusing either pool"
+
+
+def test_query_embedding_cache_survives_concurrent_sync_routes():
+    """FastAPI runs sync routes on a thread pool; get/move_to_end/evict must not race."""
+    import sys
+    import threading
+
+    class FastEmbedder:
+        def embed_query(self, query: str) -> list[float]:
+            return [float(len(query))]
+
+    retrieval = RetrievalService(embedding_provider=FastEmbedder())
+    errors: list[BaseException] = []
+
+    def hammer(offset: int) -> None:
+        try:
+            for step in range(3000):
+                retrieval.embed_query(f"query {(offset + step) % 700}")
+                retrieval.embed_query("query 0")
+        except BaseException as error:
+            errors.append(error)
+
+    previous = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)
+    try:
+        threads = [threading.Thread(target=hammer, args=(n * 97,)) for n in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    finally:
+        sys.setswitchinterval(previous)
+
+    assert errors == []
+    assert len(retrieval._query_embedding_cache) <= 256
