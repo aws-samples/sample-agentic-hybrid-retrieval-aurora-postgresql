@@ -16,9 +16,11 @@ from strands.models import BedrockModel
 from service import agent_tools
 from service.access_control import release_model_admission_slot
 from service.agent_setup import (
+    AGENT_HOOKS_MESSAGE,
     AGENT_STARTER_MESSAGE,
     AGENT_TOOLS_MESSAGE,
     AgentSetupError,
+    agent_code_message,
 )
 from service.bedrock import client_config
 from service.config import get_settings
@@ -203,8 +205,10 @@ class _ToolCallBudget:
     def __init__(self, limit: int) -> None:
         self.limit = limit
         self.used = 0
+        self.registered = False
 
     def register_hooks(self, registry: HookRegistry, **_: Any) -> None:
+        self.registered = True
         registry.add_callback(BeforeToolCallEvent, self._before_tool_call)
 
     def _before_tool_call(self, event: BeforeToolCallEvent) -> None:
@@ -285,27 +289,40 @@ def _bedrock_model(model_id: str, region: str) -> BedrockModel:
     return model
 
 
-def build_agent(*, max_tool_calls: int = 10) -> Agent:
-    from labs.lab3_reason.agent import create_agent
+def _load_create_agent():
+    """Import the participant's agent module, naming a mistake in the file itself."""
+    try:
+        from labs.lab3_reason.agent import create_agent
+    except (SyntaxError, ImportError) as error:
+        raise AgentSetupError(agent_code_message(error)) from error
+    return create_agent
 
+
+def build_agent(*, max_tool_calls: int = 10) -> Agent:
+    create_agent = _load_create_agent()
     settings = get_settings()
     if not settings.agent_model_id:
         raise RuntimeError(
             "BEDROCK_AGENT_MODEL_ID or BEDROCK_CHAT_MODEL_ID is not configured"
         )
     model = _bedrock_model(settings.agent_model_id, settings.aws_region)
+    budget = _ToolCallBudget(max_tool_calls)
     try:
         agent = create_agent(
             model=model,
             tools=list(agent_tools.TOOL_FUNCTIONS),
             instructions=catalog_system_prompt(),
-            hooks=[_ToolCallBudget(max_tool_calls)],
+            hooks=[budget],
         )
-    except (NotImplementedError, TypeError, NameError) as error:
+    except NotImplementedError as error:
         raise AgentSetupError(AGENT_STARTER_MESSAGE) from error
+    except (TypeError, NameError, SyntaxError, ImportError) as error:
+        raise AgentSetupError(agent_code_message(error)) from error
     required_tools = {tool.tool_name for tool in agent_tools.TOOL_FUNCTIONS}
     if not required_tools <= set(agent.tool_names):
         raise AgentSetupError(AGENT_TOOLS_MESSAGE)
+    if not budget.registered:
+        raise AgentSetupError(AGENT_HOOKS_MESSAGE)
     return agent
 
 
