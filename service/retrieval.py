@@ -9,7 +9,9 @@ exactly which arm contributed which candidate.
 from __future__ import annotations
 
 import json
+import logging
 import re
+import threading
 import time
 from collections import OrderedDict
 from collections.abc import Callable
@@ -35,6 +37,8 @@ from service.models import (
     SourceAttribution,
 )
 from service.rerank import Reranker, get_reranker, validate_rerank_results
+
+logger = logging.getLogger(__name__)
 
 # The served fusion method, named so the UI can label what actually ran instead
 # of hardcoding a claim. `search_hybrid_rrf` is unweighted; if the default is ever
@@ -429,11 +433,16 @@ class RetrievalService:
                         for index, score in reranked
                     }
                     rerank_status = "applied"
-                except Exception:
+                except Exception as error:
                     if self.settings.rerank_required:
                         raise
+                    error_type = type(error).__name__
+                    logger.warning("rerank failed: error_type=%s", error_type)
                     rerank_status = "unavailable"
-                    warnings.append("Reranker unavailable; results are in fused order.")
+                    warnings.append(
+                        f"Reranker unavailable ({error_type}); "
+                        "results are in fused order."
+                    )
                 stage_timings["rerank"] = round(
                     (time.perf_counter() - rerank_started) * 1000, 3
                 )
