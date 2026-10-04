@@ -137,7 +137,9 @@ export function labNextStep(state: LabStateFacts | null): string | null {
   if (state.database_state === "stale") {
     return `Next: apply your repair with ${APPLY_SQL}, then run completion proof.`;
   }
+  // Nothing reports whether the deployed agent matches the file, so the advice
+  // is conditional rather than an order to deploy a second time.
   return state.database_state === "not_applicable"
-    ? `Next: deploy it with ${DEPLOY_AGENT}, then run completion proof.`
+    ? `Deploy if you have not since your last edit: ${DEPLOY_AGENT}. Then run completion proof.`
     : "Next: run completion proof to check the behavior.";
 }

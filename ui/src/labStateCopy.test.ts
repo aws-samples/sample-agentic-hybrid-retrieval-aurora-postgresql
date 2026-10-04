@@ -88,4 +88,11 @@ describe("labNextStep", () => {
     expect(labNextStep(state("solved", "stale"))).toContain(APPLY_SQL);
     expect(labNextStep(state("solved", "applied"))).toMatch(/completion proof/);
   });
+
+  it("does not tell a deployed Lab 3 to deploy it again", () => {
+    const next = labNextStep(state("solved", "not_applicable"));
+    expect(next).toContain(DEPLOY_AGENT);
+    expect(next).toMatch(/if you have not since your last edit/i);
+    expect(next).not.toMatch(/^Next: deploy it/);
+  });
 });
