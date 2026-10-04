@@ -35,7 +35,9 @@ digests prevent a stale deployed reference from completing the exercise.
 Each lab has Scenario and objectives, Architecture and concepts, Tasks,
 Conclusion and takeaways, Troubleshooting and Next. Labs 1 and 2 use Observe,
 Diagnose, Repair and Prove. Lab 3 uses Connect tools, Build the agent, Deploy and
-Use it. Reference explanations stay in collapsible sections.
+Use it. Required steps state the command or edit, what to inspect and how to prove it.
+Reference explanations and optional extensions stay in collapsible sections;
+the lab READMEs are reminders, not a second full walkthrough.
 
 Errors name the file or command to fix. Completion messages explain what now
 works and point to the next action. Hint 4 restores working code; participants
@@ -43,8 +45,8 @@ still complete the build's instruction, deployment and product conversation.
 
 ## Evidence and acceptance
 
-Lab 1 checks the close-spelling contribution and filters, then independently
-computes vector recall. Lab 2 compares participant RRF with an independent
+Lab 1 checks the close-spelling contribution and filters. Its optional vector
+recall exercise computes exact neighbors independently. Lab 2 compares participant RRF with an independent
 calculation at five values of `k`; the proposed setting is evaluated on judged
 queries. These developer checks remain part of the SQL labs.
 

@@ -26,7 +26,12 @@ and observed result; ask for a hint before a full recovery.
 You do not need to install dependencies or start a database or server during
 the workshop. Follow the guide's commands as you move through the labs.
 
+<details>
+<summary>📷 Mosaic and Alex's home office</summary>
+
 ![Mosaic introduces Alex and his home-office needs](docs/images/mosaic-discover.png)
+
+</details>
 
 ## What you will build
 
@@ -55,63 +60,26 @@ reference answer in `solution/`. Solution folders are hidden from the default
 Explorer view. When a lab starts, its
 marked blocks hold a `TODO(Lab n)` note that repeats the guide's contract.
 
-Use **Shop** to meet Alex and to search and compare products, and **Playground**
-to inspect search results, ranking, tool calls, and sources. Shop opens on its
-search and a browsable workspace shelf, with category links and **Browse all
-products** above Alex's brief and the three editorial bands. A search
-replaces the story with ranked results: the first as a feature, the rest as rows
-with their positions.
-Playground exposes four phases across three labs. **Focus at home** runs the deck’s exact headphone query and follows the same Logitech Zone 900 headphones that Labs 1 and 3 use. The retrieval pills run exact requests; **Reason** asks about the same need and preserves the original search alongside the agent’s focused searches. **Complete my room** uses Lab 3’s canonical three-product request. A compact summary
-links each final choice to its search; **Trace all returned products** shows
-search positions, comparisons, evidence read, and inclusion in the answer.
-Retrieve, Rank and Re-rank inspect one selected search, whose first result is explicitly
-labelled by search and position. Re-rank can inspect the complete saved candidate pool, including products outside the displayed result window. The agent's cited answer appears beside its
-sources; search records and interpretation expand when needed. When a lab's request fails,
-every surface says what is missing, why, and the one command to run next. On Shop,
-Lab 1's failure is a card for the missing product with numbered steps back to it.
-On Shop, **Why this match** itemizes how each result was found and ranked, and
-product pages show the specifications a listing states beside the listing text
-they came from. In **Session & Memory**, follow the linked steps to save a
-preference, inspect its extraction, and ask in a new session. Recalled preferences
-inform both retrieval and the final answer check; product claims still require
-fresh evidence. **Start fresh** creates a new Alex and restores the lab's monitor
-preference and original question. On **Scale & HNSW**, **How HNSW finds neighbors** builds a real HNSW
-index in the browser over a small product map: choose a request, the search effort
-(`ef_search`) and links per product (`m`), then watch the descent through the layers,
-the distance checks and the recall against an exact search. Request failures appear beside the question; completed answers
-stay visible while history refreshes. **Ask Mosaic** shows its search, comparison and source activity as it runs, with
-compact summaries and expandable evidence. Its answer leads with the best pick's photo, then a
-side-by-side table in which each value shows whether the listing, its title, or a
-review states it, with source numbers, then the cited answer and what its
-sources leave unknown. Mosaic follows your device's light or dark appearance; the
-header button switches it.
+Use **Shop** for product search and **Playground** for saved candidates,
+ranking, tool calls and cited sources. **Complete my room** runs Lab 3's
+three-product request. Keep its original run ID for completion.
 
-Every command in the guides is a `uv run` script in the Code Editor terminal.
-Begin each lab with `uv run python scripts/lab_state.py start --lab N`. It saves
-the lab's failing request; for Labs 2 and 3 it also installs that lab's fault,
-once, and keeps your earlier repairs. Run it again after an interruption and it
-finishes the missing step without reinstalling the fault over your edits. Until
-you start them, Labs 2 and 3 read **Not started**: the checkout ships them
-repaired, so their code is the workshop's reference, not your work. Lab 2 needs
-your Lab 1 repair applied, and Lab 3 needs both; a start that finds one missing
-says how to finish it and changes nothing.
+The guide presents the essential actions in order, with reference material and
+optional exercises collapsed. Each lab README is a short reminder beside the
+file you edit. Start each lab with
+`uv run python scripts/lab_state.py start --lab N`: it saves the failing request,
+installs that lab's fault once and preserves earlier repairs. An interrupted
+start resumes without overwriting edits. Finish and apply earlier repairs first.
 
-Lab 2's exercise check requires both the repaired contribution function and a
-saved search whose fusion scores agree with it and include the target. If the
-saved run is stale, repeat the guide's after request before checking again.
-Agent answers require cited support for device compatibility; a USB-C port or
-power figure alone cannot establish that a monitor will charge Alex's laptop.
-Headphone connectivity that lists only USB leaves wireless status unknown;
-USB can describe charging as well as an audio connection.
+After editing, apply SQL or deploy the agent, repeat the same request, and run
+the guide's checks. Keep your predictions and explanations in
+`learning-notes.md`. A plausible result or successful deployment alone is not
+completion. Source records must support product claims; a USB-C port alone
+does not establish laptop charging compatibility.
 
-`uv run python scripts/lab_state.py reset --lab N` discards only that lab's
-edits and restores its starter. `uv run python scripts/lab_state.py solution
---lab N` overwrites that lab with the reference repair; it is a recovery route,
-not a completion. A lab is complete when its own check passes.
-
-Keep your predictions and explanations in Code Editor's `learning-notes.md`.
-Save the before-and-after searches, and complete each lab's checks before moving
-on. A plausible product or answer alone does not show that the repair worked.
+Use the guide's hints for recovery. Reset discards the selected lab's edits;
+the solution action replaces them with the reference answer. Both still need
+the lab's proof. Optional Memory and HNSW exercises follow completion.
 
 ## How the search works
 

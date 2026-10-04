@@ -1,54 +1,42 @@
 # Lab 1: Retrieve
 
-Follow **Workshop Studio → Lab 1** beside this folder. In the participant
-workspace, this is **01 — Retrieve**. The file you edit is
-[hybrid_search.sql](hybrid_search.sql).
+Follow **Workshop Studio → Lab 1** for the exact requests, SQL investigation,
+hints and complete checks. This is the reminder beside your code.
 
 ## Broken
 
-Run the guide's start command and repeat its exact request and filters. Keep the
-saved result: a plausible headphone can appear while Alex's intended listing
-is missing. Record your prediction in `learning-notes.md` at the repository root.
+Start Lab 1 in the guide. Save its failed request and predict why Alex’s listing is absent in `learning-notes.md`.
 
 ## Diagnose
 
-Follow the candidate path in the saved search. Run each of the three searches on
-its own: which one finds the intended listing, and do its candidates reach fusion?
-Reranking can only reorder products retrieval returned. The guide supplies the
-request, checkpoints and hints; keep those beside the code.
+Run the guide’s three searches separately. Which finds the listing, and do its candidates reach fusion? Reranking cannot recover a candidate it never receives.
 
 ## Fix
 
-Edit only `mosaic_search.search_hybrid_rrf`, between `LAB1_CHANNEL_START` and
-`LAB1_CHANNEL_END`. Add the `channels` branch for the search whose candidates never
-reach fusion, with the five columns every other branch supplies: product ID, the
-channel name the receipt uses, its position, its raw score and its contribution
-from `mosaic_search.reciprocal_rank_contribution`. The full-text and vector
-branches show the shape.
+In [hybrid_search.sql](hybrid_search.sql), edit only `LAB1_CHANNEL_START`
+through `LAB1_CHANNEL_END`. Add the missing `channels` branch with five columns:
+product ID, channel name, position, raw score and contribution from
+`mosaic_search.reciprocal_rank_contribution`. Preserve filters and settings.
 
 ## Prove
 
-Apply the SQL, repeat the identical request, then validate:
+Apply SQL, repeat the guide's identical request, then validate:
 
 ```bash
 uv run python scripts/apply_search_functions.py
-```
-
-After repeating the request with the same filters:
-
-```bash
+uv run python scripts/lab_terminal.py run --lab 1 --phase after
 uv run python scripts/validate_lab.py --lab 1
 ```
 
-Finish the guide's checks and write your own explanation in `learning-notes.md`.
-Editing the file alone does not change Aurora.
+Inspect the recovered listing's close-spelling contribution and the independent
+controls. Complete the guide's source/applied-state check and your explanation.
+
 
 <details>
-<summary>Recovery and reference answer</summary>
+<summary>🛠️ Recovery and reference answer</summary>
 
-The [reference answer](solution/hybrid_search.sql) is available when you want
-full recovery. `uv run python scripts/lab_state.py solution --lab 1`
-overwrites the exercise with that answer. Follow the guide to apply and prove it;
-recovery alone is not completion.
+The [reference answer](solution/hybrid_search.sql) is available for full recovery.
+`uv run python scripts/lab_state.py solution --lab 1` overwrites this lab's
+edit. Follow the guide to apply/deploy and prove it; recovery is not completion.
 
 </details>

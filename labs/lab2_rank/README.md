@@ -1,79 +1,54 @@
 # Lab 2: Rank and Re-rank
 
-Follow **Workshop Studio → Lab 2** beside this folder. In the participant
-workspace, this is **02 — Rank & Re-rank**. The file you edit is
-[rrf_contribution.sql](rrf_contribution.sql).
-
-**2a — Rank:** observe, diagnose and repair fusion. **2b — Re-rank:** inspect the same pool’s combined and final positions, then compare three measured settings on the judged queries and prove the repair. Both parts fit the existing ten-minute lab; there is one repair.
+Follow **Workshop Studio → Lab 2** for the exact requests, SQL investigation,
+hints and complete checks. This is the reminder beside your code.
 
 ## Broken
 
-Start the lab in the guide's order. The candidate lists can contain useful
-products while the combined order keeps Alex's intended monitor outside the
-reranking pool. Keep the failing request and your prediction in
-`learning-notes.md` at the repository root.
+Start Lab 2 after Lab 1 passes. Save the failure: a suitable monitor misses the reranking pool. Record your prediction in `learning-notes.md`.
 
 ## Diagnose
 
-Compare products with different source positions. If every position contributes
-the same amount, what decides which products reach the reranker?
-
-The default path uses **standard, equal-weight reciprocal rank fusion**. Each
-method contributes according to its product's position; a method that did not
-find the product contributes nothing. Raw full-text, spelling and vector scores
-are not added together. Cohere Rerank operates on the fused shortlist afterward.
-
-`db/config/retrieval.yaml` owns `k` and the candidate bounds. It also contains
-weights for a separate comparison; those channel weights are not used by the
-default search. Keep the required repair's settings fixed.
+Compare saved source positions and contributions. If different positions earn the same contribution, what chooses the cutoff? Standard, equal-weight RRF uses positions, not raw search scores.
 
 ## Fix
 
-Edit only the body of `mosaic_search.reciprocal_rank_contribution`, between
-`LAB2_RRF_FORMULA_START` and `LAB2_RRF_FORMULA_END`, so that each source position
-earns its own contribution. Preserve its signature, `double precision` return type
-and supplied `rrf_k`. `uv run python scripts/lab_exercise.py check --lab 2` grades
-the applied function at the configured `k` and four other values.
-
-Lab 1's hybrid search calls this function once for each method that found a
-product. Before deciding whether a retrieval setting improves the result, run
-`uv run python scripts/lab_exercise.py compare --lab 2` and read its measured effect
-on the judged queries.
+In [rrf_contribution.sql](rrf_contribution.sql), edit only
+`LAB2_RRF_FORMULA_START` through `LAB2_RRF_FORMULA_END`. Make each source
+position earn its own contribution. Preserve the signature, `double precision`
+result and configured `rrf_k`. This is **2a — Rank**.
 
 ## Prove
 
-Apply the SQL, repeat the identical request, then validate:
+For **2b — Re-rank**, apply SQL, repeat the identical request and grade:
 
 ```bash
 uv run python scripts/apply_search_functions.py
-```
-
-After repeating the request and completing the guide's graded work:
-
-```bash
+uv run python scripts/lab_terminal.py run --lab 2 --phase after
+uv run python scripts/lab_exercise.py check --lab 2
+uv run python scripts/lab_exercise.py compare --lab 2
 uv run python scripts/validate_lab.py --lab 2
 ```
 
-Keep your own explanation and your one-sentence decision in `learning-notes.md`.
+Inspect combined and final positions. Complete the guide's source/applied-state
+check and controls. Write which setting you would ship and why in `learning-notes.md`.
+The comparison leaves served settings unchanged; use its judged results.
 
 <details>
-<summary>Optional after required completion: standard vs weighted RRF</summary>
+<summary>🔍 Optional after required completion: standard vs weighted RRF</summary>
 
-The Rank guide's **Go deeper: standard vs weighted RRF** expander compares the
-same candidates with both formulas. It shows the configured channel weights,
-changes in fused position and what those changes do not establish. The
-[implementation notes](../../docs/fusion-rerank.md#optional-standard-vs-weighted-rrf)
-explain the comparison endpoint. This exploration does not switch the default
-or replace the required Lab 2 checks.
+Use the Rank guide's collapsed comparison, or read the
+[implementation notes](../../docs/fusion-rerank.md#optional-standard-vs-weighted-rrf).
+It compares the same candidates without changing default settings or replacing proof.
 
 </details>
 
-<details>
-<summary>Recovery and reference answer</summary>
 
-The [reference answer](solution/rrf_contribution.sql) is available when you want
-full recovery. `uv run python scripts/lab_state.py solution --lab 2`
-overwrites the exercise with that answer. Follow the guide to apply and prove it;
-recovery alone is not completion.
+<details>
+<summary>🛠️ Recovery and reference answer</summary>
+
+The [reference answer](solution/rrf_contribution.sql) is available for full recovery.
+`uv run python scripts/lab_state.py solution --lab 2` overwrites this lab's
+edit. Follow the guide to apply/deploy and prove it; recovery is not completion.
 
 </details>

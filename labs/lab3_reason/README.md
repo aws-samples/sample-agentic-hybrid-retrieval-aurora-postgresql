@@ -1,66 +1,50 @@
 # Lab 3: Reason
 
-Build and deploy an agent that helps Alex complete his home office. Labs 1 and 2
-found his headphones and monitor; here your agent finds his chair with the same
-SQL, brings the three choices together and responds when his requirements change.
-Its recommendations must be supported by the product records. Follow
-**Workshop Studio → Lab 3** beside this folder. In the participant workspace,
-this is **03 — Reason**. The file you edit is [agent.py](agent.py).
+Follow **Workshop Studio → Lab 3** for the exact requests, SQL investigation,
+hints and complete checks. This is the reminder beside your code.
 
 ## Broken
 
-Start the lab after completing Retrieve, Rank and Re-rank. The starter cannot assemble
-the agent. The workshop already supplies the Bedrock model, SQL tools behind
-AgentCore Gateway, source rules and execution hooks.
+Start Lab 3 after both SQL labs pass. The starter cannot assemble the agent. Inspect the refusal and discover the supplied Gateway tools using the guide.
 
 ## Diagnose
 
-Inspect the supplied components and the saved refusal before changing code.
-Identify what the `create_agent` factory must return and what evidence the
-running agent will need for Alex's question. The guide leads the tool discovery
-and explains how retrieval, comparison and citations work together.
+Open [agent.py](agent.py). Identify what `create_agent` must return and how its model, tools, source rules and hooks work together.
 
 ## Fix
 
-Complete `create_agent` between `LAB3_AGENT_START` and `LAB3_AGENT_END` using
-the supplied values:
-
-| Agent argument | Supplied value |
-|---|---|
-| `model` | `model` |
-| `tools` | `tools` |
-| `system_prompt` | `instructions` |
-| `hooks` | `hooks` |
-| `callback_handler` | `None` |
-
-The guide invites one instruction of your own inside that block. Keep the
-existing source rules and execution hooks.
+Edit only `LAB3_AGENT_START` through `LAB3_AGENT_END`. Return a Strands
+`Agent` using `model=model`, `tools=tools`, `system_prompt=instructions`,
+`hooks=hooks` and `callback_handler=None`. Add one instruction of your own;
+preserve the existing source rules and hooks.
 
 ## Prove
 
-Deploy the edited agent:
+Save and deploy:
 
 ```bash
 uv run python scripts/deploy_agentcore.py deploy
 ```
 
-Ask **Complete my room** in Mosaic: bring back Alex’s Logitech headphones and ViewSonic monitor, then add the Steelcase chair. Inspect a focused search for each, all three in the comparison and final shortlist, and their cited sources. For the chair, distinguish the adjustable features in its listing from the comfort a reviewer reports. Then
-save your run ID. Complete the changed-requirement follow-up, then check the
-original saved run with the guide's completion command:
+Run **Playground → Complete my room → Reason**. Save the original run ID.
+Inspect separate searches, comparison, final shortlist and citations for the
+Logitech headphones, ViewSonic monitor and Steelcase chair. Distinguish listing
+features from review experience and unknowns. Complete the guide's changed
+requirement follow-up, then prove the **original room run**:
 
 ```bash
 uv run python scripts/complete_agent.py --run-id <your-run-id>
 ```
 
-That check evaluates your actual run; it does not generate a replacement answer.
-A successful deployment proves connectivity, not participant completion.
+This evaluates your deployed code and actual saved answer without generating
+another answer. Deployment alone does not prove completion.
+
 
 <details>
-<summary>Recovery and reference answer</summary>
+<summary>🛠️ Recovery and reference answer</summary>
 
-The [reference answer](solution/agent.py) is available when you want full
-recovery. `uv run python scripts/lab_state.py solution --lab 3` overwrites the
-exercise with that answer. Follow the guide to deploy and prove it; recovery
-alone is not completion.
+The [reference answer](solution/agent.py) is available for full recovery.
+`uv run python scripts/lab_state.py solution --lab 3` overwrites this lab's
+edit. Follow the guide to apply/deploy and prove it; recovery is not completion.
 
 </details>
