@@ -76,7 +76,8 @@ def _request(
     except URLError as error:
         raise LabValidationError(
             f"{path} is unavailable at {base_url}: {error.reason}; "
-            "start mosaic-api and retry"
+            "fix: run `systemctl status mosaic-api` in the terminal. If it is not "
+            "active, tell your facilitator"
         ) from error
 
 

@@ -404,3 +404,43 @@ def test_status_reports_the_participants_lab_not_the_shipped_seam(lab_repo) -> N
         json.dumps({"version": 1, "lab": 2, "steps": {}, "completed_at": "now"})
     )
     assert status_line(2, repo=lab_repo) == "Lab 2: BROKEN"
+
+
+@pytest.mark.parametrize("action", ["start", "reset"])
+def test_a_failed_lab_check_during_entry_is_a_clean_exit_not_a_traceback(
+    monkeypatch, action
+):
+    from scripts import lab_entry, lab_state
+    from scripts.validate_lab import LabValidationError
+
+    def fail(*_args, **_kwargs):
+        raise LabValidationError("/api/search is unavailable; fix: tell your facilitator")
+
+    monkeypatch.setattr("sys.argv", ["lab_state.py", action, "--lab", "1"])
+    monkeypatch.setattr(lab_entry, "start", fail)
+    monkeypatch.setattr(lab_entry, "restart", fail)
+
+    with pytest.raises(SystemExit) as exit_info:
+        lab_state.main()
+
+    assert str(exit_info.value) == "/api/search is unavailable; fix: tell your facilitator"
+
+
+def test_lab3_source_check_names_the_next_commands_instead_of_passing(
+    monkeypatch, capsys
+):
+    from scripts import lab_state
+    from service.participant_commands import DEPLOY_AGENT, complete_lab_3
+
+    monkeypatch.setattr(
+        "sys.argv", ["lab_state.py", "validate", "--lab", "3", "--database-url", ""]
+    )
+    monkeypatch.setattr(lab_state, "lab_is_solved", lambda *_a, **_k: True)
+
+    assert lab_state.main() == 0
+
+    output = capsys.readouterr().out
+    assert "PASS" not in output
+    assert "assembled" in output
+    assert DEPLOY_AGENT in output
+    assert complete_lab_3() in output

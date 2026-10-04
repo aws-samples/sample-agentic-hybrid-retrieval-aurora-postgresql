@@ -19,7 +19,13 @@ sys.path.insert(0, str(REPO))
 from scripts.checks.retrieval_profile import explain
 from service.catalog_runtime import search_schema
 from service.lab_files import LAB1_SQL, LAB2_SQL, LAB3_AGENT, solution_path
-from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, solution, validate
+from service.participant_commands import (
+    APPLY_SQL,
+    DEPLOY_AGENT,
+    complete_lab_3,
+    solution,
+    validate,
+)
 
 #: Slack for one reciprocal-rank contribution read back out of PostgreSQL by
 #: calling `mosaic_search.reciprocal_rank_contribution` directly. Not a
@@ -498,11 +504,12 @@ def main() -> int:
         return 0
     if args.action in {"start", "reset"}:
         from scripts.lab_entry import LabEntryError, restart, start
+        from scripts.validate_lab import LabValidationError
 
         action = start if args.action == "start" else restart
         try:
             action(args.lab, api_url=args.api_url, dsn=args.database_url)
-        except LabEntryError as error:
+        except (LabEntryError, LabValidationError) as error:
             raise SystemExit(str(error)) from error
         return 0
     if args.action == "solution":
@@ -527,6 +534,13 @@ def main() -> int:
             f"Lab {args.lab}: source is solved but DATABASE_URL is required "
             "to validate the applied Aurora function"
         )
+    if args.lab == 3:
+        print(
+            "Lab 3: source assembled. This checks the file's shape, not your agent. "
+            f"Next: deploy with {DEPLOY_AGENT}, ask Alex's request in Ask Mosaic, "
+            f"then check the saved run with {complete_lab_3()}."
+        )
+        return 0
     print(f"Lab {args.lab}: PASS")
     return 0
 

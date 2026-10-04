@@ -740,3 +740,21 @@ def test_a_passing_check_records_its_own_fresh_evidence(monkeypatch, tmp_path) -
     saved = json.loads((tmp_path / ".local/lab-1/completion.json").read_text())
     assert saved["search_event_ids"] == ["fresh-run"]
     assert saved["checks"] == ["target"]
+
+
+def test_an_unreachable_api_points_at_the_service_check_not_a_server_start(monkeypatch):
+    from urllib.error import URLError
+
+    def refuse(*_args, **_kwargs):
+        raise URLError("connection refused")
+
+    monkeypatch.setattr(validate_lab, "urlopen", refuse)
+
+    with pytest.raises(validate_lab.LabValidationError) as error:
+        validate_lab._request("http://127.0.0.1:8000", "/api/search")
+
+    message = str(error.value)
+    assert "connection refused" in message
+    assert "systemctl status mosaic-api" in message
+    assert "facilitator" in message
+    assert "start mosaic-api" not in message
