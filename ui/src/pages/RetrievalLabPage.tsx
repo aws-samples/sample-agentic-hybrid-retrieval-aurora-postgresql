@@ -60,6 +60,7 @@ import {
 } from "../navigation";
 import { armLanguage } from "../retrievalLanguage";
 import type { ReadinessResponse, SearchFilters, SearchResponse } from "../types";
+import { useLabStates } from "../useLabStates";
 import "../playground.css";
 
 type RunMeasurement = {
@@ -249,6 +250,21 @@ export function RetrievalLabPage() {
    * change what the release baseline below is being read against.
    */
   const [baselineReads, setBaselineReads] = useState(0);
+  /**
+   * Bumped when the tab regains focus. A participant runs a lab's start command
+   * in the terminal, so this is how the proof gate learns they came back.
+   */
+  const [focusReads, setFocusReads] = useState(0);
+  useEffect(() => {
+    const onFocus = () => setFocusReads((reads) => reads + 1);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+  const { labStates: gateLabStates, failed: gateLabStatesFailed } = useLabStates(
+    `gate:${baselineReads}:${focusReads}`,
+  );
+  /** An unreadable lab state leaves the gate open rather than locking a participant out. */
+  const proofLabStates = gateLabStatesFailed ? undefined : gateLabStates;
   const requestVersion = useRef(0);
   /**
    * Bumped only when the pinned baseline stops describing anything on screen:
@@ -1041,6 +1057,7 @@ export function RetrievalLabPage() {
         <CompletionProof
           activeLab={activeLabNumber}
           agentRunId={agentRunId}
+          labStates={proofLabStates}
           onFinished={() => setBaselineReads((reads) => reads + 1)}
         />
         <PlaygroundDisclosure

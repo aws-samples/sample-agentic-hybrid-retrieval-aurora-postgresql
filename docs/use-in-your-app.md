@@ -18,8 +18,11 @@ Keep a full checkout of Mosaic as the runnable reference. The downloadable exerc
    process for another host, not a publicly deployed workshop endpoint.
 2. Download `/api/skill-package` and keep its folder intact in your agent's skill
    directory. It guides search, comparison, ranking inspection and source checks
-   through the tools you connected. Both adapters expose those four capabilities;
-   their wire names and input shapes are documented separately.
+   through the tools you connected. The tool sets differ by surface. The Gateway exposes three tools
+   (`search_products`, `get_product_evidence`, `inspect_retrieval_run`). The portable MCP
+   adapter exposes four (search, evidence, compare and inspect). The in-process agent has
+   five (`search_products`, `get_product_evidence`, `compare_products`, `explain_retrieval`,
+   `synthesize_cited_answer`). Wire names and input shapes are documented separately.
 3. Ask for results and supporting records together. Use Mosaic's answer endpoint
    or your host's citation validator before describing an answer as validated.
 

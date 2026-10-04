@@ -33,7 +33,7 @@ State that nothing can restore is not a recovery plan.
 |---|---|---|
 | Active real catalog + vectors | Aurora `mosaic_catalog_stage` / `mosaic_live_search` | `scripts/catalog/real_catalog_cache.py restore` after `make db-bootstrap-schema`; pinned by `db/config/real-catalog-cache.json` |
 | Real-catalog query-coverage vocabulary | Workshop Studio `real-catalog/vocabulary/` assets | `scripts/catalog/corpus_vocabulary.py`; files and projection inputs pinned by `db/config/corpus-vocabulary-cache.json` |
-| Premium cohort media | `ui/public/assets/images/mosaic/` | git; 126 files, content-verified |
+| Premium cohort media | `ui/public/assets/images/mosaic/` | git; content-verified (count with `git ls-files ui/public/assets/images/mosaic | wc -l`) |
 | Lab contract | `data/evals/mosaic_labs_missions.json` | git; validated by `make validate-missions` |
 | Retrieval numbers | `db/config/retrieval.yaml` | git; single source, enforced by `scripts/checks/config_tripwire.py` |
 

@@ -11,7 +11,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "../api";
-import type { CompletionProofResponse } from "../types";
+import type { CompletionProofResponse, LabEntryState, LabStateRecord } from "../types";
 import { CompletionProof } from "./CompletionProof";
 
 /**
@@ -561,5 +561,81 @@ describe("CompletionProof", () => {
     expect(labBlock(2).getAttribute("data-active")).toBe("true");
     expect(labBlock(1).getAttribute("data-active")).toBeNull();
     expect(labBlock(3).getAttribute("data-active")).toBeNull();
+  });
+});
+
+function labStateFixture(labId: number, entry: LabEntryState | null): LabStateRecord {
+  return {
+    lab_id: labId,
+    source_state: "broken",
+    database_state: "stale",
+    detail: "",
+    entry_state: entry,
+    completed_at: null,
+    next_step: null,
+  };
+}
+
+const ALL_STARTED = [
+  labStateFixture(1, null),
+  labStateFixture(2, "started"),
+  labStateFixture(3, "started"),
+];
+
+describe("CompletionProof gate on lab progress", () => {
+  it("disables Prove all three labs until Labs 2 and 3 have started, and says why", () => {
+    render(
+      <CompletionProof
+        activeLab={1}
+        agentRunId={null}
+        labStates={[
+          labStateFixture(1, null),
+          labStateFixture(2, "not_started"),
+          labStateFixture(3, "incomplete"),
+        ]}
+      />,
+    );
+
+    const gate = screen.getByRole("button", { name: "Prove all three labs" });
+    expect((gate as HTMLButtonElement).disabled).toBe(true);
+    expect(gate.getAttribute("aria-describedby")).toBeTruthy();
+    expect(screen.getByText("Available after you start all three labs.")).toBeTruthy();
+  });
+
+  it("keeps the per-lab proof working while the gate is closed", async () => {
+    vi.mocked(api.labProof).mockImplementation(async (labId) => proofFixture(labId));
+    render(
+      <CompletionProof
+        activeLab={1}
+        agentRunId={null}
+        labStates={[labStateFixture(1, null)]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof for Lab 1" }));
+
+    await waitFor(() => expect(labBlock(1).textContent).toContain("PASS"));
+    expect(api.labProof).toHaveBeenCalledTimes(1);
+  });
+
+  it("enables the gate once every lab has started", async () => {
+    vi.mocked(api.labProof).mockImplementation(async (labId) => proofFixture(labId));
+    render(<CompletionProof activeLab={1} agentRunId={null} labStates={ALL_STARTED} />);
+
+    const gate = screen.getByRole("button", { name: "Prove all three labs" });
+    expect((gate as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByText("Available after you start all three labs.")).toBeNull();
+    fireEvent.click(gate);
+    await waitFor(() => expect(api.labProof).toHaveBeenCalledWith(2, { agent_run_id: null }));
+  });
+
+  it("waits for the lab progress read instead of guessing", () => {
+    render(<CompletionProof activeLab={1} agentRunId={null} labStates={null} />);
+
+    expect(
+      (screen.getByRole("button", { name: "Prove all three labs" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    expect(screen.getByText("Checking your lab progress.")).toBeTruthy();
   });
 });

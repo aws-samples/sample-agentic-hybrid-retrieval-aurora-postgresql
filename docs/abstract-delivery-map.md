@@ -41,10 +41,14 @@ build and deploy an agent), and each is graded against an answer the grader comp
   from Labs 1 and 2 becomes a managed agent capability, with product claims
   supported by retrieved sources.**
 
-The forced-HNSW figures come from four recorded runs of the Lab 1 grader on the workshop
-catalog (forced recall 0.287 on 2026-09-23, then 0.440, 0.467 and 0.467 on 2026-09-24;
-about 286 ms for the planner's exact plan against 39–47 ms forced). The query vector is
-re-embedded on each run, so the guides print no fixed number.
+The forced-HNSW figures are a historical record. They come from four runs of the Lab 1
+grader on 2026-09-23 and 2026-09-24, before the cutover to `reviews-2023-v2`, so they
+describe the retired `reviews-2023-500k-v1` catalog: forced recall 0.287 on 2026-09-23,
+then 0.440, 0.467 and 0.467 on 2026-09-24, and about 286 ms for the planner's exact plan
+against 39–47 ms forced. The query vector is re-embedded on each run, so the guides print
+no fixed number. Current measurements on `reviews-2023-v2` are in
+`data/benchmarks/hnsw_measured.json`; they use a different query sample and method, so
+they are not a like-for-like replacement for these figures.
 
 ## Where each promise is delivered
 
