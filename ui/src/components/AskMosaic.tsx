@@ -6,6 +6,7 @@ import {
   LoaderCircle,
   Send,
   Sparkles,
+  Wrench,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -93,6 +94,8 @@ export function AskMosaic({
    * state exists only to show or hide the "Jump to latest" control.
    */
   const [nearBottom, setNearBottom] = useState(true);
+  /** Content has arrived below a reader who scrolled up; the control is for them alone. */
+  const [unseen, setUnseen] = useState(false);
   const latest = turns.length ? turns[turns.length - 1] : null;
   const hasTurns = latest !== null;
   const [builder, setBuilder] = useBuilderView();
@@ -203,7 +206,9 @@ export function AskMosaic({
   /** Keep following only while the reader remains at the live edge. */
   const followReveal = useCallback(() => {
     const thread = threadRef.current;
-    if (thread && followTailRef.current) thread.scrollTop = thread.scrollHeight;
+    if (!thread) return;
+    if (followTailRef.current) thread.scrollTop = thread.scrollHeight;
+    else setUnseen(true);
   }, []);
 
   const handleThreadScroll = useCallback(() => {
@@ -214,6 +219,7 @@ export function AskMosaic({
     ) <= 48;
     followTailRef.current = atBottom;
     setNearBottom(atBottom);
+    if (atBottom) setUnseen(false);
   }, []);
 
   /**
@@ -225,6 +231,7 @@ export function AskMosaic({
   const jumpToLatest = useCallback(() => {
     followTailRef.current = true;
     setNearBottom(true);
+    setUnseen(false);
     const thread = threadRef.current;
     if (thread) thread.scrollTop = thread.scrollHeight;
   }, []);
@@ -285,10 +292,12 @@ export function AskMosaic({
             className="ask-switch"
             type="button"
             role="switch"
+            aria-label="Builder view"
             aria-checked={builder}
             onClick={() => setBuilder(!builder)}
           >
-            Builder view
+            <Wrench className="ask-switch-icon" size={14} aria-hidden="true" />
+            <span className="ask-switch-label">Builder view</span>
             <span className="ask-switch-track" aria-hidden="true"><span className="ask-switch-knob" /></span>
           </button>
           {/* Only once there is something to discard. On the entry state the
@@ -348,11 +357,17 @@ export function AskMosaic({
               <StarterCards suggestions={suggestions} onRun={onRun} />
             )}
           </div>
-          {/* Only once a reader has actually scrolled away from the live edge,
-              and only while there is a live edge worth returning to. Auto-follow
-              in `followReveal` already keeps the writing line in view; this is
-              the way back after a reader chose to read something above it. */}
-          {!nearBottom && turns.length ? (
+        </div>
+
+        {/* Pinned under the thread, where a conversation puts it. It used to sit
+            above the answer, so the reply to a question appeared below the field
+            that would replace it. */}
+        <div className="ask-mosaic-composer">
+          {/* Docked above the composer, never over the thread's text, and only
+              for a reader who scrolled up while new content arrived below.
+              Auto-follow already keeps the writing line in view for everyone
+              else; this is the way back after reading something above it. */}
+          {!nearBottom && unseen && turns.length ? (
             <button
               className="ask-mosaic-jump-latest"
               type="button"
@@ -362,12 +377,6 @@ export function AskMosaic({
               Jump to latest
             </button>
           ) : null}
-        </div>
-
-        {/* Pinned under the thread, where a conversation puts it. It used to sit
-            above the answer, so the reply to a question appeared below the field
-            that would replace it. */}
-        <div className="ask-mosaic-composer">
           {memory ? <MemoryControl memory={memory} pending={pending} /> : null}
           {notice ? <p className="ask-mosaic-notice" role="status">{notice}</p> : null}
           {contextFilters.length ? (

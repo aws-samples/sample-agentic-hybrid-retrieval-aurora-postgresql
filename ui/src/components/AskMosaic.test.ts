@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { createElement } from "react";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CommerceProvider } from "../commerce";
 import { fixtureCatalogPage } from "../testProducts";
@@ -412,6 +412,14 @@ describe("AskMosaic header and Builder view", () => {
     expect(screen.getAllByRole("button", { name: "Close Ask Mosaic" }).length).toBeGreaterThan(0);
   });
 
+  it("leaves the time out of the fold when the turn carries no measured timing", () => {
+    renderAskMosaic(groundedResponse());
+
+    const fold = screen.getByRole("button", { name: /How Mosaic answered/ });
+    expect(fold.textContent).toContain("1 search");
+    expect(fold.textContent).not.toMatch(/\d s\b/);
+  });
+
   it("names the pick a top pick, never the best", () => {
     renderAskMosaic(groundedResponse());
 
@@ -427,4 +435,51 @@ describe("AskMosaic header and Builder view", () => {
     expect(within(prose).getByRole("link", { name: "Source 1" }).textContent).toBe("1");
     expect(prose.textContent).not.toContain("[1]");
   });
+});
+
+function scrollableThread() {
+  const thread = document.querySelector<HTMLElement>(".ask-mosaic-body")!;
+  Object.defineProperties(thread, {
+    clientHeight: { configurable: true, value: 300 },
+    scrollHeight: { configurable: true, value: 1200 },
+    scrollTop: { configurable: true, writable: true, value: 900 },
+  });
+  return thread;
+}
+
+describe("AskMosaic jump to latest", () => {
+  const JUMP = { name: "Jump to latest" };
+
+  it("stays hidden for a reader who scrolled up while nothing new arrived", () => {
+    renderAskMosaic(groundedResponse());
+    const thread = scrollableThread();
+    thread.scrollTop = 100;
+    fireEvent.scroll(thread);
+
+    expect(screen.queryByRole("button", JUMP)).toBeNull();
+  });
+
+  it("appears, docked above the composer, once new content lands below a reader who scrolled up", async () => {
+    const response = groundedResponse();
+    const writing: AskMosaicTurn = {
+      ...settledTurn(response),
+      completed: false,
+      loading: true,
+      stage: "answer",
+      executionPath: "focused_follow_up",
+      streamed: `${response.answer} `.repeat(6),
+    };
+    renderAskMosaic(response, { turns: [writing], pending: true });
+    const thread = scrollableThread();
+    thread.scrollTop = 100;
+    fireEvent.scroll(thread);
+
+    const jump = await screen.findByRole("button", JUMP, { timeout: 6000 });
+    expect(jump.closest(".ask-mosaic-composer")).not.toBeNull();
+    expect(thread.contains(jump)).toBe(false);
+
+    act(() => { fireEvent.click(jump); });
+    expect(thread.scrollTop).toBe(1200);
+    await waitFor(() => expect(screen.queryByRole("button", JUMP)).toBeNull());
+  }, 12000);
 });
