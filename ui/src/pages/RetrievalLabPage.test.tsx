@@ -1288,7 +1288,7 @@ describe("RetrievalLabPage", () => {
     render(<RetrievalLabPage />);
 
     expect(screen.getByTestId("completion-proof-lab-3").textContent).toContain(
-      "Run the agent in 03 first",
+      "Run the agent in Reason first",
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Run the agent" }));

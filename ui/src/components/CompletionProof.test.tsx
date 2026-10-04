@@ -162,7 +162,9 @@ describe("CompletionProof", () => {
     // Lab 3 grades a persisted turn. Posting one with no run to name spends a
     // request to be told what the surface already knows.
     expect(api.labProof).toHaveBeenCalledTimes(2);
-    expect(labBlock(3).textContent).toContain("Run the agent in 03 first");
+    expect(labBlock(3).textContent).toContain("Run the agent in Reason first");
+    expect(labBlock(3).textContent).toContain("Needs Reason");
+    expect(labBlock(3).textContent).not.toMatch(/\b03\b/);
   });
 
   it("grades the agent run the Reason stage produced, when there is one", async () => {
@@ -182,7 +184,7 @@ describe("CompletionProof", () => {
       expect(api.labProof).toHaveBeenCalledWith(3, { agent_run_id: AGENT_RUN }));
     expect(api.labProof).toHaveBeenCalledTimes(3);
     await waitFor(() => expect(labBlock(3).textContent).toContain("PASS"));
-    expect(labBlock(3).textContent).not.toContain("Run the agent in 03 first");
+    expect(labBlock(3).textContent).not.toContain("Run the agent in Reason first");
   });
 
   it("reports both states and the event ids a passing proof produced", async () => {
@@ -363,6 +365,22 @@ describe("CompletionProof", () => {
     expect(within(block).getByText("Fix: restore the trigram CTE so mosaic_search.search_trigram contributes candidates")).toBeTruthy();
   });
 
+  it("names the Reason stage, not a number, when the Lab 3 agent is still the starter", async () => {
+    vi.mocked(api.labProof).mockImplementation(async (labId) =>
+      proofFixture(labId, labId === 3 ? {
+        status: "fail",
+        source_state: "broken",
+        entry_state: "started",
+      } : {}));
+    render(<CompletionProof activeLab={3} agentRunId={AGENT_RUN} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Run completion proof for Lab 3" }));
+
+    await waitFor(() => expect(labBlock(3).textContent).toContain("FAIL"));
+    expect(labBlock(3).textContent).toContain("run the agent in Reason, then prove this lab again");
+    expect(labBlock(3).textContent).not.toMatch(/\b03\b/);
+  });
+
   it("explains a Lab 1 failure under Lab 2's fault and keeps the earlier pass apart", async () => {
     const interference = "Lab 2's ranking fault is installed. Your Lab 1 repair is still in the file and in Aurora.";
     vi.mocked(api.labProof).mockResolvedValue(
@@ -534,7 +552,7 @@ describe("CompletionProof", () => {
     // The row still states its prerequisite rather than spending a request to
     // be told what the surface already knows.
     expect(api.labProof).not.toHaveBeenCalled();
-    expect(labBlock(3).textContent).toContain("Run the agent in 03 first");
+    expect(labBlock(3).textContent).toContain("Run the agent in Reason first");
   });
 
   it("marks the lab the participant is currently in", () => {

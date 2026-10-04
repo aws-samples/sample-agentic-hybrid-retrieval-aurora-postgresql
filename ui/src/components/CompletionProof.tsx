@@ -35,7 +35,7 @@ const LAB_IDS = [1, 2, 3] as const;
 type LabId = (typeof LAB_IDS)[number];
 
 /** What Lab 3 needs before it can be graded, named as the stage that makes it. */
-const LAB_3_PREREQUISITE = "Run the agent in 03 first";
+const LAB_3_PREREQUISITE = "Run the agent in Reason first";
 
 type LabOutcome =
   | { kind: "idle" }
@@ -74,7 +74,7 @@ function statusLabel(outcome: LabOutcome): string {
   if (outcome.kind === "proved") return outcome.proof.status === "pass" ? "PASS" : "FAIL";
   if (outcome.kind === "running") return "Running";
   if (outcome.kind === "unavailable") return "Could not run";
-  if (outcome.kind === "skipped") return "Needs 03";
+  if (outcome.kind === "skipped") return "Needs Reason";
   return "Not run yet";
 }
 
@@ -130,7 +130,7 @@ function failureSummary(proof: CompletionProofResponse, failedChecks: number): s
     // Named before the database: applying an unrepaired file installs the
     // broken function, so the file is the first thing to fix.
     return lab === 3
-      ? `Your agent in ${file ?? "labs/lab3_reason/agent.py"} is still the starter. Next: assemble it, deploy with ${DEPLOY_AGENT}, run the agent in 03, then prove this lab again.`
+      ? `Your agent in ${file ?? "labs/lab3_reason/agent.py"} is still the starter. Next: assemble it, deploy with ${DEPLOY_AGENT}, run the agent in Reason, then prove this lab again.`
       : `${file ?? "The source file"} still has Lab ${lab}'s fault. Next: repair the LAB${lab} block, apply it with ${APPLY_SQL}, then prove this lab again.`;
   }
   if (!isLabRepaired(proof)) {
