@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, ExternalLink, Heart, Sparkles, Star } from "lucide-react";
+import { ExternalLink, Heart, Sparkles, Star } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
 import { useCommerce } from "../commerce";
@@ -56,10 +56,12 @@ export function SourceProductDetail({
   const features = product.source_features ?? [];
   const source = product.sources[0];
   const category = leafCategory(product.category_path);
+  // A real listing's only price is its historical one, exactly as the Shop card prints it.
+  const shownPriceCents = product.historical_price_cents ?? product.price_cents;
 
   return (
     <div className="page source-product-page">
-      <Link className="back-link" href={catalogReturnHref}><ArrowLeft size={16} /> Back to catalog</Link>
+      <Link className="back-link" href={catalogReturnHref}>Back to catalog</Link>
       <section className="source-detail-hero" aria-label="Product summary">
         <div className="source-detail-gallery">
           <div className="source-detail-photo">
@@ -88,6 +90,11 @@ export function SourceProductDetail({
               {fullTitle ? "Show less" : "Show full product name"}
             </button>
           ) : null}
+          <p className="source-detail-price">
+            {shownPriceCents == null ? "Price not recorded" : (
+              <><strong>{formatPrice(shownPriceCents, product.currency)}</strong><span>Historical listing price</span></>
+            )}
+          </p>
           {product.rating != null && product.review_count ? (
             <p className="source-detail-rating"><Star size={16} fill="currentColor" /><strong>{product.rating.toFixed(1)}</strong><span>{product.review_count.toLocaleString()} historical ratings</span></p>
           ) : null}
@@ -175,7 +182,7 @@ export function SourceProductDetail({
         : relatedError ? <section className="source-related-products" aria-label="Related products"><ErrorState message={relatedError} onRetry={onRetryRelated} /></section>
           : related.length ? (
             <section className="source-related-products">
-              <div className="section-heading"><h2>Similar options</h2><Link className="text-link" href={`/catalog?domain=${product.domain}&category_key=${product.category_key}`}>View all <ArrowRight size={16} /></Link></div>
+              <div className="section-heading"><h2>Similar options</h2><Link className="text-link" href={`/catalog?domain=${product.domain}&category_key=${product.category_key}`}>View all</Link></div>
               <div className="product-grid">{related.map((item) => <ProductCard key={item.product_id} product={item} variant="catalog" />)}</div>
             </section>
           ) : null}

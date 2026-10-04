@@ -1,7 +1,5 @@
 import { ProductSourceNote } from "../components/ProductSourceNote";
 import {
-  ArrowLeft,
-  ArrowRight,
   Check,
   Database,
   Heart,
@@ -180,7 +178,7 @@ export function ProductPage() {
         className="back-link"
         href={catalogReturnHref}
       >
-        <ArrowLeft size={16} /> Back to catalog
+        Back to catalog
       </Link>
       <section className="product-hero">
         <div className="product-gallery">
@@ -314,7 +312,7 @@ export function ProductPage() {
             document.getElementById("product-tab-evidence")?.focus({ preventScroll: true });
             document.getElementById("product-information")?.scrollIntoView({ block: "start" });
           }}>
-            Inspect source records <ArrowRight size={15} aria-hidden="true" />
+            Inspect source records
           </button>
         </article>
         {/* The reference board shows a "confidence score" dial. There is no such
@@ -553,7 +551,7 @@ export function ProductPage() {
               <h2>{similarLabel}</h2>
             </div>
             <Link className="text-link" href={`/catalog?domain=${product.domain}&category_key=${product.category_key}`}>
-              View all <ArrowRight size={16} />
+              View all
             </Link>
           </div>
           <div className="product-grid related-grid">

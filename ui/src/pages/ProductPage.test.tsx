@@ -56,6 +56,35 @@ describe("ProductPage", () => {
     expect(document.body.textContent).not.toContain("[object Object]");
   });
 
+  it("shows the card's price line, with the historical caption, on a source listing", async () => {
+    const base = fixtureProductDetail(1)!;
+    const source: ProductDetail = {
+      ...base,
+      source_dataset: "reviews-2023-v2",
+      image_url: "https://example.com/front.jpg",
+      image_source: "original_listing",
+      listing_url: "https://www.amazon.com/dp/SOURCE0001",
+      price_cents: null,
+      historical_price_cents: 23999,
+      media: [],
+      reviews: [],
+    };
+    vi.mocked(api.product).mockResolvedValue(source);
+    vi.mocked(api.similarProducts).mockResolvedValue([]);
+    const { container } = render(<CommerceProvider><ProductPage /></CommerceProvider>);
+    await screen.findByRole("heading", { level: 1 });
+
+    const price = container.querySelector(".source-detail-price")!;
+    expect(price.textContent).toContain("$239.99");
+    expect(price.textContent).toContain("Historical listing price");
+
+    cleanup();
+    vi.mocked(api.product).mockResolvedValue({ ...source, historical_price_cents: null });
+    const unpriced = render(<CommerceProvider><ProductPage /></CommerceProvider>);
+    await screen.findByRole("heading", { level: 1 });
+    expect(unpriced.container.querySelector(".source-detail-price")!.textContent).toBe("Price not recorded");
+  });
+
   it("keeps Retry for a failure that is not a missing product", async () => {
     vi.mocked(api.product).mockRejectedValue(new ApiError(503, "Product detail is unavailable"));
     render(<CommerceProvider><ProductPage /></CommerceProvider>);
