@@ -109,3 +109,22 @@ describe("retrievalPath", () => {
     expect(retrievalPath(dell27)).toEqual(["Meaning match #7", "Combined #10", "Reranked to #1"]);
   });
 });
+
+describe("unknowns, grouped", () => {
+  const chair = { ...dell27, product_id: 7, category_key: "chair", brand: "Steelcase", model: "Gesture", source_dataset: null, specs: {} } as unknown as ProductSummary;
+  const monitor = { ...dell27, category_key: "monitor" } as unknown as ProductSummary;
+  const noSize = { ...monitor, product_id: 2, title: "Dell P2722H", specs: {} } as unknown as ProductSummary;
+
+  it("lists only figures the shopper asked about, one line per figure", () => {
+    const rows = comparisonRows([monitor, noSize], [], ["a 27-inch monitor"]);
+    expect(unknowns([monitor, noSize], rows)).toEqual([
+      "27-inch screen: not stated for Dell P2722H",
+      "Current price and stock",
+    ]);
+  });
+
+  it("does not call a monitor's size unknown for a chair in the same room", () => {
+    const rows = comparisonRows([monitor, chair], [], ["a 27-inch monitor and a chair"]);
+    expect(unknowns([monitor, chair], rows)).toEqual(["Current price and stock"]);
+  });
+});

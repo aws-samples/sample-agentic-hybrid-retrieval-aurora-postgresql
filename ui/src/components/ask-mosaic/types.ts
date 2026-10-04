@@ -3,8 +3,8 @@ import type { AgentPartial, AgentResponse } from "../../types";
 /**
  * The single source for Ask Mosaic's own types.
  *
- * `AskMosaic.tsx` orchestrates the sidecar and owns `Turn`; `StageProgress`,
- * `EvidencePanels`, and `ResultCards` are presentational modules it composes.
+ * `AskMosaic.tsx` orchestrates the sidecar and owns `Turn`; the other modules in
+ * this folder are presentational pieces it composes.
  * Both directions need these types, so they live here instead of in either
  * side, which is what keeps the import graph one-way: presentation modules
  * import from `types.ts`, never from `AskMosaic.tsx` itself.
@@ -60,60 +60,40 @@ export interface AskMosaicTurn {
    */
   cancelled: boolean;
   loading: boolean;
+  /** `Date.now()` when the request was sent, so the answer can state how long it took. */
+  startedAt: number;
+  /** Wall-clock time from sending to the stream's terminal event; absent until then. */
+  durationMs?: number;
 }
 
-/** One stage of the progress rail, in the order it presents. */
+/** One phase of a run, named for what it did and for what it is doing. */
 export interface AssistStageConfig {
   id: AssistStage;
-  label: string;
-  title: string;
-  description: string;
+  /** Past tense, once the phase has finished. */
+  done: string;
+  /** Present tense, shown while it works. */
+  running: string;
 }
 
+const checkSources: AssistStageConfig = {
+  id: "answer",
+  done: "Checked the sources",
+  running: "Checking the sources",
+};
+
 export const fullRetrievalStages: AssistStageConfig[] = [
-  {
-    id: "understand",
-    label: "Request",
-    title: "Search criteria",
-    description: "Identifying requirements and catalog filters from your request.",
-  },
-  {
-    id: "retrieve",
-    label: "Retrieval",
-    title: "Product shortlist",
-    description: "Finding relevant products within your search criteria.",
-  },
-  {
-    id: "rank",
-    label: "Comparison",
-    title: "Product comparison",
-    description: "Comparing features and trade-offs using catalog records.",
-  },
-  {
-    id: "answer",
-    label: "Sources",
-    title: "Supporting evidence",
-    description: "Linking recommendations to their source records.",
-  },
+  { id: "understand", done: "Read the request", running: "Reading your request" },
+  { id: "retrieve", done: "Searched the catalog", running: "Searching the catalog in Aurora" },
+  { id: "rank", done: "Compared the picks", running: "Comparing the picks" },
+  checkSources,
 ];
 
 export const focusedFollowUpStages: AssistStageConfig[] = [
-  {
-    id: "understand",
-    label: "Request",
-    title: "Follow-up context",
-    description: "Interpreting your follow-up in the context of the current shortlist.",
-  },
-  {
-    id: "rank",
-    label: "Comparison",
-    title: "Product comparison",
-    description: "Reviewing the product records relevant to your follow-up.",
-  },
-  {
-    id: "answer",
-    label: "Sources",
-    title: "Supporting evidence",
-    description: "Checking the new answer against freshly retrieved evidence.",
-  },
+  { id: "understand", done: "Read the follow-up", running: "Reading your follow-up" },
+  { id: "rank", done: "Compared the picks", running: "Comparing the picks" },
+  checkSources,
 ];
+
+export const stagesFor = (path: AssistExecutionPath): AssistStageConfig[] => (
+  path === "focused_follow_up" ? focusedFollowUpStages : fullRetrievalStages
+);

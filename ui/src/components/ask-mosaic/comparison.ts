@@ -1,6 +1,6 @@
 import { formatAttributeLabel, specFacts } from "../../format";
 import { armLabel } from "../../retrievalLanguage";
-import type { AgentCitation, ProductSpec, ProductSummary, ToolTraceStep } from "../../types";
+import type { AgentCitation, ProductSpec, ProductSummary } from "../../types";
 
 /**
  * The answer's comparison, derived only from what the response carries.
@@ -28,6 +28,8 @@ export interface ComparisonRow {
   cells: ComparisonCell[];
   /** A requirement from the latest question, drawn as the change it is. */
   changed: boolean;
+  /** The shopper named this figure in a question, so a pick that omits it leaves it unknown. */
+  requested: boolean;
 }
 
 interface Requirement {
@@ -117,6 +119,7 @@ export function comparisonRows(
       key,
       label: requirement?.label ?? formatAttributeLabel(key),
       changed: latest.has(key) && questions.length > 1,
+      requested: Boolean(requirement),
       cells: picks.map((pick) => {
         const fact = specFacts(pick.specs).find((item) => item.key === key);
         const spec = pick.specs?.[key];
@@ -136,6 +139,7 @@ export function comparisonRows(
     key: "reviews",
     label: "Reviewers",
     changed: false,
+    requested: false,
     cells: picks.map((pick) => {
       const reviews = citations.filter((citation) => citation.product_id === pick.product_id && isReview(citation));
       return reviews.length
@@ -160,40 +164,29 @@ export function retrievalPath(product: ProductSummary): string[] {
   ];
 }
 
-/** What the sources leave open, stated rather than filled. */
+/**
+ * What the sources leave open, stated rather than filled.
+ *
+ * Only figures the shopper asked about count, one line per figure naming every
+ * pick that does not state it. A figure applies to a pick only when some pick of
+ * the same category states it, so a monitor's size is not unknown for a chair.
+ */
 export function unknowns(picks: ProductSummary[], rows: ComparisonRow[]): string[] {
   const missing = rows
-    .filter((row) => row.key !== "reviews")
-    .flatMap((row) => row.cells.flatMap((cell, index) => (
-      cell.source === "not_stated" ? [`${row.label}: not stated for ${pickName(picks[index])}`] : []
-    )));
+    .filter((row) => row.requested)
+    .flatMap((row) => {
+      const statedIn = new Set(
+        picks
+          .filter((_, index) => row.cells[index]?.source !== "not_stated")
+          .map((pick) => pick.category_key),
+      );
+      const names = picks
+        .filter((pick, index) => (
+          row.cells[index]?.source === "not_stated"
+          && (!statedIn.size || statedIn.has(pick.category_key))
+        ))
+        .map(pickName);
+      return names.length ? [`${row.label}: not stated for ${names.join(", ")}`] : [];
+    });
   return [...missing, "Current price and stock"];
-}
-
-/**
- * The live line's resolved text: what the run did, in one line.
- * "Searched monitors, kept 2 · read evidence for 2 · 22 s".
- */
-export function activitySummary(trace: ToolTraceStep[]): string {
-  const searches = trace.filter((step) => step.tool === "search_products");
-  const reads = trace.filter((step) => step.tool === "get_product_evidence").length;
-  const rewrites = trace.filter(
-    (step) => step.tool === "synthesize_cited_answer" && step.outcome === "error",
-  ).length;
-  const seconds = trace.reduce((total, step) => total + (step.latency_ms ?? 0), 0) / 1000;
-  const parts: string[] = [];
-  if (searches.length) {
-    const category = searches[0].arguments?.category_key;
-    const noun = typeof category === "string"
-      ? (category.endsWith("s") ? category : `${category}s`).replace(/_/g, " ")
-      : "the catalog";
-    const kept = searches.at(-1)?.result_count;
-    parts.push(`Searched ${noun}${searches.length > 1 ? ` ${searches.length} times` : ""}${kept != null ? `, kept ${kept}` : ""}`);
-  } else if (trace.some((step) => step.tool === "compare_products")) {
-    parts.push("Compared your picks");
-  }
-  if (reads) parts.push(`read evidence for ${reads}`);
-  if (rewrites) parts.push(`rewrote the answer ${rewrites}×`);
-  if (seconds >= 1) parts.push(`${Math.round(seconds)} s`);
-  return parts.join(" · ");
 }
