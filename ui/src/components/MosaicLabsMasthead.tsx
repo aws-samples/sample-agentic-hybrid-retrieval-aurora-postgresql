@@ -26,8 +26,8 @@ export function MosaicLabsMasthead({
   return (
     <header className="labs-intro">
       <div className="labs-intro-copy">
-        <h1>{title}</h1>
-        <p className="labs-intro-deck">{deck}</p>
+        <h1 className="labs-masthead-title">{title}</h1>
+        <p className="labs-intro-deck labs-lede">{deck}</p>
         {action || supportingText ? (
           <div className="labs-intro-actions">
             {action}

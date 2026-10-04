@@ -27,7 +27,7 @@
 .mosaic-run-button:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
 .mosaic-run-button:disabled { opacity: .55; cursor: default; }
 .mosaic-run-button[aria-busy="true"]:disabled { opacity: 1; cursor: progress; }
-.mosaic-run-button.labelled { padding-left: 6px; }
+.mosaic-run-button.labelled { padding-left: 0; }
 .mosaic-run-button.labelled:hover:not(:disabled) .mosaic-run-label { color: var(--maroon-800); }
 .mosaic-run-label { transition: color 180ms ease; }
 .mosaic-run-spinner { animation: mosaic-run-spin 1s linear infinite; }

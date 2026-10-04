@@ -73,9 +73,9 @@
   z-index: 4;
   top: var(--topbar-height);
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 22px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
   padding: 12px 18px;
   border: 1px solid var(--line-strong);
   border-radius: 14px;
@@ -89,9 +89,27 @@
    it stands, in a strip a third the height. LabRail toggles the class from an
    IntersectionObserver and holds the flow footprint steady with a positive
    bottom margin, so nothing under the rail moves when it changes shape. */
+.labs-rail-main,
+.labs-rail-details {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 20px;
+}
+
 .labs-rail.is-stuck {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px 18px;
   padding: 7px 16px;
+}
+
+/* Condensed, the two rows share one: the wrappers dissolve into the rail. */
+.labs-rail.is-stuck .labs-rail-main,
+.labs-rail.is-stuck .labs-rail-details {
+  display: contents;
 }
 
 .labs-rail.is-stuck .labs-rail-lab {
@@ -133,7 +151,10 @@
 
 .labs-rail-lab {
   display: grid;
-  gap: 2px;
+  min-width: 0;
+  grid-auto-flow: column;
+  align-items: baseline;
+  gap: 4px 12px;
 }
 
 /* A quiet label, not a tracked eyebrow: this sits directly above the lab
@@ -149,8 +170,9 @@
 
 .labs-rail-lab strong {
   color: var(--ink);
-  font-size: var(--labs-body);
+  font-size: 20px;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .labs-rail-stages {

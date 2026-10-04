@@ -76,7 +76,7 @@ function StageSection({ stage, state, title, heading, lede, expanded, onInspect,
           {STATE_LABEL[state]}
         </span> : null}
       </span>
-      <p>{lede}</p>
+      <p className="labs-lede">{lede}</p>
     </header>
     <div className="pg-section-body">{children}</div>
     <button id={`inspect-${stage}-button`} type="button" className="pg-inspect" aria-expanded={expanded} aria-controls={`inspect-${stage}-details`} onClick={onInspect}>{detailsLabel}<ChevronDown size={16} aria-hidden="true" /></button>
@@ -308,7 +308,7 @@ function RunNotes({ carried, started, running, error, receipts, selected, onRest
     {labOutcome ? <LabOutcomeBanner outcome={labOutcome} /> : null}
     {carried ? <div className="inspector-saved-search pg-saved">
       <p>{started ? "This is a new run. Mosaic can change the search wording and choose different products." : "You’re viewing the saved Shop search. Starting a new run lets Mosaic search again; its picks may change."}</p>
-      {started ? <button type="button" disabled={running} onClick={onRestore}>Back to saved Shop results <ArrowRight size={14} aria-hidden="true" /></button> : <Link className="inspector-lab-details-link" href={labDetailsHref}>Open lab details</Link>}
+      {started ? <button type="button" disabled={running} onClick={onRestore}>Back to saved Shop results</button> : <Link className="inspector-lab-details-link" href={labDetailsHref}>Open lab details</Link>}
     </div> : null}
     {error ? <p className="inspector-error" role="alert">{error}</p> : null}
     {receipts.length > 1 ? <div className="inspector-search-selector pg-search-selector"><label htmlFor="inspector-search">Search shown in Retrieve, Rank and Re-rank</label><select id="inspector-search" value={selected?.id} onChange={(event) => onSelectSearch(event.target.value)}>{receipts.map((item, index) => <option key={item.id} value={item.id}>{index + 1}. {item.origin === "reference" ? "Original search · " : ""}{item.response?.query ?? "Reading search…"}</option>)}</select><p>Counts and ranks stay on the selected search. Choose another search here or follow a pick in Reason.</p></div> : null}
@@ -422,9 +422,9 @@ function PipelineInspector() {
         <p>Connect retrieval tools through MCP or HTTP, then add the skill to guide the workflow. The service and database permissions control access. Catalog records stay unchanged; searches save audit records.</p>
       </div>
       <div className="inspector-takeaway-actions">
-        <a href={RETRIEVAL_CONNECTION_GUIDE} target="_blank" rel="noreferrer">Connect retrieval tools <ArrowRight size={18} aria-hidden="true" /></a>
-        <a href="/api/builder-package" download>Adapt the implementation <ArrowRight size={18} aria-hidden="true" /></a>
-        <a href="/api/skill-package" download>Download the skill <ArrowRight size={18} aria-hidden="true" /></a>
+        <a href={RETRIEVAL_CONNECTION_GUIDE} target="_blank" rel="noreferrer">Connect retrieval tools</a>
+        <a href="/api/builder-package" download>Adapt the implementation</a>
+        <a href="/api/skill-package" download>Download the skill</a>
       </div>
       <RetrievalTakeawayLinks />
       <nav aria-label="Optional explorations"><span>Optional</span><Link href="/labs/examples?case=saved-headphones">Compare product details</Link><Link href="/mosaic-labs/hnsw">Explore scale & HNSW</Link><Link href="/mosaic-labs/memory">Explore session & memory</Link></nav>

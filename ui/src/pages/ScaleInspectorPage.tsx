@@ -117,7 +117,7 @@ function ScaleInspector() {
   }, [attempt]);
   return <div className="page pipeline-inspector scale-essentials">
     <MosaicLabsTabs active="hnsw" />
-    <div className="inspector-intro"><MosaicLabsMasthead title={<>A small shortlist.<br /><span className="inspector-title-emphasis">A much larger search.</span></>} deck="Compare the matches found, database time and index size before choosing a search setting." action={<CatalogBuildDrawer />} /></div>
+    <div className="inspector-intro"><MosaicLabsMasthead title={<>A small shortlist. <span className="inspector-title-emphasis">A much larger search.</span></>} deck="Compare the matches found, database time and index size before choosing a search setting." action={<CatalogBuildDrawer />} /></div>
     {substrate ? <p className="scale-catalog-context"><strong>Current index</strong> · {substrate.corpus.vector_count.toLocaleString()} product embeddings · {substrate.corpus.dimensions ?? "Unreported"} dimensions · pgvector {substrate.aurora.vector_extension_version ?? "version not reported"}</p> : null}
     {pending ? <p role="status">Reading the catalog and benchmarks…</p> : null}
     {unavailable.length ? <p className="scale-intro-note" role="note">{unavailable.join(" ")}</p> : null}

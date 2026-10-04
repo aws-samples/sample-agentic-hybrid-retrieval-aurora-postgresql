@@ -510,7 +510,9 @@
   padding: 13px 2px;
   cursor: pointer;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  list-style: none;
+  --disclosure-size: var(--labs-body);
+  --disclosure-ink: var(--ink);
+  --disclosure-weight: 600;
   transition: color 140ms ease;
 }
 
@@ -522,23 +524,9 @@
   color: var(--maroon-900);
 }
 
-.labs-disclosure > summary > span {
-  font-size: var(--labs-body);
-  font-weight: 600;
-}
-
 .labs-disclosure > summary > small {
   color: var(--ink-soft);
   font-size: var(--labs-detail);
-}
-
-.labs-disclosure > summary > svg {
-  color: var(--ink-soft);
-  transition: transform 160ms ease;
-}
-
-.labs-disclosure[open] > summary > svg {
-  transform: rotate(180deg);
 }
 
 .labs-disclosure-body {
@@ -570,7 +558,7 @@
     grid-column: 1;
   }
 
-  .labs-disclosure > summary > svg {
+  .labs-disclosure > summary::after {
     grid-column: 2;
     grid-row: 1;
   }
@@ -583,6 +571,14 @@
   color: var(--ink-soft);
   font-size: var(--labs-body);
   line-height: 1.6;
+}
+
+/* Links sit apart by their gap, not by a separator character that can strand at
+   the end of a wrapped line. */
+.labs-takeaway-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
 }
 
 .labs-rrf-formula code,
@@ -972,40 +968,6 @@
   line-height: 1.4;
 }
 
-/* The same shape as Run pipeline in the masthead: the two runnable things on
-   this page look like the same kind of control. */
-.labs-reason-submit {
-  display: inline-flex;
-  min-height: 44px;
-  align-items: center;
-  gap: 8px;
-  padding: 0 18px;
-  border: 1px solid var(--action);
-  border-radius: 999px;
-  background: var(--action);
-  color: var(--action-ink);
-  font-size: var(--labs-detail);
-  font-weight: 500;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease;
-}
-
-.labs-reason-submit:hover:not(:disabled) {
-  border-color: var(--action-hover);
-  background: var(--action-hover);
-}
-
-.labs-reason-submit:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 3px;
-}
-
-.labs-reason-submit:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
 .labs-reason-error {
   display: flex;
   align-items: flex-start;
@@ -1339,6 +1301,21 @@
   font-family: var(--mono);
   font-size: var(--labs-mono);
   overflow-wrap: anywhere;
+}
+
+/* A rule is named in the interface's sans and summarised in one line; the full
+   sentence is in the title and the failure conditions are one disclosure below. */
+.labs-contracts .labs-rule-name {
+  min-width: 0;
+  color: var(--ink);
+  font: 600 15px/1.35 var(--sans);
+}
+
+.labs-contracts > li > .labs-rule-summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .labs-contracts > li > em {

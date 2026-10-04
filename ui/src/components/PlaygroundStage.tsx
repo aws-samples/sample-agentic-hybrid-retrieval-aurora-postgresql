@@ -1,4 +1,3 @@
-import { ChevronDown } from "lucide-react";
 import type { ReactNode } from "react";
 
 /**
@@ -52,7 +51,7 @@ export function PlaygroundStage({
         {number ? <span className="labs-stage-number" aria-hidden="true">{number}</span> : null}
         <div className="labs-stage-copy">
           <h2 id={`labs-stage-${slug}`}>{title}</h2>
-          <p>{summary}</p>
+          <p className="labs-lede">{summary}</p>
         </div>
         {status ? <div className="labs-stage-status">{status}</div> : null}
       </header>
@@ -99,7 +98,6 @@ export function PlaygroundDisclosure({
       <summary>
         <span>{label}</span>
         {hint ? <small>{hint}</small> : null}
-        <ChevronDown aria-hidden="true" size={15} />
       </summary>
       <div className="labs-disclosure-body">{children}</div>
     </details>

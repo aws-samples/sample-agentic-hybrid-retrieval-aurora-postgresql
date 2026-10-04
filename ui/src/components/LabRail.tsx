@@ -1,4 +1,4 @@
-import { ArrowRight, Check, Copy, FileCode2, SquareTerminal } from "lucide-react";
+import { Check, Copy, FileCode2, SquareTerminal } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { labNextStep, labStateCopy } from "../labStateCopy";
@@ -76,39 +76,53 @@ export function activeCoreLab(missionId: string | null): MosaicLabMission {
   return coreMosaicLabs[0];
 }
 
-/**
- * The start command, copyable. Before a start there is nothing to edit yet, so
- * this takes the edit line's place and stays visible while the rail is stuck.
- */
-export function StartCommand({ command }: { command: string }) {
+/** A copy button for text that stays on screen to select by hand if copying fails. */
+function CopyButton({ text, label, title }: { text: string; label: string; title: string }) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(command);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
-      // The command stays on screen to select by hand.
       setCopied(false);
     }
   }
 
   return (
+    <button aria-label={label} className="icon-button" onClick={() => void copy()} title={title} type="button">
+      {copied ? <Check aria-hidden="true" size={14} /> : <Copy aria-hidden="true" size={14} />}
+    </button>
+  );
+}
+
+/**
+ * The start command, copyable. Before a start there is nothing to edit yet, so
+ * this takes the edit line's place and stays visible while the rail is stuck.
+ */
+export function StartCommand({ command }: { command: string }) {
+  return (
     <p className="labs-rail-start">
       <SquareTerminal aria-hidden="true" size={15} />
       <small>In Code Editor, run</small>
       <code>{command}</code>
-      <button
-        aria-label={`Copy ${command}`}
-        className="icon-button"
-        onClick={() => void copy()}
-        title="Copy command"
-        type="button"
-      >
-        {copied ? <Check aria-hidden="true" size={14} /> : <Copy aria-hidden="true" size={14} />}
-      </button>
+      <CopyButton text={command} label={`Copy ${command}`} title="Copy command" />
     </p>
+  );
+}
+
+/** The one file this lab edits, as a copyable pill, with the task beside it. */
+function EditTarget({ file, task }: { file: string; task: string }) {
+  return (
+    <div className="labs-rail-edit">
+      <span className="labs-rail-file">
+        <FileCode2 aria-hidden="true" size={15} />
+        <code>{file}</code>
+        <CopyButton text={file} label={`Copy ${file}`} title="Copy file path" />
+      </span>
+      <small>{task}</small>
+    </div>
   );
 }
 
@@ -224,82 +238,81 @@ export function LabRail({ missionId, refreshKey = "" }: {
       ref={railRef}
       style={footprintFix ? { marginBottom: footprintFix } : undefined}
     >
-      <div className="labs-rail-lab">
-        <span className="labs-rail-kicker">
-          Lab {labNumber} of {coreMosaicLabs.length}
-        </span>
-        <strong>{lab.title}</strong>
+      <div className="labs-rail-main">
+        <div className="labs-rail-lab">
+          <strong>{lab.title}</strong>
+          <span className="labs-rail-kicker">
+            Lab {labNumber} of {coreMosaicLabs.length}
+          </span>
+        </div>
+
+        <ol aria-label="Lab stages" className="labs-rail-stages">
+          {RAIL_STAGES.map((entry) => (
+            <li key={entry.stage}>
+              <a
+                aria-current={entry.stage === currentStage ? "location" : undefined}
+                data-stage={entry.stage}
+                href={`#labs-stage-${entry.stage}`}
+              >
+                {entry.label}
+              </a>
+            </li>
+          ))}
+        </ol>
       </div>
 
-      <ol aria-label="Lab stages" className="labs-rail-stages">
-        {RAIL_STAGES.map((entry) => (
-          <li key={entry.stage}>
-            <a
-              aria-current={entry.stage === currentStage ? "location" : undefined}
-              data-stage={entry.stage}
-              href={`#labs-stage-${entry.stage}`}
+      <div className="labs-rail-details">
+        {state?.next_step ? (
+          <StartCommand command={state.next_step} />
+        ) : edit ? (
+          <EditTarget file={edit.file} task={edit.task} />
+        ) : null}
+
+        {failed ? (
+          <p className="labs-rail-unread" role="alert">
+            <span>Could not read lab state</span>
+            <button
+              aria-label="Retry reading lab state"
+              className="secondary-button"
+              onClick={retry}
+              type="button"
             >
-              {entry.label}
-            </a>
-          </li>
-        ))}
-      </ol>
-
-      {state?.next_step ? (
-        <StartCommand command={state.next_step} />
-      ) : edit ? (
-        <p className="labs-rail-edit">
-          <FileCode2 aria-hidden="true" size={15} />
-          <code>{edit.file}</code>
-          <small>{edit.task}</small>
-        </p>
-      ) : null}
-
-      {failed ? (
-        <p className="labs-rail-unread" role="alert">
-          <span>Could not read lab state</span>
-          <button
-            aria-label="Retry reading lab state"
-            className="secondary-button"
-            onClick={retry}
-            type="button"
-          >
-            Retry
-          </button>
-        </p>
-      ) : (
-        <>
-          {/* Two chips, never one. Editing the file without re-applying it
-              leaves a repaired file in front of an unrepaired cluster, and a
-              single "lab state" would report that as solved. */}
-          <ul aria-label="Lab state" className="labs-rail-state">
-            {labStateCopy(state ?? null).map(({ label, description }) => (
-              <li key={label} title={description}>{label}</li>
-            ))}
-            {/* A record of an earlier terminal check, beside the live state and
-                never in place of it: Lab 2's fault can fail a fresh Lab 1
-                check. */}
-            {state?.completed_at ? (
-              <li
-                className="is-record"
-                title={`Your last passing terminal validation (scripts/validate_lab.py --lab ${labNumber}). Run completion proof for a current verdict.`}
-              >
-                Validated {clockTime(state.completed_at)}
-              </li>
+              Retry
+            </button>
+          </p>
+        ) : (
+          <>
+            {/* Two chips, never one. Editing the file without re-applying it
+                leaves a repaired file in front of an unrepaired cluster, and a
+                single "lab state" would report that as solved. */}
+            <ul aria-label="Lab state" className="labs-rail-state">
+              {labStateCopy(state ?? null).map(({ label, description }) => (
+                <li key={label} title={description}>{label}</li>
+              ))}
+              {/* A record of an earlier terminal check, beside the live state and
+                  never in place of it: Lab 2's fault can fail a fresh Lab 1
+                  check. */}
+              {state?.completed_at ? (
+                <li
+                  className="is-record"
+                  title={`Your last passing terminal validation (scripts/validate_lab.py --lab ${labNumber}). Run completion proof for a current verdict.`}
+                >
+                  Validated {clockTime(state.completed_at)}
+                </li>
+              ) : null}
+            </ul>
+            {labNextStep(state) ? (
+              <p className="labs-rail-next-step">{labNextStep(state)}</p>
             ) : null}
-          </ul>
-          {labNextStep(state) ? (
-            <p className="labs-rail-next-step">{labNextStep(state)}</p>
-          ) : null}
-        </>
-      )}
+          </>
+        )}
 
-      {nextLab ? (
-        <Link className="labs-rail-next" href={retrievalExampleHref(nextLab)}>
-          Next lab: {nextLab.title}
-          <ArrowRight aria-hidden="true" size={15} />
-        </Link>
-      ) : null}
+        {nextLab ? (
+          <Link className="labs-rail-next" href={retrievalExampleHref(nextLab)}>
+            Next lab: {nextLab.title}
+          </Link>
+        ) : null}
+      </div>
     </nav>
   );
 }

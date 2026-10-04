@@ -54,7 +54,7 @@ export function ReturnedProducts({ products, images, selectedId, onSelect }: {
               </Link>
               <div className="pg-tile-foot">
                 <span className="pg-tile-dots" role="img" aria-label={`Found by: ${armLanguage.filter((arm) => signals?.[arm.key].rank != null).map((arm) => arm.label).join(", ") || "no recorded method"}`}>
-                  {armLanguage.map((arm) => <i key={arm.key} data-arm={arm.key} data-found={signals?.[arm.key].rank != null || undefined} />)}
+                  {armLanguage.map((arm) => <i key={arm.key} title={arm.label} data-arm={arm.key} data-found={signals?.[arm.key].rank != null || undefined} />)}
                 </span>
                 <button type="button" onClick={() => onSelect(product.product_id)} aria-label={`Receipt for ${product.title}`}>Receipt</button>
               </div>

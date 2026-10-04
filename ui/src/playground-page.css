@@ -5,24 +5,14 @@
 
 .pg-a {
   --pg-gap: 64px;
-  --pg-arm-fts: var(--retrieve);
-  --pg-arm-trigram: var(--rank);
-  --pg-arm-semantic: var(--reason);
+  /* All three search methods are the Retrieve stage, so they share its colour and
+     are told apart by their label and by whether they found the product. */
+  --pg-arm: var(--retrieve);
   font-variant-numeric: tabular-nums;
 }
 
 .pg-a ::selection {
   background: color-mix(in srgb, var(--retrieve) 28%, transparent);
-}
-
-.pg-a [data-arm="fts"] {
-  --pg-arm: var(--pg-arm-fts);
-}
-.pg-a [data-arm="trigram"] {
-  --pg-arm: var(--pg-arm-trigram);
-}
-.pg-a [data-arm="semantic"] {
-  --pg-arm: var(--pg-arm-semantic);
 }
 
 /* The stage: the choice of request, the thesis, and Alex's words. */
@@ -577,6 +567,11 @@
 
 .pg-flow-arms [data-empty] dd {
   color: var(--danger);
+}
+
+.pg-flow-arms [data-empty] dt i {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--retrieve);
 }
 
 .pg-timings {

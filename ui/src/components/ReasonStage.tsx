@@ -1,5 +1,5 @@
 import { DeclinedAnswer } from "./DeclinedAnswer";
-import { AlertTriangle, Check, LoaderCircle, Minus, Play } from "lucide-react";
+import { AlertTriangle, Check, Minus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { api } from "../api";
@@ -8,6 +8,7 @@ import { productImageMap } from "../media";
 import { toolPurpose } from "../retrievalLanguage";
 import { Criteria, Searches } from "./agentAnswerParts";
 import { CodeBlock } from "./CodeBlock";
+import { MosaicRunButton } from "./MosaicRunButton";
 import { ReasonRunStatus, type AgentPhase } from "./ReasonRunStatus";
 import { ProductAnswer } from "./ProductAnswer";
 import {
@@ -508,24 +509,17 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
           readOnly={loading}
           value={draft}
         />
-        {/* A labelled button, the same shape as Run pipeline in the masthead:
-            the two things this page can run look like the same kind of control,
-            and the control names its action. */}
+        {/* The same labelled plane as every other Playground send, and the
+            control names its action. */}
         <div className="labs-reason-composer-actions">
           <small>Enter to run. Shift+Enter for a new line.</small>
-          <button
-            aria-busy={loading}
-            className="labs-reason-submit"
-            disabled={loading || draft.trim().length < 2}
+          <MosaicRunButton
             type="submit"
-          >
-            {loading ? (
-              <LoaderCircle aria-hidden="true" className="spin" size={17} />
-            ) : (
-              <Play aria-hidden="true" size={17} fill="currentColor" />
-            )}
-            {runLabel}
-          </button>
+            label={runLabel}
+            showLabel
+            running={loading}
+            disabled={draft.trim().length < 2}
+          />
         </div>
       </form>
 

@@ -445,13 +445,13 @@ function AgentContractsSection({
       <ul className="labs-contracts">
         {contracts.guarantees.map((guarantee) => (
           <li key={guarantee.key}>
-            <code>{guarantee.label}</code>
+            <strong className="labs-rule-name">{guarantee.label}</strong>
             <b>
               {guarantee.fixture_count != null
                 ? `${guarantee.fixture_count} tools`
                 : `${guarantee.assertion_names.length} checks`}
             </b>
-            <small>{guarantee.description}</small>
+            <small className="labs-rule-summary" title={guarantee.description}>{guarantee.description}</small>
           </li>
         ))}
       </ul>

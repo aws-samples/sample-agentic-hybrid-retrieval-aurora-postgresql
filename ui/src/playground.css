@@ -177,17 +177,85 @@
   box-shadow: 0 10px 24px -18px rgb(0 0 0 / 30%);
 }
 
+/* Row one: the lab's title and its stage control. Row two: the file to edit as a
+   copyable pill, the two state chips, and the next lab at the right edge. */
 .lab-page .labs-rail-stages {
   gap: 2px;
+  max-width: 100%;
   padding: 3px;
+  overflow-x: auto;
   border-radius: 999px;
   background: var(--paper-warm);
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.lab-page .labs-rail-stages::-webkit-scrollbar {
+  display: none;
+}
+
+.lab-page .labs-rail-stages li {
+  flex: none;
+  scroll-snap-align: start;
+}
+
+.lab-page .labs-rail-file {
+  display: inline-flex;
+  min-height: 32px;
+  max-width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink-soft);
+}
+
+.lab-page .labs-rail-file code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.lab-page .labs-rail-file .icon-button {
+  width: 28px;
+  height: 28px;
+  flex: none;
+}
+
+.lab-page .labs-rail-details {
+  gap: 8px 14px;
+}
+
+/* The task sits under both rows, in its own line, and folds away when stuck. */
+.lab-page .labs-rail-edit {
+  display: contents;
+}
+
+.lab-page .labs-rail-edit small,
+.lab-page .labs-rail-next-step {
+  order: 3;
+  flex: 1 0 100%;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.lab-page .labs-rail-state {
+  order: 1;
+}
+
+.lab-page .labs-rail-next {
+  order: 2;
+  margin-left: auto;
 }
 
 .lab-page .labs-rail-stages a,
 .lab-page .labs-rail-stages a[data-stage] {
   display: inline-flex;
   min-height: 32px;
+  white-space: nowrap;
   align-items: center;
   gap: 7px;
   padding: 0 13px;
@@ -416,14 +484,51 @@
   letter-spacing: -0.025em;
 }
 
-.lab-page .labs-stage-copy p {
-  max-width: 64ch;
-  font-size: var(--labs-lead);
-  line-height: 1.5;
+/* Content runs the shell's full width: no gutter for the numeral, which sits
+   inline before the title. The lede keeps its own 64ch measure. */
+.lab-page,
+.lab-page .labs-stage {
+  --labs-gutter: 0px;
+}
+
+.lab-page .labs-stage-head {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  column-gap: 14px;
+}
+
+.lab-page .labs-stage-copy {
+  display: contents;
+}
+
+.lab-page .labs-stage-copy h2 {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.lab-page .labs-stage-copy .labs-lede {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+
+.lab-page .labs-stage-head:not(:has(.labs-stage-number)) .labs-stage-copy h2 {
+  grid-column: 1 / 3;
 }
 
 .lab-page .labs-stage-number {
+  grid-row: 1;
+}
+
+/* Stage numerals are order, not stage identity: the colour that marks a stage
+   is the dot in the rail and the chip, never the number. */
+.lab-page .labs-stage .labs-stage-number {
+  color: var(--ink-soft);
   font-weight: 500;
+}
+
+@media (max-width: 720px) {
+  .lab-page .labs-rail-stages {
+    flex: 1 1 100%;
+  }
 }
 
 /* Grids of figures: paper cells with 2px gaps inside one rounded shape. */
