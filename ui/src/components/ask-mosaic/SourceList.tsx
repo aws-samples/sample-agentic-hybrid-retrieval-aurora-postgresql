@@ -3,9 +3,8 @@ import type { AgentCitation, ProductSummary } from "../../types";
 import { sourceAnchor } from "./citations";
 import { isReview, pickName } from "./comparison";
 import { plural } from "./findings";
-import { excerpt } from "./pickFacts";
+import { citedLine } from "./quoteLines";
 
-const QUOTE_LENGTH = 160;
 
 /** What the sources leave open, stated rather than filled. */
 export function StillUnknown({ items }: { items: string[] }) {
@@ -27,11 +26,14 @@ export function StillUnknown({ items }: { items: string[] }) {
 export function SourceList({
   citations,
   products,
+  answer,
   answerId,
   builder,
 }: {
   citations: AgentCitation[];
   products: ProductSummary[];
+  /** The answer's text, so each record shows the line it was cited for. */
+  answer: string;
   answerId: string;
   builder: boolean;
 }) {
@@ -57,7 +59,7 @@ export function SourceList({
                 <span className="ask-pill ask-pill-quiet">{isReview(citation) ? "Review" : "Listing"}</span>
                 {isReview(citation) && citation.title ? <span>{citation.title}</span> : null}
               </p>
-              {citation.quote ? <p className="ask-source-quote">“{excerpt(citation.quote, QUOTE_LENGTH)}”</p> : null}
+              {citedLine(citation, answer) ? <p className="ask-source-quote">“{citedLine(citation, answer)}”</p> : null}
               {builder ? (
                 <p className="ask-mono ask-source-record">
                   <a href={`/api/evidence/${citation.evidence_id}`} target="_blank" rel="noreferrer">

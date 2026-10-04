@@ -6,6 +6,9 @@ import { api } from "../../api";
 import { fixtureCatalogPage } from "../../testProducts";
 import type { AgentResponse, RetrievalRunResponse, ToolTraceStep } from "../../types";
 import { BuilderView } from "./BuilderView";
+import { CommerceProvider } from "../../commerce";
+import { TopPick } from "./Picks";
+import { SourceList } from "./SourceList";
 import type { RunData } from "./findings";
 import { pickFacts, pickRequirements } from "./pickFacts";
 
@@ -88,6 +91,10 @@ describe("BuilderView ranks", () => {
     expect(rows).toHaveLength(3);
     expect(rows[1].textContent).toContain(`${chair.brand} ${chair.model}`.trim());
     expect(rows[1].textContent).toContain("0.800");
+    // The split bar lives under the name, so there is no column of its own to scroll to.
+    const headers = within(ranked).getAllByRole("columnheader").map((header) => header.textContent);
+    expect(headers).toEqual(["Final", "Product", "Exact", "Spell", "Mean", "Comb.", "Rerank"]);
+    expect(rows[1].querySelector(".ask-rank-name .ask-rrf-bar")).not.toBeNull();
   });
 
   it("says so, and shows the recommended products' own ranks, when the receipt cannot be read", async () => {
@@ -109,6 +116,64 @@ describe("BuilderView ranks", () => {
     expect(within(builder).getByText("memory off")).toBeTruthy();
     fireEvent.click(within(builder).getByRole("button", { name: "Chair" }));
     expect(within(builder).getByText("tokens")).toBeTruthy();
+  });
+});
+
+const ANSWER = "The Logitech lists active noise cancellation [1]. A reviewer reports crystal-clear audio with no complaints from callers [2].";
+
+describe("pickFacts lines", () => {
+  const cite = (number: number, type: string, quote: string) => ({
+    number, evidence_id: number, evidence_type: type, product_id: chair.product_id,
+    source_uri: "u", revision: "r", title: "t", quote,
+  });
+  const listing = cite(1, "product_spec",
+    "Title: Logitech Zone 900 Headset\n\nCategories: Electronics > Headphones\n\nDescription:\nTake control of your acoustic experience at home. Active noise cancellation blocks out the noise around you.");
+  const review = cite(2, "customer_review",
+    "This is my second purchase of the headset.my original was purchased in 2020. The audio is crystal clear and no one ever complains about my audio.<br /><br />Well worth every penny.");
+
+  it("uses whole lines that support the claim, never boilerplate or fragments", () => {
+    const facts = pickFacts(chair, [listing, review], ANSWER);
+    expect(facts).toEqual([
+      { text: "Active noise cancellation blocks out the noise around you.", number: 1 },
+      { text: "“The audio is crystal clear and no one ever complains about my audio.”", number: 2 },
+    ]);
+    expect(facts.map((fact) => fact.text).join(" ")).not.toMatch(/Title:|Categories:|<br|…/);
+  });
+
+  it("renders the citation pill inside the last word's nowrap span, so it cannot wrap alone", () => {
+    const answer = ANSWER;
+    render(
+      <CommerceProvider>
+        <TopPick
+          product={chair} index={0} rows={[]} citations={[listing, review]} answer={answer}
+          answerId="a" builder={false} highlighted={false} onHighlight={() => {}} onSelectProduct={() => {}}
+        />
+      </CommerceProvider>,
+    );
+    const pill = screen.getByRole("link", { name: "Source 1" });
+    const glued = pill.closest(".ask-nowrap")!;
+    expect(glued.textContent).toBe("you.1");
+    expect(glued.closest("p")?.textContent).toContain("Active noise cancellation blocks out the noise around you.");
+  });
+});
+
+describe("source list lines", () => {
+  it("shows the cited line from a listing and from a review", () => {
+    const cite = (number: number, type: string, quote: string) => ({
+      number, evidence_id: number, evidence_type: type, product_id: chair.product_id,
+      source_uri: "u", revision: "r", title: "t", quote,
+    });
+    render(<SourceList
+      answer={ANSWER} answerId="a" builder={false} products={[chair]}
+      citations={[
+        cite(1, "product_spec", "Title: X\n\nCategories: A > B\n\nDescription:\nActive noise cancellation blocks out the noise around you."),
+        cite(2, "customer_review", "Meh start of review. The audio is crystal clear and no one ever complains.<br />Fine."),
+      ]}
+    />);
+    const list = screen.getByRole("region", { name: "Sources" });
+    expect(within(list).getByText("“Active noise cancellation blocks out the noise around you.”")).toBeTruthy();
+    expect(within(list).getByText("“The audio is crystal clear and no one ever complains.”")).toBeTruthy();
+    expect(list.textContent).not.toMatch(/Title:|Categories:|<br/);
   });
 });
 

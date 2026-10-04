@@ -4,7 +4,7 @@ import { productImage } from "../../media";
 import type { AgentCitation, ProductSummary } from "../../types";
 import { CitePills } from "./citations";
 import { pickName, retrievalPath, type ComparisonRow } from "./comparison";
-import { pickFacts, pickRequirements, type PickRequirement } from "./pickFacts";
+import { pickFacts, pickRequirements, type PickFact, type PickRequirement } from "./pickFacts";
 
 interface PickProps {
   product: ProductSummary;
@@ -12,6 +12,8 @@ interface PickProps {
   index: number;
   rows: ComparisonRow[];
   citations: AgentCitation[];
+  /** The answer's text, so each fact is the line its citation was cited for. */
+  answer: string;
   answerId: string;
   imageSrc?: string;
   /** Builder view: print where search found it. */
@@ -73,13 +75,31 @@ function Requirement({ item, answerId }: { item: PickRequirement; answerId: stri
   );
 }
 
+/**
+ * One fact with its citation pill at the end of the line. The pill is glued to
+ * the last word so it never wraps onto a line of its own.
+ */
+function FactLine({ fact, answerId }: { fact: PickFact; answerId: string }) {
+  const words = fact.text.split(" ");
+  const last = words.pop() ?? "";
+  return (
+    <p className="ask-fact">
+      {words.length ? `${words.join(" ")} ` : ""}
+      <span className="ask-nowrap">
+        {last}
+        {fact.number != null ? <CitePills numbers={[fact.number]} answerId={answerId} /> : null}
+      </span>
+    </p>
+  );
+}
+
 function Path({ product }: { product: ProductSummary }) {
   const path = retrievalPath(product);
   return path.length ? <p className="ask-mono ask-path" aria-label="How search found it">{path.join(" → ")}</p> : null;
 }
 
 /** The photograph a shopper recognises, the pick's name and the cited facts that earn it a place. */
-export function TopPick({ product, index, rows, citations, answerId, imageSrc, builder, highlighted, onHighlight, onSelectProduct }: PickProps) {
+export function TopPick({ product, index, rows, citations, answer, answerId, imageSrc, builder, highlighted, onHighlight, onSelectProduct }: PickProps) {
   const name = pickName(product);
   return (
     <article
@@ -101,11 +121,8 @@ export function TopPick({ product, index, rows, citations, answerId, imageSrc, b
           <h4>{name}</h4>
           <span className="ask-pill ask-pill-neutral"><i className="ask-dot" aria-hidden="true" />Top pick</span>
         </div>
-        {pickFacts(product, citations).map((fact) => (
-          <p className="ask-fact" key={fact.text}>
-            <span>{fact.text}</span>
-            {fact.number != null ? <CitePills numbers={[fact.number]} answerId={answerId} /> : null}
-          </p>
+        {pickFacts(product, citations, answer).map((fact) => (
+          <FactLine key={fact.text} fact={fact} answerId={answerId} />
         ))}
         {pickRequirements(rows, index).map((item) => (
           <Requirement key={item.label} item={item} answerId={answerId} />
@@ -118,9 +135,9 @@ export function TopPick({ product, index, rows, citations, answerId, imageSrc, b
 }
 
 /** The remaining recommendations, one compact row each. */
-export function PickRow({ product, index, rows, citations, answerId, imageSrc, builder, highlighted, onHighlight, onSelectProduct }: PickProps) {
+export function PickRow({ product, index, rows, citations, answer, answerId, imageSrc, builder, highlighted, onHighlight, onSelectProduct }: PickProps) {
   const name = pickName(product);
-  const [fact] = pickFacts(product, citations);
+  const [fact] = pickFacts(product, citations, answer);
   return (
     <li className="ask-pick-row" data-highlighted={highlighted || undefined} {...pointing(product, onHighlight)}>
       <button
@@ -133,12 +150,7 @@ export function PickRow({ product, index, rows, citations, answerId, imageSrc, b
       </button>
       <div className="ask-pick-row-copy">
         <strong>{name}</strong>
-        {fact ? (
-          <p className="ask-fact">
-            <span>{fact.text}</span>
-            {fact.number != null ? <CitePills numbers={[fact.number]} answerId={answerId} /> : null}
-          </p>
-        ) : null}
+        {fact ? <FactLine fact={fact} answerId={answerId} /> : null}
         {pickRequirements(rows, index).map((item) => (
           <Requirement key={item.label} item={item} answerId={answerId} />
         ))}
