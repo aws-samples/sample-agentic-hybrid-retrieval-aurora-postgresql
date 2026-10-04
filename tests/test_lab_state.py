@@ -485,3 +485,42 @@ def test_start_reports_a_database_failure_after_the_guard_the_same_way(monkeypat
         lab_state.main()
 
     assert "facilitator" in str(exit_info.value)
+
+
+@pytest.mark.parametrize(
+    "lab,expected",
+    [(1, "apply_search_functions"), (2, "apply_search_functions"), (3, "deploy")],
+)
+def test_solution_says_what_it_overwrote_and_the_next_commands(
+    monkeypatch, capsys, tmp_path, lab, expected
+):
+    from scripts import lab_state
+    from service.participant_commands import DEPLOY_AGENT, complete_lab_3, validate
+
+    monkeypatch.setattr("sys.argv", ["lab_state.py", "solution", "--lab", str(lab)])
+    monkeypatch.setattr(
+        lab_state, "set_lab_state", lambda *_a, **_k: lab_state.REPO / "x.sql"
+    )
+
+    assert lab_state.main() == 0
+
+    output = capsys.readouterr().out
+    assert f"LAB{lab}_" in output and "overwrote" in output
+    assert "git diff" in output
+    assert expected in output
+    if lab == 3:
+        assert DEPLOY_AGENT in output and complete_lab_3() in output
+    else:
+        assert validate(lab) in output
+
+
+@pytest.mark.parametrize("action", ["start", "reset", "solution", "validate"])
+def test_a_missing_lab_names_the_valid_values(monkeypatch, action):
+    from scripts import lab_state
+
+    monkeypatch.setattr("sys.argv", ["lab_state.py", action])
+    with pytest.raises(SystemExit) as raised:
+        lab_state.main()
+    message = str(raised.value)
+    assert action in message and "1, 2, 3" in message
+    assert f"lab_state.py {action} --lab" in message
