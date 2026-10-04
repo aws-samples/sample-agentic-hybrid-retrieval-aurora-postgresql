@@ -67,6 +67,26 @@ export type AgentStreamOptions = {
   sessionId?: string;
 };
 
+/**
+ * The service answers with a string `detail` for its own failures and with a list
+ * of `{ msg }` records for request validation. Anything else falls back to the
+ * bounded status message, so a structured body never prints as "[object Object]".
+ */
+function errorDetail(body: unknown, status: number): string {
+  const fallback = `Request failed with HTTP ${status}`;
+  const detail = (body as { detail?: unknown } | null)?.detail;
+  if (typeof detail === "string") return detail || fallback;
+  const records = Array.isArray(detail) ? detail : [detail];
+  const messages = records
+    .map((record) => {
+      if (typeof record === "string") return record;
+      const named = record as { msg?: unknown; message?: unknown } | null;
+      return typeof named?.msg === "string" ? named.msg : named?.message;
+    })
+    .filter((text): text is string => typeof text === "string" && text.length > 0);
+  return messages.length ? messages.join("; ") : fallback;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
@@ -78,8 +98,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     let message = `Request failed with HTTP ${response.status}`;
     try {
-      const body = (await response.json()) as { detail?: string };
-      if (body.detail) message = body.detail;
+      message = errorDetail(await response.json(), response.status);
     } catch {
       // Keep the bounded status message.
     }
@@ -91,8 +110,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 async function streamResponseError(response: Response): Promise<ApiError> {
   let message = `Request failed with HTTP ${response.status}`;
   try {
-    const body = (await response.json()) as { detail?: string };
-    if (body.detail) message = body.detail;
+    message = errorDetail(await response.json(), response.status);
   } catch {
     // Preserve the concise HTTP error when the response body is not JSON.
   }

@@ -133,12 +133,16 @@ describe("App Labs routes", () => {
     expect(await screen.findByText(marker)).toBeTruthy();
   });
 
-  it("sends an unroutable path to Shop", async () => {
+  it("says so when a path matches no surface, and offers the way back to Shop", async () => {
     window.history.replaceState({}, "", "/not-a-surface");
     render(<App />);
 
-    await waitFor(() => expect(window.location.pathname).toBe("/catalog"));
+    expect(await screen.findByRole("heading", { name: "Page not found" })).toBeTruthy();
+    expect(window.location.pathname).toBe("/not-a-surface");
+    expect(screen.queryByText("Catalog route")).toBeNull();
+    fireEvent.click(screen.getByRole("link", { name: "Back to Shop" }));
     expect(await screen.findByText("Catalog route")).toBeTruthy();
+    expect(window.location.pathname).toBe("/catalog");
   });
 
   // Discover folded into Shop's landing. The front door and every bookmark of

@@ -1,4 +1,5 @@
 import { AlertTriangle, LoaderCircle } from "lucide-react";
+import { Link } from "wouter";
 
 const catalogSkeletonItems = Array.from({ length: 8 }, (_, index) => index);
 
@@ -52,5 +53,16 @@ export function ErrorState({
         </button>
       ) : null}
     </div>
+  );
+}
+
+/** A missing product or an unknown address: one title, one line, the way back. */
+export function NotFoundState({ title, message }: { title: string; message: string }) {
+  return (
+    <section className="not-found-state" aria-labelledby="not-found-title">
+      <h1 id="not-found-title">{title}</h1>
+      <p>{message}</p>
+      <Link className="secondary-button" href="/catalog">Back to Shop</Link>
+    </section>
   );
 }

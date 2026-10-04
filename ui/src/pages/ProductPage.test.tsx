@@ -9,13 +9,14 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "../api";
+import { api, ApiError } from "../api";
 import { CommerceProvider } from "../commerce";
 import { fixtureCatalogPage, fixtureProductDetail } from "../testProducts";
 import type { ProductDetail } from "../types";
 import { ProductPage } from "./ProductPage";
 
-vi.mock("../api", () => ({
+vi.mock("../api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../api")>()),
   api: {
     similarProducts: vi.fn(),
     product: vi.fn(),
@@ -44,6 +45,24 @@ describe("ProductPage", () => {
   });
 
   afterEach(cleanup);
+
+  it.each([404, 422])("shows a centred not-found state for an HTTP %i", async (status) => {
+    vi.mocked(api.product).mockRejectedValue(new ApiError(status, "Product not found"));
+    render(<CommerceProvider><ProductPage /></CommerceProvider>);
+
+    expect(await screen.findByRole("heading", { name: "Product not found" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Back to Shop" }).getAttribute("href")).toBe("/catalog");
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    expect(document.body.textContent).not.toContain("[object Object]");
+  });
+
+  it("keeps Retry for a failure that is not a missing product", async () => {
+    vi.mocked(api.product).mockRejectedValue(new ApiError(503, "Product detail is unavailable"));
+    render(<CommerceProvider><ProductPage /></CommerceProvider>);
+
+    expect(await screen.findByText("Product detail is unavailable")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+  });
 
   it("keeps original listing content available without repeating it in the opening view", async () => {
     const base = fixtureProductDetail(1)!;

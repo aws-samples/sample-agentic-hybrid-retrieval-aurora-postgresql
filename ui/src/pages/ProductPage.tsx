@@ -21,14 +21,14 @@ import {
   useState,
 } from "react";
 import { Link, useRoute } from "wouter";
-import { api } from "../api";
+import { api, ApiError } from "../api";
 import { cartQuantityLimit, useCommerce } from "../commerce";
 import { MosaicMark } from "../components/MosaicMark";
 import { ProductComplements } from "../components/ProductComplements";
 import { catalogReturnPath } from "../navigation";
 import { ProductCard } from "../components/ProductCard";
 import { SourceProductDetail } from "../components/SourceProductDetail";
-import { ErrorState, LoadingState } from "../components/States";
+import { ErrorState, LoadingState, NotFoundState } from "../components/States";
 import { productFacts, formatAttributeLabel, formatAttributeValue, formatAvailability, formatPrice, isPurchasable, leafCategory } from "../format";
 import { productEditorialPoster, productImageMap, productImages, productImageLabel, productImageNote } from "../media";
 import type { ProductDetail, ProductSummary } from "../types";
@@ -41,6 +41,7 @@ export function ProductPage() {
   const productId = params?.productId;
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [error, setError] = useState("");
+  const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
   const [related, setRelated] = useState<ProductSummary[]>([]);
   const [relatedLoading, setRelatedLoading] = useState(false);
@@ -85,6 +86,7 @@ export function ProductPage() {
     relatedRequestVersion.current += 1;
     setLoading(true);
     setError("");
+    setNotFound(false);
     setRelated([]);
     setRelatedLoading(false);
     setRelatedError("");
@@ -101,6 +103,7 @@ export function ProductPage() {
         if (version !== requestVersion.current) return;
         setProduct(null);
         setRelated([]);
+        setNotFound(cause instanceof ApiError && (cause.status === 404 || cause.status === 422));
         setError(cause instanceof Error ? cause.message : "Product detail is unavailable");
       } finally {
         if (version === requestVersion.current) setLoading(false);
@@ -117,6 +120,16 @@ export function ProductPage() {
   }, [load]);
 
   if (loading) return <div className="page"><LoadingState label="Loading product evidence" /></div>;
+  if (notFound) {
+    return (
+      <div className="page">
+        <NotFoundState
+          title="Product not found"
+          message="This product is not in the catalog. It may have been removed, or the address is mistyped."
+        />
+      </div>
+    );
+  }
   if (error || !product) return <div className="page"><ErrorState message={error || "Product not found"} onRetry={load} /></div>;
 
   const gallery = Array.from(new Set([

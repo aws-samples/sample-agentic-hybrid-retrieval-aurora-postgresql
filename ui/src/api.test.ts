@@ -51,6 +51,31 @@ describe("catalog filters", () => {
   });
 });
 
+describe("structured error details", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each([
+    ["a string", "Product not found", "Product not found"],
+    [
+      "a validation list",
+      [{ type: "int_parsing", loc: ["path", "product_id"], msg: "Input should be a valid integer" }],
+      "Input should be a valid integer",
+    ],
+    ["an object with a message", { message: "Search is unavailable" }, "Search is unavailable"],
+    ["an object with no text", { code: 7 }, "Request failed with HTTP 422"],
+  ])("never prints [object Object] for %s", async (_label, detail, expected) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ detail }), { status: 422 }),
+    ));
+
+    const failure = await api.product(1).catch((cause: unknown) => cause);
+
+    expect(failure).toBeInstanceOf(ApiError);
+    expect((failure as ApiError).message).toBe(expected);
+    expect((failure as ApiError).status).toBe(422);
+  });
+});
+
 describe("agentStream", () => {
   afterEach(() => {
     vi.unstubAllGlobals();

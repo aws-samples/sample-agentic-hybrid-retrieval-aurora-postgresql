@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef } from "react";
 import { Redirect, Route, Switch, useLocation, useSearch } from "wouter";
 import { CommerceProvider } from "./commerce";
+import { NotFoundState } from "./components/States";
 import { RouteErrorBoundary } from "./components/RouteErrorBoundary";
 import { Shell } from "./components/Shell";
 import { PLAYGROUND_TABS, RETRIEVAL_SURFACE } from "./navigation";
@@ -109,7 +110,12 @@ function RoutedSurface() {
             <RouteAlias to="/mosaic-labs/hnsw" />
           </Route>
           <Route>
-            <Redirect to="/catalog" replace />
+            <div className="page">
+              <NotFoundState
+                title="Page not found"
+                message="Mosaic has no page at this address."
+              />
+            </div>
           </Route>
         </Switch>
       </Suspense>
