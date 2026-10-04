@@ -86,7 +86,7 @@ describe("productImage", () => {
   });
 
   it("refuses a database path into the scraped substrate", () => {
-    // One run of materialize_image_urls.py points 38,750 rows at a photograph
+    // A retired image-materialization run pointed 38,750 rows at a photograph
     // of a MacBook on a laptop stand. The category pool must still win.
     expect(productImage(filler(6, {
       domain: "home_office",
@@ -163,7 +163,7 @@ describe("productImage", () => {
   });
 
   it("falls back to a neutral still-life when the category has no photograph", () => {
-    // Some categories in data/dictionaries/taxonomy.json still hold no installed
+    // Some catalog categories still hold no installed
     // photography and no interchangeable neighbour: a running shoe is not a
     // running top, and a desk fan is not a humidifier.
     // Each of these used to resolve to a photograph of one specific product,

@@ -56,9 +56,10 @@ calls, with the same setup. Never a reimplementation, and never a shortcut.
 
 **Two exemplars, both learned the hard way.**
 
-`mosaic_search.matches_filters` — `scripts/catalog/catalog_contract.py` reimplemented
-filter logic by hand and did not know about `max_price_cents`, `in_stock_only`,
-or the refurbished and sponsored exclusions the real SQL applies. Two missions
+`mosaic_search.matches_filters` — `scripts/catalog/catalog_contract.py` (since
+retired) reimplemented filter logic by hand and did not know about
+`max_price_cents`, `in_stock_only`, or the refurbished and sponsored exclusions
+the real SQL applies. Two missions
 shipped that could not pass, and the gate that existed to catch them was
 structurally incapable of it. The mission gate now calls the production function
 on the cluster.

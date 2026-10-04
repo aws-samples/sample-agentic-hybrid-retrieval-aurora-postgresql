@@ -3,8 +3,8 @@
 
 `data/evals/mosaic_labs_missions.json` is the single source of truth for the
 workshop's labs, retrieval checks, timings, and assertions. Package validation
-and `scripts/catalog/catalog_contract.py` cover adjacent artifact and offline-filter
-contracts; this gate owns mission-internal consistency and live target checks.
+covers adjacent artifact contracts; this gate owns mission-internal consistency
+and live target checks.
 
 Where a check needs authoritative filter semantics, this module calls
 `mosaic_search.matches_filters` **on the cluster** rather than treating an

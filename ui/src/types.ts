@@ -593,7 +593,11 @@ export interface ReadinessResponse {
     revision: string;
     /** True when that revision was serving with uncommitted changes on top. */
     worktree_dirty: boolean;
-    /** SHA-256 of `data/full/manifest.json` as this service reads it. */
+    /**
+     * The connected catalog's identity: the restore receipt's `catalog_sha256`
+     * for a prepared real catalog, otherwise the SHA-256 of
+     * `db/config/real-catalog-cache.json`.
+     */
     dataset_manifest_sha256: string;
   };
 }

@@ -17,8 +17,6 @@
 !data/media/
 !data/media/asset_labels_200.json
 !data/media/workspace_collection.json
-!data/full/
-!data/full/manifest.json
 !skills/
 !skills/mosaic-hybrid-retrieval/
 !skills/mosaic-hybrid-retrieval/**

@@ -133,7 +133,7 @@ function platePath(plateId: string): string {
 }
 
 /**
- * The service's category slug, from `db/scripts/transform_legacy_catalog.py`.
+ * A category name as a lowercase, hyphen-separated slug.
  */
 function slugify(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -213,10 +213,8 @@ function spread(productId: number, assetCount: number): number {
  * Generated photography. Anything outside it is the scraped substrate that the
  * category pools replaced, and a database column may still point into it.
  *
- * `data/full/product_image_urls.csv.gz` maps installed exact products into this
- * namespace and sends the remaining corpus to category fallbacks. A path is
- * still trusted only if it names the generated namespace, so stale catalog data
- * cannot bypass the governed pools.
+ * A path is trusted only if it names the generated namespace, so stale catalog
+ * data cannot bypass the governed pools.
  */
 const GENERATED_PREFIX = `${ASSETS}/mosaic/`;
 
