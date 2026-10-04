@@ -628,7 +628,9 @@ whether a lab is finished.
 
 ## Retrieval scorecard
 
-- `GET /api/scorecard` is the Prove step: a read-only render of
+- `GET /api/scorecard` backs the Playground's collapsed **Maintainer measurements**
+  section, saved results the maintainers measured that do not grade a participant's
+  repairs (the Prove step is `POST /api/labs/{lab_id}/proof`). It is a read-only render of
   `data/evals/canonical_scorecard.json`, `data/evals/canonical_queries.jsonl`, the
   `service.assertions` vocabulary, and the tool-contract registry. No DDL, no
   `eval_run` table (ruling R7) — the response is computed fresh from those files on

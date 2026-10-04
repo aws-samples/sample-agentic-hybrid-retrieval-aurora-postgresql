@@ -62,7 +62,11 @@ marked blocks hold a `TODO(Lab n)` note that repeats the guide's contract.
 
 Use **Shop** for product search and **Playground** for saved candidates,
 ranking, tool calls and cited sources. **Complete my room** runs Lab 3's
-three-product request. Keep its original run ID for completion.
+three-product request, and its Ask Mosaic starter stays available before and after
+you build the agent; it runs on its own filters and says when it clears Shop's.
+Keep its original run ID for completion. The Playground's Prove page keeps the
+maintainers' saved scorecard collapsed under **Maintainer measurements**; those
+results do not grade your repairs.
 
 The guide presents the essential actions in order, with reference material and
 optional exercises collapsed. Each lab README is a short reminder beside the

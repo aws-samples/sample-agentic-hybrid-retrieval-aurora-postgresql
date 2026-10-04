@@ -84,7 +84,12 @@ Discover Gateway tools, then complete `create_agent` inside `LAB3_AGENT` in
 `labs/lab3_reason/agent.py`. Participants keep the supplied model, tools, source
 rules and hooks, and add one instruction of their own. Deploy using the guide.
 
-Run **Playground → Complete my room → Reason**. Save the original run ID.
+Run **Playground → Complete my room → Reason**. Save the original run ID. The
+Ask Mosaic **Complete my room** starter is available before and after the agent is
+built and runs on its own filters; it shows "Shop filters were cleared for this lab
+request." when it replaces filters a participant had set. A follow-up question is
+not graded against the lab. The Prove page's **Maintainer measurements** are
+collapsed saved results for facilitators and do not grade a participant.
 Inspect separate searches for the headphones, monitor and chair; all three in
 the comparison and final shortlist; their supporting citations; and a ranking
 explanation. Open the chair's listing and review: adjustable features and one
