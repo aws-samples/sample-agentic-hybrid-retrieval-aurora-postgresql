@@ -97,6 +97,10 @@ explanation. Open the chair's listing and review: adjustable features and one
 person's comfort experience make different claims. Check microphone evidence
 separately from listening noise cancellation.
 
+The prepared UI serves built assets without development live reload. Leave the
+answer open during source inspection; save its run ID before refreshing or
+navigating away.
+
 Ask the guide's changed 100W requirement against the monitor's 90W record.
 The agent must acknowledge the mismatch and any unknown compatibility.
 Prove the **original room run**, then finish the Conclusion checks. Completion

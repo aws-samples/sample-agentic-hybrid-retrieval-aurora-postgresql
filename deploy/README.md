@@ -12,8 +12,7 @@ it is a fact owned by this repository rather than by the workshop:
 | The script hardcodes | This repository decides it in |
 | --- | --- |
 | `--port 8000` for the API | `API_PORT` in `Makefile` |
-| `--port 5173` for Vite | `UI_PORT` in `Makefile` |
-| `CATALOG_API_PROXY` | `ui/vite.config.ts` |
+| `listen 127.0.0.1:5173` for the built UI | `UI_PORT` in `Makefile` |
 | `service.main:app` | `service/main.py` |
 | `/api/health`, `/api/readiness` | the routes `service.main:app` registers |
 | `make db-bootstrap-schema` | `Makefile` |
@@ -24,6 +23,12 @@ Rename a route or move a port and the box stops booting, which a participant
 discovers as a CloudFormation wait-condition timeout. `tests/test_bootstrap_contract.py`
 compares the script against each source above so that lands as a failing test here
 instead.
+
+The workshop's `mosaic-ui` unit serves `ui/dist` through a separate loopback
+nginx process. The public nginx front still routes `/api/` to the API and
+enforces the origin boundary. The UI has no development WebSocket: a CloudFront
+connection timeout must not reload a participant's answer. Maintainer local
+development continues to use Vite and `CATALOG_API_PROXY`.
 
 ### Secrets: one value per use, and what CloudFormation must supply
 

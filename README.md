@@ -69,6 +69,10 @@ Keep its original run ID for completion. Ask Mosaic's **Builder view** switch (o
 maintainers' saved scorecard collapsed under **Maintainer measurements**; those
 results do not grade your repairs.
 
+The prepared workshop serves a built UI so a live-reload connection cannot
+interrupt your answer. Keep the answer open while inspecting its sources, and
+save the run ID before refreshing or leaving the page.
+
 The guide presents the essential actions in order, with reference material and
 optional exercises collapsed. Each lab README is a short reminder beside the
 file you edit. Start each lab with

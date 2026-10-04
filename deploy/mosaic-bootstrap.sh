@@ -1041,9 +1041,34 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
+# CloudFront can close an idle live-reload socket while a participant inspects
+# an answer. Serve the built UI so that connection loss cannot reload the page.
+cat >/etc/nginx/mosaic-ui.conf <<EOF
+worker_processes 1;
+pid /run/mosaic-ui/nginx.pid;
+error_log stderr;
+events { worker_connections 256; }
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    access_log off;
+    client_body_temp_path /run/mosaic-ui/client_temp;
+    proxy_temp_path /run/mosaic-ui/proxy_temp;
+    fastcgi_temp_path /run/mosaic-ui/fastcgi_temp;
+    uwsgi_temp_path /run/mosaic-ui/uwsgi_temp;
+    scgi_temp_path /run/mosaic-ui/scgi_temp;
+    server {
+        listen 127.0.0.1:5173;
+        root $REPO/ui/dist;
+        location /assets/ { try_files \$uri =404; }
+        location / { try_files \$uri \$uri/ /index.html; }
+    }
+}
+EOF
+
 cat >/etc/systemd/system/mosaic-ui.service <<EOF
 [Unit]
-Description=Mosaic Vite application
+Description=Mosaic built application
 After=network-online.target mosaic-api.service
 Wants=network-online.target
 
@@ -1052,9 +1077,9 @@ Type=simple
 User=$CODE_EDITOR_USER
 Group=$CODE_EDITOR_USER
 WorkingDirectory=$REPO/ui
-Environment=PATH=/usr/local/bin:/usr/bin:/bin
-Environment=CATALOG_API_PROXY=http://127.0.0.1:8000
-ExecStart=/usr/bin/npm run dev -- --host 127.0.0.1 --port 5173
+RuntimeDirectory=mosaic-ui
+ExecStartPre=/usr/bin/test -s $REPO/ui/dist/index.html
+ExecStart=/usr/sbin/nginx -c /etc/nginx/mosaic-ui.conf -g 'daemon off;'
 Restart=always
 RestartSec=5
 

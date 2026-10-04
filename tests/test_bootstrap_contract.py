@@ -213,7 +213,34 @@ def test_api_unit_serves_the_makefile_api_port(script: str) -> None:
 
 def test_ui_unit_serves_the_makefile_ui_port(script: str) -> None:
     port = _make_default("UI_PORT")
-    assert f"--port {port}" in script
+    assert f"listen 127.0.0.1:{port};" in script
+
+
+def assert_workshop_ui_has_no_live_reload(script: str) -> None:
+    unit = script.split("cat >/etc/systemd/system/mosaic-ui.service <<EOF\n", 1)[1]
+    unit = unit.split("\nEOF", 1)[0]
+    assert "ExecStart=/usr/sbin/nginx -c /etc/nginx/mosaic-ui.conf" in unit, (
+        "Workshop UI rule: serve built assets; a development WebSocket can "
+        "reload and erase an answer when CloudFront closes the connection"
+    )
+    assert "ExecStartPre=/usr/bin/test -s $REPO/ui/dist/index.html" in unit
+    config = script.split("cat >/etc/nginx/mosaic-ui.conf <<EOF\n", 1)[1]
+    config = config.split("\nEOF", 1)[0]
+    assert "root $REPO/ui/dist;" in config
+    assert r"try_files \$uri \$uri/ /index.html;" in config
+
+
+def test_workshop_ui_cannot_reload_after_a_development_socket_disconnect(
+    script: str,
+) -> None:
+    assert_workshop_ui_has_no_live_reload(script)
+    changed = script.replace(
+        "ExecStart=/usr/sbin/nginx -c /etc/nginx/mosaic-ui.conf -g 'daemon off;'",
+        "ExecStart=/usr/bin/npm run dev -- --host 127.0.0.1 --port 5173",
+    )
+    assert changed != script
+    with pytest.raises(AssertionError, match="development WebSocket"):
+        assert_workshop_ui_has_no_live_reload(changed)
 
 
 def test_api_unit_runs_the_asgi_app_this_repository_exposes(script: str) -> None:
@@ -249,26 +276,30 @@ def assert_vite_proxy_environment(config: str, script: str) -> set[str]:
     assert names, "vite.config.ts no longer reads a proxy target from the environment"
     for name in names:
         assert f"{name}=" in script, (
-            f"vite reads {name} but the bootstrap never sets it, so the UI would "
+            f"vite reads {name} but the development command never sets it, so the UI would "
             "proxy to its built-in default instead of the API on this box"
         )
     return names
 
 
-def test_vite_proxy_variable_is_the_one_vite_reads(script: str) -> None:
+def test_vite_proxy_variable_is_the_one_vite_reads() -> None:
     config = VITE_CONFIG.read_text(encoding="utf-8")
+    script = MAKEFILE.read_text(encoding="utf-8")
     assert assert_vite_proxy_environment(config, script) == {"CATALOG_API_PROXY"}
 
 
-def test_proxy_check_rejects_an_unset_target_but_ignores_unrelated_preview_settings(
-    script: str,
-) -> None:
+def test_proxy_check_rejects_an_unset_target_but_ignores_unrelated_preview_settings() -> (
+    None
+):
     config = VITE_CONFIG.read_text(encoding="utf-8")
+    script = MAKEFILE.read_text(encoding="utf-8")
     saved = config.encode()
     changed = config.replace(
         "process.env.CATALOG_API_PROXY", "process.env.UNSET_API_PROXY"
     )
-    with pytest.raises(AssertionError, match="UNSET_API_PROXY.*bootstrap never sets"):
+    with pytest.raises(
+        AssertionError, match="UNSET_API_PROXY.*development command never sets"
+    ):
         assert_vite_proxy_environment(changed, script)
     assert assert_vite_proxy_environment(saved.decode(), script) == {
         "CATALOG_API_PROXY"
