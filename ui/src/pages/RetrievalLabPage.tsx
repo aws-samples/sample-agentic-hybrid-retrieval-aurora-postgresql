@@ -1043,7 +1043,12 @@ export function RetrievalLabPage() {
           agentRunId={agentRunId}
           onFinished={() => setBaselineReads((reads) => reads + 1)}
         />
-        <RetrievalScorecard refreshKey={baselineReads} />
+        <PlaygroundDisclosure
+          label="Maintainer measurements"
+          hint="Saved results the maintainers measured. They do not grade your repairs."
+        >
+          <RetrievalScorecard refreshKey={baselineReads} />
+        </PlaygroundDisclosure>
         <PackageFinale />
       </PlaygroundStage>
     </div>

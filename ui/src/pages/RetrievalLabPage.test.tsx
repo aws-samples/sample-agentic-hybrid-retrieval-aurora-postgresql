@@ -1276,6 +1276,21 @@ describe("RetrievalLabPage", () => {
     expect(within(reasonStage as HTMLElement).queryByText("Take this retrieval into your own agent")).toBeNull();
   });
 
+  it("keeps the maintainers' scorecard collapsed and the hand-off visible", async () => {
+    mockPackageRegistry();
+    const { container } = render(<RetrievalLabPage />);
+    await awaitPackageFinale();
+
+    const summary = screen.getByText("Maintainer measurements");
+    const disclosure = summary.closest("details");
+    expect(disclosure).not.toBeNull();
+    expect(disclosure!.open).toBe(false);
+    expect(disclosure!.querySelector(".labs-scorecard")).not.toBeNull();
+    expect(disclosure!.querySelector(".labs-package-finale")).toBeNull();
+    expect(container.querySelector(".labs-completion-proof")?.closest("details")).toBeNull();
+    expect(container.querySelector(".labs-package-finale")?.closest("details")).toBeNull();
+  });
+
   it("grades Lab 3 on the run stage 03 produced, and re-reads the baseline after", async () => {
     // The seam this covers is the one no component test can: the agent run id
     // exists only inside stage 03, and the proof block that needs it lives in
