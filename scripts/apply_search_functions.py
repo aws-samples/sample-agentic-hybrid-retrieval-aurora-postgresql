@@ -13,7 +13,9 @@ sys.path.insert(0, str(ROOT))
 from scripts.catalog.prepare_live_catalog import live_search_functions
 from scripts.lab_state import assert_reset_database
 from service.catalog_runtime import active_dataset, search_schema
+from service.lab_files import LAB1_SQL, LAB2_SQL
 from service.lab_validation_receipt import participant_sql_digest
+from service.participant_commands import APPLY_SQL
 from service.search_sql import search_sql
 
 #: The fused search function carries the record of which participant SQL Aurora
@@ -74,23 +76,79 @@ def apply(connection, source: str, source_sha256: str | None = None) -> None:
         )
 
 
+def describe_apply_failure(error, *, rolled_back: bool) -> str:
+    """Say what Aurora rejected, where, and what state it was left in.
+
+    Args:
+        error: The `psycopg.Error` raised while applying or configuring.
+        rolled_back: True when the apply transaction rolled back, so Aurora
+            still runs its previous functions.
+
+    Returns:
+        A multi-line message for the participant's terminal, with no traceback.
+    """
+    diagnostics = error.diag
+    sqlstate = error.sqlstate or diagnostics.sqlstate or "none"
+    message = (diagnostics.message_primary or str(error)).strip()
+    lines = [f"Apply failed: SQLSTATE {sqlstate}: {message}"]
+    if diagnostics.statement_position:
+        lines.append(
+            f"Position: character {diagnostics.statement_position} of the statement "
+            "sent to Aurora."
+        )
+    if diagnostics.message_hint:
+        lines.append(f"Hint from Aurora: {diagnostics.message_hint}")
+    if rolled_back:
+        lines.append(
+            "Nothing was applied: the transaction rolled back, so Aurora still runs "
+            "its previous functions."
+        )
+        lines.append(
+            f"Fix: check the marked LAB1_CHANNEL and LAB2_RRF_FORMULA blocks in "
+            f"{LAB1_SQL} and {LAB2_SQL}, then run {APPLY_SQL} again."
+        )
+    return "\n".join(lines)
+
+
 def main() -> None:
     import psycopg
 
+    from scripts.configure_retrieval_database import (
+        DatabaseConfigurationError,
+        configure,
+    )
+
     dsn = os.getenv("DATABASE_URL")
     assert_reset_database(dsn)
-    with psycopg.connect(dsn, connect_timeout=15) as connection:
-        apply(
-            connection,
-            search_sql(ROOT),
-            participant_sql_digest(ROOT),
-        )
+    try:
+        with psycopg.connect(dsn, connect_timeout=15) as connection:
+            apply(
+                connection,
+                search_sql(ROOT),
+                participant_sql_digest(ROOT),
+            )
+    except ValueError as error:
+        raise SystemExit(
+            f"{error}\nNothing was applied: Aurora still runs its previous functions."
+        ) from error
+    except psycopg.Error as error:
+        raise SystemExit(describe_apply_failure(error, rolled_back=True)) from error
     print(f"Applied participant SQL to {search_schema()}; source lab state preserved.")
     # One participant command: the applied functions must also satisfy the
     # stored pg_trgm gates, which is what this re-proves.
-    from scripts.configure_retrieval_database import configure
-
-    configure(dsn)
+    try:
+        configure(dsn)
+    except psycopg.Error as error:
+        raise SystemExit(
+            "The SQL was applied, but configuring the search gates failed.\n"
+            + describe_apply_failure(error, rolled_back=False)
+            + f"\nFix: run {APPLY_SQL} again once the error above is resolved."
+        ) from error
+    except DatabaseConfigurationError as error:
+        raise SystemExit(
+            "The SQL was applied, but configuring the search gates failed.\n"
+            f"{error}\nFix: run {APPLY_SQL} again once the error above is resolved."
+        ) from error
 
 
 if __name__ == "__main__":

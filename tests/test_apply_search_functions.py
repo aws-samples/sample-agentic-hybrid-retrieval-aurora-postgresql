@@ -1,8 +1,18 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import psycopg
 import pytest
 
-from scripts.apply_search_functions import APPLIED_SQL_LABEL, applied_sql_digest, apply
+from scripts import apply_search_functions
+from scripts.apply_search_functions import (
+    APPLIED_SQL_LABEL,
+    applied_sql_digest,
+    apply,
+    describe_apply_failure,
+)
+from scripts.configure_retrieval_database import DatabaseConfigurationError
+from service.participant_commands import APPLY_SQL
 from scripts.lab_state import LABS, _replace_block
 from service.search_sql import search_sql
 
@@ -72,3 +82,90 @@ def test_the_applied_record_is_read_back_or_reported_missing(
     connection.execute.return_value.fetchone.return_value = {"note": note}
 
     assert applied_sql_digest(connection) == expected
+
+
+class PositionedSyntaxError(psycopg.errors.SyntaxError):
+    """A server error carrying the diagnostics Aurora sends with a real one."""
+
+    @property
+    def diag(self):
+        return SimpleNamespace(
+            sqlstate="42601",
+            message_primary='syntax error at or near "FROM"',
+            statement_position="1234",
+            message_hint="Check the commas in the select list.",
+        )
+
+
+@pytest.fixture
+def apply_command(monkeypatch):
+    """`main()` with Aurora's connection and the reset guard replaced."""
+    monkeypatch.setenv("DATABASE_URL", "postgresql://redacted")
+    monkeypatch.setattr(apply_search_functions, "assert_reset_database", lambda _dsn: None)
+    monkeypatch.setattr(psycopg, "connect", lambda *_, **__: MagicMock())
+    monkeypatch.setattr(
+        "scripts.configure_retrieval_database.configure", lambda _dsn: None
+    )
+    return monkeypatch
+
+
+def test_a_sql_error_names_the_sqlstate_the_block_and_that_nothing_applied(apply_command):
+    def fail(*_args, **_kwargs):
+        raise PositionedSyntaxError("syntax error")
+
+    apply_command.setattr(apply_search_functions, "apply", fail)
+
+    with pytest.raises(SystemExit) as exit_info:
+        apply_search_functions.main()
+
+    message = str(exit_info.value)
+    assert exit_info.value.code != 0
+    assert "SQLSTATE 42601" in message
+    assert 'syntax error at or near "FROM"' in message
+    assert "character 1234" in message
+    assert "Check the commas" in message
+    assert "LAB1_CHANNEL" in message
+    assert "LAB2_RRF_FORMULA" in message
+    assert "Nothing was applied" in message
+    assert APPLY_SQL in message
+
+
+def test_a_dataset_mismatch_exits_cleanly_and_says_nothing_applied(apply_command):
+    def mismatch(*_args, **_kwargs):
+        raise ValueError("Lab catalog rule: prepared dataset 'a' differs from 'b'; fix: x.")
+
+    apply_command.setattr(apply_search_functions, "apply", mismatch)
+
+    with pytest.raises(SystemExit) as exit_info:
+        apply_search_functions.main()
+
+    message = str(exit_info.value)
+    assert "Lab catalog rule" in message
+    assert "Nothing was applied" in message
+
+
+def test_a_gate_configuration_failure_says_the_sql_was_applied(apply_command):
+    apply_command.setattr(apply_search_functions, "apply", lambda *_a, **_k: None)
+
+    def fail(_dsn):
+        raise DatabaseConfigurationError("D2 database owner mismatch; fix: use the owner")
+
+    apply_command.setattr("scripts.configure_retrieval_database.configure", fail)
+
+    with pytest.raises(SystemExit) as exit_info:
+        apply_search_functions.main()
+
+    message = str(exit_info.value)
+    assert "D2 database owner mismatch" in message
+    assert "was applied" in message
+    assert "Nothing was applied" not in message
+
+
+def test_a_failure_without_server_diagnostics_still_reports_the_error():
+    message = describe_apply_failure(
+        psycopg.OperationalError("connection refused"), rolled_back=True
+    )
+
+    assert "SQLSTATE none" in message
+    assert "connection refused" in message
+    assert "character" not in message
