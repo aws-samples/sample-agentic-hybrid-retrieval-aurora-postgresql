@@ -627,16 +627,6 @@
   text-decoration-color: var(--maroon-800);
 }
 
-.shop-query-state.error > span {
-  font-family: var(--sans);
-  font-size: 13.5px;
-  font-style: normal;
-}
-
-.shop-query-state.error strong {
-  color: var(--maroon-700);
-}
-
 .shop-results-heading {
   display: flex;
   flex-wrap: wrap;

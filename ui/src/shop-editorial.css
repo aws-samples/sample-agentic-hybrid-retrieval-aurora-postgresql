@@ -864,10 +864,64 @@
   padding: 18px 20px;
 }
 
-.mosaic-catalog-page .shop-query-state:not(.error) > span {
-  font-size: clamp(30px, 3.4vw, 44px);
+.mosaic-catalog-page .shop-query-state > span,
+.mosaic-catalog-page .shop-query-state h2 {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: clamp(28px, 2.6vw, 32px);
+  font-weight: 600;
   letter-spacing: -0.03em;
-  line-height: 1.1;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.mosaic-catalog-page .shop-query-state h2 {
+  color: var(--ink);
+}
+
+.mosaic-catalog-page .shop-query-state .shop-query-copy {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+
+.shop-shortlist-question {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  max-width: 72ch;
+}
+
+.shop-shortlist-question p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 17px;
+  line-height: 1.45;
+}
+
+.shop-shortlist-question p.is-clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.shop-shortlist-question button {
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--link);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.shop-shortlist-question button:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 /* Ranked results read as an editorial list: the first in the final order as a

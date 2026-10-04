@@ -30,6 +30,7 @@ import { api } from "../api";
 import { catalogData, type BrowseRequest } from "../catalogData";
 import { AskMosaic } from "../components/AskMosaic";
 import { useAskMosaicMemory } from "../components/AskMosaicMemory";
+import { ShortlistQuestion } from "../components/ShortlistQuestion";
 import { ShopSearchDetails } from "../components/ShopSearchDetails";
 import { AskMosaicInvite, ShopLanding } from "../components/ShopLanding";
 import { ShopProductShelf } from "../components/ShopProductShelf";
@@ -1498,93 +1499,100 @@ export function CatalogPage() {
             </section>
           ) : null}
 
-          {agentProducts || activeQuery || retrievalError ? (
-            <div
-              ref={resultsAnchorRef}
-              className={retrievalError ? "shop-query-state error" : "shop-query-state"}
-            >
-              <span>
-                <strong>
-                  {agentProducts
-                    ? "Ask Mosaic shortlist"
-                    : retrievalError
-                      ? "Search unavailable"
-                      : "Results for"}
-                </strong>
-                {agentProducts ? agentQuestion : retrievalError || activeQuery}
+          {retrievalError ? (
+            <section ref={resultsAnchorRef} className="shop-search-error" role="alert">
+              <h2>Search unavailable</h2>
+              <p>{retrievalError}</p>
+              <div className="shop-search-error-actions">
+                <button type="button" className="primary-button" onClick={() => setRetrievalNonce(value => value + 1)}>
+                  Retry search
+                </button>
+                <button type="button" className="secondary-button" onClick={clearSearch}>Clear search</button>
+              </div>
+            </section>
+          ) : agentProducts ? (
+            <div ref={resultsAnchorRef} className="shop-query-state is-shortlist">
+              <div className="shop-query-copy">
+                <h2>Ask Mosaic shortlist</h2>
+                <ShortlistQuestion question={agentQuestion} />
+              </div>
+              <button type="button" onClick={clearAgentResults}>Clear shortlist</button>
+            </div>
+          ) : activeQuery ? (
+            <div ref={resultsAnchorRef} className="shop-query-state">
+              <span title={activeQuery}>
+                <strong>Results for</strong>
+                {activeQuery}
               </span>
-              {retrievalError ? <button type="button" onClick={() => setRetrievalNonce(value => value + 1)}>Retry search</button> : null}
-              {agentProducts ? (
-                <button type="button" onClick={clearAgentResults}>Clear shortlist</button>
-              ) : activeQuery ? (
-                <button type="button" onClick={clearSearch}>Clear search</button>
-              ) : null}
+              <button type="button" onClick={clearSearch}>Clear search</button>
             </div>
           ) : null}
 
-          <div className="shop-results-heading">
-            <p>
-              {agentProducts ? (
-                <>
-                  <strong>{agentProducts.length}</strong> linked recommendations
-                  <small> · numbered in Shop and Ask Mosaic</small>
-                </>
-              ) : retrieval ? (
-                <>
-                  <strong>{retrieval.results.length}</strong> {retrieval.results.length === 1 ? "best match" : "best matches"}
-                  <small> · chosen from {retrieval.diagnostics?.candidate_counts.fused_pool ?? "-"} products found by search</small>
-                  {/* The comparison itself stays below the results; this is the
-                      acknowledgement a tick needs before the reader scrolls. */}
-                  {comparisonScopeId && comparisonIds.length ? (
-                    <small className="shop-compare-status" role="status">
-                      {" · "}{comparisonIds.length} selected{comparisonIds.length > 1 ? ", compare below" : ", tick one more to compare"}
-                    </small>
-                  ) : null}
-                </>
-              ) : page ? (
-                <>
-                  {page.total ? (
-                    <>
-                      <strong>
-                        {Math.min(page.offset + 1, page.total)}-
-                        {Math.min(page.offset + pageSize, page.total)}
-                      </strong>
-                      {" "}of {page.total.toLocaleString()} {browseCollection === "workspace" ? "workspace picks" : "products"}
-                    </>
-                  ) : (
-                    <><strong>0</strong> products</>
-                  )}
-                </>
-              ) : retrievalError ? "No search results to show" : error ? "Catalog unavailable" : retrievalLoading && activeQuery ? "Searching products" : "Loading catalog"}
-            </p>
-              {!retrieval && !agentProducts && page ? (
-                <nav className="shop-pagination" aria-label="Product pages">
-                  <button
-                    type="button"
-                    disabled={loading || offset === 0}
-                    onClick={() => update("offset", String(Math.max(0, offset - pageSize)), false)}
-                  >
-                    <ChevronLeft size={17} /> Previous
-                  </button>
-                  <span>
-                    Page {page.offset / pageSize + 1} of{" "}
-                    {Math.max(1, Math.ceil(page.total / pageSize)).toLocaleString()}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={loading || offset + pageSize >= page.total}
-                    onClick={() => update("offset", String(offset + pageSize), false)}
-                  >
-                    Next <ChevronRight size={17} />
-                  </button>
-                </nav>
+          {retrievalError ? null : (
+            <div className="shop-results-heading">
+              <p>
+                {agentProducts ? (
+                  <>
+                    <strong>{agentProducts.length}</strong> linked recommendations
+                    <small> · numbered in Shop and Ask Mosaic</small>
+                  </>
+                ) : retrieval ? (
+                  <>
+                    <strong>{retrieval.results.length}</strong> {retrieval.results.length === 1 ? "best match" : "best matches"}
+                    <small> · chosen from {retrieval.diagnostics?.candidate_counts.fused_pool ?? "-"} products found by search</small>
+                    {/* The comparison itself stays below the results; this is the
+                        acknowledgement a tick needs before the reader scrolls. */}
+                    {comparisonScopeId && comparisonIds.length ? (
+                      <small className="shop-compare-status" role="status">
+                        {" · "}{comparisonIds.length} selected{comparisonIds.length > 1 ? ", compare below" : ", tick one more to compare"}
+                      </small>
+                    ) : null}
+                  </>
+                ) : page ? (
+                  <>
+                    {page.total ? (
+                      <>
+                        <strong>
+                          {Math.min(page.offset + 1, page.total)}-
+                          {Math.min(page.offset + pageSize, page.total)}
+                        </strong>
+                        {" "}of {page.total.toLocaleString()} {browseCollection === "workspace" ? "workspace picks" : "products"}
+                      </>
+                    ) : (
+                      <><strong>0</strong> products</>
+                    )}
+                  </>
+                ) : error ? "Catalog unavailable" : retrievalLoading && activeQuery ? "Searching products" : "Loading catalog"}
+              </p>
+                {!retrieval && !agentProducts && page ? (
+                  <nav className="shop-pagination" aria-label="Product pages">
+                    <button
+                      type="button"
+                      disabled={loading || offset === 0}
+                      onClick={() => update("offset", String(Math.max(0, offset - pageSize)), false)}
+                    >
+                      <ChevronLeft size={17} /> Previous
+                    </button>
+                    <span>
+                      Page {page.offset / pageSize + 1} of{" "}
+                      {Math.max(1, Math.ceil(page.total / pageSize)).toLocaleString()}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={loading || offset + pageSize >= page.total}
+                      onClick={() => update("offset", String(offset + pageSize), false)}
+                    >
+                      Next <ChevronRight size={17} />
+                    </button>
+                  </nav>
+                ) : null}
+              {answeredTurn?.response && !agentOpen ? (
+                <button type="button" onClick={openAgent}>
+                  <Sparkles size={15} /> Reopen Ask Mosaic
+                </button>
               ) : null}
-            {answeredTurn?.response && !agentOpen ? (
-              <button type="button" onClick={openAgent}>
-                <Sparkles size={15} /> Reopen Ask Mosaic
-              </button>
-            ) : null}
-          </div>
+            </div>
+          )}
 
           {real && page && browseCollection === "workspace" && !activeQuery && !agentProducts ? (
             <p className="shop-collection-note">

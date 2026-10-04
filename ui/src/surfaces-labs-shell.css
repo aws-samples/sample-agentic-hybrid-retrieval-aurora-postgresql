@@ -674,11 +674,6 @@
     align-items: flex-start;
   }
 
-  .shop-query-state > span {
-    font-size: 22px;
-    white-space: normal;
-  }
-
   .shop-results-heading {
     min-height: 48px;
   }
