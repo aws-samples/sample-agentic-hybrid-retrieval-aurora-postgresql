@@ -662,6 +662,44 @@
   }
 }
 
+/* The one segmented control: Playground orderings and Shop's results view. On a
+   phone it scrolls sideways as a single row instead of wrapping into boxes. */
+.pg-seg {
+  display: inline-flex;
+  max-width: 100%;
+  gap: 2px;
+  padding: 3px;
+  overflow-x: auto;
+  border-radius: 980px;
+  background: var(--paper-warm);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pg-seg::-webkit-scrollbar {
+  display: none;
+}
+
+.pg-seg button {
+  min-height: 30px;
+  flex: none;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 980px;
+  background: transparent;
+  color: var(--ink-soft);
+  font: 13px var(--sans);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pg-seg button[aria-pressed="true"] {
+  background: var(--paper-strong);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+  color: var(--ink);
+  font-weight: 500;
+}
+
 .not-found-state {
   display: grid;
   min-height: min(52vh, 420px);

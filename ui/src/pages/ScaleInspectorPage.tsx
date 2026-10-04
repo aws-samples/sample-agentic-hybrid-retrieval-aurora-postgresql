@@ -1,4 +1,4 @@
-import { ArrowRight, ChevronDown, Download } from "lucide-react";
+import { ArrowRight, Download } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "wouter";
 import { api, ApiError } from "../api";
@@ -75,7 +75,7 @@ function downloadMeasurements(measured: HnswMeasured) {
 function AdvancedBenchmarks({ measured }: { measured: HnswMeasured }) {
   const best = [...measured.ef_sweep].sort((a, b) => b.recall_at_k - a.recall_at_k || a.server_ms - b.server_ms)[0];
   const deep = measured.representations?.blog_operating_point;
-  return <details className="scale-advanced"><summary>Benchmarks & SQL <span>For a closer look</span><ChevronDown size={20} aria-hidden="true" /></summary><div>
+  return <details className="scale-advanced"><summary>Benchmarks & SQL <span>For a closer look</span></summary><div>
     <MeasurementNote measured={measured} />
     <h3>Search effort and recall</h3>
     {best ? <p>Best recall in this sweep: <strong>{percent(best.recall_at_k)}</strong> at ef_search {best.ef_search}, in {best.server_ms} ms. More search effort can reach a point of diminishing returns.</p> : null}
@@ -129,7 +129,7 @@ function ScaleInspector() {
     <RepresentationComparison measured={measured} />
     {measured ? <AdvancedBenchmarks measured={measured} /> : null}
     <details className="scale-advanced" id="scale-mechanism" onToggle={(event) => setIllustrationOpen(event.currentTarget.open)}>
-      <summary>How HNSW finds neighbors <span>A real search on a small map you can tune</span><ChevronDown size={20} aria-hidden="true" /></summary>
+      <summary>How HNSW finds neighbors <span>A real search on a small map you can tune</span></summary>
       <div>{illustrationOpen ? <HnswSearchGraph served={substrate ? { efSearch: substrate.retrieval.ef_search, vectors: substrate.corpus.vector_count, dimensions: substrate.corpus.dimensions, definition: substrate.index.definition } : null} /> : null}</div>
     </details>
     <aside className="inspector-scale-link"><div><h2>And when Alex comes back?</h2><p>See how AgentCore keeps conversation details and recalls what matters for the next request.</p></div><Link href="/mosaic-labs/memory">Explore session & memory</Link></aside>

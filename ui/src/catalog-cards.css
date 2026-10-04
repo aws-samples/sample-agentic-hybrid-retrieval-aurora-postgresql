@@ -530,17 +530,69 @@
   border-top: 1px solid var(--line);
 }
 
+/* Compare is an outline chip around a drawn checkbox: the native box ignores the
+   palette and, at 12px, is too small to hit. */
 .compare-control {
   display: inline-flex;
+  min-height: 32px;
   align-items: center;
-  gap: 5px;
-  color: var(--ink-soft);
-  font-size: 12px;
-  font-weight: 700;
+  gap: 8px;
+  padding: 0 14px 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: border-color var(--motion-fast) var(--ease-out), background var(--motion-fast) var(--ease-out);
+}
+
+.compare-control:hover {
+  background: var(--paper-warm);
+}
+
+.compare-control:has(input:checked) {
+  border-color: var(--action);
+}
+
+.compare-control:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .compare-control input {
-  accent-color: var(--maroon-700);
+  display: grid;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin: 0;
+  place-content: center;
+  appearance: none;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 5px;
+  background: transparent;
+  cursor: inherit;
+}
+
+.compare-control input::after {
+  width: 8px;
+  height: 5px;
+  margin-top: -2px;
+  border-bottom: 2px solid var(--action-ink);
+  border-left: 2px solid var(--action-ink);
+  content: "";
+  opacity: 0;
+  transform: rotate(-45deg);
+}
+
+.compare-control input:checked {
+  border-color: var(--action);
+  background: var(--action);
+}
+
+.compare-control input:checked::after {
+  opacity: 1;
 }
 
 .compare-control:has(input:disabled) {

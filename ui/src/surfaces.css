@@ -364,48 +364,6 @@
   }
 }
 
-.shop-assist-rail svg:first-child {
-  color: currentColor;
-}
-
-.shop-assist-rail {
-  position: fixed;
-  z-index: 35;
-  top: 52%;
-  right: 0;
-  display: grid;
-  width: 48px;
-  min-height: 176px;
-  align-items: center;
-  justify-items: center;
-  gap: 9px;
-  padding: 13px 0;
-  border: 1px solid color-mix(in srgb, var(--paper-strong) 16%, transparent);
-  border-right: 0;
-  border-radius: 8px 0 0 8px;
-  background: var(--maroon-900);
-  box-shadow: 0 14px 30px rgb(0 0 0 / 22%);
-  color: var(--paper);
-  transform: translateY(-50%);
-  transition:
-    background-color 180ms cubic-bezier(0.23, 1, 0.32, 1),
-    transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-.shop-assist-rail:hover,
-.shop-assist-rail:focus-visible {
-  background: var(--maroon-800);
-  transform: translate(-2px, -50%);
-}
-
-.shop-assist-rail span {
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1;
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-}
-
 .shop-query-state {
   scroll-margin-top: calc(var(--topbar-height) + 18px);
 }
@@ -985,25 +943,21 @@
   content: "/";
 }
 
-/* The tile's own recorded position in a ranked search, quiet and above the
-   photo rather than a badge on top of it -- the assist-rank badge already
-   owns that corner for Ask Mosaic's own pick order. */
-.shop-card-position {
-  display: block;
-  margin: 0 0 8px;
-  color: var(--ink-soft);
-  font-family: var(--sans);
-  font-size: 12px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-/* The typed spec facts, one quiet line beneath the meta row. */
+/* The typed spec facts, beneath the meta row. A fact is never split across two
+   lines ("Wireless / Yes"); the line breaks between facts and stops at two rows. */
 .shop-card-facts {
+  display: -webkit-box;
+  overflow: hidden;
   margin: 8px 0 0;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   color: var(--ink-soft);
   font-size: 13px;
   line-height: 1.5;
+}
+
+.shop-card-fact {
+  white-space: nowrap;
 }
 
 .shop-card-price-caption {
@@ -1090,6 +1044,8 @@
 .shop-card-price {
   display: flex;
   min-width: 0;
+  min-height: 52px;
+  align-content: flex-start;
   align-items: baseline;
   gap: 11px;
   flex-wrap: wrap;
@@ -1647,27 +1603,37 @@
 
 .shop-ranking-receipt {
   margin-bottom: 20px;
-  border-block: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
 
+/* Title and hint share one left edge; the chevron sits in its own column. */
 .shop-ranking-receipt > summary {
   display: grid;
-  min-height: 52px;
+  min-height: 56px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-content: center;
-  gap: 2px;
-  padding-right: 8px;
-  color: var(--maroon-900);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 700;
-  list-style-position: inside;
+  column-gap: 16px;
+  row-gap: 2px;
+  padding: 10px 0;
+  --disclosure-size: 15px;
+  --disclosure-ink: var(--ink);
+  --disclosure-weight: 600;
+}
+
+.shop-ranking-receipt > summary > span {
+  grid-column: 1;
+}
+
+.shop-ranking-receipt > summary::after {
+  grid-column: 2;
+  grid-row: 1 / span 2;
 }
 
 .shop-ranking-receipt > summary small {
-  margin-left: 18px;
+  grid-column: 1;
   color: var(--ink-soft);
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 400;
 }
 
 .shop-ranking-receipt .retrieval-receipt {

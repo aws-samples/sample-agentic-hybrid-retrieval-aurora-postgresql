@@ -141,20 +141,21 @@ details[open] > .product-receipt-card .receipt-states {
 .receipt-pool-bar {
   position: relative;
   grid-column: 1 / -1;
-  height: 4px;
-  margin-top: 4px;
-  border-radius: 2px;
-  background: var(--line);
+  height: 6px;
+  margin: 10px 5px 12px;
+  border-radius: 3px;
+  background: var(--line-strong);
 }
 
 .receipt-pool-bar i {
   position: absolute;
-  top: -3px;
-  width: 10px;
-  height: 10px;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--paper-strong);
   border-radius: 50%;
   background: var(--rank);
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
 }
 
 .product-receipt-card li.subtotal {
@@ -339,6 +340,53 @@ details[open] > .product-receipt-card .receipt-states {
   border-top: 0;
   border-radius: var(--tile-radius);
   background: var(--paper-warm);
+}
+
+/* One disclosure style app-wide: no native marker, a chevron after the label
+   that turns over when the section opens, 14px --ink-soft. A summary that is an
+   accordion row sets --disclosure-size and --disclosure-ink for its larger title
+   and keeps the same chevron. Ask Mosaic's sidecar draws its own and is excluded. */
+:where(.app-shell summary:not([class*="ask-mosaic"] *)) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.app-shell summary:not([class*="ask-mosaic"] *) {
+  color: var(--disclosure-ink, var(--ink-soft));
+  font-size: var(--disclosure-size, 14px);
+  font-weight: var(--disclosure-weight, 500);
+}
+
+.app-shell summary:not([class*="ask-mosaic"] *)::-webkit-details-marker {
+  display: none;
+}
+
+.app-shell summary:not([class*="ask-mosaic"] *)::marker {
+  content: "";
+}
+
+.app-shell summary:not([class*="ask-mosaic"] *)::after {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  background: currentColor;
+  content: "";
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: transform var(--motion-fast) var(--ease-out);
+}
+
+.app-shell details[open] > summary:not([class*="ask-mosaic"] *)::after {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell summary:not([class*="ask-mosaic"] *)::after {
+    transition: none;
+  }
 }
 
 /* The GitHub mark ships as a black SVG image, which currentColor cannot reach. */

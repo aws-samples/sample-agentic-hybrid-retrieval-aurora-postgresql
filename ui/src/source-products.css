@@ -78,10 +78,9 @@
 .source-detail-note { margin: 14px 0 0; color: var(--ink-soft); font-size: 12px; line-height: 1.6; }
 .source-detail-information { margin-top: 40px; border-top: 1px solid var(--line); }
 .source-detail-information > details { border-bottom: 1px solid var(--line); }
-.source-detail-information > details > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 66px; padding: 18px 0; cursor: pointer; list-style: none; font-size: 16px; font-weight: 600; }
+.source-detail-information > details > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 66px; padding: 18px 0; --disclosure-size: 16px; --disclosure-ink: var(--ink); --disclosure-weight: 600; }
 .source-detail-information > details > summary::-webkit-details-marker { display: none; }
 .source-detail-information > details > summary small { margin-left: 12px; color: var(--ink-soft); font-size: 12px; font-weight: 400; }
-.source-detail-information > details[open] > summary svg { transform: rotate(180deg); }
 .source-detail-content { max-width: 900px; padding: 0 0 26px; color: var(--ink-soft); font-size: 14px; line-height: 1.65; overflow-wrap: anywhere; }
 .source-feature-list { padding-left: 20px; margin: 0 0 24px; }
 .source-feature-list li + li { margin-top: 10px; }

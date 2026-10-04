@@ -1,4 +1,5 @@
-import { Check, ChevronRight, Heart, ShoppingBag, Star } from "lucide-react";
+import { Check, Heart, ShoppingBag, Star } from "lucide-react";
+import { Fragment } from "react";
 import { Link } from "wouter";
 import { cartQuantityLimit, useCommerce } from "../commerce";
 import { formatAvailability, formatPrice, isPurchasable, leafCategory, specFacts } from "../format";
@@ -14,10 +15,8 @@ import type { ProductSummary, RetrievalDiagnostics } from "../types";
  * product page read, so a fact printed on the tile is a fact the listing
  * itself states, not free-text copy.
  */
-function specFactsLine(product: ProductSummary, count = 3): string {
-  return specFacts(product.specs, count)
-    .map((fact) => `${fact.label} ${fact.value}`)
-    .join(" · ");
+function specFactParts(product: ProductSummary, count = 3) {
+  return specFacts(product.specs, count);
 }
 
 function topAttributes(attributes: Record<string, unknown>, count = 2) {
@@ -79,7 +78,7 @@ export function ProductCard({
     // Only a ranked search or an agent shortlist recorded a final position; a
     // browsed page has no order of its own to show one for.
     const position = showSignals ? signals?.final_rank : undefined;
-    const facts = specFactsLine(product);
+    const facts = specFactParts(product);
     // A real listing's only price is its historical one; a missing one stays missing.
     const shownPriceCents = product.source_dataset
       ? (product.historical_price_cents ?? product.price_cents)
@@ -111,10 +110,10 @@ export function ProductCard({
           }
         }}
       >
-        {position ? (
-          <span className="shop-card-position">{`#${position}`}</span>
-        ) : null}
         <div className="shop-card-photo">
+          {position ? (
+            <span className="shop-card-position">{`#${position}`}</span>
+          ) : null}
           <Link className="product-image" href={productDetailHref(product.product_id)}>
             <img
               src={imageSrc ?? productImage(product)}
@@ -146,7 +145,16 @@ export function ProductCard({
             <span>{product.brand}</span>
             {leafCategory(product.category_path)}
           </p>
-          {facts ? <p className="shop-card-facts">{facts}</p> : null}
+          {facts.length ? (
+            <p className="shop-card-facts">
+              {facts.map((fact, index) => (
+                <Fragment key={fact.label}>
+                  {index ? " · " : null}
+                  <span className="shop-card-fact">{`${fact.label} ${fact.value}`}</span>
+                </Fragment>
+              ))}
+            </p>
+          ) : null}
           <div className="shop-card-price">
             {shownPriceCents == null && product.source_dataset ? (
               <span className="shop-card-price-caption">Price not recorded</span>
@@ -174,7 +182,6 @@ export function ProductCard({
             <details className="shop-card-signals">
               <summary aria-label={`Why ${product.model} is a match`}>
                 Why this match
-                <ChevronRight size={14} aria-hidden="true" />
               </summary>
               <ProductReceiptBody product={product} diagnostics={diagnostics} />
             </details>

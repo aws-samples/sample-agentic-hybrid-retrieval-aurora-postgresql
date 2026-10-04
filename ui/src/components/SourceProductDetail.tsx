@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, ChevronDown, ExternalLink, Heart, Sparkles, Star } from "lucide-react";
+import { ArrowLeft, ArrowRight, ExternalLink, Heart, Sparkles, Star } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
 import { useCommerce } from "../commerce";
@@ -111,7 +111,7 @@ export function SourceProductDetail({
 
       <section className="source-detail-information" aria-label="Product information">
         <details>
-          <summary><span>Description &amp; features</span><ChevronDown size={18} /></summary>
+          <summary><span>Description &amp; features</span></summary>
           <div className="source-detail-content">
             {features.length ? <ul className="source-feature-list">{features.map((feature, index) => <li key={index}>{feature}</li>)}</ul> : null}
             {product.long_description ? <ExpandableText text={product.long_description} /> : null}
@@ -119,7 +119,7 @@ export function SourceProductDetail({
           </div>
         </details>
         <details>
-          <summary><span>Specifications</span><ChevronDown size={18} /></summary>
+          <summary><span>Specifications</span></summary>
           <div className="source-detail-content">
             {specs.length ? (
               <dl className="source-specifications source-key-specs" aria-label="Key specifications">
@@ -137,7 +137,7 @@ export function SourceProductDetail({
           </div>
         </details>
         <details>
-          <summary><span>Customer reviews <small>{product.reviews.length ? `${product.reviews.length} shown${product.review_count ? ` of ${product.review_count.toLocaleString()} ${product.review_count === 1 ? "rating" : "ratings"}` : ""}` : "None imported"}</small></span><ChevronDown size={18} /></summary>
+          <summary><span>Customer reviews <small>{product.reviews.length ? `${product.reviews.length} shown${product.review_count ? ` of ${product.review_count.toLocaleString()} ${product.review_count === 1 ? "rating" : "ratings"}` : ""}` : "None imported"}</small></span></summary>
           <div className="source-detail-content">
             <p className="source-review-note">{product.reviews.length ? "Selected historical reviews, chosen for helpfulness within positive, mixed and critical ratings. They are not a representative sample of the ratings above, and may refer to different variants of the same listing." : "No review text was imported for this listing. Any rating shown above comes from the original listing."}</p>
             <div className="source-detail-reviews">
@@ -155,7 +155,7 @@ export function SourceProductDetail({
           </div>
         </details>
         <details>
-          <summary><span>About this listing</span><ChevronDown size={18} /></summary>
+          <summary><span>About this listing</span></summary>
           <div className="source-detail-content">
             <p>The photos, wording, specifications and ratings are preserved from the source dataset. Product details may have changed since they were collected.</p>
             <dl className="source-specifications">

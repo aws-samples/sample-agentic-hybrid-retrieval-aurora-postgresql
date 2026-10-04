@@ -1,13 +1,5 @@
 .shop-results-layout { min-width: 0; }
-.shop-view-switch, .shop-details-order { display: flex; flex-wrap: wrap; gap: 4px; }
 .shop-view-switch { margin: 0 0 24px; }
-.shop-view-switch button, .shop-details-order button {
-  min-height: 38px; padding: 8px 14px; border: 1px solid var(--line);
-  border-radius: 999px; background: var(--canvas); color: var(--ink-soft); font-size: 13px;
-}
-.shop-view-switch button[aria-pressed="true"], .shop-details-order button[aria-pressed="true"] {
-  border-color: var(--action); background: var(--action); color: var(--action-ink);
-}
 .shop-search-details {
   min-width: 0; align-self: start; padding: 24px; border: 1px solid var(--line);
   border-radius: 16px; background: var(--surface-muted); margin-bottom: 24px;

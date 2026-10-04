@@ -46,9 +46,7 @@
 .scale-takeaway { max-width: 70ch; margin: 20px 0 12px; color: var(--maroon-800); font-size: 15px; line-height: 1.6; }
 .scale-format-basics { display: grid; gap: 12px; padding: 16px 0; }
 .scale-advanced { margin: 0; border-top: 1px solid var(--line); }
-.scale-advanced > summary { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; min-height: 64px; padding: 20px 0; color: var(--maroon-800); font-family: var(--display); font-size: 26px; cursor: pointer; }
-.scale-advanced > summary > svg { flex-shrink: 0; }
-.scale-advanced[open] > summary > svg { transform: rotate(180deg); }
+.scale-advanced > summary { align-items: center; justify-content: space-between; gap: 16px; min-height: 64px; padding: 20px 0; --disclosure-size: 26px; --disclosure-ink: var(--ink); --disclosure-weight: 400; font-family: var(--display); }
 .scale-advanced > summary > span { margin-inline-start: auto; font-family: var(--sans); color: var(--ink-soft); font-size: 13px; }
 .scale-advanced > div { padding: 0 0 28px; }
 .scale-advanced h3 { margin: 32px 0 12px; font-family: var(--display); font-weight: 500; font-size: 24px; }

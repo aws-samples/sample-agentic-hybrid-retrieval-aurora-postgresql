@@ -26,7 +26,7 @@ export function ShopSearchDetails({ response, onSelect, onHighlight, highlighted
       <p>RRF combines positions from word, spelling and meaning searches. The reranker then compares those products with your full request.</p>
     </header>
     {!reranked ? <p>This request was not reranked. Final positions may reflect the combined order or an exact listing match.</p> : null}
-    <div className="shop-details-order" role="group" aria-label="Order the search details">
+    <div className="shop-details-order pg-seg" role="group" aria-label="Order the search details">
       <button type="button" aria-pressed={order === "combined"} onClick={() => setOrder("combined")}>Combined order</button>
       <button type="button" aria-pressed={order === "final"} onClick={() => setOrder("final")}>Final order</button>
     </div>
