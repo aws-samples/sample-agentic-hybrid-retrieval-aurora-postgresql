@@ -6,6 +6,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import ClassVar
+from unittest.mock import Mock
 from uuid import uuid4
 
 import pytest
@@ -1496,6 +1497,8 @@ def test_agent_uses_the_dedicated_model_override(monkeypatch):
         def __init__(self, **kwargs):
             captured["agent_model"] = kwargs["model"]
             self.tool_names = [tool.tool_name for tool in kwargs["tools"]]
+            for hook in kwargs["hooks"]:
+                hook.register_hooks(Mock())
 
     settings = replace(
         get_settings(),
