@@ -15,12 +15,13 @@ The older Atelier detail URL containing `ultrawide` remains a byte-identical
 compatibility copy of the new flat-monitor detail image. Product pages now use
 the correctly named Productivity Monitors detail path.
 
-The `curated/` set and the files at this directory's root are copied verbatim
-from the supplied asset package:
+`catalog-stand.webp` at this directory's root is copied verbatim from the
+supplied asset package; the package's other root photographs and its `curated/`
+set were removed on 2026-10-03 because nothing in the application used them:
 
     mosaic-premium-image-assets/runtime/  ->  public/assets/images/
 
-Do not regenerate, re-crop, or re-encode those. Re-encoding a delivered WebP
+Do not regenerate, re-crop, or re-encode it. Re-encoding a delivered WebP
 compounds its compression artefacts, and the upstream package is the place where
 they get corrected.
 
@@ -74,8 +75,8 @@ product links still come from Aurora. Each original PNG was resized once to
 
 `asset-manifest.json` in the source package records a SHA-256 for 11 of the
 files (the original `mosaic/` set). All 11 verify byte-for-byte against the
-installed copies. The files under `curated/` and the root are not in the
-manifest, and neither are the locally derived files listed above.
+installed copies. `catalog-stand.webp` is not in the manifest, and neither are
+the locally derived files listed above.
 
 To re-verify after a resync:
 
@@ -91,9 +92,8 @@ then compare hashes against `asset-manifest.json`.
 | `mosaic/hero-landing-scene.webp` | 1568x1908 (770:938) | `.discover-backdrop` at 640px and below |
 | `mosaic/editorial-fitness-wide.webp` | 1672x941 (16:9) | `.discover-plate-media` |
 | `mosaic/category/*.webp` | 500x672 (125:168) | `.category-card img` |
-| `thumb-*.webp` | 480x600 (4:5) | domain tiles |
 | `mosaic/*-thumb.webp` | 640x800 (4:5) | domain tiles |
-| `mosaic/*.webp`, `curated/*` | 1200x1200 (1:1) | product cards |
+| `mosaic/*.webp` | 1200x1200 (1:1) | product cards |
 
 The Discover hero is art-directed rather than cropped harder. Its frame is a wide
 band on desktop and a tall card under 640px, so a `<picture>` serves the 16:9

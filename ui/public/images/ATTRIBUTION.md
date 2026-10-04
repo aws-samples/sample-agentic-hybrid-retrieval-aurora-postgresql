@@ -19,8 +19,6 @@ commercial use, no permission required; attribution appreciated, not required).
 | `chair-shell-black.webp` | `1592078615290-033ee584e267` |
 | `monitor-desk.webp` | `1616763355603-9755a640a287` |
 | `monitor-workspace.webp` | `1547082299-de196ea013d6` |
-| `shoe-running-white.webp` | `1600185365483-26d7a4cc7519` |
-| `shoe-running-pair.webp` | `1595341888016-a392ef81b7de` |
 
 ## Landing hero
 
@@ -80,8 +78,8 @@ file compounds its artefacts: always crop from the original.
 
 ## Selection rules
 
-**Resolution.** Sources are pulled at 2000px and downscaled. The superseded set
-in `_superseded/` was cropped out of a page screenshot and enlarged to 800x900,
+**Resolution.** Sources are pulled at 2000px and downscaled. An earlier set,
+since removed, was cropped out of a page screenshot and enlarged to 800x900,
 which left every tile near 0.4 bits/px and visibly soft when projected. Cropping
 and then enlarging cannot restore detail — replacements must come from a larger
 source.

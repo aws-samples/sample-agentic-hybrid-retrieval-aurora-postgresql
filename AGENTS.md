@@ -115,7 +115,7 @@ case counts come from the manifests and validators, not a parallel prose list.
   settings and hash-pinned catalog contracts. `db/sql/install.sql` includes the
   two lab SQL files; `service/search_sql.py` lists the search files in that order.
 - `scripts/`: participant commands and their helpers at the top level;
-  maintainer tooling in `catalog/`, `evals/`, `bench/`, `checks/` and `media/`
+  maintainer tooling in `catalog/`, `evals/`, `bench/` and `checks/`
   (see `scripts/README.md`).
 - `deploy/agentcore/`: managed entry points; `deploy/mosaic-bootstrap.sh`: host setup.
 - `skills/mosaic-hybrid-retrieval/`: portable retrieval skill and adaptation notes.
