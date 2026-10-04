@@ -434,7 +434,17 @@ export function CatalogPage() {
   // banner, and numbering in place until its own answer arrives.
   const agent = answeredTurn?.contextKey === retrievalRequest ? answeredTurn.response : null;
   const agentQuestion = answeredTurn?.question ?? "";
-  const labOutcome = labMission && agent ? agentLabOutcome(labMission, agent) : null;
+  // A lab verdict and its proof link belong to the run that asked the lab's own
+  // request. A follow-up the guide asks next ("My laptop needs 100W charging")
+  // is a different question and must not be graded against the lab.
+  const missionRun = labMission
+    ? [...agentTurns].reverse().find((turn) => (
+      turn.completed
+      && turn.response
+      && turn.question.trim() === labMission.query.trim()
+    ))?.response ?? null
+    : null;
+  const labOutcome = labMission && missionRun ? agentLabOutcome(labMission, missionRun) : null;
   const labCallout = retrievalLabCallout(retrieval, readiness);
   const requestMission = coreMosaicLabs.find(
     (mission) => mission.id === searchParams.get("mission") && mission.query === activeQuery,
@@ -1380,10 +1390,10 @@ export function CatalogPage() {
               the run proves the lab is `POST /api/labs/3/proof`'s judgement,
               and deciding it here would be a second authority that could
               disagree with the first. */}
-          {labMission && agent?.agent_run_id ? (
+          {labMission && missionRun?.agent_run_id ? (
             <Link
               className="shop-lab-callout-playground"
-              href={playgroundProofHref(labMission.id, agent.agent_run_id)}
+              href={playgroundProofHref(labMission.id, missionRun.agent_run_id)}
             >
               Prove this run in the {RETRIEVAL_SURFACE.label}
               <ArrowUpRight size={14} aria-hidden="true" />

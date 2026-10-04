@@ -51,7 +51,7 @@ vi.mock("../catalogSource", async (importOriginal) => ({
 configure({ asyncUtilTimeout: 5000 });
 import { stageDwellMs } from "../components/ask-mosaic/StageProgress";
 import { mosaicLabManifest } from "../labMissions";
-import { coreMosaicLabs, shopMissionHref } from "../labMissions";
+import { coreMosaicLabs, mosaicRetrievalExamples, shopMissionHref } from "../labMissions";
 import { seedRun } from "../retrievalSeed";
 import { fixtureCatalogPage } from "../testProducts";
 import { starterPath } from "../starters";
@@ -266,6 +266,8 @@ const searchResponse: SearchResponse = {
     total_latency_ms: 42,
   },
 };
+
+const labThreeRequest = mosaicRetrievalExamples.find((mission) => mission.id === "agentic-research")!;
 
 const agentResponse: AgentResponse = {
   agent_run_id: "agent-1",
@@ -1619,7 +1621,7 @@ describe("CatalogPage", () => {
 
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
-      { target: { value: agentResponse.question } },
+      { target: { value: labThreeRequest.query } },
     );
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
@@ -1643,7 +1645,7 @@ describe("CatalogPage", () => {
     await screen.findByRole("complementary", { name: "Ask Mosaic" });
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
-      { target: { value: agentResponse.question } },
+      { target: { value: labThreeRequest.query } },
     );
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
@@ -1651,6 +1653,44 @@ describe("CatalogPage", () => {
     expect(back.getAttribute("href")).toBe(
       `/labs/retrieval?example=agentic-research&run=${agentResponse.agent_run_id}`,
     );
+  });
+
+  it("grades only the Lab 3 request, not a follow-up asked after it", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/catalog?ask=1&mission=agentic-research&q=Compare%20quiet%20keyboards",
+    );
+    const declinedFollowUp: AgentResponse = {
+      ...agentResponse,
+      agent_run_id: "agent-follow-up",
+      outcome: "declined",
+      decline_reason: "insufficient_evidence",
+      recommendations: [],
+      citations: [],
+    };
+    let call = 0;
+    vi.mocked(api.agentStream).mockImplementation(async (_q, _f, onEvent) => {
+      call += 1;
+      onEvent({ type: "complete", response: call === 1 ? agentResponse : declinedFollowUp });
+    });
+    renderPage();
+
+    await screen.findByRole("complementary", { name: "Ask Mosaic" });
+    const box = screen.getByRole("textbox", { name: "Ask Mosaic request" });
+    fireEvent.change(box, { target: { value: labThreeRequest.query } });
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+    expect(await screen.findByText("Looks grounded")).toBeTruthy();
+
+    fireEvent.change(box, { target: { value: "My laptop needs 100W charging. Does this monitor still meet that need?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+    await waitFor(() => expect(api.agentStream).toHaveBeenCalledTimes(2));
+
+    expect(screen.queryByText("Answer declined")).toBeNull();
+    expect(screen.getByText("Looks grounded")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: /Prove this run/ }).getAttribute("href"),
+    ).toBe("/labs/retrieval?example=agentic-research&run=agent-1");
   });
 
   it("keeps the Lab 3 banner and proof link when Ask Mosaic is closed", async () => {
@@ -1664,7 +1704,7 @@ describe("CatalogPage", () => {
     await screen.findByRole("complementary", { name: "Ask Mosaic" });
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
-      { target: { value: agentResponse.question } },
+      { target: { value: labThreeRequest.query } },
     );
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
     await screen.findByRole("link", { name: /Prove this run/ });
