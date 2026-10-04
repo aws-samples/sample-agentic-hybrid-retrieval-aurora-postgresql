@@ -3,6 +3,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { api } from "../api";
+import { pipelineRequests } from "../labMissions";
 import type { AgentStreamEvent, AgentStreamOptions } from "../api";
 import type { AgentConversationContext, SearchFilters } from "../types";
 import { useAskMosaicConversation } from "./useAskMosaicConversation";
@@ -233,6 +234,14 @@ it("unmounting the owner cancels the in-flight request", async () => {
   await Promise.resolve();
 
   expect(capturedSignal?.aborted).toBe(true);
+});
+
+it("offers the Lab 3 room request first and keeps the other starters in manifest order", () => {
+  const { result } = renderHook(() => useAskMosaicConversation({}));
+  const ids = result.current.suggestions.map((request) => request.id);
+  expect(ids[0]).toBe("plan-workspace");
+  const rest = pipelineRequests.map((request) => request.id).filter((id) => id !== "plan-workspace");
+  expect(ids.slice(1)).toEqual(rest);
 });
 
 it("keeps only the Lab 3 starter while a brand or attribute filter is set", () => {

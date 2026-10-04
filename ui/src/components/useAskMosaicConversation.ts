@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import { sourceFilters, useCatalogSource } from "../catalogSource";
-import { workspaceRequests } from "../labMissions";
+import { coreMosaicLabs, workspaceRequests } from "../labMissions";
 import type { SearchFilters } from "../types";
 import { isSetupCardMessage } from "./ask-mosaic/setupMessage";
 import type { AskMosaicTurn } from "./ask-mosaic/types";
@@ -25,6 +25,12 @@ function failureCode(cause: unknown): string | undefined {
  * context, and cancellation here prevents drawers from drifting into
  * different assistants behind matching controls.
  */
+// Lab 3 is the one starter a participant must run from this panel, so it leads;
+// Array.prototype.sort is stable, so the others keep the manifest's order.
+function isLabThreeRequest(request: { mission_id?: string }) {
+  return coreMosaicLabs.some((mission) => mission.id === request.mission_id && mission.stage === "reason");
+}
+
 export function useAskMosaicConversation(
   filters: SearchFilters,
   /** Whether a request reads and writes memory; a function decides per question. */
@@ -208,7 +214,8 @@ export function useAskMosaicConversation(
   const starters = workspaceRequests(
     sourceFilters(filters, real),
     (value) => sourceFilters(value, real),
-  ).filter((request) => !narrowedByShop || Object.keys(request.filters).length === 0);
+  ).filter((request) => !narrowedByShop || Object.keys(request.filters).length === 0)
+    .sort((a, b) => Number(isLabThreeRequest(b)) - Number(isLabThreeRequest(a)));
 
   return {
     answeredTurn,

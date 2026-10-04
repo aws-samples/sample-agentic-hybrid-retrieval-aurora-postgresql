@@ -1720,8 +1720,12 @@ describe("CatalogPage", () => {
     ).toBeNull();
 
     const starters = await within(panel).findByRole("list", { name: "Example questions" });
+    const labThreeFirst = [
+      ...pipelineRequests.filter((request) => request.id === "plan-workspace"),
+      ...pipelineRequests.filter((request) => request.id !== "plan-workspace"),
+    ];
     expect(within(starters).getAllByRole("button").map((button) => button.querySelector(".ask-start-label")?.textContent))
-      .toEqual(pipelineRequests.map((request) => request.shop_label));
+      .toEqual(labThreeFirst.map((request) => request.shop_label));
     expect(within(panel).queryByRole("list", { name: "Tools available to the agent" })).toBeNull();
     expect(within(panel).queryByText("Search with typos in it")).toBeNull();
 
@@ -2073,7 +2077,9 @@ describe("CatalogPage", () => {
     await screen.findByText(catalog.products[0].model);
     openAskMosaic();
 
-    fireEvent.click(within(await screen.findByRole("list", { name: "Example questions" })).getAllByRole("button")[0]);
+    const focus = within(await screen.findByRole("list", { name: "Example questions" })).getAllByRole("button")
+      .find((button) => button.textContent?.includes(pipelineRequests[0].shop_label));
+    fireEvent.click(focus!);
 
     await waitFor(() =>
       expect(api.agentStream).toHaveBeenCalledWith(
@@ -2220,9 +2226,9 @@ describe("CatalogPage", () => {
     const starters = await screen.findByRole("list", { name: "Example questions" });
     const requests = within(starters).getAllByRole("button");
     expect(requests).toHaveLength(2);
-    expect(requests[0].textContent).toContain(pipelineRequests.find((request) => request.id === "more-screen-space")!.shop_label);
-    expect(requests[1].textContent).toContain("Complete my room");
-    fireEvent.click(requests[0]);
+    expect(requests[0].textContent).toContain("Complete my room");
+    expect(requests[1].textContent).toContain(pipelineRequests.find((request) => request.id === "more-screen-space")!.shop_label);
+    fireEvent.click(requests[1]);
     await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
     expect(vi.mocked(api.agentStream).mock.calls.at(-1)?.[1]).toMatchObject({
       domain: "consumer_electronics", category_key: "monitor",
