@@ -143,6 +143,7 @@ def test_the_ui_prints_the_same_commands_as_the_service() -> None:
     assert ui == {
         "APPLY_SQL": commands.APPLY_SQL,
         "DEPLOY_AGENT": commands.DEPLOY_AGENT,
+        "VERIFY_AGENT": commands.VERIFY_AGENT,
         "validate": commands.validate(1).removesuffix("1") + "{lab}",
     }, (
         f"Participant command rule: {UI_COMMANDS.relative_to(ROOT)} holds {ui}; "

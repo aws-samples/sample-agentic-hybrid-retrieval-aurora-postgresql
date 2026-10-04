@@ -1,17 +1,31 @@
+import { DEPLOY_AGENT, VERIFY_AGENT } from "../../participantCommands";
 import { StartCommand } from "../LabRail";
 
 /**
- * The first command in a setup message, such as the deploy step.
- *
- * The service writes the next step into `detail` as prose ending in a command.
- * Splitting it here puts that command in a copyable element without a second
- * copy of the string on the client.
+ * The two messages that are a next step for the participant: the agent has not
+ * been assembled yet. Every other `agent_setup` message reports a deployment or
+ * Gateway fault, which is an outage to read in full, not a to-do.
+ */
+const SETUP_CARD_LEADS = [
+  "Your agent is not built yet.",
+  "Your agent is missing its Mosaic tools.",
+];
+
+export function isSetupCardMessage(detail: string): boolean {
+  return SETUP_CARD_LEADS.some((lead) => detail.startsWith(lead));
+}
+
+/**
+ * The earliest participant command the message names, matched against the exact
+ * strings the guides print so no trailing words are ever copied with it. The
+ * prose is always the whole message.
  */
 export function splitSetupCommand(detail: string): { prose: string; command: string | null } {
-  const match = /uv run python [\w./-]+(?: [\w./-]+)*/.exec(detail);
-  if (!match) return { prose: detail, command: null };
-  const prose = detail.slice(0, match.index).replace(/\s*Next:\s*(deploy with)?\s*$/i, "").trim();
-  return { prose, command: match[0] };
+  const found = [DEPLOY_AGENT, VERIFY_AGENT]
+    .map((command) => ({ command, at: detail.indexOf(command) }))
+    .filter((entry) => entry.at >= 0)
+    .sort((left, right) => left.at - right.at);
+  return { prose: detail, command: found[0]?.command ?? null };
 }
 
 /** A calm next-step card for an agent that has not been assembled or deployed yet. */

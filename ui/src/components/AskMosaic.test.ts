@@ -342,6 +342,16 @@ describe("AskMosaic failures", () => {
     expect(screen.queryByText(/share this message with your facilitator/)).toBeNull();
   });
 
+  it("shows a Gateway outage with an agent_setup code as an error with its full text", () => {
+    const outage = "Gateway could not complete the tool request. Next: check the deployment with "
+      + "uv run python scripts/deploy_agentcore.py verify in Code Editor; ask your facilitator to "
+      + "inspect the Gateway target if it fails.";
+    renderAskMosaic(groundedResponse(), { turns: [failedTurn(outage, "agent_setup")] });
+
+    expect(screen.getByRole("alert").textContent).toContain(outage);
+    expect(screen.queryByRole("status", { name: "Finish setting up your agent" })).toBeNull();
+  });
+
   it("keeps the retry advice for a transient failure", () => {
     renderAskMosaic(groundedResponse(), {
       turns: [failedTurn("Model service unavailable.", "agent_turn_deadline")],

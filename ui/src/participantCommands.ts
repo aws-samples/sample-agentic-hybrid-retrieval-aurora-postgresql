@@ -7,6 +7,7 @@
  */
 export const APPLY_SQL = "uv run python scripts/apply_search_functions.py";
 export const DEPLOY_AGENT = "uv run python scripts/deploy_agentcore.py deploy";
+export const VERIFY_AGENT = "uv run python scripts/deploy_agentcore.py verify";
 
 export function validateCommand(lab: number): string {
   return `uv run python scripts/validate_lab.py --lab ${lab}`;
