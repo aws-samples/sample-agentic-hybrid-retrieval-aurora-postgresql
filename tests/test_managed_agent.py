@@ -5,6 +5,7 @@ import json
 import re
 from unittest.mock import Mock
 
+import httpx
 import pytest
 from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
@@ -435,3 +436,49 @@ def test_a_failed_runtime_call_logs_its_cause_and_is_not_retried(
         transport.invoke("answer", AgentRequest(question="A monitor"))
     assert client.invoke_agent_runtime.call_count == 1
     assert "ThrottlingException" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "failure,reason",
+    [
+        (lambda: httpx.ConnectTimeout("slow"), "ConnectTimeout"),
+        (
+            lambda: httpx.HTTPStatusError(
+                "denied",
+                request=httpx.Request("POST", "https://gateway"),
+                response=httpx.Response(403),
+            ),
+            "HTTP 403",
+        ),
+    ],
+)
+def test_unreachable_gateway_names_the_cause_and_a_way_out_of_the_verify_loop(
+    monkeypatch, failure, reason
+):
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "AKIAIOSFODNN7EXAMPLE")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "example-secret-key")
+    monkeypatch.setattr(
+        gateway_tools,
+        "gateway_url",
+        lambda: "https://x.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp",
+    )
+
+    class Failing:
+        def __init__(self, **_):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def post(self, *_, **__):
+            raise failure()
+
+    monkeypatch.setattr(gateway_tools.httpx, "Client", Failing)
+    with pytest.raises(AgentSetupError) as raised:
+        gateway_tools.rpc("tools/list", {})
+    message = str(raised.value)
+    assert reason in message
+    assert VERIFY_AGENT in message and DEPLOY_AGENT in message

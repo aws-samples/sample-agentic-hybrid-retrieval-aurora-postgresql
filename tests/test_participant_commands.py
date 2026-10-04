@@ -97,6 +97,11 @@ def _commands() -> list[str]:
         commands.solution(3),
         commands.validate(1),
         commands.complete_lab_3("RUN"),
+        commands.validate_applied(1),
+        commands.repeat_request(2),
+        commands.exercise_check(3),
+        commands.COMPARE_SETTINGS,
+        commands.FLEX_CHECK,
     ]
 
 

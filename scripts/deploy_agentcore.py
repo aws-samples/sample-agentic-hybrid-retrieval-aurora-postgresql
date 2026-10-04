@@ -10,7 +10,10 @@ import re
 import subprocess
 import sys
 import tempfile
+import threading
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import quote, quote_plus
 
@@ -19,6 +22,7 @@ from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
 ROOT = Path(__file__).resolve().parents[1]
+PROGRESS_SECONDS = 15
 sys.path.insert(0, str(ROOT))
 
 from scripts.checks.rehearsal import redact
@@ -47,6 +51,81 @@ def required(name: str) -> str:
             f"Deployment configuration rule: {name} is unset; load this workshop's .env."
         )
     return value
+
+
+def safe_text(text: object, limit: int = 600) -> str:
+    """Redact secret-shaped text and this environment's secret values from a message."""
+    shown = redact(str(text))
+    for name, value in os.environ.items():
+        if value and any(
+            part in name for part in ("PASSWORD", "SECRET", "TOKEN", "DATABASE_URL")
+        ):
+            for variant in (value, quote(value, safe=""), quote_plus(value)):
+                shown = shown.replace(variant, "[REDACTED]")
+    return " ".join(shown.split())[:limit]
+
+
+class Progress:
+    """Print one status line at most every PROGRESS_SECONDS during a polling loop."""
+
+    def __init__(self, label: str) -> None:
+        self.label = label
+        self.started = self.last = time.monotonic()
+
+    def tick(self, detail: str) -> None:
+        now = time.monotonic()
+        if now - self.last >= PROGRESS_SECONDS:
+            self.last = now
+            print(
+                f"  {self.label}: {detail}, {int(now - self.started)} s elapsed",
+                flush=True,
+            )
+
+
+@contextmanager
+def heartbeat(label: str) -> Iterator[None]:
+    """Print an elapsed-time line every PROGRESS_SECONDS while a command runs."""
+    finished = threading.Event()
+    started = time.monotonic()
+
+    def beat() -> None:
+        # The floor keeps a zero interval from becoming a busy loop.
+        while not finished.wait(max(PROGRESS_SECONDS, 0.01)):
+            print(f"  {label}: {int(time.monotonic() - started)} s elapsed", flush=True)
+
+    thread = threading.Thread(target=beat, daemon=True)
+    thread.start()
+    try:
+        yield
+    finally:
+        finished.set()
+        thread.join()
+
+
+DOCKER_MISSING = (
+    "Docker rule: the docker command was not found; fix: start Docker in Code Editor "
+    f"(or ask your facilitator to), then retry {DEPLOY_AGENT}."
+)
+
+
+def run_docker(step: str, argv: list[str], *, environment: dict, timeout: int) -> None:
+    """Run one docker step with heartbeats and a failure that names the step."""
+    label = {"build": "Building image", "push": "Pushing image"}[step]
+    try:
+        with heartbeat(label):
+            subprocess.run(argv, check=True, env=environment, timeout=timeout)
+    except FileNotFoundError:
+        raise RuntimeError(DOCKER_MISSING) from None
+    except subprocess.CalledProcessError as error:
+        raise RuntimeError(
+            f"Image {step} rule: docker {step} failed with exit code {error.returncode} "
+            f"(its output is above); fix: correct that error, then retry {DEPLOY_AGENT}."
+        ) from None
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(
+            f"Image {step} rule: docker {step} did not finish within {timeout} s; "
+            f"fix: check the Code Editor's network connection, then retry {DEPLOY_AGENT}."
+        ) from None
 
 
 def image_digest(ecr, repository: str, tag: str) -> str | None:
@@ -122,6 +201,8 @@ def publish_image(repository_uri: str, *, bootstrap: bool) -> str:
                         timeout=60,
                     )
                     break
+                except FileNotFoundError:
+                    raise RuntimeError(DOCKER_MISSING) from None
                 except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
                     if attempt == 2:
                         raise RuntimeError(
@@ -130,7 +211,13 @@ def publish_image(repository_uri: str, *, bootstrap: bool) -> str:
                         ) from None
                     time.sleep(2**attempt)
             image = f"{repository_uri}:{tag}"
-            subprocess.run(
+            print(
+                "Building your agent image. The first build is the slowest "
+                f"(several minutes); progress prints every {PROGRESS_SECONDS} s.",
+                flush=True,
+            )
+            run_docker(
+                "build",
                 [
                     "docker",
                     "build",
@@ -142,12 +229,11 @@ def publish_image(repository_uri: str, *, bootstrap: bool) -> str:
                     str(context / "deploy/agentcore/Dockerfile"),
                     str(context),
                 ],
-                check=True,
-                env=environment,
+                environment=environment,
                 timeout=1200,
             )
-            subprocess.run(
-                ["docker", "push", image], check=True, env=environment, timeout=600
+            run_docker(
+                "push", ["docker", "push", image], environment=environment, timeout=600
             )
             digest = image_digest(ecr, repository, tag)
             if digest is None:
@@ -185,26 +271,47 @@ def stage(*, bootstrap: bool = False) -> str:
     return image_uri
 
 
-def wait_runtime(control, runtime_id: str) -> dict:
+RUNTIME_FAILED = {"CREATE_FAILED", "UPDATE_FAILED", "DELETING"}
+
+
+def wait_runtime(control, runtime_id: str, label: str | None = None) -> dict:
+    """Wait for the runtime and its DEFAULT endpoint to serve the new version."""
+    label = label or f"runtime {runtime_id}"
     deadline = time.monotonic() + 900
+    progress = Progress(label)
+    last = "no status yet"
     while time.monotonic() < deadline:
         runtime = control.get_agent_runtime(agentRuntimeId=runtime_id)
+        last = f"runtime {runtime['status']}"
         if runtime["status"] == "READY":
             endpoint = control.get_agent_runtime_endpoint(
                 agentRuntimeId=runtime_id, endpointName="DEFAULT"
             )
-            if (
-                endpoint["status"] == "READY"
-                and endpoint.get("liveVersion") == runtime["agentRuntimeVersion"]
-            ):
-                return runtime
-        if runtime["status"] in {"CREATE_FAILED", "UPDATE_FAILED", "DELETING"}:
-            raise RuntimeError(
-                f"Runtime {runtime_id} is {runtime['status']}; inspect its deployment events."
+            version = runtime["agentRuntimeVersion"]
+            last = (
+                f"runtime READY, endpoint {endpoint['status']} serving version "
+                f"{endpoint.get('liveVersion')} of {version}"
             )
+            if endpoint["status"] == "READY" and endpoint.get("liveVersion") == version:
+                return runtime
+            if endpoint["status"] in RUNTIME_FAILED:
+                raise RuntimeError(
+                    f"Runtime deployment rule: the endpoint of {label} is "
+                    f"{endpoint['status']}: "
+                    f"{safe_text(endpoint.get('failureReason', 'no reason supplied'))}; "
+                    f"fix: retry {DEPLOY_AGENT}; if it repeats, share this line with your facilitator."
+                )
+        if runtime["status"] in RUNTIME_FAILED:
+            raise RuntimeError(
+                f"Runtime deployment rule: {label} is {runtime['status']}: "
+                f"{safe_text(runtime.get('failureReason', 'no reason supplied'))}; "
+                f"fix: retry {DEPLOY_AGENT}; if it repeats, share this line with your facilitator."
+            )
+        progress.tick(last)
         time.sleep(5)
     raise TimeoutError(
-        f"Runtime {runtime_id} did not become ready; inspect CloudFormation and Runtime status."
+        f"Runtime deployment rule: {label} was not ready after 900 s (last seen: {last}); "
+        f"fix: retry {DEPLOY_AGENT}; if it repeats, share this line with your facilitator."
     )
 
 
@@ -235,21 +342,9 @@ def discover() -> dict[str, str]:
                     or "ROLLBACK" in status
                     or status.startswith("DELETE_")
                 ):
-                    reason = redact(
-                        row.get("ResourceStatusReason", "No reason supplied")
+                    reason = safe_text(
+                        row.get("ResourceStatusReason", "No reason supplied"), 800
                     )
-                    for name, value in os.environ.items():
-                        if value and any(
-                            part in name
-                            for part in ("PASSWORD", "SECRET", "TOKEN", "DATABASE_URL")
-                        ):
-                            for variant in (
-                                value,
-                                quote(value, safe=""),
-                                quote_plus(value),
-                            ):
-                                reason = reason.replace(variant, "[REDACTED]")
-                    reason = " ".join(reason.split())[:800]
                     raise RuntimeError(
                         f"Managed provisioning rule: {resource} is {status}: {reason}; "
                         "fix: correct this resource in the workshop template and retry provisioning."
@@ -292,9 +387,9 @@ def update(image_uri: str) -> None:
             "UpdateAgentRuntime"
         ).input_shape.members
     )
-    for setting in (
-        "MOSAIC_AGENTCORE_TOOLS_RUNTIME_ARN",
-        "MOSAIC_AGENTCORE_RUNTIME_ARN",
+    for setting, label in (
+        ("MOSAIC_AGENTCORE_TOOLS_RUNTIME_ARN", "tools runtime"),
+        ("MOSAIC_AGENTCORE_RUNTIME_ARN", "agent runtime"),
     ):
         runtime_id = required(setting).rsplit("/", 1)[-1]
         current = control.get_agent_runtime(agentRuntimeId=runtime_id)
@@ -308,27 +403,36 @@ def update(image_uri: str) -> None:
             "containerConfiguration": {"containerUri": image_uri}
         }
         control.update_agent_runtime(**payload)
-        deployed = wait_runtime(control, runtime_id)
-        print(f"Ready: {setting} version {deployed['agentRuntimeVersion']}")
+        print(f"Updating the {label}; AWS replaces its running version.", flush=True)
+        deployed = wait_runtime(control, runtime_id, label)
+        print(f"Ready: {label} version {deployed['agentRuntimeVersion']}", flush=True)
     gateway = required("MOSAIC_AGENTCORE_GATEWAY_ID")
     target = required("MOSAIC_AGENTCORE_GATEWAY_TARGET_ID")
     control.synchronize_gateway_targets(
         gatewayIdentifier=gateway, targetIdList=[target]
     )
+    print("Synchronizing Gateway tools from the tools runtime.", flush=True)
     deadline = time.monotonic() + 600
+    progress = Progress("Gateway tool sync")
+    state = "no status yet"
     while time.monotonic() < deadline:
-        state = control.get_gateway_target(gatewayIdentifier=gateway, targetId=target)[
-            "status"
-        ]
+        target_status = control.get_gateway_target(
+            gatewayIdentifier=gateway, targetId=target
+        )
+        state = target_status["status"]
         if state == "READY":
             return
         if state in {"FAILED", "SYNCHRONIZE_UNSUCCESSFUL", "UPDATE_UNSUCCESSFUL"}:
+            reasons = target_status.get("statusReasons") or ["no reason supplied"]
             raise RuntimeError(
-                f"Gateway target is {state}; inspect its status reasons."
+                f"Gateway sync rule: the target is {state}: {safe_text(reasons[0])}; "
+                f"fix: retry {DEPLOY_AGENT}; if it repeats, share this line with your facilitator."
             )
+        progress.tick(state)
         time.sleep(5)
     raise TimeoutError(
-        "Gateway tool synchronization timed out; inspect its target status."
+        f"Gateway sync rule: the target was still {state} after 600 s; "
+        f"fix: retry {DEPLOY_AGENT}; if it repeats, share this line with your facilitator."
     )
 
 
@@ -357,11 +461,21 @@ def require_applied_sql() -> str:
 def verify() -> dict:
     """Exercise deployed source, Gateway discovery, search and evidence on Aurora."""
     status = agentcore_transport.deployed_status()
-    if status.get("application_sha256") != application_digest() or not status.get(
-        "readiness", {}
-    ).get("database", {}).get("catalog_ready"):
+    deployed = status.get("application_sha256")
+    workspace = application_digest()
+    if deployed != workspace:
         raise RuntimeError(
-            "Runtime acceptance rule: stale code or catalog not ready; redeploy and check Aurora readiness."
+            "Runtime acceptance rule: the deployed agent runs code "
+            f"{(deployed or 'with no recorded identity')[:12]}, not your workspace's "
+            f"{workspace[:12]}; fix: deploy your current code with {DEPLOY_AGENT}."
+        )
+    database = status.get("readiness", {}).get("database", {})
+    if not database.get("catalog_ready"):
+        raise RuntimeError(
+            "Runtime acceptance rule: the deployed agent reports its catalog is not "
+            f"ready ({safe_text(json.dumps(database, default=str), 300)}); this is an "
+            f"environment failure, not your code. fix: share this message with your "
+            f"facilitator, then recheck with {VERIFY_AGENT}."
         )
     require_applied_sql()
     tools = gateway_tools.rpc("tools/list", {})
@@ -422,6 +536,44 @@ def verify() -> dict:
     return receipt
 
 
+def retry_command(action: str) -> str:
+    """The command to repeat after a failed action."""
+    if action == "verify":
+        return VERIFY_AGENT
+    if action == "deploy":
+        return DEPLOY_AGENT
+    return f"uv run python scripts/deploy_agentcore.py {action}"
+
+
+def explain_failure(error: Exception, retry: str) -> str:
+    """Name the AWS code, message and next command without leaking secrets."""
+    if isinstance(error, ClientError):
+        details = error.response.get("Error", {})
+        code = details.get("Code", "UnknownError")
+        action = (
+            "this instance's IAM role is not allowed to do that; share this line "
+            f"with your facilitator, who fixes it, then retry {retry}"
+            if "AccessDenied" in code or "Unauthorized" in code
+            else f"retry {retry}; if it repeats, share this line with your facilitator"
+        )
+        return (
+            f"AWS rule: {error.operation_name} failed with {code}: "
+            f"{safe_text(details.get('Message', 'no message supplied'))}; fix: {action}."
+        )
+    if isinstance(error, BotoCoreError):
+        return (
+            f"AWS rule: the request failed ({type(error).__name__}): "
+            f"{safe_text(error)}; fix: check the Code Editor's network connection, "
+            f"then retry {retry}."
+        )
+    if isinstance(error, (OSError, subprocess.SubprocessError)):
+        return (
+            f"Local file or process rule: {type(error).__name__}: {safe_text(error)}; "
+            f"fix: correct that problem, then retry {retry}."
+        )
+    return safe_text(error, 1500)
+
+
 def main() -> int:
     from dotenv import load_dotenv
 
@@ -450,6 +602,12 @@ def main() -> int:
                 raise ValueError(
                     f"Your agent is not ready to deploy. Open labs/lab3_reason/agent.py, complete create_agent, then deploy with {DEPLOY_AGENT} again."
                 )
+            print(
+                "Deploying your agent: build and push the image (the first build is "
+                "the slowest), update the tools and agent runtimes, synchronize "
+                f"Gateway, then verify. Progress prints every {PROGRESS_SECONDS} s.",
+                flush=True,
+            )
             update(stage())
             verify()
             print(
@@ -473,20 +631,7 @@ def main() -> int:
         RuntimeError,
         TimeoutError,
     ) as error:
-        # AWS exceptions can include deployment environment values. The console
-        # has the service details; the participant sees a safe actionable error.
-        if isinstance(error, (BotoCoreError, ClientError)):
-            print(
-                f"Deployment failed ({type(error).__name__}); inspect the Runtime/Gateway events and this instance's IAM role.",
-                file=sys.stderr,
-            )
-        elif isinstance(error, (OSError, subprocess.SubprocessError)):
-            print(
-                f"Image build/push failed; check Docker is running and this instance can reach ECR, then retry {DEPLOY_AGENT}.",
-                file=sys.stderr,
-            )
-        else:
-            print(str(error), file=sys.stderr)
+        print(explain_failure(error, retry_command(args.action)), file=sys.stderr)
         return 1
 
 

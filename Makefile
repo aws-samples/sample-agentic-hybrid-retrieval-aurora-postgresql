@@ -195,7 +195,7 @@ reset-lab-3:
 
 validate-lab-3:
 	@$(PYTHON) scripts/lab_state.py validate --lab 3
-	@$(PYTHON) scripts/validate_lab.py --lab 3 --api-url "$(LAB_API_URL)"
+	@$(PYTHON) scripts/validate_lab.py --lab 3 --api-url "$(LAB_API_URL)" --save-receipt .local/lab-3/maintainer-receipt.json
 
 solution-lab-3:
 	@$(PYTHON) scripts/lab_state.py solution --lab 3

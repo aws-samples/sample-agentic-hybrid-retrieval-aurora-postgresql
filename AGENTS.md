@@ -65,9 +65,14 @@ The Makefile wraps them for maintainers only.
 | Enter a lab: save its failing request; Labs 2 and 3 also install their fault once | `uv run python scripts/lab_state.py start --lab N` |
 | Discard one lab's edits and restore its starter, only when asked to restart | `uv run python scripts/lab_state.py reset --lab N` |
 | Apply the participant's SQL repair in Labs 1 or 2 | `uv run python scripts/apply_search_functions.py` |
-| Prove the Lab 1 or Lab 2 repair after repeating the request | `uv run python scripts/validate_lab.py --lab N` |
+| Check the saved source and the SQL Aurora last applied (Labs 1 and 2) | `uv run python scripts/lab_state.py validate --lab N --database-url "$DATABASE_URL"` |
+| Repeat the saved request against the repaired state; prints Before and After | `uv run python scripts/lab_terminal.py run --lab N --phase after` |
+| Prove the Lab 1 or Lab 2 repair after repeating the request (Lab 3 is rejected: it is graded on the saved run) | `uv run python scripts/validate_lab.py --lab N` |
+| Grade the participant's own exercise or saved run without generating a new answer | `uv run python scripts/lab_exercise.py check --lab N` |
+| Judge three retrieval settings in Lab 2 | `uv run python scripts/lab_exercise.py compare --lab 2` |
+| Grade the optional flex-time HNSW index exercise | `uv run python scripts/flex_exercise.py check` |
 | List managed SQL tools | `uv run python scripts/deploy_agentcore.py tools` |
-| Deploy edited Lab 3 code and check managed connectivity | `uv run python scripts/deploy_agentcore.py deploy` |
+| Deploy edited Lab 3 code and check managed connectivity; prints progress about every 15 s and names the failing step on error | `uv run python scripts/deploy_agentcore.py deploy` |
 | Recheck deployed code, Gateway tools and Aurora evidence | `uv run python scripts/deploy_agentcore.py verify` |
 | Check the participant's saved original agent run | `uv run python scripts/complete_agent.py --run-id <your-run-id>` |
 | Inspect the diff for whitespace errors | `git diff --check` |
@@ -160,7 +165,7 @@ commits, provisioning, catalog reloads or release changes during a lab.
 - Required gates live in [READINESS.md](READINESS.md). Never describe an offline
   pass, source push or Workshop Studio build as fresh-account acceptance.
 
-## Status recorded 2026-09-27
+## Status recorded 2026-10-04
 
 This table is context, not a live health check; use the current guide and actual
 command output. No future redesign is part of the required participant journey.
@@ -168,9 +173,9 @@ command output. No future redesign is part of the required participant journey.
 | Surface | Recorded status and evidence |
 |---|---|
 | Required journey | Three labs: retrieval, ranking, managed Strands agent. Exact scope and timings are owned by the mission manifest. |
-| Catalog | Real `reviews-2023-v2` products, saved Cohere embeddings and source evidence; fresh provisioning rejects historical synthetic rows. |
-| Managed deployment | Runtime/Gateway are required for Lab 3. Packaging now uses an immutable ECR image shared by agent and tools. The templates provide outbound HTTPS for AWS APIs. Image startup, ECR upload and application tests are verified separately; a new-account rehearsal is required for this deployment path. |
-| Measurements | Real-catalog HNSW artifacts exist under `data/benchmarks/`. Reviewed relevance, controlled cold-start measurements and human session timing remain separate release evidence; see `READINESS.md`. |
+| Catalog | Real `reviews-2023-v2` products, saved Cohere embeddings and source evidence; fresh provisioning rejects historical synthetic rows. On 3 October the synthetic rows, loaders and fixtures were retired from the repository and the development database ([record](docs/evidence/catalog-retirement-2026-10-03.md)). |
+| Managed deployment | Runtime/Gateway are required for Lab 3. Packaging now uses an immutable ECR image shared by agent and tools. The templates provide outbound HTTPS for AWS APIs. A 29 September fresh account passed provisioning and managed-agent rehearsal ([record](docs/evidence/fresh-account-2026-09-29.md)); its later cache and bootstrap corrections still needed a pristine deployment. A 3 October new Workshop Studio account then passed bootstrap, two reset/repair/proof cycles of every required lab and managed-agent completion (the workshop repository's `release/rehearsal-2026-10-03.md`, pinned to application `f8cf8175`). Its measured record stays `incomplete`, and later source revisions need their own acceptance evidence. |
+| Measurements | Real-catalog HNSW artifacts exist under `data/benchmarks/`. The canonical scorecard (nine product-retrieval cases) was refreshed for the Ask Mosaic and Lab 3 request release: Recall@10 1.0, MRR 0.759, nDCG@10 0.803, a maintainers' artifact that never proves a participant's repair. Reviewed relevance, controlled cold-start measurements and human session timing remain separate release evidence; see `READINESS.md`. |
 | Coding coach | This root file ships with the pinned participant source; `CLAUDE.md` imports it. Follow the lab guide and preserve the participant's work. |
 
 ## Workshop Studio publication

@@ -487,10 +487,33 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def solution_summary(lab: int, path: Path) -> str:
+    """Say what `solution` overwrote and which commands come next."""
+    if lab == 3:
+        next_step = (
+            f"deploy with {DEPLOY_AGENT}, ask Alex's request in Ask Mosaic, then "
+            f"check the saved run with {complete_lab_3()}"
+        )
+    else:
+        next_step = f"apply it with {APPLY_SQL}, then prove it with {validate(lab)}"
+    return (
+        f"Lab {lab}: SOLUTION ({path})\n"
+        f"This overwrote the marked LAB{lab}_ block in {path} with the reference "
+        "answer, so your own edits to that block are gone; run git diff to see "
+        "the change.\n"
+        f"Next: {next_step}."
+    )
+
+
 def main() -> int:
     args = _parser().parse_args()
     if args.action != "status" and args.lab is None:
-        raise SystemExit("--lab is required")
+        valid = ", ".join(str(lab) for lab in sorted(LABS))
+        raise SystemExit(
+            f"Lab rule: {args.action} needs --lab, with one of {valid}. "
+            f"Next: run uv run python scripts/lab_state.py {args.action} --lab N, "
+            f"for example uv run python scripts/lab_state.py {args.action} --lab 1."
+        )
     if args.action == "status":
         for lab in LABS:
             print(status_line(lab))
@@ -518,7 +541,7 @@ def main() -> int:
         return 0
     if args.action == "solution":
         path = set_lab_state(args.lab, solved=True)
-        print(f"Lab {args.lab}: SOLUTION ({path.relative_to(REPO)})")
+        print(solution_summary(args.lab, path.relative_to(REPO)))
         return 0
     if not lab_is_solved(args.lab):
         if args.lab == 3:

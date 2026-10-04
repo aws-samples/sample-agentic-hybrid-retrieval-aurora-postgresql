@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,7 @@ from scripts.lab_entry import (
 from service import lab_checks
 from service.config import get_settings
 from service.lab_checks import AgentEvidence, LabCheck, RetrievalReceipt
+from service.participant_commands import complete_lab_3
 from service.participant_commands import start as start_command
 
 
@@ -340,13 +342,22 @@ def main() -> int:
     load_dotenv(REPO / ".env")
     parser = argparse.ArgumentParser()
     parser.add_argument("--lab", type=int, required=True, choices=(1, 2, 3))
-    parser.add_argument("--api-url", default="http://127.0.0.1:8000")
+    parser.add_argument(
+        "--api-url", default=os.getenv("LAB_API_URL", "http://127.0.0.1:8000")
+    )
     receipt = parser.add_mutually_exclusive_group()
     receipt.add_argument("--save-receipt", type=Path)
     receipt.add_argument("--reuse-receipt", type=Path)
     args = parser.parse_args()
     if (args.save_receipt or args.reuse_receipt) and args.lab != 3:
         parser.error("found receipt option on another lab; fix: use it with --lab 3")
+    if args.lab == 3 and not (args.save_receipt or args.reuse_receipt):
+        raise SystemExit(
+            "Lab 3 validation rule: found --lab 3 without a receipt; Lab 3 is graded "
+            "on your saved agent run, not on fresh answers. fix: ask Alex's request in "
+            f"Ask Mosaic, then run {complete_lab_3()} (a maintainer passes "
+            "--save-receipt PATH or --reuse-receipt PATH)."
+        )
     validator = {
         1: validate_lab_1,
         2: validate_lab_2,
