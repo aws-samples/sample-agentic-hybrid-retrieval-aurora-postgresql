@@ -9,7 +9,6 @@ The remaining guides are grouped by the work they support.
 |---|---|
 | [Start Here](../START_HERE.md) | Open your prepared environment and follow the three required labs |
 | [Use the pattern in your app](use-in-your-app.md) | Take-home map for schema, SQL, ranking and agent tools |
-| [Real-catalog examples](real-catalog-exercise-library.md) | Measured examples and evidence limits |
 | [Mosaic skill](skill-composition.md) | Portable workflow, HTTP mapping and adaptation references |
 
 ## Developers
@@ -29,7 +28,7 @@ The remaining guides are grouped by the work they support.
 | [UI screen specification](ui-screen-spec.md) | Screen, component and payload contracts |
 | [Telemetry contract](telemetry-contract.md) | Aurora telemetry and optional AgentCore export |
 | [MCP interoperability](mcp-interoperability.md) | Optional interoperability contract and isolated runtime |
-| [AgentCore Runtime](agentcore-runtime.md) | Optional managed deployment of the API and agent process |
+| [AgentCore Runtime](agentcore-runtime.md) | Required for Lab 3: managed deployment of the agent and its SQL tools through Runtime and Gateway |
 | [Session memory](session-memory.md) | Optional AgentCore events, memory strategies and verification |
 | [House standards](house-standards.md) | Binding rules for assertions, probes and release gates |
 
@@ -37,7 +36,7 @@ The remaining guides are grouped by the work they support.
 
 | Guide | Purpose |
 |---|---|
-| [Workshop brief](../workshop.md) | Story, three-lab journey and how to read a run |
+| [Workshop brief](../workshop.md) | Presenter brief: the hour, how to open with Alex, each lab's teaching point and how to help without erasing the exercise |
 | [Instructor guide](instructor-guide.md) | Facilitation narrative and recovery plan |
 | [Lab design](l400-lab-design.md) | Participant page shape, graded work and acceptance boundaries |
 | [Retrieval curriculum](retrieval-curriculum.md) | Builder-session learning flow |
@@ -58,6 +57,7 @@ The remaining guides are grouped by the work they support.
 | [Benchmark methodology](benchmark-methodology.md) | Reproducible measurement rules |
 | [Production adaptation checklist](production-readiness.md) | Relevance, data, performance, governance and UX |
 | [Parking lot](mosaic-parking-lot.md) | Remaining product ideas |
+| [Real-catalog examples](real-catalog-exercise-library.md) | Historical record: secondary examples measured on the retired `reviews-2023-500k-v1` catalog |
 
 ## Maintainer references
 

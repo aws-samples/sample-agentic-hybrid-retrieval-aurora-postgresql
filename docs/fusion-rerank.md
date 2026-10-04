@@ -40,7 +40,7 @@ Use the canonical `G-008` request and filters from
 4. Run `uv run python scripts/validate_lab.py --lab 2`. It checks arithmetic, repeatable fused order,
    applied reranking and provenance, then the display-specification and brand-filter controls.
 
-The required real-catalog example also changes the visible result: the suitable Dell U2720Q is absent before repair and first after repair. It is not first in every input list. RRF admits it to the bounded rerank pool; model reranking selects it from that pool. Preserve this distinction in the guide and validators. Other worked examples retain their winner and serve as controls; see [the complete measurements](real-catalog-exercise-library.md).
+The required real-catalog example also changes the visible result. The suitable ViewSonic VG2756-4K (product 1551237) is absent from the combined 50 before the repair. After it, the monitor has meaning rank 10, combined position 21 and final position 5, so it is neither first in its input list nor first in the final order. RRF admits it to the bounded rerank pool; model reranking orders it within that pool. Preserve this distinction in the guide and validators. The mission manifest owns these figures. Other worked examples retain their winner and serve as controls; the secondary examples in [the example library](real-catalog-exercise-library.md) are a historical record measured on the retired `reviews-2023-500k-v1` catalog.
 
 ## Filters
 
