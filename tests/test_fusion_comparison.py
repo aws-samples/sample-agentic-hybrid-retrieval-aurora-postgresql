@@ -526,7 +526,7 @@ def test_query_embedding_cache_survives_concurrent_sync_routes():
             for step in range(3000):
                 retrieval.embed_query(f"query {(offset + step) % 700}")
                 retrieval.embed_query("query 0")
-        except BaseException as error:
+        except Exception as error:  # noqa: BLE001 - surfaced by the assertion below
             errors.append(error)
 
     previous = sys.getswitchinterval()

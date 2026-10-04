@@ -256,7 +256,7 @@ def test_the_served_iterative_scan_default_follows_the_yaml(monkeypatch):
     """A hard-coded default would keep serving `relaxed_order` after a yaml edit."""
     from dataclasses import replace
 
-    import service.models as models
+    from service import models
 
     edited = replace(load_profile(), hnsw_iterative_scan="strict_order")
     monkeypatch.setattr(models, "load_profile", lambda: edited)
