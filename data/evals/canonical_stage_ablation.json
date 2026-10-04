@@ -81,7 +81,7 @@
     }
   },
   "k": 10,
-  "measured_at": "2026-10-03T20:34:52.071898+00:00",
+  "measured_at": "2026-10-04T04:09:19.177147+00:00",
   "models": {
     "embedding": "us.cohere.embed-v4:0",
     "rerank": "cohere.rerank-v3-5:0"
@@ -230,13 +230,13 @@
   "scored_query_count": 9,
   "scored_query_set_sha256": "fc0703965e00eef4f262affbb92d9fd9fd22b6c842976b4f2e8387f7e622ef47",
   "served_scorecard_reference": {
-    "measured_at": "2026-10-03T20:33:34.780803+00:00",
+    "measured_at": "2026-10-04T04:08:11.582447+00:00",
     "path": "data/evals/canonical_scorecard.json",
     "retrieval_fingerprint": "6090995a3e2ff1066c7feaa8f0a0761f3238cef4436087418190663cb10e55be",
-    "source_revision": "d54339f7750877d003dfbec12c56b66ee63c71b3"
+    "source_revision": "661affd02e130fa01711ad1dca7801e77cc408b8"
   },
   "source": {
-    "revision": "426f705c39b070c5e8143e13c6c8bc66184ad977",
+    "revision": "012b917678ab23f7204ce08f3655ef568c357f8d",
     "worktree_dirty": false
   },
   "spread_note": "9 queries and 14 judgments cannot separate small differences between these paths. Every path answers the same searches, so read each step as the difference on each search rather than as two separate averages: the comparison below reports that difference, the spread of the differences, and how many searches each step won and lost. A step whose average difference is smaller than that spread is one this query set cannot tell apart from no change."
