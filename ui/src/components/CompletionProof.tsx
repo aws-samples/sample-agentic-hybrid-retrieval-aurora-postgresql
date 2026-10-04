@@ -4,7 +4,7 @@ import { ApiError, api } from "../api";
 import { coreMosaicLabs } from "../labMissions";
 import { isLabRepaired, labStateCopy } from "../labStateCopy";
 import { APPLY_SQL, DEPLOY_AGENT } from "../participantCommands";
-import type { CompletionProofResponse } from "../types";
+import type { CompletionProofResponse, LabStateRecord } from "../types";
 import { shortEventId } from "./RunSummary";
 
 /**
@@ -36,6 +36,27 @@ type LabId = (typeof LAB_IDS)[number];
 
 /** What Lab 3 needs before it can be graded, named as the stage that makes it. */
 const LAB_3_PREREQUISITE = "Run the agent in Reason first";
+
+const GATE_REASON_ID = "labs-proof-gate-reason";
+
+/**
+ * Why "Prove all three labs" is closed, or null when it may run.
+ *
+ * Lab 1 has no entry step (its fault is installed when the workshop opens), so
+ * it counts as started. Labs 2 and 3 ship repaired and are only the
+ * participant's after their start command, so grading them earlier prints FAIL
+ * for a lab nobody has opened. `undefined` means the page has no lab progress to
+ * consult, which leaves the gate open rather than blocking on a missing read.
+ */
+function gateReason(labStates: LabStateRecord[] | null | undefined): string | null {
+  if (labStates === undefined) return null;
+  if (labStates === null) return "Checking your lab progress.";
+  const allStarted = LAB_IDS.every((labId) => {
+    const state = labStates.find((record) => record.lab_id === labId);
+    return state !== undefined && (state.entry_state === null || state.entry_state === "started");
+  });
+  return allStarted ? null : "Available after you start all three labs.";
+}
 
 type LabOutcome =
   | { kind: "idle" }
@@ -276,13 +297,20 @@ interface CompletionProofProps {
   agentRunId: string | null;
   /** Called once every proof in a press has settled, pass or fail. */
   onFinished?: () => void;
+  /**
+   * `GET /api/labs/state`. Null while it is being read; omitted when the page
+   * has no lab progress, which leaves "Prove all three labs" open.
+   */
+  labStates?: LabStateRecord[] | null;
 }
 
 export function CompletionProof({
   activeLab,
   agentRunId,
   onFinished,
+  labStates,
 }: CompletionProofProps) {
+  const closedReason = gateReason(labStates);
   const [outcomes, setOutcomes] = useState<Outcomes>(IDLE_OUTCOMES);
   const [running, setRunning] = useState(false);
   /**
@@ -390,14 +418,20 @@ export function CompletionProof({
               : `Run completion proof for Lab ${activeLab}`}
           </button>
           <button
+            aria-describedby={closedReason ? GATE_REASON_ID : undefined}
             className="secondary-button"
-            disabled={running}
+            disabled={running || closedReason !== null}
             onClick={() => void runProofs(LAB_IDS)}
             type="button"
           >
             Prove all three labs
           </button>
         </div>
+        {closedReason ? (
+          <p className="labs-proof-note" id={GATE_REASON_ID}>
+            {closedReason}
+          </p>
+        ) : null}
       </header>
       <p className="labs-proof-intro">
         Labs 1 and 2 run fresh searches against Aurora. Lab 3 checks the saved

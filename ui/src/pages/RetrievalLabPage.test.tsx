@@ -1291,7 +1291,30 @@ describe("RetrievalLabPage", () => {
     expect(container.querySelector(".labs-package-finale")?.closest("details")).toBeNull();
   });
 
+  it("keeps Prove all three labs closed until Labs 2 and 3 have started", async () => {
+    render(<RetrievalLabPage />);
+
+    const gate = screen.getByRole("button", { name: "Prove all three labs" });
+    await screen.findByText("Available after you start all three labs.");
+    expect((gate as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (screen.getByRole("button", { name: "Run completion proof for Lab 1" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+  });
+
   it("grades Lab 3 on the run stage 03 produced, and re-reads the baseline after", async () => {
+    vi.mocked(api.labsState).mockResolvedValue({
+      labs: [1, 2, 3].map((labId) => ({
+        lab_id: labId,
+        source_state: "solved" as const,
+        database_state: "applied" as const,
+        detail: "",
+        entry_state: labId === 1 ? null : ("started" as const),
+        completed_at: null,
+        next_step: null,
+      })),
+    });
     // The seam this covers is the one no component test can: the agent run id
     // exists only inside stage 03, and the proof block that needs it lives in
     // the Prove section. Before the two were wired, pressing the proof either refused
