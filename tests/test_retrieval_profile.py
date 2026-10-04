@@ -7,6 +7,7 @@ same error class.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -220,3 +221,50 @@ def test_retrieval_profile_model_defaults_come_from_the_yaml():
     assert profile.fts_limit == yaml_profile.fts_limit
     assert profile.rrf_k == yaml_profile.rrf_k
     assert profile.result_limit == yaml_profile.display_limit
+
+
+def test_the_iterative_scan_mode_is_read_from_the_yaml():
+    assert load_profile().hnsw_iterative_scan == "relaxed_order"
+
+
+@pytest.mark.parametrize("bad", ["sideways", "Relaxed_Order", "5"])
+def test_an_unknown_iterative_scan_mode_refuses_to_start(yaml_copy, bad):
+    text = yaml_copy.read_text(encoding="utf-8")
+    yaml_copy.write_text(
+        text.replace("iterative_scan: relaxed_order", f"iterative_scan: {bad}"),
+        encoding="utf-8",
+    )
+    with pytest.raises(ProfileError, match="hnsw.iterative_scan.*strict_order"):
+        load_profile(yaml_path=yaml_copy)
+
+
+def test_a_missing_iterative_scan_mode_is_a_named_failure(yaml_copy):
+    text = yaml_copy.read_text(encoding="utf-8")
+    yaml_copy.write_text(
+        "\n".join(
+            line
+            for line in text.splitlines()
+            if not line.strip().startswith("iterative_scan:")
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ProfileError, match="hnsw.iterative_scan"):
+        load_profile(yaml_path=yaml_copy)
+
+
+def test_the_served_iterative_scan_default_follows_the_yaml(monkeypatch):
+    """A hard-coded default would keep serving `relaxed_order` after a yaml edit."""
+    from dataclasses import replace
+
+    from service import models
+
+    edited = replace(load_profile(), hnsw_iterative_scan="strict_order")
+    monkeypatch.setattr(models, "load_profile", lambda: edited)
+    assert models.RetrievalProfile().iterative_scan == "strict_order"
+
+
+def test_the_sql_iterative_scan_default_equals_the_yaml():
+    sql = (REPO / "db" / "sql" / "08_search_channels.sql").read_text(encoding="utf-8")
+    match = re.search(r"p_iterative_scan\s+text\s+DEFAULT\s+'(\w+)'", sql)
+    assert match is not None, "configure_hnsw lost its p_iterative_scan default"
+    assert match.group(1) == load_profile().hnsw_iterative_scan

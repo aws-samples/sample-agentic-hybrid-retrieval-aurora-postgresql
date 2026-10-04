@@ -260,7 +260,11 @@ def eligible(result: Mapping[str, Any], filters: Mapping[str, Any]) -> bool:
             not filters.get("category_key")
             or result.get("category_key") == filters["category_key"]
         )
-        and (not filters.get("brand") or result.get("brand") == filters["brand"])
+        and (
+            not filters.get("brand")
+            or str(result.get("brand") or "").casefold()
+            == str(filters["brand"]).casefold()
+        )
         and (
             filters.get("max_price_cents") is None
             or (price is not None and price <= filters["max_price_cents"])

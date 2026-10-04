@@ -40,8 +40,9 @@ from service.models import (
 )
 from service.retrieval import normalize_query
 
-# Deep enough to hold the whole fused pool: the arm caps sum to
-# 120 + 80 + 150 = 350, so no realistic union is truncated by this.
+# Deep enough to hold the whole fused pool: the union can be no larger than the
+# three arm limits in db/config/retrieval.yaml added together, which stays far
+# below this bound unless those limits are raised by orders of magnitude.
 FULL_POOL_LIMIT = 10_000
 
 _UNWEIGHTED_SQL = """

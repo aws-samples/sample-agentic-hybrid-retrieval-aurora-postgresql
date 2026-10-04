@@ -19,16 +19,25 @@ candidate_generation:
   fts_limit: 120
   trigram_limit: 80
   semantic_limit: 150
-  # pg_trgm similarity floor for the fuzzy arm. This is the live value, asserted
-  # equal to the SQL literal in mosaic_search.search_hybrid_rrf by
-  # scripts/checks/config_tripwire.py. config/workshop.json recorded 0.24; that value
-  # was stale and is not ported.
+  # Score floor passed to mosaic_search.search_trigram as `minimum_similarity`
+  # and asserted equal to the SQL literal in mosaic_search.search_hybrid_rrf by
+  # scripts/checks/config_tripwire.py. It is NOT the only gate. search_trigram
+  # runs two arms: the first (word similarity) admits a row only if
+  # `lower(q) <% trigram_text`, which pg_trgm decides at
+  # trigram_index_gate.word_similarity_threshold below (0.5), so by the time
+  # this floor is checked every row already scores at least 0.5 and 0.20 never
+  # binds there. The second arm runs only when the first returns no rows; it
+  # admits a row on `trigram_text % lower(q)` at
+  # trigram_index_gate.similarity_threshold (0.18) and then applies this 0.20
+  # floor, so 0.20 is binding only on that whole-string fallback.
+  # config/workshop.json recorded 0.24; that value was stale and is not ported.
   trigram_threshold: 0.20
   # Index gates used by pg_trgm's `%` and `<%` operators. They are database
   # defaults rather than function-local SET clauses because a fresh Aurora
   # session has not loaded pg_trgm yet and rejects those clauses at function
   # creation time. scripts/configure_retrieval_database.py applies and verifies
-  # these values on the target Aurora database.
+  # these values on the target Aurora database. similarity_threshold gates `%`
+  # (the fallback arm); word_similarity_threshold gates `<%` (the first arm).
   trigram_index_gate:
     similarity_threshold: 0.18
     word_similarity_threshold: 0.5

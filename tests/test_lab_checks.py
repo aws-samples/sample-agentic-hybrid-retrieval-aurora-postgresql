@@ -847,6 +847,16 @@ def test_served_control_rows_cannot_escape_brand_or_category(field, value):
     assert not lab_checks.eligible(row, filters)
 
 
+def test_brand_eligibility_ignores_case_like_the_served_brand_filter():
+    row = {
+        "domain": "consumer_electronics",
+        "category_key": "headphones",
+        "brand": "Bose",
+    }
+    assert lab_checks.eligible(row, {**row, "brand": "bose"})
+    assert lab_checks.eligible({**row, "brand": "BOSE"}, row)
+
+
 @pytest.mark.parametrize("omission", ["comparison", "recommendation", None])
 def test_room_completion_requires_all_three_targets_in_the_final_comparison(omission):
     """Finding headphones must not let a monitor-and-chair answer pass Lab 3."""

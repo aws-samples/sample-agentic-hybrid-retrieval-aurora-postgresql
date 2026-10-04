@@ -273,15 +273,25 @@ _AVAILABILITY_CLAIMS = {
     "preorder": {"preorder"},
 }
 
+#: States that make a negated phrase false. "Low stock" is still stock, so it
+#: refutes "not in stock", which the positive table does not say.
+_AVAILABILITY_NEGATED_BY = {
+    **_AVAILABILITY_CLAIMS,
+    "in stock": {"in_stock", "low_stock"},
+}
+
 
 def _availability_failures(
     claims: Iterable[str],
     products: Sequence[ProductSummary],
+    negated: bool = False,
 ) -> tuple[set[str], set[str]]:
     """Availability claims the catalog settles, split into agreed and refuted.
 
     With no product in hand nothing is decidable, and both sets are empty: the
-    claim falls through to the prose check exactly as before.
+    claim falls through to the prose check exactly as before. A negated claim
+    ("not in stock") is agreed only when no product is in a state the positive
+    phrase describes.
     """
     if not products:
         return set(), set()
@@ -292,7 +302,11 @@ def _availability_failures(
         allowed = _AVAILABILITY_CLAIMS.get(claim)
         if allowed is None:
             continue
-        (agreed if states & allowed else refuted).add(claim)
+        if negated:
+            holds = not states & _AVAILABILITY_NEGATED_BY[claim]
+        else:
+            holds = bool(states & allowed)
+        (agreed if holds else refuted).add(claim)
     return agreed, refuted
 
 
@@ -507,6 +521,20 @@ class MeasurableClaim:
     end: int
     unit: str | None = None
     currency: bool = False
+    negated: bool = False
+
+
+_AVAILABILITY_NEGATION = re.compile(
+    r"\b(?:not|no|never|without)\b|n['’]t\b", re.IGNORECASE
+)
+_NEGATION_REACH_WORDS = 3
+
+
+def _negates_availability(sentence: str, start: int) -> bool:
+    """Whether a negator sits just before the phrase, inside its own clause."""
+    clause_start, _ = _clause_at(sentence, start)
+    lead = sentence[clause_start:start].split()[-_NEGATION_REACH_WORDS:]
+    return bool(_AVAILABILITY_NEGATION.search(" ".join(lead)))
 
 
 def _measurable_claims(
@@ -553,7 +581,11 @@ def _measurable_claims(
         re.IGNORECASE,
     ):
         claims.append(
-            MeasurableClaim(_normalized_support_text(match.group()), *match.span())
+            MeasurableClaim(
+                _normalized_support_text(match.group()),
+                *match.span(),
+                negated=_negates_availability(masked, match.start()),
+            )
         )
     return sorted(claims, key=lambda c: c.start)
 
@@ -640,7 +672,9 @@ def _claim_supported(
     if claim.currency:
         return claim.value in _price_settled_claims(segment, [claim.value], products)
     if claim.value in _AVAILABILITY_CLAIMS:
-        agreed, refuted = _availability_failures([claim.value], products)
+        agreed, refuted = _availability_failures(
+            [claim.value], products, negated=claim.negated
+        )
         return claim.value in agreed and claim.value not in refuted
     support = _normalized_support_text(
         " ".join(f"{record.title} {record.text}" for record in records)

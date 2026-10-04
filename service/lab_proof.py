@@ -155,10 +155,11 @@ def contained_database_state(lab_id: int, connection: Any) -> LabDatabaseState:
     `psycopg.errors.UndefinedFunction`, which is not a `RuntimeError` and
     aborts the surrounding transaction. Uncontained, one bad lab both returned
     a 500 and left the next lab's read failing on an aborted transaction.
-    Each lab's read runs inside its own `connection.transaction()`. The
-    pool hands over an idle connection, so that block is a top-level
-    transaction, not a savepoint: a failure rolls back completely and the
-    next lab starts clean on the same connection.
+    Each lab's read runs inside its own `connection.transaction()`. `connect()`
+    has already opened the checkout's transaction by running `SET LOCAL`, so
+    that block is a savepoint, not a top-level transaction: a failure rolls
+    back to the savepoint, which clears the aborted state, and the next lab
+    starts clean on the same connection.
 
     An absent function is reported as `stale` naming only the exception type,
     never the connection: a participant who edited the SQL and did not re-apply

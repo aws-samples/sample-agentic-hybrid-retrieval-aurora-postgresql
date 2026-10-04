@@ -382,3 +382,21 @@ def test_evidence_registration_takes_two_statements_for_any_number_of_reviews(
     assert [record["evidence_id"] for record in persisted] == [
         5000 + index for index in range(len(records))
     ]
+
+
+def test_search_maps_a_product_missing_from_the_catalog_to_409(monkeypatch):
+    """A catalog swap mid-request is a conflict with stored state, not a 500."""
+    from fastapi.testclient import TestClient
+
+    from service.main import app
+
+    def vanished(_request):
+        raise live_catalog.ProductNotInCatalogError(
+            "Products [7] are not in this catalog. Run a new search."
+        )
+
+    monkeypatch.setattr("service.main.search_with_telemetry", vanished)
+    response = TestClient(app).post("/api/search", json={"query": "quiet headphones"})
+
+    assert response.status_code == 409
+    assert response.json()["detail"].startswith("Products [7]")

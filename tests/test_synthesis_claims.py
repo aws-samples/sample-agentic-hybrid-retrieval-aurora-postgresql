@@ -160,6 +160,62 @@ def test_an_availability_claim_is_decided_against_the_catalog_field():
         )
 
 
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "AuriLogic Flight ANC is not in stock [1].",
+        "AuriLogic Flight ANC isn't in stock [1].",
+        "AuriLogic Flight ANC is no longer in stock [1].",
+        "AuriLogic Flight ANC is not currently in stock [1].",
+    ],
+)
+def test_a_negated_availability_claim_is_refuted_by_an_in_stock_product(sentence):
+    with pytest.raises(SynthesisOutputError, match="in stock"):
+        validate(
+            sentence, [evidence("Ships today.")], [product(availability="in_stock")]
+        )
+
+
+def test_a_negated_in_stock_claim_is_refuted_by_low_stock():
+    with pytest.raises(SynthesisOutputError, match="in stock"):
+        validate(
+            "AuriLogic Flight ANC is not in stock [1].",
+            [evidence("Ships today.")],
+            [product(availability="low_stock")],
+        )
+
+
+@pytest.mark.parametrize("availability", ["out_of_stock", "preorder"])
+def test_a_true_negated_availability_claim_passes(availability):
+    validate(
+        "AuriLogic Flight ANC is not in stock [1].",
+        [evidence("Ships later.")],
+        [product(availability=availability)],
+    )
+
+
+def test_a_negated_out_of_stock_claim_is_decided_against_the_inverse():
+    validate(
+        "AuriLogic Flight ANC is not out of stock [1].",
+        [evidence("Ships today.")],
+        [product(availability="in_stock")],
+    )
+    with pytest.raises(SynthesisOutputError, match="out of stock"):
+        validate(
+            "AuriLogic Flight ANC is not out of stock [1].",
+            [evidence("Ships later.")],
+            [product(availability="out_of_stock")],
+        )
+
+
+def test_a_negator_in_another_clause_does_not_negate_the_claim():
+    validate(
+        "No other option comes close; AuriLogic Flight ANC is in stock [1].",
+        [evidence("Ships today.")],
+        [product(availability="in_stock")],
+    )
+
+
 @pytest.mark.parametrize("written", ["48h", "48 hours", "48-hour"])
 def test_the_same_measurement_written_differently_still_passes(written: str):
     """The rule is unit identity, not string identity.

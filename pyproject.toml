@@ -40,6 +40,12 @@ empty_parameter_set_mark = "fail_at_collect"
 markers = [
     "aurora: requires the live Aurora cluster and Bedrock model access",
 ]
+# starlette.testclient prefers `httpx2` and warns when it falls back to the
+# `httpx` this project pins for service/gateway_tools.py. Moving the dependency
+# is a lockfile decision, not a test fix; this silences only that one message.
+filterwarnings = [
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated:starlette.exceptions.StarletteDeprecationWarning",
+]
 
 [tool.ruff]
 target-version = "py313"
