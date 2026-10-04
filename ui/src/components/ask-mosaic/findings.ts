@@ -83,6 +83,20 @@ const seconds = (milliseconds: number) => `${(milliseconds / 1000).toFixed(1)} s
 
 export const formatDuration = seconds;
 
+/**
+ * The turn's measured wall time, or undefined when it cannot be a real one.
+ *
+ * A turn restored from history has no timing, and a stream replayed from a
+ * recording finishes faster than the slowest tool it reports ran. Wall time
+ * from send to the terminal event cannot be shorter than that, so such a
+ * figure is left out rather than shown as an implausible "0.1 s".
+ */
+export function reportedDuration(durationMs: number | undefined, trace: ToolTraceStep[]): number | undefined {
+  if (durationMs == null) return undefined;
+  const slowest = Math.max(0, ...trace.map((step) => step.latency_ms ?? 0));
+  return durationMs >= slowest ? durationMs : undefined;
+}
+
 /** "4 steps · 3 searches · 6 sources · 43.5 s", from the same recorded rows. */
 export function runSummary(run: RunData, durationMs?: number): string {
   const searches = steps(run.trace, "search_products").length;

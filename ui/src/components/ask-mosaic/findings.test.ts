@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AgentCitation, AgentPlanStep, ToolTraceStep } from "../../types";
-import { formatDuration, phaseFinding, runSummary, type RunData } from "./findings";
+import { formatDuration, phaseFinding, reportedDuration, runSummary, type RunData } from "./findings";
 
 function step(sequence: number, tool: string, overrides: Partial<ToolTraceStep> = {}): ToolTraceStep {
   return {
@@ -103,5 +103,21 @@ describe("runSummary", () => {
   it("leaves the time out when none was measured, and counts a follow-up's three steps", () => {
     expect(runSummary(run({ path: "focused_follow_up" }))).toBe("3 steps · 0 searches · 0 sources");
     expect(formatDuration(1_250)).toBe("1.3 s");
+  });
+});
+
+describe("reportedDuration", () => {
+  const slow = [step(1, "search_products", { latency_ms: 4080 })];
+
+  it("keeps a measured time at least as long as the slowest tool", () => {
+    expect(reportedDuration(43_500, slow)).toBe(43_500);
+  });
+
+  it("leaves out a turn restored without timing", () => {
+    expect(reportedDuration(undefined, slow)).toBeUndefined();
+  });
+
+  it("leaves out a replayed stream that finished faster than its own tools ran", () => {
+    expect(reportedDuration(100, slow)).toBeUndefined();
   });
 });

@@ -53,11 +53,10 @@ function RankTable({ rows }: { rows: RankRow[] }) {
           <tr>
             <th scope="col">Final</th>
             <th scope="col">Product</th>
-            <th scope="col">Exact</th>
-            <th scope="col">Spelling</th>
-            <th scope="col">Meaning</th>
-            <th scope="col">Split</th>
-            <th scope="col">Combined</th>
+            <th scope="col"><abbr title="Exact terms">Exact</abbr></th>
+            <th scope="col"><abbr title="Close spelling">Spell</abbr></th>
+            <th scope="col"><abbr title="Meaning match">Mean</abbr></th>
+            <th scope="col"><abbr title="Position before reranking">Comb.</abbr></th>
             <th scope="col">Rerank</th>
           </tr>
         </thead>
@@ -65,11 +64,13 @@ function RankTable({ rows }: { rows: RankRow[] }) {
           {rows.map((row) => (
             <tr key={row.productId}>
               <th scope="row">{dash(row.final)}</th>
-              <td className="ask-rank-name">{row.name ?? <span className="ask-mono">listing {row.productId}</span>}</td>
+              <td className="ask-rank-name">
+                <span>{row.name ?? <span className="ask-mono">listing {row.productId}</span>}</span>
+                <Bar row={row} widest={widest} />
+              </td>
               <td>{dash(row.fts)}</td>
               <td>{dash(row.trigram)}</td>
               <td>{dash(row.semantic)}</td>
-              <td><Bar row={row} widest={widest} /></td>
               <td>{dash(row.combined)}</td>
               <td>{row.rerank != null ? row.rerank.toFixed(3) : "–"}</td>
             </tr>

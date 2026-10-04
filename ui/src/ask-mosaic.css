@@ -122,10 +122,17 @@
 }
 
 .ask-mosaic-heading p {
+  overflow: hidden;
   margin: 0;
   color: var(--ink-soft);
   font-size: 12px;
   line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ask-switch-icon {
+  display: none;
 }
 
 .ask-switch {
@@ -412,18 +419,15 @@
 }
 
 .ask-mosaic-jump-latest {
-  position: absolute;
-  bottom: 12px;
-  left: 50%;
   display: inline-flex;
   min-height: 36px;
   align-items: center;
+  justify-self: center;
   gap: 6px;
   padding: 0 14px;
-  transform: translateX(-50%);
   border: 1px solid var(--maroon-line);
   border-radius: 999px;
-  background: var(--paper-strong);
+  background: var(--paper);
   box-shadow: var(--shadow);
   color: var(--ink);
   font-size: 12px;
@@ -752,11 +756,11 @@
   letter-spacing: -0.025em;
 }
 
+.ask-nowrap {
+  white-space: nowrap;
+}
+
 .ask-fact {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
   margin: 0;
   color: var(--ink);
   font-size: 13px;
@@ -1211,7 +1215,6 @@
 
 .ask-rank-table {
   width: 100%;
-  min-width: 380px;
   border-collapse: collapse;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
@@ -1219,7 +1222,7 @@
 
 .ask-rank-table th,
 .ask-rank-table td {
-  padding: 8px 4px;
+  padding: 8px 3px;
   border-bottom: 1px solid var(--line);
   color: var(--ink-soft);
   font-weight: 400;
@@ -1237,18 +1240,35 @@
   font-weight: 600;
 }
 
-.ask-rank-name {
-  max-width: 11ch;
-  overflow: hidden;
-  color: var(--ink);
-  text-overflow: ellipsis;
+.ask-rank-table th:not(:nth-child(2)),
+.ask-rank-table td:not(.ask-rank-name) {
+  width: 1%;
   white-space: nowrap;
+}
+
+.ask-rank-table abbr {
+  text-decoration: none;
+}
+
+.ask-rank-name {
+  display: table-cell;
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+.ask-rank-name > span {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .ask-rrf-bar {
   display: flex;
-  width: 44px;
-  height: 6px;
+  width: 100%;
+  max-width: 120px;
+  height: 4px;
+  margin-top: 5px;
   overflow: hidden;
   border-radius: 999px;
   background: var(--line);
@@ -1395,14 +1415,20 @@
 
 /* Narrow panels ---------------------------------------------------------------- */
 
-@container ask-mosaic (max-width: 460px) {
-  .ask-top-pick {
-    flex-direction: column;
+@container ask-mosaic (max-width: 520px) {
+  .ask-mosaic-heading p {
+    display: none;
+  }
+}
+
+@container ask-mosaic (max-width: 400px) {
+  .ask-top-pick .ask-pick-photo {
+    width: 84px;
+    height: 84px;
   }
 
-  .ask-pick-photo {
-    width: 100%;
-    height: 148px;
+  .ask-rank-table {
+    min-width: 360px;
   }
 
   .ask-pick-row {
@@ -1416,9 +1442,14 @@
 }
 
 @media (max-width: 640px) {
-  /* The title and the three controls need the width; the subtitle is the part to spare. */
-  .ask-mosaic-heading p {
+  /* The switch keeps its name for assistive tech and drops the words. */
+  .ask-switch-label {
     display: none;
+  }
+
+  .ask-switch-icon {
+    display: block;
+    color: var(--ink-soft);
   }
 
   .ask-mosaic-heading h2 {

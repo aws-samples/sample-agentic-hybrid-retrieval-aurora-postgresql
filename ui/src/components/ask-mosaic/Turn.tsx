@@ -8,7 +8,7 @@ import { AgentSetupCard } from "./AgentSetupCard";
 import { BuilderView } from "./BuilderView";
 import { comparisonRows, unknowns, type ComparisonRow } from "./comparison";
 import { boldRecommendationNames } from "./emphasis";
-import type { RunData } from "./findings";
+import { reportedDuration, type RunData } from "./findings";
 import { HowAnswered } from "./HowAnswered";
 import { PickRow, TopPick } from "./Picks";
 import { FollowUps } from "./ResultCards";
@@ -108,11 +108,15 @@ interface AnswerBodyProps extends Pick<
 > {
   response: AgentResponse;
   run: RunData;
+  /** Measured send-to-finish time, absent when the turn was restored or replayed. */
+  durationMs?: number;
   rows: ComparisonRow[];
   answerId: string;
   /** The first pick leads in a card, unless the last answer already led with it. */
   leadsWithCard: boolean;
   text: string;
+  /** The whole answer so far, unrevealed, which citations are matched against. */
+  answerText: string;
   reveal: number;
   settled: boolean;
   declined: boolean;
@@ -124,6 +128,7 @@ function Picks({ picks, leadsWithCard, props }: { picks: ProductSummary[]; leads
     index: picks.indexOf(product),
     rows: props.rows,
     citations: props.response.citations,
+    answer: props.answerText,
     answerId: props.answerId,
     imageSrc: props.imageByProductId.get(product.product_id),
     builder: props.builder,
@@ -151,8 +156,8 @@ function AnswerBody(props: AnswerBodyProps) {
   return (
     <>
       {builder
-        ? <BuilderView response={response} run={run} durationMs={turn.durationMs} />
-        : <HowAnswered run={run} durationMs={turn.durationMs} />}
+        ? <BuilderView response={response} run={run} durationMs={props.durationMs} />
+        : <HowAnswered run={run} durationMs={props.durationMs} />}
       {declined ? (
         <DeclinedAnswer answer={turn.streamed || response.answer} reason={response.decline_reason} className="ask-mosaic-declined" />
       ) : (
@@ -162,7 +167,7 @@ function AnswerBody(props: AnswerBodyProps) {
           <StreamedAnswer text={text} reveal={reveal} citations={response.citations} answerId={answerId} />
           {settled && response.citations.length ? (
             <>
-              <SourceList citations={response.citations} products={response.recommendations} answerId={answerId} builder={builder} />
+              <SourceList citations={response.citations} products={response.recommendations} answer={props.answerText} answerId={answerId} builder={builder} />
               <StillUnknown items={unknowns(picks, props.rows)} />
             </>
           ) : null}
@@ -266,10 +271,12 @@ export function Turn(props: TurnProps) {
               {...props}
               response={response}
               run={run}
+              durationMs={reportedDuration(turn.durationMs, trace)}
               rows={rows}
               answerId={answerId}
               leadsWithCard={Boolean(picks[0]) && picks[0].product_id !== previousBestPickId}
               text={declined ? "" : reveal.text}
+              answerText={turn.streamed || response.answer}
               reveal={reveal.reveal}
               settled={settled}
               declined={declined}
