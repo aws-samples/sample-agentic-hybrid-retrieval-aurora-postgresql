@@ -121,9 +121,8 @@
   width: min(100%, var(--shell-width));
   min-width: 0;
   margin: 0 auto;
-  padding:
-    var(--shop-pad-block) var(--shop-pad-inline)
-    clamp(72px, 8vw, 108px);
+  /* No bottom padding of its own: the page's 48px is the whole space above the footer. */
+  padding: var(--shop-pad-block) var(--shop-pad-inline) 0;
 }
 
 .shop-canvas.assist-open .shop-main {
@@ -1045,6 +1044,7 @@
   display: flex;
   min-width: 0;
   min-height: 52px;
+  margin-top: 10px;
   align-content: flex-start;
   align-items: baseline;
   gap: 11px;

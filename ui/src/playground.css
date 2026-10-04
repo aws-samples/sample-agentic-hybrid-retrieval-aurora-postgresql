@@ -103,7 +103,7 @@
 .lab-page .retrieval-run-action {
   display: grid;
   width: min(100%, 980px);
-  grid-template-columns: minmax(200px, 280px) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(200px, 320px) minmax(0, 1fr) auto;
   align-items: end;
   gap: 12px 14px;
   margin: 0 auto;

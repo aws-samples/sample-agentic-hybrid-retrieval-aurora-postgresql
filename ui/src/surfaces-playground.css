@@ -578,7 +578,13 @@
 .labs-takeaway-links {
   display: flex;
   flex-wrap: wrap;
+  align-items: baseline;
   gap: 4px 20px;
+}
+
+.labs-takeaway-links a {
+  min-height: 0;
+  font-size: var(--labs-body);
 }
 
 .labs-rrf-formula code,

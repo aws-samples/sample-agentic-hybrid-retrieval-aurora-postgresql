@@ -40,6 +40,7 @@
 }
 
 .pg-requests button {
+  flex: none;
   min-height: 32px;
   padding: 0 15px;
   border: 0;
@@ -1079,7 +1080,7 @@ p.pg-reason-status {
   .pg-a { --pg-gap: 64px; }
   .pg-stage { padding-top: 28px; }
   .pg-requests { justify-content: flex-start; }
-  .pg-requests [role="group"] { flex-wrap: wrap; border-radius: 20px; }
+  .pg-requests [role="group"] { width: 100%; }
   .pg-query { grid-template-columns: 44px minmax(0, 1fr); }
   .pg-query .inspector-play { grid-column: 1 / -1; grid-row: 2; justify-self: end; }
   .pg-lead { grid-template-columns: 104px minmax(0, 1fr); gap: 20px; }

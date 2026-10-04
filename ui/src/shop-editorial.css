@@ -334,6 +334,7 @@
     display: grid;
     width: 100%;
     gap: 0;
+    text-align: left;
   }
 
   .mosaic-catalog-page .shop-example-links {
