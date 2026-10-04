@@ -10,6 +10,8 @@ APPLY_SQL = "uv run python scripts/apply_search_functions.py"
 LIST_TOOLS = "uv run python scripts/deploy_agentcore.py tools"
 DEPLOY_AGENT = "uv run python scripts/deploy_agentcore.py deploy"
 VERIFY_AGENT = "uv run python scripts/deploy_agentcore.py verify"
+COMPARE_SETTINGS = "uv run python scripts/lab_exercise.py compare --lab 2"
+FLEX_CHECK = "uv run python scripts/flex_exercise.py check"
 
 
 def start(lab: int) -> str:
@@ -30,3 +32,21 @@ def validate(lab: int) -> str:
 
 def complete_lab_3(run_id: str = "<your-run-id>") -> str:
     return f"uv run python scripts/complete_agent.py --run-id {run_id}"
+
+
+def validate_applied(lab: int) -> str:
+    """Check the source and the SQL Aurora last applied, as the guides do."""
+    return (
+        f"uv run python scripts/lab_state.py validate --lab {lab} "
+        '--database-url "$DATABASE_URL"'
+    )
+
+
+def repeat_request(lab: int) -> str:
+    """Repeat the lab's saved request against the repaired state."""
+    return f"uv run python scripts/lab_terminal.py run --lab {lab} --phase after"
+
+
+def exercise_check(lab: int) -> str:
+    """Grade the participant's own exercise or saved run, without a new answer."""
+    return f"uv run python scripts/lab_exercise.py check --lab {lab}"
