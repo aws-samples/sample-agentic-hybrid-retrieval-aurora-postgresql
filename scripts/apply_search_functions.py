@@ -11,7 +11,11 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from scripts.catalog.prepare_live_catalog import live_search_functions
-from scripts.lab_state import assert_reset_database
+from scripts.lab_state import (
+    FACILITATOR_ADVICE,
+    assert_reset_database,
+    is_environment_fault,
+)
 from service.catalog_runtime import active_dataset, search_schema
 from service.lab_files import LAB1_SQL, LAB2_SQL
 from service.lab_validation_receipt import participant_sql_digest
@@ -103,10 +107,13 @@ def describe_apply_failure(error, *, rolled_back: bool) -> str:
             "Nothing was applied: the transaction rolled back, so Aurora still runs "
             "its previous functions."
         )
-        lines.append(
-            f"Fix: check the marked LAB1_CHANNEL and LAB2_RRF_FORMULA blocks in "
-            f"{LAB1_SQL} and {LAB2_SQL}, then run {APPLY_SQL} again."
-        )
+        if is_environment_fault(error):
+            lines.append(FACILITATOR_ADVICE)
+        else:
+            lines.append(
+                f"Fix: check the marked LAB1_CHANNEL and LAB2_RRF_FORMULA blocks in "
+                f"{LAB1_SQL} and {LAB2_SQL}, then run {APPLY_SQL} again."
+            )
     return "\n".join(lines)
 
 

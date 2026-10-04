@@ -545,6 +545,40 @@ def main() -> int:
     return 0
 
 
+#: SQLSTATE classes that describe the connection, the server's resources or its
+#: operator, never the participant's SQL: 08 connection, 53 resources, 57 operator.
+_ENVIRONMENT_SQLSTATE_CLASSES = frozenset({"08", "53", "57"})
+_INSUFFICIENT_PRIVILEGE = "42501"
+
+FACILITATOR_ADVICE = (
+    "This is an environment problem, not a mistake in your SQL, so do not edit the "
+    "LAB blocks. Fix: copy this message and the command you ran, and give them to "
+    "your facilitator."
+)
+
+
+def is_environment_fault(error) -> bool:
+    """True when Aurora, the network or the database role failed, not the SQL.
+
+    A missing SQLSTATE means the failure happened before the server answered.
+    """
+    sqlstate = error.sqlstate or error.diag.sqlstate
+    return (
+        sqlstate is None
+        or sqlstate[:2] in _ENVIRONMENT_SQLSTATE_CLASSES
+        or sqlstate == _INSUFFICIENT_PRIVILEGE
+    )
+
+
+def database_fault_exit(error, doing: str) -> SystemExit:
+    """A clean exit for a database failure, without a traceback or the DSN."""
+    sqlstate = error.sqlstate or error.diag.sqlstate or "none"
+    return SystemExit(
+        f"Could not {doing}: {type(error).__name__} (SQLSTATE {sqlstate}).\n"
+        f"{FACILITATOR_ADVICE}"
+    )
+
+
 def assert_reset_database(database_url: str | None) -> None:
     """Refuse a destructive exercise reset outside the named workshop database."""
     import psycopg

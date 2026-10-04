@@ -177,3 +177,27 @@ def test_a_failure_without_server_diagnostics_still_reports_the_error():
     assert "SQLSTATE none" in message
     assert "connection refused" in message
     assert "character" not in message
+
+
+def _server_error(sqlstate: str | None, message: str = "boom") -> psycopg.Error:
+    error = psycopg.Error(message)
+    error.sqlstate = sqlstate  # type: ignore[misc]
+    return error
+
+
+@pytest.mark.parametrize("sqlstate", [None, "08006", "53300", "57P01", "42501"])
+def test_environment_faults_go_to_the_facilitator_not_the_lab_blocks(sqlstate):
+    message = describe_apply_failure(_server_error(sqlstate), rolled_back=True)
+
+    assert "facilitator" in message
+    assert "LAB1_CHANNEL" not in message
+    assert "LAB2_RRF_FORMULA" not in message
+    assert "Nothing was applied" in message
+
+
+@pytest.mark.parametrize("sqlstate", ["42601", "42703", "22012"])
+def test_a_sql_fault_still_points_at_the_lab_blocks(sqlstate):
+    message = describe_apply_failure(_server_error(sqlstate), rolled_back=True)
+
+    assert "LAB1_CHANNEL" in message
+    assert "facilitator" not in message
