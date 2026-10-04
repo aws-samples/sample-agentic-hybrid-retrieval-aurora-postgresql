@@ -81,6 +81,9 @@ export const FORWARDABLE_FILTER_KEYS = [
   "in_stock_only",
 ] as const;
 
+/** Every Shop URL parameter that narrows a search, attribute gates included. */
+export const SHOP_FILTER_PARAMS = [...FORWARDABLE_FILTER_KEYS, "attributes"] as const;
+
 /**
  * The Playground link that carries a shopper's own words with it.
  *

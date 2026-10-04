@@ -185,12 +185,19 @@ export function useAskMosaicConversation(filters: SearchFilters, useMemory = fal
     }
   }
 
+  // A brand or attribute gate would narrow every starter that merges with it.
+  // Only a starter that names no filters of its own runs untouched by Shop.
+  const narrowedByShop = Boolean(filters.brand) || Object.keys(filters.attributes ?? {}).length > 0;
+  const starters = workspaceRequests(
+    sourceFilters(filters, real),
+    (value) => sourceFilters(value, real),
+  ).filter((request) => !narrowedByShop || Object.keys(request.filters).length === 0);
+
   return {
     answeredTurn,
     clear,
     stop,
-    suggestions: filters.brand || Object.keys(filters.attributes ?? {}).length
-      ? [] : workspaceRequests(sourceFilters(filters, real), (value) => sourceFilters(value, real)),
+    suggestions: starters,
     pending,
     run,
     turns,

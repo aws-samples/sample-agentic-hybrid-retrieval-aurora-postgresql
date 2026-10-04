@@ -469,7 +469,7 @@ type WorkspaceRequest = ReturnType<typeof workspaceRequests>[number];
 
 function EntryState({ suggestions, onRun }: {
   suggestions: WorkspaceRequest[];
-  onRun: (query: string, filters?: SearchFilters) => void;
+  onRun: (query: string, filters?: SearchFilters, replaceShopFilters?: boolean) => void;
 }) {
   return <section className="ask-mosaic-empty">
     <div className="ask-mosaic-welcome">
@@ -480,7 +480,7 @@ function EntryState({ suggestions, onRun }: {
     </div>
     {suggestions.length ? <div className="ask-mosaic-starters">
       <ul aria-label="Example questions">{suggestions.map((suggestion) => <li key={suggestion.id}>
-        <button type="button" onClick={() => onRun(suggestion.query, suggestion.filters)}>
+        <button type="button" onClick={() => onRun(suggestion.query, suggestion.filters, Boolean(suggestion.mission_id))}>
           <span className="ask-mosaic-starter-path">{suggestion.shop_label}</span>
         </button>
       </li>)}</ul>
@@ -507,7 +507,8 @@ interface AskMosaicProps {
   onClear: () => void;
   /** Stops the turn in progress; the conversation and its partial results stay. */
   onStop: () => void;
-  onRun: (query: string, filters?: SearchFilters) => void;
+  /** `replaceShopFilters` is set for a lab starter, which runs on its own filters. */
+  onRun: (query: string, filters?: SearchFilters, replaceShopFilters?: boolean) => void;
   onHighlight: (productId: number | null) => void;
   onSelectProduct: (productId: number) => void;
 }

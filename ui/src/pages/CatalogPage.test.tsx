@@ -2130,8 +2130,38 @@ describe("CatalogPage", () => {
     renderPage();
     await screen.findByText(catalog.products[0].model);
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
-    expect(screen.queryByRole("list", { name: "Example questions" })).toBeNull();
+    // Only the Lab 3 starter: it names no domain, so no domain can exclude it.
+    const starters = screen.getByRole("list", { name: "Example questions" });
+    expect(within(starters).getAllByRole("button").map((button) => button.textContent))
+      .toEqual([expect.stringContaining("Complete my room")]);
     expect(screen.getByRole("textbox", { name: "Ask Mosaic request" })).toBeTruthy();
+  });
+
+  it("runs Complete my room with its own filters, not the Shop filters", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/catalog?domain=consumer_electronics&category_key=headphones&brand=Logitech&q=quiet+headphones",
+    );
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+
+    const starters = await screen.findByRole("list", { name: "Example questions" });
+    expect(within(starters).getAllByRole("button")).toHaveLength(1);
+    fireEvent.click(within(starters).getByRole("button", { name: /Complete my room/ }));
+
+    await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
+    const sent = vi.mocked(api.agentStream).mock.calls.at(-1)!;
+    expect(sent[0]).toBe(pipelineRequests.find((request) => request.id === "plan-workspace")!.query);
+    expect(sent[1]).not.toHaveProperty("brand");
+    expect(sent[1]).not.toHaveProperty("domain");
+    expect(sent[1]).not.toHaveProperty("category_key");
+    const params = new URLSearchParams(window.location.search);
+    expect(params.has("brand")).toBe(false);
+    expect(params.has("domain")).toBe(false);
+    expect(params.has("category_key")).toBe(false);
+    expect(params.get("q")).toBe("quiet headphones");
   });
 
   it("does not suggest unrelated agent examples inside a category", async () => {
@@ -2140,7 +2170,9 @@ describe("CatalogPage", () => {
     await screen.findByText(catalog.products[0].model);
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
     const panel = screen.getByRole("complementary", { name: "Ask Mosaic" });
-    expect(within(panel).queryByRole("list", { name: "Example questions" })).toBeNull();
+    const starters = within(panel).getByRole("list", { name: "Example questions" });
+    expect(within(starters).getAllByRole("button")).toHaveLength(1);
+    expect(within(starters).queryByRole("button", { name: /Focus at home/ })).toBeNull();
     expect(within(panel).getByText("Search filters")).toBeTruthy();
   });
 
@@ -2226,8 +2258,9 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
     const starters = await screen.findByRole("list", { name: "Example questions" });
     const requests = within(starters).getAllByRole("button");
-    expect(requests).toHaveLength(1);
+    expect(requests).toHaveLength(2);
     expect(requests[0].textContent).toContain(pipelineRequests.find((request) => request.id === "more-screen-space")!.shop_label);
+    expect(requests[1].textContent).toContain("Complete my room");
     fireEvent.click(requests[0]);
     await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
     expect(vi.mocked(api.agentStream).mock.calls.at(-1)?.[1]).toMatchObject({

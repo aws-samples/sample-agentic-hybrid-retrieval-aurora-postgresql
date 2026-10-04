@@ -8,6 +8,7 @@ import {
   retrievalExampleHref,
   shopMissionHref,
   supportingMosaicChecks,
+  workspaceRequests,
 } from "./labMissions";
 
 describe("participant query contract", () => {
@@ -110,5 +111,21 @@ describe("Shop example references", () => {
     const changed = structuredClone(mosaicLabManifest);
     changed.playground.shop_examples[0].reference_id = "missing";
     expect(() => resolveShopExamples(changed)).toThrow("Unknown Shop example");
+  });
+});
+
+describe("Ask Mosaic starters", () => {
+  const ids = (filters: Parameters<typeof workspaceRequests>[0]) =>
+    workspaceRequests(filters).map((request) => request.id);
+
+  it("keeps the Lab 3 starter when Shop narrows to a domain or category", () => {
+    expect(ids({ domain: "running_fitness" })).toEqual(["plan-workspace"]);
+    expect(ids({ domain: "consumer_electronics", category_key: "monitor" }))
+      .toEqual(["more-screen-space", "plan-workspace"]);
+  });
+
+  it("offers every starter when Shop has no domain or category", () => {
+    expect(ids({})).toContain("plan-workspace");
+    expect(ids({})).toContain("focus-at-home");
   });
 });

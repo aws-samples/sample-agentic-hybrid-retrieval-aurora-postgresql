@@ -72,6 +72,7 @@ import {
   playgroundProofHref,
   playgroundQueryHref,
   useSearchParams,
+  SHOP_FILTER_PARAMS,
 } from "../navigation";
 import { EASE_OUT } from "../motion";
 import { lockBodyScroll } from "../scrollLock";
@@ -1682,7 +1683,7 @@ export function CatalogPage() {
           onClose={closeAgent}
           onClear={clearAgentConversation}
           onStop={stopAgentThread}
-          onRun={(query, suggestedFilters) => {
+          onRun={(query, suggestedFilters, replaceShopFilters) => {
             if (!suggestedFilters) {
               void askAgent(query, filters, retrievalRequest);
               return;
@@ -1690,12 +1691,20 @@ export function CatalogPage() {
             const next = new URLSearchParams(searchParams);
             next.delete("event");
             next.delete("offset");
+            // A lab request is graded against its own gates, so Shop's are
+            // dropped from the URL as well as from the request. Otherwise the
+            // answer's context key would never match the page it belongs to.
+            if (replaceShopFilters) {
+              for (const name of SHOP_FILTER_PARAMS) next.delete(name);
+            }
             const normalizedFilters = sourceFilters(suggestedFilters, real);
             for (const [key, value] of Object.entries(normalizedFilters)) {
               if (value !== undefined) next.set(key, typeof value === "object" ? JSON.stringify(value) : String(value));
             }
             setSearchParams(next);
-            const requestFilters = { ...filters, ...normalizedFilters };
+            const requestFilters = replaceShopFilters
+              ? normalizedFilters
+              : { ...filters, ...normalizedFilters };
             void askAgent(query, requestFilters, retrievalRequestKey(activeQuery, requestFilters));
           }}
           onHighlight={setHighlightedProductId}

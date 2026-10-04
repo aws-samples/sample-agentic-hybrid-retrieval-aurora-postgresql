@@ -189,3 +189,12 @@ it("unmounting the owner cancels the in-flight request", async () => {
 
   expect(capturedSignal?.aborted).toBe(true);
 });
+
+it("keeps only the Lab 3 starter while a brand or attribute filter is set", () => {
+  const branded = renderHook(() => useAskMosaicConversation({ brand: "Logitech" }));
+  expect(branded.result.current.suggestions.map((request) => request.id)).toEqual(["plan-workspace"]);
+  branded.unmount();
+
+  const attributed = renderHook(() => useAskMosaicConversation({ attributes: { usb_c_power_w: 65 } }));
+  expect(attributed.result.current.suggestions.map((request) => request.id)).toEqual(["plan-workspace"]);
+});
