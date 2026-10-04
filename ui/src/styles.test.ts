@@ -21,7 +21,7 @@ const SHEETS = [
   "labs-agentic.css",
   "commerce.css",
   "surfaces.css",
-  "surfaces-ask-mosaic.css",
+  "agent-answer-parts.css",
   "surfaces-labs-shell.css",
   "surfaces-hnsw.css",
   "surfaces-playground.css",
@@ -31,7 +31,7 @@ const SHEETS = [
   "inspector.css",
   "playground-page.css",
   "world.css",
-  "ask-mosaic-answer.css",
+  "ask-mosaic.css",
   "inspection-editorial.css",
 ] as const;
 

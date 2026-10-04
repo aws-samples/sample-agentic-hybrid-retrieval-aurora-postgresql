@@ -12,13 +12,13 @@ import "./shop-storefront.css";
 import "./labs-agentic.css";
 import "./commerce.css";
 import "./surfaces.css";
-import "./surfaces-ask-mosaic.css";
+import "./agent-answer-parts.css";
 import "./surfaces-labs-shell.css";
 import "./surfaces-hnsw.css";
 import "./surfaces-playground.css";
 import "./source-products.css";
 import "./world.css";
-import "./ask-mosaic-answer.css";
+import "./ask-mosaic.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

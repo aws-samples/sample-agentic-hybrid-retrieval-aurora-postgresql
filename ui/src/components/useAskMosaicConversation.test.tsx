@@ -33,6 +33,27 @@ function pendingStream(onEmit?: (event: (event: AgentStreamEvent) => void) => vo
   );
 }
 
+it("measures how long a request took from sending it to its last event", async () => {
+  let now = 1_000;
+  vi.spyOn(Date, "now").mockImplementation(() => now);
+  vi.spyOn(api, "agentStream").mockImplementation(async (question, _filters, emit) => {
+    now = 44_500;
+    emit({
+      type: "complete",
+      response: {
+        agent_run_id: "run-1", question, answer: "A sourced answer.",
+        recommendations: [], citations: [], plan: [], trace: [],
+      },
+    });
+  });
+  const { result } = renderHook(() => useAskMosaicConversation({}));
+
+  await act(() => result.current.run("Complete my room"));
+
+  expect(result.current.turns[0].startedAt).toBe(1_000);
+  expect(result.current.turns[0].durationMs).toBe(43_500);
+});
+
 function failWith(message: string, code: string) {
   vi.spyOn(api, "agentStream").mockRejectedValue(Object.assign(new Error(message), { code }));
 }

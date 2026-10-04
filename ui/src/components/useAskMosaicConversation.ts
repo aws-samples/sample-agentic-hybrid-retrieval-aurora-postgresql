@@ -96,6 +96,7 @@ export function useAskMosaicConversation(
     requestVersion.current = version;
     const controller = new AbortController();
     requestController.current = controller;
+    const startedAt = Date.now();
     setTurns((current) => [
       ...current,
       {
@@ -114,6 +115,7 @@ export function useAskMosaicConversation(
         error: "",
         cancelled: false,
         loading: true,
+        startedAt,
       },
     ]);
     const patch = (change: Partial<AskMosaicTurn>) => {
@@ -160,6 +162,7 @@ export function useAskMosaicConversation(
           patch({
             response: event.response,
             completed: true,
+            durationMs: Date.now() - startedAt,
             streamed: event.response.answer,
             stage: null,
             stageDetail: "",

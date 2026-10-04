@@ -1,496 +1,27 @@
-import { DeclinedAnswer } from "./DeclinedAnswer";
-import { MemoryControl, MemoryReceipt, type AskMosaicMemoryControl } from "./AskMosaicMemory";
+import { MemoryControl, type AskMosaicMemoryControl } from "./AskMosaicMemory";
 import {
   ChevronDown,
-  CircleCheck,
   CircleStop,
   Eraser,
   LoaderCircle,
-  PencilLine,
-  RotateCcw,
   Send,
   Sparkles,
   X,
 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { lockBodyScroll } from "../scrollLock";
-import { useTypewriterReveal } from "../useTypewriterReveal";
 import type { workspaceRequests } from "../labMissions";
-import type {
-  AgentCitation,
-  AgentPlanStep,
-  ProductSummary,
-  SearchFilters,
-  ToolTraceStep,
-} from "../types";
-import { Criteria, Searches } from "./agentAnswerParts";
-import { AgentRetrievalReceipt } from "./RetrievalReceipt";
+import type { SearchFilters } from "../types";
 import { SearchComposer } from "./SearchComposer";
-import { ProductAnswer } from "./ProductAnswer";
-import {
-  CompareMatrix,
-  Evidence,
-  Activity,
-  Ranking,
-  Shortlist,
-} from "./ask-mosaic/EvidencePanels";
-import { AgentSetupCard } from "./ask-mosaic/AgentSetupCard";
-import { isSetupCardMessage } from "./ask-mosaic/setupMessage";
-import { AnswerSources, BestPick, PickComparison } from "./ask-mosaic/AnswerComparison";
-import { activitySummary } from "./ask-mosaic/comparison";
-import { FollowUps } from "./ask-mosaic/ResultCards";
-import { StageRail, useProgressiveStage } from "./ask-mosaic/StageProgress";
-import {
-  focusedFollowUpStages,
-  fullRetrievalStages,
-  type AskMosaicTurn,
-  type AssistStage,
-} from "./ask-mosaic/types";
+import { useBuilderView } from "./ask-mosaic/useBuilderView";
+import { StarterCards } from "./ask-mosaic/StarterCards";
+import { Turn } from "./ask-mosaic/Turn";
+import type { AskMosaicTurn } from "./ask-mosaic/types";
 
 export type { AskMosaicTurn } from "./ask-mosaic/types";
 
-function escapePattern(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/**
- * Emphasize only products present in the grounded recommendation contract.
- *
- * The cited synthesis model is not required to author presentation Markdown.
- * Applying emphasis at the UI boundary makes product names consistent without
- * changing the answer of record or inferring names from untrusted prose.
- */
-export function boldRecommendationNames(
-  answer: string,
-  recommendations: ProductSummary[],
-) {
-  const names = Array.from(
-    new Set(
-      recommendations.flatMap((product) => [
-        product.title.trim(),
-        `${product.brand} ${product.model}`.trim(),
-      ]),
-    ),
-  )
-    .filter((name) => name.length >= 5)
-    .sort((left, right) => right.length - left.length);
-  if (!names.length) return answer;
-
-  const productName = new RegExp(
-    `(${names.map(escapePattern).join("|")})`,
-    "gi",
-  );
-  return answer
-    .split(/(\*\*[^*]+\*\*)/g)
-    .map((segment) => (
-      segment.startsWith("**")
-        ? segment
-        : segment.replace(productName, "**$1**")
-    ))
-    .join("");
-}
-
-interface TurnProps {
-  turn: AskMosaicTurn;
-  isLatest: boolean;
-  imageByProductId: Map<number, string>;
-  highlightedProductId: number | null;
-  onRun: (query: string) => void;
-  onEdit: (query: string) => void;
-  onHighlight: (productId: number | null) => void;
-  onSelectProduct: (productId: number) => void;
-  /** Earlier questions, oldest first: a follow-up's requirements build on them. */
-  priorQuestions: string[];
-  /** The previous answer's best pick; the same pick is not shown twice in a row. */
-  previousBestPickId: number | null;
-  /** Keeps each newly presented stage in view inside the scrolling drawer. */
-  onStageProgress?: () => void;
-  /**
-   * Fires as the reveal advances so the thread can keep the writing line in
-   * view. Only the latest turn receives it; settled turns have nothing to
-   * report.
-   */
-  onRevealProgress?: () => void;
-}
-
-/**
- * One exchange, end to end: the question, its retrieval progress, and the
- * cited answer once it arrives.
- *
- * This is the conversation's orchestrator. `StageProgress`, `EvidencePanels`,
- * and `ResultCards` supply the presentation for each of a turn's stages; this
- * component owns the state transitions between them (streaming, settled,
- * declined, cancelled, failed) and hands each stage only the props it needs.
- */
-function Turn({
-  turn,
-  isLatest,
-  imageByProductId,
-  highlightedProductId,
-  onRun,
-  onEdit,
-  onHighlight,
-  onSelectProduct,
-  priorQuestions,
-  previousBestPickId,
-  onStageProgress,
-  onRevealProgress,
-}: TurnProps) {
-  const response = turn.response;
-  const reduceMotion = useReducedMotion();
-  const [startedLive] = useState(turn.loading);
-  const instantPresentation = Boolean(
-    reduceMotion || !startedLive || turn.error,
-  );
-  const actualStage = response ? "answer" : turn.stage;
-  const presentedStage = useProgressiveStage(
-    turn.executionPath,
-    actualStage,
-    instantPresentation,
-  );
-  const answerStagePresented = presentedStage === "answer";
-  const [answerVisible, setAnswerVisible] = useState(
-    () => Boolean(response && turn.completed && !turn.error),
-  );
-
-  useEffect(() => {
-    if (!response || !answerStagePresented || turn.error) {
-      setAnswerVisible(false);
-      return;
-    }
-    if (instantPresentation) {
-      setAnswerVisible(true);
-      return;
-    }
-    const timer = window.setTimeout(() => setAnswerVisible(true), 180);
-    return () => window.clearTimeout(timer);
-  }, [answerStagePresented, instantPresentation, response, turn.error]);
-
-  const reveal = useTypewriterReveal(
-    turn.streamed || response?.answer || "",
-    turn.loading,
-    answerVisible,
-    reduceMotion ?? false,
-  );
-  /** The stream has closed and the typewriter has finished writing it out. */
-  const answerSettled = turn.completed && reveal.done;
-  const presentedStageTitle = (
-    turn.executionPath === "focused_follow_up"
-      ? focusedFollowUpStages
-      : fullRetrievalStages
-  ).find((stage) => stage.id === presentedStage)?.title ?? "Working";
-  useEffect(() => {
-    onRevealProgress?.();
-  }, [reveal.text.length, onRevealProgress]);
-  useEffect(() => {
-    onStageProgress?.();
-  }, [answerVisible, onStageProgress, presentedStage]);
-  /**
-   * Whichever retrieval has landed. The finished response supersedes the partial
-   * because its shortlist is the cited one; until it arrives, the partial is what
-   * the tools have actually returned. A stage with nothing yet gets `null`, which
-   * is what keeps its card from opening onto an empty box.
-   */
-  const plan: AgentPlanStep[] = response?.plan ?? turn.partial?.plan ?? [];
-  const candidates: ProductSummary[] =
-    response?.recommendations ?? turn.partial?.candidates ?? [];
-  const trace: ToolTraceStep[] = response?.trace ?? turn.partial?.trace ?? [];
-  const citations: AgentCitation[] = response?.citations ?? [];
-  const comparisons = trace.filter((step) => step.tool === "compare_products" && step.outcome === "success").length;
-  const stageSummaries: Partial<Record<AssistStage, string>> = {
-    understand: plan.length ? plan.map((step) => step.query).join(" · ") : undefined,
-    retrieve: candidates.length
-      ? `${candidates.length} products in the shortlist`
-      : response ? "No eligible products in the final shortlist" : undefined,
-    rank: comparisons
-      ? `${comparisons} product comparison${comparisons === 1 ? "" : "s"} recorded`
-      : response ? "No product comparison recorded" : undefined,
-    answer: citations.length
-      ? `${citations.length} source records cited · ${trace.length} recorded steps`
-      : response ? `${trace.length} recorded steps · no sources cited` : undefined,
-  };
-  // A declined answer names an absence rather than a recommendation:
-  // `recommendations` and `citations` are empty by contract, so the shortlist
-  // and the compare/cite panels below have nothing real to show. The steps
-  // timeline and the searches list stay, because they are what was actually
-  // tried, and that is what a shopper reading a decline needs to see.
-  const declined = response?.outcome === "declined";
-  // Three columns is what the panel holds legibly; the rest stay in the trace.
-  const picks = response && !declined ? response.recommendations.slice(0, 3) : [];
-  const bestPick = picks[0] ?? null;
-  const comparison = !declined && candidates.length > 1
-    ? (
-      <>
-        <CompareMatrix candidates={candidates} />
-        <Ranking candidates={candidates} />
-      </>
-    )
-    : null;
-  const stagePanels: Partial<Record<AssistStage, ReactNode>> = {
-    understand: plan.length ? <Criteria plan={plan} /> : null,
-    retrieve: (!declined && candidates.length) || plan.length
-      ? (
-        <>
-          {!declined && candidates.length ? (
-            <Shortlist
-              candidates={candidates}
-              imageByProductId={imageByProductId}
-              highlightedProductId={highlightedProductId}
-              onHighlight={onHighlight}
-              onSelectProduct={onSelectProduct}
-            />
-          ) : null}
-          {plan.length ? <Searches plan={plan} /> : null}
-        </>
-      )
-      : null,
-    rank: comparison,
-    answer: (!declined && citations.length) || trace.length
-      ? (
-        <>
-          {!declined && citations.length ? <Evidence citations={citations} /> : null}
-          {trace.length ? <Activity trace={trace} /> : null}
-        </>
-      )
-      : null,
-  };
-  return (
-    <article className="ask-mosaic-turn">
-      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {turn.error
-          ? "Ask Mosaic could not finish this request."
-          : answerSettled
-            ? "Ask Mosaic recommendation complete."
-            : `${presentedStageTitle}. In progress.`}
-      </p>
-      <div className="ask-mosaic-ask">
-        <p className="ask-mosaic-bubble">
-          <span className="sr-only">You asked</span>
-          {turn.question}
-        </p>
-        {isLatest && !turn.loading ? (
-          <span className="ask-mosaic-request-actions">
-            <button
-              className="ask-mosaic-edit-request"
-              type="button"
-              onClick={() => onEdit(turn.question)}
-            >
-              <PencilLine size={13} aria-hidden="true" />
-              Edit request
-            </button>
-            <button
-              className="ask-mosaic-ask-again"
-              type="button"
-              onClick={() => onRun(turn.question)}
-            >
-              <RotateCcw size={13} aria-hidden="true" />
-              Ask again
-            </button>
-          </span>
-        ) : null}
-      </div>
-
-      {turn.loading || turn.stage || response || turn.cancelled ? (
-        <details
-          className="ask-mosaic-process"
-          open
-        >
-          <summary
-            className="ask-mosaic-live"
-            data-state={turn.error ? "error" : turn.cancelled ? "stopped" : answerSettled ? "done" : "working"}
-          >
-            <span className="ask-mosaic-live-mark" aria-hidden="true">
-              {answerSettled && !turn.error ? <CircleCheck size={15} /> : null}
-            </span>
-            <span className="ask-mosaic-live-text">
-              {turn.error
-                ? "Request interrupted"
-                : turn.cancelled
-                  ? "Stopped before it finished"
-                  : answerVisible
-                    ? activitySummary(trace) || "Steps and sources"
-                    : `${presentedStageTitle}…`}
-            </span>
-            <ChevronDown size={15} aria-hidden="true" />
-          </summary>
-        <StageRail
-          actualStage={actualStage}
-          cancelled={turn.cancelled}
-          complete={answerSettled}
-          executionPath={turn.executionPath}
-          failed={Boolean(turn.error)}
-          presentedStage={presentedStage}
-          stageDetail={turn.stageDetail}
-          stageStartedAt={turn.stageStartedAt}
-          panels={stagePanels}
-          summaries={stageSummaries}
-          onPresentationProgress={onStageProgress}
-        />
-        {answerSettled && !declined ? (
-          <AgentRetrievalReceipt
-            citations={citations}
-            executionPath={turn.executionPath}
-            plan={plan}
-            products={candidates}
-            trace={trace}
-          />
-        ) : null}
-        </details>
-      ) : null}
-
-      {turn.cancelled ? (
-        <div className="ask-mosaic-cancelled" role="status">
-          <span className="ask-mosaic-cancelled-heading">
-            <CircleStop size={15} aria-hidden="true" />
-            You stopped this request.
-          </span>
-          {turn.streamed
-            ? <small>The partial answer and steps above are what Mosaic had found so far.</small>
-            : <small>Ask again, or send a new request.</small>}
-        </div>
-      ) : null}
-
-      {turn.error && turn.errorCode === "agent_setup" && isSetupCardMessage(turn.error) ? (
-        <AgentSetupCard detail={turn.error} />
-      ) : turn.error ? (
-        <div className="ask-mosaic-error" role="alert">
-          <strong>Mosaic could not finish this request.</strong>
-          <span>{turn.error}</span>
-          <small>Press Ask again to retry. If it keeps failing, share this message with your facilitator.</small>
-        </div>
-      ) : null}
-
-      <AnimatePresence initial={false}>
-        {response && answerVisible && !turn.error ? (
-          <motion.div
-            className="ask-mosaic-answer-sequence"
-            initial={{ opacity: 0, transform: "translateY(7px)" }}
-            animate={{ opacity: 1, transform: "translateY(0)" }}
-            exit={{ opacity: 0, transform: "translateY(4px)" }}
-            transition={{
-              duration: reduceMotion ? 0 : 0.22,
-              ease: [0.23, 1, 0.32, 1],
-            }}
-          >
-          {/* `streaming` draws the caret. It stays up past the last SSE chunk
-              until the typewriter finishes writing the text out, because the
-              caret marks the visible write, not the network. */}
-          <section
-            className={answerSettled ? "ask-mosaic-answer" : "ask-mosaic-answer streaming"}
-          >
-            {declined ? (
-              <DeclinedAnswer answer={reveal.text} reason={response.decline_reason} className="ask-mosaic-declined" />
-            ) : (
-              <>
-                {answerSettled ? (
-                  <h3 className="sr-only">Final recommendation</h3>
-                ) : (
-                  <p className="ask-mosaic-writing">
-                    <Sparkles size={14} aria-hidden="true" />
-                    {turn.cancelled ? "Partial answer" : "Writing the answer"}
-                    {!reveal.done && reveal.text ? (
-                      <button type="button" className="ask-mosaic-skip-reveal" onClick={reveal.skip}>
-                        Show the full answer
-                      </button>
-                    ) : null}
-                  </p>
-                )}
-                {/* Image first: the pick a shopper recognises, then every pick
-                    against the same rows, then the answer of record. */}
-                {bestPick && bestPick.product_id !== previousBestPickId ? (
-                  <BestPick
-                    product={bestPick}
-                    imageSrc={imageByProductId.get(bestPick.product_id)}
-                    onSelectProduct={onSelectProduct}
-                  />
-                ) : null}
-                {picks.length ? (
-                  <section aria-label="Recommended products">
-                    <PickComparison
-                      picks={picks}
-                      citations={response.citations}
-                      questions={[...priorQuestions, turn.question]}
-                      answerId={`ask-answer-${turn.id}`}
-                      imageByProductId={imageByProductId}
-                      onSelectProduct={onSelectProduct}
-                    />
-                  </section>
-                ) : null}
-                {/* The wrapper bounds the caret to the prose being written. */}
-                <div className="ask-mosaic-prose">
-                  <ProductAnswer text={boldRecommendationNames(reveal.text, response.recommendations)} products={response.recommendations} citations={response.citations} complete={answerSettled} placeCards={false} />
-                </div>
-                {/* A fail-closed run is a fact about this answer, and an absent
-                    badge does not state it. */}
-                {answerSettled && response.citations.length ? (
-                  <AnswerSources
-                    picks={picks}
-                    citations={response.citations}
-                    questions={[...priorQuestions, turn.question]}
-                    answerId={`ask-answer-${turn.id}`}
-                  />
-                ) : null}
-                {answerSettled && !response.citations.length ? (
-                  <p className="ask-mosaic-uncited-note">
-                    No product record backs this answer, so read it as a
-                    suggestion rather than a checked recommendation. Ask again,
-                    or add a detail such as a budget or a category.
-                  </p>
-                ) : null}
-              </>
-            )}
-          </section>
-
-          {answerSettled ? <MemoryReceipt memory={response.memory} /> : null}
-          {answerSettled && !declined ? (
-            <motion.div
-              className="ask-mosaic-answer-aftermath"
-              initial={{ opacity: 0, transform: "translateY(6px)" }}
-              animate={{ opacity: 1, transform: "translateY(0)" }}
-              transition={{
-                duration: reduceMotion ? 0 : 0.24,
-                delay: reduceMotion ? 0 : 0.05,
-                ease: [0.23, 1, 0.32, 1],
-              }}
-            >
-              {isLatest && !turn.loading ? (
-                <FollowUps response={response} onRun={onRun} />
-              ) : null}
-            </motion.div>
-          ) : null}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-    </article>
-  );
-}
-
 type WorkspaceRequest = ReturnType<typeof workspaceRequests>[number];
 
-function EntryState({ suggestions, onRun }: {
-  suggestions: WorkspaceRequest[];
-  onRun: (query: string, filters?: SearchFilters, replaceShopFilters?: boolean) => void;
-}) {
-  return <section className="ask-mosaic-empty">
-    <div className="ask-mosaic-welcome">
-      <h3>What can I help you find?</h3>
-      <p>{suggestions.length
-        ? "Choose a starting point, or tell me what matters to you."
-        : "Tell me what matters to you. I’ll help you compare the options."}</p>
-    </div>
-    {suggestions.length ? <div className="ask-mosaic-starters">
-      <ul aria-label="Example questions">{suggestions.map((suggestion) => <li key={suggestion.id}>
-        <button type="button" onClick={() => onRun(suggestion.query, suggestion.filters, Boolean(suggestion.mission_id))}>
-          <span className="ask-mosaic-starter-path">{suggestion.shop_label}</span>
-          {suggestion.notice ? (
-            <span className="ask-mosaic-starter-notice">{suggestion.notice}</span>
-          ) : null}
-        </button>
-      </li>)}</ul>
-    </div> : null}
-  </section>;
-}
 
 interface AskMosaicProps {
   memory?: AskMosaicMemoryControl;
@@ -521,7 +52,7 @@ interface AskMosaicProps {
 
 /**
  * The sidecar shell: modal/complementary framing, focus management, scroll
- * following, and the composer. `Turn` and `EntryState` supply the content;
+ * following, and the composer. `Turn` and `StarterCards` supply the content;
  * this component owns nothing about how a turn renders.
  */
 export function AskMosaic({
@@ -563,6 +94,8 @@ export function AskMosaic({
    */
   const [nearBottom, setNearBottom] = useState(true);
   const latest = turns.length ? turns[turns.length - 1] : null;
+  const hasTurns = latest !== null;
+  const [builder, setBuilder] = useBuilderView();
 
   useEffect(() => {
     closeRef.current = onClose;
@@ -701,9 +234,14 @@ export function AskMosaic({
     if (!open) return;
     followTailRef.current = true;
     setNearBottom(true);
-    const frame = window.requestAnimationFrame(followReveal);
+    // The starters read from their heading down, so an empty thread starts at the top.
+    const frame = window.requestAnimationFrame(() => {
+      const thread = threadRef.current;
+      if (thread && !hasTurns) thread.scrollTop = 0;
+      else followReveal();
+    });
     return () => window.cancelAnimationFrame(frame);
-  }, [open, latest?.id, followReveal]);
+  }, [open, latest?.id, hasTurns, followReveal]);
 
   if (!open) return null;
 
@@ -738,35 +276,43 @@ export function AskMosaic({
         tabIndex={-1}
       >
         <header className="ask-mosaic-header">
-          <div>
-            <span><Sparkles size={19} /></span>
-            <div>
-              <h2 id="ask-mosaic-title">Ask Mosaic</h2>
-            </div>
+          <span className="ask-mosaic-mark" aria-hidden="true"><Sparkles size={16} /></span>
+          <div className="ask-mosaic-heading">
+            <h2 id="ask-mosaic-title">Ask Mosaic</h2>
+            <p>Answers from the catalog, with sources</p>
           </div>
+          <button
+            className="ask-switch"
+            type="button"
+            role="switch"
+            aria-checked={builder}
+            onClick={() => setBuilder(!builder)}
+          >
+            Builder view
+            <span className="ask-switch-track" aria-hidden="true"><span className="ask-switch-knob" /></span>
+          </button>
           {/* Only once there is something to discard. On the entry state the
               control would clear nothing, and it would sit beside the starters
               it appears to threaten. */}
-          <span className="ask-mosaic-header-actions">
-            {turns.length ? (
-              <button
-                className="ask-mosaic-clear-chat"
-                type="button"
-                onClick={onClear}
-              >
-                <Eraser size={14} aria-hidden="true" />
-                Clear chat
-              </button>
-            ) : null}
+          {turns.length ? (
             <button
-              className="ask-mosaic-header-close"
+              className="ask-icon-button"
               type="button"
-              aria-label="Close Ask Mosaic"
-              onClick={onClose}
+              aria-label="Clear chat"
+              title="Clear chat"
+              onClick={onClear}
             >
-              <X size={20} />
+              <Eraser size={14} aria-hidden="true" />
             </button>
-          </span>
+          ) : null}
+          <button
+            className="ask-icon-button ask-mosaic-header-close"
+            type="button"
+            aria-label="Close Ask Mosaic"
+            onClick={onClose}
+          >
+            <X size={14} aria-hidden="true" />
+          </button>
         </header>
 
         <div className="ask-mosaic-body-wrap">
@@ -783,6 +329,7 @@ export function AskMosaic({
                   isLatest={index === turns.length - 1}
                   imageByProductId={imageByProductId}
                   highlightedProductId={highlightedProductId}
+                  builder={builder}
                   onRun={onRun}
                   onEdit={editRequest}
                   onHighlight={onHighlight}
@@ -798,10 +345,7 @@ export function AskMosaic({
                 />
               ))
             ) : (
-              <EntryState
-                suggestions={suggestions}
-                onRun={onRun}
-              />
+              <StarterCards suggestions={suggestions} onRun={onRun} />
             )}
           </div>
           {/* Only once a reader has actually scrolled away from the live edge,
@@ -832,7 +376,7 @@ export function AskMosaic({
               aria-label="Current search filters, passed to Ask Mosaic"
             >
               <span>Search filters</span>
-              <strong>{contextFilters.join(" · ")}</strong>
+              {contextFilters.map((filter) => <strong key={filter}>{filter}</strong>)}
             </div>
           ) : null}
           {pending ? (

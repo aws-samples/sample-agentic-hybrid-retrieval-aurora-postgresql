@@ -2,10 +2,11 @@
 
 import { createElement } from "react";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CommerceProvider } from "../commerce";
 import { fixtureCatalogPage } from "../testProducts";
-import { AskMosaic, boldRecommendationNames } from "./AskMosaic";
+import { AskMosaic } from "./AskMosaic";
+import { boldRecommendationNames } from "./ask-mosaic/emphasis";
 import type { AskMosaicTurn } from "./ask-mosaic/types";
 import { Searches } from "./agentAnswerParts";
 import { pipelineRequests } from "../labMissions";
@@ -13,6 +14,7 @@ import type { AgentPlanStep, AgentResponse, ToolTraceStep } from "../types";
 
 afterEach(() => {
   cleanup();
+  window.localStorage.clear();
 });
 
 const [first, second] = fixtureCatalogPage({}, 0, 2).products;
@@ -141,6 +143,7 @@ function settledTurn(response: AgentResponse): AskMosaicTurn {
     error: "",
     cancelled: false,
     loading: false,
+    startedAt: Date.now(),
   };
 }
 
@@ -200,7 +203,7 @@ describe("AskMosaic declined outcome", () => {
     expect(screen.queryByText(/drop the term named above/)).toBeNull();
   });
 
-  it("renders the declined block, hides the shortlist and compare/cite panels, and keeps the searches list", () => {
+  it("renders the declined block with the run's fold, and no picks or sources", () => {
     renderAskMosaic(DECLINED_RESPONSE);
 
     expect(
@@ -213,36 +216,15 @@ describe("AskMosaic declined outcome", () => {
       ),
     ).toBeTruthy();
 
-    // The answer leads; the actual searches remain available to inspect.
-    const process = document.querySelector<HTMLDetailsElement>(".ask-mosaic-process")!;
-    expect(process.open).toBe(true);
-    fireEvent.click(process.querySelector("summary")!);
-    expect(process.open).toBe(false);
-    fireEvent.click(process.querySelector("summary")!);
-    expect(process.open).toBe(true);
-    // No compare panel exists to open:
-    // recommendations are empty by contract on a declined answer, so the
-    // comparison stage never has a panel to disclose.
-    expect(screen.getByLabelText("Retrieval activity")).toBeTruthy();
-    expect(screen.queryByText("Side by side, on catalog data")).toBeNull();
-
-    // The "Retrieval" step still discloses the searches that were
-    // tried, with no shortlist beside them.
-    openStage("Retrieval");
-    expect(screen.queryByText("The shortlist")).toBeNull();
-    const searchesDetails = screen.getByText("Searches behind this answer").closest("details");
-    expect(searchesDetails).not.toBeNull();
-    fireEvent.click(screen.getByText("Searches behind this answer"));
-    expect(
-      within(searchesDetails as HTMLElement).getByText("jetpack propulsion pack"),
-    ).toBeTruthy();
-
-    // The "Sources" step still discloses what the agent did; there are no
-    // citations to disclose beside it.
-    openStage("Sources");
-    expect(screen.queryByText("Evidence it cited")).toBeNull();
-    expect(screen.getByText("Recorded steps")).toBeTruthy();
-    expect(screen.queryByText("No evidence cited")).toBeNull();
+    // What was actually tried stays one click away, with nothing to recommend.
+    const fold = screen.getByRole("button", { name: /How Mosaic answered/ });
+    expect(fold.textContent).toContain("1 search");
+    expect(fold.textContent).toContain("0 sources");
+    fireEvent.click(fold);
+    expect(screen.getByText(/Ran 1 search in Aurora and kept 3 products/)).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Sources" })).toBeNull();
+    expect(screen.queryByLabelText(/Top pick/)).toBeNull();
+    expect(screen.queryByText("Still unknown")).toBeNull();
   });
 
   it("leaves a grounded fixture unchanged", () => {
@@ -252,19 +234,16 @@ describe("AskMosaic declined outcome", () => {
       screen.queryByText("Mosaic could not confirm part of this request"),
     ).toBeNull();
     expect(screen.getByText("Final recommendation")).toBeTruthy();
-    // The sources footer replaces the "Backed by evidence" badge.
+    expect(screen.getByLabelText(`Top pick: ${first.brand} ${first.model}`.trim())).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Sources" })).toBeTruthy();
     expect(screen.getByText("Still unknown")).toBeTruthy();
-
-    openStage("Retrieval");
-    expect(screen.getByText("The shortlist")).toBeTruthy();
   });
 
   it("does not describe a failed application-started step as completed", () => {
+    window.localStorage.setItem("mosaic-ask-builder-view", "on");
     const response = groundedResponse();
     response.trace = [traceStep(1, "get_product_evidence", { origin: "controller_fallback", outcome: "error" })];
     renderAskMosaic(response);
-    openStage("Sources");
-    fireEvent.click(screen.getByText("Recorded steps"));
     expect(screen.getByText("Started by the application")).toBeTruthy();
     expect(screen.getByText("Step failed")).toBeTruthy();
     expect(screen.queryByText("Step completed")).toBeNull();
@@ -362,15 +341,15 @@ describe("AskMosaic failures", () => {
 });
 
 describe("AskMosaic starters", () => {
-  it("explains each starter under its label with the manifest notice", () => {
+  it("shows each notice in full and describes the card with it instead of naming it", () => {
     const starters = pipelineRequests.filter((request) => request.id === "plan-workspace" || request.id === "more-screen-space");
     renderAskMosaic(groundedResponse(), { turns: [], suggestions: starters });
 
     const list = screen.getByRole("list", { name: "Example questions" });
     for (const starter of starters) {
-      const button = within(list).getByRole("button", { name: new RegExp(starter.shop_label) });
-      expect(within(button).getByText(starter.shop_label)).toBeTruthy();
+      const button = within(list).getByRole("button", { name: starter.shop_label });
       expect(within(button).getByText(starter.notice)).toBeTruthy();
+      expect(button.getAttribute("aria-describedby")).toBe(within(button).getByText(starter.notice).id);
     }
   });
 
@@ -380,12 +359,72 @@ describe("AskMosaic starters", () => {
 
     const button = within(screen.getByRole("list", { name: "Example questions" })).getByRole("button");
     expect(button.textContent).toBe(starter.shop_label);
+    expect(button.hasAttribute("aria-describedby")).toBe(false);
   });
 });
 
-/** Opens a step's disclosure panel by clicking its summary in the steps rail. */
-function openStage(label: string) {
-  const button = screen.getByText(label).closest("button");
-  if (!button) throw new Error(`No stage button for ${label}`);
-  fireEvent.click(button);
-}
+describe("AskMosaic header and Builder view", () => {
+  it("starts with Builder view off and no recorded steps on the page", () => {
+    renderAskMosaic(groundedResponse());
+
+    const toggle = screen.getByRole("switch", { name: "Builder view" });
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    expect(screen.queryByRole("region", { name: "Builder view" })).toBeNull();
+    expect(screen.getByRole("button", { name: /How Mosaic answered/ }).getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("turns the recorded steps on page-wide and remembers the choice", () => {
+    renderAskMosaic(groundedResponse());
+
+    fireEvent.click(screen.getByRole("switch", { name: "Builder view" }));
+
+    expect(screen.getByRole("switch", { name: "Builder view" }).getAttribute("aria-checked")).toBe("true");
+    const builder = screen.getByRole("region", { name: "Builder view" });
+    expect(within(builder).getByText("run run-grou")).toBeTruthy();
+    expect(within(builder).getByText("Not recorded on this run")).toBeTruthy();
+    for (const field of ["model id", "tokens", "Gateway target", "claim verdicts"]) {
+      expect(within(builder).getByText(field)).toBeTruthy();
+    }
+    expect(window.localStorage.getItem("mosaic-ask-builder-view")).toBe("on");
+    cleanup();
+    renderAskMosaic(groundedResponse());
+    expect(screen.getByRole("switch", { name: "Builder view" }).getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("still switches for the visit when the browser refuses storage", () => {
+    const refuse = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+    renderAskMosaic(groundedResponse());
+
+    fireEvent.click(screen.getByRole("switch", { name: "Builder view" }));
+
+    expect(screen.getByRole("switch", { name: "Builder view" }).getAttribute("aria-checked")).toBe("true");
+    refuse.mockRestore();
+  });
+
+  it("offers clear chat and close as icon buttons with names", () => {
+    let cleared = false;
+    renderAskMosaic(groundedResponse(), { onClear: () => { cleared = true; } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear chat" }));
+    expect(cleared).toBe(true);
+    expect(screen.getAllByRole("button", { name: "Close Ask Mosaic" }).length).toBeGreaterThan(0);
+  });
+
+  it("names the pick a top pick, never the best", () => {
+    renderAskMosaic(groundedResponse());
+
+    const card = screen.getByLabelText(/Top pick/);
+    expect(within(card).getByText("Top pick")).toBeTruthy();
+    expect(screen.queryByText(/Best fit/)).toBeNull();
+  });
+
+  it("turns a citation number in the answer into a chip that names its source", () => {
+    renderAskMosaic(groundedResponse());
+
+    const prose = document.querySelector(".ask-prose") as HTMLElement;
+    expect(within(prose).getByRole("link", { name: "Source 1" }).textContent).toBe("1");
+    expect(prose.textContent).not.toContain("[1]");
+  });
+});

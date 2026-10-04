@@ -1,0 +1,157 @@
+
+
+/* The constraints the agent's searches actually carried, at the Interpret
+   position above the answer. Chips rather than a list, because each one is a
+   single field of a SearchFilters the service already ran. */
+
+.ask-mosaic-criteria {
+  margin-top: 18px;
+  padding: 12px 15px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: var(--paper);
+}
+
+.ask-mosaic-criteria h3 {
+  margin: 0 0 9px;
+  color: var(--maroon-900);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ask-mosaic-criteria ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ask-mosaic-criteria li {
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--maroon-800) 16%, transparent);
+  border-radius: 999px;
+  background: var(--maroon-100);
+  color: var(--maroon-900);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/*
+ * The searches the agent actually ran, from `AgentResponse.plan`.
+ *
+ * The panel fetched this and dropped it, which left the shortlist with no
+ * account of how it was produced. Each row is one search that returned
+ * evidence-backed products, and the chips are the constraints it resolved.
+ */
+.ask-mosaic-searches {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ask-mosaic-search-receipt .ask-mosaic-searches {
+  padding: 0 15px 12px;
+  border-top: 1px solid var(--line);
+}
+
+.ask-mosaic-searches li {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 26px minmax(0, 1fr);
+  gap: 4px 10px;
+  padding: 12px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+
+.ask-mosaic-searches li > span {
+  color: var(--maroon-700);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ask-mosaic-searches li > div {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.ask-mosaic-searches strong {
+  max-width: 68ch;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.ask-mosaic-searches small {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.ask-mosaic-receipt {
+  margin-top: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 14px;
+  background: var(--paper);
+}
+
+.ask-mosaic-receipt summary {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 15px;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.ask-mosaic-receipt summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The native marker is hidden, so the sections need their own open/closed
+   affordance. Activity receipts ship closed and nothing else does, which is
+   only legible if every summary says which way it goes. */
+.ask-mosaic-receipt > summary::after {
+  margin-left: 11px;
+  color: var(--ink-soft);
+  content: "+";
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.ask-mosaic-receipt[open] > summary::after {
+  content: "\2212";
+}
+
+.ask-mosaic-receipt summary {
+  color: var(--maroon-900);
+}
+
+.ask-mosaic-receipt summary > span {
+  display: grid;
+  min-width: 23px;
+  height: 23px;
+  margin-left: auto;
+  padding: 0 7px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--maroon-100);
+  color: var(--maroon-900);
+  font-size: 11px;
+  font-weight: 700;
+}

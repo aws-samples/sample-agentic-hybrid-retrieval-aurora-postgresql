@@ -574,37 +574,6 @@
   .shop-canvas.assist-open {
     grid-template-columns: 1fr;
   }
-
-  /* Below the two-column width the panel leaves the grid and covers the
-     catalog, but it still starts under the fixed header rather than over it. */
-  .ask-mosaic-layer {
-    position: fixed;
-    z-index: 110;
-    display: block;
-    inset: var(--topbar-height) 0 0;
-    height: calc(100dvh - var(--topbar-height));
-  }
-
-  .ask-mosaic-backdrop {
-    position: absolute;
-    display: block;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    padding: 0;
-    border: 0;
-    background: color-mix(in srgb, var(--ink) 36%, transparent);
-    backdrop-filter: blur(2px);
-  }
-
-  .ask-mosaic-sidecar {
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: min(560px, calc(100vw - 60px));
-    height: 100%;
-    grid-column: auto;
-  }
 }
 
 @media (max-width: 900px) {
@@ -639,21 +608,6 @@
    asks for no more height than its own content needs. */
 
 @media (max-width: 640px) {
-
-  /* The 60px strip of catalog the panel leaves visible at tablet width is worth
-     a third of the shortlist's text column on a phone, and there is nothing to
-     read in it while the panel is open. */
-  .ask-mosaic-sidecar {
-    width: calc(100vw - 22px);
-  }
-
-  .ask-mosaic-header {
-    padding: 13px 15px;
-  }
-
-  .ask-mosaic-body {
-    padding: 0 15px 26px;
-  }
 
   .labs-intro {
     min-height: 430px;
@@ -819,29 +773,6 @@
     height: 30px;
   }
 
-  .ask-mosaic-layer {
-    inset: var(--topbar-height) 0 0;
-    height: calc(100dvh - var(--topbar-height));
-  }
-
-  .ask-mosaic-backdrop {
-    display: none;
-  }
-
-  .ask-mosaic-sidecar {
-    width: 100%;
-    border-left: 0;
-  }
-
-  .ask-mosaic-body {
-    padding-right: 14px;
-    padding-left: 14px;
-  }
-
-  .ask-mosaic-shortlist {
-    grid-template-columns: 1fr;
-  }
-
   .labs-premium {
     gap: 32px;
     padding: 22px 14px 46px;
@@ -918,14 +849,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .shop-canvas,
-  .shop-product-card,
-  .shop-product-card .product-image img,
-  .shop-filter-sheet,
-  .ask-mosaic-sidecar,
-  .ask-mosaic-turn,
-  .ask-mosaic-progress > li.active .ask-mosaic-stage-node,
-  .ask-mosaic-answer.streaming .ask-mosaic-prose > :last-child::after,
-  .ask-mosaic-answer.streaming .ask-mosaic-prose:empty::after {
+.shop-product-card,
+.shop-product-card .product-image img,
+.shop-filter-sheet {
     animation: none;
     scroll-behavior: auto;
     transition: none;

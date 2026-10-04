@@ -23,33 +23,22 @@ vi.mock("../catalogSource", async (importOriginal) => ({
   useCatalogSource: vi.fn(() => ({ dataset_id: null, real: false })),
 }));
 
-// Ten assertions in this file await `findByText("Final recommendation")`, which
-// `AskMosaic` renders only once `reveal.done`. `useTypewriterReveal` advances the
-// answer a few characters per requestAnimationFrame, so those awaits are waiting
-// on a real-time animation, not on a state update.
+// Many assertions in this file await `findByText("Final recommendation")`, which
+// Ask Mosaic renders only once the soft reveal has caught up with the stream.
+// The reveal advances a few characters per requestAnimationFrame and then runs
+// `TRAIL` characters past the end so the last words finish darkening, so those
+// awaits wait on a real-time animation, not on a state update. A loaded CI
+// runner has outrun findBy's 1000ms default before.
 //
-// The mocked answer is 64 characters and the hook adds 3 per frame at that
-// backlog, so it needs 20 frames -- about 0.32s at 16ms. Against findBy's 1000ms
-// default that is a 3.1x margin, and a loaded CI runner ate it twice in one day
-// while the file passed 27/27 locally every time.
+// The animation cannot simply be removed under test: defaulting `matchMedia` to
+// reduced motion makes the reveal synchronous but fails tests that depend on
+// motion, and "marks the answer as still being written" requires the reveal to
+// be paced. A 5000ms budget costs nothing on success, because a passing
+// assertion resolves the moment the label appears.
 //
-// 5000ms makes the budget ~15x the animation. A passing assertion still resolves
-// the moment the label appears, so this costs nothing on success; only a genuine
-// missing-element failure waits longer before reporting.
-//
-// The animation cannot simply be removed under test. Two attempts were measured
-// and both deleted behaviour this file asserts: defaulting `matchMedia` to
-// reduced motion makes the reveal synchronous but fails 15 tests, because the
-// filter, focus-trap, sidecar and overlay tests depend on motion; stubbing
-// requestAnimationFrame to run synchronously fails 11, including "marks the
-// answer as still being written while deltas arrive", which requires the reveal
-// to actually be paced. The paced reveal is under test, so the budget is what
-// has to change.
-//
-// Vitest isolates test files by default -- there is no vitest config and no
-// `test` block in vite.config.ts -- so this stays scoped to this file.
+// Vitest isolates test files by default, so this stays scoped to this file.
 configure({ asyncUtilTimeout: 5000 });
-import { stageDwellMs } from "../components/ask-mosaic/StageProgress";
+import { stageDwellMs } from "../components/ask-mosaic/useProgressiveStage";
 import { mosaicLabManifest } from "../labMissions";
 import { coreMosaicLabs, mosaicRetrievalExamples, shopMissionHref } from "../labMissions";
 import { seedRun } from "../retrievalSeed";
@@ -81,6 +70,7 @@ vi.mock("../api", () => ({
     readiness: vi.fn(),
     product: vi.fn(),
     compareScopedProducts: vi.fn(),
+    retrievalEvent: vi.fn().mockRejectedValue(new Error("No saved search in this test")),
   },
 }));
 
@@ -520,11 +510,10 @@ describe("CatalogPage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("reveals retrieved candidates on the stage that is still running", async () => {
-    // The panel built its stage content from the finished response only, so
-    // every card stayed empty for the length of the run: the in-progress stage
-    // rendered an expanded chevron over a blank box, and everything appeared at
-    // once at the end. `partial` carries retrieval that has already returned.
+  it("reports what the run has found so far while it is still working", async () => {
+    // The progress is built from the stream, not from the finished response:
+    // `partial` carries retrieval that has already returned, so each finished
+    // phase can state a count of real rows while the run is still going.
     let release = () => {};
     const held = new Promise<void>((resolve) => {
       release = resolve;
@@ -532,10 +521,10 @@ describe("CatalogPage", () => {
     vi.mocked(api.agentStream).mockImplementation(async (_question, _filters, onEvent) => {
       onEvent({
         type: "stage",
-        id: "retrieve",
+        id: "rank",
         path: "full_retrieval",
-        title: "Retrieve",
-        detail: "Searching the hybrid index.",
+        title: "Rank",
+        detail: "Comparing the shortlist.",
       });
       onEvent({
         type: "partial",
@@ -559,62 +548,25 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
-    const timeline = within(dialog).getByLabelText("Retrieval activity");
-    expect(timeline.closest("details")?.open).toBe(true);
-    await waitFor(() =>
-      expect(within(dialog).queryByText("The shortlist")).not.toBeNull());
-
-    // By class, not by role: an open card puts its candidate rows inside the
-    // timeline, so `getAllByRole("button")` no longer means "the four stages".
-    const stageCards = () => [
-      ...timeline.querySelectorAll<HTMLButtonElement>(".ask-mosaic-stage-summary"),
-    ];
-    const running = stageCards();
-    expect(running).toHaveLength(4);
-    // Retrieve is the stage in progress, and it is showing real rows.
-    expect(running[1].getAttribute("aria-expanded")).toBe("true");
-    const revealed = dialog.querySelector<HTMLElement>(".ask-mosaic-shortlist");
-    expect(
-      within(revealed!).getByRole("button", {
-        name: new RegExp(recommendations[0].model),
-      }),
-    ).toBeTruthy();
-    // Exactly one result is expanded at a time. The previous implementation
-    // kept Interpret open for 2.2 seconds after Retrieve opened, so the next
-    // stages were pushed below the drawer while two large panels overlapped.
-    expect(running[0].getAttribute("aria-expanded")).toBe("false");
-    expect(running[0].textContent).toContain(agentResponse.plan[0].query);
-    // The outgoing content remains mounted for its 240ms exit. Keying the whole
-    // disclosure by state used to destroy it immediately, bypassing that exit.
-    expect(within(dialog).getByText("Filters I searched with")).toBeTruthy();
-    await waitFor(() =>
-      expect(within(dialog).queryByText("Filters I searched with")).toBeNull());
-    // Compare and Cite have not run. Candidate rows exist, so their panels
-    // could be built - a pending stage must still disclose nothing.
-    expect(running[2].hasAttribute("aria-expanded")).toBe(false);
-    expect(running[2].disabled).toBe(true);
-    expect(within(dialog).queryByText("Side by side, on catalog data")).toBeNull();
+    const progress = within(dialog).getByLabelText("Progress");
+    // The progress presents one phase per dwell, so the first finding lands after one.
+    await waitFor(
+      () => expect(within(progress).getByText(/Read the request\./)).toBeTruthy(),
+      { timeout: stageDwellMs * 3 + 2000 },
+    );
+    expect(progress.textContent).toContain("Planned 1 search");
+    await waitFor(
+      () => expect(progress.textContent).toContain("Ran 1 search in Aurora and kept 2 products."),
+      { timeout: stageDwellMs * 3 + 2000 },
+    );
+    expect(within(progress).getByRole("status").textContent).toContain("Comparing the picks");
+    expect(within(dialog).queryByText("Final recommendation")).toBeNull();
 
     release();
-    // A synchronous finish may put Rank and Answer in one React batch. The
-    // presentation queue must still show Rank before answer prose can mount.
-    expect(within(dialog).queryByText("Final recommendation")).toBeNull();
-    await waitFor(
-      () => expect(stageCards()[2].getAttribute("aria-expanded")).toBe("true"),
-      { timeout: stageDwellMs * 2 + 2000 },
-    );
-    expect(within(dialog).getByText("Side by side, on catalog data")).toBeTruthy();
-    expect(within(dialog).queryByText("Final recommendation")).toBeNull();
     await within(dialog).findByText("Final recommendation");
-    // Finishing folds the retrieve card back up, leaving the answer open.
-    expect(stageCards().map((card) => card.getAttribute("aria-expanded")))
-      .toEqual(["false", "false", "false", "true"]);
-    // This test waits through the real presentation timings on purpose: the
-    // catalog reveal, two stage dwells plus their exits, and the answer
-    // typewriter. Together they exceed vitest's 5000ms default on a loaded CI
-    // runner (Project CI timed out here on 2026-09-04 after passing locally),
-    // so the budget is sized to the dwell it already waits for.
-  }, stageDwellMs * 4 + 10_000);
+    expect(within(dialog).queryByLabelText("Progress")).toBeNull();
+    expect(within(dialog).getByRole("button", { name: /How Mosaic answered/ })).toBeTruthy();
+  }, stageDwellMs * 8 + 10_000);
 
   it("counts the wait on the step that is working, without restarting it", async () => {
     // Grounded synthesis cannot show a word until the answer has been checked
@@ -652,9 +604,9 @@ describe("CatalogPage", () => {
       );
       fireEvent.click(screen.getByRole("button", { name: "Send request" }));
       const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
-      const timeline = within(dialog).getByLabelText("Retrieval activity");
+      const timeline = within(dialog).getByLabelText("Progress");
       const seconds = () => [
-        ...timeline.querySelectorAll(".ask-mosaic-stage-elapsed"),
+        ...timeline.querySelectorAll(".ask-run-elapsed"),
       ].map((reading) => Number.parseInt(reading.textContent ?? "", 10));
 
       // Nothing yet: a step that has just started has no elapsed time to report,
@@ -689,8 +641,8 @@ describe("CatalogPage", () => {
 
       release();
       await within(dialog).findByText("Final recommendation");
-      // Settled: no step is working, so nothing is counting.
-      expect(seconds()).toEqual([]);
+      // Settled: the progress has given way to the answer, so nothing is counting.
+      expect(within(dialog).queryByLabelText("Progress")).toBeNull();
     } finally {
       release();
       clock.mockRestore();
@@ -776,15 +728,13 @@ describe("CatalogPage", () => {
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
     await within(dialog).findByText("Final recommendation");
-    await waitFor(() => expect(
-      [...within(dialog).getByLabelText("Recommended products").querySelectorAll("thead th[data-product-id]")]
-        .map((column) => Number(column.getAttribute("data-product-id"))),
-    ).toEqual(recommendations.slice(0, 3).map((product) => product.product_id)));
-    const picks = within(dialog).getByLabelText("Recommended products");
+    const top = within(dialog).getByLabelText(/Top pick/);
+    const others = await within(dialog).findByLabelText("Other picks");
+    expect(within(others).getAllByRole("listitem")).toHaveLength(recommendations.slice(0, 3).length - 1);
 
-    const add = within(picks).getAllByRole("button", { name: /Add to bag/ })[0];
-    fireEvent.click(add);
-    expect(within(picks).getAllByRole("button", { name: /In bag \(1\)/ })).toHaveLength(1);
+    fireEvent.click(within(top).getByRole("button", { name: /Add to bag/ }));
+    expect(within(top).getByRole("button", { name: /In bag \(1\)/ })).toBeTruthy();
+    expect(within(others).queryByRole("button", { name: /In bag/ })).toBeNull();
   }, stageDwellMs * 4 + 10_000);
 
   it("opens a chosen pick as a drawer beside the conversation, not a navigation", async () => {
@@ -802,12 +752,8 @@ describe("CatalogPage", () => {
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
     await within(dialog).findByText("Final recommendation");
-    const picks = within(dialog).getByLabelText("Recommended products");
-    fireEvent.click(
-      within(picks).getByRole("button", {
-        name: new RegExp(recommendations[0].model),
-      }),
-    );
+    const top = within(dialog).getByLabelText(/Top pick/);
+    fireEvent.click(within(top).getByRole("button", { name: /^Open / }));
 
     // Still on Shop, with the row fetched into a dialog above it.
     expect(window.location.pathname).toBe("/catalog");
@@ -1774,7 +1720,7 @@ describe("CatalogPage", () => {
     ).toBeNull();
 
     const starters = await within(panel).findByRole("list", { name: "Example questions" });
-    expect(within(starters).getAllByRole("button").map((button) => button.querySelector(".ask-mosaic-starter-path")?.textContent))
+    expect(within(starters).getAllByRole("button").map((button) => button.querySelector(".ask-start-label")?.textContent))
       .toEqual(pipelineRequests.map((request) => request.shop_label));
     expect(within(panel).queryByRole("list", { name: "Tools available to the agent" })).toBeNull();
     expect(within(panel).queryByText("Search with typos in it")).toBeNull();
@@ -1786,90 +1732,37 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
-    const timeline = within(dialog).getByLabelText("Retrieval activity");
-    expect(
-      [...timeline.querySelectorAll(".ask-mosaic-stage-label")]
-        .map((stage) => stage.textContent),
-    ).toEqual(["Request", "Retrieval", "Comparison", "Sources"]);
-    // The settled state. While the run is live a step that just finished holds
-    // its result open for a dwell, so this has to wait for the run to finish
-    // before it can claim the cards are folded.
+    // The settled state: the progress has given way to the answer and a fold.
     await within(dialog).findByText("Final recommendation");
-    // By class, not by role: an open card puts its candidate rows in the
-    // timeline too, so `getAllByRole("button")` is not "the four stages".
-    const stageButtons = [
-      ...timeline.querySelectorAll<HTMLButtonElement>(".ask-mosaic-stage-summary"),
-    ];
-    expect(stageButtons).toHaveLength(4);
-    expect(stageButtons.map((button) => button.getAttribute("aria-expanded"))).toEqual([
-      "false",
-      "false",
-      "false",
-      "true",
-    ]);
-    // Folded cards animate their height down and unmount the content after, so
-    // these are reached once those exits finish.
-    await waitFor(() => {
-      expect(within(dialog).queryByText("The shortlist")).toBeNull();
-      expect(
-        within(dialog).queryByText("Side by side, on catalog data"),
-      ).toBeNull();
-    });
+    expect(within(dialog).queryByLabelText("Progress")).toBeNull();
+    const fold = within(dialog).getByRole("button", { name: /How Mosaic answered/ });
+    expect(fold.getAttribute("aria-expanded")).toBe("false");
+    expect(fold.textContent).toMatch(/4 steps · 1 search · 2 sources/);
+    fireEvent.click(fold);
+    expect(within(dialog).getByText(/Planned 1 search/)).toBeTruthy();
 
-    const evidence = await within(dialog).findByText("Evidence it cited");
-    expect(evidence.closest("details")?.open).toBe(false);
-    expect(within(dialog).getByText("Final recommendation")).toBeTruthy();
-    fireEvent.click(evidence);
-    expect(within(dialog).getByText("Acoustic switch specification")).toBeTruthy();
-
-    const activity = within(dialog).getByText("Recorded steps");
-    expect(activity.closest("details")?.open).toBe(false);
-    fireEvent.click(activity);
-    expect(within(dialog).getByText("search_products")).toBeTruthy();
-    expect(within(dialog).getByText(/max_price_cents/)).toBeTruthy();
+    // Sources: every cited record, numbered as the prose cites it.
+    const sources = within(dialog).getByRole("region", { name: "Sources" });
+    expect(within(sources).getByText("Measured for shared-office use.", { exact: false })).toBeTruthy();
+    expect(within(dialog).getByText("Still unknown")).toBeTruthy();
     expect(screen.getByText("Ask Mosaic shortlist")).toBeTruthy();
 
-    fireEvent.click(stageButtons[1]);
-    expect(stageButtons[1].getAttribute("aria-expanded")).toBe("true");
+    // Builder view puts the recorded steps and ranks on the page.
+    expect(within(dialog).queryByRole("region", { name: "Builder view" })).toBeNull();
+    fireEvent.click(within(dialog).getByRole("switch", { name: "Builder view" }));
+    const builder = within(dialog).getByRole("region", { name: "Builder view" });
+    expect(within(builder).getAllByText("search_products").length).toBeGreaterThan(0);
+    expect(within(builder).getByText(/max_price_cents|query=/)).toBeTruthy();
+    expect(within(sources).getByText(/evidence 9001/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("switch", { name: "Builder view" }));
 
-    // Why this row is here, from the arm ranks and the reranker score. The row
-    // used to read "RRF #2 · Final #1", which names two internal ranks and
-    // answers nothing anybody asked. trigram.rank is null in this fixture, so
-    // close spellings must not be claimed.
-    expect(within(dialog).getByText("Best match")).toBeTruthy();
-    const signals = within(dialog).getAllByLabelText(
-      "Why this candidate was retrieved",
-    );
-    expect([...signals[0].querySelectorAll("span")].map((chip) => chip.textContent))
-      // The same three words the product card and the Playground use.
-      .toEqual(["Exact terms", "Meaning match", "Rerank score 0.80"]);
-
-    fireEvent.click(stageButtons[0]);
-    expect(stageButtons[0].getAttribute("aria-expanded")).toBe("true");
-    expect(within(dialog).getByText("Under $180")).toBeTruthy();
-    expect(within(dialog).getByText("In stock only")).toBeTruthy();
-
-    // The searches behind the shortlist, from AgentResponse.plan, which the
-    // panel used to fetch and never render.
-    expect(within(dialog).getByText("Searches behind this answer")).toBeTruthy();
-    expect(within(dialog.querySelector(".ask-mosaic-searches")!).getByText(agentResponse.plan[0].query)).toBeTruthy();
-    expect(within(dialog).getByText("Searches behind this answer").closest("details")?.open).toBe(false);
-
-    fireEvent.click(stageButtons[2]);
-    expect(stageButtons[2].getAttribute("aria-expanded")).toBe("true");
-    expect(within(dialog).getByText("Why this result ranks first").closest("details")?.open).toBe(false);
-
-    // Scoped to the candidate list: the answer now carries the same products as
-    // buyable picks, so the product name matches a button in two places.
-    const shortlist = dialog.querySelector<HTMLElement>(".ask-mosaic-shortlist");
-    const shortlistButton = within(shortlist!).getByRole("button", {
-      name: new RegExp(recommendations[0].model),
-    });
-    fireEvent.mouseEnter(shortlistButton);
+    // Pointing at a pick lights its card in Shop, and the other way round.
+    const top = within(dialog).getByLabelText(/Top pick/);
+    fireEvent.mouseEnter(top);
     expect(
       document.querySelector(".shop-product-card.assist-highlighted"),
     ).not.toBeNull();
-    fireEvent.mouseLeave(shortlistButton);
+    fireEvent.mouseLeave(top);
     expect(
       document.querySelector(".shop-product-card.assist-highlighted"),
     ).toBeNull();
@@ -1879,12 +1772,7 @@ describe("CatalogPage", () => {
     );
     expect(linkedCatalogCard).not.toBeNull();
     fireEvent.mouseEnter(linkedCatalogCard!);
-    expect(
-      within(shortlist!)
-        .getByRole("button", { name: new RegExp(recommendations[0].model) })
-        .closest("li")
-        ?.classList.contains("highlighted"),
-    ).toBe(true);
+    expect(top.hasAttribute("data-highlighted")).toBe(true);
     fireEvent.mouseLeave(linkedCatalogCard!);
 
     // The composer empties, so the next thing typed is a follow-up rather than
@@ -1968,15 +1856,13 @@ describe("CatalogPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Compare top two" }));
     await waitFor(() => expect(api.agentStream).toHaveBeenCalledTimes(2));
 
-    const timelines = within(dialog).getAllByLabelText("Retrieval activity");
-    const followupCards = timelines[1].querySelectorAll(".ask-mosaic-stage-summary");
-    expect(followupCards).toHaveLength(3);
-    expect(
-      [...timelines[1].querySelectorAll(".ask-mosaic-stage-label")].map(
-        (stage) => stage.textContent,
-      ),
-    ).toEqual(["Request", "Comparison", "Sources"]);
-    expect(within(timelines[1]).queryByText("Retrieval")).toBeNull();
+    await waitFor(() => expect(within(dialog).getAllByRole("button", { name: /How Mosaic answered/ })).toHaveLength(2));
+    const folds = within(dialog).getAllByRole("button", { name: /How Mosaic answered/ });
+    expect(folds[0].textContent).toContain("4 steps");
+    expect(folds[1].textContent).toContain("3 steps");
+    fireEvent.click(folds[1]);
+    expect(within(dialog).getByText(/Read the follow-up\./)).toBeTruthy();
+    expect(within(dialog).queryByText(/Searched the catalog\./)).toBeNull();
   });
 
   it("returns a new-candidate follow-up to the full retrieval path", async () => {
@@ -2013,11 +1899,9 @@ describe("CatalogPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Send request" }));
     await waitFor(() => expect(api.agentStream).toHaveBeenCalledTimes(2));
 
-    const timelines = within(dialog).getAllByLabelText("Retrieval activity");
-    const followupCards = timelines[1].querySelectorAll(".ask-mosaic-stage-summary");
-    expect(followupCards).toHaveLength(4);
-    expect(within(timelines[1]).getByText("Retrieval")).toBeTruthy();
-    expect(within(timelines[1]).getByText("Comparison")).toBeTruthy();
+    await waitFor(() => expect(within(dialog).getAllByRole("button", { name: /How Mosaic answered/ })).toHaveLength(2));
+    const folds = within(dialog).getAllByRole("button", { name: /How Mosaic answered/ });
+    expect(folds[1].textContent).toContain("4 steps");
     expect(invocation).toBe(2);
   });
 
@@ -2049,8 +1933,12 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
-    expect(await within(dialog).findByText("Choose the first product")).toBeTruthy();
-    expect(document.querySelector(".ask-mosaic-answer.streaming")).not.toBeNull();
+    // The newest characters are drawn one by one, so read the prose as a whole.
+    await waitFor(() =>
+      expect(dialog.querySelector(".ask-prose")?.textContent).toContain("Choose the first product"));
+    // Still being written: the prose is arriving but nothing is final yet.
+    expect(within(dialog).queryByText("Final recommendation")).toBeNull();
+    expect(within(dialog).queryByRole("region", { name: "Sources" })).toBeNull();
     // Nothing to follow up on until the answer it would follow up on exists.
     expect(
       within(dialog).queryByRole("button", { name: "Compare top two" }),
@@ -2058,7 +1946,7 @@ describe("CatalogPage", () => {
 
     await act(async () => release());
     await within(dialog).findByText("Final recommendation");
-    expect(document.querySelector(".ask-mosaic-answer.streaming")).toBeNull();
+    expect(await within(dialog).findByRole("region", { name: "Sources" })).toBeTruthy();
     expect(
       within(dialog).getByRole("button", { name: "Compare top two" }),
     ).toBeTruthy();
@@ -2096,7 +1984,7 @@ describe("CatalogPage", () => {
     expect(
       await within(dialog).findByText("Connection dropped before completion"),
     ).toBeTruthy();
-    expect(within(dialog).getByText("Needs attention")).toBeTruthy();
+    expect(within(dialog).getByText("Request interrupted")).toBeTruthy();
     expect(within(dialog).queryByText("Final recommendation")).toBeNull();
     expect(
       within(dialog).queryByRole("button", { name: "Compare top two" }),
@@ -2152,8 +2040,8 @@ describe("CatalogPage", () => {
 
     await waitFor(
       () => expect(
-        within(dialog).getByText("Product comparison"),
-      ).toBeTruthy(),
+        within(within(dialog).getByLabelText("Progress")).getByRole("status").textContent,
+      ).toContain("Comparing the picks"),
       { timeout: stageDwellMs * 3 + 2000 },
     );
     expect(thread.scrollTop).toBe(120);
@@ -2672,11 +2560,10 @@ describe("CatalogPage", () => {
 
     const reopened = screen.getByRole("complementary", { name: "Ask Mosaic" });
     expect(within(reopened).getByText("Final recommendation")).toBeTruthy();
+    expect(within(reopened).queryByLabelText("Progress")).toBeNull();
     expect(
-      [...within(reopened).getByLabelText("Retrieval activity")
-        .querySelectorAll(".ask-mosaic-stage-summary")]
-      .map((card) => card.getAttribute("aria-expanded")),
-    ).toEqual(["false", "false", "false", "true"]);
+      within(reopened).getByRole("button", { name: /How Mosaic answered/ }).getAttribute("aria-expanded"),
+    ).toBe("false");
   });
 
   it("closes only the top cart drawer when Ask Mosaic is still open", async () => {
@@ -2740,7 +2627,8 @@ describe("CatalogPage", () => {
           'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
         ),
       );
-      close.focus();
+      // Shift+Tab from the first control wraps to the last, whichever control leads.
+      focusable[0].focus();
       fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
       expect(document.activeElement).toBe(focusable.at(-1));
 

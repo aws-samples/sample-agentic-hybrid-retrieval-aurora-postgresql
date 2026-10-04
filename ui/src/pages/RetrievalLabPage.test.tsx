@@ -195,7 +195,7 @@ const RAIL_STAGES = ["Retrieve", "Rank", "Re-rank", "Reason", "Prove"];
 // import order reconstructs exactly what the previous single file held.
 const SURFACES_SHEETS = [
   "../surfaces.css",
-  "../surfaces-ask-mosaic.css",
+  "../agent-answer-parts.css",
   "../surfaces-labs-shell.css",
   "../surfaces-hnsw.css",
   "../surfaces-playground.css",
