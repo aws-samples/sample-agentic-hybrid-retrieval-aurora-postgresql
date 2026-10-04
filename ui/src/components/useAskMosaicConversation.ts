@@ -3,6 +3,7 @@ import { api } from "../api";
 import { sourceFilters, useCatalogSource } from "../catalogSource";
 import { workspaceRequests } from "../labMissions";
 import type { SearchFilters } from "../types";
+import { isSetupCardMessage } from "./ask-mosaic/setupMessage";
 import type { AskMosaicTurn } from "./ask-mosaic/types";
 
 function lastAnswered(turns: AskMosaicTurn[]): AskMosaicTurn | null {
@@ -171,11 +172,16 @@ export function useAskMosaicConversation(filters: SearchFilters, useMemory = fal
         patch({ completed: false, cancelled: true, stage: null, stageDetail: "" });
         return;
       }
+      const message = cause instanceof Error ? cause.message : "Ask Mosaic is unavailable";
+      const code = failureCode(cause);
+      const needsSetup = code === "agent_setup" && isSetupCardMessage(message);
       patch({
         completed: false,
-        stageDetail: "This step did not finish. Review the error below and retry.",
-        error: cause instanceof Error ? cause.message : "Ask Mosaic is unavailable",
-        errorCode: failureCode(cause),
+        stageDetail: needsSetup
+          ? "This step needs your agent set up first. Follow the next step below."
+          : "This step did not finish. Review the error below and retry.",
+        error: message,
+        errorCode: code,
       });
     } finally {
       if (version === requestVersion.current) patch({ loading: false });

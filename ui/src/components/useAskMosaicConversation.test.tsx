@@ -33,6 +33,30 @@ function pendingStream(onEmit?: (event: (event: AgentStreamEvent) => void) => vo
   );
 }
 
+function failWith(message: string, code: string) {
+  vi.spyOn(api, "agentStream").mockRejectedValue(Object.assign(new Error(message), { code }));
+}
+
+it("points a setup failure at the setup step, not at a retry", async () => {
+  failWith("Your agent is not built yet. Open labs/lab3_reason/agent.py in Code Editor.", "agent_setup");
+  const { result } = renderHook(() => useAskMosaicConversation({}));
+
+  await act(() => result.current.run("Complete my room"));
+
+  const [turn] = result.current.turns;
+  expect(turn.stageDetail).toMatch(/set up/i);
+  expect(turn.stageDetail).not.toMatch(/retry/i);
+});
+
+it("keeps the retry wording for an outage that shares the agent_setup code", async () => {
+  failWith("Gateway could not complete the tool request. Next: check the deployment.", "agent_setup");
+  const { result } = renderHook(() => useAskMosaicConversation({}));
+
+  await act(() => result.current.run("Complete my room"));
+
+  expect(result.current.turns[0].stageDetail).toMatch(/Review the error below and retry/);
+});
+
 it("starts fresh retrieval after a decline without losing the visible conversation", async () => {
   const stream = vi.spyOn(api, "agentStream").mockImplementation(async (question, _filters, emit) => {
     emit({ type: "complete", response: {

@@ -3,7 +3,8 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { DEPLOY_AGENT, VERIFY_AGENT } from "../../participantCommands";
-import { AgentSetupCard, isSetupCardMessage, splitSetupCommand } from "./AgentSetupCard";
+import { AgentSetupCard } from "./AgentSetupCard";
+import { isSetupCardMessage, splitSetupCommand } from "./setupMessage";
 
 afterEach(cleanup);
 

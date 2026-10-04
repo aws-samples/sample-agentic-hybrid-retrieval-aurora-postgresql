@@ -35,7 +35,8 @@ import {
   Ranking,
   Shortlist,
 } from "./ask-mosaic/EvidencePanels";
-import { AgentSetupCard, isSetupCardMessage } from "./ask-mosaic/AgentSetupCard";
+import { AgentSetupCard } from "./ask-mosaic/AgentSetupCard";
+import { isSetupCardMessage } from "./ask-mosaic/setupMessage";
 import { AnswerSources, BestPick, PickComparison } from "./ask-mosaic/AnswerComparison";
 import { activitySummary } from "./ask-mosaic/comparison";
 import { FollowUps } from "./ask-mosaic/ResultCards";
