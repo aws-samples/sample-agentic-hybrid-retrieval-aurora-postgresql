@@ -89,7 +89,7 @@ Ask Mosaic **Complete my room** starter is available before and after the agent 
 built and runs on its own filters; it shows "Shop filters were cleared for this lab
 request." when it replaces filters a participant had set. A follow-up question is
 not graded against the lab. The Prove page's **Maintainer measurements** are
-collapsed saved results for facilitators and do not grade a participant.
+collapsed saved results for facilitators and do not grade a participant. Ask Mosaic's **Builder view** switch shows a run's recorded steps and per-search ranks, from the saved searches, when a participant needs to inspect an answer.
 Inspect separate searches for the headphones, monitor and chair; all three in
 the comparison and final shortlist; their supporting citations; and a ranking
 explanation. Open the chair's listing and review: adjustable features and one

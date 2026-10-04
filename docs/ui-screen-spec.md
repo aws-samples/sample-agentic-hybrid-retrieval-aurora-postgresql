@@ -46,8 +46,10 @@ Components:
 - an Ask Mosaic sidecar that is the only agent composer, opened from the Shop
   header, with starter questions drawn from the eval set;
 - stable product cards with complete 3:2 premium catalog photography;
-- an activity trail that stays open by default while each stage unfolds; completed
-  stages retain summaries from the actual plan, shortlist, comparisons and citations;
+- a run status line with a segment per phase and a finding for each finished one,
+  counted from the actual plan, searches, comparisons and citations; a collapsed
+  "How Mosaic answered" fold once answered, and a Builder view switch that adds
+  the recorded steps and how each search ranked its products;
 - agent shortlist cards labelled by the arms that retrieved them, the searches
   and constraints behind the shortlist, evidence citations, rank explanation,
   and tool receipts;

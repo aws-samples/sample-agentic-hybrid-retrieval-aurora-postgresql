@@ -17,8 +17,9 @@ files by surface, so no single file holds an unrelated mix of concerns. Import
 order in `ui/src/main.tsx` is the cascade order: `styles.css`,
 `ask-mosaic-panel.css`, `catalog-cards.css`, `shared-states.css`,
 `shop-storefront.css`, `labs-agentic.css`, `commerce.css`, then `surfaces.css`,
-`surfaces-ask-mosaic.css`, `surfaces-labs-shell.css`, `surfaces-hnsw.css`,
-`surfaces-playground.css`, then `source-products.css` and, last, `world.css`.
+`agent-answer-parts.css`, `surfaces-labs-shell.css`, `surfaces-hnsw.css`,
+`surfaces-playground.css`, then `source-products.css`, `world.css` and, last,
+`ask-mosaic.css`, which owns the Ask Mosaic sidecar.
 A new rule belongs in the file already named for its surface; splitting further
 only when a file's concerns are genuinely independent, never to hit a line
 count.
@@ -451,19 +452,19 @@ it keeps the product grid.
   `--line-strong` border, 16px corners, the photo on the plate, a two-line 16px
   name, and a position pill in the photo's corner.
 - `ProductAnswer` places each returned recommendation once, after the first
-  paragraph naming it; Hybrid retrieval Reason, guided Reason, Ask Mosaic and
-  saved memory turns share this renderer. Ask Mosaic passes
-  `placeCards={false}` because its comparison table already shows the picks.
-- Ask Mosaic (`ask-mosaic-answer.css`, `components/ask-mosaic/`) shows the
-  question as a `--paper-warm` bubble and the run as a visible activity trail.
-  The active step expands; completed steps keep concrete summaries and can
-  reopen their evidence. The answer is unboxed: the
-  best pick on a 196px `--plate` with its retrieval path (shown again only when
-  the pick changes), then a comparison table whose cells carry a source icon
-  (`--green` listing, `--ink-soft` title only, `--gold` review, `--danger` short
-  of a stated requirement) and citation numbers, then the `ProductAnswer` prose
-  without inline cards, then a `--paper-warm` sources and “Still unknown” block.
-  Ask is a desktop sidecar and a fixed overlay at 1180px and below.
+  paragraph naming it; Hybrid retrieval Reason, guided Reason and saved memory
+  turns share this renderer. Ask Mosaic draws its own answer (`StreamedAnswer`)
+  because it shows the picks as cards and rows beside the prose.
+- Ask Mosaic (`ask-mosaic.css`, `components/ask-mosaic/`) is a floating sheet on
+  desktop (22px corners, `--shadow`, 12px from the edges) and a full-width modal
+  at 1180px and below, as before. The header is a sparkle mark in an `--ink`
+  circle, "Ask Mosaic" with a one-line subtitle, the Builder view switch, clear
+  chat (once there is a conversation) and close as 32px circular icon buttons
+  with names. Starters are cards: a line icon in a `--paper-warm` circle, the
+  label, the manifest notice in full (it is the card's description, not part of
+  its name) and a chevron. The question is a `--paper-warm` bubble, shown in five
+  lines with "Show all" when it is long.
+  See "Ask Mosaic: the run and its answer" below.
 - The footer is a `--paper-warm` band with `--footer-line` dividers,
   `--footer-muted` text and `--footer-ink` emphasis; its focus ring is
   `--footer-ink`.
@@ -566,10 +567,10 @@ specifications. Listing photos are shown uncropped and contained on the plate.
 `ui/src/styles.test.ts` reads the sheets in its `SHEETS` list: `styles.css`,
 `ask-mosaic-panel.css`, `catalog-cards.css`, `shared-states.css`,
 `shop-storefront.css`, `labs-agentic.css`, `commerce.css`, `surfaces.css`,
-`surfaces-ask-mosaic.css`, `surfaces-labs-shell.css`, `surfaces-hnsw.css`,
+`agent-answer-parts.css`, `surfaces-labs-shell.css`, `surfaces-hnsw.css`,
 `surfaces-playground.css`, `shop-editorial.css`, `workspace-walkthrough.css`,
 `playground.css`, `inspector.css`,
-`playground-page.css`, `world.css` and `ask-mosaic-answer.css`. Over those
+`playground-page.css`, `world.css` and `ask-mosaic.css`. Over those
 sheets it fails when:
 
 - a referenced custom property is defined nowhere (except `--labs-rail-height`,
@@ -615,14 +616,62 @@ Memory and Discover were given against the maroon, gold and ivory palette.
 They do not cover the light and dark palette, the world layer, the itemized
 receipt or the product page described here.
 
-### Chat activity and optional inspection pages
+### Ask Mosaic: the run and its answer
 
-Ask Mosaic's activity trail is open by default. One active stage unfolds while
-completed stages retain compact, factual summaries from the response. Regular
-15px answer text, 14px medium-weight stage labels and sentence-case statuses
-keep the trail part of the conversation. Only the active or expanded stage gets
-a quiet surface; evidence and raw tool activity remain individually expandable.
-A stopped or failed request preserves its actual progress.
+**While it runs**, one status line carries the phase in progress ("Reading your
+request", "Searching the catalog in Aurora", "Comparing the picks", "Checking the
+sources"): a pulsing `--action` dot, a quiet text shimmer and the seconds the
+phase has been working. A bar of one segment per phase follows (four on a fresh
+search, three on a follow-up that reuses the shortlist), `--green` when done and
+`--action` for the current one. Each finished phase is listed with a check and
+one finding counted from the stream's own rows (searches ran and products kept,
+products compared, citations split into listings and reviews); nothing is
+written in advance, and a phase that did nothing says so. A stopped or failed
+request keeps the progress it made and says "Stopped before it finished" or
+"Request interrupted".
+
+**When it has answered**, the default view (Builder view off) is a collapsed fold
+("How Mosaic answered", with steps, searches, sources and seconds; opening it
+lists each phase's finding), the first recommendation as a top-pick card (photo,
+name, a neutral "Top pick" pill that claims only its position, up to two quoted
+facts with citation pills, and a stated requirement judged against the listing),
+then the answer prose, then the other picks as compact rows, a hairline Sources
+list (number pill, product, Listing or Review pill, title, quote), "Still
+unknown", and up to three follow-ups as clear pills.
+
+**The streaming reveal.** Characters arrive faint and darken over their first 24
+characters of age. Age is counted across the whole answer, so the trail crosses
+paragraphs and citation chips, and it only grows, so nothing ever gets lighter.
+The clock runs 24 characters past the end of the text once the stream closes so
+the last words finish darkening. Under `prefers-reduced-motion`, and for a turn
+restored already answered, the text shows at once with nothing faint.
+
+**Builder view** is a switch in the header, off by default, remembered per
+viewer in `localStorage` (and working for the visit when storage is refused). On,
+every answer swaps the fold for the recorded run: fact pills (short run id,
+session id when present, outcome, total time, memory on or off), a dashed-pill
+row "Not recorded on this run" for what `AgentResponse` has no field for (model
+id, tokens, Gateway target, claim verdicts), and a timeline of phases whose step
+rows come from `plan` and `trace` (tool name in mono, clear pills with stage dots
+for the tool, who requested it and how it ended, result count, latency, saved
+search id, arguments). Under the search phase, "How it ranked" has a tab per
+search. Its rows come from `/api/retrieval/events/{id}`, fetched by each step's
+`retrieval_run_id` only once Builder view is on: final position, combined
+position, each retrieval method's position, the recorded rerank score, and a bar
+splitting the combined score by method using the contributions the database
+wrote (never recomputed, so no constant `k` lives in `ui/src`). `k` and the
+reranker are printed from the saved search. If the saved search cannot be read,
+the recommended products' own signals stand in and the block says "Ranks for the
+recommended products". Picks and sources also print their search path and
+evidence id, revision and type in mono.
+
+Controls are clear 999px pills with a `--maroon-line` hairline; `--action` marks
+the live status, a selected pill, the switch when on and the send disc. Stage
+colours appear only as dots. Errors in the `agent_setup` family render as the
+setup card only for the two build-it messages; every other message renders as an
+alert with its full text.
+
+### Optional inspection pages
 
 Memory and Scale use the same centered introduction, display scale and rounded
 neutral surfaces as Hybrid retrieval. Tables keep their own horizontal scroll
