@@ -27,7 +27,7 @@ it('distinguishes adjustable arms from an adjustable seat in the chair example',
 
 it.each(['esci-headphones', 'esci-chairs', 'esci-monitors'])('offers a real search for %s without substituting the reviewed cards as results', id => {
   render(<ReferenceComparison ids={[id]} />);
-  const href = screen.getByRole('link', { name: 'Try this search →' }).getAttribute('href')!;
+  const href = screen.getByRole('link', { name: 'Try this search' }).getAttribute('href')!;
   expect(href.startsWith('/catalog?q=')).toBe(true);
   expect(href).toContain('&view=results');
   expect(href).not.toContain('event=');

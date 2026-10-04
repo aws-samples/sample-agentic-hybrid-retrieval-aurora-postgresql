@@ -8,7 +8,7 @@ export function ReferenceComparison({ ids }: { ids: string[] }) {
     const wands = example.dataset === 'wands';
     return <section className="reviewed-reference" key={example.id} aria-label={`${wands ? 'WANDS' : 'ESCI'} comparison`}>
       <div className="reviewed-reference-heading"><div><span>{wands ? 'Wayfair WANDS' : 'Amazon ESCI'} · Source comparison</span><h2>“{example.query}”</h2></div>
-        {!wands && <Link className="reviewed-back" href={`/catalog?q=${encodeURIComponent(example.query)}&view=results`}>Try this search →</Link>}
+        {!wands && <Link className="reviewed-back" href={`/catalog?q=${encodeURIComponent(example.query)}&view=results`}>Try this search</Link>}
       </div>
       <p>{example.purpose}</p>
       {wands && <p className="reviewed-reference-note">These are separate Wayfair records. The release does not include product photos or original listing links.</p>}

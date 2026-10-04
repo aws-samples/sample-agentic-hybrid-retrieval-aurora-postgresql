@@ -1,5 +1,5 @@
 import { ProductSourceNote } from "./ProductSourceNote";
-import { ArrowRight, Check, ShoppingBag, Star, X } from "lucide-react";
+import { Check, ShoppingBag, Star, X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
@@ -314,7 +314,7 @@ export function ProductDrawer({
                   href={`/products/${productId}`}
                   onClick={onClose}
                 >
-                  Full product page <ArrowRight size={15} />
+                  Full product page
                 </Link>
               ) : null}
             </footer>

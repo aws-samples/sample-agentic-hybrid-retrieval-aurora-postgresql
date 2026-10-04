@@ -1,4 +1,4 @@
-import { ArrowUpRight, Check, Copy, SearchCheck, SearchX } from "lucide-react";
+import { Check, Copy, SearchCheck, SearchX } from "lucide-react";
 import { forwardRef, useEffect, useState } from "react";
 import { Link } from "wouter";
 import { api } from "../api";
@@ -176,7 +176,6 @@ export const LabFaultCard = forwardRef<HTMLElement, {
 
         <Link className="shop-fault-inspect" href={playgroundHref}>
           {fixed ? "See how this was retrieved in the Playground" : "Inspect this run in the Playground"}
-          <ArrowUpRight size={14} aria-hidden="true" />
         </Link>
       </div>
     </section>

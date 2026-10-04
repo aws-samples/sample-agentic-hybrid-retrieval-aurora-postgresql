@@ -1,4 +1,4 @@
-import { ArrowRight, ChevronDown, X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { alexBrief } from "../alexBrief";
 
@@ -71,7 +71,7 @@ export function AlexProfile({ onOpen }: { onOpen: () => void }) {
             </div>
           </div>
           <p className="alex-profile-bio">Your workspace: headphones, a chair and a monitor for your home office.</p>
-          <a className="alex-profile-link" href="/catalog#alex-profile" onClick={() => setOpen(false)}>View your workspace brief <ArrowRight size={16} aria-hidden="true" /></a>
+          <a className="alex-profile-link" href="/catalog#alex-profile" onClick={() => setOpen(false)}>View your workspace brief</a>
         </section>
       )}
     </div>

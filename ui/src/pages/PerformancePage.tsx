@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   CheckCircle2,
   CircleAlert,
   Database,
@@ -657,7 +656,7 @@ export function PerformancePage() {
 
         <nav className="hnsw-next" aria-label="Other Playground sections">
           <Link href="/mosaic-labs/hnsw">
-            <ArrowLeft aria-hidden="true" size={16} /> Back to Scale & HNSW
+            Back to Scale & HNSW
           </Link>
         </nav>
       </>
@@ -671,7 +670,7 @@ export function PerformancePage() {
       <MosaicLabsMasthead
         deck="Explore the index behind Alex’s search. Compare storage, test recall against exact neighbors, and see how filters change the work."
         title={<>Look closer.<br /><span className="inspector-title-emphasis">Measure the tradeoffs.</span></>}
-        action={<Link className="instrument-back" href="/mosaic-labs/hnsw"><ArrowLeft size={16} aria-hidden="true" /> Back to Scale & HNSW</Link>}
+        action={<Link className="instrument-back" href="/mosaic-labs/hnsw">Back to Scale & HNSW</Link>}
       />
       </div>
       <div className="instrument-evidence" aria-label="Measurement sources">
