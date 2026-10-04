@@ -16,7 +16,7 @@
 #   - GET /ping and POST /invocations, served by deploy/agentcore/app.py. That
 #     module mounts service.main:app whole and adds those two routes around it,
 #     so the workshop application keeps its own surface unchanged. See
-#     docs/agentcore-runtime.md, "How the contract routes are served".
+#     docs/agentcore-runtime.md, "Runtime boundary".
 
 # The digest pins the Amazon Linux 2023 minimal image and its package repository.
 FROM --platform=linux/arm64 public.ecr.aws/amazonlinux/amazonlinux@sha256:68b1e82cd69ade271c092bc1959fa6fc820945d0c8dbb7a88cf6c1824a184688 AS base

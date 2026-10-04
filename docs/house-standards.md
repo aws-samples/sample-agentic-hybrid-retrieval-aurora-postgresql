@@ -144,8 +144,8 @@ points at Aurora.
 The restore path is `make db-bootstrap-schema` into a **fresh** Aurora cluster,
 which installs shared schemas without synthetic products or reviews, followed by
 the verified real-catalog restore. That is what Workshop Studio provisions and
-what `ARTIFACTS.md` records. `make db-upgrade-snapshot` is an operator-only
-compatibility path for historical snapshot restores, not the primary route.
+what `ARTIFACTS.md` records. The snapshot-upgrade path is retired; its tooling is
+available only in Git history.
 
 **Why.** Two local databases (`catalog_workshop`, `catalog_codex_20260807`) held
 the only loaded state of the pre-rewrite `catalog.*` tree. They were dropped in
