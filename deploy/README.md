@@ -114,7 +114,7 @@ shasum -a 256 deploy/mosaic-bootstrap.sh
 ```
 
 Code Editor opens `Mosaic.code-workspace`, whose numbered roots are the existing
-lab directories plus **Explore Mosaic source** at the repository root. Both the
+lab directories plus **04 — Explore Mosaic source** at the repository root. Both the
 server's `--default-workspace` and the workshop's `CodeEditorURL` must name this
 file; an explicit `?folder=` URL would override the default. Older folder links
 still work and can open the workspace with File → Open Workspace from File.

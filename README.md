@@ -47,8 +47,9 @@ The participant workspace, [Mosaic.code-workspace](Mosaic.code-workspace),
 groups the existing files as **01 — Retrieve**, **02 — Rank & Re-rank**, and **03 — Reason**.
 Code Editor starts with the **Dark Modern** theme, independent of the device's
 light or dark appearance. Participants can change the theme in Code Editor.
-**Explore Mosaic source** keeps the complete repository accessible; prepared
-terminals run commands from its root. Each lab README follows **Broken →
+**04 — Explore Mosaic source** opens the application source; prepared
+terminals run commands from its root. Maintainer-only files (tests, CI, release
+records, lockfiles) are hidden from the Explorer but stay in the checkout. Each lab README follows **Broken →
 Diagnose → Fix → Prove**, with a collapsed recovery section linking the
 reference answer in `solution/`. Solution folders are hidden from the default
 Explorer view. When a lab starts, its

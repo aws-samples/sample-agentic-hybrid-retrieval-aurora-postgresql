@@ -24,7 +24,7 @@ def test_workspace_roots_are_the_production_lab_directories():
         "01 — Retrieve",
         "02 — Rank & Re-rank",
         "03 — Reason",
-        "Explore Mosaic source",
+        "04 — Explore Mosaic source",
     ]
     for folder, exercise in zip(folders[:3], LAB_FILES.values(), strict=True):
         assert (ROOT / folder["path"] / exercise.name).samefile(ROOT / exercise)
@@ -67,7 +67,7 @@ def test_bootstrap_opens_the_workspace_and_one_root_terminal(tmp_path):
     expected = json.loads(WORKSPACE.read_text())["settings"]
     assert (
         expected["terminal.integrated.cwd"]
-        == "${workspaceFolder:Explore Mosaic source}"
+        == "${workspaceFolder:04 — Explore Mosaic source}"
     )
     expected["terminal.integrated.cwd"] = "${workspaceFolder}"
     assert generated == expected

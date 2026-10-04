@@ -2,7 +2,7 @@
 
 Open [Mosaic.code-workspace](../Mosaic.code-workspace) for the numbered Explorer
 groups **01 — Retrieve**, **02 — Rank & Re-rank**, and **03 — Reason**. They point to the
-existing folders below. **Explore Mosaic source** contains the repository root,
+existing folders below. **04 — Explore Mosaic source** contains the repository root,
 where every prepared terminal starts.
 
 Each lab has its own folder. The folder holds the file you edit, a README with

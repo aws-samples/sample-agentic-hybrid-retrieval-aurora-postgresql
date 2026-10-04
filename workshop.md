@@ -282,9 +282,9 @@ Welcome Alex profile or Shop's brief already implements.
 ## What participants do
 
 Code Editor opens `Mosaic.code-workspace`: **01 — Retrieve**, **02 — Rank & Re-rank** and
-**03 — Reason** point to the existing exercise files. **Explore Mosaic source**
-keeps the full application inspectable, and terminals start at the repository
-root. Each lab README follows Broken → Diagnose → Fix → Prove; reference
+**03 — Reason** point to the existing exercise files. **04 — Explore Mosaic source**
+keeps the application inspectable, with maintainer-only files hidden, and
+terminals start at the repository root. Each lab README follows Broken → Diagnose → Fix → Prove; reference
 solutions are linked from its collapsed recovery section. Lab 3’s stage remains
 Reason, with building and deploying the agent as its work.
 

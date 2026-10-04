@@ -13,7 +13,7 @@
       "path": "labs/lab3_reason"
     },
     {
-      "name": "Explore Mosaic source",
+      "name": "04 — Explore Mosaic source",
       "path": "."
     }
   ],
@@ -42,14 +42,29 @@
       ".local/strands-coding-eval": true,
       ".local/rehearsal": true,
       ".local/vocabulary-cache": true,
-      "data/raw": true,
       "docs/intentional-gaps.md": true,
       "docs/instructor-guide.md": true,
       "docs/lab-golden-queries.md": true,
       "**/solution": true,
       "__init__.py": true,
-      ".local/worktrees": true
+      ".local/worktrees": true,
+      ".github": true,
+      ".dockerignore": true,
+      ".gitignore": true,
+      ".python-version": true,
+      "tests": true,
+      "mcp-server": true,
+      "ui/design-references": true,
+      "docs/evidence": true,
+      "READINESS.md": true,
+      "ARTIFACTS.md": true,
+      "VOICE.md": true,
+      "CONTRIBUTING.md": true,
+      "CODE_OF_CONDUCT.md": true,
+      "Makefile": true,
+      "uv.lock": true,
+      "ui/package-lock.json": true
     },
-    "terminal.integrated.cwd": "${workspaceFolder:Explore Mosaic source}"
+    "terminal.integrated.cwd": "${workspaceFolder:04 — Explore Mosaic source}"
   }
 }
