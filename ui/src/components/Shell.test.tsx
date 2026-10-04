@@ -11,6 +11,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
+import { ASK_MOSAIC_EVENT } from "../askMosaicEntry";
 import { CommerceProvider } from "../commerce";
 import type { HealthResponse } from "../types";
 import { Shell } from "./Shell";
@@ -401,5 +402,54 @@ describe("Shell navigation", () => {
     expect(main?.hasAttribute("inert")).toBe(false);
     expect(header?.hasAttribute("inert")).toBe(false);
     expect(footer?.hasAttribute("inert")).toBe(false);
+  });
+
+  describe("Ask Mosaic entry point", () => {
+    function renderShell() {
+      return render(
+        <CommerceProvider>
+          <Shell>
+            <div>Shop content</div>
+          </Shell>
+        </CommerceProvider>,
+      );
+    }
+
+    it("is one pill in the header, outside the navigation", () => {
+      renderShell();
+
+      const pill = within(document.querySelector(".site-header") as HTMLElement)
+        .getAllByRole("button", { name: "Ask Mosaic" });
+      expect(pill).toHaveLength(1);
+      expect(pill[0].className).toContain("site-ask-mosaic");
+      expect(
+        within(screen.getByRole("navigation", { name: "Storefront" })).queryByRole("button", { name: "Ask Mosaic" }),
+      ).toBeNull();
+    });
+
+    it("asks Shop to open the panel when Shop is on screen", () => {
+      const heard = vi.fn();
+      window.addEventListener(ASK_MOSAIC_EVENT, heard);
+      renderShell();
+
+      fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+
+      expect(heard).toHaveBeenCalledTimes(1);
+      expect(window.location.pathname).toBe("/catalog");
+      window.removeEventListener(ASK_MOSAIC_EVENT, heard);
+    });
+
+    it("takes any other page to Shop's Ask Mosaic deep link", () => {
+      window.history.replaceState({}, "", "/products/7");
+      const heard = vi.fn();
+      window.addEventListener(ASK_MOSAIC_EVENT, heard);
+      renderShell();
+
+      fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+
+      expect(heard).not.toHaveBeenCalled();
+      expect(window.location.pathname + window.location.search).toBe("/catalog?ask=1");
+      window.removeEventListener(ASK_MOSAIC_EVENT, heard);
+    });
   });
 });

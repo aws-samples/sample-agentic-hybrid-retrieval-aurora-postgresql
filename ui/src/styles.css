@@ -582,6 +582,34 @@ button:disabled {
   background: color-mix(in srgb, var(--paper-strong) 60%, transparent);
 }
 
+/* The one way into Ask Mosaic from any page: a 36px cobalt pill in the header. */
+.site-ask-mosaic {
+  display: inline-flex;
+  height: 36px;
+  align-items: center;
+  gap: 8px;
+  margin-inline-end: 6px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--action);
+  color: var(--action-ink);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--motion-fast) var(--ease-out);
+}
+
+.site-ask-mosaic:hover {
+  background: var(--action-hover);
+}
+
+.site-ask-mosaic:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 .site-bag {
   position: relative;
 }
@@ -680,6 +708,26 @@ button:disabled {
   .site-shopper img {
     width: 40px;
     height: 40px;
+  }
+
+  .site-actions {
+    gap: 4px;
+  }
+
+  .site-ask-mosaic {
+    width: 36px;
+    justify-content: center;
+    margin-inline-end: 0;
+    padding: 0;
+  }
+
+  .site-ask-mosaic span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 

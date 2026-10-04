@@ -4,7 +4,7 @@ import { pipelineRequests } from "../labMissions";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mosaicLabManifest } from "../labMissions";
-import { AskMosaicInvite, ShopLanding } from "./ShopLanding";
+import { ShopLanding } from "./ShopLanding";
 
 function renderLanding(onAsk = vi.fn()) {
   return render(<ShopLanding real={false} returning={false} onAsk={onAsk} />);
@@ -109,13 +109,12 @@ describe("ShopLanding", () => {
   });
 });
 
-describe("AskMosaicInvite", () => {
+describe("Ask Mosaic invitation", () => {
   afterEach(cleanup);
 
   it("resumes an answered conversation rather than starting another", () => {
-    render(<AskMosaicInvite compact returning onOpen={vi.fn()} />);
+    render(<ShopLanding real returning onAsk={vi.fn()} />);
     const invite = screen.getByRole("complementary", { name: "What Ask Mosaic does" });
-    expect(invite.className).toBe("shop-console-note is-compact");
     expect(within(invite).getByRole("heading").textContent).toBe("Keep comparing your options.");
     expect(within(invite).getByRole("button", { name: "Ask Mosaic" }).textContent).toBe("Return to Ask Mosaic");
   });

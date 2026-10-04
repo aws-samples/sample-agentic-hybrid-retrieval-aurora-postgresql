@@ -790,51 +790,6 @@
   }
 }
 
-@media (max-width: 900px) {
-  /* Docked across the bottom rather than floating over the results: a pill at
-     the corner covered the results line and card prices at 500px. */
-  .shop-assist-rail {
-    top: auto;
-    right: 16px;
-    bottom: 12px;
-    left: 16px;
-    width: auto;
-    justify-content: center;
-    min-height: 48px;
-    grid-auto-flow: column;
-    grid-template-columns: auto auto auto;
-    padding: 0 14px;
-    border-right: 1px solid color-mix(in srgb, var(--paper-strong) 16%, transparent);
-    border-radius: 8px;
-    transform: none;
-  }
-
-  .shop-assist-rail:hover,
-  .shop-assist-rail:focus-visible {
-    width: auto;
-  }
-
-  .shop-assist-rail span {
-    writing-mode: horizontal-tb;
-    transform: none;
-  }
-
-  .shop-main {
-    padding-bottom: 88px;
-  }
-
-  /* The footer sits outside .shop-main; without its own reserve the docked
-     rail covered the disclosure line at the very end of the page. */
-  .site-footer {
-    padding-bottom: 76px;
-  }
-
-  /* Keyboard focus that lands in the last row scrolls clear of the docked rail. */
-  html {
-    scroll-padding-bottom: 96px;
-  }
-}
-
 @media (max-width: 359px) {
   .shop-product-grid,
   .shop-canvas.assist-open .shop-product-grid {

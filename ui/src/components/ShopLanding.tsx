@@ -7,19 +7,18 @@ import { ShopEditorialBands } from "./ShopEditorialBands";
 import { WorkspaceWalkthrough } from "./WorkspaceWalkthrough";
 
 /**
- * The invitation to Ask Mosaic. Shop renders it once: as the landing's closing
- * band, or as a compact note beside the search once there are results.
+ * The invitation to Ask Mosaic, as the landing's closing band. The header's pill
+ * is the way in once there are results.
  */
-export function AskMosaicInvite({ compact, returning, onOpen }: {
-  compact: boolean;
+function AskMosaicInvite({ returning, onOpen }: {
   /** An answered conversation exists, so the action resumes rather than starts. */
   returning: boolean;
   onOpen: () => void;
 }) {
   return (
     <aside
-      className={compact ? "shop-console-note is-compact" : "shop-band shop-ask-band"}
-      data-tone={compact ? undefined : "grey"}
+      className="shop-band shop-ask-band"
+      data-tone="grey"
       aria-label="What Ask Mosaic does"
     >
       <div className="shop-console-note-intro">
@@ -113,7 +112,7 @@ export function ShopLanding({ real, returning, onAsk }: {
         </div>
       </div>
       <ShopEditorialBands real={real} />
-      <AskMosaicInvite compact={false} returning={returning} onOpen={onAsk} />
+      <AskMosaicInvite returning={returning} onOpen={onAsk} />
       <p className="shop-image-note">
         Alex is a fictional shopper. Workspace imagery is AI-generated and illustrative.
       </p>

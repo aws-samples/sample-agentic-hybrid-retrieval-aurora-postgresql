@@ -13,6 +13,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type AgentStreamEvent } from "../api";
+import { ASK_MOSAIC_EVENT, requestAskMosaic } from "../askMosaicEntry";
 import { CommerceProvider } from "../commerce";
 import { CommerceDrawer } from "../components/CommerceDrawer";
 import { useCatalogSource } from "../catalogSource";
@@ -540,7 +541,7 @@ describe("CatalogPage", () => {
 
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
       { target: { value: agentResponse.question } },
@@ -597,7 +598,7 @@ describe("CatalogPage", () => {
     try {
       renderPage();
       await screen.findByText(catalog.products[0].model);
-      fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+      openAskMosaic();
       fireEvent.change(
         screen.getByRole("textbox", { name: "Ask Mosaic request" }),
         { target: { value: agentResponse.question } },
@@ -655,7 +656,7 @@ describe("CatalogPage", () => {
     // entry state, or clearing a thread means losing the thing you were reading.
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     // Nothing to discard yet.
     expect(screen.queryByRole("button", { name: "Clear chat" })).toBeNull();
 
@@ -695,7 +696,7 @@ describe("CatalogPage", () => {
 
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
       { target: { value: agentResponse.question } },
@@ -719,7 +720,7 @@ describe("CatalogPage", () => {
     // cart the rest of the store uses, not a decorative one.
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
       { target: { value: agentResponse.question } },
@@ -743,7 +744,7 @@ describe("CatalogPage", () => {
     // slide-over on the same page.
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
       { target: { value: agentResponse.question } },
@@ -785,6 +786,11 @@ describe("CatalogPage", () => {
         <CatalogPage />
       </CommerceProvider>,
     );
+  }
+
+  /** The header's Ask Mosaic pill, which is not part of this page, asks by event. */
+  function openAskMosaic() {
+    act(() => requestAskMosaic());
   }
 
   it("says which words the catalog does not carry, on the surface that searched", async () => {
@@ -1180,7 +1186,7 @@ describe("CatalogPage", () => {
     });
   });
 
-  it("scrolls a story handoff to results and offers Ask Mosaic beside them", async () => {
+  it("scrolls a story handoff to results and leaves Ask Mosaic to the header's pill", async () => {
     const scrollIntoView = vi.fn();
     Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
       configurable: true,
@@ -1200,20 +1206,14 @@ describe("CatalogPage", () => {
         block: "start",
       });
     });
-    const prompt = screen.getByRole("button", {
-      name: "Try Ask Mosaic with these results",
-    });
-    fireEvent.click(prompt);
+    // One entry point: no edge tab, no docked bar and no second invitation here.
+    expect(screen.queryByRole("button", { name: /Try Ask Mosaic/ })).toBeNull();
+    expect(screen.queryByRole("complementary", { name: "What Ask Mosaic does" })).toBeNull();
+    expect(screen.queryByRole("complementary", { name: "Ask Mosaic" })).toBeNull();
 
-    expect(screen.getByRole("complementary", { name: "Ask Mosaic" })).toBeTruthy();
-    // The rail glides off rather than unmounting flat, so its removal is the
-    // end of an exit animation, not the same frame as the click.
-    await waitFor(() =>
-      expect(
-        screen.queryByRole("button", {
-          name: "Try Ask Mosaic with these results",
-        }),
-      ).toBeNull());
+    window.dispatchEvent(new Event(ASK_MOSAIC_EVENT));
+
+    expect(await screen.findByRole("complementary", { name: "Ask Mosaic" })).toBeTruthy();
   });
 
   it("offers keyboard-selectable catalog matches before hybrid retrieval", async () => {
@@ -1409,7 +1409,7 @@ describe("CatalogPage", () => {
   it("keeps the Ask Mosaic conversation without mixing its old picks into a new search", async () => {
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     fireEvent.change(screen.getByRole("textbox", { name: "Ask Mosaic request" }), {
       target: { value: agentResponse.question },
     });
@@ -1703,7 +1703,7 @@ describe("CatalogPage", () => {
     renderPage();
     await screen.findByText(catalog.products[0].model);
 
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
 
     // One ask surface, and it is the panel. This used to also morph the Shop
     // header into a second composer, so asking meant typing into one field and
@@ -1844,7 +1844,7 @@ describe("CatalogPage", () => {
 
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
       { target: { value: agentResponse.question } },
@@ -1883,7 +1883,7 @@ describe("CatalogPage", () => {
 
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
       { target: { value: agentResponse.question } },
@@ -1925,7 +1925,7 @@ describe("CatalogPage", () => {
 
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
       { target: { value: agentResponse.question } },
@@ -1973,7 +1973,7 @@ describe("CatalogPage", () => {
 
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
       { target: { value: agentResponse.question } },
@@ -2012,7 +2012,7 @@ describe("CatalogPage", () => {
 
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
       { target: { value: agentResponse.question } },
@@ -2051,7 +2051,7 @@ describe("CatalogPage", () => {
   it("announces stage boundaries and final completion without announcing deltas", async () => {
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
       { target: { value: agentResponse.question } },
@@ -2071,7 +2071,7 @@ describe("CatalogPage", () => {
   it("asks a starter question verbatim", async () => {
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
 
     fireEvent.click(within(await screen.findByRole("list", { name: "Example questions" })).getAllByRole("button")[0]);
 
@@ -2090,7 +2090,7 @@ describe("CatalogPage", () => {
     window.history.replaceState({}, "", "/catalog?domain=running_fitness");
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     // Only the Lab 3 starter: it names no domain, so no domain can exclude it.
     const starters = screen.getByRole("list", { name: "Example questions" });
     expect(within(starters).getAllByRole("button").map((button) => button.textContent))
@@ -2106,7 +2106,7 @@ describe("CatalogPage", () => {
     );
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
 
     const starters = await screen.findByRole("list", { name: "Example questions" });
     expect(within(starters).getAllByRole("button")).toHaveLength(1);
@@ -2129,7 +2129,7 @@ describe("CatalogPage", () => {
     window.history.replaceState({}, "", "/catalog?category_key=quiet-keyboards");
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     const panel = screen.getByRole("complementary", { name: "Ask Mosaic" });
     const starters = within(panel).getByRole("list", { name: "Example questions" });
     expect(within(starters).getAllByRole("button")).toHaveLength(1);
@@ -2216,7 +2216,7 @@ describe("CatalogPage", () => {
     window.history.replaceState({}, "", "/catalog?domain=consumer_electronics&category_key=monitor");
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     const starters = await screen.findByRole("list", { name: "Example questions" });
     const requests = within(starters).getAllByRole("button");
     expect(requests).toHaveLength(2);
@@ -2241,7 +2241,7 @@ describe("CatalogPage", () => {
       );
       renderPage();
       await screen.findByText(catalog.products[0].model);
-      fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+      openAskMosaic();
       return screen.findByRole("list", { name: "Example questions" });
     }
 
@@ -2282,7 +2282,7 @@ describe("CatalogPage", () => {
       window.history.replaceState({}, "", "/catalog");
       renderPage();
       await screen.findByText(catalog.products[0].model);
-      fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+      openAskMosaic();
       const starters = await screen.findByRole("list", { name: "Example questions" });
       fireEvent.click(within(starters).getByRole("button", { name: /Complete my room/ }));
       await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
@@ -2299,7 +2299,7 @@ describe("CatalogPage", () => {
       expect.objectContaining({ category_key: "headphones", domain: "consumer_electronics" }),
       36, undefined, "featured", "all",
     ));
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     const starters = await screen.findByRole("list", { name: "Example questions" });
     fireEvent.click(within(starters).getByRole("button", { name: /Focus at home/ }));
     await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
@@ -2350,7 +2350,7 @@ describe("CatalogPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
     expect(await screen.findByRole("button", { name: /In stock/ })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     const assist = screen.getByRole("complementary", { name: "Ask Mosaic" });
     const context = within(assist).getByLabelText(
       "Current search filters, passed to Ask Mosaic",
@@ -2520,7 +2520,7 @@ describe("CatalogPage", () => {
   it("closes the sidecar and can restore the underlying Shop results", async () => {
     renderPage();
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     expect(screen.getByRole("complementary", { name: "Ask Mosaic" })).toBeTruthy();
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
@@ -2574,7 +2574,7 @@ describe("CatalogPage", () => {
       </CommerceProvider>,
     );
     await screen.findByText(catalog.products[0].model);
-    fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+    openAskMosaic();
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
       { target: { value: agentResponse.question } },
@@ -2897,7 +2897,7 @@ describe("CatalogPage", () => {
     try {
       renderPage();
       await screen.findByText(catalog.products[0].model);
-      fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+      openAskMosaic();
       expect(screen.getByRole("complementary", { name: "Ask Mosaic" })).toBeTruthy();
       expect(startViewTransition).toHaveBeenCalledTimes(1);
       await new Promise((resolve) => setTimeout(resolve, 0));

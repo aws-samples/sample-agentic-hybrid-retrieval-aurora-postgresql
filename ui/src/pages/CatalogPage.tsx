@@ -32,7 +32,7 @@ import { AskMosaic } from "../components/AskMosaic";
 import { useAskMosaicMemory } from "../components/AskMosaicMemory";
 import { ShortlistQuestion } from "../components/ShortlistQuestion";
 import { ShopSearchDetails } from "../components/ShopSearchDetails";
-import { AskMosaicInvite, ShopLanding } from "../components/ShopLanding";
+import { ShopLanding } from "../components/ShopLanding";
 import { ShopProductShelf } from "../components/ShopProductShelf";
 import { ContinueWorkspace } from "../components/ContinueWorkspace";
 import { ScopedComparison } from "../components/ScopedComparison";
@@ -75,6 +75,7 @@ import {
   useSearchParams,
   SHOP_FILTER_PARAMS,
 } from "../navigation";
+import { ASK_MOSAIC_EVENT } from "../askMosaicEntry";
 import { EASE_OUT } from "../motion";
 import { lockBodyScroll } from "../scrollLock";
 import "../shop-editorial.css";
@@ -726,6 +727,15 @@ export function CatalogPage() {
     transition.finished.catch(() => undefined);
   }, []);
 
+  // The header's Ask Mosaic pill asks for the panel from outside this page.
+  const openAgentRef = useRef(openAgent);
+  openAgentRef.current = openAgent;
+  useEffect(() => {
+    const open = () => openAgentRef.current();
+    window.addEventListener(ASK_MOSAIC_EVENT, open);
+    return () => window.removeEventListener(ASK_MOSAIC_EVENT, open);
+  }, []);
+
   useEffect(() => {
     if (
       handledAskDeepLink.current
@@ -820,7 +830,7 @@ export function CatalogPage() {
     if (agentOpen || !restoreAgentFocusOnClose.current) return;
     restoreAgentFocusOnClose.current = false;
     document.querySelector<HTMLElement>(
-      activeQuery ? ".shop-assist-rail" : ".shop-console-note-action",
+      ".site-ask-mosaic, .shop-console-note-action",
     )?.focus();
   }, [activeQuery, agentOpen]);
 
@@ -1022,7 +1032,6 @@ export function CatalogPage() {
   const landing = !activeQuery && !agentOpen && !agentProducts
     && browseCollection === "workspace" && !activeFilterCount && offset === 0 && sort === "featured";
   // The open assistant already carries this action's context.
-  const askInvite = !agentOpen && !landing;
   const ranked = Boolean(retrieval || agentProducts);
   const pageSize = catalogPage?.limit ?? Math.max(1, baseProducts.length);
   const visibleProducts = mergeVisibleProducts(agentProducts, baseProducts, pageSize);
@@ -1193,7 +1202,7 @@ export function CatalogPage() {
               </p>
             </header>
 
-            <div className={askInvite ? "shop-console has-note" : "shop-console"}>
+            <div className="shop-console">
               <div className="shop-console-search">
                 <section className="shop-search" aria-label="Mosaic product search">
                   <CatalogSearchComposer
@@ -1230,8 +1239,6 @@ export function CatalogPage() {
                   </div>
                 )}
               </div>
-
-              {askInvite ? <AskMosaicInvite compact returning={Boolean(agent)} onOpen={openAgent} /> : null}
             </div>
 
           </div>
@@ -1641,7 +1648,7 @@ export function CatalogPage() {
           {retrievalLoading && !page && !retrieval ? <CatalogLoadingState /> : null}
           {error ? <ErrorState message={error} onRetry={load} /> : null}
           {retrieval && !agentProducts && !agentOpen && !retrievalLoading ? (
-            <div className="shop-view-switch" role="group" aria-label="Results view">
+            <div className="shop-view-switch pg-seg" role="group" aria-label="Results view">
               <button type="button" aria-pressed={!showSearchDetails} onClick={() => setShowSearchDetails(false)}>Shop</button>
               <button type="button" aria-pressed={showSearchDetails} onClick={() => setShowSearchDetails(true)}>Shop + search details</button>
             </div>
@@ -1751,30 +1758,6 @@ export function CatalogPage() {
           imageByProductId={gridImages}
           onClose={closeProductDrawer}
         />
-
-        {/* The rail is pinned to the same right edge the filter sheet and the
-            assist panel arrive on. It glides off rather than unmounting flat:
-            popping out in a single frame read as the incoming sheet shaking.
-            Motion owns the y axis too, or its transform would drop the CSS
-            translateY(-50%) centering and the rail would jump half its height. */}
-        <AnimatePresence initial={false}>
-          {activeQuery && !agentOpen && !filtersOpen ? (
-            <motion.button
-              className="shop-assist-rail"
-              type="button"
-              aria-label="Try Ask Mosaic with these results"
-              onClick={openAgent}
-              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 56, y: "-50%" }}
-              animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0, y: "-50%" }}
-              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: 56, y: "-50%" }}
-              transition={{ duration: reduceMotion ? 0.1 : 0.2, ease: EASE_OUT }}
-            >
-              <Sparkles size={15} aria-hidden="true" />
-              <span>Try Ask Mosaic</span>
-              <ChevronLeft size={15} aria-hidden="true" />
-            </motion.button>
-          ) : null}
-        </AnimatePresence>
       </div>
 
       <ShopFilterSheet

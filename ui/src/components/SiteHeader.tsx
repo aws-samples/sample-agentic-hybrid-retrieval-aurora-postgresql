@@ -1,7 +1,8 @@
-import { Menu, ShoppingBag, X } from "lucide-react";
+import { Menu, ShoppingBag, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { api } from "../api";
+import { ASK_MOSAIC_DEEP_LINK, requestAskMosaic } from "../askMosaicEntry";
 import { useCommerce } from "../commerce";
 import {
   RETRIEVAL_SURFACE,
@@ -54,11 +55,16 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const navigationRef = useRef<HTMLElement | null>(null);
   const { itemCount, openCart } = useCommerce();
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const [searchParams] = useSearchParams();
   const [codeEditorUrl, setCodeEditorUrl] = useState<string | null>(null);
   const pathname = location.split("?")[0];
   const close = () => setOpen(false);
+  const askMosaic = () => {
+    close();
+    if (pathname.startsWith("/catalog")) requestAskMosaic();
+    else navigate(ASK_MOSAIC_DEEP_LINK);
+  };
   /**
    * The Playground entry carries the shopper's current Shop request with it.
    *
@@ -164,6 +170,10 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
       </nav>
 
       <div className="site-actions">
+        <button className="site-ask-mosaic" type="button" aria-label="Ask Mosaic" onClick={askMosaic}>
+          <Sparkles size={15} aria-hidden="true" />
+          <span>Ask Mosaic</span>
+        </button>
         <CodeEditorLink href={codeEditorUrl} className="site-code-editor" />
         <AlexProfile key={`${pathname}:${inert}`} onOpen={close} />
         <ThemeToggle />
