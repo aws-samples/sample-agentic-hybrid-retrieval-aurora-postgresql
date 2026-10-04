@@ -315,6 +315,43 @@
   font-weight: 600;
 }
 
+.mosaic-catalog-page .shop-example-links {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 0 12px;
+}
+
+/* On a phone the label sits above its links, and the links are one strip that
+   scrolls sideways instead of wrapping into rows of single items. */
+@media (max-width: 600px) {
+  .mosaic-catalog-page .shop-search-examples {
+    justify-content: flex-start;
+    gap: 4px 0;
+  }
+
+  .mosaic-catalog-page .shop-example-group {
+    display: grid;
+    width: 100%;
+    gap: 0;
+  }
+
+  .mosaic-catalog-page .shop-example-links {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .mosaic-catalog-page .shop-example-links::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mosaic-catalog-page .shop-example-group button {
+    flex: none;
+    white-space: nowrap;
+  }
+}
+
 .mosaic-catalog-page .shop-example-group button {
   min-height: 32px;
   padding: 0;
@@ -402,18 +439,29 @@
   text-underline-offset: 4px;
 }
 
+/* Whole cards only: the shelf shows 4, 3, 2 or 1 cards at the width it has, so
+   no card is cut at an arbitrary edge and the first one starts under the heading. */
 .shop-shelf-products {
+  --shelf-columns: 4;
+  --shelf-gap: 20px;
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: clamp(260px, 25vw, 340px);
-  gap: 20px;
+  grid-auto-columns: calc((100% - (var(--shelf-columns) - 1) * var(--shelf-gap)) / var(--shelf-columns));
+  gap: var(--shelf-gap);
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   scroll-snap-type: x mandatory;
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
-  padding: 4px 4px 20px;
-  margin-inline: -4px;
+  padding: 0 0 20px;
+}
+
+@media (max-width: 1100px) {
+  .shop-shelf-products { --shelf-columns: 3; }
+}
+
+@media (max-width: 820px) {
+  .shop-shelf-products { --shelf-columns: 2; }
 }
 
 .shop-shelf-products > article {
@@ -473,7 +521,7 @@
   .shop-shelf-heading { gap: 4px 24px; }
   .shop-shelf-links { gap: 0 16px; margin-bottom: 12px; }
   .shop-shelf-links nav { gap: 4px 18px; }
-  .shop-shelf-products { grid-auto-columns: 82%; gap: 16px; }
+  .shop-shelf-products { --shelf-columns: 1; --shelf-gap: 16px; }
   .shop-shelf-footer p { flex: 1; }
   .shop-landing { margin-top: 40px; }
 }

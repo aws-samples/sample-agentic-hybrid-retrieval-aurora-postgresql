@@ -389,6 +389,46 @@ details[open] > .product-receipt-card .receipt-states {
   }
 }
 
+/* One masthead scale for every Playground tab: about 44px, one line where it
+   fits, then a short lede. The selectors out-rank each tab's own masthead rules
+   so no tab keeps a second scale. */
+.app-shell .labs-intro .labs-intro-copy .labs-masthead-title {
+  margin: 0;
+  max-width: none;
+  font: 600 clamp(32px, 3.4vw, 44px)/1.1 var(--display);
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+/* One lede rule: --ink-soft, 1.45, at most 64 characters wide. */
+.app-shell .labs-lede.labs-lede,
+.app-shell .labs-intro .labs-intro-copy .labs-lede.labs-lede {
+  max-width: 64ch;
+  margin-block: 12px 0;
+  color: var(--ink-soft);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+/* Native selects draw their own arrow against the pill's border. Hide it and
+   draw one chevron inside the padding instead. An SVG data URI cannot read a
+   custom property, so its stroke repeats --ink-soft's light and dark values.
+   The Shop sort pill draws its own and is left alone. */
+.app-shell select:not([multiple]):not(.shop-sort select) {
+  padding-inline-end: 42px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgb(88,97,110)' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 16px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+}
+
+:root[data-theme="dark"] .app-shell select:not([multiple]):not(.shop-sort select) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgb(185,189,198)' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
 /* The GitHub mark ships as a black SVG image, which currentColor cannot reach. */
 :root[data-theme="dark"] img[src$="github-mark.svg"] {
   filter: invert(1);

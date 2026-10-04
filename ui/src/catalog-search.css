@@ -16,8 +16,16 @@
   transition: border-color 180ms ease;
 }
 
-.search-composer.catalog-autocomplete:focus-within {
+/* One ring, not two: the action-coloured border is 2px (its own 1px plus a 1px
+   shadow) with a soft halo outside it, and the generic focus outline stands down. */
+.search-composer.catalog-autocomplete:focus-within,
+.search-composer.catalog-autocomplete:has(input:focus-visible) {
   border-color: var(--action);
+  outline: 0;
+  box-shadow:
+    0 0 0 1px var(--action),
+    0 0 0 5px color-mix(in srgb, var(--action) 16%, transparent),
+    0 8px 24px rgb(0 0 0 / 6%);
 }
 
 .search-composer.catalog-autocomplete > input {

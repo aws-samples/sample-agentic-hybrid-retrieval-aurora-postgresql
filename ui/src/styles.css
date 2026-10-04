@@ -740,7 +740,7 @@ button:disabled {
  */
 .site-footer {
   --focus: var(--footer-ink);
-  margin-top: 64px;
+  margin-top: 0;
   border-top: 1px solid var(--footer-line);
   background: var(--footer-surface);
   color: var(--footer-muted);
@@ -810,8 +810,12 @@ button:disabled {
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 2fr);
   gap: 44px;
   padding-bottom: 34px;
-  border-top: 1px solid var(--footer-line);
   padding-top: 34px;
+}
+
+/* The footer's own top rule is the only one unless checkout marks sit above. */
+.site-footer-payment:not([hidden]) + .site-footer-top {
+  border-top: 1px solid var(--footer-line);
 }
 
 .site-footer-brand {
@@ -870,9 +874,10 @@ button:disabled {
   text-underline-offset: 4px;
 }
 
+/* The mark ships as a black SVG: it reads as is on the light footer, and the
+   dark theme inverts it in world.css. */
 .site-footer-source img {
   flex: 0 0 auto;
-  filter: brightness(0) invert(1);
 }
 
 .site-footer-columns {
@@ -990,7 +995,7 @@ button:disabled {
   width: var(--shell-width);
   min-height: calc(100vh - var(--topbar-height));
   margin: 0 auto;
-  padding: 40px 0 72px;
+  padding: 40px 0 48px;
 }
 
 .page-section {

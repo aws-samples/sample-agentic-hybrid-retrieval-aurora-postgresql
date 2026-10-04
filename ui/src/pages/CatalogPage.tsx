@@ -1,7 +1,6 @@
 import { sourceFilters, useCatalogSource } from "../catalogSource";
 import { useFacetOptions } from "../useFacetOptions";
 import {
-  ArrowUpRight,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -1223,9 +1222,11 @@ export function CatalogPage() {
                     {(["Keywords", "Typo", "Intent"] as const).map((kind) => (
                       <div className="shop-example-group" role="group" aria-label={`${kind} search examples`} key={kind}>
                         <span>{kind}</span>
-                        {shopSearchExamples.filter((example) => example.kind === kind).map((example) => (
-                          <button type="button" key={example.id} title={example.query} onClick={() => searchSuggestion(example)}>{example.label}</button>
-                        ))}
+                        <div className="shop-example-links">
+                          {shopSearchExamples.filter((example) => example.kind === kind).map((example) => (
+                            <button type="button" key={example.id} title={example.query} onClick={() => searchSuggestion(example)}>{example.label}</button>
+                          ))}
+                        </div>
                       </div>
                     ))}
                     <small>Different ways to ask. Every example uses the same search pipeline.</small>
@@ -1419,7 +1420,6 @@ export function CatalogPage() {
               href={playgroundProofHref(labMission.id, missionRun.agent_run_id)}
             >
               Prove this run in the {RETRIEVAL_SURFACE.label}
-              <ArrowUpRight size={14} aria-hidden="true" />
             </Link>
           ) : null}
 
@@ -1499,7 +1499,6 @@ export function CatalogPage() {
                   retrieval.query, retrieval.applied_filters, retrieval.search_event_id,
                 )}&example=${encodeURIComponent(rankMission.id)}#labs-stage-rank`}>
                   Inspect this run in the {RETRIEVAL_SURFACE.label}
-                  <ArrowUpRight size={14} aria-hidden="true" />
                 </Link>
                 <button type="button" onClick={() => setRetrievalNonce((run) => run + 1)}>Search again</button>
               </div>
@@ -1637,7 +1636,6 @@ export function CatalogPage() {
                   )}
                 >
                   See how this was retrieved in the {RETRIEVAL_SURFACE.label}
-                  <ArrowUpRight size={14} aria-hidden="true" />
                 </Link>
               )}
             </details>
