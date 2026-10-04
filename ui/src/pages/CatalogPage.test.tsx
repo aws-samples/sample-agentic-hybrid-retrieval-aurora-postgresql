@@ -2308,6 +2308,53 @@ describe("CatalogPage", () => {
     });
   });
 
+  describe("Shop filters and Ask Mosaic starters", () => {
+    const SHOP_FILTERS = "min_rating=4&in_stock_only=true&availability=in_stock";
+
+    async function openStarters() {
+      window.history.replaceState(
+        {},
+        "",
+        `/catalog?domain=consumer_electronics&category_key=headphones&${SHOP_FILTERS}`,
+      );
+      renderPage();
+      await screen.findByText(catalog.products[0].model);
+      fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+      return screen.findByRole("list", { name: "Example questions" });
+    }
+
+    it("keeps Shop's rating, stock and availability for a starter that is not a lab", async () => {
+      const starters = await openStarters();
+      fireEvent.click(within(starters).getByRole("button", { name: /Focus at home/ }));
+      await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
+
+      expect(vi.mocked(api.agentStream).mock.calls.at(-1)?.[1]).toMatchObject({
+        min_rating: 4,
+        in_stock_only: true,
+        availability: "in_stock",
+      });
+      const params = new URLSearchParams(window.location.search);
+      expect(params.get("min_rating")).toBe("4");
+      expect(params.get("in_stock_only")).toBe("true");
+      expect(params.get("availability")).toBe("in_stock");
+    });
+
+    it("drops them for a lab starter, in the request and in the URL", async () => {
+      const starters = await openStarters();
+      fireEvent.click(within(starters).getByRole("button", { name: /Complete my room/ }));
+      await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
+
+      const sent = vi.mocked(api.agentStream).mock.calls.at(-1)?.[1] as Record<string, unknown>;
+      expect(sent.min_rating).toBeUndefined();
+      expect(sent.in_stock_only).toBeUndefined();
+      expect(sent.availability).toBeUndefined();
+      const params = new URLSearchParams(window.location.search);
+      expect(params.has("min_rating")).toBe(false);
+      expect(params.has("in_stock_only")).toBe(false);
+      expect(params.has("availability")).toBe(false);
+    });
+  });
+
   it("uses real categories for saved links and resets pagination for an Ask Mosaic starter", async () => {
     vi.mocked(useCatalogSource).mockReturnValue({ dataset_id: "reviews-2023-v2", real: true });
     window.history.replaceState({}, "", "/catalog?offset=36&domain=consumer_electronics&category_key=over-ear-headphones");
