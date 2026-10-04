@@ -87,6 +87,12 @@ import type {
   SearchResponse,
 } from "../types";
 
+function isGradedReasonRequest(question: string): boolean {
+  return mosaicRetrievalExamples.some(
+    (mission) => mission.stage === "reason" && mission.query.trim() === question.trim(),
+  );
+}
+
 const SHOP_FILTERS_CLEARED_NOTICE = "Shop filters were cleared for this lab request.";
 const priceCeiling = 2000;
 const priceStep = 25;
@@ -410,7 +416,10 @@ export function CatalogPage() {
   const labMission = mosaicRetrievalExamples.find(
     (mission) => mission.id === searchParams.get("mission") && mission.stage === "reason",
   );
-  const memory = useAskMosaicMemory(agentOpen && !labMission);
+  // The lab request is graded without memory, so memory is withheld from that
+  // question alone. The kept ?mission parameter must not switch it off for an
+  // ordinary question asked in the same panel afterwards.
+  const memory = useAskMosaicMemory(agentOpen);
   const {
     answeredTurn,
     clear: clearAgentThread,
@@ -419,7 +428,10 @@ export function CatalogPage() {
     pending: agentPending,
     run: askAgent,
     turns: agentTurns,
-  } = useAskMosaicConversation(filters, !labMission && memory.enabled);
+  } = useAskMosaicConversation(
+    filters,
+    (question) => memory.enabled && !isGradedReasonRequest(question),
+  );
   const activeFilterCount = [
     domain,
     categoryKey,
@@ -1684,7 +1696,7 @@ export function CatalogPage() {
         </section>
 
         <AskMosaic
-          memory={labMission ? undefined : memory}
+          memory={memory}
           imageByProductId={gridImages}
           open={agentOpen}
           seedQuery={activeQuery}

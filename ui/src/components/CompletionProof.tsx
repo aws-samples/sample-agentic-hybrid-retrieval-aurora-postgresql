@@ -272,7 +272,7 @@ function LabProofRow({
 interface CompletionProofProps {
   /** The lab the page is currently on, marked so the reader can find it. */
   activeLab: LabId;
-  /** The latest agent run from stage 03, which is all Lab 3 can be graded on. */
+  /** The latest agent run from the Reason stage, which is all Lab 3 can be graded on. */
   agentRunId: string | null;
   /** Called once every proof in a press has settled, pass or fail. */
   onFinished?: () => void;

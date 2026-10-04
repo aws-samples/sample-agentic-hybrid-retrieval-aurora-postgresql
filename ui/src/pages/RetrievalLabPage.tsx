@@ -238,7 +238,7 @@ export function RetrievalLabPage() {
   const [error, setError] = useState("");
   const [readiness, setReadiness] = useState<ReadinessResponse | null>(null);
   /**
-   * The last agent run stage 03 persisted, held here because the only thing
+   * The last agent run the Reason stage persisted, held here because the only thing
    * that can grade Lab 3 lives in the Prove section. Nothing else on the page reads it.
    */
   const [agentRunId, setAgentRunId] = useState<string | null>(

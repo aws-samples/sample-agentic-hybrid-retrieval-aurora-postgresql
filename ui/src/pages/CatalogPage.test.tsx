@@ -1616,8 +1616,6 @@ describe("CatalogPage", () => {
 
     await screen.findByRole("complementary", { name: "Ask Mosaic" });
     expect(document.querySelector(".lab-outcome")).toBeNull();
-    expect(screen.queryByRole("checkbox", { name: "Use saved memories" })).toBeNull();
-    expect(api.memoryStatus).not.toHaveBeenCalled();
 
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
@@ -1628,6 +1626,41 @@ describe("CatalogPage", () => {
     expect(await screen.findByText("Looks grounded")).toBeTruthy();
     expect(vi.mocked(api.agentStream).mock.calls.at(-1)?.[4]?.useMemory).toBe(false);
     expect(screen.getByText("Prove this run to check it.")).toBeTruthy();
+  });
+
+  it("withholds memory from the Lab 3 request only, not from later questions on the page", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/catalog?ask=1&mission=agentic-research&q=Compare%20quiet%20keyboards",
+    );
+    vi.mocked(api.memoryStatus).mockResolvedValue({
+      memory_status: "connected",
+      configuration: {
+        memory_id: "memory-1",
+        status: "ACTIVE",
+        event_expiry_days: 30,
+        strategies: [],
+      },
+    });
+    renderPage();
+
+    await screen.findByRole("complementary", { name: "Ask Mosaic" });
+    const toggle = await screen.findByRole("checkbox", { name: "Use saved memories" });
+    await waitFor(() => expect((toggle as HTMLInputElement).disabled).toBe(false));
+    fireEvent.click(toggle);
+
+    const box = screen.getByRole("textbox", { name: "Ask Mosaic request" });
+    fireEvent.change(box, { target: { value: labThreeRequest.query } });
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+    await waitFor(() => expect(api.agentStream).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(api.agentStream).mock.calls[0][4]?.useMemory).toBe(false);
+
+    await screen.findByText("Looks grounded");
+    fireEvent.change(box, { target: { value: "Which chair suits long days?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+    await waitFor(() => expect(api.agentStream).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(api.agentStream).mock.calls[1][4]?.useMemory).toBe(true);
   });
 
   it("offers the finished Lab 3 run a way back to the surface that grades it", async () => {

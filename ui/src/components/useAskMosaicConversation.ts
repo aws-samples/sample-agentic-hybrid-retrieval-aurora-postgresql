@@ -25,7 +25,11 @@ function failureCode(cause: unknown): string | undefined {
  * context, and cancellation here prevents drawers from drifting into
  * different assistants behind matching controls.
  */
-export function useAskMosaicConversation(filters: SearchFilters, useMemory = false) {
+export function useAskMosaicConversation(
+  filters: SearchFilters,
+  /** Whether a request reads and writes memory; a function decides per question. */
+  useMemory: boolean | ((question: string) => boolean) = false,
+) {
   const { real } = useCatalogSource();
   const [turns, setTurns] = useState<AskMosaicTurn[]>([]);
   const requestVersion = useRef(0);
@@ -161,7 +165,11 @@ export function useAskMosaicConversation(filters: SearchFilters, useMemory = fal
             stageDetail: "",
           });
         }
-      }, context, { signal: controller.signal, useMemory, sessionId: sessionId.current });
+      }, context, {
+        signal: controller.signal,
+        useMemory: typeof useMemory === "function" ? useMemory(trimmed) : useMemory,
+        sessionId: sessionId.current,
+      });
     } catch (cause) {
       if (version !== requestVersion.current) return;
       // Cancellation is a normal terminal state, not a failure: `stop` and
