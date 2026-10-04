@@ -357,7 +357,9 @@ class RetrievalProfile(BaseModel):
     ef_search: int = Field(
         default_factory=_yaml_default("hnsw_ef_search"), ge=1, le=1000
     )
-    iterative_scan: Literal["off", "strict_order", "relaxed_order"] = "relaxed_order"
+    iterative_scan: Literal["off", "strict_order", "relaxed_order"] = Field(
+        default_factory=_yaml_default("hnsw_iterative_scan")
+    )
     max_scan_tuples: int = Field(
         default_factory=_yaml_default("hnsw_max_scan_tuples"), ge=1
     )

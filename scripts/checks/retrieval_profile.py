@@ -123,6 +123,12 @@ BOUNDS: tuple[Bound, ...] = (
 )
 
 
+# pgvector's `hnsw.iterative_scan` modes; `mosaic_search.configure_hnsw` accepts
+# exactly these. A string setting, so it sits beside the numeric BOUNDS.
+ITERATIVE_SCAN_PATH = "hnsw.iterative_scan"
+ITERATIVE_SCAN_MODES = ("off", "strict_order", "relaxed_order")
+
+
 @dataclass(frozen=True)
 class RetrievalProfileConfig:
     """The resolved profile. Field names are the consumers' names, not the yaml's."""
@@ -144,6 +150,7 @@ class RetrievalProfileConfig:
     hnsw_m: int
     hnsw_ef_construction: int
     hnsw_ef_search: int
+    hnsw_iterative_scan: str
     hnsw_max_scan_tuples: int
     hnsw_scan_mem_multiplier: float
 
@@ -298,6 +305,26 @@ def _resolve(bound: Bound, tree: dict[str, Any]) -> int | float:
     return value
 
 
+def _resolve_iterative_scan(tree: dict[str, Any]) -> str:
+    """Read the HNSW iterative-scan mode; yaml only, no environment override."""
+    raw = _dig(tree, ITERATIVE_SCAN_PATH)
+    if raw is None:
+        raise ProfileError(
+            explain(
+                f"no value for {ITERATIVE_SCAN_PATH!r}",
+                f"add `iterative_scan` under `hnsw` in {RETRIEVAL_YAML.name}",
+            )
+        )
+    if raw not in ITERATIVE_SCAN_MODES:
+        raise ProfileError(
+            explain(
+                f"{ITERATIVE_SCAN_PATH}={raw!r} from {RETRIEVAL_YAML.name}",
+                f"set it to one of {list(ITERATIVE_SCAN_MODES)}",
+            )
+        )
+    return raw
+
+
 def load_profile(*, yaml_path: Path | None = None) -> RetrievalProfileConfig:
     """Resolve and validate the profile.
 
@@ -326,6 +353,7 @@ def load_profile(*, yaml_path: Path | None = None) -> RetrievalProfileConfig:
         for bound in BOUNDS
         if bound.path in _FIELD_FOR_PATH
     }
+    resolved["hnsw_iterative_scan"] = _resolve_iterative_scan(tree)
     return RetrievalProfileConfig(**resolved)  # type: ignore[arg-type]
 
 
