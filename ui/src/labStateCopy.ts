@@ -1,3 +1,4 @@
+import { APPLY_SQL, DEPLOY_AGENT } from "./participantCommands";
 import type { LabDatabaseState, LabEntryState, LabSourceState, LabStateRecord } from "./types";
 
 interface StateCopy {
@@ -109,4 +110,34 @@ export function labStateCopy(state: LabStateFacts | null): StateCopy[] {
       description: "The installed-SQL status is unavailable. No database verdict has been established.",
     },
   ];
+}
+
+/**
+ * The one next action for a lab, written out under the state chips.
+ *
+ * The chips' descriptions explain each fact but sit in a tooltip, which touch
+ * and keyboard users never see. This is the sentence a participant needs from
+ * them: what to do now, with the command that does it.
+ */
+export function labNextStep(state: LabStateFacts | null): string | null {
+  if (!state) return null;
+  const entry = unentered(state);
+  if (entry === "not_started") {
+    return "Next: run this lab's start command in Code Editor to install the fault you will repair.";
+  }
+  if (entry === "incomplete") {
+    return "Next: run this lab's start command again; it finishes the missing step and keeps your edits.";
+  }
+  const publish = state.database_state === "not_applicable"
+    ? `deploy it with ${DEPLOY_AGENT}`
+    : `apply it with ${APPLY_SQL}`;
+  if (state.source_state === "broken") {
+    return `Next: repair the marked block in the exercise file, then ${publish}.`;
+  }
+  if (state.database_state === "stale") {
+    return `Next: apply your repair with ${APPLY_SQL}, then run completion proof.`;
+  }
+  return state.database_state === "not_applicable"
+    ? `Next: deploy it with ${DEPLOY_AGENT}, then run completion proof.`
+    : "Next: run completion proof to check the behavior.";
 }

@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api";
 import { coreMosaicLabs } from "../labMissions";
+import { APPLY_SQL } from "../participantCommands";
 import type { LabStateResponse } from "../types";
 import { LabRail } from "./LabRail";
 
@@ -192,17 +193,44 @@ describe("LabRail", () => {
     expect(await screen.findByText("No SQL update required")).toBeTruthy();
   });
 
-  it("says the state was not checked when the state route does not answer", async () => {
+  it("says the state could not be read, with a retry, when the state route does not answer", async () => {
     vi.mocked(api.labsState).mockReset();
-    vi.mocked(api.labsState).mockRejectedValue(new Error("lab state unavailable"));
+    vi.mocked(api.labsState).mockRejectedValueOnce(new Error("lab state unavailable"));
+    vi.mocked(api.labsState).mockResolvedValue(labsState);
     render(<LabRail missionId={labOne.id} />);
 
-    await waitFor(() => {
-      expect(screen.getByText("Code not checked")).toBeTruthy();
-    });
-    expect(screen.getByText("Aurora not checked")).toBeTruthy();
+    const message = await screen.findByText("Could not read lab state");
+    expect(message).toBeTruthy();
     // And never a guess: a failed read must not print a verdict of its own.
     expect(screen.queryByText(/Code (repaired|needs repair)/)).toBeNull();
+    expect(screen.queryByText("Code not checked")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry reading lab state" }));
+
+    expect(await screen.findByText("Code needs repair")).toBeTruthy();
+    expect(screen.queryByText("Could not read lab state")).toBeNull();
+    expect(api.labsState).toHaveBeenCalledTimes(2);
+  });
+
+  it("says not checked, not failed, while the first read is still pending", () => {
+    vi.mocked(api.labsState).mockReset();
+    vi.mocked(api.labsState).mockReturnValue(new Promise(() => undefined));
+    render(<LabRail missionId={labOne.id} />);
+
+    expect(screen.getByText("Code not checked")).toBeTruthy();
+    expect(screen.getByText("Aurora not checked")).toBeTruthy();
+    expect(screen.queryByText("Could not read lab state")).toBeNull();
+  });
+
+  it("writes the next step under the chips instead of only in a tooltip", async () => {
+    const { unmount } = render(<LabRail missionId={labOne.id} />);
+    await screen.findByText("Code needs repair");
+    expect(screen.getByText(/^Next: repair the marked block/).textContent).toContain(APPLY_SQL);
+    unmount();
+
+    render(<LabRail missionId={labTwo.id} />);
+    await screen.findByText("SQL repair not applied");
+    expect(screen.getByText(/^Next: apply your repair/).textContent).toContain(APPLY_SQL);
   });
 
   it("moves the selected state to the stage a participant opens", async () => {

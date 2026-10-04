@@ -1,7 +1,7 @@
 import { ArrowRight, Check, Copy, FileCode2, SquareTerminal } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { labStateCopy } from "../labStateCopy";
+import { labNextStep, labStateCopy } from "../labStateCopy";
 import {
   coreMosaicLabs,
   mosaicRetrievalExamples,
@@ -126,7 +126,7 @@ export function LabRail({ missionId, refreshKey = "" }: {
   // A new run or proof follows an out-of-band repair, so a changed mission or
   // refresh key starts a new read -- the rail must not keep an old fault
   // label beside a newly passing proof.
-  const { labStates } = useLabStates(`${missionId ?? ""}:${refreshKey}`);
+  const { labStates, failed, retry } = useLabStates(`${missionId ?? ""}:${refreshKey}`);
   const [selectedStage, setSelectedStage] = useState<string | null>(
     () => stageFromHash(typeof window === "undefined" ? "" : window.location.hash),
   );
@@ -255,24 +255,44 @@ export function LabRail({ missionId, refreshKey = "" }: {
         </p>
       ) : null}
 
-      {/* Two chips, never one. Editing the file without re-applying it leaves a
-          repaired file in front of an unrepaired cluster, and a single "lab
-          state" would report that as solved. */}
-      <ul aria-label="Lab state" className="labs-rail-state">
-        {labStateCopy(state ?? null).map(({ label, description }) => (
-          <li key={label} title={description}>{label}</li>
-        ))}
-        {/* A record of an earlier terminal check, beside the live state and
-            never in place of it: Lab 2's fault can fail a fresh Lab 1 check. */}
-        {state?.completed_at ? (
-          <li
-            className="is-record"
-            title={`Your last passing terminal validation (scripts/validate_lab.py --lab ${labNumber}). Run completion proof for a current verdict.`}
+      {failed ? (
+        <p className="labs-rail-unread" role="alert">
+          <span>Could not read lab state</span>
+          <button
+            aria-label="Retry reading lab state"
+            className="secondary-button"
+            onClick={retry}
+            type="button"
           >
-            Validated {clockTime(state.completed_at)}
-          </li>
-        ) : null}
-      </ul>
+            Retry
+          </button>
+        </p>
+      ) : (
+        <>
+          {/* Two chips, never one. Editing the file without re-applying it
+              leaves a repaired file in front of an unrepaired cluster, and a
+              single "lab state" would report that as solved. */}
+          <ul aria-label="Lab state" className="labs-rail-state">
+            {labStateCopy(state ?? null).map(({ label, description }) => (
+              <li key={label} title={description}>{label}</li>
+            ))}
+            {/* A record of an earlier terminal check, beside the live state and
+                never in place of it: Lab 2's fault can fail a fresh Lab 1
+                check. */}
+            {state?.completed_at ? (
+              <li
+                className="is-record"
+                title={`Your last passing terminal validation (scripts/validate_lab.py --lab ${labNumber}). Run completion proof for a current verdict.`}
+              >
+                Validated {clockTime(state.completed_at)}
+              </li>
+            ) : null}
+          </ul>
+          {labNextStep(state) ? (
+            <p className="labs-rail-next-step">{labNextStep(state)}</p>
+          ) : null}
+        </>
+      )}
 
       {nextLab ? (
         <Link className="labs-rail-next" href={retrievalExampleHref(nextLab)}>

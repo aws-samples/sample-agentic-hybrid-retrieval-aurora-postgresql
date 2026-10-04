@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isLabRepaired, labStateCopy } from "./labStateCopy";
+import { isLabRepaired, labNextStep, labStateCopy } from "./labStateCopy";
+import { APPLY_SQL, DEPLOY_AGENT } from "./participantCommands";
 import type { LabStateRecord } from "./types";
 
 function state(
@@ -65,5 +66,26 @@ describe("a lab whose file still has the fault", () => {
       .toEqual(["Code needs repair", "Aurora differs from your file"]);
     expect(labStateCopy(state("solved", "stale")).map((copy) => copy.label))
       .toEqual(["Code repaired", "SQL repair not applied"]);
+  });
+});
+
+describe("labNextStep", () => {
+  it("never guesses before a state has been read", () => {
+    expect(labNextStep(null)).toBeNull();
+  });
+
+  it("tells an unstarted or interrupted lab to run its start command", () => {
+    expect(labNextStep(state("solved", "applied", "not_started"))).toMatch(/start command/);
+    expect(labNextStep(state("solved", "applied", "incomplete"))).toMatch(/again/);
+  });
+
+  it("names the apply command for a SQL lab and the deploy command for Lab 3", () => {
+    expect(labNextStep(state("broken", "applied"))).toContain(APPLY_SQL);
+    expect(labNextStep(state("broken", "not_applicable"))).toContain(DEPLOY_AGENT);
+  });
+
+  it("points a repaired file at Aurora before proof", () => {
+    expect(labNextStep(state("solved", "stale"))).toContain(APPLY_SQL);
+    expect(labNextStep(state("solved", "applied"))).toMatch(/completion proof/);
   });
 });

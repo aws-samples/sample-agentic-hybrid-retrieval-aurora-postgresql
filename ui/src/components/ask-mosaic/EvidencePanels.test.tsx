@@ -41,7 +41,7 @@ describe("Ranking", () => {
     );
     const positions = [...container.querySelectorAll("div")]
       .filter((row) => row.querySelector("dt"))
-      .map((row) => [row.querySelector("dt")!.textContent, row.querySelector("dd")!.textContent]);
+      .map((row) => [row.querySelector("dt")!.textContent, row.querySelector("dd")!.textContent] as const);
     const byLabel = new Map(positions);
     expect(byLabel.get(FUSED_LABEL)).toBe("-");
     expect(byLabel.get(FINAL_LABEL)).toBe("-");

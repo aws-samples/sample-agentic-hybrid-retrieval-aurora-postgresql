@@ -19,6 +19,8 @@ export interface LabStatesResult {
    * reads this.
    */
   failed: boolean;
+  /** Starts a new read after a failed one, for a visible retry control. */
+  retry: () => void;
 }
 
 /**
@@ -39,6 +41,7 @@ export interface LabStatesResult {
 export function useLabStates(refreshKey: string | number = ""): LabStatesResult {
   const [labStates, setLabStates] = useState<LabStateRecord[] | null>(null);
   const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -57,7 +60,12 @@ export function useLabStates(refreshKey: string | number = ""): LabStatesResult 
     return () => {
       active = false;
     };
-  }, [refreshKey]);
+  }, [refreshKey, attempt]);
 
-  return { labStates, failed };
+  const retry = () => {
+    setFailed(false);
+    setAttempt((count) => count + 1);
+  };
+
+  return { labStates, failed, retry };
 }

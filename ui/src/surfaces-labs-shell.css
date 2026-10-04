@@ -109,6 +109,7 @@
 }
 
 .labs-rail.is-stuck .labs-rail-edit,
+.labs-rail.is-stuck .labs-rail-next-step,
 .labs-rail.is-stuck .labs-rail-next {
   display: none;
 }
@@ -240,6 +241,20 @@
   font-family: var(--mono);
   font-size: var(--labs-mono);
   font-weight: 600;
+}
+
+.labs-rail-next-step,
+.labs-rail-unread {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-detail);
+}
+
+.labs-rail-unread {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .labs-rail-state li.is-record {
