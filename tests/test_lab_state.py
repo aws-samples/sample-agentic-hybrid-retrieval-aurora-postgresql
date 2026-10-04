@@ -448,3 +448,40 @@ def test_lab3_source_check_names_the_next_commands_instead_of_passing(
     assert "assembled" in output
     assert DEPLOY_AGENT in output
     assert complete_lab_3() in output
+
+
+def test_an_unreachable_aurora_exits_with_facilitator_advice_not_a_traceback(
+    monkeypatch,
+):
+    import psycopg
+
+    from scripts.lab_state import assert_reset_database
+
+    def refuse(*_args, **_kwargs):
+        raise psycopg.OperationalError("connection to server failed")
+
+    monkeypatch.setattr("psycopg.connect", refuse)
+    with pytest.raises(SystemExit) as exit_info:
+        assert_reset_database("postgresql://redacted")
+
+    message = str(exit_info.value)
+    assert "facilitator" in message
+    assert "OperationalError" in message
+    assert "redacted" not in message
+    assert "LAB1_CHANNEL" not in message
+
+
+def test_start_reports_a_database_failure_after_the_guard_the_same_way(monkeypatch):
+    import psycopg
+
+    from scripts import lab_entry, lab_state
+
+    def refuse(*_args, **_kwargs):
+        raise psycopg.OperationalError("server closed the connection")
+
+    monkeypatch.setattr("sys.argv", ["lab_state.py", "start", "--lab", "2"])
+    monkeypatch.setattr(lab_entry, "start", refuse)
+    with pytest.raises(SystemExit) as exit_info:
+        lab_state.main()
+
+    assert "facilitator" in str(exit_info.value)

@@ -126,8 +126,8 @@ def main() -> None:
     )
 
     dsn = os.getenv("DATABASE_URL")
-    assert_reset_database(dsn)
     try:
+        assert_reset_database(dsn)
         with psycopg.connect(dsn, connect_timeout=15) as connection:
             apply(
                 connection,

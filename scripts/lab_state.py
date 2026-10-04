@@ -503,6 +503,8 @@ def main() -> int:
         print(f"Lab {args.lab}: RESET ({path.relative_to(REPO)})")
         return 0
     if args.action in {"start", "reset"}:
+        import psycopg
+
         from scripts.lab_entry import LabEntryError, restart, start
         from scripts.validate_lab import LabValidationError
 
@@ -511,6 +513,8 @@ def main() -> int:
             action(args.lab, api_url=args.api_url, dsn=args.database_url)
         except (LabEntryError, LabValidationError) as error:
             raise SystemExit(str(error)) from error
+        except psycopg.Error as error:
+            raise database_fault_exit(error, f"{args.action} Lab {args.lab}") from error
         return 0
     if args.action == "solution":
         path = set_lab_state(args.lab, solved=True)
@@ -590,13 +594,16 @@ def assert_reset_database(database_url: str | None) -> None:
             "Lab reset rule: DATABASE_URL is missing; fix: select the authorized "
             "Aurora workshop database before resetting a lab."
         )
-    with psycopg.connect(
-        database_url, connect_timeout=15, row_factory=dict_row
-    ) as connection:
-        identity = connection.execute(
-            "SELECT current_database() AS name, aurora_version() AS aurora, "
-            f"to_regclass('{search_schema()}.product_document')::text AS catalog"
-        ).fetchone()
+    try:
+        with psycopg.connect(
+            database_url, connect_timeout=15, row_factory=dict_row
+        ) as connection:
+            identity = connection.execute(
+                "SELECT current_database() AS name, aurora_version() AS aurora, "
+                f"to_regclass('{search_schema()}.product_document')::text AS catalog"
+            ).fetchone()
+    except psycopg.Error as error:
+        raise database_fault_exit(error, "check the workshop database") from error
     if (
         identity["name"] != expected
         or not identity["catalog"]

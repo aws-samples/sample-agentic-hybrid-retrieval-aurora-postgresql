@@ -201,3 +201,20 @@ def test_a_sql_fault_still_points_at_the_lab_blocks(sqlstate):
 
     assert "LAB1_CHANNEL" in message
     assert "facilitator" not in message
+
+
+def test_an_unreachable_database_before_the_apply_exits_cleanly(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://redacted")
+
+    def refuse(_dsn):
+        raise psycopg.OperationalError("connection refused")
+
+    monkeypatch.setattr(apply_search_functions, "assert_reset_database", refuse)
+    monkeypatch.setattr(
+        apply_search_functions, "apply", lambda *_a, **_k: pytest.fail("applied")
+    )
+
+    with pytest.raises(SystemExit) as exit_info:
+        apply_search_functions.main()
+
+    assert "facilitator" in str(exit_info.value)
