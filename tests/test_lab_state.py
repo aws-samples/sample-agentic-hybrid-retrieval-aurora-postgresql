@@ -414,7 +414,9 @@ def test_a_failed_lab_check_during_entry_is_a_clean_exit_not_a_traceback(
     from scripts.validate_lab import LabValidationError
 
     def fail(*_args, **_kwargs):
-        raise LabValidationError("/api/search is unavailable; fix: tell your facilitator")
+        raise LabValidationError(
+            "/api/search is unavailable; fix: tell your facilitator"
+        )
 
     monkeypatch.setattr("sys.argv", ["lab_state.py", action, "--lab", "1"])
     monkeypatch.setattr(lab_entry, "start", fail)
@@ -423,7 +425,9 @@ def test_a_failed_lab_check_during_entry_is_a_clean_exit_not_a_traceback(
     with pytest.raises(SystemExit) as exit_info:
         lab_state.main()
 
-    assert str(exit_info.value) == "/api/search is unavailable; fix: tell your facilitator"
+    assert (
+        str(exit_info.value) == "/api/search is unavailable; fix: tell your facilitator"
+    )
 
 
 def test_lab3_source_check_names_the_next_commands_instead_of_passing(

@@ -12,8 +12,8 @@ from scripts.apply_search_functions import (
     describe_apply_failure,
 )
 from scripts.configure_retrieval_database import DatabaseConfigurationError
-from service.participant_commands import APPLY_SQL
 from scripts.lab_state import LABS, _replace_block
+from service.participant_commands import APPLY_SQL
 from service.search_sql import search_sql
 
 SOURCE = search_sql()
@@ -101,7 +101,9 @@ class PositionedSyntaxError(psycopg.errors.SyntaxError):
 def apply_command(monkeypatch):
     """`main()` with Aurora's connection and the reset guard replaced."""
     monkeypatch.setenv("DATABASE_URL", "postgresql://redacted")
-    monkeypatch.setattr(apply_search_functions, "assert_reset_database", lambda _dsn: None)
+    monkeypatch.setattr(
+        apply_search_functions, "assert_reset_database", lambda _dsn: None
+    )
     monkeypatch.setattr(psycopg, "connect", lambda *_, **__: MagicMock())
     monkeypatch.setattr(
         "scripts.configure_retrieval_database.configure", lambda _dsn: None
@@ -109,7 +111,9 @@ def apply_command(monkeypatch):
     return monkeypatch
 
 
-def test_a_sql_error_names_the_sqlstate_the_block_and_that_nothing_applied(apply_command):
+def test_a_sql_error_names_the_sqlstate_the_block_and_that_nothing_applied(
+    apply_command,
+):
     def fail(*_args, **_kwargs):
         raise PositionedSyntaxError("syntax error")
 
@@ -132,7 +136,9 @@ def test_a_sql_error_names_the_sqlstate_the_block_and_that_nothing_applied(apply
 
 def test_a_dataset_mismatch_exits_cleanly_and_says_nothing_applied(apply_command):
     def mismatch(*_args, **_kwargs):
-        raise ValueError("Lab catalog rule: prepared dataset 'a' differs from 'b'; fix: x.")
+        raise ValueError(
+            "Lab catalog rule: prepared dataset 'a' differs from 'b'; fix: x."
+        )
 
     apply_command.setattr(apply_search_functions, "apply", mismatch)
 
@@ -148,7 +154,9 @@ def test_a_gate_configuration_failure_says_the_sql_was_applied(apply_command):
     apply_command.setattr(apply_search_functions, "apply", lambda *_a, **_k: None)
 
     def fail(_dsn):
-        raise DatabaseConfigurationError("D2 database owner mismatch; fix: use the owner")
+        raise DatabaseConfigurationError(
+            "D2 database owner mismatch; fix: use the owner"
+        )
 
     apply_command.setattr("scripts.configure_retrieval_database.configure", fail)
 
