@@ -73,10 +73,16 @@ def rpc(method: str, params: dict) -> dict:
             response = client.post(endpoint, content=body, headers=dict(signed.headers))
             response.raise_for_status()
     except httpx.HTTPError as error:
+        reason = (
+            f"HTTP {error.response.status_code}"
+            if isinstance(error, httpx.HTTPStatusError)
+            else type(error).__name__
+        )
         raise AgentSetupError(
-            "The agent could not reach its SQL tools through Gateway. In Code Editor, "
-            f"check the deployment with {VERIFY_AGENT}. Next: share a failed deployment check with your facilitator, "
-            "or retry your question if the check passes."
+            f"The agent could not reach its SQL tools through Gateway ({reason}). "
+            f"In Code Editor, run {VERIFY_AGENT}. Next: if that command fails too, "
+            f"deploy again with {DEPLOY_AGENT} and share its message with your "
+            "facilitator; if it passes, retry your question."
         ) from error
     try:
         if response.headers.get("content-type", "").startswith("text/event-stream"):
