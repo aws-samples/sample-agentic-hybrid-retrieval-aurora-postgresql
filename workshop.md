@@ -84,7 +84,8 @@ Discover Gateway tools, then complete `create_agent` inside `LAB3_AGENT` in
 `labs/lab3_reason/agent.py`. Participants keep the supplied model, tools, source
 rules and hooks, and add one instruction of their own. Deploy using the guide.
 
-Run **Playground → Complete my room → Reason**. Save the original run ID. The
+Run **Playground → Complete my room → Reason**. Save the original run ID. Ask Mosaic
+opens from the **Ask Mosaic** pill in the header on every page. The
 Ask Mosaic **Complete my room** starter is available before and after the agent is
 built and runs on its own filters; it shows "Shop filters were cleared for this lab
 request." when it replaces filters a participant had set. A follow-up question is

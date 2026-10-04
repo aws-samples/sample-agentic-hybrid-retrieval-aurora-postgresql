@@ -61,7 +61,8 @@ Explorer view. When a lab starts, its
 marked blocks hold a `TODO(Lab n)` note that repeats the guide's contract.
 
 Use **Shop** for product search and **Playground** for saved candidates,
-ranking, tool calls and cited sources. **Complete my room** runs Lab 3's
+ranking, tool calls and cited sources. **Ask Mosaic** opens from the pill in the
+header on every page. **Complete my room** runs Lab 3's
 three-product request, and its Ask Mosaic starter stays available before and after
 you build the agent; it runs on its own filters and says when it clears Shop's.
 Keep its original run ID for completion. Ask Mosaic's **Builder view** switch (off by default) adds the run's recorded steps, saved search ids and how each search ranked its products to every answer. The Playground's Prove page keeps the

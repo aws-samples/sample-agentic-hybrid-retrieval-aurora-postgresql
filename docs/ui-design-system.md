@@ -238,6 +238,15 @@ turn `--ink`, and the active entry draws a 2px `--ink` underline within the
 control's bounds. Prices, ratings, comparison tables, receipt figures and page
 counts use tabular figures.
 
+Every Playground tab (Hybrid retrieval, the guided lab, Scale & HNSW, Session &
+Memory) shares one masthead scale through `MosaicLabsMasthead`: the title at
+`clamp(32px, 3.4vw, 44px)`, weight 600, −0.03em, balanced, one line where it fits,
+then a lede. One `.labs-lede` rule sets every lede on those pages (the masthead
+deck, the guided lab's stage summaries and the pipeline page's section ledes):
+`--ink-soft`, 17px, line height 1.45, at most 64ch. The rule's selectors
+out-rank each tab's own masthead rules in `world.css`, so a tab cannot keep a
+second scale.
+
 The guided lab and the Labs views use the `--labs-*` scale: display
 `clamp(36px, 3.6vw, 54px)`, h2 `clamp(30px, 2.6vw, 40px)`, h3 19px, lead 17px,
 body 15px, detail 13px, micro 12px, and mono 13px.
@@ -273,6 +282,21 @@ result's photograph 20px; spec highlight tiles on the product page
 14px; thumbnails 12px; the shared `.primary-button` / `.secondary-button`
 980px, which renders identically to 999px.
 
+- **One segmented control** (`.pg-seg`, in `shared-states.css`): a `--paper-warm`
+  pill track with a raised `--paper-strong` segment for the pressed button. The
+  Playground orderings and Shop's "Shop / Shop + search details" switch use it. It
+  never wraps: on a phone it scrolls sideways as a single row.
+- **One disclosure style** (`world.css`): no native marker, a chevron after the
+  label that turns over when the section opens, 14px `--ink-soft`. An accordion
+  row such as the product page's sets `--disclosure-size`, `--disclosure-ink` and
+  `--disclosure-weight` for its larger title and keeps the same chevron. Ask
+  Mosaic's sidecar draws its own and is excluded.
+- **Selects** hide the native arrow and draw one chevron inside the pill's right
+  padding (`world.css`). Its SVG data URI repeats `--ink-soft`'s light and dark
+  values, because a data URI cannot read a custom property. The Shop sort pill
+  draws its own and is left alone.
+- The search field's focus ring is one ring: the `--action` border is 2px (its own
+  1px plus a 1px shadow) with a soft 16% halo, and the generic outline stands down.
 - Hairlines are 1px, `--line` inside a panel and `--line-strong` at the
   boundary of a card or field. The header's bottom edge is `--line` at 70%.
 - The site header is `--topbar-height` (56px) high, sticky, on `--nav-glass`
@@ -314,10 +338,11 @@ sans. In order:
    the missed line's plain statement remains.
 2. Before reranking (`FUSED_LABEL`): the combined position and fused score,
    with a Rank dot and a `--line` rule above. When the response carries
-   `diagnostics.candidate_counts.fused_pool`, a slim `--line` track
-   (`.receipt-pool-bar`) with a `--rank` dot marks the product's share of that
-   pool, and a sub-line reads "position 21 of the 50 sent to reranking". Both
-   are omitted when the pool size is unknown.
+   `diagnostics.candidate_counts.fused_pool`, a 6px `--line-strong` track
+   (`.receipt-pool-bar`) on its own row, with a 12px `--rank` dot ringed in
+   `--paper-strong`, marks the product's share of that pool, and a sub-line below
+   it reads "position 21 of the 50 sent to reranking". Both are omitted when the
+   pool size is unknown.
 3. Reranked: the reranker's score to three decimals, only when one was
    recorded, with a sub-line reading "Cohere Rerank relevance score" when
    `diagnostics.rerank_model_id` names a Cohere model, or "relevance score"
@@ -339,7 +364,9 @@ the pool-position track always span the row's full width, in both layouts.
 headline at `clamp(36px, 4vw, 56px)`, then a 17px lede at most 64ch wide. The pill search follows as the primary action, at most 680px wide,
 with its scope line and centred example links. The workspace shelf comes next:
 real product cards in a horizontal scroll region, category links and a full
-catalog shortcut. Cards snap into view with touch, keyboard or arrow controls.
+catalog shortcut. The shelf shows whole cards only (4, 3, 2 or 1 at the width it
+has) and the first starts under the heading; cards snap into view with touch,
+keyboard or arrow controls.
 The editorial bands follow in `shop-editorial.css`, each spanning the window with
 `clamp(56px, 7vw, 96px)` of vertical padding:
 
@@ -357,10 +384,27 @@ Below 820px the splits stack copy, image, then notes.
 
 **Ranked results.** A search or an Ask Mosaic shortlist replaces the story.
 Ranked results read as an editorial list. The first in the final order is a
-feature on a `--paper-warm` plate with a 28px radius, photograph and facts side
-by side. The rest are rows: a 112px plate, the product details, and the
-position at the end, separated by 1px `--line` rules. Browsing has no order, so
-it keeps the product grid.
+feature on a `--paper-warm` card with a 28px radius, photograph and facts side
+by side, the copy vertically centred. The photograph follows the plate rule:
+`multiply` on the image over `--plate` on its container, contained at about 82% of
+the plate's width. The rest are rows: a 112px plate and the product details,
+separated by 1px `--line` rules and 12px between a row's blocks. The final
+position is a 24px `--paper-strong` hairline pill in the plate's top-left corner
+(bottom-left when the Ask Mosaic pick badge holds that corner). Compare is a 999px
+outline chip around a drawn checkbox. Browsing has no order, so it keeps the
+product grid.
+
+When Ask Mosaic's shortlist replaces the results, its headline is the label
+alone ("Ask Mosaic shortlist", 28 to 32px) and the question sits under it as a
+17px `--ink-soft` line clamped to two lines, with "Show all" only when the clamp
+hides something (`ShortlistQuestion.tsx`). "Results for …" is one balanced 28 to
+32px heading clamped to two lines; under 820px the ways to ask, the scope line and
+the search-details switch step aside so results start near the top.
+
+A failed search is one tile: an 18px `--danger-soft` panel with a `--danger-line`
+border, a 15px/600 title, the service's message in 14px `--ink-soft`, a cobalt
+"Retry search" pill and a hairline "Clear search" pill. An unknown product or
+address is a centred title, one line and a "Back to Shop" pill.
 
 ## Chrome behaviour
 
@@ -386,33 +430,40 @@ it keeps the product grid.
   icons and focus treatment stay shared.
 - Shop's landing is described under the world layer. Beneath the search,
   Keywords, Typo and Intent example groups are one line of text links in
-  `--link`, then a note that every example uses the same search pipeline.
-  Beside results they align with the field's left edge. “A little help
-  choosing?” and the Ask Mosaic button form the landing's closing band, and a
-  compact note beside the search once there are results. The Ask button is a
-  999px pill with a gradient from `--maroon-800` to `--maroon-950` (ink to the
-  extreme ink of the theme), `--paper` text, a sheen that sweeps on hover, and
-  a 1px lift; reduced motion disables the sheen and movement. An active query,
-  a shortlist or an open Ask panel removes the story bands.
+  `--link`, then a note that every example uses the same search pipeline. On a
+  phone each label sits above its links, which form one strip that scrolls
+  sideways. “A little help choosing?” and the Ask Mosaic button form the
+  landing's closing band; once there are results the header's pill is the way
+  in. The band's Ask button is a 999px pill with a gradient from
+  `--maroon-800` to `--maroon-950` (ink to the extreme ink of the theme),
+  `--paper` text, a sheen that sweeps on hover, and a 1px lift; reduced motion
+  disables the sheen and movement. An active query, a shortlist or an open Ask
+  panel removes the story bands.
+- **Ask Mosaic's one entry point** is a 36px `--action` pill with a sparkle icon in
+  the glass header (`SiteHeader.tsx`), on every page. On Shop it opens the panel
+  through a window event (`askMosaicEntry.ts`); anywhere else it goes to
+  `/catalog?ask=1`. Under 460px it collapses to a 36px circle that keeps its
+  name. The product page's “Compare in Ask Mosaic” link stays. The edge tab and
+  the docked phone bar are gone.
 - Shop result cards for the real catalog (`source-product-card`) are the
   product-page tile: the whole card is a `--paper-warm` tile
   (`--tile-radius`), and the listing photo, `clamp(200px, 21vw, 280px)` high,
   sits directly on its plate with no border or inner box, contained rather
   than cropped. A ranked search prints the product's own recorded final
-  position, quiet 12px `--ink-soft` text above the photo (`.shop-card-
-  position`); the assist-rank badge keeps the photo's own corner for Ask
-  Mosaic's separate pick order. Centred beneath the photo: a two-line 17px
+  position as a pill in the photo's corner (`.shop-card-position`); the
+  assist-rank badge keeps the other corner for Ask Mosaic's separate pick order.
+  Centred beneath the photo: a two-line 17px
   `--display` product name at weight 600, the brand/category meta, a typed
-  spec-facts line (`specFacts`, up to three facts as "label value" pairs), and
+  spec-facts line (`specFacts`, up to three facts as "label value" pairs; a fact
+  never breaks across lines and the line stops at two rows), and
   the price -- the recorded historical listing price with its rating and a
   “Historical listing price” caption for the real catalog, current price and
-  stock for the legacy catalog. “Why this match ›”, in `--link` with a
-  trailing chevron, opens the itemized receipt; Compare and the Original
-  listing link stay in a left/right footer row below it, not centred. Four
+  stock for the legacy catalog. “Why this match”, in the shared disclosure style, opens the itemized
+  receipt; Compare and the Original listing link stay in a left/right footer row
+  below it, not centred. The price block has a fixed minimum height so footers
+  align across a row of cards. Four
   cards across at 1440px (`.shop-product-grid`), two under 900px, one under
   360px.
-- Under 900px the Try Ask Mosaic rail docks across the bottom of Shop and the
-  page reserves space beneath its results so the rail never covers a result.
 - The site header contains navigation, Code Editor when configured, Alex's
   portrait, the theme toggle, and the bag. Repair status belongs to the guided
   Playground rail and completion proof, whose labels distinguish “Code
@@ -422,18 +473,28 @@ it keeps the product grid.
   carry a `next` step, and UI command strings come from `participantCommands.ts`,
   which `tests/test_participant_commands.py` holds to the service's copies.
 - The guided lab's rail is sticky under the header and condenses once it
-  sticks. Its four stages are a segmented control with a stage-coloured dot
-  each; the current stage is the raised segment. `LabRail` reads the stuck state from an `IntersectionObserver`,
+  sticks. Row one is the lab's title (20px, weight 600) and its stages as a
+  segmented control with a stage-coloured dot each; the current stage is the
+  raised segment, and on a phone the control scrolls sideways with snap. Row two
+  is the file to edit as a copyable hairline pill, the two state chips and the
+  next-lab link at the right edge, with the task and next step in a line under
+  them; the task folds away once the rail sticks. `LabRail` reads the stuck state from an `IntersectionObserver`,
   holds its flow footprint constant, and measures its height into
   `--labs-rail-height`, which the stage anchors add to their scroll margin.
-- Retrieve, Rank and Reason keep their stage colours on the Playground: the
-  pipeline page's stage chips carry a `--retrieve`, `--rank` or `--reason` dot,
-  and the guided lab's step numbers use `--retrieve`, `--gold` and `--reason`.
-  A stage the sequence does not name (Prove) uses the neutral `--line-strong`.
-- Every Playground send uses `MosaicRunButton`: a 44px `--maroon-900` disc with
-  a `--paper` plane icon, `--maroon-800` under the pointer, and a spinner while
-  the request is in flight; reduced motion stops the spinner. Hybrid retrieval
-  and Session & Memory print a label beside the disc.
+- Retrieve, Rank and Reason keep their stage colours on the Playground as
+  markers only: the pipeline page's stage chips and the lab rail carry a
+  `--retrieve`, `--rank` or `--reason` dot. The guided lab's stage numerals are
+  order, not identity, and stay `--ink-soft`. The three search methods are all
+  Retrieve: the pipeline page draws their dots in `--retrieve` and tells them
+  apart by label, and a method that found nothing gets a hollow dot, as in the
+  Shop receipt. A stage the sequence does not name (Prove) uses the neutral
+  `--line-strong`. The guided lab's content runs the shell's full width, with the
+  numeral inline before each stage title.
+- Every Playground send uses `MosaicRunButton`: a 44px `--action` disc with
+  an `--action-ink` plane icon, `--action-hover` under the pointer, and a spinner
+  while the request is in flight; reduced motion stops the spinner. Hybrid
+  retrieval, Session & Memory and the guided lab's Reason composer print a label
+  beside the disc.
 - The pipeline page (`PlaygroundPage.tsx`, `components/playground/`,
   `playground-page.css` scoped to `.pg-a`) is a product page with receipts: a
   centred stage (request segmented control, the shared Labs masthead centred,
@@ -474,7 +535,10 @@ it keeps the product grid.
   uses fixed-camera steps; WebGL failure offers a flat graph and retry.
 - Navigation preserves the header, resets scroll and keyboard focus for a new
   page, and leaves the current page mounted for query changes.
-- Disclosures are native `<details>`, each with a hint of what is inside.
+- Disclosures are native `<details>`, each with a hint of what is inside, drawn in
+  the one disclosure style above.
+- Text actions carry no decorative arrow. Retained icons are functional: send,
+  carousel controls, chevrons and external-listing indicators.
 - Completion proof keeps failed checks visible and passing checks expandable,
   and can download the exact measured JSON.
 
@@ -489,8 +553,10 @@ listing photos” and the view count.
 
 The summary gives brand and category (14px, weight 600, `--ink-soft`), the
 title at `clamp(28px, 2.6vw, 40px)` weight 600 (25px under 760px), clamped to
-three lines with an expand control in `--link`, the historical rating, and up
-to three feature lines. Typed spec highlights follow as a two-column grid of
+three lines with an expand control in `--link`, the same price line the Shop card
+prints (the historical price at 24px weight 600 with “Historical listing price”,
+or “Price not recorded”), the historical rating, and up to three feature lines,
+each clamped to three lines with balanced wrapping. Typed spec highlights follow as a two-column grid of
 `--paper-warm` tiles with 14px corners: the value above at
 `clamp(20px, 1.8vw, 26px)` weight 600 with tabular figures, the label beneath
 at 13px `--ink-soft`, and the listing's words in the tile's title as “From the
@@ -525,7 +591,9 @@ palette in `studio-prototype.css`; it is not the storefront's design.
 | `/mosaic-labs/studio` | Retired composition page; redirects to Hybrid retrieval |
 
 `/playground`, `/mosaic-labs` and `/inspiration` redirect to Hybrid retrieval;
-`/shop` redirects to Shop and `/labs/performance` redirects to Scale & HNSW.
+`/shop` redirects to Shop and `/labs/performance` redirects to Scale & HNSW. Any
+other address shows a small centred “Page not found” with a “Back to Shop” pill
+and keeps the address; it no longer silently shows Shop.
 
 ## Interaction principles
 
