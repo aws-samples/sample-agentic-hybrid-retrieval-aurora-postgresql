@@ -482,6 +482,9 @@ function EntryState({ suggestions, onRun }: {
       <ul aria-label="Example questions">{suggestions.map((suggestion) => <li key={suggestion.id}>
         <button type="button" onClick={() => onRun(suggestion.query, suggestion.filters, Boolean(suggestion.mission_id))}>
           <span className="ask-mosaic-starter-path">{suggestion.shop_label}</span>
+          {suggestion.notice ? (
+            <span className="ask-mosaic-starter-notice">{suggestion.notice}</span>
+          ) : null}
         </button>
       </li>)}</ul>
     </div> : null}

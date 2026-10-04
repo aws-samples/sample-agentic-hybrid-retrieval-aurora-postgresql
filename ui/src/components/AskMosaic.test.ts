@@ -8,6 +8,7 @@ import { fixtureCatalogPage } from "../testProducts";
 import { AskMosaic, boldRecommendationNames } from "./AskMosaic";
 import type { AskMosaicTurn } from "./ask-mosaic/types";
 import { Searches } from "./agentAnswerParts";
+import { pipelineRequests } from "../labMissions";
 import type { AgentPlanStep, AgentResponse, ToolTraceStep } from "../types";
 
 afterEach(() => {
@@ -347,6 +348,28 @@ describe("AskMosaic failures", () => {
     });
 
     expect(screen.getByRole("alert").textContent).toMatch(/Press Ask again to retry/);
+  });
+});
+
+describe("AskMosaic starters", () => {
+  it("explains each starter under its label with the manifest notice", () => {
+    const starters = pipelineRequests.filter((request) => request.id === "plan-workspace" || request.id === "more-screen-space");
+    renderAskMosaic(groundedResponse(), { turns: [], suggestions: starters });
+
+    const list = screen.getByRole("list", { name: "Example questions" });
+    for (const starter of starters) {
+      const button = within(list).getByRole("button", { name: new RegExp(starter.shop_label) });
+      expect(within(button).getByText(starter.shop_label)).toBeTruthy();
+      expect(within(button).getByText(starter.notice)).toBeTruthy();
+    }
+  });
+
+  it("keeps the label alone when a starter carries no notice", () => {
+    const [starter] = pipelineRequests;
+    renderAskMosaic(groundedResponse(), { turns: [], suggestions: [{ ...starter, notice: "" }] });
+
+    const button = within(screen.getByRole("list", { name: "Example questions" })).getByRole("button");
+    expect(button.textContent).toBe(starter.shop_label);
   });
 });
 
