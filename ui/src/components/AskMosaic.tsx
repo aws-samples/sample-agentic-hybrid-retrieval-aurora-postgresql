@@ -498,6 +498,8 @@ interface AskMosaicProps {
   seedQuery: string;
   /** Active Shop filters passed to every agent request. */
   contextFilters: string[];
+  /** A one-line fact about how the last request was sent, shown above the composer. */
+  notice?: string;
   /** Oldest exchange first. */
   turns: AskMosaicTurn[];
   pending: boolean;
@@ -526,6 +528,7 @@ export function AskMosaic({
   open,
   seedQuery,
   contextFilters,
+  notice,
   turns,
   pending,
   suggestions,
@@ -821,6 +824,7 @@ export function AskMosaic({
             that would replace it. */}
         <div className="ask-mosaic-composer">
           {memory ? <MemoryControl memory={memory} pending={pending} /> : null}
+          {notice ? <p className="ask-mosaic-notice" role="status">{notice}</p> : null}
           {contextFilters.length ? (
             <div
               className="ask-mosaic-context"

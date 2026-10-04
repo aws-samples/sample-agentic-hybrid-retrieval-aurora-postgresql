@@ -87,6 +87,7 @@ import type {
   SearchResponse,
 } from "../types";
 
+const SHOP_FILTERS_CLEARED_NOTICE = "Shop filters were cleared for this lab request.";
 const priceCeiling = 2000;
 const priceStep = 25;
 const priceCeilingCents = priceCeiling * 100;
@@ -329,6 +330,7 @@ export function CatalogPage() {
    * one is never mistaken for the run this URL is asking for. */
   const [servedRequest, setServedRequest] = useState("");
   const [agentOpen, setAgentOpen] = useState(false);
+  const [filtersClearedForLab, setFiltersClearedForLab] = useState(false);
   const [highlightedProductId, setHighlightedProductId] = useState<number | null>(null);
   const [drawerProductId, setDrawerProductId] = useState<number | null>(null);
   const [domainsAtEnd, setDomainsAtEnd] = useState(false);
@@ -954,6 +956,7 @@ export function CatalogPage() {
    */
   function clearAgentConversation() {
     clearAgentThread();
+    setFiltersClearedForLab(false);
     setHighlightedProductId(null);
   }
 
@@ -1693,7 +1696,9 @@ export function CatalogPage() {
           onClose={closeAgent}
           onClear={clearAgentConversation}
           onStop={stopAgentThread}
+          notice={filtersClearedForLab ? SHOP_FILTERS_CLEARED_NOTICE : undefined}
           onRun={(query, suggestedFilters, replaceShopFilters) => {
+            setFiltersClearedForLab(Boolean(replaceShopFilters) && activeFilterCount > 0);
             if (!suggestedFilters) {
               void askAgent(query, filters, retrievalRequest);
               return;

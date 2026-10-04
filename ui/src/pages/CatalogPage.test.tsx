@@ -2310,6 +2310,7 @@ describe("CatalogPage", () => {
 
   describe("Shop filters and Ask Mosaic starters", () => {
     const SHOP_FILTERS = "min_rating=4&in_stock_only=true&availability=in_stock";
+    const CLEARED_NOTICE = "Shop filters were cleared for this lab request.";
 
     async function openStarters() {
       window.history.replaceState(
@@ -2337,6 +2338,7 @@ describe("CatalogPage", () => {
       expect(params.get("min_rating")).toBe("4");
       expect(params.get("in_stock_only")).toBe("true");
       expect(params.get("availability")).toBe("in_stock");
+      expect(screen.queryByText(CLEARED_NOTICE)).toBeNull();
     });
 
     it("drops them for a lab starter, in the request and in the URL", async () => {
@@ -2352,6 +2354,19 @@ describe("CatalogPage", () => {
       expect(params.has("min_rating")).toBe(false);
       expect(params.has("in_stock_only")).toBe(false);
       expect(params.has("availability")).toBe(false);
+      expect(screen.getByText(CLEARED_NOTICE)).toBeTruthy();
+    });
+
+    it("says nothing when a lab starter had no Shop filters to clear", async () => {
+      window.history.replaceState({}, "", "/catalog");
+      renderPage();
+      await screen.findByText(catalog.products[0].model);
+      fireEvent.click(screen.getByRole("button", { name: "Ask Mosaic" }));
+      const starters = await screen.findByRole("list", { name: "Example questions" });
+      fireEvent.click(within(starters).getByRole("button", { name: /Complete my room/ }));
+      await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
+
+      expect(screen.queryByText(CLEARED_NOTICE)).toBeNull();
     });
   });
 

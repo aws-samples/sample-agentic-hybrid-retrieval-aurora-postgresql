@@ -745,3 +745,10 @@
     transition: none;
   }
 }
+
+.ask-mosaic-notice {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.5;
+}
