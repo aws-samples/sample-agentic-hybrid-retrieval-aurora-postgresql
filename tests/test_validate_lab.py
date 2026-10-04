@@ -4,6 +4,7 @@ import pytest
 
 from scripts import validate_lab
 from service.config import get_settings
+from service.participant_commands import complete_lab_3
 from service.participant_commands import start as start_command
 
 PLAN = [{"Plan": {"Node Type": "Append"}}]
@@ -709,18 +710,68 @@ def test_a_saved_completion_never_turns_a_failing_check_into_a_pass(
     assert (tmp_path / ".local/lab-1/completion.json").read_bytes() == saved
 
 
-@pytest.mark.parametrize("lab", [2, 3])
-def test_an_unentered_lab_is_not_validated(monkeypatch, tmp_path, lab) -> None:
+def test_an_unentered_lab_is_not_validated(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(validate_lab, "REPO", tmp_path)
     monkeypatch.setattr(
         validate_lab,
-        {2: "validate_lab_2", 3: "validate_lab_3"}[lab],
+        "validate_lab_2",
         lambda *_, **__: pytest.fail("validated a lab that never started"),
     )
-    monkeypatch.setattr("sys.argv", ["validate_lab.py", "--lab", str(lab)])
+    monkeypatch.setattr("sys.argv", ["validate_lab.py", "--lab", "2"])
 
-    with pytest.raises(SystemExit, match=re.escape(start_command(lab))):
+    with pytest.raises(SystemExit, match=re.escape(start_command(2))):
         validate_lab.main()
+
+
+def test_a_participant_is_sent_to_their_saved_run_for_lab_3(monkeypatch) -> None:
+    monkeypatch.setattr(
+        validate_lab,
+        "validate_lab_3",
+        lambda *_, **__: pytest.fail("issued fresh agent answers for a participant"),
+    )
+    monkeypatch.setattr("sys.argv", ["validate_lab.py", "--lab", "3"])
+
+    with pytest.raises(SystemExit) as raised:
+        validate_lab.main()
+
+    message = str(raised.value)
+    assert "--lab 3" in message and "saved" in message
+    assert complete_lab_3() in message
+
+
+@pytest.mark.parametrize("flag", ["--save-receipt", "--reuse-receipt"])
+def test_a_maintainer_receipt_still_validates_lab_3(monkeypatch, tmp_path, flag):
+    calls = []
+    monkeypatch.setattr(
+        validate_lab, "validate_lab_3", lambda *_a, **kw: calls.append(kw) or []
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        ["validate_lab.py", "--lab", "3", flag, str(tmp_path / "receipt.json")],
+    )
+
+    assert validate_lab.main() == 0
+    assert len(calls) == 1
+
+
+def test_api_url_defaults_to_the_lab_api_url_setting(monkeypatch, tmp_path) -> None:
+    urls = []
+    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+    monkeypatch.setenv("LAB_API_URL", "http://127.0.0.1:8123")
+    monkeypatch.setattr(
+        validate_lab, "validate_lab_1", lambda url, *_a, **_k: urls.append(url) or []
+    )
+    monkeypatch.setattr("sys.argv", ["validate_lab.py", "--lab", "1"])
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *_: None)
+    monkeypatch.setattr("service.lab_proof.entry_check", lambda *_: _Entered())
+
+    assert validate_lab.main() == 0
+    assert urls == ["http://127.0.0.1:8123"]
+
+
+class _Entered:
+    passed = True
+    detail = ""
 
 
 def test_a_passing_check_records_its_own_fresh_evidence(monkeypatch, tmp_path) -> None:
