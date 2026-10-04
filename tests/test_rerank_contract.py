@@ -197,3 +197,14 @@ def test_optional_reranking_discards_the_entire_malformed_response(caplog):
     assert "error_type=RerankResponseError" in caplog.text
     assert [product.product_id for product in response.results] == [1, 2]
     assert all(product.signals.rerank_score is None for product in response.results)
+
+
+def test_served_rrf_states_that_profile_weights_do_not_apply():
+    response = _retrieval(rerank_required=False).search(
+        SearchRequest(query="quiet headphones", limit=2)
+    )
+
+    assert response.diagnostics is not None
+    policy = " ".join(response.diagnostics.ranking_policy)
+    assert "unweighted" in policy
+    assert "weighted comparison" in policy

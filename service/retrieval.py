@@ -492,6 +492,12 @@ class RetrievalService:
                 "managed reranking",
                 "exact SKU preservation",
             ]
+            if not self.use_weighted_fusion:
+                ranking_policy[0] = (
+                    "RRF candidate fusion, unweighted: each contribution is "
+                    "1/(k+rank); the profile's weight_* values apply only to "
+                    "the weighted comparison strategy"
+                )
             if any(row["exact_identity_match"] for row in candidates):
                 ranking_policy.append(
                     "exact identity lookup: serve matching identities only"
