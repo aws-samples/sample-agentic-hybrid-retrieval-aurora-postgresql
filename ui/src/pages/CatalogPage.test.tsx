@@ -1655,6 +1655,33 @@ describe("CatalogPage", () => {
     );
   });
 
+  it("keeps the Lab 3 banner and proof link when Ask Mosaic is closed", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/catalog?ask=1&mission=agentic-research&q=Compare%20quiet%20keyboards",
+    );
+    renderPage();
+
+    await screen.findByRole("complementary", { name: "Ask Mosaic" });
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: agentResponse.question } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+    await screen.findByRole("link", { name: /Prove this run/ });
+
+    fireEvent.click(
+      within(screen.getByRole("complementary", { name: "Ask Mosaic" }))
+        .getByRole("button", { name: "Close Ask Mosaic" }),
+    );
+
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get("mission")).toBe("agentic-research");
+    expect(params.has("ask")).toBe(false);
+    expect(await screen.findByRole("link", { name: /Prove this run/ })).toBeTruthy();
+  });
+
   it("opens Ask Mosaic, renders grounded receipts, and cross-highlights products", async () => {
     renderPage();
     await screen.findByText(catalog.products[0].model);

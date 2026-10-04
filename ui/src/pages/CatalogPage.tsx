@@ -803,16 +803,17 @@ export function CatalogPage() {
   /**
    * Closing the panel also has to retire the deep links that open it.
    *
-   * `?ask=1`, `?mode=agent`, and a lab `?mission=` all open Ask Mosaic on
-   * arrival, so leaving them on the URL means a reload, a back navigation, or a
-   * copied link reopens the panel the participant just dismissed.
+   * `?ask=1` and `?mode=agent` open Ask Mosaic on arrival, so leaving them on
+   * the URL means a reload, a back navigation, or a copied link reopens the
+   * panel the participant just dismissed. `?mission=` stays: it names the lab
+   * whose outcome banner and proof link outlive the panel.
    */
   const closeAgent = useCallback(() => {
     restoreAgentFocusOnClose.current = true;
     setAssistOpen(false);
     setHighlightedProductId(null);
     const next = new URLSearchParams(searchParams);
-    const openers = ["ask", "mode", "mission"].filter((name) => next.has(name));
+    const openers = ["ask", "mode"].filter((name) => next.has(name));
     if (!openers.length) return;
     for (const name of openers) next.delete(name);
     setSearchParams(next);
