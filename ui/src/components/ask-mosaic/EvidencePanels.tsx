@@ -252,6 +252,11 @@ export function Shortlist({
   );
 }
 
+/** A rank as "#3", or a dash when the response carries none. */
+function position(rank: number | null | undefined): string {
+  return rank ? `#${rank}` : "-";
+}
+
 /**
  * Why the leader leads, in the shopper's vocabulary.
  *
@@ -275,12 +280,12 @@ export function Ranking({ candidates }: { candidates: ProductSummary[] }) {
         {armLanguage.map((arm) => (
           <div key={arm.key}>
             <dt>{arm.label}</dt>
-            <dd>{signals[arm.key].rank ? `#${signals[arm.key].rank}` : "-"}</dd>
+            <dd>{position(signals[arm.key].rank)}</dd>
           </div>
         ))}
         <div>
           <dt>{FUSED_LABEL}</dt>
-          <dd>#{signals.pre_rerank_rank}</dd>
+          <dd>{position(signals.pre_rerank_rank)}</dd>
         </div>
         <div>
           <dt>Rerank score</dt>
@@ -297,7 +302,7 @@ export function Ranking({ candidates }: { candidates: ProductSummary[] }) {
         ) : null}
         <div>
           <dt>{FINAL_LABEL}</dt>
-          <dd>#{signals.final_rank}</dd>
+          <dd>{position(signals.final_rank)}</dd>
         </div>
       </dl>
     </details>
