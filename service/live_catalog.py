@@ -136,6 +136,18 @@ def _source_rows(
     ).fetchall()
 
 
+class ProductNotInCatalogError(KeyError):
+    """A product id no longer exists in the active catalog snapshot.
+
+    A `KeyError` subclass so callers that already map `KeyError` to a conflict
+    keep working, while `/api/search` can catch this one type without also
+    catching an unrelated lookup bug as a 409.
+    """
+
+    def __str__(self) -> str:
+        return str(self.args[0])
+
+
 def get_product_summaries(product_ids: list[int]) -> list[ProductSummary]:
     ids = list(dict.fromkeys(product_ids))
     if not ids:
@@ -144,7 +156,7 @@ def get_product_summaries(product_ids: list[int]) -> list[ProductSummary]:
         rows = _source_rows(connection, ids)
     found = {row["product_id"] for row in rows}
     if missing := [product_id for product_id in ids if product_id not in found]:
-        raise KeyError(
+        raise ProductNotInCatalogError(
             f"Products {missing} are not in this catalog. Run a new search against the current catalog."
         )
     return [summary_from_source(row) for row in rows]

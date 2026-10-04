@@ -61,6 +61,7 @@ from service.hnsw import RepresentationUnavailable
 from service.hnsw_anchors import AnchorSetError, load_anchor_set, served_dataset_id
 from service.hnsw_corpus import StaleGroundTruth
 from service.lab_proof import UnknownLab, completion_proof, lab_states
+from service.live_catalog import ProductNotInCatalogError
 from service.model_runtime import (
     bedrock_credentials_status,
     safe_model_runtime_message,
@@ -509,6 +510,9 @@ def get_question_ranked_product_evidence(
 def search(request: SearchRequest) -> SearchResponse:
     try:
         return search_with_telemetry(request)
+    except ProductNotInCatalogError as error:
+        # 409: the catalog changed under the request; a new search resolves it.
+        raise HTTPException(409, str(error)) from error
     except (ClientError, BotoCoreError) as error:
         raise _model_error(error) from error
     except RuntimeError as error:
