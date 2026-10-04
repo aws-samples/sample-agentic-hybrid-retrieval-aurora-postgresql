@@ -176,7 +176,7 @@
       "title": "Lab 3 - Build and deploy the agent",
       "discover_label": "Complete Alex’s room with your agent",
       "canonical_query_id": "G-021",
-      "query": "I am finishing my home office. Check the Logitech Zone 900 (B0C2WWCFQB) for noise cancellation that helps me focus and what the available reviews establish about clear calls; the ViewSonic VG2756-4K (B0BSHZHKB7) for a 27-inch 4K screen and USB-C charging up to 90W over one cable; and the Steelcase Gesture (B095V7RS6S) for adjustable lumbar support and fully adjustable arms, and whether reviewers say it stays comfortable through a full workday. Search each product separately, compare all three as parts of my room, and explain what the specifications and available reviews do and do not establish. Cite supporting records for each product and explain the ranking of one search.",
+      "query": "I have the Logitech Zone 900 headphones and the ViewSonic VG2756-4K monitor. Now I need a chair, and I'm looking at the Steelcase Gesture. Help me complete my room, and show me the sources for all three.",
       "filters": {},
       "target_product_ids": [
         1492978,
