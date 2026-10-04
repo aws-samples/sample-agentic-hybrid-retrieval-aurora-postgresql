@@ -65,6 +65,24 @@ describe("agentStream", () => {
     });
   });
 
+  it("carries the server's code and status on a rejected stream", async () => {
+    vi.stubGlobal("fetch", streamFetch(sseResponse([
+      'event: error\ndata: {"code":"request_rejected","status":429,"detail":"Too many runs"}\n\n',
+    ])));
+    await expect(api.agentStream("question", {}, () => {})).rejects.toMatchObject({
+      message: "Too many runs", status: 429, code: "request_rejected",
+    });
+  });
+
+  it("keeps the agent setup code so the panel can show the next step", async () => {
+    vi.stubGlobal("fetch", streamFetch(sseResponse([
+      'event: error\ndata: {"code":"agent_setup","detail":"Your agent is not built yet.","agent_run_id":"setup-run"}\n\n',
+    ])));
+    await expect(api.agentStream("question", {}, () => {})).rejects.toMatchObject({
+      code: "agent_setup", status: 503, agentRunId: "setup-run",
+    });
+  });
+
   it("rejects a clean EOF that arrives before the complete event", async () => {
     vi.stubGlobal(
       "fetch",

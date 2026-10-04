@@ -151,6 +151,26 @@
   font-size: 12px;
 }
 
+.ask-mosaic-setup {
+  display: grid;
+  max-width: 68ch;
+  gap: 6px;
+  margin: 16px 0 0;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.ask-mosaic-setup strong {
+  font-weight: 700;
+}
+
+.ask-mosaic-setup small {
+  font-size: 12px;
+}
+
 .ask-mosaic-empty {
   display: grid;
   justify-items: start;

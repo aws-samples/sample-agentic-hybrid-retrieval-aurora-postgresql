@@ -51,6 +51,8 @@ export interface AskMosaicTurn {
   executionPath: AssistExecutionPath;
   stageDetail: string;
   error: string;
+  /** The service's failure code for `error`, when it sent one. */
+  errorCode?: string;
   /**
    * True once a reader presses Stop, or a follow-up filter change replaces
    * this turn before it finished. A normal terminal state, not a failure:

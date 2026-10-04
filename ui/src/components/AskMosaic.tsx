@@ -35,6 +35,7 @@ import {
   Ranking,
   Shortlist,
 } from "./ask-mosaic/EvidencePanels";
+import { AgentSetupCard } from "./ask-mosaic/AgentSetupCard";
 import { AnswerSources, BestPick, PickComparison } from "./ask-mosaic/AnswerComparison";
 import { activitySummary } from "./ask-mosaic/comparison";
 import { FollowUps } from "./ask-mosaic/ResultCards";
@@ -349,7 +350,9 @@ function Turn({
         </div>
       ) : null}
 
-      {turn.error ? (
+      {turn.error && turn.errorCode === "agent_setup" ? (
+        <AgentSetupCard detail={turn.error} />
+      ) : turn.error ? (
         <div className="ask-mosaic-error" role="alert">
           <strong>Mosaic could not finish this request.</strong>
           <span>{turn.error}</span>

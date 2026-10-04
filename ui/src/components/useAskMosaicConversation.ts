@@ -12,6 +12,11 @@ function lastAnswered(turns: AskMosaicTurn[]): AskMosaicTurn | null {
   return null;
 }
 
+function failureCode(cause: unknown): string | undefined {
+  const code = (cause as { code?: unknown } | null)?.code;
+  return typeof code === "string" ? code : undefined;
+}
+
 /**
  * Owns the conversation shared by every Ask Mosaic drawer.
  *
@@ -170,6 +175,7 @@ export function useAskMosaicConversation(filters: SearchFilters, useMemory = fal
         completed: false,
         stageDetail: "This step did not finish. Review the error below and retry.",
         error: cause instanceof Error ? cause.message : "Ask Mosaic is unavailable",
+        errorCode: failureCode(cause),
       });
     } finally {
       if (version === requestVersion.current) patch({ loading: false });

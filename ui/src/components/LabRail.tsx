@@ -80,7 +80,7 @@ export function activeCoreLab(missionId: string | null): MosaicLabMission {
  * The start command, copyable. Before a start there is nothing to edit yet, so
  * this takes the edit line's place and stays visible while the rail is stuck.
  */
-function StartCommand({ command }: { command: string }) {
+export function StartCommand({ command }: { command: string }) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {

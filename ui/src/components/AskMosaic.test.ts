@@ -309,6 +309,47 @@ describe("AskMosaic cancellation", () => {
   });
 });
 
+describe("AskMosaic failures", () => {
+  const setupDetail = "Your agent is not built yet. Open labs/lab3_reason/agent.py in Code Editor "
+    + "and complete create_agent with the supplied model, tools, instructions and hooks. "
+    + "Next: deploy with uv run python scripts/deploy_agentcore.py deploy, then ask your "
+    + "question again.";
+
+  function failedTurn(error: string, errorCode?: string): AskMosaicTurn {
+    return {
+      ...settledTurn(groundedResponse()),
+      response: null,
+      completed: false,
+      error,
+      errorCode,
+    };
+  }
+
+  it("shows an unbuilt agent as a next step with a copyable command", () => {
+    renderAskMosaic(groundedResponse(), { turns: [failedTurn(setupDetail, "agent_setup")] });
+
+    const card = screen.getByRole("status", { name: "Finish setting up your agent" });
+    expect(within(card).getByText(/Your agent is not built yet/)).toBeTruthy();
+    expect(card.querySelector("code")?.textContent)
+      .toBe("uv run python scripts/deploy_agentcore.py deploy");
+    expect(
+      within(card).getByRole("button", {
+        name: "Copy uv run python scripts/deploy_agentcore.py deploy",
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(/share this message with your facilitator/)).toBeNull();
+  });
+
+  it("keeps the retry advice for a transient failure", () => {
+    renderAskMosaic(groundedResponse(), {
+      turns: [failedTurn("Model service unavailable.", "agent_turn_deadline")],
+    });
+
+    expect(screen.getByRole("alert").textContent).toMatch(/Press Ask again to retry/);
+  });
+});
+
 /** Opens a step's disclosure panel by clicking its summary in the steps rail. */
 function openStage(label: string) {
   const button = screen.getByText(label).closest("button");

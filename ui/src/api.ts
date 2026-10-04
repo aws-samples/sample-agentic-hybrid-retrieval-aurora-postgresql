@@ -37,11 +37,14 @@ import type {
 export class ApiError extends Error {
   status: number;
   agentRunId?: string;
+  /** The service's machine-readable failure code, such as `agent_setup`. */
+  code?: string;
 
-  constructor(status: number, message: string, agentRunId?: string) {
+  constructor(status: number, message: string, agentRunId?: string, code?: string) {
     super(message);
     this.status = status;
     this.agentRunId = agentRunId;
+    this.code = code;
   }
 }
 
@@ -234,8 +237,12 @@ export const api = {
           if (parsed) {
             const payload = JSON.parse(parsed.data) as Record<string, unknown>;
             if (parsed.event === "error") {
-              throw new ApiError(503, String(payload.detail ?? "Agent stream failed"),
-                typeof payload.agent_run_id === "string" ? payload.agent_run_id : undefined);
+              throw new ApiError(
+                typeof payload.status === "number" ? payload.status : 503,
+                String(payload.detail ?? "Agent stream failed"),
+                typeof payload.agent_run_id === "string" ? payload.agent_run_id : undefined,
+                typeof payload.code === "string" ? payload.code : undefined,
+              );
             }
             if (parsed.event === "stage") {
               onEvent({ type: "stage", ...payload } as AgentStreamEvent);
