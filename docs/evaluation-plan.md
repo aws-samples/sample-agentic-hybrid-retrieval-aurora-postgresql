@@ -339,6 +339,48 @@ File contract for `data/evals/esci_held_out_queries.jsonl`:
   `esci_grade` mapping, against small synthetic fixtures -- never against real
   ESCI data.
 
+### Hybrid payoff on the held-out corpus
+
+`scripts/evals/hybrid_payoff.py` compares retrieval arms on the 399 held-out
+queries that carry at least one Exact or Substitute label (213 headphones, 100
+chair, 86 monitor). It reads the production full-text, close-spelling and vector
+lists from Aurora with the served limits and HNSW settings, plus the served
+fusion order, and checks its own reciprocal rank fusion against the production
+fusion SQL on every query. The small-model arm uses `BAAI/bge-small-en-v1.5`
+vectors from `scripts/evals/embed_small_model.py`, searched by exact cosine over
+the same filtered products, so the two vector paths differ and the pairs do not
+isolate embedding quality. Reranked arms reorder the top 50 by score alone.
+
+```bash
+uv run --with sentence-transformers python scripts/evals/embed_small_model.py \
+  --out .local/hybrid-payoff
+uv run python scripts/evals/hybrid_payoff.py --small-vectors .local/hybrid-payoff
+```
+
+Measured 2026-10-04 (UTC) at source `8d352f4` on `reviews-2023-v2`
+(`data/evals/hybrid_payoff.json`); nDCG@10 against the ESCI grades, with
+unlabelled products counting as misses:
+
+| Arm | nDCG@10 |
+|---|---:|
+| Full-text only | 0.0775 |
+| Cohere Embed v4, vector only | 0.0725 |
+| Cohere Embed v4, hybrid | 0.0898 |
+| bge-small, vector only | 0.0674 |
+| bge-small, hybrid | 0.0854 |
+| Cohere Embed v4, hybrid + rerank | 0.0867 |
+
+Paired differences with 95% bootstrap intervals (10,000 draws, seed 7):
+
+- hybrid over vector, Cohere Embed v4: +0.0173 [+0.0061, +0.0289];
+- hybrid over vector, bge-small: +0.0179 [+0.0085, +0.0279];
+- reranking the Embed v4 hybrid list: -0.0031 [-0.0128, +0.0067].
+
+These reproduce, to four decimals, the 27 September run whose numbers the DAT410
+relevance slide shows. Labels average 5.2 per query, so absolute values are low;
+compare arms, not levels. The result covers this catalog and these three
+categories only.
+
 ### Licensing and provenance
 
 Every judgment traces to `data/evals/real_catalog_lab_products.json`, which
