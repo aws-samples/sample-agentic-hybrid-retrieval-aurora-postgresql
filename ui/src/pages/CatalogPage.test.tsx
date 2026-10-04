@@ -1623,11 +1623,9 @@ describe("CatalogPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
-    expect(await screen.findByText("Sources checked")).toBeTruthy();
+    expect(await screen.findByText("Looks grounded")).toBeTruthy();
     expect(vi.mocked(api.agentStream).mock.calls.at(-1)?.[4]?.useMemory).toBe(false);
-    expect(
-      screen.getByText("Every citation resolves to retrieved evidence"),
-    ).toBeTruthy();
+    expect(screen.getByText("Prove this run to check it.")).toBeTruthy();
   });
 
   it("offers the finished Lab 3 run a way back to the surface that grades it", async () => {

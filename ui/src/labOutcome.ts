@@ -261,21 +261,6 @@ function participantCopy(
           next: labRepairStep(mission, "run this request again"),
         };
   }
-  if (mission.stage === "reason") {
-    return fixed
-      ? {
-          label: "Sources checked",
-          title: "Every citation resolves to retrieved evidence",
-          detail:
-            "The saved answer uses only products returned by search and sources belonging to those products.",
-        }
-      : {
-          label: "Sources not available",
-          title: "The application cannot use the returned evidence",
-          detail:
-            "Retrieval completed, but the application correctly refused an unsupported answer.",
-        };
-  }
   return {
     label: fixed ? "Check passed" : "Review needed",
     title: mission.discover_label,
@@ -424,45 +409,66 @@ function successfulTool(agent: AgentResponse, tool: string) {
   );
 }
 
+/**
+ * What the browser can tell about a Lab 3 run, without claiming it passed.
+ *
+ * The grounded case is a client-side heuristic over one response. It does not
+ * check that headphones, a monitor and a chair were all covered, so it never
+ * reads as a pass; the proof is the next step. A declined answer is a decision
+ * the application made, not missing evidence, and says so. A run that failed
+ * never reaches this function: Ask Mosaic reports it in its own panel.
+ */
 export function agentLabOutcome(
   mission: MosaicLabMission,
   agent: AgentResponse | null,
-  error: string,
 ): LabOutcome {
-  if (!agent && !error) return readyOutcome(mission);
-  if (!agent && mission.participant_edit) return participantOutcome(mission, false);
+  if (!agent) return readyOutcome(mission);
+
+  if (agent.outcome === "declined" || agent.decline_reason) {
+    return {
+      tone: "broken",
+      label: "Answer declined",
+      title: "The agent declined to answer this request",
+      detail:
+        "The application declined rather than answer without enough support. Ask Mosaic shows the reason; inspect the searches and sources behind it.",
+    };
+  }
 
   const recommendationIds = new Set(
-    (agent?.recommendations ?? []).map((product) => product.product_id),
+    agent.recommendations.map((product) => product.product_id),
   );
-  const citations = agent?.citations ?? [];
   const citedProductIds = new Set(
-    citations.map((citation) => citation.product_id),
+    agent.citations.map((citation) => citation.product_id),
   );
   const grounded = (
-    (agent?.recommendations.length ?? 0) >= 2
-    && citations.length > 0
+    agent.recommendations.length >= 2
+    && agent.citations.length > 0
     && [...recommendationIds].every((productId) => citedProductIds.has(productId))
-    && citations.every(
+    && agent.citations.every(
       (citation) =>
         citation.evidence_id > 0
         && recommendationIds.has(citation.product_id),
     )
-    && successfulTool(agent!, "search_products")
-    && successfulTool(agent!, "compare_products")
-    && successfulTool(agent!, "get_product_evidence")
+    && successfulTool(agent, "search_products")
+    && successfulTool(agent, "compare_products")
+    && successfulTool(agent, "get_product_evidence")
   );
 
-  if (mission.participant_edit) return participantOutcome(mission, grounded);
-
+  if (grounded) {
+    return {
+      tone: "ready",
+      label: "Looks grounded",
+      title: "The answer cites the evidence it retrieved",
+      detail:
+        "This quick check does not confirm that the headphones, monitor and chair are all covered.",
+      next: "Prove this run to check it.",
+    };
+  }
   return {
-    tone: grounded ? "fixed" : "broken",
-    label: grounded ? "Sources checked" : "Sources not available",
-    title: grounded
-      ? "Every citation resolves to retrieved evidence"
-      : "The answer is missing required sources",
-    detail: grounded
-      ? "Tool receipts and evidence-backed citations are visible below."
-      : "The current answer does not show the required supporting sources.",
+    tone: "broken",
+    label: "Sources not available",
+    title: "The answer is missing required sources",
+    detail:
+      "The answer does not show the searches, comparison and cited evidence a grounded recommendation needs.",
   };
 }

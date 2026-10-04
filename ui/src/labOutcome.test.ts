@@ -200,8 +200,41 @@ describe("lab outcome diagnostics", () => {
       ),
     } satisfies AgentResponse;
 
-    expect(agentLabOutcome(mission, agent, "").tone).toBe("fixed");
-    expect(agentLabOutcome(mission, { ...agent, citations: [] }, "").tone).toBe("broken");
+    const looksGrounded = agentLabOutcome(mission, agent);
+    expect(looksGrounded.tone).toBe("ready");
+    expect(looksGrounded.label).toBe("Looks grounded");
+    expect(`${looksGrounded.detail} ${looksGrounded.next ?? ""}`).toContain("Prove this run");
+    expect(looksGrounded.detail).not.toMatch(/verified|passed/i);
+
+    const unsupported = agentLabOutcome(mission, { ...agent, citations: [] });
+    expect(unsupported.tone).toBe("broken");
+    expect(unsupported.label).toBe("Sources not available");
+    expect(unsupported.detail).not.toContain("correctly refused");
+  });
+
+  it("reports a declined Lab 3 answer as a decline, not as missing sources", () => {
+    const mission = coreMosaicLabs.find((item) => item.stage === "reason")!;
+    const declined = {
+      agent_run_id: "agent-2",
+      question: mission.query,
+      answer: "I could not confirm this from the sources.",
+      plan: [],
+      recommendations: [],
+      citations: [],
+      trace: [],
+      outcome: "declined",
+      decline_reason: "insufficient_evidence",
+    } satisfies AgentResponse;
+
+    const outcome = agentLabOutcome(mission, declined);
+    expect(outcome.label).toBe("Answer declined");
+    expect(outcome.label).not.toBe("Sources not available");
+    expect(outcome.tone).toBe("broken");
+  });
+
+  it("shows the ready state while no agent run exists", () => {
+    const mission = coreMosaicLabs.find((item) => item.stage === "reason")!;
+    expect(agentLabOutcome(mission, null).tone).toBe("ready");
   });
 
   it("does not claim a checkpoint passed before a production response exists", () => {

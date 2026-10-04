@@ -433,9 +433,7 @@ export function CatalogPage() {
   // banner, and numbering in place until its own answer arrives.
   const agent = answeredTurn?.contextKey === retrievalRequest ? answeredTurn.response : null;
   const agentQuestion = answeredTurn?.question ?? "";
-  const labOutcome = labMission && (agent || answeredTurn?.error)
-    ? agentLabOutcome(labMission, agent, answeredTurn?.error ?? "")
-    : null;
+  const labOutcome = labMission && agent ? agentLabOutcome(labMission, agent) : null;
   const labCallout = retrievalLabCallout(retrieval, readiness);
   const requestMission = coreMosaicLabs.find(
     (mission) => mission.id === searchParams.get("mission") && mission.query === activeQuery,
