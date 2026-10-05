@@ -17,8 +17,9 @@ rehearsal.
 | Rank | Collapsing every reciprocal-rank contribution to rank 1 drops Dell U2720Q from the combined pool. A visible HP Z27n result explicitly says 1440p despite the 4K request. | Dell enters the combined list at position 24 and reaches position 1 after reranking. | 10 minutes |
 | Reason | Disconnected evidence registration makes the monitor-and-chair request fail with HTTP 503. | Separate searches, product comparison and source checks support an answer covering both products. | 20 minutes, including completion |
 
-The introduction takes 10 minutes. Required work ends at minute 50, leaving
-10 minutes for recovery, questions or one optional exercise. These are teaching
+The introduction takes 15 minutes: a presenter introduction, then about 5
+minutes to open the tools. Required work ends at minute 55, leaving 5 minutes
+for wrap-up and questions; optional exercises are untimed. These are teaching
 budgets, not measured participant completion times.
 
 Each guide follows Observe → Diagnose → Repair → Prove. The visible path gives

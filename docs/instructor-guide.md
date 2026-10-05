@@ -47,11 +47,11 @@ The historical synthetic scorecard and 720 filter cases are not its quality gate
 
 | Clock | Stage | Required outcome |
 |---|---|---|
-| 00:00-00:10 | Introduction / Overview / Presentation | Meet Alex, frame the three lessons and explain the architecture |
-| 00:10-00:20 | Retrieve | Restore one candidate channel and prove recall and eligibility |
-| 00:20-00:30 | Rank | Repair RRF so the suitable monitor reaches reranking |
-| 00:30-00:50 | Reason | Attach evidence identity to synthesis state, prove citation authorization and run the completion gate |
-| 00:50-01:00 | Flex | Build a retrieval tool by default, with HNSW as the fallback |
+| 00:00-00:15 | Introduction / Overview / Presentation | Meet Alex, frame the three lessons and explain the architecture |
+| 00:15-00:25 | Retrieve | Restore one candidate channel and prove recall and eligibility |
+| 00:25-00:35 | Rank | Repair RRF so the suitable monitor reaches reranking |
+| 00:35-00:55 | Reason | Attach evidence identity to synthesis state, prove citation authorization and run the completion gate |
+| 00:55-01:00 | Wrap-up and Q&A | Questions, then untimed optional exercises: Session & Memory first, with a retrieval tool or HNSW as alternatives |
 
 ## Eight proof anchors
 
@@ -393,4 +393,4 @@ uv run python scripts/complete_agent.py --run-id <run-id>
 The receipt binds the deployed code and current settings. It is regraded from
 Aurora; a facilitator demonstration does not complete a participant's exercise.
 
-Default the ten-minute flex block to [Build a retrieval tool](build-retrieval-tool.md). Its four hints preserve the final two-budget proof and agent call. HNSW is the fallback. Use [the delivery map](abstract-delivery-map.md) to distinguish what attendees implement from what they inspect.
+Offer Session & Memory first in the five-minute wrap-up; extraction is asynchronous, so do not promise a completed extraction in that time. [Build a retrieval tool](build-retrieval-tool.md) is the alternative: its four hints preserve the final two-budget proof and agent call. HNSW is the other option. Use [the delivery map](abstract-delivery-map.md) to distinguish what attendees implement from what they inspect.

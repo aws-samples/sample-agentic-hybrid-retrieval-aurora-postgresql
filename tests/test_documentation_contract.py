@@ -95,7 +95,7 @@ def test_instructor_guide_60_minute_table_matches_the_mission_contract():
         == session["orientation_minutes"]
     )
     assert (
-        minutes_by_row["Flex"]
+        minutes_by_row["Wrap-up and Q&A"]
         == session["contingency_minutes"] + session["scorecard_minutes"]
     )
     assert sum(minutes_by_row.values()) == session["total_minutes"]

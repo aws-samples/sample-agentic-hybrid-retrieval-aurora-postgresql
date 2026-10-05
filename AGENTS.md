@@ -279,8 +279,8 @@ Prose must match arithmetic. If a table says 11/12/11 and a sentence says
 - The agent orchestrates retrieval. It does not replace retrieval.
 - Do not increase required lab count beyond three.
 - Protect the source contract's 40-minute hands-on budget, including completion.
-  The 60-minute session reserves 10 minutes for orientation and 10 for optional
-  work, recovery, and questions.
+  The 60-minute session reserves 15 minutes for orientation (a 10-minute
+  presenter introduction, then 5 to open the tools) and 5 for wrap-up and questions. Optional exercises are untimed.
 - Treat measured behavior as authoritative. Never invent benchmark or eval data.
 
 ## Commit attribution: the maintainer's identity only

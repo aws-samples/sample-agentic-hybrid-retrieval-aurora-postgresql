@@ -7,10 +7,10 @@
   },
   "session": {
     "total_minutes": 60,
-    "orientation_minutes": 10,
+    "orientation_minutes": 15,
     "core_lab_minutes": 40,
     "scorecard_minutes": 0,
-    "contingency_minutes": 10
+    "contingency_minutes": 5
   },
   "optional_labs": {
     "memory": {

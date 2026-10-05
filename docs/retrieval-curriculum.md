@@ -27,11 +27,11 @@ inside the broken boundary still works:
 
 | Time | Stage | Required outcome | Stable eval anchors |
 |---:|---|---|---|
-| 0-10 min | Introduction / Overview / Presentation | Meet Alex, frame the four phases and architecture | `typo-recovery` before repair |
-| 10-20 min | Retrieve | Reconnect one candidate arm and prove target recovery without weakening eligibility | `typo-recovery`, with control anchors |
-| 20-30 min | Rank (2a) and Re-rank (2b) | Repair one RRF formula and keep the suitable monitor inside the reranker input | `rank-with-evidence`, with control anchors |
-| 30-50 min | Reason | Assemble and deploy the agent, complete the room with cited evidence, and run the completion gate | `agentic-research`, with one evidence control |
-| 50-60 min | Flex | Use one optional lab, recover, or take questions | n/a |
+| 0-15 min | Introduction / Overview / Presentation | Meet Alex, frame the four phases and architecture | `typo-recovery` before repair |
+| 15-25 min | Retrieve | Reconnect one candidate arm and prove target recovery without weakening eligibility | `typo-recovery`, with control anchors |
+| 25-35 min | Rank (2a) and Re-rank (2b) | Repair one RRF formula and keep the suitable monitor inside the reranker input | `rank-with-evidence`, with control anchors |
+| 35-55 min | Reason | Assemble and deploy the agent, complete the room with cited evidence, and run the completion gate | `agentic-research`, with one evidence control |
+| 55-60 min | Wrap-up and Q&A | Ask questions or choose an untimed optional exercise | n/a |
 
 The stable IDs remain evaluation identifiers and starter-gap ownership keys.
 They are checkpoints inside three labs, not participant navigation.
@@ -175,7 +175,7 @@ vocabulary rather than three unrelated troubleshooting workflows.
 [Build a retrieval tool](build-retrieval-tool.md) adds a participant-owned tool
 on top of the solved pipeline. Generate a starter, implement the headphone
 eligibility rule, register the typed tool, and run the live API checker with two
-budgets. Then let the configured Bedrock agent invoke it. This fits flex time or
+budgets. Then let the configured Bedrock agent invoke it. This fits an optional exercise or
 continues after the session; the three required lab contracts stay unchanged.
 The [adaptation guide](use-in-your-app.md) maps every abstract promise to its
 working schema, SQL or application file.

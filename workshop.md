@@ -14,15 +14,15 @@ for release work. This brief is for delivery, not a second runbook.
 
 | Time | Work | Evidence to inspect |
 |---|---|---|
-| 0–10 | Introduction and prepared tools | Alex's need, one saved search and the three search methods |
-| 10–20 | Lab 1 — Retrieve | The missing listing returns through close spelling; filters hold |
-| 20–30 | Lab 2a — Rank; Lab 2b — Re-rank | Contributions vary with position; judged comparisons support a tuning decision |
-| 30–50 | Lab 3 — Reason, including completion | Three focused searches, comparison, sources, changed requirement and original-run proof |
-| 50–60 | Optional work, recovery or questions | One retrieval-tool or HNSW exercise if time permits |
+| 0–15 | Presenter introduction, then prepared tools | Alex's need, one saved search and the three search methods |
+| 15–25 | Lab 1 — Retrieve | The missing listing returns through close spelling; filters hold |
+| 25–35 | Lab 2a — Rank; Lab 2b — Re-rank | Contributions vary with position; judged comparisons support a tuning decision |
+| 35–55 | Lab 3 — Reason, including completion | Three focused searches, comparison, sources, changed requirement and original-run proof |
+| 55–60 | Wrap-up and Q&A | Questions; Session & Memory, retrieval-tool and HNSW exercises are untimed options |
 
 The [mission manifest](data/evals/mosaic_labs_missions.json) owns the timing,
 exact requests, filters, targets and assertions. Protect its **40-minute
-hands-on budget**. Completion is inside Lab 3; Memory is after the required hour.
+hands-on budget**. Completion is inside Lab 3; Memory leads the untimed optional exercises.
 These are planned allocations, not measured human completion times.
 
 Assign a lead for the clock and story, a SQL presenter, an agent presenter and

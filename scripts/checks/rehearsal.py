@@ -98,8 +98,8 @@ Manifest schema (schema_version 1, kind "measured" -- see docs/rehearsal-runbook
         "served_catalog_sha256": str | null
       },
       "effective_settings": {"retrieval_profile": {...}, "configured_models": {...} | null},
-      "session_contract": {"total_minutes": 60, "orientation_minutes": 10,
-                            "core_lab_minutes": 40, "contingency_minutes": 10,
+      "session_contract": {"total_minutes": 60, "orientation_minutes": 15,
+                            "core_lab_minutes": 40, "contingency_minutes": 5,
                             "required_lab_count": 3},
       "stages": {
         "<name in REQUIRED_STAGES>": {
