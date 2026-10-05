@@ -100,7 +100,7 @@ before serving the instrument. These measurements cover the recorded anchor set
 and conditions; they do not establish relevance quality or a performance promise
 for another Aurora instance. See [the methodology](docs/benchmark-methodology.md).
 
-## Optional flex-time beats
+## Optional exercise beats
 
 None of these sits on the required participant path. AgentCore Memory is
 provisioned and connected by the workshop stack; its exercise remains optional.

@@ -19,7 +19,7 @@ holds the same strings for every message the app prints.
 | `uv run python scripts/deploy_agentcore.py tools\|deploy\|verify` | List the SQL tools, deploy your Lab 3 agent, recheck the deployment |
 | `uv run python scripts/complete_agent.py --run-id <your-run-id>` | Check your saved Lab 3 run |
 
-The guides also use `lab_exercise.py`, `lab_terminal.py`, `flex_exercise.py`
+The guides also use `lab_exercise.py`, `lab_terminal.py`, `hnsw_exercise.py`
 and `python -m scripts.check_builder_tool` for optional exercises. The other
 files at this level are helpers those commands import, except
 `prepare_real_catalog.py` and `embed_real_catalog.py`: guides published before

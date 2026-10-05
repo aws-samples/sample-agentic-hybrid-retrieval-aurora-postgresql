@@ -70,7 +70,7 @@ The Makefile wraps them for maintainers only.
 | Prove the Lab 1 or Lab 2 repair after repeating the request (Lab 3 is rejected: it is graded on the saved run) | `uv run python scripts/validate_lab.py --lab N` |
 | Grade the participant's own exercise or saved run without generating a new answer | `uv run python scripts/lab_exercise.py check --lab N` |
 | Judge three retrieval settings in Lab 2 | `uv run python scripts/lab_exercise.py compare --lab 2` |
-| Grade the optional flex-time HNSW index exercise | `uv run python scripts/flex_exercise.py check` |
+| Check the optional HNSW index exercise | `uv run python scripts/hnsw_exercise.py check` |
 | List managed SQL tools | `uv run python scripts/deploy_agentcore.py tools` |
 | Deploy edited Lab 3 code and check managed connectivity; prints progress about every 15 s and names the failing step on error | `uv run python scripts/deploy_agentcore.py deploy` |
 | Recheck deployed code, Gateway tools and Aurora evidence | `uv run python scripts/deploy_agentcore.py verify` |

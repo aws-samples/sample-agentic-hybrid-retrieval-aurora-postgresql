@@ -1,6 +1,6 @@
 # Delivering the abstract
 
-The [submitted abstract](session-abstract.md) describes the complete application. The three required labs repair and prove one part of it each; the flex exercise adds a tool. The mission file owns their questions, filters, targets, timings and assertions.
+The [submitted abstract](session-abstract.md) describes the complete application. The three required labs repair and prove one part of it each; the optional exercises add a tool. The mission file owns their questions, filters, targets, timings and assertions.
 
 The opening makes the scaffolding explicit: the catalog, embeddings and
 application are supplied; participants implement and prove three critical
@@ -63,7 +63,7 @@ they are not a like-for-like replacement for these figures.
 | Model-based reranking | Rank | Compare combined and final positions; judge three measured settings on 141 judged queries within one billed rerank unit |
 | Source attribution | Reason | Build the agent, ask a product question and open its citations |
 | Retrieval diagnostics | All three labs | Read filters, candidate positions, fused rank, reranked rank, evidence IDs and the agent's ordered tool sequence |
-| Wire retrieval into agent tools | Reason; build-a-tool flex | Connect the SQL tools through Gateway and deploy the Strands agent to Runtime |
+| Wire retrieval into agent tools | Reason; build-a-tool exercise | Connect the SQL tools through Gateway and deploy the Strands agent to Runtime |
 | Decompose questions | Reason; Complete my room | Read the agent's separate headphone, monitor and chair searches and their filters |
 | Gather targeted evidence | Reason | Inspect the evidence tool and the product records it returned |
 | Compare sources | Reason; Check the sources | Count cited specifications and reviews against imported reviews and source rating counts |
@@ -83,7 +83,7 @@ repairs, decisions and citations back from Aurora without
 another model call. The [presenter brief](../workshop.md) owns the spoken
 narrative and transitions.
 
-The build-a-tool guide is the default flex beat. Scale & HNSW is the fallback. AgentCore Runtime and Gateway are the deployed Lab 3 path. Memory can carry preferences into a later conversation; product claims still require fresh catalog evidence.
+Session & Memory leads the untimed optional exercises; the build-a-tool guide and Scale & HNSW are the alternatives. AgentCore Runtime and Gateway are the deployed Lab 3 path. Memory can carry preferences into a later conversation; product claims still require fresh catalog evidence.
 
 The closing message is **Take this retrieval into your own agent**.
 Introduce reuse in the opening and connect each lab's repair to the behavior an

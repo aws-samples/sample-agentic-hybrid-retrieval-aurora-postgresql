@@ -11,7 +11,7 @@ LIST_TOOLS = "uv run python scripts/deploy_agentcore.py tools"
 DEPLOY_AGENT = "uv run python scripts/deploy_agentcore.py deploy"
 VERIFY_AGENT = "uv run python scripts/deploy_agentcore.py verify"
 COMPARE_SETTINGS = "uv run python scripts/lab_exercise.py compare --lab 2"
-FLEX_CHECK = "uv run python scripts/flex_exercise.py check"
+HNSW_CHECK = "uv run python scripts/hnsw_exercise.py check"
 
 
 def start(lab: int) -> str:

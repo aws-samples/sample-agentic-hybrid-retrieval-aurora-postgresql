@@ -3,11 +3,11 @@
 
 The participant writes two files:
 
-- `.local/flex/index.sql`: one partial HNSW index on
+- `.local/hnsw/index.sql`: one partial HNSW index on
   `mosaic_catalog_search.product_document` (full-precision, `halfvec` or
   `binary_quantize` expression), optionally followed by `SET hnsw.ef_search = N`.
-- `.local/flex/search.sql`: one SELECT returning `product_id` for the nearest
-  `:flex_limit` headphones to `:'flex_vector'`, written so the planner can use
+- `.local/hnsw/search.sql`: one SELECT returning `product_id` for the nearest
+  `:hnsw_limit` headphones to `:'hnsw_vector'`, written so the planner can use
   that index.
 
 The grader builds the index twice inside its own transaction and rolls it back.
@@ -35,8 +35,8 @@ sys.path.insert(0, str(REPO))
 
 from scripts.lab_exercise import ExerciseError, _connect, interpolate
 
-INDEX_WORK = Path(".local/flex/index.sql")
-SEARCH_WORK = Path(".local/flex/search.sql")
+INDEX_WORK = Path(".local/hnsw/index.sql")
+SEARCH_WORK = Path(".local/hnsw/search.sql")
 FILTER = "headphones"
 LIMIT = 150
 QUERIES = 5
@@ -55,7 +55,7 @@ SET_EF_SEARCH = re.compile(
     r"(?is)^SET\s+(?:LOCAL\s+)?hnsw\.ef_search\s*(?:=|TO)\s*(\d+)$"
 )
 REFERENCE_INDEX = (
-    f"CREATE INDEX flex_reference_hnsw ON {TABLE} USING hnsw "
+    f"CREATE INDEX exercise_reference_hnsw ON {TABLE} USING hnsw "
     f"(embedding vector_cosine_ops) WHERE category_key = '{FILTER}'"
 )
 EXACT_SQL = (
@@ -133,7 +133,7 @@ def measure_build(cur: Any, search: str, vectors: list[str], exact: list[set]) -
     recalls, ratios, uses_index = [], [], []
     for vector, truth in zip(vectors, exact, strict=True):
         statement = interpolate(
-            search, {"flex_vector": vector, "flex_limit": str(LIMIT)}
+            search, {"hnsw_vector": vector, "hnsw_limit": str(LIMIT)}
         )
         ids = _participant_ids(cur, statement)
         if len(ids) != LIMIT or len(set(ids)) != LIMIT:
@@ -156,7 +156,7 @@ def measure_build(cur: Any, search: str, vectors: list[str], exact: list[set]) -
 
 def grade(index_text: str, search_text: str) -> dict[str, Any]:
     create, name, ef_search = parse_index(index_text)
-    interpolate(search_text, {"flex_vector": "[0]", "flex_limit": str(LIMIT)})
+    interpolate(search_text, {"hnsw_vector": "[0]", "hnsw_limit": str(LIMIT)})
     vectors = query_vectors()
     with _connect() as connection, connection.cursor() as cur:
         cur.execute("SET LOCAL statement_timeout = '600s'")
@@ -168,7 +168,7 @@ def grade(index_text: str, search_text: str) -> dict[str, Any]:
         cur.execute("SAVEPOINT reference")
         cur.execute(REFERENCE_INDEX)
         cur.execute(
-            "SELECT pg_relation_size('mosaic_catalog_search.flex_reference_hnsw') AS b"
+            "SELECT pg_relation_size('mosaic_catalog_search.exercise_reference_hnsw') AS b"
         )
         reference_bytes = cur.fetchone()["b"]
         cur.execute("ROLLBACK TO SAVEPOINT reference")
@@ -267,7 +267,7 @@ def main() -> int:
         "FAST AND SMALL" if report["small"] else "FAST" if report["fast"] else "NOT YET"
     )
     print(f"Shrink it: {tier}")
-    receipt = REPO / ".local/flex/exercise-receipt.json"
+    receipt = REPO / ".local/hnsw/exercise-receipt.json"
     receipt.parent.mkdir(parents=True, exist_ok=True)
     receipt.write_text(json.dumps(report, indent=2) + "\n")
     return 0 if report["fast"] else 1

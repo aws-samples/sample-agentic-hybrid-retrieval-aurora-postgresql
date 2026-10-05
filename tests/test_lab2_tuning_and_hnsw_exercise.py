@@ -1,7 +1,7 @@
-"""Lab 2's tuning comparison and the flex grader must measure, not reward cheap passes.
+"""Lab 2's tuning comparison and the HNSW exercise check must measure, not reward cheap passes.
 
 These run without Aurora: they pin the derived comparison and its budget, the
-arithmetic it uses, the committed cache's coverage, and the flex grader's statement
+arithmetic it uses, the committed cache's coverage, and the HNSW exercise check's statement
 checks and tiers.
 """
 
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts import cache_lab2_arms, flex_exercise, lab2_tuning
+from scripts import cache_lab2_arms, hnsw_exercise, lab2_tuning
 from scripts.lab_exercise import ExerciseError
 from service.models import RetrievalProfile
 
@@ -166,8 +166,8 @@ HALFVEC_INDEX = (
 )
 
 
-def test_flex_accepts_an_expression_index_and_a_search_setting():
-    create, name, ef_search = flex_exercise.parse_index(HALFVEC_INDEX)
+def test_hnsw_exercise_accepts_an_expression_index_and_a_search_setting():
+    create, name, ef_search = hnsw_exercise.parse_index(HALFVEC_INDEX)
 
     assert name == "alex_hp"
     assert ef_search == 400
@@ -190,9 +190,9 @@ def test_flex_accepts_an_expression_index_and_a_search_setting():
         HALFVEC_INDEX + "\nSELECT 1;",
     ],
 )
-def test_flex_rejects_anything_but_one_partial_hnsw_index(text):
+def test_hnsw_exercise_rejects_anything_but_one_partial_hnsw_index(text):
     with pytest.raises(ExerciseError):
-        flex_exercise.parse_index(text)
+        hnsw_exercise.parse_index(text)
 
 
 def build(recall: float, ratio: float, size: int, uses: bool = True) -> dict:
@@ -204,8 +204,8 @@ def build(recall: float, ratio: float, size: int, uses: bool = True) -> dict:
     }
 
 
-def test_flex_averages_builds_so_one_unlucky_build_does_not_fail():
-    report = flex_exercise.summarize(
+def test_hnsw_exercise_averages_builds_so_one_unlucky_build_does_not_fail():
+    report = hnsw_exercise.summarize(
         "x", 400, [build(0.88, 0.1, 40), build(0.93, 0.1, 40)], 130
     )
 
@@ -213,9 +213,9 @@ def test_flex_averages_builds_so_one_unlucky_build_does_not_fail():
     assert report["fast"] and report["small"]
 
 
-def test_flex_tiers_separate_fast_from_small_and_unused_indexes():
-    fast_only = flex_exercise.summarize("x", None, [build(0.99, 0.1, 130)] * 2, 130)
-    unused = flex_exercise.summarize("x", None, [build(1.0, 1.0, 40, False)] * 2, 130)
+def test_hnsw_exercise_tiers_separate_fast_from_small_and_unused_indexes():
+    fast_only = hnsw_exercise.summarize("x", None, [build(0.99, 0.1, 130)] * 2, 130)
+    unused = hnsw_exercise.summarize("x", None, [build(1.0, 1.0, 40, False)] * 2, 130)
 
     assert fast_only["fast"] and not fast_only["small"]
     assert not unused["fast"]

@@ -101,7 +101,7 @@ def _commands() -> list[str]:
         commands.repeat_request(2),
         commands.exercise_check(3),
         commands.COMPARE_SETTINGS,
-        commands.FLEX_CHECK,
+        commands.HNSW_CHECK,
     ]
 
 
