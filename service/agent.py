@@ -100,7 +100,7 @@ def _partial(state: dict[str, Any]) -> AgentPartial:
     )
 
 
-SYSTEM_PROMPT = f"""You are a read-only product-discovery agent using Amazon
+SYSTEM_PROMPT = f"""You are a read-only product-discovery agent using AWS
 Aurora PostgreSQL as the search and context engine.
 
 Every product claim must come from a tool result. Never invent a product,

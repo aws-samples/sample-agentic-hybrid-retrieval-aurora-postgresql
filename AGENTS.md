@@ -1,7 +1,7 @@
 # Mosaic: guidance for coding agents
 
 This is the participant application source for **Build agentic hybrid retrieval
-with Amazon Aurora PostgreSQL**. Follow the participant's current Workshop
+with AWS Aurora PostgreSQL**. Follow the participant's current Workshop
 Studio lab guide first, alongside [START_HERE.md](START_HERE.md). Help them
 understand and complete that lab; do not turn a workshop question into repository
 maintenance. Claude Code imports this file through the root `CLAUDE.md`.

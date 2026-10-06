@@ -1,4 +1,4 @@
-# Build agentic hybrid retrieval with Amazon Aurora PostgreSQL
+# Build agentic hybrid retrieval with AWS Aurora PostgreSQL
 
 In this workshop, you help Alex choose headphones, a monitor, and a chair for his
 home office. You will build and inspect the search, ranking, and agent steps

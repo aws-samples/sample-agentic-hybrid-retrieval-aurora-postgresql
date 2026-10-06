@@ -64,7 +64,7 @@ const footerColumns: Array<{
     heading: "Built with",
     links: [
       {
-        label: "Amazon Aurora PostgreSQL",
+        label: "AWS Aurora PostgreSQL",
         href: "https://aws.amazon.com/rds/aurora/",
         external: true,
       },

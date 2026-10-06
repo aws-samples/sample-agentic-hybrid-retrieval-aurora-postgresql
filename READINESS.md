@@ -1,6 +1,6 @@
 # Mosaic release readiness
 
-This is the release gate for **Build agentic hybrid retrieval with Amazon Aurora
+This is the release gate for **Build agentic hybrid retrieval with AWS Aurora
 PostgreSQL**. It is not a benchmark report and it does not convert an offline
 test pass into deployment evidence.
 
