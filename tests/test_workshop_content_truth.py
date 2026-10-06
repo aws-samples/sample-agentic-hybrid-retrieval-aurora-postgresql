@@ -44,10 +44,19 @@ def test_repo_abstract_retains_the_submitted_level_400_building_promise():
     abstract = _read("docs/session-abstract.md").casefold()
 
     assert "level: 400" in abstract
-    assert "implement postgresql full-text search" in abstract
-    assert "wire these capabilities into agent tools" in abstract
-    assert "compare sources" in abstract
-    assert "working code, schema patterns, ranking templates" in abstract
+    assert "aws aurora postgresql" in abstract
+    assert (
+        "full-text search, pg_trgm fuzzy matching, and pgvector semantic search"
+        in abstract
+    )
+    assert "repair reciprocal rank fusion" in abstract
+    assert "compare retrieval settings against judged queries" in abstract
+    assert "deploy it to agentcore runtime" in abstract
+    assert "trace its searches to cited specifications and reviews" in abstract
+    assert (
+        "reusable retrieval sql, working agent code, and a portable retrieval skill"
+        in abstract
+    )
 
 
 def test_evaluation_docs_separate_real_cases_from_historical_measurements():
