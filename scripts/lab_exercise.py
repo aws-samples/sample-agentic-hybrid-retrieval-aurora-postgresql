@@ -584,9 +584,7 @@ def print_comparison(table: dict) -> None:
         for moved in row["chair_controls_moved"]:
             print(f"  chair control {moved['id']}: {moved['from']} -> {moved['to']}")
     print(table["scope"])
-    print(
-        "In learning-notes.md, write one sentence: which change would you ship, and why?"
-    )
+    print("Decide in one sentence: which change would you ship, and why?")
 
 
 def _print_lab3(report: dict) -> None:

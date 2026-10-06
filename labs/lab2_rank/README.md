@@ -5,7 +5,7 @@ hints and complete checks. This is the reminder beside your code.
 
 ## Broken
 
-Start Lab 2 after Lab 1 passes. Save the failure: a suitable monitor misses the reranking pool. Record your prediction in `learning-notes.md`.
+Start Lab 2 after Lab 1 passes. Save the failure: a suitable monitor misses the reranking pool. Predict the cause.
 
 ## Diagnose
 
@@ -31,7 +31,7 @@ uv run python scripts/validate_lab.py --lab 2
 ```
 
 Inspect combined and final positions. Complete the guide's source/applied-state
-check and controls. Write which setting you would ship and why in `learning-notes.md`.
+check and controls. Decide which setting you would ship, and why.
 The comparison leaves served settings unchanged; use its judged results.
 
 <details>

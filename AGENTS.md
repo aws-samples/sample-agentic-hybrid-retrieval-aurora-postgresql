@@ -17,7 +17,7 @@ Before editing, run `uv run python scripts/lab_state.py status`, inspect
 `git diff`, and read the current
 lab's saved search or agent run. Start from the participant's prediction and
 observed result. Explain the mechanism and offer a hint before supplying an
-answer. Preserve unrelated edits and the participant's own `learning-notes.md`.
+answer. Preserve unrelated edits.
 Do not silently solve later labs or write their explanation for them.
 
 Each lab's folder under `labs/` holds the file to edit, its README and a
@@ -83,8 +83,7 @@ update Runtime. Proof must use the newly applied/deployed state. The deploy
 Editor's code, and the SQL Aurora last applied against the search SQL in
 Code Editor, including the two lab SQL files. Labs 2 and 3 ship repaired and cannot pass
 before their start command; a rerun of a start keeps the participant's edits. Preserve
-before/after records in `.local/lab-N/` and the participant's written prediction
-and explanation in `learning-notes.md`. Never invent a run ID or a passing result.
+before/after records in `.local/lab-N/`. Never invent a run ID or a passing result.
 The deploy `verify` action proves deployment connectivity, not participant completion.
 The guide's final Lab 3 command evaluates the saved run without generating a
 replacement answer. Optional memory and HNSW exercises follow required completion.

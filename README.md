@@ -12,11 +12,11 @@ shopper; your searches and answers use the source products and their evidence.
 
 ## Start the workshop
 
-1. Open **Lab 1** in your Workshop Studio guide.
+1. Open **Introduction → Getting started** in your Workshop Studio guide.
 2. Open **Code Editor → [Start Here](START_HERE.md)** beside the guide. Your
    application, Aurora database, and terminal connection are already prepared.
-3. Open Mosaic from the workshop and follow the guide's first search. Inspect
-   the result before editing code.
+3. Open Mosaic and run the guide's environment checks. Then begin **Lab 1**
+   and inspect its first search before editing code.
 
 Claude Code in the prepared terminal can help you investigate a lab. The
 project's [AGENTS.md](AGENTS.md), loaded by [CLAUDE.md](CLAUDE.md), gives it the
@@ -81,8 +81,7 @@ installs that lab's fault once and preserves earlier repairs. An interrupted
 start resumes without overwriting edits. Finish and apply earlier repairs first.
 
 After editing, apply SQL or deploy the agent, repeat the same request, and run
-the guide's checks. Keep your predictions and explanations in
-`learning-notes.md`. A plausible result or successful deployment alone is not
+the guide's checks. A plausible result or successful deployment alone is not
 completion. Source records must support product claims; a USB-C port alone
 does not establish laptop charging compatibility.
 

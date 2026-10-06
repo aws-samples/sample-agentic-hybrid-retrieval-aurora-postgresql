@@ -1,10 +1,11 @@
 # Start here · Mosaic
 
-Keep **Workshop Studio → Lab 1** beside Code Editor. Aurora, the application
-and the terminal connection are ready.
+Start with **Workshop Studio → Introduction → Getting started**. Open the
+tools and run the environment checks, then keep the current lab guide beside
+Code Editor.
 
 1. Follow the guide's **Observe** step and save the failing result.
-2. Write your prediction in [learning-notes.md](learning-notes.md).
+2. Predict the cause before you open any code.
 3. Diagnose, edit only the marked block, then apply SQL or deploy the agent.
 4. Repeat the request and pass the guide's checks before the next lab.
 
@@ -14,7 +15,7 @@ and the terminal connection are ready.
 | **02 — Rank & Re-rank** | [rrf_contribution.sql](labs/lab2_rank/rrf_contribution.sql) |
 | **03 — Reason** | [agent.py](labs/lab3_reason/agent.py) |
 
-**04 — Explore Mosaic source** holds the application source and your notes.
+**04 — Explore Mosaic source** holds the application source.
 Every prepared terminal starts at the repository root; the numbered groups
 show the same files. If missing, open [Mosaic.code-workspace](Mosaic.code-workspace)
 with **File → Open Workspace from File…**.

@@ -12,9 +12,8 @@ opens **01 — Retrieve**, **02 — Rank & Re-rank**, **03 — Reason** and
 
 Each README follows **Broken → Diagnose → Fix → Prove**. Start with
 `uv run python scripts/lab_state.py start --lab N`, keep the saved request,
-and write your prediction in `learning-notes.md` before editing. Saving a file
-does not update Aurora or Runtime. Complete the guide's proof and your own
-explanation before moving on.
+and predict the cause before editing. Saving a file
+does not update Aurora or Runtime. Complete the guide's proof before moving on.
 
 <details>
 <summary>🛠️ Recovery</summary>

@@ -25,6 +25,9 @@ exact requests, filters, targets and assertions. Protect its **40-minute
 hands-on budget**. Completion is inside Lab 3; Memory leads the untimed optional exercises.
 These are planned allocations, not measured human completion times.
 
+During setup, use **Introduction → Getting started** to open the tools and
+verify the catalog counts and initial lab state before starting Lab 1.
+
 Assign a lead for the clock and story, a SQL presenter, an agent presenter and
 room support. One person may cover several roles; keep the staffing roster
 outside the repository. Avoid extra demonstrations during a lab's proof time.
@@ -42,7 +45,7 @@ Ask where it disappeared; let the lab establish the cause.
 Point participants to the Event Dashboard's **CodeEditorURL** and **MosaicURL**.
 Code Editor opens **Start Here**, a prepared terminal and the numbered lab views:
 **01 — Retrieve**, **02 — Rank & Re-rank**, **03 — Reason**. **04 — Explore
-Mosaic source** contains application files and `learning-notes.md`; maintainer
+Mosaic source** contains application files; maintainer
 files and reference answers are hidden. These views use the same files and paths.
 The default theme is **Dark Modern**.
 

@@ -74,9 +74,7 @@ def test_bootstrap_opens_the_workspace_and_one_root_terminal(tmp_path):
 
 
 @pytest.mark.parametrize("first_open_succeeds", [True, False])
-def test_terminal_opens_at_root_preserves_notes_and_retries_welcome(
-    tmp_path, first_open_succeeds
-):
+def test_terminal_opens_at_root_and_retries_welcome(tmp_path, first_open_succeeds):
     root = tmp_path / "checkout with spaces"
     lab = root / "labs/lab3_reason"
     lab.mkdir(parents=True)
@@ -84,8 +82,6 @@ def test_terminal_opens_at_root_preserves_notes_and_retries_welcome(
     launcher = root / "deploy/open-workshop-terminal.sh"
     launcher.write_bytes((ROOT / "deploy/open-workshop-terminal.sh").read_bytes())
     (root / "START_HERE.md").write_text("Welcome")
-    notes = root / "learning-notes.md"
-    notes.write_text("My own prediction and observations.\n")
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     code = bin_dir / "code"
@@ -107,7 +103,7 @@ def test_terminal_opens_at_root_preserves_notes_and_retries_welcome(
     def launch():
         subprocess.run(["/bin/bash", str(launcher)], cwd=lab, env=env, check=True)
         assert (tmp_path / "shell.log").read_text().splitlines() == [str(root), "-l"]
-        assert notes.read_text() == "My own prediction and observations.\n"
+        assert not (root / "learning-notes.md").exists()
         assert not (lab / "learning-notes.md").exists()
 
     launch()

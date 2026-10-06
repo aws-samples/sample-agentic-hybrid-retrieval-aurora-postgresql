@@ -5,7 +5,7 @@ hints and complete checks. This is the reminder beside your code.
 
 ## Broken
 
-Start Lab 1 in the guide. Save its failed request and predict why Alex’s listing is absent in `learning-notes.md`.
+Start Lab 1 in the guide. Save its failed request and predict why Alex’s listing is absent.
 
 ## Diagnose
 
