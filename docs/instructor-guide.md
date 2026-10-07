@@ -194,10 +194,10 @@ outside the repository.
 ### Spoken opening
 
 > Alex works from home. He needs headphones for clearer calls, a chair for long
-> days, and a monitor with room to run code and read docs. We have over half a
-> million products in Aurora PostgreSQL. Can we find suitable options, put them
-> in a defensible order, and explain a choice using the sources? You will repair
-> one failure in each step and prove what changed.
+> days, and a monitor that charges his laptop and has room to run code and read
+> docs. We have over half a million products in Aurora PostgreSQL. Can we find
+> suitable options, put them in a defensible order, and explain a choice using
+> the sources? You will repair one failure in each step and prove what changed.
 
 > We have provided the catalog, embeddings and application scaffolding. You will
 > implement three connections and use the recorded results to say whether each
