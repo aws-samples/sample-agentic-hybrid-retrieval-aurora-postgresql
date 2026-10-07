@@ -405,7 +405,6 @@
   letter-spacing: -0.035em;
 }
 
-.shop-shelf a.shop-shelf-all,
 .shop-shelf-links > a {
   display: inline-flex;
   align-items: center;
@@ -433,8 +432,7 @@
   font-size: 14px;
 }
 
-.shop-shelf-links a:hover,
-.shop-shelf-all:hover {
+.shop-shelf-links a:hover {
   color: var(--link);
   text-decoration: underline;
   text-underline-offset: 4px;

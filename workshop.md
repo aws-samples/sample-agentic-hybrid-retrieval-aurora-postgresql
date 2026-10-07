@@ -27,6 +27,9 @@ These are planned allocations, not measured human completion times.
 
 During setup, use **Introduction → Getting started** to open the tools and
 verify the catalog counts and initial lab state before starting Lab 1.
+The first product search belongs in Lab 1. Use **Browse all products** beside
+**Shop the workspace** to reach the domain tabs and **Category** menu; Lab 2
+reuses that menu to switch from headphones to monitors.
 
 Assign a lead for the clock and story, a SQL presenter, an agent presenter and
 room support. One person may cover several roles; keep the staffing roster

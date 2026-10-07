@@ -51,7 +51,7 @@ export function ShopProductShelf({ products, images, real, pending, error, onRet
     <section className="shop-shelf" aria-labelledby="shop-shelf-title" aria-busy={pending}>
       <header className="shop-shelf-heading">
         <h2 id="shop-shelf-title">Shop the workspace.</h2>
-        <Link className="shop-shelf-all" href="/catalog?collection=all">
+        <Link className="primary-button" href="/catalog?collection=all">
           Browse all products
         </Link>
       </header>

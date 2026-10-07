@@ -15,8 +15,9 @@ shopper; your searches and answers use the source products and their evidence.
 1. Open **Introduction → Getting started** in your Workshop Studio guide.
 2. Open **Code Editor → [Start Here](START_HERE.md)** beside the guide. Your
    application, Aurora database, and terminal connection are already prepared.
-3. Open Mosaic and run the guide's environment checks. Then begin **Lab 1**
-   and inspect its first search before editing code.
+3. Open Mosaic and run the guide's environment checks. Then begin **Lab 1**:
+   choose **Browse all products** beside **Shop the workspace**, follow the
+   guide's category selections, and inspect the first search before editing code.
 
 Claude Code in the prepared terminal can help you investigate a lab. The
 project's [AGENTS.md](AGENTS.md), loaded by [CLAUDE.md](CLAUDE.md), gives it the
