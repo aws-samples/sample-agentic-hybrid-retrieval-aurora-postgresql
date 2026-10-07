@@ -13,7 +13,7 @@ Behind Alex's shopping goals, participants complete three technical labs. Each
 asks more than the last (find a lost candidate, fix a formula and judge a change,
 build and deploy an agent), and each is graded against an answer the grader computes itself.
 
-- **Lab 1 — Debug hybrid search · 10 min.** A transposed product ID makes
+- **Lab 1: Retrieve - Debug hybrid search · 10 min.** A transposed product ID makes
   Alex's saved headphones vanish. Participants use PostgreSQL's own functions
   (`tsvector` lexemes, `pg_trgm` word similarity, pgvector distance) to show why
   only one search method recovers it, then find why its candidates never reach
@@ -24,7 +24,7 @@ build and deploy an agent), and each is graded against an answer the grader comp
   faster yet missed half or more of the true nearest neighbours. **Lesson: a full
   result list is not evidence of good recall; only a comparison with exact
   results measures it.**
-- **Lab 2 — Tune rank fusion and reranking · 10 min.** The monitor that documents
+- **Lab 2: Rank and re-rank - Tune rank fusion and reranking · 10 min.** The monitor that documents
   USB-C charging up to 90W over one cable never reaches the reranker. A provided
   query shows the collapsed contributions tie every single-search candidate, so the
   product-ID tie-breaker, not relevance, decides the 50 products sent to Cohere
@@ -33,7 +33,7 @@ build and deploy an agent), and each is graded against an answer the grader comp
   the served profile over 141 judged shopper queries and write what they would ship.
   **Lesson: fusion only works if positions count, and a tuning claim needs a judged
   set.**
-- **Lab 3 — Build and deploy the agent · 20 min.** Participants connect the
+- **Lab 3: Reason - Build and deploy the agent · 20 min.** Participants connect the
   Gateway SQL tools, complete the Strands agent constructor, add an instruction
   and deploy it to AgentCore Runtime. They ask Alex's three-product room question,
   open a citation and change a requirement in a follow-up. The actual managed

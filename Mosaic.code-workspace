@@ -1,19 +1,19 @@
 {
   "folders": [
     {
-      "name": "01 — Retrieve",
+      "name": "01 - Retrieve",
       "path": "labs/lab1_retrieve"
     },
     {
-      "name": "02 — Rank & Re-rank",
+      "name": "02 - Rank and re-rank",
       "path": "labs/lab2_rank"
     },
     {
-      "name": "03 — Reason",
+      "name": "03 - Reason",
       "path": "labs/lab3_reason"
     },
     {
-      "name": "04 — Explore Mosaic source",
+      "name": "04 - Explore Mosaic source",
       "path": "."
     }
   ],
@@ -65,6 +65,6 @@
       "uv.lock": true,
       "ui/package-lock.json": true
     },
-    "terminal.integrated.cwd": "${workspaceFolder:04 — Explore Mosaic source}"
+    "terminal.integrated.cwd": "${workspaceFolder:04 - Explore Mosaic source}"
   }
 }

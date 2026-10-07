@@ -322,3 +322,71 @@ def test_lab_3_start_installs_the_starter_and_records_the_refusal(repo, aurora) 
     assert lab_is_solved(2, repo=repo)
     assert aurora.applies == 0
     assert "agent_refusal" in record["steps"]["evidence"]
+
+
+@pytest.fixture
+def handoff_checks(monkeypatch):
+    calls = []
+
+    def validate(_url, events):
+        calls.append("validate")
+        events.append("verified-lab-1")
+        return ["target_recovered", "filter_controls"]
+
+    monkeypatch.setattr("scripts.validate_lab.validate_lab_1", validate)
+    return calls
+
+
+def test_handoff_saves_passing_evidence_before_installing_fault(
+    repo, aurora, handoff_checks
+):
+    lines = []
+    lab_entry.advance(
+        1, api_url="http://api", dsn="aurora", repo=repo, say=lines.append
+    )
+    assert handoff_checks == ["validate"]
+    assert not lab_is_solved(2, repo=repo)
+    assert aurora.applies == 1 and aurora.captures == 1
+    saved = json.loads(lab_entry.completion_path(1, repo).read_text())
+    assert saved["search_event_ids"] == ["verified-lab-1"]
+    assert lines.index(
+        "Lab 1: production-path validation passed. Passing evidence saved."
+    ) < next(i for i, line in enumerate(lines) if line.startswith("Installed"))
+
+
+def test_failed_lab1_validation_never_starts_lab2(repo, aurora, monkeypatch):
+    from scripts.validate_lab import LabValidationError
+
+    def fail(*_args):
+        raise LabValidationError("target missing")
+
+    monkeypatch.setattr("scripts.validate_lab.validate_lab_1", fail)
+    with pytest.raises(LabValidationError, match="target missing"):
+        lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+    assert lab_is_solved(2, repo=repo)
+    assert lab_entry.load_record(2, repo) is None
+    assert not lab_entry.completion_path(1, repo).exists()
+    assert aurora.applies == 0
+
+
+def test_interrupted_handoff_resumes_and_keeps_lab2_edits(repo, aurora, handoff_checks):
+    aurora.fail_capture = True
+    with pytest.raises(RuntimeError, match="API restarting"):
+        lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+    evidence = lab_entry.completion_path(1, repo).read_bytes()
+    edited = _participant_edit(repo)
+    aurora.fail_capture = False
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+    assert handoff_checks == ["validate"]
+    assert _seam_file(2, repo).read_bytes() == edited
+    assert lab_entry.completion_path(1, repo).read_bytes() == evidence
+    assert aurora.applies == 1 and aurora.captures == 1
+
+
+def test_handoff_refuses_changed_database_or_lab1(repo, aurora, handoff_checks):
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+    with pytest.raises(lab_entry.LabEntryError, match="database changed"):
+        lab_entry.advance(1, api_url="http://api", dsn="different-aurora", repo=repo)
+    assert handoff_checks == ["validate"]
+    assert aurora.applies == 1

@@ -47,7 +47,7 @@ the file the repair belongs in. Completion is never inferred from having
 visited a page -- only `POST /api/labs/{id}/proof`, run from the Prove stage,
 can mark a lab passed.
 
-## Lab 1 - Debug hybrid search
+## Lab 1: Retrieve - Debug hybrid search
 
 Goal: construct the right candidate universe before deciding the winner.
 
@@ -75,7 +75,7 @@ deliberately not presented as an embeddings success. On the measured
 The question participants must answer is: **why is seeing the correct product
 not enough to declare retrieval healthy?**
 
-## Lab 2 - Tune rank fusion and reranking
+## Lab 2: Rank and re-rank - Tune rank fusion and reranking
 
 Goal: put the right candidates in the right order without hiding the ranking
 decisions.
@@ -115,7 +115,7 @@ time; this arithmetic study does not establish which setting gives best relevanc
 This is the centerpiece. The line to retain is: **a correct answer is not proof
 of a correct pipeline.**
 
-## Lab 3 - Build and deploy the agent
+## Lab 3: Reason - Build and deploy the agent
 
 Goal: give the inspectable retrieval system to a bounded agent.
 

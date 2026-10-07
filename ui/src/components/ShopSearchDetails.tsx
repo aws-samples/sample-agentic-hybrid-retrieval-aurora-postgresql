@@ -26,10 +26,12 @@ export function ShopSearchDetails({ response, onSelect, onHighlight, highlighted
       <p>RRF combines positions from word, spelling and meaning searches. The reranker then compares those products with your full request.</p>
     </header>
     {!reranked ? <p>This request was not reranked. Final positions may reflect the combined order or an exact listing match.</p> : null}
-    <div className="shop-details-order pg-seg" role="group" aria-label="Order the search details">
-      <button type="button" aria-pressed={order === "combined"} onClick={() => setOrder("combined")}>Combined order</button>
-      <button type="button" aria-pressed={order === "final"} onClick={() => setOrder("final")}>Final order</button>
+    <p id="shop-sort-label" className="shop-sort-label">Sort these displayed products by:</p>
+    <div className="shop-details-order pg-seg" role="group" aria-labelledby="shop-sort-label">
+      <button type="button" aria-pressed={order === "combined"} onClick={() => setOrder("combined")}>Before reranking (RRF)</button>
+      <button type="button" aria-pressed={order === "final"} onClick={() => setOrder("final")}>Final position</button>
     </div>
+    <p className="shop-details-scope">The same products appear in both views. Only the table’s row order changes.</p>
     <p className="shop-details-scope">Same {products.length} displayed products{pool == null ? "" : ` from ${pool} ${reranked ? "sent to reranking" : "in the combined list"}`}. Gaps in positions belong to other products in that list.</p>
     <div className="shop-details-table" tabIndex={0} role="region" aria-label="Product positions before and after reranking">
       <table>

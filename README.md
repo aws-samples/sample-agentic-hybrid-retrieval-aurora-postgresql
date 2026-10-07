@@ -44,15 +44,15 @@ for you; the command checks deployed source identity and Gateway connectivity.
 
 | Lab | Question to answer | Where you work |
 |---|---|---|
-| **1. Debug hybrid search** | Can search find Alex's Logitech Zone 900 headphones from a mistyped listing ID? | [`labs/lab1_retrieve/`](labs/lab1_retrieve/) |
-| **2. Tune rank fusion and reranking** | **2a Rank:** which candidates survive fusion? **2b Re-rank:** how does their order change? | [`labs/lab2_rank/`](labs/lab2_rank/) |
-| **3. Build and deploy the agent** | Can your agent help Alex complete his home office, bring the three choices together, and respond when his requirements change? | [`labs/lab3_reason/`](labs/lab3_reason/) |
+| **Lab 1: Retrieve - Debug hybrid search** | Can search find Alex's Logitech Zone 900 headphones from a mistyped listing ID? | [`labs/lab1_retrieve/`](labs/lab1_retrieve/) |
+| **Lab 2: Rank and re-rank - Tune rank fusion and reranking** | **2a Rank:** which candidates survive fusion? **2b Re-rank:** how does their order change? | [`labs/lab2_rank/`](labs/lab2_rank/) |
+| **Lab 3: Reason - Build and deploy the agent** | Can your agent help Alex complete his home office, bring the three choices together, and respond when his requirements change? | [`labs/lab3_reason/`](labs/lab3_reason/) |
 
 The participant workspace, [Mosaic.code-workspace](Mosaic.code-workspace),
-groups the existing files as **01 — Retrieve**, **02 — Rank & Re-rank**, and **03 — Reason**.
+groups the existing files as **01 - Retrieve**, **02 - Rank and re-rank**, and **03 - Reason**.
 Code Editor starts with the **Dark Modern** theme, independent of the device's
 light or dark appearance. Participants can change the theme in Code Editor.
-**04 — Explore Mosaic source** opens the application source; prepared
+**04 - Explore Mosaic source** opens the application source; prepared
 terminals run commands from its root. Maintainer-only files (tests, CI, release
 records, lockfiles) are hidden from the Explorer but stay in the checkout. Each lab README follows **Broken →
 Diagnose → Fix → Prove**, with a collapsed recovery section linking the
@@ -73,9 +73,17 @@ The prepared workshop serves a built UI so a live-reload connection cannot
 interrupt your answer. Keep the answer open while inspecting its sources, and
 save the run ID before refreshing or leaving the page.
 
-The guide presents the essential actions in order, with reference material and
-optional exercises collapsed. Each lab README is a short reminder beside the
-file you edit. Start each lab with
+The guide opens with the business challenge and workshop structure, then Getting
+started. Each lab asks you to predict, investigate, repair and prove the result,
+with reference material and optional exercises collapsed. The closing recap
+connects what you fixed to Alex's next need. Each lab README is a short reminder beside the
+file you edit. Shop’s lab cards show the observed problem before the diagnosis;
+repair feedback requires the exercise state and a search made after preparation.
+The ranking table sorts the same displayed products and preserves both positions.
+
+At the end of Lab 1, run `uv run python scripts/lab_state.py advance --lab 1`
+to validate its repair, save passing evidence and prepare Lab 2. Retries resume
+preparation without discarding edits. For direct entry, start a lab with
 `uv run python scripts/lab_state.py start --lab N`: it saves the failing request,
 installs that lab's fault once and preserves earlier repairs. An interrupted
 start resumes without overwriting edits. Finish and apply earlier repairs first.

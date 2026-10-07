@@ -15,9 +15,9 @@ for release work. This brief is for delivery, not a second runbook.
 | Time | Work | Evidence to inspect |
 |---|---|---|
 | 0–15 | Presenter introduction, then prepared tools | Alex's need, one saved search and the three search methods |
-| 15–25 | Lab 1 — Retrieve | The missing listing returns through close spelling; filters hold |
-| 25–35 | Lab 2a — Rank; Lab 2b — Re-rank | Contributions vary with position; judged comparisons support a tuning decision |
-| 35–55 | Lab 3 — Reason, including completion | Three focused searches, comparison, sources, changed requirement and original-run proof |
+| 15–25 | Lab 1: Retrieve - Debug hybrid search | The missing listing returns through close spelling; filters hold |
+| 25–35 | Lab 2: Rank and re-rank - Tune rank fusion and reranking | Contributions vary with position; judged comparisons support a tuning decision |
+| 35–55 | Lab 3: Reason - Build and deploy the agent, including completion | Three focused searches, comparison, sources, changed requirement and original-run proof |
 | 55–60 | Wrap-up and Q&A | Questions; Session & Memory, retrieval-tool and HNSW exercises are untimed options |
 
 The [mission manifest](data/evals/mosaic_labs_missions.json) owns the timing,
@@ -34,6 +34,11 @@ outside the repository. Avoid extra demonstrations during a lab's proof time.
 
 ## Open with the customer
 
+Use the guide's opening order: Overview, Business challenge, Workshop structure,
+then Introduction and Getting started. Keep the diagnosis for the investigation:
+ask participants to predict first, inspect their actual result, and explain what
+the repair changes for Alex before moving to his next need.
+
 > Alex needs headphones for focus and calls, a monitor for code and documents,
 > and a chair for long days. We have over half a million product listings in
 > Aurora. Can we find suitable products, rank them, and support each recommendation?
@@ -44,7 +49,7 @@ Ask where it disappeared; let the lab establish the cause.
 
 Point participants to the Event Dashboard's **CodeEditorURL** and **MosaicURL**.
 Code Editor opens **Start Here**, a prepared terminal and the numbered lab views:
-**01 — Retrieve**, **02 — Rank & Re-rank**, **03 — Reason**. **04 — Explore
+**01 - Retrieve**, **02 - Rank and re-rank**, **03 - Reason**. **04 - Explore
 Mosaic source** contains application files; maintainer
 files and reference answers are hidden. These views use the same files and paths.
 The default theme is **Dark Modern**.
@@ -65,6 +70,14 @@ After applying SQL, inspect the intended listing's close-spelling rank and
 contribution. The correct-ID and brand/category controls must still pass.
 Another listing of the same model is not the requested identity. Reranking
 cannot recover a product it never receives. The vector recall query is optional.
+
+At the end of Lab 1, `uv run python scripts/lab_state.py advance --lab 1`
+validates the applied repair and live retrieval controls, saves the passing
+evidence, then prepares Lab 2. Run it only after inspecting all Lab 1 examples.
+Retries preserve edits and resume any interrupted preparation. Shop shows
+symptoms before diagnosis and does not credit pre-start searches as repairs.
+Its ordering control sorts the same displayed products; Playground holds the
+full candidate pool.
 
 ### Lab 2: contributions and admission to reranking
 

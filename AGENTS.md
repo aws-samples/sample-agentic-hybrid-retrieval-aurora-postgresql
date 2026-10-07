@@ -63,6 +63,7 @@ The Makefile wraps them for maintainers only.
 |---|---|
 | Inspect the current source/applied lab state | `uv run python scripts/lab_state.py status` |
 | Enter a lab: save its failing request; Labs 2 and 3 also install their fault once | `uv run python scripts/lab_state.py start --lab N` |
+| Finish Lab 1: validate its repair, save passing evidence and prepare Lab 2 without discarding edits | `uv run python scripts/lab_state.py advance --lab 1` |
 | Discard one lab's edits and restore its starter, only when asked to restart | `uv run python scripts/lab_state.py reset --lab N` |
 | Apply the participant's SQL repair in Labs 1 or 2 | `uv run python scripts/apply_search_functions.py` |
 | Check the saved source and the SQL Aurora last applied (Labs 1 and 2) | `uv run python scripts/lab_state.py validate --lab N --database-url "$DATABASE_URL"` |

@@ -21,7 +21,7 @@ it("shows a combined runner-up outside the displayed results without granting it
   expect(within(row).queryByRole("link")).toBeNull();
   const rows = () => screen.getAllByRole("row").slice(1).map((r) => r.textContent);
   expect(rows()[0]).toContain("9999999");
-  fireEvent.click(screen.getByRole("button", { name: "Final order" }));
+  fireEvent.click(screen.getByRole("button", { name: "Sort by final" }));
   expect(rows()[1]).toContain("9999999");
   expect(search).not.toHaveBeenCalled();
 });

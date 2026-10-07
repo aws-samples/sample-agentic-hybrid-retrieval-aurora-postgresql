@@ -1,12 +1,10 @@
-import { Check, Copy, SearchCheck, SearchX } from "lucide-react";
+import { SearchCheck, SearchX } from "lucide-react";
 import { forwardRef, useEffect, useState } from "react";
 import { Link } from "wouter";
 import { api } from "../api";
 import type { MosaicLabMission } from "../labMissions";
 import { productImage } from "../media";
-import { APPLY_SQL } from "../participantCommands";
 import type { ProductDetail } from "../types";
-import { CodeEditorLink } from "./CodeEditorLink";
 
 /**
  * The mistyped ID beside the listing's own, with the characters that differ
@@ -30,60 +28,23 @@ function IdComparison({ typed, listing }: { typed: string; listing: string }) {
   );
 }
 
-function CopyCommand({ command }: { command: string }) {
-  const [copied, setCopied] = useState(false);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(command);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // The command stays on screen to select by hand.
-      setCopied(false);
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      className="shop-fault-copy"
-      aria-label={copied ? "Command copied" : `Copy ${command}`}
-      title={copied ? "Copied" : "Copy command"}
-      onClick={() => void copy()}
-    >
-      {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
-    </button>
-  );
-}
-
-/**
- * Lab 1's outcome on Shop, drawn as the product Alex meant.
- *
- * While the fault is in, the tile is the missing listing, dimmed, with the ID
- * Alex typed beside the one the listing has and the four steps back to it. Once
- * the repair lands the same tile comes back in colour at its final position, so
- * the participant sees the product return rather than reading that it did.
- */
+/** The intended product and observed result, without revealing the repair. */
 export const LabFaultCard = forwardRef<HTMLElement, {
   mission: MosaicLabMission;
   labNumber: number;
   state: "broken" | "fixed";
   /** Whether the target came back at all; a broken run can still return it. */
   targetPresent: boolean;
-  /** The graded outcome's title, used when the target is present but unproven. */
-  title: string;
   /** The graded outcome's explanation, from `labOutcome`. */
   detail: string;
   /** The target's final position when it came back. */
   finalRank: number | null;
-  codeEditorUrl: string | null;
   playgroundHref: string;
   onSearchAgain: () => void;
 }>(function LabFaultCard(
   {
-    mission, labNumber, state, targetPresent, title, detail, finalRank,
-    codeEditorUrl, playgroundHref, onSearchAgain,
+    mission, labNumber, state, targetPresent, detail, finalRank,
+    playgroundHref, onSearchAgain,
   },
   ref,
 ) {
@@ -96,7 +57,7 @@ export const LabFaultCard = forwardRef<HTMLElement, {
         if (current) setProduct(detail);
       })
       .catch(() => {
-        // The card still names the product and the steps without its photo.
+        // Missing media must not hide the product identity or observation.
       });
     return () => {
       current = false;
@@ -104,10 +65,9 @@ export const LabFaultCard = forwardRef<HTMLElement, {
   }, [targetId]);
 
   const name = mission.target_display_name ?? product?.title ?? "intended product";
-  const edit = mission.participant_edit;
   const fixed = state === "fixed";
   const missing = !fixed && !targetPresent;
-  let heading = title;
+  let heading = `Check how the ${name} was found`;
   if (fixed) heading = "Repair verified";
   else if (missing) heading = `The ${name} is missing from these results`;
   return (
@@ -134,49 +94,20 @@ export const LabFaultCard = forwardRef<HTMLElement, {
       </figure>
 
       <div className="shop-fault-body">
+        <span className="shop-lab-status">{fixed ? "Verified in this search" : `Lab ${labNumber} / Observe`}</span>
         <h2>{heading}</h2>
-        <p className="shop-fault-verdict">
-          {fixed
-            ? finalRank ? `Found by close spelling and back at #${finalRank}.` : "Found by close spelling again."
-            : `Issue reproduced: Lab ${labNumber}'s deliberate fault, not a gap in the catalog.`}
+        {fixed ? <p className="shop-fault-verdict">
+          {finalRank ? `Found by close spelling and back at #${finalRank}.` : "Found by close spelling again."}
+        </p> : null}
+        <p className="shop-fault-detail">
+          {fixed ? detail : "Inspect the search details and predict why. Keep the same request and filters as you investigate."}
         </p>
-        <p className="shop-fault-detail">{detail}</p>
-
-        {!fixed && edit ? (
-          <ol className="shop-fault-steps" aria-label="Next steps">
-            <li>
-              <strong>Open the lab file</strong>
-              <p className="shop-fault-row">
-                <code>{edit.file}</code>
-                <CodeEditorLink href={codeEditorUrl} className="shop-fault-editor" />
-              </p>
-            </li>
-            <li>
-              <strong>Repair the marked blocks</strong>
-              <p>{edit.task} Each block holds a <code>TODO(Lab {labNumber})</code> note.</p>
-            </li>
-            <li>
-              <strong>Apply it to Aurora</strong>
-              <p className="shop-fault-row">
-                <code>{APPLY_SQL}</code>
-                <CopyCommand command={APPLY_SQL} />
-              </p>
-            </li>
-            <li>
-              <strong>Search again</strong>
-              <p className="shop-fault-row">
-                <button type="button" className="shop-fault-search" onClick={onSearchAgain}>
-                  Search again
-                </button>
-                The same request, with the same filters.
-              </p>
-            </li>
-          </ol>
-        ) : null}
-
-        <Link className="shop-fault-inspect" href={playgroundHref}>
-          {fixed ? "See how this was retrieved in the Playground" : "Inspect this run in the Playground"}
-        </Link>
+        <div className="shop-fault-actions">
+          {!fixed ? <button type="button" className="shop-fault-search" onClick={onSearchAgain}>Search again</button> : null}
+          <Link className="shop-fault-inspect" href={playgroundHref}>
+            {fixed ? "See how this was retrieved in the Playground" : "Inspect this run in the Playground"}
+          </Link>
+        </div>
       </div>
     </section>
   );

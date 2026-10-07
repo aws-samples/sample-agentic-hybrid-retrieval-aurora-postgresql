@@ -292,6 +292,7 @@ def _lab_state(lab_id: int, connection: Any, repo: Path | None) -> LabStateRecor
         database_state=database.state,
         detail=detail,
         entry_state=entry_state,
+        started_at=(load_record(lab_id, root) or {}).get("completed_at"),
         completed_at=_saved_completion_at(lab_id, root),
         next_step=next_step,
     )

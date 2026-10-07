@@ -1,4 +1,4 @@
-# Lab 3: Reason
+# Lab 3: Reason - Build and deploy the agent
 
 Follow **Workshop Studio → Lab 3** for the exact requests, SQL investigation,
 hints and complete checks. This is the reminder beside your code.

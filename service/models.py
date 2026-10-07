@@ -1222,6 +1222,7 @@ class LabStateRecord(BaseModel):
     #: Labs 2 and 3 start working and install their fault when entered;
     #: `None` for Lab 1, whose fault is installed when the workshop opens.
     entry_state: Literal["not_started", "incomplete", "started"] | None = None
+    started_at: datetime | None = None
     #: When this lab's live validation last passed, from its saved record. A
     #: record of an earlier run, never a verdict on the current state.
     completed_at: datetime | None = None

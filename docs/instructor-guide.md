@@ -115,7 +115,7 @@ HNSW / Session & Memory tabs beside them, are the session, and move on.
 Show the missed product first and collect a prediction. Leave the disconnected
 path and its repair for Lab 1's diagnosis.
 
-### Lab 1 - Debug hybrid search
+### Lab 1: Retrieve - Debug hybrid search
 
 FTS is strong when words and identifiers exist. `pg_trgm` recovers nearby
 strings. HNSW expands semantic intent. SQL predicates and JSONB filters decide
@@ -133,7 +133,7 @@ with brand/category filters. Inspect both served rows and the complete saved
 pool. An approximate vector scan can obey every SQL filter and still miss
 qualifying rows; candidate count and eligibility are different checks.
 
-### Lab 2 - Tune rank fusion and reranking
+### Lab 2: Rank and re-rank - Tune rank fusion and reranking
 
 RRF combines independent rank positions without pretending raw FTS, trigram,
 and vector scores share a scale. Cohere Rerank operates on the bounded fused
@@ -156,7 +156,7 @@ formula. Use those as controls, not as visible repair demonstrations. The
 [example library](real-catalog-exercise-library.md) includes successes,
 unchanged results and an unsuccessful wording variant.
 
-### Lab 3 - Build and deploy the agent
+### Lab 3: Reason - Build and deploy the agent
 
 Participants extend their SQL from Labs 1 and 2. They list the Gateway tools,
 complete `create_agent` in `labs/lab3_reason/agent.py`, add one source-aware instruction,
@@ -246,9 +246,9 @@ participant's prediction and finish with the observed result.
 
 | Lab | Ask | Read together | Limit the conclusion |
 |---|---|---|---|
-| Lab 1 - Debug hybrid search | The filters are correct. Why might vector search still return too few eligible products? | Applied filters, returned counts and, if recorded, the plan with scan settings, rows and buffers | Eligibility does not establish coverage. HNSW can visit rows that fail a filter, and iterative scanning explores further within its limits. An opaque function scan does not reveal its index. |
-| Lab 2 - Tune rank fusion and reranking | The final winner looks right. What proves fusion worked, and what justifies the reranker? | Different source ranks, their contributions, combined and final positions, and the judged-query comparison | A correct winner cannot certify the formula. Count improvements and regressions on the judged queries; repairing RRF saves no model call. |
-| Lab 3 - Build and deploy the agent | The citation opens. Which words support this particular requirement? | One claim, its source type and revision, the product and its saved search | A specification and a review answer different questions. Registering evidence permits a citation; it does not establish that a sentence follows from it. Say what remains unknown. |
+| Lab 1: Retrieve - Debug hybrid search | The filters are correct. Why might vector search still return too few eligible products? | Applied filters, returned counts and, if recorded, the plan with scan settings, rows and buffers | Eligibility does not establish coverage. HNSW can visit rows that fail a filter, and iterative scanning explores further within its limits. An opaque function scan does not reveal its index. |
+| Lab 2: Rank and re-rank - Tune rank fusion and reranking | The final winner looks right. What proves fusion worked, and what justifies the reranker? | Different source ranks, their contributions, combined and final positions, and the judged-query comparison | A correct winner cannot certify the formula. Count improvements and regressions on the judged queries; repairing RRF saves no model call. |
+| Lab 3: Reason - Build and deploy the agent | The citation opens. Which words support this particular requirement? | One claim, its source type and revision, the product and its saved search | A specification and a review answer different questions. Registering evidence permits a citation; it does not establish that a sentence follows from it. Say what remains unknown. |
 
 In Lab 3, also point to the separate searches for the headphones, monitor and
 chair, and identify which calls the model requested and which the application

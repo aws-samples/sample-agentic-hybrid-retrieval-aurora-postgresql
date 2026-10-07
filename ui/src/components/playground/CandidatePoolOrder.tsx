@@ -28,10 +28,10 @@ export function CandidatePoolOrder({ response }: { response?: SearchResponse }) 
   const served = new Map(response.results.map((product) => [product.product_id, product.title]));
   const position = (value: number | null) => value == null ? "—" : `#${value}`;
   return <div className="pg-candidate-pool">
-    <p>{rows.length} saved candidates. This includes products outside the displayed results.</p>
-    <div className="pg-seg" role="group" aria-label="Full candidate pool order">
-      <button type="button" aria-pressed={order === "combined"} onClick={() => setOrder("combined")}>Combined order</button>
-      <button type="button" aria-pressed={order === "final"} onClick={() => setOrder("final")}>Final order</button>
+    <p>{rows.length} saved candidates, including products outside the displayed results. The same rows appear either way; the buttons only choose which position they are sorted by.</p>
+    <div className="pg-seg" role="group" aria-label="Sort the candidate pool by">
+      <button type="button" aria-pressed={order === "combined"} onClick={() => setOrder("combined")}>Sort by combined (RRF)</button>
+      <button type="button" aria-pressed={order === "final"} onClick={() => setOrder("final")}>Sort by final</button>
     </div>
     <div className="pg-pool-scroll" tabIndex={0} role="region" aria-label="Complete saved candidate pool">
       <table className="pg-arm-table">

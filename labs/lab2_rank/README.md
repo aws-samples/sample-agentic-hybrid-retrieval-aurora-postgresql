@@ -1,4 +1,4 @@
-# Lab 2: Rank and Re-rank
+# Lab 2: Rank and re-rank - Tune rank fusion and reranking
 
 Follow **Workshop Studio → Lab 2** for the exact requests, SQL investigation,
 hints and complete checks. This is the reminder beside your code.

@@ -811,7 +811,7 @@ describe("RetrievalLabPage", () => {
       group.getAttribute("label"),
     );
 
-    expect(groups).toEqual(["Retrieve", "Rank & Re-rank", "Reason", "Advanced"]);
+    expect(groups).toEqual(["Retrieve", "Rank and re-rank", "Reason", "Advanced"]);
     expect(
       [...select.querySelectorAll("option")].map((option) => option.textContent),
     ).toEqual(

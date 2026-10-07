@@ -61,6 +61,7 @@ import { CatalogPage } from "./CatalogPage";
 
 vi.mock("../api", () => ({
   api: {
+    labsState: vi.fn().mockResolvedValue({ labs: [] }),
     catalog: vi.fn(),
     suggestions: vi.fn(),
     search: vi.fn(),
@@ -472,6 +473,7 @@ describe("CatalogPage", () => {
     vi.stubGlobal("scrollTo", vi.fn());
     window.history.replaceState({}, "", "/catalog");
     vi.mocked(useCatalogSource).mockReturnValue({ dataset_id: null, real: false });
+    vi.mocked(api.labsState).mockReset().mockResolvedValue({ labs: [] });
     vi.mocked(api.catalog).mockReset();
     vi.mocked(api.suggestions).mockReset();
     vi.mocked(api.search).mockReset();
@@ -1017,11 +1019,12 @@ describe("CatalogPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Shop + search details" }));
     const panel = screen.getByRole("complementary", { name: "Search details for these products" });
     expect(within(panel).getByText("↑ 23")).toBeTruthy();
+    expect(within(panel).getByText("The same products appear in both views. Only the table’s row order changes.")).toBeTruthy();
     expect(within(panel).getByText(/Same 2 displayed products from 18/)).toBeTruthy();
     expect(within(panel).getByRole("link", { name: "Inspect the full search in Playground" }).getAttribute("href")).toContain(SEARCH_EVENT_ID);
     const titles = () => within(panel).getAllByRole("row").slice(1).map(row => within(row).getByRole("button").textContent);
     expect(titles()[0]).toBe(recommendations[0].title);
-    fireEvent.click(within(panel).getByRole("button", { name: "Combined order" }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Before reranking (RRF)" }));
     expect(titles()[0]).toBe(recommendations[1].title);
     fireEvent.click(within(screen.getByRole("group", { name: "Results view" })).getByRole("button", { name: /^Shop$/ }));
     expect(screen.queryByRole("complementary", { name: "Search details for these products" })).toBeNull();
@@ -2165,7 +2168,7 @@ describe("CatalogPage", () => {
     expect(new URLSearchParams(window.location.search).get("category_key")).toBe("monitor");
   });
 
-  it("shows the fusion repair even when the final top product does not change", async () => {
+  it("does not claim a fusion repair while the exercise state is unknown", async () => {
     const mission = coreMosaicLabs.find((item) => item.stage === "rank")!;
     const fusionK = seedRun.diagnostics!.retrieval_profile.rrf_k;
     const run = (fixed: boolean): SearchResponse => ({
@@ -2206,16 +2209,10 @@ describe("CatalogPage", () => {
     vi.mocked(api.search).mockResolvedValueOnce(run(false)).mockResolvedValue(run(true));
     renderPage();
     const callout = await screen.findByRole("region", { name: "Lab 2 outcome" });
-    expect(callout.textContent).toContain("Combining scores ignores each search position");
-    expect(within(callout).getByRole("row", { name: "PostureWorks Pro Mesh 2 1" })).toBeTruthy();
+    expect(callout.textContent).not.toContain("Fusion now respects source rank");
     const link = within(callout).getByRole("link", { name: /Inspect this run/ });
-    const target = new URL(link.getAttribute("href")!, "http://localhost");
-    expect(target.searchParams.get("event")).toBe(SEARCH_EVENT_ID);
-    expect(target.searchParams.get("example")).toBe(mission.id);
-    expect(target.searchParams.get("category_key")).toBe(mission.filters.category_key);
-    fireEvent.click(within(callout).getByRole("button", { name: "Search again" }));
-    await within(callout).findByText("Fusion now respects source rank");
-    expect(within(callout).getByRole("row", { name: "PostureWorks Pro Mesh 1 1" })).toBeTruthy();
+    expect(link.getAttribute("href")).toContain(`example=${mission.id}`);
+
   });
 
   it("offers the compatible workspace request inside a monitor category", async () => {
@@ -2672,24 +2669,12 @@ describe("CatalogPage", () => {
         name: "The Logitech Zone 900 is missing from these results",
       }),
     ).toBeTruthy();
-    expect(callout.textContent).toContain("Issue reproduced");
-    expect(callout.textContent).toContain("deliberate");
+    expect(callout.textContent).toContain("Inspect the search details and predict why");
     expect(within(callout).getByText("Not in these results")).toBeTruthy();
-    // The way back, in order: open the file, repair it, apply it, search again.
-    const steps = within(within(callout).getByRole("list", { name: "Next steps" }))
-      .getAllByRole("listitem")
-      .map((step) => step.querySelector("strong")?.textContent);
-    expect(steps).toEqual([
-      "Open the lab file",
-      "Repair the marked blocks",
-      "Apply it to Aurora",
-      "Search again",
-    ]);
-    expect(within(callout).getByRole("button", { name: /^Copy uv run python scripts\/apply_search_functions\.py$/ })).toBeTruthy();
-    // The file and the task come from the mission manifest, so the callout and
-    // the lab guide cannot drift apart.
-    expect(callout.textContent).toContain(lab1.participant_edit!.file);
-    expect(callout.textContent).toContain(lab1.participant_edit!.task);
+    expect(callout.textContent).not.toContain("channels");
+    expect(callout.textContent).not.toContain("pg_trgm");
+    expect(callout.textContent).not.toContain(lab1.participant_edit!.task);
+    expect(within(callout).queryByRole("list", { name: "Next steps" })).toBeNull();
     const baselineLink = within(callout).getByRole("link", {
       name: "Inspect this run in the Playground",
     });
@@ -2699,11 +2684,6 @@ describe("CatalogPage", () => {
     expect(baselineUrl.searchParams.get("q")).toBe(lab1.query);
     expect(baselineUrl.searchParams.get("category_key")).toBe("headphones");
 
-    const codeEditor = within(callout).getByRole("link", { name: "Code Editor" });
-    expect(codeEditor.getAttribute("href")).toBe(
-      "https://code.mosaic-workshop.example",
-    );
-    expect(codeEditor.getAttribute("target")).toBe("_blank");
     expect(within(callout).getByRole("button", { name: "Search again" })).toBeTruthy();
 
     // A callout, not a modal: the results are still on the page behind it.
@@ -2770,7 +2750,7 @@ describe("CatalogPage", () => {
 
     const callout = await screen.findByRole("region", { name: "Lab 1 outcome" });
     await waitFor(() => expect(vi.mocked(api.readiness)).toHaveBeenCalled());
-    expect(callout.textContent).toContain("deliberate");
+    expect(callout.textContent).toContain("Inspect the search details and predict why");
     expect(callout.textContent).not.toContain("environment problem");
   });
 
@@ -2888,7 +2868,7 @@ describe("CatalogPage", () => {
     expect(within(callout).queryByRole("link", { name: "Code Editor" })).toBeNull();
     // The rest of the callout still stands: the fault and the file to edit are
     // what the participant needs, and the Code Editor is one way to reach it.
-    expect(callout.textContent).toContain(lab1.participant_edit!.file);
+    expect(callout.textContent).not.toContain(lab1.participant_edit!.file);
   });
 
   it("keeps a skipped view transition out of the console when opening Ask Mosaic", async () => {

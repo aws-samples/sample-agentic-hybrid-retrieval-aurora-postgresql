@@ -463,13 +463,15 @@ def status_line(lab: int, *, repo: Path = REPO) -> str:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
+            "advance --lab 1 validates Lab 1 and prepares Lab 2; "
             "start enters a lab once and keeps your edits on a rerun; reset "
             "discards one lab's edits and restores its starter; solution "
             "overwrites one lab with the reference repair."
         )
     )
     parser.add_argument(
-        "action", choices=("start", "reset", "solution", "validate", "status")
+        "action",
+        choices=("start", "advance", "reset", "solution", "validate", "status"),
     )
     parser.add_argument(
         "--source-only",
@@ -525,13 +527,13 @@ def main() -> int:
         path = set_lab_state(args.lab, solved=False)
         print(f"Lab {args.lab}: RESET ({path.relative_to(REPO)})")
         return 0
-    if args.action in {"start", "reset"}:
+    if args.action in {"start", "advance", "reset"}:
         import psycopg
 
-        from scripts.lab_entry import LabEntryError, restart, start
+        from scripts.lab_entry import LabEntryError, advance, restart, start
         from scripts.validate_lab import LabValidationError
 
-        action = start if args.action == "start" else restart
+        action = {"start": start, "advance": advance, "reset": restart}[args.action]
         try:
             action(args.lab, api_url=args.api_url, dsn=args.database_url)
         except (LabEntryError, LabValidationError) as error:

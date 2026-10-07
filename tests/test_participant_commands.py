@@ -88,6 +88,7 @@ def test_the_gate_sees_a_make_target_in_a_message(tmp_path: Path) -> None:
 def _commands() -> list[str]:
     return [
         commands.STATUS,
+        commands.ADVANCE_TO_LAB_2,
         commands.APPLY_SQL,
         commands.LIST_TOOLS,
         commands.DEPLOY_AGENT,

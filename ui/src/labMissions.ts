@@ -152,7 +152,7 @@ const STAGE_ORDER: MosaicLabStage[] = ["retrieve", "rank", "reason", "optimize"]
 
 export const stageLabels: Record<MosaicLabStage, string> = {
   retrieve: "Retrieve",
-  rank: "Rank & Re-rank",
+  rank: "Rank and re-rank",
   reason: "Reason",
   optimize: "Advanced",
 };

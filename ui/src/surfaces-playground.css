@@ -444,8 +444,9 @@
 
 .labs-figure {
   display: grid;
-  align-content: start;
-  gap: 6px;
+  align-content: center;
+  justify-items: start;
+  gap: 10px;
   padding: 15px 18px;
   background: var(--paper);
 }
@@ -2862,7 +2863,7 @@
   align-items: center;
   gap: 6px;
   margin-top: 2px;
-  color: var(--green);
+  color: var(--maroon-800);
   font-size: 12.5px;
   font-weight: 600;
 }
@@ -2881,25 +2882,16 @@
 .shop-fault-card {
   scroll-margin-top: calc(var(--topbar-height) + 24px);
   display: grid;
-  grid-template-columns: minmax(160px, 208px) minmax(0, 1fr);
+  grid-template-columns: minmax(140px, 180px) minmax(0, 1fr);
   gap: clamp(16px, 2.4vw, 32px);
   margin: 0 0 20px;
   padding: clamp(14px, 1.6vw, 20px);
-  border: 1px solid var(--danger-line);
-  border-radius: 24px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
   background: var(--paper);
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 4%),
-    0 18px 40px -22px color-mix(in srgb, var(--danger) 45%, transparent);
-  transition: border-color 600ms var(--ease-out), box-shadow 600ms var(--ease-out);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 3%);
 }
 
-.shop-fault-card[data-state="fixed"] {
-  border-color: var(--green-line);
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 4%),
-    0 18px 40px -22px color-mix(in srgb, var(--green) 45%, transparent);
-}
 
 .shop-fault-plate {
   display: grid;
@@ -2998,8 +2990,9 @@
 
 .shop-fault-body {
   display: grid;
-  align-content: start;
-  gap: 6px;
+  align-content: center;
+  justify-items: start;
+  gap: 10px;
   min-width: 0;
 }
 
@@ -3029,95 +3022,6 @@
   color: var(--ink-soft);
   font-size: 13.5px;
   line-height: 1.5;
-}
-
-/* Two columns on a laptop screen, so the four steps take two rows of height
-   and the results start inside the first screen; one column on a phone. */
-.shop-fault-steps {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 28px;
-  margin: 6px 0 2px;
-  padding: 0;
-  list-style: none;
-  counter-reset: fault-step;
-}
-
-.shop-fault-steps li {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
-  align-content: start;
-  gap: 2px 12px;
-  padding: 10px 0;
-  border-top: 1px solid var(--line);
-  counter-increment: fault-step;
-}
-
-.shop-fault-steps li::before {
-  content: counter(fault-step);
-  display: grid;
-  width: 22px;
-  height: 22px;
-  grid-row: span 2;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--ink);
-  color: var(--canvas);
-  font-size: 12px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.shop-fault-steps strong {
-  color: var(--ink);
-  font-size: 13.5px;
-  font-weight: 600;
-  line-height: 22px;
-}
-
-.shop-fault-steps p {
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 12.5px;
-  line-height: 1.55;
-}
-
-.shop-fault-steps .shop-fault-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 10px;
-}
-
-/* An ink tint rather than --plate: the photo plate stays light in dark mode,
-   and a command must read in both themes. */
-.shop-fault-steps code {
-  padding: 2px 8px;
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--ink) 7%, transparent);
-  color: var(--ink);
-  font-family: var(--mono);
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
-
-.shop-fault-copy {
-  display: inline-grid;
-  width: 28px;
-  height: 28px;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: var(--paper);
-  color: var(--ink-soft);
-  cursor: pointer;
-  transition: color 180ms ease, border-color 180ms ease;
-}
-
-.shop-fault-copy:hover,
-.shop-fault-copy:focus-visible {
-  border-color: var(--line-strong);
-  color: var(--ink);
 }
 
 .shop-fault-search {
@@ -3372,3 +3276,91 @@
   .product-complements-grid { grid-template-columns: 1fr; gap: 32px; }
   .product-complements { margin-top: 40px; }
 }
+
+/* Status is a small accent; the content and search results carry the hierarchy. */
+.shop-rank-card {
+  padding: clamp(20px, 2.2vw, 28px);
+  gap: 10px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+.shop-rank-card.fixed, .shop-rank-card.neutral {
+  border-color: var(--line);
+  background: var(--paper);
+}
+.shop-rank-card > h2 { font-size: clamp(19px, 1.7vw, 23px); font-weight: 600; letter-spacing: -0.025em; }
+.shop-rank-card > p { max-width: 78ch; font-size: 14px; }
+.shop-lab-status { color: var(--ink-soft); font-size: 12px; font-weight: 600; }
+.shop-rank-card.fixed .shop-lab-status, .shop-fault-card[data-state="fixed"] .shop-lab-status { color: var(--green); }
+.shop-rank-card .shop-lab-callout-actions { margin-top: 8px; gap: 20px; }
+.shop-rank-card .shop-lab-callout-actions > button { min-height: 40px; border-color: var(--line); border-radius: 999px; }
+
+/* Outcome cards: one status pill, one tinted surface, one actions row.
+   Tone reads from the pill and a faint wash, never from a side stripe. */
+.shop-lab-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  padding: 3px 11px 3px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  color: var(--ink-soft);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+}
+.shop-lab-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentcolor;
+}
+.shop-fault-card[data-state="fixed"] .shop-lab-status,
+.shop-rank-card.fixed .shop-lab-status {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.shop-fault-card[data-state="broken"] .shop-lab-status,
+.shop-rank-card.broken .shop-lab-status {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.shop-rank-card.unhealthy .shop-lab-status {
+  background: var(--gold-soft);
+  color: var(--gold);
+}
+.shop-fault-card[data-state="fixed"],
+.shop-rank-card.fixed {
+  border-color: var(--green-line);
+  background: linear-gradient(180deg, var(--green-soft), var(--paper) 55%);
+}
+.shop-fault-card[data-missing],
+.shop-rank-card.broken {
+  border-color: var(--danger-line);
+  background: linear-gradient(180deg, var(--danger-soft), var(--paper) 55%);
+}
+.shop-fault-body { gap: 12px; }
+.shop-fault-actions,
+.shop-rank-card .shop-lab-callout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  margin-top: 6px;
+}
+.shop-fault-search,
+.shop-rank-card .shop-lab-callout-actions > button {
+  min-height: 40px;
+  padding: 0 20px;
+  border-radius: 999px;
+}
+.shop-rank-card .shop-lab-callout-actions > button {
+  border: 0;
+  background: var(--ink);
+  color: var(--canvas);
+}
+.shop-fault-inspect,
+.shop-lab-callout-playground { margin-top: 0; }
+.shop-fault-verdict { font-size: 14px; }

@@ -5,6 +5,7 @@ command, so a participant never translates between a Make target and the
 script behind it. The Makefile keeps its targets as maintainer wrappers.
 """
 
+ADVANCE_TO_LAB_2 = "uv run python scripts/lab_state.py advance --lab 1"
 STATUS = "uv run python scripts/lab_state.py status"
 APPLY_SQL = "uv run python scripts/apply_search_functions.py"
 LIST_TOOLS = "uv run python scripts/deploy_agentcore.py tools"

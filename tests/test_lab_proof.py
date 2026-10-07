@@ -840,6 +840,10 @@ def test_lab_state_reports_every_lab(monkeypatch, lab_repo: Path) -> None:
 
     assert [record.lab_id for record in state.labs] == [1, 2, 3]
     assert [record.entry_state for record in state.labs] == [None, "started", "started"]
+    assert state.labs[1].started_at == datetime.fromisoformat(
+        json.loads((lab_repo / ".local/lab-2/start.json").read_text())["completed_at"]
+    )
+    assert state.labs[0].started_at is None
     assert state.labs[2].database_state == "not_applicable"
     assert all(record.detail for record in state.labs)
     # `not_applicable` says no Aurora object carries the repair. It must also

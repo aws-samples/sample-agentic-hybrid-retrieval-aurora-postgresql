@@ -42,6 +42,8 @@ export function useLabStates(refreshKey: string | number = ""): LabStatesResult 
   const [labStates, setLabStates] = useState<LabStateRecord[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [settledKey, setSettledKey] = useState("");
+  const key = `${refreshKey}:${attempt}`;
 
   useEffect(() => {
     let active = true;
@@ -49,23 +51,25 @@ export function useLabStates(refreshKey: string | number = ""): LabStatesResult 
       .labsState()
       .then((value) => {
         if (!active) return;
+        setSettledKey(key);
         setLabStates(value.labs);
         setFailed(false);
       })
       .catch(() => {
         if (!active) return;
+        setSettledKey(key);
         setLabStates(null);
         setFailed(true);
       });
     return () => {
       active = false;
     };
-  }, [refreshKey, attempt]);
+  }, [key]);
 
   const retry = () => {
     setFailed(false);
     setAttempt((count) => count + 1);
   };
 
-  return { labStates, failed, retry };
+  return { labStates: settledKey === key ? labStates : null, failed: settledKey === key && failed, retry };
 }

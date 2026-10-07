@@ -1,4 +1,4 @@
-# Lab 1: Retrieve
+# Lab 1: Retrieve - Debug hybrid search
 
 Follow **Workshop Studio → Lab 1** for the exact requests, SQL investigation,
 hints and complete checks. This is the reminder beside your code.

@@ -40,6 +40,7 @@ import {
   CatalogSearchComposer,
 } from "../components/CatalogSearchComposer";
 import { CodeEditorLink } from "../components/CodeEditorLink";
+import { RankLabCard } from "../components/RankLabCard";
 import { LabFaultCard } from "../components/LabFaultCard";
 import { CoverageNotice } from "../components/CoverageNotice";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
@@ -1460,14 +1461,12 @@ export function CatalogPage() {
               labNumber={retrievalLabNumber}
               state={labCallout.repaired ? "fixed" : "broken"}
               targetPresent={labCallout.targetPresent}
-              title={labCallout.outcome.title}
               detail={labCallout.outcome.detail}
               finalRank={
                 retrieval!.results.find((product) =>
                   labCallout.mission.target_product_ids.includes(product.product_id),
                 )?.signals?.final_rank ?? null
               }
-              codeEditorUrl={codeEditorUrl}
               playgroundHref={`${playgroundQueryHref(
                 retrieval!.query, retrieval!.applied_filters, retrieval!.search_event_id,
               )}&example=${encodeURIComponent(labCallout.mission.id)}#labs-stage-retrieve`}
@@ -1476,33 +1475,15 @@ export function CatalogPage() {
           ) : null}
 
           {rankOutcome && rankMission && retrieval ? (
-            <section ref={labCalloutRef} className={`shop-lab-callout ${rankOutcome.tone}`}
-              aria-label={`Lab ${coreMosaicLabs.indexOf(rankMission) + 1} outcome`}>
-              <h2>{rankOutcome.title}</h2>
-              <p>{rankOutcome.detail}</p>
-              <p>Compare the saved combined order with the final order. Then repeat the same request before and after the lab repair.</p>
-              <table className="shop-lab-ranks">
-                <caption>Where the first two results came from</caption>
-                <thead><tr><th scope="col">Product</th><th scope="col">Before reranking</th><th scope="col">After reranking</th></tr></thead>
-                <tbody>
-                  {retrieval.results.slice(0, 2).map((product) => (
-                      <tr key={product.product_id}>
-                        <th scope="row">{product.brand} {product.model || product.title}</th>
-                        <td>{product.signals?.pre_rerank_rank ?? "Unavailable"}</td>
-                        <td>{product.signals?.final_rank ?? "Unavailable"}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-              <div className="shop-lab-callout-actions">
-                <Link className="shop-lab-callout-playground" href={`${playgroundQueryHref(
-                  retrieval.query, retrieval.applied_filters, retrieval.search_event_id,
-                )}&example=${encodeURIComponent(rankMission.id)}#labs-stage-rank`}>
-                  Inspect this run in the {RETRIEVAL_SURFACE.label}
-                </Link>
-                <button type="button" onClick={() => setRetrievalNonce((run) => run + 1)}>Search again</button>
-              </div>
-            </section>
+            <RankLabCard
+              ref={labCalloutRef}
+              response={retrieval}
+              outcome={rankOutcome}
+              playgroundHref={`${playgroundQueryHref(
+                retrieval.query, retrieval.applied_filters, retrieval.search_event_id,
+              )}&example=${encodeURIComponent(rankMission.id)}#labs-stage-rank`}
+              onSearchAgain={() => setRetrievalNonce((run) => run + 1)}
+            />
           ) : null}
 
           {retrievalError ? (

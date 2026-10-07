@@ -229,7 +229,7 @@ def start(
         _apply_sql(dsn, repo, record, say)
     with _connect(dsn) as connection:
         _capture(lab, api_url, repo, record, connection, say)
-    record["completed_at"] = datetime.now(UTC).isoformat(timespec="seconds")
+    record["completed_at"] = datetime.now(UTC).isoformat()
     _save(lab, repo, record)
     return record
 
@@ -248,9 +248,76 @@ def restart(
     set_lab_state(lab, solved=False, repo=repo)
     for path in (record_path(lab, repo), completion_path(lab, repo)):
         path.unlink(missing_ok=True)
+    if lab == 1:
+        (repo / ".local/lab-1/handoff.json").unlink(missing_ok=True)
     say(f"Discarded your Lab {lab} edits.")
     if lab == 1:
         # Lab 2's start applies its own file; Lab 1's start never edits or
         # applies, so the restored starter is applied here.
         _apply(dsn, repo, say)
     return start(lab, api_url=api_url, dsn=dsn, repo=repo, say=say)
+
+
+def advance(
+    lab: int, *, api_url: str, dsn: str | None, repo: Path = REPO, say: Say = print
+) -> dict[str, Any]:
+    """Prove Lab 1 before preparing Lab 2; resume without replaying masked checks.
+
+    The handoff saves its own verified evidence before installing the ranking
+    fault. It is bound to this database, Lab 1 entry and repaired seam, so a
+    reset or a changed repair cannot silently reuse it.
+    """
+    from scripts.validate_lab import record_completion, validate_lab_1
+
+    if lab != 1:
+        raise LabEntryError(
+            f"Handoff rule: found Lab {lab}; fix: use advance --lab 1. "
+            "Other labs follow their guide's completion steps."
+        )
+    assert_reset_database(dsn)
+    with _connect(dsn) as connection:
+        problems = unmet_prerequisites(2, connection, repo)
+    if problems:
+        raise LabEntryError("Lab 1 cannot hand off yet.\n" + "\n".join(problems))
+    binding = {
+        "database": hashlib.sha256((dsn or "").encode()).hexdigest(),
+        "lab1_seam": _seam_sha256(1, (repo / LABS[1][0]).read_text()),
+        "lab1_entry": load_record(1, repo),
+    }
+    path = repo / ".local/lab-1/handoff.json"
+    saved = json.loads(path.read_text()) if path.exists() else None
+    if saved and saved.get("binding") != binding:
+        raise LabEntryError(
+            "Handoff rule: Lab 1 or the selected database changed since validation. "
+            "Fix: finish the current lab and ask your facilitator to check the "
+            "saved handoff before starting a new attempt. Your edits are unchanged."
+        )
+    if saved is None:
+        if load_record(2, repo) is not None:
+            raise LabEntryError(
+                "Handoff rule: Lab 2 already started without this handoff. "
+                "Fix: continue Lab 2 in the guide; its ranking fault can mask "
+                "a correct Lab 1 repair. Your edits are unchanged."
+            )
+        events: list[str] = []
+        say("Validating Lab 1 in Aurora, including retrieval and filter controls…")
+        checks = validate_lab_1(api_url, events)
+        for check in checks:
+            say(f"PASS: {check}")
+        record_completion(1, checks, events, repo)
+        saved = {"binding": binding, "checks": checks, "search_event_ids": events}
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(saved, indent=2) + "\n")
+        temporary.replace(path)
+        say("Lab 1: production-path validation passed. Passing evidence saved.")
+    else:
+        say(
+            "Lab 1: using saved handoff validation; not repeating it under Lab 2's ranking fault."
+        )
+    say("Preparing Lab 2: install its fault once and save the starting request.")
+    record = start(2, api_url=api_url, dsn=dsn, repo=repo, say=say)
+    say(
+        "Lab 2: prepared. Continue with the saved failure in the Lab 2 guide. Your existing edits are preserved."
+    )
+    return record

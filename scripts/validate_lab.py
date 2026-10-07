@@ -168,7 +168,8 @@ def record_completion(
 
     path = completion_path(lab, repo)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(
         json.dumps(
             {
                 "lab": lab,
@@ -180,6 +181,7 @@ def record_completion(
         )
         + "\n"
     )
+    temporary.replace(path)
     return path
 
 

@@ -9,13 +9,13 @@ Code Editor.
 3. Diagnose, edit only the marked block, then apply SQL or deploy the agent.
 4. Repeat the request and pass the guide's checks before the next lab.
 
-| Explorer group | File to edit |
-|---|---|
-| **01 — Retrieve** | [hybrid_search.sql](labs/lab1_retrieve/hybrid_search.sql) |
-| **02 — Rank & Re-rank** | [rrf_contribution.sql](labs/lab2_rank/rrf_contribution.sql) |
-| **03 — Reason** | [agent.py](labs/lab3_reason/agent.py) |
+| Explorer group | Lab | File to edit |
+|---|---|---|
+| **01 - Retrieve** | Debug hybrid search | [hybrid_search.sql](labs/lab1_retrieve/hybrid_search.sql) |
+| **02 - Rank and re-rank** | Tune rank fusion and reranking | [rrf_contribution.sql](labs/lab2_rank/rrf_contribution.sql) |
+| **03 - Reason** | Build and deploy the agent | [agent.py](labs/lab3_reason/agent.py) |
 
-**04 — Explore Mosaic source** holds the application source.
+**04 - Explore Mosaic source** holds the application source.
 Every prepared terminal starts at the repository root; the numbered groups
 show the same files. If missing, open [Mosaic.code-workspace](Mosaic.code-workspace)
 with **File → Open Workspace from File…**.

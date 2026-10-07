@@ -627,6 +627,7 @@ export interface LabStateRecord {
   database_state: LabDatabaseState;
   detail: string;
   entry_state: LabEntryState | null;
+  started_at?: string | null;
   /** When this lab's live validation last passed: a record, never a verdict. */
   completed_at: string | null;
   /** The one command that moves this lab forward, when there is one. */
