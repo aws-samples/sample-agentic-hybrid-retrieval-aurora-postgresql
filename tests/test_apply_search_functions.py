@@ -195,6 +195,54 @@ def test_environment_faults_go_to_the_facilitator_not_the_lab_blocks(sqlstate):
     assert "Nothing was applied" in message
 
 
+class UndefinedFunctionCall(psycopg.errors.UndefinedFunction):
+    """Aurora's 42883 diagnostics for a call whose argument types match nothing."""
+
+    def __init__(self, primary: str):
+        super().__init__(primary)
+        self._primary = primary
+
+    @property
+    def diag(self):
+        return SimpleNamespace(
+            sqlstate="42883",
+            message_primary=self._primary,
+            statement_position="5120",
+            message_hint=(
+                "No function matches the given name and argument types. You might "
+                "need to add explicit type casts."
+            ),
+        )
+
+
+def test_a_score_passed_as_the_position_names_the_argument_to_change():
+    message = describe_apply_failure(
+        UndefinedFunctionCall(
+            "function mosaic_live_search.reciprocal_rank_contribution(real, integer) "
+            "does not exist"
+        ),
+        rolled_back=True,
+    )
+
+    assert "takes a channel's position (bigint), got real" in message
+    assert "trigram_rank" in message
+    assert "trigram_score" in message
+    assert "installs the mosaic_search functions from your files" in message
+    assert "LAB1_CHANNEL" in message
+
+
+def test_an_unrelated_missing_function_gets_no_position_advice():
+    message = describe_apply_failure(
+        UndefinedFunctionCall(
+            "function mosaic_live_search.search_trigrams(text, jsonb) does not exist"
+        ),
+        rolled_back=True,
+    )
+
+    assert "takes a channel's position" not in message
+    assert "installs the mosaic_search functions from your files" in message
+
+
 @pytest.mark.parametrize("sqlstate", ["42601", "42703", "22012"])
 def test_a_sql_fault_still_points_at_the_lab_blocks(sqlstate):
     message = describe_apply_failure(_server_error(sqlstate), rolled_back=True)

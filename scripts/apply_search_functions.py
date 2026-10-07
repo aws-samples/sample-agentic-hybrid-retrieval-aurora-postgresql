@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -29,6 +30,39 @@ FUSED_FUNCTION = (
     "search_hybrid_rrf(text,vector,jsonb,integer,integer,integer,integer,integer,real)"
 )
 APPLIED_SQL_LABEL = "Participant SQL sha256 "
+
+#: Apply installs the files' mosaic_search functions under this live schema, so
+#: Aurora's errors name a schema the participant never typed.
+LIVE_SCHEMA = "mosaic_live_search"
+#: A Lab 1 branch carries both a whole-number position and a real raw score; passing
+#: the score as the position reaches Aurora as an undefined function, not a type error.
+CONTRIBUTION_CALL = re.compile(r"reciprocal_rank_contribution\(\s*([a-z ]+?)\s*,")
+POSITION_TYPES = frozenset({"bigint", "integer", "smallint"})
+
+
+def explain_rejected_names(message: str) -> list[str]:
+    """Translate the names in Aurora's error back to the participant's files.
+
+    Args:
+        message: Aurora's primary error message.
+
+    Returns:
+        Zero or more lines naming the rule broken and the nearest fix.
+    """
+    notes = []
+    if f"{LIVE_SCHEMA}." in message:
+        notes.append(
+            f"Aurora names {LIVE_SCHEMA} because apply installs the mosaic_search "
+            "functions from your files into that live schema."
+        )
+    call = CONTRIBUTION_CALL.search(message)
+    if call and call.group(1) not in POSITION_TYPES:
+        notes.append(
+            "Rule: reciprocal_rank_contribution takes a channel's position (bigint), "
+            f"got {call.group(1)}. Pass the position column, such as trigram_rank, "
+            "not the raw score, such as trigram_score."
+        )
+    return notes
 
 
 def applied_sql_digest(connection) -> str | None:
@@ -95,6 +129,7 @@ def describe_apply_failure(error, *, rolled_back: bool) -> str:
     sqlstate = error.sqlstate or diagnostics.sqlstate or "none"
     message = (diagnostics.message_primary or str(error)).strip()
     lines = [f"Apply failed: SQLSTATE {sqlstate}: {message}"]
+    lines.extend(explain_rejected_names(message))
     if diagnostics.statement_position:
         lines.append(
             f"Position: character {diagnostics.statement_position} of the statement "
