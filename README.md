@@ -82,7 +82,8 @@ file you edit. Shop’s lab cards show the observed problem before the diagnosis
 repair feedback requires the exercise state and a search made after preparation.
 The ranking table sorts the same displayed products and preserves both positions.
 
-At the end of Lab 1, run `uv run python scripts/lab_state.py advance --lab 1`
+After Lab 1's repair check, continue with the guide's description search.
+At the end of the lab, run `uv run python scripts/lab_state.py advance --lab 1`
 to validate its repair, save passing evidence and prepare Lab 2. Retries resume
 preparation without discarding edits. For direct entry, start a lab with
 `uv run python scripts/lab_state.py start --lab N`: it saves the failing request,

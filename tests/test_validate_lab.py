@@ -774,7 +774,9 @@ class _Entered:
     detail = ""
 
 
-def test_a_passing_check_records_its_own_fresh_evidence(monkeypatch, tmp_path) -> None:
+def test_a_passing_check_records_its_own_fresh_evidence(
+    monkeypatch, tmp_path, capsys
+) -> None:
     monkeypatch.setattr(validate_lab, "REPO", tmp_path)
 
     def passing(_url, events):
@@ -791,6 +793,9 @@ def test_a_passing_check_records_its_own_fresh_evidence(monkeypatch, tmp_path) -
     saved = json.loads((tmp_path / ".local/lab-1/completion.json").read_text())
     assert saved["search_event_ids"] == ["fresh-run"]
     assert saved["checks"] == ["target"]
+    output = capsys.readouterr().out
+    assert "Lab 1: production-path validation passed" in output
+    assert "Next:" not in output
 
 
 def test_an_unreachable_api_points_at_the_service_check_not_a_server_start(monkeypatch):

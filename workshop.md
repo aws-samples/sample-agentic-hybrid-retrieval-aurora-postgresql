@@ -50,6 +50,10 @@ Show the correctly spelled headphone request, then the guide's transposed ID
 with the same filters. A full result list can omit the intended product.
 Ask where it disappeared; let the lab establish the cause.
 
+After the Lab 1 repair passes validation, keep participants in Lab 1 for the
+description search. Use the guide's final `advance --lab 1` command to prepare
+Lab 2 only after they have inspected those results.
+
 Point participants to the Event Dashboard's **CodeEditorURL** and **MosaicURL**.
 Code Editor opens **Start Here**, a prepared terminal and the numbered lab views:
 **01 - Retrieve**, **02 - Rank and re-rank**, **03 - Reason**. **04 - Explore

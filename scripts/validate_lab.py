@@ -391,7 +391,7 @@ def main() -> int:
     if args.lab in {1, 2}:
         record_completion(args.lab, checks, events, REPO)
     print(f"Lab {args.lab}: production-path validation passed")
-    if args.lab in {1, 2} and load_record(args.lab + 1, REPO) is None:
+    if args.lab == 2 and load_record(args.lab + 1, REPO) is None:
         print(f"Next: begin Lab {args.lab + 1} with {start_command(args.lab + 1)}")
     return 0
 
