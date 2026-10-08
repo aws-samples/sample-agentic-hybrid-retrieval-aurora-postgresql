@@ -587,6 +587,22 @@ def _require_anchor(connection: Any, selected: AnchorSet, product_id: int) -> An
     return row
 
 
+def _listing_photos(connection, product_ids: list[int]) -> dict[int, str | None]:
+    """Each product's own listing photograph, keyed by product ID."""
+    rows = connection.execute(
+        f"""
+        SELECT document.product_id, product.image_url
+        FROM {product_document()} AS document
+        JOIN mosaic_catalog_stage.product AS product
+          ON product.dataset_id = document.dataset_id
+         AND product.parent_asin = document.parent_asin
+        WHERE document.product_id = ANY(%s::bigint[])
+        """,
+        (product_ids,),
+    ).fetchall()
+    return {int(row["product_id"]): row["image_url"] for row in rows}
+
+
 def neighborhood(
     anchor_product_id: int, *, preset: str = "none", k: int = 10
 ) -> dict[str, Any]:
@@ -631,6 +647,9 @@ def neighborhood(
             """,
             (manifest, selected.sha256),
         ).fetchone()["pairs"]
+        photos = _listing_photos(
+            connection, [anchor_product_id, *(int(row["product_id"]) for row in rows)]
+        )
     if not rows and not seeded:
         raise StaleGroundTruth(
             explain(
@@ -640,10 +659,13 @@ def neighborhood(
                 "run `make db-seed-exact-neighbors`",
             )
         )
-    neighbors = [dict(row) for row in rows]
+    neighbors = [
+        {**dict(row), "image_url": photos.get(int(row["product_id"]))} for row in rows
+    ]
     return {
         "anchor": {
-            key: value for key, value in dict(anchor).items() if key != "embedding"
+            **{key: value for key, value in dict(anchor).items() if key != "embedding"},
+            "image_url": photos.get(anchor_product_id),
         },
         "preset": preset,
         "k": k,

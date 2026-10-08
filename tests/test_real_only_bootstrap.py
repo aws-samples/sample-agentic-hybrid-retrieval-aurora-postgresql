@@ -106,6 +106,23 @@ def test_a_catalog_without_its_own_anchors_withholds_hnsw_before_any_database_ac
 
 
 @pytest.mark.aurora
+def test_hnsw_neighbourhood_carries_each_listing_photo():
+    # The Scale page ring draws these photos; without them every circle falls
+    # back to a still-life even though each real listing has its own photo.
+    from service import hnsw
+
+    anchor = hnsw.anchor_set().product_ids[0]
+    result = hnsw.neighborhood(anchor, preset="none", k=10)
+    products = [result["anchor"], *result["neighbors"]]
+    assert len(products) > 1
+    for product in products:
+        assert product["image_url"] is None or product["image_url"].startswith(
+            "https://"
+        )
+    assert any(product["image_url"] for product in products)
+
+
+@pytest.mark.aurora
 def test_real_only_acceptance_rejects_synthetic_brand_and_rolls_back_byte_identical():
     import psycopg
     from psycopg.rows import dict_row

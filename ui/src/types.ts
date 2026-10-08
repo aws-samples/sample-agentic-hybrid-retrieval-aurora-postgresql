@@ -990,6 +990,8 @@ export interface HnswProduct {
   category_key: string;
   catalog_asset_key: string | null;
   media_tier: string | null;
+  /** The listing's own photograph; the neighbourhood route sends it, the anchor list does not. */
+  image_url?: string | null;
 }
 
 export interface HnswNeighbor extends HnswProduct {

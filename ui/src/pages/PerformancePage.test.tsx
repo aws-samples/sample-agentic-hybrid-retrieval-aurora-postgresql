@@ -121,8 +121,11 @@ const anchors: HnswProduct[] = [
   },
 ];
 
+const ANCHOR_PHOTO = "https://m.media-amazon.com/images/I/auraluxe-h9.jpg";
+const NEIGHBOR_PHOTO = "https://m.media-amazon.com/images/I/sonora-drift.jpg";
+
 const neighborhood: HnswNeighborhood = {
-  anchor: anchors[0],
+  anchor: { ...anchors[0], image_url: ANCHOR_PHOTO },
   preset: "none",
   k: 10,
   neighbors: [
@@ -135,6 +138,7 @@ const neighborhood: HnswNeighborhood = {
       category_key: "over-ear-headphones",
       catalog_asset_key: null,
       media_tier: null,
+      image_url: NEIGHBOR_PHOTO,
       neighbor_rank: 2,
       cosine_distance: 0.3374,
     },
@@ -146,6 +150,7 @@ const neighborhood: HnswNeighborhood = {
       category_key: "over-ear-headphones",
       catalog_asset_key: null,
       media_tier: null,
+      image_url: null,
       neighbor_rank: 3,
       cosine_distance: 0.3697,
     },
@@ -384,21 +389,19 @@ describe("PerformancePage", () => {
     expect(screen.getByText(`${first.shared_hit_blocks.toLocaleString()} buffers`)).toBeTruthy();
   });
 
-  it("renders every neighbourhood node with an illustration labelled as one", async () => {
+  it("shows each neighbour's listing photo, and an illustration only when it has none", async () => {
     render(<PerformancePage />);
 
     const ring = await screen.findByRole("img", {
       name: /neighbours of Mosaic Auraluxe H9/,
     });
-    expect(ring.querySelectorAll("image")).toHaveLength(
-      neighborhood.neighbors.length,
-    );
-    for (const image of ring.querySelectorAll("image")) {
-      expect(image.getAttribute("href")).toMatch(/-domain-neutral-catalog-3x2\.webp$/);
-    }
-    expect(
-      screen.getByText(/Each circle shows an illustration, not a product photograph/),
-    ).toBeTruthy();
+    const hrefs = [...ring.querySelectorAll("image")].map((image) => image.getAttribute("href"));
+    expect(hrefs).toHaveLength(neighborhood.neighbors.length);
+    expect(hrefs[0]).toBe(ANCHOR_PHOTO);
+    expect(hrefs).toContain(NEIGHBOR_PHOTO);
+    expect(hrefs.filter((href) => href?.endsWith("-domain-neutral-catalog-3x2.webp"))).toHaveLength(1);
+    expect(screen.getByText(/HaloBeam Quiet Two Headphones.*\(illustration, not a product photograph\)/)).toBeTruthy();
+    expect(screen.getByText(/Each circle shows the product's listing photo/)).toBeTruthy();
   });
 
   it("labels a live search test result distinctly from the measured curve", async () => {

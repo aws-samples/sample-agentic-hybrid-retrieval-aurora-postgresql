@@ -4,6 +4,13 @@ import { ringPoints } from "../hnsw";
 import { domainIllustration } from "../media";
 import type { HnswNeighborhood, HnswProbe, HnswProduct } from "../types";
 
+/** The listing's own photograph, or its domain's still-life when it has none. */
+function ringImage(product: HnswProduct): { src: string; photo: boolean } {
+  return product.image_url
+    ? { src: product.image_url, photo: true }
+    : { src: domainIllustration(product.domain), photo: false };
+}
+
 const RADIUS = 150;
 const VIEW = RADIUS * 2 + 80;
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
@@ -25,9 +32,8 @@ type HnswNeighborhoodRingProps = {
  * on top of every other; the real distances print alongside so the spread is not read as
  * wider than it is.
  *
- * The neighbourhood API carries product identity without listing photographs, so
- * every circle shows its domain's still-life and is labelled as an illustration,
- * never as the product itself.
+ * Each circle shows the product's own listing photograph. A listing without one
+ * shows its domain's still-life, labelled as an illustration, never as the product.
  */
 export function HnswNeighborhoodRing({
   neighborhood,
@@ -40,7 +46,7 @@ export function HnswNeighborhoodRing({
   const placed = ringPoints(neighbors, band, RADIUS);
   const missed = new Set(probe?.missed ?? []);
   const byId = new Map(neighbors.map((neighbor) => [neighbor.product_id, neighbor]));
-  const anchorImage = domainIllustration(anchor.domain);
+  const anchorImage = ringImage(anchor);
   const reduceMotion = useReducedMotion() ?? false;
   const anchorClipId = `hnsw-anchor-clip-${anchor.product_id}`;
 
@@ -144,7 +150,7 @@ export function HnswNeighborhoodRing({
                     className="ring-product-image"
                     clipPath={`url(#${anchorClipId})`}
                     height="92"
-                    href={anchorImage}
+                    href={anchorImage.src}
                     preserveAspectRatio="xMidYMid slice"
                     width="92"
                     x="-46"
@@ -156,7 +162,7 @@ export function HnswNeighborhoodRing({
                   const neighbor = byId.get(point.product_id);
                   const isMissed = missed.has(point.product_id);
                   if (!neighbor) return null;
-                  const image = domainIllustration(neighbor.domain);
+                  const image = ringImage(neighbor);
                   const clipId = `clip-${anchor.product_id}-${point.product_id}`;
                   return (
                     <motion.g
@@ -171,7 +177,7 @@ export function HnswNeighborhoodRing({
                       }
                       className={[
                         "ring-node",
-                        "representative",
+                        image.photo ? "" : "representative",
                         isMissed ? "missed" : "",
                       ]
                         .filter(Boolean)
@@ -198,7 +204,7 @@ export function HnswNeighborhoodRing({
                         className="ring-product-image"
                         clipPath={`url(#${clipId})`}
                         height="38"
-                        href={image}
+                        href={image.src}
                         initial={false}
                         preserveAspectRatio="xMidYMid slice"
                         transition={{ duration: 0.18, ease: EASE_OUT }}
@@ -214,7 +220,7 @@ export function HnswNeighborhoodRing({
                       <title>
                         #{neighbor.neighbor_rank} {neighbor.title}, cosine distance{" "}
                         {point.distance.toFixed(4)}
-                        {" (illustration, not a product photograph)"}
+                        {image.photo ? " (listing photo)" : " (illustration, not a product photograph)"}
                         {isMissed ? ` (missed at ef_search ${efSearch})` : ""}
                       </title>
                     </motion.g>
@@ -225,8 +231,8 @@ export function HnswNeighborhoodRing({
           </svg>
           <figcaption>
             <Images aria-hidden="true" size={13} />
-            Each circle shows an illustration, not a product photograph. Titles, ranks,
-            and distances are exact.
+            Each circle shows the product's listing photo, or an illustration when the
+            listing has none. Titles, ranks, and distances are exact.
           </figcaption>
         </figure>
 

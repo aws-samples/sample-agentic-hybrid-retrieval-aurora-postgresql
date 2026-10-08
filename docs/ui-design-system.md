@@ -613,8 +613,8 @@ and keeps the address; it no longer silently shows Shop.
 
 Each product shows its own listing photograph from the source dataset, or a
 placeholder when the listing has none; no product is illustrated with another
-product's photograph. The HNSW neighbourhood ring receives product identity
-without photographs, so each circle shows its domain's empty still-life and is
+product's photograph. The HNSW neighbourhood ring shows each product's listing
+photograph too; a listing without one shows its domain's empty still-life,
 labelled as an illustration. Product media never serves as evidence for an
 attribute. Shop's workspace scenes, in its walkthrough and bands, are editorial illustrations
 recorded in `data/media/alex-shop-story-v3.json` and
