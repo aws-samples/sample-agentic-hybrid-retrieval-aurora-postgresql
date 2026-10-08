@@ -31,6 +31,7 @@ from scripts.checks.rehearsal import (
     record_first_query,
     record_layout,
     redact,
+    render_summary,
     upsert_stage,
     validate_manifest,
 )
@@ -137,6 +138,22 @@ def test_record_stage_redacts_free_text_automatically():
     assert "hunter2pass" not in manifest["stages"]["deployment_identity"]["detail"]
     assert "[REDACTED]" in manifest["stages"]["deployment_identity"]["detail"]
     assert find_secret_leaks(manifest) == []
+
+
+def test_init_redacts_a_token_in_the_api_base_url():
+    manifest = new_manifest(api_base_url="https://workshop-host/?tkn=abcdef1234567890")
+    assert "abcdef1234567890" not in json.dumps(manifest)
+    assert find_secret_leaks(manifest) == []
+
+
+def test_the_summary_redacts_a_token_written_into_the_manifest_by_hand():
+    manifest = new_manifest()
+    manifest["environment"]["api_base_url"] = (
+        "https://workshop-host/?tkn=abcdef1234567890"
+    )
+    summary = render_summary(manifest)
+    assert "abcdef1234567890" not in summary
+    assert "[REDACTED]" in summary
 
 
 def test_record_stage_rejects_unknown_status():

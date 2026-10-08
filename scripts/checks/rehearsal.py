@@ -358,7 +358,7 @@ def new_manifest(
         "environment": {
             "workshop_studio_stack_id": workshop_studio_stack_id,
             "aws_region": aws_region,
-            "api_base_url": api_base_url,
+            "api_base_url": redact(api_base_url) if api_base_url else api_base_url,
             "source_revision": _git_revision(REPO),
             "source_worktree_dirty": _git_dirty(REPO),
             "bootstrap_script_sha256": _sha256_file(BOOTSTRAP_SCRIPT),
@@ -990,7 +990,7 @@ def render_summary(manifest: dict[str, Any]) -> str:
             f"  source_revision: {manifest.get('environment', {}).get('source_revision')}"
             f" (dirty={manifest.get('environment', {}).get('source_worktree_dirty')})"
         ),
-        f"  api_base_url: {manifest.get('environment', {}).get('api_base_url')}",
+        f"  api_base_url: {redact(str(manifest.get('environment', {}).get('api_base_url')))}",
         (
             f"  expected dataset: {manifest.get('dataset_identity', {}).get('expected_dataset_id')}"
             f" served: {manifest.get('dataset_identity', {}).get('served_dataset_id')}"
