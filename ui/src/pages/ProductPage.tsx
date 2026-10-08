@@ -21,14 +21,12 @@ import {
 import { Link, useRoute } from "wouter";
 import { api, ApiError } from "../api";
 import { cartQuantityLimit, useCommerce } from "../commerce";
-import { MosaicMark } from "../components/MosaicMark";
-import { ProductComplements } from "../components/ProductComplements";
 import { catalogReturnPath } from "../navigation";
 import { ProductCard } from "../components/ProductCard";
 import { SourceProductDetail } from "../components/SourceProductDetail";
 import { ErrorState, LoadingState, NotFoundState } from "../components/States";
 import { productFacts, formatAttributeLabel, formatAttributeValue, formatAvailability, formatPrice, isPurchasable, leafCategory } from "../format";
-import { productEditorialPoster, productImageMap, productImages, productImageLabel, productImageNote } from "../media";
+import { productImage, productImageMap } from "../media";
 import type { ProductDetail, ProductSummary } from "../types";
 
 type DetailTab = "overview" | "specs" | "reviews" | "evidence";
@@ -93,7 +91,7 @@ export function ProductPage() {
         const result = await api.product(id);
         if (version !== requestVersion.current) return;
         setProduct(result);
-        setSelectedImage(productImages(result)[0]);
+        setSelectedImage(productImage(result));
         setTab("overview");
         setLoading(false);
         loadRelated(result);
@@ -131,12 +129,11 @@ export function ProductPage() {
   if (error || !product) return <div className="page"><ErrorState message={error || "Product not found"} onRetry={load} /></div>;
 
   const gallery = Array.from(new Set([
-    ...productImages(product),
+    productImage(product),
     ...product.media.map((item) => item.image_url).filter((url) => url.startsWith("/")),
   ]));
   const attributes = Object.entries(product.attributes);
   const source = product.sources[0];
-  const poster = productEditorialPoster(product);
   const quantity = itemQuantity(product.product_id);
   const quantityLimit = cartQuantityLimit(product);
   const quantityAtLimit = quantity > 0 && quantity >= quantityLimit;
@@ -201,8 +198,7 @@ export function ProductPage() {
             </div>
           ) : null}
           <div className={`product-main-image${product.source_dataset ? " source-product-image" : ""}`}>
-            <img src={selectedImage || gallery[0]} alt={productImageLabel(product) ? `${product.title}: ${productImageLabel(product)}` : product.title} />
-            {productImageNote(product) ? <p className="category-image-note">{productImageNote(product)}</p> : null}
+            <img src={selectedImage || gallery[0]} alt={product.title} />
           </div>
         </div>
         <div className="product-summary">
@@ -340,22 +336,6 @@ export function ProductPage() {
           )}
         </article>
       </section>
-
-      {poster ? (
-        <section className="product-campaign" aria-label={`${product.model} editorial campaign`}>
-          <figure className="product-campaign-poster">
-            <img src={poster.src} alt={poster.alt} />
-            <span className="poster-brand-repair" aria-label="Mosaic">
-              <MosaicMark />
-            </span>
-          </figure>
-          <div className="product-campaign-copy">
-            <p className="eyebrow">Mosaic editorial</p>
-            <h2>{product.model}</h2>
-            <p>{product.short_description}</p>
-          </div>
-        </section>
-      ) : null}
 
       <nav id="product-information" className="product-tabs" aria-label="Product information" role="tablist">
         {([
@@ -530,7 +510,6 @@ export function ProductPage() {
         </section>
       ) : null}
 
-      <ProductComplements categoryKey={product.category_key} />
 
       {relatedLoading ? (
         <section className="related-products" aria-label="Related products">

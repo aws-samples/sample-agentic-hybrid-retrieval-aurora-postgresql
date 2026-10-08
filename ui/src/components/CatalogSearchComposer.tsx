@@ -19,7 +19,6 @@ import {
 import { api } from "../api";
 import "../catalog-search.css";
 import { formatCategoryKey } from "../format";
-import { productBoundImage } from "../media";
 import type { CatalogSuggestion } from "../types";
 
 interface CatalogSearchComposerProps {
@@ -349,9 +348,6 @@ export function CatalogSearchComposer({
 
           {suggestions.map((suggestion, index) => {
             const Icon = suggestionIcons[suggestion.kind];
-            const imageSrc = suggestion.kind === "product" && suggestion.product_id !== null
-              ? productBoundImage(suggestion.product_id)
-              : null;
             return (
               <button
                 className={activeIndex === index ? "active" : ""}
@@ -364,15 +360,9 @@ export function CatalogSearchComposer({
                 onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => submit(suggestion.query)}
               >
-                {imageSrc ? (
-                  <span className="catalog-suggestion-thumbnail">
-                    <img src={imageSrc} alt="" decoding="async" />
-                  </span>
-                ) : (
-                  <span className={`catalog-suggestion-icon ${suggestion.kind}`}>
-                    <Icon size={16} aria-hidden="true" />
-                  </span>
-                )}
+                <span className={`catalog-suggestion-icon ${suggestion.kind}`}>
+                  <Icon size={16} aria-hidden="true" />
+                </span>
                 <span>
                   <strong>{suggestion.label}</strong>
                   <small>{suggestionDetail(suggestion)}</small>

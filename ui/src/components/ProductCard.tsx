@@ -4,7 +4,7 @@ import { Link } from "wouter";
 import { cartQuantityLimit, useCommerce } from "../commerce";
 import { formatAvailability, formatPrice, isPurchasable, leafCategory, specFacts } from "../format";
 import { productDetailHref } from "../navigation";
-import { productImage, productImageLabel } from "../media";
+import { productImage } from "../media";
 import { ProductReceiptBody } from "./ProductReceipt";
 import { FINAL_LABEL, FUSED_LABEL, armLabel } from "../retrievalLanguage";
 import type { ProductSummary, RetrievalDiagnostics } from "../types";
@@ -117,13 +117,12 @@ export function ProductCard({
           <Link className="product-image" href={productDetailHref(product.product_id)}>
             <img
               src={imageSrc ?? productImage(product)}
-              alt={productImageLabel(product) ? `${product.title}: ${productImageLabel(product)}` : product.title}
+              alt={product.title}
               width={1200}
               height={800}
               loading="lazy"
               decoding="async"
             />
-            {productImageLabel(product) ? <span className="category-image-label">{productImageLabel(product)}</span> : null}
             {assistRank ? <span className="assist-rank-badge">{String(assistRank).padStart(2, "0")}</span> : null}
           </Link>
           <button
@@ -247,7 +246,6 @@ export function ProductCard({
           loading="lazy"
           decoding="async"
         />
-        {productImageLabel(product) ? <span className="category-image-label">{productImageLabel(product)}</span> : null}
         {signals ? <span className="rank-badge">#{signals.final_rank}</span> : null}
       </Link>
       <button

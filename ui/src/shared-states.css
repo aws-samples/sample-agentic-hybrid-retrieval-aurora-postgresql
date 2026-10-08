@@ -483,10 +483,6 @@
     grid-template-columns: 1fr;
   }
 
-  .product-campaign {
-    grid-template-columns: minmax(200px, 280px) minmax(0, 1fr);
-  }
-
   .product-overview {
     grid-template-columns: 1fr;
   }
@@ -588,11 +584,6 @@
 
   .product-gallery {
     grid-template-columns: 1fr;
-  }
-
-  .product-campaign {
-    grid-template-columns: minmax(0, 360px);
-    gap: 26px;
   }
 
   .thumbnail-rail {

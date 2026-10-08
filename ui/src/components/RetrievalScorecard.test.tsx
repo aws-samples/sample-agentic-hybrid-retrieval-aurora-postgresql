@@ -420,12 +420,6 @@ describe("RetrievalScorecard", () => {
     ).toBeTruthy();
     expect(idNode.tagName).toBe("CODE");
     expect(within(disclosure).getByText("Exact model alias")).toBeTruthy();
-    const image = within(disclosure).getByRole("img", {
-      name: "Representative product for Sonora WH-C720",
-    });
-    expect(image.getAttribute("src")).toContain(
-      "ce-over-ear-headphones-02-catalog-3x2.webp",
-    );
   });
 
   it("renders the bare query_id for a golden anchor when the artifact carries no anchor labels", async () => {

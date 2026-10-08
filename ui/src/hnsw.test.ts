@@ -3,14 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   curvePoints,
   formatBytes,
-  neighborhoodPhotograph,
-  neighborhoodPhotographs,
   ringPoints,
   saturationEf,
   speedupFactor,
   storageSegments,
 } from "./hnsw";
-import type { HnswEfPoint, HnswNeighbor, HnswProduct } from "./types";
+import type { HnswEfPoint, HnswNeighbor } from "./types";
 
 // Three measured points from data/benchmarks/hnsw_measured.json, as
 // [ef_search, server_ms, shared_hit_blocks, recall_at_k, estimated_total_cost].
@@ -206,48 +204,6 @@ describe("ringPoints", () => {
     expect(points).toHaveLength(1);
     expect(Number.isFinite(points[0].x)).toBe(true);
     expect(Number.isFinite(points[0].y)).toBe(true);
-  });
-});
-
-describe("neighborhoodPhotograph", () => {
-  const product = (
-    product_id: number,
-    category_key: string,
-  ): HnswProduct => ({
-    product_id,
-    title: `Product ${product_id}`,
-    brand_name: "Brand",
-    domain: "consumer_electronics",
-    category_key,
-    catalog_asset_key: null,
-    media_tier: null,
-  });
-
-  it("distinguishes exact product photography from category representation", () => {
-    expect(neighborhoodPhotograph(product(1, "over-ear-headphones"))).toEqual({
-      kind: "product",
-      src: "/assets/images/mosaic/ce-over-ear-headphones-auraluxe-h9-catalog-3x2.webp",
-    });
-
-    const representative = neighborhoodPhotograph(
-      product(900_001, "over-ear-headphones"),
-    );
-    expect(representative.kind).toBe("category");
-    expect(representative.src).toMatch(
-      /^\/assets\/images\/mosaic\/ce-over-ear-headphones-/,
-    );
-  });
-
-  it("avoids repeating category photography while the pool has unused images", () => {
-    const photographs = neighborhoodPhotographs([
-      product(1, "over-ear-headphones"),
-      product(900_001, "over-ear-headphones"),
-      product(900_002, "over-ear-headphones"),
-    ]);
-
-    expect(photographs.get(900_001)?.src).not.toBe(
-      photographs.get(900_002)?.src,
-    );
   });
 });
 

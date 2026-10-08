@@ -14,8 +14,6 @@
 .reason-product-photo,
 .reviewed-product-photo,
 .product-drawer-media,
-.catalog-suggestion-thumbnail,
-.product-complement-image,
 .source-product-image {
   background: var(--plate) !important;
 }
@@ -29,8 +27,6 @@
 .reason-product-photo img,
 .reviewed-product-photo img,
 .product-drawer-media img,
-.catalog-suggestion-thumbnail img,
-.product-complement-image img,
 .source-product-image img {
   background: transparent !important;
   mix-blend-mode: multiply;

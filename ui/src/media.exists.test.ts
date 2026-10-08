@@ -1,41 +1,21 @@
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import mediaManifest from "../../data/media/asset_labels_200.json";
+import { domainIllustration, productImage } from "./media";
+import type { Domain, ProductSummary } from "./types";
 
 const publicDir = fileURLToPath(new URL("../public", import.meta.url));
 
 describe("media asset paths", () => {
-  it("only maps products to images that exist in public/", async () => {
-    // Retiring a photograph (a trademark is spotted late, say) leaves the
-    // mapping pointing at a deleted file. Vite serves index.html with a 200
-    // for a missing asset, so the product grid renders empty boxes and the
-    // regex-shaped tests in media.test.ts still pass.
-    const source = await readFile(
-      fileURLToPath(new URL("./media.ts", import.meta.url)),
-      "utf8",
-    );
-    const paths = [...source.matchAll(/\$\{ASSETS\}(\/[\w/-]+\.webp)/g)].map(
-      (match) => "/assets/images" + match[1],
-    );
-    expect(paths.length).toBeGreaterThan(0);
-
+  it("only returns local images that exist in public/", () => {
+    // Vite serves index.html with a 200 for a missing asset, so a deleted file
+    // renders as an empty box rather than an error.
+    const domains: Domain[] = ["consumer_electronics", "running_fitness", "home_office"];
+    const paths = [
+      ...domains.map(domainIllustration),
+      productImage({ image_url: null } as ProductSummary),
+    ];
     const missing = paths.filter((path) => !existsSync(publicDir + path));
-    expect(missing).toEqual([]);
-  });
-
-  it("ships every installed product-bound image referenced by the manifest", () => {
-    const installed = mediaManifest.products.filter((product) => product.catalog_installed);
-    const missing = installed
-      .map((product) => product.catalog_runtime_path)
-      .filter((path) => !existsSync(publicDir + path));
-
-    expect(mediaManifest.products).toHaveLength(200);
-    expect(installed).toHaveLength(
-      mediaManifest.summary.products -
-        mediaManifest.summary.catalog_still_to_generate,
-    );
     expect(missing).toEqual([]);
   });
 });

@@ -1,363 +1,31 @@
-import mediaManifest from "../../data/media/asset_labels_200.json";
 import plateManifest from "../../data/media/category_plates.json";
 import type { Domain, ProductSummary } from "./types";
 
-const ASSETS = "/assets/images";
-
-const catalogImageByProductId = new Map(
-  mediaManifest.products
-    .filter((product) => product.catalog_installed)
-    .map((product) => [product.product_id, product.catalog_runtime_path]),
-);
-
-const monitorDetailByProductId = new Map(
-  mediaManifest.products
-    .filter((product) => product.category === "Displays" && product.detail_installed && product.detail_runtime)
-    .map((product) => [product.product_id, `${ASSETS}/mosaic/${product.detail_runtime}`]),
-);
-
-/** The manifest-bound catalog photograph for an exact product, when installed. */
-export function productBoundImage(productId: number): string | null {
-  return catalogImageByProductId.get(productId) ?? null;
-}
-
-/**
- * Last resort, and unreachable while all three domain-neutral plates exist.
- *
- * Each of these is a photograph of one specific product, so as a fallback it
- * answers "no image exists for this row" with a picture of something else:
- * mesh Wi-Fi systems illustrated with headphones, sound-masking devices with an
- * office chair. `domain_neutral_plates` in the plate manifest replaces each one
- * with a still-life that shows no product at all, which is the honest form of
- * the same fallback, and all three are now installed.
- *
- * This stays as a guard because `installed` is editable data: a plate that fails
- * review gets switched off, and a domain with no neutral plate still has to
- * render something. `media.test.ts` asserts the guard is out of reach, so
- * switching one off turns that test red rather than quietly reinstating a
- * photograph of the Auraluxe H9 across a whole domain.
- */
-export const domainMedia: Record<Domain, string> = {
-  consumer_electronics: `${ASSETS}/mosaic/auraluxe-h9-studio.webp`,
-  running_fitness: `${ASSETS}/mosaic/stride-pro-studio.webp`,
-  home_office: `${ASSETS}/mosaic/forma-ergonomic-studio.webp`,
-};
-
-type MosaicImageSet = [RegExp, string[]];
-
-/**
- * One image per product, deliberately.
- *
- * These sets previously carried `-scene`/`-alt`/`-studio` companions presented
- * as alternate shots of the same product. They are not: the files were
- * generated in separate passes and the industrial design drifted between them,
- * so the EchoBud S2 rail showed a stem bud in a branded rectangular case
- * alongside stemless maroon-tipped beans in an unbranded oval one. A gallery
- * that pairs a product with photographs of a different product is worse than a
- * gallery with a single image, so only the shot verified to match each product
- * is kept. Real multi-image galleries come from `product.media`, which the API
- * owns; the gallery in ProductPage unions that in.
- */
-const mosaicProductImageSets: MosaicImageSet[] = [
-  /* The original auraluxe-h9 photograph carried a third-party audio brand's
-     logo on the earcup and was removed; the studio shot is the same product
-     as the catalog assets, logo-free. */
-  [/\bauraluxe(?:\s+h?9)?\b/i, [`${ASSETS}/mosaic/auraluxe-h9-studio.webp`]],
-  [/\becho\s*bud\s*s?2\b/i, [`${ASSETS}/mosaic/echobud-s2.webp`]],
-  [/\bpulse\s*one\b/i, [`${ASSETS}/mosaic/pulse-one.webp`]],
-  [/\bstride\s*pro\b/i, [`${ASSETS}/mosaic/stride-pro-studio.webp`]],
-  [/\bforma\s*ergonomic\b/i, [`${ASSETS}/mosaic/forma-ergonomic-studio.webp`]],
-  [/\bmelody\s*go\b/i, [`${ASSETS}/mosaic/melody-go-scene.webp`]],
-  [/\blume\s*desk\s*lamp\b/i, [`${ASSETS}/mosaic/lume-desk-lamp-scene.webp`]],
-  [/\bcarryall\s*sleeve\b/i, [`${ASSETS}/mosaic/carryall-sleeve.webp`]],
-  [
-    /\bflux\s*wireless\s*pad\b/i,
-    [`${ASSETS}/mosaic/flux-wireless-pad-scene.webp`],
-  ],
-];
-
-const posterByProductName: Array<[RegExp, { src: string; alt: string }]> = [
-  [
-    /\becho\s*bud\s*s?2\b/i,
-    {
-      src: `${ASSETS}/mosaic/posters/02-echobud-s2-poster.png`,
-      alt: "Mosaic EchoBud S2 campaign poster",
-    },
-  ],
-  [
-    /\bpulse\s*one\b/i,
-    {
-      src: `${ASSETS}/mosaic/posters/03-pulse-one-poster.png`,
-      alt: "Mosaic Pulse One campaign poster",
-    },
-  ],
-  [
-    /\bstride\s*pro\b/i,
-    {
-      src: `${ASSETS}/mosaic/posters/04-stride-pro-poster.png`,
-      alt: "Mosaic Stride Pro campaign poster",
-    },
-  ],
-];
-
-function productSearchText(product: ProductSummary): string {
-  return [product.title, product.category_path, product.brand, product.model].join(" ");
-}
-
-function matchingMosaicImageSet(product: ProductSummary): string[] | undefined {
-  return mosaicProductImageSets.find(([pattern]) => pattern.test(productSearchText(product)))?.[1];
-}
-
-/**
- * The corpus holds 500,000 products and a 200-product exact-photography set, so
- * most rows a query returns are filled from a category pool rather than from
- * their own shot.
- *
- * Pools are keyed by the API's `category_key`, not by a regex over the title.
- * The regex version matched on substrings and so illustrated whole categories
- * with the wrong object: `/stand/` claimed every electric standing desk for a
- * laptop riser, and `mesh-wi-fi-systems` matched no pattern at all and fell
- * through to a photograph of headphones. An exact category identity cannot make
- * that mistake; an unmatched category gets a neutral still-life instead.
- */
-const categoryPools = buildCategoryPools();
+const UNAVAILABLE_IMAGE = "/assets/images/product-unavailable.svg";
 
 const neutralPlateByDomain = new Map(
   plateManifest.domain_neutral_plates
     .filter((plate) => plate.installed)
-    .map((plate) => [plate.domain, platePath(plate.plate_id)]),
+    .map((plate) => [plate.domain, `/assets/images/mosaic/${plate.plate_id}-catalog-3x2.webp`]),
 );
 
-function platePath(plateId: string): string {
-  return `${ASSETS}/mosaic/${plateId}-catalog-3x2.webp`;
-}
-
 /**
- * A category name as a lowercase, hyphen-separated slug.
- */
-function slugify(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-}
-
-/**
- * Exact images are product-bound, and they are also the only photograph many
- * categories have, so each one joins the pool for its own category. The product
- * it was shot for still gets it first, from `catalogImageByProductId`.
+ * A still-life for the domain that shows no product.
  *
- * A manifest row is registered under both forms the service can emit for its
- * category: the bare subcategory slug, and the fully qualified
- * domain-family-subcategory slug it falls back to when two domains share a
- * subcategory name. Registering both is exact rather than a guess. The
- * qualified form is reachable only by that one triple, and the bare form only
- * when no other domain claims the name, because a collision is precisely what
- * makes the service emit the qualified key instead. "Portable Monitors" is the
- * live collision, under Computing in consumer electronics and Displays in home
- * office.
+ * For views that know a product's identity but not its listing photograph, so
+ * no row is illustrated with a picture of a different product.
  */
-function buildCategoryPools(): Map<string, string[]> {
-  const pools = new Map<string, string[]>();
-  const add = (key: string, path: string) => {
-    const pool = pools.get(key);
-    if (!pool) {
-      pools.set(key, [path]);
-    } else if (!pool.includes(path)) {
-      pool.push(path);
-    }
-  };
-  for (const product of mediaManifest.products) {
-    if (!product.catalog_installed) continue;
-    add(slugify(product.subcategory), product.catalog_runtime_path);
-    add(
-      slugify(`${product.domain} ${product.category} ${product.subcategory}`),
-      product.catalog_runtime_path,
-    );
-  }
-  for (const plate of plateManifest.plates) {
-    if (plate.installed) add(plate.category_key, platePath(plate.plate_id));
-  }
-  return pools;
+export function domainIllustration(domain: Domain): string {
+  return neutralPlateByDomain.get(domain) ?? UNAVAILABLE_IMAGE;
 }
 
-/** Shared category photos must preserve visible construction, not just purpose. */
-const relatedCategories: Record<string, string[]> = {
-  "road-running-shoes": ["carbon-racing-shoes", "cross-training-shoes", "stability-running-shoes"],
-  "carbon-racing-shoes": ["road-running-shoes", "cross-training-shoes"],
-  "cross-training-shoes": ["road-running-shoes", "carbon-racing-shoes"],
-  "stability-running-shoes": ["road-running-shoes", "cross-training-shoes"],
-  "walking-shoes": ["road-running-shoes", "cross-training-shoes"],
-  "acoustic-headphones": ["over-ear-headphones"],
-  "over-ear-headphones": ["acoustic-headphones"],
-  "executive-chairs": ["ergonomic-office-chairs", "mesh-office-chairs"],
-  "ergonomic-office-chairs": ["mesh-office-chairs", "executive-chairs"],
-  "quiet-keyboards": ["mechanical-keyboards", "ergonomic-keyboards"],
-  "mechanical-keyboards": ["quiet-keyboards", "ergonomic-keyboards"],
-};
-
-/**
- * Mixes a product id so neighbouring ids land on unrelated assets.
- *
- * Catalog ids arrive sorted and evenly spaced, so `id % assetCount` cycles
- * through a subset and repeats one photograph across adjacent cards.
- */
-function spread(productId: number, assetCount: number): number {
-  // Math.imul keeps the multiply in 32 bits; a plain `*` produces a float and
-  // loses the high bits the mix depends on.
-  let hash = (Math.abs(productId) + 0x9e3779b9) | 0;
-  hash = Math.imul(hash ^ (hash >>> 16), 0x21f0aaad);
-  hash = Math.imul(hash ^ (hash >>> 15), 0x735a2d97);
-  hash ^= hash >>> 15;
-  return (hash >>> 0) % assetCount;
-}
-
-/**
- * Generated photography. Anything outside it is the scraped substrate that the
- * category pools replaced, and a database column may still point into it.
- *
- * A path is trusted only if it names the generated namespace, so stale catalog
- * data cannot bypass the governed pools.
- */
-const GENERATED_PREFIX = `${ASSETS}/mosaic/`;
-
-type CategoryImageProduct = Pick<
-  ProductSummary,
-  "product_id" | "domain" | "category_key"
->;
-
-/**
- * The photograph that belongs to this exact product, or null if none does.
- *
- * The 200-product manifest is the product-to-media contract. Some older
- * database rows still carry square detail photography in image_url; using those
- * in a 3:2 catalog card creates letterboxing and obscures the catalog shot
- * selected for this exact product.
- */
-function boundImage(product: ProductSummary): string | null {
-  if (product.source_dataset) return product.image_url || null;
-  const catalogImage = productBoundImage(product.product_id);
-  if (catalogImage) return catalogImage;
-  if (product.image_url?.startsWith(GENERATED_PREFIX)) return product.image_url;
-  return matchingMosaicImageSet(product)?.[0] ?? null;
-}
-
-/**
- * How many distinct photographs a category can draw on.
- *
- * Categories need a range of photos even though each product's stable choice can
- * repeat within a page. A category with no pool falls back to a single neutral
- * plate. Shop's landing category entries are checked against this floor.
- */
-export function categoryPoolSize(
-  categoryKey: string,
-  domain: Domain,
-): number {
-  return categoryPool({ product_id: 0, category_key: categoryKey, domain }).length;
-}
-
-/** Every photograph eligible for a row in this category, best match first. */
-function categoryPool(product: CategoryImageProduct): string[] {
-  if (product.category_key === "mesh-office-chairs") {
-    const verifiedProducts = [370001, 370002, 370003, 370567, 371092, 374727, 375572, 377572, 378616];
-    const verifiedPlates = [1, 2, 4, 5, 7, 9].map((n) =>
-      platePath(`ho-ergonomic-office-chairs-plate-${String(n).padStart(2, "0")}`));
-    return [...verifiedProducts.map((id) => productBoundImage(id)).filter((path): path is string => Boolean(path)), ...verifiedPlates];
-  }
-  const primary = categoryPools.get(product.category_key) ?? [];
-  const related = (relatedCategories[product.category_key] ?? [])
-    .flatMap((key) => categoryPools.get(key) ?? [])
-    .filter((path) => !primary.includes(path));
-  const pool = [...primary, ...related];
-  if (pool.length) return pool;
-  return [neutralPlateByDomain.get(product.domain) ?? domainMedia[product.domain]];
-}
-
-/**
- * A category-verified product photograph for a row that has no bound image.
- *
- * This does not claim that the pictured product is the exact SKU. Callers must keep
- * that provenance visible anywhere the image could be read as product-bound.
- */
-export function categoryProductImage(product: CategoryImageProduct): string {
-  const pool = categoryPool(product);
-  return pool[spread(product.product_id, pool.length)];
-}
-
-/**
- * Assign representative category photography across a set without avoidable repeats.
- *
- * `reserved` contains exact product images already visible in the same composition, so
- * a representative node does not immediately reuse the anchor's photograph while an
- * unused image remains in the category pool.
- */
-export function categoryProductImageMap(
-  products: CategoryImageProduct[],
-  reserved: Iterable<string> = [],
-): Map<number, string> {
-  const assigned = new Map<number, string>();
-  const uses = new Map<string, number>();
-  for (const path of reserved) {
-    uses.set(path, (uses.get(path) ?? 0) + 1);
-  }
-  for (const product of products) {
-    if (assigned.has(product.product_id)) continue;
-    const pool = categoryPool(product);
-    const chosen = leastUsed(pool, spread(product.product_id, pool.length), uses);
-    uses.set(chosen, (uses.get(chosen) ?? 0) + 1);
-    assigned.set(product.product_id, chosen);
-  }
-  return assigned;
-}
-
-/** Whether the displayed photo illustrates a category rather than this identity. */
-export function usesCategoryImage(product: ProductSummary): boolean {
-  if (product.source_dataset) return false;
-  return boundImage(product) === null;
-}
-
+/** The listing's own photograph, or the unavailable placeholder. */
 export function productImage(product: ProductSummary): string {
-  if (product.source_dataset) return product.image_url || "/assets/images/product-unavailable.svg";
-  const bound = boundImage(product);
-  if (bound) return bound;
-  return categoryProductImage(product);
-}
-
-export function productImageLabel(product: ProductSummary): string | null {
-  if (productImage(product).includes("-domain-neutral-")) return "Photo unavailable";
-  return usesCategoryImage(product) ? "Category image" : null;
-}
-
-export function productImageNote(product: ProductSummary): string | null {
-  const label = productImageLabel(product);
-  if (label === "Photo unavailable") return "A product photograph is not available. Check the specifications for this product’s features.";
-  return label ? "Illustrative category image. Check the specifications for this product’s features." : null;
-}
-
-/**
- * The pool entry used fewest times so far, scanned from this row's preference.
- *
- * An unused photograph always wins, so a grid whose pool is large enough repeats
- * nothing. Past that point this spreads the surplus evenly instead of letting
- * one photograph absorb it, which bounds any grid at ceil(rows / pool) copies of
- * a single file and puts the duplicates as far apart as the pool allows.
- */
-function leastUsed(pool: string[], start: number, uses: Map<string, number>): string {
-  let chosen = pool[start];
-  let fewest = Infinity;
-  for (let step = 0; step < pool.length; step += 1) {
-    const candidate = pool[(start + step) % pool.length];
-    const count = uses.get(candidate) ?? 0;
-    if (count < fewest) {
-      chosen = candidate;
-      fewest = count;
-      if (count === 0) break;
-    }
-  }
-  return chosen;
+  return product.image_url || UNAVAILABLE_IMAGE;
 }
 
 /**
  * Keep a product's photo stable across Shop, ranking and the agent's shortlist.
- * Category photos may repeat; changing one to suit its neighbours would make the
- * same product look like a different item after reranking or recommendation.
  */
 export function productImageMap(products: ProductSummary[]): Map<number, string> {
   const assigned = new Map<number, string>();
@@ -365,19 +33,7 @@ export function productImageMap(products: ProductSummary[]): Map<number, string>
     if (assigned.has(product.product_id)) continue;
     assigned.set(product.product_id, productImage(product));
   }
-
   return assigned;
-}
-
-export function productImages(product: ProductSummary): string[] {
-  if (product.source_dataset) return [productImage(product)];
-  const monitorDetail = monitorDetailByProductId.get(product.product_id);
-  if (monitorDetail) return [monitorDetail];
-  return matchingMosaicImageSet(product) ?? [productImage(product)];
-}
-
-export function productEditorialPoster(product: ProductSummary) {
-  return posterByProductName.find(([pattern]) => pattern.test(productSearchText(product)))?.[1] ?? null;
 }
 
 export const domainLabels: Record<Domain, string> = {

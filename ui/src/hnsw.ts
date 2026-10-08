@@ -1,63 +1,9 @@
-import mediaManifest from "../../data/media/asset_labels_200.json";
-import { categoryProductImageMap } from "./media";
 import type {
   HnswBand,
   HnswEfPoint,
   HnswNeighbor,
-  HnswProduct,
   HnswStorage,
 } from "./types";
-
-const boundPhotographByProductId = new Map<number, string>(
-  mediaManifest.products
-    .filter((product) => product.catalog_installed)
-    .map((product) => [product.product_id, product.catalog_runtime_path]),
-);
-
-/** The photograph bound to this specific product, or null. */
-export function boundPhotograph(productId: number): string | null {
-  return boundPhotographByProductId.get(productId) ?? null;
-}
-
-/**
- * The image shown in the neighbourhood instrument, with its provenance intact.
- *
- * Exact product photography wins. The fallback is verified to show the same product
- * category, not the exact SKU, so the component can label that distinction without
- * leaving the graph as anonymous circles.
- */
-export function neighborhoodPhotograph(
-  product: HnswProduct,
-): { kind: "product" | "category"; src: string } {
-  const photograph = neighborhoodPhotographs([product]).get(product.product_id);
-  if (!photograph) {
-    throw new Error(`No neighbourhood photograph resolved for product ${product.product_id}`);
-  }
-  return photograph;
-}
-
-/** Resolve one balanced, provenance-labelled image assignment for a whole ring. */
-export function neighborhoodPhotographs(
-  products: HnswProduct[],
-): Map<number, { kind: "product" | "category"; src: string }> {
-  const assigned = new Map<number, { kind: "product" | "category"; src: string }>();
-  const unbound: HnswProduct[] = [];
-  const reserved: string[] = [];
-  for (const product of products) {
-    if (assigned.has(product.product_id)) continue;
-    const bound = boundPhotograph(product.product_id);
-    if (bound) {
-      assigned.set(product.product_id, { kind: "product", src: bound });
-      reserved.push(bound);
-    } else {
-      unbound.push(product);
-    }
-  }
-  for (const [productId, src] of categoryProductImageMap(unbound, reserved)) {
-    assigned.set(productId, { kind: "category", src });
-  }
-  return assigned;
-}
 
 const KIB = 1024;
 // pg_size_pretty stays in a unit until the value would exceed this, which is why it

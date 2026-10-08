@@ -1461,11 +1461,6 @@
   .labs-evidence-records > li.has-product-image > div {
     grid-column: 2;
   }
-
-  .labs-scorecard-per-query > li.has-product-image {
-    align-items: start;
-    grid-template-columns: 5.5rem minmax(0, 1fr);
-  }
 }
 
 /* The scale caveat that used to be crammed into a 150px figure tile. */
@@ -1929,20 +1924,6 @@
   gap: 4px;
   padding: 11px 16px;
   background: var(--paper);
-}
-
-.labs-scorecard-per-query > li.has-product-image {
-  align-items: center;
-  gap: 14px;
-  grid-template-columns: 7.5rem minmax(0, 1fr);
-}
-
-.labs-scorecard-per-query > li > img {
-  width: 100%;
-  aspect-ratio: 3 / 2;
-  border: 1px solid var(--line);
-  background: var(--paper-warm);
-  object-fit: cover;
 }
 
 .labs-scorecard-per-query > li > div {
@@ -3264,18 +3245,6 @@
 }
 
 .product-breadcrumb { color: var(--ink-soft); }
-.product-complements { margin-top: 64px; }
-.product-complements-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
-.product-complement-image { display: block; overflow: hidden; border-radius: 12px; background: var(--paper); }
-.product-complement-image img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; }
-.product-complements-grid h3 { margin: 20px 0 8px; font-family: var(--display); font-size: 28px; font-weight: 500; }
-.product-complements-grid p { max-width: 46ch; margin: 0 0 16px; color: var(--ink-soft); font-size: 15px; line-height: 1.6; }
-.product-complement-link { display: inline-flex; align-items: center; min-height: 44px; padding: 10px 18px; border: 1px solid var(--line); border-radius: 999px; font-size: 14px; font-weight: 500; }
-.product-complement-link:hover { background: var(--paper); border-color: var(--maroon-800); }
-@media (max-width: 650px) {
-  .product-complements-grid { grid-template-columns: 1fr; gap: 32px; }
-  .product-complements { margin-top: 40px; }
-}
 
 /* Status is a small accent; the content and search results carry the hierarchy. */
 .shop-rank-card {

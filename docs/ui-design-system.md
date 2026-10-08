@@ -611,8 +611,11 @@ and keeps the address; it no longer silently shows Shop.
 
 ## Image boundary
 
-`data/media/asset_labels_200.json` is the product-to-media contract for the
-exact-photography set. Product media never serves as evidence for an
+Each product shows its own listing photograph from the source dataset, or a
+placeholder when the listing has none; no product is illustrated with another
+product's photograph. The HNSW neighbourhood ring receives product identity
+without photographs, so each circle shows its domain's empty still-life and is
+labelled as an illustration. Product media never serves as evidence for an
 attribute. Shop's workspace scenes, in its walkthrough and bands, are editorial illustrations
 recorded in `data/media/alex-shop-story-v3.json` and
 `data/media/alex-discover-studio-v1.json`; they establish no product

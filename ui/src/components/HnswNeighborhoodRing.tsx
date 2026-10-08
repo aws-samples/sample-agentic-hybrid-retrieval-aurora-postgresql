@@ -1,6 +1,7 @@
 import { Images, Target } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { neighborhoodPhotographs, ringPoints } from "../hnsw";
+import { ringPoints } from "../hnsw";
+import { domainIllustration } from "../media";
 import type { HnswNeighborhood, HnswProbe, HnswProduct } from "../types";
 
 const RADIUS = 150;
@@ -24,9 +25,9 @@ type HnswNeighborhoodRingProps = {
  * on top of every other; the real distances print alongside so the spread is not read as
  * wider than it is.
  *
- * Every neighbour renders with catalog photography. Product-bound imagery remains
- * distinguishable from same-category representation, so adding visual identity does
- * not turn the graph into a false product-to-image claim.
+ * The neighbourhood API carries product identity without listing photographs, so
+ * every circle shows its domain's still-life and is labelled as an illustration,
+ * never as the product itself.
  */
 export function HnswNeighborhoodRing({
   neighborhood,
@@ -39,8 +40,7 @@ export function HnswNeighborhoodRing({
   const placed = ringPoints(neighbors, band, RADIUS);
   const missed = new Set(probe?.missed ?? []);
   const byId = new Map(neighbors.map((neighbor) => [neighbor.product_id, neighbor]));
-  const photographs = neighborhoodPhotographs([anchor, ...neighbors]);
-  const anchorImage = photographs.get(anchor.product_id)!;
+  const anchorImage = domainIllustration(anchor.domain);
   const reduceMotion = useReducedMotion() ?? false;
   const anchorClipId = `hnsw-anchor-clip-${anchor.product_id}`;
 
@@ -141,10 +141,10 @@ export function HnswNeighborhoodRing({
                   transition={{ duration: reduceMotion ? 0.16 : 0.24, ease: EASE_OUT }}
                 >
                   <image
-                    className={`ring-product-image ${anchorImage.kind}`}
+                    className="ring-product-image"
                     clipPath={`url(#${anchorClipId})`}
                     height="92"
-                    href={anchorImage.src}
+                    href={anchorImage}
                     preserveAspectRatio="xMidYMid slice"
                     width="92"
                     x="-46"
@@ -156,7 +156,7 @@ export function HnswNeighborhoodRing({
                   const neighbor = byId.get(point.product_id);
                   const isMissed = missed.has(point.product_id);
                   if (!neighbor) return null;
-                  const image = photographs.get(neighbor.product_id)!;
+                  const image = domainIllustration(neighbor.domain);
                   const clipId = `clip-${anchor.product_id}-${point.product_id}`;
                   return (
                     <motion.g
@@ -171,7 +171,7 @@ export function HnswNeighborhoodRing({
                       }
                       className={[
                         "ring-node",
-                        image.kind === "category" ? "representative" : "product-bound",
+                        "representative",
                         isMissed ? "missed" : "",
                       ]
                         .filter(Boolean)
@@ -195,10 +195,10 @@ export function HnswNeighborhoodRing({
                       </clipPath>
                       <motion.image
                         animate={{ opacity: isMissed ? 0.35 : 1 }}
-                        className={`ring-product-image ${image.kind}`}
+                        className="ring-product-image"
                         clipPath={`url(#${clipId})`}
                         height="38"
-                        href={image.src}
+                        href={image}
                         initial={false}
                         preserveAspectRatio="xMidYMid slice"
                         transition={{ duration: 0.18, ease: EASE_OUT }}
@@ -214,9 +214,7 @@ export function HnswNeighborhoodRing({
                       <title>
                         #{neighbor.neighbor_rank} {neighbor.title}, cosine distance{" "}
                         {point.distance.toFixed(4)}
-                        {image.kind === "category"
-                          ? " (same-category representative image)"
-                          : " (product-bound image)"}
+                        {" (illustration, not a product photograph)"}
                         {isMissed ? ` (missed at ef_search ${efSearch})` : ""}
                       </title>
                     </motion.g>
@@ -227,9 +225,8 @@ export function HnswNeighborhoodRing({
           </svg>
           <figcaption>
             <Images aria-hidden="true" size={13} />
-            Every circle shows catalog photography. Bound images are exact; the rest use
-            verified same-category photography. Titles, ranks, and distances remain
-            exact.
+            Each circle shows an illustration, not a product photograph. Titles, ranks,
+            and distances are exact.
           </figcaption>
         </figure>
 

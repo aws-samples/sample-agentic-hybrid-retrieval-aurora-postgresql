@@ -384,7 +384,7 @@ describe("PerformancePage", () => {
     expect(screen.getByText(`${first.shared_hit_blocks.toLocaleString()} buffers`)).toBeTruthy();
   });
 
-  it("renders every neighbourhood node with product imagery", async () => {
+  it("renders every neighbourhood node with an illustration labelled as one", async () => {
     render(<PerformancePage />);
 
     const ring = await screen.findByRole("img", {
@@ -393,8 +393,11 @@ describe("PerformancePage", () => {
     expect(ring.querySelectorAll("image")).toHaveLength(
       neighborhood.neighbors.length,
     );
+    for (const image of ring.querySelectorAll("image")) {
+      expect(image.getAttribute("href")).toMatch(/-domain-neutral-catalog-3x2\.webp$/);
+    }
     expect(
-      screen.getByText(/Bound images are exact; the rest use verified same-category/),
+      screen.getByText(/Each circle shows an illustration, not a product photograph/),
     ).toBeTruthy();
   });
 
@@ -427,7 +430,7 @@ describe("PerformancePage", () => {
 
     expect(await screen.findByText("0.0323")).toBeTruthy();
     expect(screen.getAllByText("0.3374").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Titles, ranks, and distances remain exact/)).toBeTruthy();
+    expect(screen.getByText(/Titles, ranks,\s+and distances are exact/)).toBeTruthy();
   });
 
   it("shows a less selective filter failing worse than a more selective one", async () => {

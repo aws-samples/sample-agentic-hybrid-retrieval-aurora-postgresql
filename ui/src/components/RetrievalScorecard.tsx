@@ -1,7 +1,6 @@
 import { AlertTriangle, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { productBoundImage } from "../media";
 import {
   PlaygroundDisclosure,
   PlaygroundFigure,
@@ -60,11 +59,6 @@ function numberField(row: Record<string, unknown>, key: string): string {
   return typeof value === "number" ? value.toFixed(4) : "unavailable";
 }
 
-function integerField(row: Record<string, unknown>, key: string): number | null {
-  const value = row[key];
-  return typeof value === "number" && Number.isInteger(value) ? value : null;
-}
-
 function ScorecardSectionHeading({
   id,
   index,
@@ -95,16 +89,8 @@ function PerQueryMetricsList({
         const queryId = stringField(row, "query_id") ?? `row-${index}`;
         const queryText = stringField(row, "query_text");
         const conceptLabel = stringField(row, "concept_label");
-        const productId = integerField(row, "representative_product_id");
-        const image = productId === null ? null : productBoundImage(productId);
         return (
-          <li className={image ? "has-product-image" : undefined} key={queryId}>
-            {image ? (
-              <img
-                alt={`Representative product for ${queryText ?? queryId}`}
-                src={image}
-              />
-            ) : null}
+          <li key={queryId}>
             <div>
               <span className="labs-scorecard-per-query-label">
                 <span className="labs-scorecard-per-query-text">
