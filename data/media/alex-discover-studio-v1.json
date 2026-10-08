@@ -2,7 +2,7 @@
   "version": 1,
   "purpose": "Illustrative scenes for Alex\u2019s home-office brief, not SKU-bound product photographs",
   "source": "User-provided Grok design reference",
-  "method": "Existing JPEG assets converted to WebP; no crop or generative changes",
+  "method": "Existing JPEG assets converted to WebP; no crop or generative changes. Assets with a grade field were then colour-corrected as it records.",
   "assets": [
     {
       "source": "/Users/shayons/Desktop/DAT410-UI-rehaul/grok/public/discover/long-day.jpg",
@@ -11,8 +11,13 @@
     },
     {
       "source": "/Users/shayons/Desktop/DAT410-UI-rehaul/grok/public/products/canvas.jpg",
-      "runtime_path": "/assets/images/mosaic/alex-screen-space-editorial-v1.webp",
-      "sha256": "44efd6c98cd52f2018eec8262abf87c9ec488a05e1a3be12af0498fb493b1e52"
+      "runtime_path": "/assets/images/mosaic/alex-screen-space-editorial-v2.webp",
+      "sha256": "eda7d789720e249772ee7616f2bc569fe929cc5d6c209ef6f5d8262a6b7d2b5d",
+      "graded_from": {
+        "runtime_path": "/assets/images/mosaic/alex-screen-space-editorial-v1.webp",
+        "sha256": "44efd6c98cd52f2018eec8262abf87c9ec488a05e1a3be12af0498fb493b1e52"
+      },
+      "grade": "Neutral daylight grade to match the walkthrough photographs: per-channel gains in linear light move the brightest 20% of pixels to sRGB (236, 234, 233), with a soft shoulder above 0.85 linear. No crop or generative change."
     }
   ]
 }

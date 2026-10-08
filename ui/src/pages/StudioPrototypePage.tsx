@@ -209,7 +209,7 @@ export function StudioPrototypePage() {
         {view === "discover" ? <>
           <div className="studio-page-heading"><h1 ref={headingRef} tabIndex={-1}>Make room for better work.</h1><p>{alexBrief.description}</p></div>
           <div className="studio-overview">
-            <figure><img src="/assets/images/mosaic/alex-workspace-editorial-v3.webp" alt="An illustrative home office with a desk, monitors and adjustable chair" width="1200" height="900" /><figcaption>Workspace illustration · not a product photograph</figcaption></figure>
+            <figure><img src="/assets/images/mosaic/alex-workspace-editorial-v4.webp" alt="An illustrative home office with a desk, monitors and adjustable chair" width="1200" height="900" /><figcaption>Workspace illustration · not a product photograph</figcaption></figure>
             <div className="studio-overview-brief"><h2>{group.heading}</h2><p>{group.request}</p><ul>{requirements.length ? requirements.map((label) => <li key={label}><Check size={16} aria-hidden="true" />{label}</li>) : <li>Select what matters in your brief.</li>}</ul><button type="button" className="studio-primary" onClick={() => navigate("shop")}>Explore {group.label.toLowerCase()}<ArrowRight size={16} aria-hidden="true" /></button><span>{group.products.length} real product samples to inspect</span></div>
           </div>
           <div className="studio-next-heading"><h2>Choose with the details in view.</h2><p>Move from a broad need to a shortlist you can explain.</p></div>

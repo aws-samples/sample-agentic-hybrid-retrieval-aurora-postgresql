@@ -2,12 +2,17 @@
   "version": 3,
   "purpose": "Shop editorial imagery, not photographs bound to a catalog SKU",
   "source": "User-provided Grok design reference",
-  "method": "Existing JPEG assets converted to WebP; no crop or generative changes",
+  "method": "Existing JPEG assets converted to WebP; no crop or generative changes. Assets with a grade field were then colour-corrected as it records.",
   "assets": [
     {
       "source": "/Users/shayons/Desktop/DAT410-UI-rehaul/grok/public/products/solace.jpg",
-      "runtime_path": "/assets/images/mosaic/alex-focus-editorial-v3.webp",
-      "sha256": "15ec3c129c4aabe985707b5f40a2108650d1ec87f8d54d9112725e8e86488ac2"
+      "runtime_path": "/assets/images/mosaic/alex-focus-editorial-v4.webp",
+      "sha256": "50f7a5205e0c2f37646484622c163001439b7cb5fbe82ff8c79330da95ca9b4a",
+      "graded_from": {
+        "runtime_path": "/assets/images/mosaic/alex-focus-editorial-v3.webp",
+        "sha256": "15ec3c129c4aabe985707b5f40a2108650d1ec87f8d54d9112725e8e86488ac2"
+      },
+      "grade": "Neutral daylight grade to match the walkthrough photographs: per-channel gains in linear light move the brightest 20% of pixels to sRGB (236, 234, 233), with a soft shoulder above 0.85 linear; shadows lifted with luminance gamma 0.8 and colour reduced to 90%. No crop or generative change."
     },
     {
       "source": "/Users/shayons/Desktop/DAT410-UI-rehaul/grok/public/products/arc.jpg",
@@ -16,8 +21,13 @@
     },
     {
       "source": "/Users/shayons/Desktop/DAT410-UI-rehaul/grok/public/products/atelier.jpg",
-      "runtime_path": "/assets/images/mosaic/alex-workspace-editorial-v3.webp",
-      "sha256": "8a99ccd120d0cccc928dc8d5d42f83ba6f60c18692c7400969600b8cf7b63611"
+      "runtime_path": "/assets/images/mosaic/alex-workspace-editorial-v4.webp",
+      "sha256": "5b2fbf7c801244186efe7550c7ac65b867eed10233b2d6e8e11b90822ff0c1da",
+      "graded_from": {
+        "runtime_path": "/assets/images/mosaic/alex-workspace-editorial-v3.webp",
+        "sha256": "8a99ccd120d0cccc928dc8d5d42f83ba6f60c18692c7400969600b8cf7b63611"
+      },
+      "grade": "Neutral daylight grade to match the walkthrough photographs: per-channel gains in linear light move the brightest 20% of pixels to sRGB (236, 234, 233), with a soft shoulder above 0.85 linear. No crop or generative change."
     }
   ]
 }
