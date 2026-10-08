@@ -264,16 +264,13 @@ def _lab1_verdict(condition: str, mine: dict, truth: dict) -> str | None:
     )
     if same_counts and abs(float(mine["recall"]) - truth["recall"]) <= SCORE_TOLERANCE:
         return None
-    if (
-        condition == "forced HNSW"
-        and float(mine["recall"]) == 1.0
-        and truth["recall"] < 1.0
-    ):
+    if float(mine["recall"]) == 1.0 and truth["recall"] < 1.0:
         return (
-            "forced HNSW: your query reports recall 1.0, but the true recall is "
-            f"{truth['recall']:.3f}. With enable_sort off, `ORDER BY embedding <=> ... "
-            "LIMIT` is served by the same HNSW index, so your 'exact' set is the "
-            "approximate one. Compute ground truth in a way no index can serve."
+            f"{condition}: your query reports recall 1.0, but the true recall is "
+            f"{truth['recall']:.3f}, so your 'exact' set is the approximate one. "
+            "PostgreSQL can serve `ORDER BY embedding <=> ... LIMIT` from the same "
+            "HNSW index, with default settings or with enable_sort off. Compute "
+            "ground truth in a way no index can serve."
         )
     if same_counts:
         return (

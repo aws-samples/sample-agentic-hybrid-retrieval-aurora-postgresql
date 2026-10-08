@@ -137,14 +137,19 @@ def _grade_lab2_saved_run(monkeypatch, saved):
     )
 
 
-def test_recall_grader_explains_an_exact_set_served_by_the_index():
+@pytest.mark.parametrize("condition", ["planner's plan", "forced HNSW"])
+def test_recall_grader_explains_an_exact_set_served_by_the_index(condition):
+    # On the saved Headphones request the planner serves a plain
+    # ORDER BY embedding <=> ... LIMIT from HNSW with default settings, so the
+    # mistake shows under the planner's plan, not only with enable_sort off.
     truth = {"approximate_rows": 150, "exact_rows": 150, "recall": 0.467}
     mine = {"approximate_rows": 150, "exact_rows": 150, "recall": 1.0}
 
-    assert "same HNSW index" in lab_exercise._lab1_verdict("forced HNSW", mine, truth)
+    message = lab_exercise._lab1_verdict(condition, mine, truth)
+    assert message.startswith(f"{condition}: your query reports recall 1.0")
+    assert "same HNSW index" in message
     assert (
-        lab_exercise._lab1_verdict("forced HNSW", {**mine, "recall": 0.467}, truth)
-        is None
+        lab_exercise._lab1_verdict(condition, {**mine, "recall": 0.467}, truth) is None
     )
 
 
