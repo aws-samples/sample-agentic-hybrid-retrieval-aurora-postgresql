@@ -59,9 +59,9 @@ type MosaicImageSet = [RegExp, string[]];
  * owns; the gallery in ProductPage unions that in.
  */
 const mosaicProductImageSets: MosaicImageSet[] = [
-  /* auraluxe-h9.webp carries a third-party audio brand's logo on the earcup
-     and a different industrial design from the cohort catalog photography;
-     the studio shot is the same product as the catalog assets, logo-free. */
+  /* The original auraluxe-h9 photograph carried a third-party audio brand's
+     logo on the earcup and was removed; the studio shot is the same product
+     as the catalog assets, logo-free. */
   [/\bauraluxe(?:\s+h?9)?\b/i, [`${ASSETS}/mosaic/auraluxe-h9-studio.webp`]],
   [/\becho\s*bud\s*s?2\b/i, [`${ASSETS}/mosaic/echobud-s2.webp`]],
   [/\bpulse\s*one\b/i, [`${ASSETS}/mosaic/pulse-one.webp`]],

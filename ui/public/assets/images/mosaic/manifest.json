@@ -1,6 +1,6 @@
 {
   "brand": "Mosaic",
-  "asset_count": 27,
+  "asset_count": 23,
   "assets": [
     {
       "path": "ui/assets/images/mosaic/atelier-32-thumb.webp",
@@ -23,52 +23,12 @@
       "usage": "runtime-ui-asset"
     },
     {
-      "path": "ui/assets/images/mosaic/auraluxe-h9-thumb.webp",
-      "width": 640,
-      "height": 800,
-      "aspect_ratio": 0.8,
-      "bytes": 43548,
-      "sha256": "96b3852831621e68de1dde103b56eeccd39df832a74a3db1a6dbed08af7ad321",
-      "source": "optimized-local-derivative",
-      "usage": "runtime-ui-asset"
-    },
-    {
-      "path": "ui/assets/images/mosaic/auraluxe-h9.webp",
-      "width": 1200,
-      "height": 1200,
-      "aspect_ratio": 1.0,
-      "bytes": 102584,
-      "sha256": "125156bc4c395e62374df5cfdb0372870f6a3882dd0ee5ca7bda3845d75f93d1",
-      "source": "optimized-local-derivative",
-      "usage": "runtime-ui-asset"
-    },
-    {
       "path": "ui/assets/images/mosaic/echobud-s2.webp",
       "width": 1200,
       "height": 1200,
       "aspect_ratio": 1.0,
       "bytes": 134380,
       "sha256": "b517ebdf1418050f1770032d0a7f1c0d6a320bd7482f4fa27685331d34643731",
-      "source": "optimized-local-derivative",
-      "usage": "runtime-ui-asset"
-    },
-    {
-      "path": "ui/assets/images/mosaic/forma-ergonomic-thumb.webp",
-      "width": 640,
-      "height": 800,
-      "aspect_ratio": 0.8,
-      "bytes": 36880,
-      "sha256": "6608042183ba4855f2b5df6bf91fcc614865fbdfeff39d80ac5dddf89c8a5bb1",
-      "source": "optimized-local-derivative",
-      "usage": "runtime-ui-asset"
-    },
-    {
-      "path": "ui/assets/images/mosaic/forma-ergonomic.webp",
-      "width": 1200,
-      "height": 1200,
-      "aspect_ratio": 1.0,
-      "bytes": 86274,
-      "sha256": "552112b7bfd700879de786394fbc161896b41af329261b42c6e07ec7537fe691",
       "source": "optimized-local-derivative",
       "usage": "runtime-ui-asset"
     },

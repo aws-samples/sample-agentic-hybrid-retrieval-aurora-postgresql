@@ -44,7 +44,7 @@ const product: ProductSummary = {
   media_tier: "premium",
   is_flagship: true,
   is_retrieval_anchor: false,
-  image_url: "/assets/images/mosaic/auraluxe-h9.webp",
+  image_url: "/assets/images/mosaic/auraluxe-h9-studio.webp",
   image_source: "test",
   signals: null,
   sources: [],
