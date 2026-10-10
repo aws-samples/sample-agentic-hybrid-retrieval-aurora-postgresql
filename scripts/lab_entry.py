@@ -23,13 +23,17 @@ from typing import Any
 from scripts.lab_state import (
     LABS,
     REPO,
+    LabProblem,
     _replace_block,
+    applied_problem,
     assert_reset_database,
-    lab_is_solved,
+    explain_problems,
     set_lab_state,
+    source_problem,
     validate_database,
 )
-from service.participant_commands import APPLY_SQL, reset
+from service.participant_commands import ADVANCE_TO_LAB_2, APPLY_SQL, reset
+from service.participant_commands import start as start_command
 
 #: Each lab and the earlier repairs it needs before it starts.
 PREREQUISITES: dict[int, tuple[int, ...]] = {1: (), 2: (1,), 3: (1, 2)}
@@ -99,21 +103,21 @@ def _connect(dsn: str | None):
     )
 
 
-def unmet_prerequisites(lab: int, connection: Any, repo: Path = REPO) -> list[str]:
-    """Explain each earlier repair the entered lab needs; never make one."""
+def unmet_prerequisites(
+    lab: int, connection: Any, repo: Path = REPO
+) -> list[LabProblem]:
+    """Explain each earlier repair the entered lab needs; never make one.
+
+    The saved block is judged first, so Aurora is read only once it is repaired
+    and a refusal names the one problem the participant can act on next.
+    """
     problems = []
     for earlier in PREREQUISITES[lab]:
-        if not lab_is_solved(earlier, repo=repo):
-            problems.append(
-                f"Lab {earlier} is not repaired in {LABS[earlier][0]}. Next: complete "
-                f"its LAB{earlier}_ block and apply it, or follow Hint 4 in the "
-                f"Lab {earlier} guide; then start this lab again."
-            )
-        elif validate_database(earlier, connection).state == "stale":
-            problems.append(
-                f"Lab {earlier}'s repair is in {LABS[earlier][0]} but not in Aurora. "
-                f"Next: apply it with {APPLY_SQL}, then start this lab again."
-            )
+        problem = source_problem(earlier, repo=repo) or applied_problem(
+            earlier, validate_database(earlier, connection, repo=repo)
+        )
+        if problem:
+            problems.append(problem)
     return problems
 
 
@@ -180,7 +184,7 @@ def _capture(
 
         evidence = {"state": "done", "agent_refusal": AGENT_STARTER_MESSAGE}
         say(f"Mosaic now refuses agent requests: {AGENT_STARTER_MESSAGE}")
-    elif validate_database(lab, connection).state == "applied":
+    elif validate_database(lab, connection, repo=repo).state == "applied":
         evidence = {
             "state": "done",
             "note": "repair already applied; no failing run saved",
@@ -220,7 +224,9 @@ def start(
         problems = unmet_prerequisites(lab, connection, repo)
     if problems:
         raise LabEntryError(
-            f"Lab {lab} cannot start yet.\n" + "\n".join(f"- {p}" for p in problems)
+            explain_problems(
+                f"Lab {lab} cannot start yet.", problems, start_command(lab)
+            )
         )
     record = record or {"version": RECORD_VERSION, "lab": lab, "steps": {}}
     if lab in FAULT_AT_ENTRY:
@@ -243,7 +249,7 @@ def restart(
         problems = unmet_prerequisites(lab, connection, repo)
     if problems:
         raise LabEntryError(
-            f"Lab {lab} cannot restart yet.\n" + "\n".join(f"- {p}" for p in problems)
+            explain_problems(f"Lab {lab} cannot restart yet.", problems, reset(lab))
         )
     set_lab_state(lab, solved=False, repo=repo)
     for path in (record_path(lab, repo), completion_path(lab, repo)):
@@ -256,6 +262,37 @@ def restart(
         # applies, so the restored starter is applied here.
         _apply(dsn, repo, say)
     return start(lab, api_url=api_url, dsn=dsn, repo=repo, say=say)
+
+
+#: What each part of a saved handoff's binding means when it no longer matches.
+_HANDOFF_BINDING = {
+    "database": "DATABASE_URL selects a different database",
+    "lab1_seam": "your LAB1_CHANNEL block changed",
+    "lab1_entry": "Lab 1 was restarted",
+}
+
+
+def _handoff_mismatch(
+    saved: dict[str, Any], current: dict[str, Any], repo: Path
+) -> str:
+    """Say what changed since Lab 1's evidence was saved, and what to do now."""
+    changed = "; ".join(
+        text for key, text in _HANDOFF_BINDING.items() if saved.get(key) != current[key]
+    )
+    lab_2 = load_record(2, repo)
+    if lab_2 and lab_2.get("completed_at"):
+        return (
+            "Lab 1 does not need to hand off again: Lab 2 is already prepared.\n"
+            f"- Since Lab 1 was validated, {changed}.\n"
+            "Next: continue in the Lab 2 guide. If you changed Lab 1 on purpose, run "
+            f"{APPLY_SQL} so Aurora runs it."
+        )
+    return (
+        "Lab 1 cannot hand off yet.\n"
+        f"- Since Lab 1 was validated, {changed}, and Lab 2's preparation did not "
+        "finish.\n"
+        "Next: copy this message to your facilitator. Your edits are unchanged."
+    )
 
 
 def advance(
@@ -278,7 +315,9 @@ def advance(
     with _connect(dsn) as connection:
         problems = unmet_prerequisites(2, connection, repo)
     if problems:
-        raise LabEntryError("Lab 1 cannot hand off yet.\n" + "\n".join(problems))
+        raise LabEntryError(
+            explain_problems("Lab 1 cannot hand off yet.", problems, ADVANCE_TO_LAB_2)
+        )
     binding = {
         "database": hashlib.sha256((dsn or "").encode()).hexdigest(),
         "lab1_seam": _seam_sha256(1, (repo / LABS[1][0]).read_text()),
@@ -288,16 +327,16 @@ def advance(
     saved = json.loads(path.read_text()) if path.exists() else None
     if saved and saved.get("binding") != binding:
         raise LabEntryError(
-            "Handoff rule: Lab 1 or the selected database changed since validation. "
-            "Fix: finish the current lab and ask your facilitator to check the "
-            "saved handoff before starting a new attempt. Your edits are unchanged."
+            _handoff_mismatch(saved.get("binding") or {}, binding, repo)
         )
     if saved is None:
         if load_record(2, repo) is not None:
             raise LabEntryError(
-                "Handoff rule: Lab 2 already started without this handoff. "
-                "Fix: continue Lab 2 in the guide; its ranking fault can mask "
-                "a correct Lab 1 repair. Your edits are unchanged."
+                "Lab 1 cannot hand off: Lab 2 was started directly, before Lab 1's "
+                "passing evidence was saved.\n"
+                "Next: continue in the Lab 2 guide. Lab 2's ranking fault can hide a "
+                "correct Lab 1 repair, so Lab 1 cannot be validated again until Lab 2 "
+                "is repaired. Your edits are unchanged."
             )
         events: list[str] = []
         say("Validating Lab 1 in Aurora, including retrieval and filter controls…")

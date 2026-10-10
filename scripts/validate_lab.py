@@ -30,10 +30,11 @@ from scripts.lab_entry import (
     completion_path,
     load_record,
 )
+from scripts.lab_state import LabProblem, explain_problems
 from service import lab_checks
 from service.config import get_settings
 from service.lab_checks import AgentEvidence, LabCheck, RetrievalReceipt
-from service.participant_commands import complete_lab_3
+from service.participant_commands import complete_lab_3, validate
 from service.participant_commands import start as start_command
 
 
@@ -158,6 +159,33 @@ def _under_ranking_fault(failure: str, repo: Path) -> str:
         f"Lab 1 live check failed: {observed}. {LAB1_UNDER_RANKING_FAULT} "
         f"{history} Next: finish Lab 2, then run this check again."
     )
+
+
+def sql_lab_problem(lab: int) -> LabProblem | None:
+    """Say why Lab 1 or 2's saved repair is not what Aurora runs, before any search.
+
+    The live checks prove what Aurora does, which can be SQL the participant has
+    since edited or replaced. Checking the saved block first means this command,
+    `lab_state.py validate` and `advance` agree on every state.
+    """
+    import psycopg
+
+    from scripts.lab_state import (
+        applied_problem,
+        database_fault_exit,
+        source_problem,
+        validate_database,
+    )
+    from service.db import connect
+
+    problem = source_problem(lab, repo=REPO)
+    if problem is not None:
+        return problem
+    try:
+        with connect() as connection:
+            return applied_problem(lab, validate_database(lab, connection, repo=REPO))
+    except psycopg.Error as error:
+        raise database_fault_exit(error, f"check Lab {lab} in Aurora") from error
 
 
 def record_completion(
@@ -373,6 +401,12 @@ def main() -> int:
         entered = entry_check(args.lab, REPO)
         if not entered.passed:
             raise SystemExit(f"Lab {args.lab}: FAIL. {entered.detail}")
+    if args.lab in {1, 2}:
+        problem = sql_lab_problem(args.lab)
+        if problem is not None:
+            raise SystemExit(
+                explain_problems(f"Lab {args.lab}: FAIL", [problem], validate(args.lab))
+            )
     events: list[str] = []
     try:
         checks = (

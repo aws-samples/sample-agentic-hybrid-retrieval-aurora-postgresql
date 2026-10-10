@@ -23,6 +23,7 @@ from scripts.lab_state import (
     lab_is_solved,
     set_lab_state,
 )
+from service.participant_commands import start as start_command
 
 PARTICIPANT_LAB_2 = "SELECT 1.0 / (rrf_k + source_rank)"
 
@@ -55,7 +56,7 @@ def aurora(monkeypatch) -> Boundaries:
     def connect(_dsn):
         yield object()
 
-    def validate_database(lab, _connection):
+    def validate_database(lab, _connection, **_kwargs):
         return LabDatabaseState(
             state=state.applied.get(lab, "not_applicable"), detail=""
         )
@@ -242,10 +243,15 @@ def test_an_already_applied_lab_2_repair_saves_no_failing_run(repo, aurora) -> N
 @pytest.mark.parametrize(
     ("lab", "unmet", "applied", "fix"),
     [
-        (2, 1, {1: "applied"}, "complete its LAB1_ block"),
-        (2, None, {1: "stale"}, "Lab 1's repair is in"),
-        (3, 2, {1: "applied", 2: "applied"}, "complete its LAB2_ block"),
-        (3, None, {1: "applied", 2: "stale"}, "Lab 2's repair is in"),
+        (2, 1, {1: "applied"}, "Lab 1 is not repaired: in labs/lab1_retrieve"),
+        (2, None, {1: "stale"}, "Lab 1's saved repair is not in Aurora"),
+        (
+            3,
+            2,
+            {1: "applied", 2: "applied"},
+            "Lab 2 is not repaired: in labs/lab2_rank",
+        ),
+        (3, None, {1: "applied", 2: "stale"}, "Lab 2's saved repair is not in Aurora"),
     ],
 )
 def test_an_unmet_prerequisite_explains_the_fix_and_changes_nothing(
@@ -256,8 +262,10 @@ def test_an_unmet_prerequisite_explains_the_fix_and_changes_nothing(
     aurora.applied = applied
     before = {path: (repo / path).read_bytes() for path, _ in LABS.values()}
 
-    with pytest.raises(lab_entry.LabEntryError, match=fix):
+    with pytest.raises(lab_entry.LabEntryError, match=fix) as refused:
         _start(lab, repo)
+
+    assert str(refused.value).endswith(f"Then: {start_command(lab)}")
 
     assert {path: (repo / path).read_bytes() for path, _ in LABS.values()} == before
     assert lab_entry.load_record(lab, repo) is None
@@ -386,7 +394,35 @@ def test_interrupted_handoff_resumes_and_keeps_lab2_edits(repo, aurora, handoff_
 
 def test_handoff_refuses_changed_database_or_lab1(repo, aurora, handoff_checks):
     lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
-    with pytest.raises(lab_entry.LabEntryError, match="database changed"):
+    with pytest.raises(lab_entry.LabEntryError, match="selects a different database"):
         lab_entry.advance(1, api_url="http://api", dsn="different-aurora", repo=repo)
     assert handoff_checks == ["validate"]
     assert aurora.applies == 1
+
+
+@pytest.mark.parametrize(
+    ("applied", "finding"),
+    [
+        ({1: "stale"}, "- Lab 1's saved repair is not in Aurora."),
+        ({1: "applied"}, "- Lab 1 is not repaired: in labs/lab1_retrieve"),
+    ],
+)
+def test_a_refused_handoff_names_the_problem_and_advance_as_the_rerun(
+    repo, aurora, handoff_checks, applied, finding
+) -> None:
+    from service.participant_commands import ADVANCE_TO_LAB_2
+
+    if applied[1] == "applied":
+        set_lab_state(1, solved=False, repo=repo)
+    aurora.applied = applied
+
+    with pytest.raises(lab_entry.LabEntryError) as refused:
+        lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+    lines = str(refused.value).splitlines()
+    assert lines[0] == "Lab 1 cannot hand off yet."
+    assert lines[1].startswith(finding)
+    assert lines[2].startswith("  Next: ")
+    assert lines[-1] == f"Then: {ADVANCE_TO_LAB_2}"
+    assert "start this lab again" not in str(refused.value)
+    assert handoff_checks == [] and aurora.applies == 0

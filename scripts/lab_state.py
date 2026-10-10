@@ -17,7 +17,6 @@ from typing import Any, Literal, NamedTuple
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from scripts.checks.retrieval_profile import explain
 from service.catalog_runtime import search_schema
 from service.lab_files import LAB1_SQL, LAB2_SQL, LAB3_AGENT, solution_path
 from service.participant_commands import (
@@ -27,6 +26,7 @@ from service.participant_commands import (
     reset,
     solution,
     validate,
+    validate_applied,
 )
 
 #: Slack for one reciprocal-rank contribution read back out of PostgreSQL by
@@ -268,30 +268,66 @@ def _sql_tokens(source: str) -> list[str]:
     ]
 
 
-def _lab2_matches_contract(source: str) -> bool:
-    """Recognize floating reciprocal rank without requiring reference casts.
+_LAB2_CAST = r" :: (?:double precision|float8|float|numeric|decimal)"
+_LAB2_FORMULA = re.compile(
+    rf"select (?P<open>\( )?(?P<numerator>1(?:\.0+)?)(?P<numerator_cast>{_LAB2_CAST})?"
+    rf" / \( (?P<left>rrf_k|source_rank)(?P<left_cast>{_LAB2_CAST})?"
+    rf" \+ (?P<right>rrf_k|source_rank)(?P<right_cast>{_LAB2_CAST})? \)"
+    rf"(?P<close> \))?(?P<tail_cast>{_LAB2_CAST})?(?: as [a-z_]\w*)?(?: ;)?"
+)
 
-    The bounded formula permits either addition order and lossless numeric
-    casts. Integer division must remain a failure even if the enclosing SQL
-    function converts its truncated result to double precision.
+
+def lab2_contract_problem(source: str) -> str | None:
+    """Say how the marked formula differs from floating reciprocal rank, or None.
+
+    The bounded formula permits either addition order, lossless numeric casts,
+    parentheses around the whole division and a column alias. Integer division
+    must remain a failure even if the enclosing SQL function, or a cast of the
+    whole quotient, converts its truncated result to double precision.
+
+    Args:
+        source: The lab file.
+
+    Returns:
+        The first difference, as a clause a participant can act on, or None.
     """
     start, end, _, _ = LABS[2][1][0]
-    if source.count(start) != 1 or source.count(end) != 1:
-        return False
-    body = source.split(start, 1)[1].split(end, 1)[0]
-    cast = r" :: (?:double precision|float8|numeric|decimal)"
-    match = re.fullmatch(
-        rf"select (?P<numerator>1(?:\.0+)?)(?P<numerator_cast>{cast})?"
-        rf" / \( (?P<left>rrf_k|source_rank)(?P<left_cast>{cast})?"
-        rf" \+ (?P<right>rrf_k|source_rank)(?P<right_cast>{cast})? \)(?: ;)?",
-        " ".join(_sql_tokens(body)),
-    )
-    if match is None:
-        return False
-    return {match["left"], match["right"]} == {"rrf_k", "source_rank"} and (
+    markers = _markers_problem(source, start, end)
+    if markers:
+        return markers
+    tokens = _sql_tokens(source.split(start, 1)[1].split(end, 1)[0])
+    match = _LAB2_FORMULA.fullmatch(" ".join(tokens))
+    if (
+        match is None
+        or {match["left"], match["right"]} != {"rrf_k", "source_rank"}
+        or bool(match["open"]) != bool(match["close"])
+    ):
+        if "source_rank" not in tokens:
+            return (
+                "the marked block never reads source_rank, so every position earns "
+                "the same credit"
+            )
+        return (
+            "the marked block is not in the form the check recognizes: one position's "
+            "reciprocal-rank contribution, 1 / (rrf_k + source_rank), in decimal arithmetic"
+        )
+    # Without enclosing parentheses a trailing cast binds to the parenthesized
+    # sum, so it makes the division itself decimal.
+    decimal = (
         "." in match["numerator"]
         or any(match[name] for name in ("numerator_cast", "left_cast", "right_cast"))
+        or (match["tail_cast"] and not match["open"])
     )
+    if decimal:
+        return None
+    return (
+        "the marked block divides whole numbers, so every contribution rounds down "
+        "to 0; write the 1 as 1.0 or cast one operand to double precision"
+    )
+
+
+def _lab2_matches_contract(source: str) -> bool:
+    return lab2_contract_problem(source) is None
 
 
 def _projection(tokens: list[str]) -> list[tuple[list[str], str | None]]:
@@ -356,39 +392,143 @@ def _trigram_cte(tokens: list[str], schema: str) -> str | None:
     return name
 
 
-def _lab1_matches_contract(source: str, *, schema: str = "mosaic_search") -> bool:
-    """Check the close-spelling path by its data flow, not local names.
+#: Both names the search functions carry. The file says `mosaic_search`, the
+#: guide's psql examples say `mosaic_live_search`, and apply installs either
+#: spelling under the live schema, so a participant may copy either one.
+SEARCH_SCHEMAS = frozenset({"mosaic_search", "mosaic_live_search"})
 
-    The shipped CTE must forward the four production parameters and expose the
-    three result columns; the participant's UNION ALL branch must read it and
-    preserve rank, score, channel and unweighted contribution. Aliases and explicit
-    projections do not change that contract. Production retrieval validation
-    separately proves the behavior.
-    """
-    ((start, end, _, _),) = LABS[1][1]
-    if source.count(start) != 1 or source.count(end) != 1:
-        return False
-    body = source.split(start, 1)[1]
-    if end not in body:
-        return False
-    channel = _sql_tokens(body.split(end, 1)[0])
-    name = _trigram_cte(_sql_tokens(source), schema)
-    if name is None:
-        return False
-    if channel[:3] != ["union", "all", "select"] or channel[-2:] != ["from", name]:
-        return False
-    outputs = [expression for expression, _ in _projection(channel[3:-2])]
-    if len(outputs) != 5:
-        return False
+#: What each column of the close-spelling branch carries, as a mismatch names it.
+_LAB1_COLUMN_ROLES = (
+    "product_id",
+    "the channel name 'trigram', which the rest of the search uses for close spelling",
+    "the close-spelling position, trigram_rank",
+    "the close-spelling score, trigram_score",
+    (
+        "the RRF contribution of that position, computed the way the other "
+        "branches compute theirs"
+    ),
+)
+
+
+def _sql_text(tokens: list[str]) -> str:
+    text = re.sub(r" ?(\.|::) ?", r"\1", " ".join(tokens))
+    text = re.sub(r"(\w) \(", r"\1(", text).replace("( ", "(")
+    return re.sub(r" ([),])", r"\1", text)
+
+
+def _markers_problem(source: str, start: str, end: str) -> str | None:
+    if (
+        source.count(start) == 1
+        and source.count(end) == 1
+        and source.index(start) < source.index(end)
+    ):
+        return None
+    return (
+        f"the {start.lstrip('-# ')} and {end.lstrip('-# ')} lines must each appear "
+        "once, in that order; restore the marker line you changed (git diff shows it)"
+    )
+
+
+def _branch_source(tokens: list[str]) -> tuple[list[str], str, set[str]] | None:
+    """Split `... FROM name [[AS] alias]` into the columns, the name and its qualifiers."""
+    if "from" not in tokens:
+        return None
+    at = len(tokens) - 1 - tokens[::-1].index("from")
+    tail = tokens[at + 1 :]
+    if tail[1:2] == ["as"]:
+        tail = [tail[0], *tail[2:]]
+    if not 1 <= len(tail) <= 2 or not all(
+        re.fullmatch(r"[a-z_]\w*", name) for name in tail
+    ):
+        return None
+    return tokens[:at], tail[0], set(tail)
+
+
+def _lab1_column_problem(
+    columns: list[str], qualifiers: set[str], schema: str
+) -> str | None:
+    projected = _projection(columns)
+    if not projected:
+        return "the branch's column list is empty or has unbalanced parentheses"
+    outputs = []
+    for expression, _alias in projected:
+        output: list[str] = []
+        for token in expression:
+            if token == "." and output and output[-1] in qualifiers:
+                output.pop()
+            else:
+                output.append(schema if token in SEARCH_SCHEMAS else token)
+        outputs.append(output)
+    if len(outputs) != len(_LAB1_COLUMN_ROLES):
+        return (
+            f"the branch returns {len(outputs)} columns; every branch returns five: "
+            "product ID, channel name, position, score and RRF contribution"
+        )
     if outputs[1] == ["'trigram'", "::", "text"]:
         outputs[1] = ["'trigram'"]
-    return outputs == [
+    expected = [
         ["product_id"],
         ["'trigram'"],
         ["trigram_rank"],
         ["trigram_score"],
         _sql_tokens(f"{schema}.reciprocal_rank_contribution(trigram_rank, rrf_k)"),
     ]
+    for number, (found, wanted, role) in enumerate(
+        zip(outputs, expected, _LAB1_COLUMN_ROLES, strict=True), start=1
+    ):
+        if found != wanted:
+            return f"column {number} is {_sql_text(found)}; it must be {role}"
+    return None
+
+
+def lab1_contract_problem(source: str, *, schema: str = "mosaic_search") -> str | None:
+    """Say how the close-spelling branch breaks its data flow, or None when it holds.
+
+    The shipped CTE must forward the four production parameters and expose the
+    three result columns; the participant's UNION ALL branch must read it and
+    preserve rank, score, channel and unweighted contribution. Column and table
+    aliases, qualified columns and either search schema name do not change that
+    contract. Production retrieval validation separately proves the behavior.
+
+    Args:
+        source: The lab file, or the function definition Aurora runs.
+        schema: The schema the shipped CTE calls `search_trigram` in.
+
+    Returns:
+        The first difference, as a clause a participant can act on, or None.
+    """
+    ((start, end, _, _),) = LABS[1][1]
+    markers = _markers_problem(source, start, end)
+    if markers:
+        return markers
+    name = _trigram_cte(_sql_tokens(source), schema)
+    if name is None:
+        return (
+            "the close-spelling step above the marked block has changed; undo edits "
+            "outside the marked block (git diff shows them)"
+        )
+    channel = _sql_tokens(source.split(start, 1)[1].split(end, 1)[0])
+    if not channel:
+        return "the marked block holds only comments, so no branch reaches channels yet"
+    if channel[:3] != ["union", "all", "select"]:
+        return "the branch must start with UNION ALL SELECT, like the other branches"
+    parts = _branch_source(channel[3:])
+    if parts is None:
+        return (
+            "the branch must end with FROM and the results it reads, optionally "
+            "with an alias, like the other branches"
+        )
+    columns, read, qualifiers = parts
+    if read != name:
+        return (
+            f"the branch reads FROM {read}; it must read the search results that no "
+            "other branch reads yet"
+        )
+    return _lab1_column_problem(columns, qualifiers, schema)
+
+
+def _lab1_matches_contract(source: str, *, schema: str = "mosaic_search") -> bool:
+    return lab1_contract_problem(source, schema=schema) is None
 
 
 def _lab3_matches_contract(source: str) -> bool:
@@ -469,25 +609,47 @@ _LAB3_DETAIL = (
 )
 
 
-def _lab_1_database_state(connection: Any) -> LabDatabaseState:
+def _marked_tokens(source: str, lab: int) -> list[str] | None:
+    """A lab's marked SQL as tokens, with both search schema names made equal.
+
+    PostgreSQL keeps a SQL function's body as written, comments included, so
+    the block Aurora runs can be compared with the saved one directly. Apply
+    rewrites the schema name, and the comparison ignores only that.
+    """
+    ((start, end, _, _),) = LABS[lab][1]
+    if _markers_problem(source, start, end):
+        return None
+    body = source.split(start, 1)[1].split(end, 1)[0]
+    return [
+        "mosaic_search" if token in SEARCH_SCHEMAS else token
+        for token in _sql_tokens(body)
+    ]
+
+
+def _lab_1_database_state(connection: Any, repo: Path) -> LabDatabaseState:
     schema = search_schema()
     signature = LAB1_FUNCTION_SIGNATURE.replace("mosaic_search.", schema + ".")
     row = connection.execute(
         f"SELECT pg_get_functiondef({signature}) AS definition"
     ).fetchone()
     definition = row["definition"]
-    applied = _lab1_matches_contract(definition, schema=schema)
+    path = LABS[1][0]
+    saved = (repo / path).read_text(encoding="utf-8")
+    if _marked_tokens(definition, 1) != _marked_tokens(saved, 1):
+        return LabDatabaseState(
+            state="stale",
+            detail=(
+                "Aurora runs a different LAB1_CHANNEL block from the one saved in "
+                f"{path}. Saving changes only the file; applying it updates Aurora."
+            ),
+        )
+    problem = lab1_contract_problem(definition, schema=schema)
     return LabDatabaseState(
-        state="applied" if applied else "stale",
+        state="applied" if problem is None else "stale",
         detail=(
-            f"{schema}.search_hybrid_rrf reads the trigram CTE"
-            if applied
-            else explain(
-                f"the installed {schema}.search_hybrid_rrf does not connect "
-                "search_trigram(q, f, trigram_limit, trigram_threshold) to the "
-                "trigram channel with its source rank, score and RRF contribution",
-                f"complete the Lab 1 block and apply it with {APPLY_SQL}",
-            )
+            f"Aurora runs the LAB1_CHANNEL block saved in {path}."
+            if problem is None
+            else f"Aurora runs the LAB1_CHANNEL block saved in {path}, but {problem}."
         ),
     )
 
@@ -517,17 +679,19 @@ def _lab_2_database_state(connection: Any) -> LabDatabaseState:
         detail=(
             f"{schema}.reciprocal_rank_contribution decays with rank"
             if applied
-            else explain(
-                f"reciprocal_rank_contribution(1) = {first} and "
-                f"reciprocal_rank_contribution(2) = {second} at k={rrf_k}",
-                f"re-apply the edited file with {APPLY_SQL}, or restore the "
-                f"reference repair with {solution(2)} and then apply it",
+            else (
+                f"In Aurora, position 1 earns {first:.6f} and position 2 earns "
+                f"{second:.6f} at k={rrf_k}; repaired, position 1 earns "
+                f"{1.0 / (rrf_k + 1):.6f}, more than position 2. Saving changes only "
+                "the file; applying it updates Aurora."
             )
         ),
     )
 
 
-def validate_database(lab: int, connection: Any) -> LabDatabaseState:
+def validate_database(
+    lab: int, connection: Any, *, repo: Path = REPO
+) -> LabDatabaseState:
     """Report whether Aurora holds the repair this lab's source declares.
 
     Takes an open connection rather than a DSN so the service reuses its pool
@@ -539,6 +703,7 @@ def validate_database(lab: int, connection: Any) -> LabDatabaseState:
         lab: The lab number, 1 to 3.
         connection: An open connection to the workshop cluster, with a
             dictionary row factory.
+        repo: The checkout whose saved Lab 1 block Aurora is compared with.
 
     Returns:
         The applied/stale/not-applicable verdict and a readable reason.
@@ -546,8 +711,48 @@ def validate_database(lab: int, connection: Any) -> LabDatabaseState:
     if lab not in {1, 2}:
         return LabDatabaseState(state="not_applicable", detail=_LAB3_DETAIL)
     if lab == 1:
-        return _lab_1_database_state(connection)
+        return _lab_1_database_state(connection, repo)
     return _lab_2_database_state(connection)
+
+
+@dataclass(frozen=True)
+class LabProblem:
+    """Why a SQL lab is not ready yet, in the participant's words, and the fix."""
+
+    finding: str
+    next_step: str
+
+
+def source_problem(lab: int, *, repo: Path = REPO) -> LabProblem | None:
+    """Say why a SQL lab's saved block is not repaired, or None when it is."""
+    path = LABS[lab][0]
+    source = (repo / path).read_text(encoding="utf-8")
+    reason = (
+        lab1_contract_problem(source) if lab == 1 else lab2_contract_problem(source)
+    )
+    if reason is None:
+        return None
+    return LabProblem(
+        f"Lab {lab} is not repaired: in {path}, {reason}.",
+        f"fix the marked block in Code Editor, save it, then run {APPLY_SQL}",
+    )
+
+
+def applied_problem(lab: int, applied: LabDatabaseState) -> LabProblem | None:
+    """Say why Aurora does not run a SQL lab's saved repair, or None when it does."""
+    if applied.state != "stale":
+        return None
+    return LabProblem(
+        f"Lab {lab}'s saved repair is not in Aurora. {applied.detail}", APPLY_SQL
+    )
+
+
+def explain_problems(header: str, problems: list[LabProblem], then: str) -> str:
+    """Lay out what blocks a command and how to continue, one problem per item."""
+    lines = [header]
+    for problem in problems:
+        lines += [f"- {problem.finding}", f"  Next: {problem.next_step}"]
+    return "\n".join([*lines, f"Then: {then}"])
 
 
 def status_line(lab: int, *, repo: Path = REPO) -> str:
@@ -664,33 +869,53 @@ def main() -> int:
         path = set_lab_state(args.lab, solved=True)
         print(solution_summary(args.lab, path.relative_to(REPO)))
         return 0
-    if not lab_is_solved(args.lab):
-        if args.lab == 3:
+    return _validate_command(args.lab, args.database_url)
+
+
+def _validate_command(lab: int, database_url: str | None) -> int:
+    """Check one lab's saved source and, for a SQL lab, the block Aurora runs."""
+    if lab == 3:
+        if not lab_is_solved(3):
             from service.agent_setup import AGENT_STARTER_MESSAGE
 
             raise SystemExit(AGENT_STARTER_MESSAGE)
-        raise SystemExit(
-            f"Lab {args.lab}: the SQL change is incomplete. Open {LABS[args.lab][0]} "
-            f"in Code Editor and find the LAB{args.lab}_ markers. Next: complete the "
-            f"marked block, apply it with {APPLY_SQL}, then prove it with {validate(args.lab)}. "
-            f"For recovery, follow Hint 4 in the Lab {args.lab} guide."
-        )
-    if args.database_url:
-        _validate_applied_state(args.lab, args.database_url)
-    elif args.lab in {1, 2}:
-        raise SystemExit(
-            f"Lab {args.lab}: source is solved but DATABASE_URL is required "
-            "to validate the applied Aurora function"
-        )
-    if args.lab == 3:
         print(
             "Lab 3: source assembled. This checks the file's shape, not your agent. "
             f"Next: deploy with {DEPLOY_AGENT}, ask Alex's request in Ask Mosaic, "
             f"then check the saved run with {complete_lab_3()}."
         )
         return 0
-    print(f"Lab {args.lab}: PASS")
+    problem = source_problem(lab)
+    if problem is None and not database_url:
+        problem = LabProblem(
+            "DATABASE_URL is empty in this terminal, so the check cannot read Aurora.",
+            "open a new terminal from the Terminal menu; it loads the workshop settings",
+        )
+    if problem is None:
+        problem = _applied_problem_in(lab, database_url)
+    if problem is not None:
+        raise SystemExit(
+            explain_problems(f"Lab {lab}: FAIL", [problem], validate_applied(lab))
+        )
+    print(
+        f"Lab {lab}: PASS. {LABS[lab][0]} is repaired and Aurora runs it.\n"
+        f"Next: {validate(lab)}"
+    )
     return 0
+
+
+def _applied_problem_in(lab: int, database_url: str) -> LabProblem | None:
+    """Open one short-lived session and say whether Aurora runs the saved repair."""
+    import psycopg
+    from psycopg.rows import dict_row
+
+    try:
+        with psycopg.connect(
+            database_url, connect_timeout=20, row_factory=dict_row
+        ) as connection:
+            return applied_problem(lab, validate_database(lab, connection))
+    except psycopg.Error as error:
+        raise database_fault_exit(error, f"check Lab {lab} in Aurora") from error
 
 
 #: SQLSTATE classes that describe the connection, the server's resources or its
@@ -719,11 +944,24 @@ def is_environment_fault(error) -> bool:
 
 
 def database_fault_exit(error, doing: str) -> SystemExit:
-    """A clean exit for a database failure, without a traceback or the DSN."""
+    """A clean exit for a database failure, without a traceback or the DSN.
+
+    Only a fault of the connection, the server or the role is the environment's;
+    any other rejection names Aurora's own reason, because edits outside a marked
+    block, applied, are the one participant-made cause.
+    """
     sqlstate = error.sqlstate or error.diag.sqlstate or "none"
+    if is_environment_fault(error):
+        return SystemExit(
+            f"Could not {doing}: {type(error).__name__} (SQLSTATE {sqlstate}).\n"
+            f"{FACILITATOR_ADVICE}"
+        )
+    reason = (error.diag.message_primary or type(error).__name__).strip()
     return SystemExit(
-        f"Could not {doing}: {type(error).__name__} (SQLSTATE {sqlstate}).\n"
-        f"{FACILITATOR_ADVICE}"
+        f"Could not {doing}: Aurora rejected it with SQLSTATE {sqlstate}: {reason}\n"
+        "Next: if you changed lines outside the marked LAB blocks, undo those changes "
+        f"(git diff shows them), run {APPLY_SQL}, then run the same command again. "
+        "Otherwise copy this message and the command you ran to your facilitator."
     )
 
 
@@ -759,19 +997,6 @@ def assert_reset_database(database_url: str | None) -> None:
             "Fix: select the workshop DATABASE_URL; for a custom workshop name, "
             "set MOSAIC_WORKSHOP_DATABASE to its provisioned DBName."
         )
-
-
-def _validate_applied_state(lab: int, database_url: str) -> None:
-    """Open one short-lived session and refuse a stale Aurora function."""
-    import psycopg
-    from psycopg.rows import dict_row
-
-    with psycopg.connect(
-        database_url, connect_timeout=20, row_factory=dict_row
-    ) as connection:
-        applied = validate_database(lab, connection)
-    if applied.state == "stale":
-        raise SystemExit(f"Lab {lab}: STALE; {applied.detail}")
 
 
 if __name__ == "__main__":

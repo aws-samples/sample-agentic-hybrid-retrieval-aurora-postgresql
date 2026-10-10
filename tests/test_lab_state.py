@@ -69,7 +69,7 @@ def test_applied_lab1_accepts_the_participant_repair(lab_repo, monkeypatch):
     connection.execute.return_value.fetchone.return_value = {
         "definition": definition.replace("mosaic_search.", "mosaic_live_search.")
     }
-    assert validate_database(1, connection).state == "applied"
+    assert validate_database(1, connection, repo=lab_repo).state == "applied"
 
 
 def test_applied_lab1_does_not_accept_disconnected_name_mentions():

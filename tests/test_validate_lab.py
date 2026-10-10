@@ -3,6 +3,7 @@ import re
 import pytest
 
 from scripts import validate_lab
+from scripts.validate_lab import sql_lab_problem as checked_sql_lab_problem
 from service.config import get_settings
 from service.participant_commands import complete_lab_3
 from service.participant_commands import start as start_command
@@ -15,6 +16,12 @@ def isolated_repo(monkeypatch, tmp_path):
     """A passing `main()` records completion; it must never write the checkout."""
     monkeypatch.setattr(validate_lab, "REPO", tmp_path)
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def saved_sql_runs_in_aurora(monkeypatch):
+    """Aurora is a boundary: by default it runs the saved, repaired block."""
+    monkeypatch.setattr(validate_lab, "sql_lab_problem", lambda _lab: None)
 
 
 def _agent_response():
@@ -814,3 +821,53 @@ def test_an_unreachable_api_points_at_the_service_check_not_a_server_start(monke
     assert "systemctl status mosaic-api" in message
     assert "facilitator" in message
     assert "start mosaic-api" not in message
+
+
+def test_saved_sql_that_aurora_does_not_run_fails_before_any_search(monkeypatch):
+    from scripts.lab_state import LabProblem
+    from service.participant_commands import APPLY_SQL, validate
+
+    monkeypatch.setattr(
+        validate_lab,
+        "sql_lab_problem",
+        lambda _lab: LabProblem(
+            "Lab 1's saved repair is not in Aurora. Differs.", APPLY_SQL
+        ),
+    )
+    monkeypatch.setattr(
+        validate_lab,
+        "validate_lab_1",
+        lambda *_a, **_k: pytest.fail("searched before checking the saved SQL"),
+    )
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *_: None)
+    monkeypatch.setattr("sys.argv", ["validate_lab.py", "--lab", "1"])
+
+    with pytest.raises(SystemExit) as refused:
+        validate_lab.main()
+
+    assert str(refused.value) == (
+        "Lab 1: FAIL\n"
+        "- Lab 1's saved repair is not in Aurora. Differs.\n"
+        f"  Next: {APPLY_SQL}\n"
+        f"Then: {validate(1)}"
+    )
+
+
+def test_the_precheck_reads_the_saved_block_before_aurora(monkeypatch, tmp_path):
+    from shutil import copy2
+
+    from scripts.lab_state import LABS, REPO, set_lab_state
+
+    for relative_path in {definition[0] for definition in LABS.values()}:
+        (tmp_path / relative_path).parent.mkdir(parents=True, exist_ok=True)
+        copy2(REPO / relative_path, tmp_path / relative_path)
+    set_lab_state(1, solved=False, repo=tmp_path)
+    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+    monkeypatch.setattr(
+        "service.db.connect", lambda: pytest.fail("read Aurora for an unrepaired file")
+    )
+
+    problem = checked_sql_lab_problem(1)
+
+    assert problem is not None
+    assert problem.finding.startswith("Lab 1 is not repaired: in labs/lab1_retrieve")

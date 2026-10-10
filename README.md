@@ -89,6 +89,10 @@ preparation without discarding edits. For direct entry, start a lab with
 `uv run python scripts/lab_state.py start --lab N`: it saves the failing request,
 installs that lab's fault once and preserves earlier repairs. An interrupted
 start resumes without overwriting edits. Finish and apply earlier repairs first.
+`lab_state.py validate`, `validate_lab.py`, `advance` and `start` judge a saved
+Lab 1 or Lab 2 block the same way, against the block Aurora runs, so one cannot
+pass while another refuses. A refusal names what differs, the fix and the
+command to run again.
 
 After editing, apply SQL or deploy the agent, repeat the same request, and run
 the guide's checks. A plausible result or successful deployment alone is not

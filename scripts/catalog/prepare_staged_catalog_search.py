@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -183,7 +184,11 @@ def search_functions(source: str) -> str:
     scoped = "\n".join(
         line for line in scoped.splitlines() if not line.startswith("\\")
     )
-    return scoped.replace("mosaic_search.", SEARCH_SCHEMA + ".")
+    # PostgreSQL folds unquoted names to lower case, so MOSAIC_SEARCH.f names the
+    # same schema; a case-sensitive rewrite would leave it calling the old one.
+    return re.sub(
+        r"\bmosaic_search\.", SEARCH_SCHEMA + ".", scoped, flags=re.IGNORECASE
+    )
 
 
 def require_complete(dataset: tuple | None, actual: int) -> None:

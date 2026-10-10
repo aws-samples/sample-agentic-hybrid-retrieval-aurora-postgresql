@@ -81,8 +81,13 @@ cannot recover a product it never receives. The vector recall query is optional.
 At the end of Lab 1, `uv run python scripts/lab_state.py advance --lab 1`
 validates the applied repair and live retrieval controls, saves the passing
 evidence, then prepares Lab 2. Run it only after inspecting all Lab 1 examples.
-Retries preserve edits and resume any interrupted preparation. Shop shows
-symptoms before diagnosis and does not credit pre-start searches as repairs.
+Retries preserve edits and resume any interrupted preparation. Every Lab 1 and
+Lab 2 check reads the saved block the same way, so `validate_lab.py` cannot pass
+while `advance` refuses. A refusal names the first difference (for example
+`column 3 is trigram_score`), the fix and the rerun. Equivalent SQL passes:
+column or table aliases, qualified columns, and either `mosaic_search` or
+`mosaic_live_search`. Shop shows symptoms before diagnosis and does not credit
+pre-start searches as repairs.
 Its ordering control sorts the same displayed products; Playground holds the
 full candidate pool.
 
