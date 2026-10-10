@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import difflib
 import os
 import re
 import subprocess
@@ -23,6 +24,7 @@ from service.participant_commands import (
     APPLY_SQL,
     DEPLOY_AGENT,
     complete_lab_3,
+    reset,
     solution,
     validate,
 )
@@ -129,6 +131,114 @@ def _replace_block(
         + "\n"
         + source[end_line_start:]
     )
+
+
+def _block_span(
+    source: str, start: str, end: str, *, path: Path
+) -> tuple[int, list[str]]:
+    """A marked block's lines and the file line number of its first line."""
+    lines = _block_text(source, start, end, path=path).splitlines()
+    marker_line = source.split(start, 1)[0].count("\n") + 1
+    body = source.split(start, 1)[1]
+    leading = len(body) - len(body.lstrip("\n"))
+    return marker_line + leading, lines
+
+
+def _shift_hunks(line: str, expected_first: int, yours_first: int) -> str:
+    """Move difflib's block-relative hunk header onto each file's own line numbers."""
+    match = re.match(r"@@ -(\d+)(,\d+)? \+(\d+)(,\d+)? @@", line)
+    if not match:
+        return line
+    expected = int(match[1]) + expected_first - 1
+    yours = int(match[3]) + yours_first - 1
+    return f"@@ -{expected}{match[2] or ''} +{yours}{match[4] or ''} @@"
+
+
+def _paint(line: str, color: bool) -> str:
+    if not color:
+        return line
+    for prefix, code in (
+        ("---", "1"),
+        ("+++", "1"),
+        ("@@", "36"),
+        ("-", "31"),
+        ("+", "32"),
+    ):
+        if line.startswith(prefix):
+            return f"\033[{code}m{line}\033[0m"
+    return line
+
+
+def _diff_footer(lab: int) -> list[str]:
+    if lab == 3:
+        verdict = (
+            "Lab 3 also asks for your own instruction inside this block, so some "
+            f"difference is expected. Deploy with {DEPLOY_AGENT}, then check the saved "
+            f"run with {complete_lab_3()}."
+        )
+    else:
+        verdict = (
+            "A difference is not a failure: other SQL can be correct. Apply it with "
+            f"{APPLY_SQL}, then prove it with {validate(lab)}."
+        )
+    return [
+        "",
+        "'-' lines are the reference answer; '+' lines are your file as it is now.",
+        verdict,
+        f"To install the reference answer instead (it overwrites this block): {solution(lab)}",
+    ]
+
+
+def lab_diff(lab: int, *, repo: Path = REPO, color: bool = False) -> tuple[str, bool]:
+    """Compare a lab's marked blocks with the reference answer, as a unified diff.
+
+    This prints the answer, so a coach runs it only when a participant asks to
+    compare with the reference. Only the marked blocks are compared: the rest of
+    the file is the same scaffold for everyone.
+
+    Args:
+        lab: The lab number.
+        repo: The checkout whose exercise file is read.
+        color: Colour the diff for a terminal.
+
+    Returns:
+        The report, and whether any marked block differs from the reference.
+    """
+    relative_path, blocks = LABS[lab]
+    path = repo / relative_path
+    expected_path = REPO / solution_path(Path(relative_path))
+    yours_source = path.read_text(encoding="utf-8")
+    expected_source = expected_path.read_text(encoding="utf-8")
+    report: list[str] = []
+    for start, end, _fixed, _broken in blocks:
+        if yours_source.count(start) != 1 or yours_source.count(end) != 1:
+            raise ValueError(
+                f"Lab diff rule: {relative_path} must hold one {start!r} and one {end!r}; "
+                f"fix: restore the marker lines, or run {reset(lab)} to restore the "
+                "starter (it discards your edits to this lab)."
+            )
+        expected_first, expected = _block_span(
+            expected_source, start, end, path=expected_path
+        )
+        yours_first, yours = _block_span(yours_source, start, end, path=path)
+        report.extend(
+            _shift_hunks(line, expected_first, yours_first)
+            for line in difflib.unified_diff(
+                expected,
+                yours,
+                fromfile=f"expected (Lab {lab} reference answer, {solution_path(Path(relative_path))})",
+                tofile=f"yours ({relative_path})",
+                lineterm="",
+            )
+        )
+    if not report:
+        return (
+            f"Lab {lab}: the marked block in {relative_path} matches the reference answer.",
+            False,
+        )
+    return "\n".join(
+        _paint(line, color) for line in [*report, *_diff_footer(lab)]
+    ), True
 
 
 def set_lab_state(
@@ -466,12 +576,13 @@ def _parser() -> argparse.ArgumentParser:
             "advance --lab 1 validates Lab 1 and prepares Lab 2; "
             "start enters a lab once and keeps your edits on a rerun; reset "
             "discards one lab's edits and restores its starter; solution "
-            "overwrites one lab with the reference repair."
+            "overwrites one lab with the reference repair; diff compares a lab's "
+            "marked block with the reference repair and changes nothing."
         )
     )
     parser.add_argument(
         "action",
-        choices=("start", "advance", "reset", "solution", "validate", "status"),
+        choices=("start", "advance", "reset", "solution", "diff", "validate", "status"),
     )
     parser.add_argument(
         "--source-only",
@@ -540,6 +651,14 @@ def main() -> int:
             raise SystemExit(str(error)) from error
         except psycopg.Error as error:
             raise database_fault_exit(error, f"{args.action} Lab {args.lab}") from error
+        return 0
+    if args.action == "diff":
+        color = sys.stdout.isatty() and "NO_COLOR" not in os.environ
+        try:
+            report, _differs = lab_diff(args.lab, color=color)
+        except ValueError as error:
+            raise SystemExit(str(error)) from error
+        print(report)
         return 0
     if args.action == "solution":
         path = set_lab_state(args.lab, solved=True)
