@@ -1714,30 +1714,46 @@
   line-height: 1.5;
 }
 
+/* One row above the composer: the switch, what it means now, and where the
+   memories live. The status keeps its full wording and wraps inside its own
+   column, so error states and Retry stay visible without a second band. */
 .ask-mosaic-memory-control {
-  margin: 0 4px 12px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 14px;
+  margin: 0 4px 8px;
   color: var(--ink-soft);
   font-size: 12px;
-  line-height: 1.4;
-}
-
-.ask-mosaic-memory-control > div,
-.ask-mosaic-memory-control label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  line-height: 1.35;
 }
 
 .ask-mosaic-memory-control > div {
-  flex-wrap: wrap;
-  justify-content: space-between;
+  display: contents;
 }
 
 .ask-mosaic-memory-control label {
+  display: flex;
+  grid-row: 1;
+  grid-column: 1;
+  align-items: center;
+  gap: 8px;
   min-height: 32px;
   color: var(--ink);
   cursor: pointer;
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.ask-mosaic-memory-control > div > a {
+  grid-row: 1;
+  grid-column: 3;
+  white-space: nowrap;
+}
+
+.ask-mosaic-memory-control p[role="status"] {
+  grid-row: 1;
+  grid-column: 2;
 }
 
 .ask-mosaic-memory-control input {
@@ -1753,7 +1769,7 @@
 }
 
 .ask-mosaic-memory-control p {
-  margin: 2px 0 0;
+  margin: 0;
 }
 
 .ask-mosaic-memory-control p button {

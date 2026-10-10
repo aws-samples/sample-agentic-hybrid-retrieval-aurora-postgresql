@@ -272,12 +272,17 @@
   letter-spacing: -0.015em;
 }
 
-.mosaic-catalog-page .shop-canvas:not(.assist-open) .shop-console {
+/* One centred axis with Ask Mosaic open or closed: the headline above stays
+   centred either way, so the field and its examples must not jump left. Both
+   states are named so this outranks the two-column story grid above. */
+.mosaic-catalog-page .shop-canvas:not(.assist-open) .shop-console,
+.mosaic-catalog-page .shop-canvas.assist-open .shop-console {
   grid-template-columns: minmax(0, 1fr);
   justify-items: center;
 }
 
-.mosaic-catalog-page .shop-canvas:not(.assist-open) .shop-console .shop-console-search {
+.mosaic-catalog-page .shop-canvas:not(.assist-open) .shop-console .shop-console-search,
+.mosaic-catalog-page .shop-canvas.assist-open .shop-console .shop-console-search {
   width: 100%;
   grid-column: auto;
   justify-items: center;
@@ -294,46 +299,87 @@
   font-size: 13px;
 }
 
-/* Ways to ask, as one quiet line of links under the field rather than a
-   second row of buttons competing with it. */
+/* Ways to ask, as quiet chips on the tile surface: three labelled rows that share
+   one left edge, so the set reads as a menu of request kinds instead of ragged
+   centred lines of links. Ink on the tile keeps them below the field in weight. */
 .mosaic-catalog-page .shop-search-examples {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px 22px;
-  margin-top: 0;
+  display: grid;
+  width: fit-content;
+  max-width: 100%;
+  justify-self: center;
+  gap: 10px;
+  margin-top: 4px;
 }
 
 .mosaic-catalog-page .shop-example-group {
-  gap: 4px 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .mosaic-catalog-page .shop-example-group > span {
-  width: auto;
-  color: var(--ink);
-  font-size: 14px;
+  flex: 0 0 64px;
+  color: var(--ink-soft);
+  font-size: 13px;
   font-weight: 600;
+  text-align: right;
 }
 
 .mosaic-catalog-page .shop-example-links {
   display: flex;
   min-width: 0;
+  flex: 1 1 auto;
   flex-wrap: wrap;
-  gap: 0 12px;
+  gap: 8px;
 }
 
-/* On a phone the label sits above its links, and the links are one strip that
+.mosaic-catalog-page .shop-example-group button {
+  min-height: 32px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.mosaic-catalog-page .shop-example-group button:hover {
+  border-color: var(--line-strong);
+  background: var(--surface-muted);
+  color: var(--ink);
+}
+
+.mosaic-catalog-page .shop-example-group button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.mosaic-catalog-page .shop-search-examples > small {
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin-top: 2px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+/* On a phone the label sits above its chips, and the chips are one strip that
    scrolls sideways instead of wrapping into rows of single items. */
 @media (max-width: 600px) {
   .mosaic-catalog-page .shop-search-examples {
-    justify-content: flex-start;
-    gap: 4px 0;
+    width: 100%;
+    gap: 12px;
   }
 
   .mosaic-catalog-page .shop-example-group {
     display: grid;
-    width: 100%;
-    gap: 0;
+    gap: 6px;
+    text-align: left;
+  }
+
+  .mosaic-catalog-page .shop-example-group > span {
     text-align: left;
   }
 
@@ -349,30 +395,7 @@
 
   .mosaic-catalog-page .shop-example-group button {
     flex: none;
-    white-space: nowrap;
   }
-}
-
-.mosaic-catalog-page .shop-example-group button {
-  min-height: 32px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--link);
-  font-size: 14px;
-}
-
-.mosaic-catalog-page .shop-example-group button:hover {
-  background: transparent;
-  color: var(--link);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.mosaic-catalog-page .shop-search-examples > small {
-  flex-basis: 100%;
-  font-size: 12px;
 }
 
 .mosaic-catalog-page .shop-console .shop-suggested {

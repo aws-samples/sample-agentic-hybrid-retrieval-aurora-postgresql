@@ -3,7 +3,7 @@ import { cartQuantityLimit, useCommerce } from "../../commerce";
 import { productImage } from "../../media";
 import type { AgentCitation, ProductSummary } from "../../types";
 import { CitePills } from "./citations";
-import { pickName, retrievalPath, type ComparisonRow } from "./comparison";
+import { isReview, pickName, retrievalPath, type ComparisonRow } from "./comparison";
 import { pickFacts, pickRequirements, type PickFact, type PickRequirement } from "./pickFacts";
 
 interface PickProps {
@@ -79,11 +79,11 @@ function Requirement({ item, answerId }: { item: PickRequirement; answerId: stri
  * One fact with its citation pill at the end of the line. The pill is glued to
  * the last word so it never wraps onto a line of its own.
  */
-function FactLine({ fact, answerId }: { fact: PickFact; answerId: string }) {
+function FactLine({ fact, answerId, review = false }: { fact: PickFact; answerId: string; review?: boolean }) {
   const words = fact.text.split(" ");
   const last = words.pop() ?? "";
   return (
-    <p className="ask-fact">
+    <p className={review ? "ask-fact is-review" : "ask-fact"}>
       {words.length ? `${words.join(" ")} ` : ""}
       <span className="ask-nowrap">
         {last}
@@ -101,6 +101,7 @@ function Path({ product }: { product: ProductSummary }) {
 /** The photograph a shopper recognises, the pick's name and the cited facts that earn it a place. */
 export function TopPick({ product, index, rows, citations, answer, answerId, imageSrc, builder, highlighted, onHighlight, onSelectProduct }: PickProps) {
   const name = pickName(product);
+  const reviews = new Set(citations.filter(isReview).map((citation) => citation.number));
   return (
     <article
       className="ask-top-pick"
@@ -119,10 +120,11 @@ export function TopPick({ product, index, rows, citations, answer, answerId, ima
       <div className="ask-top-pick-copy">
         <div className="ask-top-pick-head">
           <h4>{name}</h4>
-          <span className="ask-pill ask-pill-neutral"><i className="ask-dot" aria-hidden="true" />Top pick</span>
+          <span className="ask-pill ask-pill-pick"><i className="ask-dot" data-stage="reason" aria-hidden="true" />Top pick</span>
         </div>
         {pickFacts(product, citations, answer).map((fact) => (
-          <FactLine key={fact.text} fact={fact} answerId={answerId} />
+          <FactLine key={fact.text} fact={fact} answerId={answerId}
+            review={fact.number != null && reviews.has(fact.number)} />
         ))}
         {pickRequirements(rows, index).map((item) => (
           <Requirement key={item.label} item={item} answerId={answerId} />

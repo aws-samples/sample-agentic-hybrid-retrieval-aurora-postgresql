@@ -403,10 +403,12 @@ button:disabled {
   white-space: nowrap;
 }
 
+/* Shop and Playground are two of the app's three surfaces, so they read as
+   pills beside the Ask Mosaic pill, the current one filled. */
 .site-nav {
   display: flex;
   align-items: center;
-  gap: 34px;
+  gap: 6px;
 }
 
 .site-nav a {
@@ -414,29 +416,29 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 7px 0;
+  padding: 7px 16px;
+  border-radius: 999px;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   letter-spacing: 0;
   white-space: nowrap;
-  transition: color 180ms ease;
+  transition: color 180ms ease, background-color 180ms ease;
 }
 
-.site-nav a:hover,
-.site-nav a.active {
+.site-nav a:hover {
   color: var(--ink);
 }
 
-.site-nav a.active::after {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 2px;
-  border-radius: 1px;
-  background: var(--ink);
-  content: "";
+/* --surface-muted matches the dark header glass, so the pill uses the next fill up. */
+.site-nav a.active {
+  background: var(--maroon-100);
+  color: var(--ink);
+}
+
+.site-nav a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .site-actions {
@@ -668,11 +670,8 @@ button:disabled {
 
   .site-nav a {
     padding: 12px 10px;
+    border-radius: 8px;
     font-size: 14.5px;
-  }
-
-  .site-nav a.active::after {
-    display: none;
   }
 
   .site-menu {

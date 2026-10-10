@@ -305,6 +305,8 @@
   letter-spacing: 0;
 }
 
+/* Citation numbers are filled marks rather than outlined rings, so a line with
+   two of them reads as text with footnotes, not as a row of buttons. */
 .ask-answer-cite {
   display: inline-flex;
   min-width: 18px;
@@ -313,20 +315,22 @@
   justify-content: center;
   margin: 0 2px;
   padding: 0 5px;
-  border: 1px solid var(--maroon-line);
+  border: 0;
   border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
   color: var(--ink);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0;
   line-height: 1;
   text-decoration: none;
   vertical-align: 2px;
+  transition: background-color var(--motion-fast);
 }
 
 .ask-answer-cite:hover {
-  border-color: var(--line-strong);
-  background: var(--paper-warm);
+  background: color-mix(in srgb, var(--ink) 15%, transparent);
 }
 
 .ask-answer-cite:focus-visible,
@@ -691,18 +695,29 @@
 
 /* Top pick and other picks ------------------------------------------------- */
 
+/* The top pick is the answer's one product, so it is set like a product tile: a
+   lifted surface, the listing photo on its own plate, the name in display type,
+   what the listing states, then the reviewer's words set apart beneath a rule. */
 .ask-top-pick {
   display: flex;
-  gap: 16px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: var(--paper);
-  transition: border-color var(--motion-fast);
+  gap: 18px;
+  padding: 16px 18px 18px 16px;
+  border: 1px solid color-mix(in srgb, var(--ink) 7%, transparent);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--ink) 3%, var(--paper));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%), 0 14px 30px -16px rgb(0 0 0 / 24%);
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
   animation: ask-rise 420ms var(--ease-out) both;
 }
 
-.ask-top-pick[data-highlighted],
+:root[data-theme="dark"] .ask-top-pick {
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 6%), 0 18px 34px -18px rgb(0 0 0 / 70%);
+}
+
+.ask-top-pick[data-highlighted] {
+  border-color: color-mix(in srgb, var(--ink) 20%, transparent);
+}
+
 .ask-pick-row[data-highlighted] {
   border-color: var(--line-strong);
 }
@@ -734,11 +749,33 @@
   mix-blend-mode: multiply;
 }
 
+/* Listing photos are shot on white, so the plate is white on the light tile and
+   the soft photo plate in dark mode, where white would glare. */
+.ask-top-pick .ask-pick-photo {
+  width: 112px;
+  height: 112px;
+  border-radius: 16px;
+  background: var(--paper-strong);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 6%, transparent);
+}
+
+:root[data-theme="dark"] .ask-top-pick .ask-pick-photo {
+  background: var(--plate);
+}
+
+.ask-top-pick .ask-pick-photo img {
+  transition: transform 360ms var(--ease-out);
+}
+
+.ask-top-pick .ask-pick-photo:hover img {
+  transform: scale(1.04);
+}
+
 .ask-top-pick-copy {
   display: grid;
   min-width: 0;
   align-content: start;
-  gap: 6px;
+  gap: 8px;
   padding-top: 2px;
 }
 
@@ -746,14 +783,39 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px 10px;
 }
 
 .ask-top-pick h4 {
   margin: 0;
-  font-size: 18px;
+  font: 600 19px/1.2 var(--display);
+  letter-spacing: -0.022em;
+  text-wrap: balance;
+}
+
+/* An answer's pick belongs to Reason, so its mark carries the Reason green. */
+.ask-pill-pick {
+  min-height: 24px;
+  padding: 0 10px;
+  border-color: transparent;
+  background: var(--green-soft);
+  color: var(--green);
   font-weight: 600;
-  letter-spacing: -0.025em;
+}
+
+.ask-top-pick .ask-fact {
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.ask-top-pick .ask-fact.is-review {
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--ink) 9%, transparent);
+  color: var(--ink);
+  font-size: 14px;
+  letter-spacing: -0.005em;
 }
 
 .ask-nowrap {
@@ -795,7 +857,23 @@
 
 .ask-top-pick-copy > .ask-pill-action {
   justify-self: start;
-  margin-top: 2px;
+  margin-top: 4px;
+}
+
+/* A pick's action is a filled pill, the same in the top pick and the rows below. */
+.ask-top-pick-copy > .ask-pill-action,
+.ask-pick-row > .ask-pill-action {
+  min-height: 32px;
+  padding: 0 14px;
+  border-color: transparent;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  font-size: 13px;
+}
+
+.ask-top-pick-copy > .ask-pill-action:hover:not(:disabled),
+.ask-pick-row > .ask-pill-action:hover:not(:disabled) {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--ink) 13%, transparent);
 }
 
 .ask-picks h4,
@@ -1423,8 +1501,8 @@
 
 @container ask-mosaic (max-width: 400px) {
   .ask-top-pick .ask-pick-photo {
-    width: 84px;
-    height: 84px;
+    width: 88px;
+    height: 88px;
   }
 
   .ask-rank-table {
@@ -1519,6 +1597,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .ask-top-pick .ask-pick-photo:hover img {
+    transform: none;
+  }
+
   .ask-mosaic-sidecar,
   .ask-mosaic-turn,
   .ask-top-pick,
