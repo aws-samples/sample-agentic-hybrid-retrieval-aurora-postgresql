@@ -1255,25 +1255,15 @@
   gap: 6px;
 }
 
-.ask-rank-key {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  margin: 0;
-  color: var(--ink-soft);
-  font-size: 12px;
-}
-
-.ask-rank-key span {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.ask-rank-key i {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
+/* Each method's colour sits on its column header and on its share of the bar under
+   the product, so the table is its own key. */
+.ask-rank-table thead i {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 5px;
+  border-radius: 2px;
+  vertical-align: 1px;
 }
 
 .ask-rank .is-fts { background: var(--ink); }
@@ -1334,7 +1324,9 @@
   line-height: 1.35;
 }
 
-.ask-rank-name > span {
+/* The name clamps to two lines; the bar beside it is a span too and must keep its
+   own flex row, or only its first segment shows. */
+.ask-rank-name > span:not(.ask-rrf-bar) {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;

@@ -53,9 +53,9 @@ function RankTable({ rows }: { rows: RankRow[] }) {
           <tr>
             <th scope="col">Final</th>
             <th scope="col">Product</th>
-            <th scope="col"><abbr title="Exact terms">Exact</abbr></th>
-            <th scope="col"><abbr title="Close spelling">Spell</abbr></th>
-            <th scope="col"><abbr title="Meaning match">Mean</abbr></th>
+            <th scope="col"><i className="is-fts" aria-hidden="true" /><abbr title="Exact terms">Exact</abbr></th>
+            <th scope="col"><i className="is-trigram" aria-hidden="true" /><abbr title="Close spelling">Spell</abbr></th>
+            <th scope="col"><i className="is-semantic" aria-hidden="true" /><abbr title="Meaning match">Mean</abbr></th>
             <th scope="col"><abbr title="Position before reranking">Comb.</abbr></th>
             <th scope="col">Rerank</th>
           </tr>
@@ -78,16 +78,6 @@ function RankTable({ rows }: { rows: RankRow[] }) {
         </tbody>
       </table>
     </div>
-  );
-}
-
-function Legend() {
-  return (
-    <p className="ask-rank-key" aria-hidden="true">
-      <span><i className="is-fts" />Exact terms</span>
-      <span><i className="is-trigram" />Close spelling</span>
-      <span><i className="is-semantic" />Meaning</span>
-    </p>
   );
 }
 
@@ -132,7 +122,6 @@ export function HowItRanked({
           ))}
         </div>
       </div>
-      <Legend />
       {state.status === "ready" ? <p className="ask-rank-note">{receiptLegend(state.receipt)}</p> : null}
       {rows.length ? <RankTable rows={rows} /> : null}
       <p className="ask-rank-note" role="status">

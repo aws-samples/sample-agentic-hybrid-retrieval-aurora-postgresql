@@ -1472,11 +1472,15 @@
   line-height: 1.22;
 }
 
+/* Rows keep their content height. With auto rows, a long description makes the
+   body overflow and the grid shrinks the photo's row to its minimum, which is 0
+   for a clipped box, so the price and source note drew over the photo. */
 .product-drawer-body {
   display: grid;
   min-height: 0;
   padding: 20px 22px 26px;
   align-content: start;
+  grid-auto-rows: max-content;
   gap: 16px;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1489,11 +1493,16 @@
   background: var(--gold-soft);
 }
 
+/* The whole product on its plate, as on Shop and in Ask Mosaic: cover cropped
+   tall listing photos such as chairs to a slice of the seat. Padding insets the
+   photo inside the box's fixed 3:2 height, which a percentage size cannot. */
 .product-drawer-media img {
   display: block;
+  box-sizing: border-box;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  padding: 5%;
+  object-fit: contain;
 }
 
 .product-drawer-loading,
