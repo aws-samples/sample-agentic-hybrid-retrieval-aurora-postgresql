@@ -26,7 +26,13 @@ def pair():
             {"product_id": 2, "fused_rank": 24, "result_rank": 2, "eligible": True}
         ],
     }
-    return before, after, {"query": "monitor", "filters": {}, "target_product_ids": [2]}
+    mission = {
+        "stage": "rank",
+        "query": "monitor",
+        "filters": {},
+        "target_product_ids": [2],
+    }
+    return before, after, mission
 
 
 def test_full_pool_recovery_positive_control():

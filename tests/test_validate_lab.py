@@ -519,7 +519,7 @@ def test_lab_2_validator_rejects_a_wrong_final_winner(monkeypatch):
     )
     monkeypatch.setattr(validate_lab, "_search", lambda _url, _mission: response)
 
-    with pytest.raises(validate_lab.LabValidationError, match="final position=2"):
+    with pytest.raises(validate_lab.LabValidationError, match="final position 2"):
         validate_lab.validate_lab_2("http://example.test")
 
 

@@ -20,6 +20,17 @@ sys.path.insert(0, str(ROOT))
 from scripts.investigate_lab import paired_searches
 from scripts.validate_lab import LabValidationError, _request, _require, _search
 from service import lab_checks
+from service.lab_checks import FACILITATOR
+from service.participant_commands import complete_lab_3, repeat_request
+from service.participant_commands import start as start_command
+
+NEW_TERMINAL = (
+    "open a new terminal from the Terminal menu; it loads the workshop settings"
+)
+
+
+class AlreadyRepaired(LabValidationError):
+    """The search a start would save as failing already finds the requested product."""
 
 
 def request_payload(mission: dict) -> dict:
@@ -152,8 +163,41 @@ def require_broken_search(event: dict, mission: dict) -> None:
     rows = event.get("candidates", [])
     target = mission["target_product_ids"][0]
     _require(
-        bool(rows) and all(row["product_id"] != target for row in rows),
-        "Before-state rule: expected a nonempty list missing the requested product; reset and apply this lab's declared fault before saving its baseline.",
+        bool(rows),
+        f"the search returned no candidates, so there is nothing to save as the "
+        f"failing request. Next: {FACILITATOR}.",
+    )
+    if any(row["product_id"] == target for row in rows):
+        raise AlreadyRepaired(
+            f"the search already finds product {target} among its {len(rows)} "
+            "candidates, so there is no failing request to save"
+        )
+
+
+def _without_before(lab: int, output: Path) -> str:
+    """Say why there is no Before to compare, or refuse when the lab never started."""
+    path = output / "before-state.json"
+    record_path = output / "start.json"
+    record = json.loads(record_path.read_text()) if record_path.exists() else {}
+    if lab == 3:
+        raise LabValidationError(
+            f"there is no saved failing agent turn in {path} to compare with. Lab 3 "
+            f"is graded on your own saved run instead: {complete_lab_3()}"
+        )
+    if not record.get("completed_at"):
+        raise LabValidationError(
+            f"Lab {lab} has not started, so there is no saved failing request to "
+            f"compare with.\nNext: {start_command(lab)}\nThen: {repeat_request(lab)}"
+        )
+    if (record.get("steps", {}).get("evidence") or {}).get("search_event_id"):
+        return (
+            f"The saved failing request, {path}, is missing, so there is no Before "
+            "to compare. This shows the search as it is now."
+        )
+    return (
+        f"Lab {lab} started with its repair already working, so no failing request "
+        "was saved and there is no Before to compare. This shows the search as it "
+        "is now."
     )
 
 
@@ -165,14 +209,18 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
     mission = lab_checks.load_mission({1: "retrieve", 2: "rank", 3: "reason"}[lab])
     _require(
         active_dataset() == mission["dataset_id"],
-        f"Dataset rule: found {active_dataset()!r}; export MOSAIC_CATALOG_DATASET={mission['dataset_id']}.",
+        f"this terminal selects catalog {active_dataset()!r}, not "
+        f"{mission['dataset_id']!r}. Next: {NEW_TERMINAL} "
+        f"(MOSAIC_CATALOG_DATASET={mission['dataset_id']}); if it still differs, "
+        f"{FACILITATOR}.",
     )
     ready = _request(api_url, "/api/readiness")
     database = ready.get("database", {})
     _require(
         database.get("dataset_id") == mission["dataset_id"]
         and database.get("catalog_ready") is True,
-        "Catalog rule: API must serve every prepared source product and vector with valid indexes; ask the facilitator to correct the environment.",
+        "the Mosaic API is not serving the complete prepared catalog. "
+        f"Next: {FACILITATOR}.",
     )
     with connect() as connection:
         catalog = connection.execute(
@@ -182,7 +230,8 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
         catalog
         and catalog["dataset_id"] == mission["dataset_id"]
         and catalog["catalog_sha256"] == ready["source"]["dataset_manifest_sha256"],
-        "Aurora identity rule: terminal and API catalogs differ; load the same workshop environment in both.",
+        "this terminal and the Mosaic API read different catalogs. "
+        f"Next: {NEW_TERMINAL}; if it still differs, {FACILITATOR}.",
     )
     output.mkdir(parents=True, exist_ok=True)
     before_path = output / "before-state.json"
@@ -192,16 +241,23 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
         if phase == "after" and before_path.exists()
         else None
     )
-    if phase == "after":
+    if phase == "after" and before is None:
+        print(_without_before(lab, output), flush=True)
+    elif phase == "after":
+        changed = [
+            label
+            for label, saved, now in (
+                ("request", before["request"], payload),
+                ("catalog", before["catalog_hash"], catalog["catalog_sha256"]),
+                ("model settings", before["models"], ready["configured_models"]),
+            )
+            if saved != now
+        ]
         _require(
-            before is not None,
-            "Pair rule: no before run; run this lab with --phase before first.",
-        )
-        _require(
-            before["request"] == payload
-            and before["catalog_hash"] == catalog["catalog_sha256"]
-            and before["models"] == ready["configured_models"],
-            "Pair rule: request, catalog or models changed; restore the original environment before comparing.",
+            not changed,
+            f"the saved failing request, {before_path}, used a different "
+            f"{' and '.join(changed)} from this search, so the two cannot be "
+            f"compared. Next: {FACILITATOR}.",
         )
     print(f"Alex's request: {mission['query']}", flush=True)
     state = {
@@ -224,11 +280,11 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
         )
         _require(
             event["run"]["dataset_manifest_sha256"] == catalog["catalog_sha256"],
-            "Search identity rule: event belongs to a different catalog; inspect API selection.",
+            f"the search ran on a different catalog from this terminal's. Next: {FACILITATOR}.",
         )
         if before:
             paired_searches(before["event"], event, mission)
-        else:
+        elif phase == "before":
             require_broken_search(event, mission)
         state["event"] = event
         # A second model call can change source ranks even for identical text.
@@ -236,14 +292,15 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
         _require(
             isinstance(vector, list)
             and all(isinstance(v, (int, float)) for v in vector),
-            "Query vector rule: this run has no saved query embedding; update the "
-            "API and repeat the request before preparing SQL.",
+            "the search saved no query embedding, so the psql context cannot be "
+            f"prepared. Next: {FACILITATOR}.",
         )
         vector = [float(value) for value in vector]
         _require(
             len(vector) == response["diagnostics"]["embedding_dimensions"]
             and all(math.isfinite(value) for value in vector),
-            "Query vector rule: invalid dimensions or values; check the configured embedding model.",
+            "the search saved a query embedding of the wrong size or with invalid "
+            f"values. Next: {FACILITATOR}.",
         )
         state["query_vector"] = vector
         values["lab_vector"] = json.dumps(vector)
@@ -366,12 +423,15 @@ def main() -> int:
                 time.sleep(1)
     if args.lab is None or args.phase is None:
         parser.error("run requires --lab and --phase")
-    prepare(
-        args.lab,
-        args.phase,
-        args.api_url,
-        args.output or Path(f".local/lab-{args.lab}"),
-    )
+    try:
+        prepare(
+            args.lab,
+            args.phase,
+            args.api_url,
+            args.output or Path(f".local/lab-{args.lab}"),
+        )
+    except LabValidationError as error:
+        raise SystemExit(f"Lab {args.lab}: {error}") from error
     return 0
 
 

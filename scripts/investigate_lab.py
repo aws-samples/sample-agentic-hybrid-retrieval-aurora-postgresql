@@ -15,40 +15,67 @@ sys.path.insert(0, str(REPO))
 
 from scripts.validate_lab import LabValidationError, _request, _require
 from service import lab_checks
+from service.lab_checks import FACILITATOR
+from service.participant_commands import APPLY_SQL, repeat_request, validate_applied
+
+#: What each pinned field of a saved run is, in the participant's words.
+RUN_FIELDS = {
+    "query_text": "request text",
+    "filters": "filters",
+    "dataset_manifest_sha256": "catalog",
+    "retrieval_profile": "retrieval settings",
+    "embedding_model_id": "embedding model",
+    "rerank_model_id": "reranking model",
+    "retrieval_strategy": "retrieval strategy",
+}
 
 
 def paired_searches(before: dict, after: dict, mission: dict) -> dict:
     """Reject an apparent repair produced by changing the question or dataset."""
     old, new = before["run"], after["run"]
-    for key in (
-        "query_text",
-        "filters",
-        "dataset_manifest_sha256",
-        "retrieval_profile",
-        "embedding_model_id",
-        "rerank_model_id",
-        "retrieval_strategy",
-    ):
+    lab = {stage: lab for lab, stage in lab_checks.LAB_STAGES.items()}[mission["stage"]]
+    for key, label in RUN_FIELDS.items():
         _require(
             old.get(key) is not None and old[key] == new.get(key),
-            f"Paired-search rule: {key} differs or is absent; repeat the identical request on the same dataset and settings.",
+            f"this search used a different {label} ({key}) from the saved failing "
+            "request, so the two cannot be compared. Next: open a new terminal from "
+            "the Terminal menu, which loads the workshop settings, and run "
+            f"{repeat_request(lab)} again; if it still differs, {FACILITATOR}.",
         )
     _require(
         new["query_text"] == mission["query"] and new["filters"] == mission["filters"],
-        "Mission request rule: saved request differs; use the declared lab request.",
+        f"the saved request is not Lab {lab}'s request. Next: {FACILITATOR}.",
     )
     target = mission["target_product_ids"][0]
     old_ids = {row["product_id"] for row in before["candidates"]}
+    _require(
+        bool(old_ids) and target not in old_ids,
+        f"the saved failing request already found product {target}, or found "
+        f"nothing, so it is not a failing request to compare with. Next: {FACILITATOR}.",
+    )
     row = next(
         (row for row in after["candidates"] if row["product_id"] == target), None
     )
     _require(
-        bool(old_ids) and target not in old_ids and row is not None,
-        f"Pool recovery rule: target {target} must be absent before and present after; save the actual broken and repaired runs.",
+        row is not None,
+        f"product {target} is still missing from the candidates sent to reranking, "
+        "so the repair has not reached the search Aurora runs.\n"
+        f"Next: {validate_applied(lab)} names what to change in the marked block, or "
+        "says that Aurora still runs an older one.\n"
+        f"Then: {repeat_request(lab)}",
     )
+    outside = [
+        row["product_id"]
+        for row in after["candidates"]
+        if row.get("eligible") is not True
+    ]
     _require(
-        all(row.get("eligible") is True for row in after["candidates"]),
-        "Eligibility rule: repaired pool has an ineligible or unchecked row; inspect production filters.",
+        not outside,
+        f"product(s) {outside} among this search's candidates do not match the "
+        "request's filters; a repair adds a branch and must not loosen any filter.\n"
+        f"Next: {validate_applied(lab)}. If it passes, undo any edits outside the "
+        f"marked block (git diff shows them) and run {APPLY_SQL}.\n"
+        f"Then: {repeat_request(lab)}",
     )
     return {
         "target": target,

@@ -354,7 +354,7 @@ def test_lab_1_rejects_a_claim_that_only_trigram_found_a_multi_arm_target(arm):
         lab_checks.lab_1_checks(mission, response), "trigram provenance present"
     )
     assert not check.passed
-    assert arm in check.detail
+    assert lab_checks.ARM_LABELS[arm] in check.detail
 
 
 @pytest.mark.parametrize(
@@ -402,7 +402,7 @@ def test_lab_2_fails_on_a_wrong_final_winner():
 
     failed = _by_name(checks, "required product reaches the declared final shortlist")
     assert not failed.passed
-    assert "final position=2" in failed.detail
+    assert "final position 2" in failed.detail
 
 
 def test_lab_2_fails_when_the_pre_rerank_order_is_not_repeatable():

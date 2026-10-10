@@ -10,6 +10,8 @@ from scripts.apply_search_functions import (
     applied_sql_digest,
     apply,
     describe_apply_failure,
+    locate_error,
+    rendered_sql,
 )
 from scripts.configure_retrieval_database import DatabaseConfigurationError
 from scripts.lab_state import LABS, _replace_block
@@ -123,13 +125,13 @@ def test_a_sql_error_names_the_sqlstate_the_block_and_that_nothing_applied(
         apply_search_functions.main()
 
     message = str(exit_info.value)
+    path, line, text = locate_error(rendered_sql(SOURCE), 1234)
     assert exit_info.value.code != 0
     assert "SQLSTATE 42601" in message
     assert 'syntax error at or near "FROM"' in message
-    assert "character 1234" in message
+    assert f"Where: {path} line {line}: {text}" in message
+    assert "character" not in message
     assert "Check the commas" in message
-    assert "LAB1_CHANNEL" in message
-    assert "LAB2_RRF_FORMULA" in message
     assert "Nothing was applied" in message
     assert APPLY_SQL in message
 

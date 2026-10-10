@@ -23,6 +23,7 @@ from typing import Any
 from scripts.lab_state import (
     LABS,
     REPO,
+    LabDatabaseState,
     LabProblem,
     _replace_block,
     applied_problem,
@@ -32,7 +33,13 @@ from scripts.lab_state import (
     source_problem,
     validate_database,
 )
-from service.participant_commands import ADVANCE_TO_LAB_2, APPLY_SQL, reset
+from service.participant_commands import (
+    ADVANCE_TO_LAB_2,
+    APPLY_SQL,
+    reset,
+    validate,
+    validate_applied,
+)
 from service.participant_commands import start as start_command
 
 #: Each lab and the earlier repairs it needs before it starts.
@@ -169,6 +176,36 @@ def _apply_sql(dsn: str | None, repo: Path, record: dict[str, Any], say: Say) ->
     _save(record["lab"], repo, record)
 
 
+def _failing_search_evidence(
+    lab: int, applied: LabDatabaseState, api_url: str, repo: Path, say: Say
+) -> dict[str, Any]:
+    """Save the lab's failing search, or record why no failing search exists."""
+    if applied.state == "applied":
+        say(
+            f"Your Lab {lab} repair is already applied, so no failing run was saved "
+            f"and there is no Before to compare. Next: {validate(lab)}"
+        )
+        return {"state": "done", "note": "repair already applied; no failing run saved"}
+    from scripts.lab_terminal import AlreadyRepaired, prepare
+
+    output = repo / ".local" / f"lab-{lab}"
+    try:
+        prepare(lab, "before", api_url, output)
+    except AlreadyRepaired as repaired:
+        # The live search works while the saved block does not count as
+        # applied, so no failing request exists; the state says why.
+        say(
+            f"Lab {lab}: {repaired}. {applied.detail}\n"
+            f"Next: {validate_applied(lab)} names what to change or run."
+        )
+        return {
+            "state": "done",
+            "note": "search already finds the target; no failing run saved",
+        }
+    saved = json.loads((output / "before-state.json").read_text())
+    return {"state": "done", "search_event_id": str(saved["run_id"])}
+
+
 def _capture(
     lab: int,
     api_url: str,
@@ -184,19 +221,9 @@ def _capture(
 
         evidence = {"state": "done", "agent_refusal": AGENT_STARTER_MESSAGE}
         say(f"Mosaic now refuses agent requests: {AGENT_STARTER_MESSAGE}")
-    elif validate_database(lab, connection, repo=repo).state == "applied":
-        evidence = {
-            "state": "done",
-            "note": "repair already applied; no failing run saved",
-        }
-        say(f"Your Lab {lab} repair is already applied, so no failing run was saved.")
     else:
-        from scripts.lab_terminal import prepare
-
-        output = repo / ".local" / f"lab-{lab}"
-        prepare(lab, "before", api_url, output)
-        saved = json.loads((output / "before-state.json").read_text())
-        evidence = {"state": "done", "search_event_id": str(saved["run_id"])}
+        applied = validate_database(lab, connection, repo=repo)
+        evidence = _failing_search_evidence(lab, applied, api_url, repo, say)
     record["steps"]["evidence"] = evidence
     _save(lab, repo, record)
 

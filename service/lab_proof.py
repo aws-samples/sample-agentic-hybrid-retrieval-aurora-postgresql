@@ -43,13 +43,13 @@ from scripts.lab_entry import (
     load_record,
 )
 from scripts.lab_state import (
-    LABS,
-    LabDatabaseState,
-    lab_is_solved,
-    validate_database,
+    REPO as LAB_SOURCE_ROOT,
 )
 from scripts.lab_state import (
-    REPO as LAB_SOURCE_ROOT,
+    LabDatabaseState,
+    lab_is_solved,
+    source_problem,
+    validate_database,
 )
 from service import lab_checks
 from service.catalog import get_evidence_record
@@ -73,7 +73,7 @@ from service.models import (
     SearchRequest,
     SearchResponse,
 )
-from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, solution, validate
+from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, validate
 from service.participant_commands import start as start_command
 from service.retrieval import get_retrieval_service
 from service.retrieval_fingerprint import (
@@ -126,6 +126,7 @@ def _state_detail(
     *,
     solved: bool,
     database: LabDatabaseState,
+    repo: Path,
 ) -> str:
     if lab_id == 3:
         from service.agent_setup import AGENT_STARTER_MESSAGE
@@ -135,18 +136,20 @@ def _state_detail(
             if solved
             else AGENT_STARTER_MESSAGE
         )
-    if not solved:
+    problem = None if solved else source_problem(lab_id, repo=repo)
+    if problem is not None:
         return (
-            f"Lab {lab_id} needs its SQL change. Open {LABS[lab_id][0]} in Code Editor "
-            f"and find the LAB{lab_id}_ markers. Next: complete the marked block, "
-            f"apply it with {APPLY_SQL}, then prove it with {validate(lab_id)}."
+            f"{problem.finding} Next: {problem.next_step}, then prove it with "
+            f"{validate(lab_id)}."
         )
     if database.state == "stale":
         return database.detail
     return f"Lab {lab_id} source is repaired and {database.detail}"
 
 
-def contained_database_state(lab_id: int, connection: Any) -> LabDatabaseState:
+def contained_database_state(
+    lab_id: int, connection: Any, repo: Path = LAB_SOURCE_ROOT
+) -> LabDatabaseState:
     """Read one lab's Aurora state inside its own transaction.
 
     `GET /api/labs/state` grades three labs over one pooled connection, and
@@ -171,17 +174,18 @@ def contained_database_state(lab_id: int, connection: Any) -> LabDatabaseState:
     """
     try:
         with connection.transaction():
-            return validate_database(lab_id, connection)
+            return validate_database(lab_id, connection, repo=repo)
     except psycopg.DatabaseError as error:
         if isinstance(error, psycopg.OperationalError):
             raise
         return LabDatabaseState(
             state="stale",
             detail=explain(
-                f"reading the Lab {lab_id} state from Aurora raised "
-                f"{type(error).__name__}",
-                f"re-apply the edited file with {APPLY_SQL}, or restore the "
-                f"reference repair with {solution(lab_id)} and then apply it",
+                f"no Lab {lab_id} search function with the expected parameters in "
+                f"Aurora ({type(error).__name__})",
+                "if you changed lines outside the marked block, undo them (git diff "
+                f"shows them), then run {APPLY_SQL}; otherwise give this message to "
+                "your facilitator",
             ),
         )
 
@@ -203,11 +207,11 @@ def ranking_fault_masks_lab_1(connection: Any, repo: Path) -> bool:
     """
     lab_1_repaired = (
         lab_is_solved(1, repo=repo)
-        and contained_database_state(1, connection).state == "applied"
+        and contained_database_state(1, connection, repo).state == "applied"
     )
     return lab_1_repaired and (
         not lab_is_solved(2, repo=repo)
-        or contained_database_state(2, connection).state == "stale"
+        or contained_database_state(2, connection, repo).state == "stale"
     )
 
 
@@ -273,9 +277,9 @@ def entry_check(
 def _lab_state(lab_id: int, connection: Any, repo: Path | None) -> LabStateRecord:
     root = repo or LAB_SOURCE_ROOT
     solved = lab_is_solved(lab_id, repo=root)
-    database = contained_database_state(lab_id, connection)
+    database = contained_database_state(lab_id, connection, root)
     entry_state, next_step = _entry(lab_id, root)
-    detail = _state_detail(lab_id, solved=solved, database=database)
+    detail = _state_detail(lab_id, solved=solved, database=database, repo=root)
     if entry_state == "not_started":
         detail = (
             f"Lab {lab_id} has not started. Next: run {next_step} in Code Editor; "
@@ -562,7 +566,7 @@ def completion_proof(
     root = repo or LAB_SOURCE_ROOT
     solved = lab_is_solved(lab_id, repo=root)
     with connect() as connection:
-        database = contained_database_state(lab_id, connection)
+        database = contained_database_state(lab_id, connection, root)
         ranking_fault = lab_id == 1 and ranking_fault_masks_lab_1(connection, root)
         rows = (
             load_agent_turn_rows(connection, agent_run_id)

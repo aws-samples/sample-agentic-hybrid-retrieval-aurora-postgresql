@@ -34,7 +34,7 @@ from scripts.lab_state import LabProblem, explain_problems
 from service import lab_checks
 from service.config import get_settings
 from service.lab_checks import AgentEvidence, LabCheck, RetrievalReceipt
-from service.participant_commands import complete_lab_3, validate
+from service.participant_commands import APPLY_SQL, complete_lab_3, validate
 from service.participant_commands import start as start_command
 
 
@@ -127,7 +127,7 @@ def validate_lab_1(base_url: str, events: list[str] | None = None) -> list[str]:
 
         with connect() as connection:
             if not ranking_fault_masks_lab_1(connection, REPO):
-                raise
+                raise LabValidationError(_with_block_in_place(str(error), 1)) from error
         raise LabValidationError(_under_ranking_fault(str(error), REPO)) from error
 
 
@@ -137,8 +137,27 @@ def validate_lab_2(base_url: str, events: list[str] | None = None) -> list[str]:
     second = _search(base_url, mission)
     if events is not None:
         events.extend([first["search_event_id"], second["search_event_id"]])
-    checks = _graded(lab_checks.lab_2_checks(mission, first, second))
-    return checks + _validate_controls(base_url, 2)
+    try:
+        checks = _graded(lab_checks.lab_2_checks(mission, first, second))
+        return checks + _validate_controls(base_url, 2)
+    except LabValidationError as error:
+        raise LabValidationError(_with_block_in_place(str(error), 2)) from error
+
+
+def _with_block_in_place(failure: str, lab: int) -> str:
+    """Point a live failure past the marked block, which is known to be in place.
+
+    Every terminal path that runs these checks has already confirmed the saved
+    block is repaired and Aurora runs it, so the shared first step, which asks
+    that question, would only send the participant round in a circle.
+    """
+    return failure.replace(
+        lab_checks.repair_next_step(lab),
+        f"your saved block in {lab_checks.LAB_FILES[lab]} is repaired and Aurora "
+        "runs it, so the cause is outside it. Undo any edits outside the marked "
+        f"block (git diff shows them), run {APPLY_SQL} and run {validate(lab)} "
+        "again; if it still fails, give this message to your facilitator",
+    )
 
 
 def _under_ranking_fault(failure: str, repo: Path) -> str:

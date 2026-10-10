@@ -203,15 +203,23 @@ def test_pair_drift_stops_before_another_paid_request(monkeypatch, tmp_path, dri
     if drift != "missing_before":
         before[drift] = "changed"
         (tmp_path / "before-state.json").write_text(json.dumps(before))
-    with pytest.raises(LabValidationError, match="Pair rule"):
+    expected = "has not started" if drift == "missing_before" else "cannot be compared"
+    with pytest.raises(LabValidationError, match=expected):
         lab_terminal.prepare(2, "after", "http://localhost", tmp_path)
 
 
-@pytest.mark.parametrize("rows", [[], [{"product_id": 2}]])
-def test_empty_or_repaired_search_is_not_a_broken_baseline(rows):
-    with pytest.raises(LabValidationError, match="Before-state rule"):
+def test_an_empty_search_is_not_a_broken_baseline():
+    with pytest.raises(LabValidationError, match="returned no candidates") as refused:
         lab_terminal.require_broken_search(
-            {"candidates": rows}, {"target_product_ids": [2]}
+            {"candidates": []}, {"target_product_ids": [2]}
+        )
+    assert not isinstance(refused.value, lab_terminal.AlreadyRepaired)
+
+
+def test_a_search_that_already_finds_the_target_is_reported_as_repaired():
+    with pytest.raises(lab_terminal.AlreadyRepaired, match="already finds product 2"):
+        lab_terminal.require_broken_search(
+            {"candidates": [{"product_id": 2}]}, {"target_product_ids": [2]}
         )
 
 

@@ -21,7 +21,7 @@ from service.catalog_runtime import active_dataset, search_schema
 from service.lab_files import LAB1_SQL, LAB2_SQL
 from service.lab_validation_receipt import participant_sql_digest
 from service.participant_commands import APPLY_SQL
-from service.search_sql import search_sql
+from service.search_sql import SEARCH_SQL_FILES, search_sql
 
 #: The fused search function carries the record of which participant SQL Aurora
 #: runs. Its applier already owns it, so the record needs no new privilege and
@@ -77,6 +77,49 @@ def applied_sql_digest(connection) -> str | None:
     return note.removeprefix(APPLIED_SQL_LABEL)
 
 
+def rendered_sql(source: str) -> str:
+    """The statement apply sends to Aurora for this search SQL."""
+    if active_dataset():
+        return live_search_functions(source)
+    return "\n".join(line for line in source.splitlines() if not line.startswith("\\"))
+
+
+def _schema_neutral(line: str) -> str:
+    return re.sub(
+        r"(?i)\bmosaic_(?:live_|catalog_)?search\.", "mosaic_search.", line.strip()
+    )
+
+
+def locate_error(
+    statement: str, position: int, root: Path = ROOT
+) -> tuple[Path, int, str] | None:
+    """Find the file line Aurora's error position falls on, in the files apply read.
+
+    Aurora counts characters into the rewritten statement, which no participant
+    sees. Apply rewrites schema names and drops psql lines but keeps every other
+    line, so the line is found by its text, and a repeated line by its order.
+
+    Returns:
+        The file, its 1-based line number and the line, or None when unmatched.
+    """
+    if not 1 <= position <= len(statement):
+        return None
+    lines = statement.splitlines()
+    index = statement[: position - 1].count("\n")
+    if index >= len(lines) or not lines[index].strip():
+        return None
+    wanted = _schema_neutral(lines[index])
+    occurrence = sum(1 for line in lines[:index] if _schema_neutral(line) == wanted)
+    for path in SEARCH_SQL_FILES:
+        text = (root / path).read_text(encoding="utf-8").splitlines()
+        for number, line in enumerate(text, start=1):
+            if _schema_neutral(line) == wanted:
+                if occurrence == 0:
+                    return path, number, line.strip()
+                occurrence -= 1
+    return None
+
+
 def apply(connection, source: str, source_sha256: str | None = None) -> None:
     """Preserve the marked lab state while targeting the verified active dataset.
 
@@ -96,11 +139,7 @@ def apply(connection, source: str, source_sha256: str | None = None) -> None:
                 f"Lab catalog rule: prepared dataset {row!r} differs from {dataset!r}; "
                 "fix: select the prepared dataset used by the API before applying SQL."
             )
-        statement = live_search_functions(source)
-    else:
-        statement = "\n".join(
-            line for line in source.splitlines() if not line.startswith("\\")
-        )
+    statement = rendered_sql(source)
     connection.execute("SET LOCAL statement_timeout='60s'")
     connection.execute(statement, prepare=False)
     if source_sha256 is not None:
@@ -114,13 +153,18 @@ def apply(connection, source: str, source_sha256: str | None = None) -> None:
         )
 
 
-def describe_apply_failure(error, *, rolled_back: bool) -> str:
+def describe_apply_failure(
+    error, *, rolled_back: bool, statement: str | None = None, root: Path = ROOT
+) -> str:
     """Say what Aurora rejected, where, and what state it was left in.
 
     Args:
         error: The `psycopg.Error` raised while applying or configuring.
         rolled_back: True when the apply transaction rolled back, so Aurora
             still runs its previous functions.
+        statement: The statement apply sent, so Aurora's error position can be
+            named as a line of the participant's own file.
+        root: The checkout whose files the statement was built from.
 
     Returns:
         A multi-line message for the participant's terminal, with no traceback.
@@ -130,11 +174,13 @@ def describe_apply_failure(error, *, rolled_back: bool) -> str:
     message = (diagnostics.message_primary or str(error)).strip()
     lines = [f"Apply failed: SQLSTATE {sqlstate}: {message}"]
     lines.extend(explain_rejected_names(message))
-    if diagnostics.statement_position:
-        lines.append(
-            f"Position: character {diagnostics.statement_position} of the statement "
-            "sent to Aurora."
-        )
+    where = (
+        locate_error(statement, int(diagnostics.statement_position), root)
+        if statement and diagnostics.statement_position
+        else None
+    )
+    if where:
+        lines.append(f"Where: {where[0]} line {where[1]}: {where[2]}")
     if diagnostics.message_hint:
         lines.append(f"Hint from Aurora: {diagnostics.message_hint}")
     if rolled_back:
@@ -145,11 +191,23 @@ def describe_apply_failure(error, *, rolled_back: bool) -> str:
         if is_environment_fault(error):
             lines.append(FACILITATOR_ADVICE)
         else:
-            lines.append(
-                f"Fix: check the marked LAB1_CHANNEL and LAB2_RRF_FORMULA blocks in "
-                f"{LAB1_SQL} and {LAB2_SQL}, then run {APPLY_SQL} again."
-            )
+            lines.append(_apply_fix(where))
     return "\n".join(lines)
+
+
+def _apply_fix(where: tuple[Path, int, str] | None) -> str:
+    if where and where[0] in (LAB1_SQL, LAB2_SQL):
+        return f"Fix: correct that line in {where[0]}, save it, then run {APPLY_SQL} again."
+    if where:
+        return (
+            f"Fix: {where[0]} is outside the marked blocks. If you changed it, undo the "
+            f"change (git diff shows it), then run {APPLY_SQL} again; otherwise give "
+            "this message to your facilitator."
+        )
+    return (
+        f"Fix: check the marked LAB1_CHANNEL and LAB2_RRF_FORMULA blocks in "
+        f"{LAB1_SQL} and {LAB2_SQL}, then run {APPLY_SQL} again."
+    )
 
 
 def main() -> None:
@@ -161,20 +219,21 @@ def main() -> None:
     )
 
     dsn = os.getenv("DATABASE_URL")
+    source = search_sql(ROOT)
     try:
         assert_reset_database(dsn)
         with psycopg.connect(dsn, connect_timeout=15) as connection:
-            apply(
-                connection,
-                search_sql(ROOT),
-                participant_sql_digest(ROOT),
-            )
+            apply(connection, source, participant_sql_digest(ROOT))
     except ValueError as error:
         raise SystemExit(
             f"{error}\nNothing was applied: Aurora still runs its previous functions."
         ) from error
     except psycopg.Error as error:
-        raise SystemExit(describe_apply_failure(error, rolled_back=True)) from error
+        raise SystemExit(
+            describe_apply_failure(
+                error, rolled_back=True, statement=rendered_sql(source)
+            )
+        ) from error
     print(f"Applied participant SQL to {search_schema()}; source lab state preserved.")
     # One participant command: the applied functions must also satisfy the
     # stored pg_trgm gates, which is what this re-proves.

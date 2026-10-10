@@ -347,7 +347,7 @@ describe("CompletionProof", () => {
           name: "trigram candidate pool non-empty",
           passed: false,
           falsifier: "diagnostics.candidate_counts.trigram_in_pool is 0",
-          detail: "found diagnostics.candidate_counts.trigram_in_pool = 0; fix: restore the trigram CTE so mosaic_search.search_trigram contributes candidates",
+          detail: "found no Close spelling candidates among those combined and sent to reranking; fix: run uv run python scripts/lab_state.py validate --lab 1 --database-url \"$DATABASE_URL\". It names what to change in the marked block of labs/lab1_retrieve/hybrid_search.sql",
         }],
       } : {}));
     render(<CompletionProof activeLab={1} agentRunId={null} />);
@@ -361,8 +361,8 @@ describe("CompletionProof", () => {
     )).toBeTruthy();
     expect(block.textContent).toContain("Aurora runs the unrepaired SQL");
     expect(block.textContent).not.toContain("SQL repair applied");
-    expect(within(block).getByText("Found diagnostics.candidate_counts.trigram_in_pool = 0")).toBeTruthy();
-    expect(within(block).getByText("Fix: restore the trigram CTE so mosaic_search.search_trigram contributes candidates")).toBeTruthy();
+    expect(within(block).getByText("Found no Close spelling candidates among those combined and sent to reranking")).toBeTruthy();
+    expect(within(block).getByText(/^Fix: run uv run python scripts\/lab_state\.py validate --lab 1 /)).toBeTruthy();
   });
 
   it("names the Reason stage, not a number, when the Lab 3 agent is still the starter", async () => {

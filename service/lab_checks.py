@@ -35,7 +35,8 @@ from pathlib import Path
 from typing import Any
 
 from service.assertions import evaluate_signal_assertions, falsifier_for
-from service.participant_commands import DEPLOY_AGENT
+from service.lab_files import LAB1_SQL, LAB2_SQL
+from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, validate_applied
 from service.retrieval_fingerprint import explain
 
 REPO = Path(__file__).resolve().parents[1]
@@ -48,6 +49,35 @@ LAB_STAGES: dict[int, str] = {1: "retrieve", 2: "rank", 3: "reason"}
 #: Floating-point slack for one reciprocal-rank contribution. Not a retrieval
 #: tunable: it is the comparison tolerance for a value the SQL already computed.
 CONTRIBUTION_TOLERANCE = 1e-9
+
+#: The names Shop and the guides give each search method, for failure details.
+ARM_LABELS: dict[str, str] = {
+    "fts": "Exact terms",
+    "trigram": "Close spelling",
+    "semantic": "Meaning match",
+}
+LAB_FILES = {1: LAB1_SQL, 2: LAB2_SQL}
+FACILITATOR = "give this message to your facilitator; it is not caused by your SQL"
+
+
+def repair_next_step(lab_id: int) -> str:
+    """The next step after a failed Lab 1 or 2 live check, in any repair state.
+
+    The Playground grades the live search whatever the file holds, and the
+    terminal grades it only after the saved block is repaired and applied, so
+    the step first asks the check that tells those states apart.
+    """
+    return (
+        f"run {validate_applied(lab_id)}. It names what to change in the marked block "
+        f"of {LAB_FILES[lab_id]}, or confirms that Aurora runs your repair. If it "
+        "confirms, undo any edits outside the marked block (git diff shows them), "
+        f"run {APPLY_SQL} and repeat this check; if the check still fails, give this "
+        "message to your facilitator"
+    )
+
+
+def _arms(names: Iterable[str]) -> str:
+    return " and ".join(ARM_LABELS.get(name, name) for name in names)
 
 
 @dataclass(frozen=True)
@@ -215,13 +245,46 @@ def retrieval_control_checks(
                 falsifier=falsifier_for(name),
                 detail=f"{mission['canonical_query_id']} {name}: {len(results)} served, {len(candidates)} candidates checked"
                 if passed
-                else explain(
-                    f"{mission['canonical_query_id']} {name} failed: served {sorted(served_ids)}, targets {sorted(target_ids)}, ineligible {[row['product_id'] for row in candidates if row.get('eligible') is not True]}",
-                    "inspect this control's recorded retrieval and restore its declared signals and filters",
-                ),
+                else _control_failure(mission, name, results, candidates),
             )
         )
     return checks
+
+
+def _control_failure(
+    mission: Mapping[str, Any],
+    name: str,
+    results: Sequence[Mapping[str, Any]],
+    candidates: Sequence[Mapping[str, Any]],
+) -> str:
+    """Say which promise a control request broke, in the participant's terms."""
+    served = [item["product_id"] for item in results[: mission["top_k"]]]
+    outside = [
+        row["product_id"] for row in candidates if row.get("eligible") is not True
+    ] + [
+        item["product_id"] for item in results if not eligible(item, mission["filters"])
+    ]
+    found = {
+        "target_in_top_k": f"product(s) {sorted(mission['target_product_ids'])} "
+        f"missing from its top {mission['top_k']} (returned {served})",
+        "hard_filters_hold": f"product(s) {sorted(set(outside))} outside its filters"
+        if outside
+        else "no candidates to check its filters on",
+        "rank_provenance_present": "a result without its combined or final position",
+        "rerank_score_present": "a result without its reranker score",
+    }.get(name, f"no {_arms([name.removesuffix('_signal_present')])} candidates for it")
+    lab_id = int(str(mission.get("placement", "")).removeprefix("lab-") or 0)
+    fix = (
+        f"this request checks something your repair must not break; "
+        f"{repair_next_step(lab_id)}"
+        if lab_id in LAB_FILES
+        else FACILITATOR
+    )
+    return explain(
+        f"for control request {mission['canonical_query_id']} "
+        f"({mission.get('query')!r}), {found}",
+        fix,
+    )
 
 
 def mission_request_check(
@@ -385,9 +448,9 @@ def _lab_1_anchor(
             f"product {target['product_id']} is in the returned window"
             if target is not None
             else explain(
-                f"no result among {len(results)} carrying product id(s) {wanted}",
-                "restore the trigram CTE and its candidate channel in "
-                "mosaic_search.search_hybrid_rrf, then re-apply the function",
+                f"no result for product {wanted} among the {len(results)} returned: "
+                "the Close spelling candidates are not reaching the combined results",
+                repair_next_step(1),
             )
         ),
     )
@@ -420,13 +483,32 @@ def _lab_1_provenance(
         detail=(
             f"trigram rank {rank} contributing {contribution}"
             if passed
-            else explain(
-                f"signals.trigram rank={rank!r} rrf_contribution={contribution!r}; "
-                f"unexpected source signals={unexpected}",
-                "restore the trigram candidate channel so the fused row carries "
-                "its source rank and reciprocal-rank contribution",
-            )
+            else _lab_1_provenance_failure(mission, signals, unexpected)
         ),
+    )
+
+
+def _lab_1_provenance_failure(
+    mission: Mapping[str, Any],
+    signals: Mapping[str, Any],
+    unexpected: Mapping[str, Any],
+) -> str:
+    wanted = sorted(mission.get("target_product_ids") or [])
+    if not signals:
+        return explain(
+            f"no result for product {wanted}, so it has no Close spelling position",
+            repair_next_step(1),
+        )
+    if unexpected:
+        return explain(
+            f"product {wanted} also found by {_arms(unexpected)}, which this "
+            "request should not match",
+            FACILITATOR,
+        )
+    return explain(
+        f"product {wanted} returned without a Close spelling position or "
+        "contribution, so the search this lab repairs did not find it",
+        repair_next_step(1),
     )
 
 
@@ -448,9 +530,10 @@ def _lab_1_filters(
             f"{len(results)} result(s) all satisfy {sorted(filters)}"
             if not violations
             else explain(
-                f"product(s) {violations} outside filters {filters}",
-                "keep the hard filter set on every candidate arm rather than "
-                "widening it to recover the anchor",
+                f"product(s) {violations} outside the request's filters "
+                f"({_described(filters)})",
+                "a repair adds a branch and must not loosen any filter; "
+                + repair_next_step(1),
             )
         ),
     )
@@ -471,11 +554,17 @@ def _lab_1_pool(response: Mapping[str, Any]) -> LabCheck:
             f"trigram_in_pool={in_pool}"
             if in_pool > 0
             else explain(
-                "diagnostics.candidate_counts.trigram_in_pool = 0",
-                "restore the trigram CTE so mosaic_search.search_trigram "
-                "contributes candidates to the fused pool",
+                "no Close spelling candidates among those combined and sent to "
+                "reranking",
+                repair_next_step(1),
             )
         ),
+    )
+
+
+def _described(filters: Mapping[str, Any]) -> str:
+    return ", ".join(
+        f"{key.replace('_', ' ')} {value}" for key, value in sorted(filters.items())
     )
 
 
@@ -530,9 +619,8 @@ def _lab_2_arithmetic(response: Mapping[str, Any]) -> LabCheck:
     results = _results(response)
     if not isinstance(rrf_k, int):
         detail = explain(
-            f"diagnostics.retrieval_profile.rrf_k = {rrf_k!r}",
-            "request the search with include_diagnostics so the served profile "
-            "reports the fusion constant this response was ranked with",
+            f"no fusion constant k in the search diagnostics (found {rrf_k!r})",
+            FACILITATOR,
         )
         passed = False
     else:
@@ -546,11 +634,13 @@ def _lab_2_arithmetic(response: Mapping[str, Any]) -> LabCheck:
             f"{len(results)} row(s) contribute 1 / (k + source_rank) at k={rrf_k}"
             if passed
             else explain(
-                f"product(s) {wrong} whose contributions are not "
-                f"1 / ({rrf_k} + source_rank)",
-                "restore the reciprocal-rank formula in "
-                "mosaic_search.reciprocal_rank_contribution",
+                f"{len(wrong)} product(s) whose credit is not 1 / ({rrf_k} + "
+                f"position), for example product {wrong[0]}",
+                "each search's credit must fall as the product's position in it "
+                "grows; " + repair_next_step(2),
             )
+            if wrong
+            else explain("no results to check the credit on", repair_next_step(2))
         )
     return LabCheck(
         name="RRF arithmetic correct",
@@ -582,10 +672,13 @@ def _lab_2_repeatable(
         ),
         detail=(
             f"{len(first_order)} row(s) fused identically across two runs"
-            if first_order == second_order
+            if first_order and first_order == second_order
             else explain(
-                f"pre-rerank orders {first_order} then {second_order}",
-                "make fusion break ties deterministically after relevance",
+                "no results to compare between two identical searches"
+                if not first_order
+                else "two identical searches that combined the products in "
+                "different orders",
+                FACILITATOR,
             )
         ),
     )
@@ -605,9 +698,8 @@ def _lab_2_rerank(response: Mapping[str, Any]) -> LabCheck:
             "Cohere Rerank applied to the fused pool"
             if status == "applied"
             else explain(
-                f"diagnostics.rerank_status = {status!r}",
-                "request the search with rerank=true and confirm Bedrock "
-                "rerank access before re-running the proof",
+                f"no reranking: its status is {status!r}",
+                "reranking runs on Amazon Bedrock, outside your SQL; " + FACILITATOR,
             )
         ),
     )
@@ -630,21 +722,20 @@ def _lab_2_provenance(
     passed = target is not None and not missing and rerank_score is not None
     if target is None:
         detail = explain(
-            f"no result carrying product id(s) "
-            f"{sorted(mission.get('target_product_ids') or [])}",
-            "run the mission query with its declared filters before grading "
-            "the fusion repair",
+            f"no result for product {sorted(mission.get('target_product_ids') or [])}",
+            repair_next_step(2),
         )
     elif passed:
         detail = (
             f"product {target['product_id']} retains every arm rank and a rerank score"
         )
     else:
+        lost = [f"{_arms(missing)} position"] if missing else []
+        if rerank_score is None:
+            lost.append("reranker score")
         detail = explain(
-            f"product {target['product_id']} missing arm rank(s) {missing} "
-            f"and rerank_score={rerank_score!r}",
-            "keep every source rank on the fused row so the ranking stays "
-            "inspectable after reranking",
+            f"product {target['product_id']} without its {' or '.join(lost)}",
+            repair_next_step(2),
         )
     return LabCheck(
         name="rank provenance present",
@@ -685,8 +776,13 @@ def _lab_2_winner(
             f"product {target['product_id']} moved from combined position {pre_rerank_rank} to final position {final_rank}"
             if passed
             else explain(
-                f"target={None if target is None else target['product_id']}, combined position={pre_rerank_rank}, final position={final_rank}, allowed top={final_bound}",
-                "restore the rank contribution formula and rerank the admitted products; the combined winner need not be the final winner",
+                f"no result for product {sorted(mission.get('target_product_ids') or [])}"
+                if target is None
+                else f"product {target['product_id']} at combined position "
+                f"{pre_rerank_rank} and final position {final_rank}; the request "
+                f"needs it in the final top {final_bound}",
+                "reranking may reorder the combined list, but this product must "
+                f"reach the final top {final_bound}; " + repair_next_step(2),
             )
         ),
     )
