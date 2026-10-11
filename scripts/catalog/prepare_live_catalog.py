@@ -213,6 +213,11 @@ def prepare(connection, dataset_id: str) -> dict:
     connection.execute(VIEW_SQL)
     connection.execute(f"""CREATE INDEX IF NOT EXISTS real_search_public_id_idx
         ON mosaic_catalog_search.product_document ((product_id+{PRODUCT_ID_OFFSET}))""")
+    # An index expression has no statistics until its table is analysed again,
+    # and the restore analysed it before this index existed. Without them the
+    # planner expects 0.5% of the catalog per product ID and scans every
+    # product to fetch each search's shortlist.
+    connection.execute("ANALYZE mosaic_catalog_search.product_document")
     connection.execute("""INSERT INTO mosaic.brand(brand_key,display_name,is_synthetic)
         SELECT DISTINCT 'reviews-2023:'||md5(coalesce(brand_name,'')),
             coalesce(brand_name,''),false FROM mosaic_catalog_search.product_document

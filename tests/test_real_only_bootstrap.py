@@ -172,6 +172,7 @@ def test_real_only_acceptance_rejects_synthetic_brand_and_rolls_back_byte_identi
         "embedded_products",
         "receipt",
         "index",
+        "statistics",
         "vocabulary",
     ],
 )
@@ -197,13 +198,14 @@ def test_acceptance_rejects_each_violation_then_accepts_identical_restoration(
     )
     receipt = {key: contract[key] for key in ("dataset_id", "catalog_sha256")}
 
-    def connection_for(measured, saved_receipt, indexes, ready):
+    def connection_for(measured, saved_receipt, indexes, statistics, ready):
         connection = MagicMock()
-        results = [MagicMock() for _ in range(5)]
+        results = [MagicMock() for _ in range(6)]
         results[1].fetchone.return_value = measured
         results[2].fetchone.return_value = saved_receipt
         results[3].fetchall.return_value = indexes
-        results[4].fetchone.return_value = {"ready": ready}
+        results[4].fetchone.return_value = {"rows": statistics}
+        results[5].fetchone.return_value = {"ready": ready}
         connection.execute.side_effect = results
         return connection
 
@@ -217,12 +219,13 @@ def test_acceptance_rejects_each_violation_then_accepts_identical_restoration(
                 broken,
                 None if violation == "receipt" else receipt,
                 [{"name": "real_search_vector_idx"}] if violation == "index" else [],
+                0 if violation == "statistics" else 1,
                 violation != "vocabulary",
             ),
             contract,
         )
     assert json.dumps([counts, receipt], sort_keys=True) == before
-    assert verify(connection_for(counts, receipt, [], True), contract) == counts
+    assert verify(connection_for(counts, receipt, [], 1, True), contract) == counts
 
 
 def test_real_only_scorecard_serves_the_real_catalog_population():

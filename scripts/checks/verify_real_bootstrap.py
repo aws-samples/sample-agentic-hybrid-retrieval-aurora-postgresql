@@ -28,7 +28,8 @@ def verify(connection, contract: dict) -> dict:
         Measured catalog counts after every check passes.
 
     Raises:
-        ValueError: A loaded catalog, vector, receipt or retrieval index disagrees.
+        ValueError: A loaded catalog, vector, receipt, retrieval index or the
+            statistics the planner needs for it disagrees.
     """
     connection.execute("SELECT aurora_version()")
     dataset, products = contract["dataset_id"], contract["products"]
@@ -66,7 +67,8 @@ def verify(connection, contract: dict) -> dict:
         )
     missing = connection.execute(
         """SELECT required.name FROM (VALUES ('real_search_fts_idx'),
-          ('real_search_trigram_idx'),('real_search_vector_idx')) required(name)
+          ('real_search_trigram_idx'),('real_search_vector_idx'),
+          ('real_search_public_id_idx')) required(name)
         WHERE NOT EXISTS (SELECT 1 FROM pg_index i
           JOIN pg_class c ON c.oid=i.indexrelid
           JOIN pg_namespace n ON n.oid=c.relnamespace
@@ -77,6 +79,17 @@ def verify(connection, contract: dict) -> dict:
         raise ValueError(
             f"Real-only index rule: missing or invalid indexes {missing}; "
             "resume scripts/catalog/real_catalog_cache.py restore for the pinned archive."
+        )
+    analyzed = connection.execute(
+        "SELECT count(*) AS rows FROM pg_stats WHERE schemaname='mosaic_catalog_search' "
+        "AND tablename='real_search_public_id_idx'"
+    ).fetchone()["rows"]
+    if not analyzed:
+        raise ValueError(
+            "Real-only statistics rule: found no statistics for real_search_public_id_idx, "
+            "so every search scans all products to fetch its shortlist; fix: run ANALYZE "
+            "mosaic_catalog_search.product_document, as scripts/catalog/prepare_live_catalog.py "
+            "does after creating the index."
         )
     ready = connection.execute(
         "SELECT EXISTS(SELECT 1 FROM mosaic_live_search.corpus_lexeme) "
