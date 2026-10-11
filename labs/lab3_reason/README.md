@@ -1,50 +1,60 @@
 # Lab 3: Reason - Build and deploy the agent
 
-Follow **Workshop Studio → Lab 3** for the exact requests, SQL investigation,
-hints and complete checks. This is the reminder beside your code.
+Follow **Workshop Studio → Lab 3** for the exact requests, the checks and each
+task's **Stuck?** hints. This is the reminder beside your code.
 
-## Broken
+## Task 3A: Connect the tools, build the agent, deploy it
 
-Start Lab 3 after both SQL labs pass. The starter cannot assemble the agent. Inspect the refusal and discover the supplied Gateway tools using the guide.
+**See it fail.** Start the lab and list the Gateway tools your agent will get:
 
-## Diagnose
+```bash
+uv run python scripts/lab_state.py start --lab 3
+uv run python scripts/deploy_agentcore.py tools
+```
 
-Open [agent.py](agent.py). Identify what `create_agent` must return and how its model, tools, source rules and hooks work together.
+**Playground → Complete my room → Run Mosaic** answers **Your agent is not
+built yet**.
 
-## Fix
+**Why.** `create_agent` receives the model, the three Gateway tools, the source
+rules as instructions and the citation hooks. It has to return an `Agent` built
+from them; until it does, Runtime has nothing to invoke.
 
-Edit only `LAB3_AGENT_START` through `LAB3_AGENT_END`. Return a Strands
-`Agent` using `model=model`, `tools=tools`, `system_prompt=instructions`,
-`hooks=hooks` and `callback_handler=None`. Add one instruction of your own;
-preserve the existing source rules and hooks.
-
-## Prove
-
-Save and deploy:
+**Build.** In [agent.py](agent.py), edit only between `LAB3_AGENT_START` and
+`LAB3_AGENT_END`. Return a Strands `Agent` with `model=model`, `tools=tools`,
+`system_prompt=instructions`, `hooks=hooks` and `callback_handler=None`. You
+may add one instruction of your own; keep the source rules and hooks. Saving
+changes nothing in Runtime until you deploy:
 
 ```bash
 uv run python scripts/deploy_agentcore.py deploy
 ```
 
-Run **Playground → Complete my room → Reason**. Save the original run ID.
-Inspect separate searches, comparison, final shortlist and citations for the
-Logitech headphones, ViewSonic monitor and Steelcase chair. Distinguish listing
-features from review experience and unknowns. Complete the guide's changed
-requirement follow-up, then prove the **original room run**:
+**Prove it.** The deployment ends with `Your agent is deployed and its SQL
+tools are connected through Gateway.`
+
+## Task 3B: Complete Alex's room, change a requirement, prove the run
+
+Run **Playground → Complete my room → Run Mosaic** and copy the **Agent record**
+ID before anything else. Read the answer against its records: a listing and a
+review for each of the headphones, the monitor and the chair. Then ask
+**Ask Mosaic** the guide's 100W follow-up about the monitor. Prove the
+**original room run**:
 
 ```bash
 uv run python scripts/complete_agent.py --run-id <your-run-id>
 ```
 
-This evaluates your deployed code and actual saved answer without generating
-another answer. Deployment alone does not prove completion.
-
+It reads your deployed code and the saved run without generating another
+answer. Deployment alone does not prove completion.
 
 <details>
-<summary>🛠️ Recovery and reference answer</summary>
+<summary>🛠️ Compare with or install the reference answer</summary>
 
-The [reference answer](solution/agent.py) is available for full recovery.
-`uv run python scripts/lab_state.py solution --lab 3` overwrites this lab's
-edit. Follow the guide to apply/deploy and prove it; recovery is not completion.
+`uv run python scripts/lab_state.py diff --lab 3` compares your marked block
+with the [reference answer](solution/agent.py) and changes nothing; an
+instruction you added shows as a difference. It shows the answer, so try the
+guide's hints first. `uv run python scripts/lab_state.py solution --lab 3`
+overwrites your edit with the answer; deploy it, then run the room request
+yourself and prove that run.
 
 </details>

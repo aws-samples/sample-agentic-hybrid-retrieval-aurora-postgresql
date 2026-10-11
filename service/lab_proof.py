@@ -73,7 +73,7 @@ from service.models import (
     SearchRequest,
     SearchResponse,
 )
-from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, validate
+from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, prove
 from service.participant_commands import start as start_command
 from service.retrieval import get_retrieval_service
 from service.retrieval_fingerprint import (
@@ -140,7 +140,7 @@ def _state_detail(
     if problem is not None:
         return (
             f"{problem.finding} Next: {problem.next_step}, then prove it with "
-            f"{validate(lab_id)}."
+            f"{prove(lab_id)}."
         )
     if database.state == "stale":
         return database.detail

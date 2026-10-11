@@ -1,42 +1,52 @@
 # Lab 1: Retrieve - Debug hybrid search
 
-Follow **Workshop Studio → Lab 1** for the exact requests, SQL investigation,
-hints and complete checks. This is the reminder beside your code.
+Follow **Workshop Studio → Lab 1** for the exact requests, the checks and each
+task's **Stuck?** hints. This is the reminder beside your code.
 
-## Broken
+## Task 1A: Reconnect the search that lost the Logitech
 
-Start Lab 1 in the guide. Save its failed request and predict why Alex’s listing is absent.
+**See it fail.** Getting started saved Alex's mistyped request with
+`uv run python scripts/lab_state.py start --lab 1`. Shop answers with a page of
+other headphones and no error.
 
-## Diagnose
+**Why.** Run the guide's three searches separately. Fuzzy matching finds the
+Logitech on its own; do its rows ever reach `channels`? A reranker cannot
+recover a product it never receives.
 
-Run the guide’s three searches separately. Which finds the listing, and do its candidates reach fusion? Reranking cannot recover a candidate it never receives.
-
-## Fix
-
-In [hybrid_search.sql](hybrid_search.sql), edit only `LAB1_CHANNEL_START`
-through `LAB1_CHANNEL_END`. Add the missing `channels` branch with five columns:
-product ID, channel name, position, raw score and contribution from
-`mosaic_search.reciprocal_rank_contribution`. Preserve filters and settings.
-
-## Prove
-
-Apply SQL, repeat the guide's identical request, then validate:
+**Build.** In [hybrid_search.sql](hybrid_search.sql), edit only between
+`LAB1_CHANNEL_START` and `LAB1_CHANNEL_END`. Add the missing `channels` branch
+with the same five columns as the others: product ID, channel name `'trigram'`,
+position, raw score and the contribution from
+`mosaic_search.reciprocal_rank_contribution`. Saving changes nothing in Aurora
+until you apply it:
 
 ```bash
 uv run python scripts/apply_search_functions.py
-uv run python scripts/lab_terminal.py run --lab 1 --phase after
-uv run python scripts/validate_lab.py --lab 1
 ```
 
-Inspect the recovered listing's fuzzy matching contribution and the independent
-controls. Complete the guide's source/applied-state check and your explanation.
+**Prove it.** Repeat the identical request:
 
+```bash
+uv run python scripts/lab_terminal.py run --lab 1 --phase after
+```
+
+## Task 1B: Check the other two searches, then hand off
+
+```bash
+uv run python scripts/lab_state.py advance --lab 1
+```
+
+It replays the typo request and two controls, `G-001` (the exact ID, through
+full-text search) and `G-012` (a Logitech description, through semantic
+search), saves your passing evidence and prepares Lab 2.
 
 <details>
-<summary>🛠️ Recovery and reference answer</summary>
+<summary>🛠️ Compare with or install the reference answer</summary>
 
-The [reference answer](solution/hybrid_search.sql) is available for full recovery.
-`uv run python scripts/lab_state.py solution --lab 1` overwrites this lab's
-edit. Follow the guide to apply/deploy and prove it; recovery is not completion.
+`uv run python scripts/lab_state.py diff --lab 1` compares your marked block
+with the [reference answer](solution/hybrid_search.sql) and changes nothing; it
+shows the answer, so try the guide's hints first.
+`uv run python scripts/lab_state.py solution --lab 1` overwrites your edit with
+the answer; apply and prove it as above.
 
 </details>

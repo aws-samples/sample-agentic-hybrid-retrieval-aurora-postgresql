@@ -1,38 +1,46 @@
 # Lab 2: Rank and re-rank - Tune rank fusion and reranking
 
-Follow **Workshop Studio → Lab 2** for the exact requests, SQL investigation,
-hints and complete checks. This is the reminder beside your code.
+Follow **Workshop Studio → Lab 2** for the exact requests, the checks and each
+task's **Stuck?** hints. This is the reminder beside your code.
 
-## Broken
+## Task 2A: Restore the rank contribution
 
-Start Lab 2 after Lab 1 passes. Save the failure: a suitable monitor misses the reranking pool. Predict the cause.
+**See it fail.** Lab 1's handoff saved Alex's monitor request. Semantic search
+finds the ViewSonic VG2756-4K, yet it never reaches the 50 sent to reranking.
 
-## Diagnose
+**Why.** Score a few positions with `reciprocal_rank_contribution` and compare
+them with `1 / (60 + position)`. If every position earns the same contribution,
+product ID decides which candidates make the cut.
 
-Compare saved source positions and contributions. If different positions earn the same contribution, what chooses the cutoff? Standard, equal-weight RRF uses positions, not raw search scores.
-
-## Fix
-
-In [rrf_contribution.sql](rrf_contribution.sql), edit only
-`LAB2_RRF_FORMULA_START` through `LAB2_RRF_FORMULA_END`. Make each source
-position earn its own contribution. Preserve the signature, `double precision`
-result and configured `rrf_k`. This is **2a — Rank**.
-
-## Prove
-
-For **2b — Re-rank**, apply SQL, repeat the identical request and grade:
+**Build.** In [rrf_contribution.sql](rrf_contribution.sql), edit only the
+`SELECT` between `LAB2_RRF_FORMULA_START` and `LAB2_RRF_FORMULA_END`, so each
+source position earns `1 / (rrf_k + source_rank)`. Keep the signature, the
+`double precision` result and the configured `rrf_k`. Then apply it:
 
 ```bash
 uv run python scripts/apply_search_functions.py
-uv run python scripts/lab_terminal.py run --lab 2 --phase after
-uv run python scripts/lab_exercise.py check --lab 2
-uv run python scripts/lab_exercise.py compare --lab 2
-uv run python scripts/validate_lab.py --lab 2
 ```
 
-Inspect combined and final positions. Complete the guide's source/applied-state
-check and controls. Decide which setting you would ship, and why.
-The comparison leaves served settings unchanged; use its judged results.
+**Prove it.** Repeat the identical request and grade the applied formula:
+
+```bash
+uv run python scripts/lab_terminal.py run --lab 2 --phase after
+uv run python scripts/lab_exercise.py check --lab 2
+```
+
+## Task 2B: Read what reranking changed, then compare settings
+
+In Shop, choose **Shop + search details** and compare **Before reranking (RRF)**
+with **Final position**. Then judge three measured settings on labeled queries
+and run the Lab 2 checks:
+
+```bash
+uv run python scripts/lab_exercise.py compare --lab 2
+uv run python scripts/validate_lab.py --lab 2 --api-url http://127.0.0.1:8000
+```
+
+The comparison leaves the served settings unchanged. Decide which setting you
+would ship, and why.
 
 <details>
 <summary>🔍 Optional after required completion: standard vs weighted RRF</summary>
@@ -43,12 +51,13 @@ It compares the same candidates without changing default settings or replacing p
 
 </details>
 
-
 <details>
-<summary>🛠️ Recovery and reference answer</summary>
+<summary>🛠️ Compare with or install the reference answer</summary>
 
-The [reference answer](solution/rrf_contribution.sql) is available for full recovery.
-`uv run python scripts/lab_state.py solution --lab 2` overwrites this lab's
-edit. Follow the guide to apply/deploy and prove it; recovery is not completion.
+`uv run python scripts/lab_state.py diff --lab 2` compares your marked block
+with the [reference answer](solution/rrf_contribution.sql) and changes nothing;
+it shows the answer, so try the guide's hints first.
+`uv run python scripts/lab_state.py solution --lab 2` overwrites your edit with
+the answer; apply and prove it as above.
 
 </details>

@@ -498,7 +498,7 @@ def test_solution_says_what_it_overwrote_and_the_next_commands(
     monkeypatch, capsys, tmp_path, lab, expected
 ):
     from scripts import lab_state
-    from service.participant_commands import DEPLOY_AGENT, complete_lab_3, validate
+    from service.participant_commands import DEPLOY_AGENT, complete_lab_3, prove
 
     monkeypatch.setattr("sys.argv", ["lab_state.py", "solution", "--lab", str(lab)])
     monkeypatch.setattr(
@@ -514,7 +514,7 @@ def test_solution_says_what_it_overwrote_and_the_next_commands(
     if lab == 3:
         assert DEPLOY_AGENT in output and complete_lab_3() in output
     else:
-        assert validate(lab) in output
+        assert prove(lab) in output
 
 
 @pytest.mark.parametrize("action", ["start", "reset", "solution", "validate"])

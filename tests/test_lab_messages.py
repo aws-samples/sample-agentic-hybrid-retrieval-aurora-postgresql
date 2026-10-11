@@ -37,6 +37,7 @@ from service.lab_files import LAB1_SQL, LAB2_SQL
 from service.participant_commands import (
     APPLY_SQL,
     complete_lab_3,
+    prove,
     repeat_request,
     validate,
     validate_applied,
@@ -367,4 +368,4 @@ def test_the_playground_names_what_is_wrong_in_an_unrepaired_block(repo):
     assert detail.startswith(
         f"Lab 1 is not repaired: in {LAB1_SQL}, the marked block holds only comments"
     )
-    assert detail.endswith(f"then prove it with {validate(1)}.")
+    assert detail.endswith(f"then prove it with {prove(1)}.")

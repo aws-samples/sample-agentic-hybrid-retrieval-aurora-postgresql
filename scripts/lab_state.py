@@ -23,6 +23,7 @@ from service.participant_commands import (
     APPLY_SQL,
     DEPLOY_AGENT,
     complete_lab_3,
+    prove,
     reset,
     solution,
     validate,
@@ -179,7 +180,7 @@ def _diff_footer(lab: int) -> list[str]:
     else:
         verdict = (
             "A difference is not a failure: other SQL can be correct. Apply it with "
-            f"{APPLY_SQL}, then prove it with {validate(lab)}."
+            f"{APPLY_SQL}, then prove it with {prove(lab)}."
         )
     return [
         "",
@@ -813,7 +814,7 @@ def solution_summary(lab: int, path: Path) -> str:
             f"check the saved run with {complete_lab_3()}"
         )
     else:
-        next_step = f"apply it with {APPLY_SQL}, then prove it with {validate(lab)}"
+        next_step = f"apply it with {APPLY_SQL}, then prove it with {prove(lab)}"
     return (
         f"Lab {lab}: SOLUTION ({path})\n"
         f"This overwrote the marked LAB{lab}_ block in {path} with the reference "

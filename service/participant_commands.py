@@ -56,3 +56,12 @@ def repeat_request(lab: int) -> str:
 def exercise_check(lab: int) -> str:
     """Grade the participant's own exercise or saved run, without a new answer."""
     return f"uv run python scripts/lab_exercise.py check --lab {lab}"
+
+
+def prove(lab: int) -> str:
+    """The guide's proof after applying a SQL repair: repeat the request, then its check.
+
+    Lab 1 hands off to Lab 2 after its checks; Lab 2's first task grades the applied formula.
+    """
+    check = ADVANCE_TO_LAB_2 if lab == 1 else exercise_check(lab)
+    return f"{repeat_request(lab)}, then {check}"

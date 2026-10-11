@@ -707,7 +707,7 @@ describe("RetrievalLabPage", () => {
       "Find the missing product. Check the request, the filters, and what each search method found.",
     );
     expect(summaries[1]).toBe(
-      "Lab 2a: repair the source-position contributions and inspect which candidates survived fusion.",
+      "Lab 2, Task 2A: repair the source-position contributions and inspect which candidates survived fusion.",
     );
     expect(summaries[3]).toBe(
       "Support the agent's answer with sources. Which products and evidence the agent"

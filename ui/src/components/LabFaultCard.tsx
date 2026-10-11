@@ -94,7 +94,7 @@ export const LabFaultCard = forwardRef<HTMLElement, {
       </figure>
 
       <div className="shop-fault-body">
-        <span className="shop-lab-status">{fixed ? "Verified in this search" : `Lab ${labNumber} / Observe`}</span>
+        <span className="shop-lab-status">{fixed ? "Verified in this search" : `Lab ${labNumber} / See it fail`}</span>
         <h2>{heading}</h2>
         {fixed ? <p className="shop-fault-verdict">
           {finalRank ? `Found by fuzzy matching and back at #${finalRank}.` : "Found by fuzzy matching again."}
