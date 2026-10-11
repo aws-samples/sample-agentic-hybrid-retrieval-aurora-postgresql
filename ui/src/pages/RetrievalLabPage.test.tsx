@@ -728,9 +728,9 @@ describe("RetrievalLabPage", () => {
     ]);
 
     expect(pairs).toEqual([
-      ["Exact terms", "PostgreSQL Full-Text Search"],
-      ["Close spelling", "pg_trgm"],
-      ["Meaning match", "pgvector / HNSW"],
+      ["Full-text search", "PostgreSQL Full-Text Search"],
+      ["Fuzzy matching", "pg_trgm"],
+      ["Semantic search", "pgvector / HNSW"],
     ]);
   });
 
@@ -1470,7 +1470,7 @@ describe("RetrievalLabPage", () => {
     expect(screen.getByText("Baseline and latest run")).toBeTruthy();
     const before = screen.getByLabelText("Baseline metrics");
     const after = screen.getByLabelText("Latest run metrics");
-    // The Shop run's own numbers: rank 7 in the fused pool, no close-spelling
+    // The Shop run's own numbers: rank 7 in the fused pool, no fuzzy matching
     // candidates. The Playground run that followed reports its own. Read cell by
     // cell rather than off the section's text: `toContain("0")` matches the "0"
     // inside "20" or a run id, so a wrong figure could still pass.
@@ -1665,7 +1665,7 @@ describe("RetrievalLabPage", () => {
 
   it("judges the scenario when the carried run used the scenario's own gates", async () => {
     // Eligible headphones, as a real broken Lab 1 run returns: only the
-    // close-spelling channel is missing, so the verdict names that fault.
+    // fuzzy matching channel is missing, so the verdict names that fault.
     vi.mocked(api.retrievalEventResponse).mockResolvedValue({
       ...shopResponse,
       applied_filters: { ...firstExample.filters },
@@ -1687,7 +1687,7 @@ describe("RetrievalLabPage", () => {
     expect(await screen.findByText("Issue reproduced")).toBeTruthy();
     // The verdict names what is missing, why, and the one next step.
     expect(screen.getByText("The Logitech Zone 900 is missing")).toBeTruthy();
-    expect(screen.getByText(/Close spelling is the only method that can match a mistyped ID, and it returned no candidates/)).toBeTruthy();
+    expect(screen.getByText(/Fuzzy matching is the only method that can match a mistyped ID, and it returned no candidates/)).toBeTruthy();
     expect(screen.getByText(/^Next: in Code Editor, repair the LAB1 block in labs\/lab1_retrieve\/hybrid_search\.sql, apply it with uv run python scripts\/apply_search_functions\.py/)).toBeTruthy();
     expect(screen.queryByText("Shop run loaded")).toBeNull();
   });

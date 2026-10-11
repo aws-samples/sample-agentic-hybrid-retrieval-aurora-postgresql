@@ -1,4 +1,4 @@
-"""Alias text may reach the close-spelling channel, never lexeme containment.
+"""Alias text may reach the fuzzy matching channel, never lexeme containment.
 
 Lab 1 teaches that `pg_trgm` is the only arm that can recover a misspelling. That
 lesson is only true if the misspellings a product carries in `mosaic.product`'s
@@ -122,7 +122,7 @@ def test_feature_text_excludes_aliases():
 
 
 def test_trigram_text_still_includes_aliases():
-    """The close-spelling channel is the arm that is *supposed* to use them."""
+    """The fuzzy matching channel is the arm that is *supposed* to use them."""
     trigram_text = _select_expression(_column_index("trigram_text"))
     assert ALIAS_EXPRESSION in trigram_text, (
         "trigram_text lost aliases, so the only arm that can recover the Lab 1 "

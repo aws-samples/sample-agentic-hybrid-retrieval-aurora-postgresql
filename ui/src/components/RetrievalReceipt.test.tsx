@@ -45,9 +45,9 @@ describe("RetrievalReceipt", () => {
     expect(within(receipt).getByText("Not requested")).toBeTruthy();
     expect(within(receipt).getByText("search results only")).toBeTruthy();
     // Per-arm counts carry the denominator that makes them counts. Printed as
-    // "Close spelling 2" beside a column of `#position` values, four readers in a
+    // "Fuzzy matching 2" beside a column of `#position` values, four readers in a
     // row took them for ranks.
-    expect(within(receipt).getByText(/Close spelling \d+ of \d+/)).toBeTruthy();
+    expect(within(receipt).getByText(/Fuzzy matching \d+ of \d+/)).toBeTruthy();
   });
 
   it("does not invent a receipt when diagnostics are unavailable", () => {

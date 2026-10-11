@@ -23,7 +23,7 @@ export function ShopSearchDetails({ response, onSelect, onHighlight, highlighted
   return <aside className="shop-search-details" aria-label="Search details for these products">
     <header>
       <h2>How the order changed</h2>
-      <p>RRF combines positions from word, spelling and meaning searches. The reranker then compares those products with your full request.</p>
+      <p>RRF combines positions from full-text search, fuzzy matching and semantic search. The reranker then compares those products with your full request.</p>
     </header>
     {!reranked ? <p>This request was not reranked. Final positions may reflect the combined order or an exact listing match.</p> : null}
     <p id="shop-sort-label" className="shop-sort-label">Sort these displayed products by:</p>

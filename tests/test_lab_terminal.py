@@ -253,5 +253,5 @@ def test_target_summary_names_positions_and_only_the_methods_that_found_it():
     line = lab_terminal.target_summary({"candidates": [target]}, mission)
 
     assert "combined position 2, final position 1" in line
-    assert "found by close spelling rank 1." in line
+    assert "found by fuzzy matching rank 1." in line
     assert "words" not in line and "meaning" not in line

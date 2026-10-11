@@ -110,7 +110,7 @@ function runMeasurements(
       value: formatRank(bestFinalRank),
     },
     {
-      label: "Close spelling in pool",
+      label: "Fuzzy matching in pool",
       value: String(response.diagnostics?.candidate_counts.trigram_in_pool ?? "Not reported"),
     },
   ];

@@ -22,7 +22,7 @@ The canonical query file contains the ten real-catalog requests.
 
 ### Compare methods without changing the question
 
-For a new judged request, inspect word search, close spelling, meaning search,
+For a new judged request, inspect full-text search, fuzzy matching, semantic search,
 the RRF combined list, then model reranking, in that order. Keep the source
 selection, query vector, filters and configured per-method limits fixed.
 
@@ -343,7 +343,7 @@ File contract for `data/evals/esci_held_out_queries.jsonl`:
 
 `scripts/evals/hybrid_payoff.py` compares retrieval arms on the 399 held-out
 queries that carry at least one Exact or Substitute label (213 headphones, 100
-chair, 86 monitor). It reads the production full-text, close-spelling and vector
+chair, 86 monitor). It reads the production full-text, fuzzy matching and vector
 lists from Aurora with the served limits and HNSW settings, plus the served
 fusion order, and checks its own reciprocal rank fusion against the production
 fusion SQL on every query. The small-model arm uses `BAAI/bge-small-en-v1.5`

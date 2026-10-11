@@ -3,8 +3,8 @@
  * place it is bridged to the Postgres mechanism behind it.
  *
  * Six surfaces printed their own words for the same five things. A product card
- * said "Exact terms", the Ask Mosaic shortlist said "Your exact words", its
- * ranking disclosure said "FTS", the search receipt said "FTS" or "Exact terms"
+ * said "Full-text search", the Ask Mosaic shortlist said "Your exact words", its
+ * ranking disclosure said "FTS", the search receipt said "FTS" or "Full-text search"
  * depending on a boolean, the agent receipt always said "FTS n / TRGM n / HNSW
  * n", and the Playground matrix said "Exact words". A shopper met four names for
  * one retriever and an engineer could not tell which of them was the mechanism.
@@ -27,25 +27,25 @@ export interface ArmLanguage {
 export const armLanguage: ArmLanguage[] = [
   {
     key: "fts",
-    label: "Exact terms",
+    label: "Full-text search",
     mechanism: "PostgreSQL Full-Text Search",
   },
   {
     key: "trigram",
-    label: "Close spelling",
+    label: "Fuzzy matching",
     mechanism: "pg_trgm",
   },
   {
     key: "semantic",
-    label: "Meaning match",
+    label: "Semantic search",
     mechanism: "pgvector / HNSW",
   },
 ];
 
 export const armLabel: Record<RetrievalArm, string> = {
-  fts: "Exact terms",
-  trigram: "Close spelling",
-  semantic: "Meaning match",
+  fts: "Full-text search",
+  trigram: "Fuzzy matching",
+  semantic: "Semantic search",
 };
 
 /** The two ordering stages, in the same customer vocabulary. */
@@ -54,7 +54,7 @@ export const FINAL_LABEL = "Final position";
 
 /** Interface summaries; the raw tool definitions remain available for inspection. */
 export const toolPurpose: Record<string, string> = {
-  search_products: "Search Aurora by words, spelling and meaning, then combine and rerank the filtered matches.",
+  search_products: "Search Aurora with full-text search, fuzzy matching and semantic search, then combine and rerank the filtered matches.",
   get_product_evidence: "Read current specifications and reviews for a product returned by search.",
   compare_products: "Compare products from the current search or the previous answer.",
   explain_retrieval: "Read the saved search to explain which methods found a product and how its rank changed.",
@@ -92,7 +92,7 @@ export const armIndexName: Record<RetrievalArm, string> = {
  * `hnsw` belongs to the semantic arm: the fixtures name that arm after the index
  * it reads rather than after the retriever, and Labs 2 and 3 use only that
  * spelling. Without it those two labs required no semantic arm at all, so the
- * one index they cannot run without was never checked and a meaning-match arm
+ * one index they cannot run without was never checked and a semantic search arm
  * that contributed nothing to their pool read as an arm with nothing to say.
  */
 export const armTechniques: Record<RetrievalArm, string[]> = {

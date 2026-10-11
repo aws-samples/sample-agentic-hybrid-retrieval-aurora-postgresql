@@ -52,9 +52,9 @@ CONTRIBUTION_TOLERANCE = 1e-9
 
 #: The names Shop and the guides give each search method, for failure details.
 ARM_LABELS: dict[str, str] = {
-    "fts": "Exact terms",
-    "trigram": "Close spelling",
-    "semantic": "Meaning match",
+    "fts": "Full-text search",
+    "trigram": "Fuzzy matching",
+    "semantic": "Semantic search",
 }
 LAB_FILES = {1: LAB1_SQL, 2: LAB2_SQL}
 FACILITATOR = "give this message to your facilitator; it is not caused by your SQL"
@@ -449,7 +449,7 @@ def _lab_1_anchor(
             if target is not None
             else explain(
                 f"no result for product {wanted} among the {len(results)} returned: "
-                "the Close spelling candidates are not reaching the combined results",
+                "the Fuzzy matching candidates are not reaching the combined results",
                 repair_next_step(1),
             )
         ),
@@ -496,7 +496,7 @@ def _lab_1_provenance_failure(
     wanted = sorted(mission.get("target_product_ids") or [])
     if not signals:
         return explain(
-            f"no result for product {wanted}, so it has no Close spelling position",
+            f"no result for product {wanted}, so it has no Fuzzy matching position",
             repair_next_step(1),
         )
     if unexpected:
@@ -506,7 +506,7 @@ def _lab_1_provenance_failure(
             FACILITATOR,
         )
     return explain(
-        f"product {wanted} returned without a Close spelling position or "
+        f"product {wanted} returned without a Fuzzy matching position or "
         "contribution, so the search this lab repairs did not find it",
         repair_next_step(1),
     )
@@ -554,7 +554,7 @@ def _lab_1_pool(response: Mapping[str, Any]) -> LabCheck:
             f"trigram_in_pool={in_pool}"
             if in_pool > 0
             else explain(
-                "no Close spelling candidates among those combined and sent to "
+                "no Fuzzy matching candidates among those combined and sent to "
                 "reranking",
                 repair_next_step(1),
             )

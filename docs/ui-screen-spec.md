@@ -117,7 +117,7 @@ presented as a rejection explanation.
 Retrieve and Rank follow the selected search. Its first result is a compact row
 labelled with its search number, position, and whether it appears in the answer.
 **Search record and interpretation** expands technical identifiers and method
-readings. Retrieve exposes full-text, close-spelling and semantic candidates;
+readings. Retrieve exposes full-text, fuzzy matching and semantic candidates;
 Rank shows fusion and reranking receipts; Reason presents the full cited answer,
 product links, sources, and the expandable activity log.
 

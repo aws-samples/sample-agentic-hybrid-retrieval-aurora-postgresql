@@ -4,7 +4,7 @@ import { armLanguage } from "../../retrievalLanguage";
 import type { ProductSummary } from "../../types";
 import { pickName } from "../ask-mosaic/comparison";
 
-/** "Found by exact terms and meaning match", from the arms that ranked it. */
+/** "Found by full-text search and semantic search", from the arms that ranked it. */
 export function foundBySentence(product: ProductSummary): string | null {
   const signals = product.signals;
   if (!signals) return null;

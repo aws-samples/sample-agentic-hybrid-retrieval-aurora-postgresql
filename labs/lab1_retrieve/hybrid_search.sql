@@ -1,7 +1,7 @@
 -- Lab 1: hybrid search.
 --
 -- mosaic_search.search_hybrid_rrf asks three channels for candidates from the
--- same filtered catalog: full-text search, close spelling (pg_trgm) and meaning
+-- same filtered catalog: full-text search, fuzzy matching (pg_trgm) and semantic
 -- search (pgvector HNSW). It fuses their ranks with the contribution Lab 2's
 -- file defines, then returns the pool the service reranks. Reranking can only
 -- reorder that pool, so a channel left out here is a product no later stage can

@@ -4,7 +4,7 @@
 
 Run independent retrieval paths because each has different failure modes:
 
-- **FTS:** exact terms, product language, models, and high-value fields
+- **FTS:** full-text search, product language, models, and high-value fields
 - **`pg_trgm`:** misspellings and compressed/nearby strings
 - **HNSW semantic:** intent, paraphrase, use case, and benefit language
 

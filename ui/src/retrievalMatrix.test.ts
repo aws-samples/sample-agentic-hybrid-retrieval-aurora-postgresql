@@ -256,9 +256,9 @@ describe("column measures", () => {
     expect(matrix.columns.map((column) => `${column.label}: ${column.measure}`)).toEqual([
       // The five labels come from retrievalLanguage, so a column heading here and
       // a "Why this match" row in Shop cannot drift apart.
-      "Exact terms: 1 of 3",
-      "Close spelling: 1 of 3",
-      "Meaning match: 2 of 3",
+      "Full-text search: 1 of 3",
+      "Fuzzy matching: 1 of 3",
+      "Semantic search: 2 of 3",
       `Before reranking: 3 of ${profile.fused_limit}`,
       // Not "Final position": this column's cells hold `rerank_score`, and a 0.9204
       // under a heading that promises a rank is the table lying about its units.
@@ -271,7 +271,7 @@ describe("column measures", () => {
   it("says the embedding width was not recorded rather than printing it as null", () => {
     // A replayed run has no width to report: `mosaic.search_event` never stored
     // one, so the response carries null. Interpolated straight into the suffix
-    // that prints "1024d", it read "nulld" under the meaning-match column.
+    // that prints "1024d", it read "nulld" under the semantic search column.
     const replayed = response([
       product(1, {}, signals({ semantic: { rank: 1, raw_score: 0.9, rrf_contribution: 0.0164 } })),
     ]);
@@ -313,7 +313,7 @@ describe("row verdicts", () => {
       ]),
     );
     expect(matrix.rows[0].verdict).toBe(
-      "Only meaning match found it: it shares no word with the query.",
+      "Only semantic search found it: it shares no word with the query.",
     );
     expect(matrix.rows[0].reasons.map((reason) => reason.label)).toContain(
       "No query word in this record; nearest by meaning",
@@ -333,7 +333,7 @@ describe("row verdicts", () => {
       ]),
     );
     expect(matrix.rows[0].verdict).toBe(
-      "Found by exact words, close spelling and meaning.",
+      "Found by full-text search, fuzzy matching and semantic search.",
     );
   });
 });

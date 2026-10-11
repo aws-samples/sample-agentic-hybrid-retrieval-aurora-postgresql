@@ -108,9 +108,9 @@ describe("RetrievalObservatory", () => {
     expect(headings[0]).toBe("Result");
     // One vocabulary, from retrievalLanguage. These headings used to be a fifth
     // naming of the same five stages.
-    expect(headings[1]).toContain("Exact terms");
-    expect(headings[2]).toContain("Close spelling");
-    expect(headings[3]).toContain("Meaning match");
+    expect(headings[1]).toContain("Full-text search");
+    expect(headings[2]).toContain("Fuzzy matching");
+    expect(headings[3]).toContain("Semantic search");
     expect(headings[4]).toContain("Before reranking");
     expect(headings[5]).toContain("Rerank score");
     // The mechanism travels with the label on this surface, and only here.
@@ -142,12 +142,12 @@ describe("RetrievalObservatory", () => {
     // words nor meaning found it.
     const target = [...rows].find((row) => row.className.includes("is-target"));
     expect(target).toBeTruthy();
-    expect(target!.textContent).toContain("Only the close spelling search method found it.");
+    expect(target!.textContent).toContain("Only fuzzy matching found it.");
     expect(target!.textContent).toMatch(/Repaired spelling: \w+ to \w+/);
 
     // Every other row in this capture came back on meaning alone.
     const vectorOnly = [...rows].find((row) =>
-      row.textContent?.includes("Only meaning match found it"),
+      row.textContent?.includes("Only semantic search found it"),
     );
     expect(vectorOnly).toBeTruthy();
     expect(vectorOnly!.textContent).toMatch(/nearest by meaning/);
@@ -157,14 +157,14 @@ describe("RetrievalObservatory", () => {
     const { container } = renderObservatory({ response: seedRun });
     expect(container.querySelector(".labs-matrix-cell.is-focused")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: /Close spelling/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Fuzzy matching/ }));
 
     expect(screen.getByText("mosaic_live_search.search_trigram(", { exact: false })).toBeTruthy();
     expect(container.querySelectorAll(".labs-matrix-cell.is-focused")).toHaveLength(
       seedRun.results.length,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /Close spelling/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Fuzzy matching/ }));
     expect(container.querySelector(".labs-matrix-cell.is-focused")).toBeNull();
   });
 

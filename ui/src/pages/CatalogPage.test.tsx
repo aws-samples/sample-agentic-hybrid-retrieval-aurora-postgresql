@@ -90,14 +90,14 @@ vi.mock("../api", () => ({
  *   instead of `D-005`.
  * - `D-003` (41 chars) names both `fts` and `semantic`. `fts` must outrank
  *   `semantic` in `starterPath`, or `D-003` reclassifies into the `semantic`
- *   pool, where 41 beats `D-008`'s 44 and it becomes the "Meaning match" card
+ *   pool, where 41 beats `D-008`'s 44 and it becomes the "Semantic search" card
  *   instead.
  * - `D-004` (20 chars) names `pg_trgm`, `fts`, and `semantic`, shorter than
  *   every row in the `exact` pool. `pg_trgm` must outrank `fts` in
  *   `starterPath`, or `D-004` reclassifies as `exact` and wins that slot
  *   instead of `D-005`.
  * - `D-002` (53 chars, misspelled) is first among the misspelled rows and
- *   longer than `D-004` (20 chars), which appears later. The close-spelling box
+ *   longer than `D-004` (20 chars), which appears later. The fuzzy matching box
  *   has to load the shortest of the lane rather than the first, or `D-002`
  *   loads instead of `D-004`.
  * - `D-007` (15 chars, `semantic` only) is shorter than every other row in the
@@ -910,7 +910,7 @@ describe("CatalogPage", () => {
     expect(within(panel).getByText("Rank before reranking")).toBeTruthy();
     expect(within(panel).getByText("Rank shown to you")).toBeTruthy();
     // recommendations[0] carries fts rank 1 and semantic rank 2, no trigram.
-    expect(within(panel).getAllByText("exact terms, meaning match").length).toBeGreaterThan(0);
+    expect(within(panel).getAllByText("full-text search, semantic search").length).toBeGreaterThan(0);
   });
 
   it("reports a refused comparison instead of showing an empty table", async () => {
@@ -1075,9 +1075,9 @@ describe("CatalogPage", () => {
     fireEvent.click(within(productReceipt!).getByText("Why this match"));
     // An arm that never returned this row says so without a position: a rank
     // there would be one Mosaic invented.
-    expect(within(productReceipt!).getByText("Exact terms")).toBeTruthy();
-    const missedArm = within(productReceipt!).getByText("Close spelling").closest("li")!;
-    expect(missedArm.textContent).toBe("Close spellingno matchno match for this request");
+    expect(within(productReceipt!).getByText("Full-text search")).toBeTruthy();
+    const missedArm = within(productReceipt!).getByText("Fuzzy matching").closest("li")!;
+    expect(missedArm.textContent).toBe("Fuzzy matchingno matchno match for this request");
     expect(within(productReceipt!).getByText("Before reranking")).toBeTruthy();
     expect(within(productReceipt!).getByText("Final position")).toBeTruthy();
     expect(within(productReceipt!).getAllByText("#1").length).toBeGreaterThan(0);
@@ -1539,9 +1539,9 @@ describe("CatalogPage", () => {
       [...trace.querySelectorAll("li")].map((step) => step.textContent),
     ).toEqual([
       "Understanding your words",
-      "Exact terms",
-      "Close spelling",
-      "Meaning match",
+      "Full-text search",
+      "Fuzzy matching",
+      "Semantic search",
       "Applying your filters",
       "Combining the results",
       "Reranking the shortlist",

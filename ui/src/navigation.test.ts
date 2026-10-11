@@ -13,7 +13,7 @@ import {
  *
  * The workshop's typo lesson depends on it. A shopper types `noice cancelng hedfones`
  * on Shop, Shop answers it usefully, and the Playground has to report that the
- * close-spelling arm is what carried the target — for that same request. Two
+ * fuzzy matching arm is what carried the target — for that same request. Two
  * surfaces reasoning about two different candidate pools would make the lesson
  * unprovable.
  *

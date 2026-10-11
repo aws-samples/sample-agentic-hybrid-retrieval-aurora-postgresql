@@ -156,9 +156,9 @@ render(<RetrievalChannelMap readings={readings} />);
     expect(readings.map((reading) => reading.inPool)).toEqual([5, 4, 10]);
     expect(readings.every((reading) => reading.pool === 12)).toBe(true);
     expect(readings.map((reading) => reading.label)).toEqual([
-      "Exact terms",
-      "Close spelling",
-      "Meaning match",
+      "Full-text search",
+      "Fuzzy matching",
+      "Semantic search",
     ]);
     expect(readings.map((reading) => reading.mechanism)).toEqual([
       "PostgreSQL Full-Text Search",
@@ -239,10 +239,10 @@ render(<RetrievalChannelMap readings={readings} />);
     expect(readings[1].state).toBe("silent");
   });
 
-  it("reads hnsw as the meaning-match search method the scenario required", () => {
+  it("reads hnsw as the semantic search the scenario required", () => {
     // Labs 2 and 3 name that arm `hnsw` in their `expected_techniques`, after
     // the index rather than the retriever. Matching only `vector` and `semantic`
-    // left the arm those labs are built on unrequired, so a meaning-match arm
+    // left the arm those labs are built on unrequired, so a semantic search arm
     // that contributed nothing to their pool read as having nothing to say.
     expect(REQUIRES_HNSW).toContain("hnsw");
     const readings = readChannels(
@@ -262,7 +262,7 @@ render(<RetrievalChannelMap readings={readings} />);
 
   it("requires no semantic search method in Lab 1's own scenario", () => {
     // The positive witness for the constant above. `typo-recovery` declares
-    // pg_trgm and no semantic technique at all, so a meaning-match arm that
+    // pg_trgm and no semantic technique at all, so a semantic search arm that
     // contributed nothing to *this* lab's pool is an arm with nothing to say.
     // The hand-written list this replaced added `vector`, which made every case
     // in this file assert against a scenario the manifest does not contain.

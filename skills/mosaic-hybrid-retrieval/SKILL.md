@@ -55,7 +55,7 @@ event, connect an independently deployed compatible service.
    unknown. Report both explicitly.
 2. **Retrieve.** Call `search_products` with the intent, supported filters,
    `rerank=true` and `include_diagnostics=true`. PostgreSQL full-text search over
-   `tsvector` matches words, `pg_trgm` recovers close spellings, and `pgvector`
+   `tsvector` matches words, `pg_trgm` recovers misspellings, and `pgvector`
    finds semantic neighbors. Check `applied_filters`, per-arm signals and warnings.
    SQL must apply eligibility inside every arm before its limit.
 3. **Inspect fusion and reranking.** Keep `search_event_id` and call

@@ -397,12 +397,12 @@ def _trigram_cte(tokens: list[str], schema: str) -> str | None:
 #: spelling under the live schema, so a participant may copy either one.
 SEARCH_SCHEMAS = frozenset({"mosaic_search", "mosaic_live_search"})
 
-#: What each column of the close-spelling branch carries, as a mismatch names it.
+#: What each column of the fuzzy matching branch carries, as a mismatch names it.
 _LAB1_COLUMN_ROLES = (
     "product_id",
-    "the channel name 'trigram', which the rest of the search uses for close spelling",
-    "the close-spelling position, trigram_rank",
-    "the close-spelling score, trigram_score",
+    "the channel name 'trigram', which the rest of the search uses for fuzzy matching",
+    "the fuzzy matching position, trigram_rank",
+    "the fuzzy matching score, trigram_score",
     (
         "the RRF contribution of that position, computed the way the other "
         "branches compute theirs"
@@ -482,7 +482,7 @@ def _lab1_column_problem(
 
 
 def lab1_contract_problem(source: str, *, schema: str = "mosaic_search") -> str | None:
-    """Say how the close-spelling branch breaks its data flow, or None when it holds.
+    """Say how the fuzzy matching branch breaks its data flow, or None when it holds.
 
     The shipped CTE must forward the four production parameters and expose the
     three result columns; the participant's UNION ALL branch must read it and
@@ -504,7 +504,7 @@ def lab1_contract_problem(source: str, *, schema: str = "mosaic_search") -> str 
     name = _trigram_cte(_sql_tokens(source), schema)
     if name is None:
         return (
-            "the close-spelling step above the marked block has changed; undo edits "
+            "the fuzzy matching step above the marked block has changed; undo edits "
             "outside the marked block (git diff shows them)"
         )
     channel = _sql_tokens(source.split(start, 1)[1].split(end, 1)[0])

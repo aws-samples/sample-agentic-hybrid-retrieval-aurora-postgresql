@@ -5,7 +5,7 @@ import type { ProductSummary, ScorecardStageAblation, ScorecardStageArmKey, Sear
 /** The measured arms in the words the method rows use. */
 const armTitle: Record<ScorecardStageArmKey, string> = {
   lexical_only: "Keyword alone",
-  trigram_only: "Close spelling alone",
+  trigram_only: "Fuzzy matching alone",
   semantic_only: "Meaning alone",
   rrf_fused_no_rerank: "All three combined",
   rrf_fused_reranked: "Combined, then reranked",
@@ -115,7 +115,7 @@ export function MethodComparison({ response, ablation }: { response?: SearchResp
     <h3 id="pg-methods-title">Why use more than one search method?</h3>
     {returned.length ? <p>In this run, {oneArmOnly} of the {returned.length} products returned were found by only one search method. Those products depend on the method that found them.</p> : null}
     <details className="pg-disclosure"><summary>Compare search methods</summary><div>
-      <p>Compare word search, meaning search, the combined list, then reranking. Keep the request, filters and settings fixed. Check which suitable products were found, where they appear, and the extra time and model usage.</p>
+      <p>Compare full-text search, fuzzy matching, semantic search, the combined list, then reranking. Keep the request, filters and settings fixed. Check which suitable products were found, where they appear, and the extra time and model usage.</p>
       <p>Include requests that already work well. A hybrid search is not automatically better; keep unchanged results and regressions in the comparison.</p>
       {ablation?.attributed ? <>
         <table className="pg-arm-table" aria-label="Scores for each search method">

@@ -53,9 +53,9 @@ function RankTable({ rows }: { rows: RankRow[] }) {
           <tr>
             <th scope="col">Final</th>
             <th scope="col">Product</th>
-            <th scope="col"><i className="is-fts" aria-hidden="true" /><abbr title="Exact terms">Exact</abbr></th>
-            <th scope="col"><i className="is-trigram" aria-hidden="true" /><abbr title="Close spelling">Spell</abbr></th>
-            <th scope="col"><i className="is-semantic" aria-hidden="true" /><abbr title="Meaning match">Mean</abbr></th>
+            <th scope="col"><i className="is-fts" aria-hidden="true" /><abbr title="Full-text search">Full-text</abbr></th>
+            <th scope="col"><i className="is-trigram" aria-hidden="true" /><abbr title="Fuzzy matching">Fuzzy</abbr></th>
+            <th scope="col"><i className="is-semantic" aria-hidden="true" /><abbr title="Semantic search">Semantic</abbr></th>
             <th scope="col"><abbr title="Position before reranking">Comb.</abbr></th>
             <th scope="col">Rerank</th>
           </tr>

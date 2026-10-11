@@ -472,20 +472,20 @@ function StageArmList({
     { title: string; purpose: string }
   > = {
     lexical_only: {
-      title: "Exact terms only",
-      purpose: "What full-text search finds on its own, with no close spelling, meaning match, combining, or reranking.",
+      title: "Full-text search only",
+      purpose: "What full-text search finds on its own, with no fuzzy matching, semantic search, combining, or reranking.",
     },
     trigram_only: {
-      title: "Close spelling only",
-      purpose: "What trigram matching finds on its own, with no exact terms, meaning match, combining, or reranking.",
+      title: "Fuzzy matching only",
+      purpose: "What trigram matching finds on its own, with no full-text search, semantic search, combining, or reranking.",
     },
     semantic_only: {
-      title: "Meaning match only",
-      purpose: "What meaning match finds on its own, with no exact terms, close spelling, combining, or reranking.",
+      title: "Semantic search only",
+      purpose: "What semantic search finds on its own, with no full-text search, fuzzy matching, combining, or reranking.",
     },
     rrf_fused_no_rerank: {
       title: "All three search methods combined",
-      purpose: "The order produced once exact terms, close spelling, and meaning match are combined.",
+      purpose: "The order produced once full-text search, fuzzy matching, and semantic search are combined.",
     },
     rrf_fused_reranked: {
       title: "Combined, then reranked",
@@ -547,9 +547,9 @@ function StageAblationPerQueryList({
   arms: ScorecardStageArm[];
 }) {
   const armTitles: Record<ScorecardStageArm["key"], string> = {
-    lexical_only: "Exact terms only",
-    trigram_only: "Close spelling only",
-    semantic_only: "Meaning match only",
+    lexical_only: "Full-text search only",
+    trigram_only: "Fuzzy matching only",
+    semantic_only: "Semantic search only",
     rrf_fused_no_rerank: "All three search methods combined",
     rrf_fused_reranked: "Combined, then reranked",
   };

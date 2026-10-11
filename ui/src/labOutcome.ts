@@ -77,7 +77,7 @@ function rrfIsCorrect(product: ProductSummary, rrfK: number) {
  * Whether the run that produced this response asked the scenario's own question.
  *
  * A scenario's assertions are about a request, not just a string: `typo-recovery`
- * expects the close-spelling arm to recover one product inside its category.
+ * expects the fuzzy matching arm to recover one product inside its category.
  * A run that carried the same words under different
  * gates retrieved a different pool, and grading it against the scenario would
  * report a repair that was never exercised, or a defect that was never present.
@@ -206,18 +206,18 @@ function retrieveFaultCopy(
   if (facts.trigramPool === 0) {
     return {
       title: `The ${target} is missing`,
-      detail: `Alex typed ${mission.query}. Close spelling is the only method that can match a mistyped ID, and it returned no candidates, so the ${target} never reached the results. Reranking cannot bring back a product that was never retrieved.`,
+      detail: `Alex typed ${mission.query}. Fuzzy matching is the only method that can match a mistyped ID, and it returned no candidates, so the ${target} never reached the results. Reranking cannot bring back a product that was never retrieved.`,
     };
   }
   if (!facts.targetsPresent) {
     return {
       title: `The ${target} is missing`,
-      detail: `Close spelling returned candidates, but the ${target} is not among the results.`,
+      detail: `Fuzzy matching returned candidates, but the ${target} is not among the results.`,
     };
   }
   return {
     title: "The repair has not landed yet",
-    detail: `The ${target} came back without a close-spelling rank, so this run does not show that close spelling found it.`,
+    detail: `The ${target} came back without a fuzzy matching rank, so this run does not show that fuzzy matching found it.`,
   };
 }
 
@@ -239,7 +239,7 @@ function participantCopy(
           ...(facts
             ? retrieveFaultCopy(mission, facts)
             : {
-                title: "Close-spelling search is still disconnected",
+                title: "Fuzzy matching is still disconnected",
                 detail: "The request completed, but the target has no trigram contribution in the fused pool.",
               }),
           next: labRepairStep(mission, "run this request again"),

@@ -93,7 +93,7 @@ describe("BuilderView ranks", () => {
     expect(rows[1].textContent).toContain("0.800");
     // The split bar lives under the name, so there is no column of its own to scroll to.
     const headers = within(ranked).getAllByRole("columnheader").map((header) => header.textContent);
-    expect(headers).toEqual(["Final", "Product", "Exact", "Spell", "Mean", "Comb.", "Rerank"]);
+    expect(headers).toEqual(["Final", "Product", "Full-text", "Fuzzy", "Semantic", "Comb.", "Rerank"]);
     expect(rows[1].querySelector(".ask-rank-name .ask-rrf-bar")).not.toBeNull();
   });
 

@@ -161,7 +161,7 @@ reset-lab-1:
 validate-lab-1:
 	@$(PYTHON) scripts/lab_state.py validate --lab 1 --database-url "$$DATABASE_URL"
 	@$(PYTHON) scripts/validate_lab.py --lab 1 --api-url "$(LAB_API_URL)"
-	@echo "Your hybrid search now handles close spelling and keeps the requested filters."
+	@echo "Your hybrid search now handles fuzzy matching and keeps the requested filters."
 
 solution-lab-1:
 	@$(PYTHON) scripts/lab_state.py solution --lab 1

@@ -100,7 +100,7 @@ describe("rowsFromReceipt", () => {
 describe("receipt wording", () => {
   it("states the search, its time and the pool each method fed", () => {
     expect(receiptCaption("cc3a32d8-aaaa", receipt([]))).toBe(
-      "Search cc3a32d8 · 3.5 s in the service · combined 50 from exact terms 1, close spelling 36, meaning 38",
+      "Search cc3a32d8 · 3.5 s in the service · combined 50 from full-text search 1, fuzzy matching 36, meaning 38",
     );
   });
 

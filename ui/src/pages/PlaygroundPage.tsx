@@ -102,7 +102,7 @@ function RetrieveDetails({ response, receipts, selectedId, onSelect }: {
         {receipt.response ? <p className="inspector-note">{receipt.response.applied_filters.category_key ? String(receipt.response.applied_filters.category_key).replaceAll("-", " ") : "Across the catalog"}{typeof receipt.response.applied_filters.max_price_cents === "number" ? ` · Up to ${formatPriceCompact(receipt.response.applied_filters.max_price_cents)}` : ""}</p> : null}
       </li>)}</ol>
     </div> : null}
-    <p className="inspector-note">Word search uses PostgreSQL’s built-in cover-density ranking, not BM25. Spelling and meaning search cover different ways a request can differ from the product text.</p>
+    <p className="inspector-note">Full-text search uses PostgreSQL’s built-in cover-density ranking, not BM25. Fuzzy matching and semantic search cover different ways a request can differ from the product text.</p>
     {response ? <InspectorDetail title="Request, filters & retrieval settings">
       <p>PostgreSQL checks the search filters with <code>mosaic_search.matches_filters</code>.</p>
       <CodeBlock label="Search record" code={JSON.stringify({ query: response.query, applied_filters: response.applied_filters, embedding_model_id: diagnostics?.embedding_model_id, retrieval_profile: diagnostics?.retrieval_profile, candidate_counts: diagnostics?.candidate_counts }, null, 2)} />

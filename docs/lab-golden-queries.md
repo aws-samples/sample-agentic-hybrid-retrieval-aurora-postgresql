@@ -6,13 +6,13 @@
 
 | Stage | Visible before | Repair | Visible after |
 |---|---|---|---|
-| Retrieve / `G-003` | A transposed Logitech listing ID returns other headphones; the intended listing is absent from the combined pool | Reconnect the existing close-spelling search | The intended Logitech listing returns with its close-spelling contribution; two other Zone 900 listings stay out of the results |
+| Retrieve / `G-003` | A transposed Logitech listing ID returns other headphones; the intended listing is absent from the combined pool | Reconnect the existing fuzzy matching | The intended Logitech listing returns with its fuzzy matching contribution; two other Zone 900 listings stay out of the results |
 | Rank / G-008 | A 27-inch 4K/90W request omits the suitable ViewSonic VG2756-4K; a 1440p Lenovo ThinkVision T27hv-20 title visibly says 1440p | Use actual source positions in RRF | The ViewSonic enters the combined list, then reaches final position 5 after model reranking |
 | Reason / G-021 | The starter cannot assemble the agent | Build the supplied Strands agent and deploy it to Runtime | Separate headphone, monitor and chair searches support a complete-room comparison with citations |
 
 ## Independent controls
 
-- **G-001 · Preserve the exact listing:** The correctly spelled ASIN retrieves the intended Logitech listing with an Exact terms contribution.
+- **G-001 · Preserve the exact listing:** The correctly spelled ASIN retrieves the intended Logitech listing with an Full-text search contribution.
 - **G-012 · Keep the brand requirement:** The model-name search retains the Logitech target. Every saved candidate and displayed result stays within the Logitech headphones filter; a related product from another brand is ineligible.
 - **G-007 · Compare display specifications:** Retrieve both named Dell monitors. Their records distinguish 3840 x 2160 from 1920 x 1080. Do not infer equivalent USB-C charging, current price or stock.
 - **G-009 · Keep brand filters ahead of scoring:** The same monitor need, restricted to Dell, excludes HP and Lenovo before reranking. Inspect both saved candidates and served results.

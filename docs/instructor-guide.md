@@ -122,7 +122,7 @@ strings. HNSW expands semantic intent. SQL predicates and JSONB filters decide
 eligibility inside every candidate arm.
 
 The request transposes two adjacent characters in a real listing ID. The
-bounded meaning search returns plausible headphones without that listing.
+bounded semantic search returns plausible headphones without that listing.
 Restoring `pg_trgm` admits Logitech Zone 900. Two other Zone 900 listings share the model
 name but not the listing identity, so they are wrong too. Show both identifiers and
 ask why other listings are wrong for an identity request; do not imply

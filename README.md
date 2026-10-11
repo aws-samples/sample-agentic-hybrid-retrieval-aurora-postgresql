@@ -106,8 +106,8 @@ the lab's proof. Optional Memory and HNSW exercises follow completion.
 
 ## How the search works
 
-Mosaic combines three ways to find products: PostgreSQL full-text search for
-words, `pg_trgm` for close spellings, and pgvector HNSW for meaning.
+Mosaic combines three ways to find products: PostgreSQL full-text search,
+`pg_trgm` fuzzy matching for misspellings, and pgvector semantic search (HNSW).
 Reciprocal-rank fusion (RRF) combines their ranked lists, then Cohere Rerank
 reorders the shortlist for the request. The default RRF gives each channel the
 same rank-based contribution. The Rank guide offers an optional weighted-RRF
@@ -123,7 +123,7 @@ Aurora and repeats live searches.
 ```mermaid
 flowchart LR
     FTS[Full-text search] --> RRF[Combine ranked lists]
-    TRGM[Close spelling] --> RRF
+    TRGM[Fuzzy matching] --> RRF
     VECTOR[Vector search] --> RRF
     RRF --> RERANK[Rerank the shortlist]
     RERANK --> AGENT[Agent reads product sources]

@@ -89,7 +89,7 @@ export function widestTotal(rows: RankRow[]): number {
   return Math.max(0, ...rows.map((row) => row.parts.fts + row.parts.trigram + row.parts.semantic));
 }
 
-/** "Search cc3a32d8 · 3.5 s in the service · combined 50 from exact terms 1, close spelling 36, meaning 38". */
+/** "Search cc3a32d8 · 3.5 s in the service · combined 50 from full-text search 1, fuzzy matching 36, meaning 38". */
 export function receiptCaption(runId: string, receipt: RetrievalRunResponse): string {
   const { run } = receipt;
   const counts = run.candidate_counts ?? {};
@@ -98,7 +98,7 @@ export function receiptCaption(runId: string, receipt: RetrievalRunResponse): st
     `Search ${runId.slice(0, 8)}`,
     run.total_latency_ms != null ? `${formatDuration(run.total_latency_ms)} in the service` : null,
     pool != null
-      ? `combined ${pool} from exact terms ${counts.fts_in_pool ?? 0}, close spelling ${counts.trigram_in_pool ?? 0}, meaning ${counts.semantic_in_pool ?? 0}`
+      ? `combined ${pool} from full-text search ${counts.fts_in_pool ?? 0}, fuzzy matching ${counts.trigram_in_pool ?? 0}, meaning ${counts.semantic_in_pool ?? 0}`
       : null,
   ].filter(Boolean).join(" · ");
 }

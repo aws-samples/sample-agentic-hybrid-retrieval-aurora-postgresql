@@ -493,7 +493,7 @@ describe("lab outcome diagnostics", () => {
   });
 
   it("leaves an index this lab does not use out of its verdict", () => {
-    // Lab 1 requires the close-spelling arm. A full-text index this scenario
+    // Lab 1 requires the fuzzy matching arm. A full-text index this scenario
     // never asks for is not what stops its repair from being observable, and
     // reporting it as one sends the participant to the wrong place.
     const mission = coreMosaicLabs.find((item) => item.stage === "retrieve")!;
@@ -537,7 +537,7 @@ describe("Lab 1's broken verdict names its cause", () => {
     return run;
   };
 
-  it("says the target never reached the results when close spelling returned nothing", () => {
+  it("says the target never reached the results when fuzzy matching returned nothing", () => {
     const outcome = retrievalLabOutcome(mission, withPool(other(2), 0));
     expect(outcome.title).toBe(`The ${mission.target_display_name} is missing`);
     expect(outcome.detail).toContain(`Alex typed ${mission.query}`);
@@ -547,13 +547,13 @@ describe("Lab 1's broken verdict names its cause", () => {
     );
   });
 
-  it("says close spelling ran but missed the target", () => {
+  it("says fuzzy matching ran but missed the target", () => {
     const outcome = retrievalLabOutcome(mission, withPool(other(2), 3));
     expect(outcome.title).toBe(`The ${mission.target_display_name} is missing`);
-    expect(outcome.detail).toBe(`Close spelling returned candidates, but the ${mission.target_display_name} is not among the results.`);
+    expect(outcome.detail).toBe(`Fuzzy matching returned candidates, but the ${mission.target_display_name} is not among the results.`);
   });
 
-  it("says the repair has not landed when the target arrives without a close-spelling rank", () => {
+  it("says the repair has not landed when the target arrives without a fuzzy matching rank", () => {
     const outcome = retrievalLabOutcome(mission, withPool(other(mission.target_product_ids[0]), 3));
     expect(outcome.title).toBe("The repair has not landed yet");
   });

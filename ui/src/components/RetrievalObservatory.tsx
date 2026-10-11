@@ -224,7 +224,7 @@ export function RetrievalObservatory({
           the supporting records.
         </p>
         <p>
-          Exact terms uses PostgreSQL full-text search with <code>ts_rank_cd</code>.
+          Full-text search ranks matches with PostgreSQL's <code>ts_rank_cd</code>.
           It normalizes words; it is not a literal string match or BM25.
           RRF combines positions because the three search scores use different scales.
         </p>

@@ -546,11 +546,11 @@ describe("RetrievalScorecard stage ablation", () => {
       ),
     ).toBeTruthy();
 
-    expect(screen.getByText("Meaning match only")).toBeTruthy();
+    expect(screen.getByText("Semantic search only")).toBeTruthy();
     expect(screen.getByText("All three search methods combined")).toBeTruthy();
     expect(screen.getByText("Combined, then reranked")).toBeTruthy();
-    expect(screen.getByText("What meaning match finds on its own, with no exact terms, close spelling, combining, or reranking.")).toBeTruthy();
-    expect(screen.getByText("The order produced once exact terms, close spelling, and meaning match are combined.")).toBeTruthy();
+    expect(screen.getByText("What semantic search finds on its own, with no full-text search, fuzzy matching, combining, or reranking.")).toBeTruthy();
+    expect(screen.getByText("The order produced once full-text search, fuzzy matching, and semantic search are combined.")).toBeTruthy();
     expect(
       screen.getByText("The order shoppers actually see: the reranker reorders the same combined candidate pool."),
     ).toBeTruthy();
@@ -608,7 +608,7 @@ describe("RetrievalScorecard stage ablation", () => {
     // Exactly one pending headline on the page -- section A is attributed,
     // only section E's is not.
     expect(screen.getAllByText(SCORECARD_PENDING_HEADLINE)).toHaveLength(1);
-    expect(screen.queryByText("Meaning match only")).toBeNull();
+    expect(screen.queryByText("Semantic search only")).toBeNull();
     expect(screen.queryByText("0.9500")).toBeNull();
     expect(screen.getByTestId("stage-ablation-pending")).toBeTruthy();
   });
@@ -623,7 +623,7 @@ describe("RetrievalScorecard stage ablation", () => {
 
     await screen.findByText(SCORECARD_PENDING_HEADLINE);
 
-    expect(screen.getByText("Meaning match only")).toBeTruthy();
+    expect(screen.getByText("Semantic search only")).toBeTruthy();
     expect(screen.getByText("0.9500")).toBeTruthy();
     expect(screen.queryByTestId("stage-ablation-pending")).toBeNull();
   });
@@ -647,7 +647,7 @@ describe("RetrievalScorecard stage ablation", () => {
     // rank 1 (1.0000) -- both values must be legible in the same row.
     expect(
       within(g1Row as HTMLElement).getByText(
-        /Meaning match only: 0\.0000 ordering score/,
+        /Semantic search only: 0\.0000 ordering score/,
       ),
     ).toBeTruthy();
     expect(

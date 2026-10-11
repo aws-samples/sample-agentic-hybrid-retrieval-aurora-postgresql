@@ -39,9 +39,9 @@ describe("ProductReceiptBody", () => {
 
     const lines = [...container.querySelectorAll("ol > li")].map((line) => line.textContent);
     expect(lines).toEqual([
-      "Exact terms#30.0159position 3 · 1 ÷ (60 + 3)",
-      "Close spellingno matchno match for this request",
-      "Meaning match#10.0164position 1 · 1 ÷ (60 + 1)",
+      "Full-text search#30.0159position 3 · 1 ÷ (60 + 3)",
+      "Fuzzy matchingno matchno match for this request",
+      "Semantic search#10.0164position 1 · 1 ÷ (60 + 1)",
       "Before reranking#20.0323position 2 of the 50 sent to reranking",
       "Reranked0.912Cohere Rerank relevance score",
       "Final position#1",
@@ -51,7 +51,7 @@ describe("ProductReceiptBody", () => {
   it("states a method that missed without inventing a position for it", () => {
     render(<ProductReceiptBody product={product(signals)} diagnostics={seedRun.diagnostics} />);
 
-    const missed = screen.getByText("Close spelling").closest("li")!;
+    const missed = screen.getByText("Fuzzy matching").closest("li")!;
     expect(missed.className).toContain("missed");
     expect(within(missed).queryByText(/#/)).toBeNull();
     expect(within(missed).getByText("no match for this request")).toBeTruthy();
@@ -73,7 +73,7 @@ describe("ProductReceiptBody", () => {
     const { container } = render(<ProductReceiptBody product={product(signals)} diagnostics={null} />);
 
     // The rank and its fusion contribution still print from the signals alone.
-    expect(container.textContent).toContain("Exact terms#30.0159");
+    expect(container.textContent).toContain("Full-text search#30.0159");
     expect(container.textContent).toContain("Before reranking#20.0323");
     // Nothing here names a k or a pool size Mosaic did not receive.
     expect(container.textContent).not.toContain("÷");

@@ -8,7 +8,7 @@ import type { ProductDetail } from "../types";
 
 /**
  * The mistyped ID beside the listing's own, with the characters that differ
- * marked. Lab 1's fault is exactly this gap: close spelling is the only method
+ * marked. Lab 1's fault is exactly this gap: fuzzy matching is the only method
  * that can bridge it, so showing it says why the product went missing.
  */
 function IdComparison({ typed, listing }: { typed: string; listing: string }) {
@@ -97,7 +97,7 @@ export const LabFaultCard = forwardRef<HTMLElement, {
         <span className="shop-lab-status">{fixed ? "Verified in this search" : `Lab ${labNumber} / Observe`}</span>
         <h2>{heading}</h2>
         {fixed ? <p className="shop-fault-verdict">
-          {finalRank ? `Found by close spelling and back at #${finalRank}.` : "Found by close spelling again."}
+          {finalRank ? `Found by fuzzy matching and back at #${finalRank}.` : "Found by fuzzy matching again."}
         </p> : null}
         <p className="shop-fault-detail">
           {fixed ? detail : "Inspect the search details and predict why. Keep the same request and filters as you investigate."}

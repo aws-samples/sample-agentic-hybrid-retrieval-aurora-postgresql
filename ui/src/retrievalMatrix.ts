@@ -253,7 +253,7 @@ function reasonsFor(
         ? `Repaired spelling: ${
           pairs.map((pair) => `${pair.queryWord} to ${pair.productWord}`).join(", ")
         }`
-        : "Close spelling somewhere in the record",
+        : "Fuzzy matching somewhere in the record",
     });
   }
   if (signals.semantic.rank !== null && signals.fts.rank === null && signals.trigram.rank === null) {
@@ -274,20 +274,20 @@ function verdictFor(product: ProductSummary, query: string): string {
   const signals = product.signals;
   if (!signals) return "This row came back without retrieval signals.";
   const arms: string[] = [];
-  if (signals.fts.rank !== null) arms.push("exact words");
-  if (signals.trigram.rank !== null) arms.push("close spelling");
-  if (signals.semantic.rank !== null) arms.push("meaning");
+  if (signals.fts.rank !== null) arms.push("full-text search");
+  if (signals.trigram.rank !== null) arms.push("fuzzy matching");
+  if (signals.semantic.rank !== null) arms.push("semantic search");
   if (arms.length === 0) {
     return "No candidate search method reported this row, so it needs investigation.";
   }
   if (arms.length === 1 && signals.semantic.rank !== null) {
     const shared = sharedWords(query, product);
     return shared.length
-      ? "Only meaning match found it: word and spelling matches ranked too low to reach the result list."
-      : "Only meaning match found it: it shares no word with the query.";
+      ? "Only semantic search found it: full-text and fuzzy matches ranked too low to reach the result list."
+      : "Only semantic search found it: it shares no word with the query.";
   }
   if (arms.length === 1) {
-    return `Only the ${arms[0]} search method found it.`;
+    return `Only ${arms[0]} found it.`;
   }
   return `Found by ${arms.slice(0, -1).join(", ")} and ${arms[arms.length - 1]}.`;
 }
@@ -322,7 +322,7 @@ function plural(count: number, noun: string): string {
 }
 
 /**
- * The vector width suffix on the meaning-match column, in three states.
+ * The vector width suffix on the semantic search column, in three states.
  *
  * A response with no diagnostics says nothing about the mechanism, so the
  * suffix is empty. A response served from its receipt has diagnostics but no

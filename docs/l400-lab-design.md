@@ -8,7 +8,7 @@ and saved vectors; they do not generate product data or rebuild embeddings.
 
 | Lab | Build | Use it to |
 |---|---|---|
-| 1 · Retrieve | Restore the close-spelling SQL path (a vector recall query is optional) | Recover Alex's saved Logitech listing and compare exact and approximate neighbors |
+| 1 · Retrieve | Restore the fuzzy matching SQL path (a vector recall query is optional) | Recover Alex's saved Logitech listing and compare exact and approximate neighbors |
 | 2 · Rank | Implement reciprocal-rank fusion in SQL and evaluate one setting change | Keep the ViewSonic monitor in the shortlist sent to reranking |
 | 3 · Build an agent | Assemble a Strands agent, connect its Gateway tools and deploy to Runtime | Compare headphones, monitor and chair, cite each product’s sources and respond to a changed requirement |
 
@@ -45,7 +45,7 @@ still complete the build's instruction, deployment and product conversation.
 
 ## Evidence and acceptance
 
-Lab 1 checks the close-spelling contribution and filters. Its optional vector
+Lab 1 checks the fuzzy matching contribution and filters. Its optional vector
 recall exercise computes exact neighbors independently. Lab 2 compares participant RRF with an independent
 calculation at five values of `k`; the proposed setting is evaluated on judged
 queries. These developer checks remain part of the SQL labs.

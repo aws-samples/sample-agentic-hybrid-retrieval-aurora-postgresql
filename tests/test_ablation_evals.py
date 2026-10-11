@@ -571,12 +571,12 @@ def ablation_environment(tmp_path, monkeypatch):
             _Q2_MARKER: [{"product_id": 201}],
         },
         fts_rows={
-            # G-Q1: exact terms find the relevant product first; G-Q2: nothing.
+            # G-Q1: full-text search find the relevant product first; G-Q2: nothing.
             _Q1_MARKER: [{"product_id": 101, "fts_rank": 1}],
             _Q2_MARKER: [],
         },
         trigram_rows={
-            # Close spelling finds nothing relevant on either query.
+            # Fuzzy matching finds nothing relevant on either query.
             _Q1_MARKER: [{"product_id": 777, "trigram_rank": 1}],
             _Q2_MARKER: [],
         },
@@ -620,8 +620,8 @@ def test_measured_ablation_assembles_all_five_arms_and_the_ceiling(
         ARM_RRF_FUSED,
         ARM_RRF_RERANKED,
     ]
-    # Hand-verifiable: exact terms find G-Q1's product at rank 1 and nothing
-    # for G-Q2 -> recall 0.5, nDCG 0.5; close spelling finds nothing relevant.
+    # Hand-verifiable: full-text search find G-Q1's product at rank 1 and nothing
+    # for G-Q2 -> recall 0.5, nDCG 0.5; fuzzy matching finds nothing relevant.
     assert result["arms"][ARM_LEXICAL_ONLY]["recall@10"] == pytest.approx(0.5)
     assert result["arms"][ARM_LEXICAL_ONLY]["ndcg@10"] == pytest.approx(0.5)
     assert result["arms"][ARM_TRIGRAM_ONLY]["recall@10"] == pytest.approx(0.0)

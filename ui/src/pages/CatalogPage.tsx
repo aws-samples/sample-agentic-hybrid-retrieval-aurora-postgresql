@@ -249,9 +249,9 @@ function retrievalLabCallout(
  */
 const retrievalScope = [
   "Understanding your words",
-  "Exact terms",
-  "Close spelling",
-  "Meaning match",
+  "Full-text search",
+  "Fuzzy matching",
+  "Semantic search",
   "Applying your filters",
   "Combining the results",
   "Reranking the shortlist",

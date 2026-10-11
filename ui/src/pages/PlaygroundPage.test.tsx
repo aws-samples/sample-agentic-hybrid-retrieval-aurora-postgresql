@@ -397,7 +397,7 @@ const measuredAblation = {
   attributed: true, attribution_note: "", measured_at: "2026-09-10T00:00:00+00:00", spread_note: "", scored_query_count: 20,
   arms: [measuredArm("lexical_only", 0.61, 0.6, 0.65), measuredArm("trigram_only", 0.31, 0.3, 0.35), measuredArm("semantic_only", 0.66, 0.7, 0.71), measuredArm("rrf_fused_no_rerank", 0.83, 0.88, 0.87), measuredArm("rrf_fused_reranked", 0.87, 0.87, 0.93)],
   paired_comparisons: [
-    { from_key: "semantic_only", to_key: "rrf_fused_no_rerank", label: "Combining, against meaning match alone", mean_difference: 0.17, difference_stdev: 0.4, wins: 8, losses: 2, ties: 10, separable: false, verdict: "fixture" },
+    { from_key: "semantic_only", to_key: "rrf_fused_no_rerank", label: "Combining, against semantic search alone", mean_difference: 0.17, difference_stdev: 0.4, wins: 8, losses: 2, ties: 10, separable: false, verdict: "fixture" },
     { from_key: "rrf_fused_no_rerank", to_key: "rrf_fused_reranked", label: "Reranking the combined list", mean_difference: 0.04, difference_stdev: 0.1, wins: 4, losses: 3, ties: 13, separable: false, verdict: "fixture" },
   ],
   candidate_recall_ceiling: { pool_recall_ceiling: 0.95, judged_relevant_never_fetched: 2, description: "fixture" },
@@ -418,7 +418,7 @@ it("prints what each arm alone scores from the measured artifact and counts this
   expect(screen.queryByRole("table", { name: "Scores for each search method" })).toBeNull();
   fireEvent.click(screen.getByText("Compare search methods"));
   const table = await screen.findByRole("table", { name: "Scores for each search method" });
-  expect(within(table).getAllByRole("rowheader").map((cell) => cell.textContent)).toEqual(["Keyword alone", "Close spelling alone", "Meaning alone", "All three combined", "Combined, then reranked"]);
+  expect(within(table).getAllByRole("rowheader").map((cell) => cell.textContent)).toEqual(["Keyword alone", "Fuzzy matching alone", "Meaning alone", "All three combined", "Combined, then reranked"]);
   expect(within(table).getByRole("row", { name: /Keyword alone/ }).textContent).toContain("0.61");
   expect(within(table).getByRole("row", { name: /Combined, then reranked/ }).textContent).toContain("0.93");
   expect(screen.getByText("Combining changes the ordering score (nDCG@10) by +0.17 compared with Meaning alone (inside the spread of these searches); reranking moves it +0.04 (inside the spread of these searches).")).toBeTruthy();
@@ -436,7 +436,7 @@ it("says the measured comparison is waiting when the artifact is not attributed 
 
 // The search's first result is not the agent's recommendation. On a declined
 // run the plate used to read "Final #1" with nothing saying the agent chose
-// nothing, and a replayed search showed no Exact terms at all.
+// nothing, and a replayed search showed no Full-text search at all.
 it("says when the agent declined the search's first result, and reads the search's own words", async () => {
   const product = { ...fixtureCatalogPage({}, 0, 1).products[0], signals: undefined } as unknown as ProductSummary;
   const response = savedSearch(firstSearchId, [product]);

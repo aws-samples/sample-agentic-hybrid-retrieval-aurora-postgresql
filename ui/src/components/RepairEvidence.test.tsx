@@ -168,7 +168,7 @@ describe("RepairEvidence — measured Lab 1 pair", () => {
     });
     await pressCompare();
 
-    expect(cellsInRowFor("Close spelling")).toEqual(["0", "1", "not in pool", "#1"]);
+    expect(cellsInRowFor("Fuzzy matching")).toEqual(["0", "1", "not in pool", "#1"]);
 
     // Assert the framing text is present verbatim, not just the numbers, and
     // that no failure-shaped wording sits next to it.
@@ -213,7 +213,7 @@ describe("RepairEvidence — measured Lab 1 pair", () => {
     });
     await pressCompare();
 
-    expect(cellsInRowFor("Close spelling")).toEqual(["0", "1", "not in pool", "#1"]);
+    expect(cellsInRowFor("Fuzzy matching")).toEqual(["0", "1", "not in pool", "#1"]);
     expect(await screen.findByText(RANK_UNCHANGED_REASSURANCE)).toBeTruthy();
   });
 });
@@ -229,7 +229,7 @@ describe("RepairEvidence — pinned baseline", () => {
     );
 
     expect(await screen.findByText(RANK_UNCHANGED_REASSURANCE)).toBeTruthy();
-    expect(cellsInRowFor("Close spelling")).toEqual(["0", "1", "not in pool", "#1"]);
+    expect(cellsInRowFor("Fuzzy matching")).toEqual(["0", "1", "not in pool", "#1"]);
     expect(vi.mocked(api.retrievalEvent).mock.calls.map(([id]) => id).sort())
       .toEqual([BEFORE_ID, AFTER_ID].sort());
   });
@@ -259,7 +259,7 @@ describe("RepairEvidence — pinned baseline", () => {
 
     await waitFor(() => expect(screen.getByText("Repair evidence")).toBeTruthy());
     expect(vi.mocked(api.retrievalEvent)).not.toHaveBeenCalled();
-    expect(screen.queryByText("Close spelling")).toBeNull();
+    expect(screen.queryByText("Fuzzy matching")).toBeNull();
   });
 
   it("re-compares when the Playground re-pins the baseline", async () => {
@@ -399,7 +399,7 @@ describe("RepairEvidence — missing before and bad ids", () => {
 
     expect(await screen.findByText(NO_BEFORE_EVENT)).toBeTruthy();
     // Not an empty frame: the after run's own arm participation still renders.
-    expect(cellsInRowFor("Close spelling")).toEqual(["no earlier run", "1", "no earlier run", "#1"]);
+    expect(cellsInRowFor("Fuzzy matching")).toEqual(["no earlier run", "1", "no earlier run", "#1"]);
     // No fabricated baseline: no "0 ->" numeral appears for the before side.
     expect(screen.queryByText("0")).toBeNull();
   });
@@ -418,7 +418,7 @@ describe("RepairEvidence — missing before and bad ids", () => {
     // Still not an empty frame: the after-only evidence still renders alongside
     // the error.
     expect(screen.getByText("Repair evidence")).toBeTruthy();
-    expect(cellsInRowFor("Close spelling")[1]).toBe("1");
+    expect(cellsInRowFor("Fuzzy matching")[1]).toBe("1");
   });
 
   it("renders a clear error for a well-formed but unknown after id, not an empty frame", async () => {
@@ -431,7 +431,7 @@ describe("RepairEvidence — missing before and bad ids", () => {
       .toBeTruthy();
     // No dormant "not attempted yet" copy left over, and no evidence table.
     expect(screen.queryByText(/paste the before id you saved/i)).toBeNull();
-    expect(screen.queryByText("Close spelling")).toBeNull();
+    expect(screen.queryByText("Fuzzy matching")).toBeNull();
   });
 });
 

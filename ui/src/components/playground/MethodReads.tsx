@@ -12,7 +12,7 @@ function requestTrigrams(query: string): string[] {
 
 /**
  * One search's words as each method reads them: the lexemes full-text search
- * looks up, the trigrams close spelling compares, and the vector meaning
+ * looks up, the trigrams fuzzy matching compares, and the vector semantic search
  * match embeds. The agent may reword Alex's request, so this reads the
  * search's own query. A term no listing holds is struck through, from the
  * search's coverage record; a replayed record keeps none, and says so.
@@ -27,20 +27,20 @@ export function MethodReads({ response, label }: { response: SearchResponse; lab
       <p className="pg-reads-label">{label}</p>
       <ul className="pg-reads" aria-label={label}>
         <li data-arm="fts">
-          <i aria-hidden="true" />Exact terms
+          <i aria-hidden="true" />Full-text search
           {terms.length ? terms.map((term) => (term.verdict === "matched"
             ? <code key={term.ordinal}>{term.lexeme}</code>
             : <s key={term.ordinal} title={term.verdict === "recoverable" ? `No listing holds it; closest is ${term.closest_lexeme}` : "No listing holds it"}><code>{term.lexeme}</code></s>))
             : <span>words not in the saved record</span>}
         </li>
         <li data-arm="trigram">
-          <i aria-hidden="true" />Close spelling
+          <i aria-hidden="true" />Fuzzy matching
           {grams.slice(0, SHOWN_TRIGRAMS).map((gram) => <code key={gram}>{gram.replace(/ /g, "␣")}</code>)}
           {grams.length > SHOWN_TRIGRAMS ? <span>+{grams.length - SHOWN_TRIGRAMS}</span> : null}
           {counts?.trigram_in_pool === 0 ? <b>no candidates</b> : null}
         </li>
         <li data-arm="semantic">
-          <i aria-hidden="true" />Meaning match <code>vector</code>{embedding ? ` from ${embedding}` : null}
+          <i aria-hidden="true" />Semantic search <code>vector</code>{embedding ? ` from ${embedding}` : null}
         </li>
       </ul>
     </div>

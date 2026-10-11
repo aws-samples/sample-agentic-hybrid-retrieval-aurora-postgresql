@@ -15,7 +15,7 @@ for release work. This brief is for delivery, not a second runbook.
 | Time | Work | Evidence to inspect |
 |---|---|---|
 | 0–15 | Presenter introduction, then prepared tools | Alex's need, one saved search and the three search methods |
-| 15–25 | Lab 1: Retrieve - Debug hybrid search | The missing listing returns through close spelling; filters hold |
+| 15–25 | Lab 1: Retrieve - Debug hybrid search | The missing listing returns through fuzzy matching; filters hold |
 | 25–35 | Lab 2: Rank and re-rank - Tune rank fusion and reranking | Contributions vary with position; judged comparisons support a tuning decision |
 | 35–55 | Lab 3: Reason - Build and deploy the agent, including completion | Three focused searches, comparison, sources, changed requirement and original-run proof |
 | 55–60 | Wrap-up and Q&A | Questions; Session & Memory, retrieval-tool and HNSW exercises are untimed options |
@@ -73,7 +73,7 @@ Follow the guide's three typo searches. Run each production search separately
 in `psql`; find the method whose candidates never reach fusion. Participants
 repair only `LAB1_CHANNEL` in `labs/lab1_retrieve/hybrid_search.sql`.
 
-After applying SQL, inspect the intended listing's close-spelling rank and
+After applying SQL, inspect the intended listing's fuzzy matching rank and
 contribution. The correct-ID and brand/category controls must still pass.
 Another listing of the same model is not the requested identity. Reranking
 cannot recover a product it never receives. The vector recall query is optional.

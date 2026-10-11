@@ -139,8 +139,8 @@ Keep the required mission requests and timing in
 `data/evals/mosaic_labs_missions.json`. The guides and Playground use the same
 stage order and place deeper explanation in expandable sections. No additional
 mandatory defect is introduced. The optional comparison asks builders to hold
-query, filters, text and per-method limits fixed, then compare word search,
-meaning search, combined results and reranking. Retain unchanged winners and
+query, filters, text and per-method limits fixed, then compare full-text search,
+semantic search, combined results and reranking. Retain unchanged winners and
 regressions, and measure extra latency/model usage alongside relevance.
 
 Before replacing any required example, prove its source facts, an observable

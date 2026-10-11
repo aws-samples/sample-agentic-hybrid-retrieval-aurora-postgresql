@@ -28,7 +28,7 @@ uv run python scripts/lab_terminal.py run --lab 1 --phase after
 uv run python scripts/validate_lab.py --lab 1
 ```
 
-Inspect the recovered listing's close-spelling contribution and the independent
+Inspect the recovered listing's fuzzy matching contribution and the independent
 controls. Complete the guide's source/applied-state check and your explanation.
 
 

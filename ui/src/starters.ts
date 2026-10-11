@@ -49,7 +49,7 @@ export type StarterPath = (typeof starterPaths)[number] | "misspelled";
 /**
  * The one shopper-facing name for each path, pinned to `armLabel` so this file
  * cannot carry its own copy of a string `retrievalLanguage.ts` already owns.
- * Two independent copies of "Exact terms" is how a label and its arm drift
+ * Two independent copies of "Full-text search" is how a label and its arm drift
  * apart; there is deliberately no local string literal here to drift.
  */
 export const starterPathLabels: Record<StarterPath, string> = {
@@ -170,7 +170,7 @@ export function starterExamples(
 }
 
 /**
- * The close-spelling query the entry state offers, or null if the eval set has
+ * The fuzzy matching query the entry state offers, or null if the eval set has
  * none.
  *
  * Shortest of the lane, on the same rule the two run-on-click cards use, so

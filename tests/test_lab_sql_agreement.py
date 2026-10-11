@@ -55,7 +55,7 @@ WORKING_BRANCHES = {
     ),
     "live schema name": REFERENCE.replace("mosaic_search.", "mosaic_live_search."),
     "upper-case schema name": REFERENCE.replace("mosaic_search.", "MOSAIC_SEARCH."),
-    "comment inside": REFERENCE.replace("FROM typo", "FROM typo  -- close spelling"),
+    "comment inside": REFERENCE.replace("FROM typo", "FROM typo  -- fuzzy matching"),
 }
 BROKEN_BRANCHES = {
     "starter": (LAB1_CHANNEL_STARTER, "holds only comments"),
@@ -69,7 +69,7 @@ BROKEN_BRANCHES = {
     ),
     "score as position": (
         REFERENCE.replace("trigram_rank,\n", "trigram_score,\n", 1),
-        "column 3 is trigram_score; it must be the close-spelling position",
+        "column 3 is trigram_score; it must be the fuzzy matching position",
     ),
     "four columns": (
         REFERENCE.replace("           trigram_score,\n", ""),
@@ -162,7 +162,7 @@ def test_a_block_changed_after_apply_is_reported_as_not_in_aurora(lab_repo):
 
 def test_a_comment_added_after_apply_still_counts_as_applied(lab_repo):
     connection = _applied(_save(lab_repo, REFERENCE))
-    _save(lab_repo, "    -- reconnect close spelling\n" + REFERENCE)
+    _save(lab_repo, "    -- reconnect fuzzy matching\n" + REFERENCE)
 
     assert validate_database(1, connection, repo=lab_repo).state == "applied"
 

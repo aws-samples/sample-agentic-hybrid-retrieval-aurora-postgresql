@@ -55,10 +55,10 @@ they are not a like-for-like replacement for these figures.
 | Promise | Where participants encounter it | What they do |
 |---|---|---|
 | Aurora as search and context engine | All three labs | Inspect saved searches, agent activity and evidence in Aurora |
-| Full-text search | Retrieve | Compare the query's and the listing's lexemes to show why word search cannot match a transposed ID |
+| Full-text search | Retrieve | Compare the query's and the listing's lexemes to show why full-text search cannot match a transposed ID |
 | pgvector semantic similarity | Retrieve (optional); Scale & HNSW | Optionally write an index-proof recall query graded under the planner's plan and forced HNSW; optionally build and shrink a partial HNSW index |
 | SQL and metadata filters | Retrieve; Rank | The validator proves every saved candidate respects the Logitech/headphones and Dell/monitor filters before reranking |
-| Fuzzy matching | Retrieve | Read `word_similarity` against whole-string similarity, then add the close-spelling branch that fusion never reads |
+| Fuzzy matching | Retrieve | Read `word_similarity` against whole-string similarity, then add the fuzzy matching branch that fusion never reads |
 | Reciprocal rank fusion | Rank | Fix production's `1 / (k + source_rank)`, graded at five `k` values |
 | Model-based reranking | Rank | Compare combined and final positions; judge three measured settings on 141 judged queries within one billed rerank unit |
 | Source attribution | Reason | Build the agent, ask a product question and open its citations |

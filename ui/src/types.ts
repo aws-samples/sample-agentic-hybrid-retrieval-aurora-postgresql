@@ -228,7 +228,7 @@ export interface RetrievalDiagnostics {
  *
  * `verdict` separates a misspelling from an absence. Both match zero documents,
  * so the distinction is whether anything close exists: `hedfones` is
- * recoverable by the close-spelling arm, `A2342` is recoverable by nothing.
+ * recoverable by the fuzzy matching arm, `A2342` is recoverable by nothing.
  */
 export interface TermCoverage {
   ordinal: number;

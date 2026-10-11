@@ -23,7 +23,7 @@ A related product is wrong when the request identifies one specific listing. For
 | Staples Hyken (1248512) | chair | `B076NXZZPD` | `B076NXZPZD` | Absent | 1 |
 | Nouhaus Ergo3D (1389794) | chair | `B08QDNY2GK` | `B08QDNYG2K` | Absent | 1 |
 
-Two other Logitech Zone 900 listings (1542245 and 1431428) share the model name but not the listing ID; they are hard negatives for the Logitech request. Six targets were absent from the combined pool before repair and became final position 1 afterwards. The Steelcase request already worked through meaning search. Keep that unchanged result as a control: not every typo needs the spelling path.
+Two other Logitech Zone 900 listings (1542245 and 1431428) share the model name but not the listing ID; they are hard negatives for the Logitech request. Six targets were absent from the combined pool before repair and became final position 1 afterwards. The Steelcase request already worked through semantic search. Keep that unchanged result as a control: not every typo needs the spelling path.
 
 ## Compare requirements with product text
 

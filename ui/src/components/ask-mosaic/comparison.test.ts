@@ -106,7 +106,7 @@ describe("comparisonRows", () => {
 
 describe("retrievalPath", () => {
   it("names only the methods that found the pick, then its combined and final positions", () => {
-    expect(retrievalPath(dell27)).toEqual(["Meaning match #7", "Combined #10", "Reranked to #1"]);
+    expect(retrievalPath(dell27)).toEqual(["Semantic search #7", "Combined #10", "Reranked to #1"]);
   });
 });
 

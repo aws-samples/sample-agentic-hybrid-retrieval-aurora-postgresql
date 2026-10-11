@@ -546,9 +546,17 @@ _ARM_ORDER = (
 #: single arm it replaced, then reranking with the combined list it reorders,
 #: because that difference is the thing the step actually added.
 _ABLATION_STEPS = (
-    ("lexical_only", "rrf_fused_no_rerank", "Combining, against exact terms alone"),
-    ("trigram_only", "rrf_fused_no_rerank", "Combining, against close spelling alone"),
-    ("semantic_only", "rrf_fused_no_rerank", "Combining, against meaning match alone"),
+    (
+        "lexical_only",
+        "rrf_fused_no_rerank",
+        "Combining, against full-text search alone",
+    ),
+    ("trigram_only", "rrf_fused_no_rerank", "Combining, against fuzzy matching alone"),
+    (
+        "semantic_only",
+        "rrf_fused_no_rerank",
+        "Combining, against semantic search alone",
+    ),
     ("rrf_fused_no_rerank", "rrf_fused_reranked", "Reranking the combined list"),
 )
 
