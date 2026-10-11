@@ -34,6 +34,21 @@ function pendingStream(onEmit?: (event: (event: AgentStreamEvent) => void) => vo
   );
 }
 
+it("admits only one turn when submitted twice before the next render", async () => {
+  const stream = pendingStream();
+  const { result } = renderHook(() => useAskMosaicConversation({}));
+
+  act(() => {
+    void result.current.run("Headphones for clearer calls");
+    void result.current.run("Headphones for clearer calls");
+  });
+
+  expect(stream).toHaveBeenCalledTimes(1);
+  expect(result.current.turns).toHaveLength(1);
+  await act(async () => { result.current.stop(); });
+  expect(result.current.pending).toBe(false);
+});
+
 it("measures how long a request took from sending it to its last event", async () => {
   let now = 1_000;
   vi.spyOn(Date, "now").mockImplementation(() => now);

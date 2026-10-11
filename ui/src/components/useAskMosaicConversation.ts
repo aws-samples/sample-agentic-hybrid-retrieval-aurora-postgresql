@@ -84,7 +84,7 @@ export function useAskMosaicConversation(
 
   async function run(question: string, requestFilters: SearchFilters = filters, contextKey?: string) {
     const trimmed = question.trim();
-    if (trimmed.length < 2 || pending) return;
+    if (trimmed.length < 2 || requestController.current) return;
     const context = answeredTurn?.response?.recommendations.length && answeredTurn.response.outcome !== "declined"
       ? {
         previous_agent_run_id: answeredTurn.response.agent_run_id,

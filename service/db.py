@@ -106,12 +106,11 @@ def connect(
         settings.db_lock_timeout_ms if lock_timeout_ms is None else lock_timeout_ms
     )
     with get_pool().connection() as connection:
-        if resolved_statement_timeout:
-            connection.execute(
-                f"SET LOCAL statement_timeout = {int(resolved_statement_timeout)}"
-            )
-        if resolved_lock_timeout:
-            connection.execute(f"SET LOCAL lock_timeout = {int(resolved_lock_timeout)}")
+        # Zero must also override a deadline inherited from the database or role.
+        connection.execute(
+            f"SET LOCAL statement_timeout = {int(resolved_statement_timeout)}"
+        )
+        connection.execute(f"SET LOCAL lock_timeout = {int(resolved_lock_timeout)}")
         yield connection
 
 

@@ -60,6 +60,30 @@ def profile():
     return load_profile()
 
 
+def test_zero_deadlines_override_existing_aurora_session_settings(monkeypatch):
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+
+    from service import db
+
+    @contextmanager
+    def configured_connection():
+        with (
+            psycopg.connect(DATABASE_URL, connect_timeout=20) as database,
+            database.transaction(force_rollback=True),
+        ):
+            database.execute("SET LOCAL statement_timeout = '7s'")
+            database.execute("SET LOCAL lock_timeout = '3s'")
+            yield database
+
+    monkeypatch.setattr(
+        db, "get_pool", lambda: SimpleNamespace(connection=configured_connection)
+    )
+    with db.connect(statement_timeout_ms=0, lock_timeout_ms=0) as database:
+        assert database.execute("SHOW statement_timeout").fetchone()[0] == "0"
+        assert database.execute("SHOW lock_timeout").fetchone()[0] == "0"
+
+
 @pytest.fixture
 def served_probe(connection):
     """Vector checks follow the served catalog; historical rows can lack vectors."""

@@ -122,6 +122,20 @@ def test_protected_route_rejects_a_spoofed_header(
     assert spy.calls == 0, "no protected work should run for a spoofed header"
 
 
+def test_protected_route_rejects_a_non_ascii_header(
+    enforce_real_origin_check, monkeypatch
+):
+    spy = _CallSpy()
+    monkeypatch.setattr("service.main.catalog_summary", spy)
+
+    response = TestClient(app, raise_server_exceptions=False).get(
+        "/api/catalog/summary", headers={ORIGIN_HEADER: b"\xff-not-the-secret"}
+    )
+
+    assert response.status_code == 401
+    assert spy.calls == 0, "malformed credentials must not reach protected work"
+
+
 def test_protected_route_admits_the_correct_header(
     enforce_real_origin_check, monkeypatch
 ):

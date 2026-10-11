@@ -87,7 +87,10 @@ def test_connect_zero_disables_a_deadline_for_a_long_running_caller(fake_connect
     with db.connect(statement_timeout_ms=0, lock_timeout_ms=0):
         pass
 
-    assert fake_connection.statements == []
+    assert fake_connection.statements == [
+        "SET LOCAL statement_timeout = 0",
+        "SET LOCAL lock_timeout = 0",
+    ]
 
 
 def test_a_reused_connection_never_inherits_the_previous_checkout_settings(

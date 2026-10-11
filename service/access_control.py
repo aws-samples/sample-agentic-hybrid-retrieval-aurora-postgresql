@@ -96,7 +96,11 @@ def verify_origin_access(request: Request) -> None:
         )
     presented = request.headers.get(_ORIGIN_HEADER, "")
     expected = settings.origin_verify_secret or ""
-    if not expected or not hmac.compare_digest(presented, expected):
+    if (
+        not expected
+        or not presented.isascii()
+        or not hmac.compare_digest(presented, expected)
+    ):
         raise HTTPException(
             401,
             "Mosaic requires the workshop origin secret on this route; fix: "

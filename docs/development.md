@@ -73,7 +73,7 @@ make check-shop-collection
 make check-hnsw-anchors
 ```
 
-The full Python gate includes 8 integration tests against Aurora. See
+The full Python gate includes 9 integration tests against Aurora. See
 [READINESS.md](../READINESS.md) for the complete release gates and
 [the evaluation plan](evaluation-plan.md) before running model-backed scoring.
 Source CI does not certify a fresh deployment or a new relevance scorecard.
