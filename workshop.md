@@ -25,8 +25,8 @@ exact requests, filters, targets and assertions. Protect its **40-minute
 hands-on budget**. Completion is inside Lab 3; Memory leads the untimed optional exercises.
 These are planned allocations, not measured human completion times.
 
-During setup, use **Introduction → Getting started** to open the tools and
-verify the catalog counts and initial lab state before starting Lab 1.
+During setup, use **Introduction → Getting started** to open Code Editor and
+Mosaic and verify the catalog counts and initial lab state before starting Lab 1.
 The first product search belongs in Lab 1. Use **Browse all products** beside
 **Shop the workspace** to reach the domain tabs and **Category** menu; Lab 2
 reuses that menu to switch from headphones to monitors.

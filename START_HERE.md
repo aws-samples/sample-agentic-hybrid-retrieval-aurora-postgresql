@@ -1,13 +1,17 @@
-# Start here · Mosaic
+# Start here
 
-Start with **Workshop Studio → Introduction → Getting started**. Open the
-tools and run the environment checks, then keep the current lab guide beside
-Code Editor.
+Begin in Workshop Studio with **Introduction**, then **Getting started**, which
+opens Code Editor and Mosaic and runs two checks. Keep the guide in one browser
+window and Code Editor and Mosaic as two tabs in another.
 
-1. Follow the guide's **Observe** step and save the failing result.
-2. Predict the cause before you open any code.
-3. Diagnose, edit only the marked block, then apply SQL or deploy the agent.
-4. Repeat the request and pass the guide's checks before the next lab.
+Each lab is two tasks, and every task runs the same way:
+
+1. **See it fail.** Repeat the guide's exact request and filters, and keep them
+   fixed, so the before and after compare the same thing.
+2. **Why.** Read the record that explains the failure before you open any code.
+3. **Build.** Edit only the marked block, then apply the SQL or deploy the
+   agent. Saving the file changes nothing until you do.
+4. **Prove it.** Repeat the identical request and finish on the guide's check.
 
 | Explorer group | Lab | File to edit |
 |---|---|---|
@@ -15,19 +19,25 @@ Code Editor.
 | **02 - Rank and re-rank** | Tune rank fusion and reranking | [rrf_contribution.sql](labs/lab2_rank/rrf_contribution.sql) |
 | **03 - Reason** | Build and deploy the agent | [agent.py](labs/lab3_reason/agent.py) |
 
-**04 - Explore Mosaic source** holds the application source.
-Every prepared terminal starts at the repository root; the numbered groups
-show the same files. If missing, open [Mosaic.code-workspace](Mosaic.code-workspace)
-with **File → Open Workspace from File…**.
+**04 - Explore Mosaic source** is the whole repository; the three groups above
+it are shortcuts to the same files. Every terminal starts at the repository
+root. If the groups are missing, open
+[Mosaic.code-workspace](Mosaic.code-workspace) with
+**File → Open Workspace from File…**.
 
-The lab READMEs are short reminders; the guide supplies the exact requests,
-investigations and four hints. Your saved records live in `.local/lab-N/`.
-Reference answers in `solution/` and maintainer-only files are hidden from
-the default Explorer view.
+The lab READMEs are short reminders. The guide has the exact requests, the
+checks, and a **Stuck?** block in every task with hints, a prompt for the
+coding coach and the answer. Your saved runs are in `.local/lab-N/`. To compare
+your marked block with the reference answer without changing anything, run
+`uv run python scripts/lab_state.py diff --lab N`; it shows the answer, so try
+the hints first.
 
-Lab 2a repairs **Rank**; Lab 2b inspects **Re-rank** and judges settings.
-Lab 3 completes Alex's room. Save its **original three-product run ID** for
-completion, before asking follow-ups.
+In Lab 2, Task 2A repairs the rank contribution and Task 2B reads what
+reranking changed and compares three settings. In Lab 3, copy the
+**Agent record** ID of your original room run before you ask any follow-up:
+completion checks that run.
 
-After passing, download **Hybrid Agentic Search** from Playground. For source
-details, see [the repository map](docs/index.md) and [agent guidance](AGENTS.md).
+After the labs, open **Playground → Take this retrieval into your own agent**
+and choose **Download the skill** to keep the Hybrid Agentic Search skill. For
+the source layout, see [the repository map](docs/index.md) and
+[the agent guidance](AGENTS.md).
