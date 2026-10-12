@@ -199,7 +199,7 @@ and does not exercise OTEL or Observability. Those are production concerns for
 whoever hosts this capability later, not something a participant does today.
 
 If an A2A adapter were ever built, here is the protocol contract quoted from
-the AWS Bedrock AgentCore A2A protocol contract (read 2026-08-26), condensed to
+the Amazon Bedrock AgentCore A2A protocol contract (read 2026-08-26), condensed to
 one reference block, plus the protocol-relevant fields of this capability's
 Agent Card in that contract's documented shape:
 

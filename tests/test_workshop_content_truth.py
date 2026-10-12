@@ -44,7 +44,7 @@ def test_repo_abstract_retains_the_submitted_level_400_building_promise():
     abstract = _read("docs/session-abstract.md").casefold()
 
     assert "level: 400" in abstract
-    assert "aws aurora postgresql" in abstract
+    assert "amazon aurora postgresql" in abstract
     assert (
         "full-text search, pg_trgm fuzzy matching, and pgvector semantic search"
         in abstract
