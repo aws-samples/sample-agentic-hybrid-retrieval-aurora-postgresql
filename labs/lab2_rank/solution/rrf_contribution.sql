@@ -15,12 +15,12 @@ IMMUTABLE
 PARALLEL SAFE
 AS $$
 -- Lab 2 edit: one channel's contribution. See README.md beside this file.
--- LAB2_RRF_FORMULA_START
+-- LAB2_EDIT_START
 SELECT
     1.0::double precision
     / (
         rrf_k::double precision
         + source_rank::double precision
     )
--- LAB2_RRF_FORMULA_END
+-- LAB2_EDIT_END
 $$;

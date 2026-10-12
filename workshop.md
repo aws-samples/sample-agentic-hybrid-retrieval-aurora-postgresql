@@ -71,7 +71,7 @@ marked block, apply/deploy, then repeat and explain the result.
 
 Follow the guide's three typo searches. Run each production search separately
 in `psql`; find the method whose candidates never reach fusion. Participants
-repair only `LAB1_CHANNEL` in `labs/lab1_retrieve/hybrid_search.sql`.
+repair only `LAB1_EDIT` in `labs/lab1_retrieve/hybrid_search.sql`.
 
 After applying SQL, inspect the intended listing's fuzzy matching rank and
 contribution. The correct-ID and brand/category controls must still pass.
@@ -99,7 +99,7 @@ full candidate pool.
 
 In **2a — Rank**, inspect saved source positions and contributions. When every
 position earns equal credit, ties let product IDs decide the cutoff. Participants
-repair only `LAB2_RRF_FORMULA` in `labs/lab2_rank/rrf_contribution.sql`.
+repair only `LAB2_EDIT` in `labs/lab2_rank/rrf_contribution.sql`.
 
 In **2b — Re-rank**, repeat the request and run the exercise check. Inspect the
 monitor's source position, combined position and final position in that order.
@@ -112,7 +112,7 @@ comes after completion. A plausible winner does not prove fusion worked.
 
 ### Lab 3: build, deploy and use the agent
 
-Discover Gateway tools, then complete `create_agent` inside `LAB3_AGENT` in
+Discover Gateway tools, then complete `create_agent` inside `LAB3_EDIT` in
 `labs/lab3_reason/agent.py`. Participants keep the supplied model, tools, source
 rules and hooks, and add one instruction of their own. Deploy using the guide.
 

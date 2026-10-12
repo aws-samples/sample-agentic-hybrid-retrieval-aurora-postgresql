@@ -38,7 +38,7 @@ The three repaired capabilities form the `Retrieve -> Rank -> Reason` path. The 
 
 | Lab anchor | Capability | Evidence it is live |
 |---|---|---|
-| `typo-recovery` | pg_trgm candidate arm | `labs/lab1_retrieve/hybrid_search.sql` reads the `typo AS (SELECT * FROM mosaic_search.search_trigram(...))` CTE in the `channels` branch between the `LAB1_CHANNEL` markers |
+| `typo-recovery` | pg_trgm candidate arm | `labs/lab1_retrieve/hybrid_search.sql` reads the `typo AS (SELECT * FROM mosaic_search.search_trigram(...))` CTE in the `channels` branch between the `LAB1_EDIT` markers |
 | `rank-with-evidence` | reciprocal-rank contribution | `mosaic_search.reciprocal_rank_contribution` computes `1 / (k + rank)` |
 | `agentic-research` | evidence-to-synthesis state | `service/agent_tools.get_product_evidence` records evidence IDs by product |
 
@@ -85,7 +85,7 @@ later ones.
 ### GAP-3 — build the Strands agent
 
 - **Lab 3 anchor** `agentic-research` (`checkpoint: repair`, stage `reason`).
-- **Starter** `labs/lab3_reason/agent.py`, between `LAB3_AGENT_START` and `LAB3_AGENT_END`.
+- **Starter** `labs/lab3_reason/agent.py`, between `LAB3_EDIT_START` and `LAB3_EDIT_END`.
 - **Participant work** return a Strands `Agent` using the supplied model, tools,
   instructions and hooks; add a useful instruction; deploy with `uv run python scripts/deploy_agentcore.py deploy`.
 - **Before building** the app names the missing agent, the exact file and the

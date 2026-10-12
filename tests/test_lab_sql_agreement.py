@@ -20,7 +20,7 @@ import pytest
 from scripts import lab_state
 from scripts.catalog.prepare_live_catalog import live_search_functions
 from scripts.lab_state import (
-    LAB1_CHANNEL_STARTER,
+    LAB1_STARTER,
     LAB2_STARTER,
     LABS,
     REPO,
@@ -58,7 +58,7 @@ WORKING_BRANCHES = {
     "comment inside": REFERENCE.replace("FROM typo", "FROM typo  -- fuzzy matching"),
 }
 BROKEN_BRANCHES = {
-    "starter": (LAB1_CHANNEL_STARTER, "holds only comments"),
+    "starter": (LAB1_STARTER, "holds only comments"),
     "UNION": (
         REFERENCE.replace("UNION ALL", "UNION"),
         "must start with UNION ALL SELECT",
@@ -153,7 +153,7 @@ def test_a_block_changed_after_apply_is_reported_as_not_in_aurora(lab_repo):
     assert source_problem(1, repo=lab_repo) is None
     problem = applied_problem(1, validate_database(1, connection, repo=lab_repo))
     assert problem == LabProblem(
-        "Lab 1's saved repair is not in Aurora. Aurora runs a different LAB1_CHANNEL "
+        "Lab 1's saved repair is not in Aurora. Aurora runs a different LAB1_EDIT "
         f"block from the one saved in {LABS[1][0]}. Saving changes only the file; "
         "applying it updates Aurora.",
         APPLY_SQL,

@@ -192,8 +192,8 @@ def test_environment_faults_go_to_the_facilitator_not_the_lab_blocks(sqlstate):
     message = describe_apply_failure(_server_error(sqlstate), rolled_back=True)
 
     assert "facilitator" in message
-    assert "LAB1_CHANNEL" not in message
-    assert "LAB2_RRF_FORMULA" not in message
+    assert "LAB1_EDIT" not in message
+    assert "LAB2_EDIT" not in message
     assert "Nothing was applied" in message
 
 
@@ -230,7 +230,7 @@ def test_a_score_passed_as_the_position_names_the_argument_to_change():
     assert "trigram_rank" in message
     assert "trigram_score" in message
     assert "installs the mosaic_search functions from your files" in message
-    assert "LAB1_CHANNEL" in message
+    assert "LAB1_EDIT" in message
 
 
 def test_an_unrelated_missing_function_gets_no_position_advice():
@@ -249,7 +249,7 @@ def test_an_unrelated_missing_function_gets_no_position_advice():
 def test_a_sql_fault_still_points_at_the_lab_blocks(sqlstate):
     message = describe_apply_failure(_server_error(sqlstate), rolled_back=True)
 
-    assert "LAB1_CHANNEL" in message
+    assert "LAB1_EDIT" in message
     assert "facilitator" not in message
 
 

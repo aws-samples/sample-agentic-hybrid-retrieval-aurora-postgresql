@@ -11,7 +11,7 @@ from strands import Agent
 def create_agent(*, model, tools, instructions: str, hooks) -> Agent:
     """Build an agent that can choose tools and return a supported recommendation."""
     # Lab 3 edit: assemble the agent. See README.md beside this file.
-    # LAB3_AGENT_START
+    # LAB3_EDIT_START
     return Agent(
         model=model,
         tools=tools,
@@ -19,4 +19,4 @@ def create_agent(*, model, tools, instructions: str, hooks) -> Agent:
         hooks=hooks,
         callback_handler=None,
     )
-    # LAB3_AGENT_END
+    # LAB3_EDIT_END

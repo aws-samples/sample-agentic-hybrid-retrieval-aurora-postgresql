@@ -14,7 +14,7 @@ Logitech on its own; do its rows ever reach `channels`? A reranker cannot
 recover a product it never receives.
 
 **Build.** In [hybrid_search.sql](hybrid_search.sql), edit only between
-`LAB1_CHANNEL_START` and `LAB1_CHANNEL_END`. Add the missing `channels` branch
+`LAB1_EDIT_START` and `LAB1_EDIT_END`. Add the missing `channels` branch
 with the same five columns as the others: product ID, channel name `'trigram'`,
 position, raw score and the contribution from
 `mosaic_search.reciprocal_rank_contribution`. Saving changes nothing in Aurora

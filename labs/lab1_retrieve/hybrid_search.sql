@@ -79,13 +79,13 @@ WITH fts AS (
            ) AS contribution
     FROM fts
 -- Lab 1 edit. See README.md beside this file.
--- LAB1_CHANNEL_START
+-- LAB1_EDIT_START
     UNION ALL
     SELECT product_id, 'trigram', trigram_rank,
            trigram_score,
            mosaic_search.reciprocal_rank_contribution(trigram_rank, rrf_k)
     FROM typo
--- LAB1_CHANNEL_END
+-- LAB1_EDIT_END
     UNION ALL
     SELECT product_id, 'vector', semantic_rank,
            semantic_score,

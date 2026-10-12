@@ -471,7 +471,7 @@ def test_an_unreachable_aurora_exits_with_facilitator_advice_not_a_traceback(
     assert "facilitator" in message
     assert "OperationalError" in message
     assert "redacted" not in message
-    assert "LAB1_CHANNEL" not in message
+    assert "LAB1_EDIT" not in message
 
 
 def test_start_reports_a_database_failure_after_the_guard_the_same_way(monkeypatch):

@@ -32,7 +32,7 @@ that path.
 2. Run `search_trigram` directly with the saved query and filters: it returns the
    target at rank 1. Then read `search_hybrid_rrf` in
    `labs/lab1_retrieve/hybrid_search.sql` to find where those rows are lost, and add the
-   missing `channels` branch between the `LAB1_CHANNEL` markers.
+   missing `channels` branch between the `LAB1_EDIT` markers.
 3. Run `uv run python scripts/apply_search_functions.py`, then repeat the same request. Inspect
    the target's `signals.trigram.rank` and `rrf_contribution`. For this anchor,
    its FTS and semantic ranks remain null: the recovered product identifies

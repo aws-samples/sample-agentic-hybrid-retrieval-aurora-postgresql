@@ -205,7 +205,7 @@ def _apply_fix(where: tuple[Path, int, str] | None) -> str:
             "this message to your facilitator."
         )
     return (
-        f"Fix: check the marked LAB1_CHANNEL and LAB2_RRF_FORMULA blocks in "
+        f"Fix: check the marked LAB1_EDIT and LAB2_EDIT blocks in "
         f"{LAB1_SQL} and {LAB2_SQL}, then run {APPLY_SQL} again."
     )
 

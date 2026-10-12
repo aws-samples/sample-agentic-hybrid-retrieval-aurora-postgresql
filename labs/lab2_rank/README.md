@@ -13,7 +13,7 @@ them with `1 / (60 + position)`. If every position earns the same contribution,
 product ID decides which candidates make the cut.
 
 **Build.** In [rrf_contribution.sql](rrf_contribution.sql), edit only the
-`SELECT` between `LAB2_RRF_FORMULA_START` and `LAB2_RRF_FORMULA_END`, so each
+`SELECT` between `LAB2_EDIT_START` and `LAB2_EDIT_END`, so each
 source position earns `1 / (rrf_k + source_rank)`. Keep the signature, the
 `double precision` result and the configured `rrf_k`. Then apply it:
 

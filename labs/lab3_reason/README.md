@@ -19,8 +19,8 @@ built yet**.
 rules as instructions and the citation hooks. It has to return an `Agent` built
 from them; until it does, Runtime has nothing to invoke.
 
-**Build.** In [agent.py](agent.py), edit only between `LAB3_AGENT_START` and
-`LAB3_AGENT_END`. Return a Strands `Agent` with `model=model`, `tools=tools`,
+**Build.** In [agent.py](agent.py), edit only between `LAB3_EDIT_START` and
+`LAB3_EDIT_END`. Return a Strands `Agent` with `model=model`, `tools=tools`,
 `system_prompt=instructions`, `hooks=hooks` and `callback_handler=None`. You
 may add one instruction of your own; keep the source rules and hooks. Saving
 changes nothing in Runtime until you deploy:

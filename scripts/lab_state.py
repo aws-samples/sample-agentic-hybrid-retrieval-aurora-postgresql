@@ -41,7 +41,7 @@ FUNCTION_CONTRIBUTION_TOLERANCE = 1e-12
 #: What a participant finds in each marked block when a lab starts. Lab 1's TODO
 #: names the symptom so that finding the lost search stays the participant's work;
 #: the others repeat the lab guide's contract for the edit, not its answer.
-LAB1_CHANNEL_STARTER = """-- TODO(Lab 1): one search's candidates never reach `channels`. Find which,
+LAB1_STARTER = """-- TODO(Lab 1): one search's candidates never reach `channels`. Find which,
 -- then add its branch here with the same five columns as the others."""
 LAB2_STARTER = """-- TODO(Lab 2): return one source position's reciprocal-rank contribution.
 -- Keep the signature, the double precision result and the configured rrf_k.
@@ -99,16 +99,16 @@ LABS: dict[int, LabSeam] = {
     1: _seam(
         LAB1_SQL,
         (
-            "-- LAB1_CHANNEL_START",
-            "-- LAB1_CHANNEL_END",
-            LAB1_CHANNEL_STARTER,
+            "-- LAB1_EDIT_START",
+            "-- LAB1_EDIT_END",
+            LAB1_STARTER,
         ),
     ),
     2: _seam(
         LAB2_SQL,
-        ("-- LAB2_RRF_FORMULA_START", "-- LAB2_RRF_FORMULA_END", LAB2_STARTER),
+        ("-- LAB2_EDIT_START", "-- LAB2_EDIT_END", LAB2_STARTER),
     ),
-    3: _seam(LAB3_AGENT, ("# LAB3_AGENT_START", "# LAB3_AGENT_END", LAB3_STARTER)),
+    3: _seam(LAB3_AGENT, ("# LAB3_EDIT_START", "# LAB3_EDIT_END", LAB3_STARTER)),
 }
 
 
@@ -640,7 +640,7 @@ def _lab_1_database_state(connection: Any, repo: Path) -> LabDatabaseState:
         return LabDatabaseState(
             state="stale",
             detail=(
-                "Aurora runs a different LAB1_CHANNEL block from the one saved in "
+                "Aurora runs a different LAB1_EDIT block from the one saved in "
                 f"{path}. Saving changes only the file; applying it updates Aurora."
             ),
         )
@@ -648,9 +648,9 @@ def _lab_1_database_state(connection: Any, repo: Path) -> LabDatabaseState:
     return LabDatabaseState(
         state="applied" if problem is None else "stale",
         detail=(
-            f"Aurora runs the LAB1_CHANNEL block saved in {path}."
+            f"Aurora runs the LAB1_EDIT block saved in {path}."
             if problem is None
-            else f"Aurora runs the LAB1_CHANNEL block saved in {path}, but {problem}."
+            else f"Aurora runs the LAB1_EDIT block saved in {path}, but {problem}."
         ),
     )
 

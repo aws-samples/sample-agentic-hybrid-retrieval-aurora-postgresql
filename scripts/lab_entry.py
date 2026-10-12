@@ -294,7 +294,7 @@ def restart(
 #: What each part of a saved handoff's binding means when it no longer matches.
 _HANDOFF_BINDING = {
     "database": "DATABASE_URL selects a different database",
-    "lab1_seam": "your LAB1_CHANNEL block changed",
+    "lab1_seam": "your LAB1_EDIT block changed",
     "lab1_entry": "Lab 1 was restarted",
 }
 
