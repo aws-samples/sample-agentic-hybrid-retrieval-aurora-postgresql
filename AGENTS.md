@@ -12,6 +12,12 @@ Alex is setting up a home office. Participants retrieve eligible products, rank
 them, then build an agent that supports recommendations with source evidence.
 Each lab follows **Broken → Diagnose → Fix → Prove**. The prepared account has
 deliberate exercise faults; a wrong answer alone does not mean provisioning failed.
+Each started lab's fault is an uncommitted change in its marked file, so `git diff`
+shows it before the participant has typed anything: it is the exercise, not their
+edit. Answer in plain words; many participants are new to search. When someone asks
+where to start, follow the guide: give each lab's goal in one sentence, not its cause,
+and point to the current lab's first step in the guide (Lab 1 starts in Shop). Name
+services as the guide does: Amazon Aurora PostgreSQL, Amazon Bedrock AgentCore.
 
 Before editing, run `uv run python scripts/lab_state.py status`, inspect
 `git diff`, and read the current
@@ -51,8 +57,8 @@ question needs exact values; do not invent or maintain a second copy here.
 
 | Lab and customer need | Mechanism and wrong answer | Recovery and proof | Files |
 |---|---|---|---|
-| 1: recover Alex's intended headphones from a transposed listing ID | Full-text search, fuzzy matching and semantic search candidates feed fusion. A disconnected fuzzy matching channel returns plausible headphones but omits the requested identity. Reranking cannot recover a missing candidate. | Reconnect the marked retrieval seam. Repeat the identical request and filters; inspect candidate membership, fuzzy matching rank/contribution and the ineligible controls. | `labs/lab1_retrieve/`; `scripts/lab_state.py`; the `retrieve` mission |
-| 2: find a monitor for coding, a 4K screen and USB-C charging | RRF combines positions from the retrieval channels before bounded reranking. Collapsed contributions make a tie-breaker select the shortlist; a plausible winner does not prove fusion works. | Repair the marked rank calculation. Inspect unequal source positions and contributions, combined versus final order, and the target's membership. Use the guide's judged-query exercise before claiming a tuning improvement. | `labs/lab2_rank/`; `service/lab_checks.py`; the `rank` mission |
+| 1: recover Alex's intended headphones from a transposed listing ID | Full-text search, fuzzy matching and semantic search candidates feed fusion. A disconnected fuzzy matching search returns plausible headphones but omits the requested identity. Reranking cannot recover a missing candidate. | Reconnect the marked retrieval seam. Repeat the identical request and filters; inspect candidate membership, fuzzy matching rank/contribution and the ineligible controls. | `labs/lab1_retrieve/`; `scripts/lab_state.py`; the `retrieve` mission |
+| 2: find a monitor for coding, a 4K screen and USB-C charging | RRF combines positions from the three searches before bounded reranking. Collapsed contributions make a tie-breaker select the shortlist; a plausible winner does not prove fusion works. | Repair the marked rank calculation. Inspect unequal source positions and contributions, combined versus final order, and the target's membership. Use the guide's judged-query exercise before claiming a tuning improvement. | `labs/lab2_rank/`; `service/lab_checks.py`; the `rank` mission |
 | 3: complete Alex’s home office setup with headphones, monitor and chair and defensible sources | A Strands agent on Runtime calls SQL tools through Gateway. The starter cannot assemble the agent. Even a running agent can make unsupported compatibility or comfort claims. | Assemble the supplied agent components and the guide's additional instruction, deploy, then inspect separate searches, comparison, citations and ranking explanation in the participant's own run. Changed requirements must be checked against the actual records. | `labs/lab3_reason/`; `service/gateway_tools.py`; `scripts/deploy_agentcore.py`; the `reason` mission |
 
 ## Participant CLI
