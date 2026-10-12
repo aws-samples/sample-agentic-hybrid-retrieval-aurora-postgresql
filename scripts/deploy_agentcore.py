@@ -29,7 +29,12 @@ from scripts.checks.rehearsal import redact
 from scripts.package_agentcore import package
 from service import agentcore_transport, gateway_tools
 from service.lab_validation_receipt import application_digest, participant_sql_digest
-from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, VERIFY_AGENT
+from service.participant_commands import (
+    AGENTCORE_RESOURCES,
+    APPLY_SQL,
+    DEPLOY_AGENT,
+    VERIFY_AGENT,
+)
 
 
 def client(service: str):
@@ -536,12 +541,103 @@ def verify() -> dict:
     return receipt
 
 
+RUNTIME_ROLES = (
+    (
+        "MOSAIC_AGENTCORE_RUNTIME_ARN",
+        "Agent runtime",
+        (
+            "your create_agent: the Strands agent, with compare_products and "
+            "synthesize_cited_answer"
+        ),
+    ),
+    (
+        "MOSAIC_AGENTCORE_TOOLS_RUNTIME_ARN",
+        "Tools runtime",
+        "the SQL tools: search, source records and saved retrieval runs",
+    ),
+)
+
+
+def _when(value: object) -> str:
+    return f"{value:%H:%M} UTC" if hasattr(value, "strftime") else "unknown"
+
+
+def _row(label: str, *cells: object) -> str:
+    return f"  {label:<15} " + "   ".join(str(cell) for cell in cells)
+
+
+def _runtime_lines(control) -> list[str]:
+    lines = []
+    for variable, label, role in RUNTIME_ROLES:
+        runtime_id = required(variable).rsplit("/", 1)[-1]
+        runtime = control.get_agent_runtime(agentRuntimeId=runtime_id)
+        lines.append(_row(
+            label,
+            runtime["agentRuntimeName"],
+            runtime["status"],
+            f"version {runtime['agentRuntimeVersion']}",
+            f"updated {_when(runtime.get('lastUpdatedAt'))}",
+        ))
+        lines.append(_row("", role))
+    return lines
+
+
+def _gateway_lines(control) -> list[str]:
+    gateway_id = required("MOSAIC_AGENTCORE_GATEWAY_ID")
+    gateway = control.get_gateway(gatewayIdentifier=gateway_id)
+    target = control.get_gateway_target(
+        gatewayIdentifier=gateway_id,
+        targetId=required("MOSAIC_AGENTCORE_GATEWAY_TARGET_ID"),
+    )
+    return [
+        _row("Gateway", gateway["name"], gateway["status"], gateway.get("protocolType", "")),
+        _row(
+            "",
+            f"target {target['name']}, {target['status']}, synchronized "
+            f"{_when(target.get('lastSynchronizedAt'))}: the three SQL tools the agent calls",
+        ),
+    ]
+
+
+def _memory_lines(control) -> list[str]:
+    memory_id = os.getenv("MOSAIC_AGENTCORE_MEMORY_ID", "").strip()
+    if not memory_id:
+        return [_row("Memory", "not configured (optional)")]
+    memory = control.get_memory(memoryId=memory_id)["memory"]
+    strategies = ", ".join(
+        f"{strategy['name']} ({strategy['type']})"
+        for strategy in memory.get("strategies", [])
+    )
+    return [
+        _row("Memory", memory["name"], memory["status"]),
+        _row("", f"strategies: {strategies or 'none'}; conversation context, never product facts"),
+    ]
+
+
+def resources() -> None:
+    """Show this event's runtimes, Gateway and Memory by ID, with read-only Get calls.
+
+    The Code Editor role reads the resources it deployed but holds no List* discovery
+    actions, so every resource is named from the workshop's .env.
+    """
+    control = client("bedrock-agentcore-control")
+    lines = _runtime_lines(control) + _gateway_lines(control) + _memory_lines(control)
+    print("AgentCore resources in this event (read-only):")
+    print("\n".join(lines))
+    print(
+        "Next: when your deploy finishes, run this again; the agent runtime shows a "
+        "new version and update time."
+    )
+
+
 def retry_command(action: str) -> str:
     """The command to repeat after a failed action."""
     if action == "verify":
         return VERIFY_AGENT
     if action == "deploy":
         return DEPLOY_AGENT
+    if action == "resources":
+        return AGENTCORE_RESOURCES
     return f"uv run python scripts/deploy_agentcore.py {action}"
 
 
@@ -581,7 +677,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "action",
-        choices=("stage-bootstrap", "connect-bootstrap", "deploy", "verify", "tools"),
+        choices=(
+            "stage-bootstrap", "connect-bootstrap", "deploy", "verify", "tools", "resources"
+        ),
     )
     args = parser.parse_args()
     try:
@@ -613,6 +711,8 @@ def main() -> int:
             print(
                 "Your agent is deployed and its SQL tools are connected through Gateway. Next: open Mosaic → Playground → Reason and ask Alex's question."
             )
+        elif args.action == "resources":
+            resources()
         elif args.action == "tools":
             for tool in gateway_tools.rpc("tools/list", {}).get("tools", []):
                 print(f"{tool['name']}: {tool.get('description', '')}")

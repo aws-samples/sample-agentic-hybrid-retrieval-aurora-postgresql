@@ -11,8 +11,13 @@ APPLY_SQL = "uv run python scripts/apply_search_functions.py"
 LIST_TOOLS = "uv run python scripts/deploy_agentcore.py tools"
 DEPLOY_AGENT = "uv run python scripts/deploy_agentcore.py deploy"
 VERIFY_AGENT = "uv run python scripts/deploy_agentcore.py verify"
+AGENTCORE_RESOURCES = "uv run python scripts/deploy_agentcore.py resources"
 COMPARE_SETTINGS = "uv run python scripts/lab_exercise.py compare --lab 2"
 HNSW_CHECK = "uv run python scripts/hnsw_exercise.py check"
+
+
+def ask_agent(question: str) -> str:
+    return f'uv run python scripts/ask_agent.py "{question}"'
 
 
 def start(lab: int) -> str:

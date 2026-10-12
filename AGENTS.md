@@ -79,6 +79,8 @@ The Makefile wraps them for maintainers only.
 | List managed SQL tools | `uv run python scripts/deploy_agentcore.py tools` |
 | Deploy edited Lab 3 code and check managed connectivity; prints progress about every 15 s and names the failing step on error | `uv run python scripts/deploy_agentcore.py deploy` |
 | Recheck deployed code, Gateway tools and Aurora evidence | `uv run python scripts/deploy_agentcore.py verify` |
+| See the agent and tools runtimes, Gateway and Memory a deploy updates (read-only Get calls) | `uv run python scripts/deploy_agentcore.py resources` |
+| Ask the deployed agent from the terminal: answer, tool trace, citations, outcome and decline reason | `uv run python scripts/ask_agent.py "QUESTION"` |
 | Check the participant's saved original agent run | `uv run python scripts/complete_agent.py --run-id <your-run-id>` |
 | Inspect the diff for whitespace errors | `git diff --check` |
 
