@@ -571,13 +571,15 @@ def _runtime_lines(control) -> list[str]:
     for variable, label, role in RUNTIME_ROLES:
         runtime_id = required(variable).rsplit("/", 1)[-1]
         runtime = control.get_agent_runtime(agentRuntimeId=runtime_id)
-        lines.append(_row(
-            label,
-            runtime["agentRuntimeName"],
-            runtime["status"],
-            f"version {runtime['agentRuntimeVersion']}",
-            f"updated {_when(runtime.get('lastUpdatedAt'))}",
-        ))
+        lines.append(
+            _row(
+                label,
+                runtime["agentRuntimeName"],
+                runtime["status"],
+                f"version {runtime['agentRuntimeVersion']}",
+                f"updated {_when(runtime.get('lastUpdatedAt'))}",
+            )
+        )
         lines.append(_row("", role))
     return lines
 
@@ -590,7 +592,12 @@ def _gateway_lines(control) -> list[str]:
         targetId=required("MOSAIC_AGENTCORE_GATEWAY_TARGET_ID"),
     )
     return [
-        _row("Gateway", gateway["name"], gateway["status"], gateway.get("protocolType", "")),
+        _row(
+            "Gateway",
+            gateway["name"],
+            gateway["status"],
+            gateway.get("protocolType", ""),
+        ),
         _row(
             "",
             f"target {target['name']}, {target['status']}, synchronized "
@@ -610,7 +617,10 @@ def _memory_lines(control) -> list[str]:
     )
     return [
         _row("Memory", memory["name"], memory["status"]),
-        _row("", f"strategies: {strategies or 'none'}; conversation context, never product facts"),
+        _row(
+            "",
+            f"strategies: {strategies or 'none'}; conversation context, never product facts",
+        ),
     ]
 
 
@@ -678,7 +688,12 @@ def main() -> int:
     parser.add_argument(
         "action",
         choices=(
-            "stage-bootstrap", "connect-bootstrap", "deploy", "verify", "tools", "resources"
+            "stage-bootstrap",
+            "connect-bootstrap",
+            "deploy",
+            "verify",
+            "tools",
+            "resources",
         ),
     )
     args = parser.parse_args()

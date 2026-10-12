@@ -39,7 +39,9 @@ def _plan(response: dict[str, Any]) -> list[str]:
     lines = []
     for number, step in enumerate(response["plan"], start=1):
         chosen = _filters(step.get("filters") or {})
-        lines.append(f"  {number}  {step['query']}" + (f"   [{chosen}]" if chosen else ""))
+        lines.append(
+            f"  {number}  {step['query']}" + (f"   [{chosen}]" if chosen else "")
+        )
         lines.append(f"     {step['purpose']}")
     return lines
 
@@ -49,7 +51,9 @@ def _trace(response: dict[str, Any]) -> list[str]:
     for step in response["trace"]:
         latency = step.get("latency_ms")
         took = f"   {latency:,.0f} ms" if latency is not None else ""
-        lines.append(f"  {step['sequence']}  {step['tool']:<23}  {step['outcome']}{took}")
+        lines.append(
+            f"  {step['sequence']}  {step['tool']:<23}  {step['outcome']}{took}"
+        )
     return lines
 
 
@@ -71,7 +75,7 @@ def _citations(response: dict[str, Any]) -> list[str]:
             f"  [{c['number']}] {c['evidence_type']:<16} {c['product_id']}  "
             f"{source} @ {c['revision'][:12]}"
         )
-        lines.append(f"      \"{_quote(c['quote'])}\"")
+        lines.append(f'      "{_quote(c["quote"])}"')
     return lines
 
 
@@ -83,7 +87,8 @@ def render(response: dict[str, Any]) -> str:
         for line in (textwrap.wrap(paragraph, 86) or [""])
     ]
     products = [
-        f"  {item['product_id']}  {item['title']}" for item in response["recommendations"]
+        f"  {item['product_id']}  {item['title']}"
+        for item in response["recommendations"]
     ]
     lines = [
         *_section("ANSWER", answer),
@@ -112,7 +117,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
     try:
-        response = _request(args.api_url, "/api/agent/answer", {"question": args.question})
+        response = _request(
+            args.api_url, "/api/agent/answer", {"question": args.question}
+        )
     except LabValidationError as error:
         print(f"Agent request failed: {error}", file=sys.stderr)
         return 1

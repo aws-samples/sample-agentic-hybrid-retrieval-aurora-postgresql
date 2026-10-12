@@ -14,8 +14,12 @@ from botocore.stub import Stubber
 from scripts import deploy_agentcore as deploy
 
 UPDATED = datetime(2026, 10, 12, 14, 3, tzinfo=UTC)
-AGENT_ARN = "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/MosaicAgent_ab12-xyz"
-TOOLS_ARN = "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/MosaicTools_ab12-xyz"
+AGENT_ARN = (
+    "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/MosaicAgent_ab12-xyz"
+)
+TOOLS_ARN = (
+    "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/MosaicTools_ab12-xyz"
+)
 
 
 def runtime(name, version):
@@ -77,11 +81,13 @@ def control(monkeypatch):
 
 def stub_runtimes_and_gateway(stub):
     stub.add_response(
-        "get_agent_runtime", runtime("MosaicAgent_ab12", "2"),
+        "get_agent_runtime",
+        runtime("MosaicAgent_ab12", "2"),
         {"agentRuntimeId": "MosaicAgent_ab12-xyz"},
     )
     stub.add_response(
-        "get_agent_runtime", runtime("MosaicTools_ab12", "2"),
+        "get_agent_runtime",
+        runtime("MosaicTools_ab12", "2"),
         {"agentRuntimeId": "MosaicTools_ab12-xyz"},
     )
     stub.add_response(
@@ -109,8 +115,12 @@ def stub_runtimes_and_gateway(stub):
             "updatedAt": UPDATED,
             "status": "READY",
             "name": "mosaic",
-            "targetConfiguration": {"mcp": {"mcpServer": {"endpoint": "https://example.tools"}}},
-            "credentialProviderConfigurations": [{"credentialProviderType": "GATEWAY_IAM_ROLE"}],
+            "targetConfiguration": {
+                "mcp": {"mcpServer": {"endpoint": "https://example.tools"}}
+            },
+            "credentialProviderConfigurations": [
+                {"credentialProviderType": "GATEWAY_IAM_ROLE"}
+            ],
             "lastSynchronizedAt": UPDATED,
         },
         {"gatewayIdentifier": "mosaic-gw-1", "targetId": "TARGET1"},
