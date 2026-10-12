@@ -169,7 +169,7 @@ def test_anchor_overlap_matches_an_independent_cross_reference():
         1490476: "none",
     }
     # Lab 1 targets the Logitech Zone 900, Lab 2 the ViewSonic VG2756-4K and
-    # Lab 3 all three room products including the Steelcase Gesture listing with
+    # Lab 3 all three setup products including the Steelcase Gesture listing with
     # review evidence; the Bose QC35 II and the old Steelcase listing 1221817 are
     # no longer mission targets.
     assert _MISSION_IDS == {1208825, 1408222, 1492978, 1540761, 1551237}

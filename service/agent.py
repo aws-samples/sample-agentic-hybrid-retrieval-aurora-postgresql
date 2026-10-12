@@ -116,7 +116,7 @@ For a first request, or a follow-up that asks for alternatives, changes catalog
 filters, or needs any product outside the authorized prior shortlist:
 1. Use at most {len(agent_tools.SEARCH_SLOTS)} focused search_products calls.
    When the request has independent product intents, issue one focused search
-   per intent together in one tool-use turn. A complete room request needs
+   per intent together in one tool-use turn. A complete setup request needs
    separate headphone, monitor and chair searches.
 2. Preserve explicit hard constraints as category_key or attributes when the
    active catalog establishes those keys and values. Keep unnormalized feature

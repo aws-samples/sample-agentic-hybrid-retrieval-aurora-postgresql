@@ -64,7 +64,7 @@ they are not a like-for-like replacement for these figures.
 | Source attribution | Reason | Build the agent, ask a product question and open its citations |
 | Retrieval diagnostics | All three labs | Read filters, candidate positions, fused rank, reranked rank, evidence IDs and the agent's ordered tool sequence |
 | Wire retrieval into agent tools | Reason; build-a-tool exercise | Connect the SQL tools through Gateway and deploy the Strands agent to Runtime |
-| Decompose questions | Reason; Complete my room | Read the agent's separate headphone, monitor and chair searches and their filters |
+| Decompose questions | Reason; Complete my setup | Read the agent's separate headphone, monitor and chair searches and their filters |
 | Gather targeted evidence | Reason | Inspect the evidence tool and the product records it returned |
 | Compare sources | Reason; Check the sources | Count cited specifications and reviews against imported reviews and source rating counts |
 | Explain ranking signals | Rank; agent activity | Inspect source positions, fusion contributions and the explanation tool |

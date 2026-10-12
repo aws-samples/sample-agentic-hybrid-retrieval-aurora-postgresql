@@ -133,7 +133,7 @@ export function workspaceRequests(filters: SearchFilters, resolveFilters = (valu
   return pipelineRequests.map((request) => ({
     ...request, filters: resolveFilters(request.filters),
   })).filter((request) =>
-    // A request that names no domain or category, like Lab 3's room request,
+    // A request that names no domain or category, like Lab 3's setup request,
     // spans the catalog, so no Shop domain or category can exclude it.
     (!filters.domain || !request.filters.domain || request.filters.domain === filters.domain) &&
     (!filters.category_key || !request.filters.category_key

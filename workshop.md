@@ -116,9 +116,9 @@ Discover Gateway tools, then complete `create_agent` inside `LAB3_AGENT` in
 `labs/lab3_reason/agent.py`. Participants keep the supplied model, tools, source
 rules and hooks, and add one instruction of their own. Deploy using the guide.
 
-Run **Playground → Complete my room → Reason**. Save the original run ID. Ask Mosaic
+Run **Playground → Complete my setup → Reason**. Save the original run ID. Ask Mosaic
 opens from the **Ask Mosaic** pill in the header on every page. The
-Ask Mosaic **Complete my room** starter is available before and after the agent is
+Ask Mosaic **Complete my setup** starter is available before and after the agent is
 built and runs on its own filters; it shows "Shop filters were cleared for this lab
 request." when it replaces filters a participant had set. A follow-up question is
 not graded against the lab. The Prove page's **Maintainer measurements** are
@@ -135,7 +135,7 @@ navigating away.
 
 Ask the guide's changed 100W requirement against the monitor's 90W record.
 The agent must acknowledge the mismatch and any unknown compatibility.
-Prove the **original room run**, then finish the Conclusion checks. Completion
+Prove the **original setup run**, then finish the Conclusion checks. Completion
 reuses the saved answer; a deployed endpoint alone is not a participant pass.
 
 ## Keep the architecture explanation short

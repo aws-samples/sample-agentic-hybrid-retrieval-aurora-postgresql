@@ -162,7 +162,7 @@ Participants extend their SQL from Labs 1 and 2. They list the Gateway tools,
 complete `create_agent` in `labs/lab3_reason/agent.py`, add one source-aware instruction,
 and run `uv run python scripts/deploy_agentcore.py deploy`. The managed services and networking are prepared.
 
-Show the deployment message, then ask **Complete my room** in Playground → Reason.
+Show the deployment message, then ask **Complete my setup** in Playground → Reason.
 The agent searches for Alex's missing chair and brings it together with his Logitech
 headphones and ViewSonic monitor. Open a citation and compare the recommendation
 with its source. Follow up in Ask Mosaic with a 100W laptop-charging requirement; the

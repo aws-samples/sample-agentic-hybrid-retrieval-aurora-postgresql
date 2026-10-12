@@ -1031,7 +1031,7 @@ def _check_tools_invoked(
             "the answer has no supported product, omits successful retrieval or "
             "a comparison required by its mission, or names a product no receipt granted -- the "
             "shape of an answer the model wrote rather than retrieved. A required "
-            "room product missing from the comparison or final shortlist also fails."
+            "setup product missing from the comparison or final shortlist also fails."
         ),
         detail=(
             f"{len(searches)} search(es) and {len(comparisons)} comparison(s) "

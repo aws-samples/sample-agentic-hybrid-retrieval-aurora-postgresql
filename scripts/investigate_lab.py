@@ -109,7 +109,7 @@ def citation_challenges(agent: dict, resolved: dict[int, dict]) -> dict:
     other = next((c for c in citations if c["product_id"] != first["product_id"]), None)
     _require(
         other is not None,
-        "Cross-product challenge needs two cited products; use the Lab 3 complete-room answer.",
+        "Cross-product challenge needs two cited products; use the Lab 3 complete-setup answer.",
     )
     mutations = {
         "another_product_record": {**first, "evidence_id": other["evidence_id"]},

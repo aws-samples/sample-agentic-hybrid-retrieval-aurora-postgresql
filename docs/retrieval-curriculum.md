@@ -30,7 +30,7 @@ inside the broken boundary still works:
 | 0-15 min | Introduction / Overview / Presentation | Meet Alex, frame the four phases and architecture | `typo-recovery` before repair |
 | 15-25 min | Retrieve | Reconnect one candidate arm and prove target recovery without weakening eligibility | `typo-recovery`, with control anchors |
 | 25-35 min | Rank (2a) and Re-rank (2b) | Repair one RRF formula and keep the suitable monitor inside the reranker input | `rank-with-evidence`, with control anchors |
-| 35-55 min | Reason | Assemble and deploy the agent, complete the room with cited evidence, and run the completion gate | `agentic-research`, with one evidence control |
+| 35-55 min | Reason | Assemble and deploy the agent, complete the setup with cited evidence, and run the completion gate | `agentic-research`, with one evidence control |
 | 55-60 min | Wrap-up and Q&A | Ask questions or choose an untimed optional exercise | n/a |
 
 The stable IDs remain evaluation identifiers and starter-gap ownership keys.
@@ -154,7 +154,7 @@ performance, laptop compatibility and personal comfort stated separately.
 
 Prove is included inside Lab 3's 20-minute budget, not an additional lab.
 Run the three validators, inspect a saved plan, and resolve citations from the
-complete-room answer and the headphone evidence control. The required path
+complete-setup answer and the headphone evidence control. The required path
 contains three repairs and five controls. A separate representative evaluation
 is needed to make whole-catalog ranking claims.
 

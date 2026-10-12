@@ -2103,11 +2103,11 @@ describe("CatalogPage", () => {
     // Only the Lab 3 starter: it names no domain, so no domain can exclude it.
     const starters = screen.getByRole("list", { name: "Example questions" });
     expect(within(starters).getAllByRole("button").map((button) => button.textContent))
-      .toEqual([expect.stringContaining("Complete my room")]);
+      .toEqual([expect.stringContaining("Complete my setup")]);
     expect(screen.getByRole("textbox", { name: "Ask Mosaic request" })).toBeTruthy();
   });
 
-  it("runs Complete my room with its own filters, not the Shop filters", async () => {
+  it("runs Complete my setup with its own filters, not the Shop filters", async () => {
     window.history.replaceState(
       {},
       "",
@@ -2119,7 +2119,7 @@ describe("CatalogPage", () => {
 
     const starters = await screen.findByRole("list", { name: "Example questions" });
     expect(within(starters).getAllByRole("button")).toHaveLength(1);
-    fireEvent.click(within(starters).getByRole("button", { name: /Complete my room/ }));
+    fireEvent.click(within(starters).getByRole("button", { name: /Complete my setup/ }));
 
     await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
     const sent = vi.mocked(api.agentStream).mock.calls.at(-1)!;
@@ -2223,7 +2223,7 @@ describe("CatalogPage", () => {
     const starters = await screen.findByRole("list", { name: "Example questions" });
     const requests = within(starters).getAllByRole("button");
     expect(requests).toHaveLength(2);
-    expect(requests[0].textContent).toContain("Complete my room");
+    expect(requests[0].textContent).toContain("Complete my setup");
     expect(requests[1].textContent).toContain(pipelineRequests.find((request) => request.id === "more-screen-space")!.shop_label);
     fireEvent.click(requests[1]);
     await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
@@ -2267,7 +2267,7 @@ describe("CatalogPage", () => {
 
     it("drops them for a lab starter, in the request and in the URL", async () => {
       const starters = await openStarters();
-      fireEvent.click(within(starters).getByRole("button", { name: /Complete my room/ }));
+      fireEvent.click(within(starters).getByRole("button", { name: /Complete my setup/ }));
       await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
 
       const sent = vi.mocked(api.agentStream).mock.calls.at(-1)?.[1] as Record<string, unknown>;
@@ -2287,7 +2287,7 @@ describe("CatalogPage", () => {
       await screen.findByText(catalog.products[0].model);
       openAskMosaic();
       const starters = await screen.findByRole("list", { name: "Example questions" });
-      fireEvent.click(within(starters).getByRole("button", { name: /Complete my room/ }));
+      fireEvent.click(within(starters).getByRole("button", { name: /Complete my setup/ }));
       await waitFor(() => expect(api.agentStream).toHaveBeenCalled());
 
       expect(screen.queryByText(CLEARED_NOTICE)).toBeNull();

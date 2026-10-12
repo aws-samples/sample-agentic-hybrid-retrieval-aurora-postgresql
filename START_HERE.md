@@ -34,7 +34,7 @@ the hints first.
 
 In Lab 2, Task 2A repairs the rank contribution and Task 2B reads what
 reranking changed and compares three settings. In Lab 3, copy the
-**Agent record** ID of your original room run before you ask any follow-up:
+**Agent record** ID of your original setup run before you ask any follow-up:
 completion checks that run.
 
 After the labs, open **Playground → Take this retrieval into your own agent**

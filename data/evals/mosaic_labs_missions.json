@@ -174,9 +174,9 @@
       "core": true,
       "duration_minutes": 20,
       "title": "Lab 3: Reason - Build and deploy the agent",
-      "discover_label": "Complete Alex’s room with your agent",
+      "discover_label": "Complete Alex’s setup with your agent",
       "canonical_query_id": "G-021",
-      "query": "I have the Logitech Zone 900 headphones and the ViewSonic VG2756-4K monitor. Now I need a chair, and I'm looking at the Steelcase Gesture. Help me complete my room, and show me the sources for all three.",
+      "query": "I have the Logitech Zone 900 headphones and the ViewSonic VG2756-4K monitor. Now I need a chair, and I'm looking at the Steelcase Gesture. Help me complete my setup, and show me the sources for all three.",
       "filters": {},
       "target_product_ids": [
         1492978,
@@ -211,7 +211,7 @@
         ],
         "checkpoint_question": "Which tools did your agent choose, and how did its answer change when Alex changed a requirement?"
       },
-      "expected_outcome": "A bounded, read-only agent runs a focused search for each of the three requested products, compares headphones, monitor and chair as parts of Alex’s room, explains a search ranking, and cites real source records within application-owned citation scope while keeping microphone quality, laptop compatibility and all-day comfort uncertain when the evidence does not establish them.",
+      "expected_outcome": "A bounded, read-only agent runs a focused search for each of the three requested products, compares headphones, monitor and chair as parts of Alex’s setup, explains a search ranking, and cites real source records within application-owned citation scope while keeping microphone quality, laptop compatibility and all-day comfort uncertain when the evidence does not establish them.",
       "assertions": [
         "structured_constraints_extracted",
         "retrieval_tool_called",
@@ -592,9 +592,9 @@
     "guided_requests": [
       {
         "id": "plan-workspace",
-        "label": "Complete my room",
+        "label": "Complete my setup",
         "mission_id": "agentic-research",
-        "notice": "Bring Lab 1’s Logitech headphones and Lab 2’s ViewSonic monitor together with the Steelcase chair. Follow three focused searches, a comparison of all three, and the sources behind the complete room."
+        "notice": "Bring Lab 1’s Logitech headphones and Lab 2’s ViewSonic monitor together with the Steelcase chair. Follow three focused searches, a comparison of all three, and the sources behind the complete setup."
       },
       {
         "id": "check-focus-picks",

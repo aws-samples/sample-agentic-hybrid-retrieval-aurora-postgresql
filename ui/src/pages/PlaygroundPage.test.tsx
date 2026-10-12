@@ -313,7 +313,7 @@ it("shows the actual rank movement from the agent receipt, then clears it when r
 it("runs the canonical multi-part request from the new Pipeline choice", async () => {
   const stream = vi.spyOn(api, "agentStream").mockResolvedValue(undefined);
   render(<PlaygroundPage />);
-  fireEvent.click(screen.getByRole("button", { name: "Complete my room" }));
+  fireEvent.click(screen.getByRole("button", { name: "Complete my setup" }));
   const mission = mosaicLabManifest.missions.find((item) => item.id === "agentic-research")!;
   expect(screen.getByRole("heading", { name: mission.query })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Run Mosaic" }));

@@ -12,7 +12,7 @@ uv run python scripts/lab_state.py start --lab 3
 uv run python scripts/deploy_agentcore.py tools
 ```
 
-**Playground → Complete my room → Run Mosaic** answers **Your agent is not
+**Playground → Complete my setup → Run Mosaic** answers **Your agent is not
 built yet**.
 
 **Why.** `create_agent` receives the model, the three Gateway tools, the source
@@ -32,13 +32,13 @@ uv run python scripts/deploy_agentcore.py deploy
 **Prove it.** The deployment ends with `Your agent is deployed and its SQL
 tools are connected through Gateway.`
 
-## Task 3B: Complete Alex's room, change a requirement, prove the run
+## Task 3B: Complete Alex's setup, change a requirement, prove the run
 
-Run **Playground → Complete my room → Run Mosaic** and copy the **Agent record**
+Run **Playground → Complete my setup → Run Mosaic** and copy the **Agent record**
 ID before anything else. Read the answer against its records: a listing and a
 review for each of the headphones, the monitor and the chair. Then ask
 **Ask Mosaic** the guide's 100W follow-up about the monitor. Prove the
-**original room run**:
+**original setup run**:
 
 ```bash
 uv run python scripts/complete_agent.py --run-id <your-run-id>
@@ -54,7 +54,7 @@ answer. Deployment alone does not prove completion.
 with the [reference answer](solution/agent.py) and changes nothing; an
 instruction you added shows as a difference. It shows the answer, so try the
 guide's hints first. `uv run python scripts/lab_state.py solution --lab 3`
-overwrites your edit with the answer; deploy it, then run the room request
+overwrites your edit with the answer; deploy it, then run the setup request
 yourself and prove that run.
 
 </details>

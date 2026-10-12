@@ -46,7 +46,7 @@ export function WorkspaceWalkthrough({ real }: { real: boolean }) {
   const steps = [
     {
       label: "Starting point", title: "Desk. Laptop. A place to start.",
-      detail: "Alex has the basics. Help him choose the three pieces that make the room work for him.",
+      detail: "Alex has the basics. Help him choose the three pieces that complete his setup.",
       focus: "", action: "", href: "",
     },
     ...needs,
@@ -158,7 +158,7 @@ export function WorkspaceWalkthrough({ real }: { real: boolean }) {
             <text x="903" y="215">3</text>
           </g>
         </svg>
-        <span className="workspace-tour-scene-label">{step === 0 ? "The starting point" : "The room Alex is working toward"}</span>
+        <span className="workspace-tour-scene-label">{step === 0 ? "The starting point" : "The setup Alex is working toward"}</span>
       </div>
       <figcaption ref={captionRef}>
         <div className="workspace-tour-heading">

@@ -64,7 +64,7 @@ it("measures how long a request took from sending it to its last event", async (
   });
   const { result } = renderHook(() => useAskMosaicConversation({}));
 
-  await act(() => result.current.run("Complete my room"));
+  await act(() => result.current.run("Complete my setup"));
 
   expect(result.current.turns[0].startedAt).toBe(1_000);
   expect(result.current.turns[0].durationMs).toBe(43_500);
@@ -78,7 +78,7 @@ it("points a setup failure at the setup step, not at a retry", async () => {
   failWith("Your agent is not built yet. Open labs/lab3_reason/agent.py in Code Editor.", "agent_setup");
   const { result } = renderHook(() => useAskMosaicConversation({}));
 
-  await act(() => result.current.run("Complete my room"));
+  await act(() => result.current.run("Complete my setup"));
 
   const [turn] = result.current.turns;
   expect(turn.stageDetail).toMatch(/set up/i);
@@ -89,7 +89,7 @@ it("keeps the retry wording for an outage that shares the agent_setup code", asy
   failWith("Gateway could not complete the tool request. Next: check the deployment.", "agent_setup");
   const { result } = renderHook(() => useAskMosaicConversation({}));
 
-  await act(() => result.current.run("Complete my room"));
+  await act(() => result.current.run("Complete my setup"));
 
   expect(result.current.turns[0].stageDetail).toMatch(/Review the error below and retry/);
 });
@@ -251,7 +251,7 @@ it("unmounting the owner cancels the in-flight request", async () => {
   expect(capturedSignal?.aborted).toBe(true);
 });
 
-it("offers the Lab 3 room request first and keeps the other starters in manifest order", () => {
+it("offers the Lab 3 setup request first and keeps the other starters in manifest order", () => {
   const { result } = renderHook(() => useAskMosaicConversation({}));
   const ids = result.current.suggestions.map((request) => request.id);
   expect(ids[0]).toBe("plan-workspace");
