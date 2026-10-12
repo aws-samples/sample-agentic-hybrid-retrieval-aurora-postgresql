@@ -175,7 +175,11 @@ the download does not include a hosted service.
 
 ## Data and license
 
-See [NOTICE.md](NOTICE.md) for Amazon Reviews 2023, ESCI, and WANDS citations and
-terms. The prepared catalog bundle is excluded from Git; its public redistribution
+The catalog comes from **Amazon Reviews 2023** (McAuley Lab, UC San Diego). Cite
+it as the publisher asks: Yupeng Hou, Jiacheng Li, Zhankui He, An Yan, Xiusi
+Chen, and Julian McAuley. 2024. *Bridging Language and Items for Retrieval and
+Recommendation.* [arXiv:2403.03952](https://arxiv.org/abs/2403.03952). The BibTeX
+entry, and the ESCI and WANDS citations and terms, are in [NOTICE.md](NOTICE.md).
+The prepared catalog bundle is excluded from Git; its public redistribution
 remains unresolved. Code uses the [MIT-0 license](LICENSE).
 For contributions and security reporting, see [CONTRIBUTING.md](CONTRIBUTING.md).

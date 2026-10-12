@@ -14,9 +14,20 @@ from the Electronics, Office Products and Home and Kitchen metadata of
 come from the same dataset's review files. Product photos are loaded from the
 image URLs in those records and are not copied into this repository.
 
+The publisher asks users of the dataset to cite this paper:
+
 > Yupeng Hou, Jiacheng Li, Zhankui He, An Yan, Xiusi Chen, and Julian McAuley.
 > 2024. *Bridging Language and Items for Retrieval and Recommendation.*
-> arXiv:2403.03952.
+> arXiv:2403.03952. <https://arxiv.org/abs/2403.03952>
+
+```bibtex
+@article{hou2024bridging,
+  title={Bridging Language and Items for Retrieval and Recommendation},
+  author={Hou, Yupeng and Li, Jiacheng and He, Zhankui and Yan, An and Chen, Xiusi and McAuley, Julian},
+  journal={arXiv preprint arXiv:2403.03952},
+  year={2024}
+}
+```
 
 The publisher does not state a license for this dataset. Public redistribution of
 the prepared catalog bundle is unresolved and is an event-owner release
@@ -59,6 +70,7 @@ datasets. They are not part of the searched catalog, ranking or embeddings.
 ## Generated data
 
 Embeddings are generated in this project with Amazon Bedrock (Cohere Embed v4).
-The historical synthetic catalog in the base bootstrap, which is retained only
-for shared tables and historical benchmarks, contains invented products, brands,
-reviews and performance values. It does not describe a real retailer.
+An earlier synthetic catalog of invented products, brands, reviews and
+performance values was retired on 3 October 2026
+([record](docs/evidence/catalog-retirement-2026-10-03.md)); some dated
+measurement records still describe it. It never described a real retailer.
