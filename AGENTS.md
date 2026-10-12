@@ -81,6 +81,7 @@ The Makefile wraps them for maintainers only.
 | Recheck deployed code, Gateway tools and Aurora evidence | `uv run python scripts/deploy_agentcore.py verify` |
 | See the agent and tools runtimes, Gateway and Memory a deploy updates (read-only Get calls) | `uv run python scripts/deploy_agentcore.py resources` |
 | Ask the deployed agent from the terminal: answer, tool trace, citations, outcome and decline reason | `uv run python scripts/ask_agent.py "QUESTION"` |
+| Run one sentence through the agent's answer checks, citing a product's listing as [1] (generates and saves nothing) | `uv run python scripts/check_claim.py PRODUCT_ID "SENTENCE [1]"` |
 | Check the participant's saved original agent run | `uv run python scripts/complete_agent.py --run-id <your-run-id>` |
 | Inspect the diff for whitespace errors | `git diff --check` |
 

@@ -913,6 +913,22 @@ def _validated_output(
             "a filtered or interrupted answer cannot become the answer of record"
         )
     answer = _text(response)
+    return answer, validate_cited_answer(answer, products, evidence_records, question)
+
+
+def validate_cited_answer(
+    answer: str,
+    products: Sequence[ProductSummary],
+    evidence_records: Sequence[EvidenceRecord],
+    question: str = "",
+) -> list[AgentCitation]:
+    """Apply the answer-of-record checks to cited text and return its citations.
+
+    Every `[n]` must name one of `evidence_records`, every product must be cited, each
+    product claim must cite that product's record, every stated figure must appear in
+    the cited record in its unit, and compatibility must be stated by a record. Raises
+    `SynthesisOutputError` naming the first rule the text breaks.
+    """
     cited_numbers = sorted({int(value) for value in re.findall(r"\[(\d+)\]", answer)})
     if not cited_numbers:
         raise SynthesisOutputError("Synthesized answer did not cite catalog evidence")
@@ -945,7 +961,7 @@ def _validated_output(
         )
         for number in cited_numbers
     ]
-    return answer, citations
+    return citations
 
 
 _COMPATIBILITY_CLAIM = re.compile(

@@ -16,6 +16,10 @@ COMPARE_SETTINGS = "uv run python scripts/lab_exercise.py compare --lab 2"
 HNSW_CHECK = "uv run python scripts/hnsw_exercise.py check"
 
 
+def check_claim(product_id: int, sentence: str) -> str:
+    return f'uv run python scripts/check_claim.py {product_id} "{sentence}"'
+
+
 def ask_agent(question: str) -> str:
     return f'uv run python scripts/ask_agent.py "{question}"'
 
