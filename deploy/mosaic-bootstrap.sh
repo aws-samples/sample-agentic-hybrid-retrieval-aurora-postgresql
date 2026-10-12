@@ -649,10 +649,11 @@ commands and proof boundaries. Follow the Workshop Studio lab guide.
   preserve the supplied source rules and execution hooks.
 - Do not run uv run python scripts/lab_state.py solution --lab N
   unless the participant explicitly asks for the full recovery path.
-- After editing, run git diff --check. In Labs 1 and 2, apply SQL changes directly
-  with psql or uv run python scripts/apply_search_functions.py, repeat the
-  identical request,
-  and run the lab-specific uv production validator shown in the guide.
+- After editing, run git diff --check. In Labs 1 and 2, apply SQL changes
+  only with uv run python scripts/apply_search_functions.py, which loads the
+  lab files into the schema the app searches; running a lab file in psql
+  does not reach Shop. Then repeat the identical request and run the
+  lab's proof commands shown in the guide.
   In Lab 3, run uv run python scripts/deploy_agentcore.py deploy and check
   the participant's saved run with uv run python scripts/complete_agent.py
   --run-id <your-run-id> as the guide describes.
