@@ -176,3 +176,30 @@ def test_recall_truth_narrows_by_indexed_columns_for_each_filter_present():
     )
     assert params == ["consumer_electronics", "headphones"]
     assert lab_exercise._indexable_filter_sql({"brand": "Bose"}) == ("", [])
+
+
+def test_comparison_names_chair_requests_and_a_lost_right_answer(capsys):
+    lab_exercise.print_comparison(
+        {
+            "baseline": {"exact_in_cutoff": 500, "billed_search_units_per_query": 1},
+            "rows": [
+                {
+                    "label": "k = 120",
+                    "exact_gain": -1,
+                    "queries_better": 0,
+                    "queries_worse": 1,
+                    "sign_test_p": 1.0,
+                    "billed_search_units_per_query": 1,
+                    "chair_controls_moved": [
+                        {"id": "C-2", "from": 87, "to": 89},
+                        {"id": "C-3", "from": 40, "to": None},
+                    ],
+                }
+            ],
+            "scope": "scope line",
+        }
+    )
+    out = capsys.readouterr().out
+    assert "chair request C-2: right answer moves from #87 to #89" in out
+    assert "chair request C-3: right answer moves from #40 to not found" in out
+    assert "control" not in out

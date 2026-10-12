@@ -281,8 +281,8 @@ def _control_failure(
         else FACILITATOR
     )
     return explain(
-        f"for control request {mission['canonical_query_id']} "
-        f"({mission.get('query')!r}), {found}",
+        f"for request {mission['canonical_query_id']} "
+        f"({mission.get('query')!r}), which must still work, {found}",
         fix,
     )
 
@@ -691,7 +691,7 @@ def _lab_2_rerank(response: Mapping[str, Any]) -> LabCheck:
         passed=status == "applied",
         falsifier=(
             "diagnostics.rerank_status is 'disabled' or 'unavailable', so the "
-            "order being graded was never reranked and the lab's second stage "
+            "order being checked was never reranked and the lab's second stage "
             "did not run."
         ),
         detail=(

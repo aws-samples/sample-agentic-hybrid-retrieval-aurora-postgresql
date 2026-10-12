@@ -560,6 +560,10 @@ def _print_lab2(report: dict) -> None:
     )
 
 
+def _position(rank: int | None) -> str:
+    return f"#{rank}" if rank is not None else "not found"
+
+
 def print_comparison(table: dict) -> None:
     """Print the measured effect of each derived change, for the participant to judge."""
     base = table["baseline"]
@@ -579,7 +583,10 @@ def print_comparison(table: dict) -> None:
             f"{row['billed_search_units_per_query']:>14}"
         )
         for moved in row["chair_controls_moved"]:
-            print(f"  chair control {moved['id']}: {moved['from']} -> {moved['to']}")
+            print(
+                f"  chair request {moved['id']}: right answer moves from "
+                f"{_position(moved['from'])} to {_position(moved['to'])}"
+            )
     print(table["scope"])
     print("Decide in one sentence: which change would you ship, and why?")
 

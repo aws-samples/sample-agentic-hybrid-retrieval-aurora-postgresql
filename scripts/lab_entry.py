@@ -366,7 +366,9 @@ def advance(
                 "is repaired. Your edits are unchanged."
             )
         events: list[str] = []
-        say("Validating Lab 1 in Aurora, including retrieval and filter controls…")
+        say(
+            "Validating Lab 1 in Aurora: the typo request, then two searches that must still work…"
+        )
         checks = validate_lab_1(api_url, events)
         for check in checks:
             say(f"PASS: {check}")

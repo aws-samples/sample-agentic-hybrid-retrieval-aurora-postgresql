@@ -182,7 +182,7 @@ def _without_before(lab: int, output: Path) -> str:
     if lab == 3:
         raise LabValidationError(
             f"there is no saved failing agent turn in {path} to compare with. Lab 3 "
-            f"is graded on your own saved run instead: {complete_lab_3()}"
+            f"is checked on your own saved run instead: {complete_lab_3()}"
         )
     if not record.get("completed_at"):
         raise LabValidationError(

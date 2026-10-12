@@ -249,8 +249,8 @@ def entry_check(
     if started_at is None:
         passed = False
         detail = (
-            f"Lab {lab_id} has not started, so these checks would grade the "
-            f"reference the workshop ships. Next: run {start_command(lab_id)}, "
+            f"Lab {lab_id} has not started, so these checks would test the "
+            f"reference answer the workshop ships. Next: run {start_command(lab_id)}, "
             "repair the fault it installs, then prove the lab again."
         )
     elif run_created_at is not None and run_created_at < started_at:
@@ -267,7 +267,7 @@ def entry_check(
         name="lab_started",
         passed=passed,
         falsifier=(
-            "The lab's start has not finished, or the graded run predates it, so "
+            "The lab's start has not finished, or the run being checked predates it, so "
             "the shipped reference would be credited as the participant's repair."
         ),
         detail=detail,

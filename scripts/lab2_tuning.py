@@ -227,8 +227,8 @@ def comparison_table(connection, baseline: dict[str, int]) -> dict[str, Any]:
         "live": live,
         "scope": (
             "141 ESCI queries whose judged products are in this catalog (82 headphones, "
-            "58 monitor, 1 chair); unjudged products count as unknown. Chair controls "
-            "are four reviewed requests, not relevance judgments. The reranking model "
+            "58 monitor, 1 chair); unjudged products count as unknown. The four chair "
+            "requests have a reviewed right answer; they are not relevance judgments. The reranking model "
             "is not called."
         ),
     }

@@ -402,7 +402,7 @@ def main() -> int:
         parser.error("found receipt option on another lab; fix: use it with --lab 3")
     if args.lab == 3 and not (args.save_receipt or args.reuse_receipt):
         raise SystemExit(
-            "Lab 3 validation rule: found --lab 3 without a receipt; Lab 3 is graded "
+            "Lab 3 validation rule: found --lab 3 without a receipt; Lab 3 is checked "
             "on your saved agent run, not on fresh answers. fix: ask Alex's request in "
             f"Ask Mosaic, then run {complete_lab_3()} (a maintainer passes "
             "--save-receipt PATH or --reuse-receipt PATH)."
