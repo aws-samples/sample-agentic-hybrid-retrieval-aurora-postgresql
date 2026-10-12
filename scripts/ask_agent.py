@@ -3,10 +3,11 @@
     uv run python scripts/ask_agent.py "QUESTION"
 
 The question goes through the same API route as Ask Mosaic, so it reaches your agent on
-AgentCore Runtime. The output shows the answer, the tool trace, the products, each
-citation's type, product, source and quote, the outcome, any decline reason and the run
-ID. A declined answer is an answer of record, not a failure: every run is saved in
-mosaic.agent_turn and its tool calls in mosaic.agent_tool_event.
+AgentCore Runtime. The output shows the answer, the searches the agent planned with the
+filters it chose, the tool trace, the products, each citation's type, product, source
+and quote, the outcome, any decline reason and the run ID. A declined answer is an
+answer of record, not a failure: every run is saved in mosaic.agent_turn and its tool
+calls in mosaic.agent_tool_event.
 """
 
 from __future__ import annotations
@@ -27,6 +28,20 @@ MIN_QUESTION = 4  # AgentRequest.question's own minimum
 
 def _section(title: str, lines: list[str]) -> list[str]:
     return [title, *(lines or ["  none"])]
+
+
+def _filters(filters: dict[str, Any]) -> str:
+    return ", ".join(f"{key}={value}" for key, value in filters.items() if value)
+
+
+def _plan(response: dict[str, Any]) -> list[str]:
+    """The searches the agent chose, with the filters it set for each."""
+    lines = []
+    for number, step in enumerate(response["plan"], start=1):
+        chosen = _filters(step.get("filters") or {})
+        lines.append(f"  {number}  {step['query']}" + (f"   [{chosen}]" if chosen else ""))
+        lines.append(f"     {step['purpose']}")
+    return lines
 
 
 def _trace(response: dict[str, Any]) -> list[str]:
@@ -72,6 +87,7 @@ def render(response: dict[str, Any]) -> str:
     ]
     lines = [
         *_section("ANSWER", answer),
+        *_section("PLAN", _plan(response)),
         *_section("TOOL TRACE", _trace(response)),
         *_section("PRODUCTS", products),
         *_section("CITATIONS", _citations(response)),

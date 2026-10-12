@@ -28,7 +28,9 @@ def grounded():
         question="Help me complete my setup",
         answer="The Logitech Zone 900 has active noise cancellation [1]. "
                "One reviewer found it comfortable [2].",
-        plan=[],
+        plan=[{"query": "Steelcase Gesture office chair",
+               "filters": {"domain": "home_office", "category_key": "office_chair"},
+               "purpose": "Find the chair Alex named"}],
         recommendations=[product(1492978, "Logitech Zone 900")],
         citations=[
             {"number": 1, "evidence_id": 11, "evidence_type": "product_spec",
@@ -70,6 +72,9 @@ def test_a_grounded_answer_shows_trace_products_and_each_citation():
     assert "[2] customer_review  1492978" in text
     assert "OUTCOME: grounded" in text
     assert f"Run ID: {RUN}" in text
+    assert "  1  Steelcase Gesture office chair" in text
+    assert "domain=home_office, category_key=office_chair" in text
+    assert "Find the chair Alex named" in text
     assert "DECLINE REASON" not in text
 
 
@@ -89,6 +94,7 @@ def test_a_declined_answer_names_its_reason_and_says_nothing_was_cited():
     assert "DECLINE REASON: unsupported_requirements" in text
     assert "synthesize_cited_answer  denied" in text
     assert "CITATIONS\n  none" in text
+    assert "PLAN\n  none" in text
 
 
 def test_main_posts_the_question_to_the_ask_mosaic_route(monkeypatch, capsys):
