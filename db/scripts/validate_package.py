@@ -53,7 +53,6 @@ def validate_sql() -> dict[str, int]:
         "05_evidence.sql",
         "06_retrieval_projection.sql",
         "07_indexes.sql",
-        "15_indexes_concurrent.sql",
         "08_search_channels.sql",
         "09_weighted_fusion.sql",
         "10_evidence_search.sql",

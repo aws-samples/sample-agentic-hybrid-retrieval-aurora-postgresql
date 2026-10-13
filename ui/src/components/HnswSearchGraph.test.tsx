@@ -45,7 +45,7 @@ describe("HnswSearchGraph", () => {
 
   it("names Aurora's served index settings without restating them", () => {
     const served = { efSearch: 100, vectors: 553911, dimensions: 1024,
-      definition: "CREATE INDEX product_embedding_hnsw ON product_document USING hnsw (embedding vector_cosine_ops) WITH (m='16', ef_construction='64')" };
+      definition: "CREATE INDEX product_embedding_hnsw ON product_listing USING hnsw (embedding vector_cosine_ops) WITH (m='16', ef_construction='64')" };
     const { container } = render(<HnswSearchGraph served={served} />);
     const caption = container.querySelector("figcaption")!.textContent!;
     expect(caption).toContain("553,911 products in 1,024 dimensions with m = 16");

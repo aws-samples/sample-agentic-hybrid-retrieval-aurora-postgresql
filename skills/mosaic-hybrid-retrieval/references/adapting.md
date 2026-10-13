@@ -22,7 +22,7 @@ catalog schema or measured tuning fits another workload.
 
 | Area | Mosaic choice | What an adopter must decide |
 |---|---|---|
-| Retrieval projection | `mosaic_search.product_document` over commerce products | The entity, stable identifier, searchable text, hard-filter columns, and refresh process for the target domain |
+| Retrieval projection | `mosaic_search.product_listing` (listings and their search indexes), read through `product_listing_view` | The entity, stable identifier, searchable text, hard-filter columns, and refresh process for the target domain |
 | Taxonomy and filters | Three product domains, category, brand, stock, price, rating, and attributes | The domain vocabulary and which constraints are hard eligibility rather than ranking preferences |
 | Full-text search | PostgreSQL `english` text search configuration and product-field weights | Language configuration, dictionaries, tokenization, field weights, and multilingual strategy |
 | Fuzzy matching | `pg_trgm` over Mosaic identity text | Which fields tolerate spelling variation and the measured similarity threshold |

@@ -46,7 +46,7 @@ from scripts.catalog.embedding_model import (
 )
 from scripts.checks.retrieval_profile import load_profile
 from scripts.evals.eval_contract import load_evaluation_queries
-from service.catalog_runtime import active_dataset
+from service.catalog_runtime import active_dataset, search_schema
 from service.models import SearchFilters
 
 
@@ -70,10 +70,7 @@ def validate_query_contract(connection: Any, queries: list[dict[str, Any]]) -> N
             )
         groups.setdefault(dataset, []).append(query)
     for dataset, group in groups.items():
-        schema = (
-            "mosaic_search" if dataset == "synthetic-legacy" else "mosaic_live_search"
-        )
-        _validate_query_group(connection, group, schema)
+        _validate_query_group(connection, group, search_schema())
 
 
 def reviewed_catalogs() -> set[str]:
@@ -203,7 +200,7 @@ def _validate_query_group(
                    ELSE 'positive judgment violates its Mosaic filters'
                END AS reason
         FROM cases c
-        LEFT JOIN {schema}.product_document d
+        LEFT JOIN {schema}.product_listing_view d
           ON d.product_id = c.target_product_id
         WHERE d.product_id IS NULL
            OR (
@@ -333,7 +330,7 @@ def main() -> None:
                 rows = connection.execute(
                     f"""
                     SELECT product_id
-                    FROM {("mosaic_live_search" if active_dataset() else "mosaic_search")}.search_hybrid_rrf(
+                    FROM {search_schema()}.search_hybrid_rrf(
                         %(query)s::text, %(embedding)s::vector, %(filters)s::jsonb,
                         %(rrf_k)s::integer, %(fts_limit)s::integer,
                         %(trigram_limit)s::integer, %(semantic_limit)s::integer,

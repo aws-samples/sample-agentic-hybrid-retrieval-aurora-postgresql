@@ -158,7 +158,7 @@ def test_an_ann_measurement_on_the_hnsw_index_is_accepted():
     _assert_used_the_index(
         {
             "node": "Index Scan",
-            "index_name": "product_document_embedding_hnsw_cosine_idx",
+            "index_name": "product_search_vector_idx",
             "shared_hit_blocks": 514,
         },
         ef_search=10,
@@ -175,7 +175,7 @@ def test_an_ann_measurement_on_the_wrong_index_is_refused():
         _assert_used_the_index(
             {
                 "node": "Index Scan",
-                "index_name": "product_document_pkey",
+                "index_name": "product_listing_pkey",
                 "shared_hit_blocks": 12,
             },
             ef_search=10,
@@ -280,7 +280,7 @@ def test_filter_matrix_records_live_counts_instead_of_historical_preset_counts(
     )
     monkeypatch.setattr(benchmark, "FILTER_PRESETS", [preset])
     monkeypatch.setattr(
-        benchmark, "product_document", lambda: "mosaic_catalog_search.product_document"
+        benchmark, "listing_view", lambda: "mosaic_search.product_listing_view"
     )
     monkeypatch.setattr(benchmark, "_exact_truth", lambda *a, **kw: ({1: [1]}, None))
     monkeypatch.setattr(benchmark, "_measure_point", lambda *a, **kw: {})
@@ -295,4 +295,4 @@ def test_filter_matrix_records_live_counts_instead_of_historical_preset_counts(
     )
     assert result[0]["matching_rows"] == 25
     assert result[0]["selectivity"] == 0.25
-    assert "mosaic_catalog_search.product_document" in conn.execute.call_args.args[0]
+    assert "mosaic_search.product_listing_view" in conn.execute.call_args.args[0]

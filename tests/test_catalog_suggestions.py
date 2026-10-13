@@ -147,7 +147,7 @@ def test_catalog_suggestions_use_the_indexed_projection_without_model_calls(
     assert response.query == "ergonomic chair"
     assert response.suggestions[0].product_id == 370001
     assert "d.search_document @@ prefix_query.value" in connection.sql
-    assert "mosaic_search.product_document" in connection.sql
+    assert "mosaic_search.product_listing_view" in connection.sql
     assert "embedding" not in connection.sql.lower()
     assert "rerank" not in connection.sql.lower()
     assert connection.parameters[0] == "ergonomic chair"

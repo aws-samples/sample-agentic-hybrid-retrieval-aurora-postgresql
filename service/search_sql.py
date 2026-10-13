@@ -54,6 +54,11 @@ def search_sql(root: Path = ROOT, *, solutions: bool = False) -> str:
     )
 
 
+def without_psql_lines(source: str) -> str:
+    """SQL text without its psql meta-commands, as a driver can send it."""
+    return "\n".join(line for line in source.splitlines() if not line.startswith("\\"))
+
+
 def applied_sql_digest(connection) -> str | None:
     """The participant SQL digest Aurora recorded when the search SQL was last applied.
 

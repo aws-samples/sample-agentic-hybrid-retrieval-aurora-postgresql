@@ -272,7 +272,7 @@ SET hnsw.iterative_scan = '${mode.iterative_scan}';
 SET hnsw.scan_mem_multiplier = ${mode.scan_mem_multiplier};
 
 SELECT product_id
-FROM mosaic_search.product_document
+FROM mosaic_search.product_listing_view
 WHERE embedding IS NOT NULL${level.predicate_sql ? `\n  AND ${level.predicate_sql}` : ""}
 ORDER BY embedding <=> $1
 LIMIT ${resultLimit};`}

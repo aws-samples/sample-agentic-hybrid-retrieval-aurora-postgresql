@@ -4,7 +4,7 @@
 The participant writes two files:
 
 - `.local/hnsw/index.sql`: one partial HNSW index on
-  `mosaic_catalog_search.product_document` (full-precision, `halfvec` or
+  `mosaic_search.product_listing` (full-precision, `halfvec` or
   `binary_quantize` expression), optionally followed by `SET hnsw.ef_search = N`.
 - `.local/hnsw/search.sql`: one SELECT returning `product_id` for the nearest
   `:hnsw_limit` headphones to `:'hnsw_vector'`, written so the planner can use
@@ -45,10 +45,10 @@ TIMING_RUNS = 5
 MIN_RECALL = 0.90
 MAX_TIME_RATIO = 0.5
 MAX_SIZE_RATIO = 0.5
-TABLE = "mosaic_catalog_search.product_document"
+TABLE = "mosaic_search.product_listing"
 CREATE_INDEX = re.compile(
     r"(?is)^CREATE\s+INDEX\s+(?P<name>[a-z_][a-z0-9_]*)\s+ON\s+"
-    r"mosaic_catalog_search\.product_document\s+USING\s+hnsw\s*\([^;]+\)"
+    r"mosaic_search\.product_listing\s+USING\s+hnsw\s*\([^;]+\)"
     r"(?:\s+WITH\s*\([^;()]*\))?\s+WHERE\s+[^;]+$"
 )
 SET_EF_SEARCH = re.compile(
@@ -168,7 +168,7 @@ def grade(index_text: str, search_text: str) -> dict[str, Any]:
         cur.execute("SAVEPOINT reference")
         cur.execute(REFERENCE_INDEX)
         cur.execute(
-            "SELECT pg_relation_size('mosaic_catalog_search.exercise_reference_hnsw') AS b"
+            "SELECT pg_relation_size('mosaic_search.exercise_reference_hnsw') AS b"
         )
         reference_bytes = cur.fetchone()["b"]
         cur.execute("ROLLBACK TO SAVEPOINT reference")
@@ -185,7 +185,7 @@ def grade(index_text: str, search_text: str) -> dict[str, Any]:
                 cur.execute(
                     "SELECT set_config('hnsw.ef_search', %s, true)", (str(ef_search),)
                 )
-            cur.execute(f"SELECT pg_relation_size('mosaic_catalog_search.{name}') AS b")
+            cur.execute(f"SELECT pg_relation_size('mosaic_search.{name}') AS b")
             size = cur.fetchone()["b"]
             result, plans = measure_build(cur, search_text, vectors, exact)
             result["index_bytes"] = size

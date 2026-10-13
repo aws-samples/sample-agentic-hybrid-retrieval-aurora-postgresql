@@ -459,13 +459,13 @@ describe("lab outcome diagnostics", () => {
         ...healthyReadiness,
         database: {
           ...healthyReadiness.database,
-          missing_retrieval_indexes: ["product_document_trigram_gin_idx"],
+          missing_retrieval_indexes: ["product_search_trigram_idx"],
         },
       },
     );
 
     expect(outcome.tone).toBe("unhealthy");
-    expect(outcome.detail).toContain("product_document_trigram_gin_idx");
+    expect(outcome.detail).toContain("product_search_trigram_idx");
   });
 
   it("names the HNSW index for a lab whose techniques call it hnsw", () => {
@@ -483,13 +483,13 @@ describe("lab outcome diagnostics", () => {
         ...healthyReadiness,
         database: {
           ...healthyReadiness.database,
-          missing_retrieval_indexes: ["product_document_embedding_hnsw_cosine_idx"],
+          missing_retrieval_indexes: ["product_search_vector_idx"],
         },
       },
     );
 
     expect(outcome.tone).toBe("unhealthy");
-    expect(outcome.detail).toContain("product_document_embedding_hnsw_cosine_idx");
+    expect(outcome.detail).toContain("product_search_vector_idx");
   });
 
   it("leaves an index this lab does not use out of its verdict", () => {
@@ -504,7 +504,7 @@ describe("lab outcome diagnostics", () => {
         ...healthyReadiness,
         database: {
           ...healthyReadiness.database,
-          missing_retrieval_indexes: ["product_document_fts_gin_idx"],
+          missing_retrieval_indexes: ["product_search_fts_idx"],
         },
       },
     );

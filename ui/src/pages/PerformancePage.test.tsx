@@ -76,7 +76,7 @@ const measuredElsewhere = {
 const substrate: HnswSubstrate = {
   retrieval: { ef_search: measured.ef_sweep[0].ef_search },
   index: {
-    name: "mosaic_search.product_document_embedding_hnsw_cosine_idx",
+    name: "mosaic_search.product_listing_view_embedding_hnsw_cosine_idx",
     definition: "CREATE INDEX ... USING hnsw (embedding vector_cosine_ops)",
     size_bytes: 4_094_296_064,
     bytes_per_vector: 8189,
@@ -179,7 +179,7 @@ const probeResult: HnswProbe = {
   // Built from a tuple for the same reason as ui/src/hnsw.test.ts: these field names
   // read as declarations of retrieval numbers to config_tripwire.
   settings: settingsFrom([10, 2, 20_000, 10]),
-  sql: "SELECT product_id FROM mosaic_search.product_document WHERE embedding IS NOT NULL",
+  sql: "SELECT product_id FROM mosaic_search.product_listing_view WHERE embedding IS NOT NULL",
   rows_returned: 10,
   exact_rows_available: 10,
   recall_at_k: 0.6,
@@ -190,7 +190,7 @@ const probeResult: HnswProbe = {
       "second execution of the same statement on this connection; the first " +
       "returned the rows, so buffers were already warm",
     node: "Index Scan",
-    index_name: "product_document_embedding_hnsw_cosine_idx",
+    index_name: "product_search_vector_idx",
     server_ms: 0.624,
     shared_hit_blocks: 514,
     shared_read_blocks: 0,
@@ -489,7 +489,7 @@ describe("PerformancePage", () => {
       database_ready: false,
       database: {
         ...readiness.database,
-        missing_retrieval_indexes: ["product_document_embedding_hnsw_cosine_idx"],
+        missing_retrieval_indexes: ["product_search_vector_idx"],
       },
     });
 
@@ -760,7 +760,7 @@ describe("PerformancePage", () => {
       ...withoutRepresentations,
       representations_unavailable_reason:
         "This cluster has no usable quantized index " +
-        "(product_document_embedding_hnsw_halfvec_idx is missing), so the " +
+        "(product_search_vector_halfvec_idx is missing), so the " +
         "comparison would describe indexes you cannot inspect here. Run " +
         "`make db-index-quantized` to build both, roughly 9 minutes, or read " +
         "the halfvec and binary rows as a record of another cluster.",

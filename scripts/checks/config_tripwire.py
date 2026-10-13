@@ -186,25 +186,16 @@ class IndexParameter:
 
 INDEX_PARAMETERS: tuple[IndexParameter, ...] = (
     IndexParameter(
-        "db/sql/15_indexes_concurrent.sql",
-        "product_document_embedding_hnsw_cosine_idx",
-        "ef_construction",
-        "hnsw_ef_construction",
-    ),
-    # The quantized representations are built with the same graph parameters as the fp32
-    # index on purpose: if m or ef_construction differed, a size or recall comparison
-    # between representations would be measuring two changes at once.
-    IndexParameter(
-        "db/sql/16_indexes_quantized.sql",
-        "product_document_embedding_hnsw_halfvec_idx",
+        "db/sql/07_indexes.sql",
+        "product_search_vector_idx",
         "ef_construction",
         "hnsw_ef_construction",
     ),
     IndexParameter(
-        "db/sql/16_indexes_quantized.sql",
-        "product_document_embedding_hnsw_binary_idx",
-        "ef_construction",
-        "hnsw_ef_construction",
+        "db/sql/07_indexes.sql",
+        "product_search_vector_idx",
+        "m",
+        "hnsw_m",
     ),
 )
 

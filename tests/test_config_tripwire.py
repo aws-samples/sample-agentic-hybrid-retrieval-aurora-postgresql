@@ -62,11 +62,10 @@ AS $$ SELECT 'x'::text $$;
 
 INDEX_DDL = """\\set ON_ERROR_STOP on
 
-CREATE INDEX CONCURRENTLY IF NOT EXISTS product_document_embedding_hnsw_cosine_idx
-    ON mosaic_search.product_document
+CREATE INDEX IF NOT EXISTS product_search_vector_idx
+    ON mosaic_search.product_listing
     USING hnsw (embedding vector_cosine_ops)
-    WITH (m = 16, ef_construction = {ef_construction})
-    WHERE embedding IS NOT NULL;
+    WITH (m = 16, ef_construction = {ef_construction});
 """
 
 
@@ -88,7 +87,7 @@ def fake_repo(tmp_path: Path) -> Path:
     (tmp_path / "labs" / "lab1_retrieve" / "hybrid_search.sql").write_text(
         SIGNATURE.format(rrf_k=60, fts_limit=120), encoding="utf-8"
     )
-    (tmp_path / "db" / "sql" / "15_indexes_concurrent.sql").write_text(
+    (tmp_path / "db" / "sql" / "07_indexes.sql").write_text(
         INDEX_DDL.format(ef_construction=200), encoding="utf-8"
     )
     (tmp_path / "db" / "sql" / "11_query_coverage.sql").write_text(
@@ -242,7 +241,7 @@ def test_a_drifted_sql_default_is_caught(fake_repo, drifted):
 
 def test_a_drifted_index_parameter_is_caught(fake_repo):
     """An index built off-profile makes measured recall untraceable to config."""
-    (fake_repo / "db" / "sql" / "15_indexes_concurrent.sql").write_text(
+    (fake_repo / "db" / "sql" / "07_indexes.sql").write_text(
         INDEX_DDL.format(ef_construction=400), encoding="utf-8"
     )
     report = Report()

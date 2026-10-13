@@ -13,8 +13,8 @@ version: 2
 embedding:
   dimensions: 1024
   distance_metric: cosine
-  product_field: mosaic_search.product_document.embedding
-  evidence_field: product specifications reuse product_document.embedding; source-specific evidence uses FTS
+  product_field: mosaic_search.product_listing_view.embedding
+  evidence_field: product specifications reuse product_listing.embedding; source-specific evidence uses FTS
 candidate_generation:
   fts_limit: 120
   trigram_limit: 80

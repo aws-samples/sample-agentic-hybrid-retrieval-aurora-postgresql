@@ -90,7 +90,7 @@ def main() -> None:
     with psycopg.connect(dsn, connect_timeout=15, row_factory=dict_row) as conn:
         conn.execute("SET TRANSACTION READ ONLY")
         rows = conn.execute(
-            """SELECT d.product_id,p.parent_asin,p.source_record_sha256,p.embedding_text_sha256,p.embedded_input_sha256,p.embedding_text,p.original FROM mosaic_catalog_stage.product p JOIN mosaic_live_search.product_document d USING(dataset_id,parent_asin) WHERE p.dataset_id=%s AND d.product_id=ANY(%s)""",
+            """SELECT d.product_id,p.parent_asin,p.source_record_sha256,p.embedding_text_sha256,p.embedded_input_sha256,p.embedding_text,p.original FROM mosaic_catalog_stage.product p JOIN mosaic_search.product_listing_view d USING(dataset_id,parent_asin) WHERE p.dataset_id=%s AND d.product_id=ANY(%s)""",
             (manifest["dataset_id"], [p["product_id"] for p in reviews]),
         ).fetchall()
     found = {r["product_id"]: r for r in rows}

@@ -64,7 +64,7 @@ def load_candidate_receipts(
                coalesce({search_schema()}.matches_filters(document, event.filters), false) AS eligible
         FROM mosaic.search_result_event AS receipt
         JOIN mosaic.search_event AS event USING (search_event_id)
-        LEFT JOIN {search_schema()}.product_document AS document USING (product_id)
+        LEFT JOIN {search_schema()}.product_listing_view AS document USING (product_id)
         WHERE receipt.search_event_id = %s
         ORDER BY receipt.result_rank
         """,

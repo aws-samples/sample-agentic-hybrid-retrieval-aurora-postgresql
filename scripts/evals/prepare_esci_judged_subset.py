@@ -41,7 +41,7 @@ def catalog_products(database_url: str) -> dict[str, dict]:
     with psycopg.connect(database_url, row_factory=dict_row) as connection:
         rows = connection.execute(
             "SELECT parent_asin, product_id, category_key, domain::text AS domain "
-            "FROM mosaic_live_search.product_document"
+            "FROM mosaic_search.product_listing_view"
         ).fetchall()
     return {row["parent_asin"]: row for row in rows}
 

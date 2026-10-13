@@ -589,6 +589,6 @@ def test_candidate_eligibility_uses_the_active_catalog(monkeypatch):
     ]
     rows = retrieval_replay.load_candidate_receipts(connection, EVENT_ID)
     query = connection.execute.call_args.args[0]
-    assert "mosaic_live_search.matches_filters" in query
-    assert "mosaic_live_search.product_document" in query
+    assert "mosaic_search.matches_filters" in query
+    assert "mosaic_search.product_listing_view" in query
     assert rows == [{"product_id": 1408222, "eligible": True}]

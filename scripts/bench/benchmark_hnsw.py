@@ -25,7 +25,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from scripts.checks.retrieval_profile import load_profile
-from service.catalog_runtime import catalog_indexes, product_document, search_schema
+from service.catalog_runtime import catalog_indexes, listing_view, search_schema
 from service.config import get_settings
 from service.hnsw_anchors import require_anchor_set_for_served_catalog
 from service.hnsw_presets import EXACT_BASELINE_SETTINGS, FILTER_PRESETS
@@ -244,7 +244,7 @@ def _ann_sql(predicate: str) -> str:
     extra = f" AND {predicate}" if predicate else ""
     return f"""
         SELECT product_id
-        FROM {product_document()}
+        FROM {listing_view()}
         WHERE embedding IS NOT NULL{extra}
         ORDER BY embedding <=> %s
         LIMIT %s
@@ -437,7 +437,7 @@ def _capture_missing_predicate(
     """The same query without the partial-index predicate: the 929x mistake."""
     sql = f"""
         SELECT product_id
-        FROM {product_document()}
+        FROM {listing_view()}
         ORDER BY embedding <=> %s
         LIMIT %s
     """
@@ -476,7 +476,7 @@ def _capture_filter_matrix(
         for preset in FILTER_PRESETS
     ]
     counts = connection.execute(
-        f"SELECT {', '.join(columns)} FROM {product_document()} WHERE embedding IS NOT NULL"
+        f"SELECT {', '.join(columns)} FROM {listing_view()} WHERE embedding IS NOT NULL"
     ).fetchone()
     levels = []
     for preset in FILTER_PRESETS:
@@ -612,7 +612,7 @@ def main() -> None:
                            WHERE embedding IS NOT NULL
                            {where_sql}
                        ) AS filtered_vector_count
-                FROM {product_document()}
+                FROM {listing_view()}
                 """,
                 [index_name(), index_name(), *filter_parameters],
             ).fetchone()
@@ -629,7 +629,7 @@ def main() -> None:
         pool = connection.execute(
             f"""
             SELECT product_id, embedding
-            FROM {product_document()}
+            FROM {listing_view()}
             WHERE embedding IS NOT NULL {where_sql}
             ORDER BY product_id
             LIMIT %s
@@ -745,7 +745,7 @@ def main() -> None:
                 exact = connection.execute(
                     f"""
                     SELECT product_id
-                    FROM {product_document()}
+                    FROM {listing_view()}
                     WHERE embedding IS NOT NULL {where_sql}
                     ORDER BY embedding <=> %s
                     LIMIT %s
@@ -780,7 +780,7 @@ def main() -> None:
                     ann = connection.execute(
                         f"""
                         SELECT product_id
-                        FROM {product_document()}
+                        FROM {listing_view()}
                         WHERE embedding IS NOT NULL {where_sql}
                         ORDER BY embedding <=> %s
                         LIMIT %s
@@ -795,7 +795,7 @@ def main() -> None:
                             f"""
                             EXPLAIN (ANALYZE, BUFFERS, SETTINGS, FORMAT JSON)
                             SELECT product_id
-                            FROM {product_document()}
+                            FROM {listing_view()}
                             WHERE embedding IS NOT NULL {where_sql}
                             ORDER BY embedding <=> %s
                             LIMIT %s
@@ -842,7 +842,7 @@ def main() -> None:
             anchor_pool = connection.execute(
                 f"""
                 SELECT product_id, embedding
-                FROM {product_document()}
+                FROM {listing_view()}
                 WHERE embedding IS NOT NULL AND product_id = ANY(%s)
                 ORDER BY product_id
                 LIMIT %s

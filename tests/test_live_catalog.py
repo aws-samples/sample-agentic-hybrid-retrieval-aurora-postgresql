@@ -120,8 +120,7 @@ def test_pages_share_counts_but_recheck_readiness_and_load_their_own_sources(
     assert len(database.calls) == 7
     assert sum("GROUPING SETS" in query for query, _ in database.calls) == 1
     assert (
-        sum("FROM mosaic_live_search.receipt" in query for query, _ in database.calls)
-        == 2
+        sum("FROM mosaic_search.receipt" in query for query, _ in database.calls) == 2
     )
     assert all(
         "matches_filter_values" in query
@@ -233,7 +232,7 @@ def test_runtime_schema_is_allowlisted_even_when_the_environment_is_malformed(
     monkeypatch,
 ):
     monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "x; DROP SCHEMA mosaic")
-    assert search_schema() == "mosaic_live_search"
+    assert search_schema() == "mosaic_search"
     monkeypatch.delenv("MOSAIC_CATALOG_DATASET")
     assert search_schema() == "mosaic_search"
 
@@ -284,7 +283,7 @@ def test_multi_topic_review_fallback_keeps_the_product_type_and_limit(
     )
     assert [record.evidence_id for record in records] == [101, 102]
     fallback_sql, parameters = database.calls[1]
-    assert "mosaic_live_search.search_product_evidence" in fallback_sql
+    assert "mosaic_search.search_product_evidence" in fallback_sql
     assert "ARRAY['customer_review']" in fallback_sql
     assert parameters[0] == 1000001
     assert '"noise" OR "cancellation"' in parameters[1]

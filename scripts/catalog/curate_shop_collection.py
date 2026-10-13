@@ -235,7 +235,7 @@ def build_collection(rows: list[dict], dataset: str, amount: int = 40) -> dict:
 SHELF_ROWS_SQL = """
     SELECT p.dataset_id, p.parent_asin, p.original, p.source_record_sha256,
            p.image_url, p.embedding_text, p.embedding_text_sha256
-    FROM {schema}.product_document d
+    FROM {schema}.product_listing_view d
     JOIN mosaic_catalog_stage.product p
       ON p.dataset_id = d.dataset_id AND p.parent_asin = d.parent_asin
     WHERE d.dataset_id = %(dataset)s

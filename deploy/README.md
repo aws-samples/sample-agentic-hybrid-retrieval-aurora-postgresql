@@ -69,7 +69,7 @@ The script first downloads and verifies the real-catalog archive against
 the shared schemas, `scripts/catalog/real_catalog_cache.py restore` loads the selected
 records, reuses saved vectors, creates the real search projection and imports the
 reviewed excerpts. `MOSAIC_CATALOG_DATASET` is persisted before the API starts.
-Runtime grants and lab SQL application cover `mosaic_live_search`; a repair must
+Runtime grants and lab SQL application cover `mosaic_search`; a repair must
 not silently update only the historical `mosaic_search` schema.
 
 Keep both the original 51-object embedding cache and the `real-catalog/real-catalog.tar.gz.part-*` files

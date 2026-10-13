@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "procedure_sha256": "bf2726337d0db102baba19c683c98da110c19e1309550591b03d59f3e67174a2",
+  "procedure_sha256": "ae09d1b216bc7f4cf6a04ba841512db07106955fb7d4bd8a9be9725703daa3ea",
   "environment": {
     "server_version_num": "180003",
     "encoding": "UTF8",
@@ -141,7 +141,7 @@
     ]
   },
   "schemas": {
-    "mosaic_live_search": {
+    "mosaic_search": {
       "input": {
         "products": 553911,
         "sha256": "76fba634bb4e78131373974dfa6e8a30da9ec1c4872e8fc12a713ae25e9e994e"
@@ -149,13 +149,13 @@
       "tables": {
         "corpus_lexeme": {
           "rows": 2200149,
-          "bytes": 11744359,
-          "sha256": "6385bfba05f11ecb32dbdda18058513af2999428ee0f6b872ec1f04effdbc227"
+          "bytes": 11744354,
+          "sha256": "5bcf7fc0b0d625edc8303ce5fb95d5b9c9ceb49201c5b98a2f2e6e7acba7e84c"
         },
         "corpus_surface_lexeme": {
           "rows": 2251580,
-          "bytes": 12238073,
-          "sha256": "4d5258c0e80774af841e6bb368df0e1465cdb6b58f2a403bf491774e3a639be2"
+          "bytes": 12238068,
+          "sha256": "cfe3ed3e2f817fb0bb810df73d386e695f52789f1b9b087fbd066deb0122d642"
         }
       }
     }

@@ -110,8 +110,8 @@ def test_eval_validation_checks_each_catalog_in_its_own_schema():
         ],
     )
     statements = [call.args[0] for call in connection.execute.call_args_list]
-    assert "mosaic_search.product_document" in statements[0]
-    assert "mosaic_live_search.product_document" in statements[1]
+    assert "mosaic_search.product_listing_view" in statements[0]
+    assert "mosaic_search.product_listing_view" in statements[1]
 
 
 def _split_fixture(tmp_path, monkeypatch):

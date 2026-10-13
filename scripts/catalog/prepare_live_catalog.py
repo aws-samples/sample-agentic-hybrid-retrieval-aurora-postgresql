@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Prepare the real catalog for the app without replacing the historical tree.
+"""Prepare the loaded listings for the app: prices, identities and search SQL.
 
-The live view reuses the verified search table and its existing HNSW index.
-An offset reserves distinct product identities for telemetry and citations;
-original parent ASINs and every saved vector remain unchanged.
+Searches read mosaic_search.product_listing_view (db/sql/06_retrieval_projection.sql),
+which reuses product_listing's indexes. Its offset reserves distinct product
+identities for telemetry and citations; original parent ASINs and every saved
+vector remain unchanged.
 """
 
 from __future__ import annotations
@@ -23,105 +24,44 @@ sys.path.insert(0, str(ROOT))
 
 from scripts.catalog.corpus_vocabulary import refresh as refresh_vocabulary
 from scripts.catalog.embedding_model import COHERE_EMBED_V4_MODEL_ID
-from scripts.catalog.prepare_staged_catalog_search import (
-    require_complete,
-    search_functions,
-)
+from scripts.catalog.migrate_search_schema import require_migrated
+from scripts.catalog.prepare_staged_catalog_search import require_complete
 from scripts.catalog.stage_real_catalog import require_aurora_writer, validate_dsn
 from scripts.checks.retrieval_profile import load_profile
-from service.catalog_runtime import LIVE_INDEXES
-from service.search_sql import search_sql
+from service.catalog_runtime import LISTING_TABLE, LISTING_VIEW, SEARCH_SCHEMA
+from service.search_sql import search_sql, without_psql_lines
 
 PRODUCT_ID_OFFSET = 1_000_000
-SCHEMA = "mosaic_live_search"
+LISTING = f"{SEARCH_SCHEMA}.{LISTING_TABLE}"
+VIEW = f"{SEARCH_SCHEMA}.{LISTING_VIEW}"
+PROJECTION_FILE = Path("db/sql/06_retrieval_projection.sql")
+COVERAGE_FILE = Path("db/sql/11_query_coverage.sql")
 
-VIEW_SQL = f"""
-CREATE OR REPLACE VIEW {SCHEMA}.product_document AS
-SELECT d.product_id + {PRODUCT_ID_OFFSET} AS product_id,
-       d.dataset_id, d.parent_asin, d.source_record_sha256, d.embedding_text_sha256,
-       d.parent_asin AS sku, d.domain, d.category_key, d.category_path,
-       coalesce(d.brand_name, '') AS brand_name, d.parent_asin AS model_name,
-       d.title, coalesce(nullif(d.body_text, ''), d.feature_text) AS short_description,
-       d.price_cents, NULL::bigint AS list_price_cents, 'USD'::text AS currency,
-       d.availability, NULL::integer AS inventory_count, d.rating,
-       NULL::integer AS review_count, d.attributes, ARRAY[]::text[] AS tags,
-       d.is_refurbished, d.is_sponsored, d.catalog_asset_key, d.canonical_group_id,
-       d.challenge_cohorts, d.is_retrieval_anchor, false AS is_flagship,
-       NULL::text AS media_tier, NULL::real AS freshness_score,
-       NULL::real AS popularity_score, NULL::timestamptz AS updated_at,
-       d.title_text, d.identity_text, d.feature_text, d.body_text, d.trigram_text,
-       d.embedding_text,
-       'Catalog identity: parent ASIN ' || d.parent_asin || E'.\\n' || d.embedding_text AS rerank_text,
-       d.embedding, d.embedding_model_key, d.search_document,
-       -- The listing price the source recorded when it was collected. It is
-       -- not a current offer, so it never becomes price_cents; a budget filter
-       -- matches it instead (see live_search_functions).
-       p.price_cents AS historical_price_cents
-FROM mosaic_catalog_search.product_document d
-LEFT JOIN {SCHEMA}.source_price p ON p.product_id = d.product_id + {PRODUCT_ID_OFFSET}
-"""
-
-# Reading each raw source record for its price made a budgeted headphones count
-# take 831 ms; this keyed copy answers it in 143 ms and costs nothing without a
-# budget. Only exact numeric prices qualify: "from 19.99" is not one price.
-SOURCE_PRICE_TABLE_SQL = f"""
-CREATE TABLE IF NOT EXISTS {SCHEMA}.source_price (
-    product_id bigint PRIMARY KEY,
-    price_cents bigint NOT NULL CHECK (price_cents >= 0)
-)
-"""
-
+# Each listing's recorded source price, keyed for the budget filter
+# (db/sql/06_retrieval_projection.sql explains why it is a separate table). Only
+# exact numeric prices qualify: "from 19.99" is not one price.
 SOURCE_PRICE_SQL = f"""
-INSERT INTO {SCHEMA}.source_price (product_id, price_cents)
+INSERT INTO {SEARCH_SCHEMA}.source_price (product_id, price_cents)
 SELECT d.product_id + {PRODUCT_ID_OFFSET},
        round((s.original->>'price')::numeric * 100)::bigint
-FROM mosaic_catalog_search.product_document d
+FROM {LISTING} d
 JOIN mosaic_catalog_stage.product s
   ON s.dataset_id = d.dataset_id AND s.parent_asin = d.parent_asin
 WHERE jsonb_typeof(s.original->'price') = 'number'
 ON CONFLICT (product_id) DO UPDATE SET price_cents = EXCLUDED.price_cents
 """
 
-_FILTER_PRICE = {
-    "d.brand_name, d.price_cents,": (
-        "d.brand_name, coalesce(d.price_cents, d.historical_price_cents),"
-    ),
-    "(d).price_cents,": "coalesce((d).price_cents, (d).historical_price_cents),",
-}
 
-
-def live_search_functions(source: str) -> str:
-    """Render the same retrieval SQL for source records with unknown commerce facts."""
-    functions = search_functions(source).replace("mosaic_catalog_search.", SCHEMA + ".")
-    functions = functions.replace(
-        "NOT product_is_refurbished", "product_is_refurbished IS NOT TRUE"
-    ).replace("NOT product_is_sponsored", "product_is_sponsored IS NOT TRUE")
-    boundary = "CREATE OR REPLACE FUNCTION mosaic_search.search_product_evidence("
-    evidence_sql = boundary + source.split(boundary, 1)[1]
-    return _filter_on_source_price(
-        functions + "\n" + evidence_sql.replace("mosaic_search.", SCHEMA + ".")
-    )
-
-
-def _filter_on_source_price(functions: str) -> str:
-    """Match every budget against the price each source listing recorded.
-
-    The listings carry no current offer, so a budget over price_cents alone
-    would exclude every product. The rendered SQL keeps a current price first,
-    should one ever exist, and fails if a filter call cannot be rewritten.
-    """
-    calls = functions.count("matches_filter_values(") - 1
-    rewritten = 0
-    for listing_price, source_price in _FILTER_PRICE.items():
-        rewritten += functions.count(listing_price)
-        functions = functions.replace(listing_price, source_price)
-    if rewritten != calls:
-        raise ValueError(
-            f"Source price rule: {rewritten} of {calls} filter calls pass the listing "
-            "price in a recognized form; fix: pass it as `d.brand_name, d.price_cents,` "
-            "or `(d).price_cents,` so the live catalog can filter on source prices."
-        )
-    return functions
+def preparation_sha256(root: Path = ROOT) -> str:
+    """Identity of the SQL this preparation runs: prices, view, search and coverage."""
+    return hashlib.sha256(
+        (
+            SOURCE_PRICE_SQL
+            + without_psql_lines((root / PROJECTION_FILE).read_text(encoding="utf-8"))
+            + without_psql_lines(search_sql(root, solutions=True))
+            + without_psql_lines((root / COVERAGE_FILE).read_text(encoding="utf-8"))
+        ).encode()
+    ).hexdigest()
 
 
 def register_embedding_model(connection) -> None:
@@ -149,17 +89,16 @@ def register_embedding_model(connection) -> None:
 
 def load_source_prices(connection) -> int:
     """Copy each listing's recorded source price into the keyed budget table."""
-    connection.execute(SOURCE_PRICE_TABLE_SQL)
     loaded = connection.execute(SOURCE_PRICE_SQL).rowcount
     stored = connection.execute(
-        f"SELECT count(*) FROM {SCHEMA}.source_price"
+        f"SELECT count(*) FROM {SEARCH_SCHEMA}.source_price"
     ).fetchone()[0]
     if stored != loaded:
         raise ValueError(
             f"Source price rule: {stored} stored prices for {loaded} priced listings; "
             "fix: rebuild the source price table from the selected catalog."
         )
-    connection.execute(f"ANALYZE {SCHEMA}.source_price")
+    connection.execute(f"ANALYZE {SEARCH_SCHEMA}.source_price")
     return loaded
 
 
@@ -178,17 +117,19 @@ def prepare(connection, dataset_id: str) -> dict:
         (dataset_id,),
     ).fetchone()[0]
     require_complete(dataset, actual)
+    require_migrated(connection)
     register_embedding_model(connection)
     projection = connection.execute(
-        "SELECT dataset_id,catalog_sha256 FROM mosaic_catalog_search.receipt WHERE singleton"
+        f"SELECT dataset_id,catalog_sha256 FROM {SEARCH_SCHEMA}.product_listing_receipt "
+        "WHERE singleton"
     ).fetchone()
     if projection != (dataset_id, dataset[3]):
         raise ValueError(
             f"Live catalog rule: projection {projection!r} differs from {dataset_id}; prepare and verify that exact selection first."
         )
     collision = connection.execute(
-        """SELECT p.product_id FROM mosaic.product p
-        JOIN mosaic_catalog_search.product_document d ON p.product_id=d.product_id+%s
+        f"""SELECT p.product_id FROM mosaic.product p
+        JOIN {LISTING} d ON p.product_id=d.product_id+%s
         WHERE p.source_system<>%s OR p.sku<>d.parent_asin LIMIT 1""",
         (PRODUCT_ID_OFFSET, dataset_id),
     ).fetchone()
@@ -197,38 +138,29 @@ def prepare(connection, dataset_id: str) -> dict:
             f"Product identity rule: {collision[0]} is already assigned; choose and review another reserved range before preparing."
         )
     connection.execute("SET statement_timeout='30min'")
-    connection.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
-    connection.execute(f"""CREATE TABLE IF NOT EXISTS {SCHEMA}.receipt (
+    connection.execute(f"""CREATE TABLE IF NOT EXISTS {SEARCH_SCHEMA}.receipt (
         singleton boolean PRIMARY KEY CHECK(singleton), dataset_id text NOT NULL,
         catalog_sha256 text NOT NULL, prepared_at timestamptz,
         product_id_offset bigint NOT NULL, preparation_sha256 text NOT NULL
     )""")
     existing = connection.execute(
-        f"SELECT dataset_id,catalog_sha256,product_id_offset FROM {SCHEMA}.receipt"
+        f"SELECT dataset_id,catalog_sha256,product_id_offset FROM {SEARCH_SCHEMA}.receipt"
     ).fetchone()
     if existing and existing != (dataset_id, dataset[3], PRODUCT_ID_OFFSET):
         raise ValueError(
             f"Live catalog identity rule: existing receipt {existing!r} differs; preserve it and prepare a separately reviewed migration."
         )
     load_source_prices(connection)
-    connection.execute(VIEW_SQL)
-    connection.execute(f"""CREATE INDEX IF NOT EXISTS {LIVE_INDEXES["public_id"]}
-        ON mosaic_catalog_search.product_document ((product_id+{PRODUCT_ID_OFFSET}))""")
-    # An index expression has no statistics until its table is analysed again,
-    # and the restore analysed it before this index existed. Without them the
-    # planner expects 0.5% of the catalog per product ID and scans every
-    # product to fetch each search's shortlist.
-    connection.execute("ANALYZE mosaic_catalog_search.product_document")
-    connection.execute("""INSERT INTO mosaic.brand(brand_key,display_name,is_synthetic)
+    connection.execute(f"""INSERT INTO mosaic.brand(brand_key,display_name,is_synthetic)
         SELECT DISTINCT 'reviews-2023:'||md5(coalesce(brand_name,'')),
-            coalesce(brand_name,''),false FROM mosaic_catalog_search.product_document
+            coalesce(brand_name,''),false FROM {LISTING}
         ON CONFLICT(brand_key) DO NOTHING""")
     # A taxonomy path can hold listings of several derived categories; its
     # display name is the category most of its listings carry.
-    connection.execute("""INSERT INTO mosaic.category(domain,category_key,display_name,category_path,depth)
+    connection.execute(f"""INSERT INTO mosaic.category(domain,category_key,display_name,category_path,depth)
         SELECT domain,'reviews-2023:'||md5(domain::text||':'||category_path),
             mode() WITHIN GROUP (ORDER BY category_key),category_path,1
-        FROM mosaic_catalog_search.product_document GROUP BY domain,category_path
+        FROM {LISTING} GROUP BY domain,category_path
         ON CONFLICT(category_key) DO NOTHING""")
     connection.execute(
         f"""INSERT INTO mosaic.product
@@ -236,7 +168,7 @@ def prepare(connection, dataset_id: str) -> dict:
          short_description,long_description,attributes,source_system,content_hash)
         SELECT d.product_id,d.parent_asin,b.brand_id,c.category_id,d.parent_asin,
             d.model_name,d.title,d.short_description,d.body_text,d.attributes,%s,d.source_record_sha256
-        FROM {SCHEMA}.product_document d
+        FROM {VIEW} d
         JOIN mosaic.brand b ON b.brand_key='reviews-2023:'||md5(d.brand_name)
         JOIN mosaic.category c ON c.category_key='reviews-2023:'||md5(d.domain::text||':'||d.category_path)
         ON CONFLICT(product_id) DO NOTHING""",
@@ -253,38 +185,27 @@ def prepare(connection, dataset_id: str) -> dict:
         flush=True,
     )
 
-    functions = live_search_functions(search_sql(ROOT, solutions=True))
-    connection.execute(functions)
-    coverage_sql = "\n".join(
-        line
-        for line in (ROOT / "db/sql/11_query_coverage.sql").read_text().splitlines()
-        if not line.startswith("\\")
+    connection.execute(without_psql_lines(search_sql(ROOT, solutions=True)))
+    connection.execute(
+        without_psql_lines((ROOT / COVERAGE_FILE).read_text(encoding="utf-8"))
     )
-    connection.execute(coverage_sql.replace("mosaic_search.", SCHEMA + "."))
     connection.commit()
     ready = connection.execute(
-        f"SELECT EXISTS(SELECT 1 FROM {SCHEMA}.corpus_lexeme) AND EXISTS(SELECT 1 FROM {SCHEMA}.corpus_surface_lexeme)"
+        f"SELECT EXISTS(SELECT 1 FROM {SEARCH_SCHEMA}.corpus_lexeme) "
+        f"AND EXISTS(SELECT 1 FROM {SEARCH_SCHEMA}.corpus_surface_lexeme)"
     ).fetchone()[0]
     if not ready:
-        refresh_vocabulary(connection, SCHEMA)
+        refresh_vocabulary(connection, SEARCH_SCHEMA)
     connection.commit()
     checked = connection.execute(f"""SELECT count(*),count(*) FILTER(WHERE p.content_hash=d.source_record_sha256)
-        FROM {SCHEMA}.product_document d JOIN mosaic.product p USING(product_id)""").fetchone()
+        FROM {VIEW} d JOIN mosaic.product p USING(product_id)""").fetchone()
     if checked != (actual, actual):
         raise ValueError(
             f"Live identity verification: found {checked}, expected {(actual, actual)}; restore the registered source identities before enabling the app."
         )
-    preparation_hash = hashlib.sha256(
-        (
-            SOURCE_PRICE_TABLE_SQL
-            + SOURCE_PRICE_SQL
-            + VIEW_SQL
-            + functions
-            + coverage_sql
-        ).encode()
-    ).hexdigest()
+    preparation_hash = preparation_sha256()
     connection.execute(
-        f"""INSERT INTO {SCHEMA}.receipt VALUES(true,%s,%s,now(),%s,%s)
+        f"""INSERT INTO {SEARCH_SCHEMA}.receipt VALUES(true,%s,%s,now(),%s,%s)
         ON CONFLICT(singleton) DO UPDATE SET prepared_at=now(),preparation_sha256=EXCLUDED.preparation_sha256""",
         (dataset_id, dataset[3], PRODUCT_ID_OFFSET, preparation_hash),
     )

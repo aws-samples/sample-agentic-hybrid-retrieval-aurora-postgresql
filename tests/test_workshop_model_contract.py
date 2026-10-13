@@ -44,18 +44,20 @@ def test_workshop_embedding_loader_rejects_another_dimension():
         )
 
 
-def test_projection_upsert_invalidates_a_changed_embedding_text():
+def test_a_vector_never_enters_search_without_the_text_it_embedded():
     """A vector computed from replaced text must not survive the replacement.
 
-    Retargeted from the deleted `sql/02_upsert_from_stage.sql` in Phase 2 Unit E —
-    and the port had dropped the behavior, so this restored it. A stale embedding is
-    worse than a missing one; clearing it forces the importer to supply a matching vector.
+    A stale embedding is worse than a missing one. The restore refuses a load in
+    which any listing's embedded input differs from its text, or its vector or
+    model from the verified source record.
     """
-    sql = (ROOT / "db/sql/06_retrieval_projection.sql").read_text()
+    from scripts.catalog import prepare_staged_catalog_search as staged
 
-    assert "embedding_text = EXCLUDED.embedding_text" in sql
-    assert "IS DISTINCT FROM EXCLUDED.embedding_text" in sql
-    # Both the vector and the model key must clear, or the row claims to have been
-    # embedded by a model that never saw this text.
-    assert sql.count("IS DISTINCT FROM EXCLUDED.embedding_text") >= 2
-    assert "THEN NULL" in sql
+    source = Path(staged.__file__).read_text()
+    for check in (
+        "d.embedding_text_sha256 IS DISTINCT FROM p.embedded_input_sha256",
+        "d.embedding IS DISTINCT FROM p.embedding",
+        "d.embedding_model_key IS DISTINCT FROM p.embedding_model_key",
+    ):
+        assert check in source
+    assert "source/vector mismatches" in source

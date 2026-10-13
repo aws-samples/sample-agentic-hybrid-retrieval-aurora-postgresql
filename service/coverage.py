@@ -1,7 +1,7 @@
 """Whether a request named anything the catalog does not carry.
 
 `mosaic_search.search_fts` selects salient terms with an EXISTS against
-`product_document`, so a term matching zero documents is dropped before the
+`product_listing_view`, so a term matching zero documents is dropped before the
 backoff loop runs. Retrieval then answers whatever survived. Reciprocal rank
 fusion weights by position rather than by score, so nothing downstream can
 recover the fact that the dropped term was the one carrying the identity:

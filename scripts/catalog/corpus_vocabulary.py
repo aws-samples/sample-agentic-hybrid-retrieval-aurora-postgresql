@@ -25,7 +25,9 @@ sys.path.insert(0, str(ROOT))
 from scripts.catalog.stage_real_catalog import validate_dsn
 
 CONTRACT = ROOT / "db/config/corpus-vocabulary-cache.json"
-SCHEMAS = ("mosaic_search", "mosaic_live_search")
+SCHEMAS = ("mosaic_search",)
+#: The view the vocabularies are computed from, as the production procedure reads it.
+VIEW = "product_listing_view"
 TABLES = ("corpus_lexeme", "corpus_surface_lexeme")
 INPUT_COLUMNS = (
     "product_id, search_document, title_text, identity_text, feature_text, "
@@ -75,7 +77,7 @@ def fingerprint(connection, schema: str) -> dict:
           encode(sha256(convert_to(ROW(product_id, search_document::text,
             title_text, identity_text, feature_text, body_text, trigram_text)::text,
             'UTF8')), 'hex'), '' ORDER BY product_id), 'UTF8')), 'hex')
-        FROM {schema}.product_document
+        FROM {schema}.{VIEW}
     """).fetchone()
     return {"products": count, "sha256": checksum}
 
@@ -189,7 +191,7 @@ def restore(
             )
         # Hold the projection stable from fingerprint through publication. A
         # view lock also locks its underlying relations, including source rows.
-        connection.execute(f"LOCK TABLE {schema}.product_document IN SHARE MODE")
+        connection.execute(f"LOCK TABLE {schema}.{VIEW} IN SHARE MODE")
         actual = fingerprint(connection, schema)
         entry = contract["schemas"][schema]
         if actual != entry["input"]:
@@ -252,12 +254,10 @@ def export(connection, directory: Path, *, schema: str | None = None) -> dict:
         selected_schemas = (schema,) if schema else SCHEMAS
         for selected_schema in selected_schemas:
             started = time.monotonic()
-            connection.execute(
-                f"LOCK TABLE {selected_schema}.product_document IN SHARE MODE"
-            )
+            connection.execute(f"LOCK TABLE {selected_schema}.{VIEW} IN SHARE MODE")
             entry = {"input": fingerprint(connection, selected_schema), "tables": {}}
             connection.execute(
-                f"CREATE OR REPLACE TEMP VIEW product_document AS SELECT {INPUT_COLUMNS} FROM {selected_schema}.product_document"
+                f"CREATE OR REPLACE TEMP VIEW {VIEW} AS SELECT {INPUT_COLUMNS} FROM {selected_schema}.{VIEW}"
             )
             connection.execute("CALL pg_temp.refresh_corpus_lexeme()")
             for table in TABLES:

@@ -229,7 +229,7 @@ def inspect_arms(receipt: dict, mission: dict) -> dict:
             control = lab_checks.load_case("semantic-eligibility")
             selective = json.dumps(control["filters"])
             eligible = conn.execute(
-                f"SELECT count(*) AS n FROM {schema}.product_document d "
+                f"SELECT count(*) AS n FROM {schema}.product_listing_view d "
                 f"WHERE embedding IS NOT NULL AND category_key = %s AND lower(brand_name) = lower(%s) "
                 f"AND {schema}.matches_filters(d, %s::jsonb)",
                 (

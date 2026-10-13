@@ -800,7 +800,7 @@ network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   mkdir -p build/real-catalog-cache
   aws s3 sync '$REAL_CATALOG_CACHE_URI' build/real-catalog-cache \
     --exclude '*' --include 'real-catalog.tar.gz.part-*' \
-    --include 'vocabulary/mosaic_live_search.*.csv.gz' --only-show-errors
+    --include 'vocabulary/mosaic_search.*.csv.gz' --only-show-errors
 "
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   cd '$REPO' && uv run python scripts/catalog/real_catalog_cache.py join \
@@ -808,7 +808,7 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
 "
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   cd '$REPO' && uv run python scripts/catalog/corpus_vocabulary.py verify \
-    --directory build/real-catalog-cache/vocabulary --schema mosaic_live_search
+    --directory build/real-catalog-cache/vocabulary --schema mosaic_search
 "
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "
   set -Eeuo pipefail
@@ -921,12 +921,8 @@ GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA mosaic, mosaic_search
     TO :"app_user";
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA mosaic_search
     TO :"app_user";
-GRANT USAGE ON SCHEMA mosaic_catalog_stage, mosaic_catalog_search, mosaic_live_search
-    TO :"app_user";
-GRANT SELECT ON ALL TABLES IN SCHEMA mosaic_catalog_stage, mosaic_catalog_search, mosaic_live_search
-    TO :"app_user";
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA mosaic_live_search
-    TO :"app_user";
+GRANT USAGE ON SCHEMA mosaic_catalog_stage TO :"app_user";
+GRANT SELECT ON ALL TABLES IN SCHEMA mosaic_catalog_stage TO :"app_user";
 GRANT USAGE ON SCHEMA mosaic_bench TO :"app_user";
 GRANT SELECT ON ALL TABLES IN SCHEMA mosaic_bench TO :"app_user";
 GRANT INSERT, UPDATE ON mosaic.product_evidence TO :"app_user";

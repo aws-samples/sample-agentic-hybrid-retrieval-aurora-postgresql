@@ -59,11 +59,11 @@ def test_the_build_targets_a_benchmark_owned_name_and_drops_it(monkeypatch):
     drops = [s for s in connection.statements if s.startswith("DROP INDEX")]
     assert len(creates) == 1
     assert '"product_search_vector_idx_bench"' in creates[0]
-    assert '"mosaic_catalog_search"."product_document"' in creates[0]
+    assert '"mosaic_search"."product_listing"' in creates[0]
     assert "vector_cosine_ops" in creates[0]
     assert all("_bench" in s for s in drops), drops
     assert not any('"product_search_vector_idx"' in s for s in connection.statements)
-    assert record["index"] == "mosaic_catalog_search.product_search_vector_idx_bench"
+    assert record["index"] == "mosaic_search.product_search_vector_idx_bench"
     assert record["size_bytes"] == 4_536_000_000
     assert record["settings"]["max_parallel_maintenance_workers"] == {
         "setting": "7",
@@ -87,20 +87,15 @@ def test_the_session_settings_are_applied_before_the_build(monkeypatch):
     assert "SET max_parallel_maintenance_workers = 3" in joined
     assert "SET maintenance_work_mem = '2GB'" in joined
     assert joined.index("SET maintenance_work_mem") < joined.index("CREATE INDEX")
-    assert '"product_document_embedding_hnsw_cosine_idx_bench"' in joined
+    assert '"product_search_vector_idx_bench"' in joined
     assert not any(
         s.startswith("DROP INDEX ") and "IF EXISTS" not in s
         for s in connection.statements
     )
 
 
-def test_the_bench_name_is_derived_from_the_served_index(monkeypatch):
-    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
+def test_the_bench_name_is_derived_from_the_served_index():
     assert build.bench_index_name() == "product_search_vector_idx_bench"
-    monkeypatch.delenv("MOSAIC_CATALOG_DATASET")
-    assert (
-        build.bench_index_name() == "product_document_embedding_hnsw_cosine_idx_bench"
-    )
 
 
 @pytest.mark.parametrize("argument", ["--repeat 0", "--workers -1"])

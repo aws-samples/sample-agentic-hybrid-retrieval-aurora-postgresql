@@ -66,7 +66,7 @@ def test_applied_lab1_accepts_the_participant_repair(lab_repo, monkeypatch):
         "CREATE OR REPLACE FUNCTION mosaic_search.search_hybrid_rrf(", 1
     )[1].split("CREATE OR REPLACE FUNCTION", 1)[0]
     connection.execute.return_value.fetchone.return_value = {
-        "definition": definition.replace("mosaic_search.", "mosaic_live_search.")
+        "definition": definition.replace("mosaic_search.", "mosaic_search.")
     }
     assert validate_database(1, connection, repo=lab_repo).state == "applied"
 
@@ -240,13 +240,13 @@ def test_reset_and_solution_are_idempotent(lab_repo: Path, lab: int) -> None:
         {
             "name": "unrelated",
             "aurora": "18.3.0",
-            "catalog": "mosaic_search.product_document",
+            "catalog": "mosaic_search.product_listing_view",
         },
         {"name": "mosaic_catalog", "aurora": "18.3.0", "catalog": None},
         {
             "name": "mosaic_catalog",
             "aurora": None,
-            "catalog": "mosaic_search.product_document",
+            "catalog": "mosaic_search.product_listing_view",
         },
     ],
 )
@@ -274,7 +274,7 @@ def test_reset_guard_accepts_named_aurora_and_rejects_missing_dsn(monkeypatch):
     connection.execute.return_value.fetchone.return_value = {
         "name": "named_workshop",
         "aurora": "18.3.0",
-        "catalog": "mosaic_search.product_document",
+        "catalog": "mosaic_search.product_listing_view",
     }
     monkeypatch.setattr("psycopg.connect", lambda *a, **kw: connection)
     monkeypatch.setenv("MOSAIC_WORKSHOP_DATABASE", "named_workshop")
@@ -314,16 +314,14 @@ def test_applied_state_reads_the_catalog_served_by_the_api(monkeypatch, lab):
     k = load_profile().rrf_k
     connection = MagicMock()
     connection.execute.return_value.fetchone.return_value = {
-        "definition": (REPO / LABS[1][0])
-        .read_text()
-        .replace("mosaic_search.", "mosaic_live_search."),
+        "definition": (REPO / LABS[1][0]).read_text(),
         "first_contribution": 1 / (k + 1),
         "second_contribution": 1 / (k + 2),
     }
     assert validate_database(lab, connection).state == "applied"
     statement = connection.execute.call_args.args[0]
-    assert "mosaic_live_search." in statement
-    assert "mosaic_search." not in statement
+    assert "mosaic_search." in statement
+    assert "mosaic_live_search" not in statement
 
 
 PARTICIPANT_LAB3 = """    prompt = instructions + "\\nKeep the answer concise."

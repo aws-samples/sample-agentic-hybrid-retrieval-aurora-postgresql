@@ -1,5 +1,4 @@
-"""Fresh catalog preparation must register the model used by evidence FKs
-and leave the planner the statistics its search indexes need."""
+"""Fresh catalog preparation must register the model used by evidence FKs."""
 
 from unittest.mock import MagicMock
 
@@ -17,6 +16,7 @@ def test_verified_preparation_registers_the_evidence_model_before_publication(
     connection.execute.return_value.fetchone.side_effect = [
         (500000, True, True, "catalog-hash"),
         (500000,),
+        (False,),
         AssertionError("model registration was skipped"),
     ]
     witnessed = []
@@ -48,47 +48,3 @@ def test_model_registration_uses_the_verified_cache_identity():
         load_profile().vector_dimension,
     )
     connection.commit.assert_not_called()
-
-
-def test_preparation_analyses_the_catalog_after_creating_the_public_id_index(
-    monkeypatch,
-):
-    """The restore analysed the table before this index existed, so ANALYZE follows it."""
-    statements: list[str] = []
-    rows = iter(
-        [
-            (500000, True, True, "catalog-hash"),
-            (500000,),
-            ("reviews-2023-v2", "catalog-hash"),
-            None,
-            None,
-        ]
-    )
-
-    def execute(statement, *_args, **_kwargs):
-        statements.append(" ".join(str(statement).split()))
-        if "INSERT INTO mosaic.brand" in statements[-1]:
-            raise RuntimeError("stopped after the index step")
-        result = MagicMock()
-        result.fetchone.side_effect = lambda: next(rows)
-        return result
-
-    connection = MagicMock()
-    connection.execute.side_effect = execute
-    monkeypatch.setattr(live, "register_embedding_model", lambda _connection: None)
-    monkeypatch.setattr(live, "load_source_prices", lambda _connection: None)
-
-    with pytest.raises(RuntimeError, match="stopped after the index step"):
-        live.prepare(connection, "reviews-2023-v2")
-
-    created = next(
-        index
-        for index, statement in enumerate(statements)
-        if "CREATE INDEX IF NOT EXISTS product_search_public_id_idx" in statement
-    )
-    analysed = [
-        index
-        for index, statement in enumerate(statements)
-        if statement == "ANALYZE mosaic_catalog_search.product_document"
-    ]
-    assert analysed and analysed[0] > created

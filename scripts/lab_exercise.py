@@ -205,7 +205,7 @@ def _lab1_exact(cur: Any, values: dict[str, str]) -> set[int]:
     schema = search_schema()
     narrowing, params = _indexable_filter_sql(json.loads(values["lab_filters"]))
     cur.execute(
-        f"SELECT d.product_id FROM {schema}.product_document d "
+        f"SELECT d.product_id FROM {schema}.product_listing_view d "
         f"WHERE d.embedding IS NOT NULL{narrowing} "
         f"AND {schema}.matches_filters(d, %s::jsonb) "
         "ORDER BY (d.embedding <=> %s::vector) + 0, d.product_id LIMIT %s",

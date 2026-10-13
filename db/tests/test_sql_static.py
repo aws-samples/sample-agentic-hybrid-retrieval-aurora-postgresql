@@ -5,9 +5,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class SQLStaticTests(unittest.TestCase):
-    def test_install_excludes_concurrent_indexes(self):
+    def test_install_builds_no_search_index(self):
         text = (ROOT / "sql" / "install.sql").read_text()
-        self.assertNotIn("15_indexes_concurrent.sql", text)
+        self.assertNotIn("\\ir 07_indexes.sql", text)
 
     def test_search_representation_is_explicit(self):
         text = (ROOT / "sql" / "06_retrieval_projection.sql").read_text()

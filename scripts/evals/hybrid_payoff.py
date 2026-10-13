@@ -130,7 +130,7 @@ def read_lists(conn, service, profile, filters: dict, normalized: str, vector):
         pool = set(lists["served"]) | set(lists["vector"][: profile.fused_limit])
         cursor.execute(
             f"SELECT product_id, rerank_text, title, short_description, category_path, "
-            f"brand_name, model_name FROM {schema}.product_document "
+            f"brand_name, model_name FROM {schema}.product_listing_view "
             "WHERE product_id = ANY(%s)",
             (sorted(pool),),
         )

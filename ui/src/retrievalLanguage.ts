@@ -81,9 +81,9 @@ export const armPoolKey: Record<RetrievalArm, string> = {
  * index the deployment does not have.
  */
 export const armIndexName: Record<RetrievalArm, string> = {
-  fts: "product_document_fts_gin_idx",
-  trigram: "product_document_trigram_gin_idx",
-  semantic: "product_document_embedding_hnsw_cosine_idx",
+  fts: "product_search_fts_idx",
+  trigram: "product_search_trigram_idx",
+  semantic: "product_search_vector_idx",
 };
 
 /**

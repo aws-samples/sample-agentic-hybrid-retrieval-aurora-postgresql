@@ -35,7 +35,7 @@ LOAD_EXERCISE_ARGS ?=
 SCHEMA_PACKAGE ?= db
 VECTOR_DIM ?= 1024
 BOOTSTRAP_TIMINGS_FILE ?= build/bootstrap-timings.tsv
-.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python validate validate-db lint test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-status start-lab-1 reset-lab-1 validate-lab-1 solution-lab-1 start-lab-2 reset-lab-2 validate-lab-2 solution-lab-2 start-lab-3 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-bootstrap-schema db-verify-bootstrap db-smoke db-index-concurrent db-drop-invalid-indexes db-index-recover-and-create db-index-quantized db-index-quantized-catalog simulate db-seed-exact-neighbors check-exact-neighbors select-hnsw-anchors check-hnsw-anchors curate-shop-collection check-shop-collection benchmark-hnsw benchmark-index-build benchmark-hardware benchmark-ask-mosaic rehearsal-validate rehearsal-summary load-exercise api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
+.PHONY: check-model-access setup doctor check-dsn check-python check-bootstrap-python check-mcp-python validate validate-db lint test test-aurora-contracts test-aurora-invariants db-install db-install-labs db-configure-retrieval validate-missions validate-evals score-evals ablation-evals validate-config validate-functions lab-status start-lab-1 reset-lab-1 validate-lab-1 solution-lab-1 start-lab-2 reset-lab-2 validate-lab-2 solution-lab-2 start-lab-3 reset-lab-3 validate-lab-3 solution-lab-3 restart-lab-api db-apply-search-functions db-render db-bootstrap-schema db-verify-bootstrap db-smoke db-drop-invalid-indexes db-index-quantized-catalog simulate db-seed-exact-neighbors check-exact-neighbors select-hnsw-anchors check-hnsw-anchors curate-shop-collection check-shop-collection benchmark-hnsw benchmark-index-build benchmark-hardware benchmark-ask-mosaic rehearsal-validate rehearsal-summary load-exercise api-serve ui-install ui-build ui-test ui-audit ui-dev mcp-lock-check mcp-install mcp-test mcp-wheel-smoke mcp-serve sync-bootstrap check-bootstrap-sync check-bootstrap-release validate-release-workflow
 
 PYTHON_TARGETS := validate validate-db validate-missions validate-evals score-evals ablation-evals validate-config validate-functions \
 	test db-render simulate db-configure-retrieval lab-status validate-lab-3 solution-lab-3 api-serve \
@@ -55,7 +55,7 @@ check-dsn:
 	}
 
 DSN_TARGETS := test test-aurora-contracts test-aurora-invariants db-install db-install-labs validate-missions validate-evals score-evals \
-	ablation-evals validate-functions db-index-concurrent db-drop-invalid-indexes db-index-quantized db-index-recover-and-create db-smoke db-bootstrap-schema \
+	ablation-evals validate-functions db-drop-invalid-indexes db-smoke db-bootstrap-schema \
 	db-verify-bootstrap db-configure-retrieval db-apply-search-functions start-lab-1 reset-lab-1 validate-lab-1 solution-lab-1 start-lab-2 \
 	reset-lab-2 validate-lab-2 solution-lab-2 start-lab-3 reset-lab-3 api-serve curate-shop-collection check-shop-collection
 
@@ -236,37 +236,14 @@ db-render:
 	$(PYTHON) $(SCHEMA_PACKAGE)/scripts/render_dimension.py \
 		--dimension $(VECTOR_DIM) --output $(CURDIR)
 
-# Run after embeddings are populated.
-db-index-concurrent:
-	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/15_indexes_concurrent.sql
-
-# CREATE INDEX CONCURRENTLY that is interrupted -- a cancelled bootstrap, a
-# dropped connection, a failed build -- leaves the index relation behind with
-# indisvalid = false. The planner will not use it, and `IF NOT EXISTS` in
-# 15_indexes_concurrent.sql and 16_indexes_quantized.sql sees the name and skips
-# the rebuild, so re-running the create target is a no-op forever. That made the
-# acceptance script's "re-run make db-index-concurrent" advice unfollowable.
-# Dropping an invalid index needs no CONCURRENTLY: nothing is reading it.
-# A CREATE INDEX CONCURRENTLY still in flight also reports indisvalid = false,
-# and this target cannot tell that apart from an abandoned build, so it must not
-# be run beside an index build in another shell: it would drop the index that
-# build is still creating.
+# Drop an index left invalid by an interrupted CREATE INDEX CONCURRENTLY, so
+# re-running the build creates it again instead of skipping the name. It cannot
+# tell an abandoned build from one still running in another shell, so never run
+# it beside an index build.
 db-drop-invalid-indexes: check-dsn
 	@set -e -o pipefail; database_url="$$DATABASE_URL"; \
 	psql "$$database_url" -X -v ON_ERROR_STOP=1 -At -c "SELECT format('%I.%I', n.nspname, c.relname) FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid JOIN pg_namespace n ON n.oid = c.relnamespace WHERE NOT i.indisvalid AND n.nspname IN ('mosaic','mosaic_search','mosaic_bench')" \
 	| while read -r index; do echo "dropping invalid index $$index"; psql "$$database_url" -X -v ON_ERROR_STOP=1 -c "DROP INDEX $$index"; done
-
-# Recovery before creation, in that order, as one target so the bootstrap phase
-# runs both. A prerequisite list would not guarantee the order under `make -j`.
-db-index-recover-and-create:
-	@$(MAKE) db-drop-invalid-indexes
-	@$(MAKE) db-index-concurrent
-
-# The halfvec and binary HNSW indexes, roughly 9 minutes for the pair. Not a
-# bootstrap phase: they exist for the optional representation comparison on the
-# Performance page, which withholds those rows until this has been run.
-db-index-quantized: check-dsn
-	@psql "$$DATABASE_URL" -v ON_ERROR_STOP=1 -f $(SCHEMA_PACKAGE)/sql/16_indexes_quantized.sql
 
 # The same two representations on the served (prepared) catalog's table,
 # named for the instrument by catalog_indexes(). Plain builds by default;

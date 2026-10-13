@@ -46,7 +46,7 @@ from scripts.checks.retrieval_profile import explain, load_profile
 from service.catalog_runtime import (
     active_dataset,
     catalog_indexes,
-    product_document,
+    listing_view,
     search_schema,
 )
 from service.config import get_settings
@@ -324,7 +324,7 @@ def main() -> None:
             ).fetchone()
         )
         pool = connection.execute(
-            f"SELECT product_id, category_key, domain::text AS domain, embedding FROM {product_document()} WHERE embedding IS NOT NULL AND product_id = ANY(%s) ORDER BY product_id",
+            f"SELECT product_id, category_key, domain::text AS domain, embedding FROM {listing_view()} WHERE embedding IS NOT NULL AND product_id = ANY(%s) ORDER BY product_id",
             (list(anchor_set.product_ids),),
         ).fetchall()
         if len(pool) != len(anchor_set.product_ids):
@@ -333,7 +333,7 @@ def main() -> None:
                 f"{len(anchor_set.product_ids) - len(pool)} anchor(s); reselect anchors before measuring."
             )
         count = connection.execute(
-            f"SELECT count(*) AS n FROM {product_document()} WHERE embedding IS NOT NULL"
+            f"SELECT count(*) AS n FROM {listing_view()} WHERE embedding IS NOT NULL"
         ).fetchone()["n"]
         memory = connection.execute(
             "SELECT setting::bigint / 1024 AS mb FROM pg_settings WHERE name = 'work_mem'"
@@ -427,7 +427,7 @@ def main() -> None:
             filtered_truth = seeded[preset.key]
             where = f" AND {preset.predicate_sql}" if preset.predicate_sql else ""
             matching = connection.execute(
-                f"SELECT count(*) AS n FROM {product_document()} WHERE embedding IS NOT NULL{where}"
+                f"SELECT count(*) AS n FROM {listing_view()} WHERE embedding IS NOT NULL{where}"
             ).fetchone()["n"]
             modes = []
             for mode in SCAN_MODES:
@@ -461,7 +461,7 @@ def main() -> None:
             rows = []
             payload = dict(
                 connection.execute(
-                    f"SELECT pg_column_size(embedding) AS fp32, pg_column_size(embedding::halfvec) AS halfvec, pg_column_size(binary_quantize(embedding)) AS binary FROM {product_document()} WHERE embedding IS NOT NULL LIMIT 1"
+                    f"SELECT pg_column_size(embedding) AS fp32, pg_column_size(embedding::halfvec) AS halfvec, pg_column_size(binary_quantize(embedding)) AS binary FROM {listing_view()} WHERE embedding IS NOT NULL LIMIT 1"
                 ).fetchone()
             )
             for representation in ["fp32", "halfvec", "binary"]:
@@ -552,7 +552,7 @@ def main() -> None:
                     request.scan_mem_multiplier,
                 ),
             )
-            missing_sql = f"SELECT product_id FROM {product_document()} ORDER BY embedding <=> %s LIMIT %s"
+            missing_sql = f"SELECT product_id FROM {listing_view()} ORDER BY embedding <=> %s LIMIT %s"
             missing_predicate = _explain_probe(
                 connection, missing_sql, [pool[0]["embedding"], args.k]
             )

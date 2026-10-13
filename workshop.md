@@ -85,8 +85,8 @@ Retries preserve edits and resume any interrupted preparation. Every Lab 1 and
 Lab 2 check reads the saved block the same way, so `validate_lab.py` cannot pass
 while `advance` refuses. A refusal names the first difference (for example
 `column 3 is trigram_score`), the fix and the rerun. Equivalent SQL passes:
-column or table aliases, qualified columns, and either `mosaic_search` or
-`mosaic_live_search`. Live-check failures, in the terminal and in Prove, name the
+column or table aliases and qualified columns. Live-check failures, in the
+terminal and in Prove, name the
 product and search method as Shop does and end in a command or a facilitator
 handoff; an apply error names the participant's file and line, and
 `uv run python scripts/diff.py` names in plain words the lines of a lab file that

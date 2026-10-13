@@ -14,7 +14,7 @@ from scripts.catalog import corpus_vocabulary as vocabulary
 def test_published_contract_agrees_with_production_sql_without_ignored_assets():
     contract = json.loads(vocabulary.CONTRACT.read_text())
     vocabulary.verify_contract(contract)
-    assert set(contract["schemas"]) == {"mosaic_live_search"}
+    assert set(contract["schemas"]) == {"mosaic_search"}
     assert all(entry["input"]["products"] > 0 for entry in contract["schemas"].values())
 
 
@@ -54,24 +54,20 @@ def test_files_are_verified_and_unrelated_files_do_not_invalidate(cache):
     vocabulary.verify_files(directory, contract)
     (directory / "operator-notes.txt").write_text("irrelevant to vocabulary")
     vocabulary.verify_files(directory, contract)
-    assert sum(len(entry["tables"]) for entry in contract["schemas"].values()) == 4
+    assert sum(len(entry["tables"]) for entry in contract["schemas"].values()) == 2
 
 
-def test_real_only_cache_needs_no_historical_files_but_rejects_changed_real_bytes(
-    cache,
-):
+def test_changed_cache_bytes_fail_and_identical_bytes_pass(cache):
     directory, contract = cache
-    for path in directory.glob("mosaic_search.*"):
-        path.unlink()
-    vocabulary.verify_files(directory, contract, schema="mosaic_live_search")
-    path = directory / "mosaic_live_search.corpus_lexeme.csv.gz"
+    vocabulary.verify_files(directory, contract, schema="mosaic_search")
+    path = directory / "mosaic_search.corpus_lexeme.csv.gz"
     before = path.read_bytes()
     path.write_bytes(before + b"changed")
     with pytest.raises(ValueError, match="Vocabulary asset rule"):
-        vocabulary.verify_files(directory, contract, schema="mosaic_live_search")
+        vocabulary.verify_files(directory, contract, schema="mosaic_search")
     path.write_bytes(before)
     assert path.read_bytes() == before
-    vocabulary.verify_files(directory, contract, schema="mosaic_live_search")
+    vocabulary.verify_files(directory, contract, schema="mosaic_search")
 
 
 @pytest.mark.parametrize(
@@ -82,31 +78,31 @@ def test_each_asset_gate_rejects_its_violation_then_accepts_byte_identical_resto
 ):
     directory, original = cache
     contract = copy.deepcopy(original)
-    path = directory / "mosaic_live_search.corpus_surface_lexeme.csv.gz"
+    path = directory / "mosaic_search.corpus_surface_lexeme.csv.gz"
     before = path.read_bytes()
     if violation == "changed":
         path.write_bytes(before + b"changed")
     elif violation == "missing":
         path.unlink()
     elif violation == "size":
-        contract["schemas"]["mosaic_live_search"]["tables"]["corpus_surface_lexeme"][
+        contract["schemas"]["mosaic_search"]["tables"]["corpus_surface_lexeme"][
             "bytes"
         ] += 1
     elif violation == "sql":
         contract["procedure_sha256"] = "stale-procedure"
     elif violation == "table":
         contract["schemas"]["unsupported_schema"] = contract["schemas"].pop(
-            "mosaic_live_search"
+            "mosaic_search"
         )["tables"]["corpus_surface_lexeme"]
     elif violation == "schema":
         contract["schemas"]["unsupported_schema"] = contract["schemas"].pop(
-            "mosaic_live_search"
+            "mosaic_search"
         )
     else:
         contract["schema_version"] = 0
     connection = MagicMock()
     with pytest.raises(ValueError, match="Vocabulary .* rule:"):
-        vocabulary.restore(connection, "mosaic_live_search", directory, contract)
+        vocabulary.restore(connection, "mosaic_search", directory, contract)
     connection.execute.assert_not_called()
     path.write_bytes(before)
     assert path.read_bytes() == before
@@ -157,9 +153,9 @@ def test_success_loads_both_tables_and_rebuilds_the_index(cache, monkeypatch):
 def test_operator_rebuild_executes_the_production_procedure(monkeypatch):
     monkeypatch.delenv("MOSAIC_VOCABULARY_CACHE_DIR", raising=False)
     connection = MagicMock()
-    report = vocabulary.refresh(connection, "mosaic_live_search")
+    report = vocabulary.refresh(connection, "mosaic_search")
     connection.execute.assert_called_once_with(
-        "CALL mosaic_live_search.refresh_corpus_lexeme()"
+        "CALL mosaic_search.refresh_corpus_lexeme()"
     )
     assert report["mode"] == "rebuild"
 
@@ -188,10 +184,10 @@ def test_actual_restore_is_atomic_and_input_binding_ignores_unread_columns(
     with psycopg.connect(get_settings().database_url) as connection:
         connection.execute("SELECT aurora_version()")
         connection.execute(
-            "CREATE TEMP TABLE product_document (product_id bigint, search_document tsvector, title_text text, identity_text text, feature_text text, body_text text, trigram_text text, unrelated text)"
+            "CREATE TEMP TABLE product_listing_view (product_id bigint, search_document tsvector, title_text text, identity_text text, feature_text text, body_text text, trigram_text text, unrelated text)"
         )
         connection.execute(
-            "INSERT INTO product_document VALUES (1, to_tsvector('english', 'chair chair'), 'chair chair', '', '', '', '', 'original')"
+            "INSERT INTO product_listing_view VALUES (1, to_tsvector('english', 'chair chair'), 'chair chair', '', '', '', '', 'original')"
         )
         for table in vocabulary.TABLES:
             connection.execute(
@@ -225,7 +221,7 @@ def test_actual_restore_is_atomic_and_input_binding_ignores_unread_columns(
                 "sha256": vocabulary.digest(path),
                 "bytes": path.stat().st_size,
             }
-        connection.execute("UPDATE product_document SET unrelated='changed'")
+        connection.execute("UPDATE product_listing_view SET unrelated='changed'")
         assert (
             vocabulary.restore(connection, "pg_temp", tmp_path, contract)["mode"]
             == "cache"
@@ -233,10 +229,12 @@ def test_actual_restore_is_atomic_and_input_binding_ignores_unread_columns(
         assert connection.execute(
             "SELECT indisvalid FROM pg_index WHERE indexrelid='pg_temp.corpus_surface_lexeme_trgm_idx'::regclass"
         ).fetchone() == (True,)
-        connection.execute("UPDATE product_document SET title_text='different input'")
+        connection.execute(
+            "UPDATE product_listing_view SET title_text='different input'"
+        )
         with pytest.raises(ValueError, match="Vocabulary input rule"):
             vocabulary.restore(connection, "pg_temp", tmp_path, contract)
-        connection.execute("UPDATE product_document SET title_text='chair chair'")
+        connection.execute("UPDATE product_listing_view SET title_text='chair chair'")
         connection.execute("INSERT INTO corpus_lexeme VALUES ('sentinel', 9, 9)")
         bad = copy.deepcopy(contract)
         bad["schemas"]["pg_temp"]["tables"]["corpus_surface_lexeme"]["rows"] = 99

@@ -792,7 +792,7 @@ def test_single_arms_read_the_served_search_schema(monkeypatch):
     trigram_only_arm(retrieval, _QUERIES)
     semantic_only_arm(retrieval, _QUERIES)
 
-    assert connection.schemas == {"mosaic_live_search"}
+    assert connection.schemas == {"mosaic_search"}
 
 
 def test_measured_ablation_searches_with_the_scorecards_vectors(ablation_environment):

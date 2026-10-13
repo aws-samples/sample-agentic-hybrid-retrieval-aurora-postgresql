@@ -35,6 +35,7 @@ sys.path.insert(0, str(REPO))
 
 from psycopg import sql
 
+from scripts.catalog.migrate_search_schema import require_migrated
 from scripts.checks.retrieval_profile import explain, load_profile
 from service.catalog_runtime import active_dataset, catalog_indexes
 from service.config import get_settings
@@ -163,13 +164,8 @@ def main() -> None:
     ) as connection:
         connection.execute("SET statement_timeout = 0")
         connection.execute("SET application_name = 'mosaic-quantized-index-build'")
-        if active_dataset():
-            # Renamed in place, so IF NOT EXISTS below never builds a second copy.
-            from scripts.catalog.prepare_staged_catalog_search import (
-                rename_legacy_search_indexes,
-            )
-
-            rename_legacy_search_indexes(connection)
+        # A cluster still on the old schemas would get a second copy of each index.
+        require_migrated(connection)
         records = build(
             connection,
             representations=arguments.representation or ["halfvec", "binary"],

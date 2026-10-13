@@ -159,7 +159,7 @@ describe("RetrievalObservatory", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Fuzzy matching/ }));
 
-    expect(screen.getByText("mosaic_live_search.search_trigram(", { exact: false })).toBeTruthy();
+    expect(screen.getByText("mosaic_search.search_trigram(", { exact: false })).toBeTruthy();
     expect(container.querySelectorAll(".labs-matrix-cell.is-focused")).toHaveLength(
       seedRun.results.length,
     );

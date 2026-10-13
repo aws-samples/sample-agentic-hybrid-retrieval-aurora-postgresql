@@ -13,6 +13,7 @@ from pgvector.psycopg import register_vector
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
+from service.catalog_runtime import LIVE_INDEXES
 from service.config import get_settings
 
 _pool: ConnectionPool | None = None
@@ -200,9 +201,9 @@ LEFT JOIN pg_index AS index_state
 # Without all three, the three required labs cannot run. Reported by `readiness()` as
 # `missing_retrieval_indexes` and gated on by `service.main`.
 REQUIRED_RETRIEVAL_INDEXES = (
-    "product_document_fts_gin_idx",
-    "product_document_trigram_gin_idx",
-    "product_document_embedding_hnsw_cosine_idx",
+    LIVE_INDEXES["fts"],
+    LIVE_INDEXES["trigram"],
+    LIVE_INDEXES["vector"],
 )
 
 
@@ -216,7 +217,7 @@ def index_states_on(
         names: Bare index relation names in the selected schema, without the schema
             qualifier. A same-named index in another schema is not this index and
             is reported as `missing`.
-        schema: Schema to inspect. Defaults to the historical `mosaic_search`.
+        schema: Schema to inspect. Defaults to `mosaic_search`.
 
     Returns:
         One entry per requested name: `valid`, `invalid`, or `missing`.
@@ -244,26 +245,26 @@ def readiness() -> dict[str, object]:
             SELECT
                 current_database() AS database_name,
                 current_setting('server_version') AS server_version,
-                to_regclass('mosaic_search.product_document') IS NOT NULL
+                to_regclass('mosaic_search.product_listing_view') IS NOT NULL
                     AS schema_ready,
                 (SELECT extversion FROM pg_extension WHERE extname = 'vector')
                     AS vector_version,
-                (SELECT count(*) FROM mosaic_search.product_document)
+                (SELECT count(*) FROM mosaic_search.product_listing_view)
                     AS product_count,
                 (
-                    SELECT count(*) FROM mosaic_search.product_document
+                    SELECT count(*) FROM mosaic_search.product_listing_view
                     WHERE embedding IS NOT NULL
                 ) AS embedded_product_count,
                 (
                     SELECT vector_dims(embedding)
-                    FROM mosaic_search.product_document
+                    FROM mosaic_search.product_listing_view
                     WHERE embedding IS NOT NULL
                     LIMIT 1
                 ) AS embedding_dimensions,
                 (
                     SELECT array_agg(DISTINCT embedding_model_key)
                     FILTER (WHERE embedding_model_key IS NOT NULL)
-                    FROM mosaic_search.product_document
+                    FROM mosaic_search.product_listing_view
                 ) AS embedding_model_ids,
                 (
                     SELECT count(*)

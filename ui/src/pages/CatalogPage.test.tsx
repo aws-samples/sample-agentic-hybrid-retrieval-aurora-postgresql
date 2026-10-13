@@ -2704,7 +2704,7 @@ describe("CatalogPage", () => {
       status: "blocked",
       database: {
         ...healthyReadiness.database,
-        missing_retrieval_indexes: ["product_document_trigram_gin_idx"],
+        missing_retrieval_indexes: ["product_search_trigram_idx"],
       },
     });
     vi.mocked(api.search).mockResolvedValue(lab1Search(false));
@@ -2725,7 +2725,7 @@ describe("CatalogPage", () => {
         }),
       ).toBeTruthy()
     );
-    expect(callout.textContent).toContain("product_document_trigram_gin_idx");
+    expect(callout.textContent).toContain("product_search_trigram_idx");
     // Not the lab's fault, and not the lab's file either.
     expect(callout.textContent).not.toContain("deliberate");
     expect(callout.textContent).not.toContain(lab1.participant_edit!.file);

@@ -11,8 +11,8 @@ from service.hnsw import MEASURED_ARTIFACT, measured, neighborhood_band
 
 ROOT = Path(__file__).resolve().parents[1]
 
-HALFVEC_INDEX = "product_document_embedding_hnsw_halfvec_idx"
-BINARY_INDEX = "product_document_embedding_hnsw_binary_idx"
+HALFVEC_INDEX = "product_search_vector_halfvec_idx"
+BINARY_INDEX = "product_search_vector_binary_idx"
 
 
 RUNTIME_MANIFEST = "d5abc2c047f73726926260bb6a5364b50295acc4c6b2a3e9e35d47e93eb5c464"
@@ -201,7 +201,7 @@ def test_resolve_preset_refuses_an_unknown_key_and_names_the_alternatives():
     from service.hnsw import resolve_preset
 
     with pytest.raises(KeyError) as raised:
-        resolve_preset("'; DROP TABLE mosaic_search.product_document; --")
+        resolve_preset("'; DROP TABLE mosaic_search.product_listing_view; --")
 
     message = str(raised.value)
     assert "fix:" in message
@@ -514,8 +514,8 @@ def test_measured_withholds_representations_when_a_quantized_index_is_missing(
 ):
     """Nothing in the bootstrap builds these two indexes.
 
-    `db/sql/16_indexes_quantized.sql` is the only file that creates them and no
-    phase runs it, so on a freshly bootstrapped cluster the halfvec and binary
+    `make db-index-quantized-catalog` is the only target that creates them and
+    no phase runs it, so on a freshly bootstrapped cluster the halfvec and binary
     rows describe indexes the reader cannot inspect, EXPLAIN, or reproduce.
     """
     _artifact_with_representations(tmp_path, monkeypatch)
@@ -528,7 +528,7 @@ def test_measured_withholds_representations_when_a_quantized_index_is_missing(
     reason = payload["representations_unavailable_reason"]
     assert HALFVEC_INDEX in reason
     assert "missing" in reason
-    assert "make db-index-quantized" in reason
+    assert "make db-index-quantized-catalog" in reason
     # Prose plus the command, not `explain(found, fix)`. The Performance page
     # renders this string as body copy under a heading, where error-message
     # scaffolding reads as a fault in the page rather than as a statement about
@@ -671,7 +671,7 @@ def test_probe_refuses_a_representation_whose_index_was_never_built():
 
     message = str(raised.value)
     assert HALFVEC_INDEX in message
-    assert "make db-index-quantized" in message
+    assert "make db-index-quantized-catalog" in message
     assert "fix:" in message
 
 
@@ -688,7 +688,7 @@ def test_probe_points_fp32_at_its_own_recovery_target():
     with pytest.raises(RepresentationUnavailable) as raised:
         require_representation_index(_FakeConnection({}), "fp32")
 
-    assert "make db-drop-invalid-indexes" in str(raised.value)
+    assert "prepare_staged_catalog_search.py" in str(raised.value)
     assert "make db-index-quantized" not in str(raised.value)
 
 

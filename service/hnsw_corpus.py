@@ -68,7 +68,7 @@ def corpus_manifest(connection: Any) -> str:
     dataset = active_dataset()
     if dataset:
         row = connection.execute(
-            "SELECT dataset_id, catalog_sha256 FROM mosaic_live_search.receipt "
+            "SELECT dataset_id, catalog_sha256 FROM mosaic_search.receipt "
             "WHERE singleton"
         ).fetchone()
         if row is None or row["dataset_id"] != dataset or not row["catalog_sha256"]:

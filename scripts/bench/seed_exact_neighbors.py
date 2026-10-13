@@ -41,7 +41,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from scripts.checks.retrieval_profile import explain
-from service.catalog_runtime import product_document
+from service.catalog_runtime import listing_view
 from service.config import get_settings
 from service.db import connect
 from service.hnsw_anchors import AnchorSet, require_anchor_set_for_served_catalog
@@ -86,7 +86,7 @@ def exact_neighbors(
         rows = connection.execute(
             f"""
             SELECT product_id, (embedding <=> %s) AS cosine_distance
-            FROM {product_document()}
+            FROM {listing_view()}
             WHERE embedding IS NOT NULL {predicate}
             ORDER BY embedding <=> %s, product_id
             LIMIT %s
@@ -124,7 +124,7 @@ def compute_distances(connection: Any, anchors: list[dict[str, Any]]) -> int:
                d.product_id,
                (d.embedding <=> a.embedding) AS cosine_distance,
                d.domain, d.category_key, d.brand_name, d.rating
-        FROM {product_document()} AS d
+        FROM {listing_view()} AS d
         CROSS JOIN (VALUES {placeholders}) AS a(anchor_product_id, embedding)
         WHERE d.embedding IS NOT NULL
         """,
@@ -222,7 +222,7 @@ def anchor_vectors(connection: Any, anchors: AnchorSet) -> list[dict[str, Any]]:
     rows = connection.execute(
         f"""
         SELECT product_id, title, embedding
-        FROM {product_document()}
+        FROM {listing_view()}
         WHERE product_id = ANY(%s) AND embedding IS NOT NULL
         ORDER BY product_id
         """,

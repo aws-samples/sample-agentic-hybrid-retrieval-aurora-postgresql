@@ -66,7 +66,7 @@ def _collection(dataset: str) -> tuple[str, ...]:
 def _selection_receipt(connection) -> dict:
     dataset = active_dataset()
     row = connection.execute(
-        "SELECT dataset_id,prepared_at FROM mosaic_live_search.receipt WHERE singleton"
+        "SELECT dataset_id,prepared_at FROM mosaic_search.receipt WHERE singleton"
     ).fetchone()
     if not row or not row["prepared_at"] or row["dataset_id"] != dataset:
         raise HTTPException(
@@ -133,7 +133,7 @@ def _source_rows(
         f"""SELECT d.product_id,d.domain::text AS domain,d.category_key,
             p.dataset_id,p.parent_asin,p.source_department,p.original,p.source_record_sha256,
             p.embedding_text,p.embedding_text_sha256,p.embedding_model_key,p.image_url
-        FROM {search_schema()}.product_document d
+        FROM {search_schema()}.product_listing_view d
         JOIN mosaic_catalog_stage.product p ON p.dataset_id=d.dataset_id AND p.parent_asin=d.parent_asin
         WHERE d.dataset_id=%s AND d.product_id=ANY(%s::bigint[])
         ORDER BY array_position(%s::bigint[],d.product_id)""",
@@ -201,7 +201,7 @@ def _browse_statistics(
     rows = connection.execute(
         f"""WITH filtered AS MATERIALIZED (
                 SELECT d.domain,d.category_key,d.brand_name
-                FROM {search_schema()}.product_document d WHERE {where}
+                FROM {search_schema()}.product_listing_view d WHERE {where}
             ), counts AS (
                 SELECT CASE WHEN grouping(domain)=0 THEN 'domain'
                             WHEN grouping(category_key)=0 THEN 'category_key'
@@ -239,17 +239,17 @@ def _browse_page_sql(where: str, sort: str, collection: str) -> str:
         # Bound each disjoint part before merging, preserving the exact order.
         return f"""WITH featured AS (
             SELECT d.product_id,array_position(%(featured)s::text[],d.parent_asin) AS position
-            FROM {search_schema()}.product_document d
+            FROM {search_schema()}.product_listing_view d
             WHERE {where} AND d.parent_asin=ANY(%(featured)s::text[])
             ORDER BY position,d.product_id LIMIT (%(offset)s+%(limit)s)
         ), remaining AS (
             SELECT d.product_id,2147483647 AS position
-            FROM {search_schema()}.product_document d
+            FROM {search_schema()}.product_listing_view d
             WHERE {where} AND NOT(d.parent_asin=ANY(%(featured)s::text[]))
             ORDER BY d.product_id LIMIT (%(offset)s+%(limit)s)
         ) SELECT product_id FROM (SELECT * FROM featured UNION ALL SELECT * FROM remaining) ordered
         ORDER BY position,product_id OFFSET %(offset)s LIMIT %(limit)s"""
-    return f"SELECT d.product_id FROM {search_schema()}.product_document d WHERE {where} ORDER BY {_SORTS[sort]} OFFSET %(offset)s LIMIT %(limit)s"
+    return f"SELECT d.product_id FROM {search_schema()}.product_listing_view d WHERE {where} ORDER BY {_SORTS[sort]} OFFSET %(offset)s LIMIT %(limit)s"
 
 
 def list_products(
@@ -302,7 +302,7 @@ def count_products(filters: list[SearchFilters]) -> list[int]:
     with connect() as connection:
         _selection(connection)
         rows = connection.execute(
-            f"""SELECT (SELECT count(*) FROM {search_schema()}.product_document d
+            f"""SELECT (SELECT count(*) FROM {search_schema()}.product_listing_view d
             WHERE {filter_predicate("requested.filters")}) AS count
             FROM jsonb_array_elements(%s::jsonb) WITH ORDINALITY AS requested(filters,position)
             ORDER BY requested.position""",
@@ -482,10 +482,10 @@ def similar_products(product_id: int) -> list[ProductSummary]:
     with connect() as connection:
         _selection(connection)
         rows = connection.execute(
-            f"""SELECT d.product_id FROM {search_schema()}.product_document d
-            WHERE d.category_key=(SELECT category_key FROM {search_schema()}.product_document WHERE product_id=%s)
+            f"""SELECT d.product_id FROM {search_schema()}.product_listing_view d
+            WHERE d.category_key=(SELECT category_key FROM {search_schema()}.product_listing_view WHERE product_id=%s)
               AND d.product_id<>%s
-            ORDER BY d.embedding <=> (SELECT embedding FROM {search_schema()}.product_document WHERE product_id=%s)
+            ORDER BY d.embedding <=> (SELECT embedding FROM {search_schema()}.product_listing_view WHERE product_id=%s)
             LIMIT 4""",
             (product_id, product_id, product_id),
         ).fetchall()
@@ -501,7 +501,7 @@ def catalog_suggestions(query: str) -> CatalogSuggestionsResponse:
             SELECT to_tsquery('english',string_agg(quote_literal(term)||':*',' & ')) AS tsq
             FROM unnest(tsvector_to_array(to_tsvector('english',%s))) AS term
         ) SELECT d.product_id,d.title,d.domain,d.brand_name,d.category_key,d.category_path
-        FROM {search_schema()}.product_document d,q WHERE q.tsq IS NOT NULL AND d.search_document @@ q.tsq
+        FROM {search_schema()}.product_listing_view d,q WHERE q.tsq IS NOT NULL AND d.search_document @@ q.tsq
         ORDER BY ts_rank_cd(d.search_document,q.tsq) DESC,d.product_id LIMIT 8""",
             (query,),
         ).fetchall()
@@ -529,7 +529,7 @@ def catalog_summary_for(dataset: str) -> dict:
         _selection(connection)
         rows = connection.execute(f"""SELECT domain::text AS domain,count(*) AS products,
             count(DISTINCT category_key) AS categories,count(DISTINCT category_path) AS subcategories,
-            count(DISTINCT nullif(brand_name,'')) AS brands FROM {search_schema()}.product_document GROUP BY domain ORDER BY domain""").fetchall()
+            count(DISTINCT nullif(brand_name,'')) AS brands FROM {search_schema()}.product_listing_view GROUP BY domain ORDER BY domain""").fetchall()
         total = connection.execute(
             """SELECT count(*) AS products,count(DISTINCT nullif(original->'details'->>'Brand','')) AS brands,
             count(DISTINCT categories) AS subcategories,count(embedding) AS embedded_products,
@@ -560,25 +560,25 @@ def readiness() -> dict:
             count(*) AS product_count,count(embedding) AS embedded_product_count,
             min(vector_dims(embedding)) AS embedding_dimensions,
             array_agg(DISTINCT embedding_model_key) AS embedding_model_ids
-            FROM mosaic_catalog_search.product_document WHERE dataset_id=%s""",
+            FROM mosaic_search.product_listing WHERE dataset_id=%s""",
             (dataset,),
         ).fetchone()
         receipt = connection.execute(
-            "SELECT catalog_sha256 FROM mosaic_live_search.receipt WHERE singleton"
+            "SELECT catalog_sha256 FROM mosaic_search.receipt WHERE singleton"
         ).fetchone()
         indexes = [
             {"name": name}
             for name, state in index_states_on(
                 connection,
                 (LIVE_INDEXES["fts"], LIVE_INDEXES["trigram"], LIVE_INDEXES["vector"]),
-                schema="mosaic_catalog_search",
+                schema="mosaic_search",
             ).items()
             if state != "valid"
         ]
         functions = connection.execute("""SELECT required.name FROM
             (VALUES('search_hybrid_rrf'),('search_product_evidence'),('matches_filters'),('query_term_coverage')) AS required(name)
             WHERE NOT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-                WHERE n.nspname='mosaic_live_search' AND p.proname=required.name)""").fetchall()
+                WHERE n.nspname='mosaic_search' AND p.proname=required.name)""").fetchall()
         expected = connection.execute(
             "SELECT expected_products FROM mosaic_catalog_stage.dataset WHERE dataset_id=%s",
             (dataset,),

@@ -163,9 +163,9 @@ def test_real_catalog_comparison_uses_the_same_selected_corpus_for_both_orders(
     comparison.compare("headphones", SearchFilters(), persist=False)
 
     queries = "\n".join(connection.executed_sql)
-    assert "mosaic_live_search.search_hybrid_rrf(" in queries
-    assert "mosaic_live_search.search_hybrid_rrf_weighted(" in queries
-    assert "mosaic_search." not in queries
+    assert "mosaic_search.search_hybrid_rrf(" in queries
+    assert "mosaic_search.search_hybrid_rrf_weighted(" in queries
+    assert "mosaic_live_search." not in queries
 
 
 @pytest.mark.parametrize(

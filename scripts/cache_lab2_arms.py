@@ -63,16 +63,14 @@ def encode_vector(values: list[float]) -> str:
 
 
 def cache_source_sha256(repo: Path = REPO) -> str:
-    """Fingerprint the rendered reference SQL, including real-catalog filters.
+    """Fingerprint the reference search SQL as Aurora runs it.
 
     Reference lab files keep this identity stable while participants edit their
-    exercise seams. Rendering matters: the live catalog's price and unknown-value
-    rules are applied outside the SQL files themselves.
+    exercise seams.
     """
-    from scripts.catalog.prepare_live_catalog import live_search_functions
-    from service.search_sql import search_sql
+    from service.search_sql import search_sql, without_psql_lines
 
-    rendered = live_search_functions(search_sql(repo, solutions=True))
+    rendered = without_psql_lines(search_sql(repo, solutions=True))
     return hashlib.sha256(rendered.encode()).hexdigest()
 
 

@@ -52,7 +52,7 @@ Availability = Literal[
 ]
 
 
-# Bounds measured against the live `mosaic_search.product_document.attributes`
+# Bounds measured against the live `mosaic_search.product_listing_view.attributes`
 # column on 2026-08-27: max key length 25, max scalar string value length 24,
 # max array length 6, max string array-element length 25. Each bound below
 # carries roughly 2.5-4x headroom over its measurement, matching `brands`
@@ -266,7 +266,7 @@ class ProductSpec(BaseModel):
 class ProductSummary(BaseModel):
     """One product as returned by search and catalog browsing.
 
-    Shapes `mosaic_search.product_document`, which is the denormalized retrieval
+    Shapes `mosaic_search.product_listing_view`, which is the denormalized retrieval
     projection rather than a join across `mosaic.product` and
     `mosaic.product_offer`.
     """

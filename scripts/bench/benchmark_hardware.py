@@ -50,7 +50,7 @@ from scripts.checks.retrieval_profile import explain, load_profile
 from service.catalog_runtime import (
     active_dataset,
     catalog_indexes,
-    product_document,
+    listing_view,
     search_schema,
 )
 from service.config import get_settings
@@ -114,7 +114,7 @@ def environment(connection: Any) -> dict[str, Any]:
     ).fetchone()
     row["sizes"] = dict(sizes)
     row["vector_count"] = connection.execute(
-        f"SELECT count(*) AS n FROM {product_document()} WHERE embedding IS NOT NULL"
+        f"SELECT count(*) AS n FROM {listing_view()} WHERE embedding IS NOT NULL"
     ).fetchone()["n"]
     row["optimized_reads_cache"] = optimized_reads_cache(connection)
     return row
@@ -700,7 +700,7 @@ def main() -> None:
     )
     with connect(control_dsn) as connection:
         pool = connection.execute(
-            f"SELECT product_id, category_key, embedding FROM {product_document()} WHERE embedding IS NOT NULL AND product_id = ANY(%s) ORDER BY product_id",
+            f"SELECT product_id, category_key, embedding FROM {listing_view()} WHERE embedding IS NOT NULL AND product_id = ANY(%s) ORDER BY product_id",
             (list(anchor_set.product_ids),),
         ).fetchall()
         control_manifest = corpus_manifest(connection)

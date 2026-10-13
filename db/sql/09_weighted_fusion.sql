@@ -151,7 +151,7 @@ WITH fts AS (
            fused.semantic_rank,
            fused.channel_provenance
     FROM fused
-    JOIN mosaic_search.product_document d USING (product_id)
+    JOIN mosaic_search.product_listing_view d USING (product_id)
 )
 SELECT
     e.product_id,

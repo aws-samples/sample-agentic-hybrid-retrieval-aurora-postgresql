@@ -102,18 +102,28 @@ def test_bundled_cache_matches_the_rendered_reference_search():
     )
 
 
-def test_cache_source_identity_includes_live_price_filtering(monkeypatch):
-    from scripts.catalog import prepare_live_catalog
+def test_cache_source_identity_includes_source_price_filtering(tmp_path):
+    from shutil import copy2
 
-    current = cache_lab2_arms.cache_source_sha256()
-    monkeypatch.setattr(
-        prepare_live_catalog,
-        "_FILTER_PRICE",
-        {key: key for key in prepare_live_catalog._FILTER_PRICE},
+    from service.lab_files import solution_path
+    from service.search_sql import SEARCH_SQL_FILES
+
+    for path in SEARCH_SQL_FILES:
+        for relative in {path, solution_path(path)}:
+            if (ROOT / relative).is_file():
+                (tmp_path / relative).parent.mkdir(parents=True, exist_ok=True)
+                copy2(ROOT / relative, tmp_path / relative)
+    current = cache_lab2_arms.cache_source_sha256(tmp_path)
+    assert current == cache_lab2_arms.cache_source_sha256()
+    channels = tmp_path / "db/sql/08_search_channels.sql"
+    channels.write_text(
+        channels.read_text().replace(
+            "coalesce(d.price_cents, d.historical_price_cents)", "d.price_cents"
+        )
     )
-    assert cache_lab2_arms.cache_source_sha256() != current
+    assert cache_lab2_arms.cache_source_sha256(tmp_path) != current
     with pytest.raises(lab2_tuning.TuningError, match="cached source_sha256"):
-        lab2_tuning.verify_cache(None, {"source_sha256": current}, {})
+        lab2_tuning.verify_cache(None, {"source_sha256": current + "0"}, {})
 
 
 def test_comparison_refuses_a_cache_from_another_source_before_querying_aurora():
@@ -160,7 +170,7 @@ def test_grading_prefers_the_workshop_database_cache(tmp_path):
 
 
 HALFVEC_INDEX = (
-    "CREATE INDEX alex_hp ON mosaic_catalog_search.product_document USING hnsw "
+    "CREATE INDEX alex_hp ON mosaic_search.product_listing USING hnsw "
     "((embedding::halfvec(1024)) halfvec_cosine_ops) WHERE category_key = 'headphones';"
     "\nSET hnsw.ef_search = 400;"
 )
@@ -179,11 +189,11 @@ def test_hnsw_exercise_accepts_an_expression_index_and_a_search_setting():
     [
         "DROP TABLE mosaic.product;",
         (
-            "CREATE INDEX CONCURRENTLY x ON mosaic_catalog_search.product_document "
+            "CREATE INDEX CONCURRENTLY x ON mosaic_search.product_listing "
             "USING hnsw (embedding vector_cosine_ops) WHERE category_key = 'headphones';"
         ),
         (
-            "CREATE INDEX x ON mosaic_catalog_search.product_document "
+            "CREATE INDEX x ON mosaic_search.product_listing "
             "USING hnsw (embedding vector_cosine_ops);"
         ),
         "CREATE INDEX x ON mosaic.product USING btree (sku) WHERE true;",

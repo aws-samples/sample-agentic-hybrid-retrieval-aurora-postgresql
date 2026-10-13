@@ -355,10 +355,6 @@ export function buildRetrievalMatrix(
   targetProductIds: number[] = [],
 ): RetrievalMatrix {
   const query = response.normalized_query || response.query;
-  const searchSchema = response.results.some((product) => product.source_dataset)
-    ? "mosaic_live_search"
-    : "mosaic_search";
-  const sqlFor = (column: ColumnKey) => COLUMN_SQL[column].replaceAll("mosaic_search.", `${searchSchema}.`);
   const scored = response.results.filter((product) => product.signals);
   const rerankApplied = scored.some((product) => product.signals?.rerank_score != null);
 
@@ -428,7 +424,7 @@ export function buildRetrievalMatrix(
       mechanism: "tsvector + ts_rank_cd",
       measure: `${found("fts")} of ${total}`,
       measureDetail: "rows found",
-      sql: sqlFor("fts"),
+      sql: COLUMN_SQL.fts,
     },
     {
       key: "trigram",
@@ -436,7 +432,7 @@ export function buildRetrievalMatrix(
       mechanism: "pg_trgm word_similarity",
       measure: `${found("trigram")} of ${total}`,
       measureDetail: "rows found",
-      sql: sqlFor("trigram"),
+      sql: COLUMN_SQL.trigram,
     },
     {
       key: "semantic",
@@ -447,7 +443,7 @@ export function buildRetrievalMatrix(
       mechanism: `pgvector HNSW cosine${semanticWidth(response)}`,
       measure: `${found("semantic")} of ${total}`,
       measureDetail: "rows found",
-      sql: sqlFor("semantic"),
+      sql: COLUMN_SQL.semantic,
     },
     {
       key: "fusion",
@@ -460,7 +456,7 @@ export function buildRetrievalMatrix(
         : "reciprocal rank fusion",
       measure: fusedPool ? `${total} of ${fusedPool}` : `${total}`,
       measureDetail: fusedPool ? "fused candidates shown" : "rows ordered",
-      sql: sqlFor("fusion"),
+      sql: COLUMN_SQL.fusion,
     },
     {
       key: "rerank",
@@ -472,7 +468,7 @@ export function buildRetrievalMatrix(
       mechanism: response.diagnostics?.rerank_model_id ?? "cross-encoder rerank",
       measure: rerankApplied ? `${moved.length} of ${total}` : "not applied",
       measureDetail: rerankApplied ? "rows moved" : "order unchanged",
-      sql: sqlFor("rerank"),
+      sql: COLUMN_SQL.rerank,
     },
   ];
 

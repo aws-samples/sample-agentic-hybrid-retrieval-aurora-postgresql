@@ -64,7 +64,7 @@ def sql_context(values: dict[str, str]) -> str:
     statements.append("SELECT " + ",\n       ".join(expressions) + " \\gset")
     statements.extend(
         [
-            "SELECT EXISTS (SELECT 1 FROM mosaic_live_search.receipt WHERE singleton",
+            "SELECT EXISTS (SELECT 1 FROM mosaic_search.receipt WHERE singleton",
             "  AND dataset_id = :'lab_dataset' AND catalog_sha256 = :'lab_catalog_hash') AS lab_catalog_ok \\gset",
             "\\if :lab_catalog_ok",
             "\\else",
@@ -224,7 +224,7 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
     )
     with connect() as connection:
         catalog = connection.execute(
-            "SELECT dataset_id, catalog_sha256 FROM mosaic_live_search.receipt WHERE singleton"
+            "SELECT dataset_id, catalog_sha256 FROM mosaic_search.receipt WHERE singleton"
         ).fetchone()
     _require(
         catalog

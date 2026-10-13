@@ -10,19 +10,19 @@ import re
 
 import pytest
 
-from scripts.catalog.prepare_live_catalog import VIEW_SQL, live_search_functions
 from service.catalog_runtime import filter_predicate
 from service.lab_checks import eligible
-from service.search_sql import search_sql
+from service.search_sql import ROOT, search_sql
 
 SOURCE = search_sql()
 FILTER_PRICE = "coalesce(d.price_cents, d.historical_price_cents)"
+PROJECTION = (ROOT / "db/sql/06_retrieval_projection.sql").read_text()
+VIEW_SQL = PROJECTION[PROJECTION.index("CREATE OR REPLACE VIEW") :]
 
 
-def test_every_live_filter_call_matches_the_source_price():
-    rendered = live_search_functions(SOURCE)
+def test_every_filter_call_matches_the_source_price():
     calls = re.findall(
-        r"matches_filter_values\((.*?)is_sponsored", rendered, flags=re.DOTALL
+        r"matches_filter_values\((.*?)is_sponsored", SOURCE, flags=re.DOTALL
     )
     arguments = [call for call in calls if "product_domain" not in call]
     assert len(arguments) == 6
@@ -35,25 +35,11 @@ def test_every_live_filter_call_matches_the_source_price():
 
 
 def test_returned_rows_still_report_the_current_price_column():
-    rendered = live_search_functions(SOURCE)
-    assert re.search(r"d\.price_cents,\s+d\.availability,\s+d\.rating", rendered)
+    assert re.search(r"d\.price_cents,\s+d\.availability,\s+d\.rating", SOURCE)
 
 
-def test_an_unrecognized_filter_call_fails_instead_of_filtering_on_no_price():
-    reshaped = SOURCE.replace(
-        "d.domain, d.category_key, d.brand_name, d.price_cents,",
-        "d.domain, d.category_key, d.brand_name,\n d.price_cents,",
-        1,
-    )
-    with pytest.raises(ValueError, match="Source price rule"):
-        live_search_functions(reshaped)
-
-
-def test_shop_filters_use_the_same_price_as_search(monkeypatch):
-    monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
+def test_shop_filters_use_the_same_price_as_search():
     assert FILTER_PRICE in filter_predicate("%s")
-    monkeypatch.delenv("MOSAIC_CATALOG_DATASET")
-    assert "historical_price_cents" not in filter_predicate("%s")
 
 
 @pytest.mark.parametrize(
@@ -77,4 +63,4 @@ def test_the_view_never_reads_the_raw_source_record_per_row():
     """
     assert "original" not in VIEW_SQL
     assert "mosaic_catalog_stage.product" not in VIEW_SQL
-    assert "mosaic_live_search.source_price" in VIEW_SQL
+    assert "mosaic_search.source_price" in VIEW_SQL

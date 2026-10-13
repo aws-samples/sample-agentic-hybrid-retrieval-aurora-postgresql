@@ -1,8 +1,8 @@
 """Catalog browsing and source-evidence reads over the `mosaic` schema.
 
-Browsing reads `mosaic_search.product_document`, the same denormalized
+Browsing reads `mosaic_search.product_listing_view`, the same denormalized
 projection the retrieval arms use, so browsing and search both call the same
-scalar filter function. The public `matches_filters(product_document, jsonb)`
+scalar filter function. The public `matches_filters(product_listing_view, jsonb)`
 validator delegates to that function rather than carrying a second predicate.
 """
 
@@ -177,7 +177,7 @@ def count_products(filters: list[SearchFilters]) -> list[int]:
             """
             SELECT (
                 SELECT count(*)
-                FROM mosaic_search.product_document d
+                FROM mosaic_search.product_listing_view d
                 WHERE d.product_id = ANY(%s::bigint[])
                   AND mosaic_search.matches_filters(d, requested.filters)
             ) AS count
@@ -231,7 +231,7 @@ def list_products(
             )
             SELECT count(*) AS count
             FROM photographed
-            JOIN mosaic_search.product_document d USING (product_id)
+            JOIN mosaic_search.product_listing_view d USING (product_id)
             WHERE {where}
             """,
             [photographed, *parameters],
@@ -246,7 +246,7 @@ def list_products(
             SELECT {_SUMMARY_COLUMNS},
                    media.runtime_uri AS image_url,
                    media.image_source
-            FROM mosaic_search.product_document d
+            FROM mosaic_search.product_listing_view d
             JOIN photographed USING (product_id)
             LEFT JOIN LATERAL (
                 SELECT a.runtime_uri, a.tier::text AS image_source
@@ -272,7 +272,7 @@ def list_products(
                          AS ordered(product_id, ordinality)
                 )
                 SELECT {column}::text AS value, count(*) AS count
-                FROM mosaic_search.product_document d
+                FROM mosaic_search.product_listing_view d
                 JOIN photographed USING (product_id)
                 WHERE {where}
                 GROUP BY {column}
@@ -306,7 +306,7 @@ def get_product_summaries(product_ids: list[int]) -> list[ProductSummary]:
             SELECT {_SUMMARY_COLUMNS},
                    media.runtime_uri AS image_url,
                    media.image_source
-            FROM mosaic_search.product_document d
+            FROM mosaic_search.product_listing_view d
             LEFT JOIN LATERAL (
                 SELECT a.runtime_uri, a.tier::text AS image_source
                 FROM mosaic.product_media pm
@@ -379,7 +379,7 @@ def catalog_suggestions(query: str) -> CatalogSuggestionsResponse:
                             d.popularity_score DESC,
                             d.product_id
                     ) AS match_order
-                FROM mosaic_search.product_document d
+                FROM mosaic_search.product_listing_view d
                 CROSS JOIN prefix_query
                 WHERE prefix_query.value IS NOT NULL
                   AND d.search_document @@ prefix_query.value
@@ -469,7 +469,7 @@ def similar_products(product_id: int) -> list[ProductSummary]:
     with connect() as connection:
         if (
             connection.execute(
-                "SELECT product_id FROM mosaic_search.product_document WHERE product_id = %s",
+                "SELECT product_id FROM mosaic_search.product_listing_view WHERE product_id = %s",
                 (product_id,),
             ).fetchone()
             is None
@@ -478,7 +478,7 @@ def similar_products(product_id: int) -> list[ProductSummary]:
         rows = connection.execute(
             f"""
             WITH photographed AS MATERIALIZED (
-                SELECT * FROM mosaic_search.product_document
+                SELECT * FROM mosaic_search.product_listing_view
                 WHERE product_id = ANY(%s::bigint[]) AND embedding IS NOT NULL
             ), alternatives AS (
                 SELECT {_SUMMARY_COLUMNS},
@@ -488,7 +488,7 @@ def similar_products(product_id: int) -> list[ProductSummary]:
                            ORDER BY d.embedding <=> source.embedding, d.product_id
                        ) AS variant_position
                 FROM photographed d
-                JOIN mosaic_search.product_document source ON source.product_id = %s
+                JOIN mosaic_search.product_listing_view source ON source.product_id = %s
                 WHERE source.embedding IS NOT NULL
                   AND d.product_id <> source.product_id
                   AND (nullif(d.canonical_group_id, '') IS NULL
@@ -523,7 +523,7 @@ def get_product(product_id: int) -> ProductDetail:
                    p.long_description, p.source_system, offer.warranty_months, offer.shipping_days,
                    media.runtime_uri AS image_url,
                    media.image_source
-            FROM mosaic_search.product_document d
+            FROM mosaic_search.product_listing_view d
             JOIN mosaic.product p USING (product_id)
             JOIN mosaic.product_offer offer USING (product_id)
             LEFT JOIN LATERAL (
@@ -815,7 +815,7 @@ def review_highlights(limit: int = 5) -> ReviewHighlightsResponse:
                    coalesce((e.metadata->>'helpful_votes')::int, 0)
                        AS helpful_votes
             FROM mosaic.product_evidence e
-            JOIN mosaic_search.product_document d USING (product_id)
+            JOIN mosaic_search.product_listing_view d USING (product_id)
             WHERE e.product_id = ANY(%s::bigint[])
               AND e.is_current
               AND e.evidence_type::text
@@ -873,7 +873,7 @@ def catalog_summary() -> dict[str, Any]:
                    count(DISTINCT category_key) AS categories,
                    count(DISTINCT category_path) AS subcategories,
                    count(DISTINCT brand_name) AS brands
-            FROM mosaic_search.product_document
+            FROM mosaic_search.product_listing_view
             GROUP BY domain
             ORDER BY domain
             """
@@ -889,7 +889,7 @@ def catalog_summary() -> dict[str, Any]:
                    (sum(rating * review_count) FILTER (WHERE rating IS NOT NULL)
                        / nullif(sum(review_count) FILTER (WHERE rating IS NOT NULL), 0)
                    )::float8 AS average_rating
-            FROM mosaic_search.product_document
+            FROM mosaic_search.product_listing_view
             """
         ).fetchone()
     return {"total": dict(total), "domains": [dict(row) for row in rows]}

@@ -11,7 +11,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from scripts.catalog.prepare_live_catalog import live_search_functions
 from scripts.lab_state import (
     FACILITATOR_ADVICE,
     assert_reset_database,
@@ -26,11 +25,9 @@ from service.search_sql import (
     FUSED_FUNCTION,
     SEARCH_SQL_FILES,
     search_sql,
+    without_psql_lines,
 )
 
-#: Apply installs the files' mosaic_search functions under this live schema, so
-#: Aurora's errors name a schema the participant never typed.
-LIVE_SCHEMA = "mosaic_live_search"
 #: A Lab 1 branch carries both a whole-number position and a real raw score; passing
 #: the score as the position reaches Aurora as an undefined function, not a type error.
 CONTRIBUTION_CALL = re.compile(r"reciprocal_rank_contribution\(\s*([a-z ]+?)\s*,")
@@ -47,11 +44,6 @@ def explain_rejected_names(message: str) -> list[str]:
         Zero or more lines naming the rule broken and the nearest fix.
     """
     notes = []
-    if f"{LIVE_SCHEMA}." in message:
-        notes.append(
-            f"Aurora names {LIVE_SCHEMA} because apply installs the mosaic_search "
-            "functions from your files into that live schema."
-        )
     call = CONTRIBUTION_CALL.search(message)
     if call and call.group(1) not in POSITION_TYPES:
         notes.append(
@@ -63,16 +55,8 @@ def explain_rejected_names(message: str) -> list[str]:
 
 
 def rendered_sql(source: str) -> str:
-    """The statement apply sends to Aurora for this search SQL."""
-    if active_dataset():
-        return live_search_functions(source)
-    return "\n".join(line for line in source.splitlines() if not line.startswith("\\"))
-
-
-def _schema_neutral(line: str) -> str:
-    return re.sub(
-        r"(?i)\bmosaic_(?:live_|catalog_)?search\.", "mosaic_search.", line.strip()
-    )
+    """The statement apply sends to Aurora: the files as written, without psql lines."""
+    return without_psql_lines(source)
 
 
 def locate_error(
@@ -80,9 +64,9 @@ def locate_error(
 ) -> tuple[Path, int, str] | None:
     """Find the file line Aurora's error position falls on, in the files apply read.
 
-    Aurora counts characters into the rewritten statement, which no participant
-    sees. Apply rewrites schema names and drops psql lines but keeps every other
-    line, so the line is found by its text, and a repeated line by its order.
+    Aurora counts characters into the statement apply sent. Apply drops psql
+    lines but keeps every other line, so the line is found by its text, and a
+    repeated line by its order.
 
     Returns:
         The file, its 1-based line number and the line, or None when unmatched.
@@ -93,12 +77,12 @@ def locate_error(
     index = statement[: position - 1].count("\n")
     if index >= len(lines) or not lines[index].strip():
         return None
-    wanted = _schema_neutral(lines[index])
-    occurrence = sum(1 for line in lines[:index] if _schema_neutral(line) == wanted)
+    wanted = lines[index].strip()
+    occurrence = sum(1 for line in lines[:index] if line.strip() == wanted)
     for path in SEARCH_SQL_FILES:
         text = (root / path).read_text(encoding="utf-8").splitlines()
         for number, line in enumerate(text, start=1):
-            if _schema_neutral(line) == wanted:
+            if line.strip() == wanted:
                 if occurrence == 0:
                     return path, number, line.strip()
                 occurrence -= 1
@@ -117,7 +101,7 @@ def apply(connection, source: str, source_sha256: str | None = None) -> None:
     dataset = active_dataset()
     if dataset:
         row = connection.execute(
-            "SELECT dataset_id FROM mosaic_live_search.receipt WHERE singleton"
+            f"SELECT dataset_id FROM {search_schema()}.receipt WHERE singleton"
         ).fetchone()
         if row is None or row[0] != dataset:
             raise ValueError(

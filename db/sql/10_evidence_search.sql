@@ -64,7 +64,7 @@ WITH lexical AS (
                    e.evidence_id
            ) AS rank
     FROM mosaic.product_evidence e
-    JOIN mosaic_search.product_document d USING (product_id)
+    JOIN mosaic_search.product_listing_view d USING (product_id)
     WHERE e.product_id = p_product_id
       AND e.is_current
       AND (

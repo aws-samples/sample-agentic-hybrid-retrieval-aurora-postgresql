@@ -48,7 +48,7 @@ def export_texts(filters: dict) -> list[dict]:
             cursor.execute("SET TRANSACTION READ ONLY")
             cursor.execute("SET LOCAL statement_timeout = 0")
             cursor.execute(
-                f"SELECT product_id, embedding_text FROM {schema}.product_document d "
+                f"SELECT product_id, embedding_text FROM {schema}.product_listing_view d "
                 f"WHERE {schema}.matches_filters(d, %s::jsonb) ORDER BY product_id",
                 (json.dumps(filters),),
             )

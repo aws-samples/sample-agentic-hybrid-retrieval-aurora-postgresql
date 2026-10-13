@@ -1,6 +1,6 @@
 """Search orchestration over `mosaic_search` and managed reranking.
 
-Reads the denormalized retrieval projection (`mosaic_search.product_document`)
+Reads the denormalized retrieval projection (`mosaic_search.product_listing_view`)
 rather than joining the normalized catalog, and records each query in
 `mosaic.search_event` / `mosaic.search_result_event` so a participant can inspect
 exactly which arm contributed which candidate.
@@ -305,7 +305,7 @@ class RetrievalService:
                 %(fused_limit)s::integer,
                 %(trigram_threshold)s::real{weight_args}
             ) AS h
-            JOIN {search_schema()}.product_document d USING (product_id)
+            JOIN {search_schema()}.product_listing_view d USING (product_id)
             ORDER BY h.pre_rerank_score DESC, h.product_id
         """
 
@@ -325,7 +325,7 @@ class RetrievalService:
 
                 _selection(connection)
                 dataset_hash = connection.execute(
-                    "SELECT catalog_sha256 FROM mosaic_live_search.receipt WHERE singleton"
+                    "SELECT catalog_sha256 FROM mosaic_search.receipt WHERE singleton"
                 ).fetchone()["catalog_sha256"]
             search_sql_sha256 = applied_sql_digest(connection)
             connection.execute(
@@ -679,7 +679,7 @@ class RetrievalService:
             ).fetchone()
             if event is not None and active_dataset():
                 receipt = connection.execute(
-                    "SELECT catalog_sha256 FROM mosaic_live_search.receipt WHERE singleton"
+                    "SELECT catalog_sha256 FROM mosaic_search.receipt WHERE singleton"
                 ).fetchone()
                 if (
                     not receipt

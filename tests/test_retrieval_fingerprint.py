@@ -7,7 +7,7 @@ files -- the same convention `tests/test_config_tripwire.py` already uses for
 exactly this reason.
 
 The fake tree mirrors the real manifest's file *paths* with placeholder
-content, so the module's hardcoded `_EXPECTED_CATEGORY_COUNTS` (26 SQL files,
+content, so the module's hardcoded `_EXPECTED_CATEGORY_COUNTS` (23 SQL files,
 1 config, 9 service, 7 scripts, 2 eval-data files) hold without needing a
 test-only override parameter on production code.
 """
@@ -42,7 +42,7 @@ REPO = Path(__file__).resolve().parents[1]
 ROOT = REPO
 
 # The real db/sql/ filenames, so the fake tree's "sql" category naturally
-# matches the real category's expected count (26, with the two lab SQL files)
+# matches the real category's expected count (23, with the two lab SQL files)
 # rather than needing a second, test-only literal.
 _SQL_FILENAMES = (
     "00_extensions.sql",
@@ -53,7 +53,6 @@ _SQL_FILENAMES = (
     "05_evidence.sql",
     "06_retrieval_projection.sql",
     "07_indexes.sql",
-    "15_indexes_concurrent.sql",
     "08_search_channels.sql",
     "09_weighted_fusion.sql",
     "10_evidence_search.sql",
@@ -63,9 +62,7 @@ _SQL_FILENAMES = (
     "21_benchmark.sql",
     "22_exact_neighbor.sql",
     "14_seed_tool_contracts.sql",
-    "16_indexes_quantized.sql",
     "11_query_coverage.sql",
-    "98_bootstrap_acceptance.sql",
     "99_smoke_test.sql",
     "install.sql",
     "install_measurement.sql",
@@ -138,7 +135,7 @@ def test_a_short_sql_glob_is_also_refused(fake_repo):
     """Not just empty -- one file short of the literal must fail too."""
     (fake_repo / "db" / "sql" / "00_extensions.sql").unlink()
 
-    with pytest.raises(RetrievalFingerprintError, match="category 'sql' has 25"):
+    with pytest.raises(RetrievalFingerprintError, match="category 'sql' has 22"):
         compute_retrieval_fingerprint(repo_root=fake_repo)
 
 
@@ -164,12 +161,12 @@ def test_the_complete_tree_matches_every_expected_category_count_exactly(fake_re
     counts = category_counts(repo_root=fake_repo)
 
     assert counts == _EXPECTED_CATEGORY_COUNTS
-    assert counts["sql"] == 26
+    assert counts["sql"] == 23
     assert counts["config"] == 1
     assert counts["service"] == 9
     assert counts["scripts"] == 7
     assert counts["eval_data"] == 2
-    assert sum(counts.values()) == 45
+    assert sum(counts.values()) == 42
 
 
 def test_manifest_files_visit_a_representative_of_every_category(fake_repo):
@@ -178,7 +175,7 @@ def test_manifest_files_visit_a_representative_of_every_category(fake_repo):
     files = manifest_files(repo_root=fake_repo)
     relative = {path.relative_to(fake_repo).as_posix() for path in files}
 
-    assert len(files) == 45
+    assert len(files) == 42
     assert "labs/lab1_retrieve/hybrid_search.sql" in relative
     assert "db/config/retrieval.yaml" in relative
     assert "service/retrieval.py" in relative

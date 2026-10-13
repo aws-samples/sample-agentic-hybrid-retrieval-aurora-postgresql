@@ -237,7 +237,7 @@ class _FakeLiveReadinessConnection:
         )
 
     def execute(self, sql: str, parameters: tuple[Any, ...] | None = None) -> Any:
-        if "prepared_at FROM mosaic_live_search.receipt" in sql:
+        if "prepared_at FROM mosaic_search.receipt" in sql:
             return _FakeCursor({"dataset_id": "reviews-2023-v2", "prepared_at": "now"})
         if "current_database()" in sql:
             return _FakeCursor(
@@ -251,7 +251,7 @@ class _FakeLiveReadinessConnection:
                     "embedding_model_ids": ["us.cohere.embed-v4:0"],
                 }
             )
-        if "catalog_sha256 FROM mosaic_live_search.receipt" in sql:
+        if "catalog_sha256 FROM mosaic_search.receipt" in sql:
             return _FakeCursor({"catalog_sha256": MANIFEST})
         if "index_state.indexrelid" in sql:
             return _FakeRowsCursor(

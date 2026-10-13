@@ -33,13 +33,10 @@ def test_applying_participant_sql_does_not_silently_solve_the_lab(monkeypatch, l
         for call in connection.execute.call_args_list
         if isinstance(call.args[0], str) and "CREATE OR REPLACE" in call.args[0]
     )
-    assert (
-        "CREATE OR REPLACE FUNCTION mosaic_live_search.search_hybrid_rrf(" in statement
-    )
-    assert "CREATE OR REPLACE FUNCTION mosaic_search." not in statement
+    assert "CREATE OR REPLACE FUNCTION mosaic_search.search_hybrid_rrf(" in statement
+    assert "mosaic_live_search" not in statement
     for start, end, _, replacement in LABS[lab][1]:
-        rendered = replacement.replace("mosaic_search.", "mosaic_live_search.")
-        assert statement.split(start)[1].split(end)[0].strip() == rendered.strip()
+        assert statement.split(start)[1].split(end)[0].strip() == replacement.strip()
 
 
 def test_catalog_mismatch_prevents_any_function_change(monkeypatch):
@@ -60,9 +57,7 @@ def test_applying_records_which_participant_sql_aurora_runs(monkeypatch):
     apply(connection, SOURCE, "b" * 64)
 
     comment = connection.execute.call_args_list[-1].args[0].as_string(None)
-    assert comment.startswith(
-        "COMMENT ON FUNCTION mosaic_live_search.search_hybrid_rrf("
-    )
+    assert comment.startswith("COMMENT ON FUNCTION mosaic_search.search_hybrid_rrf(")
     assert comment.endswith(f"'{APPLIED_SQL_LABEL}{'b' * 64}'")
 
 
@@ -218,7 +213,7 @@ class UndefinedFunctionCall(psycopg.errors.UndefinedFunction):
 def test_a_score_passed_as_the_position_names_the_argument_to_change():
     message = describe_apply_failure(
         UndefinedFunctionCall(
-            "function mosaic_live_search.reciprocal_rank_contribution(real, integer) "
+            "function mosaic_search.reciprocal_rank_contribution(real, integer) "
             "does not exist"
         ),
         rolled_back=True,
@@ -227,20 +222,18 @@ def test_a_score_passed_as_the_position_names_the_argument_to_change():
     assert "takes a channel's position (bigint), got real" in message
     assert "trigram_rank" in message
     assert "trigram_score" in message
-    assert "installs the mosaic_search functions from your files" in message
     assert "LAB1_EDIT" in message
 
 
 def test_an_unrelated_missing_function_gets_no_position_advice():
     message = describe_apply_failure(
         UndefinedFunctionCall(
-            "function mosaic_live_search.search_trigrams(text, jsonb) does not exist"
+            "function mosaic_search.search_trigrams(text, jsonb) does not exist"
         ),
         rolled_back=True,
     )
 
     assert "takes a channel's position" not in message
-    assert "installs the mosaic_search functions from your files" in message
 
 
 @pytest.mark.parametrize("sqlstate", ["42601", "42703", "22012"])

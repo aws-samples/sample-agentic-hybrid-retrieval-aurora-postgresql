@@ -2,7 +2,7 @@
 --
 -- mosaic_search.search_fts already computes this signal and discards it. Its
 -- salient-term selection keeps only lexemes satisfying an EXISTS against
--- product_document (08_search_channels.sql), so a term matching nothing is
+-- product_listing_view (08_search_channels.sql), so a term matching nothing is
 -- dropped before the backoff loop runs. The request then proceeds on whatever
 -- terms survived, and reciprocal rank fusion -- which weights by position, not
 -- by score -- carries no memory that the dropped term was the one holding the
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS mosaic_search.corpus_lexeme (
 );
 
 COMMENT ON TABLE mosaic_search.corpus_lexeme IS
-    'Distinct lexemes of mosaic_search.product_document.search_document with '
+    'Distinct lexemes of mosaic_search.product_listing_view.search_document with '
     'their document frequencies. Rebuilt by '
     'mosaic_search.refresh_corpus_lexeme(); derived data, never edited.';
 
@@ -69,7 +69,7 @@ DROP INDEX IF EXISTS mosaic_search.corpus_lexeme_trgm_idx;
 -- neighbour lookup reads.
 --
 -- Built with the 'simple' configuration over every text column a retrieval arm
--- reads -- the four that compose search_document (06_retrieval_projection.sql)
+-- reads -- the four that compose search_document (prepare_staged_catalog_search.py)
 -- plus trigram_text, which is what mosaic_search.search_trigram actually
 -- matches against. The claim a `recoverable` verdict makes is "the trigram arm
 -- can reach this term", so the vocabulary behind that claim has to be the text
@@ -77,7 +77,7 @@ DROP INDEX IF EXISTS mosaic_search.corpus_lexeme_trgm_idx;
 --
 -- Measured: including trigram_text adds 31 lexemes to the 1,023,117 the
 -- search_document columns already supply -- the deliberate misspellings
--- 06_retrieval_projection.sql carries as aliases. Those 31 change NO verdict at
+-- the retired synthetic catalog carried as aliases. Those 31 change NO verdict at
 -- the floor below. 'hedfones' reaches 'headphones' at 0.333 from the
 -- search_document columns alone, and 0.462 once 'hedphones' is in range; both
 -- clear the floor. The gate does not rest on the planted typos.
@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS mosaic_search.corpus_surface_lexeme (
 );
 
 COMMENT ON TABLE mosaic_search.corpus_surface_lexeme IS
-    'Distinct unstemmed lexemes of every mosaic_search.product_document text '
+    'Distinct unstemmed lexemes of every mosaic_search.product_listing_view text '
     'column a retrieval arm reads, with their document frequencies. Rebuilt by '
     'mosaic_search.refresh_corpus_lexeme(); derived data, never edited.';
 
@@ -98,8 +98,8 @@ CREATE INDEX IF NOT EXISTS corpus_surface_lexeme_trgm_idx
 -- Rebuild both vocabularies from the retrieval projection.
 --
 -- ts_stat scans every product document, so this belongs with seeding and index
--- construction rather than with a request. Call it after
--- mosaic_search.refresh_product_documents().
+-- construction rather than with a request. Call it after the restore fills
+-- mosaic_search.product_listing.
 --
 -- Measured on the live 500,000-product cluster on 2026-09-04 via
 -- `make db-seed-corpus-lexeme`: 22 seconds for corpus_lexeme, which reads a
@@ -116,7 +116,7 @@ BEGIN
     INSERT INTO mosaic_search.corpus_lexeme (lexeme, ndoc, nentry)
     SELECT word, ndoc, nentry
     FROM ts_stat(
-        'SELECT search_document FROM mosaic_search.product_document'
+        'SELECT search_document FROM mosaic_search.product_listing_view'
     );
     ANALYZE mosaic_search.corpus_lexeme;
 
@@ -129,7 +129,7 @@ BEGIN
                || to_tsvector('simple', feature_text)
                || to_tsvector('simple', body_text)
                || to_tsvector('simple', trigram_text)
-             FROM mosaic_search.product_document$q$
+             FROM mosaic_search.product_listing_view$q$
     );
     ANALYZE mosaic_search.corpus_surface_lexeme;
 END

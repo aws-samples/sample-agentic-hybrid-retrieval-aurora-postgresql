@@ -1304,7 +1304,7 @@ def _excluded_inherited_products(
         return []
     with connect() as connection:
         rows = connection.execute(
-            f"""SELECT d.product_id FROM {search_schema()}.product_document d
+            f"""SELECT d.product_id FROM {search_schema()}.product_listing_view d
                WHERE d.product_id = ANY(%s::bigint[])
                  AND {search_schema()}.matches_filters(d, %s::jsonb)""",
             (

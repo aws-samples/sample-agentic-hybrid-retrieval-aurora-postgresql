@@ -21,7 +21,7 @@ def test_retired_evidence_is_excluded_from_both_search_methods():
             # Developer Aurora can retain historical identities outside the
             # selected catalog; they cannot witness its semantic evidence path.
             product = conn.execute(
-                f"SELECT product_id FROM {search_schema()}.product_document "
+                f"SELECT product_id FROM {search_schema()}.product_listing_view "
                 "ORDER BY product_id LIMIT 1"
             ).fetchone()
             assert product is not None, (

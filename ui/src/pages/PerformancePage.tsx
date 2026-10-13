@@ -30,7 +30,7 @@ import type {
   ReadinessResponse,
 } from "../types";
 
-const hnswIndexName = "product_document_embedding_hnsw_cosine_idx";
+const hnswIndexName = "product_search_vector_idx";
 const compactCount = new Intl.NumberFormat("en-US", {
   notation: "compact",
   maximumFractionDigits: 1,
@@ -430,7 +430,7 @@ export function PerformancePage() {
               </span>
             </div>
             <div
-              aria-label="Storage split of mosaic_search.product_document"
+              aria-label="Storage split of mosaic_search.product_listing_view"
               className="hnsw-storage-bar"
               role="img"
             >

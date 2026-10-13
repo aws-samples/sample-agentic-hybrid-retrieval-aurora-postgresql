@@ -504,7 +504,7 @@ def check_live(contract: dict[str, Any], dsn: str, report: Report) -> None:
 
                     # A2.8 — the target exists at all.
                     cursor.execute(
-                        f"SELECT 1 FROM {search_schema()}.product_document WHERE product_id = %s",
+                        f"SELECT 1 FROM {search_schema()}.product_listing_view WHERE product_id = %s",
                         (product_id,),
                     )
                     if cursor.fetchone() is None:
@@ -524,7 +524,7 @@ def check_live(contract: dict[str, Any], dsn: str, report: Report) -> None:
                     cursor.execute(
                         f"""
                         SELECT {search_schema()}.matches_filters(d, %s::jsonb)
-                        FROM {search_schema()}.product_document d
+                        FROM {search_schema()}.product_listing_view d
                         WHERE d.product_id = %s
                         """,
                         (filters, product_id),
@@ -535,7 +535,7 @@ def check_live(contract: dict[str, Any], dsn: str, report: Report) -> None:
                             f"A2.9 {label} satisfies its own filters",
                             explain(
                                 f"product_id {product_id} is absent from "
-                                f"{search_schema()}.product_document, so no arm can "
+                                f"{search_schema()}.product_listing_view, so no arm can "
                                 f"return it",
                                 "refresh the retrieval projection, or choose a "
                                 "target that is projected",
@@ -564,7 +564,7 @@ def check_live(contract: dict[str, Any], dsn: str, report: Report) -> None:
                         cursor.execute(
                             f"""
                             SELECT attributes ? %s
-                            FROM {search_schema()}.product_document
+                            FROM {search_schema()}.product_listing_view
                             WHERE product_id = %s
                             """,
                             (key, product_id),
@@ -587,7 +587,7 @@ def _diagnose(cursor: Any, product_id: int, mission: dict) -> str:
         f"""
         SELECT domain::text, price_cents, availability::text,
                is_refurbished, is_sponsored
-        FROM {search_schema()}.product_document WHERE product_id = %s
+        FROM {search_schema()}.product_listing_view WHERE product_id = %s
         """,
         (product_id,),
     )
@@ -621,7 +621,7 @@ def _diagnose(cursor: Any, product_id: int, mission: dict) -> str:
 def _nearest_keys(cursor: Any, product_id: int, key: str) -> str:
     """Suggest the key the author probably meant."""
     cursor.execute(
-        f"SELECT jsonb_object_keys(attributes) FROM {search_schema()}.product_document "
+        f"SELECT jsonb_object_keys(attributes) FROM {search_schema()}.product_listing_view "
         "WHERE product_id = %s",
         (product_id,),
     )

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Inspect real-catalog retrieval using the shipped SQL and managed models.
 
-Broken lab functions are visible only inside rollback-only transactions in the
-isolated search schema. Results are observations, not replacement mission
-assertions or a production performance benchmark.
+Broken lab functions are visible only inside rollback-only transactions. Results
+are observations, not replacement mission assertions or a production performance
+benchmark.
 """
 
 from __future__ import annotations
@@ -26,14 +26,14 @@ from psycopg.types.json import Jsonb
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from scripts.catalog.prepare_staged_catalog_search import search_functions
+from scripts.catalog.prepare_staged_catalog_search import reference_functions_sha256
 from scripts.catalog.stage_real_catalog import require_aurora_writer, validate_dsn
 from scripts.checks.retrieval_profile import load_profile
 from scripts.lab_state import LABS, _replace_block
 from service.embeddings import get_embedding_provider
 from service.models import RetrievalProfile
 from service.rerank import get_reranker
-from service.search_sql import search_sql
+from service.search_sql import search_sql, without_psql_lines
 from service.source_catalog import rerank_document
 
 
@@ -48,19 +48,21 @@ def probe(conn, requests: list[dict], output: Path) -> dict:
     Returns:
         Search observations with original product identities and source hashes.
     """
-    functions = search_functions(search_sql(ROOT, solutions=True))
+    functions = without_psql_lines(search_sql(ROOT, solutions=True))
     register_vector(conn)
-    receipt = conn.execute("SELECT * FROM mosaic_catalog_search.receipt").fetchone()
+    receipt = conn.execute(
+        "SELECT * FROM mosaic_search.product_listing_receipt"
+    ).fetchone()
     if (
         receipt is None
-        or receipt["functions_sha256"] != hashlib.sha256(functions.encode()).hexdigest()
+        or receipt["functions_sha256"] != reference_functions_sha256()
         or receipt["prepared_at"] is None
     ):
         raise ValueError(
             "Search receipt rule: prepared functions are missing or stale; prepare the staged catalog with this source before probing."
         )
     invalid = conn.execute(
-        "SELECT count(*) AS n FROM pg_index WHERE indrelid='mosaic_catalog_search.product_document'::regclass AND NOT indisvalid"
+        "SELECT count(*) AS n FROM pg_index WHERE indrelid='mosaic_search.product_listing'::regclass AND NOT indisvalid"
     ).fetchone()["n"]
     if invalid:
         raise ValueError(
@@ -130,7 +132,7 @@ def probe(conn, requests: list[dict], output: Path) -> dict:
                 if request.get("category"):
                     filters["category_key"] = request["category"]
                 conn.execute(
-                    "SELECT mosaic_catalog_search.configure_hnsw(%s::int,%s::text,%s::int,%s::real)",
+                    "SELECT mosaic_search.configure_hnsw(%s::int,%s::text,%s::int,%s::real)",
                     (
                         profile.ef_search,
                         profile.iterative_scan,
@@ -142,9 +144,9 @@ def probe(conn, requests: list[dict], output: Path) -> dict:
                 rows = conn.execute(
                     """SELECT r.*,d.parent_asin,d.category_key,
                     d.source_record_sha256,d.rerank_text
-                    FROM mosaic_catalog_search.search_hybrid_rrf(
+                    FROM mosaic_search.search_hybrid_rrf(
                         %s::text,%s::vector,%s::jsonb,%s::int,%s::int,%s::int,%s::int,%s::int,%s::real
-                    ) r JOIN mosaic_catalog_search.product_document d USING(product_id)
+                    ) r JOIN mosaic_search.product_listing_view d USING(product_id)
                     ORDER BY r.rrf_score DESC,r.product_id""",
                     (
                         request["query"],
@@ -241,7 +243,7 @@ def main() -> None:
     ) as conn:
         # The preparation lock also excludes concurrent function experiments.
         dataset = conn.execute(
-            "SELECT dataset_id FROM mosaic_catalog_search.receipt"
+            "SELECT dataset_id FROM mosaic_search.product_listing_receipt"
         ).fetchone()
         require_aurora_writer(conn, dataset[0])
         conn.row_factory = dict_row

@@ -28,7 +28,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 from scripts.checks.retrieval_profile import explain
-from service.catalog_runtime import active_dataset, product_document
+from service.catalog_runtime import active_dataset, listing_view
 from service.config import get_settings
 from service.db import connect
 from service.hnsw_anchors import (
@@ -94,7 +94,7 @@ def select_anchors(
         SystemExit: A lab product is absent from the catalog or has no vector,
             or a category yields fewer products than requested.
     """
-    relation = product_document()
+    relation = listing_view()
     lab_rows = connection.execute(
         f"SELECT {ANCHOR_COLUMNS} FROM {relation} "
         "WHERE product_id = ANY(%s) AND embedding IS NOT NULL",

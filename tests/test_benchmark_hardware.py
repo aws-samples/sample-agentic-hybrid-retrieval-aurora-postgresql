@@ -213,9 +213,9 @@ def test_prewarm_loads_table_toast_and_index_in_a_fixed_order(monkeypatch):
 
     relations = [p[0] for sql, p in connection.statements if "pg_prewarm(" in sql]
     assert relations == [
-        "mosaic_catalog_search.product_document",
+        "mosaic_search.product_listing",
         "pg_toast.pg_toast_123",
-        "mosaic_catalog_search.product_search_vector_idx",
+        "mosaic_search.product_search_vector_idx",
     ]
     assert record["blocks"] == {name: 42 for name in relations}
     assert connection.statements[0][0].startswith(

@@ -48,12 +48,12 @@ def _verified_selection(conn, dataset_id: str) -> tuple[tuple, int, str]:
         (dataset_id,),
     ).fetchone()
     actual = conn.execute(
-        "SELECT count(*) FROM mosaic_catalog_search.product_document WHERE dataset_id=%s",
+        "SELECT count(*) FROM mosaic_search.product_listing WHERE dataset_id=%s",
         (dataset_id,),
     ).fetchone()[0]
     require_complete(dataset, actual)
     receipt = conn.execute(
-        "SELECT dataset_id,catalog_sha256,projection_sha256 FROM mosaic_catalog_search.receipt"
+        "SELECT dataset_id,catalog_sha256,projection_sha256 FROM mosaic_search.product_listing_receipt"
     ).fetchall()
     if len(receipt) != 1 or receipt[0][:2] != (dataset_id, dataset[3]):
         raise ValueError(
@@ -67,7 +67,7 @@ def _planned_changes(conn, dataset_id: str) -> list[dict]:
     rows = conn.execute(
         """SELECT d.product_id,d.parent_asin,d.title,p.categories,d.category_key,
             coalesce(l.kind,k.kind),coalesce(l.reason,'source taxonomy')
-        FROM mosaic_catalog_search.product_document d
+        FROM mosaic_search.product_listing d
         JOIN mosaic_catalog_stage.product p USING(dataset_id,parent_asin)
         JOIN source_product_kinds k ON p.categories=k.categories
         LEFT JOIN source_listing_kinds l ON l.parent_asin=d.parent_asin
@@ -99,15 +99,15 @@ def _apply(conn, dataset_id: str, changes: list[dict]) -> tuple[int, int]:
     # only stored source hashes would miss an accidental vector or text rewrite.
     conn.execute("""CREATE TEMP TABLE category_before ON COMMIT DROP AS
         SELECT d.product_id,md5((to_jsonb(d)-'category_key')::text) AS row_hash
-        FROM mosaic_catalog_search.product_document d JOIN category_repairs USING(product_id)""")
+        FROM mosaic_search.product_listing d JOIN category_repairs USING(product_id)""")
     updated = conn.execute(
-        """UPDATE mosaic_catalog_search.product_document d SET category_key=r.kind
+        """UPDATE mosaic_search.product_listing d SET category_key=r.kind
         FROM category_repairs r WHERE d.dataset_id=%s AND d.product_id=r.product_id""",
         (dataset_id,),
     ).rowcount
     checked, changed = conn.execute("""SELECT count(d.product_id),count(*) FILTER (
         WHERE b.row_hash IS DISTINCT FROM md5((to_jsonb(d)-'category_key')::text))
-        FROM category_before b LEFT JOIN mosaic_catalog_search.product_document d USING(product_id)
+        FROM category_before b LEFT JOIN mosaic_search.product_listing d USING(product_id)
     """).fetchone()
     require_preserved(len(changes), updated, 0)
     require_preserved(updated, checked, changed)
@@ -116,7 +116,7 @@ def _apply(conn, dataset_id: str, changes: list[dict]) -> tuple[int, int]:
     conn.execute(
         """UPDATE mosaic.category c SET display_name=d.category_key
         FROM (SELECT domain,category_path,mode() WITHIN GROUP (ORDER BY category_key) AS category_key
-              FROM mosaic_catalog_search.product_document WHERE dataset_id=%s
+              FROM mosaic_search.product_listing WHERE dataset_id=%s
               GROUP BY domain,category_path) d
         WHERE c.category_key='reviews-2023:'||md5(d.domain::text||':'||d.category_path)
           AND c.display_name IS DISTINCT FROM d.category_key""",
@@ -139,7 +139,7 @@ def reconcile(conn, dataset_id: str, *, apply: bool, expected_plan: str | None) 
     """
     if apply:
         conn.execute(
-            "LOCK TABLE mosaic_catalog_search.product_document IN SHARE ROW EXCLUSIVE MODE"
+            "LOCK TABLE mosaic_search.product_listing IN SHARE ROW EXCLUSIVE MODE"
         )
     dataset, actual, previous_projection = _verified_selection(conn, dataset_id)
     load_source_kinds(conn, dataset_id)
@@ -171,7 +171,7 @@ def reconcile(conn, dataset_id: str, *, apply: bool, expected_plan: str | None) 
         )
     checked, changed = _apply(conn, dataset_id, changes)
     conn.execute(
-        "UPDATE mosaic_catalog_search.receipt SET projection_sha256=%s WHERE singleton",
+        "UPDATE mosaic_search.product_listing_receipt SET projection_sha256=%s WHERE singleton",
         (plan["projection_sha256"],),
     )
     return {

@@ -20,9 +20,19 @@ def active_dataset() -> str | None:
     return os.getenv("MOSAIC_CATALOG_DATASET", "").strip() or None
 
 
+#: The one schema search lives in: the listings table and its indexes, the view
+#: searches read, and the functions the lab files define, under the name the
+#: files use.
+SEARCH_SCHEMA = "mosaic_search"
+#: The table that holds the listings and owns their indexes.
+LISTING_TABLE = "product_listing"
+#: The view every search reads: shop product IDs and recorded source prices.
+LISTING_VIEW = "product_listing_view"
+
+
 def search_schema() -> str:
     """Return an allowlisted SQL identifier, never a request-supplied value."""
-    return "mosaic_live_search" if active_dataset() else "mosaic_search"
+    return SEARCH_SCHEMA
 
 
 def filter_predicate(placeholder: str) -> str:
@@ -32,17 +42,13 @@ def filter_predicate(placeholder: str) -> str:
     that row is built per product, including the TOASTed embedding, and the
     function is not inlined, so a catalog-wide scan detoasts every product.
     Passing the scalar columns lets PostgreSQL inline the rule and evaluate
-    plain predicates, so whole-catalog counts and browse pages stay cheap. On
-    the real catalog a budget matches the price each source listing recorded,
-    the same rule the rendered search functions apply.
+    plain predicates, so whole-catalog counts and browse pages stay cheap. A
+    budget matches the price each source listing recorded, the same rule the
+    search functions apply.
     """
-    price = (
-        "coalesce(d.price_cents, d.historical_price_cents)"
-        if active_dataset()
-        else "d.price_cents"
-    )
-    return f"""{search_schema()}.matches_filter_values(
-        d.domain, d.category_key, d.brand_name, {price},
+    return f"""{SEARCH_SCHEMA}.matches_filter_values(
+        d.domain, d.category_key, d.brand_name,
+        coalesce(d.price_cents, d.historical_price_cents),
         d.availability, d.rating, d.attributes, d.is_refurbished,
         d.is_sponsored, {placeholder}::jsonb
     )"""
@@ -64,21 +70,13 @@ LIVE_INDEXES = {
     "public_id": "product_search_public_id_idx",
 }
 
-#: The names those indexes carried until 13 October 2026, when `real_` marked the
-#: real catalog built beside a synthetic one since retired. A cluster restored
-#: before then is renamed in place (`rename_legacy_search_indexes`), never rebuilt.
-LEGACY_INDEX_NAMES = {
-    "real_search_" + name.removeprefix("product_search_"): name
-    for name in LIVE_INDEXES.values()
-}
-
 
 @dataclass(frozen=True)
 class CatalogIndexes:
     """Where the served catalog's vectors physically live, and its index names.
 
-    The live catalog is served through a view, so the table that carries the
-    HNSW index is not the relation queries name. Anything that inspects an
+    Searches read `product_listing_view`, so the table that carries the HNSW
+    index is not the relation queries name. Anything that inspects an
     index by name (size, validity, the plan's `Index Name`) must look here.
 
     Attributes:
@@ -104,24 +102,16 @@ class CatalogIndexes:
 
 
 def catalog_indexes() -> CatalogIndexes:
-    """Resolve the physical vector table and index names for the served catalog."""
-    if active_dataset():
-        return CatalogIndexes(
-            schema="mosaic_catalog_search",
-            table="product_document",
-            fp32=LIVE_INDEXES["vector"],
-            halfvec=LIVE_INDEXES["vector_halfvec"],
-            binary=LIVE_INDEXES["vector_binary"],
-        )
+    """The served catalog's vector table and index names."""
     return CatalogIndexes(
-        schema="mosaic_search",
-        table="product_document",
-        fp32="product_document_embedding_hnsw_cosine_idx",
-        halfvec="product_document_embedding_hnsw_halfvec_idx",
-        binary="product_document_embedding_hnsw_binary_idx",
+        schema=SEARCH_SCHEMA,
+        table=LISTING_TABLE,
+        fp32=LIVE_INDEXES["vector"],
+        halfvec=LIVE_INDEXES["vector_halfvec"],
+        binary=LIVE_INDEXES["vector_binary"],
     )
 
 
-def product_document() -> str:
-    """The relation queries read products from: the live view or the legacy table."""
-    return f"{search_schema()}.product_document"
+def listing_view() -> str:
+    """The relation every search reads products from."""
+    return f"{SEARCH_SCHEMA}.{LISTING_VIEW}"

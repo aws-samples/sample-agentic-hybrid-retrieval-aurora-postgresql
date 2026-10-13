@@ -43,16 +43,16 @@ SELECT
     (NOT (f ? 'attributes') OR product_attributes @> (f->'attributes')) AND
     (
         coalesce((f->>'include_refurbished')::boolean, false)
-        OR NOT product_is_refurbished
+        OR product_is_refurbished IS NOT TRUE
     ) AND
     (
         coalesce((f->>'include_sponsored')::boolean, false)
-        OR NOT product_is_sponsored
+        OR product_is_sponsored IS NOT TRUE
     )
 $$;
 
 CREATE OR REPLACE FUNCTION mosaic_search.matches_filters(
-    d mosaic_search.product_document,
+    d mosaic_search.product_listing_view,
     f jsonb
 )
 RETURNS boolean
@@ -64,7 +64,7 @@ SELECT mosaic_search.matches_filter_values(
     (d).domain,
     (d).category_key,
     (d).brand_name,
-    (d).price_cents,
+    coalesce((d).price_cents, (d).historical_price_cents),
     (d).availability,
     (d).rating,
     (d).attributes,
@@ -133,13 +133,14 @@ BEGIN
     WITH scored AS (
         SELECT d.product_id,
                (ts_rank_cd(d.search_document, strict_tsq, 32) + 1.0)::real AS score
-        FROM mosaic_search.product_document d
+        FROM mosaic_search.product_listing_view d
         WHERE d.search_document @@ strict_tsq
           AND (NOT (f ? 'domain') OR d.domain = (f->>'domain')::mosaic.product_domain)
           AND (NOT (f ? 'category_key') OR d.category_key = f->>'category_key')
           AND (NOT (f ? 'attributes') OR d.attributes @> (f->'attributes'))
           AND mosaic_search.matches_filter_values(
-              d.domain, d.category_key, d.brand_name, d.price_cents,
+              d.domain, d.category_key, d.brand_name,
+              coalesce(d.price_cents, d.historical_price_cents),
               d.availability, d.rating, d.attributes, d.is_refurbished,
               d.is_sponsored, f
           )
@@ -173,7 +174,7 @@ BEGIN
           )
           AND EXISTS (
               SELECT 1
-              FROM mosaic_search.product_document corpus
+              FROM mosaic_search.product_listing_view corpus
               WHERE corpus.search_document
                     @@ to_tsquery('english', quote_literal(lexeme))
           )
@@ -195,13 +196,14 @@ BEGIN
         WITH scored AS (
             SELECT d.product_id,
                    ts_rank_cd(d.search_document, active_tsq, 32)::real AS score
-            FROM mosaic_search.product_document d
+            FROM mosaic_search.product_listing_view d
             WHERE d.search_document @@ active_tsq
               AND (NOT (f ? 'domain') OR d.domain = (f->>'domain')::mosaic.product_domain)
               AND (NOT (f ? 'category_key') OR d.category_key = f->>'category_key')
               AND (NOT (f ? 'attributes') OR d.attributes @> (f->'attributes'))
               AND mosaic_search.matches_filter_values(
-                  d.domain, d.category_key, d.brand_name, d.price_cents,
+                  d.domain, d.category_key, d.brand_name,
+                  coalesce(d.price_cents, d.historical_price_cents),
                   d.availability, d.rating, d.attributes, d.is_refurbished,
                   d.is_sponsored, f
               )
@@ -249,12 +251,13 @@ BEGIN
                    word_similarity(lower(q), d.trigram_text),
                    strict_word_similarity(lower(q), d.trigram_text)
                )::real AS score
-        FROM mosaic_search.product_document d
+        FROM mosaic_search.product_listing_view d
         WHERE (NOT (f ? 'domain') OR d.domain = (f->>'domain')::mosaic.product_domain)
           AND (NOT (f ? 'category_key') OR d.category_key = f->>'category_key')
           AND (NOT (f ? 'attributes') OR d.attributes @> (f->'attributes'))
           AND mosaic_search.matches_filter_values(
-                  d.domain, d.category_key, d.brand_name, d.price_cents,
+                  d.domain, d.category_key, d.brand_name,
+                  coalesce(d.price_cents, d.historical_price_cents),
                   d.availability, d.rating, d.attributes, d.is_refurbished,
                   d.is_sponsored, f
               )
@@ -287,12 +290,13 @@ BEGIN
                    word_similarity(lower(q), d.trigram_text),
                    strict_word_similarity(lower(q), d.trigram_text)
                )::real AS score
-        FROM mosaic_search.product_document d
+        FROM mosaic_search.product_listing_view d
         WHERE (NOT (f ? 'domain') OR d.domain = (f->>'domain')::mosaic.product_domain)
           AND (NOT (f ? 'category_key') OR d.category_key = f->>'category_key')
           AND (NOT (f ? 'attributes') OR d.attributes @> (f->'attributes'))
           AND mosaic_search.matches_filter_values(
-                  d.domain, d.category_key, d.brand_name, d.price_cents,
+                  d.domain, d.category_key, d.brand_name,
+                  coalesce(d.price_cents, d.historical_price_cents),
                   d.availability, d.rating, d.attributes, d.is_refurbished,
                   d.is_sponsored, f
               )
@@ -329,13 +333,14 @@ AS $$
 WITH scored AS (
     SELECT d.product_id,
            d.embedding <=> query_embedding AS distance
-    FROM mosaic_search.product_document d
+    FROM mosaic_search.product_listing_view d
     WHERE d.embedding IS NOT NULL
       AND (NOT (f ? 'domain') OR d.domain = (f->>'domain')::mosaic.product_domain)
       AND (NOT (f ? 'category_key') OR d.category_key = f->>'category_key')
       AND (NOT (f ? 'attributes') OR d.attributes @> (f->'attributes'))
       AND mosaic_search.matches_filter_values(
-          d.domain, d.category_key, d.brand_name, d.price_cents,
+          d.domain, d.category_key, d.brand_name,
+          coalesce(d.price_cents, d.historical_price_cents),
           d.availability, d.rating, d.attributes, d.is_refurbished,
           d.is_sponsored, f
       )

@@ -134,8 +134,8 @@ def filter_eligible(
             )
             SELECT c.query_id, c.product_id
             FROM cases c
-            JOIN mosaic_live_search.product_document d ON d.product_id = c.product_id
-            WHERE NOT mosaic_live_search.matches_filters(d, c.filters)
+            JOIN mosaic_search.product_listing_view d ON d.product_id = c.product_id
+            WHERE NOT mosaic_search.matches_filters(d, c.filters)
             """,
             (json.dumps(pairs),),
         ).fetchall()

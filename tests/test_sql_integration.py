@@ -106,7 +106,7 @@ def served_probe(connection):
         filters = {"domain": "consumer_electronics"}
     schema = search_schema()
     embedding = connection.execute(
-        f"SELECT embedding FROM {schema}.product_document WHERE product_id = %s",
+        f"SELECT embedding FROM {schema}.product_listing_view WHERE product_id = %s",
         (product_id,),
     ).fetchone()[0]
     assert embedding is not None, f"served product {product_id} has no saved vector"
@@ -127,7 +127,7 @@ def test_the_projection_is_fully_embedded_in_one_model_space(connection):
         SELECT count(*) AS products,
                count(embedding) AS embedded,
                count(*) FILTER (WHERE vector_dims(embedding) = 1024) AS at_1024
-        FROM {search_schema()}.product_document
+        FROM {search_schema()}.product_listing_view
         """
     ).fetchone()
     products, embedded, at_1024 = row

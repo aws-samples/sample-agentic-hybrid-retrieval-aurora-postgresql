@@ -184,9 +184,9 @@ render(<RetrievalChannelMap readings={readings} />);
     );
 
     expect(readings.map((reading) => reading.indexName)).toEqual([
-      "product_document_fts_gin_idx",
-      "product_document_trigram_gin_idx",
-      "product_document_embedding_hnsw_cosine_idx",
+      "product_search_fts_idx",
+      "product_search_trigram_idx",
+      "product_search_vector_idx",
     ]);
     expect(readings.map((reading) => reading.purpose)).toEqual([
       "Finds words in the catalog, such as a model name or brand that the shopper typed.",
@@ -215,7 +215,7 @@ render(<RetrievalChannelMap readings={readings} />);
 
     expect(trigram.state).toBe("disconnected");
     expect(trigram.indexHealthy).toBe(true);
-    expect(trigram.indexName).toBe("product_document_trigram_gin_idx");
+    expect(trigram.indexName).toBe("product_search_trigram_idx");
     // The other two are unaffected, which is what makes the one failure legible.
     expect(readings[0].state).toBe("contributing");
     expect(readings[2].state).toBe("contributing");
@@ -257,7 +257,7 @@ render(<RetrievalChannelMap readings={readings} />);
     );
 
     expect(readings[2].state).toBe("disconnected");
-    expect(readings[2].indexName).toBe("product_document_embedding_hnsw_cosine_idx");
+    expect(readings[2].indexName).toBe("product_search_vector_idx");
   });
 
   it("requires no semantic search method in Lab 1's own scenario", () => {
@@ -287,7 +287,7 @@ render(<RetrievalChannelMap readings={readings} />);
     const readings = readChannels(
       response({ fused_pool: 12, fts_in_pool: 5, trigram_in_pool: 0, semantic_in_pool: 10 }),
       REQUIRES_TRIGRAM,
-      readiness(["product_document_trigram_gin_idx"]),
+      readiness(["product_search_trigram_idx"]),
     );
 
     expect(readings[1].indexHealthy).toBe(false);

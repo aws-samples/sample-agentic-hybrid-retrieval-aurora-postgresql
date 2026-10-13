@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Build isolated retrieval indexes for a verified real-product import.
+"""Load a verified real-product import into mosaic_search.product_listing.
 
-The production search functions are installed unchanged apart from their schema
-qualifier. This validates the new corpus without replacing the served catalog or
-claiming that the old workshop's product targets still apply.
+install.sql declares the table and the view searches read; this fills the table
+once from the staged source records and then builds the indexes in
+db/sql/07_indexes.sql, which is faster than indexing an empty table row by row.
 """
 
 from __future__ import annotations
@@ -12,7 +12,6 @@ import argparse
 import hashlib
 import json
 import os
-import re
 import sys
 import time
 from pathlib import Path
@@ -24,9 +23,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from scripts.catalog.embed_real_catalog import COHERE_EMBED_V4_MODEL_ID
+from scripts.catalog.migrate_search_schema import require_migrated
 from scripts.catalog.stage_real_catalog import require_aurora_writer, validate_dsn
 from scripts.checks.retrieval_profile import load_profile
-from service.catalog_runtime import LEGACY_INDEX_NAMES, LIVE_INDEXES
+from service.catalog_runtime import LISTING_TABLE, SEARCH_SCHEMA
 from service.search_sql import search_sql
 from service.source_catalog import (
     ACCESSORY_KINDS,
@@ -36,12 +36,22 @@ from service.source_catalog import (
     reviewed_decisions,
 )
 
-SEARCH_SCHEMA = "mosaic_catalog_search"
+LISTING = f"{SEARCH_SCHEMA}.{LISTING_TABLE}"
+RECEIPT = f"{SEARCH_SCHEMA}.product_listing_receipt"
+INDEX_SQL = ROOT / "db/sql/07_indexes.sql"
 
 # Missing commerce facts stay null. In particular, a historical listing price
 # cannot become a current price, and an unreported condition cannot mean new.
-PROJECTION_SQL = """
-CREATE TABLE mosaic_catalog_search.product_document AS
+PROJECTION_COLUMNS = (
+    "product_id, dataset_id, parent_asin, source_record_sha256, embedding_text_sha256, "
+    "domain, category_key, category_path, brand_name, title, price_cents, availability, "
+    "rating, attributes, is_refurbished, is_sponsored, catalog_asset_key, "
+    "canonical_group_id, challenge_cohorts, is_retrieval_anchor, title_text, "
+    "identity_text, feature_text, body_text, trigram_text, embedding_text, rerank_text, "
+    "embedding, embedding_model_key, search_document"
+)
+
+PROJECTION_SELECT = """
 WITH source AS (
     SELECT p.*, coalesce(l.kind, k.kind) AS kind, i.product_id AS base_product_id,
         nullif(btrim(p.original->'details'->>'Brand'), '') AS brand,
@@ -96,44 +106,42 @@ SELECT coalesce(base_product_id,
 FROM source
 """
 
+PROJECTION_SQL = (
+    f"INSERT INTO {SEARCH_SCHEMA}.{LISTING_TABLE} ({PROJECTION_COLUMNS})"
+    + PROJECTION_SELECT
+)
+
 
 CATEGORY_DECISIONS = ROOT / "db/config/catalog-category-decisions.jsonl"
-
-
-def rename_legacy_search_indexes(connection) -> list[str]:
-    """Rename the served catalog's indexes that still carry their pre-October names.
-
-    `ALTER INDEX ... RENAME` changes only the catalog entry, so the index, its
-    size and every measurement taken on it stay as they were.
-
-    Args:
-        connection: An open connection to the catalog database; the caller commits.
-
-    Returns:
-        The legacy names renamed, empty for a cluster built with the current names.
-    """
-    renamed = []
-    for legacy, current in LEGACY_INDEX_NAMES.items():
-        row = connection.execute(
-            "SELECT to_regclass(%s) IS NOT NULL AS present",
-            (f"mosaic_catalog_search.{legacy}",),
-        ).fetchone()
-        if row["present"] if isinstance(row, dict) else row[0]:
-            connection.execute(
-                sql.SQL("ALTER INDEX mosaic_catalog_search.{} RENAME TO {}").format(
-                    sql.Identifier(legacy), sql.Identifier(current)
-                )
-            )
-            renamed.append(legacy)
-    return renamed
 
 
 def projection_sha256() -> str:
     """Version the projection SQL, the category rules and the reviewed decisions."""
     decisions = hashlib.sha256(CATEGORY_DECISIONS.read_bytes()).hexdigest()
     return hashlib.sha256(
-        (PROJECTION_SQL + classification_sha256() + decisions).encode()
+        (PROJECTION_SELECT + classification_sha256() + decisions).encode()
     ).hexdigest()
+
+
+def reference_functions_sha256(root: Path = ROOT) -> str:
+    """Identity of the reference search SQL a restore leaves Aurora running."""
+    return hashlib.sha256(search_sql(root, solutions=True).encode()).hexdigest()
+
+
+def index_statements(path: Path = INDEX_SQL) -> list[tuple[str, str]]:
+    """The index names and statements in 07_indexes.sql, in file order."""
+    lines = [
+        line
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if not line.startswith(("\\", "--"))
+    ]
+    statements = []
+    for statement in "\n".join(lines).split(";"):
+        statement = statement.strip()
+        if statement:
+            name = statement.split("IF NOT EXISTS", 1)[1].split()[0]
+            statements.append((name, statement))
+    return statements
 
 
 def load_source_kinds(conn, dataset_id: str) -> None:
@@ -191,33 +199,6 @@ def load_source_kinds(conn, dataset_id: str) -> None:
             f"Category decision rule: {unknown} reviewed listings are not in {dataset_id}; "
             "review decisions against this exact selection."
         )
-
-
-def search_functions(source: str) -> str:
-    """Scope the retrieval functions to the new corpus.
-
-    Args:
-        source: The complete search SQL from `service.search_sql.search_sql`,
-            with the lab files the caller chose: reference answers when loading,
-            the workspace when applying a participant's repair.
-
-    Returns:
-        SQL for the isolated schema, excluding legacy product-evidence tables.
-    """
-    boundary = "CREATE OR REPLACE FUNCTION mosaic_search.search_product_evidence("
-    if source.count(boundary) != 1:
-        raise ValueError(
-            "Search source rule: missing unique evidence boundary; inspect the production SQL before preparing the catalog."
-        )
-    scoped = source.split(boundary)[0]
-    scoped = "\n".join(
-        line for line in scoped.splitlines() if not line.startswith("\\")
-    )
-    # PostgreSQL folds unquoted names to lower case, so MOSAIC_SEARCH.f names the
-    # same schema; a case-sensitive rewrite would leave it calling the old one.
-    return re.sub(
-        r"\bmosaic_search\.", SEARCH_SCHEMA + ".", scoped, flags=re.IGNORECASE
-    )
 
 
 def require_complete(dataset: tuple | None, actual: int) -> None:
@@ -316,8 +297,7 @@ def prepare(
         Counts, source hashes, index sizes and preparation times; no quality claim.
     """
     profile = load_profile()
-    functions = search_functions(search_sql(ROOT, solutions=True))
-    function_hash = hashlib.sha256(functions.encode()).hexdigest()
+    function_hash = reference_functions_sha256()
     projection_hash = projection_sha256()
     dataset = conn.execute(
         "SELECT expected_products,records_complete,embeddings_complete,catalog_sha256 "
@@ -333,15 +313,20 @@ def prepare(
         (dataset_id, profile.vector_dimension, COHERE_EMBED_V4_MODEL_ID),
     ).fetchone()[0]
     require_complete(dataset, actual)
+    require_migrated(conn)
+    if not conn.execute("SELECT to_regclass(%s) IS NOT NULL", (LISTING,)).fetchone()[0]:
+        raise ValueError(
+            f"Search schema rule: {LISTING} is absent; fix: run make db-install, "
+            "which declares it, before loading the listings."
+        )
     conn.execute("SET statement_timeout='60min'")
-    conn.execute("CREATE SCHEMA IF NOT EXISTS mosaic_catalog_search")
-    conn.execute("""CREATE TABLE IF NOT EXISTS mosaic_catalog_search.receipt (
+    conn.execute(f"""CREATE TABLE IF NOT EXISTS {RECEIPT} (
         singleton boolean PRIMARY KEY CHECK (singleton), dataset_id text NOT NULL,
         catalog_sha256 text NOT NULL, projection_sha256 text NOT NULL,
         functions_sha256 text NOT NULL, prepared_at timestamptz
     )""")
     existing = conn.execute(
-        "SELECT dataset_id,catalog_sha256,projection_sha256 FROM mosaic_catalog_search.receipt"
+        f"SELECT dataset_id,catalog_sha256,projection_sha256 FROM {RECEIPT}"
     ).fetchone()
     identity = (dataset_id, dataset[3], projection_hash)
     if existing is not None and existing != identity:
@@ -350,16 +335,14 @@ def prepare(
             "keep it isolated and review an explicit rebuild before replacing it."
         )
     conn.execute(
-        """INSERT INTO mosaic_catalog_search.receipt
+        f"""INSERT INTO {RECEIPT}
         (singleton,dataset_id,catalog_sha256,projection_sha256,functions_sha256)
         VALUES (true,%s,%s,%s,%s) ON CONFLICT DO NOTHING""",
         (*identity, function_hash),
     )
-    present = conn.execute(
-        "SELECT to_regclass('mosaic_catalog_search.product_document') IS NOT NULL"
-    ).fetchone()[0]
+    loaded = conn.execute(f"SELECT EXISTS (SELECT 1 FROM {LISTING})").fetchone()[0]
     started = time.monotonic()
-    if not present:
+    if not loaded:
         load_source_kinds(conn, dataset_id)
         conn.execute(
             "CREATE TEMP TABLE source_product_ids (parent_asin text PRIMARY KEY, product_id bigint NOT NULL UNIQUE) ON COMMIT DROP"
@@ -368,9 +351,7 @@ def prepare(
             for identity, number in base_ids or []:
                 copy.write_row((identity, number))
         conn.execute(PROJECTION_SQL, (dataset_id,))
-        conn.execute("""ALTER TABLE mosaic_catalog_search.product_document
-            ADD PRIMARY KEY (product_id), ADD UNIQUE (parent_asin),
-            ALTER COLUMN embedding SET NOT NULL,
+        conn.execute(f"""ALTER TABLE {LISTING}
             ADD FOREIGN KEY (dataset_id,parent_asin)
                 REFERENCES mosaic_catalog_stage.product(dataset_id,parent_asin)""")
     conn.commit()
@@ -383,30 +364,11 @@ def prepare(
         ),
         flush=True,
     )
-    indexes = {
-        LIVE_INDEXES["fts"]: "USING gin(search_document)",
-        LIVE_INDEXES["trigram"]: "USING gin(trigram_text gin_trgm_ops)",
-        LIVE_INDEXES["kind"]: "(category_key,product_id)",
-        LIVE_INDEXES["vector"]: (
-            "USING hnsw(embedding vector_cosine_ops) "
-            f"WITH (m={profile.hnsw_m},ef_construction={profile.hnsw_ef_construction})"
-        ),
-    }
-    # A cluster restored before the indexes were renamed keeps them under their
-    # old names; renaming first stops CREATE INDEX IF NOT EXISTS from building a
-    # second copy of each, the 4 GB HNSW index among them.
-    rename_legacy_search_indexes(conn)
-    conn.commit()
     workers = configure_index_build_workers(conn)
     timings = {}
-    for name, definition in indexes.items():
+    for name, statement in index_statements():
         started = time.monotonic()
-        conn.execute(
-            sql.SQL(
-                "CREATE INDEX IF NOT EXISTS {} ON mosaic_catalog_search.product_document "
-            ).format(sql.Identifier(name))
-            + sql.SQL(definition)
-        )
+        conn.execute(statement)
         conn.commit()
         timings[name] = round(time.monotonic() - started, 2)
         print(
@@ -415,10 +377,12 @@ def prepare(
             ),
             flush=True,
         )
-    conn.execute(functions, prepare=False)
-    conn.execute("ANALYZE mosaic_catalog_search.product_document")
+    # An index expression has no statistics until its table is analysed after
+    # the index exists. Without them the planner expects 0.5% of the catalog per
+    # product ID and scans every listing to fetch each search's shortlist.
+    conn.execute(f"ANALYZE {LISTING}")
     counts = conn.execute(
-        """
+        f"""
         SELECT count(*), count(*) FILTER (WHERE
             d.dataset_id<>%s OR p.parent_asin IS NULL OR
             d.title IS DISTINCT FROM p.title OR
@@ -427,7 +391,7 @@ def prepare(
             d.embedding_text_sha256 IS DISTINCT FROM p.embedded_input_sha256 OR
             d.embedding IS DISTINCT FROM p.embedding OR
             d.embedding_model_key IS DISTINCT FROM p.embedding_model_key)
-        FROM mosaic_catalog_search.product_document d
+        FROM {LISTING} d
         LEFT JOIN mosaic_catalog_stage.product p USING(dataset_id,parent_asin)
     """,
         (dataset_id,),
@@ -438,13 +402,16 @@ def prepare(
             "inspect the projection before running retrieval checks."
         )
     conn.execute(
-        "UPDATE mosaic_catalog_search.receipt SET functions_sha256=%s,prepared_at=now()",
+        f"UPDATE {RECEIPT} SET functions_sha256=%s,prepared_at=now()",
         (function_hash,),
     )
-    sizes = conn.execute("""SELECT c.relname,pg_relation_size(c.oid),i.indisvalid
+    sizes = conn.execute(
+        """SELECT c.relname,pg_relation_size(c.oid),i.indisvalid
         FROM pg_index i JOIN pg_class c ON c.oid=i.indexrelid
-        WHERE i.indrelid='mosaic_catalog_search.product_document'::regclass
-        ORDER BY c.relname""").fetchall()
+        WHERE i.indrelid=%s::regclass
+        ORDER BY c.relname""",
+        (LISTING,),
+    ).fetchall()
     conn.commit()
     return {
         "dataset_id": dataset_id,

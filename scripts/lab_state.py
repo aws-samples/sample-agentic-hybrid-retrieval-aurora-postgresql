@@ -470,11 +470,6 @@ def _trigram_cte(tokens: list[str], schema: str) -> str | None:
     return name
 
 
-#: Both names the search functions carry. The file says `mosaic_search`, the
-#: guide's psql examples say `mosaic_live_search`, and apply installs either
-#: spelling under the live schema, so a participant may copy either one.
-SEARCH_SCHEMAS = frozenset({"mosaic_search", "mosaic_live_search"})
-
 #: What each column of the fuzzy matching branch carries, as a mismatch names it.
 _LAB1_COLUMN_ROLES = (
     "product_id",
@@ -522,9 +517,7 @@ def _branch_source(tokens: list[str]) -> tuple[list[str], str, set[str]] | None:
     return tokens[:at], tail[0], set(tail)
 
 
-def _lab1_column_problem(
-    columns: list[str], qualifiers: set[str], schema: str
-) -> str | None:
+def _lab1_column_problem(columns: list[str], qualifiers: set[str]) -> str | None:
     projected = _projection(columns)
     if not projected:
         return "the branch's column list is empty or has unbalanced parentheses"
@@ -535,7 +528,7 @@ def _lab1_column_problem(
             if token == "." and output and output[-1] in qualifiers:
                 output.pop()
             else:
-                output.append(schema if token in SEARCH_SCHEMAS else token)
+                output.append(token)
         outputs.append(output)
     if len(outputs) != len(_LAB1_COLUMN_ROLES):
         return (
@@ -549,7 +542,9 @@ def _lab1_column_problem(
         ["'trigram'"],
         ["trigram_rank"],
         ["trigram_score"],
-        _sql_tokens(f"{schema}.reciprocal_rank_contribution(trigram_rank, rrf_k)"),
+        _sql_tokens(
+            f"{search_schema()}.reciprocal_rank_contribution(trigram_rank, rrf_k)"
+        ),
     ]
     for number, (found, wanted, role) in enumerate(
         zip(outputs, expected, _LAB1_COLUMN_ROLES, strict=True), start=1
@@ -602,7 +597,7 @@ def lab1_contract_problem(source: str, *, schema: str = "mosaic_search") -> str 
             f"the branch reads FROM {read}; it must read the search results that no "
             "other branch reads yet"
         )
-    return _lab1_column_problem(columns, qualifiers, schema)
+    return _lab1_column_problem(columns, qualifiers)
 
 
 def _lab1_matches_contract(source: str, *, schema: str = "mosaic_search") -> bool:
@@ -688,25 +683,21 @@ _LAB3_DETAIL = (
 
 
 def _marked_tokens(source: str, lab: int) -> list[str] | None:
-    """A lab's marked SQL as tokens, with both search schema names made equal.
+    """A lab's marked SQL as tokens.
 
-    PostgreSQL keeps a SQL function's body as written, comments included, so
-    the block Aurora runs can be compared with the saved one directly. Apply
-    rewrites the schema name, and the comparison ignores only that.
+    PostgreSQL keeps a SQL function's body as written, comments included, and
+    apply sends the file as written, so the block Aurora runs can be compared
+    with the saved one directly.
     """
     ((start, end, _, _),) = LABS[lab][1]
     if _markers_problem(source, start, end):
         return None
-    body = source.split(start, 1)[1].split(end, 1)[0]
-    return [
-        "mosaic_search" if token in SEARCH_SCHEMAS else token
-        for token in _sql_tokens(body)
-    ]
+    return _sql_tokens(source.split(start, 1)[1].split(end, 1)[0])
 
 
 def _lab_1_database_state(connection: Any, repo: Path) -> LabDatabaseState:
     schema = search_schema()
-    signature = LAB1_FUNCTION_SIGNATURE.replace("mosaic_search.", schema + ".")
+    signature = LAB1_FUNCTION_SIGNATURE
     row = connection.execute(
         f"SELECT pg_get_functiondef({signature}) AS definition"
     ).fetchone()
@@ -1051,7 +1042,7 @@ def assert_reset_database(database_url: str | None) -> None:
         ) as connection:
             identity = connection.execute(
                 "SELECT current_database() AS name, aurora_version() AS aurora, "
-                f"to_regclass('{search_schema()}.product_document')::text AS catalog"
+                f"to_regclass('{search_schema()}.product_listing_view')::text AS catalog"
             ).fetchone()
     except psycopg.Error as error:
         raise database_fault_exit(error, "check the workshop database") from error

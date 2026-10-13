@@ -164,9 +164,6 @@ def test_real_only_acceptance_rejects_synthetic_brand_and_rolls_back_byte_identi
     [
         "foreign_products",
         "synthetic_brands",
-        "legacy_documents",
-        "legacy_lexemes",
-        "legacy_surface_lexemes",
         "registered_products",
         "products",
         "embedded_products",
@@ -184,9 +181,6 @@ def test_acceptance_rejects_each_violation_then_accepts_identical_restoration(
         (
             "foreign_products",
             "synthetic_brands",
-            "legacy_documents",
-            "legacy_lexemes",
-            "legacy_surface_lexemes",
         ),
         0,
     )

@@ -882,9 +882,9 @@ describe("RetrievalLabPage", () => {
 
     const items = [...document.querySelectorAll(".labs-channel-list > li")];
     expect(items.map((item) => item.textContent)).toEqual([
-      expect.stringContaining("product_document_fts_gin_idx"),
-      expect.stringContaining("product_document_trigram_gin_idx"),
-      expect.stringContaining("product_document_embedding_hnsw_cosine_idx"),
+      expect.stringContaining("product_search_fts_idx"),
+      expect.stringContaining("product_search_trigram_idx"),
+      expect.stringContaining("product_search_vector_idx"),
     ]);
   });
 

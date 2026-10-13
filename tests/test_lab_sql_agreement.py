@@ -4,12 +4,11 @@ A tester saw `validate_lab.py --lab 1` pass and `advance --lab 1` refuse the
 same state. The file check accepted names that apply did not rewrite, rejected
 aliases the live search ran correctly, and the Aurora check re-ran a text
 contract instead of asking whether Aurora runs the block saved in the file.
-Aurora's definition here is built by apply's own rewrite of the saved file.
+Aurora's definition here is the saved file as apply sends it.
 """
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from shutil import copy2
 from types import SimpleNamespace
@@ -18,7 +17,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from scripts import lab_state
-from scripts.catalog.prepare_live_catalog import live_search_functions
+from scripts.apply_search_functions import rendered_sql
 from scripts.lab_state import (
     LAB1_STARTER,
     LAB2_STARTER,
@@ -53,7 +52,6 @@ WORKING_BRANCHES = {
     "columns named by step": ALIASED.replace("t.", "typo.").replace(
         "FROM typo t", "FROM typo"
     ),
-    "live schema name": REFERENCE.replace("mosaic_search.", "mosaic_live_search."),
     "upper-case schema name": REFERENCE.replace("mosaic_search.", "MOSAIC_SEARCH."),
     "comment inside": REFERENCE.replace("FROM typo", "FROM typo  -- fuzzy matching"),
 }
@@ -109,10 +107,10 @@ def _save(repo: Path, branch: str) -> str:
 def _applied(saved_lab_1: str) -> MagicMock:
     """A connection whose Aurora runs the search function apply makes of this file."""
     source = search_sql().replace((REPO / LABS[1][0]).read_text(), saved_lab_1)
-    head = "CREATE OR REPLACE FUNCTION mosaic_live_search.search_hybrid_rrf("
+    head = "CREATE OR REPLACE FUNCTION mosaic_search.search_hybrid_rrf("
     definition = (
         head
-        + live_search_functions(source)
+        + rendered_sql(source)
         .split(head, 1)[1]
         .split("CREATE OR REPLACE FUNCTION", 1)[0]
     )
@@ -165,22 +163,6 @@ def test_a_comment_added_after_apply_still_counts_as_applied(lab_repo):
     _save(lab_repo, "    -- reconnect fuzzy matching\n" + REFERENCE)
 
     assert validate_database(1, connection, repo=lab_repo).state == "applied"
-
-
-def test_apply_installs_an_upper_case_schema_name_under_the_live_schema():
-    source = search_sql().replace(
-        "mosaic_search.reciprocal_rank_contribution(trigram_rank",
-        "MOSAIC_SEARCH.reciprocal_rank_contribution(trigram_rank",
-    )
-    assert "MOSAIC_SEARCH." in source
-
-    assert re.search(r"(?i)\bmosaic_search\.", live_search_functions(source)) is None
-
-
-def test_the_shipped_search_sql_names_its_schema_in_lower_case_only():
-    """So the case-insensitive rewrite renders the shipped SQL exactly as before."""
-    names = re.findall(r"(?i)\bmosaic_search\.", search_sql())
-    assert names and set(names) == {"mosaic_search."}
 
 
 @pytest.mark.parametrize(

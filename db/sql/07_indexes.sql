@@ -1,38 +1,34 @@
 \set ON_ERROR_STOP on
 
--- Search projection: relational and metadata filters.
-CREATE INDEX IF NOT EXISTS product_document_domain_category_idx
-    ON mosaic_search.product_document (domain, category_id);
-CREATE INDEX IF NOT EXISTS product_document_brand_idx
-    ON mosaic_search.product_document (brand_id, model_name);
-CREATE INDEX IF NOT EXISTS product_document_price_idx
-    ON mosaic_search.product_document (price_cents);
-CREATE INDEX IF NOT EXISTS product_document_availability_price_idx
-    ON mosaic_search.product_document (availability, price_cents);
-CREATE INDEX IF NOT EXISTS product_document_rating_idx
-    ON mosaic_search.product_document (rating DESC, review_count DESC);
-CREATE INDEX IF NOT EXISTS product_document_canonical_idx
-    ON mosaic_search.product_document (canonical_group_id);
-CREATE INDEX IF NOT EXISTS product_document_anchor_idx
-    ON mosaic_search.product_document (is_retrieval_anchor, media_tier)
-    WHERE is_retrieval_anchor;
-CREATE INDEX IF NOT EXISTS product_document_attributes_gin_idx
-    ON mosaic_search.product_document USING gin (attributes jsonb_path_ops);
-CREATE INDEX IF NOT EXISTS product_document_tags_gin_idx
-    ON mosaic_search.product_document USING gin (tags);
-CREATE INDEX IF NOT EXISTS product_document_cohorts_gin_idx
-    ON mosaic_search.product_document USING gin (challenge_cohorts);
+-- The index behind each search, on mosaic_search.product_listing. The restore
+-- (scripts/catalog/prepare_staged_catalog_search.py) runs these statements in
+-- order once the listings are loaded: building an HNSW graph over loaded rows
+-- is far faster than inserting each row into an empty one. install.sql does not
+-- include this file.
 
--- Lexical and typo retrieval.
-CREATE INDEX IF NOT EXISTS product_document_fts_gin_idx
-    ON mosaic_search.product_document USING gin (search_document);
-CREATE INDEX IF NOT EXISTS product_document_trigram_gin_idx
-    ON mosaic_search.product_document USING gin (trigram_text gin_trgm_ops);
+-- Full-text search. GIN is an inverted index: it maps each stemmed word to the
+-- listings that contain it, so `search_document @@ query` reads only the
+-- listings holding every query word instead of scanning the table.
+CREATE INDEX IF NOT EXISTS product_search_fts_idx
+    ON mosaic_search.product_listing USING gin (search_document);
 
--- Operational freshness and ingestion checks.
-CREATE INDEX IF NOT EXISTS product_document_source_updated_idx
-    ON mosaic_search.product_document (source_updated_at DESC);
+-- Fuzzy matching. The same inverted index over three-letter pieces (trigrams):
+-- a mistyped ID still shares most of its trigrams with the real one, so pg_trgm
+-- reads only the listings that share them before scoring word similarity.
+CREATE INDEX IF NOT EXISTS product_search_trigram_idx
+    ON mosaic_search.product_listing USING gin (trigram_text gin_trgm_ops);
 
-ANALYZE mosaic.product;
-ANALYZE mosaic.product_offer;
-ANALYZE mosaic_search.product_document;
+-- Category filters and the shop's product IDs (product_listing_view adds the
+-- offset), so a shortlist is fetched by key instead of by scanning.
+CREATE INDEX IF NOT EXISTS product_search_kind_idx
+    ON mosaic_search.product_listing (category_key, product_id);
+CREATE INDEX IF NOT EXISTS product_search_public_id_idx
+    ON mosaic_search.product_listing ((product_id + 1000000));
+
+-- Semantic search. An HNSW graph over the embeddings finds near neighbours by
+-- cosine distance without comparing the request against every listing. The
+-- graph parameters must match db/config/retrieval.yaml (config_tripwire.py).
+CREATE INDEX IF NOT EXISTS product_search_vector_idx
+    ON mosaic_search.product_listing
+    USING hnsw (embedding vector_cosine_ops)
+    WITH (m = 16, ef_construction = 200);

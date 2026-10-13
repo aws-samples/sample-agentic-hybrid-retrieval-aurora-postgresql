@@ -32,7 +32,7 @@ def test_a_prepared_catalog_reports_its_receipt_hash(monkeypatch):
     )
 
     assert corpus_manifest(connection) == "c" * 64
-    assert "mosaic_live_search.receipt" in connection.statements[0]
+    assert "mosaic_search.receipt" in connection.statements[0]
 
 
 def test_a_receipt_for_another_dataset_is_refused(monkeypatch):

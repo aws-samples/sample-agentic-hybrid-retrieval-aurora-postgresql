@@ -12,7 +12,7 @@ same function served retrieval calls. A probe that reached `set_config` directly
 would be measuring a path the request path never takes.
 
 The instrument serves whichever catalog the service serves. Product rows come from
-`service.catalog_runtime.product_document()`, the index it inspects from
+`service.catalog_runtime.listing_view()`, the index it inspects from
 `catalog_indexes()`, its query anchors from the committed anchor set, and its corpus
 identity from `service.hnsw_corpus`.
 """
@@ -29,9 +29,8 @@ from scripts.bench.seed_exact_neighbors import load_ground_truth
 from scripts.checks.retrieval_profile import explain
 from service.catalog_runtime import (
     CatalogIndexes,
-    active_dataset,
     catalog_indexes,
-    product_document,
+    listing_view,
     search_schema,
 )
 from service.config import get_settings
@@ -137,19 +136,15 @@ def representation_index(
 
 def representation_recovery(representation: str) -> str:
     """The one command that builds a representation's index on the served catalog."""
-    if active_dataset():
-        if representation == "fp32":
-            return (
-                "rebuild the catalog projection with "
-                "`scripts/catalog/prepare_staged_catalog_search.py`, which creates the index"
-            )
-        return (
-            "run `make db-index-quantized-catalog` to build the halfvec and binary "
-            "indexes on the served catalog (a few minutes each)"
-        )
     if representation == "fp32":
-        return "run `make db-drop-invalid-indexes` then `make db-index-concurrent`"
-    return "run `make db-index-quantized` (roughly 9 minutes for both indexes)"
+        return (
+            "rebuild the catalog projection with "
+            "`scripts/catalog/prepare_staged_catalog_search.py`, which creates the index"
+        )
+    return (
+        "run `make db-index-quantized-catalog` to build the halfvec and binary "
+        "indexes on the served catalog (a few minutes each)"
+    )
 
 
 def require_representation_index(connection: Any, representation: str) -> None:
@@ -392,9 +387,9 @@ def substrate() -> dict[str, Any]:
             f"""
             SELECT count(*) FILTER (WHERE embedding IS NOT NULL) AS vector_count,
                    count(*) FILTER (WHERE product_id = ANY(%s)) AS anchor_count,
-                   (SELECT vector_dims(embedding) FROM {product_document()}
+                   (SELECT vector_dims(embedding) FROM {listing_view()}
                     WHERE embedding IS NOT NULL LIMIT 1) AS dimensions
-            FROM {product_document()}
+            FROM {listing_view()}
             """,
             (list(anchors.product_ids),),
         ).fetchone()
@@ -501,7 +496,7 @@ def anchors() -> list[dict[str, Any]]:
         rows = connection.execute(
             f"""
             SELECT {_PRODUCT_COLUMNS}
-            FROM {product_document()}
+            FROM {listing_view()}
             WHERE embedding IS NOT NULL AND product_id = ANY(%s)
             ORDER BY product_id
             """,
@@ -536,7 +531,7 @@ def probe_sql(preset: FilterPreset, representation: str = "fp32") -> str:
                 f"use one of {sorted(REPRESENTATION_SQL)}",
             )
         )
-    return template.format(relation=product_document(), predicate=predicate)
+    return template.format(relation=listing_view(), predicate=predicate)
 
 
 def probe_parameters(request: Any, vector: Any) -> list[Any]:
@@ -572,7 +567,7 @@ def _require_anchor(connection: Any, selected: AnchorSet, product_id: int) -> An
     row = connection.execute(
         f"""
         SELECT {_PRODUCT_COLUMNS}, embedding
-        FROM {product_document()}
+        FROM {listing_view()}
         WHERE product_id = %s AND embedding IS NOT NULL
         """,
         (product_id,),
@@ -592,7 +587,7 @@ def _listing_photos(connection, product_ids: list[int]) -> dict[int, str | None]
     rows = connection.execute(
         f"""
         SELECT document.product_id, product.image_url
-        FROM {product_document()} AS document
+        FROM {listing_view()} AS document
         JOIN mosaic_catalog_stage.product AS product
           ON product.dataset_id = document.dataset_id
          AND product.parent_asin = document.parent_asin
@@ -621,7 +616,7 @@ def neighborhood(
             SELECT neighbor.neighbor_rank, neighbor.cosine_distance,
                    {_PRODUCT_COLUMNS}
             FROM mosaic_bench.exact_neighbor AS neighbor
-            JOIN {product_document()} AS document
+            JOIN {listing_view()} AS document
               ON document.product_id = neighbor.neighbor_product_id
             WHERE neighbor.anchor_product_id = %s
               AND neighbor.filter_preset = %s
@@ -824,10 +819,10 @@ def probe(request: Any) -> dict[str, Any]:
                 f"""
                 SELECT {_PRODUCT_COLUMNS},
                        (embedding <=> (
-                           SELECT embedding FROM {product_document()}
+                           SELECT embedding FROM {listing_view()}
                            WHERE product_id = %s
                        )) AS cosine_distance
-                FROM {product_document()}
+                FROM {listing_view()}
                 WHERE product_id = ANY(%s)
                 ORDER BY cosine_distance
                 """,

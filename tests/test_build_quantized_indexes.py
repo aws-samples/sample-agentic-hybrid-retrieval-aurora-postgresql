@@ -14,22 +14,13 @@ def test_statements_name_the_served_catalog_indexes(monkeypatch):
     assert halfvec.startswith(
         'CREATE INDEX IF NOT EXISTS "product_search_vector_halfvec_idx"'
     )
-    assert '"mosaic_catalog_search"."product_document"' in halfvec
+    assert '"mosaic_search"."product_listing"' in halfvec
     assert "(embedding::halfvec(1024)) halfvec_cosine_ops" in halfvec
     assert "m = 16" in halfvec and "ef_construction = 200" in halfvec
     assert binary.startswith(
         'CREATE INDEX CONCURRENTLY IF NOT EXISTS "product_search_vector_binary_idx"'
     )
     assert "(binary_quantize(embedding)::bit(1024)) bit_hamming_ops" in binary
-
-
-def test_legacy_catalog_gets_the_legacy_names(monkeypatch):
-    monkeypatch.delenv("MOSAIC_CATALOG_DATASET", raising=False)
-
-    statement = builder.build_statement("halfvec", concurrently=False).as_string(None)
-
-    assert '"product_document_embedding_hnsw_halfvec_idx"' in statement
-    assert '"mosaic_search"."product_document"' in statement
 
 
 class _Cursor:
@@ -103,9 +94,6 @@ def test_a_valid_index_is_left_alone_and_an_invalid_one_is_rebuilt(monkeypatch):
         "max_parallel_maintenance_workers": {"setting": "7", "unit": None},
     }
     joined = "\n".join(connection.statements)
-    assert (
-        'DROP INDEX "mosaic_catalog_search"."product_search_vector_binary_idx"'
-        in joined
-    )
+    assert 'DROP INDEX "mosaic_search"."product_search_vector_binary_idx"' in joined
     assert joined.count("CREATE INDEX") == 1
     assert "SET max_parallel_maintenance_workers = 7" in joined

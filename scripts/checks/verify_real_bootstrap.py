@@ -19,7 +19,7 @@ from service.catalog_runtime import LIVE_INDEXES
 
 
 def verify(connection, contract: dict) -> dict:
-    """Check persisted source identities, saved vectors and the absence of legacy rows.
+    """Check persisted source identities, saved vectors and the absence of synthetic rows.
 
     Args:
         connection: Aurora connection using a dict row factory.
@@ -39,14 +39,11 @@ def verify(connection, contract: dict) -> dict:
           (SELECT count(*) FROM mosaic.product) AS registered_products,
           (SELECT count(*) FROM mosaic.product WHERE source_system IS DISTINCT FROM %s) AS foreign_products,
           (SELECT count(*) FROM mosaic.brand WHERE is_synthetic) AS synthetic_brands,
-          (SELECT count(*) FROM mosaic_search.product_document) AS legacy_documents,
-          (SELECT count(*) FROM mosaic_search.corpus_lexeme) AS legacy_lexemes,
-          (SELECT count(*) FROM mosaic_search.corpus_surface_lexeme) AS legacy_surface_lexemes,
           count(*) AS products,
           count(*) FILTER (WHERE d.dataset_id=%s AND d.embedding IS NOT NULL
             AND vector_dims(d.embedding)=%s
             AND d.embedding_model_key=%s) AS embedded_products
-        FROM mosaic_live_search.product_document d""",
+        FROM mosaic_search.product_listing_view d""",
         (dataset, dataset, contract["dimensions"], contract["embedding_model_id"]),
     ).fetchone()
     expected = {name: 0 for name in counts}
@@ -59,7 +56,7 @@ def verify(connection, contract: dict) -> dict:
             "use a fresh Aurora database, run make db-bootstrap-schema, then restore the pinned real catalog."
         )
     receipt = connection.execute(
-        "SELECT dataset_id,catalog_sha256 FROM mosaic_live_search.receipt "
+        "SELECT dataset_id,catalog_sha256 FROM mosaic_search.receipt "
         "WHERE singleton AND prepared_at IS NOT NULL"
     ).fetchone()
     if receipt != {"dataset_id": dataset, "catalog_sha256": contract["catalog_sha256"]}:
@@ -72,7 +69,7 @@ def verify(connection, contract: dict) -> dict:
         WHERE NOT EXISTS (SELECT 1 FROM pg_index i
           JOIN pg_class c ON c.oid=i.indexrelid
           JOIN pg_namespace n ON n.oid=c.relnamespace
-          WHERE n.nspname='mosaic_catalog_search' AND c.relname=required.name
+          WHERE n.nspname='mosaic_search' AND c.relname=required.name
             AND i.indisvalid AND i.indisready)""",
         (required,),
     ).fetchall()
@@ -83,7 +80,7 @@ def verify(connection, contract: dict) -> dict:
         )
     public_id = LIVE_INDEXES["public_id"]
     analyzed = connection.execute(
-        "SELECT count(*) AS rows FROM pg_stats WHERE schemaname='mosaic_catalog_search' "
+        "SELECT count(*) AS rows FROM pg_stats WHERE schemaname='mosaic_search' "
         "AND tablename=%s",
         (public_id,),
     ).fetchone()["rows"]
@@ -91,16 +88,16 @@ def verify(connection, contract: dict) -> dict:
         raise ValueError(
             f"Real-only statistics rule: found no statistics for {public_id}, "
             "so every search scans all products to fetch its shortlist; fix: run ANALYZE "
-            "mosaic_catalog_search.product_document, as scripts/catalog/prepare_live_catalog.py "
-            "does after creating the index."
+            "mosaic_search.product_listing, as "
+            "scripts/catalog/prepare_staged_catalog_search.py does after the indexes."
         )
     ready = connection.execute(
-        "SELECT EXISTS(SELECT 1 FROM mosaic_live_search.corpus_lexeme) "
-        "AND EXISTS(SELECT 1 FROM mosaic_live_search.corpus_surface_lexeme) AS ready"
+        "SELECT EXISTS(SELECT 1 FROM mosaic_search.corpus_lexeme) "
+        "AND EXISTS(SELECT 1 FROM mosaic_search.corpus_surface_lexeme) AS ready"
     ).fetchone()["ready"]
     if not ready:
         raise ValueError(
-            "Real-only vocabulary rule: ready=False; restore the verified mosaic_live_search vocabulary cache."
+            "Real-only vocabulary rule: ready=False; restore the verified mosaic_search vocabulary cache."
         )
     return counts
 
