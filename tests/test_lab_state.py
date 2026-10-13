@@ -10,7 +10,6 @@ from scripts.lab_state import (
     lab_is_solved,
     set_lab_state,
 )
-from service.lab_files import solution_path
 from service.participant_commands import solution
 
 PARTICIPANT_CHANNEL = """    UNION ALL
@@ -550,33 +549,48 @@ def test_diff_shows_the_reference_against_the_participants_block(
 
     assert differs
     lines = report.splitlines()
-    assert (
-        lines[0]
-        == f"--- expected (Lab {lab} reference answer, {solution_path(Path(LABS[lab][0]))})"
+    assert lines[0] == (
+        f"Lab {lab}: where your marked block in {LABS[lab][0]} differs from the "
+        "reference answer. Only those lines are shown; nothing was changed."
     )
-    assert lines[1] == f"+++ yours ({LABS[lab][0]})"
-    assert any(line.startswith("+") and "TODO(Lab" in line for line in lines)
-    assert any(line.startswith("-") and not line.startswith("---") for line in lines)
+    assert "  Reference answer:" in lines and "  Your file:" in lines
+    assert any("TODO(Lab" in line for line in lines)
+    assert not any(line.startswith(("---", "+++", "@@")) for line in lines)
     assert lines[-1].endswith(solution(lab))
     assert "\033[" not in report
 
 
-def test_diff_hunks_point_at_the_files_own_lines(lab_repo: Path) -> None:
+def test_diff_names_one_changed_line_in_plain_words(lab_repo: Path) -> None:
+    set_lab_state(1, solved=True, repo=lab_repo)
+    path = lab_repo / LABS[1][0]
+    source = path.read_text()
+    assert source.count("    FROM typo\n") == 1
+    path.write_text(source.replace("    FROM typo\n", "    FROM semantic\n"))
+    line = source.split("    FROM typo\n", 1)[0].count("\n") + 1
+
+    report, differs = lab_diff(1, repo=lab_repo)
+
+    assert differs
+    assert (
+        f"At line {line} of your file:\n"
+        "  Reference answer:\n      FROM typo\n"
+        "  Your file:\n      FROM semantic\n"
+    ) in report
+
+
+def test_diff_points_at_the_participants_own_lines(lab_repo: Path) -> None:
     set_lab_state(2, solved=False, repo=lab_repo)
     report, _ = lab_diff(2, repo=lab_repo)
     lines = report.splitlines()
-    header = next(index for index, line in enumerate(lines) if line.startswith("@@"))
-    expected_start, yours_start = (
-        int(part.split(",")[0][1:]) for part in lines[header].split()[1:3]
+    header = next(
+        index for index, line in enumerate(lines) if line.startswith("At line")
     )
-    body = lines[header + 1 :]
-    expected_first = next(line[1:] for line in body if line[:1] in {" ", "-"})
-    yours_first = next(line[1:] for line in body if line[:1] in {" ", "+"})
-    expected_file = (REPO / solution_path(Path(LABS[2][0]))).read_text().splitlines()
+    first = int(lines[header].split()[2].split("-")[0])
+    yours_label = lines.index("  Your file:", header)
+    shown = lines[yours_label + 1].strip()
     yours_file = (lab_repo / LABS[2][0]).read_text().splitlines()
 
-    assert expected_file[expected_start - 1] == expected_first
-    assert yours_file[yours_start - 1] == yours_first
+    assert yours_file[first - 1].strip() == shown
 
 
 def test_diff_colours_only_when_asked(lab_repo: Path) -> None:
@@ -584,7 +598,7 @@ def test_diff_colours_only_when_asked(lab_repo: Path) -> None:
 
     coloured, _ = lab_diff(1, repo=lab_repo, color=True)
 
-    assert "\033[31m-" in coloured and "\033[32m+" in coloured
+    assert "\033[32m" in coloured and "\033[33m" in coloured
 
 
 def test_diff_names_the_participants_file_when_a_marker_is_gone(lab_repo: Path) -> None:

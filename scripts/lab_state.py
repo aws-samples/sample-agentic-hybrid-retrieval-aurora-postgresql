@@ -145,29 +145,29 @@ def _block_span(
     return marker_line + leading, lines
 
 
-def _shift_hunks(line: str, expected_first: int, yours_first: int) -> str:
-    """Move difflib's block-relative hunk header onto each file's own line numbers."""
-    match = re.match(r"@@ -(\d+)(,\d+)? \+(\d+)(,\d+)? @@", line)
-    if not match:
-        return line
-    expected = int(match[1]) + expected_first - 1
-    yours = int(match[3]) + yours_first - 1
-    return f"@@ -{expected}{match[2] or ''} +{yours}{match[4] or ''} @@"
+def _span(first: int, count: int) -> str:
+    return f"line {first}" if count == 1 else f"lines {first}-{first + count - 1}"
 
 
-def _paint(line: str, color: bool) -> str:
-    if not color:
-        return line
-    for prefix, code in (
-        ("---", "1"),
-        ("+++", "1"),
-        ("@@", "36"),
-        ("-", "31"),
-        ("+", "32"),
-    ):
-        if line.startswith(prefix):
-            return f"\033[{code}m{line}\033[0m"
-    return line
+def _plain_differences(
+    expected: list[str], yours: list[str], yours_first: int
+) -> list[tuple[str, list[str], list[str]]]:
+    """Each place the participant's block differs: where, the reference lines, theirs."""
+    groups = []
+    matcher = difflib.SequenceMatcher(a=expected, b=yours, autojunk=False)
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            continue
+        if tag == "delete":
+            where = f"Missing from your file, after line {yours_first + j1 - 1}"
+        else:
+            where = f"At {_span(yours_first + j1, j2 - j1)} of your file"
+        groups.append((where, expected[i1:i2], yours[j1:j2]))
+    return groups
+
+
+def _paint(line: str, code: str, color: bool) -> str:
+    return f"\033[{code}m{line}\033[0m" if color else line
 
 
 def _diff_footer(lab: int) -> list[str]:
@@ -179,28 +179,27 @@ def _diff_footer(lab: int) -> list[str]:
         )
     else:
         verdict = (
-            "A difference is not a failure: other SQL can be correct. Apply it with "
-            f"{APPLY_SQL}, then prove it with {prove(lab)}."
+            "A different line is not always wrong: other SQL can work too. Apply it "
+            f"with {APPLY_SQL}, then prove it with {prove(lab)}."
         )
     return [
-        "",
-        "'-' lines are the reference answer; '+' lines are your file as it is now.",
         verdict,
-        f"To install the reference answer instead (it overwrites this block): {solution(lab)}",
+        f"To use the reference answer instead (it replaces your block): {solution(lab)}",
     ]
 
 
 def lab_diff(lab: int, *, repo: Path = REPO, color: bool = False) -> tuple[str, bool]:
-    """Compare a lab's marked blocks with the reference answer, as a unified diff.
+    """Show where a lab's marked blocks differ from the reference answer, in plain words.
 
     This prints the answer, so a coach runs it only when a participant asks to
     compare with the reference. Only the marked blocks are compared: the rest of
-    the file is the same scaffold for everyone.
+    the file is the same scaffold for everyone. Each difference names the line in
+    the participant's file and prints the reference answer's lines above theirs.
 
     Args:
         lab: The lab number.
         repo: The checkout whose exercise file is read.
-        color: Colour the diff for a terminal.
+        color: Colour the two versions for a terminal.
 
     Returns:
         The report, and whether any marked block differs from the reference.
@@ -210,7 +209,7 @@ def lab_diff(lab: int, *, repo: Path = REPO, color: bool = False) -> tuple[str, 
     expected_path = REPO / solution_path(Path(relative_path))
     yours_source = path.read_text(encoding="utf-8")
     expected_source = expected_path.read_text(encoding="utf-8")
-    report: list[str] = []
+    groups = []
     for start, end, _fixed, _broken in blocks:
         if yours_source.count(start) != 1 or yours_source.count(end) != 1:
             raise ValueError(
@@ -218,28 +217,33 @@ def lab_diff(lab: int, *, repo: Path = REPO, color: bool = False) -> tuple[str, 
                 f"fix: restore the marker lines, or run {reset(lab)} to restore the "
                 "starter (it discards your edits to this lab)."
             )
-        expected_first, expected = _block_span(
+        _expected_first, expected = _block_span(
             expected_source, start, end, path=expected_path
         )
         yours_first, yours = _block_span(yours_source, start, end, path=path)
-        report.extend(
-            _shift_hunks(line, expected_first, yours_first)
-            for line in difflib.unified_diff(
-                expected,
-                yours,
-                fromfile=f"expected (Lab {lab} reference answer, {solution_path(Path(relative_path))})",
-                tofile=f"yours ({relative_path})",
-                lineterm="",
-            )
-        )
-    if not report:
+        groups.extend(_plain_differences(expected, yours, yours_first))
+    if not groups:
         return (
             f"Lab {lab}: the marked block in {relative_path} matches the reference answer.",
             False,
         )
-    return "\n".join(
-        _paint(line, color) for line in [*report, *_diff_footer(lab)]
-    ), True
+    report = [
+        (
+            f"Lab {lab}: where your marked block in {relative_path} differs from the "
+            "reference answer. Only those lines are shown; nothing was changed."
+        ),
+    ]
+    for where, reference, theirs in groups:
+        shown = [line for line in [*reference, *theirs] if line.strip()]
+        indent = min((len(line) - len(line.lstrip()) for line in shown), default=0)
+        report += ["", f"{where}:"]
+        for label, lines, code in (
+            ("Reference answer", reference, "32"),
+            ("Your file", theirs, "33"),
+        ):
+            report.append(f"  {label}:" if lines else f"  {label}: (nothing here)")
+            report += [_paint(f"      {line[indent:]}", code, color) for line in lines]
+    return "\n".join([*report, "", *_diff_footer(lab)]), True
 
 
 def set_lab_state(
