@@ -81,7 +81,7 @@
     }
   },
   "k": 10,
-  "measured_at": "2026-10-13T22:54:26.148291+00:00",
+  "measured_at": "2026-10-13T23:51:22.913470+00:00",
   "models": {
     "embedding": "us.cohere.embed-v4:0",
     "rerank": "cohere.rerank-v3-5:0"
@@ -225,18 +225,18 @@
   ],
   "query_set": "data/evals/canonical_queries.jsonl",
   "query_set_sha256": "df68a119f0a366e9a7c4154ee34ef8d0aa073a9bbfd9c3f4569dec3f2d978876",
-  "retrieval_fingerprint": "a7eb28130e557998a9c8682326b31c524cf2f257dc3dd79881c9946728318485",
+  "retrieval_fingerprint": "068107d9dfacc32c53714b36e69f379e6d424b835b0b3fec68b46f6a080a206c",
   "retrieval_settings_sha256": "3635fb13943e9504b42c530ffcd75317f5f326d1abf569e108078aa55498116e",
   "scored_query_count": 9,
   "scored_query_set_sha256": "fc0703965e00eef4f262affbb92d9fd9fd22b6c842976b4f2e8387f7e622ef47",
   "served_scorecard_reference": {
-    "measured_at": "2026-10-13T22:53:37.654292+00:00",
+    "measured_at": "2026-10-13T23:50:30.979214+00:00",
     "path": "data/evals/canonical_scorecard.json",
-    "retrieval_fingerprint": "a7eb28130e557998a9c8682326b31c524cf2f257dc3dd79881c9946728318485",
-    "source_revision": "9fc64cfef42f78b7e7d7a893d2d7b779ca9ee6dc"
+    "retrieval_fingerprint": "068107d9dfacc32c53714b36e69f379e6d424b835b0b3fec68b46f6a080a206c",
+    "source_revision": "cecba859781e30d9226eff62d20836dbdd9da52c"
   },
   "source": {
-    "revision": "00d3e3eb20b681cb33e9bdfa4d6103de54739f98",
+    "revision": "220cfda8afa58bee194581e48abb5b24f109b5b7",
     "worktree_dirty": false
   },
   "spread_note": "9 queries and 14 judgments cannot separate small differences between these paths. Every path answers the same searches, so read each step as the difference on each search rather than as two separate averages: the comparison below reports that difference, the spread of the differences, and how many searches each step won and lost. A step whose average difference is smaller than that spread is one this query set cannot tell apart from no change."
