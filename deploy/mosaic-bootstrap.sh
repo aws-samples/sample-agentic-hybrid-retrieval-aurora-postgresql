@@ -147,7 +147,7 @@ REPO="$HOME_FOLDER/sample-agentic-hybrid-retrieval-aurora-postgresql"
 # list said 20, and @anthropic-ai/claude-code declares `node >=22`, so npm
 # reported EBADENGINE at install time and the tool ran outside its supported
 # engine. Installing one Node family leaves nothing to arbitrate.
-network_retry dnf install -y git jq nginx nodejs22 nodejs22-npm postgresql15 python3.13 \
+network_retry dnf install -y git jq nginx nodejs22 nodejs22-npm postgresql18 python3.13 \
   python3.13-pip python3.13-setuptools gcc gcc-c++ make sudo tar gzip docker unzip
 command -v aws >/dev/null 2>&1 || \
   (network_retry dnf install -y awscli2 || network_retry dnf install -y awscli)
@@ -156,10 +156,12 @@ uv --version
 systemctl enable --now docker
 docker version --format '{{.Server.Version}}'
 
-# The RHEL 9 PGDG client RPM depends on libldap.so.2, which AL2023 does not
-# provide. PostgreSQL 15's packaged psql uses the compatible standard TLS
-# negotiation path against the Aurora PostgreSQL 18 server.
-psql --version | grep -Eq '^psql \(PostgreSQL\) 15\.'
+# AL2023's own postgresql18 matches the Aurora PostgreSQL 18 server, so psql starts
+# without the "psql major version 15, server major version 18" warning attendees saw
+# with postgresql15. The RHEL 9 PGDG client RPM is not an option: it depends on
+# libldap.so.2, which AL2023 does not provide. psql keeps the standard TLS
+# negotiation, with sslmode=verify-full against the RDS bundle.
+psql --version | grep -Eq '^psql \(PostgreSQL\) 18\.'
 node --version | grep -Eq '^v22\.'
 npm --version >/dev/null
 

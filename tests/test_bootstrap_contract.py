@@ -404,17 +404,19 @@ def test_al2023_bootstrap_does_not_request_full_curl(script: str) -> None:
 
 def test_al2023_bootstrap_uses_the_native_postgresql_client(script: str) -> None:
     """RHEL PGDG RPMs require a libldap ABI that AL2023 does not ship."""
-    assert "postgresql15" in _bootstrap_packages(script), (
-        "install AL2023's postgresql15 package instead of a RHEL PGDG client RPM"
+    assert "postgresql18" in _bootstrap_packages(script), (
+        "install AL2023's postgresql18 package, which matches the Aurora PostgreSQL 18 "
+        "server, instead of a RHEL PGDG client RPM"
     )
     assert "PGDG_BASE" not in script, (
         "do not mix RHEL PGDG RPMs into AL2023; they need unavailable libldap.so.2"
     )
     assert "sslnegotiation=direct" not in script, (
-        "postgresql15 predates sslnegotiation=direct; use sslmode=require for psql"
+        "keep psql on the standard TLS negotiation with sslmode=verify-full; direct "
+        "negotiation is a laptop network workaround, not the event host's path"
     )
-    assert "psql --version | grep -Eq '^psql \\(PostgreSQL\\) 15\\.'" in script, (
-        "verify the AL2023 PostgreSQL 15 client was installed before using psql"
+    assert "psql --version | grep -Eq '^psql \\(PostgreSQL\\) 18\\.'" in script, (
+        "verify the AL2023 PostgreSQL 18 client was installed before using psql"
     )
 
 
