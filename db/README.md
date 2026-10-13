@@ -91,13 +91,10 @@ For the included 1024-dimensional version:
 psql "$DATABASE_URL" -f sql/install.sql
 ```
 
-After products are loaded and embeddings are populated, build the HNSW indexes separately:
-
-```bash
-psql "$DATABASE_URL" -f sql/15_indexes_concurrent.sql
-```
-
-`CREATE INDEX CONCURRENTLY` is intentionally outside `install.sql` because it cannot run inside a transaction block.
+`install.sql` declares `mosaic_search.product_listing` empty. The real-catalog
+restore (`scripts/catalog/real_catalog_cache.py restore`) loads the listings and
+then runs `sql/07_indexes.sql`: building the HNSW graph over loaded rows is far
+faster than indexing an empty table row by row.
 
 ## Real-catalog restore
 
@@ -117,7 +114,8 @@ verify the real-only population. See [ARTIFACTS.md](../ARTIFACTS.md).
 | `mosaic.product_media` | Product-to-image roles such as catalog/detail/lifestyle |
 | `mosaic.merchandising_assignment` | Premium tier, Shop pagination, flagship, and retrieval-anchor flags |
 | `mosaic.product_evidence` | Specs, reviews, Q&A, expert summaries, and evidence embeddings |
-| `mosaic_search.product_document` | Denormalized FTS/trigram/vector/filter projection |
+| `mosaic_search.product_listing` | The listings and their full-text, trigram and HNSW indexes |
+| `mosaic_search.product_listing_view` | What every search reads: shop product IDs and recorded source prices |
 | `mosaic.search_event` | End-to-end query telemetry |
 | `mosaic.agent_tool_event` | Agent tool-call audit/provenance |
 | `mosaic_eval.*` | Queries, judgments, runs, results, and metrics |

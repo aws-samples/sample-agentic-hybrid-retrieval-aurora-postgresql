@@ -71,7 +71,11 @@ marked block, apply/deploy, then repeat and explain the result.
 
 Follow the guide's three typo searches. Run each production search separately
 in `psql`; find the method whose candidates never reach fusion. Participants
-repair only `LAB1_EDIT` in `labs/lab1_retrieve/hybrid_search.sql`.
+repair only `LAB1_EDIT` in `labs/lab1_retrieve/hybrid_search.sql`. Search lives
+in one schema, `mosaic_search`: the `product_listing` table and its
+`product_search_*` indexes, the `product_listing_view` every search reads, and the
+functions as the lab files define them, so `\sf mosaic_search.search_hybrid_rrf`
+shows exactly what Aurora runs.
 
 After applying SQL, inspect the intended listing's fuzzy matching rank and
 contribution. The correct-ID and brand/category controls must still pass.

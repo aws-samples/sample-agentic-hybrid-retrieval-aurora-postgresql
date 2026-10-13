@@ -388,7 +388,7 @@ of the evidence row it was excerpted from.
 Catalog suggestions accept the shopper text in the `q` query parameter, require
 at least two non-space characters, and return a bounded mix of matching product,
 brand, and category identities. Product
-matches use the existing full-text index over `mosaic_search.product_document`;
+matches use the existing full-text index over `mosaic_search.product_listing`;
 the route does not create an embedding, invoke reranking, or call a model.
 
 ## Labs and replay

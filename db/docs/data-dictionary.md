@@ -31,16 +31,24 @@ Query-level observability, result provenance, and user interaction telemetry.
 
 ## `mosaic_search` schema
 
-### `product_document`
-One denormalized row per searchable product. It contains:
+### `product_listing`
+One denormalized row per source listing, loaded once by the restore. It contains:
 
 - common filter columns beside the vector
-- weighted FTS fields
-- trigram document
-- product semantic document
-- reranker document
-- HNSW embedding
-- source scores and merchandising flags needed by the UI
+- weighted FTS fields (`search_document`)
+- trigram document (`trigram_text`)
+- product semantic document (`embedding_text`)
+- HNSW embedding (`embedding`, `vector(1024)`)
+
+Its indexes, in `07_indexes.sql`, are `product_search_fts_idx` (GIN),
+`product_search_trigram_idx` (GIN, `gin_trgm_ops`), `product_search_vector_idx`
+(HNSW, cosine), `product_search_kind_idx` and `product_search_public_id_idx`.
+
+### `product_listing_view`
+What every search function reads: `product_listing` with the shop's product IDs
+(an offset of 1,000,000), the reranker document and each listing's recorded
+source price from `source_price`. PostgreSQL uses `product_listing`'s indexes
+through it.
 
 ## `mosaic_eval` schema
 

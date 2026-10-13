@@ -7,8 +7,9 @@ Where the live state lives, what can be restored, and what cannot.
 **No local databases exist or will exist.**
 
 - The **Aurora PostgreSQL cluster** in `us-east-1` holds the only live tree
-  with the served `reviews-2023-v2` catalog in `mosaic_catalog_stage`,
-  `mosaic_catalog_search` and `mosaic_live_search`: 553,911 source products and
+  with the served `reviews-2023-v2` catalog: source records in
+  `mosaic_catalog_stage`, and `mosaic_search.product_listing`, its indexes and
+  the `product_listing_view` every search reads: 553,911 source products and
   saved Cohere Embed v4 vectors at 1024 dimensions. The synthetic catalog,
   its development rows, regression fixtures and loaders have been retired.
 - The **Workshop Studio attendee path** creates a fresh encrypted cluster, loads
@@ -31,7 +32,7 @@ State that nothing can restore is not a recovery plan.
 
 | Artifact | Location | Restore path |
 |---|---|---|
-| Active real catalog + vectors | Aurora `mosaic_catalog_stage` / `mosaic_live_search` | `scripts/catalog/real_catalog_cache.py restore` after `make db-bootstrap-schema`; pinned by `db/config/real-catalog-cache.json` |
+| Active real catalog + vectors | Aurora `mosaic_catalog_stage` / `mosaic_search` | `scripts/catalog/real_catalog_cache.py restore` after `make db-bootstrap-schema`; pinned by `db/config/real-catalog-cache.json` |
 | Real-catalog query-coverage vocabulary | Workshop Studio `real-catalog/vocabulary/` assets | `scripts/catalog/corpus_vocabulary.py`; files and projection inputs pinned by `db/config/corpus-vocabulary-cache.json` |
 | Premium cohort media | `ui/public/assets/images/mosaic/` | git; content-verified (count with `git ls-files ui/public/assets/images/mosaic | wc -l`) |
 | Lab contract | `data/evals/mosaic_labs_missions.json` | git; validated by `make validate-missions` |
@@ -39,7 +40,7 @@ State that nothing can restore is not a recovery plan.
 
 ### Vocabulary restore
 
-Workshop bootstrap verifies only the two `mosaic_live_search.*.csv.gz` vocabulary
+Workshop bootstrap verifies only the two `mosaic_search.*.csv.gz` vocabulary
 files before installing schemas. It sets `MOSAIC_VOCABULARY_CACHE_DIR` for the real
 catalog restore. The import verifies the PostgreSQL parser, dictionaries,
 production SQL and projection fingerprint before replacing rows. Row counts and
@@ -49,10 +50,10 @@ To re-export the real vocabulary from Aurora and verify it:
 
 ```bash
 uv run python scripts/catalog/corpus_vocabulary.py export \
-  --schema mosaic_live_search --directory build/corpus-vocabulary-cache \
+  --schema mosaic_search --directory build/corpus-vocabulary-cache \
   --contract db/config/corpus-vocabulary-cache.json
 uv run python scripts/catalog/corpus_vocabulary.py verify \
-  --directory build/corpus-vocabulary-cache --schema mosaic_live_search
+  --directory build/corpus-vocabulary-cache --schema mosaic_search
 ```
 
 Export recomputes the production vocabulary in session-local tables and compares

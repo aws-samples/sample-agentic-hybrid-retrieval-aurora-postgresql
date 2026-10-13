@@ -4,7 +4,7 @@
 
 ### Separate truth from retrieval projection
 
-The normalized `mosaic` schema is the product system of record. The `mosaic_search.product_document` table is a deliberately denormalized search projection. It copies the fields needed by FTS, trigram, HNSW, filtering, scoring, and response rendering.
+The normalized `mosaic` schema is the product system of record. The `mosaic_search.product_listing` table is a deliberately denormalized search projection. It copies the fields needed by FTS, trigram, HNSW, filtering, scoring, and response rendering, and owns the search indexes. Every search reads it through `mosaic_search.product_listing_view`, which adds the shop's product IDs and recorded source prices; the functions the labs repair live in the same schema.
 
 This avoids hiding the PostgreSQL lesson behind a forest of joins while preserving a production-oriented source model.
 
@@ -18,16 +18,14 @@ FTS, `pg_trgm`, and vector retrieval emit independent ranks and scores. RRF comb
 
 ### Separate product retrieval from evidence retrieval
 
-`mosaic_search.product_document.embedding` answers which products match. `mosaic.product_evidence.embedding` retrieves the source text that supports claims about those products.
+`mosaic_search.product_listing.embedding` answers which products match. `mosaic.product_evidence.embedding` retrieves the source text that supports claims about those products.
 
 ## Logical flow
 
 ```mermaid
 flowchart LR
-    P[product] --> R[refresh product document]
-    O[product_offer] --> R
-    B[brand/category] --> R
-    R --> D[mosaic_search.product_document]
+    S[verified source records] --> R[restore loads product_listing]
+    R --> D[mosaic_search.product_listing_view]
     D --> F[FTS]
     D --> T[pg_trgm]
     D --> V[HNSW]

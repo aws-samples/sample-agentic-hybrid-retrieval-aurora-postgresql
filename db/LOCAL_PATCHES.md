@@ -120,7 +120,7 @@ and the smoke test are unchanged after the cuts.
 `embedding_text` excludes volatile price while `rerank_text` includes it. The
 two-table split is the lesson, not overhead. Five tables carry the teaching:
 
-1. `mosaic_search.product_document` — the five retrieval representations
+1. `mosaic_search.product_listing` — the five retrieval representations, read through `product_listing_view`
 2. `mosaic.search_result_event` — which arm found this, at which rank
 3. `mosaic.search_event` — profile, counts, timings for one query
 4. `mosaic.product_evidence` — why evidence gets its own vector

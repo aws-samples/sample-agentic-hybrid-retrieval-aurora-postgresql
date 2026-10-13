@@ -27,21 +27,23 @@ both sets.
 
 ## The served index
 
-The indexes were renamed from `real_search_*` to `product_search_*` on 13 October
-2026. `ALTER INDEX ... RENAME` changes only the name, so these measurements still
-describe the same indexes; the artifacts under `data/benchmarks/` record the names
-the indexes had when they were measured.
+On 13 October 2026 the indexes were renamed from `real_search_*` to
+`product_search_*`, and their table moved from `mosaic_catalog_search.product_document`
+to `mosaic_search.product_listing`. Both are catalog renames: no row was rewritten
+and no index rebuilt, so these measurements describe the same index. The artifacts
+under `data/benchmarks/` carry the current names; each records the relabelling in
+its `provenance`.
 
 | Fact | Value |
 |---|---|
-| Index | `mosaic_catalog_search.product_search_vector_idx`, HNSW, `m=16`, `ef_construction=200`, cosine, total (no `WHERE`) |
+| Index | `mosaic_search.product_search_vector_idx`, HNSW, `m=16`, `ef_construction=200`, cosine, total (no `WHERE`) |
 | Size | 4,535,148,544 bytes for 553,911 vectors, 8,188 bytes per vector, 2.0× the 4,096-byte fp32 payload |
 | Instance | `db.r8g.2xlarge`, Aurora PostgreSQL 18.3, pgvector 0.8.1, `work_mem` 4 MB, `shared_buffers` 41.5 GB |
 | Exact baseline | Sequential scan with index and bitmap paths disabled, timed on 5 anchors after the cache was warm: 2,446 ms server (median), 2,508,454 shared buffer hits |
 
 Every index is slightly larger than on 26 September (this one by 524,288
 bytes). The 27 September reclassification rewrote 51,248 rows of
-`product_document` without HOT updates, and the 50,776 dead row versions it
+the listings table without HOT updates, and the 50,776 dead row versions it
 left had not been vacuumed when this ran. No vector changed. The same
 relabelling is why `Monitors only` now matches 8,205 rows instead of 8,229.
 

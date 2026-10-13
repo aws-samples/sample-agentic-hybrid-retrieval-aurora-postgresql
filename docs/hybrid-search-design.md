@@ -69,9 +69,9 @@ product names.
 
 **Twelve paired SQL observations.** Four unchanged requests were evaluated in
 three states: repaired, spelling connection missing, and RRF contribution broken.
-They used shipped SQL in rollback-only transactions in `mosaic_catalog_search`,
-production HNSW settings and the managed reranker. The served
-`mosaic_live_search` functions were not broken by this comparison. These probes
+They used shipped SQL in rollback-only transactions (then in the separate
+`mosaic_catalog_search` schema), production HNSW settings and the managed
+reranker. The served functions were not broken by this comparison. These probes
 are not full API, agent, or participant-environment acceptance.
 
 - The Lab 1 transposed-ID request loses its known listing with spelling

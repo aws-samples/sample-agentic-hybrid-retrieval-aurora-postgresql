@@ -191,8 +191,8 @@ rehearsal or a relevance measurement.
 
 The fresh workshop path now installs schemas and lab tables, then restores only
 the pinned 553,911 source products and saved Cohere vectors. Vocabulary assets
-contain only `mosaic_live_search`; acceptance rejects foreign products, synthetic
-brands, historical search documents/vocabulary, missing vectors, and incorrect
+contain only `mosaic_search`; acceptance rejects foreign products, synthetic
+brands, missing vectors, and incorrect
 receipts/indexes. The nine real canonical queries are separate from the twelve
 historical canonical queries and 720 generated eligibility cases. Historical
 Aurora assertions have their own explicit `make test-aurora-historical` lane.

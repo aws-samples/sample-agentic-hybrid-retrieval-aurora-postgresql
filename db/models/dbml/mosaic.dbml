@@ -138,28 +138,32 @@ Table mosaic.product_evidence {
   embedding vector(1024)
 }
 
-Table mosaic_search.product_document {
-  product_id bigint [pk]
-  product_uid uuid [not null]
-  sku text [not null]
-  domain product_domain [not null]
-  category_id bigint [not null]
-  category_key text [not null]
-  category_path text [not null]
-  brand_id bigint [not null]
-  brand_name text [not null]
-  model_name text [not null]
-  title text [not null]
-  canonical_group_id text [not null]
-  price_cents bigint [not null]
-  availability availability_status [not null]
+Table mosaic_search.product_listing {
+  product_id bigint [pk, note: 'product_listing_view adds 1,000,000 for the shop product ID']
+  dataset_id text
+  parent_asin text [unique]
+  domain product_domain
+  category_key text
+  category_path text
+  brand_name text
+  title text
+  price_cents bigint
+  availability availability_status
   rating numeric
-  attributes jsonb [not null]
-  search_document tsvector [not null]
-  trigram_text text [not null]
-  embedding_text text [not null]
-  rerank_text text [not null]
-  embedding vector(1024)
+  attributes jsonb
+  is_refurbished boolean
+  is_sponsored boolean
+  search_document tsvector
+  trigram_text text
+  embedding_text text
+  rerank_text text
+  embedding vector(1024) [not null]
+  embedding_model_key text
+}
+
+Table mosaic_search.source_price {
+  product_id bigint [pk]
+  price_cents bigint [not null]
 }
 
 Table mosaic.search_event {
@@ -215,7 +219,6 @@ Ref: mosaic.merchandising_assignment.product_id - mosaic.product.product_id
 Ref: mosaic.product_media.product_id > mosaic.product.product_id
 Ref: mosaic.product_media.asset_id > mosaic.media_asset.asset_id
 Ref: mosaic.product_evidence.product_id > mosaic.product.product_id
-Ref: mosaic_search.product_document.product_id - mosaic.product.product_id
 Ref: mosaic_eval.query.target_product_id > mosaic.product.product_id
 Ref: mosaic_eval.judgment.query_id > mosaic_eval.query.query_id
 Ref: mosaic_eval.judgment.product_id > mosaic.product.product_id

@@ -38,7 +38,7 @@ FROM mosaic_search.search_product_evidence(
 -- Exact baseline for recall calculation
 SET LOCAL enable_indexscan = off;
 SELECT product_id
-FROM mosaic_search.product_document
+FROM mosaic_search.product_listing_view
 WHERE embedding IS NOT NULL
 ORDER BY embedding <=> :'query_embedding'::vector(1024)
 LIMIT 10;
@@ -46,7 +46,7 @@ LIMIT 10;
 -- Approximate profile
 SELECT mosaic_search.configure_hnsw(100, 'relaxed_order', 20000, 1);
 SELECT product_id
-FROM mosaic_search.product_document
+FROM mosaic_search.product_listing_view
 WHERE embedding IS NOT NULL
 ORDER BY embedding <=> :'query_embedding'::vector(1024)
 LIMIT 10;

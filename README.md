@@ -125,9 +125,16 @@ same rank-based contribution. The Rank guide offers an optional weighted-RRF
 comparison after required completion, using the same candidate lists; it does
 not change the default search.
 
+Everything search reads or runs lives in one Aurora PostgreSQL schema,
+`mosaic_search`: the `product_listing` table with one index per search
+(`product_search_fts_idx`, `product_search_trigram_idx`,
+`product_search_vector_idx`), the `product_listing_view` every search reads, and
+the functions the labs repair, applied exactly as the lab files define them, so
+`\sf mosaic_search.search_hybrid_rrf` prints the SQL Aurora runs.
+
 Bootstrap prepares Lab 2's judged-query cache on the workshop's own Aurora
 indexes, using the production HNSW configuration. The cache is tied to the
-rendered reference SQL, real-catalog filters and search settings. Release tests
+reference search SQL and search settings. Release tests
 check the reference cache's identity; grading checks the prepared cache against
 Aurora and repeats live searches.
 

@@ -44,7 +44,7 @@ adapting this single-participant workshop for shared use.
 - **Catalog facts and structured attributes.** `db/sql/03_catalog.sql`. Adapt: Your entities, price or eligibility fields, and JSONB attributes.
 - **Versioned source records.** `db/sql/05_evidence.sql`. Adapt: Source identity, ownership, revisions and evidence text.
 - **Searchable projection.** `db/sql/06_retrieval_projection.sql`. Adapt: Weighted FTS text, stable embedding text, and reranker text.
-- **Search indexes.** `db/sql/07_indexes.sql`. Adapt: GIN indexes and the vector index for your dimensions and workload.
+- **Search indexes.** `db/sql/07_indexes.sql`, built after the load. Adapt: GIN indexes and the vector index for your dimensions and workload.
 - **FTS, fuzzy matching, vector search and filters.** `db/sql/08_search_channels.sql`, with fusion in `labs/lab1_retrieve/solution/hybrid_search.sql`. Adapt: Search language and eligibility predicates inside each candidate path.
 - **Fusion arithmetic and candidate bounds.** `db/config/retrieval.yaml`, `mosaic_search.reciprocal_rank_contribution` in `labs/lab2_rank/solution/rrf_contribution.sql`. Adapt: Tune against your evaluation queries; retain per-arm ranks.
 - **Embedding and reranking calls.** `service/embeddings.py`, `service/rerank.py`, `service/retrieval.py`. Adapt: Model identities, document text, error handling and latency budgets.

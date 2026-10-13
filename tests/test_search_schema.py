@@ -1,6 +1,6 @@
 """Search lives in one schema whose names an attendee can read in psql.
 
-Until 14 October 2026 the listings table sat in `mosaic_catalog_search` and the
+Until 13 October 2026 the listings table sat in `mosaic_catalog_search` and the
 view and functions Aurora ran in `mosaic_live_search`, while the lab files named
 `mosaic_search`. The indexes were `real_search_*` until 13 October. A cluster
 prepared before then is moved and renamed in place, never rebuilt.

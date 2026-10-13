@@ -283,7 +283,8 @@ included in the source commit.
 ### Search preparation and first comparisons
 
 [`prepare_staged_catalog_search.py`](../scripts/catalog/prepare_staged_catalog_search.py)
-builds a separate `mosaic_catalog_search` projection from the verified import.
+loads the verified import into `mosaic_search.product_listing` (until 13 October
+2026, a separate `mosaic_catalog_search` projection).
 All 500,000 rows retain their original parent IDs, text hashes and vectors.
 The full comparison found zero source or vector mismatches, and every index is
 valid. The full-text, trigram and full-precision HNSW indexes occupy approximately
@@ -292,9 +293,8 @@ sizes of the replacement indexes, not a comparison with `halfvec` or binary
 representations. Those comparisons remain outstanding.
 
 [`probe_staged_catalog_search.py`](../scripts/catalog/probe_staged_catalog_search.py)
-runs the shipped SQL, fixed query embeddings and the configured reranker in the
-isolated schema. Each broken lab state runs in a transaction that is rolled
-back; the served search functions are not changed. Seven requests produced 21
+runs the shipped SQL, fixed query embeddings and the configured reranker. Each
+broken lab state runs in a transaction that is rolled back; the served search functions are not changed. Seven requests produced 21
 observations across repaired search, disabled spelling search and incorrect RRF
 arithmetic. All 350 repaired rows passed an independent RRF calculation; the
 intentional ranking defect failed that calculation on 348 of 350 rows.
@@ -396,8 +396,8 @@ lab targets against Aurora before promotion. See the aggregate
 The [AWS binary quantization walkthrough](https://aws.amazon.com/blogs/database/scale-pgvector-with-binary-quantization-on-amazon-aurora-postgresql/)
 provides a useful measurement method: compare full, half and binary indexes
 against exact nearest neighbors on the same vectors, then measure recall and
-latency including any full-precision rescore. Mosaic already has these index
-forms in `db/sql/16_indexes_quantized.sql`. Deriving them does not require a
+latency including any full-precision rescore. Mosaic already builds these index
+forms with `make db-index-quantized-catalog`. Deriving them does not require a
 new embedding run.
 
 Full-precision vector rescoring is different from the model-based reranking in

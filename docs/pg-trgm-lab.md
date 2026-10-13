@@ -10,19 +10,19 @@ The synthetic typo corpus has been retired; current proofs use the real-catalog 
 
 ## Indexed text
 
-`trigram_text` holds normalized source text. The live search projection reads
-the real catalog table, whose trigram index is:
+`trigram_text` holds normalized source text. Searches read
+`mosaic_search.product_listing_view`, over the listings table whose trigram index is:
 
 ```sql
 CREATE INDEX product_search_trigram_idx
-ON mosaic_catalog_search.product_document USING gin (trigram_text gin_trgm_ops);
+ON mosaic_search.product_listing USING gin (trigram_text gin_trgm_ops);
 ```
 
 ## Required repair: reconnect a working arm
 
 Use `G-003` from `data/evals/mosaic_labs_missions.json` with its exact filters
 before and after the edit. The controlled defect is in
-`mosaic_live_search.search_hybrid_rrf`: the `typo` CTE still calls the trigram
+`mosaic_search.search_hybrid_rrf`: the `typo` CTE still calls the trigram
 search function, but no `channels` branch reads it, and PostgreSQL never runs an
 unreferenced CTE. Creating another index or lowering a threshold does not reconnect
 that path.

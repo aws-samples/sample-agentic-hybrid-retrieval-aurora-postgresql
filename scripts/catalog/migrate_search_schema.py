@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Move a cluster prepared before 14 October 2026 onto the one search schema.
+"""Move a cluster prepared with the earlier search schemas onto the one search schema.
 
 Until then the listings table lived in `mosaic_catalog_search`, the view and the
 functions Aurora ran in `mosaic_live_search`, and `mosaic_search`, the schema the

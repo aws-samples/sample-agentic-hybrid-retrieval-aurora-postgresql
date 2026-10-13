@@ -49,7 +49,7 @@ production accuracy or representative customer traffic.
 The Aurora coverage regression test uses positive and negative controls selected
 for the real catalog. Vocabulary acceptance does not prove product eligibility
 or semantic relevance. Refresh after changing catalog text with
-`uv run python scripts/catalog/corpus_vocabulary.py refresh --schema mosaic_live_search`
+`uv run python scripts/catalog/corpus_vocabulary.py refresh --schema mosaic_search`
 and run `make test-aurora-invariants`.
 
 ## Canonical retrieval-quality scorecard
