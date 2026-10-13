@@ -38,9 +38,6 @@ CREATE TABLE IF NOT EXISTS mosaic_search.product_listing (
     search_document         tsvector
 );
 
--- Short enough that \dt+ fits one line of a laptop terminal.
-COMMENT ON TABLE mosaic_search.product_listing IS 'Listings and their search indexes.';
-
 COMMENT ON COLUMN mosaic_search.product_listing.search_document IS
 'Title and listing identity weighted A, features B, description C (to_tsvector english).';
 
