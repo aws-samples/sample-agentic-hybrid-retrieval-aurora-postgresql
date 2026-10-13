@@ -40,17 +40,27 @@ class Assertion:
             alone; envelope assertions are not.
         falsifier: The condition under which this assertion fails. Stated
             concretely, and preferably measured, so the claim can be checked.
+        label: What it proves in plain words, as a participant reads it on a
+            check line; `{top_k}` is filled with the request's result window.
+            The name stays the contract key, so a label can change freely.
     """
 
     name: str
     arm: str | None
     falsifier: str
+    label: str
 
     def __post_init__(self) -> None:
         if not self.falsifier.strip():
             raise ValueError(
                 f"assertion {self.name!r} has no falsifier; an assertion that "
                 f"cannot fail must not be added to the vocabulary"
+            )
+        shown = self.label.replace("{top_k}", "10")
+        if not shown.strip() or "_" in shown:
+            raise ValueError(
+                f"assertion {self.name!r} has label {self.label!r}; fix: say what "
+                f"it proves in plain words, without the key's underscores"
             )
 
 
@@ -63,6 +73,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "terms that do not co-occur, an unpopulated search_document, or a "
             "dropped GIN index. Measured before Phase 1 on four of six missions."
         ),
+        label="full-text search contributed candidates",
     ),
     Assertion(
         name="trigram_signal_present",
@@ -73,6 +84,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "selective enough to empty the pool. Measured at 0 on "
             "hnsw-performance, whose clean query has nothing to recover."
         ),
+        label="fuzzy matching contributed candidates",
     ),
     Assertion(
         name="semantic_signal_present",
@@ -84,6 +96,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "truncate the pool to nothing. Measured at 0 for hnsw-performance "
             "in a session that skipped mosaic_search.configure_hnsw."
         ),
+        label="semantic search contributed candidates",
     ),
     Assertion(
         name="target_in_top_k",
@@ -92,6 +105,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "the mission's own target is absent from the returned window, so "
             "the run does not demonstrate what the mission claims"
         ),
+        label="right product in the top {top_k}",
     ),
     Assertion(
         name="hard_filters_hold",
@@ -101,6 +115,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "domain, a JSONB attribute, or the refurbished and sponsored "
             "exclusions that apply by default"
         ),
+        label="every result inside the filters",
     ),
     Assertion(
         name="rank_provenance_present",
@@ -109,6 +124,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "a result carries no per-arm rank, so the fused order cannot be "
             "explained and RRF becomes an unauditable score"
         ),
+        label="every result keeps its combined and final positions",
     ),
     Assertion(
         name="rerank_score_present",
@@ -117,6 +133,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "the rerank stage returns no per-row score: a failed, throttled, or "
             "skipped Bedrock rerank call leaves the final order unexplained"
         ),
+        label="the reranker scored every result",
     ),
     Assertion(
         name="structured_constraints_extracted",
@@ -131,6 +148,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "decisive attribute check on that mission is carried by the "
             "evidence-grounding supporting check, not by this assertion"
         ),
+        label="the search kept the request's filters",
     ),
     Assertion(
         name="retrieval_tool_called",
@@ -139,6 +157,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "the agent answers without calling the typed retrieval tool, which "
             "means it answered from model memory rather than the catalog"
         ),
+        label="the agent searched the catalog",
     ),
     Assertion(
         name="expected_products_considered",
@@ -147,6 +166,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "none of the target products named in the test appears in the saved "
             "candidate receipts for the agent's retrieval runs"
         ),
+        label="the expected products were considered",
     ),
     Assertion(
         name="comparison_tool_called",
@@ -155,6 +175,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "the agent recommends among competing products without a successful "
             "compare_products call over IDs returned by retrieval"
         ),
+        label="the agent compared the products",
     ),
     Assertion(
         name="evidence_tool_called",
@@ -163,6 +184,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "the agent reaches synthesis without a successful "
             "get_product_evidence call for each recommended product"
         ),
+        label="the agent read each recommended product's sources",
     ),
     Assertion(
         name="evidence_records_returned",
@@ -171,6 +193,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "an evidence tool succeeds with zero records, leaving synthesis "
             "without source-addressable support"
         ),
+        label="the source reads returned records",
     ),
     Assertion(
         name="ranking_explanation_available",
@@ -180,6 +203,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "explain_retrieval receipt before synthesis, so its ranking "
             "explanation cannot be tied to the tool contract"
         ),
+        label="the agent read the ranking explanation",
     ),
     Assertion(
         name="recommendation_grounded",
@@ -188,11 +212,13 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "a recommended product was not returned by this run's retrieval or "
             "has no successfully retrieved evidence before synthesis"
         ),
+        label="every recommendation came from this run's search",
     ),
     Assertion(
         name="citations_present",
         arm=None,
         falsifier="the answer cites no retrieved evidence",
+        label="the answer cites sources",
     ),
     Assertion(
         name="citation_ids_resolve",
@@ -201,6 +227,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "a returned citation evidence_id does not resolve to a real "
             "product_evidence row for the citation's product"
         ),
+        label="every citation points at a real source",
     ),
     Assertion(
         name="citation_claims_supported",
@@ -210,6 +237,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "product and evidence type whose resolved text contains every "
             "declared support term"
         ),
+        label="each cited source contains its claim",
     ),
     Assertion(
         name="citation_source_revision_present",
@@ -218,6 +246,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "a citation names no source revision, so the claim cannot be "
             "re-checked against the catalog row that produced it"
         ),
+        label="every citation names its source revision",
     ),
     Assertion(
         name="measurement_configuration_persisted",
@@ -227,6 +256,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "it — ef_search, index type, filter selectivity — making the number "
             "unreproducible"
         ),
+        label="the measurement saved its settings",
     ),
     Assertion(
         name="measurement_kind_declared",
@@ -235,6 +265,7 @@ _ASSERTIONS: tuple[Assertion, ...] = (
             "a measurement does not say what it measured, so recall and latency "
             "become interchangeable in the record"
         ),
+        label="the measurement says what it measured",
     ),
 )
 
@@ -269,6 +300,21 @@ _ARM_COUNT_KEY: dict[str, str] = {
 
 class UnknownAssertionError(ValueError):
     """A mission named an assertion this module does not define."""
+
+
+def label_for(name: str, *, top_k: int) -> str:
+    """What the named assertion proves, in plain words, for a request's result window.
+
+    Raises:
+        UnknownAssertionError: the name is not in the vocabulary.
+    """
+    try:
+        return ASSERTIONS[name].label.format(top_k=top_k)
+    except KeyError:
+        raise UnknownAssertionError(
+            f"unknown assertion {name!r}; add it to service.assertions with a "
+            f"label, or fix the caller"
+        ) from None
 
 
 def falsifier_for(name: str) -> str:

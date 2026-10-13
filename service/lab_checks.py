@@ -34,7 +34,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from service.assertions import evaluate_signal_assertions, falsifier_for
+from service.assertions import evaluate_signal_assertions, falsifier_for, label_for
 from service.lab_files import LAB1_SQL, LAB2_SQL
 from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, DIFF, validate_applied
 from service.retrieval_fingerprint import explain
@@ -238,12 +238,13 @@ def retrieval_control_checks(
                 )
             )
         passed = judgments[name]
+        label = label_for(name, top_k=mission["top_k"])
         checks.append(
             LabCheck(
-                name=f"{mission['canonical_query_id']}: {name}",
+                name=f"{mission['canonical_query_id']}: {label}",
                 passed=passed,
                 falsifier=falsifier_for(name),
-                detail=f"{mission['canonical_query_id']} {name}: {len(results)} served, {len(candidates)} candidates checked"
+                detail=f"{mission['canonical_query_id']} {label}: {len(results)} served, {len(candidates)} candidates checked"
                 if passed
                 else _control_failure(mission, name, results, candidates),
             )
@@ -543,7 +544,7 @@ def _lab_1_pool(response: Mapping[str, Any]) -> LabCheck:
     counts = (response.get("diagnostics") or {}).get("candidate_counts") or {}
     in_pool = counts.get("trigram_in_pool", 0)
     return LabCheck(
-        name="trigram candidate pool non-empty",
+        name="fuzzy matching candidates reach fusion",
         passed=in_pool > 0,
         falsifier=(
             "diagnostics.candidate_counts.trigram_in_pool is 0, the broken "

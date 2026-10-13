@@ -102,7 +102,7 @@ def test_every_lab_1_and_2_failure_names_its_finding_and_a_next_step():
         "expected retrieval anchor present",
         "found by fuzzy matching alone",
         "hard filters hold",
-        "trigram candidate pool non-empty",
+        "fuzzy matching candidates reach fusion",
         "RRF arithmetic correct",
         "pre-rerank order repeatable",
         "reranking bounded and applied",

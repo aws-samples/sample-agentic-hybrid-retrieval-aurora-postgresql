@@ -11,6 +11,7 @@ from __future__ import annotations
 import pytest
 
 from service import lab_checks
+from service.assertions import label_for
 from service.lab_checks import (
     AgentEvidence,
     LabCheck,
@@ -278,6 +279,14 @@ def test_control_assertions_reject_their_declared_violations(mission):
     candidates.append({"product_id": 999999, "eligible": True})
     checks = lab_checks.retrieval_control_checks(mission, response, candidates)
     assert all(check.passed for check in checks), checks
+    # A participant reads the plain label, never the contract key.
+    for check in checks:
+        _, _, label = check.name.partition(": ")
+        assert label and "_" not in label, check.name
+    if "target_in_top_k" in mission["assertions"]:
+        assert f"right product in the top {mission['top_k']}" in [
+            check.name.partition(": ")[2] for check in checks
+        ]
     for assertion in mission["assertions"]:
         broken, pool = deepcopy(response), deepcopy(candidates)
         if assertion == "target_in_top_k":
@@ -294,9 +303,8 @@ def test_control_assertions_reject_their_declared_violations(mission):
         else:
             pytest.fail(f"Add the permanent falsifier for {assertion}")
         failed = lab_checks.retrieval_control_checks(mission, broken, pool)
-        assert not _by_name(
-            failed, f"{mission['canonical_query_id']}: {assertion}"
-        ).passed
+        label = label_for(assertion, top_k=mission["top_k"])
+        assert not _by_name(failed, f"{mission['canonical_query_id']}: {label}").passed
 
 
 def test_control_eligibility_survives_api_serialization():
@@ -326,7 +334,7 @@ def test_lab_1_fails_when_the_anchor_never_arrives():
     )
 
     assert not _by_name(checks, "expected retrieval anchor present").passed
-    assert not _by_name(checks, "trigram candidate pool non-empty").passed
+    assert not _by_name(checks, "fuzzy matching candidates reach fusion").passed
     assert "2" in _by_name(checks, "expected retrieval anchor present").detail
 
 

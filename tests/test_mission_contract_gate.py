@@ -232,7 +232,16 @@ def test_the_vocabulary_refuses_a_falsifierless_assertion_at_construction():
     from service.assertions import Assertion
 
     with pytest.raises(ValueError, match="no falsifier"):
-        Assertion(name="invented", arm=None, falsifier="")
+        Assertion(name="invented", arm=None, falsifier="", label="invented")
+
+
+def test_the_vocabulary_refuses_a_label_that_is_only_the_key():
+    """A check line is read by participants, so its label is plain words."""
+    from service.assertions import ASSERTIONS, Assertion, label_for
+
+    with pytest.raises(ValueError, match="plain words"):
+        Assertion(name="invented", arm=None, falsifier="f", label="target_in_top_k")
+    assert all("_" not in label_for(name, top_k=3) for name in ASSERTIONS)
 
 
 def test_every_failure_message_names_the_offending_value_and_a_fix(passing):

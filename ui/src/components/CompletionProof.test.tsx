@@ -344,7 +344,7 @@ describe("CompletionProof", () => {
         database_state: "stale",  // a fresh account: Aurora holds no repair
         entry_state: "started",
         checks: [{
-          name: "trigram candidate pool non-empty",
+          name: "fuzzy matching candidates reach fusion",
           passed: false,
           falsifier: "diagnostics.candidate_counts.trigram_in_pool is 0",
           detail: "found no Fuzzy matching candidates among those combined and sent to reranking; fix: run uv run python scripts/lab_state.py validate --lab 1 --database-url \"$DATABASE_URL\". It names what to change in the marked block of labs/lab1_retrieve/hybrid_search.sql",
