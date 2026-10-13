@@ -173,7 +173,7 @@
       "stage": "reason",
       "core": true,
       "duration_minutes": 20,
-      "title": "Lab 3: Reason - Build and deploy the agent",
+      "title": "Lab 3: Reason - Build and deploy the Retrieval agent",
       "discover_label": "Complete Alex’s setup with your agent",
       "canonical_query_id": "G-021",
       "query": "I have the Logitech Zone 900 headphones and the ViewSonic VG2756-4K monitor. Now I need a chair, and I'm looking at the Steelcase Gesture. Help me complete my setup, and show me the sources for all three.",
