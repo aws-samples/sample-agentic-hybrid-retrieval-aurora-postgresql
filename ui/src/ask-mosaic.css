@@ -1485,12 +1485,6 @@
 
 /* Narrow panels ---------------------------------------------------------------- */
 
-@container ask-mosaic (max-width: 520px) {
-  .ask-mosaic-heading p {
-    display: none;
-  }
-}
-
 @container ask-mosaic (max-width: 400px) {
   .ask-top-pick .ask-pick-photo {
     width: 88px;
