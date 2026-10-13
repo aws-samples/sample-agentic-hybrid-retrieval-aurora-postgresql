@@ -36,8 +36,10 @@ def solution(lab: int) -> str:
     return f"uv run python scripts/lab_state.py solution --lab {lab}"
 
 
-# Where your lab files differ from the reference answer; it prints the answer.
+# Which lines of your lab files differ from the reference answer, without the answer.
 DIFF = "uv run python scripts/diff.py"
+# The same report with the reference answer's lines: the last step of a Stuck? block.
+DIFF_ANSWER = "uv run python scripts/diff.py --answer"
 
 
 def validate(lab: int) -> str:

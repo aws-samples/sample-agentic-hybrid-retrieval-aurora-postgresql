@@ -24,6 +24,7 @@ from service.participant_commands import (
     APPLY_SQL,
     DEPLOY_AGENT,
     DIFF,
+    DIFF_ANSWER,
     complete_lab_3,
     exercise_check,
     prove,
@@ -203,7 +204,9 @@ def _paint(line: str, code: str, color: bool) -> str:
 COMMAND_INDENT = "      "
 
 
-def _diff_footer(lab: int, *, block_differs: bool, outside_differs: bool) -> list[str]:
+def _diff_footer(
+    lab: int, *, block_differs: bool, outside_differs: bool, answer: bool
+) -> list[str]:
     footer = []
     if outside_differs:
         footer += [
@@ -231,6 +234,11 @@ def _diff_footer(lab: int, *, block_differs: bool, outside_differs: bool) -> lis
             f"Prove:    {repeat_request(lab)}",
             f"Then:     {check}",
         ]
+    if block_differs and not answer:
+        footer += [
+            "To see the reference answer for these lines:",
+            f"{COMMAND_INDENT}{DIFF_ANSWER}",
+        ]
     if block_differs:
         footer += [
             "To use the reference answer instead (it replaces your block):",
@@ -239,19 +247,22 @@ def _diff_footer(lab: int, *, block_differs: bool, outside_differs: bool) -> lis
     return footer
 
 
-def lab_diff(lab: int, *, repo: Path = REPO, color: bool = False) -> tuple[str, bool]:
+def lab_diff(
+    lab: int, *, repo: Path = REPO, color: bool = False, answer: bool = False
+) -> tuple[str, bool]:
     """Show where a lab's file differs from the reference answer, in plain words.
 
-    This prints the answer, so a coach runs it only when a participant asks to
-    compare with the reference. The marked blocks are compared with the reference
-    answer, and the lines outside them with the original file, so an edit that
-    drifted outside the markers shows too. Each difference names the line in the
-    participant's file and prints the expected lines above theirs.
+    The marked blocks are compared with the reference answer, and the lines outside
+    them with the original file, so an edit that drifted outside the markers shows
+    too. Each difference names the line in the participant's file and prints their
+    lines. Only with answer does it print the reference answer's lines as well, so
+    the default report is a hint rather than the solution.
 
     Args:
         lab: The lab number.
         repo: The checkout whose exercise file is read.
         color: Colour the two versions for a terminal.
+        answer: Also print the reference answer's lines inside the marked blocks.
 
     Returns:
         The report, and whether the file differs from the reference.
@@ -286,20 +297,24 @@ def lab_diff(lab: int, *, repo: Path = REPO, color: bool = False) -> tuple[str, 
         return matches, False
     report = [
         f"Lab {lab}: where your {relative_path} differs from the reference answer.",
-        "Only those lines are shown; nothing was changed.",
+        "Only those lines are shown; nothing was changed."
+        if answer
+        else "Only those lines are shown, without the answer; nothing was changed.",
     ]
     for where, label, expected_lines, theirs in [*inside, *outside]:
-        shown = [line for line in [*expected_lines, *theirs] if line.strip()]
+        hidden = label == "Reference answer" and not answer
+        versions = [] if hidden else [(label, expected_lines, "32")]
+        versions.append(("Your file", theirs, "33"))
+        shown = [
+            line for _name, lines, _code in versions for line in lines if line.strip()
+        ]
         indent = min((len(line) - len(line.lstrip()) for line in shown), default=0)
         report += ["", f"{where}:"]
-        for name, lines, code in (
-            (label, expected_lines, "32"),
-            ("Your file", theirs, "33"),
-        ):
+        for name, lines, code in versions:
             report.append(f"  {name}:" if lines else f"  {name}: (nothing here)")
             report += [_paint(f"      {line[indent:]}", code, color) for line in lines]
     footer = _diff_footer(
-        lab, block_differs=bool(inside), outside_differs=bool(outside)
+        lab, block_differs=bool(inside), outside_differs=bool(outside), answer=answer
     )
     return "\n".join([*report, "", *footer]), True
 

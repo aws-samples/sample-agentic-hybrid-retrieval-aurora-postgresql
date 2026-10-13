@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Show where your lab files differ from the reference answer, in plain words.
+"""Show which lines of your lab files differ from the reference answer, in plain words.
 
-usage: uv run python scripts/diff.py [FILE]
+usage: uv run python scripts/diff.py [FILE] [--answer]
 
 With no FILE, every lab file is checked and only the ones that differ are shown; a
 lab you have not started still matches, so normally only your current lab appears.
 Give a lab file's path or name, such as hybrid_search.sql, to check just that one.
-Inside the marked blocks the report prints the reference answer, so try the hints
-first. Outside them it compares with the original file, so an edit that drifted
-outside the markers shows too. Nothing is changed.
+Inside the marked blocks it names your lines that differ but hides the answer; add
+--answer to see the reference answer's lines too. Outside the markers it compares
+with the original file, so an edit that drifted outside them shows. Nothing is
+changed.
 """
 
 from __future__ import annotations
@@ -36,12 +37,18 @@ def lab_for(name: str) -> int:
     )
 
 
-def report(name: str | None = None, *, repo: Path = REPO, color: bool = False) -> str:
+def report(
+    name: str | None = None,
+    *,
+    repo: Path = REPO,
+    color: bool = False,
+    answer: bool = False,
+) -> str:
     """The plain-words report for one lab file, or for every lab file that differs."""
     labs = [lab_for(name)] if name else sorted(LABS)
     sections = []
     for lab in labs:
-        text, differs = lab_diff(lab, repo=repo, color=color)
+        text, differs = lab_diff(lab, repo=repo, color=color, answer=answer)
         if differs or name:
             sections.append(text)
     if not sections:
@@ -54,10 +61,13 @@ def main() -> int:
     parser.add_argument(
         "file", nargs="?", help="a lab file's path or name; default: every lab file"
     )
+    parser.add_argument(
+        "--answer", action="store_true", help="also print the reference answer's lines"
+    )
     args = parser.parse_args()
     color = sys.stdout.isatty() and "NO_COLOR" not in os.environ
     try:
-        print(report(args.file, color=color))
+        print(report(args.file, color=color, answer=args.answer))
     except ValueError as error:
         raise SystemExit(str(error)) from error
     return 0

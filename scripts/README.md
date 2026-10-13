@@ -14,7 +14,7 @@ holds the same strings for every message the app prints.
 | `uv run python scripts/lab_state.py start --lab N` | Enter a lab and save its failing request |
 | `uv run python scripts/lab_state.py reset --lab N` | Restore one lab's starter |
 | `uv run python scripts/lab_state.py solution --lab N` | Install the reference answer, overwriting your edit |
-| `uv run python scripts/diff.py` | Show where your lab files differ from the reference answer, inside and outside the markers; changes nothing |
+| `uv run python scripts/diff.py` | Name the lines of your lab files that differ from the reference answer, inside and outside the markers, without printing the answer; `--answer` adds it; changes nothing |
 | `uv run python scripts/apply_search_functions.py` | Install your Lab 1 and Lab 2 SQL in Aurora |
 | `uv run python scripts/validate_lab.py --lab N` | Prove a Lab 1 or Lab 2 repair |
 | `uv run python scripts/deploy_agentcore.py tools\|deploy\|verify\|resources` | List the SQL tools, deploy your Lab 3 agent, recheck the deployment, show the runtimes, Gateway and Memory |

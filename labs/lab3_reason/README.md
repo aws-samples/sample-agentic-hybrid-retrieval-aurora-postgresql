@@ -50,10 +50,10 @@ answer. Deployment alone does not prove completion.
 <details>
 <summary>🛠️ Compare with or install the reference answer</summary>
 
-`uv run python scripts/diff.py` shows where your file differs from the
-[reference answer](solution/agent.py), inside and outside the markers, and
-changes nothing; an instruction you added shows as a difference. It shows the answer, so try the
-guide's hints first. `uv run python scripts/lab_state.py solution --lab 3`
+`uv run python scripts/diff.py` names the lines of your file that differ from the
+[reference answer](solution/agent.py), inside and outside the markers, without
+printing it, and changes nothing; an instruction you added shows as a difference.
+Add `--answer` to see the answer's lines; try the guide's hints first. `uv run python scripts/lab_state.py solution --lab 3`
 overwrites your edit with the answer; deploy it, then run the setup request
 yourself and prove that run.
 

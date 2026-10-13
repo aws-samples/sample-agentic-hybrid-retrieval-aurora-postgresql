@@ -92,8 +92,9 @@ start resumes without overwriting edits. Finish and apply earlier repairs first.
 `lab_state.py validate`, `validate_lab.py`, `advance` and `start` judge a saved
 Lab 1 or Lab 2 block the same way, against the block Aurora runs, so one cannot
 pass while another refuses. A refusal names what differs, the fix and the
-command to run again; `uv run python scripts/diff.py` shows, in plain words,
-where the lab files differ from the reference answer. Live-check failures name the product and the search method
+command to run again; `uv run python scripts/diff.py` names, in plain words,
+the lines of the lab files that differ from the reference answer without
+printing it, and `--answer` adds the answer's lines. Live-check failures name the product and the search method
 as Shop shows them, and an apply error names the line of your file Aurora rejected.
 
 After editing, apply SQL or deploy the agent, repeat the same request, and run

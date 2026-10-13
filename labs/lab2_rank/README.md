@@ -54,9 +54,10 @@ It compares the same candidates without changing default settings or replacing p
 <details>
 <summary>🛠️ Compare with or install the reference answer</summary>
 
-`uv run python scripts/diff.py` shows where your file differs from the
-[reference answer](solution/rrf_contribution.sql), inside and outside the
-markers, and changes nothing; it shows the answer, so try the guide's hints first.
+`uv run python scripts/diff.py` names the lines of your file that differ from the
+[reference answer](solution/rrf_contribution.sql), inside and outside the markers, without
+printing it, and changes nothing. Add `--answer` to see the answer's lines;
+try the guide's hints first.
 `uv run python scripts/lab_state.py solution --lab 2` overwrites your edit with
 the answer; apply and prove it as above.
 

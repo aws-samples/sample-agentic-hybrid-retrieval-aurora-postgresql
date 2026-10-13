@@ -203,7 +203,7 @@ def _apply_fix(where: tuple[Path, int, str] | None) -> str:
             [
                 f"Fix: correct that line in {where[0]} and save it. Then run:",
                 f"{indent}{APPLY_SQL}",
-                "To see where your file differs from the reference answer (it shows the answer):",
+                "To see which lines of your file differ from the reference answer:",
                 f"{indent}{DIFF}",
             ]
         )

@@ -10,7 +10,7 @@ from scripts.lab_state import (
     lab_is_solved,
     set_lab_state,
 )
-from service.participant_commands import solution
+from service.participant_commands import DIFF_ANSWER, solution
 
 PARTICIPANT_CHANNEL = """    UNION ALL
     SELECT product_id, 'trigram'::text AS channel, trigram_rank AS source_rank,
@@ -540,12 +540,39 @@ def test_diff_reports_a_match_for_the_shipped_repair(lab_repo: Path, lab: int) -
 
 
 @pytest.mark.parametrize("lab", sorted(LABS))
+def test_diff_hides_the_answer_unless_asked(lab_repo: Path, lab: int) -> None:
+    set_lab_state(lab, solved=False, repo=lab_repo)
+    _relative_path, blocks = LABS[lab]
+
+    report, differs = lab_diff(lab, repo=lab_repo)
+
+    assert differs
+    lines = report.splitlines()
+    assert (
+        lines[1]
+        == "Only those lines are shown, without the answer; nothing was changed."
+    )
+    assert "  Your file:" in lines and "  Reference answer:" not in lines
+    answer_lines = {
+        line.strip()
+        for block in blocks
+        for line in block.fixed.splitlines()
+        if line.strip() and not line.lstrip().startswith(("--", "#"))
+    }
+    assert not answer_lines & {line.strip() for line in lines}, (
+        "the hint printed the answer"
+    )
+    assert f"      {DIFF_ANSWER}" in lines
+    assert lines[-1].endswith(solution(lab))
+
+
+@pytest.mark.parametrize("lab", sorted(LABS))
 def test_diff_shows_the_reference_against_the_participants_block(
     lab_repo: Path, lab: int
 ) -> None:
     set_lab_state(lab, solved=False, repo=lab_repo)
 
-    report, differs = lab_diff(lab, repo=lab_repo)
+    report, differs = lab_diff(lab, repo=lab_repo, answer=True)
 
     assert differs
     lines = report.splitlines()
@@ -560,6 +587,7 @@ def test_diff_shows_the_reference_against_the_participants_block(
     assert "  Reference answer:" in lines and "  Your file:" in lines
     assert any("TODO(Lab" in line for line in lines)
     assert not any(line.startswith(("---", "+++", "@@")) for line in lines)
+    assert DIFF_ANSWER not in report
     assert lines[-1].endswith(solution(lab))
     assert "\033[" not in report
 
@@ -572,9 +600,12 @@ def test_diff_names_one_changed_line_in_plain_words(lab_repo: Path) -> None:
     path.write_text(source.replace("    FROM typo\n", "    FROM semantic\n"))
     line = source.split("    FROM typo\n", 1)[0].count("\n") + 1
 
-    report, differs = lab_diff(1, repo=lab_repo)
+    hint, differs = lab_diff(1, repo=lab_repo)
+    report, _ = lab_diff(1, repo=lab_repo, answer=True)
 
     assert differs
+    assert f"At line {line} of your file:\n  Your file:\n      FROM semantic\n" in hint
+    assert "FROM typo" not in hint
     assert (
         f"At line {line} of your file:\n"
         "  Reference answer:\n      FROM typo\n"
@@ -621,8 +652,10 @@ def test_diff_points_at_the_participants_own_lines(lab_repo: Path) -> None:
 def test_diff_colours_only_when_asked(lab_repo: Path) -> None:
     set_lab_state(1, solved=False, repo=lab_repo)
 
-    coloured, _ = lab_diff(1, repo=lab_repo, color=True)
+    hint, _ = lab_diff(1, repo=lab_repo, color=True)
+    coloured, _ = lab_diff(1, repo=lab_repo, color=True, answer=True)
 
+    assert "\033[33m" in hint and "\033[32m" not in hint
     assert "\033[32m" in coloured and "\033[33m" in coloured
 
 
@@ -644,9 +677,11 @@ def test_diff_tool_shows_only_the_lab_files_that_differ(lab_repo: Path) -> None:
     set_lab_state(1, solved=False, repo=lab_repo)
 
     text = diff.report(repo=lab_repo)
+    answer = diff.report(repo=lab_repo, answer=True)
 
     assert text.startswith(f"Lab 1: where your {LABS[1][0]} differs")
     assert "Lab 2:" not in text and "Lab 3:" not in text
+    assert "Reference answer:" not in text and "Reference answer:" in answer
 
 
 def test_diff_tool_takes_a_lab_file_by_path_or_name(lab_repo: Path) -> None:
