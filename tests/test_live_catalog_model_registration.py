@@ -84,7 +84,7 @@ def test_preparation_analyses_the_catalog_after_creating_the_public_id_index(
     created = next(
         index
         for index, statement in enumerate(statements)
-        if "CREATE INDEX IF NOT EXISTS real_search_public_id_idx" in statement
+        if "CREATE INDEX IF NOT EXISTS product_search_public_id_idx" in statement
     )
     analysed = [
         index

@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from scripts.catalog.stage_real_catalog import validate_dsn
+from service.catalog_runtime import LIVE_INDEXES
 
 
 def verify(connection, contract: dict) -> dict:
@@ -65,28 +66,30 @@ def verify(connection, contract: dict) -> dict:
         raise ValueError(
             f"Real-only receipt rule: found {receipt!r}; restore the catalog matching db/config/real-catalog-cache.json."
         )
+    required = [LIVE_INDEXES[key] for key in ("fts", "trigram", "vector", "public_id")]
     missing = connection.execute(
-        """SELECT required.name FROM (VALUES ('real_search_fts_idx'),
-          ('real_search_trigram_idx'),('real_search_vector_idx'),
-          ('real_search_public_id_idx')) required(name)
+        """SELECT required.name FROM unnest(%s::text[]) AS required(name)
         WHERE NOT EXISTS (SELECT 1 FROM pg_index i
           JOIN pg_class c ON c.oid=i.indexrelid
           JOIN pg_namespace n ON n.oid=c.relnamespace
           WHERE n.nspname='mosaic_catalog_search' AND c.relname=required.name
-            AND i.indisvalid AND i.indisready)"""
+            AND i.indisvalid AND i.indisready)""",
+        (required,),
     ).fetchall()
     if missing:
         raise ValueError(
             f"Real-only index rule: missing or invalid indexes {missing}; "
             "resume scripts/catalog/real_catalog_cache.py restore for the pinned archive."
         )
+    public_id = LIVE_INDEXES["public_id"]
     analyzed = connection.execute(
         "SELECT count(*) AS rows FROM pg_stats WHERE schemaname='mosaic_catalog_search' "
-        "AND tablename='real_search_public_id_idx'"
+        "AND tablename=%s",
+        (public_id,),
     ).fetchone()["rows"]
     if not analyzed:
         raise ValueError(
-            "Real-only statistics rule: found no statistics for real_search_public_id_idx, "
+            f"Real-only statistics rule: found no statistics for {public_id}, "
             "so every search scans all products to fetch its shortlist; fix: run ANALYZE "
             "mosaic_catalog_search.product_document, as scripts/catalog/prepare_live_catalog.py "
             "does after creating the index."

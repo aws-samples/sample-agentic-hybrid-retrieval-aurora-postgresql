@@ -13,7 +13,12 @@ from uuid import NAMESPACE_URL, uuid5
 
 from fastapi import HTTPException
 
-from service.catalog_runtime import active_dataset, filter_predicate, search_schema
+from service.catalog_runtime import (
+    LIVE_INDEXES,
+    active_dataset,
+    filter_predicate,
+    search_schema,
+)
 from service.db import connect, ground_truth_status, index_states_on
 from service.models import (
     CatalogPage,
@@ -565,11 +570,7 @@ def readiness() -> dict:
             {"name": name}
             for name, state in index_states_on(
                 connection,
-                (
-                    "real_search_fts_idx",
-                    "real_search_trigram_idx",
-                    "real_search_vector_idx",
-                ),
+                (LIVE_INDEXES["fts"], LIVE_INDEXES["trigram"], LIVE_INDEXES["vector"]),
                 schema="mosaic_catalog_search",
             ).items()
             if state != "valid"

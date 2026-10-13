@@ -52,6 +52,27 @@ def filter_predicate(placeholder: str) -> str:
 SYNTHETIC_DATASET_ID = "synthetic-legacy"
 
 
+#: The served catalog's indexes, named for the search each one serves, so an
+#: attendee listing them in psql can tell which belongs to which search.
+LIVE_INDEXES = {
+    "fts": "product_search_fts_idx",
+    "trigram": "product_search_trigram_idx",
+    "vector": "product_search_vector_idx",
+    "vector_halfvec": "product_search_vector_halfvec_idx",
+    "vector_binary": "product_search_vector_binary_idx",
+    "kind": "product_search_kind_idx",
+    "public_id": "product_search_public_id_idx",
+}
+
+#: The names those indexes carried until 13 October 2026, when `real_` marked the
+#: real catalog built beside a synthetic one since retired. A cluster restored
+#: before then is renamed in place (`rename_legacy_search_indexes`), never rebuilt.
+LEGACY_INDEX_NAMES = {
+    "real_search_" + name.removeprefix("product_search_"): name
+    for name in LIVE_INDEXES.values()
+}
+
+
 @dataclass(frozen=True)
 class CatalogIndexes:
     """Where the served catalog's vectors physically live, and its index names.
@@ -88,9 +109,9 @@ def catalog_indexes() -> CatalogIndexes:
         return CatalogIndexes(
             schema="mosaic_catalog_search",
             table="product_document",
-            fp32="real_search_vector_idx",
-            halfvec="real_search_vector_halfvec_idx",
-            binary="real_search_vector_binary_idx",
+            fp32=LIVE_INDEXES["vector"],
+            halfvec=LIVE_INDEXES["vector_halfvec"],
+            binary=LIVE_INDEXES["vector_binary"],
         )
     return CatalogIndexes(
         schema="mosaic_search",

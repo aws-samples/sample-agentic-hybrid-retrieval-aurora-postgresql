@@ -27,9 +27,14 @@ both sets.
 
 ## The served index
 
+The indexes were renamed from `real_search_*` to `product_search_*` on 13 October
+2026. `ALTER INDEX ... RENAME` changes only the name, so these measurements still
+describe the same indexes; the artifacts under `data/benchmarks/` record the names
+the indexes had when they were measured.
+
 | Fact | Value |
 |---|---|
-| Index | `mosaic_catalog_search.real_search_vector_idx`, HNSW, `m=16`, `ef_construction=200`, cosine, total (no `WHERE`) |
+| Index | `mosaic_catalog_search.product_search_vector_idx`, HNSW, `m=16`, `ef_construction=200`, cosine, total (no `WHERE`) |
 | Size | 4,535,148,544 bytes for 553,911 vectors, 8,188 bytes per vector, 2.0× the 4,096-byte fp32 payload |
 | Instance | `db.r8g.2xlarge`, Aurora PostgreSQL 18.3, pgvector 0.8.1, `work_mem` 4 MB, `shared_buffers` 41.5 GB |
 | Exact baseline | Sequential scan with index and bitmap paths disabled, timed on 5 anchors after the cache was warm: 2,446 ms server (median), 2,508,454 shared buffer hits |
@@ -110,7 +115,7 @@ What the table establishes:
   anchors and the ground truth are fixed, so a rerun changes milliseconds, not
   results. This 73-anchor set was measured once.
 
-Every plan node in the matrix is an index scan on `real_search_vector_idx`;
+Every plan node in the matrix is an index scan on `product_search_vector_idx`;
 no preset made the planner leave the index for a filtered exact scan on this
 catalog.
 
@@ -135,9 +140,9 @@ fp32 column before the top 10 is taken.
 
 | Representation | Index size | Bytes per vector | Recall@10 | Server p50 | Server p95 | Server p99 | Buffer hits |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| fp32, `real_search_vector_idx` | 4,535,148,544 | 8,188 | 98.63% | 1.134 ms | 1.581 ms | 1.611 ms | 1,265 |
-| halfvec, `real_search_vector_halfvec_idx` | 1,511,833,600 | 2,729 | 98.63% | 1.750 ms | 2.568 ms | 2.670 ms | 1,281 |
-| binary, rescore 10, `real_search_vector_binary_idx` | 240,500,736 | 434 | 76.58% | 1.339 ms | 2.023 ms | 2.900 ms | 1,669 |
+| fp32, `product_search_vector_idx` | 4,535,148,544 | 8,188 | 98.63% | 1.134 ms | 1.581 ms | 1.611 ms | 1,265 |
+| halfvec, `product_search_vector_halfvec_idx` | 1,511,833,600 | 2,729 | 98.63% | 1.750 ms | 2.568 ms | 2.670 ms | 1,281 |
+| binary, rescore 10, `product_search_vector_binary_idx` | 240,500,736 | 434 | 76.58% | 1.339 ms | 2.023 ms | 2.900 ms | 1,669 |
 | binary, rescore 20 | 240,500,736 | 434 | 89.18% | 1.448 ms | 2.101 ms | 2.849 ms | 1,766 |
 | binary, rescore 50 | 240,500,736 | 434 | 97.53% | 1.633 ms | 2.290 ms | 3.117 ms | 2,055 |
 | binary, rescore 100 | 240,500,736 | 434 | 99.18% | 2.118 ms | 2.897 ms | 3.650 ms | 2,539 |

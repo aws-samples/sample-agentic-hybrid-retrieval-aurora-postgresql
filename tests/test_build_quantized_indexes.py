@@ -12,13 +12,13 @@ def test_statements_name_the_served_catalog_indexes(monkeypatch):
     binary = builder.build_statement("binary", concurrently=True).as_string(None)
 
     assert halfvec.startswith(
-        'CREATE INDEX IF NOT EXISTS "real_search_vector_halfvec_idx"'
+        'CREATE INDEX IF NOT EXISTS "product_search_vector_halfvec_idx"'
     )
     assert '"mosaic_catalog_search"."product_document"' in halfvec
     assert "(embedding::halfvec(1024)) halfvec_cosine_ops" in halfvec
     assert "m = 16" in halfvec and "ef_construction = 200" in halfvec
     assert binary.startswith(
-        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "real_search_vector_binary_idx"'
+        'CREATE INDEX CONCURRENTLY IF NOT EXISTS "product_search_vector_binary_idx"'
     )
     assert "(binary_quantize(embedding)::bit(1024)) bit_hamming_ops" in binary
 
@@ -82,8 +82,8 @@ def test_a_valid_index_is_left_alone_and_an_invalid_one_is_rebuilt(monkeypatch):
     monkeypatch.setenv("MOSAIC_CATALOG_DATASET", "reviews-2023-v2")
     connection = _Connection(
         {
-            "real_search_vector_halfvec_idx": "valid",
-            "real_search_vector_binary_idx": "invalid",
+            "product_search_vector_halfvec_idx": "valid",
+            "product_search_vector_binary_idx": "invalid",
         }
     )
 
@@ -104,7 +104,8 @@ def test_a_valid_index_is_left_alone_and_an_invalid_one_is_rebuilt(monkeypatch):
     }
     joined = "\n".join(connection.statements)
     assert (
-        'DROP INDEX "mosaic_catalog_search"."real_search_vector_binary_idx"' in joined
+        'DROP INDEX "mosaic_catalog_search"."product_search_vector_binary_idx"'
+        in joined
     )
     assert joined.count("CREATE INDEX") == 1
     assert "SET max_parallel_maintenance_workers = 7" in joined

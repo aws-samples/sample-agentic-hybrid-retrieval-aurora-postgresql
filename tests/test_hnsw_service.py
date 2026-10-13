@@ -593,7 +593,7 @@ def test_the_runners_not_measured_reason_passes_through_unchanged(
     payload.pop("representations", None)
     payload["representations_unavailable_reason"] = (
         "No halfvec or binary index exists on the served catalog "
-        "(real_search_vector_halfvec_idx is missing), so the representation "
+        "(product_search_vector_halfvec_idx is missing), so the representation "
         "comparison was not measured rather than borrowed from another catalog."
     )
     fixture = tmp_path / "hnsw_measured.json"
@@ -606,7 +606,7 @@ def test_the_runners_not_measured_reason_passes_through_unchanged(
     assert "representations" not in payload
     assert "not measured" in payload["representations_unavailable_reason"]
     assert (
-        "real_search_vector_halfvec_idx"
+        "product_search_vector_halfvec_idx"
         in payload["representations_unavailable_reason"]
     )
 

@@ -139,7 +139,7 @@ class _Connection:
                                 "Execution Time": 1.5,
                                 "Plan": {
                                     "Node Type": "Index Scan",
-                                    "Index Name": "real_search_vector_idx",
+                                    "Index Name": "product_search_vector_idx",
                                     "Shared Hit Blocks": 500,
                                     "Shared Read Blocks": 12,
                                 },
@@ -163,7 +163,7 @@ def test_explain_sample_keeps_the_aurora_cache_fields_only_when_the_engine_print
     printed = hardware.explain_sample(
         _Connection(
             [
-                "Index Scan using real_search_vector_idx",
+                "Index Scan using product_search_vector_idx",
                 "  Buffers: shared hit=500 read=12 aurora_orcache_hit=12",
             ],
             True,
@@ -176,7 +176,7 @@ def test_explain_sample_keeps_the_aurora_cache_fields_only_when_the_engine_print
     )
 
     assert printed["aurora_orcache_hit_mentioned"] is True
-    assert printed["indexes_used"] == ["real_search_vector_idx"]
+    assert printed["indexes_used"] == ["product_search_vector_idx"]
     assert silent["aurora_orcache_hit_mentioned"] is False
     assert silent["aurora_storage_read_mentioned"] is False
 
@@ -215,7 +215,7 @@ def test_prewarm_loads_table_toast_and_index_in_a_fixed_order(monkeypatch):
     assert relations == [
         "mosaic_catalog_search.product_document",
         "pg_toast.pg_toast_123",
-        "mosaic_catalog_search.real_search_vector_idx",
+        "mosaic_catalog_search.product_search_vector_idx",
     ]
     assert record["blocks"] == {name: 42 for name in relations}
     assert connection.statements[0][0].startswith(

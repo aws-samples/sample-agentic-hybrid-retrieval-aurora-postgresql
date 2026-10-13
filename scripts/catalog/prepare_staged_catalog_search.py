@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT))
 from scripts.catalog.embed_real_catalog import COHERE_EMBED_V4_MODEL_ID
 from scripts.catalog.stage_real_catalog import require_aurora_writer, validate_dsn
 from scripts.checks.retrieval_profile import load_profile
+from service.catalog_runtime import LEGACY_INDEX_NAMES, LIVE_INDEXES
 from service.search_sql import search_sql
 from service.source_catalog import (
     ACCESSORY_KINDS,
@@ -97,6 +98,34 @@ FROM source
 
 
 CATEGORY_DECISIONS = ROOT / "db/config/catalog-category-decisions.jsonl"
+
+
+def rename_legacy_search_indexes(connection) -> list[str]:
+    """Rename the served catalog's indexes that still carry their pre-October names.
+
+    `ALTER INDEX ... RENAME` changes only the catalog entry, so the index, its
+    size and every measurement taken on it stay as they were.
+
+    Args:
+        connection: An open connection to the catalog database; the caller commits.
+
+    Returns:
+        The legacy names renamed, empty for a cluster built with the current names.
+    """
+    renamed = []
+    for legacy, current in LEGACY_INDEX_NAMES.items():
+        row = connection.execute(
+            "SELECT to_regclass(%s) IS NOT NULL AS present",
+            (f"mosaic_catalog_search.{legacy}",),
+        ).fetchone()
+        if row["present"] if isinstance(row, dict) else row[0]:
+            connection.execute(
+                sql.SQL("ALTER INDEX mosaic_catalog_search.{} RENAME TO {}").format(
+                    sql.Identifier(legacy), sql.Identifier(current)
+                )
+            )
+            renamed.append(legacy)
+    return renamed
 
 
 def projection_sha256() -> str:
@@ -355,14 +384,19 @@ def prepare(
         flush=True,
     )
     indexes = {
-        "real_search_fts_idx": "USING gin(search_document)",
-        "real_search_trigram_idx": "USING gin(trigram_text gin_trgm_ops)",
-        "real_search_kind_idx": "(category_key,product_id)",
-        "real_search_vector_idx": (
+        LIVE_INDEXES["fts"]: "USING gin(search_document)",
+        LIVE_INDEXES["trigram"]: "USING gin(trigram_text gin_trgm_ops)",
+        LIVE_INDEXES["kind"]: "(category_key,product_id)",
+        LIVE_INDEXES["vector"]: (
             "USING hnsw(embedding vector_cosine_ops) "
             f"WITH (m={profile.hnsw_m},ef_construction={profile.hnsw_ef_construction})"
         ),
     }
+    # A cluster restored before the indexes were renamed keeps them under their
+    # old names; renaming first stops CREATE INDEX IF NOT EXISTS from building a
+    # second copy of each, the 4 GB HNSW index among them.
+    rename_legacy_search_indexes(conn)
+    conn.commit()
     workers = configure_index_build_workers(conn)
     timings = {}
     for name, definition in indexes.items():

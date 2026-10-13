@@ -14,7 +14,7 @@ The synthetic typo corpus has been retired; current proofs use the real-catalog 
 the real catalog table, whose trigram index is:
 
 ```sql
-CREATE INDEX real_search_trigram_idx
+CREATE INDEX product_search_trigram_idx
 ON mosaic_catalog_search.product_document USING gin (trigram_text gin_trgm_ops);
 ```
 

@@ -36,6 +36,7 @@ sys.path.insert(0, str(REPO))
 from psycopg.rows import dict_row
 
 from scripts import lab2_tuning, lab_state
+from service.catalog_runtime import LIVE_INDEXES
 from service.lab_files import LAB2_SQL
 from service.participant_commands import DEPLOY_AGENT
 
@@ -276,7 +277,7 @@ def _lab1_verdict(condition: str, mine: dict, truth: dict) -> str | None:
         return (
             f"{condition}: your recall is {float(mine['recall']):.6f}; the true recall "
             f"is {truth['recall']:.6f}. Run EXPLAIN on your ground-truth CTE: if it "
-            "scans real_search_vector_idx, it is approximate, not exact. A filter "
+            f"scans {LIVE_INDEXES['vector']}, it is approximate, not exact. A filter "
             "hidden inside a function call can also change the plan the planner picks."
         )
     return (

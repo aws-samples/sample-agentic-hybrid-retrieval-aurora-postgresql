@@ -218,7 +218,7 @@ def test_acceptance_rejects_each_violation_then_accepts_identical_restoration(
             connection_for(
                 broken,
                 None if violation == "receipt" else receipt,
-                [{"name": "real_search_vector_idx"}] if violation == "index" else [],
+                [{"name": "product_search_vector_idx"}] if violation == "index" else [],
                 0 if violation == "statistics" else 1,
                 violation != "vocabulary",
             ),

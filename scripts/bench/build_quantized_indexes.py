@@ -163,6 +163,13 @@ def main() -> None:
     ) as connection:
         connection.execute("SET statement_timeout = 0")
         connection.execute("SET application_name = 'mosaic-quantized-index-build'")
+        if active_dataset():
+            # Renamed in place, so IF NOT EXISTS below never builds a second copy.
+            from scripts.catalog.prepare_staged_catalog_search import (
+                rename_legacy_search_indexes,
+            )
+
+            rename_legacy_search_indexes(connection)
         records = build(
             connection,
             representations=arguments.representation or ["halfvec", "binary"],

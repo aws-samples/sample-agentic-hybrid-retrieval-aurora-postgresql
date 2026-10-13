@@ -29,6 +29,7 @@ from scripts.catalog.prepare_staged_catalog_search import (
 )
 from scripts.catalog.stage_real_catalog import require_aurora_writer, validate_dsn
 from scripts.checks.retrieval_profile import load_profile
+from service.catalog_runtime import LIVE_INDEXES
 from service.search_sql import search_sql
 
 PRODUCT_ID_OFFSET = 1_000_000
@@ -211,7 +212,7 @@ def prepare(connection, dataset_id: str) -> dict:
         )
     load_source_prices(connection)
     connection.execute(VIEW_SQL)
-    connection.execute(f"""CREATE INDEX IF NOT EXISTS real_search_public_id_idx
+    connection.execute(f"""CREATE INDEX IF NOT EXISTS {LIVE_INDEXES["public_id"]}
         ON mosaic_catalog_search.product_document ((product_id+{PRODUCT_ID_OFFSET}))""")
     # An index expression has no statistics until its table is analysed again,
     # and the restore analysed it before this index existed. Without them the
