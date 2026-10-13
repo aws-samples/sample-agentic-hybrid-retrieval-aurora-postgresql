@@ -22,6 +22,7 @@ from service.lab_files import LAB1_SQL, LAB2_SQL, LAB3_AGENT, solution_path
 from service.participant_commands import (
     APPLY_SQL,
     DEPLOY_AGENT,
+    DIFF,
     complete_lab_3,
     prove,
     reset,
@@ -551,7 +552,7 @@ def lab1_contract_problem(source: str, *, schema: str = "mosaic_search") -> str 
     if name is None:
         return (
             "the fuzzy matching step above the marked block has changed; undo edits "
-            "outside the marked block (git diff shows them)"
+            f"outside the marked block ({DIFF} shows them)"
         )
     channel = _sql_tokens(source.split(start, 1)[1].split(end, 1)[0])
     if not channel:
@@ -827,13 +828,13 @@ def _parser() -> argparse.ArgumentParser:
             "advance --lab 1 validates Lab 1 and prepares Lab 2; "
             "start enters a lab once and keeps your edits on a rerun; reset "
             "discards one lab's edits and restores its starter; solution "
-            "overwrites one lab with the reference repair; diff compares a lab's "
-            "marked block with the reference repair and changes nothing."
+            "overwrites one lab with the reference repair. To see where your lab "
+            f"files differ from the reference, run {DIFF}."
         )
     )
     parser.add_argument(
         "action",
-        choices=("start", "advance", "reset", "solution", "diff", "validate", "status"),
+        choices=("start", "advance", "reset", "solution", "validate", "status"),
     )
     parser.add_argument(
         "--source-only",
@@ -863,8 +864,7 @@ def solution_summary(lab: int, path: Path) -> str:
     return (
         f"Lab {lab}: SOLUTION ({path})\n"
         f"This overwrote the marked LAB{lab}_ block in {path} with the reference "
-        "answer, so your own edits to that block are gone; run git diff to see "
-        "the change.\n"
+        "answer, so your own edits to that block are gone.\n"
         f"Next: {next_step}."
     )
 
@@ -902,14 +902,6 @@ def main() -> int:
             raise SystemExit(str(error)) from error
         except psycopg.Error as error:
             raise database_fault_exit(error, f"{args.action} Lab {args.lab}") from error
-        return 0
-    if args.action == "diff":
-        color = sys.stdout.isatty() and "NO_COLOR" not in os.environ
-        try:
-            report, _differs = lab_diff(args.lab, color=color)
-        except ValueError as error:
-            raise SystemExit(str(error)) from error
-        print(report)
         return 0
     if args.action == "solution":
         path = set_lab_state(args.lab, solved=True)
@@ -1006,7 +998,7 @@ def database_fault_exit(error, doing: str) -> SystemExit:
     return SystemExit(
         f"Could not {doing}: Aurora rejected it with SQLSTATE {sqlstate}: {reason}\n"
         "Next: if you changed lines outside the marked LAB blocks, undo those changes "
-        f"(git diff shows them), run {APPLY_SQL}, then run the same command again. "
+        f"({DIFF} shows them), run {APPLY_SQL}, then run the same command again. "
         "Otherwise copy this message and the command you ran to your facilitator."
     )
 

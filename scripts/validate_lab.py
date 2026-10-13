@@ -34,7 +34,7 @@ from scripts.lab_state import LabProblem, explain_problems
 from service import lab_checks
 from service.config import get_settings
 from service.lab_checks import AgentEvidence, LabCheck, RetrievalReceipt
-from service.participant_commands import APPLY_SQL, complete_lab_3, validate
+from service.participant_commands import APPLY_SQL, DIFF, complete_lab_3, validate
 from service.participant_commands import start as start_command
 
 
@@ -155,7 +155,7 @@ def _with_block_in_place(failure: str, lab: int) -> str:
         lab_checks.repair_next_step(lab),
         f"your saved block in {lab_checks.LAB_FILES[lab]} is repaired and Aurora "
         "runs it, so the cause is outside it. Undo any edits outside the marked "
-        f"block (git diff shows them), run {APPLY_SQL} and run {validate(lab)} "
+        f"block ({DIFF} shows them), run {APPLY_SQL} and run {validate(lab)} "
         "again; if it still fails, give this message to your facilitator",
     )
 

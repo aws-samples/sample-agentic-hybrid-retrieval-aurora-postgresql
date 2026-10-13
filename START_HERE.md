@@ -27,10 +27,9 @@ root. If the groups are missing, open
 
 The lab READMEs are short reminders. The guide has the exact requests, the
 checks, and a **Stuck?** block in every task with hints, a prompt for the
-coding coach and the answer. Your saved runs are in `.local/lab-N/`. To compare
-your marked block with the reference answer without changing anything, run
-`uv run python scripts/lab_state.py diff --lab N`; it shows the answer, so try
-the hints first.
+coding coach and the answer. Your saved runs are in `.local/lab-N/`. To see where
+your lab files differ from the reference answer without changing anything, run
+`uv run python scripts/diff.py`; it shows the answer, so try the hints first.
 
 In Lab 2, Task 2A repairs the rank contribution and Task 2B reads what
 reranking changed and compares three settings. In Lab 3, copy the

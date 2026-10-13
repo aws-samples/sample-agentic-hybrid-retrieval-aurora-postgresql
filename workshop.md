@@ -88,7 +88,9 @@ while `advance` refuses. A refusal names the first difference (for example
 column or table aliases, qualified columns, and either `mosaic_search` or
 `mosaic_live_search`. Live-check failures, in the terminal and in Prove, name the
 product and search method as Shop does and end in a command or a facilitator
-handoff; an apply error names the participant's file and line. A start whose
+handoff; an apply error names the participant's file and line, and
+`uv run python scripts/diff.py` shows in plain words where a lab file differs from
+the reference answer, inside and outside the markers. A start whose
 search already works records that instead of stopping, and repeating a request
 without a saved Before shows the search alone. Shop shows symptoms before
 diagnosis and does not credit pre-start searches as repairs.

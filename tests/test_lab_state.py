@@ -508,7 +508,7 @@ def test_solution_says_what_it_overwrote_and_the_next_commands(
 
     output = capsys.readouterr().out
     assert f"LAB{lab}_" in output and "overwrote" in output
-    assert "git diff" in output
+    assert "git diff" not in output
     assert expected in output
     if lab == 3:
         assert DEPLOY_AGENT in output and complete_lab_3() in output
@@ -633,3 +633,41 @@ def test_diff_names_the_participants_file_when_a_marker_is_gone(lab_repo: Path) 
         match=r"Lab diff rule: labs/lab2_rank/rrf_contribution.sql .*reset --lab 2",
     ):
         lab_diff(2, repo=lab_repo)
+
+
+def test_diff_tool_shows_only_the_lab_files_that_differ(lab_repo: Path) -> None:
+    from scripts import diff
+
+    set_lab_state(1, solved=False, repo=lab_repo)
+
+    text = diff.report(repo=lab_repo)
+
+    assert text.startswith(f"Lab 1: where your {LABS[1][0]} differs")
+    assert "Lab 2:" not in text and "Lab 3:" not in text
+
+
+def test_diff_tool_takes_a_lab_file_by_path_or_name(lab_repo: Path) -> None:
+    from scripts import diff
+
+    by_name = diff.report("hybrid_search.sql", repo=lab_repo)
+    by_path = diff.report(LABS[1][0], repo=lab_repo)
+
+    assert by_name == by_path
+    assert by_name.startswith(f"Lab 1: {LABS[1][0]} matches the reference answer")
+
+
+def test_diff_tool_says_when_every_file_matches(lab_repo: Path) -> None:
+    from scripts import diff
+
+    assert diff.report(repo=lab_repo) == (
+        "Every lab file matches the reference answer, inside and outside the markers."
+    )
+
+
+def test_diff_tool_names_the_lab_files_for_an_unknown_file(lab_repo: Path) -> None:
+    from scripts import diff
+
+    with pytest.raises(
+        ValueError, match=r"Diff rule: README.md is not a lab file.*hybrid_search"
+    ):
+        diff.report("README.md", repo=lab_repo)

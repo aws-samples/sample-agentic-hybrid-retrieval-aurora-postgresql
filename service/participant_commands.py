@@ -36,9 +36,8 @@ def solution(lab: int) -> str:
     return f"uv run python scripts/lab_state.py solution --lab {lab}"
 
 
-def diff(lab: int) -> str:
-    """Compare a lab's marked block with the reference answer; it prints the answer."""
-    return f"uv run python scripts/lab_state.py diff --lab {lab}"
+# Where your lab files differ from the reference answer; it prints the answer.
+DIFF = "uv run python scripts/diff.py"
 
 
 def validate(lab: int) -> str:

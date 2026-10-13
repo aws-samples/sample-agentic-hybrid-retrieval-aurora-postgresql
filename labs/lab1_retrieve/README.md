@@ -43,9 +43,9 @@ search), saves your passing evidence and prepares Lab 2.
 <details>
 <summary>🛠️ Compare with or install the reference answer</summary>
 
-`uv run python scripts/lab_state.py diff --lab 1` compares your marked block
-with the [reference answer](solution/hybrid_search.sql) and changes nothing; it
-shows the answer, so try the guide's hints first.
+`uv run python scripts/diff.py` shows where your file differs from the
+[reference answer](solution/hybrid_search.sql), inside and outside the markers,
+and changes nothing; it shows the answer, so try the guide's hints first.
 `uv run python scripts/lab_state.py solution --lab 1` overwrites your edit with
 the answer; apply and prove it as above.
 

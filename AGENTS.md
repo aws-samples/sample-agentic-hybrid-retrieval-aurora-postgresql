@@ -38,10 +38,10 @@ the supplied source rules, tools and execution hooks. Use a reset only when the
 participant asks to restart a lab. Use `uv run python scripts/lab_state.py
 solution --lab N` only when they explicitly request the full recovery path; it
 overwrites the exercise seam. When they ask to compare their edit with the
-reference answer, `uv run python scripts/lab_state.py diff --lab N` prints only
-the lines that differ, inside the marked block (against the answer) and outside it
-(against the original file), and changes nothing; it shows the answer, so offer a
-hint first.
+reference answer, `uv run python scripts/diff.py` prints only the lines that
+differ in the lab files, inside the marked block (against the answer) and outside
+it (against the original file), and changes nothing; it shows the answer, so offer
+a hint first.
 
 The terminal already loads this event's settings. Aurora, dependencies, API and
 UI are prepared: do not install a replacement stack or start duplicate servers.
@@ -75,7 +75,7 @@ The Makefile wraps them for maintainers only.
 | Enter a lab: save its failing request; Labs 2 and 3 also install their fault once | `uv run python scripts/lab_state.py start --lab N` |
 | Finish Lab 1: validate its repair, save passing evidence and prepare Lab 2 without discarding edits | `uv run python scripts/lab_state.py advance --lab 1` |
 | Discard one lab's edits and restore its starter, only when asked to restart | `uv run python scripts/lab_state.py reset --lab N` |
-| Compare the marked block with the reference answer, only when the participant asks (it shows the answer and changes nothing) | `uv run python scripts/lab_state.py diff --lab N` |
+| Show where the lab files differ from the reference answer, inside and outside the markers, only when the participant asks (it shows the answer and changes nothing) | `uv run python scripts/diff.py` |
 | Apply the participant's SQL repair in Labs 1 or 2 | `uv run python scripts/apply_search_functions.py` |
 | Check the saved source and the SQL Aurora last applied (Labs 1 and 2) | `uv run python scripts/lab_state.py validate --lab N --database-url "$DATABASE_URL"` |
 | Repeat the saved request against the repaired state; prints Before and After | `uv run python scripts/lab_terminal.py run --lab N --phase after` |

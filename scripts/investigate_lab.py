@@ -16,7 +16,12 @@ sys.path.insert(0, str(REPO))
 from scripts.validate_lab import LabValidationError, _request, _require
 from service import lab_checks
 from service.lab_checks import FACILITATOR
-from service.participant_commands import APPLY_SQL, repeat_request, validate_applied
+from service.participant_commands import (
+    APPLY_SQL,
+    DIFF,
+    repeat_request,
+    validate_applied,
+)
 
 #: What each pinned field of a saved run is, in the participant's words.
 RUN_FIELDS = {
@@ -74,7 +79,7 @@ def paired_searches(before: dict, after: dict, mission: dict) -> dict:
         f"product(s) {outside} among this search's candidates do not match the "
         "request's filters; a repair adds a branch and must not loosen any filter.\n"
         f"Next: {validate_applied(lab)}. If it passes, undo any edits outside the "
-        f"marked block (git diff shows them) and run {APPLY_SQL}.\n"
+        f"marked block ({DIFF} shows them) and run {APPLY_SQL}.\n"
         f"Then: {repeat_request(lab)}",
     )
     return {

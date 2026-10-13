@@ -73,7 +73,7 @@ from service.models import (
     SearchRequest,
     SearchResponse,
 )
-from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, prove
+from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, DIFF, prove
 from service.participant_commands import start as start_command
 from service.retrieval import get_retrieval_service
 from service.retrieval_fingerprint import (
@@ -183,8 +183,8 @@ def contained_database_state(
             detail=explain(
                 f"no Lab {lab_id} search function with the expected parameters in "
                 f"Aurora ({type(error).__name__})",
-                "if you changed lines outside the marked block, undo them (git diff "
-                f"shows them), then run {APPLY_SQL}; otherwise give this message to "
+                "if you changed lines outside the marked block, undo them "
+                f"({DIFF} shows them), then run {APPLY_SQL}; otherwise give this message to "
                 "your facilitator",
             ),
         )
