@@ -162,7 +162,7 @@ describe("CompletionProof", () => {
     // Lab 3 grades a persisted turn. Posting one with no run to name spends a
     // request to be told what the surface already knows.
     expect(api.labProof).toHaveBeenCalledTimes(2);
-    expect(labBlock(3).textContent).toContain("Run the agent in Reason first");
+    expect(labBlock(3).textContent).toContain("Run the Retrieval agent in Reason first");
     expect(labBlock(3).textContent).toContain("Needs Reason");
     expect(labBlock(3).textContent).not.toMatch(/\b03\b/);
   });
@@ -184,7 +184,7 @@ describe("CompletionProof", () => {
       expect(api.labProof).toHaveBeenCalledWith(3, { agent_run_id: AGENT_RUN }));
     expect(api.labProof).toHaveBeenCalledTimes(3);
     await waitFor(() => expect(labBlock(3).textContent).toContain("PASS"));
-    expect(labBlock(3).textContent).not.toContain("Run the agent in Reason first");
+    expect(labBlock(3).textContent).not.toContain("Run the Retrieval agent in Reason first");
   });
 
   it("reports both states and the event ids a passing proof produced", async () => {
@@ -377,7 +377,7 @@ describe("CompletionProof", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run completion proof for Lab 3" }));
 
     await waitFor(() => expect(labBlock(3).textContent).toContain("FAIL"));
-    expect(labBlock(3).textContent).toContain("run the agent in Reason, then prove this lab again");
+    expect(labBlock(3).textContent).toContain("run the Retrieval agent in Reason, then prove this lab again");
     expect(labBlock(3).textContent).not.toMatch(/\b03\b/);
   });
 
@@ -552,7 +552,7 @@ describe("CompletionProof", () => {
     // The row still states its prerequisite rather than spending a request to
     // be told what the surface already knows.
     expect(api.labProof).not.toHaveBeenCalled();
-    expect(labBlock(3).textContent).toContain("Run the agent in Reason first");
+    expect(labBlock(3).textContent).toContain("Run the Retrieval agent in Reason first");
   });
 
   it("marks the lab the participant is currently in", () => {

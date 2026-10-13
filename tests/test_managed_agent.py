@@ -362,7 +362,10 @@ def test_an_invocation_failure_names_the_aws_code(monkeypatch, source):
     with pytest.raises(AgentSetupError) as raised:
         transport.invoke("answer", AgentRequest(question="A monitor"))
     message = str(raised.value)
-    assert "Mosaic could not run the deployed agent (ThrottlingException)." in message
+    assert (
+        "Mosaic could not run the deployed Retrieval agent (ThrottlingException)."
+        in message
+    )
     assert DEPLOY_AGENT in message
 
 

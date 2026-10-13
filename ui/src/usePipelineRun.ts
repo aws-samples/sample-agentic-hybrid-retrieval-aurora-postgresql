@@ -187,7 +187,7 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
       setReceipts([{ id: response.search_event_id, response, origin: "reference" }]);
       setSavedResponse(response);
       setPhase(null);
-      setStatus("Search saved. Inspect its three retrieval phases, then ask the agent about the same need in Reason.");
+      setStatus("Search saved. Inspect its three retrieval phases, then ask the Retrieval agent about the same need in Reason.");
     } catch (cause: unknown) {
       if (current === version.current) {
         setError(cause instanceof Error ? cause.message : "The search could not finish.");

@@ -58,7 +58,7 @@ SELECT
     )"""
 LAB3_STARTER = f"""    # TODO(Lab 3): return a Strands Agent built from the supplied model, tools,
     # instructions (as system_prompt) and hooks, with callback_handler=None.
-    raise NotImplementedError("Build your Strands agent here, then deploy with {DEPLOY_AGENT}.")"""
+    raise NotImplementedError("Build your Retrieval agent here, then deploy with {DEPLOY_AGENT}.")"""
 
 
 class Block(NamedTuple):
@@ -678,7 +678,7 @@ LAB1_FUNCTION_SIGNATURE = """
 
 _LAB3_DETAIL = (
     f"Lab 3 builds {LAB3_AGENT}. Deploy with {DEPLOY_AGENT} to publish the "
-    "agent and SQL tools; deployed source must match before a run is accepted."
+    "Retrieval agent and SQL tools; deployed source must match before a run is accepted."
 )
 
 
@@ -940,7 +940,7 @@ def _validate_command(lab: int, database_url: str | None) -> int:
 
             raise SystemExit(AGENT_STARTER_MESSAGE)
         print(
-            "Lab 3: source assembled. This checks the file's shape, not your agent. "
+            "Lab 3: source assembled. This checks the file's shape, not your Retrieval agent. "
             f"Next: deploy with {DEPLOY_AGENT}, ask Alex's request in Ask Mosaic, "
             f"then check the saved run with {complete_lab_3()}."
         )

@@ -14,21 +14,21 @@ afterEach(cleanup);
  * command constants substituted. Only the first two are next steps for the
  * participant; the rest report a deployment or Gateway fault.
  */
-const STARTER = "Your agent is not built yet. Open labs/lab3_reason/agent.py in Code Editor and "
+const STARTER = "Your Retrieval agent is not built yet. Open labs/lab3_reason/agent.py in Code Editor and "
   + "complete create_agent with the supplied model, tools, instructions and hooks. "
   + `Next: deploy with ${DEPLOY_AGENT}, then ask your question again.`;
-const TOOLS = "Your agent is missing its Mosaic tools. Open labs/lab3_reason/agent.py in Code "
+const TOOLS = "Your Retrieval agent is missing its Mosaic tools. Open labs/lab3_reason/agent.py in Code "
   + "Editor and pass the supplied tools to Agent. "
   + `Next: deploy with ${DEPLOY_AGENT}, then ask your question again.`;
 
 const FAULTS = [
-  "The deployed agent rejected this request. For a follow-up, clear chat and retry with a new "
+  "The deployed Retrieval agent rejected this request. For a follow-up, clear chat and retry with a new "
   + `question. Otherwise, check the deployment with ${VERIFY_AGENT} in Code Editor; if it reports `
   + `changed code, deploy with ${DEPLOY_AGENT}.`,
   `Mosaic could not run the deployed agent. In Code Editor, check the deployment with ${VERIFY_AGENT}. `
   + `If you changed code, deploy with ${DEPLOY_AGENT} first. Next: retry your question; if `
   + "deployment fails, share the terminal message with your facilitator.",
-  "The agent could not reach its SQL tools through Gateway. In Code Editor, check the deployment "
+  "The Retrieval agent could not reach its SQL tools through Gateway. In Code Editor, check the deployment "
   + `with ${VERIFY_AGENT}. Next: share a failed deployment check with your facilitator, or retry `
   + "your question if the check passes.",
   `Gateway returned an unreadable tool response. Next: check the deployment with ${VERIFY_AGENT} in `

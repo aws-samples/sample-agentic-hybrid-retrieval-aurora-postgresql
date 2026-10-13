@@ -10,14 +10,14 @@ Each lab is two tasks, and every task runs the same way:
    fixed, so the before and after compare the same thing.
 2. **Why.** Read the record that explains the failure before you open any code.
 3. **Build.** Edit only the marked block, then apply the SQL or deploy the
-   agent. Saving the file changes nothing until you do.
+   Retrieval agent. Saving the file changes nothing until you do.
 4. **Prove it.** Repeat the identical request and finish on the guide's check.
 
 | Explorer group | Lab | File to edit |
 |---|---|---|
 | **01 - Retrieve** | Debug hybrid search | [hybrid_search.sql](labs/lab1_retrieve/hybrid_search.sql) |
 | **02 - Rank and re-rank** | Tune rank fusion and reranking | [rrf_contribution.sql](labs/lab2_rank/rrf_contribution.sql) |
-| **03 - Reason** | Build and deploy the agent | [agent.py](labs/lab3_reason/agent.py) |
+| **03 - Reason** | Build and deploy the Retrieval agent | [agent.py](labs/lab3_reason/agent.py) |
 
 **04 - Explore Mosaic source** is the whole repository; the three groups above
 it are shortcuts to the same files. Every terminal starts at the repository
@@ -34,7 +34,7 @@ anything, run `uv run python scripts/diff.py`; it does not print the answer.
 
 In Lab 2, Task 2A repairs the rank contribution and Task 2B reads what
 reranking changed and compares three settings. In Lab 3, copy the
-**Agent record** ID of your original setup run before you ask any follow-up:
+**Retrieval agent record** ID of your original setup run before you ask any follow-up:
 completion checks that run.
 
 After the labs, open **Playground → Take this retrieval into your own agent**

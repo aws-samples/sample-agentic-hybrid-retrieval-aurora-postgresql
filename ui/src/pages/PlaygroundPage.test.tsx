@@ -303,7 +303,7 @@ it("shows the actual rank movement from the agent receipt, then clears it when r
   expect(screen.getAllByLabelText("#27 before rerank, #1 in the final order")).toHaveLength(1);
   expect(screen.getByRole("button", { name: "Why the order changed" }).getAttribute("aria-expanded")).toBe("true");
   expect(screen.getByText("The recorded answer.")).toBeTruthy();
-  expect(screen.getByText("One of the agent’s picks.")).toBeTruthy();
+  expect(screen.getByText("One of the Retrieval agent’s picks.")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "More screen space" }));
   expect(screen.queryByLabelText("#27 before rerank, #1 in the final order")).toBeNull();
   expect(screen.queryByRole("region", { name: "Product ranking details" })).toBeNull();
@@ -445,7 +445,7 @@ it("says when the agent declined the search's first result, and reads the search
   render(<PlaygroundPage />);
   fireEvent.click(screen.getByRole("button", { name: "Ask about this need" }));
   const lead = await screen.findByRole("region", { name: "First search result" });
-  expect(within(lead).getByText("Not recommended: the agent’s sources did not support a choice.")).toBeTruthy();
+  expect(within(lead).getByText("Not recommended: the Retrieval agent’s sources did not support a choice.")).toBeTruthy();
   expect(within(lead).getByText("Search 1 · First returned result")).toBeTruthy();
   expect(lead.textContent).not.toMatch(/#1|#null/);
   fireEvent.click(screen.getByText("Search record and interpretation"));
@@ -499,7 +499,7 @@ it("traces an omitted first result separately from a final choice in another sea
   fireEvent.click(screen.getByRole("button", { name: "Ask about this need" }));
   const summary = await screen.findByRole("region", { name: "Mosaic’s final answer" });
   expect(summary.textContent).toContain("2 searches · 1 product in the answer · 1 cited source");
-  expect(within(screen.getByRole("region", { name: "First search result" })).getByText("Not among the agent’s picks.")).toBeTruthy();
+  expect(within(screen.getByRole("region", { name: "First search result" })).getByText("Not among the Retrieval agent’s picks.")).toBeTruthy();
   fireEvent.click(within(summary).getByText("Trace all returned products"));
   const rows = within(summary).getAllByRole("row").slice(1);
   expect(within(rows[0]).getAllByRole("cell").map((cell) => cell.textContent)).toEqual(["Search 1 · #1", "No", "None", "Not included"]);

@@ -18,9 +18,9 @@ export function foundBySentence(product: ProductSummary): string | null {
 export type AgentVerdict = "picked" | "not-picked" | "declined" | null;
 
 const VERDICT: Record<Exclude<AgentVerdict, null>, string> = {
-  picked: "One of the agent’s picks.",
-  "not-picked": "Not among the agent’s picks.",
-  declined: "Not recommended: the agent’s sources did not support a choice.",
+  picked: "One of the Retrieval agent’s picks.",
+  "not-picked": "Not among the Retrieval agent’s picks.",
+  declined: "Not recommended: the Retrieval agent’s sources did not support a choice.",
 };
 const rank = (value: number | null | undefined) => (value == null ? null : `#${value}`);
 

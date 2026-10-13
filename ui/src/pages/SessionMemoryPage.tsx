@@ -204,7 +204,7 @@ export function SessionMemoryPage() {
           <h2 id="memory-recall-heading">Alex comes back another day.</h2>
           <p>Once a preference record is visible, start a new session here. Keep memory on and choose Ask Mosaic. The answer should use the saved preference and cite fresh product records.</p>
           <button type="button" className="secondary-button" onClick={startNew} disabled={locked}>Start a new session for this question</button>
-          <p><strong>Find relevant memories</strong> only previews saved records. <strong>Ask Mosaic</strong> runs the agent and writes an answer.</p>
+          <p><strong>Find relevant memories</strong> only previews saved records. <strong>Ask Mosaic</strong> runs the Retrieval agent and writes an answer.</p>
           <details className="memory-lab-checkpoints">
             <summary>Walk through the memory checks</summary>
             <ol className="memory-rehearsal">{memoryLab.checkpoints.map((checkpoint) => <li key={checkpoint}>{checkpoint}</li>)}</ol>
@@ -237,7 +237,7 @@ export function SessionMemoryPage() {
           {earlierTurns.length > 0 && <details key={selected} className="memory-history"><summary>Earlier answers · {earlierTurns.length}</summary>{earlierTurns.map((turn) => <Turn key={turn.run_id} turn={turn} />)}</details>}
         </div>
       </section>
-      <details className="memory-beyond"><summary>Change how memories are created</summary><div><p><strong>Customize the built-in options.</strong> Change the instructions for finding useful details and updating saved records, or choose a different Bedrock model. AgentCore runs the process.</p><p><strong>Run your own process.</strong> Decide what to remember and write records through the memory APIs. Mosaic uses the four built-in options shown above; this is an extension you can build.</p><p><strong>Runtime and Gateway.</strong> Runtime hosts an agent; Gateway connects tools. They are separate from this Memory connection.</p><a href="https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory-strategies.html" target="_blank" rel="noreferrer">Read about AgentCore memory options</a></div></details>
+      <details className="memory-beyond"><summary>Change how memories are created</summary><div><p><strong>Customize the built-in options.</strong> Change the instructions for finding useful details and updating saved records, or choose a different Bedrock model. AgentCore runs the process.</p><p><strong>Run your own process.</strong> Decide what to remember and write records through the memory APIs. Mosaic uses the four built-in options shown above; this is an extension you can build.</p><p><strong>Runtime and Gateway.</strong> Runtime hosts the Retrieval agent; Gateway connects tools. They are separate from this Memory connection.</p><a href="https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/memory-strategies.html" target="_blank" rel="noreferrer">Read about AgentCore memory options</a></div></details>
     </>}
   </div>;
 }

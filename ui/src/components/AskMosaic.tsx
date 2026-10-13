@@ -286,7 +286,7 @@ export function AskMosaic({
           <span className="ask-mosaic-mark" aria-hidden="true"><Sparkles size={16} /></span>
           <div className="ask-mosaic-heading">
             <h2 id="ask-mosaic-title">Ask Mosaic</h2>
-            <p>Answers from the catalog, with sources</p>
+            <p>The Retrieval agent: answers from the catalog, with sources</p>
           </div>
           <button
             className="ask-switch"

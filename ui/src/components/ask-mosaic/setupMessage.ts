@@ -6,8 +6,8 @@ import { DEPLOY_AGENT, VERIFY_AGENT } from "../../participantCommands";
  * Gateway fault, which is an outage to read in full, not a to-do.
  */
 const SETUP_CARD_LEADS = [
-  "Your agent is not built yet.",
-  "Your agent is missing its Mosaic tools.",
+  "Your Retrieval agent is not built yet.",
+  "Your Retrieval agent is missing its Mosaic tools.",
 ];
 
 export function isSetupCardMessage(detail: string): boolean {

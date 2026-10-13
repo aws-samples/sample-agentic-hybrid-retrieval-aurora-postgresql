@@ -4,7 +4,7 @@ const isReview = (record: EvidenceRecord) => record.evidence_type.includes("revi
 
 /** Compare the snapshots read in this run, without fetching different sources afterward. */
 export function SourceComparison({ answer }: { answer: AgentResponse }) {
-  if (answer.retrieved_evidence === undefined) return <p className="inspector-note">This saved response contains citations only. Start a new run to compare all the sources the agent reads.</p>;
+  if (answer.retrieved_evidence === undefined) return <p className="inspector-note">This saved response contains citations only. Start a new run to compare all the sources the Retrieval agent reads.</p>;
   return <div className="inspector-source-comparison">
     <p>Specifications describe the product. Reviews describe an experience. Check whether each source supports the benefit Alex needs.</p>
     <p className="inspector-note">Mosaic’s catalog and reviews are sample data. “Cited” means the answer refers to that record; it does not prove every claim.</p>

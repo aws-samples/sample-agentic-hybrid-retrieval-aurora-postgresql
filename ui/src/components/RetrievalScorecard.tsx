@@ -279,8 +279,8 @@ function RetrievalQualitySection({
           <code>{quality.excluded_agent_contract_query_ids.join(", ")}</code>{" "}
           {quality.excluded_agent_contract_query_ids.length === 1 ? "is" : "are"}{" "}
           not: {quality.excluded_agent_contract_query_ids.length === 1
-            ? "it is an agent conversation"
-            : "they are agent conversations"}{" "}
+            ? "it is a Retrieval agent conversation"
+            : "they are Retrieval agent conversations"}{" "}
           with several steps (planning, comparing, looking up evidence, and
           writing a cited answer) rather than one search, so a search score
           would measure the wrong thing. Section D checks{" "}
@@ -420,11 +420,11 @@ function AgentContractsSection({
       <ScorecardSectionHeading
         id="scorecard-agent-title"
         index="D"
-        question="Did the agent use only allowed products and sources?"
-        technicalName="Evidence rules the agent follows"
+        question="Did the Retrieval agent use only allowed products and sources?"
+        technicalName="Evidence rules the Retrieval agent follows"
       />
       <p className="labs-contract-note">
-        Rules the agent must follow on every run. Each rule and its failure
+        Rules the Retrieval agent must follow on every run. Each rule and its failure
         condition is read from the code that enforces it, not written for this
         page. No search score and no AI judge is used here.
       </p>

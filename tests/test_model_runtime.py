@@ -2176,7 +2176,8 @@ def test_agent_stream_does_not_expose_exception_text(monkeypatch, caplog):
     assert "error_type=RuntimeError" in caplog.text
     assert "RuntimeError" not in stream.text
     assert (
-        "Agent response failed. Retry after checking the runtime and retrieval service."
+        "Retrieval agent response failed. Retry after checking the runtime and "
+        "retrieval service."
     ) in stream.text
 
 

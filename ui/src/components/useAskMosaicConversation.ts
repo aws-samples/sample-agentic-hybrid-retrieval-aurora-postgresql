@@ -195,7 +195,7 @@ export function useAskMosaicConversation(
       patch({
         completed: false,
         stageDetail: needsSetup
-          ? "This step needs your agent set up first. Follow the next step below."
+          ? "This step needs your Retrieval agent set up first. Follow the next step below."
           : "This step did not finish. Review the error below and retry.",
         error: message,
         errorCode: code,

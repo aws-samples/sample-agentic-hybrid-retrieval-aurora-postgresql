@@ -37,7 +37,7 @@ export function RunSummary({ answer, receipts, onInspect }: {
         ? <button type="button" aria-label={`Trace ${product.title}`} onClick={() => onInspect(match.id, product.product_id)}>{traceName(product)}<span>Search {match.search}{match.rank == null ? "" : ` · #${match.rank}`}</span></button>
         : <span>{traceName(product)}<small>{unavailable ? "Search details unavailable" : "Not in the recorded search results"}</small></span>}</li>;
     })}</ul> : null}
-    <p className="pg-summary-note">Retrieve, Rank and Re-rank inspect one search at a time. The final answer links to the agent’s searches; an original reference search stays separately labeled.</p>
+    <p className="pg-summary-note">Retrieve, Rank and Re-rank inspect one search at a time. The final answer links to the Retrieval agent’s searches; an original reference search stays separately labeled.</p>
     {products.size ? <details className="pg-product-trace">
       <summary>Trace all returned products</summary>
       <div className="pg-trace-scroll" role="region" aria-label="Product trace across searches" tabIndex={0}>

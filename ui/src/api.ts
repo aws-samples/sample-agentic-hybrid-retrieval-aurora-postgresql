@@ -236,7 +236,7 @@ export const api = {
       }),
     });
     if (!response.ok) throw await streamResponseError(response);
-    if (!response.body) throw new ApiError(503, "Agent stream was unavailable");
+    if (!response.body) throw new ApiError(503, "Retrieval agent stream was unavailable");
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -257,7 +257,7 @@ export const api = {
             if (parsed.event === "error") {
               throw new ApiError(
                 typeof payload.status === "number" ? payload.status : 503,
-                String(payload.detail ?? "Agent stream failed"),
+                String(payload.detail ?? "Retrieval agent stream failed"),
                 typeof payload.agent_run_id === "string" ? payload.agent_run_id : undefined,
                 typeof payload.code === "string" ? payload.code : undefined,
               );
@@ -291,7 +291,7 @@ export const api = {
         if (done) {
           throw new ApiError(
             503,
-            "Agent stream ended before the completion event was received",
+            "Retrieval agent stream ended before the completion event was received",
           );
         }
       }

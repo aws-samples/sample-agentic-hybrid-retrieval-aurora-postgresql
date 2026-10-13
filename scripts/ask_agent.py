@@ -1,12 +1,12 @@
-"""Ask your deployed agent one question from the terminal and print its answer of record.
+"""Ask your deployed Retrieval agent one question from the terminal and print its answer of record.
 
     uv run python scripts/ask_agent.py "QUESTION"
 
-The question goes through the same API route as Ask Mosaic, so it reaches your agent on
-AgentCore Runtime. The output shows the answer, the searches the agent planned with the
+The question goes through the same API route as Ask Mosaic, so it reaches your Retrieval agent on
+AgentCore Runtime. The output shows the answer, the searches the Retrieval agent planned with the
 filters it chose, the tool trace, the products, each citation's type, product, source
 and quote, the outcome, any decline reason and the run ID. The trace names each catalog
-tool's route (through AgentCore Gateway when the agent is deployed) and, under each
+tool's route (through AgentCore Gateway when the Retrieval agent is deployed) and, under each
 search, whether Aurora ran the search SQL in your lab files. A declined answer is an
 answer of record, not a failure: every run is saved in mosaic.agent_turn and its tool
 calls in mosaic.agent_tool_event.
@@ -158,7 +158,7 @@ def main(argv: list[str] | None = None) -> int:
             args.api_url, "/api/agent/answer", {"question": args.question}
         )
     except LabValidationError as error:
-        print(f"Agent request failed: {error}", file=sys.stderr)
+        print(f"Retrieval agent request failed: {error}", file=sys.stderr)
         return 1
     print(render(response))
     return 0

@@ -10,17 +10,17 @@ and saved vectors; they do not generate product data or rebuild embeddings.
 |---|---|---|
 | 1 · Retrieve | Restore the fuzzy matching SQL path (a vector recall query is optional) | Recover Alex's saved Logitech listing and compare exact and approximate neighbors |
 | 2 · Rank | Implement reciprocal-rank fusion in SQL and evaluate one setting change | Keep the ViewSonic monitor in the shortlist sent to reranking |
-| 3 · Build an agent | Assemble a Strands agent, connect its Gateway tools and deploy to Runtime | Compare headphones, monitor and chair, cite each product’s sources and respond to a changed requirement |
+| 3 · Build the Retrieval agent | Assemble the Retrieval agent, connect its Gateway tools and deploy to Runtime | Compare headphones, monitor and chair, cite each product’s sources and respond to a changed requirement |
 
 Labs 1 and 2 use direct `psql` investigations and production search checks. Lab 3
-is a practical agent build. Participants complete `create_agent` in
+is a practical Retrieval agent build. Participants complete `create_agent` in
 `labs/lab3_reason/agent.py`, add a useful instruction and run `uv run python scripts/deploy_agentcore.py deploy`.
 They do not write tests or a claims query in Lab 3.
 
 ## Architecture
 
 Aurora owns products, vectors, hybrid search, fusion, evidence and run records.
-Bedrock provides embedding, reranking and answer models. The Strands agent runs
+Bedrock provides embedding, reranking and answer models. The Retrieval agent runs
 in AgentCore Runtime and calls SQL capabilities through AgentCore Gateway over
 MCP. A separate tools Runtime executes the SQL against Aurora in the VPC.
 AgentCore Memory is connected with semantic, preference, summary and episodic

@@ -134,11 +134,13 @@ def test_resources_names_each_piece_with_its_role_and_state(control, capsys):
     deploy.resources()
 
     out = capsys.readouterr().out
-    assert "Agent runtime   MosaicAgent_ab12   READY   version 2" in out
-    assert "Tools runtime   MosaicTools_ab12   READY   version 2" in out
-    assert "Gateway         mosaic-gateway   READY   MCP" in out
+    assert (
+        f"{'Retrieval agent runtime':<24} MosaicAgent_ab12   READY   version 2" in out
+    )
+    assert f"{'Tools runtime':<24} MosaicTools_ab12   READY   version 2" in out
+    assert f"{'Gateway':<24} mosaic-gateway   READY   MCP" in out
     assert "target mosaic, READY" in out
-    assert "Memory          MosaicMemory   ACTIVE" in out
+    assert f"{'Memory':<24} MosaicMemory   ACTIVE" in out
     assert "WorkspacePreferences (USER_PREFERENCE)" in out
     assert "synthesize_cited_answer" in out
     assert "123456789012" not in out
@@ -150,7 +152,7 @@ def test_an_event_without_memory_says_it_is_optional(control, capsys, monkeypatc
 
     deploy.resources()
 
-    assert "Memory          not configured (optional)" in capsys.readouterr().out
+    assert f"{'Memory':<24} not configured (optional)" in capsys.readouterr().out
 
 
 def test_a_missing_runtime_setting_names_the_variable(control, monkeypatch):

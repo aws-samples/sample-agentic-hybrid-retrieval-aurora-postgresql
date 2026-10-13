@@ -143,7 +143,7 @@ def _install_fault(lab: int, repo: Path, record: dict[str, Any], say: Say) -> No
         record["steps"]["fault"] = {"state": "installing", "before": current}
         _save(lab, repo, record)
         set_lab_state(lab, solved=False, repo=repo)
-        installed = "the agent starter" if lab == 3 else f"Lab {lab}'s fault"
+        installed = "the Retrieval agent starter" if lab == 3 else f"Lab {lab}'s fault"
         say(f"Installed {installed} in {LABS[lab][0]}.")
     record["steps"]["fault"] = {
         "state": "done",
@@ -220,7 +220,7 @@ def _capture(
         from service.agent_setup import AGENT_STARTER_MESSAGE
 
         evidence = {"state": "done", "agent_refusal": AGENT_STARTER_MESSAGE}
-        say(f"Mosaic now refuses agent requests: {AGENT_STARTER_MESSAGE}")
+        say(f"Mosaic now refuses Retrieval agent requests: {AGENT_STARTER_MESSAGE}")
     else:
         applied = validate_database(lab, connection, repo=repo)
         evidence = _failing_search_evidence(lab, applied, api_url, repo, say)

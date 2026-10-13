@@ -6,11 +6,11 @@ export function AgentSetupCard({ detail }: { detail: string }) {
   const { prose, command } = splitSetupCommand(detail);
   return (
     <section
-      aria-label="Finish setting up your agent"
+      aria-label="Finish setting up your Retrieval agent"
       className="ask-mosaic-setup"
       role="status"
     >
-      <strong>Finish setting up your agent</strong>
+      <strong>Finish setting up your Retrieval agent</strong>
       <span>{prose}</span>
       {command ? (
         <>

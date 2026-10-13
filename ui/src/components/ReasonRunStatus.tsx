@@ -36,13 +36,13 @@ export function ReasonRunStatus({
 
   const elapsed = Math.max(0, Math.floor(((finishedAt ?? now) - startedAt) / 1000));
   const title = error ? "Run interrupted"
-    : loading ? phase ? phaseLabels[phase.id] : "Starting the agent"
+    : loading ? phase ? phaseLabels[phase.id] : "Starting the Retrieval agent"
       : declined ? "Request declined" : "Answer recorded";
   const detail = error ? phase
     ? `Last reported stage: ${phaseLabels[phase.id]}. Inspect the available records below.`
     : "The run did not complete. Inspect the recorded activity below."
     : loading ? phase?.detail ?? "Waiting for the first progress update from the service."
-      : declined ? "The agent completed without a matching recommendation."
+      : declined ? "The Retrieval agent completed without a matching recommendation."
         : "The answer, searches and sources are ready to inspect.";
 
   return (
@@ -61,7 +61,7 @@ export function ReasonRunStatus({
         </span>
       </div>
       <div className="labs-reason-run-meta">
-        <dl aria-label="Agent run figures">
+        <dl aria-label="Retrieval agent run figures">
           <div><dt>Searches</dt><dd>{searchCount}</dd></div>
           <div><dt>Products in view</dt><dd>{productCount}</dd></div>
           <div><dt>Tool calls</dt><dd>{toolCount}</dd></div>

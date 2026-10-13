@@ -43,7 +43,7 @@ const TOOL_TAGS: Record<string, StepTag[]> = {
   explain_retrieval: [{ label: "Saved receipts", stage: null }],
   get_product_evidence: [{ label: "Aurora evidence", stage: "retrieve" }],
   synthesize_cited_answer: [
-    { label: "Agent", stage: "reason" },
+    { label: "Retrieval agent", stage: "reason" },
     { label: "Citation checks", stage: "reason" },
   ],
 };
@@ -97,7 +97,7 @@ function planStep(plan: AgentPlanStep[]): BuilderStep {
   return {
     key: "plan",
     tool: "plan",
-    tags: [{ label: "Agent", stage: "reason" }],
+    tags: [{ label: "Retrieval agent", stage: "reason" }],
     meta: `${plan.length} ${plan.length === 1 ? "search" : "searches"}`,
     args: plan
       .map((step) => (

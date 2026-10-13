@@ -156,19 +156,19 @@ formula. Use those as controls, not as visible repair demonstrations. The
 [example library](real-catalog-exercise-library.md) includes successes,
 unchanged results and an unsuccessful wording variant.
 
-### Lab 3: Reason - Build and deploy the agent
+### Lab 3: Reason - Build and deploy the Retrieval agent
 
 Participants extend their SQL from Labs 1 and 2. They list the Gateway tools,
 complete `create_agent` in `labs/lab3_reason/agent.py`, add one source-aware instruction,
 and run `uv run python scripts/deploy_agentcore.py deploy`. The managed services and networking are prepared.
 
 Show the deployment message, then ask **Complete my setup** in Playground → Reason.
-The agent searches for Alex's missing chair and brings it together with his Logitech
+The Retrieval agent searches for Alex's missing chair and brings it together with his Logitech
 headphones and ViewSonic monitor. Open a citation and compare the recommendation
 with its source. Follow up in Ask Mosaic with a 100W laptop-charging requirement; the
 monitor's 90W record must not be presented as meeting 100W.
 
-Participants build and use the agent. They do not write tests or a claims query.
+Participants build and use the Retrieval agent. They do not write tests or a claims query.
 The completion command `uv run python scripts/complete_agent.py --run-id ...` rechecks the actual run,
 its deployed source and its SQL searches without another model invocation.
 
@@ -179,7 +179,7 @@ HNSW quality is workload-specific. The required path proves candidate inclusion 
 rushed fourth lab.
 
 After Lab 3, name the deployed boundaries: Aurora runs retrieval and stores
-evidence; Strands chooses tools; AgentCore Runtime hosts the agent and SQL tool
+evidence; Strands chooses tools; AgentCore Runtime hosts the Retrieval agent and SQL tool
 service; Gateway exposes those tools over MCP; Memory supplies conversation
 context. Product facts still come from Aurora.
 
@@ -221,8 +221,8 @@ plans and measured comparisons beside the lab that uses them.
 | 01:00-02:30 | A search that misses | Run the correct and transposed listing-ID requests with identical filters. Save the broken search. | Lead |
 | 02:30-04:00 | Retrieve | Show the three search methods and ask which record would locate the missing product. A reranker cannot add a product it never receives. | Technical |
 | 04:00-05:30 | Rank | Ask how we know fusion worked if a monitor finishes well. Participants will restore `1 / (k + rank)` and defend a setting on judged queries. | Technical |
-| 05:30-07:00 | Reason | Preview the final request below. Do not start a long agent run in the opening. | Lead |
-| 07:00-08:30 | Who owns each decision | Aurora retrieves, filters and saves records. Bedrock supplies embeddings, reranking and the agent model. The application validates tool calls and citations. Show one saved search ID. | Aurora presenter |
+| 05:30-07:00 | Reason | Preview the final request below. Do not start a long Retrieval agent run in the opening. | Lead |
+| 07:00-08:30 | Who owns each decision | Aurora retrieves, filters and saves records. Bedrock supplies embeddings, reranking and the Retrieval agent's model. The application validates tool calls and citations. Show one saved search ID. | Aurora presenter |
 | 08:30-10:00 | Your work and its proof | Open the guide and both work surfaces. Predict, observe, diagnose, repair, repeat the same request, explain the change. Required work finishes by minute 50. | Lead |
 
 Lab 3's request, from the manifest:
@@ -248,14 +248,14 @@ participant's prediction and finish with the observed result.
 |---|---|---|---|
 | Lab 1: Retrieve - Debug hybrid search | The filters are correct. Why might vector search still return too few eligible products? | Applied filters, returned counts and, if recorded, the plan with scan settings, rows and buffers | Eligibility does not establish coverage. HNSW can visit rows that fail a filter, and iterative scanning explores further within its limits. An opaque function scan does not reveal its index. |
 | Lab 2: Rank and re-rank - Tune rank fusion and reranking | The final winner looks right. What proves fusion worked, and what justifies the reranker? | Different source ranks, their contributions, combined and final positions, and the judged-query comparison | A correct winner cannot certify the formula. Count improvements and regressions on the judged queries; repairing RRF saves no model call. |
-| Lab 3: Reason - Build and deploy the agent | The citation opens. Which words support this particular requirement? | One claim, its source type and revision, the product and its saved search | A specification and a review answer different questions. Registering evidence permits a citation; it does not establish that a sentence follows from it. Say what remains unknown. |
+| Lab 3: Reason - Build and deploy the Retrieval agent | The citation opens. Which words support this particular requirement? | One claim, its source type and revision, the product and its saved search | A specification and a review answer different questions. Registering evidence permits a citation; it does not establish that a sentence follows from it. Say what remains unknown. |
 
 In Lab 3, also point to the separate searches for the headphones, monitor and
 chair, and identify which calls the model requested and which the application
 started. Playground's **Steps and sources** reports these separately and shows
 **Origin not recorded** for steps that lack the field. Tool activity records
 actions; it is not a transcript of model reasoning. If time is tight, use the
-existing runs and ask one question per lab. Do not launch another agent run or
+existing runs and ask one question per lab. Do not launch another Retrieval agent run or
 open the HNSW exercise to fill a speaking cue.
 
 ### Reading the proof
@@ -305,7 +305,7 @@ talk slots; one person can cover several roles.
 |---|---|---|
 | Lead presenter | Customer story, clock, projected browser and transitions | What changed for Alex, and which record shows it? |
 | SQL presenter | Candidate paths, filtering, fusion arithmetic and plan reading | Does the SQL or plan support the database claim? |
-| Agent presenter | Tool decisions, application checks, source comparison and claim support | Which action did the model request, and what could the application refuse? |
+| Retrieval agent presenter | Tool decisions, application checks, source comparison and claim support | Which action did the model request, and what could the application refuse? |
 | Room support | Navigation, syntax recovery, validator results and Hint 4 pacing | Can the participant explain the repair using their own result? |
 | Technical reviewer | Challenging database, ranking and answer claims during rehearsal | Does the plan support the claim, does the measurement justify the setting, does the source support the answer? |
 

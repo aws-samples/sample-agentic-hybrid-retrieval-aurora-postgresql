@@ -106,10 +106,10 @@ turn-local: retrieving scoped evidence does not authorize it for synthesis.
 ## Managed Gateway and the portable adapter
 
 The workshop provisions [AgentCore Runtime](agentcore-runtime.md) and Gateway
-for Lab 3. Its agent uses the signed Gateway MCP endpoint and the supplied
+for Lab 3. Its Retrieval agent uses the signed Gateway MCP endpoint and the supplied
 execution hooks; those tools preserve per-turn evidence authorization. A generic
 client needs support for that endpoint's IAM authentication. Do not replace the
-managed agent's execution hooks with a bare MCP client.
+managed Retrieval agent's execution hooks with a bare MCP client.
 
 The separate `mcp-server` package above exposes search, evidence, comparison and
 inspection through the existing HTTP API. Keep its default loopback listener

@@ -22,7 +22,7 @@ Follow the three linked steps at the top of the page:
    extraction time, and saving an event alone does not prove this step complete.
 3. **Ask in a new session.** Use **Start a new session for this question** beside
    the question area. **Find relevant memories** previews records; **Ask Mosaic**
-   runs the agent with the selected memory setting and fresh product retrieval.
+   runs the Retrieval agent with the selected memory setting and fresh product retrieval.
 
 A failed request shows its recovery message beside the question, replacing the
 idle prompt. A completed streamed answer stays visible even if loading the saved
@@ -46,7 +46,7 @@ and documentation**. Structured records show a source-supplied preview when
 available, with the complete original retained under **Record details**.
 The table below maps the interface to the AgentCore API types.
 
-| Built-in strategy | What the agent uses it for | Recall scope |
+| Built-in strategy | What the Retrieval agent uses it for | Recall scope |
 |---|---|---|
 | Semantic | Understand facts Alex shared, such as sharing an office | Across this actor's sessions |
 | User preference | Apply Alex's preferences when shaping a new search | Across this actor's sessions |
@@ -127,9 +127,9 @@ Same-session Ask requests read recent conversation events and can resume the
 prior Aurora shortlist. A new session starts with no previous events or
 shortlist; facts, preferences and episodic reflections remain retrievable under the same actor.
 Session summaries and episode records are retrieved only for an owned current session.
-All four strategies feed the agent prompt with their strategy type and record ID;
+All four strategies feed the Retrieval agent prompt with their strategy type and record ID;
 the UI and Aurora receipt expose the records actually used.
-The agent, answerability review and cited-answer synthesis receive the same
+The Retrieval agent, answerability review and cited-answer synthesis receive the same
 bounded memory context, with the current message taking priority. Remembered
 preferences explain the shopper's needs; retrieved sources must establish a
 product's ability to meet them. Memory stays untrusted and cannot authorize a

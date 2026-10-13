@@ -101,7 +101,7 @@ describe("agentStream", () => {
 
   it("keeps the agent setup code so the panel can show the next step", async () => {
     vi.stubGlobal("fetch", streamFetch(sseResponse([
-      'event: error\ndata: {"code":"agent_setup","detail":"Your agent is not built yet.","agent_run_id":"setup-run"}\n\n',
+      'event: error\ndata: {"code":"agent_setup","detail":"Your Retrieval agent is not built yet.","agent_run_id":"setup-run"}\n\n',
     ])));
     await expect(api.agentStream("question", {}, () => {})).rejects.toMatchObject({
       code: "agent_setup", status: 503, agentRunId: "setup-run",
@@ -127,7 +127,7 @@ describe("agentStream", () => {
     expect(error).toBeInstanceOf(ApiError);
     expect(error).toMatchObject({
       status: 503,
-      message: "Agent stream ended before the completion event was received",
+      message: "Retrieval agent stream ended before the completion event was received",
     });
     expect(events.map((event) => event.type)).toEqual([
       "answer_start",

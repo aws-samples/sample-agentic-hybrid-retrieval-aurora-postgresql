@@ -1,4 +1,4 @@
-"""Check one sentence against the agent's answer-of-record rules, citing a product's listing.
+"""Check one sentence against the Retrieval agent's answer-of-record rules, citing a product's listing.
 
     uv run python scripts/check_claim.py PRODUCT_ID "A SENTENCE THAT CITES [1]"
 

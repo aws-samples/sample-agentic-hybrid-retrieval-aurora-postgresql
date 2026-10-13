@@ -7,7 +7,7 @@ flowchart LR
     UI[Mosaic browser] --> CF[CloudFront]
     CF --> API[Mosaic API on EC2]
     API -->|Shop search| SEARCH[Search orchestration]
-    API -->|IAM invocation| AGENT[Strands agent on AgentCore Runtime]
+    API -->|IAM invocation| AGENT[Retrieval agent on AgentCore Runtime]
     AGENT -->|IAM-signed MCP| GW[AgentCore Gateway]
     GW --> TOOLS[SQL tools on a separate Runtime]
     TOOLS --> SEARCH
@@ -24,7 +24,7 @@ flowchart LR
 ```
 
 The required workshop deploys Runtime and Gateway. Shop calls retrieval through
-the EC2 API; Ask Mosaic invokes the managed agent, which reaches the same SQL
+the EC2 API; Ask Mosaic invokes the managed Retrieval agent, which reaches the same SQL
 capabilities through Gateway. The API and tools coordinate Bedrock calls;
 Aurora executes filtering, candidate retrieval and rank fusion.
 

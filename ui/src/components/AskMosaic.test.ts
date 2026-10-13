@@ -290,7 +290,7 @@ describe("AskMosaic cancellation", () => {
 });
 
 describe("AskMosaic failures", () => {
-  const setupDetail = "Your agent is not built yet. Open labs/lab3_reason/agent.py in Code Editor "
+  const setupDetail = "Your Retrieval agent is not built yet. Open labs/lab3_reason/agent.py in Code Editor "
     + "and complete create_agent with the supplied model, tools, instructions and hooks. "
     + "Next: deploy with uv run python scripts/deploy_agentcore.py deploy, then ask your "
     + "question again.";
@@ -308,8 +308,8 @@ describe("AskMosaic failures", () => {
   it("shows an unbuilt agent as a next step with a copyable command", () => {
     renderAskMosaic(groundedResponse(), { turns: [failedTurn(setupDetail, "agent_setup")] });
 
-    const card = screen.getByRole("status", { name: "Finish setting up your agent" });
-    expect(within(card).getByText(/Your agent is not built yet/)).toBeTruthy();
+    const card = screen.getByRole("status", { name: "Finish setting up your Retrieval agent" });
+    expect(within(card).getByText(/Your Retrieval agent is not built yet/)).toBeTruthy();
     expect(card.querySelector("code")?.textContent)
       .toBe("uv run python scripts/deploy_agentcore.py deploy");
     expect(
@@ -328,7 +328,7 @@ describe("AskMosaic failures", () => {
     renderAskMosaic(groundedResponse(), { turns: [failedTurn(outage, "agent_setup")] });
 
     expect(screen.getByRole("alert").textContent).toContain(outage);
-    expect(screen.queryByRole("status", { name: "Finish setting up your agent" })).toBeNull();
+    expect(screen.queryByRole("status", { name: "Finish setting up your Retrieval agent" })).toBeNull();
   });
 
   it("keeps the retry advice for a transient failure", () => {

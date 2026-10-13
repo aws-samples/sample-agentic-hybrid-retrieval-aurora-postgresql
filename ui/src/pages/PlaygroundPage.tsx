@@ -37,7 +37,7 @@ const requests = pipelineRequests;
 const primaryRequestIds = new Set(mosaicLabManifest.playground.requests.map((request) => request.id));
 const requestGroups = [
   { label: "Alex’s needs", requests: requests.filter((request) => primaryRequestIds.has(request.id)) },
-  { label: "Agent examples", requests: requests.filter((request) => !primaryRequestIds.has(request.id)) },
+  { label: "Retrieval agent examples", requests: requests.filter((request) => !primaryRequestIds.has(request.id)) },
 ].filter((group) => group.requests.length);
 type Inspection = "retrieve" | "rank" | "rerank" | "reason";
 type ColumnState = "idle" | "pending" | "active" | "complete" | "failed" | "blocked";
@@ -230,7 +230,7 @@ function ReasonBody({ answer, partial, streamed, completed, running, active, has
         {multipleSearches ? <p className="inspector-note">Each pick links to its search; Rank shows one search at a time.</p> : null}
       </div> : null}
     </>
-      : working && active ? <p className="inspector-waiting pg-reason-status" role="status"><LoaderCircle className="spin" size={20} aria-hidden="true" /><span>The agent is working. {partial?.candidates.length ? `Comparing ${partial.candidates.length} products and checking their sources.` : "It is checking products and sources."}</span></p>
+      : working && active ? <p className="inspector-waiting pg-reason-status" role="status"><LoaderCircle className="spin" size={20} aria-hidden="true" /><span>The Retrieval agent is working. {partial?.candidates.length ? `Comparing ${partial.candidates.length} products and checking their sources.` : "It is checking products and sources."}</span></p>
       : <p className="inspector-waiting">{failed ? "The run stopped before the answer was ready. Open the activity log for details." : working ? "Mosaic will explain its picks after checking the products and sources." : hasSearch ? "This view contains the saved search results. Start a new run to let Mosaic search and make recommendations." : "Mosaic will compare the products and explain its picks, with links to the sources."}</p>}
     <KeepInMind>{LESSONS.reason}</KeepInMind>
   </>;
@@ -408,13 +408,13 @@ function PipelineInspector() {
     <StageSection stage="rerank" state={columnState("rerank")} title="Re-rank" heading="Why this position." lede="The reranker evaluates the same candidate pool against the same request. In Lab 2, Task 2B compares combined and final positions, then three measured settings on judged queries." expanded={expanded.rerank} onInspect={() => inspect("rerank")} detailsLabel="Why the order changed" details={<><CandidatePoolOrder response={response} /><RankDetails response={response} images={images} highlightedId={highlightedId} /></>}>
       <RankBody response={response} receiptProduct={receiptProduct} ablation={ablation} stopped={Boolean(pipeline.error)} images={images} onSelect={showReceipt} />
     </StageSection>
-    <StageSection stage="reason" state={columnState("reason")} title="Reason" heading="Then the agent compares and cites." lede="A Strands agent calls the same search as a tool, reads each pick’s evidence, and answers only from sources the application registered." expanded={expanded.reason} onInspect={() => inspect("reason")} detailsLabel="Steps and sources" details={<ReasonEvidence answer={pipeline.completed ? pipeline.answer : null} trace={pipeline.trace} failed={Boolean(pipeline.error)} />}>
+    <StageSection stage="reason" state={columnState("reason")} title="Reason" heading="Then the Retrieval agent compares and cites." lede="It calls the same search as a tool, reads each pick’s evidence, and answers only from sources the application registered." expanded={expanded.reason} onInspect={() => inspect("reason")} detailsLabel="Steps and sources" details={<ReasonEvidence answer={pipeline.completed ? pipeline.answer : null} trace={pipeline.trace} failed={Boolean(pipeline.error)} />}>
       {!agentRequest ? <div className="pg-reason-start">
-        <p>Ask the agent about this same need and filters. Its focused searches get their own records; the original search stays available in the selector above.</p>
+        <p>Ask the Retrieval agent about this same need and filters. Its focused searches get their own records; the original search stays available in the selector above.</p>
         <MosaicRunButton type="button" label={pipeline.completed ? "Ask again" : "Ask about this need"} showLabel running={pipeline.running && pipeline.started} disabled={pipeline.running || pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} onClick={() => { void pipeline.play(question, runFilters); }} />
       </div> : null}
       <ReasonBody answer={pipeline.answer} partial={pipeline.partial} streamed={pipeline.streamed} completed={pipeline.completed} running={pipeline.running} active={pipeline.phase === "reason"} hasSearch={Boolean(response)} failed={Boolean(pipeline.error)} renderSearchLink={renderSearchLink} multipleSearches={pipeline.receipts.length > 1} />
-      {pipeline.runId ? <p className="pg-run-id">Agent record <code>{pipeline.runId}</code></p> : null}
+      {pipeline.runId ? <p className="pg-run-id">Retrieval agent record <code>{pipeline.runId}</code></p> : null}
     </StageSection>
     <aside className="inspector-scale-link inspector-takeaway pg-takeaway">
       <div>

@@ -82,15 +82,15 @@ later ones.
   repeatability checks.
 - **Board state before repair** `REPAIR PENDING`
 
-### GAP-3 — build the Strands agent
+### GAP-3 — build the Retrieval agent
 
 - **Lab 3 anchor** `agentic-research` (`checkpoint: repair`, stage `reason`).
 - **Starter** `labs/lab3_reason/agent.py`, between `LAB3_EDIT_START` and `LAB3_EDIT_END`.
 - **Participant work** return a Strands `Agent` using the supplied model, tools,
   instructions and hooks; add a useful instruction; deploy with `uv run python scripts/deploy_agentcore.py deploy`.
-- **Before building** the app names the missing agent, the exact file and the
+- **Before building** the app names the missing Retrieval agent, the exact file and the
   deploy command before making a model call.
-- **After deploying** the agent uses the SQL from Labs 1 and 2 through AgentCore
+- **After deploying** the Retrieval agent uses the SQL from Labs 1 and 2 through AgentCore
   Gateway. The participant asks about the ViewSonic VG2756-4K and Steelcase
   Gesture, opens a citation, and follows up with a changed requirement.
 - **Completion** `uv run python scripts/complete_agent.py --run-id ...` checks the participant's actual

@@ -33,12 +33,12 @@ build and deploy an agent), and each is graded against an answer the grader comp
   the served profile over 141 judged shopper queries and write what they would ship.
   **Lesson: fusion only works if positions count, and a tuning claim needs a judged
   set.**
-- **Lab 3: Reason - Build and deploy the agent · 20 min.** Participants connect the
-  Gateway SQL tools, complete the Strands agent constructor, add an instruction
+- **Lab 3: Reason - Build and deploy the Retrieval agent · 20 min.** Participants connect the
+  Gateway SQL tools, complete the Retrieval agent constructor, add an instruction
   and deploy it to AgentCore Runtime. They ask Alex's three-product room question,
   open a citation and change a requirement in a follow-up. The actual managed
   run is checked at completion without another model call. **Lesson: the SQL
-  from Labs 1 and 2 becomes a managed agent capability, with product claims
+  from Labs 1 and 2 becomes a managed Retrieval agent capability, with product claims
   supported by retrieved sources.**
 
 The forced-HNSW figures are a historical record. They come from four runs of the Lab 1
@@ -61,10 +61,10 @@ they are not a like-for-like replacement for these figures.
 | Fuzzy matching | Retrieve | Read `word_similarity` against whole-string similarity, then add the fuzzy matching branch that fusion never reads |
 | Reciprocal rank fusion | Rank | Fix production's `1 / (k + source_rank)`, graded at five `k` values |
 | Model-based reranking | Rank | Compare combined and final positions; judge three measured settings on 141 judged queries within one billed rerank unit |
-| Source attribution | Reason | Build the agent, ask a product question and open its citations |
-| Retrieval diagnostics | All three labs | Read filters, candidate positions, fused rank, reranked rank, evidence IDs and the agent's ordered tool sequence |
-| Wire retrieval into agent tools | Reason; build-a-tool exercise | Connect the SQL tools through Gateway and deploy the Strands agent to Runtime |
-| Decompose questions | Reason; Complete my setup | Read the agent's separate headphone, monitor and chair searches and their filters |
+| Source attribution | Reason | Build the Retrieval agent, ask a product question and open its citations |
+| Retrieval diagnostics | All three labs | Read filters, candidate positions, fused rank, reranked rank, evidence IDs and the Retrieval agent's ordered tool sequence |
+| Wire retrieval into agent tools | Reason; build-a-tool exercise | Connect the SQL tools through Gateway and deploy the Retrieval agent to Runtime |
+| Decompose questions | Reason; Complete my setup | Read the Retrieval agent's separate headphone, monitor and chair searches and their filters |
 | Gather targeted evidence | Reason | Inspect the evidence tool and the product records it returned |
 | Compare sources | Reason; Check the sources | Count cited specifications and reviews against imported reviews and source rating counts |
 | Explain ranking signals | Rank; agent activity | Inspect source positions, fusion contributions and the explanation tool |
@@ -77,7 +77,7 @@ The customer story is **find options → establish their order → support a
 decision**. Keep the stage names Retrieve, Rank and Reason. Lab 1 recovers the
 Logitech Zone 900 Alex saved; Lab 2 keeps the ViewSonic VG2756-4K, a
 27-inch 4K monitor documenting USB-C charging up to 90W over one cable, in
-reach of the reranker; Lab 3 asks the agent to check those headphones, that monitor and the
+reach of the reranker; Lab 3 asks the Retrieval agent to check those headphones, that monitor and the
 Steelcase Gesture chair against their sources. The finale, **Bring Alex's office home**, reads the participant's three
 repairs, decisions and citations back from Aurora without
 another model call. The [presenter brief](../workshop.md) owns the spoken

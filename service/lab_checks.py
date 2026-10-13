@@ -933,7 +933,7 @@ def _check_target_coverage(
         passed=not missing,
         falsifier=(
             "a declared target class appears in no persisted retrieval receipt, "
-            "so the agent answered about a product it never actually retrieved."
+            "so the Retrieval agent answered about a product it never actually retrieved."
         ),
         detail=(
             f"{len(evidence.receipts)} receipt(s) cover targets {sorted(targets)}"
@@ -967,7 +967,7 @@ def _check_independent_intents(
         falsifier=(
             "one broad search covers every target, or a decoy query pads the "
             "receipt count without binding a distinct query to each target "
-            "class. Both leave the agent's multi-intent decomposition unproven."
+            "class. Both leave the Retrieval agent's multi-intent decomposition unproven."
         ),
         detail=(
             f"{len(distinct_queries)} distinct focused query text(s) bind to "
@@ -1196,7 +1196,7 @@ def _check_execution_origins(agent: Mapping[str, Any]) -> LabCheck:
                 f"execution origin for step(s) {unattributed}"
                 if unattributed
                 else "an empty tool trace",
-                "run Reason again so the agent calls at least one tool",
+                "run Reason again so the Retrieval agent calls at least one tool",
             )
         ),
     )
@@ -1382,7 +1382,7 @@ def agent_response_checks(
 # ---------------------------------------------------------------------------
 
 REASON_FIX = (
-    f"deploy your agent with {DEPLOY_AGENT}, because Mosaic runs the deployed "
+    f"deploy your Retrieval agent with {DEPLOY_AGENT}, because Mosaic runs the deployed "
     "copy, not the file in Code Editor; then run Reason on the "
     "Playground and submit the agent_run_id it returns"
 )
@@ -1401,7 +1401,7 @@ def missing_run_detail(requested_run_id: str | None) -> str:
             REASON_FIX,
         )
     return explain(
-        f"no persisted agent turn under agent_run_id {requested_run_id}, so "
+        f"no persisted Retrieval agent turn under agent_run_id {requested_run_id}, so "
         "Reason produced no receipts to grade",
         REASON_FIX,
     )
@@ -1497,7 +1497,7 @@ def _proof_synthesis(run: PersistedAgentRun | None, missing_detail: str) -> LabC
             else explain(
                 f"synthesize_cited_answer outcome={outcome!r} over "
                 f"{len(scope)} selected product(s)",
-                "attach retrieved evidence IDs to agent state by product "
+                "attach retrieved evidence IDs to the Retrieval agent state by product "
                 "before synthesis, then re-run Reason",
             )
         ),
@@ -1622,7 +1622,7 @@ def _proof_envelope(
                 f"{len(persisted)} persisted search filter row(s), widened by {widened}"
                 if persisted
                 else "no mosaic.search_event row linked to this turn",
-                f"keep {sorted(required)} on every agent-issued search",
+                f"keep {sorted(required)} on every Retrieval agent search",
             )
         ),
         run=run,

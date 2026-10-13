@@ -428,7 +428,7 @@ export function agentLabOutcome(
     return {
       tone: "broken",
       label: "Answer declined",
-      title: "The agent declined to answer this request",
+      title: "The Retrieval agent declined to answer this request",
       detail:
         "The application declined rather than answer without enough support. Ask Mosaic shows the reason; inspect the searches and sources behind it.",
     };

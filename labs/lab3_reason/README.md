@@ -1,18 +1,18 @@
-# Lab 3: Reason - Build and deploy the agent
+# Lab 3: Reason - Build and deploy the Retrieval agent
 
 Follow **Workshop Studio → Lab 3** for the exact requests, the checks and each
 task's **Stuck?** hints. This is the reminder beside your code.
 
-## Task 3A: Connect the tools, build the agent, deploy it
+## Task 3A: Connect the tools, build the Retrieval agent, deploy it
 
-**See it fail.** Start the lab and list the Gateway tools your agent will get:
+**See it fail.** Start the lab and list the Gateway tools your Retrieval agent will get:
 
 ```bash
 uv run python scripts/lab_state.py start --lab 3
 uv run python scripts/deploy_agentcore.py tools
 ```
 
-**Playground → Complete my setup → Run Mosaic** answers **Your agent is not
+**Playground → Complete my setup → Run Mosaic** answers **Your Retrieval agent is not
 built yet**.
 
 **Why.** `create_agent` receives the model, the three Gateway tools, the source
@@ -29,12 +29,12 @@ changes nothing in Runtime until you deploy:
 uv run python scripts/deploy_agentcore.py deploy
 ```
 
-**Prove it.** The deployment ends with `Your agent is deployed and its SQL
+**Prove it.** The deployment ends with `Your Retrieval agent is deployed and its SQL
 tools are connected through Gateway.`
 
 ## Task 3B: Complete Alex's setup, change a requirement, prove the run
 
-Run **Playground → Complete my setup → Run Mosaic** and copy the **Agent record**
+Run **Playground → Complete my setup → Run Mosaic** and copy the **Retrieval agent record**
 ID before anything else. Read the answer against its records: a listing and a
 review for each of the headphones, the monitor and the chair. Then ask
 **Ask Mosaic** the guide's 100W follow-up about the monitor. Prove the

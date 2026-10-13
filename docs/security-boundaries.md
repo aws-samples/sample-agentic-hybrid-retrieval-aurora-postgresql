@@ -13,7 +13,7 @@ session and AgentCore event token. Anonymous CLI agent calls are supported for
 labs and do not establish a tenant identity. Search receipts can be inspected
 by UUID; possession of that UUID is not authorization for a production system.
 
-The agent receives typed, bounded tools. Product and evidence reads must remain
+The Retrieval agent receives typed, bounded tools. Product and evidence reads must remain
 inside the current retrieval or a verified previous answer. Catalog text,
 reviews and remembered preferences are data, never instructions or permissions.
 Memory can frame a request but cannot prove a product claim. Model output must

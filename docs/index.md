@@ -28,7 +28,7 @@ The remaining guides are grouped by the work they support.
 | [UI screen specification](ui-screen-spec.md) | Screen, component and payload contracts |
 | [Telemetry contract](telemetry-contract.md) | Aurora telemetry and optional AgentCore export |
 | [MCP interoperability](mcp-interoperability.md) | Optional interoperability contract and isolated runtime |
-| [AgentCore Runtime](agentcore-runtime.md) | Required for Lab 3: managed deployment of the agent and its SQL tools through Runtime and Gateway |
+| [AgentCore Runtime](agentcore-runtime.md) | Required for Lab 3: managed deployment of the Retrieval agent and its SQL tools through Runtime and Gateway |
 | [Session memory](session-memory.md) | Optional AgentCore events, memory strategies and verification |
 | [House standards](house-standards.md) | Binding rules for assertions, probes and release gates |
 

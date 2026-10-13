@@ -357,8 +357,8 @@ function openDisclosure(label: string) {
 }
 
 async function runAgent() {
-  fireEvent.click(screen.getByRole("button", { name: /Run (the agent|agent again)/ }));
-  await screen.findByRole("button", { name: "Run agent again" });
+  fireEvent.click(screen.getByRole("button", { name: /Run (the Retrieval agent|the Retrieval agent again)/ }));
+  await screen.findByRole("button", { name: "Run the Retrieval agent again" });
 }
 
 describe("ReasonStage composer", () => {
@@ -372,7 +372,7 @@ describe("ReasonStage composer", () => {
         return completion.promise;
       });
       render(createElement(ReasonStage, { question: "Compare two products", filters: {} }));
-      fireEvent.click(screen.getByRole("button", { name: "Run the agent" }));
+      fireEvent.click(screen.getByRole("button", { name: "Run the Retrieval agent" }));
       act(() => vi.advanceTimersByTime(3000));
       expect(screen.getByLabelText("3 seconds elapsed")).toBeTruthy();
       await act(async () => {
@@ -400,8 +400,8 @@ describe("ReasonStage composer", () => {
     HTMLElement.prototype.scrollIntoView = scroll;
     try {
       const { container } = render(createElement(ReasonStage, { question: "Compare two products", filters: {} }));
-      fireEvent.click(screen.getByRole("button", { name: "Run the agent" }));
-      expect(screen.getByText("Starting the agent")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "Run the Retrieval agent" }));
+      expect(screen.getByText("Starting the Retrieval agent")).toBeTruthy();
       expect(screen.queryByText("Answer recorded")).toBeNull();
       expect(scroll).toHaveBeenCalledTimes(1);
       const panel = container.querySelector(".labs-reason-run")!;
@@ -452,7 +452,7 @@ describe("ReasonStage composer", () => {
     expect(prompt.tagName).toBe("TEXTAREA");
     expect((prompt as HTMLTextAreaElement).value).toBe("Which product is grounded?");
     expect(screen.getByText("Enter to run. Shift+Enter for a new line.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Run the agent" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Run the Retrieval agent" })).toBeTruthy();
   });
 
   it("submits an edited question with Enter and keeps Shift+Enter for a newline", async () => {
@@ -662,7 +662,7 @@ describe("ReasonStage grounded answer", () => {
     await runAgent();
 
     // The answer of record, rendered as Markdown rather than printed raw.
-    const answer = screen.getByRole("region", { name: "Your agent answered with sources" });
+    const answer = screen.getByRole("region", { name: "Your Retrieval agent answered with sources" });
     expect(answer.textContent).toContain("Pick the Sonora chair");
     expect(within(answer).getByText("Sonora").tagName).toBe("STRONG");
 
@@ -733,7 +733,7 @@ describe("ReasonStage grounded answer", () => {
     await runAgent();
 
     fireEvent.click(screen.getByText("Retrieval details"));
-    const details = screen.getByText("Searches the agent issued").closest("details");
+    const details = screen.getByText("Searches the Retrieval agent issued").closest("details");
     expect(details?.hasAttribute("open")).toBe(true);
   });
 
@@ -743,7 +743,7 @@ describe("ReasonStage grounded answer", () => {
       filters: {},
     }));
 
-    expect(screen.queryByRole("region", { name: "Your agent answered with sources" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Your Retrieval agent answered with sources" })).toBeNull();
     expect(screen.queryByRole("region", { name: "What each claim cites" })).toBeNull();
     expect(screen.queryByText("Filters I searched with")).toBeNull();
     // The dormant shape is still the six states, drawn empty.
@@ -823,7 +823,7 @@ describe("ReasonStage declined outcome", () => {
       "Mosaic could not confirm part of this request",
     );
     expect(screen.getByText(response.answer)).toBeTruthy();
-    expect(screen.queryByText("Your agent answered with sources")).toBeNull();
+    expect(screen.queryByText("Your Retrieval agent answered with sources")).toBeNull();
 
     const chain = screen.getByRole("list", { name: "Evidence state chain" });
     // The declined block sits above the chain it explains.
@@ -865,7 +865,7 @@ describe("ReasonStage declined outcome", () => {
     expect(
       screen.queryByText("Mosaic could not confirm part of this request"),
     ).toBeNull();
-    expect(screen.getByText("Your agent answered with sources")).toBeTruthy();
+    expect(screen.getByText("Your Retrieval agent answered with sources")).toBeTruthy();
 
     await waitFor(() => {
       expect(
@@ -913,7 +913,7 @@ it("invalidates a completion pass while the next run is pending or failed", asyn
   fireEvent.click(prove);
   const proofRow = screen.getByTestId("completion-proof-lab-3");
   await waitFor(() => expect(proofRow.textContent).toContain("PASS"));
-  fireEvent.click(screen.getByRole("button", { name: "Run agent again" }));
+  fireEvent.click(screen.getByRole("button", { name: "Run the Retrieval agent again" }));
   expect(proofRow.textContent).not.toContain("PASS");
   await act(async () => fail(new Error("Interrupted")));
   expect(proofRow.textContent).not.toContain("PASS");

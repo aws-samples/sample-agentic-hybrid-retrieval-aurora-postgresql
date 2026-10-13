@@ -10,19 +10,19 @@ class AgentSetupError(RuntimeError):
 
 
 AGENT_STARTER_MESSAGE = (
-    "Your agent is not built yet. Open labs/lab3_reason/agent.py in Code Editor and "
+    "Your Retrieval agent is not built yet. Open labs/lab3_reason/agent.py in Code Editor and "
     "complete create_agent with the supplied model, tools, instructions and hooks. "
     f"Next: deploy with {DEPLOY_AGENT}, then ask your question again."
 )
 
 AGENT_TOOLS_MESSAGE = (
-    "Your agent is missing its Mosaic tools. Open labs/lab3_reason/agent.py in Code "
+    "Your Retrieval agent is missing its Mosaic tools. Open labs/lab3_reason/agent.py in Code "
     "Editor and pass the supplied tools to Agent. "
     f"Next: deploy with {DEPLOY_AGENT}, then ask your question again."
 )
 
 AGENT_HOOKS_MESSAGE = (
-    "Your agent is missing the supplied execution hooks. Open labs/lab3_reason/agent.py "
+    "Your Retrieval agent is missing the supplied execution hooks. Open labs/lab3_reason/agent.py "
     "in Code Editor and pass hooks to Agent. "
     f"Next: deploy with {DEPLOY_AGENT}, then ask your question again."
 )
@@ -36,7 +36,7 @@ def agent_code_message(error: BaseException) -> str:
         detail = str(error)
     detail = re.sub(r"\S+://\S+", "[url]", " ".join(detail.split()))[:200]
     return (
-        f"Your agent code raised {type(error).__name__}: {detail}. Open "
+        f"Your Retrieval agent code raised {type(error).__name__}: {detail}. Open "
         "labs/lab3_reason/agent.py in Code Editor and fix that line. "
         f"Next: deploy with {DEPLOY_AGENT}, then ask your question again."
     )

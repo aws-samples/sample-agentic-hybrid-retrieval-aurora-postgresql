@@ -431,7 +431,7 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
       });
     } catch (cause) {
       if (request === runVersion.current) {
-        setError(cause instanceof Error ? cause.message : "The agent run failed");
+        setError(cause instanceof Error ? cause.message : "The Retrieval agent run failed");
         if (cause instanceof Error && "agentRunId" in cause && typeof cause.agentRunId === "string") {
           setFailedRunId(cause.agentRunId);
           onAgentRun?.(cause.agentRunId);
@@ -476,10 +476,10 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
   }
 
   const runLabel = loading
-    ? "Running agent"
+    ? "Running the Retrieval agent"
     : response || error
-      ? "Run agent again"
-      : "Run the agent";
+      ? "Run the Retrieval agent again"
+      : "Run the Retrieval agent";
 
   return (
     <div className="labs-reason">
@@ -524,7 +524,7 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
       </form>
 
       {startedAt !== null ? (
-        <div className="labs-reason-run" ref={runPanel} role="region" tabIndex={-1} aria-label="Agent run results">
+        <div className="labs-reason-run" ref={runPanel} role="region" tabIndex={-1} aria-label="Retrieval agent run results">
           <ReasonRunStatus
             phase={phase}
             loading={loading}
@@ -551,18 +551,18 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
                 className="labs-reason-answer"
                 aria-labelledby="reason-answer-title"
               >
-                <h3 id="reason-answer-title">Your agent answered with sources</h3>
-                <p>Your hybrid search is now part of an agent. Next: open Ask Mosaic and change one of Alex’s requirements.</p>
+                <h3 id="reason-answer-title">Your Retrieval agent answered with sources</h3>
+                <p>Your hybrid search is now part of the Retrieval agent. Next: open Ask Mosaic and change one of Alex’s requirements.</p>
                 <div className="labs-reason-prose">
                   <ProductAnswer text={response.answer} products={response.recommendations} citations={citations} />
                 </div>
               </section>
             )
           ) : (
-            <section className="labs-reason-answer labs-reason-answer-waiting" aria-label="Agent answer">
+            <section className="labs-reason-answer labs-reason-answer-waiting" aria-label="Retrieval agent answer">
               <h3>{error ? "No completed answer" : "Awaiting the cited answer"}</h3>
               <p>{error
-                ? "The available retrieval and evidence records remain below for diagnosis. Run the agent again after addressing the reported error."
+                ? "The available retrieval and evidence records remain below for diagnosis. Run the Retrieval agent again after addressing the reported error."
                 : "The answer will appear here after its sources have been checked. You can inspect the searches as their results arrive below."}</p>
             </section>
           )}
@@ -580,11 +580,11 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
                 <Criteria
                   headingId="reason-criteria-title"
                   plan={plan}
-                  title="Filters the agent searched with"
+                  title="Filters the Retrieval agent searched with"
                 />
               ) : null}
               {plan.length ? (
-                <Searches open plan={plan} title="Searches the agent issued" />
+                <Searches open plan={plan} title="Searches the Retrieval agent issued" />
               ) : null}
 
               {products.length ? (
@@ -594,7 +594,7 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
                 >
                   <header>
                     <h3 id="reason-products-title">Products carried into reasoning</h3>
-                    <small>{products.length} from this agent run</small>
+                    <small>{products.length} from this Retrieval agent run</small>
                   </header>
                   <ul>
                     {products.map((product) => (
@@ -852,7 +852,7 @@ export function ReasonStage({ question, filters, onAgentRun }: ReasonStageProps)
             "Citations resolved",
             "Answer with sources",
           ]}
-          hint="Build your Strands agent in labs/lab3_reason/agent.py, then deploy it in Code Editor with uv run python scripts/deploy_agentcore.py deploy. Next: ask Alex’s question here and follow its tool calls through Gateway to Aurora."
+          hint="Build your Retrieval agent in labs/lab3_reason/agent.py, then deploy it in Code Editor with uv run python scripts/deploy_agentcore.py deploy. Next: ask Alex’s question here and follow its tool calls through Gateway to Aurora."
         />
       )}
 

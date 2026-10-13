@@ -1041,9 +1041,9 @@ export function RetrievalLabPage() {
       <PlaygroundStage
         number="04"
         title="Reason"
-        summary="Support the agent's answer with sources. Which products and evidence the agent received, what the application allowed into the answer, and whether every citation resolves."
+        summary="Support the Retrieval agent's answer with sources. Which products and evidence it received, what the application allowed into the answer, and whether every citation resolves."
       >
-        <p>{reasonScenario ? "Complete Alex’s setup: headphones, monitor and chair. Save this original run for Lab 3 completion." : "Explore this same request with the agent. For graded Lab 3 completion, select Complete Alex’s room from the lab examples."}</p>
+        <p>{reasonScenario ? "Complete Alex’s setup: headphones, monitor and chair. Save this original run for Lab 3 completion." : "Explore this same request with the Retrieval agent. For graded Lab 3 completion, select Complete Alex’s room from the lab examples."}</p>
         <ReasonStage key={`${reasonQuestion}:${JSON.stringify(reasonFilters)}`} question={reasonQuestion} filters={reasonFilters} onAgentRun={setAgentRunId} />
       </PlaygroundStage>
 

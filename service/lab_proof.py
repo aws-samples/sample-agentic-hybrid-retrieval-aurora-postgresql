@@ -132,7 +132,7 @@ def _state_detail(
         from service.agent_setup import AGENT_STARTER_MESSAGE
 
         return (
-            f"Your agent code is ready. Next: deploy with {DEPLOY_AGENT}, then ask Alex's question in Mosaic."
+            f"Your Retrieval agent code is ready. Next: deploy with {DEPLOY_AGENT}, then ask Alex's question in Mosaic."
             if solved
             else AGENT_STARTER_MESSAGE
         )
@@ -257,7 +257,7 @@ def entry_check(
         passed = False
         detail = (
             f"This run was made before Lab {lab_id} started, by the reference "
-            f"agent. Next: after deploying with {DEPLOY_AGENT}, ask Alex's question again and "
+            f"Retrieval agent. Next: after deploying with {DEPLOY_AGENT}, ask Alex's question again and "
             "use that run's ID."
         )
     else:
@@ -596,8 +596,8 @@ def completion_proof(
             from service.search_sql import applied_sql_digest
 
             deployed = False
-            detail = "Your agent and SQL tools match the code in Code Editor, and Aurora runs your SQL."
-            failure = f"Your deployed agent or SQL tools do not match this run. Next: deploy with {DEPLOY_AGENT} in Code Editor, then ask Alex's question again."
+            detail = "Your Retrieval agent and SQL tools match the code in Code Editor, and Aurora runs your SQL."
+            failure = f"Your deployed Retrieval agent or SQL tools do not match this run. Next: deploy with {DEPLOY_AGENT} in Code Editor, then ask Alex's question again."
             try:
                 status = agentcore_transport.deployed_status()
                 if rows and rows.searches:

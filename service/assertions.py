@@ -154,17 +154,17 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         name="retrieval_tool_called",
         arm=None,
         falsifier=(
-            "the agent answers without calling the typed retrieval tool, which "
+            "the Retrieval agent answers without calling the typed retrieval tool, which "
             "means it answered from model memory rather than the catalog"
         ),
-        label="the agent searched the catalog",
+        label="the Retrieval agent searched the catalog",
     ),
     Assertion(
         name="expected_products_considered",
         arm=None,
         falsifier=(
             "none of the target products named in the test appears in the saved "
-            "candidate receipts for the agent's retrieval runs"
+            "candidate receipts for the Retrieval agent's retrieval runs"
         ),
         label="the expected products were considered",
     ),
@@ -172,19 +172,19 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         name="comparison_tool_called",
         arm=None,
         falsifier=(
-            "the agent recommends among competing products without a successful "
+            "the Retrieval agent recommends among competing products without a successful "
             "compare_products call over IDs returned by retrieval"
         ),
-        label="the agent compared the products",
+        label="the Retrieval agent compared the products",
     ),
     Assertion(
         name="evidence_tool_called",
         arm=None,
         falsifier=(
-            "the agent reaches synthesis without a successful "
+            "the Retrieval agent reaches synthesis without a successful "
             "get_product_evidence call for each recommended product"
         ),
-        label="the agent read each recommended product's sources",
+        label="the Retrieval agent read each recommended product's sources",
     ),
     Assertion(
         name="evidence_records_returned",
@@ -199,11 +199,11 @@ _ASSERTIONS: tuple[Assertion, ...] = (
         name="ranking_explanation_available",
         arm=None,
         falsifier=(
-            "the agent has anything other than one successful "
+            "the Retrieval agent has anything other than one successful "
             "explain_retrieval receipt before synthesis, so its ranking "
             "explanation cannot be tied to the tool contract"
         ),
-        label="the agent read the ranking explanation",
+        label="the Retrieval agent read the ranking explanation",
     ),
     Assertion(
         name="recommendation_grounded",

@@ -35,7 +35,7 @@ const LAB_IDS = [1, 2, 3] as const;
 type LabId = (typeof LAB_IDS)[number];
 
 /** What Lab 3 needs before it can be graded, named as the stage that makes it. */
-const LAB_3_PREREQUISITE = "Run the agent in Reason first";
+const LAB_3_PREREQUISITE = "Run the Retrieval agent in Reason first";
 
 const GATE_REASON_ID = "labs-proof-gate-reason";
 
@@ -117,7 +117,7 @@ function ProofEvidence({ proof }: { proof: CompletionProofResponse }) {
       ))}
       {agentRunId ? (
         <li>
-          agent run <code>{shortEventId(agentRunId)}</code>
+          Retrieval agent run <code>{shortEventId(agentRunId)}</code>
         </li>
       ) : null}
       {evidenceIds.length ? (
@@ -151,7 +151,7 @@ function failureSummary(proof: CompletionProofResponse, failedChecks: number): s
     // Named before the database: applying an unrepaired file installs the
     // broken function, so the file is the first thing to fix.
     return lab === 3
-      ? `Your agent in ${file ?? "labs/lab3_reason/agent.py"} is still the starter. Next: assemble it, deploy with ${DEPLOY_AGENT}, run the agent in Reason, then prove this lab again.`
+      ? `Your Retrieval agent in ${file ?? "labs/lab3_reason/agent.py"} is still the starter. Next: assemble it, deploy with ${DEPLOY_AGENT}, run the Retrieval agent in Reason, then prove this lab again.`
       : `${file ?? "The source file"} still has Lab ${lab}'s fault. Next: repair the LAB${lab} block, apply it with ${APPLY_SQL}, then prove this lab again.`;
   }
   if (!isLabRepaired(proof)) {
@@ -435,7 +435,7 @@ export function CompletionProof({
       </header>
       <p className="labs-proof-intro">
         Labs 1 and 2 run fresh searches against Aurora. Lab 3 checks the saved
-        agent run from Reason without starting another turn. Open each result
+        Retrieval agent run from Reason without starting another turn. Open each result
         to inspect what was checked, what would make it fail, and its saved results.
       </p>
       <details className="labs-proof-inspection labs-proof-question">

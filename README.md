@@ -1,7 +1,7 @@
 # Build agentic hybrid retrieval with Amazon Aurora PostgreSQL
 
 In this workshop, you help Alex choose headphones, a monitor, and a chair for his
-home office. You will build and inspect the search, ranking, and agent steps
+home office. You will build and inspect the search, ranking, and Retrieval agent steps
 behind **Mosaic**, a product discovery application.
 
 The catalog contains **553,911 real source products from Amazon Reviews 2023**.
@@ -37,7 +37,7 @@ the workshop. Follow the guide's commands as you move through the labs.
 ## What you will build
 
 The workshop follows **Retrieve → Rank → Re-rank → Reason**. Labs 1 and 2 improve
-your SQL search. Lab 3 connects that search to a Strands agent on AgentCore Runtime
+your SQL search. Lab 3 connects that search to the Retrieval agent, a Strands agent on AgentCore Runtime
 and exposes the SQL tools through AgentCore Gateway.
 `uv run python scripts/deploy_agentcore.py deploy` builds an ARM64 container from your current source, pushes it to the workshop's ECR
 repository and updates both runtimes. Docker and registry access are prepared
@@ -45,7 +45,7 @@ for you; the command checks deployed source identity and Gateway connectivity,
 and that a search through Gateway ran your Lab 1 and Lab 2 SQL in Aurora.
 `uv run python scripts/ask_agent.py "QUESTION"` shows each tool call's route and,
 under each search, whether Aurora ran your lab files. When the workshop stack
-turns on AgentCore Observability (its default), each agent run is also traced in
+turns on AgentCore Observability (its default), each Retrieval agent run is also traced in
 the CloudWatch console's **GenAI Observability** pages; Lab 3 works the same
 without it.
 
@@ -53,7 +53,7 @@ without it.
 |---|---|---|
 | **Lab 1: Retrieve - Debug hybrid search** | Can search find Alex's Logitech Zone 900 headphones from a mistyped listing ID? | [`labs/lab1_retrieve/`](labs/lab1_retrieve/) |
 | **Lab 2: Rank and re-rank - Tune rank fusion and reranking** | **2a Rank:** which candidates survive fusion? **2b Re-rank:** how does their order change? | [`labs/lab2_rank/`](labs/lab2_rank/) |
-| **Lab 3: Reason - Build and deploy the agent** | Can your agent help Alex complete his home office, bring the three choices together, and respond when his requirements change? | [`labs/lab3_reason/`](labs/lab3_reason/) |
+| **Lab 3: Reason - Build and deploy the Retrieval agent** | Can your Retrieval agent help Alex complete his home office, bring the three choices together, and respond when his requirements change? | [`labs/lab3_reason/`](labs/lab3_reason/) |
 
 The participant workspace, [Mosaic.code-workspace](Mosaic.code-workspace),
 groups the existing files as **01 - Retrieve**, **02 - Rank and re-rank**, and **03 - Reason**.
@@ -71,7 +71,7 @@ Use **Shop** for product search and **Playground** for saved candidates,
 ranking, tool calls and cited sources. **Ask Mosaic** opens from the pill in the
 header on every page. **Complete my setup** runs Lab 3's
 three-product request, and its Ask Mosaic starter stays available before and after
-you build the agent; it runs on its own filters and says when it clears Shop's.
+you build the Retrieval agent; it runs on its own filters and says when it clears Shop's.
 Keep its original run ID for completion. Ask Mosaic's **Builder view** switch (off by default) adds the run's recorded steps, saved search ids and how each search ranked its products to every answer. The Playground's Prove page keeps the
 maintainers' saved scorecard collapsed under **Maintainer measurements**; those
 results do not grade your repairs.
@@ -103,11 +103,11 @@ the lines of the lab files that differ from the reference answer without
 printing it, and `--answer` adds the answer's lines. Live-check failures name the product and the search method
 as Shop shows them, and an apply error names the line of your file Aurora rejected.
 
-After editing, apply SQL or deploy the agent, repeat the same request, and run
+After editing, apply SQL or deploy the Retrieval agent, repeat the same request, and run
 the guide's checks. A plausible result or successful deployment alone is not
 completion. Source records must support product claims; a USB-C port alone
 does not establish laptop charging compatibility. Finding is fuzzy, recommending
-is exact: search tolerates a mistyped ID, but the agent recommends a product only
+is exact: search tolerates a mistyped ID, but the Retrieval agent recommends a product only
 for an ID the catalog carries. Its decline names the listing fuzzy matching
 found, if exactly one is that close, and asks you to use that ID.
 
@@ -144,15 +144,15 @@ flowchart LR
     TRGM[Fuzzy matching] --> RRF
     VECTOR[Vector search] --> RRF
     RRF --> RERANK[Rerank the shortlist]
-    RERANK --> AGENT[Agent reads product sources]
+    RERANK --> AGENT[Retrieval agent reads product sources]
     AGENT --> ANSWER[Answer with source checks]
 ```
 
 Aurora PostgreSQL holds the products, vectors, source records, and saved searches.
 Filters determine which products are eligible before candidate limits apply.
-Amazon Bedrock supplies query embeddings, reranking, and the agent model. The
+Amazon Bedrock supplies query embeddings, reranking, and the Retrieval agent's model. The
 application checks the evidence used in the answer. AgentCore Runtime hosts the
-Strands agent, Gateway exposes its SQL tools over MCP, and AgentCore Memory
+Retrieval agent, Gateway exposes its SQL tools over MCP, and AgentCore Memory
 provides conversation context for the optional memory exercise.
 
 You can inspect the [search settings](db/config/retrieval.yaml) and follow the

@@ -139,7 +139,7 @@ _AGENT_CONTRACT_LABELS: dict[str, str] = {
 
 _AGENT_CONTRACT_DESCRIPTIONS: dict[str, str] = {
     "retrieval_scope": (
-        "The agent may only act on products its own searches returned. The "
+        "The Retrieval agent may only act on products its own searches returned. The "
         "server enforces that window, so a wider request from the model "
         "cannot reach past it."
     ),
@@ -154,7 +154,7 @@ _AGENT_CONTRACT_DESCRIPTIONS: dict[str, str] = {
         "before the answer may cite it; otherwise the answer is refused."
     ),
     "citation_resolution": (
-        "Every citation the agent returns must point at a real evidence "
+        "Every citation the Retrieval agent returns must point at a real evidence "
         "record for the cited product, with the version it came from, so the "
         "claim can be checked against the row that produced it."
     ),

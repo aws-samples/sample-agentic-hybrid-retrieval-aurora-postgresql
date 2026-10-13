@@ -328,7 +328,7 @@ export function PersistedRunDisclosures({ response }: { response: SearchResponse
         <p>Reuses the saved query, filters and search settings with the current SQL
           functions and catalog. A query embedding may be requested from the
           configured model if it is not cached. This captures SQL work only;
-          reranking and the agent are not run.</p>
+          reranking and the Retrieval agent are not run.</p>
         <p>The capture replaces the plan saved on this search record. The original
           candidate ranks stay unchanged. Reopening this panel shows this capture.</p>
         {planError ? (

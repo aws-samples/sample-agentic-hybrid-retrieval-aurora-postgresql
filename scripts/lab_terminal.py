@@ -181,7 +181,7 @@ def _without_before(lab: int, output: Path) -> str:
     record = json.loads(record_path.read_text()) if record_path.exists() else {}
     if lab == 3:
         raise LabValidationError(
-            f"there is no saved failing agent turn in {path} to compare with. Lab 3 "
+            f"there is no saved failing Retrieval agent turn in {path} to compare with. Lab 3 "
             f"is checked on your own saved run instead: {complete_lab_3()}"
         )
     if not record.get("completed_at"):
@@ -345,7 +345,7 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
             run_id = str(turn["agent_turn_id"])
             response = {"agent_run_id": run_id, "error": str(error)}
             print(
-                "The agent failed with the persisted evidence-contract error. Inspect its tool activity in SQL."
+                "The Retrieval agent failed with the persisted evidence-contract error. Inspect its tool activity in SQL."
             )
         else:
             run_id = response["agent_run_id"]
@@ -356,11 +356,11 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
                 ).fetchone()
             _require(
                 turn and turn["user_message"] == mission["query"],
-                "Agent identity rule: returned turn does not match Alex's request; inspect the API database selection.",
+                "Retrieval agent identity rule: returned turn does not match Alex's request; inspect the API database selection.",
             )
             _require(
                 phase == "after",
-                "Before-state rule: the agent answered successfully; reset Lab 3 and restart its API before saving the failed turn.",
+                "Before-state rule: the Retrieval agent answered successfully; reset Lab 3 and restart its API before saving the failed turn.",
             )
             print(response["answer"])
         values.update(

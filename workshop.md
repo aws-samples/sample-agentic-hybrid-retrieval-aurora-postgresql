@@ -1,7 +1,7 @@
 # DAT410-R Mosaic — Presenter brief
 
 Help Alex choose headphones, a monitor and a chair for his home office.
-Participants repair SQL retrieval and ranking, then build a Strands agent that
+Participants repair SQL retrieval and ranking, then build the Retrieval agent, a Strands agent that
 uses that SQL to answer with sources. Follow the participant's Workshop Studio
 guide; it keeps required actions visible and reference material collapsed.
 
@@ -17,7 +17,7 @@ for release work. This brief is for delivery, not a second runbook.
 | 0–15 | Presenter introduction, then prepared tools | Alex's need, one saved search and the three search methods |
 | 15–25 | Lab 1: Retrieve - Debug hybrid search | The missing listing returns through fuzzy matching; filters hold |
 | 25–35 | Lab 2: Rank and re-rank - Tune rank fusion and reranking | Contributions vary with position; judged comparisons support a tuning decision |
-| 35–55 | Lab 3: Reason - Build and deploy the agent, including completion | Three focused searches, comparison, sources, changed requirement and original-run proof |
+| 35–55 | Lab 3: Reason - Build and deploy the Retrieval agent, including completion | Three focused searches, comparison, sources, changed requirement and original-run proof |
 | 55–60 | Wrap-up and Q&A | Questions; Session & Memory, retrieval-tool and HNSW exercises are untimed options |
 
 The [mission manifest](data/evals/mosaic_labs_missions.json) owns the timing,
@@ -31,7 +31,7 @@ The first product search belongs in Lab 1. Use **Browse all products** beside
 **Shop the workspace** to reach the domain tabs and **Category** menu; Lab 2
 reuses that menu to switch from headphones to monitors.
 
-Assign a lead for the clock and story, a SQL presenter, an agent presenter and
+Assign a lead for the clock and story, a SQL presenter, a Retrieval agent presenter and
 room support. One person may cover several roles; keep the staffing roster
 outside the repository. Avoid extra demonstrations during a lab's proof time.
 
@@ -117,7 +117,7 @@ Count improvements and regressions, read the sign test, and keep the reranker
 budget in view. The comparison changes no served setting. Optional weighted RRF
 comes after completion. A plausible winner does not prove fusion worked.
 
-### Lab 3: build, deploy and use the agent
+### Lab 3: build, deploy and use the Retrieval agent
 
 Discover Gateway tools, then complete `create_agent` inside `LAB3_EDIT` in
 `labs/lab3_reason/agent.py`. Participants keep the supplied model, tools, source
@@ -125,7 +125,7 @@ rules and hooks, and add one instruction of their own. Deploy using the guide.
 
 Run **Playground → Complete my setup → Reason**. Save the original run ID. Ask Mosaic
 opens from the **Ask Mosaic** pill in the header on every page. The
-Ask Mosaic **Complete my setup** starter is available before and after the agent is
+Ask Mosaic **Complete my setup** starter is available before and after the Retrieval agent is
 built and runs on its own filters; it shows "Shop filters were cleared for this lab
 request." when it replaces filters a participant had set. A follow-up question is
 not graded against the lab. The Prove page's **Maintainer measurements** are
@@ -141,7 +141,7 @@ answer open during source inspection; save its run ID before refreshing or
 navigating away.
 
 Ask the guide's changed 100W requirement against the monitor's 90W record.
-The agent must acknowledge the mismatch and any unknown compatibility.
+The Retrieval agent must acknowledge the mismatch and any unknown compatibility.
 Prove the **original setup run**, then finish the Conclusion checks. Completion
 reuses the saved answer; a deployed endpoint alone is not a participant pass.
 
@@ -149,7 +149,7 @@ reuses the saved answer; a deployed endpoint alone is not a participant pass.
 
 Aurora owns products, vectors, eligibility filters, fusion, source evidence and
 run records. Bedrock supplies embeddings, reranking and the answer model.
-AgentCore Runtime hosts the Strands agent and SQL tool service; AgentCore Gateway
+AgentCore Runtime hosts the Retrieval agent (built with Strands) and SQL tool service; AgentCore Gateway
 connects them over MCP. Both are required for Lab 3 and provisioned by the workshop.
 
 The application constrains tool calls and checks citations. Registering a source
@@ -166,11 +166,11 @@ For deeper questions, use [architecture](docs/architecture.md),
 [fusion and reranking](docs/fusion-rerank.md), [managed deployment](docs/agentcore-runtime.md),
 [source checks](docs/security-boundaries.md) and [MCP integration](docs/mcp-interoperability.md).
 Each search records the participant SQL Aurora ran it with, so `deploy_agentcore.py
-verify` and `ask_agent.py` show that the agent's searches through Gateway ran the
+verify` and `ask_agent.py` show that the Retrieval agent's searches through Gateway ran the
 Lab 1 and Lab 2 files. The stack's `AgentObservability` parameter (default
-`enabled`) traces agent runs into CloudWatch's GenAI Observability pages; it never
+`enabled`) traces Retrieval agent runs into CloudWatch's GenAI Observability pages; it never
 decides whether Lab 3 runs, and `disabled` starts the runtimes untraced. When a
-participant's question fails with HTTP 503 from the agent, the agent runtime's
+participant's question fails with HTTP 503 from the Retrieval agent, its runtime's
 CloudWatch log names the cause, such as Bedrock throttling.
 
 ## Help without erasing the exercise

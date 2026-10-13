@@ -217,7 +217,7 @@ def publish_image(repository_uri: str, *, bootstrap: bool) -> str:
                     time.sleep(2**attempt)
             image = f"{repository_uri}:{tag}"
             print(
-                "Building your agent image. The first build is the slowest "
+                "Building your Retrieval agent image. The first build is the slowest "
                 f"(several minutes); progress prints every {PROGRESS_SECONDS} s.",
                 flush=True,
             )
@@ -394,7 +394,7 @@ def update(image_uri: str) -> None:
     )
     for setting, label in (
         ("MOSAIC_AGENTCORE_TOOLS_RUNTIME_ARN", "tools runtime"),
-        ("MOSAIC_AGENTCORE_RUNTIME_ARN", "agent runtime"),
+        ("MOSAIC_AGENTCORE_RUNTIME_ARN", "Retrieval agent runtime"),
     ):
         runtime_id = required(setting).rsplit("/", 1)[-1]
         current = control.get_agent_runtime(agentRuntimeId=runtime_id)
@@ -470,14 +470,14 @@ def verify() -> dict:
     workspace = application_digest()
     if deployed != workspace:
         raise RuntimeError(
-            "Runtime acceptance rule: the deployed agent runs code "
+            "Runtime acceptance rule: the deployed Retrieval agent runs code "
             f"{(deployed or 'with no recorded identity')[:12]}, not your workspace's "
             f"{workspace[:12]}; fix: deploy your current code with {DEPLOY_AGENT}."
         )
     database = status.get("readiness", {}).get("database", {})
     if not database.get("catalog_ready"):
         raise RuntimeError(
-            "Runtime acceptance rule: the deployed agent reports its catalog is not "
+            "Runtime acceptance rule: the deployed Retrieval agent reports its catalog is not "
             f"ready ({safe_text(json.dumps(database, default=str), 300)}); this is an "
             f"environment failure, not your code. fix: share this message with your "
             f"facilitator, then recheck with {VERIFY_AGENT}."
@@ -557,9 +557,9 @@ def verify() -> dict:
 RUNTIME_ROLES = (
     (
         "MOSAIC_AGENTCORE_RUNTIME_ARN",
-        "Agent runtime",
+        "Retrieval agent runtime",
         (
-            "your create_agent: the Strands agent, with compare_products and "
+            "your create_agent: the Retrieval agent, with compare_products and "
             "synthesize_cited_answer"
         ),
     ),
@@ -576,7 +576,7 @@ def _when(value: object) -> str:
 
 
 def _row(label: str, *cells: object) -> str:
-    return f"  {label:<15} " + "   ".join(str(cell) for cell in cells)
+    return f"  {label:<24} " + "   ".join(str(cell) for cell in cells)
 
 
 def _runtime_lines(control) -> list[str]:
@@ -614,7 +614,7 @@ def _gateway_lines(control) -> list[str]:
         _row(
             "",
             f"target {target['name']}, {target['status']}, synchronized "
-            f"{_when(target.get('lastSynchronizedAt'))}: the three SQL tools the agent calls",
+            f"{_when(target.get('lastSynchronizedAt'))}: the three SQL tools the Retrieval agent calls",
         ),
     ]
 
@@ -648,7 +648,7 @@ def resources() -> None:
     print("AgentCore resources in this event (read-only):")
     print("\n".join(lines))
     print(
-        "Next: when your deploy finishes, run this again; the agent runtime shows a "
+        "Next: when your deploy finishes, run this again; the Retrieval agent runtime shows a "
         "new version and update time."
     )
 
@@ -726,18 +726,18 @@ def main() -> int:
 
             if not lab_is_solved(3):
                 raise ValueError(
-                    f"Your agent is not ready to deploy. Open labs/lab3_reason/agent.py, complete create_agent, then deploy with {DEPLOY_AGENT} again."
+                    f"Your Retrieval agent is not ready to deploy. Open labs/lab3_reason/agent.py, complete create_agent, then deploy with {DEPLOY_AGENT} again."
                 )
             print(
-                "Deploying your agent: build and push the image (the first build is "
-                "the slowest), update the tools and agent runtimes, synchronize "
+                "Deploying your Retrieval agent: build and push the image (the first build is "
+                "the slowest), update the tools and Retrieval agent runtimes, synchronize "
                 f"Gateway, then verify. Progress prints every {PROGRESS_SECONDS} s.",
                 flush=True,
             )
             update(stage())
             verify()
             print(
-                "Your agent is deployed and its SQL tools are connected through Gateway. Next: open Mosaic → Playground → Reason and ask Alex's question."
+                "Your Retrieval agent is deployed and its SQL tools are connected through Gateway. Next: open Mosaic → Playground → Reason and ask Alex's question."
             )
         elif args.action == "resources":
             resources()
@@ -745,7 +745,7 @@ def main() -> int:
             for tool in gateway_tools.rpc("tools/list", {}).get("tools", []):
                 print(f"{tool['name']}: {tool.get('description', '')}")
             print(
-                "Next: open labs/lab3_reason/agent.py and connect these SQL tools to your Strands agent."
+                "Next: open labs/lab3_reason/agent.py and connect these SQL tools to your Retrieval agent."
             )
         else:
             verify()

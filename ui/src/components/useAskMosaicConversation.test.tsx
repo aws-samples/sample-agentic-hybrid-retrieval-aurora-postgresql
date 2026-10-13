@@ -75,7 +75,7 @@ function failWith(message: string, code: string) {
 }
 
 it("points a setup failure at the setup step, not at a retry", async () => {
-  failWith("Your agent is not built yet. Open labs/lab3_reason/agent.py in Code Editor.", "agent_setup");
+  failWith("Your Retrieval agent is not built yet. Open labs/lab3_reason/agent.py in Code Editor.", "agent_setup");
   const { result } = renderHook(() => useAskMosaicConversation({}));
 
   await act(() => result.current.run("Complete my setup"));

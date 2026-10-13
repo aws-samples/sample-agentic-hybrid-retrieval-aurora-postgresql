@@ -1,7 +1,7 @@
-# Managed Strands agent
+# Managed Retrieval agent
 
-Mosaic runs the Strands agent in Amazon Bedrock AgentCore Runtime. The agent
-calls three SQL capabilities through an IAM-authenticated AgentCore Gateway:
+Mosaic runs the Retrieval agent, built with Strands, in Amazon Bedrock AgentCore
+Runtime. It calls three SQL capabilities through an IAM-authenticated AgentCore Gateway:
 
 - `mosaic___search_products`: hybrid search, rank fusion and reranking.
 - `mosaic___get_product_evidence`: source records for a retrieved product.
@@ -66,11 +66,11 @@ account already has it, and reports any problem without failing the stack, since
 Lab 3 needs no traces. Both runtime roles may write X-Ray spans and
 `bedrock-agentcore` metrics, and the participant role carries the AWS managed
 `CloudWatchReadOnlyAccess`. A participant opens the CloudWatch console's **GenAI Observability**
-page, then **Bedrock AgentCore**, and finds their run under the agent runtime's
+page, then **Bedrock AgentCore**, and finds their run under the Retrieval agent runtime's
 sessions.
 
-Runtime returns only a status to the caller when the agent fails, never its
-explanation, so the agent logs the cause (`Agent request failed with HTTP 503:
+Runtime returns only a status to the caller when the Retrieval agent fails, never its
+explanation, so it logs the cause (`Agent request failed with HTTP 503:
 ThrottlingException`, for example) to its runtime log group, and the participant's
 message names the status and points there. See
 [the telemetry contract](telemetry-contract.md) for the Aurora receipts that prove
@@ -135,7 +135,7 @@ Bootstrap supplies these values; participants do not copy credentials:
 
 | Setting | Purpose |
 |---|---|
-| `MOSAIC_AGENTCORE_RUNTIME_ARN` | Agent endpoint invoked by the Mosaic API |
+| `MOSAIC_AGENTCORE_RUNTIME_ARN` | Retrieval agent endpoint invoked by the Mosaic API |
 | `MOSAIC_AGENTCORE_TOOLS_RUNTIME_ARN` | SQL tools runtime updated by deployment |
 | `MOSAIC_AGENTCORE_GATEWAY_URL` | Signed MCP destination |
 | `MOSAIC_AGENTCORE_GATEWAY_ID`, `MOSAIC_AGENTCORE_GATEWAY_TARGET_ID` | Tool synchronization |

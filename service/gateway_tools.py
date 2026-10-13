@@ -79,7 +79,7 @@ def rpc(method: str, params: dict) -> dict:
             else type(error).__name__
         )
         raise AgentSetupError(
-            f"The agent could not reach its SQL tools through Gateway ({reason}). "
+            f"The Retrieval agent could not reach its SQL tools through Gateway ({reason}). "
             f"In Code Editor, run {VERIFY_AGENT}. Next: if that command fails too, "
             f"deploy again with {DEPLOY_AGENT} and share its message with your "
             "facilitator; if it passes, retry your question."

@@ -1,4 +1,4 @@
-"""Save the participant's selected Mosaic run and check the deployed agent."""
+"""Save the participant's selected Mosaic run and check the deployed Retrieval agent."""
 
 from __future__ import annotations
 

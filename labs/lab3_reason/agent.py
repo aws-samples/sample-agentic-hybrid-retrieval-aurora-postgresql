@@ -1,4 +1,4 @@
-"""Assemble the Strands agent that runs in Amazon Bedrock AgentCore Runtime.
+"""Assemble the Retrieval agent, a Strands agent that runs in Amazon Bedrock AgentCore Runtime.
 
 The workshop supplies the Bedrock model, bounded SQL tool adapters and execution
 hooks. Search, evidence and retrieval-history adapters call AgentCore Gateway;

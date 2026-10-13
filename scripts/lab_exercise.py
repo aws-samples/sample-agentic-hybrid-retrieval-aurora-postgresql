@@ -487,7 +487,7 @@ def grade_lab3(path: Path) -> dict[str, Any]:
 
     if path.resolve() != (REPO / DEFAULT_WORK[3]).resolve():
         raise ExerciseError(
-            f"Lab 3 runs labs/lab3_reason/agent.py; save your agent there, then deploy with {DEPLOY_AGENT}."
+            f"Lab 3 runs labs/lab3_reason/agent.py; save your Retrieval agent there, then deploy with {DEPLOY_AGENT}."
         )
     if not lab_state.lab_is_solved(3):
         raise ExerciseError(
@@ -594,7 +594,9 @@ def print_comparison(table: dict) -> None:
 
 def _print_lab3(report: dict) -> None:
     if not report["failures"]:
-        print("Your agent is live and using your hybrid search to answer with sources.")
+        print(
+            "Your Retrieval agent is live and using your hybrid search to answer with sources."
+        )
         print(
             "Next: change Alex's requirements in Mosaic and see how its recommendation changes."
         )

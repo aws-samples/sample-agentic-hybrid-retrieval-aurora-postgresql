@@ -128,7 +128,7 @@ def invoke(
             # AgentCore exposes the HTTP conflict without its application body.
             # Both stale code and rejected conversation context can return 409.
             raise AgentSetupError(
-                "The deployed agent rejected this request. For a follow-up, "
+                "The deployed Retrieval agent rejected this request. For a follow-up, "
                 "clear chat and retry with a new question. Otherwise, check the "
                 f"deployment with {VERIFY_AGENT} in Code Editor; if it reports "
                 f"changed code, deploy with {DEPLOY_AGENT}."
@@ -138,15 +138,15 @@ def invoke(
         )
         if status:
             raise AgentSetupError(
-                f"Your deployed agent stopped this request with HTTP {status[1]} "
-                f"({code}). Runtime does not pass on the reason; the agent runtime's "
+                f"Your deployed Retrieval agent stopped this request with HTTP {status[1]} "
+                f"({code}). Runtime does not pass on the reason; the Retrieval agent runtime's "
                 "log in CloudWatch names it, such as a Bedrock model call that was "
                 "throttled, the answer checks, or the turn's time limit. Next: retry "
                 f"your question; if it fails again, check the deployment with "
                 f"{VERIFY_AGENT} and share this message with your facilitator."
             ) from error
         raise AgentSetupError(
-            f"Mosaic could not run the deployed agent ({code or type(error).__name__}). "
+            f"Mosaic could not run the deployed Retrieval agent ({code or type(error).__name__}). "
             f"In Code Editor, check the deployment with {VERIFY_AGENT}. If you "
             f"changed code, deploy with {DEPLOY_AGENT} first. "
             "Next: retry your question; if deployment fails, share the terminal message with your facilitator."

@@ -119,7 +119,7 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 _GROUNDING_ERROR_DETAIL = (
     "Mosaic could not attach the supporting sources needed for this answer. "
-    "Next: open the agent's tool activity and check whether get_product_evidence "
+    "Next: open the Retrieval agent's tool activity and check whether get_product_evidence "
     "returned records. If it did not, try a more specific product request. "
     "If it did, share the run ID with your facilitator."
 )
@@ -250,7 +250,7 @@ def _agent_error(error: Exception) -> HTTPException:
         safe_model_runtime_message(
             error,
             fallback=(
-                "Agent response failed. Check Aurora connectivity and the model "
+                "Retrieval agent response failed. Check Aurora connectivity and the model "
                 "runtime, then retry."
             ),
         ),
@@ -603,7 +603,7 @@ def _stream_error_payload(error: Exception) -> dict[str, Any]:
         "detail": safe_model_runtime_message(
             error,
             fallback=(
-                "Agent response failed. Retry after checking the runtime and "
+                "Retrieval agent response failed. Retry after checking the runtime and "
                 "retrieval service."
             ),
         )

@@ -710,7 +710,7 @@ describe("RetrievalLabPage", () => {
       "Lab 2, Task 2A: repair the source-position contributions and inspect which candidates survived fusion.",
     );
     expect(summaries[3]).toBe(
-      "Support the agent's answer with sources. Which products and evidence the agent"
+      "Support the Retrieval agent's answer with sources. Which products and evidence it"
       + " received, what the application allowed into the answer, and whether"
       + " every citation resolves.",
     );
@@ -768,7 +768,7 @@ describe("RetrievalLabPage", () => {
       .map((button) => button.getAttribute("aria-label") ?? button.textContent?.trim());
     expect(actions.filter((label) => /^Run|^Replay/.test(label ?? ""))).toEqual([
       "Run pipeline",
-      "Run the agent",
+      "Run the Retrieval agent",
       "Run completion proof for Lab 1",
     ]);
     // The completion gate is a second control beside the third, and it grades
@@ -1326,11 +1326,11 @@ describe("RetrievalLabPage", () => {
     render(<RetrievalLabPage />);
 
     expect(screen.getByTestId("completion-proof-lab-3").textContent).toContain(
-      "Run the agent in Reason first",
+      "Run the Retrieval agent in Reason first",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Run the agent" }));
-    await screen.findByRole("button", { name: "Run agent again" });
+    fireEvent.click(screen.getByRole("button", { name: "Run the Retrieval agent" }));
+    await screen.findByRole("button", { name: "Run the Retrieval agent again" });
 
     const baselineReadsBefore = vi.mocked(api.scorecard).mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: "Prove all three labs" }));

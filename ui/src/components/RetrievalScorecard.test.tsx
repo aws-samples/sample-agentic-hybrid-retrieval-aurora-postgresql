@@ -190,7 +190,7 @@ function scorecardFixture(
         {
           key: "retrieval_scope",
           label: "Retrieval scope",
-          description: "The agent may act only on what its own retrieval returned.",
+          description: "The Retrieval agent may act only on what its own retrieval returned.",
           assertion_names: ["retrieval_tool_called", "expected_products_considered"],
           falsifiers: ["falsifier one", "falsifier two"],
           fixture_count: null,
@@ -290,7 +290,7 @@ describe("RetrievalScorecard", () => {
     expect(screen.getByText("B. Did known critical examples still pass?")).toBeTruthy();
     expect(screen.getByText("C. Did hard filters stay enforced?")).toBeTruthy();
     expect(
-      screen.getByText("D. Did the agent use only allowed products and sources?"),
+      screen.getByText("D. Did the Retrieval agent use only allowed products and sources?"),
     ).toBeTruthy();
   });
 
@@ -474,7 +474,7 @@ describe("RetrievalScorecard", () => {
       ),
     ).toBeTruthy();
     expect(
-      screen.getByText(/agent conversation with several steps/i),
+      screen.getByText(/Retrieval agent conversation with several steps/i),
     ).toBeTruthy();
   });
 
@@ -495,9 +495,9 @@ describe("RetrievalScorecard", () => {
     render(<RetrievalScorecard />);
 
     await screen.findByText(
-      "D. Did the agent use only allowed products and sources?",
+      "D. Did the Retrieval agent use only allowed products and sources?",
     );
-    expect(screen.getByText("Evidence rules the agent follows")).toBeTruthy();
+    expect(screen.getByText("Evidence rules the Retrieval agent follows")).toBeTruthy();
 
     for (const label of [
       "Retrieval scope",
