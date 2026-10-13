@@ -549,10 +549,13 @@ def test_diff_shows_the_reference_against_the_participants_block(
 
     assert differs
     lines = report.splitlines()
-    assert lines[0] == (
-        f"Lab {lab}: where your {LABS[lab][0]} differs from the reference answer. "
-        "Only those lines are shown; nothing was changed."
-    )
+    assert lines[:2] == [
+        f"Lab {lab}: where your {LABS[lab][0]} differs from the reference answer.",
+        "Only those lines are shown; nothing was changed.",
+    ]
+    # The tool's own text stays short; indented lines are code or a command, kept whole.
+    prose = [line for line in lines if not line.startswith(" ")]
+    assert max(len(line) for line in prose) <= 110, "a line would wrap in the terminal"
     assert not any(line.startswith("Outside the markers") for line in lines)
     assert "  Reference answer:" in lines and "  Your file:" in lines
     assert any("TODO(Lab" in line for line in lines)

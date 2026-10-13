@@ -20,11 +20,14 @@ sys.path.insert(0, str(REPO))
 from service.catalog_runtime import search_schema
 from service.lab_files import LAB1_SQL, LAB2_SQL, LAB3_AGENT, solution_path
 from service.participant_commands import (
+    ADVANCE_TO_LAB_2,
     APPLY_SQL,
     DEPLOY_AGENT,
     DIFF,
     complete_lab_3,
+    exercise_check,
     prove,
+    repeat_request,
     reset,
     solution,
     validate,
@@ -195,29 +198,44 @@ def _paint(line: str, code: str, color: bool) -> str:
     return f"\033[{code}m{line}\033[0m" if color else line
 
 
+# Commands sit on their own lines under a short label, so a long line never wraps
+# mid-word in a terminal and each command copies whole.
+COMMAND_INDENT = "      "
+
+
 def _diff_footer(lab: int, *, block_differs: bool, outside_differs: bool) -> list[str]:
     footer = []
     if outside_differs:
-        footer.append(
-            "Lines outside the markers are not yours to change: put them back as the "
-            f"original file has them, or start over with {reset(lab)} (it discards your "
-            "edits to this lab)."
-        )
+        footer += [
+            (
+                "Lines outside the markers are not yours to change: put them back "
+                "as the original file has them."
+            ),
+            "To start over instead (it discards your edits to this lab):",
+            f"{COMMAND_INDENT}{reset(lab)}",
+        ]
     if block_differs and lab == 3:
-        footer.append(
-            "Lab 3 also asks for your own instruction inside this block, so some "
-            f"difference is expected. Deploy with {DEPLOY_AGENT}, then check the saved "
-            f"run with {complete_lab_3()}."
-        )
+        footer += [
+            (
+                "Lab 3 also asks for your own instruction inside this block, so "
+                "some difference is expected."
+            ),
+            f"Deploy:   {DEPLOY_AGENT}",
+            f"Check:    {complete_lab_3()}",
+        ]
     elif block_differs:
-        footer.append(
-            "A different line is not always wrong: other SQL can work too. Apply it "
-            f"with {APPLY_SQL}, then prove it with {prove(lab)}."
-        )
+        check = ADVANCE_TO_LAB_2 if lab == 1 else exercise_check(lab)
+        footer += [
+            "A different line is not always wrong: other SQL can work too.",
+            f"Apply:    {APPLY_SQL}",
+            f"Prove:    {repeat_request(lab)}",
+            f"Then:     {check}",
+        ]
     if block_differs:
-        footer.append(
-            f"To use the reference answer instead (it replaces your block): {solution(lab)}"
-        )
+        footer += [
+            "To use the reference answer instead (it replaces your block):",
+            f"{COMMAND_INDENT}{solution(lab)}",
+        ]
     return footer
 
 
@@ -267,10 +285,8 @@ def lab_diff(lab: int, *, repo: Path = REPO, color: bool = False) -> tuple[str, 
         )
         return matches, False
     report = [
-        (
-            f"Lab {lab}: where your {relative_path} differs from the reference answer. "
-            "Only those lines are shown; nothing was changed."
-        ),
+        f"Lab {lab}: where your {relative_path} differs from the reference answer.",
+        "Only those lines are shown; nothing was changed.",
     ]
     for where, label, expected_lines, theirs in [*inside, *outside]:
         shown = [line for line in [*expected_lines, *theirs] if line.strip()]

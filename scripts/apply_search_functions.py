@@ -20,7 +20,7 @@ from scripts.lab_state import (
 from service.catalog_runtime import active_dataset, search_schema
 from service.lab_files import LAB1_SQL, LAB2_SQL
 from service.lab_validation_receipt import participant_sql_digest
-from service.participant_commands import APPLY_SQL
+from service.participant_commands import APPLY_SQL, DIFF
 from service.search_sql import SEARCH_SQL_FILES, search_sql
 
 #: The fused search function carries the record of which participant SQL Aurora
@@ -196,17 +196,36 @@ def describe_apply_failure(
 
 
 def _apply_fix(where: tuple[Path, int, str] | None) -> str:
+    # Commands go on their own lines so a terminal never wraps them mid-word.
+    indent = "      "
     if where and where[0] in (LAB1_SQL, LAB2_SQL):
-        return f"Fix: correct that line in {where[0]}, save it, then run {APPLY_SQL} again."
-    if where:
-        return (
-            f"Fix: {where[0]} is outside the marked blocks. If you changed it, undo the "
-            f"change (git diff shows it), then run {APPLY_SQL} again; otherwise give "
-            "this message to your facilitator."
+        return "\n".join(
+            [
+                f"Fix: correct that line in {where[0]} and save it. Then run:",
+                f"{indent}{APPLY_SQL}",
+                "To see where your file differs from the reference answer (it shows the answer):",
+                f"{indent}{DIFF}",
+            ]
         )
-    return (
-        f"Fix: check the marked LAB1_EDIT and LAB2_EDIT blocks in "
-        f"{LAB1_SQL} and {LAB2_SQL}, then run {APPLY_SQL} again."
+    if where:
+        return "\n".join(
+            [
+                (
+                    f"Fix: {where[0]} is outside the marked blocks. If you changed it, "
+                    "undo the change (git diff shows it) and run:"
+                ),
+                f"{indent}{APPLY_SQL}",
+                "Otherwise give this message to your facilitator.",
+            ]
+        )
+    return "\n".join(
+        [
+            (
+                f"Fix: check the marked LAB1_EDIT and LAB2_EDIT blocks in {LAB1_SQL} "
+                f"and {LAB2_SQL}. Then run:"
+            ),
+            f"{indent}{APPLY_SQL}",
+        ]
     )
 
 
