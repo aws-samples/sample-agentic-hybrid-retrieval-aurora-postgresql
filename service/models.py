@@ -385,6 +385,11 @@ class RetrievalDiagnostics(BaseModel):
     stage_timings_ms: dict[str, float]
     total_latency_ms: int
     warnings: list[str] = Field(default_factory=list)
+    #: The participant SQL Aurora recorded when the search functions were last
+    #: applied, read on the connection that ran this search. It is how a search
+    #: called through AgentCore Gateway shows that it ran the Lab 1 and Lab 2
+    #: files. `None` when Aurora holds no record, or on a replayed run.
+    search_sql_sha256: str | None = None
 
 
 #: Query-coverage verdicts live here rather than in `service.coverage` so that
@@ -777,6 +782,12 @@ class ToolTraceStep(BaseModel):
     outcome: Literal["success", "denied", "error", "timeout"] = "success"
     origin: Literal["model", "controller_fallback"] = "model"
     latency_ms: float | None = Field(default=None, ge=0)
+    #: Where a catalog tool ran: through AgentCore Gateway to the tools runtime,
+    #: or inside the agent's own process. `None` for steps that read no catalog.
+    route: Literal["gateway", "in_process"] | None = None
+    #: For a search, the participant SQL Aurora ran it with; see
+    #: `RetrievalDiagnostics.search_sql_sha256`.
+    search_sql_sha256: str | None = None
 
 
 class AgentCitation(BaseModel):

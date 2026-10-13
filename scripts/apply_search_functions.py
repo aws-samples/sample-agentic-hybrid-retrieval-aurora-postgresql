@@ -21,15 +21,12 @@ from service.catalog_runtime import active_dataset, search_schema
 from service.lab_files import LAB1_SQL, LAB2_SQL
 from service.lab_validation_receipt import participant_sql_digest
 from service.participant_commands import APPLY_SQL, DIFF
-from service.search_sql import SEARCH_SQL_FILES, search_sql
-
-#: The fused search function carries the record of which participant SQL Aurora
-#: runs. Its applier already owns it, so the record needs no new privilege and
-#: no new table, and it changes in the same transaction as the functions do.
-FUSED_FUNCTION = (
-    "search_hybrid_rrf(text,vector,jsonb,integer,integer,integer,integer,integer,real)"
+from service.search_sql import (
+    APPLIED_SQL_LABEL,
+    FUSED_FUNCTION,
+    SEARCH_SQL_FILES,
+    search_sql,
 )
-APPLIED_SQL_LABEL = "Participant SQL sha256 "
 
 #: Apply installs the files' mosaic_search functions under this live schema, so
 #: Aurora's errors name a schema the participant never typed.
@@ -63,18 +60,6 @@ def explain_rejected_names(message: str) -> list[str]:
             "not the raw score, such as trigram_score."
         )
     return notes
-
-
-def applied_sql_digest(connection) -> str | None:
-    """The participant SQL digest Aurora recorded when it was last applied."""
-    row = connection.execute(
-        f"SELECT obj_description('{search_schema()}.{FUSED_FUNCTION}'::regprocedure,"
-        " 'pg_proc') AS note"
-    ).fetchone()
-    note = (row["note"] if isinstance(row, dict) else row[0]) if row else None
-    if not note or not note.startswith(APPLIED_SQL_LABEL):
-        return None
-    return note.removeprefix(APPLIED_SQL_LABEL)
 
 
 def rendered_sql(source: str) -> str:

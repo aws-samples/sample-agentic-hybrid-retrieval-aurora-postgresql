@@ -184,3 +184,86 @@ def test_the_command_string_is_the_one_participants_type():
 def test_a_question_too_short_for_the_api_is_refused_locally(question, capsys):
     assert ask_agent.main([question]) == 2
     assert "at least 4 characters" in capsys.readouterr().err
+
+
+def gateway_run(search_sql_sha256):
+    """A deployed run: catalog tools through Gateway, a final step by the application."""
+    return AgentResponse(
+        agent_run_id=RUN,
+        question="Which 27 inch 4K monitor charges a laptop at 100W?",
+        answer="The retrieved sources do not establish USB-C 100W laptop charging.",
+        plan=[],
+        recommendations=[],
+        citations=[],
+        trace=[
+            {
+                "sequence": 1,
+                "tool": "search_products",
+                "detail": "",
+                "route": "gateway",
+                "search_sql_sha256": search_sql_sha256,
+            },
+            {
+                "sequence": 2,
+                "tool": "get_product_evidence",
+                "detail": "",
+                "route": "gateway",
+            },
+            {
+                "sequence": 3,
+                "tool": "synthesize_cited_answer",
+                "detail": "",
+                "outcome": "denied",
+                "origin": "controller_fallback",
+            },
+        ],
+        outcome="declined",
+        decline_reason="unsupported_requirements",
+    ).model_dump(mode="json")
+
+
+def test_a_search_through_gateway_says_it_ran_the_lab_sql(monkeypatch):
+    monkeypatch.setattr(ask_agent, "participant_sql_digest", lambda: "a" * 64)
+
+    text = ask_agent.render(gateway_run("a" * 64))
+
+    assert "1  search_products          success   through AgentCore Gateway" in text
+    assert (
+        "Aurora ran your Lab 1 and Lab 2 SQL (aaaaaaaaaaaa), the same as labs/" in text
+    )
+    assert "2  get_product_evidence     success   through AgentCore Gateway" in text
+
+
+def test_a_search_that_ran_other_sql_says_so_and_how_to_apply(monkeypatch):
+    monkeypatch.setattr(ask_agent, "participant_sql_digest", lambda: "a" * 64)
+
+    text = ask_agent.render(gateway_run("b" * 64))
+
+    assert (
+        "Aurora ran search SQL bbbbbbbbbbbb, not your lab files' aaaaaaaaaaaa" in text
+    )
+    assert "uv run python scripts/apply_search_functions.py" in text
+    assert "the same as labs/" not in text
+
+
+def test_a_search_with_no_sql_record_says_so(monkeypatch):
+    monkeypatch.setattr(ask_agent, "participant_sql_digest", lambda: "a" * 64)
+
+    text = ask_agent.render(gateway_run(None))
+
+    assert "Aurora has no record of which search SQL ran" in text
+
+
+def test_a_step_the_application_ran_is_labelled(monkeypatch):
+    monkeypatch.setattr(ask_agent, "participant_sql_digest", lambda: "a" * 64)
+
+    text = ask_agent.render(gateway_run("a" * 64))
+
+    assert "3  synthesize_cited_answer  denied   run by the application" in text
+
+
+def test_an_agent_that_reports_no_route_prints_no_sql_line():
+    """An agent deployed before routes were recorded keeps its old trace."""
+    text = ask_agent.render(grounded())
+
+    assert "Gateway" not in text and "Aurora ran" not in text

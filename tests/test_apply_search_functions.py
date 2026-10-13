@@ -6,8 +6,6 @@ import pytest
 
 from scripts import apply_search_functions
 from scripts.apply_search_functions import (
-    APPLIED_SQL_LABEL,
-    applied_sql_digest,
     apply,
     describe_apply_failure,
     locate_error,
@@ -16,7 +14,7 @@ from scripts.apply_search_functions import (
 from scripts.configure_retrieval_database import DatabaseConfigurationError
 from scripts.lab_state import LABS, _replace_block
 from service.participant_commands import APPLY_SQL
-from service.search_sql import search_sql
+from service.search_sql import APPLIED_SQL_LABEL, applied_sql_digest, search_sql
 
 SOURCE = search_sql()
 

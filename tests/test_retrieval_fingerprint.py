@@ -710,12 +710,15 @@ def test_scorecard_import_closure_is_covered_or_explicitly_excluded():
     # Listing specs are read-time display facts parsed from the pinned source
     # record; no retrieval arm, fusion step or scorer reads them. Lab file
     # paths only say which files the manifest hashes, and moving one already
-    # changes the fingerprint through the hashed paths.
+    # changes the fingerprint through the hashed paths. The search SQL list
+    # names files the manifest already hashes, and its applied-SQL record is
+    # read back for display; neither changes what a search returns.
     excluded = {
         "service/config.py",
         "service/db.py",
         "service/product_specs.py",
         "service/lab_files.py",
+        "service/search_sql.py",
     }
     covered = {p.relative_to(REPO).as_posix() for p in manifest_files()}
     covered.update(SCORECARD_METHODOLOGY_FILES)

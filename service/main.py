@@ -64,6 +64,7 @@ from service.lab_proof import UnknownLab, completion_proof, lab_states
 from service.live_catalog import ProductNotInCatalogError
 from service.model_runtime import (
     bedrock_credentials_status,
+    model_error_code,
     safe_model_runtime_message,
 )
 from service.models import (
@@ -232,6 +233,12 @@ def _model_error(error: Exception) -> HTTPException:
 def _agent_error(error: Exception) -> HTTPException:
     from service.agent_setup import AgentSetupError
 
+    # On AgentCore Runtime this log line is the only place the cause survives:
+    # Runtime hands the caller the status without this response's detail.
+    logger.warning(
+        "Agent request failed with HTTP 503: %s",
+        model_error_code(error) or type(error).__name__,
+    )
     if isinstance(error, AgentSetupError):
         return HTTPException(503, str(error))
     if isinstance(error, GroundingContractError):

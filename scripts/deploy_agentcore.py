@@ -447,8 +447,8 @@ def require_applied_sql() -> str:
     The Runtime check covers the code the image runs; this covers the SQL the
     tools call, which lives in Aurora and changes only when it is applied.
     """
-    from scripts.apply_search_functions import applied_sql_digest
     from service.db import connect
+    from service.search_sql import applied_sql_digest
 
     workspace = participant_sql_digest()
     with connect() as connection:
@@ -482,7 +482,7 @@ def verify() -> dict:
             f"environment failure, not your code. fix: share this message with your "
             f"facilitator, then recheck with {VERIFY_AGENT}."
         )
-    require_applied_sql()
+    workspace_sql = require_applied_sql()
     tools = gateway_tools.rpc("tools/list", {})
     names = {tool["name"] for tool in tools.get("tools", [])}
     expected = {
@@ -504,12 +504,21 @@ def verify() -> dict:
                 "limit": 2,
                 "authorized_limit": 2,
                 "rerank": False,
+                "include_diagnostics": True,
             }
         },
     )
     if not response.get("results"):
         raise RuntimeError(
             "Gateway search rule: exact-identity returned no products; inspect the deployed SQL tools."
+        )
+    searched_sql = (response.get("diagnostics") or {}).get("search_sql_sha256")
+    if searched_sql != workspace_sql:
+        raise RuntimeError(
+            "Gateway SQL rule: the search through Gateway ran search SQL "
+            f"{(searched_sql or 'with no recorded identity')[:12]}, not your lab files' "
+            f"{workspace_sql[:12]}; fix: apply them with {APPLY_SQL}, then recheck "
+            f"with {VERIFY_AGENT}."
         )
     product = response["results"][0]
     evidence = gateway_tools.call_tool(
@@ -537,6 +546,10 @@ def verify() -> dict:
     destination = ROOT / ".local/agentcore/deployment.json"
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(json.dumps(receipt, indent=2) + "\n")
+    print(
+        "A search through Gateway ran your Lab 1 and Lab 2 SQL in Aurora "
+        f"({workspace_sql[:12]}): passed"
+    )
     print("Runtime code, Gateway discovery, Aurora search and scoped evidence: passed")
     return receipt
 

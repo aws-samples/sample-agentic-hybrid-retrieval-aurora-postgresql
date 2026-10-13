@@ -20,7 +20,7 @@ from service.answerability import SynthesisDeclined
 from service.catalog import get_product_evidence_records, get_product_summaries
 from service.catalog_runtime import active_dataset, search_schema
 from service.config import get_settings
-from service.coverage import decline_note, decline_reason
+from service.coverage import decline_note, decline_reason, near_listing
 from service.db import connect
 from service.model_runtime import model_runtime_error
 from service.models import (
@@ -441,6 +441,14 @@ def _retrieved_product_ids(state: Mapping[str, Any]) -> set[int]:
     }
 
 
+#: The tools that read the catalog, and so run through AgentCore Gateway when
+#: the agent is deployed. `explain_retrieval` replays a search through the
+#: Gateway's `inspect_retrieval_run`; `compare_products` reads only this run.
+CATALOG_TOOLS = frozenset(
+    {"search_products", "get_product_evidence", "explain_retrieval"}
+)
+
+
 def _record(
     name: str,
     arguments: dict[str, Any],
@@ -451,8 +459,12 @@ def _record(
     detail: str,
     outcome: str = "success",
     origin: Literal["model", "controller_fallback"] | None = None,
+    search_sql_sha256: str | None = None,
 ) -> None:
     state = _state()
+    route = None
+    if name in CATALOG_TOOLS:
+        route = "gateway" if gateway_tools.gateway_url() else "in_process"
     state["trace"].append(
         {
             "sequence": len(state["trace"]) + 1,
@@ -464,6 +476,8 @@ def _record(
             "outcome": outcome,
             "origin": origin or _TRACE_ORIGIN.get(),
             "latency_ms": round((perf_counter() - started) * 1_000, 2),
+            "route": route,
+            "search_sql_sha256": search_sql_sha256,
         }
     )
 
@@ -821,11 +835,24 @@ def search_products(
         )
 
     ranked_results = response.results[:requested_limit]
+    search_sql_sha256 = (
+        response.diagnostics.search_sql_sha256 if response.diagnostics else None
+    )
     # Recorded before the empty-window guard, because the search did run and did
     # produce a verdict. `coverage_refusal` declines only when *every* search
     # came back unanchored, so a grounded search dropped here would be invisible
     # to it and a later unanchored search would decline the whole run.
     state.setdefault("search_coverage", []).append(response.coverage)
+    if response.coverage is not None and not response.coverage.is_anchored:
+        # What fuzzy matching found for a request the catalog cannot anchor. The
+        # decline may name one of these listings; it never recommends it.
+        state.setdefault("fuzzy_found", {}).update(
+            {
+                product.product_id: product
+                for product in response.results
+                if product.signals and product.signals.trigram.rank is not None
+            }
+        )
     # Empty results still consumed a search and have a receipt. Losing them
     # caused repeated requests and turned a normal no-match answer into a 503.
     state["search_event_ids"].append(response.search_event_id)
@@ -845,6 +872,7 @@ def search_products(
             search_event_id=response.search_event_id,
             result_count=0,
             detail="Retrieval completed, but no eligible product was returned.",
+            search_sql_sha256=search_sql_sha256,
         )
         return {
             **_failure(
@@ -870,6 +898,7 @@ def search_products(
             f"Retrieved {len(ranked_results)} ranked products from the bounded "
             f"rerank window; evidence remains a separate query-grounded step."
         ),
+        search_sql_sha256=search_sql_sha256,
     )
     return {
         "ok": True,
@@ -1226,7 +1255,13 @@ def coverage_refusal(state: dict[str, Any]) -> tuple[str, str] | None:
                 "coverage_refusal what the new pair means",
             )
         )
-    return decline_note(unmatched), decline_reason(unmatched)
+    found = (state.get("fuzzy_found") or {}).values()
+    near = {
+        term: listing
+        for term in unmatched
+        if (listing := near_listing(term, found)) is not None
+    }
+    return decline_note(unmatched, near), decline_reason(unmatched)
 
 
 def record_declined_answer(state: dict[str, Any]) -> bool:
@@ -1942,6 +1977,8 @@ def persist_completed_run(
                                 "sequence": sequence,
                                 "detail": step["detail"],
                                 "result_count": step.get("result_count"),
+                                "route": step.get("route"),
+                                "search_sql_sha256": step.get("search_sql_sha256"),
                                 "citations": (
                                     [
                                         citation.model_dump()

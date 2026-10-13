@@ -245,3 +245,71 @@ def test_catalog_not_ready_is_a_separate_failure_for_the_facilitator(monkeypatch
     message = str(raised.value)
     assert "catalog" in message and "facilitator" in message
     assert "stale" not in message
+
+
+def _gateway_verify(monkeypatch, tmp_path, searched_sql):
+    """Every verify step passes up to the search through Gateway, which ran `searched_sql`."""
+    monkeypatch.setattr(
+        deploy.agentcore_transport,
+        "deployed_status",
+        lambda: {
+            "application_sha256": "a" * 64,
+            "readiness": {"database": {"catalog_ready": True}},
+        },
+    )
+    monkeypatch.setattr(deploy, "application_digest", lambda: "a" * 64)
+    monkeypatch.setattr(deploy, "require_applied_sql", lambda: "c" * 64)
+    monkeypatch.setattr(deploy, "participant_sql_digest", lambda: "c" * 64)
+    monkeypatch.setattr(deploy, "ROOT", tmp_path)
+    monkeypatch.setenv("MOSAIC_AGENTCORE_RUNTIME_ARN", "arn:runtime")
+    monkeypatch.setenv("MOSAIC_AGENTCORE_GATEWAY_URL", "https://gateway.example")
+    expected = [
+        f"{deploy.gateway_tools.TARGET_NAME}___{name}"
+        for name in deploy.gateway_tools.TOOL_NAMES
+    ]
+    monkeypatch.setattr(
+        deploy.gateway_tools,
+        "rpc",
+        lambda method, params: {"tools": [{"name": name} for name in expected]},
+    )
+    calls = []
+
+    def call_tool(name, arguments):
+        calls.append((name, arguments))
+        if name == "search_products":
+            return {
+                "search_event_id": "e" * 8,
+                "results": [{"product_id": 1492978}],
+                "diagnostics": {"search_sql_sha256": searched_sql},
+            }
+        return {"evidence": [{"evidence_id": 1}]}
+
+    monkeypatch.setattr(deploy.gateway_tools, "call_tool", call_tool)
+    return calls
+
+
+def test_verify_proves_the_search_through_gateway_ran_the_lab_sql(
+    monkeypatch, tmp_path, capsys
+):
+    calls = _gateway_verify(monkeypatch, tmp_path, "c" * 64)
+
+    deploy.verify()
+
+    search = next(arguments for name, arguments in calls if name == "search_products")
+    assert search["request"]["include_diagnostics"] is True
+    output = capsys.readouterr().out
+    assert (
+        "A search through Gateway ran your Lab 1 and Lab 2 SQL in Aurora "
+        "(cccccccccccc): passed"
+    ) in output
+
+
+def test_verify_refuses_a_gateway_search_that_ran_other_sql(monkeypatch, tmp_path):
+    _gateway_verify(monkeypatch, tmp_path, "d" * 64)
+
+    with pytest.raises(RuntimeError) as raised:
+        deploy.verify()
+    message = str(raised.value)
+    assert "Gateway SQL rule" in message
+    assert "dddddddddddd" in message and "cccccccccccc" in message
+    assert VERIFY_AGENT in message

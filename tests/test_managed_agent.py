@@ -324,6 +324,48 @@ def test_runtime_conflict_does_not_claim_unproven_source_drift(monkeypatch, sour
     assert "differs from your workspace" not in message
 
 
+def test_an_agent_error_names_its_status_and_where_the_cause_is(monkeypatch, source):
+    """Runtime passes on the agent's status, never its reason; the message says both."""
+    from botocore.exceptions import ClientError
+
+    monkeypatch.setenv("MOSAIC_AGENTCORE_RUNTIME_ARN", ARN)
+    client = Mock()
+    client.invoke_agent_runtime.side_effect = ClientError(
+        {
+            "Error": {
+                "Code": "RuntimeClientError",
+                "Message": "Received error (503) from runtime. Please check your "
+                "CloudWatch logs for more information.",
+            }
+        },
+        "InvokeAgentRuntime",
+    )
+    monkeypatch.setattr(transport, "runtime_client", lambda: client)
+    with pytest.raises(AgentSetupError) as raised:
+        transport.invoke("answer", AgentRequest(question="A monitor"))
+    message = str(raised.value)
+    assert "HTTP 503 (RuntimeClientError)" in message
+    assert "log in CloudWatch" in message and "throttled" in message
+    assert VERIFY_AGENT in message
+
+
+def test_an_invocation_failure_names_the_aws_code(monkeypatch, source):
+    from botocore.exceptions import ClientError
+
+    monkeypatch.setenv("MOSAIC_AGENTCORE_RUNTIME_ARN", ARN)
+    client = Mock()
+    client.invoke_agent_runtime.side_effect = ClientError(
+        {"Error": {"Code": "ThrottlingException", "Message": "Rate exceeded"}},
+        "InvokeAgentRuntime",
+    )
+    monkeypatch.setattr(transport, "runtime_client", lambda: client)
+    with pytest.raises(AgentSetupError) as raised:
+        transport.invoke("answer", AgentRequest(question="A monitor"))
+    message = str(raised.value)
+    assert "Mosaic could not run the deployed agent (ThrottlingException)." in message
+    assert DEPLOY_AGENT in message
+
+
 def test_runtime_ready_waits_for_live_endpoint_version(monkeypatch):
     from scripts import deploy_agentcore as deploy
 

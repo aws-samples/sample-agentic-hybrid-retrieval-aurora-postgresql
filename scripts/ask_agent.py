@@ -5,7 +5,9 @@
 The question goes through the same API route as Ask Mosaic, so it reaches your agent on
 AgentCore Runtime. The output shows the answer, the searches the agent planned with the
 filters it chose, the tool trace, the products, each citation's type, product, source
-and quote, the outcome, any decline reason and the run ID. A declined answer is an
+and quote, the outcome, any decline reason and the run ID. The trace names each catalog
+tool's route (through AgentCore Gateway when the agent is deployed) and, under each
+search, whether Aurora ran the search SQL in your lab files. A declined answer is an
 answer of record, not a failure: every run is saved in mosaic.agent_turn and its tool
 calls in mosaic.agent_tool_event.
 """
@@ -21,6 +23,8 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.validate_lab import LabValidationError, _request
+from service.lab_validation_receipt import participant_sql_digest
+from service.participant_commands import APPLY_SQL
 
 QUOTE_CHARS = 120
 MIN_QUESTION = 4  # AgentRequest.question's own minimum
@@ -46,14 +50,47 @@ def _plan(response: dict[str, Any]) -> list[str]:
     return lines
 
 
-def _trace(response: dict[str, Any]) -> list[str]:
+ROUTES = {"gateway": "through AgentCore Gateway", "in_process": "without Gateway"}
+
+
+def _search_sql(applied: str | None, workspace: str) -> str:
+    """Which search SQL Aurora ran for one search, against the lab files in Code Editor."""
+    if applied is None:
+        return (
+            "Aurora has no record of which search SQL ran; "
+            f"apply your lab files with {APPLY_SQL}"
+        )
+    if applied == workspace:
+        return (
+            f"Aurora ran your Lab 1 and Lab 2 SQL ({applied[:12]}), the same as labs/"
+        )
+    return (
+        f"Aurora ran search SQL {applied[:12]}, not your lab files' {workspace[:12]}; "
+        f"apply them with {APPLY_SQL}"
+    )
+
+
+def _trace(response: dict[str, Any], workspace: str) -> list[str]:
+    """One line per tool call, then the search SQL under each search.
+
+    A step the application ran itself, after the agent stopped, says so; the agent
+    is capped at a number of tool calls, and that step is not one of them.
+    """
     lines = []
     for step in response["trace"]:
         latency = step.get("latency_ms")
         took = f"   {latency:,.0f} ms" if latency is not None else ""
+        notes = [ROUTES[step["route"]]] if step.get("route") in ROUTES else []
+        if step.get("origin") == "controller_fallback":
+            notes.append("run by the application")
+        noted = f"   {', '.join(notes)}" if notes else ""
         lines.append(
-            f"  {step['sequence']}  {step['tool']:<23}  {step['outcome']}{took}"
+            f"  {step['sequence']}  {step['tool']:<23}  {step['outcome']}{took}{noted}"
         )
+        if step["tool"] == "search_products" and step.get("route"):
+            lines.append(
+                f"     {_search_sql(step.get('search_sql_sha256'), workspace)}"
+            )
     return lines
 
 
@@ -93,7 +130,7 @@ def render(response: dict[str, Any]) -> str:
     lines = [
         *_section("ANSWER", answer),
         *_section("PLAN", _plan(response)),
-        *_section("TOOL TRACE", _trace(response)),
+        *_section("TOOL TRACE", _trace(response, participant_sql_digest())),
         *_section("PRODUCTS", products),
         *_section("CITATIONS", _citations(response)),
         f"OUTCOME: {response['outcome']}",

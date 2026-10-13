@@ -68,6 +68,8 @@ def _trace_steps(state: dict[str, Any]) -> list[ToolTraceStep]:
             outcome=item.get("outcome", "success"),
             origin=item.get("origin", "model"),
             latency_ms=item.get("latency_ms"),
+            route=item.get("route"),
+            search_sql_sha256=item.get("search_sql_sha256"),
         )
         for item in state["trace"]
     ]

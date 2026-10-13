@@ -589,11 +589,11 @@ def completion_proof(
         from service import agentcore_transport, gateway_tools
 
         if agentcore_transport.runtime_arn():
-            from scripts.apply_search_functions import applied_sql_digest
             from service.lab_validation_receipt import (
                 application_digest,
                 participant_sql_digest,
             )
+            from service.search_sql import applied_sql_digest
 
             deployed = False
             detail = "Your agent and SQL tools match the code in Code Editor, and Aurora runs your SQL."

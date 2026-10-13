@@ -51,6 +51,11 @@ def runtime_arn() -> str | None:
     return value
 
 
+#: AgentCore reports the status the agent returned inside its error message, as
+#: "(503)"; the agent's own explanation is not passed on.
+_AGENT_STATUS = re.compile(r"\((\d{3})\)")
+
+
 def runtime_client():
     """Open a client for one agent turn.
 
@@ -128,10 +133,22 @@ def invoke(
                 f"deployment with {VERIFY_AGENT} in Code Editor; if it reports "
                 f"changed code, deploy with {DEPLOY_AGENT}."
             ) from error
+        status = (
+            _AGENT_STATUS.search(str(error)) if code == "RuntimeClientError" else None
+        )
+        if status:
+            raise AgentSetupError(
+                f"Your deployed agent stopped this request with HTTP {status[1]} "
+                f"({code}). Runtime does not pass on the reason; the agent runtime's "
+                "log in CloudWatch names it, such as a Bedrock model call that was "
+                "throttled, the answer checks, or the turn's time limit. Next: retry "
+                f"your question; if it fails again, check the deployment with "
+                f"{VERIFY_AGENT} and share this message with your facilitator."
+            ) from error
         raise AgentSetupError(
-            "Mosaic could not run the deployed agent. In Code Editor, check the "
-            f"deployment with {VERIFY_AGENT}. If you changed code, deploy with "
-            f"{DEPLOY_AGENT} first. "
+            f"Mosaic could not run the deployed agent ({code or type(error).__name__}). "
+            f"In Code Editor, check the deployment with {VERIFY_AGENT}. If you "
+            f"changed code, deploy with {DEPLOY_AGENT} first. "
             "Next: retry your question; if deployment fails, share the terminal message with your facilitator."
         ) from error
     return response["response"]

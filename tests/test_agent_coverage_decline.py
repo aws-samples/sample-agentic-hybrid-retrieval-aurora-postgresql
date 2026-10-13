@@ -41,6 +41,8 @@ from service.models import (
     AgentRequest,
     ProductSummary,
     QueryCoverage,
+    RankSignal,
+    ResultSignals,
     RetrievalDiagnostics,
     RetrievalProfile,
     SearchFilters,
@@ -1096,3 +1098,119 @@ def test_closing_the_stream_during_the_fallback_tail_still_persists_and_finishes
     )
     assert finish_calls, "observation.finish did not run after the disconnect"
     assert finish_calls[0]["status"] == "completed"
+
+
+LAB1_TYPED = "B0C2WWFCQB"
+LAB1_LISTING = "B0C2WWCFQB"
+LAB1_TITLE = (
+    "Logitech Zone 900 On-Ear Wireless Bluetooth Headset with Advanced "
+    "Noise-canceling Microphone, Connect up to 6 Wireless Devices"
+)
+
+
+def listing(product_id: int, sku: str, *, fuzzy_rank: int | None) -> ProductSummary:
+    """A search result with its per-search ranks; `fuzzy_rank` is fuzzy matching's."""
+    item = product(product_id).model_copy(update={"sku": sku, "title": LAB1_TITLE})
+    item.signals = ResultSignals(
+        fts=RankSignal(),
+        trigram=RankSignal(rank=fuzzy_rank),
+        semantic=RankSignal(rank=2),
+        rrf_score=0.03,
+        pre_rerank_rank=1,
+        pre_rerank_score=0.03,
+        final_rank=1,
+    )
+    return item
+
+
+def _decline_after_search(monkeypatch, results: list[ProductSummary]) -> dict[str, Any]:
+    """Run the production search tool on an unanchored ID, then write the decline."""
+    _install_retrieval(
+        monkeypatch,
+        [
+            search_response(
+                f"Logitech Zone 900 {LAB1_TYPED}",
+                coverage=unanchored(LAB1_TYPED),
+                results=results,
+            )
+        ],
+    )
+    state = _empty_run_state()
+    token = agent_tools._RUN.set(state)
+    try:
+        agent_tools.search_products(f"Logitech Zone 900 {LAB1_TYPED}", limit=2)
+    finally:
+        agent_tools._RUN.reset(token)
+    assert agent_tools.record_declined_answer(state)
+    return state["answer_of_record"]
+
+
+def test_the_decline_names_the_listing_fuzzy_matching_found(monkeypatch):
+    """Lab 1's repair, seen from Lab 3: the near listing is named, not recommended."""
+    record = _decline_after_search(
+        monkeypatch, [listing(1492978, LAB1_LISTING, fuzzy_rank=1)]
+    )
+
+    answer = record["answer"]
+    assert f"No exact catalog match was found for the term '{LAB1_TYPED}'." in answer
+    assert (
+        f"The closest listing that fuzzy matching found is {LAB1_LISTING}, "
+        "Logitech Zone 900 On-Ear Wireless Bluetooth Headset."
+    ) in answer
+    assert f"If {LAB1_LISTING} is the one you mean, ask again with that ID." in answer
+    assert record["recommendations"] == [] and record["citations"] == []
+    assert record["decline_reason"] == f"unanchored_query_terms: '{LAB1_TYPED}'"
+
+
+def test_without_fuzzy_matching_the_decline_names_no_listing(monkeypatch):
+    """Falsifier: the same listing found only by semantic search, as with Lab 1 broken."""
+    record = _decline_after_search(
+        monkeypatch, [listing(1492978, LAB1_LISTING, fuzzy_rank=None)]
+    )
+
+    assert LAB1_LISTING not in record["answer"]
+    assert "No product is recommended for this request." in record["answer"]
+
+
+def test_two_equally_close_listings_name_neither(monkeypatch):
+    """Choosing between two near-miss IDs is the guess the decline refuses."""
+    record = _decline_after_search(
+        monkeypatch,
+        [
+            listing(1492978, LAB1_LISTING, fuzzy_rank=1),
+            listing(1492979, "B0C2WWFCQA", fuzzy_rank=2),
+        ],
+    )
+
+    assert LAB1_LISTING not in record["answer"]
+    assert "B0C2WWFCQA" not in record["answer"]
+
+
+def test_a_listing_too_far_from_the_typed_id_is_not_named(monkeypatch):
+    record = _decline_after_search(
+        monkeypatch, [listing(1542245, "B09CQ9DH7N", fuzzy_rank=2)]
+    )
+
+    assert "B09CQ9DH7N" not in record["answer"]
+
+
+def test_a_search_records_its_route_and_the_sql_it_ran(monkeypatch):
+    """The trace step the terminal and Ask Mosaic read to show the Gateway path."""
+    response = search_response(
+        "Logitech Zone 900", coverage=grounded(), results=[product()]
+    )
+    response.diagnostics.search_sql_sha256 = "c" * 64
+    _install_retrieval(monkeypatch, [response])
+    monkeypatch.setattr(
+        agent_tools.gateway_tools, "gateway_url", lambda: "https://gateway.example"
+    )
+    state = _empty_run_state()
+    token = agent_tools._RUN.set(state)
+    try:
+        agent_tools.search_products("Logitech Zone 900", limit=1)
+    finally:
+        agent_tools._RUN.reset(token)
+
+    step = state["trace"][-1]
+    assert step["route"] == "gateway"
+    assert step["search_sql_sha256"] == "c" * 64

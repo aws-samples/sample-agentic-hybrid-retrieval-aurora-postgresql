@@ -54,6 +54,19 @@ describe("stepsFor", () => {
     ]);
   });
 
+  it("names a search's route through AgentCore Gateway and the SQL Aurora ran", () => {
+    const [search] = stepsFor("retrieve", [], [
+      step(1, "search_products", {
+        result_count: 2,
+        retrieval_run_id: "cc3a32d8-1111",
+        route: "gateway",
+        search_sql_sha256: "0b96318451f3aa".padEnd(64, "a"),
+      }),
+    ]);
+    expect(search.meta).toBe("2 results · 3.9 s · cc3a32d8 · SQL 0b96318451f3");
+    expect(search.tags.map((tag) => tag.label)).toContain("Through AgentCore Gateway");
+  });
+
   it("marks a failed application-started step, in words and with a problem dot", () => {
     const [failed] = stepsFor("answer", [], [
       step(1, "get_product_evidence", { origin: "controller_fallback", outcome: "error" }),

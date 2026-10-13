@@ -22,7 +22,8 @@ measured number that separates them.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+import re
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import AbstractContextManager
 
 import psycopg
@@ -30,7 +31,7 @@ import psycopg
 from scripts.checks.retrieval_profile import load_profile
 from service.catalog_runtime import search_schema
 from service.db import connect
-from service.models import QueryCoverage, TermCoverage
+from service.models import ProductSummary, QueryCoverage, TermCoverage
 
 #: A term matching nothing, which nothing can recover. The request names
 #: something outside the catalog.
@@ -71,19 +72,111 @@ def unanchored_note(unmatched_terms: Sequence[str]) -> str:
     )
 
 
-def decline_note(unmatched_terms: Sequence[str]) -> str:
+#: How far a typed ID may sit from a listing's ID for the decline to name that
+#: listing. A swap of two neighbouring characters counts as one edit, so Lab 1's
+#: transposed `B0C2WWFCQB` is one edit from `B0C2WWCFQB`.
+NEAR_LISTING_EDITS = 2
+
+#: Where a listing title stops naming the product and starts selling it.
+_TITLE_TAIL = re.compile(r",| - | – | \| | \(| with | for ")
+_TITLE_CHARS = 60
+
+
+def id_edits(typed: str, listed: str) -> int:
+    """Edits between two IDs, ignoring case; a swapped neighbouring pair is one edit."""
+    a, b = typed.upper(), listed.upper()
+    rows = [list(range(len(b) + 1))]
+    for i in range(1, len(a) + 1):
+        row = [i] + [0] * len(b)
+        for j in range(1, len(b) + 1):
+            row[j] = min(
+                rows[i - 1][j] + 1,
+                row[j - 1] + 1,
+                rows[i - 1][j - 1] + (a[i - 1] != b[j - 1]),
+            )
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                row[j] = min(row[j], rows[i - 2][j - 2] + 1)
+        rows.append(row)
+    return rows[-1][-1]
+
+
+def near_listing(term: str, found: Iterable[ProductSummary]) -> ProductSummary | None:
+    """The one listing fuzzy matching found whose ID is a near miss of `term`.
+
+    Only products the fuzzy matching search returned qualify, so naming one says
+    what Lab 1's search found, not a guess made here. Naming is not recommending:
+    the decline still stands, because a near-miss ID can be a different product.
+    Two listings equally close name neither, since choosing between them is the
+    guess the decline exists to refuse.
+
+    Args:
+        term: An unmatched term from the request, as typed.
+        found: Products a search returned with a fuzzy matching rank.
+
+    Returns:
+        The single closest listing within `NEAR_LISTING_EDITS`, or `None`.
+    """
+    by_edits: dict[int, dict[int, ProductSummary]] = {}
+    for product in found:
+        edits = id_edits(term, product.sku)
+        if edits <= NEAR_LISTING_EDITS:
+            by_edits.setdefault(edits, {})[product.product_id] = product
+    if not by_edits:
+        return None
+    closest = by_edits[min(by_edits)]
+    return next(iter(closest.values())) if len(closest) == 1 else None
+
+
+def short_title(title: str) -> str:
+    """A listing title cut to the words that name the product."""
+    name = _TITLE_TAIL.split(title, maxsplit=1)[0].strip()
+    if len(name) <= _TITLE_CHARS:
+        return name
+    return name[:_TITLE_CHARS].rsplit(" ", 1)[0] + "…"
+
+
+def _near_sentence(term: str | None, listing: ProductSummary) -> str:
+    target = f" for '{term}'" if term else ""
+    return (
+        f"The closest listing that fuzzy matching found{target} is {listing.sku}, "
+        f"{short_title(listing.title)}."
+    )
+
+
+def decline_note(
+    unmatched_terms: Sequence[str],
+    near: Mapping[str, ProductSummary] | None = None,
+) -> str:
     """The agent's answer of record when it may not recommend.
 
     Shop labels an unanchored result set and still shows it, because a shopper
     reading a caveat above real products is better served than one reading an
     empty page. The agent has no equivalent: its output is a single answer of
-    record, so the absence Shop annotates is here a refusal to recommend.
+    record, so the absence Shop annotates is here a refusal to recommend. When
+    fuzzy matching found exactly one listing whose ID is a near miss of a term,
+    the refusal names it and says how to ask for it, without recommending it.
     """
     if not unmatched_terms:
         return ""
+    named = {
+        term: listing
+        for term, listing in (near or {}).items()
+        if term in unmatched_terms
+    }
+    if not named:
+        return (
+            f"{_absence_sentence(unmatched_terms)} "
+            "No product is recommended for this request."
+        )
+    listings = " ".join(
+        _near_sentence(term if len(named) > 1 else None, listing)
+        for term, listing in named.items()
+    )
+    ids = " or ".join(listing.sku for listing in named.values())
     return (
-        f"{_absence_sentence(unmatched_terms)} "
-        "No product is recommended for this request."
+        f"{_absence_sentence(unmatched_terms)} {listings} "
+        "A near-miss ID can name a different product, so no product is recommended "
+        f"for this request. If {ids} is the one you mean, ask again with that ID."
     )
 
 

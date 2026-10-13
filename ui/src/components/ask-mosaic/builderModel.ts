@@ -53,6 +53,11 @@ const ORIGIN_LABEL: Record<NonNullable<ToolTraceStep["origin"]>, string> = {
   controller_fallback: "Started by the application",
 };
 
+const ROUTE_LABEL: Record<NonNullable<ToolTraceStep["route"]>, string> = {
+  gateway: "Through AgentCore Gateway",
+  in_process: "Without Gateway",
+};
+
 const OUTCOME_LABEL: Record<ToolTraceStep["outcome"], string> = {
   success: "Step completed",
   error: "Step failed",
@@ -71,12 +76,14 @@ function traceStep(step: ToolTraceStep): BuilderStep {
     step.result_count != null ? `${step.result_count} results` : null,
     step.latency_ms != null ? formatDuration(step.latency_ms) : null,
     step.retrieval_run_id ? step.retrieval_run_id.slice(0, 8) : null,
+    step.search_sql_sha256 ? `SQL ${step.search_sql_sha256.slice(0, 12)}` : null,
   ].filter(Boolean).join(" · ");
   return {
     key: `trace-${step.sequence}`,
     tool: step.tool,
     tags: [
       ...(TOOL_TAGS[step.tool] ?? []),
+      ...(step.route ? [{ label: ROUTE_LABEL[step.route], stage: null }] : []),
       { label: step.origin ? ORIGIN_LABEL[step.origin] : "Origin not recorded", stage: null },
       { label: OUTCOME_LABEL[step.outcome] ?? step.outcome, stage: step.outcome === "error" ? "problem" : null },
     ],

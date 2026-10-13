@@ -202,6 +202,8 @@ export interface RetrievalDiagnostics {
   rerank_model_id: string | null;
   rerank_status: "applied" | "disabled" | "unavailable";
   ranking_policy?: string[];
+  /** The participant SQL Aurora recorded when the search SQL was last applied. */
+  search_sql_sha256?: string | null;
   retrieval_profile: {
     rrf_k: number;
     fts_limit: number;
@@ -407,6 +409,10 @@ export interface ToolTraceStep {
   outcome: "success" | "error" | "denied";
   origin?: "model" | "controller_fallback";
   latency_ms: number | null;
+  /** Where a catalog tool ran; absent for steps that read no catalog. */
+  route?: "gateway" | "in_process" | null;
+  /** For a search, the participant SQL Aurora ran it with. */
+  search_sql_sha256?: string | null;
 }
 
 /**

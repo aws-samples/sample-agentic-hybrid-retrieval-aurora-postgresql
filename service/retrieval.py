@@ -37,6 +37,7 @@ from service.models import (
     SourceAttribution,
 )
 from service.rerank import Reranker, get_reranker, validate_rerank_results
+from service.search_sql import applied_sql_digest
 
 logger = logging.getLogger(__name__)
 
@@ -326,6 +327,7 @@ class RetrievalService:
                 dataset_hash = connection.execute(
                     "SELECT catalog_sha256 FROM mosaic_live_search.receipt WHERE singleton"
                 ).fetchone()["catalog_sha256"]
+            search_sql_sha256 = applied_sql_digest(connection)
             connection.execute(
                 """
                 INSERT INTO mosaic.search_event (
@@ -598,6 +600,7 @@ class RetrievalService:
                             {
                                 "status": "ok",
                                 "strategy": self._strategy(),
+                                "search_sql_sha256": search_sql_sha256,
                                 "rerank_status": rerank_status,
                                 "ranking_policy": ranking_policy,
                                 "stage_timings_ms": stage_timings,
@@ -650,6 +653,7 @@ class RetrievalService:
                 stage_timings_ms=stage_timings,
                 total_latency_ms=total_latency_ms,
                 warnings=warnings,
+                search_sql_sha256=search_sql_sha256,
             )
         return SearchResponse(
             search_event_id=search_event_id,

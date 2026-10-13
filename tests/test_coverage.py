@@ -451,3 +451,31 @@ def test_current_catalog_vocabulary_has_positive_and_negative_controls():
     absent = coverage.assess("ZZZMOSAICABSENT987654321")
     assert absent.confidence == "unanchored"
     assert absent.unmatched_terms == ["ZZZMOSAICABSENT987654321"]
+
+
+@pytest.mark.parametrize(
+    ("typed", "listed", "edits"),
+    [
+        ("B0C2WWFCQB", "B0C2WWCFQB", 1),  # Lab 1: a swapped neighbouring pair
+        ("b0c2wwcfqb", "B0C2WWCFQB", 0),
+        ("B0C2WWCFQ", "B0C2WWCFQB", 1),
+    ],
+)
+def test_id_edits_counts_a_swap_as_one_edit(typed, listed, edits):
+    from service.coverage import NEAR_LISTING_EDITS, id_edits
+
+    assert id_edits(typed, listed) == edits
+    assert id_edits("B0C2WWFCQB", "B09CQ9DH7N") > NEAR_LISTING_EDITS
+
+
+def test_short_title_keeps_the_words_that_name_the_product():
+    from service.coverage import short_title
+
+    assert (
+        short_title(
+            "Logitech Zone 900 On-Ear Wireless Bluetooth Headset with Advanced "
+            "Noise-canceling Microphone, Connect up to 6 Wireless Devices"
+        )
+        == "Logitech Zone 900 On-Ear Wireless Bluetooth Headset"
+    )
+    assert short_title("A" * 30 + " " + "B" * 40).endswith("…")
