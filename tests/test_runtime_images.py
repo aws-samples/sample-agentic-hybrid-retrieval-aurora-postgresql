@@ -16,13 +16,53 @@ URI = "123456789012.dkr.ecr.us-east-1.amazonaws.com/workshop"
 DIGEST = "sha256:" + "a" * 64
 
 
-@pytest.mark.parametrize("mode,module", [("agent", "run"), ("tools", "run_tools")])
-def test_protocol_executes_the_existing_native_server(monkeypatch, mode, module):
+LAUNCHER = "/app/.venv/bin/opentelemetry-instrument"
+
+
+def _started(monkeypatch, mode, observability, launcher=LAUNCHER):
+    """The argv the entry point execs for one runtime mode and switch setting."""
     monkeypatch.setenv("MOSAIC_RUNTIME_MODE", mode)
+    if observability is None:
+        monkeypatch.delenv("MOSAIC_OBSERVABILITY", raising=False)
+    else:
+        monkeypatch.setenv("MOSAIC_OBSERVABILITY", observability)
+    monkeypatch.setattr(entrypoint.shutil, "which", lambda name: launcher)
     execute = Mock()
     monkeypatch.setattr(os, "execv", execute)
     entrypoint.main()
-    assert execute.call_args.args[1][1:] == ["-m", "deploy.agentcore." + module]
+    path, argv = execute.call_args.args
+    assert path == argv[0]
+    return argv
+
+
+@pytest.mark.parametrize("mode,module", [("agent", "run"), ("tools", "run_tools")])
+def test_observability_on_starts_the_server_under_the_telemetry_launcher(
+    monkeypatch, mode, module
+):
+    argv = _started(monkeypatch, mode, "on")
+    assert argv[0] == LAUNCHER
+    assert argv[2:] == ["-m", "deploy.agentcore." + module]
+
+
+@pytest.mark.parametrize("observability", [None, "off", "true"])
+def test_anything_but_on_starts_the_server_untraced(monkeypatch, observability):
+    """Unset is off: this image on a stack without the switch behaves as before."""
+    argv = _started(monkeypatch, "agent", observability)
+    assert argv[0] != LAUNCHER
+    assert argv[1:] == ["-m", "deploy.agentcore.run"]
+
+
+def test_a_missing_launcher_starts_the_server_untraced_and_says_why(
+    monkeypatch, capsys
+):
+    argv = _started(monkeypatch, "tools", "on", launcher=None)
+    assert argv[1:] == ["-m", "deploy.agentcore.run_tools"]
+    assert "starts without traces" in capsys.readouterr().err
+
+
+def test_the_image_installs_the_launcher():
+    dockerfile = Path("deploy/agentcore/Dockerfile").read_text(encoding="utf-8")
+    assert "--extra agentcore-observability" in dockerfile
 
 
 def test_unknown_protocol_fails_before_a_server_starts(monkeypatch):

@@ -31,9 +31,44 @@ uses `mcp-proxy-for-aws`. Adopting that transport here would require preserving
 Mosaic's source, evidence and authorization checks; it is not a participant
 installation step or a fix for unsupported VPC zones.
 
-Gateway tracing is a separate operator feature. It requires CloudWatch
-Transaction Search and resource trace delivery; the current workshop proves lab
-behavior through Aurora receipts. See [the telemetry contract](telemetry-contract.md).
+Every search records the participant SQL Aurora ran it with
+(`search_sql_sha256`, read from the record `scripts/apply_search_functions.py`
+writes on `search_hybrid_rrf`). A search through Gateway therefore names the
+Lab 1 and Lab 2 files that produced it: `deploy_agentcore.py verify` fails unless
+its own search through Gateway ran the workspace's SQL, and `scripts/ask_agent.py`
+prints each catalog tool's route and, under each search, whether Aurora ran the
+lab files in Code Editor. Ask Mosaic tags the same route and SQL on each step.
+
+## Observability
+
+When the stack sets `MOSAIC_OBSERVABILITY=on`, both runtimes start their server
+under the AWS Distro for OpenTelemetry launcher (`deploy/agentcore/entrypoint.py`;
+the image installs the `agentcore-observability` extra). Anything else, including
+unset, starts them untraced, so the image behaves as before on an older stack, and
+a missing launcher starts the server untraced with the reason in the runtime log:
+tracing never decides whether Lab 3 runs. Runtime sets
+`AGENT_OBSERVABILITY_ENABLED`, which sends the agent's Strands
+spans (model calls and each tool call) and the tools runtime's request spans to
+X-Ray, where CloudWatch Transaction Search stores them in the `aws/spans` log
+group. The image sets `AWS_GENAI_CONTENT_EXTRACTION_OPT_OUT=true`, which keeps
+prompt and answer text on the spans the agent trace view reads.
+
+The workshop stack's `AgentObservability` parameter (default `enabled`) sets the
+switch. When enabled, a custom resource turns on Transaction Search unless the
+account already has it, and reports any problem without failing the stack, since
+Lab 3 needs no traces. Both runtime roles may write X-Ray spans and
+`bedrock-agentcore` metrics, and the participant role carries the AWS managed
+`CloudWatchReadOnlyAccess`. A participant opens the CloudWatch console's **GenAI Observability**
+page, then **Bedrock AgentCore**, and finds their run under the agent runtime's
+sessions. Gateway's own spans need Gateway trace delivery, which the stack does
+not configure; the tools runtime's spans show the SQL tool calls.
+
+Runtime returns only a status to the caller when the agent fails, never its
+explanation, so the agent logs the cause (`Agent request failed with HTTP 503:
+ThrottlingException`, for example) to its runtime log group, and the participant's
+message names the status and points there. See
+[the telemetry contract](telemetry-contract.md) for the Aurora receipts that prove
+lab behavior.
 
 ## Workshop deployment
 

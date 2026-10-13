@@ -35,9 +35,10 @@ RUN python3.13 -m pip install --no-cache-dir uv==0.11.21
 
 # Dependencies resolve from the committed lock alone, so this layer stays cached
 # until pyproject.toml or uv.lock changes. --no-dev leaves pytest and ruff out of
-# the runtime image.
+# the runtime image. The observability extra is the AWS Distro for OpenTelemetry,
+# whose launcher deploy/agentcore/entrypoint.py starts each server under.
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --python /usr/bin/python3.13
+RUN uv sync --frozen --no-dev --extra agentcore-observability --python /usr/bin/python3.13
 RUN python3.13 -c "from urllib.request import urlretrieve; urlretrieve('https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem', '/app/rds-ca-bundle.pem')"
 
 
@@ -83,6 +84,14 @@ ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH=/app \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
+
+# AgentCore Observability. The lock installs two OpenTelemetry distros, so these
+# name the AWS one; Runtime sets AGENT_OBSERVABILITY_ENABLED, which points it at
+# X-Ray and CloudWatch. The opt-out keeps prompt and answer text on the spans the
+# CloudWatch agent trace view reads, rather than moving it to separate log events.
+ENV OTEL_PYTHON_DISTRO=aws_distro \
+    OTEL_PYTHON_CONFIGURATOR=aws_configurator \
+    AWS_GENAI_CONTENT_EXTRACTION_OPT_OUT=true
 
 # Runtime may create per-session files; dependencies and shipped source stay read-only.
 RUN chown mosaic:mosaic /app
