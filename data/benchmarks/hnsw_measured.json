@@ -157,13 +157,18 @@
     "timing_method": "server_ms is the p50 across all anchors of EXPLAIN (ANALYZE, BUFFERS) on a second warmed execution; client_ms is the wall clock of the first execution from the benchmark host and includes the network; one sequential connection; no cold-cache, concurrency or end-to-end application claim",
     "command": "scripts/bench/benchmark_mosaic_scale.py --output data/benchmarks/hnsw_measured.json --k 10 --ef-search 40 80 100 200 400 --binary-depth 10 20 50 100 200 --deep-ef-search 800 --deep-binary-depth 1400 3000 --instance-class db.r8g.2xlarge",
     "samples_file": "hnsw_measured.samples.json",
-    "samples_sha256": "d8216110f30302986c222321decbc577748abc1d13a8e8527094a096019e168b",
+    "samples_sha256": "e611ba04113ae23a290288cffcf9026af1408783b600a0a4b7d6e3f51a47ff67",
     "plans_file": "hnsw_measured.plans.json",
-    "plans_sha256": "c78fb4e5fa29f38059acb063e52bf1635140047f03588db0e5e99fb17b06902e"
+    "plans_sha256": "1120f32bddecc474ec13b234351b6fc90d3e48bcce327cb25f907bae744bdf4c",
+    "relabelled": {
+      "note": "Relabelled on 2026-10-13 to the catalog's current index, table and schema names, without re-measuring. Those were catalog-only renames (ALTER INDEX/TABLE ... RENAME, SET SCHEMA) of the same index and table; docs/current-scale-benchmarks.md lists them.",
+      "measured_samples_sha256": "d8216110f30302986c222321decbc577748abc1d13a8e8527094a096019e168b",
+      "measured_plans_sha256": "c78fb4e5fa29f38059acb063e52bf1635140047f03588db0e5e99fb17b06902e"
+    }
   },
   "index": {
-    "name": "mosaic_catalog_search.real_search_vector_idx",
-    "definition": "CREATE INDEX real_search_vector_idx ON mosaic_catalog_search.product_document USING hnsw (embedding vector_cosine_ops) WITH (m='16', ef_construction='200')",
+    "name": "mosaic_search.product_search_vector_idx",
+    "definition": "CREATE INDEX product_search_vector_idx ON mosaic_search.product_listing USING hnsw (embedding vector_cosine_ops) WITH (m='16', ef_construction='200')",
     "size_bytes": 4535148544,
     "partial": false,
     "vector_count": 553911,
@@ -188,9 +193,9 @@
   "missing_predicate": {
     "execution": "second execution of the same statement on this connection; the first returned the rows, so buffers were already warm",
     "node": "Index Scan",
-    "index_name": "real_search_vector_idx",
+    "index_name": "product_search_vector_idx",
     "indexes_used": [
-      "real_search_vector_idx"
+      "product_search_vector_idx"
     ],
     "server_ms": 1.225,
     "shared_hit_blocks": 1308,
@@ -222,7 +227,7 @@
       "shared_read_blocks": 0,
       "node": "Index Scan",
       "indexes_used": [
-        "real_search_vector_idx"
+        "product_search_vector_idx"
       ]
     },
     {
@@ -244,7 +249,7 @@
       "shared_read_blocks": 0,
       "node": "Index Scan",
       "indexes_used": [
-        "real_search_vector_idx"
+        "product_search_vector_idx"
       ]
     },
     {
@@ -266,7 +271,7 @@
       "shared_read_blocks": 0,
       "node": "Index Scan",
       "indexes_used": [
-        "real_search_vector_idx"
+        "product_search_vector_idx"
       ]
     },
     {
@@ -288,7 +293,7 @@
       "shared_read_blocks": 0,
       "node": "Index Scan",
       "indexes_used": [
-        "real_search_vector_idx"
+        "product_search_vector_idx"
       ]
     },
     {
@@ -310,7 +315,7 @@
       "shared_read_blocks": 0,
       "node": "Index Scan",
       "indexes_used": [
-        "real_search_vector_idx"
+        "product_search_vector_idx"
       ]
     }
   ],
@@ -347,7 +352,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -370,7 +375,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         },
@@ -393,7 +398,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -416,7 +421,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         },
@@ -439,7 +444,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -462,7 +467,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         }
@@ -500,7 +505,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -523,7 +528,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         },
@@ -546,7 +551,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -569,7 +574,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         },
@@ -592,7 +597,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -615,7 +620,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         }
@@ -653,7 +658,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -676,7 +681,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         },
@@ -699,7 +704,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -722,7 +727,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         },
@@ -745,7 +750,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -768,7 +773,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         }
@@ -806,7 +811,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -829,7 +834,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         },
@@ -852,7 +857,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -875,7 +880,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         },
@@ -898,7 +903,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -921,7 +926,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         }
@@ -959,7 +964,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -982,7 +987,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         },
@@ -1005,7 +1010,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -1028,7 +1033,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         },
@@ -1051,7 +1056,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -1074,7 +1079,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         }
@@ -1112,7 +1117,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -1135,7 +1140,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         },
@@ -1158,7 +1163,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -1181,7 +1186,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         },
@@ -1204,7 +1209,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 4
         },
@@ -1227,7 +1232,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "scan_mem_mb": 8.0
         }
@@ -1255,7 +1260,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_idx"
+          "product_search_vector_idx"
         ]
       },
       {
@@ -1277,7 +1282,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_idx"
+          "product_search_vector_idx"
         ]
       },
       {
@@ -1299,7 +1304,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_idx"
+          "product_search_vector_idx"
         ]
       },
       {
@@ -1321,7 +1326,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_idx"
+          "product_search_vector_idx"
         ]
       },
       {
@@ -1343,7 +1348,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_idx"
+          "product_search_vector_idx"
         ]
       }
     ],
@@ -1367,7 +1372,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_idx"
+          "product_search_vector_idx"
         ]
       },
       {
@@ -1389,7 +1394,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_idx"
+          "product_search_vector_idx"
         ]
       },
       {
@@ -1411,7 +1416,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_idx"
+          "product_search_vector_idx"
         ]
       },
       {
@@ -1433,7 +1438,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_idx"
+          "product_search_vector_idx"
         ]
       },
       {
@@ -1455,7 +1460,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_idx"
+          "product_search_vector_idx"
         ]
       }
     ],
@@ -1479,7 +1484,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_idx"
+          "product_search_vector_idx"
         ]
       },
       {
@@ -1501,7 +1506,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_idx"
+          "product_search_vector_idx"
         ]
       },
       {
@@ -1523,7 +1528,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_idx"
+          "product_search_vector_idx"
         ]
       },
       {
@@ -1545,7 +1550,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_idx"
+          "product_search_vector_idx"
         ]
       },
       {
@@ -1567,7 +1572,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_idx"
+          "product_search_vector_idx"
         ]
       }
     ]
@@ -1602,7 +1607,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_idx"
+          "product_search_vector_idx"
         ],
         "representation": "fp32",
         "overfetch": null,
@@ -1629,7 +1634,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_halfvec_idx"
+          "product_search_vector_halfvec_idx"
         ],
         "representation": "halfvec",
         "overfetch": null,
@@ -1656,7 +1661,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_binary_idx"
+          "product_search_vector_binary_idx"
         ],
         "representation": "binary_two_pass",
         "overfetch": 10,
@@ -1683,7 +1688,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_binary_idx"
+          "product_search_vector_binary_idx"
         ],
         "representation": "binary_two_pass",
         "overfetch": 20,
@@ -1710,7 +1715,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_binary_idx"
+          "product_search_vector_binary_idx"
         ],
         "representation": "binary_two_pass",
         "overfetch": 50,
@@ -1737,7 +1742,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_binary_idx"
+          "product_search_vector_binary_idx"
         ],
         "representation": "binary_two_pass",
         "overfetch": 100,
@@ -1764,7 +1769,7 @@
         "shared_read_blocks": 0,
         "node": "Index Scan",
         "indexes_used": [
-          "real_search_vector_binary_idx"
+          "product_search_vector_binary_idx"
         ],
         "representation": "binary_two_pass",
         "overfetch": 200,
@@ -1796,7 +1801,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_idx"
+            "product_search_vector_idx"
           ],
           "config": "fp32, ef_search 800"
         },
@@ -1819,7 +1824,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_binary_idx"
+            "product_search_vector_binary_idx"
           ],
           "config": "binary, ef_search 800, rescore 1400"
         },
@@ -1842,7 +1847,7 @@
           "shared_read_blocks": 0,
           "node": "Index Scan",
           "indexes_used": [
-            "real_search_vector_binary_idx"
+            "product_search_vector_binary_idx"
           ],
           "config": "binary, ef_search 800, rescore 3000"
         }

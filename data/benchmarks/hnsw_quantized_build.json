@@ -5,19 +5,22 @@
   "records": [
     {
       "representation": "halfvec",
-      "index": "real_search_vector_halfvec_idx",
+      "index": "product_search_vector_halfvec_idx",
       "state": "built",
       "seconds": 82.47,
       "size_bytes": 1511555072,
-      "statement": "CREATE INDEX IF NOT EXISTS \"real_search_vector_halfvec_idx\" ON \"mosaic_catalog_search\".\"product_document\" USING hnsw ((embedding::halfvec(1024)) halfvec_cosine_ops) WITH (m = 16, ef_construction = 200)"
+      "statement": "CREATE INDEX IF NOT EXISTS \"product_search_vector_halfvec_idx\" ON \"mosaic_search\".\"product_listing\" USING hnsw ((embedding::halfvec(1024)) halfvec_cosine_ops) WITH (m = 16, ef_construction = 200)"
     },
     {
       "representation": "binary",
-      "index": "real_search_vector_binary_idx",
+      "index": "product_search_vector_binary_idx",
       "state": "built",
       "seconds": 37.62,
       "size_bytes": 240467968,
-      "statement": "CREATE INDEX IF NOT EXISTS \"real_search_vector_binary_idx\" ON \"mosaic_catalog_search\".\"product_document\" USING hnsw ((binary_quantize(embedding)::bit(1024)) bit_hamming_ops) WITH (m = 16, ef_construction = 200)"
+      "statement": "CREATE INDEX IF NOT EXISTS \"product_search_vector_binary_idx\" ON \"mosaic_search\".\"product_listing\" USING hnsw ((binary_quantize(embedding)::bit(1024)) bit_hamming_ops) WITH (m = 16, ef_construction = 200)"
     }
-  ]
+  ],
+  "relabelled": {
+    "note": "Relabelled on 2026-10-13 to the catalog's current index, table and schema names, without re-measuring. Those were catalog-only renames (ALTER INDEX/TABLE ... RENAME, SET SCHEMA) of the same index and table; docs/current-scale-benchmarks.md lists them."
+  }
 }

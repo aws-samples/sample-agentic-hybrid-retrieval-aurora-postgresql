@@ -13,12 +13,15 @@
     "vector_extension_version": "0.8.1",
     "vector_count": 553911,
     "command": "scripts/benchmark_index_build.py --workers 7 --maintenance-work-mem 8GB --repeat 1 --label workers7-mwm8g",
-    "method": "one plain CREATE INDEX per run on the served catalog's physical table, benchmark-owned name, production m and ef_construction, session settings read back from pg_settings; the serving index is untouched; wall clock measured from the client"
+    "method": "one plain CREATE INDEX per run on the served catalog's physical table, benchmark-owned name, production m and ef_construction, session settings read back from pg_settings; the serving index is untouched; wall clock measured from the client",
+    "relabelled": {
+      "note": "Relabelled on 2026-10-13 to the catalog's current index, table and schema names, without re-measuring. Those were catalog-only renames (ALTER INDEX/TABLE ... RENAME, SET SCHEMA) of the same index and table; docs/current-scale-benchmarks.md lists them."
+    }
   },
   "runs": [
     {
-      "index": "mosaic_catalog_search.real_search_vector_idx_bench",
-      "statement": "CREATE INDEX \"real_search_vector_idx_bench\" ON \"mosaic_catalog_search\".\"product_document\" USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 200)",
+      "index": "mosaic_search.product_search_vector_idx_bench",
+      "statement": "CREATE INDEX \"product_search_vector_idx_bench\" ON \"mosaic_search\".\"product_listing\" USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 200)",
       "started_at": "2026-09-26T16:23:04.306684+00:00",
       "seconds": 98.07,
       "size_bytes": 4534632448,
@@ -72,8 +75,8 @@
       },
       "runs": [
         {
-          "index": "mosaic_catalog_search.real_search_vector_idx_bench",
-          "statement": "CREATE INDEX \"real_search_vector_idx_bench\" ON \"mosaic_catalog_search\".\"product_document\" USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 200)",
+          "index": "mosaic_search.product_search_vector_idx_bench",
+          "statement": "CREATE INDEX \"product_search_vector_idx_bench\" ON \"mosaic_search\".\"product_listing\" USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 200)",
           "started_at": "2026-09-26T16:13:36.330161+00:00",
           "seconds": 567.4,
           "size_bytes": 4534632448,
