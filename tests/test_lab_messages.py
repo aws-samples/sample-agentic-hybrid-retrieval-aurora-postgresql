@@ -100,13 +100,13 @@ def test_every_lab_1_and_2_failure_names_its_finding_and_a_next_step():
     failures = _failing_checks()
     assert {check.name for check in failures} >= {
         "expected retrieval anchor present",
-        "trigram provenance present",
+        "found by fuzzy matching alone",
         "hard filters hold",
         "trigram candidate pool non-empty",
         "RRF arithmetic correct",
         "pre-rerank order repeatable",
         "reranking bounded and applied",
-        "rank provenance present",
+        "search position and rerank score kept",
         "required product reaches the declared final shortlist",
     }
     for check in failures:

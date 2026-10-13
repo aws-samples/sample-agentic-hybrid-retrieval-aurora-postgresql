@@ -336,7 +336,7 @@ def test_lab_1_fails_when_the_anchor_carries_no_trigram_provenance():
     )
 
     assert _by_name(checks, "expected retrieval anchor present").passed
-    assert not _by_name(checks, "trigram provenance present").passed
+    assert not _by_name(checks, "found by fuzzy matching alone").passed
 
 
 def test_lab_1_fails_when_a_returned_product_breaks_the_filters():
@@ -351,7 +351,7 @@ def test_lab_1_rejects_a_claim_that_only_trigram_found_a_multi_arm_target(arm):
     response["results"][0]["signals"][arm] = {"rank": 2, "rrf_contribution": 0.01}
     mission = {**LAB_1_MISSION, "absent_target_signals": ["fts", "semantic"]}
     check = _by_name(
-        lab_checks.lab_1_checks(mission, response), "trigram provenance present"
+        lab_checks.lab_1_checks(mission, response), "found by fuzzy matching alone"
     )
     assert not check.passed
     assert lab_checks.ARM_LABELS[arm] in check.detail

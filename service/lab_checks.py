@@ -472,7 +472,7 @@ def _lab_1_provenance(
     }
     passed = rank is not None and contribution is not None and not unexpected
     return LabCheck(
-        name="trigram provenance present",
+        name="found by fuzzy matching alone",
         passed=passed,
         falsifier=(
             "the target is returned without a pg_trgm rank or without its RRF "
@@ -738,7 +738,7 @@ def _lab_2_provenance(
             repair_next_step(2),
         )
     return LabCheck(
-        name="rank provenance present",
+        name="search position and rerank score kept",
         passed=passed,
         falsifier=(
             "the canonical winner is returned without one of its source ranks "
