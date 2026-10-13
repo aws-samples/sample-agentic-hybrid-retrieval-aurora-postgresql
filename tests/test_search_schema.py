@@ -29,14 +29,19 @@ OLD_NAMES = {
 }
 
 
-def connection_with(relations: set[str]) -> tuple[MagicMock, list[str]]:
+def connection_with(
+    relations: set[str], *, dict_rows: bool = False
+) -> tuple[MagicMock, list[str]]:
     """A connection whose catalog holds exactly `relations`, recording DDL."""
     statements: list[str] = []
 
     def execute(query, params=None):
         result = MagicMock()
         if params and query.startswith("SELECT to_regclass"):
-            result.fetchone.return_value = (params[0] in relations,)
+            present = params[0] in relations
+            result.fetchone.return_value = (
+                {"?column?": present} if dict_rows else (present,)
+            )
         else:
             statements.append(query)
         return result
@@ -92,3 +97,17 @@ def test_preparing_a_cluster_on_the_old_schemas_is_refused():
     with pytest.raises(ValueError, match="migrate_search_schema.py"):
         require_migrated(connection)
     require_migrated(connection_with({"mosaic_search.product_listing"})[0])
+
+
+@pytest.mark.parametrize("dict_rows", [False, True])
+def test_the_check_reads_tuple_and_dict_row_connections(dict_rows):
+    """The quantized-index build opens its connection with dict_row.
+
+    Reading its answer with `[0]` raised KeyError and stopped a fresh bootstrap
+    rehearsal on 13 October 2026.
+    """
+    old = {"mosaic_catalog_search.product_document"}
+    with pytest.raises(ValueError, match="migrate_search_schema.py"):
+        require_migrated(connection_with(old, dict_rows=dict_rows)[0])
+    current = {"mosaic_search.product_listing"}
+    require_migrated(connection_with(current, dict_rows=dict_rows)[0])

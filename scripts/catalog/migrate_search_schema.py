@@ -45,14 +45,28 @@ LEGACY_INDEX_NAMES = {
 }
 
 
+def _first(row):
+    """A row's first column, whether the connection returns tuples or dicts.
+
+    Preparation and the quantized-index build call `require_migrated` on
+    connections opened with `dict_row`; indexing those with `[0]` raised
+    KeyError and stopped a fresh bootstrap.
+    """
+    return next(iter(row.values())) if isinstance(row, dict) else row[0]
+
+
+def _column(connection, query: str, params: tuple = ()) -> list:
+    return [_first(row) for row in connection.execute(query, params).fetchall()]
+
+
 def _exists(connection, relation: str) -> bool:
-    return connection.execute(
-        "SELECT to_regclass(%s) IS NOT NULL", (relation,)
-    ).fetchone()[0]
+    return _first(
+        connection.execute("SELECT to_regclass(%s) IS NOT NULL", (relation,)).fetchone()
+    )
 
 
 def _identifier(connection, name: str) -> str:
-    return connection.execute("SELECT quote_ident(%s)", (name,)).fetchone()[0]
+    return _first(connection.execute("SELECT quote_ident(%s)", (name,)).fetchone())
 
 
 def rename_legacy_indexes(connection) -> list[str]:
@@ -75,13 +89,14 @@ def _rename_constraints(connection, relation: str, old: str, new: str) -> list[s
     Done before the table changes schema, so a moved `receipt_pkey` cannot collide
     with the one already in the target schema.
     """
-    rows = connection.execute(
+    names = _column(
+        connection,
         """SELECT conname FROM pg_constraint
         WHERE conrelid = %s::regclass AND conname LIKE %s ORDER BY conname""",
         (relation, f"{old}\\_%"),
-    ).fetchall()
+    )
     renamed = []
-    for (name,) in rows:
+    for name in names:
         renamed_to = new + name.removeprefix(old)
         connection.execute(
             f"ALTER TABLE {relation} "
@@ -94,37 +109,39 @@ def _rename_constraints(connection, relation: str, old: str, new: str) -> list[s
 
 def _grantees(connection) -> list[str]:
     """Roles other than the owner that could read the old schemas."""
-    rows = connection.execute(
+    return _column(
+        connection,
         """SELECT DISTINCT a.grantee::regrole::text
         FROM pg_namespace n, aclexplode(n.nspacl) a
         WHERE n.nspname IN (%s, %s) AND a.grantee <> 0 AND a.grantee <> n.nspowner
         ORDER BY 1""",
         (OLD_TABLE_SCHEMA, OLD_VIEW_SCHEMA),
-    ).fetchall()
-    return [row[0] for row in rows]
+    )
 
 
 def _drop_routines(connection, schemas: tuple[str, ...]) -> list[str]:
-    rows = connection.execute(
+    signatures = _column(
+        connection,
         """SELECT p.oid::regprocedure::text FROM pg_proc p
         JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname = ANY(%s) ORDER BY 1""",
         (list(schemas),),
-    ).fetchall()
-    for (signature,) in rows:
+    )
+    for signature in signatures:
         connection.execute(f"DROP ROUTINE {signature}")
-    return [f"dropped {len(rows)} routines in {', '.join(schemas)}"]
+    return [f"dropped {len(signatures)} routines in {', '.join(schemas)}"]
 
 
 def _drop_unused_search_tables(connection) -> list[str]:
     """Drop the empty synthetic projection and vocabularies that the moved ones replace."""
     dropped = []
     if _exists(connection, f"{SEARCH_SCHEMA}.{OLD_TABLE}"):
-        kind, rows = connection.execute(
+        row = connection.execute(
             f"""SELECT c.relkind, (SELECT count(*) FROM {SEARCH_SCHEMA}.{OLD_TABLE})
             FROM pg_class c WHERE c.oid = %s::regclass""",
             (f"{SEARCH_SCHEMA}.{OLD_TABLE}",),
         ).fetchone()
+        kind, rows = row.values() if isinstance(row, dict) else row
         if kind != "r" or rows:
             raise ValueError(
                 f"Search schema migration rule: {SEARCH_SCHEMA}.{OLD_TABLE} is "
