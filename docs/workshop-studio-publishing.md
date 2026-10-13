@@ -25,9 +25,10 @@ instructions and required validation gates first. Report any actual blocker.
    target workshop and repository. Use that workshop's scoped authoring
    credentials, never participant credentials or another workshop's credentials.
    Confirm all required Git-ignored assets are present, review a dry run, then
-   sync with `--delete`. A dry run may add new release files; it must not update
-   or delete any asset a published build still loads. Verify uploaded hashes
-   against the release contracts.
+   sync without `--delete`: releases only ever add files, and published builds
+   still load every earlier one. A dry run may add new release files; it must not
+   update any asset a published build still loads. Verify uploaded hashes against
+   the release contracts.
 5. **Sync static URLs.** In Workshop Studio → **Asset static URLs**, select changed
    or out-of-sync assets → **Sync static URLs** → review changes → start sync.
    Wait for **In sync**, with no pending or failed syncs. S3 upload alone does
@@ -69,17 +70,19 @@ real-catalog vocabulary files. `scripts/repin.py` writes the new release folder;
 never edit or delete an existing one or a root file. Follow `assets/README.md`
 for local verification and distribution requirements.
 
-Review the dry run before executing the upload. It may add this release's
-folder; any update or delete of a root file or an earlier release folder is a
-blocker:
+Review the dry run before executing the upload. The sync never passes `--delete`,
+so it cannot remove an object a published build still loads. It may add this
+release's folder; any update of a root file or an earlier release folder is a
+blocker. Retiring an orphaned object is a separate, audited step that the
+workshop repository's `AGENTS.md` describes:
 
 ```bash
 REVISION=$(python3 -c 'import re; print(re.search(r"InfrastructureRevision\n\s+defaultValue: \"(\w+)\"", open("contentspec.yaml").read()).group(1))')
-aws s3 sync ./assets "$ASSET_ROOT" --delete --dryrun
+aws s3 sync ./assets "$ASSET_ROOT" --dryrun
 ```
 
 ```bash
-aws s3 sync ./assets "$ASSET_ROOT" --delete
+aws s3 sync ./assets "$ASSET_ROOT"
 python3 scripts/verify_published_bootstrap.py \
   --s3-uri "$ASSET_ROOT/releases/$REVISION/mosaic-bootstrap.sh"
 python3 scripts/verify_published_catalog.py \
