@@ -41,7 +41,13 @@ your SQL search. Lab 3 connects that search to a Strands agent on AgentCore Runt
 and exposes the SQL tools through AgentCore Gateway.
 `uv run python scripts/deploy_agentcore.py deploy` builds an ARM64 container from your current source, pushes it to the workshop's ECR
 repository and updates both runtimes. Docker and registry access are prepared
-for you; the command checks deployed source identity and Gateway connectivity.
+for you; the command checks deployed source identity and Gateway connectivity,
+and that a search through Gateway ran your Lab 1 and Lab 2 SQL in Aurora.
+`uv run python scripts/ask_agent.py "QUESTION"` shows each tool call's route and,
+under each search, whether Aurora ran your lab files. When the workshop stack
+turns on AgentCore Observability (its default), each agent run is also traced in
+the CloudWatch console's **GenAI Observability** pages; Lab 3 works the same
+without it.
 
 | Lab | Question to answer | Where you work |
 |---|---|---|
@@ -100,7 +106,10 @@ as Shop shows them, and an apply error names the line of your file Aurora reject
 After editing, apply SQL or deploy the agent, repeat the same request, and run
 the guide's checks. A plausible result or successful deployment alone is not
 completion. Source records must support product claims; a USB-C port alone
-does not establish laptop charging compatibility.
+does not establish laptop charging compatibility. Finding is fuzzy, recommending
+is exact: search tolerates a mistyped ID, but the agent recommends a product only
+for an ID the catalog carries. Its decline names the listing fuzzy matching
+found, if exactly one is that close, and asks you to use that ID.
 
 Use the guide's hints for recovery. Reset discards the selected lab's edits;
 the solution action replaces them with the reference answer. Both still need

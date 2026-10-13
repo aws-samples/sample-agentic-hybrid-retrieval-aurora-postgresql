@@ -47,11 +47,18 @@ the image installs the `agentcore-observability` extra). Anything else, includin
 unset, starts them untraced, so the image behaves as before on an older stack, and
 a missing launcher starts the server untraced with the reason in the runtime log:
 tracing never decides whether Lab 3 runs. Runtime sets
-`AGENT_OBSERVABILITY_ENABLED`, which sends the agent's Strands
-spans (model calls and each tool call) and the tools runtime's request spans to
-X-Ray, where CloudWatch Transaction Search stores them in the `aws/spans` log
-group. The image sets `AWS_GENAI_CONTENT_EXTRACTION_OPT_OUT=true`, which keeps
-prompt and answer text on the spans the agent trace view reads.
+`AGENT_OBSERVABILITY_ENABLED`, which sends the agent's Strands spans (model calls
+and each tool call) and the tools runtime's spans (`mcp tools/call`, the Cohere
+embedding and rerank calls) to X-Ray. X-Ray accepts them only once CloudWatch
+Transaction Search is on; before that the exporter logs `400 Bad Request` and the
+agent is unaffected. Each runtime keeps its spans in its own log group, in the
+`spans` stream. The trace context crosses Gateway: on a Workshop Studio test event
+on 13 October one trace held the agent's `execute_tool search_products`, its call
+to Gateway, and the tools runtime's `mcp tools/call search_products` with its
+embedding and rerank spans. Gateway's own spans need Gateway trace delivery,
+which the stack does not configure. The image sets
+`AWS_GENAI_CONTENT_EXTRACTION_OPT_OUT=true`, which keeps prompt and answer text on
+the spans the agent trace view reads.
 
 The workshop stack's `AgentObservability` parameter (default `enabled`) sets the
 switch. When enabled, a custom resource turns on Transaction Search unless the
@@ -60,8 +67,7 @@ Lab 3 needs no traces. Both runtime roles may write X-Ray spans and
 `bedrock-agentcore` metrics, and the participant role carries the AWS managed
 `CloudWatchReadOnlyAccess`. A participant opens the CloudWatch console's **GenAI Observability**
 page, then **Bedrock AgentCore**, and finds their run under the agent runtime's
-sessions. Gateway's own spans need Gateway trace delivery, which the stack does
-not configure; the tools runtime's spans show the SQL tool calls.
+sessions.
 
 Runtime returns only a status to the caller when the agent fails, never its
 explanation, so the agent logs the cause (`Agent request failed with HTTP 503:

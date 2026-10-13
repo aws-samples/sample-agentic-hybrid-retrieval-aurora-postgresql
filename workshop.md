@@ -161,7 +161,13 @@ The guide includes current-request priority and isolation checks.
 For deeper questions, use [architecture](docs/architecture.md),
 [fusion and reranking](docs/fusion-rerank.md), [managed deployment](docs/agentcore-runtime.md),
 [source checks](docs/security-boundaries.md) and [MCP integration](docs/mcp-interoperability.md).
-Optional observability export remains separately subject to runtime verification.
+Each search records the participant SQL Aurora ran it with, so `deploy_agentcore.py
+verify` and `ask_agent.py` show that the agent's searches through Gateway ran the
+Lab 1 and Lab 2 files. The stack's `AgentObservability` parameter (default
+`enabled`) traces agent runs into CloudWatch's GenAI Observability pages; it never
+decides whether Lab 3 runs, and `disabled` starts the runtimes untraced. When a
+participant's question fails with HTTP 503 from the agent, the agent runtime's
+CloudWatch log names the cause, such as Bedrock throttling.
 
 ## Help without erasing the exercise
 
