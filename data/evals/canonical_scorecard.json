@@ -34,7 +34,7 @@
     "scan_mem_multiplier": 2.0
   },
   "k": 10,
-  "measured_at": "2026-10-13T22:22:28.221819+00:00",
+  "measured_at": "2026-10-13T22:46:49.982117+00:00",
   "metrics": {
     "mrr": 0.7592592592592592,
     "ndcg@10": 0.8032961425511451,
@@ -121,9 +121,9 @@
   "product_retrieval_query_count": 9,
   "query_set": "data/evals/canonical_queries.jsonl",
   "query_set_sha256": "df68a119f0a366e9a7c4154ee34ef8d0aa073a9bbfd9c3f4569dec3f2d978876",
-  "query_vectors_sha256": "57ec939d129495acdf29af5067d26c14e647f85cacc80e71e15cdaea47fc093f",
-  "ranked_result_sha256": "d00eba34193d205c01eb78ff4022e6681a18ee1078702c9726c8ac0eaca9c49d",
-  "retrieval_fingerprint": "dc88ea45e1e84f46b4e150bf54ef8742c7b3e4c39ccfcbcd6fedd9dadc7102ea",
+  "query_vectors_sha256": "fdcb9b017ed48be5838f431be66fe237116108113415c842cd69394bd958afd0",
+  "ranked_result_sha256": "3922e593b96e46e607d599711f6558819036eb5c1f5c457849a573d87024b746",
+  "retrieval_fingerprint": "a4aa0ed0ed08a43d501e387e38c66ba9583ffbf4ddc49347b833da62a24c59f4",
   "retrieval_profile": {
     "authorized_limit": 10,
     "ef_search": 100,
@@ -145,7 +145,7 @@
   "scorecard_methodology_sha256": "fac2b2a5eb2719fd38dc35a66242d9e8000817331964dc8700e36d269c8fab43",
   "scored_query_set_sha256": "fc0703965e00eef4f262affbb92d9fd9fd22b6c842976b4f2e8387f7e622ef47",
   "source": {
-    "revision": "0b7b5513a78611c73728f37f831bbf0d684c61c6",
+    "revision": "a8c3db2ccbb52bdcbb5282f915be5a97c32060a7",
     "worktree_dirty": false
   },
   "strategy": "rrf_fusion+rerank+exact_sku_preservation"
