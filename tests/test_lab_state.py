@@ -533,9 +533,9 @@ def test_diff_reports_a_match_for_the_shipped_repair(lab_repo: Path, lab: int) -
     report, differs = lab_diff(lab, repo=lab_repo)
 
     assert not differs
-    assert (
-        report
-        == f"Lab {lab}: the marked block in {LABS[lab][0]} matches the reference answer."
+    assert report == (
+        f"Lab {lab}: {LABS[lab][0]} matches the reference answer, inside and "
+        "outside the markers."
     )
 
 
@@ -550,9 +550,10 @@ def test_diff_shows_the_reference_against_the_participants_block(
     assert differs
     lines = report.splitlines()
     assert lines[0] == (
-        f"Lab {lab}: where your marked block in {LABS[lab][0]} differs from the "
-        "reference answer. Only those lines are shown; nothing was changed."
+        f"Lab {lab}: where your {LABS[lab][0]} differs from the reference answer. "
+        "Only those lines are shown; nothing was changed."
     )
+    assert not any(line.startswith("Outside the markers") for line in lines)
     assert "  Reference answer:" in lines and "  Your file:" in lines
     assert any("TODO(Lab" in line for line in lines)
     assert not any(line.startswith(("---", "+++", "@@")) for line in lines)
@@ -576,6 +577,27 @@ def test_diff_names_one_changed_line_in_plain_words(lab_repo: Path) -> None:
         "  Reference answer:\n      FROM typo\n"
         "  Your file:\n      FROM semantic\n"
     ) in report
+
+
+def test_diff_shows_a_line_deleted_outside_the_markers(lab_repo: Path) -> None:
+    set_lab_state(1, solved=True, repo=lab_repo)
+    path = lab_repo / LABS[1][0]
+    source = path.read_text()
+    stray = "-- LAB1_EDIT_END\n    UNION ALL\n"
+    assert source.count(stray) == 1
+    path.write_text(source.replace(stray, "-- LAB1_EDIT_END\n"))
+    end_line = source.split("-- LAB1_EDIT_END", 1)[0].count("\n") + 1
+
+    report, differs = lab_diff(1, repo=lab_repo)
+
+    assert differs
+    assert (
+        f"Outside the markers, missing from your file, after line {end_line}:\n"
+        "  Original file:\n      UNION ALL\n"
+        "  Your file: (nothing here)\n"
+    ) in report
+    assert "reset --lab 1" in report
+    assert "To use the reference answer instead" not in report
 
 
 def test_diff_points_at_the_participants_own_lines(lab_repo: Path) -> None:

@@ -145,56 +145,89 @@ def _block_span(
     return marker_line + leading, lines
 
 
-def _span(first: int, count: int) -> str:
-    return f"line {first}" if count == 1 else f"lines {first}-{first + count - 1}"
-
-
 def _plain_differences(
-    expected: list[str], yours: list[str], yours_first: int
-) -> list[tuple[str, list[str], list[str]]]:
-    """Each place the participant's block differs: where, the reference lines, theirs."""
+    expected: list[str], yours: list[str], numbers: list[int], *, outside: bool = False
+) -> list[tuple[str, str, list[str], list[str]]]:
+    """Each place the participant's lines differ: where, the label, the expected lines, theirs.
+
+    numbers holds the line number in the participant's file of each line in yours.
+    """
+    prefix = "Outside the markers, " if outside else ""
+    label = "Original file" if outside else "Reference answer"
     groups = []
     matcher = difflib.SequenceMatcher(a=expected, b=yours, autojunk=False)
     for tag, i1, i2, j1, j2 in matcher.get_opcodes():
         if tag == "equal":
             continue
         if tag == "delete":
-            where = f"Missing from your file, after line {yours_first + j1 - 1}"
+            # The gap sits just before the participant's next line, even when a
+            # marked block lies between it and the previous unchanged line.
+            after = (
+                numbers[j1] - 1
+                if j1 < len(numbers)
+                else (numbers[-1] if numbers else 0)
+            )
+            where = f"{prefix}missing from your file, after line {after}"
         else:
-            where = f"At {_span(yours_first + j1, j2 - j1)} of your file"
-        groups.append((where, expected[i1:i2], yours[j1:j2]))
+            first, last = numbers[j1], numbers[j2 - 1]
+            span = f"line {first}" if first == last else f"lines {first}-{last}"
+            where = f"{prefix}at {span} of your file"
+        groups.append(
+            (where[0].upper() + where[1:], label, expected[i1:i2], yours[j1:j2])
+        )
     return groups
+
+
+def _outside_markers(source: str, blocks: list[Block]) -> tuple[list[str], list[int]]:
+    """The file's lines outside every marked block, markers included, with their numbers."""
+    lines = source.splitlines()
+    inside: set[int] = set()
+    for start, end, _fixed, _broken in blocks:
+        first = next(index for index, line in enumerate(lines) if start in line)
+        last = next(index for index, line in enumerate(lines) if end in line)
+        inside.update(range(first, last + 1))
+    kept = [index for index in range(len(lines)) if index not in inside]
+    return [lines[index] for index in kept], [index + 1 for index in kept]
 
 
 def _paint(line: str, code: str, color: bool) -> str:
     return f"\033[{code}m{line}\033[0m" if color else line
 
 
-def _diff_footer(lab: int) -> list[str]:
-    if lab == 3:
-        verdict = (
+def _diff_footer(lab: int, *, block_differs: bool, outside_differs: bool) -> list[str]:
+    footer = []
+    if outside_differs:
+        footer.append(
+            "Lines outside the markers are not yours to change: put them back as the "
+            f"original file has them, or start over with {reset(lab)} (it discards your "
+            "edits to this lab)."
+        )
+    if block_differs and lab == 3:
+        footer.append(
             "Lab 3 also asks for your own instruction inside this block, so some "
             f"difference is expected. Deploy with {DEPLOY_AGENT}, then check the saved "
             f"run with {complete_lab_3()}."
         )
-    else:
-        verdict = (
+    elif block_differs:
+        footer.append(
             "A different line is not always wrong: other SQL can work too. Apply it "
             f"with {APPLY_SQL}, then prove it with {prove(lab)}."
         )
-    return [
-        verdict,
-        f"To use the reference answer instead (it replaces your block): {solution(lab)}",
-    ]
+    if block_differs:
+        footer.append(
+            f"To use the reference answer instead (it replaces your block): {solution(lab)}"
+        )
+    return footer
 
 
 def lab_diff(lab: int, *, repo: Path = REPO, color: bool = False) -> tuple[str, bool]:
-    """Show where a lab's marked blocks differ from the reference answer, in plain words.
+    """Show where a lab's file differs from the reference answer, in plain words.
 
     This prints the answer, so a coach runs it only when a participant asks to
-    compare with the reference. Only the marked blocks are compared: the rest of
-    the file is the same scaffold for everyone. Each difference names the line in
-    the participant's file and prints the reference answer's lines above theirs.
+    compare with the reference. The marked blocks are compared with the reference
+    answer, and the lines outside them with the original file, so an edit that
+    drifted outside the markers shows too. Each difference names the line in the
+    participant's file and prints the expected lines above theirs.
 
     Args:
         lab: The lab number.
@@ -202,14 +235,14 @@ def lab_diff(lab: int, *, repo: Path = REPO, color: bool = False) -> tuple[str, 
         color: Colour the two versions for a terminal.
 
     Returns:
-        The report, and whether any marked block differs from the reference.
+        The report, and whether the file differs from the reference.
     """
     relative_path, blocks = LABS[lab]
     path = repo / relative_path
     expected_path = REPO / solution_path(Path(relative_path))
     yours_source = path.read_text(encoding="utf-8")
     expected_source = expected_path.read_text(encoding="utf-8")
-    groups = []
+    inside = []
     for start, end, _fixed, _broken in blocks:
         if yours_source.count(start) != 1 or yours_source.count(end) != 1:
             raise ValueError(
@@ -221,29 +254,37 @@ def lab_diff(lab: int, *, repo: Path = REPO, color: bool = False) -> tuple[str, 
             expected_source, start, end, path=expected_path
         )
         yours_first, yours = _block_span(yours_source, start, end, path=path)
-        groups.extend(_plain_differences(expected, yours, yours_first))
-    if not groups:
-        return (
-            f"Lab {lab}: the marked block in {relative_path} matches the reference answer.",
-            False,
+        numbers = list(range(yours_first, yours_first + len(yours)))
+        inside.extend(_plain_differences(expected, yours, numbers))
+    expected_outside, _numbers = _outside_markers(expected_source, blocks)
+    yours_outside, numbers = _outside_markers(yours_source, blocks)
+    outside = _plain_differences(expected_outside, yours_outside, numbers, outside=True)
+    if not inside and not outside:
+        matches = (
+            f"Lab {lab}: {relative_path} matches the reference answer, inside and "
+            "outside the markers."
         )
+        return matches, False
     report = [
         (
-            f"Lab {lab}: where your marked block in {relative_path} differs from the "
-            "reference answer. Only those lines are shown; nothing was changed."
+            f"Lab {lab}: where your {relative_path} differs from the reference answer. "
+            "Only those lines are shown; nothing was changed."
         ),
     ]
-    for where, reference, theirs in groups:
-        shown = [line for line in [*reference, *theirs] if line.strip()]
+    for where, label, expected_lines, theirs in [*inside, *outside]:
+        shown = [line for line in [*expected_lines, *theirs] if line.strip()]
         indent = min((len(line) - len(line.lstrip()) for line in shown), default=0)
         report += ["", f"{where}:"]
-        for label, lines, code in (
-            ("Reference answer", reference, "32"),
+        for name, lines, code in (
+            (label, expected_lines, "32"),
             ("Your file", theirs, "33"),
         ):
-            report.append(f"  {label}:" if lines else f"  {label}: (nothing here)")
+            report.append(f"  {name}:" if lines else f"  {name}: (nothing here)")
             report += [_paint(f"      {line[indent:]}", code, color) for line in lines]
-    return "\n".join([*report, "", *_diff_footer(lab)]), True
+    footer = _diff_footer(
+        lab, block_differs=bool(inside), outside_differs=bool(outside)
+    )
+    return "\n".join([*report, "", *footer]), True
 
 
 def set_lab_state(

@@ -39,8 +39,9 @@ participant asks to restart a lab. Use `uv run python scripts/lab_state.py
 solution --lab N` only when they explicitly request the full recovery path; it
 overwrites the exercise seam. When they ask to compare their edit with the
 reference answer, `uv run python scripts/lab_state.py diff --lab N` prints only
-the lines where the marked block differs, the answer's above theirs, and changes
-nothing; it shows the answer, so offer a hint first.
+the lines that differ, inside the marked block (against the answer) and outside it
+(against the original file), and changes nothing; it shows the answer, so offer a
+hint first.
 
 The terminal already loads this event's settings. Aurora, dependencies, API and
 UI are prepared: do not install a replacement stack or start duplicate servers.
