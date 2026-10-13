@@ -15,9 +15,10 @@ deliberate exercise faults; a wrong answer alone does not mean provisioning fail
 Each started lab's fault is an uncommitted change in its marked file, so `git diff`
 shows it before the participant has typed anything: it is the exercise, not their
 edit. Answer in plain words; many participants are new to search. When someone asks
-where to start, follow the guide: give each lab's goal in one sentence, not its cause,
-and point to the current lab's first step in the guide (Lab 1 starts in Shop). Name
-services as the guide does: Amazon Aurora PostgreSQL, Amazon Bedrock AgentCore.
+where to start or what they will build, give each lab's goal in one sentence and point
+to the current lab's first step in the guide (Lab 1 starts in Shop). Do not say what is
+broken, why, or which code to change: finding that is the lab. Name services as the
+guide does: Amazon Aurora PostgreSQL, Amazon Bedrock AgentCore.
 
 Before editing, run `uv run python scripts/lab_state.py status`, inspect
 `git diff`, and read the current
