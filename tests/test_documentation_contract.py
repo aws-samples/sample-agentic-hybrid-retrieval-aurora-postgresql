@@ -91,7 +91,7 @@ def test_instructor_guide_60_minute_table_matches_the_mission_contract():
     assert minutes_by_row["Rank"] == duration_by_stage["rank"]
     assert minutes_by_row["Reason"] == duration_by_stage["reason"]
     assert (
-        minutes_by_row["Introduction / Overview / Presentation"]
+        minutes_by_row["Presentation, then Getting started"]
         == session["orientation_minutes"]
     )
     assert (

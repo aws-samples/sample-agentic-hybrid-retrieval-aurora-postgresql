@@ -12,7 +12,8 @@ shopper; your searches and answers use the source products and their evidence.
 
 ## Start the workshop
 
-1. Open **Introduction → Getting started** in your Workshop Studio guide.
+1. Open **Getting started** in your Workshop Studio guide; the **Overview** before
+   it is optional.
 2. Open **Code Editor → [Start Here](START_HERE.md)** beside the guide. Your
    application, Aurora database, and terminal connection are already prepared.
 3. Follow Getting started in the terminal: read the catalog's data, indexes and

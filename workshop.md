@@ -25,7 +25,7 @@ exact requests, filters, targets and assertions. Protect its **40-minute
 hands-on budget**. Completion is inside Lab 3; Memory leads the untimed optional exercises.
 These are planned allocations, not measured human completion times.
 
-During setup, use **Introduction → Getting started** to open Code Editor, read
+During setup, use **Getting started** to open Code Editor, read
 the catalog's data, indexes and search functions in `psql`, and save Lab 1's
 failing search. Every Getting started step runs in the terminal; Mosaic is
 optional there. Mosaic's first visit to Shop opens a guided tour of its controls
@@ -40,8 +40,9 @@ outside the repository. Avoid extra demonstrations during a lab's proof time.
 
 ## Open with the customer
 
-Use the guide's opening order: Overview, Business challenge, Workshop structure,
-then Introduction and Getting started. Keep the diagnosis for the investigation:
+Use the guide's opening order: the landing page's Business challenge and
+schedule, then Getting started; the guide's Overview page is optional, since
+the talk covers it. Keep the diagnosis for the investigation:
 ask participants to predict first, inspect their actual result, and explain what
 the repair changes for Alex before moving to his next need.
 

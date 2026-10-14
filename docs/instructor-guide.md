@@ -47,7 +47,7 @@ The historical synthetic scorecard and 720 filter cases are not its quality gate
 
 | Clock | Stage | Required outcome |
 |---|---|---|
-| 00:00-00:15 | Introduction / Overview / Presentation | Meet Alex, frame the three lessons and explain the architecture |
+| 00:00-00:15 | Presentation, then Getting started | Meet Alex, frame the three lessons and explain the architecture; the guide's Overview page is optional |
 | 00:15-00:25 | Retrieve | Restore one candidate channel and prove recall and eligibility |
 | 00:25-00:35 | Rank | Repair RRF so the suitable monitor reaches reranking |
 | 00:35-00:55 | Reason | Attach evidence identity to synthesis state, prove citation authorization and run the completion gate |

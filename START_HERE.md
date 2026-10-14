@@ -1,8 +1,8 @@
 # Start here
 
-Begin in Workshop Studio with **Introduction**, then **Getting started**. Every
-step runs in this terminal: you read the catalog's data, indexes and search
-functions in `psql`, then save Lab 1's failing search. Keep the guide and Code
+Begin in Workshop Studio with **Getting started**; the **Overview** before it
+is optional. Every step runs in this terminal: you read the catalog's data,
+indexes and search functions in `psql`, then save Lab 1's failing search. Keep the guide and Code
 Editor side by side in two browser windows. Mosaic, the store at **MosaicURL**,
 shows the same results the terminal prints; the guide says when a lab uses it.
 
