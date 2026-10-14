@@ -45,6 +45,7 @@ export function AlexProfile({ onOpen }: { onOpen: () => void }) {
         ref={buttonRef}
         type="button"
         className="site-shopper"
+        data-tour="alex"
         aria-label="Alex’s profile"
         aria-expanded={open}
         aria-haspopup="dialog"

@@ -20,8 +20,11 @@ import "./source-products.css";
 import "./world.css";
 import "./ask-mosaic.css";
 
+// A browser driven by automation (guide captures, rehearsal scripts) reports
+// navigator.webdriver; the first-visit tour would cover every page they capture,
+// so it waits for the header's Take the tour button there instead.
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <App autoStartTour={!navigator.webdriver} />
   </StrictMode>,
 );

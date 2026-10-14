@@ -28,7 +28,8 @@ These are planned allocations, not measured human completion times.
 During setup, use **Introduction → Getting started** to open Code Editor, read
 the catalog's data, indexes and search functions in `psql`, and save Lab 1's
 failing search. Every Getting started step runs in the terminal; Mosaic is
-optional there.
+optional there. Mosaic's first visit to Shop opens a guided tour of its controls
+(Next or Skip the tour); the compass in the header replays it.
 Lab 1 starts in `psql` with the request Getting started saved; Shop shows the
 same search as an optional check. Lab 2 uses Shop's **Browse all products** and
 **Category** menu to switch from headphones to monitors.

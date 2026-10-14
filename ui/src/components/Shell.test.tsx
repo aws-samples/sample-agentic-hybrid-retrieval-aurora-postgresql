@@ -14,6 +14,7 @@ import { api } from "../api";
 import { ASK_MOSAIC_EVENT } from "../askMosaicEntry";
 import { CommerceProvider } from "../commerce";
 import type { HealthResponse } from "../types";
+import { TOUR_SEEN, TOUR_STORAGE_KEY } from "../tour";
 import { Shell } from "./Shell";
 
 vi.mock("../api", () => ({
@@ -451,5 +452,54 @@ describe("Shell navigation", () => {
       expect(window.location.pathname + window.location.search).toBe("/catalog?ask=1");
       window.removeEventListener(ASK_MOSAIC_EVENT, heard);
     });
+  });
+});
+
+describe("Shell guided tour", () => {
+  beforeEach(() => {
+    vi.mocked(api.health).mockReset();
+    vi.mocked(api.labsState).mockReset();
+    vi.mocked(api.health).mockReturnValue(new Promise(() => {}));
+    vi.mocked(api.labsState).mockReturnValue(new Promise(() => {}));
+    window.localStorage.removeItem(TOUR_STORAGE_KEY);
+  });
+
+  afterEach(cleanup);
+
+  function renderShell(path: string, autoStartTour: boolean) {
+    window.history.replaceState({}, "", path);
+    return render(
+      <CommerceProvider>
+        <Shell autoStartTour={autoStartTour}>
+          <div>Shop content</div>
+        </Shell>
+      </CommerceProvider>,
+    );
+  }
+
+  it("offers itself on a first visit to Shop's landing", () => {
+    renderShell("/catalog", true);
+    expect(screen.getByRole("dialog", { name: "Welcome to Mosaic" })).toBeTruthy();
+  });
+
+  it("stays away from a returning visitor, a search and a render without the entry point", () => {
+    window.localStorage.setItem(TOUR_STORAGE_KEY, TOUR_SEEN);
+    renderShell("/catalog", true);
+    expect(screen.queryByRole("dialog", { name: "Welcome to Mosaic" })).toBeNull();
+    cleanup();
+    window.localStorage.removeItem(TOUR_STORAGE_KEY);
+    renderShell("/catalog?q=headphones", true);
+    expect(screen.queryByRole("dialog", { name: "Welcome to Mosaic" })).toBeNull();
+    cleanup();
+    renderShell("/catalog", false);
+    expect(screen.queryByRole("dialog", { name: "Welcome to Mosaic" })).toBeNull();
+  });
+
+  it("Take the tour starts it on Shop's landing from any page", () => {
+    window.localStorage.setItem(TOUR_STORAGE_KEY, TOUR_SEEN);
+    renderShell("/labs/retrieval", false);
+    fireEvent.click(screen.getByRole("button", { name: "Take the tour" }));
+    expect(window.location.pathname + window.location.search).toBe("/catalog");
+    expect(screen.getByRole("dialog", { name: "Welcome to Mosaic" })).toBeTruthy();
   });
 });

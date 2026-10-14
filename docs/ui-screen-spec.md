@@ -19,6 +19,12 @@ product-discovery experience.
 
 Landing, before a query or an Ask Mosaic shortlist:
 
+- on a browser's first visit (not under automation), the guided tour: a dimmed page
+  with a pulsing ring on one control at a time (search and examples, Browse all
+  products, Ask Mosaic, Playground, Alex, Code Editor) and a card with Next and
+  Skip the tour; the header's **Take the tour** compass replays it
+  (`ui/src/tour.ts`, `ui/src/components/SpotlightTour.tsx`);
+
 - centred headline, search composer, catalog scope line, and one line of
   example searches grouped as Keywords, Typo, and Intent;
 - a horizontal workspace product shelf, category links, **Browse all products**

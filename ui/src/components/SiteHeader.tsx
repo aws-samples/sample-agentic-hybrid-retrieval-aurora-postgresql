@@ -1,4 +1,4 @@
-import { Menu, ShoppingBag, Sparkles, X } from "lucide-react";
+import { Compass, Menu, ShoppingBag, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { api } from "../api";
@@ -50,7 +50,9 @@ function isActive(pathname: string, to: string) {
   return pathname.startsWith(to);
 }
 
-export function SiteHeader({ inert = false }: { inert?: boolean }) {
+export function SiteHeader(
+  { inert = false, onStartTour }: { inert?: boolean; onStartTour?: () => void },
+) {
   const [open, setOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const navigationRef = useRef<HTMLElement | null>(null);
@@ -162,6 +164,7 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
             href={to === RETRIEVAL_SURFACE.path ? playgroundHref : to}
             className={isActive(pathname, to) ? "active" : ""}
             aria-current={isActive(pathname, to) ? "page" : undefined}
+            data-tour={to === RETRIEVAL_SURFACE.path ? "playground" : undefined}
             onClick={close}
           >
             <span>{label}</span>
@@ -170,12 +173,32 @@ export function SiteHeader({ inert = false }: { inert?: boolean }) {
       </nav>
 
       <div className="site-actions">
-        <button className="site-ask-mosaic" type="button" aria-label="Ask Mosaic" onClick={askMosaic}>
+        <button
+          className="site-ask-mosaic"
+          type="button"
+          aria-label="Ask Mosaic"
+          data-tour="ask"
+          onClick={askMosaic}
+        >
           <Sparkles size={15} aria-hidden="true" />
           <span>Ask Mosaic</span>
         </button>
-        <CodeEditorLink href={codeEditorUrl} className="site-code-editor" />
+        <CodeEditorLink href={codeEditorUrl} className="site-code-editor" tour="code-editor" />
         <AlexProfile key={`${pathname}:${inert}`} onOpen={close} />
+        {onStartTour ? (
+          <button
+            className="site-icon site-tour"
+            type="button"
+            aria-label="Take the tour"
+            title="Take the tour"
+            onClick={() => {
+              close();
+              onStartTour();
+            }}
+          >
+            <Compass size={17} aria-hidden="true" />
+          </button>
+        ) : null}
         <ThemeToggle />
         <button
           className="site-icon site-bag"

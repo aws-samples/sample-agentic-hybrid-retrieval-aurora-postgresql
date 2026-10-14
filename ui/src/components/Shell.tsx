@@ -1,18 +1,37 @@
-import { ReactNode } from "react";
-import { useLocation } from "wouter";
+import { ReactNode, useCallback, useEffect, useState } from "react";
+import { useLocation, useSearch } from "wouter";
 import { useCommerce } from "../commerce";
+import { hasSeenTour } from "../tour";
 import { CommerceDrawer } from "./CommerceDrawer";
 import { SiteFooter } from "./SiteFooter";
 import { SiteHeader } from "./SiteHeader";
+import { SpotlightTour } from "./SpotlightTour";
 
 /**
  * Storefront chrome. The reference boards read as a catalog first and an
  * instrument second, so shopper navigation sits in one header on every surface
  * and the landing only changes what is under it.
  */
-export function Shell({ children }: { children: ReactNode }) {
-  const [location] = useLocation();
+export function Shell(
+  { children, autoStartTour = false }: { children: ReactNode; autoStartTour?: boolean },
+) {
+  const [location, navigate] = useLocation();
+  const search = useSearch();
   const pathname = location.split("?")[0];
+  const onShopLanding = pathname === "/catalog" && search === "";
+  const [tourOpen, setTourOpen] = useState(false);
+  /**
+   * The tour's stops are on Shop's landing and in the header, so it always runs
+   * there. It offers itself once per browser, on the first visit to the landing.
+   */
+  useEffect(() => {
+    if (autoStartTour && onShopLanding && !hasSeenTour()) setTourOpen(true);
+  }, [autoStartTour, onShopLanding]);
+  const startTour = useCallback(() => {
+    if (!onShopLanding) navigate("/catalog");
+    setTourOpen(true);
+  }, [navigate, onShopLanding]);
+  const endTour = useCallback(() => setTourOpen(false), []);
   /**
    * The Playground and the HNSW instrument carry their own chrome and end in a
    * measurement, not an invitation to buy. A payment-methods band under a query
@@ -36,7 +55,7 @@ export function Shell({ children }: { children: ReactNode }) {
       >
         Skip to main content
       </a>
-      {isStudioPrototype ? null : <SiteHeader inert={isCartOpen} />}
+      {isStudioPrototype ? null : <SiteHeader inert={isCartOpen} onStartTour={startTour} />}
       <main
         id="main-content"
         className="app-main"
@@ -51,6 +70,7 @@ export function Shell({ children }: { children: ReactNode }) {
           the header so the cart drawer is the only thing reachable while open. */}
       {isInstrument || isCatalogPreview || isStudioPrototype ? null : <SiteFooter inert={isCartOpen} />}
       <CommerceDrawer />
+      <SpotlightTour open={tourOpen} onClose={endTour} />
     </div>
   );
 }

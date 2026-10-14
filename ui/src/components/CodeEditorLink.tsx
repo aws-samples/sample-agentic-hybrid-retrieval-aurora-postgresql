@@ -49,7 +49,7 @@ function isHttpsUrl(candidate: string): boolean {
  * both places: a rule that lives at one of two call sites is not a rule.
  */
 export function CodeEditorLink(
-  { href, className }: { href: string | null; className?: string },
+  { href, className, tour }: { href: string | null; className?: string; tour?: string },
 ) {
   const target = href?.trim() ?? "";
   if (!target) return null;
@@ -69,6 +69,7 @@ export function CodeEditorLink(
     <a
       className={className ? `code-editor-link ${className}` : "code-editor-link"}
       href={target}
+      data-tour={tour}
       target="_blank"
       rel="noopener"
     >

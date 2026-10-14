@@ -1203,7 +1203,7 @@ export function CatalogPage() {
             </header>
 
             <div className="shop-console">
-              <div className="shop-console-search">
+              <div className="shop-console-search" data-tour="search">
                 <section className="shop-search" aria-label="Mosaic product search">
                   <CatalogSearchComposer
                     initialValue={retrievalQuery}

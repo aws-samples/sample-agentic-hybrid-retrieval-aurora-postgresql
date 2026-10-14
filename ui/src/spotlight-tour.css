@@ -1,0 +1,162 @@
+/* The guided tour. Above every drawer and the Ask Mosaic panel (130), below nothing. */
+:root {
+  --tour-scrim: rgb(9 11 15 / 58%);
+  --tour-ring: var(--action);
+}
+
+:root[data-theme="dark"] {
+  --tour-scrim: rgb(0 0 0 / 68%);
+  --tour-ring: var(--stage-link);
+}
+
+.spotlight-catcher {
+  position: fixed;
+  z-index: 1100;
+  inset: 0;
+}
+
+.spotlight-scrim {
+  position: fixed;
+  z-index: 1101;
+  inset: 0;
+  background: var(--tour-scrim);
+  pointer-events: none;
+}
+
+/* The hole: the scrim is this box's outer shadow, so the control shows through
+   undimmed, ringed by the accent. */
+.spotlight-hole {
+  position: fixed;
+  z-index: 1101;
+  border-radius: 12px;
+  box-shadow: 0 0 0 3px var(--tour-ring), 0 0 0 200vmax var(--tour-scrim);
+  pointer-events: none;
+  transition:
+    top var(--motion-settle) var(--ease-out),
+    left var(--motion-settle) var(--ease-out),
+    width var(--motion-settle) var(--ease-out),
+    height var(--motion-settle) var(--ease-out);
+}
+
+.spotlight-hole::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 3px var(--tour-ring);
+  animation: spotlight-ping 1.6s ease-out infinite;
+  content: "";
+}
+
+@keyframes spotlight-ping {
+  from {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
+.spotlight-card {
+  position: fixed;
+  z-index: 1102;
+  box-sizing: border-box;
+  padding: 18px 20px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper-strong);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font-family: var(--sans);
+  transition:
+    top var(--motion-settle) var(--ease-out),
+    left var(--motion-settle) var(--ease-out);
+}
+
+.spotlight-count {
+  margin: 0 0 6px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.spotlight-card h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.spotlight-card h2 + p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+
+.spotlight-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.spotlight-skip,
+.spotlight-next {
+  min-height: 36px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.spotlight-skip {
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+}
+
+.spotlight-skip:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+.spotlight-next {
+  padding: 0 18px;
+  border: 0;
+  background: var(--action);
+  color: var(--action-ink);
+}
+
+.spotlight-next:hover {
+  background: var(--action-hover);
+}
+
+.spotlight-skip:focus-visible,
+.spotlight-next:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spotlight-hole,
+  .spotlight-card {
+    transition: none;
+  }
+
+  .spotlight-hole::after {
+    display: none;
+  }
+}
+
+/* The header's Take the tour button; the 460 px header keeps only the bag and menu. */
+@media (max-width: 460px) {
+  .site-tour {
+    display: none;
+  }
+}

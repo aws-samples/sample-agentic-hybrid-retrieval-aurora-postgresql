@@ -123,10 +123,14 @@ function RoutedSurface() {
   );
 }
 
-export function App() {
+/**
+ * `autoStartTour` is set only by the browser entry point, so a test rendering the app
+ * starts as a returning visitor rather than under the first-visit tour.
+ */
+export function App({ autoStartTour = false }: { autoStartTour?: boolean }) {
   return (
     <CommerceProvider>
-      <Shell>
+      <Shell autoStartTour={autoStartTour}>
         {/* Inside Shell so the header and cart survive a failed surface, and
             outside Suspense so a rejected lazy import lands here rather than
             leaving the fallback on screen forever. */}
