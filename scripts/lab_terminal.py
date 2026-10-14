@@ -27,6 +27,13 @@ from service.participant_commands import start as start_command
 NEW_TERMINAL = (
     "open a new terminal from the Terminal menu; it loads the workshop settings"
 )
+#: pgvector setting -> the context value that carries the application's choice.
+HNSW_SETTINGS = {
+    "hnsw.ef_search": "lab_ef_search",
+    "hnsw.iterative_scan": "lab_iterative_scan",
+    "hnsw.max_scan_tuples": "lab_max_scan_tuples",
+    "hnsw.scan_mem_multiplier": "lab_scan_mem_multiplier",
+}
 
 
 class AlreadyRepaired(LabValidationError):
@@ -88,9 +95,21 @@ def sql_context(values: dict[str, str]) -> str:
                     "\\endif",
                 ]
             )
+    if all(key in values for key in HNSW_SETTINGS.values()):
+        # Session-wide, unlike configure_hnsw's per-transaction settings, so each pasted
+        # query searches as the application does. With pgvector's defaults the filtered
+        # semantic search on the Lab 1 request returned no rows at all.
+        statements.append(
+            "SELECT "
+            + ",\n       ".join(
+                f"set_config('{setting}', :'{key}', false) AS {key}_applied"
+                for setting, key in HNSW_SETTINGS.items()
+            )
+            + " \\gset"
+        )
     statements.extend(
         [
-            "\\echo Lab context loaded. Use BEGIN READ ONLY; before the inspection queries.",
+            "\\echo Lab context loaded: the saved request, its filters and the search settings.",
             "\\timing on",
         ]
     )

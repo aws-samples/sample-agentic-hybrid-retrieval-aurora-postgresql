@@ -6,12 +6,14 @@ task's **Stuck?** hints. This is the reminder beside your code.
 ## Task 1A: Reconnect the search that lost the Logitech
 
 **See it fail.** Getting started saved Alex's mistyped request with
-`uv run python scripts/lab_state.py start --lab 1`. Shop answers with a page of
-other headphones and no error.
+`uv run python scripts/lab_state.py start --lab 1`. In `psql`, load it with
+`\i .local/lab-1/context.psql` and count what each search contributed to
+`search_hybrid_rrf`: all 50 candidates come from semantic search, no Logitech,
+no error.
 
-**Why.** Run the guide's three searches separately. Fuzzy matching finds the
-Logitech on its own; do its rows ever reach `channels`? A reranker cannot
-recover a product it never receives.
+**Why.** Run the three searches separately. Fuzzy matching finds the Logitech
+on its own; do its rows ever reach `channels`? A reranker cannot recover a
+product it never receives.
 
 **Build.** In [hybrid_search.sql](hybrid_search.sql), edit only between
 `LAB1_EDIT_START` and `LAB1_EDIT_END`. Add the missing `channels` branch

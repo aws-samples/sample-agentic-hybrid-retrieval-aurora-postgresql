@@ -17,9 +17,8 @@ shopper; your searches and answers use the source products and their evidence.
    application, Aurora database, and terminal connection are already prepared.
 3. Follow Getting started in the terminal: read the catalog's data, indexes and
    search functions in `psql`, then save Lab 1's failing search. Then begin
-   **Lab 1**: choose **Browse all products** beside **Shop the workspace**,
-   follow the guide's category selections, and inspect the first search before
-   editing code.
+   **Lab 1** in `psql` with that saved request; Shop shows the same search as
+   an optional check.
 
 Claude Code in the prepared terminal can help you investigate a lab. The
 project's [AGENTS.md](AGENTS.md), loaded by [CLAUDE.md](CLAUDE.md), gives it the

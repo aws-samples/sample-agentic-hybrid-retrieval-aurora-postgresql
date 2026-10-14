@@ -49,6 +49,14 @@ def test_catalog_and_both_event_identities_are_checked():
     assert sql.count("RAISE EXCEPTION") == 3
 
 
+def test_search_context_sets_the_applications_hnsw_settings_for_the_session():
+    values = {key: "1" for key in lab_terminal.HNSW_SETTINGS.values()}
+    sql = lab_terminal.sql_context(values)
+    for setting, key in lab_terminal.HNSW_SETTINGS.items():
+        assert f"set_config('{setting}', :'{key}', false)" in sql
+    assert "set_config" not in lab_terminal.sql_context({"lab_query": "q"})
+
+
 @pytest.mark.parametrize("count", [0, 2])
 def test_failed_http_call_must_match_exactly_one_turn(count):
     conn = Mock()

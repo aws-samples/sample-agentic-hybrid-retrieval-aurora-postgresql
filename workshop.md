@@ -29,9 +29,9 @@ During setup, use **Introduction → Getting started** to open Code Editor, read
 the catalog's data, indexes and search functions in `psql`, and save Lab 1's
 failing search. Every Getting started step runs in the terminal; Mosaic is
 optional there.
-The first product search belongs in Lab 1. Use **Browse all products** beside
-**Shop the workspace** to reach the domain tabs and **Category** menu; Lab 2
-reuses that menu to switch from headphones to monitors.
+Lab 1 starts in `psql` with the request Getting started saved; Shop shows the
+same search as an optional check. Lab 2 uses Shop's **Browse all products** and
+**Category** menu to switch from headphones to monitors.
 
 Assign a lead for the clock and story, a SQL presenter, a Retrieval agent presenter and
 room support. One person may cover several roles; keep the staffing roster
