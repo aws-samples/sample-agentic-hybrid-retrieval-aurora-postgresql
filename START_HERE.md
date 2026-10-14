@@ -1,8 +1,10 @@
 # Start here
 
-Begin in Workshop Studio with **Introduction**, then **Getting started**, which
-opens Code Editor and Mosaic and runs two checks. Keep the guide in one browser
-window and Code Editor and Mosaic as two tabs in another.
+Begin in Workshop Studio with **Introduction**, then **Getting started**. Every
+step runs in this terminal: you read the catalog's data, indexes and search
+functions in `psql`, then save Lab 1's failing search. Keep the guide and Code
+Editor side by side in two browser windows. Mosaic, the store at **MosaicURL**,
+shows the same results the terminal prints; the guide says when a lab uses it.
 
 Each lab is two tasks, and every task runs the same way:
 
