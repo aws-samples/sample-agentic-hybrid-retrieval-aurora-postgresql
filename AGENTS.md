@@ -23,7 +23,7 @@ guide does: Amazon Aurora PostgreSQL, Amazon Bedrock AgentCore.
 
 Before editing, run `uv run python scripts/lab_state.py status`, inspect
 `git diff`, and read the current
-lab's saved search or agent run. Start from the participant's prediction and
+lab's saved search or agent run. Start from the participant's hypothesis and
 observed result. Explain the mechanism and offer a hint before supplying an
 answer. Preserve unrelated edits.
 Do not silently solve later labs or write their explanation for them.
@@ -76,6 +76,7 @@ The Makefile wraps them for maintainers only.
 | Inspect the current source/applied lab state | `uv run python scripts/lab_state.py status` |
 | Enter a lab: save its failing request; Labs 2 and 3 also install their fault once | `uv run python scripts/lab_state.py start --lab N` |
 | Finish Lab 1: validate its repair, save passing evidence and prepare Lab 2 without discarding edits | `uv run python scripts/lab_state.py advance --lab 1` |
+| Finish Lab 2: validate its repair, save passing evidence and install the Retrieval agent starter for Lab 3 without discarding edits | `uv run python scripts/lab_state.py advance --lab 2` |
 | Discard one lab's edits and restore its starter, only when asked to restart | `uv run python scripts/lab_state.py reset --lab N` |
 | Name the lines of the lab files that differ from the reference answer, inside and outside the markers, without the answer (changes nothing) | `uv run python scripts/diff.py` |
 | The same, with the reference answer's lines, only when the participant asks to compare with the answer | `uv run python scripts/diff.py --answer` |
@@ -84,13 +85,14 @@ The Makefile wraps them for maintainers only.
 | Repeat the saved request against the repaired state; prints Before and After | `uv run python scripts/lab_terminal.py run --lab N --phase after` |
 | Prove the Lab 1 or Lab 2 repair after repeating the request (Lab 3 is rejected: it is graded on the saved run) | `uv run python scripts/validate_lab.py --lab N` |
 | Grade the participant's own exercise or saved run without generating a new answer | `uv run python scripts/lab_exercise.py check --lab N` |
+| Run Lab 2's request with reranking off, then on, and print both pages (changes no served setting) | `uv run python labs/lab2_rank/rerank_off_on.py` |
 | Judge three retrieval settings in Lab 2 | `uv run python scripts/lab_exercise.py compare --lab 2` |
 | Check the optional HNSW index exercise | `uv run python scripts/hnsw_exercise.py check` |
 | List managed SQL tools | `uv run python scripts/deploy_agentcore.py tools` |
 | Deploy edited Lab 3 code and check managed connectivity; prints progress about every 15 s and names the failing step on error | `uv run python scripts/deploy_agentcore.py deploy` |
 | Recheck deployed code, Gateway tools and Aurora evidence | `uv run python scripts/deploy_agentcore.py verify` |
 | See the agent and tools runtimes, Gateway and Memory a deploy updates (read-only Get calls) | `uv run python scripts/deploy_agentcore.py resources` |
-| Ask the deployed agent from the terminal: answer, tool trace, citations, outcome and decline reason | `uv run python scripts/ask_agent.py "QUESTION"` |
+| Ask the deployed agent from the terminal: answer, tool trace, citations, outcome, decline reason and Run ID. Lab 3's setup request and 100W follow-up use it; Ask Mosaic is the optional browser view | `uv run python scripts/ask_agent.py "QUESTION"` |
 | Run one sentence through the agent's answer checks, citing a product's listing as [1] (generates and saves nothing) | `uv run python scripts/check_claim.py PRODUCT_ID "SENTENCE [1]"` |
 | Check the participant's saved original agent run | `uv run python scripts/complete_agent.py --run-id <your-run-id>` |
 | Inspect the diff for whitespace errors | `git diff --check` |

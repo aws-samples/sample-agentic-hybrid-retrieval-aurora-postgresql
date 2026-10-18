@@ -34,6 +34,7 @@ from service.participant_commands import (
     APPLY_SQL,
     DEPLOY_AGENT,
     VERIFY_AGENT,
+    ask_setup,
 )
 
 
@@ -737,7 +738,8 @@ def main() -> int:
             update(stage())
             verify()
             print(
-                "Your Retrieval agent is deployed and its SQL tools are connected through Gateway. Next: open Mosaic → Playground → Reason and ask Alex's question."
+                "Your Retrieval agent is deployed and its SQL tools are connected through "
+                f"Gateway. Next: ask Alex's setup request:\n{ask_setup()}"
             )
         elif args.action == "resources":
             resources()

@@ -6,6 +6,7 @@ script behind it. The Makefile keeps its targets as maintainer wrappers.
 """
 
 ADVANCE_TO_LAB_2 = "uv run python scripts/lab_state.py advance --lab 1"
+ADVANCE_TO_LAB_3 = "uv run python scripts/lab_state.py advance --lab 2"
 STATUS = "uv run python scripts/lab_state.py status"
 APPLY_SQL = "uv run python scripts/apply_search_functions.py"
 LIST_TOOLS = "uv run python scripts/deploy_agentcore.py tools"
@@ -13,6 +14,7 @@ DEPLOY_AGENT = "uv run python scripts/deploy_agentcore.py deploy"
 VERIFY_AGENT = "uv run python scripts/deploy_agentcore.py verify"
 AGENTCORE_RESOURCES = "uv run python scripts/deploy_agentcore.py resources"
 COMPARE_SETTINGS = "uv run python scripts/lab_exercise.py compare --lab 2"
+RERANK_OFF_ON = "uv run python labs/lab2_rank/rerank_off_on.py"
 HNSW_CHECK = "uv run python scripts/hnsw_exercise.py check"
 
 
@@ -22,6 +24,13 @@ def check_claim(product_id: int, sentence: str) -> str:
 
 def ask_agent(question: str) -> str:
     return f'uv run python scripts/ask_agent.py "{question}"'
+
+
+def ask_setup() -> str:
+    """Lab 3's setup request from the terminal, worded exactly as completion checks it."""
+    from service.lab_checks import mission_for_lab
+
+    return ask_agent(mission_for_lab(3)["query"])
 
 
 def start(lab: int) -> str:

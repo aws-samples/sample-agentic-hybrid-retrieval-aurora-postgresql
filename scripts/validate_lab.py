@@ -34,8 +34,14 @@ from scripts.lab_state import LabProblem, explain_problems
 from service import lab_checks
 from service.config import get_settings
 from service.lab_checks import AgentEvidence, LabCheck, RetrievalReceipt
-from service.participant_commands import APPLY_SQL, DIFF, complete_lab_3, validate
-from service.participant_commands import start as start_command
+from service.participant_commands import (
+    ADVANCE_TO_LAB_3,
+    APPLY_SQL,
+    DIFF,
+    ask_setup,
+    complete_lab_3,
+    validate,
+)
 
 
 class LabValidationError(RuntimeError):
@@ -51,6 +57,8 @@ def _request(
     base_url: str,
     path: str,
     payload: dict[str, Any] | None = None,
+    *,
+    timeout: float = 180,
 ) -> dict[str, Any]:
     body = None if payload is None else json.dumps(payload).encode("utf-8")
     headers = {"Content-Type": "application/json"}
@@ -69,8 +77,13 @@ def _request(
         method="GET" if body is None else "POST",
     )
     try:
-        with urlopen(request, timeout=180) as response:
+        with urlopen(request, timeout=timeout) as response:
             return json.load(response)
+    except TimeoutError as error:
+        raise LabValidationError(
+            f"{path} sent no response within {timeout:.0f} s; fix: run the command "
+            "again, and if it times out twice, give this message to your facilitator"
+        ) from error
     except HTTPError as error:
         detail = error.read().decode("utf-8", errors="replace")
         raise LabValidationError(
@@ -113,7 +126,9 @@ def _graded(checks: list[LabCheck]) -> list[str]:
     return [check.name for check in checks]
 
 
-def validate_lab_1(base_url: str, events: list[str] | None = None) -> list[str]:
+def validate_lab_1(
+    base_url: str, events: list[str] | None = None, *, rerun: str | None = None
+) -> list[str]:
     mission = _mission("retrieve")
     response = _search(base_url, mission)
     if events is not None:
@@ -127,11 +142,15 @@ def validate_lab_1(base_url: str, events: list[str] | None = None) -> list[str]:
 
         with connect() as connection:
             if not ranking_fault_masks_lab_1(connection, REPO):
-                raise LabValidationError(_with_block_in_place(str(error), 1)) from error
+                raise LabValidationError(
+                    _with_block_in_place(str(error), 1, rerun)
+                ) from error
         raise LabValidationError(_under_ranking_fault(str(error), REPO)) from error
 
 
-def validate_lab_2(base_url: str, events: list[str] | None = None) -> list[str]:
+def validate_lab_2(
+    base_url: str, events: list[str] | None = None, *, rerun: str | None = None
+) -> list[str]:
     mission = _mission("rank")
     first = _search(base_url, mission)
     second = _search(base_url, mission)
@@ -141,21 +160,22 @@ def validate_lab_2(base_url: str, events: list[str] | None = None) -> list[str]:
         checks = _graded(lab_checks.lab_2_checks(mission, first, second))
         return checks + _validate_controls(base_url, 2)
     except LabValidationError as error:
-        raise LabValidationError(_with_block_in_place(str(error), 2)) from error
+        raise LabValidationError(_with_block_in_place(str(error), 2, rerun)) from error
 
 
-def _with_block_in_place(failure: str, lab: int) -> str:
+def _with_block_in_place(failure: str, lab: int, rerun: str | None = None) -> str:
     """Point a live failure past the marked block, which is known to be in place.
 
     Every terminal path that runs these checks has already confirmed the saved
     block is repaired and Aurora runs it, so the shared first step, which asks
-    that question, would only send the participant round in a circle.
+    that question, would only send the participant round in a circle. `rerun`
+    is the command that ran the checks, so the advice repeats that command.
     """
     return failure.replace(
         lab_checks.repair_next_step(lab),
         f"your saved block in {lab_checks.LAB_FILES[lab]} is repaired and Aurora "
         "runs it, so the cause is outside it. Undo any edits outside the marked "
-        f"block ({DIFF} shows them), run {APPLY_SQL} and run {validate(lab)} "
+        f"block ({DIFF} shows them), run {APPLY_SQL} and run {rerun or validate(lab)} "
         "again; if it still fails, give this message to your facilitator",
     )
 
@@ -403,9 +423,9 @@ def main() -> int:
     if args.lab == 3 and not (args.save_receipt or args.reuse_receipt):
         raise SystemExit(
             "Lab 3 validation rule: found --lab 3 without a receipt; Lab 3 is checked "
-            "on your saved Retrieval agent run, not on fresh answers. fix: ask Alex's request in "
-            f"Ask Mosaic, then run {complete_lab_3()} (a maintainer passes "
-            "--save-receipt PATH or --reuse-receipt PATH)."
+            "on your saved Retrieval agent run, not on fresh answers. fix: ask Alex's setup "
+            f"request with {ask_setup()}, then run {complete_lab_3()} with its Run ID "
+            "(a maintainer passes --save-receipt PATH or --reuse-receipt PATH)."
         )
     validator = {
         1: validate_lab_1,
@@ -445,7 +465,7 @@ def main() -> int:
         record_completion(args.lab, checks, events, REPO)
     print(f"Lab {args.lab}: production-path validation passed")
     if args.lab == 2 and load_record(args.lab + 1, REPO) is None:
-        print(f"Next: begin Lab {args.lab + 1} with {start_command(args.lab + 1)}")
+        print(f"Next: save this evidence and prepare Lab 3 with {ADVANCE_TO_LAB_3}")
     return 0
 
 

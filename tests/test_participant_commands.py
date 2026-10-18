@@ -90,6 +90,7 @@ def _commands() -> list[str]:
     return [
         commands.STATUS,
         commands.ADVANCE_TO_LAB_2,
+        commands.ADVANCE_TO_LAB_3,
         commands.APPLY_SQL,
         commands.LIST_TOOLS,
         commands.DEPLOY_AGENT,
@@ -100,10 +101,12 @@ def _commands() -> list[str]:
         commands.DIFF,
         commands.validate(1),
         commands.complete_lab_3("RUN"),
+        commands.ask_setup(),
         commands.validate_applied(1),
         commands.repeat_request(2),
         commands.exercise_check(3),
         commands.COMPARE_SETTINGS,
+        commands.RERANK_OFF_ON,
         commands.HNSW_CHECK,
     ]
 

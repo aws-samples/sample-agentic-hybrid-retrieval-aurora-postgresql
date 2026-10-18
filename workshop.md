@@ -25,14 +25,18 @@ exact requests, filters, targets and assertions. Protect its **40-minute
 hands-on budget**. Completion is inside Lab 3; Memory leads the untimed optional exercises.
 These are planned allocations, not measured human completion times.
 
-During setup, use **Getting started** to open Code Editor, read
-the catalog's data, indexes and search functions in `psql`, and save Lab 1's
-failing search. Every Getting started step runs in the terminal; Mosaic is
-optional there. Mosaic's first visit to Shop opens a guided tour of its controls
+During setup, use **Getting started** to open Code Editor, run one readiness
+query in `psql` and save Lab 1's failing search. Every Getting started step
+runs in the terminal; the catalog tour and Mosaic are optional there. Mosaic's first visit to Shop opens a guided tour of its controls
 (Next or Skip the tour); the compass in the header replays it.
 Lab 1 starts in `psql` with the request Getting started saved; Shop shows the
-same search as an optional check. Lab 2 uses Shop's **Browse all products** and
-**Category** menu to switch from headphones to monitors.
+same search as an optional check. Lab 2 continues in `psql` with the monitor
+request that Lab 1's handoff saved. Its optional Shop check selects Monitor
+explicitly, without depending on the participant having visited Shop in Lab 1.
+Lab 2 ends with `advance --lab 2`, which proves Lab 2 and installs the
+Retrieval agent starter. Lab 3 stays in the terminal: deploy, ask the setup
+request and the 100W follow-up with `scripts/ask_agent.py`, then complete the
+setup run by the Run ID it printed. Ask Mosaic is an optional view of the same runs.
 
 Assign a lead for the clock and story, a SQL presenter, a Retrieval agent presenter and
 room support. One person may cover several roles; keep the staffing roster
@@ -40,11 +44,16 @@ outside the repository. Avoid extra demonstrations during a lab's proof time.
 
 ## Open with the customer
 
+Introduce the central question on the landing page and in the opening talk.
+Then follow Alex's progress: find his headphones, rank his monitor, add the
+chair and check the whole setup. Each lab opens with what he has achieved and
+what he needs next; each handoff carries the participant's repairs forward.
+
 Use the guide's opening order: the landing page's Business challenge and
 schedule, then Getting started; the guide's Overview page is optional, since
-the talk covers it. Keep the diagnosis for the investigation:
-ask participants to predict first, inspect their actual result, and explain what
-the repair changes for Alex before moving to his next need.
+the talk covers it. The talk names where Labs 1 and 2 break; the labs prove
+it: participants inspect their actual result, find the exact mechanism, and
+explain what the repair changes for Alex before moving to his next need.
 
 > Alex needs headphones for focus and calls, a monitor for code and documents,
 > and a chair for long days. We have over half a million product listings in
@@ -67,8 +76,8 @@ The default theme is **Dark Modern**.
 
 ## Lead each lab
 
-Every lab follows **Broken → Diagnose → Fix → Prove**. Ask for a prediction
-before hints. Keep the original request, inspect the mechanism, repair only the
+Every lab follows **Broken → Diagnose → Fix → Prove**. Ask what the evidence
+shows before giving hints. Keep the original request, inspect the mechanism, repair only the
 marked block, apply/deploy, then repeat and explain the result.
 
 ### Lab 1: candidate membership
@@ -108,18 +117,26 @@ full candidate pool.
 
 ### Lab 2: contributions and admission to reranking
 
-In **2a — Rank**, inspect saved source positions and contributions. When every
-position earns equal credit, ties let product IDs decide the cutoff. Participants
-repair only `LAB2_EDIT` in `labs/lab2_rank/rrf_contribution.sql`.
+In **2a — Rank**, load `.local/lab-2/context.psql` in its own paste. Compare
+the intended monitor's semantic and fused positions, then compare actual
+contributions with the formula. Participants repair only `LAB2_EDIT` in
+`labs/lab2_rank/rrf_contribution.sql`, apply, repeat and grade the saved request.
+Read their actual ranks; do not demand a recorded example's exact positions.
 
-In **2b — Re-rank**, repeat the request and run the exercise check. Inspect the
-monitor's source position, combined position and final position in that order.
-Read the participant's actual ranks; do not demand a particular measured example.
+In **2b — Re-rank**, distinguish reaching the shortlist from reaching the page.
+`uv run python labs/lab2_rank/rerank_off_on.py` runs the request with reranking
+off, then on; it shows a gain on size and resolution, not proof
+of charging compatibility. The request filters Electronics and Monitor; its
+size, resolution and power requirements are search text, not SQL predicates.
 
-Run the judged-query comparison and ask which setting they would ship and why.
-Count improvements and regressions, read the sign test, and keep the reranker
-budget in view. The comparison changes no served setting. Optional weighted RRF
-comes after completion. A plausible winner does not prove fusion worked.
+Run the judged-query comparison and ask which setting to test next and what
+measurement is still needed. It measures candidate admission without calling
+the reranker or changing served settings. Final relevance, latency and actual
+cost remain separate measurements. Lab 2 ends with
+`uv run python scripts/lab_state.py advance --lab 2`: it repeats Alex's request
+and the two Dell requests that must still work, saves the passing evidence,
+then installs the Retrieval agent starter. Retries prove Lab 2 again and keep
+Lab 3 edits. Weighted RRF is optional.
 
 ### Lab 3: build, deploy and use the Retrieval agent
 
@@ -127,22 +144,30 @@ Discover Gateway tools, then complete `create_agent` inside `LAB3_EDIT` in
 `labs/lab3_reason/agent.py`. Participants keep the supplied model, tools, source
 rules and hooks, and add one instruction of their own. Deploy using the guide.
 
-Run **Playground → Complete my setup → Reason**. Save the original run ID. Ask Mosaic
-opens from the **Ask Mosaic** pill in the header on every page. The
-Ask Mosaic **Complete my setup** starter is available before and after the Retrieval agent is
-built and runs on its own filters; it shows "Shop filters were cleared for this lab
-request." when it replaces filters a participant had set. A follow-up question is
-not graded against the lab. The Prove page's **Maintainer measurements** are
-collapsed saved results for facilitators and do not grade a participant. Ask Mosaic's **Builder view** switch shows a run's recorded steps and per-search ranks, from the saved searches, when a participant needs to inspect an answer.
+Use the deployment wait to predict the 100W answer. The resource tour is
+optional. Seek room support after five minutes without completion, or two
+minutes without new output; this is a support cue, not a deployment timeout.
+
+After the deploy, participants ask Alex's setup request from the terminal with
+`uv run python scripts/ask_agent.py "..."`, copied from the guide so it matches
+the request completion checks word for word. It prints the answer, the plan, the
+tool trace with the search SQL Aurora ran, the products, each citation with its
+quote, the outcome and the **Run ID**. They ask the 100W follow-up the same way;
+each call is its own run, and completion reads only the setup run's ID. A
+follow-up question is not graded against the lab.
+
+Ask Mosaic is optional. Its **Complete my setup** starter sends the same
+request and passes completion only as the first message of a fresh chat (use
+**Clear chat**); its **Builder view** shows the full run ID, recorded steps and
+per-search ranks. The starter runs on its own filters and shows "Shop filters
+were cleared for this lab request." when it replaces filters a participant had
+set. The Prove page's **Maintainer measurements** are collapsed saved results
+for facilitators and do not grade a participant.
 Inspect separate searches for the headphones, monitor and chair; all three in
 the comparison and final shortlist; their supporting citations; and a ranking
 explanation. Open the chair's listing and review: adjustable features and one
 person's comfort experience make different claims. Check microphone evidence
 separately from listening noise cancellation.
-
-The prepared UI serves built assets without development live reload. Leave the
-answer open during source inspection; save its run ID before refreshing or
-navigating away.
 
 Ask the guide's changed 100W requirement against the monitor's 90W record.
 The Retrieval agent must acknowledge the mismatch and any unknown compatibility.

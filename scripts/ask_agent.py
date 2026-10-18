@@ -23,11 +23,15 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.validate_lab import LabValidationError, _request
+from service.config import get_settings
 from service.lab_validation_receipt import participant_sql_digest
 from service.participant_commands import APPLY_SQL
 
 QUOTE_CHARS = 120
 MIN_QUESTION = 4  # AgentRequest.question's own minimum
+# The API waits for Runtime up to the turn deadline plus its own 30 s transport
+# margin, then saves the run; waiting longer means the Run ID always prints.
+RESPONSE_MARGIN_SECONDS = 60
 
 
 def _section(title: str, lines: list[str]) -> list[str]:
@@ -141,6 +145,11 @@ def render(response: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def response_timeout() -> float:
+    """Seconds to wait for the answer: longer than the API can take to return one."""
+    return get_settings().agent_turn_deadline_seconds + RESPONSE_MARGIN_SECONDS
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("question")
@@ -155,7 +164,10 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     try:
         response = _request(
-            args.api_url, "/api/agent/answer", {"question": args.question}
+            args.api_url,
+            "/api/agent/answer",
+            {"question": args.question},
+            timeout=response_timeout(),
         )
     except LabValidationError as error:
         print(f"Retrieval agent request failed: {error}", file=sys.stderr)

@@ -38,6 +38,10 @@ the workshop. Follow the guide's commands as you move through the labs.
 
 ## What you will build
 
+**What if your agent's most convincing answer rests on the wrong evidence?**
+Help Alex find his headphones, rank a monitor, then check his whole setup
+against specifications and reviews. Each lab carries your SQL repairs forward.
+
 The workshop follows **Retrieve → Rank → Re-rank → Reason**. Labs 1 and 2 improve
 your SQL search. Lab 3 connects that search to the Retrieval agent, a Strands agent on AgentCore Runtime
 and exposes the SQL tools through AgentCore Gateway.
@@ -69,13 +73,20 @@ reference answer in `solution/`. Solution folders are hidden from the default
 Explorer view. When a lab starts, its
 marked blocks hold a `TODO(Lab n)` note that repeats the guide's contract.
 
+All three labs run in the terminal. Lab 1's handoff saves the monitor request
+that Lab 2 inspects in `psql`; Shop is an optional check of the same evidence.
+Lab 2's handoff proves its repair and installs the Retrieval agent starter. After
+deploying in Lab 3, ask the setup request and the changed requirement with
+`scripts/ask_agent.py`, then check the setup run by its Run ID. Ask Mosaic shows
+the same runs in the browser and is optional.
+
 Use **Shop** for product search and **Playground** for saved candidates,
 ranking, tool calls and cited sources. **Ask Mosaic** opens from the pill in the
 header on every page. On the first visit to Shop, a short guided tour spotlights
 each of these; **Take the tour** (the compass in the header) runs it again. **Complete my setup** runs Lab 3's
 three-product request, and its Ask Mosaic starter stays available before and after
 you build the Retrieval agent; it runs on its own filters and says when it clears Shop's.
-Keep its original run ID for completion. Ask Mosaic's **Builder view** switch (off by default) adds the run's recorded steps, saved search ids and how each search ranked its products to every answer. The Playground's Prove page keeps the
+Keep its original run ID for completion. Ask Mosaic's **Builder view** switch (off by default) shows the full **Retrieval agent record** ID, recorded steps, saved search IDs and how each search ranked its products. The Playground's Prove page keeps the
 maintainers' saved scorecard collapsed under **Maintainer measurements**; those
 results do not grade your repairs.
 
@@ -84,16 +95,22 @@ interrupt your answer. Keep the answer open while inspecting its sources, and
 save the run ID before refreshing or leaving the page.
 
 The guide opens with the business challenge and workshop structure, then Getting
-started. Each lab asks you to predict, investigate, repair and prove the result,
+started. Each lab asks you to investigate, repair and prove the result,
 with reference material and optional exercises collapsed. The closing recap
 connects what you fixed to Alex's next need. Each lab README is a short reminder beside the
 file you edit. Shop’s lab cards show the observed problem before the diagnosis;
 repair feedback requires the exercise state and a search made after preparation.
 The ranking table sorts the same displayed products and preserves both positions.
+For Lab 1's mistyped request, a text-only notice names the missing product;
+**Other products returned** labels the actual results below it. Request IDs and
+the saved-run link expand under **Lab 1: request and evidence**. The notice
+never displays a product photo that could be mistaken for a search result.
 
 After Lab 1's repair check, continue with the guide's description search.
 At the end of the lab, run `uv run python scripts/lab_state.py advance --lab 1`
-to validate its repair, save passing evidence and prepare Lab 2. Retries resume
+to validate its repair, save passing evidence and prepare Lab 2. Lab 2 ends the
+same way with `uv run python scripts/lab_state.py advance --lab 2`, which proves
+Lab 2 and installs the Retrieval agent starter for Lab 3. Retries resume
 preparation without discarding edits. For direct entry, start a lab with
 `uv run python scripts/lab_state.py start --lab N`: it saves the failing request,
 installs that lab's fault once and preserves earlier repairs. An interrupted

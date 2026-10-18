@@ -570,7 +570,7 @@ def print_comparison(table: dict) -> None:
     base = table["baseline"]
     print(
         f"Served profile: {base['exact_in_cutoff']} exact matches reach reranking "
-        f"across the judged queries; {base['billed_search_units_per_query']} billed "
+        f"across the judged queries; {base['billed_search_units_per_query']} estimated "
         "rerank unit per query."
     )
     print(
@@ -589,7 +589,7 @@ def print_comparison(table: dict) -> None:
                 f"{_position(moved['from'])} to {_position(moved['to'])}"
             )
     print(table["scope"])
-    print("Decide in one sentence: which change would you ship, and why?")
+    print("Choose a setting to test next and one measurement needed before shipping.")
 
 
 def _print_lab3(report: dict) -> None:
@@ -597,9 +597,7 @@ def _print_lab3(report: dict) -> None:
         print(
             "Your Retrieval agent is live and using your hybrid search to answer with sources."
         )
-        print(
-            "Next: change Alex's requirements in Mosaic and see how its recommendation changes."
-        )
+        print("Next: the guide's Wrap-up. Lab 3's required work is complete.")
 
 
 def grade(lab: int, work: Path) -> dict[str, Any]:

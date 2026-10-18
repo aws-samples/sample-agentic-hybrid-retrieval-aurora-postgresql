@@ -14,7 +14,7 @@ lab has a folder under `labs/`: the exercise file with its marker seams
 `labs/lab3_reason/agent.py`) and a `solution/` copy holding the solved body.
 `scripts/lab_state.py` holds each starter body. Provisioning injects Lab 1's gap; `uv run python scripts/lab_state.py start --lab 2` and
 `uv run python scripts/lab_state.py start --lab 3` inject the later gaps once, when the participant enters each
-lab, and `uv run python scripts/lab_state.py reset --lab N` re-injects one lab's gap on request. The
+lab (the guide runs them through `advance --lab 1` and `advance --lab 2`), and `uv run python scripts/lab_state.py reset --lab N` re-injects one lab's gap on request. The
 Workshop Studio repository narrates the repairs and triggers the selected-catalog reset/apply commands
 at provision time; it ships no starter template of its own. This document is
 the authoritative manifest: a gap listed here is a gap `lab_state.py` must
@@ -48,8 +48,8 @@ Three lab anchors carry `checkpoint: "repair"`. Their narrative promises the
 participant something to fix, so a start or reset (backed by
 `scripts/lab_entry.py` and `scripts/lab_state.py`) must remove exactly these
 capabilities and nothing else. Workshop Studio installs Lab 1's gap at provision
-time; the participant's `uv run python scripts/lab_state.py start --lab 2` and `uv run python scripts/lab_state.py start --lab 3` install the
-later ones.
+time; the participant's `uv run python scripts/lab_state.py start --lab 2` and `uv run python scripts/lab_state.py start --lab 3`,
+run by the `advance --lab 1` and `advance --lab 2` handoffs, install the later ones.
 
 ### GAP-1 — typo-recovery arm
 

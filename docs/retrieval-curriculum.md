@@ -53,13 +53,13 @@ Goal: construct the right candidate universe before deciding the winner.
 
 1. Save the transposed-ID failure and propose a falsifiable cause.
 2. Compare the three installed search methods with the recorded filters and
-   limits in `psql`. Inspect a selective vector scan with `EXPLAIN (ANALYZE,
-   BUFFERS, SETTINGS)` at two transaction-local settings, including the eligible population.
+   limits in `psql`.
 3. Repair the connection the evidence identifies, then repeat the identical
    request. Prove that only the declared method recovered this target.
-4. Run exact-ID and eligibility controls. Distinguish target recovery, returned
-   row count and recall against an independently known correct set. Never
-   promise that changing scan memory must change the result.
+4. Run the exact-ID and description controls through the handoff. The vector
+   scan plan at two settings and recall against a known correct set are the
+   optional Scale & HNSW exercise; never promise that changing scan memory must
+   change the result.
 
 Required concepts:
 
@@ -142,19 +142,18 @@ multi-hop graph traversal. Closed-world follow-ups can reuse a server-validated
 prior shortlist, but every answer still retrieves fresh evidence and passes the
 same citation checks.
 
-The required citation challenge uses freshly resolved records as a positive
-control, then changes the evidence ID, quote and revision in memory. It also
-executes the production named-product citation guard with the other product's
-record. No database record is changed. This checks specific failure modes,
-not general semantic truth. The final brief returns to all three items:
+Lab 3's optional Go deeper runs the coverage, answerability and
+measurable-claim checks from the terminal with `ask_agent.py` and
+`check_claim.py`. They check specific failure modes, not general semantic
+truth. The final brief returns to all three items:
 headphones, the recovered monitor and the adjustable chair, with unknown microphone
 performance, laptop compatibility and personal comfort stated separately.
 
 ## Prove (unnumbered finale)
 
-Prove is included inside Lab 3's 20-minute budget, not an additional lab.
-Run the three validators, inspect a saved plan, and resolve citations from the
-complete-setup answer and the headphone evidence control. The required path
+Prove is included inside Lab 3's 20-minute budget, not an additional lab:
+`complete_agent.py --run-id` checks the participant's saved setup run without a
+new model call. The required path
 contains three repairs and five controls. A separate representative evaluation
 is needed to make whole-catalog ranking claims.
 

@@ -336,7 +336,10 @@ def test_lab_3_start_installs_the_starter_and_records_the_refusal(repo, aurora) 
 def handoff_checks(monkeypatch):
     calls = []
 
-    def validate(_url, events):
+    def validate(_url, events, *, rerun):
+        from service.participant_commands import ADVANCE_TO_LAB_2
+
+        assert rerun == ADVANCE_TO_LAB_2
         calls.append("validate")
         events.append("verified-lab-1")
         return ["target_recovered", "filter_controls"]
@@ -365,7 +368,7 @@ def test_handoff_saves_passing_evidence_before_installing_fault(
 def test_failed_lab1_validation_never_starts_lab2(repo, aurora, monkeypatch):
     from scripts.validate_lab import LabValidationError
 
-    def fail(*_args):
+    def fail(*_args, **_options):
         raise LabValidationError("target missing")
 
     monkeypatch.setattr("scripts.validate_lab.validate_lab_1", fail)
@@ -426,3 +429,118 @@ def test_a_refused_handoff_names_the_problem_and_advance_as_the_rerun(
     assert lines[-1] == f"Then: {ADVANCE_TO_LAB_2}"
     assert "start this lab again" not in str(refused.value)
     assert handoff_checks == [] and aurora.applies == 0
+
+
+@pytest.fixture
+def lab_2_repaired(repo, aurora) -> Path:
+    """Lab 2 entered through its start, then repaired and applied by the participant."""
+    _start(2, repo)
+    set_lab_state(2, solved=True, repo=repo)
+    aurora.applied[2] = "applied"
+    return repo
+
+
+@pytest.fixture
+def lab_2_checks(monkeypatch):
+    calls = []
+
+    def validate(_url, events, *, rerun):
+        calls.append(rerun)
+        events.extend(["first-lab-2", "second-lab-2"])
+        return ["contribution correct", "G-007: right product in the top 10"]
+
+    monkeypatch.setattr("scripts.validate_lab.validate_lab_2", validate)
+    return calls
+
+
+def test_lab_2_handoff_saves_passing_evidence_then_installs_the_lab_3_starter(
+    lab_2_repaired, aurora, lab_2_checks
+):
+    from service.participant_commands import ADVANCE_TO_LAB_3
+
+    lines = []
+    lab_entry.advance(
+        2, api_url="http://api", dsn="aurora", repo=lab_2_repaired, say=lines.append
+    )
+
+    assert lab_2_checks == [ADVANCE_TO_LAB_3]
+    assert not lab_is_solved(3, repo=lab_2_repaired)
+    assert lab_is_solved(2, repo=lab_2_repaired)
+    saved = json.loads(lab_entry.completion_path(2, lab_2_repaired).read_text())
+    assert saved["search_event_ids"] == ["first-lab-2", "second-lab-2"]
+    assert lines.index(
+        "Lab 2: production-path validation passed. Passing evidence saved."
+    ) < next(i for i, line in enumerate(lines) if line.startswith("Installed"))
+    assert any("Your Retrieval agent is not built yet" in line for line in lines)
+    assert lines[-1].startswith("Lab 3: prepared.")
+
+
+def test_lab_2_handoff_refuses_before_lab_2_has_started(repo, aurora, lab_2_checks):
+    with pytest.raises(lab_entry.LabEntryError) as refused:
+        lab_entry.advance(2, api_url="http://api", dsn="aurora", repo=repo)
+
+    message = str(refused.value)
+    assert message.startswith("Lab 2 cannot hand off yet.")
+    assert f"Next: run {start_command(2)}" in message
+    assert lab_2_checks == []
+    assert lab_entry.load_record(3, repo) is None
+
+
+def test_failed_lab_2_validation_never_starts_lab_3(lab_2_repaired, monkeypatch):
+    from scripts.validate_lab import LabValidationError
+
+    def fail(*_args, **_options):
+        raise LabValidationError("target missing")
+
+    monkeypatch.setattr("scripts.validate_lab.validate_lab_2", fail)
+    with pytest.raises(LabValidationError, match="target missing"):
+        lab_entry.advance(2, api_url="http://api", dsn="aurora", repo=lab_2_repaired)
+    assert lab_entry.load_record(3, lab_2_repaired) is None
+    assert lab_is_solved(3, repo=lab_2_repaired)
+    assert not lab_entry.completion_path(2, lab_2_repaired).exists()
+
+
+def test_a_rerun_lab_2_handoff_proves_lab_2_again_and_keeps_lab_3_edits(
+    lab_2_repaired, lab_2_checks
+):
+    lab_entry.advance(2, api_url="http://api", dsn="aurora", repo=lab_2_repaired)
+    agent = _seam_file(3, lab_2_repaired)
+    agent.write_text(agent.read_text() + "\n# participant note\n")
+    edited = agent.read_bytes()
+
+    lines = []
+    lab_entry.advance(
+        2, api_url="http://api", dsn="aurora", repo=lab_2_repaired, say=lines.append
+    )
+
+    assert len(lab_2_checks) == 2
+    assert agent.read_bytes() == edited
+    assert any(line.startswith("Lab 3 was started at") for line in lines)
+
+
+def test_a_refused_lab_2_handoff_names_the_problem_and_advance_as_the_rerun(
+    lab_2_repaired, aurora, lab_2_checks
+) -> None:
+    from service.participant_commands import ADVANCE_TO_LAB_3
+
+    aurora.applied[2] = "stale"
+
+    with pytest.raises(lab_entry.LabEntryError) as refused:
+        lab_entry.advance(2, api_url="http://api", dsn="aurora", repo=lab_2_repaired)
+
+    lines = str(refused.value).splitlines()
+    assert lines[0] == "Lab 2 cannot hand off yet."
+    assert lines[1].startswith("- Lab 2's saved repair is not in Aurora.")
+    assert lines[-1] == f"Then: {ADVANCE_TO_LAB_3}"
+    assert lab_2_checks == []
+    assert lab_entry.load_record(3, lab_2_repaired) is None
+
+
+def test_lab_3_has_no_handoff_and_says_how_it_ends(repo, aurora) -> None:
+    from service.participant_commands import complete_lab_3
+
+    with pytest.raises(lab_entry.LabEntryError) as refused:
+        lab_entry.advance(3, api_url="http://api", dsn="aurora", repo=repo)
+
+    assert "advance --lab 1 or advance --lab 2" in str(refused.value)
+    assert complete_lab_3() in str(refused.value)

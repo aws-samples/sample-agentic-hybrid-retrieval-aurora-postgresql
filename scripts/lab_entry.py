@@ -8,7 +8,8 @@ interrupted start is completed by running it again: a recorded step is never
 repeated, and a fault is never reinstalled over the participant's edits.
 Prerequisites are checked, never repaired: a start refuses to install a
 reference solution for an earlier lab. A restart is the one action that
-discards the entered lab's edits.
+discards the entered lab's edits. A handoff (`advance`) proves Lab 1 or 2
+live, saves the passing evidence, then starts the next lab.
 """
 
 from __future__ import annotations
@@ -35,7 +36,9 @@ from scripts.lab_state import (
 )
 from service.participant_commands import (
     ADVANCE_TO_LAB_2,
+    ADVANCE_TO_LAB_3,
     APPLY_SQL,
+    complete_lab_3,
     reset,
     validate,
     validate_applied,
@@ -325,6 +328,65 @@ def _handoff_mismatch(
 def advance(
     lab: int, *, api_url: str, dsn: str | None, repo: Path = REPO, say: Say = print
 ) -> dict[str, Any]:
+    """Prove a SQL lab live, save its evidence, then prepare the next lab.
+
+    Raises:
+        LabEntryError: The lab has no handoff, or its repair is not ready to prove.
+        LabValidationError: A live check failed; nothing for the next lab changed.
+    """
+    if lab == 1:
+        return _advance_lab_1(api_url=api_url, dsn=dsn, repo=repo, say=say)
+    if lab == 2:
+        return _advance_lab_2(api_url=api_url, dsn=dsn, repo=repo, say=say)
+    raise LabEntryError(
+        f"Handoff rule: found Lab {lab}; fix: use advance --lab 1 or advance --lab 2. "
+        f"Lab 3 ends when {complete_lab_3()} passes on your setup run."
+    )
+
+
+def _advance_lab_2(
+    *, api_url: str, dsn: str | None, repo: Path, say: Say
+) -> dict[str, Any]:
+    """Prove Lab 2, then install the Retrieval agent starter; safe to rerun.
+
+    Unlike Lab 2's ranking fault under Lab 1, the Retrieval agent starter never
+    touches the searches Lab 2's checks run, so every rerun proves Lab 2 again
+    rather than reusing saved evidence, and a started Lab 3 keeps its edits.
+    """
+    from scripts.validate_lab import record_completion, validate_lab_2
+    from service.lab_proof import entry_check
+
+    entered = entry_check(2, repo)
+    if not entered.passed:
+        raise LabEntryError(f"Lab 2 cannot hand off yet.\n- {entered.detail}")
+    assert_reset_database(dsn)
+    with _connect(dsn) as connection:
+        problems = unmet_prerequisites(3, connection, repo)
+    if problems:
+        raise LabEntryError(
+            explain_problems("Lab 2 cannot hand off yet.", problems, ADVANCE_TO_LAB_3)
+        )
+    events: list[str] = []
+    say(
+        "Validating Lab 2 in Aurora: Alex's monitor request, then the requests that "
+        "must still work…"
+    )
+    checks = validate_lab_2(api_url, events, rerun=ADVANCE_TO_LAB_3)
+    for check in checks:
+        say(f"PASS: {check}")
+    record_completion(2, checks, events, repo)
+    say("Lab 2: production-path validation passed. Passing evidence saved.")
+    say("Preparing Lab 3: install the Retrieval agent starter once.")
+    record = start(3, api_url=api_url, dsn=dsn, repo=repo, say=say)
+    say(
+        "Lab 3: prepared. Continue in the Lab 3 guide. Your existing edits are preserved."
+    )
+    return record
+
+
+def _advance_lab_1(
+    *, api_url: str, dsn: str | None, repo: Path, say: Say
+) -> dict[str, Any]:
     """Prove Lab 1 before preparing Lab 2; resume without replaying masked checks.
 
     The handoff saves its own verified evidence before installing the ranking
@@ -333,11 +395,6 @@ def advance(
     """
     from scripts.validate_lab import record_completion, validate_lab_1
 
-    if lab != 1:
-        raise LabEntryError(
-            f"Handoff rule: found Lab {lab}; fix: use advance --lab 1. "
-            "Other labs follow their guide's completion steps."
-        )
     assert_reset_database(dsn)
     with _connect(dsn) as connection:
         problems = unmet_prerequisites(2, connection, repo)
@@ -369,7 +426,7 @@ def advance(
         say(
             "Validating Lab 1 in Aurora: the typo request, then two searches that must still work…"
         )
-        checks = validate_lab_1(api_url, events)
+        checks = validate_lab_1(api_url, events, rerun=ADVANCE_TO_LAB_2)
         for check in checks:
             say(f"PASS: {check}")
         record_completion(1, checks, events, repo)

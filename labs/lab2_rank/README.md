@@ -3,10 +3,15 @@
 Follow **Workshop Studio → Lab 2** for the exact requests, the checks and each
 task's **Stuck?** hints. This is the reminder beside your code.
 
+Alex has found his headphones. Now he needs a monitor with USB-C charging.
+Keep your retrieval repair and inspect the monitor request that Lab 1's
+handoff saved: does the intended listing survive ranking?
+
 ## Task 2A: Restore the rank contribution
 
-**See it fail.** Lab 1's handoff saved Alex's monitor request. Semantic search
-finds the ViewSonic VG2756-4K, yet it never reaches the 50 sent to reranking.
+**See it fail.** In `psql`, load `.local/lab-2/context.psql` with `\i` in its
+own paste. Follow the guide's query to compare the ViewSonic VG2756-4K's
+semantic position with its membership in the fused shortlist.
 
 **Why.** Score a few positions with `reciprocal_rank_contribution` and compare
 them with `1 / (60 + position)`. If every position earns the same contribution,
@@ -30,17 +35,30 @@ uv run python scripts/lab_exercise.py check --lab 2
 
 ## Task 2B: Read what reranking changed, then compare settings
 
-In Shop, choose **Shop + search details** and compare **Before reranking (RRF)**
-with **Final position**. Then judge three measured settings on labeled queries
-and run the Lab 2 checks:
+Run Alex's request with reranking off, then on, and compare the two pages of
+12; [rerank_off_on.py](rerank_off_on.py) shows that the calls differ only in
+`rerank`. Shop is an optional view of this evidence. Then compare candidate
+admission under three settings on judged queries:
+
+```bash
+uv run python labs/lab2_rank/rerank_off_on.py
+```
 
 ```bash
 uv run python scripts/lab_exercise.py compare --lab 2
-uv run python scripts/validate_lab.py --lab 2 --api-url http://127.0.0.1:8000
 ```
 
-The comparison leaves the served settings unchanged. Decide which setting you
-would ship, and why.
+The comparison leaves served settings unchanged and calls no reranker.
+Nominate a setting to test next; final relevance, latency and actual cost need
+separate measurement before shipping.
+
+**Prove it and hand off.** The handoff repeats Alex's request and two Dell
+requests that must still work, saves the passing evidence, then installs the
+Retrieval agent starter for Lab 3. If it is interrupted, run it again:
+
+```bash
+uv run python scripts/lab_state.py advance --lab 2
+```
 
 <details>
 <summary>🔍 Optional after required completion: standard vs weighted RRF</summary>

@@ -35,9 +35,10 @@ anything, run `uv run python scripts/diff.py`; it does not print the answer.
 `uv run python scripts/diff.py --answer` does, so try the hints first.
 
 In Lab 2, Task 2A repairs the rank contribution and Task 2B reads what
-reranking changed and compares three settings. In Lab 3, copy the
-**Retrieval agent record** ID of your original setup run before you ask any follow-up:
-completion checks that run.
+reranking changed and compares three settings; `advance --lab 2` then proves
+Lab 2 and prepares Lab 3. In Lab 3, ask Alex's setup request with
+`scripts/ask_agent.py` and keep the **Run ID** it prints before you ask any
+follow-up: completion checks that run.
 
 After the labs, open **Playground → Take this retrieval into your own agent**
 and choose **Download the skill** to keep the Hybrid Agentic Search skill. For

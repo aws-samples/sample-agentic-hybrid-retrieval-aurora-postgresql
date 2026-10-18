@@ -3,11 +3,15 @@
 Follow **Workshop Studio → Lab 1** for the exact requests, the checks and each
 task's **Stuck?** hints. This is the reminder beside your code.
 
+Alex starts his home office with the Logitech Zone 900 headphones. His
+mistyped listing ID returned other headphones; find where the intended one
+disappears.
+
 ## Task 1A: Reconnect the search that lost the Logitech
 
 **See it fail.** Getting started saved Alex's mistyped request with
 `uv run python scripts/lab_state.py start --lab 1`. In `psql`, load it with
-`\i .local/lab-1/context.psql` and count what each search contributed to
+`\i .local/lab-1/context.psql` in its own paste, then count what each search contributed to
 `search_hybrid_rrf`: all 50 candidates come from semantic search, no Logitech,
 no error.
 

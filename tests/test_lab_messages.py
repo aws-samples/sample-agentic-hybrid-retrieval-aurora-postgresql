@@ -35,6 +35,7 @@ from scripts.validate_lab import LabValidationError
 from service import lab_checks
 from service.lab_files import LAB1_SQL, LAB2_SQL
 from service.participant_commands import (
+    ADVANCE_TO_LAB_3,
     APPLY_SQL,
     complete_lab_3,
     prove,
@@ -138,6 +139,15 @@ def test_the_terminal_skips_the_step_it_has_already_taken():
     assert f"your saved block in {LAB2_SQL} is repaired and Aurora runs it" in in_place
     assert f"run {validate(2)} again" in in_place
     assert validate_lab._with_block_in_place(environment, 2) == environment
+
+
+def test_a_handoff_failure_repeats_the_handoff_not_the_bare_check():
+    generic = f"found no result; fix: {lab_checks.repair_next_step(2)}"
+
+    in_place = validate_lab._with_block_in_place(generic, 2, ADVANCE_TO_LAB_3)
+
+    assert f"run {ADVANCE_TO_LAB_3} again" in in_place
+    assert validate(2) not in in_place
 
 
 def _start_record(output: Path, evidence: dict) -> None:

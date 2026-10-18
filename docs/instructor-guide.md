@@ -48,9 +48,9 @@ The historical synthetic scorecard and 720 filter cases are not its quality gate
 | Clock | Stage | Required outcome |
 |---|---|---|
 | 00:00-00:15 | Presentation, then Getting started | Meet Alex, frame the three lessons and explain the architecture; the guide's Overview page is optional |
-| 00:15-00:25 | Retrieve | Restore one candidate channel and prove recall and eligibility |
-| 00:25-00:35 | Rank | Repair RRF so the suitable monitor reaches reranking |
-| 00:35-00:55 | Reason | Attach evidence identity to synthesis state, prove citation authorization and run the completion gate |
+| 00:15-00:25 | Retrieve | Reconnect fuzzy matching; `advance --lab 1` proves the typo, exact-ID and description requests |
+| 00:25-00:35 | Rank | Repair RRF so the monitor reaches reranking; `advance --lab 2` proves it and prepares Lab 3 |
+| 00:35-00:55 | Reason | Build and deploy the Retrieval agent, ask the setup and 100W requests with `ask_agent.py`, prove the setup run |
 | 00:55-01:00 | Wrap-up and Q&A | Questions, then untimed optional exercises: Session & Memory first, with a retrieval tool or HNSW as alternatives |
 
 ## Eight proof anchors
@@ -85,8 +85,8 @@ repairs and validation sequence are unchanged by it.
 
 ### Repeatable delivery loop
 
-For each lab, keep the canonical query, filters and runtime profile fixed. Ask
-for a prediction, run the broken request, inspect the recorded mechanism, apply
+For each lab, keep the canonical query, filters and runtime profile fixed. Run
+the broken request, inspect the recorded mechanism, apply
 the smallest repair, and run that identical request again. Record the request
 and run ID in both states. A changed prompt or an unrelated result that looks
 better cannot establish that the repair worked.
@@ -112,8 +112,8 @@ with its rail: the three labs in order, each one's live repair state, and the
 next lab to open. Say once that the labs, not the storefront or the Scale &
 HNSW / Session & Memory tabs beside them, are the session, and move on.
 
-Show the missed product first and collect a prediction. Leave the disconnected
-path and its repair for Lab 1's diagnosis.
+Show the missed product first. The talk says fuzzy matching finds it; leave the
+exact disconnected branch and its repair for Lab 1's diagnosis.
 
 ### Lab 1: Retrieve - Debug hybrid search
 
@@ -156,17 +156,26 @@ formula. Use those as controls, not as visible repair demonstrations. The
 [example library](real-catalog-exercise-library.md) includes successes,
 unchanged results and an unsuccessful wording variant.
 
+Lab 2 ends with `uv run python scripts/lab_state.py advance --lab 2`. It repeats
+Alex's request and the two Dell requests that must still work, saves the
+passing evidence, then installs the Retrieval agent starter, so Lab 3 has no
+start command. A rerun proves Lab 2 again and keeps any Lab 3 edits.
+
 ### Lab 3: Reason - Build and deploy the Retrieval agent
 
 Participants extend their SQL from Labs 1 and 2. They list the Gateway tools,
 complete `create_agent` in `labs/lab3_reason/agent.py`, add one source-aware instruction,
 and run `uv run python scripts/deploy_agentcore.py deploy`. The managed services and networking are prepared.
 
-Show the deployment message, then ask **Complete my setup** in Playground → Reason.
+Show the deployment message, then ask Alex's setup request from the terminal
+with `uv run python scripts/ask_agent.py "..."`, copied from the guide. Its
+output shows the plan, the tool trace, the products, each citation with its
+quote, the outcome and the **Run ID** that completion checks.
 The Retrieval agent searches for Alex's missing chair and brings it together with his Logitech
-headphones and ViewSonic monitor. Open a citation and compare the recommendation
-with its source. Follow up in Ask Mosaic with a 100W laptop-charging requirement; the
-monitor's 90W record must not be presented as meeting 100W.
+headphones and ViewSonic monitor. Read a citation against the sentence that
+cites it. Ask the 100W laptop-charging follow-up the same way; the monitor's
+90W record must not be presented as meeting 100W. Ask Mosaic shows the same
+kind of run in the browser and is optional.
 
 Participants build and use the Retrieval agent. They do not write tests or a claims query.
 The completion command `uv run python scripts/complete_agent.py --run-id ...` rechecks the actual run,
@@ -223,7 +232,7 @@ plans and measured comparisons beside the lab that uses them.
 | 04:00-05:30 | Rank | Ask how we know fusion worked if a monitor finishes well. Participants will restore `1 / (k + rank)` and defend a setting on judged queries. | Technical |
 | 05:30-07:00 | Reason | Preview the final request below. Do not start a long Retrieval agent run in the opening. | Lead |
 | 07:00-08:30 | Who owns each decision | Aurora retrieves, filters and saves records. Bedrock supplies embeddings, reranking and the Retrieval agent's model. The application validates tool calls and citations. Show one saved search ID. | Aurora presenter |
-| 08:30-10:00 | Your work and its proof | Open the guide and both work surfaces. Predict, observe, diagnose, repair, repeat the same request, explain the change. Required work finishes by minute 50. | Lead |
+| 08:30-10:00 | Your work and its proof | Open the guide and both work surfaces. Observe, diagnose, repair, repeat the same request, explain the change. Required work finishes by minute 50. | Lead |
 
 Lab 3's request, from the manifest:
 
@@ -241,8 +250,8 @@ do not label every other monitor unsuitable.
 
 ### Expert discussions inside the proof time
 
-Ask these while participants inspect records they already have. Start with the
-participant's prediction and finish with the observed result.
+Ask these while participants inspect records they already have, and finish with
+the observed result.
 
 | Lab | Ask | Read together | Limit the conclusion |
 |---|---|---|---|
@@ -337,10 +346,9 @@ The method:
 > Find the search method that stayed silent, repair the smallest seam, run the
 > same request again, and prove it from what Aurora recorded.
 
-After the completion check, run **Bring Alex's office home** in the guide's
-Conclusion. It reads the participant's own saved runs. Ask one participant for a
-claim, another for its source, and another for what Alex still needs to check.
-Use the existing runs; do not start a new model call to produce a cleaner finale.
+After the completion check, use the participants' own saved runs: ask one
+participant for a claim, another for its source, and another for what Alex
+still needs to check. Do not start a new model call to produce a cleaner finale.
 The completion check rechecks the participant's saved run; the scorecard is a
 separately dated measurement.
 

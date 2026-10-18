@@ -143,8 +143,9 @@ def test_a_declined_answer_names_its_reason_and_says_nothing_was_cited():
 def test_main_posts_the_question_to_the_ask_mosaic_route(monkeypatch, capsys):
     calls = []
 
-    def fake_request(base_url, path, payload=None):
+    def fake_request(base_url, path, payload=None, *, timeout):
         calls.append((base_url, path, payload))
+        assert timeout == ask_agent.response_timeout()
         return declined()
 
     monkeypatch.setattr(ask_agent, "_request", fake_request)
@@ -162,7 +163,7 @@ def test_main_posts_the_question_to_the_ask_mosaic_route(monkeypatch, capsys):
 
 
 def test_an_api_failure_is_reported_and_exits_non_zero(monkeypatch, capsys):
-    def failing(base_url, path, payload=None):
+    def failing(base_url, path, payload=None, **_options):
         raise LabValidationError(
             "/api/agent/answer returned HTTP 503: runtime unavailable"
         )
@@ -172,6 +173,31 @@ def test_an_api_failure_is_reported_and_exits_non_zero(monkeypatch, capsys):
 
     assert code == 1
     assert "HTTP 503" in capsys.readouterr().err
+
+
+def test_the_terminal_waits_longer_than_the_api_can_take():
+    """The API waits for Runtime up to the deadline, plus 30 s read and 10 s connect.
+
+    A client that gave up first lost the Run ID of a run the API went on to save.
+    """
+    from service.config import get_settings
+
+    api_worst_case = get_settings().agent_turn_deadline_seconds + 30 + 10
+
+    assert ask_agent.response_timeout() > api_worst_case
+
+
+def test_a_slow_answer_is_reported_with_its_wait_and_a_fix(monkeypatch, capsys):
+    def slow(_request, timeout):
+        raise TimeoutError("The read operation timed out")
+
+    monkeypatch.setattr("scripts.validate_lab.urlopen", slow)
+    code = ask_agent.main(["Find headphones for calls"])
+
+    error = capsys.readouterr().err
+    assert code == 1
+    assert f"no response within {ask_agent.response_timeout():.0f} s" in error
+    assert "run the command again" in error
 
 
 def test_the_command_string_is_the_one_participants_type():
@@ -267,3 +293,18 @@ def test_an_agent_that_reports_no_route_prints_no_sql_line():
     text = ask_agent.render(grounded())
 
     assert "Gateway" not in text and "Aurora ran" not in text
+
+
+def test_the_setup_command_asks_the_question_completion_checks():
+    """The shell hands ask_agent.py the request completion compares, word for word."""
+    import shlex
+
+    from service import lab_checks
+    from service.participant_commands import ask_setup
+
+    words = shlex.split(ask_setup())
+    mission = lab_checks.mission_for_lab(3)
+    asked = lab_checks.mission_request_check(mission, {"question": words[-1]})
+
+    assert words[:4] == ["uv", "run", "python", "scripts/ask_agent.py"]
+    assert asked.passed, asked.detail

@@ -25,6 +25,7 @@ from service.participant_commands import (
     DEPLOY_AGENT,
     DIFF,
     DIFF_ANSWER,
+    ask_setup,
     complete_lab_3,
     exercise_check,
     prove,
@@ -48,7 +49,7 @@ FUNCTION_CONTRIBUTION_TOLERANCE = 1e-12
 #: the others repeat the lab guide's contract for the edit, not its answer.
 LAB1_STARTER = """-- TODO(Lab 1): one search's candidates never reach `channels`. Find which,
 -- then add its branch here with the same five columns as the others."""
-LAB2_STARTER = """-- TODO(Lab 2): return one source position's reciprocal-rank contribution.
+LAB2_STARTER = """-- TODO(Lab 2): replace the SELECT below so each position earns its own score.
 -- Keep the signature, the double precision result and the configured rrf_k.
 SELECT
     1.0::double precision
@@ -847,7 +848,8 @@ def status_line(lab: int, *, repo: Path = REPO) -> str:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "advance --lab 1 validates Lab 1 and prepares Lab 2; "
+            "advance --lab 1 validates Lab 1 and prepares Lab 2, and advance "
+            "--lab 2 validates Lab 2 and prepares Lab 3; "
             "start enters a lab once and keeps your edits on a rerun; reset "
             "discards one lab's edits and restores its starter; solution "
             "overwrites one lab with the reference repair. To see where your lab "
@@ -878,8 +880,8 @@ def solution_summary(lab: int, path: Path) -> str:
     """Say what `solution` overwrote and which commands come next."""
     if lab == 3:
         next_step = (
-            f"deploy with {DEPLOY_AGENT}, ask Alex's request in Ask Mosaic, then "
-            f"check the saved run with {complete_lab_3()}"
+            f"deploy with {DEPLOY_AGENT}, ask Alex's setup request with "
+            f"{ask_setup()}, then check that run with {complete_lab_3()}"
         )
     else:
         next_step = f"apply it with {APPLY_SQL}, then prove it with {prove(lab)}"
@@ -941,8 +943,8 @@ def _validate_command(lab: int, database_url: str | None) -> int:
             raise SystemExit(AGENT_STARTER_MESSAGE)
         print(
             "Lab 3: source assembled. This checks the file's shape, not your Retrieval agent. "
-            f"Next: deploy with {DEPLOY_AGENT}, ask Alex's request in Ask Mosaic, "
-            f"then check the saved run with {complete_lab_3()}."
+            f"Next: deploy with {DEPLOY_AGENT}, ask Alex's setup request with "
+            f"{ask_setup()}, then check that run with {complete_lab_3()}."
         )
         return 0
     problem = source_problem(lab)
