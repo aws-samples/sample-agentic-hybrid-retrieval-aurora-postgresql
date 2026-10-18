@@ -1508,7 +1508,7 @@ export function CatalogPage() {
           ) : activeQuery ? (
             <div ref={resultsAnchorRef} className="shop-query-state">
               <span title={activeQuery}>
-                <strong>Results for</strong>
+                <strong>{labCallout && !labCallout.targetPresent ? "Other products returned for" : "Results for"}</strong>
                 {activeQuery}
               </span>
               <button type="button" onClick={clearSearch}>Clear search</button>
@@ -1525,7 +1525,9 @@ export function CatalogPage() {
                   </>
                 ) : retrieval ? (
                   <>
-                    <strong>{retrieval.results.length}</strong> {retrieval.results.length === 1 ? "best match" : "best matches"}
+                    <strong>{retrieval.results.length}</strong> {labCallout && !labCallout.targetPresent
+                      ? (retrieval.results.length === 1 ? "other product" : "other products")
+                      : (retrieval.results.length === 1 ? "match" : "matches")}
                     <small> · chosen from {retrieval.diagnostics?.candidate_counts.fused_pool ?? "-"} products found by search</small>
                     {/* The comparison itself stays below the results; this is the
                         acknowledgement a tick needs before the reader scrolls. */}
@@ -1592,7 +1594,7 @@ export function CatalogPage() {
               render only on /search, a route nothing linked to, so coverage was
               measured and served and never shown to anybody. It belongs where
               the searching happens. */}
-          <CoverageNotice coverage={retrieval?.coverage} />
+          {!labCallout || labCallout.blocked ? <CoverageNotice coverage={retrieval?.coverage} /> : null}
 
           {/* One disclosure, and the bridge out of it. Everything a shopper needs
               is above; a participant who wants the SQL follows their own words
@@ -1603,11 +1605,10 @@ export function CatalogPage() {
                 <span>{agentProducts ? "How the search results were ranked" : "Why these results, in this order"}</span>
                 <small>{agentProducts ? "Ask Mosaic’s picks appear first in Shop. This record shows the original search order." : "Where each match came from, and what reranking changed"}</small>
               </summary>
+              {labCallout && !labCallout.blocked ? <CoverageNotice coverage={retrieval.coverage} /> : null}
               <SearchRetrievalReceipt response={retrieval} />
-              {/* Suppressed while the Lab 1 callout carries the same link above,
-                  which is where a participant who has just repaired the arm is
-                  looking. */}
-              {labCallout?.repaired ? null : (
+              {/* The lab outcome already links this saved run; keep one destination. */}
+              {labCallout && !labCallout.blocked ? null : (
                 <Link
                   className="shop-ranking-playground"
                   href={playgroundQueryHref(

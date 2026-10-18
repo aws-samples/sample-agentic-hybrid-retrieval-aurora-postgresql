@@ -380,7 +380,7 @@ describe("AskMosaic header and Builder view", () => {
 
     expect(screen.getByRole("switch", { name: "Builder view" }).getAttribute("aria-checked")).toBe("true");
     const builder = screen.getByRole("region", { name: "Builder view" });
-    expect(within(builder).getByText("run run-grou")).toBeTruthy();
+    expect(within(builder).getByText("run-grounded")).toBeTruthy();
     expect(within(builder).getByText("Not recorded on this run")).toBeTruthy();
     for (const field of ["model id", "tokens", "Gateway target", "claim verdicts"]) {
       expect(within(builder).getByText(field)).toBeTruthy();

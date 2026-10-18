@@ -55,7 +55,7 @@ Components:
 - a run status line with a segment per phase and a finding for each finished one,
   counted from the actual plan, searches, comparisons and citations; a collapsed
   "How Mosaic answered" fold once answered, and a Builder view switch that adds
-  the recorded steps and how each search ranked its products;
+  the full Retrieval agent record ID, recorded steps and each search's ranks;
 - agent shortlist cards labelled by the arms that retrieved them, the searches
   and constraints behind the shortlist, evidence citations, rank explanation,
   and tool receipts;
@@ -169,3 +169,13 @@ The React application renders API and lab contracts. It does not reproduce SQL
 filtering, ranking, fusion, reranking, citation validation, or run persistence.
 Those remain in the service and Aurora PostgreSQL. Ask Mosaic displays tool
 receipts and evidence; it never exposes hidden model chain-of-thought.
+
+### Lab 1's missing-product state
+
+The outcome notice is text only. It names the requested listing as missing,
+explains that the cards below are other returned products, and offers Search
+again after the participant applies SQL. No product photo appears in the
+notice, even after repair; product imagery belongs to actual result cards.
+**Lab 1: request and evidence** discloses the typed/listing IDs and the saved
+run's Playground link. The no-exact-ID coverage message stays available inside
+**Why these results, in this order**, rather than competing with the outcome.

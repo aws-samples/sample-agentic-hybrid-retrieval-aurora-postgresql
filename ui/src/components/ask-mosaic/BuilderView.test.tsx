@@ -111,7 +111,7 @@ describe("BuilderView ranks", () => {
     render(<BuilderView response={response} run={run} durationMs={43_500} />);
 
     const builder = screen.getByRole("region", { name: "Builder view" });
-    expect(within(builder).getByText("run fc97f09b")).toBeTruthy();
+    expect(within(builder).getByText(response.agent_run_id)).toBeTruthy();
     expect(within(builder).getByText("43.5 s")).toBeTruthy();
     expect(within(builder).getByText("memory off")).toBeTruthy();
     fireEvent.click(within(builder).getByRole("button", { name: "Chair" }));

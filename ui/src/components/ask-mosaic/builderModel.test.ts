@@ -100,9 +100,8 @@ describe("runFacts", () => {
     memory: { enabled: false },
   } as unknown as AgentResponse;
 
-  it("states the run, session, outcome, time and memory", () => {
+  it("states the session, outcome, time and memory", () => {
     expect(runFacts(response, 43_500)).toEqual([
-      "run fc97f09b",
       "session ed17ba76",
       "grounded",
       "43.5 s",
@@ -112,7 +111,6 @@ describe("runFacts", () => {
 
   it("leaves out a session or a time the response does not carry", () => {
     expect(runFacts({ ...response, session_id: null, memory: { enabled: true } } as unknown as AgentResponse)).toEqual([
-      "run fc97f09b",
       "grounded",
       "memory on",
     ]);

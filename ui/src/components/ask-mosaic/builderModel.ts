@@ -126,7 +126,6 @@ export const NOT_RECORDED = ["model id", "tokens", "Gateway target", "claim verd
  */
 export function runFacts(response: AgentResponse, durationMs?: number): string[] {
   return [
-    `run ${response.agent_run_id.slice(0, 8)}`,
     ...(response.session_id ? [`session ${response.session_id.slice(0, 8)}`] : []),
     response.outcome ?? "grounded",
     ...(durationMs != null ? [formatDuration(durationMs)] : []),

@@ -2669,8 +2669,13 @@ describe("CatalogPage", () => {
         name: "The Logitech Zone 900 is missing from these results",
       }),
     ).toBeTruthy();
-    expect(callout.textContent).toContain("Inspect the search details and predict why");
-    expect(within(callout).getByText("Not in these results")).toBeTruthy();
+    expect(callout.textContent).toContain("Inspect the search details to see why");
+    expect(within(callout).getByText("The products below are other matches. None is the listing Alex requested.")).toBeTruthy();
+    await waitFor(() => expect(vi.mocked(api.product)).toHaveBeenCalledWith(lab1.target_product_ids[0]));
+    expect(callout.querySelector("img")).toBeNull();
+    expect(screen.getByText("Other products returned for")).toBeTruthy();
+    expect(document.querySelector(".shop-results-heading")?.textContent).toContain("other products");
+    fireEvent.click(within(callout).getByText("Lab 1: request and evidence"));
     expect(callout.textContent).not.toContain("channels");
     expect(callout.textContent).not.toContain("pg_trgm");
     expect(callout.textContent).not.toContain(lab1.participant_edit!.task);
@@ -2731,6 +2736,12 @@ describe("CatalogPage", () => {
     expect(callout.textContent).not.toContain(lab1.participant_edit!.file);
     expect(callout.textContent).not.toContain(lab1.participant_edit!.task);
     expect(callout.className).toContain("unhealthy");
+    fireEvent.click(screen.getByText("Why these results, in this order"));
+    const evidenceLink = screen.getByRole("link", {
+      name: "See how this was retrieved in the Playground",
+    });
+    const evidenceUrl = new URL(evidenceLink.getAttribute("href")!, window.location.origin);
+    expect(evidenceUrl.searchParams.get("event")).toBe(lab1Search(false).search_event_id);
     // Re-applying the schema happens in another window, exactly as a repair
     // does, so the way back to a live answer stays on the callout.
     expect(within(callout).getByRole("button", { name: "Search again" })).toBeTruthy();
@@ -2750,7 +2761,7 @@ describe("CatalogPage", () => {
 
     const callout = await screen.findByRole("region", { name: "Lab 1 outcome" });
     await waitFor(() => expect(vi.mocked(api.readiness)).toHaveBeenCalled());
-    expect(callout.textContent).toContain("Inspect the search details and predict why");
+    expect(callout.textContent).toContain("Inspect the search details to see why");
     expect(callout.textContent).not.toContain("environment problem");
   });
 
@@ -2819,8 +2830,8 @@ describe("CatalogPage", () => {
     ).toBeTruthy();
     expect(within(callout).queryByRole("button", { name: "Search again" })).toBeNull();
 
-    // Exactly one link, not one in the callout and a second still buried in the
-    // collapsed disclosure.
+    fireEvent.click(within(callout).getByText("Lab 1: request and evidence"));
+    // The record belongs to this outcome, even after another search repairs it.
     const playground = screen.getAllByRole("link", {
       name: /See how this was retrieved in the Playground/,
     });

@@ -1614,3 +1614,16 @@
     transform: none;
   }
 }
+
+.ask-builder-run-id {
+  margin: 12px 0;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.ask-builder-run-id code {
+  color: var(--ink);
+  user-select: all;
+}

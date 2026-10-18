@@ -1,9 +1,7 @@
-import { SearchCheck, SearchX } from "lucide-react";
 import { forwardRef, useEffect, useState } from "react";
 import { Link } from "wouter";
 import { api } from "../api";
 import type { MosaicLabMission } from "../labMissions";
-import { productImage } from "../media";
 import type { ProductDetail } from "../types";
 
 /**
@@ -57,7 +55,7 @@ export const LabFaultCard = forwardRef<HTMLElement, {
         if (current) setProduct(detail);
       })
       .catch(() => {
-        // Missing media must not hide the product identity or observation.
+        // The request and observed result remain usable without listing metadata.
       });
     return () => {
       current = false;
@@ -78,36 +76,28 @@ export const LabFaultCard = forwardRef<HTMLElement, {
       data-missing={missing || undefined}
       aria-label={`Lab ${labNumber} outcome`}
     >
-      <figure className="shop-fault-plate">
-        <div className="shop-fault-photo">
-          <span className="shop-fault-status">
-            {missing
-              ? <><SearchX size={14} aria-hidden="true" /> Not in these results</>
-              : <><SearchCheck size={14} aria-hidden="true" /> {fixed ? "Back in the results" : "In the results"}</>}
-          </span>
-          {product ? <img src={productImage(product)} alt="" decoding="async" /> : null}
-        </div>
-        <figcaption>
-          <strong className="shop-fault-name">{name}</strong>
-          {product?.sku ? <IdComparison typed={mission.query} listing={product.sku} /> : null}
-        </figcaption>
-      </figure>
-
       <div className="shop-fault-body">
-        <span className="shop-lab-status">{fixed ? "Verified in this search" : `Lab ${labNumber} / See it fail`}</span>
         <h2>{heading}</h2>
         {fixed ? <p className="shop-fault-verdict">
-          {finalRank ? `Found by fuzzy matching and back at #${finalRank}.` : "Found by fuzzy matching again."}
+          {finalRank ? `${name} was found by fuzzy matching and is back at #${finalRank}.` : `${name} was found by fuzzy matching again.`}
         </p> : null}
         <p className="shop-fault-detail">
-          {fixed ? detail : "Inspect the search details and predict why. Keep the same request and filters as you investigate."}
+          {fixed ? detail : missing
+            ? "The products below are other matches. None is the listing Alex requested."
+            : "The requested listing is present, but this search has not verified the repair."}
         </p>
-        <div className="shop-fault-actions">
-          {!fixed ? <button type="button" className="shop-fault-search" onClick={onSearchAgain}>Search again</button> : null}
+        {!fixed ? <div className="shop-fault-actions">
+          <button type="button" className="shop-fault-search" onClick={onSearchAgain}>Search again</button>
+          <span className="shop-fault-repeat-hint">After applying your SQL, repeat this search.</span>
+        </div> : null}
+        <details className="shop-fault-evidence">
+          <summary>Lab {labNumber}: request and evidence</summary>
+          {product?.sku ? <IdComparison typed={mission.query} listing={product.sku} /> : null}
+          {!fixed ? <p>Inspect the search details to see why. Keep the same request and filters as you investigate.</p> : null}
           <Link className="shop-fault-inspect" href={playgroundHref}>
             {fixed ? "See how this was retrieved in the Playground" : "Inspect this run in the Playground"}
           </Link>
-        </div>
+        </details>
       </div>
     </section>
   );

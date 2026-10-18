@@ -63,6 +63,7 @@ export function BuilderView({
           <span className="ask-pill ask-pill-solid ask-mono" key={fact}>{fact}</span>
         ))}
       </div>
+      <p className="ask-builder-run-id">Retrieval agent record <code>{response.agent_run_id}</code></p>
       <div className="ask-builder-missing">
         <span>Not recorded on this run</span>
         {NOT_RECORDED.map((field) => <span className="ask-pill ask-pill-dashed" key={field}>{field}</span>)}
