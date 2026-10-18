@@ -1,23 +1,24 @@
 # Lab 2: Rank and re-rank - Tune rank fusion and reranking
 
 Follow **Workshop Studio → Lab 2** for the exact requests, the checks and each
-task's **Stuck?** hints. This is the reminder beside your code.
+section's **Stuck?** hints. This is the reminder beside your code.
 
 Alex has found his headphones. Now he needs a monitor with USB-C charging.
 Keep your retrieval repair and inspect the monitor request that Lab 1's
 handoff saved: does the intended listing survive ranking?
 
-## Task 2A: Restore the rank contribution
+## Send Alex's monitor request
 
-**See it fail.** In `psql`, load `.local/lab-2/context.psql` with `\i` in its
-own paste. Follow the guide's query to compare the ViewSonic VG2756-4K's
-semantic position with its membership in the fused shortlist.
+In `psql`, load `.local/lab-2/context.psql` with `\i` in its own paste. Follow
+the guide's query to compare the ViewSonic VG2756-4K's semantic position with
+its membership in the fused shortlist. Then score a few positions with
+`reciprocal_rank_contribution` and compare them with `1 / (60 + position)`. If
+every position earns the same contribution, product ID decides which
+candidates make the cut.
 
-**Why.** Score a few positions with `reciprocal_rank_contribution` and compare
-them with `1 / (60 + position)`. If every position earns the same contribution,
-product ID decides which candidates make the cut.
+## Give each position its own score
 
-**Build.** In [rrf_contribution.sql](rrf_contribution.sql), edit only the
+In [rrf_contribution.sql](rrf_contribution.sql), edit only the
 `SELECT` between `LAB2_EDIT_START` and `LAB2_EDIT_END`, so each
 source position earns `1 / (rrf_k + source_rank)`. Keep the signature, the
 `double precision` result and the configured `rrf_k`. Then apply it:
@@ -26,23 +27,26 @@ source position earns `1 / (rrf_k + source_rank)`. Keep the signature, the
 uv run python scripts/apply_search_functions.py
 ```
 
-**Prove it.** Repeat the identical request and grade the applied formula:
+Repeat the identical request and grade the applied formula:
 
 ```bash
 uv run python scripts/lab_terminal.py run --lab 2 --phase after
 uv run python scripts/lab_exercise.py check --lab 2
 ```
 
-## Task 2B: Read what reranking changed, then compare settings
+## See what reranking changes
 
 Run Alex's request with reranking off, then on, and compare the two pages of
 12; [rerank_off_on.py](rerank_off_on.py) shows that the calls differ only in
-`rerank`. Shop is an optional view of this evidence. Then compare candidate
-admission under three settings on judged queries:
+`rerank`. Shop is an optional view of this evidence.
 
 ```bash
 uv run python labs/lab2_rank/rerank_off_on.py
 ```
+
+## Compare settings, then hand off
+
+Compare candidate admission under three settings on judged queries:
 
 ```bash
 uv run python scripts/lab_exercise.py compare --lab 2
@@ -52,7 +56,7 @@ The comparison leaves served settings unchanged and calls no reranker.
 Nominate a setting to test next; final relevance, latency and actual cost need
 separate measurement before shipping.
 
-**Prove it and hand off.** The handoff repeats Alex's request and two Dell
+The handoff repeats Alex's request and two Dell
 requests that must still work, saves the passing evidence, then installs the
 Retrieval agent starter for Lab 3. If it is interrupted, run it again:
 

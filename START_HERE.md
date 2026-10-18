@@ -6,14 +6,14 @@ indexes and search functions in `psql`, then save Lab 1's failing search. Keep t
 Editor side by side in two browser windows. Mosaic, the store at **MosaicURL**,
 shows the same results the terminal prints; the guide says when a lab uses it.
 
-Each lab is two tasks, and every task runs the same way:
+Each lab is four short sections in the guide, and they run the same way:
 
-1. **See it fail.** Repeat the guide's exact request and filters, and keep them
-   fixed, so the before and after compare the same thing.
-2. **Why.** Read the record that explains the failure before you open any code.
-3. **Build.** Edit only the marked block, then apply the SQL or deploy the
-   Retrieval agent. Saving the file changes nothing until you do.
-4. **Prove it.** Repeat the identical request and finish on the guide's check.
+1. Send the guide's exact request and filters, and keep them fixed, so the
+   before and after compare the same thing.
+2. Read the record that explains the failure before you open any code.
+3. Edit only the marked block, then apply the SQL or deploy the Retrieval
+   agent. Saving the file changes nothing until you do.
+4. Repeat the identical request and finish on the guide's check.
 
 | Explorer group | Lab | File to edit |
 |---|---|---|
@@ -28,14 +28,14 @@ root. If the groups are missing, open
 **File → Open Workspace from File…**.
 
 The lab READMEs are short reminders. The guide has the exact requests, the
-checks, and a **Stuck?** block in every task with hints, a prompt for the
+checks, and a **Stuck?** block wherever you edit, with hints, a prompt for the
 coding coach and the answer. Your saved runs are in `.local/lab-N/`. To see which
 lines of your lab files differ from the reference answer without changing
 anything, run `uv run python scripts/diff.py`; it does not print the answer.
 `uv run python scripts/diff.py --answer` does, so try the hints first.
 
-In Lab 2, Task 2A repairs the rank contribution and Task 2B reads what
-reranking changed and compares three settings; `advance --lab 2` then proves
+In Lab 2 you repair the rank contribution, then read what reranking changed
+and compare three settings; `advance --lab 2` then proves
 Lab 2 and prepares Lab 3. In Lab 3, ask Alex's setup request with
 `scripts/ask_agent.py` and keep the **Run ID** it prints before you ask any
 follow-up: completion checks that run.

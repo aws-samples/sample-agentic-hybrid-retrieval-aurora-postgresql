@@ -1,25 +1,25 @@
 # Lab 1: Retrieve - Debug hybrid search
 
 Follow **Workshop Studio → Lab 1** for the exact requests, the checks and each
-task's **Stuck?** hints. This is the reminder beside your code.
+section's **Stuck?** hints. This is the reminder beside your code.
 
 Alex starts his home office with the Logitech Zone 900 headphones. His
 mistyped listing ID returned other headphones; find where the intended one
 disappears.
 
-## Task 1A: Reconnect the search that lost the Logitech
+## Send Alex's mistyped ID
 
-**See it fail.** Getting started saved Alex's mistyped request with
+Getting started saved Alex's mistyped request with
 `uv run python scripts/lab_state.py start --lab 1`. In `psql`, load it with
 `\i .local/lab-1/context.psql` in its own paste, then count what each search contributed to
 `search_hybrid_rrf`: all 50 candidates come from semantic search, no Logitech,
-no error.
+no error. Then run the three searches separately. Fuzzy matching finds the
+Logitech on its own; do its rows ever reach `channels`? A reranker cannot
+recover a product it never receives.
 
-**Why.** Run the three searches separately. Fuzzy matching finds the Logitech
-on its own; do its rows ever reach `channels`? A reranker cannot recover a
-product it never receives.
+## Connect fuzzy matching
 
-**Build.** In [hybrid_search.sql](hybrid_search.sql), edit only between
+In [hybrid_search.sql](hybrid_search.sql), edit only between
 `LAB1_EDIT_START` and `LAB1_EDIT_END`. Add the missing `channels` branch
 with the same five columns as the others: product ID, channel name `'trigram'`,
 position, raw score and the contribution from
@@ -30,21 +30,23 @@ until you apply it:
 uv run python scripts/apply_search_functions.py
 ```
 
-**Prove it.** Repeat the identical request:
+## Prove the Logitech is first again
+
+Repeat the identical request:
 
 ```bash
 uv run python scripts/lab_terminal.py run --lab 1 --phase after
 ```
 
-## Task 1B: Check the other two searches, then hand off
+## Check the exact ID and his description, then hand off
 
 ```bash
 uv run python scripts/lab_state.py advance --lab 1
 ```
 
-It replays the typo request and two controls, `G-001` (the exact ID, through
-full-text search) and `G-012` (a Logitech description, through semantic
-search), saves your passing evidence and prepares Lab 2.
+It replays the typo request and two of Mosaic's fixed test requests, `G-001`
+(the exact ID, through full-text search) and `G-012` (a Logitech description,
+through semantic search), saves your passing evidence and prepares Lab 2.
 
 <details>
 <summary>🛠️ Compare with or install the reference answer</summary>
