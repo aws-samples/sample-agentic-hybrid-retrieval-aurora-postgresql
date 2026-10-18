@@ -535,6 +535,69 @@ def _served(check: LabCheck) -> LabCheckResult:
     )
 
 
+def _run_sql_digests(rows: AgentTurnRows) -> list[str]:
+    """The participant SQL each of the run's searches recorded, deduplicated."""
+    recorded = [_as_dict(search.get("diagnostics")) for search in rows.searches]
+    return sorted({str(item.get("search_sql_sha256")) for item in recorded})
+
+
+def _managed_agent_checks(rows: AgentTurnRows | None) -> list[LabCheck]:
+    """Whether Runtime, Gateway, Aurora and the run itself all carry today's work.
+
+    Runtime refuses to answer from code other than the workspace's, so a saved
+    run already came from the workspace's code. SQL is applied separately: a
+    run saved before the last apply searched with SQL the lab files no longer
+    hold, so each of its searches must have recorded the current lab files.
+    Empty when no Runtime is configured, as in offline and local runs.
+    """
+    from service import agentcore_transport, gateway_tools
+
+    if not agentcore_transport.runtime_arn():
+        return []
+    from service.lab_validation_receipt import (
+        application_digest,
+        participant_sql_digest,
+    )
+    from service.search_sql import applied_sql_digest
+
+    deployed = False
+    detail = "Your Retrieval agent and SQL tools match the code in Code Editor, and Aurora runs your SQL."
+    failure = f"Your deployed Retrieval agent or SQL tools do not match this run. Next: deploy with {DEPLOY_AGENT} in Code Editor, then ask Alex's question again."
+    try:
+        status = agentcore_transport.deployed_status()
+        if rows and rows.searches:
+            gateway_tools.call_tool(
+                "inspect_retrieval_run",
+                {"run_id": str(rows.searches[0]["search_event_id"])},
+            )
+            workspace_sql = participant_sql_digest()
+            with connect() as connection:
+                sql_applied = applied_sql_digest(connection) == workspace_sql
+            code_deployed = status.get("application_sha256") == application_digest()
+            run_sql = _run_sql_digests(rows)
+            run_on_current_sql = run_sql == [workspace_sql]
+            deployed = code_deployed and sql_applied and run_on_current_sql
+            if code_deployed and not sql_applied:
+                failure = f"Aurora runs search SQL different from your lab files in Code Editor. Next: apply it with {APPLY_SQL}, then ask Alex's question again."
+            elif code_deployed and not run_on_current_sql:
+                failure = (
+                    f"This run searched with SQL {', '.join(d[:12] for d in run_sql)}, "
+                    f"not your lab files' {workspace_sql[:12]}: it was saved before "
+                    "your last apply. Next: ask Alex's setup request again with "
+                    "ask_agent.py, then prove the new run."
+                )
+    except (RuntimeError, ValueError) as error:
+        failure = f"Deployment check failed ({type(error).__name__}). Next: deploy with {DEPLOY_AGENT} in Code Editor, then ask Alex's question again."
+    return [
+        LabCheck(
+            name="managed_agent_deployed",
+            passed=deployed,
+            falsifier="Runtime or Gateway serves code different from the participant workspace, a search in the run used SQL other than the current lab files, or the run has no Gateway-readable search.",
+            detail=detail if deployed else failure,
+        )
+    ]
+
+
 def completion_proof(
     lab_id: int,
     *,
@@ -586,47 +649,7 @@ def completion_proof(
                 mission, rows, run, str(agent_run_id) if agent_run_id else None
             )
         )
-        from service import agentcore_transport, gateway_tools
-
-        if agentcore_transport.runtime_arn():
-            from service.lab_validation_receipt import (
-                application_digest,
-                participant_sql_digest,
-            )
-            from service.search_sql import applied_sql_digest
-
-            deployed = False
-            detail = "Your Retrieval agent and SQL tools match the code in Code Editor, and Aurora runs your SQL."
-            failure = f"Your deployed Retrieval agent or SQL tools do not match this run. Next: deploy with {DEPLOY_AGENT} in Code Editor, then ask Alex's question again."
-            try:
-                status = agentcore_transport.deployed_status()
-                if rows and rows.searches:
-                    gateway_tools.call_tool(
-                        "inspect_retrieval_run",
-                        {"run_id": str(rows.searches[0]["search_event_id"])},
-                    )
-                    with connect() as connection:
-                        sql_applied = (
-                            applied_sql_digest(connection) == participant_sql_digest()
-                        )
-                    code_deployed = (
-                        status.get("application_sha256") == application_digest()
-                    )
-                    deployed = code_deployed and sql_applied
-                    if code_deployed and not sql_applied:
-                        failure = f"Aurora runs search SQL different from your lab files in Code Editor. Next: apply it with {APPLY_SQL}, then ask Alex's question again."
-            except (RuntimeError, ValueError) as error:
-                failure = f"Deployment check failed ({type(error).__name__}). Next: deploy with {DEPLOY_AGENT} in Code Editor, then ask Alex's question again."
-            if not deployed:
-                detail = failure
-            checks.append(
-                LabCheck(
-                    name="managed_agent_deployed",
-                    passed=deployed,
-                    falsifier="Runtime or Gateway serves code different from the participant workspace, or the run has no Gateway-readable search.",
-                    detail=detail,
-                )
-            )
+        checks.extend(_managed_agent_checks(rows))
         # The turn's own receipts, not new ones: this path issues no retrieval,
         # and reporting them is what makes the verdict replayable afterwards.
         search_event_ids: list[UUID] = (

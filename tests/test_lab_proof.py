@@ -1057,3 +1057,66 @@ def test_browser_proof_executes_every_required_control(monkeypatch, lab_id, expe
     proof = lab_proof.completion_proof(lab_id)
     assert proof.status == "pass"
     assert set(executed) == expected
+
+
+CURRENT_SQL = "c" * 64
+EARLIER_SQL = "a" * 64
+
+
+def _managed_run(monkeypatch, *, searched_with: str) -> None:
+    """A grounded saved run, its searches recorded with `searched_with`.
+
+    Runtime serves the workspace's code and Aurora runs the workspace's SQL,
+    so only the run's own recorded SQL can make the deployment check differ.
+    """
+    connection = _grounded_connection()
+    for search in connection.searches:
+        search["diagnostics"] = {"search_sql_sha256": searched_with}
+    _use(monkeypatch, connection)
+    _resolve_evidence(monkeypatch)
+    monkeypatch.setattr(
+        "service.agentcore_transport.runtime_arn", lambda: "arn:runtime"
+    )
+    monkeypatch.setattr(
+        "service.agentcore_transport.deployed_status",
+        lambda: {"application_sha256": "b" * 64},
+    )
+    monkeypatch.setattr(
+        "service.lab_validation_receipt.application_digest", lambda: "b" * 64
+    )
+    monkeypatch.setattr(
+        "service.lab_validation_receipt.participant_sql_digest", lambda: CURRENT_SQL
+    )
+    monkeypatch.setattr(
+        "service.search_sql.applied_sql_digest", lambda _connection: CURRENT_SQL
+    )
+    monkeypatch.setattr("service.gateway_tools.call_tool", lambda _name, _arguments: {})
+
+
+def _deployment_check(proof):
+    return next(
+        check for check in proof.checks if check.name == "managed_agent_deployed"
+    )
+
+
+def test_a_run_saved_before_the_last_apply_is_not_credited(monkeypatch) -> None:
+    """Run A searched with SQL A; SQL B is applied and deployed; A is submitted."""
+    _managed_run(monkeypatch, searched_with=EARLIER_SQL)
+
+    proof = lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID)
+
+    check = _deployment_check(proof)
+    assert proof.status == "fail"
+    assert not check.passed
+    assert EARLIER_SQL[:12] in check.detail and CURRENT_SQL[:12] in check.detail
+    assert "ask_agent.py" in check.detail
+
+
+def test_a_run_made_with_the_current_sql_is_credited(monkeypatch) -> None:
+    """Positive control: the same run, searched with the SQL the lab files hold."""
+    _managed_run(monkeypatch, searched_with=CURRENT_SQL)
+
+    proof = lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID)
+
+    assert _deployment_check(proof).passed
+    assert proof.status == "pass"
