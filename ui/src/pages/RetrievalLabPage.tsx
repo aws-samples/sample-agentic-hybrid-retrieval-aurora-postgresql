@@ -485,6 +485,13 @@ export function RetrievalLabPage() {
     selectExample(requestedExample);
   }, [requestedExample, selected]);
 
+  /**
+   * The pin an edit just discarded. The write effect below runs after the
+   * render that pinned, which can be after the first edit: React flushes that
+   * pending effect, still holding the old baseline, before it renders the
+   * edit, and it would write the discarded pin back over the clear.
+   */
+  const droppedPinEventId = useRef<string | null>(null);
   const editQuery = (value: string) => {
     // Dropped from the store as well as from state. The pin describes one
     // request; once the words change it no longer describes the one on screen,
@@ -493,6 +500,7 @@ export function RetrievalLabPage() {
     // that pin still describes its own mission, which is why the store is keyed
     // per mission.
     if (example) clearPinnedBaseline(example.id);
+    droppedPinEventId.current = baseline?.searchEventId ?? null;
     resetRunState();
     setQuery(value);
   };
@@ -614,6 +622,7 @@ export function RetrievalLabPage() {
    */
   useEffect(() => {
     if (!example || !baseline) return;
+    if (baseline.searchEventId === droppedPinEventId.current) return;
     writePinnedBaseline(example.id, baseline.searchEventId);
   }, [example, baseline]);
 
