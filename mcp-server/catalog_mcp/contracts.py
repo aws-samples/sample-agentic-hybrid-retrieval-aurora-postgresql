@@ -213,6 +213,9 @@ class RetrievalDiagnostics(WireModel):
     stage_timings_ms: dict[str, float]
     total_latency_ms: int
     warnings: list[str] = Field(default_factory=list)
+    # The participant SQL Aurora recorded at its last apply; `None` when Aurora
+    # holds no record, or on a replayed run.
+    search_sql_sha256: str | None = None
 
 
 class TermCoverage(WireModel):
