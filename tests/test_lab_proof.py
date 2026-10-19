@@ -953,13 +953,13 @@ def test_the_proof_carries_live_identity_and_the_release_baseline(
 # ---------------------------------------------------------------------------
 
 
-def test_routes_serve_state_and_proof(monkeypatch) -> None:
+def test_routes_serve_state_and_no_browser_proof(monkeypatch) -> None:
+    """Labs are proved in the terminal; the retired browser Prove route stays gone."""
     from fastapi.testclient import TestClient
 
     from service.main import app
 
     _use(monkeypatch, _FakeConnection())
-    _lab_1_search(monkeypatch)
 
     with TestClient(app) as client:
         state = client.get("/api/labs/state")
@@ -967,25 +967,10 @@ def test_routes_serve_state_and_proof(monkeypatch) -> None:
 
     assert state.status_code == 200
     assert [lab["lab_id"] for lab in state.json()["labs"]] == [1, 2, 3]
-    assert proof.status_code == 200
-    assert proof.json()["lab_id"] == 1
-    assert len(proof.json()["checks"]) == 10
+    assert proof.status_code == 404
 
 
-def test_an_unrouted_lab_id_is_a_404(monkeypatch) -> None:
-    from fastapi.testclient import TestClient
-
-    from service.main import app
-
-    _use(monkeypatch, _FakeConnection())
-
-    with TestClient(app) as client:
-        response = client.post("/api/labs/9/proof", json={})
-
-    assert response.status_code == 404
-
-
-def test_an_unreachable_database_is_a_503_on_both_lab_routes(monkeypatch) -> None:
+def test_an_unreachable_database_is_a_503_on_the_lab_state_route(monkeypatch) -> None:
     """The outage is reported as one, without naming a host or a DSN."""
     from fastapi.testclient import TestClient
 
@@ -1000,13 +985,10 @@ def test_an_unreachable_database_is_a_503_on_both_lab_routes(monkeypatch) -> Non
 
     with TestClient(app) as client:
         state = client.get("/api/labs/state")
-        proof = client.post("/api/labs/1/proof", json={"agent_run_id": None})
 
     assert state.status_code == 503
-    assert proof.status_code == 503
-    for response in (state, proof):
-        assert "rds.amazonaws.com" not in response.text
-        assert "fix:" in response.json()["detail"]
+    assert "rds.amazonaws.com" not in state.text
+    assert "fix:" in state.json()["detail"]
 
 
 @pytest.mark.parametrize(

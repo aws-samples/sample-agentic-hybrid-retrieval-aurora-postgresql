@@ -124,8 +124,8 @@ have different evidentiary roles. Unknown compatibility stays unknown.
 `service/lab_checks.py` is the shared production checker; each `LabCheck` has a
 name, pass/fail result, falsifier and detail. `service/lab_proof.py` runs the live
 proof, records search-event IDs and checks saved agent evidence.
-`GET /api/labs/state` reports source/applied state; the Playground's Prove action
-uses `POST /api/labs/{lab_id}/proof`. The exact payloads live in
+`GET /api/labs/state` reports source/applied state; labs are proved in the
+terminal with the guide's commands, never in the browser. The exact payloads live in
 `service/models.py`; inspect them rather than fabricate fields. A release
 scorecard is not proof of the participant's repairs. Mission and evaluation
 case counts come from the manifests and validators, not a parallel prose list.

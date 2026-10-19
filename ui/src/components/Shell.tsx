@@ -20,7 +20,7 @@ export function Shell(
   const search = useSearch();
   const pathname = location.split("?")[0];
   const onShopLanding = pathname === "/catalog" && search === "";
-  const onPlayground = pathname === "/labs/retrieval" && !/(?:^|&)(?:view|run)=/.test(search);
+  const onPlayground = pathname === "/labs/retrieval";
   const [tourOpen, setTourOpen] = useState(false);
   const [playgroundTourOpen, setPlaygroundTourOpen] = useState(false);
   // The Playground has its own short tour: once per browser, on the first visit.

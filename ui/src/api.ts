@@ -6,8 +6,6 @@ import type {
   CatalogPage,
   CatalogSuggestionsResponse,
   CatalogSummary,
-  CompletionProofRequest,
-  CompletionProofResponse,
   EvidenceRecord,
   HealthResponse,
   HnswMeasured,
@@ -392,25 +390,6 @@ export const api = {
    * so reading it costs nothing a participant is paying for.
    */
   labsState: () => request<LabStateResponse>("/api/labs/state"),
-
-  /**
-   * Prove one lab is finished, against Aurora, right now.
-   *
-   * Labs 1 and 2 re-run their mission and canonical supporting controls through
-   * the same search path `POST /api/search` uses. Lab 2 repeats its primary
-   * mission because repeatability is not answerable from one run.
-   * Lab 3 grades the persisted turn named by `agent_run_id` and spends no agent
-   * turn of its own, which is why the caller has to say which run to read.
-   * A missing EXPLAIN plan is captured and replayed before grading.
-   *
-   * 404 for an unknown lab, 503 when the cluster is unreachable. Neither is a
-   * verdict on the participant's repair.
-   */
-  labProof: (labId: 1 | 2 | 3, body: CompletionProofRequest) =>
-    request<CompletionProofResponse>(`/api/labs/${labId}/proof`, {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
 
   hnswSubstrate: () => request<HnswSubstrate>("/api/hnsw/substrate"),
 

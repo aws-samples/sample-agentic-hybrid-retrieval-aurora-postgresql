@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { seedRun } from "../../retrievalSeed";
 import { fixtureCatalogPage } from "../../testProducts";
 import type { ProductSummary, SearchResponse } from "../../types";
 import { RACE_STEPS, RankRace, advance, raceCaption, raceRows } from "./RankRace";
@@ -9,10 +10,13 @@ vi.mock("motion/react", async (original) => ({ ...await original<typeof import("
 
 afterEach(cleanup);
 
+/** The run's own k, from the seeded profile rather than a second copy of the setting. */
+const K = seedRun.diagnostics!.retrieval_profile.rrf_k;
+
 type Ranks = { fts?: number; trigram?: number; semantic?: number; combined: number; final: number };
 
 function ranked(base: ProductSummary, title: string, ranks: Ranks): ProductSummary {
-  const arm = (rank?: number) => ({ rank: rank ?? null, raw_score: rank == null ? null : 1 / rank, rrf_contribution: rank == null ? null : 1 / (60 + rank) });
+  const arm = (rank?: number) => ({ rank: rank ?? null, raw_score: rank == null ? null : 1 / rank, rrf_contribution: rank == null ? null : 1 / (K + rank) });
   return {
     ...base,
     title,
@@ -35,7 +39,7 @@ const viewSonic = products[9];
 const response = {
   search_event_id: "race-search",
   results: products,
-  diagnostics: { rerank_status: "applied", retrieval_profile: { rrf_k: 60 }, candidate_counts: { fused_pool: 50 } },
+  diagnostics: { rerank_status: "applied", retrieval_profile: { rrf_k: K }, candidate_counts: { fused_pool: 50 } },
 } as unknown as SearchResponse;
 const step = (key: string) => RACE_STEPS.find((item) => item.key === key)!;
 
@@ -62,7 +66,7 @@ describe("raceRows", () => {
 describe("raceCaption", () => {
   it("says where the followed product stands and where reranking moved it from", () => {
     expect(raceCaption(step("final"), products, response, viewSonic)).toContain("ViewSonic VG2756-4K 27 Inch IPS is #5 (was #21 combined).");
-    expect(raceCaption(step("combined"), products, response, viewSonic)).toContain("each search adds 1 / (60 + its rank)");
+    expect(raceCaption(step("combined"), products, response, viewSonic)).toContain(`each search adds 1 / (${K} + its rank)`);
   });
 
   it("says when a step did not find the followed product", () => {

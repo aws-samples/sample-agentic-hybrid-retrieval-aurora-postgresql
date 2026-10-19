@@ -8,9 +8,8 @@ import { fixtureCatalogPage } from "../testProducts";
 import { AskMosaic } from "./AskMosaic";
 import { boldRecommendationNames } from "./ask-mosaic/emphasis";
 import type { AskMosaicTurn } from "./ask-mosaic/types";
-import { Searches } from "./agentAnswerParts";
 import { pipelineRequests } from "../labMissions";
-import type { AgentPlanStep, AgentResponse, ToolTraceStep } from "../types";
+import type { AgentResponse, ToolTraceStep } from "../types";
 
 afterEach(() => {
   cleanup();
@@ -44,24 +43,6 @@ describe("boldRecommendationNames", () => {
     const answer = "A different product would be cheaper.";
 
     expect(boldRecommendationNames(answer, [first])).toBe(answer);
-  });
-});
-
-describe("Searches", () => {
-  /**
-   * Ask Mosaic's call site passes no props, so the shared component's own
-   * default must keep Shop's receipt collapsed behind a click. The Reason
-   * stage opts into `open` explicitly (see ReasonStage.test.tsx); this is the
-   * other half of that contrast.
-   */
-  it("keeps the searches receipt collapsed by default, the way Shop calls it", () => {
-    const plan: AgentPlanStep[] = [
-      { query: "quiet mechanical keyboard", filters: {}, purpose: "Find the quietest keyboards" },
-    ];
-    render(createElement(Searches, { plan }));
-
-    const details = screen.getByText("Searches behind this answer").closest("details");
-    expect(details?.hasAttribute("open")).toBe(false);
   });
 });
 

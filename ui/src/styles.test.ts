@@ -21,13 +21,11 @@ const SHEETS = [
   "labs-agentic.css",
   "commerce.css",
   "surfaces.css",
-  "agent-answer-parts.css",
   "surfaces-labs-shell.css",
   "surfaces-hnsw.css",
   "surfaces-playground.css",
   "shop-editorial.css",
   "workspace-walkthrough.css",
-  "playground.css",
   "inspector.css",
   "playground-page.css",
   "world.css",
@@ -36,7 +34,7 @@ const SHEETS = [
 ] as const;
 
 /** Custom properties components set with inline style; the sheets only read them. */
-const SET_FROM_COMPONENTS = new Set(["--labs-rail-height", "--low", "--high", "--sweep"]);
+const SET_FROM_COMPONENTS = new Set(["--low", "--high", "--sweep"]);
 
 /**
  * Raw hex literals standing outside the palette and theme blocks. The

@@ -1,4 +1,4 @@
-import { StartCommand } from "../LabRail";
+import { TerminalCommand } from "../TerminalCommand";
 import { splitSetupCommand } from "./setupMessage";
 
 /** A calm next-step card for an agent that has not been assembled or deployed yet. */
@@ -14,7 +14,7 @@ export function AgentSetupCard({ detail }: { detail: string }) {
       <span>{prose}</span>
       {command ? (
         <>
-          <StartCommand command={command} />
+          <TerminalCommand command={command} />
           <small>Then ask your question again.</small>
         </>
       ) : null}

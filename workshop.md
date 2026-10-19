@@ -103,8 +103,8 @@ Retries preserve edits and resume any interrupted preparation. Every Lab 1 and
 Lab 2 check reads the saved block the same way, so `validate_lab.py` cannot pass
 while `advance` refuses. A refusal names the first difference (for example
 `column 3 is trigram_score`), the fix and the rerun. Equivalent SQL passes:
-column or table aliases and qualified columns. Live-check failures, in the
-terminal and in Prove, name the
+column or table aliases and qualified columns. Live-check failures in the
+terminal name the
 product and search method as Shop does and end in a command or a facilitator
 handoff; an apply error names the participant's file and line, and
 `uv run python scripts/diff.py` names in plain words the lines of a lab file that
@@ -162,8 +162,8 @@ request and passes completion only as the first message of a fresh chat (use
 **Clear chat**); its **Builder view** shows the full run ID, recorded steps and
 per-search ranks. The starter runs on its own filters and shows "Shop filters
 were cleared for this lab request." when it replaces filters a participant had
-set. The Prove page's **Maintainer measurements** are collapsed saved results
-for facilitators and do not grade a participant.
+set. After the request, Shop shows the terminal command that checks that run,
+with its run ID filled in.
 Inspect separate searches for the headphones, monitor and chair; all three in
 the comparison and final shortlist; their supporting citations; and a ranking
 explanation. Open the chair's listing and review: adjustable features and one

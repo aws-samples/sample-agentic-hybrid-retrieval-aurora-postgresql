@@ -141,11 +141,14 @@ UI_COMMANDS = ROOT / "ui" / "src" / "participantCommands.ts"
 
 
 def ui_commands(text: str) -> dict[str, str]:
-    """The UI's copies, read from its constants and its validate template."""
+    """The UI's copies, read from its constants and its two templates."""
     found = dict(re.findall(r'export const (\w+) = "([^"]+)";', text))
     template = re.search(r"return `([^`]+)\$\{lab\}`;", text)
     if template:
         found["validate"] = template.group(1) + "{lab}"
+    run = re.search(r"return `([^`]+)\$\{runId\}`;", text)
+    if run:
+        found["complete_lab_3"] = run.group(1) + "{run_id}"
     return found
 
 
@@ -156,6 +159,7 @@ def test_the_ui_prints_the_same_commands_as_the_service() -> None:
         "DEPLOY_AGENT": commands.DEPLOY_AGENT,
         "VERIFY_AGENT": commands.VERIFY_AGENT,
         "validate": commands.validate(1).removesuffix("1") + "{lab}",
+        "complete_lab_3": commands.complete_lab_3("{run_id}"),
     }, (
         f"Participant command rule: {UI_COMMANDS.relative_to(ROOT)} holds {ui}; "
         "fix: copy the strings from service/participant_commands.py exactly."

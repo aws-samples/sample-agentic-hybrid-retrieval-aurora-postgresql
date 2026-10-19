@@ -24,7 +24,7 @@ const PerformancePage = lazy(() =>
 const ProductPage = lazy(() =>
   import("./pages/ProductPage").then(({ ProductPage: Page }) => ({ default: Page })),
 );
-const RetrievalLabPage = lazy(() =>
+const PlaygroundPage = lazy(() =>
   import("./pages/PlaygroundPage").then(({ PlaygroundPage: Page }) => ({ default: Page })),
 );
 const ReviewedExamplesPage = lazy(() => import("./pages/ReviewedExamplesPage").then(({ ReviewedExamplesPage: Page }) => ({ default: Page })));
@@ -98,7 +98,7 @@ function RoutedSurface() {
             <RouteAlias to={RETRIEVAL_SURFACE.path} />
           </Route>
           <Route path="/products/:productId" component={ProductPage} />
-          <Route path="/labs/retrieval" component={RetrievalLabPage} />
+          <Route path="/labs/retrieval" component={PlaygroundPage} />
           <Route path="/labs/examples" component={ReviewedExamplesPage} />
           {/* The surface is named Playground in navigation, so the name is
               typeable. The canonical path stays /labs/retrieval, which is what

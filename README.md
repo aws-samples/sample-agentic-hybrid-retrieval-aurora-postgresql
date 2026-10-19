@@ -90,9 +90,10 @@ search, the **Ask the Retrieval agent** button if you open the agent's steps bef
 it has run, and **Agent steps and sources** after its first answer. **Complete my setup** runs Lab 3's
 three-product request, and its Ask Mosaic starter stays available before and after
 you build the Retrieval agent; it runs on its own filters and says when it clears Shop's.
-Keep its original run ID for completion. Ask Mosaic's **Show tool calls** switch (off by default) shows the full **Retrieval agent record** ID, recorded steps, saved search IDs and how each search ranked its products. The Playground's Prove page keeps the
-maintainers' saved scorecard collapsed under **Maintainer measurements**; those
-results do not grade your repairs.
+Keep its original run ID for completion: after that request, Shop shows the terminal
+command that checks the run, with its ID filled in. Ask Mosaic's **Show tool calls** switch (off by default) shows the full **Retrieval agent record** ID, recorded steps, saved search IDs and how each search ranked its products. Every
+lab is proved in the terminal; the Playground's **Compare search methods** table shows
+the maintainers' saved measurements, which do not grade your repairs.
 
 The prepared workshop serves a built UI so a live-reload connection cannot
 interrupt your answer. Keep the answer open while inspecting its sources, and

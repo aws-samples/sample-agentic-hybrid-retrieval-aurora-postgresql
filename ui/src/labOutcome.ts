@@ -463,7 +463,7 @@ export function liveRetrievalOutcome(
     label: "Live run complete",
     title,
     detail: gatesDiverged
-      ? "This run used Shop's gates, so the lab verdict does not apply. Select the scenario and run it, or run the completion proof in Prove, to judge the repair against the scenario's own gates."
+      ? "This run used Shop's gates, so the lab verdict does not apply. Select the scenario and run it to judge the repair against the scenario's own gates."
       : "This query is outside the selected checkpoint. Check the positions from each search method and whether the products meet its filters.",
   };
 }
@@ -526,7 +526,7 @@ export function agentLabOutcome(
       title: "The answer cites the evidence it retrieved",
       detail:
         "This quick check does not confirm that the headphones, monitor and chair are all covered.",
-      next: "Prove this run to check it.",
+      next: "Check this run with the command below.",
     };
   }
   return {

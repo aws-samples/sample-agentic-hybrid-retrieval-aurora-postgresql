@@ -38,8 +38,8 @@ presents it like any other authorized caller; it is not a bypass.
 `POST /api/search`, `POST /api/agent/answer` and `.../stream`,
 `POST /api/retrieval/fusion-comparison`,
 `POST /api/products/{product_id}/evidence`,
-`POST /api/retrieval/events/{search_event_id}/plan`, `POST /api/hnsw/probe`,
-and `POST /api/labs/{lab_id}/proof` invoke a model, run an expensive
+`POST /api/retrieval/events/{search_event_id}/plan` and `POST /api/hnsw/probe`
+invoke a model, run an expensive
 diagnostic, or spend a retrieval call. Each carries an admission-control
 dependency (`service/access_control.py`) that checks a per-process rate
 budget (`MOSAIC_MODEL_RATE_LIMIT_PER_MINUTE`, default 120) and then reserves
@@ -539,10 +539,13 @@ page labels them differently because they are different kinds of claim.
   `scan_mem_multiplier` accepts 1, the pre-2026-08-17 default, so a participant can
   reproduce the silent candidate truncation it caused and then fix it.
 
-## Lab state and completion proof
+## Lab state
 
 - `GET /api/labs/state`
-- `POST /api/labs/{lab_id}/proof`
+
+Labs are proved in the terminal (`scripts/validate_lab.py`,
+`scripts/complete_agent.py`) with the checks in `service/lab_checks.py` and
+`service/lab_proof.py`; no browser route grades a lab.
 
 State reports both places a lab can be broken, per lab: `source_state`
 (`solved` or `broken`) reads the marker blocks the participant edits in the
@@ -560,10 +563,11 @@ raises `UndefinedFunction`: that is reported as `database_state: "stale"` with
 a `detail` naming the exception type and the re-apply command, and labs 2 and 3
 still answer on the same connection. An unreachable cluster is the opposite
 case and is not a lab verdict: `psycopg.OperationalError`, which pool
-timeouts subclass, is a 503 on both routes, with a generic detail that names no
-host, port, or user.
+timeouts subclass, is a 503, with a generic detail that names no host, port,
+or user.
 
-The proof request body is `{"agent_run_id": uuid | null}`. The response is:
+`service.lab_proof.completion_proof(lab_id, agent_run_id=...)` returns a
+`CompletionProofResponse`, which the terminal checks read:
 
 - `lab_id`, `status` (`pass` or `fail`), `started_at`, `finished_at`,
   `duration_ms`;
@@ -628,9 +632,9 @@ whether a lab is finished.
 
 ## Retrieval scorecard
 
-- `GET /api/scorecard` backs the Playground's collapsed **Maintainer measurements**
-  section, saved results the maintainers measured that do not grade a participant's
-  repairs (the Prove step is `POST /api/labs/{lab_id}/proof`). It is a read-only render of
+- `GET /api/scorecard` backs the Playground's **Compare search methods** table,
+  saved results the maintainers measured that do not grade a participant's
+  repairs (labs are proved in the terminal). It is a read-only render of
   `data/evals/canonical_scorecard.json`, `data/evals/canonical_queries.jsonl`, the
   `service.assertions` vocabulary, and the tool-contract registry. No DDL, no
   `eval_run` table (ruling R7) — the response is computed fresh from those files on

@@ -1,7 +1,6 @@
 import { sourceFilters, useCatalogSource } from "../catalogSource";
 import { useFacetOptions } from "../useFacetOptions";
 import {
-  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -18,12 +17,10 @@ import {
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useRef,
   useState,
 } from "react";
 import { flushSync } from "react-dom";
-import { Link } from "wouter";
 import { api } from "../api";
 import { catalogData, type BrowseRequest } from "../catalogData";
 import { AskMosaic } from "../components/AskMosaic";
@@ -41,6 +38,8 @@ import {
 import { CodeEditorLink } from "../components/CodeEditorLink";
 import { RankLabCard } from "../components/RankLabCard";
 import { useLabStates } from "../useLabStates";
+import { TerminalCommand } from "../components/TerminalCommand";
+import { completeLab3Command } from "../participantCommands";
 import { SpotlightTour } from "../components/SpotlightTour";
 import { SHOP_PLAYGROUND_HINT } from "../tour";
 import { useHint } from "../useHint";
@@ -74,9 +73,7 @@ import {
   type MosaicLabMission,
 } from "../labMissions";
 import {
-  RETRIEVAL_SURFACE,
   forwardedSearchFilters,
-  playgroundProofHref,
   playgroundQueryHref,
   useSearchParams,
   SHOP_FILTER_PARAMS,
@@ -1457,23 +1454,12 @@ export function CatalogPage() {
 
           {labOutcome ? <LabOutcomeBanner outcome={labOutcome} /> : null}
 
-          {/* The way back to the only surface that can grade this.
-              Lab 3's card sends the participant here because the agent lives in
-              Shop, and until this link existed nothing carried the finished run
-              back: Prove could only read an `agentRunId` its own Reason stage
-              had filled, so an exercise completed here had to be run a second
-              time, and paid for a second time, to be graded.
-              Offered whenever a run exists, including a declined one. Whether
-              the run proves the lab is `POST /api/labs/3/proof`'s judgement,
-              and deciding it here would be a second authority that could
-              disagree with the first. */}
+          {/* The guide grades Lab 3 in the terminal, from the saved run: the
+              command carries this run's ID, so the exercise is never run, and
+              paid for, a second time. Offered whenever a run exists, including a
+              declined one; whether it completes the lab is the script's call. */}
           {labMission && missionRun?.agent_run_id ? (
-            <Link
-              className="shop-lab-callout-playground"
-              href={playgroundProofHref(labMission.id, missionRun.agent_run_id)}
-            >
-              Prove this run in the {RETRIEVAL_SURFACE.label}
-            </Link>
+            <TerminalCommand lead="To check this run, in Code Editor run" command={completeLab3Command(missionRun.agent_run_id)} />
           ) : null}
 
           {/* A callout, not a modal. The results it is about stay on screen

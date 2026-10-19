@@ -60,7 +60,7 @@ from service.fusion_comparison import (
 from service.hnsw import RepresentationUnavailable
 from service.hnsw_anchors import AnchorSetError, load_anchor_set, served_dataset_id
 from service.hnsw_corpus import StaleGroundTruth
-from service.lab_proof import UnknownLab, completion_proof, lab_states
+from service.lab_proof import lab_states
 from service.live_catalog import ProductNotInCatalogError
 from service.model_runtime import (
     bedrock_credentials_status,
@@ -73,8 +73,6 @@ from service.models import (
     CatalogFilters,
     CatalogPage,
     CatalogSuggestionsResponse,
-    CompletionProofRequest,
-    CompletionProofResponse,
     EvidenceRecord,
     FusionComparisonResponse,
     HnswProbeRequest,
@@ -1238,33 +1236,4 @@ def lab_state() -> LabStateResponse:
     except OperationalError as error:
         raise HTTPException(503, LAB_DATABASE_UNAVAILABLE) from error
     except RuntimeError as error:
-        raise HTTPException(503, str(error)) from error
-
-
-@app.post(
-    "/api/labs/{lab_id}/proof",
-    response_model=CompletionProofResponse,
-    dependencies=[Depends(require_model_admission)],
-)
-def lab_completion_proof(
-    lab_id: int,
-    request: CompletionProofRequest,
-) -> CompletionProofResponse:
-    """Prove one lab is finished, against Aurora, right now.
-
-    Labs 1 and 2 re-run their mission through the production search path and
-    report the receipts. Lab 3 grades the persisted turn named by
-    `agent_run_id` and spends no agent turn of its own, so pressing this button
-    costs no model call and grades the run the participant is looking at rather
-    than a fresh one.
-    """
-    try:
-        return completion_proof(lab_id, agent_run_id=request.agent_run_id)
-    except UnknownLab as error:
-        raise HTTPException(404, str(error)) from error
-    except (ClientError, BotoCoreError) as error:
-        raise _model_error(error) from error
-    except OperationalError as error:
-        raise HTTPException(503, LAB_DATABASE_UNAVAILABLE) from error
-    except (FileNotFoundError, RuntimeError) as error:
         raise HTTPException(503, str(error)) from error

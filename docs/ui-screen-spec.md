@@ -156,8 +156,9 @@ Each search column shows how that search read the request (lexemes, trigrams,
 the vector) above what it found. The details hold the fusion arithmetic and
 receipts, the saved candidate pool, and the activity log.
 
-`?view=lab` retains the older guided lab workbench and proof controls; the
-Playground no longer links to it. Shop's Lab 3 **Prove this run** still opens it.
+The older guided lab workbench is retired: `?view=lab`, `?run=` and bare
+`?example=` links open this page. Labs are proved in the terminal; after Lab 3's
+request, Shop shows `complete_agent.py --run-id` with the run's ID to copy.
 
 API: `POST /api/agent/answer/stream`,
 `GET /api/retrieval/events/{search_event_id}/response`, and linked evidence records.

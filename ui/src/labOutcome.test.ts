@@ -205,7 +205,7 @@ describe("lab outcome diagnostics", () => {
     const looksGrounded = agentLabOutcome(mission, agent);
     expect(looksGrounded.tone).toBe("ready");
     expect(looksGrounded.label).toBe("Looks grounded");
-    expect(`${looksGrounded.detail} ${looksGrounded.next ?? ""}`).toContain("Prove this run");
+    expect(`${looksGrounded.detail} ${looksGrounded.next ?? ""}`).toContain("Check this run");
     expect(looksGrounded.detail).not.toMatch(/verified|passed/i);
 
     const unsupported = agentLabOutcome(mission, { ...agent, citations: [] });
@@ -349,7 +349,7 @@ describe("lab outcome diagnostics", () => {
 
     expect(outcome.label).toBe("Live run complete");
     expect(outcome.detail).toBe(
-      "This run used Shop's gates, so the lab verdict does not apply. Select the scenario and run it, or run the completion proof in Prove, to judge the repair against the scenario's own gates.",
+      "This run used Shop's gates, so the lab verdict does not apply. Select the scenario and run it to judge the repair against the scenario's own gates.",
     );
     expect(outcome.detail).not.toContain("outside the selected checkpoint");
   });

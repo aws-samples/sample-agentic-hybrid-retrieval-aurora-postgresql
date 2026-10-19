@@ -3,13 +3,12 @@ import { pipelineRequests } from "../labMissions";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "../api";
-import { coreMosaicLabs, mosaicLabManifest } from "../labMissions";
+import { mosaicLabManifest } from "../labMissions";
 import { fixtureCatalogPage } from "../testProducts";
-import type { AgentResponse, EvidenceRecord, LabStateRecord, ProductSummary, RetrievalScorecardResponse, ScorecardStageArm, SearchResponse, ToolTraceStep } from "../types";
+import type { AgentResponse, EvidenceRecord, ProductSummary, RetrievalScorecardResponse, ScorecardStageArm, SearchResponse, ToolTraceStep } from "../types";
 import { PlaygroundPage } from "./PlaygroundPage";
 import { HintsContext } from "../useHint";
 
-vi.mock("./RetrievalLabPage", () => ({ RetrievalLabPage: () => <p>Guide workbench</p> }));
 
 /** An agent answer is read out at the reveal's pace before its picks and sources appear. */
 const READ_OUT_MS = 5000;
@@ -59,14 +58,13 @@ it("opens a saved Shop search in the pipeline layout even when the link carries 
   const search = vi.spyOn(api, "search");
   const stream = vi.spyOn(api, "agentStream");
   render(<PlaygroundPage />);
-  expect(screen.queryByText("Guide workbench")).toBeNull();
   await screen.findByRole("heading", { name: response.query });
   expect(screen.getByRole("button", { name: "Why this position" }).getAttribute("aria-expanded")).toBe("true");
   expect(replay).toHaveBeenCalledWith(firstSearchId);
   expect(search).not.toHaveBeenCalled();
   expect(stream).not.toHaveBeenCalled();
   // The saved search stays in this view; nothing here sends the reader to the older lab page.
-  expect(screen.getByRole("status").textContent).toBe("Saved Shop search");
+  expect(document.querySelector(".pg-run-status")?.textContent).toBe("Saved Shop search");
   expect(document.querySelector('a[href*="view=lab"]')).toBeNull();
 });
 
@@ -74,10 +72,11 @@ it.each([
   "example=typo-recovery",
   `view=lab&event=${firstSearchId}&example=typo-recovery`,
   `example=agentic-research&run=${agentId}`,
-])("preserves explicit lab and agent-proof links: %s", (query) => {
+])("opens the retired lab and agent-proof links in the Playground itself: %s", (query) => {
   window.history.replaceState({}, "", `/labs/retrieval?${query}`);
   render(<PlaygroundPage />);
-  expect(screen.getByText("Guide workbench")).toBeTruthy();
+  expect(screen.getByRole("heading", { level: 1, name: "Behind a better answer." })).toBeTruthy();
+  expect(document.querySelector('[data-tour="pg-run-button"]')).not.toBeNull();
 });
 
 it("replays Shop's saved results with the same preview products, then explicitly starts a new run and can return", async () => {
@@ -336,7 +335,7 @@ it("opens on Clearer calls, offers one Play action, and keeps guide links workin
   await waitFor(() => expect(stream).toHaveBeenCalledTimes(1));
   expect(stream.mock.calls[0].slice(0, 2)).toEqual([callsRequest.query, callsRequest.filters]);
   await act(async () => window.history.pushState({}, "", "/labs/retrieval?example=typo-recovery"));
-  expect(screen.getByText("Guide workbench")).toBeTruthy();
+  expect(screen.getByRole("heading", { level: 1, name: "Behind a better answer." })).toBeTruthy();
 });
 
 it("shows the actual rank movement from the agent receipt, then clears it when requests change", async () => {

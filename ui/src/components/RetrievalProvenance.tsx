@@ -1,8 +1,6 @@
 import { useRef, useState } from "react";
 import { api } from "../api";
-import { armLanguage } from "../retrievalLanguage";
 import type {
-  ProductSummary,
   RetrievalPlanResponse,
   RetrievalRunResponse,
   SearchResponse,
@@ -12,8 +10,7 @@ import { PlaygroundDisclosure } from "./PlaygroundStage";
 import { QueryPlanSummary } from "./QueryPlanSummary";
 
 /**
- * The three disclosures that read a run back out of Postgres, plus the fusion
- * arithmetic.
+ * The disclosures that read a run back out of Postgres.
  *
  * `POST /api/search` and `GET /api/retrieval/events/{id}` have existed since the
  * service was written and nothing in the browser had ever called the second one,
@@ -23,136 +20,6 @@ import { QueryPlanSummary } from "./QueryPlanSummary";
  * `mosaic.search_event`, `mosaic.search_result_event`, and EXPLAIN ANALYZE over
  * the run's own SQL path.
  */
-
-/**
- * Reciprocal rank fusion, shown as arithmetic rather than as a score.
- *
- * Lab 2 replaces `1 / (k + source_rank)` with `1 / (k + 1)`, so every arm
- * contributes as if it held rank 1 and within-arm order disappears. That defect is
- * invisible in a fused score and obvious in a column of contributions that are all
- * the same number, which is why this table prints the operands and not just the
- * result. `rrf_k` comes from the response's own retrieval profile — there is no
- * local default, because inventing one would let this table state a k the run did
- * not use.
- */
-export function RrfMath({ response }: { response: SearchResponse }) {
-  const rrfK = response.diagnostics?.retrieval_profile.rrf_k;
-  const rows = response.results.filter((product) => product.signals);
-  if (rrfK == null || !rows.length) {
-    return (
-      <p>
-        This run reported no <code>rrf_k</code>, so the arithmetic behind its fused
-        scores cannot be shown without guessing at one.
-      </p>
-    );
-  }
-  return (
-    <>
-      <p className="labs-rrf-formula">
-        <code>contribution = 1 / (k + rank_in_that_arm)</code>, summed over the search methods
-        that found the row. <code>k = {rrfK}</code> for this run.
-      </p>
-      <p>Higher RRF scores rank better before reranking. Rank #1 is first. The reranker uses a separate score, so a low RRF score alone does not tell you whether a product will move up.</p>
-      <div className="labs-rrf-scroll" role="region" tabIndex={0} aria-label="Fusion arithmetic">
-        <table className="labs-rrf-table">
-          <thead>
-            <tr>
-              <th scope="col">Product</th>
-              {armLanguage.map((arm) => (
-                <th key={arm.key} scope="col">{arm.label}</th>
-              ))}
-              <th scope="col">Sum</th>
-              <th scope="col">Reported rrf_score</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((product) => {
-              const signals = product.signals!;
-              const parts = armLanguage.map((arm) => signals[arm.key]);
-              const sum = parts.reduce(
-                (total, part) => total + (part.rrf_contribution ?? 0),
-                0,
-              );
-              // 1e-9, the same tolerance labOutcome uses to decide whether the
-              // contributions the database reported add up to the score it
-              // reported. A mismatch is a defect in fusion, not a rounding
-              // artifact.
-              const agrees = Math.abs(sum - signals.rrf_score) <= 1e-9;
-              return (
-                <tr key={product.product_id}>
-                  <th scope="row">{product.model}</th>
-                  {parts.map((part, index) => (
-                    <td key={armLanguage[index].key}>
-                      {part.rank === null ? (
-                        <em>not found</em>
-                      ) : (
-                        <>
-                          <span>1 / ({rrfK} + {part.rank})</span>
-                          <b>{part.rrf_contribution?.toFixed(6) ?? "-"}</b>
-                        </>
-                      )}
-                    </td>
-                  ))}
-                  <td className="mono">{sum.toFixed(6)}</td>
-                  <td className={agrees ? "mono" : "mono labs-rrf-mismatch"}>
-                    {signals.rrf_score.toFixed(6)}
-                    {agrees ? null : <small>does not match the sum</small>}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
-}
-
-/** The returned rows, as ranks rather than prose. */
-export function CandidateRows({ products }: { products: ProductSummary[] }) {
-  const rows = products.filter((product) => product.signals);
-  return (
-    <div className="labs-rrf-scroll" role="region" tabIndex={0} aria-label="Candidate rows">
-      <table className="labs-rrf-table">
-        <thead>
-          <tr>
-            {/* The leading column is the final position, so a "Final position"
-                column at the far right printed the same number twice. */}
-            <th scope="col">Final</th>
-            <th scope="col">Product</th>
-            <th scope="col">SKU</th>
-            {armLanguage.map((arm) => (
-              <th key={arm.key} scope="col">{arm.label}</th>
-            ))}
-            <th scope="col">Before reranking</th>
-            <th scope="col">Rerank score</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((product) => {
-            const signals = product.signals!;
-            return (
-              <tr key={product.product_id}>
-                <td className="mono">{signals.final_rank}</td>
-                <th scope="row">{product.model}</th>
-                <td className="mono">{product.sku}</td>
-                {armLanguage.map((arm) => (
-                  <td className="mono" key={arm.key}>
-                    {signals[arm.key].rank === null
-                      ? <em>not found</em>
-                      : `#${signals[arm.key].rank}`}
-                  </td>
-                ))}
-                <td className="mono">#{signals.pre_rerank_rank}</td>
-                <td className="mono">{signals.rerank_score?.toFixed(4) ?? "-"}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 /**
  * The persisted event and its EXPLAIN plan, fetched on first open.

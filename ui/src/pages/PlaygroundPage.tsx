@@ -37,7 +37,6 @@ import { forwardedSearchEvent, forwardedSearchFilters, useSearchParams } from ".
 import type { AgentCitation, AgentResponse, ProductSummary, ReadinessResponse, ScorecardStageAblation, SearchFilters, SearchResponse, ToolTraceStep } from "../types";
 import { useLabStates } from "../useLabStates";
 import { usePipelineRun, type PipelineReceipt } from "../usePipelineRun";
-import { RetrievalLabPage } from "./RetrievalLabPage";
 import { SpotlightTour } from "../components/SpotlightTour";
 import { AGENT_STEPS_HINT, ASK_AGENT_HINT, SEARCH_FIRST_HINT } from "../tour";
 import { useHint } from "../useHint";
@@ -511,10 +510,6 @@ function PipelineInspector() {
   </div>;
 }
 
-/** A saved Shop search stays in the pipeline view; lab details are an explicit destination. */
 export function PlaygroundPage() {
-  const [params] = useSearchParams();
-  const shopRequest = Boolean(forwardedSearchEvent(params) || params.get("q")?.trim());
-  const labDetails = params.get("view") === "lab" || params.has("run") || (params.has("example") && !shopRequest);
-  return labDetails ? <RetrievalLabPage /> : <PipelineInspector />;
+  return <PipelineInspector />;
 }

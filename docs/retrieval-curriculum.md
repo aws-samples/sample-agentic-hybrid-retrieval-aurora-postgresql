@@ -41,11 +41,10 @@ They are checkpoints inside three labs, not participant navigation.
 The Workshop Studio guide names the three required labs and the order to take
 them; the Playground landing (`/labs/retrieval` with no saved Shop search) opens
 on Alex's requests. Scale & HNSW and Session & Memory stay optional; a
-participant can finish the required sequence without opening either. Inside a lab, `LabRail` keeps the same three facts in view: which
-lab, which phase (Retrieve, Rank, Re-rank, Reason) or Prove is current, and
-the file the repair belongs in. Completion is never inferred from having
-visited a page -- only `POST /api/labs/{id}/proof`, run from the Prove stage,
-can mark a lab passed.
+participant can finish the required sequence without opening either.
+Completion is never inferred from having visited a page: only the guide's
+terminal commands (`validate_lab.py` for Labs 1 and 2, `complete_agent.py` for
+Lab 3) can mark a lab passed.
 
 ## Lab 1: Retrieve - Debug hybrid search
 

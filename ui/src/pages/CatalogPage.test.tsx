@@ -59,6 +59,7 @@ import type {
 } from "../types";
 import { CatalogPage } from "./CatalogPage";
 import { HintsContext } from "../useHint";
+import { completeLab3Command } from "../participantCommands";
 
 vi.mock("../api", () => ({
   api: {
@@ -1569,7 +1570,7 @@ describe("CatalogPage", () => {
 
     expect(await screen.findByText("Looks grounded")).toBeTruthy();
     expect(vi.mocked(api.agentStream).mock.calls.at(-1)?.[4]?.useMemory).toBe(false);
-    expect(screen.getByText("Prove this run to check it.")).toBeTruthy();
+    expect(screen.getByText("Check this run with the command below.")).toBeTruthy();
   });
 
   it("withholds memory from the Lab 3 request only, not from later questions on the page", async () => {
@@ -1607,11 +1608,9 @@ describe("CatalogPage", () => {
     expect(vi.mocked(api.agentStream).mock.calls[1][4]?.useMemory).toBe(true);
   });
 
-  it("offers the finished Lab 3 run a way back to the surface that grades it", async () => {
-    // Lab 3's card sends the participant here, because the agent lives in Shop.
-    // Nothing carried the finished run back, so the Playground's Prove stage
-    // could only grade a run its own Reason stage had filled: an exercise
-    // completed here had to be run, and paid for, a second time.
+  it("gives the finished Lab 3 run the guide's terminal command, with its run ID", async () => {
+    // The guide grades Lab 3 from the saved run, so the command carries this
+    // run's ID and the exercise is never run, and paid for, a second time.
     window.history.replaceState(
       {},
       "",
@@ -1626,10 +1625,8 @@ describe("CatalogPage", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
 
-    const back = await screen.findByRole("link", { name: /Prove this run/ });
-    expect(back.getAttribute("href")).toBe(
-      `/labs/retrieval?example=agentic-research&run=${agentResponse.agent_run_id}`,
-    );
+    expect(await screen.findByText(completeLab3Command(agentResponse.agent_run_id))).toBeTruthy();
+    expect(screen.queryByRole("link", { name: /Prove this run/ })).toBeNull();
   });
 
   it("grades only the Lab 3 request, not a follow-up asked after it", async () => {
@@ -1665,12 +1662,10 @@ describe("CatalogPage", () => {
 
     expect(screen.queryByText("Answer declined")).toBeNull();
     expect(screen.getByText("Looks grounded")).toBeTruthy();
-    expect(
-      screen.getByRole("link", { name: /Prove this run/ }).getAttribute("href"),
-    ).toBe("/labs/retrieval?example=agentic-research&run=agent-1");
+    expect(screen.getByText(completeLab3Command("agent-1"))).toBeTruthy();
   });
 
-  it("keeps the Lab 3 banner and proof link when Ask Mosaic is closed", async () => {
+  it("keeps the Lab 3 banner and its command when Ask Mosaic is closed", async () => {
     window.history.replaceState(
       {},
       "",
@@ -1684,7 +1679,7 @@ describe("CatalogPage", () => {
       { target: { value: labThreeRequest.query } },
     );
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
-    await screen.findByRole("link", { name: /Prove this run/ });
+    await screen.findByText(completeLab3Command(agentResponse.agent_run_id));
 
     fireEvent.click(
       within(screen.getByRole("complementary", { name: "Ask Mosaic" }))
@@ -1694,7 +1689,7 @@ describe("CatalogPage", () => {
     const params = new URLSearchParams(window.location.search);
     expect(params.get("mission")).toBe("agentic-research");
     expect(params.has("ask")).toBe(false);
-    expect(await screen.findByRole("link", { name: /Prove this run/ })).toBeTruthy();
+    expect(await screen.findByText(completeLab3Command(agentResponse.agent_run_id))).toBeTruthy();
   });
 
   it("opens Ask Mosaic, renders grounded receipts, and cross-highlights products", async () => {

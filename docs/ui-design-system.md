@@ -17,8 +17,8 @@ files by surface, so no single file holds an unrelated mix of concerns. Import
 order in `ui/src/main.tsx` is the cascade order: `styles.css`,
 `ask-mosaic-panel.css`, `catalog-cards.css`, `shared-states.css`,
 `shop-storefront.css`, `labs-agentic.css`, `commerce.css`, then `surfaces.css`,
-`agent-answer-parts.css`, `surfaces-labs-shell.css`, `surfaces-hnsw.css`,
-`surfaces-playground.css`, then `source-products.css`, `world.css` and, last,
+`surfaces-labs-shell.css`, `surfaces-hnsw.css`, `surfaces-playground.css`,
+then `source-products.css`, `world.css` and, last,
 `ask-mosaic.css`, which owns the Ask Mosaic sidecar.
 A new rule belongs in the file already named for its surface; splitting further
 only when a file's concerns are genuinely independent, never to hit a line
@@ -238,16 +238,16 @@ turn `--ink`, and the active entry draws a 2px `--ink` underline within the
 control's bounds. Prices, ratings, comparison tables, receipt figures and page
 counts use tabular figures.
 
-Every Playground tab (Hybrid retrieval, the guided lab, Scale & HNSW, Session &
+Every Playground tab (Hybrid retrieval, Scale & HNSW, Session &
 Memory) shares one masthead scale through `MosaicLabsMasthead`: the title at
 `clamp(32px, 3.4vw, 44px)`, weight 600, −0.03em, balanced, one line where it fits,
 then a lede. One `.labs-lede` rule sets every lede on those pages (the masthead
-deck, the guided lab's stage summaries and the pipeline page's section ledes):
+deck and the pipeline page's section ledes):
 `--ink-soft`, 17px, line height 1.45, at most 64ch. The rule's selectors
 out-rank each tab's own masthead rules in `world.css`, so a tab cannot keep a
 second scale.
 
-The guided lab and the Labs views use the `--labs-*` scale: display
+The Labs views use the `--labs-*` scale: display
 `clamp(36px, 3.6vw, 54px)`, h2 `clamp(30px, 2.6vw, 40px)`, h3 19px, lead 17px,
 body 15px, detail 13px, micro 12px, and mono 13px.
 
@@ -266,14 +266,9 @@ count may only fall.
 the Ask Mosaic note beside results, the product page's photo stage, and the
 Scale & HNSW and Session & Memory panels. Shop's editorial photographs, the
 Meet Alex frame and the top result's feature plate take 28px, and 20px below
-820px. The guided lab
-(`playground.css`, scoped `.lab-page`) keeps one card level: its run form is a
-26px request card, its completion proof and agent composer are 22px cards, its
-figure grids are `--paper-warm` cells with 2px gaps inside a 22px shape, and
-its rail, run summary, scorecard, repair evidence and matrix sit flat on the
-page. Single-line controls are pills at 999px: the catalog search composer,
-lab selects and query inputs, the Playground tabs, the lab rail's stage
-control and state chips, submit buttons and evidence badges. Circular controls
+820px. Single-line controls are pills at 999px: the catalog search composer,
+query inputs, the Playground tabs and suggestion pills, submit buttons and
+evidence badges. Circular controls
 (the search submit disc, the run disc, the save button) use 50%.
 
 Other radii in use: the itemized receipt card 16px; result and answer cards
@@ -465,36 +460,21 @@ address is a centred title, one line and a "Back to Shop" pill.
   cards across at 1440px (`.shop-product-grid`), two under 900px, one under
   360px.
 - The site header contains navigation, Code Editor when configured, Alex's
-  portrait, the theme toggle, and the bag. Repair status belongs to the guided
-  Playground rail and completion proof, whose labels distinguish “Code
-  repaired” from “SQL repair applied”. While the file still has the fault the
-  Aurora label reads “Aurora runs the unrepaired SQL”
-  (`labStateCopy.ts`), because “applied” there is the fault. Lab outcomes
-  carry a `next` step, and UI command strings come from `participantCommands.ts`,
-  which `tests/test_participant_commands.py` holds to the service's copies.
-- The guided lab's rail is sticky under the header and condenses once it
-  sticks. Row one is the lab's title (20px, weight 600) and its stages as a
-  segmented control with a stage-coloured dot each; the current stage is the
-  raised segment, and on a phone the control scrolls sideways with snap. Row two
-  is the file to edit as a copyable hairline pill, the two state chips and the
-  next-lab link at the right edge, with the task and next step in a line under
-  them; the task folds away once the rail sticks. `LabRail` reads the stuck state from an `IntersectionObserver`,
-  holds its flow footprint constant, and measures its height into
-  `--labs-rail-height`, which the stage anchors add to their scroll margin.
+  portrait, the tour and theme toggles, and the bag; under 420px the tour and
+  theme move into the menu. Repair status lives in the terminal, where the
+  guide's commands prove each lab. Lab outcomes carry a `next` step, and UI
+  command strings come from `participantCommands.ts`, which
+  `tests/test_participant_commands.py` holds to the service's copies.
 - Retrieve, Rank and Reason keep their stage colours on the Playground as
-  markers only: the pipeline page's stage chips and the lab rail carry a
-  `--retrieve`, `--rank` or `--reason` dot. The guided lab's stage numerals are
-  order, not identity, and stay `--ink-soft`. The three search methods are all
+  markers only: the pipeline page's stage chips carry a `--retrieve`, `--rank`
+  or green dot, and the reranked step is green. The three search methods are all
   Retrieve: the pipeline page draws their dots in `--retrieve` and tells them
   apart by label, and a method that found nothing gets a hollow dot, as in the
-  Shop receipt. A stage the sequence does not name (Prove) uses the neutral
-  `--line-strong`. The guided lab's content runs the shell's full width, with the
-  numeral inline before each stage title.
+  Shop receipt.
 - Every Playground send uses `MosaicRunButton`: a 44px `--action` disc with
   an `--action-ink` plane icon, `--action-hover` under the pointer, and a spinner
   while the request is in flight; reduced motion stops the spinner. Hybrid
-  retrieval, Session & Memory and the guided lab's Reason composer print a label
-  beside the disc.
+  retrieval and Session & Memory print a label beside the disc.
 - The pipeline page (`PlaygroundPage.tsx`, `components/playground/`,
   `playground-page.css` scoped to `.pg-a`) is a product page with receipts: a
   centred stage (request segmented control, the shared Labs masthead centred,
@@ -583,7 +563,6 @@ palette in `studio-prototype.css`; it is not the storefront's design.
 | `/catalog` | Shop: Alex's brief and three needs before a query, faceted browsing, hybrid search, ranked results as an editorial list, product cards with itemized receipts, Ask Mosaic as a sidecar |
 | `/products/:productId` | Product detail: plate photo stage, typed spec highlights, listing details, reviews |
 | `/labs/retrieval` | Hybrid retrieval: read-only inspection of Retrieve, Rank, Reason; one run button starts a real run, and `scene` selects a canonical request |
-| `/labs/retrieval?view=lab` | Guided Playground: Retrieve, Rank, Reason, Prove, lab rail and completion proof |
 | `/labs/examples` | Reviewed examples: “Look beyond the first match.” |
 | `/mosaic-labs/hnsw` | Scale & HNSW |
 | `/mosaic-labs/hnsw?view=bench` | Full benchmark workbench |
@@ -638,14 +617,14 @@ specifications. Listing photos are shown uncropped and contained on the plate.
 `ui/src/styles.test.ts` reads the sheets in its `SHEETS` list: `styles.css`,
 `ask-mosaic-panel.css`, `catalog-cards.css`, `shared-states.css`,
 `shop-storefront.css`, `labs-agentic.css`, `commerce.css`, `surfaces.css`,
-`agent-answer-parts.css`, `surfaces-labs-shell.css`, `surfaces-hnsw.css`,
-`surfaces-playground.css`, `shop-editorial.css`, `workspace-walkthrough.css`,
-`playground.css`, `inspector.css`,
-`playground-page.css`, `world.css` and `ask-mosaic.css`. Over those
+`surfaces-labs-shell.css`, `surfaces-hnsw.css`, `surfaces-playground.css`,
+`shop-editorial.css`, `workspace-walkthrough.css`, `inspector.css`,
+`playground-page.css`, `world.css`, `ask-mosaic.css` and
+`inspection-editorial.css`. Over those
 sheets it fails when:
 
-- a referenced custom property is defined nowhere (except `--labs-rail-height`,
-  `--low`, `--high` and `--sweep`, which components set inline);
+- a referenced custom property is defined nowhere (except `--low`, `--high`
+  and `--sweep`, which components set inline);
 - two hex values in the palette block, the first `:root` of `styles.css`, are
   equal (the dark block is not part of this check);
 - a hex-valued custom property outside the palette block is not an override
@@ -676,7 +655,7 @@ Known drift, recorded rather than canonized:
   pills), and `shop-search-details.css` for the example buttons (text links
   instead of bordered pills). What renders is the more specific rule.
 - Applying `labs_type_scale.py`'s rule to every sheet reports off-scale Labs
-  declarations in `hnsw-search-graph.css` (15), `playground.css` (4),
+  declarations in `hnsw-search-graph.css` (15),
   `inspector.css` (3), `retrieval-readout.css` (2) and `session-memory.css`
   (1); the gate does not read those files.
 

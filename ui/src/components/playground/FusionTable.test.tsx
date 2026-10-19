@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it } from "vitest";
+import { seedRun } from "../../retrievalSeed";
 import { fixtureCatalogPage } from "../../testProducts";
 import type { ProductSummary, SearchResponse } from "../../types";
 import { FusionTable } from "./FusionTable";
 
 afterEach(cleanup);
 
-const K = 60;
+/** The run's own k, from the seeded profile rather than a second copy of the setting. */
+const K = seedRun.diagnostics!.retrieval_profile.rrf_k;
 
 function ranked(base: ProductSummary, title: string, combined: number, ranks: { fts?: number; semantic?: number }, reported?: number): ProductSummary {
   const arm = (rank?: number) => ({ rank: rank ?? null, raw_score: null, rrf_contribution: rank == null ? null : 1 / (K + rank) });

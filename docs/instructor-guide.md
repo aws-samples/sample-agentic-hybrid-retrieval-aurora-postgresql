@@ -106,10 +106,9 @@ whether the right eligible candidates entered the pool. Rank asks whether that
 pool was combined correctly. Reason asks which sources support the choice."
 
 Point the room at the Playground before narrating any of it: `/labs/retrieval`
-opens on **Hybrid retrieval**, the four-phase Retrieve, Rank, Re-rank and Reason
-inspection, and each guide link adds `view=lab` to open that lab's exercise
-with its rail: the three labs in order, each one's live repair state, and the
-next lab to open. Say once that the labs, not the storefront or the Scale &
+opens on **Hybrid retrieval**, one request followed from three searches to
+Aurora's combined order, the reranked order and, when asked, the Retrieval
+agent's answer. Say once that the labs, not the storefront or the Scale &
 HNSW / Session & Memory tabs beside them, are the session, and move on.
 
 Show the missed product first. The talk says fuzzy matching finds it; leave the
@@ -280,7 +279,7 @@ times, so the sections describe responsibilities, not one execution order.
 3. **Reason:** read the answer, compare its sources and follow a pick back to
    its saved search. The activity log separates model-requested calls from
    application-started ones.
-4. **Prove within each lab:** the lab view holds the repair checks. They answer
+4. **Prove within each lab:** the guide's terminal commands hold the repair checks. They answer
    a different question from the saved measurements, which describe quality
    across a judged query set and do not grade a participant.
 
