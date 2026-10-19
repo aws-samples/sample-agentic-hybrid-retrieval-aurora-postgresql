@@ -1,4 +1,4 @@
-import { Compass, Menu, ShoppingBag, Sparkles, X } from "lucide-react";
+import { Compass, Menu, Moon, ShoppingBag, Sparkles, Sun, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { api } from "../api";
@@ -13,8 +13,8 @@ import {
 } from "../navigation";
 import { CodeEditorLink } from "./CodeEditorLink";
 import { AlexProfile } from "./AlexProfile";
-import { MosaicMark } from "./MosaicMark";
 import { ThemeToggle } from "./ThemeToggle";
+import { useTheme } from "../theme";
 
 /**
  * The one storefront header.
@@ -54,6 +54,7 @@ export function SiteHeader(
   { inert = false, onStartTour }: { inert?: boolean; onStartTour?: () => void },
 ) {
   const [open, setOpen] = useState(false);
+  const [theme, toggleTheme] = useTheme();
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const navigationRef = useRef<HTMLElement | null>(null);
   const { itemCount, openCart } = useCommerce();
@@ -148,7 +149,6 @@ export function SiteHeader(
       aria-hidden={inert || undefined}
     >
       <Link className="site-brand" href="/" onClick={close} aria-label="Mosaic home">
-        <MosaicMark />
         <strong>Mosaic</strong>
       </Link>
 
@@ -170,6 +170,23 @@ export function SiteHeader(
             <span>{label}</span>
           </Link>
         ))}
+        {/* On a phone the tour and theme icons move in here, leaving the header room for the wordmark. */}
+        {onStartTour ? (
+          <button
+            className="site-nav-extra"
+            type="button"
+            onClick={() => {
+              close();
+              onStartTour();
+            }}
+          >
+            <Compass size={16} aria-hidden="true" />Take the tour
+          </button>
+        ) : null}
+        <button className="site-nav-extra" type="button" onClick={toggleTheme}>
+          {theme === "dark" ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}
+          {theme === "dark" ? "Light mode" : "Dark mode"}
+        </button>
       </nav>
 
       <div className="site-actions">
@@ -199,7 +216,7 @@ export function SiteHeader(
             <Compass size={17} aria-hidden="true" />
           </button>
         ) : null}
-        <ThemeToggle />
+        <ThemeToggle theme={theme} onToggle={toggleTheme} />
         <button
           className="site-icon site-bag"
           type="button"

@@ -731,11 +731,6 @@ body {
   padding: 0 35px 0 47px;
 }
 
-.landing-nav-brand .brand-glyph {
-  width: 31px;
-  height: 31px;
-}
-
 .landing-links a.active::after {
   position: absolute;
   right: 0;
@@ -815,11 +810,6 @@ body {
 
   /* The brand lockup is 132px at the board's tracking and the four links need
      319px; below 1480 the panel cannot seat both at full size. */
-  .landing-nav-brand .brand-glyph {
-    width: 27px;
-    height: 27px;
-  }
-
   .landing-nav-brand strong {
     font-size: 14px;
     letter-spacing: 0.16em;

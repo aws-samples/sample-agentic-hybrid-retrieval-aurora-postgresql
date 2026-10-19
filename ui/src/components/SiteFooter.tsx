@@ -1,7 +1,6 @@
 import { useCatalogSource } from "../catalogSource";
 import { Link } from "wouter";
 import { PLAYGROUND_TABS } from "../navigation";
-import { MosaicMark } from "./MosaicMark";
 
 const sourceRepositoryUrl =
   "https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql";
@@ -123,7 +122,6 @@ export function SiteFooter({ inert = false }: { inert?: boolean }) {
         <div className="site-footer-top">
           <div className="site-footer-brand">
             <Link className="site-footer-mark" href="/" aria-label="Mosaic home">
-              <MosaicMark />
               <strong>Mosaic</strong>
             </Link>
             <p>

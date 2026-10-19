@@ -498,7 +498,7 @@ describe("Shell guided tour", () => {
   it("Take the tour starts it on Shop's landing from any page but the Playground", () => {
     window.localStorage.setItem(TOUR_STORAGE_KEY, TOUR_SEEN);
     renderShell("/mosaic-labs/hnsw", false);
-    fireEvent.click(screen.getByRole("button", { name: "Take the tour" }));
+    fireEvent.click(screen.getByTitle("Take the tour"));
     expect(window.location.pathname + window.location.search).toBe("/catalog");
     expect(screen.getByRole("dialog", { name: "Welcome to Mosaic" })).toBeTruthy();
   });
@@ -506,8 +506,21 @@ describe("Shell guided tour", () => {
   it("Take the tour on the Playground starts the Playground's own tour, in place", () => {
     window.localStorage.setItem(TOUR_STORAGE_KEY, TOUR_SEEN);
     renderShell("/labs/retrieval", false);
-    fireEvent.click(screen.getByRole("button", { name: "Take the tour" }));
+    fireEvent.click(screen.getByTitle("Take the tour"));
     expect(window.location.pathname).toBe("/labs/retrieval");
     expect(screen.queryByRole("dialog", { name: "Welcome to Mosaic" })).toBeNull();
+  });
+
+  it("offers the tour and the theme in the menu too, and both theme switches agree", () => {
+    window.localStorage.setItem(TOUR_STORAGE_KEY, TOUR_SEEN);
+    window.localStorage.setItem("mosaic-theme", "light");
+    renderShell("/mosaic-labs/hnsw", false);
+    const menu = screen.getByRole("navigation", { name: "Storefront" });
+    expect(within(menu).getByRole("button", { name: "Take the tour" })).toBeTruthy();
+    fireEvent.click(within(menu).getByRole("button", { name: "Dark mode" }));
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(screen.getByRole("button", { name: "Switch to light mode" })).toBeTruthy();
+    expect(within(menu).getByRole("button", { name: "Light mode" })).toBeTruthy();
+    window.localStorage.removeItem("mosaic-theme");
   });
 });

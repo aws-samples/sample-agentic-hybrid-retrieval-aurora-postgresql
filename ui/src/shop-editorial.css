@@ -562,8 +562,21 @@
 
 .shop-band[data-tone="dark"] {
   --focus: var(--stage-link);
-  background: var(--stage);
+  background: var(--photo-ground);
   color: var(--stage-ink);
+}
+
+/* Dark: every band and Alex's studio sit on the black page, so the photographs
+   are not framed in grey. The studio keeps a hairline instead of a fill. */
+:root[data-theme="dark"] .shop-band,
+:root[data-theme="dark"] .shop-alex-studio,
+:root[data-theme="dark"] .shop-alex-studio :is(.workspace-walkthrough, .workspace-walkthrough figcaption) {
+  background: var(--photo-ground);
+}
+
+:root[data-theme="dark"] .shop-alex-studio {
+  outline: 1px solid var(--line);
+  outline-offset: -1px;
 }
 
 .shop-band-inner {

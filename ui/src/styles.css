@@ -43,13 +43,14 @@
   --focus: var(--link);
   /* Technical stage colors retain their meaning independently of navigation. */
   --retrieve: #0578ff;
-  /* The RIV26 template's orange, as in the favicon, with a black letter. */
-  --brand-mark: var(--rank-template);
+  /* The RIV26 template's orange, as in the favicon. */
   --rank-template: #ff6200;
   --link: #005eb8;
   --rank: #e85a00;
   /* Numbers on a filled blue or orange step: black clears 4.5:1 on both fills in both themes. */
   --fill-ink: var(--maroon-950);
+  /* Photography bands sit on black in both themes, so the pictures read cleanly. */
+  --photo-ground: var(--maroon-950);
   --reason: var(--green);
   --action: #0668d7;
   --action-hover: #005bbd;
@@ -113,6 +114,8 @@
   color-scheme: dark;
   --rank: var(--rank-template);
   --fill-ink: var(--canvas);
+  --photo-ground: var(--canvas);
+  --footer-surface: var(--canvas);
   --maroon-950: var(--white);
   --maroon-900: #f0f0f2;
   --maroon-700: #d1d1d6;
@@ -405,13 +408,6 @@ button:disabled {
   color: var(--ink);
 }
 
-.site-brand svg {
-  width: 27px;
-  height: 27px;
-  flex: 0 0 auto;
-  color: var(--ink);
-}
-
 .site-brand strong {
   color: var(--ink);
   font-family: var(--display);
@@ -457,6 +453,10 @@ button:disabled {
 .site-nav a:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+.site-nav-extra {
+  display: none;
 }
 
 .site-actions {
@@ -708,11 +708,6 @@ button:disabled {
     font-size: 21px;
   }
 
-  .site-brand svg {
-    width: 24px;
-    height: 24px;
-  }
-
   .site-shopper {
     margin-inline: 0;
   }
@@ -748,19 +743,44 @@ button:disabled {
   }
 }
 
-/* Under 420px the mark stands alone: the wordmark would sit under the Ask
-   Mosaic button, and the home link keeps its accessible name. */
+/* Under 420px the tour and theme icons move into the menu, so the wordmark
+   keeps its room beside Ask Mosaic, Alex, the bag and the menu. */
 @media (max-width: 420px) {
   .site-brand strong {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
+    font-size: 19px;
   }
 
   .site-brand {
     flex: none;
+  }
+
+  .site-actions > :is(.site-tour, .site-theme) {
+    display: none;
+  }
+
+  .site-nav-extra {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    color: var(--ink-soft);
+    font: inherit;
+    font-size: 14.5px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .site-nav-extra:hover {
+    color: var(--ink);
+  }
+
+  .site-nav-extra:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
   }
 }
 
@@ -863,13 +883,6 @@ button:disabled {
   width: fit-content;
   align-items: center;
   gap: 11px;
-  color: var(--footer-ink);
-}
-
-.site-footer-mark svg {
-  width: 24px;
-  height: 24px;
-  flex: 0 0 auto;
   color: var(--footer-ink);
 }
 
