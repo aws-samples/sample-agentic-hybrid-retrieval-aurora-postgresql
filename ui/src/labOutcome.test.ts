@@ -607,7 +607,7 @@ describe("Lab 1's broken verdict names its cause", () => {
     const rankMission = coreMosaicLabs.find((item) => item.stage === "rank")!;
     const wantedId = rankMission.target_product_ids[0];
 
-    function served(finalRank: number | null) {
+    function served(finalRank: number) {
       const row = product(wantedId, (rank) => 1 / (testFusionK + rank));
       row.signals!.final_rank = finalRank;
       return response(row);
