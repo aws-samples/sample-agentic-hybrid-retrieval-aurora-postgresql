@@ -88,7 +88,7 @@ describe("ProductDrawer request status", () => {
     const dialog = screen.getByRole("dialog", { name: "Product details" });
     expect(dialog.getAttribute("aria-busy")).toBe("true");
     expect(within(dialog).getByRole("status").textContent)
-      .toContain("Pulling the full catalog row");
+      .toContain("Loading the full product");
   });
 
   it("announces a failed product request as an alert", async () => {
@@ -111,5 +111,35 @@ describe("ProductDrawer request status", () => {
         .toContain(`Product details loaded for ${product.title}`);
     });
     expect(dialog.getAttribute("aria-busy")).toBe("false");
+  });
+
+  it("prices a real listing like its card: historical, never a stock or lookup line", async () => {
+    vi.mocked(api.product).mockResolvedValue({
+      ...product,
+      source_dataset: "reviews-2023-v2",
+      price_cents: null,
+      list_price_cents: null,
+      historical_price_cents: 27993,
+      availability: null,
+    });
+    renderDrawer();
+    const dialog = screen.getByRole("dialog", { name: "Product details" });
+    await within(dialog).findByText("$279.93");
+    expect(within(dialog).getByText("Historical price")).toBeTruthy();
+    expect(dialog.textContent).not.toMatch(/Stock not reported|Check original listing|catalog row/);
+  });
+
+  it("says a missing price is not recorded rather than sending the shopper elsewhere", async () => {
+    vi.mocked(api.product).mockResolvedValue({
+      ...product,
+      source_dataset: "reviews-2023-v2",
+      price_cents: null,
+      historical_price_cents: null,
+      availability: null,
+    });
+    renderDrawer();
+    const dialog = screen.getByRole("dialog", { name: "Product details" });
+    await within(dialog).findByText("Price not recorded");
+    expect(dialog.textContent).not.toMatch(/Stock not reported|Check original listing/);
   });
 });

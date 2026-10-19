@@ -2750,6 +2750,27 @@ describe("CatalogPage", () => {
     expect(vi.mocked(api.search).mock.calls[0][2]).toMatchObject({ limit: undefined });
   });
 
+  it("shows no catalog controls until the runtime says which catalog this is", async () => {
+    vi.mocked(useCatalogSource).mockReturnValue({ dataset_id: null, real: false, loaded: false });
+    window.history.replaceState({}, "", "/catalog?q=monitor");
+    renderPage();
+    await screen.findByRole("region", { name: "How this search ran" });
+    expect(screen.queryByRole("group", { name: "Suggested searches" })).toBeNull();
+    expect(screen.queryByText("Explore")).toBeNull();
+    expect(document.querySelector(".shop-controls")?.hasAttribute("hidden")).toBe(true);
+    expect(document.querySelector(".shop-filter-toolbar")?.hasAttribute("hidden")).toBe(true);
+  });
+
+  it("opens Ask Mosaic with a handed-over prompt and runs no Shop search for it", async () => {
+    const prompt = "Compare listing B0C2WWCFQB with similar headphones options.";
+    window.history.replaceState({}, "", `/catalog?ask=1&prompt=${encodeURIComponent(prompt)}`);
+    renderPage();
+    const composer = await screen.findByRole("textbox", { name: "Ask Mosaic request" });
+    expect((composer as HTMLTextAreaElement).value).toBe(prompt);
+    expect(api.search).not.toHaveBeenCalled();
+    expect(new URLSearchParams(window.location.search).has("q")).toBe(false);
+  });
+
   it("blames the environment, not the participant, when the trigram index is gone", async () => {
     // A missing pg_trgm index and an unrepaired CTE produce the same evidence:
     // the target is absent and no candidate carries a trigram rank. Shop used to

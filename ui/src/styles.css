@@ -235,7 +235,7 @@ button:disabled {
 }
 
 :focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--focus) 65%, transparent);
+  outline: 2px solid color-mix(in srgb, var(--focus) 65%, transparent);
   outline-offset: 3px;
 }
 
@@ -376,6 +376,15 @@ button:disabled {
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   grid-template-columns: minmax(160px, 1fr) auto minmax(160px, 1fr);
+}
+
+/* Translucency is a preference: without it the bar is a solid surface. */
+@media (prefers-reduced-transparency: reduce) {
+  .site-header {
+    background: var(--canvas);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 
 .site-brand {

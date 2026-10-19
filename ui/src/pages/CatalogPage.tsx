@@ -77,7 +77,7 @@ import {
   useSearchParams,
   SHOP_FILTER_PARAMS,
 } from "../navigation";
-import { ASK_MOSAIC_EVENT } from "../askMosaicEntry";
+import { ASK_MOSAIC_EVENT, ASK_MOSAIC_PROMPT_PARAM } from "../askMosaicEntry";
 import { EASE_OUT } from "../motion";
 import { lockBodyScroll } from "../scrollLock";
 import { useWantedName } from "../useWantedName";
@@ -269,6 +269,9 @@ function SearchingLine() {
 
 export function CatalogPage() {
   const { real, dataset_id: dataset, loaded: sourceLoaded } = useCatalogSource();
+  // Until the runtime says which catalog this is, the controls would be the retired
+  // synthetic catalog's, so none are shown.
+  const sourcePending = sourceLoaded === false;
   const [searchParams, setSearchParams] = useSearchParams();
   const [catalogPage, setPage] = useState<CatalogPage | null>(null);
   const [loading, setLoading] = useState(true);
@@ -838,7 +841,7 @@ export function CatalogPage() {
     setAssistOpen(false);
     setHighlightedProductId(null);
     const next = new URLSearchParams(searchParams);
-    const openers = ["ask", "mode"].filter((name) => next.has(name));
+    const openers = ["ask", "mode", ASK_MOSAIC_PROMPT_PARAM].filter((name) => next.has(name));
     if (!openers.length) return;
     for (const name of openers) next.delete(name);
     setSearchParams(next);
@@ -1216,7 +1219,7 @@ export function CatalogPage() {
                   </p>
                 ) : null}
 
-                {real ? (!activeQuery ? (
+                {sourcePending ? null : real ? (!activeQuery ? (
                   <div className="shop-search-examples" role="group" aria-label="Suggested searches">
                     <div className="shop-example-links">
                       {distinctExamples.map((example) => (
@@ -1252,7 +1255,7 @@ export function CatalogPage() {
             </>
           ) : (
             <>
-          <div className="shop-controls">
+          <div className="shop-controls" hidden={sourcePending}>
             <div className="shop-domain-scroller">
               <nav
                 className="shop-domain-tabs"
@@ -1309,7 +1312,7 @@ export function CatalogPage() {
           </div>
 
           {real && !activeQuery ? <p className="shop-source-caption">Original product listings · Amazon Reviews 2023 · Open a listing for current prices and availability.</p> : null}
-          <div className="shop-filter-toolbar" aria-label="Product filters">
+          <div className="shop-filter-toolbar" aria-label="Product filters" hidden={sourcePending}>
             <button
               className="shop-filter-button all"
               type="button"
@@ -1686,7 +1689,7 @@ export function CatalogPage() {
           memory={memory}
           imageByProductId={gridImages}
           open={agentOpen}
-          seedQuery={activeQuery}
+          seedQuery={searchParams.get(ASK_MOSAIC_PROMPT_PARAM) ?? activeQuery}
           contextFilters={filterChips.map((chip) => chip.label)}
           turns={agentTurns}
           pending={agentPending}

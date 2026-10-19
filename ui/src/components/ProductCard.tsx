@@ -2,7 +2,7 @@ import { Check, Heart, ShoppingBag, Star } from "lucide-react";
 import { Fragment } from "react";
 import { Link } from "wouter";
 import { cartQuantityLimit, useCommerce } from "../commerce";
-import { formatAvailability, formatPrice, isPurchasable, leafCategory, specFacts } from "../format";
+import { formatAvailability, formatPrice, isPurchasable, leafCategory, listingPriceCents, specFacts } from "../format";
 import { productDetailHref } from "../navigation";
 import { productImage } from "../media";
 import { ProductReceiptBody } from "./ProductReceipt";
@@ -134,10 +134,7 @@ export function ProductCard({
     // browsed page has no order of its own to show one for.
     const position = showSignals ? signals?.final_rank : undefined;
     const facts = specFactParts(product);
-    // A real listing's only price is its historical one; a missing one stays missing.
-    const shownPriceCents = product.source_dataset
-      ? (product.historical_price_cents ?? product.price_cents)
-      : product.price_cents;
+    const shownPriceCents = listingPriceCents(product);
     return (
       <article
         className={[

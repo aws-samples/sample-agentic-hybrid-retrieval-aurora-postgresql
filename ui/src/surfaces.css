@@ -1542,7 +1542,9 @@
 
 .shop-ranking-receipt {
   margin-bottom: 20px;
-  border-bottom: 1px solid var(--line);
+  padding: 0 18px;
+  border-radius: 16px;
+  background: var(--surface-muted);
 }
 
 /* Title and hint share one left edge; the chevron sits in its own column. */

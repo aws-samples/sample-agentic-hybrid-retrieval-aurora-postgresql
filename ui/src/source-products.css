@@ -78,8 +78,8 @@
 .source-detail-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
 .source-detail-actions > a { flex: 1 1 auto; min-height: 48px; padding: 10px 20px; font-size: 15px; text-align: center; }
 .source-detail-note { margin: 14px 0 0; color: var(--ink-soft); font-size: 12px; line-height: 1.6; }
-.source-detail-information { margin-top: 40px; border-top: 1px solid var(--line); }
-.source-detail-information > details { border-bottom: 1px solid var(--line); }
+.source-detail-information { display: grid; gap: 8px; margin-top: 40px; }
+.source-detail-information > details { padding: 0 20px; border-radius: 16px; background: var(--paper-warm); }
 .source-detail-information > details > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 66px; padding: 18px 0; --disclosure-size: 16px; --disclosure-ink: var(--ink); --disclosure-weight: 600; }
 .source-detail-information > details > summary::-webkit-details-marker { display: none; }
 .source-detail-information > details > summary small { margin-left: 12px; color: var(--ink-soft); font-size: 12px; font-weight: 400; }
@@ -89,13 +89,14 @@
 .source-expandable-text p { margin: 0; white-space: pre-line; }
 .source-text-preview { display: -webkit-box; overflow: hidden; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
 .source-specifications { margin: 14px 0 0; }
-.source-specifications > div { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(0, 3fr); gap: 24px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.source-specifications > div { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(0, 3fr); gap: 24px; padding: 12px 16px; border-radius: 12px; }
+.source-specifications > div:nth-child(odd) { background: var(--paper-warm); }
 .source-specifications dt { color: var(--ink-soft); }
 .source-specifications dd { margin: 0; color: var(--ink); }
 .source-specifications code { font-size: 11px; }
 .source-review-note { margin: 0 0 24px; }
 .source-detail-reviews { display: grid; gap: 28px; }
-.source-detail-reviews article + article { padding-top: 24px; border-top: 1px solid var(--line); }
+.source-detail-reviews article + article { padding-top: 8px; }
 .source-review-heading { display: flex; align-items: baseline; gap: 14px; margin-bottom: 12px; color: var(--ink); }
 .source-review-heading > span { display: inline-flex; gap: 5px; align-items: center; white-space: nowrap; }
 .source-review-heading h3 { margin: 0; font: 600 15px/1.4 var(--sans); }

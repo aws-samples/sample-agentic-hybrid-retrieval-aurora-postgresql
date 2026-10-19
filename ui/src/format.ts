@@ -39,6 +39,20 @@ export function formatPrice(cents: number | null, currency = "USD"): string {
   return formatter(currency).format(cents / 100);
 }
 
+/**
+ * The price a listing shows. A real listing's only price is its historical one;
+ * a missing one stays missing rather than becoming a number.
+ */
+export function listingPriceCents(product: {
+  source_dataset?: string | null;
+  price_cents: number | null;
+  historical_price_cents?: number | null;
+}): number | null {
+  return product.source_dataset
+    ? (product.historical_price_cents ?? product.price_cents)
+    : product.price_cents;
+}
+
 /** `34900` -> `"$349"`. For dense rows where the cents add noise. */
 export function formatPriceCompact(cents: number | null, currency = "USD"): string {
   if (cents == null) return "Check original listing";

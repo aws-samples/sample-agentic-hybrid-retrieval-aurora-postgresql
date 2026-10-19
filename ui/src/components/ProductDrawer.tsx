@@ -14,6 +14,7 @@ import {
   leafCategory,
   withoutBreakTags,
 } from "../format";
+import { listingPriceCents } from "../format";
 import { productImage } from "../media";
 import { lockBodyScroll } from "../scrollLock";
 import type { ProductDetail } from "../types";
@@ -63,7 +64,7 @@ export function ProductDrawer({
           setError(
             cause instanceof Error
               ? cause.message
-              : "The catalog row could not be loaded.",
+              : "The product could not be loaded.",
           );
         }
       },
@@ -146,6 +147,7 @@ export function ProductDrawer({
   const quantity = detail ? itemQuantity(detail.product_id) : 0;
   const quantityLimit = detail ? cartQuantityLimit(detail) : 0;
   const quantityAtLimit = quantity > 0 && quantity >= quantityLimit;
+  const drawerPriceCents = detail ? listingPriceCents(detail) : null;
 
   return (
     <AnimatePresence initial={false}>
@@ -181,7 +183,7 @@ export function ProductDrawer({
                     ? `${detail.brand} · ${leafCategory(detail.category_path)}`
                     : "Mosaic catalog"}
                 </p>
-                <h2>{detail ? detail.title : "Opening the catalog row"}</h2>
+                <h2>{detail ? detail.title : "Opening the product"}</h2>
               </div>
               <button
                 type="button"
@@ -204,7 +206,7 @@ export function ProductDrawer({
               ) : null}
               {!detail && !error ? (
                 <p className="product-drawer-loading" role="status" aria-atomic="true">
-                  Pulling the full catalog row…
+                  Loading the full product…
                 </p>
               ) : null}
               {detail ? (
@@ -216,15 +218,22 @@ export function ProductDrawer({
               {detail ? (
                 <>
                   <div className="product-drawer-price-row">
-                    <strong>
-                      {formatPrice(detail.price_cents, detail.currency)}
-                    </strong>
-                    {detail.list_price_cents != null && detail.price_cents != null && detail.list_price_cents > detail.price_cents ? (
+                    {drawerPriceCents == null && detail.source_dataset ? (
+                      <span className="muted">Price not recorded</span>
+                    ) : (
+                      <strong>
+                        {formatPrice(drawerPriceCents, detail.currency)}
+                      </strong>
+                    )}
+                    {detail.source_dataset && drawerPriceCents != null ? (
+                      <span className="muted">Historical price</span>
+                    ) : null}
+                    {!detail.source_dataset && detail.list_price_cents != null && detail.price_cents != null && detail.list_price_cents > detail.price_cents ? (
                       <s>
                         {formatPrice(detail.list_price_cents, detail.currency)}
                       </s>
                     ) : null}
-                    <span
+                    {detail.source_dataset ? null : <span
                       className={
                         isPurchasable(detail.availability) ? "stock" : "muted"
                       }
@@ -233,7 +242,7 @@ export function ProductDrawer({
                         <Check size={14} />
                       ) : null}
                       {formatAvailability(detail.availability)}
-                    </span>
+                    </span>}
                   </div>
 
                   {/* A rating with no reviews behind it is not evidence, so
@@ -291,7 +300,7 @@ export function ProductDrawer({
             </div>
 
             <footer>
-              {detail?.listing_url ? <a className="product-drawer-add" href={detail.listing_url} target="_blank" rel="noreferrer">View original listing ↗</a> : (
+              {detail?.listing_url ? <a className="product-drawer-add" href={detail.listing_url} target="_blank" rel="noreferrer">View original listing ↗</a> : detail?.source_dataset ? null : (
               <button
                 className="product-drawer-add"
                 type="button"

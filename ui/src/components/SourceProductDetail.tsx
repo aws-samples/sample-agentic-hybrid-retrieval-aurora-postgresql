@@ -1,3 +1,4 @@
+import { askMosaicPromptHref } from "../askMosaicEntry";
 import { ExternalLink, Heart, Sparkles, Star } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
@@ -110,7 +111,7 @@ export function SourceProductDetail({
           ) : null}
           <div className="source-detail-actions">
             <a className="product-cta-primary" href={product.listing_url ?? undefined} target="_blank" rel="noreferrer">View original listing <ExternalLink size={16} /></a>
-            <Link className="product-cta-secondary" href={`/catalog?ask=1&q=${encodeURIComponent(`Compare listing ${product.sku} with similar ${category} options. Keep this listing in the comparison and explain the trade-offs.`)}`}><Sparkles size={16} /> Compare in Ask Mosaic</Link>
+            <Link className="product-cta-secondary" href={askMosaicPromptHref(`Compare listing ${product.sku} with similar ${category} options. Keep this listing in the comparison and explain the trade-offs.`)}><Sparkles size={16} /> Compare in Ask Mosaic</Link>
           </div>
           <p className="source-detail-note">Original details from Amazon Reviews 2023. Check the listing for today’s price, availability and variants.</p>
         </div>
