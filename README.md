@@ -186,9 +186,11 @@ You can inspect the [search settings](db/config/retrieval.yaml) and follow the
 ## Take it into your own project
 
 Connect your agent to the retrieval tools, then add the skill to guide the
-workflow. **Connect retrieval tools** in Mosaic links to the MCP setup and HTTP
-contracts. **Download the skill** adds search, comparison and source-checking
-instructions; **Adapt the implementation** supplies reference code.
+workflow. In Mosaic, **Playground → Use it in your own agent** has three
+buttons: **Connect over MCP** links to the MCP setup and HTTP contracts,
+**Download the agent skill** adds search, comparison and source-checking
+instructions, and **Download the SQL and guide** supplies the search SQL and
+the adaptation guide.
 
 The tools are catalog-read-only; searches still append audit records. MCP tool
 annotations and skill instructions do not grant or restrict database access.

@@ -38,6 +38,7 @@ from service.participant_commands import (
     ADVANCE_TO_LAB_2,
     ADVANCE_TO_LAB_3,
     APPLY_SQL,
+    DEPLOY_AGENT,
     complete_lab_3,
     reset,
     validate,
@@ -223,7 +224,14 @@ def _capture(
         from service.agent_setup import AGENT_STARTER_MESSAGE
 
         evidence = {"state": "done", "agent_refusal": AGENT_STARTER_MESSAGE}
-        say(f"Mosaic now refuses Retrieval agent requests: {AGENT_STARTER_MESSAGE}")
+        # The saved refusal is Mosaic's one-line message; on screen the deploy command gets
+        # its own line, so no line wraps mid-word in a laptop terminal.
+        say(
+            "Mosaic now refuses Retrieval agent requests. Your Retrieval agent is not built yet.\n"
+            "Open labs/lab3_reason/agent.py and complete create_agent with the supplied model,\n"
+            "tools, instructions and hooks. Then deploy it and ask your question again:\n"
+            f"      {DEPLOY_AGENT}"
+        )
     else:
         applied = validate_database(lab, connection, repo=repo)
         evidence = _failing_search_evidence(lab, applied, api_url, repo, say)

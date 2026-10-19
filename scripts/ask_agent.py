@@ -27,7 +27,10 @@ from service.config import get_settings
 from service.lab_validation_receipt import participant_sql_digest
 from service.participant_commands import APPLY_SQL
 
-QUOTE_CHARS = 120
+# Code Editor's terminal on a 16-inch laptop holds 124 characters a line. Every line stays
+# well inside it, so a long title or quote is shortened rather than wrapped mid-word.
+LINE_CHARS = 100
+QUOTE_CHARS = LINE_CHARS - 8  # inside its six-space indent and quotation marks
 MIN_QUESTION = 4  # AgentRequest.question's own minimum
 # The API waits for Runtime up to the turn deadline plus its own 30 s transport
 # margin, then saves the run; waiting longer means the Run ID always prints.
@@ -66,7 +69,7 @@ def _search_sql(applied: str | None, workspace: str) -> str:
         )
     if applied == workspace:
         return (
-            f"Aurora ran your Lab 1 and Lab 2 SQL ({applied[:12]}), the same as labs/"
+            f"Aurora ran your Lab 1 and Lab 2 SQL ({applied[:12]}), the same as your lab files"
         )
     return (
         f"Aurora ran search SQL {applied[:12]}, not your lab files' {workspace[:12]}; "
@@ -98,9 +101,13 @@ def _trace(response: dict[str, Any], workspace: str) -> list[str]:
     return lines
 
 
-def _quote(text: str) -> str:
+def _clip(text: str, limit: int) -> str:
     flat = " ".join(text.split())
-    return flat if len(flat) <= QUOTE_CHARS else flat[: QUOTE_CHARS - 1].rstrip() + "…"
+    return flat if len(flat) <= limit else flat[: limit - 1].rstrip() + "…"
+
+
+def _quote(text: str) -> str:
+    return _clip(text, QUOTE_CHARS)
 
 
 def _citations(response: dict[str, Any]) -> list[str]:
@@ -127,10 +134,10 @@ def render(response: dict[str, Any]) -> str:
         for paragraph in response["answer"].splitlines()
         for line in (textwrap.wrap(paragraph, 86) or [""])
     ]
-    products = [
-        f"  {item['product_id']}  {item['title']}"
-        for item in response["recommendations"]
-    ]
+    products = []
+    for item in response["recommendations"]:
+        lead = f"  {item['product_id']}  "
+        products.append(lead + _clip(item["title"], LINE_CHARS - len(lead)))
     lines = [
         *_section("ANSWER", answer),
         *_section("PLAN", _plan(response)),

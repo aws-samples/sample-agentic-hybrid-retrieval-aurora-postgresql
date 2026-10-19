@@ -40,7 +40,8 @@ Lab 2 and prepares Lab 3. In Lab 3, ask Alex's setup request with
 `scripts/ask_agent.py` and keep the **Run ID** it prints before you ask any
 follow-up: completion checks that run.
 
-After the labs, open **Playground → Take this retrieval into your own agent**
-and choose **Download the skill** to keep the Hybrid Agentic Search skill. For
+After the labs, open **Playground → Use it in your own agent** and choose
+**Download the agent skill** to keep the Hybrid Agentic Search skill, or
+**Download the SQL and guide** to adapt the search to your own data. For
 the source layout, see [the repository map](docs/index.md) and
 [the agent guidance](AGENTS.md).

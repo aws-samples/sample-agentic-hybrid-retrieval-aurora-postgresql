@@ -69,7 +69,7 @@ they are not a like-for-like replacement for these figures.
 | Compare sources | Reason; Check the sources | Count cited specifications and reviews against imported reviews and source rating counts |
 | Explain ranking signals | Rank; agent activity | Inspect source positions, fusion contributions and the explanation tool |
 | Synthesize cited answers | Reason | Ask Alex's question, open a citation and change a requirement in a follow-up |
-| Working code, schema patterns, ranking templates | Conclusion: Use it in your own agent | Download the skill and the implementation package; the full checkout supplies SQL, evaluations and citation checks |
+| Working code, schema patterns, ranking templates | Conclusion: Use it in your own agent | Download the agent skill and the SQL and guide; the full checkout supplies SQL, evaluations and citation checks |
 
 The completion gate remains inside Lab 3. Its saved-run option repeats the checks against current Aurora records without issuing two additional model calls. It rejects changed code or settings, missing runs, a rebroken seam and changed citation records.
 
@@ -88,9 +88,9 @@ Session & Memory leads the untimed optional exercises; the build-a-tool guide an
 The closing message is **Use it in your own agent**.
 Introduce reuse in the opening and connect each lab's repair to the behavior an
 agent relies on. Close on an existing checked answer, then show **Download the
-skill** (`/api/skill-package`) and **Adapt the implementation**
+agent skill** (`/api/skill-package`) and **Download the SQL and guide**
 (`/api/builder-package`). The first provides calling instructions and API
-mappings for the running service; the second provides reference SQL and the
+mappings for the running service; the second provides the search SQL and the
 implementation map. The full checkout supplies runnable code, evaluations and
 citation checks. Participant instructions live in the sibling Workshop Studio
 repository.

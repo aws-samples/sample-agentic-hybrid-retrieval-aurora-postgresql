@@ -130,6 +130,20 @@ def test_a_long_quote_is_shortened_but_the_answer_is_not():
     assert len(quote_line) < 200
 
 
+def test_every_line_fits_a_laptop_terminal_without_wrapping(monkeypatch):
+    """Code Editor's terminal on a 16-inch laptop holds 124 characters a line; a wrapped
+    title or quote breaks mid-word in the guide's screenshots and on screen."""
+    monkeypatch.setattr(ask_agent, "participant_sql_digest", lambda: "a" * 64)
+    run = gateway_run("a" * 64)
+    run["recommendations"] = [product(1551237, "ViewSonic VG2756-4K 27 Inch IPS 4K " * 6)]
+    run["citations"] = grounded()["citations"]
+
+    text = ask_agent.render(run)
+
+    assert max(len(line) for line in text.splitlines()) <= ask_agent.LINE_CHARS
+    assert "1551237  ViewSonic VG2756-4K 27 Inch IPS 4K" in text
+
+
 def test_a_declined_answer_names_its_reason_and_says_nothing_was_cited():
     text = ask_agent.render(declined())
 
@@ -255,7 +269,8 @@ def test_a_search_through_gateway_says_it_ran_the_lab_sql(monkeypatch):
 
     assert "1  search_products          success   through AgentCore Gateway" in text
     assert (
-        "Aurora ran your Lab 1 and Lab 2 SQL (aaaaaaaaaaaa), the same as labs/" in text
+        "Aurora ran your Lab 1 and Lab 2 SQL (aaaaaaaaaaaa), the same as your lab files"
+        in text
     )
     assert "2  get_product_evidence     success   through AgentCore Gateway" in text
 
@@ -269,7 +284,7 @@ def test_a_search_that_ran_other_sql_says_so_and_how_to_apply(monkeypatch):
         "Aurora ran search SQL bbbbbbbbbbbb, not your lab files' aaaaaaaaaaaa" in text
     )
     assert "uv run python scripts/apply_search_functions.py" in text
-    assert "the same as labs/" not in text
+    assert "the same as your lab files" not in text
 
 
 def test_a_search_with_no_sql_record_says_so(monkeypatch):

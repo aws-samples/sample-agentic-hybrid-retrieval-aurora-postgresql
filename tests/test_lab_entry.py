@@ -332,6 +332,20 @@ def test_lab_3_start_installs_the_starter_and_records_the_refusal(repo, aurora) 
     assert "agent_refusal" in record["steps"]["evidence"]
 
 
+def test_lab_3_start_prints_the_deploy_command_on_its_own_line(repo, aurora) -> None:
+    """The handoff's last lines fit a laptop terminal, so none wraps mid-word."""
+    from service.participant_commands import DEPLOY_AGENT
+
+    aurora.applied[2] = "applied"
+    said: list[str] = []
+
+    _start(3, repo, said)
+
+    lines = [line for message in said for line in message.splitlines()]
+    assert max(len(line) for line in lines) <= 100
+    assert f"      {DEPLOY_AGENT}" in lines
+
+
 @pytest.fixture
 def handoff_checks(monkeypatch):
     calls = []
