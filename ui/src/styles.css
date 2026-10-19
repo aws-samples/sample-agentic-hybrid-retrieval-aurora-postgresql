@@ -106,6 +106,8 @@
 /* Surface and text roles move together; cobalt actions retain white ink in both themes. */
 :root[data-theme="dark"] {
   color-scheme: dark;
+  /* The favicon's brown, lifted so the mark stays visible on a black page. */
+  --brand-mark: #7a2c3a;
   --maroon-950: var(--white);
   --maroon-900: #f0f0f2;
   --maroon-700: #d1d1d6;
@@ -848,10 +850,6 @@ button:disabled {
   height: 24px;
   flex: 0 0 auto;
   color: var(--footer-ink);
-}
-
-.site-footer-mark svg text {
-  fill: var(--footer-surface);
 }
 
 .site-footer-mark strong {
