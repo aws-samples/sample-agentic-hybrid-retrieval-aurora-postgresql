@@ -975,7 +975,7 @@ export function RetrievalLabPage() {
       <PlaygroundStage
         number="02"
         title="Rank"
-        summary="Lab 2, Task 2A: repair the source-position contributions and inspect which candidates survived fusion."
+        summary="Lab 2: give each search position its own score, then inspect which candidates survived fusion."
         stale={loading && Boolean(response)}
       >
         {response ? (
@@ -1001,7 +1001,7 @@ export function RetrievalLabPage() {
 
       </PlaygroundStage>
 
-      <PlaygroundStage number="03" title="Re-rank" summary="Lab 2, Task 2B: compare the same pool before and after reranking. Judge three measured settings on labeled queries before changing one." stale={loading && Boolean(response)}>
+      <PlaygroundStage number="03" title="Re-rank" summary="Lab 2: compare the same pool before and after reranking, then compare three measured settings on judged searches before changing one." stale={loading && Boolean(response)}>
         <RetrievalObservatory example={example} loading={loading} response={response} />
         <PlaygroundDisclosure label="View the complete candidate pool" hint="includes candidates outside the displayed results" onOpen={() => setPoolOpen(true)}>
           {poolOpen ? <CandidatePoolOrder response={response ?? undefined} /> : null}
@@ -1052,7 +1052,7 @@ export function RetrievalLabPage() {
         title="Reason"
         summary="Support the Retrieval agent's answer with sources. Which products and evidence it received, what the application allowed into the answer, and whether every citation resolves."
       >
-        <p>{reasonScenario ? "Complete Alex’s setup: headphones, monitor and chair. Save this original run for Lab 3 completion." : "Explore this same request with the Retrieval agent. For graded Lab 3 completion, select Complete Alex’s room from the lab examples."}</p>
+        <p>{reasonScenario ? "Complete Alex’s setup: headphones, monitor and chair. Save this original run for Lab 3 completion." : "Explore this same request with the Retrieval agent. To complete Lab 3, choose Complete my setup from the lab examples."}</p>
         <ReasonStage key={`${reasonQuestion}:${JSON.stringify(reasonFilters)}`} question={reasonQuestion} filters={reasonFilters} onAgentRun={setAgentRunId} />
       </PlaygroundStage>
 

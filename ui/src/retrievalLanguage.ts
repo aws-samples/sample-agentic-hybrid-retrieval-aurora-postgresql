@@ -52,6 +52,16 @@ export const armLabel: Record<RetrievalArm, string> = {
 export const FUSED_LABEL = "Before reranking";
 export const FINAL_LABEL = "Final position";
 
+/** A tool call's name on a step chip: a few plain words, in the same vocabulary. */
+export const toolChipLabel: Record<string, string> = {
+  search_products: "Search",
+  get_product_evidence: "Read sources",
+  compare_products: "Compare",
+  explain_retrieval: "Explain ranking",
+  synthesize_cited_answer: "Write cited answer",
+  inspect_retrieval_run: "Inspect saved search",
+};
+
 /** Interface summaries; the raw tool definitions remain available for inspection. */
 export const toolPurpose: Record<string, string> = {
   search_products: "Search Aurora with full-text search, fuzzy matching and semantic search, then combine and rerank the filtered matches.",

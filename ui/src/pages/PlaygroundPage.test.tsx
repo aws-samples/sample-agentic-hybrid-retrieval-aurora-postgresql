@@ -35,6 +35,25 @@ function ranked(product: ProductSummary, before: number, final: number): Product
 const savedSearch = (id: string, products: ProductSummary[]): SearchResponse => ({ search_event_id: id, query: `Saved query ${id}`, normalized_query: "saved", applied_filters: { category_key: "over-ear-headphones", max_price_cents: 20000 }, results: products, diagnostics: null });
 const searchStep = (id: string, sequence: number): ToolTraceStep => ({ sequence, tool: "search_products", detail: "Saved search", retrieval_run_id: id, result_count: 2, arguments: {}, outcome: "success", latency_ms: 10 });
 const productLinks = (region: HTMLElement) => within(region).getAllByRole("link").map((link) => link.getAttribute("href"));
+const stageTab = (name: string) => screen.getByRole("tab", { name: new RegExp(`^${name}(:|$)`) });
+const stageStates = (names: string[]) => names.map((name) => stageTab(name).dataset.state);
+/** Opens one stage and returns its panel. */
+function openStage(name: string) {
+  fireEvent.click(stageTab(name));
+  return screen.getByRole("tabpanel");
+}
+/** Opens a stage and its details, if they are not open already. */
+function openStageDetails(name: string, label: string) {
+  const panel = openStage(name);
+  const button = within(panel).getByRole("button", { name: label });
+  if (button.getAttribute("aria-expanded") !== "true") fireEvent.click(button);
+  return panel;
+}
+/** Reason holds the one action that asks the Retrieval agent about a search request. */
+function askAboutThisNeed() {
+  openStage("Reason");
+  fireEvent.click(screen.getByRole("button", { name: "Ask about this need" }));
+}
 
 it("opens a saved Shop search in the pipeline layout even when the link carries a lab example", async () => {
   const response = savedSearch(firstSearchId, [ranked(fixtureCatalogPage({}, 0, 1).products[0], 2, 1)]);
@@ -45,7 +64,8 @@ it("opens a saved Shop search in the pipeline layout even when the link carries 
   render(<PlaygroundPage />);
   expect(screen.queryByText("Guide workbench")).toBeNull();
   await screen.findByRole("heading", { name: response.query });
-  expect(screen.getByRole("button", { name: "Why the order changed" }).getAttribute("aria-expanded")).toBe("true");
+  expect(stageTab("Re-rank").getAttribute("aria-selected")).toBe("true");
+  expect(screen.getByRole("button", { name: "Why this position" }).getAttribute("aria-expanded")).toBe("true");
   expect(replay).toHaveBeenCalledWith(firstSearchId);
   expect(search).not.toHaveBeenCalled();
   expect(stream).not.toHaveBeenCalled();
@@ -81,6 +101,7 @@ it("replays Shop's saved results with the same preview products, then explicitly
   await screen.findByRole("heading", { name: original.query });
   expect(stream).not.toHaveBeenCalled();
   expect(search).not.toHaveBeenCalled();
+  openStageDetails("Re-rank", "Why this position");
   const finalSources = new Map(within(screen.getByRole("list", { name: "Final ranking preview" })).getAllByRole("link").map((link) => [link.getAttribute("href"), link.querySelector("img")?.getAttribute("src")]));
   expect([...finalSources.keys()]).toEqual(products.map((product) => `/products/${product.product_id}`));
   fireEvent.click(screen.getByRole("button", { name: "Before reranking (displayed products)" }));
@@ -91,9 +112,8 @@ it("replays Shop's saved results with the same preview products, then explicitly
   }
   fireEvent.click(screen.getByRole("button", { name: "Final order" }));
   expect(screen.getByLabelText("#7 before rerank, #1 in the final order")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Why the order changed" }));
   expect(within(screen.getByRole("region", { name: "Product ranking details" })).getAllByRole("listitem")).toHaveLength(4);
-  fireEvent.click(screen.getByRole("button", { name: "Ask about this need" }));
+  askAboutThisNeed();
   await screen.findByRole("region", { name: "Mosaic’s picks for Alex" });
   expect(stream.mock.calls[0].slice(0, 2)).toEqual([original.query, original.applied_filters]);
   expect(screen.getByRole("heading", { name: original.query })).toBeTruthy();
@@ -101,6 +121,8 @@ it("replays Shop's saved results with the same preview products, then explicitly
   const back = screen.getByRole("button", { name: "Back to saved Shop results" });
   await waitFor(() => expect((back as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(back);
+  await waitFor(() => expect(screen.queryByRole("region", { name: "Mosaic’s picks for Alex" })).toBeNull());
+  openStageDetails("Re-rank", "Why this position");
   await waitFor(() => expect(productLinks(screen.getByRole("list", { name: "Final ranking preview" }))).toEqual(products.map((product) => `/products/${product.product_id}`)));
   expect(screen.queryByRole("region", { name: "Mosaic’s picks for Alex" })).toBeNull();
   expect(stream).toHaveBeenCalledTimes(1);
@@ -117,16 +139,18 @@ it("shows every recommendation, follows its recorded search, and preserves a cho
   let finish!: () => void;
   vi.spyOn(api, "agentStream").mockImplementation(async (_question, _filters, callback) => { emit = callback; await new Promise<void>((resolve) => { finish = resolve; }); });
   render(<PlaygroundPage />);
-  fireEvent.click(screen.getByRole("button", { name: "Ask about this need" }));
+  askAboutThisNeed();
   await act(async () => emit({ type: "answer_start", response: answer }));
   expect(screen.queryByRole("region", { name: "Mosaic’s picks for Alex" })).toBeNull();
-  const selector = screen.getByRole("combobox", { name: "Search shown in Retrieve, Rank and Re-rank" }) as HTMLSelectElement;
-  expect(selector.value).toBe(firstSearchId);
-  expect(productLinks(screen.getByRole("list", { name: "Final ranking preview" }))).toEqual(first.results.map((product) => `/products/${product.product_id}`));
-  fireEvent.change(selector, { target: { value: firstSearchId } });
+  // The agent's searches wait until its answer has been read out.
+  expect(screen.queryByRole("combobox", { name: "Search shown in Retrieve, Rank and Re-rank" })).toBeNull();
+  expect(screen.queryByRole("list", { name: "Final ranking preview" })).toBeNull();
   await act(async () => { emit({ type: "complete", response: answer }); finish(); });
-  expect(selector.value).toBe(firstSearchId);
   const picks = await screen.findByRole("region", { name: "Mosaic’s picks for Alex" }, { timeout: READ_OUT_MS });
+  const selector = await screen.findByRole("combobox", { name: "Search shown in Retrieve, Rank and Re-rank" }) as HTMLSelectElement;
+  expect(selector.value).toBe(firstSearchId);
+  openStageDetails("Re-rank", "Why this position");
+  await waitFor(() => expect(productLinks(screen.getByRole("list", { name: "Final ranking preview" }))).toEqual(first.results.map((product) => `/products/${product.product_id}`)));
   expect(productLinks(picks)).toEqual(answer.recommendations.map((product) => `/products/${product.product_id}`));
   expect(picks.querySelectorAll("ol > li")).toHaveLength(4);
   expect(picks.querySelectorAll("img")).toHaveLength(4);
@@ -147,7 +171,7 @@ it("keeps a recommendation visible when its search is delayed or unavailable wit
   vi.spyOn(api, "retrievalEventResponse").mockReturnValue(new Promise((_resolve, fail) => { reject = fail; }));
   vi.spyOn(api, "agentStream").mockImplementation(async (_question, _filters, emit) => emit({ type: "complete", response: { agent_run_id: agentId, question: defaultRequest.query, answer: "An answer whose search is unavailable.", plan: [], recommendations: [product], citations: [], trace: [searchStep(firstSearchId, 1)] } }));
   render(<PlaygroundPage />);
-  fireEvent.click(screen.getByRole("button", { name: "Ask about this need" }));
+  askAboutThisNeed();
   const picks = await screen.findByRole("region", { name: "Mosaic’s picks for Alex" });
   expect(within(picks).getByText("Loading this product’s search…")).toBeTruthy();
   expect(within(picks).queryByRole("button")).toBeNull();
@@ -163,6 +187,7 @@ it("does not start from URL filters when a saved Shop record cannot be loaded", 
   const stream = vi.spyOn(api, "agentStream");
   render(<PlaygroundPage />);
   await screen.findByRole("alert");
+  openStage("Reason");
   const play = screen.getByRole("button", { name: "Ask about this need" }) as HTMLButtonElement;
   expect(play.disabled).toBe(true);
   fireEvent.click(play);
@@ -178,27 +203,27 @@ it("streams the full answer, then keeps all of it in view above every pick", asy
     await new Promise<void>((resolve) => { finish = resolve; });
   });
   const { container } = render(<PlaygroundPage />);
-  const reason = screen.getByRole("region", { name: "Reason" });
-  fireEvent.click(screen.getByRole("button", { name: "Ask about this need" }));
+  const run = screen.getByRole("region", { name: "This run" });
+  askAboutThisNeed();
   act(() => emit({ type: "partial", partial: { plan: [], candidates: products, trace: [] } }));
-  expect(reason.querySelectorAll("img")).toHaveLength(0);
+  expect(run.querySelectorAll("img")).toHaveLength(0);
   expect(screen.queryByRole("region", { name: "Mosaic’s picks for Alex" })).toBeNull();
   act(() => emit({ type: "stage", id: "answer", path: "full_retrieval", title: "Answer", detail: "Synthesis" }));
-  expect(within(reason).getByText(/Comparing 3 products/)).toBeTruthy();
-  expect(reason.querySelector(".pg-reason-status svg.spin")).toBeTruthy();
+  const running = within(screen.getByRole("list", { name: "The Retrieval agent’s steps" })).getByText("Writing the answer");
+  expect(running.closest(".pg-chip")?.getAttribute("data-state")).toBe("running");
   const response: AgentResponse = { agent_run_id: agentId, question: defaultRequest.query, answer: `${products[1].title} is the best fit. ${"Full supporting explanation. ".repeat(30)}The final sentence.`, plan: [], recommendations: [products[1], products[0]], citations: [], trace: [] };
   act(() => emit({ type: "answer_start", response: { ...response, answer: "" } }));
   act(() => emit({ type: "answer_delta", delta: `${products[1].title} is the best fit.` }));
-  await waitFor(() => expect(reason.querySelector(".inspector-answer")?.textContent).toContain(`${products[1].title} is the best fit.`));
-  expect(reason.querySelectorAll(".inspector-answer .reveal-chunk").length).toBeGreaterThan(1);
-  expect(reason.querySelectorAll("img")).toHaveLength(0);
+  await waitFor(() => expect(run.querySelector(".inspector-answer")?.textContent).toContain(`${products[1].title} is the best fit.`));
+  expect(run.querySelectorAll(".inspector-answer .reveal-chunk").length).toBeGreaterThan(1);
+  expect(run.querySelectorAll("img")).toHaveLength(0);
   expect(container.querySelector(".inspector-answer")?.getAttribute("aria-busy")).toBe("true");
   await act(async () => { emit({ type: "complete", response }); finish(); });
   // The picks and sources wait until the prose has been read out, so they never push it down.
   expect(screen.queryByRole("region", { name: "Mosaic’s picks for Alex" })).toBeNull();
   const picks = await screen.findByRole("region", { name: "Mosaic’s picks for Alex" }, { timeout: READ_OUT_MS });
   expect(productLinks(picks)).toEqual([products[1], products[0]].map((product) => `/products/${product.product_id}`));
-  const prose = reason.querySelector(".inspector-answer")!;
+  const prose = run.querySelector(".inspector-answer")!;
   expect(prose.textContent).toContain("The final sentence.");
   expect(prose.closest("details")).toBeNull();
   expect(prose.compareDocumentPosition(picks) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -216,10 +241,9 @@ it("does not infer completed retrieval phases from agent comparison events", asy
     await new Promise<void>((resolve) => { finish = resolve; });
   });
   render(<PlaygroundPage />);
-  const stages = ["Retrieve", "Rank", "Re-rank", "Reason"].map((name) => screen.getByRole("region", { name }));
-  const states = () => stages.map((column) => column.dataset.state);
+  const states = () => stageStates(["Retrieve", "Rank", "Re-rank", "Reason"]);
   expect(states()).toEqual(["idle", "idle", "idle", "idle"]);
-  fireEvent.click(screen.getByRole("button", { name: "Ask about this need" }));
+  askAboutThisNeed();
   for (const id of ["rank", "answer", "retrieve"] as const) {
     act(() => emit({ type: "stage", id, path: "full_retrieval", title: id, detail: id }));
     expect(states()).toEqual(["pending", "pending", "pending", "active"]);
@@ -241,40 +265,57 @@ it.each([
     throw new Error("Catalog connection unavailable.");
   });
   render(<PlaygroundPage />);
-  fireEvent.click(screen.getByRole("button", { name: "Ask about this need" }));
+  askAboutThisNeed();
   await screen.findByRole("alert");
-  const regions = ["Retrieve", "Rank", "Reason"].map((name) => screen.getByRole("region", { name }));
-  expect(regions.map((region) => region.dataset.state)).toEqual(expected);
+  const states = () => stageStates(["Retrieve", "Rank", "Reason"]);
+  expect(states()).toEqual(expected);
   expect(screen.queryByRole("status", { name: /waiting|working/ })).toBeNull();
   expect(screen.queryByText("Matching products will appear as the search finishes.")).toBeNull();
   expect(screen.getByText("No search results are available from this run.")).toBeTruthy();
   stream.mockImplementationOnce(async (_question, _filters, emit) => emit({ type: "complete", response: { agent_run_id: agentId, question: defaultRequest.query, answer: "Recovered.", plan: [], recommendations: [], citations: [], trace: [] } }));
-  fireEvent.click(screen.getByRole("button", { name: "Ask about this need" }));
+  askAboutThisNeed();
   await screen.findByText("Recovered.");
-  expect(regions.map((region) => region.dataset.state)).toEqual(["idle", "idle", "complete"]);
+  expect(states()).toEqual(["idle", "idle", "complete"]);
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
-it("keeps each detail panel inside its column and lets all three stay open", async () => {
+it("keeps each stage's details open while the reader walks the other stages", async () => {
   const products = fixtureCatalogPage({}, 0, 2).products.map((product, index) => ranked(product, index + 4, index + 1));
   vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(savedSearch(firstSearchId, products));
   vi.spyOn(api, "agentStream").mockImplementation(async (_question, _filters, emit) => emit({ type: "complete", response: { agent_run_id: agentId, question: defaultRequest.query, answer: "The recorded answer.", plan: [], recommendations: products, citations: [], trace: [searchStep(firstSearchId, 1)] } }));
   render(<PlaygroundPage />);
-  fireEvent.click(screen.getByRole("button", { name: "Ask about this need" }));
-  await screen.findByRole("list", { name: "Final ranking preview" });
-  for (const [column, label] of [["Retrieve", "Search details"], ["Rank", "Fusion details"], ["Re-rank", "Why the order changed"], ["Reason", "Steps and sources"]]) {
-    const region = screen.getByRole("region", { name: column });
-    fireEvent.click(within(region).getByRole("button", { name: label }));
-    expect(region.contains(screen.getByRole("region", { name: label }))).toBe(true);
+  askAboutThisNeed();
+  await screen.findByRole("region", { name: "Mosaic’s picks for Alex" }, { timeout: READ_OUT_MS });
+  const steps: [string, string][] = [["Retrieve", "Search details"], ["Rank", "Fusion details"], ["Re-rank", "Why this position"], ["Reason", "Steps and sources"]];
+  for (const [stage, label] of steps) {
+    const panel = openStage(stage);
+    fireEvent.click(within(panel).getByRole("button", { name: label }));
+    expect(panel.contains(screen.getByRole("region", { name: label }))).toBe(true);
   }
-  expect(screen.getAllByRole("button", { expanded: true })).toHaveLength(4);
-  fireEvent.click(screen.getByRole("button", { name: "Why the order changed" }));
-  expect(screen.queryByRole("region", { name: "Why the order changed" })).toBeNull();
-  expect(screen.getByRole("region", { name: "Search details" })).toBeTruthy();
-  expect(screen.getByRole("region", { name: "Steps and sources" })).toBeTruthy();
+  for (const [stage, label] of steps) {
+    expect(within(openStage(stage)).getByRole("button", { name: label }).getAttribute("aria-expanded")).toBe("true");
+  }
+  const rerank = openStage("Re-rank");
+  fireEvent.click(within(rerank).getByRole("button", { name: "Why this position" }));
+  expect(screen.queryByRole("region", { name: "Why this position" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: `${products[0].title}: show Search 1, rank 1` }));
-  expect(screen.getAllByRole("button", { expanded: true })).toHaveLength(4);
+  expect(stageTab("Re-rank").getAttribute("aria-selected")).toBe("true");
+  expect(screen.getByRole("button", { name: "Why this position" }).getAttribute("aria-expanded")).toBe("true");
   expect(document.activeElement?.id).toBe(`ranked-product-${products[0].product_id}`);
+});
+
+it("walks the stages in order with Next and Back, and with the arrow keys on the steps", () => {
+  vi.spyOn(api, "agentStream").mockResolvedValue(undefined);
+  render(<PlaygroundPage />);
+  expect(stageTab("Retrieve").getAttribute("aria-selected")).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: "Next: Rank" }));
+  expect(stageTab("Rank").getAttribute("aria-selected")).toBe("true");
+  expect(screen.getByRole("tabpanel").textContent).toContain("2 of 4");
+  fireEvent.click(screen.getByRole("button", { name: "Retrieve" }));
+  expect(stageTab("Retrieve").getAttribute("aria-selected")).toBe("true");
+  fireEvent.keyDown(stageTab("Retrieve"), { key: "ArrowLeft" });
+  expect(stageTab("Reason").getAttribute("aria-selected")).toBe("true");
+  expect(screen.queryByRole("button", { name: /^Next/ })).toBeNull();
 });
 
 it("opens on Clearer calls, offers one Play action, and keeps guide links working", async () => {
@@ -283,9 +324,10 @@ it("opens on Clearer calls, offers one Play action, and keeps guide links workin
   expect(screen.getByRole("heading", { name: callsRequest.query })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Focus at home" }).getAttribute("aria-pressed")).toBe("true");
   expect(screen.queryByRole("textbox")).toBeNull();
+  openStage("Reason");
   expect(screen.getAllByRole("button", { name: "Ask about this need" })).toHaveLength(1);
   expect(stream).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "Ask about this need" }));
+  askAboutThisNeed();
   await waitFor(() => expect(stream).toHaveBeenCalledTimes(1));
   expect(stream.mock.calls[0].slice(0, 2)).toEqual([callsRequest.query, callsRequest.filters]);
   await act(async () => window.history.pushState({}, "", "/labs/retrieval?example=typo-recovery"));
@@ -301,15 +343,13 @@ it("shows the actual rank movement from the agent receipt, then clears it when r
   vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(response);
   vi.spyOn(api, "agentStream").mockImplementation(async (_question, _filters, emit) => emit({ type: "complete", response: answer }));
   render(<PlaygroundPage />);
-  fireEvent.click(screen.getByRole("button", { name: "Ask about this need" }));
-  expect(await screen.findByLabelText("#27 before rerank, #1 in the final order")).toBeTruthy();
+  askAboutThisNeed();
+  await screen.findByRole("region", { name: "Mosaic’s picks for Alex" }, { timeout: READ_OUT_MS });
   expect(screen.queryByRole("region", { name: "Product ranking details" })).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Why the order changed" }));
+  openStageDetails("Re-rank", "Why this position");
   expect(await screen.findByRole("region", { name: "Product ranking details" })).toBeTruthy();
   expect(screen.getAllByLabelText("#27 before rerank, #1 in the final order")).toHaveLength(1);
-  expect(screen.getByRole("button", { name: "Why the order changed" }).getAttribute("aria-expanded")).toBe("true");
   expect(screen.getByText("The recorded answer.")).toBeTruthy();
-  expect(screen.getByText("One of the Retrieval agent’s picks.")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "More screen space" }));
   expect(screen.queryByLabelText("#27 before rerank, #1 in the final order")).toBeNull();
   expect(screen.queryByRole("region", { name: "Product ranking details" })).toBeNull();
@@ -331,7 +371,7 @@ it("keeps old coding-guide URLs on the participant Playground without starting a
   window.history.replaceState({}, "", "/labs/retrieval?view=build");
   const stream = vi.spyOn(api, "agentStream");
   render(<PlaygroundPage />);
-  expect(screen.getByRole("heading", { name: "Behind a better answer." })).toBeTruthy();
+  expect(screen.getByRole("tablist", { name: "Pipeline stages" })).toBeTruthy();
   expect(screen.queryByRole("heading", { name: "Build a retrieval tool" })).toBeNull();
   expect(screen.queryByRole("link", { name: "Download code & guide" })).toBeNull();
   expect(stream).not.toHaveBeenCalled();
@@ -350,27 +390,35 @@ it("keeps the first search counts when a later search supplies the leading recom
   let finish!: () => void;
   vi.spyOn(api, "agentStream").mockImplementation(async (_question, _filters, callback) => { emit = callback; await new Promise<void>((resolve) => { finish = resolve; }); });
   render(<PlaygroundPage />);
-  fireEvent.click(screen.getByRole("button", { name: "Ask about this need" }));
+  askAboutThisNeed();
   const answer: AgentResponse = { agent_run_id: agentId, question: defaultRequest.query, answer: "Completed.", plan: [], recommendations: [products[0]], citations: [], trace: [searchStep(firstSearchId, 1)] };
   await act(async () => emit({ type: "answer_start", response: answer }));
-  const visibleCounts = () => [...document.querySelectorAll(".pg-flow-arms dd")].map((node) => node.textContent);
-  expect(visibleCounts()).toEqual(["4", "4", "46"]);
+  const visibleCounts = () => [...document.querySelectorAll(".pg-glance-n")].map((node) => node.textContent);
+  expect(visibleCounts()).toEqual([]);
   await act(async () => { emit({ type: "complete", response: { ...answer, recommendations: [products[1]], trace: [...answer.trace, searchStep(secondSearchId, 2)] } }); finish(); });
-  expect(visibleCounts()).toEqual(["4", "4", "46"]);
+  await waitFor(() => expect(visibleCounts()).toEqual(["4", "4", "46"]), { timeout: READ_OUT_MS });
   const selector = screen.getByRole("combobox", { name: "Search shown in Retrieve, Rank and Re-rank" });
   fireEvent.change(selector, { target: { value: secondSearchId } });
+  openStage("Retrieve");
   expect(visibleCounts()).toEqual(["0", "0", "50"]);
 });
 
-it("keeps the three lessons in view at rest, one per column, before any run", () => {
+it("keeps one sentence per stage in view and opens each stage's details with its lesson", () => {
   vi.spyOn(api, "agentStream").mockResolvedValue(undefined);
   render(<PlaygroundPage />);
-  const lessons = screen.getAllByLabelText("Keep in mind").map((aside) => aside.textContent ?? "");
-  expect(lessons).toHaveLength(4);
-  expect(lessons[0]).toContain("A reranker can only reorder what entered this pool");
-  expect(lessons[1]).toContain("RRF combines them using 1 / (k + rank)");
-  expect(lessons[2]).toContain("Re-rank compares the request");
-  expect(lessons[3]).toContain("not citable until the application registers it");
+  expect(screen.queryAllByLabelText("Keep in mind")).toHaveLength(0);
+  const lessons: [string, string, string][] = [
+    ["Retrieve", "Search details", "A reranker can only reorder what entered this pool"],
+    ["Rank", "Fusion details", "RRF combines them using 1 / (k + rank)"],
+    ["Re-rank", "Why this position", "Re-rank compares the request"],
+    ["Reason", "Steps and sources", "not citable until the application registers it"],
+  ];
+  for (const [stage, details, lesson] of lessons) {
+    const panel = openStage(stage);
+    expect(panel.textContent).not.toContain(lesson);
+    fireEvent.click(within(panel).getByRole("button", { name: details }));
+    expect(panel.textContent).toContain(lesson);
+  }
 });
 
 it("separates recorded model requests, application steps and missing origins without implying success", async () => {
@@ -383,9 +431,9 @@ it("separates recorded model requests, application steps and missing origins wit
     emit({ type: "complete", response: { agent_run_id: agentId, question: defaultRequest.query, answer: "The sources do not support a recommendation.", outcome: "declined", plan: [], recommendations: [], citations: [], trace } });
   });
   render(<PlaygroundPage />);
-  fireEvent.click(screen.getByRole("button", { name: "Ask about this need" }));
+  askAboutThisNeed();
   await screen.findByText(/^No recommendation:/);
-  fireEvent.click(screen.getByRole("button", { name: "Steps and sources" }));
+  openStageDetails("Reason", "Steps and sources");
   const summary = screen.getByLabelText("Who requested the recorded steps");
   expect(summary.textContent).toContain("Requested by the model: 1.");
   expect(summary.textContent).toContain("Started by the application: 1.");
@@ -422,20 +470,24 @@ it("prints what each arm alone scores from the measured artifact and counts this
   vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(savedSearch(firstSearchId, products));
   render(<PlaygroundPage />);
   expect(screen.queryByRole("table", { name: "Scores for each search method" })).toBeNull();
+  await screen.findByRole("list", { name: "What each search put into the combined pool" });
+  openStageDetails("Retrieve", "Search details");
   fireEvent.click(screen.getByText("Compare search methods"));
   const table = await screen.findByRole("table", { name: "Scores for each search method" });
-  expect(within(table).getAllByRole("rowheader").map((cell) => cell.textContent)).toEqual(["Keyword alone", "Fuzzy matching alone", "Meaning alone", "All three combined", "Combined, then reranked"]);
-  expect(within(table).getByRole("row", { name: /Keyword alone/ }).textContent).toContain("0.61");
+  expect(within(table).getAllByRole("rowheader").map((cell) => cell.textContent)).toEqual(["Full-text search alone", "Fuzzy matching alone", "Semantic search alone", "All three combined", "Combined, then reranked"]);
+  expect(within(table).getByRole("row", { name: /Full-text search alone/ }).textContent).toContain("0.61");
   expect(within(table).getByRole("row", { name: /Combined, then reranked/ }).textContent).toContain("0.93");
-  expect(screen.getByText("Combining changes the ordering score (nDCG@10) by +0.17 compared with Meaning alone (inside the spread of these searches); reranking moves it +0.04 (inside the spread of these searches).")).toBeTruthy();
+  expect(screen.getByText("Combining changes the ordering score (nDCG@10) by +0.17 compared with Semantic search alone (inside the spread of these searches); reranking moves it +0.04 (inside the spread of these searches).")).toBeTruthy();
   expect(await screen.findByText("In this run, 2 of the 4 products returned were found by only one search method. Those products depend on the method that found them.")).toBeTruthy();
-  expect(screen.getByText(/reranking moved the ordering score by \+0\.04 on average, inside the spread/)).toBeTruthy();
   expect(within(table).getByRole("link", { name: "Open Prove for score definitions and results for each search." }).getAttribute("href")).toBe("/labs/retrieval?view=lab#labs-stage-prove");
+  openStageDetails("Re-rank", "Why this position");
+  expect(screen.getByText(/reranking moved the ordering score by \+0\.04 on average, inside the spread/)).toBeTruthy();
 });
 
 it("says the measured comparison is waiting when the artifact is not attributed to this build", async () => {
   vi.spyOn(api, "scorecard").mockResolvedValue({ stage_ablation: { ...measuredAblation, attributed: false } } as unknown as RetrievalScorecardResponse);
   render(<PlaygroundPage />);
+  openStageDetails("Retrieve", "Search details");
   expect(await screen.findByText("The measured comparison is waiting for a re-measure on this build.")).toBeTruthy();
   expect(screen.queryByRole("table", { name: "Scores for each search method" })).toBeNull();
 });
@@ -449,12 +501,9 @@ it("says when the agent declined the search's first result, and reads the search
   vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(response);
   vi.spyOn(api, "agentStream").mockImplementation(async (_question, _filters, emit) => emit({ type: "complete", response: { agent_run_id: agentId, question: defaultRequest.query, answer: "The sources do not support a choice.", outcome: "declined", plan: [], recommendations: [], citations: [], trace: [searchStep(firstSearchId, 1)] } }));
   render(<PlaygroundPage />);
-  fireEvent.click(screen.getByRole("button", { name: "Ask about this need" }));
-  const lead = await screen.findByRole("region", { name: "First search result" });
-  expect(within(lead).getByText("Not recommended: the Retrieval agent’s sources did not support a choice.")).toBeTruthy();
-  expect(within(lead).getByText("Search 1 · First returned result")).toBeTruthy();
-  expect(lead.textContent).not.toMatch(/#1|#null/);
-  fireEvent.click(screen.getByText("Search record and interpretation"));
+  askAboutThisNeed();
+  expect(await screen.findByText("No recommendation: the available sources do not support a choice.")).toBeTruthy();
+  fireEvent.click(await screen.findByText("Search record and interpretation", undefined, { timeout: READ_OUT_MS }));
   const reads = screen.getByRole("list", { name: "Search 1 reads it as" });
   expect(within(reads).getByText("words not in the saved record")).toBeTruthy();
   expect(within(screen.getByRole("region", { name: "Alex’s request" })).queryByRole("list", { name: /reads it as/ })).toBeNull();
@@ -483,8 +532,7 @@ it("names Lab 1's missing target, its cause and the next step on a saved broken 
   expect(within(verdict).getByText(`The ${mission.target_display_name} is missing`)).toBeTruthy();
   expect(verdict.textContent).toContain("returned no candidates");
   expect(verdict.textContent).toContain("Next: in Code Editor, repair the LAB1 block");
-  const lead = screen.getByRole("region", { name: "First search result" });
-  expect(within(lead).getByText(`Not the listing Alex meant. Lab 1 is looking for the ${mission.target_display_name}.`)).toBeTruthy();
+  expect(within(openStage("Retrieve")).getByText(`The ${mission.target_display_name} is not among the products this search returned.`)).toBeTruthy();
 });
 
 
@@ -502,10 +550,9 @@ it("traces an omitted first result separately from a final choice in another sea
   vi.spyOn(api, "retrievalEventResponse").mockImplementation(async (id) => savedSearch(id, [id === firstSearchId ? omitted : chosen]));
   vi.spyOn(api, "agentStream").mockImplementation(async (_question, _filters, emit) => emit({ type: "complete", response: answer }));
   render(<PlaygroundPage />);
-  fireEvent.click(screen.getByRole("button", { name: "Ask about this need" }));
-  const summary = await screen.findByRole("region", { name: "Mosaic’s final answer" });
+  askAboutThisNeed();
+  const summary = await screen.findByRole("region", { name: "Where the picks came from" });
   expect(summary.textContent).toContain("2 searches · 1 product in the answer · 1 cited source");
-  expect(within(screen.getByRole("region", { name: "First search result" })).getByText("Not among the Retrieval agent’s picks.")).toBeTruthy();
   fireEvent.click(within(summary).getByText("Trace all returned products"));
   const rows = within(summary).getAllByRole("row").slice(1);
   expect(within(rows[0]).getAllByRole("cell").map((cell) => cell.textContent)).toEqual(["Search 1 · #1", "No", "None", "Not included"]);

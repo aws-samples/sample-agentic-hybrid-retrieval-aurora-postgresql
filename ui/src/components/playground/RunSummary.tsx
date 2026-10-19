@@ -27,8 +27,7 @@ export function RunSummary({ answer, receipts, onInspect }: {
   const unavailable = receipts.some((receipt) => !receipt.response);
   return <section className="pg-summary" aria-labelledby="pg-summary-title">
     <header>
-      <h2 id="pg-summary-title">{answer.outcome === "declined" ? "No supported recommendation" : "Mosaic’s final answer"}</h2>
-      <a href="#inspect-reason">Read the answer</a>
+      <h2 id="pg-summary-title">{answer.outcome === "declined" ? "No supported recommendation" : "Where the picks came from"}</h2>
     </header>
     <p>{agentSearches.length} {agentSearches.length === 1 ? "search" : "searches"} · {answer.recommendations.length} {answer.recommendations.length === 1 ? "product" : "products"} in the answer · {answer.citations.length} cited {answer.citations.length === 1 ? "source" : "sources"}</p>
     {answer.recommendations.length ? <ul className="pg-summary-picks" aria-label="Products in the final answer">{answer.recommendations.map((product) => {

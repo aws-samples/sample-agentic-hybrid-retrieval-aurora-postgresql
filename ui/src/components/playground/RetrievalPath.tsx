@@ -4,9 +4,9 @@ import type { ProductSummary, ScorecardStageAblation, ScorecardStageArmKey, Sear
 
 /** The measured arms in the words the method rows use. */
 const armTitle: Record<ScorecardStageArmKey, string> = {
-  lexical_only: "Keyword alone",
+  lexical_only: "Full-text search alone",
   trigram_only: "Fuzzy matching alone",
-  semantic_only: "Meaning alone",
+  semantic_only: "Semantic search alone",
   rrf_fused_no_rerank: "All three combined",
   rrf_fused_reranked: "Combined, then reranked",
 };
@@ -116,14 +116,14 @@ export function MethodComparison({ response, ablation }: { response?: SearchResp
     {returned.length ? <p>In this run, {oneArmOnly} of the {returned.length} products returned were found by only one search method. Those products depend on the method that found them.</p> : null}
     <details className="pg-disclosure"><summary>Compare search methods</summary><div>
       <p>Compare full-text search, fuzzy matching, semantic search, the combined list, then reranking. Keep the request, filters and settings fixed. Check which suitable products were found, where they appear, and the extra time and model usage.</p>
-      <p>Include requests that already work well. A hybrid search is not automatically better; keep unchanged results and regressions in the comparison.</p>
+      <p>Include requests that already work well. A hybrid search is not automatically better; keep unchanged results and results that got worse in the comparison.</p>
       {ablation?.attributed ? <>
         <table className="pg-arm-table" aria-label="Scores for each search method">
           <thead><tr><th scope="col">Method</th><th scope="col">Ordering <small>nDCG@10</small></th><th scope="col">Found <small>Recall@10</small></th><th scope="col">First match <small>MRR</small></th></tr></thead>
           <tbody>{ablation.arms.map((arm) => <tr key={arm.key} data-served={arm.key === "rrf_fused_reranked" || undefined}>
             <th scope="row">{armTitle[arm.key]}</th><td>{arm.ndcg_at_10.toFixed(2)}</td><td>{arm.recall_at_10.toFixed(2)}</td><td>{arm.mrr.toFixed(2)}</td>
           </tr>)}</tbody>
-          <caption>Measured on {ablation.scored_query_count} graded searches against this catalog. <Link href="/labs/retrieval?view=lab#labs-stage-prove">Open Prove for score definitions and results for each search.</Link></caption>
+          <caption>Measured on {ablation.scored_query_count} judged searches against this catalog. <Link href="/labs/retrieval?view=lab#labs-stage-prove">Open Prove for score definitions and results for each search.</Link></caption>
         </table>
         {gain ? <p>{gain}</p> : null}
       </> : <p>{ablation ? "The measured comparison is waiting for a re-measure on this build." : "Loading the measured comparison…"}</p>}
