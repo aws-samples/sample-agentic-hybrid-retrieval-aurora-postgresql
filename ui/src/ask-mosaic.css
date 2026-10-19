@@ -903,9 +903,9 @@
 
 .ask-prose {
   min-width: 0;
-  font-size: 17.5px;
-  line-height: 1.55;
-  letter-spacing: -0.012em;
+  font-size: 15.5px;
+  line-height: 1.6;
+  letter-spacing: -0.005em;
 }
 
 .ask-prose > * {
@@ -1664,4 +1664,13 @@
   font-size: 12px;
   line-height: 1.45;
   text-align: center;
+}
+
+/* Condensed sources: each review's words on one clamped line under its title. */
+.ask-source-quote {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  font-size: 12.5px;
 }

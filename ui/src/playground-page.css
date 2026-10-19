@@ -1595,3 +1595,33 @@ p.pg-reason-status {
 
 /* The take-home sits on spacing, not a rule. */
 .pg-a .pg-takeaway { border-top: 0; }
+
+/* The agent's answer: the result on the left from the start, the prose beside it, condensed. */
+.pg-answer-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+  max-width: 1080px;
+  margin: 32px auto 0;
+  text-align: left;
+}
+
+.pg-answer-layout[data-picks] { grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); align-items: start; }
+.pg-answer-layout .pg-picks { margin: 0; }
+.pg-answer-layout .pg-picks .answer-product-cards { margin: 0; }
+.pg-answer-layout .pg-reason-summary { margin: 0 0 10px; color: var(--ink-soft); font-size: 13px; font-weight: 500; }
+.pg-run .pg-answer-layout .pg-answer .product-answer > p,
+.pg-run .pg-answer-layout .pg-answer .product-answer li { max-width: 62ch; font-size: 16px; line-height: 1.6; letter-spacing: 0; }
+.pg-run .pg-answer-layout .pg-answer .product-answer > :is(h2, h3, h4) { margin: 16px 0 4px; font-size: 16px; }
+
+/* Sources, compact: one line each, the review's words on a second line, clamped. */
+.pg-answer-text .pg-sources { margin-top: 20px; }
+.pg-answer-text .pg-sources h3 { font-size: 13px; color: var(--ink-soft); font-weight: 600; margin: 0 0 8px; }
+.pg-answer-text .pg-sources ol { gap: 6px; }
+.pg-answer-text .pg-sources li { font-size: 13px; line-height: 1.45; }
+.pg-answer-text .pg-sources strong { display: inline; font-weight: 600; }
+.pg-answer-text .pg-sources q { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 1; color: var(--ink-soft); font-size: 12.5px; }
+
+@media (max-width: 820px) {
+  .pg-answer-layout[data-picks] { grid-template-columns: minmax(0, 1fr); }
+}

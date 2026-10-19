@@ -204,19 +204,22 @@ function RevealedAnswer({ answer, streamed, completed, renderSearchLink, multipl
     : done
       ? `${answer.recommendations.length ? `${answer.recommendations.length} ${answer.recommendations.length === 1 ? "recommendation" : "recommendations"}` : "Answer ready"} · ${answer.citations.length} ${answer.citations.length === 1 ? "source link" : "source links"}.`
       : "Writing the answer…";
-  return <>
-    <p className="pg-reason-summary">{status}</p>
-    <div className="pg-answer-grid">
+  // The result leads on the left from the first word; the prose reads out beside it,
+  // and its sources follow once it is out, so nothing moves the line being read.
+  const picks = answer.outcome !== "declined" && answer.recommendations.length > 0;
+  return <div className="pg-answer-layout" data-picks={picks || undefined}>
+    {picks ? <div className="pg-picks">
+      <ProductAnswer text="" products={answer.recommendations} citations={answer.citations} complete renderSearchLink={renderSearchLink} />
+      {multipleSearches && done ? <p className="inspector-note">Each pick links to the search that found it.</p> : null}
+    </div> : null}
+    <div className="pg-answer-text">
+      <p className="pg-reason-summary">{status}</p>
       <div className="inspector-answer pg-answer" aria-busy={!done}>
         <StreamedAnswer className="product-answer" text={reveal.text} chunks={reveal.chunks} citations={answer.citations} answerId={answerId} />
       </div>
       {done ? <AnswerSources citations={answer.citations} answerId={answerId} /> : null}
     </div>
-    {done && answer.recommendations.length ? <div className="pg-picks">
-      <ProductAnswer text="" products={answer.recommendations} citations={answer.citations} complete renderSearchLink={renderSearchLink} />
-      {multipleSearches ? <p className="inspector-note">Each pick links to its search; Rank shows one search at a time.</p> : null}
-    </div> : null}
-  </>;
+  </div>;
 }
 
 /** Where the followed product stood in each search, in one sentence. */

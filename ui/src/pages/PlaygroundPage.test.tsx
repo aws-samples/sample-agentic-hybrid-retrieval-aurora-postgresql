@@ -136,7 +136,7 @@ it("shows every recommendation, follows its recorded search, and preserves a cho
   render(<PlaygroundPage />);
   await askAboutThisNeed();
   await act(async () => emit({ type: "answer_start", response: answer }));
-  expect(screen.queryByRole("region", { name: "Mosaic’s picks for Alex" })).toBeNull();
+  expect(screen.getByRole("region", { name: "Mosaic’s picks for Alex" })).toBeTruthy();
   // The agent's searches wait until its answer has been read out.
   expect(screen.queryByRole("combobox", { name: "Search shown in Retrieve, Rank and Re-rank" })).toBeNull();
   expect(screen.queryByRole("list", { name: "Final ranking preview" })).toBeNull();
@@ -188,7 +188,7 @@ it("does not start from URL filters when a saved Shop record cannot be loaded", 
   expect(stream).not.toHaveBeenCalled();
 });
 
-it("streams the full answer, then keeps all of it in view above every pick", async () => {
+it("leads with the picks from the first word, then reads the answer out beside them", async () => {
   const products = fixtureCatalogPage({}, 0, 3).products;
   let emit!: Parameters<typeof api.agentStream>[2];
   let finish!: () => void;
@@ -207,21 +207,20 @@ it("streams the full answer, then keeps all of it in view above every pick", asy
   expect(running.closest(".pg-chip")?.getAttribute("data-state")).toBe("running");
   const response: AgentResponse = { agent_run_id: agentId, question: defaultRequest.query, answer: `${products[1].title} is the best fit. ${"Full supporting explanation. ".repeat(30)}The final sentence.`, plan: [], recommendations: [products[1], products[0]], citations: [], trace: [] };
   act(() => emit({ type: "answer_start", response: { ...response, answer: "" } }));
+  // The result is known when the answer starts: it leads at once and never moves.
+  const picks = screen.getByRole("region", { name: "Mosaic’s picks for Alex" });
+  expect(productLinks(picks)).toEqual([products[1], products[0]].map((product) => `/products/${product.product_id}`));
   act(() => emit({ type: "answer_delta", delta: `${products[1].title} is the best fit.` }));
   await waitFor(() => expect(run.querySelector(".inspector-answer")?.textContent).toContain(`${products[1].title} is the best fit.`));
   expect(run.querySelectorAll(".inspector-answer .reveal-chunk").length).toBeGreaterThan(1);
-  expect(run.querySelectorAll("img")).toHaveLength(0);
   expect(container.querySelector(".inspector-answer")?.getAttribute("aria-busy")).toBe("true");
   await act(async () => { emit({ type: "complete", response }); finish(); });
-  // The picks and sources wait until the prose has been read out, so they never push it down.
-  expect(screen.queryByRole("region", { name: "Mosaic’s picks for Alex" })).toBeNull();
-  const picks = await screen.findByRole("region", { name: "Mosaic’s picks for Alex" }, { timeout: READ_OUT_MS });
-  expect(productLinks(picks)).toEqual([products[1], products[0]].map((product) => `/products/${product.product_id}`));
   const prose = run.querySelector(".inspector-answer")!;
+  await waitFor(() => expect(prose.getAttribute("aria-busy")).toBe("false"), { timeout: READ_OUT_MS });
   expect(prose.textContent).toContain("The final sentence.");
   expect(prose.closest("details")).toBeNull();
-  expect(prose.compareDocumentPosition(picks) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(prose.getAttribute("aria-busy")).toBe("false");
+  expect(screen.getByRole("region", { name: "Mosaic’s picks for Alex" })).toBe(picks);
+  expect(picks.compareDocumentPosition(prose) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "More screen space" }));
   expect(screen.queryByRole("region", { name: "Mosaic’s picks for Alex" })).toBeNull();
   expect(container.querySelector(".inspector-answer")).toBeNull();
