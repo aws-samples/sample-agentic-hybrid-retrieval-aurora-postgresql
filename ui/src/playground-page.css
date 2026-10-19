@@ -1386,9 +1386,9 @@ p.pg-reason-status {
 }
 
 .pg-race-bar { background: var(--retrieve); }
-.pg-race-row:is([data-step="combined"], [data-step="final"]) .pg-race-bar { background: var(--retrieve); }
+.pg-race-row:is([data-step="combined"], [data-step="final"]) .pg-race-bar { background: var(--rank); }
 .pg-race-row[data-top] > button { background: var(--green-soft); box-shadow: inset 0 0 0 1.5px var(--green); }
-.pg-race-row[data-top] .pg-race-bar { background: var(--retrieve); }
+.pg-race-row[data-top] .pg-race-bar { background: var(--green); }
 .pg-race-row[data-top] .pg-race-rank { color: var(--green); }
 
 .pg-race-move {
@@ -1592,3 +1592,6 @@ p.pg-reason-status {
   .pg-journey b { min-width: 34px; height: 34px; font-size: 13px; }
   .pg-journey::before { top: 16px; }
 }
+
+/* The take-home sits on spacing, not a rule. */
+.pg-a .pg-takeaway { border-top: 0; }

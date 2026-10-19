@@ -187,7 +187,7 @@ export function usePipelineRun(requestKey: string, carriedEvent: string | null) 
       setReceipts([{ id: response.search_event_id, response, origin: "reference" }]);
       setSavedResponse(response);
       setPhase(null);
-      setStatus("Done. Walk the steps below.");
+      setStatus("Done.");
     } catch (cause: unknown) {
       if (current === version.current) {
         setError(cause instanceof Error ? cause.message : "The search could not finish.");
