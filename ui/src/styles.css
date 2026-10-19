@@ -44,7 +44,8 @@
   /* The favicon's brown, so the header mark and the browser tab match. */
   --brand-mark: #2b0d13;
   --link: #005eb8;
-  --rank: var(--gold-bright);
+  /* A warm amber-orange for Rank and Re-rank, cleaner than the shop's gold. */
+  --rank: #f08a00;
   --reason: var(--green);
   --action: #0668d7;
   --action-hover: #005bbd;
@@ -108,6 +109,7 @@
   color-scheme: dark;
   /* The favicon's brown, lifted so the mark stays visible on a black page. */
   --brand-mark: #7a2c3a;
+  --rank: #ff9f0a;
   --maroon-950: var(--white);
   --maroon-900: #f0f0f2;
   --maroon-700: #d1d1d6;

@@ -30,9 +30,16 @@
 .mosaic-run-button.labelled { padding-left: 0; }
 .mosaic-run-button.labelled:hover:not(:disabled) .mosaic-run-label { color: var(--maroon-800); }
 .mosaic-run-label { transition: color 180ms ease; }
-.mosaic-run-spinner { animation: mosaic-run-spin 1s linear infinite; }
+.mosaic-run-spinner { animation: mosaic-run-spin 0.9s linear infinite; }
+/* A run in flight keeps the blue disc and sends out a soft ring, so it is plainly working. */
+.mosaic-run-button[aria-busy="true"] .mosaic-run-disc { animation: mosaic-run-pulse 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite; }
+@keyframes mosaic-run-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--action) 55%, transparent), 0 7px 18px rgb(0 0 0 / 18%); }
+  100% { box-shadow: 0 0 0 14px transparent, 0 7px 18px rgb(0 0 0 / 18%); }
+}
 @keyframes mosaic-run-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
   .mosaic-run-disc, .mosaic-run-label { transition: none; }
   .mosaic-run-spinner { animation: none; }
+  .mosaic-run-button[aria-busy="true"] .mosaic-run-disc { animation: none; }
 }

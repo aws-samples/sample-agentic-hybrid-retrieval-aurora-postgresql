@@ -57,6 +57,8 @@ interface RowContent {
   rank: number;
   width: number;
   move: { text: string; direction: "up" | "down" | "same" } | null;
+  /** The final order's first product. */
+  top: boolean;
 }
 
 interface Slot { content: RowContent; slot: number }
@@ -79,6 +81,7 @@ export function raceRows(products: ProductSummary[], step: RaceStep, followId: n
       name: pickName(product),
       rank,
       width: best > 0 && score != null ? Math.max(0, score) / best : 0,
+      top: step.key === "final" && rank === 1,
       move: moved == null ? null
         : moved === 0 ? { text: "same", direction: "same" }
           : { text: `${moved > 0 ? "▲" : "▼"} ${Math.abs(moved)}`, direction: moved > 0 ? "up" : "down" },
@@ -252,7 +255,7 @@ export function RankRace({ response, followId, wanted, missing, onFollow }: {
     <div className="pg-race-head">
       <div>
         <h3 id="pg-race-title">Watch the ranking change</h3>
-        <p>The {products.length} products this search returned, each at the rank every step gave it. Products a step ranked that the search did not return are left out. Bars compare scores within one step only.</p>
+        <p>The {products.length} returned products, at each step’s own rank.</p>
       </div>
       <div className="pg-race-controls">
         <div className="pg-race-steps" role="radiogroup" aria-label="Ranking shown" onKeyDown={onKeyDown}>
@@ -271,6 +274,7 @@ export function RankRace({ response, followId, wanted, missing, onFollow }: {
           className="pg-race-row"
           data-step={step.key}
           data-followed={followed ? (wanted ? "wanted" : "chosen") : undefined}
+          data-top={content.top || undefined}
           aria-hidden={gone || undefined}
         >
           <button type="button" onClick={() => onFollow(content.productId)} aria-label={`${content.name}: #${content.rank} in ${step.label.toLowerCase()}. Follow this product.`} tabIndex={gone ? -1 : 0}>

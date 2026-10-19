@@ -258,8 +258,8 @@ function RankGlance({ response, follow, missing }: { response?: SearchResponse; 
     <p className="pg-follow">{pickName(follow)}</p>
     <p className="pg-rrf-sum">
       {parts.map((arm, index) => <span key={arm.key}>{index ? <i aria-hidden="true">+</i> : null}<span className="pg-rrf-term"><small>{arm.label}</small><code>1 / ({k} + {signals[arm.key].rank})</code></span></span>)}
-      <i aria-hidden="true">=</i><b>{sum.toFixed(4)}</b>{reported}
-      <i aria-hidden="true">→</i><b>#{signals.pre_rerank_rank}</b><span>{pool ? `of ${pool} combined` : "combined"}</span>
+      <i aria-hidden="true">=</i><b className="pg-rrf-score">{sum.toFixed(4)}</b>{reported}
+      <i aria-hidden="true">→</i><span>combined #{signals.pre_rerank_rank}{pool ? ` of ${pool}` : ""}</span>
     </p>
   </div>;
 }
