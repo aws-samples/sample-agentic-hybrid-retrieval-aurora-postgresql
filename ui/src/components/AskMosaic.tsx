@@ -315,12 +315,13 @@ export function AskMosaic({
             className="ask-switch"
             type="button"
             role="switch"
-            aria-label="Builder view"
+            aria-label="Show tool calls"
+            title="Builder view: show the tool calls behind each answer"
             aria-checked={builder}
             onClick={() => setBuilder(!builder)}
           >
             <Wrench className="ask-switch-icon" size={14} aria-hidden="true" />
-            <span className="ask-switch-label">Builder view</span>
+            <span className="ask-switch-label">Show tool calls</span>
             <span className="ask-switch-track" aria-hidden="true"><span className="ask-switch-knob" /></span>
           </button>
           <button

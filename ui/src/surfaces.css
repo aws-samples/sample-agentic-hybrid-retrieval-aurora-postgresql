@@ -719,21 +719,13 @@
 @media (prefers-reduced-motion: no-preference) {
   .catalog-skeleton-media,
   .catalog-skeleton-copy > * {
-    background:
-      linear-gradient(
-        100deg,
-        var(--paper-warm) 20%,
-        var(--paper) 42%,
-        var(--paper-warm) 64%
-      );
-    background-size: 240% 100%;
-    animation: catalog-skeleton-shimmer 1.5s ease-in-out infinite;
+    animation: catalog-skeleton-breathe 2.4s ease-in-out infinite;
   }
 }
 
-@keyframes catalog-skeleton-shimmer {
-  to {
-    background-position-x: -240%;
+@keyframes catalog-skeleton-breathe {
+  50% {
+    opacity: 0.45;
   }
 }
 

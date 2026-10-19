@@ -340,25 +340,29 @@ describe("AskMosaic failures", () => {
 });
 
 describe("AskMosaic starters", () => {
-  it("shows each notice in full and describes the card with it instead of naming it", () => {
+  it("shows a lesson line and the request as a clue, and describes the card with the lesson", () => {
     const starters = pipelineRequests.filter((request) => request.id === "plan-workspace" || request.id === "more-screen-space");
     renderAskMosaic(groundedResponse(), { turns: [], suggestions: starters });
 
     const list = screen.getByRole("list", { name: "Example questions" });
     for (const starter of starters) {
       const button = within(list).getByRole("button", { name: starter.shop_label });
-      expect(within(button).getByText(starter.notice)).toBeTruthy();
-      expect(button.getAttribute("aria-describedby")).toBe(within(button).getByText(starter.notice).id);
+      const lesson = button.querySelector(".ask-start-lesson")!;
+      expect(lesson.textContent).toMatch(/^Lab [23]: /);
+      expect(button.getAttribute("aria-describedby")).toBe(lesson.id);
+      expect(button.querySelector(".ask-start-clue")?.textContent).toBe(starter.query);
+      expect(within(button).queryByText(starter.notice)).toBeNull();
     }
   });
 
-  it("keeps the label alone when a starter carries no notice", () => {
+  it("keeps the title and clue when a starter has no lesson line", () => {
     const [starter] = pipelineRequests;
-    renderAskMosaic(groundedResponse(), { turns: [], suggestions: [{ ...starter, notice: "" }] });
+    renderAskMosaic(groundedResponse(), { turns: [], suggestions: [{ ...starter, id: "unlisted" }] });
 
     const button = within(screen.getByRole("list", { name: "Example questions" })).getByRole("button");
-    expect(button.textContent).toBe(starter.shop_label);
+    expect(button.querySelector(".ask-start-lesson")).toBeNull();
     expect(button.hasAttribute("aria-describedby")).toBe(false);
+    expect(button.textContent).toContain(starter.shop_label);
   });
 });
 
@@ -366,7 +370,7 @@ describe("AskMosaic header and Builder view", () => {
   it("starts with Builder view off and no recorded steps on the page", () => {
     renderAskMosaic(groundedResponse());
 
-    const toggle = screen.getByRole("switch", { name: "Builder view" });
+    const toggle = screen.getByRole("switch", { name: "Show tool calls" });
     expect(toggle.getAttribute("aria-checked")).toBe("false");
     expect(screen.queryByRole("region", { name: "Builder view" })).toBeNull();
     expect(screen.getByRole("button", { name: /How the tools work/ }).getAttribute("aria-expanded")).toBe("false");
@@ -375,9 +379,9 @@ describe("AskMosaic header and Builder view", () => {
   it("turns the recorded steps on page-wide and remembers the choice", () => {
     renderAskMosaic(groundedResponse());
 
-    fireEvent.click(screen.getByRole("switch", { name: "Builder view" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Show tool calls" }));
 
-    expect(screen.getByRole("switch", { name: "Builder view" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("switch", { name: "Show tool calls" }).getAttribute("aria-checked")).toBe("true");
     const builder = screen.getByRole("region", { name: "Builder view" });
     expect(within(builder).getByText("run-grounded")).toBeTruthy();
     for (const field of ["model id", "tokens", "Gateway target", "claim verdicts"]) {
@@ -386,7 +390,7 @@ describe("AskMosaic header and Builder view", () => {
     expect(window.localStorage.getItem("mosaic-ask-builder-view")).toBe("on");
     cleanup();
     renderAskMosaic(groundedResponse());
-    expect(screen.getByRole("switch", { name: "Builder view" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("switch", { name: "Show tool calls" }).getAttribute("aria-checked")).toBe("true");
   });
 
   it("still switches for the visit when the browser refuses storage", () => {
@@ -395,9 +399,9 @@ describe("AskMosaic header and Builder view", () => {
     });
     renderAskMosaic(groundedResponse());
 
-    fireEvent.click(screen.getByRole("switch", { name: "Builder view" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Show tool calls" }));
 
-    expect(screen.getByRole("switch", { name: "Builder view" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("switch", { name: "Show tool calls" }).getAttribute("aria-checked")).toBe("true");
     refuse.mockRestore();
   });
 

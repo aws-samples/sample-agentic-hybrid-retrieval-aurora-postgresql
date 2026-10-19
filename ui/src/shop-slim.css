@@ -1,0 +1,150 @@
+/* Shop results, slimmed. Loaded after shop-editorial.css so these rules win at
+   equal specificity. Solid colours only. */
+
+/* Method board directly under the pipeline strip. It is the page's first
+   explanation, so it gets no section margin of its own. */
+.shop-board-slot { margin: 0 0 40px; transition: opacity 160ms ease; }
+.shop-board-slot[data-loading] { opacity: 0.55; }
+.shop-board-slot .method-board { margin: 0; }
+.shop-board-slot .method-board-head { margin-bottom: 16px; }
+
+/* On a phone the five columns stack; sideways scrolling hides most of them. */
+@media (max-width: 700px) {
+  .shop-board-slot .method-columns {
+    grid-auto-flow: row;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-columns: auto;
+    overflow: visible;
+    scroll-snap-type: none;
+    padding-bottom: 0;
+  }
+}
+
+/* Results count is a heading so the page outline runs h1, h2, h3. */
+.shop-results-heading > h2 {
+  max-width: 70ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font: 400 12.5px/1.4 var(--sans);
+  letter-spacing: 0.01em;
+}
+.shop-results-heading > h2 strong { color: var(--ink); font-weight: 600; }
+.shop-results-heading > h2 small { color: var(--ink-soft); font-size: 12.5px; }
+@media (max-width: 820px) {
+  .shop-results-heading > h2 small { display: none; }
+}
+
+/* View toggle: an inset track with a raised thumb on the selected segment. */
+.mosaic-catalog-page .shop-view-switch.pg-seg {
+  gap: 0;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--paper-warm);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.mosaic-catalog-page .shop-view-switch.pg-seg button {
+  min-height: 32px;
+  padding: 0 18px;
+  border-radius: 7px;
+  font: 500 13px var(--sans);
+  transition: background 160ms ease, color 160ms ease;
+}
+.mosaic-catalog-page .shop-view-switch.pg-seg button:hover { color: var(--ink); }
+.mosaic-catalog-page .shop-view-switch.pg-seg button[aria-pressed="true"] {
+  background: var(--paper-strong);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 16%);
+  color: var(--ink);
+  font-weight: 600;
+}
+.mosaic-catalog-page .shop-view-switch.pg-seg button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Card title: a readable line height, two lines at most. */
+.mosaic-catalog-page .shop-product-card h3,
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card h3,
+.mosaic-catalog-page .shop-product-card h3 a { line-height: 1.4; }
+
+/* One row: three dots for the searches, then the final position. */
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-rankline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+.shop-card-dots { display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.shop-card-dots li { display: grid; width: 14px; height: 14px; place-items: center; }
+.shop-card-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+.shop-card-dots [data-dot="none"] i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line-strong); }
+.shop-card-rankline .shop-card-position-chip {
+  height: auto;
+  padding: 0;
+  gap: 8px;
+  background: transparent;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-price { margin-top: 8px; }
+.shop-card-price-none { color: var(--ink-soft); font-weight: 400; cursor: help; }
+
+/* Compare: a 32px icon toggle on the photo; the checkbox stays the real control. */
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-compare {
+  position: absolute;
+  z-index: 1;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  min-height: 0;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--paper-strong);
+  color: var(--ink);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 18%);
+  cursor: pointer;
+}
+.shop-card-compare input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+.shop-card-compare input:disabled { cursor: default; }
+.shop-card-compare:has(input:disabled) { opacity: 0.5; }
+.shop-card-compare:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+.shop-card-compare[data-checked] { background: var(--retrieve); color: #fff; }
+
+/* Actions: "Why this match" on the left, the listing link on the right, shown
+   when the card is hovered or focused (always on touch, which cannot hover). */
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-actions > .shop-card-footer { margin-left: auto; }
+.mosaic-catalog-page .shop-product-grid.is-ranked .source-listing-link {
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card:hover .source-listing-link,
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card:focus-within .source-listing-link,
+.mosaic-catalog-page .shop-product-grid.is-ranked .source-listing-link:focus-visible { opacity: 1; }
+@media (hover: none) {
+  .mosaic-catalog-page .shop-product-grid.is-ranked .source-listing-link { opacity: 1; }
+}
+
+/* Searching: one live line above the pipeline, ink rather than grey. */
+.shop-searching { margin: 0 0 16px; color: var(--ink); font-size: 15px; font-variant-numeric: tabular-nums; }
+.shop-searching .spin { color: var(--retrieve); }
+
+/* Shelf: padding inside the scroller keeps card edges and shadows from being
+   cut; the negative margin keeps the cards aligned with the heading. */
+.shop-shelf-products {
+  margin-inline: -12px;
+  padding: 4px 12px 20px;
+  scroll-padding-inline: 12px;
+}
+.mosaic-catalog-page .shop-shelf-products .shop-product-card h3,
+.mosaic-catalog-page .shop-shelf-products .shop-product-card h3 a { line-height: 1.4; }
+
+/* The search column may not grow to its widest child: the example pills scroll
+   sideways inside it instead of widening the form past a phone's edge. */
+.mosaic-catalog-page .shop-search,
+.mosaic-catalog-page .shop-search > *,
+.mosaic-catalog-page .shop-search-examples { min-width: 0; max-width: 100%; }

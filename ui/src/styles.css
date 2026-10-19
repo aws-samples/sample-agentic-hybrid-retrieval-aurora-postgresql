@@ -745,6 +745,22 @@ button:disabled {
   }
 }
 
+/* Under 420px the mark stands alone: the wordmark would sit under the Ask
+   Mosaic button, and the home link keeps its accessible name. */
+@media (max-width: 420px) {
+  .site-brand strong {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .site-brand {
+    flex: none;
+  }
+}
+
 /*
  * The storefront's closing band, on the same spine as everything above it.
  *
