@@ -1491,6 +1491,16 @@ describe("CatalogPage", () => {
     ).toBeTruthy();
   });
 
+  it("names the home-office domain Office, so Workspace means only Alex's picks", async () => {
+    window.history.replaceState({}, "", "/catalog?collection=all&domain=home_office");
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    const domains = screen.getByRole("navigation", { name: "Product domains" });
+    expect(within(domains).getByRole("button", { name: "Office" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(domains).queryByRole("button", { name: "Workspace" })).toBeNull();
+    expect(within(screen.getByLabelText("Active filters")).getByRole("button", { name: /^Office/ })).toBeTruthy();
+  });
+
   it("moves one shared indicator between product domains", async () => {
     window.history.replaceState({}, "", "/catalog?collection=all");
     renderPage();

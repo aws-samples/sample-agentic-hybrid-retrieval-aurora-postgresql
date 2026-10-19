@@ -111,7 +111,7 @@ const priceCeilingCents = priceCeiling * 100;
 
 const domainOptions: Array<{ value?: Domain; label: string }> = [
   { label: "All products" },
-  { value: "home_office", label: "Workspace" },
+  { value: "home_office", label: "Office" },
   { value: "consumer_electronics", label: "Electronics" },
   { value: "running_fitness", label: "Running & fitness" },
 ];
@@ -119,7 +119,7 @@ const domainOptions: Array<{ value?: Domain; label: string }> = [
 const domainLabels: Record<Domain, string> = {
   consumer_electronics: "Electronics",
   running_fitness: "Running & fitness",
-  home_office: "Workspace",
+  home_office: "Office",
 };
 
 function priceFromCents(value: string | null, fallback: number) {
