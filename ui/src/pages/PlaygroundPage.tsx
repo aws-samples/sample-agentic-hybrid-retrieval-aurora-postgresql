@@ -338,15 +338,15 @@ function missionOutcome(
 }
 
 /** Between the request and the result: a saved search's status, a stopped run, and which search is shown. */
-function RunNotes({ carried, started, running, error, receipts, selected, onRestore, onSelectSearch, labDetailsHref, labOutcome }: {
+function RunNotes({ carried, started, running, error, receipts, selected, onRestore, onSelectSearch, labOutcome }: {
   carried: boolean; started: boolean; running: boolean; error: string; receipts: PipelineReceipt[];
-  selected?: PipelineReceipt; onRestore: () => void; onSelectSearch: (id: string) => void; labDetailsHref: string;
+  selected?: PipelineReceipt; onRestore: () => void; onSelectSearch: (id: string) => void;
   labOutcome: LabOutcome | null;
 }) {
   return <div className="pg-run-notes">
     {labOutcome ? <LabOutcomeBanner outcome={labOutcome} /> : null}
-    {carried ? <p className="pg-saved-line">
-      {started ? <>A new run of the saved Shop search · <button type="button" disabled={running} onClick={onRestore}>Back to saved Shop results</button></> : <>Saved Shop search · <Link href={labDetailsHref}>Open lab details</Link></>}
+    {carried && started ? <p className="pg-saved-line">
+      A new run of the saved Shop search · <button type="button" disabled={running} onClick={onRestore}>Back to saved Shop results</button>
     </p> : null}
     {error ? <p className="inspector-error" role="alert">{error}</p> : null}
     {receipts.length > 1 ? <div className="inspector-search-selector pg-search-selector"><label htmlFor="inspector-search">Search shown in Retrieve, Rank and Re-rank</label><select id="inspector-search" value={selected?.id} onChange={(event) => onSelectSearch(event.target.value)}>{receipts.map((item, index) => <option key={item.id} value={item.id}>{index + 1}. {item.origin === "reference" ? "Original search · " : ""}{item.response?.query ?? "Reading search…"}</option>)}</select><p>Counts and ranks stay on the selected search. Choose another search here or follow a pick in Reason.</p></div> : null}
@@ -403,9 +403,12 @@ function PipelineInspector() {
     ? raceMission.target_product_ids.find((id) => products.some((product) => product.product_id === id)) ?? null
     : null;
   const missingWanted = missionRun && wantedId == null ? raceMission?.target_display_name : undefined;
-  const { labStates } = useLabStates(response?.search_event_id ?? "");
+  const { labStates, failed: labStatesFailed } = useLabStates(response?.search_event_id ?? "");
   const rankEntry = labStates?.find((lab) => lab.lab_id === 2)?.entry_state;
-  const rankNotOpen = Boolean(missionRun && raceMission?.stage === "rank" && (rankEntry === "not_started" || rankEntry === "incomplete"));
+  const rankRun = missionRun && raceMission?.stage === "rank";
+  // Lab 2's results wait while its state is read, or they would show and then vanish.
+  const rankChecking = Boolean(rankRun && !labStates && !labStatesFailed);
+  const rankNotOpen = Boolean(rankRun && (rankChecking || rankEntry === "not_started" || rankEntry === "incomplete"));
   const followId = receiptId ?? wantedId ?? products[0]?.product_id ?? null;
   // Each time a search's results come into view the stages arrive again. Alternating two
   // identical animations restarts them without remounting what a reader may be focused on.
@@ -416,8 +419,6 @@ function PipelineInspector() {
   const labOutcome = missionOutcome(mission, response, readiness);
   const question = pipeline.savedResponse?.query ?? initialQuestion;
   const runFilters = (pipeline.savedResponse?.applied_filters ?? filters) as SearchFilters;
-  const labDetailsParams = new URLSearchParams(params);
-  labDetailsParams.set("view", "lab");
   const reset = () => { setSelectedId(null); setHighlightedId(null); setReceiptId(null); };
   const openDetails = (stage: Inspection | null) => { setHighlightedId(null); setOpenDetail(stage); };
   const showReceipt = (productId: number) => { setReceiptId(productId); };
@@ -447,8 +448,8 @@ function PipelineInspector() {
       {pipeline.answer ? <RevealedAnswer key={pipeline.answer.agent_run_id} answer={pipeline.answer} streamed={pipeline.streamed} completed={pipeline.completed} renderSearchLink={renderSearchLink} multipleSearches={pipeline.receipts.length > 1} onSettled={onSettled} /> : null}
       {pipeline.completed && pipeline.answer && !held ? <RunSummary answer={pipeline.answer} receipts={pipeline.receipts} onInspect={inspectProduct} /> : null}
     </section>
-    <RunNotes carried={Boolean(carriedEvent)} started={pipeline.started} running={pipeline.running} error={pipeline.error} receipts={held || rankNotOpen ? [] : pipeline.receipts} selected={selected} onRestore={() => { reset(); setOpenDetail(null); pipeline.restoreSavedSearch(); }} onSelectSearch={(id) => { setSelectedId(id); setHighlightedId(null); setReceiptId(null); }} labDetailsHref={`/labs/retrieval?${labDetailsParams}`} labOutcome={labOutcome} />
-    {rankNotOpen ? <section className="pg-lab-gate" aria-label="Lab 2">
+    <RunNotes carried={Boolean(carriedEvent)} started={pipeline.started} running={pipeline.running} error={pipeline.error} receipts={held || rankNotOpen ? [] : pipeline.receipts} selected={selected} onRestore={() => { reset(); setOpenDetail(null); pipeline.restoreSavedSearch(); }} onSelectSearch={(id) => { setSelectedId(id); setHighlightedId(null); setReceiptId(null); }} labOutcome={labOutcome} />
+    {rankChecking ? null : rankNotOpen ? <section className="pg-lab-gate" aria-label="Lab 2">
       <h2>The ranking exercise is next</h2>
       <p>Finish Lab 1 and prepare Lab 2 in the guide. This request shows its results once Lab 2 has started.</p>
     </section> : <div className="pg-stages" data-arrive={response ? (arrival.count % 2 ? "a" : "b") : undefined}>

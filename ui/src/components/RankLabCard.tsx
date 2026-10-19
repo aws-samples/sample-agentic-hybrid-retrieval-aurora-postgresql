@@ -34,7 +34,7 @@ export const RankLabCard = forwardRef<HTMLElement, {
 
   let status = "Lab 2 / Not checked";
   let title = "Checking the exercise state";
-  let detail = "Your search results are available below.";
+  let detail = "Checking whether Lab 2 has started.";
   let tone = "neutral";
   const occurred = event?.id === eventId && event.at ? Date.parse(event.at) : NaN;
   const started = lab?.started_at ? Date.parse(lab.started_at) : NaN;

@@ -1,4 +1,3 @@
-import { Link } from "wouter";
 import type { ScorecardStageAblation, ScorecardStageArmKey, SearchResponse } from "../../types";
 
 /** The measured arms in the words the method rows use. */
@@ -58,7 +57,7 @@ export function MethodComparison({ ablation }: { response?: SearchResponse; abla
         <tbody>{ablation.arms.map((arm) => <tr key={arm.key} data-served={arm.key === "rrf_fused_reranked" || undefined}>
           <th scope="row">{armTitle[arm.key]}</th><td>{arm.ndcg_at_10.toFixed(2)}</td><td>{arm.recall_at_10.toFixed(2)}</td><td>{arm.mrr.toFixed(2)}</td>
         </tr>)}</tbody>
-        <caption>Measured on {ablation.scored_query_count} judged searches against this catalog. <Link href="/labs/retrieval?view=lab#labs-stage-prove">Open Prove for score definitions and results for each search.</Link></caption>
+        <caption>Measured on {ablation.scored_query_count} judged searches against this catalog.</caption>
       </table>
       {gain ? <p>{gain}</p> : null}
     </> : <p>{ablation ? "The measured comparison is waiting for a re-measure on this build." : "Loading the measured comparison…"}</p>}

@@ -27,8 +27,6 @@
 }
 
 .shop-searching { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; color: var(--ink-soft); font-size: 14px; }
-.shop-searching .spin { flex: none; color: var(--link); }
-@media (prefers-reduced-motion: reduce) { .shop-searching .spin { animation: none; } }
 
 .pipeline-strip { margin-bottom: 24px; }
 

@@ -5,7 +5,6 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  LoaderCircle,
   Search,
   Sparkles,
   SlidersHorizontal,
@@ -270,7 +269,7 @@ function SearchingLine() {
   }, []);
   return (
     <p className="shop-searching" role="status">
-      <LoaderCircle className="spin" size={16} aria-hidden="true" />
+      <span className="shop-searching-dot" aria-hidden="true" />
       {seconds >= 2 ? `Searching Aurora… ${seconds}s` : "Searching Aurora…"}
     </p>
   );
@@ -466,9 +465,14 @@ export function CatalogPage() {
     : null;
   // Before Lab 2 is prepared, its request runs the repaired search the app ships with:
   // those results would give the exercise away, so Shop shows only the lab's next step.
-  const { labStates } = useLabStates(retrieval?.search_event_id ?? "");
+  // They also wait while the lab state is read, or they would show and then vanish.
+  const { labStates, failed: labStatesFailed } = useLabStates(retrieval?.search_event_id ?? "");
   const rankEntry = labStates?.find((lab) => lab.lab_id === 2)?.entry_state;
-  const rankNotOpen = Boolean(rankMission && (rankEntry === "not_started" || rankEntry === "incomplete"));
+  const rankChecking = Boolean(rankMission && !labStates && !labStatesFailed);
+  const rankSearching = retrievalLoading
+    && coreMosaicLabs.some((mission) => mission.stage === "rank" && mission.query === activeQuery);
+  const rankNotOpen = rankSearching
+    || Boolean(rankMission && (rankChecking || rankEntry === "not_started" || rankEntry === "incomplete"));
   // Whichever lab asked this request marks its wanted product on the results.
   const wantedMission = labCallout && !labCallout.blocked ? labCallout.mission : rankMission;
   const wanted = wantedMission && retrieval ? wantedProduct(wantedMission, retrieval) : null;
@@ -1662,7 +1666,7 @@ export function CatalogPage() {
           ) : null}
 
           {loading && !page && !activeQuery ? <CatalogLoadingState /> : null}
-          {retrievalLoading && !page && !retrieval ? <CatalogLoadingState /> : null}
+          {retrievalLoading && !page && !retrieval && !rankNotOpen ? <CatalogLoadingState /> : null}
           {error ? <ErrorState message={error} onRetry={load} /> : null}
           {retrieval && !agentProducts && !agentOpen && !rankNotOpen ? (
             <div className="shop-view-switch pg-seg" role="group" aria-label="Results view">

@@ -15,6 +15,7 @@
 .method-column h4 { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink); font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
 .method-column h4::before { content: ""; width: 9px; height: 9px; flex: none; border-radius: 3px; background: var(--retrieve); }
 .method-column[data-accent="rank"] h4::before { background: var(--rank); }
+.method-column[data-accent="done"] h4::before { background: var(--green); }
 .method-engine { margin: 4px 0 0; color: var(--ink-soft); font-size: 12px; }
 .method-meta { margin: 8px 0 0; color: var(--ink-soft); font-size: 12px; font-variant-numeric: tabular-nums; }
 .method-badge { margin: 8px 0 0; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink-soft); }

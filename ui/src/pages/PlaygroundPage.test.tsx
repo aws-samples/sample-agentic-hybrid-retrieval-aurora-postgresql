@@ -64,15 +64,9 @@ it("opens a saved Shop search in the pipeline layout even when the link carries 
   expect(replay).toHaveBeenCalledWith(firstSearchId);
   expect(search).not.toHaveBeenCalled();
   expect(stream).not.toHaveBeenCalled();
-  const details = screen.getByRole("link", { name: "Open lab details" });
-  const params = new URL(details.getAttribute("href")!, "https://mosaic.invalid").searchParams;
-  expect(params.get("view")).toBe("lab");
-  expect(params.get("event")).toBe(firstSearchId);
-  expect(params.get("example")).toBe("typo-recovery");
-  fireEvent.click(details);
-  expect(await screen.findByText("Guide workbench")).toBeTruthy();
-  expect(search).not.toHaveBeenCalled();
-  expect(stream).not.toHaveBeenCalled();
+  // The saved search stays in this view; nothing here sends the reader to the older lab page.
+  expect(screen.getByRole("status").textContent).toBe("Saved Shop search");
+  expect(document.querySelector('a[href*="view=lab"]')).toBeNull();
 });
 
 it.each([
@@ -445,7 +439,7 @@ it("prints what each arm alone scores from the measured artifact and counts this
   expect(within(table).getByRole("row", { name: /Full-text search alone/ }).textContent).toContain("0.61");
   expect(within(table).getByRole("row", { name: /Combined, then reranked/ }).textContent).toContain("0.93");
   expect(screen.getByText("Combining changes the ordering score (nDCG@10) by +0.17 compared with Semantic search alone (inside the spread of these searches); reranking moves it +0.04 (inside the spread of these searches).")).toBeTruthy();
-  expect(within(table).getByRole("link", { name: "Open Prove for score definitions and results for each search." }).getAttribute("href")).toBe("/labs/retrieval?view=lab#labs-stage-prove");
+  expect(within(table).queryByRole("link")).toBeNull();
   openDetail(DETAILS.rerank);
   expect(screen.getByText(/reranking moved the ordering score by \+0\.04 on average, inside the spread/)).toBeTruthy();
 });

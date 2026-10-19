@@ -48,6 +48,8 @@
   --rank-template: #ff6200;
   --link: #005eb8;
   --rank: #e85a00;
+  /* Numbers on a filled blue or orange step: black clears 4.5:1 on both fills in both themes. */
+  --fill-ink: var(--maroon-950);
   --reason: var(--green);
   --action: #0668d7;
   --action-hover: #005bbd;
@@ -110,6 +112,7 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
   --rank: var(--rank-template);
+  --fill-ink: var(--canvas);
   --maroon-950: var(--white);
   --maroon-900: #f0f0f2;
   --maroon-700: #d1d1d6;

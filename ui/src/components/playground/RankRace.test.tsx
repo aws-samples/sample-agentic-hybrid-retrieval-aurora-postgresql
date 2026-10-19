@@ -107,7 +107,13 @@ describe("RankRace", () => {
     const nodes = [...screen.getByRole("list", { name: /at each step$/ }).querySelectorAll("li")];
     // Full-text and semantic search are reached; Combined (RRF) and Reranked are ahead.
     expect(nodes.map((node) => node.hasAttribute("data-ahead"))).toEqual([false, false, true, true]);
-    expect(nodes.some((node) => node.hasAttribute("data-top"))).toBe(false);
+  });
+
+  it("marks searches blue, the combined order orange and the reranked order green", () => {
+    render(<RankRace response={response} followId={viewSonic.product_id} wanted onFollow={() => {}} />);
+    const nodes = [...screen.getByRole("list", { name: /at each step$/ }).querySelectorAll("li")];
+    expect(nodes.map((node) => node.getAttribute("data-accent"))).toEqual(["retrieve", "retrieve", "rank", "done"]);
+    expect(screen.getByRole("radio", { name: "Reranked" }).getAttribute("data-accent")).toBe("done");
   });
 
   it("moves between steps with the arrow keys, as a radio group does", () => {

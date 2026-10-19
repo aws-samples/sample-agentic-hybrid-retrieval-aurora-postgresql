@@ -2193,6 +2193,26 @@ describe("CatalogPage", () => {
 
   });
 
+  it("holds Lab 2's results until the lab state is read, so they never flash and vanish", async () => {
+    const mission = coreMosaicLabs.find((item) => item.stage === "rank")!;
+    let answer!: (value: Awaited<ReturnType<typeof api.labsState>>) => void;
+    vi.mocked(api.labsState).mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+    vi.mocked(api.search).mockResolvedValue({
+      ...searchResponse, query: mission.query, applied_filters: { ...mission.filters },
+    });
+    window.history.replaceState({}, "", shopMissionHref(mission));
+    renderPage();
+    // Not even placeholder cards while the search runs: they too would appear and vanish.
+    expect(screen.queryByRole("status", { name: "Loading products" })).toBeNull();
+    await screen.findByText("Checking whether Lab 2 has started.");
+    expect(screen.queryByText("Results for")).toBeNull();
+    answer({ labs: [{
+      lab_id: 2, entry_state: "started", started_at: "2026-10-06T12:00:00Z", source_state: "unsolved",
+      database_state: "applied", detail: "", completed_at: null, next_step: null,
+    }] } as never);
+    await screen.findByText("Results for");
+  });
+
   it("offers the compatible workspace request inside a monitor category", async () => {
     window.history.replaceState({}, "", "/catalog?domain=consumer_electronics&category_key=monitor");
     renderPage();

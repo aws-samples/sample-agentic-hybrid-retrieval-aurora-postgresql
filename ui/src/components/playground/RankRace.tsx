@@ -95,7 +95,8 @@ export function raceRows(products: ProductSummary[], step: RaceStep, followId: n
 
 const slotY = (slot: number, pinned: boolean) => slot * ROW_HEIGHT + (pinned ? PINNED_GAP : 0);
 
-const isRankStep = (key: RaceStepKey) => key === "combined" || key === "final";
+/** Searches are blue, Aurora's combined order orange, the reranked final order green. */
+const stepAccent = (key: RaceStepKey) => key === "final" ? "done" : key === "combined" ? "rank" : "retrieve";
 
 /**
  * The followed product's path through every step, as one line of positions:
@@ -115,7 +116,7 @@ function Journey({ steps, product, current, onPick }: {
         const rank = step.rank(product);
         // A step the race has not reached keeps its colour until it gets there.
         const ahead = index > steps.findIndex((item) => item.key === current);
-        return <li key={step.key} data-current={step.key === current || undefined} data-ahead={ahead || undefined} data-found={rank != null || undefined} data-accent={isRankStep(step.key) ? "rank" : "retrieve"} data-top={!ahead && step.key === "final" && rank === 1 || undefined}>
+        return <li key={step.key} data-current={step.key === current || undefined} data-ahead={ahead || undefined} data-found={rank != null || undefined} data-accent={stepAccent(step.key)}>
           <button type="button" onClick={() => onPick(step.key)} aria-label={`${step.label}: ${rank == null ? "not found" : `#${rank}`}`}>
             <b>{rank == null ? "—" : `#${rank}`}</b>
             <small>{step.label}</small>
@@ -290,7 +291,7 @@ export function RankRace({ response, followId, wanted, missing, onFollow }: {
       </div>
       <div className="pg-race-controls">
         <div className="pg-race-steps" role="radiogroup" aria-label="Ranking shown" onKeyDown={onKeyDown}>
-          {steps.map((item) => <button key={item.key} type="button" role="radio" data-step={item.key} data-accent={isRankStep(item.key) ? "rank" : "retrieve"} aria-checked={item.key === step.key} tabIndex={item.key === step.key ? 0 : -1} onClick={() => choose(item.key)}>{item.label}</button>)}
+          {steps.map((item) => <button key={item.key} type="button" role="radio" data-step={item.key} data-accent={stepAccent(item.key)} aria-checked={item.key === step.key} tabIndex={item.key === step.key ? 0 : -1} onClick={() => choose(item.key)}>{item.label}</button>)}
         </div>
         <button type="button" className="pg-race-replay" onClick={replay} disabled={steps.length < 2}>Replay</button>
       </div>

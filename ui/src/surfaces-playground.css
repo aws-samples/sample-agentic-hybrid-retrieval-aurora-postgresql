@@ -3193,6 +3193,7 @@
   border-color: var(--line);
   background: var(--paper);
 }
+.shop-filter-chips + .shop-lab-callout { margin-top: 20px; }
 .shop-rank-card > h2 { font-size: clamp(19px, 1.7vw, 23px); font-weight: 600; letter-spacing: -0.025em; }
 .shop-rank-card > p { max-width: 78ch; font-size: 14px; }
 .shop-lab-status { color: var(--ink-soft); font-size: 12px; font-weight: 600; }

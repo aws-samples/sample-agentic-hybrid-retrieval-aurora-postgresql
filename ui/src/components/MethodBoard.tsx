@@ -12,7 +12,7 @@ type Column = {
   title: string;
   engine: string;
   meta: string;
-  accent: "retrieve" | "rank";
+  accent: "retrieve" | "rank" | "done";
   /** This column's own rank for a product, or null when it did not rank it. */
   rankOf: (product: ProductSummary) => number | null;
   /**
@@ -69,7 +69,7 @@ function columnsFor(response: SearchResponse): Column[] {
       title: reranked ? "Reranked" : "Not reranked",
       engine: reranked ? "Cohere Rerank" : "final order is the combined order",
       meta: reranked && pool !== undefined ? `Reordered all ${pool}` : "",
-      accent: "rank",
+      accent: reranked ? "done" : "rank",
       rankOf: (product) => product.signals?.final_rank ?? null,
       previous: reranked
         ? { label: "combined", rank: (product) => product.signals?.pre_rerank_rank ?? null }
