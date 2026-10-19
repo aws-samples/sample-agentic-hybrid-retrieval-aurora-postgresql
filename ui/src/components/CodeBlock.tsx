@@ -30,7 +30,8 @@ export function CodeBlock({ code, label }: { code: string; label: string }) {
         </button>
       </div>
       {copyError ? <p className="code-copy-error" role="alert">{copyError}</p> : null}
-      <pre>
+      {/* Focusable so the keyboard can scroll a block taller than its panel. */}
+      <pre tabIndex={0} aria-label={label}>
         <code>{code}</code>
       </pre>
     </div>

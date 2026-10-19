@@ -364,8 +364,10 @@
   line-height: 1.45;
 }
 
+/* A saved event or plan runs to thousands of lines; it scrolls inside its panel. */
 .code-block pre {
   max-width: 100%;
+  max-height: min(28rem, 60vh);
   margin: 0;
   padding: 16px;
   overflow: auto;
