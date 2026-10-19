@@ -1,3 +1,4 @@
+import { withoutBreakTags } from "../format";
 import type { AgentResponse, EvidenceRecord } from "../types";
 
 const isReview = (record: EvidenceRecord) => record.evidence_type.includes("review");
@@ -26,7 +27,7 @@ export function SourceComparison({ answer }: { answer: AgentResponse }) {
               return <article className="inspector-source-record" key={record.evidence_id}>
                 <p className="inspector-source-use">{citations.length ? `Cited ${citations.map((citation) => `[${citation.number}]`).join(" ")}` : "Read, not cited"}</p>
                 <strong>{record.title}</strong>
-                <blockquote>{record.text}</blockquote>
+                <blockquote>{withoutBreakTags(record.text)}</blockquote>
                 <small>{record.source_name} · Revision {record.revision}</small>
                 <a href={`/api/evidence/${record.evidence_id}`} target="_blank" rel="noreferrer">Open source record {record.evidence_id}</a>
               </article>;

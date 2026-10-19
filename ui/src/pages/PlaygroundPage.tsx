@@ -25,7 +25,7 @@ import { CandidatePoolOrder } from "../components/playground/CandidatePoolOrder"
 import { ReturnedProducts } from "../components/playground/ReturnedProducts";
 import { RunSummary } from "../components/playground/RunSummary";
 import { MethodComparison, RetrievalPath, modelName, rerankStep, signedScore } from "../components/playground/RetrievalPath";
-import { formatPriceCompact } from "../format";
+import { formatPriceCompact, withoutBreakTags } from "../format";
 import { coreMosaicLabs, mosaicLabManifest, pipelineRequests, type MosaicLabMission } from "../labMissions";
 import { retrievalLabOutcome, runMatchesMissionGates, type LabOutcome } from "../labOutcome";
 import { productImageMap } from "../media";
@@ -191,7 +191,10 @@ function ProductSearchLinks({ product, receipts, running, onSelect }: {
 }
 
 const EXCERPT = 160;
-const excerpt = (text: string) => (text.length > EXCERPT ? `${text.slice(0, EXCERPT).replace(/\s\S*$/, "")}…` : text);
+const excerpt = (raw: string) => {
+  const text = withoutBreakTags(raw);
+  return text.length > EXCERPT ? `${text.slice(0, EXCERPT).replace(/\s\S*$/, "")}…` : text;
+};
 
 /** The answer's sources, numbered as its prose cites them; each citation chip jumps to its entry. */
 function AnswerSources({ citations, answerId }: { citations: AgentCitation[]; answerId: string }) {

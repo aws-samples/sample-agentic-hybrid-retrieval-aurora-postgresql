@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCategoryKey, specFacts } from "./format";
+import { formatCategoryKey, specFacts, withoutBreakTags } from "./format";
 
 describe("specFacts", () => {
   const monitor = {
@@ -38,5 +38,17 @@ describe("formatCategoryKey", () => {
     expect(formatCategoryKey("monitor_accessory")).toBe("Monitor Accessory");
     expect(formatCategoryKey("noise-cancelling")).toBe("Noise Cancelling");
     expect(formatCategoryKey("monitor_stand")).toBe("Monitor stands & arms");
+  });
+});
+
+describe("withoutBreakTags", () => {
+  it("reads a review's break tags as single spaces", () => {
+    const body = "I primarily purchased this model for the docking station.<br /><br />What I like..<br />1. Single USB C cable";
+    expect(withoutBreakTags(body)).toBe("I primarily purchased this model for the docking station. What I like.. 1. Single USB C cable");
+  });
+
+  it("accepts every spelling of the tag and leaves other text alone", () => {
+    expect(withoutBreakTags("a<br>b<BR/>c< br / >d")).toBe("a b c< br / >d");
+    expect(withoutBreakTags("No markup here.")).toBe("No markup here.");
   });
 });

@@ -12,6 +12,7 @@ import {
   formatPrice,
   isPurchasable,
   leafCategory,
+  withoutBreakTags,
 } from "../format";
 import { productImage } from "../media";
 import { lockBodyScroll } from "../scrollLock";
@@ -275,7 +276,7 @@ export function ProductDrawer({
 
                   {review ? (
                     <blockquote>
-                      <p>“{review.body}”</p>
+                      <p>“{withoutBreakTags(review.body)}”</p>
                       <cite>
                         {review.source_name}
                         {review.verified_purchase ? " · Verified purchase" : ""}

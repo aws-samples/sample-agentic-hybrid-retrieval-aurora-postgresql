@@ -24,6 +24,15 @@ function formatter(currency: string): Intl.NumberFormat {
   return existing;
 }
 
+/**
+ * Catalog text as it was ingested keeps the source site's `<br />` tags. In a
+ * line of prose each run of them reads as one space, so a shopper never sees
+ * the markup.
+ */
+export function withoutBreakTags(text: string): string {
+  return text.replace(/(?:\s*<br\s*\/?\s*>\s*)+/gi, " ").trim();
+}
+
 /** `34900` -> `"$349.00"`. Division happens once, at the point of display. */
 export function formatPrice(cents: number | null, currency = "USD"): string {
   if (cents == null) return "Check original listing";
