@@ -165,31 +165,37 @@ API: `POST /api/agent/answer/stream`,
 
 ## `/mosaic-labs/hnsw` - Scale & HNSW
 
-Purpose: teach HNSW as a measured workload rather than a checkbox.
+Purpose: teach HNSW as a measured workload rather than a checkbox. Every number
+is a saved measurement from `GET /api/hnsw/measured`, beside the live index from
+`GET /api/hnsw/substrate`; the page never runs a benchmark.
 
-Controls:
+Sections, each one card with a heading and one sentence:
 
-- catalog scale;
-- `hnsw.ef_search`;
-- filter selectivity;
-- iterative scan mode.
+- **Recall against speed.** Recall and database time for each measured
+  `ef_search`, the served setting marked. **Benchmarks & SQL** holds the sweep
+  table, the exact-scan baseline and the iterative-scan SQL.
+- **Keep looking after filters.** **Alex's filter** is a segmented control; the
+  table compares Off, Strict and Relaxed scans at one search effort and memory.
+- **A smaller index.** Full precision (`vector`), Half precision (`halfvec`) and
+  Binary, then re-checked (`bit`, re-checked by cosine against the full vectors),
+  each with index size (and how many times smaller than full precision), Recall@10
+  and server time. **Binary: matches re-checked** is a segmented control over the
+  measured shortlist sizes.
 
-Outputs:
-
-- projected or measured boundary label;
-- p95 latency, Recall@10, index size, and build duration;
-- scale chart;
-- selected benchmark envelope;
-- copyable `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` query.
-
-API: `GET /api/benchmarks/projection`. Projected output must never be labeled as
-an Aurora measurement.
+Times print at the three decimals `EXPLAIN ANALYZE` prints (`formatMs`) and sizes
+in `pg_size_pretty` units (`formatBytes`), so both check against psql. Segmented
+controls fill the chosen option with the action blue. `?view=bench` opens the
+full benchmark workbench.
 
 ## `/mosaic-labs/memory` - Session & Memory
 
 Purpose: explore AgentCore conversation events, memory strategies and recall.
 The page starts with empty answer areas and reads actual stored records when
 connected. New session keeps Alex’s identity; Start fresh begins a separate Alex.
+Alex's card holds the session picker and **Refresh memories**. The four memory
+types (Facts, Preferences, Summaries, Past outcomes) are a picker whose chosen
+type is filled with the action blue; example messages and questions are pills,
+and the memory switch uses the same blue.
 
 The former `/mosaic-labs/studio` route redirects to Hybrid retrieval. The footer
 and tab strip expose the same three current destinations in the same order.

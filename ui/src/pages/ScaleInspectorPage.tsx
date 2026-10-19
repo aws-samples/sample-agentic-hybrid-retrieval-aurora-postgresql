@@ -8,7 +8,8 @@ import { HnswSearchGraph } from "../components/HnswSearchGraph";
 import { HnswSweep, sweepTakeaway } from "../components/HnswSweep";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
-import { formatBytes } from "../hnsw";
+import { SegmentedControl } from "../components/SegmentedControl";
+import { formatBytes, formatMs } from "../hnsw";
 import { useSearchParams } from "../navigation";
 import { comparableScanModes } from "../scaleBenchmarks";
 import type { HnswMeasured, HnswSubstrate } from "../types";
@@ -19,6 +20,12 @@ import "../inspection-editorial.css";
 
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
 const amount = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 2 });
+/** Plain names first; the column type and bits per number are the detail underneath. */
+const formats: Record<string, { title: string; type: string; detail: string }> = {
+  fp32: { title: "Full precision", type: "vector", detail: "32 bits per number" },
+  halfvec: { title: "Half precision", type: "halfvec", detail: "16 bits per number" },
+  binary_two_pass: { title: "Binary, then re-checked", type: "bit", detail: "1 bit per number" },
+};
 const modes = {
   off: { title: "Off", description: "Stop after the first pass." },
   strict_order: { title: "Strict", description: "Keep scanning, in distance order." },
@@ -43,9 +50,9 @@ function FilterComparison({ measured }: { measured: HnswMeasured | null }) {
   const strictGain = rows.length ? rows[1].rows_returned - rows[0].rows_returned : 0;
   return <ScaleSection id="scale-filters" title="Keep looking after filters." description="A filter can empty the shortlist. Iterative scans keep looking until it fills.">
     {measured && level ? <>
-      <div className="scale-selector"><label htmlFor="scale-filter">Alex’s filter</label><select id="scale-filter" value={level.preset} onChange={(event) => setPreset(event.target.value)}>{available.map((item) => <option key={item.preset} value={item.preset}>{item.label}</option>)}</select></div>
+      <div className="scale-selector"><span>Alex’s filter</span><SegmentedControl label="Alex’s filter" options={available.map((item) => ({ value: item.preset, label: item.label }))} value={level.preset} onChange={setPreset} /></div>
       {rows.length ? <>
-        <div className="inspector-table-scroll" role="region" aria-label="Off, strict and relaxed scan comparison" tabIndex={0}><table className="inspector-table scale-comparison-table"><thead><tr><th>Scan mode</th><th>Products found · average</th><th>Recall@{measured.provenance.k ?? "k"}</th><th>Server time</th></tr></thead><tbody>{rows.map((row) => <tr key={row.iterative_scan}><th scope="row">{modes[row.iterative_scan].title}<small>{modes[row.iterative_scan].description}</small></th><td><strong>{amount(row.rows_returned)} / {amount(exact)}</strong><span className="scale-found-track" aria-hidden="true"><span style={{ width: `${exact ? Math.min(row.rows_returned / exact, 1) * 100 : 0}%` }} /></span></td><td>{percent(row.recall_at_k)}</td><td>{row.server_ms} ms</td></tr>)}</tbody></table></div>
+        <div className="inspector-table-scroll" role="region" aria-label="Off, strict and relaxed scan comparison" tabIndex={0}><table className="inspector-table scale-comparison-table"><thead><tr><th>Scan mode</th><th>Products found · average</th><th>Recall@{measured.provenance.k ?? "k"}</th><th>Server time</th></tr></thead><tbody>{rows.map((row) => <tr key={row.iterative_scan}><th scope="row">{modes[row.iterative_scan].title}<small>{modes[row.iterative_scan].description}</small></th><td><strong>{amount(row.rows_returned)} / {amount(exact)}</strong><span className="scale-found-track" aria-hidden="true"><span style={{ width: `${exact ? Math.min(row.rows_returned / exact, 1) * 100 : 0}%` }} /></span></td><td>{percent(row.recall_at_k)}</td><td>{formatMs(row.server_ms)}</td></tr>)}</tbody></table></div>
         <p className="scale-takeaway">{strictGain > 0 ? `Strict scanning found ${amount(strictGain)} more products on average than Off in this test.` : "Strict scanning did not increase the average number of products in this test."}</p>
         <Inspect label="Measurement details">
           <MeasurementNote measured={measured} />
@@ -65,14 +72,22 @@ function RepresentationComparison({ measured }: { measured: HnswMeasured | null 
   const fullSize = rows.find((row) => row.representation === "fp32")?.index_size_bytes;
   return <ScaleSection id="scale-representations" title="A smaller index." description="Same embeddings, stored in less space.">
     {measured && representations ? <>
-      <div className="inspector-table-scroll" role="region" aria-label="Vector format benchmarks" tabIndex={0}><table className="inspector-table scale-comparison-table"><thead><tr><th>Format</th><th>Index size</th><th>Recall@{representations.k}</th><th>Server time</th></tr></thead><tbody>{rows.map((row) => <tr key={row.representation}><th scope="row">{row.representation === "fp32" ? "vector · full precision" : row.representation === "halfvec" ? "halfvec" : "Binary + cosine"}{row.overfetch ? <small>{row.overfetch} matches checked</small> : null}</th><td>{formatBytes(row.index_size_bytes)}{fullSize && row.index_size_bytes < fullSize ? <small>{(fullSize / row.index_size_bytes).toFixed(1)}× smaller</small> : null}</td><td>{percent(row.recall_at_k)}</td><td>{row.server_ms} ms</td></tr>)}</tbody></table></div>
-      {binaryRows.length ? <div className="scale-selector"><label htmlFor="binary-depth">Shortlist size to check</label><select id="binary-depth" value={selected?.overfetch ?? ""} onChange={(event) => setDepth(Number(event.target.value))}>{binaryRows.map((row) => <option key={row.overfetch} value={row.overfetch ?? ""}>{row.overfetch}</option>)}</select></div> : null}
+      <div className="inspector-table-scroll" role="region" aria-label="Vector format benchmarks" tabIndex={0}><table className="inspector-table scale-comparison-table"><thead><tr><th>Format</th><th>Index size</th><th>Recall@{representations.k}</th><th>Server time</th></tr></thead><tbody>{rows.map((row) => {
+        const format = formats[row.representation] ?? { title: row.representation, type: row.representation, detail: "" };
+        return <tr key={row.representation}>
+          <th scope="row">{format.title}<small><code>{format.type}</code> · {format.detail}{row.overfetch ? `, ${row.overfetch} re-checked` : ""}</small></th>
+          <td>{formatBytes(row.index_size_bytes)}<small>{fullSize && row.index_size_bytes < fullSize ? `${(fullSize / row.index_size_bytes).toFixed(1)}× smaller` : "Baseline"}</small></td>
+          <td>{percent(row.recall_at_k)}</td>
+          <td>{formatMs(row.server_ms)}</td>
+        </tr>;
+      })}</tbody></table></div>
+      {binaryRows.length ? <div className="scale-selector"><span>Binary: matches re-checked</span><SegmentedControl label="Binary: matches re-checked" options={binaryRows.flatMap((row) => row.overfetch == null ? [] : [{ value: row.overfetch, label: String(row.overfetch) }])} value={selected?.overfetch ?? undefined} onChange={setDepth} /></div> : null}
       <Inspect label="Measurement details">
         <MeasurementNote measured={measured} />
-        <p className="scale-measurement-note"><strong>halfvec</strong> stores each number in 16 bits. <strong>Binary storage</strong> keeps one sign bit, then checks its shortlist against the original vectors. Checking more matches can recover matches, at extra cost.</p>
+        <p className="scale-measurement-note"><strong>halfvec</strong> stores each number in 16 bits. <strong>Binary storage</strong> keeps one sign bit, then re-checks its shortlist by cosine distance against the original vectors. Re-checking more matches recovers recall, at extra time.</p>
         <p className="scale-measurement-note">{representations.anchors} queries · ef_search {representations.ef_search}. Recall is checked against full-precision exact search. Index size includes graph overhead.</p>
       </Inspect>
-    </> : <><div className="scale-format-basics"><span>vector · full precision</span><span>halfvec · smaller numbers</span><span>Binary · sign bits + cosine check</span></div><p className="inspector-waiting">Format measurements are unavailable for this catalog.</p></>}
+    </> : <><div className="scale-format-basics"><span>Full precision · vector</span><span>Half precision · halfvec</span><span>Binary, then re-checked · bit</span></div><p className="inspector-waiting">Format measurements are unavailable for this catalog.</p></>}
   </ScaleSection>;
 }
 function downloadMeasurements(measured: HnswMeasured) {
@@ -86,10 +101,10 @@ function AdvancedBenchmarks({ measured }: { measured: HnswMeasured }) {
   return <Inspect label="Benchmarks & SQL">
     <MeasurementNote measured={measured} />
     <h3>Search effort and recall</h3>
-    {best ? <p>Best recall in this sweep: <strong>{percent(best.recall_at_k)}</strong> at ef_search {best.ef_search}, in {best.server_ms} ms. More search effort can reach a point of diminishing returns.</p> : null}
-    <div className="inspector-table-scroll" role="region" aria-label="Search effort benchmarks" tabIndex={0}><table className="inspector-table"><thead><tr><th>ef_search</th><th>Recall</th><th>Server time</th><th>Server p95</th></tr></thead><tbody>{measured.ef_sweep.map((row) => <tr key={row.ef_search}><th scope="row">{row.ef_search}</th><td>{percent(row.recall_at_k)}</td><td>{row.server_ms} ms</td><td>{row.server_p95_ms == null ? "Not recorded" : `${row.server_p95_ms} ms`}</td></tr>)}</tbody></table></div>
-    <p className="scale-measurement-note">Exact scan: {measured.exact_baseline.server_ms} ms database time. Client p50 / p95: {measured.exact_baseline.p50_ms} / {measured.exact_baseline.p95_ms} ms. These benchmarks cover vector search; embedding, reranking and the Retrieval agent take additional time.</p>
-    {deep ? <><h3>Deeper binary search</h3><div className="inspector-table-scroll" role="region" aria-label="Deeper binary benchmarks" tabIndex={0}><table className="inspector-table"><thead><tr><th>Configuration</th><th>Recall@{deep.k}</th><th>Server time</th></tr></thead><tbody>{deep.rows.map((row) => <tr key={row.config}><th scope="row">{row.config}</th><td>{percent(row.recall_at_k)}</td><td>{row.server_ms} ms</td></tr>)}</tbody></table></div><p>Different search effort, same exact comparison. A smaller index alone does not guarantee a faster query.</p></> : null}
+    {best ? <p>Best recall in this sweep: <strong>{percent(best.recall_at_k)}</strong> at ef_search {best.ef_search}, in {formatMs(best.server_ms)}. More search effort can reach a point of diminishing returns.</p> : null}
+    <div className="inspector-table-scroll" role="region" aria-label="Search effort benchmarks" tabIndex={0}><table className="inspector-table"><thead><tr><th>ef_search</th><th>Recall</th><th>Server time</th><th>Server p95</th></tr></thead><tbody>{measured.ef_sweep.map((row) => <tr key={row.ef_search}><th scope="row">{row.ef_search}</th><td>{percent(row.recall_at_k)}</td><td>{formatMs(row.server_ms)}</td><td>{row.server_p95_ms == null ? "Not recorded" : formatMs(row.server_p95_ms)}</td></tr>)}</tbody></table></div>
+    <p className="scale-measurement-note">Exact scan: {formatMs(measured.exact_baseline.server_ms)} database time. Client p50 / p95: {formatMs(measured.exact_baseline.p50_ms)} / {formatMs(measured.exact_baseline.p95_ms)}. These benchmarks cover vector search; embedding, reranking and the Retrieval agent take additional time.</p>
+    {deep ? <><h3>Deeper binary search</h3><div className="inspector-table-scroll" role="region" aria-label="Deeper binary benchmarks" tabIndex={0}><table className="inspector-table"><thead><tr><th>Configuration</th><th>Recall@{deep.k}</th><th>Server time</th></tr></thead><tbody>{deep.rows.map((row) => <tr key={row.config}><th scope="row">{row.config}</th><td>{percent(row.recall_at_k)}</td><td>{formatMs(row.server_ms)}</td></tr>)}</tbody></table></div><p>Different search effort, same exact comparison. A smaller index alone does not guarantee a faster query.</p></> : null}
     <h3>Strict and relaxed ordering</h3>
     <CodeBlock label="Iterative scan examples" code={`BEGIN;\nSET LOCAL hnsw.iterative_scan = 'strict_order';\n-- Run the filtered nearest-neighbor query.\nCOMMIT;\n\nBEGIN;\nSET LOCAL hnsw.iterative_scan = 'relaxed_order';\nWITH matches AS MATERIALIZED (\n  SELECT product_id, embedding <=> $1 AS distance\n  FROM mosaic_search.product_listing_view\n  WHERE embedding IS NOT NULL AND category_key = $2\n  ORDER BY distance\n  LIMIT $3\n)\nSELECT * FROM matches ORDER BY distance + 0;\nCOMMIT;`} />
     <p>Strict keeps the returned rows in distance order; it is still approximate search. Relaxed can improve recall, then the outer sort restores order. The <code>+ 0</code> is needed on PostgreSQL 17+.</p>
@@ -138,7 +153,7 @@ function ScaleInspector() {
       <summary>How HNSW finds neighbors</summary>
       <div>{illustrationOpen ? <HnswSearchGraph served={substrate ? { efSearch: substrate.retrieval.ef_search, vectors: substrate.corpus.vector_count, dimensions: substrate.corpus.dimensions, definition: substrate.index.definition } : null} /> : null}</div>
     </details>
-    <aside className="inspector-scale-link"><div><h2>And when Alex comes back?</h2><p>See what AgentCore remembers about him.</p></div><Link href="/mosaic-labs/memory">Explore session & memory</Link></aside>
+    <aside className="inspector-scale-link"><div><h2>And when Alex comes back?</h2><p>See what AgentCore remembers about him.</p></div><Link className="scale-next-link" href="/mosaic-labs/memory">Explore session & memory<ArrowRight size={16} aria-hidden="true" /></Link></aside>
   </div>;
 }
 export function ScaleInspectorPage() {

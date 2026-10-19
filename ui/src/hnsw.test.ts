@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   curvePoints,
   formatBytes,
+  formatMs,
   ringPoints,
   saturationEf,
   speedupFactor,
@@ -63,6 +64,18 @@ describe("formatBytes", () => {
   it("reports small sizes in bytes without producing NaN", () => {
     expect(formatBytes(0)).toBe("0 bytes");
     expect(formatBytes(512)).toBe("512 bytes");
+  });
+});
+
+describe("formatMs", () => {
+  it("prints the three decimals EXPLAIN ANALYZE prints, restoring a dropped zero", () => {
+    expect(formatMs(1.75)).toBe("1.750 ms");
+    expect(formatMs(4.041)).toBe("4.041 ms");
+    expect(formatMs(2)).toBe("2.000 ms");
+  });
+
+  it("groups thousands in a long exact scan", () => {
+    expect(formatMs(2445.627)).toBe("2,445.627 ms");
   });
 });
 

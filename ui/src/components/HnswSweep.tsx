@@ -1,3 +1,4 @@
+import { formatMs } from "../hnsw";
 import type { HnswEfPoint } from "../types";
 
 const percent = (value: number) => `${(value * 100).toFixed(1)}%`;
@@ -11,7 +12,7 @@ export function sweepTakeaway(sweep: HnswEfPoint[]): string {
   return (
     `From ef_search ${first.ef_search} to ${last.ef_search}, recall goes from ` +
     `${percent(first.recall_at_k)} to ${percent(last.recall_at_k)} and database time ` +
-    `from ${first.server_ms} ms to ${last.server_ms} ms (${ratio}x).`
+    `from ${formatMs(first.server_ms)} to ${formatMs(last.server_ms)} (${ratio}x).`
   );
 }
 
@@ -50,7 +51,7 @@ export function HnswSweep({ sweep, served }: { sweep: HnswEfPoint[]; served: num
                 <span className="sweep-bar sweep-bar-time" aria-hidden="true">
                   <i style={{ width: `${(point.server_ms / slowest) * 100}%` }} />
                 </span>
-                <strong>{point.server_ms} ms</strong>
+                <strong>{formatMs(point.server_ms)}</strong>
               </td>
             </tr>
           ))}

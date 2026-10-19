@@ -31,6 +31,14 @@ export function formatBytes(bytes: number): string {
   return `${Math.round(value)} ${UNITS[unit]}`;
 }
 
+/**
+ * Milliseconds at the three decimals `EXPLAIN ANALYZE` prints, so a saved 1.75
+ * reads 1.750 as psql showed it and every time on the page shares one precision.
+ */
+export function formatMs(ms: number): string {
+  return `${ms.toLocaleString("en-US", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ms`;
+}
+
 const SEGMENT_LABELS: Array<{ key: keyof HnswStorage; label: string }> = [
   { key: "heap_bytes", label: "Table rows" },
   { key: "toast_bytes", label: "Vector storage" },

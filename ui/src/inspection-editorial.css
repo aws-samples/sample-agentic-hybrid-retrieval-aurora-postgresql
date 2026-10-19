@@ -44,6 +44,42 @@
   outline-offset: 3px;
 }
 
+/* A short choice shown in full; the chosen option takes the action blue, as on
+   Apple's segmented controls, so it reads at a glance in both themes. */
+.mosaic-segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 22px;
+  background: var(--paper-warm);
+}
+
+.mosaic-segmented button {
+  min-height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease;
+}
+
+.mosaic-segmented button:hover:not([aria-pressed="true"]) {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  color: var(--ink);
+}
+
+.mosaic-segmented button[aria-pressed="true"] {
+  background: var(--action);
+  color: var(--action-ink);
+}
+
 /* A status chip: pill, 7px state dot, tabular numerals. */
 .scale-chips {
   display: flex;
@@ -212,6 +248,9 @@
 .scale-essentials .scale-comparison-table tbody tr:hover { background: color-mix(in srgb, var(--ink) 4%, transparent); }
 .scale-essentials .scale-comparison-table small { display: block; margin-top: 4px; max-width: 28ch; color: var(--ink-soft); font-size: 12px; font-weight: 400; line-height: 1.5; }
 .scale-essentials .scale-comparison-table td { font-variant-numeric: tabular-nums; }
+.scale-essentials .scale-comparison-table td small { margin-left: auto; text-align: right; }
+.scale-essentials .scale-comparison-table th small { max-width: 40ch; }
+.scale-essentials .scale-comparison-table th small code { color: var(--ink); font: 500 12px var(--mono); }
 .scale-essentials .scale-found-track { display: block; min-width: 84px; height: 6px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--ink) 10%, transparent); }
 .scale-essentials .scale-found-track > span { display: block; height: 100%; border-radius: inherit; background: var(--green); }
 .scale-essentials .scale-takeaway { max-width: 62ch; margin: 20px 0 0; font-size: 15px; font-weight: 500; line-height: 1.5; }
@@ -222,9 +261,7 @@
 .scale-essentials .inspector-waiting { color: var(--ink-soft); }
 
 .scale-essentials .scale-selector { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 20px 0; font-size: 14px; }
-.scale-essentials .scale-selector label { font-weight: 500; }
-.scale-essentials .scale-selector select { min-height: 44px; max-width: 100%; padding: 10px 36px 10px 18px; border: 0; border-radius: 999px; background-color: var(--paper-warm); color: var(--ink); font: inherit; }
-.scale-essentials .scale-selector select:hover { background-color: color-mix(in srgb, var(--ink) 10%, var(--paper-warm)); }
+.scale-essentials .scale-selector > span { font-weight: 500; }
 
 /* Depth behind one quiet pill, the pg-inspect shape. */
 .scale-inspect { margin-top: 24px; }
@@ -270,6 +307,19 @@
 }
 
 .scale-essentials .inspector-scale-link h2 { font: 500 var(--labs-h3)/1.3 var(--display); letter-spacing: -0.02em; }
+
+.scale-essentials .inspector-scale-link .scale-next-link {
+  gap: 8px;
+  padding: 0 18px;
+  border-radius: 22px;
+  background: var(--paper-warm);
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color var(--motion-fast) ease;
+}
+
+.scale-essentials .inspector-scale-link .scale-next-link:hover { background: color-mix(in srgb, var(--ink) 10%, var(--paper-warm)); }
 
 /* ---------- Session & Memory ---------- */
 .session-memory h2 { font-size: var(--labs-h2); font-weight: 500; letter-spacing: -0.035em; }
@@ -330,7 +380,8 @@
 
 .session-memory .memory-strategy-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 6px; border: 0; border-radius: 18px; background: var(--paper-warm); }
 .session-memory .memory-strategy-picker button { padding: 14px; border: 0; border-radius: 13px; }
-.session-memory .memory-strategy-picker button[aria-pressed="true"] { background: var(--paper-strong); box-shadow: 0 2px 8px rgb(0 0 0 / 12%); color: var(--ink); }
+.session-memory .memory-strategy-picker button[aria-pressed="true"] { background: var(--action); color: var(--action-ink); }
+.session-memory .memory-strategy-picker button[aria-pressed="true"] small { color: var(--action-ink); }
 .session-memory .memory-strategy-picker button:hover:not([aria-pressed="true"]) { background: color-mix(in srgb, var(--ink) 6%, var(--paper-warm)); }
 .session-memory .memory-strategy-picker button small { overflow-wrap: anywhere; }
 
@@ -370,7 +421,21 @@
 .session-memory .memory-beyond { margin: 24px 0 40px; padding-top: 0; border: 0; }
 .session-memory .memory-error { padding: 20px 24px; border: 0; border-radius: 18px; background: var(--danger-soft); }
 .session-memory .memory-error p:last-child { margin-bottom: 0; }
-.session-memory .memory-check input:checked { border-color: var(--retrieve); background: var(--retrieve); }
+.session-memory .memory-check input:checked { border-color: var(--action); background: var(--action); }
+
+.session-memory .memory-suggestions { gap: 8px; }
+.session-memory .memory-suggestions button { min-height: 36px; padding: 0 14px; background: var(--paper-warm); color: var(--ink); font-weight: 500; }
+.session-memory .memory-suggestions button:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 10%, var(--paper-warm)); text-decoration: none; }
+
+.session-memory .memory-profile > .memory-session-bar {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-basis: 100%;
+  margin: 4px 0 0;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--line);
+}
 
 @media (max-width: 900px) {
   .session-memory :is(.memory-layout, .memory-recall) { grid-template-columns: minmax(0, 1fr); }
@@ -398,6 +463,7 @@
   .session-memory .memory-flow li, .session-memory .memory-flow li:first-child { padding: 16px 20px; }
   .session-memory :is(.memory-events, .memory-strategies, .memory-recall > div:last-child) { padding: 24px 20px; border-radius: 22px; }
   .session-memory .memory-profile { padding: 20px; }
+  .session-memory .memory-profile > .memory-session-bar { grid-column: 1 / -1; flex-wrap: wrap; }
 }
 
 @media (prefers-reduced-motion: reduce) {
