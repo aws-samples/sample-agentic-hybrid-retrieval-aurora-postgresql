@@ -5,6 +5,7 @@ import type { MosaicLabMission } from "../labMissions";
 import { wantedProduct, type LabOutcome } from "../labOutcome";
 import type { SearchResponse } from "../types";
 import { useLabStates } from "../useLabStates";
+import { useWantedName } from "../useWantedName";
 
 /** A good reference result is not a participant repair. Check entry and run age. */
 export const RankLabCard = forwardRef<HTMLElement, {
@@ -28,20 +29,7 @@ export const RankLabCard = forwardRef<HTMLElement, {
     return () => { active = false; };
   }, [eventId]);
 
-  const wantedId = mission.target_product_ids[0];
-  const servedTitle = response.results.find((product) => product.product_id === wantedId)?.title;
-  const [lookedUp, setLookedUp] = useState<{ id: number; title: string } | null>(null);
-  useEffect(() => {
-    if (servedTitle) return;
-    let active = true;
-    api.product(wantedId).then((detail) => {
-      if (active) setLookedUp({ id: wantedId, title: detail.title });
-    }).catch(() => {
-      // The card reads fine with "the wanted product" when the lookup fails.
-    });
-    return () => { active = false; };
-  }, [servedTitle, wantedId]);
-  const name = servedTitle ?? (lookedUp?.id === wantedId ? lookedUp.title : "wanted product");
+  const name = useWantedName(mission, response) ?? "wanted product";
   const wanted = wantedProduct(mission, response);
 
   let status = "Lab 2 / Not checked";

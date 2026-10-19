@@ -982,34 +982,61 @@
   text-underline-offset: 4px;
 }
 
-/* Ranked results read as an editorial list: the first in the final order as a
-   feature on the grey plate, the rest as rows with their position at the end.
-   A browsed page has no order, so it keeps the grid. */
+/* Ranked results are a grid, so the results and their ranking information fit
+   on one screen: 4 columns on a wide window, 3, 2, then 1 on a phone. Every
+   card is the same card: rank badge, photo, title, price, the searches that
+   found it, and its position. There is no hero. A browsed page has no order, so
+   it keeps its own grid. */
 .mosaic-catalog-page .shop-results-layout .shop-products .shop-product-grid.is-ranked {
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px 16px;
+  align-items: stretch;
+}
+
+@media (max-width: 1199px) {
+  .mosaic-catalog-page .shop-results-layout .shop-products .shop-product-grid.is-ranked { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 899px) {
+  .mosaic-catalog-page .shop-results-layout .shop-products .shop-product-grid.is-ranked { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 599px) {
+  .mosaic-catalog-page .shop-results-layout .shop-products .shop-product-grid.is-ranked { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* The open Ask Mosaic panel and the search-details column take width from the grid. */
+.mosaic-catalog-page .shop-canvas.assist-open .shop-results-layout .shop-products .shop-product-grid.is-ranked { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+@media (min-width: 1200px) {
+  .mosaic-catalog-page .shop-results-layout.with-inspector .shop-products .shop-product-grid.is-ranked { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 .mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card.source-product-card,
 .mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card {
-  display: grid;
-  grid-template-columns: 112px minmax(0, 1fr);
-  grid-template-areas: "photo body";
-  align-items: start;
-  column-gap: 24px;
+  display: flex;
+  flex-direction: column;
   height: auto;
-  padding: 20px 0;
-  border-bottom: 1px solid var(--line);
-  border-radius: 0;
-  background: transparent;
+  padding: 10px 10px 14px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--paper-strong);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
   text-align: left;
 }
 
-.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-photo { grid-area: photo; }
-.mosaic-catalog-page .shop-product-grid.is-ranked .product-card-body { grid-area: body; padding: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card {
+    transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+  }
 
-/* The final position is a pill in the corner of the plate, not a column of its
-   own, so a row's text keeps the full measure. */
+  .mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px rgb(0 0 0 / 10%);
+  }
+}
+
+/* The final position is a pill in the corner of the photo. */
 .mosaic-catalog-page .shop-card-photo > .shop-card-position {
   position: absolute;
   z-index: 1;
@@ -1020,29 +1047,30 @@
   height: 24px;
   padding: 0 8px;
   place-items: center;
-  border: 1px solid var(--line);
   border-radius: 999px;
-  background: var(--paper-strong);
-  color: var(--ink);
+  background: var(--ink);
+  color: var(--paper-strong);
   font: 600 12px/1 var(--sans);
   font-variant-numeric: tabular-nums;
 }
 
 .mosaic-catalog-page .shop-product-card.assist-selected .shop-card-photo > .shop-card-position {
   top: auto;
-  bottom: 8px;
+  bottom: 10px;
 }
 
 .mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card .product-image {
-  width: 112px;
-  height: 112px;
-  aspect-ratio: 1;
-  border-radius: 16px;
+  width: 100%;
+  height: 150px;
+  aspect-ratio: auto;
+  border-radius: 14px;
   background: var(--plate);
 }
 
 .mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card .product-image img {
-  padding: 12%;
+  width: 100%;
+  height: 100%;
+  padding: 10px 16px;
   object-fit: contain;
   mix-blend-mode: multiply;
 }
@@ -1051,80 +1079,174 @@
   display: none;
 }
 
-.mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card h3 {
-  min-height: 0;
-  font: 600 17px/1.3 var(--sans);
-  letter-spacing: -0.012em;
-}
-
-.mosaic-catalog-page .shop-product-grid.is-ranked :is(.shop-card-meta, .shop-card-price) {
-  justify-content: flex-start;
-}
-
-/* The row rule already separates products, so the footer drops its own. Every
-   block in a row is 12px from the next; the blocks bring no margins of their own. */
 .mosaic-catalog-page .shop-product-grid.is-ranked .product-card-body {
-  gap: 12px;
+  gap: 10px;
+  padding: 12px 6px 0;
 }
 
 .mosaic-catalog-page .shop-product-grid.is-ranked .product-card-body > * {
   margin-block: 0;
 }
 
-.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-price {
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card h3 {
+  display: -webkit-box;
   min-height: 0;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font: 600 15px/1.3 var(--sans);
+  letter-spacing: -0.01em;
 }
 
-.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-signals > summary {
-  min-height: 32px;
+.mosaic-catalog-page .shop-product-grid.is-ranked :is(.shop-card-meta, .shop-card-price) {
+  justify-content: flex-start;
 }
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-meta { font-size: 12px; }
+
+/* Specification facts are on the product page; the grid keeps to what the
+   ranking explains. */
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-facts { display: none; }
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-price {
+  min-height: 0;
+  flex-wrap: nowrap;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-price strong { font-size: 17px; }
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-price-caption {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* One quiet row: Why this match, Compare, Listing. */
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 14px;
+  font-size: 12px;
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-actions > .shop-card-signals[open] { flex: 1 1 100%; }
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-signals > summary { min-height: 28px; font-size: 12px; }
 
 .mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-footer {
   justify-content: flex-start;
+  gap: 14px;
+  margin: 0;
   padding-top: 0;
   border-top: 0;
 }
 
-.mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:first-child {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-areas: "photo body";
-  align-items: center;
-  column-gap: clamp(20px, 4vw, 56px);
-  margin: 28px 0;
-  padding: clamp(18px, 3vw, 32px);
-  border-bottom: 0;
-  border-radius: 28px;
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-footer :is(.compare-control, .source-listing-link, .shop-quick-add) { font-size: 12px; }
+
+/* Opening "Why this match" gives that card its own row: summary on the left,
+   the receipt on the right, so the grid never stretches unevenly. */
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card:has(.shop-card-signals[open]) {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  align-items: start;
+  column-gap: 20px;
+  padding: 10px 18px 18px 10px;
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card:has(.shop-card-signals[open]) .shop-card-photo {
+  grid-row: 1 / span 2;
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card:has(.shop-card-signals[open]) .product-card-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  column-gap: 24px;
+  align-content: start;
+  padding: 0;
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-actions:has(.shop-card-signals[open]) { display: contents; }
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-signals[open] {
+  grid-column: 2;
+  grid-row: 1 / span 6;
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked .product-card-body > :not(.shop-card-actions),
+.mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-actions:has(.shop-card-signals[open]) > .shop-card-footer { grid-column: 1; }
+
+@media (max-width: 899px) {
+  .mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card:has(.shop-card-signals[open]) {
+    display: flex;
+    padding: 10px 10px 14px;
+  }
+
+  .mosaic-catalog-page .shop-product-grid.is-ranked .shop-product-card:has(.shop-card-signals[open]) .product-card-body { display: flex; }
+
+  .mosaic-catalog-page .shop-product-grid.is-ranked .shop-card-actions:has(.shop-card-signals[open]) { display: flex; }
+}
+
+.shop-card-receipt:focus-visible { outline-offset: 4px; }
+
+.shop-show-all {
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin: 20px auto 0;
+  padding: 10px 22px;
+  border: 0;
+  border-radius: 999px;
   background: var(--paper-warm);
+  color: var(--ink);
+  font: 600 14px/1.2 var(--sans);
 }
 
-.mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:first-child .product-card-body {
-  align-self: center;
+.shop-show-all:hover { background: var(--maroon-100); }
+
+.shop-pipeline[data-loading] .pipeline-strip { opacity: 0.55; transition: opacity 160ms ease; }
+.shop-pipeline-note { margin: -8px 0 12px; color: var(--ink-soft); font-size: 13px; }
+
+/* Ways to ask: one unlabelled row of pills. */
+.mosaic-catalog-page .shop-search-examples { display: block; margin-top: 14px; }
+.mosaic-catalog-page .shop-search-examples .shop-example-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.mosaic-catalog-page .shop-search-examples .shop-example-links button {
+  padding: 7px 13px;
+  min-height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--paper-warm);
+  color: var(--ink);
+  font-size: 12.5px;
 }
 
-/* The plate rule from world.css: the listing's white ground multiplies into
-   --plate, and the photograph is contained at about 82% of the plate's width. */
-.mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:first-child .product-image {
-  width: 100%;
-  height: auto;
-  aspect-ratio: 4 / 3;
-  border-radius: 20px;
+.mosaic-catalog-page .shop-search-examples .shop-example-links button:hover { background: var(--maroon-100); }
+
+/* Searching again keeps the page where it is. */
+@media (prefers-reduced-motion: no-preference) {
+  .mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card {
+    animation: shop-result-in 600ms var(--ease-out) both;
+  }
+
+  .mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:nth-child(2) { animation-delay: 70ms; }
+  .mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:nth-child(3) { animation-delay: 140ms; }
+  .mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:nth-child(4) { animation-delay: 210ms; }
+  .mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:nth-child(5) { animation-delay: 280ms; }
+  .mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:nth-child(6) { animation-delay: 350ms; }
+  .mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:nth-child(7) { animation-delay: 420ms; }
+  .mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:nth-child(8) { animation-delay: 490ms; }
+  .mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:nth-child(9) { animation-delay: 560ms; }
+  .mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:nth-child(10) { animation-delay: 630ms; }
+  .mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:nth-child(11) { animation-delay: 700ms; }
+  .mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:nth-child(12) { animation-delay: 770ms; }
 }
 
-.mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:first-child .product-image img {
-  padding: 9%;
-  object-fit: contain;
-}
-
-.mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:first-child .shop-card-photo > .shop-card-position {
-  top: 16px;
-  left: 16px;
-}
-
-.mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card:first-child h3 {
-  font: 600 clamp(21px, 2.2vw, 28px)/1.18 var(--display);
-  letter-spacing: -0.02em;
-  -webkit-line-clamp: 3;
-}
+@keyframes shop-result-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 
 /* A phone's results start with the results: the ways to ask, the search details
    and the scope line step aside, and the heading takes the full width. */

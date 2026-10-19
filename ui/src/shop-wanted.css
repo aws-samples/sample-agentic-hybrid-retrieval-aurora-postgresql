@@ -1,0 +1,73 @@
+/* The lab's wanted product. Green and orange carry meaning only here: green at
+   its target rank, orange returned lower, grey not returned. The app's own
+   purple and blue stay on everything else. */
+.shop-wanted-badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  width: fit-content;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--paper-warm);
+  color: var(--ink-soft);
+  font: 600 12px/1.4 var(--sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.shop-wanted-badge[data-tier="target"] { background: var(--green-soft); color: var(--green); }
+.shop-wanted-badge[data-tier="lower"] { background: var(--gold-soft); color: var(--gold-deep); }
+
+/* Tint plus a 1.5px inset ring: the ring sits inside the card, so it never
+   shifts the layout or gets clipped by a scroll container. */
+.mosaic-catalog-page .shop-product-card[data-wanted="target"] {
+  background: var(--green-soft);
+  box-shadow: inset 0 0 0 1.5px var(--green);
+}
+
+.mosaic-catalog-page .shop-product-card[data-wanted="lower"] {
+  background: var(--gold-soft);
+  box-shadow: inset 0 0 0 1.5px var(--gold-bright);
+}
+
+/* The ranked grid's own card rule is more specific, so the marking repeats its path. */
+.mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card[data-wanted="target"] {
+  background: var(--green-soft);
+  box-shadow: inset 0 0 0 1.5px var(--green);
+}
+
+.mosaic-catalog-page .shop-product-grid.is-ranked > .shop-product-card[data-wanted="lower"] {
+  background: var(--gold-soft);
+  box-shadow: inset 0 0 0 1.5px var(--gold-bright);
+}
+
+.shop-details-wanted {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.shop-details-wanted > span:not(.shop-wanted-badge) { color: var(--ink); font-weight: 600; }
+
+.shop-details-table tbody tr[data-wanted] > * {
+  --wanted-ring: var(--green);
+  background: var(--green-soft);
+  box-shadow: inset 0 1.5px 0 var(--wanted-ring), inset 0 -1.5px 0 var(--wanted-ring);
+}
+
+.shop-details-table tbody tr[data-wanted="lower"] > * {
+  --wanted-ring: var(--gold-bright);
+  background: var(--gold-soft);
+}
+
+.shop-details-table tbody tr[data-wanted] > :first-child {
+  border-radius: 12px 0 0 12px;
+  box-shadow: inset 0 1.5px 0 var(--wanted-ring), inset 0 -1.5px 0 var(--wanted-ring), inset 1.5px 0 0 var(--wanted-ring);
+}
+
+.shop-details-table tbody tr[data-wanted] > :last-child {
+  border-radius: 0 12px 12px 0;
+  box-shadow: inset 0 1.5px 0 var(--wanted-ring), inset 0 -1.5px 0 var(--wanted-ring), inset -1.5px 0 0 var(--wanted-ring);
+}
+
+.shop-details-table th > .shop-wanted-badge { margin-bottom: 6px; }

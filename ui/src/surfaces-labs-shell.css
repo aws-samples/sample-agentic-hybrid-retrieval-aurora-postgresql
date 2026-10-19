@@ -704,19 +704,8 @@
     display: none;
   }
 
-  .hybrid-retrieval-trace {
-    padding: 16px;
-  }
 
-  .hybrid-retrieval-trace > header {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 10px;
-  }
 
-  .hybrid-retrieval-trace > header strong {
-    font-size: 19px;
-  }
 
   .shop-product-grid,
   .shop-canvas.assist-open .shop-product-grid {

@@ -45,6 +45,7 @@ import { LabFaultCard } from "../components/LabFaultCard";
 import { CoverageNotice } from "../components/CoverageNotice";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { ProductCard } from "../components/ProductCard";
+import { PipelineStrip } from "../components/PipelineStrip";
 import { ProductDrawer } from "../components/ProductDrawer";
 import { SearchRetrievalReceipt } from "../components/RetrievalReceipt";
 import { useAskMosaicConversation } from "../components/useAskMosaicConversation";
@@ -58,6 +59,7 @@ import {
   agentLabOutcome,
   retrievalLabOutcome,
   runMatchesMissionGates,
+  wantedProduct,
   type LabOutcome,
 } from "../labOutcome";
 import {
@@ -78,7 +80,9 @@ import {
 import { ASK_MOSAIC_EVENT } from "../askMosaicEntry";
 import { EASE_OUT } from "../motion";
 import { lockBodyScroll } from "../scrollLock";
+import { useWantedName } from "../useWantedName";
 import "../shop-editorial.css";
+import "../shop-wanted.css";
 import type {
   Availability,
   CatalogPage,
@@ -238,52 +242,28 @@ function retrievalLabCallout(
   };
 }
 
-/**
- * What a Shop search is doing while it runs, in the storefront's own words.
- *
- * This list read "Cohere Embed v4 / FTS / pg_trgm / HNSW / SQL eligibility / RRF
- * / Cohere Rerank" — seven implementation names on a shopping surface, for a
- * shopper who is waiting for products. The five customer-facing steps are the
- * same request; the model and index names are on the Playground, next to the
- * measurements that justify naming them.
- */
-const retrievalScope = [
-  "Understanding your words",
-  "Full-text search",
-  "Fuzzy matching",
-  "Semantic search",
-  "Applying your filters",
-  "Combining the results",
-  "Reranking the shortlist",
-];
-
 const shopSuggestedQueries = pipelineRequests;
 
-function HybridRetrievalTrace() {
+/** The manifest's examples, with any that repeat an earlier request dropped. */
+const distinctExamples = shopSearchExamples.filter((example, index, all) => {
+  const key = JSON.stringify([example.query.trim(), example.filters]);
+  return all.findIndex((other) => JSON.stringify([other.query.trim(), other.filters]) === key) === index;
+});
+
+/** Results shown before "Show all": a short first screen, display only. */
+const FIRST_RESULTS = 6;
+
+/**
+ * The one line a running search shows. A Shop search is a single request, so
+ * this names what it does and claims no progress through it; the pipeline
+ * strip takes over when the response lands.
+ */
+function SearchingLine() {
   return (
-    <section
-      className="hybrid-retrieval-trace"
-      aria-live="polite"
-      aria-label="What this search is doing"
-    >
-      <header>
-        <div>
-          <p>Searching the catalog</p>
-          <strong>Finding and ranking the best matches</strong>
-        </div>
-        <span className="hybrid-retrieval-status">
-          <LoaderCircle className="spin" size={14} aria-hidden="true" />
-          In progress
-        </span>
-      </header>
-      <p className="hybrid-retrieval-scope">
-        This is the same path every Mosaic search takes. The steps are not
-        streamed one by one, so nothing here claims an order it cannot see.
-      </p>
-      <ul aria-label="Steps in this search">
-        {retrievalScope.map((step) => <li key={step}>{step}</li>)}
-      </ul>
-    </section>
+    <p className="shop-searching" role="status">
+      <LoaderCircle className="spin" size={16} aria-hidden="true" />
+      Searching Aurora: full-text search, fuzzy matching and semantic search, then reranking…
+    </p>
   );
 }
 
@@ -472,6 +452,17 @@ export function CatalogPage() {
   const rankOutcome = rankMission && retrieval
     ? retrievalLabOutcome(rankMission, retrieval, readiness)
     : null;
+  // Whichever lab asked this request marks its wanted product on the results.
+  const wantedMission = labCallout && !labCallout.blocked ? labCallout.mission : rankMission;
+  const wanted = wantedMission && retrieval ? wantedProduct(wantedMission, retrieval) : null;
+  const wantedName = useWantedName(wantedMission, retrieval);
+  // Only a verdict the lab outcome already holds can mark the strip: Lab 1's
+  // broken run, whose fuzzy matching contributed nothing to the combined pool.
+  const faultArm = labCallout && !labCallout.blocked && labCallout.outcome.tone === "broken"
+    && labCallout.mission.expected_target_signals?.includes("trigram")
+    && retrieval?.diagnostics?.candidate_counts.trigram_in_pool === 0
+    ? "trigram" as const : null;
+  const [shownFor, setShownFor] = useState("");
 
   const load = useCallback(() => {
     const version = catalogRequestVersion.current + 1;
@@ -1034,7 +1025,14 @@ export function CatalogPage() {
   // The open assistant already carries this action's context.
   const ranked = Boolean(retrieval || agentProducts);
   const pageSize = catalogPage?.limit ?? Math.max(1, baseProducts.length);
-  const visibleProducts = mergeVisibleProducts(agentProducts, baseProducts, pageSize);
+  const allProducts = mergeVisibleProducts(agentProducts, baseProducts, pageSize);
+  // A search opens on its first few results. The wanted product is never hidden
+  // behind the button, wherever the run ranked it.
+  const wantedIndex = wanted ? allProducts.findIndex((product) => product.product_id === wanted.productId) : -1;
+  const firstCount = Math.max(FIRST_RESULTS, wantedIndex + 1);
+  const collapsible = Boolean(retrieval) && !agentProducts && allProducts.length > firstCount;
+  const expanded = shownFor === retrieval?.search_event_id;
+  const visibleProducts = collapsible && !expanded ? allProducts.slice(0, firstCount) : allProducts;
   // Use the same product photos in Shop and Playground, including agent picks.
   const gridImages = productImageMap(visibleProducts);
   const assistRanks = new Map(
@@ -1218,21 +1216,15 @@ export function CatalogPage() {
                   </p>
                 ) : null}
 
-                {real ? (
-                  <div className="shop-search-examples" aria-label="Suggested searches">
-                    {(["Keywords", "Typo", "Intent"] as const).map((kind) => (
-                      <div className="shop-example-group" role="group" aria-label={`${kind} search examples`} key={kind}>
-                        <span>{kind}</span>
-                        <div className="shop-example-links">
-                          {shopSearchExamples.filter((example) => example.kind === kind).map((example) => (
-                            <button type="button" key={example.id} title={example.query} onClick={() => searchSuggestion(example)}>{example.label}</button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                    <small>Different ways to ask. Every example uses the same search pipeline.</small>
+                {real ? (!activeQuery ? (
+                  <div className="shop-search-examples" role="group" aria-label="Suggested searches">
+                    <div className="shop-example-links">
+                      {distinctExamples.map((example) => (
+                        <button type="button" key={example.id} title={example.query} onClick={() => searchSuggestion(example)}>{example.label}</button>
+                      ))}
+                    </div>
                   </div>
-                ) : (
+                ) : null) : (
                   <div className="shop-suggested" aria-label="Suggested searches">
                     <span>Explore</span>
                     {shopSuggestedQueries.map((suggestion) => (
@@ -1316,7 +1308,7 @@ export function CatalogPage() {
             </div>
           </div>
 
-          {real ? <p className="shop-source-caption">Original product listings · Amazon Reviews 2023 · Open a listing for current prices and availability.</p> : null}
+          {real && !activeQuery ? <p className="shop-source-caption">Original product listings · Amazon Reviews 2023 · Open a listing for current prices and availability.</p> : null}
           <div className="shop-filter-toolbar" aria-label="Product filters">
             <button
               className="shop-filter-button all"
@@ -1524,6 +1516,8 @@ export function CatalogPage() {
                     <strong>{agentProducts.length}</strong> linked recommendations
                     <small> · numbered in Shop and Ask Mosaic</small>
                   </>
+                ) : retrieval && retrievalLoading ? (
+                  "Searching…"
                 ) : retrieval ? (
                   <>
                     <strong>{retrieval.results.length}</strong> {labCallout && !labCallout.targetPresent
@@ -1601,42 +1595,33 @@ export function CatalogPage() {
               is above; a participant who wants the SQL follows their own words
               into the Playground rather than retyping them there. */}
           {retrieval ? (
-            <details className="shop-ranking-receipt">
-              <summary>
-                <span>{agentProducts ? "How the search results were ranked" : "Why these results, in this order"}</span>
-                <small>{agentProducts ? "Ask Mosaic’s picks appear first in Shop. This record shows the original search order." : "Where each match came from, and what reranking changed"}</small>
-              </summary>
-              {labCallout && !labCallout.blocked ? <CoverageNotice coverage={retrieval.coverage} /> : null}
-              <SearchRetrievalReceipt response={retrieval} />
-              {/* The lab outcome already links this saved run; keep one destination. */}
-              {labCallout && !labCallout.blocked ? null : (
-                <Link
-                  className="shop-ranking-playground"
-                  href={playgroundQueryHref(
-                    retrieval.query,
-                    retrieval.applied_filters,
-                    retrieval.search_event_id,
-                  )}
-                >
-                  See how this was retrieved in the {RETRIEVAL_SURFACE.label}
-                </Link>
-              )}
-            </details>
+            <div className="shop-pipeline" aria-busy={retrievalLoading} data-loading={retrievalLoading || undefined}>
+              <PipelineStrip key={retrieval.search_event_id} response={retrieval} faultArm={faultArm} />
+              {agentProducts ? <p className="shop-pipeline-note">Ask Mosaic’s picks appear first in Shop. This strip shows the original search.</p> : null}
+              <details className="shop-ranking-receipt">
+                <summary>
+                  <span>Search details</span>
+                  <small>Where each match came from, and what reranking changed</small>
+                </summary>
+                {labCallout && !labCallout.blocked ? <CoverageNotice coverage={retrieval.coverage} /> : null}
+                <SearchRetrievalReceipt response={retrieval} />
+              </details>
+            </div>
           ) : null}
 
           {loading && !page && !activeQuery ? <CatalogLoadingState /> : null}
-          {retrievalLoading ? <HybridRetrievalTrace /> : null}
+          {retrievalLoading ? <SearchingLine /> : null}
           {retrievalLoading && !page && !retrieval ? <CatalogLoadingState /> : null}
           {error ? <ErrorState message={error} onRetry={load} /> : null}
-          {retrieval && !agentProducts && !agentOpen && !retrievalLoading ? (
+          {retrieval && !agentProducts && !agentOpen ? (
             <div className="shop-view-switch pg-seg" role="group" aria-label="Results view">
               <button type="button" aria-pressed={!showSearchDetails} onClick={() => setShowSearchDetails(false)}>Shop</button>
-              <button type="button" aria-pressed={showSearchDetails} onClick={() => setShowSearchDetails(true)}>Shop + search details</button>
+              <button type="button" aria-pressed={showSearchDetails} onClick={() => setShowSearchDetails(true)}>Positions side by side</button>
             </div>
           ) : null}
-          <div className={showSearchDetails && retrieval && !agentProducts && !agentOpen && !retrievalLoading ? "shop-results-layout with-inspector" : "shop-results-layout"}>
-            {showSearchDetails && retrieval && !agentProducts && !agentOpen && !retrievalLoading ? (
-              <ShopSearchDetails response={retrieval} onSelect={openProductDrawer} onHighlight={setHighlightedProductId} highlightedId={highlightedProductId} />
+          <div className={showSearchDetails && retrieval && !agentProducts && !agentOpen ? "shop-results-layout with-inspector" : "shop-results-layout"}>
+            {showSearchDetails && retrieval && !agentProducts && !agentOpen ? (
+              <ShopSearchDetails response={retrieval} onSelect={openProductDrawer} onHighlight={setHighlightedProductId} highlightedId={highlightedProductId} wanted={wanted} wantedName={wantedName} />
             ) : null}
           {!error && (page || retrieval || agentProducts) ? (
             <div
@@ -1659,6 +1644,7 @@ export function CatalogPage() {
                       variant="catalog"
                       showSignals={ranked}
                       diagnostics={retrieval?.diagnostics}
+                      wanted={wanted && wanted.tier !== "missing" && wanted.productId === product.product_id ? wanted : null}
                       {...comparisonProps(product.product_id)}
                       assistRank={assistRanks.get(product.product_id)}
                       highlighted={highlightedProductId === product.product_id}
@@ -1673,6 +1659,11 @@ export function CatalogPage() {
                   <p>Remove a filter or clear the search to see more products.</p>
                 </section>
               )}
+              {collapsible && !expanded ? (
+                <button type="button" className="shop-show-all" onClick={() => setShownFor(retrieval!.search_event_id)}>
+                  Show all {allProducts.length}
+                </button>
+              ) : null}
               {/* Below the results rather than over them: the list stays where
                   the participant left it, which is what keeps the first result
                   in the first viewport on a 1366x768 laptop. */}
