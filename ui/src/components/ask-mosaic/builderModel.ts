@@ -30,7 +30,7 @@ const TOOL_PHASE: Record<string, AssistStage> = {
   search_products: "retrieve",
   compare_products: "rank",
   explain_retrieval: "rank",
-  get_product_evidence: "answer",
+  get_product_evidence: "rank",
   synthesize_cited_answer: "answer",
 };
 
@@ -84,7 +84,7 @@ function traceStep(step: ToolTraceStep): BuilderStep {
     tags: [
       ...(TOOL_TAGS[step.tool] ?? []),
       ...(step.route ? [{ label: ROUTE_LABEL[step.route], stage: null }] : []),
-      { label: step.origin ? ORIGIN_LABEL[step.origin] : "Origin not recorded", stage: null },
+      ...(step.origin ? [{ label: ORIGIN_LABEL[step.origin], stage: null }] : []),
       { label: OUTCOME_LABEL[step.outcome] ?? step.outcome, stage: step.outcome === "error" ? "problem" : null },
     ],
     meta,
@@ -116,13 +116,10 @@ export function stepsFor(stage: AssistStage, plan: AgentPlanStep[], trace: ToolT
   return trace.filter((step) => (TOOL_PHASE[step.tool] ?? "answer") === stage).map(traceStep);
 }
 
-/** Fields the Builder view would print if the response carried them. */
-export const NOT_RECORDED = ["model id", "tokens", "Gateway target", "claim verdicts"] as const;
-
 /**
  * Facts about the run itself. `AgentResponse` and `ToolTraceStep` carry no
- * model id, token counts, Gateway target or per-claim verdicts, so those are
- * listed as not recorded instead of being guessed.
+ * model id, token counts, Gateway target or per-claim verdicts, so none is
+ * printed: a value that was not recorded is left out, never guessed.
  */
 export function runFacts(response: AgentResponse, durationMs?: number): string[] {
   return [

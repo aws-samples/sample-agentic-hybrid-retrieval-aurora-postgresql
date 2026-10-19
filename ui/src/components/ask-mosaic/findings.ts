@@ -49,26 +49,32 @@ function searched(run: RunData): string | null {
   return counted ? `${ran} and kept ${plural(kept, "product")}.` : `${ran}.`;
 }
 
+function joinPhrases(parts: string[]): string {
+  if (parts.length < 2) return parts.join("");
+  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
 function compared(run: RunData): string {
   const comparisons = steps(run.trace, "compare_products").filter((step) => step.outcome === "success");
-  const replays = steps(run.trace, "explain_retrieval").length;
-  if (!comparisons.length && !replays) return "No comparison step was recorded.";
+  const rankings = steps(run.trace, "explain_retrieval").length;
+  const reads = steps(run.trace, "get_product_evidence").length;
+  if (!comparisons.length && !rankings && !reads) return "No comparison step was recorded.";
   const products = Math.max(0, ...comparisons.map((step) => comparedProducts(step) ?? 0));
   const parts = [
     ...(comparisons.length ? [`Compared ${products ? plural(products, "product") : "the picks"}`] : []),
-    ...(replays ? [`replayed the ranking of ${plural(replays, "search", "searches")}`] : []),
+    ...(reads ? [`${comparisons.length ? "read" : "Read"} ${plural(reads, "product record")}`] : []),
+    ...(rankings
+      ? [`${comparisons.length || reads ? "looked" : "Looked"} at how ${plural(rankings, "search", "searches")} ranked ${rankings === 1 ? "its" : "their"} results`]
+      : []),
   ];
-  const sentence = parts.join(" and ");
-  return `${sentence}.`;
+  return `${joinPhrases(parts)}.`;
 }
 
 function checked(run: RunData): string {
   if (!run.citations.length) return "No sources were cited.";
   const reviews = run.citations.filter(isReview).length;
   const listings = run.citations.length - reviews;
-  const reads = steps(run.trace, "get_product_evidence").length;
-  const after = reads ? `, after ${plural(reads, "evidence read")}` : "";
-  return `${plural(run.citations.length, "citation")}: ${listings} from listings and ${reviews} from reviews${after}.`;
+  return `${plural(run.citations.length, "citation")}: ${listings} from listings and ${reviews} from reviews.`;
 }
 
 /** The finding for a phase that has finished, or null while there is nothing to count yet. */

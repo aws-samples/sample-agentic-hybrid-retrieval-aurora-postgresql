@@ -100,12 +100,12 @@ describe("rowsFromReceipt", () => {
 describe("receipt wording", () => {
   it("states the search, its time and the pool each method fed", () => {
     expect(receiptCaption("cc3a32d8-aaaa", receipt([]))).toBe(
-      "Search cc3a32d8 · 3.5 s in the service · combined 50 from full-text search 1, fuzzy matching 36, meaning 38",
+      "Search cc3a32d8 · 3.5 s in the service · combined 50 from full-text search 1, fuzzy matching 36, semantic search 38",
     );
   });
 
   it("reads k and the reranker from the saved search, and never supplies its own", () => {
-    expect(receiptLegend(receipt([]))).toBe(`RRF, k = ${RECORDED_K} · rerank cohere.rerank-v3-5:0`);
+    expect(receiptLegend(receipt([]))).toBe(`combining setting k = ${RECORDED_K} · reranked by cohere.rerank-v3-5:0`);
     const bare = receipt([]);
     bare.run.retrieval_profile = {};
     bare.run.rerank_model_id = null;
