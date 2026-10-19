@@ -144,6 +144,16 @@ def test_every_line_fits_a_laptop_terminal_without_wrapping(monkeypatch):
     assert "1551237  ViewSonic VG2756-4K 27 Inch IPS 4K" in text
 
 
+def test_a_quote_shows_the_source_line_breaks_as_spaces():
+    run = grounded()
+    run["citations"][1]["quote"] = "Great dock.<br /><br />Charges my laptop.<BR>Loud fan."
+
+    text = ask_agent.render(run)
+
+    assert '"Great dock. Charges my laptop. Loud fan."' in text
+    assert "<br" not in text.lower()
+
+
 def test_a_declined_answer_names_its_reason_and_says_nothing_was_cited():
     text = ask_agent.render(declined())
 

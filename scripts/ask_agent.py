@@ -15,6 +15,7 @@ calls in mosaic.agent_tool_event.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import textwrap
 from pathlib import Path
@@ -102,7 +103,8 @@ def _trace(response: dict[str, Any], workspace: str) -> list[str]:
 
 
 def _clip(text: str, limit: int) -> str:
-    flat = " ".join(text.split())
+    # Review text keeps the source's HTML line breaks; on screen they are just spaces.
+    flat = " ".join(re.sub(r"<br\s*/?>", " ", text, flags=re.IGNORECASE).split())
     return flat if len(flat) <= limit else flat[: limit - 1].rstrip() + "…"
 
 
