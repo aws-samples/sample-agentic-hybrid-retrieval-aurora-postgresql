@@ -40,7 +40,9 @@
   /* Dark bands use their brighter link token to keep keyboard focus visible. */
   --focus: var(--link);
   /* Technical stage colors retain their meaning independently of navigation. */
-  --retrieve: #6b3fd4;
+  --retrieve: #1f6feb;
+  /* The favicon's brown, so the header mark and the browser tab match. */
+  --brand-mark: #2b0d13;
   --link: #005eb8;
   --rank: var(--gold-bright);
   --reason: var(--green);
@@ -130,7 +132,7 @@
   --danger: #ff6b6b;
   --danger-soft: #2b1111;
   --danger-line: #5c1f1f;
-  --retrieve: #a78bfa;
+  --retrieve: #58a6ff;
   --link: #80bdff;
   --nav-glass: rgb(28 28 30 / 92%);
   --stage: var(--paper-warm);
