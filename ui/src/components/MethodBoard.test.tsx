@@ -62,21 +62,21 @@ describe("MethodBoard", () => {
       row(100 + index, `P${index}`, { fts: index + 1, combined: index + 1, final: index + 1 }));
     render(<MethodBoard response={run(many)} images={images} />);
     expect(within(column("Full-text search")).getAllByRole("listitem")).toHaveLength(5);
-    expect(within(column("Fuzzy matching")).getByText("None of the returned products")).toBeTruthy();
+    expect(within(column("Fuzzy matching")).getByText(/^None of the \d+ shown$/)).toBeTruthy();
   });
 
   it("badges the wanted product by tier and rings its row", () => {
     render(<MethodBoard response={run(products)} wantedId={2} targetRank={5} images={images} />);
     expect(within(column("Reranked")).getByText("Wanted #5").getAttribute("data-tier")).toBe("target");
     expect(within(column("Combined in Aurora")).getByText("Wanted #21").getAttribute("data-tier")).toBe("lower");
-    expect(within(column("Full-text search")).getByText("Not ranked by this search").getAttribute("data-tier")).toBe("unranked");
+    expect(within(column("Full-text search")).getByText("Wanted product: not found here").getAttribute("data-tier")).toBe("unranked");
     const ringed = column("Semantic search").querySelector("[data-target]");
     expect(ringed?.textContent).toContain("Wanted monitor");
   });
 
   it("names the wanted product when the search did not return it", () => {
     render(<MethodBoard response={run(products)} wantedId={999} wantedName="ViewSonic VG2756-4K" images={images} />);
-    expect(screen.getByText(/The ViewSonic VG2756-4K was not returned by this search/)).toBeTruthy();
+    expect(screen.getByText(/The ViewSonic VG2756-4K is not among the \d+ shown\./)).toBeTruthy();
     expect(document.querySelector(".method-badge")).toBeNull();
   });
 

@@ -116,7 +116,7 @@ export function MethodBoard({
   const badge = (column: Column): { tier: Tier; text: string } | null => {
     if (!wanted) return null;
     const rank = column.rankOf(wanted);
-    if (rank === null) return { tier: "unranked", text: "Not ranked by this search" };
+    if (rank === null) return { tier: "unranked", text: "Wanted product: not found here" };
     const inside = targetRank === undefined || rank <= targetRank;
     return { tier: inside ? "target" : "lower", text: `Wanted #${rank}` };
   };
@@ -127,10 +127,8 @@ export function MethodBoard({
         <h3>Each method’s top five</h3>
         <p>
           {wantedMissing
-            ? `The ${name} was not returned by this search. Among the ${response.results.length} products it did return, each is at its own rank.`
-            : wanted
-              ? `Highlighted: the product this lab is looking for. Among the ${response.results.length} products this search returned, each at its own rank.`
-              : `Among the ${response.results.length} products this search returned, each at its own rank.`}
+            ? `The ${name} is not among the ${response.results.length} shown.`
+            : `The ${response.results.length} shown, at each method’s own rank.${wanted ? " Green marks the lab’s product." : ""}`}
         </p>
       </header>
       <div className="method-columns" style={{ "--board-columns": columns.length } as CSSProperties}>
@@ -197,7 +195,7 @@ export function MethodBoard({
                     );
                   })}
                 </ol>
-              ) : <p className="method-empty">None of the returned products</p>}
+              ) : <p className="method-empty">None of the {response.results.length} shown</p>}
             </article>
           );
         })}
