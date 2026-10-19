@@ -1620,7 +1620,7 @@ p.pg-reason-status {
 .pg-fusion-miss { color: var(--ink-soft); font-size: 12.5px; font-style: italic; }
 .pg-fusion-sum { color: var(--ink); font-size: 14px; }
 .pg-fusion-reported { color: var(--ink); font-size: 15px; font-weight: 600; }
-.pg-fusion-reported[data-agrees] { color: var(--green); }
+/* Neutral when it agrees: a sum of wrong shares agrees too, so agreement is not a pass. */
 .pg-fusion-reported:not([data-agrees]) { color: var(--danger); }
 .pg-fusion-reported small { display: block; font-size: 12px; font-weight: 500; }
 .pg-fusion-more { margin-top: 10px; padding: 6px 2px; border: 0; background: none; color: var(--link); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }

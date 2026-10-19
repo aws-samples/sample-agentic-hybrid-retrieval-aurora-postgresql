@@ -131,7 +131,8 @@ journey line for the followed product. One row of details opens beneath it, one
 at a time: **Each search's top five**, **How Aurora combined them**, **Why this
 position**, **Agent steps and sources**. **How Aurora combined them** is one
 table: each search's `1 / (k + rank)` with the share the run reported, their sum
-and the reported `rrf_score` (green when they agree), first five rows and the
+and the reported `rrf_score` (neutral, red only when it differs from the sum:
+a sum of wrong shares still agrees), first five rows and the
 followed product, then **Show all**. Before Lab 2 is prepared, Lab 2's request
 shows only the lab's next step, and holds its results while the search runs and
 the lab state is read. A first visit runs the Playground's own short tour. Two
