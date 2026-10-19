@@ -58,6 +58,7 @@ import type {
   SearchResponse,
 } from "../types";
 import { CatalogPage } from "./CatalogPage";
+import { HintsContext } from "../useHint";
 
 vi.mock("../api", () => ({
   api: {
@@ -1089,6 +1090,18 @@ describe("CatalogPage", () => {
 
     expect(params.get("q")).toBe("quiet keyboard");
     expect(params.get("event")).toBe(SEARCH_EVENT_ID);
+  });
+
+  it("points at the way into the Playground once the first search has been on screen", async () => {
+    window.localStorage.removeItem("mosaic-hint-shop-playground");
+    window.history.replaceState({}, "", "/catalog?q=quiet%20keyboard");
+    render(<HintsContext.Provider value><CommerceProvider><CatalogPage /></CommerceProvider></HintsContext.Provider>);
+    const link = await screen.findByRole("link", { name: /Watch the ranking change in the Playground/ });
+    const rect = { top: 100, left: 40, width: 200, height: 40, x: 40, y: 100, right: 240, bottom: 140, toJSON: () => ({}) } as DOMRect;
+    link.getBoundingClientRect = () => rect;
+    link.getClientRects = () => [rect] as unknown as DOMRectList;
+    const tip = await screen.findByRole("dialog", { name: "Go deeper in the Playground" }, { timeout: 4000 });
+    expect(tip.textContent).toContain("Tip");
   });
 
   it("records the served run on its own URL, so the header hand-off carries it too", async () => {

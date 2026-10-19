@@ -125,4 +125,27 @@ describe("SpotlightTour", () => {
     expect(document.activeElement).toBe(opener);
     opener.remove();
   });
+
+  it("shows a hint as one Tip whose ringed control still takes the click", () => {
+    const key = "mosaic-hint-test";
+    window.localStorage.removeItem(key);
+    const target = placeTarget("search");
+    const clicked = vi.fn();
+    target.addEventListener("click", clicked);
+    const onClose = vi.fn();
+    render(<SpotlightTour hint open onClose={onClose} steps={[STEPS[2]]} storageKey={key} />);
+    frames();
+    const card = screen.getByRole("dialog", { name: "Search" });
+    expect(card.textContent).toContain("Tip");
+    expect(screen.queryByRole("button", { name: "Skip the tour" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Got it" })).toBeTruthy();
+    // No catcher: the page under the scrim stays live, and any press closes the tip.
+    expect(document.querySelector(".spotlight-catcher")).toBeNull();
+    fireEvent.pointerDown(target);
+    fireEvent.click(target);
+    expect(clicked).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(window.localStorage.getItem(key)).toBe(TOUR_SEEN);
+    expect(window.localStorage.getItem(TOUR_STORAGE_KEY)).toBeNull();
+  });
 });

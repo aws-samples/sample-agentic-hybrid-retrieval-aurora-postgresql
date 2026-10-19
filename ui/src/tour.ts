@@ -117,6 +117,58 @@ export const PLAYGROUND_TOUR_STEPS: TourStep[] = [
 
 export const PLAYGROUND_TOUR_KEY = "mosaic-playground-tour";
 
+/** A tip shown once per browser, at the moment its control matters: one stop, kept stable. */
+export interface Hint {
+  key: string;
+  steps: readonly [TourStep];
+}
+
+const ASK_AGENT_KEY = "mosaic-hint-ask-agent";
+const askAgentStep = (body: string): TourStep => ({
+  id: "ask-agent",
+  target: "pg-run-button",
+  title: "Ask the Retrieval agent first",
+  body,
+});
+
+/** Agent steps and sources opened after a search, before the Retrieval agent has run. */
+export const ASK_AGENT_HINT: Hint = {
+  key: ASK_AGENT_KEY,
+  steps: [askAgentStep("This button sends the same request to the Retrieval agent. Its steps "
+    + "and sources appear here once it answers.")],
+};
+
+/** The same moment before any search: the button still searches. */
+export const SEARCH_FIRST_HINT: Hint = {
+  key: ASK_AGENT_KEY,
+  steps: [askAgentStep("Search first. Then this button asks the Retrieval agent, and its steps "
+    + "and sources appear here.")],
+};
+
+/** The first answer the Retrieval agent finishes. */
+export const AGENT_STEPS_HINT: Hint = {
+  key: "mosaic-hint-agent-steps",
+  steps: [{
+    id: "agent-steps",
+    target: "pg-detail-reason",
+    title: "See how the agent worked",
+    body: "Agent steps and sources lists each search the agent ran and the source behind "
+      + "every claim.",
+  }],
+};
+
+/** The first search Shop finishes. */
+export const SHOP_PLAYGROUND_HINT: Hint = {
+  key: "mosaic-hint-shop-playground",
+  steps: [{
+    id: "shop-playground",
+    target: "shop-playground",
+    title: "Go deeper in the Playground",
+    body: "Watch this search's ranking change step by step: the three searches, Aurora's "
+      + "combined order and the reranker.",
+  }],
+};
+
 export const TOUR_STORAGE_KEY = "mosaic-tour";
 /** Bump the suffix when the stops change enough that returning viewers should see them. */
 export const TOUR_SEEN = "seen-v1";

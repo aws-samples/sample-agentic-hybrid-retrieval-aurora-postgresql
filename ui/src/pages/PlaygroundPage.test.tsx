@@ -7,6 +7,7 @@ import { coreMosaicLabs, mosaicLabManifest } from "../labMissions";
 import { fixtureCatalogPage } from "../testProducts";
 import type { AgentResponse, EvidenceRecord, LabStateRecord, ProductSummary, RetrievalScorecardResponse, ScorecardStageArm, SearchResponse, ToolTraceStep } from "../types";
 import { PlaygroundPage } from "./PlaygroundPage";
+import { HintsContext } from "../useHint";
 
 vi.mock("./RetrievalLabPage", () => ({ RetrievalLabPage: () => <p>Guide workbench</p> }));
 
@@ -255,6 +256,52 @@ it.each(["retrieve", "rank", "answer"] as const)("stops showing progress after a
   await askAboutThisNeed();
   await screen.findByText("Recovered.");
   expect(screen.queryByRole("alert")).toBeNull();
+});
+
+/** jsdom lays nothing out; a tip rings only a control that has a box on screen. */
+function giveBox(element: Element) {
+  const rect = { top: 100, left: 40, width: 200, height: 40, x: 40, y: 100, right: 240, bottom: 140, toJSON: () => ({}) } as DOMRect;
+  element.getBoundingClientRect = () => rect;
+  element.getClientRects = () => [rect] as unknown as DOMRectList;
+}
+
+it("points back at the bar's button when Agent steps and sources opens before the agent ran", async () => {
+  window.localStorage.removeItem("mosaic-hint-ask-agent");
+  render(<HintsContext.Provider value><PlaygroundPage /></HintsContext.Provider>);
+  fireEvent.click(screen.getByRole("button", { name: "Run search" }));
+  giveBox(await screen.findByRole("button", { name: "Ask the Retrieval agent" }));
+  openDetail(DETAILS.reason);
+  const tip = await screen.findByRole("dialog", { name: "Ask the Retrieval agent first" });
+  expect(tip.textContent).toContain("sends the same request to the Retrieval agent");
+  fireEvent.click(within(tip).getByRole("button", { name: "Got it" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  // Once per browser: opening it again shows no tip.
+  openDetail(DETAILS.retrieve);
+  openDetail(DETAILS.reason);
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("shows no tip unless the app allows them", async () => {
+  window.localStorage.removeItem("mosaic-hint-ask-agent");
+  render(<PlaygroundPage />);
+  fireEvent.click(screen.getByRole("button", { name: "Run search" }));
+  giveBox(await screen.findByRole("button", { name: "Ask the Retrieval agent" }));
+  openDetail(DETAILS.reason);
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("points at Agent steps and sources once the first answer has been read out", async () => {
+  window.localStorage.removeItem("mosaic-hint-agent-steps");
+  const products = fixtureCatalogPage({}, 0, 2).products.map((product, index) => ranked(product, index + 4, index + 1));
+  vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(savedSearch(firstSearchId, products));
+  vi.spyOn(api, "agentStream").mockImplementation(async (_question, _filters, emit) => emit({ type: "complete", response: { agent_run_id: agentId, question: defaultRequest.query, answer: "The recorded answer.", plan: [], recommendations: products, citations: [], trace: [searchStep(firstSearchId, 1)] } }));
+  render(<HintsContext.Provider value><PlaygroundPage /></HintsContext.Provider>);
+  giveBox(screen.getByRole("button", { name: DETAILS.reason }));
+  await askAboutThisNeed();
+  await screen.findByRole("region", { name: "Mosaic’s picks for Alex" }, { timeout: READ_OUT_MS });
+  const tip = await screen.findByRole("dialog", { name: "See how the agent worked" }, { timeout: 3000 });
+  expect(tip.textContent).toContain("each search the agent ran");
 });
 
 it("opens one detail at a time, and a pick's search link opens Why this position", async () => {

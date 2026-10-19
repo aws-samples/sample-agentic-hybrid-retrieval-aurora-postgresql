@@ -6,6 +6,7 @@ import { CommerceDrawer } from "./CommerceDrawer";
 import { SiteFooter } from "./SiteFooter";
 import { SiteHeader } from "./SiteHeader";
 import { SpotlightTour } from "./SpotlightTour";
+import { HintsContext } from "../useHint";
 
 /**
  * Storefront chrome. The reference boards read as a catalog first and an
@@ -56,32 +57,34 @@ export function Shell(
   const { isCartOpen } = useCommerce();
 
   return (
-    <div className="app-shell">
-      <a
-        className="skip-link"
-        href="#main-content"
-        inert={isCartOpen || undefined}
-        aria-hidden={isCartOpen || undefined}
-      >
-        Skip to main content
-      </a>
-      {isStudioPrototype ? null : <SiteHeader inert={isCartOpen} onStartTour={startTour} />}
-      <main
-        id="main-content"
-        className="app-main"
-        tabIndex={-1}
-        inert={isCartOpen || undefined}
-        aria-hidden={isCartOpen || undefined}
-      >
-        {children}
-      </main>
-      {/* Outside `main`, because a site footer is a sibling landmark rather than
-          part of the surface's own content. It takes the same inert treatment as
-          the header so the cart drawer is the only thing reachable while open. */}
-      {isInstrument || isCatalogPreview || isStudioPrototype ? null : <SiteFooter inert={isCartOpen} />}
-      <CommerceDrawer />
-      <SpotlightTour open={tourOpen} onClose={endTour} />
-      <SpotlightTour open={playgroundTourOpen} onClose={() => setPlaygroundTourOpen(false)} steps={PLAYGROUND_TOUR_STEPS} storageKey={PLAYGROUND_TOUR_KEY} />
-    </div>
+    <HintsContext.Provider value={autoStartTour}>
+      <div className="app-shell">
+        <a
+          className="skip-link"
+          href="#main-content"
+          inert={isCartOpen || undefined}
+          aria-hidden={isCartOpen || undefined}
+        >
+          Skip to main content
+        </a>
+        {isStudioPrototype ? null : <SiteHeader inert={isCartOpen} onStartTour={startTour} />}
+        <main
+          id="main-content"
+          className="app-main"
+          tabIndex={-1}
+          inert={isCartOpen || undefined}
+          aria-hidden={isCartOpen || undefined}
+        >
+          {children}
+        </main>
+        {/* Outside `main`, because a site footer is a sibling landmark rather than
+            part of the surface's own content. It takes the same inert treatment as
+            the header so the cart drawer is the only thing reachable while open. */}
+        {isInstrument || isCatalogPreview || isStudioPrototype ? null : <SiteFooter inert={isCartOpen} />}
+        <CommerceDrawer />
+        <SpotlightTour open={tourOpen} onClose={endTour} />
+        <SpotlightTour open={playgroundTourOpen} onClose={() => setPlaygroundTourOpen(false)} steps={PLAYGROUND_TOUR_STEPS} storageKey={PLAYGROUND_TOUR_KEY} />
+      </div>
+    </HintsContext.Provider>
   );
 }

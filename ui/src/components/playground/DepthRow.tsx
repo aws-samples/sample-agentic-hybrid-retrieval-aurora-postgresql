@@ -24,6 +24,7 @@ export function DepthRow({ items, open, onOpen }: {
       {items.map((item) => <button
         key={item.id}
         id={`inspect-${item.id}-button`}
+        data-tour={`pg-detail-${item.id}`}
         type="button"
         className="pg-inspect"
         aria-expanded={open === item.id}

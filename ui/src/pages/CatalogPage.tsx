@@ -41,6 +41,9 @@ import {
 import { CodeEditorLink } from "../components/CodeEditorLink";
 import { RankLabCard } from "../components/RankLabCard";
 import { useLabStates } from "../useLabStates";
+import { SpotlightTour } from "../components/SpotlightTour";
+import { SHOP_PLAYGROUND_HINT } from "../tour";
+import { useHint } from "../useHint";
 import { LabFaultCard } from "../components/LabFaultCard";
 import { CoverageNotice } from "../components/CoverageNotice";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
@@ -1057,6 +1060,15 @@ export function CatalogPage() {
   const agentProducts = agent?.recommendations.length
     ? agent.recommendations
     : null;
+  const playgroundHint = useHint(SHOP_PLAYGROUND_HINT.key);
+  const showPlaygroundHint = playgroundHint.show;
+  const searchShown = Boolean(retrieval && !retrievalLoading && !rankNotOpen && !agentProducts);
+  // After the first search has had a moment on screen, point at the way into the Playground.
+  useEffect(() => {
+    if (!searchShown) return undefined;
+    const timer = window.setTimeout(showPlaygroundHint, 1500);
+    return () => window.clearTimeout(timer);
+  }, [searchShown, showPlaygroundHint]);
   const landing = !activeQuery && !agentOpen && !agentProducts
     && browseCollection === "workspace" && !activeFilterCount && offset === 0 && sort === "featured";
   // The open assistant already carries this action's context.
@@ -1825,6 +1837,7 @@ export function CatalogPage() {
         availability={availability}
         minRating={minRating}
       />
+      <SpotlightTour hint open={playgroundHint.open} onClose={playgroundHint.close} steps={SHOP_PLAYGROUND_HINT.steps} storageKey={SHOP_PLAYGROUND_HINT.key} />
     </div>
   );
 }

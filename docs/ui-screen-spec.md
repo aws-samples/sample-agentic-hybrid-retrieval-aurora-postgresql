@@ -129,9 +129,18 @@ beside them, compact sources after), then **Watch the ranking change**: the
 returned products racing from each search to Combined (RRF) to Reranked, with a
 journey line for the followed product. One row of details opens beneath it, one
 at a time: **Each search's top five**, **How Aurora combined them**, **Why this
-position**, **Agent steps and sources**. Before Lab 2 is prepared, Lab 2's
-request shows only the lab's next step. A first visit runs the Playground's own
-short tour.
+position**, **Agent steps and sources**. **How Aurora combined them** is one
+table: each search's `1 / (k + rank)` with the share the run reported, their sum
+and the reported `rrf_score` (green when they agree), first five rows and the
+followed product, then **Show all**. Before Lab 2 is prepared, Lab 2's request
+shows only the lab's next step, and holds its results while the search runs and
+the lab state is read. A first visit runs the Playground's own short tour. Two
+one-time tips (`hint` mode of `SpotlightTour`: one card, Got it, the page stays
+live) ring the bar's button when **Agent steps and sources** opens before the
+agent has run, and **Agent steps and sources** after the first answer. Shop has
+one more, on the link into the Playground after the first search. Tips are off
+under automation, like the tours' first-visit start. **Use it in your own agent**
+ends the page with three buttons under its sentence.
 
 The canonical example selector and the bar's button start the production agent.
 The completed summary links each final choice to its recorded search. **Trace
@@ -146,7 +155,8 @@ Each search column shows how that search read the request (lexemes, trigrams,
 the vector) above what it found. The details hold the fusion arithmetic and
 receipts, the saved candidate pool, and the activity log.
 
-`?view=lab` retains the guided lab workbench and proof controls.
+`?view=lab` retains the older guided lab workbench and proof controls; the
+Playground no longer links to it. Shop's Lab 3 **Prove this run** still opens it.
 
 API: `POST /api/agent/answer/stream`,
 `GET /api/retrieval/events/{search_event_id}/response`, and linked evidence records.

@@ -127,6 +127,7 @@
 }
 
 .spotlight-next {
+  margin-left: auto;
   padding: 0 18px;
   border: 0;
   background: var(--action);

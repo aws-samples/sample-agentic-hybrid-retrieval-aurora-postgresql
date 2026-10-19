@@ -28,7 +28,8 @@ These are planned allocations, not measured human completion times.
 During setup, use **Getting started** to open Code Editor, run one readiness
 query in `psql` and save Lab 1's failing search. Every Getting started step
 runs in the terminal; the catalog tour and Mosaic are optional there. Mosaic's first visit to Shop opens a guided tour of its controls
-(Next or Skip the tour); the compass in the header replays it.
+(Next or Skip the tour); the compass in the header replays it. One-time tips then point
+at the Playground link after the first Shop search and at the Retrieval agent's button and steps.
 Lab 1 starts in `psql` with the request Getting started saved; Shop shows the
 same search as an optional check. Lab 2 continues in `psql` with the monitor
 request that Lab 1's handoff saved. Its optional Shop check selects Monitor

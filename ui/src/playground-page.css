@@ -1072,9 +1072,28 @@ p.pg-reason-status {
   letter-spacing: -0.02em;
 }
 
-.pg-a .pg-takeaway a {
-  color: var(--link);
+/* Heading, sentence, then the three actions as buttons, all on the left. */
+.pg-a .pg-takeaway { display: block; }
+.pg-a .pg-takeaway p { max-width: 72ch; }
+.pg-a .pg-takeaway .inspector-takeaway-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.pg-a .pg-takeaway .inspector-takeaway-actions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 22px;
+  background: var(--paper-warm);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color var(--motion-fast) ease;
 }
+.pg-a .pg-takeaway .inspector-takeaway-actions a:hover { background: var(--line); }
+.pg-a .pg-takeaway .inspector-takeaway-actions a:first-child { background: var(--action); color: var(--action-ink); }
+.pg-a .pg-takeaway .inspector-takeaway-actions a:first-child:hover { background: var(--action-hover); }
+.pg-a .pg-takeaway .inspector-takeaway-actions a:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 
 @media (max-width: 820px) {
   .pg-a { --pg-gap: 64px; }
@@ -1574,28 +1593,42 @@ p.pg-reason-status {
 .pg-race-steps button[data-accent="rank"]::before { background: var(--rank); }
 .pg-race-steps button[data-accent="done"]::before { background: var(--green); }
 
-/* How Aurora combined them: each search's share as one solid segment of a row. */
+/* How Aurora combined them: each search's 1 / (k + rank), the sum and the reported score. */
 .pg-fusion { margin-top: 24px; }
-.pg-fusion-key { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 12px; color: var(--ink-soft); font-size: 12.5px; }
-.pg-fusion-key span { display: inline-flex; align-items: center; gap: 6px; }
-.pg-fusion-key i { width: 10px; height: 10px; border-radius: 3px; }
-.pg-fusion ol { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
-.pg-fusion li { display: grid; grid-template-columns: 44px minmax(0, 1.2fr) minmax(160px, 1fr) 64px; align-items: center; gap: 14px; min-height: 40px; padding: 0 10px; border-radius: 12px; }
-.pg-fusion li[data-followed] { background: var(--green-soft); box-shadow: inset 0 0 0 1.5px var(--green); }
-.pg-fusion-rank { color: var(--ink-soft); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
-.pg-fusion-name { overflow: hidden; color: var(--ink); font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.pg-fusion-bar { display: flex; gap: 3px; height: 12px; }
-.pg-fusion-bar i, .pg-fusion-key i { background: var(--retrieve); }
-.pg-fusion-bar i { border-radius: 4px; }
-.pg-fusion-bar i[data-arm="trigram"], .pg-fusion-key [data-arm="trigram"] i { opacity: 0.72; }
-.pg-fusion-bar i[data-arm="semantic"], .pg-fusion-key [data-arm="semantic"] i { opacity: 0.48; }
-.pg-fusion-total { color: var(--ink); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.pg-fusion-formula { margin: 0 0 12px; color: var(--ink-soft); font-size: 14px; line-height: 1.5; }
+.pg-fusion-formula code { color: var(--ink); font: 500 13.5px var(--mono); }
+.pg-fusion-scroll { overflow-x: auto; border-radius: 14px; }
+.pg-fusion-scroll:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.pg-fusion-table { width: 100%; min-width: 760px; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
+.pg-fusion-table th, .pg-fusion-table td { padding: 10px 12px; text-align: right; vertical-align: middle; }
+.pg-fusion-table thead th { padding-block: 0 10px; color: var(--ink-soft); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.pg-fusion-table thead th[data-arm]::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: var(--retrieve); vertical-align: 1px; }
+.pg-fusion-table thead code { font: 600 12px var(--mono); }
+.pg-fusion-table tbody tr > * { border-top: 1px solid var(--line); }
+.pg-fusion-table tbody th, .pg-fusion-table thead th:nth-child(2) { text-align: left; }
+.pg-fusion-table tbody th { font-weight: 600; }
+.pg-fusion-table tr[data-followed] > * { background: var(--green-soft); border-top-color: transparent; }
+.pg-fusion-table tr[data-followed] > :first-child { border-radius: 12px 0 0 12px; box-shadow: inset 1.5px 0 0 var(--green), inset 0 1.5px 0 var(--green), inset 0 -1.5px 0 var(--green); }
+.pg-fusion-table tr[data-followed] > :last-child { border-radius: 0 12px 12px 0; box-shadow: inset -1.5px 0 0 var(--green), inset 0 1.5px 0 var(--green), inset 0 -1.5px 0 var(--green); }
+.pg-fusion-table tr[data-followed] > :not(:first-child, :last-child) { box-shadow: inset 0 1.5px 0 var(--green), inset 0 -1.5px 0 var(--green); }
+.pg-fusion-rank { width: 44px; color: var(--ink-soft); font-weight: 600; }
+.pg-fusion-product { display: flex; align-items: center; gap: 10px; min-width: 0; max-width: 340px; color: var(--ink); font-size: 14px; }
+.pg-fusion-product img { flex: none; width: 32px; height: 32px; border-radius: 8px; background: var(--plate); object-fit: contain; }
+.pg-fusion-product span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pg-fusion-table td[data-arm] code { display: block; color: var(--ink-soft); font: 500 12px var(--mono); white-space: nowrap; }
+.pg-fusion-table td[data-arm] b { display: block; margin-top: 2px; color: var(--ink); font-size: 14px; font-weight: 600; }
+.pg-fusion-miss { color: var(--ink-soft); font-size: 12.5px; font-style: italic; }
+.pg-fusion-sum { color: var(--ink); font-size: 14px; }
+.pg-fusion-reported { color: var(--ink); font-size: 15px; font-weight: 600; }
+.pg-fusion-reported[data-agrees] { color: var(--green); }
+.pg-fusion-reported:not([data-agrees]) { color: var(--danger); }
+.pg-fusion-reported small { display: block; font-size: 12px; font-weight: 500; }
+.pg-fusion-more { margin-top: 10px; padding: 6px 2px; border: 0; background: none; color: var(--link); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.pg-fusion-more:hover { text-decoration: underline; }
 
 @media (max-width: 800px) {
   .pg-board { padding: 20px 14px 16px; border-radius: 22px; }
   .pg-depth .pg-depth-panel:not([hidden]) { padding: 20px 16px; }
-  .pg-fusion li { grid-template-columns: 36px minmax(0, 1fr) 90px; }
-  .pg-fusion-total { display: none; }
   .pg-journey small { font-size: 11px; }
   .pg-journey b { min-width: 34px; height: 34px; font-size: 13px; }
   .pg-journey::before { top: 16px; }

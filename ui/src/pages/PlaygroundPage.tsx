@@ -1,5 +1,5 @@
 import { RETRIEVAL_CONNECTION_GUIDE } from "../components/RetrievalTakeawayLinks";
-import { ArrowRight, ArrowUpRight } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Download } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useReducedMotion } from "motion/react";
 import { Link } from "wouter";
@@ -12,7 +12,7 @@ import { MosaicRunButton } from "../components/MosaicRunButton";
 import { ProductAnswer } from "../components/ProductAnswer";
 import { ProductReceiptBody } from "../components/ProductReceipt";
 import { SearchTimingDetails } from "../components/RetrievalDiagnosticsStrip";
-import { PersistedRunDisclosures, RrfMath } from "../components/RetrievalProvenance";
+import { PersistedRunDisclosures } from "../components/RetrievalProvenance";
 import { SourceComparison } from "../components/SourceComparison";
 import { pickName } from "../components/ask-mosaic/comparison";
 import { sourceAnchor } from "../components/ask-mosaic/citations";
@@ -21,7 +21,7 @@ import { StreamedAnswer } from "../components/ask-mosaic/StreamedAnswer";
 import { armReads } from "../components/playground/MethodReads";
 import { CandidatePoolOrder } from "../components/playground/CandidatePoolOrder";
 import { DepthRow } from "../components/playground/DepthRow";
-import { FusionRows } from "../components/playground/FusionRows";
+import { FusionTable } from "../components/playground/FusionTable";
 import { MethodBoard } from "../components/MethodBoard";
 import { RankRace } from "../components/playground/RankRace";
 import { RunSteps, agentChips, recordChip, searchChips, searchingChips } from "../components/playground/RunSteps";
@@ -38,6 +38,9 @@ import type { AgentCitation, AgentResponse, ProductSummary, ReadinessResponse, S
 import { useLabStates } from "../useLabStates";
 import { usePipelineRun, type PipelineReceipt } from "../usePipelineRun";
 import { RetrievalLabPage } from "./RetrievalLabPage";
+import { SpotlightTour } from "../components/SpotlightTour";
+import { AGENT_STEPS_HINT, ASK_AGENT_HINT, SEARCH_FIRST_HINT } from "../tour";
+import { useHint } from "../useHint";
 import "../inspector.css";
 import "../playground-page.css";
 
@@ -392,6 +395,16 @@ function PipelineInspector() {
   }, [openDetail, highlightedId, selectedId, pipeline.receipts]);
   // An agent run's searches wait until its answer has been read out, then arrive together.
   const held = pipeline.started && !pipeline.error && !(pipeline.completed && (!pipeline.answer || settledRun === pipeline.runId));
+  const askHint = useHint(ASK_AGENT_HINT.key);
+  const stepsHint = useHint(AGENT_STEPS_HINT.key);
+  const answered = pipeline.completed && Boolean(pipeline.answer) && !held;
+  const showStepsHint = stepsHint.show;
+  // Once the first answer has been read out, point at where its steps and sources are.
+  useEffect(() => {
+    if (!answered) return undefined;
+    const timer = window.setTimeout(showStepsHint, 900);
+    return () => window.clearTimeout(timer);
+  }, [answered, showStepsHint]);
   const selected = held ? undefined : pipeline.receipts.find((item) => item.id === selectedId)
     ?? pipeline.receipts.find((item) => item.origin !== "reference") ?? pipeline.receipts[0];
   const response = selected?.response;
@@ -420,7 +433,12 @@ function PipelineInspector() {
   const question = pipeline.savedResponse?.query ?? initialQuestion;
   const runFilters = (pipeline.savedResponse?.applied_filters ?? filters) as SearchFilters;
   const reset = () => { setSelectedId(null); setHighlightedId(null); setReceiptId(null); };
-  const openDetails = (stage: Inspection | null) => { setHighlightedId(null); setOpenDetail(stage); };
+  const openDetails = (stage: Inspection | null) => {
+    setHighlightedId(null);
+    setOpenDetail(stage);
+    // The agent's steps exist only once it has run, and the bar's button is what runs it.
+    if (stage === "reason" && !pipeline.started) askHint.show();
+  };
   const showReceipt = (productId: number) => { setReceiptId(productId); };
   const inspectProduct = (id: string, productId: number) => {
     setSelectedId(id); setHighlightedId(productId); setReceiptId(productId); setOpenDetail("rerank");
@@ -434,7 +452,7 @@ function PipelineInspector() {
     ? pipeline.completed ? "Finishing up" : ({ retrieve: "Finding products", rank: "Comparing matches", reason: "Preparing the answer" })[pipeline.phase ?? "retrieve"]
     : pipeline.reading ? "Reading saved search" : pipeline.error ? "Try again" : agentRequest ? (pipeline.completed ? "Run again" : "Run Mosaic") : askNext ? "Ask the Retrieval agent" : "Run search";
   const context = `Alex’s workspace${catalogCount ? ` · Catalog: ${catalogCount.toLocaleString()} products` : ""}${runFilters.category_key ? ` · Filter: ${runFilters.category_key.replaceAll("-", " ")}` : ""}`;
-  const runButton = <MosaicRunButton type="button" className="inspector-play" label={runLabel} icon={askNext ? "send" : "search"} showLabel={askNext && !agentRequest && !pipeline.running} running={pipeline.running} disabled={pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} onClick={() => { reset(); setOpenDetail(null); void (askNext ? pipeline.play(question, runFilters) : pipeline.search(question, runFilters)); }} />;
+  const runButton = <MosaicRunButton type="button" data-tour="pg-run-button" className="inspector-play" label={runLabel} icon={askNext ? "send" : "search"} showLabel={askNext && !agentRequest && !pipeline.running} running={pipeline.running} disabled={pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} onClick={() => { reset(); setOpenDetail(null); void (askNext ? pipeline.play(question, runFilters) : pipeline.search(question, runFilters)); }} />;
   const chips = pipeline.started
     ? agentChips(pipeline.trace, pipeline.phase, pipeline.running && !pipeline.completed)
     : response ? searchChips(response) : pipeline.running ? searchingChips() : [];
@@ -465,7 +483,7 @@ function PipelineInspector() {
         },
         {
           id: "rank", label: "How Aurora combined them",
-          content: <><RankGlance response={response} follow={receiptProduct} missing={missingWanted} />{response ? <FusionRows response={response} followId={followId} /> : null}<p className="inspector-note">{LESSONS.rank}</p>{response?.diagnostics?.retrieval_profile ? <RrfMath response={response} /> : null}{response ? <PersistedRunDisclosures response={response} /> : null}</>,
+          content: <><RankGlance response={response} follow={receiptProduct} missing={missingWanted} />{response ? <FusionTable response={response} followId={followId} images={images} /> : null}<p className="inspector-note">{LESSONS.rank}</p>{response ? <PersistedRunDisclosures response={response} /> : null}</>,
         },
         {
           id: "rerank", label: "Why this position",
@@ -483,11 +501,13 @@ function PipelineInspector() {
         <p>The SQL and service behind these searches, and a skill that teaches an agent to use them.</p>
       </div>
       <div className="inspector-takeaway-actions">
-        <a href="/api/builder-package" download>Download the retrieval code</a>
-        <a href="/api/skill-package" download>Download the agent skill</a>
-        <a href={RETRIEVAL_CONNECTION_GUIDE} target="_blank" rel="noreferrer">Connect over MCP</a>
+        <a href="/api/builder-package" download><Download size={16} aria-hidden="true" />Download the retrieval code</a>
+        <a href="/api/skill-package" download><Download size={16} aria-hidden="true" />Download the agent skill</a>
+        <a href={RETRIEVAL_CONNECTION_GUIDE} target="_blank" rel="noreferrer">Connect over MCP<ArrowUpRight size={16} aria-hidden="true" /></a>
       </div>
     </aside>
+    <SpotlightTour hint open={askHint.open} onClose={askHint.close} steps={(response ? ASK_AGENT_HINT : SEARCH_FIRST_HINT).steps} storageKey={ASK_AGENT_HINT.key} />
+    <SpotlightTour hint open={stepsHint.open} onClose={stepsHint.close} steps={AGENT_STEPS_HINT.steps} storageKey={AGENT_STEPS_HINT.key} />
   </div>;
 }
 

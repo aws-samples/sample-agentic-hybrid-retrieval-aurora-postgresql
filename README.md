@@ -84,7 +84,10 @@ Use **Shop** for product search and **Playground** for saved candidates,
 ranking, tool calls and cited sources. **Ask Mosaic** opens from the pill in the
 header on every page. On the first visit to Shop, a short guided tour spotlights
 each of these, and the Playground has its own; **Take the tour** (the compass in
-the header) runs the one for the page you are on. **Complete my setup** runs Lab 3's
+the header) runs the one for the page you are on. Three one-time tips point at the
+next control when it matters: the way into the Playground after your first Shop
+search, the **Ask the Retrieval agent** button if you open the agent's steps before
+it has run, and **Agent steps and sources** after its first answer. **Complete my setup** runs Lab 3's
 three-product request, and its Ask Mosaic starter stays available before and after
 you build the Retrieval agent; it runs on its own filters and says when it clears Shop's.
 Keep its original run ID for completion. Ask Mosaic's **Show tool calls** switch (off by default) shows the full **Retrieval agent record** ID, recorded steps, saved search IDs and how each search ranked its products. The Playground's Prove page keeps the

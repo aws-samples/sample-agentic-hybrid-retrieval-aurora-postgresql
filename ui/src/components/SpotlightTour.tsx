@@ -23,6 +23,10 @@ import "../spotlight-tour.css";
  * swallowed, hole included, so a participant cannot navigate away mid-tour, and a stop
  * whose control is absent is passed over (at once when optional, else after
  * TARGET_WAIT_MS) instead of waiting for it.
+ *
+ * A `hint` is one stop shown at a moment rather than a tour: the card reads Tip
+ * with only Got it, and the page stays live, so a click on the ringed control
+ * does what it says and any click closes the tip.
  */
 
 const HOLE_PAD = 8;
@@ -82,8 +86,8 @@ function cardPlacement(hole: Hole | null, cardHeight: number): CSSProperties {
 }
 
 export function SpotlightTour(
-  { open, onClose, steps = TOUR_STEPS, storageKey }:
-    { open: boolean; onClose: () => void; steps?: TourStep[]; storageKey?: string },
+  { open, onClose, steps = TOUR_STEPS, storageKey, hint = false }:
+    { open: boolean; onClose: () => void; steps?: readonly TourStep[]; storageKey?: string; hint?: boolean },
 ) {
   const [index, setIndex] = useState(0);
   const [hole, setHole] = useState<Hole | null>(null);
@@ -92,6 +96,8 @@ export function SpotlightTour(
   const cardRef = useRef<HTMLDivElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
+  // A tip closed by a click elsewhere leaves focus where that click put it.
+  const clickedAway = useRef(false);
   const id = useId();
   const step = steps[Math.min(index, steps.length - 1)];
   // Only optional stops can be known not to come, so only they make this the last one.
@@ -112,12 +118,24 @@ export function SpotlightTour(
     if (!open) return undefined;
     const active = document.activeElement;
     returnFocus.current = active instanceof HTMLElement ? active : null;
+    clickedAway.current = false;
     setIndex(0);
     return () => {
       const previous = returnFocus.current;
-      if (previous?.isConnected) previous.focus({ preventScroll: true });
+      if (!clickedAway.current && previous?.isConnected) previous.focus({ preventScroll: true });
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !hint) return undefined;
+    const away = (event: PointerEvent) => {
+      if (cardRef.current?.contains(event.target as Node)) return;
+      clickedAway.current = true;
+      end();
+    };
+    window.addEventListener("pointerdown", away, true);
+    return () => window.removeEventListener("pointerdown", away, true);
+  }, [end, hint, open]);
 
   // Follow the control every frame: the page may scroll, the header may reflow, and
   // the shelf below Shop's search arrives after the tour starts. The DOM is touched
@@ -182,7 +200,7 @@ export function SpotlightTour(
 
   /** Tab stays on the card's two buttons while the tour is open. */
   const keepFocus = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key !== "Tab") return;
+    if (hint || event.key !== "Tab") return;
     const found = cardRef.current?.querySelectorAll<HTMLButtonElement>("button");
     const buttons = [...(found ?? [])];
     if (buttons.length === 0) return;
@@ -200,7 +218,7 @@ export function SpotlightTour(
   if (!open) return null;
   return createPortal(
     <div className="spotlight-tour">
-      <div className="spotlight-catcher" aria-hidden="true" />
+      {hint ? null : <div className="spotlight-catcher" aria-hidden="true" />}
       {hole && !waiting ? (
         <div className="spotlight-hole" style={hole} aria-hidden="true" />
       ) : (
@@ -211,19 +229,19 @@ export function SpotlightTour(
           ref={cardRef}
           className="spotlight-card"
           role="dialog"
-          aria-modal="true"
+          aria-modal={!hint}
           aria-labelledby={`${id}-title`}
           aria-describedby={`${id}-body`}
           style={cardPlacement(hole, cardHeight)}
           onKeyDown={keepFocus}
         >
-          <p className="spotlight-count">Tour · {index + 1} of {steps.length}</p>
+          <p className="spotlight-count">{hint ? "Tip" : `Tour · ${index + 1} of ${steps.length}`}</p>
           <h2 id={`${id}-title`}>{step.title}</h2>
           <p id={`${id}-body`}>{step.body}</p>
           <div className="spotlight-actions">
-            <button type="button" className="spotlight-skip" onClick={end}>
+            {hint ? null : <button type="button" className="spotlight-skip" onClick={end}>
               Skip the tour
-            </button>
+            </button>}
             <button
               ref={nextRef}
               type="button"

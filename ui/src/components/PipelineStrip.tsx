@@ -83,7 +83,7 @@ export function PipelineStrip({ response, faultArm = null }: {
   return (
     <section className="pipeline-strip" aria-label="How this search ran">
       <ol className="pipeline-chips">{chips}</ol>
-      <Link className="pipeline-link" href={playgroundQueryHref(response.query, response.applied_filters, response.search_event_id)}>
+      <Link className="pipeline-link" data-tour="shop-playground" href={playgroundQueryHref(response.query, response.applied_filters, response.search_event_id)}>
         Watch the ranking change in the Playground →
       </Link>
     </section>
