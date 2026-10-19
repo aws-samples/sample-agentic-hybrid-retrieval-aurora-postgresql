@@ -1,33 +1,28 @@
-import {
-  Armchair,
-  ChevronRight,
-  CircleCheck,
-  Headphones,
-  House,
-  MessageCircle,
-  Monitor,
-  type LucideIcon,
-} from "lucide-react";
 import type { workspaceRequests } from "../../labMissions";
 import type { SearchFilters } from "../../types";
 
 type WorkspaceRequest = ReturnType<typeof workspaceRequests>[number];
 
-const STARTER_ICONS: Record<string, LucideIcon> = {
-  "plan-workspace": House,
-  "focus-at-home": Headphones,
-  "recover-headphones": Headphones,
-  "check-focus-picks": Headphones,
-  "check-sources": CircleCheck,
-  "comfortable-days": Armchair,
-  "more-screen-space": Monitor,
+/**
+ * One plain line per starter: what the request shows in its lab. Kept here, not
+ * in the mission manifest, because the manifest feeds the retrieval fingerprint
+ * and this is panel copy. A request with no line shows its title and clue only.
+ */
+const STARTER_LESSONS: Record<string, string> = {
+  "plan-workspace": "Lab 3: three needs, one cited answer.",
+  "focus-at-home": "One pair of headphones through every step.",
+  "recover-headphones": "Lab 1: fuzzy matching finds a mistyped ID.",
+  "comfortable-days": "Adjustable support, followed from search to comparison.",
+  "more-screen-space": "Lab 2: fusion keeps the right monitor in play.",
+  "check-focus-picks": "Two picks, one question: will teammates hear him?",
+  "check-sources": "Every claim needs a source that supports it.",
 };
 
 /**
- * Where a conversation can start: each manifest request as a card with its
- * label and the notice that says what it will do, in full. The notice is the
- * card's description, not part of its name, so a screen reader hears the label
- * first and the explanation after.
+ * Where a conversation can start: each manifest request as a compact card with
+ * a short title, what it shows, and the request itself as a quoted clue. The
+ * lesson line is the card's description, not part of its name, so a screen
+ * reader hears the title first.
  */
 export function StarterCards({ suggestions, onRun }: {
   suggestions: WorkspaceRequest[];
@@ -39,25 +34,20 @@ export function StarterCards({ suggestions, onRun }: {
       {suggestions.length ? (
         <ul aria-label="Example questions">
           {suggestions.map((suggestion) => {
-            const Icon = STARTER_ICONS[suggestion.id] ?? MessageCircle;
             const labelId = `ask-starter-${suggestion.id}-label`;
-            const noticeId = `ask-starter-${suggestion.id}`;
+            const lessonId = `ask-starter-${suggestion.id}`;
+            const lesson = STARTER_LESSONS[suggestion.id];
             return (
               <li key={suggestion.id}>
                 <button
                   type="button"
                   aria-labelledby={labelId}
-                  aria-describedby={suggestion.notice ? noticeId : undefined}
+                  aria-describedby={lesson ? lessonId : undefined}
                   onClick={() => onRun(suggestion.query, suggestion.filters, Boolean(suggestion.mission_id))}
                 >
-                  <span className="ask-start-icon" aria-hidden="true"><Icon size={18} /></span>
-                  <span className="ask-start-copy">
-                    <span className="ask-start-label" id={labelId}>{suggestion.shop_label}</span>
-                    {suggestion.notice ? (
-                      <span className="ask-start-notice" id={noticeId}>{suggestion.notice}</span>
-                    ) : null}
-                  </span>
-                  <ChevronRight size={14} aria-hidden="true" />
+                  <span className="ask-start-label" id={labelId}>{suggestion.shop_label}</span>
+                  {lesson ? <span className="ask-start-lesson" id={lessonId}>{lesson}</span> : null}
+                  <q className="ask-start-clue">{suggestion.query}</q>
                 </button>
               </li>
             );
