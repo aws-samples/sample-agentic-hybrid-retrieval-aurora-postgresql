@@ -27,19 +27,20 @@ function renderCard(product: ProductSummary) {
 describe("ProductCard price on a real listing", () => {
   afterEach(cleanup);
 
-  it("labels a recorded price as historical", () => {
+  it("shows a recorded price with the historical-price tooltip, not a caption", () => {
     renderCard(realListing(27993));
 
-    expect(screen.getByText("$279.93")).toBeTruthy();
-    expect(screen.getByText("Historical price")).toBeTruthy();
+    expect(screen.getByText("$279.93").getAttribute("title")).toBe("Historical price from the original listing");
+    expect(screen.queryByText("Historical price")).toBeNull();
   });
 
-  it("says the price is not recorded rather than dressing a missing one as a price", () => {
-    const { container } = renderCard(realListing(null));
+  it("shows an en dash with a tooltip rather than dressing a missing price as one", () => {
+    renderCard(realListing(null));
 
-    expect(screen.getByText("Price not recorded")).toBeTruthy();
-    expect(screen.queryByText("Historical price")).toBeNull();
-    expect(container.querySelector(".shop-card-price strong")).toBeNull();
+    const none = screen.getByLabelText("Price not recorded");
+    expect(none.textContent).toBe("–");
+    expect(none.getAttribute("title")).toMatch(/No price recorded/);
+    expect(screen.queryByText("Price not recorded")).toBeNull();
   });
 });
 
@@ -54,21 +55,21 @@ describe("ProductCard ranking chips and wanted marking", () => {
     );
   }
 
-  it("shows which searches found the product without opening anything", () => {
+  it("shows which searches found the product as dots, with no numbers", () => {
     const product = structuredClone(seedRun.results[0]);
     product.signals!.fts = { rank: 3, raw_score: 1, rrf_contribution: 0.01 };
     product.signals!.trigram = { rank: null, raw_score: null, rrf_contribution: null };
     product.signals!.pre_rerank_rank = 21;
     product.signals!.final_rank = 5;
     ranked(product);
-    const found = screen.getByLabelText("Full-text search: position 3");
+    const found = screen.getByLabelText("Full-text search: found");
     expect(found.dataset.dot).toBe("found");
-    expect(found.textContent).toBe("Full-text#3");
+    expect(found.textContent).toBe("");
     const missed = screen.getByLabelText("Fuzzy matching: no match");
     expect(missed.dataset.dot).toBe("none");
-    expect(missed.textContent).toContain("—");
+    expect(screen.getByRole("list", { name: "Found by" }).textContent).toBe("");
     const position = screen.getByText("Final #5").parentElement!;
-    expect(position.textContent).toContain("from combined #21");
+    expect(position.textContent).not.toContain("from combined");
     expect(position.querySelector(".rank-move")?.getAttribute("data-move")).toBe("up");
   });
 

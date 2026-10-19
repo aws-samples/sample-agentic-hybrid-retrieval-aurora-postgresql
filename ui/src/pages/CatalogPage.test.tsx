@@ -993,7 +993,7 @@ describe("CatalogPage", () => {
     vi.mocked(api.search).mockResolvedValue(shifted);
     window.history.replaceState({}, "", "/catalog?q=monitor");
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Positions side by side" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Compare positions" }));
     const panel = screen.getByRole("complementary", { name: "Search details for these products" });
     expect(within(panel).getByText("▲ 23")).toBeTruthy();
     expect(within(panel).getByText("2 products shown, of 18 reranked. Positions, not scores.")).toBeTruthy();
@@ -1014,7 +1014,7 @@ describe("CatalogPage", () => {
     });
     window.history.replaceState({}, "", "/catalog?q=monitor");
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Positions side by side" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Compare positions" }));
     const panel = screen.getByRole("complementary", { name: "Search details for these products" });
     expect(within(panel).queryByText("Held")).toBeNull();
     expect(within(panel).getAllByText("—")).toHaveLength(3);
@@ -1044,10 +1044,15 @@ describe("CatalogPage", () => {
     expect(within(board).getByRole("heading", { name: "Each method’s top five" })).toBeTruthy();
     expect(screen.getByRole("group", { name: "Results view" })).toBeTruthy();
     expect(board.closest("details")).toBeNull();
+    // Board first, then grid: strip, then the board, then the products they feed.
+    expect(strip.compareDocumentPosition(board) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(
-      document.querySelector(".shop-products")!.compareDocumentPosition(board)
+      board.compareDocumentPosition(document.querySelector(".shop-products")!)
         & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+    expect(board.closest(".shop-board-slot")).toBeTruthy();
+    // The count is a heading, so the outline runs h1, h2, h3 and skips nothing.
+    expect(document.querySelector(".shop-results-heading > h2")).toBeTruthy();
     // "Why this match", not "Why ranked #3": a shopper choosing between two chairs
     // is asking what Mosaic noticed, and the position is inside.
     const productReceipt = screen
@@ -1510,9 +1515,7 @@ describe("CatalogPage", () => {
 
     // One line, not a panel: it names what the single request does and claims no
     // stage-by-stage progress it cannot see.
-    const searching = await screen.findByText(
-      "Searching Aurora: full-text search, fuzzy matching and semantic search, then reranking…",
-    );
+    const searching = await screen.findByText("Searching Aurora…");
     expect(searching.closest("[role=status]")).toBeTruthy();
     expect(screen.queryByLabelText("What this search is doing")).toBeNull();
     expect(document.querySelectorAll(".shop-searching li")).toHaveLength(0);
@@ -1725,12 +1728,12 @@ describe("CatalogPage", () => {
 
     // Builder view puts the recorded steps and ranks on the page.
     expect(within(dialog).queryByRole("region", { name: "Builder view" })).toBeNull();
-    fireEvent.click(within(dialog).getByRole("switch", { name: "Builder view" }));
+    fireEvent.click(within(dialog).getByRole("switch", { name: "Show tool calls" }));
     const builder = within(dialog).getByRole("region", { name: "Builder view" });
     expect(within(builder).getAllByText("search_products").length).toBeGreaterThan(0);
     expect(within(builder).getByText(/max_price_cents|query=/)).toBeTruthy();
     expect(within(sources).getByText(/evidence 9001/)).toBeTruthy();
-    fireEvent.click(within(dialog).getByRole("switch", { name: "Builder view" }));
+    fireEvent.click(within(dialog).getByRole("switch", { name: "Show tool calls" }));
 
     // Pointing at a pick lights its card in Shop, and the other way round.
     const top = within(dialog).getByLabelText(/Top pick/);

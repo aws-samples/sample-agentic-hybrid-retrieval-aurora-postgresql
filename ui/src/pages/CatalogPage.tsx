@@ -85,6 +85,7 @@ import { lockBodyScroll } from "../scrollLock";
 import { useWantedName } from "../useWantedName";
 import "../shop-editorial.css";
 import "../shop-wanted.css";
+import "../shop-slim.css";
 import type {
   Availability,
   CatalogPage,
@@ -257,14 +258,20 @@ const RESULTS_PER_PAGE = 8;
 
 /**
  * The one line a running search shows. A Shop search is a single request, so
- * this names what it does and claims no progress through it; the pipeline
- * strip takes over when the response lands.
+ * this claims no progress through it; the seconds are the only live fact it
+ * has, and they are what tells a slow request from a stuck page.
  */
 function SearchingLine() {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const started = Date.now();
+    const timer = window.setInterval(() => setSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
   return (
     <p className="shop-searching" role="status">
       <LoaderCircle className="spin" size={16} aria-hidden="true" />
-      Searching Aurora: full-text search, fuzzy matching and semantic search, then reranking…
+      {seconds >= 2 ? `Searching Aurora… ${seconds}s` : "Searching Aurora…"}
     </p>
   );
 }
@@ -1546,7 +1553,7 @@ export function CatalogPage() {
 
           {retrievalError || rankNotOpen ? null : (
             <div className="shop-results-heading">
-              <p>
+              <h2>
                 {agentProducts ? (
                   <>
                     <strong>{agentProducts.length}</strong> linked recommendations
@@ -1582,7 +1589,7 @@ export function CatalogPage() {
                     )}
                   </>
                 ) : error ? "Catalog unavailable" : retrievalLoading && activeQuery ? "Searching products" : "Loading catalog"}
-              </p>
+              </h2>
                 {!retrieval && !agentProducts && page ? (
                   <nav className="shop-pagination" aria-label="Product pages">
                     <button
@@ -1629,6 +1636,7 @@ export function CatalogPage() {
           {/* One disclosure, and the bridge out of it. Everything a shopper needs
               is above; a participant who wants the SQL follows their own words
               into the Playground rather than retyping them there. */}
+          {retrievalLoading ? <SearchingLine /> : null}
           {retrieval && !rankNotOpen ? (
             <div className="shop-pipeline" aria-busy={retrievalLoading} data-loading={retrievalLoading || undefined}>
               <PipelineStrip key={retrieval.search_event_id} response={retrieval} faultArm={faultArm} />
@@ -1637,14 +1645,28 @@ export function CatalogPage() {
             </div>
           ) : null}
 
+          {/* The method board sits directly under the pipeline strip: the three
+              searches and what each one found come before the grid they feed. */}
+          {retrieval && !error && !rankNotOpen ? (
+            <div className="shop-board-slot" data-loading={retrievalLoading || undefined}>
+              <MethodBoard
+                response={retrieval}
+                wantedId={wanted?.productId ?? null}
+                wantedName={wantedName ?? undefined}
+                targetRank={wantedMission ? targetRankBound(wantedMission) : undefined}
+                images={gridImages}
+                onSelect={openProductDrawer}
+              />
+            </div>
+          ) : null}
+
           {loading && !page && !activeQuery ? <CatalogLoadingState /> : null}
-          {retrievalLoading ? <SearchingLine /> : null}
           {retrievalLoading && !page && !retrieval ? <CatalogLoadingState /> : null}
           {error ? <ErrorState message={error} onRetry={load} /> : null}
           {retrieval && !agentProducts && !agentOpen && !rankNotOpen ? (
             <div className="shop-view-switch pg-seg" role="group" aria-label="Results view">
               <button type="button" aria-pressed={!showSearchDetails} onClick={() => setShowSearchDetails(false)}>Shop</button>
-              <button type="button" aria-pressed={showSearchDetails} onClick={() => setShowSearchDetails(true)}>Positions side by side</button>
+              <button type="button" aria-pressed={showSearchDetails} onClick={() => setShowSearchDetails(true)}>Compare positions</button>
             </div>
           ) : null}
           <div className={showSearchDetails && retrieval && !agentProducts && !agentOpen ? "shop-results-layout with-inspector" : "shop-results-layout"}>
@@ -1720,16 +1742,6 @@ export function CatalogPage() {
             </div>
           ) : null}
           </div>
-          {retrieval && !error && !rankNotOpen ? (
-            <MethodBoard
-              response={retrieval}
-              wantedId={wanted?.productId ?? null}
-              wantedName={wantedName ?? undefined}
-              targetRank={wantedMission ? targetRankBound(wantedMission) : undefined}
-              images={gridImages}
-              onSelect={openProductDrawer}
-            />
-          ) : null}
             </>
           )}
         </section>
