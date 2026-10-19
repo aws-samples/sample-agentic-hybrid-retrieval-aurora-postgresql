@@ -25,10 +25,11 @@ instructions and required validation gates first. Report any actual blocker.
    target workshop and repository. Use that workshop's scoped authoring
    credentials, never participant credentials or another workshop's credentials.
    Confirm all required Git-ignored assets are present, review a dry run, then
-   sync without `--delete`: releases only ever add files, and published builds
-   still load every earlier one. A dry run may add new release files; it must not
-   update any asset a published build still loads. Verify uploaded hashes against
-   the release contracts.
+   sync without `--delete`: a release only adds its own folder. A dry run may add
+   the new release's files; it must not update any existing object. Verify
+   uploaded hashes against the release contracts. Only the latest build is kept:
+   once the new build succeeds, retire the previous release folder as the
+   workshop's `assets/README.md` describes.
 5. **Sync static URLs.** In Workshop Studio → **Asset static URLs**, select changed
    or out-of-sync assets → **Sync static URLs** → review changes → start sync.
    Wait for **In sync**, with no pending or failed syncs. S3 upload alone does
@@ -62,19 +63,19 @@ uv run --no-project --with PyYAML==6.0.3 python scripts/repin.py --check \
 
 Use the confirmed asset prefix as `ASSET_ROOT`. Mosaic's prefix is
 `s3://ws-assets-us-east-1/d2acf248-2981-4292-a41c-60a0a0e54ab3`; confirm it in the
-workshop before use. Its complete assets include one folder per release under
+workshop before use. Its complete assets are the latest release folder under
 `assets/releases/<InfrastructureRevision>/` (three nested templates, the bootstrap
-and `RELEASE.json`), the frozen root templates and bootstrap that builds pinned to
-source a41628b and earlier still load, three real-catalog parts, and two
-real-catalog vocabulary files. `scripts/repin.py` writes the new release folder;
-never edit or delete an existing one or a root file. Follow `assets/README.md`
-for local verification and distribution requirements.
+and `RELEASE.json`), three real-catalog parts, and two real-catalog vocabulary
+files. The assets root holds no templates or bootstrap; the workshop validator
+fails on one. `scripts/repin.py` writes the new release folder; never edit an
+existing one. Follow `assets/README.md` for local verification, distribution
+requirements and retiring the previous release once the new build succeeds.
 
 Review the dry run before executing the upload. The sync never passes `--delete`,
-so it cannot remove an object a published build still loads. It may add this
-release's folder; any update of a root file or an earlier release folder is a
-blocker. Retiring an orphaned object is a separate, audited step that the
-workshop repository's `AGENTS.md` describes:
+so it cannot remove an object the running build still loads. It may add this
+release's folder; any update of an existing object is a blocker. Retiring the
+previous release is a separate, audited step that the workshop repository's
+`AGENTS.md` describes:
 
 ```bash
 REVISION=$(python3 -c 'import re; print(re.search(r"InfrastructureRevision\n\s+defaultValue: \"(\w+)\"", open("contentspec.yaml").read()).group(1))')
