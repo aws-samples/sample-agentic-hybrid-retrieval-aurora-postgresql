@@ -1477,6 +1477,7 @@ export function CatalogPage() {
           {rankOutcome && rankMission && retrieval ? (
             <RankLabCard
               ref={labCalloutRef}
+              mission={rankMission}
               response={retrieval}
               outcome={rankOutcome}
               playgroundHref={`${playgroundQueryHref(

@@ -2829,6 +2829,8 @@ describe("CatalogPage", () => {
       within(callout).getByRole("heading", { name: "Repair verified" }),
     ).toBeTruthy();
     expect(within(callout).queryByRole("button", { name: "Search again" })).toBeNull();
+    // Shop is for shoppers: no index names, no fusion jargon, on the repaired card.
+    expect(callout.textContent).not.toMatch(/pg_trgm|trigram|RRF|contribution|Keyword|Spelling|Meaning match|Exact terms|Close spelling/i);
 
     fireEvent.click(within(callout).getByText("Lab 1: request and evidence"));
     // The record belongs to this outcome, even after another search repairs it.

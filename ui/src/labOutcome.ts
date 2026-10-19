@@ -184,6 +184,52 @@ export interface RetrieveFacts {
   eligible: boolean;
 }
 
+/**
+ * The last final position at which the manifest counts the wanted product as
+ * found. The rank lab declares a shortlist (`expected_final_top_k`) or a single
+ * position; every other lab asserts `target_in_top_k`, the request's own window.
+ */
+export function targetRankBound(mission: MosaicLabMission): number {
+  return mission.expected_final_top_k
+    ?? mission.expected_final_rank
+    ?? (mission.stage === "rank" ? 1 : mission.top_k);
+}
+
+/**
+ * `target`: inside the manifest's bound. `lower`: returned, but below it.
+ * `missing`: not returned at all.
+ */
+export type WantedTier = "target" | "lower" | "missing";
+
+export interface WantedProduct {
+  productId: number;
+  tier: WantedTier;
+  /** The final position this response served, or null when it served none. */
+  finalRank: number | null;
+}
+
+/** Where the mission's wanted product stands in this response, read from it. */
+export function wantedProduct(
+  mission: MosaicLabMission,
+  response: SearchResponse,
+): WantedProduct | null {
+  const productId = mission.target_product_ids[0];
+  if (productId === undefined) return null;
+  const served = response.results.find((product) => product.product_id === productId);
+  if (!served) return { productId, tier: "missing", finalRank: null };
+  const finalRank = served.signals?.final_rank ?? null;
+  const found = finalRank !== null && finalRank <= targetRankBound(mission);
+  return { productId, tier: found ? "target" : "lower", finalRank };
+}
+
+/** What a Lab 2 run showed about the wanted product, in the response's own words. */
+export interface RankFacts {
+  /** The product's title as the response served it. */
+  name: string;
+  combinedRank: number | null;
+  finalRank: number | null;
+}
+
 /** "Next: …", naming the lab's own block, its file, and the apply command. */
 export function labRepairStep(mission: MosaicLabMission, rerun: string): string | undefined {
   const edit = mission.participant_edit;
@@ -221,10 +267,20 @@ function retrieveFaultCopy(
   };
 }
 
+function rankRepairedDetail(rank?: RankFacts): string {
+  const rule = "Each search method now scores its own positions.";
+  if (!rank || rank.finalRank == null) return rule;
+  const reached = rank.combinedRank == null
+    ? `finished at final #${rank.finalRank}`
+    : `reached reranking at combined #${rank.combinedRank} and finished at final #${rank.finalRank}`;
+  return `${rule} The ${rank.name} ${reached}.`;
+}
+
 function participantCopy(
   mission: MosaicLabMission,
   fixed: boolean,
   facts?: RetrieveFacts,
+  rank?: RankFacts,
 ): Pick<LabOutcome, "label" | "title" | "detail" | "next"> {
   if (mission.stage === "retrieve") {
     return fixed
@@ -232,7 +288,7 @@ function participantCopy(
           label: "Repair verified",
           title: "Fuzzy retrieval is contributing",
           detail:
-            "The target carries a pg_trgm rank and RRF contribution, and every result remains eligible.",
+            "Every product shown still fits Alex's request and filters.",
         }
       : {
           label: "Issue reproduced",
@@ -250,8 +306,7 @@ function participantCopy(
       ? {
           label: "Repair verified",
           title: "Fusion now respects source rank",
-          detail:
-            "Each search method contributes 1 / (k + rank), and reranking puts the expected product first.",
+          detail: rankRepairedDetail(rank),
         }
       : {
           label: "Issue reproduced",
@@ -274,10 +329,11 @@ function participantOutcome(
   mission: MosaicLabMission,
   fixed: boolean,
   facts?: RetrieveFacts,
+  rank?: RankFacts,
 ): LabOutcome {
   return {
     tone: fixed ? "fixed" : "broken",
-    ...participantCopy(mission, fixed, facts),
+    ...participantCopy(mission, fixed, facts, rank),
   };
 }
 
@@ -323,7 +379,7 @@ export function retrievalLabOutcome(
       && response.results.length > 0
       && response.results.every((product) => rrfIsCorrect(product, rrfK))
     );
-    const finalBound = mission.expected_final_top_k ?? mission.expected_final_rank ?? 1;
+    const finalBound = targetRankBound(mission);
     const canonicalOrderCorrect = targets.every((product) => {
       const combinedPosition = product.signals?.pre_rerank_rank ?? 0;
       const finalPosition = product.signals?.final_rank ?? 0;
@@ -331,9 +387,18 @@ export function retrievalLabOutcome(
         && Number.isInteger(finalPosition) && finalPosition >= 1
         && Number.isInteger(finalBound) && finalPosition <= finalBound;
     });
+    const wanted = targets[0];
     return participantOutcome(
       mission,
       targetsPresent && arithmeticCorrect && canonicalOrderCorrect && eligible,
+      undefined,
+      wanted
+        ? {
+            name: wanted.title,
+            combinedRank: wanted.signals?.pre_rerank_rank ?? null,
+            finalRank: wanted.signals?.final_rank ?? null,
+          }
+        : undefined,
     );
   }
 

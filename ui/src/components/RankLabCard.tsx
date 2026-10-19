@@ -1,17 +1,19 @@
 import { forwardRef, useEffect, useState } from "react";
 import { Link } from "wouter";
 import { api } from "../api";
-import type { LabOutcome } from "../labOutcome";
+import type { MosaicLabMission } from "../labMissions";
+import { wantedProduct, type LabOutcome } from "../labOutcome";
 import type { SearchResponse } from "../types";
 import { useLabStates } from "../useLabStates";
 
 /** A good reference result is not a participant repair. Check entry and run age. */
 export const RankLabCard = forwardRef<HTMLElement, {
+  mission: MosaicLabMission;
   response: SearchResponse;
   outcome: LabOutcome;
   playgroundHref: string;
   onSearchAgain: () => void;
-}>(function RankLabCard({ response, outcome, playgroundHref, onSearchAgain }, ref) {
+}>(function RankLabCard({ mission, response, outcome, playgroundHref, onSearchAgain }, ref) {
   const eventId = response.search_event_id;
   const { labStates, failed, retry } = useLabStates(eventId);
   const lab = labStates?.find((item) => item.lab_id === 2);
@@ -25,6 +27,22 @@ export const RankLabCard = forwardRef<HTMLElement, {
     });
     return () => { active = false; };
   }, [eventId]);
+
+  const wantedId = mission.target_product_ids[0];
+  const servedTitle = response.results.find((product) => product.product_id === wantedId)?.title;
+  const [lookedUp, setLookedUp] = useState<{ id: number; title: string } | null>(null);
+  useEffect(() => {
+    if (servedTitle) return;
+    let active = true;
+    api.product(wantedId).then((detail) => {
+      if (active) setLookedUp({ id: wantedId, title: detail.title });
+    }).catch(() => {
+      // The card reads fine with "the wanted product" when the lookup fails.
+    });
+    return () => { active = false; };
+  }, [servedTitle, wantedId]);
+  const name = servedTitle ?? (lookedUp?.id === wantedId ? lookedUp.title : "wanted product");
+  const wanted = wantedProduct(mission, response);
 
   let status = "Lab 2 / Not checked";
   let title = "Checking the exercise state";
@@ -44,7 +62,7 @@ export const RankLabCard = forwardRef<HTMLElement, {
     title = "Finish preparing the ranking exercise";
     detail = "Run the guide’s preparation command again. It resumes where it stopped and keeps your edits.";
   } else if (lab?.entry_state === "started") {
-    status = "Lab 2 / See it fail";
+    status = "Lab 2 / Send Alex’s monitor request";
     if (!Number.isFinite(occurred) || !Number.isFinite(started)) {
       title = "Search timing not verified";
       detail = "Search again to record a result for this exercise. This saved result cannot verify your repair yet.";
@@ -61,8 +79,13 @@ export const RankLabCard = forwardRef<HTMLElement, {
       detail = outcome.detail;
       tone = "fixed";
     } else {
-      title = "Does the order reflect Alex’s request?";
-      detail = "Inspect each search method’s positions and contributions. Compare the order before reranking with the final positions.";
+      title = `Where is the ${name}?`;
+      const where = wanted?.tier === "missing"
+        ? `The ${name} is not in these results.`
+        : wanted?.finalRank != null
+          ? `The ${name} is at final #${wanted.finalRank}.`
+          : "";
+      detail = `${where} Inspect each search method’s positions and contributions. Compare the order before reranking with the final positions.`.trim();
     }
   }
 
