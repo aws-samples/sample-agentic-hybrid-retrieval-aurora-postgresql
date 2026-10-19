@@ -284,7 +284,7 @@ result's photograph 20px; spec highlight tiles on the product page
 
 - **One segmented control** (`.pg-seg`, in `shared-states.css`): a `--paper-warm`
   pill track with a raised `--paper-strong` segment for the pressed button. The
-  Playground orderings and Shop's "Shop / Shop + search details" switch use it. It
+  Playground orderings and Shop's "Shop / Compare positions" switch use it. It
   never wraps: on a phone it scrolls sideways as a single row.
 - **One disclosure style** (`world.css`): no native marker, a chevron after the
   label that turns over when the section opens, 14px `--ink-soft`. An accordion

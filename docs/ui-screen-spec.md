@@ -25,8 +25,8 @@ Landing, before a query or an Ask Mosaic shortlist:
   Skip the tour; the header's **Take the tour** compass replays it
   (`ui/src/tour.ts`, `ui/src/components/SpotlightTour.tsx`);
 
-- centred headline, search composer, catalog scope line, and one line of
-  example searches grouped as Keywords, Typo, and Intent;
+- centred headline, search composer, catalog scope line, and one unlabelled row
+  of example searches that stays in view after a search;
 - a horizontal workspace product shelf, category links, **Browse all products**
   and a shortcut to Meet Alex;
 - Meet Alex: the five-step workspace walkthrough beside Alex's profile
@@ -40,9 +40,15 @@ links and **Browse all products** replace the story with the full browse grid,
 its existing tabs, filters and pagination.
 
 With a query the story is not rendered. The headline stays the page's h1 for
-assistive technology only, and `Results for ...` is the display line. Ranked
-results read as an editorial list: the first in the final order as a feature,
-the rest as rows with their position at the end. Browsing keeps the grid.
+assistive technology only, and `Results for ...` is the display line. A search
+shows, in order: one strip of chips for how it ran (each search's count in the
+combined pool, Combined in Aurora (RRF), Reranked, shown) with a link to watch
+the ranking change in the Playground; **Each method's top five**, one column per
+search plus Combined and Reranked, with ▲/▼ movement; then the result grid,
+eight cards a page, each with a dot per search that found it and its reranked
+position. **Compare positions** swaps the grid for the same products in combined
+and reranked order. Before Lab 2 is prepared, Lab 2's request shows only the
+lab's next step. Browsing keeps the grid.
 
 Components:
 
@@ -110,22 +116,35 @@ API: `GET /api/products/{product_id}`.
 
 ## `/labs/retrieval` - Hybrid retrieval
 
-Purpose: follow an agent request across its searches, distinguish each search's
-ranking from the final answer, and inspect the supporting records.
+Purpose: show, on one screen, how a request moves from three searches to
+Aurora's combined order to the reranked order and, when asked, to the Retrieval
+agent's cited answer.
 
-The canonical example selector and **Run Mosaic** start the production agent.
+The search bar's button is a magnifying glass until a search's results are in,
+then the arrow that asks the Retrieval agent; agent examples start the agent
+directly. A run shows one row of chips (each search's count, the combined pool,
+reranking, the record ID, or the agent's tool calls), the agent's answer when
+there is one (its picks on the left from the first word, the prose read out
+beside them, compact sources after), then **Watch the ranking change**: the
+returned products racing from each search to Combined (RRF) to Reranked, with a
+journey line for the followed product. One row of details opens beneath it, one
+at a time: **Each search's top five**, **How Aurora combined them**, **Why this
+position**, **Agent steps and sources**. Before Lab 2 is prepared, Lab 2's
+request shows only the lab's next step. A first visit runs the Playground's own
+short tour.
+
+The canonical example selector and the bar's button start the production agent.
 The completed summary links each final choice to its recorded search. **Trace
 all returned products** lists the actual search positions, successful comparisons,
 registered evidence counts, and final inclusion; listing IDs distinguish similar
 titles. Missing records remain visibly unavailable, and omission alone is not
 presented as a rejection explanation.
 
-Retrieve and Rank follow the selected search. Its first result is a compact row
-labelled with its search number, position, and whether it appears in the answer.
-**Search record and interpretation** expands technical identifiers and method
-readings. Retrieve exposes full-text, fuzzy matching and semantic candidates;
-Rank shows fusion and reranking receipts; Reason presents the full cited answer,
-product links, sources, and the expandable activity log.
+The board and the details follow the selected search; after an agent run that
+is the agent's first search, and the original search stays in the selector.
+Each search column shows how that search read the request (lexemes, trigrams,
+the vector) above what it found. The details hold the fusion arithmetic and
+receipts, the saved candidate pool, and the activity log.
 
 `?view=lab` retains the guided lab workbench and proof controls.
 
@@ -178,4 +197,4 @@ again after the participant applies SQL. No product photo appears in the
 notice, even after repair; product imagery belongs to actual result cards.
 **Lab 1: request and evidence** discloses the typed/listing IDs and the saved
 run's Playground link. The no-exact-ID coverage message stays available inside
-**Why these results, in this order**, rather than competing with the outcome.
+the result's **Why this match**, rather than competing with the outcome.

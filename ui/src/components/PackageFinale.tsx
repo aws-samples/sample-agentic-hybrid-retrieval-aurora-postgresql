@@ -33,7 +33,7 @@ export function PackageFinale() {
   return (
     <section className="labs-package-finale" aria-labelledby="labs-package-title">
       <header className="labs-package-heading">
-        <h3 id="labs-package-title">Take this retrieval into your own agent</h3>
+        <h3 id="labs-package-title">Use it in your own agent</h3>
         <p>
           Carry forward tsvector + pg_trgm + pgvector → RRF → Cohere Rerank →
           evidence-backed answers, with checks for filters, recall, ranking and citations.

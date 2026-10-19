@@ -111,9 +111,11 @@ function Journey({ steps, product, current, onPick }: {
   return <>
     <p className="pg-journey-name">{pickName(product)}</p>
     <ol className="pg-journey" style={{ "--steps": steps.length } as CSSProperties} aria-label={`${pickName(product)} at each step`}>
-      {steps.map((step) => {
+      {steps.map((step, index) => {
         const rank = step.rank(product);
-        return <li key={step.key} data-current={step.key === current || undefined} data-found={rank != null || undefined} data-accent={isRankStep(step.key) ? "rank" : "retrieve"} data-top={step.key === "final" && rank === 1 || undefined}>
+        // A step the race has not reached keeps its colour until it gets there.
+        const ahead = index > steps.findIndex((item) => item.key === current);
+        return <li key={step.key} data-current={step.key === current || undefined} data-ahead={ahead || undefined} data-found={rank != null || undefined} data-accent={isRankStep(step.key) ? "rank" : "retrieve"} data-top={!ahead && step.key === "final" && rank === 1 || undefined}>
           <button type="button" onClick={() => onPick(step.key)} aria-label={`${step.label}: ${rank == null ? "not found" : `#${rank}`}`}>
             <b>{rank == null ? "—" : `#${rank}`}</b>
             <small>{step.label}</small>

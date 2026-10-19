@@ -352,8 +352,8 @@ still needs to check. Do not start a new model call to produce a cleaner finale.
 The completion check rechecks the participant's saved run; the scorecard is a
 separately dated measurement.
 
-Close with **Take this retrieval into your own agent** in Playground: **Connect
-retrieval tools**, **Download the skill**, **Adapt the implementation**. MCP or
+Close with **Use it in your own agent** in Playground: **Download the retrieval
+code**, **Download the agent skill**, **Connect over MCP**. MCP or
 HTTP connects another host to a running service; the skill adds workflow and
 evidence-checking guidance for those tools. Neither enforces permissions; the
 service and database role do. The skill does not host the catalog, and the event

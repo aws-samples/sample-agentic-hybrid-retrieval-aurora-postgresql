@@ -495,7 +495,7 @@ function labProofFor(labId: number) {
  * disclosure left to open now that packaging is not a click behind stage 03.
  */
 async function awaitPackageFinale() {
-  await screen.findByText("Take this retrieval into your own agent");
+  await screen.findByText("Use it in your own agent");
 }
 
 /** All three retrieval indexes present, valid and ready -- nothing broken. */
@@ -1117,7 +1117,7 @@ describe("RetrievalLabPage", () => {
 
     await awaitPackageFinale();
     const finale = container.querySelector(".labs-package-finale");
-    const heading = screen.getByRole("heading", { name: "Take this retrieval into your own agent" });
+    const heading = screen.getByRole("heading", { name: "Use it in your own agent" });
     const header = heading.closest(".labs-package-heading");
 
     expect(finale).toBeTruthy();
@@ -1273,7 +1273,7 @@ describe("RetrievalLabPage", () => {
 
     // Removed from stage 03 completely, not merely hidden there.
     expect(reasonStage.querySelector(".labs-package-finale")).toBeNull();
-    expect(within(reasonStage as HTMLElement).queryByText("Take this retrieval into your own agent")).toBeNull();
+    expect(within(reasonStage as HTMLElement).queryByText("Use it in your own agent")).toBeNull();
   });
 
   it("keeps the maintainers' scorecard collapsed and the hand-off visible", async () => {

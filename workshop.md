@@ -223,9 +223,9 @@ for each of Alex's three picks. Finish the guide's completion check before optio
 > Find the missing candidates, make their positions count, then check the
 > sources behind the answer.
 
-Before the event expires, use **Take this retrieval into your own agent** in
-Playground: **Connect retrieval tools**, **Download the skill**, and **Adapt the
-implementation**. The skill guides a running backend; it does not host the
+Before the event expires, use **Use it in your own agent** in Playground:
+**Download the retrieval code**, **Download the agent skill**, and **Connect over
+MCP**. The skill guides a running backend; it does not host the
 catalog or replace service permissions. Follow the
 [adaptation guide](docs/use-in-your-app.md) for another domain.
 

@@ -83,10 +83,11 @@ the same runs in the browser and is optional.
 Use **Shop** for product search and **Playground** for saved candidates,
 ranking, tool calls and cited sources. **Ask Mosaic** opens from the pill in the
 header on every page. On the first visit to Shop, a short guided tour spotlights
-each of these; **Take the tour** (the compass in the header) runs it again. **Complete my setup** runs Lab 3's
+each of these, and the Playground has its own; **Take the tour** (the compass in
+the header) runs the one for the page you are on. **Complete my setup** runs Lab 3's
 three-product request, and its Ask Mosaic starter stays available before and after
 you build the Retrieval agent; it runs on its own filters and says when it clears Shop's.
-Keep its original run ID for completion. Ask Mosaic's **Builder view** switch (off by default) shows the full **Retrieval agent record** ID, recorded steps, saved search IDs and how each search ranked its products. The Playground's Prove page keeps the
+Keep its original run ID for completion. Ask Mosaic's **Show tool calls** switch (off by default) shows the full **Retrieval agent record** ID, recorded steps, saved search IDs and how each search ranked its products. The Playground's Prove page keeps the
 maintainers' saved scorecard collapsed under **Maintainer measurements**; those
 results do not grade your repairs.
 

@@ -101,6 +101,15 @@ describe("RankRace", () => {
     expect(onFollow).toHaveBeenCalledWith(products[1].product_id);
   });
 
+  it("leaves journey steps the race has not reached uncoloured", () => {
+    render(<RankRace response={response} followId={viewSonic.product_id} wanted onFollow={() => {}} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Semantic search" }));
+    const nodes = [...screen.getByRole("list", { name: /at each step$/ }).querySelectorAll("li")];
+    // Full-text and semantic search are reached; Combined (RRF) and Reranked are ahead.
+    expect(nodes.map((node) => node.hasAttribute("data-ahead"))).toEqual([false, false, true, true]);
+    expect(nodes.some((node) => node.hasAttribute("data-top"))).toBe(false);
+  });
+
   it("moves between steps with the arrow keys, as a radio group does", () => {
     render(<RankRace response={response} followId={null} wanted={false} onFollow={() => {}} />);
     const final = screen.getByRole("radio", { name: "Reranked" });
