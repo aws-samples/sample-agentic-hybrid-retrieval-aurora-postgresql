@@ -1,12 +1,12 @@
 import { CircleStop, PencilLine, RotateCcw } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import type { AgentCitation, AgentPlanStep, AgentResponse, ProductSummary, ToolTraceStep } from "../../types";
 import { DeclinedAnswer } from "../DeclinedAnswer";
 import { MemoryReceipt } from "../AskMosaicMemory";
 import { AgentSetupCard } from "./AgentSetupCard";
 import { BuilderView } from "./BuilderView";
-import { comparisonRows, unknowns, type ComparisonRow } from "./comparison";
+import { comparisonRows, type ComparisonRow } from "./comparison";
 import { boldRecommendationNames } from "./emphasis";
 import { reportedDuration, type RunData } from "./findings";
 import { HowAnswered } from "./HowAnswered";
@@ -14,10 +14,10 @@ import { PickRow, TopPick } from "./Picks";
 import { FollowUps } from "./ResultCards";
 import { RunProgress } from "./RunProgress";
 import { isSetupCardMessage } from "./setupMessage";
-import { SourceList, StillUnknown } from "./SourceList";
+import { SourceList } from "./SourceList";
 import { useSoftReveal } from "./softReveal";
 import { StreamedAnswer } from "./StreamedAnswer";
-import { stagesFor, type AskMosaicTurn } from "./types";
+import type { AskMosaicTurn } from "./types";
 import { useProgressiveStage } from "./useProgressiveStage";
 
 export interface TurnProps {
@@ -66,6 +66,43 @@ function useAnswerVisible(
   }, [atAnswerStage, instant, response, turn.error]);
   return visible;
 }
+
+/**
+ * What the single status line says once the run is no longer working. Empty
+ * while it works, because the progress line owns the phase announcements and a
+ * second live region would read the same phase twice.
+ */
+function finishedAnnouncement(error: string, settled: boolean, declined: boolean): string {
+  if (error) return "The Retrieval agent could not finish this request.";
+  if (!settled) return "";
+  return declined
+    ? "The Retrieval agent declined to recommend a product."
+    : "The Retrieval agent finished its recommendation.";
+}
+
+/**
+ * Keeps citation chips from leading nowhere. Until the source list is on
+ * screen (still streaming, or stopped part way) a chip would link to a source
+ * that is not there, so it stops being a link: the click is swallowed and the
+ * chip leaves the tab order. The shared `StreamedAnswer` still draws it.
+ */
+function useInertCitations(ref: RefObject<HTMLElement | null>, inert: boolean, revealed: string) {
+  useEffect(() => {
+    const chips = ref.current?.querySelectorAll<HTMLAnchorElement>("a.ask-answer-cite") ?? [];
+    for (const chip of chips) {
+      if (inert) {
+        chip.setAttribute("aria-disabled", "true");
+        chip.tabIndex = -1;
+      } else {
+        chip.removeAttribute("aria-disabled");
+        chip.removeAttribute("tabindex");
+      }
+    }
+  }, [ref, inert, revealed]);
+}
+
+/** The nth block to arrive once the reveal has finished, staggered by the stylesheet. */
+const arrival = (order: number) => ({ "--i": order }) as CSSProperties;
 
 /** A request longer than this is shown in five lines until the reader opens it. */
 const LONG_QUESTION = 280;
@@ -147,7 +184,7 @@ function OtherPicks({ picks, props }: { picks: ProductSummary[]; props: AnswerBo
   const rest = props.leadsWithCard ? picks.slice(1) : picks;
   if (!props.settled || !rest.length) return null;
   return (
-    <section className="ask-picks" aria-label="Other picks">
+    <section className="ask-picks ask-arrive" style={arrival(0)} aria-label="Other picks">
       <h4>{props.leadsWithCard ? "Other picks" : "Picks"}</h4>
       <ul>{rest.map((product) => <PickRow key={product.product_id} {...pickProps(product, picks, props)} />)}</ul>
     </section>
@@ -159,9 +196,6 @@ function AnswerBody(props: AnswerBodyProps) {
   const picks = declined ? [] : response.recommendations.slice(0, 3);
   return (
     <>
-      {builder
-        ? <BuilderView response={response} run={run} durationMs={props.durationMs} />
-        : <HowAnswered run={run} durationMs={props.durationMs} />}
       {declined ? (
         <DeclinedAnswer answer={turn.streamed || response.answer} reason={response.decline_reason} className="ask-mosaic-declined" />
       ) : (
@@ -171,10 +205,9 @@ function AnswerBody(props: AnswerBodyProps) {
           <StreamedAnswer text={text} chunks={chunks} citations={response.citations} answerId={answerId} />
           <OtherPicks picks={picks} props={props} />
           {settled && response.citations.length ? (
-            <>
+            <div className="ask-arrive" style={arrival(1)}>
               <SourceList citations={response.citations} products={response.recommendations} answer={props.answerText} answerId={answerId} builder={builder} />
-              <StillUnknown items={unknowns(picks, props.rows)} />
-            </>
+            </div>
           ) : null}
           {settled && !response.citations.length ? (
             <p className="ask-mosaic-uncited-note">
@@ -185,6 +218,13 @@ function AnswerBody(props: AnswerBodyProps) {
           ) : null}
         </>
       )}
+      {settled ? (
+        <div className="ask-arrive" style={arrival(2)}>
+        <HowAnswered run={run} durationMs={props.durationMs} declined={declined} builder={builder}>
+          {builder ? <BuilderView response={response} run={run} durationMs={props.durationMs} /> : undefined}
+        </HowAnswered>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -228,17 +268,23 @@ export function Turn(props: TurnProps) {
   const answerId = `ask-answer-${turn.id}`;
   const needsSetup = Boolean(turn.error && turn.errorCode === "agent_setup" && isSetupCardMessage(turn.error));
   const runState = turn.error ? "failed" : turn.cancelled ? "stopped" : "working";
-  const label = stagesFor(turn.executionPath).find((stage) => stage.id === presentedStage)?.running ?? "Working";
+  const sourcesReady = settled && !declined && citations.length > 0;
+  const answerRef = useRef<HTMLDivElement | null>(null);
+  useInertCitations(answerRef, !sourcesReady, reveal.text);
 
   return (
     <article className="ask-mosaic-turn">
       <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {turn.error ? "Ask Mosaic could not finish this request." : settled ? "Ask Mosaic recommendation complete." : `${label}. In progress.`}
+        {finishedAnnouncement(turn.error, settled, declined)}
       </p>
       <TurnQuestion turn={turn} isLatest={isLatest} onEdit={props.onEdit} onRun={props.onRun} />
 
-      {!answerVisible && !needsSetup && (turn.loading || turn.stage || turn.cancelled || turn.error) ? (
-        <RunProgress run={run} presentedStage={presentedStage} state={runState} stageStartedAt={turn.stageStartedAt} />
+      {!needsSetup && (answerVisible || turn.loading || turn.stage || turn.cancelled || turn.error) ? (
+        <RunProgress
+          run={run}
+          presentedStage={presentedStage}
+          state={answerVisible && !turn.error ? "done" : runState}
+        />
       ) : null}
 
       {turn.cancelled ? (
@@ -248,7 +294,7 @@ export function Turn(props: TurnProps) {
             You stopped this request.
           </span>
           {turn.streamed
-            ? <small>The partial answer and steps above are what Mosaic had found so far.</small>
+            ? <small>The partial answer and steps above are what the Retrieval agent had found so far.</small>
             : <small>Ask again, or send a new request.</small>}
         </div>
       ) : null}
@@ -257,7 +303,7 @@ export function Turn(props: TurnProps) {
         <AgentSetupCard detail={turn.error} />
       ) : turn.error ? (
         <div className="ask-mosaic-error" role="alert">
-          <strong>Mosaic could not finish this request.</strong>
+          <strong>The Retrieval agent could not finish this request.</strong>
           <span>{turn.error}</span>
           <small>Press Ask again to retry. If it keeps failing, share this message with your facilitator.</small>
         </div>
@@ -266,7 +312,15 @@ export function Turn(props: TurnProps) {
       <AnimatePresence initial={false}>
         {response && answerVisible && !turn.error ? (
           <motion.div
+            ref={answerRef}
             className="ask-mosaic-answer"
+            data-sources={sourcesReady ? "ready" : "pending"}
+            onClickCapture={(event) => {
+              if (sourcesReady || !(event.target instanceof Element)) return;
+              if (!event.target.closest("a.ask-answer-cite")) return;
+              event.preventDefault();
+              event.stopPropagation();
+            }}
             initial={{ opacity: 0, transform: "translateY(7px)" }}
             animate={{ opacity: 1, transform: "translateY(0)" }}
             exit={{ opacity: 0, transform: "translateY(4px)" }}
@@ -288,7 +342,9 @@ export function Turn(props: TurnProps) {
             />
             {settled ? <MemoryReceipt memory={response.memory} /> : null}
             {settled && !declined && isLatest && !turn.loading ? (
-              <FollowUps response={response} onRun={props.onRun} />
+              <div className="ask-arrive" style={arrival(3)}>
+                <FollowUps response={response} onRun={props.onRun} />
+              </div>
             ) : null}
           </motion.div>
         ) : null}

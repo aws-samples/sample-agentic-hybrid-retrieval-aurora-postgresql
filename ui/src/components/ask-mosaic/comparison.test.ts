@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AgentCitation, ProductSummary } from "../../types";
-import { comparisonRows, pickName, requirementsFrom, retrievalPath, unknowns } from "./comparison";
+import { comparisonRows, pickName, requirementsFrom, retrievalPath } from "./comparison";
 
 // The two Dell listings from a recorded 2026-09-28 answer, reduced to what the
 // comparison reads.
@@ -97,34 +97,11 @@ describe("comparisonRows", () => {
     const rows = comparisonRows([dell27, noSize], citations, [FIRST]);
     const size = rows.find((row) => row.key === "size_in")!;
     expect(size.cells[1]).toMatchObject({ text: "Not stated", source: "not_stated", status: null });
-    expect(unknowns([dell27, noSize], rows)).toEqual([
-      "27-inch screen: not stated for Dell UltraSharp U2720Q 27″ LCD",
-      "Current price and stock",
-    ]);
   });
 });
 
 describe("retrievalPath", () => {
   it("names only the methods that found the pick, then its combined and final positions", () => {
     expect(retrievalPath(dell27)).toEqual(["Semantic search #7", "Combined #10", "Reranked to #1"]);
-  });
-});
-
-describe("unknowns, grouped", () => {
-  const chair = { ...dell27, product_id: 7, category_key: "chair", brand: "Steelcase", model: "Gesture", source_dataset: null, specs: {} } as unknown as ProductSummary;
-  const monitor = { ...dell27, category_key: "monitor" } as unknown as ProductSummary;
-  const noSize = { ...monitor, product_id: 2, title: "Dell P2722H", specs: {} } as unknown as ProductSummary;
-
-  it("lists only figures the shopper asked about, one line per figure", () => {
-    const rows = comparisonRows([monitor, noSize], [], ["a 27-inch monitor"]);
-    expect(unknowns([monitor, noSize], rows)).toEqual([
-      "27-inch screen: not stated for Dell P2722H",
-      "Current price and stock",
-    ]);
-  });
-
-  it("does not call a monitor's size unknown for a chair in the same room", () => {
-    const rows = comparisonRows([monitor, chair], [], ["a 27-inch monitor and a chair"]);
-    expect(unknowns([monitor, chair], rows)).toEqual(["Current price and stock"]);
   });
 });

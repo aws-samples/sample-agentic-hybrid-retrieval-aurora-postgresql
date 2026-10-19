@@ -85,7 +85,7 @@ describe("BuilderView ranks", () => {
     const ranked = await screen.findByRole("region", { name: "How it ranked" });
     await waitFor(() => expect(within(ranked).getByText(/Search cc3a32d8/)).toBeTruthy());
     expect(within(ranked).getByRole("button", { name: "Chair", pressed: true })).toBeTruthy();
-    expect(ranked.textContent).toContain(`RRF, k = ${RECORDED_K} · rerank rerank-model`);
+    expect(ranked.textContent).toContain(`combining setting k = ${RECORDED_K} · reranked by rerank-model`);
     const rows = within(ranked).getAllByRole("row");
     // Header plus the two receipt rows, the recommended product named from the response.
     expect(rows).toHaveLength(3);
@@ -93,7 +93,7 @@ describe("BuilderView ranks", () => {
     expect(rows[1].textContent).toContain("0.800");
     // The split bar lives under the name, so there is no column of its own to scroll to.
     const headers = within(ranked).getAllByRole("columnheader").map((header) => header.textContent);
-    expect(headers).toEqual(["Final", "Product", "Full-text", "Fuzzy", "Semantic", "Comb.", "Rerank"]);
+    expect(headers).toEqual(["Final", "Product", "Full-text", "Fuzzy", "Semantic", "Combined", "Rerank"]);
     expect(rows[1].querySelector(".ask-rank-name .ask-rrf-bar")).not.toBeNull();
   });
 
@@ -106,7 +106,7 @@ describe("BuilderView ranks", () => {
     ).toBeTruthy();
   });
 
-  it("lists the run's facts and what the response does not record", async () => {
+  it("lists the run's facts and prints no pill for what the response does not record", async () => {
     vi.spyOn(api, "retrievalEvent").mockResolvedValue(receipt);
     render(<BuilderView response={response} run={run} durationMs={43_500} />);
 
@@ -115,7 +115,8 @@ describe("BuilderView ranks", () => {
     expect(within(builder).getByText("43.5 s")).toBeTruthy();
     expect(within(builder).getByText("memory off")).toBeTruthy();
     fireEvent.click(within(builder).getByRole("button", { name: "Chair" }));
-    expect(within(builder).getByText("tokens")).toBeTruthy();
+    expect(within(builder).queryByText("tokens")).toBeNull();
+    expect(within(builder).queryByText(/Not recorded/i)).toBeNull();
   });
 });
 
