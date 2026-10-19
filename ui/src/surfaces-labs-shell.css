@@ -952,9 +952,9 @@
 }
 
 .mosaic-labs-tabs > .mosaic-labs-source:hover {
-  border-color: var(--line-strong);
-  background: var(--gold-soft);
-  color: var(--maroon-900);
+  border-color: color-mix(in srgb, var(--rank) 55%, transparent);
+  background: color-mix(in srgb, var(--rank) 16%, var(--paper-strong));
+  color: var(--ink);
 }
 
 .mosaic-labs-source img {
