@@ -44,7 +44,7 @@ export const RankLabCard = forwardRef<HTMLElement, {
   } else if (lab?.entry_state === "not_started") {
     status = "Lab 2 / Not started";
     title = "The ranking exercise is next";
-    detail = "Finish Lab 1 and prepare Lab 2 in the guide. These results are from the supplied search, not a verified repair.";
+    detail = "Finish Lab 1 and prepare Lab 2 in the guide. This request shows its results once Lab 2 has started.";
   } else if (lab?.entry_state === "incomplete") {
     status = "Lab 2 / Preparation incomplete";
     title = "Finish preparing the ranking exercise";

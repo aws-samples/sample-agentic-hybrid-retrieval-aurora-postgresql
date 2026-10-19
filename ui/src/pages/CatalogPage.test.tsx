@@ -995,12 +995,12 @@ describe("CatalogPage", () => {
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Positions side by side" }));
     const panel = screen.getByRole("complementary", { name: "Search details for these products" });
-    expect(within(panel).getByText("▲23")).toBeTruthy();
-    expect(within(panel).getByText(/Same 2 displayed products from 18 sent to reranking in both views; only the row order changes/)).toBeTruthy();
-    expect(within(panel).getByRole("link", { name: "Inspect the full search in Playground" }).getAttribute("href")).toContain(SEARCH_EVENT_ID);
+    expect(within(panel).getByText("▲ 23")).toBeTruthy();
+    expect(within(panel).getByText("2 products shown, of 18 reranked. Positions, not scores.")).toBeTruthy();
+    expect(within(panel).getByRole("link", { name: "Watch the ranking change in the Playground" }).getAttribute("href")).toContain(SEARCH_EVENT_ID);
     const titles = () => within(panel).getAllByRole("row").slice(1).map(row => within(row).getByRole("button").textContent);
     expect(titles()[0]).toBe(recommendations[0].title);
-    fireEvent.click(within(panel).getByRole("button", { name: "Before reranking (RRF)" }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Combined order" }));
     expect(titles()[0]).toBe(recommendations[1].title);
     fireEvent.click(within(screen.getByRole("group", { name: "Results view" })).getByRole("button", { name: /^Shop$/ }));
     expect(screen.queryByRole("complementary", { name: "Search details for these products" })).toBeNull();
@@ -1019,8 +1019,8 @@ describe("CatalogPage", () => {
     expect(within(panel).queryByText("Held")).toBeNull();
     expect(within(panel).getAllByText("—")).toHaveLength(3);
     expect(within(panel).getByText(/This request was not reranked/)).toBeTruthy();
-    expect(within(panel).getByText(/in the combined list/)).toBeTruthy();
-    expect(within(panel).queryByText(/sent to reranking/)).toBeNull();
+    expect(within(panel).getByText(/^1 product shown, of \d+ combined\./)).toBeTruthy();
+    expect(within(panel).queryByText(/of \d+ reranked/)).toBeNull();
   });
 
   it("runs hybrid retrieval from the Shop query and renders real rank signals", async () => {

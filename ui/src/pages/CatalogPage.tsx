@@ -41,6 +41,7 @@ import {
 } from "../components/CatalogSearchComposer";
 import { CodeEditorLink } from "../components/CodeEditorLink";
 import { RankLabCard } from "../components/RankLabCard";
+import { useLabStates } from "../useLabStates";
 import { LabFaultCard } from "../components/LabFaultCard";
 import { CoverageNotice } from "../components/CoverageNotice";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
@@ -456,6 +457,11 @@ export function CatalogPage() {
   const rankOutcome = rankMission && retrieval
     ? retrievalLabOutcome(rankMission, retrieval, readiness)
     : null;
+  // Before Lab 2 is prepared, its request runs the repaired search the app ships with:
+  // those results would give the exercise away, so Shop shows only the lab's next step.
+  const { labStates } = useLabStates(retrieval?.search_event_id ?? "");
+  const rankEntry = labStates?.find((lab) => lab.lab_id === 2)?.entry_state;
+  const rankNotOpen = Boolean(rankMission && (rankEntry === "not_started" || rankEntry === "incomplete"));
   // Whichever lab asked this request marks its wanted product on the results.
   const wantedMission = labCallout && !labCallout.blocked ? labCallout.mission : rankMission;
   const wanted = wantedMission && retrieval ? wantedProduct(wantedMission, retrieval) : null;
@@ -1528,7 +1534,7 @@ export function CatalogPage() {
               </div>
               <button type="button" onClick={clearAgentResults}>Clear shortlist</button>
             </div>
-          ) : activeQuery ? (
+          ) : activeQuery && !rankNotOpen ? (
             <div ref={resultsAnchorRef} className="shop-query-state">
               <span title={activeQuery}>
                 <strong>{labCallout && !labCallout.targetPresent ? "Other products returned for" : "Results for"}</strong>
@@ -1538,7 +1544,7 @@ export function CatalogPage() {
             </div>
           ) : null}
 
-          {retrievalError ? null : (
+          {retrievalError || rankNotOpen ? null : (
             <div className="shop-results-heading">
               <p>
                 {agentProducts ? (
@@ -1618,12 +1624,12 @@ export function CatalogPage() {
               render only on /search, a route nothing linked to, so coverage was
               measured and served and never shown to anybody. It belongs where
               the searching happens. */}
-          {!labCallout || labCallout.blocked ? <CoverageNotice coverage={retrieval?.coverage} /> : null}
+          {(!labCallout || labCallout.blocked) && !rankNotOpen ? <CoverageNotice coverage={retrieval?.coverage} /> : null}
 
           {/* One disclosure, and the bridge out of it. Everything a shopper needs
               is above; a participant who wants the SQL follows their own words
               into the Playground rather than retyping them there. */}
-          {retrieval ? (
+          {retrieval && !rankNotOpen ? (
             <div className="shop-pipeline" aria-busy={retrievalLoading} data-loading={retrievalLoading || undefined}>
               <PipelineStrip key={retrieval.search_event_id} response={retrieval} faultArm={faultArm} />
               {agentProducts ? <p className="shop-pipeline-note">Ask Mosaic’s picks appear first in Shop. This strip shows the original search.</p> : null}
@@ -1635,7 +1641,7 @@ export function CatalogPage() {
           {retrievalLoading ? <SearchingLine /> : null}
           {retrievalLoading && !page && !retrieval ? <CatalogLoadingState /> : null}
           {error ? <ErrorState message={error} onRetry={load} /> : null}
-          {retrieval && !agentProducts && !agentOpen ? (
+          {retrieval && !agentProducts && !agentOpen && !rankNotOpen ? (
             <div className="shop-view-switch pg-seg" role="group" aria-label="Results view">
               <button type="button" aria-pressed={!showSearchDetails} onClick={() => setShowSearchDetails(false)}>Shop</button>
               <button type="button" aria-pressed={showSearchDetails} onClick={() => setShowSearchDetails(true)}>Positions side by side</button>
@@ -1643,9 +1649,9 @@ export function CatalogPage() {
           ) : null}
           <div className={showSearchDetails && retrieval && !agentProducts && !agentOpen ? "shop-results-layout with-inspector" : "shop-results-layout"}>
             {showSearchDetails && retrieval && !agentProducts && !agentOpen ? (
-              <ShopSearchDetails response={retrieval} onSelect={openProductDrawer} onHighlight={setHighlightedProductId} highlightedId={highlightedProductId} wanted={wanted} wantedName={wantedName} />
+              <ShopSearchDetails response={retrieval} images={gridImages} onSelect={openProductDrawer} onHighlight={setHighlightedProductId} highlightedId={highlightedProductId} wanted={wanted} wantedName={wantedName} />
             ) : null}
-          {!error && (page || retrieval || agentProducts) ? (
+          {!error && !rankNotOpen && (page || retrieval || agentProducts) ? (
             <div
               className={retrievalLoading || loading ? "shop-products loading" : "shop-products"}
               aria-busy={retrievalLoading || loading}
@@ -1714,7 +1720,7 @@ export function CatalogPage() {
             </div>
           ) : null}
           </div>
-          {retrieval && !error ? (
+          {retrieval && !error && !rankNotOpen ? (
             <MethodBoard
               response={retrieval}
               wantedId={wanted?.productId ?? null}

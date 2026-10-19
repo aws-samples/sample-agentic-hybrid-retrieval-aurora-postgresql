@@ -41,3 +41,9 @@
 
 .shop-search-details .shop-sort-label { margin: 18px 0 8px; font-weight: 600; color: var(--ink); }
 .shop-details-order { flex-wrap: wrap; }
+
+/* Each row leads with the product's photo on a light plate, then its name and the searches that found it. */
+.shop-details-product { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; align-items: start; }
+.shop-details-product img { width: 44px; height: 44px; padding: 3px; border-radius: 10px; background: var(--plate); object-fit: contain; }
+.shop-details-product .shop-card-arms { margin-top: 8px; }
+.shop-search-details .shop-details-order { margin: 4px 0 16px; }

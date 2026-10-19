@@ -6,7 +6,7 @@ import { formatAvailability, formatPrice, isPurchasable, leafCategory, listingPr
 import { productDetailHref } from "../navigation";
 import { productImage } from "../media";
 import { ProductReceiptBody } from "./ProductReceipt";
-import { FINAL_LABEL, FUSED_LABEL, armLabel, armLanguage, armShortLabel } from "../retrievalLanguage";
+import { FINAL_LABEL, armLabel, armLanguage, armShortLabel } from "../retrievalLanguage";
 import type { WantedProduct } from "../labOutcome";
 import { RankMove } from "./RankMove";
 import { WantedBadge } from "./WantedBadge";
@@ -38,13 +38,10 @@ function topAttributes(attributes: Record<string, unknown>, count = 2) {
  * product's own position for each search that returned it, a hollow grey dot
  * and a dash for each that did not. Positions are read from the row's signals.
  */
-function ArmChips({ product }: { product: ProductSummary }) {
+export function SearchChips({ product }: { product: ProductSummary }) {
   const signals = product.signals;
   if (!signals) return null;
-  const before = signals.pre_rerank_rank;
-  const after = signals.final_rank;
   return (
-    <>
     <ul className="shop-card-arms" aria-label="Found by">
       {armLanguage.map((arm) => {
         const rank = signals[arm.key]?.rank ?? null;
@@ -63,6 +60,17 @@ function ArmChips({ product }: { product: ProductSummary }) {
         );
       })}
     </ul>
+  );
+}
+
+function ArmChips({ product }: { product: ProductSummary }) {
+  const signals = product.signals;
+  if (!signals) return null;
+  const before = signals.pre_rerank_rank;
+  const after = signals.final_rank;
+  return (
+    <>
+    <SearchChips product={product} />
     {after != null ? (
       <p className="pipeline-chip shop-card-position-chip">
         <b>Final #{after}</b>
