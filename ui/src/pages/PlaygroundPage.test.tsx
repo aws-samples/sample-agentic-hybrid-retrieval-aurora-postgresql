@@ -393,7 +393,8 @@ it("keeps the first search counts when a later search supplies the leading recom
   askAboutThisNeed();
   const answer: AgentResponse = { agent_run_id: agentId, question: defaultRequest.query, answer: "Completed.", plan: [], recommendations: [products[0]], citations: [], trace: [searchStep(firstSearchId, 1)] };
   await act(async () => emit({ type: "answer_start", response: answer }));
-  const visibleCounts = () => [...document.querySelectorAll(".pg-glance-n")].map((node) => node.textContent);
+  // Each search column's header says how many of its matches reached the pool.
+  const visibleCounts = () => [...document.querySelectorAll(".method-meta")].map((node) => /^\d+/.exec(node.textContent ?? "")?.[0]);
   expect(visibleCounts()).toEqual([]);
   await act(async () => { emit({ type: "complete", response: { ...answer, recommendations: [products[1]], trace: [...answer.trace, searchStep(secondSearchId, 2)] } }); finish(); });
   await waitFor(() => expect(visibleCounts()).toEqual(["4", "4", "46"]), { timeout: READ_OUT_MS });
@@ -408,10 +409,10 @@ it("keeps one sentence per stage in view and opens each stage's details with its
   render(<PlaygroundPage />);
   expect(screen.queryAllByLabelText("Keep in mind")).toHaveLength(0);
   const lessons: [string, string, string][] = [
-    ["Retrieve", "Search details", "A reranker can only reorder what entered this pool"],
-    ["Rank", "Fusion details", "RRF combines them using 1 / (k + rank)"],
-    ["Re-rank", "Why this position", "Re-rank compares the request"],
-    ["Reason", "Steps and sources", "not citable until the application registers it"],
+    ["Retrieve", "Search details", "A reranker can only reorder what entered this pool."],
+    ["Rank", "Fusion details", "A right winner can hide broken fusion"],
+    ["Re-rank", "Why this position", "cannot recover a product Rank excluded"],
+    ["Reason", "Steps and sources", "missing support stays an open question"],
   ];
   for (const [stage, details, lesson] of lessons) {
     const panel = openStage(stage);
@@ -470,7 +471,7 @@ it("prints what each arm alone scores from the measured artifact and counts this
   vi.spyOn(api, "retrievalEventResponse").mockResolvedValue(savedSearch(firstSearchId, products));
   render(<PlaygroundPage />);
   expect(screen.queryByRole("table", { name: "Scores for each search method" })).toBeNull();
-  await screen.findByRole("list", { name: "What each search put into the combined pool" });
+  await waitFor(() => expect(document.querySelectorAll(".method-column")).toHaveLength(3));
   openStageDetails("Retrieve", "Search details");
   fireEvent.click(screen.getByText("Compare search methods"));
   const table = await screen.findByRole("table", { name: "Scores for each search method" });
@@ -478,7 +479,6 @@ it("prints what each arm alone scores from the measured artifact and counts this
   expect(within(table).getByRole("row", { name: /Full-text search alone/ }).textContent).toContain("0.61");
   expect(within(table).getByRole("row", { name: /Combined, then reranked/ }).textContent).toContain("0.93");
   expect(screen.getByText("Combining changes the ordering score (nDCG@10) by +0.17 compared with Semantic search alone (inside the spread of these searches); reranking moves it +0.04 (inside the spread of these searches).")).toBeTruthy();
-  expect(await screen.findByText("In this run, 2 of the 4 products returned were found by only one search method. Those products depend on the method that found them.")).toBeTruthy();
   expect(within(table).getByRole("link", { name: "Open Prove for score definitions and results for each search." }).getAttribute("href")).toBe("/labs/retrieval?view=lab#labs-stage-prove");
   openStageDetails("Re-rank", "Why this position");
   expect(screen.getByText(/reranking moved the ordering score by \+0\.04 on average, inside the spread/)).toBeTruthy();

@@ -36,14 +36,14 @@ it("says a search was not reranked rather than showing a time it does not have",
   expect(rerank).toMatchObject({ label: "Not reranked", value: undefined, state: "quiet" });
 });
 
-it("names each tool call in plain words, numbers the searches and keeps denied apart from failed", () => {
+it("names each tool call in plain words and keeps denied apart from failed", () => {
   const chips = agentChips([
     step(1, "search_products", "success", 412),
     step(2, "search_products", "error", null),
     step(3, "synthesize_cited_answer", "denied", 90),
   ], "reason", true);
   expect(chips.map((chip) => [chip.label, chip.state])).toEqual([
-    ["Search 1", "done"], ["Search 2", "failed"], ["Write cited answer", "quiet"], ["Writing the answer", "running"],
+    ["Search", "done"], ["Search", "failed"], ["Write cited answer", "quiet"], ["Writing the answer", "running"],
   ]);
 });
 

@@ -1,11 +1,10 @@
 import { RETRIEVAL_CONNECTION_GUIDE, RetrievalTakeawayLinks } from "../components/RetrievalTakeawayLinks";
-import { ArrowRight, ArrowUpRight, Check, ChevronDown, LoaderCircle } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useReducedMotion } from "motion/react";
 import { Link } from "wouter";
 import { api } from "../api";
 import { CodeBlock } from "../components/CodeBlock";
-import { KeepInMind } from "../components/KeepInMind";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
@@ -22,18 +21,19 @@ import { StreamedAnswer } from "../components/ask-mosaic/StreamedAnswer";
 import { MethodReads } from "../components/playground/MethodReads";
 import { CandidatePoolOrder } from "../components/playground/CandidatePoolOrder";
 import { GuidedStages, type GuidedStage, type StageId } from "../components/playground/GuidedStages";
+import { MethodBoard } from "../components/MethodBoard";
 import { RankRace } from "../components/playground/RankRace";
 import { RunSteps, agentChips, searchChips, searchingChips } from "../components/playground/RunSteps";
 import { ReturnedProducts } from "../components/playground/ReturnedProducts";
 import { RunSummary } from "../components/playground/RunSummary";
-import { MethodComparison, RetrievalPath, modelName, rerankStep, signedScore } from "../components/playground/RetrievalPath";
+import { MethodComparison, modelName, rerankStep, signedScore } from "../components/playground/RetrievalPath";
 import { formatPriceCompact, withoutBreakTags } from "../format";
-import { armLabel, armLanguage, armPoolKey } from "../retrievalLanguage";
+import { armLabel, armLanguage } from "../retrievalLanguage";
 import { coreMosaicLabs, mosaicLabManifest, pipelineRequests, type MosaicLabMission } from "../labMissions";
-import { retrievalLabOutcome, runMatchesMissionGates, type LabOutcome } from "../labOutcome";
+import { retrievalLabOutcome, runMatchesMissionGates, targetRankBound, type LabOutcome } from "../labOutcome";
 import { productImageMap } from "../media";
 import { forwardedSearchEvent, forwardedSearchFilters, useSearchParams } from "../navigation";
-import type { AgentCitation, AgentPartial, AgentResponse, ProductSummary, ReadinessResponse, ScorecardStageAblation, SearchFilters, SearchResponse, ToolTraceStep } from "../types";
+import type { AgentCitation, AgentResponse, ProductSummary, ReadinessResponse, ScorecardStageAblation, SearchFilters, SearchResponse, ToolTraceStep } from "../types";
 import { usePipelineRun, type PipelineReceipt } from "../usePipelineRun";
 import { RetrievalLabPage } from "./RetrievalLabPage";
 import "../inspector.css";
@@ -50,10 +50,10 @@ type Inspection = StageId;
 type ColumnState = GuidedStage["state"];
 
 const LESSONS: Record<Inspection, string> = {
-  retrieve: "A reranker can only reorder what entered this pool. Each search method applies the filters before limiting its results. A filtered vector scan can still return too few matches; eligible products may be missed. Check both which products qualify and how many the search found.",
-  rank: "Each search method scores matches differently. RRF combines them using 1 / (k + rank) for each position. A correct final winner can hide broken fusion. Compare the order before reranking, then weigh any measured improvement against the extra time and model usage.",
-  rerank: "Re-rank compares the request with every candidate in the bounded pool. It can change their order, but cannot recover a product that Rank excluded. Compare the same saved search before and after reranking.",
-  reason: "Evidence the model has read is not citable until the application registers it. A valid source link still needs to support the claim. Read the source for the specific requirement; missing support should remain an open question.",
+  retrieve: "A reranker can only reorder what entered this pool.",
+  rank: "A right winner can hide broken fusion: check the order before reranking.",
+  rerank: "Re-rank compares the request with every candidate, but cannot recover a product Rank excluded.",
+  reason: "A source link still has to support the claim; missing support stays an open question.",
 };
 const rank = (value: number | null | undefined) => (value == null ? "—" : `#${value}`);
 
@@ -71,27 +71,23 @@ export function InspectorDetail({ title, children }: { title: string; children: 
   return <details className="inspector-detail"><summary>{title}</summary><div>{children}</div></details>;
 }
 
-function RetrieveDetails({ response, receipts, selectedId, onSelect }: {
+function RetrieveDetails({ response, receipts, selectedId, onSelect, ablation }: {
   response?: SearchResponse; receipts: PipelineReceipt[]; selectedId?: string;
-  onSelect: (id: string) => void;
+  onSelect: (id: string) => void; ablation: ScorecardStageAblation | null;
 }) {
   const diagnostics = response?.diagnostics;
   return <>
     <p className="inspector-note">{LESSONS.retrieve}</p>
-    {receipts.length ? <div className="inspector-search-plan">
-      <h3>Searches Mosaic made</h3>
-      <p>Each search can focus on a different need. Select one to follow its products through Retrieve, Rank and Re-rank.</p>
+    {receipts.length > 1 ? <div className="inspector-search-plan">
+      <h3>The Retrieval agent’s searches</h3>
       <ol>{receipts.map((receipt, index) => <li key={receipt.id}>
         <button type="button" aria-pressed={receipt.id === selectedId} onClick={() => onSelect(receipt.id)}>Search {index + 1}: {receipt.response?.query ?? (receipt.error ? "Details unavailable" : "Loading…")}</button>
-        {receipt.response ? <p className="inspector-note">{receipt.response.applied_filters.category_key ? String(receipt.response.applied_filters.category_key).replaceAll("-", " ") : "Across the catalog"}{typeof receipt.response.applied_filters.max_price_cents === "number" ? ` · Up to ${formatPriceCompact(receipt.response.applied_filters.max_price_cents)}` : ""}</p> : null}
       </li>)}</ol>
     </div> : null}
-    <p className="inspector-note">Full-text search uses PostgreSQL’s built-in cover-density ranking, not BM25. Fuzzy matching and semantic search cover different ways a request can differ from the product text.</p>
-    {response ? <InspectorDetail title="Request, filters & retrieval settings">
-      <p>PostgreSQL checks the search filters with <code>mosaic_search.matches_filters</code>.</p>
+    <MethodComparison response={response} ablation={ablation} />
+    {response ? <InspectorDetail title="Request, filters and retrieval settings">
       <CodeBlock label="Search record" code={JSON.stringify({ query: response.query, applied_filters: response.applied_filters, embedding_model_id: diagnostics?.embedding_model_id, retrieval_profile: diagnostics?.retrieval_profile, candidate_counts: diagnostics?.candidate_counts }, null, 2)} />
-    </InspectorDetail> : <p className="inspector-waiting">Run Mosaic to see how each search helps.</p>}
-    {response ? <KeepInMind>Aurora saves each search with an ID. The saved record includes the <code>ef_search</code> and <code>iterative_scan</code> settings that decide whether a filtered HNSW scan keeps going.</KeepInMind> : null}
+    </InspectorDetail> : null}
   </>;
 }
 
@@ -232,26 +228,20 @@ function followSentence(product: ProductSummary): string {
   return `${pickName(product)}: ${ranks || "no search recorded a rank"}.${unfound}`;
 }
 
-/** Retrieve at a glance: what each search put into the combined pool, then the followed product. */
-function RetrieveGlance({ response, follow, missing, stopped }: {
+/** Retrieve at a glance: each search's own top five, then where the followed product stood. */
+function RetrieveGlance({ response, follow, missing, stopped, wanted, images, onSelect }: {
   response?: SearchResponse; follow?: ProductSummary; missing?: string; stopped: boolean;
+  wanted?: { id: number | null; name?: string; targetRank?: number };
+  images: Map<number, string>; onSelect: (productId: number) => void;
 }) {
   if (!response) return <p className="inspector-waiting">{stopped ? "No search results are available from this run." : "Run a search to see what each search found."}</p>;
-  const counts = response.diagnostics?.candidate_counts ?? {};
   return <>
-    <ul className="pg-glance" aria-label="What each search put into the combined pool">
-      {armLanguage.map((arm) => {
-        const count = counts[armPoolKey[arm.key]];
-        return <li key={arm.key} data-found={count ? true : undefined}>
-          <span className="pg-glance-name">{arm.label}</span>
-          <span className="pg-glance-n">{count ?? "—"}</span>
-          <small>in the combined pool · {arm.mechanism}</small>
-        </li>;
-      })}
-    </ul>
+    <MethodBoard response={response} only={SEARCH_COLUMNS} wantedId={wanted?.id ?? null} wantedName={wanted?.name} targetRank={wanted?.targetRank} images={images} onSelect={onSelect} />
     {missing || follow ? <p className="pg-follow">{missing ? `The ${missing} is not among the products this search returned.` : followSentence(follow as ProductSummary)}</p> : null}
   </>;
 }
+
+const SEARCH_COLUMNS = ["fts", "trigram", "semantic"] as const;
 
 /** Rank at a glance: the followed product's shares, their sum, and the combined position it earned. */
 function RankGlance({ response, follow, missing }: { response?: SearchResponse; follow?: ProductSummary; missing?: string }) {
@@ -424,7 +414,6 @@ function PipelineInspector() {
   const runFilters = (pipeline.savedResponse?.applied_filters ?? filters) as SearchFilters;
   const labDetailsParams = new URLSearchParams(params);
   labDetailsParams.set("view", "lab");
-  const eligible = runFilters.category_key ? runFilters.category_key.replaceAll("-", " ") : "Whole catalog";
   const reset = () => { setSelectedId(null); setHighlightedId(null); setReceiptId(null); };
   const inspect = (stage: Inspection) => { setHighlightedId(null); setExpanded((value) => ({ ...value, [stage]: !value[stage] })); };
   const showReceipt = (productId: number) => { setReceiptId(productId); };
@@ -452,7 +441,7 @@ function PipelineInspector() {
     return pipeline.error ? "blocked" : pipeline.running ? "pending" : "idle";
   };
   const context = `Alex’s workspace${catalogCount ? ` · Catalog: ${catalogCount.toLocaleString()} products` : ""}${runFilters.category_key ? ` · Filter: ${runFilters.category_key.replaceAll("-", " ")}` : ""}`;
-  const runButton = <MosaicRunButton type="button" className="inspector-play" label={runLabel} showLabel running={pipeline.running} disabled={pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} onClick={() => { reset(); setActiveStage("retrieve"); setExpanded({ retrieve: false, rank: false, rerank: false, reason: false }); void (agentRequest ? pipeline.play(question, runFilters) : pipeline.search(question, runFilters)); }} />;
+  const runButton = <MosaicRunButton type="button" className="inspector-play" label={runLabel} icon={agentRequest ? "send" : "search"} running={pipeline.running} disabled={pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} onClick={() => { reset(); setActiveStage("retrieve"); setExpanded({ retrieve: false, rank: false, rerank: false, reason: false }); void (agentRequest ? pipeline.play(question, runFilters) : pipeline.search(question, runFilters)); }} />;
   const chips = pipeline.started
     ? agentChips(pipeline.trace, pipeline.phase, pipeline.running && !pipeline.completed)
     : response ? searchChips(response) : pipeline.running ? searchingChips() : [];
@@ -472,9 +461,9 @@ function PipelineInspector() {
           id: "retrieve", title: "Retrieve", state: columnState("retrieve"),
           heading: "Three searches ran inside Aurora.",
           lede: "Full-text search, fuzzy matching and semantic search each ranked the products that pass the filters.",
-          body: <RetrieveGlance response={response} follow={receiptProduct} missing={missingWanted} stopped={Boolean(pipeline.error)} />,
+          body: <RetrieveGlance response={response} follow={receiptProduct} missing={missingWanted} stopped={Boolean(pipeline.error)} images={images} onSelect={setReceiptId} wanted={missionRun && raceMission ? { id: wantedId, name: raceMission.target_display_name, targetRank: targetRankBound(raceMission) } : undefined} />,
           detailsLabel: "Search details",
-          details: <><RetrievalPath response={response} catalogCount={catalogCount} eligible={eligible} /><MethodComparison response={response} ablation={ablation} /><RetrieveDetails response={response} receipts={held ? [] : pipeline.receipts} selectedId={selected?.id} onSelect={(id) => { setSelectedId(id); setHighlightedId(null); setReceiptId(null); }} /></>,
+          details: <RetrieveDetails response={response} receipts={held ? [] : pipeline.receipts} selectedId={selected?.id} ablation={ablation} onSelect={(id) => { setSelectedId(id); setHighlightedId(null); setReceiptId(null); }} />,
         },
         {
           id: "rank", title: "Rank", state: columnState("rank"),

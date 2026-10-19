@@ -1,4 +1,4 @@
-import { LoaderCircle, Send } from "lucide-react";
+import { LoaderCircle, Search, Send } from "lucide-react";
 import type { ButtonHTMLAttributes } from "react";
 import "../mosaic-run-button.css";
 
@@ -8,16 +8,17 @@ type MosaicRunButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   /** Print the label beside the plane. Only where the plane alone would not say what is being sent. */
   showLabel?: boolean;
   running?: boolean;
+  /** A magnifying glass for a search, the plane for a request to the Retrieval agent. */
+  icon?: "search" | "send";
 };
 
 /**
- * The paper plane that sends a request to Mosaic.
- *
- * It is the disc Shop submits a search with, so every surface
- * starts a run the same way. A request in flight swaps the plane for a
+ * The disc that starts a run: a magnifying glass for a search, the paper plane
+ * for a request to the Retrieval agent, so the change from searching to asking
+ * the agent is visible on the button itself. A request in flight swaps the plane for a
  * spinner and keeps the button busy until the run reports back.
  */
-export function MosaicRunButton({ label, showLabel = false, running = false, className = "", disabled, ...props }: MosaicRunButtonProps) {
+export function MosaicRunButton({ label, showLabel = false, running = false, icon = "send", className = "", disabled, ...props }: MosaicRunButtonProps) {
   return <button
     {...props}
     className={`mosaic-run-button${showLabel ? " labelled" : ""}${className ? ` ${className}` : ""}`}
@@ -28,7 +29,7 @@ export function MosaicRunButton({ label, showLabel = false, running = false, cla
   >
     {showLabel ? <span className="mosaic-run-label">{label}</span> : null}
     <span className="mosaic-run-disc" aria-hidden="true">
-      {running ? <LoaderCircle size={18} className="mosaic-run-spinner" /> : <Send size={16} />}
+      {running ? <LoaderCircle size={18} className="mosaic-run-spinner" /> : icon === "search" ? <Search size={18} /> : <Send size={16} />}
     </span>
   </button>;
 }

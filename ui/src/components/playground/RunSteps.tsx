@@ -1,5 +1,6 @@
 import { Fragment } from "react";
-import { armLabel, armPoolKey, toolChipLabel } from "../../retrievalLanguage";
+import { armLabel, armPoolKey } from "../../retrievalLanguage";
+import { toolName } from "../ask-mosaic/toolChips";
 import type { SearchResponse, ToolTraceStep } from "../../types";
 import type { PipelinePhase } from "../../usePipelineRun";
 
@@ -58,10 +59,8 @@ const RUNNING: Record<PipelinePhase, string> = { retrieve: "Searching", rank: "C
 
 /** The Retrieval agent's tool calls as they finish, then the one still running. */
 export function agentChips(trace: ToolTraceStep[], phase: PipelinePhase | null, running: boolean): Chip[] {
-  let searches = 0;
   const chips = trace.map((step): Chip => {
-    const base = toolChipLabel[step.tool] ?? step.tool;
-    const label = step.tool === "search_products" ? `${base} ${++searches}` : base;
+    const label = toolName(step);
     return {
       key: `step-${step.sequence}`,
       label,
