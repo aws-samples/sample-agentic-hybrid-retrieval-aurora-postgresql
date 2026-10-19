@@ -1000,7 +1000,7 @@ describe("CatalogPage", () => {
     expect(within(panel).getByRole("link", { name: "Watch the ranking change in the Playground" }).getAttribute("href")).toContain(SEARCH_EVENT_ID);
     const titles = () => within(panel).getAllByRole("row").slice(1).map(row => within(row).getByRole("button").textContent);
     expect(titles()[0]).toBe(recommendations[0].title);
-    fireEvent.click(within(panel).getByRole("button", { name: "Combined order" }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Combined (RRF) order" }));
     expect(titles()[0]).toBe(recommendations[1].title);
     fireEvent.click(within(screen.getByRole("group", { name: "Results view" })).getByRole("button", { name: /^Shop$/ }));
     expect(screen.queryByRole("complementary", { name: "Search details for these products" })).toBeNull();

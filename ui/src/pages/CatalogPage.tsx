@@ -1068,8 +1068,9 @@ export function CatalogPage() {
   const visibleProducts = paged
     ? allProducts.slice(resultPageIndex * RESULTS_PER_PAGE, (resultPageIndex + 1) * RESULTS_PER_PAGE)
     : allProducts;
-  // Use the same product photos in Shop and Playground, including agent picks.
-  const gridImages = productImageMap(visibleProducts);
+  // Use the same product photos in Shop and Playground, including agent picks. Mapped over
+  // every returned product, so the board and the order panel have photos past page 1.
+  const gridImages = productImageMap(allProducts);
   const assistRanks = new Map(
     (agentProducts ?? []).map((product, index) => [product.product_id, index + 1]),
   );

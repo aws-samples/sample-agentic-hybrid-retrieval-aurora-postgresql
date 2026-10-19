@@ -90,7 +90,7 @@ describe("RankRace", () => {
     const onFollow = vi.fn();
     render(<RankRace response={response} followId={viewSonic.product_id} wanted onFollow={onFollow} />);
     const steps = screen.getByRole("radiogroup", { name: "Ranking shown" });
-    expect(within(steps).getByRole("radio", { name: "Final" }).getAttribute("aria-checked")).toBe("true");
+    expect(within(steps).getByRole("radio", { name: "Reranked" }).getAttribute("aria-checked")).toBe("true");
     expect(within(steps).queryByRole("radio", { name: "Fuzzy matching" })).toBeNull();
     fireEvent.click(within(steps).getByRole("radio", { name: "Semantic search" }));
     const list = screen.getByRole("list", { name: "Semantic search order" });
@@ -103,8 +103,8 @@ describe("RankRace", () => {
 
   it("moves between steps with the arrow keys, as a radio group does", () => {
     render(<RankRace response={response} followId={null} wanted={false} onFollow={() => {}} />);
-    const final = screen.getByRole("radio", { name: "Final" });
+    const final = screen.getByRole("radio", { name: "Reranked" });
     fireEvent.keyDown(final, { key: "ArrowLeft" });
-    expect(screen.getByRole("radio", { name: "Combined" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("radio", { name: "Combined (RRF)" }).getAttribute("aria-checked")).toBe("true");
   });
 });

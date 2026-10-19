@@ -18,8 +18,8 @@ export const RACE_STEPS: RaceStep[] = [
   { key: "fts", label: armLabel.fts, rank: (p) => p.signals?.fts.rank ?? null, score: (p) => p.signals?.fts.raw_score ?? null },
   { key: "trigram", label: armLabel.trigram, rank: (p) => p.signals?.trigram.rank ?? null, score: (p) => p.signals?.trigram.raw_score ?? null },
   { key: "semantic", label: armLabel.semantic, rank: (p) => p.signals?.semantic.rank ?? null, score: (p) => p.signals?.semantic.raw_score ?? null },
-  { key: "combined", label: "Combined", rank: (p) => p.signals?.pre_rerank_rank ?? null, score: (p) => p.signals?.pre_rerank_score ?? null },
-  { key: "final", label: "Final", rank: (p) => p.signals?.final_rank ?? null, score: (p) => p.signals?.rerank_score ?? null },
+  { key: "combined", label: "Combined (RRF)", rank: (p) => p.signals?.pre_rerank_rank ?? null, score: (p) => p.signals?.pre_rerank_score ?? null },
+  { key: "final", label: "Reranked", rank: (p) => p.signals?.final_rank ?? null, score: (p) => p.signals?.rerank_score ?? null },
 ];
 
 /** Rows on screen at once; a followed product beyond them is pinned underneath. */

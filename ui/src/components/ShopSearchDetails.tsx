@@ -40,13 +40,13 @@ export function ShopSearchDetails({
       {wantedName ? <span>{wantedName}</span> : null}
     </p> : null}
     <div className="shop-details-order pg-seg" role="group" aria-label="Sort by">
-      <button type="button" aria-pressed={order === "combined"} onClick={() => setOrder("combined")}>Combined order</button>
-      <button type="button" aria-pressed={order === "final"} onClick={() => setOrder("final")}>Final order</button>
+      <button type="button" aria-pressed={order === "combined"} onClick={() => setOrder("combined")}>Combined (RRF) order</button>
+      <button type="button" aria-pressed={order === "final"} onClick={() => setOrder("final")}>Reranked order</button>
     </div>
     <div className="shop-details-table" tabIndex={0} role="region" aria-label="Product positions before and after reranking">
       <table>
         <caption>{products.length} {products.length === 1 ? "product" : "products"} shown{pool == null ? "" : `, of ${pool} ${reranked ? "reranked" : "combined"}`}. Positions, not scores.</caption>
-        <thead><tr><th scope="col">Product</th><th scope="col">Combined</th><th scope="col">Final</th><th scope="col">Change</th></tr></thead>
+        <thead><tr><th scope="col">Product</th><th scope="col">Combined (RRF)</th><th scope="col">Reranked</th><th scope="col">Change</th></tr></thead>
         <tbody>{products.map((product) => {
           const signals = product.signals;
           const before = signals?.pre_rerank_rank ?? null;
