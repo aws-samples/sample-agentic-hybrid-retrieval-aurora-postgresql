@@ -42,12 +42,14 @@ function columnsFor(response: SearchResponse): Column[] {
   const pool = counts.fused_pool;
   const k = diagnostics?.retrieval_profile?.rrf_k;
   const reranked = diagnostics?.rerank_status === "applied";
-  const inPool = (count: number | undefined) => (count === undefined ? "" : `${count} in the pool`);
+  // A search's count is how many of its matches reached the combined pool, not a position.
+  const reached = (count: number | undefined) =>
+    count === undefined ? "" : count === 1 ? "1 match reached the pool" : `${count} of its matches reached the pool`;
   const arms: Column[] = (["fts", "trigram", "semantic"] as const).map((arm) => ({
     key: arm,
     title: armLabel[arm],
     engine: ARM_ENGINE[arm],
-    meta: inPool(counts[armPoolKey[arm]]),
+    meta: reached(counts[armPoolKey[arm]]),
     accent: "retrieve",
     rankOf: (product) => product.signals?.[arm]?.rank ?? null,
   }));
@@ -57,7 +59,7 @@ function columnsFor(response: SearchResponse): Column[] {
       key: "combined",
       title: "Combined in Aurora",
       engine: typeof k === "number" ? `RRF, k = ${k}` : "RRF",
-      meta: inPool(pool),
+      meta: pool === undefined ? "" : `Pool of ${pool}`,
       accent: "rank",
       rankOf: (product) => product.signals?.pre_rerank_rank ?? null,
       previous: { label: "search", rank: bestSearchRank },
@@ -66,7 +68,7 @@ function columnsFor(response: SearchResponse): Column[] {
       key: "reranked",
       title: reranked ? "Reranked" : "Not reranked",
       engine: reranked ? "Cohere Rerank" : "final order is the combined order",
-      meta: reranked && pool !== undefined ? `${pool} reordered` : "",
+      meta: reranked && pool !== undefined ? `Reordered all ${pool}` : "",
       accent: "rank",
       rankOf: (product) => product.signals?.final_rank ?? null,
       previous: reranked
@@ -88,9 +90,11 @@ type Tier = "target" | "lower" | "unranked";
  * bound), so the wanted product's badge is green inside it and orange past it.
  */
 export function MethodBoard({
-  response, wantedId = null, wantedName, targetRank, images, onSelect,
+  response, wantedId = null, wantedName, targetRank, images, onSelect, only,
 }: {
   response: SearchResponse;
+  /** The columns to show, in board order; all five when absent. */
+  only?: ReadonlyArray<Column["key"]>;
   wantedId?: number | null;
   /** Names the wanted product in the note when this search did not return it. */
   wantedName?: string;
@@ -99,7 +103,7 @@ export function MethodBoard({
   images: Map<number, string>;
   onSelect?: (productId: number) => void;
 }) {
-  const columns = columnsFor(response);
+  const columns = columnsFor(response).filter((column) => !only || only.includes(column.key));
   const wanted = wantedId === null ? undefined
     : response.results.find((product) => product.product_id === wantedId);
   const wantedMissing = wantedId !== null && !wanted;
@@ -127,7 +131,7 @@ export function MethodBoard({
               : `Among the ${response.results.length} products this search returned, each at its own rank.`}
         </p>
       </header>
-      <div className="method-columns">
+      <div className="method-columns" style={{ "--board-columns": columns.length } as CSSProperties}>
         {columns.map((column, index) => {
           const rows = response.results
             .map((product) => ({ product, rank: column.rankOf(product) }))
