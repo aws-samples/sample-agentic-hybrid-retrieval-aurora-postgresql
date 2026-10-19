@@ -26,9 +26,11 @@ describe("PipelineStrip", () => {
       "Reranked · Cohere Rerank",
       `${seedRun.results.length} shown`,
     ]);
-    const strip = screen.getByRole("region", { name: "How this search ran" });
-    expect(strip.textContent).toContain("Three searches ran inside Aurora PostgreSQL in 847 ms");
-    expect(strip.textContent).toContain(`reordered the top ${counts.fused_pool} in 929 ms`);
+    const [, , , combined, reranked] = chips();
+    expect(combined.title).toContain("Search in Aurora 847 ms");
+    expect(reranked.title).toBe("Rerank 929 ms");
+    // No explanatory paragraph: the chips and the link are all the strip says.
+    expect(screen.getByRole("region", { name: "How this search ran" }).querySelector("p")).toBeNull();
   });
 
   it("links to this exact saved search in the Playground", () => {
@@ -61,8 +63,6 @@ describe("PipelineStrip", () => {
     };
     render(<PipelineStrip response={plain} />);
     expect(chips().map((chip) => chip.textContent)).toContain("Not reranked");
-    const strip = screen.getByRole("region", { name: "How this search ran" });
-    expect(strip.textContent).not.toMatch(/\d+ ms/);
-    expect(strip.textContent).not.toContain("reranker reordered");
+    expect(chips().every((chip) => !/\d+ ms/.test(chip.title))).toBe(true);
   });
 });

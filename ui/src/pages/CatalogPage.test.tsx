@@ -1007,9 +1007,12 @@ describe("CatalogPage", () => {
     const params = new URLSearchParams(window.location.search);
     expect(params.get("offset")).toBeNull();
     expect(params.get("brand")).toBeNull();
-    // Once a search is active the ways to ask step aside for the results.
+    // The ways to ask stay on screen after the search, with the active one marked.
     await screen.findByRole("region", { name: "How this search ran" });
-    expect(screen.queryByRole("group", { name: "Suggested searches" })).toBeNull();
+    const row = screen.getByRole("group", { name: "Suggested searches" });
+    const active = within(row).getByRole("button", { name: "A mistyped Logitech listing ID" });
+    expect(active.getAttribute("aria-pressed")).toBe("true");
+    expect(within(row).getAllByRole("button").filter((button) => button.getAttribute("aria-pressed") === "true")).toHaveLength(1);
   });
 
   it("inspects and reorders the same saved products without another search", async () => {
@@ -1062,12 +1065,18 @@ describe("CatalogPage", () => {
     });
 
     expect(await screen.findByText("Results for")).toBeTruthy();
-    expect(screen.getByText(/chosen from 18 products found by search/)).toBeTruthy();
     expect(screen.queryByText(/fused candidates/)).toBeNull();
-    const rankingReceipt = screen
-      .getByText("Search details")
-      .closest("details");
-    expect(rankingReceipt?.open).toBe(false);
+    // The strip carries where the matches came from; the board below lists each method's top five, open.
+    const strip = screen.getByRole("region", { name: "How this search ran" });
+    expect(strip.textContent).not.toMatch(/Three searches ran/);
+    const board = screen.getByRole("region", { name: "Each method's top five" });
+    expect(within(board).getByRole("heading", { name: "Each method’s top five" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Results view" })).toBeTruthy();
+    expect(board.closest("details")).toBeNull();
+    expect(
+      document.querySelector(".shop-products")!.compareDocumentPosition(board)
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     // "Why this match", not "Why ranked #3": a shopper choosing between two chairs
     // is asking what Mosaic noticed, and the position is inside.
     const productReceipt = screen
@@ -2736,18 +2745,31 @@ describe("CatalogPage", () => {
     expect(screen.queryByText(/Searching Aurora/)).toBeNull();
   });
 
-  it("opens a long result list on its first results and shows the rest on request", async () => {
+  it("pages a long result list eight at a time and moves focus to the new page", async () => {
     const many = Array.from({ length: 9 }, (_, index) => rankedProduct(
       { ...catalog.products[0], product_id: 900 + index }, index + 1));
     vi.mocked(api.search).mockResolvedValue({ ...searchResponse, results: many });
     window.history.replaceState({}, "", "/catalog?q=monitor");
     renderPage();
-    const button = await screen.findByRole("button", { name: "Show all 9" });
-    expect(document.querySelectorAll(".shop-product-card")).toHaveLength(6);
-    fireEvent.click(button);
-    expect(document.querySelectorAll(".shop-product-card")).toHaveLength(9);
-    expect(screen.queryByRole("button", { name: /Show all/ })).toBeNull();
+    const pager = await screen.findByRole("navigation", { name: "Result pages" });
+    expect(document.querySelectorAll(".shop-product-card")).toHaveLength(8);
+    expect(within(pager).getByText("Page 1 of 2")).toBeTruthy();
+    expect((within(pager).getByRole("button", { name: /Previous/ }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(within(pager).getByRole("button", { name: /Next/ }));
+    await waitFor(() => expect(document.querySelectorAll(".shop-product-card")).toHaveLength(1));
+    expect(within(pager).getByText("Page 2 of 2")).toBeTruthy();
+    expect(document.activeElement).toBe(document.querySelector(".shop-product-card h3 a"));
+    // Paging is display only: no second search, and the request's limit is untouched.
+    expect(api.search).toHaveBeenCalledTimes(1);
     expect(vi.mocked(api.search).mock.calls[0][2]).toMatchObject({ limit: undefined });
+  });
+
+  it("shows no pager when every result fits on one page", async () => {
+    vi.mocked(api.search).mockResolvedValue(searchResponse);
+    window.history.replaceState({}, "", "/catalog?q=monitor");
+    renderPage();
+    await screen.findByRole("region", { name: "How this search ran" });
+    expect(screen.queryByRole("navigation", { name: "Result pages" })).toBeNull();
   });
 
   it("shows no catalog controls until the runtime says which catalog this is", async () => {
@@ -2931,7 +2953,7 @@ describe("CatalogPage", () => {
 
     // The run landed: the receipt disclosure only renders once a response is
     // held. What is absent is any verdict about Lab 1 over the top of it.
-    await screen.findByText("Search details");
+    await screen.findByRole("region", { name: "How this search ran" });
     expect(screen.queryByRole("region", { name: "Lab 1 outcome" })).toBeNull();
   });
 

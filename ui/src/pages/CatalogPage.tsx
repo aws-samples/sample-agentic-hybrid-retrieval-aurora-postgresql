@@ -45,9 +45,9 @@ import { LabFaultCard } from "../components/LabFaultCard";
 import { CoverageNotice } from "../components/CoverageNotice";
 import { LabOutcomeBanner } from "../components/LabOutcomeBanner";
 import { ProductCard } from "../components/ProductCard";
+import { MethodBoard } from "../components/MethodBoard";
 import { PipelineStrip } from "../components/PipelineStrip";
 import { ProductDrawer } from "../components/ProductDrawer";
-import { SearchRetrievalReceipt } from "../components/RetrievalReceipt";
 import { useAskMosaicConversation } from "../components/useAskMosaicConversation";
 import { productImageMap } from "../media";
 import { CatalogLoadingState, ErrorState } from "../components/States";
@@ -59,6 +59,7 @@ import {
   agentLabOutcome,
   retrievalLabOutcome,
   runMatchesMissionGates,
+  targetRankBound,
   wantedProduct,
   type LabOutcome,
 } from "../labOutcome";
@@ -250,8 +251,8 @@ const distinctExamples = shopSearchExamples.filter((example, index, all) => {
   return all.findIndex((other) => JSON.stringify([other.query.trim(), other.filters]) === key) === index;
 });
 
-/** Results shown before "Show all": a short first screen, display only. */
-const FIRST_RESULTS = 6;
+/** Results shown per page of a search. Display only: the request's own limit is untouched. */
+const RESULTS_PER_PAGE = 8;
 
 /**
  * The one line a running search shows. A Shop search is a single request, so
@@ -465,7 +466,8 @@ export function CatalogPage() {
     && labCallout.mission.expected_target_signals?.includes("trigram")
     && retrieval?.diagnostics?.candidate_counts.trigram_in_pool === 0
     ? "trigram" as const : null;
-  const [shownFor, setShownFor] = useState("");
+  const [resultPage, setResultPage] = useState({ eventId: "", page: 0 });
+  const focusFirstResult = useRef(false);
 
   const load = useCallback(() => {
     const version = catalogRequestVersion.current + 1;
@@ -886,6 +888,21 @@ export function CatalogPage() {
     setSearchParams(next);
   }
 
+  /** Whether this example is the request Shop is showing: its words and every gate it sets. */
+  function exampleIsActive(example: { query: string; filters: SearchFilters }) {
+    if (!activeQuery || example.query.trim() !== activeQuery) return false;
+    const applied = filters as Record<string, unknown>;
+    return Object.entries(sourceFilters(example.filters, real)).every(
+      ([key, value]) => JSON.stringify(applied[key]) === JSON.stringify(value),
+    );
+  }
+
+  function goToResultPage(page: number) {
+    if (!retrieval) return;
+    focusFirstResult.current = true;
+    setResultPage({ eventId: retrieval.search_event_id, page });
+  }
+
   function clearSearch() {
     const next = new URLSearchParams(searchParams);
     next.delete("q");
@@ -1029,13 +1046,15 @@ export function CatalogPage() {
   const ranked = Boolean(retrieval || agentProducts);
   const pageSize = catalogPage?.limit ?? Math.max(1, baseProducts.length);
   const allProducts = mergeVisibleProducts(agentProducts, baseProducts, pageSize);
-  // A search opens on its first few results. The wanted product is never hidden
-  // behind the button, wherever the run ranked it.
-  const wantedIndex = wanted ? allProducts.findIndex((product) => product.product_id === wanted.productId) : -1;
-  const firstCount = Math.max(FIRST_RESULTS, wantedIndex + 1);
-  const collapsible = Boolean(retrieval) && !agentProducts && allProducts.length > firstCount;
-  const expanded = shownFor === retrieval?.search_event_id;
-  const visibleProducts = collapsible && !expanded ? allProducts.slice(0, firstCount) : allProducts;
+  // A search shows a page of results at a time; the products are all in the response.
+  const paged = Boolean(retrieval) && !agentProducts && allProducts.length > RESULTS_PER_PAGE;
+  const resultPageCount = Math.max(1, Math.ceil(allProducts.length / RESULTS_PER_PAGE));
+  const resultPageIndex = paged && resultPage.eventId === retrieval?.search_event_id
+    ? Math.min(resultPage.page, resultPageCount - 1)
+    : 0;
+  const visibleProducts = paged
+    ? allProducts.slice(resultPageIndex * RESULTS_PER_PAGE, (resultPageIndex + 1) * RESULTS_PER_PAGE)
+    : allProducts;
   // Use the same product photos in Shop and Playground, including agent picks.
   const gridImages = productImageMap(visibleProducts);
   const assistRanks = new Map(
@@ -1051,6 +1070,14 @@ export function CatalogPage() {
    * before it -- the affordance and the authority arrive together.
    */
   const comparisonScopeId = retrieval?.search_event_id ?? null;
+
+  // A page change is the reader's own action, so keyboard focus follows it to the
+  // new page's first card rather than staying on a button that has just moved.
+  useEffect(() => {
+    if (!focusFirstResult.current) return;
+    focusFirstResult.current = false;
+    document.querySelector<HTMLElement>(".shop-product-grid .shop-product-card h3 a")?.focus();
+  }, [resultPageIndex]);
 
   /**
    * Drop the selection when the served run changes.
@@ -1219,15 +1246,15 @@ export function CatalogPage() {
                   </p>
                 ) : null}
 
-                {sourcePending ? null : real ? (!activeQuery ? (
+                {sourcePending ? null : real ? (
                   <div className="shop-search-examples" role="group" aria-label="Suggested searches">
                     <div className="shop-example-links">
                       {distinctExamples.map((example) => (
-                        <button type="button" key={example.id} title={example.query} onClick={() => searchSuggestion(example)}>{example.label}</button>
+                        <button type="button" key={example.id} title={example.query} aria-pressed={exampleIsActive(example)} onClick={() => searchSuggestion(example)}>{example.label}</button>
                       ))}
                     </div>
                   </div>
-                ) : null) : (
+                ) : (
                   <div className="shop-suggested" aria-label="Suggested searches">
                     <span>Explore</span>
                     {shopSuggestedQueries.map((suggestion) => (
@@ -1526,7 +1553,6 @@ export function CatalogPage() {
                     <strong>{retrieval.results.length}</strong> {labCallout && !labCallout.targetPresent
                       ? (retrieval.results.length === 1 ? "other product" : "other products")
                       : (retrieval.results.length === 1 ? "match" : "matches")}
-                    <small> · chosen from {retrieval.diagnostics?.candidate_counts.fused_pool ?? "-"} products found by search</small>
                     {/* The comparison itself stays below the results; this is the
                         acknowledgement a tick needs before the reader scrolls. */}
                     {comparisonScopeId && comparisonIds.length ? (
@@ -1601,14 +1627,7 @@ export function CatalogPage() {
             <div className="shop-pipeline" aria-busy={retrievalLoading} data-loading={retrievalLoading || undefined}>
               <PipelineStrip key={retrieval.search_event_id} response={retrieval} faultArm={faultArm} />
               {agentProducts ? <p className="shop-pipeline-note">Ask Mosaic’s picks appear first in Shop. This strip shows the original search.</p> : null}
-              <details className="shop-ranking-receipt">
-                <summary>
-                  <span>Search details</span>
-                  <small>Where each match came from, and what reranking changed</small>
-                </summary>
-                {labCallout && !labCallout.blocked ? <CoverageNotice coverage={retrieval.coverage} /> : null}
-                <SearchRetrievalReceipt response={retrieval} />
-              </details>
+              {labCallout && !labCallout.blocked ? <CoverageNotice coverage={retrieval.coverage} /> : null}
             </div>
           ) : null}
 
@@ -1662,10 +1681,24 @@ export function CatalogPage() {
                   <p>Remove a filter or clear the search to see more products.</p>
                 </section>
               )}
-              {collapsible && !expanded ? (
-                <button type="button" className="shop-show-all" onClick={() => setShownFor(retrieval!.search_event_id)}>
-                  Show all {allProducts.length}
-                </button>
+              {paged ? (
+                <nav className="shop-pagination shop-result-pager" aria-label="Result pages">
+                  <button
+                    type="button"
+                    disabled={resultPageIndex === 0}
+                    onClick={() => goToResultPage(resultPageIndex - 1)}
+                  >
+                    <ChevronLeft size={17} /> Previous
+                  </button>
+                  <span>Page {resultPageIndex + 1} of {resultPageCount}</span>
+                  <button
+                    type="button"
+                    disabled={resultPageIndex + 1 >= resultPageCount}
+                    onClick={() => goToResultPage(resultPageIndex + 1)}
+                  >
+                    Next <ChevronRight size={17} />
+                  </button>
+                </nav>
               ) : null}
               {/* Below the results rather than over them: the list stays where
                   the participant left it, which is what keeps the first result
@@ -1681,6 +1714,16 @@ export function CatalogPage() {
             </div>
           ) : null}
           </div>
+          {retrieval && !error ? (
+            <MethodBoard
+              response={retrieval}
+              wantedId={wanted?.productId ?? null}
+              wantedName={wantedName ?? undefined}
+              targetRank={wantedMission ? targetRankBound(wantedMission) : undefined}
+              images={gridImages}
+              onSelect={openProductDrawer}
+            />
+          ) : null}
             </>
           )}
         </section>

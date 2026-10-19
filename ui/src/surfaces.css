@@ -1540,64 +1540,10 @@
   text-decoration: underline;
 }
 
-.shop-ranking-receipt {
-  margin-bottom: 20px;
-  padding: 0 18px;
-  border-radius: 16px;
-  background: var(--surface-muted);
-}
 
-/* Title and hint share one left edge; the chevron sits in its own column. */
-.shop-ranking-receipt > summary {
-  display: grid;
-  min-height: 56px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-content: center;
-  column-gap: 16px;
-  row-gap: 2px;
-  padding: 10px 0;
-  --disclosure-size: 15px;
-  --disclosure-ink: var(--ink);
-  --disclosure-weight: 600;
-}
 
-.shop-ranking-receipt > summary > span {
-  grid-column: 1;
-}
 
-.shop-ranking-receipt > summary::after {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-}
 
-.shop-ranking-receipt > summary small {
-  grid-column: 1;
-  color: var(--ink-soft);
-  font-size: 14px;
-  font-weight: 400;
-}
 
-.shop-ranking-receipt .retrieval-receipt {
-  margin: 0;
-  border-bottom: 0;
-}
 
-/* The bridge out of Shop. A text link, not a button: it leaves the storefront,
-   and it should not compete with Add to bag. */
-.shop-ranking-playground {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin: 14px 0 18px;
-  color: var(--maroon-900);
-  font-size: 12.5px;
-  font-weight: 600;
-  border-bottom: 1px solid color-mix(in srgb, var(--maroon-800) 28%, transparent);
-  padding-bottom: 2px;
-  transition: border-color 160ms ease, gap 160ms ease;
-}
 
-.shop-ranking-playground:hover {
-  border-bottom-color: var(--maroon-900);
-  gap: 10px;
-}

@@ -8,6 +8,8 @@ import { productImage } from "../media";
 import { ProductReceiptBody } from "./ProductReceipt";
 import { FINAL_LABEL, FUSED_LABEL, armLabel, armLanguage, armShortLabel } from "../retrievalLanguage";
 import type { WantedProduct } from "../labOutcome";
+import { RankMove } from "./RankMove";
+import { WantedBadge } from "./WantedBadge";
 import type { ProductSummary, RetrievalDiagnostics } from "../types";
 import "../pipeline-strip.css";
 
@@ -32,18 +34,6 @@ function topAttributes(attributes: Record<string, unknown>, count = 2) {
 }
 
 /**
- * The lab's wanted product, marked by where it stands: green at its target
- * rank, orange when returned lower, grey when the run did not return it. The
- * position is the one the response served.
- */
-export function WantedBadge({ wanted }: { wanted: WantedProduct }) {
-  const where = wanted.tier === "missing"
-    ? "not in these results"
-    : wanted.finalRank === null ? "in these results" : `final #${wanted.finalRank}`;
-  return <span className="shop-wanted-badge" data-tier={wanted.tier}>Wanted · {where}</span>;
-}
-
-/**
  * The searches that found this product, on the card itself: a green dot and the
  * product's own position for each search that returned it, a hollow grey dot
  * and a dash for each that did not. Positions are read from the row's signals.
@@ -54,6 +44,7 @@ function ArmChips({ product }: { product: ProductSummary }) {
   const before = signals.pre_rerank_rank;
   const after = signals.final_rank;
   return (
+    <>
     <ul className="shop-card-arms" aria-label="Found by">
       {armLanguage.map((arm) => {
         const rank = signals[arm.key]?.rank ?? null;
@@ -71,13 +62,19 @@ function ArmChips({ product }: { product: ProductSummary }) {
           </li>
         );
       })}
-      {after != null ? (
-        <li className="pipeline-chip shop-card-position-chip" data-dot="none">
-          <b>Final #{after}</b>
-          {before != null && before !== after ? <span>was #{before} combined</span> : null}
-        </li>
-      ) : null}
     </ul>
+    {after != null ? (
+      <p className="pipeline-chip shop-card-position-chip">
+        <b>Final #{after}</b>
+        {before != null && before !== after ? (
+          <>
+            <RankMove from={before} to={after} />
+            <span>from combined #{before}</span>
+          </>
+        ) : null}
+      </p>
+    ) : null}
+    </>
   );
 }
 
@@ -178,6 +175,20 @@ export function ProductCard({
             />
             {assistRank ? <span className="assist-rank-badge">{String(assistRank).padStart(2, "0")}</span> : null}
           </Link>
+          {showCompare ? (
+              <label className="compare-control shop-card-compare">
+                <input
+                  type="checkbox"
+                  aria-label={`Compare ${product.title}`}
+                  checked={compareChecked}
+                  disabled={compareDisabled || !onCompareChange}
+                  onChange={(event) => {
+                    onCompareChange?.(product.product_id, event.currentTarget.checked);
+                  }}
+                />
+                Compare
+              </label>
+            ) : null}
           <button
             className={saved ? "catalog-favorite-button active" : "catalog-favorite-button"}
             type="button"
@@ -254,20 +265,6 @@ export function ProductCard({
                 two surfaces cannot drift into two compare affordances. It is
                 rendered only where a retrieval has granted a scope to compare
                 within, which is why the caller decides rather than the card. */}
-            {showCompare ? (
-              <label className="compare-control">
-                <input
-                  type="checkbox"
-                  aria-label={`Compare ${product.title}`}
-                  checked={compareChecked}
-                  disabled={compareDisabled || !onCompareChange}
-                  onChange={(event) => {
-                    onCompareChange?.(product.product_id, event.currentTarget.checked);
-                  }}
-                />
-                Compare
-              </label>
-            ) : null}
             {product.listing_url ? <a className="source-listing-link" href={product.listing_url} target="_blank" rel="noreferrer" aria-label={`Original listing for ${product.title}`}>Listing ↗</a> : (
             <button
               className={quantity ? "shop-quick-add added" : "shop-quick-add"}

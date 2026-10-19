@@ -69,12 +69,12 @@ export function PipelineStrip({ response, faultArm = null }: {
   chips.push(<Arrow key="a1" order={3} />);
   chips.push(
     <Chip key="rrf" label="Combined in Aurora (RRF)" value={pool ?? "—"} dot={pool ? "found" : "none"} order={4}
-      title={pool === undefined ? undefined : `${pool} in the combined pool`} />,
+      title={[pool === undefined ? null : `${pool} in the combined pool`, searchTime ? `Search in Aurora ${searchTime}` : null].filter(Boolean).join(" · ") || undefined} />,
   );
   chips.push(<Arrow key="a2" order={5} />);
   chips.push(
     reranked
-      ? <Chip key="rr" label={`Reranked · ${rerankName}`} dot="found" order={6} />
+      ? <Chip key="rr" label={`Reranked · ${rerankName}`} dot="found" order={6} title={rerankTime ? `Rerank ${rerankTime}` : undefined} />
       : <Chip key="rr" label="Not reranked" dot="none" order={6} />,
   );
   chips.push(<Arrow key="a3" order={7} />);
@@ -83,12 +83,6 @@ export function PipelineStrip({ response, faultArm = null }: {
   return (
     <section className="pipeline-strip" aria-label="How this search ran">
       <ol className="pipeline-chips">{chips}</ol>
-      <p className="pipeline-note">
-        Three searches ran inside Aurora PostgreSQL{searchTime ? ` in ${searchTime}` : ""}; the
-        numbers are the candidates from each that reached the combined pool{pool === undefined ? "" : ` of ${pool}`}.
-        Aurora combined their positions
-        {reranked ? `, then a reranker reordered ${pool === undefined ? "the shortlist" : `the top ${pool}`}${rerankTime ? ` in ${rerankTime}` : ""}` : ""}.
-      </p>
       <Link className="pipeline-link" href={playgroundQueryHref(response.query, response.applied_filters, response.search_event_id)}>
         Watch the ranking change in the Playground →
       </Link>

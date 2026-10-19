@@ -4,7 +4,7 @@ import type { WantedProduct } from "../labOutcome";
 import { playgroundQueryHref } from "../navigation";
 import { armLanguage } from "../retrievalLanguage";
 import type { SearchResponse } from "../types";
-import { WantedBadge } from "./ProductCard";
+import { WantedBadge } from "./WantedBadge";
 import "../shop-search-details.css";
 
 /** ▲n / ▼n in tabular numerals, spoken as "up n". Held products read "Held". */

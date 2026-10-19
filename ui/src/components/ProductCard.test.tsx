@@ -67,7 +67,9 @@ describe("ProductCard ranking chips and wanted marking", () => {
     const missed = screen.getByLabelText("Fuzzy matching: no match");
     expect(missed.dataset.dot).toBe("none");
     expect(missed.textContent).toContain("—");
-    expect(screen.getByText("Final #5").parentElement!.textContent).toContain("was #21 combined");
+    const position = screen.getByText("Final #5").parentElement!;
+    expect(position.textContent).toContain("from combined #21");
+    expect(position.querySelector(".rank-move")?.getAttribute("data-move")).toBe("up");
   });
 
   it("marks the wanted product with its live position and tier", () => {
