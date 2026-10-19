@@ -1649,3 +1649,13 @@ p.pg-reason-status {
   .pg-guide-panel { animation: none; }
   .pg-guide-steps [role="tab"] { transition: none; }
 }
+
+.pg-chip[data-state="record"]::before { display: none; }
+.pg-chip[data-state="record"] { color: var(--ink-soft); font-weight: 500; }
+.pg-chip[data-state="record"] > span { font-family: var(--mono); }
+
+/* Suggestions sit under the search bar, as on Shop. */
+.pg-query + .pg-requests { margin-top: 18px; }
+
+/* On a filled step circle the green reads lighter than on a 7px dot; dark mode deepens it to match. */
+:root[data-theme="dark"] .pg-guide-steps [data-state="complete"] .pg-guide-n { background: color-mix(in srgb, var(--green) 72%, black); }

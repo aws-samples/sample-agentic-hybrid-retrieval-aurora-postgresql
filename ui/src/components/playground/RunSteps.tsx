@@ -4,7 +4,7 @@ import { toolName } from "../ask-mosaic/toolChips";
 import type { SearchResponse, ToolTraceStep } from "../../types";
 import type { PipelinePhase } from "../../usePipelineRun";
 
-type ChipState = "running" | "done" | "failed" | "quiet";
+type ChipState = "running" | "done" | "failed" | "quiet" | "record";
 
 interface Chip {
   key: string;
@@ -88,4 +88,9 @@ export function RunSteps({ chips, label }: { chips: Chip[]; label: string }) {
 /** The one chip a search shows before its record arrives. */
 export function searchingChips(): Chip[] {
   return [{ key: "running", label: "Searching Aurora", state: "running" }];
+}
+
+/** The saved search's record ID, short on the chip and whole on hover. */
+export function recordChip(searchEventId: string): Chip {
+  return { key: "record", label: "Record", value: searchEventId.slice(0, 8), state: "record", title: `Search record ${searchEventId}` };
 }

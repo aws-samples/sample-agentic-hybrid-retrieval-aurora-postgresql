@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { productImage } from "../media";
 import { RankMove } from "./RankMove";
 import { armLabel, armPoolKey, type RetrievalArm } from "../retrievalLanguage";
@@ -90,9 +90,11 @@ type Tier = "target" | "lower" | "unranked";
  * bound), so the wanted product's badge is green inside it and orange past it.
  */
 export function MethodBoard({
-  response, wantedId = null, wantedName, targetRank, images, onSelect, only,
+  response, wantedId = null, wantedName, targetRank, images, onSelect, only, reads,
 }: {
   response: SearchResponse;
+  /** What each search looked for, shown above what it found. */
+  reads?: Partial<Record<RetrievalArm, ReactNode>>;
   /** The columns to show, in board order; all five when absent. */
   only?: ReadonlyArray<Column["key"]>;
   wantedId?: number | null;
@@ -150,6 +152,7 @@ export function MethodBoard({
               <header>
                 <h4>{column.title}</h4>
                 <p className="method-engine">{column.engine}</p>
+                {reads && column.key in reads ? <p className="method-reads" aria-label={`${column.title} reads the request as`}>{reads[column.key as RetrievalArm]}</p> : null}
                 {column.meta ? <p className="method-meta">{column.meta}</p> : null}
               </header>
               {mark ? <p className="method-badge" data-tier={mark.tier}>{mark.text}</p> : null}

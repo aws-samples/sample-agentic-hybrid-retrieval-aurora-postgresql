@@ -1,4 +1,4 @@
-import { RETRIEVAL_CONNECTION_GUIDE, RetrievalTakeawayLinks } from "../components/RetrievalTakeawayLinks";
+import { RETRIEVAL_CONNECTION_GUIDE } from "../components/RetrievalTakeawayLinks";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useReducedMotion } from "motion/react";
@@ -18,12 +18,12 @@ import { pickName } from "../components/ask-mosaic/comparison";
 import { sourceAnchor } from "../components/ask-mosaic/citations";
 import { useSoftReveal } from "../components/ask-mosaic/softReveal";
 import { StreamedAnswer } from "../components/ask-mosaic/StreamedAnswer";
-import { MethodReads } from "../components/playground/MethodReads";
+import { armReads } from "../components/playground/MethodReads";
 import { CandidatePoolOrder } from "../components/playground/CandidatePoolOrder";
 import { GuidedStages, type GuidedStage, type StageId } from "../components/playground/GuidedStages";
 import { MethodBoard } from "../components/MethodBoard";
 import { RankRace } from "../components/playground/RankRace";
-import { RunSteps, agentChips, searchChips, searchingChips } from "../components/playground/RunSteps";
+import { RunSteps, agentChips, recordChip, searchChips, searchingChips } from "../components/playground/RunSteps";
 import { ReturnedProducts } from "../components/playground/ReturnedProducts";
 import { RunSummary } from "../components/playground/RunSummary";
 import { MethodComparison, modelName, rerankStep, signedScore } from "../components/playground/RetrievalPath";
@@ -236,7 +236,7 @@ function RetrieveGlance({ response, follow, missing, stopped, wanted, images, on
 }) {
   if (!response) return <p className="inspector-waiting">{stopped ? "No search results are available from this run." : "Run a search to see what each search found."}</p>;
   return <>
-    <MethodBoard response={response} only={SEARCH_COLUMNS} wantedId={wanted?.id ?? null} wantedName={wanted?.name} targetRank={wanted?.targetRank} images={images} onSelect={onSelect} />
+    <MethodBoard response={response} only={SEARCH_COLUMNS} reads={armReads(response)} wantedId={wanted?.id ?? null} wantedName={wanted?.name} targetRank={wanted?.targetRank} images={images} onSelect={onSelect} />
     {missing || follow ? <p className="pg-follow">{missing ? `The ${missing} is not among the products this search returned.` : followSentence(follow as ProductSummary)}</p> : null}
   </>;
 }
@@ -301,21 +301,20 @@ function ReasonEvidence({ answer, trace, failed }: { answer: AgentResponse | nul
 }
 
 /** Alex's request as the page's stage: the choice of request, the words, and the one run action. */
-function RequestStage({ selectedId, carried, question, context, notice, runButton, onChoose }: {
-  selectedId?: string; carried: boolean; question: string; context: string; notice?: string;
+function RequestStage({ selectedId, carried, question, context, runButton, onChoose }: {
+  selectedId?: string; carried: boolean; question: string; context: string;
   runButton: ReactNode; onChoose: (id: string) => void;
 }) {
   return <section className="pg-stage" aria-label="Alex’s request">
-    <nav className="pg-requests" aria-label="Alex’s requests">{requestGroups.map((group) => <div key={group.label} role="group" aria-label={group.label}>
-      {group.requests.map((request) => <button key={request.id} type="button" aria-pressed={!carried && selectedId === request.id} onClick={() => onChoose(request.id)}>{request.label}</button>)}
-    </div>)}</nav>
     <MosaicLabsMasthead title={<>Behind a <span className="inspector-title-emphasis">better answer.</span></>} deck="Follow one request through every step, one step at a time." />
     <div className="pg-query">
       <img className="pg-alex" src="/assets/images/mosaic/alex-headshot-v1.jpg" alt="Alex, Mosaic’s example shopper" width={44} height={44} />
       <div><h2>{question || "No request is available"}</h2><p>{context}</p></div>
       {runButton}
     </div>
-    {notice ? <details className="pg-request-guide"><summary>What to look for</summary><p className="pg-notice">{notice} Each search passes through Retrieve, Rank and Re-rank; Reason can request more searches before comparing the sources.</p></details> : null}
+    <nav className="pg-requests" aria-label="Alex’s requests">{requestGroups.map((group) => <div key={group.label} role="group" aria-label={group.label}>
+      {group.requests.map((request) => <button key={request.id} type="button" aria-pressed={!carried && selectedId === request.id} onClick={() => onChoose(request.id)}>{request.label}</button>)}
+    </div>)}</nav>
   </section>;
 }
 
@@ -348,7 +347,6 @@ function RunNotes({ carried, started, running, error, receipts, selected, onRest
     </div> : null}
     {error ? <p className="inspector-error" role="alert">{error}</p> : null}
     {receipts.length > 1 ? <div className="inspector-search-selector pg-search-selector"><label htmlFor="inspector-search">Search shown in Retrieve, Rank and Re-rank</label><select id="inspector-search" value={selected?.id} onChange={(event) => onSelectSearch(event.target.value)}>{receipts.map((item, index) => <option key={item.id} value={item.id}>{index + 1}. {item.origin === "reference" ? "Original search · " : ""}{item.response?.query ?? "Reading search…"}</option>)}</select><p>Counts and ranks stay on the selected search. Choose another search here or follow a pick in Reason.</p></div> : null}
-    {selected ? <details className="pg-search-record"><summary>Search record and interpretation</summary><p className="inspector-receipt pg-record">Search {receipts.indexOf(selected) + 1}{selected.response ? ` · ${selected.response.query}` : selected.error ? " · Could not load" : " · Reading…"}<span>Search record <code>{selected.id}</code></span></p>{selected.response ? <MethodReads response={selected.response} label={`Search ${receipts.indexOf(selected) + 1} reads it as`} /> : null}</details> : null}
     {selected?.error ? <p className="inspector-error" role="alert">This record could not be read: {selected.error} {carried && !started ? "Reload this page to retry the saved Shop search." : "Start a new run to try again."}</p> : null}
   </div>;
 }
@@ -445,9 +443,10 @@ function PipelineInspector() {
   const chips = pipeline.started
     ? agentChips(pipeline.trace, pipeline.phase, pipeline.running && !pipeline.completed)
     : response ? searchChips(response) : pipeline.running ? searchingChips() : [];
+  if (response && !held) chips.push(recordChip(response.search_event_id));
   return <div className="page pg-a pipeline-inspector">
     <MosaicLabsTabs active="retrieval" />
-    <RequestStage selectedId={selectedRequest?.id} carried={params.has("q") || Boolean(carriedEvent)} question={question} context={context} notice={!params.has("q") && !carriedEvent ? selectedRequest?.notice : undefined} runButton={runButton} onChoose={(id) => setParams(new URLSearchParams({ scene: id }))} />
+    <RequestStage selectedId={selectedRequest?.id} carried={params.has("q") || Boolean(carriedEvent)} question={question} context={context} runButton={runButton} onChoose={(id) => setParams(new URLSearchParams({ scene: id }))} />
     <section className="pg-run" aria-label="This run">
       <p className="pg-run-status" role="status">{pipeline.reading ? "Reading the saved Shop search…" : pipeline.status || (carriedEvent ? "Saved Shop search" : "Ready to follow Alex’s request.")}</p>
       <RunSteps chips={chips} label={pipeline.started ? "The Retrieval agent’s steps" : "How this search ran"} />
@@ -502,16 +501,14 @@ function PipelineInspector() {
     </div>
     <aside className="inspector-scale-link inspector-takeaway pg-takeaway">
       <div>
-        <h2>Take this retrieval into your own agent</h2>
-        <p>Connect retrieval tools through MCP or HTTP, then add the skill to guide the workflow. The service and database permissions control access. Catalog records stay unchanged; searches save audit records.</p>
+        <h2>Use it in your own agent</h2>
+        <p>The SQL and service behind these searches, and a skill that teaches an agent to use them.</p>
       </div>
       <div className="inspector-takeaway-actions">
-        <a href={RETRIEVAL_CONNECTION_GUIDE} target="_blank" rel="noreferrer">Connect retrieval tools</a>
-        <a href="/api/builder-package" download>Adapt the implementation</a>
-        <a href="/api/skill-package" download>Download the skill</a>
+        <a href="/api/builder-package" download>Download the retrieval code</a>
+        <a href="/api/skill-package" download>Download the agent skill</a>
+        <a href={RETRIEVAL_CONNECTION_GUIDE} target="_blank" rel="noreferrer">Connect over MCP</a>
       </div>
-      <RetrievalTakeawayLinks />
-      <nav aria-label="Optional explorations"><span>Optional</span><Link href="/labs/examples?case=saved-headphones">Compare product details</Link><Link href="/mosaic-labs/hnsw">Explore scale & HNSW</Link><Link href="/mosaic-labs/memory">Explore session & memory</Link></nav>
     </aside>
   </div>;
 }

@@ -503,10 +503,11 @@ it("says when the agent declined the search's first result, and reads the search
   render(<PlaygroundPage />);
   askAboutThisNeed();
   expect(await screen.findByText("No recommendation: the available sources do not support a choice.")).toBeTruthy();
-  fireEvent.click(await screen.findByText("Search record and interpretation", undefined, { timeout: READ_OUT_MS }));
-  const reads = screen.getByRole("list", { name: "Search 1 reads it as" });
-  expect(within(reads).getByText("words not in the saved record")).toBeTruthy();
-  expect(within(screen.getByRole("region", { name: "Alex’s request" })).queryByRole("list", { name: /reads it as/ })).toBeNull();
+  // Each search column says how it read the request; a replayed record keeps no words.
+  await waitFor(() => expect(document.querySelectorAll(".method-column")).toHaveLength(3), { timeout: READ_OUT_MS });
+  const reads = within(openStage("Retrieve")).getByLabelText("Full-text search reads the request as");
+  expect(reads.textContent).toContain("words not in the saved record");
+  expect(screen.getByRole("list", { name: "The Retrieval agent’s steps" }).textContent).toContain(firstSearchId.slice(0, 8));
 });
 
 // Shop's Lab 1 callout links here with the lab named. The page used to show a
