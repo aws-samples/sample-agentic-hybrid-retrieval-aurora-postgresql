@@ -51,9 +51,6 @@
   .method-board { margin-top: 48px; }
 }
 
-/* Inside the Playground's stage card the columns sit on the softer surface, as on Shop. */
-.pg-guide .method-column { background: var(--paper-warm); }
-
 /* What a search looked for, above what it found: lexemes, trigrams or the vector. */
 .method-reads { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 10px 0 2px; color: var(--ink-soft); font-size: 12px; }
 .method-reads code { padding: 2px 7px; border-radius: 6px; background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); font: 500 12px var(--mono); }

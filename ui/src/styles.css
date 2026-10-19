@@ -26,7 +26,9 @@
   --footer-line: var(--line);
   --line: #d9dde3;
   --line-strong: #9ba2ad;
-  --green: #1a7f45;
+  /* Green, orange and blue are the RIV26 template's hues: the template's own values
+     in dark mode, deeper shades of the same hues in light mode so they read on white. */
+  --green: #1b7f2a;
   --green-soft: #e9f7ee;
   --green-line: #b9e3c8;
   --gold: #b45309;
@@ -40,12 +42,12 @@
   /* Dark bands use their brighter link token to keep keyboard focus visible. */
   --focus: var(--link);
   /* Technical stage colors retain their meaning independently of navigation. */
-  --retrieve: #1f6feb;
-  /* The favicon's brown, so the header mark and the browser tab match. */
-  --brand-mark: #2b0d13;
+  --retrieve: #0578ff;
+  /* The RIV26 template's orange, as in the favicon, with a black letter. */
+  --brand-mark: var(--rank-template);
+  --rank-template: #ff6200;
   --link: #005eb8;
-  /* A warm amber-orange for Rank and Re-rank, cleaner than the shop's gold. */
-  --rank: #f08a00;
+  --rank: #e85a00;
   --reason: var(--green);
   --action: #0668d7;
   --action-hover: #005bbd;
@@ -107,9 +109,7 @@
 /* Surface and text roles move together; cobalt actions retain white ink in both themes. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  /* The favicon's brown, lifted so the mark stays visible on a black page. */
-  --brand-mark: #7a2c3a;
-  --rank: #ff9f0a;
+  --rank: var(--rank-template);
   --maroon-950: var(--white);
   --maroon-900: #f0f0f2;
   --maroon-700: #d1d1d6;
@@ -125,7 +125,7 @@
   --footer-muted: var(--ink-soft);
   --line: #414148;
   --line-strong: #8d939f;
-  --green: #4cd07d;
+  --green: #6ee750;
   --green-soft: #0e2818;
   --green-line: #1d4d30;
   --gold: #ffa24d;
@@ -136,7 +136,7 @@
   --danger: #ff6b6b;
   --danger-soft: #2b1111;
   --danger-line: #5c1f1f;
-  --retrieve: #58a6ff;
+  --retrieve: #68adff;
   --link: #80bdff;
   --nav-glass: rgb(28 28 30 / 92%);
   --stage: var(--paper-warm);

@@ -1,5 +1,5 @@
 import { useReducedMotion } from "motion/react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { armLabel } from "../../retrievalLanguage";
 import type { ProductSummary, SearchResponse } from "../../types";
 import { pickName } from "../ask-mosaic/comparison";
@@ -94,6 +94,35 @@ export function raceRows(products: ProductSummary[], step: RaceStep, followId: n
 }
 
 const slotY = (slot: number, pinned: boolean) => slot * ROW_HEIGHT + (pinned ? PINNED_GAP : 0);
+
+const isRankStep = (key: RaceStepKey) => key === "combined" || key === "final";
+
+/**
+ * The followed product's path through every step, as one line of positions:
+ * where each search ranked it, where Aurora combined it, where it ended. The
+ * step on screen is lit; choosing a node shows that step.
+ */
+function Journey({ steps, product, current, onPick }: {
+  steps: RaceStep[];
+  product: ProductSummary;
+  current: RaceStepKey;
+  onPick: (key: RaceStepKey) => void;
+}) {
+  return <>
+    <p className="pg-journey-name">{pickName(product)}</p>
+    <ol className="pg-journey" style={{ "--steps": steps.length } as CSSProperties} aria-label={`${pickName(product)} at each step`}>
+      {steps.map((step) => {
+        const rank = step.rank(product);
+        return <li key={step.key} data-current={step.key === current || undefined} data-found={rank != null || undefined} data-accent={isRankStep(step.key) ? "rank" : "retrieve"} data-top={step.key === "final" && rank === 1 || undefined}>
+          <button type="button" onClick={() => onPick(step.key)} aria-label={`${step.label}: ${rank == null ? "not found" : `#${rank}`}`}>
+            <b>{rank == null ? "—" : `#${rank}`}</b>
+            <small>{step.label}</small>
+          </button>
+        </li>;
+      })}
+    </ol>
+  </>;
+}
 
 /**
  * What this step is, in a sentence, then where the followed product stands. A
@@ -259,11 +288,12 @@ export function RankRace({ response, followId, wanted, missing, onFollow }: {
       </div>
       <div className="pg-race-controls">
         <div className="pg-race-steps" role="radiogroup" aria-label="Ranking shown" onKeyDown={onKeyDown}>
-          {steps.map((item) => <button key={item.key} type="button" role="radio" data-step={item.key} aria-checked={item.key === step.key} tabIndex={item.key === step.key ? 0 : -1} onClick={() => choose(item.key)}>{item.label}</button>)}
+          {steps.map((item) => <button key={item.key} type="button" role="radio" data-step={item.key} data-accent={isRankStep(item.key) ? "rank" : "retrieve"} aria-checked={item.key === step.key} tabIndex={item.key === step.key ? 0 : -1} onClick={() => choose(item.key)}>{item.label}</button>)}
         </div>
         <button type="button" className="pg-race-replay" onClick={replay} disabled={steps.length < 2}>Replay</button>
       </div>
     </div>
+    {follow ? <Journey steps={steps} product={follow} current={step.key} onPick={choose} /> : null}
     <ol className="pg-race-list" style={{ height }} aria-label={`${step.label} order`}>
       {mounted.map(({ content }) => {
         const gone = !visible.has(content.productId) || leaving.includes(content.productId) && !visible.has(content.productId);

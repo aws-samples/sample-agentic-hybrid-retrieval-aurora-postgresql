@@ -16,8 +16,7 @@ export function RunSummary({ answer, receipts, onInspect }: {
   for (const receipt of receipts) {
     for (const product of receipt.response?.results ?? []) products.set(product.product_id, product);
   }
-  const positions = (productId: number) => receipts.flatMap((receipt, index) => {
-    if (receipt.origin === "reference") return [];
+  const positions = (productId: number) => receipts.filter((receipt) => receipt.origin !== "reference").flatMap((receipt, index) => {
     const product = receipt.response?.results.find((item) => item.product_id === productId);
     return product ? [{ id: receipt.id, search: index + 1, rank: product.signals?.final_rank }] : [];
   });

@@ -20,7 +20,8 @@ import { useSoftReveal } from "../components/ask-mosaic/softReveal";
 import { StreamedAnswer } from "../components/ask-mosaic/StreamedAnswer";
 import { armReads } from "../components/playground/MethodReads";
 import { CandidatePoolOrder } from "../components/playground/CandidatePoolOrder";
-import { GuidedStages, type GuidedStage, type StageId } from "../components/playground/GuidedStages";
+import { DepthRow } from "../components/playground/DepthRow";
+import { FusionRows } from "../components/playground/FusionRows";
 import { MethodBoard } from "../components/MethodBoard";
 import { RankRace } from "../components/playground/RankRace";
 import { RunSteps, agentChips, recordChip, searchChips, searchingChips } from "../components/playground/RunSteps";
@@ -34,6 +35,7 @@ import { retrievalLabOutcome, runMatchesMissionGates, targetRankBound, type LabO
 import { productImageMap } from "../media";
 import { forwardedSearchEvent, forwardedSearchFilters, useSearchParams } from "../navigation";
 import type { AgentCitation, AgentResponse, ProductSummary, ReadinessResponse, ScorecardStageAblation, SearchFilters, SearchResponse, ToolTraceStep } from "../types";
+import { useLabStates } from "../useLabStates";
 import { usePipelineRun, type PipelineReceipt } from "../usePipelineRun";
 import { RetrievalLabPage } from "./RetrievalLabPage";
 import "../inspector.css";
@@ -46,8 +48,7 @@ const requestGroups = [
   { label: "Alex’s needs", requests: requests.filter((request) => primaryRequestIds.has(request.id)) },
   { label: "Retrieval agent examples", requests: requests.filter((request) => !primaryRequestIds.has(request.id)) },
 ].filter((group) => group.requests.length);
-type Inspection = StageId;
-type ColumnState = GuidedStage["state"];
+type Inspection = "retrieve" | "rank" | "rerank" | "reason";
 
 const LESSONS: Record<Inspection, string> = {
   retrieve: "A reranker can only reorder what entered this pool.",
@@ -57,9 +58,10 @@ const LESSONS: Record<Inspection, string> = {
 };
 const rank = (value: number | null | undefined) => (value == null ? "—" : `#${value}`);
 
-function linkedStage(): Inspection {
+/** The details a link opens: `#inspect-rank`, `#labs-stage-re-rank` and the like. */
+function linkedDetail(): Inspection | null {
   const linked = linkedInspection();
-  return (Object.keys(linked) as Inspection[]).find((stage) => linked[stage]) ?? "retrieve";
+  return (Object.keys(linked) as Inspection[]).find((stage) => linked[stage]) ?? null;
 }
 
 function linkedInspection(): Record<Inspection, boolean> {
@@ -150,8 +152,7 @@ function ProductSearchLinks({ product, receipts, running, onSelect }: {
   product: ProductSummary; receipts: PipelineReceipt[]; running: boolean;
   onSelect: (searchId: string, productId: number) => void;
 }) {
-  const matches = receipts.flatMap((receipt, index) => {
-    if (receipt.origin === "reference") return [];
+  const matches = receipts.filter((receipt) => receipt.origin !== "reference").flatMap((receipt, index) => {
     const result = receipt.response?.results.find((item) => item.product_id === product.product_id);
     return result ? [{ receipt, index, rank: result.signals?.final_rank }] : [];
   });
@@ -306,7 +307,7 @@ function RequestStage({ selectedId, carried, question, context, runButton, onCho
   runButton: ReactNode; onChoose: (id: string) => void;
 }) {
   return <section className="pg-stage" aria-label="Alex’s request">
-    <MosaicLabsMasthead title={<>Behind a <span className="inspector-title-emphasis">better answer.</span></>} deck="Follow one request through every step, one step at a time." />
+    <MosaicLabsMasthead title={<>Behind a <span className="inspector-title-emphasis">better answer.</span></>} deck="Follow one request from three searches to one answer." />
     <div className="pg-query">
       <img className="pg-alex" src="/assets/images/mosaic/alex-headshot-v1.jpg" alt="Alex, Mosaic’s example shopper" width={44} height={44} />
       <div><h2>{question || "No request is available"}</h2><p>{context}</p></div>
@@ -341,10 +342,9 @@ function RunNotes({ carried, started, running, error, receipts, selected, onRest
 }) {
   return <div className="pg-run-notes">
     {labOutcome ? <LabOutcomeBanner outcome={labOutcome} /> : null}
-    {carried ? <div className="inspector-saved-search pg-saved">
-      <p>{started ? "This is a new run. Mosaic can change the search wording and choose different products." : "You’re viewing the saved Shop search. Starting a new run lets Mosaic search again; its picks may change."}</p>
-      {started ? <button type="button" disabled={running} onClick={onRestore}>Back to saved Shop results</button> : <Link className="inspector-lab-details-link" href={labDetailsHref}>Open lab details</Link>}
-    </div> : null}
+    {carried ? <p className="pg-saved-line">
+      {started ? <>A new run of the saved Shop search · <button type="button" disabled={running} onClick={onRestore}>Back to saved Shop results</button></> : <>Saved Shop search · <Link href={labDetailsHref}>Open lab details</Link></>}
+    </p> : null}
     {error ? <p className="inspector-error" role="alert">{error}</p> : null}
     {receipts.length > 1 ? <div className="inspector-search-selector pg-search-selector"><label htmlFor="inspector-search">Search shown in Retrieve, Rank and Re-rank</label><select id="inspector-search" value={selected?.id} onChange={(event) => onSelectSearch(event.target.value)}>{receipts.map((item, index) => <option key={item.id} value={item.id}>{index + 1}. {item.origin === "reference" ? "Original search · " : ""}{item.response?.query ?? "Reading search…"}</option>)}</select><p>Counts and ranks stay on the selected search. Choose another search here or follow a pick in Reason.</p></div> : null}
     {selected?.error ? <p className="inspector-error" role="alert">This record could not be read: {selected.error} {carried && !started ? "Reload this page to retry the saved Shop search." : "Start a new run to try again."}</p> : null}
@@ -375,22 +375,22 @@ function PipelineInspector() {
   const { readiness, catalogCount, ablation } = useInspectorData();
   const mission = coreMosaicLabs.find((item) => item.id === params.get("example"));
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Record<Inspection, boolean>>(linkedInspection);
+  const [openDetail, setOpenDetail] = useState<Inspection | null>(linkedDetail);
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
   const [receiptId, setReceiptId] = useState<number | null>(null);
   const [settledRun, setSettledRun] = useState<string | null>(null);
-  const [activeStage, setActiveStage] = useState<Inspection>(linkedStage);
   const onSettled = useCallback((agentRunId: string) => setSettledRun(agentRunId), []);
-  useEffect(() => { setExpanded(linkedInspection()); setActiveStage(linkedStage()); setSelectedId(null); setHighlightedId(null); setReceiptId(null); }, [requestKey]);
+  useEffect(() => { setOpenDetail(linkedDetail()); setSelectedId(null); setHighlightedId(null); setReceiptId(null); }, [requestKey]);
   useEffect(() => {
-    if (!expanded.rerank || highlightedId == null) return;
+    if (openDetail !== "rerank" || highlightedId == null) return;
     const target = document.getElementById(`ranked-product-${highlightedId}`);
     target?.scrollIntoView({ block: "nearest" });
     target?.focus({ preventScroll: true });
-  }, [expanded.rerank, highlightedId, selectedId, pipeline.receipts]);
+  }, [openDetail, highlightedId, selectedId, pipeline.receipts]);
   // An agent run's searches wait until its answer has been read out, then arrive together.
   const held = pipeline.started && !pipeline.error && !(pipeline.completed && (!pipeline.answer || settledRun === pipeline.runId));
-  const selected = held ? undefined : pipeline.receipts.find((item) => item.id === selectedId) ?? pipeline.receipts[0];
+  const selected = held ? undefined : pipeline.receipts.find((item) => item.id === selectedId)
+    ?? pipeline.receipts.find((item) => item.origin !== "reference") ?? pipeline.receipts[0];
   const response = selected?.response;
   const products = response?.results ?? [];
   const images = productImageMap(products);
@@ -400,6 +400,9 @@ function PipelineInspector() {
     ? raceMission.target_product_ids.find((id) => products.some((product) => product.product_id === id)) ?? null
     : null;
   const missingWanted = missionRun && wantedId == null ? raceMission?.target_display_name : undefined;
+  const { labStates } = useLabStates(response?.search_event_id ?? "");
+  const rankEntry = labStates?.find((lab) => lab.lab_id === 2)?.entry_state;
+  const rankNotOpen = Boolean(missionRun && raceMission?.stage === "rank" && (rankEntry === "not_started" || rankEntry === "incomplete"));
   const followId = receiptId ?? wantedId ?? products[0]?.product_id ?? null;
   // Each time a search's results come into view the stages arrive again. Alternating two
   // identical animations restarts them without remounting what a reader may be focused on.
@@ -413,33 +416,21 @@ function PipelineInspector() {
   const labDetailsParams = new URLSearchParams(params);
   labDetailsParams.set("view", "lab");
   const reset = () => { setSelectedId(null); setHighlightedId(null); setReceiptId(null); };
-  const inspect = (stage: Inspection) => { setHighlightedId(null); setExpanded((value) => ({ ...value, [stage]: !value[stage] })); };
+  const openDetails = (stage: Inspection | null) => { setHighlightedId(null); setOpenDetail(stage); };
   const showReceipt = (productId: number) => { setReceiptId(productId); };
   const inspectProduct = (id: string, productId: number) => {
-    setSelectedId(id); setHighlightedId(productId); setReceiptId(productId); setActiveStage("rerank");
-    setExpanded((value) => ({ ...value, rerank: true }));
+    setSelectedId(id); setHighlightedId(productId); setReceiptId(productId); setOpenDetail("rerank");
     window.requestAnimationFrame(() => document.getElementById("inspect-rerank")?.scrollIntoView({ block: "start" }));
   };
   const renderSearchLink = (product: ProductSummary) => <ProductSearchLinks product={product} receipts={pipeline.receipts} running={pipeline.running} onSelect={inspectProduct} />;
   const agentRequest = Boolean(selectedRequest && !primaryRequestIds.has(selectedRequest.id) && !params.has("q") && !carriedEvent);
+  // Once a search's results are in, the bar's button asks the Retrieval agent about the same need.
+  const askNext = agentRequest || (Boolean(response) && !rankNotOpen);
   const runLabel = pipeline.running
     ? pipeline.completed ? "Finishing up" : ({ retrieve: "Finding products", rank: "Comparing matches", reason: "Preparing the answer" })[pipeline.phase ?? "retrieve"]
-    : pipeline.reading ? "Reading saved search" : pipeline.error ? "Try again" : pipeline.completed ? "Run again" : agentRequest ? "Run Mosaic" : "Run search";
-  const columnState = (stage: Inspection): ColumnState => {
-    if (stage === "reason") {
-      if (!pipeline.started) return "idle";
-      if (pipeline.completed) return "complete";
-      return pipeline.error ? "failed" : pipeline.running ? "active" : "idle";
-    }
-    if (response?.diagnostics) {
-      if (stage === "rerank" && response.diagnostics.rerank_status !== "applied") return "blocked";
-      return "complete";
-    }
-    if (response) return "idle";
-    return pipeline.error ? "blocked" : pipeline.running ? "pending" : "idle";
-  };
+    : pipeline.reading ? "Reading saved search" : pipeline.error ? "Try again" : agentRequest ? (pipeline.completed ? "Run again" : "Run Mosaic") : askNext ? "Ask the Retrieval agent" : "Run search";
   const context = `Alex’s workspace${catalogCount ? ` · Catalog: ${catalogCount.toLocaleString()} products` : ""}${runFilters.category_key ? ` · Filter: ${runFilters.category_key.replaceAll("-", " ")}` : ""}`;
-  const runButton = <MosaicRunButton type="button" className="inspector-play" label={runLabel} icon={agentRequest ? "send" : "search"} running={pipeline.running} disabled={pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} onClick={() => { reset(); setActiveStage("retrieve"); setExpanded({ retrieve: false, rank: false, rerank: false, reason: false }); void (agentRequest ? pipeline.play(question, runFilters) : pipeline.search(question, runFilters)); }} />;
+  const runButton = <MosaicRunButton type="button" className="inspector-play" label={runLabel} icon={askNext ? "send" : "search"} showLabel={askNext && !agentRequest && !pipeline.running} running={pipeline.running} disabled={pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} onClick={() => { reset(); setOpenDetail(null); void (askNext ? pipeline.play(question, runFilters) : pipeline.search(question, runFilters)); }} />;
   const chips = pipeline.started
     ? agentChips(pipeline.trace, pipeline.phase, pipeline.running && !pipeline.completed)
     : response ? searchChips(response) : pipeline.running ? searchingChips() : [];
@@ -449,56 +440,39 @@ function PipelineInspector() {
     <RequestStage selectedId={selectedRequest?.id} carried={params.has("q") || Boolean(carriedEvent)} question={question} context={context} runButton={runButton} onChoose={(id) => setParams(new URLSearchParams({ scene: id }))} />
     <section className="pg-run" aria-label="This run">
       <p className="pg-run-status" role="status">{pipeline.reading ? "Reading the saved Shop search…" : pipeline.status || (carriedEvent ? "Saved Shop search" : "Ready to follow Alex’s request.")}</p>
-      <RunSteps chips={chips} label={pipeline.started ? "The Retrieval agent’s steps" : "How this search ran"} />
+      {rankNotOpen ? null : <RunSteps chips={chips} label={pipeline.started ? "The Retrieval agent’s steps" : "How this search ran"} />}
       {pipeline.answer ? <RevealedAnswer key={pipeline.answer.agent_run_id} answer={pipeline.answer} streamed={pipeline.streamed} completed={pipeline.completed} renderSearchLink={renderSearchLink} multipleSearches={pipeline.receipts.length > 1} onSettled={onSettled} /> : null}
       {pipeline.completed && pipeline.answer && !held ? <RunSummary answer={pipeline.answer} receipts={pipeline.receipts} onInspect={inspectProduct} /> : null}
     </section>
-    <RunNotes carried={Boolean(carriedEvent)} started={pipeline.started} running={pipeline.running} error={pipeline.error} receipts={held ? [] : pipeline.receipts} selected={selected} onRestore={() => { reset(); setExpanded({ retrieve: false, rank: false, rerank: false, reason: false }); pipeline.restoreSavedSearch(); }} onSelectSearch={(id) => { setSelectedId(id); setHighlightedId(null); setReceiptId(null); }} labDetailsHref={`/labs/retrieval?${labDetailsParams}`} labOutcome={labOutcome} />
-    <div className="pg-stages" data-arrive={response ? (arrival.count % 2 ? "a" : "b") : undefined}>
-      <GuidedStages active={activeStage} onActive={setActiveStage} expanded={expanded} onToggleDetails={inspect} stages={[
+    <RunNotes carried={Boolean(carriedEvent)} started={pipeline.started} running={pipeline.running} error={pipeline.error} receipts={held || rankNotOpen ? [] : pipeline.receipts} selected={selected} onRestore={() => { reset(); setOpenDetail(null); pipeline.restoreSavedSearch(); }} onSelectSearch={(id) => { setSelectedId(id); setHighlightedId(null); setReceiptId(null); }} labDetailsHref={`/labs/retrieval?${labDetailsParams}`} labOutcome={labOutcome} />
+    {rankNotOpen ? <section className="pg-lab-gate" aria-label="Lab 2">
+      <h2>The ranking exercise is next</h2>
+      <p>Finish Lab 1 and prepare Lab 2 in the guide. This request shows its results once Lab 2 has started.</p>
+    </section> : <div className="pg-stages" data-arrive={response ? (arrival.count % 2 ? "a" : "b") : undefined}>
+      <section className="pg-board" aria-label="Watch the ranking change">
+        {response?.results.length
+          ? <RankRace key={response.search_event_id} response={response} followId={followId} wanted={followId != null && followId === wantedId} missing={missingWanted} onFollow={setReceiptId} />
+          : <p className="inspector-waiting pg-board-empty">{pipeline.error ? "No ranking is available from this run." : pipeline.running ? "Searching Aurora…" : "Search to watch three searches, Aurora’s combined order and the reranker side by side."}</p>}
+      </section>
+      <DepthRow open={openDetail} onOpen={openDetails} items={[
         {
-          id: "retrieve", title: "Retrieve", state: columnState("retrieve"),
-          heading: "Three searches ran inside Aurora.",
-          lede: "Full-text search, fuzzy matching and semantic search each ranked the products that pass the filters.",
-          body: <RetrieveGlance response={response} follow={receiptProduct} missing={missingWanted} stopped={Boolean(pipeline.error)} images={images} onSelect={setReceiptId} wanted={missionRun && raceMission ? { id: wantedId, name: raceMission.target_display_name, targetRank: targetRankBound(raceMission) } : undefined} />,
-          detailsLabel: "Search details",
-          details: <RetrieveDetails response={response} receipts={held ? [] : pipeline.receipts} selectedId={selected?.id} ablation={ablation} onSelect={(id) => { setSelectedId(id); setHighlightedId(null); setReceiptId(null); }} />,
+          id: "retrieve", label: "Each search’s top five",
+          content: <><RetrieveGlance response={response} follow={receiptProduct} missing={missingWanted} stopped={Boolean(pipeline.error)} images={images} onSelect={setReceiptId} wanted={missionRun && raceMission ? { id: wantedId, name: raceMission.target_display_name, targetRank: targetRankBound(raceMission) } : undefined} /><RetrieveDetails response={response} receipts={held ? [] : pipeline.receipts} selectedId={selected?.id} ablation={ablation} onSelect={(id) => { setSelectedId(id); setHighlightedId(null); setReceiptId(null); }} /></>,
         },
         {
-          id: "rank", title: "Rank", state: columnState("rank"),
-          heading: "Aurora combined their positions.",
-          lede: "Reciprocal rank fusion gives each product a share from every search that found it, then keeps a bounded pool for the reranker.",
-          body: <RankGlance response={response} follow={receiptProduct} missing={missingWanted} />,
-          detailsLabel: "Fusion details",
-          details: <><p className="inspector-note">{LESSONS.rank}</p>{response?.diagnostics?.retrieval_profile ? <RrfMath response={response} /> : null}{response ? <PersistedRunDisclosures response={response} /> : <p>Run a search to inspect its fusion record.</p>}</>,
+          id: "rank", label: "How Aurora combined them",
+          content: <><RankGlance response={response} follow={receiptProduct} missing={missingWanted} />{response ? <FusionRows response={response} followId={followId} /> : null}<p className="inspector-note">{LESSONS.rank}</p>{response?.diagnostics?.retrieval_profile ? <RrfMath response={response} /> : null}{response ? <PersistedRunDisclosures response={response} /> : null}</>,
         },
         {
-          id: "rerank", title: "Re-rank", state: columnState("rerank"),
-          heading: "The reranker reordered the pool.",
-          lede: "It read the request with each candidate. It can change their order, but cannot add a product the pool lacks.",
-          body: response?.results.length
-            ? <RankRace key={response.search_event_id} response={response} followId={followId} wanted={followId != null && followId === wantedId} missing={missingWanted} onFollow={setReceiptId} />
-            : <p className="inspector-waiting">{pipeline.error ? "No ranking is available from this run." : "Run a search to watch its ranking change."}</p>,
-          detailsLabel: "Why this position",
-          details: <><p className="inspector-note">{LESSONS.rerank}</p><RankBody response={response} receiptProduct={receiptProduct} ablation={ablation} stopped={Boolean(pipeline.error)} images={images} onSelect={showReceipt} /><CandidatePoolOrder response={response} /><RankDetails response={response} images={images} highlightedId={highlightedId} /></>,
+          id: "rerank", label: "Why this position",
+          content: <><p className="inspector-note">{LESSONS.rerank}</p><RankBody response={response} receiptProduct={receiptProduct} ablation={ablation} stopped={Boolean(pipeline.error)} images={images} onSelect={showReceipt} /><CandidatePoolOrder response={response} /><RankDetails response={response} images={images} highlightedId={highlightedId} /></>,
         },
         {
-          id: "reason", title: "Reason", state: columnState("reason"),
-          heading: "The Retrieval agent compares and cites.",
-          lede: "It calls the same search as a tool, reads each pick’s evidence, and answers only from sources the application registered.",
-          body: <>
-            {!agentRequest ? <div className="pg-reason-start">
-              <p>Ask the Retrieval agent about this same need and filters. Its own searches get their own records.</p>
-              <MosaicRunButton type="button" label={pipeline.completed ? "Ask again" : "Ask about this need"} showLabel running={pipeline.running && pipeline.started} disabled={pipeline.running || pipeline.reading || !question || Boolean(carriedEvent && !pipeline.savedResponse)} onClick={() => { setActiveStage("retrieve"); void pipeline.play(question, runFilters); }} />
-            </div> : null}
-            <ReasonSummary trace={pipeline.trace} answered={Boolean(pipeline.answer)} working={pipeline.running && !pipeline.completed} failed={Boolean(pipeline.error)} hasSearch={Boolean(response)} />
-            {pipeline.runId ? <p className="pg-run-id">Retrieval agent record <code>{pipeline.runId}</code></p> : null}
-          </>,
-          detailsLabel: "Steps and sources",
-          details: <ReasonEvidence answer={pipeline.completed ? pipeline.answer : null} trace={pipeline.trace} failed={Boolean(pipeline.error)} />,
+          id: "reason", label: "Agent steps and sources",
+          content: <><ReasonSummary trace={pipeline.trace} answered={Boolean(pipeline.answer)} working={pipeline.running && !pipeline.completed} failed={Boolean(pipeline.error)} hasSearch={Boolean(response)} />{pipeline.runId ? <p className="pg-run-id">Retrieval agent record <code>{pipeline.runId}</code></p> : null}<ReasonEvidence answer={pipeline.completed ? pipeline.answer : null} trace={pipeline.trace} failed={Boolean(pipeline.error)} /></>,
         },
       ]} />
-    </div>
+    </div>}
     <aside className="inspector-scale-link inspector-takeaway pg-takeaway">
       <div>
         <h2>Use it in your own agent</h2>
