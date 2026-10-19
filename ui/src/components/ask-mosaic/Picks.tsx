@@ -1,6 +1,7 @@
 import { ArrowUpRight, Check, ShoppingBag, X } from "lucide-react";
 import { cartQuantityLimit, useCommerce } from "../../commerce";
 import { productImage } from "../../media";
+import { armLabel } from "../../retrievalLanguage";
 import type { AgentCitation, ProductSummary } from "../../types";
 import { CitePills } from "./citations";
 import { isReview, pickName, retrievalPath, type ComparisonRow } from "./comparison";
@@ -93,6 +94,19 @@ function FactLine({ fact, answerId, review = false }: { fact: PickFact; answerId
   );
 }
 
+/** Green dots for the searches that found the pick, from its own recorded signals. */
+function FoundBy({ product }: { product: ProductSummary }) {
+  const signals = product.signals;
+  if (!signals) return null;
+  const arms = (["fts", "trigram", "semantic"] as const).filter((arm) => signals[arm]?.rank != null);
+  if (!arms.length) return null;
+  return (
+    <div className="ask-found-by" role="group" aria-label="Found by">
+      {arms.map((arm) => <span key={arm}><i aria-hidden="true" />{armLabel[arm]}</span>)}
+    </div>
+  );
+}
+
 function Path({ product }: { product: ProductSummary }) {
   const path = retrievalPath(product);
   return path.length ? <p className="ask-mono ask-path" aria-label="How search found it">{path.join(" → ")}</p> : null;
@@ -129,6 +143,7 @@ export function TopPick({ product, index, rows, citations, answer, answerId, ima
         {pickRequirements(rows, index).map((item) => (
           <Requirement key={item.label} item={item} answerId={answerId} />
         ))}
+        <FoundBy product={product} />
         {builder ? <Path product={product} /> : null}
         <PickAction product={product} />
       </div>
@@ -156,6 +171,7 @@ export function PickRow({ product, index, rows, citations, answer, answerId, ima
         {pickRequirements(rows, index).map((item) => (
           <Requirement key={item.label} item={item} answerId={answerId} />
         ))}
+        <FoundBy product={product} />
         {builder ? <Path product={product} /> : null}
       </div>
       <PickAction product={product} />

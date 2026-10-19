@@ -68,15 +68,27 @@ describe("phaseFinding", () => {
     expect(phaseFinding("retrieve", run())).toBeNull();
   });
 
-  it("reports the comparison and the replayed ranking, or their absence", () => {
+  it("reports the comparison and the ranking look-up, or their absence", () => {
     const data = run({
       trace: [
         step(1, "compare_products", { arguments: { product_ids: [1, 2, 3] } }),
         step(2, "explain_retrieval"),
       ],
     });
-    expect(phaseFinding("rank", data)).toBe("Compared 3 products and replayed the ranking of 1 search.");
+    expect(phaseFinding("rank", data)).toBe("Compared 3 products and looked at how 1 search ranked its results.");
     expect(phaseFinding("rank", run())).toBe("No comparison step was recorded.");
+  });
+
+  it("counts evidence reads under the comparing phase, where the service runs them", () => {
+    const data = run({
+      trace: [
+        step(1, "compare_products", { arguments: { product_ids: [1, 2] } }),
+        step(2, "get_product_evidence"),
+        step(3, "get_product_evidence"),
+      ],
+    });
+    expect(phaseFinding("rank", data)).toBe("Compared 2 products and read 2 product records.");
+    expect(phaseFinding("rank", run({ trace: [step(1, "get_product_evidence")] }))).toBe("Read 1 product record.");
   });
 
   it("splits the citations into listings and reviews", () => {
@@ -84,9 +96,7 @@ describe("phaseFinding", () => {
       citations: [citation(1, "product_spec"), citation(2, "customer_review"), citation(3, "customer_review")],
       trace: [step(1, "get_product_evidence"), step(2, "get_product_evidence")],
     });
-    expect(phaseFinding("answer", data)).toBe(
-      "3 citations: 1 from listings and 2 from reviews, after 2 evidence reads.",
-    );
+    expect(phaseFinding("answer", data)).toBe("3 citations: 1 from listings and 2 from reviews.");
     expect(phaseFinding("answer", run())).toBe("No sources were cited.");
   });
 });

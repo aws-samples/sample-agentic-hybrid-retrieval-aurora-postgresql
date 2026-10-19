@@ -1,83 +1,67 @@
-import { Check } from "lucide-react";
-import { useEffect, useState } from "react";
-import { phaseFinding, type RunData } from "./findings";
+import { LoaderCircle } from "lucide-react";
+import type { RunData } from "./findings";
+import { formatMilliseconds, toolChips, type ToolChip } from "./toolChips";
 import { stagesFor, type AssistStage } from "./types";
 
-/**
- * Seconds the phase in progress has been working, ticking.
- *
- * Wall clock against the moment the service announced the phase, so this is a
- * measurement rather than an animation: nothing here estimates how much longer
- * the phase will take, because nothing knows.
- */
-function PhaseElapsed({ since }: { since: number }) {
-  const [elapsed, setElapsed] = useState(() => Date.now() - since);
+const CHIP_STATE_WORD: Record<ToolChip["state"], string> = {
+  done: "done",
+  failed: "failed",
+  denied: "declined",
+};
 
-  useEffect(() => {
-    setElapsed(Date.now() - since);
-    const timer = window.setInterval(() => setElapsed(Date.now() - since), 1000);
-    return () => window.clearInterval(timer);
-  }, [since]);
-
-  const seconds = Math.max(0, Math.floor(elapsed / 1000));
-  return seconds < 1 ? null : <small className="ask-run-elapsed">{seconds}s</small>;
+function Chip({ chip }: { chip: ToolChip }) {
+  return (
+    <li className="ask-tool-chip" data-state={chip.state}>
+      <i className="ask-tool-chip-dot" aria-hidden="true" />
+      <span>{chip.label}</span>
+      <span className="sr-only">, {CHIP_STATE_WORD[chip.state]}</span>
+      {chip.latencyMs != null ? <small className="ask-tool-chip-ms">{formatMilliseconds(chip.latencyMs)}</small> : null}
+    </li>
+  );
 }
 
-type RunState = "working" | "stopped" | "failed";
+type RunState = "working" | "stopped" | "failed" | "done";
 
-const STATE_LABEL: Record<Exclude<RunState, "working">, string> = {
+const STATE_LABEL: Record<"stopped" | "failed", string> = {
   stopped: "Stopped before it finished",
   failed: "Request interrupted",
 };
 
 /**
- * One status line, a segment per phase, and each finished phase with the one
- * fact it produced. Drawn from the same stream events as everything else, so a
- * stopped or failed run keeps exactly the progress it had made.
+ * One status line, a spinner and a label that changes in place as the service
+ * announces each phase, and a chip for each tool the Retrieval agent has
+ * called. Nothing ticks, so the live region only speaks when the phase changes. Once the answer starts, the chips stay above it
+ * (`done`) and the status line goes. Drawn from the same stream events as everything
+ * else, so a stopped or failed run keeps exactly the tools it had called.
  */
 export function RunProgress({
   run,
   presentedStage,
   state,
-  stageStartedAt,
 }: {
   run: RunData;
   presentedStage: AssistStage;
   state: RunState;
-  stageStartedAt: number;
 }) {
   const stages = stagesFor(run.path);
-  const presentedIndex = Math.max(0, stages.findIndex((stage) => stage.id === presentedStage));
-  const label = state === "working" ? stages[presentedIndex].running : STATE_LABEL[state];
+  const current = stages.find((stage) => stage.id === presentedStage) ?? stages[0];
+  const chips = toolChips(run.trace);
+  if (state === "done" && !chips.length) return null;
   return (
-    <section className="ask-run" data-state={state} aria-label="Progress">
-      <div className="ask-run-status" role="status" aria-live="polite">
-        <span className="ask-run-dot" aria-hidden="true" />
-        <span className="ask-run-label">{label}</span>
-        {state === "working" ? <PhaseElapsed since={stageStartedAt} /> : null}
-      </div>
-      <div className="ask-run-bar" aria-hidden="true">
-        {stages.map((stage, index) => (
-          <span
-            key={stage.id}
-            className={index < presentedIndex ? "is-done" : index === presentedIndex ? "is-current" : undefined}
-          />
-        ))}
-      </div>
-      <ol className="ask-run-steps">
-        {stages.slice(0, presentedIndex).map((stage) => {
-          const finding = phaseFinding(stage.id, run);
-          return (
-            <li key={stage.id}>
-              <Check size={12} strokeWidth={2.6} aria-hidden="true" />
-              <span>
-                <strong>{stage.done}.</strong>
-                {finding ? ` ${finding}` : ""}
-              </span>
-            </li>
-          );
-        })}
-      </ol>
+    <section className="ask-run" data-state={state} aria-label={state === "done" ? "Tools used" : "Progress"}>
+      {state === "done" ? null : (
+        <p className="ask-run-status" role="status" aria-live="polite">
+          {state === "working" ? (
+            <LoaderCircle className="ask-run-spinner" size={16} aria-hidden="true" />
+          ) : null}
+          <span>{state === "working" ? current.running : STATE_LABEL[state]}</span>
+        </p>
+      )}
+      {chips.length ? (
+        <ul className="ask-tool-chips" aria-label="Tools the Retrieval agent called">
+          {chips.map((chip) => <Chip key={chip.key} chip={chip} />)}
+        </ul>
+      ) : null}
     </section>
   );
 }

@@ -33,3 +33,12 @@ it("shows actual records and a failed save without claiming new memories exist",
   expect(screen.queryByText(/Conversation saved/)).toBeNull();
   expect(screen.getByText(/1 earlier conversation events/)).toBeTruthy();
 });
+
+it("keeps memory to one toggle and shows its sentence as a line only when memory cannot be used", () => {
+  const { rerender } = render(<MemoryControl memory={{ enabled: false, setEnabled: vi.fn(), status: "connected", retry: vi.fn() }} pending={false} />);
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(screen.getByText(/Memory is off/).className).toContain("sr-only");
+  rerender(<MemoryControl memory={{ enabled: false, setEnabled: vi.fn(), status: "unavailable", retry: vi.fn() }} pending={false} />);
+  expect(screen.getByText(/AgentCore Memory is unavailable/).className).not.toContain("sr-only");
+  expect(screen.getByRole("button", { name: "Retry connection" })).toBeTruthy();
+});

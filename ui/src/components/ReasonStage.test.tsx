@@ -820,7 +820,7 @@ describe("ReasonStage declined outcome", () => {
     await runAgent();
 
     const declinedBlock = screen.getByText(
-      "Mosaic could not confirm part of this request",
+      "The Retrieval agent could not confirm part of this request",
     );
     expect(screen.getByText(response.answer)).toBeTruthy();
     expect(screen.queryByText("Your Retrieval agent answered with sources")).toBeNull();
@@ -863,7 +863,7 @@ describe("ReasonStage declined outcome", () => {
     await runAgent();
 
     expect(
-      screen.queryByText("Mosaic could not confirm part of this request"),
+      screen.queryByText("The Retrieval agent could not confirm part of this request"),
     ).toBeNull();
     expect(screen.getByText("Your Retrieval agent answered with sources")).toBeTruthy();
 

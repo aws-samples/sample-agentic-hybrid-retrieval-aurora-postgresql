@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AgentPlanStep, AgentResponse, ToolTraceStep } from "../../types";
-import { NOT_RECORDED, formatArguments, runFacts, stepsFor } from "./builderModel";
+import { formatArguments, runFacts, stepsFor } from "./builderModel";
 
 function step(sequence: number, tool: string, overrides: Partial<ToolTraceStep> = {}): ToolTraceStep {
   return {
@@ -33,11 +33,13 @@ describe("stepsFor", () => {
     ];
     expect(stepsFor("understand", plan, trace).map((item) => item.tool)).toEqual(["plan"]);
     expect(stepsFor("retrieve", plan, trace).map((item) => item.tool)).toEqual(["search_products"]);
-    expect(stepsFor("rank", plan, trace).map((item) => item.tool)).toEqual(["compare_products", "explain_retrieval"]);
-    expect(stepsFor("answer", plan, trace).map((item) => item.tool)).toEqual([
+    // Reading evidence runs while the service reports "Comparing the picks".
+    expect(stepsFor("rank", plan, trace).map((item) => item.tool)).toEqual([
+      "compare_products",
+      "explain_retrieval",
       "get_product_evidence",
-      "synthesize_cited_answer",
     ]);
+    expect(stepsFor("answer", plan, trace).map((item) => item.tool)).toEqual(["synthesize_cited_answer"]);
   });
 
   it("prints count, time and run id, the arguments and the origin and outcome", () => {
@@ -68,7 +70,7 @@ describe("stepsFor", () => {
   });
 
   it("marks a failed application-started step, in words and with a problem dot", () => {
-    const [failed] = stepsFor("answer", [], [
+    const [failed] = stepsFor("rank", [], [
       step(1, "get_product_evidence", { origin: "controller_fallback", outcome: "error" }),
     ]);
     const labels = failed.tags.map((tag) => tag.label);
@@ -116,7 +118,8 @@ describe("runFacts", () => {
     ]);
   });
 
-  it("lists the four things the response has no field for", () => {
-    expect(NOT_RECORDED).toEqual(["model id", "tokens", "Gateway target", "claim verdicts"]);
+  it("prints no tag for an origin the trace did not record", () => {
+    const [search] = stepsFor("retrieve", [], [step(1, "search_products", { origin: undefined })]);
+    expect(search.tags.map((tag) => tag.label)).toEqual(["Aurora search", "Combine and rerank", "Step completed"]);
   });
 });

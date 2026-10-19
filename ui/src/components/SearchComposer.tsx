@@ -1,4 +1,4 @@
-import { ArrowRight, LoaderCircle, Search } from "lucide-react";
+import { ArrowRight, CircleStop, LoaderCircle, Search } from "lucide-react";
 import { FormEvent, ReactNode, useEffect, useState } from "react";
 
 interface SearchComposerProps {
@@ -13,6 +13,8 @@ interface SearchComposerProps {
   autoFocus?: boolean;
   /** Empty the field after a submit, for a composer that keeps a thread. */
   clearOnSubmit?: boolean;
+  /** While `pending`, the submit button becomes a Stop button that calls this. */
+  onStop?: () => void;
   onSubmit: (query: string) => void;
 }
 
@@ -27,6 +29,7 @@ export function SearchComposer({
   leadingIcon,
   autoFocus = false,
   clearOnSubmit = false,
+  onStop,
   onSubmit,
 }: SearchComposerProps) {
   const [value, setValue] = useState(initialValue);
@@ -60,6 +63,17 @@ export function SearchComposer({
       {/* Only disabled while a request is in flight. Disabling on an empty field
           made the primary action render at 50% opacity (the global
           button:disabled rule) on first paint, which reads as broken. */}
+      {pending && onStop ? (
+        <button
+          type="button"
+          className="search-composer-stop"
+          aria-label="Stop generating"
+          title="Stop generating"
+          onClick={onStop}
+        >
+          <CircleStop size={18} aria-hidden="true" />
+        </button>
+      ) : (
       <button
         type="submit"
         disabled={pending}
@@ -77,6 +91,7 @@ export function SearchComposer({
         )}
         {submitIcon || submitLabel ? null : <span className="sr-only">Search</span>}
       </button>
+      )}
     </form>
   );
 }

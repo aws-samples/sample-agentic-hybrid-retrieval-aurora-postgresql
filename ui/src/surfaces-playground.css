@@ -3009,15 +3009,19 @@
 .ask-mosaic-declined {
   display: grid;
   gap: 8px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: var(--maroon-100);
 }
 
 .ask-mosaic-declined > h3 {
   margin: 0;
   color: var(--maroon-900);
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
 }
 
 .ask-mosaic-declined > p {

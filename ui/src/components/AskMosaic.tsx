@@ -1,9 +1,7 @@
 import { MemoryControl, type AskMosaicMemoryControl } from "./AskMosaicMemory";
 import {
   ChevronDown,
-  CircleStop,
   Eraser,
-  LoaderCircle,
   Send,
   Sparkles,
   Wrench,
@@ -99,6 +97,7 @@ export function AskMosaic({
   const latest = turns.length ? turns[turns.length - 1] : null;
   const hasTurns = latest !== null;
   const [builder, setBuilder] = useBuilderView();
+  const [showPrior, setShowPrior] = useState(false);
 
   useEffect(() => {
     closeRef.current = onClose;
@@ -266,6 +265,30 @@ export function AskMosaic({
     });
   };
 
+  const earlier = turns.slice(0, -1);
+  const renderTurn = (turn: AskMosaicTurn, index: number) => (
+    <Turn
+      key={turn.id}
+      turn={turn}
+      isLatest={index === turns.length - 1}
+      imageByProductId={imageByProductId}
+      highlightedProductId={highlightedProductId}
+      builder={builder}
+      onRun={onRun}
+      onEdit={editRequest}
+      onHighlight={onHighlight}
+      onSelectProduct={onSelectProduct}
+      priorQuestions={turns.slice(0, index).map((before) => before.question)}
+      previousBestPickId={
+        turns.slice(0, index).reverse()
+          .find((before) => before.response?.recommendations.length)
+          ?.response?.recommendations[0].product_id ?? null
+      }
+      onStageProgress={index === turns.length - 1 ? followReveal : undefined}
+      onRevealProgress={index === turns.length - 1 ? followReveal : undefined}
+    />
+  );
+
   return (
     <div className="ask-mosaic-layer" ref={layerRef}>
       <button
@@ -300,20 +323,6 @@ export function AskMosaic({
             <span className="ask-switch-label">Builder view</span>
             <span className="ask-switch-track" aria-hidden="true"><span className="ask-switch-knob" /></span>
           </button>
-          {/* Only once there is something to discard. On the entry state the
-              control would clear nothing, and it would sit beside the starters
-              it appears to threaten. */}
-          {turns.length ? (
-            <button
-              className="ask-icon-button"
-              type="button"
-              aria-label="Clear chat"
-              title="Clear chat"
-              onClick={onClear}
-            >
-              <Eraser size={14} aria-hidden="true" />
-            </button>
-          ) : null}
           <button
             className="ask-icon-button ask-mosaic-header-close"
             type="button"
@@ -325,34 +334,44 @@ export function AskMosaic({
         </header>
 
         <div className="ask-mosaic-body-wrap">
+          {/* Only once there is something to discard. On the entry state the
+              button would clear nothing, and it would sit beside the starters
+              it appears to threaten. */}
+          {turns.length ? (
+            <div className="ask-thread-bar">
+              {earlier.length ? (
+                <button
+                  className="ask-prior-toggle"
+                  type="button"
+                  aria-expanded={showPrior}
+                  aria-controls="ask-mosaic-prior"
+                  onClick={() => setShowPrior((value) => !value)}
+                >
+                  <ChevronDown size={14} aria-hidden="true" className="ask-fold-chevron" />
+                  Previous messages
+                  <span>{earlier.length}</span>
+                </button>
+              ) : <span />}
+              <button className="ask-new-conversation" type="button" onClick={() => { setShowPrior(false); onClear(); }}>
+                <Eraser size={14} aria-hidden="true" />
+                New conversation
+              </button>
+            </div>
+          ) : null}
           <div
             className="ask-mosaic-body"
             ref={threadRef}
             onScroll={handleThreadScroll}
           >
             {turns.length ? (
-              turns.map((turn, index) => (
-                <Turn
-                  key={turn.id}
-                  turn={turn}
-                  isLatest={index === turns.length - 1}
-                  imageByProductId={imageByProductId}
-                  highlightedProductId={highlightedProductId}
-                  builder={builder}
-                  onRun={onRun}
-                  onEdit={editRequest}
-                  onHighlight={onHighlight}
-                  onSelectProduct={onSelectProduct}
-                  priorQuestions={turns.slice(0, index).map((earlier) => earlier.question)}
-                  previousBestPickId={
-                    turns.slice(0, index).reverse()
-                      .find((earlier) => earlier.response?.recommendations.length)
-                      ?.response?.recommendations[0].product_id ?? null
-                  }
-                  onStageProgress={index === turns.length - 1 ? followReveal : undefined}
-                  onRevealProgress={index === turns.length - 1 ? followReveal : undefined}
-                />
-              ))
+              <>
+                {earlier.length && showPrior ? (
+                  <div id="ask-mosaic-prior" className="ask-prior">
+                    {earlier.map((turn, index) => renderTurn(turn, index))}
+                  </div>
+                ) : null}
+                {renderTurn(turns[turns.length - 1], turns.length - 1)}
+              </>
             ) : (
               <StarterCards suggestions={suggestions} onRun={onRun} />
             )}
@@ -388,18 +407,6 @@ export function AskMosaic({
               {contextFilters.map((filter) => <strong key={filter}>{filter}</strong>)}
             </div>
           ) : null}
-          {pending ? (
-            <div className="ask-mosaic-generating" role="status">
-              <span>
-                <LoaderCircle className="spin" size={14} aria-hidden="true" />
-                Working on your request
-              </span>
-              <button className="ask-mosaic-stop" type="button" onClick={onStop}>
-                <CircleStop size={15} aria-hidden="true" />
-                Stop generating
-              </button>
-            </div>
-          ) : null}
           <SearchComposer
             key={composerDraft.version}
             compact
@@ -410,9 +417,15 @@ export function AskMosaic({
             pending={pending}
             submitIcon={<Send size={18} aria-hidden="true" />}
             submitLabel="Send request"
+            onStop={onStop}
             placeholder={turns.length ? "Ask a follow-up" : "What are you shopping for?"}
             onSubmit={onRun}
           />
+          {turns.length ? (
+            <p className="ask-mosaic-disclaimer">
+              Historical listing prices and stock come from the catalog snapshot, not the current listing.
+            </p>
+          ) : null}
         </div>
       </aside>
     </div>

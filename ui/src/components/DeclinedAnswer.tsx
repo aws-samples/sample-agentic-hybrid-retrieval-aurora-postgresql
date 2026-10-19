@@ -16,7 +16,7 @@ const notices: Record<string, { title: string; help: string }> = {
     help: "Ask about a product, compare its features, or check what its sources say.",
   },
   no_supported_catalog_answer: {
-    title: "Mosaic could not answer from these sources",
+    title: "The Retrieval agent could not answer from these sources",
     help: "Try a specific product or feature. The recorded steps show what was checked.",
   },
 };
@@ -28,7 +28,7 @@ export function DeclinedAnswer({ answer, reason, className }: {
 }) {
   // Older coverage responses carry the unmatched term itself as the reason.
   const notice = reason ? notices[reason] ?? {
-    title: "Mosaic could not confirm part of this request",
+    title: "The Retrieval agent could not confirm part of this request",
     help: "Check the product name or spelling, or inspect the sources before trying again.",
   } : notices.no_supported_catalog_answer;
   return <section className={className} aria-label="Declined answer">

@@ -6,19 +6,6 @@ import { plural } from "./findings";
 import { citedLine } from "./quoteLines";
 
 
-/** What the sources leave open, stated rather than filled. */
-export function StillUnknown({ items }: { items: string[] }) {
-  if (!items.length) return null;
-  return (
-    <section className="ask-unknown" aria-label="Still unknown">
-      <h4>Still unknown</h4>
-      <ul>
-        {items.map((item) => <li key={item}>{item}</li>)}
-      </ul>
-    </section>
-  );
-}
-
 /**
  * The answer's sources on hairlines, numbered as the prose and the picks cite
  * them. Builder view adds each record's id, revision and type.

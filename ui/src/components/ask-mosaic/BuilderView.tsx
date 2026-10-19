@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import type { AgentResponse } from "../../types";
-import { NOT_RECORDED, runFacts, stepsFor, type BuilderStep, type StepTag } from "./builderModel";
+import { runFacts, stepsFor, type BuilderStep, type StepTag } from "./builderModel";
 import { phaseFinding, type RunData } from "./findings";
 import { HowItRanked, rankedSearches } from "./HowItRanked";
 import { pickName } from "./comparison";
@@ -64,10 +64,6 @@ export function BuilderView({
         ))}
       </div>
       <p className="ask-builder-run-id">Retrieval agent record <code>{response.agent_run_id}</code></p>
-      <div className="ask-builder-missing">
-        <span>Not recorded on this run</span>
-        {NOT_RECORDED.map((field) => <span className="ask-pill ask-pill-dashed" key={field}>{field}</span>)}
-      </div>
       <ol className="ask-timeline">
         {stagesFor(run.path).map((stage) => {
           const steps = stepsFor(stage.id, run.plan, run.trace);

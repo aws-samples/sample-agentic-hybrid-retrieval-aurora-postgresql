@@ -163,30 +163,3 @@ export function retrievalPath(product: ProductSummary): string[] {
     ...(signals.final_rank != null ? [`Reranked to #${signals.final_rank}`] : []),
   ];
 }
-
-/**
- * What the sources leave open, stated rather than filled.
- *
- * Only figures the shopper asked about count, one line per figure naming every
- * pick that does not state it. A figure applies to a pick only when some pick of
- * the same category states it, so a monitor's size is not unknown for a chair.
- */
-export function unknowns(picks: ProductSummary[], rows: ComparisonRow[]): string[] {
-  const missing = rows
-    .filter((row) => row.requested)
-    .flatMap((row) => {
-      const statedIn = new Set(
-        picks
-          .filter((_, index) => row.cells[index]?.source !== "not_stated")
-          .map((pick) => pick.category_key),
-      );
-      const names = picks
-        .filter((pick, index) => (
-          row.cells[index]?.source === "not_stated"
-          && (!statedIn.size || statedIn.has(pick.category_key))
-        ))
-        .map(pickName);
-      return names.length ? [`${row.label}: not stated for ${names.join(", ")}`] : [];
-    });
-  return [...missing, "Current price and stock"];
-}

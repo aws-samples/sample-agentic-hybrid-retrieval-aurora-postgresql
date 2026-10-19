@@ -199,7 +199,7 @@ describe("AskMosaic declined outcome", () => {
       answer: "The available sources do not provide enough detail to answer this request.",
     });
     expect(screen.getByText("The sources do not answer this yet")).toBeTruthy();
-    expect(screen.queryByText("Mosaic could not confirm part of this request")).toBeNull();
+    expect(screen.queryByText("The Retrieval agent could not confirm part of this request")).toBeNull();
     expect(screen.queryByText(/drop the term named above/)).toBeNull();
   });
 
@@ -207,7 +207,7 @@ describe("AskMosaic declined outcome", () => {
     renderAskMosaic(DECLINED_RESPONSE);
 
     expect(
-      screen.getByText("Mosaic could not confirm part of this request"),
+      screen.getByText("The Retrieval agent could not confirm part of this request"),
     ).toBeTruthy();
     expect(screen.getByText(DECLINED_RESPONSE.answer)).toBeTruthy();
     expect(
@@ -217,26 +217,25 @@ describe("AskMosaic declined outcome", () => {
     ).toBeTruthy();
 
     // What was actually tried stays one click away, with nothing to recommend.
-    const fold = screen.getByRole("button", { name: /How Mosaic answered/ });
+    const fold = screen.getByRole("button", { name: /How the tools work/ });
     expect(fold.textContent).toContain("1 search");
     expect(fold.textContent).toContain("0 sources");
     fireEvent.click(fold);
     expect(screen.getByText(/Ran 1 search in Aurora and kept 3 products/)).toBeTruthy();
     expect(screen.queryByRole("region", { name: "Sources" })).toBeNull();
     expect(screen.queryByLabelText(/Top pick/)).toBeNull();
-    expect(screen.queryByText("Still unknown")).toBeNull();
   });
 
   it("leaves a grounded fixture unchanged", () => {
     renderAskMosaic(groundedResponse());
 
     expect(
-      screen.queryByText("Mosaic could not confirm part of this request"),
+      screen.queryByText("The Retrieval agent could not confirm part of this request"),
     ).toBeNull();
     expect(screen.getByText("Final recommendation")).toBeTruthy();
     expect(screen.getByLabelText(`Top pick: ${first.brand} ${first.model}`.trim())).toBeTruthy();
     expect(screen.getByRole("region", { name: "Sources" })).toBeTruthy();
-    expect(screen.getByText("Still unknown")).toBeTruthy();
+    expect(screen.queryByText("Still unknown")).toBeNull();
   });
 
   it("does not describe a failed application-started step as completed", () => {
@@ -280,12 +279,12 @@ describe("AskMosaic cancellation", () => {
 
     expect(screen.getByText("You stopped this request.")).toBeTruthy();
     expect(
-      screen.getByText("The partial answer and steps above are what Mosaic had found so far."),
+      screen.getByText("The partial answer and steps above are what the Retrieval agent had found so far."),
     ).toBeTruthy();
     // `role="alert"` is reserved for `turn.error`; cancellation is not a
     // failure and must never be announced as one.
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(screen.queryByText("Mosaic could not finish this request.")).toBeNull();
+    expect(screen.queryByText("The Retrieval agent could not finish this request.")).toBeNull();
   });
 });
 
@@ -370,7 +369,7 @@ describe("AskMosaic header and Builder view", () => {
     const toggle = screen.getByRole("switch", { name: "Builder view" });
     expect(toggle.getAttribute("aria-checked")).toBe("false");
     expect(screen.queryByRole("region", { name: "Builder view" })).toBeNull();
-    expect(screen.getByRole("button", { name: /How Mosaic answered/ }).getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByRole("button", { name: /How the tools work/ }).getAttribute("aria-expanded")).toBe("false");
   });
 
   it("turns the recorded steps on page-wide and remembers the choice", () => {
@@ -381,9 +380,8 @@ describe("AskMosaic header and Builder view", () => {
     expect(screen.getByRole("switch", { name: "Builder view" }).getAttribute("aria-checked")).toBe("true");
     const builder = screen.getByRole("region", { name: "Builder view" });
     expect(within(builder).getByText("run-grounded")).toBeTruthy();
-    expect(within(builder).getByText("Not recorded on this run")).toBeTruthy();
     for (const field of ["model id", "tokens", "Gateway target", "claim verdicts"]) {
-      expect(within(builder).getByText(field)).toBeTruthy();
+      expect(within(builder).queryByText(field)).toBeNull();
     }
     expect(window.localStorage.getItem("mosaic-ask-builder-view")).toBe("on");
     cleanup();
@@ -407,7 +405,7 @@ describe("AskMosaic header and Builder view", () => {
     let cleared = false;
     renderAskMosaic(groundedResponse(), { onClear: () => { cleared = true; } });
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear chat" }));
+    fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
     expect(cleared).toBe(true);
     expect(screen.getAllByRole("button", { name: "Close Ask Mosaic" }).length).toBeGreaterThan(0);
   });
@@ -415,7 +413,7 @@ describe("AskMosaic header and Builder view", () => {
   it("leaves the time out of the fold when the turn carries no measured timing", () => {
     renderAskMosaic(groundedResponse());
 
-    const fold = screen.getByRole("button", { name: /How Mosaic answered/ });
+    const fold = screen.getByRole("button", { name: /How the tools work/ });
     expect(fold.textContent).toContain("1 search");
     expect(fold.textContent).not.toMatch(/\d s\b/);
   });
@@ -482,4 +480,145 @@ describe("AskMosaic jump to latest", () => {
     expect(thread.scrollTop).toBe(1200);
     await waitFor(() => expect(screen.queryByRole("button", JUMP)).toBeNull());
   }, 12000);
+});
+
+describe("AskMosaic declined reads as declined", () => {
+  it("announces a declined turn as declined, with a neutral icon", () => {
+    const { container } = renderAskMosaic(DECLINED_RESPONSE);
+
+    const statuses = screen.getAllByRole("status").map((status) => status.textContent);
+    expect(statuses).toContain("The Retrieval agent declined to recommend a product.");
+    expect(statuses.join(" ")).not.toMatch(/recommendation/);
+    const fold = container.querySelector(".ask-fold");
+    expect(fold?.hasAttribute("data-declined")).toBe(true);
+    expect(fold?.querySelector("svg.lucide-check")).toBeNull();
+  });
+
+  it("keeps the check for a grounded answer", () => {
+    const { container } = renderAskMosaic(groundedResponse());
+
+    expect(screen.getAllByRole("status").map((status) => status.textContent))
+      .toContain("The Retrieval agent finished its recommendation.");
+    expect(container.querySelector(".ask-fold svg.lucide-check")).not.toBeNull();
+  });
+});
+
+describe("AskMosaic citation chips", () => {
+  const chips = (container: HTMLElement) => [...container.querySelectorAll<HTMLAnchorElement>("a.ask-answer-cite")];
+
+  it("makes chips inert while the sources are not on screen, then live", () => {
+    const response = groundedResponse();
+    const stopped: AskMosaicTurn = {
+      ...settledTurn(response),
+      completed: false,
+      cancelled: true,
+      streamed: response.answer,
+    };
+    const { container } = renderAskMosaic(response, { turns: [stopped] });
+
+    expect(screen.queryByRole("region", { name: "Sources" })).toBeNull();
+    const [chip] = chips(container);
+    expect(chip.getAttribute("aria-disabled")).toBe("true");
+    expect(chip.tabIndex).toBe(-1);
+    expect(fireEvent.click(chip)).toBe(false);
+    expect(container.querySelector(".ask-mosaic-answer")?.getAttribute("data-sources")).toBe("pending");
+
+    cleanup();
+    const settled = renderAskMosaic(response);
+    const [live] = chips(settled.container);
+    expect(live.hasAttribute("aria-disabled")).toBe(false);
+    expect(settled.container.querySelector(".ask-mosaic-answer")?.getAttribute("data-sources")).toBe("ready");
+  });
+});
+
+describe("AskMosaic tool chips above the answer", () => {
+  it("keeps one chip per recorded call over the finished answer", () => {
+    renderAskMosaic(groundedResponse());
+
+    const list = screen.getByRole("list", { name: "Tools the Retrieval agent called" });
+    expect(within(list).getByText("Search").closest("li")?.getAttribute("data-state")).toBe("done");
+    expect(within(list).getByText("12 ms")).toBeTruthy();
+    expect(screen.queryByLabelText("Progress")).toBeNull();
+  });
+
+  it("shows a failed call in red and a declined call in grey, without a time that was not recorded", () => {
+    const response = groundedResponse();
+    response.trace = [
+      traceStep(1, "get_product_evidence", { outcome: "error", latency_ms: null }),
+      traceStep(2, "synthesize_cited_answer", { outcome: "denied", latency_ms: null }),
+    ];
+    renderAskMosaic(response);
+
+    const list = screen.getByRole("list", { name: "Tools the Retrieval agent called" });
+    const read = within(list).getByText("Read sources").closest("li")!;
+    const write = within(list).getByText("Write cited answer").closest("li")!;
+    expect(read.getAttribute("data-state")).toBe("failed");
+    expect(write.getAttribute("data-state")).toBe("denied");
+    expect(list.textContent).not.toMatch(/ms/);
+  });
+});
+
+describe("AskMosaic conversation", () => {
+  const second = (response: AgentResponse): AskMosaicTurn => ({
+    ...settledTurn(response),
+    id: 2,
+    question: "And a cheaper one?",
+  });
+
+  it("collapses earlier turns under Previous messages and offers a visible New conversation", () => {
+    const response = groundedResponse();
+    const onClear = vi.fn();
+    renderAskMosaic(response, { turns: [settledTurn(response), second(response)], onClear });
+
+    expect(screen.getAllByText("You asked")).toHaveLength(1);
+    const toggle = screen.getByRole("button", { name: /Previous messages/ });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(toggle);
+    expect(screen.getAllByText("You asked")).toHaveLength(2);
+
+    const fresh = screen.getByRole("button", { name: "New conversation" });
+    expect(fresh.textContent).toBe("New conversation");
+    fireEvent.click(fresh);
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  it("has no Previous messages on the first turn", () => {
+    renderAskMosaic(groundedResponse());
+    expect(screen.queryByRole("button", { name: /Previous messages/ })).toBeNull();
+  });
+
+  it("lets Stop take the Send button's place while a run is going", () => {
+    const onStop = vi.fn();
+    renderAskMosaic(groundedResponse(), { pending: true, onStop });
+
+    expect(screen.queryByRole("button", { name: "Send request" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Stop generating" }));
+    expect(onStop).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText("Working on your request")).toBeNull();
+  });
+
+  it("says the price and stock caveat once, not under the picks", () => {
+    renderAskMosaic(groundedResponse());
+    expect(screen.getAllByText(/not the current listing/)).toHaveLength(1);
+  });
+});
+
+describe("AskMosaic found-by dots", () => {
+  it("names the searches that found a pick from its own signals", () => {
+    const response = groundedResponse();
+    const rank = (value: number | null) => ({ rank: value, raw_score: null, rrf_contribution: null });
+    response.recommendations = [{
+      ...first,
+      signals: {
+        fts: rank(1), trigram: rank(null), semantic: rank(4),
+        rrf_score: 0.03, pre_rerank_rank: 2, pre_rerank_score: 0.03, rerank_score: null,
+        final_rank: 1, score_semantics: "",
+      },
+    }];
+    renderAskMosaic(response);
+
+    const found = screen.getByRole("group", { name: "Found by" });
+    expect([...found.querySelectorAll("span")].map((item) => item.textContent))
+      .toEqual(["Full-text search", "Semantic search"]);
+  });
 });

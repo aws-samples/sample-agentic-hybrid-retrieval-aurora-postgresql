@@ -552,104 +552,75 @@ describe("CatalogPage", () => {
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
     const progress = within(dialog).getByLabelText("Progress");
-    // The progress presents one phase per dwell, so the first finding lands after one.
+    // The progress presents one phase per dwell, so the status reaches the
+    // comparing phase after a few of them.
     await waitFor(
-      () => expect(within(progress).getByText(/Read the request\./)).toBeTruthy(),
+      () => expect(within(progress).getByRole("status").textContent).toBe("Comparing the picks"),
       { timeout: stageDwellMs * 3 + 2000 },
     );
-    expect(progress.textContent).toContain("Planned 1 search");
-    await waitFor(
-      () => expect(progress.textContent).toContain("Ran 1 search in Aurora and kept 2 products."),
-      { timeout: stageDwellMs * 3 + 2000 },
-    );
-    expect(within(progress).getByRole("status").textContent).toContain("Comparing the picks");
+    const chips = within(progress).getByRole("list", { name: "Tools the Retrieval agent called" });
+    const chip = (name: string) => within(chips).getByText(name).closest("li")!;
+    // A finished tool gets a done dot and the time it took; the phase in
+    // progress is the status line's spinner, not a chip.
+    expect(chip("Search").dataset.state).toBe("done");
+    expect(within(chip("Search")).getByText("412 ms")).toBeTruthy();
+    expect(chip("Compare").dataset.state).toBe("done");
+    expect(within(chips).queryByText("Comparing the picks")).toBeNull();
+    expect(progress.querySelector(".ask-run-spinner")).not.toBeNull();
     expect(within(dialog).queryByText("Final recommendation")).toBeNull();
 
     release();
     await within(dialog).findByText("Final recommendation");
     expect(within(dialog).queryByLabelText("Progress")).toBeNull();
-    expect(within(dialog).getByRole("button", { name: /How Mosaic answered/ })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: /How the tools work/ })).toBeTruthy();
   }, stageDwellMs * 8 + 10_000);
 
-  it("counts the wait on the step that is working, without restarting it", async () => {
-    // Grounded synthesis cannot show a word until the answer has been checked
-    // against the citations it claims, which measured fourteen seconds on the live
-    // cluster. Nothing was counting, so the last card sat unchanged for all
-    // fourteen and the finished answer then appeared at once: a hang, then a snap.
+  it("changes one status line in place while it waits, and ticks nothing", async () => {
+    // Grounded synthesis cannot show a word until the answer has been checked, which
+    // measured fourteen seconds on the live cluster. The wait is one spinner line
+    // whose label changes with each phase; a counter inside a polite live region was
+    // read out every second.
     let release = () => {};
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const synthesisStage = {
-      type: "stage",
-      id: "answer",
-      path: "focused_follow_up",
-      title: "Compose cited answer",
-      detail: "Preparing an answer with sources.",
-    } as const;
-    let emit: ((event: AgentStreamEvent) => void) | null = null;
     vi.mocked(api.agentStream).mockImplementation(async (_q, _f, onEvent) => {
-      emit = onEvent;
-      onEvent(synthesisStage);
+      onEvent({
+        type: "stage",
+        id: "answer",
+        path: "focused_follow_up",
+        title: "Compose cited answer",
+        detail: "Preparing an answer with sources.",
+      });
       await held;
       onEvent({ type: "complete", response: agentResponse });
     });
 
-    let now = 1_000;
-    const clock = vi.spyOn(Date, "now").mockImplementation(() => now);
-    try {
-      renderPage();
-      await screen.findByText(catalog.products[0].model);
-      openAskMosaic();
-      fireEvent.change(
-        screen.getByRole("textbox", { name: "Ask Mosaic request" }),
-        { target: { value: agentResponse.question } },
-      );
-      fireEvent.click(screen.getByRole("button", { name: "Send request" }));
-      const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
-      const timeline = within(dialog).getByLabelText("Progress");
-      const seconds = () => [
-        ...timeline.querySelectorAll(".ask-run-elapsed"),
-      ].map((reading) => Number.parseInt(reading.textContent ?? "", 10));
+    renderPage();
+    await screen.findByText(catalog.products[0].model);
+    openAskMosaic();
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Ask Mosaic request" }),
+      { target: { value: agentResponse.question } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Send request" }));
+    const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
+    const progress = within(dialog).getByLabelText("Progress");
+    expect(progress.querySelector(".ask-run-spinner")).not.toBeNull();
+    expect(progress.querySelectorAll("[role=status]")).toHaveLength(1);
+    expect(progress.querySelector(".ask-run-elapsed")).toBeNull();
+    const status = within(progress).getByRole("status");
+    // The same element changes its words as the phases are presented; no digits tick.
+    await waitFor(() => expect(status.textContent).toBe("Checking the sources"), {
+      timeout: stageDwellMs * 3 + 2000,
+    });
+    expect(status.textContent).not.toMatch(/\d/);
 
-      // Nothing yet: a step that has just started has no elapsed time to report,
-      // and "0s" would be a reading rather than the absence of one.
-      expect(seconds()).toEqual([]);
-
-      now = 10_000;
-      await waitFor(() => expect(seconds()).toHaveLength(1), {
-        timeout: stageDwellMs * 2 + 2000,
-      });
-      // One reading, on the one step that is working. A finished step reports its
-      // state, not a clock that would keep running after it stopped.
-      expect(seconds()[0]).toBeGreaterThanOrEqual(9);
-      const beforeRepeat = seconds()[0];
-
-      // The service announces this step twice: once when synthesis is dispatched
-      // and again with a fuller detail line when it returns. Restarting on the
-      // second would report the sub-second write instead of the wait a reader sat
-      // through, which is the number this exists to show - so a restart shows up
-      // here as a reading of about 2 rather than about 11.
-      now = 12_000;
-      act(() => {
-        emit?.({
-          ...synthesisStage,
-          detail: "Delivering only claims grounded in returned catalog sources.",
-        });
-      });
-      await waitFor(
-        () => expect(seconds()[0]).toBeGreaterThanOrEqual(beforeRepeat + 2),
-        { timeout: 2000 },
-      );
-
-      release();
-      await within(dialog).findByText("Final recommendation");
-      // Settled: the progress has given way to the answer, so nothing is counting.
-      expect(within(dialog).queryByLabelText("Progress")).toBeNull();
-    } finally {
-      release();
-      clock.mockRestore();
-    }
+    release();
+    await within(dialog).findByText("Final recommendation");
+    // The spinner line goes once the answer starts; the finished tools stay.
+    expect(within(dialog).queryByLabelText("Progress")).toBeNull();
+    expect(within(dialog).getByLabelText("Tools used")).toBeTruthy();
   }, stageDwellMs * 4 + 10_000);
 
   it("clears the conversation without dismissing the panel", async () => {
@@ -660,7 +631,7 @@ describe("CatalogPage", () => {
     await screen.findByText(catalog.products[0].model);
     openAskMosaic();
     // Nothing to discard yet.
-    expect(screen.queryByRole("button", { name: "Clear chat" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "New conversation" })).toBeNull();
 
     fireEvent.change(
       screen.getByRole("textbox", { name: "Ask Mosaic request" }),
@@ -670,13 +641,13 @@ describe("CatalogPage", () => {
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
     await within(dialog).findByText("Final recommendation");
 
-    fireEvent.click(within(dialog).getByRole("button", { name: "Clear chat" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "New conversation" }));
     expect(
       screen.getByRole("complementary", { name: "Ask Mosaic" }),
     ).toBeTruthy();
     expect(screen.queryByText("Final recommendation")).toBeNull();
     expect(screen.queryByText(agentResponse.question)).toBeNull();
-    expect(screen.queryByRole("button", { name: "Clear chat" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "New conversation" })).toBeNull();
     // Back on the entry state, ready for the next question.
     expect(
       within(dialog).getByRole("list", { name: "Example questions" }),
@@ -707,7 +678,7 @@ describe("CatalogPage", () => {
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
     await waitFor(() => expect(requestSignal).toBeDefined());
 
-    fireEvent.click(within(dialog).getByRole("button", { name: "Clear chat" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "New conversation" }));
 
     expect(requestSignal?.aborted).toBe(true);
     expect(within(dialog).queryByText(agentResponse.question)).toBeNull();
@@ -1742,7 +1713,7 @@ describe("CatalogPage", () => {
     // The settled state: the progress has given way to the answer and a fold.
     await within(dialog).findByText("Final recommendation");
     expect(within(dialog).queryByLabelText("Progress")).toBeNull();
-    const fold = within(dialog).getByRole("button", { name: /How Mosaic answered/ });
+    const fold = within(dialog).getByRole("button", { name: /How the tools work/ });
     expect(fold.getAttribute("aria-expanded")).toBe("false");
     expect(fold.textContent).toMatch(/4 steps · 1 search · 2 sources/);
     fireEvent.click(fold);
@@ -1751,7 +1722,7 @@ describe("CatalogPage", () => {
     // Sources: every cited record, numbered as the prose cites it.
     const sources = within(dialog).getByRole("region", { name: "Sources" });
     expect(within(sources).getByText("Measured for shared-office use.", { exact: false })).toBeTruthy();
-    expect(within(dialog).getByText("Still unknown")).toBeTruthy();
+    expect(within(dialog).queryByText("Still unknown")).toBeNull();
     expect(screen.getByText("Ask Mosaic shortlist")).toBeTruthy();
 
     // Builder view puts the recorded steps and ranks on the page.
@@ -1812,7 +1783,9 @@ describe("CatalogPage", () => {
 
     // The follow-up appends to the conversation. It used to overwrite the single
     // stored response, so pressing "Compare top two" destroyed the answer that
-    // named the two products being compared.
+    // named the two products being compared. It now waits under "Previous messages".
+    expect(within(dialog).getAllByText("You asked")).toHaveLength(1);
+    fireEvent.click(within(dialog).getByRole("button", { name: /Previous messages/ }));
     expect(within(dialog).getAllByText("You asked")).toHaveLength(2);
     expect(within(dialog).getByText(agentResponse.question)).toBeTruthy();
     expect(
@@ -1863,8 +1836,10 @@ describe("CatalogPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Compare top two" }));
     await waitFor(() => expect(api.agentStream).toHaveBeenCalledTimes(2));
 
-    await waitFor(() => expect(within(dialog).getAllByRole("button", { name: /How Mosaic answered/ })).toHaveLength(2));
-    const folds = within(dialog).getAllByRole("button", { name: /How Mosaic answered/ });
+    await within(dialog).findByRole("button", { name: /Previous messages/ });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Previous messages/ }));
+    await waitFor(() => expect(within(dialog).getAllByRole("button", { name: /How the tools work/ })).toHaveLength(2));
+    const folds = within(dialog).getAllByRole("button", { name: /How the tools work/ });
     expect(folds[0].textContent).toContain("4 steps");
     expect(folds[1].textContent).toContain("3 steps");
     fireEvent.click(folds[1]);
@@ -1906,8 +1881,10 @@ describe("CatalogPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Send request" }));
     await waitFor(() => expect(api.agentStream).toHaveBeenCalledTimes(2));
 
-    await waitFor(() => expect(within(dialog).getAllByRole("button", { name: /How Mosaic answered/ })).toHaveLength(2));
-    const folds = within(dialog).getAllByRole("button", { name: /How Mosaic answered/ });
+    await within(dialog).findByRole("button", { name: /Previous messages/ });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Previous messages/ }));
+    await waitFor(() => expect(within(dialog).getAllByRole("button", { name: /How the tools work/ })).toHaveLength(2));
+    const folds = within(dialog).getAllByRole("button", { name: /How the tools work/ });
     expect(folds[1].textContent).toContain("4 steps");
     expect(invocation).toBe(2);
   });
@@ -2067,11 +2044,11 @@ describe("CatalogPage", () => {
 
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
     expect(
-      await within(dialog).findByText("Ask Mosaic recommendation complete."),
+      await within(dialog).findByText("The Retrieval agent finished its recommendation."),
     ).toBeTruthy();
     expect(
       within(dialog).getAllByRole("status")
-        .filter((status) => status.textContent?.includes("recommendation complete")),
+        .filter((status) => status.textContent?.includes("finished its recommendation")),
     ).toHaveLength(1);
   });
 
@@ -2565,7 +2542,7 @@ describe("CatalogPage", () => {
     expect(within(reopened).getByText("Final recommendation")).toBeTruthy();
     expect(within(reopened).queryByLabelText("Progress")).toBeNull();
     expect(
-      within(reopened).getByRole("button", { name: /How Mosaic answered/ }).getAttribute("aria-expanded"),
+      within(reopened).getByRole("button", { name: /How the tools work/ }).getAttribute("aria-expanded"),
     ).toBe("false");
   });
 
