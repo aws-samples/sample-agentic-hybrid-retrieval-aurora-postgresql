@@ -1,4 +1,5 @@
-import { ArrowRight, Download, LoaderCircle } from "lucide-react";
+import { ArrowRight, Download } from "lucide-react";
+import { PulseDot } from "../components/PulseDot";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "wouter";
 import { api, ApiError } from "../api";
@@ -143,7 +144,7 @@ function ScaleInspector() {
     <MosaicLabsTabs active="hnsw" />
     <div className="inspector-intro"><MosaicLabsMasthead title={<>A small shortlist. <span className="inspector-title-emphasis">A much larger search.</span></>} deck="More search effort finds more matches, until it only costs more time." action={<CatalogBuildDrawer />} /></div>
     {substrate ? <ul className="scale-chips" aria-label="Current index"><li>{substrate.corpus.vector_count.toLocaleString()} product embeddings</li><li>{substrate.corpus.dimensions ?? "Unreported"} dimensions</li><li>pgvector {substrate.aurora.vector_extension_version ?? "version not reported"}</li></ul> : null}
-    {pending ? <p className="scale-status" role="status"><LoaderCircle className="scale-spinner" size={18} aria-hidden="true" />Reading the catalog and benchmarks…</p> : null}
+    {pending ? <p className="scale-status" role="status"><PulseDot />Reading the catalog and benchmarks…</p> : null}
     {unavailable.length ? <p className="scale-intro-note" role="note">{unavailable.join(" ")}</p> : null}
     {errors.length ? <div className="inspector-error" role="alert">{errors.join(" ")} <button type="button" className="text-button" onClick={() => setAttempt((value) => value + 1)}>Retry loading</button></div> : null}
     {measured && effort ? <section className="scale-hero" aria-labelledby="scale-effort-title"><header><h2 id="scale-effort-title">Recall against speed.</h2><p>{sweepTakeaway(effort)}</p></header><HnswSweep sweep={effort} served={substrate?.retrieval.ef_search ?? null} /><AdvancedBenchmarks measured={measured} /></section> : null}

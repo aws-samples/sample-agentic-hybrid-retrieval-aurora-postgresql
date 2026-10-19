@@ -1,4 +1,4 @@
-import { LoaderCircle } from "lucide-react";
+import { PulseDot } from "../PulseDot";
 import type { RunData } from "./findings";
 import { formatMilliseconds, toolChips, type ToolChip } from "./toolChips";
 import { stagesFor, type AssistStage } from "./types";
@@ -52,7 +52,7 @@ export function RunProgress({
       {state === "done" ? null : (
         <p className="ask-run-status" role="status" aria-live="polite">
           {state === "working" ? (
-            <LoaderCircle className="ask-run-spinner" size={16} aria-hidden="true" />
+            <PulseDot />
           ) : null}
           <span>{state === "working" ? current.running : STATE_LABEL[state]}</span>
         </p>

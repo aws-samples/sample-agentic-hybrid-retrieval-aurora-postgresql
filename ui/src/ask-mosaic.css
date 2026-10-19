@@ -551,12 +551,6 @@
   font-weight: 500;
 }
 
-.ask-run-spinner {
-  flex: none;
-  color: var(--action);
-  animation: ask-spin 900ms linear infinite;
-}
-
 .ask-run[data-state="failed"] .ask-run-status {
   color: var(--danger);
 }
@@ -1521,12 +1515,6 @@
   }
 }
 
-@keyframes ask-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @keyframes ask-chip-in {
   from {
     opacity: 0;
@@ -1559,7 +1547,6 @@
   .ask-top-pick,
   .ask-builder,
   .ask-tool-chip,
-  .ask-run-spinner,
   .ask-arrive {
     animation: none;
   }

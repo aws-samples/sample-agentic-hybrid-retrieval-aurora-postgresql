@@ -568,7 +568,7 @@ describe("CatalogPage", () => {
     expect(within(chip("Search")).getByText("412 ms")).toBeTruthy();
     expect(chip("Compare").dataset.state).toBe("done");
     expect(within(chips).queryByText("Comparing the picks")).toBeNull();
-    expect(progress.querySelector(".ask-run-spinner")).not.toBeNull();
+    expect(progress.querySelector(".pulse-dot")).not.toBeNull();
     expect(within(dialog).queryByText("Final recommendation")).toBeNull();
 
     release();
@@ -608,7 +608,7 @@ describe("CatalogPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
     const dialog = screen.getByRole("complementary", { name: "Ask Mosaic" });
     const progress = within(dialog).getByLabelText("Progress");
-    expect(progress.querySelector(".ask-run-spinner")).not.toBeNull();
+    expect(progress.querySelector(".pulse-dot")).not.toBeNull();
     expect(progress.querySelectorAll("[role=status]")).toHaveLength(1);
     expect(progress.querySelector(".ask-run-elapsed")).toBeNull();
     const status = within(progress).getByRole("status");

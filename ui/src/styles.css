@@ -263,6 +263,26 @@ button:disabled {
   border: 0;
 }
 
+/* Status lines say they are working with a breathing blue dot, never a spinner;
+   spinners stay inside the buttons that started the work. */
+.pulse-dot {
+  display: inline-block;
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--retrieve);
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  50% { opacity: 0.35; transform: scale(0.75); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-dot { animation: none; }
+}
+
 .muted {
   color: var(--ink-soft);
 }

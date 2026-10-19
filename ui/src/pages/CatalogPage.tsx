@@ -39,6 +39,7 @@ import { CodeEditorLink } from "../components/CodeEditorLink";
 import { RankLabCard } from "../components/RankLabCard";
 import { useLabStates } from "../useLabStates";
 import { TerminalCommand } from "../components/TerminalCommand";
+import { PulseDot } from "../components/PulseDot";
 import { completeLab3Command } from "../participantCommands";
 import { SpotlightTour } from "../components/SpotlightTour";
 import { SHOP_PLAYGROUND_HINT } from "../tour";
@@ -269,7 +270,7 @@ function SearchingLine() {
   }, []);
   return (
     <p className="shop-searching" role="status">
-      <span className="shop-searching-dot" aria-hidden="true" />
+      <PulseDot />
       {seconds >= 2 ? `Searching Aurora… ${seconds}s` : "Searching Aurora…"}
     </p>
   );

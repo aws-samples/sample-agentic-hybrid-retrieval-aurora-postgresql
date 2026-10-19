@@ -123,8 +123,6 @@
   color: var(--ink-soft);
 }
 
-.scale-spinner { animation: scale-spin 1s linear infinite; }
-@keyframes scale-spin { to { transform: rotate(360deg); } }
 
 .scale-essentials > .scale-intro-note {
   max-width: 64ch;
@@ -391,7 +389,7 @@
 .session-memory .memory-record-scope::before { width: 7px; height: 7px; border-radius: 50%; background: var(--green); content: ""; }
 .session-memory .memory-event { border: 0; border-radius: 14px; background: var(--paper-warm); margin-top: 8px; padding: 8px 16px; }
 .session-memory .memory-event-list { margin-top: 20px; }
-.session-memory .memory-configuration { padding-top: 0; border: 0; }
+.session-memory .memory-configuration { margin-top: 16px; padding-top: 0; border: 0; }
 .session-memory pre { border: 0; border-radius: 14px; background: var(--paper-strong); }
 
 /* Every disclosure on the page is the same quiet pill. */
@@ -467,5 +465,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .scale-spinner, .scale-inspect > summary { animation: none; transition: none; }
+  .scale-inspect > summary { animation: none; transition: none; }
 }

@@ -131,12 +131,6 @@
 
 /* Searching: one live line above the pipeline, ink rather than grey. */
 .shop-searching { margin: 0 0 16px; color: var(--ink); font-size: 15px; font-variant-numeric: tabular-nums; }
-.shop-searching-dot {
-  flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--retrieve);
-  animation: shop-searching-breathe 1.4s ease-in-out infinite;
-}
-@keyframes shop-searching-breathe { 50% { opacity: 0.35; transform: scale(0.75); } }
-@media (prefers-reduced-motion: reduce) { .shop-searching-dot { animation: none; } }
 
 /* Shelf: padding inside the scroller keeps card edges and shadows from being
    cut; the negative margin keeps the cards aligned with the heading. */

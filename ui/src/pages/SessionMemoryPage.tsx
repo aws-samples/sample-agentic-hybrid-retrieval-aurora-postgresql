@@ -1,5 +1,6 @@
 import { memoryRecordText } from "../memoryRecordText";
-import { LoaderCircle, Plus, RotateCcw } from "lucide-react";
+import { Plus, RotateCcw } from "lucide-react";
+import { PulseDot } from "../components/PulseDot";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import Markdown from "react-markdown";
 import { Link } from "wouter";
@@ -180,7 +181,7 @@ export function SessionMemoryPage() {
       <li><a href="#memory-recall-heading"><strong>3. Ask in a new session</strong></a><p>Choose <b>Ask Mosaic</b> and read the memories it used.</p></li>
     </ol>
     {error && <div className="memory-error" role="alert"><p>{error}</p>{!data && <button className="secondary-button" onClick={() => { setError(""); refresh(true).catch((cause) => setError(cause.message)); }}>Retry</button>}</div>}
-    {!data ? (error ? null : <p className="memory-loading" role="status"><LoaderCircle className="memory-spinner" size={18} />Loading conversations and memory settings…</p>) : <>
+    {!data ? (error ? null : <p className="memory-loading" role="status"><PulseDot />Loading conversations and memory settings…</p>) : <>
       <div className="memory-profile"><img src="/assets/images/mosaic/alex-headshot-v1.jpg" alt="Alex" width={56} height={56} /><div><strong>Alex’s conversations</strong><span className="memory-connection" data-connected={connected} data-failed={data.memory_status === "unavailable"}>{connected ? "Connected to AgentCore Memory" : data.memory_status === "unavailable" ? "AgentCore Memory is temporarily unavailable" : "AgentCore Memory is not connected"}</span></div><div className="memory-session-actions"><button className="secondary-button" onClick={startNew} disabled={locked}><Plus size={16} aria-hidden="true" />New session</button><button className="secondary-button" onClick={resetAlex} disabled={locked}><RotateCcw size={16} aria-hidden="true" />Start fresh</button><small>New session keeps his memories. Start fresh resets Alex.</small></div>
         <div className="memory-session-bar"><label>Session<select value={selected ?? ""} disabled={locked} onChange={(event) => { setSelected(event.target.value || null); setRecalled(null); setAnswer(""); setCurrentRunId(null); setCompletedResponse(null); setAskError(""); setAnswerNotice(""); }}><option value="">New conversation</option>{data.sessions.map((item) => <option key={item.agent_session_id} value={item.agent_session_id}>{date(item.started_at)} · {item.label || item.turns[0]?.question.slice(0, 70) || "Conversation"}</option>)}</select></label><button className="secondary-button" onClick={() => act(async () => { await refresh(); })} disabled={locked || loading}><RotateCcw size={16} aria-hidden="true" />Refresh memories</button></div>
       </div>
@@ -193,7 +194,7 @@ export function SessionMemoryPage() {
         <section className="memory-strategies" aria-labelledby="memory-strategies-heading"><div className="memory-section-heading"><h2 id="memory-strategies-heading">What AgentCore remembers</h2><span className="memory-small-label">Long-term memory</span></div>
           <div className="memory-strategy-picker" role="group" aria-label="Types of memory">{strategies.map((item) => <button key={item.type} type="button" aria-pressed={type === item.type} onClick={() => setType(item.type)}><span>{item.name}</span><small>{item.technical}</small></button>)}</div>
           <div className="memory-strategy-description"><p>{strategy.description}</p><details className="memory-strategy-guide"><summary>How {strategy.name.toLowerCase()} work</summary><h3>{strategy.title}</h3><span className="memory-strategy-status">{configured ? `${configured.status === "ACTIVE" ? "Active" : configured.status.toLowerCase()} in this connection` : "Available in AgentCore · not configured here"}</span><dl><dt>Where it is used</dt><dd>{strategy.scope}</dd><dt>Steps</dt><dd>{strategy.process}</dd></dl><p className="memory-strategy-detail">{strategy.detail}</p></details></div>
-          {loading && <p className="memory-loading" role="status"><LoaderCircle className="memory-spinner" size={18} aria-hidden="true" />Reading AgentCore records…</p>}
+          {loading && <p className="memory-loading" role="status"><PulseDot />Reading AgentCore records…</p>}
           {readError && <p className="memory-error" role="alert">{readError}</p>}
           {!loading && !readError && (records.length ? <Records records={records} sessionId={selected} /> : <div className="memory-record-empty"><strong>No records returned yet.</strong><p>{!configured ? "This type of memory is not configured on this connection." : type === "SUMMARIZATION" && !selected ? "Select a session to read its summaries." : "AgentCore processes messages in the background. Saved memories may appear later, and not every message creates one."}</p></div>)}
           {hasMore && <p className="memory-empty">Showing up to 20 records from each storage path.</p>}
@@ -232,7 +233,7 @@ export function SessionMemoryPage() {
           {askError && <div className="memory-error memory-ask-error" role="alert"><strong>Mosaic could not finish this request.</strong><p>{askError}</p><p>Follow the recovery step above, then choose Ask Mosaic to retry. Your question is still here.</p></div>}
           {answerNotice && <p className="memory-empty" role="status">{answerNotice}</p>}
           {recalled !== null && <div className="memory-recall-results" aria-live="polite"><h3>{recalled.length} relevant memor{recalled.length === 1 ? "y" : "ies"} returned</h3><Records records={recalled} />{!recalled.length && <p>No saved memories matched this request.</p>}</div>}
-          {pending && <p className="memory-progress" role="status"><LoaderCircle className="memory-spinner" size={18} aria-hidden="true" />{stage}</p>}{answer && !currentTurn && <div className="memory-answer-copy"><Markdown>{answer}</Markdown></div>}
+          {pending && <p className="memory-progress" role="status"><PulseDot />{stage}</p>}{answer && !currentTurn && <div className="memory-answer-copy"><Markdown>{answer}</Markdown></div>}
           {currentTurn && <div className="memory-current-answer"><Turn turn={currentTurn} /></div>}
           {!pending && !answer && !currentTurn && !askError && <p className="memory-empty">Choose Ask Mosaic to run the question above. Saving a message or finding memories does not generate an answer.</p>}
           {earlierTurns.length > 0 && <details key={selected} className="memory-history"><summary>Earlier answers · {earlierTurns.length}</summary>{earlierTurns.map((turn) => <Turn key={turn.run_id} turn={turn} />)}</details>}

@@ -1,4 +1,5 @@
-import { AlertTriangle, LoaderCircle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
+import { PulseDot } from "./PulseDot";
 import { Link } from "wouter";
 
 const catalogSkeletonItems = Array.from({ length: 8 }, (_, index) => index);
@@ -30,7 +31,7 @@ export function CatalogLoadingState() {
 export function LoadingState({ label = "Loading" }: { label?: string }) {
   return (
     <div className="state-panel" role="status">
-      <LoaderCircle className="spin" size={22} />
+      <PulseDot />
       <span>{label}</span>
     </div>
   );

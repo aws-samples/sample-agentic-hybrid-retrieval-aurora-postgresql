@@ -695,10 +695,16 @@
   transition: border-color 180ms ease, background 180ms ease, color 180ms ease;
 }
 
+/* Hover fills with the template orange and black text, as the AWS console's
+   primary buttons do; the GitHub mark turns black with the text. */
 .mosaic-labs-tabs > .mosaic-labs-source:hover {
-  border-color: color-mix(in srgb, var(--rank) 55%, transparent);
-  background: color-mix(in srgb, var(--rank) 16%, var(--paper-strong));
-  color: var(--ink);
+  border-color: var(--rank-template);
+  background: var(--rank-template);
+  color: var(--fill-ink);
+}
+
+:root .mosaic-labs-tabs > .mosaic-labs-source:hover img {
+  filter: none;
 }
 
 .mosaic-labs-source img {
