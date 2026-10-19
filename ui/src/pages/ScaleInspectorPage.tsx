@@ -1,10 +1,11 @@
-import { ArrowRight, Download } from "lucide-react";
+import { ArrowRight, Download, LoaderCircle } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "wouter";
 import { api, ApiError } from "../api";
 import { CodeBlock } from "../components/CodeBlock";
 import { CatalogBuildDrawer } from "../components/CatalogBuildDrawer";
 import { HnswSearchGraph } from "../components/HnswSearchGraph";
+import { HnswSweep, sweepTakeaway } from "../components/HnswSweep";
 import { MosaicLabsTabs } from "../components/MosaicLabsTabs";
 import { MosaicLabsMasthead } from "../components/MosaicLabsMasthead";
 import { formatBytes } from "../hnsw";
@@ -28,7 +29,10 @@ function ScaleSection({ id, title, description, children }: { id: string; title:
 }
 function MeasurementNote({ measured }: { measured: HnswMeasured }) {
   const median = measured.ef_sweep.some((point) => point.server_p95_ms != null);
-  return <p className="scale-measurement-note"><strong>{measured.attribution.attributed ? "Measured on this catalog" : "Earlier catalog benchmark"}</strong> · {new Date(measured.captured_at).toLocaleDateString("en-GB")} · {measured.provenance.queries ?? "Recorded"} queries. {median ? "Typical database time with data already cached (p50)." : "Database time from a sampled query."}</p>;
+  return <p className="scale-measurement-note"><strong>{measured.attribution.attributed ? "Measured on this catalog" : "Earlier catalog benchmark"}</strong> · {new Date(measured.captured_at).toLocaleDateString("en-GB")} · {measured.provenance.queries ?? "Recorded"} queries. {median ? "Typical database time with data already cached (p50)." : "Database time from a sampled query."} Saved measurements do not rerun when the index or settings change.</p>;
+}
+function Inspect({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
+  return <details className={`scale-inspect ${className}`.trim()}><summary>{label}</summary><div>{children}</div></details>;
 }
 function FilterComparison({ measured }: { measured: HnswMeasured | null }) {
   const [preset, setPreset] = useState("brand");
@@ -37,15 +41,17 @@ function FilterComparison({ measured }: { measured: HnswMeasured | null }) {
   const rows = comparableScanModes(level);
   const exact = level?.exact_rows_found ?? 0;
   const strictGain = rows.length ? rows[1].rows_returned - rows[0].rows_returned : 0;
-  return <ScaleSection id="scale-filters" title="Keep looking after filters." description="Alex wants products that fit his preferences. Filters can remove nearby matches; iterative scans look for more.">
-    <p className="scale-intro-note">In pgvector 0.8+, <strong>strict and relaxed are both iterative modes.</strong> Relaxed ordering can improve recall. A final sort restores distance order.</p>
+  return <ScaleSection id="scale-filters" title="Keep looking after filters." description="A filter can empty the shortlist. Iterative scans keep looking until it fills.">
     {measured && level ? <>
       <div className="scale-selector"><label htmlFor="scale-filter">Alex’s filter</label><select id="scale-filter" value={level.preset} onChange={(event) => setPreset(event.target.value)}>{available.map((item) => <option key={item.preset} value={item.preset}>{item.label}</option>)}</select></div>
-      <MeasurementNote measured={measured} />
       {rows.length ? <>
         <div className="inspector-table-scroll" role="region" aria-label="Off, strict and relaxed scan comparison" tabIndex={0}><table className="inspector-table scale-comparison-table"><thead><tr><th>Scan mode</th><th>Products found · average</th><th>Recall@{measured.provenance.k ?? "k"}</th><th>Server time</th></tr></thead><tbody>{rows.map((row) => <tr key={row.iterative_scan}><th scope="row">{modes[row.iterative_scan].title}<small>{modes[row.iterative_scan].description}</small></th><td><strong>{amount(row.rows_returned)} / {amount(exact)}</strong><span className="scale-found-track" aria-hidden="true"><span style={{ width: `${exact ? Math.min(row.rows_returned / exact, 1) * 100 : 0}%` }} /></span></td><td>{percent(row.recall_at_k)}</td><td>{row.server_ms} ms</td></tr>)}</tbody></table></div>
-        <p className="scale-takeaway">{strictGain > 0 ? `Strict scanning found ${amount(strictGain)} more products on average than Off in this test.` : "Strict scanning did not increase the average number of products in this test."} Scans still stop at their work limit.</p>
-        <p className="scale-measurement-note">Same filter{rows[0].ef_search != null ? ` · ef_search ${rows[0].ef_search}` : ""} · {rows[0].scan_mem_mb} MB scan memory. Recall is the share of the exact closest matches found.</p>
+        <p className="scale-takeaway">{strictGain > 0 ? `Strict scanning found ${amount(strictGain)} more products on average than Off in this test.` : "Strict scanning did not increase the average number of products in this test."}</p>
+        <Inspect label="Measurement details">
+          <MeasurementNote measured={measured} />
+          <p className="scale-measurement-note">Same filter{rows[0].ef_search != null ? ` · ef_search ${rows[0].ef_search}` : ""} · {rows[0].scan_mem_mb} MB scan memory. Recall is the share of the exact closest matches found.</p>
+          <p className="scale-measurement-note">In pgvector 0.8+, <strong>strict and relaxed are both iterative modes.</strong> Relaxed ordering can improve recall. A final sort restores distance order.</p>
+        </Inspect>
       </> : <p>No comparison with matching search and memory settings is available.</p>}
     </> : <p className="inspector-waiting">Filter measurements are not available yet.</p>}
   </ScaleSection>;
@@ -57,13 +63,15 @@ function RepresentationComparison({ measured }: { measured: HnswMeasured | null 
   const selected = binaryRows.find((row) => row.overfetch === depth) ?? binaryRows.at(-1);
   const rows = [...representations?.rows.filter((row) => ["fp32", "halfvec"].includes(row.representation)) ?? [], ...selected ? [selected] : []];
   const fullSize = rows.find((row) => row.representation === "fp32")?.index_size_bytes;
-  return <ScaleSection id="scale-representations" title="A smaller index." description="Keep the same embeddings. Change how the index stores them, then compare size, speed and matches.">
-    <p className="scale-intro-note"><strong>halfvec</strong> stores each number in 16 bits. <strong>Binary storage</strong> keeps one sign bit, then checks its shortlist against the original vectors.</p>
+  return <ScaleSection id="scale-representations" title="A smaller index." description="Same embeddings, stored in less space.">
     {measured && representations ? <>
-      <MeasurementNote measured={measured} />
       <div className="inspector-table-scroll" role="region" aria-label="Vector format benchmarks" tabIndex={0}><table className="inspector-table scale-comparison-table"><thead><tr><th>Format</th><th>Index size</th><th>Recall@{representations.k}</th><th>Server time</th></tr></thead><tbody>{rows.map((row) => <tr key={row.representation}><th scope="row">{row.representation === "fp32" ? "vector · full precision" : row.representation === "halfvec" ? "halfvec" : "Binary + cosine"}{row.overfetch ? <small>{row.overfetch} matches checked</small> : null}</th><td>{formatBytes(row.index_size_bytes)}{fullSize && row.index_size_bytes < fullSize ? <small>{(fullSize / row.index_size_bytes).toFixed(1)}× smaller</small> : null}</td><td>{percent(row.recall_at_k)}</td><td>{row.server_ms} ms</td></tr>)}</tbody></table></div>
-      {binaryRows.length ? <div className="scale-selector"><label htmlFor="binary-depth">Shortlist size to check</label><select id="binary-depth" value={selected?.overfetch ?? ""} onChange={(event) => setDepth(Number(event.target.value))}>{binaryRows.map((row) => <option key={row.overfetch} value={row.overfetch ?? ""}>{row.overfetch}</option>)}</select><span>Checking more matches can recover matches, at extra cost.</span></div> : null}
-      <p className="scale-measurement-note">{representations.anchors} queries · ef_search {representations.ef_search}. Recall is checked against full-precision exact search. Index size includes graph overhead.</p>
+      {binaryRows.length ? <div className="scale-selector"><label htmlFor="binary-depth">Shortlist size to check</label><select id="binary-depth" value={selected?.overfetch ?? ""} onChange={(event) => setDepth(Number(event.target.value))}>{binaryRows.map((row) => <option key={row.overfetch} value={row.overfetch ?? ""}>{row.overfetch}</option>)}</select></div> : null}
+      <Inspect label="Measurement details">
+        <MeasurementNote measured={measured} />
+        <p className="scale-measurement-note"><strong>halfvec</strong> stores each number in 16 bits. <strong>Binary storage</strong> keeps one sign bit, then checks its shortlist against the original vectors. Checking more matches can recover matches, at extra cost.</p>
+        <p className="scale-measurement-note">{representations.anchors} queries · ef_search {representations.ef_search}. Recall is checked against full-precision exact search. Index size includes graph overhead.</p>
+      </Inspect>
     </> : <><div className="scale-format-basics"><span>vector · full precision</span><span>halfvec · smaller numbers</span><span>Binary · sign bits + cosine check</span></div><p className="inspector-waiting">Format measurements are unavailable for this catalog.</p></>}
   </ScaleSection>;
 }
@@ -75,7 +83,7 @@ function downloadMeasurements(measured: HnswMeasured) {
 function AdvancedBenchmarks({ measured }: { measured: HnswMeasured }) {
   const best = [...measured.ef_sweep].sort((a, b) => b.recall_at_k - a.recall_at_k || a.server_ms - b.server_ms)[0];
   const deep = measured.representations?.blog_operating_point;
-  return <details className="scale-advanced"><summary>Benchmarks & SQL <span>For a closer look</span></summary><div>
+  return <Inspect label="Benchmarks & SQL">
     <MeasurementNote measured={measured} />
     <h3>Search effort and recall</h3>
     {best ? <p>Best recall in this sweep: <strong>{percent(best.recall_at_k)}</strong> at ef_search {best.ef_search}, in {best.server_ms} ms. More search effort can reach a point of diminishing returns.</p> : null}
@@ -86,7 +94,7 @@ function AdvancedBenchmarks({ measured }: { measured: HnswMeasured }) {
     <CodeBlock label="Iterative scan examples" code={`BEGIN;\nSET LOCAL hnsw.iterative_scan = 'strict_order';\n-- Run the filtered nearest-neighbor query.\nCOMMIT;\n\nBEGIN;\nSET LOCAL hnsw.iterative_scan = 'relaxed_order';\nWITH matches AS MATERIALIZED (\n  SELECT product_id, embedding <=> $1 AS distance\n  FROM mosaic_search.product_listing_view\n  WHERE embedding IS NOT NULL AND category_key = $2\n  ORDER BY distance\n  LIMIT $3\n)\nSELECT * FROM matches ORDER BY distance + 0;\nCOMMIT;`} />
     <p>Strict keeps the returned rows in distance order; it is still approximate search. Relaxed can improve recall, then the outer sort restores order. The <code>+ 0</code> is needed on PostgreSQL 17+.</p>
     <div className="scale-reference-links"><a href="https://github.com/pgvector/pgvector#iterative-index-scans" target="_blank" rel="noreferrer">pgvector scan modes <ArrowRight size={14} /></a><a href="https://aws.amazon.com/blogs/database/scale-pgvector-with-binary-quantization-on-amazon-aurora-postgresql/" target="_blank" rel="noreferrer">AWS guide to smaller vector indexes <ArrowRight size={14} /></a><button type="button" onClick={() => downloadMeasurements(measured)}><Download size={14} />Download measurements</button><Link href="/mosaic-labs/hnsw?view=bench">Full benchmark workbench</Link></div>
-  </div></details>;
+  </Inspect>;
 }
 function ScaleInspector() {
   const [substrate, setSubstrate] = useState<HnswSubstrate | null>(null);
@@ -115,24 +123,22 @@ function ScaleInspector() {
     });
     return () => { active = false; };
   }, [attempt]);
+  const effort = measured?.ef_sweep.length ? measured.ef_sweep : null;
   return <div className="page pipeline-inspector scale-essentials">
     <MosaicLabsTabs active="hnsw" />
-    <div className="inspector-intro"><MosaicLabsMasthead title={<>A small shortlist. <span className="inspector-title-emphasis">A much larger search.</span></>} deck="Compare the matches found, database time and index size before choosing a search setting." action={<CatalogBuildDrawer />} /></div>
-    {substrate ? <p className="scale-catalog-context"><strong>Current index</strong> · {substrate.corpus.vector_count.toLocaleString()} product embeddings · {substrate.corpus.dimensions ?? "Unreported"} dimensions · pgvector {substrate.aurora.vector_extension_version ?? "version not reported"}</p> : null}
-    {pending ? <p role="status">Reading the catalog and benchmarks…</p> : null}
+    <div className="inspector-intro"><MosaicLabsMasthead title={<>A small shortlist. <span className="inspector-title-emphasis">A much larger search.</span></>} deck="More search effort finds more matches, until it only costs more time." action={<CatalogBuildDrawer />} /></div>
+    {substrate ? <ul className="scale-chips" aria-label="Current index"><li>{substrate.corpus.vector_count.toLocaleString()} product embeddings</li><li>{substrate.corpus.dimensions ?? "Unreported"} dimensions</li><li>pgvector {substrate.aurora.vector_extension_version ?? "version not reported"}</li></ul> : null}
+    {pending ? <p className="scale-status" role="status"><LoaderCircle className="scale-spinner" size={18} aria-hidden="true" />Reading the catalog and benchmarks…</p> : null}
     {unavailable.length ? <p className="scale-intro-note" role="note">{unavailable.join(" ")}</p> : null}
     {errors.length ? <div className="inspector-error" role="alert">{errors.join(" ")} <button type="button" className="text-button" onClick={() => setAttempt((value) => value + 1)}>Retry loading</button></div> : null}
-    <p className="scale-intro-note">The comparisons below are saved measurements, dated in each section.
-      They do not rerun when the current index or settings change. Compare recall
-      against exact search, then decide whether the time and memory tradeoff fits your request.</p>
+    {measured && effort ? <section className="scale-hero" aria-labelledby="scale-effort-title"><header><h2 id="scale-effort-title">Recall against speed.</h2><p>{sweepTakeaway(effort)}</p></header><HnswSweep sweep={effort} served={substrate?.retrieval.ef_search ?? null} /><AdvancedBenchmarks measured={measured} /></section> : null}
     <FilterComparison measured={measured} />
     <RepresentationComparison measured={measured} />
-    {measured ? <AdvancedBenchmarks measured={measured} /> : null}
-    <details className="scale-advanced" id="scale-mechanism" onToggle={(event) => setIllustrationOpen(event.currentTarget.open)}>
-      <summary>How HNSW finds neighbors <span>A real search on a small map you can tune</span></summary>
+    <details className="scale-inspect scale-mechanism" id="scale-mechanism" onToggle={(event) => setIllustrationOpen(event.currentTarget.open)}>
+      <summary>How HNSW finds neighbors</summary>
       <div>{illustrationOpen ? <HnswSearchGraph served={substrate ? { efSearch: substrate.retrieval.ef_search, vectors: substrate.corpus.vector_count, dimensions: substrate.corpus.dimensions, definition: substrate.index.definition } : null} /> : null}</div>
     </details>
-    <aside className="inspector-scale-link"><div><h2>And when Alex comes back?</h2><p>See how AgentCore keeps conversation details and recalls what matters for the next request.</p></div><Link href="/mosaic-labs/memory">Explore session & memory</Link></aside>
+    <aside className="inspector-scale-link"><div><h2>And when Alex comes back?</h2><p>See what AgentCore remembers about him.</p></div><Link href="/mosaic-labs/memory">Explore session & memory</Link></aside>
   </div>;
 }
 export function ScaleInspectorPage() {

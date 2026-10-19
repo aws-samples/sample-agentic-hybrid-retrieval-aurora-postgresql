@@ -1,7 +1,8 @@
-/* Optional inspection pages share the product-page hierarchy of Hybrid retrieval. */
+/* Scale & HNSW and Session & Memory share the product-page look of Hybrid retrieval:
+   borderless cards on the canvas, one sentence under each heading, depth behind a pill. */
 .pipeline-inspector:is(.scale-essentials, .session-memory) .inspector-intro {
   max-width: 100%;
-  padding: 48px 0 36px;
+  padding: 40px 0 32px;
   text-align: center;
 }
 
@@ -23,135 +24,382 @@
 
 .pipeline-inspector:is(.scale-essentials, .session-memory) .labs-intro-deck {
   max-width: 62ch;
-  margin: 20px auto 0;
+  margin: 16px auto 0;
   font-size: var(--labs-lead);
-  line-height: 1.6;
+  line-height: 1.5;
   text-align: center;
 }
 
 .pipeline-inspector:is(.scale-essentials, .session-memory) .labs-intro-actions {
   justify-content: center;
-  margin-top: 18px;
+  margin-top: 16px;
 }
 
 .pipeline-inspector:is(.scale-essentials, .session-memory) .labs-intro-actions > span {
   font-size: var(--labs-detail);
 }
 
-.scale-essentials .scale-catalog-context {
-  padding: 24px 32px;
-  border-radius: 24px;
-  background: var(--paper-warm);
-  text-align: center;
-  line-height: 1.7;
+.pipeline-inspector:is(.scale-essentials, .session-memory) :is(a, button, select, summary, textarea, input):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
 }
 
-.scale-essentials .scale-catalog-context strong { color: var(--ink); }
+/* A status chip: pill, 7px state dot, tabular numerals. */
+.scale-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 0 32px;
+  padding: 0;
+  list-style: none;
+}
+
+.scale-chips li,
+.session-memory .memory-connection {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--paper-strong);
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.scale-chips li::before {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--green);
+  content: "";
+}
+
+.scale-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 0 24px;
+  color: var(--ink-soft);
+}
+
+.scale-spinner { animation: scale-spin 1s linear infinite; }
+@keyframes scale-spin { to { transform: rotate(360deg); } }
 
 .scale-essentials > .scale-intro-note {
-  max-width: 78ch;
-  margin: 24px auto 48px;
+  max-width: 64ch;
+  margin: 0 auto 32px;
   color: var(--ink-soft);
   text-align: center;
 }
 
-.scale-essentials .scale-essential-section {
-  grid-template-columns: minmax(0, .85fr) minmax(0, 2fr);
-  gap: clamp(24px, 4vw, 56px);
-  margin: 0 0 28px;
-  padding: clamp(24px, 3vw, 44px);
+/* Every section is one borderless card: heading, one sentence, then the content. */
+.scale-essentials :is(.scale-hero, .scale-essential-section) {
+  margin: 0 0 24px;
+  padding: clamp(24px, 3.5vw, 48px);
   border: 0;
   border-radius: 28px;
+  background: var(--paper-strong);
+  scroll-margin-top: 100px;
+}
+
+.scale-essentials :is(.scale-hero, .scale-essential-section) > header { margin-bottom: 28px; }
+
+.scale-essentials :is(.scale-hero, .scale-essential-section) > header h2 {
+  margin: 0 0 8px;
+  font: 500 var(--labs-h2)/1.15 var(--display);
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.scale-essentials :is(.scale-hero, .scale-essential-section) > header p {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: var(--labs-lead);
+  line-height: 1.5;
+}
+
+.scale-essentials .scale-essential-section > div { min-width: 0; }
+.scale-essentials .scale-intro-note { color: var(--ink-soft); }
+
+/* Recall against time: the page's one picture. */
+.sweep-scroll { max-width: 100%; overflow-x: auto; }
+
+.sweep {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sweep thead th {
+  padding: 0 14px 4px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.sweep tbody :is(th, td) {
+  padding: 14px;
+  background: var(--paper-warm);
+  vertical-align: middle;
+}
+
+.sweep tbody th {
+  width: 148px;
+  border-radius: 14px 0 0 14px;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.sweep tbody td:last-child { border-radius: 0 14px 14px 0; }
+
+.sweep em {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 10px;
+  color: var(--green);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.sweep em::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  content: "";
+}
+
+.sweep tbody td strong {
+  display: inline-block;
+  width: 72px;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: right;
+  vertical-align: middle;
+}
+
+.sweep-bar {
+  display: inline-block;
+  width: calc(100% - 80px);
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  vertical-align: middle;
+}
+
+.sweep-bar i { display: block; height: 100%; border-radius: inherit; }
+.sweep-bar-recall i { background: var(--retrieve); }
+.sweep-bar-time i { background: color-mix(in srgb, var(--ink) 40%, transparent); }
+
+/* Tables inside cards: no row rules, a hover wash, quiet headers. */
+.scale-essentials .inspector-table-scroll { padding: 0; border-radius: 0; background: transparent; }
+.scale-essentials .inspector-table :is(th, td) { border: 0; }
+.scale-essentials .inspector-table thead th { padding-bottom: 8px; font-weight: 500; }
+.scale-essentials .scale-comparison-table tbody :is(th, td) { padding-block: 18px; font-size: 15px; }
+.scale-essentials .scale-comparison-table tbody tr:hover { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.scale-essentials .scale-comparison-table small { display: block; margin-top: 4px; max-width: 28ch; color: var(--ink-soft); font-size: 12px; font-weight: 400; line-height: 1.5; }
+.scale-essentials .scale-comparison-table td { font-variant-numeric: tabular-nums; }
+.scale-essentials .scale-found-track { display: block; min-width: 84px; height: 6px; margin-top: 8px; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.scale-essentials .scale-found-track > span { display: block; height: 100%; border-radius: inherit; background: var(--green); }
+.scale-essentials .scale-takeaway { max-width: 62ch; margin: 20px 0 0; font-size: 15px; font-weight: 500; line-height: 1.5; }
+.scale-essentials .scale-measurement-note { max-width: 70ch; margin: 0 0 12px; color: var(--ink-soft); font-size: 13px; line-height: 1.6; }
+.scale-essentials .scale-measurement-note strong { color: var(--ink); font-weight: 500; }
+.scale-essentials .scale-format-basics { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 0 16px; }
+.scale-essentials .scale-format-basics span { padding: 6px 14px; border-radius: 999px; background: var(--paper-warm); color: var(--ink-soft); font-size: 13px; }
+.scale-essentials .inspector-waiting { color: var(--ink-soft); }
+
+.scale-essentials .scale-selector { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 20px 0; font-size: 14px; }
+.scale-essentials .scale-selector label { font-weight: 500; }
+.scale-essentials .scale-selector select { min-height: 44px; max-width: 100%; padding: 10px 36px 10px 18px; border: 0; border-radius: 999px; background-color: var(--paper-warm); color: var(--ink); font: inherit; }
+.scale-essentials .scale-selector select:hover { background-color: color-mix(in srgb, var(--ink) 10%, var(--paper-warm)); }
+
+/* Depth behind one quiet pill, the pg-inspect shape. */
+.scale-inspect { margin-top: 24px; }
+
+.scale-inspect > summary {
+  display: inline-flex;
+  min-height: 40px;
+  padding: 0 16px 0 18px;
+  border-radius: 20px;
+  background: var(--paper-warm);
+  color: var(--ink);
+  transition: background var(--motion-fast) var(--ease-out);
+}
+
+.scale-inspect > summary:hover { background: color-mix(in srgb, var(--ink) 10%, var(--paper-warm)); }
+
+.scale-inspect > div {
+  margin-top: 14px;
+  padding: 20px 24px;
+  border-radius: 22px;
   background: var(--paper-warm);
 }
 
-.scale-essentials .scale-essential-section > header h2 {
-  font-size: var(--labs-h2);
-  font-weight: 500;
-  letter-spacing: -0.035em;
-}
+.scale-inspect > div > :first-child { margin-top: 0; }
+.scale-inspect h3 { margin: 28px 0 10px; font: 500 var(--labs-h3)/1.3 var(--display); }
+.scale-inspect p { max-width: 75ch; line-height: 1.6; }
+.scale-inspect :is(.scale-hero, .scale-essential-section) .inspector-table-scroll { background: transparent; }
 
-.scale-essentials .scale-essential-section > header p { max-width: 36ch; }
-.scale-essentials .scale-essential-section .inspector-table-scroll { border-radius: 0; background: transparent; padding: 0; }
-.scale-essentials .scale-essential-section .inspector-table tbody tr:last-child :is(th, td) { border-bottom: 0; }
-.scale-essentials .scale-comparison-table tbody tr:hover { background: color-mix(in srgb, var(--ink) 4%, transparent); }
-.scale-essentials .scale-found-track { background: var(--line); }
-.scale-essentials .scale-found-track > span { background: var(--link); }
-.scale-essentials .scale-takeaway { font-weight: 500; }
+.scale-mechanism { margin-top: 0; }
+.scale-mechanism > div { background: var(--paper-strong); }
 
-.scale-essentials .scale-advanced {
-  margin-bottom: 16px;
-  padding-inline: 28px;
-  border: 1px solid var(--line);
-  border-radius: 24px;
+.scale-reference-links { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 24px; }
+.scale-reference-links :is(a, button) { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0; border: 0; background: none; color: var(--link); font: inherit; font-size: 14px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.scale-reference-links button { padding-inline: 18px; border-radius: 999px; background: var(--paper-strong); color: var(--ink); text-decoration: none; }
+.scale-reference-links button:hover { background: color-mix(in srgb, var(--ink) 8%, var(--paper-strong)); }
+
+.scale-essentials .inspector-scale-link {
+  margin-top: 24px;
+  padding: clamp(24px, 3.5vw, 40px);
+  border: 0;
+  border-radius: 28px;
   background: var(--paper-strong);
 }
 
-.scale-essentials .scale-advanced > summary { align-items: center; min-height: 80px; font-size: var(--labs-h3); font-weight: 500; }
-.scale-essentials .scale-advanced > div { padding-bottom: 28px; }
+.scale-essentials .inspector-scale-link h2 { font: 500 var(--labs-h3)/1.3 var(--display); letter-spacing: -0.02em; }
 
+/* ---------- Session & Memory ---------- */
 .session-memory h2 { font-size: var(--labs-h2); font-weight: 500; letter-spacing: -0.035em; }
 .session-memory h3 { font-size: var(--labs-h3); font-weight: 500; }
 
 .session-memory .memory-flow {
-  gap: 0;
-  margin: 0 0 48px;
+  gap: 8px;
+  margin: 0 0 32px;
   border: 0;
-  border-radius: 28px;
-  background: var(--paper-warm);
+  border-radius: 0;
+  background: transparent;
 }
 
 .session-memory .memory-flow li,
 .session-memory .memory-flow li:first-child {
-  padding: 28px 32px;
+  padding: 20px 24px;
   border: 0;
+  border-radius: 22px;
+  background: var(--paper-strong);
 }
 
-.session-memory .memory-flow li + li { border-left: 1px solid var(--line); }
 .session-memory .memory-flow strong { font-size: var(--labs-h3); font-weight: 500; }
-.session-memory .memory-flow p { max-width: 44ch; }
-.session-memory .memory-profile { padding: 12px 0 28px; }
-.session-memory .memory-profile strong { font-weight: 500; }
-.session-memory .memory-layout { gap: 24px; align-items: start; }
+.session-memory .memory-flow p { max-width: 44ch; margin-top: 4px; }
 
-.session-memory .memory-events,
-.session-memory .memory-strategies {
+.session-memory .memory-profile {
+  flex-wrap: wrap;
+  margin: 0 0 8px;
+  padding: 20px 24px;
+  border-radius: 22px;
+  background: var(--paper-strong);
+}
+
+.session-memory .memory-profile strong { font-weight: 500; }
+
+.session-memory .memory-connection { padding: 0; background: transparent; }
+.session-memory .memory-connection::before { content: ""; width: 7px; height: 7px; flex: none; border-radius: 50%; background: var(--ink-soft); }
+.session-memory .memory-connection[data-connected="true"]::before { background: var(--green); }
+.session-memory .memory-connection[data-connected="false"][data-failed="true"]::before { background: var(--danger); }
+
+.session-memory .memory-session-bar { margin-bottom: 8px; padding: 0 0 16px; border: 0; }
+.session-memory .memory-layout { gap: 24px; align-items: start; padding: 0 0 24px; }
+
+.session-memory :is(.memory-events, .memory-strategies) {
   min-width: 0;
   padding: clamp(24px, 3vw, 40px);
   border: 0;
   border-radius: 28px;
-  background: var(--paper-warm);
+  background: var(--paper-strong);
 }
 
-.session-memory .memory-section-heading { display: grid; gap: 10px; }
-.session-memory .memory-section-heading h2 { font-size: var(--labs-h2); }
-.session-memory .memory-lead { margin-top: 20px; }
-.session-memory .memory-strategy-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 6px; border: 0; border-radius: 18px; background: var(--canvas); }
+.session-memory .memory-section-heading { display: grid; gap: 8px; }
+.session-memory .memory-lead { margin: 12px 0 20px; }
+.session-memory :is(select, textarea) { border: 0; background: var(--paper-warm); }
+.session-memory :is(select, textarea):hover { background: color-mix(in srgb, var(--ink) 8%, var(--paper-warm)); }
+.session-memory .secondary-button { border: 0; background: var(--paper-warm); }
+.session-memory .secondary-button:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 10%, var(--paper-warm)); color: var(--ink); }
+.session-memory .memory-profile .secondary-button { background: var(--paper-warm); }
+
+.session-memory .memory-strategy-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 6px; border: 0; border-radius: 18px; background: var(--paper-warm); }
 .session-memory .memory-strategy-picker button { padding: 14px; border: 0; border-radius: 13px; }
-.session-memory .memory-strategy-picker button[aria-pressed="true"] { background: var(--paper-strong); box-shadow: 0 2px 8px rgb(0 0 0 / 16%); }
-.session-memory .memory-strategy-picker button:hover:not([aria-pressed="true"]) { background: var(--paper-warm); }
+.session-memory .memory-strategy-picker button[aria-pressed="true"] { background: var(--paper-strong); box-shadow: 0 2px 8px rgb(0 0 0 / 12%); color: var(--ink); }
+.session-memory .memory-strategy-picker button:hover:not([aria-pressed="true"]) { background: color-mix(in srgb, var(--ink) 6%, var(--paper-warm)); }
 .session-memory .memory-strategy-picker button small { overflow-wrap: anywhere; }
-.session-memory .memory-record-empty { padding: 24px; border: 0; border-radius: 18px; background: var(--paper-strong); }
-.session-memory .memory-record { padding: 24px; border: 0; border-radius: 18px; background: var(--paper-strong); }
-.session-memory .memory-record-text { margin-bottom: 16px; }
-.session-memory .memory-recall { gap: clamp(24px, 5vw, 64px); padding-top: 48px; }
-.session-memory .memory-recall > div:last-child { min-width: 0; padding: clamp(24px, 3vw, 40px); border-radius: 28px; background: var(--paper-warm); }
-.session-memory .memory-error { padding: 20px 24px; border: 1px solid var(--danger-line); border-radius: 18px; background: var(--danger-soft); }
+
+.session-memory :is(.memory-record, .memory-record-empty) { margin: 16px 0 0; padding: 24px; border: 0; border-radius: 18px; background: var(--paper-warm); }
+.session-memory .memory-record-text { margin-bottom: 12px; }
+.session-memory .memory-record-scope { display: inline-flex; align-items: center; gap: 6px; color: var(--ink); }
+.session-memory .memory-record-scope::before { width: 7px; height: 7px; border-radius: 50%; background: var(--green); content: ""; }
+.session-memory .memory-event { border: 0; border-radius: 14px; background: var(--paper-warm); margin-top: 8px; padding: 8px 16px; }
+.session-memory .memory-event-list { margin-top: 20px; }
+.session-memory .memory-configuration { padding-top: 0; border: 0; }
+.session-memory pre { border: 0; border-radius: 14px; background: var(--paper-strong); }
+
+/* Every disclosure on the page is the same quiet pill. */
+.session-memory details:not(.memory-event) > summary {
+  display: inline-flex;
+  min-height: 40px;
+  padding: 0 16px 0 18px;
+  border-radius: 20px;
+  background: var(--paper-warm);
+  color: var(--ink);
+}
+
+.session-memory details:not(.memory-event) > summary:hover { background: color-mix(in srgb, var(--ink) 10%, var(--paper-warm)); }
+.session-memory :is(.memory-record, .memory-recall > div:last-child) details:not(.memory-event) > summary { background: var(--paper-strong); }
+.session-memory details[open]:not(.memory-event) > summary { margin-bottom: 12px; }
+.session-memory .memory-strategy-guide[open] { padding-bottom: 8px; }
+.session-memory .memory-event summary { color: var(--ink); }
+
+.session-memory .memory-recall { gap: 24px; padding-top: 24px; border: 0; }
+.session-memory .memory-recall > div:last-child { min-width: 0; padding: clamp(24px, 3vw, 40px); border-radius: 28px; background: var(--paper-strong); }
+.session-memory .memory-recall-intro { padding: clamp(8px, 2vw, 16px) 0; }
+.session-memory .memory-recall-intro h2 { max-width: 17ch; margin-top: 0; }
+.session-memory .memory-recall-intro > p { margin: 12px 0 20px; }
+.session-memory .memory-recall-intro > details { display: block; margin-top: 12px; }
+.session-memory .memory-turn { margin-top: 16px; padding: 20px 0 0; border: 0; }
+.session-memory .memory-history { margin-top: 16px; padding-top: 0; border: 0; }
+.session-memory .memory-beyond { margin: 24px 0 40px; padding-top: 0; border: 0; }
+.session-memory .memory-error { padding: 20px 24px; border: 0; border-radius: 18px; background: var(--danger-soft); }
 .session-memory .memory-error p:last-child { margin-bottom: 0; }
+.session-memory .memory-check input:checked { border-color: var(--retrieve); background: var(--retrieve); }
 
 @media (max-width: 900px) {
-  .scale-essentials .scale-essential-section { grid-template-columns: minmax(0, 1fr); }
-  .scale-essentials .scale-essential-section > header p { max-width: 64ch; }
-  .session-memory .memory-layout, .session-memory .memory-recall { grid-template-columns: minmax(0, 1fr); }
+  .session-memory :is(.memory-layout, .memory-recall) { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 760px) {
-  .pipeline-inspector:is(.scale-essentials, .session-memory) .inspector-intro { padding-block: 32px; }
-  .scale-essentials .scale-catalog-context { padding: 20px; }
-  .scale-essentials .scale-essential-section { padding: 24px 20px; border-radius: 22px; }
-  .scale-essentials .scale-advanced { padding-inline: 20px; border-radius: 20px; }
-  .session-memory .memory-flow { margin-bottom: 32px; border-radius: 22px; }
-  .session-memory .memory-flow li, .session-memory .memory-flow li:first-child { padding: 24px; }
-  .session-memory .memory-flow li + li { border-left: 0; border-top: 1px solid var(--line); }
-  .session-memory .memory-events, .session-memory .memory-strategies, .session-memory .memory-recall > div:last-child { padding: 24px 20px; border-radius: 22px; }
+  .pipeline-inspector:is(.scale-essentials, .session-memory) .inspector-intro { padding-block: 28px 24px; }
+  .scale-essentials :is(.scale-hero, .scale-essential-section, .inspector-scale-link) { padding: 24px 20px; border-radius: 22px; }
+  .scale-inspect > div { padding: 16px; }
+  .scale-essentials .scale-comparison-table :is(th, td) { padding-inline: 6px; }
+  .scale-essentials .scale-comparison-table tbody :is(th, td) { font-size: 14px; }
+  .scale-essentials .scale-comparison-table thead th { font-size: 11px; white-space: normal; }
+  .scale-essentials .scale-comparison-table td { white-space: nowrap; }
+  .scale-essentials .scale-comparison-table small { max-width: none; white-space: normal; }
+  .scale-essentials .scale-found-track { min-width: 0; }
+  .scale-essentials .scale-comparison-table :is(th, td):first-child { padding-left: 0; }
+  .scale-essentials .scale-comparison-table :is(th, td):last-child { padding-right: 0; }
+  .sweep { table-layout: fixed; }
+  .sweep thead th:first-child, .sweep tbody th { width: 64px; padding-inline: 10px; }
+  .sweep tbody th { font-size: 15px; white-space: normal; }
+  .sweep em { display: flex; margin: 2px 0 0; }
+  .sweep tbody td { padding: 14px 10px; }
+  .sweep tbody td strong { display: block; width: auto; margin-top: 6px; text-align: left; }
+  .sweep-bar { display: block; width: 100%; }
+  .session-memory .memory-flow li, .session-memory .memory-flow li:first-child { padding: 16px 20px; }
+  .session-memory :is(.memory-events, .memory-strategies, .memory-recall > div:last-child) { padding: 24px 20px; border-radius: 22px; }
+  .session-memory .memory-profile { padding: 20px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scale-spinner, .scale-inspect > summary { animation: none; transition: none; }
 }
