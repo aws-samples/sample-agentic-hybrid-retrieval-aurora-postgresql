@@ -4,6 +4,8 @@ import {
   liveRetrievalOutcome,
   retrievalLabOutcome,
   runMatchesMissionGates,
+  targetRankBound,
+  wantedProduct,
 } from "./labOutcome";
 import {
   coreMosaicLabs,
@@ -562,5 +564,78 @@ describe("Lab 1's broken verdict names its cause", () => {
     const row = other(2);
     row.category_key = "chairs";
     expect(retrievalLabOutcome(mission, withPool(row, 0)).title).toBe("A result breaks the request's filters");
+  });
+  describe("Lab 2 repaired detail", () => {
+    function repairedRank(finalRank: number, combinedRank: number) {
+      const mission = coreMosaicLabs.find((item) => item.stage === "rank")!;
+      const row = product(mission.target_product_ids[0], (rank) => 1 / (testFusionK + rank));
+      Object.assign(row, mission.filters);
+      row.title = "ViewSonic VG2756-4K";
+      row.signals!.pre_rerank_rank = combinedRank;
+      row.signals!.final_rank = finalRank;
+      return retrievalLabOutcome(mission, response(row));
+    }
+
+    it("reports the position the live response shows, not a first place", () => {
+      const outcome = repairedRank(5, 21);
+      expect(outcome.tone).toBe("fixed");
+      expect(outcome.detail).toContain("ViewSonic VG2756-4K");
+      expect(outcome.detail).toContain("combined #21");
+      expect(outcome.detail).toContain("final #5");
+      expect(outcome.detail).not.toMatch(/\bfirst\b/);
+    });
+
+    it("follows the response when the product lands elsewhere", () => {
+      const detail = repairedRank(2, 9).detail;
+      expect(detail).toContain("combined #9");
+      expect(detail).toContain("final #2");
+    });
+  });
+
+  it("keeps Lab 1's repaired detail in plain words", () => {
+    const mission = coreMosaicLabs.find((item) => item.stage === "retrieve")!;
+    const row = product(mission.target_product_ids[0], (rank) => 1 / (testFusionK + rank));
+    Object.assign(row, mission.filters);
+    row.signals!.fts = { rank: null, raw_score: null, rrf_contribution: null };
+    row.signals!.semantic = { rank: null, raw_score: null, rrf_contribution: null };
+    const outcome = retrievalLabOutcome(mission, response(row));
+    expect(outcome.tone).toBe("fixed");
+    expect(`${outcome.title} ${outcome.detail}`).not.toMatch(/pg_trgm|trigram|RRF/i);
+  });
+
+  describe("wanted product", () => {
+    const rankMission = coreMosaicLabs.find((item) => item.stage === "rank")!;
+    const wantedId = rankMission.target_product_ids[0];
+
+    function served(finalRank: number) {
+      const row = product(wantedId, (rank) => 1 / (testFusionK + rank));
+      row.signals!.final_rank = finalRank;
+      return response(row);
+    }
+
+    it("takes its bound from the manifest, never from a literal", () => {
+      expect(targetRankBound(rankMission)).toBe(rankMission.expected_final_top_k);
+      const retrieve = coreMosaicLabs.find((item) => item.stage === "retrieve")!;
+      expect(targetRankBound(retrieve)).toBe(retrieve.top_k);
+    });
+
+    it("is at its target inside the declared shortlist", () => {
+      const bound = targetRankBound(rankMission);
+      expect(wantedProduct(rankMission, served(bound))).toEqual({
+        productId: wantedId, tier: "target", finalRank: bound,
+      });
+    });
+
+    it("is present but lower just past the shortlist", () => {
+      const past = targetRankBound(rankMission) + 1;
+      expect(wantedProduct(rankMission, served(past))?.tier).toBe("lower");
+    });
+
+    it("is missing when the response does not return it", () => {
+      const absent = response(product(wantedId + 1, () => 0.01));
+      expect(wantedProduct(rankMission, absent)).toEqual({
+        productId: wantedId, tier: "missing", finalRank: null,
+      });
+    });
   });
 });

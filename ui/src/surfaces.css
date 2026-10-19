@@ -638,83 +638,13 @@
 /* The UI knows a request was dispatched, but search is not streamed stage by
    stage. This shows the real pipeline without pretending to expose internal
    model reasoning or to know which database operator is running right now. */
-.hybrid-retrieval-trace {
-  margin: 14px 0 10px;
-  padding: 18px 20px 20px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--paper-strong) 82%, transparent);
-  box-shadow: 0 12px 32px rgb(0 0 0 / 6%);
-}
 
-.hybrid-retrieval-trace > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-}
 
-.hybrid-retrieval-trace > header p {
-  margin: 0 0 4px;
-  color: var(--maroon-800);
-  font-family: var(--sans);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
 
-.hybrid-retrieval-trace > header strong {
-  color: var(--ink);
-  font-family: var(--display);
-  font-size: 21px;
-  font-weight: 500;
-}
 
-.hybrid-retrieval-scope {
-  max-width: 760px;
-  margin: 12px 0 0;
-  color: var(--ink-soft);
-  font-size: 12px;
-  line-height: 1.55;
-}
 
-.hybrid-retrieval-status {
-  display: inline-flex;
-  min-height: 30px;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 7px;
-  padding: 0 11px;
-  border: 1px solid color-mix(in srgb, var(--maroon-700) 18%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--maroon-700) 6%, transparent);
-  color: var(--maroon-800);
-  font-size: 11px;
-  font-weight: 700;
-}
 
-.hybrid-retrieval-trace ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  margin: 16px 0 0;
-  padding: 0;
-  list-style: none;
-}
 
-.hybrid-retrieval-trace li {
-  display: inline-flex;
-  min-height: 28px;
-  align-items: center;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--paper-warm);
-  color: var(--ink-soft);
-  font-size: 12px;
-  font-weight: 600;
-}
 
 /* Product grid */
 
@@ -1610,62 +1540,10 @@
   text-decoration: underline;
 }
 
-.shop-ranking-receipt {
-  margin-bottom: 20px;
-  border-bottom: 1px solid var(--line);
-}
 
-/* Title and hint share one left edge; the chevron sits in its own column. */
-.shop-ranking-receipt > summary {
-  display: grid;
-  min-height: 56px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-content: center;
-  column-gap: 16px;
-  row-gap: 2px;
-  padding: 10px 0;
-  --disclosure-size: 15px;
-  --disclosure-ink: var(--ink);
-  --disclosure-weight: 600;
-}
 
-.shop-ranking-receipt > summary > span {
-  grid-column: 1;
-}
 
-.shop-ranking-receipt > summary::after {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-}
 
-.shop-ranking-receipt > summary small {
-  grid-column: 1;
-  color: var(--ink-soft);
-  font-size: 14px;
-  font-weight: 400;
-}
 
-.shop-ranking-receipt .retrieval-receipt {
-  margin: 0;
-  border-bottom: 0;
-}
 
-/* The bridge out of Shop. A text link, not a button: it leaves the storefront,
-   and it should not compete with Add to bag. */
-.shop-ranking-playground {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin: 14px 0 18px;
-  color: var(--maroon-900);
-  font-size: 12.5px;
-  font-weight: 600;
-  border-bottom: 1px solid color-mix(in srgb, var(--maroon-800) 28%, transparent);
-  padding-bottom: 2px;
-  transition: border-color 160ms ease, gap 160ms ease;
-}
 
-.shop-ranking-playground:hover {
-  border-bottom-color: var(--maroon-900);
-  gap: 10px;
-}

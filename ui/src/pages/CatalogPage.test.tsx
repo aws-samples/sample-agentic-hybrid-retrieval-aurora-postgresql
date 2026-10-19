@@ -969,15 +969,21 @@ describe("CatalogPage", () => {
     vi.mocked(useCatalogSource).mockReturnValue({ dataset_id: "reviews-2023-v2", real: true });
     window.history.replaceState({}, "", "/catalog?offset=36&brand=Unrelated&category_key=chair");
     renderPage();
-    const examples = await screen.findByRole("group", { name: "Typo search examples" });
+    const examples = await screen.findByRole("group", { name: "Suggested searches" });
+    // One unlabelled row: no Keywords / Typo / Intent group names.
+    expect(screen.queryByRole("group", { name: /Keywords|Typo|Intent/ })).toBeNull();
     fireEvent.click(within(examples).getByRole("button", { name: "A mistyped Logitech listing ID" }));
     await waitFor(() => expect(api.search).toHaveBeenCalledWith("B0C2WWFCQB",
       { domain: "consumer_electronics", category_key: "headphones" }, expect.any(Object)));
     const params = new URLSearchParams(window.location.search);
     expect(params.get("offset")).toBeNull();
     expect(params.get("brand")).toBeNull();
-    expect(screen.getByRole("group", { name: "Keywords search examples" })).toBeTruthy();
-    expect(screen.getByRole("group", { name: "Intent search examples" })).toBeTruthy();
+    // The ways to ask stay on screen after the search, with the active one marked.
+    await screen.findByRole("region", { name: "How this search ran" });
+    const row = screen.getByRole("group", { name: "Suggested searches" });
+    const active = within(row).getByRole("button", { name: "A mistyped Logitech listing ID" });
+    expect(active.getAttribute("aria-pressed")).toBe("true");
+    expect(within(row).getAllByRole("button").filter((button) => button.getAttribute("aria-pressed") === "true")).toHaveLength(1);
   });
 
   it("inspects and reorders the same saved products without another search", async () => {
@@ -987,11 +993,10 @@ describe("CatalogPage", () => {
     vi.mocked(api.search).mockResolvedValue(shifted);
     window.history.replaceState({}, "", "/catalog?q=monitor");
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Shop + search details" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Positions side by side" }));
     const panel = screen.getByRole("complementary", { name: "Search details for these products" });
-    expect(within(panel).getByText("↑ 23")).toBeTruthy();
-    expect(within(panel).getByText("The same products appear in both views. Only the table’s row order changes.")).toBeTruthy();
-    expect(within(panel).getByText(/Same 2 displayed products from 18/)).toBeTruthy();
+    expect(within(panel).getByText("▲23")).toBeTruthy();
+    expect(within(panel).getByText(/Same 2 displayed products from 18 sent to reranking in both views; only the row order changes/)).toBeTruthy();
     expect(within(panel).getByRole("link", { name: "Inspect the full search in Playground" }).getAttribute("href")).toContain(SEARCH_EVENT_ID);
     const titles = () => within(panel).getAllByRole("row").slice(1).map(row => within(row).getByRole("button").textContent);
     expect(titles()[0]).toBe(recommendations[0].title);
@@ -1009,7 +1014,7 @@ describe("CatalogPage", () => {
     });
     window.history.replaceState({}, "", "/catalog?q=monitor");
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Shop + search details" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Positions side by side" }));
     const panel = screen.getByRole("complementary", { name: "Search details for these products" });
     expect(within(panel).queryByText("Held")).toBeNull();
     expect(within(panel).getAllByText("—")).toHaveLength(3);
@@ -1031,12 +1036,18 @@ describe("CatalogPage", () => {
     });
 
     expect(await screen.findByText("Results for")).toBeTruthy();
-    expect(screen.getByText(/chosen from 18 products found by search/)).toBeTruthy();
     expect(screen.queryByText(/fused candidates/)).toBeNull();
-    const rankingReceipt = screen
-      .getByText("Why these results, in this order")
-      .closest("details");
-    expect(rankingReceipt?.open).toBe(false);
+    // The strip carries where the matches came from; the board below lists each method's top five, open.
+    const strip = screen.getByRole("region", { name: "How this search ran" });
+    expect(strip.textContent).not.toMatch(/Three searches ran/);
+    const board = screen.getByRole("region", { name: "Each method's top five" });
+    expect(within(board).getByRole("heading", { name: "Each method’s top five" })).toBeTruthy();
+    expect(screen.getByRole("group", { name: "Results view" })).toBeTruthy();
+    expect(board.closest("details")).toBeNull();
+    expect(
+      document.querySelector(".shop-products")!.compareDocumentPosition(board)
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     // "Why this match", not "Why ranked #3": a shopper choosing between two chairs
     // is asking what Mosaic noticed, and the position is inside.
     const productReceipt = screen
@@ -1067,7 +1078,7 @@ describe("CatalogPage", () => {
     renderPage();
 
     const link = await screen.findByRole("link", {
-      name: /See how this was retrieved/,
+      name: /Watch the ranking change in the Playground/,
     });
     const params = new URLSearchParams(link.getAttribute("href")!.split("?")[1]);
 
@@ -1497,27 +1508,14 @@ describe("CatalogPage", () => {
     window.history.replaceState({}, "", "/catalog?q=ergonomic%20mesh%20chair");
     renderPage();
 
-    const trace = await screen.findByLabelText("What this search is doing");
-    expect(
-      within(trace).getByText(
-        "This is the same path every Mosaic search takes. The steps are not streamed one by one, so nothing here claims an order it cannot see.",
-      ),
-    ).toBeTruthy();
-    // The seven steps in the storefront's words. This list used to print "Cohere
-    // Embed v4 / FTS / pg_trgm / HNSW / SQL eligibility / RRF / Cohere Rerank" to a
-    // shopper waiting for products.
-    expect(
-      [...trace.querySelectorAll("li")].map((step) => step.textContent),
-    ).toEqual([
-      "Understanding your words",
-      "Full-text search",
-      "Fuzzy matching",
-      "Semantic search",
-      "Applying your filters",
-      "Combining the results",
-      "Reranking the shortlist",
-    ]);
-    expect(trace.textContent).not.toMatch(/FTS|pg_trgm|HNSW|RRF|Cohere/);
+    // One line, not a panel: it names what the single request does and claims no
+    // stage-by-stage progress it cannot see.
+    const searching = await screen.findByText(
+      "Searching Aurora: full-text search, fuzzy matching and semantic search, then reranking…",
+    );
+    expect(searching.closest("[role=status]")).toBeTruthy();
+    expect(screen.queryByLabelText("What this search is doing")).toBeNull();
+    expect(document.querySelectorAll(".shop-searching li")).toHaveLength(0);
     expect(
       screen.getByRole("status", { name: "Loading products" })
         .querySelectorAll(".catalog-skeleton-card"),
@@ -2675,6 +2673,103 @@ describe("CatalogPage", () => {
     ) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("marks Lab 1's fuzzy matching as the fault in the pipeline strip, and the wanted product when it returns", async () => {
+    vi.mocked(api.search).mockResolvedValue(lab1Search(false));
+    window.history.replaceState(
+      {},
+      "",
+      `/catalog?q=${encodeURIComponent(lab1.query)}`
+        + "&domain=consumer_electronics&category_key=headphones&view=results",
+    );
+    renderPage();
+    const strip = await screen.findByRole("region", { name: "How this search ran" });
+    const fuzzy = [...strip.querySelectorAll<HTMLElement>("li.pipeline-chip")]
+      .find((chip) => chip.textContent?.startsWith("Fuzzy matching"))!;
+    expect(fuzzy.dataset.dot).toBe("fault");
+    expect(document.querySelector("[data-wanted]")).toBeNull();
+
+    vi.mocked(api.search).mockResolvedValue(lab1Search(true));
+    fireEvent.click(screen.getByRole("button", { name: "Search again" }));
+    await waitFor(() => expect(document.querySelector("[data-wanted='target']")).toBeTruthy());
+    const marked = document.querySelector("[data-wanted='target']")!;
+    expect(marked.getAttribute("data-product-id")).toBe(String(lab1.target_product_ids[0]));
+    expect(within(marked as HTMLElement).getByText("Wanted · final #1")).toBeTruthy();
+    const repaired = screen.getByRole("region", { name: "How this search ran" });
+    expect(repaired.querySelector("[data-dot='fault']")).toBeNull();
+  });
+
+  it("keeps the layout while Search again runs", async () => {
+    vi.mocked(api.search).mockResolvedValue(lab1Search(false));
+    window.history.replaceState(
+      {},
+      "",
+      `/catalog?q=${encodeURIComponent(lab1.query)}`
+        + "&domain=consumer_electronics&category_key=headphones",
+    );
+    renderPage();
+    const callout = await screen.findByRole("region", { name: "Lab 1 outcome" });
+    const second = deferredSearch<SearchResponse>();
+    vi.mocked(api.search).mockReturnValue(second.promise);
+    fireEvent.click(within(callout).getByRole("button", { name: "Search again" }));
+    await waitFor(() => expect(api.search).toHaveBeenCalledTimes(2));
+    // The switch, the strip and the results stay; one line says it is searching.
+    expect(screen.getByRole("group", { name: "Results view" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "How this search ran" })).toBeTruthy();
+    expect(document.querySelectorAll(".shop-product-card").length).toBeGreaterThan(0);
+    expect(screen.getByRole("status").textContent).toContain("Searching Aurora");
+    expect(document.querySelector(".shop-results-heading")?.textContent).toContain("Searching…");
+    await act(async () => second.resolve(lab1Search(true)));
+    expect(screen.queryByText(/Searching Aurora/)).toBeNull();
+  });
+
+  it("pages a long result list eight at a time and moves focus to the new page", async () => {
+    const many = Array.from({ length: 9 }, (_, index) => rankedProduct(
+      { ...catalog.products[0], product_id: 900 + index }, index + 1));
+    vi.mocked(api.search).mockResolvedValue({ ...searchResponse, results: many });
+    window.history.replaceState({}, "", "/catalog?q=monitor");
+    renderPage();
+    const pager = await screen.findByRole("navigation", { name: "Result pages" });
+    expect(document.querySelectorAll(".shop-product-card")).toHaveLength(8);
+    expect(within(pager).getByText("Page 1 of 2")).toBeTruthy();
+    expect((within(pager).getByRole("button", { name: /Previous/ }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(within(pager).getByRole("button", { name: /Next/ }));
+    await waitFor(() => expect(document.querySelectorAll(".shop-product-card")).toHaveLength(1));
+    expect(within(pager).getByText("Page 2 of 2")).toBeTruthy();
+    expect(document.activeElement).toBe(document.querySelector(".shop-product-card h3 a"));
+    // Paging is display only: no second search, and the request's limit is untouched.
+    expect(api.search).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(api.search).mock.calls[0][2]).toMatchObject({ limit: undefined });
+  });
+
+  it("shows no pager when every result fits on one page", async () => {
+    vi.mocked(api.search).mockResolvedValue(searchResponse);
+    window.history.replaceState({}, "", "/catalog?q=monitor");
+    renderPage();
+    await screen.findByRole("region", { name: "How this search ran" });
+    expect(screen.queryByRole("navigation", { name: "Result pages" })).toBeNull();
+  });
+
+  it("shows no catalog controls until the runtime says which catalog this is", async () => {
+    vi.mocked(useCatalogSource).mockReturnValue({ dataset_id: null, real: false, loaded: false });
+    window.history.replaceState({}, "", "/catalog?q=monitor");
+    renderPage();
+    await screen.findByRole("region", { name: "How this search ran" });
+    expect(screen.queryByRole("group", { name: "Suggested searches" })).toBeNull();
+    expect(screen.queryByText("Explore")).toBeNull();
+    expect(document.querySelector(".shop-controls")?.hasAttribute("hidden")).toBe(true);
+    expect(document.querySelector(".shop-filter-toolbar")?.hasAttribute("hidden")).toBe(true);
+  });
+
+  it("opens Ask Mosaic with a handed-over prompt and runs no Shop search for it", async () => {
+    const prompt = "Compare listing B0C2WWCFQB with similar headphones options.";
+    window.history.replaceState({}, "", `/catalog?ask=1&prompt=${encodeURIComponent(prompt)}`);
+    renderPage();
+    const composer = await screen.findByRole("textbox", { name: "Ask Mosaic request" });
+    expect((composer as HTMLTextAreaElement).value).toBe(prompt);
+    expect(api.search).not.toHaveBeenCalled();
+    expect(new URLSearchParams(window.location.search).has("q")).toBe(false);
+  });
+
   it("blames the environment, not the participant, when the trigram index is gone", async () => {
     // A missing pg_trgm index and an unrepaired CTE produce the same evidence:
     // the target is absent and no candidate carries a trigram rank. Shop used to
@@ -2713,9 +2808,8 @@ describe("CatalogPage", () => {
     expect(callout.textContent).not.toContain(lab1.participant_edit!.file);
     expect(callout.textContent).not.toContain(lab1.participant_edit!.task);
     expect(callout.className).toContain("unhealthy");
-    fireEvent.click(screen.getByText("Why these results, in this order"));
     const evidenceLink = screen.getByRole("link", {
-      name: "See how this was retrieved in the Playground",
+      name: /Watch the ranking change in the Playground/,
     });
     const evidenceUrl = new URL(evidenceLink.getAttribute("href")!, window.location.origin);
     expect(evidenceUrl.searchParams.get("event")).toBe(lab1Search(false).search_event_id);
@@ -2806,6 +2900,8 @@ describe("CatalogPage", () => {
       within(callout).getByRole("heading", { name: "Repair verified" }),
     ).toBeTruthy();
     expect(within(callout).queryByRole("button", { name: "Search again" })).toBeNull();
+    // Shop is for shoppers: no index names, no fusion jargon, on the repaired card.
+    expect(callout.textContent).not.toMatch(/pg_trgm|trigram|RRF|contribution|Keyword|Spelling|Meaning match|Exact terms|Close spelling/i);
 
     fireEvent.click(within(callout).getByText("Lab 1: request and evidence"));
     // The record belongs to this outcome, even after another search repairs it.
@@ -2834,7 +2930,7 @@ describe("CatalogPage", () => {
 
     // The run landed: the receipt disclosure only renders once a response is
     // held. What is absent is any verdict about Lab 1 over the top of it.
-    await screen.findByText("Why these results, in this order");
+    await screen.findByRole("region", { name: "How this search ran" });
     expect(screen.queryByRole("region", { name: "Lab 1 outcome" })).toBeNull();
   });
 

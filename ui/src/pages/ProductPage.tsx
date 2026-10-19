@@ -469,7 +469,7 @@ export function ProductPage() {
                   {review.review_date ? ` / ${review.review_date}` : ""}
                 </cite>
               </blockquote>
-            )) : <p className="muted">No reviews are loaded for this sample product.</p>}
+            )) : <p className="muted">No reviews are included for this product.</p>}
           </div>
           {product.questions?.length ? (
             <div className="review-list" aria-label="Questions buyers asked">

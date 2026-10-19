@@ -42,6 +42,13 @@ export const armLanguage: ArmLanguage[] = [
   },
 ];
 
+/** The shortest form that stays clear, for chips with little room. Titles and aria carry `armLabel`. */
+export const armShortLabel: Record<RetrievalArm, string> = {
+  fts: "Full-text",
+  trigram: "Fuzzy",
+  semantic: "Semantic",
+};
+
 export const armLabel: Record<RetrievalArm, string> = {
   fts: "Full-text search",
   trigram: "Fuzzy matching",

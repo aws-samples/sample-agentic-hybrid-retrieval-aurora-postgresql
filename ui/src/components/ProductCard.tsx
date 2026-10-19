@@ -2,12 +2,16 @@ import { Check, Heart, ShoppingBag, Star } from "lucide-react";
 import { Fragment } from "react";
 import { Link } from "wouter";
 import { cartQuantityLimit, useCommerce } from "../commerce";
-import { formatAvailability, formatPrice, isPurchasable, leafCategory, specFacts } from "../format";
+import { formatAvailability, formatPrice, isPurchasable, leafCategory, listingPriceCents, specFacts } from "../format";
 import { productDetailHref } from "../navigation";
 import { productImage } from "../media";
 import { ProductReceiptBody } from "./ProductReceipt";
-import { FINAL_LABEL, FUSED_LABEL, armLabel } from "../retrievalLanguage";
+import { FINAL_LABEL, FUSED_LABEL, armLabel, armLanguage, armShortLabel } from "../retrievalLanguage";
+import type { WantedProduct } from "../labOutcome";
+import { RankMove } from "./RankMove";
+import { WantedBadge } from "./WantedBadge";
 import type { ProductSummary, RetrievalDiagnostics } from "../types";
+import "../pipeline-strip.css";
 
 /**
  * The typed spec facts as one quiet line, e.g. "Screen size 27″ · Resolution
@@ -29,6 +33,51 @@ function topAttributes(attributes: Record<string, unknown>, count = 2) {
     }));
 }
 
+/**
+ * The searches that found this product, on the card itself: a green dot and the
+ * product's own position for each search that returned it, a hollow grey dot
+ * and a dash for each that did not. Positions are read from the row's signals.
+ */
+function ArmChips({ product }: { product: ProductSummary }) {
+  const signals = product.signals;
+  if (!signals) return null;
+  const before = signals.pre_rerank_rank;
+  const after = signals.final_rank;
+  return (
+    <>
+    <ul className="shop-card-arms" aria-label="Found by">
+      {armLanguage.map((arm) => {
+        const rank = signals[arm.key]?.rank ?? null;
+        return (
+          <li
+            className="pipeline-chip"
+            data-dot={rank === null ? "none" : "found"}
+            key={arm.key}
+            title={arm.label}
+            aria-label={rank === null ? `${arm.label}: no match` : `${arm.label}: position ${rank}`}
+          >
+            <i aria-hidden="true" />
+            <b>{armShortLabel[arm.key]}</b>
+            <span>{rank === null ? "—" : `#${rank}`}</span>
+          </li>
+        );
+      })}
+    </ul>
+    {after != null ? (
+      <p className="pipeline-chip shop-card-position-chip">
+        <b>Final #{after}</b>
+        {before != null && before !== after ? (
+          <>
+            <RankMove from={before} to={after} />
+            <span>from combined #{before}</span>
+          </>
+        ) : null}
+      </p>
+    ) : null}
+    </>
+  );
+}
+
 export function ProductCard({
   product,
   showSignals = false,
@@ -43,6 +92,7 @@ export function ProductCard({
   highlighted = false,
   onAssistFocus,
   diagnostics,
+  wanted,
 }: {
   product: ProductSummary;
   showSignals?: boolean;
@@ -59,6 +109,8 @@ export function ProductCard({
   onAssistFocus?: (productId: number | null) => void;
   /** The search's diagnostics, for the receipt's k and reranking-pool figures. */
   diagnostics?: RetrievalDiagnostics | null;
+  /** The active lab's wanted product, when this card is it and the run returned it. */
+  wanted?: WantedProduct | null;
 }) {
   const {
     addItem,
@@ -79,10 +131,7 @@ export function ProductCard({
     // browsed page has no order of its own to show one for.
     const position = showSignals ? signals?.final_rank : undefined;
     const facts = specFactParts(product);
-    // A real listing's only price is its historical one; a missing one stays missing.
-    const shownPriceCents = product.source_dataset
-      ? (product.historical_price_cents ?? product.price_cents)
-      : product.price_cents;
+    const shownPriceCents = listingPriceCents(product);
     return (
       <article
         className={[
@@ -92,6 +141,7 @@ export function ProductCard({
           highlighted ? "assist-highlighted" : "",
         ].filter(Boolean).join(" ")}
         data-product-id={product.product_id}
+        data-wanted={wanted?.tier}
         onMouseEnter={() => {
           if (assistRank) onAssistFocus?.(product.product_id);
         }}
@@ -125,6 +175,20 @@ export function ProductCard({
             />
             {assistRank ? <span className="assist-rank-badge">{String(assistRank).padStart(2, "0")}</span> : null}
           </Link>
+          {showCompare ? (
+              <label className="compare-control shop-card-compare">
+                <input
+                  type="checkbox"
+                  aria-label={`Compare ${product.title}`}
+                  checked={compareChecked}
+                  disabled={compareDisabled || !onCompareChange}
+                  onChange={(event) => {
+                    onCompareChange?.(product.product_id, event.currentTarget.checked);
+                  }}
+                />
+                Compare
+              </label>
+            ) : null}
           <button
             className={saved ? "catalog-favorite-button active" : "catalog-favorite-button"}
             type="button"
@@ -137,6 +201,7 @@ export function ProductCard({
           </button>
         </div>
         <div className="product-card-body">
+          {wanted ? <WantedBadge wanted={wanted} /> : null}
           <h3>
             <Link href={productDetailHref(product.product_id)}>{product.source_dataset ? product.title : product.model}</Link>
           </h3>
@@ -154,6 +219,7 @@ export function ProductCard({
               ))}
             </p>
           ) : null}
+          {showSignals && signals ? <ArmChips product={product} /> : null}
           <div className="shop-card-price">
             {shownPriceCents == null && product.source_dataset ? (
               <span className="shop-card-price-caption">Price not recorded</span>
@@ -167,7 +233,7 @@ export function ProductCard({
               </span>
             ) : null}
             {product.source_dataset && shownPriceCents != null ? (
-              <span className="shop-card-price-caption">Historical listing price</span>
+              <span className="shop-card-price-caption">Historical price</span>
             ) : !product.source_dataset && !isPurchasable(product.availability) ? (
               <span className="shop-card-stock unavailable">
                 {formatAvailability(product.availability)}
@@ -177,12 +243,21 @@ export function ProductCard({
           {/* "Why this match", not "Why ranked #3": a shopper deciding between two
               chairs is asking what Mosaic noticed, and the number is inside. Every
               row is one product's own position, never a pool count. */}
+          <div className="shop-card-actions">
           {showSignals && signals ? (
-            <details className="shop-card-signals">
-              <summary aria-label={`Why ${product.model} is a match`}>
-                Why this match
-              </summary>
-              <ProductReceiptBody product={product} diagnostics={diagnostics} />
+            <details
+              className="shop-card-signals"
+              onToggle={(event) => {
+                // Opening moves keyboard focus into the receipt; closing returns it to the summary.
+                const details = event.currentTarget;
+                if (details.open) details.querySelector<HTMLElement>(".shop-card-receipt")?.focus();
+                else if (details.contains(document.activeElement)) details.querySelector("summary")?.focus();
+              }}
+            >
+              <summary>Why this match</summary>
+              <div className="shop-card-receipt" tabIndex={-1} aria-label="Why this match">
+                <ProductReceiptBody product={product} diagnostics={diagnostics} />
+              </div>
             </details>
           ) : null}
           <div className="shop-card-footer">
@@ -190,21 +265,7 @@ export function ProductCard({
                 two surfaces cannot drift into two compare affordances. It is
                 rendered only where a retrieval has granted a scope to compare
                 within, which is why the caller decides rather than the card. */}
-            {showCompare ? (
-              <label className="compare-control">
-                <input
-                  type="checkbox"
-                  aria-label={`Compare ${product.title}`}
-                  checked={compareChecked}
-                  disabled={compareDisabled || !onCompareChange}
-                  onChange={(event) => {
-                    onCompareChange?.(product.product_id, event.currentTarget.checked);
-                  }}
-                />
-                Compare
-              </label>
-            ) : null}
-            {product.listing_url ? <a className="source-listing-link" href={product.listing_url} target="_blank" rel="noreferrer" aria-label={`Original listing for ${product.title}`}>Original listing ↗</a> : (
+            {product.listing_url ? <a className="source-listing-link" href={product.listing_url} target="_blank" rel="noreferrer" aria-label={`Original listing for ${product.title}`}>Listing ↗</a> : (
             <button
               className={quantity ? "shop-quick-add added" : "shop-quick-add"}
               type="button"
@@ -229,6 +290,7 @@ export function ProductCard({
               {quantity ? <span>{quantity}</span> : null}
             </button>
             )}
+          </div>
           </div>
         </div>
       </article>

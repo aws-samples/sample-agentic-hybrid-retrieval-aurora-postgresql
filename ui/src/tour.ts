@@ -32,8 +32,9 @@ export const TOUR_STEPS: TourStep[] = [
     id: "search",
     target: "search",
     title: "Search like a shopper",
-    body: "Type a request or pick a keyword, typo or intent example; after a search, "
-      + "Why these results shows which search found each product.",
+    body: "Type a request or pick an example. After a search, the strip above the "
+      + "results shows how it ran, each result shows which searches found it, and "
+      + "Each method's top five lists what each search ranked first.",
   },
   {
     id: "browse",
