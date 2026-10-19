@@ -3235,11 +3235,11 @@
 }
 .shop-rank-card.fixed {
   border-color: var(--green-line);
-  background: linear-gradient(180deg, var(--green-soft), var(--paper) 55%);
+  background: var(--green-soft);
 }
 .shop-rank-card.broken {
   border-color: var(--danger-line);
-  background: linear-gradient(180deg, var(--danger-soft), var(--paper) 55%);
+  background: var(--danger-soft);
 }
 .shop-fault-body { gap: 12px; }
 .shop-fault-actions,
