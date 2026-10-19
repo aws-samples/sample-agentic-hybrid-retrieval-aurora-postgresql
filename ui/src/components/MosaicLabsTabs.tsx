@@ -1,10 +1,7 @@
 import { Link } from "wouter";
-import { PLAYGROUND_TABS } from "../navigation";
+import { PLAYGROUND_TABS, SOURCE_REPOSITORY_URL } from "../navigation";
 
 type MosaicLabsTab = (typeof PLAYGROUND_TABS)[number]["id"];
-
-const sourceRepositoryUrl =
-  "https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql";
 
 /** Shared navigation for how Mosaic searches and remembers. */
 export function MosaicLabsTabs({
@@ -33,7 +30,7 @@ export function MosaicLabsTabs({
       <a
         aria-label="View Mosaic source on GitHub (opens in a new tab)"
         className="mosaic-labs-source"
-        href={sourceRepositoryUrl}
+        href={SOURCE_REPOSITORY_URL}
         rel="noreferrer"
         target="_blank"
       >

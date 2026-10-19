@@ -15,6 +15,11 @@ BUILDER_FILES = (
     "docs/security-boundaries.md",
     "examples/call_headphones.py",
     "scripts/check_builder_tool.py",
+    # The search path's SQL in install order: the extensions, schemas, types and
+    # reference tables the catalog depends on, then every file the guide names.
+    "db/sql/00_extensions.sql",
+    "db/sql/01_schemas_and_types.sql",
+    "db/sql/02_reference_data.sql",
     "db/sql/03_catalog.sql",
     "db/sql/05_evidence.sql",
     "db/sql/06_retrieval_projection.sql",
@@ -24,6 +29,9 @@ BUILDER_FILES = (
     "labs/lab1_retrieve/solution/hybrid_search.sql",
     "db/sql/09_weighted_fusion.sql",
     "db/sql/10_evidence_search.sql",
+    "db/sql/11_query_coverage.sql",
+    "db/sql/12_agent_audit.sql",
+    "db/sql/13_telemetry.sql",
     "db/config/retrieval.yaml",
     "db/config/agent_tool_contracts.json",
 )

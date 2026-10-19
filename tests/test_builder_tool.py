@@ -1,6 +1,7 @@
 """The build check must reject broken participant code through the real callable."""
 
 import io
+import re
 import zipfile
 from pathlib import Path
 
@@ -134,6 +135,20 @@ def test_download_contains_exact_reference_files_and_no_local_state():
         assert not any(
             ".env" in name or ".local" in name for name in archive.namelist()
         )
+
+
+def test_the_kit_carries_every_sql_file_its_documents_name():
+    """A guide that maps a concept to a SQL file must ship that file."""
+    named = set()
+    for path in BUILDER_FILES:
+        if path.endswith(".md"):
+            named |= set(re.findall(r"db/sql/[\w.-]+\.sql", (main.ROOT / path).read_text()))
+    assert named, "the kit's guides name no SQL file; this gate would be vacuous"
+    missing = sorted(named - set(BUILDER_FILES))
+    assert not missing, (
+        f"Builder kit rule: its guides name {missing}, which the download leaves out; "
+        "fix: add them to BUILDER_FILES in service/builder_package.py."
+    )
 
 
 def test_missing_download_files_name_the_restore_action(tmp_path, monkeypatch):

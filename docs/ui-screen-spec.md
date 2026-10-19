@@ -141,7 +141,9 @@ live) ring the bar's button when **Agent steps and sources** opens before the
 agent has run, and **Agent steps and sources** after the first answer. Shop has
 one more, on the link into the Playground after the first search. Tips are off
 under automation, like the tours' first-visit start. **Use it in your own agent**
-ends the page with three buttons under its sentence.
+ends the page: what the downloads hold, three short lines on adapting it (your data,
+your models, your agent, from `docs/use-in-your-app.md`), then **Download the SQL
+and guide** (`/api/builder-package`), **Download the agent skill** and **Connect over MCP**.
 
 The canonical example selector and the bar's button start the production agent.
 The completed summary links each final choice to its recorded search. **Trace

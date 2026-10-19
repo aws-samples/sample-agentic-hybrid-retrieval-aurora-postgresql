@@ -22,6 +22,10 @@ type NavigationOptions = {
  * navigation prints, `title` is what the surface's own masthead prints, and
  * `headline` is the promise underneath it.
  */
+/** The public source repository: the header, footer and Playground link to it. */
+export const SOURCE_REPOSITORY_URL =
+  "https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql";
+
 export const RETRIEVAL_SURFACE = {
   path: "/labs/retrieval",
   label: "Playground",

@@ -33,7 +33,7 @@ import { armLabel, armLanguage } from "../retrievalLanguage";
 import { coreMosaicLabs, mosaicLabManifest, pipelineRequests, type MosaicLabMission } from "../labMissions";
 import { retrievalLabOutcome, runMatchesMissionGates, targetRankBound, type LabOutcome } from "../labOutcome";
 import { productImageMap } from "../media";
-import { forwardedSearchEvent, forwardedSearchFilters, useSearchParams } from "../navigation";
+import { SOURCE_REPOSITORY_URL, forwardedSearchEvent, forwardedSearchFilters, useSearchParams } from "../navigation";
 import type { AgentCitation, AgentResponse, ProductSummary, ReadinessResponse, ScorecardStageAblation, SearchFilters, SearchResponse, ToolTraceStep } from "../types";
 import { useLabStates } from "../useLabStates";
 import { usePipelineRun, type PipelineReceipt } from "../usePipelineRun";
@@ -497,10 +497,15 @@ function PipelineInspector() {
     <aside className="inspector-scale-link inspector-takeaway pg-takeaway">
       <div>
         <h2>Use it in your own agent</h2>
-        <p>The SQL and service behind these searches, and a skill that teaches an agent to use them.</p>
+        <p>The search SQL, a guide that maps each step to the file you change, and a skill that teaches an agent to use it. The full service is on <a href={SOURCE_REPOSITORY_URL} target="_blank" rel="noreferrer">GitHub</a>.</p>
+        <ul className="pg-adapt" aria-label="Adapt it to your environment">
+          <li><b>Your data</b>Keep Aurora PostgreSQL; replace the catalog tables, the text each search reads and the filters.</li>
+          <li><b>Your models</b>Point the embedding and reranking calls at the models you use.</li>
+          <li><b>Your agent</b>Connect over MCP or HTTP, add the skill, then rerun the same request to compare.</li>
+        </ul>
       </div>
       <div className="inspector-takeaway-actions">
-        <a href="/api/builder-package" download><Download size={16} aria-hidden="true" />Download the retrieval code</a>
+        <a href="/api/builder-package" download><Download size={16} aria-hidden="true" />Download the SQL and guide</a>
         <a href="/api/skill-package" download><Download size={16} aria-hidden="true" />Download the agent skill</a>
         <a href={RETRIEVAL_CONNECTION_GUIDE} target="_blank" rel="noreferrer">Connect over MCP<ArrowUpRight size={16} aria-hidden="true" /></a>
       </div>

@@ -43,7 +43,7 @@
   --focus: var(--link);
   /* Technical stage colors retain their meaning independently of navigation. */
   --retrieve: #0578ff;
-  /* The RIV26 template's orange, as in the favicon. */
+  /* The RIV26 template's orange. */
   --rank-template: #ff6200;
   --link: #005eb8;
   --rank: #e85a00;

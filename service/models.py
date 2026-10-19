@@ -1245,6 +1245,17 @@ class LabStateResponse(BaseModel):
     labs: list[LabStateRecord]
 
 
+class CompletionProofRequest(BaseModel):
+    """What a proof needs from the caller, which for labs 1 and 2 is nothing."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: The turn to grade for Lab 3. Required there and ignored elsewhere: the
+    #: proof reads persisted receipts and never spends an agent turn of its own,
+    #: so it has to be told which run to read.
+    agent_run_id: UUID | None = None
+
+
 class CompletionProofEvidence(BaseModel):
     """The receipts this proof produced or read, addressable afterwards."""
 

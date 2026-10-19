@@ -225,7 +225,7 @@ for each of Alex's three picks. Finish the guide's completion check before optio
 > sources behind the answer.
 
 Before the event expires, use **Use it in your own agent** in Playground:
-**Download the retrieval code**, **Download the agent skill**, and **Connect over
+**Download the SQL and guide**, **Download the agent skill**, and **Connect over
 MCP**. The skill guides a running backend; it does not host the
 catalog or replace service permissions. Follow the
 [adaptation guide](docs/use-in-your-app.md) for another domain.

@@ -719,6 +719,12 @@ p.pg-rank-move {
 /* Heading, sentence, then the three actions as buttons, all on the left. */
 .pg-a .pg-takeaway { display: block; }
 .pg-a .pg-takeaway p { max-width: 72ch; }
+/* An inline link in the sentence, not one of the section's tall link buttons. */
+.pg-a .pg-takeaway p a { display: inline; min-height: 0; color: var(--link); text-decoration: underline; text-underline-offset: 3px; }
+.pg-adapt { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 28px; max-width: 980px; margin: 22px 0 0; padding: 0; list-style: none; }
+.pg-adapt li { color: var(--ink-soft); font-size: 14px; line-height: 1.5; }
+.pg-adapt b { display: block; margin-bottom: 2px; color: var(--ink); font-size: 15px; font-weight: 600; }
+@media (max-width: 820px) { .pg-adapt { grid-template-columns: minmax(0, 1fr); } }
 .pg-a .pg-takeaway .inspector-takeaway-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
 .pg-a .pg-takeaway .inspector-takeaway-actions a {
   display: inline-flex;

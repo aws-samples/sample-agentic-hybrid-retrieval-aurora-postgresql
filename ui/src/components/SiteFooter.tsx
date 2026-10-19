@@ -1,9 +1,6 @@
 import { useCatalogSource } from "../catalogSource";
 import { Link } from "wouter";
-import { PLAYGROUND_TABS } from "../navigation";
-
-const sourceRepositoryUrl =
-  "https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql";
+import { PLAYGROUND_TABS, SOURCE_REPOSITORY_URL } from "../navigation";
 
 /**
  * Official marks in a checkout that is deliberately not real.
@@ -130,7 +127,7 @@ export function SiteFooter({ inert = false }: { inert?: boolean }) {
             </p>
             <a
               className="site-footer-source"
-              href={sourceRepositoryUrl}
+              href={SOURCE_REPOSITORY_URL}
               rel="noreferrer"
               target="_blank"
             >

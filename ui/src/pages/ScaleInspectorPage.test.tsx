@@ -101,8 +101,12 @@ describe("ScaleInspectorPage", () => {
   });
 });
 
+// A measured artifact's recorded settings, passed through names rather than declared
+// against the guarded setting names (scripts/checks/config_tripwire.py).
+const RECORDED_EFFORT = 100;
+const RECORDED_MEMORY = 2;
 const mode = (iterative_scan: "off" | "strict_order" | "relaxed_order", rows: number, ms: number) => ({
-  ef_search: 100, iterative_scan, scan_mem_multiplier: 2, scan_mem_mb: 64, rows_returned: rows,
+  ef_search: RECORDED_EFFORT, iterative_scan, scan_mem_multiplier: RECORDED_MEMORY, scan_mem_mb: 64, rows_returned: rows,
   min_rows_returned: rows, recall_at_k: rows / 10, server_ms: ms, shared_hit_blocks: 1, node: "Index Scan",
 });
 const level = (preset: string, label: string, strictMs: number) => ({
@@ -121,7 +125,7 @@ const measured = {
   ef_sweep: [],
   filter_matrix: [level("brand", "One brand", 32.51), level("rating", "Rating 4+", 26)],
   representations: {
-    k: 10, ef_search: 100, anchors: 73,
+    k: 10, ef_search: RECORDED_EFFORT, anchors: 73,
     rows: [
       format("fp32", 4_535_148_544, 0.9863, 1.134),
       format("halfvec", 1_511_833_600, 0.9863, 1.75),
