@@ -19,7 +19,7 @@ export function DepthRow({ items, open, onOpen }: {
   open: DetailId | null;
   onOpen: (id: DetailId | null) => void;
 }) {
-  return <section className="pg-depth" aria-label="Look deeper">
+  return <section className="pg-depth" aria-label="Look deeper" data-tour="pg-details">
     <div className="pg-depth-row">
       {items.map((item) => <button
         key={item.id}

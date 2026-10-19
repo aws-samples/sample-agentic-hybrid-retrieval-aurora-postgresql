@@ -495,11 +495,19 @@ describe("Shell guided tour", () => {
     expect(screen.queryByRole("dialog", { name: "Welcome to Mosaic" })).toBeNull();
   });
 
-  it("Take the tour starts it on Shop's landing from any page", () => {
+  it("Take the tour starts it on Shop's landing from any page but the Playground", () => {
     window.localStorage.setItem(TOUR_STORAGE_KEY, TOUR_SEEN);
-    renderShell("/labs/retrieval", false);
+    renderShell("/mosaic-labs/hnsw", false);
     fireEvent.click(screen.getByRole("button", { name: "Take the tour" }));
     expect(window.location.pathname + window.location.search).toBe("/catalog");
     expect(screen.getByRole("dialog", { name: "Welcome to Mosaic" })).toBeTruthy();
+  });
+
+  it("Take the tour on the Playground starts the Playground's own tour, in place", () => {
+    window.localStorage.setItem(TOUR_STORAGE_KEY, TOUR_SEEN);
+    renderShell("/labs/retrieval", false);
+    fireEvent.click(screen.getByRole("button", { name: "Take the tour" }));
+    expect(window.location.pathname).toBe("/labs/retrieval");
+    expect(screen.queryByRole("dialog", { name: "Welcome to Mosaic" })).toBeNull();
   });
 });

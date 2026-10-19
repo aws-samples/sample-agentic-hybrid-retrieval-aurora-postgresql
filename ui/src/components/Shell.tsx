@@ -1,7 +1,7 @@
 import { ReactNode, useCallback, useEffect, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useCommerce } from "../commerce";
-import { hasSeenTour } from "../tour";
+import { hasSeenTour, PLAYGROUND_TOUR_KEY, PLAYGROUND_TOUR_STEPS } from "../tour";
 import { CommerceDrawer } from "./CommerceDrawer";
 import { SiteFooter } from "./SiteFooter";
 import { SiteHeader } from "./SiteHeader";
@@ -19,7 +19,13 @@ export function Shell(
   const search = useSearch();
   const pathname = location.split("?")[0];
   const onShopLanding = pathname === "/catalog" && search === "";
+  const onPlayground = pathname === "/labs/retrieval" && !/(?:^|&)(?:view|run)=/.test(search);
   const [tourOpen, setTourOpen] = useState(false);
+  const [playgroundTourOpen, setPlaygroundTourOpen] = useState(false);
+  // The Playground has its own short tour: once per browser, on the first visit.
+  useEffect(() => {
+    if (autoStartTour && onPlayground && !hasSeenTour(PLAYGROUND_TOUR_KEY)) setPlaygroundTourOpen(true);
+  }, [autoStartTour, onPlayground]);
   /**
    * The tour's stops are on Shop's landing and in the header, so it always runs
    * there. It offers itself once per browser, on the first visit to the landing.
@@ -28,9 +34,13 @@ export function Shell(
     if (autoStartTour && onShopLanding && !hasSeenTour()) setTourOpen(true);
   }, [autoStartTour, onShopLanding]);
   const startTour = useCallback(() => {
+    if (onPlayground) {
+      setPlaygroundTourOpen(true);
+      return;
+    }
     if (!onShopLanding) navigate("/catalog");
     setTourOpen(true);
-  }, [navigate, onShopLanding]);
+  }, [navigate, onPlayground, onShopLanding]);
   const endTour = useCallback(() => setTourOpen(false), []);
   /**
    * The Playground and the HNSW instrument carry their own chrome and end in a
@@ -71,6 +81,7 @@ export function Shell(
       {isInstrument || isCatalogPreview || isStudioPrototype ? null : <SiteFooter inert={isCartOpen} />}
       <CommerceDrawer />
       <SpotlightTour open={tourOpen} onClose={endTour} />
+      <SpotlightTour open={playgroundTourOpen} onClose={() => setPlaygroundTourOpen(false)} steps={PLAYGROUND_TOUR_STEPS} storageKey={PLAYGROUND_TOUR_KEY} />
     </div>
   );
 }

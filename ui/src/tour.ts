@@ -73,22 +73,66 @@ export const TOUR_STEPS: TourStep[] = [
   },
 ];
 
+/**
+ * The Playground's own tour: what to press, and where to look once it has run.
+ * Its stops name `data-tour` targets on the Playground page; the run's chips
+ * only exist after a search, so that stop is optional.
+ */
+export const PLAYGROUND_TOUR_STEPS: TourStep[] = [
+  {
+    id: "pg-search",
+    target: "pg-search",
+    title: "Run Alex's request",
+    body: "The magnifying glass searches Aurora. Once results are in, it turns into the "
+      + "arrow that asks the Retrieval agent.",
+  },
+  {
+    id: "pg-suggestions",
+    target: "pg-suggestions",
+    title: "Try the labs' requests",
+    body: "Each one is a request from the labs.",
+  },
+  {
+    id: "pg-chips",
+    target: "pg-chips",
+    optional: true,
+    title: "How the search ran",
+    body: "What each search found, the pool Aurora combined, and reranking, with their times.",
+  },
+  {
+    id: "pg-board",
+    target: "pg-board",
+    title: "Watch the ranking change",
+    body: "The same products move from each search to Aurora's combined order to the final "
+      + "order. The line follows one product.",
+  },
+  {
+    id: "pg-details",
+    target: "pg-details",
+    title: "Look deeper when you want",
+    body: "Each search's top five, the RRF arithmetic, why a product is where it is, and the "
+      + "agent's steps.",
+  },
+];
+
+export const PLAYGROUND_TOUR_KEY = "mosaic-playground-tour";
+
 export const TOUR_STORAGE_KEY = "mosaic-tour";
 /** Bump the suffix when the stops change enough that returning viewers should see them. */
 export const TOUR_SEEN = "seen-v1";
 
 /** Storage is a per-browser convenience: unavailable storage means "not seen yet". */
-export function hasSeenTour(): boolean {
+export function hasSeenTour(key = TOUR_STORAGE_KEY): boolean {
   try {
-    return window.localStorage.getItem(TOUR_STORAGE_KEY) === TOUR_SEEN;
+    return window.localStorage.getItem(key) === TOUR_SEEN;
   } catch {
     return false;
   }
 }
 
-export function markTourSeen(): void {
+export function markTourSeen(key = TOUR_STORAGE_KEY): void {
   try {
-    window.localStorage.setItem(TOUR_STORAGE_KEY, TOUR_SEEN);
+    window.localStorage.setItem(key, TOUR_SEEN);
   } catch {
     // A private window keeps no storage; the tour then simply offers itself again.
   }

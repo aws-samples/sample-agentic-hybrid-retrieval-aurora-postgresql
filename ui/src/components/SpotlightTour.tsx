@@ -82,8 +82,8 @@ function cardPlacement(hole: Hole | null, cardHeight: number): CSSProperties {
 }
 
 export function SpotlightTour(
-  { open, onClose, steps = TOUR_STEPS }:
-    { open: boolean; onClose: () => void; steps?: TourStep[] },
+  { open, onClose, steps = TOUR_STEPS, storageKey }:
+    { open: boolean; onClose: () => void; steps?: TourStep[]; storageKey?: string },
 ) {
   const [index, setIndex] = useState(0);
   const [hole, setHole] = useState<Hole | null>(null);
@@ -99,9 +99,9 @@ export function SpotlightTour(
     && later.target !== undefined && visibleTarget(later.target) === null);
 
   const end = useCallback(() => {
-    markTourSeen();
+    markTourSeen(storageKey);
     onClose();
-  }, [onClose]);
+  }, [onClose, storageKey]);
 
   const advance = useCallback(() => {
     if (index >= steps.length - 1) end();

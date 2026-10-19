@@ -308,12 +308,12 @@ function RequestStage({ selectedId, carried, question, context, runButton, onCho
 }) {
   return <section className="pg-stage" aria-label="Alex’s request">
     <MosaicLabsMasthead title={<>Behind a <span className="inspector-title-emphasis">better answer.</span></>} deck="Follow one request from three searches to one answer." />
-    <div className="pg-query">
+    <div className="pg-query" data-tour="pg-search">
       <img className="pg-alex" src="/assets/images/mosaic/alex-headshot-v1.jpg" alt="Alex, Mosaic’s example shopper" width={44} height={44} />
       <div><h2>{question || "No request is available"}</h2><p>{context}</p></div>
       {runButton}
     </div>
-    <nav className="pg-requests" aria-label="Alex’s requests">{requestGroups.map((group) => <div key={group.label} role="group" aria-label={group.label}>
+    <nav className="pg-requests" aria-label="Alex’s requests" data-tour="pg-suggestions">{requestGroups.map((group) => <div key={group.label} role="group" aria-label={group.label}>
       {group.requests.map((request) => <button key={request.id} type="button" aria-pressed={!carried && selectedId === request.id} onClick={() => onChoose(request.id)}>{request.label}</button>)}
     </div>)}</nav>
   </section>;
@@ -438,7 +438,7 @@ function PipelineInspector() {
   return <div className="page pg-a pipeline-inspector">
     <MosaicLabsTabs active="retrieval" />
     <RequestStage selectedId={selectedRequest?.id} carried={params.has("q") || Boolean(carriedEvent)} question={question} context={context} runButton={runButton} onChoose={(id) => setParams(new URLSearchParams({ scene: id }))} />
-    <section className="pg-run" aria-label="This run">
+    <section className="pg-run" aria-label="This run" data-tour={chips.length ? "pg-chips" : undefined}>
       <p className="pg-run-status" role="status">{pipeline.reading ? "Reading the saved Shop search…" : pipeline.status || (carriedEvent ? "Saved Shop search" : "Ready to follow Alex’s request.")}</p>
       {rankNotOpen ? null : <RunSteps chips={chips} label={pipeline.started ? "The Retrieval agent’s steps" : "How this search ran"} />}
       {pipeline.answer ? <RevealedAnswer key={pipeline.answer.agent_run_id} answer={pipeline.answer} streamed={pipeline.streamed} completed={pipeline.completed} renderSearchLink={renderSearchLink} multipleSearches={pipeline.receipts.length > 1} onSettled={onSettled} /> : null}
@@ -449,7 +449,7 @@ function PipelineInspector() {
       <h2>The ranking exercise is next</h2>
       <p>Finish Lab 1 and prepare Lab 2 in the guide. This request shows its results once Lab 2 has started.</p>
     </section> : <div className="pg-stages" data-arrive={response ? (arrival.count % 2 ? "a" : "b") : undefined}>
-      <section className="pg-board" aria-label="Watch the ranking change">
+      <section className="pg-board" aria-label="Watch the ranking change" data-tour="pg-board">
         {response?.results.length
           ? <RankRace key={response.search_event_id} response={response} followId={followId} wanted={followId != null && followId === wantedId} missing={missingWanted} onFollow={setReceiptId} />
           : <p className="inspector-waiting pg-board-empty">{pipeline.error ? "No ranking is available from this run." : pipeline.running ? "Searching Aurora…" : "Search to watch three searches, Aurora’s combined order and the reranker side by side."}</p>}
