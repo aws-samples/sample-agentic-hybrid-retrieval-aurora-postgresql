@@ -1,6 +1,7 @@
 import { RETRIEVAL_CONNECTION_GUIDE, RetrievalTakeawayLinks } from "../components/RetrievalTakeawayLinks";
 import { ArrowRight, ArrowUpRight, Check, ChevronDown, LoaderCircle } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
+import { useReducedMotion } from "motion/react";
 import { Link } from "wouter";
 import { api } from "../api";
 import { CodeBlock } from "../components/CodeBlock";
@@ -15,6 +16,9 @@ import { SearchTimingDetails } from "../components/RetrievalDiagnosticsStrip";
 import { PersistedRunDisclosures, RrfMath } from "../components/RetrievalProvenance";
 import { SourceComparison } from "../components/SourceComparison";
 import { pickName } from "../components/ask-mosaic/comparison";
+import { sourceAnchor } from "../components/ask-mosaic/citations";
+import { useSoftReveal } from "../components/ask-mosaic/softReveal";
+import { StreamedAnswer } from "../components/ask-mosaic/StreamedAnswer";
 import { LeadResult, type AgentVerdict } from "../components/playground/LeadResult";
 import { MethodReads } from "../components/playground/MethodReads";
 import { CandidatePoolOrder } from "../components/playground/CandidatePoolOrder";
@@ -189,12 +193,12 @@ function ProductSearchLinks({ product, receipts, running, onSelect }: {
 const EXCERPT = 160;
 const excerpt = (text: string) => (text.length > EXCERPT ? `${text.slice(0, EXCERPT).replace(/\s\S*$/, "")}…` : text);
 
-/** The answer's sources, numbered as its prose cites them. */
-function AnswerSources({ citations }: { citations: AgentCitation[] }) {
+/** The answer's sources, numbered as its prose cites them; each citation chip jumps to its entry. */
+function AnswerSources({ citations, answerId }: { citations: AgentCitation[]; answerId: string }) {
   if (!citations.length) return null;
   return <aside className="pg-sources" aria-labelledby="pg-sources-title">
     <h3 id="pg-sources-title">Sources</h3>
-    <ol>{citations.map((citation) => <li key={`${citation.number}-${citation.evidence_id}`} value={citation.number}>
+    <ol>{citations.map((citation) => <li key={`${citation.number}-${citation.evidence_id}`} id={sourceAnchor(answerId, citation.number)} tabIndex={-1} value={citation.number}>
       <span className="pg-source-kind">{/review/i.test(citation.evidence_type) ? "Review" : "Listing"}</span>
       <strong>{citation.title}</strong>
       {/review/i.test(citation.evidence_type) && citation.quote ? <q>{excerpt(citation.quote)}</q> : null}
@@ -203,33 +207,48 @@ function AnswerSources({ citations }: { citations: AgentCitation[] }) {
   </aside>;
 }
 
+/**
+ * The Retrieval agent's answer, read out as Ask Mosaic reads it: a few words at a
+ * time, each fading in once. Its sources and picks wait until the prose is out,
+ * so nothing moves the sentence being read. Mounted per run, because the reveal
+ * paces only an answer that was still streaming when it first appeared.
+ */
+function RevealedAnswer({ answer, streamed, completed, renderSearchLink, multipleSearches }: {
+  answer: AgentResponse; streamed: string; completed: boolean;
+  renderSearchLink: (product: ProductSummary) => ReactNode; multipleSearches: boolean;
+}) {
+  const reduceMotion = useReducedMotion();
+  const reveal = useSoftReveal(streamed || answer.answer, !completed, true, reduceMotion ?? false);
+  const done = completed && reveal.done;
+  const answerId = `pg-answer-${answer.agent_run_id}`;
+  const status = answer.outcome === "declined"
+    ? "No recommendation: the available sources do not support a choice."
+    : done
+      ? `${answer.recommendations.length ? `${answer.recommendations.length} ${answer.recommendations.length === 1 ? "recommendation" : "recommendations"}` : "Answer ready"} · ${answer.citations.length} ${answer.citations.length === 1 ? "source link" : "source links"}.`
+      : "Writing the answer…";
+  return <>
+    <p className="pg-reason-summary" role="status">{status}</p>
+    <div className="pg-answer-grid">
+      <div className="inspector-answer pg-answer" aria-busy={!done}>
+        <StreamedAnswer className="product-answer" text={reveal.text} chunks={reveal.chunks} citations={answer.citations} answerId={answerId} />
+      </div>
+      {done ? <AnswerSources citations={answer.citations} answerId={answerId} /> : null}
+    </div>
+    {done && answer.recommendations.length ? <div className="pg-picks">
+      <ProductAnswer text="" products={answer.recommendations} citations={answer.citations} complete renderSearchLink={renderSearchLink} />
+      {multipleSearches ? <p className="inspector-note">Each pick links to its search; Rank shows one search at a time.</p> : null}
+    </div> : null}
+  </>;
+}
+
 function ReasonBody({ answer, partial, streamed, completed, running, active, hasSearch, failed, renderSearchLink, multipleSearches }: {
   answer: AgentResponse | null; partial: AgentPartial | null; streamed: string; completed: boolean;
   running: boolean; active: boolean; hasSearch: boolean; failed: boolean;
   renderSearchLink: (product: ProductSummary) => ReactNode; multipleSearches: boolean;
 }) {
   const working = running && !completed && !failed;
-  const status = !answer
-    ? null
-    : answer.outcome === "declined"
-      ? "No recommendation: the available sources do not support a choice."
-      : completed
-        ? `${answer.recommendations.length ? `${answer.recommendations.length} ${answer.recommendations.length === 1 ? "recommendation" : "recommendations"}` : "Answer ready"} · ${answer.citations.length} ${answer.citations.length === 1 ? "source link" : "source links"}.`
-        : "Writing Mosaic’s answer…";
   return <>
-    {status ? <p className="pg-reason-summary" role="status">{status}</p> : null}
-    {answer ? <>
-      <div className="pg-answer-grid">
-        <div className="inspector-answer pg-answer" aria-busy={!completed}>
-          <ProductAnswer text={completed ? answer.answer : streamed} products={[]} complete={completed} />
-        </div>
-        {completed ? <AnswerSources citations={answer.citations} /> : null}
-      </div>
-      {completed && answer.recommendations.length ? <div className="pg-picks">
-        <ProductAnswer text="" products={answer.recommendations} citations={answer.citations} complete renderSearchLink={renderSearchLink} />
-        {multipleSearches ? <p className="inspector-note">Each pick links to its search; Rank shows one search at a time.</p> : null}
-      </div> : null}
-    </>
+    {answer ? <RevealedAnswer key={answer.agent_run_id} answer={answer} streamed={streamed} completed={completed} renderSearchLink={renderSearchLink} multipleSearches={multipleSearches} />
       : working && active ? <p className="inspector-waiting pg-reason-status" role="status"><LoaderCircle className="spin" size={20} aria-hidden="true" /><span>The Retrieval agent is working. {partial?.candidates.length ? `Comparing ${partial.candidates.length} products and checking their sources.` : "It is checking products and sources."}</span></p>
       : <p className="inspector-waiting">{failed ? "The run stopped before the answer was ready. Open the activity log for details." : working ? "Mosaic will explain its picks after checking the products and sources." : hasSearch ? "This view contains the saved search results. Start a new run to let Mosaic search and make recommendations." : "Mosaic will compare the products and explain its picks, with links to the sources."}</p>}
     <KeepInMind>{LESSONS.reason}</KeepInMind>

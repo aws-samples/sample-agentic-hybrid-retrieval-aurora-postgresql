@@ -117,13 +117,14 @@ interface AnswerBodyProps extends Pick<
   text: string;
   /** The whole answer so far, unrevealed, which citations are matched against. */
   answerText: string;
-  reveal: number;
+  /** Where each revealed chunk of `text` starts; empty when the answer was never paced. */
+  chunks: readonly number[];
   settled: boolean;
   declined: boolean;
 }
 
-function Picks({ picks, leadsWithCard, props }: { picks: ProductSummary[]; leadsWithCard: boolean; props: AnswerBodyProps }) {
-  const shared = (product: ProductSummary) => ({
+function pickProps(product: ProductSummary, picks: ProductSummary[], props: AnswerBodyProps) {
+  return {
     product,
     index: picks.indexOf(product),
     rows: props.rows,
@@ -135,23 +136,26 @@ function Picks({ picks, leadsWithCard, props }: { picks: ProductSummary[]; leads
     highlighted: props.highlightedProductId === product.product_id,
     onHighlight: props.onHighlight,
     onSelectProduct: props.onSelectProduct,
-  });
-  const rest = leadsWithCard ? picks.slice(1) : picks;
+  };
+}
+
+/**
+ * The picks after the lead card. They wait below the prose until it has been
+ * read out, so their arrival never pushes the sentence being read down the panel.
+ */
+function OtherPicks({ picks, props }: { picks: ProductSummary[]; props: AnswerBodyProps }) {
+  const rest = props.leadsWithCard ? picks.slice(1) : picks;
+  if (!props.settled || !rest.length) return null;
   return (
-    <>
-      {leadsWithCard && picks[0] ? <TopPick {...shared(picks[0])} /> : null}
-      {props.settled && rest.length ? (
-        <section className="ask-picks" aria-label="Other picks">
-          <h4>{leadsWithCard ? "Other picks" : "Picks"}</h4>
-          <ul>{rest.map((product) => <PickRow key={product.product_id} {...shared(product)} />)}</ul>
-        </section>
-      ) : null}
-    </>
+    <section className="ask-picks" aria-label="Other picks">
+      <h4>{props.leadsWithCard ? "Other picks" : "Picks"}</h4>
+      <ul>{rest.map((product) => <PickRow key={product.product_id} {...pickProps(product, picks, props)} />)}</ul>
+    </section>
   );
 }
 
 function AnswerBody(props: AnswerBodyProps) {
-  const { turn, response, run, declined, settled, builder, answerId, text, reveal } = props;
+  const { turn, response, run, declined, settled, builder, answerId, text, chunks } = props;
   const picks = declined ? [] : response.recommendations.slice(0, 3);
   return (
     <>
@@ -163,8 +167,9 @@ function AnswerBody(props: AnswerBodyProps) {
       ) : (
         <>
           {settled ? <h3 className="sr-only">Final recommendation</h3> : null}
-          <Picks picks={picks} leadsWithCard={props.leadsWithCard} props={props} />
-          <StreamedAnswer text={text} reveal={reveal} citations={response.citations} answerId={answerId} />
+          {props.leadsWithCard && picks[0] ? <TopPick {...pickProps(picks[0], picks, props)} /> : null}
+          <StreamedAnswer text={text} chunks={chunks} citations={response.citations} answerId={answerId} />
+          <OtherPicks picks={picks} props={props} />
           {settled && response.citations.length ? (
             <>
               <SourceList citations={response.citations} products={response.recommendations} answer={props.answerText} answerId={answerId} builder={builder} />
@@ -277,7 +282,7 @@ export function Turn(props: TurnProps) {
               leadsWithCard={Boolean(picks[0]) && picks[0].product_id !== previousBestPickId}
               text={declined ? "" : reveal.text}
               answerText={turn.streamed || response.answer}
-              reveal={reveal.reveal}
+              chunks={reveal.chunks}
               settled={settled}
               declined={declined}
             />

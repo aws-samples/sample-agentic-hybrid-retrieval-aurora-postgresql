@@ -1,26 +1,42 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
- * Characters over which a newly arrived character darkens to full ink.
- *
- * A character's age is how many characters arrived after it, counted across the
- * whole answer, so the trail crosses sentence, citation and paragraph breaks.
- * Age only grows, which is why nothing ever gets lighter once it is shown.
+ * Characters per millisecond when the reveal has caught up with the stream:
+ * about 50 a second, so the answer never stalls on a slow delivery.
  */
-export const TRAIL = 24;
+const FLOOR_PER_MS = 0.05;
 
-const FAINTEST = 0.3;
+/**
+ * A backlog this many characters long is revealed at one character per
+ * millisecond. The pace rises with the backlog, so a burst from the network
+ * is read out smoothly instead of landing at once.
+ */
+const CATCH_UP_MS = 1800;
 
-/** 0 for the character that just arrived, 1 once it is fully inked. */
-export function settle(age: number): number {
-  return Math.min(1, (age + 1) / TRAIL);
+/** A cut moves forward to the next space unless that is further than this. */
+const WORD_REACH = 12;
+
+/** A long frame (a background tab, a busy main thread) adds at most this much time. */
+const LONGEST_FRAME_MS = 64;
+
+/**
+ * Where a chunk that takes `take` characters from `start` ends.
+ *
+ * It finishes the word it lands in, so a chunk is whole words and their
+ * trailing space; a short tail with no space after it, such as a closing
+ * `[2].`, goes whole. A word longer than `WORD_REACH` is cut where it was.
+ */
+export function chunkEnd(text: string, start: number, take: number): number {
+  const end = start + take;
+  if (end >= text.length) return text.length;
+  const space = text.indexOf(" ", end);
+  if (space === -1) return text.length - end <= WORD_REACH ? text.length : end;
+  return space - end > WORD_REACH ? end : space + 1;
 }
 
-/** Inline style for a character of the given age, built only from theme tokens. */
-export function ageStyle(age: number): string {
-  const t = settle(age);
-  return `color:color-mix(in srgb, var(--ink) ${Math.round(t * 100)}%, var(--line-strong));`
-    + `opacity:${(FAINTEST + (1 - FAINTEST) * t).toFixed(2)};`;
+/** How many characters a frame of `elapsedMs` earns with `backlog` still to show. */
+export function earned(elapsedMs: number, backlog: number): number {
+  return Math.min(LONGEST_FRAME_MS, elapsedMs) * Math.max(FLOOR_PER_MS, backlog / CATCH_UP_MS);
 }
 
 /**
@@ -42,22 +58,23 @@ export interface SoftReveal {
   /** The prose shown so far, cut at a clean Markdown boundary. */
   text: string;
   /**
-   * Characters revealed on the answer's clock. It runs `TRAIL` past the text's
-   * end once the stream has closed, so the last characters finish darkening.
+   * Where each revealed chunk starts, in order. Each chunk fades in once as it
+   * mounts; an answer that was never paced has none and renders as plain prose.
    */
-  reveal: number;
+  chunks: readonly number[];
   done: boolean;
 }
 
+const NO_CHUNKS: readonly number[] = [];
+
 /**
- * Paces streamed prose onto the page and reports the clock its ages are read
- * from.
+ * Reads streamed prose onto the page a few words at a time.
  *
- * The service delivers the answer in chunks, and painting each chunk at once
- * makes the paragraph pop. This advances a few characters per animation frame
- * instead, faster with the backlog so it trails the stream by well under a
- * second. A turn that mounts already answered, or any turn under reduced
- * motion, shows everything at once with nothing faint.
+ * The clock is elapsed time, not frames, so a 120 Hz display reads at the same
+ * pace as a 60 Hz one. Each frame earns characters at a rate that grows with
+ * the backlog; once a whole character is earned, the next chunk runs to the end
+ * of its word. A turn that mounts already answered, or any turn under reduced
+ * motion, shows everything at once.
  */
 export function useSoftReveal(
   text: string,
@@ -66,31 +83,38 @@ export function useSoftReveal(
   instant: boolean,
 ): SoftReveal {
   const [startedStreaming] = useState(streaming);
-  const [reveal, setReveal] = useState(0);
+  const [chunks, setChunks] = useState<readonly number[]>(NO_CHUNKS);
+  const [shown, setShown] = useState(0);
+  const latest = useRef(text);
+  latest.current = text;
+  const position = useRef(0);
   const pace = enabled && startedStreaming && !instant;
-  const target = streaming ? text.length : text.length + TRAIL;
-  const done = !pace || (!streaming && reveal >= target);
+  const caughtUp = shown >= text.length;
+  const done = !pace || (!streaming && caughtUp);
 
   useEffect(() => {
-    if (done) return undefined;
-    let frame = window.requestAnimationFrame(function step() {
-      setReveal((current) => {
-        const backlog = target - current;
-        if (backlog <= 0) return current;
-        if (backlog > 240) return current + 14;
-        if (backlog > 60) return current + 8;
-        return current + 3;
-      });
-      frame = window.requestAnimationFrame(step);
+    if (!pace || caughtUp) return undefined;
+    let last: number | null = null;
+    let carry = 0;
+    let frame = window.requestAnimationFrame(function step(now) {
+      const from = position.current;
+      const backlog = latest.current.length - from;
+      carry += last == null ? 0 : earned(now - last, backlog);
+      last = now;
+      const take = Math.floor(carry);
+      if (take > 0 && backlog > 0) {
+        const to = chunkEnd(latest.current, from, take);
+        carry = 0;
+        position.current = to;
+        setShown(to);
+        setChunks((current) => [...current, from]);
+      }
+      if (position.current < latest.current.length) frame = window.requestAnimationFrame(step);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [done, target]);
+  }, [pace, caughtUp]);
 
-  if (!enabled) return { text: "", reveal: 0, done: false };
-  if (!pace) return { text, reveal: text.length + TRAIL, done: true };
-  return {
-    text: balancedMarkdownSlice(text, Math.min(reveal, text.length)),
-    reveal: Math.min(reveal, target),
-    done,
-  };
+  if (!enabled) return { text: "", chunks: NO_CHUNKS, done: false };
+  if (!pace) return { text, chunks: NO_CHUNKS, done: true };
+  return { text: balancedMarkdownSlice(text, Math.min(shown, text.length)), chunks, done };
 }

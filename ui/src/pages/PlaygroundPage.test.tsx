@@ -9,6 +9,9 @@ import type { AgentResponse, EvidenceRecord, LabStateRecord, ProductSummary, Ret
 import { PlaygroundPage } from "./PlaygroundPage";
 
 vi.mock("./RetrievalLabPage", () => ({ RetrievalLabPage: () => <p>Guide workbench</p> }));
+
+/** An agent answer is read out at the reveal's pace before its picks and sources appear. */
+const READ_OUT_MS = 5000;
 const requests = pipelineRequests;
 const defaultRequest = requests.find((request) => request.id === mosaicLabManifest.playground.default_request)!;
 const callsRequest = requests.find((request) => request.id === "focus-at-home")!;
@@ -123,7 +126,7 @@ it("shows every recommendation, follows its recorded search, and preserves a cho
   fireEvent.change(selector, { target: { value: firstSearchId } });
   await act(async () => { emit({ type: "complete", response: answer }); finish(); });
   expect(selector.value).toBe(firstSearchId);
-  const picks = screen.getByRole("region", { name: "Mosaic’s picks for Alex" });
+  const picks = await screen.findByRole("region", { name: "Mosaic’s picks for Alex" }, { timeout: READ_OUT_MS });
   expect(productLinks(picks)).toEqual(answer.recommendations.map((product) => `/products/${product.product_id}`));
   expect(picks.querySelectorAll("ol > li")).toHaveLength(4);
   expect(picks.querySelectorAll("img")).toHaveLength(4);
@@ -186,11 +189,14 @@ it("streams the full answer, then keeps all of it in view above every pick", asy
   const response: AgentResponse = { agent_run_id: agentId, question: defaultRequest.query, answer: `${products[1].title} is the best fit. ${"Full supporting explanation. ".repeat(30)}The final sentence.`, plan: [], recommendations: [products[1], products[0]], citations: [], trace: [] };
   act(() => emit({ type: "answer_start", response: { ...response, answer: "" } }));
   act(() => emit({ type: "answer_delta", delta: `${products[1].title} is the best fit.` }));
-  expect(within(reason).getByText(`${products[1].title} is the best fit.`)).toBeTruthy();
+  await waitFor(() => expect(reason.querySelector(".inspector-answer")?.textContent).toContain(`${products[1].title} is the best fit.`));
+  expect(reason.querySelectorAll(".inspector-answer .reveal-chunk").length).toBeGreaterThan(1);
   expect(reason.querySelectorAll("img")).toHaveLength(0);
   expect(container.querySelector(".inspector-answer")?.getAttribute("aria-busy")).toBe("true");
   await act(async () => { emit({ type: "complete", response }); finish(); });
-  const picks = screen.getByRole("region", { name: "Mosaic’s picks for Alex" });
+  // The picks and sources wait until the prose has been read out, so they never push it down.
+  expect(screen.queryByRole("region", { name: "Mosaic’s picks for Alex" })).toBeNull();
+  const picks = await screen.findByRole("region", { name: "Mosaic’s picks for Alex" }, { timeout: READ_OUT_MS });
   expect(productLinks(picks)).toEqual([products[1], products[0]].map((product) => `/products/${product.product_id}`));
   const prose = reason.querySelector(".inspector-answer")!;
   expect(prose.textContent).toContain("The final sentence.");

@@ -930,6 +930,24 @@
   margin-bottom: 0;
 }
 
+/* A revealed chunk of an answer, in Ask Mosaic or the Playground, fades in
+   once from a soft blur as it mounts. Earlier chunks keep their elements, so
+   only the newest one plays. */
+.reveal-chunk {
+  animation: reveal-chunk 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes reveal-chunk {
+  from {
+    opacity: 0;
+    filter: blur(5px);
+  }
+
+  40% {
+    opacity: 0.6;
+  }
+}
+
 .ask-prose h1,
 .ask-prose h2,
 .ask-prose h3,
@@ -1589,6 +1607,7 @@
 
   .ask-mosaic-sidecar,
   .ask-mosaic-turn,
+  .reveal-chunk,
   .ask-top-pick,
   .ask-builder,
   .ask-run-steps li,
