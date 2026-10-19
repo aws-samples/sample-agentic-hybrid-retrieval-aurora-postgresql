@@ -685,9 +685,9 @@
   flex: 0 0 auto;
   align-items: center;
   gap: 7px;
-  padding: 0 12px;
+  padding: 0 14px;
   border: 1px solid var(--maroon-line);
-  border-radius: 6px;
+  border-radius: 999px;
   background: var(--paper);
   color: var(--maroon-800);
   font-size: var(--labs-detail);
