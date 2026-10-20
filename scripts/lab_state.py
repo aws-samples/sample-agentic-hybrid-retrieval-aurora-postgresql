@@ -8,6 +8,7 @@ import ast
 import difflib
 import os
 import re
+import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -17,6 +18,7 @@ from typing import Any, Literal, NamedTuple
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
+from scripts.progress import bar
 from service.catalog_runtime import search_schema
 from service.lab_files import LAB1_SQL, LAB2_SQL, LAB3_AGENT, solution_path
 from service.participant_commands import (
@@ -26,15 +28,19 @@ from service.participant_commands import (
     DIFF,
     DIFF_ANSWER,
     ask_setup,
+    catch_up,
+    catch_up_steps,
     complete_lab_3,
     exercise_check,
     prove,
     repeat_request,
     reset,
+    skip_to,
     solution,
     validate,
     validate_applied,
 )
+from service.participant_commands import start as start_command
 
 #: Slack for one reciprocal-rank contribution read back out of PostgreSQL by
 #: calling `mosaic_search.reciprocal_rank_contribution` directly. Not a
@@ -832,7 +838,6 @@ def status_line(lab: int, *, repo: Path = REPO) -> str:
     would read SOLVED for work nobody has done.
     """
     from scripts.lab_entry import FAULT_AT_ENTRY, load_record
-    from service.participant_commands import start as start_command
 
     record = load_record(lab, repo)
     if record is None and lab in FAULT_AT_ENTRY:
@@ -852,13 +857,24 @@ def _parser() -> argparse.ArgumentParser:
             "--lab 2 validates Lab 2 and prepares Lab 3; "
             "start enters a lab once and keeps your edits on a rerun; reset "
             "discards one lab's edits and restores its starter; solution "
-            "overwrites one lab with the reference repair. To see where your lab "
+            "overwrites one lab with the reference repair; catch-up finishes a lab "
+            "with its reference answer, checks and hand-off; skip-to starts a later "
+            "lab after finishing the earlier ones. To see where your lab "
             f"files differ from the reference, run {DIFF}."
         )
     )
     parser.add_argument(
         "action",
-        choices=("start", "advance", "reset", "solution", "validate", "status"),
+        choices=(
+            "start",
+            "advance",
+            "reset",
+            "solution",
+            "catch-up",
+            "skip-to",
+            "validate",
+            "status",
+        ),
     )
     parser.add_argument(
         "--source-only",
@@ -893,6 +909,86 @@ def solution_summary(lab: int, path: Path) -> str:
     )
 
 
+def _entered(lab: int) -> bool:
+    """True once a lab's start finished; the previous lab's handoff starts it."""
+    from scripts.lab_entry import load_record
+
+    record = load_record(lab, REPO)
+    return bool(record and record.get("completed_at"))
+
+
+def _earlier_labs_to_finish(lab: int) -> list[int]:
+    """The labs before this one that have not handed off, which it cannot start without."""
+    earlier = [number for number in range(1, lab) if not _entered(number + 1)]
+    for number in earlier:
+        print(
+            f"Lab {number} has not handed off yet, so this finishes it first with the "
+            "reference answer.",
+            flush=True,
+        )
+    return earlier
+
+
+def _run_steps(steps: list[str], *, label: str, resume: str) -> int:
+    """Run participant commands in order, naming each; stop at the first failure."""
+    for index, step in enumerate(steps):
+        print(
+            f"\n{bar(index, len(steps))}  {label}: step {index + 1} of {len(steps)}",
+            flush=True,
+        )
+        print(f"$ {step}", flush=True)
+        command = [sys.executable, *shlex.split(step.removeprefix("uv run python "))]
+        result = subprocess.run(command, cwd=REPO, check=False)
+        if result.returncode != 0:
+            print(
+                f"\n{label} stopped at: {step}\n"
+                f"Next: fix what it names above, then run {resume} again; "
+                "the steps before it are safe to repeat."
+            )
+            return result.returncode
+    print(f"\n{bar(len(steps), len(steps))}  {label}: done", flush=True)
+    return 0
+
+
+def catch_up_lab(lab: int) -> int:
+    """Finish a lab with its reference answer, its checks and its hand-off.
+
+    Any earlier lab that has not handed off is finished first, so a participant
+    can catch up from wherever they are.
+    """
+    labs = [*_earlier_labs_to_finish(lab), lab]
+    steps = [step for number in labs for step in catch_up_steps(number)]
+    code = _run_steps(steps, label=f"Lab {lab} catch-up", resume=catch_up(lab))
+    if code:
+        return code
+    if lab == 3:
+        print(
+            "\nLab 3: caught up with the reference Retrieval agent. Next: ask Alex's "
+            f"setup request with {ask_setup()}, then check that run with "
+            f"{complete_lab_3()}."
+        )
+    else:
+        print(f"\nLab {lab}: caught up with the reference answer.")
+    return 0
+
+
+def skip_to_lab(lab: int) -> int:
+    """Start at a later lab, finishing the earlier ones with their reference answers.
+
+    The last hand-off starts the chosen lab; when nothing earlier needs finishing,
+    its own start runs, which keeps any edits already made there.
+    """
+    earlier = _earlier_labs_to_finish(lab)
+    steps = [step for number in earlier for step in catch_up_steps(number)]
+    code = _run_steps(
+        steps or [start_command(lab)], label=f"Skip to Lab {lab}", resume=skip_to(lab)
+    )
+    if code:
+        return code
+    print(f"\nLab {lab}: ready. Continue with Lab {lab} in the guide.")
+    return 0
+
+
 def main() -> int:
     args = _parser().parse_args()
     if args.action != "status" and args.lab is None:
@@ -906,6 +1002,10 @@ def main() -> int:
         for lab in LABS:
             print(status_line(lab))
         return 0
+    if args.action == "catch-up":
+        return catch_up_lab(args.lab)
+    if args.action == "skip-to":
+        return skip_to_lab(args.lab)
     if args.action == "reset" and args.source_only:
         # Provisioning installs Lab 1's fault before the API exists, then
         # applies it itself. Only the named lab's seam changes.

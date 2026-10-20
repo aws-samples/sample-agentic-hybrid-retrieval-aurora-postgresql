@@ -45,6 +45,28 @@ def solution(lab: int) -> str:
     return f"uv run python scripts/lab_state.py solution --lab {lab}"
 
 
+def catch_up(lab: int) -> str:
+    """A lab's Running behind? in one command: the steps `catch_up_steps` names."""
+    return f"uv run python scripts/lab_state.py catch-up --lab {lab}"
+
+
+def skip_to(lab: int) -> str:
+    """Start at a later lab: the earlier labs are finished with their reference answers."""
+    return f"uv run python scripts/lab_state.py skip-to --lab {lab}"
+
+
+def catch_up_steps(lab: int) -> tuple[str, ...]:
+    """The commands `catch-up` runs for one lab, in order; each is safe to repeat.
+
+    Labs 1 and 2 end handed off to the next lab. Lab 3 ends deployed: completion
+    needs a setup run the participant asks for themselves.
+    """
+    if lab == 3:
+        return (start(3), solution(3), LIST_TOOLS, DEPLOY_AGENT)
+    checks = (exercise_check(2), ADVANCE_TO_LAB_3) if lab == 2 else (ADVANCE_TO_LAB_2,)
+    return (start(lab), solution(lab), APPLY_SQL, repeat_request(lab), *checks)
+
+
 # Which lines of your lab files differ from the reference answer, without the answer.
 DIFF = "uv run python scripts/diff.py"
 # The same report with the reference answer's lines: the last step of a Stuck? block.

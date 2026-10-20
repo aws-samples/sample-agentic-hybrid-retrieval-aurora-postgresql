@@ -39,6 +39,15 @@ Retrieval agent starter. Lab 3 stays in the terminal: deploy, ask the setup
 request and the 100W follow-up with `scripts/ask_agent.py`, then complete the
 setup run by the Run ID it printed. Ask Mosaic is an optional view of the same runs.
 
+Anyone behind schedule runs their lab's **Running behind?** command,
+`uv run python scripts/lab_state.py catch-up --lab N`: it installs the reference
+answer, applies or deploys it and runs the lab's checks and hand-off; `reset
+--lab N` starts that lab over. Someone who knows the earlier material can start
+later from Getting started's **Choose where to start**: `skip-to --lab N`
+finishes the earlier labs with their reference answers and leaves lab N's
+exercise to do. Lab 3's completion still needs their own setup run, so no one
+completes without using the Retrieval agent.
+
 Assign a lead for the clock and story, a SQL presenter, a Retrieval agent presenter and
 room support. One person may cover several roles; keep the staffing roster
 outside the repository. Avoid extra demonstrations during a lab's proof time.

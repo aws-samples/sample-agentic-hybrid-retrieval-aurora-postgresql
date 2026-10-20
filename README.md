@@ -138,7 +138,12 @@ found, if exactly one is that close, and asks you to use that ID.
 
 Use the guide's hints for recovery. Reset discards the selected lab's edits;
 the solution action replaces them with the reference answer. Both still need
-the lab's proof. Optional Memory and HNSW exercises follow completion.
+the lab's proof. `uv run python scripts/lab_state.py catch-up --lab N` runs a
+lab's whole recovery in one command, through its checks and hand-off, and first
+catches up any earlier lab that has not handed off. `skip-to --lab N` finishes
+the earlier labs the same way and leaves the participant at lab N's start, with
+its exercise still to do. Lab 3 still needs the participant's own setup run.
+Optional Memory and HNSW exercises follow completion.
 
 ## How the search works
 
