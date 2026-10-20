@@ -299,8 +299,8 @@ it("points at Agent steps and sources once the first answer has been read out", 
   giveBox(screen.getByRole("button", { name: DETAILS.reason }));
   await askAboutThisNeed();
   await screen.findByRole("region", { name: "Mosaic’s picks for Alex" }, { timeout: READ_OUT_MS });
-  const tip = await screen.findByRole("dialog", { name: "See how the agent worked" }, { timeout: 3000 });
-  expect(tip.textContent).toContain("each search the agent ran");
+  const tip = await screen.findByRole("dialog", { name: "See how the Retrieval agent worked" }, { timeout: 3000 });
+  expect(tip.textContent).toContain("each search the Retrieval agent ran");
 });
 
 it("opens one detail at a time, and a pick's search link opens Why this position", async () => {

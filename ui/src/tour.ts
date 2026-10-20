@@ -151,9 +151,9 @@ export const AGENT_STEPS_HINT: Hint = {
   steps: [{
     id: "agent-steps",
     target: "pg-detail-reason",
-    title: "See how the agent worked",
-    body: "Agent steps and sources lists each search the agent ran and the source behind "
-      + "every claim.",
+    title: "See how the Retrieval agent worked",
+    body: "Agent steps and sources lists each search the Retrieval agent ran and the source "
+      + "behind every claim.",
   }],
 };
 
