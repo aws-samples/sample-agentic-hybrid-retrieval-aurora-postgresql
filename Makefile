@@ -153,7 +153,7 @@ db-apply-search-functions:
 start-lab-1:
 	@$(PYTHON) scripts/lab_state.py start --lab 1 --api-url "$(LAB_API_URL)"
 
-# Resetting discards only this lab's edits, restores its starter and saves a
+# Resetting discards only this lab's edits, restores its starting code and saves a
 # fresh failing request.
 reset-lab-1:
 	@$(PYTHON) scripts/lab_state.py reset --lab 1 --api-url "$(LAB_API_URL)"
@@ -186,12 +186,12 @@ solution-lab-2:
 start-lab-3:
 	@$(PYTHON) scripts/lab_state.py start --lab 3 --api-url "$(LAB_API_URL)"
 	@$(MAKE) restart-lab-api
-	@echo "Agent starter ready. Next: run make agent-tools, then build create_agent in labs/lab3_reason/agent.py."
+	@echo "Agent starting code ready. Next: run make agent-tools, then build create_agent in labs/lab3_reason/agent.py."
 
 reset-lab-3:
 	@$(PYTHON) scripts/lab_state.py reset --lab 3 --api-url "$(LAB_API_URL)"
 	@$(MAKE) restart-lab-api
-	@echo "Agent starter restored. Next: build create_agent in labs/lab3_reason/agent.py, then run make deploy-agent."
+	@echo "Agent starting code restored. Next: build create_agent in labs/lab3_reason/agent.py, then run make deploy-agent."
 
 validate-lab-3:
 	@$(PYTHON) scripts/lab_state.py validate --lab 3

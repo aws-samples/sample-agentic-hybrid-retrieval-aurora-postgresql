@@ -558,3 +558,19 @@ def test_lab_3_has_no_handoff_and_says_how_it_ends(repo, aurora) -> None:
 
     assert "advance --lab 1 or advance --lab 2" in str(refused.value)
     assert complete_lab_3() in str(refused.value)
+
+
+def test_a_lab_1_reset_after_a_repaired_lab_2_validates_lab_1_again(
+    lab_2_repaired, aurora, handoff_checks
+):
+    edited = _participant_edit(lab_2_repaired)
+    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=lab_2_repaired)
+    assert handoff_checks == ["validate"]
+    assert _seam_file(2, lab_2_repaired).read_bytes() == edited
+
+
+def test_lab_1_is_not_validated_under_an_unrepaired_lab_2(repo, aurora, handoff_checks):
+    _start(2, repo)
+    with pytest.raises(lab_entry.LabEntryError, match="ranking fault can hide"):
+        lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+    assert handoff_checks == []

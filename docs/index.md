@@ -43,7 +43,7 @@ The remaining guides are grouped by the work they support.
 | [Abstract delivery map](abstract-delivery-map.md) | Required work and optional extensions |
 | [Session abstract](session-abstract.md) | Title, abstract and audience |
 | [Lab queries](lab-golden-queries.md) | Required experiments, proof anchors and recovery |
-| [Intentional gaps](intentional-gaps.md) | Starter defects and their recovery contracts |
+| [Intentional gaps](intentional-gaps.md) | Defects in the starting code and their recovery contracts |
 | [Artifacts and restore](../ARTIFACTS.md) | Pinned real products, saved vectors and Aurora connection notes |
 | [Aurora deployment](aurora-deployment.md) | Provisioning and operational sequence |
 | [Workshop Studio setup](workshop-studio-setup.md) | First-time setup and cloning both repositories |

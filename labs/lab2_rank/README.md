@@ -58,7 +58,7 @@ separate measurement before shipping.
 
 The handoff repeats Alex's request and two Dell
 requests that must still work, saves the passing evidence, then installs the
-Retrieval agent starter for Lab 3. If it is interrupted, run it again:
+Retrieval agent's starting code for Lab 3. If it is interrupted, run it again:
 
 ```bash
 uv run python scripts/lab_state.py advance --lab 2

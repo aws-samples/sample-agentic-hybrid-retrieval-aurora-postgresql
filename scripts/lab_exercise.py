@@ -535,7 +535,7 @@ def _print_lab1(report: dict) -> None:
     for condition, result in report["conditions"].items():
         truth = result["independent"]
         print(
-            f"{condition:15} recall {truth['recall']:.3f} "
+            f"{condition:15} the checker's own measurement: recall {truth['recall']:.3f} "
             f"({truth['approximate_rows']} returned, {truth['exact_rows']} exact) "
             f"| {truth['access_path'][:70]} | {truth['execution']}"
         )

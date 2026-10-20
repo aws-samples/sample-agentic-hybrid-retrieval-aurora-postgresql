@@ -6,9 +6,9 @@ section's **Stuck?** hints. This is the reminder beside your code.
 Alex has found his headphones and monitor. Add the chair and check the whole
 setup against source records, using the SQL you repaired in Labs 1 and 2.
 
-## Open the Retrieval agent starter
+## Open the Retrieval agent's starting code
 
-Lab 2's handoff installed the Retrieval agent starter and
+Lab 2's handoff installed the Retrieval agent's starting code and
 reported **Your Retrieval agent is not built yet**; `create_agent` raises
 `NotImplementedError`. List the Gateway tools your Retrieval agent will get:
 

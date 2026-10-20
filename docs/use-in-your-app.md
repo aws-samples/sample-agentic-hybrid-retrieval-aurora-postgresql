@@ -57,7 +57,7 @@ Keep volatile price and inventory fields out of embedding text. Apply them as SQ
 
 ## Build the smallest useful tool
 
-Complete [Build a retrieval tool](build-retrieval-tool.md). Its starter asks you to implement a business rule and register a typed tool; the check calls that tool against the live API and reopens its saved searches.
+Complete [Build a retrieval tool](build-retrieval-tool.md). Its starting code asks you to implement a business rule and register a typed tool; the check calls that tool against the live API and reopens its saved searches.
 
 The example wraps `POST /api/search`, so it retains the production pipeline and its diagnostics. To move the pattern to another application, replace the catalog schema, projection and filters while preserving the returned search ID and the evidence boundary.
 

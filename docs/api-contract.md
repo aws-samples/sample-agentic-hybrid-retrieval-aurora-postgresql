@@ -697,7 +697,7 @@ whether a lab is finished.
 
 `GET /api/builder-package`
 
-Downloads `mosaic-builder.zip` with the runnable tool reference, starter generator,
+Downloads `mosaic-builder.zip` with the runnable tool reference, starting-code generator,
 live API checker, build guide, adaptation map and selected canonical SQL/config
 files. Run the exercise from the full Mosaic checkout. The package is an explicit
 public-source allowlist and includes no environment files or participant work.

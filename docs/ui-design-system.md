@@ -501,7 +501,7 @@ address is a centred title, one line and a "Back to Shop" pill.
   at 1180px and below, as before. The header is a sparkle mark in an `--ink`
   circle, "Ask Mosaic" with a one-line subtitle, the Builder view switch, clear
   chat (once there is a conversation) and close as 32px circular icon buttons
-  with names. Starters are cards: a line icon in a `--paper-warm` circle, the
+  with names. Suggested questions are cards: a line icon in a `--paper-warm` circle, the
   label, the manifest notice in full (it is the card's description, not part of
   its name) and a chevron. The question is a `--paper-warm` bubble, shown in five
   lines with "Show all" when it is long.

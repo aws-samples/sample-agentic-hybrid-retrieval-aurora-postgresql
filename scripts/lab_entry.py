@@ -147,7 +147,7 @@ def _install_fault(lab: int, repo: Path, record: dict[str, Any], say: Say) -> No
         record["steps"]["fault"] = {"state": "installing", "before": current}
         _save(lab, repo, record)
         set_lab_state(lab, solved=False, repo=repo)
-        installed = "the Retrieval agent starter" if lab == 3 else f"Lab {lab}'s fault"
+        installed = "the Retrieval agent's starting code" if lab == 3 else f"Lab {lab}'s fault"
         say(f"Installed {installed} in {LABS[lab][0]}.")
     record["steps"]["fault"] = {
         "state": "done",
@@ -281,7 +281,7 @@ def start(
 def restart(
     lab: int, *, api_url: str, dsn: str | None, repo: Path = REPO, say: Say = print
 ) -> dict[str, Any]:
-    """Discard the entered lab's edits and prepare it again from its starter."""
+    """Discard the entered lab's edits and prepare it again from its starting code."""
     assert_reset_database(dsn)
     with _connect(dsn) as connection:
         problems = unmet_prerequisites(lab, connection, repo)
@@ -297,7 +297,7 @@ def restart(
     say(f"Discarded your Lab {lab} edits.")
     if lab == 1:
         # Lab 2's start applies its own file; Lab 1's start never edits or
-        # applies, so the restored starter is applied here.
+        # applies, so the restored starting code is applied here.
         _apply(dsn, repo, say)
     return start(lab, api_url=api_url, dsn=dsn, repo=repo, say=say)
 
@@ -355,9 +355,9 @@ def advance(
 def _advance_lab_2(
     *, api_url: str, dsn: str | None, repo: Path, say: Say
 ) -> dict[str, Any]:
-    """Prove Lab 2, then install the Retrieval agent starter; safe to rerun.
+    """Prove Lab 2, then install the Retrieval agent's starting code; safe to rerun.
 
-    Unlike Lab 2's ranking fault under Lab 1, the Retrieval agent starter never
+    Unlike Lab 2's ranking fault under Lab 1, the Retrieval agent's starting code never
     touches the searches Lab 2's checks run, so every rerun proves Lab 2 again
     rather than reusing saved evidence, and a started Lab 3 keeps its edits.
     """
@@ -384,12 +384,21 @@ def _advance_lab_2(
         say(f"PASS: {check}")
     record_completion(2, checks, events, repo)
     say("Lab 2: production-path validation passed. Passing evidence saved.")
-    say("Preparing Lab 3: install the Retrieval agent starter once.")
+    say("Preparing Lab 3: install the Retrieval agent's starting code once.")
     record = start(3, api_url=api_url, dsn=dsn, repo=repo, say=say)
     say(
         "Lab 3: prepared. Continue in the Lab 3 guide. Your existing edits are preserved."
     )
     return record
+
+
+def _lab_2_can_mask(dsn: str | None, repo: Path) -> bool:
+    """Whether Lab 2's saved block or the SQL Aurora runs still collapses ranks."""
+    with _connect(dsn) as connection:
+        return bool(
+            source_problem(2, repo=repo)
+            or applied_problem(2, validate_database(2, connection, repo=repo))
+        )
 
 
 def _advance_lab_1(
@@ -422,7 +431,10 @@ def _advance_lab_1(
             _handoff_mismatch(saved.get("binding") or {}, binding, repo)
         )
     if saved is None:
-        if load_record(2, repo) is not None:
+        # Lab 2's ranking fault can hide a correct Lab 1 repair; once Lab 2 is
+        # repaired and applied it cannot, so Lab 1 is validated again (a reset of
+        # Lab 1 after Lab 2 removes the saved evidence).
+        if load_record(2, repo) is not None and _lab_2_can_mask(dsn, repo):
             raise LabEntryError(
                 "Lab 1 cannot hand off: Lab 2 was started directly, before Lab 1's "
                 "passing evidence was saved.\n"

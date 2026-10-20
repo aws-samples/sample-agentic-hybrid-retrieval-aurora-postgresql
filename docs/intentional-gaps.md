@@ -12,11 +12,11 @@ The gaps themselves are defined and implemented **in this repository**. Each
 lab has a folder under `labs/`: the exercise file with its marker seams
 (`labs/lab1_retrieve/hybrid_search.sql`, `labs/lab2_rank/rrf_contribution.sql`,
 `labs/lab3_reason/agent.py`) and a `solution/` copy holding the solved body.
-`scripts/lab_state.py` holds each starter body. Provisioning injects Lab 1's gap; `uv run python scripts/lab_state.py start --lab 2` and
+`scripts/lab_state.py` holds each lab's starting code. Provisioning injects Lab 1's gap; `uv run python scripts/lab_state.py start --lab 2` and
 `uv run python scripts/lab_state.py start --lab 3` inject the later gaps once, when the participant enters each
 lab (the guide runs them through `advance --lab 1` and `advance --lab 2`), and `uv run python scripts/lab_state.py reset --lab N` re-injects one lab's gap on request. The
 Workshop Studio repository narrates the repairs and triggers the selected-catalog reset/apply commands
-at provision time; it ships no starter template of its own. This document is
+at provision time; it ships no starting code of its own. This document is
 the authoritative manifest: a gap listed here is a gap `lab_state.py` must
 implement, and a gap not listed here must not exist.
 
@@ -85,7 +85,7 @@ run by the `advance --lab 1` and `advance --lab 2` handoffs, install the later o
 ### GAP-3 — build the Retrieval agent
 
 - **Lab 3 anchor** `agentic-research` (`checkpoint: repair`, stage `reason`).
-- **Starter** `labs/lab3_reason/agent.py`, between `LAB3_EDIT_START` and `LAB3_EDIT_END`.
+- **Starting code** `labs/lab3_reason/agent.py`, between `LAB3_EDIT_START` and `LAB3_EDIT_END`.
 - **Participant work** return a Strands `Agent` using the supplied model, tools,
   instructions and hooks; add a useful instruction; deploy with `uv run python scripts/deploy_agentcore.py deploy`.
 - **Before building** the app names the missing Retrieval agent, the exact file and the
@@ -108,7 +108,7 @@ run by the `advance --lab 1` and `advance --lab 2` handoffs, install the later o
    failure not listed here renders `FAIL` and is a real regression.
 5. Adding a gap requires listing it here and implementing it first: seam
    markers in the lab's exercise file, the solved body in its `solution/` copy,
-   and the starter body in `scripts/lab_state.py`. The sibling only narrates and
+   and the starting code in `scripts/lab_state.py`. The sibling only narrates and
    triggers gaps; it never defines one.
 
 ## Not a gap: the declined agent answer

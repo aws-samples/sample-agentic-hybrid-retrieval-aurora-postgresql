@@ -75,7 +75,7 @@ marked blocks hold a `TODO(Lab n)` note that repeats the guide's contract.
 
 All three labs run in the terminal. Lab 1's handoff saves the monitor request
 that Lab 2 inspects in `psql`; Shop is an optional check of the same evidence.
-Lab 2's handoff proves its repair and installs the Retrieval agent starter. After
+Lab 2's handoff proves its repair and installs the Retrieval agent's starting code. After
 deploying in Lab 3, ask the setup request and the changed requirement with
 `scripts/ask_agent.py`, then check the setup run by its Run ID. Ask Mosaic shows
 the same runs in the browser and is optional.
@@ -88,7 +88,7 @@ the header) runs the one for the page you are on. Three one-time tips point at t
 next control when it matters: the way into the Playground after your first Shop
 search, the **Ask the Retrieval agent** button if you open the agent's steps before
 it has run, and **Agent steps and sources** after its first answer. **Complete my setup** runs Lab 3's
-three-product request, and its Ask Mosaic starter stays available before and after
+three-product request, and its Ask Mosaic suggested question stays available before and after
 you build the Retrieval agent; it runs on its own filters and says when it clears Shop's.
 Keep its original run ID for completion: after that request, Shop shows the terminal
 command that checks the run, with its ID filled in. Ask Mosaic's **Show tool calls** switch (off by default) shows the full **Retrieval agent record** ID, recorded steps, saved search IDs and how each search ranked its products. Every
@@ -115,7 +115,7 @@ After Lab 1's repair check, continue with the guide's description search.
 At the end of the lab, run `uv run python scripts/lab_state.py advance --lab 1`
 to validate its repair, save passing evidence and prepare Lab 2. Lab 2 ends the
 same way with `uv run python scripts/lab_state.py advance --lab 2`, which proves
-Lab 2 and installs the Retrieval agent starter for Lab 3. Retries resume
+Lab 2 and installs the Retrieval agent's starting code for Lab 3. Retries resume
 preparation without discarding edits. For direct entry, start a lab with
 `uv run python scripts/lab_state.py start --lab N`: it saves the failing request,
 installs that lab's fault once and preserves earlier repairs. An interrupted

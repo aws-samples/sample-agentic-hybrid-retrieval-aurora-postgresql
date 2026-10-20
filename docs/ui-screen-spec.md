@@ -56,7 +56,7 @@ Components:
 - featured, rating, price, and newest sorting;
 - direct hybrid search in the product grid;
 - an Ask Mosaic sidecar that is the only agent composer, opened from the Shop
-  header, with starter questions drawn from the eval set;
+  header, with suggested questions drawn from the eval set;
 - stable product cards with complete 3:2 premium catalog photography;
 - a run status line with a segment per phase and a finding for each finished one,
   counted from the actual plan, searches, comparisons and citations; a collapsed

@@ -8,7 +8,7 @@
 |---|---|---|---|
 | Retrieve / `G-003` | A transposed Logitech listing ID returns other headphones; the intended listing is absent from the combined pool | Reconnect the existing fuzzy matching | The intended Logitech listing returns with its fuzzy matching contribution; two other Zone 900 listings stay out of the results |
 | Rank / G-008 | A 27-inch 4K/90W request omits the suitable ViewSonic VG2756-4K; a 1440p Lenovo ThinkVision T27hv-20 title visibly says 1440p | Use actual source positions in RRF | The ViewSonic enters the combined list, then reaches final position 5 after model reranking |
-| Reason / G-021 | The starter cannot assemble the agent | Build the supplied Strands agent and deploy it to Runtime | Separate headphone, monitor and chair searches support a complete-setup comparison with citations |
+| Reason / G-021 | The starting code cannot assemble the agent | Build the supplied Strands agent and deploy it to Runtime | Separate headphone, monitor and chair searches support a complete-setup comparison with citations |
 
 ## Independent controls
 

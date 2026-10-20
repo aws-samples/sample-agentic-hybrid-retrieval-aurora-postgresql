@@ -52,7 +52,7 @@ In `.local/call_headphones.py`, edit `BUILD_FILTERS_START` through `BUILD_FILTER
 <details>
 <summary>Hint 3 — A scoped coding prompt</summary>
 
-“Explain why my starter fails the two-brand checker. Edit only the marked blocks in `.local/call_headphones.py`: forward the caller's brand with the electronics/headphones filters, then register the supplied tool. Preserve the HTTP response. Run the checker and explain both results.”
+“Explain why my starting code fails the two-brand checker. Edit only the marked blocks in `.local/call_headphones.py`: forward the caller's brand with the electronics/headphones filters, then register the supplied tool. Preserve the HTTP response. Run the checker and explain both results.”
 </details>
 
 <details>

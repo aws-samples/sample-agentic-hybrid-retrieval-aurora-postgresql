@@ -49,7 +49,7 @@ The alternative chair requests let builders distinguish seat-depth adjustment, l
 - **Filtering before ranking:** repeat the monitor request with `brand: "Dell"`; inspect every saved candidate with the production eligibility check. A high model score cannot override a brand or category requirement.
 - **Compare near-matches:** G-007 retrieves Dell U2720Q and SE2717H. Both are 27-inch monitors; their source records distinguish 4K from 1080p. An item’s absence from the request’s first page is different from proof that it lacks a feature.
 - **Separate specification and experience:** G-019 compares the Logitech listing's description of its noise-canceling microphone with the review the agent samples (two evidence records per product): a verified 5-star review reports no audio complaints. Another verified review of the same listing, rated 3 stars, says the microphone did not do well, so one review cannot settle call quality.
-- **Scope an answer to its sources:** Lab 3 assembles and deploys the Strands agent, then checks headphones, monitor and chair with separate searches, a comparison of all three and resolvable citations for each. The starter cannot assemble the agent before repair.
+- **Scope an answer to its sources:** Lab 3 assembles and deploys the Strands agent, then checks headphones, monitor and chair with separate searches, a comparison of all three and resolvable citations for each. The starting code cannot assemble the agent before repair.
 
 ## Reproduce and inspect
 

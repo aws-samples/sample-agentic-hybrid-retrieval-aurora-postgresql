@@ -285,7 +285,7 @@ def lab_diff(
             raise ValueError(
                 f"Lab diff rule: {relative_path} must hold one {start!r} and one {end!r}; "
                 f"fix: restore the marker lines, or run {reset(lab)} to restore the "
-                "starter (it discards your edits to this lab)."
+                "starting code (it discards your edits to this lab)."
             )
         _expected_first, expected = _block_span(
             expected_source, start, end, path=expected_path
@@ -856,7 +856,7 @@ def _parser() -> argparse.ArgumentParser:
             "advance --lab 1 validates Lab 1 and prepares Lab 2, and advance "
             "--lab 2 validates Lab 2 and prepares Lab 3; "
             "start enters a lab once and keeps your edits on a rerun; reset "
-            "discards one lab's edits and restores its starter; solution "
+            "discards one lab's edits and restores its starting code; solution "
             "overwrites one lab with the reference repair; finish completes a lab "
             "with its reference answer, checks and hand-off; skip-to starts a later "
             "lab after finishing the earlier ones. To see where your lab "

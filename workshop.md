@@ -35,7 +35,7 @@ same search as an optional check. Lab 2 continues in `psql` with the monitor
 request that Lab 1's handoff saved. Its optional Shop check selects Monitor
 explicitly, without depending on the participant having visited Shop in Lab 1.
 Lab 2 ends with `advance --lab 2`, which proves Lab 2 and installs the
-Retrieval agent starter. Lab 3 stays in the terminal: deploy, ask the setup
+Retrieval agent's starting code. Lab 3 stays in the terminal: deploy, ask the setup
 request and the 100W follow-up with `scripts/ask_agent.py`, then complete the
 setup run by the Run ID it printed. Ask Mosaic is an optional view of the same runs.
 
@@ -147,7 +147,7 @@ the reranker or changing served settings. Final relevance, latency and actual
 cost remain separate measurements. Lab 2 ends with
 `uv run python scripts/lab_state.py advance --lab 2`: it repeats Alex's request
 and the two Dell requests that must still work, saves the passing evidence,
-then installs the Retrieval agent starter. Retries prove Lab 2 again and keep
+then installs the Retrieval agent's starting code. Retries prove Lab 2 again and keep
 Lab 3 edits. Weighted RRF is optional.
 
 ### Lab 3: build, deploy and use the Retrieval agent
@@ -168,10 +168,10 @@ quote, the outcome and the **Run ID**. They ask the 100W follow-up the same way;
 each call is its own run, and completion reads only the setup run's ID. A
 follow-up question is not graded against the lab.
 
-Ask Mosaic is optional. Its **Complete my setup** starter sends the same
+Ask Mosaic is optional. Its **Complete my setup** suggested question sends the same
 request and passes completion only as the first message of a fresh chat (use
 **Clear chat**); its **Builder view** shows the full run ID, recorded steps and
-per-search ranks. The starter runs on its own filters and shows "Shop filters
+per-search ranks. The suggested question runs on its own filters and shows "Shop filters
 were cleared for this lab request." when it replaces filters a participant had
 set. After the request, Shop shows the terminal command that checks that run,
 with its run ID filled in.
