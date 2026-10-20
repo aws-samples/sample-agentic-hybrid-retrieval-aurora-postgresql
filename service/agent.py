@@ -11,7 +11,7 @@ from typing import Any
 
 from botocore.exceptions import ClientError
 from strands import Agent
-from strands.hooks import BeforeToolCallEvent, HookRegistry
+from strands.hooks import AfterToolCallEvent, BeforeToolCallEvent, HookRegistry
 from strands.models import BedrockModel
 from strands.types.exceptions import ModelThrottledException
 
@@ -121,7 +121,11 @@ filters, or needs any product outside the authorized prior shortlist:
 1. Use at most {len(agent_tools.SEARCH_SLOTS)} focused search_products calls.
    When the request has independent product intents, issue one focused search
    per intent together in one tool-use turn. A complete setup request needs
-   separate headphone, monitor and chair searches.
+   separate headphone, monitor and chair searches. When the shopper asks to
+   compare options for one kind of product, issue two focused searches for it
+   together, from different angles (for example, the product with its key
+   feature, and the product for its use), so the shortlist can reach three or
+   four products instead of the two one search returns.
 2. Preserve explicit hard constraints as category_key or attributes when the
    active catalog establishes those keys and values. Keep unnormalized feature
    requirements in the query and check them against the retrieved sources;
@@ -229,6 +233,36 @@ class _ToolCallBudget:
         )
 
 
+class _StopOnRunErrors:
+    """Re-raise the tool errors that a retry cannot fix.
+
+    Strands turns an exception raised inside a tool into an error result and
+    returns it to the model to retry. A deployment that differs from the
+    workspace, or a failing model runtime, fails the same way on every retry, so
+    the run stops and reports it instead. This is the AfterToolCallEvent pattern
+    in the Strands hooks guide ("Exception Handling").
+    """
+
+    def __init__(self) -> None:
+        self.registered = False
+
+    def register_hooks(self, registry: HookRegistry, **_: Any) -> None:
+        self.registered = True
+        registry.add_callback(AfterToolCallEvent, self._after_tool_call)
+
+    def _after_tool_call(self, event: AfterToolCallEvent) -> None:
+        if isinstance(event.exception, (AgentSetupError, ModelRuntimeError)):
+            raise event.exception
+
+
+def _loop_error(error: Exception) -> Exception:
+    """The error a stopped run reports: Strands wraps a hook's raise in EventLoopException."""
+    original = getattr(error, "original_exception", None)
+    if isinstance(original, (AgentSetupError, ModelRuntimeError)):
+        return original
+    return error
+
+
 # Bedrock reports a moment without capacity inside the ConverseStream response with
 # these codes. Strands retries only throttlingException, so on a 20 October test
 # event two of three Lab 3 requests failed with HTTP 503 instead of waiting 4 s.
@@ -318,7 +352,7 @@ def _bedrock_model(model_id: str, region: str) -> BedrockModel:
                 model_id=model_id,
                 region_name=region,
                 boto_client_config=client_config(),
-                # Sonnet 5 uses the output budget for thinking and tool calls.
+                # Sonnet 5.5 uses the output budget for thinking and tool calls.
                 # Leave room for both, while keeping a bounded reservation.
                 max_tokens=16_000,
             )
@@ -344,12 +378,13 @@ def build_agent(*, max_tool_calls: int = 10) -> Agent:
         )
     model = _bedrock_model(settings.agent_model_id, settings.aws_region)
     budget = _ToolCallBudget(max_tool_calls)
+    stop_on_run_errors = _StopOnRunErrors()
     try:
         agent = create_agent(
             model=model,
             tools=list(agent_tools.TOOL_FUNCTIONS),
             instructions=catalog_system_prompt(),
-            hooks=[budget],
+            hooks=[budget, stop_on_run_errors],
         )
     except NotImplementedError as error:
         raise AgentSetupError(AGENT_STARTER_MESSAGE) from error
@@ -358,7 +393,7 @@ def build_agent(*, max_tool_calls: int = 10) -> Agent:
     required_tools = {tool.tool_name for tool in agent_tools.TOOL_FUNCTIONS}
     if not required_tools <= set(agent.tool_names):
         raise AgentSetupError(AGENT_TOOLS_MESSAGE)
-    if not budget.registered:
+    if not (budget.registered and stop_on_run_errors.registered):
         raise AgentSetupError(AGENT_HOOKS_MESSAGE)
     return agent
 
@@ -504,7 +539,12 @@ class ProductDiscoveryAgent:
         if record is None:
             if isinstance(
                 error,
-                (GroundingContractError, ModelRuntimeError, AgentTurnDeadlineExceeded),
+                (
+                    AgentSetupError,
+                    GroundingContractError,
+                    ModelRuntimeError,
+                    AgentTurnDeadlineExceeded,
+                ),
             ):
                 raise error
             reason = (
@@ -591,7 +631,7 @@ class ProductDiscoveryAgent:
                 )
                 logger.warning("Strands agent loop exceeded its turn deadline")
             except Exception as caught:  # noqa: BLE001 - retain a failed tool run without logging its payload
-                error = caught
+                error = _loop_error(caught)
                 logger.warning(
                     "Strands agent loop failed: error_type=%s", type(caught).__name__
                 )
@@ -726,7 +766,7 @@ class ProductDiscoveryAgent:
             )
             logger.warning("Strands streaming agent loop exceeded its turn deadline")
         except Exception as caught:
-            error = caught
+            error = _loop_error(caught)
             logger.warning(
                 "Strands streaming agent loop failed: %s", caught, exc_info=True
             )

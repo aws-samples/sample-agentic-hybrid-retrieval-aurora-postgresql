@@ -29,6 +29,7 @@ from scripts.checks.rehearsal import redact
 from scripts.package_agentcore import package
 from scripts.progress import bar
 from service import agentcore_transport, gateway_tools
+from service.agent_setup import agent_code_message
 from service.lab_validation_receipt import application_digest, participant_sql_digest
 from service.participant_commands import (
     AGENTCORE_RESOURCES,
@@ -718,6 +719,18 @@ def explain_failure(error: Exception, retry: str) -> str:
     return safe_text(error, 1500)
 
 
+def not_ready_message(agent_file: Path = ROOT / "labs" / "lab3_reason" / "agent.py") -> str:
+    """Why the Retrieval agent cannot deploy: a code mistake, named, or unfinished code."""
+    try:
+        compile(agent_file.read_text(encoding="utf-8"), str(agent_file), "exec")
+    except SyntaxError as error:
+        return agent_code_message(error)
+    return (
+        "Your Retrieval agent is not ready to deploy. Open labs/lab3_reason/agent.py, "
+        f"complete create_agent, then deploy with {DEPLOY_AGENT} again."
+    )
+
+
 def main() -> int:
     from dotenv import load_dotenv
 
@@ -750,9 +763,7 @@ def main() -> int:
             from scripts.lab_state import lab_is_solved
 
             if not lab_is_solved(3):
-                raise ValueError(
-                    f"Your Retrieval agent is not ready to deploy. Open labs/lab3_reason/agent.py, complete create_agent, then deploy with {DEPLOY_AGENT} again."
-                )
+                raise ValueError(not_ready_message())
             print(
                 "Deploying your Retrieval agent: build and push the image (the first build is "
                 "the slowest), update the tools and Retrieval agent runtimes, synchronize "

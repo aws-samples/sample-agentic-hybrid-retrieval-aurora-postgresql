@@ -10,8 +10,8 @@ Usage:
     uv run python scripts/bench/benchmark_ask_mosaic.py
     uv run python scripts/bench/benchmark_ask_mosaic.py --runs 3 --full-runs 2
     uv run python scripts/bench/benchmark_ask_mosaic.py \
-        --agent-model global.anthropic.claude-haiku-4-5-20251001-v1:0 \
-        --synthesis-model global.anthropic.claude-sonnet-5
+        --agent-model global.anthropic.claude-opus-5 \
+        --synthesis-model global.anthropic.claude-sonnet-5-5
     uv run python scripts/bench/benchmark_ask_mosaic.py --output benchmarks/results/ask-mosaic.json
 """
 
@@ -35,8 +35,7 @@ if str(ROOT) not in sys.path:
 # The workshop grants only its pinned runtime and coach models; use an authorized
 # facilitator role and prove access before running the full comparison.
 DEFAULT_MODELS = (
-    "global.anthropic.claude-haiku-4-5-20251001-v1:0",
-    "global.anthropic.claude-sonnet-5",
+    "global.anthropic.claude-sonnet-5-5",
     "global.anthropic.claude-opus-5",
 )
 DEFAULT_QUESTION = (
@@ -265,12 +264,28 @@ def _measure_full_agent(
                     else None
                 ),
                 "citation_count": len(response.citations),
+                "outcome": response.outcome,
+                "decline_reason": response.decline_reason,
             }
         )
+    # A run without its required successful tools, or without a grounded answer,
+    # is not a success: on 20 October every run "succeeded" with no tool calls
+    # because the deployed tools differed from the workspace.
+    grounded = [
+        record
+        for record in records
+        if record["grounded_workflow"] and record["outcome"] == "grounded"
+    ]
+    failures += [
+        f"ungrounded: outcome={record['outcome']} decline={record['decline_reason']} "
+        f"tools={record['tool_names']}"
+        for record in records
+        if record not in grounded
+    ]
     totals = [record["total_ms"] for record in records]
     return {
         "runs": runs,
-        "successes": len(records),
+        "successes": len(grounded),
         "failures": failures,
         "latency": _summary(totals) if totals else None,
         "records": records,

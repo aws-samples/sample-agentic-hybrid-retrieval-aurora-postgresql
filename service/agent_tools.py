@@ -449,6 +449,27 @@ CATALOG_TOOLS = frozenset(
 )
 
 
+def _stopping_error(
+    name: str, arguments: dict[str, Any], started: float, error: Exception
+) -> Exception | None:
+    """Record a tool failure that must end the run, and return what to raise.
+
+    The failed call stays visible in the trace; ``_StopOnRunErrors`` in
+    service.agent then stops the Strands loop on it instead of letting the
+    model retry.
+    """
+    stopping = error if isinstance(error, AgentSetupError) else model_runtime_error(error)
+    if stopping is None:
+        return None
+    detail = (
+        str(stopping)
+        if isinstance(stopping, AgentSetupError)
+        else f"{name} stopped: {type(stopping).__name__}."
+    )
+    _record(name, arguments, started, detail=detail, outcome="error")
+    return stopping
+
+
 def _record(
     name: str,
     arguments: dict[str, Any],
@@ -816,11 +837,11 @@ def search_products(
             )
         )
     except Exception as error:
-        if isinstance(error, AgentSetupError):
+        stopping = _stopping_error("search_products", arguments, started, error)
+        if stopping is error:
             raise
-        classified = model_runtime_error(error)
-        if classified is not None:
-            raise classified from error
+        if stopping is not None:
+            raise stopping from error
         logger.warning("search_products failed: error_type=%s", type(error).__name__)
         _record(
             "search_products",
@@ -1005,11 +1026,11 @@ def get_product_evidence(product_id: int, evidence_query: str) -> dict[str, Any]
                 limit=EVIDENCE_RECORDS_PER_PRODUCT,
             )
     except Exception as error:
-        if isinstance(error, AgentSetupError):
+        stopping = _stopping_error("get_product_evidence", arguments, started, error)
+        if stopping is error:
             raise
-        classified = model_runtime_error(error)
-        if classified is not None:
-            raise classified from error
+        if stopping is not None:
+            raise stopping from error
         logger.warning(
             "get_product_evidence failed: error_type=%s", type(error).__name__
         )
@@ -1558,11 +1579,16 @@ def synthesize_cited_answer(
             "citations": [],
         }
     except Exception as error:
-        if isinstance(error, AgentSetupError):
+        stopping = _stopping_error(
+            "synthesize_cited_answer",
+            {"question": question, "product_ids": unique_ids},
+            started,
+            error,
+        )
+        if stopping is error:
             raise
-        classified = model_runtime_error(error)
-        if classified is not None:
-            raise classified from error
+        if stopping is not None:
+            raise stopping from error
         logger.warning(
             "synthesize_cited_answer failed: error_type=%s", type(error).__name__
         )

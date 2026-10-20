@@ -31,7 +31,8 @@ AGENT_HOOKS_MESSAGE = (
 def agent_code_message(error: BaseException) -> str:
     """Name a participant's coding mistake without a traceback, URL or long text."""
     if isinstance(error, SyntaxError):
-        detail = f"{error.msg} (line {error.lineno})"
+        line = f"line {error.lineno}"
+        detail = error.msg if line in error.msg else f"{error.msg} ({line})"
     else:
         detail = str(error)
     detail = re.sub(r"\S+://\S+", "[url]", " ".join(detail.split()))[:200]
