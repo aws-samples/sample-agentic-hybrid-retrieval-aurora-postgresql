@@ -9,9 +9,11 @@ import threading
 from contextlib import aclosing
 from typing import Any
 
+from botocore.exceptions import ClientError
 from strands import Agent
 from strands.hooks import BeforeToolCallEvent, HookRegistry
 from strands.models import BedrockModel
+from strands.types.exceptions import ModelThrottledException
 
 from service import agent_tools
 from service.access_control import release_model_admission_slot
@@ -227,6 +229,39 @@ class _ToolCallBudget:
         )
 
 
+# Bedrock reports a moment without capacity inside the ConverseStream response with
+# these codes. Strands retries only throttlingException, so on a 20 October test
+# event two of three Lab 3 requests failed with HTTP 503 instead of waiting 4 s.
+_TRANSIENT_STREAM_ERRORS = frozenset(
+    {
+        "serviceUnavailableException",
+        "ServiceUnavailableException",
+        "modelStreamErrorException",
+        "ModelStreamErrorException",
+        "internalServerException",
+        "InternalServerException",
+    }
+)
+
+
+class RetryingBedrockModel(BedrockModel):
+    """A BedrockModel whose transient stream failures reach Strands' retry strategy.
+
+    The participant builds the Agent, which keeps Strands' default ModelRetryStrategy
+    (Strands rejects any other strategy type), so the supplied model reports these
+    failures as the throttling that strategy already backs off and retries.
+    """
+
+    async def stream(self, *args: Any, **kwargs: Any):
+        try:
+            async for event in super().stream(*args, **kwargs):
+                yield event
+        except ClientError as error:
+            if error.response.get("Error", {}).get("Code") in _TRANSIENT_STREAM_ERRORS:
+                raise ModelThrottledException(str(error)) from error
+            raise
+
+
 _models: dict[tuple[str, str], BedrockModel] = {}
 _models_lock = threading.Lock()
 
@@ -279,7 +314,7 @@ def _bedrock_model(model_id: str, region: str) -> BedrockModel:
     with _models_lock:
         model = _models.get(key)
         if model is None:
-            model = BedrockModel(
+            model = RetryingBedrockModel(
                 model_id=model_id,
                 region_name=region,
                 boto_client_config=client_config(),

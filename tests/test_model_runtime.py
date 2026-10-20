@@ -1505,7 +1505,7 @@ def test_agent_uses_the_dedicated_model_override(monkeypatch):
         agent_model_id="global.anthropic.claude-haiku-4-5-20251001-v1:0",
     )
     monkeypatch.setattr("service.agent.get_settings", lambda: settings)
-    monkeypatch.setattr("service.agent.BedrockModel", CapturingModel)
+    monkeypatch.setattr("service.agent.RetryingBedrockModel", CapturingModel)
     monkeypatch.setattr("labs.lab3_reason.agent.Agent", CapturingAgent)
 
     build_agent()
