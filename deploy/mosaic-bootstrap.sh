@@ -390,20 +390,22 @@ nginx -t
 systemctl enable nginx code-editor
 systemctl restart nginx code-editor
 
-CLAUDE_CODE_VERSION=2.1.233
-network_retry npm install -g "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION"
-CLAUDE_BIN=$(command -v claude)
-test -n "$CLAUDE_BIN"
-if [ "$CLAUDE_BIN" != /usr/local/bin/claude ]; then
-  ln -sf "$CLAUDE_BIN" /usr/local/bin/claude
-fi
-claude --version | grep -q "^$CLAUDE_CODE_VERSION "
+# The latest Claude Code, not a pin (owner, 20 October 2026): the pinned 2.1.233
+# refused Sonnet 5.5 with "version 2.1.280 or newer is required". The npm path,
+# not `command -v claude`, which can be the link itself and loop.
+network_retry npm install -g "@anthropic-ai/claude-code@latest"
+CLAUDE_BIN="$(npm prefix -g)/bin/claude"
+test -x "$CLAUDE_BIN"
+ln -sfn "$CLAUDE_BIN" /usr/local/bin/claude
+CLAUDE_CODE_VERSION=$(claude --version | awk '{print $1}')
+test -n "$CLAUDE_CODE_VERSION"
+echo "Claude Code $CLAUDE_CODE_VERSION installed"
 
 cat >/etc/profile.d/mosaic-claude.sh <<'EOF'
 export AWS_REGION=us-east-1
 export AWS_DEFAULT_REGION=us-east-1
 export CLAUDE_CODE_USE_BEDROCK=1
-export ANTHROPIC_MODEL=global.anthropic.claude-sonnet-5
+export ANTHROPIC_MODEL=global.anthropic.claude-sonnet-5-5
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 EOF
 chmod 644 /etc/profile.d/mosaic-claude.sh
@@ -424,12 +426,12 @@ for preflight_attempt in 1 2 3; do
       AWS_REGION="$AWS_REGION" \
       AWS_DEFAULT_REGION="$AWS_REGION" \
       CLAUDE_CODE_USE_BEDROCK=1 \
-      ANTHROPIC_MODEL=global.anthropic.claude-sonnet-5 \
+      ANTHROPIC_MODEL=global.anthropic.claude-sonnet-5-5 \
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 \
       timeout 180 "$CLAUDE_BIN" \
         --bare \
         --tools "" \
-        --model global.anthropic.claude-sonnet-5 \
+        --model global.anthropic.claude-sonnet-5-5 \
         --no-session-persistence \
         --output-format text \
         --print \
@@ -597,7 +599,7 @@ chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO/.vscode"
 
 # Claude Code asks every participant to choose a text style on first run. The
 # onboarding flags live in ~/.claude.json, and lastOnboardingVersion has to match
-# the pinned CLI or the flow reappears. Merge rather than overwrite: the
+# the installed CLI or the flow reappears. Merge rather than overwrite: the
 # bootstrap's own preflight invoke may already have written that file.
 sudo -u "$CODE_EDITOR_USER" -H python3.13 - "$CLAUDE_CODE_VERSION" <<'CLAUDE_ONBOARDING'
 import json
@@ -709,9 +711,9 @@ BEDROCK_EMBED_MODEL_ID=us.cohere.embed-v4:0
 RERANK_PROVIDER=bedrock
 BEDROCK_RERANK_MODEL_ID=cohere.rerank-v3-5:0
 RERANK_REQUIRED=true
-BEDROCK_CHAT_MODEL_ID=global.anthropic.claude-sonnet-5
-BEDROCK_AGENT_MODEL_ID=global.anthropic.claude-sonnet-5
-BEDROCK_SYNTHESIS_MODEL_ID=global.anthropic.claude-sonnet-5
+BEDROCK_CHAT_MODEL_ID=global.anthropic.claude-sonnet-5-5
+BEDROCK_AGENT_MODEL_ID=global.anthropic.claude-sonnet-5-5
+BEDROCK_SYNTHESIS_MODEL_ID=global.anthropic.claude-sonnet-5-5
 ALLOW_DEVELOPMENT_EMBEDDINGS=false
 BEDROCK_MAX_ATTEMPTS=5
 MOSAIC_SOURCE_REVISION=$SOURCE_REVISION

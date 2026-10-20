@@ -80,8 +80,8 @@ clearance and a fresh deployment still need event-owner verification.
 ### Coding coach in Code Editor
 
 Participants open `CodeEditorURL` and run `claude` in its terminal. The
-bootstrap installs Claude Code 2.1.233, enables Amazon Bedrock, and pins
-`ANTHROPIC_MODEL=global.anthropic.claude-sonnet-5`. It uses the instance role;
+bootstrap installs the latest Claude Code, enables Amazon Bedrock, and pins
+`ANTHROPIC_MODEL=global.anthropic.claude-sonnet-5-5`. It uses the instance role;
 participants do not need a personal Anthropic login. The lab's third hint
 provides a scoped coaching prompt. `~/.claude/CLAUDE.md` requires diagnosis,
 an edit limited to the current marked seam, and production validation.

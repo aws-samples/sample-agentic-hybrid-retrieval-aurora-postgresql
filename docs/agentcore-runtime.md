@@ -15,7 +15,7 @@ with IAM credentials. The browser never receives AWS credentials.
 Aurora remains the authority for products, evidence, search runs and citations.
 Strands chooses tools; application code enforces retrieval scope, product
 ownership, the tool budget and citation checks. Amazon Bedrock supplies Cohere
-Embed v4, Cohere Rerank 3.5 and Claude Sonnet 5. AgentCore Memory provides semantic
+Embed v4, Cohere Rerank 3.5 and Claude Sonnet 5.5. AgentCore Memory provides semantic
 facts, preferences, summaries and episodes. See [conversation memory](session-memory.md).
 
 ## Gateway authentication and tracing
@@ -26,7 +26,7 @@ preserve retrieval scope and validate the deployed source digest. Mosaic does
 not need an additional proxy process to authenticate these calls.
 
 For a generic Strands MCP client, the official
-[Strands IAM transport](https://strandsagents.com/docs/user-guide/concepts/tools/mcp-tools/)
+[Strands IAM transport](https://strandsagents.com/docs/user-guide/sdk/tools/mcp-tools/)
 uses `mcp-proxy-for-aws`. Adopting that transport here would require preserving
 Mosaic's source, evidence and authorization checks; it is not a participant
 installation step or a fix for unsupported VPC zones.

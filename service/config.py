@@ -380,7 +380,7 @@ def get_settings() -> Settings:
     require_origin_verification, origin_verify_secret = _origin_verification()
     chat_model_id = os.getenv(
         "BEDROCK_CHAT_MODEL_ID",
-        os.getenv("BEDROCK_CHAT_MODEL", "global.anthropic.claude-sonnet-5"),
+        os.getenv("BEDROCK_CHAT_MODEL", "global.anthropic.claude-sonnet-5-5"),
     )
     return Settings(
         database_url=_database_url(),

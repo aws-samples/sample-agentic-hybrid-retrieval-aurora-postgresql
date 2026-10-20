@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from service.answerability import SynthesisDeclined, assess_answerability
-from service.bedrock import get_bedrock_client
+from service.bedrock import get_bedrock_client, thinking_off_fields
 from service.config import Settings, get_settings
 from service.models import (
     AgentCitation,
@@ -1272,13 +1272,10 @@ def synthesize_cited_answer(
         "inferenceConfig": {"maxTokens": 1_400},
         "requestMetadata": {"application": "catalog-hybrid-retrieval-workshop"},
     }
-    if settings.synthesis_model_id.lower().endswith(
-        ("anthropic.claude-sonnet-5", "anthropic.claude-opus-5")
-    ):
-        # This is a single-call, non-tool text-generation route (no toolConfig).
-        # Claude Opus 5 / Sonnet 5 think by default; keep the prior cost and the
-        # 1,400-token answer budget by not spending it on reasoning.
-        request["additionalModelRequestFields"] = {"thinking": {"type": "disabled"}}
+    # A single-call, non-tool text-generation route: keep the prior cost and the
+    # 1,400-token answer budget by not spending it on reasoning.
+    if thinking_off := thinking_off_fields(settings.synthesis_model_id):
+        request["additionalModelRequestFields"] = thinking_off
     responses = [
         runtime.converse(
             **request,

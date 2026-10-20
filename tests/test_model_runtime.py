@@ -1502,7 +1502,7 @@ def test_agent_uses_the_dedicated_model_override(monkeypatch):
 
     settings = replace(
         get_settings(),
-        agent_model_id="global.anthropic.claude-haiku-4-5-20251001-v1:0",
+        agent_model_id="global.anthropic.claude-opus-5",
     )
     monkeypatch.setattr("service.agent.get_settings", lambda: settings)
     monkeypatch.setattr("service.agent.RetryingBedrockModel", CapturingModel)
@@ -1510,23 +1510,23 @@ def test_agent_uses_the_dedicated_model_override(monkeypatch):
 
     build_agent()
 
-    assert captured["model_id"] == "global.anthropic.claude-haiku-4-5-20251001-v1:0"
+    assert captured["model_id"] == "global.anthropic.claude-opus-5"
 
 
 @pytest.mark.parametrize(
-    "model_id,thinking_disabled",
+    "model_id,thinking_off",
     [
-        ("global.anthropic.claude-sonnet-5", True),
-        ("global.anthropic.claude-opus-5", True),
-        ("global.anthropic.claude-opus-5-5", False),
-        ("global.anthropic.claude-haiku-4-5-20251001-v1:0", False),
-        ("amazon.nova-pro-v1:0", False),
+        ("global.anthropic.claude-sonnet-5-5", "between_tools"),
+        ("global.anthropic.claude-sonnet-5", "disabled"),
+        ("global.anthropic.claude-opus-5", "disabled"),
+        ("global.anthropic.claude-opus-5-5", None),
+        ("amazon.nova-pro-v1:0", None),
     ],
 )
-def test_synthesis_uses_the_dedicated_model_override(model_id, thinking_disabled):
+def test_synthesis_uses_the_dedicated_model_override(model_id, thinking_off):
     settings = replace(
         get_settings(),
-        chat_model_id="global.anthropic.claude-haiku-4-5-20251001-v1:0",
+        chat_model_id="global.anthropic.claude-opus-5",
         synthesis_model_id=model_id,
     )
     client = FakeSynthesisClient(
@@ -1546,9 +1546,9 @@ def test_synthesis_uses_the_dedicated_model_override(model_id, thinking_disabled
     assert client.request["modelId"] == model_id
     assert len(client.review_requests) == 1 and len(client.requests) == 1
     for request in [client.review_requests[0], client.request]:
-        if thinking_disabled:
+        if thinking_off:
             assert request["additionalModelRequestFields"] == {
-                "thinking": {"type": "disabled"}
+                "thinking": {"type": thinking_off}
             }
         else:
             assert "additionalModelRequestFields" not in request

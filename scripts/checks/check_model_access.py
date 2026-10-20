@@ -30,7 +30,7 @@ Usage
 
     # Standalone on any box with the account's credentials:
     python3 scripts/checks/check_model_access.py \\
-      --chat global.anthropic.claude-sonnet-5 \\
+      --chat global.anthropic.claude-sonnet-5-5 \\
       --embed us.cohere.embed-v4:0 \\
       --rerank cohere.rerank-v3-5:0
 
@@ -65,7 +65,6 @@ DEFAULT_REGION = "us-east-1"
 CHAT_FALLBACKS = (
     "global.anthropic.claude-sonnet-5",
     "global.anthropic.claude-opus-5",
-    "global.anthropic.claude-haiku-4-5-20251001-v1:0",
 )
 
 ENTITLEMENT_MARKERS = (
@@ -182,13 +181,21 @@ def probe_chat(model_id: str, region: str, required: bool) -> Probe:
     probe = Probe("chat", model_id, required)
     try:
         request_fields = {}
-        if model_id.lower().endswith(
-            ("anthropic.claude-sonnet-5", "anthropic.claude-opus-5")
-        ):
-            # Claude Opus 5 / Sonnet 5 think by default, and the 8-token budget
-            # below would be spent entirely on reasoning instead of "OK".
+        # Claude 5-family models think by default, and the 8-token budget below
+        # would be spent on reasoning instead of "OK". Sonnet 5.5 rejects
+        # "disabled" and turns thinking off with "between_tools". This copy of
+        # service.bedrock.thinking_off_fields stays here because this file
+        # imports nothing from service (see the module docstring).
+        model = model_id.lower()
+        if model.endswith("anthropic.claude-sonnet-5-5"):
+            thinking_type = "between_tools"
+        elif model.endswith(("anthropic.claude-sonnet-5", "anthropic.claude-opus-5")):
+            thinking_type = "disabled"
+        else:
+            thinking_type = None
+        if thinking_type:
             request_fields["additionalModelRequestFields"] = {
-                "thinking": {"type": "disabled"}
+                "thinking": {"type": thinking_type}
             }
         response = _runtime(region).converse(
             modelId=model_id,

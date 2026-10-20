@@ -499,3 +499,72 @@ def test_json_transport_envelopes_preserve_decision_and_scope(envelope, fault):
             model_id="test",
         )
         assert review.model_dump() == {**decision(), "unmet_requirements": []}
+
+
+class TextFirstClient:
+    """A model that may answer in text when the tool choice is not forced."""
+
+    def __init__(self, text_replies):
+        self.text_replies = text_replies
+        self.calls = []
+
+    def converse(self, **kwargs):
+        self.calls.append(kwargs)
+        if len(self.calls) <= self.text_replies:
+            content, stop = [{"text": "These headphones look supported."}], "end_turn"
+        else:
+            content = [{"toolUse": {"name": "record_answerability", "input": decision()}}]
+            stop = "tool_use"
+        return {
+            "stopReason": stop,
+            "output": {"message": {"content": content}},
+            "usage": {"inputTokens": 10, "outputTokens": 10},
+        }
+
+
+def assess(client, model_id):
+    from service.answerability import assess_answerability
+
+    return assess_answerability(
+        "Find noise cancelling headphones",
+        [product()],
+        [evidence("Active noise cancellation. Bluetooth connectivity.")],
+        client=client,
+        model_id=model_id,
+    )
+
+
+def test_sonnet_5_5_review_uses_auto_tool_choice_and_between_tools():
+    client = TextFirstClient(text_replies=0)
+    review, _usage = assess(client, "global.anthropic.claude-sonnet-5-5")
+    assert review.request_supported is True
+    request = client.calls[0]
+    assert request["toolConfig"]["toolChoice"] == {"auto": {}}
+    assert request["additionalModelRequestFields"] == {"thinking": {"type": "between_tools"}}
+
+
+def test_sonnet_5_review_keeps_the_forced_tool_choice():
+    client = TextFirstClient(text_replies=0)
+    assess(client, "global.anthropic.claude-sonnet-5")
+    request = client.calls[0]
+    assert request["toolConfig"]["toolChoice"] == {"tool": {"name": "record_answerability"}}
+    assert request["additionalModelRequestFields"] == {"thinking": {"type": "disabled"}}
+
+
+def test_text_answer_without_a_forced_choice_is_asked_once_more():
+    from service.answerability import NO_CALL_RETRY
+
+    client = TextFirstClient(text_replies=1)
+    review, _usage = assess(client, "global.anthropic.claude-sonnet-5-5")
+    assert review.request_supported is True
+    assert len(client.calls) == 2
+    assert client.calls[1]["system"][0]["text"].endswith(NO_CALL_RETRY)
+
+
+def test_two_text_answers_fail_closed():
+    from service.answerability import AnswerabilityError
+
+    client = TextFirstClient(text_replies=2)
+    with pytest.raises(AnswerabilityError, match="incomplete review"):
+        assess(client, "global.anthropic.claude-sonnet-5-5")
+    assert len(client.calls) == 2

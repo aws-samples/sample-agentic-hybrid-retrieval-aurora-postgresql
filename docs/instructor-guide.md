@@ -15,7 +15,7 @@ Aurora only. There is no local database and no `make` target creates one. See
 - run `FUNCTION_CENSUS_REQUIRE_DB=1 make validate-functions`;
 - execute the eval harness and save a named baseline;
 - run the HNSW matrix on the exact Aurora configuration used in the room;
-- verify the three starter gaps, source revision, and Claude Code model from a
+- verify the three gaps in the starting code, source revision, and Claude Code model from a
   fresh Workshop Studio deployment, and record that rehearsal with
   `scripts/checks/rehearsal.py` rather than loose command output — see
   [`docs/rehearsal-runbook.md`](rehearsal-runbook.md) for the full clean-account
@@ -26,8 +26,8 @@ Aurora only. There is no local database and no `make` target creates one. See
   byte-stable when repeated;
 - run one configured-model rehearsal with
   `uv run python scripts/bench/benchmark_ask_mosaic.py --agent-model
-  global.anthropic.claude-sonnet-5 --synthesis-model
-  global.anthropic.claude-sonnet-5 --runs 1 --full-runs 1`; this warms the
+  global.anthropic.claude-sonnet-5-5 --synthesis-model
+  global.anthropic.claude-sonnet-5-5 --runs 1 --full-runs 1`; this warms the
   real retrieval, rerank, agent, and synthesis path;
 - validate the expected room concurrency against the account's Bedrock quotas
   and the API pool with `scripts/bench/load_exercise.py` (see
@@ -157,7 +157,7 @@ unchanged results and an unsuccessful wording variant.
 
 Lab 2 ends with `uv run python scripts/lab_state.py advance --lab 2`. It repeats
 Alex's request and the two Dell requests that must still work, saves the
-passing evidence, then installs the Retrieval agent starter, so Lab 3 has no
+passing evidence, then installs the Retrieval agent's starting code, so Lab 3 has no
 start command. A rerun proves Lab 2 again and keeps any Lab 3 edits.
 
 ### Lab 3: Reason - Build and deploy the Retrieval agent
