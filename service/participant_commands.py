@@ -45,9 +45,9 @@ def solution(lab: int) -> str:
     return f"uv run python scripts/lab_state.py solution --lab {lab}"
 
 
-def catch_up(lab: int) -> str:
-    """A lab's Running behind? in one command: the steps `catch_up_steps` names."""
-    return f"uv run python scripts/lab_state.py catch-up --lab {lab}"
+def finish(lab: int) -> str:
+    """A lab's Running behind? in one command: the steps `finish_steps` names."""
+    return f"uv run python scripts/lab_state.py finish --lab {lab}"
 
 
 def skip_to(lab: int) -> str:
@@ -55,8 +55,8 @@ def skip_to(lab: int) -> str:
     return f"uv run python scripts/lab_state.py skip-to --lab {lab}"
 
 
-def catch_up_steps(lab: int) -> tuple[str, ...]:
-    """The commands `catch-up` runs for one lab, in order; each is safe to repeat.
+def finish_steps(lab: int) -> tuple[str, ...]:
+    """The commands `finish` runs for one lab, in order; each is safe to repeat.
 
     Labs 1 and 2 end handed off to the next lab. Lab 3 ends deployed: completion
     needs a setup run the participant asks for themselves.

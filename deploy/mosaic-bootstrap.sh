@@ -650,7 +650,7 @@ commands and proof boundaries. Follow the Workshop Studio lab guide.
   the guide's additional instruction inside the marked agent block;
   preserve the supplied source rules and execution hooks.
 - Do not run uv run python scripts/lab_state.py solution --lab N,
-  catch-up --lab N or skip-to --lab N unless the participant explicitly
+  finish --lab N or skip-to --lab N unless the participant explicitly
   asks for the full recovery path or to start at a later lab.
 - After editing, run git diff --check. In Labs 1 and 2, apply SQL changes
   only with uv run python scripts/apply_search_functions.py, which loads the

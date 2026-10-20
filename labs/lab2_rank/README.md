@@ -82,7 +82,7 @@ printing it, and changes nothing. Add `--answer` to see the answer's lines;
 try the guide's hints first.
 `uv run python scripts/lab_state.py solution --lab 2` overwrites your edit with
 the answer; apply and prove it as above.
-`uv run python scripts/lab_state.py catch-up --lab 2` does all of it in one
+`uv run python scripts/lab_state.py finish --lab 2` does all of it in one
 command, with the hand-off.
 
 </details>

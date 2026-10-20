@@ -1,4 +1,4 @@
-"""One command catches a lab up: the steps of the guide's Running behind? paste, in order."""
+"""One command finishes a lab: the steps of the guide's Running behind? paste, in order."""
 
 import subprocess
 import sys
@@ -13,9 +13,9 @@ from service.participant_commands import (
     APPLY_SQL,
     DEPLOY_AGENT,
     LIST_TOOLS,
-    catch_up,
-    catch_up_steps,
     exercise_check,
+    finish,
+    finish_steps,
     repeat_request,
     skip_to,
     solution,
@@ -23,15 +23,15 @@ from service.participant_commands import (
 )
 
 
-def test_each_lab_catches_up_through_its_guide_steps():
-    assert catch_up_steps(1) == (
+def test_each_lab_finishes_through_its_guide_steps():
+    assert finish_steps(1) == (
         start(1),
         solution(1),
         APPLY_SQL,
         repeat_request(1),
         ADVANCE_TO_LAB_2,
     )
-    assert catch_up_steps(2) == (
+    assert finish_steps(2) == (
         start(2),
         solution(2),
         APPLY_SQL,
@@ -40,11 +40,11 @@ def test_each_lab_catches_up_through_its_guide_steps():
         ADVANCE_TO_LAB_3,
     )
     # Lab 3 stops at deployment: completion needs a setup run the participant asks.
-    assert catch_up_steps(3) == (start(3), solution(3), LIST_TOOLS, DEPLOY_AGENT)
+    assert finish_steps(3) == (start(3), solution(3), LIST_TOOLS, DEPLOY_AGENT)
 
 
-def run_catch_up(
-    monkeypatch, capsys, lab, failing_step=None, entered=(1, 2, 3), action="catch-up"
+def run_finish(
+    monkeypatch, capsys, lab, failing_step=None, entered=(1, 2, 3), action="finish"
 ):
     ran = []
     monkeypatch.setattr(lab_state, "_entered", lambda number: number in entered)
@@ -61,11 +61,11 @@ def run_catch_up(
 
 
 @pytest.mark.parametrize("lab", [1, 2, 3])
-def test_catch_up_runs_every_step_in_order_and_names_each(monkeypatch, capsys, lab):
-    code, ran, out = run_catch_up(monkeypatch, capsys, lab)
+def test_finish_runs_every_step_in_order_and_names_each(monkeypatch, capsys, lab):
+    code, ran, out = run_finish(monkeypatch, capsys, lab)
 
     assert code == 0
-    steps = catch_up_steps(lab)
+    steps = finish_steps(lab)
     assert [command[1:] for command in ran] == [
         step.removeprefix("uv run python ").split() for step in steps
     ]
@@ -73,21 +73,21 @@ def test_catch_up_runs_every_step_in_order_and_names_each(monkeypatch, capsys, l
     total = len(steps)
     for index, step in enumerate(steps):
         progress = (
-            f"{bar(index, total)}  Lab {lab} catch-up: step {index + 1} of {total}"
+            f"{bar(index, total)}  Finish Lab {lab}: step {index + 1} of {total}"
         )
         assert f"{progress}\n$ {step}" in out
-    assert f"{bar(total, total)}  Lab {lab} catch-up: done" in out
+    assert f"{bar(total, total)}  Finish Lab {lab}: done" in out
 
 
-def test_catch_up_stops_at_the_first_failure_and_says_how_to_resume(
+def test_finish_stops_at_the_first_failure_and_says_how_to_resume(
     monkeypatch, capsys
 ):
-    code, ran, out = run_catch_up(monkeypatch, capsys, 2, failing_step=3)
+    code, ran, out = run_finish(monkeypatch, capsys, 2, failing_step=3)
 
     assert code == 3
     assert len(ran) == 3
     assert f"stopped at: {APPLY_SQL}" in out
-    assert catch_up(2) in out
+    assert finish(2) in out
 
 
 @pytest.mark.parametrize(
@@ -99,13 +99,13 @@ def test_catch_up_stops_at_the_first_failure_and_says_how_to_resume(
         (3, (1, 2, 3), (3,)),
     ],
 )
-def test_catch_up_skips_ahead_through_every_lab_not_handed_off(
+def test_finish_skips_ahead_through_every_lab_not_handed_off(
     monkeypatch, capsys, lab, entered, labs_run
 ):
-    code, ran, out = run_catch_up(monkeypatch, capsys, lab, entered=entered)
+    code, ran, out = run_finish(monkeypatch, capsys, lab, entered=entered)
 
     assert code == 0
-    expected = [step for number in labs_run for step in catch_up_steps(number)]
+    expected = [step for number in labs_run for step in finish_steps(number)]
     assert [command[1:] for command in ran] == [
         step.removeprefix("uv run python ").split() for step in expected
     ]
@@ -128,12 +128,12 @@ def as_commands(steps):
 def test_skip_to_finishes_earlier_labs_and_stops_at_the_chosen_lab_start(
     monkeypatch, capsys, lab, entered, earlier
 ):
-    code, ran, out = run_catch_up(
+    code, ran, out = run_finish(
         monkeypatch, capsys, lab, entered=entered, action="skip-to"
     )
 
     assert code == 0
-    expected = [step for number in earlier for step in catch_up_steps(number)]
+    expected = [step for number in earlier for step in finish_steps(number)]
     assert [command[1:] for command in ran] == as_commands(expected)
     # The chosen lab itself is only started, by the last hand-off: never solved.
     assert solution(lab) not in out
@@ -144,7 +144,7 @@ def test_skip_to_finishes_earlier_labs_and_stops_at_the_chosen_lab_start(
 def test_skip_to_a_lab_already_reachable_only_starts_it(
     monkeypatch, capsys, lab, entered
 ):
-    code, ran, _out = run_catch_up(
+    code, ran, _out = run_finish(
         monkeypatch, capsys, lab, entered=entered, action="skip-to"
     )
 
@@ -153,7 +153,7 @@ def test_skip_to_a_lab_already_reachable_only_starts_it(
 
 
 def test_skip_to_stops_at_a_failure_and_names_its_own_command(monkeypatch, capsys):
-    code, ran, out = run_catch_up(
+    code, ran, out = run_finish(
         monkeypatch, capsys, 3, failing_step=2, entered=(1,), action="skip-to"
     )
 

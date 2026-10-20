@@ -28,10 +28,10 @@ from service.participant_commands import (
     DIFF,
     DIFF_ANSWER,
     ask_setup,
-    catch_up,
-    catch_up_steps,
     complete_lab_3,
     exercise_check,
+    finish,
+    finish_steps,
     prove,
     repeat_request,
     reset,
@@ -857,7 +857,7 @@ def _parser() -> argparse.ArgumentParser:
             "--lab 2 validates Lab 2 and prepares Lab 3; "
             "start enters a lab once and keeps your edits on a rerun; reset "
             "discards one lab's edits and restores its starter; solution "
-            "overwrites one lab with the reference repair; catch-up finishes a lab "
+            "overwrites one lab with the reference repair; finish completes a lab "
             "with its reference answer, checks and hand-off; skip-to starts a later "
             "lab after finishing the earlier ones. To see where your lab "
             f"files differ from the reference, run {DIFF}."
@@ -870,7 +870,7 @@ def _parser() -> argparse.ArgumentParser:
             "advance",
             "reset",
             "solution",
-            "catch-up",
+            "finish",
             "skip-to",
             "validate",
             "status",
@@ -950,25 +950,25 @@ def _run_steps(steps: list[str], *, label: str, resume: str) -> int:
     return 0
 
 
-def catch_up_lab(lab: int) -> int:
+def finish_lab(lab: int) -> int:
     """Finish a lab with its reference answer, its checks and its hand-off.
 
     Any earlier lab that has not handed off is finished first, so a participant
-    can catch up from wherever they are.
+    can finish from wherever they are.
     """
     labs = [*_earlier_labs_to_finish(lab), lab]
-    steps = [step for number in labs for step in catch_up_steps(number)]
-    code = _run_steps(steps, label=f"Lab {lab} catch-up", resume=catch_up(lab))
+    steps = [step for number in labs for step in finish_steps(number)]
+    code = _run_steps(steps, label=f"Finish Lab {lab}", resume=finish(lab))
     if code:
         return code
     if lab == 3:
         print(
-            "\nLab 3: caught up with the reference Retrieval agent. Next: ask Alex's "
+            "\nLab 3: the reference Retrieval agent is deployed. Next: ask Alex's "
             f"setup request with {ask_setup()}, then check that run with "
             f"{complete_lab_3()}."
         )
     else:
-        print(f"\nLab {lab}: caught up with the reference answer.")
+        print(f"\nLab {lab}: finished with the reference answer.")
     return 0
 
 
@@ -979,7 +979,7 @@ def skip_to_lab(lab: int) -> int:
     its own start runs, which keeps any edits already made there.
     """
     earlier = _earlier_labs_to_finish(lab)
-    steps = [step for number in earlier for step in catch_up_steps(number)]
+    steps = [step for number in earlier for step in finish_steps(number)]
     code = _run_steps(
         steps or [start_command(lab)], label=f"Skip to Lab {lab}", resume=skip_to(lab)
     )
@@ -1002,8 +1002,8 @@ def main() -> int:
         for lab in LABS:
             print(status_line(lab))
         return 0
-    if args.action == "catch-up":
-        return catch_up_lab(args.lab)
+    if args.action == "finish":
+        return finish_lab(args.lab)
     if args.action == "skip-to":
         return skip_to_lab(args.lab)
     if args.action == "reset" and args.source_only:

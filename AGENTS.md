@@ -39,11 +39,11 @@ guide invites one additional agent instruction inside the marked block; preserve
 the supplied source rules, tools and execution hooks. Use a reset only when the
 participant asks to restart a lab. Use `uv run python scripts/lab_state.py
 solution --lab N` only when they explicitly request the full recovery path; it
-overwrites the exercise seam. `uv run python scripts/lab_state.py catch-up --lab N`
-runs that whole path, from start through the lab's checks, and first catches up
+overwrites the exercise seam. `uv run python scripts/lab_state.py finish --lab N`
+runs that whole path, from start through the lab's checks, and first finishes
 any earlier lab that has not handed off; `skip-to --lab N` finishes the earlier
 labs the same way and stops at lab N's start. Use them only when the participant
-asks to catch up or to start at a later lab. `uv run python scripts/diff.py` names the lines of
+asks to finish a lab or to start at a later lab. `uv run python scripts/diff.py` names the lines of
 the lab files that differ, inside the marked block (without printing the answer)
 and outside it (against the original file), and changes nothing; offer it as a
 hint. `uv run python scripts/diff.py --answer` also prints the reference answer's
@@ -82,8 +82,8 @@ The Makefile wraps them for maintainers only.
 | Finish Lab 1: validate its repair, save passing evidence and prepare Lab 2 without discarding edits | `uv run python scripts/lab_state.py advance --lab 1` |
 | Finish Lab 2: validate its repair, save passing evidence and install the Retrieval agent starter for Lab 3 without discarding edits | `uv run python scripts/lab_state.py advance --lab 2` |
 | Discard one lab's edits and restore its starter, only when asked to restart | `uv run python scripts/lab_state.py reset --lab N` |
-| Finish a lab with the reference answer, only when asked: start, the answer, apply or deploy, and the lab's checks and hand-off, after any earlier lab not handed off (Lab 3 stops at deploy) | `uv run python scripts/lab_state.py catch-up --lab N` |
-| Start at a later lab, only when asked: the earlier labs are finished as `catch-up` does, then lab N starts with its own exercise | `uv run python scripts/lab_state.py skip-to --lab N` |
+| Finish a lab with the reference answer, only when asked: start, the answer, apply or deploy, and the lab's checks and hand-off, after any earlier lab not handed off (Lab 3 stops at deploy) | `uv run python scripts/lab_state.py finish --lab N` |
+| Start at a later lab, only when asked: the earlier labs are finished as `finish` does, then lab N starts with its own exercise | `uv run python scripts/lab_state.py skip-to --lab N` |
 | Name the lines of the lab files that differ from the reference answer, inside and outside the markers, without the answer (changes nothing) | `uv run python scripts/diff.py` |
 | The same, with the reference answer's lines, only when the participant asks to compare with the answer | `uv run python scripts/diff.py --answer` |
 | Apply the participant's SQL repair in Labs 1 or 2 | `uv run python scripts/apply_search_functions.py` |
