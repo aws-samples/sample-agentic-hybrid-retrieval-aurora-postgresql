@@ -86,8 +86,38 @@ def test_the_source_of_truth_is_here(script: str) -> None:
 def test_bootstrap_prepares_lab2_cache_on_its_own_catalog(script: str) -> None:
     command = "uv run python scripts/cache_lab2_arms.py --for-workshop"
     assert command in script
-    assert script.index("make check-exact-neighbors") < script.index(command)
+    assert script.index("real_catalog_cache.py restore") < script.index(command)
     assert script.index(command) < script.index("MOSAIC_BOOTSTRAP_COMPLETE")
+
+
+def test_runtimes_are_released_before_the_catalog_restore(script: str) -> None:
+    """CloudFront and both runtimes build during the restore, not after it.
+
+    They wait for this instance's signal and take 11 to 12 minutes; on the 20
+    October workshop they started after the restore and ended the deployment.
+    """
+    stage = script.index("scripts/deploy_agentcore.py stage-bootstrap")
+    restore = script.index("real_catalog_cache.py restore")
+    assert script.index("uv sync --frozen") < stage < restore
+    assert script.index("CREATE ROLE %I LOGIN") < stage
+    # The table grants need the tables the restore creates.
+    assert restore < script.index("GRANT USAGE ON SCHEMA mosaic, mosaic_search")
+
+
+def test_optional_hnsw_work_starts_only_after_success_is_signalled(script: str) -> None:
+    """The Scale & HNSW preparation never holds up or fails an accepted workshop."""
+    unit = script.index("cat >/etc/systemd/system/mosaic-hnsw-prepare.service")
+    unit_end = script.index("\nEOF\n", unit)
+    for step in (
+        "make db-seed-exact-neighbors",
+        "scripts/bench/build_quantized_indexes.py",
+        "make check-exact-neighbors",
+    ):
+        assert script.count(step) == 1, f"{step} must run only in the background unit"
+        assert unit < script.index(step) < unit_end
+    start = script.index("systemctl start --no-block mosaic-hnsw-prepare.service ||")
+    assert script.index('"Status":"SUCCESS"') < start
+    assert start < script.index("printf 'MOSAIC_BOOTSTRAP_COMPLETE")
 
 
 @pytest.mark.aurora
@@ -593,12 +623,13 @@ exit "$status"
 def test_editor_url_lookup_never_waits_for_dependent_cloudfront(
     script, tmp_path, scenario
 ):
-    """CloudFront cannot be created until this bootstrap signals success."""
+    """One lookup, never a wait: a distribution not yet created only hides the link."""
     import os
     import subprocess
 
     start = script.index("CODE_EDITOR_DOMAIN=''\n")
-    end = script.index("APP_DB_USER=", start)
+    lookup_end = 'the storefront hides its editor link"\nfi\n'
+    end = script.index(lookup_end, start) + len(lookup_end)
     calls = tmp_path / "aws-calls"
     sleeps = tmp_path / "sleeps"
     program = r"""

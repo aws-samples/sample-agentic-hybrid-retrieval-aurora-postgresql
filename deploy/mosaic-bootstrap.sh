@@ -784,6 +784,55 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc \
 network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc \
   "cd '$REPO' && uv sync --frozen"
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "cd '$REPO' && uv pip check"
+
+# CloudFormation creates the two runtimes, Gateway and both CloudFront
+# distributions only after this instance signals, and they take 11 to 12
+# minutes. Publishing the image before the catalog restore lets them build
+# during it; on 20 October they started after it and ended the deployment.
+# The runtimes need only the runtime role's DSN in their secret: they connect
+# on first use. The role's table grants follow the restore, which creates the
+# tables, and connect-bootstrap proves the tools against the restored catalog.
+APP_DB_USER='mosaic_runtime'
+APP_DB_PASSWORD=$(python3.13 -c \
+  'import secrets; print(secrets.token_urlsafe(32))')
+psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 \
+  --set=app_user="$APP_DB_USER" \
+  --set=app_password="$APP_DB_PASSWORD" \
+  --set=db_name="$DB_NAME" <<'SQL'
+SELECT format('CREATE ROLE %I LOGIN', :'app_user')
+WHERE NOT EXISTS (
+    SELECT 1 FROM pg_roles WHERE rolname = :'app_user'
+)
+\gexec
+SELECT format(
+    'ALTER ROLE %I PASSWORD %L',
+    :'app_user',
+    :'app_password'
+)
+\gexec
+SELECT format(
+    'GRANT CONNECT ON DATABASE %I TO %I',
+    :'db_name',
+    :'app_user'
+)
+\gexec
+SQL
+
+APP_DATABASE_URL=$(python3.13 - "$APP_DB_USER" "$APP_DB_PASSWORD" \
+  "$DB_CLUSTER_ENDPOINT" "$DB_PORT" "$DB_NAME" <<'PY'
+import sys
+from urllib.parse import quote
+
+user, password, host, port, database = sys.argv[1:6]
+print(
+    f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}"
+    f"@{host}:{port}/{database}"
+    "?sslmode=verify-full&sslrootcert=/etc/pki/mosaic/rds-ca-bundle.pem"
+)
+PY
+)
+(cd "$REPO" && MOSAIC_RUNTIME_DATABASE_URL="$APP_DATABASE_URL" \
+  .venv/bin/python scripts/deploy_agentcore.py stage-bootstrap)
 network_retry sudo -u "$CODE_EDITOR_USER" -H bash -lc \
   "cd '$REPO/ui' && npm ci"
 sudo -u "$CODE_EDITOR_USER" -H bash -lc "cd '$REPO/ui' && npm run build"
@@ -826,13 +875,6 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
     'import json; print(json.load(open(\"db/config/real-catalog-cache.json\"))[\"dataset_id\"])')
   printf '\\nMOSAIC_CATALOG_DATASET=%s\\n' \"\$MOSAIC_CATALOG_DATASET\" >> .env
   make db-verify-bootstrap
-  # The Performance page uses this catalog's exact neighbors and expression
-  # indexes. Saved embeddings are reused; this makes no Bedrock calls.
-  make db-seed-exact-neighbors
-  uv run python scripts/bench/build_quantized_indexes.py \
-    --workers 3 --maintenance-work-mem 2GB \
-    --report build/quantized-index-build.json
-  make check-exact-neighbors
   uv run python scripts/cache_lab2_arms.py --for-workshop
   cat build/bootstrap-timings.tsv
   MISSION_GATE_REQUIRE_DB=1 DATABASE_URL=\"\$DATABASE_URL\" \
@@ -868,8 +910,9 @@ sudo -u "$CODE_EDITOR_USER" -H bash -lc "
 # name all leave the variable unset, and the storefront then hides the link. The
 # lookup runs as an `if` condition so a failed call cannot reach the ERR trap and
 # roll back an otherwise working stack over a convenience link.
-# CloudFront depends on this instance's success signal on first creation, so
-# waiting here cannot discover it. One lookup still finds an existing distribution.
+# CloudFront depends on this instance's success signal, which stage-bootstrap
+# sends before the catalog restore, so the distribution normally exists by now.
+# One lookup, without waiting: a distribution not yet created only hides the link.
 CODE_EDITOR_DOMAIN=''
 if [[ -n "${WORKSHOP_NAME:-}" ]]; then
   if ! CODE_EDITOR_DOMAIN=$(aws cloudfront list-distributions \
@@ -890,30 +933,10 @@ else
   echo "No Code Editor CloudFront domain found; the storefront hides its editor link"
 fi
 
-APP_DB_USER='mosaic_runtime'
-APP_DB_PASSWORD=$(python3.13 -c \
-  'import secrets; print(secrets.token_urlsafe(32))')
+# The runtime role exists since before the restore; the grants on its tables
+# wait for the tables the restore created.
 psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 \
-  --set=app_user="$APP_DB_USER" \
-  --set=app_password="$APP_DB_PASSWORD" \
-  --set=db_name="$DB_NAME" <<'SQL'
-SELECT format('CREATE ROLE %I LOGIN', :'app_user')
-WHERE NOT EXISTS (
-    SELECT 1 FROM pg_roles WHERE rolname = :'app_user'
-)
-\gexec
-SELECT format(
-    'ALTER ROLE %I PASSWORD %L',
-    :'app_user',
-    :'app_password'
-)
-\gexec
-SELECT format(
-    'GRANT CONNECT ON DATABASE %I TO %I',
-    :'db_name',
-    :'app_user'
-)
-\gexec
+  --set=app_user="$APP_DB_USER" <<'SQL'
 GRANT USAGE ON SCHEMA mosaic, mosaic_search TO :"app_user";
 GRANT SELECT ON ALL TABLES IN SCHEMA mosaic, mosaic_search
     TO :"app_user";
@@ -941,19 +964,6 @@ GRANT INSERT ON TABLE
     TO :"app_user";
 SQL
 
-APP_DATABASE_URL=$(python3.13 - "$APP_DB_USER" "$APP_DB_PASSWORD" \
-  "$DB_CLUSTER_ENDPOINT" "$DB_PORT" "$DB_NAME" <<'PY'
-import sys
-from urllib.parse import quote
-
-user, password, host, port, database = sys.argv[1:6]
-print(
-    f"postgresql://{quote(user, safe='')}:{quote(password, safe='')}"
-    f"@{host}:{port}/{database}"
-    "?sslmode=verify-full&sslrootcert=/etc/pki/mosaic/rds-ca-bundle.pem"
-)
-PY
-)
 {
   printf "DATABASE_URL='%s'\n" "$APP_DATABASE_URL"
   grep -Ev '^(DATABASE_URL|DB_SECRET_ARN)=' "$REPO/.env"
@@ -992,11 +1002,9 @@ EXPECTED_DIFF='labs/lab1_retrieve/hybrid_search.sql'
 test "$ACTUAL_DIFF" = "$EXPECTED_DIFF"
 sudo -u "$CODE_EDITOR_USER" -H git -C "$REPO" diff --check
 
-# The Runtime resources depend on this instance's staged ECR image. Release that
-# dependency now; the separate wait condition still requires every acceptance
-# check below before the workshop can become ready.
-(cd "$REPO" && MOSAIC_RUNTIME_DATABASE_URL="$APP_DATABASE_URL" \
-  .venv/bin/python scripts/deploy_agentcore.py stage-bootstrap)
+# stage-bootstrap released the runtimes before the restore, so they are built by
+# now. Connect them and prove the SQL tools search the restored catalog through
+# Gateway; the wait condition still requires every acceptance check below.
 (cd "$REPO" && .venv/bin/python scripts/deploy_agentcore.py connect-bootstrap)
 # Those two steps run as root and create .local itself, not only its agentcore
 # record. Every lab start writes .local/lab-N as the participant, so a
@@ -1084,6 +1092,32 @@ RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
+EOF
+
+# The optional Scale & HNSW page reads exact neighbours and two quantized
+# indexes: about seven minutes of Aurora work that no required lab uses. They
+# build after CloudFormation hears success, so the stack does not wait for
+# them; until they finish the page names what is missing. Both steps are
+# idempotent, so a failed run retries. Facilitators read the outcome with
+# `journalctl -u mosaic-hnsw-prepare`.
+cat >/etc/systemd/system/mosaic-hnsw-prepare.service <<EOF
+[Unit]
+Description=Mosaic Scale & HNSW ground truth and quantized indexes
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=3600
+StartLimitBurst=3
+
+[Service]
+Type=oneshot
+User=$CODE_EDITOR_USER
+Group=$CODE_EDITOR_USER
+WorkingDirectory=$REPO
+Environment=HOME=/home/$CODE_EDITOR_USER
+Environment=PATH=$REPO/.venv/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/bash -c 'set -Eeuo pipefail; set -a; source .env; set +a; make db-seed-exact-neighbors; .venv/bin/python scripts/bench/build_quantized_indexes.py --workers 3 --maintenance-work-mem 2GB --report build/quantized-index-build.json; make check-exact-neighbors'
+Restart=on-failure
+RestartSec=60
 EOF
 
 systemctl daemon-reload
@@ -1233,4 +1267,7 @@ if [ -z "$SUCCESS_SIGNAL_OK" ]; then
   echo "SUCCESS signal failed after 5 attempts; falling through to the UserData wrapper's FAILURE retry path"
   exit 1
 fi
+# The workshop is accepted; the optional build must not change that outcome.
+systemctl start --no-block mosaic-hnsw-prepare.service ||
+  echo "mosaic-hnsw-prepare did not start; the Scale & HNSW page stays incomplete"
 printf 'MOSAIC_BOOTSTRAP_COMPLETE\n'

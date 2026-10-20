@@ -20,6 +20,7 @@ import os
 import struct
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -28,6 +29,10 @@ sys.path.insert(0, str(REPO))
 REFERENCE_CACHE = Path("data/evals/lab2_search_cache.json")
 WORKSHOP_CACHE = Path("build/lab2-search-cache.json")
 MAX_LIMITS = {"fts": 240, "trigram": 160, "vector": 300}
+# One connection took 238 s for the judged queries on the 20 October workshop,
+# all of it on the deployment's critical path. The catalog does not change while
+# the cache is built, so splitting the queries changes no list.
+CONNECTIONS = 4
 CHAIR_CONTROLS = (
     ("requirements-4", 1490476),
     ("requirements-5", 1389794),
@@ -140,6 +145,44 @@ def search_lists(connection, query: str, filters: dict, vector: str) -> dict:
     return lists
 
 
+def cache_queries(
+    connect, cases: list[dict], vectors: dict, connections: int = CONNECTIONS
+) -> dict:
+    """Cache each judged query's three lists, sharing the queries across connections.
+
+    Args:
+        connect: Opens one database connection; each share gets its own.
+        cases: The judged queries, in the order the cache records them.
+        vectors: Encoded query vectors keyed by query ID.
+        connections: How many read-only connections run at once.
+
+    Returns:
+        Each query's lists keyed by query ID, in the order of `cases`.
+    """
+
+    def run(share: list[dict]) -> dict:
+        with connect() as connection:
+            connection.execute("SET TRANSACTION READ ONLY")
+            lists = {
+                str(case["query_id"]): search_lists(
+                    connection,
+                    case["query"],
+                    case["filters"],
+                    decode_vector(vectors[str(case["query_id"])]),
+                )
+                for case in share
+            }
+            connection.rollback()
+        return lists
+
+    shares = [cases[index::connections] for index in range(connections)]
+    found: dict = {}
+    with ThreadPoolExecutor(max_workers=connections) as pool:
+        for lists in pool.map(run, [share for share in shares if share]):
+            found.update(lists)
+    return {str(case["query_id"]): found[str(case["query_id"])] for case in cases}
+
+
 def controls(service) -> list[dict]:
     verification = json.loads(
         (REPO / "data/evals/real_catalog_exercise_verification.json").read_text()
@@ -186,18 +229,15 @@ def main() -> None:
     vectors = json.loads((REPO / "data/evals/esci_query_vectors.json").read_text())
     service = RetrievalService()
     started = time.perf_counter()
-    with psycopg.connect(os.environ["DATABASE_URL"], row_factory=dict_row) as conn:
-        conn.execute("SET TRANSACTION READ ONLY")
+
+    def connect():
+        return psycopg.connect(os.environ["DATABASE_URL"], row_factory=dict_row)
+
+    with connect() as conn:
         identity = search_identity(conn)
-        queries = {
-            str(case["query_id"]): search_lists(
-                conn,
-                case["query"],
-                case["filters"],
-                decode_vector(vectors["vectors"][str(case["query_id"])]),
-            )
-            for case in subset["queries"]
-        }
+    queries = cache_queries(connect, subset["queries"], vectors["vectors"])
+    with connect() as conn:
+        conn.execute("SET TRANSACTION READ ONLY")
         chair = controls(service)
         for control in chair:
             control["lists"] = search_lists(

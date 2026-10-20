@@ -79,9 +79,12 @@ lab behavior.
 ## Workshop deployment
 
 The Workshop Studio stack creates an immutable, KMS-encrypted ECR repository, two runtimes, Gateway target,
-execution roles, encrypted logs and Memory. Bootstrap restores the real catalog
-with its saved vectors, builds and pushes the ARM64 container image and connects the managed
-resources before declaring the application ready.
+execution roles, encrypted logs and Memory. Bootstrap builds and pushes the ARM64
+container image first, so CloudFormation creates the runtimes, Gateway and CloudFront
+while it restores the real catalog with its saved vectors. It then connects the managed
+resources and proves a search through Gateway before declaring the application ready.
+The optional Scale & HNSW page's exact neighbours and quantized indexes build afterwards,
+in the `mosaic-hnsw-prepare` unit.
 
 Participants build `create_agent` in [labs/lab3_reason/agent.py](../labs/lab3_reason/agent.py).
 The SQL they repaired in Labs 1 and 2 travels with the tools image.

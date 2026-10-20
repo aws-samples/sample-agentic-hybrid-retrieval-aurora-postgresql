@@ -150,8 +150,9 @@ diagnosing model behavior. If Aurora, Bedrock, Gateway, the API or UI is
 unhealthy, identify an **environment failure** and give the facilitator the
 evidence. Do not substitute data, relax checks or add IAM grants to bypass it.
 Facilitators can inspect CloudFormation's first failed resource,
-`/var/log/mosaic-bootstrap.log`, `/var/log/cloud-init-output.log`, and the
-`mosaic-api` / `mosaic-ui` systemd logs. Read only relevant excerpts and redact
+`/var/log/mosaic-bootstrap.log`, `/var/log/cloud-init-output.log`, the
+`mosaic-api` / `mosaic-ui` systemd logs, and `mosaic-hnsw-prepare` for the optional
+Scale & HNSW page's data, which builds after the stack reports ready. Read only relevant excerpts and redact
 secrets; a failed dependency may prevent a later runtime from existing.
 
 Useful explanations: [architecture](docs/architecture.md),
