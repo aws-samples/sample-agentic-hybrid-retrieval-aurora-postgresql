@@ -701,6 +701,7 @@ async def stream_agent_answer(
                 },
             )
             current_stage = "understand"
+            announced_tool = None
             async for event in agent_stream:
                 # A client that stopped listening -- an explicit Stop, a
                 # cleared conversation, navigation, or a closed tab -- must not
@@ -738,6 +739,13 @@ async def stream_agent_answer(
 
                 tool = event.get("current_tool_use")
                 tool_name = tool.get("name") if isinstance(tool, dict) else None
+                # Strands repeats a call's event on every input delta; its
+                # toolUseId names the call, so each call is announced once.
+                # The controller fallback sends only a name.
+                tool_key = (tool.get("toolUseId") if tool_name else None) or tool_name
+                if tool_key and tool_key != announced_tool:
+                    announced_tool = tool_key
+                    yield _sse("tool", {"name": tool_name})
                 if tool_name == "search_products":
                     execution_path = "full_retrieval"
                     stage = (

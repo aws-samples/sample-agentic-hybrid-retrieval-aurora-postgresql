@@ -313,3 +313,26 @@ def test_verify_refuses_a_gateway_search_that_ran_other_sql(monkeypatch, tmp_pat
     assert "Gateway SQL rule" in message
     assert "dddddddddddd" in message and "cccccccccccc" in message
     assert VERIFY_AGENT in message
+
+
+def test_deploy_shows_each_phase_with_the_share_already_finished(monkeypatch, capsys):
+    from scripts.progress import bar
+
+    control = Mock()
+    gateway_environment(monkeypatch, control, [{"status": "READY"}])
+    monkeypatch.setattr(sys, "argv", ["deploy_agentcore.py", "deploy"])
+    monkeypatch.setattr("scripts.lab_state.lab_is_solved", lambda lab: True)
+    monkeypatch.setattr(deploy, "stage", lambda: "example.ecr/repo@sha256:" + "a" * 64)
+    monkeypatch.setattr(deploy, "verify", lambda: None)
+
+    assert deploy.main() == 0
+
+    output = capsys.readouterr().out
+    total = len(deploy.DEPLOY_PHASES)
+    shown = [
+        f"{bar(index, total)}  {index + 1} of {total}: {name}"
+        for index, name in enumerate(deploy.DEPLOY_PHASES)
+    ]
+    shown.append(f"{bar(total, total)}  deployed")
+    positions = [output.index(line) for line in shown]
+    assert positions == sorted(positions)

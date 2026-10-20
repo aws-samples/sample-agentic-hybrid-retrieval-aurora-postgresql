@@ -2,8 +2,10 @@
 
     uv run python scripts/ask_agent.py "QUESTION"
 
-The question goes through the same API route as Ask Mosaic, so it reaches your Retrieval agent on
-AgentCore Runtime. The output shows the answer, the searches the Retrieval agent planned with the
+The question goes through the same streaming API route as Ask Mosaic, so it reaches your
+Retrieval agent on AgentCore Runtime; while you wait, a bar shows each stage the run reaches
+and each tool call prints as the Retrieval agent makes it.
+The output shows the answer, the searches the Retrieval agent planned with the
 filters it chose, the tool trace, the products, each citation's type, product, source
 and quote, the outcome, any decline reason and the run ID. The trace names each catalog
 tool's route (through AgentCore Gateway when the Retrieval agent is deployed) and, under each
@@ -15,15 +17,21 @@ calls in mosaic.agent_tool_event.
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 import textwrap
+import time
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.validate_lab import LabValidationError, _request
+from scripts.progress import bar
+from scripts.validate_lab import LabValidationError
 from service.config import get_settings
 from service.lab_validation_receipt import participant_sql_digest
 from service.participant_commands import APPLY_SQL
@@ -36,6 +44,9 @@ MIN_QUESTION = 4  # AgentRequest.question's own minimum
 # The API waits for Runtime up to the turn deadline plus its own 30 s transport
 # margin, then saves the run; waiting longer means the Run ID always prints.
 RESPONSE_MARGIN_SECONDS = 60
+STREAM_PATH = "/api/agent/answer/stream"
+# The stages the streaming route reports, in order; a follow-up skips retrieval.
+STAGES = ("understand", "retrieve", "rank", "answer")
 
 
 def _section(title: str, lines: list[str]) -> list[str]:
@@ -69,9 +80,7 @@ def _search_sql(applied: str | None, workspace: str) -> str:
             f"apply your lab files with {APPLY_SQL}"
         )
     if applied == workspace:
-        return (
-            f"Aurora ran your Lab 1 and Lab 2 SQL ({applied[:12]}), the same as your lab files"
-        )
+        return f"Aurora ran your Lab 1 and Lab 2 SQL ({applied[:12]}), the same as your lab files"
     return (
         f"Aurora ran search SQL {applied[:12]}, not your lab files' {workspace[:12]}; "
         f"apply them with {APPLY_SQL}"
@@ -154,6 +163,81 @@ def render(response: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _events(lines: Iterable[bytes]) -> Iterator[tuple[str, dict[str, Any]]]:
+    """Read server-sent events as (event name, decoded data) pairs."""
+    event, data = "message", []
+    for raw in lines:
+        line = raw.decode("utf-8").rstrip("\r\n")
+        if line.startswith("event:"):
+            event = line.removeprefix("event:").strip()
+        elif line.startswith("data:"):
+            data.append(line.removeprefix("data:").strip())
+        elif not line:
+            if data:
+                yield event, json.loads("\n".join(data))
+            event, data = "message", []
+
+
+def ask(base_url: str, question: str, *, timeout: float) -> dict[str, Any]:
+    """Ask through Ask Mosaic's streaming route; print each stage the run reaches.
+
+    The bar counts stages reached, not time. A run can return to retrieval after
+    reading evidence, so it shows the furthest stage and never moves backward.
+    """
+    headers = {"Content-Type": "application/json", "Accept": "text/event-stream"}
+    # The same shared origin secret `_request` presents on this loopback call.
+    origin_secret = get_settings().origin_verify_secret
+    if origin_secret:
+        headers["X-Mosaic-Origin-Verify"] = origin_secret
+    request = Request(
+        f"{base_url.rstrip('/')}{STREAM_PATH}",
+        data=json.dumps({"question": question}).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    started, reached = time.monotonic(), -1
+    try:
+        with urlopen(request, timeout=timeout) as response:
+            for event, data in _events(response):
+                elapsed = int(time.monotonic() - started)
+                stage = data.get("id") if event == "stage" else None
+                if stage in STAGES and STAGES.index(stage) > reached:
+                    reached = STAGES.index(stage)
+                    print(
+                        f"{bar(reached, len(STAGES))}  {data['title']}, {elapsed} s",
+                        flush=True,
+                    )
+                elif event == "tool":
+                    print(f"      tool call  {data['name']}, {elapsed} s", flush=True)
+                elif event == "complete":
+                    print(f"{bar(1, 1)}  answered in {elapsed} s\n", flush=True)
+                    return data["response"]
+                elif event == "error":
+                    raise LabValidationError(
+                        f"{STREAM_PATH} stopped: {data.get('detail', 'no reason given')}"
+                    )
+    except TimeoutError as error:
+        raise LabValidationError(
+            f"{STREAM_PATH} sent no response within {timeout:.0f} s; fix: run the command "
+            "again, and if it times out twice, give this message to your facilitator"
+        ) from error
+    except HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")
+        raise LabValidationError(
+            f"{STREAM_PATH} returned HTTP {error.code}: {detail}"
+        ) from error
+    except URLError as error:
+        raise LabValidationError(
+            f"{STREAM_PATH} is unavailable at {base_url}: {error.reason}; "
+            "fix: run `systemctl status mosaic-api` in the terminal. If it is not "
+            "active, tell your facilitator"
+        ) from error
+    raise LabValidationError(
+        f"{STREAM_PATH} closed before the answer; fix: run the command again, and if "
+        "it happens twice, give this message to your facilitator"
+    )
+
+
 def response_timeout() -> float:
     """Seconds to wait for the answer: longer than the API can take to return one."""
     return get_settings().agent_turn_deadline_seconds + RESPONSE_MARGIN_SECONDS
@@ -172,12 +256,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
     try:
-        response = _request(
-            args.api_url,
-            "/api/agent/answer",
-            {"question": args.question},
-            timeout=response_timeout(),
-        )
+        response = ask(args.api_url, args.question, timeout=response_timeout())
     except LabValidationError as error:
         print(f"Retrieval agent request failed: {error}", file=sys.stderr)
         return 1

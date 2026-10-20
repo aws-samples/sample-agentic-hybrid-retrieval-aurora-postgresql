@@ -27,6 +27,7 @@ sys.path.insert(0, str(ROOT))
 
 from scripts.checks.rehearsal import redact
 from scripts.package_agentcore import package
+from scripts.progress import bar
 from service import agentcore_transport, gateway_tools
 from service.lab_validation_receipt import application_digest, participant_sql_digest
 from service.participant_commands import (
@@ -69,6 +70,24 @@ def safe_text(text: object, limit: int = 600) -> str:
             for variant in (value, quote(value, safe=""), quote_plus(value)):
                 shown = shown.replace(variant, "[REDACTED]")
     return " ".join(shown.split())[:limit]
+
+
+DEPLOY_PHASES = (
+    "build and push the image",
+    "update the tools runtime",
+    "update the Retrieval agent runtime",
+    "synchronize the Gateway tools",
+    "verify the deployment",
+)
+
+
+def phase(index: int) -> None:
+    """Announce a deploy phase with the share of phases already finished."""
+    total = len(DEPLOY_PHASES)
+    print(
+        f"{bar(index, total)}  {index + 1} of {total}: {DEPLOY_PHASES[index]}",
+        flush=True,
+    )
 
 
 class Progress:
@@ -393,10 +412,14 @@ def update(image_uri: str) -> None:
             "UpdateAgentRuntime"
         ).input_shape.members
     )
-    for setting, label in (
-        ("MOSAIC_AGENTCORE_TOOLS_RUNTIME_ARN", "tools runtime"),
-        ("MOSAIC_AGENTCORE_RUNTIME_ARN", "Retrieval agent runtime"),
+    for index, (setting, label) in enumerate(
+        (
+            ("MOSAIC_AGENTCORE_TOOLS_RUNTIME_ARN", "tools runtime"),
+            ("MOSAIC_AGENTCORE_RUNTIME_ARN", "Retrieval agent runtime"),
+        ),
+        start=1,
     ):
+        phase(index)
         runtime_id = required(setting).rsplit("/", 1)[-1]
         current = control.get_agent_runtime(agentRuntimeId=runtime_id)
         payload = {name: value for name, value in current.items() if name in fields}
@@ -412,6 +435,7 @@ def update(image_uri: str) -> None:
         print(f"Updating the {label}; AWS replaces its running version.", flush=True)
         deployed = wait_runtime(control, runtime_id, label)
         print(f"Ready: {label} version {deployed['agentRuntimeVersion']}", flush=True)
+    phase(3)
     gateway = required("MOSAIC_AGENTCORE_GATEWAY_ID")
     target = required("MOSAIC_AGENTCORE_GATEWAY_TARGET_ID")
     control.synchronize_gateway_targets(
@@ -735,8 +759,13 @@ def main() -> int:
                 f"Gateway, then verify. Progress prints every {PROGRESS_SECONDS} s.",
                 flush=True,
             )
+            phase(0)
             update(stage())
+            phase(4)
             verify()
+            print(
+                f"{bar(len(DEPLOY_PHASES), len(DEPLOY_PHASES))}  deployed", flush=True
+            )
             print(
                 "Your Retrieval agent is deployed and its SQL tools are connected through "
                 f"Gateway. Next: ask Alex's setup request:\n{ask_setup()}"

@@ -1982,6 +1982,51 @@ def test_agent_stream_forwards_strands_tool_stages_and_validated_answer(monkeypa
     assert "Choose the quiet option [1]." in stream.text
 
 
+def test_agent_stream_announces_each_tool_call_once(monkeypatch):
+    response = AgentResponse(
+        agent_run_id=uuid4(),
+        question="What should I buy?",
+        answer="Summary\nChoose the quiet option [1].",
+        plan=[],
+        recommendations=[product()],
+        citations=[citation()],
+        trace=[],
+    )
+
+    class FakeStreamingAgent:
+        async def stream(self, _request, **_kwargs):
+            # Strands repeats a call's event while its input streams.
+            for call, name in (
+                ("a", "search_products"),
+                ("b", "search_products"),
+                ("c", "compare_products"),
+            ):
+                for streamed in ("", '{"query"', '{"query": "x"}'):
+                    yield {
+                        "current_tool_use": {
+                            "toolUseId": call,
+                            "name": name,
+                            "input": streamed,
+                        }
+                    }
+            yield {"agent_response": response}
+
+    monkeypatch.setattr(
+        "service.main.get_product_discovery_agent", lambda: FakeStreamingAgent()
+    )
+    stream = TestClient(app).post(
+        "/api/agent/answer/stream",
+        json={"question": "What should I buy?", "filters": {}, "result_limit": 2},
+    )
+
+    tools = [
+        json.loads(block.split("data: ", 1)[1])["name"]
+        for block in stream.text.split("\n\n")
+        if block.startswith("event: tool\n")
+    ]
+    assert tools == ["search_products", "search_products", "compare_products"]
+
+
 def test_failed_stream_exposes_its_persisted_run_and_last_receipts(monkeypatch):
     from service.models import AgentPartial, ToolTraceStep
 

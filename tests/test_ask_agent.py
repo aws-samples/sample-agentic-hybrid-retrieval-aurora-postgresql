@@ -1,11 +1,14 @@
 """`scripts/ask_agent.py` prints the deployed agent's answer of record from the terminal."""
 
+import json
+from io import BytesIO
+from urllib.error import HTTPError
 from uuid import UUID
 
 import pytest
 
 from scripts import ask_agent
-from scripts.validate_lab import LabValidationError
+from scripts.progress import bar
 from service.models import AgentResponse
 
 RUN = UUID("27086027-0000-4000-8000-000000000001")
@@ -135,7 +138,9 @@ def test_every_line_fits_a_laptop_terminal_without_wrapping(monkeypatch):
     title or quote breaks mid-word in the guide's screenshots and on screen."""
     monkeypatch.setattr(ask_agent, "participant_sql_digest", lambda: "a" * 64)
     run = gateway_run("a" * 64)
-    run["recommendations"] = [product(1551237, "ViewSonic VG2756-4K 27 Inch IPS 4K " * 6)]
+    run["recommendations"] = [
+        product(1551237, "ViewSonic VG2756-4K 27 Inch IPS 4K " * 6)
+    ]
     run["citations"] = grounded()["citations"]
 
     text = ask_agent.render(run)
@@ -146,7 +151,9 @@ def test_every_line_fits_a_laptop_terminal_without_wrapping(monkeypatch):
 
 def test_a_quote_shows_the_source_line_breaks_as_spaces():
     run = grounded()
-    run["citations"][1]["quote"] = "Great dock.<br /><br />Charges my laptop.<BR>Loud fan."
+    run["citations"][1]["quote"] = (
+        "Great dock.<br /><br />Charges my laptop.<BR>Loud fan."
+    )
 
     text = ask_agent.render(run)
 
@@ -164,39 +171,114 @@ def test_a_declined_answer_names_its_reason_and_says_nothing_was_cited():
     assert "PLAN\n  none" in text
 
 
-def test_main_posts_the_question_to_the_ask_mosaic_route(monkeypatch, capsys):
+class FakeStream:
+    """The streaming route's response at the HTTP boundary: server-sent event lines."""
+
+    def __init__(self, *events):
+        self.lines = [
+            line.encode()
+            for name, data in events
+            for line in (f"event: {name}\n", f"data: {json.dumps(data)}\n", "\n")
+        ]
+
+    def __enter__(self):
+        return iter(self.lines)
+
+    def __exit__(self, *_):
+        return False
+
+
+def stage(identifier, title):
+    return ("stage", {"id": identifier, "title": title, "path": "full_retrieval"})
+
+
+def test_main_streams_the_question_through_the_ask_mosaic_route(monkeypatch, capsys):
     calls = []
 
-    def fake_request(base_url, path, payload=None, *, timeout):
-        calls.append((base_url, path, payload))
-        assert timeout == ask_agent.response_timeout()
-        return declined()
+    def fake_urlopen(request, timeout):
+        calls.append((request.full_url, json.loads(request.data), timeout))
+        return FakeStream(
+            stage("understand", "Interpret request"),
+            stage("retrieve", "Retrieve evidence"),
+            ("tool", {"name": "search_products"}),
+            ("partial", {"partial": {}}),
+            stage("rank", "Compare ranks"),
+            ("tool", {"name": "compare_products"}),
+            stage("answer", "Compose cited answer"),
+            ("complete", {"response": declined()}),
+        )
 
-    monkeypatch.setattr(ask_agent, "_request", fake_request)
+    monkeypatch.setattr(ask_agent, "urlopen", fake_urlopen)
     code = ask_agent.main(["Does the ViewSonic charge at 100W?"])
 
     assert code == 0
     assert calls == [
         (
-            "http://127.0.0.1:8000",
-            "/api/agent/answer",
+            "http://127.0.0.1:8000/api/agent/answer/stream",
             {"question": "Does the ViewSonic charge at 100W?"},
+            ask_agent.response_timeout(),
         )
     ]
-    assert "OUTCOME: declined" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    for index, title in enumerate(
+        (
+            "Interpret request",
+            "Retrieve evidence",
+            "Compare ranks",
+            "Compose cited answer",
+        )
+    ):
+        assert f"{bar(index, 4)}  {title}, " in out
+    assert f"{bar(1, 1)}  answered in " in out
+    calls = [
+        line.split(",")[0].strip() for line in out.splitlines() if "tool call" in line
+    ]
+    assert calls == ["tool call  search_products", "tool call  compare_products"]
+    assert "OUTCOME: declined" in out
+
+
+def test_the_bar_never_moves_back_when_the_agent_searches_again(monkeypatch, capsys):
+    monkeypatch.setattr(
+        ask_agent,
+        "urlopen",
+        lambda *_a, **_k: FakeStream(
+            stage("understand", "Interpret request"),
+            stage("rank", "Compare ranks"),
+            stage("retrieve", "Retrieve evidence"),
+            stage("future", "A stage this client does not know"),
+            ("complete", {"response": declined()}),
+        ),
+    )
+    assert ask_agent.main(["Find headphones for calls"]) == 0
+    out = capsys.readouterr().out
+    assert "Retrieve evidence" not in out
+    assert "A stage this client does not know" not in out
+
+
+def test_a_stream_error_is_reported_and_exits_non_zero(monkeypatch, capsys):
+    monkeypatch.setattr(
+        ask_agent,
+        "urlopen",
+        lambda *_a, **_k: FakeStream(
+            stage("understand", "Interpret request"),
+            ("error", {"detail": "Amazon Bedrock request failed."}),
+        ),
+    )
+    assert ask_agent.main(["Find headphones for calls"]) == 1
+    assert "stopped: Amazon Bedrock request failed." in capsys.readouterr().err
 
 
 def test_an_api_failure_is_reported_and_exits_non_zero(monkeypatch, capsys):
-    def failing(base_url, path, payload=None, **_options):
-        raise LabValidationError(
-            "/api/agent/answer returned HTTP 503: runtime unavailable"
+    def failing(request, timeout):
+        raise HTTPError(
+            request.full_url, 503, "Service Unavailable", {}, BytesIO(b"busy")
         )
 
-    monkeypatch.setattr(ask_agent, "_request", failing)
+    monkeypatch.setattr(ask_agent, "urlopen", failing)
     code = ask_agent.main(["Find headphones for calls"])
 
     assert code == 1
-    assert "HTTP 503" in capsys.readouterr().err
+    assert "HTTP 503: busy" in capsys.readouterr().err
 
 
 def test_the_terminal_waits_longer_than_the_api_can_take():
@@ -215,7 +297,7 @@ def test_a_slow_answer_is_reported_with_its_wait_and_a_fix(monkeypatch, capsys):
     def slow(_request, timeout):
         raise TimeoutError("The read operation timed out")
 
-    monkeypatch.setattr("scripts.validate_lab.urlopen", slow)
+    monkeypatch.setattr(ask_agent, "urlopen", slow)
     code = ask_agent.main(["Find headphones for calls"])
 
     error = capsys.readouterr().err
