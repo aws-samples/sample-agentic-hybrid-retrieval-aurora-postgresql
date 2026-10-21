@@ -409,6 +409,18 @@ export ANTHROPIC_MODEL=global.anthropic.claude-sonnet-5-5
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
 EOF
 chmod 644 /etc/profile.d/mosaic-claude.sh
+# Since Claude Code 2.1.283, interactive sessions start in auto mode, which edits
+# files and runs classifier-approved commands without asking. The coach must ask
+# before it changes anything, so managed settings, which a participant cannot
+# override, start every session in the default mode and remove auto mode.
+install -d -m 755 /etc/claude-code
+cat >/etc/claude-code/managed-settings.json <<'EOF'
+{
+  "permissions": { "defaultMode": "default" },
+  "disableAutoMode": "disable"
+}
+EOF
+chmod 644 /etc/claude-code/managed-settings.json
 cat >>"/home/$CODE_EDITOR_USER/.bashrc" <<EOF
 source /etc/profile.d/mosaic-claude.sh
 cd $HOME_FOLDER/sample-agentic-hybrid-retrieval-aurora-postgresql
