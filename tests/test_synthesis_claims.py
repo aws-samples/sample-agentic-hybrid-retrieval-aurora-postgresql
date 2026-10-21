@@ -576,6 +576,27 @@ def test_a_name_unique_to_one_listing_still_needs_that_listings_citation():
             "",
             "Bang & Olufsen Beoplay Portal",
         ),
+        # The title's first sentence ends the name, so the model never writes a full
+        # stop inside it (observed 21 October: every mention split its sentence).
+        (
+            "233621 Shell Noise Cancelling Headphones. Lightweight Over Ear ANC Headphones.",
+            "233621",
+            "7149",
+            "233621 Shell Noise Cancelling Headphones",
+        ),
+        (
+            "Acme Pro. Wireless Headset X1 for Calls",
+            "Acme",
+            "",
+            "Acme Pro",
+        ),
+        ("JLab Go Air Pop.", "JLab", "", "JLab Go Air Pop"),
+        (
+            "Sony WH-1000XM4. Wireless Industry Leading Noise Canceling",
+            "Sony",
+            "WH1000XM4",
+            "Sony WH-1000XM4",
+        ),
         # No brand and no model code: a shortened generic phrase would match
         # ordinary prose, so the full title stays the reference.
         (
@@ -724,3 +745,97 @@ def test_the_shoppers_stated_requirement_is_a_bound_not_a_product_claim(sentence
 def test_a_requirement_frame_cannot_carry_a_false_comparison(sentence, question):
     with pytest.raises(SynthesisOutputError, match="unsupported numeric claim"):
         validate(sentence, [evidence(USB_C_90W)], [_monitor()], question)
+
+
+def test_a_rejected_compatibility_claim_names_the_claim_and_its_sentence():
+    sentence = "AuriLogic Flight ANC is compatible with model A2342 [1]."
+    with pytest.raises(SynthesisOutputError) as raised:
+        validate(
+            sentence,
+            [evidence("Model A2342 is listed in a shopper question. Power: 30W.")],
+        )
+    message = str(raised.value)
+    assert "compatible with model A2342" in message
+    assert sentence in message
+    assert "for from" not in message
+
+
+SHELL = product(
+    product_id=2,
+    sku="B0BXYZ1234",
+    title="233621 Shell Noise Cancelling Headphones. Lightweight Over Ear ANC Headphones.",
+    brand="233621",
+    model="7149",
+)
+
+
+def shell_evidence() -> EvidenceRecord:
+    return evidence("Active noise cancellation for focused work.").model_copy(
+        update={"evidence_id": 2, "product_id": 2}
+    )
+
+
+def test_a_bullet_that_only_names_a_product_is_a_label_not_a_claim():
+    # Observed on Sonnet 5.5, 21 October: "Name. What its listing says [n]." The sentence
+    # split leaves the name alone, and rejecting it failed whole runs.
+    answer = (
+        "AuriLogic Flight ANC is the strongest fit [1].\n"
+        "### Other strong options\n"
+        f"- {reference_name(SHELL)}. Its listing describes active noise cancellation [2]."
+    )
+    validate(
+        answer,
+        [evidence("Active noise cancellation."), shell_evidence()],
+        [product(), SHELL],
+    )
+
+
+@pytest.mark.parametrize(
+    "bullet",
+    [
+        "- {name} has active noise cancellation.",
+        "- {name}: active noise cancellation.",
+        "- Choose {name}.",
+    ],
+)
+def test_a_named_product_with_any_words_of_its_own_still_needs_a_citation(bullet):
+    # The product is cited later, so only the per-sentence rule can reject the bullet.
+    answer = (
+        "AuriLogic Flight ANC is the strongest fit [1].\n"
+        + bullet.format(name=reference_name(SHELL))
+        + "\nIts listing describes active noise cancellation [2]."
+    )
+    with pytest.raises(
+        SynthesisOutputError, match="does not cite evidence for that product"
+    ):
+        validate(
+            answer,
+            [evidence("Active noise cancellation."), shell_evidence()],
+            [product(), SHELL],
+        )
+
+
+def test_a_generic_one_word_model_does_not_name_its_product_in_ordinary_prose():
+    # Observed 21 October: a listing whose model is "Headphones" made every sentence
+    # mentioning headphones name it, and a sentence about another product's review failed.
+    generic = product(
+        product_id=3,
+        sku="B0GEN",
+        title="Phonicgrid Active Noise Cancelling Headphones",
+        brand="Phonicgrid",
+        model="Headphones",
+    )
+    answer = (
+        "AuriLogic Flight ANC is the strongest fit [1]. One reviewer reports its noise "
+        "cancellation is not as strong as music headphones [1].\n"
+        f"- {reference_name(SHELL)} offers active noise cancellation [2].\n"
+        f"- {reference_name(generic)} offers active noise cancellation [3]."
+    )
+    generic_evidence = evidence("Active noise cancellation.").model_copy(
+        update={"evidence_id": 3, "product_id": 3}
+    )
+    validate(
+        answer,
+        [evidence("Active noise cancellation."), shell_evidence(), generic_evidence],
+        [product(), SHELL, generic],
+    )

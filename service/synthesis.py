@@ -140,7 +140,10 @@ def _validate_product_claim_citations(
     ]
     for sentence in sentences:
         cited = {int(value) for value in re.findall(r"\[(\d+)\]", sentence)}
-        for _, _, named in _mention_subjects(sentence, products):
+        mentions = _mention_subjects(sentence, products)
+        if _only_names(sentence, mentions):
+            continue
+        for _, _, named in mentions:
             product_id = min(named)
             evidence_numbers = {
                 index
@@ -154,6 +157,21 @@ def _validate_product_claim_citations(
                     "Cite that product's evidence in the same sentence, even when "
                     "it says a source does not state something."
                 )
+
+
+def _only_names(sentence: str, mentions: Sequence[tuple[int, int, set[int]]]) -> bool:
+    """Whether a sentence is nothing but product names, such as a bullet's lead-in label.
+
+    The sentence split ends "- Name. Its listing states X [1]." after the name, so the
+    label would otherwise read as an uncited claim. It claims nothing; the sentence after
+    it is checked as usual.
+    """
+    if not mentions:
+        return False
+    rest = list(sentence)
+    for start, end, _ in mentions:
+        rest[start:end] = " " * (end - start)
+    return not re.search(r"[^\W_]", "".join(rest))
 
 
 def _normalized_support_text(value: str) -> str:
@@ -316,7 +334,9 @@ def _availability_failures(
     return agreed, refuted
 
 
-_NAME_BREAK = re.compile(r"\s+[-–—|]\s+|[,(:;\[]")
+# A title's first phrase also ends at a sentence break: a name the model must write
+# "exactly as supplied" cannot carry a full stop that splits the sentence naming it.
+_NAME_BREAK = re.compile(r"\s+[-–—|]\s+|[,(:;\[]|\.\s+(?=[A-Z0-9])")
 _NAME_JOINERS = frozenset(
     {"with", "for", "and", "&", "+", "w/", "featuring", "including"}
 )
@@ -336,10 +356,10 @@ def reference_name(product: ProductSummary) -> str:
     words = _NAME_BREAK.split(product.title, maxsplit=1)[0].split()
     for index, word in enumerate(words[1:5], 1):
         if re.search(r"\d", word):
-            return " ".join(words[: index + 1])
+            return " ".join(words[: index + 1]).rstrip(".")
     brand = product.brand.strip().casefold()
     if brand and " ".join(words).casefold().startswith(brand):
-        return _brand_phrase(words[:5], len(brand.split()))
+        return _brand_phrase(words[:5], len(brand.split())).rstrip(".")
     return product.title
 
 
@@ -351,10 +371,28 @@ def _brand_phrase(lead: list[str], brand_words: int) -> str:
     return " ".join(lead)
 
 
+def _category_word_model(product: ProductSummary) -> bool:
+    """Whether a listing's model is only its category word, such as "Headphones"."""
+    model = product.model.strip().casefold()
+    if not model or re.search(r"\d", model) or len(model.split()) > 1:
+        return False
+    words = re.split(
+        r"[^a-z]+", f"{product.category_key} {product.category_path}".casefold()
+    )
+    return model.rstrip("s") in {word.rstrip("s") for word in words if word}
+
+
 def _product_names(product: ProductSummary) -> set[str]:
+    """The names that identify a product in prose: its title, short name and model.
+
+    A model that is only the listing's category word would make every sentence about
+    that kind of product name this listing, so it is not a name. A product-line model
+    such as "UltraSharp" still is.
+    """
+    model = "" if _category_word_model(product) else product.model
     return {
         value.casefold()
-        for value in (product.title, product.model, reference_name(product))
+        for value in (product.title, model, reference_name(product))
         if len(value.strip()) >= 3
     }
 
@@ -1026,7 +1064,6 @@ def _validate_compatibility_claims(
         for match in _COMPATIBILITY_CLAIM.finditer(sentence):
             if _NEGATED_COMPATIBILITY_PREFIX.search(sentence[: match.start()]):
                 continue
-            target = match["target"]
             cited = {int(value) for value in re.findall(r"\[(\d+)\]", sentence)}
             preceding = [item for item in mentions if item[0] < match.start()]
             subjects = (
@@ -1049,8 +1086,9 @@ def _validate_compatibility_claims(
             )
             if not supported:
                 raise SynthesisOutputError(
-                    f"unsupported compatibility claim for {target}; "
-                    "cite an explicit supported relationship or state the uncertainty"
+                    f"unsupported compatibility claim {match.group(0).strip()!r} in: "
+                    f"{sentence.strip()} Cite a source that states that relationship, "
+                    "or say the sources do not state it."
                 )
         if mentions:
             previous_subjects = {item[2] for item in mentions}
