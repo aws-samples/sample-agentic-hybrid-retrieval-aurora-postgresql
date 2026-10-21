@@ -91,7 +91,7 @@ it has run, and **Agent steps and sources** after its first answer. **Complete m
 three-product request, and its Ask Mosaic suggested question stays available before and after
 you build the Retrieval agent; it runs on its own filters and says when it clears Shop's.
 Keep its original run ID for completion: after that request, Shop shows the terminal
-command that checks the run, with its ID filled in. Ask Mosaic's **Show tool calls** switch (off by default) shows the full **Retrieval agent record** ID, recorded steps, saved search IDs and how each search ranked its products. Every
+command that checks the run, with its ID filled in. Ask Mosaic's **Show tool calls** switch (on by default) shows the full **Retrieval agent record** ID, recorded steps, saved search IDs and how each search ranked its products. Every
 lab is proved in the terminal; the Playground's **Compare search methods** table shows
 the maintainers' saved measurements, which do not grade your repairs.
 

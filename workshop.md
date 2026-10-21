@@ -170,8 +170,8 @@ follow-up question is not graded against the lab.
 
 Ask Mosaic is optional. Its **Complete my setup** suggested question sends the same
 request and passes completion only as the first message of a fresh chat (use
-**Clear chat**); its **Builder view** shows the full run ID, recorded steps and
-per-search ranks. The suggested question runs on its own filters and shows "Shop filters
+**Clear chat**); its **Show tool calls** switch, on by default, shows the full run
+ID, recorded steps and per-search ranks under each answer. The suggested question runs on its own filters and shows "Shop filters
 were cleared for this lab request." when it replaces filters a participant had
 set. After the request, Shop shows the terminal command that checks that run,
 with its run ID filled in.

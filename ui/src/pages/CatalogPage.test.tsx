@@ -513,6 +513,7 @@ describe("CatalogPage", () => {
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    window.localStorage.removeItem("mosaic-ask-builder-view");
   });
 
   it("reports what the run has found so far while it is still working", async () => {
@@ -1693,6 +1694,7 @@ describe("CatalogPage", () => {
   });
 
   it("opens Ask Mosaic, renders grounded receipts, and cross-highlights products", async () => {
+    window.localStorage.setItem("mosaic-ask-builder-view", "off");
     renderPage();
     await screen.findByText(catalog.products[0].model);
 
@@ -1744,7 +1746,8 @@ describe("CatalogPage", () => {
     expect(within(dialog).queryByText("Still unknown")).toBeNull();
     expect(screen.getByText("Ask Mosaic shortlist")).toBeTruthy();
 
-    // Builder view puts the recorded steps and ranks on the page.
+    // Builder view, on unless the viewer turned it off, puts the recorded steps
+    // and ranks on the page.
     expect(within(dialog).queryByRole("region", { name: "Builder view" })).toBeNull();
     fireEvent.click(within(dialog).getByRole("switch", { name: "Show tool calls" }));
     const builder = within(dialog).getByRole("region", { name: "Builder view" });
@@ -1816,6 +1819,7 @@ describe("CatalogPage", () => {
   });
 
   it("shows a compact evidence path for a closed-world follow-up", async () => {
+    window.localStorage.setItem("mosaic-ask-builder-view", "off");
     let invocation = 0;
     vi.mocked(api.agentStream).mockImplementation(
       async (_question, _filters, onEvent) => {
@@ -2560,6 +2564,7 @@ describe("CatalogPage", () => {
   });
 
   it("reopens a settled answer without replaying its presentation queue", async () => {
+    window.localStorage.setItem("mosaic-ask-builder-view", "off");
     renderPage();
     await screen.findByText(catalog.products[0].model);
     const opener = screen.getByRole("button", { name: "Ask Mosaic" });

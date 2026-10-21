@@ -60,8 +60,9 @@ Components:
 - stable product cards with complete 3:2 premium catalog photography;
 - a run status line with a segment per phase and a finding for each finished one,
   counted from the actual plan, searches, comparisons and citations; a collapsed
-  "How Mosaic answered" fold once answered, and a Builder view switch that adds
-  the full Retrieval agent record ID, recorded steps and each search's ranks;
+  "How Mosaic answered" fold once answered, opened by default on the Builder
+  view (the "Show tool calls" switch): the full Retrieval agent record ID,
+  recorded steps and each search's ranks;
 - agent shortlist cards labelled by the arms that retrieved them, the searches
   and constraints behind the shortlist, evidence citations, rank explanation,
   and tool receipts;

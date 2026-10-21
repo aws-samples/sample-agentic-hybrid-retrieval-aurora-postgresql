@@ -680,7 +680,7 @@ written in advance, and a phase that did nothing says so. A stopped or failed
 request keeps the progress it made and says "Stopped before it finished" or
 "Request interrupted".
 
-**When it has answered**, the default view (Builder view off) is a collapsed fold
+**When it has answered**, the plain view (Builder view off) is a collapsed fold
 ("How Mosaic answered", with steps, searches, sources and seconds; opening it
 lists each phase's finding), the first recommendation as a top-pick card (photo,
 name, a neutral "Top pick" pill that claims only its position, up to two quoted
@@ -696,9 +696,10 @@ The clock runs 24 characters past the end of the text once the stream closes so
 the last words finish darkening. Under `prefers-reduced-motion`, and for a turn
 restored already answered, the text shows at once with nothing faint.
 
-**Builder view** is a switch in the header, off by default, remembered per
-viewer in `localStorage` (and working for the visit when storage is refused). On,
-every answer swaps the fold for the recorded run: fact pills (short run id,
+**Builder view** is the "Show tool calls" switch in the header, on by default so
+every answer shows the tool calls behind it. Turning it off is remembered per
+viewer in `localStorage` (and works for the visit when storage is refused). On,
+every answer opens the fold on the recorded run: fact pills (short run id,
 session id when present, outcome, total time, memory on or off), a dashed-pill
 row "Not recorded on this run" for what `AgentResponse` has no field for (model
 id, tokens, Gateway target, claim verdicts), and a timeline of phases whose step

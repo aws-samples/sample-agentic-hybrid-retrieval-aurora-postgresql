@@ -185,6 +185,7 @@ describe("AskMosaic declined outcome", () => {
   });
 
   it("renders the declined block with the run's fold, and no picks or sources", () => {
+    window.localStorage.setItem("mosaic-ask-builder-view", "off");
     renderAskMosaic(DECLINED_RESPONSE);
 
     expect(
@@ -348,42 +349,48 @@ describe("AskMosaic starters", () => {
 });
 
 describe("AskMosaic header and Builder view", () => {
-  it("starts with Builder view off and no recorded steps on the page", () => {
+  it("starts with Builder view on, so the tool calls show under every answer", () => {
     renderAskMosaic(groundedResponse());
 
     const toggle = screen.getByRole("switch", { name: "Show tool calls" });
-    expect(toggle.getAttribute("aria-checked")).toBe("false");
-    expect(screen.queryByRole("region", { name: "Builder view" })).toBeNull();
-    expect(screen.getByRole("button", { name: /How the tools work/ }).getAttribute("aria-expanded")).toBe("false");
-  });
-
-  it("turns the recorded steps on page-wide and remembers the choice", () => {
-    renderAskMosaic(groundedResponse());
-
-    fireEvent.click(screen.getByRole("switch", { name: "Show tool calls" }));
-
-    expect(screen.getByRole("switch", { name: "Show tool calls" }).getAttribute("aria-checked")).toBe("true");
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
     const builder = screen.getByRole("region", { name: "Builder view" });
     expect(within(builder).getByText("run-grounded")).toBeTruthy();
     for (const field of ["model id", "tokens", "Gateway target", "claim verdicts"]) {
       expect(within(builder).queryByText(field)).toBeNull();
     }
-    expect(window.localStorage.getItem("mosaic-ask-builder-view")).toBe("on");
-    cleanup();
-    renderAskMosaic(groundedResponse());
-    expect(screen.getByRole("switch", { name: "Show tool calls" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("button", { name: /How the tools work/ }).getAttribute("aria-expanded")).toBe("true");
   });
 
-  it("still switches for the visit when the browser refuses storage", () => {
-    const refuse = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new DOMException("blocked", "SecurityError");
-    });
+  it("turns the recorded steps off page-wide and remembers the choice", () => {
     renderAskMosaic(groundedResponse());
 
     fireEvent.click(screen.getByRole("switch", { name: "Show tool calls" }));
 
+    expect(screen.getByRole("switch", { name: "Show tool calls" }).getAttribute("aria-checked")).toBe("false");
+    expect(screen.queryByRole("region", { name: "Builder view" })).toBeNull();
+    expect(screen.getByRole("button", { name: /How the tools work/ }).getAttribute("aria-expanded")).toBe("false");
+    expect(window.localStorage.getItem("mosaic-ask-builder-view")).toBe("off");
+    cleanup();
+    renderAskMosaic(groundedResponse());
+    expect(screen.getByRole("switch", { name: "Show tool calls" }).getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("starts on and still switches for the visit when the browser refuses storage", () => {
+    const refuseRead = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+    const refuseWrite = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+    renderAskMosaic(groundedResponse());
     expect(screen.getByRole("switch", { name: "Show tool calls" }).getAttribute("aria-checked")).toBe("true");
-    refuse.mockRestore();
+
+    fireEvent.click(screen.getByRole("switch", { name: "Show tool calls" }));
+
+    expect(screen.getByRole("switch", { name: "Show tool calls" }).getAttribute("aria-checked")).toBe("false");
+    refuseRead.mockRestore();
+    refuseWrite.mockRestore();
   });
 
   it("offers clear chat and close as icon buttons with names", () => {
