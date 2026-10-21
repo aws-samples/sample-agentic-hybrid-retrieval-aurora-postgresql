@@ -44,6 +44,24 @@ class AnswerabilityError(ValueError):
     """The review did not supply a complete, evidence-bound decision."""
 
 
+class PartlySupportedSelection(AnswerabilityError):
+    """The request is answerable, but only from some of the selected products.
+
+    A shopper who asks for only well-reviewed products gets this verdict when a
+    selected product's reviews fall short. The caller retries with exactly the
+    supported products, which the review then judges again; it never recommends
+    the others.
+    """
+
+    def __init__(self, supported: list[int], unsupported: list[int]):
+        super().__init__(
+            f"answerability: the request is supported by products {supported} only; "
+            f"products {unsupported} lack evidence for it"
+        )
+        self.supported = supported
+        self.unsupported = unsupported
+
+
 def _decode_decision(value: Any) -> Any:
     """Decode observed JSON transport wrappers without coercing decision types.
 
@@ -155,6 +173,56 @@ NO_CALL_RETRY = (
     "\nThe previous response answered in text. Respond only with one "
     "record_answerability tool call; write no text."
 )
+INCONSISTENT_RETRY = (
+    "\nThe previous decision contradicted itself: request_supported or reason "
+    "disagreed with the product decisions. Re-evaluate the same request and "
+    "sources. Set request_supported true and reason supported only if every "
+    "selected product is supported; otherwise set request_supported false and "
+    "choose the applicable failure reason. Do not relax any evidence requirement."
+)
+INCONSISTENT_VERDICT = (
+    "answerability: inconsistent support verdict; agree with every product decision"
+)
+
+
+def _scope_problem(
+    review: Answerability,
+    products: Sequence[ProductSummary],
+    evidence: Sequence[EvidenceRecord],
+) -> str | None:
+    """Name a decision that reviews other products or borrows their evidence."""
+    ids = [item.product_id for item in review.products]
+    if len(ids) != len(set(ids)) or set(ids) != {p.product_id for p in products}:
+        return f"answerability: product scope {ids!r}; review every selected product exactly once"
+    for item in review.products:
+        allowed = {e.evidence_id for e in evidence if e.product_id == item.product_id}
+        if (item.supported and not item.evidence_ids) or not set(
+            item.evidence_ids
+        ) <= allowed:
+            return (
+                f"answerability: evidence scope for product {item.product_id}; "
+                "cite its supplied supporting evidence IDs"
+            )
+    return None
+
+
+def _verdict_consistent(review: Answerability) -> bool:
+    supported = review.request_supported and all(
+        item.supported for item in review.products
+    )
+    return (review.reason == "supported") == supported and not (
+        review.request_supported and not supported
+    )
+
+
+def _partly_supported(review: Answerability) -> PartlySupportedSelection | None:
+    if not (review.request_supported and review.reason == "supported"):
+        return None
+    supported = [item.product_id for item in review.products if item.supported]
+    unsupported = [item.product_id for item in review.products if not item.supported]
+    if supported and unsupported:
+        return PartlySupportedSelection(supported, unsupported)
+    return None
 
 
 def assess_answerability(
@@ -262,7 +330,6 @@ def assess_answerability(
                     "answerability: expected one record_answerability decision; retry the review"
                 )
             review = Answerability.model_validate(_decode_decision(calls[0]["input"]))
-            break
         except (KeyError, TypeError, ValidationError, json.JSONDecodeError) as error:
             if attempt:
                 raise AnswerabilityError(
@@ -282,27 +349,17 @@ def assess_answerability(
                     )
                 }
             ]
-    ids = [item.product_id for item in review.products]
-    if len(ids) != len(set(ids)) or set(ids) != {p.product_id for p in products}:
-        raise AnswerabilityError(
-            f"answerability: product scope {ids!r}; review every selected product exactly once"
-        )
-    for item in review.products:
-        allowed = {e.evidence_id for e in evidence if e.product_id == item.product_id}
-        if (item.supported and not item.evidence_ids) or not set(
-            item.evidence_ids
-        ) <= allowed:
-            raise AnswerabilityError(
-                f"answerability: evidence scope for product {item.product_id}; "
-                "cite its supplied supporting evidence IDs"
-            )
-    supported = review.request_supported and all(
-        item.supported for item in review.products
-    )
-    if (review.reason == "supported") != supported or (
-        review.request_supported and not supported
-    ):
-        raise AnswerabilityError(
-            "answerability: inconsistent support verdict; agree with every product decision"
-        )
-    return review, usage
+            continue
+        # A scope breach fails closed at once. A request supported by only some
+        # products goes back to the caller to narrow; any other contradiction
+        # is asked once more.
+        if problem := _scope_problem(review, products, evidence):
+            raise AnswerabilityError(problem)
+        if _verdict_consistent(review):
+            return review, usage
+        if partial := _partly_supported(review):
+            raise partial
+        if attempt:
+            raise AnswerabilityError(INCONSISTENT_VERDICT)
+        request["system"] = [{"text": REVIEW_PROMPT + INCONSISTENT_RETRY}]
+    raise AnswerabilityError(INCONSISTENT_VERDICT)

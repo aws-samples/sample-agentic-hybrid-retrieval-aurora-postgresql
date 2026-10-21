@@ -143,3 +143,137 @@ def test_failed_draft_cannot_drop_a_product_intent_on_retry(monkeypatch, picks):
         assert [p.product_id for p in synthesis.call_args.args[1]] == [1, 2]
     finally:
         agent_tools._RUN.reset(token)
+
+
+@pytest.mark.parametrize(
+    "error,named",
+    [
+        ("answerability", True),
+        ("output", True),
+        ("other", False),
+    ],
+)
+def test_trace_names_the_check_that_failed_synthesis(monkeypatch, picks, error, named):
+    from service.answerability import AnswerabilityError
+    from service.synthesis import SynthesisOutputError
+
+    message = (
+        "answerability: inconsistent support verdict; agree with every product decision"
+    )
+    raised = {
+        "answerability": AnswerabilityError(message),
+        "output": SynthesisOutputError(message),
+        "other": RuntimeError(message),
+    }[error]
+    state = run_state(coverage=[], products={pick.product_id: pick for pick in picks})
+    state["evidence"] = {
+        i: evidence("Supported specification.").model_copy(
+            update={"product_id": i, "evidence_id": i}
+        )
+        for i in (1, 2)
+    }
+    state["evidence_by_product"] = {1: [1], 2: [2]}
+    state["trace"] = [
+        {"tool": "compare_products", "arguments": {"product_ids": [1, 2]}}
+    ]
+    monkeypatch.setattr(agent_tools, "synthesize_answer", Mock(side_effect=raised))
+    token = agent_tools._RUN.set(state)
+    try:
+        assert (
+            agent_tools.synthesize_cited_answer(state["question"], [1, 2])["ok"]
+            is False
+        )
+    finally:
+        agent_tools._RUN.reset(token)
+    detail = state["trace"][-1]["detail"]
+    assert (message in detail) is named
+    assert detail.startswith(f"Synthesis failed with {type(raised).__name__}")
+
+
+def test_a_partly_supported_selection_is_narrowed_never_recommended(monkeypatch, picks):
+    from service.answerability import PartlySupportedSelection
+
+    state = run_state(coverage=[], products={pick.product_id: pick for pick in picks})
+    state["evidence"] = {
+        i: evidence("Supported specification.").model_copy(
+            update={"product_id": i, "evidence_id": i}
+        )
+        for i in (1, 2, 3)
+    }
+    state["evidence_by_product"] = {1: [1], 2: [2], 3: [3]}
+    state["trace"] = [
+        {"tool": "compare_products", "arguments": {"product_ids": [1, 2, 3]}}
+    ]
+    synthesis = Mock(
+        side_effect=[
+            PartlySupportedSelection([1, 3], [2]),
+            ("OH-M349 [1] and OH-C014S [3] are well reviewed.", [], {}),
+        ]
+    )
+    monkeypatch.setattr(agent_tools, "synthesize_answer", synthesis)
+    token = agent_tools._RUN.set(state)
+    try:
+        refused = agent_tools.synthesize_cited_answer(state["question"], [1, 2, 3])
+        assert refused["ok"] is False
+        assert "only product IDs [1, 3]" in refused["recovery"]
+        assert state["answer_of_record"] is None
+        assert state["trace"][-1]["outcome"] == "denied"
+        narrowed = agent_tools.synthesize_cited_answer(state["question"], [1, 3])
+        assert narrowed["ok"] is True
+    finally:
+        agent_tools._RUN.reset(token)
+    assert [p.product_id for p in synthesis.call_args.args[1]] == [1, 3]
+    assert 2 not in [p.product_id for p in state["answer_of_record"]["recommendations"]]
+
+
+@pytest.mark.parametrize("second_partial", [False, True])
+def test_the_fallback_narrows_once_and_never_recommends_a_refused_product(
+    monkeypatch, picks, second_partial
+):
+    from service.answerability import PartlySupportedSelection
+
+    state = run_state(coverage=[], products={pick.product_id: pick for pick in picks})
+    state["evidence"] = {
+        i: evidence("Supported specification.").model_copy(
+            update={"product_id": i, "evidence_id": i}
+        )
+        for i in (1, 2, 3)
+    }
+    state["evidence_by_product"] = {1: [1], 2: [2], 3: [3]}
+    state["trace"] = [
+        {"tool": "compare_products", "arguments": {"product_ids": [1, 2, 3]}}
+    ]
+    synthesis = Mock(
+        side_effect=[
+            PartlySupportedSelection([1, 3], [2]),
+            PartlySupportedSelection([1], [3])
+            if second_partial
+            else ("OH-M349 [1] and OH-C014S [3] are well reviewed.", [], {}),
+        ]
+    )
+    monkeypatch.setattr(agent_tools, "synthesize_answer", synthesis)
+    token = agent_tools._RUN.set(state)
+    try:
+        if second_partial:
+            with pytest.raises(PartlySupportedSelection):
+                agent_tools.finalize_retrieved_answer(
+                    state["question"], product_ids=[1, 2, 3]
+                )
+        else:
+            agent_tools.finalize_retrieved_answer(
+                state["question"], product_ids=[1, 2, 3]
+            )
+    finally:
+        agent_tools._RUN.reset(token)
+    assert synthesis.call_count == 2
+    assert [p.product_id for p in synthesis.call_args.args[1]] == [1, 3]
+    refused = [step for step in state["trace"] if step.get("outcome") == "denied"]
+    assert refused[0]["origin"] == "controller_fallback"
+    if second_partial:
+        assert state["answer_of_record"] is None
+    else:
+        recommended = [
+            p.product_id for p in state["answer_of_record"]["recommendations"]
+        ]
+        assert 2 not in recommended
+        assert state["trace"][-1]["arguments"]["product_ids"] == [1, 3]

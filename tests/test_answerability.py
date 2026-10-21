@@ -166,7 +166,9 @@ def test_review_rejects_missing_ambiguous_or_interrupted_decisions(fault):
             1,
         ),
         ({**decision(), "request_supported": "true"}, 2),
-        ({**decision(), "reason": "unrelated_request"}, 1),
+        # A self-contradicting verdict is asked once more; this client then answers
+        # in text, so the review still fails closed.
+        ({**decision(), "reason": "unrelated_request"}, 2),
     ],
 )
 def test_malformed_or_unwitnessed_allow_decisions_fail_closed(bad, expected_calls):
@@ -513,7 +515,9 @@ class TextFirstClient:
         if len(self.calls) <= self.text_replies:
             content, stop = [{"text": "These headphones look supported."}], "end_turn"
         else:
-            content = [{"toolUse": {"name": "record_answerability", "input": decision()}}]
+            content = [
+                {"toolUse": {"name": "record_answerability", "input": decision()}}
+            ]
             stop = "tool_use"
         return {
             "stopReason": stop,
@@ -540,14 +544,18 @@ def test_sonnet_5_5_review_uses_auto_tool_choice_and_between_tools():
     assert review.request_supported is True
     request = client.calls[0]
     assert request["toolConfig"]["toolChoice"] == {"auto": {}}
-    assert request["additionalModelRequestFields"] == {"thinking": {"type": "between_tools"}}
+    assert request["additionalModelRequestFields"] == {
+        "thinking": {"type": "between_tools"}
+    }
 
 
 def test_sonnet_5_review_keeps_the_forced_tool_choice():
     client = TextFirstClient(text_replies=0)
     assess(client, "global.anthropic.claude-sonnet-5")
     request = client.calls[0]
-    assert request["toolConfig"]["toolChoice"] == {"tool": {"name": "record_answerability"}}
+    assert request["toolConfig"]["toolChoice"] == {
+        "tool": {"name": "record_answerability"}
+    }
     assert request["additionalModelRequestFields"] == {"thinking": {"type": "disabled"}}
 
 
@@ -568,3 +576,126 @@ def test_two_text_answers_fail_closed():
     with pytest.raises(AnswerabilityError, match="incomplete review"):
         assess(client, "global.anthropic.claude-sonnet-5-5")
     assert len(client.calls) == 2
+
+
+class ScriptedReviewClient:
+    """Return one review decision per call, in order."""
+
+    def __init__(self, decisions):
+        self.decisions = list(decisions)
+        self.calls = []
+
+    def converse(self, **kwargs):
+        self.calls.append(kwargs)
+        return {
+            "stopReason": "tool_use",
+            "output": {
+                "message": {
+                    "content": [
+                        {
+                            "toolUse": {
+                                "name": "record_answerability",
+                                "input": self.decisions[len(self.calls) - 1],
+                            }
+                        }
+                    ]
+                }
+            },
+            "usage": {"inputTokens": 10, "outputTokens": 10},
+        }
+
+
+def two_products(*, request_supported, reason, second_supported):
+    return {
+        "request_supported": request_supported,
+        "reason": reason,
+        "products": [
+            {"product_id": 1, "supported": True, "evidence_ids": [1]},
+            {
+                "product_id": 2,
+                "supported": second_supported,
+                "evidence_ids": [2] if second_supported else [],
+            },
+        ],
+    }
+
+
+def assess_two(client):
+    from service.answerability import assess_answerability
+
+    return assess_answerability(
+        "Only recommend headphones people were happy with",
+        [product(), product(product_id=2)],
+        [
+            evidence("Noise cancellation"),
+            evidence("Bluetooth").model_copy(
+                update={"evidence_id": 2, "product_id": 2}
+            ),
+        ],
+        client=client,
+        model_id="global.anthropic.claude-sonnet-5-5",
+    )
+
+
+# Observed on Sonnet 5.5, 21 October, for "only recommend something people were
+# happy with": a supported request over a product it marked unsupported.
+SUPPORTED_OVER_UNSUPPORTED = two_products(
+    request_supported=True, reason="supported", second_supported=False
+)
+CONTRADICTION = two_products(
+    request_supported=False, reason="supported", second_supported=True
+)
+
+
+def test_a_partly_supported_request_names_the_products_to_keep():
+    from service.answerability import PartlySupportedSelection
+
+    client = ScriptedReviewClient([SUPPORTED_OVER_UNSUPPORTED])
+    with pytest.raises(PartlySupportedSelection) as raised:
+        assess_two(client)
+    assert raised.value.supported == [1]
+    assert raised.value.unsupported == [2]
+    assert len(client.calls) == 1
+
+
+def test_self_contradicting_verdict_is_asked_once_more():
+    from service.answerability import INCONSISTENT_RETRY
+
+    consistent = two_products(
+        request_supported=False, reason="insufficient_evidence", second_supported=False
+    )
+    client = ScriptedReviewClient([CONTRADICTION, consistent])
+    review, usage = assess_two(client)
+    assert review.request_supported is False
+    assert review.reason == "insufficient_evidence"
+    assert len(client.calls) == 2
+    assert client.calls[1]["system"][0]["text"].endswith(INCONSISTENT_RETRY)
+    assert client.calls[0]["messages"] == client.calls[1]["messages"]
+    assert usage == {"inputTokens": 20, "outputTokens": 20}
+
+
+def test_two_self_contradicting_verdicts_fail_closed():
+    from service.answerability import AnswerabilityError, PartlySupportedSelection
+
+    client = ScriptedReviewClient([CONTRADICTION, CONTRADICTION])
+    with pytest.raises(
+        AnswerabilityError, match="inconsistent support verdict"
+    ) as raised:
+        assess_two(client)
+    assert not isinstance(raised.value, PartlySupportedSelection)
+    assert len(client.calls) == 2
+
+
+def test_a_scope_breach_is_never_retried_even_when_the_verdict_also_conflicts():
+    from service.answerability import AnswerabilityError
+
+    borrowed = SUPPORTED_OVER_UNSUPPORTED | {
+        "products": [
+            {"product_id": 1, "supported": True, "evidence_ids": [2]},
+            {"product_id": 2, "supported": False, "evidence_ids": []},
+        ]
+    }
+    client = ScriptedReviewClient([borrowed])
+    with pytest.raises(AnswerabilityError, match="evidence scope for product 1"):
+        assess_two(client)
+    assert len(client.calls) == 1

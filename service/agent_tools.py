@@ -16,7 +16,11 @@ from strands import tool
 
 from service import gateway_tools
 from service.agent_setup import AgentSetupError
-from service.answerability import SynthesisDeclined
+from service.answerability import (
+    AnswerabilityError,
+    PartlySupportedSelection,
+    SynthesisDeclined,
+)
 from service.catalog import get_product_evidence_records, get_product_summaries
 from service.catalog_runtime import active_dataset, search_schema
 from service.config import get_settings
@@ -1580,6 +1584,20 @@ def synthesize_cited_answer(
             "answer": state["answer_of_record"]["answer"],
             "citations": [],
         }
+    except PartlySupportedSelection as partial:
+        _record(
+            "synthesize_cited_answer",
+            {"question": question, "product_ids": unique_ids},
+            started,
+            result_count=0,
+            detail=f"Answerability review refused products {partial.unsupported}: {partial}",
+            outcome="denied",
+        )
+        return _failure(
+            str(partial),
+            f"Call synthesize_cited_answer again with only product IDs {partial.supported}; "
+            f"do not recommend products {partial.unsupported}.",
+        )
     except Exception as error:
         stopping = _stopping_error(
             "synthesize_cited_answer",
@@ -1594,11 +1612,18 @@ def synthesize_cited_answer(
         logger.warning(
             "synthesize_cited_answer failed: error_type=%s", type(error).__name__
         )
+        # The application's own check errors name the rule and the offending IDs
+        # or sentence, so the trace says which check failed, not just its type.
+        named = isinstance(error, (AnswerabilityError, SynthesisOutputError))
         _record(
             "synthesize_cited_answer",
             {"question": question, "product_ids": unique_ids},
             started,
-            detail=f"Synthesis failed with {type(error).__name__}.",
+            detail=(
+                f"Synthesis failed with {type(error).__name__}: {error}"
+                if named
+                else f"Synthesis failed with {type(error).__name__}."
+            ),
             outcome="error",
         )
         if isinstance(error, SynthesisOutputError):
@@ -1763,11 +1788,8 @@ def finalize_retrieved_answer(
         raise RuntimeError("No retrieved evidence is available for grounded synthesis")
 
     try:
-        answer, citations, usage = synthesize_answer(
-            _synthesis_question(state),
-            products,
-            evidence,
-            limits=_reported_limits(state),
+        products, (answer, citations, usage) = _synthesize_supported(
+            state, products, started
         )
     except SynthesisDeclined as decline:
         record_unsupported_answer(state, decline)
@@ -1781,6 +1803,7 @@ def finalize_retrieved_answer(
             origin="controller_fallback",
         )
         return
+    selected_ids = [product.product_id for product in products]
     state["answer_of_record"] = {
         "answer": answer,
         "citations": citations,
@@ -1801,6 +1824,42 @@ def finalize_retrieved_answer(
         ),
         origin="controller_fallback",
     )
+
+
+def _synthesize_supported(
+    state: dict[str, Any], products: list[ProductSummary], started: float
+) -> tuple[list[ProductSummary], tuple[str, list[Any], dict[str, Any]]]:
+    """Synthesize, narrowing once to the products the answerability review supports.
+
+    The narrowed products are reviewed again in full; a second partial verdict
+    raises, so a product the review refused is never recommended.
+    """
+
+    def synthesize(selection: list[ProductSummary]):
+        return synthesize_answer(
+            _synthesis_question(state),
+            selection,
+            _evidence_for_products(state, [p.product_id for p in selection]),
+            limits=_reported_limits(state),
+        )
+
+    try:
+        return products, synthesize(products)
+    except PartlySupportedSelection as partial:
+        _record(
+            "synthesize_cited_answer",
+            {
+                "question": state["question"],
+                "product_ids": [p.product_id for p in products],
+            },
+            started,
+            result_count=0,
+            detail=f"Answerability review refused products {partial.unsupported}: {partial}",
+            outcome="denied",
+            origin="controller_fallback",
+        )
+        kept = [p for p in products if p.product_id in partial.supported]
+    return kept, synthesize(kept)
 
 
 def _evidence_for_products(
