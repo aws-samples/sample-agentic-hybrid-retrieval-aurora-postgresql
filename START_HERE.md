@@ -6,7 +6,9 @@ indexes and search functions in `psql`, then save Lab 1's failing search. Keep t
 Editor side by side in two browser windows. Mosaic, the store at **MosaicURL**,
 shows the same results the terminal prints; the guide says when a lab uses it.
 
-Each lab is four short sections in the guide, and they run the same way:
+Each lab opens with **Concepts**: the idea in plain words, a question to predict
+before you run anything, and pointers for experts. Then four short sections
+run the same way:
 
 1. Send the guide's exact request and filters, and keep them fixed, so the
    before and after compare the same thing.
