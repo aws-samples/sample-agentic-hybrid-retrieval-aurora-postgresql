@@ -32,7 +32,9 @@ class ScriptedModel(Model):
         yield {"messageStart": {"role": "assistant"}}
         if self.calls == 1:
             yield {
-                "contentBlockStart": {"start": {"toolUse": {"toolUseId": "t1", "name": "lookup"}}}
+                "contentBlockStart": {
+                    "start": {"toolUse": {"toolUseId": "t1", "name": "lookup"}}
+                }
             }
             yield {"contentBlockDelta": {"delta": {"toolUse": {"input": "{}"}}}}
             yield {"contentBlockStop": {}}

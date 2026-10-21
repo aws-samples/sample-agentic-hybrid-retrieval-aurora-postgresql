@@ -458,7 +458,9 @@ def _stopping_error(
     service.agent then stops the Strands loop on it instead of letting the
     model retry.
     """
-    stopping = error if isinstance(error, AgentSetupError) else model_runtime_error(error)
+    stopping = (
+        error if isinstance(error, AgentSetupError) else model_runtime_error(error)
+    )
     if stopping is None:
         return None
     detail = (

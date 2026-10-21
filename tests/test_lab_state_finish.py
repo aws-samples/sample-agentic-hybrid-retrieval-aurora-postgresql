@@ -72,16 +72,12 @@ def test_finish_runs_every_step_in_order_and_names_each(monkeypatch, capsys, lab
     assert all(command[0] == sys.executable for command in ran)
     total = len(steps)
     for index, step in enumerate(steps):
-        progress = (
-            f"{bar(index, total)}  Finish Lab {lab}: step {index + 1} of {total}"
-        )
+        progress = f"{bar(index, total)}  Finish Lab {lab}: step {index + 1} of {total}"
         assert f"{progress}\n$ {step}" in out
     assert f"{bar(total, total)}  Finish Lab {lab}: done" in out
 
 
-def test_finish_stops_at_the_first_failure_and_says_how_to_resume(
-    monkeypatch, capsys
-):
+def test_finish_stops_at_the_first_failure_and_says_how_to_resume(monkeypatch, capsys):
     code, ran, out = run_finish(monkeypatch, capsys, 2, failing_step=3)
 
     assert code == 3

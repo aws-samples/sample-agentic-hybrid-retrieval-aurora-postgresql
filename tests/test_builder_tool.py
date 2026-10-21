@@ -142,7 +142,9 @@ def test_the_kit_carries_every_sql_file_its_documents_name():
     named = set()
     for path in BUILDER_FILES:
         if path.endswith(".md"):
-            named |= set(re.findall(r"db/sql/[\w.-]+\.sql", (main.ROOT / path).read_text()))
+            named |= set(
+                re.findall(r"db/sql/[\w.-]+\.sql", (main.ROOT / path).read_text())
+            )
     assert named, "the kit's guides name no SQL file; this gate would be vacuous"
     missing = sorted(named - set(BUILDER_FILES))
     assert not missing, (

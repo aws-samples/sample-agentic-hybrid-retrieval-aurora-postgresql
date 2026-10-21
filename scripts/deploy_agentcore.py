@@ -719,7 +719,9 @@ def explain_failure(error: Exception, retry: str) -> str:
     return safe_text(error, 1500)
 
 
-def not_ready_message(agent_file: Path = ROOT / "labs" / "lab3_reason" / "agent.py") -> str:
+def not_ready_message(
+    agent_file: Path = ROOT / "labs" / "lab3_reason" / "agent.py",
+) -> str:
     """Why the Retrieval agent cannot deploy: a code mistake, named, or unfinished code."""
     try:
         compile(agent_file.read_text(encoding="utf-8"), str(agent_file), "exec")
