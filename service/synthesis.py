@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterable, Sequence
+from collections.abc import Collection, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -423,6 +423,19 @@ def _mention_subjects(
     ]
 
 
+def _brand_names_product(brand: str) -> bool:
+    """Whether a brand alone names its product in prose.
+
+    A two-letter brand such as "AI", "CM" or "BT" is also an ordinary abbreviation,
+    so it names nothing. One that mixes digits and letters, such as "3M", is never a
+    word, and without it the words after "the 3M headphones" belong to the product
+    named before them.
+    """
+    return len(brand) >= 3 or bool(
+        re.search(r"\d", brand) and re.search(r"[A-Za-z]", brand)
+    )
+
+
 def _named_product_mentions(
     sentence: str,
     products: Sequence[ProductSummary],
@@ -435,7 +448,7 @@ def _named_product_mentions(
         | (
             {product.brand.casefold()}
             if product.brand
-            and len(product.brand) >= 3
+            and _brand_names_product(product.brand)
             and brands.count(product.brand.casefold()) == 1
             else set()
         )
@@ -582,8 +595,16 @@ def _negates_availability(sentence: str, start: int) -> bool:
 
 
 def _measurable_claims(
-    sentence: str, ignored_phrases: Iterable[str] = ()
+    sentence: str,
+    ignored_phrases: Iterable[str] = (),
+    brands: Collection[str] = (),
 ) -> list[MeasurableClaim]:
+    """Each figure, price and stock state in a sentence.
+
+    `ignored_phrases` are product names, blanked wherever they occur. `brands`,
+    casefolded, match only a whole token without a unit, because "3M" is a name
+    while "13mm" is still a measurement.
+    """
     masked = re.sub(r"\[\d+\]", lambda m: " " * len(m.group()), sentence)
     for phrase in sorted(ignored_phrases, key=len, reverse=True):
         masked = re.sub(
@@ -618,6 +639,8 @@ def _measurable_claims(
                 if following
                 else None
             )
+        if unit is None and value.casefold() in brands:
+            continue
         claims.append(MeasurableClaim(value, *match.span(), unit=unit))
     for match in re.finditer(
         r"\b(?:in[ _-]stock|low[ _-]stock|out[ _-]of[ _-]stock|preorder)\b",
@@ -860,6 +883,7 @@ def _validate_measurable_claim_support(
     """Validate every claim occurrence against its product and cited sources."""
     question_figures = _question_figures(question)
     ignored_names = {name for product in products for name in _product_names(product)}
+    brands = {product.brand.casefold() for product in products if product.brand}
     by_product_id = {product.product_id: product for product in products}
     previous_subjects: set[int] = set()
     for sentence in re.split(r"(?<=[.!?])(?<!\.\.)\s+|\n+", answer):
@@ -906,7 +930,7 @@ def _validate_measurable_claim_support(
                         if any(r.product_id == p.product_id for r in scoped_records)
                     ]
                 )
-                for claim in _measurable_claims(segment, ignored_names):
+                for claim in _measurable_claims(segment, ignored_names, brands):
                     if not cited and not (
                         claim.currency
                         or claim.unit

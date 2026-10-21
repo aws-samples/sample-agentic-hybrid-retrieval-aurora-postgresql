@@ -839,3 +839,102 @@ def test_a_generic_one_word_model_does_not_name_its_product_in_ordinary_prose():
         [evidence("Active noise cancellation."), shell_evidence(), generic_evidence],
         [product(), SHELL, generic],
     )
+
+
+THREE_M = product(
+    product_id=2,
+    sku="B09LK7TRYV",
+    title="3M Quiet Space Headphones, Bluetooth Headphones, Wireless Headphones, 1 Pair",
+    brand="3M",
+    model="3M Quiet Space Headphones, Black, Wireless, Bluetooth Enabled",
+)
+
+
+def three_m_evidence(text: str = "Passive noise reduction of 30 dB.") -> EvidenceRecord:
+    return evidence(text, title="Customer review").model_copy(
+        update={"evidence_id": 2, "product_id": 2}
+    )
+
+
+@pytest.mark.parametrize(
+    "named",
+    [
+        "the 3M Quiet Space [2]",
+        "the 3M headphones [2]",
+        "3M's Quiet Space Headphones [2]",
+    ],
+)
+def test_a_brand_written_with_digits_names_its_product_and_is_not_a_figure(named):
+    # Observed 21 October: "3M" was read as an unsupported figure about the product
+    # named before it, and the whole answer was rejected.
+    validate(
+        f"Choose the AuriLogic Flight ANC [1] for calls, or {named} for quiet focus.",
+        [evidence("Active noise cancellation."), three_m_evidence()],
+        [product(), THREE_M],
+    )
+
+
+def test_a_figure_after_a_digit_brand_is_checked_against_that_brand():
+    validate(
+        "Choose the AuriLogic Flight ANC [1] for calls, or the 3M headphones [2], "
+        "which reduce noise by 30 dB [2].",
+        [evidence("Active noise cancellation."), three_m_evidence()],
+        [product(), THREE_M],
+    )
+    with pytest.raises(SynthesisOutputError, match=r"\['40dB'\]|\['40'\]"):
+        validate(
+            "Choose the AuriLogic Flight ANC [1] for calls, or the 3M headphones [2], "
+            "which reduce noise by 40 dB [2].",
+            [evidence("Active noise cancellation."), three_m_evidence()],
+            [product(), THREE_M],
+        )
+
+
+def test_a_measurement_containing_a_digit_brand_is_still_a_measurement():
+    with pytest.raises(SynthesisOutputError, match=r"\['13mm'\]"):
+        validate(
+            "Choose the AuriLogic Flight ANC [1] for calls. The 3M headphones have "
+            "13mm drivers [2].",
+            [evidence("Active noise cancellation."), three_m_evidence()],
+            [product(), THREE_M],
+        )
+
+
+def test_a_two_letter_brand_is_an_ordinary_abbreviation_not_a_name():
+    centimetre_brand = product(
+        product_id=2,
+        sku="CM-1",
+        title="CM Studio Monitor Stand",
+        brand="CM",
+        model="S1",
+    )
+    stand_evidence = evidence("Holds one monitor.").model_copy(
+        update={"evidence_id": 2, "product_id": 2}
+    )
+    validate(
+        "AuriLogic Flight ANC is 18 cm tall [1]. CM Studio Monitor Stand holds one "
+        "monitor [2].",
+        [evidence("Height 18 cm."), stand_evidence],
+        [product(), centimetre_brand],
+    )
+
+
+def test_a_brand_that_reads_as_a_measurement_does_not_hide_that_measurement():
+    # The catalog has brands such as "8MM", "52HZ" and "25H"; "8mm drivers" is a size.
+    speaker = product(
+        product_id=2,
+        sku="8MM-1",
+        title="8MM Bluetooth Speaker",
+        brand="8MM",
+        model="S1",
+    )
+    speaker_evidence = evidence("Portable speaker.").model_copy(
+        update={"evidence_id": 2, "product_id": 2}
+    )
+    with pytest.raises(SynthesisOutputError, match=r"\['8mm'\]"):
+        validate(
+            "AuriLogic Flight ANC has active noise cancellation [1]. "
+            "8MM Bluetooth Speaker has 8mm drivers [2].",
+            [evidence("Active noise cancellation."), speaker_evidence],
+            [product(), speaker],
+        )
