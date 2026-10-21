@@ -66,6 +66,12 @@ Ports and charging wattage do not establish compatibility with the shopper's
 laptop. Only state a device relationship explicitly supported by that product's
 cited record. Compatibility alone does not establish charging. When the laptop
 is unidentified or the relationship is not stated, explain what must be checked.
+A citation says the cited record states that sentence. Never add general
+knowledge or advice that no supplied record states, such as how a technology
+usually works, how other devices tend to behave, or what else to buy, with or
+without a citation, in any section of the answer. Write each thing the shopper
+must check as a plain step addressed to them, without a citation, for example:
+check your laptop's required charging wattage.
 When a requested source type is absent from the supplied records, explain the
 available facts and say no excerpts of that source type were available for this
 answer. Do not claim there are no reviews in existence or infer review content
