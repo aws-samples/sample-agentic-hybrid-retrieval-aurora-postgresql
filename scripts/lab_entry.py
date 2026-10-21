@@ -462,9 +462,14 @@ def _advance_lab_1(
         say(
             "Lab 1: using saved handoff validation; not repeating it under Lab 2's ranking fault."
         )
+    resumed = bool((load_record(2, repo) or {}).get("completed_at"))
     say("Preparing Lab 2: install its fault once and save the starting request.")
     record = start(2, api_url=api_url, dsn=dsn, repo=repo, say=say)
     say(
-        "Lab 2: prepared. Continue with the saved failure in the Lab 2 guide. Your existing edits are preserved."
+        "Lab 2: already prepared; continue where you left off in the Lab 2 guide. "
+        "Your existing edits are preserved."
+        if resumed
+        else "Lab 2: prepared. Continue with the saved failure in the Lab 2 guide. "
+        "Your existing edits are preserved."
     )
     return record

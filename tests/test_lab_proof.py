@@ -680,7 +680,10 @@ def test_a_lab_3_run_made_before_the_start_is_not_credited(
 
     started = next(check for check in proof.checks if check.name == "lab_started")
     assert not started.passed
-    assert "before Lab 3 started" in started.detail
+    # A reset or finish restarts Lab 3, so the participant's own earlier run lands
+    # here too: the detail must not claim the reference agent made it.
+    assert "before Lab 3 last started, at 00:00:00 UTC" in started.detail
+    assert "a reset or finish starts the lab again" in started.detail
     assert proof.status == "fail"
 
 

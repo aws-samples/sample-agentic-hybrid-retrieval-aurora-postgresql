@@ -138,6 +138,8 @@ def main() -> None:
     call_filters(args.brand)
     if args.agent:
         create_agent()(f"Request: {args.query}\nRequired brand: {args.brand}")
+        # Strands streams the answer without a final newline.
+        print()
     else:
         print(json.dumps(search_call_headphones(args.query, args.brand), indent=2))
 

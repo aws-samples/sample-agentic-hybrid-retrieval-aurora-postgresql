@@ -161,3 +161,17 @@ def test_missing_download_files_name_the_restore_action(tmp_path, monkeypatch):
         "restore the files listed in service/builder_package.py"
         in response.json()["detail"]
     )
+
+
+def test_the_agent_answer_ends_its_line(monkeypatch, capsys):
+    """Strands streams the answer without a final newline; the shell prompt must not
+    land on its last line."""
+    monkeypatch.setattr(
+        call_headphones, "create_agent", lambda: lambda _prompt: print("Bose", end="")
+    )
+    monkeypatch.setattr(
+        "sys.argv",
+        ["call_headphones", "--agent", "--query", "calls", "--brand", "Bose"],
+    )
+    call_headphones.main()
+    assert capsys.readouterr().out == "Bose\n"

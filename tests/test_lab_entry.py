@@ -564,9 +564,14 @@ def test_a_lab_1_reset_after_a_repaired_lab_2_validates_lab_1_again(
     lab_2_repaired, aurora, handoff_checks
 ):
     edited = _participant_edit(lab_2_repaired)
-    lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=lab_2_repaired)
+    lines: list[str] = []
+    lab_entry.advance(
+        1, api_url="http://api", dsn="aurora", repo=lab_2_repaired, say=lines.append
+    )
     assert handoff_checks == ["validate"]
     assert _seam_file(2, lab_2_repaired).read_bytes() == edited
+    assert lines[-1].startswith("Lab 2: already prepared; continue where you left off")
+    assert not any("saved failure" in line for line in lines)
 
 
 def test_lab_1_is_not_validated_under_an_unrepaired_lab_2(repo, aurora, handoff_checks):

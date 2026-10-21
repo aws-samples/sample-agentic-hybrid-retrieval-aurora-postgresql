@@ -74,6 +74,18 @@ def test_supported_display_resolution_is_one_measurement(resolution):
     )
 
 
+def test_a_rejected_sentence_is_quoted_with_one_full_stop():
+    """check_claim.py prints this message: it once read "cable [1].. Use"."""
+    monitor = product(title="Mosaic Atelier 32", model="Atelier 32")
+    with pytest.raises(SynthesisOutputError) as rejected:
+        validate(
+            "Mosaic Atelier 32 delivers 100W over one USB-C cable [1].",
+            [evidence("USB-C power delivery: 90W.")],
+            [monitor],
+        )
+    assert "cable [1]. Use the cited measurement" in str(rejected.value)
+
+
 @pytest.mark.parametrize("resolution", ["3840x1440", "2560x2160"])
 def test_resolution_cannot_combine_dimensions_from_different_displays(resolution):
     monitor = product(title="Mosaic Atelier 32", model="Atelier 32")

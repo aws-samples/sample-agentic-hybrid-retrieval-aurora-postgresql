@@ -954,7 +954,8 @@ def _validate_measurable_claim_support(
                         )
                         raise SynthesisOutputError(
                             "Synthesized sentence contains unsupported numeric claim or "
-                            f"availability claim {[claim.value]} for {subject_label}: {sentence}. "
+                            f"availability claim {[claim.value]} for {subject_label}: "
+                            f"{sentence.rstrip('.')}. "
                             "Use the cited measurement's original meaning, value and unit. "
                             "If the sources do not state it, say so without writing the "
                             "number."

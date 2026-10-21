@@ -256,9 +256,11 @@ def entry_check(
     elif run_created_at is not None and run_created_at < started_at:
         passed = False
         detail = (
-            f"This run was made before Lab {lab_id} started, by the reference "
-            f"Retrieval agent. Next: after deploying with {DEPLOY_AGENT}, ask Alex's question again and "
-            "use that run's ID."
+            f"This run was made before Lab {lab_id} last started, at "
+            f"{started_at:%H:%M:%S} UTC: a reset or finish starts the lab again, and "
+            "before a start the reference Retrieval agent answers. Next: once your "
+            f"Retrieval agent is deployed with {DEPLOY_AGENT}, ask Alex's question "
+            "again and use that run's ID."
         )
     else:
         passed = True
