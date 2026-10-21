@@ -23,8 +23,9 @@ shopper; your searches and answers use the source products and their evidence.
 
 Claude Code in the prepared terminal can help you investigate a lab. The
 project's [AGENTS.md](AGENTS.md), loaded by [CLAUDE.md](CLAUDE.md), gives it the
-lab map, validation commands and exercise boundaries. Share your current lab
-and observed result; ask for a hint before a full recovery.
+lab map, validation commands and exercise boundaries. It asks before it edits a
+file or runs a command. Share your current lab and observed result; ask for a
+hint before a full recovery.
 
 You do not need to install dependencies or start a database or server during
 the workshop. Follow the guide's commands as you move through the labs.
