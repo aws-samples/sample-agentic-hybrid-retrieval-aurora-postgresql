@@ -591,18 +591,54 @@ _AVAILABILITY_NEGATION = re.compile(
 _MEASUREMENT_DENIAL = re.compile(
     r"(?:\b(?:not|never|cannot)\b|n['’]t\b)(?!\s+beat\b)", re.IGNORECASE
 )
+#: A source may also deny a figure after stating it: "the advertised 48-hour
+#: battery life is not supported". Only a verdict on the figure counts, so "the
+#: 30-hour battery life is not bad" still states 30 hours.
+_DENIED_AFTER = re.compile(
+    r"\b(?:is|are|was|were)(?:\s+not|n['’]t)\s+(?:true|accurate|correct|supported|"
+    r"real|achievable|possible|the case)\b|"
+    r"\b(?:is|are|was|were)\s+(?:false|untrue|inaccurate|incorrect|misleading|"
+    r"exaggerated)\b",
+    re.IGNORECASE,
+)
 _NEGATION_REACH_WORDS = 3
-_SENTENCE_END = re.compile(r"[.!?](?=\s|$)")
+#: A denied measurement often has words between the denial and the figure:
+#: "does not have the advertised 48-hour battery life".
+_DENIAL_REACH_WORDS = 5
+_DENIAL_TRAIL_WORDS = 8
+#: Reviews end sentences with line breaks and ellipses as often as with full stops.
+_SENTENCE_END = re.compile(r"[.!?](?=\s|$|<)|\.{2,}|…|<br\s*/?>")
 
 
-def _negated_before(text: str, start: int, negator: re.Pattern[str]) -> bool:
+def _negated_before(
+    text: str,
+    start: int,
+    negator: re.Pattern[str],
+    reach: int = _NEGATION_REACH_WORDS,
+) -> bool:
     """Whether a negator sits just before the phrase, inside its clause and sentence."""
     clause_start, _ = _clause_at(text, start)
     sentence_start = max(
         (match.end() for match in _SENTENCE_END.finditer(text, 0, start)), default=0
     )
     lead = text[max(clause_start, sentence_start) : start].split()
-    return bool(negator.search(" ".join(lead[-_NEGATION_REACH_WORDS:])))
+    return bool(negator.search(" ".join(lead[-reach:])))
+
+
+def _denied_after(text: str, end: int, next_figure: int) -> bool:
+    """Whether the figure's own clause calls it untrue before another figure starts.
+
+    "Battery life is 12 hours and 48 hours is not supported" denies the 48 alone.
+    """
+    _, clause_end = _clause_at(text, end)
+    sentence_end = _SENTENCE_END.search(text, end)
+    stop = min(
+        clause_end,
+        sentence_end.start() if sentence_end else len(text),
+        next_figure,
+    )
+    trail = text[end:stop].split()[:_DENIAL_TRAIL_WORDS]
+    return bool(_DENIED_AFTER.search(" ".join(trail)))
 
 
 def _negates_availability(sentence: str, start: int) -> bool:
@@ -615,10 +651,29 @@ def _affirmed_measurements(support: str) -> str:
     "Does not have a 48-hour battery. Battery life is 12 hours." states one
     battery life: the 48 cannot support a claim, and the 12 still can.
     """
-    for stated in _measurable_claims(support):
-        if stated.unit and _negated_before(support, stated.start, _MEASUREMENT_DENIAL):
-            blank = " " * (stated.end - stated.start)
-            support = support[: stated.start] + blank + support[stated.end :]
+    figures = _measurable_claims(support)
+    starts = [figure.start for figure in figures]
+    denied = [
+        figure
+        for figure in figures
+        if figure.unit
+        and (
+            _negated_before(
+                support, figure.start, _MEASUREMENT_DENIAL, _DENIAL_REACH_WORDS
+            )
+            or _denied_after(
+                support,
+                figure.end,
+                min(
+                    (start for start in starts if start > figure.start),
+                    default=len(support),
+                ),
+            )
+        )
+    ]
+    for figure in denied:
+        blank = " " * (figure.end - figure.start)
+        support = support[: figure.start] + blank + support[figure.end :]
     return support
 
 

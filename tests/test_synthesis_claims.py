@@ -123,8 +123,48 @@ def test_an_uncited_sentence_cannot_borrow_a_record_the_answer_never_cites():
             "Display resolution: 2560x1440, not 3840x2160.",
             "has a 3840x2160 display",
         ),
+        # The cross-check of 22 October: words between the denial and the figure,
+        # and a denial that follows it, still let the claim through.
+        (
+            (
+                "This product does not have the advertised 48-hour battery life. "
+                "Battery life is 12 hours."
+            ),
+            "has a 48-hour battery life",
+        ),
+        (
+            (
+                "This product does not have a full 48-hour battery life. "
+                "Battery life is 12 hours."
+            ),
+            "has a 48-hour battery life",
+        ),
+        (
+            (
+                "The advertised 48-hour battery life is not supported. "
+                "Battery life is 12 hours."
+            ),
+            "has a 48-hour battery life",
+        ),
+        (
+            "The claimed 48 hours of playback is not accurate; battery life is 12 hours.",
+            "has a 48-hour battery life",
+        ),
+        (
+            "Battery life is 12 hours and 48 hours is not supported.",
+            "has a 48-hour battery life",
+        ),
     ],
-    ids=["battery", "weight", "resolution"],
+    ids=[
+        "battery",
+        "weight",
+        "resolution",
+        "words-between",
+        "adjective-between",
+        "denied-after",
+        "inaccurate-after",
+        "denied-after-a-second-figure",
+    ],
 )
 def test_a_measurement_the_source_denies_cannot_support_a_claim(source, claim):
     with pytest.raises(SynthesisOutputError, match="unsupported numeric claim"):
@@ -162,6 +202,45 @@ def test_the_affirmed_measurement_beside_a_denied_one_still_supports_a_claim(cla
 def test_wording_found_in_real_reviews_is_not_read_as_a_denial(source, claim):
     """Both were blanked in the dev catalog's evidence before these exceptions."""
     validate(f"AuriLogic Flight ANC {claim} [1].", [evidence(source)])
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        (
+            "This product does not have the advertised 48-hour battery life. "
+            "Battery life is 12 hours."
+        ),
+        (
+            "This product does not have a full 48-hour battery life. "
+            "Battery life is 12 hours."
+        ),
+        (
+            "The advertised 48-hour battery life is not supported. "
+            "Battery life is 12 hours."
+        ),
+        # A verdict after a figure belongs to that figure, not to one before it
+        # (the cross-check of 22 October).
+        "Battery life is 12 hours and 48 hours is not supported.",
+    ],
+)
+def test_the_stated_figure_beside_a_denied_one_still_supports_a_claim(source):
+    validate("AuriLogic Flight ANC has a 12-hour battery life [1].", [evidence(source)])
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "The 30-hour battery life is not bad at all.",
+        "Battery life is 30 hours, which is not a problem for me.",
+        "I did not expect much, but the battery lasts 30 hours.",
+        # Review text from the catalog: a line break and an ellipsis end a sentence.
+        "It's just not.<br /><br />Battery lasts 30 hours.",
+        "I was not sure...the battery lasts 30 hours.",
+    ],
+)
+def test_a_negation_about_something_else_leaves_the_figure_affirmed(source):
+    validate("AuriLogic Flight ANC has a 30-hour battery life [1].", [evidence(source)])
 
 
 def test_a_negation_in_an_earlier_sentence_does_not_reach_a_measurement():
