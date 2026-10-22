@@ -277,3 +277,21 @@ def test_the_fallback_narrows_once_and_never_recommends_a_refused_product(
         ]
         assert 2 not in recommended
         assert state["trace"][-1]["arguments"]["product_ids"] == [1, 3]
+
+
+def test_the_prompt_orders_picks_by_fit_then_by_the_rating_search_reported():
+    """The synthesis recommends whichever product the agent lists first.
+
+    Measured 22 Oct: a wording of the agent's own search put a 1.8-star listing
+    first, and it became the top pick over 4-star alternatives. Pinned so a
+    paraphrase cannot drop the rule.
+    """
+    from service.agent import SYSTEM_PROMPT
+
+    prompt = " ".join(SYSTEM_PROMPT.split())
+
+    assert "the best fit first, since the answer recommends the first ID." in prompt
+    assert (
+        "when products meet the request about equally, put the higher-rated one first, "
+        "and do not put first a product rated well below the others" in prompt
+    )
