@@ -94,9 +94,10 @@ better cannot establish that the repair worked.
 Use the [lab regression release sequence](lab-golden-queries.md) for
 reset, apply, validation and recovery. `uv run python scripts/lab_state.py status` inspects source files;
 it does not prove the running API or Aurora has loaded them. The validators
-check the installed SQL and production responses. The browser's Lab 3 proof
-does not run the separate evidence-grounding control; the terminal validator
-remains the completion gate.
+check the installed SQL and production responses. Every lab is completed in
+the terminal, never in the browser: Labs 1 and 2 with the guide's repeat and
+check commands, Lab 3 with `uv run python scripts/complete_agent.py --run-id
+<run-id>` on the participant's own saved run.
 
 ### Opening
 
