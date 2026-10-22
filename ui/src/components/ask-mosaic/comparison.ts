@@ -1,5 +1,5 @@
 import { formatAttributeLabel, specFacts } from "../../format";
-import { armLabel } from "../../retrievalLanguage";
+import { armShortLabel } from "../../retrievalLanguage";
 import type { AgentCitation, ProductSpec, ProductSummary } from "../../types";
 
 /**
@@ -150,16 +150,20 @@ export function comparisonRows(
   return rows;
 }
 
-/** "Semantic #7 → Combined #10 → Reranked to #1", from the pick's own signals. */
+/**
+ * "Full-text #3 + Semantic #7 → Combined #10 → Final #1", from the pick's own
+ * signals, in the words of Shop's product cards. The searches that found it run
+ * side by side, so they join with "+"; the stages follow one another.
+ */
 export function retrievalPath(product: ProductSummary): string[] {
   const signals = product.signals;
   if (!signals) return [];
   const found = (["fts", "trigram", "semantic"] as const)
     .filter((arm) => signals[arm]?.rank != null)
-    .map((arm) => `${armLabel[arm]} #${signals[arm].rank}`);
+    .map((arm) => `${armShortLabel[arm]} #${signals[arm].rank}`);
   return [
-    ...found,
+    ...(found.length ? [found.join(" + ")] : []),
     ...(signals.pre_rerank_rank != null ? [`Combined #${signals.pre_rerank_rank}`] : []),
-    ...(signals.final_rank != null ? [`Reranked to #${signals.final_rank}`] : []),
+    ...(signals.final_rank != null ? [`Final #${signals.final_rank}`] : []),
   ];
 }
