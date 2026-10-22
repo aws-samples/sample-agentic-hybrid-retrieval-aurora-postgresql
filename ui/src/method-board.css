@@ -52,7 +52,7 @@
 .method-from { display: flex; gap: 0.3em; min-width: 0; }
 .method-from span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .method-move .rank-move { flex: none; }
-.method-empty { margin: 0; padding: 8px 0; color: var(--ink-soft); font-size: 13px; }
+.method-empty { align-self: start; margin: 0; padding: 8px 0; color: var(--ink-soft); font-size: 13px; }
 
 @media (prefers-reduced-motion: no-preference) {
   .method-column { animation: method-in 600ms var(--ease-out) both; animation-delay: calc(var(--i, 0) * 70ms); }
