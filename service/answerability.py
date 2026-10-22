@@ -48,9 +48,10 @@ class PartlySupportedSelection(AnswerabilityError):
     """The request is answerable, but only from some of the selected products.
 
     A shopper who asks for only well-reviewed products gets this verdict when a
-    selected product's reviews fall short. The caller retries with exactly the
-    supported products, which the review then judges again; it never recommends
-    the others.
+    selected product's reviews fall short. So does a decline that still marks
+    some products supported: the review prompt asks for a decline whenever any
+    product falls short. The caller retries with exactly the supported products,
+    which the review then judges again; it never recommends the others.
     """
 
     def __init__(self, supported: list[int], unsupported: list[int]):
@@ -216,7 +217,14 @@ def _verdict_consistent(review: Answerability) -> bool:
 
 
 def _partly_supported(review: Answerability) -> PartlySupportedSelection | None:
-    if not (review.request_supported and review.reason == "supported"):
+    # Observed on Sonnet 5.5, 22 October, for "headphones that help me focus when
+    # working from home": 6 of 10 reviews of one selection declined it while marking
+    # two of its three products supported, and the two alone passed 10 of 10.
+    narrowable = (review.request_supported and review.reason == "supported") or (
+        not review.request_supported
+        and review.reason in ("insufficient_evidence", "unsupported_requirements")
+    )
+    if not narrowable:
         return None
     supported = [item.product_id for item in review.products if item.supported]
     unsupported = [item.product_id for item in review.products if not item.supported]
@@ -355,10 +363,10 @@ def assess_answerability(
         # is asked once more.
         if problem := _scope_problem(review, products, evidence):
             raise AnswerabilityError(problem)
-        if _verdict_consistent(review):
-            return review, usage
         if partial := _partly_supported(review):
             raise partial
+        if _verdict_consistent(review):
+            return review, usage
         if attempt:
             raise AnswerabilityError(INCONSISTENT_VERDICT)
         request["system"] = [{"text": REVIEW_PROMPT + INCONSISTENT_RETRY}]

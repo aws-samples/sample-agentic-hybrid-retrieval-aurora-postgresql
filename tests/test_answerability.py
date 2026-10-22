@@ -664,6 +664,7 @@ def test_self_contradicting_verdict_is_asked_once_more():
     consistent = two_products(
         request_supported=False, reason="insufficient_evidence", second_supported=False
     )
+    consistent["products"][0] |= {"supported": False, "evidence_ids": []}
     client = ScriptedReviewClient([CONTRADICTION, consistent])
     review, usage = assess_two(client)
     assert review.request_supported is False
@@ -698,4 +699,42 @@ def test_a_scope_breach_is_never_retried_even_when_the_verdict_also_conflicts():
     client = ScriptedReviewClient([borrowed])
     with pytest.raises(AnswerabilityError, match="evidence scope for product 1"):
         assess_two(client)
+    assert len(client.calls) == 1
+
+
+@pytest.mark.parametrize(
+    "reason", ["insufficient_evidence", "unsupported_requirements"]
+)
+def test_a_decline_that_still_supports_some_products_narrows_to_them(reason):
+    from service.answerability import PartlySupportedSelection
+
+    split = two_products(request_supported=False, reason=reason, second_supported=False)
+    client = ScriptedReviewClient([split])
+    with pytest.raises(PartlySupportedSelection) as raised:
+        assess_two(client)
+    assert raised.value.supported == [1]
+    assert raised.value.unsupported == [2]
+    assert len(client.calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("reason", "first_supported"),
+    [
+        ("insufficient_evidence", False),
+        ("unsupported_requirements", False),
+        ("unrelated_request", True),
+    ],
+)
+def test_a_decline_with_nothing_to_narrow_to_stays_a_decline(reason, first_supported):
+    decline = two_products(
+        request_supported=False, reason=reason, second_supported=False
+    )
+    decline["products"][0] |= {
+        "supported": first_supported,
+        "evidence_ids": [1] if first_supported else [],
+    }
+    client = ScriptedReviewClient([decline])
+    review, _ = assess_two(client)
+    assert review.request_supported is False
+    assert review.reason == reason
     assert len(client.calls) == 1
