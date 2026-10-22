@@ -762,6 +762,21 @@ def test_a_name_unique_to_one_listing_still_needs_that_listings_citation():
             "WH1000XM4",
             "Sony WH-1000XM4",
         ),
+        # A title that leads with its model code is named by its first phrase
+        # (observed 22 October: drafts wrote "E7", never the 190-character title).
+        (
+            "E7 Active Noise Cancelling Headphones, Over-Ear Bluetooth Headphones",
+            "Generic",
+            "E7B",
+            "E7 Active Noise Cancelling Headphones",
+        ),
+        # An ingress rating is a measurement, never a model code.
+        (
+            "IPX7 Waterproof Earbuds, Bluetooth Sport Headphones",
+            "",
+            "",
+            "IPX7 Waterproof Earbuds, Bluetooth Sport Headphones",
+        ),
         # No brand and no model code: a shortened generic phrase would match
         # ordinary prose, so the full title stays the reference.
         (
@@ -1062,6 +1077,99 @@ def test_a_measurement_containing_a_digit_brand_is_still_a_measurement():
             "13mm drivers [2].",
             [evidence("Active noise cancellation."), three_m_evidence()],
             [product(), THREE_M],
+        )
+
+
+E7 = product(
+    product_id=2,
+    sku="B0E7",
+    title=(
+        "E7 Active Noise Cancelling Headphones, Over-Ear Bluetooth Headphones, "
+        "Wireless Headphones with Built-in Microphones, Clear Calls, Comfortable "
+        "Ear Cups, 20H Playtime for Travel, Work (Black&Blue)"
+    ),
+    brand="Generic",
+    model="E7B",
+)
+
+
+def e7_evidence() -> EvidenceRecord:
+    return evidence(
+        "Built-in microphones for clear calls. 20 hours of playtime.",
+        title="Customer review",
+    ).model_copy(update={"evidence_id": 2, "product_id": 2})
+
+
+@pytest.mark.parametrize(
+    "named",
+    [
+        "the E7 model [2]",
+        "the E7 Active Noise Cancelling Headphones [2]",
+        "the headphones branded E7 [2]",
+    ],
+)
+def test_a_title_that_leads_with_a_model_code_is_named_by_that_code(named):
+    # Observed 22 October: "E7" was read as an unsupported identifier of the
+    # product named before it, and the draft was rejected.
+    validate(
+        f"Choose the AuriLogic Flight ANC [1] for focus, or {named} for calls.",
+        [evidence("Active noise cancellation."), e7_evidence()],
+        [product(), E7],
+    )
+
+
+def test_a_leading_model_code_hides_neither_its_figures_nor_another_code():
+    validate(
+        "Choose the E7 model [2], which offers 20 hours of playtime [2].",
+        [evidence("Active noise cancellation."), e7_evidence()],
+        [E7],
+    )
+    for wrong in (
+        "Choose the E7 model [2], which offers 30 hours of playtime [2].",
+        "Choose the E8 model [2] for calls.",
+    ):
+        with pytest.raises(SynthesisOutputError, match="unsupported numeric claim"):
+            validate(
+                wrong, [evidence("Active noise cancellation."), e7_evidence()], [E7]
+            )
+
+
+def test_a_leading_word_that_is_not_the_listings_own_code_names_nothing():
+    # 278 catalog titles start with "MP3" and almost none have it as their model;
+    # as a name it would make every "MP3" in an answer mention this listing.
+    player = product(
+        product_id=2,
+        sku="MP3-1",
+        title="MP3 Player with Bluetooth, 64GB Music Player",
+        brand="AGPTEK",
+        model="A65",
+    )
+    record = evidence("Music player with 64GB storage.").model_copy(
+        update={"evidence_id": 2, "product_id": 2}
+    )
+    validate(
+        "AuriLogic Flight ANC plays MP3 files [1]. The AGPTEK player stores music [2].",
+        [evidence("Plays MP3 and AAC files."), record],
+        [product(), player],
+    )
+
+
+def test_a_title_led_by_an_ingress_rating_still_has_that_rating_checked():
+    earbuds = product(
+        product_id=2,
+        sku="IPX7-1",
+        title="IPX7 Waterproof Earbuds, Bluetooth Sport Headphones",
+        brand="",
+        model="",
+    )
+    record = evidence("Rated IPX7 for sweat and rain.").model_copy(
+        update={"evidence_id": 2, "product_id": 2}
+    )
+    with pytest.raises(SynthesisOutputError, match="IPX8"):
+        validate(
+            f"The {earbuds.title} are rated IPX8 [2].",
+            [evidence("Active noise cancellation."), record],
+            [earbuds],
         )
 
 

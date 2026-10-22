@@ -349,9 +349,10 @@ def reference_name(product: ProductSummary) -> str:
     by a long full title. The short form runs to the first model code ("JK
     CCH-001", "Sony WH-1000XM4") or is the title's first phrase when it starts
     with the product's brand, ending before a joining word so the name is not
-    "Howtai Ergonomic Office Chair with". Otherwise the full title stays the
-    reference: a generic phrase such as "Noise Cancelling Headphones" would
-    match ordinary prose about other products.
+    "Howtai Ergonomic Office Chair with". A title that leads with its model
+    code, "E7 Active Noise Cancelling Headphones", is named by that phrase.
+    Otherwise the full title stays the reference: a generic phrase such as
+    "Noise Cancelling Headphones" would match ordinary prose about other products.
     """
     words = _NAME_BREAK.split(product.title, maxsplit=1)[0].split()
     for index, word in enumerate(words[1:5], 1):
@@ -360,7 +361,35 @@ def reference_name(product: ProductSummary) -> str:
     brand = product.brand.strip().casefold()
     if brand and " ".join(words).casefold().startswith(brand):
         return _brand_phrase(words[:5], len(brand.split())).rstrip(".")
+    if _leading_code(product):
+        return _brand_phrase(words[:5], 1).rstrip(".")
     return product.title
+
+
+#: A model code leads with letters, then a digit: "E7", "Q20i", "WH-1000XM4".
+#: An ingress rating such as "IPX7" has that shape but is a measurement.
+_MODEL_CODE = re.compile(r"(?!ip)[a-z]+\d[a-z0-9-]*", re.IGNORECASE)
+
+
+def _identity_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", value.casefold())
+
+
+def _leading_code(product: ProductSummary) -> str:
+    """The listing's own model code or brand when its title starts with it, else "".
+
+    Many titles start with a descriptor of the same shape, such as "MP3", "RJ45"
+    or "Cat6". Only a code the listing's model begins with, or its brand, names it.
+    """
+    words = product.title.split(maxsplit=1)
+    if not words or not _MODEL_CODE.fullmatch(words[0]):
+        return ""
+    code = _identity_key(words[0])
+    if _identity_key(product.model).startswith(code) or (
+        _identity_key(product.brand) == code
+    ):
+        return words[0]
+    return ""
 
 
 def _brand_phrase(lead: list[str], brand_words: int) -> str:
@@ -390,11 +419,16 @@ def _product_names(product: ProductSummary) -> set[str]:
     such as "UltraSharp" still is.
     """
     model = "" if _category_word_model(product) else product.model
-    return {
+    names = {
         value.casefold()
         for value in (product.title, model, reference_name(product))
         if len(value.strip()) >= 3
     }
+    # Letters and digits together are never an ordinary word, so even a
+    # two-character code such as "E7" names the listing it leads.
+    if code := _leading_code(product):
+        names.add(code.casefold())
+    return names
 
 
 def _products_sharing_name(name: str, products: Sequence[ProductSummary]) -> set[int]:
