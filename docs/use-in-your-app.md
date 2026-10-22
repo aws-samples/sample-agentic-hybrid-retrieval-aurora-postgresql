@@ -77,7 +77,7 @@ Mosaic exposes five agent tools:
 2. `get_product_evidence` retrieves sources for a product the run is allowed to use.
 3. `compare_products` compares catalog attributes and recorded ranks.
 4. `explain_retrieval` reads a saved search's ranking signals.
-5. `synthesize_cited_answer` produces the validated answer from authorized products and evidence.
+5. `synthesize_cited_answer` produces the validated answer from authorized products and evidence. The answer calls its first product the best fit, so the application, not the model, has the last word on that order: when the agent's first pick is rated a star or more below another pick of the same kind, that pick leads instead, unless the shopper named the first one, and the run's step says so (`LEAD_STAR_GAP` and `lead_with_better_rated` in `service/synthesis.py`).
 
 `AgentResponse.retrieved_evidence` carries snapshots of the records read by the tools, including those the answer did not cite. Reason groups them by product and source type. Do not fetch today's source and present it as the record an older answer read.
 

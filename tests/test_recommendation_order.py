@@ -8,7 +8,7 @@ from test_synthesis_claims import evidence, product
 
 from service import agent_tools
 from service.models import AgentCitation
-from service.synthesis import recommendations_in_answer_order
+from service.synthesis import lead_with_better_rated, recommendations_in_answer_order
 
 
 @pytest.fixture
@@ -279,19 +279,93 @@ def test_the_fallback_narrows_once_and_never_recommends_a_refused_product(
         assert state["trace"][-1]["arguments"]["product_ids"] == [1, 3]
 
 
-def test_the_prompt_orders_picks_by_fit_then_by_the_rating_search_reported():
-    """The synthesis recommends whichever product the agent lists first.
-
-    Measured 22 Oct: a wording of the agent's own search put a 1.8-star listing
-    first, and it became the top pick over 4-star alternatives. Pinned so a
-    paraphrase cannot drop the rule.
-    """
-    from service.agent import SYSTEM_PROMPT
-
-    prompt = " ".join(SYSTEM_PROMPT.split())
-
-    assert "the best fit first, since the answer recommends the first ID." in prompt
-    assert (
-        "when products meet the request about equally, put the higher-rated one first, "
-        "and do not put first a product rated well below the others" in prompt
+def _rated(product_id, rating, kind="headphones", name=None):
+    name = name or f"Brand{product_id} Model{product_id}"
+    return product(
+        product_id=product_id,
+        title=name,
+        brand=name.split()[0],
+        model=name.split()[1],
+        category_key=kind,
+        rating=rating,
     )
+
+
+def test_a_much_lower_rated_first_pick_yields_the_lead_to_one_of_its_kind():
+    picks = [_rated(1, 1.8), _rated(2, 3.8), _rated(3, 4.0)]
+
+    ordered, promoted = lead_with_better_rated("headphones to help me focus", picks)
+
+    # The earliest pick a star or more above the lead takes it; the rest keep the
+    # agent's order, so the 3.8 leads even though the 4.0 is rated higher.
+    assert [pick.product_id for pick in ordered] == [2, 1, 3]
+    assert promoted.product_id == 2
+    assert [pick.product_id for pick in picks] == [1, 2, 3]
+
+
+@pytest.mark.parametrize(
+    ("lead", "other", "moves"),
+    [
+        (4.3, 5.0, False),
+        (3.2, 4.1, False),
+        (3.1, 4.1, True),
+        (1.8, 2.8, True),
+        (1.8, 4.0, True),
+    ],
+)
+def test_the_lead_moves_only_at_a_whole_star_or_more(lead, other, moves):
+    ordered, promoted = lead_with_better_rated("q", [_rated(1, lead), _rated(2, other)])
+
+    assert (promoted is not None) is moves
+    assert ordered[0].product_id == (2 if moves else 1)
+
+
+def test_picks_of_other_kinds_unrated_picks_and_named_products_keep_the_agents_order():
+    chair = _rated(2, 4.8, kind="chair")
+    assert lead_with_better_rated("q", [_rated(1, 1.8), chair])[1] is None
+    assert lead_with_better_rated("q", [_rated(1, None), _rated(2, 4.8)])[1] is None
+    unrated_then_rated = [_rated(1, 1.8), _rated(2, None), _rated(3, 4.0)]
+    assert lead_with_better_rated("q", unrated_then_rated)[1].product_id == 3
+
+    named = [_rated(1, 1.8, name="Vibe VS-888"), _rated(2, 4.0)]
+    ordered, promoted = lead_with_better_rated("I'm looking at the Vibe VS-888.", named)
+    assert promoted is None
+    assert [pick.product_id for pick in ordered] == [1, 2]
+
+
+@pytest.mark.parametrize("fallback", [False, True])
+def test_both_finalizers_hand_synthesis_the_better_rated_lead_and_say_why(
+    monkeypatch, fallback
+):
+    picks = [_rated(1, 1.8, name="Vibe VS-888"), _rated(2, 4.0, name="Sierra NC-2")]
+    state = run_state(coverage=[], products={pick.product_id: pick for pick in picks})
+    state["question"] = "headphones that help me focus when working from home"
+    state["trace"] = [
+        {"tool": "compare_products", "arguments": {"product_ids": [1, 2]}}
+    ]
+    state["evidence"] = {
+        pick.product_id: evidence("Noise cancellation.").model_copy(
+            update={"product_id": pick.product_id, "evidence_id": pick.product_id}
+        )
+        for pick in picks
+    }
+    state["evidence_by_product"] = {1: [1], 2: [2]}
+    synthesis = Mock(return_value=("Sierra NC-2 fits [2]. Vibe VS-888 [1].", [], {}))
+    monkeypatch.setattr(agent_tools, "synthesize_answer", synthesis)
+    token = agent_tools._RUN.set(state)
+    try:
+        if fallback:
+            agent_tools.finalize_retrieved_answer(state["question"], product_ids=[1, 2])
+        else:
+            assert agent_tools.synthesize_cited_answer(state["question"], [1, 2])["ok"]
+    finally:
+        agent_tools._RUN.reset(token)
+
+    assert [p.product_id for p in synthesis.call_args.args[1]] == [2, 1]
+    step = state["trace"][-1]
+    assert step["tool"] == "synthesize_cited_answer"
+    assert step["arguments"]["product_ids"] == ([2, 1] if fallback else [1, 2])
+    assert (
+        "Sierra NC-2 (4.0 stars) leads instead of Vibe VS-888 (1.8 stars), the agent's "
+        "first pick, rated at least 1 star lower than a pick of the same kind."
+    ) in step["detail"]

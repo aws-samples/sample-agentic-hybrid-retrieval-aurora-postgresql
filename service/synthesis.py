@@ -534,6 +534,55 @@ def recommendations_in_answer_order(
     )
 
 
+#: How many stars below another pick of the same kind the agent's first pick may be
+#: rated before that other pick leads. The answer calls its first product the best
+#: fit, and a search can rank a poorly rated listing first: on 22 October a 1.8-star
+#: listing led 19 of 20 runs whose search put it first, over 4-star alternatives.
+LEAD_STAR_GAP = 1.0
+
+
+def lead_with_better_rated(
+    question: str,
+    products: Sequence[ProductSummary],
+) -> tuple[list[ProductSummary], ProductSummary | None]:
+    """Let a better-rated pick of the same kind lead instead of a much lower-rated one.
+
+    When the agent's first pick is rated at least `LEAD_STAR_GAP` stars below
+    another pick in the same category, the earliest such pick leads and the rest
+    keep the agent's order. A product the shopper named keeps its place, and an
+    unrated product is never judged by a rating it does not have.
+
+    Args:
+        question: The shopper's own request, which may name a product.
+        products: The agent's picks, best fit first.
+
+    Returns:
+        The picks in the order the answer recommends them, and the pick moved to
+        lead, or None when the agent's order stands.
+    """
+    picks = list(products)
+    lead = picks[0] if picks else None
+    if lead is None or lead.rating is None or lead.category_key is None:
+        return picks, None
+    named = {
+        product_id for _, _, product_id in _named_product_mentions(question, picks)
+    }
+    if lead.product_id in named:
+        return picks, None
+    for candidate in picks[1:]:
+        if (
+            candidate.category_key == lead.category_key
+            and candidate.rating is not None
+            # Ratings carry one or two decimals; rounding keeps 4.1 - 3.1 a whole star.
+            and round(candidate.rating - lead.rating, 2) >= LEAD_STAR_GAP
+        ):
+            return [
+                candidate,
+                *(pick for pick in picks if pick is not candidate),
+            ], candidate
+    return picks, None
+
+
 #: Unit spellings that mean the same measurement, mapped to one family name.
 #: A figure is only supported by evidence that states it in the *same* family:
 #: "48-year warranty" is not supported by "48 hours of playback", which is the

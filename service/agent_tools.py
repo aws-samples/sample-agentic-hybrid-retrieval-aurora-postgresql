@@ -41,9 +41,12 @@ from service.models import (
 from service.retrieval import get_retrieval_service, signals_from_receipt
 from service.retrieval_fingerprint import explain
 from service.synthesis import (
+    LEAD_STAR_GAP,
     ReportedLimits,
     SynthesisOutputError,
+    lead_with_better_rated,
     recommendations_in_answer_order,
+    reference_name,
     with_limit_notes,
 )
 from service.synthesis import synthesize_cited_answer as synthesize_answer
@@ -1562,6 +1565,8 @@ def synthesize_cited_answer(
             f"products lack retrieved evidence: {missing_evidence}",
             "call get_product_evidence for every product before synthesis.",
         )
+    agent_lead = products[0]
+    products, promoted = lead_with_better_rated(state["question"], products)
     try:
         answer, citations, usage = synthesize_answer(
             _synthesis_question(state),
@@ -1643,12 +1648,14 @@ def synthesize_cited_answer(
         "recommendations": recommendations_in_answer_order(answer, products, citations),
         "usage": usage,
     }
+    detail = f"Validated and persisted {len(citations)} source citation(s)."
+    detail += _lead_note(agent_lead, promoted, products)
     _record(
         "synthesize_cited_answer",
         {"question": question, "product_ids": unique_ids},
         started,
         result_count=len(citations),
-        detail=f"Validated and persisted {len(citations)} source citation(s).",
+        detail=detail,
     )
     return {
         "ok": True,
@@ -1787,6 +1794,8 @@ def finalize_retrieved_answer(
     if not evidence:
         raise RuntimeError("No retrieved evidence is available for grounded synthesis")
 
+    agent_lead = products[0]
+    products, promoted = lead_with_better_rated(state["question"], products)
     try:
         products, (answer, citations, usage) = _synthesize_supported(
             state, products, started
@@ -1821,8 +1830,25 @@ def finalize_retrieved_answer(
         detail=(
             "Citation-bounded synthesis after model orchestration completed without "
             "calling its required final tool."
+            + _lead_note(agent_lead, promoted, products)
         ),
         origin="controller_fallback",
+    )
+
+
+def _lead_note(
+    agent_lead: ProductSummary,
+    promoted: ProductSummary | None,
+    products: list[ProductSummary],
+) -> str:
+    """The step's account of a lead the rating rule changed, or nothing."""
+    if promoted is None or not products or products[0] is not promoted:
+        return ""
+    return (
+        f" {reference_name(promoted)} ({promoted.rating:.1f} stars) leads instead of"
+        f" {reference_name(agent_lead)} ({agent_lead.rating:.1f} stars), the agent's"
+        f" first pick, rated at least {LEAD_STAR_GAP:g} star lower than a pick of"
+        " the same kind."
     )
 
 
