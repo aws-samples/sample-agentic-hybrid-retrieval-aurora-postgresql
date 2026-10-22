@@ -534,6 +534,53 @@ def recommendations_in_answer_order(
     )
 
 
+def without_repeated_listings(
+    products: Sequence[ProductSummary],
+) -> tuple[list[ProductSummary], list[ProductSummary]]:
+    """Keep one pick per product when the agent picked two listings of it.
+
+    The catalog sells some products as several listings, such as one chair in many
+    colours, and a focused search can return two of them: Alex's setup request
+    recommended two Steelcase Gesture listings in 4 of 27 runs before 22 October.
+    Picks of one kind with the same brand and model are one product; the listing
+    its search ranked higher stays, in the agent's order, and the rest are left out.
+    A pick without a recorded brand or model is never merged.
+
+    Args:
+        products: The agent's picks, best fit first.
+
+    Returns:
+        The picks to recommend, and the listings left out.
+    """
+
+    def product_key(product: ProductSummary) -> tuple[str, str, str] | None:
+        if not (product.category_key and product.brand and product.model):
+            return None
+        return (
+            product.category_key,
+            product.brand.strip().casefold(),
+            product.model.strip().casefold(),
+        )
+
+    def search_rank(product: ProductSummary) -> float:
+        rank = product.signals.final_rank if product.signals else None
+        return rank if rank is not None else float("inf")
+
+    best: dict[tuple[str, str, str], ProductSummary] = {}
+    for product in products:
+        key = product_key(product)
+        if key is not None and (
+            key not in best or search_rank(product) < search_rank(best[key])
+        ):
+            best[key] = product
+    kept = [
+        product
+        for product in products
+        if (key := product_key(product)) is None or best[key] is product
+    ]
+    return kept, [product for product in products if product not in kept]
+
+
 #: How many stars below another pick of the same kind the agent's first pick may be
 #: rated before that other pick leads. The answer calls its first product the best
 #: fit, and a search can rank a poorly rated listing first: on 22 October a 1.8-star

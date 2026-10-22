@@ -471,3 +471,90 @@ def test_a_named_or_different_kind_lead_is_written_as_the_model_chose(question, 
 
     assert answer.startswith("Vibe VS-888")
     assert len(writer.calls) == 2
+
+
+def _listing(product_id, model, final_rank, *, kind="chair", brand="Steelcase"):
+    from service.models import RankSignal, ResultSignals
+
+    return product(
+        product_id=product_id,
+        title=f"{brand} {model} listing {product_id}",
+        brand=brand,
+        model=model,
+        category_key=kind,
+        rating=4.3,
+        signals=ResultSignals(
+            fts=RankSignal(),
+            trigram=RankSignal(),
+            semantic=RankSignal(),
+            rrf_score=0.0,
+            pre_rerank_rank=final_rank,
+            pre_rerank_score=0.0,
+            final_rank=final_rank,
+            score_semantics="test",
+        ),
+    )
+
+
+def test_two_listings_of_one_product_keep_the_one_its_search_ranked_higher():
+    from service.synthesis import without_repeated_listings
+
+    # Alex's setup run: the agent listed the second Gesture listing before the first.
+    headphones = _listing(3, "Zone 900", 1, kind="headphones", brand="Logitech")
+    second, first = _listing(1511589, "Gesture", 2), _listing(1540761, "gesture ", 1)
+
+    kept, left_out = without_repeated_listings([second, headphones, first])
+
+    assert [p.product_id for p in kept] == [3, 1540761]
+    assert [p.product_id for p in left_out] == [1511589]
+
+
+def test_other_models_kinds_and_unrecorded_models_are_never_merged():
+    from service.synthesis import without_repeated_listings
+
+    picks = [
+        _listing(1, "Gesture", 1),
+        _listing(2, "Leap", 2),
+        _listing(3, "Gesture", 1, kind="desk"),
+        _listing(4, "Gesture", 1, brand="Other"),
+        product(product_id=5, brand="Steelcase", model="", category_key="chair"),
+        product(product_id=6, brand="Steelcase", model="", category_key="chair"),
+    ]
+
+    kept, left_out = without_repeated_listings(picks)
+
+    assert [p.product_id for p in kept] == [1, 2, 3, 4, 5, 6]
+    assert left_out == []
+
+
+@pytest.mark.parametrize("fallback", [False, True])
+def test_both_finalizers_leave_out_a_repeated_listing_and_say_so(monkeypatch, fallback):
+    picks = [_listing(2, "Gesture", 2), _listing(1, "Gesture", 1)]
+    state = run_state(coverage=[], products={pick.product_id: pick for pick in picks})
+    state["trace"] = [
+        {"tool": "compare_products", "arguments": {"product_ids": [2, 1]}}
+    ]
+    state["evidence"] = {
+        pick.product_id: evidence("Adjustable arms.").model_copy(
+            update={"product_id": pick.product_id, "evidence_id": pick.product_id}
+        )
+        for pick in picks
+    }
+    state["evidence_by_product"] = {1: [1], 2: [2]}
+    synthesis = Mock(return_value=("Steelcase Gesture listing 1 fits [1].", [], {}))
+    monkeypatch.setattr(agent_tools, "synthesize_answer", synthesis)
+    token = agent_tools._RUN.set(state)
+    try:
+        if fallback:
+            agent_tools.finalize_retrieved_answer(state["question"], product_ids=[2, 1])
+        else:
+            assert agent_tools.synthesize_cited_answer(state["question"], [2, 1])["ok"]
+    finally:
+        agent_tools._RUN.reset(token)
+
+    assert [p.product_id for p in synthesis.call_args.args[1]] == [1]
+    assert [r.product_id for r in synthesis.call_args.args[2]] == [1]
+    assert (
+        "Left out Steelcase Gesture listing 2: another listing of the Steelcase Gesture, "
+        "ranked lower by its search."
+    ) in state["trace"][-1]["detail"]

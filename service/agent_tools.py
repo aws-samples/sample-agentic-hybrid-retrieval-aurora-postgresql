@@ -48,6 +48,7 @@ from service.synthesis import (
     recommendations_in_answer_order,
     reference_name,
     with_limit_notes,
+    without_repeated_listings,
 )
 from service.synthesis import synthesize_cited_answer as synthesize_answer
 from service.telemetry import search_with_telemetry
@@ -1564,6 +1565,7 @@ def synthesize_cited_answer(
             f"products lack retrieved evidence: {missing_evidence}",
             "call get_product_evidence for every product before synthesis.",
         )
+    products, left_out = without_repeated_listings(products)
     agent_lead = products[0]
     products, promoted = lead_with_better_rated(state["question"], products)
     evidence = _evidence_for_products(
@@ -1651,7 +1653,7 @@ def synthesize_cited_answer(
         "usage": usage,
     }
     detail = f"Validated and persisted {len(citations)} source citation(s)."
-    detail += _lead_note(agent_lead, promoted, products)
+    detail += _left_out_note(left_out) + _lead_note(agent_lead, promoted, products)
     _record(
         "synthesize_cited_answer",
         {"question": question, "product_ids": unique_ids},
@@ -1796,6 +1798,7 @@ def finalize_retrieved_answer(
     if not evidence:
         raise RuntimeError("No retrieved evidence is available for grounded synthesis")
 
+    products, left_out = without_repeated_listings(products)
     agent_lead = products[0]
     products, promoted = lead_with_better_rated(state["question"], products)
     try:
@@ -1832,9 +1835,19 @@ def finalize_retrieved_answer(
         detail=(
             "Citation-bounded synthesis after model orchestration completed without "
             "calling its required final tool."
+            + _left_out_note(left_out)
             + _lead_note(agent_lead, promoted, products)
         ),
         origin="controller_fallback",
+    )
+
+
+def _left_out_note(left_out: list[ProductSummary]) -> str:
+    """The step's account of listings left out as repeats of a recommended product."""
+    return "".join(
+        f" Left out {reference_name(product)}: another listing of the {product.brand}"
+        f" {product.model}, ranked lower by its search."
+        for product in left_out
     )
 
 
