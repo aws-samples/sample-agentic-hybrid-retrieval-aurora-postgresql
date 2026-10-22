@@ -799,6 +799,9 @@ class AgentCitation(BaseModel):
     revision: str
     title: str
     quote: str
+    #: The reviewer's star rating, so Ask Mosaic quotes a review as a reason only
+    #: when its reviewer rated the product well. None for a listing or an unrated row.
+    rating: float | None = None
 
 
 #: What the agent did with the question, as opposed to whether the request

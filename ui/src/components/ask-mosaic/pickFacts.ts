@@ -19,15 +19,25 @@ export interface PickRequirement {
 }
 
 /**
+ * A review stands beside a pick as a reason only when its reviewer rated the
+ * product this well. The answer may cite a lower-rated review as a caveat
+ * ("one reviewer received a broken earcup"); lifted onto the card without
+ * that sentence, it would read as praise.
+ */
+const RECOMMENDING_STARS = 4;
+
+const recommends = (citation: AgentCitation) => (citation.rating ?? 0) >= RECOMMENDING_STARS;
+
+/**
  * Up to two facts for a pick, each a whole line from a record the answer cited:
- * the listing line and the review sentence that best support what the answer
- * said. A pick the answer cites nothing usable for falls back to what its
- * listing states, without a citation.
+ * the listing line and the sentence of a well-rated review that best support
+ * what the answer said. A pick the answer cites nothing usable for falls back
+ * to what its listing states, without a citation.
  */
 export function pickFacts(product: ProductSummary, citations: AgentCitation[], answer = ""): PickFact[] {
   const own = citations.filter((citation) => citation.product_id === product.product_id);
   const first = (review: boolean): PickFact[] => {
-    for (const citation of own.filter((item) => isReview(item) === review)) {
+    for (const citation of own.filter((item) => isReview(item) === review && (!review || recommends(item)))) {
       const text = quotedLine(citation, answer);
       if (text) return [{ text, number: citation.number }];
     }

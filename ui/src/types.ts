@@ -372,6 +372,8 @@ export interface AgentCitation {
   revision: string;
   title: string;
   quote: string;
+  /** The reviewer's star rating; null for a listing, absent on runs saved before it was recorded. */
+  rating?: number | null;
 }
 
 export interface AgentConversationContext {

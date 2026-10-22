@@ -1016,6 +1016,14 @@
   font-weight: 600;
 }
 
+.ask-source-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
 .ask-source-quote {
   margin: 0;
   color: var(--ink);

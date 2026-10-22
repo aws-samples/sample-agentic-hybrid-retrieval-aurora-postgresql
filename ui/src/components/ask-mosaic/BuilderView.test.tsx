@@ -123,14 +123,14 @@ describe("BuilderView ranks", () => {
 const ANSWER = "The Logitech lists active noise cancellation [1]. A reviewer reports crystal-clear audio with no complaints from callers [2].";
 
 describe("pickFacts lines", () => {
-  const cite = (number: number, type: string, quote: string) => ({
+  const cite = (number: number, type: string, quote: string, rating: number | null = null) => ({
     number, evidence_id: number, evidence_type: type, product_id: chair.product_id,
-    source_uri: "u", revision: "r", title: "t", quote,
+    source_uri: "u", revision: "r", title: "t", quote, rating,
   });
   const listing = cite(1, "product_spec",
     "Title: Logitech Zone 900 Headset\n\nCategories: Electronics > Headphones\n\nDescription:\nTake control of your acoustic experience at home. Active noise cancellation blocks out the noise around you.");
   const review = cite(2, "customer_review",
-    "This is my second purchase of the headset.my original was purchased in 2020. The audio is crystal clear and no one ever complains about my audio.<br /><br />Well worth every penny.");
+    "This is my second purchase of the headset.my original was purchased in 2020. The audio is crystal clear and no one ever complains about my audio.<br /><br />Well worth every penny.", 5);
 
   it("uses whole lines that support the claim, never boilerplate or fragments", () => {
     const facts = pickFacts(chair, [listing, review], ANSWER);
@@ -159,11 +159,12 @@ describe("pickFacts lines", () => {
 });
 
 describe("source list lines", () => {
+  const cite = (number: number, type: string, quote: string, rating: number | null = null) => ({
+    number, evidence_id: number, evidence_type: type, product_id: chair.product_id,
+    source_uri: "u", revision: "r", title: "t", quote, rating,
+  });
+
   it("shows the cited line from a listing and from a review", () => {
-    const cite = (number: number, type: string, quote: string) => ({
-      number, evidence_id: number, evidence_type: type, product_id: chair.product_id,
-      source_uri: "u", revision: "r", title: "t", quote,
-    });
     render(<SourceList
       answer={ANSWER} answerId="a" builder={false} products={[chair]}
       citations={[
@@ -176,10 +177,25 @@ describe("source list lines", () => {
     expect(within(list).getByText("“The audio is crystal clear and no one ever complains.”")).toBeTruthy();
     expect(list.textContent).not.toMatch(/Title:|Categories:|<br/);
   });
+
+  it("gives each review its reviewer's stars, so a quoted complaint reads as one", () => {
+    render(<SourceList
+      answer="A reviewer describes a broken earcup on arrival [2]." answerId="a" builder={false} products={[chair]}
+      citations={[
+        cite(1, "product_spec", "Active noise cancellation blocks out the noise around you."),
+        cite(2, "customer_review", "The headphones came with a broken earcup.", 3),
+        cite(3, "customer_review", "Unrated, so no stars are printed for it."),
+      ]}
+    />);
+    const list = screen.getByRole("region", { name: "Sources" });
+    expect(within(list).getAllByLabelText(/out of 5/).map((stars) => stars.getAttribute("aria-label")))
+      .toEqual(["Rated 3.0 out of 5"]);
+    expect(within(list).getByLabelText("Rated 3.0 out of 5").closest("li")?.textContent).toContain("broken earcup");
+  });
 });
 
 describe("pickFacts", () => {
-  const citation = (number: number, type: string, quote: string) => ({
+  const citation = (number: number, type: string, quote: string, rating: number | null = null) => ({
     number,
     evidence_id: number,
     evidence_type: type,
@@ -188,12 +204,13 @@ describe("pickFacts", () => {
     revision: "r",
     title: "t",
     quote,
+    rating,
   });
 
   it("quotes one listing record and one review, each with its citation number", () => {
     const facts = pickFacts(chair, [
       citation(5, "product_spec", "fully adjustable arms, adjustable lumbar"),
-      citation(6, "customer_review", "I instantly felt relief the first day of use."),
+      citation(6, "customer_review", "I instantly felt relief the first day of use.", 5),
     ]);
     expect(facts).toEqual([
       { text: "fully adjustable arms, adjustable lumbar", number: 5 },
@@ -204,10 +221,20 @@ describe("pickFacts", () => {
   it("passes over a listing's title record, which only repeats the name", () => {
     const facts = pickFacts(chair, [
       citation(1, "product_spec", "Title: Steelcase Gesture Office Chair, Licorice"),
-      citation(2, "customer_review", "Finally pain free!"),
+      citation(2, "customer_review", "Finally pain free!", 4),
     ]);
     expect(facts.map((fact) => fact.number)).toEqual([2]);
     expect(facts[0].text).toBe("“Finally pain free!”");
+  });
+
+  it("keeps a review the answer cites as a caveat off the card, by its reviewer's stars", () => {
+    const answer = "Its listing describes active noise cancellation [1]. A reviewer describes a broken earcup on arrival [2].";
+    const listing = citation(1, "product_spec", "Active noise cancellation gives a distraction-free listening experience.");
+    for (const stars of [3, null]) {
+      const facts = pickFacts(chair, [listing, citation(2, "customer_review", "The headphones came with a broken earcup.", stars)], answer);
+      expect(facts.map((fact) => fact.number)).not.toContain(2);
+      expect(facts[0]).toEqual({ text: "Active noise cancellation gives a distraction-free listening experience.", number: 1 });
+    }
   });
 
   it("never attributes another product's record to the pick", () => {

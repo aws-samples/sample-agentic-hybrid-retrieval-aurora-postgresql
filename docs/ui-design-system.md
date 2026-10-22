@@ -689,8 +689,11 @@ lists each phase's finding), the first recommendation as a top-pick card (photo,
 name, a neutral "Top pick" pill that claims only its position, up to two quoted
 facts with citation pills, and a stated requirement judged against the listing),
 then the answer prose, then the other picks as compact rows, a hairline Sources
-list (number pill, product, Listing or Review pill, title, quote), "Still
-unknown", and up to three follow-ups as clear pills.
+list (number pill, product, Listing or Review pill, the reviewer's stars, title,
+quote), "Still unknown", and up to three follow-ups as clear pills. A pick's
+facts quote a review only when its reviewer gave four stars or more: the answer
+may cite a lower-rated review as a caveat, and on the card, without that
+sentence, it would read as a reason for the pick.
 
 **The streaming reveal.** Characters arrive faint and darken over their first 24
 characters of age. Age is counted across the whole answer, so the trail crosses

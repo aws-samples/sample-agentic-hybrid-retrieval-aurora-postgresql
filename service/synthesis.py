@@ -1155,6 +1155,7 @@ def validate_cited_answer(
             revision=evidence_records[number - 1].revision,
             title=evidence_records[number - 1].title,
             quote=evidence_records[number - 1].text,
+            rating=evidence_records[number - 1].rating,
         )
         for number in cited_numbers
     ]

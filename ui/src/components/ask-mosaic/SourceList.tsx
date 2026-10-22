@@ -1,4 +1,4 @@
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Star } from "lucide-react";
 import type { AgentCitation, ProductSummary } from "../../types";
 import { sourceAnchor } from "./citations";
 import { isReview, pickName } from "./comparison";
@@ -44,6 +44,11 @@ export function SourceList({
               <p className="ask-source-head">
                 {nameFor(citation.product_id) ? <strong>{nameFor(citation.product_id)}</strong> : null}
                 <span className="ask-pill ask-pill-quiet">{isReview(citation) ? "Review" : "Listing"}</span>
+                {isReview(citation) && citation.rating != null ? (
+                  <span className="ask-source-stars" aria-label={`Rated ${citation.rating.toFixed(1)} out of 5`}>
+                    <Star size={12} fill="currentColor" aria-hidden="true" />{citation.rating.toFixed(1)}
+                  </span>
+                ) : null}
                 {isReview(citation) && citation.title ? <span>{citation.title}</span> : null}
               </p>
               {citedLine(citation, answer) ? <p className="ask-source-quote">“{citedLine(citation, answer)}”</p> : null}

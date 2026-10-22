@@ -11,7 +11,12 @@ from __future__ import annotations
 import pytest
 
 from service.models import EvidenceRecord, ProductSummary
-from service.synthesis import SynthesisOutputError, _validated_output, reference_name
+from service.synthesis import (
+    SynthesisOutputError,
+    _validated_output,
+    reference_name,
+    validate_cited_answer,
+)
 
 BATTERY_EVIDENCE = "Battery life 48 hours of playback on a single charge."
 RATING_EVIDENCE = "Weight 68 grams. Water rating IP55."
@@ -1211,3 +1216,31 @@ def test_a_brand_that_reads_as_a_measurement_does_not_hide_that_measurement():
             [evidence("Active noise cancellation."), speaker_evidence],
             [product(), speaker],
         )
+
+
+def test_a_cited_review_keeps_its_reviewers_stars_and_a_listing_has_none():
+    listing = evidence(
+        "Active noise cancellation for a distraction-free listening experience."
+    )
+    review = EvidenceRecord(
+        evidence_id=2,
+        product_id=1,
+        evidence_type="customer_review",
+        source_name="Amazon Reviews 2023",
+        source_uri="https://example.invalid/review",
+        revision="r1",
+        title="Broken on arrival",
+        text="The headphones came with a broken earcup.",
+        rating=3.0,
+    )
+    citations = validate_cited_answer(
+        "The AuriLogic Flight ANC describes active noise cancellation [1]. "
+        "A reviewer describes a broken earcup on arrival [2].",
+        [product()],
+        [listing, review],
+    )
+
+    assert [(citation.number, citation.rating) for citation in citations] == [
+        (1, None),
+        (2, 3.0),
+    ]
