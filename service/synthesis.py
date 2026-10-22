@@ -564,10 +564,8 @@ def lead_with_better_rated(
     lead = picks[0] if picks else None
     if lead is None or lead.rating is None or lead.category_key is None:
         return picks, None
-    named = {
-        product_id for _, _, product_id in _named_product_mentions(question, picks)
-    }
-    if lead.product_id in named:
+    # Checked alone, so two listings that share a name cannot compete for one mention.
+    if _named_product_mentions(question, [lead]):
         return picks, None
     for candidate in picks[1:]:
         if (
@@ -581,6 +579,29 @@ def lead_with_better_rated(
                 *(pick for pick in picks if pick is not candidate),
             ], candidate
     return picks, None
+
+
+def _validate_lead(
+    answer: str,
+    products: Sequence[ProductSummary],
+    citations: Sequence[AgentCitation],
+    question: str,
+) -> None:
+    """Reject an answer that leads with a pick the lead rule would not put first.
+
+    The cards follow the answer, and the writing model can call any product the
+    best fit whatever order it was given. The message names no rating, because
+    every number the repair writes is checked as a claim about a product.
+    """
+    ordered = recommendations_in_answer_order(answer, products, citations)
+    _, better = lead_with_better_rated(question, ordered)
+    if better is not None:
+        raise SynthesisOutputError(
+            f"The answer leads with {reference_name(ordered[0])}, which is rated at "
+            f"least {LEAD_STAR_GAP:g} star lower than {reference_name(better)}, a pick "
+            f"of the same kind. Name {reference_name(better)} first, as the best fit, "
+            "and write about the other after it"
+        )
 
 
 #: Unit spellings that mean the same measurement, mapped to one family name.
@@ -1523,6 +1544,14 @@ def synthesize_cited_answer(
     # 1,400-token answer budget by not spending it on reasoning.
     if thinking_off := thinking_off_fields(settings.synthesis_model_id):
         request["additionalModelRequestFields"] = thinking_off
+
+    def validated(response: dict[str, Any]) -> tuple[str, list[AgentCitation]]:
+        answer, citations = _validated_output(
+            response, products, evidence_records, question
+        )
+        _validate_lead(answer, products, citations, question)
+        return answer, citations
+
     responses = [
         runtime.converse(
             **request,
@@ -1530,9 +1559,7 @@ def synthesize_cited_answer(
         )
     ]
     try:
-        answer, citations = _validated_output(
-            responses[-1], products, evidence_records, question
-        )
+        answer, citations = validated(responses[-1])
     except SynthesisOutputError as error:
         draft = _text(responses[-1])
         responses.append(
@@ -1564,9 +1591,7 @@ def synthesize_cited_answer(
                 ],
             )
         )
-        answer, citations = _validated_output(
-            responses[-1], products, evidence_records, question
-        )
+        answer, citations = validated(responses[-1])
     answer = with_limit_notes(_without_empty_alternatives(answer), limits)
     usage = _combined_usage(responses)
     usage["answerability"] = review.model_dump()

@@ -372,3 +372,102 @@ def test_both_finalizers_hand_synthesis_the_better_rated_lead_and_say_why(
         "Sierra NC-2 (4.0 stars) leads instead of Vibe VS-888 (1.8 stars), the agent's "
         "first pick, rated at least 1 star lower than a pick of the same kind."
     ) in step["detail"]
+
+
+class _Writer:
+    """An answerability review that supports every pick, then the scripted drafts."""
+
+    def __init__(self, picks, drafts):
+        self.picks, self.drafts, self.calls = picks, list(drafts), []
+
+    def converse(self, **kwargs):
+        self.calls.append(kwargs)
+        if len(self.calls) == 1:
+            review = {
+                "request_supported": True,
+                "reason": "supported",
+                "products": [
+                    {
+                        "product_id": p.product_id,
+                        "supported": True,
+                        "evidence_ids": [p.product_id],
+                    }
+                    for p in self.picks
+                ],
+            }
+            content = {"toolUse": {"name": "record_answerability", "input": review}}
+            stop = "tool_use"
+        else:
+            content, stop = {"text": self.drafts.pop(0)}, "end_turn"
+        return {
+            "stopReason": stop,
+            "output": {"message": {"content": [content]}},
+            "usage": {"inputTokens": 1, "outputTokens": 1},
+        }
+
+
+def _write(picks, drafts, question="headphones that help me focus"):
+    from types import SimpleNamespace
+
+    from service.synthesis import synthesize_cited_answer
+
+    records = [
+        evidence("Active noise cancellation.").model_copy(
+            update={"product_id": p.product_id, "evidence_id": p.product_id}
+        )
+        for p in picks
+    ]
+    writer = _Writer(picks, drafts)
+    answer, _, _ = synthesize_cited_answer(
+        question,
+        picks,
+        records,
+        client=writer,
+        settings=SimpleNamespace(synthesis_model_id="test", aws_region="us-east-1"),
+    )
+    return answer, writer
+
+
+VIBE_FIRST = "Vibe VS-888 has active noise cancellation [2]. Sierra NC-2 does too [1]."
+SIERRA_FIRST = (
+    "Sierra NC-2 has active noise cancellation [1]. Vibe VS-888 does too [2]."
+)
+
+
+def test_a_draft_leading_with_a_much_lower_rated_pick_is_rewritten_to_lead_with_the_other():
+    picks = [_rated(2, 4.0, name="Sierra NC-2"), _rated(1, 1.8, name="Vibe VS-888")]
+
+    answer, writer = _write(picks, [VIBE_FIRST, SIERRA_FIRST])
+
+    assert answer.startswith("Sierra NC-2")
+    repair = writer.calls[-1]["messages"][-1]["content"][0]["text"]
+    assert "Name Sierra NC-2 first, as the best fit" in repair
+    assert "1.8" not in repair and "4.0" not in repair
+
+
+def test_an_answer_that_keeps_the_lower_rated_lead_after_repair_is_refused():
+    from service.synthesis import SynthesisOutputError
+
+    picks = [_rated(2, 4.0, name="Sierra NC-2"), _rated(1, 1.8, name="Vibe VS-888")]
+
+    with pytest.raises(SynthesisOutputError, match="leads with Vibe VS-888"):
+        _write(picks, [VIBE_FIRST, VIBE_FIRST])
+
+
+@pytest.mark.parametrize(
+    ("question", "kind"),
+    [
+        ("I'm looking at the Vibe VS-888. Is it good for focus?", "headphones"),
+        ("focus", "chair"),
+    ],
+)
+def test_a_named_or_different_kind_lead_is_written_as_the_model_chose(question, kind):
+    picks = [
+        _rated(2, 4.0, name="Sierra NC-2", kind=kind),
+        _rated(1, 1.8, name="Vibe VS-888"),
+    ]
+
+    answer, writer = _write(picks, [VIBE_FIRST], question=question)
+
+    assert answer.startswith("Vibe VS-888")
+    assert len(writer.calls) == 2
