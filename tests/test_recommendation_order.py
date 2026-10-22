@@ -362,6 +362,9 @@ def test_both_finalizers_hand_synthesis_the_better_rated_lead_and_say_why(
         agent_tools._RUN.reset(token)
 
     assert [p.product_id for p in synthesis.call_args.args[1]] == [2, 1]
+    # Evidence is numbered in the same order: a model shown the first pick's records
+    # as [1] calls that pick the best fit, whatever order the products came in.
+    assert [record.product_id for record in synthesis.call_args.args[2]] == [2, 1]
     step = state["trace"][-1]
     assert step["tool"] == "synthesize_cited_answer"
     assert step["arguments"]["product_ids"] == ([2, 1] if fallback else [1, 2])

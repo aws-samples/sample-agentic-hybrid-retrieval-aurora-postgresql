@@ -1546,7 +1546,6 @@ def synthesize_cited_answer(
             "selected products were not compared in this run",
             "call compare_products with every selected product before synthesis.",
         )
-    evidence = _evidence_for_products(state, unique_ids)
     missing_evidence = [
         product_id
         for product_id in unique_ids
@@ -1567,6 +1566,9 @@ def synthesize_cited_answer(
         )
     agent_lead = products[0]
     products, promoted = lead_with_better_rated(state["question"], products)
+    evidence = _evidence_for_products(
+        state, [product.product_id for product in products]
+    )
     try:
         answer, citations, usage = synthesize_answer(
             _synthesis_question(state),
