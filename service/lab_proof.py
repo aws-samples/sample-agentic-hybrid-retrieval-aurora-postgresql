@@ -546,11 +546,13 @@ def _run_sql_digests(rows: AgentTurnRows) -> list[str]:
 def _managed_agent_checks(rows: AgentTurnRows | None) -> list[LabCheck]:
     """Whether Runtime, Gateway, Aurora and the run itself all carry today's work.
 
-    Runtime refuses to answer from code other than the workspace's, so a saved
-    run already came from the workspace's code. SQL is applied separately: a
-    run saved before the last apply searched with SQL the lab files no longer
-    hold, so each of its searches must have recorded the current lab files.
-    Empty when no Runtime is configured, as in offline and local runs.
+    Runtime refuses to answer from code other than the workspace's, but only at
+    the time of the request: an edit and deploy afterwards changes both, so the
+    run must record the application that made it, and that must be the one
+    deployed now. SQL is applied separately: a run saved before the last apply
+    searched with SQL the lab files no longer hold, so each of its searches must
+    have recorded the current lab files. Empty when no Runtime is configured, as
+    in offline and local runs.
     """
     from service import agentcore_transport, gateway_tools
 
@@ -575,10 +577,20 @@ def _managed_agent_checks(rows: AgentTurnRows | None) -> list[LabCheck]:
             workspace_sql = participant_sql_digest()
             with connect() as connection:
                 sql_applied = applied_sql_digest(connection) == workspace_sql
-            code_deployed = status.get("application_sha256") == application_digest()
+            workspace_code = application_digest()
+            code_deployed = status.get("application_sha256") == workspace_code
+            run_code = _as_dict(rows.turn.get("extracted_intent")).get(
+                "application_sha256"
+            )
+            run_on_current_code = run_code == workspace_code
             run_sql = _run_sql_digests(rows)
             run_on_current_sql = run_sql == [workspace_sql]
-            deployed = code_deployed and sql_applied and run_on_current_sql
+            deployed = (
+                code_deployed
+                and sql_applied
+                and run_on_current_sql
+                and run_on_current_code
+            )
             if code_deployed and not sql_applied:
                 failure = f"Aurora runs search SQL different from your lab files in Code Editor. Next: apply it with {APPLY_SQL}, then ask Alex's question again."
             elif code_deployed and not run_on_current_sql:
@@ -588,13 +600,24 @@ def _managed_agent_checks(rows: AgentTurnRows | None) -> list[LabCheck]:
                     "your last apply. Next: ask Alex's setup request again with "
                     "ask_agent.py, then prove the new run."
                 )
+            elif code_deployed and not run_on_current_code:
+                made_by = (
+                    f"was made by Retrieval agent code {run_code[:12]}, not the "
+                    f"deployed {workspace_code[:12]}: it was saved before your last deploy"
+                    if isinstance(run_code, str)
+                    else "does not record which Retrieval agent code made it"
+                )
+                failure = (
+                    f"This run {made_by}. Next: ask Alex's setup request again "
+                    "with ask_agent.py, then prove the new run."
+                )
     except (RuntimeError, ValueError) as error:
         failure = f"Deployment check failed ({type(error).__name__}). Next: deploy with {DEPLOY_AGENT} in Code Editor, then ask Alex's question again."
     return [
         LabCheck(
             name="managed_agent_deployed",
             passed=deployed,
-            falsifier="Runtime or Gateway serves code different from the participant workspace, a search in the run used SQL other than the current lab files, or the run has no Gateway-readable search.",
+            falsifier="Runtime or Gateway serves code different from the participant workspace, the run was made by other code, a search in the run used SQL other than the current lab files, or the run has no Gateway-readable search.",
             detail=detail if deployed else failure,
         )
     ]

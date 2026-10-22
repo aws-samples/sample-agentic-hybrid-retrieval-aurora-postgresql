@@ -1046,17 +1046,25 @@ def test_browser_proof_executes_every_required_control(monkeypatch, lab_id, expe
 
 CURRENT_SQL = "c" * 64
 EARLIER_SQL = "a" * 64
+CURRENT_APPLICATION = "b" * 64
+EARLIER_APPLICATION = "e" * 64
+_UNRECORDED = object()
 
 
-def _managed_run(monkeypatch, *, searched_with: str) -> None:
+def _managed_run(
+    monkeypatch, *, searched_with: str, made_by: object = CURRENT_APPLICATION
+) -> None:
     """A grounded saved run, its searches recorded with `searched_with`.
 
     Runtime serves the workspace's code and Aurora runs the workspace's SQL,
-    so only the run's own recorded SQL can make the deployment check differ.
+    so only what the run itself recorded, the SQL its searches used and the
+    application that made it, can make the deployment check differ.
     """
     connection = _grounded_connection()
     for search in connection.searches:
         search["diagnostics"] = {"search_sql_sha256": searched_with}
+    if made_by is not _UNRECORDED:
+        connection.turn["extracted_intent"]["application_sha256"] = made_by
     _use(monkeypatch, connection)
     _resolve_evidence(monkeypatch)
     monkeypatch.setattr(
@@ -1064,10 +1072,11 @@ def _managed_run(monkeypatch, *, searched_with: str) -> None:
     )
     monkeypatch.setattr(
         "service.agentcore_transport.deployed_status",
-        lambda: {"application_sha256": "b" * 64},
+        lambda: {"application_sha256": CURRENT_APPLICATION},
     )
     monkeypatch.setattr(
-        "service.lab_validation_receipt.application_digest", lambda: "b" * 64
+        "service.lab_validation_receipt.application_digest",
+        lambda: CURRENT_APPLICATION,
     )
     monkeypatch.setattr(
         "service.lab_validation_receipt.participant_sql_digest", lambda: CURRENT_SQL
@@ -1105,3 +1114,22 @@ def test_a_run_made_with_the_current_sql_is_credited(monkeypatch) -> None:
 
     assert _deployment_check(proof).passed
     assert proof.status == "pass"
+
+
+@pytest.mark.parametrize(
+    "made_by", [EARLIER_APPLICATION, _UNRECORDED], ids=["earlier-code", "unrecorded"]
+)
+def test_a_run_made_by_code_no_longer_deployed_is_not_credited(
+    monkeypatch, made_by
+) -> None:
+    """Run A came from code A; code B is deployed and matches the workspace; A is
+    submitted. Its SQL is current, so only the run's application identity can
+    tell, and a run that recorded none cannot prove which code made it."""
+    _managed_run(monkeypatch, searched_with=CURRENT_SQL, made_by=made_by)
+
+    proof = lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID)
+
+    check = _deployment_check(proof)
+    assert proof.status == "fail"
+    assert not check.passed
+    assert "ask_agent.py" in check.detail

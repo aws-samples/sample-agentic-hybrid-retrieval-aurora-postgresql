@@ -1939,6 +1939,8 @@ def _persisted_intent(
     usage: dict[str, Any],
 ) -> dict[str, Any]:
     """Build the server-owned scope needed to authorize a later follow-up."""
+    from service.lab_validation_receipt import application_digest
+
     return {
         "plan": plan,
         "memory": state.get("memory", {}),
@@ -1963,6 +1965,9 @@ def _persisted_intent(
         ],
         "usage": usage,
         "telemetry": state.get("telemetry", {}),
+        # Read by the Lab 3 completion proof: a run counts only for the code
+        # that made it, which a later edit and deploy replaces.
+        "application_sha256": application_digest(),
     }
 
 

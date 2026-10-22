@@ -680,6 +680,25 @@ def test_a_failed_run_persists_no_outcome(monkeypatch):
     assert intent["decline_reason"] is None
 
 
+@pytest.mark.parametrize("code", ["a" * 64, "b" * 64])
+def test_a_saved_run_records_the_application_that_made_it(monkeypatch, code):
+    """Lab 3's proof compares this with the code deployed when it is checked."""
+    state = run_state(coverage=[grounded()])
+    connection = _FakeConnection()
+
+    @contextmanager
+    def connect():
+        yield connection
+
+    monkeypatch.setattr(agent_tools, "connect", connect)
+    monkeypatch.setattr(
+        "service.lab_validation_receipt.application_digest", lambda: code
+    )
+    agent_tools.persist_completed_run(state, usage={})
+
+    assert _persisted_intent(connection)["application_sha256"] == code
+
+
 def test_the_search_event_ids_are_uuids_the_state_holds():
     """Guards the fixture itself, which several assertions above depend on."""
     state = run_state(coverage=[unanchored("A2342")])
