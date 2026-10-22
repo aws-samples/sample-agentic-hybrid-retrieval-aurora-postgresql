@@ -230,3 +230,67 @@ def test_hnsw_exercise_tiers_separate_fast_from_small_and_unused_indexes():
     assert fast_only["fast"] and not fast_only["small"]
     assert not unused["fast"]
     assert any("does not use x" in failure for failure in unused["failures"])
+
+
+@pytest.mark.parametrize(
+    ("line", "used"),
+    [
+        ("  ->  Index Scan using shrink_hp on product_listing", True),
+        ("  ->  Index Only Scan using shrink_hp on product_listing", True),
+        ("  ->  Index Scan Backward using shrink_hp on product_listing", True),
+        ("        ->  Bitmap Index Scan on shrink_hp", True),
+        ("  ->  Index Scan using shrink_hp_old on product_listing", False),
+        ("  ->  Index Scan using old_shrink_hp on product_listing", False),
+        ("  ->  Seq Scan on shrink_hp", False),
+        ("        Filter: (category_key = 'shrink_hp'::text)", False),
+    ],
+)
+def test_hnsw_exercise_credits_only_a_scan_node_that_names_the_index(line, used):
+    plan = [
+        "Limit (actual time=0.1..0.2 rows=150 loops=1)",
+        line,
+        "Execution Time: 1.0 ms",
+    ]
+
+    assert ("shrink_hp" in hnsw_exercise.plan_indexes(plan)) is used
+
+
+def test_hnsw_exercise_does_not_credit_another_index_whose_name_contains_yours(
+    monkeypatch,
+):
+    """Index `product` must not take credit for `product_search_vector_idx`'s scan.
+
+    Recall, timing and size are stand-ins chosen to pass, so only the plan's
+    index identity can fail the grade.
+    """
+    from unittest.mock import MagicMock
+
+    connection, cursor = MagicMock(), MagicMock()
+    connection.__enter__.return_value = connection
+    connection.cursor.return_value.__enter__.return_value = cursor
+    cursor.fetchall.return_value = [{"product_id": 1}]
+    cursor.fetchone.side_effect = [{"b": 1000}, {"b": 100}, {"b": 100}]
+    plan = [
+        "Limit",
+        "  ->  Index Scan using product_search_vector_idx on product_listing",
+        "Execution Time: 1.0 ms",
+    ]
+    monkeypatch.setattr(hnsw_exercise, "_connect", lambda: connection)
+    monkeypatch.setattr(hnsw_exercise, "query_vectors", lambda: ["[0]"])
+    monkeypatch.setattr(
+        hnsw_exercise,
+        "measure_build",
+        lambda *_args: ({"recall": 1.0, "time_ratio": 0.2}, [plan]),
+    )
+
+    result = hnsw_exercise.grade(
+        "CREATE INDEX product ON mosaic_search.product_listing USING hnsw "
+        "((embedding::halfvec(1024)) halfvec_cosine_ops) "
+        "WHERE category_key = 'headphones';",
+        "SELECT product_id FROM mosaic_search.product_listing "
+        "WHERE category_key = 'headphones' "
+        "ORDER BY embedding <=> :'hnsw_vector'::vector LIMIT :hnsw_limit;",
+    )
+
+    assert not result["fast"] and not result["small"]
+    assert any("does not use product" in failure for failure in result["failures"])

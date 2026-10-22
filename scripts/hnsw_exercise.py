@@ -117,6 +117,17 @@ def _execution_ms(cur: Any, sql: str, args: tuple = ()) -> tuple[float, list[str
     return float(re.search(r"([\d.]+) ms", line).group(1)), plan
 
 
+#: The index a scan node reads, as text EXPLAIN prints it.
+_INDEX_SCAN = re.compile(
+    r"\b(?:Index(?: Only)? Scan(?: Backward)? using|Bitmap Index Scan on)\s+(\S+)"
+)
+
+
+def plan_indexes(plan: list[str]) -> set[str]:
+    """The indexes the plan's scan nodes read, never names elsewhere in its text."""
+    return {match.group(1) for line in plan for match in _INDEX_SCAN.finditer(line)}
+
+
 def _participant_ids(cur: Any, statement: str) -> list[int]:
     try:
         cur.execute(statement)
@@ -189,9 +200,7 @@ def grade(index_text: str, search_text: str) -> dict[str, Any]:
             size = cur.fetchone()["b"]
             result, plans = measure_build(cur, search_text, vectors, exact)
             result["index_bytes"] = size
-            result["uses_index"] = all(
-                any(name in line for line in plan) for plan in plans
-            )
+            result["uses_index"] = all(name in plan_indexes(plan) for plan in plans)
             builds.append(result)
             cur.execute("ROLLBACK TO SAVEPOINT build")
         connection.rollback()
