@@ -109,7 +109,7 @@ function filterLesson(measured: HnswMeasured) {
       `${off ? off.rows_returned : "?"} of ${narrowest.exact_rows_found} exact rows per query; ` +
       `${label} at ${best.scan_mem_mb} MB returned ${best.rows_returned} at ` +
       `${best.server_ms} ms server p50, recall ${(best.recall_at_k * 100).toFixed(1)}%. ` +
-      `A shortlist that never fills is the signal, whatever the recall figure says.`,
+      `Too few rows returned is the signal, whatever the recall figure says.`,
   };
 }
 

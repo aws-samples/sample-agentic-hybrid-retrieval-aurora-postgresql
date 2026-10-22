@@ -49,7 +49,7 @@ function FilterComparison({ measured }: { measured: HnswMeasured | null }) {
   const rows = comparableScanModes(level);
   const exact = level?.exact_rows_found ?? 0;
   const strictGain = rows.length ? rows[1].rows_returned - rows[0].rows_returned : 0;
-  return <ScaleSection id="scale-filters" title="Keep looking after filters." description="A filter can empty the shortlist. Iterative scans keep looking until it fills.">
+  return <ScaleSection id="scale-filters" title="Keep looking after filters." description="A filter can leave too few products. Iterative scans keep looking until enough pass.">
     {measured && level ? <>
       <div className="scale-selector"><span>Alex’s filter</span><SegmentedControl label="Alex’s filter" options={available.map((item) => ({ value: item.preset, label: item.label }))} value={level.preset} onChange={setPreset} /></div>
       {rows.length ? <>
@@ -85,7 +85,7 @@ function RepresentationComparison({ measured }: { measured: HnswMeasured | null 
       {binaryRows.length ? <div className="scale-selector"><span>Binary: matches re-checked</span><SegmentedControl label="Binary: matches re-checked" options={binaryRows.flatMap((row) => row.overfetch == null ? [] : [{ value: row.overfetch, label: String(row.overfetch) }])} value={selected?.overfetch ?? undefined} onChange={setDepth} /></div> : null}
       <Inspect label="Measurement details">
         <MeasurementNote measured={measured} />
-        <p className="scale-measurement-note"><strong>halfvec</strong> stores each number in 16 bits. <strong>Binary storage</strong> keeps one sign bit, then re-checks its shortlist by cosine distance against the original vectors. Re-checking more matches recovers recall, at extra time.</p>
+        <p className="scale-measurement-note"><strong>halfvec</strong> stores each number in 16 bits. <strong>Binary storage</strong> keeps one sign bit, then re-checks its closest matches by cosine distance against the original vectors. Re-checking more matches recovers recall, at extra time.</p>
         <p className="scale-measurement-note">{representations.anchors} queries · ef_search {representations.ef_search}. Recall is checked against full-precision exact search. Index size includes graph overhead.</p>
       </Inspect>
     </> : <><div className="scale-format-basics"><span>Full precision · vector</span><span>Half precision · halfvec</span><span>Binary, then re-checked · bit</span></div><p className="inspector-waiting">Format measurements are unavailable for this catalog.</p></>}
@@ -142,7 +142,7 @@ function ScaleInspector() {
   const effort = measured?.ef_sweep.length ? measured.ef_sweep : null;
   return <div className="page pipeline-inspector scale-essentials">
     <MosaicLabsTabs active="hnsw" />
-    <div className="inspector-intro"><MosaicLabsMasthead title={<>A small shortlist. <span className="inspector-title-emphasis">A much larger search.</span></>} deck="More search effort finds more matches, until it only costs more time." action={<CatalogBuildDrawer />} /></div>
+    <div className="inspector-intro"><MosaicLabsMasthead title={<>A few matches. <span className="inspector-title-emphasis">A much larger search.</span></>} deck="More search effort finds more matches, until it only costs more time." action={<CatalogBuildDrawer />} /></div>
     {substrate ? <ul className="scale-chips" aria-label="Current index"><li>{substrate.corpus.vector_count.toLocaleString()} product embeddings</li><li>{substrate.corpus.dimensions ?? "Unreported"} dimensions</li><li>pgvector {substrate.aurora.vector_extension_version ?? "version not reported"}</li></ul> : null}
     {pending ? <p className="scale-status" role="status"><PulseDot />Reading the catalog and benchmarks…</p> : null}
     {unavailable.length ? <p className="scale-intro-note" role="note">{unavailable.join(" ")}</p> : null}

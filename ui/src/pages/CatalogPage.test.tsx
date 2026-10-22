@@ -627,7 +627,7 @@ describe("CatalogPage", () => {
   }, stageDwellMs * 4 + 10_000);
 
   it("clears the conversation without dismissing the panel", async () => {
-    // Shop's "Clear shortlist" closes the panel because it is a Shop control. This
+    // Shop's "Clear picks" closes the panel because it is a Shop control. This
     // one has to leave the reader inside the conversation it emptied, back on the
     // entry state, or clearing a thread means losing the thing you were reading.
     renderPage();
@@ -1419,14 +1419,14 @@ describe("CatalogPage", () => {
       target: { value: agentResponse.question },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
-    await screen.findByText("Ask Mosaic shortlist");
+    await screen.findByText("Ask Mosaic picks");
     const comfort = pipelineRequests.find((request) => request.id === "comfortable-days")!;
     const next = deferredSearch<SearchResponse>();
     vi.mocked(api.search).mockReturnValueOnce(next.promise);
     fireEvent.click(screen.getByRole("button", { name: comfort.label }));
     await waitFor(() => expect(api.search).toHaveBeenCalledTimes(1));
     expect(document.querySelectorAll(".shop-product-grid [data-product-id]")).toHaveLength(0);
-    expect(screen.queryByText("Ask Mosaic shortlist")).toBeNull();
+    expect(screen.queryByText("Ask Mosaic picks")).toBeNull();
     expect(within(screen.getByRole("complementary", { name: "Ask Mosaic" }))
       .getByText(agentResponse.question)).toBeTruthy();
 
@@ -1744,7 +1744,7 @@ describe("CatalogPage", () => {
     const sources = within(dialog).getByRole("region", { name: "Sources" });
     expect(within(sources).getByText("Measured for shared-office use.", { exact: false })).toBeTruthy();
     expect(within(dialog).queryByText("Still unknown")).toBeNull();
-    expect(screen.getByText("Ask Mosaic shortlist")).toBeTruthy();
+    expect(screen.getByText("Ask Mosaic picks")).toBeTruthy();
 
     // Builder view, on unless the viewer turned it off, puts the recorded steps
     // and ranks on the page.
@@ -2550,7 +2550,7 @@ describe("CatalogPage", () => {
       { target: { value: agentResponse.question } },
     );
     fireEvent.click(screen.getByRole("button", { name: "Send request" }));
-    await screen.findByText("Ask Mosaic shortlist");
+    await screen.findByText("Ask Mosaic picks");
 
     fireEvent.click(
       within(screen.getByRole("complementary", { name: "Ask Mosaic" }))
@@ -2558,8 +2558,8 @@ describe("CatalogPage", () => {
     );
     expect(screen.queryByRole("complementary", { name: "Ask Mosaic" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Clear shortlist" }));
-    expect(screen.queryByText("Ask Mosaic shortlist")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Clear picks" }));
+    expect(screen.queryByText("Ask Mosaic picks")).toBeNull();
     expect(screen.getByRole("region", { name: "Workspace products" })).toBeTruthy();
   });
 

@@ -63,7 +63,7 @@ export function useAskMosaicConversation(
    * Bumping the version first is what keeps this a clean stop rather than an
    * error: `run`'s own `.catch` and `.finally` already no-op once their version
    * is stale, so aborting after the bump can never overwrite the cancelled
-   * state set here with an "AbortError" message. Whatever text, shortlist, or
+   * state set here with an "AbortError" message. Whatever text, picks, or
    * trace had already arrived stays on screen; only the turn's own `loading`
    * and stage end.
    */

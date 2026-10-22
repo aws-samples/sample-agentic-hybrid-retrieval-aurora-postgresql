@@ -110,7 +110,7 @@ What the table establishes:
   remembered rule.
 - **Rows returned is the first thing to read.** Off returned 0.29 rows per
   query under the Bose filter at 1.11 ms and looked fast. Ninety-five products
-  match that filter; a shortlist that never fills is the signal.
+  match that filter; too few rows returned is the signal.
 - **The rows are deterministic; only the timings carry noise.** On
   26 September two sweeps of the earlier 70-anchor set, at `3f5a379` and
   `2efb0be`, returned the same recall and rows to four decimals. The graph, the

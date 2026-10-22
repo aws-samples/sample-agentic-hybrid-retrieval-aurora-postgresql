@@ -380,7 +380,7 @@ Band headlines are `clamp(40px, 5.2vw, 64px)`, or `clamp(34px, 4.2vw, 52px)` in
 the splits. Band links are 17px in `--link`, or `--stage-link` on the dark band.
 Below 820px the splits stack copy, image, then notes.
 
-**Ranked results.** A search or an Ask Mosaic shortlist replaces the story.
+**Ranked results.** A search or Ask Mosaic's picks replace the story.
 Ranked results read as an editorial list. The first in the final order is a
 feature on a `--paper-warm` card with a 28px radius, photograph and facts side
 by side, the copy vertically centred. The photograph follows the plate rule:
@@ -392,8 +392,8 @@ position is a 24px `--paper-strong` hairline pill in the plate's top-left corner
 outline chip around a drawn checkbox. Browsing has no order, so it keeps the
 product grid.
 
-When Ask Mosaic's shortlist replaces the results, its headline is the label
-alone ("Ask Mosaic shortlist", 28 to 32px) and the question sits under it as a
+When Ask Mosaic's picks replace the results, its headline is the label
+alone ("Ask Mosaic picks", 28 to 32px) and the question sits under it as a
 17px `--ink-soft` line clamped to two lines, with "Show all" only when the clamp
 hides something (`ShortlistQuestion.tsx`). "Results for …" is one balanced 28 to
 32px heading clamped to two lines; under 820px the ways to ask, the scope line and

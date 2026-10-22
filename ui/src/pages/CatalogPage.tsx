@@ -438,7 +438,7 @@ export function CatalogPage() {
     ...Object.keys(filters.attributes ?? {}),
   ].filter(Boolean).length;
   // The panel holds a conversation, so Shop follows the newest exchange that
-  // produced an answer: an in-flight follow-up leaves the current shortlist,
+  // produced an answer: an in-flight follow-up leaves the current picks,
   // banner, and numbering in place until its own answer arrives.
   const agent = answeredTurn?.contextKey === retrievalRequest ? answeredTurn.response : null;
   const agentQuestion = answeredTurn?.question ?? "";
@@ -1000,7 +1000,7 @@ export function CatalogPage() {
   /**
    * Same discard, without dismissing the panel.
    *
-   * "Clear shortlist" on the Shop rail closes the panel because it is a Shop
+   * "Clear picks" on the Shop rail closes the panel because it is a Shop
    * control acting on Shop; the panel's own control has to leave the reader
    * inside the conversation it just emptied, back on the entry state. The version
    * bump is what orphans a stream that is still open: the turn id it would patch
@@ -1540,10 +1540,10 @@ export function CatalogPage() {
           ) : agentProducts ? (
             <div ref={resultsAnchorRef} className="shop-query-state is-shortlist">
               <div className="shop-query-copy">
-                <h2>Ask Mosaic shortlist</h2>
+                <h2>Ask Mosaic picks</h2>
                 <ShortlistQuestion question={agentQuestion} />
               </div>
-              <button type="button" onClick={clearAgentResults}>Clear shortlist</button>
+              <button type="button" onClick={clearAgentResults}>Clear picks</button>
             </div>
           ) : activeQuery && !rankNotOpen ? (
             <div ref={resultsAnchorRef} className="shop-query-state">

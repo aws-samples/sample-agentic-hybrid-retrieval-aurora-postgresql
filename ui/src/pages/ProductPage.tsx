@@ -267,7 +267,7 @@ export function ProductPage() {
           </div>
 
           <button type="button" className="product-save-button" aria-label={saved ? `Remove ${product.title} from saved products` : `Save ${product.title}`} aria-pressed={saved} onClick={() => toggleFavorite(product.product_id)}>
-            <Heart size={17} fill={saved ? "currentColor" : "none"} /> {saved ? "Saved to your shortlist" : "Save to your shortlist"}
+            <Heart size={17} fill={saved ? "currentColor" : "none"} /> {saved ? "Saved" : "Save product"}
           </button>
           {product.warranty_months != null || product.shipping_days != null ? (
             <div className="product-assurances">

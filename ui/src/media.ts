@@ -25,7 +25,7 @@ export function productImage(product: ProductSummary): string {
 }
 
 /**
- * Keep a product's photo stable across Shop, ranking and the agent's shortlist.
+ * Keep a product's photo stable across Shop, ranking and the agent's picks.
  */
 export function productImageMap(products: ProductSummary[]): Map<number, string> {
   const assigned = new Map<number, string>();

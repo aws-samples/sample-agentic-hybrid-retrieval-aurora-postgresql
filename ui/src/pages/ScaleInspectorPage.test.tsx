@@ -67,7 +67,7 @@ describe("ScaleInspectorPage", () => {
     await waitFor(() => expect(screen.queryByTestId("graph-renderer")).toBeNull());
   });
 
-  it("names each vector format plainly and switches the binary shortlist in place", async () => {
+  it("names each vector format plainly and switches the binary re-check in place", async () => {
     vi.mocked(api.hnswSubstrate).mockRejectedValue(new Error("offline"));
     vi.mocked(api.hnswMeasured).mockResolvedValue(measured);
     render(<ScaleInspectorPage />);

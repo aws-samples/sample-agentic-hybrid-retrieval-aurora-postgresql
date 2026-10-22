@@ -56,7 +56,7 @@ export interface AskMosaicTurn {
   /**
    * True once a reader presses Stop, or a follow-up filter change replaces
    * this turn before it finished. A normal terminal state, not a failure:
-   * whatever text, shortlist, and trace had already arrived stay visible.
+   * whatever text, picks, and trace had already arrived stay visible.
    */
   cancelled: boolean;
   loading: boolean;

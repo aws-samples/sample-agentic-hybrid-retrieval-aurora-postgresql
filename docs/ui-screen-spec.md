@@ -17,7 +17,7 @@ page, redirects to `/catalog#alex-profile`, Alex's brief on the Shop landing.
 Purpose: establish Alex's scenario and use Mosaic as one integrated
 product-discovery experience.
 
-Landing, before a query or an Ask Mosaic shortlist:
+Landing, before a query or Ask Mosaic's picks:
 
 - on a browser's first visit (not under automation), the guided tour: a dimmed page
   with a pulsing ring on one control at a time (search and examples, Browse all

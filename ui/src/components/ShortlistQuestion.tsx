@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
 /**
- * The question an Ask Mosaic shortlist answers, set as a quiet line under the
+ * The question Ask Mosaic's picks answer, set as a quiet line under the
  * headline. A lab request runs to several sentences, so it clamps to two lines
  * and offers the rest only when the clamp actually hides something.
  */
