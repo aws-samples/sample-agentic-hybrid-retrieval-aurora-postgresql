@@ -9,7 +9,7 @@ import logging
 import re
 import threading
 import zipfile
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -636,6 +636,36 @@ async def _admit_and_prepare_stream(
     return request, slot
 
 
+class _AdmittedStream(StreamingResponse):
+    """A streamed agent run that holds its admission slot until the response ends.
+
+    Neither the route's generator nor the agent's can own the slot. Starlette
+    never starts the body when the client leaves before the first byte, and does
+    not close it after a failed send, so their `finally` blocks may never run. The
+    ASGI call always returns, so the slot is released there, once, after closing
+    the body has stopped the agent from scheduling more work.
+    """
+
+    def __init__(
+        self,
+        content: AsyncGenerator[str],
+        slot: threading.BoundedSemaphore,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(content, **kwargs)
+        self._events = content
+        self._slot = slot
+
+    async def __call__(self, scope, receive, send) -> None:
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            try:
+                await self._events.aclose()
+            finally:
+                release_model_admission_slot(self._slot)
+
+
 @app.post("/api/agent/answer/stream")
 async def stream_agent_answer(
     request: AgentRequest, http_request: Request = None
@@ -649,13 +679,9 @@ async def stream_agent_answer(
     Admission control is acquired in `_admit_and_prepare_stream` rather than
     through a route dependency: a dependency releases its slot as soon as
     this function returns the `StreamingResponse` object, before the stream
-    itself has sent a single byte. The slot is held instead for the life of
-    the agent run: it is handed to `ProductDiscoveryAgent.stream` below, which
-    stores it on the run state and releases it from its own `finally` --
-    covering a failure before the stream starts, a failure mid-stream, and a
-    client disconnect, which `events()` observes and turns into closing the
-    agent's stream, which Starlette also does on its own if the process gets
-    there first.
+    itself has sent a single byte. `_AdmittedStream` holds it instead until
+    the response ends, however it ends: completed, failed, or abandoned by a
+    client before or during the run.
     """
     from service import agentcore_transport
 
@@ -676,9 +702,7 @@ async def stream_agent_answer(
         # the fallback synthesis call; see its docstring for what it cannot
         # stop -- a tool call or model round trip already in flight runs to
         # completion regardless, under its own bounded timeout.
-        agent_stream = get_product_discovery_agent().stream(
-            request, admission_slot=slot
-        )
+        agent_stream = get_product_discovery_agent().stream(request)
         try:
             execution_path = (
                 "focused_follow_up" if request.context is not None else "full_retrieval"
@@ -824,14 +848,11 @@ async def stream_agent_answer(
         finally:
             # Idempotent once the generator has already run to completion, and
             # the only path that reaches the disconnect `return` above.
-            # Closing `agent_stream` runs `ProductDiscoveryAgent.stream`'s own
-            # `finally`, which releases `slot` through `release_run_admission`
-            # -- so this generator must not also release it here, which would
-            # be a double release of the same admission slot.
             await agent_stream.aclose()
 
-    return StreamingResponse(
+    return _AdmittedStream(
         events(),
+        slot,
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

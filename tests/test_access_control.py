@@ -275,18 +275,8 @@ def test_streaming_route_holds_its_admission_slot_until_the_stream_completes(
     )
 
     class FakeStreamingAgent:
-        # `service.main.stream_agent_answer` hands its acquired slot to
-        # whatever `.stream()` implementation `get_product_discovery_agent()`
-        # returns; `ProductDiscoveryAgent.stream` releases it through
-        # `release_run_admission` in its own `finally`, so a stand-in agent
-        # must do the same to keep this test meaningful about the route, not
-        # about the real class's internals.
-        async def stream(self, _request, admission_slot=None, **_kwargs):
-            try:
-                yield {"agent_response": response}
-            finally:
-                if admission_slot is not None:
-                    release_model_admission_slot(admission_slot)
+        async def stream(self, _request):
+            yield {"agent_response": response}
 
     monkeypatch.setattr(
         "service.main.get_product_discovery_agent", lambda: FakeStreamingAgent()
@@ -299,10 +289,97 @@ def test_streaming_route_holds_its_admission_slot_until_the_stream_completes(
     )
     assert completed.status_code == 200
 
-    # The generator's own `finally` released the slot once the stream ended, so
-    # a fresh acquire must succeed rather than block or raise.
+    # The response released the slot once the stream ended, exactly once.
+    _assert_one_slot_free()
+
+
+def _admitted_stream(monkeypatch, agent):
+    """The real streaming route with one admission slot, short of the network."""
+    import asyncio
+
+    from service.models import AgentRequest
+
+    monkeypatch.setenv("MOSAIC_MAX_CONCURRENT_MODEL_RUNS", "1")
+    monkeypatch.setenv("MOSAIC_MODEL_RATE_LIMIT_PER_MINUTE", "100")
+    reset_admission_state()
+    monkeypatch.setattr("service.main.prepare_request", lambda request, _http: request)
+    monkeypatch.setattr("service.main.get_product_discovery_agent", lambda: agent)
+    from service.main import stream_agent_answer
+
+    return asyncio.run(stream_agent_answer(AgentRequest(question="A quiet monitor")))
+
+
+def _deliver(response, *, fail_after: int | None = None) -> list[dict]:
+    """Serve one response over ASGI 2.4; the client leaves after `fail_after` messages."""
+    import asyncio
+
+    sent: list[dict] = []
+
+    async def receive():
+        await asyncio.Event().wait()
+
+    async def send(message):
+        if fail_after is not None and len(sent) == fail_after:
+            raise OSError("client disconnected")
+        sent.append(message)
+
+    asyncio.run(
+        response({"type": "http", "asgi": {"spec_version": "2.4"}}, receive, send)
+    )
+    return sent
+
+
+def _assert_one_slot_free():
+    """The limit is one, so a leaked slot fails the first acquire and a double
+    release would have raised from the bounded semaphore already."""
+    from fastapi import HTTPException
+
     slot = acquire_model_admission_slot()
-    release_model_admission_slot(slot)
+    try:
+        with pytest.raises(HTTPException):
+            acquire_model_admission_slot()
+    finally:
+        release_model_admission_slot(slot)
+
+
+class _UnstartedAgent:
+    """Records whether the route ever started the agent's stream."""
+
+    def __init__(self) -> None:
+        self.started = False
+
+    async def stream(self, _request):
+        self.started = True
+        yield {}
+
+
+@pytest.mark.parametrize(
+    "fail_after", [0, 1], ids=["before-headers", "after-first-event"]
+)
+def test_streaming_slot_returns_when_the_client_leaves_before_the_agent_starts(
+    monkeypatch, fail_after
+):
+    from starlette.requests import ClientDisconnect
+
+    agent = _UnstartedAgent()
+    response = _admitted_stream(monkeypatch, agent)
+    with pytest.raises(ClientDisconnect):
+        _deliver(response, fail_after=fail_after)
+    assert not agent.started
+    _assert_one_slot_free()
+
+
+def test_streaming_slot_returns_when_starting_the_run_fails(monkeypatch):
+    from service.agent import ProductDiscoveryAgent
+
+    def unavailable(*_args, **_kwargs):
+        raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr("service.agent_tools.start_run", unavailable)
+    response = _admitted_stream(monkeypatch, ProductDiscoveryAgent())
+    frames = b"".join(message.get("body", b"") for message in _deliver(response))
+    assert b"event: error" in frames
+    _assert_one_slot_free()
 
 
 def test_streaming_route_rejects_before_starting_the_stream_when_saturated(

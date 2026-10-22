@@ -953,9 +953,7 @@ def test_closing_the_stream_stops_scheduling_further_tools_and_synthesis(monkeyp
     A caller that closes `ProductDiscoveryAgent.stream` -- exactly what
     `service.main.stream_agent_answer` does once it observes a client
     disconnect -- must not let the Strands loop schedule another tool call,
-    and must not reach the fallback synthesis path either. `release_run_admission`
-    is the documented hook a future access-control task releases capacity from;
-    this proves it runs on the cancelled path, not only on a completed one.
+    and must not reach the fallback synthesis path either.
     """
     state = run_state(coverage=[grounded()])
     _install_run(monkeypatch, state)
@@ -981,8 +979,6 @@ def test_closing_the_stream_stops_scheduling_further_tools_and_synthesis(monkeyp
         )
 
     monkeypatch.setattr(agent_tools, "complete_grounded_answer", refuse)
-    released: list[Any] = []
-    monkeypatch.setattr("service.agent.release_run_admission", released.append)
 
     async def collect():
         stream = ProductDiscoveryAgent().stream(
@@ -997,9 +993,6 @@ def test_closing_the_stream_stops_scheduling_further_tools_and_synthesis(monkeyp
     assert first_event == {"current_tool_use": {"name": "search_products"}}
     assert model.scheduled == ["search_products"], (
         "a tool call was scheduled after the stream was closed"
-    )
-    assert released == [state], (
-        "release_run_admission did not run on the cancelled path"
     )
 
 
