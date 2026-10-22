@@ -2,13 +2,12 @@
 """Validate each DAT410 lab through the production HTTP and retrieval paths.
 
 Transport only. Every acceptance condition lives in `service.lab_checks`, which
-`service/lab_proof.py` also calls, so the terminal and the browser cannot
+`service/lab_proof.py` also calls, so this check and a saved-run check cannot
 disagree about a check they both run. This file fetches the evidence those
-checks need over HTTP and raises on the first failure, which is what a Makefile
-target wants; the endpoint returns every verdict at once, which is what a page
-wants. One difference is deliberate: for Lab 3 this transport also runs the
-`evidence-grounding` control (G-019) as its own agent run, which the browser
-proof cannot start, so this is the completion gate of record.
+checks need over HTTP and raises on the first failure. Labs 1 and 2 check the
+participant's repair; Lab 3 is a maintainer check of the reference agent, which
+also runs the `evidence-grounding` control (G-019) as its own agent run.
+Participants complete Lab 3 on their saved run with `scripts/complete_agent.py`.
 """
 
 from __future__ import annotations
@@ -414,12 +413,25 @@ def main() -> int:
     parser.add_argument(
         "--api-url", default=os.getenv("LAB_API_URL", "http://127.0.0.1:8000")
     )
-    receipt = parser.add_mutually_exclusive_group()
-    receipt.add_argument("--save-receipt", type=Path)
-    receipt.add_argument("--reuse-receipt", type=Path)
+    maintainer = parser.add_mutually_exclusive_group()
+    maintainer.add_argument("--save-receipt", type=Path)
+    maintainer.add_argument("--reuse-receipt", type=Path)
+    maintainer.add_argument(
+        "--reference",
+        action="store_true",
+        help=(
+            "maintainers only: check the reference answer a clean checkout ships "
+            "for Lab 1 or 2; needs no start and records no completion"
+        ),
+    )
     args = parser.parse_args()
     if (args.save_receipt or args.reuse_receipt) and args.lab != 3:
         parser.error("found receipt option on another lab; fix: use it with --lab 3")
+    if args.reference and args.lab == 3:
+        parser.error(
+            "found --reference on Lab 3; fix: check the reference agent with "
+            "--save-receipt PATH"
+        )
     if args.lab == 3 and not (args.save_receipt or args.reuse_receipt):
         raise SystemExit(
             "Lab 3 validation rule: found --lab 3 without a receipt; Lab 3 is checked "
@@ -432,9 +444,11 @@ def main() -> int:
         2: validate_lab_2,
         3: validate_lab_3,
     }[args.lab]
-    # A receipt is maintainer evidence about the reference agent, not a
-    # participant's completion, so only a participant check needs the start.
-    if args.lab in FAULT_AT_ENTRY and not (args.save_receipt or args.reuse_receipt):
+    # A receipt or a reference check is maintainer evidence about the shipped
+    # answer, not a participant's completion, so only a participant check needs
+    # the start.
+    maintainer_check = bool(args.save_receipt or args.reuse_receipt or args.reference)
+    if args.lab in FAULT_AT_ENTRY and not maintainer_check:
         from service.lab_proof import entry_check
 
         entered = entry_check(args.lab, REPO)
@@ -461,6 +475,12 @@ def main() -> int:
         raise SystemExit(f"Lab {args.lab}: FAIL. {error}") from error
     for check in checks:
         print(f"PASS: {check}")
+    if args.reference:
+        print(
+            f"Lab {args.lab}: the reference answer passed; this is a maintainer "
+            "check, not a participant's completion"
+        )
+        return 0
     if args.lab in {1, 2}:
         record_completion(args.lab, checks, events, REPO)
     print(f"Lab {args.lab}: production-path validation passed")

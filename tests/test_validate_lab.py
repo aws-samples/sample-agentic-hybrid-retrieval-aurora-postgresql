@@ -761,6 +761,98 @@ def test_a_maintainer_receipt_still_validates_lab_3(monkeypatch, tmp_path, flag)
     assert len(calls) == 1
 
 
+@pytest.mark.parametrize("lab", [1, 2])
+def test_a_reference_check_needs_no_start_and_records_no_completion(
+    monkeypatch, tmp_path, capsys, lab
+) -> None:
+    monkeypatch.setattr(validate_lab, "REPO", tmp_path)
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *_: None)
+    monkeypatch.setattr(
+        validate_lab, f"validate_lab_{lab}", lambda *_a, **_k: ["reference holds"]
+    )
+    monkeypatch.setattr(
+        "sys.argv", ["validate_lab.py", "--lab", str(lab), "--reference"]
+    )
+
+    assert validate_lab.main() == 0
+    assert not (tmp_path / f".local/lab-{lab}").exists()
+    output = capsys.readouterr().out
+    assert "PASS: reference holds" in output
+    assert "not a participant's completion" in output
+
+
+def test_a_reference_check_is_refused_for_lab_3(monkeypatch) -> None:
+    monkeypatch.setattr("sys.argv", ["validate_lab.py", "--lab", "3", "--reference"])
+
+    with pytest.raises(SystemExit):
+        validate_lab.main()
+
+
+class _ReachedApi(Exception):
+    pass
+
+
+def _release_lab_step() -> dict:
+    import yaml
+
+    workflow = yaml.safe_load(
+        (
+            validate_lab.Path(__file__).parents[1] / ".github/workflows/ci.yml"
+        ).read_text()
+    )
+    (step,) = [
+        step
+        for step in workflow["jobs"]["model-release"]["steps"]
+        if "scripts/validate_lab.py" in step.get("run", "")
+    ]
+    return step
+
+
+def test_the_release_workflow_lab_commands_reach_the_api_from_a_clean_checkout(
+    monkeypatch, tmp_path
+) -> None:
+    """Each command the release job runs passes every rule that needs no network.
+
+    The checkout is empty, as on a fresh runner: no lab has started and no
+    receipt exists, so only the maintainer contract can get a command this far.
+    """
+    import shlex
+
+    def network(*_args, **_kwargs):
+        raise _ReachedApi
+
+    monkeypatch.setattr(validate_lab, "_request", network)
+    monkeypatch.setattr("dotenv.load_dotenv", lambda *_: None)
+    commands = [
+        line.strip()
+        for line in _release_lab_step()["run"].splitlines()
+        if "scripts/validate_lab.py" in line
+    ]
+    assert len(commands) == 3
+    for command in commands:
+        command = command.replace("$RELEASE_EVIDENCE_DIR", str(tmp_path))
+        words = shlex.split(command.split("2>&1")[0])
+        argv = words[words.index("scripts/validate_lab.py") :]
+        monkeypatch.setattr("sys.argv", argv)
+        with pytest.raises(_ReachedApi):
+            validate_lab.main()
+
+
+def test_the_release_workflow_api_can_boot_on_loopback(monkeypatch) -> None:
+    from service.access_control import assert_bootable
+
+    step = _release_lab_step()
+    assert "--host 127.0.0.1" in step["run"]
+    monkeypatch.delenv("MOSAIC_ORIGIN_VERIFY_SECRET", raising=False)
+    for name, value in step["env"].items():
+        monkeypatch.setenv(name, str(value))
+    get_settings.cache_clear()
+    try:
+        assert_bootable(get_settings())
+    finally:
+        get_settings.cache_clear()
+
+
 def test_api_url_defaults_to_the_lab_api_url_setting(monkeypatch, tmp_path) -> None:
     urls = []
     monkeypatch.setattr(validate_lab, "REPO", tmp_path)

@@ -333,8 +333,15 @@ jobs:
           make test-aurora-invariants 2>&1 \
             | tee "$RELEASE_EVIDENCE_DIR/test-aurora-invariants.log"
 
+      # A clean checkout ships every lab repaired and has started none, so these
+      # are maintainer checks of the reference answers: Labs 1 and 2 with
+      # --reference, Lab 3 with a receipt of the reference agent's own runs.
       - name: Validate all three labs through the API
         if: ${{ !cancelled() && steps.model-aws-credentials.outcome == 'success' }}
+        env:
+          # The API listens on loopback for the validator alone, which holds no
+          # origin secret; the bypass refuses any caller off the loopback.
+          MOSAIC_REQUIRE_ORIGIN_VERIFICATION: 'false'
         run: |
           set -euo pipefail
           uv run uvicorn service.main:app --host 127.0.0.1 --port 8017 > "$RELEASE_EVIDENCE_DIR/api.log" 2>&1 &
@@ -345,10 +352,13 @@ jobs:
             sleep 2
           done
           curl --fail --silent http://127.0.0.1:8017/api/health >/dev/null
-          for lab in 1 2 3; do
-            uv run python scripts/validate_lab.py --lab "$lab" --api-url http://127.0.0.1:8017 2>&1 \
-              | tee "$RELEASE_EVIDENCE_DIR/validate-lab-$lab.log"
-          done
+          api=http://127.0.0.1:8017
+          uv run python scripts/validate_lab.py --lab 1 --reference --api-url "$api" 2>&1 \
+            | tee "$RELEASE_EVIDENCE_DIR/validate-lab-1.log"
+          uv run python scripts/validate_lab.py --lab 2 --reference --api-url "$api" 2>&1 \
+            | tee "$RELEASE_EVIDENCE_DIR/validate-lab-2.log"
+          uv run python scripts/validate_lab.py --lab 3 --save-receipt "$RELEASE_EVIDENCE_DIR/lab-3-receipt.json" --api-url "$api" 2>&1 \
+            | tee "$RELEASE_EVIDENCE_DIR/validate-lab-3.log"
 
       - name: Upload model-backed release evidence
         if: ${{ always() }}
