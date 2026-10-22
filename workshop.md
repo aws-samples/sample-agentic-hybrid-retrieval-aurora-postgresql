@@ -31,9 +31,14 @@ runs in the terminal; the catalog tour and Mosaic are optional there. Mosaic's f
 (Next or Skip the tour); the compass in the header replays it. One-time tips then point
 at the Playground link after the first Shop search and at the Retrieval agent's button and steps.
 Lab 1 starts in `psql` with the request Getting started saved; Shop shows the
-same search as an optional check. Lab 2 continues in `psql` with the monitor
-request that Lab 1's handoff saved. Its optional Shop check selects Monitor
-explicitly, without depending on the participant having visited Shop in Lab 1.
+same search as an optional check, run by the suggested search **Lab 1: a mistyped
+listing ID** with its filters. Lab 2 continues in `psql` with the monitor
+request that Lab 1's handoff saved. Its optional Shop check, the suggested search
+**Lab 2: Alex's monitor request**, selects Monitor itself, without depending on
+the participant having visited Shop in Lab 1. In Shop, each result card prints
+its path (the searches that found it with their ranks, then its combined and
+final positions), and Why this match puts each search's 1 ÷ (k + position) value
+beside the contribution the search recorded.
 Lab 2 ends with `advance --lab 2`, which proves Lab 2 and installs the
 Retrieval agent's starting code. Lab 3 stays in the terminal: deploy, ask the setup
 request and the 100W follow-up with `scripts/ask_agent.py`, then complete the

@@ -19,7 +19,8 @@ shopper; your searches and answers use the source products and their evidence.
 3. Follow Getting started in the terminal: read the catalog's data, indexes and
    search functions in `psql`, then save Lab 1's failing search. Then begin
    **Lab 1** in `psql` with that saved request; Shop shows the same search as
-   an optional check.
+   an optional check, one click away as the suggested search **Lab 1: a mistyped
+   listing ID**.
 
 Claude Code in the prepared terminal can help you investigate a lab. The
 project's [AGENTS.md](AGENTS.md), loaded by [CLAUDE.md](CLAUDE.md), gives it the

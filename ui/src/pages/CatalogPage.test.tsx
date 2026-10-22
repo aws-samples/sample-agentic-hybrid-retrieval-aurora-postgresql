@@ -975,7 +975,7 @@ describe("CatalogPage", () => {
     const examples = await screen.findByRole("group", { name: "Suggested searches" });
     // One unlabelled row: no Keywords / Typo / Intent group names.
     expect(screen.queryByRole("group", { name: /Keywords|Typo|Intent/ })).toBeNull();
-    fireEvent.click(within(examples).getByRole("button", { name: "A mistyped Logitech listing ID" }));
+    fireEvent.click(within(examples).getByRole("button", { name: "Lab 1: a mistyped listing ID" }));
     await waitFor(() => expect(api.search).toHaveBeenCalledWith("B0C2WWFCQB",
       { domain: "consumer_electronics", category_key: "headphones" }, expect.any(Object)));
     const params = new URLSearchParams(window.location.search);
@@ -984,7 +984,7 @@ describe("CatalogPage", () => {
     // The ways to ask stay on screen after the search, with the active one marked.
     await screen.findByRole("region", { name: "How this search ran" });
     const row = screen.getByRole("group", { name: "Suggested searches" });
-    const active = within(row).getByRole("button", { name: "A mistyped Logitech listing ID" });
+    const active = within(row).getByRole("button", { name: "Lab 1: a mistyped listing ID" });
     expect(active.getAttribute("aria-pressed")).toBe("true");
     expect(within(row).getAllByRole("button").filter((button) => button.getAttribute("aria-pressed") === "true")).toHaveLength(1);
   });

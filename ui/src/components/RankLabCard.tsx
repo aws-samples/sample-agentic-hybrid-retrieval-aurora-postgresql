@@ -73,7 +73,7 @@ export const RankLabCard = forwardRef<HTMLElement, {
         : wanted?.finalRank != null
           ? `The ${name} is at final #${wanted.finalRank}.`
           : "";
-      detail = `${where} Inspect each search method’s positions and contributions. Compare the order before reranking with the final positions.`.trim();
+      detail = `${where} Open Why this match on a result for each search’s position and contribution, then Compare positions for the order before and after reranking.`.trim();
     }
   }
 

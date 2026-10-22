@@ -84,10 +84,19 @@ it("renders the repaired verdict with the positions the live response shows", as
   expect(verdict.textContent).toContain("final #5");
   expect(screen.getByRole("region").textContent).not.toMatch(/\bfirst\b/);
 });
-it("names the wanted product from a lookup when the run does not return it", async () => {
+it("names the wanted product by the mission's short name, not its listing title", async () => {
   const absent = { ...seedRun, results: seedRun.results.slice(1) };
   const broken = { ...outcome, tone: "broken" as const };
   render(<RankLabCard mission={mission} response={absent} outcome={broken} playgroundHref="/labs/retrieval" onSearchAgain={() => {}} />);
+  await screen.findByText(`Where is the ${mission.target_display_name}?`);
+  expect(api.product).not.toHaveBeenCalled();
+  expect(screen.getByText(/Open Why this match on a result .* then Compare positions/)).toBeTruthy();
+});
+it("looks the title up when a mission has no short name and the run does not return it", async () => {
+  const absent = { ...seedRun, results: seedRun.results.slice(1) };
+  const broken = { ...outcome, tone: "broken" as const };
+  const unnamed = { ...mission, target_display_name: undefined };
+  render(<RankLabCard mission={unnamed} response={absent} outcome={broken} playgroundHref="/labs/retrieval" onSearchAgain={() => {}} />);
   await screen.findByText("Where is the ViewSonic VG2756-4K?");
   expect(api.product).toHaveBeenCalledWith(wantedId);
   expect(screen.getByText(/The ViewSonic VG2756-4K is not in these results\./)).toBeTruthy();

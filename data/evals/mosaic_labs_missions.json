@@ -166,7 +166,8 @@
       "expected_target_signals": [
         "semantic"
       ],
-      "expected_final_top_k": 5
+      "expected_final_top_k": 5,
+      "target_display_name": "ViewSonic VG2756-4K"
     },
     {
       "id": "agentic-research",
@@ -661,7 +662,7 @@
       {
         "id": "keyword-monitor",
         "kind": "Keywords",
-        "label": "4K · USB-C · 90W",
+        "label": "Lab 2: Alex’s monitor request",
         "reference_id": "rank-with-evidence"
       },
       {
@@ -679,7 +680,7 @@
       {
         "id": "typo-headphones",
         "kind": "Typo",
-        "label": "A mistyped Logitech listing ID",
+        "label": "Lab 1: a mistyped listing ID",
         "reference_id": "typo-recovery"
       },
       {
