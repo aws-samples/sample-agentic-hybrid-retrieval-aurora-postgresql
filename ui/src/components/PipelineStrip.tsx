@@ -33,10 +33,11 @@ const ms = (value: number | undefined) => (value === undefined ? null : `${Math.
  * One search as a left-to-right pipeline: the three searches, the combining in
  * Aurora, the reranking, and how many products were shown.
  *
- * Every number is read from the response. The counts are candidates that
- * survived fusion into the combined pool, not what each search found on its
- * own, and the sentence below says so. `faultArm` is set only by a caller that
- * already holds a lab verdict for this run; the strip never decides a fault.
+ * Every number is read from the response. The counts are candidates on the
+ * shortlist that combining (RRF) sends to reranking, not what each search found
+ * on its own: the same `shortlist` the guide's psql count line prints.
+ * `faultArm` is set only by a caller that already holds a lab verdict for this
+ * run; the strip never decides a fault.
  */
 export function PipelineStrip({ response, faultArm = null }: {
   response: SearchResponse;
@@ -62,19 +63,19 @@ export function PipelineStrip({ response, faultArm = null }: {
         value={count ?? "—"}
         dot={dot}
         order={index}
-        title={count === undefined ? undefined : `${count} in the combined pool`}
+        title={count === undefined ? undefined : `${count} on the shortlist`}
       />,
     );
   });
   chips.push(<Arrow key="a1" order={3} />);
   chips.push(
-    <Chip key="rrf" label="Combined in Aurora (RRF)" value={pool ?? "—"} dot={pool ? "found" : "none"} order={4}
-      title={[pool === undefined ? null : `${pool} in the combined pool`, searchTime ? `Search in Aurora ${searchTime}` : null].filter(Boolean).join(" · ") || undefined} />,
+    <Chip key="rrf" label="Combined (RRF) · shortlist" value={pool ?? "—"} dot={pool ? "found" : "none"} order={4}
+      title={[pool === undefined ? null : `Combined in Aurora: a shortlist of ${pool}`, searchTime ? `Search in Aurora ${searchTime}` : null].filter(Boolean).join(" · ") || undefined} />,
   );
   chips.push(<Arrow key="a2" order={5} />);
   chips.push(
     reranked
-      ? <Chip key="rr" label={`Reranked · ${rerankName}`} dot="found" order={6} title={rerankTime ? `Rerank ${rerankTime}` : undefined} />
+      ? <Chip key="rr" label={`Reranked · ${rerankName}`} value={pool} dot="found" order={6} title={rerankTime ? `Rerank ${rerankTime}` : undefined} />
       : <Chip key="rr" label="Not reranked" dot="none" order={6} />,
   );
   chips.push(<Arrow key="a3" order={7} />);

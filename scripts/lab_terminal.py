@@ -163,7 +163,7 @@ def target_summary(event: dict, mission: dict) -> str:
     row = next((row for row in rows if row["product_id"] == target), None)
     if row is None:
         return (
-            f"Target {target}: not among the {len(rows)} saved candidates, "
+            f"Target {target}: not among the {len(rows)} on the shortlist, "
             "so reranking never received it."
         )
     methods = ", ".join(

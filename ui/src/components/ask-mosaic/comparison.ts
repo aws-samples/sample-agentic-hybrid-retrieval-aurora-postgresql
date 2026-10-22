@@ -150,7 +150,7 @@ export function comparisonRows(
   return rows;
 }
 
-/** "Meaning #7 → Combined #10 → Reranked to #1", from the pick's own signals. */
+/** "Semantic #7 → Combined #10 → Reranked to #1", from the pick's own signals. */
 export function retrievalPath(product: ProductSummary): string[] {
   const signals = product.signals;
   if (!signals) return [];

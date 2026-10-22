@@ -36,7 +36,7 @@ export function searchChips(response: SearchResponse): Chip[] {
       label: armLabel[arm],
       value: count == null ? undefined : String(count),
       state: count ? "done" : "quiet",
-      title: count == null ? undefined : `${count} of this search’s matches are in the combined pool`,
+      title: count == null ? undefined : `${count} of this search’s matches are on the shortlist`,
     };
   });
   const reranked = diagnostics?.rerank_status === "applied";
@@ -44,11 +44,11 @@ export function searchChips(response: SearchResponse): Chip[] {
     ...arms,
     {
       key: "combined",
-      label: "Combined in Aurora",
+      label: "Combined (RRF)",
       value: [counts.fused_pool == null ? null : String(counts.fused_pool), duration(timings.postgresql_retrieval)].filter(Boolean).join(" · ") || undefined,
       state: "done",
       then: true,
-      title: "All three searches and reciprocal rank fusion ran in one Aurora PostgreSQL query",
+      title: "All three searches and reciprocal rank fusion ran in one Aurora PostgreSQL query, search_hybrid_rrf, which returns the shortlist",
     },
     { key: "rerank", label: reranked ? "Reranked" : "Not reranked", value: reranked ? duration(timings.rerank) : undefined, state: reranked ? "done" : "quiet", then: true },
     { key: "shown", label: "Shown", value: String(response.results.length), state: "done", then: true },

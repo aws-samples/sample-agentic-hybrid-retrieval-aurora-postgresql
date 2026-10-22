@@ -30,6 +30,14 @@ describe("toolChips", () => {
     expect(chips.map((chip) => chip.latencyMs)).toEqual([312.5, null, 312.5]);
   });
 
+  it("keeps each tool's own name beside its plain label, as the terminal prints it", () => {
+    const chips = toolChips([step(1, "search_products"), step(2, "get_product_evidence")]);
+    expect(chips.map((chip) => [chip.label, chip.tool])).toEqual([
+      ["Search", "search_products"],
+      ["Read sources", "get_product_evidence"],
+    ]);
+  });
+
   it("lists no chip before a tool call was recorded", () => {
     expect(toolChips([])).toEqual([]);
   });

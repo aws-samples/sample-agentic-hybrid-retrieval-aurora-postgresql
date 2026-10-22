@@ -23,7 +23,7 @@ function AskMosaicInvite({ returning, onOpen }: {
     >
       <div className="shop-console-note-intro">
         <h2>{returning ? "Keep comparing your options." : "A little help choosing?"}</h2>
-        <p>Tell Mosaic what matters. Get a considered shortlist, with the details behind each pick.</p>
+        <p>Tell Mosaic what matters. Get considered picks, with the details behind each one.</p>
       </div>
       <button
         className="mosaic-ask-button shop-console-note-action"

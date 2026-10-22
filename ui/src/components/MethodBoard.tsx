@@ -10,6 +10,8 @@ const BOARD_ROWS = 5;
 type Column = {
   key: "fts" | "trigram" | "semantic" | "combined" | "reranked";
   title: string;
+  /** The SQL function the lab guides call for this stage, when one runs in Aurora. */
+  fn?: string;
   engine: string;
   meta: string;
   accent: "retrieve" | "rank" | "done";
@@ -36,18 +38,26 @@ const ARM_ENGINE: Record<RetrievalArm, string> = {
   semantic: "pgvector · HNSW",
 };
 
+/** The functions participants call by name in psql, so a card and the terminal agree. */
+const ARM_FUNCTION: Record<RetrievalArm, string> = {
+  fts: "search_fts",
+  trigram: "search_trigram",
+  semantic: "search_vector",
+};
+
 function columnsFor(response: SearchResponse): Column[] {
   const diagnostics = response.diagnostics;
   const counts = diagnostics?.candidate_counts ?? {};
   const pool = counts.fused_pool;
   const k = diagnostics?.retrieval_profile?.rrf_k;
   const reranked = diagnostics?.rerank_status === "applied";
-  // A search's count is how many of its matches reached the combined pool, not a position.
+  // A search's count is how many of its matches reached the shortlist, not a position.
   const reached = (count: number | undefined) =>
-    count === undefined ? "" : count === 1 ? "1 match reached the pool" : `${count} of its matches reached the pool`;
+    count === undefined ? "" : count === 1 ? "1 match reached the shortlist" : `${count} of its matches reached the shortlist`;
   const arms: Column[] = (["fts", "trigram", "semantic"] as const).map((arm) => ({
     key: arm,
     title: armLabel[arm],
+    fn: ARM_FUNCTION[arm],
     engine: ARM_ENGINE[arm],
     meta: reached(counts[armPoolKey[arm]]),
     accent: "retrieve",
@@ -57,9 +67,10 @@ function columnsFor(response: SearchResponse): Column[] {
     ...arms,
     {
       key: "combined",
-      title: "Combined in Aurora",
-      engine: typeof k === "number" ? `RRF, k = ${k}` : "RRF",
-      meta: pool === undefined ? "" : `Pool of ${pool}`,
+      title: "Combined (RRF)",
+      fn: "search_hybrid_rrf",
+      engine: typeof k === "number" ? `k = ${k}` : "RRF",
+      meta: pool === undefined ? "" : `Shortlist of ${pool}`,
       accent: "rank",
       rankOf: (product) => product.signals?.pre_rerank_rank ?? null,
       previous: { label: "search", rank: bestSearchRank },
@@ -149,7 +160,7 @@ export function MethodBoard({
             >
               <header>
                 <h4>{column.title}</h4>
-                <p className="method-engine">{column.engine}</p>
+                <p className="method-engine">{column.fn ? <><code>{column.fn}</code> · </> : null}{column.engine}</p>
                 {reads && column.key in reads ? <p className="method-reads" aria-label={`${column.title} reads the request as`}>{reads[column.key as RetrievalArm]}</p> : null}
                 {column.meta ? <p className="method-meta">{column.meta}</p> : null}
               </header>

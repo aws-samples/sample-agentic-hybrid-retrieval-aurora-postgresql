@@ -7,6 +7,8 @@ export type ChipState = "done" | "failed" | "denied";
 export interface ToolChip {
   key: string;
   label: string;
+  /** The tool's own name, as the terminal's TOOL TRACE and the builder view print it. */
+  tool: string;
   state: ChipState;
   /** Measured tool time, shown only once the tool is done. */
   latencyMs: number | null;
@@ -47,6 +49,7 @@ export function toolChips(trace: ToolTraceStep[]): ToolChip[] {
   return trace.map((step): ToolChip => ({
     key: `trace-${step.sequence}`,
     label: toolName(step),
+    tool: step.tool,
     state: STATE_FOR_OUTCOME[step.outcome] ?? "failed",
     latencyMs: step.latency_ms ?? null,
   }));

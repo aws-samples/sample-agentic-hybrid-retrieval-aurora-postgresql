@@ -55,8 +55,13 @@ export const armLabel: Record<RetrievalArm, string> = {
   semantic: "Semantic search",
 };
 
-/** The two ordering stages, in the same customer vocabulary. */
-export const FUSED_LABEL = "Before reranking";
+/**
+ * The two ordering stages, in the same customer vocabulary. A product card
+ * names no mechanism, so it says "Combined"; the strip, the method cards and the
+ * order table, which name mechanisms, say "Combined (RRF)". "Before reranking" is
+ * the sub-line, and the 50 it hands to reranking are the guide's "shortlist".
+ */
+export const FUSED_LABEL = "Combined";
 export const FINAL_LABEL = "Final position";
 
 /** Interface summaries; the raw tool definitions remain available for inspection. */

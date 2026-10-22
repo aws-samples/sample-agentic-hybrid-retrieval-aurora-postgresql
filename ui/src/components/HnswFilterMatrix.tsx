@@ -26,7 +26,7 @@ const CHARACTER_NOTES: Record<string, { headline: string; detail: string }> = {
   broad: {
     headline: "A broad filter keeps most of the catalog.",
     detail:
-      "Compare Off with Strict and Relaxed to see whether the first pass already fills the shortlist or a second pass has to recover rows.",
+      "Compare Off with Strict and Relaxed to see whether the first pass already returns every requested row or a second pass has to recover rows.",
   },
   moderate: {
     headline: "A moderate filter keeps a large share of the catalog.",
@@ -36,7 +36,7 @@ const CHARACTER_NOTES: Record<string, { headline: string; detail: string }> = {
   narrow: {
     headline: "A narrow filter keeps a small share of the catalog.",
     detail:
-      "The graph can run out of matches before the shortlist fills. Iterative scans can recover more, with extra work; compare rows, recall and time together.",
+      "The graph can run out of matches before it returns every requested row. Iterative scans can recover more, with extra work; compare rows, recall and time together.",
   },
   very_narrow: {
     headline: "A very narrow filter keeps a few thousand products.",

@@ -39,13 +39,35 @@ describe("ProductReceiptBody", () => {
 
     const lines = [...container.querySelectorAll("ol > li")].map((line) => line.textContent);
     expect(lines).toEqual([
-      "Full-text search#30.0159position 3 · 1 ÷ (60 + 3)",
+      "Full-text search#30.0159position 3 · 1 ÷ (60 + 3) = 0.0159",
       "Fuzzy matchingno matchno match for this request",
-      "Semantic search#10.0164position 1 · 1 ÷ (60 + 1)",
-      "Before reranking#20.0323position 2 of the 50 sent to reranking",
+      "Semantic search#10.0164position 1 · 1 ÷ (60 + 1) = 0.0164",
+      "Combined#20.0323position 2 on the shortlist of 50, before reranking",
       "Reranked0.912Cohere Rerank relevance score",
       "Final position#1",
     ]);
+  });
+
+  it("puts the formula's value beside the recorded contribution, so a wrong one shows", () => {
+    // Lab 2's fault: semantic #130 recorded the contribution of position 1.
+    const broken = { ...signals, semantic: found(130, 0.0164) };
+    render(<ProductReceiptBody product={product(broken)} diagnostics={seedRun.diagnostics} />);
+
+    const line = screen.getByText("Semantic search").closest("li")!;
+    expect(within(line).getByText("0.0164")).toBeTruthy();
+    expect(within(line).getByText("position 130 · 1 ÷ (60 + 130) = 0.0053")).toBeTruthy();
+  });
+
+  it("writes a weighted run's formula with the arm's weight", () => {
+    const weighted = {
+      ...seedRun.diagnostics!,
+      strategy: "weighted_rrf_fusion+rerank+exact_sku_preservation",
+    };
+    render(<ProductReceiptBody product={product(signals)} diagnostics={weighted} />);
+
+    const line = screen.getByText("Semantic search").closest("li")!;
+    const weight = weighted.retrieval_profile.weight_semantic;
+    expect(within(line).getByText(`position 1 · ${weight} ÷ (60 + 1) = ${(weight / 61).toFixed(4)}`)).toBeTruthy();
   });
 
   it("states a method that missed without inventing a position for it", () => {
@@ -74,10 +96,10 @@ describe("ProductReceiptBody", () => {
 
     // The rank and its fusion contribution still print from the signals alone.
     expect(container.textContent).toContain("Full-text search#30.0159");
-    expect(container.textContent).toContain("Before reranking#20.0323");
+    expect(container.textContent).toContain("Combined#20.0323");
     // Nothing here names a k or a pool size Mosaic did not receive.
     expect(container.textContent).not.toContain("÷");
-    expect(container.textContent).not.toContain("sent to reranking");
+    expect(container.textContent).not.toContain("shortlist");
     expect(container.querySelector(".receipt-pool-bar")).toBeNull();
     // A method that missed needs no diagnostics to say so.
     expect(container.textContent).toContain("no match for this request");

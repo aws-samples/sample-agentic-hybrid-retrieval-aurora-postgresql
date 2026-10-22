@@ -31,7 +31,7 @@ function comparedProducts(step: ToolTraceStep): number | null {
 
 function understood(run: RunData): string | null {
   if (!run.plan.length) {
-    return run.path === "focused_follow_up" ? "Reused the earlier shortlist." : null;
+    return run.path === "focused_follow_up" ? "Reused the earlier picks." : null;
   }
   const categories = [...new Set(
     run.plan.flatMap((step) => (step.filters.category_key ? [formatCategoryKey(step.filters.category_key)] : [])),

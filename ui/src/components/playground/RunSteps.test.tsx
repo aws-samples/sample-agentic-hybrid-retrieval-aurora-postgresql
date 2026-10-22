@@ -25,7 +25,7 @@ it("reads a search as the pipeline ran it, from its own counts and timings", () 
     ["Full-text search", "3", "done"],
     ["Fuzzy matching", "0", "quiet"],
     ["Semantic search", "42", "done"],
-    ["Combined in Aurora", "50 · 161 ms", "done"],
+    ["Combined (RRF)", "50 · 161 ms", "done"],
     ["Reranked", "1.8 s", "done"],
     ["Shown", "12", "done"],
   ]);

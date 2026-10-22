@@ -11,7 +11,7 @@ const CHIP_STATE_WORD: Record<ToolChip["state"], string> = {
 
 function Chip({ chip }: { chip: ToolChip }) {
   return (
-    <li className="ask-tool-chip" data-state={chip.state}>
+    <li className="ask-tool-chip" data-state={chip.state} title={chip.tool}>
       <i className="ask-tool-chip-dot" aria-hidden="true" />
       <span>{chip.label}</span>
       <span className="sr-only">, {CHIP_STATE_WORD[chip.state]}</span>

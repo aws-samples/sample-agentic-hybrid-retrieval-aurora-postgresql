@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Link } from "wouter";
 import type { WantedProduct } from "../labOutcome";
 import { playgroundQueryHref } from "../navigation";
+import { armLanguage, armShortLabel } from "../retrievalLanguage";
 import type { SearchResponse } from "../types";
-import { SearchChips } from "./ProductCard";
 import { RankMove } from "./RankMove";
 import { WantedBadge } from "./WantedBadge";
 import "../shop-search-details.css";
@@ -45,8 +45,12 @@ export function ShopSearchDetails({
     </div>
     <div className="shop-details-table" tabIndex={0} role="region" aria-label="Product positions before and after reranking">
       <table>
-        <caption>{products.length} {products.length === 1 ? "product" : "products"} shown{pool == null ? "" : `, of ${pool} ${reranked ? "reranked" : "combined"}`}. Positions, not scores.</caption>
-        <thead><tr><th scope="col">Product</th><th scope="col">Combined (RRF)</th><th scope="col">Reranked</th><th scope="col">Change</th></tr></thead>
+        <caption>{products.length} {products.length === 1 ? "product" : "products"} shown{pool == null ? "" : `, from the shortlist of ${pool}`}. Positions, not scores; — means that search did not return it.</caption>
+        <thead><tr>
+          <th scope="col">Product</th>
+          {armLanguage.map((arm) => <th key={arm.key} scope="col"><abbr title={arm.label}>{armShortLabel[arm.key]}</abbr></th>)}
+          <th scope="col">Combined (RRF)</th><th scope="col">Reranked</th><th scope="col">Change</th>
+        </tr></thead>
         <tbody>{products.map((product) => {
           const signals = product.signals;
           const before = signals?.pre_rerank_rank ?? null;
@@ -62,10 +66,13 @@ export function ShopSearchDetails({
                   {isWanted ? <WantedBadge wanted={wanted} /> : null}
                   <button type="button" title={product.title} onClick={() => onSelect(product.product_id)}
                     onFocus={() => onHighlight(product.product_id)} onBlur={() => onHighlight(null)}>{product.title}</button>
-                  <SearchChips product={product} />
                 </div>
               </div>
             </th>
+            {armLanguage.map((arm) => {
+              const rank = signals?.[arm.key]?.rank ?? null;
+              return <td key={arm.key}>{rank == null ? "—" : `#${rank}`}</td>;
+            })}
             <td>{before == null ? "—" : `#${before}`}</td>
             <td>{after == null ? "—" : `#${after}`}</td>
             <td>{after == null ? "—" : <RankMove from={before} to={after} />}</td>

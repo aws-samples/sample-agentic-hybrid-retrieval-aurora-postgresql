@@ -49,12 +49,21 @@ describe("MethodBoard", () => {
   it("lists the five columns in order with the real rank from each signal", () => {
     render(<MethodBoard response={run(products)} images={images} />);
     expect(screen.getAllByRole("heading", { level: 4 }).map((heading) => heading.textContent)).toEqual([
-      "Full-text search", "Fuzzy matching", "Semantic search", "Combined in Aurora", "Reranked",
+      "Full-text search", "Fuzzy matching", "Semantic search", "Combined (RRF)", "Reranked",
     ]);
     const semantic = within(column("Semantic search"));
     const ranks = semantic.getAllByRole("listitem").map((item) => item.querySelector(".method-rank")!.textContent);
     expect(ranks).toEqual(["2", "7", "10"]);
     expect(within(column("Reranked")).getByText("from combined #21")).toBeTruthy();
+  });
+
+  it("names the SQL function each Aurora stage runs, as the lab guides call it", () => {
+    render(<MethodBoard response={run(products)} images={images} />);
+    const fn = (name: string) => column(name).querySelector(".method-engine code")?.textContent ?? null;
+    expect(["Full-text search", "Fuzzy matching", "Semantic search", "Combined (RRF)", "Reranked"].map(fn))
+      .toEqual(["search_fts", "search_trigram", "search_vector", "search_hybrid_rrf", null]);
+    const counts = seedRun.diagnostics!.candidate_counts;
+    expect(within(column("Combined (RRF)")).getByText(`Shortlist of ${counts.fused_pool}`)).toBeTruthy();
   });
 
   it("limits a column to five rows and says so when it has none", () => {
@@ -68,7 +77,7 @@ describe("MethodBoard", () => {
   it("badges the wanted product by tier and rings its row", () => {
     render(<MethodBoard response={run(products)} wantedId={2} targetRank={5} images={images} />);
     expect(within(column("Reranked")).getByText("Wanted #5").getAttribute("data-tier")).toBe("target");
-    expect(within(column("Combined in Aurora")).getByText("Wanted #21").getAttribute("data-tier")).toBe("lower");
+    expect(within(column("Combined (RRF)")).getByText("Wanted #21").getAttribute("data-tier")).toBe("lower");
     expect(within(column("Full-text search")).getByText("Wanted product: not found here").getAttribute("data-tier")).toBe("unranked");
     const ringed = column("Semantic search").querySelector("[data-target]");
     expect(ringed?.textContent).toContain("Wanted monitor");
@@ -107,10 +116,10 @@ describe("MethodBoard", () => {
     // Wanted monitor: best search 10, combined 21, final 5.
     expect(move("Reranked", "Wanted monitor").getAttribute("data-move")).toBe("up");
     expect(move("Reranked", "Wanted monitor").textContent).toContain("16");
-    expect(move("Combined in Aurora", "Wanted monitor").getAttribute("data-move")).toBe("down");
-    expect(move("Combined in Aurora", "Wanted monitor").textContent).toContain("11");
+    expect(move("Combined (RRF)", "Wanted monitor").getAttribute("data-move")).toBe("down");
+    expect(move("Combined (RRF)", "Wanted monitor").textContent).toContain("11");
     // Gamma: best search 1, combined 2, final 1.
-    expect(move("Combined in Aurora", "Gamma monitor").getAttribute("data-move")).toBe("down");
+    expect(move("Combined (RRF)", "Gamma monitor").getAttribute("data-move")).toBe("down");
     expect(move("Reranked", "Gamma monitor").getAttribute("data-move")).toBe("up");
     expect(within(column("Reranked")).getByText(/from combined #21/)).toBeTruthy();
   });
@@ -118,7 +127,7 @@ describe("MethodBoard", () => {
   it("calls a row new when the earlier stage never ranked it, and unchanged when it did not move", () => {
     const unranked = row(7, "No search found me", { combined: 4, final: 4 });
     render(<MethodBoard response={run([unranked])} images={images} />);
-    expect(within(column("Combined in Aurora")).getByText("new").getAttribute("data-move")).toBe("new");
+    expect(within(column("Combined (RRF)")).getByText("new").getAttribute("data-move")).toBe("new");
     expect(column("Reranked").querySelector(".rank-move")?.getAttribute("data-move")).toBe("same");
   });
 

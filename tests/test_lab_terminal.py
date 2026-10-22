@@ -244,7 +244,7 @@ def test_target_summary_names_the_missing_product_and_the_pool_size():
     line = lab_terminal.target_summary({"candidates": rows}, mission)
 
     assert str(mission["target_product_ids"][0]) in line
-    assert "not among the 50 saved candidates" in line
+    assert "not among the 50 on the shortlist" in line
 
 
 def test_target_summary_names_positions_and_only_the_methods_that_found_it():

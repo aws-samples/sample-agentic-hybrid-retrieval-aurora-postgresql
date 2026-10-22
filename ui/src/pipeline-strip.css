@@ -30,12 +30,10 @@
 
 .pipeline-strip { margin-bottom: 24px; }
 
-/* The chips on a result card: 26px pills, 6px apart, wrapping inside the card. */
-.shop-card-arms { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.shop-card-arms .pipeline-chip, .shop-card-position-chip {
+/* The final-position line on a result card. */
+.shop-card-position-chip {
   height: 26px; padding: 0 10px; gap: 6px; font-size: 12px; animation: none; background: var(--paper-warm);
 }
 .shop-card-position-chip { display: inline-flex; align-items: center; width: fit-content; margin: 0; border-radius: 980px; color: var(--ink); }
 .shop-card-position-chip > b { font-weight: 600; }
 .shop-card-position-chip > span:not(.rank-move) { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-.shop-card-arms .pipeline-chip > i { width: 7px; height: 7px; }

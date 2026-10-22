@@ -325,18 +325,21 @@ sans. In order:
    decimals. A method that did not find the product (`missed`) shows a hollow
    violet dot, `--ink-soft` text, no position and "no match". A position there
    would be one Mosaic invented. Beneath a found line, a 12px `--ink-soft`
-   sub-line (`.receipt-how`) spells out the arithmetic -- "position 3 · 1 ÷
-   (60 + 3)" -- reading `k` from the response's own
-   `diagnostics.retrieval_profile.rrf_k`; beneath a missed line it reads "no
+   sub-line (`.receipt-how`) spells out the arithmetic and its value --
+   "position 3 · 1 ÷ (60 + 3) = 0.0159" -- reading `k` from the response's own
+   `diagnostics.retrieval_profile.rrf_k`, so a recorded contribution that
+   disagrees with its formula shows on screen (Lab 2's fault); a weighted run
+   writes the arm's weight in place of 1. Beneath a missed line it reads "no
    match for this request". Neither line renders a `k` Mosaic did not
    receive: without diagnostics, the arithmetic sub-line is omitted and only
    the missed line's plain statement remains.
-2. Before reranking (`FUSED_LABEL`): the combined position and fused score,
+2. Combined (`FUSED_LABEL`; no mechanism name on a product card): the combined
+   position and fused score,
    with a Rank dot and a `--line` rule above. When the response carries
    `diagnostics.candidate_counts.fused_pool`, a 6px `--line-strong` track
    (`.receipt-pool-bar`) on its own row, with a 12px `--rank` dot ringed in
    `--paper-strong`, marks the product's share of that pool, and a sub-line below
-   it reads "position 21 of the 50 sent to reranking". Both are omitted when the
+   it reads "position 21 on the shortlist of 50, before reranking". Both are omitted when the
    pool size is unknown.
 3. Reranked: the reranker's score to three decimals, only when one was
    recorded, with a sub-line reading "Cohere Rerank relevance score" when
@@ -487,7 +490,7 @@ address is a centred title, one line and a "Back to Shop" pill.
   full-width sections with 34px sentence headings and a stage chip. Retrieve's
   flow is five `--paper-warm` cells joined by 2px gaps; Rank pairs the shipped
   `ProductReceiptBody` with how the order was set, then four-across tiles with a
-  Final order / Before reranking switch; Reason sets the answer beside a
+  Final order / Combined (RRF) order switch; Reason sets the answer beside a
   numbered source list and the picks below it.
 - `ResultProductCard` shows up to three returned products with a 1px
   `--line-strong` border, 16px corners, the photo on the plate, a two-line 16px

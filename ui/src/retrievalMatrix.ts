@@ -455,7 +455,7 @@ export function buildRetrievalMatrix(
         ? `reciprocal rank fusion, k = ${profile.rrf_k}`
         : "reciprocal rank fusion",
       measure: fusedPool ? `${total} of ${fusedPool}` : `${total}`,
-      measureDetail: fusedPool ? "fused candidates shown" : "rows ordered",
+      measureDetail: fusedPool ? "shown from the shortlist" : "rows ordered",
       sql: COLUMN_SQL.fusion,
     },
     {

@@ -41,13 +41,16 @@ its existing tabs, filters and pagination.
 
 With a query the story is not rendered. The headline stays the page's h1 for
 assistive technology only, and `Results for ...` is the display line. A search
-shows, in order: one strip of chips for how it ran (each search's count in the
-combined pool, Combined in Aurora (RRF), Reranked, shown) with a link to watch
-the ranking change in the Playground; **Each method's top five**, one column per
-search plus Combined and Reranked, with ▲/▼ movement; then the result grid,
-eight cards a page, each with a dot per search that found it and its reranked
-position. **Compare positions** swaps the grid for the same products in combined
-and reranked order. Before Lab 2 is prepared, Lab 2's request shows only the
+shows, in order: one strip of chips for how it ran (each search's count on the
+shortlist, Combined (RRF) · shortlist, Reranked with the shortlist's size, shown)
+with a link to watch the ranking change in the Playground; **Each method's top
+five**, one column per search plus Combined (RRF) and Reranked, each naming the
+SQL function the guides call (`search_fts`, `search_trigram`, `search_vector`,
+`search_hybrid_rrf`), with ▲/▼ movement; then the result grid, eight cards a
+page, each with its path: the searches that found it with their ranks, then its
+combined and final positions. **Compare positions** swaps the grid for the same
+products in a table with each search's rank, the combined and reranked
+positions and the change, where — means that search did not return it. Before Lab 2 is prepared, Lab 2's request shows only the
 lab's next step. Browsing keeps the grid.
 
 Components:

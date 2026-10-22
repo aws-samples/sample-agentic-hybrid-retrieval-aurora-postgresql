@@ -259,7 +259,7 @@ describe("column measures", () => {
       "Full-text search: 1 of 3",
       "Fuzzy matching: 1 of 3",
       "Semantic search: 2 of 3",
-      `Before reranking: 3 of ${profile.fused_limit}`,
+      `Combined: 3 of ${profile.fused_limit}`,
       // Not "Final position": this column's cells hold `rerank_score`, and a 0.9204
       // under a heading that promises a rank is the table lying about its units.
       "Rerank score: 0 of 3",

@@ -22,8 +22,8 @@ describe("PipelineStrip", () => {
       `Full-text search${counts.fts_in_pool}`,
       `Fuzzy matching${counts.trigram_in_pool}`,
       `Semantic search${counts.semantic_in_pool}`,
-      `Combined in Aurora (RRF)${counts.fused_pool}`,
-      "Reranked · Cohere Rerank",
+      `Combined (RRF) · shortlist${counts.fused_pool}`,
+      `Reranked · Cohere Rerank${counts.fused_pool}`,
       `${seedRun.results.length} shown`,
     ]);
     const [, , , combined, reranked] = chips();

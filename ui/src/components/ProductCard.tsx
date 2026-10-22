@@ -38,68 +38,29 @@ function topAttributes(attributes: Record<string, unknown>, count = 2) {
  * product's own position for each search that returned it, a hollow grey dot
  * and a dash for each that did not. Positions are read from the row's signals.
  */
-export function SearchChips({ product }: { product: ProductSummary }) {
-  const signals = product.signals;
-  if (!signals) return null;
-  return (
-    <ul className="shop-card-arms" aria-label="Found by">
-      {armLanguage.map((arm) => {
-        const rank = signals[arm.key]?.rank ?? null;
-        return (
-          <li
-            className="pipeline-chip"
-            data-dot={rank === null ? "none" : "found"}
-            key={arm.key}
-            title={arm.label}
-            aria-label={rank === null ? `${arm.label}: no match` : `${arm.label}: position ${rank}`}
-          >
-            <i aria-hidden="true" />
-            <b>{armShortLabel[arm.key]}</b>
-            <span>{rank === null ? "—" : `#${rank}`}</span>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
 /**
- * The same three searches as `SearchChips`, as dots only: green where that
- * search found the product, hollow where it did not. The positions live in
- * "Why this match", so the card stays one quiet row.
+ * The product's way through this search, in the terminal's words: each search
+ * that found it with its rank, then its combined position and its final one.
+ * `lab_terminal.py` prints the same run as "combined position 21, final
+ * position 5, found by semantic search rank 10". A search that did not find it
+ * is left out here; the strip and Why this match say so.
  */
-function SearchDots({ product }: { product: ProductSummary }) {
-  const signals = product.signals;
-  if (!signals) return null;
-  return (
-    <ul className="shop-card-dots" aria-label="Found by">
-      {armLanguage.map((arm) => {
-        const found = signals[arm.key]?.rank != null;
-        return (
-          <li
-            key={arm.key}
-            data-dot={found ? "found" : "none"}
-            title={`${arm.label}: ${found ? "found it" : "no match"}`}
-            aria-label={`${arm.label}: ${found ? "found" : "no match"}`}
-          >
-            <i aria-hidden="true" />
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
 function RankLine({ product }: { product: ProductSummary }) {
   const signals = product.signals;
   if (!signals) return null;
   const before = signals.pre_rerank_rank;
   const after = signals.final_rank;
+  const found = armLanguage.filter((arm) => signals[arm.key]?.rank != null);
   return (
     <div className="shop-card-rankline">
-      <SearchDots product={product} />
+      {found.length ? (
+        <p className="shop-card-found" aria-label="Found by">
+          {found.map((arm) => `${armShortLabel[arm.key]} #${signals[arm.key]!.rank}`).join(" + ")}
+        </p>
+      ) : null}
       {after != null ? (
         <p className="shop-card-position-chip">
+          {before != null ? <span>Combined #{before} →</span> : null}
           <b>Final #{after}</b>
           {before != null && before !== after ? <RankMove from={before} to={after} /> : null}
         </p>

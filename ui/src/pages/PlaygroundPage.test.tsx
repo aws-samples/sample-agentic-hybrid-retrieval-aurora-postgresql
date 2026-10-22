@@ -93,7 +93,7 @@ it("replays Shop's saved results with the same preview products, then explicitly
   openDetail(DETAILS.rerank);
   const finalSources = new Map(within(screen.getByRole("list", { name: "Final ranking preview" })).getAllByRole("link").map((link) => [link.getAttribute("href"), link.querySelector("img")?.getAttribute("src")]));
   expect([...finalSources.keys()]).toEqual(products.map((product) => `/products/${product.product_id}`));
-  fireEvent.click(screen.getByRole("button", { name: "Before reranking (displayed products)" }));
+  fireEvent.click(screen.getByRole("button", { name: "Combined (RRF) order (displayed products)" }));
   const retrieve = screen.getByRole("list", { name: "Retrieved product preview" });
   expect(productLinks(retrieve)).toEqual([products[3], products[1], products[0], products[2]].map((product) => `/products/${product.product_id}`));
   for (const link of within(retrieve).getAllByRole("link")) {
@@ -397,7 +397,7 @@ it("keeps the first search counts when a later search supplies the leading recom
   await askAboutThisNeed();
   const answer: AgentResponse = { agent_run_id: agentId, question: defaultRequest.query, answer: "Completed.", plan: [], recommendations: [products[0]], citations: [], trace: [searchStep(firstSearchId, 1)] };
   await act(async () => emit({ type: "answer_start", response: answer }));
-  // Each search column's header says how many of its matches reached the pool.
+  // Each search column's header says how many of its matches reached the shortlist.
   const visibleCounts = () => [...document.querySelectorAll(".method-meta")].map((node) => /^\d+/.exec(node.textContent ?? "")?.[0]);
   expect(visibleCounts()).toEqual([]);
   await act(async () => { emit({ type: "complete", response: { ...answer, recommendations: [products[1]], trace: [...answer.trace, searchStep(secondSearchId, 2)] } }); finish(); });

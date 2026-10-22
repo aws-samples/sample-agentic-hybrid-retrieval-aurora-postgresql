@@ -55,22 +55,27 @@ describe("ProductCard ranking chips and wanted marking", () => {
     );
   }
 
-  it("shows which searches found the product as dots, with no numbers", () => {
+  it("prints the product's path: the searches that found it, then combined and final", () => {
     const product = structuredClone(seedRun.results[0]);
     product.signals!.fts = { rank: 3, raw_score: 1, rrf_contribution: 0.01 };
     product.signals!.trigram = { rank: null, raw_score: null, rrf_contribution: null };
+    product.signals!.semantic = { rank: 10, raw_score: 1, rrf_contribution: 0.01 };
     product.signals!.pre_rerank_rank = 21;
     product.signals!.final_rank = 5;
     ranked(product);
-    const found = screen.getByLabelText("Full-text search: found");
-    expect(found.dataset.dot).toBe("found");
-    expect(found.textContent).toBe("");
-    const missed = screen.getByLabelText("Fuzzy matching: no match");
-    expect(missed.dataset.dot).toBe("none");
-    expect(screen.getByRole("list", { name: "Found by" }).textContent).toBe("");
+    // A search that missed is left out of the path, not printed as a rank.
+    expect(screen.getByLabelText("Found by").textContent).toBe("Full-text #3 + Semantic #10");
     const position = screen.getByText("Final #5").parentElement!;
-    expect(position.textContent).not.toContain("from combined");
+    expect(position.textContent).toContain("Combined #21 →");
     expect(position.querySelector(".rank-move")?.getAttribute("data-move")).toBe("up");
+  });
+
+  it("leaves the path out for a product no search ranked", () => {
+    const product = structuredClone(seedRun.results[0]);
+    const missed = { rank: null, raw_score: null, rrf_contribution: null };
+    product.signals = { ...product.signals!, fts: missed, trigram: missed, semantic: missed };
+    ranked(product);
+    expect(screen.queryByLabelText("Found by")).toBeNull();
   });
 
   it("marks the wanted product with its live position and tier", () => {

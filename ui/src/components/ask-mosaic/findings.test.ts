@@ -49,7 +49,7 @@ describe("phaseFinding", () => {
 
   it("says nothing before a plan exists, and says the shortlist was reused on a follow-up", () => {
     expect(phaseFinding("understand", run())).toBeNull();
-    expect(phaseFinding("understand", run({ path: "focused_follow_up" }))).toBe("Reused the earlier shortlist.");
+    expect(phaseFinding("understand", run({ path: "focused_follow_up" }))).toBe("Reused the earlier picks.");
   });
 
   it("counts searches and the products they kept from the trace", () => {
