@@ -97,6 +97,80 @@ def test_resolution_cannot_combine_dimensions_from_different_displays(resolution
         )
 
 
+def test_an_uncited_sentence_cannot_borrow_a_record_the_answer_never_cites():
+    """Record [2] states the battery life, but the answer delivers only [1]."""
+    records = [
+        evidence("An over-ear headphone."),
+        evidence(BATTERY_EVIDENCE).model_copy(update={"evidence_id": 2}),
+    ]
+    answer = "AuriLogic Flight ANC is a headphone [1]. It has 48-hour battery life."
+    with pytest.raises(SynthesisOutputError, match="48") as rejected:
+        validate(answer, records)
+    assert "Cite the record that states it in this sentence." in str(rejected.value)
+    # Positive control: once the answer delivers [2], the same sentence stands.
+    validate(answer.replace("headphone [1].", "headphone [1][2]."), records)
+
+
+@pytest.mark.parametrize(
+    ("source", "claim"),
+    [
+        (
+            "This product does not have a 48-hour battery life. Battery life is 12 hours.",
+            "has a 48-hour battery life",
+        ),
+        ("It isn't 300 grams; it weighs 250 grams.", "weighs 300 grams"),
+        (
+            "Display resolution: 2560x1440, not 3840x2160.",
+            "has a 3840x2160 display",
+        ),
+    ],
+    ids=["battery", "weight", "resolution"],
+)
+def test_a_measurement_the_source_denies_cannot_support_a_claim(source, claim):
+    with pytest.raises(SynthesisOutputError, match="unsupported numeric claim"):
+        validate(f"AuriLogic Flight ANC {claim} [1].", [evidence(source)])
+
+
+@pytest.mark.parametrize(
+    "claim",
+    ["has a 12-hour battery life", "weighs 250 grams", "has a 2560x1440 display"],
+)
+def test_the_affirmed_measurement_beside_a_denied_one_still_supports_a_claim(claim):
+    validate(
+        f"AuriLogic Flight ANC {claim} [1].",
+        [
+            evidence(
+                "This product does not have a 48-hour battery life. Battery life is "
+                "12 hours. It isn't 300 grams; it weighs 250 grams. Display "
+                "resolution: 2560x1440, not 3840x2160."
+            )
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    ("source", "claim"),
+    [
+        ("You can't beat a 12 year warranty.", "has a 12-year warranty"),
+        (
+            "2 x ear pads (headphones not included）180 days warranty",
+            "has a 180-day warranty",
+        ),
+    ],
+    ids=["idiom", "full-width-bracket"],
+)
+def test_wording_found_in_real_reviews_is_not_read_as_a_denial(source, claim):
+    """Both were blanked in the dev catalog's evidence before these exceptions."""
+    validate(f"AuriLogic Flight ANC {claim} [1].", [evidence(source)])
+
+
+def test_a_negation_in_an_earlier_sentence_does_not_reach_a_measurement():
+    validate(
+        "AuriLogic Flight ANC has a 48-hour battery life [1].",
+        [evidence("The case is not included. 48 hours battery life.")],
+    )
+
+
 def test_an_uncited_sentence_cannot_ride_on_the_citation_before_it():
     """The citation resolves; the sentence after it is invented.
 

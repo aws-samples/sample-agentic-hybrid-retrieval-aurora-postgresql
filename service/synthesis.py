@@ -584,14 +584,42 @@ class MeasurableClaim:
 _AVAILABILITY_NEGATION = re.compile(
     r"\b(?:not|no|never|without)\b|n['’]t\b", re.IGNORECASE
 )
+#: A source denies a measurement with a negated verb: "does not have a 48-hour
+#: battery", "isn't 300 grams". "No" and "without" are left out, because in
+#: reviews they usually negate something else nearby: "no lag at 144 Hz". So is
+#: "can't beat", which praises the figure after it.
+_MEASUREMENT_DENIAL = re.compile(
+    r"(?:\b(?:not|never|cannot)\b|n['’]t\b)(?!\s+beat\b)", re.IGNORECASE
+)
 _NEGATION_REACH_WORDS = 3
+_SENTENCE_END = re.compile(r"[.!?](?=\s|$)")
+
+
+def _negated_before(text: str, start: int, negator: re.Pattern[str]) -> bool:
+    """Whether a negator sits just before the phrase, inside its clause and sentence."""
+    clause_start, _ = _clause_at(text, start)
+    sentence_start = max(
+        (match.end() for match in _SENTENCE_END.finditer(text, 0, start)), default=0
+    )
+    lead = text[max(clause_start, sentence_start) : start].split()
+    return bool(negator.search(" ".join(lead[-_NEGATION_REACH_WORDS:])))
 
 
 def _negates_availability(sentence: str, start: int) -> bool:
-    """Whether a negator sits just before the phrase, inside its own clause."""
-    clause_start, _ = _clause_at(sentence, start)
-    lead = sentence[clause_start:start].split()[-_NEGATION_REACH_WORDS:]
-    return bool(_AVAILABILITY_NEGATION.search(" ".join(lead)))
+    return _negated_before(sentence, start, _AVAILABILITY_NEGATION)
+
+
+def _affirmed_measurements(support: str) -> str:
+    """Blank each measurement the source itself denies, keeping every offset.
+
+    "Does not have a 48-hour battery. Battery life is 12 hours." states one
+    battery life: the 48 cannot support a claim, and the 12 still can.
+    """
+    for stated in _measurable_claims(support):
+        if stated.unit and _negated_before(support, stated.start, _MEASUREMENT_DENIAL):
+            blank = " " * (stated.end - stated.start)
+            support = support[: stated.start] + blank + support[stated.end :]
+    return support
 
 
 def _measurable_claims(
@@ -743,8 +771,10 @@ def _claim_supported(
             [claim.value], products, negated=claim.negated
         )
         return claim.value in agreed and claim.value not in refuted
-    support = _normalized_support_text(
-        " ".join(f"{record.title} {record.text}" for record in records)
+    support = _affirmed_measurements(
+        _normalized_support_text(
+            " ".join(f"{record.title} {record.text}" for record in records)
+        )
     )
     if claim.unit == "resolution":
         return claim.value in {
@@ -816,7 +846,7 @@ _NEGATION = re.compile(
     re.IGNORECASE,
 )
 _CLAUSE_BREAK = re.compile(
-    r"[;:,()]|—|\b(?:but|while|whereas|so|since|because|although|though)\b",
+    r"[;:,()（）]|—|\b(?:but|while|whereas|so|since|because|although|though)\b",
     re.IGNORECASE,
 )
 
@@ -886,12 +916,16 @@ def _validate_measurable_claim_support(
     brands = {product.brand.casefold() for product in products if product.brand}
     by_product_id = {product.product_id: product for product in products}
     previous_subjects: set[int] = set()
+    # A sentence without a marker leans on the records the answer cites
+    # elsewhere, never on a retrieved record the shopper is not given.
+    delivered = [
+        evidence_records[number - 1]
+        for number in sorted({int(value) for value in re.findall(r"\[(\d+)\]", answer)})
+    ]
     for sentence in re.split(r"(?<=[.!?])(?<!\.\.)\s+|\n+", answer):
         cited = {int(value) for value in re.findall(r"\[(\d+)\]", sentence)}
         records = (
-            [evidence_records[number - 1] for number in cited]
-            if cited
-            else list(evidence_records)
+            [evidence_records[number - 1] for number in cited] if cited else delivered
         )
         sentence_subjects = {
             pid
@@ -956,9 +990,14 @@ def _validate_measurable_claim_support(
                             "Synthesized sentence contains unsupported numeric claim or "
                             f"availability claim {[claim.value]} for {subject_label}: "
                             f"{sentence.rstrip('.')}. "
-                            "Use the cited measurement's original meaning, value and unit. "
-                            "If the sources do not state it, say so without writing the "
-                            "number."
+                            + (
+                                ""
+                                if cited
+                                else "Cite the record that states it in this sentence. "
+                            )
+                            + "Use the cited measurement's original meaning, value and "
+                            "unit. If the sources do not state it, say so without "
+                            "writing the number."
                         )
         if sentence_subjects:
             previous_subjects = sentence_subjects
