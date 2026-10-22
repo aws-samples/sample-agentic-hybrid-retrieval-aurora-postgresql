@@ -14,6 +14,8 @@ type Column = {
   fn?: string;
   engine: string;
   meta: string;
+  /** How many of this search's matches reached the shortlist, for a search column. */
+  reached?: number;
   accent: "retrieve" | "rank" | "done";
   /** This column's own rank for a product, or null when it did not rank it. */
   rankOf: (product: ProductSummary) => number | null;
@@ -33,9 +35,9 @@ function bestSearchRank(product: ProductSummary): number | null {
 }
 
 const ARM_ENGINE: Record<RetrievalArm, string> = {
-  fts: "tsvector · ts_rank_cd",
+  fts: "tsvector and ts_rank_cd",
   trigram: "pg_trgm",
-  semantic: "pgvector · HNSW",
+  semantic: "pgvector HNSW index",
 };
 
 /** The functions participants call by name in psql, so a card and the terminal agree. */
@@ -60,6 +62,7 @@ function columnsFor(response: SearchResponse): Column[] {
     fn: ARM_FUNCTION[arm],
     engine: ARM_ENGINE[arm],
     meta: reached(counts[armPoolKey[arm]]),
+    reached: counts[armPoolKey[arm]],
     accent: "retrieve",
     rankOf: (product) => product.signals?.[arm]?.rank ?? null,
   }));
@@ -73,7 +76,7 @@ function columnsFor(response: SearchResponse): Column[] {
       meta: pool === undefined ? "" : `Shortlist of ${pool}`,
       accent: "rank",
       rankOf: (product) => product.signals?.pre_rerank_rank ?? null,
-      previous: { label: "search", rank: bestSearchRank },
+      previous: { label: "Search", rank: bestSearchRank },
     },
     {
       key: "reranked",
@@ -83,7 +86,7 @@ function columnsFor(response: SearchResponse): Column[] {
       accent: reranked ? "done" : "rank",
       rankOf: (product) => product.signals?.final_rank ?? null,
       previous: reranked
-        ? { label: "combined", rank: (product) => product.signals?.pre_rerank_rank ?? null }
+        ? { label: "Combined", rank: (product) => product.signals?.pre_rerank_rank ?? null }
         : undefined,
     },
   ];
@@ -92,18 +95,22 @@ function columnsFor(response: SearchResponse): Column[] {
 type Tier = "target" | "lower" | "unranked";
 
 /**
- * Each search method's own top five among the products a search returned.
+ * Each search method's own top five on the search's shortlist.
  *
  * Shared by Shop and the Playground. Every rank printed is the product's real
- * rank in that method, read from `signals`, never a renumbered position, and the
- * rows are limited to the returned products: nothing here fetches the wider
- * pool. `targetRank` is the last rank the lab counts as found (the manifest's
- * bound), so the wanted product's badge is green inside it and orange past it.
+ * rank in that method, read from `signals`, never a renumbered position. With
+ * `pool`, the shortlist products read from the search's saved receipts, a method
+ * whose matches all ranked below the page still lists them, faded; without it
+ * the board ranks only the products shown and says so. `targetRank` is the last
+ * rank the lab counts as found (the manifest's bound), so the wanted product's
+ * badge is green inside it and orange past it.
  */
 export function MethodBoard({
-  response, wantedId = null, wantedName, targetRank, images, onSelect, only, reads,
+  response, pool = null, wantedId = null, wantedName, targetRank, images, onSelect, only, reads,
 }: {
   response: SearchResponse;
+  /** The shortlist products each column draws from (`useShortlist`); the products shown when null. */
+  pool?: ProductSummary[] | null;
   /** What each search looked for, shown above what it found. */
   reads?: Partial<Record<RetrievalArm, ReactNode>>;
   /** The columns to show, in board order; all five when absent. */
@@ -117,12 +124,25 @@ export function MethodBoard({
   onSelect?: (productId: number) => void;
 }) {
   const columns = columnsFor(response).filter((column) => !only || only.includes(column.key));
+  const candidates = pool ?? response.results;
+  const shownIds = new Set(response.results.map((product) => product.product_id));
+  const shown = response.results.length;
+  const shortlist = response.diagnostics?.candidate_counts?.fused_pool;
   const wanted = wantedId === null ? undefined
-    : response.results.find((product) => product.product_id === wantedId);
+    : candidates.find((product) => product.product_id === wantedId);
   const wantedMissing = wantedId !== null && !wanted;
   const name = wantedName ?? "wanted product";
   // The product the search put first, followed across every column it appears in.
-  const topId = response.results.find((product) => product.signals?.final_rank === 1)?.product_id ?? null;
+  const topId = candidates.find((product) => product.signals?.final_rank === 1)?.product_id ?? null;
+  // Header, badge and list are rows of one grid, so they line up across the columns.
+  const parts = wanted ? 3 : 2;
+  const note = pool
+    ? wantedMissing
+      ? `The ${name} is not on the shortlist of ${shortlist}.`
+      : `Each method’s own top five on the shortlist of ${shortlist}. Faded rows are not among the ${shown} shown.${wanted ? " Green marks the lab’s product." : ""}`
+    : wantedMissing
+      ? `The ${name} is not among the ${shown} shown.`
+      : `The ${shown} shown, at each method’s own rank.${wanted ? " Green marks the lab’s product." : ""}`;
 
   const badge = (column: Column): { tier: Tier; text: string } | null => {
     if (!wanted) return null;
@@ -136,15 +156,11 @@ export function MethodBoard({
     <section className="method-board" aria-label="Each method's top five">
       <header className="method-board-head">
         <h3>Each method’s top five</h3>
-        <p>
-          {wantedMissing
-            ? `The ${name} is not among the ${response.results.length} shown.`
-            : `The ${response.results.length} shown, at each method’s own rank.${wanted ? " Green marks the lab’s product." : ""}`}
-        </p>
+        <p>{note}</p>
       </header>
-      <div className="method-columns" style={{ "--board-columns": columns.length } as CSSProperties}>
+      <div className="method-columns" style={{ "--board-columns": columns.length, "--board-parts": parts } as CSSProperties}>
         {columns.map((column, index) => {
-          const rows = response.results
+          const rows = candidates
             .map((product) => ({ product, rank: column.rankOf(product) }))
             .filter((row): row is { product: ProductSummary; rank: number } => row.rank !== null)
             .sort((a, b) => a.rank - b.rank)
@@ -160,7 +176,7 @@ export function MethodBoard({
             >
               <header>
                 <h4>{column.title}</h4>
-                <p className="method-engine">{column.fn ? <><code>{column.fn}</code> · </> : null}{column.engine}</p>
+                <p className="method-engine">{column.fn ? <code>{column.fn}</code> : null}{column.engine}</p>
                 {reads && column.key in reads ? <p className="method-reads" aria-label={`${column.title} reads the request as`}>{reads[column.key as RetrievalArm]}</p> : null}
                 {column.meta ? <p className="method-meta">{column.meta}</p> : null}
               </header>
@@ -171,6 +187,8 @@ export function MethodBoard({
                     const earlier = column.previous?.rank(product);
                     const isWanted = product.product_id === wantedId;
                     const isTop = product.product_id === topId && !isWanted;
+                    const onPage = shownIds.has(product.product_id);
+                    const final = product.signals?.final_rank;
                     const content = (
                       <>
                         <span className="method-rank">{rank}</span>
@@ -184,18 +202,23 @@ export function MethodBoard({
                         />
                         <span className="method-text">
                           <span className="method-title">{product.title}</span>
+                          {onPage ? null : <span className="sr-only">, not on this page</span>}
                           {column.previous && earlier !== undefined ? (
                             <span className="method-move">
-                              {earlier === null ? null : `from ${column.previous.label} #${earlier} `}
+                              {earlier === null ? null : (
+                                <span className="method-from"><span>{column.previous.label}</span> #{earlier}</span>
+                              )}
                               <RankMove from={earlier} to={rank} />
                             </span>
-                          ) : null}
+                          ) : column.reached !== undefined && final !== undefined ? (
+                            <span className="method-move"><span className="method-from"><span>Final</span> #{final}</span></span>
+                          ) : <span className="method-move" aria-hidden="true" />}
                         </span>
                       </>
                     );
                     return (
-                      <li className="method-row" data-target={isWanted || undefined} data-top={isTop || undefined} key={product.product_id}>
-                        {onSelect ? (
+                      <li className="method-row" data-target={isWanted || undefined} data-top={isTop || undefined} data-off-page={!onPage || undefined} key={product.product_id}>
+                        {onSelect && onPage ? (
                           <button
                             type="button"
                             aria-label={`${product.title}, ${column.title} rank ${rank}`}
@@ -206,7 +229,15 @@ export function MethodBoard({
                     );
                   })}
                 </ol>
-              ) : <p className="method-empty">None of the {response.results.length} shown</p>}
+              ) : (
+                <p className="method-empty">
+                  {pool
+                    ? "None on the shortlist"
+                    : column.reached
+                      ? `Its ${column.reached} on the shortlist ranked below the ${shown} shown`
+                      : `None of the ${shown} shown`}
+                </p>
+              )}
             </article>
           );
         })}

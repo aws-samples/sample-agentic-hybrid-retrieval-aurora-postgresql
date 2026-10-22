@@ -40,6 +40,7 @@ import { usePipelineRun, type PipelineReceipt } from "../usePipelineRun";
 import { SpotlightTour } from "../components/SpotlightTour";
 import { AGENT_STEPS_HINT, ASK_AGENT_HINT, SEARCH_FIRST_HINT } from "../tour";
 import { useHint } from "../useHint";
+import { useShortlist } from "../useShortlist";
 import "../inspector.css";
 import "../playground-page.css";
 
@@ -240,9 +241,10 @@ function RetrieveGlance({ response, follow, missing, stopped, wanted, images, on
   wanted?: { id: number | null; name?: string; targetRank?: number };
   images: Map<number, string>; onSelect: (productId: number) => void;
 }) {
+  const pool = useShortlist(response, wanted?.id ?? null);
   if (!response) return <p className="inspector-waiting">{stopped ? "No search results are available from this run." : "Run a search to see what each search found."}</p>;
   return <>
-    <MethodBoard response={response} only={SEARCH_COLUMNS} reads={armReads(response)} wantedId={wanted?.id ?? null} wantedName={wanted?.name} targetRank={wanted?.targetRank} images={images} onSelect={onSelect} />
+    <MethodBoard response={response} pool={pool} only={SEARCH_COLUMNS} reads={armReads(response)} wantedId={wanted?.id ?? null} wantedName={wanted?.name} targetRank={wanted?.targetRank} images={images} onSelect={onSelect} />
     {missing || follow ? <p className="pg-follow">{missing ? `The ${missing} is not among the products this search returned.` : followSentence(follow as ProductSummary)}</p> : null}
   </>;
 }

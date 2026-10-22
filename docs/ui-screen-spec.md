@@ -46,7 +46,11 @@ shortlist, Combined (RRF) · shortlist, Reranked with the shortlist's size, show
 with a link to watch the ranking change in the Playground; **Each method's top
 five**, one column per search plus Combined (RRF) and Reranked, each naming the
 SQL function the guides call (`search_fts`, `search_trigram`, `search_vector`,
-`search_hybrid_rrf`), with ▲/▼ movement; then the result grid, eight cards a
+`search_hybrid_rrf`). Each column lists that method's own top five on the
+shortlist, read from the search's saved receipts: a search row gives its final
+position, Combined and Reranked rows their ▲/▼ movement, and rows below the page
+are faded. A column is empty only when its search put nothing on the shortlist.
+Then the result grid, eight cards a
 page, each with its path: the searches that found it with their ranks, then its
 combined and final positions. **Compare positions** swaps the grid for the same
 products in a table with each search's rank, the combined and reranked

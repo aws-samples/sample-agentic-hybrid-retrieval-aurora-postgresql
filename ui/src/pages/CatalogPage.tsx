@@ -84,6 +84,7 @@ import { EASE_OUT } from "../motion";
 import { lockBodyScroll } from "../scrollLock";
 import { useWantedName } from "../useWantedName";
 import "../shop-editorial.css";
+import { useShortlist } from "../useShortlist";
 import "../shop-wanted.css";
 import "../shop-slim.css";
 import type {
@@ -477,6 +478,7 @@ export function CatalogPage() {
   // Whichever lab asked this request marks its wanted product on the results.
   const wantedMission = labCallout && !labCallout.blocked ? labCallout.mission : rankMission;
   const wanted = wantedMission && retrieval ? wantedProduct(wantedMission, retrieval) : null;
+  const boardPool = useShortlist(retrieval, wanted?.productId ?? null);
   const wantedName = useWantedName(wantedMission, retrieval);
   // Only a verdict the lab outcome already holds can mark the strip: Lab 1's
   // broken run, whose fuzzy matching contributed nothing to the combined pool.
@@ -1655,6 +1657,7 @@ export function CatalogPage() {
             <div className="shop-board-slot" data-loading={retrievalLoading || undefined}>
               <MethodBoard
                 response={retrieval}
+                pool={boardPool}
                 wantedId={wanted?.productId ?? null}
                 wantedName={wantedName ?? undefined}
                 targetRank={wantedMission ? targetRankBound(wantedMission) : undefined}

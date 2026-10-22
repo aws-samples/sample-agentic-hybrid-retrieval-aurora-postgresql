@@ -38,6 +38,11 @@ function column(name: string) {
   return screen.getByRole("heading", { name }).closest("article") as HTMLElement;
 }
 
+/** Each row's "Stage #n" line in a column; the stage name is its own element so it can truncate. */
+function movedFrom(name: string) {
+  return [...column(name).querySelectorAll(".method-from")].map((line) => line.textContent);
+}
+
 const images = new Map<number, string>();
 const products = [
   row(1, "Alpha monitor", { fts: 3, semantic: 2, combined: 1, final: 2 }),
@@ -54,7 +59,7 @@ describe("MethodBoard", () => {
     const semantic = within(column("Semantic search"));
     const ranks = semantic.getAllByRole("listitem").map((item) => item.querySelector(".method-rank")!.textContent);
     expect(ranks).toEqual(["2", "7", "10"]);
-    expect(within(column("Reranked")).getByText("from combined #21")).toBeTruthy();
+    expect(movedFrom("Reranked")).toContain("Combined #21");
   });
 
   it("names the SQL function each Aurora stage runs, as the lab guides call it", () => {
@@ -71,7 +76,20 @@ describe("MethodBoard", () => {
       row(100 + index, `P${index}`, { fts: index + 1, combined: index + 1, final: index + 1 }));
     render(<MethodBoard response={run(many)} images={images} />);
     expect(within(column("Full-text search")).getAllByRole("listitem")).toHaveLength(5);
-    expect(within(column("Fuzzy matching")).getByText(/^None of the \d+ shown$/)).toBeTruthy();
+    // The seed run put one fuzzy match on the shortlist; none of these eight is it.
+    expect(within(column("Fuzzy matching")).getByText("Its 1 on the shortlist ranked below the 8 shown")).toBeTruthy();
+  });
+
+  it("says when a search's shortlist matches all ranked below the products shown", () => {
+    const shown = [row(1, "Shown", { semantic: 1, combined: 1, final: 1 })];
+    const response = run(shown);
+    response.diagnostics = {
+      ...response.diagnostics!,
+      candidate_counts: { ...response.diagnostics!.candidate_counts, trigram_in_pool: 3, fts_in_pool: 0 },
+    };
+    render(<MethodBoard response={response} images={images} />);
+    expect(within(column("Fuzzy matching")).getByText("Its 3 on the shortlist ranked below the 1 shown")).toBeTruthy();
+    expect(within(column("Full-text search")).getByText("None of the 1 shown")).toBeTruthy();
   });
 
   it("badges the wanted product by tier and rings its row", () => {
@@ -92,7 +110,7 @@ describe("MethodBoard", () => {
   it("says Not reranked when the request was not reranked", () => {
     render(<MethodBoard response={run(products, "disabled")} images={images} />);
     expect(screen.getByRole("heading", { name: "Not reranked" })).toBeTruthy();
-    expect(screen.queryByText("from combined #21")).toBeNull();
+    expect(movedFrom("Not reranked")).toHaveLength(0);
   });
 
   it("selects a product from its row", () => {
@@ -121,7 +139,7 @@ describe("MethodBoard", () => {
     // Gamma: best search 1, combined 2, final 1.
     expect(move("Combined (RRF)", "Gamma monitor").getAttribute("data-move")).toBe("down");
     expect(move("Reranked", "Gamma monitor").getAttribute("data-move")).toBe("up");
-    expect(within(column("Reranked")).getByText(/from combined #21/)).toBeTruthy();
+    expect(movedFrom("Reranked")).toContain("Combined #21");
   });
 
   it("calls a row new when the earlier stage never ranked it, and unchanged when it did not move", () => {
@@ -129,6 +147,35 @@ describe("MethodBoard", () => {
     render(<MethodBoard response={run([unranked])} images={images} />);
     expect(within(column("Combined (RRF)")).getByText("new").getAttribute("data-move")).toBe("new");
     expect(column("Reranked").querySelector(".rank-move")?.getAttribute("data-move")).toBe("same");
+  });
+
+  it("lists a method's shortlist matches below the page, faded and not clickable", () => {
+    const onPage = row(1, "On the page", { semantic: 1, combined: 1, final: 1 });
+    const below = row(40, "Below the page", { trigram: 1, combined: 30, final: 17 });
+    const onSelect = vi.fn();
+    render(<MethodBoard response={run([onPage])} pool={[onPage, below]} images={images} onSelect={onSelect} />);
+    const fuzzy = within(column("Fuzzy matching"));
+    const listed = fuzzy.getByText("Below the page").closest("li")!;
+    expect(listed.hasAttribute("data-off-page")).toBe(true);
+    expect(within(listed).queryByRole("button")).toBeNull();
+    expect(listed.textContent).toContain("not on this page");
+    expect(movedFrom("Fuzzy matching")).toEqual(["Final #17"]);
+    expect(screen.getByText(/Each method’s own top five on the shortlist of \d+\. Faded rows are not among the 1 shown\./)).toBeTruthy();
+    expect(within(column("Full-text search")).getByText("None on the shortlist")).toBeTruthy();
+    fireEvent.click(within(column("Semantic search")).getByRole("button", { name: /On the page/ }));
+    expect(onSelect).toHaveBeenCalledWith(1);
+  });
+
+  it("badges a wanted product the shortlist holds below the page, and names one it does not", () => {
+    const onPage = row(1, "On the page", { semantic: 1, combined: 1, final: 1 });
+    const wantedBelow = row(40, "Wanted below", { fts: 4, combined: 21, final: 15 });
+    const { rerender } = render(
+      <MethodBoard response={run([onPage])} pool={[onPage, wantedBelow]} wantedId={40} targetRank={10} images={images} />,
+    );
+    expect(within(column("Full-text search")).getByText("Wanted #4").getAttribute("data-tier")).toBe("target");
+    expect(within(column("Reranked")).getByText("Wanted #15").getAttribute("data-tier")).toBe("lower");
+    rerender(<MethodBoard response={run([onPage])} pool={[onPage]} wantedId={40} wantedName="Logitech Zone 900" images={images} />);
+    expect(screen.getByText(/The Logitech Zone 900 is not on the shortlist of \d+\./)).toBeTruthy();
   });
 
   it("follows the final number one across every column, and lets the wanted product win", () => {
