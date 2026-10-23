@@ -280,7 +280,6 @@ def test_stream_releases_admission_if_client_disconnects_before_iteration(monkey
     import asyncio
 
     body = Mock()
-    body.iter_chunks.return_value = iter([b"data: ready\n\n"])
     acquire, release = Mock(return_value="slot"), Mock()
     monkeypatch.setattr("service.access_control.acquire_model_admission_slot", acquire)
     monkeypatch.setattr("service.access_control.release_model_admission_slot", release)
@@ -303,6 +302,72 @@ def test_stream_releases_admission_if_client_disconnects_before_iteration(monkey
         )
     body.close.assert_called_once()
     release.assert_called_once_with("slot")
+
+
+def test_stream_relays_each_runtime_event_before_the_next_arrives(monkeypatch):
+    """A tool call reaches the participant while the agent is still working."""
+    import asyncio
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+    import urllib3
+    from botocore.response import StreamingBody
+
+    first = b'event: tool\ndata: {"name": "search_products"}\n\n'
+    last = b'event: complete\ndata: {"response": {}}\n\n'
+    relayed, held = threading.Event(), {}
+
+    class Runtime(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream")
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            self.wfile.write(b"%x\r\n%s\r\n" % (len(first), first))
+            self.wfile.flush()
+            held["relayed_first"] = relayed.wait(timeout=3)
+            self.wfile.write(b"%x\r\n%s\r\n0\r\n\r\n" % (len(last), last))
+            self.wfile.flush()
+
+        def log_message(self, *_):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Runtime)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    raw = urllib3.PoolManager().request(
+        "GET",
+        f"http://127.0.0.1:{server.server_port}/",
+        preload_content=False,
+        decode_content=False,
+    )
+    monkeypatch.setattr(
+        "service.access_control.acquire_model_admission_slot", lambda: "slot"
+    )
+    monkeypatch.setattr(
+        "service.access_control.release_model_admission_slot", lambda _: None
+    )
+    monkeypatch.setattr(transport, "invoke", lambda *_: StreamingBody(raw, None))
+    response = transport.stream(AgentRequest(question="A monitor"), None)
+    bodies = []
+
+    async def receive():
+        return {"type": "http.request", "body": b"", "more_body": False}
+
+    async def send(message):
+        if message["type"] == "http.response.body" and message.get("body"):
+            bodies.append(message["body"])
+            relayed.set()
+
+    try:
+        asyncio.run(
+            response({"type": "http", "asgi": {"spec_version": "2.4"}}, receive, send)
+        )
+    finally:
+        server.shutdown()
+    assert held["relayed_first"], "the first event waited for the Runtime's next one"
+    assert bodies == [first, last]
 
 
 def test_runtime_conflict_does_not_claim_unproven_source_drift(monkeypatch, source):

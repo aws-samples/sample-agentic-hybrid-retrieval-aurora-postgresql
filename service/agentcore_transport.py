@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import re
+from collections.abc import Iterator
 from threading import Lock
 from typing import Literal
 from uuid import uuid4
@@ -164,6 +165,14 @@ def answer(request: AgentRequest, http_request: Request | None) -> AgentResponse
         return AgentResponse.model_validate_json(body.read())
 
 
+def _as_received(body) -> Iterator[bytes]:
+    # A sized read waits for that many bytes, so a tool call sat in the relay until
+    # later events filled the chunk; read1 passes on whatever the Runtime has sent.
+    with body as raw:
+        while chunk := raw.read1(1024):
+            yield chunk
+
+
 def stream(request: AgentRequest, http_request: Request | None) -> StreamingResponse:
     """Keep admission and the upstream stream owned until delivery finishes."""
     from service.access_control import (
@@ -202,7 +211,7 @@ def stream(request: AgentRequest, http_request: Request | None) -> StreamingResp
                 close()
 
     return RuntimeStream(
-        body.iter_chunks(chunk_size=1024),
+        _as_received(body),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache"},
     )
