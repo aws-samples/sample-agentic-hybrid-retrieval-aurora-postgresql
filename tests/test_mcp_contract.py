@@ -11,7 +11,7 @@ def test_mcp_2026_runtime_is_isolated_from_strands() -> None:
         (ROOT / "config" / "requirements.txt").read_text().splitlines()
     )
 
-    assert "mcp==2.0.0" in mcp_dependencies
+    assert "mcp==2.2.0" in mcp_dependencies
     assert pyproject["project"]["requires-python"] == ">=3.13,<3.14"
     assert not any(line.startswith("mcp") for line in shared_dependencies)
     assert "strands-agents==1.48.0" in shared_dependencies

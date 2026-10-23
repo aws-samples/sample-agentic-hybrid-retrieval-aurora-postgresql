@@ -9,7 +9,7 @@ description = "Mosaic MCP 2026-07-28 adapter for the hybrid retrieval API"
 requires-python = ">=3.13,<3.14"
 dependencies = [
   "httpx>=0.28,<1",
-  "mcp==2.0.0",
+  "mcp==2.2.0",
   "pydantic>=2.13,<3",
 ]
 
