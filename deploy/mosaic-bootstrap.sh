@@ -660,9 +660,9 @@ commands and proof boundaries. Follow the Workshop Studio lab guide.
 - Change only the current marked LAB1, LAB2, or LAB3 seam and make
   the smallest possible diff.
 - Do not edit unrelated files, retrieval limits, weights, thresholds,
-  model IDs, indexes, shared prompts, or tool schemas. Lab 3 permits
-  the guide's additional instruction inside the marked agent block;
-  preserve the supplied source rules and execution hooks.
+  model IDs, indexes, shared prompts, or tool schemas. In Lab 3 keep
+  the supplied instructions as the system prompt, with the tools and
+  execution hooks; a participant's own rule may follow them.
 - Do not run uv run python scripts/lab_state.py solution --lab N,
   finish --lab N or skip-to --lab N unless the participant explicitly
   asks for the full recovery path or to start at a later lab.
@@ -671,9 +671,10 @@ commands and proof boundaries. Follow the Workshop Studio lab guide.
   lab files into the schema the app searches; running a lab file in psql
   does not reach Shop. Then repeat the identical request and run the
   lab's proof commands shown in the guide.
-  In Lab 3, run uv run python scripts/deploy_agentcore.py deploy and check
-  the participant's saved run with uv run python scripts/complete_agent.py
-  --run-id <your-run-id> as the guide describes.
+  In Lab 3, run uv run python scripts/deploy_agentcore.py deploy: questions
+  and completion wait for a deploy made since Lab 3 started. Then check the
+  participant's newest setup run with uv run python scripts/complete_agent.py
+  as the guide describes.
 - If Aurora, Bedrock, the API, or the storefront is unhealthy, stop
   and identify it as an environment failure rather than changing code
   to work around it.

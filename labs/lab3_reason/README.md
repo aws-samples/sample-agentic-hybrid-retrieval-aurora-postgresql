@@ -24,9 +24,10 @@ Runtime has nothing to invoke.
 
 In [agent.py](agent.py), edit only between `LAB3_EDIT_START` and
 `LAB3_EDIT_END`. Return a Strands `Agent` with `model=model`, `tools=tools`,
-`system_prompt=instructions`, `hooks=hooks` and `callback_handler=None`. You
-may add one instruction of your own; keep the source rules and hooks. Saving
-changes nothing in Runtime until you deploy:
+`system_prompt=instructions`, `hooks=hooks` and `callback_handler=None`. Keep
+the supplied instructions: they hold the tool order and evidence rules, and the
+deploy refuses a prompt without them. Saving changes nothing in Runtime until you
+deploy, and until you do, questions wait for it:
 
 ```bash
 uv run python scripts/deploy_agentcore.py deploy
@@ -45,15 +46,16 @@ them.
 
 ## Change a need, then prove the run
 
-Ask the guide's 100W follow-up the same way. Prove the setup run, not the
-follow-up:
+Ask the guide's 100W follow-up the same way. Then prove the setup run:
 
 ```bash
-uv run python scripts/complete_agent.py --run-id <your-run-id>
+uv run python scripts/complete_agent.py
 ```
 
-It reads your deployed code and the saved run without generating another
-answer. Deployment alone does not prove completion.
+It finds your newest setup run since Lab 3 started, says which it chose, and
+reads your deployed code and that run without generating another answer;
+`--run-id <run-id>` checks a particular run instead. Deployment alone does not
+prove completion.
 
 <details>
 <summary>🛠️ Compare with or install the reference answer</summary>

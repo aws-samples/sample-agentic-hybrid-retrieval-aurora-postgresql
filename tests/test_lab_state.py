@@ -366,6 +366,70 @@ def test_lab3_rejects_missing_agent_parts_and_accepts_byte_identical_restore(
     assert lab_is_solved(3, repo=lab_repo)
 
 
+@pytest.mark.parametrize(
+    ("body", "named"),
+    [
+        (
+            "    return Agent(model=model, tools=tools, system_prompt='Recommend', hooks=hooks)",
+            "system_prompt must keep the supplied instructions",
+        ),
+        (
+            "    return Agent(model=model, tools=tools, system_prompt=instructions)",
+            "hooks=hooks",
+        ),
+        (
+            "    return Agent(model=model, system_prompt=instructions, hooks=hooks)",
+            "tools=tools",
+        ),
+        (
+            "    return Agent(tools=tools, system_prompt=instructions, hooks=hooks)",
+            "model=model",
+        ),
+        (
+            "    Agent(model=model, tools=tools, system_prompt=instructions, hooks=hooks)",
+            "build one Agent and return it",
+        ),
+        (
+            "    return Agent(model=model, tools=tools, system_prompt=instruction, hooks=hooks)",
+            "create_agent raised NameError: name 'instruction' is not defined",
+        ),
+        ("    raise NotImplementedError()", "still raises NotImplementedError"),
+    ],
+)
+def test_lab3_names_the_part_of_the_contract_an_edit_misses(lab_repo, body, named):
+    from scripts.lab_state import _replace_block, lab3_problem
+
+    path = lab_repo / LABS[3][0]
+    start, end, _, _ = LABS[3][1][0]
+    path.write_text(_replace_block(path.read_text(), start, end, body))
+    assert named in lab3_problem(repo=lab_repo)
+
+
+@pytest.mark.parametrize(
+    "prompt", ['instructions + "\\nBe brief."', '"Be brief.\\n" + instructions']
+)
+def test_lab3_accepts_a_rule_before_or_after_the_instructions(lab_repo, prompt):
+    from scripts.lab_state import _replace_block, lab3_problem
+
+    path = lab_repo / LABS[3][0]
+    start, end, _, _ = LABS[3][1][0]
+    body = (
+        f"    return Agent(model=model, tools=tools, system_prompt={prompt}, "
+        "hooks=hooks, callback_handler=None)"
+    )
+    path.write_text(_replace_block(path.read_text(), start, end, body))
+    assert lab3_problem(repo=lab_repo) is None
+
+
+def test_lab3_names_a_missing_marker_line(lab_repo):
+    from scripts.lab_state import lab3_problem
+
+    path = lab_repo / LABS[3][0]
+    start, _, _, _ = LABS[3][1][0]
+    path.write_text(path.read_text().replace(start, ""))
+    assert f"the line '{start}' is missing" in lab3_problem(repo=lab_repo)
+
+
 def test_lab3_probe_does_not_import_module_startup_code(lab_repo):
     path = lab_repo / LABS[3][0]
     path.write_text(path.read_text() + '\nraise RuntimeError("unrelated startup")\n')

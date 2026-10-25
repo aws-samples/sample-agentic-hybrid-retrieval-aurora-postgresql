@@ -55,7 +55,7 @@ asks whether a 90W monitor meets a new 100W laptop requirement. The response mus
 explain the mismatch. A source ID establishes identity; the cited text must
 still support the claim.
 
-`uv run python scripts/complete_agent.py --run-id ...` checks that actual managed run, current code,
+`uv run python scripts/complete_agent.py` checks the newest managed setup run, current code,
 Gateway searches and source records. It saves a receipt without another model
 call. Application and release tests remain developer responsibilities; they
 are not participant exercises.

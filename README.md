@@ -79,8 +79,10 @@ All three labs run in the terminal. Lab 1's handoff saves the monitor request
 that Lab 2 inspects in `psql`; Shop is an optional check of the same evidence.
 Lab 2's handoff proves its repair and installs the Retrieval agent's starting code. After
 deploying in Lab 3, ask the setup request and the changed requirement with
-`scripts/ask_agent.py`, then check the setup run by its Run ID. Ask Mosaic shows
-the same runs in the browser and is optional.
+`scripts/ask_agent.py`, then check the setup run with `scripts/complete_agent.py`,
+which finds the newest one. Until the participant's first deploy after Lab 3 starts,
+questions wait for it: the provisioned reference Retrieval agent does not answer for
+their build. Ask Mosaic shows the same runs in the browser and is optional.
 
 Use **Shop** for product search and **Playground** for saved candidates,
 ranking, tool calls and cited sources. **Ask Mosaic** opens from the pill in the
@@ -92,14 +94,14 @@ search, the **Ask the Retrieval agent** button if you open the agent's steps bef
 it has run, and **Agent steps and sources** after its first answer. **Complete my setup** runs Lab 3's
 three-product request, and its Ask Mosaic suggested question stays available before and after
 you build the Retrieval agent; it runs on its own filters and says when it clears Shop's.
-Keep its original run ID for completion: after that request, Shop shows the terminal
-command that checks the run, with its ID filled in. Ask Mosaic's **Show tool calls** switch (on by default) shows the full **Retrieval agent record** ID, recorded steps, saved search IDs and how each search ranked its products. Every
+After that request, Shop shows the terminal command that checks that run, with its ID
+filled in. Ask Mosaic's **Show tool calls** switch (on by default) shows the full **Retrieval agent record** ID, recorded steps, saved search IDs and how each search ranked its products. Every
 lab is proved in the terminal; the Playground's **Compare search methods** table shows
 the maintainers' saved measurements, which do not grade your repairs.
 
 The prepared workshop serves a built UI so a live-reload connection cannot
-interrupt your answer. Keep the answer open while inspecting its sources, and
-save the run ID before refreshing or leaving the page.
+interrupt your answer. Keep the answer open while inspecting its sources; the run
+itself is saved in Aurora, so leaving the page loses only the view.
 
 The guide opens with the business challenge and workshop structure, then Getting
 started. Each lab asks you to investigate, repair and prove the result,

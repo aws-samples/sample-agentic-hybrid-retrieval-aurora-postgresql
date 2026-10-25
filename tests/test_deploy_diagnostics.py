@@ -97,7 +97,9 @@ def test_failed_gateway_sync_prints_the_first_status_reason(monkeypatch):
         ],
     )
     with pytest.raises(RuntimeError) as raised:
-        deploy.update("example.ecr/repo@sha256:" + "a" * 64, deploy.deploy_progress())
+        deploy.update(
+            "example.ecr/repo@sha256:" + "a" * 64, deploy.deploy_progress(), "c" * 64
+        )
     message = str(raised.value)
     assert "SYNCHRONIZE_UNSUCCESSFUL" in message
     assert "cold start timed out" in message
@@ -112,7 +114,9 @@ def test_gateway_sync_waits_through_synchronizing_until_ready(monkeypatch, capsy
         control,
         [{"status": "SYNCHRONIZING"}, {"status": "READY"}],
     )
-    deploy.update("example.ecr/repo@sha256:" + "a" * 64, deploy.deploy_progress())
+    deploy.update(
+        "example.ecr/repo@sha256:" + "a" * 64, deploy.deploy_progress(), "c" * 64
+    )
     assert control.get_gateway_target.call_count == 2
     assert "4/5  Synchronize the Gateway tools (usually about 0:21)" in (
         capsys.readouterr().out
@@ -361,3 +365,21 @@ def test_a_failed_phase_says_so_before_the_failure(monkeypatch, capsys):
     captured = capsys.readouterr()
     assert "1/5  Build and push the image: failed" in captured.out
     assert "Image build rule: it broke" in captured.err
+
+
+def test_deploy_records_the_retrieval_agent_version_it_made_ready(monkeypatch):
+    """Questions and completion read this record; the tools runtime alone is not a deploy."""
+    from service.agent_deploys import deploys_path, load_deploys, record_deploy
+
+    control = Mock()
+    gateway_environment(monkeypatch, control, [{"status": "READY"}])
+    deploy.update(
+        "example.ecr/repo@sha256:" + "a" * 64, deploy.deploy_progress(), "c" * 64
+    )
+
+    (recorded,) = load_deploys()
+    assert (recorded.runtime_version, recorded.application_sha256) == ("2", "c" * 64)
+
+    deploys_path().write_text("{not json")
+    record_deploy("3", "d" * 64)
+    assert [item.runtime_version for item in load_deploys()] == ["3"]

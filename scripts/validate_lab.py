@@ -436,7 +436,7 @@ def main() -> int:
         raise SystemExit(
             "Lab 3 validation rule: found --lab 3 without a receipt; Lab 3 is checked "
             "on your saved Retrieval agent run, not on fresh answers. fix: ask Alex's setup "
-            f"request with {ask_setup()}, then run {complete_lab_3()} with its Run ID "
+            f"request with {ask_setup()}, then run {complete_lab_3()} "
             "(a maintainer passes --save-receipt PATH or --reuse-receipt PATH)."
         )
     validator = {

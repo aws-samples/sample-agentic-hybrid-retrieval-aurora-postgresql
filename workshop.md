@@ -41,8 +41,9 @@ final positions), and Why this match puts each search's 1 ÷ (k + position) valu
 beside the contribution the search recorded.
 Lab 2 ends with `advance --lab 2`, which proves Lab 2 and installs the
 Retrieval agent's starting code. Lab 3 stays in the terminal: deploy, ask the setup
-request and the 100W follow-up with `scripts/ask_agent.py`, then complete the
-setup run by the Run ID it printed. Ask Mosaic is an optional view of the same runs.
+request and the 100W follow-up with `scripts/ask_agent.py`, then complete with
+`scripts/complete_agent.py`, which checks the newest setup run. Ask Mosaic is an
+optional view of the same runs.
 
 Each lab opens with its time and one command,
 `uv run python scripts/lab_state.py finish --lab N`, for anyone who already knows
@@ -173,8 +174,16 @@ After the deploy, participants ask Alex's setup request from the terminal with
 the request completion checks word for word. It prints the answer, the plan, the
 tool trace with the search SQL Aurora ran, the products, each citation with its
 quote, the outcome and the **Run ID**. They ask the 100W follow-up the same way;
-each call is its own run, and completion reads only the setup run's ID. A
-follow-up question is not graded against the lab.
+each call is its own run. `uv run python scripts/complete_agent.py` then checks the
+newest run of the setup request since Lab 3 started that opened its own conversation,
+and says which run it chose; `--run-id` checks a particular one. A follow-up question
+is not graded against the lab.
+
+Until a participant deploys after Lab 3 starts, questions from the terminal, Playground
+and Ask Mosaic wait for that deploy, and completion refuses a run without one: AgentCore
+Runtime compares code digests, and the provisioned reference Retrieval agent has the
+same digest as a pasted reference answer. Each deploy is recorded in
+`.local/agentcore/deploys.json` once the Retrieval agent runtime is ready.
 
 Ask Mosaic is optional. Its **Complete my setup** suggested question sends the same
 request and passes completion only as the first message of a fresh chat (use

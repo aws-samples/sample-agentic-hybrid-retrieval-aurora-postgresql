@@ -20,7 +20,7 @@ holds the same strings for every message the app prints.
 | `uv run python scripts/deploy_agentcore.py tools\|deploy\|verify\|resources` | List the SQL tools, deploy your Lab 3 agent, recheck the deployment, show the runtimes, Gateway and Memory |
 | `uv run python scripts/ask_agent.py "QUESTION"` | Ask your deployed agent and read its answer of record: trace, citations, outcome, decline reason |
 | `uv run python scripts/check_claim.py PRODUCT_ID "SENTENCE [1]"` | Run a sentence through the agent's answer checks with the product's listing as [1]: a stated figure must be in the record |
-| `uv run python scripts/complete_agent.py --run-id <your-run-id>` | Check your saved Lab 3 run |
+| `uv run python scripts/complete_agent.py [--run-id <run-id>]` | Check your newest Lab 3 setup run, or the run named |
 
 The guides also use `lab_exercise.py`, `lab_terminal.py`, `hnsw_exercise.py`
 and `python -m scripts.check_builder_tool` for optional exercises. The other

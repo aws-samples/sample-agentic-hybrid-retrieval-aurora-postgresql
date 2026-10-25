@@ -213,8 +213,7 @@ agent-tools:
 	@$(PYTHON) scripts/deploy_agentcore.py tools
 
 complete-lab-3:
-	@test -n "$(RUN_ID)" || { echo "Copy the agent run ID from Mosaic → Playground → Reason. Next: run make complete-lab-3 RUN_ID=<your-run-id>."; exit 1; }
-	@$(PYTHON) scripts/complete_agent.py --run-id "$(RUN_ID)"
+	@$(PYTHON) scripts/complete_agent.py $(if $(RUN_ID),--run-id "$(RUN_ID)")
 
 restart-lab-api:
 	@if command -v systemctl >/dev/null 2>&1 \

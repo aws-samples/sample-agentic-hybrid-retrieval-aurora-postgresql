@@ -25,7 +25,8 @@ from scripts.checks.rehearsal import redact
 from scripts.package_agentcore import package
 from scripts.progress import Progress
 from service import agentcore_transport, gateway_tools
-from service.agent_setup import agent_code_message
+from service.agent_deploys import record_deploy
+from service.agent_setup import AGENT_NOT_BUILT, agent_code_message
 from service.lab_validation_receipt import application_digest, participant_sql_digest
 from service.participant_commands import (
     AGENTCORE_RESOURCES,
@@ -379,7 +380,13 @@ def discover() -> dict[str, str]:
     )
 
 
-def update(image_uri: str, progress: Progress) -> None:
+def update(image_uri: str, progress: Progress, application_sha256: str) -> None:
+    """Point both runtimes at the new image, then synchronize Gateway's tools.
+
+    The deploy is recorded once the Retrieval agent runtime is ready on its new
+    version, before Gateway and the checks: Runtime already runs the new code, and
+    a later `verify` that passes should not need another deploy.
+    """
     control = client("bedrock-agentcore-control")
     fields = set(
         control.meta.service_model.operation_model(
@@ -409,6 +416,8 @@ def update(image_uri: str, progress: Progress) -> None:
         print(f"Updating the {label}; AWS replaces its running version.", flush=True)
         deployed = wait_runtime(control, runtime_id, label)
         print(f"Ready: {label} version {deployed['agentRuntimeVersion']}", flush=True)
+        if setting == "MOSAIC_AGENTCORE_RUNTIME_ARN":
+            record_deploy(str(deployed["agentRuntimeVersion"]), application_sha256)
     phase(progress, 3)
     gateway = required("MOSAIC_AGENTCORE_GATEWAY_ID")
     target = required("MOSAIC_AGENTCORE_GATEWAY_TARGET_ID")
@@ -693,14 +702,23 @@ def explain_failure(error: Exception, retry: str) -> str:
 def not_ready_message(
     agent_file: Path = ROOT / "labs" / "lab3_reason" / "agent.py",
 ) -> str:
-    """Why the Retrieval agent cannot deploy: a code mistake, named, or unfinished code."""
+    """Why the Retrieval agent cannot deploy: a code mistake or the contract part it misses."""
+    from scripts.lab_state import lab3_contract_problem
+
+    source = agent_file.read_text(encoding="utf-8")
     try:
-        compile(agent_file.read_text(encoding="utf-8"), str(agent_file), "exec")
+        compile(source, str(agent_file), "exec")
     except SyntaxError as error:
         return agent_code_message(error)
+    problem = lab3_contract_problem(source)
+    if problem is None or problem == AGENT_NOT_BUILT:
+        return (
+            "Your Retrieval agent is not ready to deploy. Open labs/lab3_reason/agent.py, "
+            f"complete create_agent, then deploy with {DEPLOY_AGENT} again."
+        )
     return (
-        "Your Retrieval agent is not ready to deploy. Open labs/lab3_reason/agent.py, "
-        f"complete create_agent, then deploy with {DEPLOY_AGENT} again."
+        f"Your Retrieval agent is not ready to deploy: in labs/lab3_reason/agent.py, "
+        f"{problem}. Fix that, save, then deploy with {DEPLOY_AGENT} again."
     )
 
 
@@ -738,9 +756,10 @@ def main() -> int:
             if not lab_is_solved(3):
                 raise ValueError(not_ready_message())
             progress = deploy_progress()
+            code = application_digest()
             try:
                 phase(progress, 0)
-                update(stage(), progress)
+                update(stage(), progress, code)
                 phase(progress, 4)
                 verify()
             except BaseException:

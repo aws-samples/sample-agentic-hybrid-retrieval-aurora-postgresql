@@ -77,8 +77,10 @@ def validate(lab: int) -> str:
     return f"uv run python scripts/validate_lab.py --lab {lab}"
 
 
-def complete_lab_3(run_id: str = "<your-run-id>") -> str:
-    return f"uv run python scripts/complete_agent.py --run-id {run_id}"
+def complete_lab_3(run_id: str | None = None) -> str:
+    """Prove Lab 3 on the newest setup run since Lab 3 started, or on the run named."""
+    command = "uv run python scripts/complete_agent.py"
+    return f"{command} --run-id {run_id}" if run_id else command
 
 
 def validate_applied(lab: int) -> str:

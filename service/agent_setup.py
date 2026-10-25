@@ -15,6 +15,25 @@ AGENT_STARTER_MESSAGE = (
     f"Next: deploy with {DEPLOY_AGENT}, then ask your question again."
 )
 
+#: How the starting code misses the Lab 3 contract, as `lab3_contract_problem` says it.
+AGENT_NOT_BUILT = "create_agent still raises NotImplementedError"
+
+
+def agent_setup_message(problem: str) -> str:
+    """The message for one way `agent.py` misses the Lab 3 contract.
+
+    The starting code keeps the message Lab 2's hand-off printed; any other gap is
+    named, so an assembled agent whose prompt dropped the supplied instructions is
+    not told it was never built.
+    """
+    if problem == AGENT_NOT_BUILT:
+        return AGENT_STARTER_MESSAGE
+    return (
+        f"Your Retrieval agent is not ready: in labs/lab3_reason/agent.py, {problem}. "
+        f"Next: deploy with {DEPLOY_AGENT}, then ask your question again."
+    )
+
+
 AGENT_TOOLS_MESSAGE = (
     "Your Retrieval agent is missing its Mosaic tools. Open labs/lab3_reason/agent.py in Code "
     "Editor and pass the supplied tools to Agent. "

@@ -9,6 +9,7 @@ from strands.models.model import Model
 from service.agent import _loop_error, _StopOnRunErrors
 from service.agent_setup import AgentSetupError
 from service.model_runtime import ModelRuntimeError
+from service.participant_commands import DEPLOY_AGENT
 
 
 class ScriptedModel(Model):
@@ -99,4 +100,26 @@ def test_deploy_names_a_syntax_error_in_the_participant_agent(tmp_path):
     message = not_ready_message(agent_file)
     assert "SyntaxError" in message and message.count("line 1") == 1
     agent_file.write_text("raise NotImplementedError\n", encoding="utf-8")
+    assert "the line '# LAB3_EDIT_START' is missing" in not_ready_message(agent_file)
+
+
+def test_deploy_names_the_contract_part_an_assembled_agent_misses(tmp_path):
+    from scripts.deploy_agentcore import not_ready_message
+    from scripts.lab_state import LAB3_STARTER, LABS, REPO, _replace_block
+
+    shipped = (REPO / LABS[3][0]).read_text(encoding="utf-8")
+    start, end, _, _ = LABS[3][1][0]
+    agent_file = tmp_path / "agent.py"
+    agent_file.write_text(
+        _replace_block(shipped, start, end, LAB3_STARTER.rstrip("\n"))
+    )
     assert "complete create_agent" in not_ready_message(agent_file)
+    replaced = (
+        "    return Agent(model=model, tools=tools, system_prompt='Recommend well', "
+        "hooks=hooks, callback_handler=None)"
+    )
+    agent_file.write_text(_replace_block(shipped, start, end, replaced))
+    message = not_ready_message(agent_file)
+    assert "system_prompt must keep the supplied instructions" in message
+    assert "complete create_agent" not in message
+    assert DEPLOY_AGENT in message

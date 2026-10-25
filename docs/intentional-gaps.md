@@ -93,8 +93,8 @@ run by the `advance --lab 1` and `advance --lab 2` handoffs, install the later o
 - **After deploying** the Retrieval agent uses the SQL from Labs 1 and 2 through AgentCore
   Gateway. The participant asks about the ViewSonic VG2756-4K and Steelcase
   Gesture, opens a citation, and follows up with a changed requirement.
-- **Completion** `uv run python scripts/complete_agent.py --run-id ...` checks the participant's actual
-  deployed run and saves its receipt without another model invocation.
+- **Completion** `uv run python scripts/complete_agent.py` checks the participant's newest
+  setup run, made by their own deploy, and saves its receipt without another model invocation.
 
 
 ## Rules

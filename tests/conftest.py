@@ -68,6 +68,19 @@ def isolate_unit_environment(request, monkeypatch):
         monkeypatch.delenv("MOSAIC_AGENTCORE_GATEWAY_URL", raising=False)
 
 
+@pytest.fixture(autouse=True)
+def isolate_deploy_record(tmp_path_factory, monkeypatch):
+    """Keep the Retrieval agent deploy record, and the Lab 3 start it is read
+    against, out of the checkout running the tests.
+
+    A test that drives a deploy end to end would otherwise write
+    `.local/agentcore/deploys.json` into the maintainer's own workspace.
+    """
+    monkeypatch.setattr(
+        "service.agent_deploys.ROOT", tmp_path_factory.mktemp("workspace")
+    )
+
+
 _SKIP_REASON = (
     "Rule: aurora-marked tests require a live Aurora DSN because they exercise "
     "real retrieval and scope-enforcement SQL, not a stand-in. Value: skipping "

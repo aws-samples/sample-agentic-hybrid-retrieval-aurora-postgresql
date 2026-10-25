@@ -168,7 +168,8 @@ receipts, the saved candidate pool, and the activity log.
 
 The older guided lab workbench is retired: `?view=lab`, `?run=` and bare
 `?example=` links open this page. Labs are proved in the terminal; after Lab 3's
-request, Shop shows `complete_agent.py --run-id` with the run's ID to copy.
+request, Shop shows `complete_agent.py --run-id` with that run's ID filled in; without
+`--run-id` the command checks the newest setup run.
 
 API: `POST /api/agent/answer/stream`,
 `GET /api/retrieval/events/{search_event_id}/response`, and linked evidence records.

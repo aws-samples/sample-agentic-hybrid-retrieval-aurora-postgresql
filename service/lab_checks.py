@@ -288,22 +288,31 @@ def _control_failure(
     )
 
 
+def same_request(first: object, second: object) -> bool:
+    """Whether two requests are the same words, ignoring case and spacing."""
+    expected = " ".join(str(first or "").split()).casefold()
+    return bool(expected) and expected == " ".join(str(second or "").split()).casefold()
+
+
 def mission_request_check(
     mission: Mapping[str, Any], agent: Mapping[str, Any]
 ) -> LabCheck:
-    expected = " ".join(str(mission.get("query") or "").split()).casefold()
-    actual = " ".join(str(agent.get("question") or "").split()).casefold()
+    from service.participant_commands import ask_setup, complete_lab_3
+
+    matched = same_request(mission.get("query"), agent.get("question"))
     return LabCheck(
         name="canonical mission request answered",
-        passed=bool(expected) and expected == actual,
+        passed=matched,
         falsifier="the saved run answered a different question or has no recorded question",
         detail=f"Recorded question matches {mission.get('id')}"
-        if expected and actual == expected
+        if matched
         # The saved run is looked up by id alone, so its recorded question
         # is not repeated here; only the mission's own request is public.
         else explain(
-            f"the saved run's recorded question differs from the {mission.get('id')} request {mission.get('query')!r}",
-            "run the canonical Reason mission before requesting completion proof",
+            "a run that asked a different question from Alex's setup request, such as "
+            "the 100W follow-up",
+            f"run {complete_lab_3()} without --run-id to check your newest setup run, "
+            f"or ask the setup request with {ask_setup()}",
         ),
     )
 

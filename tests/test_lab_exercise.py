@@ -203,3 +203,57 @@ def test_comparison_names_chair_requests_and_a_lost_right_answer(capsys):
     assert "chair request C-2: right answer moves from #87 to #89" in out
     assert "chair request C-3: right answer moves from #40 to not found" in out
     assert "control" not in out
+
+
+def _lab3_proof(monkeypatch, checks):
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    monkeypatch.setattr(lab_exercise.lab_state, "lab3_problem", lambda: None)
+    monkeypatch.setattr(
+        "service.agentcore_transport.runtime_arn", lambda: "arn:runtime"
+    )
+    monkeypatch.setattr(
+        lab_exercise, "load_context", lambda _lab: {"lab_agent_id": str(uuid4())}
+    )
+    proof = SimpleNamespace(
+        status="fail",
+        checks=[SimpleNamespace(name=n, passed=p, detail=d) for n, p, d in checks],
+    )
+    monkeypatch.setattr("service.lab_proof.completion_proof", lambda *_a, **_k: proof)
+    return ROOT / lab_exercise.DEFAULT_WORK[3]
+
+
+def test_lab3_run_that_asked_another_question_reports_only_that(monkeypatch):
+    """The 100W follow-up's run fails most checks; the question is the one to fix."""
+    work = _lab3_proof(
+        monkeypatch,
+        [
+            ("canonical mission request answered", False, "found a different question"),
+            ("canonical target classes covered", False, "found one target"),
+            ("required claims supported", False, "found no chair claim"),
+        ],
+    )
+    assert lab_exercise.grade_lab3(work)["failures"] == ["found a different question"]
+
+
+def test_lab3_setup_run_reports_every_failing_check(monkeypatch):
+    work = _lab3_proof(
+        monkeypatch,
+        [
+            ("canonical mission request answered", True, "matches"),
+            ("canonical target classes covered", False, "found one target"),
+            ("managed_agent_deployed", False, "found no deploy"),
+        ],
+    )
+    assert lab_exercise.grade_lab3(work)["failures"] == [
+        "found one target",
+        "found no deploy",
+    ]
+
+
+def test_lab3_names_the_contract_part_the_agent_misses(monkeypatch):
+    clause = "Agent needs hooks=hooks, the supplied execution hooks"
+    monkeypatch.setattr(lab_exercise.lab_state, "lab3_problem", lambda: clause)
+    with pytest.raises(ExerciseError, match="hooks=hooks"):
+        lab_exercise.grade_lab3(ROOT / lab_exercise.DEFAULT_WORK[3])

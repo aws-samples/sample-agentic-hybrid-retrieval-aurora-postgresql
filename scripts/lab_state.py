@@ -19,6 +19,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from scripts.progress import Progress
+from service.agent_setup import AGENT_NOT_BUILT
 from service.catalog_runtime import search_schema
 from service.lab_files import LAB1_SQL, LAB2_SQL, LAB3_AGENT, solution_path
 from service.participant_commands import (
@@ -642,24 +643,51 @@ def _lab1_matches_contract(source: str, *, schema: str = "mosaic_search") -> boo
     return lab1_contract_problem(source, schema=schema) is None
 
 
-def _lab3_matches_contract(source: str) -> bool:
-    """Check that the participant assembles the supplied model, tools and hooks.
+#: What each answer of `scripts/agent_assembly_probe.py` means, as a clause a
+#: participant can act on.
+_LAB3_PROBE_PROBLEMS = {
+    "not_built": AGENT_NOT_BUILT,
+    "not_returned": "create_agent must build one Agent and return it",
+    "model": "Agent needs model=model, the supplied model",
+    "tools": "Agent needs tools=tools, the supplied tools",
+    "instructions": (
+        "system_prompt must keep the supplied instructions, which hold the tool order "
+        "and evidence rules; pass system_prompt=instructions, and put any rule of your "
+        'own after them, as instructions + "\\n..."'
+    ),
+    "hooks": "Agent needs hooks=hooks, the supplied execution hooks",
+}
 
-    Local variable names and extra instructions do not change the contract.
-    A separate process bounds bad edits without importing module
-    startup code into the lab-status request.
+
+def lab3_contract_problem(source: str) -> str | None:
+    """Say which part of the Lab 3 contract `create_agent` misses, or None.
+
+    The participant assembles the supplied model, tools, instructions and hooks.
+    Local variable names and a rule added before or after the instructions do
+    not change the contract. A separate process bounds bad edits without
+    importing module startup code into the lab-status request.
+
+    Args:
+        source: The lab file.
+
+    Returns:
+        The first difference, as a clause a participant can act on, or None.
     """
-    for start, end, _, _ in LABS[3][1]:
-        if source.count(start) != 1 or source.count(end) != 1:
-            return False
+    start, end, _, _ = LABS[3][1][0]
+    markers = _markers_problem(source, start, end)
+    if markers:
+        return markers
     try:
         functions = [
             node
             for node in ast.parse(source).body
             if isinstance(node, ast.FunctionDef) and node.name == "create_agent"
         ]
-        if len(functions) != 1 or functions[0].decorator_list:
-            return False
+    except SyntaxError as error:
+        return f"line {error.lineno} is not valid Python: {error.msg}"
+    if len(functions) != 1 or functions[0].decorator_list:
+        return "agent.py must define create_agent once, without a decorator"
+    try:
         result = subprocess.run(
             [
                 sys.executable,
@@ -673,11 +701,27 @@ def _lab3_matches_contract(source: str) -> bool:
             timeout=2,
             check=False,
         )
+    except (OSError, subprocess.TimeoutExpired):
+        return "create_agent did not return within 2 seconds"
+    answer = result.stdout.strip()
+    if result.returncode == 0 and answer == "agent assembly ready":
+        return None
+    key = answer.removeprefix("problem: ")
+    if key.startswith("raised "):
         return (
-            result.returncode == 0 and result.stdout.strip() == "agent assembly ready"
+            f"create_agent {key} when given the supplied model, tools, instructions "
+            "and hooks"
         )
-    except (SyntaxError, OSError, subprocess.TimeoutExpired):
-        return False
+    return _LAB3_PROBE_PROBLEMS.get(key, "create_agent could not be checked")
+
+
+def _lab3_matches_contract(source: str) -> bool:
+    return lab3_contract_problem(source) is None
+
+
+def lab3_problem(*, repo: Path = REPO) -> str | None:
+    """Say why the saved `agent.py` cannot run as the Retrieval agent, or None."""
+    return lab3_contract_problem((repo / LABS[3][0]).read_text(encoding="utf-8"))
 
 
 def lab_is_solved(lab: int, *, repo: Path = REPO) -> bool:

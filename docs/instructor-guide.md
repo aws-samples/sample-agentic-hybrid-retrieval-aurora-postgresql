@@ -96,8 +96,8 @@ reset, apply, validation and recovery. `uv run python scripts/lab_state.py statu
 it does not prove the running API or Aurora has loaded them. The validators
 check the installed SQL and production responses. Every lab is completed in
 the terminal, never in the browser: Labs 1 and 2 with the guide's repeat and
-check commands, Lab 3 with `uv run python scripts/complete_agent.py --run-id
-<run-id>` on the participant's own saved run.
+check commands, Lab 3 with `uv run python scripts/complete_agent.py` on the
+participant's newest setup run since Lab 3 started.
 
 ### Opening
 
@@ -170,7 +170,7 @@ and run `uv run python scripts/deploy_agentcore.py deploy`. The managed services
 Show the deployment message, then ask Alex's setup request from the terminal
 with `uv run python scripts/ask_agent.py "..."`, copied from the guide. Its
 output shows the plan, the tool trace, the products, each citation with its
-quote, the outcome and the **Run ID** that completion checks.
+quote, the outcome and the **Run ID**; completion finds the newest setup run itself.
 The Retrieval agent searches for Alex's missing chair and brings it together with his Logitech
 headphones and ViewSonic monitor. Read a citation against the sentence that
 cites it. Ask the 100W laptop-charging follow-up the same way; the monitor's
@@ -178,8 +178,11 @@ cites it. Ask the 100W laptop-charging follow-up the same way; the monitor's
 kind of run in the browser and is optional.
 
 Participants build and use the Retrieval agent. They do not write tests or a claims query.
-The completion command `uv run python scripts/complete_agent.py --run-id ...` rechecks the actual run,
-its deployed source and its SQL searches without another model invocation.
+The completion command `uv run python scripts/complete_agent.py` rechecks the actual run,
+its deployed source and its SQL searches without another model invocation. Questions
+and completion wait for a deploy made since Lab 3 started: a participant who pastes the
+reference answer and skips the deploy is told to deploy, because the provisioned
+reference Retrieval agent has the same code digest.
 
 
 ### Advanced Labs (OPTIONAL)
@@ -392,10 +395,11 @@ Ask each checkpoint question before the SQL repair. In Lab 3, show the monitor
 and chair searches and open one source. Distinguish a deployment failure from a
 working answer that declines an unsupported claim.
 
-At completion, use the participant's run ID:
+At completion, check the participant's newest setup run (or name one with
+`--run-id <run-id>`):
 
 ```sh
-uv run python scripts/complete_agent.py --run-id <run-id>
+uv run python scripts/complete_agent.py
 ```
 
 The receipt binds the deployed code and current settings. It is regraded from

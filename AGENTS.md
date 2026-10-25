@@ -34,9 +34,11 @@ unless the participant asks for the reference answer.
 
 Change only the current marked `LAB1`, `LAB2`, or `LAB3` seam. Never drop,
 rebuild, disable or replace catalog indexes. Do not change retrieval limits,
-weights, thresholds, models or tool schemas to make a lab pass. In Lab 3 the
-guide invites one additional agent instruction inside the marked block; preserve
-the supplied source rules, tools and execution hooks. Use a reset only when the
+weights, thresholds, models or tool schemas to make a lab pass. In Lab 3 keep the
+supplied instructions as the `system_prompt` along with the tools and execution hooks; a rule
+of the participant's own may follow the instructions, but it steers the agent's searches,
+not the answer's wording, which the cited-answer step writes under its own fixed prompt.
+Use a reset only when the
 participant asks to restart a lab. Use `uv run python scripts/lab_state.py
 solution --lab N` only when they explicitly request the full recovery path; it
 overwrites the exercise seam. `uv run python scripts/lab_state.py finish --lab N`
@@ -66,7 +68,7 @@ question needs exact values; do not invent or maintain a second copy here.
 |---|---|---|---|
 | 1: recover Alex's intended headphones from a transposed listing ID | Full-text search, fuzzy matching and semantic search candidates feed fusion. A disconnected fuzzy matching search returns plausible headphones but omits the requested identity. Reranking cannot recover a missing candidate. | Reconnect the marked retrieval seam. Repeat the identical request and filters; inspect candidate membership, fuzzy matching rank/contribution and the ineligible controls. | `labs/lab1_retrieve/`; `scripts/lab_state.py`; the `retrieve` mission |
 | 2: find a monitor for coding, a 4K screen and USB-C charging | RRF combines positions from the three searches before bounded reranking. Collapsed contributions make a tie-breaker select the shortlist; a plausible winner does not prove fusion works. | Repair the marked rank calculation. Inspect unequal source positions and contributions, combined versus final order, and the target's membership. Use the guide's judged-query exercise before claiming a tuning improvement. | `labs/lab2_rank/`; `service/lab_checks.py`; the `rank` mission |
-| 3: complete Alex’s home office setup with headphones, monitor and chair and defensible sources | A Strands agent on Runtime calls SQL tools through Gateway. The starting code cannot assemble the agent. Even a running agent can make unsupported compatibility or comfort claims. | Assemble the supplied agent components and the guide's additional instruction, deploy, then inspect separate searches, comparison, citations and ranking explanation in the participant's own run. Changed requirements must be checked against the actual records. | `labs/lab3_reason/`; `service/gateway_tools.py`; `scripts/deploy_agentcore.py`; the `reason` mission |
+| 3: complete Alex’s home office setup with headphones, monitor and chair and defensible sources | A Strands agent on Runtime calls SQL tools through Gateway. The starting code cannot assemble the agent. Even a running agent can make unsupported compatibility or comfort claims. | Assemble the supplied agent components, deploy, then inspect separate searches, comparison, citations and ranking explanation in the participant's own run. Changed requirements must be checked against the actual records. | `labs/lab3_reason/`; `service/gateway_tools.py`; `scripts/deploy_agentcore.py`; the `reason` mission |
 
 ## Participant CLI
 
@@ -100,11 +102,14 @@ The Makefile wraps them for maintainers only.
 | See the agent and tools runtimes, Gateway and Memory a deploy updates (read-only Get calls) | `uv run python scripts/deploy_agentcore.py resources` |
 | Ask the deployed agent from the terminal: answer, tool trace, citations, outcome, decline reason and Run ID. Lab 3's setup request and 100W follow-up use it; Ask Mosaic is the optional browser view | `uv run python scripts/ask_agent.py "QUESTION"` |
 | Run one sentence through the agent's answer checks, citing a product's listing as [1] (generates and saves nothing) | `uv run python scripts/check_claim.py PRODUCT_ID "SENTENCE [1]"` |
-| Check the participant's saved original agent run | `uv run python scripts/complete_agent.py --run-id <your-run-id>` |
+| Check the participant's newest setup run since Lab 3 started (or one named with `--run-id <run-id>`) | `uv run python scripts/complete_agent.py` |
 | Inspect the diff for whitespace errors | `git diff --check` |
 
 A SQL file edit alone does not update Aurora; an agent edit alone does not
-update Runtime. Proof must use the newly applied/deployed state. The deploy
+update Runtime. Proof must use the newly applied/deployed state. From Lab 3's start,
+questions and completion also need a deploy made since that start, even when the code
+matches the reference Retrieval agent the account was provisioned with; each deploy is
+recorded in `.local/agentcore/deploys.json`. The deploy
 `verify` action checks the two separately: the deployed application against Code
 Editor's code, and the SQL Aurora last applied against the search SQL in
 Code Editor, including the two lab SQL files. Labs 2 and 3 ship repaired and cannot pass

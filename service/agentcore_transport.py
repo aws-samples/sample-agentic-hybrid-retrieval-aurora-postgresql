@@ -18,7 +18,7 @@ from fastapi import HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.responses import StreamingResponse
 
-from service.agent_setup import AGENT_STARTER_MESSAGE, AgentSetupError
+from service.agent_setup import AgentSetupError, agent_setup_message
 from service.config import get_settings
 from service.models import AgentRequest, AgentResponse
 from service.participant_commands import DEPLOY_AGENT, VERIFY_AGENT
@@ -82,23 +82,39 @@ def invoke(
     request: AgentRequest | None = None,
     http_request: Request | None = None,
 ):
-    """Open a fresh execution session and bind it to the participant's code."""
-    from scripts.lab_state import lab_is_solved
+    """Open a fresh execution session and bind it to the participant's code.
+
+    A question waits for the participant's own deploy: from Lab 3's start it needs
+    an assembled `create_agent` and a deploy since the start that carries today's
+    code, not the reference Retrieval agent the account was provisioned with.
+    """
+    from scripts.lab_state import lab3_problem
+    from service.agent_deploys import ask_problem
     from service.lab_validation_receipt import application_digest
     from service.session_memory import COOKIE
 
     destination = runtime_arn()
     if destination is None:
         raise RuntimeError("Runtime is not configured; fix: load the workshop .env.")
-    if operation != "status" and not lab_is_solved(3):
-        raise AgentSetupError(AGENT_STARTER_MESSAGE)
+    digest = application_digest()
+    if operation != "status":
+        problem = lab3_problem()
+        if problem is not None:
+            raise AgentSetupError(agent_setup_message(problem))
+        try:
+            undeployed = ask_problem(digest)
+        except (RuntimeError, ValueError) as error:
+            # An unreadable start or deploy record names its own fix.
+            raise AgentSetupError(str(error)) from error
+        if undeployed is not None:
+            raise AgentSetupError(undeployed)
     token = http_request.cookies.get(COOKIE) if http_request else None
     if token and not re.fullmatch(r"[a-f0-9]{64}", token):
         token = None
     envelope = RuntimeInvocation(
         operation=operation,
         request=request,
-        application_sha256=application_digest(),
+        application_sha256=digest,
         shopper_token=token,
     )
     # Conversation identity lives in Aurora and Memory. Reusing a Runtime

@@ -489,10 +489,11 @@ def grade_lab3(path: Path) -> dict[str, Any]:
         raise ExerciseError(
             f"Lab 3 runs labs/lab3_reason/agent.py; save your Retrieval agent there, then deploy with {DEPLOY_AGENT}."
         )
-    if not lab_state.lab_is_solved(3):
-        raise ExerciseError(
-            f"Open labs/lab3_reason/agent.py, complete create_agent, then deploy with {DEPLOY_AGENT}."
-        )
+    problem = lab_state.lab3_problem()
+    if problem is not None:
+        from service.agent_setup import agent_setup_message
+
+        raise ExerciseError(agent_setup_message(problem))
     if not runtime_arn():
         raise ExerciseError(
             "AgentCore Runtime is not connected. Ask your facilitator to check this workshop's deployment."
@@ -500,6 +501,13 @@ def grade_lab3(path: Path) -> dict[str, Any]:
     values = load_context(3)
     proof = completion_proof(3, agent_run_id=UUID(values["lab_agent_id"]))
     failures = [check.detail for check in proof.checks if not check.passed]
+    asked = next(
+        (c for c in proof.checks if c.name == "canonical mission request answered"),
+        None,
+    )
+    if asked is not None and not asked.passed:
+        # Another question's run fails most checks; only the question is worth reading.
+        failures = [asked.detail]
     if proof.status != "pass" and not failures:
         failures.append(
             f"Your current code does not match the completed labs. Apply Labs 1 and 2, then deploy with {DEPLOY_AGENT}."

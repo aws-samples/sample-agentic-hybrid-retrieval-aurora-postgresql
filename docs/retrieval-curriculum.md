@@ -151,7 +151,7 @@ performance, laptop compatibility and personal comfort stated separately.
 ## Prove (unnumbered finale)
 
 Prove is included inside Lab 3's 20-minute budget, not an additional lab:
-`complete_agent.py --run-id` checks the participant's saved setup run without a
+`complete_agent.py` checks the participant's newest setup run without a
 new model call. The required path
 contains three repairs and five controls. A separate representative evaluation
 is needed to make whole-catalog ranking claims.

@@ -51,6 +51,105 @@ def source(monkeypatch):
         "service.lab_validation_receipt.application_digest", lambda: SHA
     )
     monkeypatch.setattr("scripts.lab_state.lab_is_solved", lambda lab: True)
+    monkeypatch.setattr("scripts.lab_state.lab3_problem", lambda **_: None)
+
+
+@pytest.fixture
+def runtime(monkeypatch):
+    monkeypatch.setenv("MOSAIC_AGENTCORE_RUNTIME_ARN", ARN)
+    client = Mock()
+    client.invoke_agent_runtime.side_effect = lambda **_: {
+        "response": io.BytesIO(b"{}")
+    }
+    monkeypatch.setattr(transport, "runtime_client", lambda: client)
+    return client
+
+
+def _lab_3_started(at: str = "2026-10-25T10:00:00+00:00") -> None:
+    from scripts.lab_entry import RECORD_VERSION
+    from service import agent_deploys
+
+    path = agent_deploys.ROOT / ".local" / "lab-3" / "start.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {"version": RECORD_VERSION, "lab": 3, "steps": {}, "completed_at": at}
+        )
+    )
+
+
+def _deployed(at: str, code: str = SHA) -> None:
+    from datetime import datetime
+
+    from service.agent_deploys import record_deploy
+
+    record_deploy("2", code, now=datetime.fromisoformat(at))
+
+
+def test_question_before_lab_3_starts_reaches_the_reference_agent(source, runtime):
+    transport.invoke("answer", AgentRequest(question="A monitor"))
+    runtime.invoke_agent_runtime.assert_called_once()
+
+
+def test_question_after_lab_3_starts_waits_for_a_deploy(source, runtime):
+    """A pasted reference answer has the provisioned agent's digest: Runtime would answer."""
+    _lab_3_started()
+    _deployed("2026-10-25T09:00:00+00:00")
+    with pytest.raises(AgentSetupError) as raised:
+        transport.invoke("answer", AgentRequest(question="A monitor"))
+    message = str(raised.value)
+    assert "not been deployed since Lab 3 started at 10:00 UTC" in message
+    assert "reference Retrieval agent" in message and DEPLOY_AGENT in message
+    runtime.invoke_agent_runtime.assert_not_called()
+    transport.invoke("status")
+    runtime.invoke_agent_runtime.assert_called_once()
+
+
+def test_question_after_a_deploy_since_the_start_reaches_runtime(source, runtime):
+    _lab_3_started()
+    _deployed("2026-10-25T10:05:00+00:00")
+    transport.invoke("answer", AgentRequest(question="A monitor"))
+    runtime.invoke_agent_runtime.assert_called_once()
+
+
+def test_question_after_an_edit_since_the_last_deploy_names_that_deploy(
+    source, runtime
+):
+    _lab_3_started()
+    _deployed("2026-10-25T10:05:00+00:00")
+    _deployed("2026-10-25T10:20:00+00:00", code="f" * 64)
+    with pytest.raises(AgentSetupError) as raised:
+        transport.invoke("answer", AgentRequest(question="A monitor"))
+    assert "changed after your deploy at 10:20 UTC" in str(raised.value)
+    runtime.invoke_agent_runtime.assert_not_called()
+
+
+def test_question_with_an_unreadable_deploy_record_names_the_fix(source, runtime):
+    from service.agent_deploys import deploys_path
+
+    _lab_3_started()
+    deploys_path().parent.mkdir(parents=True, exist_ok=True)
+    deploys_path().write_text("{not json")
+    with pytest.raises(AgentSetupError, match=re.escape(DEPLOY_AGENT)):
+        transport.invoke("answer", AgentRequest(question="A monitor"))
+    runtime.invoke_agent_runtime.assert_not_called()
+
+
+def test_assembled_agent_that_drops_the_instructions_is_told_so(
+    monkeypatch, source, runtime
+):
+    from scripts.lab_state import _LAB3_PROBE_PROBLEMS
+
+    monkeypatch.setattr(
+        "scripts.lab_state.lab3_problem",
+        lambda **_: _LAB3_PROBE_PROBLEMS["instructions"],
+    )
+    with pytest.raises(AgentSetupError) as raised:
+        transport.invoke("answer", AgentRequest(question="A monitor"))
+    message = str(raised.value)
+    assert "system_prompt must keep the supplied instructions" in message
+    assert "not built yet" not in message
+    runtime.invoke_agent_runtime.assert_not_called()
 
 
 def test_runtime_invocation_binds_source_and_browser_capability(monkeypatch, source):
@@ -76,8 +175,10 @@ def test_runtime_invocation_binds_source_and_browser_capability(monkeypatch, sou
 
 
 def test_unbuilt_agent_names_file_and_command_before_any_aws_call(monkeypatch, source):
+    from service.agent_setup import AGENT_NOT_BUILT
+
     monkeypatch.setenv("MOSAIC_AGENTCORE_RUNTIME_ARN", ARN)
-    monkeypatch.setattr("scripts.lab_state.lab_is_solved", lambda lab: False)
+    monkeypatch.setattr("scripts.lab_state.lab3_problem", lambda **_: AGENT_NOT_BUILT)
     client = Mock()
     monkeypatch.setattr(transport, "runtime_client", lambda: client)
     with pytest.raises(
@@ -261,7 +362,7 @@ def test_deployment_preserves_network_without_echoing_legacy_read_field(monkeypa
         deployment, "wait_runtime", lambda *_: {"agentRuntimeVersion": "2"}
     )
     deployment.update(
-        "example.ecr/repo@sha256:" + "a" * 64, deployment.deploy_progress()
+        "example.ecr/repo@sha256:" + "a" * 64, deployment.deploy_progress(), "c" * 64
     )
     for call in control.update_agent_runtime.call_args_list:
         assert call.kwargs["networkConfiguration"] == {
@@ -483,7 +584,9 @@ def test_runtime_update_removes_response_only_network_flag(monkeypatch):
     monkeypatch.setattr(
         deploy, "wait_runtime", lambda *args: {"agentRuntimeVersion": "4"}
     )
-    deploy.update("example.ecr/repo@sha256:" + "a" * 64, deploy.deploy_progress())
+    deploy.update(
+        "example.ecr/repo@sha256:" + "a" * 64, deploy.deploy_progress(), "c" * 64
+    )
     assert control.update_agent_runtime.call_count == 2
     for call in control.update_agent_runtime.call_args_list:
         network = call.kwargs["networkConfiguration"]["networkModeConfig"]

@@ -92,9 +92,10 @@ saved request against the applied repair, and
 the production search path, checks it and records the new `search_event_id`s.
 `lab_state.py advance --lab 1` and `--lab 2` run the same checks before they
 prepare the next lab. Lab 3 grades the attendee's own persisted agent run:
-`uv run python scripts/complete_agent.py --run-id <run-id>` evaluates it without
-generating a new answer, including whether the application deployed now and the
-SQL Aurora runs now are the ones that made it. Each check carries its falsifier.
+`uv run python scripts/complete_agent.py` evaluates the newest setup run (or one
+named with `--run-id`) without generating a new answer, including whether the
+application deployed now and the SQL Aurora runs now are the ones that made it, and
+whether a deploy the attendee made since Lab 3 started produced it. Each check carries its falsifier.
 
 State inspection is separate and proves no result:
 `uv run python scripts/lab_state.py validate --lab N --database-url "$DATABASE_URL"`

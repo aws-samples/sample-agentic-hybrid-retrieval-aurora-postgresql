@@ -47,6 +47,7 @@ from scripts.lab_state import (
 )
 from scripts.lab_state import (
     LabDatabaseState,
+    lab3_problem,
     lab_is_solved,
     source_problem,
     validate_database,
@@ -129,13 +130,11 @@ def _state_detail(
     repo: Path,
 ) -> str:
     if lab_id == 3:
-        from service.agent_setup import AGENT_STARTER_MESSAGE
+        from service.agent_setup import AGENT_NOT_BUILT, agent_setup_message
 
-        return (
-            f"Your Retrieval agent code is ready. Next: deploy with {DEPLOY_AGENT}, then ask Alex's question in Mosaic."
-            if solved
-            else AGENT_STARTER_MESSAGE
-        )
+        if solved:
+            return f"Your Retrieval agent code is ready. Next: deploy with {DEPLOY_AGENT}, then ask Alex's question in Mosaic."
+        return agent_setup_message(lab3_problem(repo=repo) or AGENT_NOT_BUILT)
     problem = None if solved else source_problem(lab_id, repo=repo)
     if problem is not None:
         return (
@@ -543,18 +542,21 @@ def _run_sql_digests(rows: AgentTurnRows) -> list[str]:
     return sorted({str(item.get("search_sql_sha256")) for item in recorded})
 
 
-def _managed_agent_checks(rows: AgentTurnRows | None) -> list[LabCheck]:
+def _managed_agent_checks(rows: AgentTurnRows | None, root: Path) -> list[LabCheck]:
     """Whether Runtime, Gateway, Aurora and the run itself all carry today's work.
 
     Runtime refuses to answer from code other than the workspace's, but only at
     the time of the request: an edit and deploy afterwards changes both, so the
     run must record the application that made it, and that must be the one
-    deployed now. SQL is applied separately: a run saved before the last apply
-    searched with SQL the lab files no longer hold, so each of its searches must
-    have recorded the current lab files. Empty when no Runtime is configured, as
-    in offline and local runs.
+    deployed now. Runtime compares digests only, and the provisioned reference
+    agent has the reference answer's digest, so the run must also come from a
+    deploy the participant made since Lab 3 started. SQL is applied separately:
+    a run saved before the last apply searched with SQL the lab files no longer
+    hold, so each of its searches must have recorded the current lab files.
+    Empty when no Runtime is configured, as in offline and local runs.
     """
     from service import agentcore_transport, gateway_tools
+    from service.agent_deploys import run_deploy_problem
 
     if not agentcore_transport.runtime_arn():
         return []
@@ -585,11 +587,15 @@ def _managed_agent_checks(rows: AgentTurnRows | None) -> list[LabCheck]:
             run_on_current_code = run_code == workspace_code
             run_sql = _run_sql_digests(rows)
             run_on_current_sql = run_sql == [workspace_sql]
+            not_own_deploy = run_deploy_problem(
+                rows.turn["created_at"], run_code, root=root
+            )
             deployed = (
                 code_deployed
                 and sql_applied
                 and run_on_current_sql
                 and run_on_current_code
+                and not_own_deploy is None
             )
             if code_deployed and not sql_applied:
                 failure = f"Aurora runs search SQL different from your lab files in Code Editor. Next: apply it with {APPLY_SQL}, then ask Alex's question again."
@@ -611,13 +617,15 @@ def _managed_agent_checks(rows: AgentTurnRows | None) -> list[LabCheck]:
                     f"This run {made_by}. Next: ask Alex's setup request again "
                     "with ask_agent.py, then prove the new run."
                 )
+            elif not_own_deploy is not None:
+                failure = not_own_deploy
     except (RuntimeError, ValueError) as error:
         failure = f"Deployment check failed ({type(error).__name__}). Next: deploy with {DEPLOY_AGENT} in Code Editor, then ask Alex's question again."
     return [
         LabCheck(
             name="managed_agent_deployed",
             passed=deployed,
-            falsifier="Runtime or Gateway serves code different from the participant workspace, the run was made by other code, a search in the run used SQL other than the current lab files, or the run has no Gateway-readable search.",
+            falsifier="Runtime or Gateway serves code different from the participant workspace, the run was made by other code or by no deploy since Lab 3 started, a search in the run used SQL other than the current lab files, or the run has no Gateway-readable search.",
             detail=detail if deployed else failure,
         )
     ]
@@ -674,7 +682,7 @@ def completion_proof(
                 mission, rows, run, str(agent_run_id) if agent_run_id else None
             )
         )
-        checks.extend(_managed_agent_checks(rows))
+        checks.extend(_managed_agent_checks(rows, root))
         # The turn's own receipts, not new ones: this path issues no retrieval,
         # and reporting them is what makes the verdict replayable afterwards.
         search_event_ids: list[UUID] = (

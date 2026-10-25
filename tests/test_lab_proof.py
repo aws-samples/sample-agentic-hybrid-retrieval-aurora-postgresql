@@ -32,6 +32,7 @@ from scripts.lab_state import (
     set_lab_state,
 )
 from service import lab_proof
+from service.agent_deploys import record_deploy
 from service.models import (
     ProductSummary,
     RankSignal,
@@ -1049,16 +1050,24 @@ EARLIER_SQL = "a" * 64
 CURRENT_APPLICATION = "b" * 64
 EARLIER_APPLICATION = "e" * 64
 _UNRECORDED = object()
+# The entered checkout starts Lab 3 at midnight on 1 January 2000.
+DEPLOYED_AFTER_START = datetime(2000, 1, 1, 0, 5, tzinfo=UTC)
 
 
 def _managed_run(
-    monkeypatch, *, searched_with: str, made_by: object = CURRENT_APPLICATION
+    monkeypatch,
+    *,
+    searched_with: str,
+    made_by: object = CURRENT_APPLICATION,
+    deployed: datetime | None = DEPLOYED_AFTER_START,
 ) -> None:
     """A grounded saved run, its searches recorded with `searched_with`.
 
     Runtime serves the workspace's code and Aurora runs the workspace's SQL,
-    so only what the run itself recorded, the SQL its searches used and the
-    application that made it, can make the deployment check differ.
+    so only what the run itself recorded, the SQL its searches used, the
+    application that made it and whether the participant deployed that
+    application since Lab 3 started (`deployed`, or None for no deploy) can make
+    the deployment check differ.
     """
     connection = _grounded_connection()
     for search in connection.searches:
@@ -1067,6 +1076,13 @@ def _managed_run(
         connection.turn["extracted_intent"]["application_sha256"] = made_by
     _use(monkeypatch, connection)
     _resolve_evidence(monkeypatch)
+    if deployed is not None:
+        record_deploy(
+            "2",
+            CURRENT_APPLICATION if made_by is _UNRECORDED else str(made_by),
+            root=lab_proof.LAB_SOURCE_ROOT,
+            now=deployed,
+        )
     monkeypatch.setattr(
         "service.agentcore_transport.runtime_arn", lambda: "arn:runtime"
     )
@@ -1104,6 +1120,41 @@ def test_a_run_saved_before_the_last_apply_is_not_credited(monkeypatch) -> None:
     assert not check.passed
     assert EARLIER_SQL[:12] in check.detail and CURRENT_SQL[:12] in check.detail
     assert "ask_agent.py" in check.detail
+
+
+def test_a_run_without_a_deploy_since_lab_3_started_is_not_credited(
+    monkeypatch,
+) -> None:
+    """The provisioned reference agent has the reference answer's digest.
+
+    Runtime, workspace and run all agree on the code, as they do when a participant
+    pastes the reference answer and skips the deploy; only the deploy record shows
+    that the provisioned agent, not the participant's deploy, made the run.
+    """
+    _managed_run(monkeypatch, searched_with=CURRENT_SQL, deployed=None)
+
+    proof = lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID)
+
+    check = _deployment_check(proof)
+    assert proof.status == "fail"
+    assert not check.passed
+    assert "not deployed since Lab 3 started at 00:00 UTC" in check.detail
+    assert DEPLOY_AGENT in check.detail
+
+
+def test_a_run_made_before_the_participants_first_deploy_is_not_credited(
+    monkeypatch,
+) -> None:
+    later = datetime.now(UTC).replace(microsecond=0)
+    later = later.replace(year=later.year + 1)
+    _managed_run(monkeypatch, searched_with=CURRENT_SQL, deployed=later)
+
+    proof = lab_proof.completion_proof(3, agent_run_id=AGENT_RUN_ID)
+
+    check = _deployment_check(proof)
+    assert not check.passed
+    assert "did not come from a deploy of yours since Lab 3 started" in check.detail
+    assert f"your first was at {later:%H:%M} UTC" in check.detail
 
 
 def test_a_run_made_with_the_current_sql_is_credited(monkeypatch) -> None:
