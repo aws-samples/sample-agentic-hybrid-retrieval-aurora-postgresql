@@ -91,25 +91,26 @@ def test_finish_runs_every_step_in_order_and_names_each(monkeypatch, capsys, lab
     for index, step in enumerate(steps):
         number = f"step {index + 1}/{total}"
         typical = f"usually about {clock(USUAL_SECONDS[step])}"
-        one_line = f"{number}  {step} ({typical})"
-        assert one_line in out or f"{number}, {typical}\n    {step}\n" in out
+        assert f"{number}, {typical}\n    {step}\n" in out
         assert f"{number}  done" in out
     assert "  Done in " in out
 
 
-def test_a_step_line_too_wide_for_the_terminal_puts_its_command_on_its_own_line(
-    monkeypatch, capsys
+@pytest.mark.parametrize("width", [66, 122, 200])
+def test_every_step_puts_its_command_on_its_own_line_at_any_width(
+    monkeypatch, capsys, width
 ):
+    """Half a laptop screen beside the guide, the maximized panel, or wider: the same."""
+    monkeypatch.setattr(progress_module, "columns", lambda: width)
     _code, _ran, out, _run_by = run_finish(monkeypatch, capsys, 1)
 
+    for index, step in enumerate(finish_steps(1)):
+        typical = f"usually about {clock(USUAL_SECONDS[step])}"
+        assert f"step {index + 1}/5, {typical}\n    {step}\n" in out
     step_lines = [
         line for line in out.splitlines() if "step " in line or "    uv " in line
     ]
     assert step_lines and all(len(line) < LAPTOP_COLUMNS for line in step_lines)
-    assert (
-        f"step 4/5, usually about {clock(USUAL_SECONDS[repeat_request(1)])}\n"
-        f"    {repeat_request(1)}\n" in out
-    ), "a command wider than the terminal moves to its own line"
 
 
 def test_every_step_finish_or_skip_to_runs_has_a_measured_usual_time():

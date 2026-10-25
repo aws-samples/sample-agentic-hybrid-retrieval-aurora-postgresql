@@ -964,7 +964,7 @@ def _earlier_labs_to_finish(lab: int) -> list[int]:
 
 def _run_steps(steps: list[str], *, label: str, resume: str) -> int:
     """Run participant commands in order, each with its usual time; stop at the first failure."""
-    progress = Progress(label, name="step")
+    progress = Progress(label, name="step", commands=True)
     progress.plan([USUAL_SECONDS[step] for step in steps])
     for step in steps:
         # Each command prints its own output, so a step prints lines instead of a redrawn bar.

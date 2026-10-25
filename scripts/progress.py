@@ -202,6 +202,8 @@ class Progress:
         interval: Seconds between redraws; `None` redraws only on demand, for tests.
         name: Whose steps the counters count, as in "step 2/15", so a command that runs
             another command with its own steps never shows two counters that look alike.
+        commands: Each step's label is a whole command, printed on its own line under the
+            step's counter and usual time, so every step reads the same at any width.
     """
 
     def __init__(
@@ -212,9 +214,10 @@ class Progress:
         now: Callable[[], float] = time.monotonic,
         interval: float | None = REDRAW_SECONDS,
         name: str = "",
+        commands: bool = False,
     ) -> None:
         self.title, self._stream, self.now, self.interval = title, stream, now, interval
-        self.name = name
+        self.name, self.commands = name, commands
         self.total: int | None = None
         self.number = 0
         self._planned: list[float] = []
@@ -306,8 +309,8 @@ class Progress:
     def _start_line(self, label: str, typical: float) -> str:
         """The step's counter, label and usual time; with a plan, the share finished first.
 
-        A label too wide for the terminal, such as a whole command, moves to a line of its
-        own, so neither line wraps.
+        A command, or any label too wide for the terminal, goes on a line of its own, so
+        neither line wraps.
         """
         head = f"  - {self.counter()}"
         if self._planned:
@@ -315,7 +318,7 @@ class Progress:
             head = f"{bar(finished, sum(self._planned))}  {self.counter()}"
         usual = f"usually about {clock(typical)}"
         line = f"{head}  {label} ({usual})"
-        if len(line) < columns():
+        if not self.commands and len(line) < columns():
             return line
         return f"{head}, {usual}\n    {label}"
 
