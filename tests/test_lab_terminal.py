@@ -243,7 +243,9 @@ def test_target_summary_names_the_missing_product_and_the_pool_size():
 
     line = lab_terminal.target_summary({"candidates": rows}, mission)
 
-    assert str(mission["target_product_ids"][0]) in line
+    assert line.startswith(
+        f"Target {mission['target_product_ids'][0]} ({mission['target_display_name']}): "
+    )
     assert "not among the 50 on the shortlist" in line
 
 

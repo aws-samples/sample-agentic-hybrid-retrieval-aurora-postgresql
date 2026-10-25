@@ -159,20 +159,22 @@ TARGET_METHODS = (
 def target_summary(event: dict, mission: dict) -> str:
     """State where the lab's target sits in the saved pool, as SQL would show it."""
     target = mission["target_product_ids"][0]
+    name = mission.get("target_display_name")
+    label = f"Target {target} ({name})" if name else f"Target {target}"
     rows = event.get("candidates", [])
     row = next((row for row in rows if row["product_id"] == target), None)
     if row is None:
         return (
-            f"Target {target}: not among the {len(rows)} on the shortlist, "
+            f"{label}: not among the {len(rows)} on the shortlist, "
             "so reranking never received it."
         )
     methods = ", ".join(
-        f"{label} rank {row[key]}"
-        for key, label in TARGET_METHODS
+        f"{method} rank {row[key]}"
+        for key, method in TARGET_METHODS
         if row.get(key) is not None
     )
     return (
-        f"Target {target}: combined position {row['fused_rank']}, final position "
+        f"{label}: combined position {row['fused_rank']}, final position "
         f"{row['result_rank']}; found by {methods or 'no method'}."
     )
 
@@ -341,10 +343,9 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
                 values[f"lab_{key}"] = str(value)
         for product in response["results"]:
             print(f"{product['signals']['final_rank']:>2}. {product['title'][:88]}")
-        print(
-            ("Before: absent. After: " if before else "")
-            + target_summary(event, mission)
-        )
+        if before:
+            print("Before: absent.")
+        print(("After:  " if before else "") + target_summary(event, mission))
         run_id = response["search_event_id"]
     else:
         with connect() as connection:
