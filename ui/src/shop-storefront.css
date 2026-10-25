@@ -189,7 +189,7 @@ body {
   border-radius: 999px;
   background: transparent;
   color: var(--gold-deep);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   transition:
     background 160ms ease,
@@ -255,7 +255,7 @@ body {
 
 .catalog-rail-list em {
   color: var(--line-strong);
-  font-size: 10px;
+  font-size: 11px;
   font-style: normal;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -286,7 +286,7 @@ body {
   padding-top: 14px;
   border-top: 1px solid var(--gold-soft);
   color: var(--line-strong);
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.45;
 }
 
@@ -821,7 +821,7 @@ body {
   }
 
   .landing-links a {
-    font-size: 12.5px;
+    font-size: 13px;
   }
 
   /* The board's authored line breaks stop fitting once the panel is narrower
@@ -1026,7 +1026,7 @@ body {
 .catalog-side-heading .eyebrow {
   margin-bottom: 5px;
   color: var(--maroon-700);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .catalog-side-heading h1 {
@@ -1088,7 +1088,7 @@ body {
 
 .catalog-agent-identity small {
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .catalog-agent .search-composer {
@@ -1260,11 +1260,11 @@ body {
 
   .category-card strong {
     margin-bottom: 6px;
-    font-size: 11.5px;
+    font-size: 12px;
   }
 
   .category-card small {
-    font-size: 10px;
+    font-size: 11px;
   }
 
   .service-band {
@@ -1279,11 +1279,11 @@ body {
 
   .service-band strong {
     margin-bottom: 5px;
-    font-size: 11.5px;
+    font-size: 12px;
   }
 
   .service-band small {
-    font-size: 10px;
+    font-size: 11px;
   }
 }
 
@@ -1322,7 +1322,7 @@ body {
   }
 
   .service-band small {
-    font-size: 10px;
+    font-size: 11px;
   }
 }
 
@@ -1420,7 +1420,7 @@ body {
   border: 1px solid var(--line);
   border-radius: 5px;
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 650;
 }
 
@@ -1488,7 +1488,7 @@ body {
 
 .collection-match-panel li small {
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.45;
 }
 
@@ -1505,7 +1505,7 @@ body {
   align-items: center;
   gap: 7px;
   color: var(--maroon-800);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -1528,7 +1528,7 @@ body {
 .collection-top-pick-label {
   margin-bottom: 6px;
   color: var(--maroon-800);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -1544,7 +1544,7 @@ body {
   margin-bottom: 8px;
   overflow: hidden;
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
@@ -1556,7 +1556,7 @@ body {
   gap: 4px;
   margin-bottom: 8px;
   color: var(--gold);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .collection-top-pick > div > strong {
@@ -1572,7 +1572,7 @@ body {
   align-items: center;
   gap: 6px;
   color: var(--maroon-700);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -1648,7 +1648,7 @@ body {
   border-radius: 7px;
   background: color-mix(in srgb, var(--ink) 70%, transparent);
   color: var(--paper-strong);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.4;
 }
 

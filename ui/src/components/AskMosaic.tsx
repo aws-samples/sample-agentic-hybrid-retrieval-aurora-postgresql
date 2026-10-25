@@ -335,33 +335,28 @@ export function AskMosaic({
         </header>
 
         <div className="ask-mosaic-body-wrap">
-          {/* Only once there is something to discard. On the entry state the
-              button would clear nothing, and it would sit beside the starters
-              it appears to threaten. */}
-          {turns.length ? (
+          {/* Earlier turns fold away above the latest one; New conversation sits
+              with the memory switch under the thread, so the thread gets this row
+              back whenever there is nothing earlier to unfold. */}
+          {earlier.length ? (
             <div className="ask-thread-bar">
-              {earlier.length ? (
-                <button
-                  className="ask-prior-toggle"
-                  type="button"
-                  aria-expanded={showPrior}
-                  aria-controls="ask-mosaic-prior"
-                  onClick={() => setShowPrior((value) => !value)}
-                >
-                  <ChevronDown size={14} aria-hidden="true" className="ask-fold-chevron" />
-                  Previous messages
-                  <span>{earlier.length}</span>
-                </button>
-              ) : <span />}
-              <button className="ask-new-conversation" type="button" onClick={() => { setShowPrior(false); onClear(); }}>
-                <Eraser size={14} aria-hidden="true" />
-                New conversation
+              <button
+                className="ask-prior-toggle"
+                type="button"
+                aria-expanded={showPrior}
+                aria-controls="ask-mosaic-prior"
+                onClick={() => setShowPrior((value) => !value)}
+              >
+                <ChevronDown size={14} aria-hidden="true" className="ask-fold-chevron" />
+                Previous messages
+                <span>{earlier.length}</span>
               </button>
             </div>
           ) : null}
           <div
             className="ask-mosaic-body"
             ref={threadRef}
+            data-more-below={nearBottom ? undefined : ""}
             onScroll={handleThreadScroll}
           >
             {turns.length ? (
@@ -397,7 +392,19 @@ export function AskMosaic({
               Jump to latest
             </button>
           ) : null}
-          {memory ? <MemoryControl memory={memory} pending={pending} /> : null}
+          {memory || turns.length ? (
+            <div className="ask-mosaic-meta">
+              {memory ? <MemoryControl memory={memory} pending={pending} /> : null}
+              {/* Only once there is something to discard: on the entry state it
+                  would clear nothing, beside the starters it appears to threaten. */}
+              {turns.length ? (
+                <button className="ask-new-conversation" type="button" onClick={() => { setShowPrior(false); onClear(); }}>
+                  <Eraser size={14} aria-hidden="true" />
+                  New conversation
+                </button>
+              ) : null}
+            </div>
+          ) : null}
           {notice ? <p className="ask-mosaic-notice" role="status">{notice}</p> : null}
           {contextFilters.length ? (
             <div

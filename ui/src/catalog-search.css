@@ -76,7 +76,7 @@
   top: calc(100% + 5px);
   left: 18px;
   color: var(--maroon-700);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.35;
 }
@@ -138,7 +138,7 @@
   gap: 12px;
   padding: 3px 10px 7px;
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;

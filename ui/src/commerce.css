@@ -65,7 +65,7 @@
   gap: 7px;
   margin: 0 0 6px;
   color: var(--maroon-800);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -101,7 +101,7 @@
   min-width: 0;
   align-items: center;
   gap: 4px;
-  font-size: 10.5px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -116,7 +116,7 @@
 
 .catalog-card-rating small {
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .catalog-card-stock {
@@ -162,7 +162,7 @@
 
 .catalog-card-buy > span small {
   color: var(--line-strong);
-  font-size: 10px;
+  font-size: 11px;
   text-decoration: line-through;
 }
 
@@ -301,7 +301,7 @@
 
 .commerce-drawer-header .eyebrow {
   margin: 0 0 3px;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .commerce-drawer-header h2 {
@@ -356,7 +356,7 @@
   align-items: center;
   gap: 7px;
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -384,7 +384,7 @@
   border: 1px solid var(--maroon-line);
   border-radius: 50%;
   background: var(--paper);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .checkout-progress li.active,
@@ -414,7 +414,7 @@
   padding: 8px 22px;
   background: var(--paper-warm);
   color: var(--ink-soft);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .demo-checkout-notice svg {
@@ -465,7 +465,7 @@
 .cart-line-copy > small {
   overflow: hidden;
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -482,7 +482,7 @@
 
 .cart-line-copy > span {
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .cart-line > strong {
@@ -515,7 +515,7 @@
   place-items: center;
   border: 0;
   background: transparent;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .quantity-stepper button:not(:disabled):hover {
@@ -554,7 +554,7 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   color: var(--ink-soft);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .shipping-progress svg {
@@ -654,7 +654,7 @@
   gap: 22px;
   padding-top: 11px;
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .commerce-assurance-row span {
@@ -726,7 +726,7 @@
   display: grid;
   gap: 6px;
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -808,19 +808,19 @@
 
 .delivery-options label > span small {
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
 }
 
 .delivery-options label > strong {
   color: var(--maroon-900);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .checkout-section-note {
   margin: -4px 0 2px;
   color: var(--ink-soft);
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.5;
 }
 
@@ -852,7 +852,7 @@
 
 .demo-payment-card small {
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -896,7 +896,7 @@
 
 .demo-card-preview small {
   color: color-mix(in srgb, var(--paper-strong) 68%, transparent);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .payment-security {
@@ -916,12 +916,12 @@
 }
 
 .payment-security b {
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .payment-security small {
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .checkout-review {
@@ -948,19 +948,19 @@
   border: 0;
   background: transparent;
   color: var(--maroon-800);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 750;
 }
 
 .checkout-review header > span {
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .checkout-review section > p {
   margin: 0;
   color: var(--ink-soft);
-  font-size: 10.5px;
+  font-size: 11px;
   line-height: 1.65;
 }
 
@@ -997,18 +997,18 @@
 
 .review-lines strong {
   overflow: hidden;
-  font-size: 10.5px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .review-lines small {
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .review-lines b {
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .checkout-complete {
@@ -1047,7 +1047,7 @@
   max-width: 340px;
   margin-bottom: 24px;
   color: var(--ink-soft);
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.6;
 }
 
@@ -1071,12 +1071,12 @@
 
 .checkout-complete > div b {
   color: var(--maroon-900);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .checkout-complete > div small {
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .checkout-complete .commerce-primary-button {

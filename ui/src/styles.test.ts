@@ -122,10 +122,29 @@ export function hexLiterals(sheets: Sheet[]): string[] {
  * 10.5px, repeated on every card. A ratchet like the hex one: lower it when a
  * pass raises more, never raise it. A new sub-floor size fails with the line
  * it landed on, and the fix is a size from the documented scale.
+ *
+ * 2026-10-25: every size below 18px was rounded to a whole pixel and 10px raised to
+ * 11px, leaving 132 declarations under the floor, all at 11px.
  */
-const SMALL_TYPE_CEILING = 204;
+const SMALL_TYPE_CEILING = 132;
 
 const SMALL_TYPE = /font-size:\s*((?:[0-9]|1[01])(?:\.[0-9]+)?)px/g;
+
+/**
+ * Font sizes between whole pixels. On 2026-10-25 the sheets held sixteen sizes under
+ * 18px, eight of them half pixels from 10.5 to 16.5; rounding them left seven steps,
+ * 11px to 17px. A half-pixel size splits one role across two values and renders
+ * softer on a standard-density screen.
+ */
+const HALF_PIXEL_TYPE = /font(?:-size)?:[^;]*?[^0-9.](\d+\.\d+)px/g;
+
+export function halfPixelType(sheets: Sheet[]): string[] {
+  return sheets.flatMap(({ name, text }) =>
+    text.split("\n").flatMap((line, index) =>
+      [...line.matchAll(HALF_PIXEL_TYPE)].map((m) => `${name}:${index + 1} ${m[1]}px in ${line.trim()}`),
+    ),
+  );
+}
 
 export function smallTypeLiterals(sheets: Sheet[]): string[] {
   return sheets.flatMap(({ name, text }) =>
@@ -200,6 +219,7 @@ describe("stylesheet vocabulary", () => {
       `sub-12px font sizes rose past ${SMALL_TYPE_CEILING}; the newest look like:\n` +
         literals.slice(-5).join("\n"),
     ).toBeLessThanOrEqual(SMALL_TYPE_CEILING);
+    expect(halfPixelType(allSheets)).toEqual([]);
   });
 
   it("keeps a width-constrained grid container from inheriting a child's max-content", async () => {
@@ -240,6 +260,15 @@ describe("stylesheet vocabulary", () => {
         { name: "surfaces.css", text: ".c { font-size: 10.5px; }\n.d { font-size: 12px; }\n.e { font-size: 100px; }" },
       ]),
     ).toEqual(["surfaces.css:1 10.5px in .c { font-size: 10.5px; }"]);
+    // A half pixel in either declaration is caught; a unitless line height is not a size.
+    expect(
+      halfPixelType([
+        { name: "surfaces.css", text: ".c { font: 500 13.5px/1.45 var(--sans); }\n.d { font-size: 12.5px; }\n.e { font: 600 22px/1.2 var(--sans); }" },
+      ]),
+    ).toEqual([
+      "surfaces.css:1 13.5px in .c { font: 500 13.5px/1.45 var(--sans); }",
+      "surfaces.css:2 12.5px in .d { font-size: 12.5px; }",
+    ]);
     // The hero column as it stood before 2026-09-06: width-constrained, grid,
     // and no track of its own, which is exactly what let the prompts row size it.
     const unpinned: Sheet[] = [

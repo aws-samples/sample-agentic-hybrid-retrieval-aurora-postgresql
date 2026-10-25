@@ -11,12 +11,12 @@ const ARM_RANK = {
   semantic: "semantic_rank",
 } as const;
 
-/** The first `TOP` receipts by one rank, skipping receipts that rank lacks. */
-function firstBy(receipts: SearchResultEventRecord[], rank: (row: SearchResultEventRecord) => number | null) {
+/** The first `top` receipts by one rank, skipping receipts that rank lacks. */
+function firstBy(receipts: SearchResultEventRecord[], rank: (row: SearchResultEventRecord) => number | null, top: number) {
   return receipts
     .filter((row) => rank(row) !== null)
     .sort((a, b) => (rank(a) as number) - (rank(b) as number))
-    .slice(0, TOP)
+    .slice(0, top)
     .map((row) => row.product_id);
 }
 
@@ -25,13 +25,13 @@ function firstBy(receipts: SearchResultEventRecord[], rank: (row: SearchResultEv
  * search's first five, the combined order's, the final order's, and the wanted
  * product when the shortlist holds it.
  */
-export function boardProductIds(receipts: SearchResultEventRecord[], wantedId: number | null): number[] {
+export function boardProductIds(receipts: SearchResultEventRecord[], wantedId: number | null, top = TOP): number[] {
   const ids = new Set<number>([
-    ...firstBy(receipts, (row) => row.fts_rank),
-    ...firstBy(receipts, (row) => row.trigram_rank),
-    ...firstBy(receipts, (row) => row.semantic_rank),
-    ...firstBy(receipts, (row) => row.fused_rank),
-    ...firstBy(receipts, (row) => row.result_rank),
+    ...firstBy(receipts, (row) => row.fts_rank, top),
+    ...firstBy(receipts, (row) => row.trigram_rank, top),
+    ...firstBy(receipts, (row) => row.semantic_rank, top),
+    ...firstBy(receipts, (row) => row.fused_rank, top),
+    ...firstBy(receipts, (row) => row.result_rank, top),
   ]);
   if (wantedId !== null && receipts.some((row) => row.product_id === wantedId)) ids.add(wantedId);
   return [...ids];
@@ -67,7 +67,7 @@ export function fromReceipt(product: ProductSummary, receipt: SearchResultEventR
 }
 
 /**
- * The products each method's top five draws from on the search's saved shortlist.
+ * The products each method's top `top` draws from on the search's saved shortlist.
  *
  * Reads the receipts the search wrote to Aurora, so a method whose matches all
  * ranked below the page still shows them, then loads each listed product that
@@ -75,10 +75,12 @@ export function fromReceipt(product: ProductSummary, receipt: SearchResultEventR
  * Returns null while loading and when the shortlist cannot be read; the board
  * then ranks only the products shown, and says so.
  */
-export function useShortlist(response: SearchResponse | null | undefined, wantedId: number | null): ProductSummary[] | null {
+export function useShortlist(
+  response: SearchResponse | null | undefined, wantedId: number | null, top = TOP,
+): ProductSummary[] | null {
   const [pool, setPool] = useState<{ key: string; products: ProductSummary[] } | null>(null);
   const searchEventId = response?.search_event_id ?? null;
-  const key = `${searchEventId}:${wantedId}`;
+  const key = `${searchEventId}:${wantedId}:${top}`;
 
   useEffect(() => {
     if (!response || !searchEventId) return;
@@ -86,7 +88,7 @@ export function useShortlist(response: SearchResponse | null | undefined, wanted
     (async () => {
       const { candidates } = await api.retrievalEvent(searchEventId);
       const shown = new Map(response.results.map((product) => [product.product_id, product]));
-      const ids = boardProductIds(candidates, wantedId);
+      const ids = boardProductIds(candidates, wantedId, top);
       const missing = ids.filter((id) => !shown.has(id));
       const loaded = new Map((await Promise.all(missing.map((id) => api.product(id)))).map((product) => [product.product_id, product]));
       const semantics = response.results[0]?.signals?.score_semantics ?? "";
@@ -98,7 +100,7 @@ export function useShortlist(response: SearchResponse | null | undefined, wanted
         console.warn(`Each method's top five: could not read the shortlist of search ${searchEventId}; showing the products on the page.`, error);
       });
     return () => { current = false; };
-  }, [response, searchEventId, wantedId, key]);
+  }, [response, searchEventId, wantedId, top, key]);
 
   return pool?.key === key ? pool.products : null;
 }

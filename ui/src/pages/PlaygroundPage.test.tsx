@@ -515,7 +515,8 @@ it("says when the agent declined the search's first result, and reads the search
   await waitFor(() => { openDetail(DETAILS.retrieve); expect(document.querySelectorAll(".method-column")).toHaveLength(3); }, { timeout: READ_OUT_MS });
   const reads = within(openDetail(DETAILS.retrieve)).getByLabelText("Full-text search reads the request as");
   expect(reads.textContent).toContain("words not in the saved record");
-  expect(screen.getByRole("list", { name: "The Retrieval agent’s steps" }).textContent).toContain(firstSearchId.slice(0, 8));
+  // The record's short ID is not a step; the full ID stays under Agent steps and sources.
+  expect(screen.getByRole("list", { name: "The Retrieval agent’s steps" }).textContent).not.toContain(firstSearchId.slice(0, 8));
 });
 
 // Shop's Lab 1 callout links here with the lab named. The page used to show a

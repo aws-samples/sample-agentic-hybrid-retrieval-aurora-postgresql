@@ -1,6 +1,6 @@
 import { useReducedMotion } from "motion/react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
-import { armLabel } from "../../retrievalLanguage";
+import { armLabel, armPoolKey } from "../../retrievalLanguage";
 import type { ProductSummary, SearchResponse } from "../../types";
 import { pickName } from "../ask-mosaic/comparison";
 
@@ -23,7 +23,8 @@ export const RACE_STEPS: RaceStep[] = [
 ];
 
 /** Rows on screen at once; a followed product beyond them is pinned underneath. */
-const ROWS = 8;
+export const RACE_ROWS = 8;
+const ROWS = RACE_ROWS;
 const ROW_HEIGHT = 56;
 /** A pinned row sits a little apart, so it reads as "further down", not as the ninth. */
 const PINNED_GAP = 18;
@@ -59,12 +60,16 @@ interface RowContent {
   move: { text: string; direction: "up" | "down" | "same" } | null;
   /** The final order's first product. */
   top: boolean;
+  /** Among the products the search returned; a shortlist product below them is shown faded. */
+  onPage: boolean;
 }
 
 interface Slot { content: RowContent; slot: number }
 
 /** The step's rows in its order, its window, and the followed product pinned when outside it. */
-export function raceRows(products: ProductSummary[], step: RaceStep, followId: number | null): Slot[] {
+export function raceRows(
+  products: ProductSummary[], step: RaceStep, followId: number | null, shownIds?: ReadonlySet<number>,
+): Slot[] {
   const ranked = products
     .map((product) => ({ product, rank: step.rank(product), score: step.score(product) }))
     .filter((row): row is { product: ProductSummary; rank: number; score: number | null } => row.rank != null)
@@ -82,6 +87,7 @@ export function raceRows(products: ProductSummary[], step: RaceStep, followId: n
       rank,
       width: best > 0 && score != null ? Math.max(0, score) / best : 0,
       top: step.key === "final" && rank === 1,
+      onPage: shownIds?.has(product.product_id) ?? true,
       move: moved == null ? null
         : moved === 0 ? { text: "same", direction: "same" }
           : { text: `${moved > 0 ? "▲" : "▼"} ${Math.abs(moved)}`, direction: moved > 0 ? "up" : "down" },
@@ -144,14 +150,31 @@ export function raceCaption(step: RaceStep, products: ProductSummary[], response
       ? `The reranker read the request with each of the ${pool ?? ""} combined candidates. It can reorder them, but cannot add one.`.replace("  ", " ")
       : "Reranking did not run for this search, so the final order is the combined order.",
   };
-  if (missing) return `${what[step.key]} The ${missing} is not among the ${products.length} products this search returned.`;
-  if (!follow) return what[step.key];
+  const found = foundLine(step, response);
+  const lead = found ? `${what[step.key]} ${found}` : what[step.key];
+  if (missing) return `${lead} The ${missing} is not among the ${response.results.length} products this search returned.`;
+  if (!follow) return lead;
   const name = pickName(follow);
   const rank = step.rank(follow);
-  if (rank == null) return `${what[step.key]} ${name} was not found by ${step.label.toLowerCase()}.`;
+  if (rank == null) return `${lead} ${name} was not found by ${step.label.toLowerCase()}.`;
   const combined = follow.signals?.pre_rerank_rank;
   const was = step.key === "final" && combined != null && combined !== rank ? ` (was #${combined} combined)` : "";
-  return `${what[step.key]} ${name} is #${rank}${was}.`;
+  return `${lead} ${name} is #${rank}${was}.`;
+}
+
+/**
+ * How many candidates a search put on the shortlist, as the chips above count them,
+ * and how many of those the search returned: the two numbers a reader compares.
+ */
+export function foundLine(step: RaceStep, response: SearchResponse): string | null {
+  if (step.key !== "fts" && step.key !== "trigram" && step.key !== "semantic") return null;
+  const count = response.diagnostics?.candidate_counts?.[armPoolKey[step.key]];
+  if (count == null) return null;
+  if (count === 0) return "It found no candidates for this request.";
+  const shown = response.results.length;
+  const returned = response.results.filter((product) => step.rank(product) != null).length;
+  const among = returned === 0 ? "none of them" : returned === count ? "all of them" : `${returned} of them`;
+  return `It found ${count} on the shortlist, ${among} among the ${shown} shown.`;
 }
 
 /**
@@ -160,8 +183,14 @@ export function raceCaption(step: RaceStep, products: ProductSummary[], response
  * their new places, new ones rise in, and ones a step does not rank fade out.
  * It plays once through on arrival; choosing a step stops it there.
  */
-export function RankRace({ response, followId, wanted, missing, onFollow }: {
+export function RankRace({ response, pool, followId, wanted, missing, onFollow }: {
   response: SearchResponse;
+  /**
+   * The search's saved shortlist, each step's first products in it, as Shop's board
+   * reads it. Null while it loads or when it cannot be read: the race then holds only
+   * the returned products and says so.
+   */
+  pool?: ProductSummary[] | null;
   /** The product the caption and ring follow. */
   followId: number | null;
   /** Whether the followed product is the one the lab is looking for. */
@@ -170,13 +199,20 @@ export function RankRace({ response, followId, wanted, missing, onFollow }: {
   missing?: string;
   onFollow: (productId: number) => void;
 }) {
-  const products = response.results;
-  const steps = useMemo(() => RACE_STEPS.filter((step) => products.some((product) => step.rank(product) != null)), [products]);
+  const shownIds = useMemo(() => new Set(response.results.map((product) => product.product_id)), [response.results]);
+  // The returned products keep the response's own copy; the shortlist adds what ranked below them.
+  const products = useMemo(() => (pool
+    ? [...response.results, ...pool.filter((product) => !shownIds.has(product.product_id))]
+    : response.results), [pool, response.results, shownIds]);
+  // Every step stays, even one with nothing to show: a search that found nothing, or
+  // nothing on this page, is part of what happened, and the chips above count it.
+  const steps = RACE_STEPS;
+  const shortlist = response.diagnostics?.candidate_counts?.fused_pool;
   const reduceMotion = useReducedMotion() ?? false;
   const [stepKey, setStepKey] = useState<RaceStepKey>(() => (reduceMotion ? steps.at(-1) : steps[0])?.key ?? "final");
   const [playing, setPlaying] = useState(!reduceMotion && steps.length > 1);
   const step = steps.find((item) => item.key === stepKey) ?? steps.at(-1) ?? RACE_STEPS[4];
-  const rows = useMemo(() => raceRows(products, step, followId), [products, step, followId]);
+  const rows = useMemo(() => raceRows(products, step, followId, shownIds), [products, step, followId, shownIds]);
   const follow = products.find((product) => product.product_id === followId);
 
   // Rows that leave keep their last content while they fade out.
@@ -281,13 +317,24 @@ export function RankRace({ response, followId, wanted, missing, onFollow }: {
     (event.currentTarget.querySelector(`[data-step="${next.key}"]`) as HTMLButtonElement | null)?.focus();
   };
 
+  const cells = (content: RowContent) => <>
+    <span className="pg-race-rank">#{content.rank}</span>
+    <span className="pg-race-name">{content.name}</span>
+    <span className="pg-race-track" aria-hidden="true">
+      <span className="pg-race-bar" ref={(bar) => { elements.current.set(content.productId, { ...elements.current.get(content.productId) ?? { row: null }, bar }); }} />
+    </span>
+    <span className="pg-race-move" data-direction={content.move?.direction}>{content.move?.text ?? ""}</span>
+  </>;
+
   const pinned = rows.length > ROWS;
   const height = Math.max(rows.length, 1) * ROW_HEIGHT + (pinned ? PINNED_GAP : 0);
   return <section className="pg-race" aria-labelledby="pg-race-title">
     <div className="pg-race-head">
       <div>
         <h3 id="pg-race-title">Watch the ranking change</h3>
-        <p>The {products.length} returned products, at each step’s own rank.</p>
+        <p>{pool && shortlist
+          ? `Each step’s first ${ROWS} on the shortlist of ${shortlist}. Faded rows are not among the ${response.results.length} shown.`
+          : `The ${response.results.length} returned products, at each step’s own rank.`}</p>
       </div>
       <div className="pg-race-controls">
         <div className="pg-race-steps" role="radiogroup" aria-label="Ranking shown" onKeyDown={onKeyDown}>
@@ -297,7 +344,8 @@ export function RankRace({ response, followId, wanted, missing, onFollow }: {
       </div>
     </div>
     {follow ? <Journey steps={steps} product={follow} current={step.key} onPick={choose} /> : null}
-    <ol className="pg-race-list" style={{ height }} aria-label={`${step.label} order`}>
+    {rows.length ? null : <p className="pg-race-empty">{foundLine(step, response) ?? `${step.label} ranked none of these products.`}</p>}
+    <ol className="pg-race-list" style={{ height: rows.length ? height : 0 }} aria-label={`${step.label} order`}>
       {mounted.map(({ content }) => {
         const gone = !visible.has(content.productId) || leaving.includes(content.productId) && !visible.has(content.productId);
         const followed = content.productId === followId;
@@ -308,16 +356,18 @@ export function RankRace({ response, followId, wanted, missing, onFollow }: {
           data-step={step.key}
           data-followed={followed ? (wanted ? "wanted" : "chosen") : undefined}
           data-top={content.top || undefined}
+          data-off-page={content.onPage ? undefined : true}
           aria-hidden={gone || undefined}
         >
-          <button type="button" onClick={() => onFollow(content.productId)} aria-label={`${content.name}: #${content.rank} in ${step.label.toLowerCase()}. Follow this product.`} tabIndex={gone ? -1 : 0}>
-            <span className="pg-race-rank">#{content.rank}</span>
-            <span className="pg-race-name">{content.name}</span>
-            <span className="pg-race-track" aria-hidden="true">
-              <span className="pg-race-bar" ref={(bar) => { elements.current.set(content.productId, { ...elements.current.get(content.productId) ?? { row: null }, bar }); }} />
-            </span>
-            <span className="pg-race-move" data-direction={content.move?.direction}>{content.move?.text ?? ""}</span>
-          </button>
+          {content.onPage ? (
+            <button type="button" onClick={() => onFollow(content.productId)} aria-label={`${content.name}: #${content.rank} in ${step.label.toLowerCase()}. Follow this product.`} tabIndex={gone ? -1 : 0}>
+              {cells(content)}
+            </button>
+          ) : (
+            <div className="pg-race-row-body" aria-label={`${content.name}: #${content.rank} in ${step.label.toLowerCase()}, not among the ${response.results.length} shown.`}>
+              {cells(content)}
+            </div>
+          )}
         </li>;
       })}
     </ol>

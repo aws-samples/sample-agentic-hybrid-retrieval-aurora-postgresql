@@ -256,9 +256,11 @@ A development-only comparison remains available with `?type=editorial`
 `import.meta.env.DEV`; production builds exclude it.
 
 12px is the floor for new text. The stylesheet test holds a ratchet on
-`font-size` literals under 12px across every sheet in `ui/src`: the ceiling is
-204, and 174 such declarations remained across 35 sheets on 2026-09-28. The
-count may only fall.
+`font-size` literals under 12px across every sheet in `ui/src`: on 2026-10-25
+every size below 18px was rounded to a whole pixel and 10px raised to 11px, so
+132 declarations remain under the floor, all at 11px, and the ceiling is 132.
+The count may only fall, and the same test fails on any half-pixel size: under
+18px the scale is the seven whole steps from 11px to 17px.
 
 ## Geometry
 
@@ -701,6 +703,14 @@ paragraphs and citation chips, and it only grows, so nothing ever gets lighter.
 The clock runs 24 characters past the end of the text once the stream closes so
 the last words finish darkening. Under `prefers-reduced-motion`, and for a turn
 restored already answered, the text shows at once with nothing faint.
+
+**The panel's frame.** The thread scrolls between the header and the composer:
+its top edge always fades, and its bottom edge fades while there is more below,
+so a card is never cut at a hard line. Under the thread, one row holds the memory
+switch and **New conversation**; **Previous messages** folds earlier turns above
+the latest one and takes a row only when there are any. On a phone the tool
+calls keep one row that scrolls sideways, so the answer starts on the first
+screen.
 
 **Builder view** is the "Show tool calls" switch in the header, on by default so
 every answer shows the tool calls behind it. Turning it off is remembered per

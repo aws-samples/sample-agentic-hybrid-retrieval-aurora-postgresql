@@ -315,7 +315,7 @@
 
 .panel-heading > span {
   color: var(--ink-soft);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .success-icon {
@@ -344,7 +344,7 @@
   background: var(--ink);
   color: var(--maroon-line);
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.04em;
 }
 

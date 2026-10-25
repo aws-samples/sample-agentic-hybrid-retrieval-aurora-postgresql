@@ -394,7 +394,8 @@ export function retrievalLabOutcome(
       undefined,
       wanted
         ? {
-            name: wanted.title,
+            // Listing titles run to 190 characters; the mission's short name reads as a name.
+            name: mission.target_display_name ?? wanted.title,
             combinedRank: wanted.signals?.pre_rerank_rank ?? null,
             finalRank: wanted.signals?.final_rank ?? null,
           }

@@ -134,7 +134,7 @@
   max-width: 75ch;
   margin: 0;
   color: var(--ink-soft);
-  font-size: 14.5px;
+  font-size: 15px;
   line-height: 1.6;
 }
 
@@ -316,7 +316,7 @@
   max-width: 50ch;
   margin: 0;
   color: var(--ink-soft);
-  font-size: 14.5px;
+  font-size: 15px;
   line-height: 1.6;
 }
 
@@ -408,7 +408,7 @@
   border: 0;
   background: transparent;
   color: var(--ink-soft);
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.01em;
   transition: color 180ms ease;
@@ -450,7 +450,7 @@
   border-radius: 999px;
   background: transparent;
   color: var(--ink-soft);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   transition: border-color 180ms ease, color 180ms ease;
 }
@@ -469,7 +469,7 @@
   border-radius: 10px;
   background: var(--maroon-900);
   color: var(--paper);
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -573,7 +573,7 @@
   border: 0;
   background: transparent;
   color: var(--maroon-900);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, var(--maroon-700) 32%, transparent);
@@ -602,7 +602,7 @@
   max-width: 70ch;
   margin: 0;
   color: var(--ink-soft);
-  font-size: 12.5px;
+  font-size: 13px;
   letter-spacing: 0.01em;
 }
 
@@ -613,7 +613,7 @@
 
 .shop-results-heading > p small {
   color: var(--ink-soft);
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .shop-results-heading > button {
@@ -626,7 +626,7 @@
   border-radius: 999px;
   background: transparent;
   color: var(--maroon-900);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   transition: border-color 180ms ease;
 }
@@ -1033,7 +1033,7 @@
   border-radius: 9px;
   background: var(--maroon-800);
   color: var(--paper-strong);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 @media (hover: none) {
@@ -1094,7 +1094,7 @@
   border: 0;
   background: transparent;
   color: var(--ink-soft);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   transition: color 180ms ease;
 }
@@ -1121,7 +1121,7 @@
 .shop-empty p {
   max-width: 400px;
   margin: 0;
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.6;
 }
 
@@ -1247,7 +1247,7 @@
 .shop-filter-options label > small {
   margin-left: auto;
   color: var(--line-strong);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .shop-filter-options input,
@@ -1453,7 +1453,7 @@
 }
 
 .product-drawer-price-row span {
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .product-drawer .rating-row {
@@ -1464,7 +1464,7 @@
   max-width: 65ch;
   margin: 0;
   color: var(--ink-soft);
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.6;
 }
 
@@ -1483,7 +1483,7 @@
 
 .product-drawer-body blockquote cite {
   color: var(--ink-soft);
-  font-size: 11.5px;
+  font-size: 12px;
   font-style: normal;
 }
 
@@ -1523,7 +1523,7 @@
   justify-content: center;
   gap: 6px;
   color: var(--maroon-800);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
   text-decoration: none;
 }

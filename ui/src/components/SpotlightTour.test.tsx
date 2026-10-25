@@ -54,7 +54,7 @@ describe("SpotlightTour", () => {
     const card = screen.getByRole("dialog", { name: "Welcome" });
     expect(card.textContent).toContain("Tour · 1 of 3");
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Next" }));
-    expect(document.querySelector(".spotlight-hole")).toBeNull();
+    expect(document.querySelector<HTMLElement>(".spotlight-hole")?.style.display).toBe("none");
   });
 
   it("passes over a control that never appears, then rings the next one", () => {
@@ -67,9 +67,13 @@ describe("SpotlightTour", () => {
     frames(TARGET_WAIT_MS + 100);
     frames();
     expect(screen.getByRole("dialog", { name: "Search" }).textContent).toContain("Tour · 3 of 3");
+    frames(600);
+    // The 40 px control is padded by 18% of its height, 7 px, into a pill.
     const hole = document.querySelector<HTMLElement>(".spotlight-hole");
-    expect(hole?.style.top).toBe("92px");
-    expect(hole?.style.width).toBe("216px");
+    expect(hole?.style.top).toBe("93px");
+    expect(hole?.style.width).toBe("214px");
+    expect(hole?.style.borderRadius).toBe("27px");
+    expect(document.querySelector(".spotlight-scrim rect[fill='black']")?.getAttribute("x")).toBe("33");
   });
 
   it("says Got it when only absent optional stops remain, and ends there", () => {
@@ -147,5 +151,64 @@ describe("SpotlightTour", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(window.localStorage.getItem(key)).toBe(TOUR_SEEN);
     expect(window.localStorage.getItem(TOUR_STORAGE_KEY)).toBeNull();
+  });
+
+  it("closes onto its control on a spring, then holds it exactly", () => {
+    placeTarget("search");
+    render(<SpotlightTour open onClose={vi.fn()} steps={[STEPS[2]]} />);
+    frames(48);
+    const hole = document.querySelector<HTMLElement>(".spotlight-hole")!;
+    const moving = parseFloat(hole.style.top);
+    expect(moving).toBeLessThan(93);
+    expect(moving).toBeGreaterThan(93 - 28);
+    expect(hole.hasAttribute("data-moving")).toBe(true);
+    frames(600);
+    expect(hole.style.top).toBe("93px");
+    expect(hole.hasAttribute("data-moving")).toBe(false);
+  });
+
+  it("hugs a centred control inside a full-width row", () => {
+    const row = placeTarget("search", { top: 100, left: 0, width: 1000, height: 120 });
+    const field = document.createElement("input");
+    const box = { top: 130, left: 400, width: 200, height: 50 };
+    const rect = { ...box, x: 400, y: 130, right: 600, bottom: 180, toJSON: () => box } as DOMRect;
+    field.getBoundingClientRect = () => rect;
+    row.append(field);
+    render(<SpotlightTour open onClose={vi.fn()} steps={[STEPS[2]]} />);
+    frames(600);
+    const hole = document.querySelector<HTMLElement>(".spotlight-hole")!;
+    // 9 px around the 50 px field, not the row's 1,000 px.
+    expect(hole.style.left).toBe("391px");
+    expect(hole.style.width).toBe("218px");
+  });
+
+  it("rings a pill as a pill", () => {
+    const pill = placeTarget("search", { top: 100, left: 40, width: 140, height: 36 });
+    pill.style.backgroundColor = "rgb(0, 102, 204)";
+    pill.style.borderRadius = "999px";
+    render(<SpotlightTour open onClose={vi.fn()} steps={[STEPS[2]]} />);
+    frames(600);
+    const hole = document.querySelector<HTMLElement>(".spotlight-hole")!;
+    expect(hole.style.height).toBe("48px");
+    expect(hole.style.borderRadius).toBe("24px");
+  });
+
+  it("keeps a control's ring inside the window at its top edge", () => {
+    placeTarget("search", { top: 2, left: 40, width: 120, height: 40 });
+    render(<SpotlightTour open onClose={vi.fn()} steps={[STEPS[2]]} />);
+    frames(600);
+    expect(document.querySelector<HTMLElement>(".spotlight-hole")?.style.top).toBe("6px");
+  });
+
+  it("moves at once when reduced motion is asked for", () => {
+    const matchMedia = window.matchMedia;
+    window.matchMedia = ((query: string) => ({ matches: query.includes("reduce") })) as typeof window.matchMedia;
+    placeTarget("search");
+    render(<SpotlightTour open onClose={vi.fn()} steps={[STEPS[2]]} />);
+    frames(20);
+    const hole = document.querySelector<HTMLElement>(".spotlight-hole")!;
+    expect(hole.style.top).toBe("93px");
+    expect(hole.hasAttribute("data-moving")).toBe(false);
+    window.matchMedia = matchMedia;
   });
 });

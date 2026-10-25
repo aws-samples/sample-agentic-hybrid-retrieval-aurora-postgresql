@@ -13,7 +13,7 @@
   background: color-mix(in srgb, var(--gold-soft) 72%, var(--paper));
   color: var(--ink);
   font-family: var(--sans);
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.5;
 }
 

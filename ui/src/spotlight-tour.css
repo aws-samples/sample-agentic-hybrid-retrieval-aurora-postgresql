@@ -19,42 +19,54 @@
   position: fixed;
   z-index: 1101;
   inset: 0;
-  background: var(--tour-scrim);
+  width: 100%;
+  height: 100%;
   pointer-events: none;
+  animation: spotlight-fade 220ms var(--ease-out) both;
 }
 
-/* The hole: the scrim is this box's outer shadow, so the control shows through
-   undimmed, ringed by the accent. */
+.spotlight-dim {
+  fill: var(--tour-scrim);
+}
+
+/* The ring around the hole the scrim's mask cuts. The tour writes its box every
+   frame, so it carries no transition of its own. */
 .spotlight-hole {
   position: fixed;
   z-index: 1101;
-  border-radius: 12px;
-  box-shadow: 0 0 0 3px var(--tour-ring), 0 0 0 200vmax var(--tour-scrim);
+  box-shadow: 0 0 0 3px var(--tour-ring);
   pointer-events: none;
-  transition:
-    top var(--motion-settle) var(--ease-out),
-    left var(--motion-settle) var(--ease-out),
-    width var(--motion-settle) var(--ease-out),
-    height var(--motion-settle) var(--ease-out);
 }
 
+/* The pulse grows by the same distance on every side, so a wide hole breathes as
+   evenly as a round one, and it waits until the hole has arrived. */
 .spotlight-hole::after {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: 0 0 0 3px var(--tour-ring);
-  animation: spotlight-ping 1.6s ease-out infinite;
+  opacity: 0;
+  animation: spotlight-ping 1.8s var(--ease-out) 240ms infinite;
   content: "";
+}
+
+.spotlight-hole[data-moving]::after {
+  animation: none;
 }
 
 @keyframes spotlight-ping {
   from {
-    opacity: 0.8;
-    transform: scale(1);
+    opacity: 0.75;
+    box-shadow: 0 0 0 3px var(--tour-ring);
   }
   to {
     opacity: 0;
-    transform: scale(1.08);
+    box-shadow: 0 0 0 14px var(--tour-ring);
+  }
+}
+
+@keyframes spotlight-fade {
+  from {
+    opacity: 0;
   }
 }
 
@@ -69,9 +81,18 @@
   box-shadow: var(--shadow);
   color: var(--ink);
   font-family: var(--sans);
-  transition:
-    top var(--motion-settle) var(--ease-out),
-    left var(--motion-settle) var(--ease-out);
+}
+
+/* A new stop's words settle in while the card travels to it. */
+.spotlight-card-content {
+  animation: spotlight-swap 260ms var(--ease-out) both;
+}
+
+@keyframes spotlight-swap {
+  from {
+    opacity: 0.2;
+    transform: translateY(3px);
+  }
 }
 
 .spotlight-count {
@@ -92,7 +113,7 @@
 .spotlight-card h2 + p {
   margin: 0;
   color: var(--ink-soft);
-  font-size: 14.5px;
+  font-size: 15px;
   line-height: 1.45;
 }
 
@@ -145,9 +166,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spotlight-hole,
-  .spotlight-card {
-    transition: none;
+  .spotlight-scrim,
+  .spotlight-card-content {
+    animation: none;
   }
 
   .spotlight-hole::after {

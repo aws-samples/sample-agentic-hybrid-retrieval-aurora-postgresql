@@ -106,7 +106,7 @@
   border: 0;
   background: transparent;
   color: var(--maroon-700);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -146,7 +146,7 @@
 .filter-panel label small {
   margin-left: auto;
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .filter-panel input {
@@ -260,7 +260,7 @@
   align-items: center;
   gap: 9px;
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .results-toolbar select {
@@ -374,7 +374,7 @@
   min-height: 1em;
   overflow: hidden;
   color: var(--maroon-700);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.09em;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -417,7 +417,7 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 10.5px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -433,7 +433,7 @@
   gap: 4px;
   margin-bottom: 12px;
   color: var(--gold);
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .rating-row span {
@@ -459,7 +459,7 @@
   border-radius: 999px;
   background: var(--paper-warm);
   color: var(--ink-soft);
-  font-size: 10.5px;
+  font-size: 11px;
   text-transform: capitalize;
 }
 
@@ -482,7 +482,7 @@
 .attribute-list dt,
 .attribute-list dd {
   overflow: hidden;
-  font-size: 10.5px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -514,7 +514,7 @@
   overflow: hidden;
   color: var(--maroon-800);
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -603,7 +603,7 @@
 .product-detail-link {
   margin-left: auto;
   color: var(--maroon-700);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.02em;
   transition: color 160ms ease;
@@ -758,7 +758,7 @@
   border-radius: 999px;
   background: transparent;
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -823,7 +823,7 @@
 
 .search-starters strong {
   color: var(--ink);
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.4;
 }
@@ -872,7 +872,7 @@
   border-radius: 999px;
   background: var(--maroon-100);
   color: var(--maroon-800);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -934,7 +934,7 @@
 
 .assistant-title small {
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
 }
 
@@ -967,7 +967,7 @@
 .agent-answer h2 {
   margin: 20px 0 7px;
   font-family: inherit;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -1007,7 +1007,7 @@
   align-items: center;
   gap: 7px;
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.4;
 }
 
@@ -1020,7 +1020,7 @@
 .diagnostic-summary h2 {
   margin-bottom: 11px;
   font-family: inherit;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -1031,7 +1031,7 @@
   gap: 7px;
   padding: 7px 0;
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .citation-list a:hover strong {
@@ -1057,14 +1057,14 @@
 
 .metric-list dt {
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
   text-transform: capitalize;
 }
 
 .metric-list dd {
   margin: 0;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -1076,7 +1076,7 @@
   padding: 0;
   border: 0;
   background: transparent;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -1098,7 +1098,7 @@
   border-radius: 50%;
   background: var(--green-soft);
   color: var(--green);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -1110,14 +1110,14 @@
 
 .agent-trace strong {
   overflow: hidden;
-  font-size: 10px;
+  font-size: 11px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .agent-trace small {
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.4;
 }
 
@@ -1129,7 +1129,7 @@
   background: var(--paper-warm);
   color: var(--ink-soft);
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -1155,7 +1155,7 @@
 
 .top-result > p:not(.eyebrow) {
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.55;
 }
 
@@ -1164,7 +1164,7 @@
   align-items: center;
   gap: 6px;
   color: var(--maroon-700);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -1199,7 +1199,7 @@
   border-radius: 999px;
   background: transparent;
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .follow-up-prompts button:hover {
@@ -1218,7 +1218,7 @@
   gap: 6px;
   margin: 0;
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 /* Product detail */
@@ -1487,7 +1487,7 @@
 
 .product-assurances small {
   color: var(--ink-soft);
-  font-size: 11.5px;
+  font-size: 12px;
   line-height: 1.35;
 }
 
@@ -1528,7 +1528,7 @@
   margin: 0;
   color: var(--ink-soft);
   font-family: var(--sans);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.07em;
   line-height: 1.35;
@@ -1538,7 +1538,7 @@
 .product-evidence-row p {
   margin: 0;
   color: var(--ink-soft);
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.6;
 }
 
@@ -1810,7 +1810,7 @@
 
 .product-overview p:not(.eyebrow) {
   color: var(--ink-soft);
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.6;
 }
 
@@ -1836,12 +1836,12 @@
   display: grid;
   gap: 3px;
   color: var(--ink-soft);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .product-rationale li strong {
   color: var(--ink);
-  font-size: 10px;
+  font-size: 11px;
   text-transform: capitalize;
 }
 
@@ -1863,7 +1863,7 @@
 
 .customer-highlights cite {
   color: var(--ink-soft);
-  font-size: 11.5px;
+  font-size: 12px;
   font-style: normal;
 }
 
@@ -1943,13 +1943,13 @@
   margin: 8px 0 10px;
   color: var(--ink);
   font-family: var(--display);
-  font-size: 16.5px;
+  font-size: 17px;
   line-height: 1.55;
 }
 
 .review-list cite {
   color: var(--ink-soft);
-  font-size: 11.5px;
+  font-size: 12px;
   font-style: normal;
 }
 
@@ -1984,7 +1984,7 @@
   overflow: hidden;
   color: var(--ink-soft);
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

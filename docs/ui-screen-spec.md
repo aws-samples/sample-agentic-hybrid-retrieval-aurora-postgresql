@@ -23,7 +23,10 @@ Landing, before a query or Ask Mosaic's picks:
   with a pulsing ring on one control at a time (search and examples, Browse all
   products, Ask Mosaic, Playground, Alex, Code Editor) and a card with Next and
   Skip the tour; the header's **Take the tour** compass replays it
-  (`ui/src/tour.ts`, `ui/src/components/SpotlightTour.tsx`);
+  (`ui/src/tour.ts`, `ui/src/components/SpotlightTour.tsx`). The hole hugs what the
+  control shows, in the control's own corner shape and inside the window, and the
+  hole and card glide between stops on a critically damped spring, then hold the
+  control exactly;
 
 - centred headline, search composer, catalog scope line, and one unlabelled row
   of example searches that stays in view after a search;
@@ -131,11 +134,15 @@ agent's cited answer.
 The search bar's button is a magnifying glass until a search's results are in,
 then the arrow that asks the Retrieval agent; agent examples start the agent
 directly. A run shows one row of chips (each search's count, the combined pool,
-reranking, the record ID, or the agent's tool calls), the agent's answer when
+reranking, or the agent's tool calls), the agent's answer when
 there is one (its picks on the left from the first word, the prose read out
-beside them, compact sources after), then **Watch the ranking change**: the
-returned products racing from each search to Combined (RRF) to Reranked, with a
-journey line for the followed product. One row of details opens beneath it, one
+beside them, compact sources after), then **Watch the ranking change**: each
+step's first eight on the search's saved shortlist racing from each search to
+Combined (RRF) to Reranked, the shortlist products the search did not return
+faded and not followable, as on Shop's board, with a journey line for the
+followed product. Every step stays, even one that ranked nothing shown, and each
+search's caption gives the count its chip shows and how many of those were
+returned. One row of details opens beneath it, one
 at a time: **Each search's top five**, **How Aurora combined them**, **Why this
 position**, **Agent steps and sources**. **How Aurora combined them** is one
 table: each search's `1 / (k + rank)` with the share the run reported, their sum

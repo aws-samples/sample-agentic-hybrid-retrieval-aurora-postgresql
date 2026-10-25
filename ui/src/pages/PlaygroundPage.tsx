@@ -23,8 +23,8 @@ import { CandidatePoolOrder } from "../components/playground/CandidatePoolOrder"
 import { DepthRow } from "../components/playground/DepthRow";
 import { FusionTable } from "../components/playground/FusionTable";
 import { MethodBoard } from "../components/MethodBoard";
-import { RankRace } from "../components/playground/RankRace";
-import { RunSteps, agentChips, recordChip, searchChips, searchingChips } from "../components/playground/RunSteps";
+import { RACE_ROWS, RankRace } from "../components/playground/RankRace";
+import { RunSteps, agentChips, searchChips, searchingChips } from "../components/playground/RunSteps";
 import { ReturnedProducts } from "../components/playground/ReturnedProducts";
 import { RunSummary } from "../components/playground/RunSummary";
 import { MethodComparison, modelName, rerankStep, signedScore } from "../components/playground/RetrievalPath";
@@ -424,6 +424,8 @@ function PipelineInspector() {
   const rankChecking = Boolean(rankRun && !labStates && !labStatesFailed);
   const rankNotOpen = Boolean(rankRun && (rankChecking || rankEntry === "not_started" || rankEntry === "incomplete"));
   const followId = receiptId ?? wantedId ?? products[0]?.product_id ?? null;
+  // The race reads each step's first eight on the shortlist, as Shop's board reads five.
+  const racePool = useShortlist(response, wantedId, RACE_ROWS);
   // Each time a search's results come into view the stages arrive again. Alternating two
   // identical animations restarts them without remounting what a reader may be focused on.
   const arrivalKey = response ? `${selected?.id}:${response.search_event_id}` : null;
@@ -457,7 +459,6 @@ function PipelineInspector() {
   const chips = pipeline.started
     ? agentChips(pipeline.trace, pipeline.phase, pipeline.running && !pipeline.completed)
     : response ? searchChips(response) : pipeline.running ? searchingChips() : [];
-  if (response && !held) chips.push(recordChip(response.search_event_id));
   return <div className="page pg-a pipeline-inspector">
     <MosaicLabsTabs active="retrieval" />
     <RequestStage selectedId={selectedRequest?.id} carried={params.has("q") || Boolean(carriedEvent)} question={question} context={context} runButton={runButton} onChoose={(id) => setParams(new URLSearchParams({ scene: id }))} />
@@ -474,7 +475,7 @@ function PipelineInspector() {
     </section> : <div className="pg-stages" data-arrive={response ? (arrival.count % 2 ? "a" : "b") : undefined}>
       <section className="pg-board" aria-label="Watch the ranking change" data-tour="pg-board">
         {response?.results.length
-          ? <RankRace key={response.search_event_id} response={response} followId={followId} wanted={followId != null && followId === wantedId} missing={missingWanted} onFollow={setReceiptId} />
+          ? <RankRace key={response.search_event_id} response={response} pool={racePool} followId={followId} wanted={followId != null && followId === wantedId} missing={missingWanted} onFollow={setReceiptId} />
           : <p className="inspector-waiting pg-board-empty">{pipeline.error ? "No ranking is available from this run." : pipeline.running ? "Searching Aurora…" : "Search to watch three searches, Aurora’s combined order and the reranker side by side."}</p>}
       </section>
       <DepthRow open={openDetail} onOpen={openDetails} items={[

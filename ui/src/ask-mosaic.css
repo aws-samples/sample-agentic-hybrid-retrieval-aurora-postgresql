@@ -363,6 +363,15 @@
   overscroll-behavior: contain;
   scrollbar-color: var(--line-strong) transparent;
   scrollbar-width: thin;
+  /* The thread scrolls under the header and the composer, so its edges fade
+     instead of cutting a card mid-line. The top fade stays inside the padding. */
+  mask-image: linear-gradient(to bottom, transparent, black 14px);
+}
+
+/* Set while the reader is above the live edge: the bottom edge fades too, which
+   says there is more below without a second control. */
+.ask-mosaic-body[data-more-below] {
+  mask-image: linear-gradient(to bottom, transparent, black 14px, black calc(100% - 40px), transparent);
 }
 
 .ask-mosaic-turn {
@@ -785,7 +794,7 @@
 
 .ask-top-pick .ask-fact {
   color: var(--ink-soft);
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.5;
 }
 
@@ -897,7 +906,7 @@
 
 .ask-prose {
   min-width: 0;
-  font-size: 15.5px;
+  font-size: 16px;
   line-height: 1.6;
   letter-spacing: -0.005em;
 }
@@ -1491,6 +1500,25 @@
     padding: 16px 15px 24px;
   }
 
+  /* A phone shows the answer first: the tool calls keep one row that scrolls
+     sideways, as the segmented control does, instead of filling the screen. */
+  .ask-tool-chips {
+    flex-wrap: nowrap;
+    margin-inline: -15px;
+    padding-inline: 15px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    mask-image: linear-gradient(to right, transparent, black 15px, black calc(100% - 32px), transparent);
+  }
+
+  .ask-tool-chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .ask-tool-chip {
+    flex: none;
+  }
+
   .ask-icon-button {
     width: 44px;
     height: 44px;
@@ -1586,9 +1614,28 @@
 .ask-thread-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
   padding: 4px 14px 0;
+}
+
+/* Under the thread: the memory switch on the left, New conversation on the right. */
+.ask-mosaic-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+  padding-inline: 4px;
+}
+
+.ask-mosaic-meta .ask-mosaic-memory-control {
+  min-width: 0;
+  margin: 0;
+}
+
+.ask-mosaic-meta .ask-new-conversation {
+  flex: none;
+  margin-left: auto;
 }
 
 .ask-prior-toggle,
@@ -1667,5 +1714,5 @@
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
-  font-size: 12.5px;
+  font-size: 13px;
 }

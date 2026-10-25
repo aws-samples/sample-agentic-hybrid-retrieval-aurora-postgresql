@@ -39,7 +39,11 @@ const viewSonic = products[9];
 const response = {
   search_event_id: "race-search",
   results: products,
-  diagnostics: { rerank_status: "applied", retrieval_profile: { rrf_k: K }, candidate_counts: { fused_pool: 50 } },
+  diagnostics: {
+    rerank_status: "applied", retrieval_profile: { rrf_k: K },
+    // Fuzzy matching put one candidate on the shortlist, below the ten returned.
+    candidate_counts: { fused_pool: 50, fts_in_pool: 31, trigram_in_pool: 1, semantic_in_pool: 30 },
+  },
 } as unknown as SearchResponse;
 const step = (key: string) => RACE_STEPS.find((item) => item.key === key)!;
 
@@ -74,8 +78,13 @@ describe("raceCaption", () => {
   });
 
   it("names a wanted product the search did not return, without guessing where it went", () => {
-    const caption = raceCaption(step("final"), products.slice(0, 9), response, undefined, "ViewSonic VG2756-4K");
-    expect(caption).toContain("The ViewSonic VG2756-4K is not among the 9 products this search returned.");
+    const caption = raceCaption(step("final"), products, response, undefined, "ViewSonic VG2756-4K");
+    expect(caption).toContain("The ViewSonic VG2756-4K is not among the 10 products this search returned.");
+  });
+
+  it("counts each search's shortlist as the chips do, and how many of those were returned", () => {
+    expect(raceCaption(step("fts"), products, response, undefined)).toContain("It found 31 on the shortlist, 9 of them among the 10 shown.");
+    expect(raceCaption(step("trigram"), products, response, undefined)).toContain("It found 1 on the shortlist, none of them among the 10 shown.");
   });
 });
 
@@ -95,7 +104,6 @@ describe("RankRace", () => {
     render(<RankRace response={response} followId={viewSonic.product_id} wanted onFollow={onFollow} />);
     const steps = screen.getByRole("radiogroup", { name: "Ranking shown" });
     expect(within(steps).getByRole("radio", { name: "Reranked" }).getAttribute("aria-checked")).toBe("true");
-    expect(within(steps).queryByRole("radio", { name: "Fuzzy matching" })).toBeNull();
     fireEvent.click(within(steps).getByRole("radio", { name: "Semantic search" }));
     const list = screen.getByRole("list", { name: "Semantic search order" });
     expect(within(list).getAllByRole("button")[0].textContent).toContain("Monitor 1");
@@ -109,14 +117,14 @@ describe("RankRace", () => {
     render(<RankRace response={response} followId={viewSonic.product_id} wanted onFollow={() => {}} />);
     fireEvent.click(screen.getByRole("radio", { name: "Semantic search" }));
     const nodes = [...screen.getByRole("list", { name: /at each step$/ }).querySelectorAll("li")];
-    // Full-text and semantic search are reached; Combined (RRF) and Reranked are ahead.
-    expect(nodes.map((node) => node.hasAttribute("data-ahead"))).toEqual([false, false, true, true]);
+    // The three searches are reached; Combined (RRF) and Reranked are ahead.
+    expect(nodes.map((node) => node.hasAttribute("data-ahead"))).toEqual([false, false, false, true, true]);
   });
 
   it("marks searches blue, the combined order orange and the reranked order green", () => {
     render(<RankRace response={response} followId={viewSonic.product_id} wanted onFollow={() => {}} />);
     const nodes = [...screen.getByRole("list", { name: /at each step$/ }).querySelectorAll("li")];
-    expect(nodes.map((node) => node.getAttribute("data-accent"))).toEqual(["retrieve", "retrieve", "rank", "done"]);
+    expect(nodes.map((node) => node.getAttribute("data-accent"))).toEqual(["retrieve", "retrieve", "retrieve", "rank", "done"]);
     expect(screen.getByRole("radio", { name: "Reranked" }).getAttribute("data-accent")).toBe("done");
   });
 
@@ -125,5 +133,23 @@ describe("RankRace", () => {
     const final = screen.getByRole("radio", { name: "Reranked" });
     fireEvent.keyDown(final, { key: "ArrowLeft" });
     expect(screen.getByRole("radio", { name: "Combined (RRF)" }).getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("keeps a search that returned nothing on this page, and says what it found", () => {
+    render(<RankRace response={response} followId={null} wanted={false} onFollow={() => {}} />);
+    fireEvent.click(screen.getByRole("radio", { name: "Fuzzy matching" }));
+    expect(screen.getByText("It found 1 on the shortlist, none of them among the 10 shown.", { selector: ".pg-race-empty" })).toBeTruthy();
+  });
+
+  it("races each step's own first products on the shortlist, faded when not returned", () => {
+    const below = ranked(bases[10], "Portable Monitor 15.6", { trigram: 1, combined: 30, final: 31 });
+    render(<RankRace response={response} pool={[below]} followId={null} wanted={false} onFollow={() => {}} />);
+    expect(screen.getByText(/Each step’s first 8 on the shortlist of 50\. Faded rows are not among the 10 shown\./)).toBeTruthy();
+    fireEvent.click(screen.getByRole("radio", { name: "Fuzzy matching" }));
+    const list = screen.getByRole("list", { name: "Fuzzy matching order" });
+    const row = list.querySelector("[data-off-page]");
+    expect(row?.textContent).toContain("#1");
+    // Not followable: the Playground holds no receipt for a product it did not return.
+    expect(within(list).queryAllByRole("button")).toHaveLength(0);
   });
 });
