@@ -281,12 +281,9 @@ def lab_diff(
     expected_source = expected_path.read_text(encoding="utf-8")
     inside = []
     for start, end, _fixed, _broken in blocks:
-        if yours_source.count(start) != 1 or yours_source.count(end) != 1:
-            raise ValueError(
-                f"Lab diff rule: {relative_path} must hold one {start!r} and one {end!r}; "
-                f"fix: restore the marker lines, or run {reset(lab)} to restore the "
-                "starting code (it discards your edits to this lab)."
-            )
+        markers = _markers_problem(yours_source, start, end)
+        if markers:
+            raise ValueError(f"Lab diff rule: in {relative_path}, {markers}.")
         _expected_first, expected = _block_span(
             expected_source, start, end, path=expected_path
         )
@@ -335,6 +332,10 @@ def set_lab_state(
     relative_path, blocks = LABS[lab]
     path = repo / relative_path
     source = path.read_text(encoding="utf-8")
+    if not all(_markers_intact(source, start, end) for start, end, _, _ in blocks):
+        # A deleted or repeated marker hides where the block is, and reset is the
+        # way out the marker message offers, so start from the reference file.
+        source = (REPO / solution_path(Path(relative_path))).read_text(encoding="utf-8")
     for start, end, fixed, broken in blocks:
         source = _replace_block(source, start, end, fixed if solved else broken)
     path.write_text(source, encoding="utf-8")
@@ -496,16 +497,41 @@ def _sql_text(tokens: list[str]) -> str:
     return re.sub(r" ([),])", r"\1", text)
 
 
-def _markers_problem(source: str, start: str, end: str) -> str | None:
-    if (
+def _markers_intact(source: str, start: str, end: str) -> bool:
+    return (
         source.count(start) == 1
         and source.count(end) == 1
         and source.index(start) < source.index(end)
-    ):
+    )
+
+
+def _markers_problem(source: str, start: str, end: str) -> str | None:
+    """Say which marker line is missing, repeated or out of order, and the way out.
+
+    It names the exact lines and the comment above the block rather than pointing
+    at git diff: the checkout commits the repaired file, so git diff would print
+    the reference answer.
+    """
+    if _markers_intact(source, start, end):
         return None
+    lab = next(lab for lab, seam in LABS.items() if seam.blocks[0].start == start)
+    faults = []
+    for marker in (start, end):
+        count = source.count(marker)
+        if count == 0:
+            faults.append(f"the line '{marker}' is missing")
+        elif count > 1:
+            faults.append(f"the line '{marker}' appears {count} times")
+    if not faults:
+        faults.append(f"the line '{end}' comes before '{start}'")
+    reference = REPO / solution_path(Path(LABS[lab].exercise))
+    above = reference.read_text(encoding="utf-8").split(start, 1)[0]
+    anchor = above.rstrip().splitlines()[-1].strip()
     return (
-        f"the {start.lstrip('-# ')} and {end.lstrip('-# ')} lines must each appear "
-        "once, in that order; restore the marker line you changed (git diff shows it)"
+        f"{' and '.join(faults)}: your edit goes between the lines '{start}' and "
+        f"'{end}', each once and in that order, with the first directly under "
+        f"'{anchor}'; put the marker lines back, or run {reset(lab)} to put back "
+        f"the starting code (it discards your Lab {lab} edits)"
     )
 
 
@@ -697,7 +723,7 @@ def _marked_tokens(source: str, lab: int) -> list[str] | None:
     with the saved one directly.
     """
     ((start, end, _, _),) = LABS[lab][1]
-    if _markers_problem(source, start, end):
+    if not _markers_intact(source, start, end):
         return None
     return _sql_tokens(source.split(start, 1)[1].split(end, 1)[0])
 

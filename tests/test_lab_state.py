@@ -664,9 +664,87 @@ def test_diff_names_the_participants_file_when_a_marker_is_gone(lab_repo: Path) 
 
     with pytest.raises(
         ValueError,
-        match=r"Lab diff rule: labs/lab2_rank/rrf_contribution.sql .*reset --lab 2",
+        match=r"Lab diff rule: in labs/lab2_rank/rrf_contribution.sql, "
+        r"the line '-- LAB2_EDIT_END' is missing.*reset --lab 2",
     ):
         lab_diff(2, repo=lab_repo)
+
+
+def _without_line(source: str, marker: str) -> str:
+    return "".join(
+        line for line in source.splitlines(keepends=True) if line.strip() != marker
+    )
+
+
+@pytest.mark.parametrize("lab", [1, 2])
+def test_a_deleted_marker_is_named_with_its_place_and_a_way_out(lab: int) -> None:
+    from scripts.lab_state import source_problem
+
+    start = LABS[lab].blocks[0].start
+    with_marker = (REPO / LABS[lab].exercise).read_text(encoding="utf-8")
+    above = with_marker.split(start, 1)[0].rstrip().splitlines()[-1].strip()
+
+    def problem_without(source: str) -> str:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / LABS[lab].exercise
+            path.parent.mkdir(parents=True)
+            path.write_text(source, encoding="utf-8")
+            problem = source_problem(lab, repo=Path(folder))
+        assert problem is not None
+        return problem.finding
+
+    finding = problem_without(_without_line(with_marker, start))
+
+    assert f"the line '{start}' is missing" in finding
+    assert f"directly under '{above}'" in finding
+    assert f"reset --lab {lab}" in finding
+    assert "git diff" not in finding
+
+
+@pytest.mark.parametrize(
+    ("change", "expected"),
+    [
+        (
+            lambda s, start, end: s.replace(start, f"{start}\n{start}"),
+            "appears 2 times",
+        ),
+        (
+            lambda s, start, end: (
+                s.replace(start, "@@").replace(end, start).replace("@@", end)
+            ),
+            "comes before",
+        ),
+    ],
+)
+def test_a_repeated_or_swapped_marker_says_which(change, expected: str) -> None:
+    from scripts.lab_state import lab1_contract_problem
+
+    start, end = LABS[1].blocks[0].start, LABS[1].blocks[0].end
+    source = (REPO / LABS[1].exercise).read_text(encoding="utf-8")
+
+    problem = lab1_contract_problem(change(source, start, end))
+
+    assert problem is not None and expected in problem
+
+
+@pytest.mark.parametrize("lab", [1, 2, 3])
+def test_reset_recovers_a_file_whose_marker_was_deleted(
+    lab_repo: Path, lab: int
+) -> None:
+    path = lab_repo / LABS[lab].exercise
+    start = LABS[lab].blocks[0].start
+    path.write_text(
+        _without_line(path.read_text(encoding="utf-8"), start), encoding="utf-8"
+    )
+
+    set_lab_state(lab, solved=False, repo=lab_repo)
+
+    restored = path.read_text(encoding="utf-8")
+    assert restored.count(start) == 1
+    assert LABS[lab].blocks[0].broken.strip() in restored
+    assert not lab_is_solved(lab, repo=lab_repo)
 
 
 def test_diff_tool_shows_only_the_lab_files_that_differ(lab_repo: Path) -> None:
