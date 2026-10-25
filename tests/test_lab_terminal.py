@@ -243,10 +243,35 @@ def test_target_summary_names_the_missing_product_and_the_pool_size():
 
     line = lab_terminal.target_summary({"candidates": rows}, mission)
 
-    assert line.startswith(
+    assert line == (
         f"Target {mission['target_product_ids'][0]} ({mission['target_display_name']}): "
+        "not on the shortlist of 50, so reranking never saw it."
     )
-    assert "not among the 50 on the shortlist" in line
+
+
+@pytest.mark.parametrize("name", ["retrieve", "rank"])
+def test_before_and_after_name_the_target_once_and_fit_a_laptop_terminal(name):
+    mission = lab_checks.load_mission(name)
+    target = {
+        "product_id": mission["target_product_ids"][0],
+        "fused_rank": 21,
+        "result_rank": 5,
+        "fts_rank": None,
+        "trigram_rank": None,
+        "semantic_rank": 10,
+    }
+
+    lines = lab_terminal.before_after_lines({"candidates": [target]}, mission)
+
+    assert lines == [
+        f"Target {target['product_id']} ({mission['target_display_name']})",
+        "Before: not on the shortlist.",
+        "After:  combined position 21, final position 5; found by semantic search rank 10.",
+    ]
+    missing = lab_terminal.target_summary(
+        {"candidates": [{"product_id": 1}] * 50}, mission
+    )
+    assert max(len(line) for line in [*lines, missing]) <= 95
 
 
 def test_target_summary_names_positions_and_only_the_methods_that_found_it():

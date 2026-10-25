@@ -156,27 +156,44 @@ TARGET_METHODS = (
 )
 
 
-def target_summary(event: dict, mission: dict) -> str:
-    """State where the lab's target sits in the saved pool, as SQL would show it."""
+def target_label(mission: dict) -> str:
+    """Name the lab's target by product ID and, when the mission has one, its name."""
     target = mission["target_product_ids"][0]
     name = mission.get("target_display_name")
-    label = f"Target {target} ({name})" if name else f"Target {target}"
+    return f"Target {target} ({name})" if name else f"Target {target}"
+
+
+def target_position(event: dict, mission: dict) -> str:
+    """State where the lab's target sits in the saved pool, as SQL would show it."""
+    target = mission["target_product_ids"][0]
     rows = event.get("candidates", [])
     row = next((row for row in rows if row["product_id"] == target), None)
     if row is None:
-        return (
-            f"{label}: not among the {len(rows)} on the shortlist, "
-            "so reranking never received it."
-        )
+        return f"not on the shortlist of {len(rows)}, so reranking never saw it."
     methods = ", ".join(
         f"{method} rank {row[key]}"
         for key, method in TARGET_METHODS
         if row.get(key) is not None
     )
     return (
-        f"{label}: combined position {row['fused_rank']}, final position "
+        f"combined position {row['fused_rank']}, final position "
         f"{row['result_rank']}; found by {methods or 'no method'}."
     )
+
+
+def target_summary(event: dict, mission: dict) -> str:
+    """One line for a run with no saved before: the target and where it sits."""
+    return f"{target_label(mission)}: {target_position(event, mission)}"
+
+
+def before_after_lines(event: dict, mission: dict) -> list[str]:
+    """The target once, then its before and after positions, each short enough
+    for a laptop terminal: a saved before always lacks the target."""
+    return [
+        target_label(mission),
+        "Before: not on the shortlist.",
+        f"After:  {target_position(event, mission)}",
+    ]
 
 
 def require_broken_search(event: dict, mission: dict) -> None:
@@ -344,8 +361,9 @@ def prepare(lab: int, phase: str, api_url: str, output: Path) -> Path:
         for product in response["results"]:
             print(f"{product['signals']['final_rank']:>2}. {product['title'][:88]}")
         if before:
-            print("Before: absent.")
-        print(("After:  " if before else "") + target_summary(event, mission))
+            print("\n".join(before_after_lines(event, mission)))
+        else:
+            print(target_summary(event, mission))
         run_id = response["search_event_id"]
     else:
         with connect() as connection:
