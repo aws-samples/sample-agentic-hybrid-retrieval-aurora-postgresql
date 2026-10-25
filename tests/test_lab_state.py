@@ -498,6 +498,7 @@ def test_solution_says_what_it_overwrote_and_the_next_commands(
     from service.participant_commands import DEPLOY_AGENT, complete_lab_3, prove
 
     monkeypatch.setattr("sys.argv", ["lab_state.py", "solution", "--lab", str(lab)])
+    monkeypatch.delenv(lab_state.RUN_BY, raising=False)
     monkeypatch.setattr(
         lab_state, "set_lab_state", lambda *_a, **_k: lab_state.REPO / "x.sql"
     )
@@ -512,6 +513,27 @@ def test_solution_says_what_it_overwrote_and_the_next_commands(
         assert DEPLOY_AGENT in output and complete_lab_3() in output
     else:
         assert prove(lab) in output
+
+
+@pytest.mark.parametrize("lab", sorted(LABS))
+def test_solution_run_by_finish_leaves_the_next_commands_to_it(
+    monkeypatch, capsys, lab
+):
+    """`finish` applies and proves the answer itself, so its `solution` step names no
+    command to run next; the step lines that follow show them running."""
+    from scripts import lab_state
+
+    monkeypatch.setattr("sys.argv", ["lab_state.py", "solution", "--lab", str(lab)])
+    monkeypatch.setenv(lab_state.RUN_BY, f"Finish Lab {lab}")
+    monkeypatch.setattr(
+        lab_state, "set_lab_state", lambda *_a, **_k: lab_state.REPO / "x.sql"
+    )
+
+    assert lab_state.main() == 0
+
+    output = capsys.readouterr().out
+    assert f"LAB{lab}_" in output and "overwrote" in output
+    assert "Next:" not in output
 
 
 @pytest.mark.parametrize("action", ["start", "reset", "solution", "validate"])

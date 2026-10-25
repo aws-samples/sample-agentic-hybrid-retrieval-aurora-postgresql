@@ -235,7 +235,13 @@ def publish_image(repository_uri: str, *, bootstrap: bool) -> str:
                 raise RuntimeError(
                     "Runtime image rule: pushed image is absent from ECR; retry deployment."
                 )
-        print(f"Runtime image ready: {tag} ({digest})")
+        # Twelve hex digits, as docker shortens image IDs, keep the line inside a laptop
+        # terminal; the full digest is in the image URI the deployment records.
+        kind, _, revision = tag.partition("-")
+        print(
+            f"Runtime image ready: {kind}-{revision[:12]}, digest "
+            f"sha256:{digest.removeprefix('sha256:')[:12]}"
+        )
         return f"{repository_uri}@{digest}"
 
 

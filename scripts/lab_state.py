@@ -51,6 +51,10 @@ from service.participant_commands import start as start_command
 #: has been through JSON on the way out of a search response.
 FUNCTION_CONTRIBUTION_TOLERANCE = 1e-12
 
+#: Set for the commands `finish` and `skip-to` run, to the run's label, so a step does
+#: not tell the participant to run the steps that come next: the run does that itself.
+RUN_BY = "MOSAIC_RUN_BY"
+
 #: What a participant finds in each marked block when a lab starts. Lab 1's TODO
 #: names the symptom so that finding the lost search stays the participant's work;
 #: the others repeat the lab guide's contract for the edit, not its answer.
@@ -919,8 +923,15 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def solution_summary(lab: int, path: Path) -> str:
-    """Say what `solution` overwrote and which commands come next."""
+def solution_summary(lab: int, path: Path, *, run_by: str | None = None) -> str:
+    """Say what `solution` overwrote and, run by hand, which commands come next."""
+    overwrote = (
+        f"Lab {lab}: SOLUTION ({path})\n"
+        f"This overwrote the marked LAB{lab}_ block in {path} with the reference "
+        "answer, so your own edits to that block are gone."
+    )
+    if run_by:
+        return overwrote
     if lab == 3:
         next_step = (
             f"deploy with {DEPLOY_AGENT}, ask Alex's setup request with "
@@ -928,12 +939,7 @@ def solution_summary(lab: int, path: Path) -> str:
         )
     else:
         next_step = f"apply it with {APPLY_SQL}, then prove it with {prove(lab)}"
-    return (
-        f"Lab {lab}: SOLUTION ({path})\n"
-        f"This overwrote the marked LAB{lab}_ block in {path} with the reference "
-        "answer, so your own edits to that block are gone.\n"
-        f"Next: {next_step}."
-    )
+    return f"{overwrote}\nNext: {next_step}."
 
 
 def _entered(lab: int) -> bool:
@@ -964,7 +970,9 @@ def _run_steps(steps: list[str], *, label: str, resume: str) -> int:
         # Each command prints its own output, so a step prints lines instead of a redrawn bar.
         progress.begin(step, typical=USUAL_SECONDS[step], done="done", animate=False)
         command = [sys.executable, *shlex.split(step.removeprefix("uv run python "))]
-        result = subprocess.run(command, cwd=REPO, check=False)
+        result = subprocess.run(
+            command, cwd=REPO, check=False, env={**os.environ, RUN_BY: label}
+        )
         if result.returncode != 0:
             progress.fail()
             print(
@@ -1056,7 +1064,11 @@ def main() -> int:
         return 0
     if args.action == "solution":
         path = set_lab_state(args.lab, solved=True)
-        print(solution_summary(args.lab, path.relative_to(REPO)))
+        print(
+            solution_summary(
+                args.lab, path.relative_to(REPO), run_by=os.environ.get(RUN_BY)
+            )
+        )
         return 0
     return _validate_command(args.lab, args.database_url)
 

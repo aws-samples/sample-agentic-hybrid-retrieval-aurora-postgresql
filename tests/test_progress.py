@@ -171,3 +171,22 @@ def test_a_running_line_never_wraps_and_keeps_its_time_whole(width: int) -> None
     )
     assert len(line) < width
     assert line.endswith(state)
+
+
+def test_a_start_line_too_wide_for_the_terminal_puts_its_label_on_its_own_line(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    command = "uv run python scripts/lab_terminal.py run --lab 1 --phase after"
+    out = io.StringIO()
+    progress = Progress(stream=out, now=Clock(), interval=None, name="step")
+    progress.plan([5, 1])
+
+    monkeypatch.setattr(progress_module, "columns", lambda: 140)
+    progress.begin(command, typical=5, done="done", animate=False)
+    monkeypatch.setattr(progress_module, "columns", lambda: 97)
+    progress.begin(command, typical=1, done="done", animate=False)
+
+    lines = out.getvalue().splitlines()
+    assert lines[0] == f"{bar(0, 6)}  step 1/2  {command} (usually about 0:05)"
+    assert lines[2:] == [f"{bar(5, 6)}  step 2/2, usually about 0:01", f"    {command}"]
+    assert all(len(line) < 97 for line in lines[1:])

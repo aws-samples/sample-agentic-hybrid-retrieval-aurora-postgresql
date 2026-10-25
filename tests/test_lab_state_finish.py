@@ -6,6 +6,7 @@ import sys
 import pytest
 
 from scripts import lab_state
+from scripts import progress as progress_module
 from scripts.progress import bar, clock
 from service.participant_commands import (
     ADVANCE_TO_LAB_2,
@@ -22,6 +23,14 @@ from service.participant_commands import (
     solution,
     start,
 )
+
+LAPTOP_COLUMNS = 97
+
+
+@pytest.fixture(autouse=True)
+def _a_laptop_terminal(monkeypatch):
+    """Code Editor's terminal on a laptop, with the panel the full window width."""
+    monkeypatch.setattr(progress_module, "columns", lambda: LAPTOP_COLUMNS)
 
 
 def test_each_lab_finishes_through_its_guide_steps():
@@ -50,20 +59,22 @@ def run_finish(
     ran = []
     monkeypatch.setattr(lab_state, "_entered", lambda number: number in entered)
 
-    def fake_run(command, cwd, check):
+    def fake_run(command, cwd, check, env):
         ran.append(command)
+        run_by.append(env[lab_state.RUN_BY])
         failed = failing_step is not None and len(ran) == failing_step
         return subprocess.CompletedProcess(command, 3 if failed else 0)
 
     monkeypatch.setattr(lab_state.subprocess, "run", fake_run)
     monkeypatch.setattr(sys, "argv", ["lab_state.py", action, "--lab", str(lab)])
+    run_by = []
     code = lab_state.main()
-    return code, ran, capsys.readouterr().out
+    return code, ran, capsys.readouterr().out, run_by
 
 
 @pytest.mark.parametrize("lab", [1, 2, 3])
 def test_finish_runs_every_step_in_order_and_names_each(monkeypatch, capsys, lab):
-    code, ran, out = run_finish(monkeypatch, capsys, lab)
+    code, ran, out, run_by = run_finish(monkeypatch, capsys, lab)
 
     assert code == 0
     steps = finish_steps(lab)
@@ -71,6 +82,7 @@ def test_finish_runs_every_step_in_order_and_names_each(monkeypatch, capsys, lab
         step.removeprefix("uv run python ").split() for step in steps
     ]
     assert all(command[0] == sys.executable for command in ran)
+    assert run_by == [f"Finish Lab {lab}"] * len(steps)
     total = len(steps)
     usual = sum(USUAL_SECONDS[step] for step in steps)
     assert (
@@ -78,9 +90,26 @@ def test_finish_runs_every_step_in_order_and_names_each(monkeypatch, capsys, lab
     )
     for index, step in enumerate(steps):
         number = f"step {index + 1}/{total}"
-        assert f"{number}  {step} (usually about {clock(USUAL_SECONDS[step])})" in out
+        typical = f"usually about {clock(USUAL_SECONDS[step])}"
+        one_line = f"{number}  {step} ({typical})"
+        assert one_line in out or f"{number}, {typical}\n    {step}\n" in out
         assert f"{number}  done" in out
     assert "  Done in " in out
+
+
+def test_a_step_line_too_wide_for_the_terminal_puts_its_command_on_its_own_line(
+    monkeypatch, capsys
+):
+    _code, _ran, out, _run_by = run_finish(monkeypatch, capsys, 1)
+
+    step_lines = [
+        line for line in out.splitlines() if "step " in line or "    uv " in line
+    ]
+    assert step_lines and all(len(line) < LAPTOP_COLUMNS for line in step_lines)
+    assert (
+        f"step 4/5, usually about {clock(USUAL_SECONDS[repeat_request(1)])}\n"
+        f"    {repeat_request(1)}\n" in out
+    ), "a command wider than the terminal moves to its own line"
 
 
 def test_every_step_finish_or_skip_to_runs_has_a_measured_usual_time():
@@ -90,7 +119,7 @@ def test_every_step_finish_or_skip_to_runs_has_a_measured_usual_time():
 
 
 def test_finish_stops_at_the_first_failure_and_says_how_to_resume(monkeypatch, capsys):
-    code, ran, out = run_finish(monkeypatch, capsys, 2, failing_step=3)
+    code, ran, out, _run_by = run_finish(monkeypatch, capsys, 2, failing_step=3)
 
     assert code == 3
     assert len(ran) == 3
@@ -110,7 +139,7 @@ def test_finish_stops_at_the_first_failure_and_says_how_to_resume(monkeypatch, c
 def test_finish_skips_ahead_through_every_lab_not_handed_off(
     monkeypatch, capsys, lab, entered, labs_run
 ):
-    code, ran, out = run_finish(monkeypatch, capsys, lab, entered=entered)
+    code, ran, out, _run_by = run_finish(monkeypatch, capsys, lab, entered=entered)
 
     assert code == 0
     expected = [step for number in labs_run for step in finish_steps(number)]
@@ -136,7 +165,7 @@ def as_commands(steps):
 def test_skip_to_finishes_earlier_labs_and_stops_at_the_chosen_lab_start(
     monkeypatch, capsys, lab, entered, earlier
 ):
-    code, ran, out = run_finish(
+    code, ran, out, _run_by = run_finish(
         monkeypatch, capsys, lab, entered=entered, action="skip-to"
     )
 
@@ -152,7 +181,7 @@ def test_skip_to_finishes_earlier_labs_and_stops_at_the_chosen_lab_start(
 def test_skip_to_a_lab_already_reachable_only_starts_it(
     monkeypatch, capsys, lab, entered
 ):
-    code, ran, _out = run_finish(
+    code, ran, _out, _run_by = run_finish(
         monkeypatch, capsys, lab, entered=entered, action="skip-to"
     )
 
@@ -161,7 +190,7 @@ def test_skip_to_a_lab_already_reachable_only_starts_it(
 
 
 def test_skip_to_stops_at_a_failure_and_names_its_own_command(monkeypatch, capsys):
-    code, ran, out = run_finish(
+    code, ran, out, _run_by = run_finish(
         monkeypatch, capsys, 3, failing_step=2, entered=(1,), action="skip-to"
     )
 

@@ -150,6 +150,23 @@ def test_push_keeps_registry_password_out_of_arguments_and_removes_login_file(
     assert all(not config.exists() for _, config in commands)
 
 
+def test_the_image_line_shortens_the_tag_and_digest_as_docker_does(monkeypatch, capsys):
+    ecr, _ = image_client(monkeypatch)
+    ecr.describe_images.return_value = {"imageDetails": [{"imageDigest": DIGEST}]}
+    monkeypatch.setattr(deploy.subprocess, "run", Mock())
+
+    assert deploy.publish_image(URI, bootstrap=False) == URI + "@" + DIGEST
+
+    line = capsys.readouterr().out.strip()
+    short_digest = DIGEST.removeprefix("sha256:")[:12]
+    assert (
+        line == f"Runtime image ready: source-{'b' * 12}, digest sha256:{short_digest}"
+    )
+    assert len(line) < 97, (
+        "the line fits a laptop terminal; the URI keeps the full digest"
+    )
+
+
 def test_bootstrap_retry_reuses_the_immutable_tag_without_rebuilding(monkeypatch):
     ecr, _ = image_client(monkeypatch)
     monkeypatch.setenv("SOURCE_REVISION", "c" * 40)

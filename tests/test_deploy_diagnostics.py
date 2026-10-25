@@ -8,6 +8,7 @@ import pytest
 from botocore.exceptions import ClientError
 
 from scripts import deploy_agentcore as deploy
+from scripts import progress as progress_module
 from service.participant_commands import DEPLOY_AGENT, VERIFY_AGENT
 
 URI = "123456789012.dkr.ecr.us-east-1.amazonaws.com/workshop"
@@ -16,6 +17,12 @@ URI = "123456789012.dkr.ecr.us-east-1.amazonaws.com/workshop"
 @pytest.fixture(autouse=True)
 def no_waiting(monkeypatch):
     monkeypatch.setattr(deploy.time, "sleep", lambda *_: None)
+
+
+@pytest.fixture(autouse=True)
+def _a_laptop_terminal(monkeypatch):
+    """Code Editor's terminal on a laptop, where each step's line fits on one line."""
+    monkeypatch.setattr(progress_module, "columns", lambda: 97)
 
 
 def test_failed_runtime_prints_its_failure_reason_and_the_retry_command():

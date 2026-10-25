@@ -9,7 +9,8 @@ how long is left.
 
 On a terminal the running step's line redraws in place, and anything printed meanwhile lands
 above it. Anywhere else (a log, a pipe, a capture) nothing redraws: a step prints one line as it
-starts and one as it ends. The step tracker follows the progress module of the Pellier workshop
+starts, with its label on a second line when the first would be too wide for the terminal, and
+one as it ends. The step tracker follows the progress module of the Pellier workshop
 (sample-pellier-agentic-search-apg, scripts/wait_progress.py).
 
     progress = Progress("Deploying your Retrieval agent")
@@ -273,11 +274,7 @@ class Progress:
             self._live = _Live(self.stream, self._render, self.interval)
             self._live.start()
             return
-        start = f"  - {self.counter()}  {label} (usually about {clock(typical)})"
-        if self._planned:
-            finished = sum(self._planned[: self.number - 1])
-            start = f"{bar(finished, sum(self._planned))}  {start.lstrip(' -')}"
-        self._print(start)
+        self._print(self._start_line(label, typical))
 
     def end(self, done: str | None = None) -> None:
         """End the running step: its line says what it did, how long it took and what is left."""
@@ -305,6 +302,22 @@ class Progress:
         if self.number and not self._finished:
             self._finished = True
             self._print(f"  Done in {clock(self.now() - self._began)}.")
+
+    def _start_line(self, label: str, typical: float) -> str:
+        """The step's counter, label and usual time; with a plan, the share finished first.
+
+        A label too wide for the terminal, such as a whole command, moves to a line of its
+        own, so neither line wraps.
+        """
+        head = f"  - {self.counter()}"
+        if self._planned:
+            finished = sum(self._planned[: self.number - 1])
+            head = f"{bar(finished, sum(self._planned))}  {self.counter()}"
+        usual = f"usually about {clock(typical)}"
+        line = f"{head}  {label} ({usual})"
+        if len(line) < columns():
+            return line
+        return f"{head}, {usual}\n    {label}"
 
     def _heading(self) -> str:
         if not self._planned:
