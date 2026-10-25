@@ -95,7 +95,7 @@ The Makefile wraps them for maintainers only.
 | Judge three retrieval settings in Lab 2 | `uv run python scripts/lab_exercise.py compare --lab 2` |
 | Check the optional HNSW index exercise | `uv run python scripts/hnsw_exercise.py check` |
 | List managed SQL tools | `uv run python scripts/deploy_agentcore.py tools` |
-| Deploy edited Lab 3 code and check managed connectivity; prints progress about every 15 s and names the failing step on error | `uv run python scripts/deploy_agentcore.py deploy` |
+| Deploy edited Lab 3 code and check managed connectivity; shows each of its five steps against its usual time (about 1:11 in all), says how long is left and names the failing step on error | `uv run python scripts/deploy_agentcore.py deploy` |
 | Recheck deployed code, Gateway tools and Aurora evidence | `uv run python scripts/deploy_agentcore.py verify` |
 | See the agent and tools runtimes, Gateway and Memory a deploy updates (read-only Get calls) | `uv run python scripts/deploy_agentcore.py resources` |
 | Ask the deployed agent from the terminal: answer, tool trace, citations, outcome, decline reason and Run ID. Lab 3's setup request and 100W follow-up use it; Ask Mosaic is the optional browser view | `uv run python scripts/ask_agent.py "QUESTION"` |

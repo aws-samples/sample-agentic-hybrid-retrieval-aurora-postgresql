@@ -6,13 +6,14 @@ import sys
 import pytest
 
 from scripts import lab_state
-from scripts.progress import bar
+from scripts.progress import bar, clock
 from service.participant_commands import (
     ADVANCE_TO_LAB_2,
     ADVANCE_TO_LAB_3,
     APPLY_SQL,
     DEPLOY_AGENT,
     LIST_TOOLS,
+    USUAL_SECONDS,
     exercise_check,
     finish,
     finish_steps,
@@ -71,10 +72,21 @@ def test_finish_runs_every_step_in_order_and_names_each(monkeypatch, capsys, lab
     ]
     assert all(command[0] == sys.executable for command in ran)
     total = len(steps)
+    usual = sum(USUAL_SECONDS[step] for step in steps)
+    assert (
+        f"Finish Lab {lab}: {total} steps, usually about {clock(usual)} in all." in out
+    )
     for index, step in enumerate(steps):
-        progress = f"{bar(index, total)}  Finish Lab {lab}: step {index + 1} of {total}"
-        assert f"{progress}\n$ {step}" in out
-    assert f"{bar(total, total)}  Finish Lab {lab}: done" in out
+        number = f"step {index + 1}/{total}"
+        assert f"{number}  {step} (usually about {clock(USUAL_SECONDS[step])})" in out
+        assert f"{number}  done" in out
+    assert "  Done in " in out
+
+
+def test_every_step_finish_or_skip_to_runs_has_a_measured_usual_time():
+    steps = {step for lab in (1, 2, 3) for step in finish_steps(lab)}
+    steps |= {start(lab) for lab in (1, 2, 3)}
+    assert steps <= set(USUAL_SECONDS), sorted(steps - set(USUAL_SECONDS))
 
 
 def test_finish_stops_at_the_first_failure_and_says_how_to_resume(monkeypatch, capsys):

@@ -106,3 +106,26 @@ def prove(lab: int) -> str:
     """
     check = ADVANCE_TO_LAB_2 if lab == 1 else exercise_check(lab)
     return f"{repeat_request(lab)}, then {check}"
+
+
+# How long each command `finish` and `skip-to` run usually takes, in seconds, rounded up:
+# measured on event 814672215611 on 25 October 2026, where `finish --lab 3` from a fresh
+# account took 1:41. A later lab's start only reads its record, because the previous
+# hand-off started that lab. The deploy is the sum of its phases.
+DEPLOY_PHASE_SECONDS = (5, 16, 16, 21, 13)
+USUAL_SECONDS: dict[str, float] = {
+    start(1): 5,
+    solution(1): 1,
+    APPLY_SQL: 1,
+    repeat_request(1): 5,
+    ADVANCE_TO_LAB_2: 9,
+    start(2): 1,
+    solution(2): 1,
+    repeat_request(2): 5,
+    exercise_check(2): 1,
+    ADVANCE_TO_LAB_3: 7,
+    start(3): 1,
+    solution(3): 1,
+    LIST_TOOLS: 2,
+    DEPLOY_AGENT: sum(DEPLOY_PHASE_SECONDS),
+}

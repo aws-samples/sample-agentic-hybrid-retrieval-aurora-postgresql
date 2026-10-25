@@ -18,7 +18,7 @@ from typing import Any, Literal, NamedTuple
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
-from scripts.progress import bar
+from scripts.progress import Progress
 from service.catalog_runtime import search_schema
 from service.lab_files import LAB1_SQL, LAB2_SQL, LAB3_AGENT, solution_path
 from service.participant_commands import (
@@ -27,6 +27,7 @@ from service.participant_commands import (
     DEPLOY_AGENT,
     DIFF,
     DIFF_ANSWER,
+    USUAL_SECONDS,
     ask_setup,
     complete_lab_3,
     exercise_check,
@@ -956,23 +957,23 @@ def _earlier_labs_to_finish(lab: int) -> list[int]:
 
 
 def _run_steps(steps: list[str], *, label: str, resume: str) -> int:
-    """Run participant commands in order, naming each; stop at the first failure."""
-    for index, step in enumerate(steps):
-        print(
-            f"\n{bar(index, len(steps))}  {label}: step {index + 1} of {len(steps)}",
-            flush=True,
-        )
-        print(f"$ {step}", flush=True)
+    """Run participant commands in order, each with its usual time; stop at the first failure."""
+    progress = Progress(label, name="step")
+    progress.plan([USUAL_SECONDS[step] for step in steps])
+    for step in steps:
+        # Each command prints its own output, so a step prints lines instead of a redrawn bar.
+        progress.begin(step, typical=USUAL_SECONDS[step], done="done", animate=False)
         command = [sys.executable, *shlex.split(step.removeprefix("uv run python "))]
         result = subprocess.run(command, cwd=REPO, check=False)
         if result.returncode != 0:
+            progress.fail()
             print(
                 f"\n{label} stopped at: {step}\n"
                 f"Next: fix what it names above, then run {resume} again; "
                 "the steps before it are safe to repeat."
             )
             return result.returncode
-    print(f"\n{bar(len(steps), len(steps))}  {label}: done", flush=True)
+    progress.finish()
     return 0
 
 

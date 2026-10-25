@@ -2,7 +2,6 @@
 
 import subprocess
 import sys
-import threading
 from unittest.mock import Mock
 
 import pytest
@@ -17,7 +16,6 @@ URI = "123456789012.dkr.ecr.us-east-1.amazonaws.com/workshop"
 @pytest.fixture(autouse=True)
 def no_waiting(monkeypatch):
     monkeypatch.setattr(deploy.time, "sleep", lambda *_: None)
-    monkeypatch.setattr(deploy, "PROGRESS_SECONDS", 0)
 
 
 def test_failed_runtime_prints_its_failure_reason_and_the_retry_command():
@@ -34,7 +32,7 @@ def test_failed_runtime_prints_its_failure_reason_and_the_retry_command():
     assert DEPLOY_AGENT in message
 
 
-def test_runtime_wait_reports_status_and_elapsed_time(capsys):
+def test_runtime_wait_returns_once_the_endpoint_serves_the_new_version():
     control = Mock()
     control.get_agent_runtime.side_effect = [
         {"status": "UPDATING", "agentRuntimeVersion": "2"},
@@ -45,10 +43,9 @@ def test_runtime_wait_reports_status_and_elapsed_time(capsys):
         "status": "READY",
         "liveVersion": "2",
     }
-    deploy.wait_runtime(control, "mosaic_agent-AbC123", "agent runtime")
-    output = capsys.readouterr().out
-    assert "agent runtime" in output and "UPDATING" in output
-    assert "elapsed" in output
+    runtime = deploy.wait_runtime(control, "mosaic_agent-AbC123", "agent runtime")
+    assert runtime["agentRuntimeVersion"] == "2"
+    assert control.get_agent_runtime.call_count == 3
 
 
 def test_runtime_timeout_names_the_last_state(monkeypatch):
@@ -93,7 +90,7 @@ def test_failed_gateway_sync_prints_the_first_status_reason(monkeypatch):
         ],
     )
     with pytest.raises(RuntimeError) as raised:
-        deploy.update("example.ecr/repo@sha256:" + "a" * 64)
+        deploy.update("example.ecr/repo@sha256:" + "a" * 64, deploy.deploy_progress())
     message = str(raised.value)
     assert "SYNCHRONIZE_UNSUCCESSFUL" in message
     assert "cold start timed out" in message
@@ -101,16 +98,18 @@ def test_failed_gateway_sync_prints_the_first_status_reason(monkeypatch):
     assert DEPLOY_AGENT in message
 
 
-def test_gateway_sync_reports_progress(monkeypatch, capsys):
+def test_gateway_sync_waits_through_synchronizing_until_ready(monkeypatch, capsys):
     control = Mock()
     gateway_environment(
         monkeypatch,
         control,
         [{"status": "SYNCHRONIZING"}, {"status": "READY"}],
     )
-    deploy.update("example.ecr/repo@sha256:" + "a" * 64)
-    output = capsys.readouterr().out
-    assert "Gateway" in output and "SYNCHRONIZING" in output and "elapsed" in output
+    deploy.update("example.ecr/repo@sha256:" + "a" * 64, deploy.deploy_progress())
+    assert control.get_gateway_target.call_count == 2
+    assert "4/5  Synchronize the Gateway tools (usually about 0:21)" in (
+        capsys.readouterr().out
+    )
 
 
 def run_main(monkeypatch, action, failure):
@@ -200,20 +199,19 @@ def test_missing_docker_binary_says_docker_is_not_installed(monkeypatch):
         deploy.publish_image(URI, bootstrap=False)
 
 
-def test_a_long_docker_build_prints_heartbeats_and_warns_the_first_build_is_slow(
+def test_a_docker_build_leaves_its_output_to_docker_and_warns_the_first_is_slow(
     monkeypatch, capsys
 ):
-    monkeypatch.setattr(deploy, "PROGRESS_SECONDS", 0.02)
-
     def run(argv, **_):
         if argv[1] == "build":
-            threading.Event().wait(0.2)
+            print("#1 [internal] load build definition from Dockerfile")
 
     image_fixture(monkeypatch, run)
     deploy.publish_image(URI, bootstrap=False)
     output = capsys.readouterr().out
-    assert output.count("Building image") >= 2
     assert "first build is the slowest" in output
+    assert "load build definition" in output
+    assert "elapsed" not in output
 
 
 def test_stale_code_prints_both_digests_and_the_deploy_command(monkeypatch):
@@ -315,8 +313,11 @@ def test_verify_refuses_a_gateway_search_that_ran_other_sql(monkeypatch, tmp_pat
     assert VERIFY_AGENT in message
 
 
-def test_deploy_shows_each_phase_with_the_share_already_finished(monkeypatch, capsys):
-    from scripts.progress import bar
+def test_deploy_shows_each_phase_with_its_usual_time_and_what_is_left(
+    monkeypatch, capsys
+):
+    from scripts.progress import bar, clock
+    from service.participant_commands import DEPLOY_PHASE_SECONDS
 
     control = Mock()
     gateway_environment(monkeypatch, control, [{"status": "READY"}])
@@ -328,11 +329,28 @@ def test_deploy_shows_each_phase_with_the_share_already_finished(monkeypatch, ca
     assert deploy.main() == 0
 
     output = capsys.readouterr().out
-    total = len(deploy.DEPLOY_PHASES)
+    usual = DEPLOY_PHASE_SECONDS
     shown = [
-        f"{bar(index, total)}  {index + 1} of {total}: {name}"
-        for index, name in enumerate(deploy.DEPLOY_PHASES)
+        f"Deploying your Retrieval agent: 5 steps, usually about {clock(sum(usual))}"
     ]
-    shown.append(f"{bar(total, total)}  deployed")
+    for index, (label, done) in enumerate(deploy.DEPLOY_PHASES):
+        number = f"{index + 1}/{len(usual)}"
+        shown.append(
+            f"{bar(sum(usual[:index]), sum(usual))}  {number}  {label} "
+            f"(usually about {clock(usual[index])})"
+        )
+        left = sum(usual[index + 1 :])
+        shown.append(
+            f"  {number}  {done}" + (f", about {clock(left)} left" if left else "")
+        )
+    shown.append("  Done in ")
     positions = [output.index(line) for line in shown]
     assert positions == sorted(positions)
+
+
+def test_a_failed_phase_says_so_before_the_failure(monkeypatch, capsys):
+    run_main(monkeypatch, "deploy", RuntimeError("Image build rule: it broke"))
+
+    captured = capsys.readouterr()
+    assert "1/5  Build and push the image: failed" in captured.out
+    assert "Image build rule: it broke" in captured.err

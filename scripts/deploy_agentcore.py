@@ -10,10 +10,7 @@ import re
 import subprocess
 import sys
 import tempfile
-import threading
 import time
-from collections.abc import Iterator
-from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import quote, quote_plus
 
@@ -22,12 +19,11 @@ from botocore.config import Config
 from botocore.exceptions import BotoCoreError, ClientError
 
 ROOT = Path(__file__).resolve().parents[1]
-PROGRESS_SECONDS = 15
 sys.path.insert(0, str(ROOT))
 
 from scripts.checks.rehearsal import redact
 from scripts.package_agentcore import package
-from scripts.progress import bar
+from scripts.progress import Progress
 from service import agentcore_transport, gateway_tools
 from service.agent_setup import agent_code_message
 from service.lab_validation_receipt import application_digest, participant_sql_digest
@@ -35,6 +31,7 @@ from service.participant_commands import (
     AGENTCORE_RESOURCES,
     APPLY_SQL,
     DEPLOY_AGENT,
+    DEPLOY_PHASE_SECONDS,
     VERIFY_AGENT,
     ask_setup,
 )
@@ -74,58 +71,32 @@ def safe_text(text: object, limit: int = 600) -> str:
 
 
 DEPLOY_PHASES = (
-    "build and push the image",
-    "update the tools runtime",
-    "update the Retrieval agent runtime",
-    "synchronize the Gateway tools",
-    "verify the deployment",
+    ("Build and push the image", "Built and pushed the image"),
+    ("Update the tools runtime", "Updated the tools runtime"),
+    ("Update the Retrieval agent runtime", "Updated the Retrieval agent runtime"),
+    ("Synchronize the Gateway tools", "Synchronized the Gateway tools"),
+    ("Verify the deployment", "Verified the deployment"),
 )
 
 
-def phase(index: int) -> None:
-    """Announce a deploy phase with the share of phases already finished."""
-    total = len(DEPLOY_PHASES)
-    print(
-        f"{bar(index, total)}  {index + 1} of {total}: {DEPLOY_PHASES[index]}",
-        flush=True,
+def deploy_progress() -> Progress:
+    """The deploy's five phases, each with its usual time from DEPLOY_PHASE_SECONDS."""
+    progress = Progress("Deploying your Retrieval agent")
+    progress.plan(DEPLOY_PHASE_SECONDS)
+    return progress
+
+
+def phase(progress: Progress, index: int) -> None:
+    """Start a deploy phase: a bar toward its usual time, then a line with how long it took."""
+    label, done = DEPLOY_PHASES[index]
+    # docker prints its own build output, which a redrawn line would collide with.
+    progress.begin(
+        label,
+        typical=DEPLOY_PHASE_SECONDS[index],
+        done=done,
+        animate=index != 0,
+        number=index + 1,
     )
-
-
-class Progress:
-    """Print one status line at most every PROGRESS_SECONDS during a polling loop."""
-
-    def __init__(self, label: str) -> None:
-        self.label = label
-        self.started = self.last = time.monotonic()
-
-    def tick(self, detail: str) -> None:
-        now = time.monotonic()
-        if now - self.last >= PROGRESS_SECONDS:
-            self.last = now
-            print(
-                f"  {self.label}: {detail}, {int(now - self.started)} s elapsed",
-                flush=True,
-            )
-
-
-@contextmanager
-def heartbeat(label: str) -> Iterator[None]:
-    """Print an elapsed-time line every PROGRESS_SECONDS while a command runs."""
-    finished = threading.Event()
-    started = time.monotonic()
-
-    def beat() -> None:
-        # The floor keeps a zero interval from becoming a busy loop.
-        while not finished.wait(max(PROGRESS_SECONDS, 0.01)):
-            print(f"  {label}: {int(time.monotonic() - started)} s elapsed", flush=True)
-
-    thread = threading.Thread(target=beat, daemon=True)
-    thread.start()
-    try:
-        yield
-    finally:
-        finished.set()
-        thread.join()
 
 
 DOCKER_MISSING = (
@@ -135,11 +106,9 @@ DOCKER_MISSING = (
 
 
 def run_docker(step: str, argv: list[str], *, environment: dict, timeout: int) -> None:
-    """Run one docker step with heartbeats and a failure that names the step."""
-    label = {"build": "Building image", "push": "Pushing image"}[step]
+    """Run one docker step, its own output on screen, and a failure that names the step."""
     try:
-        with heartbeat(label):
-            subprocess.run(argv, check=True, env=environment, timeout=timeout)
+        subprocess.run(argv, check=True, env=environment, timeout=timeout)
     except FileNotFoundError:
         raise RuntimeError(DOCKER_MISSING) from None
     except subprocess.CalledProcessError as error:
@@ -238,8 +207,8 @@ def publish_image(repository_uri: str, *, bootstrap: bool) -> str:
                     time.sleep(2**attempt)
             image = f"{repository_uri}:{tag}"
             print(
-                "Building your Retrieval agent image. The first build is the slowest "
-                f"(several minutes); progress prints every {PROGRESS_SECONDS} s.",
+                "Building your Retrieval agent image; the first build is the slowest. "
+                "docker's own output follows.",
                 flush=True,
             )
             run_docker(
@@ -304,7 +273,6 @@ def wait_runtime(control, runtime_id: str, label: str | None = None) -> dict:
     """Wait for the runtime and its DEFAULT endpoint to serve the new version."""
     label = label or f"runtime {runtime_id}"
     deadline = time.monotonic() + 900
-    progress = Progress(label)
     last = "no status yet"
     while time.monotonic() < deadline:
         runtime = control.get_agent_runtime(agentRuntimeId=runtime_id)
@@ -333,7 +301,6 @@ def wait_runtime(control, runtime_id: str, label: str | None = None) -> dict:
                 f"{safe_text(runtime.get('failureReason', 'no reason supplied'))}; "
                 f"fix: retry {DEPLOY_AGENT}; if it repeats, share this line with your facilitator."
             )
-        progress.tick(last)
         time.sleep(5)
     raise TimeoutError(
         f"Runtime deployment rule: {label} was not ready after 900 s (last seen: {last}); "
@@ -406,7 +373,7 @@ def discover() -> dict[str, str]:
     )
 
 
-def update(image_uri: str) -> None:
+def update(image_uri: str, progress: Progress) -> None:
     control = client("bedrock-agentcore-control")
     fields = set(
         control.meta.service_model.operation_model(
@@ -420,7 +387,7 @@ def update(image_uri: str) -> None:
         ),
         start=1,
     ):
-        phase(index)
+        phase(progress, index)
         runtime_id = required(setting).rsplit("/", 1)[-1]
         current = control.get_agent_runtime(agentRuntimeId=runtime_id)
         payload = {name: value for name, value in current.items() if name in fields}
@@ -436,7 +403,7 @@ def update(image_uri: str) -> None:
         print(f"Updating the {label}; AWS replaces its running version.", flush=True)
         deployed = wait_runtime(control, runtime_id, label)
         print(f"Ready: {label} version {deployed['agentRuntimeVersion']}", flush=True)
-    phase(3)
+    phase(progress, 3)
     gateway = required("MOSAIC_AGENTCORE_GATEWAY_ID")
     target = required("MOSAIC_AGENTCORE_GATEWAY_TARGET_ID")
     control.synchronize_gateway_targets(
@@ -444,7 +411,6 @@ def update(image_uri: str) -> None:
     )
     print("Synchronizing Gateway tools from the tools runtime.", flush=True)
     deadline = time.monotonic() + 600
-    progress = Progress("Gateway tool sync")
     state = "no status yet"
     while time.monotonic() < deadline:
         target_status = control.get_gateway_target(
@@ -459,7 +425,6 @@ def update(image_uri: str) -> None:
                 f"Gateway sync rule: the target is {state}: {safe_text(reasons[0])}; "
                 f"fix: retry {DEPLOY_AGENT}; if it repeats, share this line with your facilitator."
             )
-        progress.tick(state)
         time.sleep(5)
     raise TimeoutError(
         f"Gateway sync rule: the target was still {state} after 600 s; "
@@ -766,19 +731,17 @@ def main() -> int:
 
             if not lab_is_solved(3):
                 raise ValueError(not_ready_message())
-            print(
-                "Deploying your Retrieval agent: build and push the image (the first build is "
-                "the slowest), update the tools and Retrieval agent runtimes, synchronize "
-                f"Gateway, then verify. Progress prints every {PROGRESS_SECONDS} s.",
-                flush=True,
-            )
-            phase(0)
-            update(stage())
-            phase(4)
-            verify()
-            print(
-                f"{bar(len(DEPLOY_PHASES), len(DEPLOY_PHASES))}  deployed", flush=True
-            )
+            progress = deploy_progress()
+            try:
+                phase(progress, 0)
+                update(stage(), progress)
+                phase(progress, 4)
+                verify()
+            except BaseException:
+                # Ends the running phase's bar, so the failure prints on a clean line.
+                progress.fail()
+                raise
+            progress.finish()
             print(
                 "Your Retrieval agent is deployed and its SQL tools are connected through "
                 f"Gateway. Next: ask Alex's setup request:\n{ask_setup()}"

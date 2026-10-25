@@ -260,7 +260,9 @@ def test_deployment_preserves_network_without_echoing_legacy_read_field(monkeypa
     monkeypatch.setattr(
         deployment, "wait_runtime", lambda *_: {"agentRuntimeVersion": "2"}
     )
-    deployment.update("example.ecr/repo@sha256:" + "a" * 64)
+    deployment.update(
+        "example.ecr/repo@sha256:" + "a" * 64, deployment.deploy_progress()
+    )
     for call in control.update_agent_runtime.call_args_list:
         assert call.kwargs["networkConfiguration"] == {
             "networkMode": "VPC",
@@ -481,7 +483,7 @@ def test_runtime_update_removes_response_only_network_flag(monkeypatch):
     monkeypatch.setattr(
         deploy, "wait_runtime", lambda *args: {"agentRuntimeVersion": "4"}
     )
-    deploy.update("example.ecr/repo@sha256:" + "a" * 64)
+    deploy.update("example.ecr/repo@sha256:" + "a" * 64, deploy.deploy_progress())
     assert control.update_agent_runtime.call_count == 2
     for call in control.update_agent_runtime.call_args_list:
         network = call.kwargs["networkConfiguration"]["networkModeConfig"]
