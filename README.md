@@ -119,8 +119,9 @@ After Lab 1's repair check, continue with the guide's description search.
 At the end of the lab, run `uv run python scripts/lab_state.py advance --lab 1`
 to validate its repair, save passing evidence and prepare Lab 2. Lab 2 ends the
 same way with `uv run python scripts/lab_state.py advance --lab 2`, which proves
-Lab 2 and installs the Retrieval agent's starting code for Lab 3. Retries resume
-preparation without discarding edits. For direct entry, start a lab with
+Lab 2 and installs the Retrieval agent's starting code for Lab 3. When the saved
+block is repaired but Aurora runs an earlier version, either handoff applies the
+saved SQL first. Retries resume preparation without discarding edits. For direct entry, start a lab with
 `uv run python scripts/lab_state.py start --lab N`: it saves the failing request,
 installs that lab's fault once and preserves earlier repairs. An interrupted
 start resumes without overwriting edits. Finish and apply earlier repairs first.

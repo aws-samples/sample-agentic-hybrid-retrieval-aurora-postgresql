@@ -116,6 +116,8 @@ cannot recover a product it never receives. The vector recall query is optional.
 At the end of Lab 1, `uv run python scripts/lab_state.py advance --lab 1`
 validates the applied repair and live retrieval controls, saves the passing
 evidence, then prepares Lab 2. Run it only after inspecting all Lab 1 examples.
+When the saved block is repaired but Aurora runs an earlier version of it, the
+handoff applies the saved SQL first, as the apply command does.
 Retries preserve edits and resume any interrupted preparation. Every Lab 1 and
 Lab 2 check reads the saved block the same way, so `validate_lab.py` cannot pass
 while `advance` refuses. A refusal names the first difference (for example

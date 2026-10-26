@@ -132,6 +132,56 @@ def unmet_prerequisites(
     return problems
 
 
+def _apply_saved_repairs(lab: int, dsn: str | None, repo: Path, say: Say) -> None:
+    """Apply the saved SQL when every lab before `lab` is repaired but Aurora runs other SQL.
+
+    A participant can apply one correct repair and then save another, such as the
+    reference answer pasted over their own: both pass, yet the handoff would refuse
+    until they applied again. It applies the saved files instead, exactly as the
+    apply command does. A saved block that is not repaired is never applied here,
+    so its refusal still names it.
+
+    Raises:
+        LabEntryError: Aurora rejected the saved SQL; nothing was applied.
+    """
+    import psycopg
+
+    from scripts.apply_search_functions import describe_apply_failure
+
+    earlier = PREREQUISITES[lab]
+    if any(source_problem(each, repo=repo) for each in earlier):
+        return
+    with _connect(dsn) as connection:
+        stale = [
+            each
+            for each in earlier
+            if applied_problem(each, validate_database(each, connection, repo=repo))
+        ]
+    if not stale:
+        return
+    files = " and ".join(Path(LABS[each][0]).name for each in stale)
+    verb = "is" if len(stale) == 1 else "are"
+    say(
+        f"Your saved {files} {verb} repaired, but Aurora runs an earlier version of "
+        f"{'it' if len(stale) == 1 else 'them'}; applying the saved SQL first."
+    )
+    try:
+        _apply(dsn, repo, say)
+    except ValueError as error:
+        reason = (
+            f"{error}\nNothing was applied: Aurora still runs its previous functions."
+        )
+    except psycopg.Error as error:
+        reason = describe_apply_failure(error, rolled_back=True)
+    else:
+        return
+    then = ADVANCE_TO_LAB_2 if lab == 2 else ADVANCE_TO_LAB_3
+    raise LabEntryError(
+        f"Lab {lab - 1} cannot hand off yet: applying your saved SQL failed.\n"
+        f"{reason}\nThen: {then}"
+    )
+
+
 def _install_fault(lab: int, repo: Path, record: dict[str, Any], say: Say) -> None:
     step = record["steps"].get("fault", {})
     if step.get("state") == "done":
@@ -370,6 +420,7 @@ def _advance_lab_2(
     if not entered.passed:
         raise LabEntryError(f"Lab 2 cannot hand off yet.\n- {entered.detail}")
     assert_reset_database(dsn)
+    _apply_saved_repairs(3, dsn, repo, say)
     with _connect(dsn) as connection:
         problems = unmet_prerequisites(3, connection, repo)
     if problems:
@@ -415,6 +466,7 @@ def _advance_lab_1(
     from scripts.validate_lab import record_completion, validate_lab_1
 
     assert_reset_database(dsn)
+    _apply_saved_repairs(2, dsn, repo, say)
     with _connect(dsn) as connection:
         problems = unmet_prerequisites(2, connection, repo)
     if problems:

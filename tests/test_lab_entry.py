@@ -37,6 +37,9 @@ class Boundaries:
         self.captures = 0
         self.fail_apply = False
         self.fail_capture = False
+        # When set, an apply makes Aurora run the saved files: a SQL lab then
+        # reads as applied only if its saved block is repaired.
+        self.applies_saved_files = False
 
 
 @pytest.fixture
@@ -61,10 +64,14 @@ def aurora(monkeypatch) -> Boundaries:
             state=state.applied.get(lab, "not_applicable"), detail=""
         )
 
-    def apply(_dsn, _repo, say):
+    def apply(_dsn, repo, say):
         if state.fail_apply:
             raise RuntimeError("Aurora connection dropped")
         state.applies += 1
+        if state.applies_saved_files:
+            for lab in (1, 2):
+                solved = lab_is_solved(lab, repo=repo)
+                state.applied[lab] = "applied" if solved else "stale"
         say("Applied it to Aurora.")
         return "sha"
 
@@ -417,32 +424,85 @@ def test_handoff_refuses_changed_database_or_lab1(repo, aurora, handoff_checks):
     assert aurora.applies == 1
 
 
-@pytest.mark.parametrize(
-    ("applied", "finding"),
-    [
-        ({1: "stale"}, "- Lab 1's saved repair is not in Aurora."),
-        ({1: "applied"}, "- Lab 1 is not repaired: in labs/lab1_retrieve"),
-    ],
-)
+@pytest.mark.parametrize("aurora_state", ["applied", "stale"])
 def test_a_refused_handoff_names_the_problem_and_advance_as_the_rerun(
-    repo, aurora, handoff_checks, applied, finding
+    repo, aurora, handoff_checks, aurora_state
 ) -> None:
     from service.participant_commands import ADVANCE_TO_LAB_2
 
-    if applied[1] == "applied":
-        set_lab_state(1, solved=False, repo=repo)
-    aurora.applied = applied
+    set_lab_state(1, solved=False, repo=repo)
+    aurora.applied = {1: aurora_state}
 
     with pytest.raises(lab_entry.LabEntryError) as refused:
         lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
 
     lines = str(refused.value).splitlines()
     assert lines[0] == "Lab 1 cannot hand off yet."
-    assert lines[1].startswith(finding)
+    assert lines[1].startswith("- Lab 1 is not repaired: in labs/lab1_retrieve")
     assert lines[2].startswith("  Next: ")
     assert lines[-1] == f"Then: {ADVANCE_TO_LAB_2}"
     assert "start this lab again" not in str(refused.value)
     assert handoff_checks == [] and aurora.applies == 0
+
+
+def _own_wording(repo: Path) -> None:
+    """Save a repair that passes the contract but words the branch differently."""
+    path = _seam_file(1, repo)
+    path.write_text(
+        path.read_text().replace(
+            "SELECT product_id, 'trigram', trigram_rank,",
+            "SELECT product_id, 'trigram'::text AS channel, trigram_rank AS source_rank,",
+        )
+    )
+    assert lab_is_solved(1, repo=repo)
+
+
+def test_a_handoff_applies_a_saved_repair_aurora_does_not_run_yet(
+    repo, aurora, handoff_checks
+) -> None:
+    """One correct repair applied, then another saved: the handoff applies the saved one."""
+    _own_wording(repo)
+    aurora.applied = {1: "stale"}
+    aurora.applies_saved_files = True
+    lines: list[str] = []
+
+    lab_entry.advance(
+        1, api_url="http://api", dsn="aurora", repo=repo, say=lines.append
+    )
+
+    applying = [line for line in lines if "applying the saved SQL first" in line]
+    assert applying == [
+        (
+            "Your saved hybrid_search.sql is repaired, but Aurora runs an earlier version of "
+            "it; applying the saved SQL first."
+        )
+    ]
+    assert lines.index(applying[0]) < lines.index("Applied it to Aurora.")
+    assert handoff_checks == ["validate"]
+    assert lines[-1].startswith("Lab 2: prepared.")
+
+
+def test_a_handoff_that_cannot_apply_the_saved_repair_says_why(
+    repo, aurora, handoff_checks, monkeypatch
+) -> None:
+    from service.participant_commands import ADVANCE_TO_LAB_2
+
+    def rejected(_dsn, _repo, _say):
+        raise ValueError("Lab catalog rule: prepared dataset 'old' differs from 'new'")
+
+    monkeypatch.setattr(lab_entry, "_apply", rejected)
+    aurora.applied = {1: "stale"}
+
+    with pytest.raises(lab_entry.LabEntryError) as refused:
+        lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
+
+    message = str(refused.value)
+    assert message.startswith(
+        "Lab 1 cannot hand off yet: applying your saved SQL failed."
+    )
+    assert "Lab catalog rule: prepared dataset 'old' differs from 'new'" in message
+    assert message.splitlines()[-1] == f"Then: {ADVANCE_TO_LAB_2}"
+    assert handoff_checks == []
 
 
 @pytest.fixture
@@ -537,17 +597,40 @@ def test_a_refused_lab_2_handoff_names_the_problem_and_advance_as_the_rerun(
 ) -> None:
     from service.participant_commands import ADVANCE_TO_LAB_3
 
+    set_lab_state(2, solved=False, repo=lab_2_repaired)
     aurora.applied[2] = "stale"
+    applies = aurora.applies
 
     with pytest.raises(lab_entry.LabEntryError) as refused:
         lab_entry.advance(2, api_url="http://api", dsn="aurora", repo=lab_2_repaired)
 
     lines = str(refused.value).splitlines()
     assert lines[0] == "Lab 2 cannot hand off yet."
-    assert lines[1].startswith("- Lab 2's saved repair is not in Aurora.")
+    assert lines[1].startswith("- Lab 2 is not repaired: in labs/lab2_rank")
     assert lines[-1] == f"Then: {ADVANCE_TO_LAB_3}"
-    assert lab_2_checks == []
+    assert lab_2_checks == [] and aurora.applies == applies
     assert lab_entry.load_record(3, lab_2_repaired) is None
+
+
+def test_a_lab_2_handoff_applies_a_saved_repair_aurora_does_not_run_yet(
+    lab_2_repaired, aurora, lab_2_checks
+) -> None:
+    aurora.applied[2] = "stale"
+    aurora.applies_saved_files = True
+    applies = aurora.applies
+    lines: list[str] = []
+
+    lab_entry.advance(
+        2, api_url="http://api", dsn="aurora", repo=lab_2_repaired, say=lines.append
+    )
+
+    assert (
+        "Your saved rrf_contribution.sql is repaired, but Aurora runs an earlier version "
+        "of it; applying the saved SQL first."
+    ) in lines
+    assert aurora.applies == applies + 1
+    assert len(lab_2_checks) == 1
+    assert lab_entry.load_record(3, lab_2_repaired) is not None
 
 
 def test_lab_3_has_no_handoff_and_says_how_it_ends(repo, aurora) -> None:
