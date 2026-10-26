@@ -281,6 +281,39 @@ def test_an_api_failure_is_reported_and_exits_non_zero(monkeypatch, capsys):
     assert "HTTP 503: busy" in capsys.readouterr().err
 
 
+def test_an_api_refusal_prints_its_reason_not_the_json(monkeypatch, capsys):
+    reason = (
+        "Your Retrieval agent has not been deployed since Lab 3 started at 00:28 UTC. "
+        "Next: deploy with uv run python scripts/deploy_agentcore.py deploy."
+    )
+
+    def refusing(request, timeout):
+        body = json.dumps({"detail": reason}).encode()
+        raise HTTPError(request.full_url, 503, "Service Unavailable", {}, BytesIO(body))
+
+    monkeypatch.setattr(ask_agent, "urlopen", refusing)
+    code = ask_agent.main(["Find headphones for calls"])
+
+    err = capsys.readouterr().err
+    assert code == 1
+    assert f"HTTP 503: {reason}" in err
+    assert "detail" not in err
+
+
+def test_ctrl_c_stops_the_wait_in_one_line_without_a_traceback(monkeypatch, capsys):
+    def interrupted(request, timeout):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(ask_agent, "urlopen", interrupted)
+    code = ask_agent.main(["Find headphones for calls"])
+
+    err = capsys.readouterr().err
+    assert code == 130
+    assert "Stopped waiting" in err
+    assert "may still finish this run" in err
+    assert "Traceback" not in err and "KeyboardInterrupt" not in err
+
+
 def test_the_terminal_waits_longer_than_the_api_can_take():
     """The API waits for Runtime up to the deadline, plus 30 s read and 10 s connect.
 

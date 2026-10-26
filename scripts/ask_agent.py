@@ -222,7 +222,7 @@ def ask(base_url: str, question: str, *, timeout: float) -> dict[str, Any]:
             "again, and if it times out twice, give this message to your facilitator"
         ) from error
     except HTTPError as error:
-        detail = error.read().decode("utf-8", errors="replace")
+        detail = _error_detail(error.read().decode("utf-8", errors="replace"))
         raise LabValidationError(
             f"{STREAM_PATH} returned HTTP {error.code}: {detail}"
         ) from error
@@ -236,6 +236,15 @@ def ask(base_url: str, question: str, *, timeout: float) -> dict[str, Any]:
         f"{STREAM_PATH} closed before the answer; fix: run the command again, and if "
         "it happens twice, give this message to your facilitator"
     )
+
+
+def _error_detail(body: str) -> str:
+    """The API's own sentence when it sent one, so a refusal reads as its reason and Next step."""
+    try:
+        detail = json.loads(body).get("detail")
+    except (ValueError, AttributeError):
+        return body
+    return detail if isinstance(detail, str) else body
 
 
 def response_timeout() -> float:
@@ -260,6 +269,14 @@ def main(argv: list[str] | None = None) -> int:
     except LabValidationError as error:
         print(f"Retrieval agent request failed: {error}", file=sys.stderr)
         return 1
+    except KeyboardInterrupt:
+        # Only the wait stops: the API keeps the turn and saves its answer when it finishes.
+        print(
+            "\nStopped waiting for the answer. The Retrieval agent may still finish this run "
+            "and save it.",
+            file=sys.stderr,
+        )
+        return 130
     print(render(response))
     return 0
 
