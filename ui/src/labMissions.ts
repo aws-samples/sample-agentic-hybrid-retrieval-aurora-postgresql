@@ -104,23 +104,13 @@ export const mosaicLabManifest = missionManifest as MosaicLabManifest;
 export const coreMosaicLabs = mosaicLabManifest.missions;
 export const supportingMosaicChecks = mosaicLabManifest.supporting_checks;
 
-/**
- * Shop's suggested searches: each lab's request first, in lab order, because a participant
- * meets Lab 1 first; then the other examples as the manifest lists them. The order lives
- * here, not in the manifest, whose bytes are part of the retrieval fingerprint.
- */
 export function resolveShopExamples(manifest: MosaicLabManifest) {
   const requests = [...manifest.missions, ...manifest.supporting_checks, ...resolvePipelineRequests(manifest)];
-  const labOrder = (referenceId: string) => {
-    const index = manifest.missions.findIndex((mission) => mission.id === referenceId);
-    return index === -1 ? manifest.missions.length : index;
-  };
-  const examples = manifest.playground.shop_examples.map((example) => {
+  return manifest.playground.shop_examples.map((example) => {
     const request = requests.find((item) => item.id === example.reference_id);
     if (!request) throw new Error(`Unknown Shop example ${example.reference_id}; link an existing request.`);
     return { ...example, query: request.query, filters: request.filters };
   });
-  return [...examples].sort((a, b) => labOrder(a.reference_id) - labOrder(b.reference_id));
 }
 
 export const shopSearchExamples = resolveShopExamples(mosaicLabManifest);

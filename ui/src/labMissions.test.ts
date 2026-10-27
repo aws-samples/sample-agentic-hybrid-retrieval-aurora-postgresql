@@ -112,20 +112,6 @@ describe("Shop example references", () => {
     changed.playground.shop_examples[0].reference_id = "missing";
     expect(() => resolveShopExamples(changed)).toThrow("Unknown Shop example");
   });
-  it("puts each lab's request first, in lab order, then the rest as listed", async () => {
-    const { resolveShopExamples, mosaicLabManifest } = await import("./labMissions");
-    const ordered = resolveShopExamples(mosaicLabManifest).map((example) => example.reference_id);
-    const labIds = mosaicLabManifest.missions.map((mission) => mission.id);
-    const labPills = ordered.filter((id) => labIds.includes(id));
-    expect(labPills).toEqual(labIds.filter((id) => labPills.includes(id)));
-    expect(ordered.slice(0, labPills.length)).toEqual(labPills);
-    expect(ordered.slice(labPills.length)).toEqual(
-      mosaicLabManifest.playground.shop_examples
-        .map((example) => example.reference_id)
-        .filter((id) => !labIds.includes(id)),
-    );
-    expect(ordered.slice(0, 2)).toEqual(["typo-recovery", "rank-with-evidence"]);
-  });
 });
 
 describe("Ask Mosaic starters", () => {
