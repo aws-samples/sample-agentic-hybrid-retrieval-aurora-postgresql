@@ -1,19 +1,20 @@
 # Start here
 
 Begin in Workshop Studio with **Getting started**; the **Overview** before it
-is optional. Every step runs in this terminal: you read the catalog's data,
-indexes and search functions in `psql`, then save Lab 1's failing search. Keep the guide and Code
+is optional. Run Getting started's catalog readiness check in this terminal,
+then save Lab 1's failing search. Keep the guide and Code
 Editor side by side in two browser windows. Mosaic, the store at **MosaicURL**,
 shows the same results the terminal prints; the guide says when a lab uses it.
 
-Each lab opens with **Concepts**: the idea in plain words, a question to predict
-before you run anything, and pointers for experts. Then four short sections
-run the same way:
+Each lab's main page shows **Concepts** and its animation. Select **Start exercise**
+for the required steps; each command is followed by a screenshot of what you should
+see. **Go deeper (Optional)**, after Wrap-up, holds extra reading and experiments.
+Each exercise follows the same flow:
 
 1. Send the guide's exact request and filters, and keep them fixed, so the
    before and after compare the same thing.
 2. Read the record that explains the failure before you open any code.
-3. Edit only the marked block, then apply the SQL or deploy the Retrieval
+3. Edit only the exercise, then apply the SQL or deploy the Retrieval
    agent. Saving the file changes nothing until you do.
 4. Repeat the identical request and finish on the guide's check.
 
@@ -28,6 +29,9 @@ it are shortcuts to the same files. Every terminal starts at the repository
 root. If the groups are missing, open
 [Mosaic.code-workspace](Mosaic.code-workspace) with
 **File → Open Workspace from File…**.
+
+Claude Code runs in this terminal as a coding coach: type `claude`, then paste the
+**Coach** prompt from a **Stuck?** block.
 
 The lab READMEs are short reminders. The guide has the exact requests, the
 checks, and a **Stuck?** block wherever you edit, with hints, a prompt for the

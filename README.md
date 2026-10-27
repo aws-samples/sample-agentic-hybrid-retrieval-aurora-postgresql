@@ -12,12 +12,11 @@ shopper; your searches and answers use the source products and their evidence.
 
 ## Start the workshop
 
-1. Open **Getting started** in your Workshop Studio guide; the **Overview** before
-   it is optional.
+1. Open **Getting started** in your Workshop Studio guide; **Overview** is optional.
 2. Open **Code Editor → [Start Here](START_HERE.md)** beside the guide. Your
    application, Aurora database, and terminal connection are already prepared.
-3. Follow Getting started in the terminal: read the catalog's data, indexes and
-   search functions in `psql`, then save Lab 1's failing search. Then begin
+3. Run Getting started's catalog readiness check and save Lab 1's failing
+   search. Then begin
    **Lab 1** in `psql` with that saved request; Shop shows the same search as
    an optional check, one click away as the suggested search **Lab 1: a mistyped
    listing ID**.
@@ -104,9 +103,18 @@ interrupt your answer. Keep the answer open while inspecting its sources; the ru
 itself is saved in Aurora, so leaving the page loses only the view.
 
 The guide opens with the business challenge and workshop structure, then Getting
-started. Each lab asks you to investigate, repair and prove the result,
-with reference material and optional exercises collapsed. The closing recap
-connects what you fixed to Alex's next need. Each lab README is a short reminder beside the
+started, which ends with a short note and animation on Claude Code, the coding coach.
+Each lab asks you to investigate, repair and prove the result. Each lab's main page
+shows Concepts, its animation and a **Start exercise** button. The **Exercise** child
+page keeps the required steps, repair and proof together: each step names the editor,
+terminal or `psql`, and every command is followed by its expected result and a
+screenshot of what you should see, with its numbered callouts listed just above it.
+**Running behind** keeps reference-answer recovery collapsed. The green completion
+callout's **Continue** button opens the next lab or Wrap-up. **See it in Mosaic** opens
+each lab's optional app walkthrough on its Exercise page; supporting animations use
+collapsed **See it in motion** sections. **Go deeper (Optional)**, a section after
+Wrap-up, holds start options, catalog and Mosaic tours and each lab's extra reading.
+Each lab README is a short reminder beside the
 file you edit. Shop’s lab cards show the observed problem before the diagnosis;
 repair feedback requires the exercise state and a search made after preparation.
 The ranking table sorts the same displayed products and preserves both positions.
