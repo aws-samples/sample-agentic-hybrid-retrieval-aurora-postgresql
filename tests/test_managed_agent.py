@@ -105,6 +105,27 @@ def test_question_after_lab_3_starts_waits_for_a_deploy(source, runtime):
     runtime.invoke_agent_runtime.assert_called_once()
 
 
+@pytest.mark.parametrize("route", ["/api/agent/answer/stream", "/api/agent/answer"])
+def test_a_refused_question_tells_the_browser_it_is_a_setup_step(
+    source, runtime, route
+):
+    """Ask Mosaic shows its setup card only for `agent_setup`; without the code, the
+    first question after Lab 2's hand-off read as an outage to share with a facilitator."""
+    from service.main import app
+
+    _lab_3_started()
+    response = TestClient(app).post(
+        route, json={"question": "A monitor", "filters": {}}
+    )
+    assert response.status_code == 503
+    body = response.json()
+    assert body["code"] == "agent_setup"
+    assert body["detail"].startswith(
+        "Your Retrieval agent has not been deployed since Lab 3 started"
+    )
+    runtime.invoke_agent_runtime.assert_not_called()
+
+
 def test_question_after_a_deploy_since_the_start_reaches_runtime(source, runtime):
     _lab_3_started()
     _deployed("2026-10-25T10:05:00+00:00")

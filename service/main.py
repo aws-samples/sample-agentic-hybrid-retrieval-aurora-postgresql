@@ -228,6 +228,23 @@ def _model_error(error: Exception) -> HTTPException:
     )
 
 
+class _CodedHTTPException(HTTPException):
+    """A failure that carries the same `code` a stream's `error` event does."""
+
+    def __init__(self, status_code: int, code: str, detail: str) -> None:
+        super().__init__(status_code, detail)
+        self.code = code
+
+
+@app.exception_handler(_CodedHTTPException)
+async def _coded_failure(_: Request, error: _CodedHTTPException) -> JSONResponse:
+    """The browser picks its setup card by code, before or during a stream alike."""
+    return JSONResponse(
+        status_code=error.status_code,
+        content={"code": error.code, "detail": error.detail},
+    )
+
+
 def _agent_error(error: Exception) -> HTTPException:
     from service.agent_setup import AgentSetupError
 
@@ -238,7 +255,7 @@ def _agent_error(error: Exception) -> HTTPException:
         model_error_code(error) or type(error).__name__,
     )
     if isinstance(error, AgentSetupError):
-        return HTTPException(503, str(error))
+        return _CodedHTTPException(503, "agent_setup", str(error))
     if isinstance(error, GroundingContractError):
         return HTTPException(503, _GROUNDING_ERROR_DETAIL)
     if isinstance(error, AgentTurnDeadlineExceeded):

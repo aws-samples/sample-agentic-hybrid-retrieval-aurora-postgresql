@@ -196,7 +196,11 @@ Until a participant deploys after Lab 3 starts, questions from the terminal, Pla
 and Ask Mosaic wait for that deploy, and completion refuses a run without one: AgentCore
 Runtime compares code digests, and the provisioned reference Retrieval agent has the
 same digest as a pasted reference answer. Each deploy is recorded in
-`.local/agentcore/deploys.json` once the Retrieval agent runtime is ready.
+`.local/agentcore/deploys.json` once the Retrieval agent runtime is ready. Before
+Lab 3 starts, the provisioned reference Retrieval agent answers those questions.
+Ask Mosaic shows a missing deploy, or any other step left in the participant's own
+agent code, as a **Finish setting up your Retrieval agent** card with the command to
+copy; Gateway and Runtime faults still show as errors.
 
 Ask Mosaic is optional. Its **Complete my setup** suggested question sends the same
 request and passes completion only as the first message of a fresh chat (use

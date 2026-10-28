@@ -10,9 +10,10 @@ afterEach(cleanup);
 
 /**
  * Every message the service raises as an `AgentSetupError`, copied from
- * service/agent_setup.py, agentcore_transport.py and gateway_tools.py with the
- * command constants substituted. Only the first two are next steps for the
- * participant; the rest report a deployment or Gateway fault.
+ * service/agent_setup.py, agent_deploys.py, agentcore_transport.py and
+ * gateway_tools.py with the command constants substituted. STEPS ask the
+ * participant to finish or deploy their own code; FAULTS report a deployment or
+ * Gateway fault.
  */
 const STARTER = "Your Retrieval agent is not built yet. Open labs/lab3_reason/agent.py in Code Editor and "
   + "complete create_agent with the supplied model, tools, instructions and hooks. "
@@ -20,6 +21,25 @@ const STARTER = "Your Retrieval agent is not built yet. Open labs/lab3_reason/ag
 const TOOLS = "Your Retrieval agent is missing its Mosaic tools. Open labs/lab3_reason/agent.py in Code "
   + "Editor and pass the supplied tools to Agent. "
   + `Next: deploy with ${DEPLOY_AGENT}, then ask your question again.`;
+const STEPS = [
+  STARTER,
+  TOOLS,
+  "Your Retrieval agent is missing the supplied execution hooks. Open labs/lab3_reason/agent.py "
+  + "in Code Editor and pass hooks to Agent. "
+  + `Next: deploy with ${DEPLOY_AGENT}, then ask your question again.`,
+  "Your Retrieval agent is not ready: in labs/lab3_reason/agent.py, system_prompt must keep the "
+  + "supplied instructions, which hold the tool order and evidence rules; pass "
+  + "system_prompt=instructions, and put any rule of your own after them, as instructions + "
+  + `"\\n...". Next: deploy with ${DEPLOY_AGENT}, then ask your question again.`,
+  "Your Retrieval agent code raised NameError: name 'tols' is not defined. Open "
+  + "labs/lab3_reason/agent.py in Code Editor and fix that line. "
+  + `Next: deploy with ${DEPLOY_AGENT}, then ask your question again.`,
+  "Your Retrieval agent has not been deployed since Lab 3 started at 10:00 UTC, so AgentCore "
+  + "Runtime still runs the reference Retrieval agent this account was prepared with. "
+  + `Next: deploy with ${DEPLOY_AGENT}, then ask your question again.`,
+  "Your code in Code Editor changed after your deploy at 10:20 UTC, so AgentCore Runtime still "
+  + `runs the earlier code. Next: deploy with ${DEPLOY_AGENT}, then ask your question again.`,
+];
 
 const FAULTS = [
   "The deployed Retrieval agent rejected this request. For a follow-up, clear chat and retry with a new "
@@ -43,7 +63,7 @@ const FAULTS = [
 ];
 
 describe("setup card eligibility", () => {
-  it.each([STARTER, TOOLS])("shows %s as a next step", (message) => {
+  it.each(STEPS)("shows %s as a next step", (message) => {
     expect(isSetupCardMessage(message)).toBe(true);
   });
 
@@ -53,7 +73,7 @@ describe("setup card eligibility", () => {
 });
 
 describe("splitSetupCommand", () => {
-  it.each([STARTER, TOOLS])("copies exactly the deploy command from %s", (message) => {
+  it.each(STEPS)("copies exactly the deploy command from %s", (message) => {
     const { prose, command } = splitSetupCommand(message);
     expect(command).toBe(DEPLOY_AGENT);
     expect(prose).toBe(message);
@@ -70,7 +90,7 @@ describe("splitSetupCommand", () => {
   });
 
   it("never lets a command swallow trailing words", () => {
-    for (const message of [...FAULTS, STARTER, TOOLS]) {
+    for (const message of [...FAULTS, ...STEPS]) {
       const { command } = splitSetupCommand(message);
       expect([null, DEPLOY_AGENT, VERIFY_AGENT]).toContain(command);
     }

@@ -108,6 +108,18 @@ describe("agentStream", () => {
     });
   });
 
+  it("keeps the agent setup code when the service refuses before the stream starts", async () => {
+    // Before a deploy, Lab 3 is refused with an HTTP 503 rather than an `error` event.
+    const detail = "Your Retrieval agent has not been deployed since Lab 3 started at 10:00 UTC.";
+    vi.stubGlobal("fetch", streamFetch(new Response(
+      JSON.stringify({ code: "agent_setup", detail }),
+      { status: 503, headers: { "Content-Type": "application/json" } },
+    )));
+    await expect(api.agentStream("question", {}, () => {})).rejects.toMatchObject({
+      code: "agent_setup", status: 503, message: detail,
+    });
+  });
+
   it("rejects a clean EOF that arrives before the complete event", async () => {
     vi.stubGlobal(
       "fetch",

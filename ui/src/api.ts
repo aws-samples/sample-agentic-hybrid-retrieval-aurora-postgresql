@@ -93,26 +93,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...(init?.headers ?? {}),
     },
   });
-  if (!response.ok) {
-    let message = `Request failed with HTTP ${response.status}`;
-    try {
-      message = errorDetail(await response.json(), response.status);
-    } catch {
-      // Keep the bounded status message.
-    }
-    throw new ApiError(response.status, message);
-  }
+  if (!response.ok) throw await responseError(response);
   return response.status === 204 ? undefined as T : (await response.json()) as T;
 }
 
-async function streamResponseError(response: Response): Promise<ApiError> {
+/** A refusal's message and, as on a stream's `error` event, its machine-readable code. */
+async function responseError(response: Response): Promise<ApiError> {
   let message = `Request failed with HTTP ${response.status}`;
+  let code: string | undefined;
   try {
-    message = errorDetail(await response.json(), response.status);
+    const body: unknown = await response.json();
+    message = errorDetail(body, response.status);
+    const named = (body as { code?: unknown } | null)?.code;
+    code = typeof named === "string" ? named : undefined;
   } catch {
-    // Preserve the concise HTTP error when the response body is not JSON.
+    // Keep the bounded status message when the response body is not JSON.
   }
-  return new ApiError(response.status, message);
+  return new ApiError(response.status, message, undefined, code);
 }
 
 function parseSseFrame(frame: string): { event: string; data: string } | null {
@@ -233,7 +230,7 @@ export const api = {
         session_id: options.sessionId,
       }),
     });
-    if (!response.ok) throw await streamResponseError(response);
+    if (!response.ok) throw await responseError(response);
     if (!response.body) throw new ApiError(503, "Retrieval agent stream was unavailable");
 
     const reader = response.body.getReader();

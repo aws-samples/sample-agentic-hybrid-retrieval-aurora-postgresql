@@ -1,13 +1,19 @@
 import { DEPLOY_AGENT, VERIFY_AGENT } from "../../participantCommands";
 
 /**
- * The two messages that are a next step for the participant: the agent has not
- * been assembled yet. Every other `agent_setup` message reports a deployment or
- * Gateway fault, which is an outage to read in full, not a to-do.
+ * The messages that are a next step for the participant: their agent is not
+ * assembled yet, or Runtime does not run their latest code. Every other
+ * `agent_setup` message reports a deployment or Gateway fault, which is an outage
+ * to read in full, not a to-do.
  */
 const SETUP_CARD_LEADS = [
   "Your Retrieval agent is not built yet.",
   "Your Retrieval agent is missing its Mosaic tools.",
+  "Your Retrieval agent is missing the supplied execution hooks.",
+  "Your Retrieval agent is not ready:",
+  "Your Retrieval agent code raised ",
+  "Your Retrieval agent has not been deployed since Lab 3 started",
+  "Your code in Code Editor changed after your deploy",
 ];
 
 export function isSetupCardMessage(detail: string): boolean {
