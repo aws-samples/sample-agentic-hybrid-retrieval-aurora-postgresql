@@ -1,250 +1,182 @@
 # Build agentic hybrid retrieval with Amazon Aurora PostgreSQL
 
-In this workshop, you help Alex choose headphones, a monitor, and a chair for his
-home office. You will build and inspect the search, ranking, and Retrieval agent steps
-behind **Mosaic**, a product discovery application.
+This repository contains **Mosaic**, the sample product discovery application for the
+workshop *Build agentic hybrid retrieval with Amazon Aurora PostgreSQL*. In three
+hands-on labs you repair hybrid search in Amazon Aurora PostgreSQL, tune how its results
+are ranked, and then build and deploy a Retrieval agent with Strands Agents on Amazon
+Bedrock AgentCore that answers with sources.
 
-The catalog contains **553,911 real source products from Amazon Reviews 2023**.
-The product records and saved Cohere embeddings are provided. Maintainer restore
-and validation commands use this real catalog; synthetic fixtures and loaders
-have been retired. Alex is a fictional
-shopper; your searches and answers use the source products and their evidence.
+The catalog holds **553,911 real products from the Amazon Reviews 2023 dataset**, with
+saved Cohere Embed v4 embeddings. Alex, the shopper in the story, is fictional; every
+search and answer runs against the real catalog and its source records.
 
-## Start the workshop
+> **Attending the workshop?** Your account, Aurora cluster, application and terminal are
+> already prepared, so there is nothing to install. Follow your Workshop Studio guide and
+> open [START_HERE.md](START_HERE.md) in Code Editor.
 
-1. Open **Getting started** in your Workshop Studio guide; **Overview** is optional.
-2. Open **Code Editor → [Start Here](START_HERE.md)** beside the guide. Your
-   application, Aurora database, and terminal connection are already prepared.
-3. Run Getting started's catalog readiness check and save Lab 1's failing
-   search. Then begin
-   **Lab 1** in `psql` with that saved request; Shop shows the same search as
-   an optional check, one click away as the suggested search **Lab 1: a mistyped
-   listing ID**.
+## The scenario
 
-Claude Code in the prepared terminal can help you investigate a lab. The
-project's [AGENTS.md](AGENTS.md), loaded by [CLAUDE.md](CLAUDE.md), gives it the
-lab map, validation commands and exercise boundaries. It asks before it edits a
-file or runs a command. Share your current lab and observed result; ask for a
-hint before a full recovery.
+Alex is a software engineer setting up a home office. He has a desk and a laptop, and
+needs headphones, a monitor and a chair, with sources behind each recommendation. Each
+lab takes one part of that request and starts from a failure you can observe: a results
+page that looks plausible but does not include the product Alex wanted, with no error
+to explain why.
 
-You do not need to install dependencies or start a database or server during
-the workshop. Follow the guide's commands as you move through the labs.
+## What you build
 
-<details>
-<summary>📷 Mosaic and Alex's home office</summary>
-
-![Mosaic introduces Alex and his home-office needs](docs/images/mosaic-discover.png)
-
-</details>
-
-## What you will build
-
-**What if your agent's most convincing answer rests on the wrong evidence?**
-Help Alex find his headphones, rank a monitor, then check his whole setup
-against specifications and reviews. Each lab carries your SQL repairs forward.
-
-The workshop follows **Retrieve → Rank → Re-rank → Reason**. Labs 1 and 2 improve
-your SQL search. Lab 3 connects that search to the Retrieval agent, a Strands agent on AgentCore Runtime
-and exposes the SQL tools through AgentCore Gateway.
-`uv run python scripts/deploy_agentcore.py deploy` builds an ARM64 container from your current source, pushes it to the workshop's ECR
-repository and updates both runtimes. Docker and registry access are prepared
-for you; the command checks deployed source identity and Gateway connectivity,
-and that a search through Gateway ran your Lab 1 and Lab 2 SQL in Aurora.
-`uv run python scripts/ask_agent.py "QUESTION"` shows each tool call's route and,
-under each search, whether Aurora ran your lab files. When the workshop stack
-turns on AgentCore Observability (its default), each Retrieval agent run is also traced in
-the CloudWatch console's **GenAI Observability** pages; Lab 3 works the same
-without it.
+Each lab follows the same cycle: **Broken → Diagnose → Fix → Prove**. You trace the
+failing request, repair the marked code, apply or deploy it, and prove the fix against
+the same request. Your repairs carry forward from one lab to the next.
 
 | Lab | Question to answer | Where you work |
 |---|---|---|
 | **Lab 1: Retrieve - Debug hybrid search** | Can search find Alex's Logitech Zone 900 headphones from a mistyped listing ID? | [`labs/lab1_retrieve/`](labs/lab1_retrieve/) |
-| **Lab 2: Rank and re-rank - Tune rank fusion and reranking** | **2a Rank:** which candidates survive fusion? **2b Re-rank:** how does their order change? | [`labs/lab2_rank/`](labs/lab2_rank/) |
-| **Lab 3: Reason - Build and deploy the Retrieval agent** | Can your Retrieval agent help Alex complete his home office, bring the three choices together, and respond when his requirements change? | [`labs/lab3_reason/`](labs/lab3_reason/) |
+| **Lab 2: Rank and re-rank - Tune rank fusion and reranking** | Which candidates survive rank fusion, and how does reranking change their order? | [`labs/lab2_rank/`](labs/lab2_rank/) |
+| **Lab 3: Reason - Build and deploy the Retrieval agent** | Can your Retrieval agent complete Alex's setup, support each choice with sources, and respond when his requirements change? | [`labs/lab3_reason/`](labs/lab3_reason/) |
 
-The participant workspace, [Mosaic.code-workspace](Mosaic.code-workspace),
-groups the existing files as **01 - Retrieve**, **02 - Rank and re-rank**, and **03 - Reason**.
-Code Editor starts with the **Dark Modern** theme, independent of the device's
-light or dark appearance. Participants can change the theme in Code Editor.
-**04 - Explore Mosaic source** opens the application source; prepared
-terminals run commands from its root. Maintainer-only files (tests, CI, release
-records, lockfiles) are hidden from the Explorer but stay in the checkout. Each lab README follows **Broken →
-Diagnose → Fix → Prove**, with a collapsed recovery section linking the
-reference answer in `solution/`. Solution folders are hidden from the default
-Explorer view. When a lab starts, its
-marked blocks hold a `TODO(Lab n)` note that repeats the guide's contract.
+Labs 1 and 2 are SQL exercises: you diagnose in `psql`, repair the marked SQL file and
+apply it to Aurora. In Lab 3 you build the Retrieval agent in Python, deploy it to
+AgentCore Runtime and check its answers from the terminal. Optional exercises cover
+AgentCore Memory, a smaller and faster HNSW index for filtered vector search, weighted
+rank fusion and building your own retrieval tool.
 
-All three labs run in the terminal. Lab 1's handoff saves the monitor request
-that Lab 2 inspects in `psql`; Shop is an optional check of the same evidence.
-Lab 2's handoff proves its repair and installs the Retrieval agent's starting code. After
-deploying in Lab 3, ask the setup request and the changed requirement with
-`scripts/ask_agent.py`, then check the setup run with `scripts/complete_agent.py`,
-which finds the newest one. Until the participant's first deploy after Lab 3 starts,
-questions wait for it: the provisioned reference Retrieval agent does not answer for
-their build. Ask Mosaic shows the same runs in the browser and is optional.
+## Architecture
 
-Use **Shop** for product search and **Playground** for saved candidates,
-ranking, tool calls and cited sources. **Ask Mosaic** opens from the pill in the
-header on every page. On the first visit to Shop, a short guided tour spotlights
-each of these, and the Playground has its own; **Take the tour** (the compass in
-the header) runs the one for the page you are on. Three one-time tips point at the
-next control when it matters: the way into the Playground after your first Shop
-search, the **Ask the Retrieval agent** button if you open the agent's steps before
-it has run, and **Agent steps and sources** after its first answer. **Complete my setup** runs Lab 3's
-three-product request, and its Ask Mosaic suggested question stays available before and after
-you build the Retrieval agent; it runs on its own filters and says when it clears Shop's.
-After that request, Shop shows the terminal command that checks that run, with its ID
-filled in. Ask Mosaic's **Show tool calls** switch (on by default) shows the full **Retrieval agent record** ID, recorded steps, saved search IDs and how each search ranked its products. Every
-lab is proved in the terminal; the Playground's **Compare search methods** table shows
-the maintainers' saved measurements, which do not grade your repairs.
+![Hybrid retrieval architecture: Alex uses the Mosaic API on CloudFront and EC2. The Retrieval agent runs on AgentCore Runtime and calls MCP tools through AgentCore Gateway; the SQL tools query hybrid SQL and evidence in Aurora PostgreSQL. Amazon Bedrock provides Claude Sonnet 5.5, Cohere Embed v4 and Cohere Rerank 3.5. AgentCore Memory is optional. Shop search skips the agent and queries Aurora directly.](docs/images/architecture.png)
 
-The prepared workshop serves a built UI so a live-reload connection cannot
-interrupt your answer. Keep the answer open while inspecting its sources; the run
-itself is saved in Aurora, so leaving the page loses only the view.
+| Component | Role |
+|---|---|
+| **Amazon Aurora PostgreSQL** | Stores products, vectors, source records and saved searches. Runs full-text search, fuzzy matching and semantic search, and combines their rankings, all in SQL. |
+| **Amazon Bedrock** | Provides Cohere Embed v4 for query embeddings, Cohere Rerank 3.5 for reranking, and Claude Sonnet 5.5 for the Retrieval agent. |
+| **Amazon Bedrock AgentCore** | **Runtime** hosts the Retrieval agent and its SQL tools, **Gateway** exposes the tools over MCP, and **Memory** holds optional conversation context. Product facts always come from Aurora. |
+| **[Strands Agents](https://strandsagents.com/)** | The Python framework the Retrieval agent is built with. |
+| **Mosaic** | A FastAPI service and React interface. **Shop** searches Aurora directly, **Ask Mosaic** sends questions to the Retrieval agent, and **Playground** shows saved searches, rankings, tool calls and sources. |
 
-The guide opens with the business challenge and workshop structure, then Getting
-started, which ends with a short note and animation on Claude Code, the coding coach.
-Each lab asks you to investigate, repair and prove the result. Each lab's main page
-shows Concepts, its animation and a **Start exercise** button. The **Exercise** child
-page keeps the required steps, repair and proof together: each step names the editor,
-terminal or `psql`, and every command is followed by its expected result and a
-screenshot of what you should see, with its numbered callouts listed just above it.
-**Running behind** keeps reference-answer recovery collapsed. The green completion
-callout's **Continue** button opens the next lab or Wrap-up. **See it in Mosaic** opens
-each lab's optional app walkthrough on its Exercise page; supporting animations use
-collapsed **See it in motion** sections. **Go deeper (Optional)**, a section after
-Wrap-up, holds start options, catalog and Mosaic tours and each lab's extra reading.
-Each lab README is a short reminder beside the
-file you edit. Shop’s lab cards show the observed problem before the diagnosis;
-repair feedback requires the exercise state and a search made after preparation.
-The ranking table sorts the same displayed products and preserves both positions.
-For Lab 1's mistyped request, a text-only notice names the missing product;
-**Other products returned** labels the actual results below it. Request IDs and
-the saved-run link expand under **Lab 1: request and evidence**. The notice
-never displays a product photo that could be mistaken for a search result.
+## How hybrid retrieval works
 
-After Lab 1's repair check, continue with the guide's description search.
-At the end of the lab, run `uv run python scripts/lab_state.py advance --lab 1`
-to validate its repair, save passing evidence and prepare Lab 2. Lab 2 ends the
-same way with `uv run python scripts/lab_state.py advance --lab 2`, which proves
-Lab 2 and installs the Retrieval agent's starting code for Lab 3. When the saved
-block is repaired but Aurora runs an earlier version, either handoff applies the
-saved SQL first. Retries resume preparation without discarding edits. For direct entry, start a lab with
-`uv run python scripts/lab_state.py start --lab N`: it saves the failing request,
-installs that lab's fault once and preserves earlier repairs. An interrupted
-start resumes without overwriting edits. Finish and apply earlier repairs first.
-`lab_state.py validate`, `validate_lab.py`, `advance` and `start` judge a saved
-Lab 1 or Lab 2 block the same way, against the block Aurora runs, so one cannot
-pass while another refuses. A refusal names what differs, the fix and the
-command to run again; `uv run python scripts/diff.py` names, in plain words,
-the lines of the lab files that differ from the reference answer without
-printing it, and `--answer` adds the answer's lines. Live-check failures name the product and the search method
-as Shop shows them, and an apply error names the line of your file Aurora rejected.
+![The four stages, left to right: Retrieve runs full-text search, fuzzy matching and semantic search in Aurora PostgreSQL; Rank combines the three lists with reciprocal rank fusion; Re-rank uses Cohere on Amazon Bedrock to check fit; Reason uses a Strands agent on AgentCore Runtime to help Alex decide.](docs/images/retrieval-pipeline.png)
 
-After editing, apply SQL or deploy the Retrieval agent, repeat the same request, and run
-the guide's checks. A plausible result or successful deployment alone is not
-completion. Source records must support product claims; a USB-C port alone
-does not establish laptop charging compatibility. Finding is fuzzy, recommending
-is exact: search tolerates a mistyped ID, but the Retrieval agent recommends a product only
-for an ID the catalog carries. Its decline names the listing fuzzy matching
-found, if exactly one is that close, and asks you to use that ID.
+1. **Retrieve.** Under the same SQL filters, three searches each return a ranked list:
+   PostgreSQL full-text search (`tsvector`) for terms and IDs, `pg_trgm` fuzzy matching
+   for misspellings, and `pgvector` semantic search (HNSW) for meaning.
+2. **Rank.** Reciprocal rank fusion (RRF) combines the lists by position, because each
+   search scores on its own scale, and keeps a shortlist.
+3. **Re-rank.** Cohere Rerank 3.5 compares each shortlisted product with the request and
+   reorders the shortlist. It cannot recover a product that never reached it.
+4. **Reason.** The Retrieval agent chooses its searches, reads specifications and
+   reviews, and answers with sources. A citation identifies a source but does not prove
+   the claim, so the application checks every drafted answer: each citation must name a
+   record the agent was given, and every figure a sentence states must appear in the
+   cited record, in the same unit.
 
-Each lab opens with its time and one command,
-`uv run python scripts/lab_state.py finish --lab N`, for anyone who already knows
-the lab or is running behind. It installs the reference answer, applies or
-deploys it and runs the lab's checks and hand-off, and first finishes any earlier
-lab that has not handed off. Use the guide's hints when you get stuck. Reset
-discards the selected lab's edits; the solution action replaces them with the
-reference answer. Both still need the lab's proof. `skip-to --lab N` finishes
-the earlier labs the same way and leaves the participant at lab N's start, with
-its exercise still to do. Lab 3 still needs the participant's own setup run.
-Optional Memory and HNSW exercises follow completion.
+Everything search reads or runs lives in one schema, `mosaic_search`: the
+`product_listing` table with one index per search, the `product_listing_view` that every
+search reads, and the functions the labs repair. Run
+`\sf mosaic_search.search_hybrid_rrf` in `psql` to print the SQL Aurora runs. Candidate
+limits, the RRF constant and other settings are in
+[`db/config/retrieval.yaml`](db/config/retrieval.yaml), and the
+[architecture guide](docs/architecture.md) covers the design in depth.
 
-## How the search works
+## Run the workshop
 
-Mosaic combines three ways to find products: PostgreSQL full-text search,
-`pg_trgm` fuzzy matching for misspellings, and pgvector semantic search (HNSW).
-Reciprocal-rank fusion (RRF) combines their ranked lists, then Cohere Rerank
-reorders the shortlist for the request. The default RRF gives each channel the
-same rank-based contribution. The Rank guide offers an optional weighted-RRF
-comparison after required completion, using the same candidate lists; it does
-not change the default search.
+The workshop runs in AWS Workshop Studio, which provisions the Aurora cluster, the
+Mosaic application, Code Editor and model access for each participant.
 
-Everything search reads or runs lives in one Aurora PostgreSQL schema,
-`mosaic_search`: the `product_listing` table with one index per search
-(`product_search_fts_idx`, `product_search_trigram_idx`,
-`product_search_vector_idx`), the `product_listing_view` every search reads, and
-the functions the labs repair, applied exactly as the lab files define them, so
-`\sf mosaic_search.search_hybrid_rrf` prints the SQL Aurora runs.
+1. Open **Getting started** in your Workshop Studio guide.
+2. Open Code Editor beside the guide and follow [START_HERE.md](START_HERE.md).
+3. Run the catalog readiness check, save Lab 1's failing search, and begin Lab 1 in
+   `psql`.
 
-Bootstrap prepares Lab 2's judged-query cache on the workshop's own Aurora
-indexes, using the production HNSW configuration. The cache is tied to the
-reference search SQL and search settings. Release tests
-check the reference cache's identity; grading checks the prepared cache against
-Aurora and repeats live searches.
+Claude Code in the prepared terminal acts as a coding coach. [AGENTS.md](AGENTS.md),
+loaded through [CLAUDE.md](CLAUDE.md), gives it the lab map, validation commands and
+exercise boundaries, so it offers hints before answers and asks before it edits a file
+or runs a command.
 
-```mermaid
-flowchart LR
-    FTS[Full-text search] --> RRF[Combine ranked lists]
-    TRGM[Fuzzy matching] --> RRF
-    VECTOR[Vector search] --> RRF
-    RRF --> RERANK[Rerank the shortlist]
-    RERANK --> AGENT[Retrieval agent reads product sources]
-    AGENT --> ANSWER[Answer with source checks]
-```
+The commands you use most:
 
-Aurora PostgreSQL holds the products, vectors, source records, and saved searches.
-Filters determine which products are eligible before candidate limits apply.
-Amazon Bedrock supplies query embeddings, reranking, and the Retrieval agent's model. The
-application checks the evidence used in the answer. AgentCore Runtime hosts the
-Retrieval agent, Gateway exposes its SQL tools over MCP, and AgentCore Memory
-provides conversation context for the optional memory exercise.
+| Purpose | Command |
+|---|---|
+| See where each lab stands | `uv run python scripts/lab_state.py status` |
+| Finish Lab 1 or Lab 2 and prepare the next lab | `uv run python scripts/lab_state.py advance --lab 1` |
+| Deploy your Retrieval agent (Lab 3) | `uv run python scripts/deploy_agentcore.py deploy` |
+| Ask the deployed Retrieval agent | `uv run python scripts/ask_agent.py "QUESTION"` |
+| Check your Lab 3 setup run | `uv run python scripts/complete_agent.py` |
+| Catch up by installing a lab's reference answer | `uv run python scripts/lab_state.py finish --lab N` |
 
-You can inspect the [search settings](db/config/retrieval.yaml) and follow the
-[architecture guide](docs/architecture.md) when you want more detail.
+A successful deploy or a plausible answer is not completion: each lab ends with the
+guide's checks against the same request, run on the state you applied or deployed.
 
-## Take it into your own project
+## Use it in your own project
 
-Connect your agent to the retrieval tools, then add the skill to guide the
-workflow. In Mosaic, **Playground → Use it in your own agent** has three
-buttons: **Connect over MCP** links to the MCP setup and HTTP contracts,
-**Download the agent skill** adds search, comparison and source-checking
-instructions, and **Download the SQL and guide** supplies the search SQL and
-the adaptation guide.
+Connect your agent to the retrieval tools, then add the skill to guide its workflow. In
+Mosaic, **Playground → Use it in your own agent** links to the MCP setup and HTTP
+contracts, the agent skill, and the search SQL with its adaptation guide.
 
-The tools are catalog-read-only; searches still append audit records. MCP tool
-annotations and skill instructions do not grant or restrict database access.
-The service checks requests and the database role enforces its privileges.
-See [the access boundary and official references](docs/mcp-interoperability.md#permissions-and-workflow-guidance).
-
-- [Adapt the implementation](docs/use-in-your-app.md) maps the schema, retrieval
-  SQL, ranking, evaluations, and citation checks to the files you change.
-- The [Hybrid Agentic Search skill](skills/mosaic-hybrid-retrieval/SKILL.md) gives
-  your agent instructions for finding products, comparing them, and checking
-  sources. Keep its reference files together and follow the
+- [Adapt the implementation](docs/use-in-your-app.md) maps the schema, retrieval SQL,
+  ranking, evaluations and citation checks to the files you change.
+- The [Hybrid Agentic Search skill](skills/mosaic-hybrid-retrieval/SKILL.md) gives your
+  agent instructions for finding products, comparing them and checking sources. Keep
+  its reference files together and follow the
   [adaptation checklist](skills/mosaic-hybrid-retrieval/references/adapting.md).
-- [Build a retrieval tool](docs/build-retrieval-tool.md) is an optional extension
-  for applying your own filtering rule.
+- [MCP integration](docs/mcp-interoperability.md) connects another agent host to the
+  catalog tools.
+- [Build a retrieval tool](docs/build-retrieval-tool.md) is an optional extension for
+  applying your own filtering rule.
 
-The skill requires a running Mosaic service or compatible backend, configured
-with its URL and authentication. The workshop endpoint expires with the event;
-the download does not include a hosted service.
+The skill requires a running Mosaic service or compatible backend, configured with its
+URL and authentication; a workshop endpoint expires with its event. The catalog tools
+are read-only, although each search appends an audit record. MCP tool annotations and
+skill instructions do not grant or restrict database access: the service validates
+requests and the database role enforces privileges. See
+[the access boundary](docs/mcp-interoperability.md#permissions-and-workflow-guidance).
 
-## Further reading
+## Repository layout
 
-- [Developer setup and checks](docs/development.md) — run or contribute to the
-  application outside the workshop. Database work always uses Aurora.
-- [MCP integration](docs/mcp-interoperability.md) — connect another agent host.
-- [Session memory](docs/session-memory.md) — explore saved preferences and conversations.
-- [Documentation map](docs/index.md) — additional technical and operator guides.
+| Path | Contents |
+|---|---|
+| [`labs/`](labs/) | One folder per lab: the file you edit, a short README and the reference answer in `solution/` |
+| [`db/`](db/) | Schema, search SQL in install order, indexes, retrieval settings and catalog contracts |
+| [`service/`](service/) | The FastAPI service: retrieval, agent tools, evidence and citation checks |
+| [`ui/`](ui/) | The React interface: Shop, Playground and Ask Mosaic |
+| [`deploy/`](deploy/) | AgentCore Runtime entry points, the container image and the host bootstrap |
+| [`mcp-server/`](mcp-server/) | The MCP adapter for the catalog tools |
+| [`skills/mosaic-hybrid-retrieval/`](skills/mosaic-hybrid-retrieval/) | A portable agent skill for hybrid product retrieval |
+| [`scripts/`](scripts/) | Participant commands at the top level; maintainer tooling in `catalog/`, `evals/`, `bench/` and `checks/` |
+| [`data/`](data/) | Lab missions, evaluation cases and saved benchmark measurements |
+| [`docs/`](docs/) | Architecture, operations and adaptation guides ([documentation map](docs/index.md)) |
+| [`tests/`](tests/) | Offline tests and tests that run against Aurora |
 
-## Data and license
+## Develop and contribute
 
-The catalog comes from **Amazon Reviews 2023** (McAuley Lab, UC San Diego). Cite
-it as the publisher asks: Yupeng Hou, Jiacheng Li, Zhankui He, An Yan, Xiusi
-Chen, and Julian McAuley. 2024. *Bridging Language and Items for Retrieval and
-Recommendation.* [arXiv:2403.03952](https://arxiv.org/abs/2403.03952). The BibTeX
-entry, and the ESCI and WANDS citations and terms, are in [NOTICE.md](NOTICE.md).
-The prepared catalog bundle is excluded from Git; the event owner marked its public
-redistribution resolved on 28 October 2026. Code uses the [MIT-0 license](LICENSE).
-For contributions and security reporting, see [CONTRIBUTING.md](CONTRIBUTING.md).
+To run or change Mosaic outside a workshop event, follow
+[docs/development.md](docs/development.md). There is no local database path: development
+and tests use an Amazon Aurora PostgreSQL cluster with the Mosaic catalog loaded, and the
+prepared catalog bundle is not stored in this repository. Read [AGENTS.md](AGENTS.md)
+and the [house standards](docs/house-standards.md) before you change code, and see
+[CONTRIBUTING.md](CONTRIBUTING.md) to propose a change.
+
+Further reading:
+
+- [Managed agent on AgentCore Runtime](docs/agentcore-runtime.md)
+- [Session memory](docs/session-memory.md)
+- [Documentation map](docs/index.md)
+
+## Data and attribution
+
+The catalog comes from **Amazon Reviews 2023** (McAuley Lab, UC San Diego). Cite it as
+the publisher asks: Yupeng Hou, Jiacheng Li, Zhankui He, An Yan, Xiusi Chen, and Julian
+McAuley. 2024. *Bridging Language and Items for Retrieval and Recommendation.*
+[arXiv:2403.03952](https://arxiv.org/abs/2403.03952). [NOTICE.md](NOTICE.md) has the
+BibTeX entry and the ESCI and WANDS citations and terms used by the evaluations. Product
+names, brands and trademarks belong to their owners.
+
+## Security
+
+See [CONTRIBUTING.md](CONTRIBUTING.md#security-issue-notifications) for more
+information. Please report a potential security issue through the
+[AWS vulnerability reporting page](https://aws.amazon.com/security/vulnerability-reporting/),
+not a public GitHub issue.
+
+## License
+
+This sample is licensed under the MIT-0 License. See the [LICENSE](LICENSE) file.
