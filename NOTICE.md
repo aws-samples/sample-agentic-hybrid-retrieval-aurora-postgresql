@@ -29,9 +29,9 @@ The publisher asks users of the dataset to cite this paper:
 }
 ```
 
-The publisher does not state a license for this dataset. Public redistribution of
-the prepared catalog bundle is unresolved and is an event-owner release
-requirement; see [docs/catalog-source-assessment.md](docs/catalog-source-assessment.md).
+The publisher does not state a license for this dataset. The event owner marked
+public redistribution of the prepared catalog bundle resolved on 28 October 2026;
+see [docs/catalog-source-assessment.md](docs/catalog-source-assessment.md).
 Product names, brands and trademarks belong to their owners. Ratings are
 historical dataset values; the catalog carries no current prices or availability.
 

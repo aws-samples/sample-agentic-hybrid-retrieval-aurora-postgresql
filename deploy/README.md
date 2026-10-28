@@ -74,8 +74,9 @@ not silently update only the historical `mosaic_search` schema.
 
 Keep both the original 51-object embedding cache and the `real-catalog/real-catalog.tar.gz.part-*` files
 in the Studio asset working copy. The latter is git-ignored and hash-pinned; no
-embedding generation runs during provisioning. Public dataset redistribution
-clearance and a fresh deployment still need event-owner verification.
+embedding generation runs during provisioning. The event owner marked public dataset
+redistribution resolved on 28 October 2026; a fresh deployment still needs event-owner
+verification.
 
 ### Coding coach in Code Editor
 

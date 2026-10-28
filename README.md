@@ -245,6 +245,6 @@ it as the publisher asks: Yupeng Hou, Jiacheng Li, Zhankui He, An Yan, Xiusi
 Chen, and Julian McAuley. 2024. *Bridging Language and Items for Retrieval and
 Recommendation.* [arXiv:2403.03952](https://arxiv.org/abs/2403.03952). The BibTeX
 entry, and the ESCI and WANDS citations and terms, are in [NOTICE.md](NOTICE.md).
-The prepared catalog bundle is excluded from Git; its public redistribution
-remains unresolved. Code uses the [MIT-0 license](LICENSE).
+The prepared catalog bundle is excluded from Git; the event owner marked its public
+redistribution resolved on 28 October 2026. Code uses the [MIT-0 license](LICENSE).
 For contributions and security reporting, see [CONTRIBUTING.md](CONTRIBUTING.md).
