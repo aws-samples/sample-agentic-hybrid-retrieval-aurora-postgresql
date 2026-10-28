@@ -9,16 +9,16 @@ Retrieval agent on Amazon Bedrock AgentCore that answers with sources.**
 [![CodeQL](https://img.shields.io/github/actions/workflow/status/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/github-code-scanning%2Fcodeql?branch=main&style=for-the-badge&label=CodeQL&logo=github&logoColor=white)](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/actions/workflows/github-code-scanning/codeql)
 [![License: MIT-0](https://img.shields.io/badge/license-MIT--0-0A7BBB?style=for-the-badge)](LICENSE)
 
-[![Amazon Aurora PostgreSQL 18](https://img.shields.io/badge/Amazon%20Aurora-PostgreSQL%2018-4169E1?style=for-the-badge&logo=postgresql&logoColor=white&labelColor=232F3E)](https://aws.amazon.com/rds/aurora/)
-[![Claude Sonnet 5.5 in Amazon Bedrock](https://img.shields.io/badge/Amazon%20Bedrock-Claude%20Sonnet%205.5-D97757?style=for-the-badge&logo=claude&logoColor=white&labelColor=232F3E)](https://aws.amazon.com/bedrock/anthropic/)
-[![Cohere Embed v4 and Rerank 3.5 in Amazon Bedrock](https://img.shields.io/badge/Amazon%20Bedrock-Cohere%20Embed%20v4%20%C2%B7%20Rerank%203.5-39594D?style=for-the-badge&labelColor=232F3E)](https://aws.amazon.com/bedrock/cohere/)
+[![Amazon Aurora PostgreSQL](https://img.shields.io/badge/Amazon%20Aurora-PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white&labelColor=232F3E)](https://aws.amazon.com/rds/aurora/)
+[![Claude in Amazon Bedrock](https://img.shields.io/badge/Amazon%20Bedrock-Claude-D97757?style=for-the-badge&logo=claude&logoColor=white&labelColor=232F3E)](https://aws.amazon.com/bedrock/anthropic/)
+[![Cohere Embed and Rerank in Amazon Bedrock](https://img.shields.io/badge/Amazon%20Bedrock-Cohere%20Embed%20%C2%B7%20Rerank-39594D?style=for-the-badge&labelColor=232F3E)](https://aws.amazon.com/bedrock/cohere/)
 [![Amazon Bedrock AgentCore](https://img.shields.io/badge/Amazon%20Bedrock-AgentCore-FF9900?style=for-the-badge&labelColor=232F3E)](https://aws.amazon.com/bedrock/agentcore/)
-[![Strands Agents 1.48](https://img.shields.io/badge/Strands%20Agents-1.48-3F8624?style=for-the-badge&labelColor=232F3E)](https://strandsagents.com/)
+[![Strands Agents](https://img.shields.io/badge/Agent%20framework-Strands%20Agents-3F8624?style=for-the-badge&labelColor=232F3E)](https://strandsagents.com/)
 
-[![Python 3.13](https://img.shields.io/badge/Python-3.13-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![React 19](https://img.shields.io/badge/React-19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
-[![TypeScript 5](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![MCP tools through AgentCore Gateway](https://img.shields.io/badge/MCP-AgentCore%20Gateway-000000?style=for-the-badge&logo=modelcontextprotocol&logoColor=white)](https://modelcontextprotocol.io/)
 
 [The scenario](#the-scenario) · [Labs](#what-you-build) · [Architecture](#architecture) ·
@@ -69,7 +69,7 @@ rank fusion and building your own retrieval tool.
 
 ## Architecture
 
-![Hybrid retrieval architecture: Alex uses the Mosaic API on CloudFront and EC2. The Retrieval agent runs on AgentCore Runtime and calls MCP tools through AgentCore Gateway; the SQL tools query hybrid SQL and evidence in Aurora PostgreSQL. Amazon Bedrock provides Claude Sonnet 5.5, Cohere Embed v4 and Cohere Rerank 3.5. AgentCore Memory is optional. Shop search skips the agent and queries Aurora directly.](docs/images/architecture.png)
+![Hybrid retrieval architecture with an Ask Mosaic path and a Shop path. Alex uses the Mosaic API on CloudFront and EC2. On the Ask Mosaic path, the Retrieval agent runs on AgentCore Runtime with Strands and Claude Sonnet 5.5 and calls MCP tools through AgentCore Gateway; the SQL tools embed and rerank with Cohere models in Amazon Bedrock and query hybrid SQL and evidence in Aurora PostgreSQL. AgentCore Memory is optional. On the Shop path, the Mosaic API runs the same search without the agent: Cohere Embed v4 and Cohere Rerank 3.5 in Amazon Bedrock, then Aurora. Only the agent uses Claude.](docs/images/architecture.png)
 
 | Component | Role |
 |---|---|
@@ -77,7 +77,7 @@ rank fusion and building your own retrieval tool.
 | **Amazon Bedrock** | Provides Cohere Embed v4 for query embeddings, Cohere Rerank 3.5 for reranking, and Claude Sonnet 5.5 for the Retrieval agent. |
 | **Amazon Bedrock AgentCore** | **Runtime** hosts the Retrieval agent and its SQL tools, **Gateway** exposes the tools over MCP, and **Memory** holds optional conversation context. Product facts always come from Aurora. |
 | **[Strands Agents](https://strandsagents.com/)** | The Python framework the Retrieval agent is built with. |
-| **Mosaic** | A FastAPI service and React interface. **Shop** searches Aurora directly, **Ask Mosaic** sends questions to the Retrieval agent, and **Playground** shows saved searches, rankings, tool calls and sources. |
+| **Mosaic** | A FastAPI service and React interface. **Shop** runs the same search as the agent's SQL tools without asking the Retrieval agent, **Ask Mosaic** sends questions to the Retrieval agent, and **Playground** shows saved searches, rankings, tool calls and sources. |
 
 ## How hybrid retrieval works
 

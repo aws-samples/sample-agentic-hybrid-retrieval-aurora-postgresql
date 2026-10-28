@@ -21,7 +21,9 @@ permissions:
 concurrency:
   # Never let a push cancel a manually approved run after it starts spending.
   group: project-ci-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
-  cancel-in-progress: true
+  # A newer pull request commit replaces the older run. Every push to main runs to completion
+  # instead, so the README's CI badge reports a result and never a cancelled run as "failing".
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   offline:
@@ -347,7 +349,7 @@ jobs:
           uv run uvicorn service.main:app --host 127.0.0.1 --port 8017 > "$RELEASE_EVIDENCE_DIR/api.log" 2>&1 &
           api_pid=$!
           trap 'kill "$api_pid" 2>/dev/null || true' EXIT
-          for attempt in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8017/api/health >/dev/null; then break; fi
             sleep 2
           done
