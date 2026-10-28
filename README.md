@@ -1,4 +1,31 @@
+<div align="center">
+
 # Build agentic hybrid retrieval with Amazon Aurora PostgreSQL
+
+**Full-text, fuzzy and semantic search fused in SQL, reranked with Amazon Bedrock, and a
+Retrieval agent on Amazon Bedrock AgentCore that answers with sources.**
+
+[![CI](https://img.shields.io/github/actions/workflow/status/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/ci.yml?branch=main&style=for-the-badge&label=CI&logo=githubactions&logoColor=white)](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/actions/workflows/ci.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/github-code-scanning%2Fcodeql?branch=main&style=for-the-badge&label=CodeQL&logo=github&logoColor=white)](https://github.com/aws-samples/sample-agentic-hybrid-retrieval-aurora-postgresql/actions/workflows/github-code-scanning/codeql)
+[![License: MIT-0](https://img.shields.io/badge/license-MIT--0-0A7BBB?style=for-the-badge)](LICENSE)
+
+[![Amazon Aurora PostgreSQL 18](https://img.shields.io/badge/Amazon%20Aurora-PostgreSQL%2018-4169E1?style=for-the-badge&logo=postgresql&logoColor=white&labelColor=232F3E)](https://aws.amazon.com/rds/aurora/)
+[![Claude Sonnet 5.5 in Amazon Bedrock](https://img.shields.io/badge/Amazon%20Bedrock-Claude%20Sonnet%205.5-D97757?style=for-the-badge&logo=claude&logoColor=white&labelColor=232F3E)](https://aws.amazon.com/bedrock/anthropic/)
+[![Cohere Embed v4 and Rerank 3.5 in Amazon Bedrock](https://img.shields.io/badge/Amazon%20Bedrock-Cohere%20Embed%20v4%20%C2%B7%20Rerank%203.5-39594D?style=for-the-badge&labelColor=232F3E)](https://aws.amazon.com/bedrock/cohere/)
+[![Amazon Bedrock AgentCore](https://img.shields.io/badge/Amazon%20Bedrock-AgentCore-FF9900?style=for-the-badge&labelColor=232F3E)](https://aws.amazon.com/bedrock/agentcore/)
+[![Strands Agents 1.48](https://img.shields.io/badge/Strands%20Agents-1.48-3F8624?style=for-the-badge&labelColor=232F3E)](https://strandsagents.com/)
+
+[![Python 3.13](https://img.shields.io/badge/Python-3.13-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React 19](https://img.shields.io/badge/React-19-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
+[![TypeScript 5](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![MCP tools through AgentCore Gateway](https://img.shields.io/badge/MCP-AgentCore%20Gateway-000000?style=for-the-badge&logo=modelcontextprotocol&logoColor=white)](https://modelcontextprotocol.io/)
+
+[The scenario](#the-scenario) · [Labs](#what-you-build) · [Architecture](#architecture) ·
+[How it works](#how-hybrid-retrieval-works) · [Run the workshop](#run-the-workshop) ·
+[Use it in your project](#use-it-in-your-own-project)
+
+</div>
 
 This repository contains **Mosaic**, the sample product discovery application for the
 workshop *Build agentic hybrid retrieval with Amazon Aurora PostgreSQL*. In three
