@@ -130,14 +130,21 @@ and **Dark Modern** starting theme. Automatic OS color-scheme switching is off
 so a browser on a light-mode device still opens the workshop with a dark background.
 Bootstrap reuses those settings for the repository-folder view. A single
 folder-open task lives in the repository's `.vscode/` and explicitly runs from
-that root; the terminal launcher also resolves its own repository before
-opening a shell. Reference solutions remain accessible through the lab READMEs.
+that root. Reference solutions remain accessible through the lab READMEs.
 
-The first Code Editor terminal opens `START_HERE.md` through the editor's own
-remote CLI with the built-in Markdown preview association, then leaves a login shell ready for the participant. The marker in
-`.local/code-editor-started` prevents later visits from reopening the page over
-a participant's work. The folder-open task runs in background mode so an idle
+The first Code Editor terminal is a login shell at the repository root. It opens
+no file: a page opened from terminal start-up reappears over a participant's work
+whenever a later terminal retries it. `START_HERE.md` opens from the Explorer as a
+rendered Markdown preview. The folder-open task runs in background mode so an idle
 shell does not display a busy task spinner.
+
+Code Editor 1.101.2 can stall on a first load of this multi-root workspace: the
+Explorer shows only Outline and Timeline with a loading clock, and no terminal
+opens until a reload. Bootstrap runs `deploy/patch_code_editor_workspace_race.py`
+on the workbench Code Editor serves, after the checkout, then restarts Code
+Editor; `/var/log/mosaic-bootstrap.log` records `workbench.js: patched`. The
+script explains the race. On a test event 6 of 10 fresh loads stalled without it
+and 0 of 20 with it.
 
 ## Local development
 

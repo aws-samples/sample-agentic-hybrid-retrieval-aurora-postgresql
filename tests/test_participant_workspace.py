@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import subprocess
 import sys
 from pathlib import Path
-
-import pytest
 
 from service.lab_files import LAB_FILES
 
@@ -45,7 +42,7 @@ def test_bootstrap_opens_the_workspace_and_one_root_terminal(tmp_path):
     task = tasks[0]
     assert task["runOptions"]["runOn"] == "folderOpen"
     assert task["options"]["cwd"] == "${workspaceFolder}"
-    assert task["args"] == ["-l", "${workspaceFolder}/deploy/open-workshop-terminal.sh"]
+    assert task["args"] == ["-l"]
     assert all(
         not (ROOT / path.parent / ".vscode/tasks.json").exists()
         for path in LAB_FILES.values()
@@ -71,48 +68,3 @@ def test_bootstrap_opens_the_workspace_and_one_root_terminal(tmp_path):
     )
     expected["terminal.integrated.cwd"] = "${workspaceFolder}"
     assert generated == expected
-
-
-@pytest.mark.parametrize("first_open_succeeds", [True, False])
-def test_terminal_opens_at_root_and_retries_welcome(tmp_path, first_open_succeeds):
-    root = tmp_path / "checkout with spaces"
-    lab = root / "labs/lab3_reason"
-    lab.mkdir(parents=True)
-    (root / "deploy").mkdir()
-    launcher = root / "deploy/open-workshop-terminal.sh"
-    launcher.write_bytes((ROOT / "deploy/open-workshop-terminal.sh").read_bytes())
-    (root / "START_HERE.md").write_text("Welcome")
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    code = bin_dir / "code"
-    code.write_text(
-        '#!/bin/sh\nprintf "%s\\n" "$PWD" "$@" >> "$PROBE_CODE"\nexit "$PROBE_EXIT"\n'
-    )
-    shell = bin_dir / "bash"
-    shell.write_text('#!/bin/sh\nprintf "%s\\n" "$PWD" "$@" > "$PROBE_SHELL"\n')
-    code.chmod(0o755)
-    shell.chmod(0o755)
-    env = {
-        **os.environ,
-        "PATH": f"{bin_dir}:{os.environ['PATH']}",
-        "PROBE_CODE": str(tmp_path / "code.log"),
-        "PROBE_SHELL": str(tmp_path / "shell.log"),
-        "PROBE_EXIT": "0" if first_open_succeeds else "1",
-    }
-
-    def launch():
-        subprocess.run(["/bin/bash", str(launcher)], cwd=lab, env=env, check=True)
-        assert (tmp_path / "shell.log").read_text().splitlines() == [str(root), "-l"]
-        assert not (root / "learning-notes.md").exists()
-        assert not (lab / "learning-notes.md").exists()
-
-    launch()
-    marker = root / ".local/code-editor-started"
-    assert marker.exists() == first_open_succeeds
-    env["PROBE_EXIT"] = "0"
-    launch()
-    assert marker.exists()
-    launch()
-    calls = (tmp_path / "code.log").read_text().splitlines()
-    expected = [str(root), "--reuse-window", str(root / "START_HERE.md")]
-    assert calls == expected * (1 if first_open_succeeds else 2)

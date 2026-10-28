@@ -567,7 +567,9 @@ EOF
 chown "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$CODE_EDITOR_SETTINGS/settings.json"
 
 # The login shell stays open for the session; background mode prevents Code
-# Editor from presenting it as a busy foreground task.
+# Editor from presenting it as a busy foreground task. It opens no file: a start
+# page opened from terminal start-up reappears over a participant's work whenever
+# a later terminal retries it.
 install -d -o "$CODE_EDITOR_USER" -g "$CODE_EDITOR_USER" "$REPO/.vscode"
 cat >"$REPO/.vscode/tasks.json" <<'EOF'
 {
@@ -577,7 +579,7 @@ cat >"$REPO/.vscode/tasks.json" <<'EOF'
       "label": "Mosaic terminal",
       "type": "shell",
       "command": "bash",
-      "args": ["-l", "${workspaceFolder}/deploy/open-workshop-terminal.sh"],
+      "args": ["-l"],
       "options": { "cwd": "${workspaceFolder}" },
       "presentation": {
         "echo": false,
@@ -608,6 +610,20 @@ settings["terminal.integrated.cwd"] = "${workspaceFolder}"
 (root / ".vscode/settings.json").write_text(json.dumps(settings, indent=2) + "\n")
 EDITOR_SETTINGS
 chown -R "$CODE_EDITOR_USER:$CODE_EDITOR_USER" "$REPO/.vscode"
+
+# Code Editor 1.101.2 can stall on a first load of this multi-root workspace: an
+# Explorer with only Outline and Timeline, and no terminal until a reload. The
+# script explains the race and patches the workbench Code Editor serves; the
+# restart makes the first page any participant loads use the patched copy.
+CODE_EDITOR_WORKBENCH="$CODE_EDITOR_ROOT/dist/out/vs/code/browser/workbench/workbench.js"
+workbench_patch="$(sudo -u "$CODE_EDITOR_USER" python3.13 \
+  "$REPO/deploy/patch_code_editor_workspace_race.py" "$CODE_EDITOR_WORKBENCH")"
+echo "$workbench_patch"
+case "$workbench_patch" in
+  *": unrecognised"*)
+    echo "Code Editor workbench left unpatched; a first load may stall until a reload." ;;
+esac
+systemctl restart code-editor
 
 # Claude Code asks every participant to choose a text style on first run. The
 # onboarding flags live in ~/.claude.json, and lastOnboardingVersion has to match

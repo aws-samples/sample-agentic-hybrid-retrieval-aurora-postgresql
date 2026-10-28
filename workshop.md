@@ -97,7 +97,7 @@ description search. Use the guide's final `advance --lab 1` command to prepare
 Lab 2 only after they have inspected those results.
 
 Point participants to the Event Dashboard's **CodeEditorURL** and **MosaicURL**.
-Code Editor opens **Start Here**, a prepared terminal and the numbered lab views:
+Code Editor opens a prepared terminal and the numbered lab views:
 **01 - Retrieve**, **02 - Rank and re-rank**, **03 - Reason**. **04 - Explore
 Mosaic source** contains application files; maintainer
 files and reference answers are hidden. These views use the same files and paths.
