@@ -273,3 +273,41 @@ def test_cors_response_never_carries_the_credentials_header():
         "http://localhost:5173"
     )
     assert "access-control-allow-credentials" not in response.headers
+
+
+def test_fused_limit_bound_fits_what_the_agent_hands_to_search_request():
+    """The agent passes the fused pool as `SearchRequest.limit` (agent_tools.py).
+
+    A bound above the request cap accepts a setting every agent search then
+    rejects, so moving either number alone must fail here.
+    """
+    from scripts.checks.retrieval_profile import BOUNDS
+    from service.models import SearchRequest
+
+    bound = next(item for item in BOUNDS if item.path == "fusion.fused_limit")
+    cap = next(
+        meta.le
+        for meta in SearchRequest.model_fields["limit"].metadata
+        if hasattr(meta, "le")
+    )
+
+    assert bound.high <= cap, (
+        f"fusion.fused_limit allows {bound.high} but SearchRequest.limit caps at "
+        f"{cap}; fix: lower the bound in scripts/checks/retrieval_profile.py"
+    )
+    assert SearchRequest(query="xx", limit=int(bound.high)).limit == bound.high
+
+
+def test_settings_repr_never_prints_the_password_or_origin_secret(monkeypatch):
+    monkeypatch.delenv("MOSAIC_DATABASE_SECRET_ARN", raising=False)
+    monkeypatch.setenv(
+        "DATABASE_URL", "postgresql://mosaic:sentinel-db-pw@db.example:5432/mosaic"
+    )
+    monkeypatch.setenv("MOSAIC_ORIGIN_VERIFY_SECRET", "sentinel-origin-secret")
+
+    settings = get_settings()
+
+    assert settings.database_url is not None
+    for text in (repr(settings), str(settings)):
+        assert "sentinel-db-pw" not in text
+        assert "sentinel-origin-secret" not in text

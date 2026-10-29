@@ -17,7 +17,7 @@ import os
 import re
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -310,7 +310,7 @@ def _dataset_manifest_sha256() -> str:
 
 @dataclass(frozen=True)
 class Settings:
-    database_url: str | None
+    database_url: str | None = field(repr=False)
     aws_region: str
     vector_dimension: int
     embedding_provider: str
@@ -334,7 +334,7 @@ class Settings:
     db_statement_timeout_ms: int
     db_lock_timeout_ms: int
     require_origin_verification: bool
-    origin_verify_secret: str | None
+    origin_verify_secret: str | None = field(repr=False)
     max_concurrent_model_runs: int
     model_rate_limit_per_minute: int
     agent_turn_deadline_seconds: float

@@ -419,12 +419,31 @@ def test_an_unmigrated_database_keeps_serving(fake_connect, error):
     assert "db-install" in result.note
 
 
+def test_a_statement_timeout_degrades_instead_of_failing_the_search(fake_connect):
+    """Search calls coverage after the paid embedding and rerank, so a cancelled
+    coverage query must not discard the finished search."""
+    fake_connect(_UnmigratedConnection(psycopg.errors.QueryCanceled))
+    result = coverage.assess("anything")
+    assert result.confidence == "unavailable"
+    assert result.is_anchored is True
+    assert "QueryCanceled" in result.note
+    assert "search results are unaffected" in result.note
+
+
 def test_a_real_database_error_is_not_swallowed(fake_connect):
-    """Only the two migration errors degrade. A connection or syntax failure is
-    a genuine fault and must not be reported as `unavailable`, which would hide
-    a broken database behind a benign-looking label."""
+    """Only migration and transient errors degrade. A permission or syntax
+    failure is a genuine fault and must not be reported as `unavailable`, which
+    would hide a broken database behind a benign-looking label."""
     fake_connect(_UnmigratedConnection(psycopg.errors.InsufficientPrivilege))
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        coverage.assess("anything")
+
+
+def test_a_non_database_error_is_not_swallowed(fake_connect):
+    """The guard covers database errors only. A programming error is a genuine
+    fault and must not be reported as `unavailable`."""
+    fake_connect(_UnmigratedConnection(RuntimeError))
+    with pytest.raises(RuntimeError):
         coverage.assess("anything")
 
 

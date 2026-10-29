@@ -27,7 +27,11 @@ SELECT
     (
         NOT (f ? 'brands')
         OR jsonb_array_length(f->'brands') = 0
-        OR (f->'brands') ? product_brand_name
+        OR EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements_text(f->'brands') AS b(name)
+            WHERE lower(b.name) = lower(product_brand_name)
+        )
     ) AND
     (NOT (f ? 'min_price_cents') OR product_price_cents >= (f->>'min_price_cents')::bigint) AND
     (NOT (f ? 'max_price_cents') OR product_price_cents <= (f->>'max_price_cents')::bigint) AND

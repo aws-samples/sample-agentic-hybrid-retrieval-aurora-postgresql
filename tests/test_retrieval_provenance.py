@@ -1,7 +1,11 @@
+import logging
 from pathlib import Path
 from uuid import uuid4
 
-from service.models import RetrievalProfile
+import pytest
+
+from service import retrieval
+from service.models import RetrievalProfile, SearchRequest
 from service.retrieval import RetrievalService
 
 
@@ -80,6 +84,8 @@ def test_plan_capture_replays_the_persisted_production_path():
     assert "ANALYZE, BUFFERS, SETTINGS, FORMAT JSON" in explain
     assert "mosaic_search.search_hybrid_rrf(" in explain
     assert any("SET plan_json" in sql for sql in statements)
+    update = next(sql for sql in statements if "SET plan_json" in sql)
+    assert "coalesce(diagnostics, '{}'::jsonb)" in update
     assert connection.committed is True
 
 
@@ -103,3 +109,43 @@ def test_search_receipt_schema_names_every_reproducibility_input():
         "plan_json",
     ):
         assert column in telemetry
+
+
+class _CheckoutFailed(Exception):
+    pass
+
+
+class _MarkerCheckoutFailed(Exception):
+    pass
+
+
+def test_a_failed_failure_marker_does_not_replace_the_original_error(
+    monkeypatch, caplog
+):
+    """An exhausted pool fails the search and then the marker's own checkout.
+
+    The caller must see the search's error, and the half-written row is only
+    logged, because replacing the error hides what actually broke.
+    """
+    monkeypatch.setattr(retrieval, "active_dataset", lambda: None)
+    monkeypatch.setattr(retrieval, "applied_sql_digest", lambda _connection: "digest")
+    checkouts = []
+
+    def factory():
+        checkouts.append(1)
+        if len(checkouts) == 1:
+            return _Connection(None)
+        raise _CheckoutFailed if len(checkouts) == 2 else _MarkerCheckoutFailed
+
+    service = RetrievalService(
+        embedding_provider=_Embedder(), connection_factory=factory
+    )
+
+    with (
+        caplog.at_level(logging.WARNING, logger=retrieval.logger.name),
+        pytest.raises(_CheckoutFailed),
+    ):
+        service.search(SearchRequest(query="quiet office keyboard"))
+
+    assert len(checkouts) == 3
+    assert "could not be marked failed: _MarkerCheckoutFailed" in caplog.text

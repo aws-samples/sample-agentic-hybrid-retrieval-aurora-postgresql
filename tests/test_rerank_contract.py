@@ -208,3 +208,35 @@ def test_served_rrf_states_that_profile_weights_do_not_apply():
     policy = " ".join(response.diagnostics.ranking_policy)
     assert "unweighted" in policy
     assert "weighted comparison" in policy
+
+
+class _ExplodingReranker:
+    model_id = "test-rerank"
+
+    def rerank(self, *_args: Any) -> list[tuple[int, float]]:
+        raise AssertionError("rerank=False must not call the reranker")
+
+
+def test_a_client_that_opts_out_of_reranking_is_not_a_reranker_outage():
+    """`rerank=False` takes the "disabled" branch even when reranking is required.
+
+    The Lab 2 off/on exercise (`labs/lab2_rank/rerank_off_on.py`) sends the same
+    request with reranking off, and relies on that returning fused order rather
+    than failing closed. `rerank_required` covers a reranker outage during a
+    request that asked for reranking, never a client choosing not to.
+    """
+    connection = _Connection([_candidate(1, 0.9), _candidate(2, 0.8)])
+    service = RetrievalService(
+        settings=replace(get_settings(), rerank_required=True),
+        embedding_provider=_Embedder(),
+        reranker=_ExplodingReranker(),
+        connection_factory=lambda: connection,
+    )
+
+    response = service.search(
+        SearchRequest(query="quiet headphones", limit=2, rerank=False)
+    )
+
+    assert response.diagnostics is not None
+    assert response.diagnostics.rerank_status == "disabled"
+    assert [product.product_id for product in response.results] == [1, 2]

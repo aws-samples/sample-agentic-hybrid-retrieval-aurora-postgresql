@@ -382,3 +382,24 @@ def test_memory_event_retry_reuses_session_and_provider_payload(monkeypatch):
             )
         assert rejected.value.status_code == 409
         assert provider.create_event.call_count == 2
+
+
+@pytest.mark.parametrize(
+    ("filters", "expected"),
+    [
+        ({"brands": ["sony"]}, True),
+        ({"brands": ["SONY", "Bose"]}, True),
+        ({"brands": ["Bose"]}, False),
+        ({"brands": []}, True),
+        ({"brand": "sony"}, True),
+    ],
+)
+def test_brand_filters_ignore_case_on_both_forms(connection, filters, expected):
+    """`brands` matched exact-case while `brand` did not; `SearchFilters` casefolds both."""
+    schema = search_schema()
+    matched = connection.execute(
+        f"SELECT {schema}.matches_filter_values("
+        "NULL, NULL, 'Sony', 0, NULL, NULL, '{}'::jsonb, false, false, %s::jsonb)",
+        (json.dumps(filters),),
+    ).fetchone()[0]
+    assert matched is expected

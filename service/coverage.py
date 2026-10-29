@@ -291,4 +291,13 @@ def assess(
             "Query coverage is not installed on this database; run "
             "`make db-install` to add mosaic_search.query_term_coverage."
         )
+    except psycopg.OperationalError as error:
+        # `RetrievalService.search` calls this after the paid embedding and
+        # rerank, so a statement timeout, pool timeout or dropped connection
+        # here would discard a finished search for an advisory signal. A
+        # permission or syntax error is a broken database and stays loud.
+        return _unavailable(
+            f"Query coverage is unavailable ({type(error).__name__}); "
+            "search results are unaffected."
+        )
     return summarize([TermCoverage(**row) for row in rows])

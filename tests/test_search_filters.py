@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
@@ -100,3 +102,18 @@ def test_category_compatibility_does_not_rewrite_other_catalogs(monkeypatch):
         SearchFilters(category_key="unknown-category").category_key
         == "unknown-category"
     )
+
+
+def test_brands_filter_lowercases_both_sides_in_sql():
+    """Pins the contract without a database: `brands` must match like `brand`.
+
+    The function took `(f->'brands') ? product_brand_name`, an exact-case JSONB
+    key test, so `{"brands": ["sony"]}` missed a `Sony` row while
+    `{"brand": "sony"}` found it.
+    """
+    sql = (
+        Path(__file__).resolve().parents[1] / "db/sql/08_search_channels.sql"
+    ).read_text()
+    assert "? product_brand_name" not in sql
+    assert "jsonb_array_elements_text(f->'brands')" in sql
+    assert "lower(b.name) = lower(product_brand_name)" in sql

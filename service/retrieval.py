@@ -161,6 +161,41 @@ class RetrievalService:
         # Sync routes run on a thread pool; the cache's get/move/evict is not atomic.
         self._query_embedding_lock = threading.Lock()
 
+    def _mark_search_event_failed(
+        self, search_event_id: int, error: Exception, started: float
+    ) -> None:
+        """Record the failure on the audit row without masking `error`.
+
+        The marker needs its own checkout, and an exhausted pool is one of the
+        conditions that fails a search in the first place. If the marker fails
+        too, the caller must still see the original error.
+        """
+        try:
+            with self.connection_factory() as connection:
+                connection.execute(
+                    """
+                    UPDATE mosaic.search_event
+                    SET total_latency_ms = %s,
+                        diagnostics = jsonb_build_object(
+                            'status', 'failed',
+                            'error_type', %s::text
+                        )
+                    WHERE search_event_id = %s
+                    """,
+                    (
+                        round((time.perf_counter() - started) * 1000),
+                        type(error).__name__,
+                        search_event_id,
+                    ),
+                )
+                connection.commit()
+        except Exception as marker_error:  # noqa: BLE001 - must not mask the search error
+            logger.warning(
+                "search_event %s could not be marked failed: %s",
+                search_event_id,
+                type(marker_error).__name__,
+            )
+
     def _embedder(self) -> EmbeddingProvider:
         if self.embedding_provider is None:
             self.embedding_provider = get_embedding_provider()
@@ -617,24 +652,7 @@ class RetrievalService:
                 )
                 connection.commit()
         except Exception as error:
-            with self.connection_factory() as connection:
-                connection.execute(
-                    """
-                    UPDATE mosaic.search_event
-                    SET total_latency_ms = %s,
-                        diagnostics = jsonb_build_object(
-                            'status', 'failed',
-                            'error_type', %s::text
-                        )
-                    WHERE search_event_id = %s
-                    """,
-                    (
-                        round((time.perf_counter() - started) * 1000),
-                        type(error).__name__,
-                        search_event_id,
-                    ),
-                )
-                connection.commit()
+            self._mark_search_event_failed(search_event_id, error, started)
             raise
 
         diagnostics = None
@@ -715,7 +733,7 @@ class RetrievalService:
                 """
                 UPDATE mosaic.search_event
                 SET plan_json = %s::jsonb,
-                    diagnostics = diagnostics || jsonb_build_object(
+                    diagnostics = coalesce(diagnostics, '{}'::jsonb) || jsonb_build_object(
                         'plan_capture_ms', %s::numeric
                     )
                 WHERE search_event_id = %s

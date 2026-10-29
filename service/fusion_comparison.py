@@ -31,14 +31,14 @@ from uuid import UUID, uuid4
 from scripts.checks.retrieval_profile import load_profile
 from service.catalog_runtime import search_schema
 from service.db import connect
-from service.embeddings import EmbeddingProvider, get_embedding_provider
+from service.embeddings import EmbeddingProvider
 from service.models import (
     FusionCandidateComparison,
     FusionComparisonResponse,
     RetrievalProfile,
     SearchFilters,
 )
-from service.retrieval import normalize_query
+from service.retrieval import get_retrieval_service, normalize_query
 
 # Deep enough to hold the whole fused pool: the union can be no larger than the
 # three arm limits in db/config/retrieval.yaml added together, which stays far
@@ -118,15 +118,24 @@ class FusionComparisonService:
         self,
         *,
         embedding_provider: EmbeddingProvider | None = None,
+        embed_query: Callable[[str], list[float]] | None = None,
         connection_factory: Callable = connect,
     ):
         self.embedding_provider = embedding_provider
+        self._embed_query = embed_query
         self.connection_factory = connection_factory
 
-    def _embedder(self) -> EmbeddingProvider:
-        if self.embedding_provider is None:
-            self.embedding_provider = get_embedding_provider()
-        return self.embedding_provider
+    def _embed(self, normalized_query: str) -> list[float]:
+        """Embed through the served search's cached path unless told otherwise.
+
+        A fresh provider call can return a different vector than the one the
+        served search used, moving an edge-of-pool candidate between the two.
+        """
+        if self._embed_query is not None:
+            return self._embed_query(normalized_query)
+        if self.embedding_provider is not None:
+            return self.embedding_provider.embed_query(normalized_query)
+        return get_retrieval_service().embed_query(normalized_query)
 
     def compare(
         self,
@@ -160,7 +169,7 @@ class FusionComparisonService:
         profile_config = load_profile()
         profile = RetrievalProfile()
         filter_json = json.dumps((filters or SearchFilters()).as_sql_json())
-        embedding = self._embedder().embed_query(normalized_query)
+        embedding = self._embed(normalized_query)
 
         params: dict[str, Any] = {
             "query": normalized_query,

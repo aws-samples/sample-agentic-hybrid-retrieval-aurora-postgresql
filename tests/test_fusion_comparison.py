@@ -542,3 +542,24 @@ def test_query_embedding_cache_survives_concurrent_sync_routes():
 
     assert errors == []
     assert len(retrieval._query_embedding_cache) <= 256
+
+
+def test_default_embedding_goes_through_the_served_search_cache(monkeypatch):
+    """Without a provider the comparison must reuse the served query-vector cache."""
+    calls: list[str] = []
+
+    class _Served:
+        def embed_query(self, query: str) -> list[float]:
+            calls.append(query)
+            return [0.1, 0.2, 0.3, 0.4]
+
+    monkeypatch.setattr(
+        "service.fusion_comparison.get_retrieval_service", lambda: _Served()
+    )
+    connection = StubConnection(IDENTICAL_UNWEIGHTED, IDENTICAL_WEIGHTED)
+
+    FusionComparisonService(connection_factory=lambda: connection).compare(
+        "quiet office keyboard", persist=False
+    )
+
+    assert calls == ["quiet office keyboard"]
