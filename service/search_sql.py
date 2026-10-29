@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from service.catalog_runtime import search_schema
-from service.lab_files import LAB1_SQL, LAB2_SQL, solution_path
+from service.lab_files import LAB1_SQL, LAB2_SQL, shipped_text, solution_path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -47,9 +47,9 @@ def search_sql(root: Path = ROOT, *, solutions: bool = False) -> str:
     """
     lab_files = {LAB1_SQL, LAB2_SQL}
     return "\n".join(
-        (
-            root / (solution_path(path) if solutions and path in lab_files else path)
-        ).read_text(encoding="utf-8")
+        shipped_text(solution_path(path), root)
+        if solutions and path in lab_files
+        else (root / path).read_text(encoding="utf-8")
         for path in SEARCH_SQL_FILES
     )
 

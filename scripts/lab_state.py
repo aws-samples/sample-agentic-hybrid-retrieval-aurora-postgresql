@@ -21,7 +21,14 @@ sys.path.insert(0, str(REPO))
 from scripts.progress import Progress
 from service.agent_setup import AGENT_NOT_BUILT
 from service.catalog_runtime import search_schema
-from service.lab_files import LAB1_SQL, LAB2_SQL, LAB3_AGENT, solution_path
+from service.lab_files import (
+    LAB1_SQL,
+    LAB2_SQL,
+    LAB3_AGENT,
+    shipped_files,
+    shipped_text,
+    solution_path,
+)
 from service.participant_commands import (
     ADVANCE_TO_LAB_2,
     APPLY_SQL,
@@ -103,7 +110,7 @@ def _block_text(source: str, start: str, end: str, *, path: Path) -> str:
 def _seam(exercise: Path, *blocks: tuple[str, str, str]) -> LabSeam:
     """Read each block's reference answer from the lab's solution file."""
     solution = REPO / solution_path(exercise)
-    source = solution.read_text(encoding="utf-8")
+    source = shipped_text(solution_path(exercise), REPO)
     return LabSeam(
         exercise.as_posix(),
         tuple(
@@ -284,7 +291,7 @@ def lab_diff(
     path = repo / relative_path
     expected_path = REPO / solution_path(Path(relative_path))
     yours_source = path.read_text(encoding="utf-8")
-    expected_source = expected_path.read_text(encoding="utf-8")
+    expected_source = shipped_text(solution_path(Path(relative_path)), REPO)
     inside = []
     for start, end, _fixed, _broken in blocks:
         markers = _markers_problem(yours_source, start, end)
@@ -329,6 +336,19 @@ def lab_diff(
     return "\n".join([*report, "", *footer]), True
 
 
+def _put_back_lab_folder(exercise: Path, repo: Path) -> None:
+    """Restore the files a deleted lab folder shipped, other than its exercise.
+
+    The exercise gets its starting code from the caller, never the answer Git holds.
+    """
+    for relative in shipped_files(exercise.parent, REPO):
+        target = repo / relative
+        if relative == exercise or target.exists():
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(shipped_text(relative, REPO), encoding="utf-8")
+
+
 def set_lab_state(
     lab: int,
     *,
@@ -337,11 +357,13 @@ def set_lab_state(
 ) -> Path:
     relative_path, blocks = LABS[lab]
     path = repo / relative_path
+    if not path.exists():
+        _put_back_lab_folder(Path(relative_path), repo)
     source = path.read_text(encoding="utf-8") if path.exists() else ""
     if not all(_markers_intact(source, start, end) for start, end, _, _ in blocks):
         # A deleted file, or a deleted or repeated marker that hides where the block
         # is, has reset as its way out, so start from the reference file.
-        source = (REPO / solution_path(Path(relative_path))).read_text(encoding="utf-8")
+        source = shipped_text(solution_path(Path(relative_path)), REPO)
     for start, end, fixed, broken in blocks:
         source = _replace_block(source, start, end, fixed if solved else broken)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -531,8 +553,9 @@ def _markers_problem(source: str, start: str, end: str) -> str | None:
             faults.append(f"the line '{marker}' appears {count} times")
     if not faults:
         faults.append(f"the line '{end}' comes before '{start}'")
-    reference = REPO / solution_path(Path(LABS[lab].exercise))
-    above = reference.read_text(encoding="utf-8").split(start, 1)[0]
+    above = shipped_text(solution_path(Path(LABS[lab].exercise)), REPO).split(start, 1)[
+        0
+    ]
     anchor = above.rstrip().splitlines()[-1].strip()
     return (
         f"{' and '.join(faults)}: your edit goes between the lines '{start}' and "

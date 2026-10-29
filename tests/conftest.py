@@ -108,3 +108,40 @@ def pytest_collection_modifyitems(
     for item in items:
         if "aurora" in item.keywords:
             item.add_marker(skip_aurora)
+
+
+@pytest.fixture
+def shipped_labs(tmp_path):
+    """A Git checkout of the lab folders, committed as the source ships them.
+
+    A deleted lab folder takes its reference copy with it, so recovery must come
+    from Git; testing against the developer's working tree would hide that.
+    """
+    import subprocess
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[1]
+
+    def git(root, *args):
+        return subprocess.run(
+            ["git", "-C", str(root), *args], check=True, capture_output=True, text=True
+        ).stdout
+
+    for name in git(repo, "ls-files", "--", "labs").splitlines():
+        destination = tmp_path / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes((repo / name).read_bytes())
+    git(tmp_path, "init", "-q")
+    git(tmp_path, "add", "labs")
+    git(
+        tmp_path,
+        "-c",
+        "user.name=Lab test",
+        "-c",
+        "user.email=lab-test@example.com",
+        "commit",
+        "-q",
+        "-m",
+        "ship the labs",
+    )
+    return tmp_path

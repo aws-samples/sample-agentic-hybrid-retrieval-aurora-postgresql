@@ -11,6 +11,7 @@ from scripts.lab_state import (
     lab_is_solved,
     set_lab_state,
 )
+from service.lab_files import solution_path
 from service.participant_commands import DIFF_ANSWER, solution
 
 PARTICIPANT_CHANNEL = """    UNION ALL
@@ -835,16 +836,10 @@ def test_reset_recovers_a_file_whose_marker_was_deleted(
 
 
 @pytest.mark.parametrize("lab", [1, 2, 3])
-@pytest.mark.parametrize("gone", ["file", "folder"])
-def test_reset_recreates_a_deleted_lab_file(
-    lab_repo: Path, lab: int, gone: str
-) -> None:
+def test_reset_recreates_a_deleted_lab_file(lab_repo: Path, lab: int) -> None:
     """A participant who deletes the lab file gets its starting code back, not the answer."""
     path = lab_repo / LABS[lab].exercise
-    if gone == "file":
-        path.unlink()
-    else:
-        rmtree(path.parent)
+    path.unlink()
 
     set_lab_state(lab, solved=False, repo=lab_repo)
 
@@ -852,6 +847,31 @@ def test_reset_recreates_a_deleted_lab_file(
     assert restored.count(LABS[lab].blocks[0].start) == 1
     assert LABS[lab].blocks[0].broken.strip() in restored
     assert not lab_is_solved(lab, repo=lab_repo)
+
+
+@pytest.mark.parametrize("lab", [1, 2, 3])
+def test_reset_puts_back_a_deleted_lab_folder_from_git(
+    monkeypatch: pytest.MonkeyPatch, shipped_labs: Path, lab: int
+) -> None:
+    """With the whole folder gone, its reference copy too, only Git can supply the files."""
+    from scripts import lab_state
+
+    checkout = shipped_labs
+    monkeypatch.setattr(lab_state, "REPO", checkout)
+    exercise = Path(LABS[lab].exercise)
+    folder = exercise.parent
+    reference = solution_path(exercise)
+    shipped_reference = (checkout / reference).read_bytes()
+    readme = (checkout / folder / "README.md").read_bytes()
+    rmtree(checkout / folder)
+
+    set_lab_state(lab, solved=False, repo=checkout)
+
+    restored = (checkout / exercise).read_text(encoding="utf-8")
+    assert LABS[lab].blocks[0].broken.strip() in restored
+    assert not lab_is_solved(lab, repo=checkout)
+    assert (checkout / reference).read_bytes() == shipped_reference
+    assert (checkout / folder / "README.md").read_bytes() == readme
 
 
 @pytest.mark.parametrize("lab", [1, 3])
