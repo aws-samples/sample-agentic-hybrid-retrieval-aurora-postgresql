@@ -1,5 +1,6 @@
+import json
 from pathlib import Path
-from shutil import copy2
+from shutil import copy2, rmtree
 
 import pytest
 
@@ -831,6 +832,53 @@ def test_reset_recovers_a_file_whose_marker_was_deleted(
     assert restored.count(start) == 1
     assert LABS[lab].blocks[0].broken.strip() in restored
     assert not lab_is_solved(lab, repo=lab_repo)
+
+
+@pytest.mark.parametrize("lab", [1, 2, 3])
+@pytest.mark.parametrize("gone", ["file", "folder"])
+def test_reset_recreates_a_deleted_lab_file(
+    lab_repo: Path, lab: int, gone: str
+) -> None:
+    """A participant who deletes the lab file gets its starting code back, not the answer."""
+    path = lab_repo / LABS[lab].exercise
+    if gone == "file":
+        path.unlink()
+    else:
+        rmtree(path.parent)
+
+    set_lab_state(lab, solved=False, repo=lab_repo)
+
+    restored = path.read_text(encoding="utf-8")
+    assert restored.count(LABS[lab].blocks[0].start) == 1
+    assert LABS[lab].blocks[0].broken.strip() in restored
+    assert not lab_is_solved(lab, repo=lab_repo)
+
+
+@pytest.mark.parametrize("lab", [1, 3])
+def test_status_names_a_deleted_lab_file_and_the_way_back(
+    lab_repo: Path, lab: int
+) -> None:
+    from scripts.lab_entry import RECORD_VERSION, record_path
+    from scripts.lab_state import status_line
+
+    record = record_path(lab, lab_repo)
+    record.parent.mkdir(parents=True, exist_ok=True)
+    record.write_text(
+        json.dumps(
+            {
+                "version": RECORD_VERSION,
+                "lab": lab,
+                "steps": {},
+                "completed_at": "2026-10-29T10:00:00+00:00",
+            }
+        )
+    )
+    (lab_repo / LABS[lab].exercise).unlink()
+
+    line = status_line(lab, repo=lab_repo)
+
+    assert line.startswith(f"Lab {lab}: FILE MISSING ({LABS[lab].exercise})")
+    assert f"uv run python scripts/lab_state.py reset --lab {lab}" in line
 
 
 def test_diff_tool_shows_only_the_lab_files_that_differ(lab_repo: Path) -> None:

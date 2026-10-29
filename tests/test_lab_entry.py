@@ -300,6 +300,21 @@ def test_restart_discards_only_the_selected_labs_edits(repo, aurora) -> None:
     assert (aurora.applies, aurora.captures) == (2, 2)
 
 
+@pytest.mark.parametrize("lab", [1, 2])
+def test_restart_puts_back_a_deleted_lab_file(repo, aurora, lab: int) -> None:
+    if lab == 2:
+        _start(2, repo)
+    _seam_file(lab, repo).unlink()
+
+    record = lab_entry.restart(
+        lab, api_url="http://api", dsn="aurora", repo=repo, say=print
+    )
+
+    assert _seam_file(lab, repo).exists()
+    assert not lab_is_solved(lab, repo=repo)
+    assert record["completed_at"]
+
+
 def test_lab_1_start_saves_the_request_and_never_edits_or_applies(repo, aurora) -> None:
     set_lab_state(1, solved=False, repo=repo)
     aurora.applied[1] = "stale"

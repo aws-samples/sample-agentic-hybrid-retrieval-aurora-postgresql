@@ -337,13 +337,14 @@ def set_lab_state(
 ) -> Path:
     relative_path, blocks = LABS[lab]
     path = repo / relative_path
-    source = path.read_text(encoding="utf-8")
+    source = path.read_text(encoding="utf-8") if path.exists() else ""
     if not all(_markers_intact(source, start, end) for start, end, _, _ in blocks):
-        # A deleted or repeated marker hides where the block is, and reset is the
-        # way out the marker message offers, so start from the reference file.
+        # A deleted file, or a deleted or repeated marker that hides where the block
+        # is, has reset as its way out, so start from the reference file.
         source = (REPO / solution_path(Path(relative_path))).read_text(encoding="utf-8")
     for start, end, fixed, broken in blocks:
         source = _replace_block(source, start, end, fixed if solved else broken)
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(source, encoding="utf-8")
     return path
 
@@ -921,6 +922,12 @@ def status_line(lab: int, *, repo: Path = REPO) -> str:
         return (
             f"Lab {lab}: START INTERRUPTED. Next: run {start_command(lab)} "
             "again; it finishes the missing step and keeps your edits."
+        )
+    exercise = LABS[lab].exercise
+    if not (repo / exercise).exists():
+        return (
+            f"Lab {lab}: FILE MISSING ({exercise}). Next: run {reset(lab)} to put back "
+            "its starting code; your edits to that file are gone either way."
         )
     return f"Lab {lab}: {'SOLVED' if lab_is_solved(lab, repo=repo) else 'BROKEN'}"
 
