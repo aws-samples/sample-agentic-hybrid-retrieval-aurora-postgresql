@@ -259,3 +259,28 @@ def test_an_unreachable_database_before_the_apply_exits_cleanly(monkeypatch):
         apply_search_functions.main()
 
     assert "facilitator" in str(exit_info.value)
+
+
+@pytest.mark.parametrize("lab", [1, 2])
+def test_applying_with_a_lab_file_deleted_names_the_way_back_not_a_traceback(
+    monkeypatch, tmp_path, lab
+):
+    for other in (1, 2):
+        if other != lab:
+            target = tmp_path / LABS[other].exercise
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text("-- present\n", encoding="utf-8")
+    monkeypatch.setattr(apply_search_functions, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        apply_search_functions,
+        "assert_reset_database",
+        lambda _dsn: pytest.fail("reached Aurora with a lab file missing"),
+    )
+
+    with pytest.raises(SystemExit) as refused:
+        apply_search_functions.main()
+
+    assert str(refused.value).startswith(
+        f"Lab {lab}: FILE MISSING ({LABS[lab].exercise})"
+    )
+    assert f"lab_state.py reset --lab {lab}" in str(refused.value)

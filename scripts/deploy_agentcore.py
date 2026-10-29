@@ -41,7 +41,9 @@ from service.participant_commands import (
 def client(service: str):
     return boto3.client(
         service,
-        region_name=os.getenv("AWS_REGION", "us-east-1"),
+        region_name=os.getenv("AWS_REGION")
+        or os.getenv("AWS_DEFAULT_REGION")
+        or "us-east-1",
         config=Config(
             connect_timeout=10,
             read_timeout=30,

@@ -290,3 +290,19 @@ def test_target_summary_names_positions_and_only_the_methods_that_found_it():
     assert "combined position 2, final position 1" in line
     assert "found by fuzzy matching rank 1." in line
     assert "words" not in line and "meaning" not in line
+
+
+def test_a_run_saves_under_the_checkout_and_honours_lab_api_url(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("LAB_API_URL", "http://api.internal:9000")
+    calls = []
+    monkeypatch.setattr(lab_terminal, "prepare", lambda *args: calls.append(args))
+    monkeypatch.setattr(
+        "sys.argv", ["lab_terminal.py", "run", "--lab", "2", "--phase", "after"]
+    )
+
+    assert lab_terminal.main() == 0
+
+    [(lab, phase, api_url, output)] = calls
+    assert (lab, phase, api_url) == (2, "after", "http://api.internal:9000")
+    assert output == lab_terminal.ROOT / ".local/lab-2"

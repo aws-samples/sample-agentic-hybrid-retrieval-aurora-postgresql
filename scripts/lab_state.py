@@ -25,6 +25,7 @@ from service.lab_files import (
     LAB1_SQL,
     LAB2_SQL,
     LAB3_AGENT,
+    committed_text,
     shipped_files,
     shipped_text,
     solution_path,
@@ -46,7 +47,6 @@ from service.participant_commands import (
     reset,
     skip_to,
     solution,
-    validate,
     validate_applied,
 )
 from service.participant_commands import start as start_command
@@ -104,13 +104,43 @@ def _block_text(source: str, start: str, end: str, *, path: Path) -> str:
             "fix: restore the marked block in the solution file."
         )
     body = source.split(start, 1)[1].split(end, 1)[0]
+    # Spaces after the marker belong to its line, not to the block.
+    rest_of_marker_line, newline, after = body.partition("\n")
+    if newline and not rest_of_marker_line.strip():
+        body = after
     return body.strip("\n").rstrip()
+
+
+def _reference_source(exercise: Path, blocks: tuple[tuple[str, str, str], ...]) -> str:
+    """The lab's solution file, or Git's copy when its markers were edited away.
+
+    Every script builds `LABS` at import, so a solution file whose markers a
+    participant broke would stop even `reset`, the command that repairs it.
+    """
+    reference = solution_path(exercise)
+    source = shipped_text(reference, REPO)
+    try:
+        for start, end, _broken in blocks:
+            _block_text(source, start, end, path=REPO / reference)
+        return source
+    except ValueError:
+        pass
+    try:
+        source = committed_text(reference, REPO)
+        for start, end, _broken in blocks:
+            _block_text(source, start, end, path=REPO / reference)
+    except (FileNotFoundError, ValueError) as error:
+        raise SystemExit(
+            f"Lab file rule: {reference} no longer has its marked lines and Git holds no "
+            "clean copy; fix: ask your facilitator to restore it from the workshop source."
+        ) from error
+    return source
 
 
 def _seam(exercise: Path, *blocks: tuple[str, str, str]) -> LabSeam:
     """Read each block's reference answer from the lab's solution file."""
     solution = REPO / solution_path(exercise)
-    source = shipped_text(solution_path(exercise), REPO)
+    source = _reference_source(exercise, blocks)
     return LabSeam(
         exercise.as_posix(),
         tuple(
@@ -165,17 +195,27 @@ def _block_span(
     """A marked block's lines and the file line number of its first line."""
     lines = _block_text(source, start, end, path=path).splitlines()
     marker_line = source.split(start, 1)[0].count("\n") + 1
-    body = source.split(start, 1)[1]
-    leading = len(body) - len(body.lstrip("\n"))
-    return marker_line + leading, lines
+    # Count from the line after the marker, so trailing spaces on the marker line
+    # cannot hide its newline from the blank-line count.
+    after_marker = source.split(start, 1)[1].partition("\n")[2]
+    inside = after_marker.split(end, 1)[0]
+    leading = len(inside) - len(inside.lstrip("\n"))
+    return marker_line + 1 + leading, lines
 
 
 def _plain_differences(
-    expected: list[str], yours: list[str], numbers: list[int], *, outside: bool = False
+    expected: list[str],
+    yours: list[str],
+    numbers: list[int],
+    *,
+    outside: bool = False,
+    fallback_line: int = 0,
 ) -> list[tuple[str, str, list[str], list[str]]]:
     """Each place the participant's lines differ: where, the label, the expected lines, theirs.
 
     numbers holds the line number in the participant's file of each line in yours.
+    fallback_line is where a gap is reported when yours has no lines at all, such
+    as a marked block emptied of everything: the block's marker line.
     """
     prefix = "Outside the markers, " if outside else ""
     label = "Original file" if outside else "Reference answer"
@@ -190,7 +230,7 @@ def _plain_differences(
             after = (
                 numbers[j1] - 1
                 if j1 < len(numbers)
-                else (numbers[-1] if numbers else 0)
+                else (numbers[-1] if numbers else fallback_line)
             )
             where = f"{prefix}missing from your file, after line {after}"
         else:
@@ -289,6 +329,9 @@ def lab_diff(
     """
     relative_path, blocks = LABS[lab]
     path = repo / relative_path
+    missing = missing_file_problem(lab, repo)
+    if missing:
+        raise ValueError(missing.line)
     expected_path = REPO / solution_path(Path(relative_path))
     yours_source = path.read_text(encoding="utf-8")
     expected_source = shipped_text(solution_path(Path(relative_path)), REPO)
@@ -302,7 +345,10 @@ def lab_diff(
         )
         yours_first, yours = _block_span(yours_source, start, end, path=path)
         numbers = list(range(yours_first, yours_first + len(yours)))
-        inside.extend(_plain_differences(expected, yours, numbers))
+        marker_line = yours_source.split(start, 1)[0].count("\n") + 1
+        inside.extend(
+            _plain_differences(expected, yours, numbers, fallback_line=marker_line)
+        )
     expected_outside, _numbers = _outside_markers(expected_source, blocks)
     yours_outside, numbers = _outside_markers(yours_source, blocks)
     outside = _plain_differences(expected_outside, yours_outside, numbers, outside=True)
@@ -349,6 +395,20 @@ def _put_back_lab_folder(exercise: Path, repo: Path) -> None:
         target.write_text(shipped_text(relative, REPO), encoding="utf-8")
 
 
+def _repair_reference_markers(exercise: Path, blocks: tuple[Block, ...]) -> None:
+    """Put Git's copy over a solution file whose markers a participant edited away.
+
+    Only a file that no longer reads as the reference is replaced; a solution file
+    with its markers intact is left as it is.
+    """
+    reference = solution_path(exercise)
+    if not (REPO / reference).exists():
+        return
+    source = (REPO / reference).read_text(encoding="utf-8")
+    if not all(_markers_intact(source, block.start, block.end) for block in blocks):
+        (REPO / reference).write_text(committed_text(reference, REPO), encoding="utf-8")
+
+
 def set_lab_state(
     lab: int,
     *,
@@ -357,6 +417,7 @@ def set_lab_state(
 ) -> Path:
     relative_path, blocks = LABS[lab]
     path = repo / relative_path
+    _repair_reference_markers(Path(relative_path), blocks)
     if not path.exists():
         _put_back_lab_folder(Path(relative_path), repo)
     source = path.read_text(encoding="utf-8") if path.exists() else ""
@@ -745,11 +806,15 @@ def _lab3_matches_contract(source: str) -> bool:
 
 def lab3_problem(*, repo: Path = REPO) -> str | None:
     """Say why the saved `agent.py` cannot run as the Retrieval agent, or None."""
+    if missing_file_problem(3, repo):
+        return f"{LABS[3][0]} was deleted; run {reset(3)} to put back its starting code"
     return lab3_contract_problem((repo / LABS[3][0]).read_text(encoding="utf-8"))
 
 
 def lab_is_solved(lab: int, *, repo: Path = REPO) -> bool:
     relative_path, _ = LABS[lab]
+    if missing_file_problem(lab, repo):
+        return False
     source = (repo / relative_path).read_text(encoding="utf-8")
     if lab == 1:
         return _lab1_matches_contract(source)
@@ -897,10 +962,17 @@ class LabProblem:
     finding: str
     next_step: str
 
+    @property
+    def line(self) -> str:
+        """The finding and the fix on one line, for a command that has no list to lay out."""
+        return f"{self.finding} Next: {self.next_step}"
+
 
 def source_problem(lab: int, *, repo: Path = REPO) -> LabProblem | None:
     """Say why a SQL lab's saved block is not repaired, or None when it is."""
     path = LABS[lab][0]
+    if missing := missing_file_problem(lab, repo):
+        return missing
     source = (repo / path).read_text(encoding="utf-8")
     reason = (
         lab1_contract_problem(source) if lab == 1 else lab2_contract_problem(source)
@@ -910,6 +982,18 @@ def source_problem(lab: int, *, repo: Path = REPO) -> LabProblem | None:
     return LabProblem(
         f"Lab {lab} is not repaired: in {path}, {reason}.",
         f"fix the marked block in Code Editor, save it, then run {APPLY_SQL}",
+    )
+
+
+def missing_file_problem(lab: int, repo: Path = REPO) -> LabProblem | None:
+    """Say that a lab's exercise file was deleted and how to get its starting code back."""
+    exercise = LABS[lab].exercise
+    if (repo / exercise).exists():
+        return None
+    return LabProblem(
+        f"Lab {lab}: FILE MISSING ({exercise}).",
+        f"run {reset(lab)} to put back its starting code; your edits to that file "
+        "are gone either way.",
     )
 
 
@@ -938,6 +1022,8 @@ def status_line(lab: int, *, repo: Path = REPO) -> str:
     """
     from scripts.lab_entry import FAULT_AT_ENTRY, load_record
 
+    if missing := missing_file_problem(lab, repo):
+        return missing.line
     record = load_record(lab, repo)
     if record is None and lab in FAULT_AT_ENTRY:
         return f"Lab {lab}: NOT STARTED"
@@ -945,12 +1031,6 @@ def status_line(lab: int, *, repo: Path = REPO) -> str:
         return (
             f"Lab {lab}: START INTERRUPTED. Next: run {start_command(lab)} "
             "again; it finishes the missing step and keeps your edits."
-        )
-    exercise = LABS[lab].exercise
-    if not (repo / exercise).exists():
-        return (
-            f"Lab {lab}: FILE MISSING ({exercise}). Next: run {reset(lab)} to put back "
-            "its starting code; your edits to that file are gone either way."
         )
     return f"Lab {lab}: {'SOLVED' if lab_is_solved(lab, repo=repo) else 'BROKEN'}"
 
@@ -1133,6 +1213,11 @@ def main() -> int:
             action(args.lab, api_url=args.api_url, dsn=args.database_url)
         except (LabEntryError, LabValidationError) as error:
             raise SystemExit(str(error)) from error
+        except ValueError as error:
+            # A dataset mismatch is refused before Aurora's functions change.
+            raise SystemExit(
+                f"{error}\nNothing was applied: Aurora still runs its previous functions."
+            ) from error
         except psycopg.Error as error:
             raise database_fault_exit(error, f"{args.action} Lab {args.lab}") from error
         return 0
@@ -1147,8 +1232,10 @@ def main() -> int:
     return _validate_command(args.lab, args.database_url)
 
 
-def _validate_command(lab: int, database_url: str | None) -> int:
+def _validate_command(lab: int, database_url: str | None, *, repo: Path = REPO) -> int:
     """Check one lab's saved source and, for a SQL lab, the block Aurora runs."""
+    if missing := missing_file_problem(lab, repo):
+        raise SystemExit(missing.line)
     if lab == 3:
         if not lab_is_solved(3):
             from service.agent_setup import AGENT_STARTER_MESSAGE
@@ -1174,7 +1261,7 @@ def _validate_command(lab: int, database_url: str | None) -> int:
         )
     print(
         f"Lab {lab}: PASS. {LABS[lab][0]} is repaired and Aurora runs it.\n"
-        f"Next: {validate(lab)}"
+        f"Next: {prove(lab)}"
     )
     return 0
 

@@ -15,6 +15,7 @@ from scripts.lab_state import (
     FACILITATOR_ADVICE,
     assert_reset_database,
     is_environment_fault,
+    missing_file_problem,
 )
 from service.catalog_runtime import active_dataset, search_schema
 from service.lab_files import LAB1_SQL, LAB2_SQL
@@ -206,6 +207,9 @@ def main() -> None:
         configure,
     )
 
+    for lab in (1, 2):
+        if missing := missing_file_problem(lab, ROOT):
+            raise SystemExit(missing.line)
     dsn = os.getenv("DATABASE_URL")
     source = search_sql(ROOT)
     try:

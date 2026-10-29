@@ -16,10 +16,47 @@ def solution_path(exercise: Path) -> Path:
     return exercise.parent / "solution" / exercise.name
 
 
-def _git(root: Path, *args: str) -> subprocess.CompletedProcess[bytes]:
-    return subprocess.run(
-        ["git", "-C", str(root), *args], capture_output=True, check=False
-    )
+GIT_TIMEOUT_SECONDS = 30
+
+
+def _git(root: Path, *args: str) -> tuple[bytes | None, str]:
+    """Git's output, or None and why it failed, in words that name no absolute path."""
+    try:
+        done = subprocess.run(
+            ["git", "-C", str(root), *args],
+            capture_output=True,
+            check=False,
+            timeout=GIT_TIMEOUT_SECONDS,
+        )
+    except FileNotFoundError:
+        return None, "git is not installed or not on PATH"
+    except subprocess.TimeoutExpired:
+        return None, f"git did not answer within {GIT_TIMEOUT_SECONDS} seconds"
+    except OSError as error:
+        return None, f"git could not run: {error.strerror or type(error).__name__}"
+    if done.returncode == 0:
+        return done.stdout, ""
+    lines = done.stderr.decode("utf-8", errors="replace").strip().splitlines()
+    first = lines[0] if lines else f"git exited with status {done.returncode}"
+    return None, first.replace(str(root), ".")
+
+
+def committed_text(relative: Path, root: Path) -> str:
+    """A lab file's text as Git's `HEAD` holds it, whatever is on disk.
+
+    The path is read relative to `root`, as `shipped_files` lists it, so a checkout
+    whose lab folders sit below the Git root still finds them.
+
+    Raises:
+        FileNotFoundError: When Git cannot give the file.
+    """
+    shown, reason = _git(root, "show", f"HEAD:./{relative.as_posix()}")
+    if shown is None:
+        raise FileNotFoundError(
+            f"Lab file rule: {relative} is missing and Git gave no copy ({reason}); "
+            "fix: ask your facilitator to restore it from the workshop source."
+        )
+    return shown.decode("utf-8")
 
 
 def shipped_text(relative: Path, root: Path) -> str:
@@ -35,13 +72,7 @@ def shipped_text(relative: Path, root: Path) -> str:
     path = root / relative
     if path.exists():
         return path.read_text(encoding="utf-8")
-    shown = _git(root, "show", f"HEAD:{relative.as_posix()}")
-    if shown.returncode != 0:
-        raise FileNotFoundError(
-            f"Lab file rule: {relative} is missing and Git holds no copy of it; fix: "
-            "ask your facilitator to restore it from the workshop source."
-        )
-    return shown.stdout.decode("utf-8")
+    return committed_text(relative, root)
 
 
 def shipped_files(folder: Path, root: Path) -> list[Path]:
@@ -50,12 +81,12 @@ def shipped_files(folder: Path, root: Path) -> list[Path]:
     Raises:
         FileNotFoundError: When Git cannot list the folder.
     """
-    listed = _git(
+    listed, reason = _git(
         root, "ls-tree", "-r", "-z", "--name-only", "HEAD", "--", folder.as_posix()
     )
-    if listed.returncode != 0:
+    if listed is None:
         raise FileNotFoundError(
-            f"Lab file rule: Git cannot list {folder}; fix: ask your facilitator to "
-            "restore it from the workshop source."
+            f"Lab file rule: Git cannot list {folder} ({reason}); fix: ask your "
+            "facilitator to restore it from the workshop source."
         )
-    return [Path(name) for name in listed.stdout.decode("utf-8").split("\0") if name]
+    return [Path(name) for name in listed.decode("utf-8").split("\0") if name]

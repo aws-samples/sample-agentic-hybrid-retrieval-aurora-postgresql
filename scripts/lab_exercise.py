@@ -38,7 +38,7 @@ from psycopg.rows import dict_row
 from scripts import lab2_tuning, lab_state
 from service.catalog_runtime import LIVE_INDEXES
 from service.lab_files import LAB2_SQL
-from service.participant_commands import DEPLOY_AGENT
+from service.participant_commands import APPLY_SQL, DEPLOY_AGENT, repeat_request
 
 SCORE_TOLERANCE = 1e-9
 LAB2_K_TRIALS = (1, 10, 30, 120)
@@ -47,6 +47,21 @@ DEFAULT_WORK = {
     2: LAB2_SQL,
     3: Path("labs/lab3_reason/agent.py"),
 }
+
+
+def default_work(lab: int) -> Path:
+    """The file a lab's exercise grades, found from the checkout, not the shell's folder."""
+    return REPO / DEFAULT_WORK[lab]
+
+
+def _shown(path: Path) -> str:
+    """A path as the participant knows it: relative to the checkout when inside it."""
+    resolved = path.resolve()
+    return (
+        str(resolved.relative_to(REPO)) if resolved.is_relative_to(REPO) else str(path)
+    )
+
+
 LAB1_COLUMNS = ("approximate_rows", "exact_rows", "recall")
 LAB2_RANKS_CHECKED = 150
 DECISION_TABLE_SQL = """
@@ -73,7 +88,7 @@ def load_context(lab: int) -> dict[str, str]:
     if not path.exists():
         raise ExerciseError(
             f"no saved context at {path.relative_to(REPO)}; run "
-            f"`uv run python scripts/lab_terminal.py run --lab {lab} --phase before` first"
+            f"`{repeat_request(lab)}` first"
         )
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -378,7 +393,7 @@ def _lab2_contribution_mismatch(
                 f"k={k}: position {row['r']} earns {actual:.12f}; expected "
                 f"1 / ({k} + {row['r']}) = {expected:.12f}. Each source position needs "
                 "its own contribution; apply your edit with "
-                "`uv run python scripts/apply_search_functions.py`."
+                f"`{APPLY_SQL}`."
             )
     return None
 
@@ -398,7 +413,7 @@ def _saved_run(cur: Any, values: dict[str, str]) -> dict[int, float]:
     ):
         raise ExerciseError(
             f"saved run {search_id} is not this lab's request; rerun "
-            "`uv run python scripts/lab_terminal.py run --lab 2 --phase after`"
+            f"`{repeat_request(2)}`"
         )
     cur.execute(
         "SELECT product_id, (SELECT sum((c.value->>'rrf_contribution')::float8) "
@@ -461,7 +476,7 @@ def grade_lab2(values: dict[str, str]) -> dict[str, Any]:
         ),
         "target_saved": target in saved,
     }
-    rerun = "rerun `uv run python scripts/lab_terminal.py run --lab 2 --phase after`, then check again"
+    rerun = f"rerun `{repeat_request(2)}`, then check again"
     if not saved:
         report["failures"].append(f"no saved rows prove the fusion repair; {rerun}")
     else:
@@ -485,7 +500,7 @@ def grade_lab3(path: Path) -> dict[str, Any]:
     from service.agentcore_transport import runtime_arn
     from service.lab_proof import completion_proof
 
-    if path.resolve() != (REPO / DEFAULT_WORK[3]).resolve():
+    if path.resolve() != default_work(3).resolve():
         raise ExerciseError(
             f"Lab 3 runs labs/lab3_reason/agent.py; save your Retrieval agent there, then deploy with {DEPLOY_AGENT}."
         )
@@ -611,7 +626,9 @@ def _print_lab3(report: dict) -> None:
 def grade(lab: int, work: Path) -> dict[str, Any]:
     """Grade one lab's written work and return the report."""
     if not work.exists():
-        raise ExerciseError(f"{work} does not exist; save your work there first")
+        raise ExerciseError(
+            f"{_shown(work)} does not exist; save your work there first"
+        )
     if lab == 3:
         return grade_lab3(work)
     values = load_context(lab)
@@ -661,7 +678,7 @@ def main() -> int:
             print(f"Lab {args.lab} comparison: CANNOT MEASURE - {error}")
             return 2
         return 0
-    work = args.work or DEFAULT_WORK[args.lab]
+    work = args.work or default_work(args.lab)
     try:
         report = grade(args.lab, work)
     except ExerciseError as error:
@@ -670,7 +687,7 @@ def main() -> int:
     {1: _print_lab1, 2: _print_lab2, 3: _print_lab3}[args.lab](report)
     report.update(
         lab=args.lab,
-        work=str(work),
+        work=_shown(work),
         work_sha256=hashlib.sha256(work.read_bytes()).hexdigest(),
         graded_at=datetime.now(UTC).isoformat(),
         verdict="FAIL" if report["failures"] else "PASS",

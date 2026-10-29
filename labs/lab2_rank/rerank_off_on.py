@@ -11,6 +11,7 @@ Nothing Shop serves changes; each search is saved like any other.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -81,7 +82,9 @@ def render(off: dict[str, Any], on: dict[str, Any], target: int) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--api-url", default="http://127.0.0.1:8000")
+    parser.add_argument(
+        "--api-url", default=os.getenv("LAB_API_URL", "http://127.0.0.1:8000")
+    )
     args = parser.parse_args(argv)
     mission = mission_for_lab(2)
     payload = request_payload(mission)

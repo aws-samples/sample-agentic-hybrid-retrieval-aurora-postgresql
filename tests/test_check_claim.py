@@ -90,3 +90,22 @@ def test_the_command_string_is_the_one_participants_type():
     from service.participant_commands import check_claim as command
 
     assert command(1551237, "…") == 'uv run python scripts/check_claim.py 1551237 "…"'
+
+
+def test_a_product_without_a_current_listing_is_named_not_a_traceback(
+    monkeypatch, capsys
+):
+    def no_listing(product_id):
+        raise LookupError(f"product {product_id} has no current listing record")
+
+    monkeypatch.setattr(check_claim, "get_product_summaries", lambda ids: [summary()])
+    monkeypatch.setattr(check_claim, "listing_record", no_listing)
+
+    assert check_claim.main([str(VIEWSONIC), "Anything [1]."]) == 2
+
+    captured = capsys.readouterr()
+    assert captured.err.startswith(
+        f"Claim check rule: product {VIEWSONIC} has no current"
+    )
+    assert "Traceback" not in captured.err
+    assert captured.out == ""

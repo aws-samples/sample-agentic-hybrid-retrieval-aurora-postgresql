@@ -17,6 +17,7 @@ calls in mosaic.agent_tool_event.
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import re
 import sys
@@ -34,7 +35,8 @@ from scripts.progress import bar
 from scripts.validate_lab import LabValidationError
 from service.config import get_settings
 from service.lab_validation_receipt import participant_sql_digest
-from service.participant_commands import APPLY_SQL
+from service.participant_commands import APPLY_SQL, STATUS
+from service.participant_commands import ask_agent as ask_command
 
 # Code Editor's terminal on a 16-inch laptop holds 124 characters a line. Every line stays
 # well inside it, so a long title or quote is shortened rather than wrapped mid-word.
@@ -72,8 +74,13 @@ def _plan(response: dict[str, Any]) -> list[str]:
 ROUTES = {"gateway": "through AgentCore Gateway", "in_process": "without Gateway"}
 
 
-def _search_sql(applied: str | None, workspace: str) -> str:
+def _search_sql(applied: str | None, workspace: str | None) -> str:
     """Which search SQL Aurora ran for one search, against the lab files in Code Editor."""
+    if workspace is None:
+        return (
+            "A lab SQL file could not be read, so the search SQL Aurora ran cannot be "
+            f"compared with it; {STATUS} names the file"
+        )
     if applied is None:
         return (
             "Aurora has no record of which search SQL ran; "
@@ -87,7 +94,7 @@ def _search_sql(applied: str | None, workspace: str) -> str:
     )
 
 
-def _trace(response: dict[str, Any], workspace: str) -> list[str]:
+def _trace(response: dict[str, Any], workspace: str | None) -> list[str]:
     """One line per tool call, then the search SQL under each search.
 
     A step the application ran itself, after the agent stopped, says so; the agent
@@ -138,6 +145,14 @@ def _citations(response: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _workspace_digest() -> str | None:
+    """The lab SQL files' digest, or None when one was deleted: the Run ID still prints."""
+    try:
+        return participant_sql_digest()
+    except OSError:
+        return None
+
+
 def render(response: dict[str, Any]) -> str:
     """The answer of record as plain text: answer, trace, products, citations, outcome."""
     answer = [
@@ -152,7 +167,7 @@ def render(response: dict[str, Any]) -> str:
     lines = [
         *_section("ANSWER", answer),
         *_section("PLAN", _plan(response)),
-        *_section("TOOL TRACE", _trace(response, participant_sql_digest())),
+        *_section("TOOL TRACE", _trace(response, _workspace_digest())),
         *_section("PRODUCTS", products),
         *_section("CITATIONS", _citations(response)),
         f"OUTCOME: {response['outcome']}",
@@ -239,6 +254,14 @@ def ask(base_url: str, question: str, *, timeout: float) -> dict[str, Any]:
             "fix: run `systemctl status mosaic-api` in the terminal. If it is not "
             "active, tell your facilitator"
         ) from error
+    except (http.client.HTTPException, ValueError) as error:
+        # The connection dropped or sent a broken event after the run began, so the
+        # API may still have saved it.
+        raise LabValidationError(
+            f"{STREAM_PATH} broke off mid-answer ({type(error).__name__}); the "
+            "Retrieval agent may still have saved this run. Fix: run the command "
+            "again, and if it happens twice, give this message to your facilitator"
+        ) from error
     raise LabValidationError(
         f"{STREAM_PATH} closed before the answer; fix: run the command again, and if "
         "it happens twice, give this message to your facilitator"
@@ -267,7 +290,7 @@ def main(argv: list[str] | None = None) -> int:
     if len(args.question.strip()) < MIN_QUESTION:
         print(
             f"Question rule: ask at least {MIN_QUESTION} characters, in quotes; "
-            'fix: uv run python scripts/ask_agent.py "Find headphones for calls"',
+            f"fix: {ask_command('Find headphones for calls')}",
             file=sys.stderr,
         )
         return 2

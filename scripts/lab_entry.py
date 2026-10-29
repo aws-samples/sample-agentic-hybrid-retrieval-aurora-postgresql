@@ -30,6 +30,7 @@ from scripts.lab_state import (
     applied_problem,
     assert_reset_database,
     explain_problems,
+    missing_file_problem,
     set_lab_state,
     source_problem,
     validate_database,
@@ -187,6 +188,11 @@ def _install_fault(lab: int, repo: Path, record: dict[str, Any], say: Say) -> No
     if step.get("state") == "done":
         return
     path = repo / LABS[lab][0]
+    if not path.exists():
+        # The same Git path a reset takes, so a deleted file starts from its starting
+        # code rather than failing; the fault is then already in place.
+        set_lab_state(lab, solved=False, repo=repo)
+        say(f"Put back {LABS[lab][0]} with its starting code; it was deleted.")
     current = _seam_sha256(lab, path.read_text())
     broken = _broken_seam_sha256(lab, path.read_text())
     if step.get("state") == "installing" and current not in {step["before"], broken}:
@@ -309,6 +315,8 @@ def start(
             f"Lab {lab} was started at {record['completed_at']}; your edits are unchanged."
         )
         return record
+    if lab not in FAULT_AT_ENTRY and (missing := missing_file_problem(lab, repo)):
+        raise LabEntryError(missing.line)
     assert_reset_database(dsn)
     with _connect(dsn) as connection:
         problems = unmet_prerequisites(lab, connection, repo)
@@ -394,6 +402,8 @@ def advance(
         LabEntryError: The lab has no handoff, or its repair is not ready to prove.
         LabValidationError: A live check failed; nothing for the next lab changed.
     """
+    if lab in {1, 2} and (missing := missing_file_problem(lab, repo)):
+        raise LabEntryError(missing.line)
     if lab == 1:
         return _advance_lab_1(api_url=api_url, dsn=dsn, repo=repo, say=say)
     if lab == 2:

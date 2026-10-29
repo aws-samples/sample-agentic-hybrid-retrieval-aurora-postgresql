@@ -1,5 +1,6 @@
 """`scripts/ask_agent.py` prints the deployed agent's answer of record from the terminal."""
 
+import http.client
 import json
 from io import BytesIO
 from urllib.error import HTTPError
@@ -471,3 +472,60 @@ def test_the_setup_command_asks_the_question_completion_checks():
 
     assert words[:4] == ["uv", "run", "python", "scripts/ask_agent.py"]
     assert asked.passed, asked.detail
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        http.client.IncompleteRead(b"partial", 100),
+        http.client.RemoteDisconnected("Remote end closed connection"),
+        json.JSONDecodeError("Expecting value", "{", 1),
+    ],
+    ids=["incomplete read", "remote disconnect", "broken event"],
+)
+def test_a_stream_that_breaks_mid_answer_is_a_clean_exit_not_a_traceback(
+    monkeypatch, capsys, failure
+):
+    class Breaking:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return False
+
+        def __iter__(self):
+            yield b"event: stage\n"
+            yield (
+                b"data: "
+                + json.dumps(
+                    {"id": "understand", "title": "Interpret request"}
+                ).encode()
+                + b"\n"
+            )
+            yield b"\n"
+            raise failure
+
+    monkeypatch.setattr(ask_agent, "urlopen", lambda *_a, **_k: Breaking())
+
+    code = ask_agent.main(["Find headphones for calls"])
+
+    captured = capsys.readouterr()
+    assert code == 1
+    assert "broke off mid-answer" in captured.err
+    assert type(failure).__name__ in captured.err
+    assert "may still have saved this run" in captured.err
+    assert "Traceback" not in captured.err
+
+
+def test_a_deleted_lab_sql_file_does_not_stop_the_run_id_printing(monkeypatch):
+    from service.participant_commands import STATUS
+
+    def deleted():
+        raise FileNotFoundError("labs/lab1_retrieve/hybrid_search.sql")
+
+    monkeypatch.setattr(ask_agent, "participant_sql_digest", deleted)
+
+    text = ask_agent.render(gateway_run("a" * 64))
+
+    assert text.splitlines()[-1].startswith("Run ID: ")
+    assert "could not be read" in text and STATUS in text

@@ -383,3 +383,26 @@ def test_deploy_records_the_retrieval_agent_version_it_made_ready(monkeypatch):
     deploys_path().write_text("{not json")
     record_deploy("3", "d" * 64)
     assert [item.runtime_version for item in load_deploys()] == ["3"]
+
+
+@pytest.mark.parametrize(
+    ("env", "expected"),
+    [
+        ({"AWS_REGION": "us-west-2", "AWS_DEFAULT_REGION": "eu-west-1"}, "us-west-2"),
+        ({"AWS_DEFAULT_REGION": "us-west-2"}, "us-west-2"),
+        ({}, "us-east-1"),
+    ],
+)
+def test_the_clients_use_the_terminals_region_before_the_default(
+    monkeypatch, env, expected
+):
+    monkeypatch.delenv("AWS_REGION", raising=False)
+    monkeypatch.delenv("AWS_DEFAULT_REGION", raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    made = []
+    monkeypatch.setattr(deploy.boto3, "client", lambda *a, **k: made.append(k))
+
+    deploy.client("bedrock-agentcore-control")
+
+    assert made[0]["region_name"] == expected

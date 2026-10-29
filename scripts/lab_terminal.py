@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import re
 import sys
 import time
@@ -438,7 +439,9 @@ def main() -> int:
     parser.add_argument("action", choices=("run", "wait"))
     parser.add_argument("--lab", type=int, choices=(1, 2, 3))
     parser.add_argument("--phase", choices=("before", "after"))
-    parser.add_argument("--api-url", default="http://127.0.0.1:8000")
+    parser.add_argument(
+        "--api-url", default=os.getenv("LAB_API_URL", "http://127.0.0.1:8000")
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if args.action == "wait":
@@ -466,7 +469,7 @@ def main() -> int:
             args.lab,
             args.phase,
             args.api_url,
-            args.output or Path(f".local/lab-{args.lab}"),
+            args.output or ROOT / f".local/lab-{args.lab}",
         )
     except LabValidationError as error:
         raise SystemExit(f"Lab {args.lab}: {error}") from error

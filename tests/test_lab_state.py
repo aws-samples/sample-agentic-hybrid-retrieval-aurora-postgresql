@@ -1,4 +1,5 @@
 import json
+import subprocess
 from pathlib import Path
 from shutil import copy2, rmtree
 
@@ -939,3 +940,273 @@ def test_diff_tool_names_the_lab_files_for_an_unknown_file(lab_repo: Path) -> No
         ValueError, match=r"Diff rule: README.md is not a lab file.*hybrid_search"
     ):
         diff.report("README.md", repo=lab_repo)
+
+
+def _missing_message(lab: int) -> str:
+    from service.participant_commands import reset
+
+    return (
+        f"Lab {lab}: FILE MISSING ({LABS[lab].exercise}). Next: run {reset(lab)} to "
+        "put back its starting code; your edits to that file are gone either way."
+    )
+
+
+@pytest.mark.parametrize("lab", [1, 2, 3])
+def test_diff_with_the_exercise_deleted_names_the_way_back(
+    lab_repo: Path, lab: int
+) -> None:
+    from scripts import diff
+
+    (lab_repo / LABS[lab].exercise).unlink()
+
+    with pytest.raises(ValueError) as refused:
+        lab_diff(lab, repo=lab_repo)
+    with pytest.raises(ValueError) as listed:
+        diff.report(repo=lab_repo)
+
+    assert str(refused.value) == _missing_message(lab)
+    assert _missing_message(lab) in str(listed.value)
+
+
+def test_the_diff_command_exits_cleanly_on_a_deleted_file(
+    lab_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from scripts import diff
+
+    (lab_repo / LABS[1].exercise).unlink()
+    report = diff.report
+    monkeypatch.setattr(diff, "report", lambda *a, **k: report(*a, repo=lab_repo, **k))
+    monkeypatch.setattr("sys.argv", ["diff.py"])
+
+    with pytest.raises(SystemExit) as refused:
+        diff.main()
+
+    assert str(refused.value) == _missing_message(1)
+
+
+@pytest.mark.parametrize("lab", [1, 2, 3])
+def test_a_deleted_exercise_is_not_solved_and_has_no_source_problem_traceback(
+    lab_repo: Path, lab: int
+) -> None:
+    from scripts.lab_state import lab3_problem, source_problem
+
+    (lab_repo / LABS[lab].exercise).unlink()
+
+    assert lab_is_solved(lab, repo=lab_repo) is False
+    if lab == 3:
+        assert "deleted" in lab3_problem(repo=lab_repo)
+    else:
+        problem = source_problem(lab, repo=lab_repo)
+        assert problem is not None and problem.line == _missing_message(lab)
+
+
+@pytest.mark.parametrize("lab", [1, 2, 3])
+def test_validate_with_the_exercise_deleted_exits_with_the_way_back(
+    lab_repo: Path, lab: int
+) -> None:
+    from scripts import lab_state
+
+    (lab_repo / LABS[lab].exercise).unlink()
+
+    with pytest.raises(SystemExit) as refused:
+        lab_state._validate_command(lab, "", repo=lab_repo)
+
+    assert str(refused.value) == _missing_message(lab)
+
+
+def _interrupted_record(lab: int, repo: Path) -> None:
+    from scripts.lab_entry import RECORD_VERSION, record_path
+
+    record = record_path(lab, repo)
+    record.parent.mkdir(parents=True, exist_ok=True)
+    record.write_text(json.dumps({"version": RECORD_VERSION, "lab": lab, "steps": {}}))
+
+
+@pytest.mark.parametrize("interrupted", [False, True])
+@pytest.mark.parametrize("lab", [2, 3])
+def test_status_reports_a_deleted_file_before_any_start_state(
+    lab_repo: Path, lab: int, interrupted: bool
+) -> None:
+    from scripts.lab_state import status_line
+
+    if interrupted:
+        _interrupted_record(lab, lab_repo)
+    (lab_repo / LABS[lab].exercise).unlink()
+
+    assert status_line(lab, repo=lab_repo) == _missing_message(lab)
+
+
+def test_an_emptied_block_is_reported_after_its_marker_line_not_line_zero() -> None:
+    from scripts.lab_state import _plain_differences
+
+    [(where, _label, expected, yours)] = _plain_differences(
+        ["a", "b"], [], [], fallback_line=7
+    )
+
+    assert where == "Missing from your file, after line 7"
+    assert (expected, yours) == (["a", "b"], [])
+
+
+def test_diff_of_a_block_emptied_of_everything_names_its_marker_line(
+    lab_repo: Path,
+) -> None:
+    path = lab_repo / LABS[2].exercise
+    start, end = LABS[2].blocks[0].start, LABS[2].blocks[0].end
+    source = path.read_text(encoding="utf-8")
+    emptied = (
+        source[: source.index(start) + len(start)] + "\n" + source[source.index(end) :]
+    )
+    path.write_text(emptied, encoding="utf-8")
+    marker_line = emptied.split(start, 1)[0].count("\n") + 1
+
+    report, differs = lab_diff(2, repo=lab_repo)
+
+    assert differs
+    assert f"missing from your file, after line {marker_line}:" in report.lower()
+    assert "after line 0" not in report
+
+
+def test_trailing_spaces_on_a_marker_line_do_not_shift_the_reported_lines(
+    lab_repo: Path,
+) -> None:
+    from scripts.lab_state import _block_span
+
+    path = lab_repo / LABS[2].exercise
+    start, end = LABS[2].blocks[0].start, LABS[2].blocks[0].end
+    source = path.read_text(encoding="utf-8")
+    clean_first, clean_lines = _block_span(source, start, end, path=path)
+    padded = source.replace(start + "\n", start + "   \t\n", 1)
+
+    first, lines = _block_span(padded, start, end, path=path)
+
+    assert (first, lines) == (clean_first, clean_lines)
+    path.write_text(padded, encoding="utf-8")
+    assert lab_diff(2, repo=lab_repo)[1] is False
+
+
+def test_a_padded_marker_keeps_the_participants_line_numbers_exact(
+    lab_repo: Path,
+) -> None:
+    path = lab_repo / LABS[2].exercise
+    start = LABS[2].blocks[0].start
+    set_lab_state(2, solved=False, repo=lab_repo)
+    padded = path.read_text().replace(start + "\n", start + "  \n", 1)
+    path.write_text(padded)
+
+    report, differs = lab_diff(2, repo=lab_repo)
+
+    first_block_line = padded.splitlines().index(start + "  ") + 2
+    assert differs
+    assert (
+        f"at line {first_block_line}" in report
+        or f"lines {first_block_line}-" in report
+    )
+
+
+@pytest.mark.parametrize("action", ["start", "advance", "reset"])
+def test_a_dataset_mismatch_during_entry_is_a_clean_exit_that_says_nothing_was_applied(
+    monkeypatch: pytest.MonkeyPatch, action: str, capsys
+) -> None:
+    from scripts import lab_entry, lab_state
+
+    def refuse(*_args, **_kwargs):
+        raise ValueError(
+            "Lab catalog rule: found dataset 'other'; fix: select the workshop"
+        )
+
+    monkeypatch.setattr("sys.argv", ["lab_state.py", action, "--lab", "1"])
+    for name in ("start", "advance", "restart"):
+        monkeypatch.setattr(lab_entry, name, refuse)
+
+    with pytest.raises(SystemExit) as exit_info:
+        lab_state.main()
+
+    assert str(exit_info.value) == (
+        "Lab catalog rule: found dataset 'other'; fix: select the workshop\n"
+        "Nothing was applied: Aurora still runs its previous functions."
+    )
+
+
+def test_validate_points_lab_1_at_its_proof_not_back_at_itself(
+    monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    from scripts import lab_state
+    from service.participant_commands import ADVANCE_TO_LAB_2, repeat_request
+
+    monkeypatch.setattr(lab_state, "source_problem", lambda _lab, **_k: None)
+    monkeypatch.setattr(lab_state, "_applied_problem_in", lambda *_: None)
+
+    assert lab_state._validate_command(1, "postgresql://aurora") == 0
+
+    out = capsys.readouterr().out
+    assert f"Next: {repeat_request(1)}, then {ADVANCE_TO_LAB_2}" in out
+    assert "validate_lab.py" not in out
+
+
+def _break_solution_markers(checkout: Path, lab: int) -> Path:
+    reference = checkout / solution_path(Path(LABS[lab].exercise))
+    start = LABS[lab].blocks[0].start
+    reference.write_text(
+        _without_line(reference.read_text(encoding="utf-8"), start), encoding="utf-8"
+    )
+    return reference
+
+
+@pytest.mark.parametrize("lab", [1, 2, 3])
+def test_a_solution_file_with_broken_markers_does_not_stop_the_scripts(
+    monkeypatch: pytest.MonkeyPatch, shipped_labs: Path, lab: int
+) -> None:
+    """Every script builds LABS at import; a broken solution must not end `reset` there."""
+    from scripts import lab_state
+
+    monkeypatch.setattr(lab_state, "REPO", shipped_labs)
+    _break_solution_markers(shipped_labs, lab)
+    exercise = Path(LABS[lab].exercise)
+    blocks = tuple((b.start, b.end, b.broken) for b in LABS[lab].blocks)
+
+    assert lab_state._seam(exercise, *blocks) == LABS[lab]
+
+
+@pytest.mark.parametrize("lab", [1, 2, 3])
+def test_reset_restores_a_solution_file_whose_markers_were_broken(
+    monkeypatch: pytest.MonkeyPatch, shipped_labs: Path, lab: int
+) -> None:
+    from scripts import lab_state
+
+    monkeypatch.setattr(lab_state, "REPO", shipped_labs)
+    reference = _break_solution_markers(shipped_labs, lab)
+    shipped = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(shipped_labs),
+            "show",
+            f"HEAD:{reference.relative_to(shipped_labs)}",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+
+    set_lab_state(lab, solved=False, repo=shipped_labs)
+
+    assert reference.read_text(encoding="utf-8") == shipped
+    assert LABS[lab].blocks[0].broken.strip() in (
+        shipped_labs / LABS[lab].exercise
+    ).read_text(encoding="utf-8")
+
+
+def test_a_solution_file_neither_disk_nor_git_can_supply_is_a_plain_exit(
+    monkeypatch: pytest.MonkeyPatch, shipped_labs: Path
+) -> None:
+    from scripts import lab_state
+
+    monkeypatch.setattr(lab_state, "REPO", shipped_labs)
+    _break_solution_markers(shipped_labs, 2)
+    rmtree(shipped_labs / ".git")
+    blocks = tuple((b.start, b.end, b.broken) for b in LABS[2].blocks)
+
+    with pytest.raises(
+        SystemExit, match="Lab file rule: .*solution/rrf_contribution.sql"
+    ):
+        lab_state._seam(Path(LABS[2].exercise), *blocks)

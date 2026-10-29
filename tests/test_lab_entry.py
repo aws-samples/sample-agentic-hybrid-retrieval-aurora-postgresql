@@ -677,3 +677,76 @@ def test_lab_1_is_not_validated_under_an_unrepaired_lab_2(repo, aurora, handoff_
     with pytest.raises(lab_entry.LabEntryError, match="ranking fault can hide"):
         lab_entry.advance(1, api_url="http://api", dsn="aurora", repo=repo)
     assert handoff_checks == []
+
+
+@pytest.mark.parametrize("interrupted", [False, True])
+@pytest.mark.parametrize("lab", [2, 3])
+def test_start_puts_back_a_deleted_exercise_before_installing_the_fault(
+    repo, aurora, lab: int, interrupted: bool
+) -> None:
+    aurora.applied[2] = "applied"
+    if lab == 2 and interrupted:
+        _interrupt_before_the_file_changed(repo)
+    _seam_file(lab, repo).unlink()
+    said: list[str] = []
+
+    record = _start(lab, repo, said)
+
+    assert _seam_file(lab, repo).exists()
+    assert not lab_is_solved(lab, repo=repo)
+    assert record["completed_at"]
+    assert any("Put back" in line and "deleted" in line for line in said)
+
+
+def test_lab_1_start_refuses_a_deleted_exercise_with_the_way_back(repo, aurora) -> None:
+    _seam_file(1, repo).unlink()
+
+    with pytest.raises(lab_entry.LabEntryError) as refused:
+        _start(1, repo)
+
+    assert str(refused.value) == lab_entry.missing_file_problem(1, repo).line
+    assert (aurora.applies, aurora.captures) == (0, 0)
+
+
+@pytest.mark.parametrize("interrupted", [False, True])
+@pytest.mark.parametrize("lab", [1, 2])
+def test_advance_refuses_a_deleted_exercise_with_the_way_back(
+    repo, aurora, lab: int, interrupted: bool
+) -> None:
+    if lab == 2 and interrupted:
+        _interrupt_before_the_file_changed(repo)
+    _seam_file(lab, repo).unlink()
+
+    with pytest.raises(lab_entry.LabEntryError) as refused:
+        lab_entry.advance(lab, api_url="http://api", dsn="aurora", repo=repo)
+
+    assert str(refused.value) == lab_entry.missing_file_problem(lab, repo).line
+    assert (aurora.applies, aurora.captures) == (0, 0)
+
+
+def test_a_start_with_an_earlier_lab_file_deleted_names_it(repo, aurora) -> None:
+    _seam_file(1, repo).unlink()
+
+    with pytest.raises(lab_entry.LabEntryError) as refused:
+        _start(2, repo)
+
+    assert "Lab 1: FILE MISSING" in str(refused.value)
+
+
+def test_restart_with_the_lab_1_folder_deleted_names_it_and_changes_nothing(
+    shipped_labs: Path, aurora
+) -> None:
+    from shutil import rmtree
+
+    lab_2 = _seam_file(2, shipped_labs).read_bytes()
+    rmtree(shipped_labs / "labs/lab1_retrieve")
+
+    with pytest.raises(lab_entry.LabEntryError) as refused:
+        lab_entry.restart(
+            2, api_url="http://api", dsn="aurora", repo=shipped_labs, say=print
+        )
+
+    assert "Lab 2 cannot restart yet." in str(refused.value)
+    assert "Lab 1: FILE MISSING" in str(refused.value)
+    assert _seam_file(2, shipped_labs).read_bytes() == lab_2
+    assert not lab_entry.record_path(2, shipped_labs).exists()

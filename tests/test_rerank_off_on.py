@@ -106,3 +106,19 @@ def test_help_names_the_purpose(argv, capsys):
     with pytest.raises(SystemExit):
         off_on.main(argv)
     assert "reranking off, then on" in capsys.readouterr().out
+
+
+def test_the_api_url_comes_from_lab_api_url_like_the_other_lab_commands(
+    monkeypatch, capsys
+):
+    urls = []
+
+    def fake_request(base_url, path, payload=None):
+        urls.append(base_url)
+        return ON if payload["rerank"] else OFF
+
+    monkeypatch.setenv("LAB_API_URL", "http://api.internal:9000")
+    monkeypatch.setattr(off_on, "_request", fake_request)
+
+    assert off_on.main([]) == 0
+    assert urls == ["http://api.internal:9000"] * 2

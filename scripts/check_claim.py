@@ -69,10 +69,18 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
-    record = listing_record(args.product_id)
-    print(f"[1] {record.evidence_type}  {record.product_id}  {record.title}")
-    print(f"Sentence: {args.sentence}")
-    passed, detail = check(args.product_id, args.sentence)
+    try:
+        record = listing_record(args.product_id)
+        print(f"[1] {record.evidence_type}  {record.product_id}  {record.title}")
+        print(f"Sentence: {args.sentence}")
+        passed, detail = check(args.product_id, args.sentence)
+    except LookupError:
+        print(
+            f"Claim check rule: product {args.product_id} has no current listing record "
+            "to cite as [1]; fix: use a product ID from your run's PRODUCTS list",
+            file=sys.stderr,
+        )
+        return 2
     print(("PASS: " if passed else "BLOCKED: ") + detail)
     return 0 if passed else 1
 

@@ -257,3 +257,42 @@ def test_lab3_names_the_contract_part_the_agent_misses(monkeypatch):
     monkeypatch.setattr(lab_exercise.lab_state, "lab3_problem", lambda: clause)
     with pytest.raises(ExerciseError, match="hooks=hooks"):
         lab_exercise.grade_lab3(ROOT / lab_exercise.DEFAULT_WORK[3])
+
+
+def test_a_missing_context_names_the_command_that_saves_one(monkeypatch, tmp_path):
+    from service.participant_commands import repeat_request
+
+    monkeypatch.setattr(lab_exercise, "REPO", tmp_path)
+
+    for lab in (1, 2):
+        with pytest.raises(ExerciseError) as refused:
+            lab_exercise.load_context(lab)
+        assert f"run `{repeat_request(lab)}` first" in str(refused.value)
+        assert "--phase before" not in str(refused.value)
+
+
+def test_a_saved_run_for_another_request_names_the_repeat_command():
+    from service.participant_commands import repeat_request
+
+    cur = MagicMock()
+    cur.fetchone.return_value = None
+
+    with pytest.raises(ExerciseError) as refused:
+        lab_exercise._saved_run(
+            cur, {"lab_search_id": "s", "lab_query": "q", "lab_filters": "{}"}
+        )
+
+    assert str(refused.value).endswith(f"rerun `{repeat_request(2)}`")
+
+
+def test_the_graded_files_are_found_from_the_checkout_not_the_shells_folder(
+    tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+
+    for lab in (1, 2, 3):
+        assert lab_exercise.default_work(lab).is_relative_to(ROOT)
+    assert lab_exercise.default_work(3) == ROOT / "labs/lab3_reason/agent.py"
+    assert lab_exercise._shown(lab_exercise.default_work(2)) == (
+        "labs/lab2_rank/rrf_contribution.sql"
+    )
