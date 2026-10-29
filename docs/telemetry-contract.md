@@ -105,8 +105,8 @@ neither. A working Gateway call or an Aurora receipt is not evidence that a
 CloudWatch trace was delivered. Follow the official
 [AgentCore observability setup](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability-configure.html)
 when adding this optional operator capability, and verify actual spans before
-claiming it works. The Runtime execution role's `logs:PutResourcePolicy` grant
-allows its log policy setup; it does not itself enable Transaction Search.
+claiming it works. The stack's log-configuration Lambda, not the Runtime execution role,
+holds `logs:PutResourcePolicy`; setting that policy does not itself enable Transaction Search.
 
 Managed evaluations remain optional and need approved content capture; Mosaic's
 retrieval and citation assertions remain Aurora-owned. Do not enable content

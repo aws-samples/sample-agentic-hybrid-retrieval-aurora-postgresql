@@ -19,7 +19,7 @@ does not update Aurora or Runtime. Complete the guide's proof before moving on.
 <summary>🛠️ Recovery</summary>
 
 `uv run python scripts/lab_state.py reset --lab N` discards that lab's edits
-and restores its starting code. The guide's Hint 4 applies the reference answer;
+and restores its starting code. The guide's Solution tab applies the reference answer;
 the lab README links its hidden `solution/` copy. Recovery still needs proof.
 
 </details>

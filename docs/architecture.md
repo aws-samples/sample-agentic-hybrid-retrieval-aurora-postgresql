@@ -86,8 +86,8 @@ flowchart LR
 
 Bootstrap restores the saved Cohere vectors; it does not generate products or
 re-embed the catalog. [ARTIFACTS.md](../ARTIFACTS.md) describes the pinned bundle
-and Aurora-only restore. Historical generators and CSV shards remain for
-regression tests and are excluded from fresh workshops. Historical scorecards
+and Aurora-only restore. Retired synthetic generators and fixtures are recoverable only from
+Git history and are excluded from fresh workshops. Historical scorecards
 and scale benchmarks cannot certify this catalog; current-catalog measurements
 must carry matching provenance.
 

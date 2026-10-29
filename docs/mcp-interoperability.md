@@ -27,7 +27,7 @@ runtime-result parity that was not measured.
 ## Protocol and dependency boundary
 
 The MCP service implements specification revision `2026-07-28` with the MCP
-Python SDK `2.0.0`. Its Streamable HTTP endpoint is stateless and supports
+Python SDK `2.2.0`. Its Streamable HTTP endpoint is stateless and supports
 `server/discover`, the per-request protocol envelope, and the `Mcp-Method` and
 `Mcp-Name` routing headers. This is the portable contract; it does not create
 another retrieval pipeline or agent harness.

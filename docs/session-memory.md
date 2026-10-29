@@ -103,7 +103,7 @@ already apply it. The additive `mosaic.shopper_profile` table connects a browser
 actor to its active Aurora session.
 
 ```bash
-uv run python scripts/checks/setup_session_memory.py --region us-east-1 --create --configure-strategies
+uv run python scripts/checks/setup_session_memory.py --region <event Region> --create --configure-strategies
 ```
 
 The script creates a dedicated resource or adds missing Mosaic strategies to the

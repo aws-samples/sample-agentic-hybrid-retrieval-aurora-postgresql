@@ -49,7 +49,7 @@ request and the 100W follow-up with `scripts/ask_agent.py`, then complete with
 optional view of the same runs.
 
 Each lab opens with its time and a link to **Running behind**. That section's
-collapsed **Use the reference answer (replaces your marked edit)** command runs
+collapsed **Use the reference answer (replaces your exercise)** command runs
 `uv run python scripts/lab_state.py finish --lab N`: it installs the answer,
 applies or deploys it and runs the checks and handoff. Recovery follows the
 participant's proof. `reset --lab N` restarts a lab.
@@ -206,7 +206,7 @@ copy; Gateway and Runtime faults still show as errors.
 
 Ask Mosaic is optional. Its **Complete my setup** suggested question sends the same
 request and passes completion only as the first message of a fresh chat (use
-**Clear chat**); its **Show tool calls** switch, on by default, shows the full run
+**New conversation**); its **Show tool calls** switch, on by default, shows the full run
 ID, recorded steps and per-search ranks under each answer. The suggested question runs on its own filters and shows "Shop filters
 were cleared for this lab request." when it replaces filters a participant had
 set. After the request, Shop shows the terminal command that checks that run,

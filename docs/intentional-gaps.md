@@ -40,7 +40,7 @@ The three repaired capabilities form the `Retrieve -> Rank -> Reason` path. The 
 |---|---|---|
 | `typo-recovery` | pg_trgm candidate arm | `labs/lab1_retrieve/hybrid_search.sql` reads the `typo AS (SELECT * FROM mosaic_search.search_trigram(...))` CTE in the `channels` branch between the `LAB1_EDIT` markers |
 | `rank-with-evidence` | reciprocal-rank contribution | `mosaic_search.reciprocal_rank_contribution` computes `1 / (k + rank)` |
-| `agentic-research` | evidence-to-synthesis state | `service/agent_tools.get_product_evidence` records evidence IDs by product |
+| `agentic-research` | the Retrieval agent's assembly | `labs/lab3_reason/agent.py` `create_agent` builds the agent from the supplied model, tools, instructions and hooks; `service/agent_setup.py` names it when it still raises `NotImplementedError` |
 
 ## Gap contract
 
@@ -125,7 +125,7 @@ two are told apart by the response, not by the board:
 | Symptom | What it is | Where to look |
 |---|---|---|
 | HTTP 200, `outcome: "declined"`, no recommendation | the coverage refusal, working | the answer names the unmatched terms |
-| HTTP 200, `outcome: "grounded"`, recommendation with no resolvable citation | GAP-3, unrepaired | `service/agent_tools.get_product_evidence` evidence state |
+| HTTP 503, code `agent_setup`, "Your Retrieval agent is not built yet" | GAP-3, unrepaired | `labs/lab3_reason/agent.py` `create_agent`; `service/agent_setup.py` writes the message |
 | HTTP 503 | the fail-closed pipeline signal Lab 3 teaches | retrieval or grounded synthesis never produced an answer of record |
 
 The Lab 3 mission question is anchored: every term it uses exists in the
@@ -142,7 +142,7 @@ recorded so nobody reclassifies a fixed bug as an exercise.
 | `BUSINESS_WEIGHT=0.15` exceeding the 0.05 bound | crashed every search with an unhandled 500; no assertion covers it and no repair narrative mentions it | `service.config.ConfigurationError` refuses out-of-range values at startup; `tests/test_service_config.py` |
 | `search_fts` AND-only query construction | broke the missions that then declared `fts`, and no `fts_signal_present` assertion existed to detect it | `search_fts` keeps the strict `websearch_to_tsquery` match, then backs off to an AND query (`&`-joined) over at most four salient lexemes when the strict match returns nothing: longest lexemes first, numeric-only lexemes dropped, filtered through an intent stoplist, and kept only when the corpus contains them. There is no OR-combine and no negation guard; `fts_signal_present` added to `service/assertions.py` |
 | MCP `/retrieval/runs/` path | route never existed; nothing to restore | tool requests `/retrieval/events/{id}`; `tests/test_mcp_route_contract.py` resolves it against the real route table |
-| `sql/05_typo_tolerance_lab.sql` targeting `catalog.*` | taught against a schema the API does not read | ported to `db/sql/lab_01_typo_tolerance.sql` against `mosaic_search` |
+| `sql/05_typo_tolerance_lab.sql` targeting `catalog.*` | taught against a schema the API does not read | ported to `labs/lab1_retrieve/hybrid_search.sql` against `mosaic_search` |
 
 All four were measured on the live 500,000-product Aurora cluster before and
 after the fix. The shipped `search_fts` left the missions that then declared

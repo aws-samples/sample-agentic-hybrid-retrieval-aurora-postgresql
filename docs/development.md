@@ -12,7 +12,7 @@ this single-participant sample to a shared application.
 
 You need Python 3.13, [uv](https://docs.astral.sh/uv/), Node.js 22 (22.12 or later)
 with npm, PostgreSQL client tools, AWS credentials for Amazon Bedrock in
-`us-east-1`, and access to an Aurora cluster with the Mosaic catalog loaded.
+the Region you deploy to (`us-east-1` is the recommended one), and access to an Aurora cluster with the Mosaic catalog loaded.
 See [Aurora deployment](aurora-deployment.md) for provisioning.
 
 **Aurora only:** there is no local database path. Set `DATABASE_URL` to the
@@ -73,7 +73,7 @@ make check-shop-collection
 make check-hnsw-anchors
 ```
 
-The full Python gate includes 9 integration tests against Aurora. See
+The full Python gate includes 10 integration tests against Aurora. See
 [READINESS.md](../READINESS.md) for the complete release gates and
 [the evaluation plan](evaluation-plan.md) before running model-backed scoring.
 Source CI does not certify a fresh deployment or a new relevance scorecard.

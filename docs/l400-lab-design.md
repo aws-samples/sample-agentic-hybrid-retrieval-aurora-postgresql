@@ -32,10 +32,9 @@ digests prevent a stale deployed reference from completing the exercise.
 
 ## Guide format
 
-Each lab has Scenario and objectives, Architecture and concepts, Tasks,
-Conclusion and takeaways, Troubleshooting and Next. Labs 1 and 2 use Observe,
-Diagnose, Repair and Prove. Lab 3 uses Connect tools, Build the agent, Deploy and
-Use it. Required steps state the command or edit, what to inspect and how to prove it.
+Each lab has a Concepts page and an Exercise page. The Exercise page has four
+verb-led sections that follow Broken, Diagnose, Fix and Prove, then Running
+behind. Required steps state the command or edit, what to inspect and how to prove it.
 Reference explanations and optional extensions stay in collapsible sections;
 the lab READMEs are reminders, not a second full walkthrough.
 
@@ -62,10 +61,10 @@ are not participant exercises.
 
 ## Pacing and release
 
-The source contract allocates 10 minutes to the opening, 10 to Lab 1, 10 to
-Lab 2, 20 to Lab 3 including completion, and 10 to optional work. The Introduction
-page itself takes about five minutes; opening the prepared tools uses the rest
-of the opening block.
+The source contract allocates 15 minutes to orientation (a 10-minute presenter
+introduction, then 5 to open the prepared tools through Getting started), 10 to
+Lab 1, 10 to Lab 2, 20 to Lab 3 including completion, and 5 to wrap-up and
+questions. Optional exercises are untimed.
 
 Older EC2-only timings do not establish the new managed path's duration. Record
 a timed participant rehearsal of deployment, conversation and completion.

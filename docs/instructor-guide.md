@@ -61,12 +61,12 @@ inside the production validators:
 | Stage | Run | Proof |
 |---|---|---|
 | Retrieve | `G-003` | In this measured request, neither FTS nor the bounded semantic pool contains the target; restoring the trigram channel recovers it |
-| Retrieve | `G-001` | Correct listing ID remains first with an exact-term match |
+| Retrieve | `G-001` | Correct listing ID remains first with a full-text search match |
 | Retrieve | `G-012` | Every saved product satisfies the Logitech brand and headphones category |
 | Rank | `G-008` | RRF moves from rank-collapsing arithmetic to `1 / (k + source_rank)` |
 | Rank | `G-007` | Dell U2720Q and SE2717H provide an explicit 4K-versus-1080p comparison |
 | Rank | `G-009` | Dell brand and monitor category remain pre-ranking requirements |
-| Reason | `G-021` | Evidence plumbing moves a fail-closed response to a grounded cited comparison |
+| Reason | `G-021` | Assembling the Retrieval agent moves a setup refusal to a grounded cited comparison |
 | Reason | `G-019` | Logitech specification and sampled review claims resolve to separate source records; one review is one experience, and other reviews of the listing disagree |
 
 The query text, filters, targets, bad observation, good observation, and
@@ -238,18 +238,18 @@ plans and measured comparisons beside the lab that uses them.
 | 04:00-05:30 | Rank | Ask how we know fusion worked if a monitor finishes well. Participants will restore `1 / (k + rank)` and defend a setting on judged queries. | Technical |
 | 05:30-07:00 | Reason | Preview the final request below. Do not start a long Retrieval agent run in the opening. | Lead |
 | 07:00-08:30 | Who owns each decision | Aurora retrieves, filters and saves records. Bedrock supplies embeddings, reranking and the Retrieval agent's model. The application validates tool calls and citations. Show one saved search ID. | Aurora presenter |
-| 08:30-10:00 | Your work and its proof | Open the guide and both work surfaces. Observe, diagnose, repair, repeat the same request, explain the change. Required work finishes by minute 50. | Lead |
+| 08:30-10:00 | Your work and its proof | Open the guide and both work surfaces. Observe, diagnose, repair, repeat the same request, explain the change. Required work finishes by minute 55. | Lead |
 
 Lab 3's request, from the manifest:
 
 > I have the Logitech Zone 900 headphones and the ViewSonic VG2756-4K monitor.
 > Now I need a chair, and I'm looking at the Steelcase Gesture. Help me complete
-> my room, and show me the sources for all three.
+> my setup, and show me the sources for all three.
 
 Lab 2's request is `27 inch 4K monitor USB-C 90W laptop charging` under the
 consumer electronics domain and monitor category. Its target, ViewSonic
 VG2756-4K (product 1551237), is absent from the combined 50 before the repair.
-After it, the target has meaning rank 10, combined position 21 and final
+After it, the target has semantic search rank 10, combined position 21 and final
 position 5. A Lenovo T27hv-20, which is 1440p, appears among the broken
 results for a 4K request. Do not require the target to lead before reranking and
 do not label every other monitor unsuitable.
@@ -321,7 +321,7 @@ talk slots; one person can cover several roles.
 | Lead presenter | Customer story, clock, projected browser and transitions | What changed for Alex, and which record shows it? |
 | SQL presenter | Candidate paths, filtering, fusion arithmetic and plan reading | Does the SQL or plan support the database claim? |
 | Retrieval agent presenter | Tool decisions, application checks, source comparison and claim support | Which action did the model request, and what could the application refuse? |
-| Room support | Navigation, syntax recovery, validator results and Hint 4 pacing | Can the participant explain the repair using their own result? |
+| Room support | Navigation, syntax recovery, validator results and Running behind pacing | Can the participant explain the repair using their own result? |
 | Technical reviewer | Challenging database, ranking and answer claims during rehearsal | Does the plan support the claim, does the measurement justify the setting, does the source support the answer? |
 
 The lead keeps asking what the shopper saw, why seeing a product is not enough
@@ -358,8 +358,8 @@ still needs to check. Do not start a new model call to produce a cleaner finale.
 The completion check rechecks the participant's saved run; the scorecard is a
 separately dated measurement.
 
-Close with **Use it in your own agent** in Playground: **Download the retrieval
-code**, **Download the agent skill**, **Connect over MCP**. MCP or
+Close with **Use it in your own agent** in Playground: **Download the SQL and
+guide**, **Download the agent skill**, **Connect over MCP**. MCP or
 HTTP connects another host to a running service; the skill adds workflow and
 evidence-checking guidance for those tools. Neither enforces permissions; the
 service and database role do. The skill does not host the catalog, and the event
