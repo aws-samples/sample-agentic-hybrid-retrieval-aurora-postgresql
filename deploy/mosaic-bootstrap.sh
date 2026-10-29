@@ -414,9 +414,11 @@ CLAUDE_CODE_VERSION=$(claude --version | awk '{print $1}')
 test -n "$CLAUDE_CODE_VERSION"
 echo "Claude Code $CLAUDE_CODE_VERSION installed"
 
-cat >/etc/profile.d/mosaic-claude.sh <<'EOF'
-export AWS_REGION=us-east-1
-export AWS_DEFAULT_REGION=us-east-1
+# The stack's Region: an event may run in any Region the workshop is validated in, and
+# Claude Code must call Bedrock in the one it runs in.
+cat >/etc/profile.d/mosaic-claude.sh <<EOF
+export AWS_REGION=$AWS_REGION
+export AWS_DEFAULT_REGION=$AWS_REGION
 export CLAUDE_CODE_USE_BEDROCK=1
 export ANTHROPIC_MODEL=global.anthropic.claude-sonnet-5-5
 export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1

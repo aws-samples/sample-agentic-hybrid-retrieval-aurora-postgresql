@@ -900,6 +900,28 @@ signal_failure 17
     assert marker.exists()
 
 
+def test_the_bootstrap_takes_its_region_from_the_stack(script: str) -> None:
+    """Workshop Studio can deploy an event to us-east-1 or us-west-2; nothing may assume one.
+
+    The stack passes AWS_REGION; a literal Region would point Claude Code, or anything
+    else, at a Region the event does not run in, which fails when that Region is down.
+    """
+    literals = sorted(
+        set(re.findall(r"\b[a-z]{2}-(?:east|west|north|south|central)-\d\b", script))
+    )
+    assert not literals, (
+        f"the bootstrap names {literals}; use $AWS_REGION from the stack"
+    )
+    profile = script.split("cat >/etc/profile.d/mosaic-claude.sh", 1)[1].split(
+        "\nEOF", 1
+    )[0]
+    assert "export AWS_REGION=$AWS_REGION" in profile
+    assert "export AWS_DEFAULT_REGION=$AWS_REGION" in profile
+    assert "<<'EOF'" not in profile.splitlines()[0], (
+        "a quoted heredoc writes $AWS_REGION literally"
+    )
+
+
 def test_claude_code_is_pinned_to_an_exact_version(script: str) -> None:
     """@latest moved every new event into auto mode overnight on 21 October.
 
